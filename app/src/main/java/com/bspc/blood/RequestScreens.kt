@@ -272,7 +272,11 @@ fun RequestDetailScreen(
             } else {
                 null
             }
-            val c = if (resp != null) RequestRepository.requesterContact(requestId) else null
+            // নম্বর শুধু রাজি থাকা বা রক্ত দেওয়া ডোনার পড়তে পারেন, আর রিকোয়েস্ট খোলা থাকলে
+            // (বাতিল/বাদ পড়ার পর পড়তে গেলে অনুমতি মেলে না, তাতে পুরো পাতা লোড আটকে যেত)
+            val canSeeContact = r != null && r.status == "open" &&
+                (resp?.status == "accepted" || resp?.status == "donated")
+            val c = if (canSeeContact) runCatching { RequestRepository.requesterContact(requestId) }.getOrNull() else null
             Triple(r, resp, c)
         }.onSuccess { (r, resp, c) ->
             request = r
@@ -382,7 +386,14 @@ fun RequestDetailScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) { ButtonContent(busy, "✅ রক্ত দিয়েছি") }
                         TextButton(
-                            onClick = { act { RequestRepository.setResponseStatus(r.id, uid!!, "cancelled") } },
+                            onClick = {
+                                act {
+                                    RequestRepository.setResponseStatus(r.id, uid!!, "cancelled")
+                                    runCatching { ProfileRepository.removeCommitments(uid, listOf(r.id)) }
+                                    onProfileChanged(profile.copy(commitments = profile.commitments - r.id))
+                                    infoMsg = "বাতিল করা হয়েছে। রক্তপ্রার্থী এখন আর আপনার নম্বর দেখবেন না।"
+                                }
+                            },
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("আর পারছি না, বাতিল করুন") }
