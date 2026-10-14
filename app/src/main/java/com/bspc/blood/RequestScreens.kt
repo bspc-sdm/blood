@@ -426,6 +426,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
     var responses by remember { mutableStateOf<List<DonorResponse>>(emptyList()) }
     var confirmClose by remember { mutableStateOf(false) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf(false) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -448,6 +449,24 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                 .onFailure { errorMsg = "হয়নি: ${it.message}" }
             busy = false
         }
+    }
+
+    val editTarget = request
+    if (editing && editTarget != null) {
+        EditRequestScreen(
+            r = editTarget,
+            onSaved = { notified ->
+                editing = false
+                infoMsg = if (notified > 0) {
+                    "সেভ হয়েছে। রাজি থাকা $notified জন ডোনারকে পরিবর্তন জানানো হয়েছে।"
+                } else {
+                    "সেভ হয়েছে।"
+                }
+                reload++
+            },
+            onCancel = { editing = false },
+        )
+        return
     }
 
     Column(
@@ -492,7 +511,18 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                     ) { ButtonContent(busy, "📣 আশেপাশের ডোনারদের জানান") }
                 }
                 InfoText(infoMsg)
-                TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
+                Row {
+                    TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
+                    if (r.isActive) {
+                        TextButton(
+                            onClick = {
+                                infoMsg = null
+                                editing = true
+                            },
+                            enabled = !busy,
+                        ) { Text("✏️ এডিট করুন") }
+                    }
+                }
 
                 val willing = responses.filter { it.status == "accepted" || it.status == "donated" }
                 Text("রাজি হয়েছেন: ${willing.size} জন", style = MaterialTheme.typography.titleMedium)
@@ -614,4 +644,118 @@ fun DonationChecklistDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("বাতিল") } },
     )
+}
+
+// ------------------------------------------------------------
+// রিকোয়েস্ট এডিট (রক্তপ্রার্থী)
+// ------------------------------------------------------------
+
+/**
+ * ব্যাগ, হাসপাতাল, তারিখ, জরুরি আর অতিরিক্ত তথ্য বদলানো যায়।
+ * রক্তের গ্রুপ আর এলাকা বদলানো যায় না: ডোনারদের এগুলো দেখেই বাছাই করে জানানো হয়েছে,
+ * তাই এগুলো ভুল হলে রিকোয়েস্ট বন্ধ করে নতুন রিকোয়েস্ট দিতে হবে।
+ */
+@Composable
+fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var bags by remember { mutableIntStateOf(r.bags) }
+    var hospital by remember { mutableStateOf(r.hospital) }
+    var note by remember { mutableStateOf(r.note) }
+    var neededBy by remember { mutableLongStateOf(r.neededByMillis) }
+    var urgent by remember { mutableStateOf(r.urgent) }
+    var showDate by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        TextButton(onClick = onCancel) { Text("← ফিরে যান") }
+        Text("রিকোয়েস্ট এডিট", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("রোগীর গ্রুপ: ${r.patientGroup} · এলাকা: ${r.placeName}", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "গ্রুপ আর এলাকা দেখেই ডোনারদের জানানো হয়েছে, তাই এ দুটো বদলানো যায় না। ভুল হলে রিকোয়েস্টটা বন্ধ করে নতুন রিকোয়েস্ট দিন।",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
+        Text("কত ব্যাগ লাগবে", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // আগে ৫-এর বেশি দেওয়া থাকলে সেটাও দেখানো
+            ((1..5).toList() + listOf(r.bags).filter { it > 5 }).forEach { n ->
+                FilterChip(selected = bags == n, onClick = { bags = n }, label = { Text("$n") })
+            }
+        }
+
+        OutlinedTextField(
+            value = hospital,
+            onValueChange = { hospital = it.take(120) },
+            label = { Text("হাসপাতালের নাম ও ঠিকানা") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text("কবে লাগবে", style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(Rules.formatDate(neededBy))
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = urgent, onCheckedChange = { urgent = it })
+            Text("জরুরি (আজকের মধ্যেই লাগবে)")
+        }
+
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it.take(300) },
+            label = { Text("অতিরিক্ত তথ্য (ঐচ্ছিক)") },
+            maxLines = 3,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            "যারা আগেই \"রক্ত দেব\" চেপেছেন, তারা পরিবর্তনের নোটিফিকেশন পাবেন। একটা রিকোয়েস্ট সর্বোচ্চ ১০ বার এডিট করা যায়।",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        ErrorText(errorMsg)
+
+        Button(
+            onClick = {
+                errorMsg = when {
+                    hospital.isBlank() -> "হাসপাতালের নাম লিখুন"
+                    neededBy < Rules.todayUtcMidnight() -> "আজ বা পরের কোনো তারিখ দিন"
+                    else -> null
+                }
+                if (errorMsg == null) {
+                    scope.launch {
+                        busy = true
+                        runCatching {
+                            ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, urgent, note.trim())
+                        }.onSuccess { onSaved(it) }
+                            .onFailure { errorMsg = it.message ?: "সেভ হয়নি" }
+                        busy = false
+                    }
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { ButtonContent(busy, "সেভ করুন") }
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("বাতিল") }
+    }
+
+    if (showDate) {
+        DatePickerPopup(
+            initial = neededBy,
+            onPicked = { picked -> if (picked != null) neededBy = picked },
+            onDismiss = { showDate = false },
+        )
+    }
 }

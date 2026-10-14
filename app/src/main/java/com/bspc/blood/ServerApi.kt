@@ -34,6 +34,26 @@ object ServerApi {
         )
     }
 
+    /** নিজের খোলা রিকোয়েস্ট এডিট। রাজি থাকা কতজন ডোনারকে পরিবর্তন জানানো হলো সেটা ফেরত দেয়। */
+    suspend fun editRequest(
+        requestId: String,
+        bags: Int,
+        hospital: String,
+        neededByMillis: Long,
+        urgent: Boolean,
+        note: String,
+    ): Int =
+        post(
+            "/api/edit-request",
+            JSONObject()
+                .put("requestId", requestId)
+                .put("bags", bags)
+                .put("hospital", hospital)
+                .put("neededByMillis", neededByMillis)
+                .put("urgent", urgent)
+                .put("note", note),
+        ).optInt("notified", 0)
+
     /** অ্যাডমিন: অপেক্ষায় থাকা তারিখ সংশোধনের অনুরোধ */
     suspend fun adminCorrections(): List<CorrectionRequest> {
         val arr = post("/api/admin/corrections", JSONObject()).optJSONArray("items") ?: JSONArray()
