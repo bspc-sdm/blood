@@ -124,4 +124,4 @@
 
 ## সার্ভার সেটআপের অবস্থা
 
-- ১৫ অক্টোবর ২০২৬: Vercel-এ `GMAIL_USER` ও `GMAIL_APP_PASSWORD` বসানো হয়েছে (ইমেইলে লগইন কোড চালু)।
+- ১৫ অক্টোবর ২০২৬: Vercel-এ `GMAIL_USER` ও `GMAIL_APP_PASSWORD` বসানো হয়েছে (দ্বিতীয়বার, নতুন App Password দিয়ে)।
