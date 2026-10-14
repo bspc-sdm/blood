@@ -73,6 +73,56 @@ object Rules {
     }
 
     /** DatePicker UTC মধ্যরাতের সময় দেয়, তাই তারিখগুলো UTC মধ্যরাত হিসেবে রাখা হয়। */
+    const val DHAKA_OFFSET_MS = 6L * 60 * 60 * 1000
+
+    /** বাছা তারিখ (UTC মধ্যরাত) + বাংলাদেশের ঘণ্টা-মিনিট → আসল মুহূর্ত */
+    fun dhakaMillis(dateUtcMidnight: Long, hour: Int, minute: Int): Long =
+        dateUtcMidnight + (hour * 60L + minute) * 60_000L - DHAKA_OFFSET_MS
+
+    /** মুহূর্ত থেকে বাংলাদেশের ঘণ্টা ও মিনিট */
+    fun dhakaHourMinute(millis: Long): Pair<Int, Int> {
+        val minutes = Math.floorMod((millis + DHAKA_OFFSET_MS) / 60_000L, 24L * 60).toInt()
+        return minutes / 60 to minutes % 60
+    }
+
+    /** "বিকাল ৪:০৫" — সার্ভারের formatTimeBn-এর মতো */
+    fun formatTime(hour: Int, minute: Int): String {
+        val part = when {
+            hour < 5 -> "রাত"
+            hour < 12 -> "সকাল"
+            hour < 15 -> "দুপুর"
+            hour < 18 -> "বিকাল"
+            hour < 20 -> "সন্ধ্যা"
+            else -> "রাত"
+        }
+        val h12 = if (hour % 12 == 0) 12 else hour % 12
+        return "$part ${bnDigits(h12)}:${bnDigits(minute).padStart(2, '০')}"
+    }
+
+    fun formatTime(millis: Long): String {
+        val (h, m) = dhakaHourMinute(millis)
+        return formatTime(h, m)
+    }
+
+    /** "২০ অক্টোবর ২০২৬, বিকাল ৪:০০" (সময় না থাকলে শুধু তারিখ) */
+    fun formatNeeded(r: BloodRequest): String =
+        formatDate(r.neededByMillis) + (r.neededAtMillis?.let { ", ${formatTime(it)}" } ?: "")
+
+    /** বাকি সময়: "১ দিন ২ ঘণ্টা ০৫ মিনিট ৩০ সেকেন্ড" */
+    fun formatDuration(ms: Long): String {
+        val total = (ms / 1000).coerceAtLeast(0)
+        val d = total / 86400
+        val h = (total % 86400) / 3600
+        val m = (total % 3600) / 60
+        val s = total % 60
+        val parts = mutableListOf<String>()
+        if (d > 0) parts += "${bnDigits(d.toInt())} দিন"
+        if (d > 0 || h > 0) parts += "${bnDigits(h.toInt())} ঘণ্টা"
+        parts += "${bnDigits(m.toInt()).padStart(2, '০')} মিনিট"
+        parts += "${bnDigits(s.toInt()).padStart(2, '০')} সেকেন্ড"
+        return parts.joinToString(" ")
+    }
+
     fun formatDate(millis: Long): String {
         val f = SimpleDateFormat("d MMMM yyyy", Locale("bn", "BD"))
         f.timeZone = TimeZone.getTimeZone("UTC")

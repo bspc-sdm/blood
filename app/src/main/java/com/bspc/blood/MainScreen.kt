@@ -130,8 +130,21 @@ fun NearbyTab(
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Pair<BloodRequest, Double>>>(emptyList()) }
+    var processing by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
     val notEligible = Rules.notEligibleReason(profile)
     val groups = profile.effectiveViewGroups
+
+    // যেসব রিকোয়েস্টে রক্ত দিতে রাজি হয়েছেন (প্রসেসিং), কাউন্টডাউন সহ উপরে দেখায়
+    LaunchedEffect(reload, profile.commitments) {
+        val uid = AuthRepository.currentUid ?: return@LaunchedEffect
+        processing = if (profile.commitments.isEmpty()) {
+            emptyList()
+        } else {
+            runCatching { RequestRepository.processing(uid, profile.commitments) }.getOrDefault(processing)
+        }
+    }
+    val processingIds = processing.map { it.id }.toSet()
+    val others = list.filter { it.first.id !in processingIds }
 
     LaunchedEffect(reload, profile.lat, profile.lng, groups) {
         val lat = profile.lat
@@ -175,6 +188,11 @@ fun NearbyTab(
                 }
             }
         }
+        if (processing.isNotEmpty()) {
+            items(processing, key = { "p_" + it.id }) { r ->
+                ProcessingCard(r) { onOpenRequest(r.id) }
+            }
+        }
         if (notEligible != null) {
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
@@ -188,13 +206,13 @@ fun NearbyTab(
         when {
             loading -> item { LoadingBox() }
             errorMsg != null -> item { ErrorText(errorMsg) }
-            list.isEmpty() -> item {
+            others.isEmpty() -> item {
                 Text(
                     "এই মুহূর্তে আপনার আশেপাশে (২৫ কিমির মধ্যে) মেলে এমন কোনো খোলা রিকোয়েস্ট নেই।",
                     Modifier.padding(vertical = 24.dp),
                 )
             }
-            else -> items(list, key = { it.first.id }) { (r, d) ->
+            else -> items(others, key = { it.first.id }) { (r, d) ->
                 RequestCard(r, d) { onOpenRequest(r.id) }
             }
         }

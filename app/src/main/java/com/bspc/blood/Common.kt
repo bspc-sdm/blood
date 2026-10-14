@@ -15,15 +15,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 
 const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
 const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
@@ -98,7 +106,7 @@ fun RequestCard(r: BloodRequest, distanceKm: Double?, onClick: () -> Unit) {
                     listOfNotNull(r.placeName, distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Text("লাগবে: ${Rules.formatDate(r.neededByMillis)}", style = MaterialTheme.typography.bodySmall)
+                Text("লাগবে: ${Rules.formatNeeded(r)}", style = MaterialTheme.typography.bodySmall)
                 if (!r.isActive) {
                     Text("বন্ধ", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 }
@@ -131,7 +139,7 @@ fun RequestInfo(r: BloodRequest, distanceKm: Double?) {
                 "এলাকা",
                 listOfNotNull(r.placeName, distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
             )
-            InfoLine("কবে লাগবে", Rules.formatDate(r.neededByMillis))
+            InfoLine("কবে লাগবে", Rules.formatNeeded(r))
             if (r.note.isNotBlank()) InfoLine("অতিরিক্ত তথ্য", r.note)
             InfoLine("রিকোয়েস্ট দিয়েছেন", r.requesterName)
             if (!r.isActive) {
@@ -168,4 +176,41 @@ fun callPhone(context: Context, phone: String) {
 
 fun openUrl(context: Context, url: String) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+}
+
+/** রক্ত লাগার সময় পর্যন্ত প্রতি সেকেন্ডে কমতে থাকা কাউন্টডাউন */
+@Composable
+fun Countdown(targetMillis: Long, style: TextStyle = MaterialTheme.typography.titleMedium) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(targetMillis) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+    val left = targetMillis - now
+    if (left > 0) {
+        Text("⏳ রক্ত লাগবে আর ${Rules.formatDuration(left)} পরে", style = style, fontWeight = FontWeight.Bold, color = BloodRed)
+    } else {
+        Text("⌛ রক্ত লাগার সময় হয়ে গেছে", style = style, fontWeight = FontWeight.Bold, color = BloodRed)
+    }
+}
+
+/** ডোনার যে রিকোয়েস্টে রাজি হয়েছেন: "প্রসেসিং" কার্ড, কাউন্টডাউন সহ */
+@Composable
+fun ProcessingCard(r: BloodRequest, onClick: (() -> Unit)?) {
+    val content: @Composable () -> Unit = {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("🔄 প্রসেসিং — আপনি রক্ত দিতে রাজি হয়েছেন", fontWeight = FontWeight.Bold)
+            Text("${r.patientGroup} · ${r.bags} ব্যাগ · ${r.hospital}", fontWeight = FontWeight.SemiBold)
+            Text("লাগবে: ${Rules.formatNeeded(r)}", style = MaterialTheme.typography.bodySmall)
+            Countdown(r.deadlineMillis)
+        }
+    }
+    val colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+    if (onClick != null) {
+        Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = colors) { content() }
+    } else {
+        Card(Modifier.fillMaxWidth(), colors = colors) { content() }
+    }
 }

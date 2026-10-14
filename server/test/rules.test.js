@@ -121,3 +121,22 @@ test('সেটিংস: দিনে কয়টা নোটিফিকে�
   assert.strictEqual(R.pushLimit({ maxPushPerDay: 0 }), 1);
   assert.strictEqual(R.pushLimit({ maxPushPerDay: '5' }), 3);
 });
+
+test('রক্ত লাগার সময়: বাছা তারিখের ভেতরে (বাংলাদেশের সময়ে)', () => {
+  const date = Date.UTC(2026, 9, 20); // ২০ অক্টোবর
+  const at = (h, m) => date + (h * 60 + m) * 60 * 1000 - 6 * 60 * 60 * 1000;
+  assert.ok(R.neededAtMatchesDate(at(0, 0), date));
+  assert.ok(R.neededAtMatchesDate(at(16, 30), date));
+  assert.ok(R.neededAtMatchesDate(at(23, 59), date));
+  assert.ok(!R.neededAtMatchesDate(at(24, 0), date));
+  assert.ok(!R.neededAtMatchesDate(at(-1, 0), date));
+  assert.ok(!R.neededAtMatchesDate(1.5, date));
+  assert.strictEqual(R.formatTimeBn(at(16, 5)), 'বিকাল ৪:০৫');
+  assert.strictEqual(R.formatTimeBn(at(0, 30)), 'রাত ১২:৩০');
+  assert.strictEqual(R.formatTimeBn(at(12, 0)), 'দুপুর ১২:০০');
+  const now = Date.UTC(2026, 9, 15);
+  const mym = DISTRICTS.find((d) => d.en === 'Mymensingh');
+  const good = { patientGroup: 'A+', bags: 2, hospital: 'মমেক', placeName: mym.bn, lat: 24.75, lng: 90.4, neededByMillis: date };
+  assert.strictEqual(R.validateRequest({ ...good, neededAtMillis: at(10, 0) }, now), null);
+  assert.ok(R.validateRequest({ ...good, neededAtMillis: at(30, 0) }, now));
+});

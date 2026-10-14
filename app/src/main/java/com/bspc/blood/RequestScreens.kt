@@ -52,6 +52,9 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
     var hospital by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var neededBy by remember { mutableLongStateOf(Rules.todayUtcMidnight()) }
+    var neededHour by remember { mutableStateOf<Int?>(null) }
+    var neededMinute by remember { mutableStateOf<Int?>(null) }
+    var showTime by remember { mutableStateOf(false) }
     var urgent by remember { mutableStateOf(false) }
     // প্রাইভেসি: রিকোয়েস্ট সবাই দেখে, তাই বাসার এলাকা আপনা থেকে বসানো হয় না;
     // রোগী যেখানে আছেন সেই এলাকা বেছে নিতে হবে
@@ -116,10 +119,19 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             }
         }
 
-        Text("কবে লাগবে", style = MaterialTheme.typography.titleMedium)
+        Text("কবে, কখন লাগবে", style = MaterialTheme.typography.titleMedium)
         OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(Rules.formatDate(neededBy))
+            Text("📅 " + Rules.formatDate(neededBy))
         }
+        OutlinedButton(onClick = { showTime = true }, modifier = Modifier.fillMaxWidth()) {
+            val h = neededHour
+            val m = neededMinute
+            Text(if (h != null && m != null) "🕐 " + Rules.formatTime(h, m) else "🕐 সময় বেছে নিন")
+        }
+        Text(
+            "যে রাজি হবেন, তিনি এই সময় পর্যন্ত কাউন্টডাউন দেখবেন।",
+            style = MaterialTheme.typography.bodySmall,
+        )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = urgent, onCheckedChange = { urgent = it })
@@ -153,9 +165,14 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                     hospital.isBlank() -> "হাসপাতালের নাম লিখুন"
                     la == null || ln == null -> "এলাকা বেছে নিন"
                     neededBy < Rules.todayUtcMidnight() -> "আজ বা পরের কোনো তারিখ দিন"
+                    neededHour == null || neededMinute == null -> "কোন সময় রক্ত লাগবে বেছে নিন"
+                    Rules.dhakaMillis(neededBy, neededHour ?: 0, neededMinute ?: 0) <= System.currentTimeMillis() ->
+                        "এই সময় পার হয়ে গেছে, পরের কোনো সময় দিন"
                     else -> null
                 }
-                if (errorMsg == null && uid != null && la != null && ln != null) {
+                val h = neededHour
+                val m = neededMinute
+                if (errorMsg == null && uid != null && la != null && ln != null && h != null && m != null) {
                     scope.launch {
                         busy = true
                         runCatching {
@@ -176,6 +193,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                                     lat = la,
                                     lng = ln,
                                     neededByMillis = neededBy,
+                                    neededAtMillis = Rules.dhakaMillis(neededBy, h, m),
                                     urgent = urgent,
                                     note = note.trim(),
                                 ),
@@ -203,6 +221,17 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             initial = neededBy,
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
+        )
+    }
+    if (showTime) {
+        TimePickerPopup(
+            hour = neededHour,
+            minute = neededMinute,
+            onPicked = { h, m ->
+                neededHour = h
+                neededMinute = m
+            },
+            onDismiss = { showTime = false },
         )
     }
 }
@@ -315,6 +344,16 @@ fun RequestDetailScreen(
                     }
 
                     resp.status == "accepted" -> {
+                        if (r.isActive) {
+                            ProcessingCard(r, onClick = null)
+                            // আগে রাজি হওয়া (এই সুবিধার আগের) রিকোয়েস্টও প্রসেসিং তালিকায় তোলা
+                            LaunchedEffect(r.id) {
+                                if (uid != null && r.id !in profile.commitments) {
+                                    runCatching { ProfileRepository.addCommitment(uid, r.id) }
+                                        .onSuccess { onProfileChanged(profile.copy(commitments = profile.commitments + r.id)) }
+                                }
+                            }
+                        }
                         Card(
                             Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
@@ -384,7 +423,12 @@ fun RequestDetailScreen(
             onDismiss = { showChecklist = false },
             onConfirm = {
                 showChecklist = false
-                act { ServerApi.respond(requestId) }
+                act {
+                    ServerApi.respond(requestId)
+                    if (requestId !in profile.commitments) {
+                        onProfileChanged(profile.copy(commitments = profile.commitments + requestId))
+                    }
+                }
             },
         )
     }
@@ -662,6 +706,10 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
     var hospital by remember { mutableStateOf(r.hospital) }
     var note by remember { mutableStateOf(r.note) }
     var neededBy by remember { mutableLongStateOf(r.neededByMillis) }
+    val initialTime = r.neededAtMillis?.let { Rules.dhakaHourMinute(it) }
+    var neededHour by remember { mutableStateOf(initialTime?.first) }
+    var neededMinute by remember { mutableStateOf(initialTime?.second) }
+    var showTime by remember { mutableStateOf(false) }
     var urgent by remember { mutableStateOf(r.urgent) }
     var showDate by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -702,10 +750,19 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Text("কবে লাগবে", style = MaterialTheme.typography.titleMedium)
+        Text("কবে, কখন লাগবে", style = MaterialTheme.typography.titleMedium)
         OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(Rules.formatDate(neededBy))
+            Text("📅 " + Rules.formatDate(neededBy))
         }
+        OutlinedButton(onClick = { showTime = true }, modifier = Modifier.fillMaxWidth()) {
+            val h = neededHour
+            val m = neededMinute
+            Text(if (h != null && m != null) "🕐 " + Rules.formatTime(h, m) else "🕐 সময় বেছে নিন")
+        }
+        Text(
+            "যে রাজি হবেন, তিনি এই সময় পর্যন্ত কাউন্টডাউন দেখবেন।",
+            style = MaterialTheme.typography.bodySmall,
+        )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = urgent, onCheckedChange = { urgent = it })
@@ -729,16 +786,22 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
 
         Button(
             onClick = {
+                val h = neededHour
+                val m = neededMinute
+                val at = if (h != null && m != null) Rules.dhakaMillis(neededBy, h, m) else null
                 errorMsg = when {
                     hospital.isBlank() -> "হাসপাতালের নাম লিখুন"
                     neededBy < Rules.todayUtcMidnight() -> "আজ বা পরের কোনো তারিখ দিন"
+                    at == null -> "কোন সময় রক্ত লাগবে বেছে নিন"
+                    at != r.neededAtMillis && at <= System.currentTimeMillis() ->
+                        "এই সময় পার হয়ে গেছে, পরের কোনো সময় দিন"
                     else -> null
                 }
-                if (errorMsg == null) {
+                if (errorMsg == null && at != null) {
                     scope.launch {
                         busy = true
                         runCatching {
-                            ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, urgent, note.trim())
+                            ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, at, urgent, note.trim())
                         }.onSuccess { onSaved(it) }
                             .onFailure { errorMsg = it.message ?: "সেভ হয়নি" }
                         busy = false
@@ -756,6 +819,17 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             initial = neededBy,
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
+        )
+    }
+    if (showTime) {
+        TimePickerPopup(
+            hour = neededHour,
+            minute = neededMinute,
+            onPicked = { h, m ->
+                neededHour = h
+                neededMinute = m
+            },
+            onDismiss = { showTime = false },
         )
     }
 }

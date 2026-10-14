@@ -8,6 +8,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -62,6 +63,7 @@ object ProfileRepository {
                 ?.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT) ?: Rules.DEFAULT_PUSH_PER_DAY,
             notifyGroups = groupList(snap.get("notifyGroups")),
             viewGroups = groupList(snap.get("viewGroups")),
+            commitments = (snap.get("commitments") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty(),
         )
     }
 
@@ -116,6 +118,22 @@ object ProfileRepository {
         users.document(uid).set(mapOf("notify" to on), SetOptions.merge()).await()
     }
 
+    /** প্রসেসিং তালিকায় একটা রিকোয়েস্ট যোগ (সার্ভারও লেখে; পুরোনো সাড়ার জন্য অ্যাপ নিজে মিলিয়ে নেয়) */
+    suspend fun addCommitment(uid: String, requestId: String) {
+        users.document(uid)
+            .set(mapOf("commitments" to mapOf(requestId to System.currentTimeMillis())), SetOptions.merge())
+            .await()
+    }
+
+    /** শেষ হয়ে যাওয়া (বন্ধ, বাতিল, রক্ত দেওয়া) রিকোয়েস্ট প্রসেসিং তালিকা থেকে সরানো */
+    suspend fun removeCommitments(uid: String, requestIds: Collection<String>) {
+        if (requestIds.isEmpty()) return
+        val updates = requestIds.associate { FieldPath.of("commitments", it) to FieldValue.delete() }
+        val first = updates.entries.first()
+        val rest = updates.entries.drop(1).flatMap { listOf(it.key, it.value) }.toTypedArray()
+        users.document(uid).update(first.key, first.value, *rest).await()
+    }
+
     /** আজকের তারিখকে শেষ রক্তদান হিসেবে সেভ করে, তারিখটা ফেরত দেয় */
     suspend fun markDonatedToday(uid: String): Long {
         val today = Rules.todayUtcMidnight()
@@ -139,6 +157,7 @@ object RequestRepository {
         lat = s.getDouble("lat") ?: 0.0,
         lng = s.getDouble("lng") ?: 0.0,
         neededByMillis = s.getLong("neededByMillis") ?: 0L,
+        neededAtMillis = s.getLong("neededAtMillis"),
         urgent = s.getBoolean("urgent") ?: false,
         note = s.getString("note") ?: "",
         status = s.getString("status") ?: "open",
@@ -174,6 +193,7 @@ object RequestRepository {
             "lng" to lng,
             "geohash" to Geo.hash(lat, lng),
             "neededByMillis" to r.neededByMillis,
+            "neededAtMillis" to r.neededAtMillis,
             "urgent" to r.urgent,
             "note" to r.note.take(300),
             "status" to "open",
@@ -243,6 +263,22 @@ object RequestRepository {
     }
 
     // ---- ডোনারের সাড়া ----
+
+    /**
+     * ডোনারের "প্রসেসিং" তালিকা: যেসব খোলা রিকোয়েস্টে এখনো রাজি আছেন।
+     * শেষ হয়ে যাওয়াগুলো (বন্ধ, বাতিল, বাদ, রক্ত দেওয়া) প্রোফাইল থেকে সরিয়ে দেয়।
+     */
+    suspend fun processing(uid: String, requestIds: List<String>): List<BloodRequest> {
+        val active = mutableListOf<BloodRequest>()
+        val finished = mutableListOf<String>()
+        for (id in requestIds) {
+            val r = get(id)
+            val resp = if (r != null) myResponse(id, uid) else null
+            if (r != null && r.isActive && resp?.status == "accepted") active += r else finished += id
+        }
+        runCatching { ProfileRepository.removeCommitments(uid, finished) }
+        return active.sortedBy { it.deadlineMillis }
+    }
 
     suspend fun myResponse(requestId: String, uid: String): DonorResponse? {
         val s = requests.document(requestId).collection("responses").document(uid).get().await()

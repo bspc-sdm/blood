@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
@@ -24,7 +25,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
@@ -339,6 +342,25 @@ fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
             }
         }
     }
+}
+
+/** রক্ত লাগার সময় বাছাই (১২ ঘণ্টার ঘড়ি) */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimePickerPopup(hour: Int?, minute: Int?, onPicked: (Int, Int) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberTimePickerState(initialHour = hour ?: 12, initialMinute = minute ?: 0, is24Hour = false)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("কখন রক্ত লাগবে") },
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = {
+                onPicked(state.hour, state.minute)
+                onDismiss()
+            }) { Text("ঠিক আছে") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("বাতিল") } },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

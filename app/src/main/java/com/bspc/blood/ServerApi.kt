@@ -40,6 +40,7 @@ object ServerApi {
         bags: Int,
         hospital: String,
         neededByMillis: Long,
+        neededAtMillis: Long,
         urgent: Boolean,
         note: String,
     ): Int =
@@ -50,6 +51,7 @@ object ServerApi {
                 .put("bags", bags)
                 .put("hospital", hospital)
                 .put("neededByMillis", neededByMillis)
+                .put("neededAtMillis", neededAtMillis)
                 .put("urgent", urgent)
                 .put("note", note),
         ).optInt("notified", 0)

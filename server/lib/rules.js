@@ -157,7 +157,31 @@ function validateRequest(r, now = Date.now()) {
   if (typeof r.lat !== 'number' || r.lat < 20.5 || r.lat > 26.7) return 'লোকেশন ঠিক নেই';
   if (typeof r.lng !== 'number' || r.lng < 88 || r.lng > 92.7) return 'লোকেশন ঠিক নেই';
   if (typeof r.neededByMillis !== 'number' || r.neededByMillis > now + 31 * DAY_MS) return 'তারিখ ঠিক নেই';
+  if (r.neededAtMillis != null && !neededAtMatchesDate(r.neededAtMillis, r.neededByMillis)) return 'সময় ঠিক নেই';
   return null;
+}
+
+const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * রক্ত লাগার নির্দিষ্ট মুহূর্ত (neededAtMillis) বাছা তারিখের (neededByMillis, UTC মধ্যরাত) ভেতরে কি না —
+ * বাংলাদেশের সময়ে ওই দিনের রাত ১২টা থেকে পরের রাত ১২টার আগ পর্যন্ত।
+ */
+function neededAtMatchesDate(neededAtMillis, neededByMillis) {
+  if (!Number.isInteger(neededAtMillis)) return false;
+  const start = neededByMillis - DHAKA_OFFSET_MS;
+  return neededAtMillis >= start && neededAtMillis < start + DAY_MS;
+}
+
+/** বাংলাদেশের সময়ে "বিকাল ৪:৩০" ধরনের লেখা */
+function formatTimeBn(millis) {
+  const d = new Date(millis + DHAKA_OFFSET_MS);
+  const h = d.getUTCHours();
+  const m = d.getUTCMinutes();
+  const part = h < 5 ? 'রাত' : h < 12 ? 'সকাল' : h < 15 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const bn = (t) => String(t).replace(/\d/g, (c) => '০১২৩৪৫৬৭৮৯'[c]);
+  return `${part} ${bn(h12)}:${bn(String(m).padStart(2, '0'))}`;
 }
 
 function formatKm(km) {
@@ -187,4 +211,6 @@ module.exports = {
   dhakaDayKey,
   pickDonors,
   formatKm,
+  neededAtMatchesDate,
+  formatTimeBn,
 };

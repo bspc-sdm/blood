@@ -24,6 +24,8 @@ data class Profile(
     val notifyGroups: List<String>? = null,
     /** "রক্ত দরকার" তালিকায় কোন রোগীর গ্রুপের রিকোয়েস্ট দেখবেন; null = যাদের দিতে পারেন তাদের */
     val viewGroups: List<String>? = null,
+    /** যেসব রিকোয়েস্টে "রক্ত দেব" চেপেছেন (সার্ভার লেখে); প্রসেসিং তালিকার জন্য */
+    val commitments: List<String> = emptyList(),
 ) {
     /** এই ডোনার যেসব রোগীর গ্রুপকে রক্ত দিতে পারেন */
     val compatibleGroups: List<String> get() = BloodCompat.patientsFor(bloodGroup)
@@ -54,6 +56,8 @@ data class BloodRequest(
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val neededByMillis: Long = 0,
+    /** রক্ত লাগার নির্দিষ্ট মুহূর্ত (তারিখ + সময়); পুরোনো রিকোয়েস্টে নেই */
+    val neededAtMillis: Long? = null,
     val urgent: Boolean = false,
     val note: String = "",
     /** "open" বা "closed" */
@@ -65,6 +69,10 @@ data class BloodRequest(
     val notified: Boolean = false,
     val notifiedCount: Int = 0,
 ) {
+    /** কাউন্টডাউন যে মুহূর্ত পর্যন্ত: দেওয়া সময়, না থাকলে ওই দিনের শেষ (বাংলাদেশের রাত ১২টা) */
+    val deadlineMillis: Long
+        get() = neededAtMillis ?: (neededByMillis + DAY_MS - Rules.DHAKA_OFFSET_MS)
+
     /** খোলা আছে আর দরকারের তারিখ পার হয়নি */
     val isActive: Boolean
         get() = status == "open" && neededByMillis + DAY_MS > System.currentTimeMillis()

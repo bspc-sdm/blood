@@ -53,6 +53,8 @@ module.exports = handler(async (req) => {
       createdAtMillis: Date.now(),
     });
     t.set(stateRef, { respondDay: day, respondCount: used + 1 }, { merge: true });
+    // ডোনারের "প্রসেসিং" তালিকার জন্য: কোন কোন রিকোয়েস্টে রাজি হয়েছেন (অ্যাপ নিজের প্রোফাইল থেকে পড়ে)
+    t.set(userRef, { commitments: { [requestId]: Date.now() } }, { merge: true });
     return { ...r, donorName: u.name || '', donorGroup: u.bloodGroup };
   });
 

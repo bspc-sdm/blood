@@ -22,6 +22,10 @@ function readChanges(body) {
     if (body.neededByMillis < R.todayDhakaUtcMidnight()) throw new HttpError(400, 'আজ বা পরের কোনো তারিখ দিন');
     c.neededByMillis = body.neededByMillis;
   }
+  if (body.neededAtMillis !== undefined) {
+    if (!Number.isInteger(body.neededAtMillis)) throw new HttpError(400, 'সময় ঠিক নেই');
+    c.neededAtMillis = body.neededAtMillis;
+  }
   if (body.urgent !== undefined) {
     if (typeof body.urgent !== 'boolean') throw new HttpError(400, 'জরুরি ঠিক নেই');
     c.urgent = body.urgent;
@@ -40,6 +44,9 @@ function describe(before, changes) {
   if (changes.neededByMillis !== undefined && changes.neededByMillis !== before.neededByMillis) {
     const d = new Date(changes.neededByMillis);
     parts.push(`তারিখ: ${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`);
+  }
+  if (changes.neededAtMillis !== undefined && changes.neededAtMillis !== before.neededAtMillis) {
+    parts.push(`সময়: ${R.formatTimeBn(changes.neededAtMillis)}`);
   }
   if (changes.bags !== undefined && changes.bags !== before.bags) parts.push(`${changes.bags} ব্যাগ`);
   if (changes.urgent === true && !before.urgent) parts.push('এখন জরুরি');
