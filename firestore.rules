@@ -90,6 +90,20 @@ service cloud.firestore {
       }
     }
 
+    // শেষ রক্তদানের তারিখ সংশোধনের অনুরোধ: নিজের নামে পাঠানো আর নিজেরটা দেখা যায়;
+    // অনুমোদন শুধু সার্ভারের মাধ্যমে অ্যাডমিন দেন
+    match /correctionRequests/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == me()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 300
+        && (request.resource.data.requestedMillis == null || request.resource.data.requestedMillis is int);
+      allow read: if signedIn() && resource.data.uid == me();
+      allow update, delete: if false;
+    }
+
     // সার্ভারের হিসাব (দৈনিক সীমা ইত্যাদি): অ্যাপ থেকে পড়া বা লেখা যাবে না
     match /serverState/{uid} {
       allow read, write: if false;

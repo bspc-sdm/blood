@@ -34,6 +34,28 @@ object ServerApi {
         )
     }
 
+    /** অ্যাডমিন: অপেক্ষায় থাকা তারিখ সংশোধনের অনুরোধ */
+    suspend fun adminCorrections(): List<CorrectionRequest> {
+        val arr = post("/api/admin/corrections", JSONObject()).optJSONArray("items") ?: JSONArray()
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CorrectionRequest(
+                id = o.optString("id"),
+                uid = o.optString("uid"),
+                name = o.optString("name"),
+                currentMillis = if (o.isNull("currentMillis")) null else o.optLong("currentMillis"),
+                requestedMillis = if (o.isNull("requestedMillis")) null else o.optLong("requestedMillis"),
+                reason = o.optString("reason"),
+                createdAtMillis = o.optLong("createdAtMillis"),
+            )
+        }
+    }
+
+    /** অ্যাডমিন: অনুমোদন (true) বা বাতিল (false) */
+    suspend fun resolveCorrection(id: String, approve: Boolean) {
+        post("/api/admin/resolve", JSONObject().put("id", id).put("approve", approve))
+    }
+
     private suspend fun post(path: String, body: JSONObject): JSONObject {
         val user = FirebaseAuth.getInstance().currentUser
             ?: throw IllegalStateException("আবার লগইন করুন")

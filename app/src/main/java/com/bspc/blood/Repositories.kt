@@ -26,6 +26,7 @@ object AuthRepository {
 
     val currentUid: String? get() = auth.currentUser?.uid
     val currentDisplayName: String? get() = auth.currentUser?.displayName
+    val currentEmail: String? get() = auth.currentUser?.email
 
     suspend fun signInWithGoogle(context: Context) {
         val option = GetSignInWithGoogleOption

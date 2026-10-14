@@ -59,6 +59,7 @@ fun MainScreen(
     onChangeLocation: () -> Unit,
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
+    onOpenAdmin: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -114,7 +115,7 @@ fun MainScreen(
             when (tab) {
                 0 -> NearbyTab(profile, onOpenRequest, onChangeLocation)
                 1 -> MyRequestsTab(onOpenMyRequest, onNewRequest)
-                else -> ProfileTab(profile, onEditProfile, onChangeLocation, onProfileChanged, onLogout)
+                else -> ProfileTab(profile, onEditProfile, onChangeLocation, onProfileChanged, onLogout, onOpenAdmin)
             }
         }
     }
@@ -256,6 +257,7 @@ fun ProfileTab(
     onChangeLocation: () -> Unit,
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
+    onOpenAdmin: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -350,8 +352,16 @@ fun ProfileTab(
             }
         }
 
+        CorrectionCard(profile)
+
         OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
             Text("প্রোফাইল এডিট")
+        }
+        // শুধু অ্যাডমিনের অ্যাকাউন্টে দেখায়; আসল যাচাই সার্ভারে
+        if (AuthRepository.currentEmail.equals(SUPPORT_EMAIL, ignoreCase = true)) {
+            OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) {
+                Text("🛠 অ্যাডমিন: তারিখ সংশোধনের অনুরোধ")
+            }
         }
         Disclaimer()
         Row {
