@@ -4,9 +4,56 @@ rules_version = '2';
 // এখানে বদলালে কনসোলেও একই নিয়ম প্রকাশ করতে হবে।
 service cloud.firestore {
   match /databases/{database}/documents {
-    // প্রত্যেক ব্যবহারকারী শুধু নিজের প্রোফাইল পড়তে ও লিখতে পারবে
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function requestDoc(rid) { return get(/databases/$(database)/documents/requests/$(rid)); }
+
+    // প্রোফাইল (ফোন নম্বর, লোকেশন): শুধু নিজে দেখতে ও বদলাতে পারবে
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && me() == uid;
+    }
+
+    // রক্তের রিকোয়েস্ট: লগইন করা সবাই দেখতে পারবে (ফোন নম্বর এখানে থাকে না)
+    match /requests/{rid} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.requesterUid == me()
+        && request.resource.data.status == 'open';
+      // শুধু রক্তপ্রার্থী নিজে, শুধু status বদলাতে পারবে (বন্ধ করা)
+      allow update: if signedIn()
+        && resource.data.requesterUid == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+
+      // রক্তপ্রার্থীর ফোন: শুধু রক্তপ্রার্থী নিজে আর যে ডোনার "রক্ত দেব" চেপেছে
+      match /private/{doc} {
+        allow create: if signedIn()
+          && getAfter(/databases/$(database)/documents/requests/$(rid)).data.requesterUid == me();
+        allow read: if signedIn() && (
+          requestDoc(rid).data.requesterUid == me()
+          || exists(/databases/$(database)/documents/requests/$(rid)/responses/$(me())));
+        allow update, delete: if false;
+      }
+
+      // ডোনারের সাড়া (ডোনারের নাম ও ফোন সহ): ডোনার নিজে আর রক্তপ্রার্থী দেখতে পারবে
+      match /responses/{donorUid} {
+        allow read: if signedIn() && (me() == donorUid || requestDoc(rid).data.requesterUid == me());
+        allow create: if signedIn()
+          && me() == donorUid
+          && request.resource.data.donorUid == donorUid
+          && requestDoc(rid).data.requesterUid != me();
+        allow update: if signedIn() && (
+          me() == donorUid
+          || (requestDoc(rid).data.requesterUid == me()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
+        allow delete: if false;
+      }
+    }
+
+    // রিপোর্ট: যে কেউ পাঠাতে পারবে, কেউ পড়তে পারবে না (শুধু কনসোল থেকে দেখা যাবে)
+    match /reports/{id} {
+      allow create: if signedIn() && request.resource.data.reporterUid == me();
+      allow read, update, delete: if false;
     }
   }
 }

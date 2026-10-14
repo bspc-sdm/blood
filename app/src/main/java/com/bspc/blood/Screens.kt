@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.bspc.blood
 
 import androidx.compose.foundation.layout.Arrangement
@@ -8,15 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,13 +32,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LoginScreen(busy: Boolean, error: String?, onLogin: () -> Unit) {
+fun LoginScreen(busy: Boolean, errorMsg: String?, onLogin: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -61,23 +58,20 @@ fun LoginScreen(busy: Boolean, error: String?, onLogin: () -> Unit) {
         )
         Spacer(Modifier.height(32.dp))
         Button(onClick = onLogin, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text("Google দিয়ে লগইন করুন")
-            }
+            ButtonContent(busy, "Google দিয়ে লগইন করুন")
         }
-        ErrorText(error)
+        ErrorText(errorMsg)
     }
 }
 
+/** নাম, ফোন, রক্তের গ্রুপ, শেষ রক্তদান। onSave শুধু এই চারটা দেয়। */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     existing: Profile?,
     googleName: String?,
     busy: Boolean,
-    error: String?,
+    errorMsg: String?,
     onSave: (Profile) -> Unit,
     onCancel: (() -> Unit)?,
 ) {
@@ -124,17 +118,7 @@ fun ProfileScreen(
         )
 
         Text("রক্তের গ্রুপ", style = MaterialTheme.typography.titleMedium)
-        Rules.BLOOD_GROUPS.chunked(4).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { group ->
-                    FilterChip(
-                        selected = bloodGroup == group,
-                        onClick = { bloodGroup = group },
-                        label = { Text(group, fontWeight = FontWeight.Bold) },
-                    )
-                }
-            }
-        }
+        BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it })
 
         Text("শেষ রক্তদানের তারিখ", style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -153,7 +137,7 @@ fun ProfileScreen(
             }
         }
 
-        ErrorText(formError ?: error)
+        ErrorText(formError ?: errorMsg)
 
         Button(
             onClick = {
@@ -162,7 +146,8 @@ fun ProfileScreen(
                     name.isBlank() -> "নাম লিখুন"
                     cleanPhone == null -> "সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)"
                     bloodGroup.isEmpty() -> "রক্তের গ্রুপ বেছে নিন"
-                    !neverDonated && lastDonation == null -> "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন"
+                    !neverDonated && lastDonation == null ->
+                        "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন"
                     (lastDonation ?: 0L) > System.currentTimeMillis() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
                     else -> null
                 }
@@ -173,6 +158,7 @@ fun ProfileScreen(
                             phone = cleanPhone,
                             bloodGroup = bloodGroup,
                             lastDonationMillis = if (neverDonated) null else lastDonation,
+                            notify = existing?.notify ?: true,
                         )
                     )
                 }
@@ -180,11 +166,7 @@ fun ProfileScreen(
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text("সেভ করুন")
-            }
+            ButtonContent(busy, "সেভ করুন")
         }
         if (onCancel != null) {
             TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("বাতিল") }
@@ -192,104 +174,47 @@ fun ProfileScreen(
     }
 
     if (showPicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = lastDonation)
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    lastDonation = state.selectedDateMillis
-                    showPicker = false
-                }) { Text("ঠিক আছে") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("বাতিল") }
-            },
-        ) {
-            DatePicker(state = state)
-        }
+        DatePickerPopup(
+            initial = lastDonation,
+            onPicked = { lastDonation = it },
+            onDismiss = { showPicker = false },
+        )
     }
 }
 
 @Composable
-fun HomeScreen(profile: Profile, onEdit: () -> Unit, onLogout: () -> Unit) {
-    val eligible = Rules.isEligible(profile.lastDonationMillis)
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            "স্বাগতম, ${profile.name}",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("আপনার রক্তের গ্রুপ", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    profile.bloodGroup,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = BloodRed,
-                )
-                Text(
-                    profile.lastDonationMillis?.let { "শেষ রক্তদান: ${Rules.formatDate(it)}" }
-                        ?: "আগে কখনো রক্ত দেননি",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (eligible) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-            ),
-        ) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (eligible) {
-                    Text(
-                        "✅ আপনি এখন রক্ত দিতে পারবেন",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Rules.BLOOD_GROUPS.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { group ->
+                    FilterChip(
+                        selected = selected == group,
+                        onClick = { onSelect(group) },
+                        label = { Text(group, fontWeight = FontWeight.Bold) },
                     )
-                } else {
-                    val next = Rules.nextEligibleMillis(profile.lastDonationMillis)!!
-                    Text(
-                        "⏳ আবার রক্ত দিতে পারবেন ${Rules.formatDate(next)} থেকে",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text("আর ${Rules.daysUntilEligible(profile.lastDonationMillis)} দিন বাকি")
                 }
             }
         }
-
-        Text(
-            "রক্তের রিকোয়েস্ট দেওয়া আর আশেপাশের নোটিফিকেশন পরের আপডেটে আসছে।",
-            style = MaterialTheme.typography.bodySmall,
-        )
-
-        OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-            Text("প্রোফাইল এডিট")
-        }
-        TextButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
-            Text("লগআউট")
-        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ErrorText(message: String?) {
-    if (message != null) {
-        Text(
-            message,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 12.dp),
-        )
+fun DatePickerPopup(initial: Long?, onPicked: (Long?) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = initial)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onPicked(state.selectedDateMillis)
+                onDismiss()
+            }) { Text("ঠিক আছে") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("বাতিল") }
+        },
+    ) {
+        DatePicker(state = state)
     }
 }

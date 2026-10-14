@@ -1,18 +1,27 @@
 package com.bspc.blood
 
+import com.firebase.geofire.GeoFireUtils
+import com.firebase.geofire.GeoLocation
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+const val DAY_MS = 24L * 60 * 60 * 1000
 
 /** অ্যাপের নিয়মগুলো এক জায়গায়। PLAN.md-এর "নিয়ম" অংশ দেখুন। */
 object Rules {
     /** শেষ রক্তদানের কত দিন পর আবার দেওয়া যাবে। চালুর আগে ডাক্তার/ব্লাড ব্যাংক থেকে নিশ্চিত হতে হবে। */
     const val ELIGIBILITY_DAYS = 120
 
-    val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
+    /** একজন ব্যবহারকারী একসাথে কয়টা খোলা রিকোয়েস্ট রাখতে পারবে */
+    const val MAX_OPEN_REQUESTS = 2
 
-    private const val DAY_MS = 24L * 60 * 60 * 1000
+    /** একজন ডোনার দিনে সর্বোচ্চ কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে */
+    const val MAX_NOTIFICATIONS_PER_DAY = 3
+
+    val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
 
     fun nextEligibleMillis(lastDonationMillis: Long?): Long? =
         lastDonationMillis?.let { it + ELIGIBILITY_DAYS * DAY_MS }
@@ -28,12 +37,31 @@ object Rules {
         return (next - now + DAY_MS - 1) / DAY_MS
     }
 
-    /** DatePicker UTC মধ্যরাতের সময় দেয়, তাই UTC ধরে তারিখ দেখানো হয়। */
+    /** DatePicker UTC মধ্যরাতের সময় দেয়, তাই তারিখগুলো UTC মধ্যরাত হিসেবে রাখা হয়। */
     fun formatDate(millis: Long): String {
         val f = SimpleDateFormat("d MMMM yyyy", Locale("bn", "BD"))
         f.timeZone = TimeZone.getTimeZone("UTC")
         return f.format(Date(millis))
     }
+
+    /** ফোনের আজকের তারিখ, UTC মধ্যরাত হিসেবে (DatePicker-এর সাথে মেলানোর জন্য) */
+    fun todayUtcMidnight(): Long {
+        val local = Calendar.getInstance()
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        utc.clear()
+        utc.set(
+            local.get(Calendar.YEAR),
+            local.get(Calendar.MONTH),
+            local.get(Calendar.DAY_OF_MONTH),
+        )
+        return utc.timeInMillis
+    }
+
+    fun dayKey(millis: Long): String =
+        SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(millis))
+
+    fun formatKm(km: Double): String =
+        if (km < 1) "১ কিমির কম দূরে" else "প্রায় ${"%.0f".format(Locale("bn", "BD"), km)} কিমি দূরে"
 
     /** বাংলাদেশি মোবাইল নম্বর: 01XXXXXXXXX (১১ সংখ্যা)। +88 বা 88 থাকলে বাদ দেওয়া হয়। */
     fun normalizePhone(input: String): String? {
@@ -41,4 +69,38 @@ object Rules {
         if (digits.startsWith("88") && digits.length == 13) digits = digits.substring(2)
         return if (digits.length == 11 && digits.startsWith("01")) digits else null
     }
+}
+
+/** রোগীর গ্রুপ অনুযায়ী কোন গ্রুপের ডোনার রক্ত দিতে পারবে (লোহিত কণিকা / whole blood) */
+object BloodCompat {
+    private val donorsFor: Map<String, Set<String>> = mapOf(
+        "O-" to setOf("O-"),
+        "O+" to setOf("O+", "O-"),
+        "A-" to setOf("A-", "O-"),
+        "A+" to setOf("A+", "A-", "O+", "O-"),
+        "B-" to setOf("B-", "O-"),
+        "B+" to setOf("B+", "B-", "O+", "O-"),
+        "AB-" to setOf("AB-", "A-", "B-", "O-"),
+        "AB+" to Rules.BLOOD_GROUPS.toSet(),
+    )
+
+    fun canDonate(donorGroup: String, patientGroup: String): Boolean =
+        donorsFor[patientGroup]?.contains(donorGroup) == true
+}
+
+object Geo {
+    /** ধাপে ধাপে খোঁজার দূরত্ব (কিমি) */
+    val RADII_KM = listOf(5.0, 10.0, 25.0)
+
+    /** এতগুলো পেলে আর দূরে খোঁজা হবে না */
+    const val ENOUGH_RESULTS = 5
+
+    /** প্রাইভেসির জন্য স্থানাঙ্ক গোল করা হয় (২ দশমিক ঘর ≈ ১ কিমি) */
+    fun round(value: Double): Double = Math.round(value * 100) / 100.0
+
+    fun hash(lat: Double, lng: Double): String =
+        GeoFireUtils.getGeoHashForLocation(GeoLocation(lat, lng))
+
+    fun distanceKm(aLat: Double, aLng: Double, bLat: Double, bLng: Double): Double =
+        GeoFireUtils.getDistanceBetween(GeoLocation(aLat, aLng), GeoLocation(bLat, bLng)) / 1000.0
 }
