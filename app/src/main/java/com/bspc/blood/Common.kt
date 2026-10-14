@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
+const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
 
 @Composable
 fun ErrorText(message: String?) {

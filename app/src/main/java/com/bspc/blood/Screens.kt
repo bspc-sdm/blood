@@ -121,15 +121,24 @@ fun ProfileScreen(
         BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it })
 
         Text("শেষ রক্তদানের তারিখ", style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = neverDonated,
-                onCheckedChange = {
-                    neverDonated = it
-                    if (it) lastDonation = null
-                },
+        // একবার তারিখ দিলে সেটা শুধু সামনে এগোনো যায় (নিরাপত্তার নিয়মেও তাই)
+        val savedDonation = existing?.lastDonationMillis
+        if (savedDonation == null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = neverDonated,
+                    onCheckedChange = {
+                        neverDonated = it
+                        if (it) lastDonation = null
+                    },
+                )
+                Text("কখনো রক্ত দিইনি")
+            }
+        } else {
+            Text(
+                "আগে দেওয়া তারিখের চেয়ে পুরোনো তারিখ দেওয়া বা তারিখ মুছে ফেলা যায় না। ভুল হলে ${SUPPORT_EMAIL}-এ জানান।",
+                style = MaterialTheme.typography.bodySmall,
             )
-            Text("কখনো রক্ত দিইনি")
         }
         if (!neverDonated) {
             OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
@@ -149,6 +158,8 @@ fun ProfileScreen(
                     !neverDonated && lastDonation == null ->
                         "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন"
                     (lastDonation ?: 0L) > Rules.todayUtcMidnight() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
+                    savedDonation != null && (lastDonation ?: 0L) < savedDonation ->
+                        "আগে দেওয়া তারিখের (${Rules.formatDate(savedDonation)}) চেয়ে পুরোনো তারিখ দেওয়া যায় না"
                     else -> null
                 }
                 if (formError == null && cleanPhone != null) {

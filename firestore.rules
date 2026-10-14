@@ -25,8 +25,17 @@ service cloud.firestore {
     }
 
     // প্রোফাইল (ফোন নম্বর, লোকেশন): শুধু নিজে দেখতে ও বদলাতে পারবে
+    // শেষ রক্তদানের তারিখ একবার দিলে শুধু সামনে এগোনো যায়, পেছানো বা মোছা যায় না
+    // (যাতে কেউ তারিখ পিছিয়ে সময়ের আগে "যোগ্য" সাজতে না পারে)
+    function donationDateOnlyForward() {
+      let before = resource.data.get('lastDonationMillis', null);
+      let after = request.resource.data.get('lastDonationMillis', null);
+      return before == null || (after != null && after >= before);
+    }
     match /users/{uid} {
-      allow read, write: if signedIn() && me() == uid;
+      allow read, delete: if signedIn() && me() == uid;
+      allow create: if signedIn() && me() == uid;
+      allow update: if signedIn() && me() == uid && donationDateOnlyForward();
     }
 
     // রক্তের রিকোয়েস্ট: লগইন করা সবাই দেখতে পারবে (ফোন নম্বর এখানে থাকে না)
