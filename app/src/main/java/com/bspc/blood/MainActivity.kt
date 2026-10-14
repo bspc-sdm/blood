@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.work.WorkManager
 import kotlinx.coroutines.launch
 
 val BloodRed = Color(0xFFC62828)
@@ -29,14 +30,17 @@ val BloodRed = Color(0xFFC62828)
 class MainActivity : ComponentActivity() {
     /** নোটিফিকেশনে চাপ দিলে কোন রিকোয়েস্ট খুলতে হবে */
     private val openRequestId = mutableStateOf<String?>(null)
+    private val openType = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Notifier.ensureChannel(this)
-        CheckWorker.schedule(this)
+        // আগের ভার্সনের ৩০ মিনিট পরপর খোঁজার কাজ বন্ধ (এখন সার্ভার পুশ পাঠায়)
+        WorkManager.getInstance(this).cancelUniqueWork("check_requests")
         // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের রিকোয়েস্ট পড়া হয়
         if (savedInstanceState == null) {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
+            openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
         }
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = BloodRed)) {
@@ -44,6 +48,7 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.safeDrawingPadding()) {
                         App(
                             openRequestId = openRequestId.value,
+                            openAsRequester = openType.value == "response",
                             onRequestOpened = { openRequestId.value = null },
                         )
                     }
@@ -54,7 +59,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(Notifier.EXTRA_REQUEST_ID)?.let { openRequestId.value = it }
+        intent.getStringExtra(Notifier.EXTRA_REQUEST_ID)?.let {
+            openType.value = intent.getStringExtra(Notifier.EXTRA_TYPE)
+            openRequestId.value = it
+        }
     }
 }
 
@@ -70,7 +78,7 @@ sealed interface Screen {
 }
 
 @Composable
-fun App(openRequestId: String?, onRequestOpened: () -> Unit) {
+fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val stack = remember { mutableStateListOf<Screen>(Screen.Loading) }
@@ -117,7 +125,10 @@ fun App(openRequestId: String?, onRequestOpened: () -> Unit) {
     val ready = stack.firstOrNull() is Screen.Main
     LaunchedEffect(openRequestId, ready) {
         if (openRequestId != null && ready) {
-            push(Screen.RequestDetail(openRequestId))
+            push(
+                if (openAsRequester) Screen.MyRequestDetail(openRequestId)
+                else Screen.RequestDetail(openRequestId)
+            )
             onRequestOpened()
         }
     }

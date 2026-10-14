@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     signingConfigs {
@@ -62,6 +62,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-messaging")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     // Google লগইন
@@ -69,7 +70,7 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
-    // লোকেশন, দূরত্ব হিসাব, পেছনে নোটিফিকেশন চেক
+    // লোকেশন, দূরত্ব হিসাব; WorkManager শুধু আগের ভার্সনের কাজ বন্ধ করতে
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.firebase:geofire-android-common:3.2.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")

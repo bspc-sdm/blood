@@ -99,6 +99,10 @@ object ProfileRepository {
         users.document(uid).set(data, SetOptions.merge()).await()
     }
 
+    suspend fun saveFcmToken(uid: String, token: String) {
+        users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await()
+    }
+
     suspend fun setNotify(uid: String, on: Boolean) {
         users.document(uid).set(mapOf("notify" to on), SetOptions.merge()).await()
     }
@@ -132,6 +136,8 @@ object RequestRepository {
         createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
         serverCreatedMillis = s.getTimestamp("createdAt")?.toDate()?.time
             ?: (s.getLong("createdAtMillis") ?: 0L),
+        notified = s.contains("notifiedAt"),
+        notifiedCount = (s.getLong("notifiedCount") ?: 0L).toInt(),
     )
 
     private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(
@@ -232,18 +238,6 @@ object RequestRepository {
     suspend fun myResponse(requestId: String, uid: String): DonorResponse? {
         val s = requests.document(requestId).collection("responses").document(uid).get().await()
         return if (s.exists()) responseFromSnap(s) else null
-    }
-
-    suspend fun respond(requestId: String, uid: String, profile: Profile) {
-        val data = hashMapOf<String, Any?>(
-            "donorUid" to uid,
-            "donorName" to profile.name,
-            "donorPhone" to profile.phone,
-            "donorGroup" to profile.bloodGroup,
-            "status" to "accepted",
-            "createdAtMillis" to System.currentTimeMillis(),
-        )
-        requests.document(requestId).collection("responses").document(uid).set(data).await()
     }
 
     suspend fun setResponseStatus(requestId: String, donorUid: String, status: String) {

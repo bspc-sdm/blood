@@ -75,6 +75,9 @@ fun MainScreen(
         }
     }
 
+    // এই ফোনের পুশ টোকেন সার্ভারের জন্য প্রোফাইলে রাখা
+    LaunchedEffect(Unit) { runCatching { Notifier.syncToken() } }
+
     // GPS দিয়ে এলাকা ঠিক করা থাকলে, অ্যাপ খুললে চুপচাপ আপডেট
     LaunchedEffect(Unit) {
         val uid = AuthRepository.currentUid ?: return@LaunchedEffect
@@ -332,7 +335,7 @@ fun ProfileTab(
                 Column(Modifier.weight(1f)) {
                     Text("নোটিফিকেশন", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "আশেপাশে আপনার গ্রুপের রক্ত দরকার হলে ৩০–৬০ মিনিটের মধ্যে জানাবে (দিনে সর্বোচ্চ ${Rules.MAX_NOTIFICATIONS_PER_DAY}টা)",
+                        "আশেপাশে আপনার গ্রুপের রক্ত দরকার হলে সাথে সাথে জানাবে (দিনে সর্বোচ্চ ${Rules.MAX_NOTIFICATIONS_PER_DAY}টা)",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

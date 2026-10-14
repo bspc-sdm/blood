@@ -12,18 +12,20 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.work.Constraints
-import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkerParameters
-import java.util.concurrent.TimeUnit
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 object Notifier {
     const val CHANNEL_ID = "blood_requests"
     const val EXTRA_REQUEST_ID = "requestId"
+    /** "request" (ডোনারের জন্য), "response" (রক্তপ্রার্থীর জন্য), "eligible" */
+    const val EXTRA_TYPE = "type"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -31,7 +33,7 @@ object Notifier {
                 CHANNEL_ID,
                 "রক্তের রিকোয়েস্ট",
                 NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = "আশেপাশে রক্ত দরকার হলে এবং আবার রক্ত দেওয়ার সময় হলে জানায়" }
+            ).apply { description = "আশেপাশে রক্ত দরকার হলে, কেউ সাড়া দিলে, আর আবার রক্ত দেওয়ার সময় হলে জানায়" }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -41,22 +43,20 @@ object Notifier {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun openAppIntent(context: Context, requestId: String?, code: Int): PendingIntent {
+    /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
+    @SuppressLint("MissingPermission")
+    fun show(context: Context, title: String, body: String, requestId: String?, type: String?) {
+        if (!canNotify(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (requestId != null) putExtra(EXTRA_REQUEST_ID, requestId)
+            if (type != null) putExtra(EXTRA_TYPE, type)
         }
-        return PendingIntent.getActivity(
-            context, code, intent,
+        val id = (requestId ?: type ?: "app").hashCode()
+        val pending = PendingIntent.getActivity(
+            context, id, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-    }
-
-    @SuppressLint("MissingPermission")
-    fun showRequest(context: Context, r: BloodRequest, distanceKm: Double) {
-        if (!canNotify(context)) return
-        val title = "🩸 ${r.patientGroup} রক্ত দরকার" + if (r.urgent) " (জরুরি)" else ""
-        val body = "${r.bags} ব্যাগ · ${r.hospital}, ${r.placeName} · ${Rules.formatKm(distanceKm)}"
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_blood)
             .setContentTitle(title)
@@ -64,96 +64,31 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(openAppIntent(context, r.id, r.id.hashCode()))
+            .setContentIntent(pending)
             .build()
-        NotificationManagerCompat.from(context).notify(r.id.hashCode(), n)
+        NotificationManagerCompat.from(context).notify(id, n)
     }
 
-    @SuppressLint("MissingPermission")
-    fun showEligible(context: Context, nearbyCount: Int) {
-        if (!canNotify(context)) return
-        val body = if (nearbyCount > 0) {
-            "আপনার আশেপাশে ${nearbyCount}টি খোলা রিকোয়েস্ট আছে।"
-        } else {
-            "কারো রক্ত লাগলে আমরা আপনাকে জানাব।"
-        }
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_blood)
-            .setContentTitle("আপনি আবার রক্ত দিতে পারবেন ❤️")
-            .setContentText(body)
-            .setAutoCancel(true)
-            .setContentIntent(openAppIntent(context, null, 1))
-            .build()
-        NotificationManagerCompat.from(context).notify(1, n)
+    /** এই ফোনের পুশ টোকেন প্রোফাইলে রাখা, যাতে সার্ভার এখানে নোটিফিকেশন পাঠাতে পারে */
+    suspend fun syncToken() {
+        val uid = AuthRepository.currentUid ?: return
+        val token = FirebaseMessaging.getInstance().token.await()
+        ProfileRepository.saveFcmToken(uid, token)
     }
 }
 
-/**
- * সার্ভার ছাড়া নোটিফিকেশন: প্রতি ৩০ মিনিটে (ফোন অনুমতি দিলে) ফোন নিজেই
- * আশেপাশের নতুন রিকোয়েস্ট খোঁজে, আর আবার রক্ত দেওয়ার সময় হলে জানায়।
- * পরে Firebase Blaze প্ল্যান চালু হলে Cloud Functions + FCM দিয়ে তাৎক্ষণিক করা যাবে।
- */
-class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+/** সার্ভার থেকে আসা পুশ নোটিফিকেশন গ্রহণ */
+class BloodMessagingService : FirebaseMessagingService() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override suspend fun doWork(): Result {
-        val uid = AuthRepository.currentUid ?: return Result.success()
-        val profile = runCatching { ProfileRepository.load(uid) }.getOrNull() ?: return Result.success()
-        if (!profile.notify) return Result.success()
-
-        val ctx = applicationContext
-        val prefs = ctx.getSharedPreferences("notify_state", Context.MODE_PRIVATE)
-        val now = System.currentTimeMillis()
-        val eligible = Rules.isEligible(profile.lastDonationMillis, now)
-
-        val lat = profile.lat
-        val lng = profile.lng
-        val nearby = if (eligible && lat != null && lng != null) {
-            runCatching { RequestRepository.nearbyOpen(lat, lng, profile.bloodGroup, uid) }
-                .getOrDefault(emptyList())
-        } else {
-            emptyList()
-        }
-
-        // আবার যোগ্য হওয়ার রিমাইন্ডার (প্রতিটা রক্তদানের পর একবার)
-        val last = profile.lastDonationMillis
-        if (last != null && eligible && prefs.getLong("eligibleNotifiedFor", -1L) != last) {
-            // অনেক আগেই যোগ্য হয়ে থাকলে (যেমন নতুন ইনস্টল) চুপচাপ মনে রাখা হয়
-            val next = Rules.nextEligibleMillis(last) ?: now
-            if (now - next < 3 * DAY_MS) Notifier.showEligible(ctx, nearby.size)
-            prefs.edit().putLong("eligibleNotifiedFor", last).apply()
-        }
-
-        // নতুন রিকোয়েস্ট, দিনে সর্বোচ্চ ৩টা
-        // সার্ভারের সময় দিয়ে তুলনা, যাতে কারো ফোনের ঘড়ি ভুল থাকলেও রিকোয়েস্ট বাদ না পড়ে
-        val lastSeen = prefs.getLong("lastSeenServerMillis", now - 6 * 60 * 60 * 1000L)
-        val today = Rules.dayKey(now)
-        var count = if (prefs.getString("dayKey", "") == today) prefs.getInt("dayCount", 0) else 0
-        for ((r, distance) in nearby.filter { it.first.serverCreatedMillis > lastSeen }) {
-            if (count >= Rules.MAX_NOTIFICATIONS_PER_DAY) break
-            Notifier.showRequest(ctx, r, distance)
-            count++
-        }
-        val newestSeen = maxOf(lastSeen, nearby.maxOfOrNull { it.first.serverCreatedMillis } ?: lastSeen)
-        prefs.edit()
-            .putLong("lastSeenServerMillis", newestSeen)
-            .putString("dayKey", today)
-            .putInt("dayCount", count)
-            .apply()
-        return Result.success()
+    override fun onNewToken(token: String) {
+        val uid = AuthRepository.currentUid ?: return
+        scope.launch { runCatching { ProfileRepository.saveFcmToken(uid, token) } }
     }
 
-    companion object {
-        fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<CheckWorker>(30, TimeUnit.MINUTES)
-                .setConstraints(
-                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-                )
-                .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "check_requests",
-                ExistingPeriodicWorkPolicy.UPDATE,
-                request,
-            )
-        }
+    override fun onMessageReceived(message: RemoteMessage) {
+        val title = message.notification?.title ?: message.data["title"] ?: "রক্তদান"
+        val body = message.notification?.body ?: message.data["body"] ?: ""
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"])
     }
 }

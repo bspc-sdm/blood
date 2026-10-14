@@ -136,7 +136,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
         )
 
         Text(
-            "রিকোয়েস্ট দেওয়ার পর আশেপাশের যোগ্য ডোনাররা নোটিফিকেশন পাবেন। কেউ \"রক্ত দেব\" চাপলে আপনি তার নম্বর দেখবেন, আর সে আপনার নম্বর দেখবে।",
+            "রিকোয়েস্ট দেওয়ার সাথে সাথে আশেপাশের যোগ্য ডোনাররা নোটিফিকেশন পাবেন। কেউ \"রক্ত দেব\" চাপলে আপনি তার নম্বর দেখবেন, আর সে আপনার নম্বর দেখবে।",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -165,7 +165,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                                     "একসাথে সর্বোচ্চ ${Rules.MAX_OPEN_REQUESTS}টা খোলা রিকোয়েস্ট রাখা যায়"
                                 )
                             }
-                            RequestRepository.create(
+                            val id = RequestRepository.create(
                                 BloodRequest(
                                     requesterUid = uid,
                                     requesterName = profile.name,
@@ -181,6 +181,9 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                                 ),
                                 profile.phone,
                             )
+                            // আশেপাশের ডোনারদের জানানো; না গেলে রিকোয়েস্টের পাতায় আবার চেষ্টার বাটন থাকে
+                            runCatching { ServerApi.notifyRequest(id) }
+                            id
                         }.onSuccess { onCreated(it) }
                             .onFailure { errorMsg = it.message ?: "রিকোয়েস্ট দেওয়া যায়নি" }
                         busy = false
@@ -301,7 +304,7 @@ fun RequestDetailScreen(
 
                     resp == null -> {
                         Button(
-                            onClick = { act { RequestRepository.respond(r.id, uid!!, profile) } },
+                            onClick = { act { ServerApi.respond(r.id) } },
                             enabled = !busy && uid != null,
                             modifier = Modifier.fillMaxWidth(),
                         ) { ButtonContent(busy, "🩸 রক্ত দেব") }
@@ -359,7 +362,7 @@ fun RequestDetailScreen(
                         Text("আপনি এই রিকোয়েস্টে রক্ত দেওয়া বাতিল করেছেন।")
                         if (r.isActive && compatible && eligible) {
                             TextButton(
-                                onClick = { act { RequestRepository.respond(r.id, uid!!, profile) } },
+                                onClick = { act { ServerApi.respond(r.id) } },
                                 enabled = !busy,
                             ) { Text("আবার রাজি হন") }
                         }
@@ -412,6 +415,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
     var request by remember { mutableStateOf<BloodRequest?>(null) }
     var responses by remember { mutableStateOf<List<DonorResponse>>(emptyList()) }
     var confirmClose by remember { mutableStateOf(false) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -450,18 +454,34 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
             r == null -> ErrorText(errorMsg ?: "রিকোয়েস্টটা পাওয়া যায়নি")
             else -> {
                 RequestInfo(r, null)
-                if (!r.isActive) {
+                if (r.isActive && r.notified) {
                     Text(
-                        "যে ডোনাররা রক্ত দিয়েছেন, তাদের অ্যাপে \"রক্ত দিয়েছি\" চাপতে বলুন, যাতে ১২০ দিন তাদের কাছে নতুন রিকোয়েস্ট না যায়।",
+                        if (r.notifiedCount > 0) {
+                            "আশেপাশের ${r.notifiedCount} জন যোগ্য ডোনারকে নোটিফিকেশন পাঠানো হয়েছে। কেউ রাজি হলে আপনিও নোটিফিকেশন পাবেন, আর নিচে তার নাম ও নম্বর দেখাবে।"
+                        } else {
+                            "এই মুহূর্তে আশেপাশে নোটিফিকেশন চালু থাকা কোনো যোগ্য ডোনার পাওয়া যায়নি। রিকোয়েস্টটা খোলা থাকবে, অ্যাপ খুললে ডোনাররা তালিকায় দেখতে পাবেন। পরিচিতদের সাথেও শেয়ার করুন।"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                if (r.isActive) {
+                if (r.isActive && !r.notified) {
                     Text(
-                        "আশেপাশের যোগ্য ডোনাররা সাধারণত ৩০–৬০ মিনিটের মধ্যে নোটিফিকেশন পান। কেউ রাজি হলে নিচে তার নাম ও নম্বর দেখাবে।",
+                        "আশেপাশের ডোনারদের এখনো জানানো যায়নি।",
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                     )
+                    Button(
+                        onClick = {
+                            act {
+                                val n = ServerApi.notifyRequest(r.id)
+                                infoMsg = "$n জন ডোনারকে জানানো হয়েছে"
+                            }
+                        },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { ButtonContent(busy, "📣 আশেপাশের ডোনারদের জানান") }
                 }
+                InfoText(infoMsg)
                 TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
 
                 val willing = responses.filter { it.status == "accepted" || it.status == "donated" }
@@ -502,14 +522,35 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
     }
 
     if (confirmClose) {
+        val willing = responses.filter { it.status == "accepted" || it.status == "donated" }
+        var donated by remember { mutableStateOf(willing.filter { it.status == "donated" }.map { it.donorUid }.toSet()) }
         AlertDialog(
             onDismissRequest = { confirmClose = false },
             title = { Text("রিকোয়েস্ট বন্ধ করবেন?") },
-            text = { Text("বন্ধ করলে আর কোনো ডোনার এটা দেখবেন না বা নোটিফিকেশন পাবেন না।") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("বন্ধ করলে আর কোনো ডোনার এটা দেখবেন না বা নোটিফিকেশন পাবেন না।")
+                    if (willing.isNotEmpty()) {
+                        Text("কে কে রক্ত দিয়েছেন? (তাদের কাছে ১২০ দিন নতুন রিকোয়েস্ট যাবে না)", fontWeight = FontWeight.SemiBold)
+                        willing.forEach { d ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = d.donorUid in donated,
+                                    onCheckedChange = { on ->
+                                        donated = if (on) donated + d.donorUid else donated - d.donorUid
+                                    },
+                                )
+                                Text("${d.donorName} (${d.donorGroup})")
+                            }
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClose = false
-                    act { RequestRepository.close(requestId) }
+                    val chosen = donated.toList()
+                    act { ServerApi.closeRequest(requestId, chosen) }
                 }) { Text("বন্ধ করুন") }
             },
             dismissButton = { TextButton(onClick = { confirmClose = false }) { Text("না") } },

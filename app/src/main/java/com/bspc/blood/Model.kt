@@ -36,6 +36,9 @@ data class BloodRequest(
     val createdAtMillis: Long = 0,
     /** সার্ভারের সময় অনুযায়ী তৈরির মুহূর্ত (ফোনের ঘড়ি ভুল থাকলেও ঠিক থাকে) */
     val serverCreatedMillis: Long = 0,
+    /** সার্ভার আশেপাশের ডোনারদের জানিয়েছে কি না, আর কতজনকে */
+    val notified: Boolean = false,
+    val notifiedCount: Int = 0,
 ) {
     /** খোলা আছে আর দরকারের তারিখ পার হয়নি */
     val isActive: Boolean

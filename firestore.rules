@@ -21,7 +21,8 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.requesterUid == me()
-        && request.resource.data.status == 'open';
+        && request.resource.data.status == 'open'
+        && !request.resource.data.keys().hasAny(['notifiedAt', 'notifiedCount']);
       // শুধু বন্ধ করা যায়: রক্তপ্রার্থী নিজে যেকোনো সময়, অন্য যে কেউ তারিখ পার হয়ে গেলে
       allow update: if signedIn()
         && onlyStatusChanges()
@@ -44,26 +45,25 @@ service cloud.firestore {
       // ডোনারের সাড়া (ডোনারের নাম ও ফোন সহ): ডোনার নিজে আর রক্তপ্রার্থী দেখতে পারবে
       match /responses/{donorUid} {
         allow read: if signedIn() && (me() == donorUid || requestDoc(rid).data.requesterUid == me());
-        // শুধু খোলা রিকোয়েস্টে, নিজের নামে, "রাজি" হিসেবে
-        allow create: if signedIn()
-          && me() == donorUid
-          && request.resource.data.donorUid == donorUid
-          && request.resource.data.status == 'accepted'
-          && requestDoc(rid).data.status == 'open'
-          && requestDoc(rid).data.requesterUid != me();
+        // "রক্ত দেব" শুধু সার্ভারের মাধ্যমে (দৈনিক সীমা আর যোগ্যতা সার্ভার যাচাই করে)
+        allow create: if false;
         allow update: if signedIn() && (
-          // ডোনার: বাদ পড়ে গেলে আর বদলাতে পারবে না; আবার রাজি হতে হলে রিকোয়েস্ট খোলা থাকতে হবে
+          // ডোনার: রাজি থাকা অবস্থা থেকে শুধু বাতিল বা "রক্ত দিয়েছি"
           (me() == donorUid
-            && resource.data.status != 'declined'
-            && request.resource.data.donorUid == donorUid
-            && request.resource.data.status in ['accepted', 'cancelled', 'donated']
-            && (request.resource.data.status != 'accepted' || requestDoc(rid).data.status == 'open'))
+            && resource.data.status == 'accepted'
+            && onlyStatusChanges()
+            && request.resource.data.status in ['cancelled', 'donated'])
           // রক্তপ্রার্থী: শুধু কোনো ডোনারকে বাদ দিতে পারবে
           || (requestDoc(rid).data.requesterUid == me()
               && onlyStatusChanges()
               && request.resource.data.status == 'declined'));
         allow delete: if false;
       }
+    }
+
+    // সার্ভারের হিসাব (দৈনিক সীমা ইত্যাদি): অ্যাপ থেকে পড়া বা লেখা যাবে না
+    match /serverState/{uid} {
+      allow read, write: if false;
     }
 
     // রিপোর্ট: যে কেউ পাঠাতে পারবে, কেউ পড়তে পারবে না (শুধু কনসোল থেকে দেখা যাবে)
