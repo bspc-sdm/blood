@@ -18,8 +18,10 @@ object Rules {
     /** একজন ব্যবহারকারী একসাথে কয়টা খোলা রিকোয়েস্ট রাখতে পারবে */
     const val MAX_OPEN_REQUESTS = 2
 
-    /** একজন ডোনার দিনে সর্বোচ্চ কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে */
-    const val MAX_NOTIFICATIONS_PER_DAY = 3
+    /** একজন ডোনার দিনে কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে: নিজে না বদলালে ৩টা, সেটিংসে ১–১০ বেছে নেওয়া যায় */
+    const val DEFAULT_PUSH_PER_DAY = 3
+    const val MAX_PUSH_PER_DAY_LIMIT = 10
+    val PUSH_PER_DAY_CHOICES = listOf(1, 2, 3, 5, 10)
 
     const val MIN_AGE = 18
     const val MAX_AGE = 60
@@ -119,6 +121,10 @@ object BloodCompat {
 
     fun canDonate(donorGroup: String, patientGroup: String): Boolean =
         donorsFor[patientGroup]?.contains(donorGroup) == true
+
+    /** এই গ্রুপের ডোনার যেসব রোগীর গ্রুপকে দিতে পারেন */
+    fun patientsFor(donorGroup: String): List<String> =
+        Rules.BLOOD_GROUPS.filter { canDonate(donorGroup, it) }
 }
 
 object Geo {

@@ -18,7 +18,27 @@ data class Profile(
     /** "gps" বা "district" */
     val locationSource: String? = null,
     val notify: Boolean = true,
+    /** দিনে সর্বোচ্চ কয়টা রিকোয়েস্টের নোটিফিকেশন চান (সেটিংস) */
+    val maxPushPerDay: Int = Rules.DEFAULT_PUSH_PER_DAY,
+    /** কোন রোগীর গ্রুপের রিকোয়েস্টে নোটিফিকেশন চান; null = যাদের দিতে পারেন তাদের সবার */
+    val notifyGroups: List<String>? = null,
+    /** "রক্ত দরকার" তালিকায় কোন রোগীর গ্রুপের রিকোয়েস্ট দেখবেন; null = যাদের দিতে পারেন তাদের */
+    val viewGroups: List<String>? = null,
 ) {
+    /** এই ডোনার যেসব রোগীর গ্রুপকে রক্ত দিতে পারেন */
+    val compatibleGroups: List<String> get() = BloodCompat.patientsFor(bloodGroup)
+
+    /** আসলে যে গ্রুপগুলোর নোটিফিকেশন আসবে (গ্রুপ বদলালে বাতিল হয়ে যাওয়াগুলো বাদ) — সার্ভারের নিয়মের মতো */
+    val effectiveNotifyGroups: List<String>
+        get() {
+            val compat = compatibleGroups
+            return notifyGroups?.filter { it in compat }?.ifEmpty { null } ?: compat
+        }
+
+    /** তালিকায় আসলে যে গ্রুপগুলো দেখানো হবে */
+    val effectiveViewGroups: List<String>
+        get() = viewGroups?.filter { it in Rules.BLOOD_GROUPS }?.ifEmpty { null } ?: compatibleGroups
+
     val hasLocation: Boolean get() = lat != null && lng != null
     val isComplete: Boolean get() = bloodGroup.isNotEmpty() && phone.isNotEmpty() && birthDateMillis != null && weightKg != null
 }

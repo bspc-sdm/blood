@@ -3,7 +3,8 @@ const DISTRICTS = require('./districts');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ELIGIBILITY_DAYS = 120;
-const MAX_PUSH_PER_DAY = 3; // একজন ডোনার দিনে কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে
+const MAX_PUSH_PER_DAY = 3; // ডোনার নিজে না বদলালে দিনে কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে
+const MAX_PUSH_PER_DAY_LIMIT = 10; // সেটিংসে সর্বোচ্চ যত বেছে নেওয়া যায়
 const MAX_RESPONSES_PER_DAY = 5; // একজন দিনে কয়টা রিকোয়েস্টে "রক্ত দেব" চাপতে পারবে
 const MAX_REQUESTS_PER_DAY = 3; // একজন দিনে কয়টা রিকোয়েস্টের নোটিফিকেশন পাঠাতে পারবে
 const MAX_OPEN_REQUESTS = 2;
@@ -25,6 +26,24 @@ const DONORS_FOR = {
 
 function canDonate(donorGroup, patientGroup) {
   return (DONORS_FOR[patientGroup] || []).includes(donorGroup);
+}
+
+/** ডোনার নিজে দিনে কয়টা নোটিফিকেশন চেয়েছেন (সেটিংস); ঠিক না থাকলে ৩টা */
+function pushLimit(user) {
+  const n = user.maxPushPerDay;
+  if (!Number.isInteger(n)) return MAX_PUSH_PER_DAY;
+  return Math.min(Math.max(n, 1), MAX_PUSH_PER_DAY_LIMIT);
+}
+
+/**
+ * ডোনার এই রোগীর গ্রুপের নোটিফিকেশন চান কি না (সেটিংস)। কিছু বাছা না থাকলে, বা বাছা গ্রুপগুলোর
+ * কোনোটাকেই আর দিতে না পারলে (রক্তের গ্রুপ বদলানোর পর), যাদের দিতে পারেন সবার নোটিফিকেশন যায় — অ্যাপের মতোই।
+ */
+function wantsGroup(user, patientGroup) {
+  const list = Array.isArray(user.notifyGroups) ? user.notifyGroups : null;
+  if (!list) return true;
+  const valid = list.filter((g) => canDonate(user.bloodGroup, g));
+  return valid.length === 0 || valid.includes(patientGroup);
 }
 
 function isEligible(lastDonationMillis, now = Date.now()) {
@@ -110,6 +129,7 @@ function pickDonors(request, users, now = Date.now()) {
         typeof u.lat === 'number' &&
         typeof u.lng === 'number' &&
         canDonate(u.bloodGroup, request.patientGroup) &&
+        wantsGroup(u, request.patientGroup) &&
         isEligibleDonor(u, now),
     )
     .map((u) => ({ ...u, km: distanceKm(request.lat, request.lng, u.lat, u.lng) }));
@@ -152,6 +172,9 @@ module.exports = {
   isValidId,
   validateRequest,
   MAX_PUSH_PER_DAY,
+  MAX_PUSH_PER_DAY_LIMIT,
+  pushLimit,
+  wantsGroup,
   MAX_RESPONSES_PER_DAY,
   canDonate,
   isEligible,

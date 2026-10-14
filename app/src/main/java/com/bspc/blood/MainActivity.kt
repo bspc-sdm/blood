@@ -76,6 +76,7 @@ sealed interface Screen {
     data class RequestDetail(val id: String) : Screen
     data class MyRequestDetail(val id: String) : Screen
     data object Admin : Screen
+    data object Settings : Screen
 }
 
 @Composable
@@ -238,6 +239,7 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
                     onChangeLocation = { push(Screen.PickLocation) },
                     onProfileChanged = { profile = it },
                     onOpenAdmin = { push(Screen.Admin) },
+                    onOpenSettings = { push(Screen.Settings) },
                     onLogout = {
                         scope.launch {
                             AuthRepository.signOut(context)
@@ -283,6 +285,22 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
         }
 
         Screen.Admin -> AdminScreen(onBack = { back() })
+
+        Screen.Settings -> {
+            val p = profile
+            if (p == null) {
+                LoadingBox()
+            } else {
+                SettingsScreen(
+                    profile = p,
+                    onSaved = {
+                        profile = it
+                        back()
+                    },
+                    onBack = { back() },
+                )
+            }
+        }
 
         is Screen.MyRequestDetail -> MyRequestDetailScreen(
             requestId = current.id,

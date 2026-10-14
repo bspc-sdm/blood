@@ -58,12 +58,12 @@ module.exports = handler(async (req) => {
     const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
     let donors = R.pickDonors(request, users, now);
 
-    // প্রত্যেক ডোনার দিনে সর্বোচ্চ ৩টা নোটিফিকেশন পাবে
+    // প্রত্যেক ডোনার দিনে সর্বোচ্চ যতটা নোটিফিকেশন চেয়েছেন (সেটিংস, না বদলালে ৩টা)
     const stateRefs = donors.map((u) => db.doc(`serverState/${u.uid}`));
     const states = stateRefs.length ? await db.getAll(...stateRefs) : [];
     const pushedToday = (s) => (s.exists && s.get('pushDay') === day ? s.get('pushCount') || 0 : 0);
     const counts = new Map(donors.map((u, i) => [u.uid, pushedToday(states[i])]));
-    donors = donors.filter((u) => counts.get(u.uid) < R.MAX_PUSH_PER_DAY);
+    donors = donors.filter((u) => counts.get(u.uid) < R.pushLimit(u));
 
     const title = `🩸 ${request.patientGroup} রক্ত দরকার${request.urgent ? ' (জরুরি)' : ''}`;
     const sent = await sendPush(

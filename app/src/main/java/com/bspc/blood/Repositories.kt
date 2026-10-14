@@ -58,7 +58,25 @@ object ProfileRepository {
             placeName = snap.getString("placeName"),
             locationSource = snap.getString("locationSource"),
             notify = snap.getBoolean("notify") ?: true,
+            maxPushPerDay = snap.getLong("maxPushPerDay")?.toInt()
+                ?.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT) ?: Rules.DEFAULT_PUSH_PER_DAY,
+            notifyGroups = groupList(snap.get("notifyGroups")),
+            viewGroups = groupList(snap.get("viewGroups")),
         )
+    }
+
+    private fun groupList(raw: Any?): List<String>? =
+        (raw as? List<*>)?.filterIsInstance<String>()?.filter { it in Rules.BLOOD_GROUPS }
+
+    /** সেটিংস: নোটিফিকেশন চালু/বন্ধ, দিনে কয়টা, কোন গ্রুপের নোটিফিকেশন, তালিকায় কোন গ্রুপ */
+    suspend fun saveSettings(uid: String, p: Profile) {
+        val data = hashMapOf<String, Any?>(
+            "notify" to p.notify,
+            "maxPushPerDay" to p.maxPushPerDay.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT),
+            "notifyGroups" to p.notifyGroups,
+            "viewGroups" to p.viewGroups,
+        )
+        users.document(uid).set(data, SetOptions.merge()).await()
     }
 
     /** নাম, ফোন, গ্রুপ, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়। */
@@ -189,12 +207,12 @@ object RequestRepository {
     /**
      * আশেপাশের খোলা রিকোয়েস্ট। একটাই কোয়েরি: কাছের জেলাগুলোর খোলা রিকোয়েস্ট আনা হয়,
      * তারপর ফোনেই দূরত্ব মেপে ধাপে ধাপে বাছাই (৫ → ১০ → ২৫ কিমি)।
-     * donorGroup দিলে শুধু সেই গ্রুপ যাদের দিতে পারে তাদের রিকোয়েস্ট ফেরত দেয়।
+     * patientGroups দিলে শুধু ওই রোগীর গ্রুপগুলোর রিকোয়েস্ট ফেরত দেয় (সেটিংসের "তালিকায় কোন গ্রুপ")।
      */
     suspend fun nearbyOpen(
         lat: Double,
         lng: Double,
-        donorGroup: String?,
+        patientGroups: Set<String>?,
         excludeUid: String?,
     ): List<Pair<BloodRequest, Double>> {
         val all = requests
@@ -210,7 +228,7 @@ object RequestRepository {
             .filter {
                 it.isActive &&
                     it.requesterUid != excludeUid &&
-                    (donorGroup == null || BloodCompat.canDonate(donorGroup, it.patientGroup))
+                    (patientGroups == null || it.patientGroup in patientGroups)
             }
             .map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
 

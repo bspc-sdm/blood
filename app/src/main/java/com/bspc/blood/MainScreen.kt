@@ -27,7 +27,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(
@@ -60,6 +57,7 @@ fun MainScreen(
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -113,23 +111,29 @@ fun MainScreen(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                0 -> NearbyTab(profile, onOpenRequest, onChangeLocation)
+                0 -> NearbyTab(profile, onOpenRequest, onChangeLocation, onOpenSettings)
                 1 -> MyRequestsTab(onOpenMyRequest, onNewRequest)
-                else -> ProfileTab(profile, onEditProfile, onChangeLocation, onProfileChanged, onLogout, onOpenAdmin)
+                else -> ProfileTab(profile, onEditProfile, onChangeLocation, onLogout, onOpenAdmin, onOpenSettings)
             }
         }
     }
 }
 
 @Composable
-fun NearbyTab(profile: Profile, onOpenRequest: (String) -> Unit, onChangeLocation: () -> Unit) {
+fun NearbyTab(
+    profile: Profile,
+    onOpenRequest: (String) -> Unit,
+    onChangeLocation: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Pair<BloodRequest, Double>>>(emptyList()) }
     val notEligible = Rules.notEligibleReason(profile)
+    val groups = profile.effectiveViewGroups
 
-    LaunchedEffect(reload, profile.lat, profile.lng, profile.bloodGroup) {
+    LaunchedEffect(reload, profile.lat, profile.lng, groups) {
         val lat = profile.lat
         val lng = profile.lng
         if (lat == null || lng == null) {
@@ -139,7 +143,7 @@ fun NearbyTab(profile: Profile, onOpenRequest: (String) -> Unit, onChangeLocatio
         loading = true
         errorMsg = null
         runCatching {
-            RequestRepository.nearbyOpen(lat, lng, profile.bloodGroup, AuthRepository.currentUid)
+            RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid)
         }.onSuccess { list = it }.onFailure { errorMsg = "লোড হয়নি: ${it.message}" }
         loading = false
     }
@@ -157,12 +161,17 @@ fun NearbyTab(profile: Profile, onOpenRequest: (String) -> Unit, onChangeLocatio
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    "${profile.placeName ?: ""} এলাকা · ${profile.bloodGroup} গ্রুপ দিতে পারে এমন রিকোয়েস্ট",
+                    "${profile.placeName ?: ""} এলাকা · " + if (profile.viewGroups == null) {
+                        "${profile.bloodGroup} গ্রুপ দিতে পারে এমন রিকোয়েস্ট"
+                    } else {
+                        "${groups.joinToString(", ")} গ্রুপের রিকোয়েস্ট"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Row {
                     TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
-                    TextButton(onClick = onChangeLocation) { Text("📍 এলাকা বদলান") }
+                    TextButton(onClick = onChangeLocation) { Text("📍 এলাকা") }
+                    TextButton(onClick = onOpenSettings) { Text("⚙️ গ্রুপ বাছাই") }
                 }
             }
         }
@@ -254,12 +263,11 @@ fun ProfileTab(
     profile: Profile,
     onEditProfile: () -> Unit,
     onChangeLocation: () -> Unit,
-    onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val notEligible = Rules.notEligibleReason(profile)
     val eligible = notEligible == null
 
@@ -342,20 +350,10 @@ fun ProfileTab(
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("নোটিফিকেশন", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "আশেপাশে আপনার গ্রুপের রক্ত দরকার হলে সাথে সাথে জানাবে (দিনে সর্বোচ্চ ${Rules.MAX_NOTIFICATIONS_PER_DAY}টা)",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Text("⚙️ নোটিফিকেশন ও তালিকা", style = MaterialTheme.typography.titleMedium)
+                    Text(settingsSummary(profile), style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(
-                    checked = profile.notify,
-                    onCheckedChange = { on ->
-                        val uid = AuthRepository.currentUid ?: return@Switch
-                        onProfileChanged(profile.copy(notify = on))
-                        scope.launch { runCatching { ProfileRepository.setNotify(uid, on) } }
-                    },
-                )
+                TextButton(onClick = onOpenSettings) { Text("সেটিংস") }
             }
         }
 

@@ -98,3 +98,26 @@ test('isActive: তারিখের পরের দিন পর্যন্�
   assert.ok(!R.isActive({ status: 'open', neededByMillis: needed }, needed + DAY + 1));
   assert.ok(!R.isActive({ status: 'closed', neededByMillis: needed }, needed));
 });
+
+test('সেটিংস: কোন গ্রুপের নোটিফিকেশন চান', () => {
+  const now = Date.UTC(2026, 9, 15);
+  const request = { requesterUid: 'me', patientGroup: 'A+', lat: 24.75, lng: 90.4 };
+  const base = { fcmToken: 't', notify: true, birthDateMillis: Date.UTC(1995, 0, 1), weightKg: 60, bloodGroup: 'O-', lat: 24.75, lng: 90.41 };
+  const users = [
+    { ...base, uid: 'all' }, // কিছু বাছেননি → সবার
+    { ...base, uid: 'onlyAplus', notifyGroups: ['A+', 'O-'] },
+    { ...base, uid: 'onlyB', notifyGroups: ['B+', 'B-'] }, // A+ চান না
+    { ...base, uid: 'stale', bloodGroup: 'A+', notifyGroups: ['AB-'] }, // গ্রুপ বদলেছে, বাছাই অচল → সবার
+  ];
+  const picked = R.pickDonors(request, users, now).map((u) => u.uid).sort();
+  assert.deepStrictEqual(picked, ['all', 'onlyAplus', 'stale']);
+});
+
+test('সেটিংস: দিনে কয়টা নোটিফিকেশন', () => {
+  assert.strictEqual(R.pushLimit({}), 3);
+  assert.strictEqual(R.pushLimit({ maxPushPerDay: 1 }), 1);
+  assert.strictEqual(R.pushLimit({ maxPushPerDay: 10 }), 10);
+  assert.strictEqual(R.pushLimit({ maxPushPerDay: 500 }), 10);
+  assert.strictEqual(R.pushLimit({ maxPushPerDay: 0 }), 1);
+  assert.strictEqual(R.pushLimit({ maxPushPerDay: '5' }), 3);
+});
