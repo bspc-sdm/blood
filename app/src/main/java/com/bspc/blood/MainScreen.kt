@@ -127,7 +127,7 @@ fun NearbyTab(profile: Profile, onOpenRequest: (String) -> Unit, onChangeLocatio
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Pair<BloodRequest, Double>>>(emptyList()) }
-    val eligible = Rules.isEligible(profile.lastDonationMillis)
+    val notEligible = Rules.notEligibleReason(profile)
 
     LaunchedEffect(reload, profile.lat, profile.lng, profile.bloodGroup) {
         val lat = profile.lat
@@ -166,12 +166,11 @@ fun NearbyTab(profile: Profile, onOpenRequest: (String) -> Unit, onChangeLocatio
                 }
             }
         }
-        if (!eligible) {
+        if (notEligible != null) {
             item {
-                val next = Rules.nextEligibleMillis(profile.lastDonationMillis) ?: 0L
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
                     Text(
-                        "আপনি ${Rules.formatDate(next)} থেকে আবার রক্ত দিতে পারবেন। ততদিন নতুন রিকোয়েস্টের নোটিফিকেশন আসবে না।",
+                        "$notEligible। এখন নতুন রিকোয়েস্টের নোটিফিকেশন আসবে না, তবে তালিকা দেখতে আর পরিচিতদের জানাতে পারবেন।",
                         Modifier.padding(16.dp),
                     )
                 }
@@ -261,7 +260,8 @@ fun ProfileTab(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val eligible = Rules.isEligible(profile.lastDonationMillis)
+    val notEligible = Rules.notEligibleReason(profile)
+    val eligible = notEligible == null
 
     Column(
         modifier = Modifier
@@ -290,6 +290,14 @@ fun ProfileTab(
                         ?: "আগে কখনো রক্ত দেননি",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                Text(
+                    listOfNotNull(
+                        Rules.ageYears(profile.birthDateMillis)?.let { "বয়স $it বছর" },
+                        profile.weightKg?.let { "ওজন $it কেজি" },
+                        profile.phone.ifBlank { null },
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
 
@@ -307,13 +315,12 @@ fun ProfileTab(
                         fontWeight = FontWeight.Bold,
                     )
                 } else {
-                    val next = Rules.nextEligibleMillis(profile.lastDonationMillis) ?: 0L
                     Text(
-                        "⏳ আবার রক্ত দিতে পারবেন ${Rules.formatDate(next)} থেকে",
+                        "⏳ এখন রক্ত দিতে পারবেন না",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
-                    Text("আর ${Rules.daysUntilEligible(profile.lastDonationMillis)} দিন বাকি")
+                    Text(notEligible ?: "")
                 }
             }
         }

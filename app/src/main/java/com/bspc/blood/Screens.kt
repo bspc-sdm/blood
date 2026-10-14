@@ -26,6 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,14 +38,59 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+/** লগইন/সাইন আপ: ইমেইল দিন → ইমেইলে আসা ৬ সংখ্যার কোড দিন। প্রথমবার হলে নতুন অ্যাকাউন্ট তৈরি হয়। */
 @Composable
-fun LoginScreen(busy: Boolean, errorMsg: String?, onLogin: () -> Unit) {
+fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var email by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var codeSent by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var localError by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    var resendAt by remember { mutableLongStateOf(0L) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // আবার কোড চাওয়ার কাউন্টডাউন
+    LaunchedEffect(resendAt) {
+        while (System.currentTimeMillis() < resendAt) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+        now = System.currentTimeMillis()
+    }
+    val waitSec = ((resendAt - now) / 1000).coerceAtLeast(0)
+
+    fun sendCode() {
+        val e = email.trim()
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(e).matches()) {
+            localError = "সঠিক ইমেইল দিন"
+            return
+        }
+        scope.launch {
+            busy = true
+            localError = null
+            runCatching { ServerApi.sendLoginCode(e) }
+                .onSuccess {
+                    codeSent = true
+                    code = ""
+                    info = "$e ঠিকানায় ৬ সংখ্যার কোড পাঠানো হয়েছে। ইনবক্সে না পেলে Spam ফোল্ডার দেখুন।"
+                    resendAt = System.currentTimeMillis() + 60_000
+                }
+                .onFailure { localError = it.message }
+            busy = false
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Spacer(Modifier.height(48.dp))
         Text("🩸", style = MaterialTheme.typography.displayMedium)
         Spacer(Modifier.height(12.dp))
         Text(
@@ -57,27 +105,79 @@ fun LoginScreen(busy: Boolean, errorMsg: String?, onLogin: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(Modifier.height(32.dp))
-        Button(onClick = onLogin, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            ButtonContent(busy, "Google দিয়ে লগইন করুন")
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it; if (codeSent) { codeSent = false; info = null } },
+            label = { Text("ইমেইল") },
+            placeholder = { Text("example@gmail.com") },
+            singleLine = true,
+            enabled = !busy,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (!codeSent) {
+            Button(onClick = { sendCode() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                ButtonContent(busy, "কোড পাঠান")
+            }
+            Text(
+                "নতুন হলে এই ইমেইল দিয়েই অ্যাকাউন্ট খুলে যাবে। কোনো পাসওয়ার্ড লাগবে না।",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else {
+            InfoText(info)
+            OutlinedTextField(
+                value = code,
+                onValueChange = { v -> code = v.filter { it.isDigit() }.take(6) },
+                label = { Text("৬ সংখ্যার কোড") },
+                singleLine = true,
+                enabled = !busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        localError = null
+                        runCatching { AuthRepository.signInWithEmailCode(email.trim(), code) }
+                            .onSuccess { onLoggedIn() }
+                            .onFailure { localError = it.message }
+                        busy = false
+                    }
+                },
+                enabled = !busy && code.length == 6,
+                modifier = Modifier.fillMaxWidth(),
+            ) { ButtonContent(busy, "লগইন") }
+            TextButton(onClick = { sendCode() }, enabled = !busy && waitSec == 0L) {
+                Text(if (waitSec > 0) "আবার কোড চাইতে পারবেন $waitSec সেকেন্ড পর" else "আবার কোড পাঠান")
+            }
         }
-        ErrorText(errorMsg)
+        ErrorText(localError ?: errorMsg)
     }
 }
 
-/** নাম, ফোন, রক্তের গ্রুপ, শেষ রক্তদান। onSave শুধু এই চারটা দেয়। */
+/** নাম, ফোন, রক্তের গ্রুপ, জন্ম তারিখ, ওজন, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়। */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     existing: Profile?,
-    googleName: String?,
+    defaultName: String?,
     busy: Boolean,
     errorMsg: String?,
     onSave: (Profile) -> Unit,
     onCancel: (() -> Unit)?,
 ) {
-    var name by remember { mutableStateOf(existing?.name ?: googleName.orEmpty()) }
+    var name by remember { mutableStateOf(existing?.name ?: defaultName.orEmpty()) }
     var phone by remember { mutableStateOf(existing?.phone ?: "") }
     var bloodGroup by remember { mutableStateOf(existing?.bloodGroup ?: "") }
+    var birthDate by remember { mutableStateOf(existing?.birthDateMillis) }
+    var weight by remember { mutableStateOf(existing?.weightKg?.toString() ?: "") }
+    var showBirthPicker by remember { mutableStateOf(false) }
     var neverDonated by remember {
         mutableStateOf(existing != null && existing.lastDonationMillis == null)
     }
@@ -120,6 +220,24 @@ fun ProfileScreen(
         Text("রক্তের গ্রুপ", style = MaterialTheme.typography.titleMedium)
         BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it })
 
+        Text("জন্ম তারিখ", style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick = { showBirthPicker = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                birthDate?.let { "${Rules.formatDate(it)} (বয়স ${Rules.ageYears(it)} বছর)" }
+                    ?: "জন্ম তারিখ বেছে নিন"
+            )
+        }
+
+        OutlinedTextField(
+            value = weight,
+            onValueChange = { v -> weight = v.filter { it.isDigit() }.take(3) },
+            label = { Text("ওজন (কেজি)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            supportingText = { Text("রক্ত দিতে বয়স ${Rules.MIN_AGE}–${Rules.MAX_AGE} বছর আর ওজন কমপক্ষে ${Rules.MIN_WEIGHT_KG} কেজি লাগে") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         Text("শেষ রক্তদানের তারিখ", style = MaterialTheme.typography.titleMedium)
         // একবার তারিখ দিলে সেটা শুধু সামনে এগোনো যায় (নিরাপত্তার নিয়মেও তাই)
         val savedDonation = existing?.lastDonationMillis
@@ -155,6 +273,9 @@ fun ProfileScreen(
                     name.isBlank() -> "নাম লিখুন"
                     cleanPhone == null -> "সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)"
                     bloodGroup.isEmpty() -> "রক্তের গ্রুপ বেছে নিন"
+                    birthDate == null -> "জন্ম তারিখ দিন"
+                    (Rules.ageYears(birthDate) ?: 0) < 10 || (Rules.ageYears(birthDate) ?: 0) > 100 -> "জন্ম তারিখ ঠিক নেই"
+                    (weight.toIntOrNull() ?: 0) !in 20..250 -> "সঠিক ওজন দিন (কেজি)"
                     !neverDonated && lastDonation == null ->
                         "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন"
                     (lastDonation ?: 0L) > Rules.todayUtcMidnight() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
@@ -168,6 +289,8 @@ fun ProfileScreen(
                             name = name.trim(),
                             phone = cleanPhone,
                             bloodGroup = bloodGroup,
+                            birthDateMillis = birthDate,
+                            weightKg = weight.toIntOrNull(),
                             lastDonationMillis = if (neverDonated) null else lastDonation,
                             notify = existing?.notify ?: true,
                         )
@@ -182,6 +305,14 @@ fun ProfileScreen(
         if (onCancel != null) {
             TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("বাতিল") }
         }
+    }
+
+    if (showBirthPicker) {
+        DatePickerPopup(
+            initial = birthDate ?: Rules.todayUtcMidnight() - 25L * 365 * DAY_MS,
+            onPicked = { birthDate = it },
+            onDismiss = { showBirthPicker = false },
+        )
     }
 
     if (showPicker) {

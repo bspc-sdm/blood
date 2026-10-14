@@ -56,12 +56,25 @@ object ServerApi {
         post("/api/admin/resolve", JSONObject().put("id", id).put("approve", approve))
     }
 
+    /** লগইন: ইমেইলে কোড পাঠানো (লগইন ছাড়াই) */
+    suspend fun sendLoginCode(email: String) {
+        request("/api/auth/send-code", JSONObject().put("email", email), null)
+    }
+
+    /** লগইন: কোড যাচাই, Firebase লগইন টোকেন ফেরত দেয় */
+    suspend fun verifyLoginCode(email: String, code: String): String =
+        request("/api/auth/verify-code", JSONObject().put("email", email).put("code", code), null)
+            .optString("token").ifBlank { throw IllegalStateException("লগইন হয়নি, আবার চেষ্টা করুন") }
+
     private suspend fun post(path: String, body: JSONObject): JSONObject {
         val user = FirebaseAuth.getInstance().currentUser
             ?: throw IllegalStateException("আবার লগইন করুন")
         val token = user.getIdToken(false).await().token
             ?: throw IllegalStateException("আবার লগইন করুন")
+        return request(path, body, token)
+    }
 
+    private suspend fun request(path: String, body: JSONObject, token: String?): JSONObject {
         return withContext(Dispatchers.IO) {
             val conn = URL(BASE_URL + path).openConnection() as HttpURLConnection
             try {
@@ -70,7 +83,7 @@ object ServerApi {
                 conn.readTimeout = 30_000
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                conn.setRequestProperty("Authorization", "Bearer $token")
+                if (token != null) conn.setRequestProperty("Authorization", "Bearer $token")
                 conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
 
                 val code = conn.responseCode

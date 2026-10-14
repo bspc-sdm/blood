@@ -4,16 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -25,26 +18,12 @@ object AuthRepository {
     private val auth: FirebaseAuth get() = FirebaseAuth.getInstance()
 
     val currentUid: String? get() = auth.currentUser?.uid
-    val currentDisplayName: String? get() = auth.currentUser?.displayName
     val currentEmail: String? get() = auth.currentUser?.email
 
-    suspend fun signInWithGoogle(context: Context) {
-        val option = GetSignInWithGoogleOption
-            .Builder(context.getString(R.string.default_web_client_id))
-            .build()
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(option)
-            .build()
-        val result = CredentialManager.create(context).getCredential(context, request)
-        val credential = result.credential
-        if (credential is CustomCredential &&
-            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-        ) {
-            val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-            auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
-        } else {
-            throw IllegalStateException("Google অ্যাকাউন্ট পাওয়া যায়নি")
-        }
+    /** ইমেইলে আসা কোড দিয়ে লগইন (প্রথমবার হলে সার্ভার নতুন অ্যাকাউন্ট খোলে) */
+    suspend fun signInWithEmailCode(email: String, code: String) {
+        val token = ServerApi.verifyLoginCode(email, code)
+        auth.signInWithCustomToken(token).await()
     }
 
     suspend fun signOut(context: Context) {
@@ -58,9 +37,6 @@ object AuthRepository {
         }
         runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
-        runCatching {
-            CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
-        }
     }
 }
 
@@ -75,6 +51,8 @@ object ProfileRepository {
             phone = snap.getString("phone") ?: "",
             bloodGroup = snap.getString("bloodGroup") ?: "",
             lastDonationMillis = snap.getLong("lastDonationMillis"),
+            birthDateMillis = snap.getLong("birthDateMillis"),
+            weightKg = snap.getLong("weightKg")?.toInt(),
             lat = snap.getDouble("lat"),
             lng = snap.getDouble("lng"),
             placeName = snap.getString("placeName"),
@@ -90,6 +68,8 @@ object ProfileRepository {
             "phone" to profile.phone,
             "bloodGroup" to profile.bloodGroup,
             "lastDonationMillis" to profile.lastDonationMillis,
+            "birthDateMillis" to profile.birthDateMillis,
+            "weightKg" to profile.weightKg,
             "notify" to profile.notify,
             "updatedAt" to FieldValue.serverTimestamp(),
         )

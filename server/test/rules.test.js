@@ -43,7 +43,7 @@ test('বাংলাদেশের তারিখ: রাত ১টা (UTC �
 test('ডোনার বাছাই: গ্রুপ, যোগ্যতা, নিজে বাদ, ধাপে ধাপে দূরত্ব', () => {
   const now = Date.UTC(2026, 9, 15);
   const request = { requesterUid: 'me', patientGroup: 'A+', lat: 24.75, lng: 90.4 };
-  const base = { fcmToken: 't', notify: true, lastDonationMillis: null };
+  const base = { fcmToken: 't', notify: true, lastDonationMillis: null, birthDateMillis: Date.UTC(1995, 0, 1), weightKg: 60 };
   const users = [
     { ...base, uid: 'me', bloodGroup: 'A+', lat: 24.75, lng: 90.4 }, // নিজে
     { ...base, uid: 'near', bloodGroup: 'O-', lat: 24.76, lng: 90.4 }, // ~১ কিমি
@@ -77,6 +77,19 @@ test('আইডি যাচাই', () => {
   assert.ok(!R.isValidId('a/b'));
   assert.ok(!R.isValidId(''));
   assert.ok(!R.isValidId(42));
+});
+
+test('বয়স আর ওজনসহ যোগ্যতা', () => {
+  const now = Date.UTC(2026, 9, 15);
+  const ok = { birthDateMillis: Date.UTC(1995, 0, 1), weightKg: 60, lastDonationMillis: null };
+  assert.ok(R.isEligibleDonor(ok, now));
+  assert.ok(!R.isEligibleDonor({ ...ok, weightKg: 45 }, now));
+  assert.ok(!R.isEligibleDonor({ ...ok, birthDateMillis: Date.UTC(2010, 0, 1) }, now)); // ১৬ বছর
+  assert.ok(!R.isEligibleDonor({ ...ok, birthDateMillis: Date.UTC(1960, 0, 1) }, now)); // ৬৬ বছর
+  assert.ok(!R.isEligibleDonor({ ...ok, birthDateMillis: null }, now)); // জন্ম তারিখ নেই
+  // ১৮তম জন্মদিনের আগের দিন অযোগ্য, জন্মদিনে যোগ্য
+  assert.strictEqual(R.ageYears(Date.UTC(2008, 9, 16), now), 17);
+  assert.strictEqual(R.ageYears(Date.UTC(2008, 9, 15), now), 18);
 });
 
 test('isActive: তারিখের পরের দিন পর্যন্ত খোলা', () => {

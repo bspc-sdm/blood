@@ -21,6 +21,39 @@ object Rules {
     /** একজন ডোনার দিনে সর্বোচ্চ কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে */
     const val MAX_NOTIFICATIONS_PER_DAY = 3
 
+    const val MIN_AGE = 18
+    const val MAX_AGE = 60
+    const val MIN_WEIGHT_KG = 50
+
+    /** জন্ম তারিখ থেকে পূর্ণ বয়স (বাংলাদেশের তারিখ ধরে) */
+    fun ageYears(birthDateMillis: Long?): Int? {
+        if (birthDateMillis == null) return null
+        val utc = TimeZone.getTimeZone("UTC")
+        val b = Calendar.getInstance(utc).apply { timeInMillis = birthDateMillis }
+        val n = Calendar.getInstance(utc).apply { timeInMillis = todayUtcMidnight() }
+        var age = n.get(Calendar.YEAR) - b.get(Calendar.YEAR)
+        val nm = n.get(Calendar.MONTH)
+        val bm = b.get(Calendar.MONTH)
+        if (nm < bm || (nm == bm && n.get(Calendar.DAY_OF_MONTH) < b.get(Calendar.DAY_OF_MONTH))) age--
+        return age
+    }
+
+    /** এখন রক্ত দিতে পারবেন কি না; না পারলে কারণ, পারলে null */
+    fun notEligibleReason(p: Profile): String? {
+        val age = ageYears(p.birthDateMillis)
+        return when {
+            age == null || p.weightKg == null -> "প্রোফাইলে জন্ম তারিখ আর ওজন দিন"
+            age < MIN_AGE -> "রক্ত দিতে বয়স কমপক্ষে $MIN_AGE বছর হতে হয়"
+            age > MAX_AGE -> "$MAX_AGE বছরের বেশি বয়সে রক্তদান সাধারণত করা হয় না"
+            p.weightKg < MIN_WEIGHT_KG -> "রক্ত দিতে ওজন কমপক্ষে $MIN_WEIGHT_KG কেজি হতে হয়"
+            !isEligible(p.lastDonationMillis) ->
+                "আপনি ${formatDate(nextEligibleMillis(p.lastDonationMillis) ?: 0L)} থেকে আবার রক্ত দিতে পারবেন (আর ${daysUntilEligible(p.lastDonationMillis)} দিন)"
+            else -> null
+        }
+    }
+
+    fun isEligibleDonor(p: Profile): Boolean = notEligibleReason(p) == null
+
     val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
 
     fun nextEligibleMillis(lastDonationMillis: Long?): Long? =

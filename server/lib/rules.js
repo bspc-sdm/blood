@@ -32,6 +32,35 @@ function isEligible(lastDonationMillis, now = Date.now()) {
   return now >= lastDonationMillis + ELIGIBILITY_DAYS * DAY_MS;
 }
 
+const MIN_AGE = 18;
+const MAX_AGE = 60;
+const MIN_WEIGHT_KG = 50;
+
+/** জন্ম তারিখ থেকে পূর্ণ বয়স (বছর) */
+function ageYears(birthDateMillis, now = Date.now()) {
+  if (typeof birthDateMillis !== 'number') return null;
+  const b = new Date(birthDateMillis);
+  const n = new Date(now + 6 * 60 * 60 * 1000); // বাংলাদেশের তারিখ
+  let age = n.getUTCFullYear() - b.getUTCFullYear();
+  const beforeBirthday =
+    n.getUTCMonth() < b.getUTCMonth() || (n.getUTCMonth() === b.getUTCMonth() && n.getUTCDate() < b.getUTCDate());
+  if (beforeBirthday) age--;
+  return age;
+}
+
+/** বয়স, ওজন আর শেষ রক্তদানের সময় মিলিয়ে এখন রক্ত দিতে পারবেন কি না */
+function isEligibleDonor(user, now = Date.now()) {
+  const age = ageYears(user.birthDateMillis, now);
+  return (
+    age != null &&
+    age >= MIN_AGE &&
+    age <= MAX_AGE &&
+    typeof user.weightKg === 'number' &&
+    user.weightKg >= MIN_WEIGHT_KG &&
+    isEligible(user.lastDonationMillis, now)
+  );
+}
+
 function isActive(request, now = Date.now()) {
   return request.status === 'open' && (request.neededByMillis || 0) + DAY_MS > now;
 }
@@ -81,7 +110,7 @@ function pickDonors(request, users, now = Date.now()) {
         typeof u.lat === 'number' &&
         typeof u.lng === 'number' &&
         canDonate(u.bloodGroup, request.patientGroup) &&
-        isEligible(u.lastDonationMillis, now),
+        isEligibleDonor(u, now),
     )
     .map((u) => ({ ...u, km: distanceKm(request.lat, request.lng, u.lat, u.lng) }));
 
@@ -126,6 +155,8 @@ module.exports = {
   MAX_RESPONSES_PER_DAY,
   canDonate,
   isEligible,
+  isEligibleDonor,
+  ageYears,
   isActive,
   distanceKm,
   nearDistricts,

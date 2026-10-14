@@ -6,6 +6,10 @@ data class Profile(
     val bloodGroup: String = "",
     /** null মানে কখনো রক্ত দেননি */
     val lastDonationMillis: Long? = null,
+    /** জন্ম তারিখ (UTC মধ্যরাত) — বয়স হিসাবের জন্য */
+    val birthDateMillis: Long? = null,
+    /** ওজন, কেজি */
+    val weightKg: Int? = null,
     /** গোল করা স্থানাঙ্ক (≈১ কিমি) */
     val lat: Double? = null,
     val lng: Double? = null,
@@ -16,6 +20,7 @@ data class Profile(
     val notify: Boolean = true,
 ) {
     val hasLocation: Boolean get() = lat != null && lng != null
+    val isComplete: Boolean get() = bloodGroup.isNotEmpty() && phone.isNotEmpty() && birthDateMillis != null && weightKg != null
 }
 
 data class BloodRequest(

@@ -109,7 +109,7 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
         val p = ProfileRepository.load(uid)
         profile = p
         when {
-            p == null -> resetTo(Screen.EditProfile)
+            p == null || !p.isComplete -> resetTo(Screen.EditProfile)
             !p.hasLocation -> resetTo(Screen.PickLocation)
             else -> resetTo(Screen.Main())
         }
@@ -140,24 +140,19 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
         Screen.Loading -> LoadingBox()
 
         Screen.Login -> LoginScreen(
-            busy = busy,
             errorMsg = errorMsg,
-            onLogin = {
+            onLoggedIn = {
                 scope.launch {
-                    busy = true
                     errorMsg = null
-                    runCatching {
-                        AuthRepository.signInWithGoogle(context)
-                        route()
-                    }.onFailure { errorMsg = "লগইন হয়নি: ${it.message}" }
-                    busy = false
+                    runCatching { route() }
+                        .onFailure { errorMsg = "লোড হয়নি: ${it.message}" }
                 }
             },
         )
 
         Screen.EditProfile -> ProfileScreen(
             existing = profile,
-            googleName = AuthRepository.currentDisplayName,
+            defaultName = null,
             busy = busy,
             errorMsg = errorMsg,
             onSave = { basics ->
@@ -172,6 +167,8 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
                                 phone = basics.phone,
                                 bloodGroup = basics.bloodGroup,
                                 lastDonationMillis = basics.lastDonationMillis,
+                                birthDateMillis = basics.birthDateMillis,
+                                weightKg = basics.weightKg,
                                 notify = basics.notify,
                             )
                             profile = merged
@@ -185,7 +182,7 @@ fun App(openRequestId: String?, openAsRequester: Boolean, onRequestOpened: () ->
                     busy = false
                 }
             },
-            onCancel = if (profile != null && stack.size > 1) {
+            onCancel = if (profile?.isComplete == true && stack.size > 1) {
                 { back() }
             } else {
                 null

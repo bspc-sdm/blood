@@ -29,7 +29,9 @@ module.exports = handler(async (req) => {
     if (!R.canDonate(u.bloodGroup, r.patientGroup)) {
       throw new HttpError(400, `আপনার গ্রুপ (${u.bloodGroup}) এই রোগীকে দেওয়া যায় না`);
     }
-    if (!R.isEligible(u.lastDonationMillis)) throw new HttpError(400, 'আপনি এখনো আবার রক্ত দেওয়ার যোগ্য হননি');
+    if (!R.isEligibleDonor(u)) {
+      throw new HttpError(400, 'আপনি এখন রক্ত দেওয়ার যোগ্য নন (বয়স ১৮–৬০, ওজন কমপক্ষে ৫০ কেজি, আর শেষ রক্তদানের পর ১২০ দিন লাগে)');
+    }
 
     const existing = respSnap.exists ? respSnap.data().status : null;
     if (existing === 'declined') throw new HttpError(403, 'রক্তপ্রার্থী অন্য ডোনার বেছে নিয়েছেন');

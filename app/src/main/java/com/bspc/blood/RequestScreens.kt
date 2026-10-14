@@ -231,6 +231,7 @@ fun RequestDetailScreen(
     var myResponse by remember { mutableStateOf<DonorResponse?>(null) }
     var contact by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmReport by remember { mutableStateOf(false) }
+    var showChecklist by remember { mutableStateOf(false) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -283,7 +284,8 @@ fun RequestDetailScreen(
 
                 val resp = myResponse
                 val compatible = BloodCompat.canDonate(profile.bloodGroup, r.patientGroup)
-                val eligible = Rules.isEligible(profile.lastDonationMillis)
+                val notEligible = Rules.notEligibleReason(profile)
+                val eligible = notEligible == null
                 when {
                     r.requesterUid == uid -> {
                         Text("এটা আপনার নিজের রিকোয়েস্ট।")
@@ -298,13 +300,11 @@ fun RequestDetailScreen(
                         "আপনার গ্রুপ (${profile.bloodGroup}) থেকে ${r.patientGroup} গ্রুপের রোগীকে রক্ত দেওয়া যায় না। পরিচিত কারো সাথে শেয়ার করতে পারেন।"
                     )
 
-                    resp == null && !eligible -> Text(
-                        "আপনি ${Rules.formatDate(Rules.nextEligibleMillis(profile.lastDonationMillis) ?: 0L)} থেকে আবার রক্ত দিতে পারবেন।"
-                    )
+                    resp == null && !eligible -> Text(notEligible ?: "")
 
                     resp == null -> {
                         Button(
-                            onClick = { act { ServerApi.respond(r.id) } },
+                            onClick = { showChecklist = true },
                             enabled = !busy && uid != null,
                             modifier = Modifier.fillMaxWidth(),
                         ) { ButtonContent(busy, "🩸 রক্ত দেব") }
@@ -362,7 +362,7 @@ fun RequestDetailScreen(
                         Text("আপনি এই রিকোয়েস্টে রক্ত দেওয়া বাতিল করেছেন।")
                         if (r.isActive && compatible && eligible) {
                             TextButton(
-                                onClick = { act { ServerApi.respond(r.id) } },
+                                onClick = { showChecklist = true },
                                 enabled = !busy,
                             ) { Text("আবার রাজি হন") }
                         }
@@ -377,6 +377,16 @@ fun RequestDetailScreen(
                 }
             }
         }
+    }
+
+    if (showChecklist) {
+        DonationChecklistDialog(
+            onDismiss = { showChecklist = false },
+            onConfirm = {
+                showChecklist = false
+                act { ServerApi.respond(requestId) }
+            },
+        )
     }
 
     if (confirmReport) {
@@ -556,4 +566,52 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { confirmClose = false }) { Text("না") } },
         )
     }
+}
+
+/**
+ * "রক্ত দেব" চাপার আগে নিজের স্বাস্থ্য যাচাই। উত্তরগুলো কোথাও সেভ হয় না।
+ * চূড়ান্ত যাচাই ব্লাড ব্যাংক করবে।
+ */
+private val DONATION_CHECKLIST = listOf(
+    "আজ আমি সুস্থ বোধ করছি, আর গত ২৪ ঘণ্টায় ভালো ঘুম ও খাওয়া হয়েছে",
+    "গত ৭ দিনে জ্বর, সর্দি-কাশি বা অ্যান্টিবায়োটিক খাইনি",
+    "গত ৬ মাসে বড় অপারেশন, ট্যাটু, কান-নাক ফোঁড়ানো বা রক্ত নেওয়া হয়নি",
+    "আমার হেপাটাইটিস বি/সি, এইচআইভি, ম্যালেরিয়া বা হৃদরোগ নেই",
+    "আমি গর্ভবতী বা শিশুকে বুকের দুধ খাওয়াচ্ছি না (নারীদের জন্য)",
+)
+
+@Composable
+fun DonationChecklistDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    var checked by remember { mutableStateOf(setOf<Int>()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("রক্ত দেওয়ার আগে নিশ্চিত করুন") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                DONATION_CHECKLIST.forEachIndexed { i, item ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = i in checked,
+                            onCheckedChange = { on -> checked = if (on) checked + i else checked - i },
+                        )
+                        Text(item, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Text(
+                    "এর কোনোটা না মিললে এবার রক্ত দেবেন না। চূড়ান্ত পরীক্ষা ব্লাড ব্যাংক করবে।",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = checked.size == DONATION_CHECKLIST.size) {
+                Text("🩸 রক্ত দেব")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("বাতিল") } },
+    )
 }
