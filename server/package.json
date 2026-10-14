@@ -1,0 +1,14 @@
+{
+  "name": "blood-server",
+  "private": true,
+  "description": "রক্তদান অ্যাপের সার্ভার: পুশ নোটিফিকেশন, সাড়ার সীমা, দৈনিক রিমাইন্ডার",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node --test test/rules.test.js"
+  },
+  "dependencies": {
+    "firebase-admin": "13.10.0"
+  }
+}
