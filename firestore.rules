@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// এই ফাইলটা রেকর্ড হিসেবে রাখা। আসল নিয়ম Firebase কনসোলে প্রকাশ করা আছে;
+// এখানে বদলালে কনসোলেও একই নিয়ম প্রকাশ করতে হবে।
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // প্রত্যেক ব্যবহারকারী শুধু নিজের প্রোফাইল পড়তে ও লিখতে পারবে
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

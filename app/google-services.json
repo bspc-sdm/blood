@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "634868254131",
+    "project_id": "blood-3eb28",
+    "storage_bucket": "blood-3eb28.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:634868254131:android:0de2ab04af9182f28bf7c6",
+        "android_client_info": {
+          "package_name": "com.bspc.blood"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "634868254131-jlimpl60kt2rln7mcgadgrcjl31ku7ml.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bspc.blood",
+            "certificate_hash": "970889d45a01cc3f7544085061b37cfc04cbefee"
+          }
+        },
+        {
+          "client_id": "634868254131-g9k405m13p0it6a1bssbbd4m8tf6rbsk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSsc8_CIFPkGJIqUDUVeGLuCZ31yNh5Uk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "634868254131-g9k405m13p0it6a1bssbbd4m8tf6rbsk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
