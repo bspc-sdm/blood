@@ -15,7 +15,7 @@ import java.net.URL
  */
 object ServerApi {
     /** Vercel-এ ডিপ্লয়ের পর পাওয়া ঠিকানা */
-    const val BASE_URL = "https://SERVER_URL_NOT_SET"
+    const val BASE_URL = "https://blood-server-ashy.vercel.app"
 
     /** নতুন রিকোয়েস্টে আশেপাশের ডোনারদের পুশ নোটিফিকেশন পাঠানো। কতজনকে পাঠানো হলো সেটা ফেরত দেয়। */
     suspend fun notifyRequest(requestId: String): Int =
