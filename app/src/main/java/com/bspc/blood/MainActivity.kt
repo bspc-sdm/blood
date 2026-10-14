@@ -34,7 +34,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Notifier.ensureChannel(this)
         CheckWorker.schedule(this)
-        openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
+        // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের রিকোয়েস্ট পড়া হয়
+        if (savedInstanceState == null) {
+            openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
+        }
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = BloodRed)) {
                 Surface(modifier = Modifier.fillMaxSize()) {

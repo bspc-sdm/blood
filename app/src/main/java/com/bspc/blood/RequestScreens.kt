@@ -53,9 +53,11 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
     var note by remember { mutableStateOf("") }
     var neededBy by remember { mutableLongStateOf(Rules.todayUtcMidnight()) }
     var urgent by remember { mutableStateOf(false) }
-    var lat by remember { mutableStateOf(profile.lat) }
-    var lng by remember { mutableStateOf(profile.lng) }
-    var place by remember { mutableStateOf(profile.placeName ?: "") }
+    // প্রাইভেসি: রিকোয়েস্ট সবাই দেখে, তাই বাসার এলাকা আপনা থেকে বসানো হয় না;
+    // রোগী যেখানে আছেন সেই এলাকা বেছে নিতে হবে
+    var lat by remember { mutableStateOf<Double?>(null) }
+    var lng by remember { mutableStateOf<Double?>(null) }
+    var place by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf(false) }
     var showDate by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -108,9 +110,9 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("এলাকা (এখান থেকে আশেপাশের ডোনার খোঁজা হবে)", style = MaterialTheme.typography.labelMedium)
-                    Text(place.ifBlank { "বেছে নেওয়া হয়নি" }, style = MaterialTheme.typography.bodyLarge)
+                    Text(place.ifBlank { "বেছে নেওয়া হয়নি — \"বেছে নিন\" চাপুন" }, style = MaterialTheme.typography.bodyLarge)
                 }
-                TextButton(onClick = { picking = true }) { Text("বদলান") }
+                TextButton(onClick = { picking = true }) { Text(if (place.isBlank()) "বেছে নিন" else "বদলান") }
             }
         }
 
@@ -448,9 +450,15 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
             r == null -> ErrorText(errorMsg ?: "রিকোয়েস্টটা পাওয়া যায়নি")
             else -> {
                 RequestInfo(r, null)
+                if (!r.isActive) {
+                    Text(
+                        "যে ডোনাররা রক্ত দিয়েছেন, তাদের অ্যাপে \"রক্ত দিয়েছি\" চাপতে বলুন, যাতে ১২০ দিন তাদের কাছে নতুন রিকোয়েস্ট না যায়।",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 if (r.isActive) {
                     Text(
-                        "আশেপাশের যোগ্য ডোনাররা সাধারণত ১৫–৩০ মিনিটের মধ্যে নোটিফিকেশন পান। কেউ রাজি হলে নিচে তার নাম ও নম্বর দেখাবে।",
+                        "আশেপাশের যোগ্য ডোনাররা সাধারণত ৩০–৬০ মিনিটের মধ্যে নোটিফিকেশন পান। কেউ রাজি হলে নিচে তার নাম ও নম্বর দেখাবে।",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

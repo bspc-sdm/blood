@@ -332,7 +332,7 @@ fun ProfileTab(
                 Column(Modifier.weight(1f)) {
                     Text("নোটিফিকেশন", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "আশেপাশে আপনার গ্রুপের রক্ত দরকার হলে জানাবে (দিনে সর্বোচ্চ ${Rules.MAX_NOTIFICATIONS_PER_DAY}টা)",
+                        "আশেপাশে আপনার গ্রুপের রক্ত দরকার হলে ৩০–৬০ মিনিটের মধ্যে জানাবে (দিনে সর্বোচ্চ ${Rules.MAX_NOTIFICATIONS_PER_DAY}টা)",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

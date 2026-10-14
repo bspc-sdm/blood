@@ -8,8 +8,6 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -132,6 +130,8 @@ object RequestRepository {
         note = s.getString("note") ?: "",
         status = s.getString("status") ?: "open",
         createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
+        serverCreatedMillis = s.getTimestamp("createdAt")?.toDate()?.time
+            ?: (s.getLong("createdAtMillis") ?: 0L),
     )
 
     private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(
@@ -190,7 +190,8 @@ object RequestRepository {
     }
 
     /**
-     * আশেপাশের খোলা রিকোয়েস্ট, ধাপে ধাপে দূরত্ব বাড়িয়ে (৫ → ১০ → ২৫ কিমি)।
+     * আশেপাশের খোলা রিকোয়েস্ট। একটাই কোয়েরি: কাছের জেলাগুলোর খোলা রিকোয়েস্ট আনা হয়,
+     * তারপর ফোনেই দূরত্ব মেপে ধাপে ধাপে বাছাই (৫ → ১০ → ২৫ কিমি)।
      * donorGroup দিলে শুধু সেই গ্রুপ যাদের দিতে পারে তাদের রিকোয়েস্ট ফেরত দেয়।
      */
     suspend fun nearbyOpen(
@@ -199,29 +200,31 @@ object RequestRepository {
         donorGroup: String?,
         excludeUid: String?,
     ): List<Pair<BloodRequest, Double>> {
+        val all = requests
+            .whereEqualTo("status", "open")
+            .whereIn("placeName", Districts.near(lat, lng))
+            .get().await()
+            .documents.map(::fromSnap)
+
+        // তারিখ পার হয়ে যাওয়া রিকোয়েস্ট বন্ধ করে দেওয়া, যাতে পরের বার আর পড়তে না হয়
+        all.filter { !it.isActive }.forEach { requests.document(it.id).update("status", "closed") }
+
+        val candidates = all
+            .filter {
+                it.isActive &&
+                    it.requesterUid != excludeUid &&
+                    (donorGroup == null || BloodCompat.canDonate(donorGroup, it.patientGroup))
+            }
+            .map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
+
         var result = emptyList<Pair<BloodRequest, Double>>()
         for (radius in Geo.RADII_KM) {
-            result = queryRadius(lat, lng, radius).filter { (r, _) ->
-                r.isActive &&
-                    r.requesterUid != excludeUid &&
-                    (donorGroup == null || BloodCompat.canDonate(donorGroup, r.patientGroup))
-            }
+            result = candidates.filter { it.second <= radius }
             if (result.size >= Geo.ENOUGH_RESULTS) break
         }
         return result.sortedWith(
             compareByDescending<Pair<BloodRequest, Double>> { it.first.urgent }.thenBy { it.second }
         )
-    }
-
-    private suspend fun queryRadius(lat: Double, lng: Double, radiusKm: Double): List<Pair<BloodRequest, Double>> {
-        val bounds = GeoFireUtils.getGeoHashQueryBounds(GeoLocation(lat, lng), radiusKm * 1000)
-        val docs = bounds.flatMap { b ->
-            requests.orderBy("geohash").startAt(b.startHash).endAt(b.endHash).get().await().documents
-        }
-        return docs.distinctBy { it.id }
-            .map(::fromSnap)
-            .map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
-            .filter { it.second <= radiusKm }
     }
 
     // ---- ডোনারের সাড়া ----

@@ -74,6 +74,18 @@ object Districts {
     District("হবিগঞ্জ", "Habiganj", 24.3749, 91.4155),
     )
 
+    /**
+     * কাছের জেলাগুলোর নাম (কেন্দ্র ৭০ কিমির মধ্যে, সর্বোচ্চ ৩০টা)।
+     * জেলা বড় হয়, তাই ২৫ কিমির মধ্যের রিকোয়েস্ট পাশের জেলায় পড়তে পারে।
+     */
+    fun near(lat: Double, lng: Double): List<String> =
+        ALL.map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
+            .filter { it.second <= 70.0 }
+            .sortedBy { it.second }
+            .take(30)
+            .map { it.first.bn }
+            .ifEmpty { listOf(nearest(lat, lng).bn) }
+
     fun nearest(lat: Double, lng: Double): District =
         ALL.minBy { Geo.distanceKm(lat, lng, it.lat, it.lng) }
 }

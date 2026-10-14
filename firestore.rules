@@ -7,6 +7,9 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function requestDoc(rid) { return get(/databases/$(database)/documents/requests/$(rid)); }
+    function onlyStatusChanges() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
 
     // প্রোফাইল (ফোন নম্বর, লোকেশন): শুধু নিজে দেখতে ও বদলাতে পারবে
     match /users/{uid} {
@@ -19,33 +22,46 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.requesterUid == me()
         && request.resource.data.status == 'open';
-      // শুধু রক্তপ্রার্থী নিজে, শুধু status বদলাতে পারবে (বন্ধ করা)
+      // শুধু বন্ধ করা যায়: রক্তপ্রার্থী নিজে যেকোনো সময়, অন্য যে কেউ তারিখ পার হয়ে গেলে
       allow update: if signedIn()
-        && resource.data.requesterUid == me()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        && onlyStatusChanges()
+        && request.resource.data.status == 'closed'
+        && (resource.data.requesterUid == me()
+            || resource.data.neededByMillis + 86400000 < request.time.toMillis());
       allow delete: if false;
 
-      // রক্তপ্রার্থীর ফোন: শুধু রক্তপ্রার্থী নিজে আর যে ডোনার "রক্ত দেব" চেপেছে
+      // রক্তপ্রার্থীর ফোন: শুধু রক্তপ্রার্থী নিজে আর যে ডোনার এখন রাজি আছে বা রক্ত দিয়েছে
       match /private/{doc} {
         allow create: if signedIn()
           && getAfter(/databases/$(database)/documents/requests/$(rid)).data.requesterUid == me();
         allow read: if signedIn() && (
           requestDoc(rid).data.requesterUid == me()
-          || exists(/databases/$(database)/documents/requests/$(rid)/responses/$(me())));
+          || get(/databases/$(database)/documents/requests/$(rid)/responses/$(me())).data.status
+               in ['accepted', 'donated']);
         allow update, delete: if false;
       }
 
       // ডোনারের সাড়া (ডোনারের নাম ও ফোন সহ): ডোনার নিজে আর রক্তপ্রার্থী দেখতে পারবে
       match /responses/{donorUid} {
         allow read: if signedIn() && (me() == donorUid || requestDoc(rid).data.requesterUid == me());
+        // শুধু খোলা রিকোয়েস্টে, নিজের নামে, "রাজি" হিসেবে
         allow create: if signedIn()
           && me() == donorUid
           && request.resource.data.donorUid == donorUid
+          && request.resource.data.status == 'accepted'
+          && requestDoc(rid).data.status == 'open'
           && requestDoc(rid).data.requesterUid != me();
         allow update: if signedIn() && (
-          me() == donorUid
+          // ডোনার: বাদ পড়ে গেলে আর বদলাতে পারবে না; আবার রাজি হতে হলে রিকোয়েস্ট খোলা থাকতে হবে
+          (me() == donorUid
+            && resource.data.status != 'declined'
+            && request.resource.data.donorUid == donorUid
+            && request.resource.data.status in ['accepted', 'cancelled', 'donated']
+            && (request.resource.data.status != 'accepted' || requestDoc(rid).data.status == 'open'))
+          // রক্তপ্রার্থী: শুধু কোনো ডোনারকে বাদ দিতে পারবে
           || (requestDoc(rid).data.requesterUid == me()
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
+              && onlyStatusChanges()
+              && request.resource.data.status == 'declined'));
         allow delete: if false;
       }
     }

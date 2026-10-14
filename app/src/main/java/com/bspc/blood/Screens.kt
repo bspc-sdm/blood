@@ -148,7 +148,7 @@ fun ProfileScreen(
                     bloodGroup.isEmpty() -> "রক্তের গ্রুপ বেছে নিন"
                     !neverDonated && lastDonation == null ->
                         "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন"
-                    (lastDonation ?: 0L) > System.currentTimeMillis() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
+                    (lastDonation ?: 0L) > Rules.todayUtcMidnight() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
                     else -> null
                 }
                 if (formError == null && cleanPhone != null) {

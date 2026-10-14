@@ -89,7 +89,7 @@ object Notifier {
 }
 
 /**
- * সার্ভার ছাড়া নোটিফিকেশন: প্রতি ১৫ মিনিটে (ফোন অনুমতি দিলে) ফোন নিজেই
+ * সার্ভার ছাড়া নোটিফিকেশন: প্রতি ৩০ মিনিটে (ফোন অনুমতি দিলে) ফোন নিজেই
  * আশেপাশের নতুন রিকোয়েস্ট খোঁজে, আর আবার রক্ত দেওয়ার সময় হলে জানায়।
  * পরে Firebase Blaze প্ল্যান চালু হলে Cloud Functions + FCM দিয়ে তাৎক্ষণিক করা যাবে।
  */
@@ -117,21 +117,25 @@ class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         // আবার যোগ্য হওয়ার রিমাইন্ডার (প্রতিটা রক্তদানের পর একবার)
         val last = profile.lastDonationMillis
         if (last != null && eligible && prefs.getLong("eligibleNotifiedFor", -1L) != last) {
-            Notifier.showEligible(ctx, nearby.size)
+            // অনেক আগেই যোগ্য হয়ে থাকলে (যেমন নতুন ইনস্টল) চুপচাপ মনে রাখা হয়
+            val next = Rules.nextEligibleMillis(last) ?: now
+            if (now - next < 3 * DAY_MS) Notifier.showEligible(ctx, nearby.size)
             prefs.edit().putLong("eligibleNotifiedFor", last).apply()
         }
 
         // নতুন রিকোয়েস্ট, দিনে সর্বোচ্চ ৩টা
-        val lastSeen = prefs.getLong("lastSeenMillis", now - 6 * 60 * 60 * 1000L)
+        // সার্ভারের সময় দিয়ে তুলনা, যাতে কারো ফোনের ঘড়ি ভুল থাকলেও রিকোয়েস্ট বাদ না পড়ে
+        val lastSeen = prefs.getLong("lastSeenServerMillis", now - 6 * 60 * 60 * 1000L)
         val today = Rules.dayKey(now)
         var count = if (prefs.getString("dayKey", "") == today) prefs.getInt("dayCount", 0) else 0
-        for ((r, distance) in nearby.filter { it.first.createdAtMillis > lastSeen }) {
+        for ((r, distance) in nearby.filter { it.first.serverCreatedMillis > lastSeen }) {
             if (count >= Rules.MAX_NOTIFICATIONS_PER_DAY) break
             Notifier.showRequest(ctx, r, distance)
             count++
         }
+        val newestSeen = maxOf(lastSeen, nearby.maxOfOrNull { it.first.serverCreatedMillis } ?: lastSeen)
         prefs.edit()
-            .putLong("lastSeenMillis", now)
+            .putLong("lastSeenServerMillis", newestSeen)
             .putString("dayKey", today)
             .putInt("dayCount", count)
             .apply()
@@ -140,14 +144,14 @@ class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
 
     companion object {
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<CheckWorker>(15, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<CheckWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
                 )
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "check_requests",
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
         }

@@ -34,6 +34,8 @@ data class BloodRequest(
     /** "open" বা "closed" */
     val status: String = "open",
     val createdAtMillis: Long = 0,
+    /** সার্ভারের সময় অনুযায়ী তৈরির মুহূর্ত (ফোনের ঘড়ি ভুল থাকলেও ঠিক থাকে) */
+    val serverCreatedMillis: Long = 0,
 ) {
     /** খোলা আছে আর দরকারের তারিখ পার হয়নি */
     val isActive: Boolean
