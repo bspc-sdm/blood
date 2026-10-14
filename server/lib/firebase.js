@@ -83,7 +83,7 @@ async function sendPush(items) {
           r.error?.code,
         )
       ) {
-        cleanup.update(db.doc(`users/${chunk[idx].uid}`), { fcmToken: FieldValue.delete() });
+        cleanup.set(db.doc(`users/${chunk[idx].uid}`), { fcmToken: FieldValue.delete() }, { merge: true });
         dirty = true;
       }
     });

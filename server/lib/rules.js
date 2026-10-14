@@ -5,6 +5,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ELIGIBILITY_DAYS = 120;
 const MAX_PUSH_PER_DAY = 3; // একজন ডোনার দিনে কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে
 const MAX_RESPONSES_PER_DAY = 5; // একজন দিনে কয়টা রিকোয়েস্টে "রক্ত দেব" চাপতে পারবে
+const MAX_REQUESTS_PER_DAY = 3; // একজন দিনে কয়টা রিকোয়েস্টের নোটিফিকেশন পাঠাতে পারবে
+const MAX_OPEN_REQUESTS = 2;
 const RADII_KM = [5, 10, 25];
 const ENOUGH_DONORS = 10; // এতজন পেলে আর দূরে খোঁজা হবে না
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -91,6 +93,24 @@ function pickDonors(request, users, now = Date.now()) {
   return chosen.sort((a, b) => a.km - b.km);
 }
 
+const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function isValidId(id) {
+  return typeof id === 'string' && ID_RE.test(id);
+}
+
+/** রিকোয়েস্টের তথ্য ঠিক আছে কি না (ভুয়া বা বিকৃত তথ্য দিয়ে পুশ পাঠানো আটকাতে)। সমস্যা থাকলে বার্তা, নইলে null */
+function validateRequest(r, now = Date.now()) {
+  const districtNames = DISTRICTS.map((d) => d.bn);
+  if (!BLOOD_GROUPS.includes(r.patientGroup)) return 'রক্তের গ্রুপ ঠিক নেই';
+  if (!Number.isInteger(r.bags) || r.bags < 1 || r.bags > 10) return 'ব্যাগের সংখ্যা ঠিক নেই';
+  if (typeof r.hospital !== 'string' || !r.hospital.trim() || r.hospital.length > 120) return 'হাসপাতালের নাম ঠিক নেই';
+  if (!districtNames.includes(r.placeName)) return 'এলাকা ঠিক নেই';
+  if (typeof r.lat !== 'number' || r.lat < 20.5 || r.lat > 26.7) return 'লোকেশন ঠিক নেই';
+  if (typeof r.lng !== 'number' || r.lng < 88 || r.lng > 92.7) return 'লোকেশন ঠিক নেই';
+  if (typeof r.neededByMillis !== 'number' || r.neededByMillis > now + 31 * DAY_MS) return 'তারিখ ঠিক নেই';
+  return null;
+}
+
 function formatKm(km) {
   return km < 1 ? '১ কিমির কম দূরে' : `প্রায় ${Math.round(km).toLocaleString('bn-BD')} কিমি দূরে`;
 }
@@ -98,6 +118,10 @@ function formatKm(km) {
 module.exports = {
   DAY_MS,
   ELIGIBILITY_DAYS,
+  MAX_REQUESTS_PER_DAY,
+  MAX_OPEN_REQUESTS,
+  isValidId,
+  validateRequest,
   MAX_PUSH_PER_DAY,
   MAX_RESPONSES_PER_DAY,
   canDonate,

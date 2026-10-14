@@ -5,6 +5,7 @@ module.exports = async (req, res) => {
     await db.collection('serverState').limit(1).get();
     res.status(200).json({ ok: true, firebase: true });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    console.error(e);
+    res.status(500).json({ ok: false });
   }
 };

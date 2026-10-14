@@ -59,6 +59,26 @@ test('ডোনার বাছাই: গ্রুপ, যোগ্যতা, �
   assert.deepStrictEqual(picked, ['near', 'far20']);
 });
 
+test('রিকোয়েস্ট যাচাই: ঠিক তথ্য পাস, ভুল তথ্য আটকায়', () => {
+  const now = Date.UTC(2026, 9, 15);
+  const mym = DISTRICTS.find((d) => d.en === 'Mymensingh');
+  const good = { patientGroup: 'A+', bags: 2, hospital: 'মমেক', placeName: mym.bn, lat: 24.75, lng: 90.4, neededByMillis: now };
+  assert.strictEqual(R.validateRequest(good, now), null);
+  assert.ok(R.validateRequest({ ...good, patientGroup: 'Z+' }, now));
+  assert.ok(R.validateRequest({ ...good, bags: 50 }, now));
+  assert.ok(R.validateRequest({ ...good, placeName: 'লন্ডন' }, now));
+  assert.ok(R.validateRequest({ ...good, lat: 51.5 }, now));
+  assert.ok(R.validateRequest({ ...good, neededByMillis: now + 90 * DAY }, now));
+  assert.ok(R.validateRequest({ ...good, hospital: 'x'.repeat(200) }, now));
+});
+
+test('আইডি যাচাই', () => {
+  assert.ok(R.isValidId('abcDEF_123-x'));
+  assert.ok(!R.isValidId('a/b'));
+  assert.ok(!R.isValidId(''));
+  assert.ok(!R.isValidId(42));
+});
+
 test('isActive: তারিখের পরের দিন পর্যন্ত খোলা', () => {
   const needed = Date.UTC(2026, 9, 15);
   assert.ok(R.isActive({ status: 'open', neededByMillis: needed }, needed + 23 * 3600e3));

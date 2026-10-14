@@ -7,6 +7,19 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function requestDoc(rid) { return get(/databases/$(database)/documents/requests/$(rid)); }
+    // রিকোয়েস্টের তথ্য ঠিক আছে কি না (সার্ভারের validateRequest-এর মতো)
+    function validRequest(d) {
+      return d.patientGroup in ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
+        && d.bags is int && d.bags >= 1 && d.bags <= 10
+        && d.hospital is string && d.hospital.size() > 0 && d.hospital.size() <= 120
+        && d.placeName is string && d.placeName.size() <= 40
+        && d.requesterName is string && d.requesterName.size() <= 80
+        && d.note is string && d.note.size() <= 300
+        && d.lat is number && d.lat >= 20.5 && d.lat <= 26.7
+        && d.lng is number && d.lng >= 88 && d.lng <= 92.7
+        && d.neededByMillis is int
+        && d.urgent is bool;
+    }
     function onlyStatusChanges() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
@@ -22,7 +35,8 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.requesterUid == me()
         && request.resource.data.status == 'open'
-        && !request.resource.data.keys().hasAny(['notifiedAt', 'notifiedCount']);
+        && !request.resource.data.keys().hasAny(['notifiedAt', 'notifiedCount', 'notifyingUntil'])
+        && validRequest(request.resource.data);
       // শুধু বন্ধ করা যায়: রক্তপ্রার্থী নিজে যেকোনো সময়, অন্য যে কেউ তারিখ পার হয়ে গেলে
       allow update: if signedIn()
         && onlyStatusChanges()
@@ -37,14 +51,19 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/requests/$(rid)).data.requesterUid == me();
         allow read: if signedIn() && (
           requestDoc(rid).data.requesterUid == me()
-          || get(/databases/$(database)/documents/requests/$(rid)/responses/$(me())).data.status
-               in ['accepted', 'donated']);
+          || (requestDoc(rid).data.status == 'open'
+              && get(/databases/$(database)/documents/requests/$(rid)/responses/$(me())).data.status
+                   in ['accepted', 'donated']));
         allow update, delete: if false;
       }
 
       // ডোনারের সাড়া (ডোনারের নাম ও ফোন সহ): ডোনার নিজে আর রক্তপ্রার্থী দেখতে পারবে
       match /responses/{donorUid} {
-        allow read: if signedIn() && (me() == donorUid || requestDoc(rid).data.requesterUid == me());
+        // রক্তপ্রার্থী শুধু রাজি থাকা বা রক্ত দেওয়া ডোনারদের দেখতে পারবে (বাতিল/বাদ পড়াদের নয়)
+        allow read: if signedIn() && (
+          me() == donorUid
+          || (requestDoc(rid).data.requesterUid == me()
+              && resource.data.status in ['accepted', 'donated']));
         // "রক্ত দেব" শুধু সার্ভারের মাধ্যমে (দৈনিক সীমা আর যোগ্যতা সার্ভার যাচাই করে)
         allow create: if false;
         allow update: if signedIn() && (
@@ -55,6 +74,7 @@ service cloud.firestore {
             && request.resource.data.status in ['cancelled', 'donated'])
           // রক্তপ্রার্থী: শুধু কোনো ডোনারকে বাদ দিতে পারবে
           || (requestDoc(rid).data.requesterUid == me()
+              && resource.data.status == 'accepted'
               && onlyStatusChanges()
               && request.resource.data.status == 'declined'));
         allow delete: if false;

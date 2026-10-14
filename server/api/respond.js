@@ -5,8 +5,8 @@ const R = require('../lib/rules');
 
 module.exports = handler(async (req) => {
   const uid = await verifyUser(req);
-  const requestId = String(req.body?.requestId || '');
-  if (!requestId) throw new HttpError(400, 'requestId দরকার');
+  const requestId = req.body?.requestId;
+  if (!R.isValidId(requestId)) throw new HttpError(400, 'requestId ঠিক নেই');
 
   const requestRef = db.doc(`requests/${requestId}`);
   const responseRef = db.doc(`requests/${requestId}/responses/${uid}`);

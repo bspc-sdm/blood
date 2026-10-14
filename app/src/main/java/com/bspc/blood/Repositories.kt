@@ -18,6 +18,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
 
 object AuthRepository {
@@ -46,6 +47,15 @@ object AuthRepository {
     }
 
     suspend fun signOut(context: Context) {
+        // লগআউটের পর এই ফোনে আর এই অ্যাকাউন্টের নোটিফিকেশন যেন না আসে
+        val uid = currentUid
+        if (uid != null) {
+            runCatching {
+                FirebaseFirestore.getInstance().collection("users").document(uid)
+                    .set(mapOf("fcmToken" to FieldValue.delete()), SetOptions.merge()).await()
+            }
+        }
+        runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
         runCatching {
             CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
@@ -156,17 +166,17 @@ object RequestRepository {
         val lng = Geo.round(r.lng)
         val data = hashMapOf<String, Any?>(
             "requesterUid" to r.requesterUid,
-            "requesterName" to r.requesterName,
+            "requesterName" to r.requesterName.take(80),
             "patientGroup" to r.patientGroup,
             "bags" to r.bags,
-            "hospital" to r.hospital,
+            "hospital" to r.hospital.take(120),
             "placeName" to r.placeName,
             "lat" to lat,
             "lng" to lng,
             "geohash" to Geo.hash(lat, lng),
             "neededByMillis" to r.neededByMillis,
             "urgent" to r.urgent,
-            "note" to r.note,
+            "note" to r.note.take(300),
             "status" to "open",
             "createdAtMillis" to System.currentTimeMillis(),
             "createdAt" to FieldValue.serverTimestamp(),
@@ -175,7 +185,7 @@ object RequestRepository {
         batch.set(doc, data)
         batch.set(
             doc.collection("private").document("contact"),
-            mapOf("phone" to requesterPhone, "name" to r.requesterName),
+            mapOf("phone" to requesterPhone, "name" to r.requesterName.take(80)),
         )
         batch.commit().await()
         return doc.id
@@ -245,8 +255,11 @@ object RequestRepository {
             .update("status", status).await()
     }
 
+    /** শুধু রাজি থাকা বা রক্ত দেওয়া ডোনার (নিয়ম অনুযায়ী বাকিদের নম্বর রক্তপ্রার্থী দেখতে পারে না) */
     suspend fun responses(requestId: String): List<DonorResponse> =
-        requests.document(requestId).collection("responses").get().await()
+        requests.document(requestId).collection("responses")
+            .whereIn("status", listOf("accepted", "donated"))
+            .get().await()
             .documents.map(::responseFromSnap)
             .sortedBy { it.createdAtMillis }
 
