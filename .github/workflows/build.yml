@@ -5,6 +5,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# "latest" রিলিজে APK রাখার জন্য লেখার অনুমতি
+permissions:
+  contents: write
+
+# একসাথে দুটো বিল্ড যেন একই রিলিজ নিয়ে টানাটানি না করে
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -27,3 +36,17 @@ jobs:
         with:
           name: blood-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      # সরাসরি ডাউনলোডের স্থায়ী লিংক (zip ছাড়া):
+      # https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk
+      - name: Publish APK to "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest roktodan.apk \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "সর্বশেষ টেস্ট ভার্সন" \
+            --notes "স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড করে ইনস্টল করুন।"
