@@ -5,9 +5,12 @@ const nodemailer = require('nodemailer');
 const CODE_TTL_MS = 10 * 60 * 1000; // কোড ১০ মিনিট চলবে
 const MAX_ATTEMPTS = 5; // একটা কোডে সর্বোচ্চ ৫ বার ভুল চেষ্টা
 const RESEND_GAP_MS = 60 * 1000; // আবার কোড চাইতে কমপক্ষে ১ মিনিট
-const MAX_SENDS_PER_DAY = 8; // একটা ইমেইলে দিনে সর্বোচ্চ ৮টা কোড
+const MAX_SENDS_PER_DAY = 15; // একটা ইমেইলে দিনে সর্বোচ্চ ১৫টা কোড
+const MAX_FAILS_PER_DAY = 10; // একটা ইমেইলে দিনে মোট ১০ বার ভুল কোড (অনুমান করে ঢোকা আটকাতে)
+const MAX_LIVE_CODES = 3; // একসাথে সর্বোচ্চ ৩টা চালু কোড (কেউ বারবার কোড চেয়ে আসল কোড বাতিল করতে না পারে)
 
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,24}$/;
+// শুধু সাধারণ ইংরেজি অক্ষরের ইমেইল ঠিকানা
+const EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
 
 function normalizeEmail(raw) {
   const email = String(raw || '').trim().toLowerCase();
@@ -27,10 +30,31 @@ function newCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 
-/** কোডের হ্যাশ (সাথে গোপন লবণ, যাতে ডাটাবেস দেখে কোড বের করা না যায়) */
+/** কোডের হ্যাশ: Firebase-এর গোপন key থেকে বানানো চাবি দিয়ে HMAC, যাতে ডাটাবেস দেখে কোড বের করা না যায় */
+let hmacKey;
+function codeKey() {
+  if (!hmacKey) {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT || '';
+    const text = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+    let secret = '';
+    try {
+      secret = JSON.parse(text).private_key || '';
+    } catch {
+      secret = '';
+    }
+    if (!secret) throw new Error('কোড হ্যাশ করার চাবি পাওয়া যায়নি');
+    hmacKey = crypto.createHash('sha256').update(`email-code-v1:${secret}`).digest();
+  }
+  return hmacKey;
+}
 function hashCode(email, code) {
-  const pepper = process.env.CRON_SECRET || '';
-  return sha256(`${pepper}:${email}:${code}`);
+  return crypto.createHmac('sha256', codeKey()).update(`${email}:${code}`).digest('hex');
+}
+
+/** IP-ভিত্তিক সীমার জন্য চাবি: IPv6 হলে প্রথম ৪ অংশ (একই ব্যবহারকারীর অনেক ঠিকানা থাকে) */
+function ipKey(ip) {
+  if (ip.includes(':')) return ip.split(':').slice(0, 4).join(':');
+  return ip;
 }
 
 function codesMatch(a, b) {
@@ -69,7 +93,10 @@ module.exports = {
   MAX_ATTEMPTS,
   RESEND_GAP_MS,
   MAX_SENDS_PER_DAY,
+  MAX_FAILS_PER_DAY,
+  MAX_LIVE_CODES,
   normalizeEmail,
+  ipKey,
   docIdFor,
   newCode,
   hashCode,

@@ -1,17 +1,36 @@
 // লগইন: ইমেইলে ৬ সংখ্যার কোড পাঠানো (লগইন ছাড়াই ডাকা যায়, তাই কড়া সীমা)
-const { db, HttpError, handler } = require('../../lib/firebase');
+const { admin, db, HttpError, handler } = require('../../lib/firebase');
 const E = require('../../lib/email-code');
 const R = require('../../lib/rules');
+
+// দৈনিক মোট সীমা: আগে থেকে অ্যাকাউন্ট আছে এমন ইমেইল আর নতুন ইমেইল আলাদা,
+// যাতে কেউ বানানো ঠিকানায় কোড চেয়ে সীমা শেষ করলেও পুরোনো ব্যবহারকারীরা লগইন করতে পারেন
+// (আর অস্তিত্বহীন ঠিকানায় বেশি ইমেইল ফেরত এসে Gmail অ্যাকাউন্ট ঝুঁকিতে না পড়ে)
+const DAILY_CAP_EXISTING = 300;
+const DAILY_CAP_NEW = 120;
+const DAILY_CAP_PER_IP = 50;
+
+async function accountExists(email) {
+  try {
+    await admin.auth().getUserByEmail(email);
+    return true;
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') return false;
+    throw e;
+  }
+}
 
 module.exports = handler(async (req) => {
   const email = E.normalizeEmail(req.body?.email);
   if (!email) throw new HttpError(400, 'সঠিক ইমেইল দিন');
 
+  const exists = await accountExists(email);
   const ref = db.doc(`emailCodes/${E.docIdFor(email)}`);
-  // একই ইন্টারনেট ঠিকানা থেকে অনেক ইমেইলে কোড চাওয়া আটকানো, আর মোট দৈনিক সীমা (Gmail দিনে ~৫০০)
+  // Vercel x-forwarded-for নিজেই বসায়, তাই এটা বিশ্বাসযোগ্য
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-  const ipRef = db.doc(`serverState/ip_${E.docIdFor(ip).slice(0, 40)}`);
-  const globalRef = db.doc('serverState/_emailGlobal');
+  const ipRef = db.doc(`serverState/ip_${E.docIdFor(E.ipKey(ip)).slice(0, 40)}`);
+  const globalRef = db.doc(exists ? 'serverState/_emailGlobalExisting' : 'serverState/_emailGlobalNew');
+  const globalCap = exists ? DAILY_CAP_EXISTING : DAILY_CAP_NEW;
   const now = Date.now();
   const day = R.dhakaDayKey(now);
   const code = E.newCode();
@@ -21,8 +40,8 @@ module.exports = handler(async (req) => {
     const d = snap.exists ? snap.data() : {};
     const ipToday = ipSnap.exists && ipSnap.get('day') === day ? ipSnap.get('count') || 0 : 0;
     const globalToday = globalSnap.exists && globalSnap.get('day') === day ? globalSnap.get('count') || 0 : 0;
-    if (ipToday >= 20) throw new HttpError(429, 'আজ এখান থেকে অনেকবার কোড চাওয়া হয়েছে। কাল আবার চেষ্টা করুন।');
-    if (globalToday >= 450) throw new HttpError(503, 'আজকের মতো কোড পাঠানোর সীমা শেষ। কাল আবার চেষ্টা করুন।');
+    if (ipToday >= DAILY_CAP_PER_IP) throw new HttpError(429, 'আজ এখান থেকে অনেকবার কোড চাওয়া হয়েছে। কাল আবার চেষ্টা করুন।');
+    if (globalToday >= globalCap) throw new HttpError(503, 'আজকের মতো কোড পাঠানোর সীমা শেষ। কাল আবার চেষ্টা করুন।');
     if (d.lastSentAt && now - d.lastSentAt < E.RESEND_GAP_MS) {
       throw new HttpError(429, 'একটু আগেই কোড পাঠানো হয়েছে। ১ মিনিট পর আবার চেষ্টা করুন।');
     }
@@ -30,16 +49,16 @@ module.exports = handler(async (req) => {
     if (sentToday >= E.MAX_SENDS_PER_DAY) {
       throw new HttpError(429, 'আজ এই ইমেইলে অনেকবার কোড চাওয়া হয়েছে। কাল আবার চেষ্টা করুন।');
     }
+    // আগের চালু কোডগুলো রেখে দেওয়া হয় (সর্বোচ্চ ৩টা), নতুনটা যোগ হয়
+    const live = (Array.isArray(d.codes) ? d.codes : []).filter((c) => c && c.exp > now);
+    const codes = [...live, { h: E.hashCode(email, code), exp: now + E.CODE_TTL_MS }].slice(-E.MAX_LIVE_CODES);
     t.set(ipRef, { day, count: ipToday + 1 });
     t.set(globalRef, { day, count: globalToday + 1 });
-    t.set(ref, {
-      codeHash: E.hashCode(email, code),
-      expiresAt: now + E.CODE_TTL_MS,
-      attempts: 0,
-      lastSentAt: now,
-      sendDay: day,
-      sendCount: sentToday + 1,
-    });
+    t.set(
+      ref,
+      { codes, lastSentAt: now, sendDay: day, sendCount: sentToday + 1 },
+      { merge: true },
+    );
   });
 
   try {
