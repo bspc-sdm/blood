@@ -32,12 +32,12 @@ function isOwner(decoded) {
   return !!decoded.email_verified && adminEmails().includes(email);
 }
 
-// অ্যাডমিন তালিকা এক মিনিট মনে রাখা হয়, যাতে প্রতিটা অনুরোধে ডাটাবেস পড়তে না হয়
+// অ্যাডমিন তালিকা একটা ডকে (config/admins.emails), ১০ মিনিট মনে রাখা হয় — যাতে প্রতিটা অনুরোধে ডাটাবেস পড়তে না হয়
 let cache = { at: 0, set: new Set() };
 async function extraAdmins() {
-  if (Date.now() - cache.at < 60 * 1000) return cache.set;
-  const snap = await db.collection('admins').limit(50).get();
-  cache = { at: Date.now(), set: new Set(snap.docs.map((d) => d.id)) };
+  if (Date.now() - cache.at < 10 * 60 * 1000) return cache.set;
+  const s = await db.doc('config/admins').get();
+  cache = { at: Date.now(), set: new Set((s.exists && s.get('emails')) || []) };
   return cache.set;
 }
 function clearCache() {

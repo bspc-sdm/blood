@@ -32,7 +32,7 @@ function provider(d) {
     specialty: x.specialty || (x.specialties || []).map((s) => s.replace(/_/g, ' ')).join(', '),
     chamber: first.hospitalName || '',
     district: first.district || '',
-    schedule: first.schedule || '',
+    schedule: K.scheduleText(first),
     fee: first.fee || '',
     active: K.isListed(x) && K.takesAppointments(x),
   };
@@ -135,6 +135,10 @@ module.exports = {
     }
     const b = req.body || {};
     if (!Array.isArray(b.chambers)) return legacySave(req, user, badge);
+    // ১.৪-এর অ্যাপ বার/সময় পাঠায় না — আপডেট করতে বলা
+    if (b.chambers.some((c) => c && !Array.isArray(c.days))) {
+      throw new HttpError(409, C.tr(req, 'Please update the app to save your chambers', 'চেম্বার সেভ করতে অ্যাপ আপডেট করুন'), 'update_required');
+    }
     const err = (e) => new HttpError(400, C.tr(req, e[0], e[1]));
 
     const ids = [...new Set(b.chambers.map((c) => c && c.hospitalId).filter(R.isValidId))].slice(0, K.MAX_CHAMBERS);
@@ -297,12 +301,19 @@ module.exports = {
     if (!next) throw new HttpError(400, C.tr(req, 'This can\'t be changed now', 'এখন এটা বদলানো যায় না'));
     // নিশ্চিত হলে ওই দিনের ওই চেম্বারের পরের সিরিয়াল নম্বর (একই লেনদেনে, যাতে দুজন একই নম্বর না পান)
     let serial = null;
+    // আগের অ্যাপয়েন্টমেন্টে chamberKey নেই — চেম্বারের নাম মিলিয়ে হাসপাতালের id, যাতে একই চেম্বারের সিরিয়াল এক হিসাবে থাকে
+    let chamberKey = a.chamberKey;
+    if (!chamberKey && next === 'confirmed') {
+      const ps = await db.doc(`providers/${a.providerUid}`).get();
+      const c = ps.exists ? K.chambersOf(ps.data()).find((x) => x.hospitalName === a.chamber) : null;
+      chamberKey = (c && c.hospitalId) || a.chamber || '';
+    }
     await db.runTransaction(async (t) => {
       const cur = await t.get(ref);
       if (cur.get('status') !== a.status) throw new HttpError(409, C.tr(req, 'This changed just now. Refresh.', 'এইমাত্র বদলেছে। রিফ্রেশ করুন।'));
       const update = { status: next, providerNote: isProvider && note ? note : a.providerNote || '', updatedAt: Date.now() };
       if (next === 'confirmed') {
-        const key = require('node:crypto').createHash('md5').update(String(a.chamberKey || a.chamber || '')).digest('hex').slice(0, 10);
+        const key = require('node:crypto').createHash('md5').update(String(chamberKey)).digest('hex').slice(0, 10);
         const cRef = db.doc(`serials/${a.providerUid}_${a.date}_${key}`);
         const c = await t.get(cRef);
         serial = (c.exists ? c.get('n') || 0 : 0) + 1;

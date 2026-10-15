@@ -495,6 +495,7 @@ private fun statusLabel(s: String): String = when (s) {
     "pending" -> tr("Waiting", "অপেক্ষায়")
     "confirmed" -> tr("Confirmed", "নিশ্চিত")
     "declined" -> tr("Not accepted", "নেওয়া হয়নি")
+    "expired" -> tr("No reply", "উত্তর আসেনি")
     else -> tr("Cancelled", "বাতিল")
 }
 
@@ -854,7 +855,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         specialties.isEmpty() -> tr("Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
                         chambers.isEmpty() -> tr("Add at least one chamber", "অন্তত একটা চেম্বার যোগ করুন")
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
-                        chambers.any { it.start.isBlank() || it.end.isBlank() || it.end <= it.start } ->
+                        chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
                         home.enabled && !homeAgreed -> tr("Please accept the Home Nurse terms", "হোম নার্সের শর্তে সম্মতি দিন")

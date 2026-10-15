@@ -289,8 +289,8 @@ const actions = {
   // ---------- অ্যাডমিন যোগ/বাদ (শুধু মালিক) ----------
   async admin_list(req, user) {
     if (!isOwner(user)) throw new HttpError(403, C.tr(req, 'Owner only', 'শুধু মালিক'));
-    const snap = await db.collection('admins').limit(50).get();
-    return { owners: adminEmails(), items: snap.docs.map((d) => ({ email: d.id, addedAt: d.get('addedAt') || 0 })) };
+    const s = await db.doc('config/admins').get();
+    return { owners: adminEmails(), items: ((s.exists && s.get('emails')) || []).map((email) => ({ email })) };
   },
 
   async admin_add(req, user) {
@@ -299,7 +299,9 @@ const actions = {
     if (!/^[^\s@/]+@[^\s@/]+\.[a-z]{2,}$/.test(email) || email.length > 200) {
       throw new HttpError(400, C.tr(req, 'Enter a valid email', 'সঠিক ইমেইল দিন'));
     }
-    await db.doc(`admins/${email}`).set({ addedBy: user.uid, addedAt: Date.now() });
+    const cur = await db.doc('config/admins').get();
+    if (((cur.exists && cur.get('emails')) || []).length >= 20) throw new HttpError(400, C.tr(req, 'Up to 20 admins', 'সর্বোচ্চ ২০ জন অ্যাডমিন'));
+    await db.doc('config/admins').set({ emails: FieldValue.arrayUnion(email), updatedAt: Date.now() }, { merge: true });
     clearCache();
     return { ok: true };
   },
@@ -307,8 +309,8 @@ const actions = {
   async admin_remove(req, user) {
     if (!isOwner(user)) throw new HttpError(403, C.tr(req, 'Owner only', 'শুধু মালিক'));
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    if (!email || email.includes('/')) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    await db.doc(`admins/${email}`).delete();
+    if (!email) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    await db.doc('config/admins').set({ emails: FieldValue.arrayRemove(email), updatedAt: Date.now() }, { merge: true });
     clearCache();
     return { ok: true };
   },

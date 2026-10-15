@@ -23,6 +23,13 @@ async function dailyReminders(now = Date.now()) {
     db.collection('appointments').where('status', '==', 'pending').limit(1000).get(),
     Promise.all(['accepted', 'on_the_way'].map((s) => db.collection('homeVisits').where('status', '==', s).limit(500).get())),
   ]);
+  // তারিখ পেরিয়ে যাওয়া অপেক্ষার অনুরোধ বন্ধ, যাতে প্রতিদিন পড়তে না হয়
+  const stale = pending.docs.filter((d) => (d.get('date') || 0) < today);
+  for (let i = 0; i < stale.length; i += 400) {
+    const batch = db.batch();
+    stale.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'expired', updatedAt: now }));
+    await batch.commit();
+  }
   const waiting = pending.docs.filter((d) => (d.get('date') || 0) >= today && now - (d.get('createdAt') || now) > 12 * 60 * 60 * 1000);
   // আজকের হোম ভিজিট (সময় দেওয়া থাকলে আজকের দিনে)
   const todayVisits = visits.flatMap((s) => s.docs).filter((d) => {

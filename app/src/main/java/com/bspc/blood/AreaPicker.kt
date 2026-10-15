@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -40,7 +41,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** খোঁজার ঘর সহ তালিকা থেকে একটা বেছে নেওয়া। noneLabel দিলে "সব" ধরনের বিকল্প (null) থাকে। */
 @Composable
@@ -201,10 +204,15 @@ fun HospitalPickerDialog(
     }
 
     val q = query.trim()
-    val inArea = list.filter { upazilaId == null || it.upazilaId == upazilaId || it.upazilaId == null }
-    val shown = if (q.isEmpty()) inArea else {
-        val direct = inArea.filter { it.nameEn.contains(q, true) || it.nameBn.contains(q) }
-        (direct + Hospitals.similar(q, inArea, 10)).distinct()
+    // ঢাকায় আড়াই হাজারের মতো — খোঁজা আলাদা থ্রেডে, যাতে লেখার সময় আটকে না যায়
+    val shown by produceState(initialValue = emptyList<Hospital>(), list, upazilaId, q) {
+        value = withContext(Dispatchers.Default) {
+            val inArea = list.filter { upazilaId == null || it.upazilaId == upazilaId || it.upazilaId == null }
+            if (q.isEmpty()) inArea else {
+                val direct = inArea.filter { it.nameEn.contains(q, true) || it.nameBn.contains(q) }
+                (direct + Hospitals.similar(q, inArea, 10)).distinct()
+            }
+        }
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

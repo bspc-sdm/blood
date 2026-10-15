@@ -53,7 +53,7 @@ function parseChambers(list, hospitals) {
     const end = TIME_RE.test(c.end) ? c.end : '';
     const schedule = str(c.schedule, 120);
     if (!days.length) return { error: ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'] };
-    if (!start || !end || end <= start) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
+    if (!start || !end || end === start) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
     out.push({
       hospitalId: h.id,
       hospitalName: h.nameEn,
@@ -91,6 +91,18 @@ function chambersOf(doc) {
     appointments: doc.active !== false,
     serialPhone: '',
   }];
+}
+
+const DAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
+/** আগের ভার্সনের অ্যাপের জন্য এক লাইনে সময়: "Sat, Sun · 17:00–21:00 · নোট" */
+function scheduleText(c) {
+  if (!c) return '';
+  const parts = [];
+  if (Array.isArray(c.days) && c.days.length) parts.push(DAY_ORDER.filter((d) => c.days.includes(d)).map((d) => DAY_EN[d]).join(', '));
+  if (c.start && c.end) parts.push(`${c.start}–${c.end}`);
+  if (c.schedule) parts.push(c.schedule);
+  return parts.join(' · ');
 }
 
 /** এই তারিখে (UTC মধ্যরাত) চেম্বার বসে কি না; পুরোনো চেম্বারে বার না থাকলে সব দিন */
@@ -197,6 +209,7 @@ module.exports = {
   chambersOf,
   isListed,
   chamberOpenOn,
+  scheduleText,
   takesAppointments,
   matchesFilter,
   parseHomeVisit,

@@ -212,7 +212,9 @@ test('চেম্বার: যাচাই, পুরোনো ডক, ফি�
   assert.ok(K.parseChambers([{ hospitalId: 'x', days: [1], start: '09:00', end: '10:00' }], hospitals).error);
   const t = { days: [6, 0], start: '17:00', end: '21:00' };
   assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [], start: '17:00', end: '21:00' }], hospitals).error);
-  assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '21:00', end: '17:00' }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '17:00', end: '17:00' }], hospitals).error);
+  assert.ok(!K.parseChambers([{ hospitalId: 'h1', days: [1], start: '20:00', end: '00:00' }], hospitals).error); // রাত ১২টা পর্যন্ত
+  assert.strictEqual(K.scheduleText({ days: [0, 6], start: '17:00', end: '21:00', schedule: 'x' }), 'Sat, Sun · 17:00–21:00 · x');
   assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', ...t }), hospitals).error);
   const ok = K.parseChambers([{ hospitalId: 'h1', ...t, schedule: 'Fridays closed', appointments: true, serialPhone: '017-1234 5678' }], hospitals);
   assert.deepStrictEqual(ok.chambers[0].days, [0, 6]);

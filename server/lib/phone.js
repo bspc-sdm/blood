@@ -22,7 +22,7 @@ function hash(uid, phone, code) {
 
 async function send(to, text) {
   const url = process.env.SMS_URL_TEMPLATE.replace('{to}', encodeURIComponent(to)).replace('{msg}', encodeURIComponent(text));
-  const r = await fetch(url, { method: 'GET' });
+  const r = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw new Error(`SMS gateway ${r.status}`);
 }
 
@@ -47,6 +47,18 @@ const actions = {
     const phone = normalizeBd(u.get('phone'));
     if (!phone) throw new HttpError(400, C.tr(req, 'Add a valid Bangladeshi mobile number in your profile', 'প্রোফাইলে সঠিক বাংলাদেশি মোবাইল নম্বর দিন'));
     await useQuota(req, user.uid, 'phoneCode');
+    // একই নম্বরে: দিনে সর্বোচ্চ ৩টা, দুটোর মাঝে ১ মিনিট — যাতে অনেক অ্যাকাউন্ট দিয়ে কাউকে SMS-এ বিরক্ত করা না যায়
+    const R = require('./rules');
+    const limRef = db.doc(`phoneLimits/${phone}`);
+    await db.runTransaction(async (t) => {
+      const s = await t.get(limRef);
+      const day = R.dhakaDayKey();
+      const n = s.exists && s.get('day') === day ? s.get('n') || 0 : 0;
+      if (n >= 3 || (s.exists && Date.now() - (s.get('at') || 0) < 60 * 1000)) {
+        throw new HttpError(429, C.tr(req, 'Too many codes for this number. Try again later.', 'এই নম্বরে অনেকবার কোড গেছে। পরে চেষ্টা করুন।'));
+      }
+      t.set(limRef, { day, n: n + 1, at: Date.now() });
+    });
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     await db.doc(`serverState/${user.uid}`).set(
       { phoneCode: { hash: hash(user.uid, phone, code), phone, exp: Date.now() + CODE_MS, tries: 0 } },

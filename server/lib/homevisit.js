@@ -114,6 +114,9 @@ const actions = {
     const err = (en, bn, code = 400) => new HttpError(code, C.tr(req, en, bn));
     const services = K.pickCodes(b.services, K.HOME_SERVICES, K.HOME_SERVICES.length);
     if (!services.length) throw err('Choose what you need', 'কী সেবা দরকার বেছে নিন');
+    if (b.termsAccepted === undefined) {
+      throw new HttpError(409, C.tr(req, 'Please update the app to request a home nurse', 'হোম নার্সের অনুরোধ দিতে অ্যাপ আপডেট করুন'), 'update_required');
+    }
     if (b.termsAccepted !== true) throw err('Please accept the Home Nurse terms', 'হোম নার্সের শর্তে সম্মতি দিন');
     if (services.some((s) => K.NEEDS_PRESCRIPTION.includes(s)) && b.prescription !== true) {
       throw err('Injection or saline needs a doctor\'s prescription', 'ইনজেকশন বা স্যালাইনের জন্য ডাক্তারের প্রেসক্রিপশন লাগবে');
