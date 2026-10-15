@@ -1,0 +1,189 @@
+SAMPLE [
+ {
+  "uuid": "522599",
+  "extras": {
+   "company": "Beacon Pharmaceuticals PLC",
+   "dar_number": "341-0160-020",
+   "trade_name": "Tericin",
+   "dosage_form": "Injection",
+   "dar_quality_flag": "",
+   "generic_content_raw": "Amphotericin B  50 mg/vial"
+  },
+  "checksums": {
+   "smart": "6991a2b133cb4ea87316b09070d8a1a9",
+   "standard": "940a04685cabef965d5087189afa149e"
+  },
+  "id": "341-0160-020--tericin",
+  "external_id": null,
+  "concept_class": "Drug",
+  "datatype": "None",
+  "url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/341-0160-020--tericin/",
+  "retired": false,
+  "source": "DGDA-Drugs",
+  "owner": "MoHFW",
+  "owner_type": "Organization",
+  "owner_url": "/orgs/MoHFW/",
+  "display_name": "Tericin",
+  "display_locale": "en",
+  "names": [
+   {
+    "uuid": "640719",
+    "name": "Tericin",
+    "external_id": null,
+    "type": "ConceptName",
+    "locale": "en",
+    "locale_preferred": true,
+    "name_type": "Fully Specified",
+    "checksum": "2333b2f98822e34d7d620d931d60f8ff"
+   }
+  ],
+  "descriptions": [],
+  "created_on": "2026-03-27T13:37:17.204709Z",
+  "updated_on": "2026-03-27T13:37:17.209334Z",
+  "versions_url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/341-0160-020--tericin/versions/",
+  "version": "522599",
+  "type": "Concept",
+  "update_comment": null,
+  "version_url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/341-0160-020--tericin/522600/",
+  "updated_by": "ocladmin",
+  "created_by": "ocladmin",
+  "public_can_view": true,
+  "versioned_object_id": 522599,
+  "latest_source_version": null,
+  "property": []
+ },
+ {
+  "uuid": "522597",
+  "extras": {
+   "company": "Drug International Ltd.",
+   "dar_number": "210-0794-020",
+   "trade_name": "Amphocin B",
+   "dosage_form": "Injection",
+   "dar_quality_flag": "shared_dar",
+   "generic_content_raw": "Amphotericin B  50 mg/vial"
+  },
+  "checksums": {
+   "smart": "cf56a7a3d9a17f6d8caef3d35ff7cdc8",
+   "standard": "989005c038cc8eb6b857db4da31614e3"
+  },
+  "id": "210-0794-020--amphocin-b",
+  "external_id": null,
+  "concept_class": "Drug",
+  "datatype": "None",
+  "url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/210-0794-020--amphocin-b/",
+  "retired": false,
+  "source": "DGDA-Drugs",
+  "owner": "MoHFW",
+  "owner_type": "Organization",
+  "owner_url": "/orgs/MoHFW/",
+  "display_name": "Amphocin B",
+  "display_locale": "en",
+  "names": [
+   {
+    "uuid": "640717",
+    "name": "Amphocin B",
+    "external_id": null,
+    "type": "ConceptName",
+    "locale": "en",
+    "locale_preferred": true,
+    "name_type": "Fully Specified",
+    "checksum": "fe6aa908b28c6b6ef3f8d4e7a4721693"
+   }
+  ],
+  "descriptions": [],
+  "created_on": "2026-03-27T13:37:17.159143Z",
+  "updated_on": "2026-03-27T13:37:17.163519Z",
+  "versions_url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/210-0794-020--amphocin-b/versions/",
+  "version": "522597",
+  "type": "Concept",
+  "update_comment": null,
+  "version_url": "/orgs/MoHFW/sources/DGDA-Drugs/concepts/210-0794-020--amphocin-b/522598/",
+  "updated_by": "ocladmin",
+  "created_by": "ocladmin",
+  "public_can_view": true,
+  "versioned_object_id": 522597,
+  "latest_source_version": null,
+  "property": []
+ }
+]
+num_found 39196 pages 19598
+page 1 total 500 of 39196
+page 2 total 1000 of 39196
+page 3 total 1500 of 39196
+page 4 total 2000 of 39196
+page 5 total 2500 of 39196
+page 6 total 3000 of 39196
+page 7 total 3500 of 39196
+page 8 total 4000 of 39196
+page 9 total 4500 of 39196
+page 10 total 5000 of 39196
+page 11 total 5500 of 39196
+page 12 total 6000 of 39196
+page 13 total 6500 of 39196
+page 14 total 7000 of 39196
+page 15 total 7500 of 39196
+page 16 total 8000 of 39196
+page 17 total 8500 of 39196
+page 18 total 9000 of 39196
+page 19 total 9500 of 39196
+page 20 total 10000 of 39196
+page 21 total 10500 of 39196
+page 22 total 11000 of 39196
+page 23 total 11500 of 39196
+page 24 total 12000 of 39196
+page 25 total 12500 of 39196
+page 26 total 13000 of 39196
+page 27 total 13500 of 39196
+page 28 total 14000 of 39196
+page 29 total 14500 of 39196
+page 30 total 15000 of 39196
+page 31 total 15500 of 39196
+page 32 total 16000 of 39196
+page 33 total 16500 of 39196
+page 34 total 17000 of 39196
+page 35 total 17500 of 39196
+page 36 total 18000 of 39196
+page 37 total 18500 of 39196
+page 38 total 19000 of 39196
+page 39 total 19500 of 39196
+page 40 total 20000 of 39196
+page 41 total 20500 of 39196
+page 42 total 21000 of 39196
+page 43 total 21500 of 39196
+page 44 total 22000 of 39196
+page 45 total 22500 of 39196
+page 46 total 23000 of 39196
+page 47 total 23500 of 39196
+page 48 total 24000 of 39196
+page 49 total 24500 of 39196
+page 50 total 25000 of 39196
+page 51 total 25500 of 39196
+page 52 total 26000 of 39196
+page 53 total 26500 of 39196
+page 54 total 27000 of 39196
+page 55 total 27500 of 39196
+page 56 total 28000 of 39196
+page 57 total 28500 of 39196
+page 58 total 29000 of 39196
+page 59 total 29500 of 39196
+page 60 total 30000 of 39196
+page 61 total 30500 of 39196
+page 62 total 31000 of 39196
+page 63 total 31500 of 39196
+page 64 total 32000 of 39196
+page 65 total 32500 of 39196
+page 66 total 33000 of 39196
+page 67 total 33500 of 39196
+page 68 total 34000 of 39196
+page 69 total 34500 of 39196
+page 70 total 35000 of 39196
+page 71 total 35500 of 39196
+page 72 total 36000 of 39196
+page 73 total 36500 of 39196
+page 74 total 37000 of 39196
+page 75 total 37500 of 39196
+page 76 total 38000 of 39196
+page 77 total 38500 of 39196
+page 78 total 39000 of 39196
+page 79 total 39196 of 39196
+done 39196
