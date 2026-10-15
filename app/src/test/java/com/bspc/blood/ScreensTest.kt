@@ -225,6 +225,36 @@ class ScreensTest {
     }
 
     @Test
+    fun navBarAndAreaPickerBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val items = listOf(
+            NavItem("হোম", R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
+            NavItem("অ্যাপয়েন্টমেন্ট", R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
+            NavItem("স্বাস্থ্য", R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
+            NavItem("সেবা", R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
+        )
+        show {
+            Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    FilterBar(areaText("ময়মনসিংহ", 1), {}, filterCount = 2, onFilterClick = {}, search = "", onSearch = {})
+                }
+                ModernNavBar(items, 1) {}
+            }
+        }
+        shot("nav_bar_filter_bar_bn")
+    }
+
+    @Test
+    fun areaPickerBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { AreaSheet("ময়মনসিংহ", null, null, { _, _, _ -> }, {}, nearMe = false, onNearMe = {}) }
+        shot("area_picker_bn")
+        runCatching { rule.onAllNodesWithText("জেলা বা উপজেলা লিখুন")[0].performTextInput("ত্রিশ") }
+        rule.waitForIdle()
+        shot("area_picker_search_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

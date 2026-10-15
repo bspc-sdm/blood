@@ -50,6 +50,30 @@ object Areas {
     fun upazila(id: Int?): Upazila? = id?.let { i -> upazilas.firstOrNull { it.id == i } }
     fun union(id: Int?): Union? = id?.let { i -> unions.firstOrNull { it.id == i } }
 
+    /**
+     * এক সার্চ বক্সে জেলা, উপজেলা (আর চাইলে ইউনিয়ন) — নামের শুরুতে মিললে আগে।
+     * ফল: (district, upazilaId, unionId)
+     */
+    fun search(query: String, withUnions: Boolean, limit: Int = 40): List<Triple<String, Int?, Int?>> {
+        val q = query.trim()
+        if (q.isEmpty()) return emptyList()
+        fun score(bn: String, en: String): Int = when {
+            bn.startsWith(q) || en.startsWith(q, true) -> 0
+            bn.contains(q) || en.contains(q, true) -> 1
+            else -> -1
+        }
+        val out = mutableListOf<Pair<Int, Triple<String, Int?, Int?>>>()
+        Districts.ALL.forEach { d -> score(d.bn, d.en).takeIf { it >= 0 }?.let { out += (it * 3) to Triple(d.bn, null, null) } }
+        upazilas.forEach { u -> score(u.bn, u.en).takeIf { it >= 0 }?.let { out += (it * 3 + 1) to Triple(u.district, u.id, null) } }
+        if (withUnions && q.length >= 2) {
+            val ups = upazilas.associateBy { it.id }
+            unions.forEach { n ->
+                score(n.bn, n.en).takeIf { it >= 0 }?.let { s -> ups[n.upazilaId]?.let { u -> out += (s * 3 + 2) to Triple(u.district, u.id, n.id) } }
+            }
+        }
+        return out.sortedBy { it.first }.take(limit).map { it.second }
+    }
+
     /** "ইউনিয়ন, উপজেলা, জেলা" */
     fun label(district: String?, upazilaId: Int?, unionId: Int? = null): String =
         listOfNotNull(union(unionId)?.label, upazila(upazilaId)?.label, Districts.label(district).ifBlank { null })

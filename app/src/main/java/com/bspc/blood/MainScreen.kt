@@ -2,6 +2,12 @@
 
 package com.bspc.blood
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.background
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -24,8 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
-private data class NavItem(val label: String, val selectedIcon: Int, val icon: Int)
+internal data class NavItem(val label: String, val selectedIcon: Int, val icon: Int)
 
 @Composable
 fun MainScreen(
@@ -119,10 +123,10 @@ fun MainScreen(
 
     // প্রোফাইল এখন নিচের বারে নয়, উপরের ছবিতে চাপলে (Tabs.PROFILE)
     val items = listOf(
-        NavItem(tr("Home", "হোম"), R.drawable.ic_home_filled, R.drawable.ic_home_outline),
-        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_event_filled, R.drawable.ic_event_outline),
-        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_health_and_safety_filled, R.drawable.ic_health_and_safety_outline),
-        NavItem(tr("Services", "সেবা"), R.drawable.ic_storefront, R.drawable.ic_storefront),
+        NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
+        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
+        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
+        NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
     )
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
@@ -145,25 +149,7 @@ fun MainScreen(
                 }
             }
         },
-        bottomBar = {
-            NavigationBar {
-                items.forEachIndexed { i, item ->
-                    NavigationBarItem(
-                        selected = tab == i,
-                        onClick = { onTabChange(i) },
-                        icon = { AppIcon(if (tab == i) item.selectedIcon else item.icon, null) },
-                        label = {
-                            Text(
-                                item.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                    )
-                }
-            }
-        },
+        bottomBar = { ModernNavBar(items, tab, onTabChange) },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
@@ -367,6 +353,50 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
                     }
                 }
                 else -> items(list, key = { it.id }) { r -> RequestCard(r, null) { onOpenMyRequest(r.id) } }
+            }
+        }
+    }
+}
+
+/**
+ * নিচের বার — Facebook/Uber-এর মতো হালকা: সাদা পটভূমি, উপরে পাতলা রেখা, পিল নেই।
+ * বাছা ট্যাব: ভরাট আইকন + অ্যাপের রঙ + উপরে ছোট দাগ; বাকিগুলো রেখার আইকন, ধূসর। লেখা ছোট করে থাকে।
+ */
+@Composable
+internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    androidx.compose.material3.Surface(color = cs.surface) {
+        Column {
+            androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = cs.outlineVariant)
+            Row(Modifier.fillMaxWidth().height(60.dp).selectableGroup()) {
+                items.forEachIndexed { i, item ->
+                    val sel = tab == i
+                    val color by androidx.compose.animation.animateColorAsState(if (sel) cs.primary else cs.onSurfaceVariant, label = "nav")
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight()
+                            .selectable(selected = sel, role = androidx.compose.ui.semantics.Role.Tab, onClick = { onTabChange(i) }),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // উপরে ছোট দাগ (বাছা ট্যাবে)
+                        Box(
+                            Modifier.width(32.dp).height(3.dp)
+                                .clip(RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
+                                .background(if (sel) cs.primary else androidx.compose.ui.graphics.Color.Transparent),
+                        )
+                        Spacer(Modifier.weight(1f))
+                        AppIcon(if (sel) item.selectedIcon else item.icon, null, Modifier.size(24.dp), color)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            item.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
+                            color = color,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
