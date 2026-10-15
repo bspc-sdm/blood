@@ -191,6 +191,7 @@ object RequestRepository {
         notified = s.contains("notifiedAt"),
         notifiedCount = (s.getLong("notifiedCount") ?: 0L).toInt(),
         fulfilled = s.getBoolean("fulfilled") ?: false,
+        acceptedCount = (s.getLong("acceptedCount") ?: 0L).toInt().coerceAtLeast(0),
     )
 
     private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(

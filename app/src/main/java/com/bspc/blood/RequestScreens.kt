@@ -386,6 +386,36 @@ fun RequestDetailScreen(
 
                     RequestInfo(r, distance)
 
+                    // সবার জন্য: কেউ রাজি হয়েছেন কি না, আর পরিচিতদের পাঠানোর বাটন
+                    if (r.isActive && r.requesterUid != uid) {
+                        val noDonor = r.acceptedCount == 0 && !r.fulfilled
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (noDonor) MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DonorStatusTag(r)
+                                Text(
+                                    if (noDonor) {
+                                        tr(
+                                            "No one has agreed yet. Know someone with a matching group, even far away? Send it to them.",
+                                            "এখনো কেউ রাজি হননি। মিলে যায় এমন গ্রুপের কাউকে চেনেন, দূরে হলেও? তাঁকে পাঠান।",
+                                        )
+                                    } else {
+                                        tr("Know someone who could help? Share it.", "সাহায্য করতে পারেন এমন কাউকে চেনেন? শেয়ার করুন।")
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                FilledTonalButton(onClick = { shareRequest(context, r) }, modifier = Modifier.fillMaxWidth()) {
+                                    ButtonContent(false, tr("Send to people you know", "পরিচিতদের পাঠান"), R.drawable.ic_share)
+                                }
+                            }
+                        }
+                    }
+
                     when {
                         r.requesterUid == uid -> Button(onClick = { onOpenMine(r.id) }, modifier = Modifier.fillMaxWidth()) {
                             Text(tr("View responses", "সাড়া দেওয়া ডোনারদের দেখুন"))

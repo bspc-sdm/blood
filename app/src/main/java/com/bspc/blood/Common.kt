@@ -58,10 +58,11 @@ const val SHARE_BASE = "https://blood-server-ashy.vercel.app/r/"
 
 /** রিকোয়েস্ট WhatsApp/Messenger/SMS-এ পরিচিতদের পাঠানো */
 fun shareRequest(context: Context, r: BloodRequest) {
+    val noDonor = r.acceptedCount == 0 && !r.fulfilled
     val text = tr(
-        "${if (r.urgent) "URGENT: " else ""}${r.patientGroup} blood needed — ${r.bags} bag(s) at ${r.hospital}, ${Districts.label(r.placeName)}. " +
+        "${if (r.urgent) "URGENT: " else ""}${if (noDonor) "No donor yet! " else ""}${r.patientGroup} blood needed — ${r.bags} bag(s) at ${r.hospital}, ${Districts.label(r.placeName)}. " +
             "Needed by ${Rules.formatNeeded(r)}.${if (r.travelFare) " Travel cost will be paid." else ""} Can you help or share? $SHARE_BASE${r.id}",
-        "${if (r.urgent) "জরুরি: " else ""}${r.patientGroup} রক্ত দরকার — ${num(r.bags)} ব্যাগ, ${r.hospital}, ${Districts.label(r.placeName)}। " +
+        "${if (r.urgent) "জরুরি: " else ""}${if (noDonor) "এখনো কোনো ডোনার পাওয়া যায়নি! " else ""}${r.patientGroup} রক্ত দরকার — ${num(r.bags)} ব্যাগ, ${r.hospital}, ${Districts.label(r.placeName)}। " +
             "লাগবে ${Rules.formatNeeded(r)}।${if (r.travelFare) " যাতায়াত খরচ দেওয়া হবে।" else ""} দিতে পারলে বা কাউকে চিনলে সাহায্য করুন: $SHARE_BASE${r.id}",
     )
     val send = Intent(Intent.ACTION_SEND).apply {
@@ -236,42 +237,46 @@ fun RequestCard(r: BloodRequest, distanceKm: Double?, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            BloodGroupBadge(r.patientGroup)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        r.hospital,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (r.urgent && r.isActive) {
-                        Spacer(Modifier.width(8.dp))
-                        UrgentTag()
+        Column {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                BloodGroupBadge(r.patientGroup)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            r.hospital,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (r.urgent && r.isActive) {
+                            Spacer(Modifier.width(8.dp))
+                            UrgentTag()
+                        }
                     }
-                }
-                IconLine(
-                    R.drawable.ic_location_on,
-                    listOfNotNull(Districts.label(r.placeName), distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
-                )
-                IconLine(R.drawable.ic_schedule, Rules.formatNeeded(r))
-                if (r.travelFare) IconLine(R.drawable.ic_directions_run, tr("Travel cost paid", "যাতায়াত খরচ দেওয়া হবে"))
-            }
-            Spacer(Modifier.width(8.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(num(r.bags), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(tr("bags", "ব্যাগ"), style = MaterialTheme.typography.labelSmall)
-                if (!r.isActive) {
-                    Spacer(Modifier.height(4.dp))
-                    Tag(
-                        tr("Closed", "বন্ধ"),
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    IconLine(
+                        R.drawable.ic_location_on,
+                        listOfNotNull(Districts.label(r.placeName), distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
                     )
+                    IconLine(R.drawable.ic_schedule, Rules.formatNeeded(r))
+                    if (r.travelFare) IconLine(R.drawable.ic_directions_run, tr("Travel cost paid", "যাতায়াত খরচ দেওয়া হবে"))
+                    // কেউ রাজি হয়েছেন কি না (শুধু সংখ্যা)
+                    if (r.isActive) DonorStatusTag(r)
+                }
+                Spacer(Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(num(r.bags), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(tr("bags", "ব্যাগ"), style = MaterialTheme.typography.labelSmall)
+                    if (!r.isActive) {
+                        Spacer(Modifier.height(4.dp))
+                        Tag(
+                            tr("Closed", "বন্ধ"),
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -451,5 +456,27 @@ fun ProcessingCard(r: BloodRequest, onClick: (() -> Unit)?) {
         Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = colors) { content() }
     } else {
         Card(Modifier.fillMaxWidth(), colors = colors) { content() }
+    }
+}
+
+/** রিকোয়েস্টে ডোনারের অবস্থা: এখনো কেউ নেই / কতজন রাজি / পাওয়া গেছে */
+@Composable
+fun DonorStatusTag(r: BloodRequest) {
+    when {
+        r.fulfilled -> Tag(
+            tr("Donors found", "ডোনার পাওয়া গেছে"),
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        r.acceptedCount > 0 -> Tag(
+            tr("${num(r.acceptedCount)} agreed", "${num(r.acceptedCount)} জন রাজি"),
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        else -> Tag(
+            tr("No donor yet", "এখনো কোনো ডোনার নেই"),
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }

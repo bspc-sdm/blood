@@ -84,6 +84,10 @@ ${r.urgent && active ? '<span class="tag">জরুরি · Urgent</span>' : ''
 <dt>হাসপাতাল · Hospital</dt><dd>${esc(r.hospital)}</dd>
 <dt>জেলা · District</dt><dd>${esc(district)}${districtEn !== district ? ` · ${esc(districtEn)}` : ''}</dd>
 <dt>কবে লাগবে · Needed by</dt><dd>${esc(date)}${when ? ` · ${esc(when)}` : ''}</dd>
+<dt>অবস্থা · Status</dt><dd>${!active ? 'বন্ধ · Closed'
+  : r.fulfilled ? 'ডোনার পাওয়া গেছে · Donors found'
+  : (r.acceptedCount || 0) > 0 ? `${esc(r.acceptedCount)} জন রাজি · ${esc(r.acceptedCount)} agreed`
+  : '<b>এখনো কোনো ডোনার নেই · No donor yet</b>'}</dd>
 <dt>যাতায়াত খরচ · Travel cost</dt><dd>${r.travelFare ? 'দেওয়া হবে · Will be paid' : 'দেওয়া হবে না · Not provided'}</dd>
 </dl></div>
 ${active ? `<a class="btn primary" href="${esc(intent)}">অ্যাপে খুলে সাড়া দিন · Open in app</a>` : ''}

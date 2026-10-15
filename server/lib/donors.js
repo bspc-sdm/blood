@@ -1,7 +1,7 @@
 // রক্তপ্রার্থী রাজি হওয়া ডোনারদের মধ্যে থেকে যাঁদের নেবেন তাঁদের "নিশ্চিত" করেন।
 // নিশ্চিত ডোনার নোটিফিকেশন পান; যত ব্যাগ দরকার তত জন নিশ্চিত হলে বাকি রাজি ডোনাররা জানেন "আপাতত লাগবে না"।
 // সাড়ার status "accepted"-ই থাকে, শুধু confirmed: true যোগ হয় — তাই Firestore-এর নিয়ম বদলাতে হয়নি।
-const { db, HttpError, sendPush } = require('./firebase');
+const { db, FieldValue, HttpError, sendPush } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 
@@ -44,6 +44,8 @@ module.exports = {
       const wasConfirmed = ds.get('confirmed') === true;
       const all = await t.get(reqRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
       t.update(respRef, { status: next, updatedAt: Date.now() });
+      // বাতিল/বাদ হলে রাজির সংখ্যা কমে ("রক্ত দিয়েছি" হলে রাজির মধ্যেই গোনা থাকে)
+      if (next !== 'donated') t.update(reqRef, { acceptedCount: FieldValue.increment(-1) });
 
       // নিশ্চিত ডোনার চলে গেলে আবার গোনা ("রক্ত দিয়েছি" হলে গোনা কমে না)
       if (!wasConfirmed || next === 'donated') return { r, refilled: false, lost: false, standby: [] };

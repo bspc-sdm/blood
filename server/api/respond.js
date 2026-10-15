@@ -1,6 +1,6 @@
 // ডোনার "রক্ত দেব" চাপলে: যাচাই করে সাড়া তৈরি করে, আর রক্তপ্রার্থীকে জানায়।
 // সাড়া শুধু সার্ভার তৈরি করতে পারে, তাই দিনে কয়টা সাড়া দেওয়া যাবে তার সীমা কেউ এড়াতে পারে না।
-const { db, HttpError, verifyUser, handler, sendPush } = require('../lib/firebase');
+const { db, FieldValue, HttpError, verifyUser, handler, sendPush } = require('../lib/firebase');
 const R = require('../lib/rules');
 
 module.exports = handler(async (req) => {
@@ -44,6 +44,8 @@ module.exports = handler(async (req) => {
       throw new HttpError(429, `দিনে সর্বোচ্চ ${R.MAX_RESPONSES_PER_DAY}টা রিকোয়েস্টে সাড়া দেওয়া যায়। কাল আবার চেষ্টা করুন।`);
     }
 
+    // কতজন রাজি আছেন — শুধু সংখ্যা, সবাই দেখতে পান (নাম/ফোন নয়)
+    t.update(requestRef, { acceptedCount: FieldValue.increment(1) });
     t.set(responseRef, {
       donorUid: uid,
       donorName: u.name || '',
