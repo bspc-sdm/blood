@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -308,14 +307,7 @@ fun HomeTab(
         }
 
         if (others.isNotEmpty()) {
-            ExtendedFloatingActionButton(
-                onClick = onNewRequest,
-                icon = { AppIcon(R.drawable.ic_add, null) },
-                text = { Text(tr("Create Request", "রিকোয়েস্ট দিন")) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            )
+            SmallFab(tr("Create Request", "রিকোয়েস্ট দিন"), R.drawable.ic_add, onNewRequest, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
     }
 }
@@ -343,13 +335,7 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
         topBar = { BackTopBar(tr("My Requests", "আমার রিকোয়েস্ট"), onBack) },
         floatingActionButton = {
             if (!loading && activeCount < Rules.MAX_OPEN_REQUESTS) {
-                ExtendedFloatingActionButton(
-                    onClick = onNewRequest,
-                    icon = { AppIcon(R.drawable.ic_add, null) },
-                    text = { Text(tr("Create Request", "রিকোয়েস্ট দিন")) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                )
+                SmallFab(tr("Create Request", "রিকোয়েস্ট দিন"), R.drawable.ic_add, onNewRequest)
             }
         },
     ) { padding ->

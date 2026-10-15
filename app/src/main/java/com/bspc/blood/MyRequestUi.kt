@@ -262,6 +262,9 @@ internal fun MyRequestCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                IconButton(onClick = { shareRequest(context, r) }) {
+                    AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার"), tint = MaterialTheme.colorScheme.primary)
+                }
             }
             Countdown(r.deadlineMillis)
 
@@ -308,14 +311,13 @@ internal fun MyRequestCard(
             }
 
             HorizontalDivider()
-            // নিচে ছোট বাটন পাশাপাশি: বিস্তারিত, শেয়ার, রক্ত পেয়েছি
+            // নিচে ছোট বাটন পাশাপাশি: বিস্তারিত, রক্ত পেয়েছি (শেয়ার উপরে আইকনে)
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SmallAction(tr("Details", "বিস্তারিত"), R.drawable.ic_list_alt, onOpen)
-                SmallAction(tr("Share", "শেয়ার"), R.drawable.ic_share, { shareRequest(context, r) })
                 SmallAction(tr("Got blood", "রক্ত পেয়েছি"), R.drawable.ic_check_circle, onClose, primary = willing.isNotEmpty())
             }
         }

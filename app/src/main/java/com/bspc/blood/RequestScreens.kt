@@ -731,7 +731,6 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                     ErrorText(errorMsg)
                     if (r.isActive) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                            SmallAction(tr("Share", "শেয়ার"), R.drawable.ic_share, { shareRequest(context, r) })
                             SmallAction(tr("Got blood, close", "রক্ত পেয়েছি, বন্ধ করুন"), R.drawable.ic_check_circle, { confirmClose = true }, primary = true, enabled = !busy)
                         }
                     }

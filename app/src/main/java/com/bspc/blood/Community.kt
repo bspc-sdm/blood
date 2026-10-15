@@ -24,7 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -431,14 +430,7 @@ fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = onAsk,
-            icon = { AppIcon(R.drawable.ic_edit_note, null) },
-            text = { Text(tr("Ask a question", "প্রশ্ন করুন")) },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        )
+        SmallFab(tr("Ask a question", "প্রশ্ন করুন"), R.drawable.ic_edit_note, onAsk, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
@@ -744,14 +736,7 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
             }
         }
         if (me?.approvedBadge != null) {
-            ExtendedFloatingActionButton(
-                onClick = onPostTip,
-                icon = { AppIcon(R.drawable.ic_edit_note, null) },
-                text = { Text(tr("Post a tip", "টিপস দিন")) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            )
+            SmallFab(tr("Post a tip", "টিপস দিন"), R.drawable.ic_edit_note, onPostTip, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
     }
 }

@@ -154,3 +154,26 @@ fun SmallAction(
         }
     }
 }
+
+/** নিচের কোণে ভাসমান ছোট বাটন (বড় FAB-এর বদলে): রিকোয়েস্ট দিন, প্রশ্ন করুন, টিপস দিন */
+@Composable
+fun SmallFab(text: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = cs.primary,
+        contentColor = cs.onPrimary,
+        shadowElevation = 4.dp,
+        modifier = modifier.heightIn(min = 36.dp),
+    ) {
+        Row(
+            Modifier.padding(start = 12.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            AppIcon(icon, null, Modifier.size(18.dp))
+            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    }
+}
