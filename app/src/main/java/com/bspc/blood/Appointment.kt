@@ -282,7 +282,7 @@ private fun ProviderAvatar(type: String) {
 }
 
 @Composable
-private fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
+internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
     // ফিল্টারের সাথে মেলা চেম্বার আগে
     val chamber = p.chambers.firstOrNull { c ->
         (filter.hospital == null || c.hospitalId == filter.hospital.id) &&
@@ -939,7 +939,7 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 }
 
 @Composable
-private fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
+internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
     var pickTime by remember { mutableIntStateOf(0) } // ১ শুরু, ২ শেষ
     if (pickTime != 0) {
         val cur = (if (pickTime == 1) c.start else c.end).split(":")

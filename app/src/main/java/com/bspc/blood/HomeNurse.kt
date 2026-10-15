@@ -247,7 +247,7 @@ private fun whenLabel(v: HomeVisit): String =
     else Rules.formatDate(v.whenMillis + Rules.DHAKA_OFFSET_MS) + ", " + Rules.formatTime(v.whenMillis)
 
 @Composable
-private fun VisitCard(
+internal fun VisitCard(
     v: HomeVisit,
     busyId: String?,
     onAct: (String) -> Unit,
