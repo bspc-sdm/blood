@@ -20,7 +20,7 @@ async function getOrCreateUser(email) {
   }
 }
 
-module.exports = handler(async (req) => {
+module.exports = handler(async (req, res) => {
   const email = E.normalizeEmail(req.body?.email);
   const code = String(req.body?.code || '').trim();
   if (!email) throw new HttpError(400, 'সঠিক ইমেইল দিন');
@@ -51,6 +51,17 @@ module.exports = handler(async (req) => {
     return true;
   });
   if (!ok) throw new HttpError(400, 'কোড মেলেনি। আবার দেখে লিখুন।');
+
+  // ওয়েব অ্যাডমিন প্যানেল: টোকেনের বদলে httpOnly কুকি, আর শুধু অ্যাডমিনরা
+  if (req.body?.web === true) {
+    const { isAdmin } = require('../../lib/admin');
+    if (!(await isAdmin({ email, email_verified: true }))) {
+      throw new HttpError(403, 'এই ইমেইল অ্যাডমিন হিসেবে যোগ করা নেই');
+    }
+    const user = await getOrCreateUser(email);
+    require('../../lib/websession').start(res, user.uid, email);
+    return { ok: true };
+  }
 
   const user = await getOrCreateUser(email);
   const token = await admin.auth().createCustomToken(user.uid);

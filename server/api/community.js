@@ -4,6 +4,7 @@ const { admin, db, FieldValue, HttpError, handler, sendPush } = require('../lib/
 const { isAdmin, isOwner, adminEmails, clearCache } = require('../lib/admin');
 const R = require('../lib/rules');
 const C = require('../lib/community');
+const websession = require('../lib/websession');
 
 async function decodeUser(req) {
   const header = req.headers.authorization || '';
@@ -322,9 +323,76 @@ const actions = {
 
 Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions);
 
-module.exports = handler(async (req) => {
-  const user = await decodeUser(req);
+/**
+ * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
+ * একটা অংশ ব্যর্থ হলেও বাকিগুলো দেখায় (সেই অংশে error থাকে)।
+ */
+actions.admin_overview = async (req, user) => {
+  if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+  const { UPAZILA, UNION } = require('../lib/hospital-match');
+  const area = (district, upazilaId, unionId) =>
+    [UNION.get(unionId)?.bn, UPAZILA.get(upazilaId)?.bn, district].filter(Boolean).join(', ');
+  const part = async (fn) => {
+    try {
+      return { items: await fn() };
+    } catch (e) {
+      console.error('overview part failed', e);
+      return { items: [], error: e instanceof HttpError ? e.message : C.tr(req, 'Could not load', 'আনা যায়নি') };
+    }
+  };
+  const withArea = (list) => list.map((x) => ({ ...x, areaLabel: area(x.district, x.upazilaId, x.unionId) }));
+  const owner = isOwner(user);
+  const [badges, pharmacies, ambulances, hospitalRequests, reports, corrections, adminList] = await Promise.all([
+    part(async () => (await actions.admin_badges(req, user)).items),
+    part(async () => withArea((await actions.admin_pharmacies(req, user)).items)),
+    part(async () => withArea((await actions.admin_ambulances(req, user)).items)),
+    part(async () => (await actions.admin_hospital_requests(req, user)).items.map((h) => ({
+      ...h,
+      areaLabel: area(h.district, h.upazilaId, h.unionId),
+      possibleDuplicates: (h.possibleDuplicates || []).map((d) => ({ ...d, areaLabel: area(null, d.upazilaId, d.unionId) })),
+    }))),
+    part(async () => (await actions.admin_reports(req, user)).items),
+    part(() => require('../lib/corrections').pendingCorrections()),
+    owner ? actions.admin_list(req, user).catch(() => null) : null,
+  ]);
+  return {
+    me: { email: user.email, isOwner: owner },
+    badges,
+    pharmacies,
+    ambulances,
+    hospitalRequests,
+    reports,
+    corrections,
+    admins: adminList,
+    at: Date.now(),
+  };
+};
+
+// ওয়েব অ্যাডমিন প্যানেল (কুকি দিয়ে লগইন): শুধু অ্যাডমিন কাজ চলে, অ্যাপের সাধারণ কাজ নয়
+async function webUser(req, res) {
+  const web = websession.user(req, res);
+  if (!web) return null;
+  if (web.error) throw new HttpError(401, C.tr(req, 'Session expired, please log in again', 'লগইনের মেয়াদ শেষ, আবার লগইন করুন'), 'session_expired');
+  const action = String(req.body?.action || '');
+  if (action === 'web_logout') return web;
+  if (!action.startsWith('admin_')) throw new HttpError(403, C.tr(req, 'Not available on the web panel', 'ওয়েব প্যানেলে এটা চলে না'));
+  // অ্যাডমিন থেকে বাদ পড়লে সাথে সাথে (তালিকার ১০ মিনিটের ক্যাশ বাদে) প্যানেলও বন্ধ
+  if (!(await isAdmin(web))) {
+    websession.end(res);
+    throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'), 'session_expired');
+  }
+  return web;
+}
+
+actions.web_logout = async (req, user, res) => {
+  websession.end(res);
+  return { ok: true };
+};
+
+module.exports = handler(async (req, res) => {
+  const hasBearer = String(req.headers.authorization || '').startsWith('Bearer ');
+  const user = hasBearer ? await decodeUser(req) : (await webUser(req, res)) || (await decodeUser(req));
   const fn = Object.prototype.hasOwnProperty.call(actions, req.body?.action) ? actions[req.body.action] : null;
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
-  return fn(req, user);
+  return fn(req, user, res);
 });

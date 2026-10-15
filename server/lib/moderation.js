@@ -143,6 +143,8 @@ module.exports = {
         authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || t.get('name') || '',
         reportedUid: list[i].reportedUid,
         reportedRole: list[i].reportedRole,
+        // ওয়েব প্যানেলে আলাদা করে দেখানোর জন্য (অ্যাপ এটা ব্যবহার করে না)
+        reasons: list[i].reasons.slice(0, 10),
       });
     }
     // মুছে যাওয়া পোস্টের রিপোর্ট বন্ধ করে দেওয়া, যাতে তালিকা ভরে না যায়

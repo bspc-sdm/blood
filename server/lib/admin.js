@@ -10,15 +10,22 @@ function adminEmails() {
   return env.length ? env : DEFAULT_ADMINS;
 }
 
-async function verifyAdmin(req) {
+async function verifyAdmin(req, res) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) throw new HttpError(401, 'লগইন দরকার');
   let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(token);
-  } catch {
-    throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
+  if (token) {
+    try {
+      decoded = await admin.auth().verifyIdToken(token);
+    } catch {
+      throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
+    }
+  } else {
+    // ওয়েব অ্যাডমিন প্যানেলের কুকি
+    const web = require('./websession').user(req, res);
+    if (!web) throw new HttpError(401, 'লগইন দরকার');
+    if (web.error) throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন', 'session_expired');
+    decoded = web;
   }
   if (!(await isAdmin(decoded))) {
     throw new HttpError(403, 'শুধু অ্যাডমিন এটা করতে পারবেন');

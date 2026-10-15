@@ -4,8 +4,8 @@ const { db, HttpError, handler, sendPush } = require('../../lib/firebase');
 const { verifyAdmin } = require('../../lib/admin');
 const R = require('../../lib/rules');
 
-module.exports = handler(async (req) => {
-  const adminUid = await verifyAdmin(req);
+module.exports = handler(async (req, res) => {
+  const adminUid = await verifyAdmin(req, res);
   const id = req.body?.id;
   const approve = req.body?.approve === true;
   if (!R.isValidId(id)) throw new HttpError(400, 'id ঠিক নেই');
