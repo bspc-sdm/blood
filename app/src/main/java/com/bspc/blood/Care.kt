@@ -465,6 +465,7 @@ data class HomeVisit(
     val lat: Double?,
     val lng: Double?,
     val notifiedCount: Int,
+    val canReport: Boolean,
 ) {
     val isActive: Boolean get() = status in setOf("open", "accepted", "on_the_way")
     val isLive: Boolean get() = status == "accepted" || status == "on_the_way"
@@ -493,6 +494,7 @@ object HomeVisits {
         if (o.isNull("lat") || !o.has("lat")) null else o.optDouble("lat"),
         if (o.isNull("lng") || !o.has("lng")) null else o.optDouble("lng"),
         o.optInt("notifiedCount"),
+        o.optBoolean("canReport", true),
     )
 
     suspend fun request(

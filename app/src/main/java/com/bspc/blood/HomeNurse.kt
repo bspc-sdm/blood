@@ -334,7 +334,7 @@ private fun VisitCard(
                 Spacer(Modifier.weight(1f))
                 val canCancel = (v.role == "patient" && v.isActive) || (v.role == "nurse" && live)
                 if (canCancel) TextButton(onClick = { onAct("cancel") }, enabled = busyId == null) { Text(tr("Cancel", "বাতিল")) }
-                if (v.status != "open" && v.otherName.isNotBlank()) {
+                if ((v.role == "patient" && v.canReport) || (v.role == "nurse" && v.status != "open")) {
                     IconButton(onClick = onReport) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
                 }
             }

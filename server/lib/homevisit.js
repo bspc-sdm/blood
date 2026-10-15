@@ -198,10 +198,10 @@ const actions = {
   async home_visits(req, user) {
     const now = Date.now();
     const [mineAll, mineActive, offeredSnap, takenAll, takenLive, me] = await Promise.all([
-      db.collection('homeVisits').where('patientUid', '==', user.uid).limit(30).get(),
+      db.collection('homeVisits').where('patientUid', '==', user.uid).limit(60).get(),
       activeAsPatient(user.uid),
       db.collection('homeVisits').where('openFor', 'array-contains', user.uid).limit(100).get(),
-      db.collection('homeVisits').where('nurseUid', '==', user.uid).limit(30).get(),
+      db.collection('homeVisits').where('nurseUid', '==', user.uid).limit(60).get(),
       Promise.all(['accepted', 'on_the_way'].map((s) => db.collection('homeVisits').where('nurseUid', '==', user.uid).where('status', '==', s).limit(20).get())),
       db.doc(`users/${user.uid}`).get(),
     ]);
@@ -209,11 +209,14 @@ const actions = {
     const taken = { docs: mergeDocs(takenAll.docs, takenLive.flatMap((s) => s.docs)) };
     // মেয়াদ শেষ হওয়া খোলা অনুরোধ বন্ধ করে দেওয়া, যাতে নার্সদের তালিকায় জমে না থাকে
     const stale = offeredSnap.docs.filter((d) => d.get('status') !== 'open' || K.visitExpired(d.data(), now));
-    if (stale.length) {
-      const batch = db.batch();
-      stale.forEach((d) => batch.update(d.ref, d.get('status') === 'open' ? { status: 'expired', openFor: [] } : { openFor: [] }));
-      await batch.commit().catch((e) => console.error('homevisit expire failed', e));
-    }
+    // প্রতিটা লেনদেনে আবার পড়ে দেখা হয়, যাতে এর মধ্যে আবার খোলা অনুরোধ মুছে না যায়
+    await Promise.all(stale.map((d) => db.runTransaction(async (t) => {
+      const s = await t.get(d.ref);
+      if (!s.exists) return;
+      const x = s.data();
+      if (x.status === 'open' && K.visitExpired(x, Date.now())) t.update(d.ref, { status: 'expired', openFor: [] });
+      else if (x.status !== 'open') t.update(d.ref, { openFor: [] });
+    }).catch((e) => console.error('homevisit expire failed', e))));
     const offered = { docs: offeredSnap.docs.filter((d) => !stale.includes(d)) };
     // চলমান কাজে অপরজনের ফোন
     const need = new Set();
@@ -254,6 +257,7 @@ const actions = {
       otherPhone: live(d.get('status')) ? phones.get(d.get('nurseUid')) || '' : '',
       address: d.get('address'),
       notifiedCount: (d.get('notified') || []).length,
+      canReport: !!(d.get('nurseUid') || (d.get('pastNurseUids') || []).length),
     }));
     const takenIds = new Set(taken.docs.map((d) => d.id));
     const asNurse = [
@@ -349,7 +353,7 @@ const actions = {
           if (v.mode === 'broadcast') {
             // নার্স সরে গেলে অনুরোধ আবার খোলা হয় (নতুন করে ২৪ ঘণ্টা), অন্য নার্সরা আবার নোটিফিকেশন পান
             const again = (v.notified || []).filter((x) => x !== uid && !(v.declinedBy || []).includes(x));
-            t.update(ref, { status: 'open', nurseUid: null, nurseName: '', declinedBy: FieldValue.arrayUnion(uid), openedAt: now, openFor: again });
+            t.update(ref, { status: 'open', nurseUid: null, nurseName: '', declinedBy: FieldValue.arrayUnion(uid), openedAt: now, openFor: again, pastNurseUids: FieldValue.arrayUnion(uid), pastNurseName: myName });
             return {
               to: v.patientUid,
               msg: ['The nurse can\'t come — your request is open again', 'নার্স আসতে পারছেন না — অনুরোধ আবার খোলা হয়েছে'],
@@ -380,7 +384,13 @@ const actions = {
       const nurses = (v.femalePreferred ? found.female : found.all).slice(0, MAX_NOTIFY);
       if (nurses.length) {
         const ids = nurses.map((n) => n.uid);
-        await ref.update({ notified: FieldValue.arrayUnion(...ids), openFor: FieldValue.arrayUnion(...ids) });
+        const added = await db.runTransaction(async (t) => {
+          const s = await t.get(ref);
+          if (!s.exists || s.get('status') !== 'open') return false; // এর মধ্যে কেউ নিয়ে ফেলেছেন
+          t.update(ref, { notified: FieldValue.arrayUnion(...ids), openFor: FieldValue.arrayUnion(...ids) });
+          return true;
+        });
+        if (!added) return { ok: true };
         await notifyNurses(nurses, v, id);
       }
     }

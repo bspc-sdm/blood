@@ -51,11 +51,15 @@ module.exports = {
     let reported = null;
     if (kind === 'homevisit') {
       // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন; কাকে রিপোর্ট করা হলো তা এখনই লিখে রাখা হয়
+      const past = target.get('pastNurseUids') || [];
       const isPatient = target.get('patientUid') === user.uid;
-      const isNurse = !!target.get('nurseUid') && target.get('nurseUid') === user.uid;
+      const isNurse = (!!target.get('nurseUid') && target.get('nurseUid') === user.uid) || past.includes(user.uid);
       if (!isPatient && !isNurse) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+      // রোগী রিপোর্ট করলে: এখনকার নার্স, না থাকলে যিনি নিয়ে সরে গেছেন
       reported = isPatient
-        ? { uid: target.get('nurseUid'), role: 'nurse', name: target.get('nurseName') || '' }
+        ? (target.get('nurseUid')
+          ? { uid: target.get('nurseUid'), role: 'nurse', name: target.get('nurseName') || '' }
+          : { uid: past[past.length - 1], role: 'nurse', name: target.get('pastNurseName') || '' })
         : { uid: target.get('patientUid'), role: 'patient', name: target.get('patientName') || '' };
       if (!reported.uid) throw new HttpError(400, C.tr(req, 'No nurse has accepted yet', 'এখনো কোনো নার্স নেননি'));
       reason = C.cleanText(req.body?.reason, 300);
