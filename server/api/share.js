@@ -39,7 +39,39 @@ ${body}
 </main></body></html>`;
 }
 
+// অস্থায়ী: সরকারি হাসপাতালের তালিকা একবার আমদানি (কাজ শেষে মুছে ফেলা হবে)
+const SEED_TOKEN = '34bcc79980fe88664706285918df2e3f';
+async function seed(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  if (req.method !== 'POST') return res.status(405).send('{}');
+  const { toHospital } = require('../lib/dghs');
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const out = rows.map(toHospital);
+  const ok = out.filter(Boolean);
+  const types = {};
+  ok.forEach((h) => { types[h.data.type] = (types[h.data.type] || 0) + 1; });
+  const report = {
+    rows: rows.length,
+    mapped: ok.length,
+    noDistrict: rows.filter((r, i) => !out[i]).map((r) => r[4]).slice(0, 50),
+    noUpazila: [...new Set(ok.map((h) => h.unmatchedUpazila).filter(Boolean))],
+    types,
+  };
+  if (body.commit === true) {
+    for (let i = 0; i < ok.length; i += 400) {
+      const batch = db.batch();
+      ok.slice(i, i + 400).forEach((h) => batch.set(db.doc(`hospitals/${h.id}`), h.data, { merge: true }));
+      await batch.commit();
+    }
+    report.committed = ok.length;
+  }
+  return res.status(200).send(JSON.stringify(report));
+}
+
 module.exports = async (req, res) => {
+  if (req.query.seed === SEED_TOKEN) return seed(req, res);
   if (req.query.assetlinks) {
     res.setHeader('Content-Type', 'application/json');
     res.status(200).send(JSON.stringify([{
