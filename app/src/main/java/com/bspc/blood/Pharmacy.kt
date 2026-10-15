@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -267,9 +268,14 @@ private fun NearbyPharmacies(profile: Profile) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
-                FilterChip(selected = openNow, onClick = { openNow = !openNow }, label = { Text(tr("Open now", "এখন খোলা")) })
+            // এলাকা আর "এখন খোলা" একই সারিতে
+            AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false) {
+                FilterChip(
+                    selected = openNow,
+                    onClick = { openNow = !openNow },
+                    label = { Text(tr("Open now", "এখন খোলা")) },
+                    leadingIcon = { AppIcon(R.drawable.ic_schedule, null, Modifier.size(18.dp)) },
+                )
             }
             ErrorText(errorMsg)
             InfoText(infoMsg)

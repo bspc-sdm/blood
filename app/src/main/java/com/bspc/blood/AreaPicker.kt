@@ -120,6 +120,8 @@ fun AreaChips(
     onChange: (String?, Int?, Int?) -> Unit,
     allowAllDistricts: Boolean = true,
     showUnion: Boolean = true,
+    /** একই সারিতে শেষে বাড়তি চিপ (যেমন "এখন খোলা"), যাতে আলাদা সারি না লাগে */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
@@ -145,6 +147,7 @@ fun AreaChips(
                 label = { Text(Areas.union(unionId)?.label ?: tr("Union", "ইউনিয়ন")) },
             )
         }
+        trailing?.invoke()
     }
     when (open) {
         1 -> SearchPickDialog(
