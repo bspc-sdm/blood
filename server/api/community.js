@@ -79,7 +79,7 @@ const actions = {
 
   async question(req, user) {
     const id = req.body?.id;
-    if (!R.isValidId(id)) throw new HttpError(400, 'id');
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`questions/${id}`);
     const [qs, as] = await Promise.all([ref.get(), ref.collection('answers').orderBy('createdAt').limit(200).get()]);
     if (!qs.exists) throw new HttpError(404, C.tr(req, 'Question not found', 'প্রশ্নটা পাওয়া যায়নি'));
@@ -121,7 +121,7 @@ const actions = {
 
   async answer(req, user) {
     const id = req.body?.id;
-    if (!R.isValidId(id)) throw new HttpError(400, 'id');
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const badge = await approvedBadge(user.uid);
     if (!badge) {
       throw new HttpError(403, C.tr(req, 'Only verified health professionals can answer', 'শুধু যাচাই করা স্বাস্থ্য পেশাজীবীরা উত্তর দিতে পারেন'));
@@ -148,7 +148,7 @@ const actions = {
           await sendPush([{
             uid: asker,
             token,
-            title: 'আপনার প্রশ্নের উত্তর এসেছে',
+            title: R.L(u.get('lang'), 'Your question has a new answer', 'আপনার প্রশ্নের উত্তর এসেছে'),
             body: text.slice(0, 120),
             data: { type: 'answer', questionId: id },
           }]);
@@ -162,7 +162,7 @@ const actions = {
 
   async delete_question(req, user) {
     const id = req.body?.id;
-    if (!R.isValidId(id)) throw new HttpError(400, 'id');
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`questions/${id}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
@@ -173,7 +173,7 @@ const actions = {
 
   async delete_answer(req, user) {
     const { id, answerId } = req.body || {};
-    if (!R.isValidId(id) || !R.isValidId(answerId)) throw new HttpError(400, 'id');
+    if (!R.isValidId(id) || !R.isValidId(answerId)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`questions/${id}/answers/${answerId}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
@@ -227,7 +227,7 @@ const actions = {
 
   async delete_tip(req, user) {
     const id = req.body?.id;
-    if (!R.isValidId(id)) throw new HttpError(400, 'id');
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`tips/${id}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
@@ -281,8 +281,10 @@ const actions = {
   async admin_badge_resolve(req, user) {
     if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const uid = req.body?.uid;
-    if (!R.isValidId(uid)) throw new HttpError(400, 'uid');
-    await db.doc(`badges/${uid}`).update({
+    if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const ref = db.doc(`badges/${uid}`);
+    if (!(await ref.get()).exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
+    await ref.update({
       status: req.body?.approve === true ? 'approved' : 'rejected',
       reviewedAt: Date.now(),
       reviewedBy: user.uid,
@@ -294,6 +296,6 @@ const actions = {
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);
   const fn = actions[req.body?.action];
-  if (!fn) throw new HttpError(400, 'action');
+  if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
   return fn(req, user);
 });

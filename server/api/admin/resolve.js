@@ -42,10 +42,12 @@ module.exports = handler(async (req) => {
           {
             uid: result.uid,
             token,
-            title: approve ? 'তারিখ সংশোধন হয়েছে' : 'তারিখ সংশোধনের অনুরোধ বাতিল হয়েছে',
+            title: approve
+              ? R.L(user.get('lang'), 'Date corrected', 'তারিখ সংশোধন হয়েছে')
+              : R.L(user.get('lang'), 'Date correction not approved', 'তারিখ সংশোধনের অনুরোধ বাতিল হয়েছে'),
             body: approve
-              ? 'আপনার শেষ রক্তদানের তারিখ ঠিক করে দেওয়া হয়েছে।'
-              : 'অ্যাপের প্রোফাইল পাতায় বিস্তারিত দেখুন।',
+              ? R.L(user.get('lang'), 'Your last donation date has been fixed.', 'আপনার শেষ রক্তদানের তারিখ ঠিক করে দেওয়া হয়েছে।')
+              : R.L(user.get('lang'), 'See your profile in the app for details.', 'অ্যাপের প্রোফাইল পাতায় বিস্তারিত দেখুন।'),
             data: { type: 'correction' },
           },
         ]);

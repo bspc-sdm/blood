@@ -266,7 +266,7 @@ private fun AuthorLine(name: String?, badge: String?, createdAt: Long) {
 // ------------------------------------------------------------
 
 @Composable
-fun HealthDiscussionTab(onOpenQuestion: (String) -> Unit, onAsk: () -> Unit) {
+fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk: () -> Unit) {
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
@@ -275,7 +275,7 @@ fun HealthDiscussionTab(onOpenQuestion: (String) -> Unit, onAsk: () -> Unit) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Question>>(emptyList()) }
 
-    LaunchedEffect(reload) {
+    LaunchedEffect(reload, refreshKey) {
         loading = true
         errorMsg = null
         runCatching { Community.questions() }
@@ -339,7 +339,11 @@ fun HealthDiscussionTab(onOpenQuestion: (String) -> Unit, onAsk: () -> Unit) {
                                     scope.launch {
                                         loadingMore = true
                                         runCatching { Community.questions(list.last().createdAt) }
-                                            .onSuccess { more -> list = list + more; hasMore = more.size >= 30 }
+                                            .onSuccess { more ->
+                                                val ids = list.map { it.id }.toSet()
+                                                list = list + more.filter { it.id !in ids }
+                                                hasMore = more.size >= 30
+                                            }
                                         loadingMore = false
                                     }
                                 },
@@ -411,7 +415,7 @@ fun AskQuestionScreen(onPosted: (String) -> Unit, onBack: () -> Unit) {
 }
 
 @Composable
-fun QuestionDetailScreen(id: String, me: CommunityMe?, onBack: () -> Unit) {
+fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
@@ -475,8 +479,8 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onBack: () -> Unit) {
                                     TextButton(onClick = {
                                         scope.launch {
                                             runCatching { Community.deleteAnswer(id, a.id) }
+                                                .onSuccess { onChanged(); reload++ }
                                                 .onFailure { errorMsg = it.message }
-                                            reload++
                                         }
                                     }) { Text(tr("Delete", "মুছুন")) }
                                 }
@@ -499,7 +503,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onBack: () -> Unit) {
                                         scope.launch {
                                             busy = true
                                             runCatching { Community.answer(id, reply.trim()) }
-                                                .onSuccess { reply = ""; errorMsg = null; reload++ }
+                                                .onSuccess { reply = ""; errorMsg = null; onChanged(); reload++ }
                                                 .onFailure { errorMsg = it.message }
                                             busy = false
                                         }
@@ -531,7 +535,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onBack: () -> Unit) {
                     confirmDelete = false
                     scope.launch {
                         runCatching { Community.deleteQuestion(id) }
-                            .onSuccess { onBack() }
+                            .onSuccess { onChanged(); onBack() }
                             .onFailure { errorMsg = it.message }
                     }
                 }) { Text(tr("Delete", "মুছুন")) }
@@ -546,15 +550,16 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onBack: () -> Unit) {
 // ------------------------------------------------------------
 
 @Composable
-fun HealthTipsTab(me: CommunityMe?, onOpenTip: (Tip) -> Unit, onPostTip: () -> Unit) {
+fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, onPostTip: () -> Unit) {
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var hasMore by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Tip>>(emptyList()) }
+    var loadingMore by remember { mutableStateOf(false) }
 
-    LaunchedEffect(reload) {
+    LaunchedEffect(reload, refreshKey) {
         loading = true
         errorMsg = null
         runCatching { Community.tips() }
@@ -617,10 +622,17 @@ fun HealthTipsTab(me: CommunityMe?, onOpenTip: (Tip) -> Unit, onPostTip: () -> U
                             TextButton(
                                 onClick = {
                                     scope.launch {
+                                        loadingMore = true
                                         runCatching { Community.tips(list.last().createdAt) }
-                                            .onSuccess { more -> list = list + more; hasMore = more.size >= 30 }
+                                            .onSuccess { more ->
+                                                val ids = list.map { it.id }.toSet()
+                                                list = list + more.filter { it.id !in ids }
+                                                hasMore = more.size >= 30
+                                            }
+                                        loadingMore = false
                                     }
                                 },
+                                enabled = !loadingMore,
                                 modifier = Modifier.fillMaxWidth(),
                             ) { Text(tr("Load more", "আরও দেখুন")) }
                         }
@@ -642,7 +654,7 @@ fun HealthTipsTab(me: CommunityMe?, onOpenTip: (Tip) -> Unit, onPostTip: () -> U
 }
 
 @Composable
-fun TipDetailScreen(tip: Tip, me: CommunityMe?, onBack: () -> Unit) {
+fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -677,7 +689,7 @@ fun TipDetailScreen(tip: Tip, me: CommunityMe?, onBack: () -> Unit) {
                     confirmDelete = false
                     scope.launch {
                         runCatching { Community.deleteTip(tip.id) }
-                            .onSuccess { onBack() }
+                            .onSuccess { onChanged(); onBack() }
                             .onFailure { errorMsg = it.message }
                     }
                 }) { Text(tr("Delete", "মুছুন")) }

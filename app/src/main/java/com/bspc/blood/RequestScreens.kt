@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -118,6 +119,8 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
+    // ফোনের "পেছনে" চাপলে শুধু এলাকা বাছাই বন্ধ হবে, পুরো ফর্ম নয়
+    BackHandler(enabled = picking) { picking = false }
     if (picking) {
         LocationPicker(
             title = tr("Where is the patient?", "রোগী কোথায় আছেন?"),
@@ -551,6 +554,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
         }
     }
 
+    BackHandler(enabled = editing) { editing = false }
     val editTarget = request
     if (editing && editTarget != null) {
         EditRequestScreen(

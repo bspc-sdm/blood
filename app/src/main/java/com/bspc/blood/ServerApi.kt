@@ -106,6 +106,8 @@ object ServerApi {
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 if (token != null) conn.setRequestProperty("Authorization", "Bearer $token")
+                // সার্ভারের বার্তা অ্যাপের ভাষায় আসার জন্য
+                if (!body.has("lang")) body.put("lang", AppPrefs.lang.value.code)
                 conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
 
                 val code = conn.responseCode

@@ -33,8 +33,8 @@ module.exports = handler(
       .map((d) => ({
         uid: d.id,
         token: d.get('fcmToken'),
-        title: 'আপনি আবার রক্ত দিতে পারবেন',
-        body: 'অ্যাপ খুলে দেখুন আপনার আশেপাশে কারো রক্ত লাগবে কি না।',
+        title: R.L(d.get('lang'), 'You can donate blood again', 'আপনি আবার রক্ত দিতে পারবেন'),
+        body: R.L(d.get('lang'), 'Open the app to see if anyone nearby needs blood.', 'অ্যাপ খুলে দেখুন আপনার আশেপাশে কারো রক্ত লাগবে কি না।'),
         data: { type: 'eligible' },
       }));
     const sent = await sendPush(reminders);

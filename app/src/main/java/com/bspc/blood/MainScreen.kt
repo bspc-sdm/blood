@@ -65,6 +65,8 @@ fun MainScreen(
     onOpenAdmin: () -> Unit,
     onOpenSettings: () -> Unit,
     community: CommunityMe?,
+    homeRefresh: Int,
+    communityRefresh: Int,
     onCommunityChanged: (CommunityMe) -> Unit,
     onOpenQuestion: (String) -> Unit,
     onAsk: () -> Unit,
@@ -86,6 +88,13 @@ fun MainScreen(
 
     // এই ফোনের পুশ টোকেন সার্ভারের জন্য প্রোফাইলে রাখা
     LaunchedEffect(Unit) { runCatching { Notifier.syncToken() } }
+
+    // সার্ভার যেন নোটিফিকেশন এই ভাষায় পাঠায়
+    val lang = AppPrefs.lang.value
+    LaunchedEffect(lang) {
+        val uid = AuthRepository.currentUid ?: return@LaunchedEffect
+        runCatching { ProfileRepository.saveLang(uid, lang.code) }
+    }
 
     // GPS দিয়ে এলাকা ঠিক করা থাকলে, অ্যাপ খুললে চুপচাপ আপডেট
     LaunchedEffect(Unit) {
@@ -135,10 +144,10 @@ fun MainScreen(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                Tabs.HOME -> HomeTab(profile, onOpenRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
+                Tabs.HOME -> HomeTab(profile, homeRefresh, onOpenRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab()
-                Tabs.DISCUSSION -> HealthDiscussionTab(onOpenQuestion, onAsk)
-                Tabs.TIPS -> HealthTipsTab(community, onOpenTip, onPostTip)
+                Tabs.DISCUSSION -> HealthDiscussionTab(communityRefresh, onOpenQuestion, onAsk)
+                Tabs.TIPS -> HealthTipsTab(communityRefresh, community, onOpenTip, onPostTip)
                 else -> ProfileTab(
                     profile = profile,
                     community = community,
@@ -162,6 +171,7 @@ fun MainScreen(
 @Composable
 fun HomeTab(
     profile: Profile,
+    refreshKey: Int,
     onOpenRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
@@ -174,7 +184,7 @@ fun HomeTab(
     var processing by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
     val groups = profile.effectiveViewGroups
 
-    LaunchedEffect(reload, profile.lat, profile.lng, groups) {
+    LaunchedEffect(reload, refreshKey, profile.lat, profile.lng, groups) {
         val lat = profile.lat
         val lng = profile.lng
         if (lat == null || lng == null) {
@@ -190,7 +200,7 @@ fun HomeTab(
     }
 
     // যেসব রিকোয়েস্টে রক্ত দিতে রাজি হয়েছেন (প্রসেসিং), কাউন্টডাউন সহ উপরে দেখায়
-    LaunchedEffect(reload, profile.commitments) {
+    LaunchedEffect(reload, refreshKey, profile.commitments) {
         val uid = AuthRepository.currentUid ?: return@LaunchedEffect
         processing = if (profile.commitments.isEmpty()) {
             emptyList()

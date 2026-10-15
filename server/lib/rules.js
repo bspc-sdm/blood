@@ -184,8 +184,33 @@ function formatTimeBn(millis) {
   return `${part} ${bn(h12)}:${bn(String(m).padStart(2, '0'))}`;
 }
 
-function formatKm(km) {
-  return km < 1 ? '১ কিমির কম দূরে' : `প্রায় ${Math.round(km).toLocaleString('bn-BD')} কিমি দূরে`;
+/** ব্যবহারকারীর ভাষায় লেখা (প্রোফাইলের lang: "en" / "bn"; না থাকলে বাংলা) */
+function L(lang, en, bn) {
+  return lang === 'en' ? en : bn;
+}
+
+function bnDigits(t) {
+  return String(t).replace(/\d/g, (c) => '০১২৩৪৫৬৭৮৯'[c]);
+}
+
+function formatKm(km, lang) {
+  if (lang === 'en') return km < 1 ? '< 1 km away' : `about ${Math.round(km)} km away`;
+  return km < 1 ? '১ কিমির কম দূরে' : `প্রায় ${bnDigits(Math.round(km))} কিমি দূরে`;
+}
+
+/** জেলার নাম (ডাটাবেসে বাংলায় থাকে) ভাষা অনুযায়ী */
+function districtLabel(bn, lang) {
+  if (lang !== 'en') return bn;
+  const d = DISTRICTS.find((x) => x.bn === bn);
+  return d ? d.en : bn;
+}
+
+/** "4:05 PM" */
+function formatTimeEn(millis) {
+  const d = new Date(millis + DHAKA_OFFSET_MS);
+  const h = d.getUTCHours();
+  const m = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
 module.exports = {
@@ -213,4 +238,7 @@ module.exports = {
   formatKm,
   neededAtMatchesDate,
   formatTimeBn,
+  formatTimeEn,
+  districtLabel,
+  L,
 };

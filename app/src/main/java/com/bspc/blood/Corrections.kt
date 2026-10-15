@@ -218,9 +218,10 @@ fun AdminScreen(onBack: () -> Unit) {
     fun act(id: String, block: suspend () -> Unit) {
         scope.launch {
             busyId = id
-            runCatching { block() }.onFailure { errorMsg = it.message }
+            runCatching { block() }
+                .onSuccess { reload++ }
+                .onFailure { errorMsg = it.message }
             busyId = null
-            reload++
         }
     }
 

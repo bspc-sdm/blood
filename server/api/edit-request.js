@@ -38,19 +38,20 @@ function readChanges(body) {
 }
 
 /** ডোনারদের জন্য কী বদলেছে তার ছোট বিবরণ */
-function describe(before, changes) {
+function describe(before, changes, lang) {
+  const L = (en, bn) => R.L(lang, en, bn);
   const parts = [];
-  if (changes.hospital !== undefined && changes.hospital !== before.hospital) parts.push(`হাসপাতাল: ${changes.hospital}`);
+  if (changes.hospital !== undefined && changes.hospital !== before.hospital) parts.push(`${L('Hospital', 'হাসপাতাল')}: ${changes.hospital}`);
   if (changes.neededByMillis !== undefined && changes.neededByMillis !== before.neededByMillis) {
     const d = new Date(changes.neededByMillis);
-    parts.push(`তারিখ: ${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`);
+    parts.push(`${L('Date', 'তারিখ')}: ${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`);
   }
   if (changes.neededAtMillis !== undefined && changes.neededAtMillis !== before.neededAtMillis) {
-    parts.push(`সময়: ${R.formatTimeBn(changes.neededAtMillis)}`);
+    parts.push(`${L('Time', 'সময়')}: ${lang === 'en' ? R.formatTimeEn(changes.neededAtMillis) : R.formatTimeBn(changes.neededAtMillis)}`);
   }
-  if (changes.bags !== undefined && changes.bags !== before.bags) parts.push(`${changes.bags} ব্যাগ`);
-  if (changes.urgent === true && !before.urgent) parts.push('এখন জরুরি');
-  if (changes.note !== undefined && changes.note !== (before.note || '')) parts.push('অতিরিক্ত তথ্য বদলেছে');
+  if (changes.bags !== undefined && changes.bags !== before.bags) parts.push(L(`${changes.bags} bag(s)`, `${changes.bags} ব্যাগ`));
+  if (changes.urgent === true && !before.urgent) parts.push(L('Now urgent', 'এখন জরুরি'));
+  if (changes.note !== undefined && changes.note !== (before.note || '')) parts.push(L('Note updated', 'অতিরিক্ত তথ্য বদলেছে'));
   return parts;
 }
 
@@ -82,8 +83,7 @@ module.exports = handler(async (req) => {
 
   // যারা রাজি আছেন তাদের জানানো (না গেলেও এডিট ঠিকই সেভ হয়েছে)
   let notified = 0;
-  const parts = describe(before, changes);
-  if (parts.length) {
+  if (describe(before, changes, 'bn').length) {
     try {
       const accepted = await ref.collection('responses').where('status', '==', 'accepted').get();
       const userRefs = accepted.docs.map((d) => db.doc(`users/${d.id}`));
@@ -94,8 +94,8 @@ module.exports = handler(async (req) => {
           .map((u) => ({
             uid: u.id,
             token: u.get('fcmToken'),
-            title: `${before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন`,
-            body: parts.join(' · '),
+            title: R.L(u.get('lang'), `${before.patientGroup} blood request updated`, `${before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন`),
+            body: describe(before, changes, u.get('lang')).join(' · '),
             data: { requestId, type: 'request' },
           })),
       );

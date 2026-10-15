@@ -119,6 +119,11 @@ object ProfileRepository {
         users.document(uid).set(mapOf("notify" to on), SetOptions.merge()).await()
     }
 
+    /** অ্যাপের ভাষা ("en"/"bn"), সার্ভার নোটিফিকেশনের ভাষা ঠিক করতে ব্যবহার করে */
+    suspend fun saveLang(uid: String, code: String) {
+        users.document(uid).set(mapOf("lang" to code), SetOptions.merge()).await()
+    }
+
     /** প্রোফাইলের ছবি সেভ (null দিলে মুছে যায়) */
     suspend fun savePhoto(uid: String, base64: String?) {
         users.document(uid)

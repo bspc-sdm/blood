@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { toEnglish } = require('./i18n');
 
 // Vercel-এর Environment Variable থেকে Firebase-এর service account key পড়া হয়।
 // FIREBASE_SERVICE_ACCOUNT-এ JSON ফাইলের পুরো লেখাটা থাকবে (চাইলে base64 করেও রাখা যায়)।
@@ -40,7 +41,7 @@ async function verifyUser(req) {
 function handler(fn, { methods = ['POST'] } = {}) {
   return async (req, res) => {
     if (!methods.includes(req.method)) {
-      res.status(405).json({ error: 'এই পদ্ধতি চলবে না' });
+      res.status(405).json({ error: 'Method not allowed' });
       return;
     }
     try {
@@ -49,7 +50,12 @@ function handler(fn, { methods = ['POST'] } = {}) {
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       if (status === 500) console.error(e);
-      res.status(status).json({ error: status === 500 ? 'সার্ভারে সমস্যা হয়েছে' : e.message });
+      const en = req.body?.lang === 'en';
+      res.status(status).json({
+        error: status === 500
+          ? (en ? 'Server error, please try again' : 'সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন')
+          : en ? toEnglish(e.message) : e.message,
+      });
     }
   };
 }

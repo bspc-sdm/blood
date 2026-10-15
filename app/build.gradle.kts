@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.0"
+        versionCode = 12
+        versionName = "1.0.1"
     }
 
     signingConfigs {
@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))

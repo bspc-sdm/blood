@@ -153,3 +153,10 @@ test('কমিউনিটি: লেখা পরিষ্কার আর ব
   assert.strictEqual(C.tr({ body: { lang: 'bn' } }, 'en', 'bn'), 'bn');
   assert.strictEqual(C.tr({ body: {} }, 'en', 'bn'), 'en');
 });
+
+test('সার্ভারের বার্তা ইংরেজিতে', () => {
+  const { toEnglish } = require('../lib/i18n');
+  assert.strictEqual(toEnglish('কোড মেলেনি। আবার দেখে লিখুন।'), 'Wrong code. Please check and try again.');
+  assert.strictEqual(toEnglish('একসাথে সর্বোচ্চ 2টা খোলা রিকোয়েস্ট রাখা যায়'), 'You can keep up to 2 open requests at a time');
+  assert.strictEqual(toEnglish('Already English'), 'Already English');
+});

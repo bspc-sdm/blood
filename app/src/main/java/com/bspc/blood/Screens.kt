@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -25,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -47,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -343,22 +346,29 @@ fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
     }
 }
 
-/** রক্ত লাগার সময় বাছাই (১২ ঘণ্টার ঘড়ি) */
+/** রক্ত লাগার সময় বাছাই (১২ ঘণ্টার ঘড়ি)। AlertDialog ছোট পর্দায় ঘড়ি কেটে দিতে পারে, তাই নিজস্ব Dialog। */
 @Composable
 fun TimePickerPopup(hour: Int?, minute: Int?, onPicked: (Int, Int) -> Unit, onDismiss: () -> Unit) {
     val state = rememberTimePickerState(initialHour = hour ?: 12, initialMinute = minute ?: 0, is24Hour = false)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr("When is blood needed?", "কখন রক্ত লাগবে?")) },
-        text = { TimePicker(state = state) },
-        confirmButton = {
-            TextButton(onClick = {
-                onPicked(state.hour, state.minute)
-                onDismiss()
-            }) { Text(tr("OK", "ঠিক আছে")) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
-    )
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    tr("When is blood needed?", "কখন রক্ত লাগবে?"),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                )
+                TimePicker(state = state)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) }
+                    TextButton(onClick = {
+                        onPicked(state.hour, state.minute)
+                        onDismiss()
+                    }) { Text(tr("OK", "ঠিক আছে")) }
+                }
+            }
+        }
+    }
 }
 
 @Composable

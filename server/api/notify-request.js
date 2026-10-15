@@ -65,13 +65,16 @@ module.exports = handler(async (req) => {
     const counts = new Map(donors.map((u, i) => [u.uid, pushedToday(states[i])]));
     donors = donors.filter((u) => counts.get(u.uid) < R.pushLimit(u));
 
-    const title = `${request.patientGroup} রক্ত দরকার${request.urgent ? ' (জরুরি)' : ''}`;
     const sent = await sendPush(
       donors.map((u) => ({
         uid: u.uid,
         token: u.fcmToken,
-        title,
-        body: `${request.bags} ব্যাগ · ${request.hospital}, ${request.placeName} · ${R.formatKm(u.km)}`,
+        title: R.L(
+          u.lang,
+          `${request.patientGroup} blood needed${request.urgent ? ' (urgent)' : ''}`,
+          `${request.patientGroup} রক্ত দরকার${request.urgent ? ' (জরুরি)' : ''}`,
+        ),
+        body: `${R.L(u.lang, `${request.bags} bag(s)`, `${request.bags} ব্যাগ`)} · ${request.hospital}, ${R.districtLabel(request.placeName, u.lang)} · ${R.formatKm(u.km, u.lang)}`,
         data: { requestId, type: 'request' },
       })),
     );
