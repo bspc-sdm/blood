@@ -120,6 +120,7 @@
     log: {
       admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ',
       admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
+      admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
     detail: {
@@ -270,6 +271,7 @@
     { group: null, items: [
       { path: '', label: 'ড্যাশবোর্ড', icon: 'home' },
       { path: 'analytics', label: 'অ্যানালিটিক্স', icon: 'chart' },
+      { path: 'emergency', label: 'জরুরি আহ্বান', icon: 'warning' },
     ] },
     { group: 'অনুমোদন', items: [
       { path: 'badges', label: 'ডাক্তার ও নার্স', icon: 'verified', count: () => pendingCount('badges') },
@@ -371,6 +373,7 @@
   const PAGES = {
     '': pageDashboard,
     analytics: pageAnalytics,
+    emergency: pageEmergency,
     badges: (r) => pageListing('badges', r),
     pharmacies: (r) => pageListing('pharmacies', r),
     ambulances: (r) => pageListing('ambulances', r),
@@ -680,6 +683,109 @@
         return f;
       })()),
       h('span', { class: 'val', text: num(v) }))));
+  }
+
+  // =========================================================
+  // জরুরি রক্তের আহ্বান (দুর্ঘটনা ইত্যাদি)
+  // =========================================================
+  const GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+
+  async function pageEmergency(r, alive) {
+    setTitle('জরুরি আহ্বান', 'দুর্ঘটনায় একসাথে অনেক রক্ত');
+    const res = await act('admin_emergencies');
+    if (alive && !alive()) return;
+    const items = res.items || [];
+    const live = items.filter((x) => x.live);
+    const past = items.filter((x) => !x.live);
+
+    const card = (x) => {
+      const rows = Object.entries(x.groups || {}).map(([g, v]) => {
+        const full = (v.coming || 0) >= v.need;
+        const state = v.adminClosed ? 'বন্ধ করা' : full ? 'যথেষ্ট আসছেন' : 'চালু';
+        return h('tr', null,
+          h('td', { 'data-label': 'গ্রুপ' }, h('b', { text: g })),
+          h('td', { 'data-label': 'দরকার', text: `${bn(v.need)} ব্যাগ` }),
+          h('td', { 'data-label': 'আসছেন', text: bn(v.coming || 0) }),
+          h('td', { 'data-label': 'জানানো', text: bn(v.notified || 0) }),
+          h('td', { 'data-label': 'অবস্থা' }, h('span', { class: `chip ${v.adminClosed ? 'bad' : full ? 'good' : 'pri'}`, text: state })),
+          h('td', null, x.live ? (v.adminClosed
+            ? actionBtn('আবার খুলুন', 'tonal', () => act('admin_emergency_group', { id: x.id, group: g, closed: false }), `${g} আবার খোলা হয়েছে`, afterChange)
+            : actionBtn('এই গ্রুপ বন্ধ', 'quiet', () => act('admin_emergency_group', { id: x.id, group: g, closed: true }), `${g} বন্ধ করা হয়েছে`, afterChange)) : null));
+      });
+      return h('div', { class: 'card pad emergency' },
+        h('div', { class: 'em-head' },
+          h('div', null, h('h3', { text: x.hospitalName }),
+            h('div', { class: 'note', text: `${x.district} · ${bn(x.radiusKm)} কিমির মধ্যে${x.exactLocation ? ' (হাসপাতালের লোকেশন থেকে)' : ' (জেলার মাঝখান থেকে)'} · যোগাযোগ ${bn(x.contactPhone)}` }),
+            h('div', { class: 'note', text: `শুরু ${fmtDT(x.createdAt)} · ${x.live ? `শেষ হবে ${fmtDT(x.endsAt)}` : 'শেষ'} · ${bn(x.waves)} ধাপে জানানো · ${x.createdBy}` }),
+            x.note ? h('div', { class: 'small', text: x.note }) : null),
+          h('span', { class: `chip ${x.live ? 'bad' : ''}`, text: x.live ? 'চালু' : 'শেষ' })),
+        h('div', { class: 'table-wrap' }, h('table', { class: 't' },
+          h('thead', null, h('tr', null, ['গ্রুপ', 'দরকার', 'আসছেন', 'জানানো', 'অবস্থা', ''].map((t) => h('th', { text: t })))),
+          h('tbody', null, rows))),
+        x.live ? h('div', { class: 'actions' },
+          actionBtn('আরও ডোনার জানান', 'primary', async () => {
+            const r2 = await act('admin_emergency_more', { id: x.id });
+            if (!r2.notified) throw new Error('নতুন করে জানানোর মতো আর কেউ নেই (বা সব গ্রুপ ভরে গেছে)। দূরত্ব বাড়িয়ে নতুন আহ্বান দিতে পারেন।');
+          }, 'আরও ডোনারকে জানানো হয়েছে', afterChange),
+          actionBtn('আহ্বান শেষ করুন', 'warn', () => act('admin_emergency_close', { id: x.id }), 'আহ্বান শেষ, যাঁরা আসছিলেন তাঁদের জানানো হয়েছে', afterChange)) : null);
+    };
+
+    paint(alive,
+      h('p', { class: 'note', text: 'দুর্ঘটনা বা বড় জরুরি অবস্থায় হাসপাতালের ব্লাড ব্যাংকের সাথে কথা বলে আহ্বান দিন। প্রতিটা গ্রুপে যত ব্যাগ দরকার তার প্রায় ৩ গুণ কাছের যোগ্য ডোনারকে আগে জানানো হয়; যথেষ্ট মানুষ "আসছি" বললে সেই গ্রুপ নিজে থেকে বন্ধ হয়, যাতে হাসপাতালে ভিড় না হয়।' }),
+      live.length ? [h('h2', { class: 'section-title', text: 'চালু আহ্বান' }), ...live.map(card)] : null,
+      h('h2', { class: 'section-title', text: 'নতুন আহ্বান' }),
+      emergencyForm(),
+      past.length ? [h('h2', { class: 'section-title', text: 'আগের আহ্বান' }), ...past.map(card)] : null);
+  }
+
+  function emergencyForm() {
+    const field = (label, el) => h('label', { class: 'field' }, h('span', { text: label }), el);
+    const district = h('select', { 'aria-label': 'জেলা' }, h('option', { value: '', text: 'জেলা বেছে নিন' }));
+    const hospital = h('select', { 'aria-label': 'হাসপাতাল', disabled: true }, h('option', { value: '', text: 'আগে জেলা বেছে নিন' }));
+    const hospitalText = h('input', { maxlength: 120, placeholder: 'তালিকায় না থাকলে নাম লিখুন' });
+    act('admin_districts').then((r) => (r.items || []).forEach((d) => district.append(h('option', { value: d, text: d })))).catch(() => {});
+    district.addEventListener('change', async () => {
+      hospital.replaceChildren(h('option', { value: '', text: 'লোড হচ্ছে…' }));
+      hospital.disabled = true;
+      try {
+        const r = await act('admin_hospitals', { district: district.value });
+        hospital.replaceChildren(h('option', { value: '', text: 'হাসপাতাল বেছে নিন' }), ...(r.items || []).map((x) => h('option', { value: x.id, text: x.name })));
+        hospital.disabled = false;
+      } catch (e) {
+        hospital.replaceChildren(h('option', { value: '', text: 'আনা যায়নি' }));
+      }
+    });
+    const loc = h('input', { placeholder: 'যেমন 24.7471, 90.4203 (Google Maps থেকে)', maxlength: 60 });
+    const needs = GROUPS.map((g) => ({ g, el: h('input', { type: 'number', min: 0, max: 200, value: '', placeholder: '০', 'aria-label': `${g} কত ব্যাগ` }) }));
+    const radius = h('select', null, [10, 25, 50].map((k) => h('option', { value: k, text: `${bn(k)} কিমি`, selected: k === 25 })));
+    const hours = h('select', null, [6, 12, 24, 48].map((k) => h('option', { value: k, text: `${bn(k)} ঘণ্টা`, selected: k === 12 })));
+    const phone = h('input', { inputmode: 'tel', maxlength: 15, placeholder: '01XXXXXXXXX' });
+    const note = h('input', { maxlength: 300, placeholder: 'যেমন: বাস দুর্ঘটনা, জরুরি বিভাগের ব্লাড ব্যাংকে আসুন' });
+    const confirm = h('input', { type: 'checkbox' });
+    return h('div', { class: 'card pad bank-form' },
+      h('div', { class: 'field-row' }, field('জেলা', district), field('হাসপাতাল', hospital)),
+      field('হাসপাতাল (তালিকায় না থাকলে)', hospitalText),
+      field('হাসপাতালের লোকেশন (ঐচ্ছিক, দূরত্ব ঠিকভাবে মাপতে)', loc),
+      h('div', { class: 'field' }, h('span', { text: 'কোন গ্রুপের কত ব্যাগ দরকার' }),
+        h('div', { class: 'need-grid' }, needs.map(({ g, el }) => h('label', { class: 'need' }, h('b', { text: g }), el)))),
+      h('div', { class: 'field-row' }, field('কত দূর পর্যন্ত জানানো হবে', radius), field('কতক্ষণ চালু থাকবে', hours)),
+      field('হাসপাতালের যোগাযোগের মোবাইল নম্বর', phone),
+      field('বার্তা (ঐচ্ছিক)', note),
+      h('label', { class: 'check' }, confirm, h('span', { text: 'হাসপাতালের ব্লাড ব্যাংকের সাথে কথা বলে নিশ্চিত হয়েছি যে এই রক্ত দরকার' })),
+      h('div', { class: 'actions' }, actionBtn('আহ্বান পাঠান', 'warn', async () => {
+        const groups = {};
+        needs.forEach(({ g, el }) => { const n = parseInt(el.value, 10); if (n > 0) groups[g] = n; });
+        let lat;
+        let lng;
+        const m = loc.value.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+        if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+        const r = await act('admin_emergency_create', {
+          district: district.value, hospitalId: hospital.value || null, hospitalName: hospitalText.value.trim(),
+          lat, lng, groups, radiusKm: parseInt(radius.value, 10), hours: parseInt(hours.value, 10),
+          contactPhone: phone.value.trim(), note: note.value.trim(), confirmed: confirm.checked,
+        });
+        toast(`${bn(r.notified || 0)} জন ডোনারকে জানানো হয়েছে`);
+      }, 'আহ্বান চালু হয়েছে', afterChange)));
   }
 
   // =========================================================

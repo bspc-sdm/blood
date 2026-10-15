@@ -190,6 +190,24 @@ class ScreensTest {
     }
 
     @Test
+    fun emergencyCardsBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val groups = listOf(EmergencyGroup("B+", 6, 6, true), EmergencyGroup("O+", 4, 1, false), EmergencyGroup("A+", 3, 0, false))
+        val base = EmergencyAppeal(
+            "e1", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "ময়মনসিংহ", "01711000000", "বাস দুর্ঘটনা — জরুরি বিভাগের ব্লাড ব্যাংকে আসুন",
+            groups, System.currentTimeMillis() + 6 * 3_600_000L, "O+", "notified", canCome = true, eligible = true,
+        )
+        show {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                EmergencyCard(base) {}
+                EmergencyCard(base.copy(id = "e2", myStatus = "coming", note = "")) {}
+                EmergencyCard(base.copy(id = "e3", myGroup = "B+", canCome = false, note = "")) {}
+            }
+        }
+        shot("emergency_cards_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

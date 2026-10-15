@@ -123,6 +123,10 @@ module.exports = {
       }),
     ]);
 
+    // জরুরি আহ্বানে নিজের সাড়া (সাম্প্রতিকগুলোতে)
+    const recentEmergencies = await db.collection('emergencies').orderBy('createdAt', 'desc').limit(200).get();
+    await Promise.all(recentEmergencies.docs.map((d) => d.ref.collection('donors').doc(uid).delete().catch(() => {})));
+
     // ৮) প্রোফাইল (ছবি, ফোন সহ), ব্যাজ, চেম্বার, সার্ভারের হিসাব, লগইন কোড
     const email = E.normalizeEmail(user.email || '');
     await Promise.all([

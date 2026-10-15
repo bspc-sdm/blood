@@ -272,6 +272,8 @@ fun HomeTab(
 
             // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
             item(key = "update") { UpdateBanner() }
+            // জরুরি আহ্বান (Lifolo টিম) সবার উপরে
+            item(key = "emergency") { EmergencyBanner(refreshKey * 1000 + reload) }
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
 
             when {
