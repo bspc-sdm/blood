@@ -82,14 +82,30 @@ data class BloodRequest(
     val acceptedCount: Int = 0,
     /** রক্তপ্রার্থী জানিয়েছেন কত ব্যাগ পেয়েছেন (সব না পেলে রিকোয়েস্ট খোলা থাকে) */
     val bagsReceived: Int = 0,
+    /** নিশ্চিত বা রক্ত দেওয়া ডোনারের সংখ্যা (সার্ভার লেখে) */
+    val confirmedCount: Int = 0,
+    /** বন্ধ হওয়ার সময় আর কে বন্ধ করেছেন: "requester", "not_needed", "expired" */
+    val closedAtMillis: Long = 0,
+    val closedBy: String = "",
+    /** কতবার ডোনারদের জানানো হয়েছে আর শেষবার কখন ("আবার জানান"-এর জন্য) */
+    val notifyRounds: Int = 0,
+    val lastNotifiedMillis: Long = 0,
 ) {
+    /** কতক্ষণ খোলা থাকে: নির্দিষ্ট সময় দেওয়া থাকলে তার ৬ ঘণ্টা পর, নইলে দিনের শেষে (সার্ভারের নিয়মের মতো) */
+    val activeUntilMillis: Long
+        get() = neededAtMillis?.let { it + 6 * 60 * 60 * 1000L } ?: (neededByMillis + DAY_MS)
+
+    /** আর কয় ব্যাগ লাগবে */
+    val bagsLeft: Int
+        get() = (bags - maxOf(confirmedCount, bagsReceived)).coerceAtLeast(0)
+
     /** কাউন্টডাউন যে মুহূর্ত পর্যন্ত: দেওয়া সময়, না থাকলে ওই দিনের শেষ (বাংলাদেশের রাত ১২টা) */
     val deadlineMillis: Long
         get() = neededAtMillis ?: (neededByMillis + DAY_MS - Rules.DHAKA_OFFSET_MS)
 
     /** খোলা আছে আর দরকারের তারিখ পার হয়নি */
     val isActive: Boolean
-        get() = status == "open" && neededByMillis + DAY_MS > System.currentTimeMillis()
+        get() = status == "open" && activeUntilMillis > System.currentTimeMillis()
 }
 
 data class DonorResponse(

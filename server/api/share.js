@@ -68,6 +68,8 @@ module.exports = async (req, res) => {
   }
 
   const active = R.isActive(r);
+  // কিছু ব্যাগ পাওয়া/নিশ্চিত হলে বাকিটা
+  const left = active && R.bagsLeft(r) > 0 ? R.bagsLeft(r) : (r.bags || 1);
   const district = r.placeName || '';
   const districtEn = R.districtLabel(district, 'en');
   const when = r.neededAtMillis ? `${R.formatTimeBn(r.neededAtMillis)} / ${R.formatTimeEn(r.neededAtMillis)}` : '';
@@ -78,7 +80,7 @@ module.exports = async (req, res) => {
 
   const body = `<div class="card">
 <div class="row"><div class="group">${esc(r.patientGroup)}</div>
-<div><h1>${esc(r.bags)} ব্যাগ রক্ত দরকার</h1><div class="muted">${esc(r.bags)} bag(s) of ${esc(r.patientGroup)} blood needed</div>
+<div><h1>${esc(left)} ব্যাগ রক্ত দরকার</h1><div class="muted">${esc(left)} bag(s) of ${esc(r.patientGroup)} blood needed${left < (r.bags || 1) ? ` · মোট ${esc(r.bags)} ব্যাগের বাকি / of ${esc(r.bags)}` : ''}</div>
 ${r.urgent && active ? '<span class="tag">জরুরি · Urgent</span>' : ''}${!active ? '<span class="tag" style="background:#777">বন্ধ · Closed</span>' : ''}</div></div>
 <dl>
 <dt>হাসপাতাল · Hospital</dt><dd>${esc(r.hospital)}</dd>

@@ -308,6 +308,35 @@ class ScreensTest {
         shot("pill_tabs_autoscroll_bn")
     }
 
+    /** ২.৯: আবার জানান, শেষ হওয়া রিকোয়েস্টে রক্ত দিয়েছি/দিইনি, "আর লাগবে না" */
+    @Test
+    fun requestGapFixesBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val now = System.currentTimeMillis()
+        show {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                MyRequestCard(
+                    request.copy(confirmedCount = 1, notifyRounds = 1, lastNotifiedMillis = now - 7 * 3_600_000L),
+                    donors, null, {}, {}, {}, {}, {},
+                )
+                ProcessingCard(
+                    request.copy(id = "p1", status = "closed", closedAtMillis = now - 3_600_000L),
+                    onClick = {}, onDonated = {}, onNotDonated = {},
+                )
+                RequestCard(request.copy(id = "f1", bags = 3, confirmedCount = 1), 2.5) {}
+            }
+        }
+        shot("request_gap_fixes_bn")
+    }
+
+    @Test
+    fun closeDialogNotNeededBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { CloseRequestDialog("r1", 3, donors, {}, { _, _ -> }) }
+        rule.onNodeWithText("আর লাগবে না").performClick()
+        shot("close_dialog_not_needed_bn")
+    }
+
     /** ২.৮: "জানি না" রক্তের গ্রুপ, বাদ দেওয়া ডোনার ফিরিয়ে আনা */
     @Test
     fun gapFixesBangla() {

@@ -79,4 +79,29 @@ const actions = {
   },
 };
 
+const REOPEN_MS = 60 * 60 * 1000;
+
+/** ভুল করে বন্ধ করলে ১ ঘণ্টার মধ্যে আবার খোলা (রক্তপ্রার্থী নিজে, সময় এখনো বাকি থাকলে) */
+actions.request_reopen = async function requestReopen(req, user) {
+  const id = req.body?.requestId;
+  if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+  const ref = db.doc(`requests/${id}`);
+  const now = Date.now();
+  const r = await db.runTransaction(async (t) => {
+    const s = await t.get(ref);
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const x = s.data();
+    if (x.requesterUid !== user.uid) throw new HttpError(403, C.tr(req, 'This is not your request', 'এটা আপনার রিকোয়েস্ট না'));
+    if (x.status === 'open') return null;
+    const byRequester = ['requester', 'not_needed'].includes(x.closedBy) || x.closedBy === undefined;
+    if (!byRequester || !x.closedAt || now - x.closedAt > REOPEN_MS || R.activeUntil(x) <= now) {
+      throw new HttpError(400, C.tr(req, 'This request can no longer be opened again. Create a new one if needed.', 'এই রিকোয়েস্ট আর খোলা যায় না। দরকার হলে নতুন রিকোয়েস্ট দিন।'));
+    }
+    t.update(ref, { status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now });
+    return x;
+  });
+  if (r) await require('./requestend').notifyEnded(id, r, 'reopened');
+  return { ok: true };
+};
+
 module.exports = { actions };

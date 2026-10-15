@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 
 internal data class NavItem(val label: String, val selectedIcon: Int, val icon: Int)
@@ -187,6 +188,8 @@ fun HomeTab(
     onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }
+    val homeScope = androidx.compose.runtime.rememberCoroutineScope()
+    var processingBusy by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Pair<BloodRequest, Double>>>(emptyList()) }
@@ -228,7 +231,27 @@ fun HomeTab(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (processing.isNotEmpty()) {
-                items(processing, key = { "p_" + it.id }) { r -> ProcessingCard(r) { onOpenRequest(r.id) } }
+                items(processing, key = { "p_" + it.id }) { r ->
+                    // শেষ হয়ে যাওয়া রিকোয়েস্টে: রক্ত দিয়েছি / দিইনি — সার্ভার তারিখ আর অন্য রিকোয়েস্ট সামলায়
+                    fun answer(op: String) {
+                        homeScope.launch {
+                            processingBusy = r.id
+                            runCatching {
+                                ServerApi.updateResponse(r.id, op)
+                                AuthRepository.currentUid?.let { ProfileRepository.removeCommitments(it, listOf(r.id)) }
+                            }
+                            processingBusy = null
+                            reload++
+                        }
+                    }
+                    ProcessingCard(
+                        r,
+                        onClick = { onOpenRequest(r.id) },
+                        onDonated = { answer("donated") },
+                        onNotDonated = { answer("cancel") },
+                        busy = processingBusy == r.id,
+                    )
+                }
             }
 
             item {

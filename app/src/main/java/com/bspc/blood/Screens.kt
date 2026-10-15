@@ -398,8 +398,15 @@ fun TimePickerPopup(
 }
 
 @Composable
-fun DatePickerPopup(initial: Long?, onPicked: (Long?) -> Unit, onDismiss: () -> Unit) {
-    val state = rememberDatePickerState(initialSelectedDateMillis = initial)
+fun DatePickerPopup(initial: Long?, onPicked: (Long?) -> Unit, onDismiss: () -> Unit, minDate: Long? = null, maxDate: Long? = null) {
+    // রক্তের রিকোয়েস্টে আজ থেকে ৩১ দিনের মধ্যে (তার পরে নোটিফিকেশন যায় না)
+    val selectable = remember(minDate, maxDate) {
+        object : androidx.compose.material3.SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                (minDate == null || utcTimeMillis >= minDate) && (maxDate == null || utcTimeMillis <= maxDate)
+        }
+    }
+    val state = rememberDatePickerState(initialSelectedDateMillis = initial, selectableDates = selectable)
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

@@ -29,16 +29,20 @@ module.exports = handler(async (req) => {
     // আগের অ্যাপ সংখ্যা পাঠায় না — তখন আগের মতো বন্ধ।
     const bags = reqSnap.get('bags') || 1;
     const got = Number.isInteger(req.body?.bagsReceived) ? Math.max(0, Math.min(bags, req.body.bagsReceived)) : null;
-    const partial = got != null && got < bags;
+    // ০ ব্যাগ = "আর লাগবে না": বন্ধ, কাউকে রক্তদাতা লেখা হয় না। কিছু পেলে (সব না) খোলা থাকে।
+    const partial = got != null && got > 0 && got < bags;
+    // যত ব্যাগ পেয়েছেন তার বেশি জনকে "রক্ত দিয়েছেন" লেখা যায় না
+    const allowed = got == null ? donated.length : got;
     if (partial) {
       t.update(requestRef, { bagsReceived: Math.max(got, reqSnap.get('bagsReceived') || 0), updatedAt: Date.now() });
     } else {
-      t.update(requestRef, { status: 'closed', closedAt: Date.now(), ...(got != null ? { bagsReceived: got } : {}) });
+      t.update(requestRef, { status: 'closed', closedAt: Date.now(), closedBy: got === 0 ? 'not_needed' : 'requester', ...(got != null ? { bagsReceived: got } : {}) });
     }
     const markedIds = [];
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন
       if (!snap.exists || snap.get('status') !== 'accepted') return;
+      if (markedIds.length >= allowed) return;
       t.update(snap.ref, { status: 'donated' });
       markedIds.push(snap.id);
       const last = users[i].exists ? users[i].get('lastDonationMillis') : null;
@@ -46,19 +50,21 @@ module.exports = handler(async (req) => {
         t.update(userRefs[i], { lastDonationMillis: today });
       }
     });
-    return { marked: markedIds.length, markedIds, closed: !partial, r: reqSnap.data() };
+    return { marked: markedIds.length, markedIds, closed: !partial, notNeeded: got === 0, r: reqSnap.data() };
   });
 
   // বন্ধ হলে: যাঁরা এখনো "রাজি" (রক্ত দেওয়া হিসেবে চিহ্নিত না), তাঁদের জানানো যে আর আসতে হবে না;
   // আর যাঁদের রক্তদান লেখা হলো তাঁদের ধন্যবাদ
   if (result.closed && result.r) {
-    await notifyEnded(requestId, result.r, 'closed');
+    await notifyEnded(requestId, result.r, result.notNeeded ? 'notNeeded' : 'closed');
     await pushUsers(result.markedIds, (u, lang) => ({
       title: R.L(lang, 'Thank you for donating!', 'রক্ত দেওয়ার জন্য ধন্যবাদ!'),
       body: R.L(lang, 'The requester marked your donation. You can donate again after 120 days.', 'রক্তপ্রার্থী আপনার রক্তদান লিখে রেখেছেন। ১২০ দিন পর আবার রক্ত দিতে পারবেন।'),
       data: { requestId, type: 'request' },
     }));
   }
+  // যাঁরা রক্ত দিলেন, তাঁদের অন্য রিকোয়েস্টের "রাজি" মুক্ত
+  for (const d of result.markedIds || []) await require('../lib/requestend').releaseOthers(d, requestId);
   const { r, markedIds, ...rest } = result;
   return { ok: true, ...rest };
 });

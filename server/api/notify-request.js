@@ -3,6 +3,9 @@ const { db, FieldValue, HttpError, verifyUser, handler, sendPush } = require('..
 const R = require('../lib/rules');
 
 const LOCK_MS = 60 * 1000;
+// "আবার জানান": আরও ডোনার লাগলে — একটা রিকোয়েস্টে মোট ৩ বার, দুইবারের মাঝে ৬ ঘণ্টা; আগে জানানো মানুষ বাদ
+const MAX_ROUNDS = 3;
+const AGAIN_GAP_MS = 6 * 60 * 60 * 1000;
 
 module.exports = handler(async (req) => {
   const uid = await verifyUser(req);
@@ -13,6 +16,8 @@ module.exports = handler(async (req) => {
   const stateRef = db.doc(`serverState/${uid}`);
   const now = Date.now();
   const day = R.dhakaDayKey(now);
+  const again = req.body?.again === true;
+  const metaRef = ref.collection('meta').doc('notified');
 
   // যাচাই + সাময়িক তালা, যাতে একই রিকোয়েস্টে একসাথে দুবার পাঠানো না হয়
   const request = await db.runTransaction(async (t) => {
@@ -21,11 +26,25 @@ module.exports = handler(async (req) => {
     const r = { id: snap.id, ...snap.data() };
     if (r.requesterUid !== uid) throw new HttpError(403, 'এটা আপনার রিকোয়েস্ট না');
     if (!R.isActive(r, now)) throw new HttpError(400, 'রিকোয়েস্টটা বন্ধ বা মেয়াদ শেষ');
-    if (r.notifiedAt) return null;
+    if (r.notifiedAt && !again) return null;
     if ((r.notifyingUntil || 0) > now) throw new HttpError(409, 'নোটিফিকেশন পাঠানো চলছে, একটু পরে দেখুন');
 
     const invalid = R.validateRequest(r, now);
     if (invalid) throw new HttpError(400, invalid);
+
+    if (again) {
+      if (!r.notifiedAt) throw new HttpError(400, 'আগে একবার ডোনারদের জানান');
+      const rounds = r.notifyRounds || 1;
+      if (rounds >= MAX_ROUNDS) throw new HttpError(429, `একটা রিকোয়েস্টে সর্বোচ্চ ${MAX_ROUNDS} বার জানানো যায়। পরিচিতদের সরাসরি জানান।`);
+      const last = r.lastNotifiedAt || (r.notifiedAt && r.notifiedAt.toMillis ? r.notifiedAt.toMillis() : 0);
+      if (now - last < AGAIN_GAP_MS) {
+        const h = Math.ceil((AGAIN_GAP_MS - (now - last)) / 3600000);
+        throw new HttpError(429, `${h} ঘণ্টা পর আবার জানাতে পারবেন`);
+      }
+      if (R.bagsLeft(r) <= 0) throw new HttpError(400, 'সব ব্যাগের ডোনার পাওয়া গেছে');
+      t.update(ref, { notifyingUntil: now + LOCK_MS });
+      return { ...r, rounds };
+    }
 
     // একজন দিনে সর্বোচ্চ ৩টা রিকোয়েস্টের নোটিফিকেশন পাঠাতে পারবে
     const used = stateSnap.exists && stateSnap.get('requestDay') === day ? stateSnap.get('requestCount') || 0 : 0;
@@ -55,7 +74,10 @@ module.exports = handler(async (req) => {
       .collection('users')
       .where('placeName', 'in', R.nearDistricts(request.lat, request.lng))
       .get();
-    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    // আগে যাঁদের জানানো হয়েছে তাঁরা বাদ (আবার জানানোর সময়) — তাহলে দূরের নতুন ডোনাররা আসেন
+    const meta = await metaRef.get();
+    const already = new Set((meta.exists && meta.get('uids')) || []);
+    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => !already.has(u.uid));
     let donors = R.pickDonors(request, users, now);
 
     // প্রত্যেক ডোনার দিনে সর্বোচ্চ যতটা নোটিফিকেশন চেয়েছেন (সেটিংস, না বদলালে ৩টা)
@@ -89,11 +111,12 @@ module.exports = handler(async (req) => {
         { merge: true },
       );
     });
-    batch.update(ref, {
-      notifiedAt: FieldValue.serverTimestamp(),
-      notifiedCount: sent,
-      notifyingUntil: FieldValue.delete(),
-    });
+    batch.update(ref, again
+      ? { notifiedCount: FieldValue.increment(sent), notifyRounds: request.rounds + 1, lastNotifiedAt: now, notifyingUntil: FieldValue.delete() }
+      : { notifiedAt: FieldValue.serverTimestamp(), notifiedCount: sent, notifyRounds: 1, lastNotifiedAt: now, notifyingUntil: FieldValue.delete() });
+    if (donors.length) {
+      batch.set(metaRef, { uids: [...already, ...donors.map((u) => u.uid)].slice(-2000) });
+    }
     await batch.commit();
 
     return { ok: true, sent };

@@ -18,6 +18,9 @@ const EXACT = {
   'রিকোয়েস্টটা বন্ধ হয়ে গেছে': 'This request is closed',
   'নিজের রিকোয়েস্টে সাড়া দেওয়া যায় না': 'You can\'t respond to your own request',
   'আগে প্রোফাইল পূরণ করুন': 'Complete your profile first',
+  'সঠিক মোবাইল নম্বর দিন': 'Enter a valid mobile number',
+  'আগে একবার ডোনারদের জানান': 'Notify donors once first',
+  'সব ব্যাগের ডোনার পাওয়া গেছে': 'All bags already have donors',
   'রক্ত দিতে আগে প্রোফাইলে আপনার রক্তের গ্রুপ দিন': 'Add your blood group in your profile to donate',
   'এলাকা ঠিক নেই': 'Invalid area',
   'লোকেশন ঠিক নেই': 'Invalid location',
@@ -46,6 +49,8 @@ const EXACT = {
 };
 
 const PATTERNS = [
+  [/^একটা রিকোয়েস্টে সর্বোচ্চ (\d+) বার জানানো যায়।/, (m) => `Donors can be notified up to ${m[1]} times per request. Tell people you know directly.`],
+  [/^(\d+) ঘণ্টা পর আবার জানাতে পারবেন/, (m) => `You can notify again in ${m[1]} hour(s)`],
   [/^একটা রিকোয়েস্ট সর্বোচ্চ (\d+) বার এডিট করা যায়।/, (m) => `A request can be edited at most ${m[1]} times. Close it and create a new one if needed.`],
   [/^দিনে সর্বোচ্চ (\d+)টা রিকোয়েস্ট দেওয়া যায়।/, (m) => `You can create up to ${m[1]} requests a day. If urgent, contact people directly.`],
   [/^একসাথে সর্বোচ্চ (\d+)টা খোলা রিকোয়েস্ট রাখা যায়/, (m) => `You can keep up to ${m[1]} open requests at a time`],

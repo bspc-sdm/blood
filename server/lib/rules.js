@@ -93,8 +93,22 @@ function isEligibleDonor(user, now = Date.now()) {
   );
 }
 
+/** নির্দিষ্ট সময় দেওয়া থাকলে তার ৬ ঘণ্টা পর পর্যন্ত, নইলে দরকারের দিনের শেষ পর্যন্ত */
+const AFTER_NEEDED_MS = 6 * 60 * 60 * 1000;
+function activeUntil(request) {
+  return Number.isInteger(request.neededAtMillis)
+    ? request.neededAtMillis + AFTER_NEEDED_MS
+    : (request.neededByMillis || 0) + DAY_MS;
+}
+
 function isActive(request, now = Date.now()) {
-  return request.status === 'open' && (request.neededByMillis || 0) + DAY_MS > now;
+  return request.status === 'open' && activeUntil(request) > now;
+}
+
+/** আর কয় ব্যাগ লাগবে: নিশ্চিত/রক্ত দেওয়া ডোনার বা পাওয়া ব্যাগ — যেটা বেশি — বাদ দিয়ে */
+function bagsLeft(request) {
+  const done = Math.max(request.confirmedCount || 0, request.bagsReceived || 0);
+  return Math.max((request.bags || 1) - done, 0);
 }
 
 function distanceKm(aLat, aLng, bLat, bLng) {
@@ -262,6 +276,8 @@ module.exports = {
   isEligibleDonor,
   ageYears,
   isActive,
+  activeUntil,
+  bagsLeft,
   distanceKm,
   nearDistricts,
   todayDhakaUtcMidnight,

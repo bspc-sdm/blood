@@ -33,7 +33,9 @@ service cloud.firestore {
       return before == null || (after != null && after >= before);
     }
     match /users/{uid} {
-      allow read, delete: if signedIn() && me() == uid;
+      // নিজের প্রোফাইল নথি মুছে আবার বানিয়ে "শেষ রক্তদান" মুছে ফেলা যায় না; অ্যাকাউন্ট মোছা সার্ভার দিয়ে
+      allow read: if signedIn() && me() == uid;
+      allow delete: if false;
       allow create: if signedIn() && me() == uid;
       allow update: if signedIn() && me() == uid && donationDateOnlyForward();
     }

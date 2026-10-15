@@ -34,3 +34,22 @@ test('home care near me also finds upazila-only providers in the same district',
   assert.ok(K.homeMatch(p, { lat: 23.8, lng: 90.4, district: u.district }));
   assert.equal(K.homeMatch(p, { lat: 23.8, lng: 90.4, district: 'অন্য জেলা' }), null);
 });
+
+const R = require('../lib/rules');
+
+test('request stays active 6h after the needed time, or until day end without a time', () => {
+  const day = Date.UTC(2026, 9, 20); // ২০ অক্টোবর, UTC মধ্যরাত
+  const at = day - 6 * 3600e3 + 9 * 3600e3; // ঢাকায় সকাল ৯টা
+  const r = { status: 'open', neededByMillis: day, neededAtMillis: at };
+  assert.equal(R.isActive(r, at + 5 * 3600e3), true);
+  assert.equal(R.isActive(r, at + 7 * 3600e3), false);
+  const noTime = { status: 'open', neededByMillis: day };
+  assert.equal(R.isActive(noTime, day + 20 * 3600e3), true);
+  assert.equal(R.isActive(noTime, day + 25 * 3600e3), false);
+});
+
+test('bags left counts confirmed donors or bags received, whichever is more', () => {
+  assert.equal(R.bagsLeft({ bags: 3, confirmedCount: 1, bagsReceived: 0 }), 2);
+  assert.equal(R.bagsLeft({ bags: 3, confirmedCount: 1, bagsReceived: 2 }), 1);
+  assert.equal(R.bagsLeft({ bags: 2, confirmedCount: 3 }), 0);
+});

@@ -92,18 +92,22 @@ object ProfileRepository {
         users.document(uid).set(data, SetOptions.merge()).await()
     }
 
-    /** নাম, ফোন, গ্রুপ, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়। */
-    suspend fun saveBasics(uid: String, profile: Profile) {
+    /**
+     * নাম, ফোন, গ্রুপ, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়।
+     * includeDonation: শুধু যখন আগে কোনো তারিখ সেভ নেই (প্রথমবার) — পরে তারিখ সার্ভার বা "তারিখ বদলান" দিয়ে বদলায়।
+     * নইলে পুরোনো তারিখ পাঠালে নিয়মে আটকে "PERMISSION_DENIED" হতো।
+     */
+    suspend fun saveBasics(uid: String, profile: Profile, includeDonation: Boolean = true) {
         val data = hashMapOf<String, Any?>(
             "name" to profile.name,
             "phone" to profile.phone,
             "bloodGroup" to profile.bloodGroup,
-            "lastDonationMillis" to profile.lastDonationMillis,
             "birthDateMillis" to profile.birthDateMillis,
             "weightKg" to profile.weightKg,
             "notify" to profile.notify,
             "updatedAt" to FieldValue.serverTimestamp(),
         )
+        if (includeDonation && profile.lastDonationMillis != null) data["lastDonationMillis"] = profile.lastDonationMillis
         users.document(uid).set(data, SetOptions.merge()).await()
     }
 
@@ -193,6 +197,11 @@ object RequestRepository {
         fulfilled = s.getBoolean("fulfilled") ?: false,
         acceptedCount = (s.getLong("acceptedCount") ?: 0L).toInt().coerceAtLeast(0),
         bagsReceived = (s.getLong("bagsReceived") ?: 0L).toInt().coerceAtLeast(0),
+        confirmedCount = (s.getLong("confirmedCount") ?: 0L).toInt().coerceAtLeast(0),
+        closedAtMillis = s.getLong("closedAt") ?: 0L,
+        closedBy = s.getString("closedBy") ?: "",
+        notifyRounds = (s.getLong("notifyRounds") ?: (if (s.contains("notifiedAt")) 1L else 0L)).toInt(),
+        lastNotifiedMillis = s.getLong("lastNotifiedAt") ?: (s.getTimestamp("notifiedAt")?.toDate()?.time ?: 0L),
     )
 
     private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(
@@ -291,7 +300,10 @@ object RequestRepository {
         for (id in requestIds) {
             val r = get(id)
             val resp = if (r != null) myResponse(id, uid) else null
-            if (r != null && r.isActive && resp?.status == "accepted") active += r else finished += id
+            // বন্ধ/সময় শেষ হলেও ৩ দিন রাখা — ডোনার যেন "রক্ত দিয়েছি / দিইনি" জানাতে পারেন
+            val endedAt = if (r == null) 0L else if (r.closedAtMillis > 0) r.closedAtMillis else r.activeUntilMillis
+            val recentlyEnded = r != null && !r.isActive && System.currentTimeMillis() - endedAt < 3 * DAY_MS
+            if (r != null && resp?.status == "accepted" && (r.isActive || recentlyEnded)) active += r else finished += id
         }
         runCatching { ProfileRepository.removeCommitments(uid, finished) }
         return active.sortedBy { it.deadlineMillis }

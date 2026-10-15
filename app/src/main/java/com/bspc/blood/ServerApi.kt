@@ -18,8 +18,14 @@ object ServerApi {
     const val BASE_URL = "https://blood-server-ashy.vercel.app"
 
     /** নতুন রিকোয়েস্টে আশেপাশের ডোনারদের পুশ নোটিফিকেশন পাঠানো। কতজনকে পাঠানো হলো সেটা ফেরত দেয়। */
-    suspend fun notifyRequest(requestId: String): Int =
-        post("/api/notify-request", JSONObject().put("requestId", requestId)).optInt("sent", 0)
+    /** again = আরও ডোনার লাগলে আবার জানানো (আগে জানানো মানুষ বাদ) */
+    suspend fun notifyRequest(requestId: String, again: Boolean = false): Int =
+        post("/api/notify-request", JSONObject().put("requestId", requestId).put("again", again)).optInt("sent", 0)
+
+    /** ভুল করে বন্ধ করলে ১ ঘণ্টার মধ্যে আবার খোলা */
+    suspend fun reopenRequest(requestId: String) {
+        post("/api/community", JSONObject().put("action", "request_reopen").put("requestId", requestId))
+    }
 
     /** "রক্ত দেব" */
     suspend fun respond(requestId: String) {
@@ -65,10 +71,12 @@ object ServerApi {
         urgent: Boolean,
         travelFare: Boolean,
         note: String,
+        contactPhone: String? = null,
     ): Int =
         post(
             "/api/edit-request",
             JSONObject()
+                .apply { if (contactPhone != null) put("contactPhone", contactPhone) }
                 .put("requestId", requestId)
                 .put("bags", bags)
                 .put("hospital", hospital)

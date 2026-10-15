@@ -260,6 +260,8 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             initial = neededBy,
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
+            minDate = Rules.todayUtcMidnight(),
+            maxDate = Rules.todayUtcMidnight() + 31 * DAY_MS,
         )
     }
     if (showTime) {
@@ -768,12 +770,20 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                                     busy = busy,
                                     onConfirm = { act { ServerApi.confirmDonor(r.id, d.donorUid) } },
                                     onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = d } },
+                                    canConfirm = r.confirmedCount < r.bags,
                                 )
                             }
                         }
                     }
 
                     ErrorText(errorMsg)
+                    // ভুল করে বন্ধ করলে ১ ঘণ্টার মধ্যে আবার খোলা
+                    val now = System.currentTimeMillis()
+                    if (r.status == "closed" && r.closedBy in setOf("requester", "not_needed") &&
+                        now - r.closedAtMillis < 60 * 60 * 1000L && r.activeUntilMillis > now
+                    ) {
+                        SmallAction(tr("Closed by mistake? Open again", "ভুল করে বন্ধ? আবার খুলুন"), R.drawable.ic_refresh, { act { ServerApi.reopenRequest(r.id) } }, busy = busy)
+                    }
                     if (r.isActive) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                             SmallAction(tr("Got blood, close", "রক্ত পেয়েছি, বন্ধ করুন"), R.drawable.ic_check_circle, { confirmClose = true }, primary = true, enabled = !busy)
@@ -892,6 +902,12 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
     var showTime by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // যোগাযোগ নম্বর (রাজি ডোনাররা এতে ফোন করেন) — রোগীর লোকের নম্বরও দেওয়া যায়
+    var savedPhone by remember { mutableStateOf<String?>(null) }
+    var contactPhone by remember { mutableStateOf("") }
+    LaunchedEffect(r.id) {
+        runCatching { RequestRepository.requesterContact(r.id) }.getOrNull()?.let { savedPhone = it.second; contactPhone = it.second }
+    }
 
     Scaffold(topBar = { BackTopBar(tr("Edit Request", "রিকোয়েস্ট এডিট"), onCancel) }) { padding ->
         Column(
@@ -926,6 +942,18 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            if (savedPhone != null) {
+                OutlinedTextField(
+                    value = contactPhone,
+                    onValueChange = { contactPhone = it.take(20) },
+                    label = { Text(tr("Contact number", "যোগাযোগ নম্বর")) },
+                    supportingText = { Text(tr("Donors who agreed call this number — it can be a family member's.", "রাজি ডোনাররা এই নম্বরে ফোন করবেন — রোগীর লোকের নম্বরও দিতে পারেন।")) },
+                    keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             ErrorText(errorMsg)
 
             Button(
@@ -944,7 +972,10 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
                         scope.launch {
                             busy = true
                             runCatching {
-                                ServerApi.editRequest(r.id, bags, TitleCase.name(hospital), neededBy, at, urgent, travelFare, note.trim())
+                                ServerApi.editRequest(
+                                    r.id, bags, TitleCase.name(hospital), neededBy, at, urgent, travelFare, note.trim(),
+                                    contactPhone.trim().takeIf { it.isNotBlank() && it != savedPhone },
+                                )
                             }.onSuccess { onSaved(it) }
                                 .onFailure { errorMsg = it.message ?: tr("Couldn't save", "সেভ হয়নি") }
                             busy = false
@@ -962,6 +993,8 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             initial = neededBy,
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
+            minDate = Rules.todayUtcMidnight(),
+            maxDate = Rules.todayUtcMidnight() + 31 * DAY_MS,
         )
     }
     if (showTime) {

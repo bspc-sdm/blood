@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -156,6 +157,8 @@ fun DonorRow(
     busy: Boolean,
     onConfirm: () -> Unit,
     onRemove: () -> Unit,
+    /** ব্যাগ পূরণ হলে আর নিশ্চিত করা যায় না */
+    canConfirm: Boolean = true,
 ) {
     val context = LocalContext.current
     var askRemove by remember { mutableStateOf(false) }
@@ -186,7 +189,7 @@ fun DonorRow(
         if (active && d.status == "accepted") {
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে
             Row(Modifier.padding(start = 46.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!d.confirmed) SmallAction(tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle, onConfirm, busy = busy)
+                if (!d.confirmed && canConfirm) SmallAction(tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle, onConfirm, busy = busy)
                 SmallAction(tr("Remove", "বাদ দিন"), R.drawable.ic_close, { askRemove = true }, enabled = !busy)
             }
         }
@@ -216,17 +219,22 @@ fun DonorRow(
 
 /** এইমাত্র বাদ দেওয়া ডোনার — ভুল হলে ফিরিয়ে আনা (৩০ মিনিট পর্যন্ত) */
 @Composable
-fun RemovedNotice(name: String, busy: Boolean, onUndo: () -> Unit, onDismiss: () -> Unit) {
+fun RemovedNotice(name: String, busy: Boolean, onUndo: () -> Unit, onDismiss: () -> Unit) =
+    UndoNotice(tr("$name was removed", "$name-কে বাদ দেওয়া হয়েছে"), tr("Undo", "ফিরিয়ে আনুন"), busy, onUndo, onDismiss)
+
+/** ছোট সারি: কী হলো + ফিরিয়ে আনার বাটন + বন্ধ */
+@Composable
+fun UndoNotice(text: String, undoLabel: String, busy: Boolean, onUndo: () -> Unit, onDismiss: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                tr("$name was removed", "$name-কে বাদ দেওয়া হয়েছে"),
+                text,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            SmallAction(tr("Undo", "ফিরিয়ে আনুন"), R.drawable.ic_refresh, onUndo, busy = busy)
+            SmallAction(undoLabel, R.drawable.ic_refresh, onUndo, busy = busy)
             IconButton(onClick = onDismiss) { AppIcon(R.drawable.ic_close, tr("Close", "বন্ধ"), Modifier.size(18.dp)) }
         }
     }
@@ -236,42 +244,77 @@ fun RemovedNotice(name: String, busy: Boolean, onUndo: () -> Unit, onDismiss: ()
 @Composable
 fun CloseRequestDialog(requestId: String, bags: Int, responses: List<DonorResponse>, onDismiss: () -> Unit, onClose: (List<String>, Int) -> Unit, already: Int = 0) {
     val willing = responses.willing()
-    // নিশ্চিত করা ডোনারদের আগে থেকেই টিক দেওয়া
-    var donated by remember(requestId) { mutableStateOf(willing.filter { it.counts() }.map { it.donorUid }.toSet()) }
-    // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); শুরুতে নিশ্চিত ডোনারের সংখ্যা
-    var received by remember(requestId) { mutableIntStateOf(maxOf(donated.size, already).coerceIn(1, bags.coerceAtLeast(1))) }
-    // সব ব্যাগ পেলে বন্ধ; কম পেলে রিকোয়েস্ট খোলা থাকে, শুধু হিসাব সেভ হয়
-    val all = received >= bags
+    val donatedBefore = willing.count { it.status == "donated" }
+    val open = willing.filter { it.status == "accepted" }
+    val maxBags = bags.coerceAtLeast(1)
+    // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); ০ = "আর লাগবে না"
+    var received by remember(requestId) { mutableIntStateOf(already.coerceIn(1, maxBags)) }
+    // কে কে রক্ত দিয়েছেন — আগে থেকে টিক নেই, যাতে যিনি আসেননি তিনি ভুল করে "রক্ত দিয়েছেন" না হন
+    var donated by remember(requestId) { mutableStateOf(emptySet<String>()) }
+    val room = (received - donatedBefore).coerceAtLeast(0)
+    // ব্যাগ কমালে বাড়তি টিক বাদ
+    fun setReceived(n: Int) {
+        received = n
+        donated = donated.take((n - donatedBefore).coerceAtLeast(0)).toSet()
+    }
+    val notNeeded = received == 0
+    // সব ব্যাগ পেলে বা "আর লাগবে না" হলে বন্ধ; কম পেলে রিকোয়েস্ট খোলা থাকে, শুধু হিসাব সেভ হয়
+    val closes = notNeeded || received >= bags
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (all) tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?") else tr("Blood received so far", "এখন পর্যন্ত কত রক্ত পেলেন")) },
+        title = {
+            Text(
+                when {
+                    notNeeded -> tr("Blood no longer needed?", "রক্ত আর লাগবে না?")
+                    closes -> tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?")
+                    else -> tr("Blood received so far", "এখন পর্যন্ত কত রক্ত পেলেন")
+                }
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("How many bags did you get?", "কত ব্যাগ পেয়েছেন?"), fontWeight = FontWeight.SemiBold)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (1..bags.coerceAtLeast(1)).forEach { i -> BloodBag(i, i <= received) { received = i } }
+                    (1..maxBags).forEach { i -> BloodBag(i, i <= received) { setReceived(i) } }
                 }
+                FilterChip(
+                    selected = notNeeded,
+                    onClick = { setReceived(if (notNeeded) already.coerceIn(1, maxBags) else 0) },
+                    label = { Text(tr("Not needed anymore", "আর লাগবে না")) },
+                )
                 Text(
-                    if (all) tr("All bags received — the request will close and donors won't see it anymore.", "সব ব্যাগ পেয়েছেন — রিকোয়েস্ট বন্ধ হবে, ডোনাররা আর দেখবেন না।")
-                    else tr("${num(received)} of ${num(bags)} received. The request stays open for the remaining ${num(bags - received)}.", "${num(bags)} ব্যাগের ${num(received)}টা পেয়েছেন। বাকি ${num(bags - received)}টার জন্য রিকোয়েস্ট চালু থাকবে।"),
+                    when {
+                        notNeeded -> tr("The request will close. Donors who agreed will be told they don't need to come.", "রিকোয়েস্ট বন্ধ হবে। রাজি ডোনারদের জানানো হবে যে আসতে হবে না।")
+                        closes -> tr("All bags received — the request will close and donors won't see it anymore.", "সব ব্যাগ পেয়েছেন — রিকোয়েস্ট বন্ধ হবে, ডোনাররা আর দেখবেন না।")
+                        else -> tr("${num(received)} of ${num(bags)} received. The request stays open for the remaining ${num(bags - received)}.", "${num(bags)} ব্যাগের ${num(received)}টা পেয়েছেন। বাকি ${num(bags - received)}টার জন্য রিকোয়েস্ট চালু থাকবে।")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (willing.isNotEmpty()) {
-                    Text(tr("Who donated?", "কে কে রক্ত দিয়েছেন?"), fontWeight = FontWeight.SemiBold)
-                    willing.forEach { d ->
+                if (closes) {
+                    Text(tr("If it's a mistake, you can open it again within 1 hour.", "ভুল হলে ১ ঘণ্টার মধ্যে আবার খুলতে পারবেন।"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (!notNeeded && open.isNotEmpty()) {
+                    Text(tr("Who donated? (up to ${num(room)})", "কে কে রক্ত দিয়েছেন? (${num(room)} জন পর্যন্ত)"), fontWeight = FontWeight.SemiBold)
+                    open.forEach { d ->
+                        val checked = d.donorUid in donated
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
-                                checked = d.donorUid in donated,
+                                checked = checked,
+                                enabled = checked || donated.size < room,
                                 onCheckedChange = { on -> donated = if (on) donated + d.donorUid else donated - d.donorUid },
                             )
-                            Text("${d.donorName} (${d.donorGroup})")
+                            Text("${d.donorName} (${d.donorGroup})" + if (d.confirmed) tr(" · confirmed", " · নিশ্চিত") else "")
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onClose(donated.toList(), received) }) { Text(if (all) tr("Close", "বন্ধ করুন") else tr("Save", "সেভ করুন")) } },
+        confirmButton = {
+            TextButton(onClick = { onClose(if (notNeeded) emptyList() else donated.toList(), received) }) {
+                Text(if (closes) tr("Close", "বন্ধ করুন") else tr("Save", "সেভ করুন"))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
     )
 }
@@ -288,11 +331,21 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var closing by remember { mutableStateOf<Pair<BloodRequest, List<DonorResponse>>?>(null) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
+    // এইমাত্র (১ ঘণ্টার মধ্যে) নিজে বন্ধ করা — ভুল হলে আবার খোলা যায়
+    var recentClosed by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
+    var hiddenClosed by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(reload, refreshKey) {
         val uid = AuthRepository.currentUid ?: return@LaunchedEffect
         runCatching {
-            RequestRepository.mine(uid).filter { it.isActive }.sortedBy { it.deadlineMillis }
+            val mine = RequestRepository.mine(uid)
+            val now = System.currentTimeMillis()
+            recentClosed = mine.filter {
+                it.status == "closed" && it.closedBy in setOf("requester", "not_needed") &&
+                    now - it.closedAtMillis < 60 * 60 * 1000L && it.activeUntilMillis > now
+            }
+            mine.filter { it.isActive }.sortedBy { it.deadlineMillis }
                 .map { it to RequestRepository.responses(it.id) }
         }.onSuccess { items = it }
     }
@@ -309,7 +362,8 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
         }
     }
 
-    if (items.isEmpty()) return
+    val reopenable = recentClosed.filter { it.id !in hiddenClosed }
+    if (items.isEmpty() && reopenable.isEmpty()) return
 
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
@@ -323,6 +377,16 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                 Text(tr("My Request", "আমার রিকোয়েস্ট"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             ErrorText(errorMsg)
+            InfoText(infoMsg)
+            reopenable.forEach { c ->
+                UndoNotice(
+                    tr("Request at ${c.hospital} closed", "${c.hospital}-এর রিকোয়েস্ট বন্ধ হয়েছে"),
+                    tr("Open again", "আবার খুলুন"),
+                    busyId == c.id,
+                    onUndo = { act(c.id) { ServerApi.reopenRequest(c.id) } },
+                    onDismiss = { hiddenClosed = hiddenClosed + c.id },
+                )
+            }
             removed?.let { (rid, d) ->
                 RemovedNotice(d.donorName, busyId == rid, onUndo = {
                     act(rid) { ServerApi.updateResponse(rid, "restore", d.donorUid); removed = null }
@@ -338,6 +402,13 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                     onRemove = { d -> act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = r.id to d } },
                     onOpen = { onOpen(r.id) },
                     onClose = { closing = r to responses },
+                    onNotifyAgain = {
+                        act(r.id) {
+                            val n = ServerApi.notifyRequest(r.id, again = true)
+                            infoMsg = if (n > 0) tr("${num(n)} more donors were notified", "আরও ${num(n)} জন ডোনারকে জানানো হয়েছে")
+                            else tr("No new donors found nearby right now. Please share the request.", "এই মুহূর্তে কাছে নতুন ডোনার পাওয়া যায়নি। রিকোয়েস্টটা শেয়ার করুন।")
+                        }
+                    },
                 )
             }
         }
@@ -369,6 +440,7 @@ internal fun MyRequestCard(
     onRemove: (DonorResponse) -> Unit,
     onOpen: () -> Unit,
     onClose: () -> Unit,
+    onNotifyAgain: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val busy = busyId == r.id
@@ -417,6 +489,7 @@ internal fun MyRequestCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    NotifyAgainRow(r, busy, busyId, onNotifyAgain)
                 } else {
                     SlotRow(null, Color.Unspecified, BADGE_SLOT) {
                         SmallAction(
@@ -442,6 +515,7 @@ internal fun MyRequestCard(
                         busy = busy,
                         onConfirm = { onConfirm(d) },
                         onRemove = { onRemove(d) },
+                        canConfirm = r.confirmedCount < r.bags,
                     )
                 }
                 if (willing.size > 3) {
@@ -464,3 +538,33 @@ internal fun MyRequestCard(
         }
     }
 }
+
+/**
+ * "আবার জানান": আরও ব্যাগ লাগলে (ব্যাগ বাড়ানো, নিশ্চিত ডোনার চলে যাওয়া, কিছু ব্যাগ পাওয়া)।
+ * একটা রিকোয়েস্টে মোট ৩ বার, দুইবারের মাঝে ৬ ঘণ্টা; আগে যাঁদের জানানো হয়েছে তাঁরা বাদ।
+ */
+@Composable
+private fun NotifyAgainRow(r: BloodRequest, busy: Boolean, busyId: String?, onNotifyAgain: () -> Unit) {
+    if (!r.isActive || r.bagsLeft <= 0 || r.notifyRounds !in 1..2) return
+    val waitMs = r.lastNotifiedMillis + 6 * 60 * 60 * 1000L - System.currentTimeMillis()
+    SlotRow(null, Color.Unspecified, BADGE_SLOT) {
+        if (waitMs > 0) {
+            val h = ((waitMs + 3_599_999) / 3_600_000).toInt()
+            Text(
+                tr("${num(r.bagsLeft)} bag(s) still needed · you can notify more donors in ${num(h)}h", "আরও ${num(r.bagsLeft)} ব্যাগ লাগবে · ${num(h)} ঘণ্টা পর আরও ডোনারকে জানাতে পারবেন"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            SmallAction(
+                tr("Notify more donors (${num(r.bagsLeft)} bag(s) left)", "আরও ডোনারকে জানান (বাকি ${num(r.bagsLeft)} ব্যাগ)"),
+                R.drawable.ic_notifications,
+                onNotifyAgain,
+                primary = true,
+                enabled = busyId == null || busy,
+                busy = busy,
+            )
+        }
+    }
+}
+

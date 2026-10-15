@@ -54,24 +54,34 @@ module.exports = {
 
       const wasConfirmed = ds.get('confirmed') === true;
       const all = await t.get(reqRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
+      // "রক্ত দিয়েছি": ডোনারের শেষ রক্তদানের তারিখ সার্ভারই বসায় (শুধু সামনে)
+      const donorRef = db.doc(`users/${donorUid}`);
+      const donorSnap = next === 'donated' ? await t.get(donorRef) : null;
       t.update(respRef, { status: next, updatedAt: Date.now(), ...(next === 'declined' ? { removedBy: 'requester', removedAt: Date.now() } : {}) });
       // বাতিল/বাদ হলে রাজির সংখ্যা কমে ("রক্ত দিয়েছি" হলে রাজির মধ্যেই গোনা থাকে)
       if (next !== 'donated') t.update(reqRef, { acceptedCount: FieldValue.increment(-1) });
+      if (donorSnap && donorSnap.exists) {
+        const today = R.todayDhakaUtcMidnight();
+        const last = donorSnap.get('lastDonationMillis');
+        if (last == null || last < today) t.update(donorRef, { lastDonationMillis: today });
+      }
 
-      // নিশ্চিত ডোনার চলে গেলে আবার গোনা ("রক্ত দিয়েছি" হলে গোনা কমে না)
-      if (!wasConfirmed || next === 'donated') return { r, refilled: false, lost: false, standby: [] };
+      // নিশ্চিত/রক্ত দেওয়া ডোনার আবার গোনা — সব অবস্থায়, যাতে "ডোনার পাওয়া গেছে" কখনো পুরোনো না থাকে
       const count = all.docs.filter(
         (d) => d.id !== donorUid && (d.get('status') === 'donated' || d.get('confirmed') === true),
-      ).length;
+      ).length + (next === 'donated' ? 1 : 0);
       const fulfilled = count >= (r.bags || 1);
       t.update(reqRef, { confirmedCount: count, fulfilled });
       const standby = all.docs
         .filter((d) => d.id !== donorUid && d.get('status') === 'accepted' && d.get('confirmed') !== true)
         .map((d) => d.id);
-      return { r, lost: true, need: Math.max((r.bags || 1) - count, 0), reopened: r.fulfilled === true && !fulfilled, standby };
+      const lost = wasConfirmed && next !== 'donated';
+      return { r, lost, donated: next === 'donated', need: Math.max((r.bags || 1) - count, 0), reopened: r.fulfilled === true && !fulfilled, standby };
     });
 
     const { r } = result;
+    // এক জায়গায় রক্ত দিলে অন্য রিকোয়েস্টের "রাজি" মুক্ত (সেই রক্তপ্রার্থীরা জানেন)
+    if (result.donated) await require('./requestend').releaseOthers(donorUid, requestId);
     if (result.restored) {
       await pushTo([donorUid], (u) => ({
         uid: u.id,
@@ -142,6 +152,10 @@ module.exports = {
       const all = await t.get(reqRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
       const counted = all.docs.filter((d) => d.id === donorUid || d.get('confirmed') === true || d.get('status') === 'donated');
       const confirmedCount = counted.length;
+      // যত ব্যাগ দরকার তার বেশি জনকে "আসুন" বলা যায় না (আরও লাগলে আগে ব্যাগ বাড়াতে হবে)
+      if (confirmedCount > (r.bags || 1)) {
+        throw new HttpError(400, C.tr(req, 'All bags are already covered. To confirm another donor, increase the bags first.', 'সব ব্যাগের ডোনার নিশ্চিত হয়ে গেছে। আরেকজন নিশ্চিত করতে আগে ব্যাগের সংখ্যা বাড়ান।'));
+      }
       const fulfilled = confirmedCount >= (r.bags || 1);
       t.update(respRef, { confirmed: true, confirmedAt: Date.now() });
       t.update(reqRef, { confirmedCount, fulfilled });

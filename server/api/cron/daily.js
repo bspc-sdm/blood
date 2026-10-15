@@ -13,10 +13,10 @@ module.exports = handler(
 
     // ১) মেয়াদ পেরোনো রিকোয়েস্ট
     const open = await db.collection('requests').where('status', '==', 'open').get();
-    const expired = open.docs.filter((d) => (d.get('neededByMillis') || 0) + R.DAY_MS <= now);
+    const expired = open.docs.filter((d) => !R.isActive(d.data(), now));
     for (let i = 0; i < expired.length; i += 400) {
       const batch = db.batch();
-      expired.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'closed' }));
+      expired.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'closed', closedAt: now, closedBy: 'expired' }));
       await batch.commit();
     }
     // সময় শেষ হওয়া রিকোয়েস্টে যাঁরা রাজি ছিলেন তাঁদের জানানো (যাতে কেউ শুধু শুধু না যান, আর রক্ত দিলে জানান)

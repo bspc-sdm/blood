@@ -272,7 +272,13 @@ fun RequestCard(r: BloodRequest, distanceKm: Double?, onClick: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     // কত ব্যাগ: রক্তের ব্যাগের ছবিতে সংখ্যা, এক নজরে চোখে পড়ে
-                    BloodBag(r.bags, filled = r.isActive, description = tr("${r.bags} bag(s) needed", "${num(r.bags)} ব্যাগ দরকার"))
+                    // কিছু ব্যাগ পাওয়া/নিশ্চিত হলে বাকিটা দেখানো
+                    val partial = r.isActive && r.bagsLeft in 1 until r.bags
+                    val shown = if (partial) r.bagsLeft else r.bags
+                    BloodBag(shown, filled = r.isActive, description = if (partial) tr("${r.bagsLeft} of ${r.bags} bag(s) still needed", "${num(r.bags)} ব্যাগের ${num(r.bagsLeft)}টা এখনো দরকার") else tr("${r.bags} bag(s) needed", "${num(r.bags)} ব্যাগ দরকার"))
+                    if (partial) {
+                        Text(tr("left", "বাকি"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
                     if (!r.isActive) {
                         Spacer(Modifier.height(4.dp))
                         Tag(
@@ -434,7 +440,13 @@ fun Countdown(targetMillis: Long, iconSlot: Dp? = null) {
 
 /** ডোনার যে রিকোয়েস্টে রাজি হয়েছেন: "প্রসেসিং" কার্ড, কাউন্টডাউন সহ */
 @Composable
-fun ProcessingCard(r: BloodRequest, onClick: (() -> Unit)?) {
+fun ProcessingCard(
+    r: BloodRequest,
+    onClick: (() -> Unit)?,
+    onDonated: (() -> Unit)? = null,
+    onNotDonated: (() -> Unit)? = null,
+    busy: Boolean = false,
+) {
     val content: @Composable () -> Unit = {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -455,7 +467,16 @@ fun ProcessingCard(r: BloodRequest, onClick: (() -> Unit)?) {
                     Text(Rules.formatNeeded(r), style = MaterialTheme.typography.bodySmall)
                 }
             }
-            Countdown(r.deadlineMillis)
+            if (r.isActive) {
+                Countdown(r.deadlineMillis)
+            } else {
+                // রিকোয়েস্ট শেষ — রক্ত দিয়েছেন কি না জানালে শেষ রক্তদানের তারিখ ঠিক থাকে
+                Text(tr("This request has ended. Did you donate?", "রিকোয়েস্টটা শেষ হয়েছে। আপনি কি রক্ত দিয়েছেন?"), fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (onDonated != null) SmallAction(tr("I donated", "রক্ত দিয়েছি"), R.drawable.ic_check_circle, onDonated, primary = true, busy = busy)
+                    if (onNotDonated != null) SmallAction(tr("I didn't", "দিইনি"), R.drawable.ic_close, onNotDonated, enabled = !busy)
+                }
+            }
         }
     }
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))

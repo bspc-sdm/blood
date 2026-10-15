@@ -185,6 +185,22 @@ fun App(
         stack.add(s)
     }
 
+    // অ্যাপে ফিরলে প্রোফাইল নতুন করে (সার্ভার শেষ রক্তদানের তারিখ বা প্রসেসিং তালিকা বদলে থাকতে পারে)
+    @Suppress("DEPRECATION")
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && profile != null) {
+                val uid = AuthRepository.currentUid
+                if (uid != null) scope.launch {
+                    runCatching { ProfileRepository.load(uid) }.getOrNull()?.let { if (it.isComplete) profile = it }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     fun push(s: Screen) {
         stack.add(s)
     }
@@ -398,13 +414,16 @@ fun App(
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { ProfileRepository.saveBasics(uid, basics) }
+                        // সার্ভার থেকে নতুন প্রোফাইল (রক্ত দেওয়ার পর সার্ভার তারিখ বসিয়ে থাকতে পারে)
+                        val fresh = runCatching { ProfileRepository.load(uid) }.getOrNull() ?: profile
+                        val firstDate = fresh?.lastDonationMillis == null
+                        runCatching { ProfileRepository.saveBasics(uid, basics, includeDonation = firstDate) }
                             .onSuccess {
-                                val merged = (profile ?: Profile()).copy(
+                                val merged = (fresh ?: Profile()).copy(
                                     name = basics.name,
                                     phone = basics.phone,
                                     bloodGroup = basics.bloodGroup,
-                                    lastDonationMillis = basics.lastDonationMillis,
+                                    lastDonationMillis = if (firstDate) basics.lastDonationMillis else fresh?.lastDonationMillis,
                                     birthDateMillis = basics.birthDateMillis,
                                     weightKg = basics.weightKg,
                                     notify = basics.notify,
