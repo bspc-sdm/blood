@@ -244,6 +244,12 @@ class ScreensTest {
     }
 
     @Test
+    fun helpScreen() {
+        show { HelpScreen("pharmacy") {} }
+        shot("help_appeal")
+    }
+
+    @Test
     fun healthTab() {
         show { HealthTab(0, nurseMe, {}, {}, {}, {}) }
         shot("health_tab")

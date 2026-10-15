@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value == "homevisit",
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services") },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "homevisit") openType.value = "homevisit"
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support") }?.let { openType.value = it }
     }
 }
 
@@ -137,6 +137,8 @@ sealed interface Screen {
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
     data class Medicine(val tab: Int = 0) : Screen
     data object Shop : Screen
+    /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
+    data class Help(val category: String? = null) : Screen
 }
 
 object Tabs {
@@ -207,6 +209,7 @@ fun App(
             }
             type == "pharmacy_order" -> push(Screen.Shop)
             type == "pharmacy_mine" -> push(Screen.Medicine(1))
+            type == "support" -> push(Screen.Help())
             type == "services" -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)
@@ -257,6 +260,14 @@ fun App(
         if (openAppointments && ready) {
             push(Screen.MyAppointments)
             onAppointmentsOpened()
+        }
+    }
+    // অন্য পাতার "আপিল করুন" / প্রোফাইলের "সাহায্য ও আপিল"
+    val helpOpen = HelpNav.open.value
+    LaunchedEffect(helpOpen) {
+        if (helpOpen != null) {
+            push(Screen.Help(helpOpen.ifBlank { null }))
+            HelpNav.open.value = null
         }
     }
     // ফার্মেসি আর "সেবা দিন"-এর নোটিফিকেশন
@@ -537,6 +548,7 @@ fun App(
             is Screen.Medicine -> profile?.let { pr -> MedicineScreen(pr, current.tab, onBack = { back() }) }
 
             Screen.Shop -> profile?.let { pr -> ShopScreen(pr, onBack = { back() }) }
+            is Screen.Help -> HelpScreen(current.category, onBack = { back() })
 
             Screen.ChamberEdit -> profile?.let { pr ->
                 ChamberEditScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })

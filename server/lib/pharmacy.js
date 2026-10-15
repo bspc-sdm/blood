@@ -178,7 +178,7 @@ const actions = {
       updatedAt: Date.now(),
     };
     if (s.exists) {
-      if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy was suspended after reports. Contact us.', 'রিপোর্টের পর আপনার ফার্মেসি বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
+      if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy is suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
@@ -226,7 +226,7 @@ const actions = {
 
     const [me, state] = await Promise.all([db.doc(`users/${user.uid}`).get(), db.doc(`serverState/${user.uid}`).get()]);
     if (state.exists && (state.get('medNoShow') || 0) >= NO_SHOW_LIMIT && Date.now() - (state.get('medNoShowAt') || 0) < 90 * 24 * 3600 * 1000) {
-      throw err('Ordering is turned off for your account because orders were not received several times. Contact us.', 'কয়েকবার অর্ডার না নেওয়ায় আপনার অর্ডার দেওয়া বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।', 403);
+      throw err('Ordering is turned off for your account because orders were not received several times. You can appeal from Profile → Help & appeals.', 'কয়েকবার অর্ডার না নেওয়ায় আপনার অর্ডার দেওয়া বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।', 403);
     }
     if (!me.exists || !me.get('phone')) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
     await require('./phone').requireVerified(req, user.uid);
@@ -549,7 +549,7 @@ const actions = {
     const msg = {
       approved: ['Your pharmacy is approved', 'আপনার ফার্মেসি অনুমোদিত হয়েছে'],
       rejected: ['Pharmacy not approved', 'ফার্মেসি অনুমোদন হয়নি'],
-      suspended: ['Your pharmacy was suspended. Contact us.', 'আপনার ফার্মেসি বন্ধ করা হয়েছে। আমাদের সাথে যোগাযোগ করুন।'],
+      suspended: ['Your pharmacy was suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'],
     }[status];
     await pushUid(id, msg[0], msg[1], s.get('name'), { type: 'services' });
     return { ok: true };

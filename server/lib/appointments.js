@@ -174,7 +174,7 @@ module.exports = {
     await db.runTransaction(async (t) => {
       const cur = await t.get(ref);
       if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
-        throw err(['Home visits are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।']);
+        throw err(['Home visits are turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
       }
       t.set(ref, {
         type: badge,

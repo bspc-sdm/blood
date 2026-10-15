@@ -133,7 +133,7 @@ const actions = {
 
     const [me, state] = await Promise.all([db.doc(`users/${user.uid}`).get(), db.doc(`serverState/${user.uid}`).get()]);
     if (state.exists && state.get('homeVisitBanned') === true) {
-      throw err('Home visit requests are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিটের অনুরোধ বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।', 403);
+      throw err('Home visit requests are turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার হোম ভিজিটের অনুরোধ বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।', 403);
     }
     if (!phoneOf(me)) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
     // অচেনা বাসায় নার্স যাবেন, তাই নম্বর যাচাই (SMS ব্যবস্থা চালু থাকলে)

@@ -749,6 +749,7 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
                             if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, s.hoursText + if (s.openNow) tr(" · open now", " · এখন খোলা") else tr(" · closed now", " · এখন বন্ধ"))
                             RatingLine(s.rating, s.ratingCount)
                             if (s.status == "pending") SmallNote(tr("Orders will start coming after approval.", "অনুমোদনের পর অর্ডার আসা শুরু হবে।"))
+                            if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
                         }
                     }
                 }

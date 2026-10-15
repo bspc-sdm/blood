@@ -130,7 +130,7 @@ fun statusText(s: String): String = when (s) {
     "approved" -> tr("Listed", "তালিকায় আছে")
     "pending" -> tr("Waiting for approval", "অনুমোদনের অপেক্ষায়")
     "rejected" -> tr("Not approved", "অনুমোদন হয়নি")
-    "suspended" -> tr("Suspended after reports", "রিপোর্টের পর বন্ধ")
+    "suspended" -> tr("Suspended by the Lifolo team", "Lifolo টিম বন্ধ করেছে")
     else -> s
 }
 
@@ -395,6 +395,9 @@ fun MyAmbulancesSection(profile: Profile) {
                             SmallNote(a.vehicleNo + " · " + statusText(a.status))
                         }
                         IconButton(onClick = { editing = a }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
+                    }
+                    if (a.status == "suspended" || a.status == "rejected") {
+                        AppealButton("ambulance")
                     }
                     if (a.status == "approved") {
                         Row(verticalAlignment = Alignment.CenterVertically) {

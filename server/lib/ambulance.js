@@ -89,14 +89,14 @@ const actions = {
       const ref = db.doc(`ambulances/${b.id}`);
       const s = await ref.get();
       if (!s.exists || s.get('ownerUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-      if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'This ambulance was suspended after reports. Contact us.', 'রিপোর্টের পর এই অ্যাম্বুলেন্স বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
+      if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'This ambulance is suspended. You can appeal from Profile → Help & appeals.', 'এই অ্যাম্বুলেন্স বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       const changed = ['name', 'phone', 'vehicleNo'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     // রিপোর্টের পর বন্ধ হওয়া গাড়ি মুছে আবার যোগ করা যায় না
     const sameVehicle = await db.collection('ambulances').where('vehicleNo', '==', vehicleNo).where('status', '==', 'suspended').limit(1).get();
-    if (!sameVehicle.empty) throw new HttpError(403, C.tr(req, 'This vehicle was suspended after reports. Contact us.', 'রিপোর্টের পর এই গাড়ি বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
+    if (!sameVehicle.empty) throw new HttpError(403, C.tr(req, 'This vehicle is suspended. You can appeal from Profile → Help & appeals.', 'এই গাড়ি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
     const mine = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw err('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স');
     await useQuota(req, user.uid, 'ambulance');
@@ -120,7 +120,7 @@ const actions = {
     const ref = db.doc(`ambulances/${id}`);
     const s = await ref.get();
     if (!s.exists || s.get('ownerUid') !== user.uid) return { ok: true };
-    if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'A suspended ambulance can\'t be removed. Contact us.', 'বন্ধ করা অ্যাম্বুলেন্স সরানো যায় না। আমাদের সাথে যোগাযোগ করুন।'));
+    if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'A suspended ambulance can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা অ্যাম্বুলেন্স সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
     await ref.delete();
     return { ok: true };
   },
@@ -185,7 +185,7 @@ const actions = {
         uid: s.get('ownerUid'),
         token: u.get('fcmToken'),
         title: status === 'approved' ? R.L(lang, 'Your ambulance is now listed', 'আপনার অ্যাম্বুলেন্স তালিকায় এসেছে')
-          : status === 'suspended' ? R.L(lang, 'Your ambulance was suspended. Contact us.', 'আপনার অ্যাম্বুলেন্স বন্ধ করা হয়েছে। আমাদের সাথে যোগাযোগ করুন।')
+          : status === 'suspended' ? R.L(lang, 'Your ambulance was suspended. You can appeal from Profile → Help & appeals.', 'আপনার অ্যাম্বুলেন্স বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।')
             : R.L(lang, 'Ambulance not approved', 'অ্যাম্বুলেন্স অনুমোদন হয়নি'),
         body: s.get('name'),
         data: { type: 'services' },

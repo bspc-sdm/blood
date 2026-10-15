@@ -76,6 +76,7 @@ private fun inboxIcon(type: String?): Int = when (type) {
     "answer" -> R.drawable.ic_forum_outline
     "pharmacy_order", "pharmacy_mine" -> R.drawable.ic_medication
     "services" -> R.drawable.ic_storefront
+    "support" -> R.drawable.ic_help
     "eligible" -> R.drawable.ic_favorite
     else -> R.drawable.ic_water_drop
 }

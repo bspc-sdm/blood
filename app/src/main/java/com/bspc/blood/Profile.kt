@@ -224,6 +224,13 @@ fun ProfileTab(
             )
             HorizontalDivider()
             ActionRow(R.drawable.ic_settings_outline, tr("Settings", "সেটিংস"), null, onOpenSettings)
+            HorizontalDivider()
+            ActionRow(
+                R.drawable.ic_help,
+                tr("Help & appeals", "সাহায্য ও আপিল"),
+                tr("A problem, or something of yours was suspended? Write to us.", "কোনো সমস্যা, বা কিছু বন্ধ হয়ে গেছে? আমাদের লিখুন।"),
+                { HelpNav.open.value = "" },
+            )
             if (community?.isAdmin == true || AuthRepository.currentEmail.equals(SUPPORT_EMAIL, ignoreCase = true)) {
                 HorizontalDivider()
                 ActionRow(R.drawable.ic_admin_panel_settings, tr("Admin", "অ্যাডমিন"), null, onOpenAdmin)
