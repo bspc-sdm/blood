@@ -1,0 +1,186 @@
+// হাসপাতালের তালিকা: অনুমোদিত হাসপাতাল (hospitals), যে কেউ যোগ করার অনুরোধ (hospitalRequests), অ্যাডমিন অনুমোদন।
+// ডুপ্লিকেট ঠেকানো: ইংরেজি নাম থেকে সাধারণ শব্দ বাদ দিয়ে তুলনা, একই জেলা/উপজেলায় প্রায় একই নাম হলে আটকানো।
+// এলাকার তথ্য (geo.json): github.com/nuhil/bangladesh-geocode (MIT License, Copyright (c) 2014 Nuhil Mehdy)
+const { db, FieldValue, HttpError } = require('./firebase');
+const R = require('./rules');
+const C = require('./community');
+const DISTRICTS = require('./districts');
+
+const TYPES = [
+  'govt_mch', // সরকারি মেডিকেল কলেজ/বিশ্ববিদ্যালয় হাসপাতাল
+  'govt_specialized', // সরকারি বিশেষায়িত/ইনস্টিটিউট হাসপাতাল
+  'govt_district', // জেলা/সদর হাসপাতাল
+  'govt_uhc', // উপজেলা স্বাস্থ্য কমপ্লেক্স
+  'govt_hospital', // অন্যান্য সরকারি হাসপাতাল
+  'private_hospital',
+  'clinic',
+  'diagnostic',
+];
+const USER_TYPES = ['govt_hospital', 'private_hospital', 'clinic', 'diagnostic', 'govt_mch', 'govt_specialized', 'govt_district', 'govt_uhc'];
+
+const { normalizeName, similarity, isDuplicate, UPAZILA, UNION, DUP_THRESHOLD } = require('./hospital-match');
+
+function hospital(d) {
+  const x = typeof d.data === 'function' ? d.data() : d;
+  return {
+    id: d.id,
+    nameEn: x.nameEn,
+    nameBn: x.nameBn || '',
+    type: x.type,
+    district: x.district,
+    upazilaId: x.upazilaId || null,
+    unionId: x.unionId || null,
+    address: x.address || '',
+    phone: x.phone || '',
+  };
+}
+
+async function approvedIn(district) {
+  const snap = await db.collection('hospitals').where('district', '==', district).get();
+  return snap.docs.filter((d) => d.get('status') !== 'removed').map(hospital);
+}
+
+function validLocation(req, district, upazilaId, unionId) {
+  if (!DISTRICTS.some((d) => d.bn === district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
+  if (upazilaId != null) {
+    const u = UPAZILA.get(upazilaId);
+    if (!u || u.district !== district) throw new HttpError(400, C.tr(req, 'Choose a valid upazila', 'সঠিক উপজেলা বেছে নিন'));
+  }
+  if (unionId != null) {
+    const n = UNION.get(unionId);
+    if (!n || n.upazilaId !== upazilaId) throw new HttpError(400, C.tr(req, 'Choose a valid union', 'সঠিক ইউনিয়ন বেছে নিন'));
+  }
+}
+
+const actions = {
+  /** জেলার (চাইলে উপজেলার) অনুমোদিত হাসপাতাল */
+  async hospitals(req) {
+    const { district } = req.body || {};
+    const upazilaId = Number.isInteger(req.body?.upazilaId) ? req.body.upazilaId : null;
+    if (!DISTRICTS.some((d) => d.bn === district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
+    let list = await approvedIn(district);
+    if (upazilaId) list = list.filter((h) => h.upazilaId === upazilaId || h.upazilaId == null);
+    list.sort((a, b) => a.nameEn.localeCompare(b.nameEn));
+    return { items: list };
+  },
+
+  /** যে কেউ হাসপাতাল যোগ করার অনুরোধ */
+  async hospital_request(req, user) {
+    const b = req.body || {};
+    const nameEn = C.cleanText(b.nameEn, 120);
+    if (!nameEn || !/[A-Za-z]/.test(nameEn)) {
+      throw new HttpError(400, C.tr(req, 'Enter the hospital name in English', 'হাসপাতালের নাম ইংরেজিতে লিখুন'));
+    }
+    const nameBn = typeof b.nameBn === 'string' ? b.nameBn.trim().slice(0, 120) : '';
+    if (!USER_TYPES.includes(b.type)) throw new HttpError(400, C.tr(req, 'Choose the type', 'ধরন বেছে নিন'));
+    const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
+    const unionId = Number.isInteger(b.unionId) ? b.unionId : null;
+    validLocation(req, b.district, upazilaId, unionId);
+    const address = typeof b.address === 'string' ? b.address.trim().slice(0, 200) : '';
+    const phone = typeof b.phone === 'string' ? b.phone.replace(/[^0-9+]/g, '').slice(0, 15) : '';
+    const item = { nameEn, district: b.district, upazilaId };
+
+    // ১) আগে থেকেই অনুমোদিত?
+    const existing = (await approvedIn(b.district)).find((h) => isDuplicate(item, h));
+    if (existing) return { ok: false, duplicateOf: existing };
+
+    // ২) একই হাসপাতালের অনুরোধ অপেক্ষায়? তাহলে সেটার সাথে যোগ
+    const pending = await db.collection('hospitalRequests').where('district', '==', b.district).get();
+    const same = pending.docs.find((d) => d.get('status') === 'pending' && isDuplicate(item, d.data()));
+    if (same) {
+      if (!(same.get('requesterUids') || []).includes(user.uid)) {
+        await same.ref.update({ requesterUids: FieldValue.arrayUnion(user.uid), count: FieldValue.increment(1) });
+      }
+      return { ok: true, merged: true };
+    }
+
+    await useQuotaLocal(req, user.uid);
+    await db.collection('hospitalRequests').add({
+      nameEn,
+      nameBn,
+      type: b.type,
+      district: b.district,
+      upazilaId,
+      unionId,
+      address,
+      phone,
+      normKey: normalizeName(nameEn),
+      requesterUids: [user.uid],
+      count: 1,
+      status: 'pending',
+      createdAt: Date.now(),
+    });
+    return { ok: true };
+  },
+
+  /** অ্যাডমিন: অপেক্ষায় থাকা অনুরোধ, সম্ভাব্য ডুপ্লিকেট সহ */
+  async admin_hospital_requests(req, user) {
+    requireAdmin(req, user);
+    const snap = await db.collection('hospitalRequests').where('status', '==', 'pending').limit(100).get();
+    const byDistrict = new Map();
+    const items = [];
+    for (const d of snap.docs) {
+      const r = d.data();
+      if (!byDistrict.has(r.district)) byDistrict.set(r.district, await approvedIn(r.district));
+      const dups = byDistrict.get(r.district)
+        .filter((h) => r.district === h.district && similarity(r.nameEn, h.nameEn) >= 0.7)
+        .slice(0, 5);
+      items.push({ id: d.id, ...hospital({ id: d.id, ...r }), count: r.count || 1, possibleDuplicates: dups });
+    }
+    return { items };
+  },
+
+  /** অ্যাডমিন: অনুমোদন / বাতিল / আগের হাসপাতালের সাথে মেলানো */
+  async admin_hospital_resolve(req, user) {
+    requireAdmin(req, user);
+    const { id, op, targetId } = req.body || {};
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const ref = db.doc(`hospitalRequests/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('status') !== 'pending') throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const r = s.data();
+    if (op === 'approve') {
+      const h = await db.collection('hospitals').add({
+        nameEn: r.nameEn,
+        nameBn: r.nameBn || '',
+        type: r.type,
+        district: r.district,
+        upazilaId: r.upazilaId || null,
+        unionId: r.unionId || null,
+        address: r.address || '',
+        phone: r.phone || '',
+        normKey: r.normKey,
+        source: 'user',
+        status: 'approved',
+        createdAt: Date.now(),
+      });
+      await ref.update({ status: 'approved', hospitalId: h.id, reviewedAt: Date.now() });
+      return { ok: true, hospitalId: h.id };
+    }
+    if (op === 'merge') {
+      if (!R.isValidId(targetId) || !(await db.doc(`hospitals/${targetId}`).get()).exists) {
+        throw new HttpError(400, C.tr(req, 'Choose the existing hospital', 'আগের হাসপাতালটা বেছে নিন'));
+      }
+      await ref.update({ status: 'merged', hospitalId: targetId, reviewedAt: Date.now() });
+      return { ok: true };
+    }
+    if (op === 'reject') {
+      await ref.update({ status: 'rejected', reviewedAt: Date.now() });
+      return { ok: true };
+    }
+    throw new HttpError(400, C.tr(req, 'Unknown action', 'অজানা কাজ'));
+  },
+};
+
+function requireAdmin(req, user) {
+  // আবর্তনশীল require এড়াতে এখানে
+  const { isAdminToken } = require('./admin');
+  if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+}
+
+async function useQuotaLocal(req, uid) {
+  const { useQuota } = require('./community-db');
+  await useQuota(req, uid, 'hospital');
+}
+
+module.exports = { actions, normalizeName, similarity, isDuplicate, TYPES, UPAZILA, UNION, DUP_THRESHOLD };

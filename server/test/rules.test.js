@@ -177,3 +177,30 @@ test('দূরত্বের সীমা আর যাতায়াত খ�
   assert.deepStrictEqual(ids({ ...request, travelFare: true }), ['fare5_at20', 'r50_at40', 'r5_at3']);
   assert.strictEqual(R.donorRadius({ maxKm: 7 }), 10);
 });
+
+test('হাসপাতাল: নাম মেলানো আর ডুপ্লিকেট', () => {
+  const H = require('../lib/hospital-match');
+  assert.strictEqual(H.normalizeName('Mymensingh Medical College Hospital'), 'mymensingh medical college');
+  assert.strictEqual(H.normalizeName('Popular Diagnostic Centre Ltd.'), 'popular diagnostic');
+  const a = { nameEn: 'Popular Diagnostic Center Ltd', district: 'ময়মনসিংহ', upazilaId: 10 };
+  assert.ok(H.isDuplicate(a, { nameEn: 'Popular Diagnostic Centre', district: 'ময়মনসিংহ', upazilaId: 10 }));
+  assert.ok(H.isDuplicate(a, { nameEn: 'Populer Diagnostic', district: 'ময়মনসিংহ', upazilaId: null }));
+  assert.ok(!H.isDuplicate(a, { nameEn: 'Popular Diagnostic', district: 'ঢাকা', upazilaId: 10 }));
+  assert.ok(!H.isDuplicate(a, { nameEn: 'Popular Diagnostic', district: 'ময়মনসিংহ', upazilaId: 11 }));
+  assert.ok(!H.isDuplicate(a, { nameEn: 'Labaid Hospital', district: 'ময়মনসিংহ', upazilaId: 10 }));
+  assert.ok(H.UPAZILA.size > 480 && H.UNION.size > 4000);
+});
+
+test('DGHS তালিকা মেলানো', () => {
+  const D = require('../lib/dghs');
+  const ourDistricts = ['Bagerhat', 'Barishal', 'Bogura', "Cox's Bazar", 'Cumilla', 'Jashore', 'Jhalokathi', 'Khagrachari', 'Maulvibazar', 'Netrakona', 'Chattogram', 'Mymensingh'];
+  ourDistricts.forEach((d) => assert.ok(D.mapDistrict(d), d));
+  const h = D.toHospital(['5', 'Mymensingh Medical College Hospital', 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল, ময়মনসিংহ', 'Medical College Hospital', 'Mymensingh', 'Mymensingh Sadar', '', '', '', '0']);
+  assert.strictEqual(h.id, 'dghs_5');
+  assert.strictEqual(h.data.type, 'govt_mch');
+  assert.strictEqual(h.data.nameBn, 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল');
+  assert.ok(h.data.upazilaId, 'upazila matched');
+  const u = D.toHospital(['9', 'Trishal Upazila Health Complex', '', 'Upazila Health Complex', 'Mymensingh', 'Trishal', '', '', '', '0']);
+  assert.strictEqual(u.data.type, 'govt_uhc');
+  assert.ok(u.data.upazilaId);
+});

@@ -21,6 +21,7 @@ const appointments = require('../lib/appointments');
 const moderation = require('../lib/moderation');
 const account = require('../lib/account');
 const donors = require('../lib/donors');
+const hospitals = require('../lib/hospitals');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -280,7 +281,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions);
 
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);
