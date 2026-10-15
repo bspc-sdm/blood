@@ -1,0 +1,48 @@
+=== https://api.tr.ocl.dghs.gov.bd/orgs/?limit=50
+[{"id":"MoHFW","name":"Ministry of Health and Family Welfare","url":"/orgs/MoHFW/","type":"Organization","logo_url":"http://oclapi2-dev.s3.amazonaws.com/orgs/MoHFW/logo.png","description":""},{"id":"ISO","name":"International Organization for Standardization (ISO)","url":"/orgs/ISO/","type":"Organization","logo_url":null,"description":null},{"id":"OCL","name":"OCL","url":"/orgs/OCL/","type":"Organization","logo_url":null,"description":null}]
+=== https://tr.ocl.dghs.gov.bd/api/orgs/?limit=50
+[{"id":"MoHFW","name":"Ministry of Health and Family Welfare","url":"/orgs/MoHFW/","type":"Organization","logo_url":"http://oclapi2-dev.s3.amazonaws.com/orgs/MoHFW/logo.png","description":""},{"id":"ISO","name":"International Organization for Standardization (ISO)","url":"/orgs/ISO/","type":"Organization","logo_url":null,"description":null},{"id":"OCL","name":"OCL","url":"/orgs/OCL/","type":"Organization","logo_url":null,"description":null}]
+=== https://api.tr.ocl.dghs.gov.bd/sources/?limit=50
+[{"short_code":"DGDA-Drugs","name":"DGDA Registered Drug Products","url":"/orgs/MoHFW/sources/DGDA-Drugs/","owner":"MoHFW","owner_type":"Organization","owner_url":"/orgs/MoHFW/","version":"HEAD","created_at":"2026-03-27T13:06:16.801351Z","id":"DGDA-Drugs","source_type":"Dictionary","updated_at":"2026-10-14T20:07:57.000054Z","canonical_url":"https://fhir.dghs.gov.bd/core/CodeSystem/dgda-drug-registry","type":"Source","checksums":{"standard":"e170dc2e00723fd4477fbb265507400f","smart":"892ea452a56f47274cf2e44617ae936a"}},{"short_code":"EDQM-PDF","name":"EDQM Pharmaceutical Dose Forms","url":"/orgs/MoHFW/sources/EDQM-PDF/","owner":"MoHFW","owner_type":"Organization","owner_url":"/orgs/MoHFW/","version":"HEAD","created_at":"2026-04-06T03:57:40.057961Z","id":"EDQM-PDF","source_type":"External","updated_at":"2026-10-12T19:14:59.658382Z","canonical_url":"http://standardterms.edqm.eu","type":"Source","checksums":{"standard":"b378cee07c7e9570c170f1fcfd692249","smart":"ed46ee89a8b01b31e91a25ce1d6a3c0b"}},{"short_code":"LOINC","name":"LOINC 2.82","url":"/orgs/MoHFW/sources/LOINC/","owner":"MoHFW","owner_type":"Organization","owner_url":"/orgs/MoHFW/","version":"HEAD","created_at":"2026-03-29T13:37:57.224474Z","id":"LOINC","source_type":"Dictionary","updated_at":"2026-03-29T13:37:57.224496Z","canonical_url":"http://loinc.org","type":"Source","checksums":{"standard":"cd82ec134dbf5f3dcffe4580787ea62f","smart":"2bc08ae0e0038213fcadf9da7923621c"}},{"short_code":"ICD-11-MMS","name":"ICD-11 Mortality and Morbidity Statistics","url":"/orgs/MoHFW/sources/ICD-11-MMS/","owner":"MoHFW","owner_type":"Organization","owner_url":"/orgs/MoHFW/","version":"HEAD","created_at":"2026-03-22T14:12:39.016877Z","id":"ICD-11-MMS","source_type":"External","updated_at":"2026-03-22T14:12:39.016899Z","canonical_url":"http://id.who.int/icd/release/11/mms","type":"Source","checksums":{"standard":"8cac7bdbf4d199573170760cca4be4fd","smart":"9fec4c360ffbe0204570a33f222a85db"}},{"short_code":"iso639-1","name":"Iso6391","url":"/orgs/ISO/sources/iso639-1/","owner":"ISO","owner_type":"Organization","owner_url":"/orgs/ISO/","version":"HEAD","created_at":"2025-10-13T08:53:55.235513Z","id":"iso639-1","source_type":null,"updated_at":"2025-10-13T08:54:33.500295Z","canonical_url":"http://terminology.hl7.org/CodeSystem/iso639-1","type":"Source","checksums":{"standard":"c86c0d0ddfdd95cc986313bb8e559496","smart":"101f970886c45fa90f1ad520c8f9560d"}},{"short_code":"MapTypes","name":"MapTypes","url":"/orgs/OCL/sources/MapTypes/","owner":"OCL","owner_type":"Organization","owner_url":"/orgs/OCL/","version":"HEAD","created_at":"2025-10-13T08:53:55.214727Z","id":"MapTypes","source_type":null,"updated_at":"2025-10-13T08:54:25.792736Z","canonical_url":null,"type":"Source","checksums":{"standard":"2009ab5c480d01d07222b3119ff784f7","smart":"d8bc31b619ba550bc57235f3a31e846f"}},{"short_code":"DescriptionTypes","name":"DescriptionTypes","url":"/orgs/OCL/sources/DescriptionTypes/","owner":"OCL","owner_type":"Organizatio
+=== https://tr-api.ocl.dghs.gov.bd/orgs/?limit=50
+curl: (60) SSL: no alternative certificate subject name matches target host name 'tr-api.ocl.dghs.gov.bd'
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+
+=== https://api.ocl.dghs.gov.bd/orgs/?limit=50
+curl: (60) SSL: no alternative certificate subject name matches target host name 'api.ocl.dghs.gov.bd'
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+
+=== https://tr.ocl.dghs.gov.bd/
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name="theme-color" content="#000000"><link rel="shortcut icon" href="./favicon.ico"><link rel="stylesheet" href="bootstrap.min.css"><link rel="stylesheet" href="fontello/css/fontello.css"><link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/AlertifyJS/1.11.0/css/alertify.min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/alertifyjs@1.13.1/build/css/themes/default.min.css"/><script src="./env-config.js"></script><script src="https://cdn.jsdelivr.net/npm/mark.js"></script><script>if(window.location.pathname.startsWith('/search')) {
+       window.location = '/#/search/' + window.location.search;
+     }
+     if(window.location.hash.startsWith('#/state=')) {
+       window.location = '/#/oidc/login/' + window.location.hash.replace('#/', '?') + '&next=' + window.location.pathname;
+     }
+     if(window.location.hash.startsWith('#state=')) {
+       window.location = '/#/oidc/login/' + window.location.hash.replace('#', '?') + '&next=' + window.location.pathname;
+     }
+     if((window.location.search || '').includes('origin=openmrs')) {
+       window.location = '/#/search/?origin=openmrs&type=organizations'
+     }</script><title></title><script defer="defer" src="moment.js"></script><script defer="defer" src="lodash.js"></script><script defer="defer" src="react.js"></script><script defer="defer" src="932.js"></script><script defer="defer" src="main.js"></script></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>
+=== JS ./env-config.js
+https://api.tr.ocl.dghs.gov.bd
+=== JS https://cdn.jsdelivr.net/npm/mark.js
+curl: (6) Could not resolve host: tr.ocl.dghs.gov.bdhttps
+=== JS moment.js
+curl: (6) Could not resolve host: tr.ocl.dghs.gov.bdmoment.js
+=== JS lodash.js
+curl: (6) Could not resolve host: tr.ocl.dghs.gov.bdlodash.js
+=== JS react.js
+curl: (6) Could not resolve host: tr.ocl.dghs.gov.bdreact.js
+var API_URL = "https://api.tr.ocl.dghs.gov.bd";
+var GA_ACCOUNT_ID = "UA-000000-01";
+var RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
