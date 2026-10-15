@@ -200,7 +200,7 @@ fun HospitalPickerDialog(
         val d = district ?: return@LaunchedEffect
         loading = true
         errorMsg = null
-        runCatching { Hospitals.inDistrict(d) }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+        runCatching { Hospitals.inDistrict(d, fresh = true) }.onSuccess { list = it }.onFailure { errorMsg = it.message }
         loading = false
     }
 

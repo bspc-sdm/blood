@@ -237,8 +237,22 @@ module.exports = {
     const chambers = K.chambersOf(ps.data());
     const ch = chamberIndex == null ? chambers.find((c) => c.appointments) : chambers[chamberIndex];
     if (!ch || !ch.appointments) throw notTaking();
+    // রোগীর পাতা খোলা থাকতে ডাক্তার চেম্বার বদলালে ক্রম সরে যায় — হাসপাতাল মিলিয়ে নেওয়া, নইলে অন্য হাসপাতালে ভুল বুকিং
+    const sentKey = typeof req.body?.chamberKey === 'string' ? req.body.chamberKey : null;
+    if (sentKey && sentKey !== (ch.hospitalId || ch.hospitalName || '')) {
+      throw new HttpError(409, C.tr(req, 'The doctor just changed their chambers. Please open the page again.', 'ডাক্তার এইমাত্র চেম্বারের তথ্য বদলেছেন। পাতাটা আবার খুলুন।'));
+    }
     if (!K.chamberOpenOn(ch, date)) {
       throw new HttpError(400, C.tr(req, 'The chamber is closed on that day. Pick one of its days.', 'সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।'));
+    }
+    // আজকের চেম্বারের সময় শেষ হয়ে গেলে আজকের সিরিয়াল নয় (রাত পেরোনো চেম্বার বাদে)
+    if (date === today && ch.start && ch.end && ch.start < ch.end && K.dhakaHHMM() >= ch.end) {
+      throw new HttpError(400, C.tr(req, "Today's chamber time is over. Pick another day.", 'আজকের চেম্বারের সময় শেষ। অন্য দিন বেছে নিন।'));
+    }
+    // একই দিনে একই ডাক্তারের কাছে একটার বেশি চালু অনুরোধ নয়
+    const dup = await db.collection('appointments').where('patientUid', '==', user.uid).where('providerUid', '==', providerUid).where('date', '==', date).limit(10).get();
+    if (dup.docs.some((d) => ['pending', 'confirmed'].includes(d.get('status')))) {
+      throw new HttpError(409, C.tr(req, 'You already have a request with this doctor for that day', 'সেদিন এই ডাক্তারের কাছে আপনার অনুরোধ আগে থেকেই আছে'));
     }
     await useQuota(req, user.uid, 'book');
     const name = (await userName(user.uid)).slice(0, 80);
@@ -266,10 +280,16 @@ module.exports = {
 
   /** নিজের অ্যাপয়েন্টমেন্ট: রোগী হিসেবে আর ডাক্তার/নার্স হিসেবে */
   async my_appointments(req, user) {
-    const [mine, toMe] = await Promise.all([
-      db.collection('appointments').where('patientUid', '==', user.uid).limit(100).get(),
-      db.collection('appointments').where('providerUid', '==', user.uid).limit(200).get(),
-    ]);
+    // চালু (অপেক্ষায়/নিশ্চিত) সবগুলো আসে; পুরোনোগুলো অবস্থা ধরে অল্প করে —
+    // যাতে পুরোনো রেকর্ড জমে নতুন অনুরোধ কখনো বাদ না পড়ে (দুই সমান-সমান খোঁজ, আলাদা ইনডেক্স লাগে না)
+    const byStatus = async (field) => {
+      const lists = await Promise.all([
+        ...['pending', 'confirmed'].map((s) => db.collection('appointments').where(field, '==', user.uid).where('status', '==', s).limit(300).get()),
+        ...['declined', 'cancelled', 'expired', 'completed'].map((s) => db.collection('appointments').where(field, '==', user.uid).where('status', '==', s).limit(30).get()),
+      ]);
+      return { docs: lists.flatMap((l) => l.docs) };
+    };
+    const [mine, toMe] = await Promise.all([byStatus('patientUid'), byStatus('providerUid')]);
     // নিশ্চিত হলে অপরজনের ফোন
     const need = new Set();
     mine.docs.forEach((d) => d.get('status') === 'confirmed' && need.add(d.get('providerUid')));
@@ -339,8 +359,11 @@ module.exports = {
         const key = require('node:crypto').createHash('md5').update(String(chamberKey)).digest('hex').slice(0, 10);
         const cRef = db.doc(`serials/${a.providerUid}_${a.date}_${key}`);
         const c = await t.get(cRef);
-        serial = (c.exists ? c.get('n') || 0 : 0) + 1;
-        t.set(cRef, { n: serial, at: Date.now() });
+        const last = c.exists ? c.get('n') || 0 : 0;
+        // ডাক্তার নিজের খাতার নম্বর দিলে সেটাই (ফোনে/সরাসরি নেওয়া রোগীসহ); না দিলে পরের নম্বর
+        const own = Number.isInteger(req.body?.serial) && req.body.serial >= 1 && req.body.serial <= 999 ? req.body.serial : null;
+        serial = own || last + 1;
+        t.set(cRef, { n: Math.max(last, serial), at: Date.now() });
         update.serial = serial;
       }
       t.update(ref, update);

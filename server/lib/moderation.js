@@ -7,13 +7,14 @@ const { useQuota } = require('./community-db');
 
 const K = require('./care');
 // homevisit: আগের অনুরোধ-ব্যবস্থার খোলা রিপোর্ট (নতুন নেওয়া হয় না); homecare: বাসায় সেবার তালিকার ডাক্তার/নার্স
-const KINDS = ['question', 'answer', 'tip', 'homecare', 'ambulance', 'pharmacy', 'bloodbank'];
+// provider: চেম্বারের তালিকার ডাক্তার/নার্স (রিপোর্ট টিকলে পুরো তালিকা বন্ধ)
+const KINDS = ['question', 'answer', 'tip', 'homecare', 'provider', 'ambulance', 'pharmacy', 'bloodbank'];
 const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+|bloodBanks\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
   if (kind === 'answer') return `questions/${id}/answers/${answerId}`;
-  if (kind === 'homecare') return `providers/${id}`;
+  if (kind === 'homecare' || kind === 'provider') return `providers/${id}`;
   if (kind === 'ambulance') return `ambulances/${id}`;
   if (kind === 'pharmacy') return `pharmacies/${id}`;
   if (kind === 'bloodbank') return `bloodBanks/${id}`;
@@ -21,7 +22,11 @@ function targetPath(kind, id, answerId) {
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
-async function removeTarget(path, reported) {
+async function removeTarget(path, reported, kind) {
+  if (path.startsWith('providers/') && kind === 'provider') {
+    await require('./apptcancel').suspendProvider(path.split('/')[1], 'report');
+    return;
+  }
   const ref = db.doc(path);
   if (path.startsWith('ambulances/') || path.startsWith('pharmacies/') || path.startsWith('bloodBanks/')) {
     // মোছা হয় না, বন্ধ (suspended) — তালিকায় আর দেখায় না, মালিক নিজে আবার চালু করতে পারেন না
@@ -72,13 +77,14 @@ module.exports = {
     if (kind === 'homecare' && (id === user.uid || !(target.get('homeVisit') && target.get('homeVisit').enabled))) {
       throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
-    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank') {
+    if (kind === 'provider' && id === user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank' || kind === 'provider') {
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
     }
     await useQuota(req, user.uid, 'report');
     // একজন একই জিনিস একবারই রিপোর্ট করতে পারেন (অ্যাডমিন বাদ দেওয়ার পর আবার খোলা যায় না)
-    const docId = `${path.replace(/\//g, '_')}__${user.uid}${reported ? `__${reported.uid}` : ''}`.slice(0, 1400);
+    const docId = `${path.replace(/\//g, '_')}__${user.uid}${reported ? `__${reported.uid}` : ''}${kind === 'provider' ? '__provider' : ''}`.slice(0, 1400);
     const ref = db.doc(`modReports/${docId}`);
     if ((await ref.get()).exists) return { ok: true };
     await ref.set({
@@ -102,7 +108,8 @@ module.exports = {
     snap.docs.forEach((d) => {
       const p = d.get('targetPath');
       if (typeof p !== 'string' || !PATH_RE.test(p)) return;
-      const key = d.get('reportedUid') ? `${p}|${d.get('reportedUid')}` : p;
+      // একই ডাক্তারের "বাসায় সেবা" আর "চেম্বার" রিপোর্ট আলাদা (বাদ দিলে আলাদা ব্যবস্থা)
+      const key = (d.get('reportedUid') ? `${p}|${d.get('reportedUid')}` : p) + (d.get('kind') === 'provider' ? '|provider' : '');
       const g = groups.get(key) || {
         targetPath: p,
         kind: d.get('kind'),
@@ -138,6 +145,8 @@ module.exports = {
           ].join('\n')
           : ['ambulance', 'pharmacy', 'bloodbank'].includes(list[i].kind)
             ? [`${t.get('name') || ''} · ${K.fixPhone(t.get('phone'))} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
+            : list[i].kind === 'provider'
+              ? [`${t.get('type') === 'doctor' ? 'ডাক্তার' : 'নার্স'} (চেম্বার): ${t.get('name') || ''} · ${K.chambersOf(t.data()).map((c) => c.hospitalName).join(', ')}`, ...list[i].reasons].join('\n')
             : list[i].kind === 'homecare'
               ? [`${t.get('type') === 'doctor' ? 'ডাক্তার' : 'নার্স'}: ${t.get('name') || ''} · ${K.fixPhone(t.get('homeVisit.phone'))}`, ...list[i].reasons].join('\n')
             : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
@@ -166,10 +175,15 @@ module.exports = {
     const reportedUid = R.isValidId(req.body?.reportedUid) ? req.body.reportedUid : null;
     let snap = await db.collection('modReports').where('targetPath', '==', path).get();
     // হোম ভিজিটে একই ভিজিটে দুজনকে আলাদা রিপোর্ট করা যায়; শুধু এই মানুষের রিপোর্টগুলো
-    const docs = reportedUid ? snap.docs.filter((d) => d.get('reportedUid') === reportedUid) : snap.docs;
+    let docs = reportedUid ? snap.docs.filter((d) => d.get('reportedUid') === reportedUid) : snap.docs;
+    // ডাক্তার/নার্স: চেম্বারের রিপোর্ট আর বাসায় সেবার রিপোর্ট আলাদা করে মীমাংসা
+    if (path.startsWith('providers/')) {
+      const wantProvider = req.body?.kind === 'provider';
+      docs = docs.filter((d) => (d.get('kind') === 'provider') === wantProvider);
+    }
     if (req.body?.remove === true) {
       const r = docs.find((d) => d.get('reportedUid'));
-      await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null);
+      await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null, req.body?.kind);
     }
     snap = { docs };
     const batch = db.batch();

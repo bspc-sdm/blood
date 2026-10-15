@@ -68,6 +68,13 @@ module.exports = {
       console.error('keep sanctions failed', e);
     }
 
+    // নিজের দেওয়া বাসায় সেবার রেটিং হিসাব থেকে বাদ (মুছে নতুন অ্যাকাউন্টে আবার রেটিং দিয়ে গড় বদলানো যায় না)
+    await Promise.all(callsMade.docs.filter((d) => Number.isInteger(d.get('rating')) && d.get('rating') > 0).map((d) =>
+      db.doc(`providers/${d.get('providerUid')}`).update({
+        ratingSum: FieldValue.increment(-d.get('rating')),
+        ratingCount: FieldValue.increment(-1),
+      }).catch(() => {})));
+
     // চালু রিকোয়েস্টে যাঁরা রাজি ছিলেন — মোছার আগে তালিকা রেখে পরে জানানো (যাতে কেউ শুধু শুধু হাসপাতালে না যান)
     const RE = require('./requestend');
     const endedNotices = await Promise.all(

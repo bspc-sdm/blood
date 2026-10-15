@@ -55,4 +55,40 @@ async function cancelStale(providerUid, keep, reason) {
   return stale.length;
 }
 
-module.exports = { cancelStale, stillValid };
+/**
+ * ডাক্তার/নার্সের পুরো তালিকা বন্ধ (অ্যাকাউন্ট বন্ধ বা রিপোর্ট টিকলে): চেম্বার আর বাসায় সেবা দুটোই,
+ * সামনের অ্যাপয়েন্টমেন্ট বাতিল করে রোগীদের জানানো। আবার চালু: liftProvider।
+ */
+async function suspendProvider(uid, reason) {
+  const pRef = db.doc(`providers/${uid}`);
+  const p = await pRef.get();
+  if (!p.exists || p.get('adminSuspended') === true) return false;
+  await pRef.update({
+    adminSuspended: true,
+    suspendReason: reason || 'admin',
+    listedBeforeSuspend: p.get('listed') !== false,
+    listed: false,
+    active: false,
+    'homeVisit.enabled': false,
+  });
+  await cancelStale(uid, () => false, ['The doctor/nurse is not available now', 'ডাক্তার/নার্স এখন পাওয়া যাচ্ছে না']);
+  return true;
+}
+
+async function liftProvider(uid) {
+  const { FieldValue } = require('./firebase');
+  const pRef = db.doc(`providers/${uid}`);
+  const p = await pRef.get();
+  if (!p.exists || p.get('adminSuspended') !== true) return false;
+  const listed = p.get('listedBeforeSuspend') !== false;
+  await pRef.update({
+    adminSuspended: FieldValue.delete(),
+    suspendReason: FieldValue.delete(),
+    listedBeforeSuspend: FieldValue.delete(),
+    listed,
+    active: listed && p.get('appointments') === true,
+  });
+  return true;
+}
+
+module.exports = { cancelStale, stillValid, suspendProvider, liftProvider };

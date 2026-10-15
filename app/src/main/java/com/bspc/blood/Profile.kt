@@ -223,12 +223,13 @@ fun ProfileTab(
                 R.drawable.ic_workspace_premium,
                 tr("Professional badge", "পেশাদার ব্যাজ"),
                 when (badge?.status) {
-                    "approved" -> Badges.label(badge.type)
+                    "approved" -> if (badge.changePending) Badges.label(badge.type) + tr(" · correction under review", " · সংশোধন যাচাই চলছে")
+                    else Badges.label(badge.type) + tr(" · tap to correct details", " · তথ্য ঠিক করতে চাপুন")
                     "pending" -> tr("Under review", "যাচাই চলছে")
                     "rejected" -> tr("Not approved. Tap to apply again.", "অনুমোদন হয়নি। আবার আবেদন করুন।")
                     else -> tr("For doctors, nurses and health experts", "ডাক্তার, নার্স ও স্বাস্থ্য বিশেষজ্ঞদের জন্য")
                 },
-                if (badge?.status == "pending" || badge?.status == "approved") null else ({ showBadgeDialog = true }),
+                if (badge?.status == "pending" || badge?.changePending == true) null else ({ showBadgeDialog = true }),
             )
             HorizontalDivider()
             ActionRow(
@@ -336,14 +337,18 @@ fun ProfileTab(
         }
     }
     if (showBadgeDialog) {
+        val cur = community?.badge
         BadgeApplyDialog(
             onDismiss = { showBadgeDialog = false },
             onApplied = { type ->
                 showBadgeDialog = false
                 onCommunityChanged(
-                    (community ?: CommunityMe(null, false)).copy(badge = BadgeState(type, "pending"))
+                    (community ?: CommunityMe(null, false)).copy(
+                        badge = if (cur?.status == "approved") cur.copy(changePending = true) else BadgeState(type, "pending"),
+                    )
                 )
             },
+            current = cur,
         )
     }
 }

@@ -158,7 +158,8 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
                         scope.launch { runCatching { HomeCare.called(p.uid) } }
                         callPhone(context, p.phone)
                     },
-                    onRate = if (p.called || p.uid in called) ({ rating = p }) else null,
+                    // ফোনের ১ ঘণ্টা পর থেকে (সার্ভার জানায়); তালিকা আবার খুললে বাটন আসে
+                    onRate = if (p.canRate) ({ rating = p }) else null,
                     onReport = { reporting = p },
                 )
             }

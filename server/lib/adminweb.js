@@ -213,6 +213,8 @@ async function userView(uid) {
       homePhone: K.fixPhone(prov.get('homeVisit.phone')),
       homeCalls: (homeStats.exists && homeStats.get('total')) || 0,
       chambers: K.chambersOf(prov.data()).length,
+      suspended: prov.get('adminSuspended') === true,
+      suspendReason: prov.get('suspendReason') || '',
     } : null,
     pharmacy: shop.exists ? { id: shop.id, name: shop.get('name'), status: shop.get('status'), phone: K.fixPhone(shop.get('phone')), district: shop.get('district') || '' } : null,
     bloodBanks: banks.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), phone: K.fixPhone(d.get('phone')), district: d.get('district') || '' })),
@@ -321,6 +323,13 @@ const actions = {
           })(),
         ]);
         break;
+      // রিপোর্টের পর বন্ধ করা ডাক্তার/নার্সের তালিকা আবার চালু (আপিল মঞ্জুর)
+      case 'provider_unsuspend':
+        await require('./apptcancel').liftProvider(uid);
+        break;
+      case 'provider_suspend':
+        await require('./apptcancel').suspendProvider(uid, 'report');
+        break;
       case 'homecare_ban':
       case 'homevisit_ban_nurse': // আগের নাম
         await require('./homecare').blockHomeCare(uid);
@@ -338,32 +347,12 @@ const actions = {
           await admin.auth().revokeRefreshTokens(uid);
           await db.doc(`users/${uid}`).set({ fcmToken: FieldValue.delete() }, { merge: true }).catch(() => {});
           // ডাক্তার/নার্স হলে: তালিকা আর বাসায় সেবা বন্ধ, সামনের অ্যাপয়েন্টমেন্ট বাতিল করে রোগীদের জানানো
-          const pRef = db.doc(`providers/${uid}`);
-          const p = await pRef.get();
-          if (p.exists && p.get('adminSuspended') !== true) {
-            await pRef.update({
-              adminSuspended: true,
-              listedBeforeSuspend: p.get('listed') !== false,
-              listed: false,
-              active: false,
-              'homeVisit.enabled': false,
-            });
-            await require('./apptcancel').cancelStale(uid, () => false, ['The doctor/nurse is not available now', 'ডাক্তার/নার্স এখন পাওয়া যাচ্ছে না']);
-          }
+          await require('./apptcancel').suspendProvider(uid, 'account');
         } else {
           await admin.auth().updateUser(uid, { disabled: false });
-          // চেম্বারের তালিকা আগের মতো (বাসায় সেবা নিজে আবার চালু করবেন)
-          const pRef = db.doc(`providers/${uid}`);
-          const p = await pRef.get();
-          if (p.exists && p.get('adminSuspended') === true) {
-            const listed = p.get('listedBeforeSuspend') !== false;
-            await pRef.update({
-              adminSuspended: FieldValue.delete(),
-              listedBeforeSuspend: FieldValue.delete(),
-              listed,
-              active: listed && p.get('appointments') === true,
-            });
-          }
+          // চেম্বারের তালিকা আগের মতো (বাসায় সেবা নিজে আবার চালু করবেন); রিপোর্টের কারণে বন্ধ থাকলে সেটা আলাদা
+          const p = await db.doc(`providers/${uid}`).get();
+          if (p.exists && p.get('suspendReason') !== 'report') await require('./apptcancel').liftProvider(uid);
         }
         break;
       }

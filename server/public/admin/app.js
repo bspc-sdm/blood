@@ -104,7 +104,7 @@
       private_hospital: 'বেসরকারি হাসপাতাল', clinic: 'ক্লিনিক', diagnostic: 'ডায়াগনস্টিক সেন্টার',
     },
     amb: { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' },
-    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', bloodbank: 'ব্লাড ব্যাংক' },
+    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', provider: 'ডাক্তার/নার্স (চেম্বার)', bloodbank: 'ব্লাড ব্যাংক' },
     bankKind: { govt: 'সরকারি হাসপাতাল', private: 'বেসরকারি', org: 'স্বেচ্ছাসেবী সংগঠন' },
     bankService: { whole_blood: 'পূর্ণ রক্ত', components: 'প্লাজমা ও অন্যান্য অংশ', platelets: 'প্লাটিলেট', screening: 'স্ক্রিনিং ও ক্রস-ম্যাচ', donate_here: 'এখানে রক্ত দেওয়া যায়' },
     listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
@@ -126,7 +126,7 @@
     detail: {
       approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
       replied: 'উত্তর', 'replied+closed': 'উত্তর দিয়ে বন্ধ', closed: 'বন্ধ', homevisit_unban: 'বাসায় সেবার নিষেধাজ্ঞা তোলা',
-      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', homecare_ban: 'বাসায় সেবা বন্ধ', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
+      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', homecare_ban: 'বাসায় সেবা বন্ধ', provider_unsuspend: 'ডাক্তারের তালিকা আবার চালু', provider_suspend: 'ডাক্তারের তালিকা বন্ধ', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
       disable: 'অ্যাকাউন্ট বন্ধ', enable: 'অ্যাকাউন্ট খোলা',
     },
   };
@@ -797,21 +797,31 @@
       action: 'admin_badges',
       tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['rejected', 'বাতিল']],
       search: 'নাম, ইমেইল, রেজি. নম্বর',
-      text: (b) => [b.name, b.email, b.regNo, b.workplace, L.badge[b.type]],
+      text: (b) => [b.name, b.email, b.regNo, b.workplace, L.badge[b.type], ...(b.change ? [b.change.name, b.change.regNo, b.change.workplace] : [])],
       cols: [
-        { label: 'নাম', main: true, cell: (b) => [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.badge[b.type] || b.type })] },
+        // অনুমোদিত ব্যাজের সংশোধনের অনুরোধ: নতুন তথ্য বড় করে, আগেরটা নিচে ছোট করে
+        { label: 'নাম', main: true, cell: (b) => b.change
+          ? [b.change.name || '—', ' ', h('span', { class: 'chip bad', text: 'সংশোধন' }), ' ', h('span', { class: 'chip pri', text: L.badge[b.change.type] || b.change.type }),
+            b.change.name !== b.name ? h('div', { class: 'small', text: `আগে: ${b.name || '—'}` }) : null]
+          : [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.badge[b.type] || b.type })] },
         { label: 'ইমেইল', cell: (b) => b.email || '—' },
-        { label: 'রেজি. নম্বর', cell: (b) => [b.regNo || '—', h('div', { class: 'small' },
+        { label: 'রেজি. নম্বর', cell: (b) => [(b.change ? b.change.regNo : b.regNo) || '—',
+          b.change && b.change.regNo !== b.regNo ? h('div', { class: 'small', text: `আগে: ${b.regNo || '—'}` }) : null, h('div', { class: 'small' },
           b.type === 'doctor' ? h('a', { href: 'https://www.bmdc.org.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BMDC-তে মেলান' })
             : b.type === 'nurse' ? h('a', { href: 'https://www.bnmc.gov.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BNMC-তে মেলান' })
               : 'সনদ দেখে নিন')] },
-        { label: 'কর্মস্থল', cell: (b) => b.workplace || '—' },
-        { label: 'তারিখ', cell: (b) => fmtDate(b.reviewedAt || b.createdAt) },
+        { label: 'কর্মস্থল', cell: (b) => [(b.change ? b.change.workplace : b.workplace) || '—',
+          b.change && b.change.workplace !== b.workplace ? h('div', { class: 'small', text: `আগে: ${b.workplace || '—'}` }) : null] },
+        { label: 'তারিখ', cell: (b) => fmtDate(b.change ? b.change.at : b.reviewedAt || b.createdAt) },
       ],
-      id: (b) => b.uid,
+      id: (b) => b.uid + (b.change ? ':change' : ''),
       owner: (b) => b.uid,
       actions: (b, st) => {
         const run = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve });
+        if (st === 'pending' && b.change) {
+          const fix = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve, correction: true });
+          return [actionBtn('সংশোধন মঞ্জুর', 'primary', fix(true), 'নতুন তথ্য বসানো হয়েছে', afterChange), actionBtn('সংশোধন বাতিল', 'warn', fix(false), 'অনুরোধ বাতিল, ব্যাজ আগের মতো', afterChange)];
+        }
         if (st === 'pending') return [actionBtn('অনুমোদন', 'primary', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', afterChange)];
         if (st === 'approved') return [actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে, তালিকা থেকেও সরেছে', afterChange)];
         return [actionBtn('অনুমোদন দিন', 'tonal', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange)];
@@ -975,12 +985,12 @@
     paint(alive, table(items, [
       { label: 'কী', main: true, cell: (x) => [x.kind === 'homevisit' ? (x.reportedRole === 'patient' ? 'হোম ভিজিট (আগের): রোগী' : 'হোম ভিজিট (আগের): নার্স') : L.report[x.kind] || x.kind,
         h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: `${bn(x.count)}টি রিপোর্ট` }))] },
-      { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid || x.kind === 'homecare' ? h('div', { class: 'small' }, userLink(x.reportedUid || x.targetPath.split('/')[1])) : null] },
+      { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid || x.kind === 'homecare' || x.kind === 'provider' ? h('div', { class: 'small' }, userLink(x.reportedUid || x.targetPath.split('/')[1])) : null] },
       { label: 'লেখা', cell: (x) => [h('div', { class: 'body', text: x.text || '' }),
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
-      const body = { targetPath: x.targetPath, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
-      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
+      const body = { targetPath: x.targetPath, kind: x.kind, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
+      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'provider' ? 'তালিকা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
       return [
         actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
         actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
@@ -1118,6 +1128,11 @@
           [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'নিষেধাজ্ঞা তোলা হয়েছে। ডাক্তার/নার্স অ্যাপ থেকে নিজে আবার চালু করবেন।', reload)]);
       }
       const p = u.provider || {};
+      if (p.suspended) {
+        return ctl('ডাক্তার/নার্সের তালিকা', p.suspendReason === 'report' ? 'রিপোর্টের পর তালিকা (চেম্বার আর বাসায় সেবা) বন্ধ।' : 'অ্যাকাউন্ট বন্ধের সাথে তালিকাও বন্ধ।',
+          h('span', { class: 'chip bad', text: 'বন্ধ' }),
+          p.suspendReason === 'report' ? [actionBtn('তালিকা আবার চালু', 'tonal', uact('provider_unsuspend'), 'তালিকা আবার চালু হয়েছে', reload)] : []);
+      }
       return ctl('বাসায় সেবা',
         p.homeVisit ? `তালিকায় আছেন। রোগীরা ফোন করেন ${bn(p.homePhone) || '—'} নম্বরে; অ্যাপ থেকে ফোন এসেছে ${bn(p.homeCalls || 0)} বার।` : 'চালু করেননি।',
         p.homeVisit ? h('span', { class: 'chip good', text: 'চালু' }) : null,

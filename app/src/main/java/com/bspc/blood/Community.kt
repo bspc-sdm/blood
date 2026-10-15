@@ -85,7 +85,14 @@ data class Tip(
 )
 
 /** নিজের ব্যাজ: type ("doctor" …), status ("pending" / "approved" / "rejected") */
-data class BadgeState(val type: String, val status: String)
+data class BadgeState(
+    val type: String,
+    val status: String,
+    val regNo: String = "",
+    val workplace: String = "",
+    /** অনুমোদিত ব্যাজের তথ্য সংশোধনের অনুরোধ যাচাই চলছে */
+    val changePending: Boolean = false,
+)
 
 data class CommunityMe(
     val badge: BadgeState?,
@@ -131,7 +138,7 @@ object Community {
         val o = call("me")
         val b = o.optJSONObject("badge")
         return CommunityMe(
-            b?.let { BadgeState(it.optString("type"), it.optString("status")) }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
+            b?.let { BadgeState(it.optString("type"), it.optString("status"), it.optString("regNo"), it.optString("workplace"), it.optBoolean("changePending")) }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
             o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true), o.optInt("unread"),
         )
     }
@@ -200,7 +207,8 @@ object Community {
     }
 
     suspend fun adminBadges(): List<BadgeRequest> =
-        call("admin_badges").optJSONArray("items")?.objects().orEmpty().map {
+        // তথ্য সংশোধনের অনুরোধ শুধু ওয়েব প্যানেলে (এখানে "বাতিল" চাপলে ব্যাজই চলে যেত)
+        call("admin_badges").optJSONArray("items")?.objects().orEmpty().filter { it.isNull("change") || !it.has("change") }.map {
             BadgeRequest(
                 it.optString("uid"), it.optString("type"), it.optString("regNo"),
                 it.optString("workplace"), it.optString("name"), it.optString("email"),
@@ -240,7 +248,8 @@ object Moderation {
 
     suspend fun adminReports(): List<ReportedItem> {
         val arr = call("admin_reports").optJSONArray("items") ?: JSONArray()
-        return (0 until arr.length()).map {
+        // ডাক্তারের চেম্বারের রিপোর্ট শুধু ওয়েব প্যানেলে (আলাদা ব্যবস্থা লাগে)
+        return (0 until arr.length()).filter { arr.getJSONObject(it).optString("kind") != "provider" }.map {
             val o = arr.getJSONObject(it)
             ReportedItem(
                 o.optString("targetPath"), o.optString("kind"), o.optInt("count"), o.optString("text"), o.optString("authorName"),
@@ -945,19 +954,30 @@ fun PostTipScreen(onPosted: () -> Unit, onBack: () -> Unit) {
 // ------------------------------------------------------------
 
 @Composable
-fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit) {
+fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current: BadgeState? = null) {
     val scope = rememberCoroutineScope()
-    var type by remember { mutableStateOf("doctor") }
-    var regNo by remember { mutableStateOf("") }
-    var workplace by remember { mutableStateOf("") }
+    // current = অনুমোদিত ব্যাজ: তথ্য সংশোধনের অনুরোধ (ব্যাজ আর তালিকা আগের মতো থাকে)
+    val correction = current?.status == "approved"
+    var type by remember { mutableStateOf(current?.type ?: "doctor") }
+    var regNo by remember { mutableStateOf(current?.regNo ?: "") }
+    var workplace by remember { mutableStateOf(current?.workplace ?: "") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
     FormDialog(
-        title = tr("Professional badge", "পেশাদার ব্যাজ"),
+        title = if (correction) tr("Correct badge details", "ব্যাজের তথ্য সংশোধন") else tr("Professional badge", "পেশাদার ব্যাজ"),
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (correction) {
+                    Text(
+                        tr(
+                            "Fix your registration number or workplace. To fix your name, change it in Edit profile first, then send this. You stay listed while an admin checks.",
+                            "রেজিস্ট্রেশন নম্বর বা কর্মস্থল ঠিক করুন। নাম ঠিক করতে আগে \"প্রোফাইল এডিট\"-এ নাম বদলে তারপর এটা পাঠান। অ্যাডমিন দেখা পর্যন্ত আপনি আগের মতোই তালিকায় থাকবেন।",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 Text(tr("Profession", "পেশা"), style = MaterialTheme.typography.labelLarge)
                 Badges.ALL.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1007,7 +1027,7 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit) {
                     }
                 },
                 enabled = !busy,
-            ) { Text(tr("Apply", "আবেদন করুন")) }
+            ) { Text(if (correction) tr("Send", "পাঠান") else tr("Apply", "আবেদন করুন")) }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )

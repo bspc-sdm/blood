@@ -309,6 +309,8 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
     val context = LocalContext.current
     var bookingIndex by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
+    var reporting by remember { mutableStateOf(false) }
+    var reported by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(modifier = Modifier.fillMaxSize(), topBar = { BackTopBar(Badges.label(p.type), onDismiss) }) { padding ->
@@ -377,9 +379,29 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                         }
                     }
                 }
+                // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
+                if (p.uid != AuthRepository.currentUid) {
+                    if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
+                    else TextButton(onClick = { reporting = true }) {
+                        AppIcon(R.drawable.ic_flag, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(tr("Report a problem", "সমস্যা রিপোর্ট করুন"))
+                    }
+                }
                 EmergencyNotice()
             }
         }
+    }
+
+    if (reporting) {
+        ReasonReportDialog(
+            onDismiss = { reporting = false },
+            onSubmit = { reason ->
+                Moderation.report("provider", p.uid, reason = reason)
+                reporting = false
+                reported = true
+            },
+        )
     }
 
     bookingIndex?.let { i ->
@@ -441,7 +463,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                     if (errorMsg == null && d != null) {
                         scope.launch {
                             busy = true
-                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim()) }
+                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName) }
                                 .onSuccess { onBooked() }
                                 .onFailure { errorMsg = it.message }
                             busy = false
@@ -468,6 +490,7 @@ private fun statusLabel(s: String): String = when (s) {
     "confirmed" -> tr("Confirmed", "নিশ্চিত")
     "declined" -> tr("Not accepted", "নেওয়া হয়নি")
     "expired" -> tr("No reply", "উত্তর আসেনি")
+    "completed" -> tr("Done", "সম্পন্ন")
     else -> tr("Cancelled", "বাতিল")
 }
 
@@ -491,10 +514,10 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
         loading = false
     }
 
-    fun act(id: String, action: String, note: String = "") {
+    fun act(id: String, action: String, note: String = "", serial: Int? = null) {
         scope.launch {
             busyId = id
-            runCatching { Appointments.update(id, action, note) }
+            runCatching { Appointments.update(id, action, note, serial) }
                 .onSuccess { reload++ }
                 .onFailure { errorMsg = it.message }
             busyId = null
@@ -610,22 +633,36 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
 
     confirming?.let { a ->
         var note by remember(a.id) { mutableStateOf("") }
+        // নিজের খাতার সিরিয়াল (ফোনে/সরাসরি নেওয়া রোগীসহ); খালি রাখলে অ্যাপ নিজে পরের নম্বর দেয়
+        var serial by remember(a.id) { mutableStateOf("") }
         FormDialog(
         title = tr("Confirm appointment", "অ্যাপয়েন্টমেন্ট নিশ্চিত"),
         onDismiss = { confirming = null },
         content = {
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it.take(200) },
-                    label = { Text(tr("Note for patient (optional)", "রোগীর জন্য নোট (ঐচ্ছিক)")) },
-                    placeholder = { Text(tr("e.g. Come at 6 PM, serial 12", "যেমন: সন্ধ্যা ৬টায় আসবেন, সিরিয়াল ১২")) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = serial,
+                        onValueChange = { v -> serial = v.filter { it.isDigit() || it in '০'..'৯' }.take(3) },
+                        label = { Text(tr("Serial no. (optional)", "সিরিয়াল নম্বর (ঐচ্ছিক)")) },
+                        supportingText = { Text(tr("Leave empty and the app gives the next number", "খালি রাখলে অ্যাপ পরের নম্বর দেবে")) },
+                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it.take(200) },
+                        label = { Text(tr("Note for patient (optional)", "রোগীর জন্য নোট (ঐচ্ছিক)")) },
+                        placeholder = { Text(tr("e.g. Come at 6 PM", "যেমন: সন্ধ্যা ৬টায় আসবেন")) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             },
         confirmButton = {
                 TextButton(onClick = {
                     confirming = null
-                    act(a.id, "confirm", note.trim())
+                    val n = serial.map { c -> if (c in '০'..'৯') '0' + (c - '০') else c }.joinToString("").toIntOrNull()
+                    act(a.id, "confirm", note.trim(), n)
                 }) { Text(tr("Confirm", "নিশ্চিত করুন")) }
             },
         dismissButton = { TextButton(onClick = { confirming = null }) { Text(tr("Cancel", "বাতিল")) } },
@@ -907,10 +944,14 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
         )
     }
     if (pickUpazila) {
+        // নিজের জেলা আগে, তারপর কাছের জেলাগুলো (সীমানার কাছে থাকলে পাশের জেলায়ও যান)
+        val own = profile.placeName.orEmpty()
+        val districts = (listOf(own) + (profile.lat?.let { la -> profile.lng?.let { ln -> Districts.near(la, ln).take(6) } } ?: emptyList()))
+            .filter { it.isNotBlank() }.distinct()
         SearchPickDialog(
             title = tr("Upazila", "উপজেলা"),
-            items = Areas.upazilasOf(profile.placeName.orEmpty()),
-            label = { it.label },
+            items = districts.flatMap { Areas.upazilasOf(it) },
+            label = { u -> if (u.district == own) u.label else u.label + " (" + Districts.label(u.district) + ")" },
             onPick = { u ->
                 if (u != null && u.id !in home.upazilaIds) home = home.copy(upazilaIds = home.upazilaIds + u.id)
                 pickUpazila = false

@@ -162,6 +162,12 @@ const actions = {
     const s = await ref.get();
     if (!s.exists || s.get('status') !== 'pending') throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const r = s.data();
+    // যাঁরা চেয়েছিলেন তাঁদের জানানো (চেম্বার সেভ করতে এই হাসপাতালের অপেক্ষায় থাকতে পারেন)
+    const tell = (en, bn) => require('./requestend').pushUsers(r.requesterUids || [], (u, lang) => ({
+      title: R.L(lang, en, bn),
+      body: r.nameBn && lang !== 'en' ? r.nameBn : r.nameEn || r.nameBn || '',
+      data: { type: 'hospital' },
+    }));
     if (op === 'approve') {
       const h = await db.collection('hospitals').add({
         nameEn: r.nameEn,
@@ -179,6 +185,7 @@ const actions = {
       });
       await ref.update({ status: 'approved', hospitalId: h.id, reviewedAt: Date.now() });
       userCache.delete(r.district);
+      await tell('The hospital you asked for is now in the list', 'আপনার চাওয়া হাসপাতাল তালিকায় যোগ হয়েছে');
       return { ok: true, hospitalId: h.id };
     }
     if (op === 'merge') {
@@ -186,10 +193,12 @@ const actions = {
         throw new HttpError(400, C.tr(req, 'Choose the existing hospital', 'আগের হাসপাতালটা বেছে নিন'));
       }
       await ref.update({ status: 'merged', hospitalId: targetId, reviewedAt: Date.now() });
+      await tell('The hospital you asked for was already in the list — search it again', 'আপনার চাওয়া হাসপাতাল আগেই তালিকায় ছিল — আবার খুঁজে দেখুন');
       return { ok: true };
     }
     if (op === 'reject') {
       await ref.update({ status: 'rejected', reviewedAt: Date.now() });
+      await tell('Hospital request not approved', 'হাসপাতাল যোগের অনুরোধ অনুমোদন হয়নি');
       return { ok: true };
     }
     throw new HttpError(400, C.tr(req, 'Unknown action', 'অজানা কাজ'));

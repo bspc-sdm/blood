@@ -15,6 +15,8 @@ const S = require('./sellerstats');
 
 const TYPES = ['doctor', 'nurse'];
 const RATE_WINDOW_MS = 30 * 24 * 3600 * 1000; // ফোন করার ৩০ দিনের মধ্যে রেটিং
+// ফোন চেপে সাথে সাথে কেটে রেটিং দেওয়া যায় না: প্রথম ফোনের অন্তত ১ ঘণ্টা পর
+const RATE_AFTER_MS = 60 * 60 * 1000;
 const CALL_DEDUPE_MS = 10 * 60 * 1000;
 
 function inBangladesh(lat, lng) {
@@ -45,6 +47,10 @@ function view(d, km, mine) {
     // এই মানুষ আগে অ্যাপ থেকে ফোন করেছেন কি না, আর তাঁর দেওয়া রেটিং
     called: !!(mine && mine.exists),
     myRating: (mine && mine.exists && mine.get('rating')) || 0,
+    // রেটিং দেওয়া যায় কি না: প্রথম ফোনের ১ ঘণ্টা পর থেকে, শেষ ফোনের ৩০ দিনের মধ্যে
+    canRate: !!(mine && mine.exists)
+      && Date.now() - (mine.get('firstAt') || mine.get('at') || 0) >= RATE_AFTER_MS
+      && Date.now() - (mine.get('at') || 0) <= RATE_WINDOW_MS,
   };
 }
 
@@ -124,6 +130,9 @@ const actions = {
       if (!p.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       if (!c.exists || Date.now() - (c.get('at') || 0) > RATE_WINDOW_MS) {
         throw new HttpError(403, C.tr(req, 'You can rate after calling from the app', 'অ্যাপ থেকে ফোন করার পর রেটিং দিতে পারবেন'));
+      }
+      if (Date.now() - (c.get('firstAt') || c.get('at') || 0) < RATE_AFTER_MS) {
+        throw new HttpError(403, C.tr(req, 'You can rate 1 hour after your first call', 'প্রথম ফোনের ১ ঘণ্টা পর রেটিং দিতে পারবেন'));
       }
       const old = c.get('rating') || 0;
       t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });

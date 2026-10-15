@@ -58,7 +58,14 @@ const actions = {
   async me(req, user) {
     const s = await db.doc(`badges/${user.uid}`).get();
     return {
-      badge: s.exists ? { type: s.get('type'), status: s.get('status') } : null,
+      badge: s.exists ? {
+        type: s.get('type'),
+        status: s.get('status'),
+        regNo: s.get('regNo') || '',
+        workplace: s.get('workplace') || '',
+        // অনুমোদিত ব্যাজের তথ্য সংশোধনের অনুরোধ যাচাই চলছে কি না
+        changePending: !!s.get('pendingChange'),
+      } : null,
       isAdmin: await isAdmin(user),
       isOwner: isOwner(user),
       // ফোন যাচাই চালু আছে কি না, আর নিজের নম্বর যাচাই করা কি না
@@ -316,6 +323,14 @@ const actions = {
     if (cur.exists && cur.get('status') === 'pending') {
       throw new HttpError(409, C.tr(req, 'Your application is already under review', 'আপনার আবেদন যাচাই চলছে'));
     }
+    // অনুমোদিত ব্যাজ: তথ্য সংশোধনের অনুরোধ — অ্যাডমিন দেখা পর্যন্ত আগের মতোই অনুমোদিত, তালিকা থেকে সরে না
+    if (cur.exists && cur.get('status') === 'approved') {
+      await useQuota(req, user.uid, 'badge');
+      await ref.update({
+        pendingChange: { type, regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
+      });
+      return { ok: true, correction: true };
+    }
     await useQuota(req, user.uid, 'badge');
     await ref.set({
       type,
@@ -334,8 +349,11 @@ const actions = {
     // অ্যাপ: অপেক্ষায়; ওয়েব প্যানেল: অনুমোদিত বা বাতিলও
     const status = ['pending', 'approved', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
     const snap = await db.collection('badges').where('status', '==', status).limit(300).get();
+    // অপেক্ষার তালিকায় অনুমোদিত ব্যাজের সংশোধনের অনুরোধও
+    const changes = status === 'pending' ? await db.collection('badges').where('pendingChange.at', '>', 0).limit(100).get() : { docs: [] };
     return {
-      items: snap.docs.map((d) => ({
+      items: [...snap.docs, ...changes.docs].map((d) => ({
+        change: d.get('pendingChange') || null,
         status: d.get('status'),
         reviewedAt: d.get('reviewedAt') || null,
         uid: d.id,
@@ -354,7 +372,25 @@ const actions = {
     const uid = req.body?.uid;
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`badges/${uid}`);
-    if (!(await ref.get()).exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
+    const bs = await ref.get();
+    if (!bs.exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
+    // সংশোধনের অনুরোধ: মঞ্জুর হলে নতুন তথ্য বসে (তালিকার নামও), নইলে শুধু অনুরোধ সরে — ব্যাজ থাকে
+    if (req.body?.correction === true) {
+      const ch = bs.get('pendingChange');
+      if (!ch) return { ok: true, unchanged: true };
+      if (req.body?.approve === true) {
+        await ref.update({ type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid });
+        await db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ name: ch.name })).catch(() => {});
+      } else {
+        await ref.update({ pendingChange: FieldValue.delete() });
+      }
+      await require('../lib/requestend').pushUsers([uid], (u, lang) => ({
+        title: req.body?.approve === true ? R.L(lang, 'Your badge details were updated', 'আপনার ব্যাজের তথ্য সংশোধন হয়েছে') : R.L(lang, 'Badge correction not accepted', 'ব্যাজের তথ্য সংশোধনের অনুরোধ গ্রহণ হয়নি'),
+        body: '',
+        data: { type: 'badge' },
+      }));
+      return { ok: true };
+    }
     const pRef = db.doc(`providers/${uid}`);
     if (req.body?.approve !== true) {
       // ব্যাজ বাতিল হলে ডাক্তার/নার্সের তালিকা থেকেও সরে যায় (নতুন আর পুরোনো দুই ধরনের অ্যাপেই),

@@ -476,8 +476,13 @@ object Appointments {
         ).optInt("cancelled")
     }
 
-    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String) {
-        careCall("book", JSONObject().put("providerUid", providerUid).put("chamberIndex", chamberIndex).put("date", date).put("note", note))
+    /** chamberKey: যে হাসপাতালের চেম্বার দেখে বুক করছেন — সার্ভার মিলিয়ে নেয় (চেম্বার বদলালে ভুল বুকিং হয় না) */
+    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String, chamberKey: String? = null) {
+        careCall(
+            "book",
+            JSONObject().put("providerUid", providerUid).put("chamberIndex", chamberIndex).put("date", date).put("note", note)
+                .apply { if (chamberKey != null) put("chamberKey", chamberKey) },
+        )
     }
 
     suspend fun list(): List<Appointment> {
@@ -492,9 +497,12 @@ object Appointments {
         }
     }
 
-    suspend fun update(id: String, action: String, providerNote: String = "") {
+    suspend fun update(id: String, action: String, providerNote: String = "", serial: Int? = null) {
         // "action" অনুরোধের নাম হিসেবে ব্যবহৃত হয়, তাই কী করতে হবে তা "op"-এ
-        careCall("appointment_update", JSONObject().put("id", id).put("op", action).put("providerNote", providerNote))
+        careCall(
+            "appointment_update",
+            JSONObject().put("id", id).put("op", action).put("providerNote", providerNote).apply { if (serial != null) put("serial", serial) },
+        )
     }
 }
 
@@ -551,6 +559,8 @@ data class HomePro(
     /** আগে অ্যাপ থেকে ফোন করেছি (রেটিং দেওয়া যায়) */
     val called: Boolean,
     val myRating: Int,
+    /** রেটিং এখন দেওয়া যায় (প্রথম ফোনের ১ ঘণ্টা পর) */
+    val canRate: Boolean = false,
 ) {
     /** কোথায় যান: "৫ কিমির মধ্যে · দেবিদ্বার, বরুড়া" */
     val coverage: String
@@ -566,6 +576,7 @@ object HomeCare {
         o.optJSONArray("services").strings(), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(), o.str("schedule"),
         o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
+        o.optBoolean("canRate"),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */
