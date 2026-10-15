@@ -50,12 +50,12 @@ test('বদলানো কুকি চলে না', () => {
   assert.deepStrictEqual(S.user(reqWith(`${name}=${payload}.${sig.slice(0, -2)}xx`), fakeRes()), { error: 'expired' });
 });
 
-test('৩০ মিনিট কিছু না করলে মেয়াদ শেষ', () => {
+test('২ ঘণ্টা কিছু না করলে মেয়াদ শেষ', () => {
   const t0 = Date.now();
   const c = issued(t0);
-  assert.ok(S.user(reqWith(c), fakeRes(), t0 + 29 * 60000).uid);
+  assert.ok(S.user(reqWith(c), fakeRes(), t0 + 119 * 60000).uid);
   const res = fakeRes();
-  assert.deepStrictEqual(S.user(reqWith(c), res, t0 + 31 * 60000), { error: 'expired' });
+  assert.deepStrictEqual(S.user(reqWith(c), res, t0 + 121 * 60000), { error: 'expired' });
   assert.match(res.headers['set-cookie'], /Max-Age=0/);
 });
 

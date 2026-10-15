@@ -4,7 +4,8 @@
 (function () {
   'use strict';
 
-  const IDLE_MS = 30 * 60 * 1000;
+  const IDLE_MS = 2 * 3600 * 1000; // ২ ঘণ্টা কিছু না করলে লগআউট (সার্ভারেও একই)
+  const WARN_MS = 2 * 60 * 1000; // তার ২ মিনিট আগে সতর্ক করা
   const AUTO_REFRESH_MS = 5 * 60 * 1000;
   const root = document.getElementById('root');
   const toastEl = document.getElementById('toast');
@@ -200,7 +201,7 @@
           h('div', { class: 'row' },
             h('button', { class: 'btn primary', type: 'submit', disabled: sending, text: sending ? 'যাচাই হচ্ছে…' : 'লগইন করুন' }),
             h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; draw(); }, text: 'ইমেইল বদলান' }))],
-        h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। ৩০ মিনিট কিছু না করলে নিজে থেকে লগআউট হবে।' }));
+        h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। প্যানেলে ২ ঘণ্টা কিছু না করলে নিজে থেকে লগআউট হবে।' }));
       root.replaceChildren(h('div', { class: 'login-wrap' }, form));
       const first = form.querySelector('input');
       if (first) first.focus();
@@ -1093,17 +1094,30 @@
   ['click', 'keydown', 'pointermove', 'scroll', 'touchstart'].forEach((ev) =>
     window.addEventListener(ev, () => { S.lastActive = Date.now(); }, { passive: true }));
 
+  // লগআউটের আগে সতর্কবার্তা: "চালু রাখুন" চাপলে আবার পুরো সময় পাওয়া যায়
+  const warnBar = h('div', { class: 'idle-warn', role: 'alertdialog', 'aria-live': 'assertive', hidden: true },
+    h('span', { text: 'অনেকক্ষণ কিছু করেননি। ২ মিনিটের মধ্যে নিজে থেকে লগআউট হবে।' }),
+    h('button', { class: 'btn primary', type: 'button', onclick: () => {
+      S.lastActive = Date.now();
+      warnBar.hidden = true;
+      loadOverview().then(drawNav).catch(() => {}); // সার্ভারের সময়ও নতুন করে
+    }, text: 'চালু রাখুন' }));
+  document.body.append(warnBar);
+
   setInterval(() => {
-    if (!S.loggedIn) return;
-    if (Date.now() - S.lastActive > IDLE_MS) {
-      logout('৩০ মিনিট কিছু না করায় লগআউট হয়েছে। আবার লগইন করুন।');
+    if (!S.loggedIn) { warnBar.hidden = true; return; }
+    const idle = Date.now() - S.lastActive;
+    if (idle > IDLE_MS) {
+      warnBar.hidden = true;
+      logout('প্যানেলে ২ ঘণ্টা কিছু না করায় নিরাপত্তার জন্য লগআউট হয়েছে। আবার লগইন করুন।');
       return;
     }
+    warnBar.hidden = idle < IDLE_MS - WARN_MS;
     // পেছনে চুপচাপ শুধু অপেক্ষার সংখ্যা হালনাগাদ (পাতা নতুন করে আঁকা হয় না, লেখা হারায় না)
     if (!document.hidden && !S.busy && Date.now() - S.overviewAt > AUTO_REFRESH_MS) {
       loadOverview().then(drawNav).catch(() => {});
     }
-  }, 30000);
+  }, 15000);
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && shell) shell.classList.remove('open');
