@@ -4,7 +4,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,7 +50,6 @@ fun DonorResponse.counts() = status == "donated" || (status == "accepted" && con
 fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
     val willing = responses.willing()
     val done = willing.count { it.counts() }.coerceAtMost(r.bags)
-    val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             tr(
@@ -66,24 +64,49 @@ fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(tr("Bags", "ব্যাগ"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
-            (1..r.bags).forEach { i ->
-                val filled = i <= done
-                Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = if (filled) cs.primary else Color.Transparent,
-                    contentColor = if (filled) cs.onPrimary else cs.primary,
-                    border = if (filled) null else androidx.compose.foundation.BorderStroke(1.5.dp, cs.primary.copy(alpha = 0.5f)),
-                    modifier = Modifier.size(32.dp).semantics {
-                        contentDescription = if (filled) tr("Bag $i arranged", "${num(i)} নম্বর ব্যাগ পূরণ") else tr("Bag $i needed", "${num(i)} নম্বর ব্যাগ বাকি")
-                    },
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(num(i), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            (1..r.bags).forEach { i -> BloodBag(i, i <= done) }
         }
+    }
+}
+
+/** রক্তের ব্যাগের ছবি, ভেতরে নম্বর; পূরণ হলে লাল ভরাট, নইলে শুধু রেখা */
+@Composable
+fun BloodBag(number: Int, filled: Boolean) {
+    val red = MaterialTheme.colorScheme.error
+    val empty = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+    Box(
+        Modifier.size(width = 30.dp, height = 40.dp).semantics {
+            contentDescription = if (filled) tr("Bag $number arranged", "${num(number)} নম্বর ব্যাগ পূরণ") else tr("Bag $number needed", "${num(number)} নম্বর ব্যাগ বাকি")
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+            val w = size.width
+            val h = size.height
+            val stroke = 1.6.dp.toPx()
+            // উপরের নল আর ঝোলানোর ফুটো
+            drawLine(red, androidx.compose.ui.geometry.Offset(w / 2, 0f), androidx.compose.ui.geometry.Offset(w / 2, h * 0.16f), stroke)
+            drawRoundRect(
+                red,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.36f, h * 0.12f),
+                size = androidx.compose.ui.geometry.Size(w * 0.28f, h * 0.1f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+            )
+            // ব্যাগ
+            val top = h * 0.2f
+            val body = androidx.compose.ui.geometry.Size(w - stroke, h - top - stroke / 2)
+            val corner = androidx.compose.ui.geometry.CornerRadius(7.dp.toPx())
+            val tl = androidx.compose.ui.geometry.Offset(stroke / 2, top)
+            drawRoundRect(if (filled) red else empty, topLeft = tl, size = body, cornerRadius = corner)
+            drawRoundRect(red, topLeft = tl, size = body, cornerRadius = corner, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        }
+        Text(
+            num(number),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (filled) MaterialTheme.colorScheme.onError else red,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 
