@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -272,35 +273,94 @@ fun taka(n: Int): String = num(n) + tr(" Tk", " টাকা")
 // রোগী: ওষুধ (অর্ডার দিন / আমার অর্ডার / কাছের ফার্মেসি)
 // ------------------------------------------------------------
 
-/** startTab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ কাছের ফার্মেসি */
+/** startTab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ কাছের ফার্মেসি (নোটিফিকেশন থেকে খোলার পুরো পাতা) */
 @Composable
 fun MedicineScreen(profile: Profile, startTab: Int, onBack: () -> Unit) {
+    Scaffold(topBar = { BackTopBar(tr("Medicine", "ওষুধ"), onBack) }) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) { MedicineContent(profile, startTab, onOpenShop = null) }
+    }
+}
+
+/**
+ * "সেবা" ট্যাবের ফার্মেসি অংশ: অর্ডার দিন / আমার অর্ডার / ফার্মেসি / আমার দোকান।
+ * onOpenShop null হলে "আমার দোকান" দেখানো হয় না (নোটিফিকেশন থেকে খোলা পাতায়)।
+ */
+@Composable
+fun MedicineContent(profile: Profile, startTab: Int, onOpenShop: (() -> Unit)?) {
     var tab by rememberSaveable { mutableIntStateOf(startTab) }
     // আবার অর্ডার: আগের তালিকা আর দোকান নিয়ে ফর্ম খোলে
     var reorder by remember { mutableStateOf<Pair<String, MedReply?>?>(null) }
     var reloadOrders by remember { mutableIntStateOf(0) }
 
-    Scaffold(topBar = { BackTopBar(tr("Medicine", "ওষুধ"), onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Order", "অর্ডার দিন")) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("My orders", "আমার অর্ডার")) })
-                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(tr("Pharmacies", "ফার্মেসি")) })
+    Column(Modifier.fillMaxSize()) {
+        SecondaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Order", "অর্ডার দিন")) })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("My orders", "আমার অর্ডার")) })
+            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(tr("Pharmacies", "ফার্মেসি")) })
+            if (onOpenShop != null) Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text(tr("My shop", "আমার দোকান")) })
+        }
+        when (tab) {
+            0 -> MedOrderForm(profile, reorder, onSent = {
+                reorder = null
+                reloadOrders++
+                tab = 1
+            })
+            1 -> MyMedOrders(reloadOrders, onReorder = { items, shop ->
+                reorder = items to shop
+                tab = 0
+            })
+            2 -> NearbyPharmacies(profile, onOrderHere = { p ->
+                reorder = "" to MedReply(p.id, p.name, "all", 0, 0, "", false, p.discount, p.rating)
+                tab = 0
+            })
+            else -> if (onOpenShop != null) MyShopPanel(onOpenShop)
+        }
+    }
+}
+
+/** নিজের ফার্মেসি: না থাকলে খোলার আমন্ত্রণ, থাকলে অবস্থা আর দোকানে যাওয়ার বাটন */
+@Composable
+private fun MyShopPanel(onOpenShop: () -> Unit) {
+    var shop by remember { mutableStateOf<Pharmacy?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { Pharmacies.mine() }.onSuccess { shop = it }.onFailure { errorMsg = it.message }
+        loaded = true
+    }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ErrorText(errorMsg)
+        val s = shop
+        when {
+            !loaded -> LoadingBox()
+            s == null -> {
+                EmptyState(
+                    R.drawable.ic_storefront,
+                    tr("Have a licensed pharmacy?", "লাইসেন্সধারী ফার্মেসি আছে?"),
+                    tr(
+                        "Open it in the app and get medicine orders from nearby customers. Free: no commission, and no money passes through the app.",
+                        "অ্যাপে খুলুন, কাছের গ্রাহকদের ওষুধের অর্ডার পাবেন। বিনামূল্যে: কোনো কমিশন নেই, টাকাও অ্যাপ দিয়ে যায় না।",
+                    ),
+                    Modifier.padding(top = 24.dp),
+                )
+                Button(onClick = onOpenShop, modifier = Modifier.fillMaxWidth()) {
+                    ButtonContent(false, tr("Open a pharmacy", "ফার্মেসি খুলুন"), R.drawable.ic_add)
+                }
             }
-            when (tab) {
-                0 -> MedOrderForm(profile, reorder, onSent = {
-                    reorder = null
-                    reloadOrders++
-                    tab = 1
-                })
-                1 -> MyMedOrders(reloadOrders, onReorder = { items, shop ->
-                    reorder = items to shop
-                    tab = 0
-                })
-                else -> NearbyPharmacies(profile, onOrderHere = { p ->
-                    reorder = "" to MedReply(p.id, p.name, "all", 0, 0, "", false, p.discount, p.rating)
-                    tab = 0
-                })
+            else -> {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(statusText(s.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Button(onClick = onOpenShop, modifier = Modifier.fillMaxWidth()) {
+                            ButtonContent(false, if (s.status == "approved") tr("Open shop & orders", "দোকান ও অর্ডার দেখুন") else tr("Open", "খুলুন"), R.drawable.ic_storefront)
+                        }
+                        if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
+                    }
+                }
             }
         }
     }
@@ -644,7 +704,7 @@ private fun NearbyPharmacies(profile: Profile, onOrderHere: (Pharmacy) -> Unit) 
                 EmptyState(
                     R.drawable.ic_storefront,
                     tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
-                    tr("Know a pharmacy? Ask them to join from the Services tab.", "কোনো ফার্মেসি চিনলে \"সেবা দিন\" ট্যাব থেকে যোগ হতে বলুন।"),
+                    tr("Know a pharmacy? Ask them to join from \"My shop\".", "কোনো ফার্মেসি চিনলে \"আমার দোকান\" থেকে যোগ হতে বলুন।"),
                     Modifier.padding(top = 24.dp),
                 )
             }

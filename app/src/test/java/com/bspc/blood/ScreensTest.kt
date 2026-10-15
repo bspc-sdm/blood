@@ -210,19 +210,15 @@ class ScreensTest {
     }
 
     @Test
-    fun quickActionsAndServices() {
-        show {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickActions({}, {}, {}, {})
-            }
-        }
-        shot("quick_actions")
+    fun servicesTab() {
+        show { ServicesTab(profile) {} }
+        shot("services_tab")
     }
 
     @Test
-    fun servicesTab() {
-        show { ServicesTab(profile, nurseMe, 0, {}, {}, {}) }
-        shot("services_tab")
+    fun ambulanceMine() {
+        show { AmbulanceContent(profile) }
+        shot("ambulance_content")
     }
 
     @Test

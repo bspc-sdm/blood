@@ -118,7 +118,7 @@ sealed interface Screen {
     data object Login : Screen
     data object EditProfile : Screen
     data object PickLocation : Screen
-    /** ট্যাব: 0 হোম, 1 অ্যাপয়েন্টমেন্ট, 2 স্বাস্থ্য, 3 সেবা দিন, 4 প্রোফাইল */
+    /** ট্যাব: 0 হোম, 1 অ্যাপয়েন্টমেন্ট, 2 স্বাস্থ্য, 3 সেবা, 4 প্রোফাইল */
     data class Main(val tab: Int = 0) : Screen
     data object NewRequest : Screen
     data class RequestDetail(val id: String) : Screen
@@ -146,7 +146,7 @@ object Tabs {
     const val APPOINTMENT = 1
     /** আলোচনা + টিপস */
     const val HEALTH = 2
-    /** "সেবা দিন": নিজের ফার্মেসি, অ্যাম্বুলেন্স, চেম্বার */
+    /** "সেবা": ফার্মেসি (ওষুধ + নিজের দোকান), অ্যাম্বুলেন্স (খোঁজা + নিজেরটা) */
     const val SERVICES = 3
     /** নিচের বারে নেই; উপরের প্রোফাইলের ছবিতে চাপলে */
     const val PROFILE = 4
@@ -270,7 +270,7 @@ fun App(
             HelpNav.open.value = null
         }
     }
-    // ফার্মেসি আর "সেবা দিন"-এর নোটিফিকেশন
+    // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
     LaunchedEffect(openTarget, ready) {
         if (openTarget != null && ready) {
             openFromData(mapOf("type" to openTarget))

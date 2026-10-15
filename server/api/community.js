@@ -30,6 +30,7 @@ const ambulance = require('../lib/ambulance');
 const pharmacy = require('../lib/pharmacy');
 const support = require('../lib/support');
 const adminweb = require('../lib/adminweb');
+const myrequests = require('../lib/myrequests');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -328,7 +329,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

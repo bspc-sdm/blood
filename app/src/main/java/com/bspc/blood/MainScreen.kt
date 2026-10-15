@@ -125,7 +125,7 @@ fun MainScreen(
         NavItem(tr("Home", "হোম"), R.drawable.ic_home_filled, R.drawable.ic_home_outline),
         NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_event_filled, R.drawable.ic_event_outline),
         NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_health_and_safety_filled, R.drawable.ic_health_and_safety_outline),
-        NavItem(tr("Services", "সেবা দিন"), R.drawable.ic_storefront, R.drawable.ic_storefront),
+        NavItem(tr("Services", "সেবা"), R.drawable.ic_storefront, R.drawable.ic_storefront),
     )
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
@@ -181,7 +181,7 @@ fun MainScreen(
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
-                Tabs.SERVICES -> ServicesTab(profile, community, homeRefresh, onOpenShop, onEditChamber, onCommunityChanged)
+                Tabs.SERVICES -> ServicesTab(profile, onOpenShop)
                 else -> ProfileTab(
                     profile = profile,
                     community = community,
@@ -257,9 +257,6 @@ fun HomeTab(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // অ্যাম্বুলেন্স, ওষুধ, হোম নার্স, রক্ত — এক ট্যাপে
-            item { QuickActions(onOpenAmbulance, onOpenMedicine, onOpenHomeNurse, onNewRequest) }
-
             if (processing.isNotEmpty()) {
                 items(processing, key = { "p_" + it.id }) { r -> ProcessingCard(r) { onOpenRequest(r.id) } }
             }

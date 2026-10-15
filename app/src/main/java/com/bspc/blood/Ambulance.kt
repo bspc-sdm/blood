@@ -1,5 +1,12 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.bspc.blood
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Tab
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -160,8 +167,43 @@ fun EmergencyCallCard() {
     }
 }
 
+/** হোম বা নোটিফিকেশন থেকে খোলার পুরো পাতা */
 @Composable
 fun AmbulanceScreen(profile: Profile, onBack: () -> Unit) {
+    Scaffold(topBar = { BackTopBar(tr("Ambulance", "অ্যাম্বুলেন্স"), onBack) }) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) { AmbulanceContent(profile, showMine = false) }
+    }
+}
+
+/** "সেবা" ট্যাবের অ্যাম্বুলেন্স অংশ: খুঁজুন / আমার অ্যাম্বুলেন্স (যোগ করা) */
+@Composable
+fun AmbulanceContent(profile: Profile, showMine: Boolean = true) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        if (showMine) {
+            SecondaryTabRow(selectedTabIndex = tab) {
+                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Find", "অ্যাম্বুলেন্স খুঁজুন")) })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("My ambulance", "আমার অ্যাম্বুলেন্স")) })
+            }
+        }
+        if (tab == 0 || !showMine) AmbulanceFinder(profile)
+        else Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SmallNote(
+                tr(
+                    "Own or drive an ambulance? Add it — people in your area call you directly. Free: no commission.",
+                    "অ্যাম্বুলেন্সের মালিক বা চালক? যোগ করুন, আপনার এলাকার মানুষ সরাসরি ফোন করবেন। বিনামূল্যে, কোনো কমিশন নেই।",
+                ),
+            )
+            MyAmbulancesSection(profile)
+        }
+    }
+}
+
+@Composable
+private fun AmbulanceFinder(profile: Profile) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     remember { Areas.ensure(context) }
@@ -184,9 +226,9 @@ fun AmbulanceScreen(profile: Profile, onBack: () -> Unit) {
         loading = false
     }
 
-    Scaffold(topBar = { BackTopBar(tr("Ambulance", "অ্যাম্বুলেন্স"), onBack) }) { padding ->
+    run {
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -212,7 +254,7 @@ fun AmbulanceScreen(profile: Profile, onBack: () -> Unit) {
                     EmptyState(
                         R.drawable.ic_ambulance,
                         tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
-                        tr("Call 999 above. Know an ambulance service? Ask them to join from the Services tab.", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে \"সেবা দিন\" ট্যাব থেকে যোগ হতে বলুন।"),
+                        tr("Call 999 above. Know an ambulance service? Ask them to join from \"My ambulance\".", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে \"আমার অ্যাম্বুলেন্স\" থেকে যোগ হতে বলুন।"),
                         Modifier.padding(top = 24.dp),
                     )
                 }
@@ -366,7 +408,7 @@ fun ReasonReportDialog(onDismiss: () -> Unit, onSubmit: suspend (String) -> Unit
 }
 
 // ------------------------------------------------------------
-// "সেবা দিন": নিজের অ্যাম্বুলেন্স
+// "সেবা" ট্যাব: নিজের অ্যাম্বুলেন্স
 // ------------------------------------------------------------
 
 @Composable

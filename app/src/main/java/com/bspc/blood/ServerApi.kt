@@ -34,6 +34,10 @@ object ServerApi {
         )
     }
 
+    /** নিজের রিকোয়েস্ট পুরোপুরি মোছা; চালু থাকলে রাজি ডোনারদের জানানো হয় (কতজন, ফেরত দেয়) */
+    suspend fun deleteRequest(requestId: String): Int =
+        post("/api/community", JSONObject().put("action", "request_delete").put("requestId", requestId)).optInt("notified")
+
     /**
      * সাড়ার অবস্থা বদল (সার্ভারের মাধ্যমে, যাতে নিশ্চিত ডোনার চলে গেলে আবার হিসাব হয়):
      * ডোনার "cancel" বা "donated", রক্তপ্রার্থী "remove" (donorUid সহ)

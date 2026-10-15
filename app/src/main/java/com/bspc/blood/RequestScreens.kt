@@ -600,7 +600,7 @@ private fun Note(text: String) {
 // ------------------------------------------------------------
 
 @Composable
-fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
+fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (String) -> Unit = { onBack() }) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
@@ -610,6 +610,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
     var request by remember { mutableStateOf<BloodRequest?>(null) }
     var responses by remember { mutableStateOf<List<DonorResponse>>(emptyList()) }
     var confirmClose by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf(false) }
 
@@ -668,6 +669,9 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                     }
                 }
                 IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+                if (r != null) {
+                    IconButton(onClick = { confirmDelete = true }, enabled = !busy) { AppIcon(R.drawable.ic_delete, tr("Delete", "মুছে ফেলুন")) }
+                }
             }
         },
     ) { padding ->
@@ -739,6 +743,41 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        val active = request?.isActive == true
+        val willingCount = responses.willing().size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(tr("Delete this request?", "রিকোয়েস্টটা মুছে ফেলবেন?")) },
+            text = {
+                Text(
+                    when {
+                        active && willingCount > 0 -> tr(
+                            "It will be removed for everyone. The ${num(willingCount)} donor(s) who agreed will be told they don't need to come.",
+                            "সবার কাছ থেকে সরে যাবে। রাজি হওয়া ${num(willingCount)} জন ডোনারকে জানানো হবে যে আর আসার দরকার নেই।",
+                        )
+                        active -> tr("It will be removed for everyone and donors will stop seeing it.", "সবার কাছ থেকে সরে যাবে, ডোনাররা আর দেখবেন না।")
+                        else -> tr("It will be removed from your list. This can't be undone.", "আপনার তালিকা থেকে মুছে যাবে। আর ফেরানো যাবে না।")
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    scope.launch {
+                        busy = true
+                        errorMsg = null
+                        runCatching { ServerApi.deleteRequest(requestId) }
+                            .onSuccess { onDeleted(requestId) }
+                            .onFailure { errorMsg = it.message ?: tr("Something went wrong", "কিছু একটা সমস্যা হয়েছে") }
+                        busy = false
+                    }
+                }) { Text(tr("Delete", "মুছে ফেলুন"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
     }
 
     if (confirmClose) {
