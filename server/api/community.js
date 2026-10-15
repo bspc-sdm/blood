@@ -267,6 +267,9 @@ const actions = {
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`badges/${uid}`);
     if (!(await ref.get()).exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
+    if (req.body?.approve !== true) {
+      await db.doc(`providers/${uid}`).set({ active: false }, { merge: true }).catch(() => {});
+    }
     await ref.update({
       status: req.body?.approve === true ? 'approved' : 'rejected',
       reviewedAt: Date.now(),

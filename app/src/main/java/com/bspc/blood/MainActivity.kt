@@ -259,7 +259,8 @@ fun App(
                 },
                 onAccountDeleted = {
                     scope.launch {
-                        runCatching { AuthRepository.signOut(context) }
+                        // ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া (নইলে খালি প্রোফাইল আবার তৈরি হতো)
+                        AuthRepository.signOutLocal()
                         profile = null
                         community = null
                         errorMsg = tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।")

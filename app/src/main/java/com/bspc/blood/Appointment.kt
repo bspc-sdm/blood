@@ -350,7 +350,12 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(a.otherName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    Text(
+                                        a.otherName.ifBlank { tr("Deleted account", "মুছে ফেলা অ্যাকাউন্ট") },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.weight(1f),
+                                    )
                                     val active = a.status == "pending" || a.status == "confirmed"
                                     Tag(
                                         statusLabel(a.status),

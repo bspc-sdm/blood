@@ -44,7 +44,10 @@ module.exports = {
     const type = req.body?.type;
     if (!PROVIDER_TYPES.includes(type)) throw new HttpError(400, C.tr(req, 'Choose doctor or nurse', 'ডাক্তার বা নার্স বেছে নিন'));
     const snap = await db.collection('providers').where('type', '==', type).where('active', '==', true).limit(300).get();
-    return { items: snap.docs.map(provider) };
+    // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
+    const badges = snap.docs.length ? await db.getAll(...snap.docs.map((d) => db.doc(`badges/${d.id}`))) : [];
+    const ok = new Set(badges.filter((b) => b.exists && b.get('status') === 'approved').map((b) => b.id));
+    return { items: snap.docs.filter((d) => ok.has(d.id)).map(provider) };
   },
 
   /** নিজের চেম্বারের তথ্য (না থাকলে null) */
@@ -92,7 +95,7 @@ module.exports = {
     const note = C.cleanText(req.body?.note, 300);
     if (!note) throw new HttpError(400, C.tr(req, 'Write the reason for the visit', 'কী সমস্যা, সংক্ষেপে লিখুন'));
     const ps = await db.doc(`providers/${providerUid}`).get();
-    if (!ps.exists || ps.get('active') === false) {
+    if (!ps.exists || ps.get('active') === false || !PROVIDER_TYPES.includes(await approvedBadge(providerUid))) {
       throw new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
     }
     await useQuota(req, user.uid, 'book');
@@ -151,13 +154,17 @@ module.exports = {
 
   /** নিশ্চিত / বাতিল / না করা */
   async appointment_update(req, user) {
-    const { id, action } = req.body || {};
+    // body.action অনুরোধের নাম ("appointment_update"); কী করতে হবে তা body.op-এ
+    const { id, op: action } = req.body || {};
     if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`appointments/${id}`);
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const a = s.data();
     const isProvider = a.providerUid === user.uid;
+    if (isProvider && (action === 'confirm' || action === 'decline') && !PROVIDER_TYPES.includes(await approvedBadge(user.uid))) {
+      throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
+    }
     const isPatient = a.patientUid === user.uid;
     const note = typeof req.body?.providerNote === 'string' ? req.body.providerNote.trim().slice(0, 200) : '';
     let next = null;

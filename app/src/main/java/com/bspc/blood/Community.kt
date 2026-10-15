@@ -264,7 +264,8 @@ object Appointments {
     }
 
     suspend fun update(id: String, action: String, providerNote: String = "") {
-        call("appointment_update", JSONObject().put("id", id).put("action", action).put("providerNote", providerNote))
+        // "action" অনুরোধের নাম হিসেবে ব্যবহৃত হয়, তাই কী করতে হবে তা "op"-এ
+        call("appointment_update", JSONObject().put("id", id).put("op", action).put("providerNote", providerNote))
     }
 }
 

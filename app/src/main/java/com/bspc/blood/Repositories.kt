@@ -39,6 +39,12 @@ object AuthRepository {
         runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
     }
+
+    /** অ্যাকাউন্ট মোছার পর: ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া */
+    suspend fun signOutLocal() {
+        runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
+        auth.signOut()
+    }
 }
 
 object ProfileRepository {

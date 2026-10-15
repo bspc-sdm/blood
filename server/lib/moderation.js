@@ -6,6 +6,7 @@ const { isAdminToken } = require('./admin');
 const { useQuota } = require('./community-db');
 
 const KINDS = ['question', 'answer', 'tip'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
@@ -40,19 +41,23 @@ module.exports = {
     const path = targetPath(kind, id, answerId);
     if (!(await db.doc(path).get()).exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     await useQuota(req, user.uid, 'report');
-    // একজন একই জিনিস একবারই রিপোর্ট করতে পারেন
+    // একজন একই জিনিস একবারই রিপোর্ট করতে পারেন (অ্যাডমিন বাদ দেওয়ার পর আবার খোলা যায় না)
     const docId = `${path.replace(/\//g, '_')}__${user.uid}`.slice(0, 1400);
-    await db.doc(`reports/${docId}`).set({ kind, targetPath: path, reporterUid: user.uid, status: 'open', createdAt: Date.now() });
+    const ref = db.doc(`modReports/${docId}`);
+    if ((await ref.get()).exists) return { ok: true };
+    await ref.set({ kind, targetPath: path, reporterUid: user.uid, status: 'open', createdAt: Date.now() });
     return { ok: true };
   },
 
   async admin_reports(req, user) {
     if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
-    const snap = await db.collection('reports').where('status', '==', 'open').limit(200).get();
+    // modReports অ্যাপ সরাসরি লিখতে পারে না (Firestore নিয়মে নেই), তাই কেউ ভুয়া রিপোর্ট দিয়ে তালিকা ভরাতে পারে না
+    const snap = await db.collection('modReports').where('status', '==', 'open').limit(200).get();
     // একই জিনিসের একাধিক রিপোর্ট একসাথে
     const groups = new Map();
     snap.docs.forEach((d) => {
       const p = d.get('targetPath');
+      if (typeof p !== 'string' || !PATH_RE.test(p)) return;
       const g = groups.get(p) || { targetPath: p, kind: d.get('kind'), count: 0 };
       g.count++;
       groups.set(p, g);
@@ -60,9 +65,13 @@ module.exports = {
     const list = [...groups.values()];
     const targets = list.length ? await db.getAll(...list.map((g) => db.doc(g.targetPath))) : [];
     const items = [];
+    const gone = [];
     for (let i = 0; i < list.length; i++) {
       const t = targets[i];
-      if (!t.exists) continue;
+      if (!t.exists) {
+        gone.push(list[i].targetPath);
+        continue;
+      }
       items.push({
         targetPath: list[i].targetPath,
         kind: list[i].kind,
@@ -71,17 +80,23 @@ module.exports = {
         authorName: t.get('authorName') || '',
       });
     }
+    // মুছে যাওয়া পোস্টের রিপোর্ট বন্ধ করে দেওয়া, যাতে তালিকা ভরে না যায়
+    if (gone.length) {
+      const batch = db.batch();
+      snap.docs.filter((d) => gone.includes(d.get('targetPath'))).forEach((d) => batch.update(d.ref, { status: 'dismissed' }));
+      await batch.commit();
+    }
     return { items };
   },
 
   async admin_report_resolve(req, user) {
     if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const path = req.body?.targetPath;
-    if (typeof path !== 'string' || !/^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+)$/.test(path)) {
+    if (typeof path !== 'string' || !PATH_RE.test(path)) {
       throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
     if (req.body?.remove === true) await removeTarget(path);
-    const snap = await db.collection('reports').where('targetPath', '==', path).get();
+    const snap = await db.collection('modReports').where('targetPath', '==', path).get();
     const batch = db.batch();
     snap.docs.forEach((d) => batch.update(d.ref, { status: req.body?.remove === true ? 'removed' : 'dismissed', resolvedAt: Date.now() }));
     await batch.commit();
