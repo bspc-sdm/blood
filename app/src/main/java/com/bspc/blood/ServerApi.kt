@@ -34,6 +34,18 @@ object ServerApi {
         )
     }
 
+    /**
+     * সাড়ার অবস্থা বদল (সার্ভারের মাধ্যমে, যাতে নিশ্চিত ডোনার চলে গেলে আবার হিসাব হয়):
+     * ডোনার "cancel" বা "donated", রক্তপ্রার্থী "remove" (donorUid সহ)
+     */
+    suspend fun updateResponse(requestId: String, op: String, donorUid: String? = null) {
+        post(
+            "/api/community",
+            JSONObject().put("action", "response_update").put("requestId", requestId).put("op", op)
+                .apply { if (donorUid != null) put("donorUid", donorUid) },
+        )
+    }
+
     /** রক্তপ্রার্থী রাজি হওয়া ডোনারকে নিশ্চিত করেন */
     suspend fun confirmDonor(requestId: String, donorUid: String) {
         post("/api/community", JSONObject().put("action", "confirm_donor").put("requestId", requestId).put("donorUid", donorUid))

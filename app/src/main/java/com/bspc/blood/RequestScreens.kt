@@ -437,8 +437,8 @@ fun RequestDetailScreen(
                             Button(
                                 onClick = {
                                     act {
-                                        RequestRepository.setResponseStatus(r.id, uid!!, "donated")
-                                        val day = ProfileRepository.markDonatedToday(uid)
+                                        ServerApi.updateResponse(r.id, "donated")
+                                        val day = ProfileRepository.markDonatedToday(uid!!)
                                         onProfileChanged(profile.copy(lastDonationMillis = day))
                                     }
                                 },
@@ -448,8 +448,8 @@ fun RequestDetailScreen(
                             TextButton(
                                 onClick = {
                                     act {
-                                        RequestRepository.setResponseStatus(r.id, uid!!, "cancelled")
-                                        runCatching { ProfileRepository.removeCommitments(uid, listOf(r.id)) }
+                                        ServerApi.updateResponse(r.id, "cancel")
+                                        runCatching { ProfileRepository.removeCommitments(uid!!, listOf(r.id)) }
                                         onProfileChanged(profile.copy(commitments = profile.commitments - r.id))
                                         infoMsg = tr(
                                             "Cancelled. The requester can no longer see your number.",
@@ -664,7 +664,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                                     active = r.isActive,
                                     busy = busy,
                                     onConfirm = { act { ServerApi.confirmDonor(r.id, d.donorUid) } },
-                                    onRemove = { act { RequestRepository.setResponseStatus(r.id, d.donorUid, "declined") } },
+                                    onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
                                 )
                             }
                         }

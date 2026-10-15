@@ -5,7 +5,89 @@ const { db, HttpError, sendPush } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 
+async function pushTo(uids, make) {
+  if (!uids.length) return;
+  try {
+    const users = await db.getAll(...uids.map((id) => db.doc(`users/${id}`)));
+    await sendPush(users.filter((u) => u.exists && u.get('fcmToken')).map((u) => make(u)));
+  } catch (e) {
+    console.error('donor push failed', e);
+  }
+}
+
 module.exports = {
+  /**
+   * ডোনার: "বাতিল" (cancel) বা "রক্ত দিয়েছি" (donated); রক্তপ্রার্থী: "বাদ দিন" (remove)।
+   * নিশ্চিত ডোনার চলে গেলে আবার হিসাব হয়; ব্যাগ আর পূরণ না থাকলে রক্তপ্রার্থী আর অপেক্ষায় থাকা ডোনারদের জানানো হয়।
+   */
+  async response_update(req, user) {
+    const { requestId, op } = req.body || {};
+    const donorUid = req.body?.donorUid || user.uid;
+    if (!R.isValidId(requestId) || !R.isValidId(donorUid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const reqRef = db.doc(`requests/${requestId}`);
+    const respRef = reqRef.collection('responses').doc(donorUid);
+
+    const result = await db.runTransaction(async (t) => {
+      const [rs, ds] = await Promise.all([t.get(reqRef), t.get(respRef)]);
+      if (!rs.exists || !ds.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+      const r = rs.data();
+      const isDonor = donorUid === user.uid;
+      const isRequester = r.requesterUid === user.uid;
+      let next = null;
+      if (ds.get('status') === 'accepted') {
+        if (isDonor && op === 'cancel') next = 'cancelled';
+        else if (isDonor && op === 'donated') next = 'donated';
+        else if (isRequester && !isDonor && op === 'remove') next = 'declined';
+      }
+      if (!next) throw new HttpError(400, C.tr(req, 'This can\'t be changed now', 'এখন এটা বদলানো যায় না'));
+
+      const wasConfirmed = ds.get('confirmed') === true;
+      const all = await t.get(reqRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
+      t.update(respRef, { status: next, updatedAt: Date.now() });
+
+      // নিশ্চিত ডোনার চলে গেলে আবার গোনা ("রক্ত দিয়েছি" হলে গোনা কমে না)
+      if (!wasConfirmed || next === 'donated') return { r, refilled: false, lost: false, standby: [] };
+      const count = all.docs.filter(
+        (d) => d.id !== donorUid && (d.get('status') === 'donated' || d.get('confirmed') === true),
+      ).length;
+      const fulfilled = count >= (r.bags || 1);
+      t.update(reqRef, { confirmedCount: count, fulfilled });
+      const standby = all.docs
+        .filter((d) => d.id !== donorUid && d.get('status') === 'accepted' && d.get('confirmed') !== true)
+        .map((d) => d.id);
+      return { r, lost: true, need: Math.max((r.bags || 1) - count, 0), reopened: r.fulfilled === true && !fulfilled, standby };
+    });
+
+    const { r } = result;
+    if (result.lost && R.isActive(r)) {
+      // রক্তপ্রার্থীকে জানানো (ডোনার নিজে বাতিল করলে)
+      if (op === 'cancel') {
+        await pushTo([r.requesterUid], (u) => ({
+          uid: u.id,
+          token: u.get('fcmToken'),
+          title: R.L(u.get('lang'), 'A confirmed donor cancelled', 'একজন নিশ্চিত ডোনার বাতিল করেছেন'),
+          body: R.L(
+            u.get('lang'),
+            `${result.need} more donor(s) needed. Confirm another from My Request.`,
+            `আরও ${result.need} জন লাগবে। "আমার রিকোয়েস্ট" থেকে আরেকজনকে নিশ্চিত করুন।`,
+          ),
+          data: { requestId, type: 'response' },
+        }));
+      }
+      // "যথেষ্ট পাওয়া গেছে" শুনে অপেক্ষায় থাকা ডোনারদের জানানো যে আবার লাগতে পারে
+      if (result.reopened) {
+        await pushTo(result.standby, (u) => ({
+          uid: u.id,
+          token: u.get('fcmToken'),
+          title: R.L(u.get('lang'), 'A donor may be needed again', 'আবার ডোনার লাগতে পারে'),
+          body: R.L(u.get('lang'), 'The requester will confirm soon. Please stay available.', 'রক্তপ্রার্থী শিগগিরই নিশ্চিত করবেন। অনুগ্রহ করে প্রস্তুত থাকুন।'),
+          data: { requestId, type: 'request' },
+        }));
+      }
+    }
+    return { ok: true };
+  },
+
   async confirm_donor(req, user) {
     const { requestId, donorUid } = req.body || {};
     if (!R.isValidId(requestId) || !R.isValidId(donorUid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));

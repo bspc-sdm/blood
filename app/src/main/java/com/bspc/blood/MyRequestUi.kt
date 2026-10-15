@@ -242,7 +242,7 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                                     active = true,
                                     busy = busyId == r.id,
                                     onConfirm = { act(r.id) { ServerApi.confirmDonor(r.id, d.donorUid) } },
-                                    onRemove = { act(r.id) { RequestRepository.setResponseStatus(r.id, d.donorUid, "declined") } },
+                                    onRemove = { act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
                                 )
                             }
                             if (willing.size > 3) {
