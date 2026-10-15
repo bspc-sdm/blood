@@ -204,6 +204,7 @@ fun AdminScreen(onBack: () -> Unit) {
     var items by remember { mutableStateOf<List<CorrectionRequest>>(emptyList()) }
     var badges by remember { mutableStateOf<List<BadgeRequest>>(emptyList()) }
     var reports by remember { mutableStateOf<List<ReportedItem>>(emptyList()) }
+    var hospitalReqs by remember { mutableStateOf<List<HospitalRequestItem>>(emptyList()) }
     val context = LocalContext.current
 
     LaunchedEffect(reload) {
@@ -217,6 +218,9 @@ fun AdminScreen(onBack: () -> Unit) {
             .onFailure { errorMsg = it.message }
         runCatching { Moderation.adminReports() }
             .onSuccess { reports = it }
+            .onFailure { errorMsg = it.message }
+        runCatching { Hospitals.adminRequests() }
+            .onSuccess { hospitalReqs = it }
             .onFailure { errorMsg = it.message }
         loading = false
     }
@@ -286,7 +290,11 @@ fun AdminScreen(onBack: () -> Unit) {
                 }
             }
 
-            SectionTitle(tr("Reported posts", "রিপোর্ট হওয়া পোস্ট") + " (${num(reports.size)})")
+            SectionTitle(tr("Hospital requests", "হাসপাতাল যোগের অনুরোধ") + " (${num(hospitalReqs.size)})")
+            if (hospitalReqs.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            AdminHospitalRequests(hospitalReqs, busyId) { id, op, target -> act(id) { Hospitals.resolve(id, op, target) } }
+
+            SectionTitle(tr("Reports", "রিপোর্ট") + " (${num(reports.size)})")
             if (reports.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
             reports.forEach { r ->
                 Card(Modifier.fillMaxWidth()) {
@@ -295,6 +303,7 @@ fun AdminScreen(onBack: () -> Unit) {
                             when (r.kind) {
                                 "question" -> tr("Question", "প্রশ্ন")
                                 "answer" -> tr("Answer", "উত্তর")
+                                "homevisit" -> tr("Home visit · nurse", "হোম ভিজিট · নার্স")
                                 else -> tr("Tip", "টিপস")
                             } + " · " + r.authorName.ifBlank { "-" } + " · " + tr("${num(r.count)} report(s)", "${num(r.count)}টি রিপোর্ট"),
                             fontWeight = FontWeight.SemiBold,
@@ -302,7 +311,10 @@ fun AdminScreen(onBack: () -> Unit) {
                         Text(r.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6)
                         Row {
                             Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true) } }, enabled = busyId == null) {
-                                ButtonContent(busyId == r.targetPath, tr("Remove post", "পোস্ট মুছুন"))
+                                ButtonContent(
+                                    busyId == r.targetPath,
+                                    if (r.kind == "homevisit") tr("Stop nurse's home visits", "নার্সের হোম ভিজিট বন্ধ") else tr("Remove post", "পোস্ট মুছুন"),
+                                )
                             }
                             TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false) } }, enabled = busyId == null) {
                                 Text(tr("Keep", "রেখে দিন"))

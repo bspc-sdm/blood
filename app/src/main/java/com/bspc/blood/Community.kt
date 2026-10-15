@@ -187,94 +187,21 @@ object Community {
     }
 }
 
-/** ডাক্তার/নার্সের চেম্বার (অ্যাপয়েন্টমেন্টের জন্য) */
-data class Provider(
-    val uid: String,
-    val type: String,
-    val name: String,
-    val specialty: String,
-    val chamber: String,
-    /** জেলার বাংলা নাম */
-    val district: String,
-    val schedule: String,
-    val fee: String,
-    val active: Boolean,
-)
-
-data class Appointment(
-    val id: String,
-    /** "patient" (আমি রোগী) বা "provider" (আমি ডাক্তার/নার্স) */
-    val role: String,
-    val otherName: String,
-    val type: String,
-    val chamber: String,
-    val schedule: String,
-    val date: Long,
-    val note: String,
-    /** "pending", "confirmed", "declined", "cancelled" */
-    val status: String,
-    val providerNote: String,
-    /** নিশ্চিত হলে অপরজনের ফোন */
-    val otherPhone: String,
-    val createdAt: Long,
-)
-
 /** অ্যাডমিনের কাছে রিপোর্ট হওয়া পোস্ট */
 data class ReportedItem(val targetPath: String, val kind: String, val count: Int, val text: String, val authorName: String)
-
-object Appointments {
-    private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
-        ServerApi.post("/api/community", body.put("action", action))
-
-    private fun provider(o: JSONObject) = Provider(
-        o.optString("uid"), o.optString("type"), o.optString("name"), o.optString("specialty"),
-        o.optString("chamber"), o.optString("district"), o.optString("schedule"), o.optString("fee"),
-        o.optBoolean("active", true),
-    )
-
-    suspend fun providers(type: String): List<Provider> {
-        val arr = call("providers", JSONObject().put("type", type)).optJSONArray("items") ?: JSONArray()
-        return (0 until arr.length()).map { provider(arr.getJSONObject(it)) }
-    }
-
-    suspend fun mine(): Provider? = call("provider_me").optJSONObject("provider")?.let(::provider)
-
-    suspend fun save(specialty: String, chamber: String, district: String, schedule: String, fee: String, active: Boolean) {
-        call(
-            "provider_save",
-            JSONObject().put("specialty", specialty).put("chamber", chamber).put("district", district)
-                .put("schedule", schedule).put("fee", fee).put("active", active),
-        )
-    }
-
-    suspend fun book(providerUid: String, date: Long, note: String) {
-        call("book", JSONObject().put("providerUid", providerUid).put("date", date).put("note", note))
-    }
-
-    suspend fun list(): List<Appointment> {
-        val arr = call("my_appointments").optJSONArray("items") ?: JSONArray()
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
-            Appointment(
-                o.optString("id"), o.optString("role"), o.optString("otherName"), o.optString("type"),
-                o.optString("chamber"), o.optString("schedule"), o.optLong("date"), o.optString("note"),
-                o.optString("status"), o.optString("providerNote"), o.optString("otherPhone"), o.optLong("createdAt"),
-            )
-        }
-    }
-
-    suspend fun update(id: String, action: String, providerNote: String = "") {
-        // "action" অনুরোধের নাম হিসেবে ব্যবহৃত হয়, তাই কী করতে হবে তা "op"-এ
-        call("appointment_update", JSONObject().put("id", id).put("op", action).put("providerNote", providerNote))
-    }
-}
 
 object Moderation {
     private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
         ServerApi.post("/api/community", body.put("action", action))
 
-    suspend fun report(kind: String, id: String, answerId: String? = null) {
-        call("report", JSONObject().put("kind", kind).put("id", id).apply { if (answerId != null) put("answerId", answerId) })
+    suspend fun report(kind: String, id: String, answerId: String? = null, reason: String? = null) {
+        call(
+            "report",
+            JSONObject().put("kind", kind).put("id", id).apply {
+                if (answerId != null) put("answerId", answerId)
+                if (reason != null) put("reason", reason)
+            },
+        )
     }
 
     suspend fun adminReports(): List<ReportedItem> {

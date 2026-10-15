@@ -46,7 +46,7 @@ object Notifier {
 
     /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
     @SuppressLint("MissingPermission")
-    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null) {
+    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null) {
         if (!canNotify(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -54,7 +54,7 @@ object Notifier {
             if (type != null) putExtra(EXTRA_TYPE, type)
             if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
         }
-        val id = (requestId ?: questionId ?: type ?: "app").hashCode()
+        val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(
             context, id, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -91,6 +91,6 @@ class BloodMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val title = message.notification?.title ?: message.data["title"] ?: "Get Blood"
         val body = message.notification?.body ?: message.data["body"] ?: ""
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"])
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], message.data["visitId"])
     }
 }

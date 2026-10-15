@@ -147,7 +147,13 @@ fun MainScreen(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                Tabs.HOME -> HomeTab(profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
+                Tabs.HOME -> HomeTab(
+                    profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
+                    onOpenHomeNurse = {
+                        CareNav.openHomeNurse.value = true
+                        onTabChange(Tabs.APPOINTMENT)
+                    },
+                ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.DISCUSSION -> HealthDiscussionTab(communityRefresh, onOpenQuestion, onAsk)
                 Tabs.TIPS -> HealthTipsTab(communityRefresh, community, onOpenTip, onPostTip)
@@ -180,6 +186,7 @@ fun HomeTab(
     onOpenMyRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
+    onOpenHomeNurse: () -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }
@@ -264,6 +271,8 @@ fun HomeTab(
 
             // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
+            // চলমান হোম নার্স ভিজিট (থাকলেই দেখায়)
+            item(key = "home_visit") { ActiveVisitCard(refreshKey * 1000 + reload, onOpenHomeNurse) }
 
             when {
                 loading && others.isEmpty() -> item { LoadingBox() }

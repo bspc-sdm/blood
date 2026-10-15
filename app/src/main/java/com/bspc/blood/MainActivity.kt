@@ -39,6 +39,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppPrefs.init(this)
+        // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
+        Thread { runCatching { Areas.ensure(this) } }.start()
         Notifier.ensureChannel(this)
         // আগের ভার্সনের ৩০ মিনিট পরপর খোঁজার কাজ বন্ধ (এখন সার্ভার পুশ পাঠায়)
         WorkManager.getInstance(this).cancelUniqueWork("check_requests")
@@ -48,6 +50,7 @@ class MainActivity : ComponentActivity() {
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
             sharedRequestId(intent)?.let { openRequestId.value = it }
+            if (openType.value == "homevisit") CareNav.openHomeNurse.value = true
         }
         setContent {
             GetBloodTheme {
@@ -71,6 +74,8 @@ class MainActivity : ComponentActivity() {
                             onQuestionOpened = { openQuestionId.value = null },
                             openAppointments = openType.value == "appointment",
                             onAppointmentsOpened = { openType.value = null },
+                            openHomeVisit = openType.value == "homevisit",
+                            onHomeVisitOpened = { openType.value = null },
                         )
                     }
                 }
@@ -90,6 +95,7 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = it
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
+        if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "homevisit") openType.value = "homevisit"
     }
 }
 
@@ -142,6 +148,8 @@ fun App(
     onQuestionOpened: () -> Unit,
     openAppointments: Boolean,
     onAppointmentsOpened: () -> Unit,
+    openHomeVisit: Boolean,
+    onHomeVisitOpened: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -209,6 +217,15 @@ fun App(
         if (openAppointments && ready) {
             push(Screen.MyAppointments)
             onAppointmentsOpened()
+        }
+    }
+    // হোম নার্সের নোটিফিকেশন: অ্যাপয়েন্টমেন্ট ট্যাবের "হোম নার্স" অংশ
+    LaunchedEffect(openHomeVisit, ready) {
+        if (openHomeVisit && ready) {
+            CareNav.openHomeNurse.value = true
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+            stack[0] = Screen.Main(Tabs.APPOINTMENT)
+            onHomeVisitOpened()
         }
     }
     LaunchedEffect(openQuestionId, ready) {
@@ -462,7 +479,9 @@ fun App(
                 onBack = { back() },
             )
 
-            Screen.ChamberEdit -> ChamberEditScreen(onBack = { back() })
+            Screen.ChamberEdit -> profile?.let { pr ->
+                ChamberEditScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
+            }
 
             is Screen.MyRequestDetail -> MyRequestDetailScreen(
                 requestId = current.id,
