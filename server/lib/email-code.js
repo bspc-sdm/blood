@@ -76,14 +76,14 @@ function mailer() {
 
 async function sendCodeEmail(email, code) {
   await mailer().sendMail({
-    from: `"রক্তদান অ্যাপ" <${process.env.GMAIL_USER}>`,
+    from: `"Lifolo" <${process.env.GMAIL_USER}>`,
     to: email,
     subject: `আপনার লগইন কোড: ${code}`,
     text:
-      `রক্তদান অ্যাপে লগইনের কোড: ${code}\n\n` +
+      `Lifolo অ্যাপে লগইনের কোড: ${code}\n\n` +
       'কোডটা ১০ মিনিট চলবে। আপনি কোড না চেয়ে থাকলে এই ইমেইল উপেক্ষা করুন, কাউকে কোডটা দেবেন না।',
     html:
-      `<p>রক্তদান অ্যাপে লগইনের কোড:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${code}</p>` +
+      `<p>Lifolo অ্যাপে লগইনের কোড:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${code}</p>` +
       '<p>কোডটা ১০ মিনিট চলবে। আপনি কোড না চেয়ে থাকলে এই ইমেইল উপেক্ষা করুন, কাউকে কোডটা দেবেন না।</p>',
   });
 }

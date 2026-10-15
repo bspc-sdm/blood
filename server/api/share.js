@@ -34,7 +34,7 @@ dl{margin:0}dt{color:var(--muted);font-size:13px;margin-top:12px}dd{margin:2px 0
 a.btn{display:block;text-align:center;text-decoration:none;border-radius:999px;padding:14px;font-weight:700;margin-top:14px}
 .primary{background:#1F6F78;color:#fff}.secondary{border:1px solid var(--muted);color:var(--text)}
 </style></head><body><main>
-<div class="logo"><div class="dot">+</div>Get Blood</div>
+<div class="logo"><div class="dot">+</div>Lifolo</div>
 ${body}
 </main></body></html>`;
 }
@@ -52,7 +52,7 @@ module.exports = async (req, res) => {
   const id = String(req.query.id || '');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   if (!R.isValidId(id)) {
-    res.status(404).send(page('Get Blood', '<p>রিকোয়েস্টটা পাওয়া যায়নি। / Request not found.</p>'));
+    res.status(404).send(page('Lifolo', '<p>রিকোয়েস্টটা পাওয়া যায়নি। / Request not found.</p>'));
     return;
   }
   let r = null;
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
     console.error('share load failed', e);
   }
   if (!r) {
-    res.status(404).send(page('Get Blood', '<p>রিকোয়েস্টটা পাওয়া যায়নি। / Request not found.</p>'));
+    res.status(404).send(page('Lifolo', '<p>রিকোয়েস্টটা পাওয়া যায়নি। / Request not found.</p>'));
     return;
   }
 
@@ -91,7 +91,7 @@ ${r.urgent && active ? '<span class="tag">জরুরি · Urgent</span>' : ''
 <dt>যাতায়াত খরচ · Travel cost</dt><dd>${r.travelFare ? 'দেওয়া হবে · Will be paid' : 'দেওয়া হবে না · Not provided'}</dd>
 </dl></div>
 ${active ? `<a class="btn primary" href="${esc(intent)}">অ্যাপে খুলে সাড়া দিন · Open in app</a>` : ''}
-<a class="btn secondary" href="${esc(APK_URL)}">অ্যাপ নামান · Download Get Blood</a>
+<a class="btn secondary" href="${esc(APK_URL)}">অ্যাপ নামান · Download Lifolo</a>
 <p class="muted" style="margin-top:20px">রক্ত কেনাবেচা নিষিদ্ধ। চূড়ান্তভাবে ব্লাড ব্যাংক ক্রসম্যাচ করে ঠিক করবে।<br>Blood can't be bought or sold. The blood bank decides after cross-matching.</p>`;
   res.status(200).send(page(title, body));
 };

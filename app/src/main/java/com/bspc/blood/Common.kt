@@ -51,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
+/** অ্যাপের নাম (আপাতত; চূড়ান্ত হলে শুধু এখানে আর strings.xml-এ বদলাতে হবে) */
+const val APP_NAME = "Lifolo"
+
 const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
 const val TERMS_URL = "https://github.com/bspc-sdm/blood/blob/main/TERMS.md"
 const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
@@ -84,7 +87,7 @@ fun AppIcon(
     Icon(painterResource(res), contentDescription, modifier, tint)
 }
 
-/** অ্যাপের লোগো: লাল গোল চিহ্ন + "Get Blood" */
+/** অ্যাপের লোগো: গোল চিহ্ন + অ্যাপের নাম */
 @Composable
 fun Logo(iconSize: Dp = 36.dp, showText: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -97,7 +100,7 @@ fun Logo(iconSize: Dp = 36.dp, showText: Boolean = true) {
         if (showText) {
             Spacer(Modifier.width(10.dp))
             Text(
-                "Get Blood",
+                APP_NAME,
                 fontSize = (iconSize.value * 0.62f).sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary,
@@ -122,7 +125,7 @@ fun SplashScreen() {
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            "Get Blood",
+            APP_NAME,
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary,

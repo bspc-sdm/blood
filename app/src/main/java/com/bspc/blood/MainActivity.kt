@@ -234,7 +234,7 @@ fun App(
     }
 
     LaunchedEffect(Unit) {
-        // লোডিং পাতা (Get Blood) অন্তত একটু সময় দেখা যাবে
+        // লোডিং পাতা (অ্যাপের নাম) অন্তত একটু সময় দেখা যাবে
         runCatching {
             coroutineScope {
                 val minSplash = async { delay(900) }

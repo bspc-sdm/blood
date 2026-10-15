@@ -89,7 +89,7 @@ class BloodMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title ?: message.data["title"] ?: "Get Blood"
+        val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
         Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], message.data["visitId"] ?: message.data["orderId"])
     }
