@@ -391,7 +391,6 @@ fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk
                     IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
                 }
             }
-            item { EmergencyNotice() }
             when {
                 loading -> item { LoadingBox() }
                 errorMsg != null -> item { ErrorText(errorMsg) }
@@ -463,13 +462,18 @@ fun AskQuestionScreen(onPosted: (String) -> Unit, onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            EmergencyNotice()
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it.take(1000) },
                 label = { Text(tr("Your question", "আপনার প্রশ্ন")) },
                 minLines = 5,
-                supportingText = { Text("${num(text.length)}/${num(1000)}") },
+                // ৯৯৯-এর বড় কার্ডের বদলে ঘরের নিচে ছোট এক লাইন
+                supportingText = {
+                    Row {
+                        Text(tr("Answers are general advice, not a diagnosis.", "উত্তর সাধারণ পরামর্শ, রোগ নির্ণয় নয়।"), Modifier.weight(1f))
+                        Text("${num(text.length)}/${num(1000)}")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
