@@ -4,8 +4,6 @@
 //
 // medFinds/{id}: { uid, drug: {name, generic, form, company}, district, upazilaId, lat, lng, notified: [pharmacyId],
 //                  answers: { pharmacyId: { have, at } }, status: 'open'|'closed', createdAt, expiresAt }
-const path = require('path');
-const fs = require('fs');
 const { db, FieldValue, HttpError, sendPush } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
@@ -22,7 +20,8 @@ const PER_SHOP_DAY = 30;
 let LIST = null;
 function list() {
   if (LIST) return LIST;
-  const o = JSON.parse(fs.readFileSync(path.join(__dirname, 'drugs.json'), 'utf8'));
+  // require দিলে Vercel ফাইলটা নিশ্চিতভাবে ফাংশনের সাথে নেয়
+  const o = require('./drugs.json');
   const rows = o.d.map((r, i) => ({ i, name: r[0], generic: r[1], form: o.f[r[2]] || '', company: o.c[r[3]] || '' }));
   LIST = { rows, lowerNames: rows.map((r) => r.name.toLowerCase()), lowerGenerics: rows.map((r) => r.generic.toLowerCase()) };
   return LIST;
