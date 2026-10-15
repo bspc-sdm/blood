@@ -129,7 +129,11 @@ const actions = {
   async ambulance_called(req, user) {
     const { id } = req.body || {};
     if (!R.isValidId(id)) return { ok: true };
+    const a = await db.doc(`ambulances/${id}`).get();
+    if (!a.exists || a.get('ownerUid') === user.uid) return { ok: true };
     await db.doc(`ambulanceCalls/${user.uid}_${id}`).set({ uid: user.uid, ambulanceId: id, at: Date.now() }, { merge: true });
+    // মালিকের হিসাবের জন্য: দিনে কতবার ফোন
+    await require('./sellerstats').bumpAmbulance(id);
     return { ok: true };
   },
 

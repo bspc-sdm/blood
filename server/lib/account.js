@@ -121,7 +121,16 @@ module.exports = {
       userRef.delete(),
       db.doc(`badges/${uid}`).delete(),
       db.doc(`providers/${uid}`).delete(),
-      db.doc(`pharmacies/${uid}`).delete(),
+      // স্টক তালিকা আর জেলার সূচি থেকেও (নইলে খোঁজায় দোকানের id থেকে যেত)
+      (async () => {
+        const [shop, st] = await Promise.all([db.doc(`pharmacies/${uid}`).get(), db.doc(`pharmacyStock/${uid}`).get()]);
+        if (st.exists) {
+          const keys = Object.keys(st.get('items') || {});
+          if (shop.exists && keys.length) await require('./stock').applyChanges(uid, shop.get('district'), keys.map((key) => ({ key, s: 'remove' })), true).catch(() => {});
+          await st.ref.delete();
+        }
+        await db.doc(`pharmacies/${uid}`).delete();
+      })(),
       stateRef.delete(),
       email ? db.doc(`emailCodes/${E.docIdFor(email)}`).delete() : Promise.resolve(),
     ]);

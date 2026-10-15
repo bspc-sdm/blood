@@ -60,6 +60,14 @@ module.exports = handler(
       console.error('inbox cleanup failed', e);
     }
 
+    // ৩০ দিনের পুরোনো নিজে শেখা স্টক তথ্য বাদ
+    let stockExpired = 0;
+    try {
+      stockExpired = await require('../../lib/stock').dailyStock(now);
+    } catch (e) {
+      console.error('stock daily failed', e);
+    }
+
     // পুরোনো ভুল রূপে ("001…") রাখা ফার্মেসি/অ্যাম্বুলেন্সের নম্বর ঠিক করা (একবারের কাজ, পরে কিছু পাবে না)
     let phonesFixed = 0;
     try {
@@ -76,7 +84,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted, phonesFixed };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted, phonesFixed, stockExpired };
   },
   { methods: ['GET'] },
 );

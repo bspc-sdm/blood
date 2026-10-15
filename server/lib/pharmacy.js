@@ -7,6 +7,8 @@ const C = require('./community');
 const K = require('./care');
 const DISTRICTS = require('./districts');
 const { UPAZILA } = require('./hospital-match');
+const stock = require('./stock');
+const stats = require('./sellerstats');
 const { useQuota, userName } = require('./community-db');
 
 const PHOTO_KEEP_MS = 7 * 24 * 3600 * 1000;
@@ -70,7 +72,9 @@ async function forwardOrder(ref, reason) {
   const x = s.data();
   if (x.status !== 'open') return null;
   const all = (await approvedIn(x.district)).filter((p) => p.id !== x.patientUid);
-  const next = K.pickPharmacies({ lat: x.lat, lng: x.lng, upazilaId: x.upazilaId }, all, Date.now(), x.notified || [])[0];
+  // কাছের খোলা দোকানগুলোর মধ্যে যেখানে অর্ডারের ওষুধ "সাধারণত থাকে", সেটা আগে
+  const near = K.pickPharmacies({ lat: x.lat, lng: x.lng, upazilaId: x.upazilaId }, all, Date.now(), x.notified || []);
+  const next = (await stock.preferStocked(x.district, x.drugKeys || [], near))[0];
   const now = Date.now();
   if (!next) {
     await ref.update({ openFor: [], currentShop: null, currentName: '' });
@@ -90,6 +94,7 @@ async function forwardOrder(ref, reason) {
     return true;
   });
   if (!moved) return null;
+  await stats.bumpShop(next.id, { req: 1 });
   await pushUid(next.id, 'New medicine order nearby', 'কাছে নতুন ওষুধের অর্ডার', '', { type: 'pharmacy_order', orderId: ref.id });
   if (reason === 'none') {
     await pushUid(x.patientUid, `Not available at ${x.currentName || 'the pharmacy'} — sent to ${next.name}`, `${x.currentName || 'দোকানে'} নেই — পাঠানো হলো ${next.name}-এ`, '', { type: 'pharmacy_mine', orderId: ref.id });
@@ -181,6 +186,7 @@ const actions = {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy is suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
+      if (s.get('district') !== data.district) await stock.moveDistrict(user.uid, s.get('district'), data.district).catch((e) => console.error('stock move failed', e.message));
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     await useQuota(req, user.uid, 'pharmacy');
@@ -211,6 +217,8 @@ const actions = {
     const b = req.body || {};
     const err = (en, bn, code = 400) => new HttpError(code, C.tr(req, en, bn));
     const items = K.str(b.items, 1000);
+    // তালিকা থেকে বাছা ওষুধের key — স্টক মিলিয়ে দোকান বাছাই আর দোকানের উত্তর থেকে শেখার জন্য
+    const drugKeys = [...new Set((Array.isArray(b.drugKeys) ? b.drugKeys : []).filter(stock.validKey))].slice(0, 30);
     const photo = typeof b.photo === 'string' && b.photo.length > 100 && b.photo.length <= MAX_PHOTO_CHARS && /^[A-Za-z0-9+/=\n]+$/.test(b.photo) ? b.photo : null;
     if (!items && !photo) throw err('Add the prescription photo or write the medicines', 'প্রেসক্রিপশনের ছবি দিন বা ওষুধের নাম লিখুন');
     if (b.needsPrescription === true && !photo) throw err('Prescription medicines need the prescription photo', 'প্রেসক্রিপশনের ওষুধে প্রেসক্রিপশনের ছবি লাগবে');
@@ -243,7 +251,7 @@ const actions = {
     } else {
       const all = (await approvedIn(b.district)).filter((p) => p.id !== user.uid);
       // এক সময়ে একটাই দোকান: কাছের সবচেয়ে ভালোটা ("নেই" বললে বা দেরি হলে পরেরটায় যায়)
-      targets = K.pickPharmacies(order, all).slice(0, 1);
+      targets = (await stock.preferStocked(b.district, drugKeys, K.pickPharmacies(order, all))).slice(0, 1);
       if (!targets.length) return { ok: false, noPharmacy: true };
     }
     await useQuota(req, user.uid, 'medOrder');
@@ -255,6 +263,7 @@ const actions = {
       patientUid: user.uid,
       patientName: (await userName(user.uid)).slice(0, 80),
       items,
+      drugKeys,
       hasPhoto: !!photo,
       needsPrescription: b.needsPrescription === true,
       mode,
@@ -280,6 +289,7 @@ const actions = {
     });
     if (photo) batch.set(db.doc(`medOrderPhotos/${ref.id}`), { data: photo, expiresAt: now + PHOTO_KEEP_MS, patientUid: user.uid });
     await batch.commit();
+    await Promise.all(ids.map((pid) => stats.bumpShop(pid, { req: 1 }, [], now)));
 
     const users = await db.getAll(...ids.map((id) => db.doc(`users/${id}`)));
     await sendPush(users.filter((u) => u.exists).map((u) => ({
@@ -388,10 +398,13 @@ const actions = {
     const total = Number.isInteger(b.total) && b.total >= 0 && b.total <= 1000000 ? b.total : 0;
     if (b.status !== 'none' && total <= 0) throw new HttpError(400, C.tr(req, 'Enter the total price', 'মোট দাম লিখুন'));
     const fee = Number.isInteger(b.fee) && b.fee >= 0 && b.fee <= 5000 ? b.fee : 0;
+    // "আনিয়ে দিতে পারব": এখন নেই, কিন্তু কবে দিতে পারবে
+    const ETA = { today: ['Can arrange today', 'আজই আনিয়ে দিতে পারব'], tomorrow: ['Can arrange by tomorrow', 'কাল আনিয়ে দিতে পারব'], days: ['Can arrange in 2-3 days', '২-৩ দিনে আনিয়ে দিতে পারব'] };
+    const eta = b.status !== 'none' && ETA[b.eta] ? b.eta : null;
     const shop = await db.doc(`pharmacies/${user.uid}`).get();
     if (!shop.exists || shop.get('status') !== 'approved') throw new HttpError(403, C.tr(req, 'Your pharmacy is not approved yet', 'আপনার ফার্মেসি এখনো অনুমোদিত নয়'));
     const ref = db.doc(`medOrders/${b.id}`);
-    const patient = await db.runTransaction(async (t) => {
+    const got = await db.runTransaction(async (t) => {
       const s = await t.get(ref);
       if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const x = s.data();
@@ -404,7 +417,9 @@ const actions = {
           status: b.status,
           total: b.status === 'none' ? 0 : total,
           fee: x.mode === 'delivery' && b.status !== 'none' ? fee : 0,
-          note: K.str(b.note, 200),
+          // পুরোনো অ্যাপে "আনিয়ে দেব" আলাদা দেখায় না, তাই লেখাতেও থাকে
+          note: [eta ? ETA[eta][1] : '', K.str(b.note, 200)].filter(Boolean).join(' · ').slice(0, 260),
+          ...(eta ? { arrange: true, eta } : {}),
           altBrand: b.altBrand === true,
           discount: shop.get('discount') || 0,
           rating: shop.get('ratingCount') ? Math.round((shop.get('ratingSum') / shop.get('ratingCount')) * 10) / 10 : 0,
@@ -412,8 +427,12 @@ const actions = {
         },
         ...(b.status === 'none' ? { openFor: FieldValue.arrayRemove(user.uid) } : {}),
       });
-      return x.patientUid;
+      return { patientUid: x.patientUid, keys: x.drugKeys || [] };
     });
+    const patient = got.patientUid;
+    await stats.bumpShop(user.uid, { replied: 1, [b.status === 'none' ? 'none' : 'avail']: 1 });
+    // উত্তর থেকে স্টক তালিকা শেখা ("আনিয়ে দেব" মানে এখন নেই, তাই সেটা থেকে নয়)
+    if (!eta) await stock.learnFromReply(user.uid, shop.get('district'), got.keys, b.status);
     if (b.status !== 'none') {
       await pushUid(patient, 'A pharmacy replied to your order', 'একটা ফার্মেসি আপনার অর্ডারে উত্তর দিয়েছে', shop.get('name'), { type: 'pharmacy_mine' });
     } else {
@@ -456,6 +475,7 @@ const actions = {
       }
       t.update(ref, { status: 'confirmed', chosen: pharmacyId, liveShop: pharmacyId, openFor: [], confirmedAt: Date.now() });
     });
+    await stats.bumpShop(pharmacyId, { chosen: 1 });
     const others = Object.keys((await ref.get()).get('replies') || {}).filter((p) => p !== pharmacyId);
     await pushUid(pharmacyId, 'Your quote was accepted — prepare the order', 'আপনার উত্তর বেছে নেওয়া হয়েছে — অর্ডার তৈরি করুন', '', { type: 'pharmacy_order', orderId: id });
     await Promise.all(others.map((p) => pushUid(p, 'The customer chose another pharmacy', 'গ্রাহক অন্য ফার্মেসি বেছে নিয়েছেন', '', { type: 'pharmacy_order', orderId: id })));
@@ -487,16 +507,18 @@ const actions = {
       }
       if ((isShop || isPatient) && op === 'done' && ['confirmed', 'ready', 'on_the_way'].includes(x.status)) {
         t.update(ref, { status: 'done', doneAt: now, doneBy: isShop ? 'pharmacy' : 'patient', livePatient: null, liveShop: null });
-        return isShop ? { to: x.patientUid, msg: ['Order complete — please rate the pharmacy', 'অর্ডার সম্পন্ন — ফার্মেসিকে রেটিং দিন'] } : {};
+        const r = (x.replies || {})[x.chosen] || {};
+        const stat = { shop: x.chosen, counts: { done: 1, amount: (r.total || 0) + (r.fee || 0) }, keys: x.drugKeys || [] };
+        return isShop ? { to: x.patientUid, msg: ['Order complete — please rate the pharmacy', 'অর্ডার সম্পন্ন — ফার্মেসিকে রেটিং দিন'], stat } : { stat };
       }
       if (isShop && op === 'no_show' && ['ready', 'on_the_way'].includes(x.status)) {
         t.update(ref, { status: 'no_show', doneAt: now, livePatient: null, liveShop: null, remindAt: null, remindDays: 0 });
         t.set(db.doc(`serverState/${x.patientUid}`), { medNoShow: FieldValue.increment(1), medNoShowAt: now }, { merge: true });
-        return { to: x.patientUid, msg: ['The pharmacy marked your order as not received', 'ফার্মেসি জানিয়েছে আপনি অর্ডার নেননি'] };
+        return { stat: { shop: x.chosen, counts: { noShow: 1 } }, to: x.patientUid, msg: ['The pharmacy marked your order as not received', 'ফার্মেসি জানিয়েছে আপনি অর্ডার নেননি'] };
       }
       if (isPatient && op === 'cancel' && STATUS_ACTIVE.includes(x.status)) {
         t.update(ref, { status: 'cancelled', cancelledAt: now, openFor: [], livePatient: null, liveShop: null, remindAt: null, remindDays: 0 });
-        return x.chosen ? { to: x.chosen, toShop: true, msg: ['The customer cancelled the order', 'গ্রাহক অর্ডার বাতিল করেছেন'] } : {};
+        return x.chosen ? { stat: { shop: x.chosen, counts: { cancelled: 1 } }, to: x.chosen, toShop: true, msg: ['The customer cancelled the order', 'গ্রাহক অর্ডার বাতিল করেছেন'] } : {};
       }
       if (isPatient && op === 'rate' && x.status === 'done' && !x.rating && x.chosen) {
         if (rating < 1 || rating > 5) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
@@ -515,6 +537,7 @@ const actions = {
       }
       throw nope();
     });
+    if (res.stat) await stats.bumpShop(res.stat.shop, res.stat.counts, res.stat.keys || []);
     // রোগীর কাছে গেলে "আমার অর্ডার", দোকানের কাছে গেলে দোকানের অর্ডার খোলে
     if (res.to) await pushUid(res.to, res.msg[0], res.msg[1], '', { type: res.toShop ? 'pharmacy_order' : 'pharmacy_mine', orderId: id });
     return { ok: true };

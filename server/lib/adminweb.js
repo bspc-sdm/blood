@@ -354,6 +354,7 @@ const LOGGED = {
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
   admin_ticket_reply: (b) => ({ target: `tickets/${b.id}`, detail: b.close === true ? (b.text ? 'replied+closed' : 'closed') : 'replied' }),
   admin_user_action: (b) => ({ target: `users/${b.uid}`, detail: b.op }),
+  admin_drug_request_resolve: (b) => ({ target: `drugRequests/${b.id}`, detail: b.approve === true ? 'approved' : 'rejected' }),
   admin_add: (b) => ({ target: 'config/admins', detail: `add ${b.email}` }),
   admin_remove: (b) => ({ target: 'config/admins', detail: `remove ${b.email}` }),
   correction_resolve: (b) => ({ target: `correctionRequests/${b.id}`, detail: b.approve === true ? 'approved' : 'rejected' }),
