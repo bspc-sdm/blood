@@ -163,12 +163,6 @@ fun MedFindPanel(profile: Profile) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SmallNote(
-            tr(
-                "Can't find a medicine? Choose it from the list and we'll ask nearby pharmacies. Those who have it will show here — call them directly.",
-                "কোনো ওষুধ পাচ্ছেন না? তালিকা থেকে বেছে নিন, কাছের দোকানগুলোকে জিজ্ঞেস করা হবে। যাদের কাছে আছে তারা এখানে দেখাবে — সরাসরি ফোন করুন।",
-            ),
-        )
         val c = chosen
         if (c == null) {
             OutlinedTextField(
@@ -179,6 +173,8 @@ fun MedFindPanel(profile: Profile) {
                 leadingIcon = { AppIcon(R.drawable.ic_search, null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                // সার্চের ঠিক নিচে ছোট করে বোঝানো
+                supportingText = { Text(tr("Nearby pharmacies will say if they have it.", "কাছের ফার্মেসি জানাবে কার কাছে আছে।")) },
             )
             results.forEach { d ->
                 Surface(
