@@ -668,6 +668,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
     var pickUpazila by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var oldChamber by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
@@ -680,6 +681,9 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     gender = p.gender
                     // আগের ভার্সনের লেখা চেম্বার (হাসপাতালের সাথে যুক্ত নয়) আবার বেছে নিতে হবে
                     chambers.addAll(p.chambers.filter { it.hospitalId != null })
+                    p.chambers.firstOrNull { it.hospitalId == null }?.let { old ->
+                        oldChamber = old.hospitalName
+                    }
                     p.homeVisit?.let { home = it }
                 }
             }
@@ -728,6 +732,14 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
             HorizontalDivider()
 
             SectionTitle(tr("Chambers (up to 3)", "চেম্বার (সর্বোচ্চ ৩টা)"))
+            oldChamber?.let {
+                InfoText(
+                    tr(
+                        "Your earlier chamber \"$it\" now needs to be chosen from the hospital list. Tap Add chamber.",
+                        "আগের চেম্বার \"$it\" এখন হাসপাতালের তালিকা থেকে বেছে নিতে হবে। \"চেম্বার যোগ করুন\" চাপুন।",
+                    ),
+                )
+            }
             chambers.forEachIndexed { i, c ->
                 ChamberEditor(
                     c,

@@ -282,7 +282,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions);
 
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);

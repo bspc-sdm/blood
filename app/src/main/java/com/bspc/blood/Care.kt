@@ -455,6 +455,8 @@ data class HomeVisit(
     val status: String,
     val createdAt: Long,
     val rating: Int,
+    /** রোগী এখন রেটিং দিতে পারেন (নার্স রওনা দিয়েছিলেন বা নিজে শেষ করেছেন) */
+    val canRate: Boolean,
     val otherName: String,
     val otherUid: String?,
     val otherPhone: String,
@@ -485,7 +487,7 @@ object HomeVisits {
         o.str("id"), o.str("role"), o.str("mode"), o.optJSONArray("services").strings(), o.optLong("when"),
         o.str("district"), o.intOrNull("upazilaId"), o.str("placeName"), o.str("note"),
         o.optBoolean("femalePreferred"), o.optBoolean("prescription"), o.str("status"), o.optLong("createdAt"),
-        o.optInt("rating"), o.str("otherName"), if (o.isNull("otherUid")) null else o.optString("otherUid").ifBlank { null },
+        o.optInt("rating"), o.optBoolean("canRate"), o.str("otherName"), if (o.isNull("otherUid")) null else o.optString("otherUid").ifBlank { null },
         o.str("otherPhone"), o.str("address"),
         if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         if (o.isNull("lat") || !o.has("lat")) null else o.optDouble("lat"),

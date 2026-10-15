@@ -16,11 +16,11 @@ async function deleteDocs(docs) {
   }
 }
 
-async function notify(uid, en, bn) {
+async function notify(uid, en, bn, type = 'appointment') {
   try {
     const u = await db.doc(`users/${uid}`).get();
     const token = u.get('fcmToken');
-    if (token) await sendPush([{ uid, token, title: R.L(u.get('lang'), en, bn), body: '', data: { type: 'appointment' } }]);
+    if (token) await sendPush([{ uid, token, title: R.L(u.get('lang'), en, bn), body: '', data: { type } }]);
   } catch (e) {
     console.error('delete-account push failed', e);
   }
@@ -81,13 +81,16 @@ module.exports = {
       // ৭) হোম ভিজিট: নিজের অনুরোধের ঠিকানা/নাম মুছে, চলমান হলে বাতিল
       ...visitsMine.docs.map(async (d) => {
         const active = ['open', 'accepted', 'on_the_way'].includes(d.get('status'));
-        await d.ref.update({ patientName: '', address: '', note: '', placeName: '', ...(active ? { status: 'cancelled', cancelledBy: 'patient' } : {}) });
-        if (active && d.get('nurseUid')) await notify(d.get('nurseUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে');
+        await d.ref.update({
+          patientName: '', address: '', note: '', placeName: '', comment: '', lat: null, lng: null, openFor: [],
+          ...(active ? { status: 'cancelled', cancelledBy: 'patient' } : {}),
+        });
+        if (active && d.get('nurseUid')) await notify(d.get('nurseUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে', 'homevisit');
       }),
       ...visitsNursed.docs.map(async (d) => {
         const active = ['accepted', 'on_the_way'].includes(d.get('status'));
         await d.ref.update({ nurseName: '', ...(active ? { status: 'cancelled', cancelledBy: 'nurse' } : {}) });
-        if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে');
+        if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে', 'homevisit');
       }),
     ]);
 

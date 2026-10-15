@@ -111,16 +111,16 @@ function matchesFilter(doc, f) {
 
 /** হোম ভিজিটের সেটিং যাচাই */
 function parseHomeVisit(h) {
-  if (!h || h.enabled !== true) {
-    return { homeVisit: { enabled: false, radiusKm: 5, upazilaIds: [], services: [], schedule: '', fee: '' } };
-  }
+  h = h || {};
+  const enabled = h.enabled === true;
   const services = pickCodes(h.services, HOME_SERVICES, HOME_SERVICES.length);
-  if (!services.length) return { error: ['Choose the services you provide at home', 'বাসায় কোন কোন সেবা দেন বেছে নিন'] };
+  // বন্ধ করলেও আগের সেবা/এলাকা থেকে যায়, আবার চালু করলে নতুন করে লিখতে হয় না
+  if (enabled && !services.length) return { error: ['Choose the services you provide at home', 'বাসায় কোন কোন সেবা দেন বেছে নিন'] };
   const radiusKm = HOME_RADII.includes(h.radiusKm) ? h.radiusKm : 5;
   const upazilaIds = Array.isArray(h.upazilaIds) ? [...new Set(h.upazilaIds.filter(Number.isInteger))].slice(0, 10) : [];
   return {
     homeVisit: {
-      enabled: true,
+      enabled,
       radiusKm,
       upazilaIds,
       services,
@@ -144,8 +144,15 @@ function nurseCovers(nurse, visit) {
   return R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) <= (h.radiusKm || 5);
 }
 
+/**
+ * খোলা অনুরোধ কখন আর দেখাবে না: খোলার (বা আবার খোলার) ২৪ ঘণ্টা পর,
+ * তবে পরের কোনো সময়ের জন্য হলে সেই সময়ের ১ ঘণ্টা পর পর্যন্ত খোলা থাকে।
+ */
 function visitExpired(v, now = Date.now()) {
-  return v.status === 'open' && now - (v.createdAt || 0) > VISIT_OPEN_MS;
+  if (v.status !== 'open') return false;
+  const opened = v.openedAt || v.createdAt || 0;
+  const until = Math.max(opened + VISIT_OPEN_MS, (v.when || 0) + 60 * 60 * 1000);
+  return now > until;
 }
 
 module.exports = {

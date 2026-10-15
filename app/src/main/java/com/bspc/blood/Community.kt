@@ -188,7 +188,16 @@ object Community {
 }
 
 /** অ্যাডমিনের কাছে রিপোর্ট হওয়া পোস্ট */
-data class ReportedItem(val targetPath: String, val kind: String, val count: Int, val text: String, val authorName: String)
+data class ReportedItem(
+    val targetPath: String,
+    val kind: String,
+    val count: Int,
+    val text: String,
+    val authorName: String,
+    /** হোম ভিজিটে যাকে রিপোর্ট করা হয়েছে */
+    val reportedUid: String? = null,
+    val reportedRole: String? = null,
+)
 
 object Moderation {
     private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
@@ -208,12 +217,19 @@ object Moderation {
         val arr = call("admin_reports").optJSONArray("items") ?: JSONArray()
         return (0 until arr.length()).map {
             val o = arr.getJSONObject(it)
-            ReportedItem(o.optString("targetPath"), o.optString("kind"), o.optInt("count"), o.optString("text"), o.optString("authorName"))
+            ReportedItem(
+                o.optString("targetPath"), o.optString("kind"), o.optInt("count"), o.optString("text"), o.optString("authorName"),
+                if (o.isNull("reportedUid")) null else o.optString("reportedUid").ifBlank { null },
+                if (o.isNull("reportedRole")) null else o.optString("reportedRole").ifBlank { null },
+            )
         }
     }
 
-    suspend fun resolve(targetPath: String, remove: Boolean) {
-        call("admin_report_resolve", JSONObject().put("targetPath", targetPath).put("remove", remove))
+    suspend fun resolve(targetPath: String, remove: Boolean, reportedUid: String? = null) {
+        call(
+            "admin_report_resolve",
+            JSONObject().put("targetPath", targetPath).put("remove", remove).apply { if (reportedUid != null) put("reportedUid", reportedUid) },
+        )
     }
 
     /** অ্যাকাউন্ট আর সব তথ্য মোছা */

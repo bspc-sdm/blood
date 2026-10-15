@@ -2,7 +2,7 @@
 
 সর্বশেষ আপডেট: ১৫ অক্টোবর ২০২৬
 
-Get Blood অ্যাপ রক্তপ্রার্থী আর আশেপাশের রক্তদাতাদের মধ্যে যোগাযোগ করিয়ে দেয়। পাশাপাশি স্বাস্থ্য বিষয়ে প্রশ্ন করা, পেশাজীবীদের টিপস পড়া আর ডাক্তার বা নার্সের অ্যাপয়েন্টমেন্ট নেওয়ার সুযোগ দেয়। এই কাজগুলোর জন্য যতটুকু তথ্য দরকার, শুধু ততটুকুই নেওয়া হয়।
+Get Blood অ্যাপ রক্তপ্রার্থী আর আশেপাশের রক্তদাতাদের মধ্যে যোগাযোগ করিয়ে দেয়। পাশাপাশি স্বাস্থ্য বিষয়ে প্রশ্ন করা, পেশাজীবীদের টিপস পড়া, ডাক্তার বা নার্সের অ্যাপয়েন্টমেন্ট নেওয়া আর বাসায় নার্স ডাকার (হোম নার্স) সুযোগ দেয়। এই কাজগুলোর জন্য যতটুকু তথ্য দরকার, শুধু ততটুকুই নেওয়া হয়।
 
 ## কী তথ্য নেওয়া হয়
 
@@ -18,20 +18,27 @@ Get Blood অ্যাপ রক্তপ্রার্থী আর আশে�
 | রক্তের রিকোয়েস্টের তথ্য (রোগীর গ্রুপ, ব্যাগ, হাসপাতাল, তারিখ-সময়) | ডোনারদের জানানোর জন্য | লগইন করা ব্যবহারকারীরা |
 | Health Discussion-এর প্রশ্ন ও উত্তর, Health Tips | স্বাস্থ্য বিষয়ে আলোচনা ও পরামর্শের জন্য | লগইন করা ব্যবহারকারীরা |
 | পেশাদার ব্যাজের আবেদন (পেশা, রেজিস্ট্রেশন/লাইসেন্স নম্বর, কর্মস্থল) | ডাক্তার, নার্স ও স্বাস্থ্য পেশাজীবী যাচাইয়ের জন্য | অ্যাডমিন; অনুমোদিত হলে শুধু পেশার ব্যাজ সবাই দেখেন |
-| চেম্বারের তথ্য (ডাক্তার/নার্স: চেম্বার, জেলা, সময়, ফি) | অ্যাপয়েন্টমেন্টের জন্য | লগইন করা ব্যবহারকারীরা |
-| অ্যাপয়েন্টমেন্টের অনুরোধ (তারিখ, সমস্যার সংক্ষিপ্ত বিবরণ) | ডাক্তার/নার্সকে জানানোর জন্য | শুধু আপনি আর সেই ডাক্তার/নার্স |
+| ডাক্তার/নার্সের পেশাগত প্রোফাইল (বিশেষজ্ঞতা, ডিগ্রি, ঐচ্ছিক লিঙ্গ, সর্বোচ্চ ৩টা চেম্বার: হাসপাতাল, সময়, ফি, সিরিয়ালের ফোন; নার্সের হোম ভিজিটের সেবা, এলাকা ও ফি; রেটিং) | রোগীরা এলাকা, হাসপাতাল ও বিশেষজ্ঞতা দিয়ে খুঁজে পাওয়ার জন্য | "তালিকায় দেখাও" চালু থাকলে লগইন করা ব্যবহারকারীরা; নার্সের লোকেশন কাউকে দেখানো হয় না |
+| হাসপাতাল যোগের অনুরোধ (নাম, ধরন, এলাকা, ঐচ্ছিক ঠিকানা ও ফোন) | হাসপাতালের তালিকা সম্পূর্ণ করার জন্য | অ্যাডমিন; অনুমোদিত হলে হাসপাতালের তথ্য সবাই দেখেন (অনুরোধকারীর নাম নয়) |
+| হোম নার্সের অনুরোধ (কী সেবা, কখন, রোগীর লোকেশন ও জেলা/উপজেলা, ঠিকানা, নোট, প্রেসক্রিপশন আছে কি না, মহিলা নার্স চাওয়া) | কাছের যাচাই করা নার্সদের জানানোর জন্য | যাদের জানানো হয় তারা দেখেন শুধু সেবা, সময়, এলাকা ও দূরত্ব; ঠিকানা আর দুজনের ফোন শুধু রোগী আর যে নার্স নেন তারা দেখেন, তাও ভিজিট চলাকালীন |
+| অ্যাপয়েন্টমেন্টের অনুরোধ (তারিখ, চেম্বার, সমস্যার সংক্ষিপ্ত বিবরণ) | ডাক্তার/নার্সকে জানানোর জন্য | শুধু আপনি আর সেই ডাক্তার/নার্স |
+| হোম ভিজিটের রেটিং ও মন্তব্য, রিপোর্ট | নার্সের মান বোঝা আর অপব্যবহার ঠেকানোর জন্য | রেটিংয়ের গড় সবাই দেখেন; মন্তব্য আর রিপোর্ট শুধু অ্যাডমিন |
 | অ্যাপের ভাষা | নোটিফিকেশন আপনার ভাষায় পাঠানোর জন্য | শুধু সার্ভার |
 | কতদূর যেতে রাজি আর যাতায়াত খরচের পছন্দ | শুধু মানানসই রিকোয়েস্টে নোটিফিকেশন পাঠানোর জন্য | শুধু সার্ভার; সাড়া দিলে রক্তপ্রার্থী দেখেন আপনি কত দূরে আর খরচ লাগবে কি না |
 | শেয়ার করা রিকোয়েস্টের লিংক | পরিচিতদের কাছে রিকোয়েস্ট পাঠানোর জন্য | লিংক যার কাছে আছে সে-ই দেখতে পায়: রোগীর গ্রুপ, ব্যাগ, হাসপাতাল, জেলা, সময় আর যাতায়াত খরচ — রক্তপ্রার্থীর নাম, ফোন বা নোট নয় |
 | অ্যাপ ক্র্যাশের প্রযুক্তিগত তথ্য | সমস্যা ঠিক করার জন্য (Firebase Crashlytics) | শুধু অ্যাপের ডেভেলপার |
 
-আপনার সঠিক ঠিকানা বা সঠিক GPS অবস্থান কখনো সংরক্ষণ বা দেখানো হয় না। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলো কোথাও সংরক্ষণ করা হয় না।
+রক্তদানের জন্য আপনার সঠিক ঠিকানা বা সঠিক GPS অবস্থান কখনো সংরক্ষণ বা দেখানো হয় না। হোম নার্সের অনুরোধে আপনি নিজে যে ঠিকানা লেখেন, শুধু সেটাই রাখা হয় আর শুধু যে নার্স নেন তিনি দেখেন। অ্যাপে কোনো টাকা লেনদেন হয় না; নার্সের ফি সরাসরি নগদে। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলো কোথাও সংরক্ষণ করা হয় না।
 
 লগইনের কোড ডাটাবেসে সরাসরি রাখা হয় না, শুধু তার এনক্রিপ্ট করা রূপ (হ্যাশ) থাকে, আর ১০ মিনিট পর বাতিল হয়ে যায়।
 
 ## স্বাস্থ্য-পরামর্শ সম্পর্কে
 
-Health Discussion আর Health Tips-এর লেখা সাধারণ পরামর্শ, রোগ নির্ণয় বা চিকিৎসা নয়। জরুরি অবস্থায় ৯৯৯-এ ফোন করুন। ভুল বা ক্ষতিকর লেখা রিপোর্ট করা যায়; অ্যাডমিন দেখে মুছে দেন।
+Health Discussion আর Health Tips-এর লেখা সাধারণ পরামর্শ, রোগ নির্ণয় বা চিকিৎসা নয়। ইনজেকশন, স্যালাইন বা ক্যানুলার জন্য হোম নার্স ডাকতে ডাক্তারের প্রেসক্রিপশন লাগে। জরুরি অবস্থায় ৯৯৯-এ ফোন করুন। ভুল বা ক্ষতিকর লেখা রিপোর্ট করা যায়; অ্যাডমিন দেখে মুছে দেন।
+
+## হাসপাতালের তালিকার উৎস
+
+সরকারি হাসপাতালের তালিকা স্বাস্থ্য অধিদপ্তরের (DGHS) সরকারি Facility Registry (hris.mohfw.gov.bd) থেকে নেওয়া। জেলা-উপজেলা-ইউনিয়নের তালিকা github.com/nuhil/bangladesh-geocode (MIT License) থেকে।
 
 ## তথ্য কোথায় থাকে
 
@@ -40,7 +47,7 @@ Health Discussion আর Health Tips-এর লেখা সাধারণ প�
 ## আপনার অধিকার
 
 - প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন।
-- **অ্যাকাউন্ট মোছা:** অ্যাপের Profile → "অ্যাকাউন্ট মুছুন" চাপলে সাথে সাথে আপনার প্রোফাইল, ছবি, ফোন নম্বর, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, ব্যাজ আর রক্তের রিকোয়েস্টে দেওয়া সাড়া মুছে যায়, আর আপনার খোলা রিকোয়েস্ট বন্ধ হয়ে যায়। অ্যাপ ছাড়াই মুছতে চাইলে **ekapkbd@gmail.com**-এ ইমেইল করুন; ৩০ দিনের মধ্যে মুছে ফেলা হবে।
+- **অ্যাকাউন্ট মোছা:** অ্যাপের Profile → "অ্যাকাউন্ট মুছুন" চাপলে সাথে সাথে আপনার প্রোফাইল, ছবি, ফোন নম্বর, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, চেম্বারের তথ্য, ব্যাজ আর রক্তের রিকোয়েস্টে দেওয়া সাড়া মুছে যায়, হোম নার্সের অনুরোধ থেকে নাম, ঠিকানা, লোকেশন ও নোট মুছে যায়, আর চলমান রিকোয়েস্ট/ভিজিট বন্ধ হয়ে যায়। অ্যাপ ছাড়াই মুছতে চাইলে **ekapkbd@gmail.com**-এ ইমেইল করুন; ৩০ দিনের মধ্যে মুছে ফেলা হবে।
 
 ## গুরুত্বপূর্ণ
 
@@ -54,6 +61,6 @@ ekapkbd@gmail.com
 
 ## English summary
 
-Get Blood connects blood requesters with nearby donors, and offers health Q&A, tips from verified professionals and doctor/nurse appointments. We collect only what these features need (plus how far you're willing to travel and your travel-cost preference, used only to decide which requests notify you): email (login), birth date and weight (eligibility), name, optional profile photo, mobile number (shared only between a donor and requester after "I'll donate", or between patient and provider after an appointment is confirmed), blood group, last donation date, approximate area (~1 km), request details, discussion posts and tips, badge applications (seen by the admin), chamber details, appointment requests, app language and crash data. A shared request link shows anyone who has it the blood group, bags, hospital, district, time and travel cost — never the requester's name, phone or note. Data is stored in Google Firebase (Mumbai) and processed by our server on Vercel. We never sell data or use it for ads. Health posts are general guidance, not a diagnosis — in an emergency call 999.
+Get Blood connects blood requesters with nearby donors, and offers health Q&A, tips from verified professionals and doctor/nurse appointments. We collect only what these features need (plus how far you're willing to travel and your travel-cost preference, used only to decide which requests notify you): email (login), birth date and weight (eligibility), name, optional profile photo, mobile number (shared only between a donor and requester after "I'll donate", or between patient and provider after an appointment is confirmed), blood group, last donation date, approximate area (~1 km), request details, discussion posts and tips, badge applications (seen by the admin), professional profiles of doctors/nurses (specialty, degrees, optional gender, up to 3 chambers, home-visit services and area, ratings), hospital add requests (seen by the admin), appointment requests, Home Nurse requests, app language and crash data. For a Home Nurse request, nearby nurses see only the services, time, area and distance; the address you type and both phone numbers are shown only to the nurse who accepts, and only while the visit is active. No money moves through the app. The government hospital list comes from the DGHS Facility Registry (hris.mohfw.gov.bd). A shared request link shows anyone who has it the blood group, bags, hospital, district, time and travel cost — never the requester's name, phone or note. Data is stored in Google Firebase (Mumbai) and processed by our server on Vercel. We never sell data or use it for ads. Health posts are general guidance, not a diagnosis — in an emergency call 999.
 
-**Delete your account** anytime in the app: Profile → "Delete account". This immediately removes your profile, photo, phone number, questions, answers, tips, appointments, badge and your responses to blood requests, and closes your open requests. You can also email **ekapkbd@gmail.com**; we delete within 30 days.
+**Delete your account** anytime in the app: Profile → "Delete account". This immediately removes your profile, photo, phone number, questions, answers, tips, appointments, chamber details, badge and your responses to blood requests, strips your name, address, location and notes from Home Nurse requests, and closes anything still active. You can also email **ekapkbd@gmail.com**; we delete within 30 days.

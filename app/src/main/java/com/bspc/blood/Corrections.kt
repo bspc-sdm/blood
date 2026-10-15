@@ -303,20 +303,20 @@ fun AdminScreen(onBack: () -> Unit) {
                             when (r.kind) {
                                 "question" -> tr("Question", "প্রশ্ন")
                                 "answer" -> tr("Answer", "উত্তর")
-                                "homevisit" -> tr("Home visit · nurse", "হোম ভিজিট · নার্স")
+                                "homevisit" -> if (r.reportedRole == "patient") tr("Home visit · patient", "হোম ভিজিট · রোগী") else tr("Home visit · nurse", "হোম ভিজিট · নার্স")
                                 else -> tr("Tip", "টিপস")
                             } + " · " + r.authorName.ifBlank { "-" } + " · " + tr("${num(r.count)} report(s)", "${num(r.count)}টি রিপোর্ট"),
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(r.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6)
                         Row {
-                            Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true) } }, enabled = busyId == null) {
+                            Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true, r.reportedUid) } }, enabled = busyId == null) {
                                 ButtonContent(
                                     busyId == r.targetPath,
-                                    if (r.kind == "homevisit") tr("Stop nurse's home visits", "নার্সের হোম ভিজিট বন্ধ") else tr("Remove post", "পোস্ট মুছুন"),
+                                    if (r.kind == "homevisit") tr("Block from home visits", "হোম ভিজিট থেকে বাদ দিন") else tr("Remove post", "পোস্ট মুছুন"),
                                 )
                             }
-                            TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false) } }, enabled = busyId == null) {
+                            TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false, r.reportedUid) } }, enabled = busyId == null) {
                                 Text(tr("Keep", "রেখে দিন"))
                             }
                         }

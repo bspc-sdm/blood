@@ -25,11 +25,11 @@ function provider(d) {
     listed: K.isListed(x),
     appointments: K.takesAppointments(x),
     chambers,
-    homeVisit: x.type === 'nurse' && x.homeVisit && x.homeVisit.enabled ? x.homeVisit : null,
+    homeVisit: x.type === 'nurse' && x.homeVisit ? x.homeVisit : null,
     rating: count ? Math.round((x.ratingSum / count) * 10) / 10 : 0,
     ratingCount: count,
     // আগের ভার্সনের অ্যাপের জন্য
-    specialty: x.specialty || '',
+    specialty: x.specialty || (x.specialties || []).map((s) => s.replace(/_/g, ' ')).join(', '),
     chamber: first.hospitalName || '',
     district: first.district || '',
     schedule: first.schedule || '',
@@ -98,11 +98,20 @@ module.exports = {
       hospitalId: R.isValidId(b.hospitalId) ? b.hospitalId : null,
       specialty: K.specialtiesFor(type).includes(b.specialty) ? b.specialty : null,
     };
-    const snap = await db.collection('providers').where('type', '==', type).limit(500).get();
-    const docs = snap.docs.filter((d) => {
+    // নতুন ধরনের ডক (listed) আর আগের ভার্সনের ডক (active) — দুটোই সমান-সমান খোঁজ
+    const [listedSnap, legacySnap] = await Promise.all([
+      db.collection('providers').where('type', '==', type).where('listed', '==', true).limit(1000).get(),
+      db.collection('providers').where('type', '==', type).where('active', '==', true).limit(300).get(),
+    ]);
+    const all = new Map();
+    [...listedSnap.docs, ...legacySnap.docs].forEach((d) => all.set(d.id, d));
+    // আগের ভার্সনের অ্যাপ (homeVisit পাঠায় না) সবাইকে বুক করতে দেয়, তাই তাকে শুধু অ্যাপয়েন্টমেন্ট নেওয়া মানুষ দেখানো
+    const oldClient = b.homeVisit === undefined;
+    const docs = [...all.values()].filter((d) => {
       const x = d.data();
       if (!K.isListed(x) || !K.matchesFilter(x, f)) return false;
-      if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled)) return false;
+      if (oldClient && !(K.takesAppointments(x) && K.chambersOf(x).some((c) => c.appointments))) return false;
+      if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled && x.homeVisitBlocked !== true)) return false;
       return true;
     });
     // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
@@ -145,9 +154,6 @@ module.exports = {
     }
     const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
     if (homeVisit.enabled) {
-      if ((await db.doc(`providers/${user.uid}`).get()).get('homeVisitBlocked') === true) {
-        throw err(['Home visits are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।']);
-      }
       const u = await db.doc(`users/${user.uid}`).get();
       if (typeof u.get('lat') !== 'number' && !homeVisit.upazilaIds.length) {
         throw err(['Set your location in your profile, or choose upazilas', 'প্রোফাইলে আপনার লোকেশন দিন, অথবা উপজেলা বেছে নিন']);
@@ -155,19 +161,28 @@ module.exports = {
     }
     const listed = b.listed !== false;
     const takes = b.appointments === true;
-    await db.doc(`providers/${user.uid}`).set({
-      type: badge,
-      name: (await userName(user.uid)).slice(0, 80),
-      listed,
-      appointments: takes,
-      active: listed && takes, // আগের ভার্সনের অ্যাপ এটা দেখে
-      specialties,
-      degrees: K.str(b.degrees, 120),
-      gender,
-      chambers: parsed.chambers,
-      homeVisit,
-      updatedAt: Date.now(),
-    }, { merge: true });
+    const name = (await userName(user.uid)).slice(0, 80);
+    const ref = db.doc(`providers/${user.uid}`);
+    // অ্যাডমিন একই সময়ে বন্ধ করলেও যেন আবার চালু হয়ে না যায়: পড়া আর লেখা একই লেনদেনে
+    await db.runTransaction(async (t) => {
+      const cur = await t.get(ref);
+      if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
+        throw err(['Home visits are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।']);
+      }
+      t.set(ref, {
+        type: badge,
+        name,
+        listed,
+        appointments: takes,
+        active: listed && takes, // আগের ভার্সনের অ্যাপ এটা দেখে
+        specialties,
+        degrees: K.str(b.degrees, 120),
+        gender,
+        chambers: parsed.chambers,
+        homeVisit,
+        updatedAt: Date.now(),
+      }, { merge: true });
+    });
     return { ok: true };
   },
 

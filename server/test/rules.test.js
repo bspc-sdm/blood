@@ -249,4 +249,11 @@ test('হোম নার্স: এলাকা, সেবা, মহিলা 
   assert.ok(!K.nurseCovers({ homeVisit: { enabled: false } }, visit));
   assert.ok(K.visitExpired({ status: 'open', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
   assert.ok(!K.visitExpired({ status: 'accepted', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
+  // আবার খোলা হলে নতুন করে ২৪ ঘণ্টা; পরের দিনের সময় হলে সেই সময় পর্যন্ত
+  assert.ok(!K.visitExpired({ status: 'open', createdAt: 0, openedAt: 5 * K.VISIT_OPEN_MS }, 5.5 * K.VISIT_OPEN_MS));
+  assert.ok(!K.visitExpired({ status: 'open', createdAt: 0, when: 3 * K.VISIT_OPEN_MS }, 2 * K.VISIT_OPEN_MS));
+  assert.ok(K.visitExpired({ status: 'open', createdAt: 0, when: 3 * K.VISIT_OPEN_MS }, 4 * K.VISIT_OPEN_MS));
+  const off = K.parseHomeVisit({ enabled: false, services: ['dressing'], radiusKm: 10 }).homeVisit;
+  assert.strictEqual(off.enabled, false);
+  assert.deepStrictEqual(off.services, ['dressing']);
 });

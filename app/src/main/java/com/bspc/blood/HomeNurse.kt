@@ -146,11 +146,12 @@ fun HomeNurseTab(profile: Profile, me: CommunityMe?) {
             items(offered, key = { "o" + it.id }) { v ->
                 VisitCard(v, busyId, onAct = { op -> if (op == "accept") act(v, op) else confirmOp = v to op }, onRate = {}, onReport = { reporting = v })
             }
-            if (nursing.isNotEmpty()) {
-                item { SectionTitle(tr("My visits", "আমার ভিজিট")) }
-                items(nursing, key = { "n" + it.id }) { v ->
-                    VisitCard(v, busyId, onAct = { op -> if (op == "on_the_way") act(v, op) else confirmOp = v to op }, onRate = {}, onReport = { reporting = v })
-                }
+        }
+        // ব্যাজ চলে গেলেও নেওয়া ভিজিট শেষ বা বাতিল করা যায়
+        if (nursing.isNotEmpty()) {
+            item { SectionTitle(tr("My visits as nurse", "নার্স হিসেবে আমার ভিজিট")) }
+            items(nursing, key = { "n" + it.id }) { v ->
+                VisitCard(v, busyId, onAct = { op -> if (op == "on_the_way") act(v, op) else confirmOp = v to op }, onRate = {}, onReport = { reporting = v })
             }
         }
 
@@ -326,7 +327,7 @@ private fun VisitCard(
                     v.role == "patient" && live -> {
                         Button(onClick = { onAct("done") }, enabled = enabled) { ButtonContent(busy, tr("Visit done", "সেবা শেষ"), R.drawable.ic_check_circle) }
                     }
-                    v.role == "patient" && v.status == "done" && v.rating == 0 -> {
+                    v.role == "patient" && v.canRate -> {
                         Button(onClick = onRate) { ButtonContent(false, tr("Rate the nurse", "নার্সকে রেটিং দিন"), R.drawable.ic_star) }
                     }
                 }

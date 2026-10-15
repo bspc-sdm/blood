@@ -16,13 +16,11 @@ function targetPath(kind, id, answerId) {
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
-async function removeTarget(path) {
+async function removeTarget(path, reported) {
   const ref = db.doc(path);
   if (path.startsWith('homeVisits/')) {
-    // হোম ভিজিট মোছা হয় না; নার্সের বাসায় যাওয়ার সেবা বন্ধ হয় (আবার চালু করলে অ্যাডমিন দেখবেন)
-    const s = await ref.get();
-    const nurse = s.exists ? s.get('nurseUid') : null;
-    if (nurse) await db.doc(`providers/${nurse}`).set({ homeVisit: { enabled: false }, homeVisitBlocked: true }, { merge: true });
+    // হোম ভিজিট মোছা হয় না; যাকে রিপোর্ট করা হয়েছে (নার্স বা রোগী) তাকে হোম ভিজিট থেকে বাদ দেওয়া হয়
+    if (reported) await require('./homevisit').blockFromHomeVisits(reported.uid, reported.role);
     return;
   }
   if (path.startsWith('questions/') && path.split('/').length === 2) {
@@ -50,18 +48,33 @@ module.exports = {
     const target = await db.doc(path).get();
     if (!target.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     let reason = '';
+    let reported = null;
     if (kind === 'homevisit') {
-      // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন
-      if (![target.get('patientUid'), target.get('nurseUid')].includes(user.uid)) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+      // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন; কাকে রিপোর্ট করা হলো তা এখনই লিখে রাখা হয়
+      const isPatient = target.get('patientUid') === user.uid;
+      const isNurse = !!target.get('nurseUid') && target.get('nurseUid') === user.uid;
+      if (!isPatient && !isNurse) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+      reported = isPatient
+        ? { uid: target.get('nurseUid'), role: 'nurse', name: target.get('nurseName') || '' }
+        : { uid: target.get('patientUid'), role: 'patient', name: target.get('patientName') || '' };
+      if (!reported.uid) throw new HttpError(400, C.tr(req, 'No nurse has accepted yet', 'এখনো কোনো নার্স নেননি'));
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
     }
     await useQuota(req, user.uid, 'report');
     // একজন একই জিনিস একবারই রিপোর্ট করতে পারেন (অ্যাডমিন বাদ দেওয়ার পর আবার খোলা যায় না)
-    const docId = `${path.replace(/\//g, '_')}__${user.uid}`.slice(0, 1400);
+    const docId = `${path.replace(/\//g, '_')}__${user.uid}${reported ? `__${reported.uid}` : ''}`.slice(0, 1400);
     const ref = db.doc(`modReports/${docId}`);
     if ((await ref.get()).exists) return { ok: true };
-    await ref.set({ kind, targetPath: path, reporterUid: user.uid, reason, status: 'open', createdAt: Date.now() });
+    await ref.set({
+      kind,
+      targetPath: path,
+      reporterUid: user.uid,
+      reason,
+      ...(reported ? { reportedUid: reported.uid, reportedRole: reported.role, reportedName: reported.name } : {}),
+      status: 'open',
+      createdAt: Date.now(),
+    });
     return { ok: true };
   },
 
@@ -74,10 +87,19 @@ module.exports = {
     snap.docs.forEach((d) => {
       const p = d.get('targetPath');
       if (typeof p !== 'string' || !PATH_RE.test(p)) return;
-      const g = groups.get(p) || { targetPath: p, kind: d.get('kind'), count: 0, reasons: [] };
+      const key = d.get('reportedUid') ? `${p}|${d.get('reportedUid')}` : p;
+      const g = groups.get(key) || {
+        targetPath: p,
+        kind: d.get('kind'),
+        count: 0,
+        reasons: [],
+        reportedUid: d.get('reportedUid') || null,
+        reportedRole: d.get('reportedRole') || null,
+        reportedName: d.get('reportedName') || '',
+      };
       g.count++;
       if (d.get('reason')) g.reasons.push(d.get('reason'));
-      groups.set(p, g);
+      groups.set(key, g);
     });
     const list = [...groups.values()];
     const targets = list.length ? await db.getAll(...list.map((g) => db.doc(g.targetPath))) : [];
@@ -94,9 +116,15 @@ module.exports = {
         kind: list[i].kind,
         count: list[i].count,
         text: list[i].kind === 'homevisit'
-          ? [`${t.get('patientName') || ''} → ${t.get('nurseName') || ''}`, `${(t.get('services') || []).join(', ')} · ${t.get('status')}`, ...list[i].reasons].join('\n')
+          ? [
+            `${list[i].reportedRole === 'patient' ? 'Patient' : 'Nurse'} reported: ${list[i].reportedName || '-'}`,
+            `${(t.get('services') || []).join(', ')} · ${t.get('status')}`,
+            ...list[i].reasons,
+          ].join('\n')
           : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
-        authorName: list[i].kind === 'homevisit' ? t.get('nurseName') || '' : t.get('authorName') || '',
+        authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || '',
+        reportedUid: list[i].reportedUid,
+        reportedRole: list[i].reportedRole,
       });
     }
     // মুছে যাওয়া পোস্টের রিপোর্ট বন্ধ করে দেওয়া, যাতে তালিকা ভরে না যায়
@@ -114,8 +142,15 @@ module.exports = {
     if (typeof path !== 'string' || !PATH_RE.test(path)) {
       throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
-    if (req.body?.remove === true) await removeTarget(path);
-    const snap = await db.collection('modReports').where('targetPath', '==', path).get();
+    const reportedUid = R.isValidId(req.body?.reportedUid) ? req.body.reportedUid : null;
+    let snap = await db.collection('modReports').where('targetPath', '==', path).get();
+    // হোম ভিজিটে একই ভিজিটে দুজনকে আলাদা রিপোর্ট করা যায়; শুধু এই মানুষের রিপোর্টগুলো
+    const docs = reportedUid ? snap.docs.filter((d) => d.get('reportedUid') === reportedUid) : snap.docs;
+    if (req.body?.remove === true) {
+      const r = docs.find((d) => d.get('reportedUid'));
+      await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null);
+    }
+    snap = { docs };
     const batch = db.batch();
     snap.docs.forEach((d) => batch.update(d.ref, { status: req.body?.remove === true ? 'removed' : 'dismissed', resolvedAt: Date.now() }));
     await batch.commit();

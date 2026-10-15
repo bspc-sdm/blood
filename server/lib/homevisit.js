@@ -36,8 +36,8 @@ async function pushUid(uid, en, bn, body, id) {
 
 /** কাছের যে নার্সরা এই অনুরোধে যেতে পারেন (কাছেরগুলো আগে) */
 async function eligibleNurses(visit, excludeUids) {
-  const snap = await db.collection('providers').where('type', '==', 'nurse').limit(500).get();
-  const docs = snap.docs.filter((d) => !excludeUids.includes(d.id) && d.get('homeVisit') && d.get('homeVisit').enabled === true);
+  const snap = await db.collection('providers').where('type', '==', 'nurse').where('homeVisit.enabled', '==', true).limit(1000).get();
+  const docs = snap.docs.filter((d) => !excludeUids.includes(d.id) && d.get('homeVisitBlocked') !== true);
   if (!docs.length) return { all: [], female: [] };
   const [users, badges] = await Promise.all([
     db.getAll(...docs.map((d) => db.doc(`users/${d.id}`))),
@@ -52,10 +52,10 @@ async function eligibleNurses(visit, excludeUids) {
     const nurse = { ...d.data(), lat: u.get('lat'), lng: u.get('lng') };
     const loose = { ...visit, femalePreferred: false };
     if (!K.nurseCovers(nurse, loose)) return;
-    const km = typeof nurse.lat === 'number' ? R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) : 99;
+    const km = typeof nurse.lat === 'number' ? R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) : null;
     out.push({ uid: d.id, km, female: nurse.gender === 'female', token: u.get('fcmToken'), lang: u.get('lang') });
   });
-  out.sort((a, b) => a.km - b.km);
+  out.sort((a, b) => (a.km ?? 99) - (b.km ?? 99));
   return { all: out, female: out.filter((n) => n.female) };
 }
 
@@ -82,16 +82,33 @@ async function notifyNurses(nurses, visit, id) {
     title: visit.mode === 'direct'
       ? R.L(n.lang, 'Home visit request for you', 'আপনার কাছে হোম ভিজিটের অনুরোধ')
       : R.L(n.lang, 'Home nurse needed nearby', 'কাছে হোম নার্স দরকার'),
-    body: `${servicesText(visit.services, n.lang)} · ${R.formatKm(n.km, n.lang)}`,
+    body: servicesText(visit.services, n.lang) + (n.km != null ? ` · ${R.formatKm(n.km, n.lang)}` : ''),
     data: { type: 'homevisit', visitId: id },
   })));
+}
+
+/** রোগীর চলমান অনুরোধ (শুধু সমান-সমান খোঁজ, আলাদা ইনডেক্স লাগে না) */
+async function activeAsPatient(uid) {
+  const snaps = await Promise.all(ACTIVE.map((s) => db.collection('homeVisits').where('patientUid', '==', uid).where('status', '==', s).limit(20).get()));
+  return snaps.flatMap((s) => s.docs);
+}
+
+function mergeDocs(...lists) {
+  const m = new Map();
+  lists.flat().forEach((d) => m.set(d.id, d));
+  return [...m.values()];
+}
+
+function kmFrom(lat, lng, d) {
+  if (typeof lat !== 'number' || typeof d.get('lat') !== 'number') return null;
+  return Math.round(R.distanceKm(lat, lng, d.get('lat'), d.get('lng')) * 10) / 10;
 }
 
 function phoneOf(snap) {
   return snap && snap.exists ? snap.get('phone') || '' : '';
 }
 
-module.exports = {
+const actions = {
   async home_visit_request(req, user) {
     const b = req.body || {};
     const err = (en, bn, code = 400) => new HttpError(code, C.tr(req, en, bn));
@@ -110,12 +127,15 @@ module.exports = {
     if (when !== 0 && (when < now - HOUR || when > now + 7 * 24 * HOUR)) throw err('Pick a time within the next 7 days', 'আগামী ৭ দিনের মধ্যে সময় দিন');
     const mode = b.mode === 'direct' ? 'direct' : 'broadcast';
 
-    const me = await db.doc(`users/${user.uid}`).get();
-    if (!phoneOf(me)) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
-    const mine = await db.collection('homeVisits').where('patientUid', '==', user.uid).limit(50).get();
-    if (mine.docs.filter((d) => ACTIVE.includes(d.get('status')) && !K.visitExpired(d.data(), now)).length >= 2) {
-      throw err('You already have 2 active requests', 'আপনার ২টা অনুরোধ এখনো চলছে');
+    const [me, state] = await Promise.all([db.doc(`users/${user.uid}`).get(), db.doc(`serverState/${user.uid}`).get()]);
+    if (state.exists && state.get('homeVisitBanned') === true) {
+      throw err('Home visit requests are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিটের অনুরোধ বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।', 403);
     }
+    if (!phoneOf(me)) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
+    const active = (await activeAsPatient(user.uid)).filter((d) => !K.visitExpired(d.data(), now));
+    if (active.length >= 2) throw err('You already have 2 active requests', 'আপনার ২টা অনুরোধ এখনো চলছে');
+    // নার্স খোঁজাও সীমিত, যাতে বারবার খুঁজে কেউ এলাকার নার্সের খবর না নেয়
+    await useQuota(req, user.uid, 'homevisitTry');
 
     const visit = {
       mode,
@@ -137,10 +157,10 @@ module.exports = {
         approvedBadge(b.nurseUid),
         db.doc(`users/${b.nurseUid}`).get(),
       ]);
-      if (!p.exists || badge !== 'nurse' || !(p.get('homeVisit') && p.get('homeVisit').enabled)) {
+      if (!p.exists || badge !== 'nurse' || !(p.get('homeVisit') && p.get('homeVisit').enabled) || p.get('homeVisitBlocked') === true) {
         throw err('This nurse is not taking home visits now', 'এই নার্স এখন বাসায় যাচ্ছেন না', 404);
       }
-      const km = typeof nu.get('lat') === 'number' ? R.distanceKm(b.lat, b.lng, nu.get('lat'), nu.get('lng')) : 0;
+      const km = typeof nu.get('lat') === 'number' ? R.distanceKm(b.lat, b.lng, nu.get('lat'), nu.get('lng')) : null;
       targets = [{ uid: b.nurseUid, km, token: nu.get('fcmToken'), lang: nu.get('lang') }];
     } else {
       const found = await eligibleNurses(visit, [user.uid]);
@@ -161,11 +181,14 @@ module.exports = {
       note: K.str(b.note, 300),
       targetUid: mode === 'direct' ? b.nurseUid : null,
       notified: targets.map((n) => n.uid),
+      // এখন যাদের তালিকায় দেখাবে (নেওয়া/বাতিল হলে খালি) — পুরোনো অনুরোধ জমে নতুনটা যেন হারিয়ে না যায়
+      openFor: targets.map((n) => n.uid),
       declinedBy: [],
       status: 'open',
       nurseUid: null,
       nurseName: '',
       createdAt: now,
+      openedAt: now,
     });
     await notifyNurses(targets, visit, ref.id);
     return { ok: true, id: ref.id, notified: targets.length };
@@ -174,12 +197,24 @@ module.exports = {
   /** রোগী হিসেবে নিজের অনুরোধ, আর নার্স হিসেবে খোলা অনুরোধ ও নেওয়া কাজ */
   async home_visits(req, user) {
     const now = Date.now();
-    const [mine, offered, taken, me] = await Promise.all([
-      db.collection('homeVisits').where('patientUid', '==', user.uid).limit(50).get(),
-      db.collection('homeVisits').where('notified', 'array-contains', user.uid).limit(100).get(),
-      db.collection('homeVisits').where('nurseUid', '==', user.uid).limit(50).get(),
+    const [mineAll, mineActive, offeredSnap, takenAll, takenLive, me] = await Promise.all([
+      db.collection('homeVisits').where('patientUid', '==', user.uid).limit(30).get(),
+      activeAsPatient(user.uid),
+      db.collection('homeVisits').where('openFor', 'array-contains', user.uid).limit(100).get(),
+      db.collection('homeVisits').where('nurseUid', '==', user.uid).limit(30).get(),
+      Promise.all(['accepted', 'on_the_way'].map((s) => db.collection('homeVisits').where('nurseUid', '==', user.uid).where('status', '==', s).limit(20).get())),
       db.doc(`users/${user.uid}`).get(),
     ]);
+    const mine = { docs: mergeDocs(mineAll.docs, mineActive) };
+    const taken = { docs: mergeDocs(takenAll.docs, takenLive.flatMap((s) => s.docs)) };
+    // মেয়াদ শেষ হওয়া খোলা অনুরোধ বন্ধ করে দেওয়া, যাতে নার্সদের তালিকায় জমে না থাকে
+    const stale = offeredSnap.docs.filter((d) => d.get('status') !== 'open' || K.visitExpired(d.data(), now));
+    if (stale.length) {
+      const batch = db.batch();
+      stale.forEach((d) => batch.update(d.ref, d.get('status') === 'open' ? { status: 'expired', openFor: [] } : { openFor: [] }));
+      await batch.commit().catch((e) => console.error('homevisit expire failed', e));
+    }
+    const offered = { docs: offeredSnap.docs.filter((d) => !stale.includes(d)) };
     // চলমান কাজে অপরজনের ফোন
     const need = new Set();
     mine.docs.forEach((d) => ['accepted', 'on_the_way'].includes(d.get('status')) && need.add(d.get('nurseUid')));
@@ -206,6 +241,7 @@ module.exports = {
         status: K.visitExpired(x, now) ? 'expired' : x.status,
         createdAt: x.createdAt,
         rating: x.rating || 0,
+        canRate: x.status === 'done' && !x.rating && !!(x.onTheWayAt || x.doneBy === 'nurse'),
       };
     };
     const live = (s) => ['accepted', 'on_the_way'].includes(s);
@@ -230,7 +266,7 @@ module.exports = {
           otherName: d.get('patientName') || '',
           otherPhone: '',
           address: '',
-          km: typeof myLat === 'number' ? Math.round(R.distanceKm(myLat, myLng, d.get('lat'), d.get('lng')) * 10) / 10 : null,
+            km: kmFrom(myLat, myLng, d),
         })),
       ...taken.docs.map((d) => ({
         ...base(d),
@@ -240,7 +276,7 @@ module.exports = {
         address: live(d.get('status')) ? d.get('address') : '',
         lat: live(d.get('status')) ? d.get('lat') : null,
         lng: live(d.get('status')) ? d.get('lng') : null,
-        km: typeof myLat === 'number' ? Math.round(R.distanceKm(myLat, myLng, d.get('lat'), d.get('lng')) * 10) / 10 : null,
+        km: kmFrom(myLat, myLng, d),
       })),
     ];
     const byTime = (a, b) => b.createdAt - a.createdAt;
@@ -265,6 +301,8 @@ module.exports = {
       const s = await t.get(ref);
       if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const v = s.data();
+      // নেওয়ার সময় নার্সের হোম ভিজিট চালু আছে আর বন্ধ করা হয়নি কি না (একই লেনদেনে)
+      const prov = op === 'accept' ? await t.get(db.doc(`providers/${uid}`)) : null;
       const isPatient = v.patientUid === uid;
       const isNurse = v.nurseUid === uid;
       const expired = K.visitExpired(v, now);
@@ -274,16 +312,20 @@ module.exports = {
           throw new HttpError(409, C.tr(req, 'Another nurse already took this, or it was closed', 'অন্য নার্স আগেই নিয়েছেন, অথবা বন্ধ হয়ে গেছে'));
         }
         if (!isNurseBadge || isPatient || !(v.notified || []).includes(uid) || (v.declinedBy || []).includes(uid)) throw nope();
-        t.update(ref, { status: 'accepted', nurseUid: uid, nurseName: myName, acceptedAt: now });
+        const hv = prov && prov.exists ? prov.get('homeVisit') : null;
+        if (!hv || hv.enabled !== true || prov.get('homeVisitBlocked') === true) {
+          throw new HttpError(403, C.tr(req, 'Turn on home visits in My chambers & profile first', 'আগে "আমার চেম্বার ও প্রোফাইল" থেকে হোম ভিজিট চালু করুন'));
+        }
+        t.update(ref, { status: 'accepted', nurseUid: uid, nurseName: myName, acceptedAt: now, openFor: [] });
         return { to: v.patientUid, msg: ['A nurse accepted your request', 'একজন নার্স আপনার অনুরোধ নিয়েছেন'], body: myName };
       }
       if (op === 'decline') {
         if (v.status !== 'open' || !(v.notified || []).includes(uid) || isPatient) throw nope();
         if (v.mode === 'direct') {
-          t.update(ref, { status: 'declined', declinedBy: FieldValue.arrayUnion(uid) });
+          t.update(ref, { status: 'declined', declinedBy: FieldValue.arrayUnion(uid), openFor: [] });
           return { to: v.patientUid, msg: ['The nurse can\'t come', 'নার্স আসতে পারবেন না'], body: myName };
         }
-        t.update(ref, { declinedBy: FieldValue.arrayUnion(uid) });
+        t.update(ref, { declinedBy: FieldValue.arrayUnion(uid), openFor: FieldValue.arrayRemove(uid) });
         return {};
       }
       if (op === 'on_the_way') {
@@ -293,20 +335,21 @@ module.exports = {
       }
       if (op === 'done') {
         if (!(isNurse || isPatient) || !['accepted', 'on_the_way'].includes(v.status)) throw nope();
-        t.update(ref, { status: 'done', doneAt: now });
+        t.update(ref, { status: 'done', doneAt: now, doneBy: isNurse ? 'nurse' : 'patient' });
         return isNurse
           ? { to: v.patientUid, msg: ['Visit completed — please rate the nurse', 'সেবা শেষ — নার্সকে রেটিং দিন'], body: myName }
           : { to: v.nurseUid, msg: ['The patient marked the visit as done', 'রোগী সেবা শেষ বলে জানিয়েছেন'], body: v.patientName };
       }
       if (op === 'cancel') {
         if (isPatient && ACTIVE.includes(v.status)) {
-          t.update(ref, { status: 'cancelled', cancelledBy: 'patient', cancelledAt: now });
+          t.update(ref, { status: 'cancelled', cancelledBy: 'patient', cancelledAt: now, openFor: [] });
           return v.nurseUid ? { to: v.nurseUid, msg: ['The patient cancelled the visit', 'রোগী অনুরোধ বাতিল করেছেন'], body: v.patientName } : {};
         }
         if (isNurse && ['accepted', 'on_the_way'].includes(v.status)) {
-          if (v.mode === 'broadcast' && !expired) {
-            // নার্স সরে গেলে অনুরোধ আবার খোলা হয়, অন্য নার্সরা আবার নোটিফিকেশন পান
-            t.update(ref, { status: 'open', nurseUid: null, nurseName: '', declinedBy: FieldValue.arrayUnion(uid) });
+          if (v.mode === 'broadcast') {
+            // নার্স সরে গেলে অনুরোধ আবার খোলা হয় (নতুন করে ২৪ ঘণ্টা), অন্য নার্সরা আবার নোটিফিকেশন পান
+            const again = (v.notified || []).filter((x) => x !== uid && !(v.declinedBy || []).includes(x));
+            t.update(ref, { status: 'open', nurseUid: null, nurseName: '', declinedBy: FieldValue.arrayUnion(uid), openedAt: now, openFor: again });
             return {
               to: v.patientUid,
               msg: ['The nurse can\'t come — your request is open again', 'নার্স আসতে পারছেন না — অনুরোধ আবার খোলা হয়েছে'],
@@ -320,7 +363,8 @@ module.exports = {
         throw nope();
       }
       if (op === 'rate') {
-        if (!isPatient || v.status !== 'done' || v.rating) throw nope();
+        // নার্স রওনা দিয়েছিলেন বা নিজে শেষ করেছেন — নইলে না এসেই খারাপ রেটিং পাওয়ার ভয়
+        if (!isPatient || v.status !== 'done' || v.rating || !(v.onTheWayAt || v.doneBy === 'nurse')) throw nope();
         if (rating < 1 || rating > 5) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
         t.update(ref, { rating, comment });
         t.set(db.doc(`providers/${v.nurseUid}`), { ratingSum: FieldValue.increment(rating), ratingCount: FieldValue.increment(1) }, { merge: true });
@@ -335,10 +379,36 @@ module.exports = {
       const found = await eligibleNurses(v, result.reopen.exclude);
       const nurses = (v.femalePreferred ? found.female : found.all).slice(0, MAX_NOTIFY);
       if (nurses.length) {
-        await ref.update({ notified: FieldValue.arrayUnion(...nurses.map((n) => n.uid)) });
+        const ids = nurses.map((n) => n.uid);
+        await ref.update({ notified: FieldValue.arrayUnion(...ids), openFor: FieldValue.arrayUnion(...ids) });
         await notifyNurses(nurses, v, id);
       }
     }
     return { ok: true };
   },
 };
+
+/**
+ * অ্যাডমিন রিপোর্ট দেখে কাউকে হোম ভিজিট থেকে বাদ দিলে: নার্স হলে সেবা বন্ধ, রোগী হলে অনুরোধ বন্ধ;
+ * চলমান ভিজিট বাতিল আর অপরজনকে জানানো।
+ */
+async function blockFromHomeVisits(uid, role) {
+  if (!R.isValidId(uid)) return;
+  if (role === 'nurse') {
+    await db.doc(`providers/${uid}`).set({ homeVisit: { enabled: false }, homeVisitBlocked: true }, { merge: true });
+    const live = await Promise.all(['accepted', 'on_the_way'].map((s) => db.collection('homeVisits').where('nurseUid', '==', uid).where('status', '==', s).get()));
+    for (const d of live.flatMap((x) => x.docs)) {
+      await d.ref.update({ status: 'cancelled', cancelledBy: 'admin', cancelledAt: Date.now(), openFor: [] });
+      await pushUid(d.get('patientUid'), 'The visit was cancelled by the app team', 'অ্যাপ টিম ভিজিটটা বাতিল করেছে', '', d.id);
+    }
+  } else {
+    await db.doc(`serverState/${uid}`).set({ homeVisitBanned: true }, { merge: true });
+    const live = await activeAsPatient(uid);
+    for (const d of live) {
+      await d.ref.update({ status: 'cancelled', cancelledBy: 'admin', cancelledAt: Date.now(), openFor: [] });
+      if (d.get('nurseUid')) await pushUid(d.get('nurseUid'), 'The visit was cancelled by the app team', 'অ্যাপ টিম ভিজিটটা বাতিল করেছে', '', d.id);
+    }
+  }
+}
+
+module.exports = { actions, blockFromHomeVisits };
