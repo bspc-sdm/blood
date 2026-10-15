@@ -179,7 +179,7 @@ fun MainScreen(
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
-                Tabs.SERVICES -> ServicesTab(profile, onOpenShop)
+                Tabs.SERVICES -> ServicesTab(profile)
                 else -> ProfileTab(
                     profile = profile,
                     community = community,

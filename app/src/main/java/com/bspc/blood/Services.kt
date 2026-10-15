@@ -68,28 +68,28 @@ fun HealthTab(
 }
 
 // ------------------------------------------------------------
-// "সেবা" ট্যাব: ফার্মেসি (ওষুধ অর্ডার + নিজের দোকান) আর অ্যাম্বুলেন্স (খোঁজা + নিজেরটা যোগ)
+// "সেবা" ট্যাব: অ্যাম্বুলেন্স আর ফার্মেসি — দুটোই শুধু তালিকা আর সরাসরি ফোন (অ্যাপ কিছু বিক্রি করে না)
 // ব্যাজ এখানে নেই — সেটা প্রোফাইল থেকে; চেম্বার অ্যাপয়েন্টমেন্ট ট্যাবে।
 // ------------------------------------------------------------
 
 @Composable
-fun ServicesTab(profile: Profile, onOpenShop: () -> Unit) {
+fun ServicesTab(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tab) {
             Tab(
                 selected = tab == 0,
                 onClick = { tab = 0 },
-                text = { Text(tr("Pharmacy", "ফার্মেসি")) },
-                icon = { AppIcon(R.drawable.ic_medication, null, Modifier.size(22.dp)) },
+                text = { Text(tr("Ambulance", "অ্যাম্বুলেন্স")) },
+                icon = { AppIcon(R.drawable.ic_ambulance, null, Modifier.size(22.dp)) },
             )
             Tab(
                 selected = tab == 1,
                 onClick = { tab = 1 },
-                text = { Text(tr("Ambulance", "অ্যাম্বুলেন্স")) },
-                icon = { AppIcon(R.drawable.ic_ambulance, null, Modifier.size(22.dp)) },
+                text = { Text(tr("Pharmacy", "ফার্মেসি")) },
+                icon = { AppIcon(R.drawable.ic_medication, null, Modifier.size(22.dp)) },
             )
         }
-        if (tab == 0) MedicineContent(profile, 0, onOpenShop) else AmbulanceContent(profile)
+        if (tab == 0) AmbulanceContent(profile) else PharmacyContent(profile)
     }
 }

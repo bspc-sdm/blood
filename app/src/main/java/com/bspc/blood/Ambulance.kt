@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -122,6 +123,9 @@ object Ambulances {
     suspend fun rate(id: String, rating: Int, comment: String) {
         call("ambulance_rate", JSONObject().put("id", id).put("rating", rating).put("comment", comment))
     }
+
+    /** নিজের অ্যাম্বুলেন্সে অ্যাপ থেকে কতবার ফোন, রেটিং, মন্তব্য */
+    suspend fun stats(): JSONObject = call("ambulance_stats")
 
     suspend fun adminPending(): List<Ambulance> = list(call("admin_ambulances"))
 
@@ -423,7 +427,7 @@ fun MyAmbulancesSection(profile: Profile) {
     var openStats by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
         runCatching { Ambulances.mine() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
-        runCatching { Stock.ambulanceStats() }.onSuccess { o ->
+        runCatching { Ambulances.stats() }.onSuccess { o ->
             val a = o.optJSONArray("items") ?: org.json.JSONArray()
             stats = (0 until a.length()).associate { a.getJSONObject(it).let { x -> x.optString("id") to x } }
         }
@@ -605,5 +609,33 @@ private fun AmbulanceStatsBlock(st: org.json.JSONObject, expanded: Boolean, onTo
                 }
             }
         }
+    }
+}
+
+/** ছোট বার চার্ট (একটাই সিরিজ) */
+@Composable
+fun MiniBars(values: List<Int>) {
+    val color = MaterialTheme.colorScheme.primary
+    val base = MaterialTheme.colorScheme.outlineVariant
+    val max = (values.maxOrNull() ?: 0).coerceAtLeast(1)
+    Column {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+            if (values.isEmpty()) return@Canvas
+            val slot = size.width / values.size
+            val bw = (slot - 2.dp.toPx()).coerceAtLeast(2f)
+            values.forEachIndexed { i, v ->
+                if (v > 0) {
+                    val h = (v.toFloat() / max) * (size.height - 4.dp.toPx())
+                    drawRoundRect(color, androidx.compose.ui.geometry.Offset(i * slot + 1.dp.toPx(), size.height - h), androidx.compose.ui.geometry.Size(bw, h), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()))
+                }
+            }
+            drawLine(base, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx())
+        }
+        Row {
+            Text(tr("30 days ago", "৩০ দিন আগে"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("Today", "আজ"), style = MaterialTheme.typography.labelSmall)
+        }
+        Spacer(Modifier.height(2.dp))
+        SmallNote(tr("Highest in a day: ${values.maxOrNull() ?: 0}", "এক দিনে সর্বোচ্চ: ${num(values.maxOrNull() ?: 0)}"))
     }
 }

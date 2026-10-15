@@ -135,8 +135,6 @@ sealed interface Screen {
     data object Inbox : Screen
     data object Ambulance : Screen
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
-    data class Medicine(val tab: Int = 0) : Screen
-    data object Shop : Screen
     /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
     data class Help(val category: String? = null) : Screen
 }
@@ -207,10 +205,9 @@ fun App(
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
-            type == "pharmacy_order" -> push(Screen.Shop)
-            type == "pharmacy_mine" -> push(Screen.Medicine(1))
             type == "support" -> push(Screen.Help())
-            type == "services" -> {
+            // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
+            type == "services" || type == "pharmacy_order" || type == "pharmacy_mine" -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)
             }
@@ -341,8 +338,6 @@ fun App(
                 onEditChamber = { push(Screen.ChamberEdit) },
                 onOpenInbox = { push(Screen.Inbox) },
                 onOpenAmbulance = { push(Screen.Ambulance) },
-                onOpenMedicine = { push(Screen.Medicine()) },
-                onOpenShop = { push(Screen.Shop) },
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
@@ -544,10 +539,6 @@ fun App(
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
 
             Screen.Ambulance -> profile?.let { pr -> AmbulanceScreen(pr, onBack = { back() }) }
-
-            is Screen.Medicine -> profile?.let { pr -> MedicineScreen(pr, current.tab, onBack = { back() }) }
-
-            Screen.Shop -> profile?.let { pr -> ShopScreen(pr, onBack = { back() }) }
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
 
             Screen.ChamberEdit -> profile?.let { pr ->

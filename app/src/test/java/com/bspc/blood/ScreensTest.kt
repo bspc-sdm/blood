@@ -165,7 +165,6 @@ class ScreensTest {
         androidx.compose.material3.AlertDialog(onDismissRequest = {}, confirmButton = {}, text = { Column(Modifier.verticalScroll(rememberScrollState())) { body() } })
     }
 
-
     @Test
     fun formDialogWithFieldAndChips() {
         show { FormDialog("Form", {}, content = { Column { FilledField(); TypeChips() } }, confirmButton = {}, dismissButton = {}) }
@@ -211,24 +210,14 @@ class ScreensTest {
 
     @Test
     fun servicesTab() {
-        show { ServicesTab(profile) {} }
+        show { ServicesTab(profile) }
         shot("services_tab")
     }
 
     @Test
-    fun whereAvailable() {
-        show {
-            Column(Modifier.padding(16.dp)) {
-                WhereAvailableCard(
-                    listOf(
-                        StockShop("a", "Lazz Pharma", "01711000000", "Charpara", true, true, 0.6, 4.6, listOf("k1", "k2"), mapOf("k1" to Triple(12, "strip", 5))),
-                        StockShop("b", "New Model Pharmacy", "01811000000", "Ganginarpar", false, false, 1.4, 0.0, listOf("k1"), emptyMap()),
-                    ),
-                    wanted = 2, chosenId = null, onChoose = {},
-                )
-            }
-        }
-        shot("where_available")
+    fun pharmacyDirectory() {
+        show { PharmacyContent(profile) }
+        shot("pharmacy_content")
     }
 
     @Test
@@ -244,18 +233,6 @@ class ScreensTest {
     }
 
     @Test
-    fun medicineOrderForm() {
-        show { MedicineScreen(profile, 0) {} }
-        shot("medicine_order")
-    }
-
-    @Test
-    fun shopRegistration() {
-        show { ShopScreen(profile) {} }
-        shot("shop_edit")
-    }
-
-    @Test
     fun helpScreen() {
         show { HelpScreen("pharmacy") {} }
         shot("help_appeal")
@@ -265,13 +242,5 @@ class ScreensTest {
     fun healthTab() {
         show { HealthTab(0, nurseMe, {}, {}, {}, {}) }
         shot("health_tab")
-    }
-
-    @Test
-    fun drugSearch() {
-        show { MedicineScreen(profile, 0) {} }
-        rule.onNodeWithText("Search medicine name").performTextInput("Napa")
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Paracetamol", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        shot("drug_search")
     }
 }
