@@ -3,6 +3,13 @@ name: Build APK
 on:
   push:
     branches: [main]
+    # শুধু অ্যাপের কোড বদলালে নতুন APK (সার্ভার বা লেখা বদলালে রিলিজে হাত দেওয়া হয় না)
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
 
 # "latest" রিলিজে APK রাখার জন্য লেখার অনুমতি
@@ -48,19 +55,38 @@ jobs:
 
       # সরাসরি ডাউনলোডের স্থায়ী লিংক (zip ছাড়া):
       # https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk
+      # রিলিজ আর মোছা হয় না (মোছা আর নতুন বানানোর মাঝে লিংক ৪০৪ দিত)। ক্রম:
+      # ১) ভার্সনের নামে নতুন APK, ২) পুরোনো অ্যাপের জন্য roktodan.apk, ৩) সবশেষে version.json —
+      # তাই অ্যাপ নতুন ভার্সনের খবর পায় APK তৈরি থাকার পরেই।
       - name: Publish APK to "latest" release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
-          # অ্যাপ এই ফাইল দেখে জানে নতুন ভার্সন এসেছে কি না
+          set -e
           CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
           NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\"}" > version.json
+          VAPK="lifolo-${NAME}-${CODE}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$VAPK"
+          cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
+          URL="https://github.com/${{ github.repository }}/releases/download/latest/$VAPK"
+          echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\", \"url\": \"$URL\"}" > version.json
           cat version.json
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest roktodan.apk version.json \
-            --target "${{ github.sha }}" \
-            --prerelease \
-            --title "সর্বশেষ টেস্ট ভার্সন" \
-            --notes "স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড করে ইনস্টল করুন।"
+          NOTES="স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড করে ইনস্টল করুন।"
+          if gh release view latest > /dev/null 2>&1; then
+            gh release upload latest "$VAPK" --clobber
+            gh release upload latest roktodan.apk --clobber
+            gh release upload latest version.json --clobber
+            git tag -f latest "${{ github.sha }}"
+            git push -f origin refs/tags/latest
+            gh release edit latest --notes "$NOTES"
+            # ভার্সনের নামের APK শেষ ৩টা রাখা
+            gh release view latest --json assets --jq '.assets[].name' | grep -E '^lifolo-.*\.apk$' | sort -V | head -n -3 | while read -r old; do
+              gh release delete-asset latest "$old" --yes
+            done
+          else
+            gh release create latest "$VAPK" roktodan.apk version.json \
+              --target "${{ github.sha }}" \
+              --prerelease \
+              --title "সর্বশেষ টেস্ট ভার্সন" \
+              --notes "$NOTES"
+          fi

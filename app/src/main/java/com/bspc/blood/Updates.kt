@@ -42,7 +42,8 @@ object Updates {
     const val APK_URL = "https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk"
     private const val VERSION_URL = "https://github.com/bspc-sdm/blood/releases/download/latest/version.json"
 
-    data class Latest(val code: Long, val name: String)
+    /** url: এই ভার্সনের নিজের নামের APK (version.json-এ থাকলে), না থাকলে স্থায়ী লিংক */
+    data class Latest(val code: Long, val name: String, val url: String = APK_URL)
 
     private var cached: Latest? = null
 
@@ -63,7 +64,8 @@ object Updates {
                 try {
                     if (conn.responseCode !in 200..299) return@runCatching null
                     val o = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                    Latest(o.optLong("versionCode"), o.optString("versionName"))
+                    val url = o.optString("url").takeIf { it.startsWith("https://github.com/bspc-sdm/blood/releases/download/") } ?: APK_URL
+                    Latest(o.optLong("versionCode"), o.optString("versionName"), url)
                 } finally {
                     conn.disconnect()
                 }
@@ -108,7 +110,7 @@ fun UpdateBanner() {
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { openUrl(context, Updates.APK_URL) }) { Text(tr("Update", "আপডেট করুন")) }
+                Button(onClick = { openUrl(context, l.url) }) { Text(tr("Update", "আপডেট করুন")) }
                 TextButton(onClick = {
                     UpdateState.dismissed = true
                     hidden = true
