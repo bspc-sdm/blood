@@ -250,7 +250,7 @@ fun AreaSheet(
                             }
                         }
                         // এখনকার জেলার উপজেলাগুলো, এক চাপে
-                        district?.let { d ->
+                        district?.let { d0 -> val d = Districts.ALL.firstOrNull { Areas.bnNorm(it.bn) == Areas.bnNorm(d0) }?.bn ?: d0
                             item { AreaHeader(tr("Upazilas in ", "") + Districts.label(d) + tr("", "-এর উপজেলা")) }
                             item { AreaRow(R.drawable.ic_location_on, tr("Whole district", "পুরো জেলা") + " · " + Districts.label(d), null, nearMe != true && upazilaId == null) { pick(d, null, null) } }
                             items(Areas.upazilasOf(d)) { u ->

@@ -55,12 +55,15 @@ object Areas {
      * ফল: (district, upazilaId, unionId)
      */
     fun search(query: String, withUnions: Boolean, limit: Int = 40): List<Triple<String, Int?, Int?>> {
-        val q = query.trim()
+        val q = bnNorm(query.trim())
         if (q.isEmpty()) return emptyList()
-        fun score(bn: String, en: String): Int = when {
-            bn.startsWith(q) || en.startsWith(q, true) -> 0
-            bn.contains(q) || en.contains(q, true) -> 1
-            else -> -1
+        fun score(bn0: String, en: String): Int {
+            val bn = bnNorm(bn0)
+            return when {
+                bn.startsWith(q) || en.startsWith(q, true) -> 0
+                bn.contains(q) || en.contains(q, true) -> 1
+                else -> -1
+            }
         }
         val out = mutableListOf<Pair<Int, Triple<String, Int?, Int?>>>()
         Districts.ALL.forEach { d -> score(d.bn, d.en).takeIf { it >= 0 }?.let { out += (it * 3) to Triple(d.bn, null, null) } }
@@ -73,6 +76,10 @@ object Areas {
         }
         return out.sortedBy { it.first }.take(limit).map { it.second }
     }
+
+    /** "য়/ড়/ঢ়" দুই রকম ইউনিকোডে লেখা যায় (কিবোর্ড ভেদে) — মেলানোর আগে এক রূপে */
+    fun bnNorm(s: String): String =
+        s.replace("\u09AF\u09BC", "\u09DF").replace("\u09A1\u09BC", "\u09DC").replace("\u09A2\u09BC", "\u09DD")
 
     /** "ইউনিয়ন, উপজেলা, জেলা" */
     fun label(district: String?, upazilaId: Int?, unionId: Int? = null): String =

@@ -247,7 +247,7 @@ class ScreensTest {
     @Test
     fun areaPickerBangla() {
         AppPrefs.lang.value = Lang.BN
-        show { AreaSheet("ময়মনসিংহ", null, null, { _, _, _ -> }, {}, nearMe = false, onNearMe = {}) }
+        show { AreaSheet(Districts.ALL.first { it.en == "Mymensingh" }.bn, null, null, { _, _, _ -> }, {}, nearMe = false, onNearMe = {}) }
         shot("area_picker_bn")
         runCatching { rule.onAllNodesWithText("জেলা বা উপজেলা লিখুন")[0].performTextInput("ত্রিশ") }
         rule.waitForIdle()
