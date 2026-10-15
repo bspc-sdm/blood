@@ -400,7 +400,7 @@ const actions = {
     const fee = Number.isInteger(b.fee) && b.fee >= 0 && b.fee <= 5000 ? b.fee : 0;
     // "আনিয়ে দিতে পারব": এখন নেই, কিন্তু কবে দিতে পারবে
     const ETA = { today: ['Can arrange today', 'আজই আনিয়ে দিতে পারব'], tomorrow: ['Can arrange by tomorrow', 'কাল আনিয়ে দিতে পারব'], days: ['Can arrange in 2-3 days', '২-৩ দিনে আনিয়ে দিতে পারব'] };
-    const eta = b.status !== 'none' && ETA[b.eta] ? b.eta : null;
+    const eta = b.status !== 'none' && typeof b.eta === 'string' && Object.hasOwn(ETA, b.eta) ? b.eta : null;
     const shop = await db.doc(`pharmacies/${user.uid}`).get();
     if (!shop.exists || shop.get('status') !== 'approved') throw new HttpError(403, C.tr(req, 'Your pharmacy is not approved yet', 'আপনার ফার্মেসি এখনো অনুমোদিত নয়'));
     const ref = db.doc(`medOrders/${b.id}`);
@@ -419,6 +419,8 @@ const actions = {
           fee: x.mode === 'delivery' && b.status !== 'none' ? fee : 0,
           // পুরোনো অ্যাপে "আনিয়ে দেব" আলাদা দেখায় না, তাই লেখাতেও থাকে
           note: [eta ? ETA[eta][1] : '', K.str(b.note, 200)].filter(Boolean).join(' · ').slice(0, 260),
+          // দোকানের নিজের লেখা (উত্তর বদলানোর সময় ফর্মে এটাই দেখায়, যাতে "আনিয়ে…" দুবার না হয়)
+          rawNote: K.str(b.note, 200),
           ...(eta ? { arrange: true, eta } : {}),
           altBrand: b.altBrand === true,
           discount: shop.get('discount') || 0,
@@ -427,10 +429,11 @@ const actions = {
         },
         ...(b.status === 'none' ? { openFor: FieldValue.arrayRemove(user.uid) } : {}),
       });
-      return { patientUid: x.patientUid, keys: x.drugKeys || [] };
+      return { patientUid: x.patientUid, keys: x.drugKeys || [], first: !(x.replies || {})[user.uid] };
     });
     const patient = got.patientUid;
-    await stats.bumpShop(user.uid, { replied: 1, [b.status === 'none' ? 'none' : 'avail']: 1 });
+    // উত্তর বদলালে আবার গোনা হয় না
+    if (got.first) await stats.bumpShop(user.uid, { replied: 1, [b.status === 'none' ? 'none' : 'avail']: 1 });
     // উত্তর থেকে স্টক তালিকা শেখা ("আনিয়ে দেব" মানে এখন নেই, তাই সেটা থেকে নয়)
     if (!eta) await stock.learnFromReply(user.uid, shop.get('district'), got.keys, b.status);
     if (b.status !== 'none') {

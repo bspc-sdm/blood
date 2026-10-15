@@ -104,6 +104,8 @@ data class MedReply(
     /** "আনিয়ে দিতে পারব" — এখন নেই, eta: today / tomorrow / days */
     val arrange: Boolean = false,
     val eta: String = "",
+    /** দোকানের নিজের লেখা নোট ("আনিয়ে…" ছাড়া) */
+    val rawNote: String? = null,
 )
 
 data class MedOrder(
@@ -161,7 +163,7 @@ object Pharmacies {
     private fun reply(pid: String, o: JSONObject) = MedReply(
         pid, o.str("name"), o.str("status"), o.optInt("total"), o.optInt("fee"), o.str("note"),
         o.optBoolean("altBrand"), o.optInt("discount"), o.optDouble("rating", 0.0),
-        o.optBoolean("arrange"), o.str("eta"),
+        o.optBoolean("arrange"), o.str("eta"), if (o.has("rawNote")) o.str("rawNote") else null,
     )
 
     private fun order(o: JSONObject): MedOrder {
@@ -931,7 +933,7 @@ private fun QuickReplyDialog(o: MedOrder, onDismiss: () -> Unit, onSent: () -> U
     var eta by remember { mutableStateOf(o.myReply?.eta?.ifBlank { null } ?: "tomorrow") }
     var total by remember { mutableStateOf(o.myReply?.total?.takeIf { it > 0 }?.toString() ?: "") }
     var fee by remember { mutableStateOf(o.myReply?.fee?.takeIf { it > 0 }?.toString() ?: "") }
-    var note by remember { mutableStateOf(o.myReply?.note ?: "") }
+    var note by remember { mutableStateOf(o.myReply?.let { it.rawNote ?: it.note } ?: "") }
     var altBrand by remember { mutableStateOf(o.myReply?.altBrand ?: false) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }

@@ -131,9 +131,14 @@ const actions = {
     if (!R.isValidId(id)) return { ok: true };
     const a = await db.doc(`ambulances/${id}`).get();
     if (!a.exists || a.get('ownerUid') === user.uid) return { ok: true };
-    await db.doc(`ambulanceCalls/${user.uid}_${id}`).set({ uid: user.uid, ambulanceId: id, at: Date.now() }, { merge: true });
-    // মালিকের হিসাবের জন্য: দিনে কতবার ফোন
-    await require('./sellerstats').bumpAmbulance(id);
+    const callRef = db.doc(`ambulanceCalls/${user.uid}_${id}`);
+    const prev = await callRef.get();
+    const now = Date.now();
+    await callRef.set({ uid: user.uid, ambulanceId: id, at: now }, { merge: true });
+    // মালিকের হিসাব: একই মানুষ ১০ মিনিটের মধ্যে আবার চাপলে নতুন ফোন ধরা হয় না
+    if (!prev.exists || now - (prev.get('at') || 0) > 10 * 60 * 1000) {
+      await require('./sellerstats').bumpAmbulance(id, now, !prev.exists);
+    }
     return { ok: true };
   },
 
@@ -153,6 +158,8 @@ const actions = {
       t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });
       t.update(callRef, { rating, comment: K.str(req.body?.comment, 300), ratedAt: Date.now() });
     });
+    // মালিকের হিসাবে সাম্প্রতিক ১০টা রেটিং (কে দিয়েছেন তা ছাড়া)
+    await require('./sellerstats').addAmbulanceRating(id, rating, K.str(req.body?.comment, 300));
     return { ok: true };
   },
 

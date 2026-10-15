@@ -66,15 +66,10 @@ const actions = {
 
   /** সবার জন্য: অনুমোদিত বাড়তি ওষুধ (অল্প, তাই ১০ মিনিট মনে রাখা) */
   async drugs_custom() {
+    // সব একটা ডকে (config/customDrugs) — প্রতিবার পুরো collection পড়লে দৈনিক পড়ার সীমা শেষ হয়ে যেত
     if (!cache.items || Date.now() - cache.at > 10 * 60 * 1000) {
-      const snap = await db.collection('customDrugs').limit(5000).get();
-      cache = {
-        at: Date.now(),
-        items: snap.docs.map((d) => {
-          const x = d.data();
-          return { key: `c_${d.id}`, name: x.name, generic: [x.generic, x.strength].filter(Boolean).join(' '), form: x.form || '', company: x.company || '' };
-        }),
-      };
+      const s = await db.doc('config/customDrugs').get();
+      cache = { at: Date.now(), items: (s.exists && s.get('items')) || [] };
     }
     return { items: cache.items };
   },
@@ -116,8 +111,16 @@ const actions = {
       };
       // অনুরোধের id-ই ওষুধের id — একই অনুরোধ দুবার অনুমোদন হলেও একটাই ওষুধ
       await db.doc(`customDrugs/${b.id}`).set(drug);
+      const entry = { key: `c_${b.id}`, name: drug.name, generic: [drug.generic, drug.strength].filter(Boolean).join(' '), form: drug.form, company: drug.company };
+      await db.runTransaction(async (t) => {
+        const agg = db.doc('config/customDrugs');
+        const cur = await t.get(agg);
+        const items = ((cur.exists && cur.get('items')) || []).filter((x) => x.key !== entry.key);
+        t.set(agg, { items: [...items, entry], updatedAt: now });
+      });
       cache = { at: 0, items: null };
-      await ref.update({ status: 'approved', reviewedAt: now, reviewedBy: user.uid, ...drug });
+      const { createdAt, ...fields } = drug;
+      await ref.update({ status: 'approved', reviewedAt: now, reviewedBy: user.uid, ...fields });
       const shop = await db.doc(`pharmacies/${s.get('pharmacyId')}`).get();
       if (shop.exists) await stock.applyChanges(shop.id, shop.get('district'), [{ key: `c_${b.id}`, s: 'in' }], true);
     } else {

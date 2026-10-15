@@ -61,9 +61,9 @@ const db = {
   doc: ref,
   async getAll(...refs) { return refs.map((r) => snap(r.path)); },
   async runTransaction(fn) {
-    return fn({ get: (r) => r.get(), set: (r, d, o) => r.set(d, o), update: (r, d) => r.update(d) });
+    return fn({ get: (r) => r.get(), getAll: (...rs) => Promise.all(rs.map((r) => r.get())), set: (r, d, o) => r.set(d, o), update: (r, d) => r.update(d) });
   },
-  collection: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }),
+  collection: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }), where: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }) }),
 };
 class HttpError extends Error { constructor(s, m) { super(m); this.status = s; } }
 require.cache[path.join(__dirname, '../lib/firebase.js')] = {
@@ -73,49 +73,51 @@ require.cache[path.join(__dirname, '../lib/firebase.js')] = {
 
 const S = require('../lib/stock');
 const D = 'ময়মনসিংহ';
-const shard = (k) => store.get(`stockIndex/${D}__${S.shardOf(k)}`) || { k: {}, p: {} };
+const idx = (k, d = D) => JSON.parse((store.get(`stockIdx/${d}__${S.shardOf(k)}`) || { j: '{}' }).j)[k] || {};
+const mine = (pid) => JSON.parse((store.get(`pharmacyStock/${pid}`) || { j: '{}' }).j);
 
 test('যোগ করলে দোকানের তালিকা আর জেলার সূচিতে আসে, দাম সহ', async () => {
   store.clear();
   await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'in', p: 12, u: 'strip', d: 5 }, { key: 'sergel20cap', s: 'in' }], true);
-  const items = store.get('pharmacyStock/shopA').items;
-  assert.deepStrictEqual({ s: items.napa500tab.s, p: items.napa500tab.p, u: items.napa500tab.u, d: items.napa500tab.d, m: items.napa500tab.m }, { s: 'in', p: 12, u: 'strip', d: 5, m: true });
-  assert.deepStrictEqual(shard('napa500tab').k.napa500tab, ['shopA']);
-  assert.deepStrictEqual(shard('napa500tab').p.napa500tab.shopA, [12, 1, 5]);
-  assert.ok(!shard('sergel20cap').p || !shard('sergel20cap').p.sergel20cap);
+  const it = mine('shopA').napa500tab;
+  assert.deepStrictEqual({ s: it.s, p: it.p, u: it.u, d: it.d, m: it.m }, { s: 'in', p: 12, u: 'strip', d: 5, m: true });
+  assert.deepStrictEqual(idx('napa500tab'), { shopA: [12, 1, 5] });
+  assert.deepStrictEqual(idx('sergel20cap'), { shopA: [0, 0, 0] });
 });
 
 test('দুই দোকান একই ওষুধ; একটা "এখন নেই" করলে শুধু সেটা সূচি থেকে সরে', async () => {
   await S.applyChanges('shopB', D, [{ key: 'napa500tab', s: 'in' }], true);
-  assert.deepStrictEqual(shard('napa500tab').k.napa500tab.sort(), ['shopA', 'shopB']);
+  assert.deepStrictEqual(Object.keys(idx('napa500tab')).sort(), ['shopA', 'shopB']);
   await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'out' }], true);
-  assert.deepStrictEqual(shard('napa500tab').k.napa500tab, ['shopB']);
-  assert.ok(!shard('napa500tab').p.napa500tab.shopA, 'দামও সরে');
-  assert.strictEqual(store.get('pharmacyStock/shopA').items.napa500tab.p, 12, 'দোকানের নিজের তালিকায় দাম থেকে যায়');
+  assert.deepStrictEqual(Object.keys(idx('napa500tab')), ['shopB']);
+  assert.strictEqual(mine('shopA').napa500tab.p, 12, 'দোকানের নিজের তালিকায় দাম থেকে যায়');
   await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'in' }], true);
-  assert.deepStrictEqual(shard('napa500tab').p.napa500tab.shopA, [12, 1, 5], 'আবার চালু করলে আগের দাম ফেরে');
+  assert.deepStrictEqual(idx('napa500tab').shopA, [12, 1, 5], 'আবার চালু করলে আগের দাম ফেরে');
 });
 
 test('দাম বদল আর মুছে দেওয়া', async () => {
   await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'in', p: 15 }], true);
-  assert.deepStrictEqual(shard('napa500tab').p.napa500tab.shopA, [15, 1, 5]);
+  assert.deepStrictEqual(idx('napa500tab').shopA, [15, 1, 5]);
   await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'in', p: null, d: null }], true);
-  assert.ok(!shard('napa500tab').p.napa500tab.shopA);
+  assert.deepStrictEqual(idx('napa500tab').shopA, [0, 1, 0]);
+  await S.applyChanges('shopA', D, [{ key: 'napa500tab', s: 'in', p: 100000 }], true);
+  assert.deepStrictEqual(idx('napa500tab').shopA, [0, 1, 0], 'সীমার বেশি দাম নেওয়া হয় না');
 });
 
 test('সরালে তালিকা আর সূচি দুটো থেকেই যায়', async () => {
   await S.applyChanges('shopB', D, [{ key: 'napa500tab', s: 'remove' }], true);
-  assert.ok(!store.get('pharmacyStock/shopB').items.napa500tab);
-  assert.deepStrictEqual(shard('napa500tab').k.napa500tab, ['shopA']);
+  assert.ok(!mine('shopB').napa500tab);
+  assert.deepStrictEqual(Object.keys(idx('napa500tab')), ['shopA']);
 });
 
-test('অর্ডারের উত্তর থেকে শেখা: হাতে দেওয়া চিহ্ন হারায় না', async () => {
+test('অর্ডারের উত্তর থেকে শেখা: হাতে দেওয়া "থাকে" একটা "নেই" উত্তরে বদলায় না', async () => {
   await S.learnFromReply('shopC', D, ['ace100tab'], 'all');
-  assert.strictEqual(store.get('pharmacyStock/shopC').items.ace100tab.m, false);
+  assert.strictEqual(mine('shopC').ace100tab.m, false);
+  assert.deepStrictEqual(Object.keys(idx('ace100tab')), ['shopC']);
+  await S.learnFromReply('shopC', D, ['ace100tab'], 'none');
+  assert.strictEqual(mine('shopC').ace100tab.s, 'out', 'নিজে শেখাটা বদলায়');
   await S.learnFromReply('shopA', D, ['napa500tab'], 'none');
-  const it = store.get('pharmacyStock/shopA').items.napa500tab;
-  assert.strictEqual(it.s, 'out');
-  assert.strictEqual(it.m, true);
+  assert.strictEqual(mine('shopA').napa500tab.s, 'in', 'হাতে দেওয়াটা বদলায় না');
   await S.learnFromReply('shopA', D, ['bad key!'], 'all');
 });
 
@@ -131,16 +133,39 @@ test('কাছের দোকানের ক্রমে স্টক থা�
 test('জেলা বদলালে সূচি সরে, দাম সহ', async () => {
   await S.applyChanges('shopM', D, [{ key: 'move111aaa', s: 'in', p: 40 }], true);
   await S.moveDistrict('shopM', D, 'ঢাকা');
-  assert.ok(!(shard('move111aaa').k.move111aaa || []).includes('shopM'));
-  const other = store.get(`stockIndex/ঢাকা__${S.shardOf('move111aaa')}`);
-  assert.deepStrictEqual(other.k.move111aaa, ['shopM']);
-  assert.deepStrictEqual(other.p.move111aaa.shopM, [40, 0, 0]);
+  assert.ok(!idx('move111aaa').shopM);
+  assert.deepStrictEqual(idx('move111aaa', 'ঢাকা').shopM, [40, 0, 0]);
+});
+
+test('ক্রন: ৩০ দিনের পুরোনো নিজে শেখা তথ্য বাদ, হাতে দেওয়া থাকে', async () => {
+  const old = Date.now() - 40 * 24 * 3600 * 1000;
+  await S.applyChanges('shopE', D, [{ key: 'manual1aa', s: 'in' }], true);
+  await S.learnFromReply('shopE', D, ['auto1aaaa'], 'all');
+  const doc = store.get('pharmacyStock/shopE');
+  const items = JSON.parse(doc.j);
+  items.auto1aaaa.at = old;
+  items.manual1aa.at = old;
+  doc.j = JSON.stringify(items);
+  const r = await S.applyChanges('shopE', D, [], false, { expireBefore: Date.now() - 30 * 24 * 3600 * 1000 });
+  assert.strictEqual(r.changed, 1);
+  assert.ok(!mine('shopE').auto1aaaa);
+  assert.ok(mine('shopE').manual1aa);
+  assert.ok(!idx('auto1aaaa').shopE);
+});
+
+test('ভাগ সমানভাবে ছড়ায়', () => {
+  const counts = new Array(256).fill(0);
+  for (let i = 0; i < 25600; i++) counts[S.shardOf(Math.random().toString(36).slice(2, 15))]++;
+  assert.ok(Math.max(...counts) < 200 && Math.min(...counts) > 40, `অসমান: ${Math.min(...counts)}–${Math.max(...counts)}`);
 });
 
 test('key যাচাই', () => {
   assert.ok(S.validKey('a1b2c3d4e5'));
+  assert.ok(S.validKey('z9'));
   assert.ok(S.validKey('c_AbCdEf1234567890xyz1'));
   assert.ok(!S.validKey('../x'));
   assert.ok(!S.validKey('items.x'));
   assert.ok(!S.validKey('ABC123DEF'));
+  assert.ok(!S.validKey('__proto__'));
+  assert.ok(!S.validKey('constructor'));
 });

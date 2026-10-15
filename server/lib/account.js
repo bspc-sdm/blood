@@ -99,6 +99,7 @@ module.exports = {
       }),
       // অ্যাম্বুলেন্স, নোটিফিকেশনের তালিকা
       deleteDocs([...myAmbulances.docs, ...myInbox.docs, ...myTickets.docs]),
+      ...myAmbulances.docs.map((d) => db.doc(`ambulanceStats/${d.id}`).delete()),
       // ওষুধের অর্ডার: নিজের ঠিকানা, নাম, ছবি মুছে, চলমান হলে বাতিল
       ...medMine.docs.map(async (d) => {
         const active = ['open', 'confirmed', 'ready', 'on_the_way'].includes(d.get('status'));
@@ -121,15 +122,13 @@ module.exports = {
       userRef.delete(),
       db.doc(`badges/${uid}`).delete(),
       db.doc(`providers/${uid}`).delete(),
-      // স্টক তালিকা আর জেলার সূচি থেকেও (নইলে খোঁজায় দোকানের id থেকে যেত)
+      // স্টক তালিকা আর জেলার সূচি থেকেও (নইলে খোঁজায় দোকানের id থেকে যেত), আর দোকানের হিসাব
       (async () => {
-        const [shop, st] = await Promise.all([db.doc(`pharmacies/${uid}`).get(), db.doc(`pharmacyStock/${uid}`).get()]);
-        if (st.exists) {
-          const keys = Object.keys(st.get('items') || {});
-          if (shop.exists && keys.length) await require('./stock').applyChanges(uid, shop.get('district'), keys.map((key) => ({ key, s: 'remove' })), true).catch(() => {});
-          await st.ref.delete();
-        }
-        await db.doc(`pharmacies/${uid}`).delete();
+        const shop = await db.doc(`pharmacies/${uid}`).get();
+        await require('./stock').removeShop(uid, shop.exists ? shop.get('district') : null).catch((e) => console.error('stock remove failed', e.message));
+        await Promise.all([db.doc(`pharmacies/${uid}`).delete(), db.doc(`pharmacyStats/${uid}`).delete()]);
+        const reqs = await db.collection('drugRequests').where('pharmacyId', '==', uid).limit(500).get();
+        await Promise.all(reqs.docs.filter((d) => d.get('status') !== 'approved').map((d) => d.ref.delete()));
       })(),
       stateRef.delete(),
       email ? db.doc(`emailCodes/${E.docIdFor(email)}`).delete() : Promise.resolve(),

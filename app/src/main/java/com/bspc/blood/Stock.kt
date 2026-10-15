@@ -116,9 +116,9 @@ object Stock {
     }
 
     /** changes: key → "in" / "out" / "remove"; দাম দিলে সাথে (null = মুছে দেওয়া) */
-    suspend fun set(changes: List<JSONObject>) {
-        changes.chunked(500).forEach { part -> call("stock_set", JSONObject().put("changes", JSONArray(part))) }
-    }
+    /** ফেরত: কয়টা যোগ হয়নি (তালিকা ভরে যাওয়ায়) */
+    suspend fun set(changes: List<JSONObject>): Int =
+        changes.chunked(500).sumOf { part -> call("stock_set", JSONObject().put("changes", JSONArray(part))).optInt("skipped") }
 
     fun change(key: String, s: String) = JSONObject().put("key", key).put("s", s)
 
@@ -196,7 +196,10 @@ fun StockScreen(onBack: () -> Unit) {
     fun apply(changes: List<JSONObject>, msg: String) {
         scope.launch {
             runCatching { Stock.set(changes) }
-                .onSuccess { infoMsg = msg; reload++ }
+                .onSuccess { skipped ->
+                    infoMsg = if (skipped > 0) msg + tr(" ($skipped not added — the list is full)", " (${num(skipped)}টা যোগ হয়নি — তালিকা ভরে গেছে)") else msg
+                    reload++
+                }
                 .onFailure { errorMsg = it.message }
         }
     }
@@ -324,7 +327,7 @@ private fun StockItemDialog(item: StockItem, drug: Drug?, onDismiss: () -> Unit,
                 }
                 Text(tr("Price (optional)", "দাম (ঐচ্ছিক)"), style = MaterialTheme.typography.titleSmall)
                 OutlinedTextField(
-                    price, { price = it.filter(Char::isDigit).take(6) },
+                    price, { price = it.filter(Char::isDigit).take(5) },
                     label = { Text(tr("Price (Tk)", "দাম (টাকা)")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )

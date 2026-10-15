@@ -18,17 +18,34 @@ async function bumpShop(pharmacyId, counts, keys = [], at = Date.now()) {
     for (const [k, v] of Object.entries(counts)) if (FIELDS.includes(k) && v) inc[k] = FieldValue.increment(v);
     const top = {};
     keys.slice(0, 30).forEach((k) => { top[k] = FieldValue.increment(1); });
-    await db.doc(`pharmacyStats/${pharmacyId}`).set({ d: { [R.dhakaDayKey(at)]: inc }, ...(keys.length ? { top } : {}), started: at }, { merge: true });
+    await db.doc(`pharmacyStats/${pharmacyId}`).set({ d: { [R.dhakaDayKey(at)]: inc }, ...(keys.length ? { top } : {}) }, { merge: true });
   } catch (e) {
     console.error('shop stats failed', e.message);
   }
 }
 
-async function bumpAmbulance(ambulanceId, at = Date.now()) {
+async function bumpAmbulance(ambulanceId, at = Date.now(), newCaller = false) {
   try {
-    await db.doc(`ambulanceStats/${ambulanceId}`).set({ d: { [R.dhakaDayKey(at)]: FieldValue.increment(1) }, total: FieldValue.increment(1) }, { merge: true });
+    await db.doc(`ambulanceStats/${ambulanceId}`).set({
+      d: { [R.dhakaDayKey(at)]: FieldValue.increment(1) },
+      total: FieldValue.increment(1),
+      ...(newCaller ? { callers: FieldValue.increment(1) } : {}),
+    }, { merge: true });
   } catch (e) {
     console.error('ambulance stats failed', e.message);
+  }
+}
+
+async function addAmbulanceRating(ambulanceId, rating, comment) {
+  try {
+    const ref = db.doc(`ambulanceStats/${ambulanceId}`);
+    await db.runTransaction(async (t) => {
+      const s = await t.get(ref);
+      const recent = ((s.exists && s.get('recent')) || []).slice(-9);
+      t.set(ref, { recent: [...recent, { rating, comment, at: Date.now() }] }, { merge: true });
+    });
+  } catch (e) {
+    console.error('ambulance rating stats failed', e.message);
   }
 }
 
@@ -108,36 +125,30 @@ const actions = {
     const mine = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(10).get();
     const now = Date.now();
     const items = await Promise.all(mine.docs.map(async (a) => {
-      const [st, calls, reports] = await Promise.all([
+      const [st, reports] = await Promise.all([
         db.doc(`ambulanceStats/${a.id}`).get(),
-        db.collection('ambulanceCalls').where('ambulanceId', '==', a.id).limit(300).get(),
-        db.collection('modReports').where('targetPath', '==', `ambulances/${a.id}`).limit(50).get(),
+        db.collection('modReports').where('targetPath', '==', `ambulances/${a.id}`).count().get(),
       ]);
       const d = (st.exists && st.get('d')) || {};
       const sum = (days) => Array.from({ length: days }, (_, i) => d[R.dhakaDayKey(now - i * DAY)] || 0).reduce((x, y) => x + y, 0);
       const n = a.get('ratingCount') || 0;
-      const comments = calls.docs
-        .filter((c) => c.get('rating'))
-        .sort((x, y) => (y.get('ratedAt') || 0) - (x.get('ratedAt') || 0))
-        .slice(0, 10)
-        // কে দিয়েছেন তা দেখানো হয় না (রোগীর গোপনীয়তা)
-        .map((c) => ({ rating: c.get('rating'), comment: c.get('comment') || '', at: c.get('ratedAt') || 0 }));
       return {
         id: a.id,
         name: a.get('name'),
         status: a.get('status'),
         calls: { 7: sum(7), 30: sum(30), 90: sum(90), total: (st.exists && st.get('total')) || 0 },
-        // আগে থেকে যাঁরা ফোন করেছেন (হিসাব শুরুর আগের সহ) — আলাদা মানুষ
-        callers: calls.size,
+        // আলাদা মানুষ (হিসাব শুরুর পর থেকে)
+        callers: (st.exists && st.get('callers')) || 0,
         daily: Array.from({ length: 30 }, (_, i) => d[R.dhakaDayKey(now - (29 - i) * DAY)] || 0),
         rating: n ? Math.round((a.get('ratingSum') / n) * 10) / 10 : 0,
         ratingCount: n,
-        comments,
-        reports: reports.size,
+        // কে দিয়েছেন তা দেখানো হয় না (রোগীর গোপনীয়তা)
+        comments: ((st.exists && st.get('recent')) || []).slice().reverse(),
+        reports: reports.data().count,
       };
     }));
     return { items };
   },
 };
 
-module.exports = { actions, bumpShop, bumpAmbulance };
+module.exports = { actions, bumpShop, bumpAmbulance, addAmbulanceRating };

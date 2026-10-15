@@ -37,7 +37,9 @@ object Drugs {
             h = h xor (b.toLong() and 0xff)
             h *= 0x100000001b3L
         }
-        return java.lang.Long.toUnsignedString(h, 36)
+        // Long.toUnsignedString Android 8-এর আগে নেই, তাই BigInteger দিয়ে (অচিহ্নিত ৬৪-বিট → base36)
+        val u = java.math.BigInteger.valueOf(h).let { if (h < 0) it.add(java.math.BigInteger.ONE.shiftLeft(64)) else it }
+        return u.toString(36)
     }
 
     /** একবারই পড়া (প্রায় ২ MB) — আলাদা থ্রেড থেকে ডাকুন */
@@ -62,8 +64,10 @@ object Drugs {
     }
 
     /** অ্যাডমিনের যোগ করা ওষুধ সার্ভার থেকে (অ্যাপ চালুর পর একবার) */
+    @Volatile private var customLoaded = false
+
     suspend fun loadCustom() {
-        if (custom.isNotEmpty()) return
+        if (customLoaded) return
         runCatching {
             val a = ServerApi.post("/api/community", JSONObject().put("action", "drugs_custom")).optJSONArray("items") ?: JSONArray()
             custom = (0 until a.length()).map {
@@ -71,6 +75,7 @@ object Drugs {
                 Drug(x.optString("name"), x.optString("generic"), x.optString("form"), x.optString("company"), x.optString("key"))
             }
             byKeyMap = null
+            customLoaded = true
         }
     }
 
