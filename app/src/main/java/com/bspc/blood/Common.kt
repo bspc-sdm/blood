@@ -200,7 +200,7 @@ fun BloodGroupBadge(group: String, size: Dp = 52.dp) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            group,
+            if (group == Rules.UNKNOWN_GROUP) "?" else group,
             fontWeight = FontWeight.ExtraBold,
             fontSize = (size.value * 0.34f).sp,
             color = MaterialTheme.colorScheme.onPrimaryContainer,

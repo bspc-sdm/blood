@@ -19,8 +19,8 @@ async function deleteDocs(docs) {
 async function notify(uid, en, bn, type = 'appointment') {
   try {
     const u = await db.doc(`users/${uid}`).get();
-    const token = u.get('fcmToken');
-    if (token) await sendPush([{ uid, token, title: R.L(u.get('lang'), en, bn), body: '', data: { type } }]);
+    // টোকেন না থাকলেও অ্যাপের ঘণ্টার তালিকায় যায়
+    if (u.exists) await sendPush([{ uid, token: u.get('fcmToken'), title: R.L(u.get('lang'), en, bn), body: '', data: { type } }]);
   } catch (e) {
     console.error('delete-account push failed', e);
   }
@@ -59,11 +59,31 @@ module.exports = {
       db.collection('bloodBanks').where('ownerUid', '==', uid).limit(10).get(),
     ]);
 
+    // নিষেধাজ্ঞা অ্যাকাউন্ট মুছলেও থাকে (একই ইমেইলে নতুন অ্যাকাউন্ট খুললে আবার লাগে)।
+    // বন্ধ করা অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংকের নিষেধাজ্ঞা বন্ধের সময়ই রাখা হয়েছে; এখানে বাসায় সেবার ব্লক।
+    try {
+      const prov = await db.doc(`providers/${uid}`).get();
+      await require('./sanctions').keepForEmail(user.email, { homeCare: prov.exists && prov.get('homeVisitBlocked') === true });
+    } catch (e) {
+      console.error('keep sanctions failed', e);
+    }
+
+    // চালু রিকোয়েস্টে যাঁরা রাজি ছিলেন — মোছার আগে তালিকা রেখে পরে জানানো (যাতে কেউ শুধু শুধু হাসপাতালে না যান)
+    const RE = require('./requestend');
+    const endedNotices = await Promise.all(
+      myRequests.docs
+        .filter((d) => d.get('status') === 'open')
+        .map(async (d) => {
+          const w = await d.ref.collection('responses').where('status', '==', 'accepted').limit(50).get();
+          return { id: d.id, r: d.data(), ids: w.docs.map((x) => x.id) };
+        }),
+    );
+
     await Promise.all([
       // ১) নিজের রক্তের রিকোয়েস্ট (হাসপাতাল, নোট, এলাকা, ফোন সহ) পুরোপুরি
       ...myRequests.docs.map((d) => db.recursiveDelete(d.ref)),
-      // ২) অন্যের রিকোয়েস্টে নিজের সাড়া (নাম ও ফোন থাকে)
-      ...responded.map((rid) => db.doc(`requests/${rid}/responses/${uid}`).delete()),
+      // ২) অন্যের রিকোয়েস্টে নিজের সাড়া (নাম ও ফোন থাকে) — রাজি থাকলে হিসাব কমে, রক্তপ্রার্থী জানেন
+      ...responded.map((rid) => RE.donorLeft(rid, uid).catch((e) => console.error('donorLeft failed', e))),
       // ৩) নিজের প্রশ্ন (উত্তর সহ)
       ...myQuestions.docs.map((d) => db.recursiveDelete(d.ref)),
       // ৪) টিপস, সংশোধনের অনুরোধ, রিপোর্ট
@@ -122,6 +142,8 @@ module.exports = {
         }
       }),
     ]);
+
+    for (const n of endedNotices) if (n.ids.length) await RE.notifyEnded(n.id, n.r, 'removed', n.ids);
 
     // জরুরি আহ্বানে নিজের সাড়া (সাম্প্রতিকগুলোতে)
     const recentEmergencies = await db.collection('emergencies').orderBy('createdAt', 'desc').limit(200).get();

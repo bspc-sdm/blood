@@ -64,6 +64,10 @@ object Rules {
 
     fun isEligibleDonor(p: Profile): Boolean = notEligibleReason(p) == null
 
+    /** "জানি না" — রক্ত দেওয়া/নোটিফিকেশন থেকে বাদ, রিকোয়েস্ট দেখা আর দেওয়া যায় */
+
+    const val UNKNOWN_GROUP = "unknown"
+
     val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
 
     /** তারিখ বদলের সতর্কতা: "backward" (পেছানো/কখনো দিইনি), "short_gap" (১২০ দিনের কম ফাঁক), নইলে null — সার্ভারের সাথে মেলানো */

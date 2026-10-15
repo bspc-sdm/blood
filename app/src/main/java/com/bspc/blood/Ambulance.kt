@@ -65,6 +65,8 @@ data class Ambulance(
     /** শুধু নিজের অ্যাম্বুলেন্সে */
     val vehicleNo: String = "",
     val status: String = "",
+    /** শেষবার "খালি আছি" জানানোর সময় (০ = নিজে "ব্যস্ত" করেছেন); ১২ ঘণ্টা পর নিজে থেকে "জানা নেই" */
+    val availableAt: Long = 0,
 )
 
 object AmbulanceTypes {
@@ -86,6 +88,7 @@ object Ambulances {
         o.str("id"), o.str("name"), o.str("phone"), o.optJSONArray("types").strings(), o.str("district"),
         o.intOrNull("upazilaId"), o.str("area"), o.str("fare"), o.optBoolean("available", true),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.str("vehicleNo"), o.str("status"),
+        o.optLong("availableAt"),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -308,11 +311,14 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
                 AppIcon(R.drawable.ic_ambulance, null, Modifier.size(26.dp), MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
                 Text(a.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                if (a.available) {
-                    Tag(tr("Available", "খালি আছে"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                } else {
-                    Tag(tr("Busy", "ব্যস্ত"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
+                when {
+                    a.available -> Tag(tr("Available", "খালি আছে"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                    a.availableAt > 0 -> Tag(tr("Call to check", "ফোনে জেনে নিন"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> Tag(tr("Busy", "ব্যস্ত"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            if (a.available && a.availableAt > 0) {
+                SmallNote(tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt))
             }
             Text(a.types.joinToString(" · ") { AmbulanceTypes.label(it) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             IconLine(R.drawable.ic_location_on, listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "))
@@ -458,6 +464,7 @@ fun MyAmbulancesSection(profile: Profile) {
                                 }
                             })
                         }
+                        SmallNote(tr("Stays on for 12 hours, then turns off by itself — turn it on again when you're free.", "চালু করলে ১২ ঘণ্টা থাকে, তারপর নিজে বন্ধ হয়। খালি হলে আবার চালু করুন।"))
                     }
                 }
             }

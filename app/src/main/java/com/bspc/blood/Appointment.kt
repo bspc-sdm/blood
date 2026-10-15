@@ -855,7 +855,17 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                                     listed, takes, specialties.toList(), degrees.trim(), gender, chambers.toList(), home,
                                 )
                             }
-                                .onSuccess { onBack() }
+                                .onSuccess { n ->
+                                    if (n > 0) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            tr("${num(n)} upcoming appointment(s) no longer fit and were cancelled. Patients were told.",
+                                                "সামনের ${num(n)}টা অ্যাপয়েন্টমেন্ট আর মেলে না, তাই বাতিল হয়েছে। রোগীদের জানানো হয়েছে।"),
+                                            android.widget.Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
+                                    onBack()
+                                }
                                 .onFailure {
                                     if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true else errorMsg = it.message
                                 }

@@ -416,6 +416,13 @@ fun RequestDetailScreen(
 
                         resp == null && !r.isActive -> {}
 
+                        resp == null && profile.bloodGroup == Rules.UNKNOWN_GROUP -> Note(
+                            tr(
+                                "Add your blood group in your profile to donate. You can still share this request.",
+                                "রক্ত দিতে প্রোফাইলে আপনার রক্তের গ্রুপ দিন। চাইলে রিকোয়েস্টটা পরিচিতদের পাঠাতে পারেন।",
+                            )
+                        )
+
                         resp == null && !compatible -> Note(
                             tr(
                                 "Your group (${profile.bloodGroup}) can't donate to ${r.patientGroup}. You can share it with others.",
@@ -432,6 +439,37 @@ fun RequestDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) { ButtonContent(busy, tr("I'll donate", "রক্ত দেব"), R.drawable.ic_volunteer_activism) }
                             Note(tr("Your name and number will be shared with the requester.", "রক্তপ্রার্থী আপনার নাম ও নম্বর দেখতে পাবেন।"))
+                        }
+
+                        // রিকোয়েস্ট বন্ধ/মেয়াদ শেষ: আর হাসপাতালে যাওয়ার দরকার নেই; রক্ত দিয়ে থাকলে জানানোর সুযোগ
+                        resp.status == "accepted" && !r.isActive -> {
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIcon(R.drawable.ic_info, null, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        tr(
+                                            "This request is closed — you don't need to go. If you already donated, tell us below.",
+                                            "রিকোয়েস্টটা বন্ধ হয়ে গেছে, আর যেতে হবে না। আগেই রক্ত দিয়ে থাকলে নিচে জানান।",
+                                        ),
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    act {
+                                        ServerApi.updateResponse(r.id, "donated")
+                                        val day = ProfileRepository.markDonatedToday(uid!!)
+                                        onProfileChanged(profile.copy(lastDonationMillis = day))
+                                    }
+                                },
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { ButtonContent(busy, tr("I donated for this", "এতে রক্ত দিয়েছি"), R.drawable.ic_check_circle) }
                         }
 
                         resp.status == "accepted" -> {
@@ -524,7 +562,10 @@ fun RequestDetailScreen(
                         }
 
                         resp.status == "declined" -> Note(
-                            tr("The requester found another donor. Thank you!", "রক্তপ্রার্থী অন্য ডোনার পেয়েছেন। আপনাকে ধন্যবাদ!")
+                            tr(
+                                "The requester no longer needs you for this request — you don't need to go. Thank you!",
+                                "রক্তপ্রার্থী এই রিকোয়েস্টে আপনাকে আর রাখেননি, আপনাকে যেতে হবে না। ধন্যবাদ!",
+                            )
                         )
 
                         else -> {
@@ -606,6 +647,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
     var confirmDelete by remember { mutableStateOf(false) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf(false) }
+    var removed by remember { mutableStateOf<DonorResponse?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -709,6 +751,11 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                     } else if (r.isActive) {
                         Note(tr("Confirm the donors you'll take. Others are told when enough are confirmed.", "যাঁদের নেবেন তাঁদের নিশ্চিত করুন। যথেষ্ট নিশ্চিত হলে বাকিদের জানানো হয়।"))
                     }
+                    removed?.let { d ->
+                        RemovedNotice(d.donorName, busy, onUndo = {
+                            act { ServerApi.updateResponse(r.id, "restore", d.donorUid); removed = null }
+                        }, onDismiss = { removed = null })
+                    }
                     willing.sortedByDescending { it.counts() }.forEach { d ->
                         Card(
                             Modifier.fillMaxWidth(),
@@ -720,7 +767,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                                     active = r.isActive,
                                     busy = busy,
                                     onConfirm = { act { ServerApi.confirmDonor(r.id, d.donorUid) } },
-                                    onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
+                                    onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = d } },
                                 )
                             }
                         }

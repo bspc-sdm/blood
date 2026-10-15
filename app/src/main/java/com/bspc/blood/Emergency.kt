@@ -147,6 +147,7 @@ internal fun EmergencyCard(e: EmergencyAppeal, onChanged: () -> Unit) {
             Text(
                 when {
                     e.myStatus == "coming" -> tr("You're coming — thank you! Please bring your ID.", "আপনি আসছেন — ধন্যবাদ! সাথে পরিচয়পত্র আনুন।")
+                    e.myGroup == Rules.UNKNOWN_GROUP || e.myGroup.isBlank() -> tr("Add your blood group in your profile to respond. Please tell people you know.", "সাড়া দিতে প্রোফাইলে রক্তের গ্রুপ দিন। পরিচিতদের জানাতে পারেন।")
                     my == null -> tr("Your blood group isn't needed in this appeal. Please tell people you know.", "এই আহ্বানে আপনার গ্রুপ দরকার নেই। পরিচিতদের জানাতে পারেন।")
                     my.full -> tr("Enough donors are already coming for your group — thank you!", "আপনার গ্রুপের যথেষ্ট ডোনার আসছেন — ধন্যবাদ!")
                     !e.eligible -> tr("You can't donate right now (last donation, age or weight).", "এখন আপনি রক্ত দিতে পারবেন না (শেষ রক্তদান, বয়স বা ওজন)।")

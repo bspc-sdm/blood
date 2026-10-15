@@ -5,11 +5,13 @@ const { db, FieldValue, HttpError, sendPush } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 
+const RESTORE_MS = 30 * 60 * 1000;
+
 async function pushTo(uids, make) {
   if (!uids.length) return;
   try {
     const users = await db.getAll(...uids.map((id) => db.doc(`users/${id}`)));
-    await sendPush(users.filter((u) => u.exists && u.get('fcmToken')).map((u) => make(u)));
+    await sendPush(users.filter((u) => u.exists).map((u) => make(u)));
   } catch (e) {
     console.error('donor push failed', e);
   }
@@ -39,11 +41,20 @@ module.exports = {
         else if (isDonor && op === 'donated') next = 'donated';
         else if (isRequester && !isDonor && op === 'remove') next = 'declined';
       }
+      // ভুল করে বাদ দিলে ৩০ মিনিটের মধ্যে রক্তপ্রার্থী ফিরিয়ে আনতে পারেন (চালু রিকোয়েস্টে)
+      if (op === 'restore') {
+        const ok = isRequester && !isDonor && ds.get('status') === 'declined' && ds.get('removedBy') === 'requester'
+          && Date.now() - (ds.get('removedAt') || 0) <= RESTORE_MS && R.isActive(r);
+        if (!ok) throw new HttpError(400, C.tr(req, 'This donor can no longer be brought back', 'এই ডোনারকে আর ফিরিয়ে আনা যায় না'));
+        t.update(respRef, { status: 'accepted', confirmed: false, removedBy: FieldValue.delete(), removedAt: FieldValue.delete(), updatedAt: Date.now() });
+        t.update(reqRef, { acceptedCount: FieldValue.increment(1) });
+        return { r, restored: true };
+      }
       if (!next) throw new HttpError(400, C.tr(req, 'This can\'t be changed now', 'এখন এটা বদলানো যায় না'));
 
       const wasConfirmed = ds.get('confirmed') === true;
       const all = await t.get(reqRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
-      t.update(respRef, { status: next, updatedAt: Date.now() });
+      t.update(respRef, { status: next, updatedAt: Date.now(), ...(next === 'declined' ? { removedBy: 'requester', removedAt: Date.now() } : {}) });
       // বাতিল/বাদ হলে রাজির সংখ্যা কমে ("রক্ত দিয়েছি" হলে রাজির মধ্যেই গোনা থাকে)
       if (next !== 'donated') t.update(reqRef, { acceptedCount: FieldValue.increment(-1) });
 
@@ -61,6 +72,26 @@ module.exports = {
     });
 
     const { r } = result;
+    if (result.restored) {
+      await pushTo([donorUid], (u) => ({
+        uid: u.id,
+        token: u.get('fcmToken'),
+        title: R.L(u.get('lang'), 'You are back on the request', 'আপনাকে আবার রিকোয়েস্টে রাখা হয়েছে'),
+        body: R.L(u.get('lang'), `${r.hospital}: the requester removed you by mistake. Please wait for confirmation.`, `${r.hospital}: রক্তপ্রার্থী ভুল করে বাদ দিয়েছিলেন। নিশ্চিত করার অপেক্ষায় থাকুন।`),
+        data: { requestId, type: 'request' },
+      }));
+      return { ok: true, restored: true };
+    }
+    // রক্তপ্রার্থী বাদ দিলে ডোনারকে জানানো — নইলে তিনি হাসপাতালে চলে যেতে পারেন
+    if (op === 'remove') {
+      await pushTo([donorUid], (u) => ({
+        uid: u.id,
+        token: u.get('fcmToken'),
+        title: R.L(u.get('lang'), 'You are no longer needed for this request', 'এই রিকোয়েস্টে আপনাকে আর লাগবে না'),
+        body: R.L(u.get('lang'), `${r.hospital}: you don't need to go. Thank you for offering!`, `${r.hospital}: আপনাকে যেতে হবে না। রাজি হওয়ার জন্য ধন্যবাদ!`),
+        data: { requestId, type: 'request' },
+      }));
+    }
     if (result.lost && R.isActive(r)) {
       // রক্তপ্রার্থীকে জানানো (ডোনার নিজে বাতিল করলে)
       if (op === 'cancel') {
@@ -129,7 +160,7 @@ module.exports = {
       const when = r.neededAtMillis ? r.neededAtMillis : null;
       await sendPush(
         users
-          .filter((u) => u.exists && u.get('fcmToken'))
+          .filter((u) => u.exists)
           .map((u) => {
             const lang = u.get('lang');
             const time = when ? ` · ${lang === 'en' ? R.formatTimeEn(when) : R.formatTimeBn(when)}` : '';

@@ -233,7 +233,7 @@ fun ProfileEditScreen(
             )
 
             Text(tr("Blood group", "রক্তের গ্রুপ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it })
+            BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it }, allowUnknown = true)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showBirthPicker = true }, modifier = Modifier.weight(1f)) {
@@ -332,7 +332,7 @@ fun ProfileEditScreen(
 }
 
 @Composable
-fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
+fun BloodGroupChips(selected: String, onSelect: (String) -> Unit, allowUnknown: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Rules.BLOOD_GROUPS.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -343,6 +343,24 @@ fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
                         label = { Text(group, fontWeight = FontWeight.Bold) },
                     )
                 }
+            }
+        }
+        // আন্দাজে ভুল গ্রুপ না দিয়ে "জানি না" — তাহলে ভুল রিকোয়েস্টে ডাক পড়ে না
+        if (allowUnknown) {
+            FilterChip(
+                selected = selected == Rules.UNKNOWN_GROUP,
+                onClick = { onSelect(Rules.UNKNOWN_GROUP) },
+                label = { Text(tr("I don't know", "জানি না")) },
+            )
+            if (selected == Rules.UNKNOWN_GROUP) {
+                Text(
+                    tr(
+                        "You won't get donation requests until you add your group. Get it tested at a hospital or blood bank, then update your profile.",
+                        "গ্রুপ না দেওয়া পর্যন্ত রক্তদানের নোটিফিকেশন আসবে না। হাসপাতাল বা ব্লাড ব্যাংকে পরীক্ষা করে জেনে প্রোফাইলে দিন।",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

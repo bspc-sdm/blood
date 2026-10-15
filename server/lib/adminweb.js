@@ -314,6 +314,11 @@ const actions = {
         await Promise.all([
           stateRef.set({ homeVisitBanned: FieldValue.delete() }, { merge: true }),
           db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ homeVisitBlocked: FieldValue.delete() })),
+          // আগের অ্যাকাউন্ট থেকে থেকে যাওয়া (ইমেইলের) বাসায় সেবার নিষেধাজ্ঞাও তুলে নেওয়া
+          (async () => {
+            const k = require('./sanctions').emailKey(targetEmail);
+            if (k) await db.doc(`sanctions/${k}`).set({ homeCare: false }, { merge: true });
+          })(),
         ]);
         break;
       case 'homecare_ban':
@@ -332,8 +337,33 @@ const actions = {
           // চালু লগইন বাতিল: নতুন টোকেন আর পাবে না, পুরোনোটা সর্বোচ্চ ১ ঘণ্টা
           await admin.auth().revokeRefreshTokens(uid);
           await db.doc(`users/${uid}`).set({ fcmToken: FieldValue.delete() }, { merge: true }).catch(() => {});
+          // ডাক্তার/নার্স হলে: তালিকা আর বাসায় সেবা বন্ধ, সামনের অ্যাপয়েন্টমেন্ট বাতিল করে রোগীদের জানানো
+          const pRef = db.doc(`providers/${uid}`);
+          const p = await pRef.get();
+          if (p.exists && p.get('adminSuspended') !== true) {
+            await pRef.update({
+              adminSuspended: true,
+              listedBeforeSuspend: p.get('listed') !== false,
+              listed: false,
+              active: false,
+              'homeVisit.enabled': false,
+            });
+            await require('./apptcancel').cancelStale(uid, () => false, ['The doctor/nurse is not available now', 'ডাক্তার/নার্স এখন পাওয়া যাচ্ছে না']);
+          }
         } else {
           await admin.auth().updateUser(uid, { disabled: false });
+          // চেম্বারের তালিকা আগের মতো (বাসায় সেবা নিজে আবার চালু করবেন)
+          const pRef = db.doc(`providers/${uid}`);
+          const p = await pRef.get();
+          if (p.exists && p.get('adminSuspended') === true) {
+            const listed = p.get('listedBeforeSuspend') !== false;
+            await pRef.update({
+              adminSuspended: FieldValue.delete(),
+              listedBeforeSuspend: FieldValue.delete(),
+              listed,
+              active: listed && p.get('appointments') === true,
+            });
+          }
         }
         break;
       }

@@ -26,6 +26,7 @@ module.exports = handler(async (req) => {
     if (!R.isActive(r)) throw new HttpError(400, 'রিকোয়েস্টটা বন্ধ হয়ে গেছে');
     if (r.requesterUid === uid) throw new HttpError(400, 'নিজের রিকোয়েস্টে সাড়া দেওয়া যায় না');
     if (!u.phone || !u.bloodGroup) throw new HttpError(400, 'আগে প্রোফাইল পূরণ করুন');
+    if (u.bloodGroup === 'unknown') throw new HttpError(400, 'রক্ত দিতে আগে প্রোফাইলে আপনার রক্তের গ্রুপ দিন');
     if (!R.canDonate(u.bloodGroup, r.patientGroup)) {
       throw new HttpError(400, `আপনার গ্রুপ (${u.bloodGroup}) এই রোগীকে দেওয়া যায় না`);
     }

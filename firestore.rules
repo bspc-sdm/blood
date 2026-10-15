@@ -41,10 +41,17 @@ service cloud.firestore {
     // রক্তের রিকোয়েস্ট: লগইন করা সবাই দেখতে পারবে (ফোন নম্বর এখানে থাকে না)
     match /requests/{rid} {
       allow read: if signedIn();
+      // নতুন অ্যাপ সার্ভার দিয়ে তৈরি করে (সীমা সার্ভারে)। পুরোনো অ্যাপের জন্য সরাসরি তৈরি এখনো খোলা, কিন্তু
+      // শুধু এই ঘরগুলো, তারিখ ৩২ দিনের মধ্যে — ভুয়া "ডোনার পাওয়া গেছে"/রাজির সংখ্যা বসানো যায় না।
+      // সবাই আপডেট করলে এটা `if false` হবে।
       allow create: if signedIn()
         && request.resource.data.requesterUid == me()
         && request.resource.data.status == 'open'
-        && !request.resource.data.keys().hasAny(['notifiedAt', 'notifiedCount', 'notifyingUntil'])
+        && request.resource.data.keys().hasOnly(['requesterUid', 'requesterName', 'patientGroup', 'bags', 'hospital',
+             'placeName', 'lat', 'lng', 'geohash', 'neededByMillis', 'neededAtMillis', 'urgent', 'travelFare', 'note',
+             'status', 'createdAtMillis', 'createdAt'])
+        && request.resource.data.neededByMillis <= request.time.toMillis() + 32 * 86400000
+        && request.resource.data.neededByMillis + 86400000 > request.time.toMillis()
         && validRequest(request.resource.data);
       // শুধু বন্ধ করা যায়: রক্তপ্রার্থী নিজে যেকোনো সময়, অন্য যে কেউ তারিখ পার হয়ে গেলে
       allow update: if signedIn()

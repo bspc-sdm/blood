@@ -113,12 +113,14 @@ const actions = {
       if (s.get('status') === 'suspended') {
         throw new HttpError(403, C.tr(req, 'This blood bank is suspended. You can appeal from Profile → Help & appeals.', 'এই ব্লাড ব্যাংক বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       }
-      const changed = ['name', 'phone', 'licenseNo', 'kind'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k) || '') !== data[k]) || s.get('status') === 'rejected';
-      await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
+      await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, false);
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'licenseNo', 'kind']);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     const mine = await db.collection('bloodBanks').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw new HttpError(400, C.tr(req, 'Up to 3 blood banks per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ৩টা ব্লাড ব্যাংক'));
+    await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, true);
     await useQuota(req, user.uid, 'bloodbank');
     await db.collection('bloodBanks').add({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
     return { ok: true, pending: true };
@@ -189,7 +191,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
+    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
+    await require('./sanctions').onStatusChange('bloodbank', s.data(), s.get('status'), status);
     const en = status === 'approved' ? 'Your blood bank is now listed' : status === 'suspended' ? 'Your blood bank was suspended. You can appeal from Profile → Help & appeals.' : 'Blood bank not approved';
     const bn = status === 'approved' ? 'আপনার ব্লাড ব্যাংক তালিকায় এসেছে' : status === 'suspended' ? 'আপনার ব্লাড ব্যাংক বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।' : 'ব্লাড ব্যাংক অনুমোদন হয়নি';
     await pushOwner(s.get('ownerUid'), en, bn, s.get('name'));

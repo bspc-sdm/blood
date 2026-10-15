@@ -26,7 +26,11 @@ async function removeTarget(path, reported) {
   if (path.startsWith('ambulances/') || path.startsWith('pharmacies/') || path.startsWith('bloodBanks/')) {
     // মোছা হয় না, বন্ধ (suspended) — তালিকায় আর দেখায় না, মালিক নিজে আবার চালু করতে পারেন না
     const s = await ref.get();
-    if (s.exists) await ref.update({ status: 'suspended', suspendedAt: Date.now() });
+    if (s.exists) {
+      await ref.update({ status: 'suspended', suspendedAt: Date.now() });
+      const kind = path.startsWith('ambulances/') ? 'ambulance' : path.startsWith('pharmacies/') ? 'pharmacy' : 'bloodbank';
+      await require('./sanctions').onStatusChange(kind, s.data(), s.get('status'), 'suspended');
+    }
     return;
   }
   if (path.startsWith('providers/')) {

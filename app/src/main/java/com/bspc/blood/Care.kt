@@ -466,13 +466,14 @@ object Appointments {
         gender: String,
         chambers: List<Chamber>,
         homeVisit: HomeVisitSettings?,
-    ) {
-        careCall(
+    ): Int {
+        // ফেরত: চেম্বার/বার বদলে সামনের কয়টা অ্যাপয়েন্টমেন্ট বাতিল হলো
+        return careCall(
             "provider_save",
             JSONObject().put("listed", listed).put("appointments", appointments).put("specialties", JSONArray(specialties))
                 .put("degrees", degrees).put("gender", gender).put("chambers", JSONArray(chambers.map { it.toJson() }))
                 .apply { if (homeVisit != null) put("homeVisit", homeVisit.toJson()) },
-        )
+        ).optInt("cancelled")
     }
 
     suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String) {

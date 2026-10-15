@@ -16,6 +16,8 @@ const ADMIN_STATUSES = ['pending', 'approved', 'suspended', 'rejected'];
 function pharmacyView(d, mine = false) {
   const x = d.data();
   const n = x.ratingCount || 0;
+  // মালিক সাময়িক বন্ধ রাখলে (ঈদ, সংস্কার) সেই তারিখ পর্যন্ত "বন্ধ"
+  const closedUntil = (x.closedUntil || 0) > Date.now() ? x.closedUntil : 0;
   return {
     id: d.id,
     name: x.name,
@@ -26,7 +28,8 @@ function pharmacyView(d, mine = false) {
     openAt: x.openAt || '',
     closeAt: x.closeAt || '',
     open24: x.open24 === true,
-    openNow: K.pharmacyOpenNow(x),
+    openNow: !closedUntil && K.pharmacyOpenNow(x),
+    closedUntil,
     delivery: x.delivery === true,
     deliveryNote: x.deliveryNote || '',
     discount: x.discount || 0,
@@ -107,13 +110,46 @@ const actions = {
     };
     if (s.exists) {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy is suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
-      const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
-      await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
+      await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, false);
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['licenseNo', 'phone', 'district']);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
+    await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, true);
     await useQuota(req, user.uid, 'pharmacy');
     await ref.set({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
     return { ok: true, pending: true };
+  },
+
+  /** সাময়িক বন্ধ (until = মিলিসেকেন্ড, সর্বোচ্চ ৬০ দিন) বা আবার খোলা (until = null) */
+  async pharmacy_pause(req, user) {
+    const ref = db.doc(`pharmacies/${user.uid}`);
+    const s = await ref.get();
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const until = req.body?.until;
+    if (until == null) {
+      await ref.update({ closedUntil: FieldValue.delete(), updatedAt: Date.now() });
+      return { ok: true };
+    }
+    const now = Date.now();
+    if (!Number.isInteger(until) || until <= now || until > now + 60 * R.DAY_MS) {
+      throw new HttpError(400, C.tr(req, 'Pick a date within 60 days', '৬০ দিনের মধ্যে তারিখ দিন'));
+    }
+    await ref.update({ closedUntil: until, updatedAt: now });
+    return { ok: true };
+  },
+
+  /** দোকান তালিকা থেকে মুছে ফেলা (বন্ধ করা দোকান নয় — সেটা আপিলের মাধ্যমে) */
+  async pharmacy_delete(req, user) {
+    const ref = db.doc(`pharmacies/${user.uid}`);
+    const s = await ref.get();
+    if (!s.exists) return { ok: true };
+    if (s.get('status') === 'suspended') {
+      throw new HttpError(403, C.tr(req, 'A suspended pharmacy can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা ফার্মেসি সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+    }
+    await ref.delete();
+    await db.doc(`pharmacyStats/${user.uid}`).delete().catch(() => {});
+    return { ok: true };
   },
 
   /** এলাকার ফার্মেসির তালিকা (সরাসরি ফোনের জন্যও) */
@@ -211,7 +247,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
+    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
+    await require('./sanctions').onStatusChange('pharmacy', s.data(), s.get('status'), status);
     const msg = {
       approved: ['Your pharmacy is approved', 'আপনার ফার্মেসি অনুমোদিত হয়েছে'],
       rejected: ['Pharmacy not approved', 'ফার্মেসি অনুমোদন হয়নি'],

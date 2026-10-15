@@ -45,7 +45,7 @@ data class Profile(
 
     /** তালিকায় আসলে যে গ্রুপগুলো দেখানো হবে */
     val effectiveViewGroups: List<String>
-        get() = viewGroups?.filter { it in Rules.BLOOD_GROUPS }?.ifEmpty { null } ?: compatibleGroups
+        get() = viewGroups?.filter { it in Rules.BLOOD_GROUPS }?.ifEmpty { null } ?: compatibleGroups.ifEmpty { Rules.BLOOD_GROUPS }
 
     val hasLocation: Boolean get() = lat != null && lng != null
     val isComplete: Boolean get() = bloodGroup.isNotEmpty() && phone.isNotEmpty() && birthDateMillis != null && weightKg != null

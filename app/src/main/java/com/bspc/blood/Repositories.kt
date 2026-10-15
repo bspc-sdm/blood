@@ -208,37 +208,27 @@ object RequestRepository {
     )
 
     /** রিকোয়েস্ট তৈরি করে। রক্তপ্রার্থীর ফোন আলাদা গোপন ডকুমেন্টে থাকে। */
+    /** নতুন রিকোয়েস্ট সার্ভার দিয়ে তৈরি (সীমা আর যাচাই সার্ভারে) */
     suspend fun create(r: BloodRequest, requesterPhone: String): String {
-        val doc = requests.document()
         val lat = Geo.round(r.lat)
         val lng = Geo.round(r.lng)
-        val data = hashMapOf<String, Any?>(
-            "requesterUid" to r.requesterUid,
-            "requesterName" to r.requesterName.take(80),
-            "patientGroup" to r.patientGroup,
-            "bags" to r.bags,
-            "hospital" to r.hospital.take(120),
-            "placeName" to r.placeName,
-            "lat" to lat,
-            "lng" to lng,
-            "geohash" to Geo.hash(lat, lng),
-            "neededByMillis" to r.neededByMillis,
-            "neededAtMillis" to r.neededAtMillis,
-            "urgent" to r.urgent,
-            "travelFare" to r.travelFare,
-            "note" to r.note.take(300),
-            "status" to "open",
-            "createdAtMillis" to System.currentTimeMillis(),
-            "createdAt" to FieldValue.serverTimestamp(),
-        )
-        val batch = db.batch()
-        batch.set(doc, data)
-        batch.set(
-            doc.collection("private").document("contact"),
-            mapOf("phone" to requesterPhone, "name" to r.requesterName.take(80)),
-        )
-        batch.commit().await()
-        return doc.id
+        val body = org.json.JSONObject()
+            .put("action", "request_create")
+            .put("requesterName", r.requesterName.take(80))
+            .put("requesterPhone", requesterPhone)
+            .put("patientGroup", r.patientGroup)
+            .put("bags", r.bags)
+            .put("hospital", r.hospital.take(120))
+            .put("placeName", r.placeName)
+            .put("lat", lat)
+            .put("lng", lng)
+            .put("geohash", Geo.hash(lat, lng))
+            .put("neededByMillis", r.neededByMillis)
+            .put("urgent", r.urgent)
+            .put("travelFare", r.travelFare)
+            .put("note", r.note.take(300))
+            .apply { r.neededAtMillis?.let { put("neededAtMillis", it) } }
+        return ServerApi.post("/api/community", body).getString("id")
     }
 
     suspend fun get(id: String): BloodRequest? {
@@ -273,8 +263,7 @@ object RequestRepository {
             .get().await()
             .documents.map(::fromSnap)
 
-        // তারিখ পার হয়ে যাওয়া রিকোয়েস্ট বন্ধ করে দেওয়া, যাতে পরের বার আর পড়তে না হয়
-        all.filter { !it.isActive }.forEach { requests.document(it.id).update("status", "closed") }
+        // তারিখ পার হয়ে যাওয়া রিকোয়েস্ট এখানে বন্ধ করা হয় না — রাতের কাজ বন্ধ করে রাজি ডোনারদের জানায়
 
         val candidates = all
             .filter {

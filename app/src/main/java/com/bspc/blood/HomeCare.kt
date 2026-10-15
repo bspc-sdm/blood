@@ -92,7 +92,8 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
         loading = true
         errorMsg = null
         runCatching {
-            if (nearMe) HomeCare.list(type, profile.lat, profile.lng, null, null, service, female)
+            // নিজের জেলাও পাঠানো: যাঁরা লোকেশন না দিয়ে উপজেলা বেছেছেন তাঁরাও যেন আসেন
+            if (nearMe) HomeCare.list(type, profile.lat, profile.lng, profile.placeName?.takeIf { it.isNotBlank() }, null, service, female)
             else HomeCare.list(type, null, null, district, upazilaId, service, female)
         }
             .onSuccess { list = it }

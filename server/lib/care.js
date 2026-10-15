@@ -184,6 +184,11 @@ function homeMatch(p, place) {
     const km = gps ? R.distanceKm(place.lat, place.lng, p.lat, p.lng) : null;
     if (km != null && km <= (h.radiusKm || 5)) return { km };
     if (place.upazilaId && ups.includes(place.upazilaId)) return { km };
+    // লোকেশন ছাড়া শুধু উপজেলা বেছে রাখা মানুষ: রোগীর জেলার কোনো উপজেলা থাকলে দেখানো (দূরত্ব অজানা, পরে সাজানো)
+    if (!gps && place.district && ups.length) {
+      const { UPAZILA } = require('./hospital-match');
+      if (ups.some((id) => UPAZILA.get(id)?.district === place.district)) return { km: null };
+    }
     return null;
   }
   if (place.upazilaId) {
@@ -269,7 +274,52 @@ function medOrderExpired(o, now = Date.now()) {
   return o.status === 'open' && now - (o.openedAt || o.createdAt || 0) > MED_OPEN_MS;
 }
 
+/**
+ * নামের ছোট বানান-ঠিক কি না: শেষ অনুমোদিত নামের সাথে সর্বোচ্চ ২টা অক্ষরের তফাত (বাংলায় ৪টা চিহ্ন) (বড়-ছোট হাত, ফাঁকা জায়গা বাদে)।
+ * তাহলে অনুমোদিত তালিকা আবার যাচাইয়ে যায় না। base না থাকলে (কখনো অনুমোদন হয়নি) false।
+ */
+/** গাড়ি/লাইসেন্স নম্বর: বাংলা অঙ্ক → ইংরেজি, বড় হাতের, শুধু অক্ষর আর অঙ্ক (লেখার ধরন বদলে নিষেধাজ্ঞা এড়ানো যায় না) */
+function normId(v) {
+  return String(v || '')
+    .replace(/[০-৯]/g, (c) => String('০১২৩৪৫৬৭৮৯'.indexOf(c)))
+    .toUpperCase()
+    .replace(/[^0-9A-Z\u0980-\u09FF]/g, '');
+}
+
+function smallNameEdit(base, next) {
+  if (!base || !next) return false;
+  const norm = (v) => String(v).toLowerCase().replace(/\s+/g, ' ').trim();
+  const a = norm(base);
+  const b = norm(next);
+  if (a === b) return true;
+  // বাংলায় একটা বানান-ঠিকে কয়েকটা চিহ্ন বদলায় (অ্যা → এ = ৪টা), তাই সেখানে ৪ পর্যন্ত
+  const max = /[\u0980-\u09FF]/.test(a + b) ? 4 : 2;
+  if (Math.abs(a.length - b.length) > max) return false;
+  // লেভেনশটাইন দূরত্ব (ছোট লেখা, তাই সরল হিসাব)
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+
+/** অনুমোদিত তালিকার বদল: আবার যাচাই লাগবে কি না, আর কোন নাম "শেষ অনুমোদিত" হিসেবে রাখা হবে */
+function reviewNeeded(s, data, keys) {
+  const status = s.get('status');
+  const base = s.get('approvedName') || (status === 'approved' ? s.get('name') : null);
+  const nameChanged = (s.get('name') || '') !== data.name && !smallNameEdit(base, data.name);
+  const other = keys.some((k) => (k === 'phone' ? fixPhone(s.get(k)) : s.get(k) || '') !== data[k]);
+  return { changed: nameChanged || other || status === 'rejected', approvedName: base };
+}
+
 module.exports = {
+  normId,
+  smallNameEdit,
+  reviewNeeded,
   MED_NOTIFY,
   MED_FORWARD_MS,
   MED_RADIUS_KM,

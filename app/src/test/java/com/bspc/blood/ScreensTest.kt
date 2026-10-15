@@ -308,6 +308,20 @@ class ScreensTest {
         shot("pill_tabs_autoscroll_bn")
     }
 
+    /** ২.৮: "জানি না" রক্তের গ্রুপ, বাদ দেওয়া ডোনার ফিরিয়ে আনা */
+    @Test
+    fun gapFixesBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                BloodGroupChips(selected = Rules.UNKNOWN_GROUP, onSelect = {}, allowUnknown = true)
+                RemovedNotice("Karim Uddin", busy = false, onUndo = {}, onDismiss = {})
+                BloodGroupBadge(Rules.UNKNOWN_GROUP, 44.dp)
+            }
+        }
+        shot("gap_fixes_bn")
+    }
+
     /** উপরের বার: লোগো, ঘণ্টা, ছবি+☰ মেনু (ছবি ছাড়া ও ছবিসহ) */
     @Test
     fun topBarMenuAvatar() {

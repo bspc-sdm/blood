@@ -43,6 +43,16 @@ function cursor(req) {
   return Number.isInteger(b) && b > 0 ? b : null;
 }
 
+/**
+ * লেখকদের এখনকার ব্যাজ: ব্যাজ বাতিল হলে পুরোনো উত্তর/টিপসে আর "ডাক্তার" দেখায় না,
+ * আর যাচাই করা নাম (ব্যাজের নাম) দেখায় — পরে প্রোফাইলের নাম বদলে অন্য কেউ সাজা যায় না।
+ */
+async function liveBadges(uids) {
+  const ids = [...new Set(uids.filter((u) => R.isValidId(u)))];
+  const snaps = ids.length ? await db.getAll(...ids.map((u) => db.doc(`badges/${u}`))) : [];
+  return new Map(snaps.filter((b) => b.exists && b.get('status') === 'approved').map((b) => [b.id, { type: b.get('type'), name: b.get('name') || '' }]));
+}
+
 const actions = {
   /** নিজের ব্যাজ আর অ্যাডমিন কি না */
   async me(req, user) {
@@ -86,6 +96,7 @@ const actions = {
     const [qs, as] = await Promise.all([ref.get(), ref.collection('answers').orderBy('createdAt').limit(200).get()]);
     if (!qs.exists) throw new HttpError(404, C.tr(req, 'Question not found', 'প্রশ্নটা পাওয়া যায়নি'));
     const x = qs.data();
+    const live = await liveBadges(as.docs.map((d) => d.get('uid')));
     return {
       question: {
         id: qs.id,
@@ -99,8 +110,8 @@ const actions = {
       answers: as.docs.map((d) => ({
         id: d.id,
         text: d.get('text'),
-        authorName: d.get('authorName'),
-        badge: d.get('badge'),
+        authorName: live.get(d.get('uid'))?.name || d.get('authorName'),
+        badge: live.get(d.get('uid'))?.type || null,
         mine: d.get('uid') === user.uid,
         createdAt: d.get('createdAt'),
         editedAt: d.get('editedAt') || 0,
@@ -191,6 +202,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    // ব্যাজ চলে গেলে পুরোনো উত্তর বদলে নতুন কথা লেখা যায় না (মুছতে পারবেন)
+    if (!(await approvedBadge(user.uid))) throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
     if (s.get('text') === text) return { ok: true };
     await ref.update({ text, editedAt: Date.now() });
     return { ok: true };
@@ -227,13 +240,14 @@ const actions = {
     const before = cursor(req);
     if (before) q = q.where('createdAt', '<', before);
     const snap = await q.get();
+    const live = await liveBadges(snap.docs.map((d) => d.get('uid')));
     return {
       items: snap.docs.map((d) => ({
         id: d.id,
         title: d.get('title'),
         body: d.get('body'),
-        authorName: d.get('authorName'),
-        badge: d.get('badge'),
+        authorName: live.get(d.get('uid'))?.name || d.get('authorName'),
+        badge: live.get(d.get('uid'))?.type || null,
         mine: d.get('uid') === user.uid,
         createdAt: d.get('createdAt'),
         editedAt: d.get('editedAt') || 0,
@@ -273,6 +287,7 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (!(await approvedBadge(user.uid))) throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
     await ref.update({ title, body, editedAt: Date.now() });
     return { ok: true };
   },
@@ -340,9 +355,21 @@ const actions = {
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`badges/${uid}`);
     if (!(await ref.get()).exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
+    const pRef = db.doc(`providers/${uid}`);
     if (req.body?.approve !== true) {
-      // ব্যাজ বাতিল হলে ডাক্তার/নার্সের তালিকা থেকেও সরে যায় (নতুন আর পুরোনো দুই ধরনের অ্যাপেই)
-      await db.doc(`providers/${uid}`).set({ active: false, listed: false }, { merge: true }).catch(() => {});
+      // ব্যাজ বাতিল হলে ডাক্তার/নার্সের তালিকা থেকেও সরে যায় (নতুন আর পুরোনো দুই ধরনের অ্যাপেই),
+      // সামনের অ্যাপয়েন্টমেন্ট বাতিল হয়ে রোগীরা জানেন
+      const p = await pRef.get();
+      if (p.exists) {
+        await pRef.set({ active: false, listed: false, badgeRejected: true }, { merge: true });
+        await require('../lib/apptcancel').cancelStale(uid, () => false, ['The doctor/nurse is no longer listed', 'ডাক্তার/নার্স এখন তালিকায় নেই']);
+      }
+    } else {
+      // আগে বাতিল হয়ে তালিকা থেকে সরে থাকলে আবার অনুমোদনে ফিরে আসেন
+      const p = await pRef.get();
+      if (p.exists && p.get('badgeRejected') === true) {
+        await pRef.update({ listed: true, active: p.get('appointments') === true, badgeRejected: FieldValue.delete() });
+      }
     }
     await ref.update({
       status: req.body?.approve === true ? 'approved' : 'rejected',
@@ -382,7 +409,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

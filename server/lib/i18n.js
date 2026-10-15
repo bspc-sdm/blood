@@ -18,6 +18,10 @@ const EXACT = {
   'রিকোয়েস্টটা বন্ধ হয়ে গেছে': 'This request is closed',
   'নিজের রিকোয়েস্টে সাড়া দেওয়া যায় না': 'You can\'t respond to your own request',
   'আগে প্রোফাইল পূরণ করুন': 'Complete your profile first',
+  'রক্ত দিতে আগে প্রোফাইলে আপনার রক্তের গ্রুপ দিন': 'Add your blood group in your profile to donate',
+  'এলাকা ঠিক নেই': 'Invalid area',
+  'লোকেশন ঠিক নেই': 'Invalid location',
+  'রক্তের গ্রুপ ঠিক নেই': 'Invalid blood group',
   'আপনি এখন রক্ত দেওয়ার যোগ্য নন (বয়স ১৮–৬০, ওজন কমপক্ষে ৫০ কেজি, আর শেষ রক্তদানের পর ১২০ দিন লাগে)':
     'You are not eligible right now (age 18–60, weight 50 kg+, and 120 days since your last donation)',
   'রক্তপ্রার্থী অন্য ডোনার বেছে নিয়েছেন': 'The requester chose another donor',

@@ -110,7 +110,7 @@ module.exports = {
     const oldClient = b.homeVisit === undefined;
     const docs = [...all.values()].filter((d) => {
       const x = d.data();
-      if (!K.isListed(x) || !K.matchesFilter(x, f)) return false;
+      if (x.adminSuspended === true || !K.isListed(x) || !K.matchesFilter(x, f)) return false;
       if (oldClient && !(K.takesAppointments(x) && K.chambersOf(x).some((c) => c.appointments))) return false;
       if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled && x.homeVisitBlocked !== true)) return false;
       // শুধু বাসায় সেবা দেন (চেম্বার নেই) — চেম্বারের তালিকায় নয়, "বাসায় সেবা"-তে দেখান
@@ -167,6 +167,10 @@ module.exports = {
       throw err(['Please accept the home care terms', 'বাসায় সেবার শর্তে সম্মতি দিন']);
     }
     if (homeVisit.enabled) {
+      // আগের অ্যাকাউন্টে (একই ইমেইল) রিপোর্টের পর বাসায় সেবা বন্ধ হয়ে থাকলে
+      if ((await require('./sanctions').forEmail(user.email)).homeCare === true) {
+        throw err(['Home care was turned off for this email after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর এই ইমেইলে বাসায় সেবা বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
+      }
       await require('./phone').requireVerified(req, user.uid);
       const u = await db.doc(`users/${user.uid}`).get();
       if (!(typeof u.get('lat') === 'number' && u.get('locationSource') === 'gps') && !homeVisit.upazilaIds.length) {
@@ -175,11 +179,16 @@ module.exports = {
     }
     const listed = b.listed !== false;
     const takes = b.appointments === true;
-    const name = (await userName(user.uid)).slice(0, 80);
+    // যাচাই করা নাম (ব্যাজের) — প্রোফাইলের নাম পরে বদলালেও তালিকায় যাচাই করা নামই থাকে
+    const bs = await db.doc(`badges/${user.uid}`).get();
+    const name = ((bs.exists && bs.get('name')) || (await userName(user.uid))).slice(0, 80);
     const ref = db.doc(`providers/${user.uid}`);
     // অ্যাডমিন একই সময়ে বন্ধ করলেও যেন আবার চালু হয়ে না যায়: পড়া আর লেখা একই লেনদেনে
     await db.runTransaction(async (t) => {
       const cur = await t.get(ref);
+      if (cur.exists && cur.get('adminSuspended') === true) {
+        throw new HttpError(403, C.tr(req, 'Your listing is turned off by the Lifolo team. You can appeal from Profile → Help & appeals.', 'Lifolo টিম আপনার তালিকা বন্ধ রেখেছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+      }
       if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
         throw err(['Home care is turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার বাসায় সেবা বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
       }
@@ -198,7 +207,14 @@ module.exports = {
         updatedAt: Date.now(),
       }, { merge: true });
     });
-    return { ok: true };
+    // চেম্বার মোছা/বার বদল/তালিকা বা অ্যাপয়েন্টমেন্ট বন্ধ হলে: সামনের যেগুলো আর টেকে না সেগুলো বাতিল করে রোগীদের জানানো
+    const { cancelStale, stillValid } = require('./apptcancel');
+    const cancelled = await cancelStale(
+      user.uid,
+      (a) => listed && takes && stillValid(a, parsed.chambers),
+      ['The doctor changed the chamber or days', 'ডাক্তার চেম্বার বা বার বদলেছেন'],
+    );
+    return { ok: true, cancelled };
   },
 
   /** রোগীর অনুরোধ */

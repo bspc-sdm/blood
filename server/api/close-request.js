@@ -2,6 +2,7 @@
 // শুধু একবারই কাজ করে, আর শুধু "রাজি" থাকা ডোনারদের — যাতে কেউ বারবার ডেকে কাউকে আটকে রাখতে না পারে।
 const { db, HttpError, verifyUser, handler } = require('../lib/firebase');
 const R = require('../lib/rules');
+const { notifyEnded, pushUsers } = require('../lib/requestend');
 
 module.exports = handler(async (req) => {
   const uid = await verifyUser(req);
@@ -34,19 +35,30 @@ module.exports = handler(async (req) => {
     } else {
       t.update(requestRef, { status: 'closed', closedAt: Date.now(), ...(got != null ? { bagsReceived: got } : {}) });
     }
-    let marked = 0;
+    const markedIds = [];
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন
       if (!snap.exists || snap.get('status') !== 'accepted') return;
       t.update(snap.ref, { status: 'donated' });
-      marked++;
+      markedIds.push(snap.id);
       const last = users[i].exists ? users[i].get('lastDonationMillis') : null;
       if (users[i].exists && (last == null || last < today)) {
         t.update(userRefs[i], { lastDonationMillis: today });
       }
     });
-    return { marked, closed: !partial };
+    return { marked: markedIds.length, markedIds, closed: !partial, r: reqSnap.data() };
   });
 
-  return { ok: true, ...result };
+  // বন্ধ হলে: যাঁরা এখনো "রাজি" (রক্ত দেওয়া হিসেবে চিহ্নিত না), তাঁদের জানানো যে আর আসতে হবে না;
+  // আর যাঁদের রক্তদান লেখা হলো তাঁদের ধন্যবাদ
+  if (result.closed && result.r) {
+    await notifyEnded(requestId, result.r, 'closed');
+    await pushUsers(result.markedIds, (u, lang) => ({
+      title: R.L(lang, 'Thank you for donating!', 'রক্ত দেওয়ার জন্য ধন্যবাদ!'),
+      body: R.L(lang, 'The requester marked your donation. You can donate again after 120 days.', 'রক্তপ্রার্থী আপনার রক্তদান লিখে রেখেছেন। ১২০ দিন পর আবার রক্ত দিতে পারবেন।'),
+      data: { requestId, type: 'request' },
+    }));
+  }
+  const { r, markedIds, ...rest } = result;
+  return { ok: true, ...rest };
 });

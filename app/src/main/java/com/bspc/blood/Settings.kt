@@ -125,13 +125,19 @@ fun SettingsScreen(
                     ChipRows(Rules.PUSH_PER_DAY_CHOICES.map { it.toString() }, setOf(profile.maxPushPerDay.toString()), perRow = 5, label = { num(it) }) {
                         save(profile.copy(maxPushPerDay = it.toInt()))
                     }
-                    Text(tr("For patient blood groups", "রোগীর যে গ্রুপগুলোর জন্য"), style = MaterialTheme.typography.labelLarge)
+                    if (compatible.isEmpty()) {
+                        Text(
+                            tr("Add your blood group in your profile to get donation requests.", "রক্তদানের নোটিফিকেশন পেতে প্রোফাইলে রক্তের গ্রুপ দিন।"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else Text(tr("For patient blood groups", "রোগীর যে গ্রুপগুলোর জন্য"), style = MaterialTheme.typography.labelLarge)
                     val selected = profile.effectiveNotifyGroups.toSet()
                     ChipRows(compatible, selected) { g ->
                         val next = if (g in selected) selected - g else selected + g
                         if (next.isNotEmpty()) save(profile.copy(notifyGroups = normalize(next, compatible)))
                     }
-                    Text(
+                    if (compatible.isNotEmpty()) Text(
                         tr(
                             "Only groups you (${profile.bloodGroup}) can donate to.",
                             "শুধু যাদের আপনি (${profile.bloodGroup}) রক্ত দিতে পারেন।",

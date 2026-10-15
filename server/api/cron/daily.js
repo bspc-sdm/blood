@@ -19,6 +19,13 @@ module.exports = handler(
       expired.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'closed' }));
       await batch.commit();
     }
+    // সময় শেষ হওয়া রিকোয়েস্টে যাঁরা রাজি ছিলেন তাঁদের জানানো (যাতে কেউ শুধু শুধু না যান, আর রক্ত দিলে জানান)
+    try {
+      const { notifyEnded } = require('../../lib/requestend');
+      for (const d of expired.slice(0, 200)) await notifyEnded(d.id, d.data(), 'expired');
+    } catch (e) {
+      console.error('expiry notify failed', e);
+    }
 
     // ২) আবার যোগ্য হওয়া ডোনার: শেষ রক্তদান ঠিক ১২০ দিন আগের ২৪ ঘণ্টার মধ্যে
     const windowEnd = now - R.ELIGIBILITY_DAYS * R.DAY_MS;

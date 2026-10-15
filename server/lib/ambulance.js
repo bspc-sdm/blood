@@ -11,6 +11,15 @@ const { useQuota } = require('./community-db');
 const TYPES = ['general', 'ac', 'icu', 'freezer'];
 const MAX_PER_OWNER = 10;
 const RATE_WINDOW_MS = 7 * 24 * 3600 * 1000;
+// "এখন খালি আছি" কতক্ষণ থাকে: চালক ভুলে গেলে বা কাজ ছেড়ে দিলে যেন তাঁর নম্বর সবার উপরে না থাকে
+const AVAILABLE_MS = 12 * 3600 * 1000;
+
+/** খালি কি না — শেষবার জানানোর ১২ ঘণ্টা পর নিজে থেকে "জানা নেই" */
+function availableNow(x, now = Date.now()) {
+  if (x.available === false) return false;
+  const at = x.availableAt || x.updatedAt || x.createdAt || 0;
+  return now - at <= AVAILABLE_MS;
+}
 
 function view(d, mine = false) {
   const x = d.data();
@@ -24,7 +33,8 @@ function view(d, mine = false) {
     upazilaId: x.upazilaId || null,
     area: x.area || '',
     fare: x.fare || '',
-    available: x.available !== false,
+    available: availableNow(x),
+    availableAt: x.available === false ? 0 : x.availableAt || x.updatedAt || x.createdAt || 0,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
     ...(mine ? { vehicleNo: x.vehicleNo, status: x.status } : {}),
@@ -90,17 +100,20 @@ const actions = {
       const s = await ref.get();
       if (!s.exists || s.get('ownerUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'This ambulance is suspended. You can appeal from Profile → Help & appeals.', 'এই অ্যাম্বুলেন্স বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
-      const changed = ['name', 'phone', 'vehicleNo'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
-      await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
+      await require('./sanctions').checkListing(req, 'ambulance', data, user.email, false);
+      // নামের ছোট বানান-ঠিক হলে আবার যাচাই নয় (তালিকা থেকে সরে না); ফোন/গাড়ির নম্বর বা বড় বদলে যাচাই
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'vehicleNo']);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     // রিপোর্টের পর বন্ধ হওয়া গাড়ি মুছে আবার যোগ করা যায় না
     const sameVehicle = await db.collection('ambulances').where('vehicleNo', '==', vehicleNo).where('status', '==', 'suspended').limit(1).get();
     if (!sameVehicle.empty) throw new HttpError(403, C.tr(req, 'This vehicle is suspended. You can appeal from Profile → Help & appeals.', 'এই গাড়ি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+    await require('./sanctions').checkListing(req, 'ambulance', data, user.email, true);
     const mine = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw err('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স');
     await useQuota(req, user.uid, 'ambulance');
-    await db.collection('ambulances').add({ ...data, ownerUid: user.uid, status: 'pending', available: true, createdAt: Date.now() });
+    await db.collection('ambulances').add({ ...data, ownerUid: user.uid, status: 'pending', available: false, createdAt: Date.now() });
     return { ok: true, pending: true };
   },
 
@@ -110,7 +123,7 @@ const actions = {
     const ref = db.doc(`ambulances/${id}`);
     const s = await ref.get();
     if (!s.exists || s.get('ownerUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    await ref.update({ available: available === true, updatedAt: Date.now() });
+    await ref.update({ available: available === true, availableAt: Date.now(), updatedAt: Date.now() });
     return { ok: true };
   },
 
@@ -188,7 +201,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
+    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
+    await require('./sanctions').onStatusChange('ambulance', s.data(), s.get('status'), status);
     try {
       const u = await db.doc(`users/${s.get('ownerUid')}`).get();
       const lang = u.get('lang');

@@ -23,6 +23,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -157,6 +158,7 @@ fun DonorRow(
     onRemove: () -> Unit,
 ) {
     val context = LocalContext.current
+    var askRemove by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BloodGroupBadge(d.donorGroup, 36.dp)
@@ -185,8 +187,47 @@ fun DonorRow(
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে
             Row(Modifier.padding(start = 46.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!d.confirmed) SmallAction(tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle, onConfirm, busy = busy)
-                SmallAction(tr("Remove", "বাদ দিন"), R.drawable.ic_close, onRemove, enabled = !busy)
+                SmallAction(tr("Remove", "বাদ দিন"), R.drawable.ic_close, { askRemove = true }, enabled = !busy)
             }
+        }
+    }
+    // ভুল চাপে ডোনার যেন হারিয়ে না যায়: আগে জিজ্ঞেস
+    if (askRemove) {
+        AlertDialog(
+            onDismissRequest = { askRemove = false },
+            title = { Text(tr("Remove ${d.donorName}?", "${d.donorName}-কে বাদ দেবেন?")) },
+            text = {
+                Text(
+                    tr(
+                        "They'll be told they don't need to come. If it's a mistake, you can bring them back within 30 minutes.",
+                        "তাঁকে জানানো হবে যে আর আসতে হবে না। ভুল হলে ৩০ মিনিটের মধ্যে ফিরিয়ে আনতে পারবেন।",
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { askRemove = false; onRemove() }) {
+                    Text(tr("Remove", "বাদ দিন"), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { askRemove = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
+    }
+}
+
+/** এইমাত্র বাদ দেওয়া ডোনার — ভুল হলে ফিরিয়ে আনা (৩০ মিনিট পর্যন্ত) */
+@Composable
+fun RemovedNotice(name: String, busy: Boolean, onUndo: () -> Unit, onDismiss: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                tr("$name was removed", "$name-কে বাদ দেওয়া হয়েছে"),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            SmallAction(tr("Undo", "ফিরিয়ে আনুন"), R.drawable.ic_refresh, onUndo, busy = busy)
+            IconButton(onClick = onDismiss) { AppIcon(R.drawable.ic_close, tr("Close", "বন্ধ"), Modifier.size(18.dp)) }
         }
     }
 }
@@ -256,6 +297,7 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
         }.onSuccess { items = it }
     }
 
+    var removed by remember { mutableStateOf<Pair<String, DonorResponse>?>(null) }
     fun act(id: String, block: suspend () -> Unit) {
         scope.launch {
             busyId = id
@@ -281,6 +323,11 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                 Text(tr("My Request", "আমার রিকোয়েস্ট"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             ErrorText(errorMsg)
+            removed?.let { (rid, d) ->
+                RemovedNotice(d.donorName, busyId == rid, onUndo = {
+                    act(rid) { ServerApi.updateResponse(rid, "restore", d.donorUid); removed = null }
+                }, onDismiss = { removed = null })
+            }
             items.forEach { (r, responses) ->
                 MyRequestCard(
                     r,
@@ -288,7 +335,7 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                     busyId,
                     onNotify = { act(r.id) { ServerApi.notifyRequest(r.id) } },
                     onConfirm = { d -> act(r.id) { ServerApi.confirmDonor(r.id, d.donorUid) } },
-                    onRemove = { d -> act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
+                    onRemove = { d -> act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = r.id to d } },
                     onOpen = { onOpen(r.id) },
                     onClose = { closing = r to responses },
                 )

@@ -33,6 +33,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,6 +73,8 @@ data class Pharmacy(
     val licenseNo: String = "",
     val status: String = "",
     val hasLocation: Boolean = false,
+    /** মালিক সাময়িক বন্ধ রাখলে কবে পর্যন্ত (০ = খোলা নিয়মমতো) */
+    val closedUntil: Long = 0,
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -86,8 +90,17 @@ object Pharmacies {
         o.str("openAt"), o.str("closeAt"), o.optBoolean("open24"), o.optBoolean("openNow", true), o.optBoolean("delivery"),
         o.str("deliveryNote"), o.optInt("discount"), o.optDouble("rating", 0.0), o.optInt("ratingCount"),
         if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
-        o.str("licenseNo"), o.str("status"), o.optBoolean("hasLocation"),
+        o.str("licenseNo"), o.str("status"), o.optBoolean("hasLocation"), o.optLong("closedUntil"),
     )
+
+    /** until = null হলে আবার খোলা */
+    suspend fun pause(until: Long?) {
+        call("pharmacy_pause", JSONObject().put("until", until ?: JSONObject.NULL))
+    }
+
+    suspend fun delete() {
+        call("pharmacy_delete")
+    }
 
     suspend fun mine(): Pharmacy? = call("pharmacy_me").optJSONObject("pharmacy")?.let(::pharmacy)
 
@@ -173,6 +186,18 @@ private fun MyPharmacyPanel(profile: Profile) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var stats by remember { mutableStateOf<JSONObject?>(null) }
+    var pausing by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    fun act(done: String? = null, block: suspend () -> Unit) {
+        scope.launch {
+            busy = true
+            errorMsg = null
+            runCatching { block() }.onSuccess { infoMsg = done; reload++ }.onFailure { errorMsg = it.message }
+            busy = false
+        }
+    }
     LaunchedEffect(reload) {
         runCatching { Pharmacies.mine() }.onSuccess { shop = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
@@ -191,6 +216,40 @@ private fun MyPharmacyPanel(profile: Profile) {
             },
         )
         return
+    }
+    if (pausing) {
+        AlertDialog(
+            onDismissRequest = { pausing = false },
+            title = { Text(tr("Closed for how long?", "কত দিন বন্ধ থাকবে?")) },
+            text = {
+                Column {
+                    listOf(1, 3, 7, 15, 30).forEach { d ->
+                        TextButton(onClick = {
+                            pausing = false
+                            // বাংলাদেশ সময়ে শেষ দিনের রাত পর্যন্ত
+                            val until = Rules.todayUtcMidnight() + (d + 1) * DAY_MS - Rules.DHAKA_OFFSET_MS
+                            act(tr("People will see it as closed until then", "ততদিন তালিকায় \"বন্ধ\" দেখাবে")) { Pharmacies.pause(until) }
+                        }) { Text(tr("$d day(s)", "${num(d)} দিন")) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { pausing = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(tr("Remove your pharmacy?", "ফার্মেসি মুছে ফেলবেন?")) },
+            text = { Text(tr("It will disappear from the list. You can add it again later (it will need approval again).", "তালিকা থেকে সরে যাবে। পরে আবার যোগ করা যাবে (আবার অনুমোদন লাগবে)।")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    act(tr("Removed", "মুছে ফেলা হয়েছে")) { Pharmacies.delete() }
+                }) { Text(tr("Remove", "মুছে ফেলুন"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
     }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -224,6 +283,18 @@ private fun MyPharmacyPanel(profile: Profile) {
                         IconLine(R.drawable.ic_call, num(s.phone))
                         if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
                         OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
+                        // ঈদ/সংস্কারে কয়েক দিন বন্ধ: তালিকায় "বন্ধ" দেখাবে, তারিখ পার হলে নিজে খুলবে
+                        if (s.status != "suspended") {
+                            if (s.closedUntil > 0) {
+                                IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(s.closedUntil) + tr("", " পর্যন্ত"))
+                                SmallAction(tr("Open again", "আবার খুলুন"), R.drawable.ic_storefront, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, busy = busy)
+                            } else {
+                                SmallAction(tr("Closed for some days", "কয়েক দিন বন্ধ থাকবে"), R.drawable.ic_schedule, { pausing = true }, enabled = !busy)
+                            }
+                            TextButton(onClick = { confirmDelete = true }, enabled = !busy) {
+                                Text(tr("Remove my pharmacy", "ফার্মেসি মুছে ফেলুন"), color = MaterialTheme.colorScheme.error)
+                            }
+                        }
                         if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
                     }
                 }
@@ -300,7 +371,8 @@ private fun NearbyPharmacies(profile: Profile) {
                             else Tag(tr("Closed", "বন্ধ"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconLine(R.drawable.ic_location_on, p.address + (p.km?.let { " · " + Rules.formatKm(it) } ?: ""))
-                        if (p.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, p.hoursText)
+                        if (p.closedUntil > 0) IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত"))
+                        else if (p.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, p.hoursText)
                         if (p.discount > 0) IconLine(R.drawable.ic_info, tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়"))
                         if (p.delivery) IconLine(R.drawable.ic_local_shipping, tr("Home delivery", "বাসায় ডেলিভারি") + if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "")
                         RatingLine(p.rating, p.ratingCount)
