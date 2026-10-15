@@ -136,7 +136,7 @@ const actions = {
     };
     if (s.exists) {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy was suspended after reports. Contact us.', 'রিপোর্টের পর আপনার ফার্মেসি বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
-      const changed = ['name', 'licenseNo'].some((k) => s.get(k) !== data[k]);
+      const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => s.get(k) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
@@ -178,11 +178,11 @@ const actions = {
     const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
     const lat = typeof b.lat === 'number' ? b.lat : null;
     const lng = typeof b.lng === 'number' ? b.lng : null;
-    if (lat == null && !upazilaId) throw err('Use your current location or choose the upazila', 'বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন');
+    if (lat == null && !upazilaId && !b.pharmacyId) throw err('Use your current location or choose the upazila', 'বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন');
     if (b.termsAccepted !== true) throw err('Please accept the terms', 'শর্তে সম্মতি দিন');
 
     const [me, state] = await Promise.all([db.doc(`users/${user.uid}`).get(), db.doc(`serverState/${user.uid}`).get()]);
-    if (state.exists && (state.get('medNoShow') || 0) >= NO_SHOW_LIMIT) {
+    if (state.exists && (state.get('medNoShow') || 0) >= NO_SHOW_LIMIT && Date.now() - (state.get('medNoShowAt') || 0) < 90 * 24 * 3600 * 1000) {
       throw err('Ordering is turned off for your account because orders were not received several times. Contact us.', 'কয়েকবার অর্ডার না নেওয়ায় আপনার অর্ডার দেওয়া বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।', 403);
     }
     if (!me.exists || !me.get('phone')) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
@@ -223,6 +223,9 @@ const actions = {
       openFor: ids,
       replies: {},
       chosen: null,
+      // চলমান অর্ডার আলাদা করে খোঁজার জন্য (শেষ/বাতিল হলে মুছে যায়), যাতে পুরোনো অর্ডার জমে নতুনটা না হারায়
+      livePatient: user.uid,
+      liveShop: null,
       status: 'open',
       remindDays: 0,
       createdAt: now,
@@ -246,12 +249,27 @@ const actions = {
   /** রোগী হিসেবে নিজের অর্ডার, আর দোকান হিসেবে নতুন অনুরোধ ও নিজের নেওয়া অর্ডার */
   async med_orders(req, user) {
     const now = Date.now();
-    const [mine, offered, taken, shop] = await Promise.all([
-      db.collection('medOrders').where('patientUid', '==', user.uid).limit(40).get(),
+    const [mineHist, mineLive, offeredSnap, takenHist, takenLive, shop] = await Promise.all([
+      db.collection('medOrders').where('patientUid', '==', user.uid).limit(20).get(),
+      db.collection('medOrders').where('livePatient', '==', user.uid).limit(20).get(),
       db.collection('medOrders').where('openFor', 'array-contains', user.uid).limit(60).get(),
-      db.collection('medOrders').where('chosen', '==', user.uid).limit(60).get(),
+      db.collection('medOrders').where('chosen', '==', user.uid).limit(20).get(),
+      db.collection('medOrders').where('liveShop', '==', user.uid).limit(60).get(),
       db.doc(`pharmacies/${user.uid}`).get(),
     ]);
+    const merge = (...lists) => [...new Map(lists.flat().map((d) => [d.id, d])).values()];
+    // মেয়াদ পেরোনো খোলা অর্ডার বন্ধ করা (লেনদেনে আবার দেখে), যাতে দোকানের তালিকায় জমে না থাকে
+    const stale = merge(offeredSnap.docs, mineLive.docs).filter((d) => K.medOrderExpired(d.data(), now));
+    await Promise.all(stale.map((d) => db.runTransaction(async (t) => {
+      const s = await t.get(d.ref);
+      if (s.exists && K.medOrderExpired(s.data(), Date.now())) {
+        t.update(d.ref, { status: 'expired', openFor: [], livePatient: null });
+      }
+    }).catch((e) => console.error('med expire failed', e))));
+    const staleIds = new Set(stale.map((d) => d.id));
+    const mine = { docs: merge(mineHist.docs, mineLive.docs) };
+    const offered = { docs: offeredSnap.docs.filter((d) => !staleIds.has(d.id)) };
+    const taken = { docs: merge(takenHist.docs, takenLive.docs) };
     // ফোন: বেছে নেওয়ার পর দুজনের
     const need = new Set();
     mine.docs.forEach((d) => d.get('chosen') && need.add(d.get('chosen')));
@@ -310,7 +328,8 @@ const actions = {
     const [o, p] = await Promise.all([db.doc(`medOrders/${id}`).get(), db.doc(`medOrderPhotos/${id}`).get()]);
     if (!o.exists || !p.exists) throw new HttpError(404, C.tr(req, 'The photo is no longer available', 'ছবিটা আর নেই'));
     const x = o.data();
-    const ok = x.patientUid === user.uid || x.chosen === user.uid || (x.status === 'open' && (x.openFor || []).includes(user.uid));
+    const ok = x.patientUid === user.uid || x.chosen === user.uid ||
+      (x.status === 'open' && !K.medOrderExpired(x) && (x.openFor || []).includes(user.uid));
     if (!ok) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     return { photo: p.get('data') };
   },
@@ -365,8 +384,10 @@ const actions = {
       if (!s.exists || s.get('patientUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const x = s.data();
       const r = (x.replies || {})[pharmacyId];
-      if (x.status !== 'open' || !r || r.status === 'none') throw new HttpError(409, C.tr(req, 'This can\'t be chosen now', 'এখন এটা বেছে নেওয়া যায় না'));
-      t.update(ref, { status: 'confirmed', chosen: pharmacyId, openFor: [], confirmedAt: Date.now() });
+      if (x.status !== 'open' || K.medOrderExpired(x) || !r || r.status === 'none') {
+        throw new HttpError(409, C.tr(req, 'This can\'t be chosen now', 'এখন এটা বেছে নেওয়া যায় না'));
+      }
+      t.update(ref, { status: 'confirmed', chosen: pharmacyId, liveShop: pharmacyId, openFor: [], confirmedAt: Date.now() });
     });
     const others = Object.keys((await ref.get()).get('replies') || {}).filter((p) => p !== pharmacyId);
     await pushUid(pharmacyId, 'Your quote was accepted — prepare the order', 'আপনার উত্তর বেছে নেওয়া হয়েছে — অর্ডার তৈরি করুন', '', { type: 'pharmacy_order', orderId: id });
@@ -398,22 +419,25 @@ const actions = {
         return { to: x.patientUid, msg: ['Your medicines are on the way', 'আপনার ওষুধ রওনা দিয়েছে'] };
       }
       if ((isShop || isPatient) && op === 'done' && ['confirmed', 'ready', 'on_the_way'].includes(x.status)) {
-        t.update(ref, { status: 'done', doneAt: now, doneBy: isShop ? 'pharmacy' : 'patient' });
+        t.update(ref, { status: 'done', doneAt: now, doneBy: isShop ? 'pharmacy' : 'patient', livePatient: null, liveShop: null });
         return isShop ? { to: x.patientUid, msg: ['Order complete — please rate the pharmacy', 'অর্ডার সম্পন্ন — ফার্মেসিকে রেটিং দিন'] } : {};
       }
-      if (isShop && op === 'no_show' && ['confirmed', 'ready', 'on_the_way'].includes(x.status)) {
-        t.update(ref, { status: 'no_show', doneAt: now });
-        t.set(db.doc(`serverState/${x.patientUid}`), { medNoShow: FieldValue.increment(1) }, { merge: true });
+      if (isShop && op === 'no_show' && ['ready', 'on_the_way'].includes(x.status)) {
+        t.update(ref, { status: 'no_show', doneAt: now, livePatient: null, liveShop: null, remindAt: null, remindDays: 0 });
+        t.set(db.doc(`serverState/${x.patientUid}`), { medNoShow: FieldValue.increment(1), medNoShowAt: now }, { merge: true });
         return { to: x.patientUid, msg: ['The pharmacy marked your order as not received', 'ফার্মেসি জানিয়েছে আপনি অর্ডার নেননি'] };
       }
       if (isPatient && op === 'cancel' && STATUS_ACTIVE.includes(x.status)) {
-        t.update(ref, { status: 'cancelled', cancelledAt: now, openFor: [] });
+        t.update(ref, { status: 'cancelled', cancelledAt: now, openFor: [], livePatient: null, liveShop: null, remindAt: null, remindDays: 0 });
         return x.chosen ? { to: x.chosen, toShop: true, msg: ['The customer cancelled the order', 'গ্রাহক অর্ডার বাতিল করেছেন'] } : {};
       }
       if (isPatient && op === 'rate' && x.status === 'done' && !x.rating && x.chosen) {
         if (rating < 1 || rating > 5) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
+        // দোকান মুছে গেলে আবার তৈরি না হয়: আগে পড়ে, থাকলে তবেই
+        const shopRef = db.doc(`pharmacies/${x.chosen}`);
+        const shopSnap = await t.get(shopRef);
         t.update(ref, { rating, comment: K.str(req.body?.comment, 300) });
-        t.set(db.doc(`pharmacies/${x.chosen}`), { ratingSum: FieldValue.increment(rating), ratingCount: FieldValue.increment(1) }, { merge: true });
+        if (shopSnap.exists) t.update(shopRef, { ratingSum: FieldValue.increment(rating), ratingCount: FieldValue.increment(1) });
         return {};
       }
       if (isPatient && op === 'remind' && x.chosen && ['done', 'confirmed', 'ready', 'on_the_way'].includes(x.status)) {

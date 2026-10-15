@@ -85,7 +85,6 @@ async function addInbox(items) {
         title: String(it.title).slice(0, 200),
         body: String(it.body || '').slice(0, 300),
         data: it.data || {},
-        read: false,
         createdAt: now,
       });
     });

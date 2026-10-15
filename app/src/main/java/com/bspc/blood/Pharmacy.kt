@@ -659,11 +659,15 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
     var replying by remember { mutableStateOf<MedOrder?>(null) }
     var photoOf by remember { mutableStateOf<String?>(null) }
     var busyId by remember { mutableStateOf<String?>(null) }
+    var loadFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(reload) {
         loading = true
-        runCatching { Pharmacies.mine() }.onSuccess { shop = it }.onFailure { errorMsg = it.message }
-        if (shop?.status == "approved") {
+        loadFailed = false
+        // লোড না হলে ফর্ম নয়, ভুলের বার্তা — নইলে আগের দোকান ফাঁকা ফর্মে আবার লেখা হয়ে যেত
+        runCatching { Pharmacies.mine() }.onSuccess { shop = it; errorMsg = null }.onFailure { errorMsg = it.message; loadFailed = true }
+        // বন্ধ থাকলেও চলমান অর্ডার শেষ করা যায়
+        if (shop != null) {
             runCatching { Pharmacies.orders() }.onSuccess { orders = it.asPharmacy }.onFailure { errorMsg = it.message }
         }
         loading = false
@@ -677,7 +681,7 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
         }
     }
 
-    if (editing || (!loading && shop == null)) {
+    if (editing || (!loading && !loadFailed && shop == null)) {
         ShopEditScreen(
             existing = shop,
             profile = profile,
