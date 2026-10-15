@@ -18,9 +18,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -52,10 +61,28 @@ fun PillTabs(
     secondary: Boolean = false,
 ) {
     val cs = MaterialTheme.colorScheme
+    // বেছে নেওয়া ট্যাব যেন সবসময় পুরোটা দেখা যায়: চাপলে সারিটা নিজে সরে ট্যাবটাকে মাঝখানে আনে
+    // (দুই পাশের ট্যাবও একটু দেখা যায়, বোঝা যায় আরও আছে)। আগে সারি শুধু হাতে সরানো যেত, নিজে সরত না।
+    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    val padPx = with(density) { 16.dp.roundToPx() }
+    val gapPx = with(density) { 8.dp.roundToPx() }
+    val widths = remember(tabs.size) { mutableStateListOf(*Array(tabs.size) { 0 }) }
+    var viewport by remember { mutableIntStateOf(0) }
+    var first by remember { mutableStateOf(true) }
+    val ready = viewport > 0 && widths.isNotEmpty() && widths.all { it > 0 }
+    LaunchedEffect(selected, ready, viewport) {
+        if (!ready || selected !in widths.indices) return@LaunchedEffect
+        val left = padPx + (0 until selected).sumOf { widths[it] + gapPx }
+        val target = (left + widths[selected] / 2 - viewport / 2).coerceIn(0, scroll.maxValue)
+        if (first) scroll.scrollTo(target) else scroll.animateScrollTo(target)
+        first = false
+    }
     Row(
         modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
+            .onSizeChanged { viewport = it.width }
+            .horizontalScroll(scroll)
             .padding(horizontal = 16.dp, vertical = if (secondary) 4.dp else 8.dp)
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -82,6 +109,7 @@ fun PillTabs(
                 contentColor = fg,
                 border = if (secondary && !sel) BorderStroke(1.dp, cs.outlineVariant) else null,
                 modifier = Modifier
+                    .onSizeChanged { if (i < widths.size) widths[i] = it.width }
                     .heightIn(min = if (secondary) 32.dp else 36.dp)
                     .semantics { role = Role.Tab },
             ) {
