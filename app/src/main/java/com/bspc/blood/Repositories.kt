@@ -71,6 +71,8 @@ object ProfileRepository {
             viewGroups = groupList(snap.get("viewGroups")),
             commitments = (snap.get("commitments") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty(),
             photo = snap.getString("photo"),
+            maxKm = snap.getLong("maxKm")?.toInt()?.takeIf { it in Rules.RADIUS_CHOICES } ?: Rules.DEFAULT_RADIUS_KM,
+            fareAfterKm = snap.getLong("fareAfterKm")?.toInt(),
         )
     }
 
@@ -84,6 +86,8 @@ object ProfileRepository {
             "maxPushPerDay" to p.maxPushPerDay.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT),
             "notifyGroups" to p.notifyGroups,
             "viewGroups" to p.viewGroups,
+            "maxKm" to p.maxKm,
+            "fareAfterKm" to (p.fareAfterKm ?: FieldValue.delete()),
         )
         users.document(uid).set(data, SetOptions.merge()).await()
     }
@@ -178,6 +182,7 @@ object RequestRepository {
         neededByMillis = s.getLong("neededByMillis") ?: 0L,
         neededAtMillis = s.getLong("neededAtMillis"),
         urgent = s.getBoolean("urgent") ?: false,
+        travelFare = s.getBoolean("travelFare") ?: false,
         note = s.getString("note") ?: "",
         status = s.getString("status") ?: "open",
         createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
@@ -195,6 +200,8 @@ object RequestRepository {
         donorGroup = s.getString("donorGroup") ?: "",
         status = s.getString("status") ?: "accepted",
         confirmed = s.getBoolean("confirmed") ?: false,
+        distanceKm = s.getLong("distanceKm")?.toInt(),
+        fareAfterKm = s.getLong("fareAfterKm")?.toInt(),
         createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
     )
 
@@ -216,6 +223,7 @@ object RequestRepository {
             "neededByMillis" to r.neededByMillis,
             "neededAtMillis" to r.neededAtMillis,
             "urgent" to r.urgent,
+            "travelFare" to r.travelFare,
             "note" to r.note.take(300),
             "status" to "open",
             "createdAtMillis" to System.currentTimeMillis(),
@@ -255,6 +263,7 @@ object RequestRepository {
         lng: Double,
         patientGroups: Set<String>?,
         excludeUid: String?,
+        maxKm: Int,
     ): List<Pair<BloodRequest, Double>> {
         val all = requests
             .whereEqualTo("status", "open")
@@ -273,12 +282,8 @@ object RequestRepository {
             }
             .map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
 
-        var result = emptyList<Pair<BloodRequest, Double>>()
-        for (radius in Geo.RADII_KM) {
-            result = candidates.filter { it.second <= radius }
-            if (result.size >= Geo.ENOUGH_RESULTS) break
-        }
-        return result.sortedWith(
+        // ডোনার যতদূর যেতে রাজি, ততদূর পর্যন্ত
+        return candidates.filter { it.second <= maxKm }.sortedWith(
             compareByDescending<Pair<BloodRequest, Double>> { it.first.urgent }.thenBy { it.second }
         )
     }

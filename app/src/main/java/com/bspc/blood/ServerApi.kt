@@ -59,6 +59,7 @@ object ServerApi {
         neededByMillis: Long,
         neededAtMillis: Long,
         urgent: Boolean,
+        travelFare: Boolean,
         note: String,
     ): Int =
         post(
@@ -70,6 +71,7 @@ object ServerApi {
                 .put("neededByMillis", neededByMillis)
                 .put("neededAtMillis", neededAtMillis)
                 .put("urgent", urgent)
+                .put("travelFare", travelFare)
                 .put("note", note),
         ).optInt("notified", 0)
 

@@ -21,6 +21,8 @@ Get Blood অ্যাপ রক্তপ্রার্থী আর আশে�
 | চেম্বারের তথ্য (ডাক্তার/নার্স: চেম্বার, জেলা, সময়, ফি) | অ্যাপয়েন্টমেন্টের জন্য | লগইন করা ব্যবহারকারীরা |
 | অ্যাপয়েন্টমেন্টের অনুরোধ (তারিখ, সমস্যার সংক্ষিপ্ত বিবরণ) | ডাক্তার/নার্সকে জানানোর জন্য | শুধু আপনি আর সেই ডাক্তার/নার্স |
 | অ্যাপের ভাষা | নোটিফিকেশন আপনার ভাষায় পাঠানোর জন্য | শুধু সার্ভার |
+| কতদূর যেতে রাজি আর যাতায়াত খরচের পছন্দ | শুধু মানানসই রিকোয়েস্টে নোটিফিকেশন পাঠানোর জন্য | শুধু সার্ভার; সাড়া দিলে রক্তপ্রার্থী দেখেন আপনি কত দূরে আর খরচ লাগবে কি না |
+| শেয়ার করা রিকোয়েস্টের লিংক | পরিচিতদের কাছে রিকোয়েস্ট পাঠানোর জন্য | লিংক যার কাছে আছে সে-ই দেখতে পায়: রোগীর গ্রুপ, ব্যাগ, হাসপাতাল, জেলা, সময় আর যাতায়াত খরচ — রক্তপ্রার্থীর নাম, ফোন বা নোট নয় |
 | অ্যাপ ক্র্যাশের প্রযুক্তিগত তথ্য | সমস্যা ঠিক করার জন্য (Firebase Crashlytics) | শুধু অ্যাপের ডেভেলপার |
 
 আপনার সঠিক ঠিকানা বা সঠিক GPS অবস্থান কখনো সংরক্ষণ বা দেখানো হয় না। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলো কোথাও সংরক্ষণ করা হয় না।
@@ -52,6 +54,6 @@ ekapkbd@gmail.com
 
 ## English summary
 
-Get Blood connects blood requesters with nearby donors, and offers health Q&A, tips from verified professionals and doctor/nurse appointments. We collect only what these features need: email (login), birth date and weight (eligibility), name, optional profile photo, mobile number (shared only between a donor and requester after "I'll donate", or between patient and provider after an appointment is confirmed), blood group, last donation date, approximate area (~1 km), request details, discussion posts and tips, badge applications (seen by the admin), chamber details, appointment requests, app language and crash data. Data is stored in Google Firebase (Mumbai) and processed by our server on Vercel. We never sell data or use it for ads. Health posts are general guidance, not a diagnosis — in an emergency call 999.
+Get Blood connects blood requesters with nearby donors, and offers health Q&A, tips from verified professionals and doctor/nurse appointments. We collect only what these features need (plus how far you're willing to travel and your travel-cost preference, used only to decide which requests notify you): email (login), birth date and weight (eligibility), name, optional profile photo, mobile number (shared only between a donor and requester after "I'll donate", or between patient and provider after an appointment is confirmed), blood group, last donation date, approximate area (~1 km), request details, discussion posts and tips, badge applications (seen by the admin), chamber details, appointment requests, app language and crash data. A shared request link shows anyone who has it the blood group, bags, hospital, district, time and travel cost — never the requester's name, phone or note. Data is stored in Google Firebase (Mumbai) and processed by our server on Vercel. We never sell data or use it for ads. Health posts are general guidance, not a diagnosis — in an emergency call 999.
 
 **Delete your account** anytime in the app: Profile → "Delete account". This immediately removes your profile, photo, phone number, questions, answers, tips, appointments, badge and your responses to blood requests, and closes your open requests. You can also email **ekapkbd@gmail.com**; we delete within 30 days.

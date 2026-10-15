@@ -19,6 +19,12 @@ object Rules {
     const val MAX_OPEN_REQUESTS = 2
 
     /** একজন ডোনার দিনে কয়টা রিকোয়েস্ট নোটিফিকেশন পাবে: নিজে না বদলালে ৩টা, সেটিংসে ১–১০ বেছে নেওয়া যায় */
+    /** ডোনার কত কিমির মধ্যে রক্ত দিতে রাজি (সেটিংস) — সার্ভারের RADIUS_CHOICES-এর মতো */
+    const val DEFAULT_RADIUS_KM = 10
+    val RADIUS_CHOICES = listOf(5, 10, 25, 50)
+    /** এত কিমির বেশি হলে যাতায়াত খরচ লাগবে (সেটিংস) */
+    val FARE_AFTER_CHOICES = listOf(5, 10, 25)
+
     const val DEFAULT_PUSH_PER_DAY = 3
     const val MAX_PUSH_PER_DAY_LIMIT = 10
     val PUSH_PER_DAY_CHOICES = listOf(1, 2, 3, 5, 10)

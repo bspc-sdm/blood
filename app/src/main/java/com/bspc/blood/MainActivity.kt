@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
+            sharedRequestId(intent)?.let { openRequestId.value = it }
         }
         setContent {
             GetBloodTheme {
@@ -84,8 +85,23 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = it
         }
         intent.getStringExtra(Notifier.EXTRA_QUESTION_ID)?.let { openQuestionId.value = it }
+        sharedRequestId(intent)?.let {
+            openType.value = null
+            openRequestId.value = it
+        }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
     }
+}
+
+/** শেয়ার করা লিংক থেকে রিকোয়েস্টের id: https://…/r/{id} বা getblood://r/{id} */
+private fun sharedRequestId(intent: Intent?): String? {
+    val uri = intent?.data ?: return null
+    val id = when (uri.scheme) {
+        "https" -> uri.pathSegments.takeIf { it.size >= 2 && it[0] == "r" }?.get(1)
+        "getblood" -> if (uri.host == "r") uri.pathSegments.firstOrNull() else null
+        else -> null
+    }
+    return id?.takeIf { Regex("^[A-Za-z0-9_-]{1,64}$").matches(it) }
 }
 
 sealed interface Screen {

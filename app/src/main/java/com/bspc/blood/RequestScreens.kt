@@ -87,6 +87,24 @@ private fun DateTimeFields(
 }
 
 @Composable
+private fun TravelFareSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("I'll pay donors' travel cost", "ডোনারের যাতায়াত খরচ দেব"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Switch(checked = on, onCheckedChange = onChange)
+        }
+        Text(
+            tr(
+                "Travel cost only — buying or selling blood is not allowed. Donors farther away may need this.",
+                "শুধু যাতায়াত খরচ — রক্ত কেনাবেচা নিষিদ্ধ। দূরের ডোনারদের এটা লাগতে পারে।",
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun UrgentSwitch(urgent: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(tr("Urgent", "জরুরি"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -109,6 +127,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
     var neededHour by remember { mutableStateOf<Int?>(null) }
     var neededMinute by remember { mutableStateOf<Int?>(null) }
     var urgent by remember { mutableStateOf(false) }
+    var travelFare by remember { mutableStateOf(false) }
     // প্রাইভেসি: রিকোয়েস্ট সবাই দেখে, তাই বাসার এলাকা আপনা থেকে বসানো হয় না
     var lat by remember { mutableStateOf<Double?>(null) }
     var lng by remember { mutableStateOf<Double?>(null) }
@@ -167,6 +186,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             DateTimeFields(neededBy, neededHour, neededMinute, { showDate = true }, { showTime = true })
 
             UrgentSwitch(urgent) { urgent = it }
+            TravelFareSwitch(travelFare) { travelFare = it }
 
             OutlinedTextField(
                 value = note,
@@ -222,6 +242,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                                         neededByMillis = neededBy,
                                         neededAtMillis = Rules.dhakaMillis(neededBy, h, m),
                                         urgent = urgent,
+                                        travelFare = travelFare,
                                         note = note.trim(),
                                     ),
                                     profile.phone,
@@ -326,6 +347,9 @@ fun RequestDetailScreen(
         topBar = {
             BackTopBar(tr("Blood Request", "রক্তের রিকোয়েস্ট"), onBack) {
                 val r = request
+                if (r != null && r.isActive) {
+                    IconButton(onClick = { shareRequest(context, r) }) { AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার")) }
+                }
                 if (r != null && r.requesterUid != uid) {
                     IconButton(onClick = { confirmReport = true }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
                 }
@@ -606,6 +630,9 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
             BackTopBar(tr("My Request", "আমার রিকোয়েস্ট"), onBack) {
                 val r = request
                 if (r != null && r.isActive) {
+                    IconButton(onClick = { shareRequest(context, r) }) { AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার")) }
+                }
+                if (r != null && r.isActive) {
                     IconButton(onClick = { infoMsg = null; editing = true }, enabled = !busy) {
                         AppIcon(R.drawable.ic_edit, tr("Edit", "এডিট"))
                     }
@@ -750,6 +777,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
     var neededHour by remember { mutableStateOf(initialTime?.first) }
     var neededMinute by remember { mutableStateOf(initialTime?.second) }
     var urgent by remember { mutableStateOf(r.urgent) }
+    var travelFare by remember { mutableStateOf(r.travelFare) }
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -785,6 +813,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             DateTimeFields(neededBy, neededHour, neededMinute, { showDate = true }, { showTime = true })
 
             UrgentSwitch(urgent) { urgent = it }
+            TravelFareSwitch(travelFare) { travelFare = it }
 
             OutlinedTextField(
                 value = note,
@@ -812,7 +841,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
                         scope.launch {
                             busy = true
                             runCatching {
-                                ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, at, urgent, note.trim())
+                                ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, at, urgent, travelFare, note.trim())
                             }.onSuccess { onSaved(it) }
                                 .onFailure { errorMsg = it.message ?: tr("Couldn't save", "সেভ হয়নি") }
                             busy = false

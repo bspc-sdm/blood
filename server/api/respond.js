@@ -49,6 +49,11 @@ module.exports = handler(async (req) => {
       donorName: u.name || '',
       donorPhone: u.phone,
       donorGroup: u.bloodGroup,
+      // রক্তপ্রার্থী দেখবেন ডোনার কত দূরে আর যাতায়াত খরচ লাগবে কি না
+      distanceKm: typeof u.lat === 'number' && typeof u.lng === 'number'
+        ? Math.round(R.distanceKm(r.lat, r.lng, u.lat, u.lng))
+        : null,
+      fareAfterKm: typeof u.fareAfterKm === 'number' ? u.fareAfterKm : null,
       status: 'accepted',
       createdAtMillis: Date.now(),
     });

@@ -143,6 +143,45 @@ fun SettingsScreen(
             }
         }
 
+        // ---- কতদূর যেতে রাজি ও যাতায়াত খরচ ----
+        SettingsCard {
+            SettingLabel(R.drawable.ic_location_on, tr("How far can you go to donate?", "রক্ত দিতে কতদূর যেতে পারবেন?"))
+            Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRows(
+                    Rules.RADIUS_CHOICES.map { it.toString() },
+                    setOf(profile.maxKm.toString()),
+                    perRow = 4,
+                    label = { num(it) + tr(" km", " কিমি") },
+                ) { save(profile.copy(maxKm = it.toInt())) }
+                Text(
+                    tr("You'll be notified only for requests within this distance.", "এই দূরত্বের মধ্যে রিকোয়েস্ট হলেই নোটিফিকেশন পাবেন।"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(Modifier.padding(top = 16.dp))
+            SettingLabel(R.drawable.ic_directions_run, tr("Travel cost", "যাতায়াত খরচ"))
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRows(
+                    listOf("none") + Rules.FARE_AFTER_CHOICES.map { it.toString() },
+                    setOf(profile.fareAfterKm?.toString() ?: "none"),
+                    perRow = 2,
+                    label = {
+                        if (it == "none") tr("Not needed", "লাগবে না")
+                        else tr("Beyond ${num(it)} km", "${num(it)} কিমির বেশি হলে")
+                    },
+                ) { save(profile.copy(fareAfterKm = it.toIntOrNull())) }
+                Text(
+                    tr(
+                        "If a request doesn't cover travel cost and it's farther than this, you won't be notified.",
+                        "রিকোয়েস্টে যাতায়াত খরচ না থাকলে আর এর চেয়ে দূরে হলে নোটিফিকেশন আসবে না।",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         // ---- তালিকা ও এলাকা ----
         SettingsCard {
             SettingLabel(R.drawable.ic_tune, tr("Show requests for", "যে গ্রুপের রিকোয়েস্ট দেখাবে"))

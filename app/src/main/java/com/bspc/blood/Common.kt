@@ -53,6 +53,23 @@ import kotlinx.coroutines.delay
 
 const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
 const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
+/** শেয়ার করা রিকোয়েস্টের লিংক (সার্ভারের /r/{id} পাতা; অ্যাপ থাকলে সরাসরি অ্যাপে খোলে) */
+const val SHARE_BASE = "https://blood-server-ashy.vercel.app/r/"
+
+/** রিকোয়েস্ট WhatsApp/Messenger/SMS-এ পরিচিতদের পাঠানো */
+fun shareRequest(context: Context, r: BloodRequest) {
+    val text = tr(
+        "${if (r.urgent) "URGENT: " else ""}${r.patientGroup} blood needed — ${r.bags} bag(s) at ${r.hospital}, ${Districts.label(r.placeName)}. " +
+            "Needed by ${Rules.formatNeeded(r)}.${if (r.travelFare) " Travel cost will be paid." else ""} Can you help or share? $SHARE_BASE${r.id}",
+        "${if (r.urgent) "জরুরি: " else ""}${r.patientGroup} রক্ত দরকার — ${num(r.bags)} ব্যাগ, ${r.hospital}, ${Districts.label(r.placeName)}। " +
+            "লাগবে ${Rules.formatNeeded(r)}।${if (r.travelFare) " যাতায়াত খরচ দেওয়া হবে।" else ""} দিতে পারলে বা কাউকে চিনলে সাহায্য করুন: $SHARE_BASE${r.id}",
+    )
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    runCatching { context.startActivity(Intent.createChooser(send, tr("Share request", "রিকোয়েস্ট শেয়ার করুন"))) }
+}
 
 /** Google Material Symbols আইকন (res/drawable/ic_*.xml) */
 @Composable
@@ -70,7 +87,7 @@ fun AppIcon(
 fun Logo(iconSize: Dp = 36.dp, showText: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(iconSize).clip(CircleShape).background(BloodRed),
+            Modifier.size(iconSize).clip(CircleShape).background(BrandTeal),
             contentAlignment = Alignment.Center,
         ) {
             AppIcon(R.drawable.ic_bloodtype, null, Modifier.size(iconSize * 0.6f), Color.White)
@@ -96,7 +113,7 @@ fun SplashScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            Modifier.size(96.dp).clip(CircleShape).background(BloodRed),
+            Modifier.size(96.dp).clip(CircleShape).background(BrandTeal),
             contentAlignment = Alignment.Center,
         ) {
             AppIcon(R.drawable.ic_bloodtype, null, Modifier.size(56.dp), Color.White)
@@ -200,7 +217,7 @@ fun Tag(text: String, container: Color, content: Color) {
 }
 
 @Composable
-fun UrgentTag() = Tag(tr("Urgent", "জরুরি"), MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+fun UrgentTag() = Tag(tr("Urgent", "জরুরি"), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
 
 /** আইকন + লেখার এক লাইন */
 @Composable
@@ -242,6 +259,7 @@ fun RequestCard(r: BloodRequest, distanceKm: Double?, onClick: () -> Unit) {
                     listOfNotNull(Districts.label(r.placeName), distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
                 )
                 IconLine(R.drawable.ic_schedule, Rules.formatNeeded(r))
+                if (r.travelFare) IconLine(R.drawable.ic_directions_run, tr("Travel cost paid", "যাতায়াত খরচ দেওয়া হবে"))
             }
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
@@ -289,6 +307,11 @@ fun RequestInfo(r: BloodRequest, distanceKm: Double?) {
                 listOfNotNull(Districts.label(r.placeName), distanceKm?.let { Rules.formatKm(it) }).joinToString(" · "),
             )
             InfoLine(R.drawable.ic_calendar_month, tr("Needed by", "কবে লাগবে"), Rules.formatNeeded(r))
+            InfoLine(
+                R.drawable.ic_directions_run,
+                tr("Travel cost", "যাতায়াত খরচ"),
+                if (r.travelFare) tr("Will be paid", "দেওয়া হবে") else tr("Not provided", "দেওয়া হবে না"),
+            )
             if (r.note.isNotBlank()) InfoLine(R.drawable.ic_info, tr("Note", "অতিরিক্ত তথ্য"), r.note)
             InfoLine(R.drawable.ic_person_outline, tr("Requested by", "রিকোয়েস্ট দিয়েছেন"), r.requesterName)
         }

@@ -87,7 +87,15 @@ fun DonorRow(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(d.donorName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(num(d.donorPhone), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    listOfNotNull(
+                        num(d.donorPhone),
+                        d.distanceKm?.let { num(it) + tr(" km away", " কিমি দূরে") },
+                        if (d.needsFare) tr("needs travel cost", "যাতায়াত খরচ লাগবে") else null,
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (d.needsFare) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             when {
                 d.status == "donated" -> Tag(tr("Donated", "রক্ত দিয়েছেন"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
@@ -147,6 +155,7 @@ fun CloseRequestDialog(requestId: String, responses: List<DonorResponse>, onDism
 
 @Composable
 fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var items by remember { mutableStateOf<List<Pair<BloodRequest, List<DonorResponse>>>>(emptyList()) }
@@ -217,6 +226,9 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            if (willing.isNotEmpty()) {
+                                IconButton(onClick = { shareRequest(context, r) }) { AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার")) }
+                            }
                         }
                         Countdown(r.deadlineMillis)
 
@@ -252,10 +264,13 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                             }
                         } else {
                             Text(
-                                tr("No one has agreed yet.", "এখনো কেউ রাজি হননি।"),
+                                tr("No one has agreed yet. Share it with people you know — even far away.", "এখনো কেউ রাজি হননি। পরিচিতদের পাঠান — দূরে থাকলেও।"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            FilledTonalButton(onClick = { shareRequest(context, r) }, modifier = Modifier.fillMaxWidth()) {
+                                ButtonContent(false, tr("Send to people you know", "পরিচিতদের পাঠান"), R.drawable.ic_share)
+                            }
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -9,6 +9,7 @@ const EXACT = {
   'আজ বা পরের কোনো তারিখ দিন': 'Pick today or a later date',
   'সময় ঠিক নেই': 'Invalid time',
   'জরুরি ঠিক নেই': 'Invalid urgent value',
+  'তথ্য ঠিক নেই': 'Invalid data',
   'অতিরিক্ত তথ্য ৩০০ অক্ষরের মধ্যে লিখুন': 'Keep the note under 300 characters',
   'কিছু বদলানো হয়নি': 'Nothing changed',
   'বন্ধ বা মেয়াদ শেষ হওয়া রিকোয়েস্ট এডিট করা যায় না': 'Closed or expired requests can\'t be edited',

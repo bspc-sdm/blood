@@ -26,6 +26,10 @@ function readChanges(body) {
     if (!Number.isInteger(body.neededAtMillis)) throw new HttpError(400, 'সময় ঠিক নেই');
     c.neededAtMillis = body.neededAtMillis;
   }
+  if (body.travelFare !== undefined) {
+    if (typeof body.travelFare !== 'boolean') throw new HttpError(400, 'তথ্য ঠিক নেই');
+    c.travelFare = body.travelFare;
+  }
   if (body.urgent !== undefined) {
     if (typeof body.urgent !== 'boolean') throw new HttpError(400, 'জরুরি ঠিক নেই');
     c.urgent = body.urgent;
@@ -51,6 +55,7 @@ function describe(before, changes, lang) {
   }
   if (changes.bags !== undefined && changes.bags !== before.bags) parts.push(L(`${changes.bags} bag(s)`, `${changes.bags} ব্যাগ`));
   if (changes.urgent === true && !before.urgent) parts.push(L('Now urgent', 'এখন জরুরি'));
+  if (changes.travelFare === true && before.travelFare !== true) parts.push(L('Travel cost will be paid', 'যাতায়াত খরচ দেওয়া হবে'));
   if (changes.note !== undefined && changes.note !== (before.note || '')) parts.push(L('Note updated', 'অতিরিক্ত তথ্য বদলেছে'));
   return parts;
 }

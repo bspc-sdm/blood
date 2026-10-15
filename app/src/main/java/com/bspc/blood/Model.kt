@@ -28,6 +28,10 @@ data class Profile(
     val commitments: List<String> = emptyList(),
     /** প্রোফাইলের ছবি: ছোট JPEG, base64 (শুধু নিজে দেখেন) */
     val photo: String? = null,
+    /** কত কিমির মধ্যে রক্ত দিতে রাজি (এর মধ্যে হলে নোটিফিকেশন, তালিকাও এতদূর) */
+    val maxKm: Int = Rules.DEFAULT_RADIUS_KM,
+    /** এত কিমির বেশি হলে যাতায়াত খরচ লাগবে; null = লাগবে না */
+    val fareAfterKm: Int? = null,
 ) {
     /** এই ডোনার যেসব রোগীর গ্রুপকে রক্ত দিতে পারেন */
     val compatibleGroups: List<String> get() = BloodCompat.patientsFor(bloodGroup)
@@ -61,6 +65,8 @@ data class BloodRequest(
     /** রক্ত লাগার নির্দিষ্ট মুহূর্ত (তারিখ + সময়); পুরোনো রিকোয়েস্টে নেই */
     val neededAtMillis: Long? = null,
     val urgent: Boolean = false,
+    /** রক্তপ্রার্থী ডোনারের যাতায়াত খরচ দেবেন কি না */
+    val travelFare: Boolean = false,
     val note: String = "",
     /** "open" বা "closed" */
     val status: String = "open",
@@ -91,5 +97,12 @@ data class DonorResponse(
     val status: String = "accepted",
     /** রক্তপ্রার্থী এই ডোনারকে নিশ্চিত করেছেন (status তখনো "accepted") */
     val confirmed: Boolean = false,
+    /** সাড়া দেওয়ার সময় ডোনার রিকোয়েস্ট থেকে কত কিমি দূরে ছিলেন */
+    val distanceKm: Int? = null,
+    /** ডোনারের যাতায়াত খরচের সীমা (এর বেশি দূর হলে খরচ লাগবে); null = লাগবে না */
+    val fareAfterKm: Int? = null,
     val createdAtMillis: Long = 0,
-)
+) {
+    /** এই ডোনারের যাতায়াত খরচ লাগবে কি না */
+    val needsFare: Boolean get() = fareAfterKm != null && (distanceKm ?: 0) > fareAfterKm
+}

@@ -189,7 +189,7 @@ fun HomeTab(
     var processing by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
     val groups = profile.effectiveViewGroups
 
-    LaunchedEffect(reload, refreshKey, profile.lat, profile.lng, groups) {
+    LaunchedEffect(reload, refreshKey, profile.lat, profile.lng, groups, profile.maxKm) {
         val lat = profile.lat
         val lng = profile.lng
         if (lat == null || lng == null) {
@@ -198,7 +198,7 @@ fun HomeTab(
         }
         loading = true
         errorMsg = null
-        runCatching { RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid) }
+        runCatching { RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid, profile.maxKm) }
             .onSuccess { list = it }
             .onFailure { errorMsg = tr("Couldn't load requests", "রিকোয়েস্ট লোড হয়নি") }
         loading = false
@@ -282,7 +282,10 @@ fun HomeTab(
                         EmptyState(
                             R.drawable.ic_volunteer_activism,
                             tr("Good news!", "সুখবর!"),
-                            tr("No requests in the queue right now.", "এই মুহূর্তে আশেপাশে কোনো রিকোয়েস্ট নেই।"),
+                            tr(
+                                "No requests within ${num(profile.maxKm)} km right now.",
+                                "এই মুহূর্তে ${num(profile.maxKm)} কিমির মধ্যে কোনো রিকোয়েস্ট নেই।",
+                            ),
                         )
                         Spacer(Modifier.height(24.dp))
                         Button(onClick = onNewRequest) {

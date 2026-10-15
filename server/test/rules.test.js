@@ -51,7 +51,7 @@ test('ডোনার বাছাই: গ্রুপ, যোগ্যতা, �
     { ...base, uid: 'notEligible', bloodGroup: 'A+', lat: 24.75, lng: 90.41, lastDonationMillis: now - 10 * DAY },
     { ...base, uid: 'off', bloodGroup: 'A+', lat: 24.75, lng: 90.41, notify: false },
     { ...base, uid: 'noToken', bloodGroup: 'A+', lat: 24.75, lng: 90.41, fcmToken: null },
-    { ...base, uid: 'far20', bloodGroup: 'A-', lat: 24.93, lng: 90.4 }, // ~২০ কিমি
+    { ...base, uid: 'far20', bloodGroup: 'A-', lat: 24.93, lng: 90.4, maxKm: 25 }, // ~২০ কিমি, ২৫ কিমি পর্যন্ত যেতে রাজি
     { ...base, uid: 'far60', bloodGroup: 'A-', lat: 25.29, lng: 90.4 }, // ~৬০ কিমি
   ];
   const picked = R.pickDonors(request, users, now).map((u) => u.uid);
@@ -159,4 +159,21 @@ test('সার্ভারের বার্তা ইংরেজিতে', 
   assert.strictEqual(toEnglish('কোড মেলেনি। আবার দেখে লিখুন।'), 'Wrong code. Please check and try again.');
   assert.strictEqual(toEnglish('একসাথে সর্বোচ্চ 2টা খোলা রিকোয়েস্ট রাখা যায়'), 'You can keep up to 2 open requests at a time');
   assert.strictEqual(toEnglish('Already English'), 'Already English');
+});
+
+test('দূরত্বের সীমা আর যাতায়াত খরচ', () => {
+  const now = Date.UTC(2026, 9, 15);
+  const base = { fcmToken: 't', notify: true, birthDateMillis: Date.UTC(1995, 0, 1), weightKg: 60, bloodGroup: 'O-', lng: 90.4 };
+  const request = { requesterUid: 'me', patientGroup: 'A+', lat: 24.75, lng: 90.4 };
+  const users = [
+    { ...base, uid: 'r5_at3', lat: 24.777, maxKm: 5 }, // ~৩ কিমি, সীমা ৫
+    { ...base, uid: 'r5_at20', lat: 24.93, maxKm: 5 }, // ~২০ কিমি, সীমা ৫ → বাদ
+    { ...base, uid: 'r50_at40', lat: 25.11, maxKm: 50 }, // ~৪০ কিমি, সীমা ৫০
+    { ...base, uid: 'default_at20', lat: 24.93 }, // ~২০ কিমি, সীমা ১০ (ডিফল্ট) → বাদ
+    { ...base, uid: 'fare5_at20', lat: 24.93, maxKm: 25, fareAfterKm: 5 }, // খরচ লাগবে, রিকোয়েস্টে খরচ নেই → বাদ
+  ];
+  const ids = (r) => R.pickDonors(r, users, now).map((u) => u.uid).sort();
+  assert.deepStrictEqual(ids(request), ['r50_at40', 'r5_at3']);
+  assert.deepStrictEqual(ids({ ...request, travelFare: true }), ['fare5_at20', 'r50_at40', 'r5_at3']);
+  assert.strictEqual(R.donorRadius({ maxKm: 7 }), 10);
 });

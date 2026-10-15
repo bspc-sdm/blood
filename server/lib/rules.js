@@ -8,7 +8,9 @@ const MAX_PUSH_PER_DAY_LIMIT = 10; // সেটিংসে সর্বোচ�
 const MAX_RESPONSES_PER_DAY = 5; // একজন দিনে কয়টা রিকোয়েস্টে "রক্ত দেব" চাপতে পারবে
 const MAX_REQUESTS_PER_DAY = 3; // একজন দিনে কয়টা রিকোয়েস্টের নোটিফিকেশন পাঠাতে পারবে
 const MAX_OPEN_REQUESTS = 2;
-const RADII_KM = [5, 10, 25];
+const RADII_KM = [5, 10, 25, 50];
+const RADIUS_CHOICES = [5, 10, 25, 50]; // ডোনার কত দূর পর্যন্ত যেতে রাজি (সেটিংস)
+const DEFAULT_RADIUS_KM = 10;
 const ENOUGH_DONORS = 10; // এতজন পেলে আর দূরে খোঁজা হবে না
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
@@ -114,6 +116,22 @@ function dhakaDayKey(now = Date.now()) {
   return new Date(now + 6 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '');
 }
 
+/** ডোনার কত কিমির মধ্যে রক্ত দিতে রাজি (সেটিংস); ঠিক না থাকলে ১০ */
+function donorRadius(user) {
+  return RADIUS_CHOICES.includes(user.maxKm) ? user.maxKm : DEFAULT_RADIUS_KM;
+}
+
+/**
+ * যাতায়াত খরচ মেলে কি না: ডোনার "এত কিমির বেশি হলে খরচ লাগবে" বলে রাখলে, আর রিকোয়েস্টে খরচ দেওয়া না হলে,
+ * সেই দূরত্বের বেশি হলে তাঁকে জানানো হয় না।
+ */
+function fareOk(user, request, km) {
+  if (request.travelFare === true) return true;
+  const after = user.fareAfterKm;
+  if (typeof after !== 'number') return true;
+  return km <= after;
+}
+
 /**
  * রিকোয়েস্টের জন্য কোন ডোনারদের জানানো হবে: মানানসই গ্রুপ, যোগ্য, নোটিফিকেশন চালু,
  * ধাপে ধাপে দূরত্ব (৫ → ১০ → ২৫ কিমি) যতক্ষণ না যথেষ্ট ডোনার পাওয়া যায়।
@@ -132,7 +150,9 @@ function pickDonors(request, users, now = Date.now()) {
         wantsGroup(u, request.patientGroup) &&
         isEligibleDonor(u, now),
     )
-    .map((u) => ({ ...u, km: distanceKm(request.lat, request.lng, u.lat, u.lng) }));
+    .map((u) => ({ ...u, km: distanceKm(request.lat, request.lng, u.lat, u.lng) }))
+    // ডোনারের নিজের দূরত্বের সীমা আর যাতায়াত খরচের পছন্দ
+    .filter((u) => u.km <= donorRadius(u) && fareOk(u, request, u.km));
 
   let chosen = [];
   for (const radius of RADII_KM) {
@@ -235,6 +255,8 @@ module.exports = {
   todayDhakaUtcMidnight,
   dhakaDayKey,
   pickDonors,
+  donorRadius,
+  fareOk,
   formatKm,
   neededAtMatchesDate,
   formatTimeBn,

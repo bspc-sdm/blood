@@ -23,6 +23,20 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- শেয়ার করা রিকোয়েস্টের লিংক (https://blood-server-ashy.vercel.app/r/{id}) সরাসরি অ্যাপে খোলে -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="blood-server-ashy.vercel.app" android:pathPrefix="/r/" />
+            </intent-filter>
+            <!-- লিংকের পাতার "অ্যাপে খুলুন" বাটন (getblood://r/{id}) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="getblood" android:host="r" />
+            </intent-filter>
         </activity>
 
         <service

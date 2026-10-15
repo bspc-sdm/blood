@@ -2,5 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/cron/daily", "schedule": "0 3 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/r/:id", "destination": "/api/share?id=:id" },
+    { "source": "/.well-known/assetlinks.json", "destination": "/api/share?assetlinks=1" }
   ]
 }

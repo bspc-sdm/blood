@@ -984,10 +984,10 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit) {
 fun EmergencyNotice() {
     Card(
         Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AppIcon(R.drawable.ic_warning, null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+            AppIcon(R.drawable.ic_info, null, Modifier.size(20.dp), MaterialTheme.colorScheme.onSecondaryContainer)
             Spacer(Modifier.width(10.dp))
             Text(
                 tr(
