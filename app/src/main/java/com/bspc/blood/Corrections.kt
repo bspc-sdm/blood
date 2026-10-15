@@ -3,6 +3,8 @@
 package com.bspc.blood
 
 import androidx.compose.foundation.layout.Arrangement
+import org.json.JSONObject
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -85,108 +87,108 @@ object CorrectionRepository {
     }
 }
 
-/** প্রোফাইল পাতায়: শেষ রক্তদানের তারিখ ভুল হলে সংশোধনের অনুরোধ */
-@Composable
-fun CorrectionCard(profile: Profile) {
-    if (profile.lastDonationMillis == null) return
-    val scope = rememberCoroutineScope()
-    val uid = AuthRepository.currentUid ?: return
-    var reload by remember { mutableIntStateOf(0) }
-    var latest by remember { mutableStateOf<CorrectionRequest?>(null) }
-    var showDialog by remember { mutableStateOf(false) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(reload) {
-        latest = runCatching { CorrectionRepository.latest(uid) }.getOrNull()
-    }
-
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(tr("Wrong last donation date?", "শেষ রক্তদানের তারিখ ভুল?"), style = MaterialTheme.typography.titleSmall)
-            val l = latest
-            val status = when (l?.status) {
-                "pending" -> tr("Your correction request is under review.", "আপনার সংশোধনের অনুরোধ যাচাই চলছে।")
-                "approved" -> tr("Your last request was approved.", "আপনার শেষ অনুরোধ অনুমোদিত হয়েছে।")
-                "rejected" -> tr("Your last request was not approved.", "আপনার শেষ অনুরোধ অনুমোদন হয়নি।")
-                else -> null
-            }
-            if (status != null) {
-                Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            InfoText(infoMsg)
-            if (l?.status != "pending") {
-                TextButton(onClick = { showDialog = true }) { Text(tr("Request a correction", "সংশোধনের অনুরোধ পাঠান")) }
-            }
-        }
-    }
-
-    if (showDialog) {
-        CorrectionDialog(
-            onDismiss = { showDialog = false },
-            onSubmit = { requested, reason ->
-                showDialog = false
-                scope.launch {
-                    runCatching { CorrectionRepository.create(uid, profile, requested, reason) }
-                        .onSuccess { infoMsg = tr("Sent. An admin will review it.", "অনুরোধ পাঠানো হয়েছে। অ্যাডমিন দেখে ঠিক করবেন।") }
-                        .onFailure { infoMsg = tr("Couldn't send", "পাঠানো যায়নি") }
-                    reload++
-                }
-            },
+object DonationDate {
+    /** সার্ভারে বদল (অনুমোদন লাগে না; ঝুঁকি থাকলে confirmed লাগে, বদল লেখা থাকে) */
+    suspend fun set(millis: Long?, confirmed: Boolean) {
+        ServerApi.post(
+            "/api/community",
+            JSONObject().put("action", "donation_date_set").put("millis", millis ?: JSONObject.NULL).put("confirmed", confirmed),
         )
     }
 }
 
+/**
+ * শেষ রক্তদানের তারিখ বদলানো (অ্যাডমিনের অনুমোদন ছাড়া)। পেছালে বা দুই তারিখের ফাঁক ১২০ দিনের কম হলে
+ * লাল সতর্কতা আর "আমি জেনেই সিদ্ধান্ত নিয়েছি" টিক দিয়ে তবেই সেভ।
+ */
 @Composable
-private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) -> Unit) {
-    var neverDonated by remember { mutableStateOf(false) }
-    var date by remember { mutableStateOf<Long?>(null) }
-    var reason by remember { mutableStateOf("") }
+fun DonationDateDialog(profile: Profile, onDismiss: () -> Unit, onSaved: (Long?) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val before = profile.lastDonationMillis
+    var neverDonated by remember { mutableStateOf(before == null) }
+    var date by remember { mutableStateOf(before) }
+    var agreed by remember { mutableStateOf(false) }
     var showPicker by remember { mutableStateOf(false) }
-    var formError by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    val after = if (neverDonated) null else date
+    val risk = Rules.donationRisk(before, after)
+    val changed = after != before
 
     FormDialog(
-        title = tr("Date correction", "তারিখ সংশোধন"),
-        onDismiss = onDismiss,
+        title = tr("Last donation date", "শেষ রক্তদানের তারিখ"),
+        onDismiss = { if (!busy) onDismiss() },
         content = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    tr("Now: ", "এখন: ") + (before?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি")),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = neverDonated, onCheckedChange = { neverDonated = it; if (it) date = null })
-                    Text(tr("I have actually never donated", "আসলে কখনো রক্ত দিইনি"))
+                    Checkbox(checked = neverDonated, onCheckedChange = { neverDonated = it; agreed = false })
+                    Text(tr("I have never donated", "কখনো রক্ত দিইনি"))
                 }
                 if (!neverDonated) {
                     OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(date?.let { Rules.formatDate(it) } ?: tr("Pick the correct date", "সঠিক তারিখ বেছে নিন"))
+                        Text(date?.let { Rules.formatDate(it) } ?: tr("Pick the date", "তারিখ বেছে নিন"))
                     }
                 }
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it.take(300) },
-                    label = { Text(tr("What went wrong?", "কী ভুল হয়েছিল?")) },
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                ErrorText(formError)
+                if (changed && risk != null) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AppIcon(R.drawable.ic_warning, null, Modifier.size(18.dp), MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(6.dp))
+                                Text(tr("Health risk", "স্বাস্থ্যঝুঁকি"), fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                if (risk == "backward") tr(
+                                    "You're moving the date back. You'll show as able to donate earlier. Donating less than 120 days after your last donation is risky for you and the patient.",
+                                    "আপনি তারিখ পেছাচ্ছেন — আগের চেয়ে আগেই \"রক্ত দিতে পারবেন\" দেখাবে। আগের রক্তদানের ১২০ দিনের আগে আবার রক্ত দেওয়া আপনার ও রোগীর জন্য ঝুঁকিপূর্ণ।",
+                                ) else {
+                                    val gap = ((after ?: 0L) - (before ?: 0L)) / DAY_MS
+                                    tr(
+                                        "Only $gap days between the two donations. Less than 120 days between donations is a health risk.",
+                                        "দুই রক্তদানের মাঝে মাত্র ${num(gap)} দিন। ১২০ দিনের কম ফাঁকে রক্ত দেওয়া স্বাস্থ্যঝুঁকি।",
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = agreed, onCheckedChange = { agreed = it })
+                                Text(tr("I understand and have decided", "আমি জেনেই সিদ্ধান্ত নিয়েছি"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+                ErrorText(errorMsg)
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                formError = when {
-                    !neverDonated && date == null -> tr("Pick the correct date", "সঠিক তারিখ বেছে নিন")
-                    (date ?: 0L) > Rules.todayUtcMidnight() -> tr("Date can't be in the future", "ভবিষ্যতের তারিখ দেওয়া যাবে না")
-                    reason.isBlank() -> tr("Tell us what went wrong", "কী ভুল হয়েছিল লিখুন")
-                    else -> null
-                }
-                if (formError == null) onSubmit(if (neverDonated) null else date, reason.trim())
-            }) { Text(tr("Send", "পাঠান")) }
+            TextButton(
+                enabled = !busy && changed && (neverDonated || date != null) && (risk == null || agreed),
+                onClick = {
+                    if ((after ?: 0L) > Rules.todayUtcMidnight()) {
+                        errorMsg = tr("Date can't be in the future", "ভবিষ্যতের তারিখ দেওয়া যাবে না")
+                        return@TextButton
+                    }
+                    scope.launch {
+                        busy = true
+                        errorMsg = null
+                        runCatching { DonationDate.set(after, risk != null && agreed) }
+                            .onSuccess { onSaved(after) }
+                            .onFailure { errorMsg = it.message }
+                        busy = false
+                    }
+                },
+            ) { ButtonContent(busy, tr("Confirm", "নিশ্চিত করুন")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
 
     if (showPicker) {
-        DatePickerPopup(initial = date, onPicked = { date = it }, onDismiss = { showPicker = false })
+        DatePickerPopup(initial = date, onPicked = { date = it; agreed = false }, onDismiss = { showPicker = false })
     }
 }
 

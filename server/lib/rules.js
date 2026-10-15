@@ -53,6 +53,17 @@ function isEligible(lastDonationMillis, now = Date.now()) {
   return now >= lastDonationMillis + ELIGIBILITY_DAYS * DAY_MS;
 }
 
+/**
+ * শেষ রক্তদানের তারিখ বদলালে কোন সতর্কতা: 'backward' (পেছানো বা "কখনো দিইনি"),
+ * 'short_gap' (সামনে নিলেও দুই তারিখের ফাঁক ১২০ দিনের কম), নইলে null।
+ */
+function donationRisk(before, after) {
+  if (before == null) return null;
+  if (after == null || after < before) return 'backward';
+  if (after > before && after - before < ELIGIBILITY_DAYS * DAY_MS) return 'short_gap';
+  return null;
+}
+
 const MIN_AGE = 18;
 const MAX_AGE = 60;
 const MIN_WEIGHT_KG = 50;
@@ -254,6 +265,7 @@ module.exports = {
   distanceKm,
   nearDistricts,
   todayDhakaUtcMidnight,
+  donationRisk,
   dhakaDayKey,
   pickDonors,
   donorRadius,

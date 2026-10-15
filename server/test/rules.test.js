@@ -315,3 +315,14 @@ test('ফার্মেসি: খোলা সময় আর কাছের
   assert.deepStrictEqual(K.pickPharmacies(order, ps, at(12, 0), ['near']).map((p) => p.id), ['sameUpazila']);
   assert.ok(K.medOrderExpired({ status: 'open', createdAt: 0 }, K.MED_OPEN_MS + 1));
 });
+
+test('রক্তদানের তারিখ বদল: সতর্কতা', () => {
+  const R = require('../lib/rules');
+  const D = R.DAY_MS;
+  assert.strictEqual(R.donationRisk(null, 100 * D), null); // প্রথমবার দেওয়া
+  assert.strictEqual(R.donationRisk(500 * D, 400 * D), 'backward');
+  assert.strictEqual(R.donationRisk(500 * D, null), 'backward'); // "কখনো দিইনি"
+  assert.strictEqual(R.donationRisk(500 * D, 560 * D), 'short_gap'); // ৬০ দিন পর
+  assert.strictEqual(R.donationRisk(500 * D, 620 * D), null); // ১২০ দিন
+  assert.strictEqual(R.donationRisk(500 * D, 500 * D), null);
+});

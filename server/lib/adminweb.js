@@ -201,6 +201,8 @@ async function userView(uid) {
     lastDonationMillis: doc.exists ? doc.get('lastDonationMillis') ?? null : null,
     notify: doc.exists ? doc.get('notify') !== false : null,
     phoneVerified: !!st('verifiedPhone'),
+    // শেষ রক্তদানের তারিখ বদলের ইতিহাস (সবশেষটা আগে)
+    donationDateLog: (st('donationDateLog') || []).slice().reverse(),
     isAdmin: email ? await isAdmin({ email, email_verified: true }) : false,
     isOwner: email ? adminEmails().includes(email) : false,
     badge: badge.exists ? { type: badge.get('type'), status: badge.get('status'), regNo: badge.get('regNo') || '', workplace: badge.get('workplace') || '' } : null,

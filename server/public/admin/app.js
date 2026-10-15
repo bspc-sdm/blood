@@ -1175,6 +1175,12 @@
         h('div', { class: 'facts' }, facts.map(([k, v]) => h('div', null, h('span', { text: k }), v)))),
       h('h2', { class: 'section-title', text: 'ব্যবস্থা' }),
       h('div', { class: 'card pad' }, controls),
+      (u.donationDateLog || []).length ? actTable('শেষ রক্তদানের তারিখ বদল', u.donationDateLog, [
+        { label: 'কখন', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'আগে', cell: (x) => (x.from ? fmtDate(x.from) : 'কখনো দেননি') },
+        { label: 'পরে', cell: (x) => (x.to ? fmtDate(x.to) : 'কখনো দেননি') },
+        { label: 'সতর্কতা', cell: (x) => (x.risk === 'backward' ? h('span', { class: 'chip bad', text: 'পেছানো' }) : x.risk === 'short_gap' ? h('span', { class: 'chip bad', text: '১২০ দিনের কম ফাঁক' }) : '—') },
+      ]) : null,
       actTable('আপিল ও সমস্যা', A.tickets, [
         { label: 'বিষয়', main: true, cell: (x) => h('a', { href: `#/ticket/${encodeURIComponent(x.id)}`, text: L.category[x.category] || x.category }) },
         { label: 'অবস্থা', cell: (x) => L.ticket[x.status] || x.status },

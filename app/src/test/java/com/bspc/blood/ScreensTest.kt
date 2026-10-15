@@ -255,6 +255,13 @@ class ScreensTest {
     }
 
     @Test
+    fun donationDateDialogBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { DonationDateDialog(profile.copy(lastDonationMillis = Rules.todayUtcMidnight() - 40 * DAY_MS), {}, {}) }
+        shot("donation_date_dialog_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

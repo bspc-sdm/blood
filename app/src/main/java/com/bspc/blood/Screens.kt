@@ -263,7 +263,15 @@ fun ProfileEditScreen(
                     Text(tr("I have never donated", "কখনো রক্ত দিইনি"))
                 }
             }
-            if (!neverDonated) {
+            if (savedDonation != null) {
+                // আগে দেওয়া তারিখ এখানে নয়, প্রোফাইলের "শেষ রক্তদানের তারিখ বদলান" থেকে (সতর্কতা সহ)
+                Text(Rules.formatDate(savedDonation), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    tr("To change it, use \"Change last donation date\" in Profile.", "বদলাতে প্রোফাইলের \"শেষ রক্তদানের তারিখ বদলান\" চাপুন।"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (!neverDonated) {
                 OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
                     AppIcon(R.drawable.ic_history, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -287,11 +295,6 @@ fun ProfileEditScreen(
                         !neverDonated && lastDonation == null ->
                             tr("Add your last donation date, or tick \"never donated\"", "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন")
                         (lastDonation ?: 0L) > Rules.todayUtcMidnight() -> tr("Date can't be in the future", "ভবিষ্যতের তারিখ দেওয়া যাবে না")
-                        savedDonation != null && (lastDonation ?: 0L) < savedDonation ->
-                            tr(
-                                "Can't be earlier than ${Rules.formatDate(savedDonation)}. Use \"Request a correction\" in Profile.",
-                                "${Rules.formatDate(savedDonation)}-এর আগের তারিখ দেওয়া যায় না। প্রোফাইল থেকে সংশোধনের অনুরোধ পাঠান।",
-                            )
                         else -> null
                     }
                     if (formError == null && cleanPhone != null) {

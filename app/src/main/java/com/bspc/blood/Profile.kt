@@ -66,6 +66,7 @@ fun ProfileTab(
     var photoBusy by remember { mutableStateOf(false) }
     var photoMenu by remember { mutableStateOf(false) }
     var showBadgeDialog by remember { mutableStateOf(false) }
+    var showDateDialog by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -207,6 +208,12 @@ fun ProfileTab(
         ) {
             ActionRow(R.drawable.ic_list_alt, tr("My Requests", "আমার রিকোয়েস্ট"), null, onOpenMyRequests)
             HorizontalDivider()
+            ActionRow(
+                R.drawable.ic_history,
+                tr("Change last donation date", "শেষ রক্তদানের তারিখ বদলান"),
+                profile.lastDonationMillis?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি"),
+            ) { showDateDialog = true }
+            HorizontalDivider()
             ActionRow(R.drawable.ic_edit, tr("Edit profile", "প্রোফাইল এডিট"), null, onEditProfile)
             HorizontalDivider()
             val badge = community?.badge
@@ -235,8 +242,6 @@ fun ProfileTab(
                 ActionRow(R.drawable.ic_admin_panel_settings, tr("Admin", "অ্যাডমিন"), null, onOpenAdmin)
             }
         }
-
-        CorrectionCard(profile)
 
         Card(
             Modifier.fillMaxWidth(),
@@ -317,6 +322,12 @@ fun ProfileTab(
         )
     }
 
+    if (showDateDialog) {
+        DonationDateDialog(profile, onDismiss = { showDateDialog = false }) { d ->
+            showDateDialog = false
+            onProfileChanged(profile.copy(lastDonationMillis = d))
+        }
+    }
     if (showBadgeDialog) {
         BadgeApplyDialog(
             onDismiss = { showBadgeDialog = false },

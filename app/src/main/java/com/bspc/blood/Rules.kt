@@ -66,6 +66,14 @@ object Rules {
 
     val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
 
+    /** তারিখ বদলের সতর্কতা: "backward" (পেছানো/কখনো দিইনি), "short_gap" (১২০ দিনের কম ফাঁক), নইলে null — সার্ভারের সাথে মেলানো */
+    fun donationRisk(before: Long?, after: Long?): String? = when {
+        before == null -> null
+        after == null || after < before -> "backward"
+        after > before && after - before < ELIGIBILITY_DAYS * DAY_MS -> "short_gap"
+        else -> null
+    }
+
     fun nextEligibleMillis(lastDonationMillis: Long?): Long? =
         lastDonationMillis?.let { it + ELIGIBILITY_DAYS * DAY_MS }
 
