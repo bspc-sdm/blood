@@ -66,7 +66,9 @@ fun FilterBar(
     var searching by remember { mutableStateOf(!search.isNullOrEmpty()) }
     val cs = MaterialTheme.colorScheme
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          // এলাকা আর ফিল্টার বাঁ দিকে যতটা জায়গা লাগে; খোঁজার আইকন ডানে (এলাকার নাম অকারণে কাটা পড়ে না)
+          Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // এলাকা: বাটনের লেখাতেই কোন এলাকা
             Surface(
                 onClick = onAreaClick,
@@ -103,8 +105,8 @@ fun FilterBar(
                     }
                 }
             }
+          }
             if (onSearch != null) {
-                Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
                     if (searching) onSearch("")
                     searching = !searching
