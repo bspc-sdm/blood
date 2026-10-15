@@ -71,7 +71,7 @@ fun SettingsScreen(
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
     }
 
-    Scaffold(topBar = { BackTopBar(tr("Settings", "সেটিংস"), onBack) }) { padding ->
+    Scaffold(topBar = { BackTopBar(tr("App settings", "অ্যাপ সেটিংস"), onBack) }) { padding ->
     Column(
         Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

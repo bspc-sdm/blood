@@ -396,7 +396,7 @@ internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> 
 
 /**
  * উপরের ডান কোণের ছবি = অ্যাপের মূল মেনু (Facebook-এর মতো): নিজের ছবি, কোণে ছোট ☰ চিহ্ন।
- * চাপলে মেনু পাতা (প্রোফাইল, আমার রিকোয়েস্ট, সেটিংস, লগআউট…)।
+ * চাপলে "সেটিংস" পাতা (প্রোফাইল, আমার রিকোয়েস্ট, সেটিংস, লগআউট…)।
  */
 @Composable
 internal fun MenuAvatar(avatar: androidx.compose.ui.graphics.ImageBitmap?) {
@@ -430,7 +430,7 @@ internal fun MenuAvatar(avatar: androidx.compose.ui.graphics.ImageBitmap?) {
             AppIcon(R.drawable.ic_menu_round, null, Modifier.size(11.dp), cs.onSurface)
         }
         // স্ক্রিন রিডারের জন্য একটাই নাম
-        Box(Modifier.matchParentSize().semantics { contentDescription = tr("Menu and profile", "মেনু ও প্রোফাইল") })
+        Box(Modifier.matchParentSize().semantics { contentDescription = tr("Settings and profile", "সেটিংস ও প্রোফাইল") })
     }
 }
 

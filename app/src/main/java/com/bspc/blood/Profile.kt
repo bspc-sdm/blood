@@ -94,14 +94,14 @@ fun ProfileTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // উপরের ছবি-☰ থেকে আসা পাতা: প্রোফাইলসহ পুরো অ্যাপের মেনু
+            // উপরের ছবি-☰ থেকে আসা পাতা: প্রোফাইলসহ পুরো অ্যাপের সেটিংস। ভাষা/থিম ইত্যাদি
+            // আলাদা পাতা "অ্যাপ সেটিংস" (নিচের সারিতে) — নইলে "সেটিংসের ভেতরে সেটিংস" গুলিয়ে যেত
             Text(
-                tr("Menu", "মেনু"),
+                tr("Settings", "সেটিংস"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onOpenSettings) { AppIcon(R.drawable.ic_settings_outline, tr("Settings", "সেটিংস")) }
         }
 
         // ---- ছবি, নাম, ব্যাজ ----
@@ -231,7 +231,12 @@ fun ProfileTab(
                 if (badge?.status == "pending" || badge?.status == "approved") null else ({ showBadgeDialog = true }),
             )
             HorizontalDivider()
-            ActionRow(R.drawable.ic_settings_outline, tr("Settings", "সেটিংস"), null, onOpenSettings)
+            ActionRow(
+                R.drawable.ic_settings_outline,
+                tr("App settings", "অ্যাপ সেটিংস"),
+                tr("Language, theme, notifications, area", "ভাষা, থিম, নোটিফিকেশন, এলাকা"),
+                onOpenSettings,
+            )
             HorizontalDivider()
             ActionRow(
                 R.drawable.ic_help,
