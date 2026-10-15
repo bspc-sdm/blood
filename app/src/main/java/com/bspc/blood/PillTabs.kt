@@ -161,18 +161,18 @@ fun SmallFab(text: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier
     val cs = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(12.dp),
         color = cs.primary,
         contentColor = cs.onPrimary,
         shadowElevation = 4.dp,
-        modifier = modifier.heightIn(min = 36.dp),
+        modifier = modifier.heightIn(min = 44.dp),
     ) {
         Row(
-            Modifier.padding(start = 12.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+            Modifier.padding(start = 14.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            AppIcon(icon, null, Modifier.size(18.dp))
+            AppIcon(icon, null, Modifier.size(20.dp))
             Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }

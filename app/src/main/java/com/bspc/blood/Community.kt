@@ -430,7 +430,7 @@ fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk
                 }
             }
         }
-        SmallFab(tr("Ask a question", "প্রশ্ন করুন"), R.drawable.ic_edit_note, onAsk, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+        SmallFab(tr("Question", "প্রশ্ন"), R.drawable.ic_edit_note, onAsk, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
@@ -736,7 +736,7 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
             }
         }
         if (me?.approvedBadge != null) {
-            SmallFab(tr("Post a tip", "টিপস দিন"), R.drawable.ic_edit_note, onPostTip, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            SmallFab(tr("Tip", "টিপস"), R.drawable.ic_edit_note, onPostTip, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
     }
 }

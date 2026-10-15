@@ -307,7 +307,7 @@ fun HomeTab(
         }
 
         if (others.isNotEmpty()) {
-            SmallFab(tr("Create Request", "রিকোয়েস্ট দিন"), R.drawable.ic_add, onNewRequest, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            SmallFab(tr("Request", "রিকোয়েস্ট"), R.drawable.ic_add, onNewRequest, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         }
     }
 }
@@ -335,7 +335,7 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
         topBar = { BackTopBar(tr("My Requests", "আমার রিকোয়েস্ট"), onBack) },
         floatingActionButton = {
             if (!loading && activeCount < Rules.MAX_OPEN_REQUESTS) {
-                SmallFab(tr("Create Request", "রিকোয়েস্ট দিন"), R.drawable.ic_add, onNewRequest)
+                SmallFab(tr("Request", "রিকোয়েস্ট"), R.drawable.ic_add, onNewRequest)
             }
         },
     ) { padding ->
