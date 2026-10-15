@@ -2,6 +2,10 @@ package com.bspc.blood
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +21,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,12 +46,13 @@ fun List<DonorResponse>.willing() = filter { it.status == "accepted" || it.statu
 /** নিশ্চিত বা রক্ত দেওয়া — ব্যাগ পূরণের হিসাবে ধরা হয় */
 fun DonorResponse.counts() = status == "donated" || (status == "accepted" && confirmed)
 
-/** "৩ জন রাজি · ১ জন নিশ্চিত" আর ব্যাগ পূরণের অগ্রগতি */
+/** "৩ জন রাজি · ১ জন নিশ্চিত", আর ১, ২, ৩… করে প্রতিটা ব্যাগ — যতগুলো পূরণ হয়েছে সেগুলো ভরাট */
 @Composable
 fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
     val willing = responses.willing()
     val done = willing.count { it.counts() }.coerceAtMost(r.bags)
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val cs = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             tr(
                 "${num(willing.size)} agreed · ${num(willing.count { it.counts() })} confirmed",
@@ -57,16 +61,29 @@ fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-        LinearProgressIndicator(
-            progress = { if (r.bags > 0) done.toFloat() / r.bags else 0f },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            if (done >= r.bags) tr("All ${num(r.bags)} bags arranged", "${num(r.bags)} ব্যাগই পূরণ হয়েছে")
-            else tr("${num(done)} of ${num(r.bags)} bags arranged", "${num(r.bags)} ব্যাগের ${num(done)}টা পূরণ"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(tr("Bags", "ব্যাগ"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+            (1..r.bags).forEach { i ->
+                val filled = i <= done
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = if (filled) cs.primary else Color.Transparent,
+                    contentColor = if (filled) cs.onPrimary else cs.primary,
+                    border = if (filled) null else androidx.compose.foundation.BorderStroke(1.5.dp, cs.primary.copy(alpha = 0.5f)),
+                    modifier = Modifier.size(32.dp).semantics {
+                        contentDescription = if (filled) tr("Bag $i arranged", "${num(i)} নম্বর ব্যাগ পূরণ") else tr("Bag $i needed", "${num(i)} নম্বর ব্যাগ বাকি")
+                    },
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(num(i), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -257,7 +274,7 @@ internal fun MyRequestCard(
                         }
                     }
                     Text(
-                        tr("${num(r.bags)} bag(s) · ", "${num(r.bags)} ব্যাগ · ") + Rules.formatNeeded(r),
+                        Rules.formatNeeded(r),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -302,12 +319,6 @@ internal fun MyRequestCard(
                         Text(tr("See all ${num(willing.size)}", "সবাই দেখুন (${num(willing.size)})"))
                     }
                 }
-            } else {
-                Text(
-                    tr("No one has agreed yet. Share it with people you know — even far away.", "এখনো কেউ রাজি হননি। পরিচিতদের পাঠান — দূরে থাকলেও।"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             HorizontalDivider()

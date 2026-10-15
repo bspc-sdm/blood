@@ -56,7 +56,7 @@ class ScreensTest {
     )
 
     private val request = BloodRequest(
-        id = "r1", patientGroup = "B+", bags = 2, hospital = "Mymensingh Medical College Hospital", placeName = "ময়মনসিংহ",
+        id = "r1", patientGroup = "B+", bags = 3, hospital = "Mymensingh Medical College Hospital", placeName = "ময়মনসিংহ",
         neededByMillis = System.currentTimeMillis() + 86_400_000L, urgent = true, notified = true, notifiedCount = 23,
     )
     private val donors = listOf(
