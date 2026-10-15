@@ -187,6 +187,113 @@ object Community {
     }
 }
 
+/** ডাক্তার/নার্সের চেম্বার (অ্যাপয়েন্টমেন্টের জন্য) */
+data class Provider(
+    val uid: String,
+    val type: String,
+    val name: String,
+    val specialty: String,
+    val chamber: String,
+    /** জেলার বাংলা নাম */
+    val district: String,
+    val schedule: String,
+    val fee: String,
+    val active: Boolean,
+)
+
+data class Appointment(
+    val id: String,
+    /** "patient" (আমি রোগী) বা "provider" (আমি ডাক্তার/নার্স) */
+    val role: String,
+    val otherName: String,
+    val type: String,
+    val chamber: String,
+    val schedule: String,
+    val date: Long,
+    val note: String,
+    /** "pending", "confirmed", "declined", "cancelled" */
+    val status: String,
+    val providerNote: String,
+    /** নিশ্চিত হলে অপরজনের ফোন */
+    val otherPhone: String,
+    val createdAt: Long,
+)
+
+/** অ্যাডমিনের কাছে রিপোর্ট হওয়া পোস্ট */
+data class ReportedItem(val targetPath: String, val kind: String, val count: Int, val text: String, val authorName: String)
+
+object Appointments {
+    private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
+        ServerApi.post("/api/community", body.put("action", action))
+
+    private fun provider(o: JSONObject) = Provider(
+        o.optString("uid"), o.optString("type"), o.optString("name"), o.optString("specialty"),
+        o.optString("chamber"), o.optString("district"), o.optString("schedule"), o.optString("fee"),
+        o.optBoolean("active", true),
+    )
+
+    suspend fun providers(type: String): List<Provider> {
+        val arr = call("providers", JSONObject().put("type", type)).optJSONArray("items") ?: JSONArray()
+        return (0 until arr.length()).map { provider(arr.getJSONObject(it)) }
+    }
+
+    suspend fun mine(): Provider? = call("provider_me").optJSONObject("provider")?.let(::provider)
+
+    suspend fun save(specialty: String, chamber: String, district: String, schedule: String, fee: String, active: Boolean) {
+        call(
+            "provider_save",
+            JSONObject().put("specialty", specialty).put("chamber", chamber).put("district", district)
+                .put("schedule", schedule).put("fee", fee).put("active", active),
+        )
+    }
+
+    suspend fun book(providerUid: String, date: Long, note: String) {
+        call("book", JSONObject().put("providerUid", providerUid).put("date", date).put("note", note))
+    }
+
+    suspend fun list(): List<Appointment> {
+        val arr = call("my_appointments").optJSONArray("items") ?: JSONArray()
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            Appointment(
+                o.optString("id"), o.optString("role"), o.optString("otherName"), o.optString("type"),
+                o.optString("chamber"), o.optString("schedule"), o.optLong("date"), o.optString("note"),
+                o.optString("status"), o.optString("providerNote"), o.optString("otherPhone"), o.optLong("createdAt"),
+            )
+        }
+    }
+
+    suspend fun update(id: String, action: String, providerNote: String = "") {
+        call("appointment_update", JSONObject().put("id", id).put("action", action).put("providerNote", providerNote))
+    }
+}
+
+object Moderation {
+    private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
+        ServerApi.post("/api/community", body.put("action", action))
+
+    suspend fun report(kind: String, id: String, answerId: String? = null) {
+        call("report", JSONObject().put("kind", kind).put("id", id).apply { if (answerId != null) put("answerId", answerId) })
+    }
+
+    suspend fun adminReports(): List<ReportedItem> {
+        val arr = call("admin_reports").optJSONArray("items") ?: JSONArray()
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            ReportedItem(o.optString("targetPath"), o.optString("kind"), o.optInt("count"), o.optString("text"), o.optString("authorName"))
+        }
+    }
+
+    suspend fun resolve(targetPath: String, remove: Boolean) {
+        call("admin_report_resolve", JSONObject().put("targetPath", targetPath).put("remove", remove))
+    }
+
+    /** অ্যাকাউন্ট আর সব তথ্য মোছা */
+    suspend fun deleteAccount() {
+        call("delete_account")
+    }
+}
+
 // ------------------------------------------------------------
 // ব্যাজ
 // ------------------------------------------------------------
@@ -301,6 +408,7 @@ fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk
                     IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
                 }
             }
+            item { EmergencyNotice() }
             when {
                 loading -> item { LoadingBox() }
                 errorMsg != null -> item { ErrorText(errorMsg) }
@@ -379,6 +487,7 @@ fun AskQuestionScreen(onPosted: (String) -> Unit, onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            EmergencyNotice()
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it.take(1000) },
@@ -424,6 +533,9 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
     var reply by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    /** কী রিপোর্ট হচ্ছে: ("question", null) বা ("answer", answerId) */
+    var reportTarget by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -439,6 +551,9 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
     Scaffold(
         topBar = {
             BackTopBar(tr("Question", "প্রশ্ন"), onBack) {
+                if (q != null && !q.mine) {
+                    IconButton(onClick = { reportTarget = "question" to null }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
+                }
                 if (q != null && (q.mine || me?.isAdmin == true)) {
                     IconButton(onClick = { confirmDelete = true }) { AppIcon(R.drawable.ic_delete, tr("Delete", "মুছুন")) }
                 }
@@ -475,14 +590,19 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 AuthorLine(a.authorName, a.badge, a.createdAt)
                                 Text(a.text, style = MaterialTheme.typography.bodyLarge)
-                                if (a.mine || me?.isAdmin == true) {
-                                    TextButton(onClick = {
-                                        scope.launch {
-                                            runCatching { Community.deleteAnswer(id, a.id) }
-                                                .onSuccess { onChanged(); reload++ }
-                                                .onFailure { errorMsg = it.message }
-                                        }
-                                    }) { Text(tr("Delete", "মুছুন")) }
+                                Row {
+                                    if (!a.mine) {
+                                        TextButton(onClick = { reportTarget = "answer" to a.id }) { Text(tr("Report", "রিপোর্ট")) }
+                                    }
+                                    if (a.mine || me?.isAdmin == true) {
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching { Community.deleteAnswer(id, a.id) }
+                                                    .onSuccess { onChanged(); reload++ }
+                                                    .onFailure { errorMsg = it.message }
+                                            }
+                                        }) { Text(tr("Delete", "মুছুন")) }
+                                    }
                                 }
                             }
                         }
@@ -520,10 +640,25 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                             )
                         }
                         ErrorText(errorMsg)
+                        InfoText(infoMsg)
                     }
                 }
             }
         }
+    }
+
+    reportTarget?.let { (kind, answerId) ->
+        ReportDialog(
+            onDismiss = { reportTarget = null },
+            onConfirm = {
+                reportTarget = null
+                scope.launch {
+                    runCatching { Moderation.report(kind, id, answerId) }
+                        .onSuccess { infoMsg = tr("Reported. An admin will review it.", "রিপোর্ট পাঠানো হয়েছে। অ্যাডমিন দেখবেন।") }
+                        .onFailure { errorMsg = it.message }
+                }
+            },
+        )
     }
 
     if (confirmDelete) {
@@ -657,11 +792,16 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
 fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmReport by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             BackTopBar(tr("Health Tips", "হেলথ টিপস"), onBack) {
+                if (!tip.mine) {
+                    IconButton(onClick = { confirmReport = true }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
+                }
                 if (tip.mine || me?.isAdmin == true) {
                     IconButton(onClick = { confirmDelete = true }) { AppIcon(R.drawable.ic_delete, tr("Delete", "মুছুন")) }
                 }
@@ -677,7 +817,22 @@ fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: (
             Spacer(Modifier.height(4.dp))
             Text(tip.body, style = MaterialTheme.typography.bodyLarge)
             ErrorText(errorMsg)
+            InfoText(infoMsg)
         }
+    }
+
+    if (confirmReport) {
+        ReportDialog(
+            onDismiss = { confirmReport = false },
+            onConfirm = {
+                confirmReport = false
+                scope.launch {
+                    runCatching { Moderation.report("tip", tip.id) }
+                        .onSuccess { infoMsg = tr("Reported. An admin will review it.", "রিপোর্ট পাঠানো হয়েছে। অ্যাডমিন দেখবেন।") }
+                        .onFailure { errorMsg = it.message }
+                }
+            },
+        )
     }
 
     if (confirmDelete) {
@@ -820,5 +975,37 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit) {
             ) { Text(tr("Apply", "আবেদন করুন")) }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
+}
+
+/** জরুরি অবস্থায় এখানে নয় — স্থায়ী সতর্কবার্তা */
+@Composable
+fun EmergencyNotice() {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(R.drawable.ic_warning, null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                tr(
+                    "Emergency? Call 999 now. Answers here are general guidance, not a diagnosis.",
+                    "জরুরি অবস্থায় এখনই ৯৯৯-এ ফোন করুন। এখানের উত্তর সাধারণ পরামর্শ, রোগ নির্ণয় নয়।",
+                ),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+fun ReportDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Report this?", "রিপোর্ট করবেন?")) },
+        text = { Text(tr("Report if it's wrong, harmful or abusive. An admin will review it.", "ভুল, ক্ষতিকর বা আপত্তিকর মনে হলে রিপোর্ট করুন। অ্যাডমিন দেখবেন।")) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(tr("Report", "রিপোর্ট করুন")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
     )
 }

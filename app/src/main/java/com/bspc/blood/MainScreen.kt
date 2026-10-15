@@ -72,6 +72,9 @@ fun MainScreen(
     onAsk: () -> Unit,
     onOpenTip: (Tip) -> Unit,
     onPostTip: () -> Unit,
+    onOpenMyAppointments: () -> Unit,
+    onEditChamber: () -> Unit,
+    onAccountDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -145,7 +148,7 @@ fun MainScreen(
         Box(Modifier.padding(padding)) {
             when (tab) {
                 Tabs.HOME -> HomeTab(profile, homeRefresh, onOpenRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
-                Tabs.APPOINTMENT -> AppointmentTab()
+                Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.DISCUSSION -> HealthDiscussionTab(communityRefresh, onOpenQuestion, onAsk)
                 Tabs.TIPS -> HealthTipsTab(communityRefresh, community, onOpenTip, onPostTip)
                 else -> ProfileTab(
@@ -158,6 +161,7 @@ fun MainScreen(
                     onProfileChanged = onProfileChanged,
                     onLogout = onLogout,
                     onOpenAdmin = onOpenAdmin,
+                    onAccountDeleted = onAccountDeleted,
                 )
             }
         }

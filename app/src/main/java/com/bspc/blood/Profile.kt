@@ -58,6 +58,7 @@ fun ProfileTab(
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
+    onAccountDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -67,6 +68,8 @@ fun ProfileTab(
     var photoMenu by remember { mutableStateOf(false) }
     var showBadgeDialog by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val uid = AuthRepository.currentUid
@@ -233,7 +236,15 @@ fun ProfileTab(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
-            ActionRow(R.drawable.ic_logout, tr("Log out", "লগআউট"), null, onLogout, MaterialTheme.colorScheme.error)
+            ActionRow(R.drawable.ic_logout, tr("Log out", "লগআউট"), null, onLogout)
+            HorizontalDivider()
+            ActionRow(
+                R.drawable.ic_delete,
+                tr("Delete account", "অ্যাকাউন্ট মুছুন"),
+                null,
+                { confirmDelete = true },
+                MaterialTheme.colorScheme.error,
+            )
         }
     }
 
@@ -258,6 +269,45 @@ fun ProfileTab(
                     }
                 }) { Text(tr("Remove", "মুছুন")) }
             },
+        )
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) confirmDelete = false },
+            title = { Text(tr("Delete your account?", "অ্যাকাউন্ট মুছবেন?")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        tr(
+                            "Your profile, photo, phone number, requests, questions, answers, tips, appointments and badge will be deleted permanently. This can't be undone.",
+                            "আপনার প্রোফাইল, ছবি, ফোন নম্বর, রিকোয়েস্ট, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট আর ব্যাজ চিরতরে মুছে যাবে। এটা আর ফেরানো যাবে না।",
+                        )
+                    )
+                    if (deleting) CircularProgressIndicator(Modifier.size(24.dp))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            deleting = true
+                            runCatching { Moderation.deleteAccount() }
+                                .onSuccess {
+                                    confirmDelete = false
+                                    onAccountDeleted()
+                                }
+                                .onFailure {
+                                    errorMsg = it.message
+                                    confirmDelete = false
+                                }
+                            deleting = false
+                        }
+                    },
+                    enabled = !deleting,
+                ) { Text(tr("Delete permanently", "চিরতরে মুছুন"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !deleting) { Text(tr("Cancel", "বাতিল")) } },
         )
     }
 

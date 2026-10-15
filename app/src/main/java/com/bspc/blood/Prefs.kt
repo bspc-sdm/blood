@@ -23,7 +23,9 @@ object AppPrefs {
 
     fun init(context: Context) {
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-        lang.value = Lang.entries.firstOrNull { it.code == p.getString("lang", null) } ?: Lang.EN
+        // প্রথমবার: ফোনের ভাষা বাংলা হলে বাংলা, নইলে ইংরেজি
+        val phoneLang = if (java.util.Locale.getDefault().language == "bn") Lang.BN else Lang.EN
+        lang.value = Lang.entries.firstOrNull { it.code == p.getString("lang", null) } ?: phoneLang
         theme.value = ThemeMode.entries.firstOrNull { it.code == p.getString("theme", null) } ?: ThemeMode.SYSTEM
     }
 

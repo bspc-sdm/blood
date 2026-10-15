@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
                             onRequestOpened = { openRequestId.value = null },
                             openQuestionId = openQuestionId.value,
                             onQuestionOpened = { openQuestionId.value = null },
+                            openAppointments = openType.value == "appointment",
+                            onAppointmentsOpened = { openType.value = null },
                         )
                     }
                 }
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = it
         }
         intent.getStringExtra(Notifier.EXTRA_QUESTION_ID)?.let { openQuestionId.value = it }
+        if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
     }
 }
 
@@ -102,6 +105,8 @@ sealed interface Screen {
     data object AskQuestion : Screen
     data class TipDetail(val tip: Tip) : Screen
     data object PostTip : Screen
+    data object MyAppointments : Screen
+    data object ChamberEdit : Screen
 }
 
 object Tabs {
@@ -119,6 +124,8 @@ fun App(
     onRequestOpened: () -> Unit,
     openQuestionId: String?,
     onQuestionOpened: () -> Unit,
+    openAppointments: Boolean,
+    onAppointmentsOpened: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -182,6 +189,12 @@ fun App(
     LaunchedEffect(ready, stack.last()) {
         if (ready) runCatching { Community.me() }.onSuccess { community = it }
     }
+    LaunchedEffect(openAppointments, ready) {
+        if (openAppointments && ready) {
+            push(Screen.MyAppointments)
+            onAppointmentsOpened()
+        }
+    }
     LaunchedEffect(openQuestionId, ready) {
         if (openQuestionId != null && ready) {
             push(Screen.QuestionDetail(openQuestionId))
@@ -233,12 +246,23 @@ fun App(
                 onAsk = { push(Screen.AskQuestion) },
                 onOpenTip = { push(Screen.TipDetail(it)) },
                 onPostTip = { push(Screen.PostTip) },
+                onOpenMyAppointments = { push(Screen.MyAppointments) },
+                onEditChamber = { push(Screen.ChamberEdit) },
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
                         profile = null
                         community = null
                         errorMsg = null
+                        resetTo(Screen.Login)
+                    }
+                },
+                onAccountDeleted = {
+                    scope.launch {
+                        runCatching { AuthRepository.signOut(context) }
+                        profile = null
+                        community = null
+                        errorMsg = tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।")
                         resetTo(Screen.Login)
                     }
                 },
@@ -415,6 +439,13 @@ fun App(
                 },
                 onBack = { back() },
             )
+
+            Screen.MyAppointments -> MyAppointmentsScreen(
+                isProvider = community?.approvedBadge in listOf("doctor", "nurse"),
+                onBack = { back() },
+            )
+
+            Screen.ChamberEdit -> ChamberEditScreen(onBack = { back() })
 
             is Screen.MyRequestDetail -> MyRequestDetailScreen(
                 requestId = current.id,

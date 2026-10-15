@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -202,6 +203,8 @@ fun AdminScreen(onBack: () -> Unit) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var items by remember { mutableStateOf<List<CorrectionRequest>>(emptyList()) }
     var badges by remember { mutableStateOf<List<BadgeRequest>>(emptyList()) }
+    var reports by remember { mutableStateOf<List<ReportedItem>>(emptyList()) }
+    val context = LocalContext.current
 
     LaunchedEffect(reload) {
         loading = true
@@ -211,6 +214,9 @@ fun AdminScreen(onBack: () -> Unit) {
             .onFailure { errorMsg = it.message }
         runCatching { Community.adminBadges() }
             .onSuccess { badges = it }
+            .onFailure { errorMsg = it.message }
+        runCatching { Moderation.adminReports() }
+            .onSuccess { reports = it }
             .onFailure { errorMsg = it.message }
         loading = false
     }
@@ -255,12 +261,51 @@ fun AdminScreen(onBack: () -> Unit) {
                         Text(b.email, style = MaterialTheme.typography.bodySmall)
                         Text(tr("Reg. no: ", "রেজি. নম্বর: ") + b.regNo)
                         Text(tr("Workplace: ", "কর্মস্থল: ") + b.workplace)
+                        // অনুমোদনের আগে সরকারি তালিকায় নম্বর মিলিয়ে দেখা
+                        when (b.type) {
+                            "doctor" -> TextButton(onClick = { openUrl(context, "https://www.bmdc.org.bd/") }) {
+                                Text(tr("Check on BMDC website", "BMDC ওয়েবসাইটে মিলিয়ে দেখুন"))
+                            }
+                            "nurse" -> TextButton(onClick = { openUrl(context, "https://www.bnmc.gov.bd/") }) {
+                                Text(tr("Check on BNMC website", "BNMC ওয়েবসাইটে মিলিয়ে দেখুন"))
+                            }
+                            else -> Text(
+                                tr("Ask for a certificate before approving.", "অনুমোদনের আগে সনদ দেখে নিন।"),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                         Row {
                             Button(onClick = { act(b.uid) { Community.resolveBadge(b.uid, true) } }, enabled = busyId == null) {
                                 ButtonContent(busyId == b.uid, tr("Approve", "অনুমোদন"))
                             }
                             TextButton(onClick = { act(b.uid) { Community.resolveBadge(b.uid, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionTitle(tr("Reported posts", "রিপোর্ট হওয়া পোস্ট") + " (${num(reports.size)})")
+            if (reports.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            reports.forEach { r ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            when (r.kind) {
+                                "question" -> tr("Question", "প্রশ্ন")
+                                "answer" -> tr("Answer", "উত্তর")
+                                else -> tr("Tip", "টিপস")
+                            } + " · " + r.authorName.ifBlank { "-" } + " · " + tr("${num(r.count)} report(s)", "${num(r.count)}টি রিপোর্ট"),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(r.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6)
+                        Row {
+                            Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == r.targetPath, tr("Remove post", "পোস্ট মুছুন"))
+                            }
+                            TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false) } }, enabled = busyId == null) {
+                                Text(tr("Keep", "রেখে দিন"))
                             }
                         }
                     }

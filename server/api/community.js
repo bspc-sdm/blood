@@ -16,30 +16,10 @@ async function decodeUser(req) {
   }
 }
 
-/** অনুমোদিত ব্যাজ (না থাকলে null) */
-async function approvedBadge(uid) {
-  const s = await db.doc(`badges/${uid}`).get();
-  return s.exists && s.get('status') === 'approved' ? s.get('type') : null;
-}
-
-/** দৈনিক সীমা (serverState/{uid}) */
-async function useQuota(req, uid, kind) {
-  const ref = db.doc(`serverState/${uid}`);
-  const day = R.dhakaDayKey();
-  await db.runTransaction(async (t) => {
-    const s = await t.get(ref);
-    const used = s.exists && s.get(`${kind}Day`) === day ? s.get(`${kind}Count`) || 0 : 0;
-    if (used >= C.LIMITS[kind]) {
-      throw new HttpError(429, C.tr(req, 'Daily limit reached. Try again tomorrow.', 'আজকের সীমা শেষ। কাল আবার চেষ্টা করুন।'));
-    }
-    t.set(ref, { [`${kind}Day`]: day, [`${kind}Count`]: used + 1 }, { merge: true });
-  });
-}
-
-async function userName(uid) {
-  const s = await db.doc(`users/${uid}`).get();
-  return (s.exists && s.get('name')) || '';
-}
+const { approvedBadge, useQuota, userName } = require('../lib/community-db');
+const appointments = require('../lib/appointments');
+const moderation = require('../lib/moderation');
+const account = require('../lib/account');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -134,8 +114,11 @@ const actions = {
     await useQuota(req, user.uid, 'answer');
     const name = (await userName(user.uid)).slice(0, 80);
     const batch = db.batch();
-    batch.set(qRef.collection('answers').doc(), { uid: user.uid, authorName: name, badge, text, createdAt: Date.now() });
+    const aRef = qRef.collection('answers').doc();
+    batch.set(aRef, { uid: user.uid, authorName: name, badge, text, createdAt: Date.now() });
     batch.update(qRef, { answerCount: FieldValue.increment(1), lastAnswerAt: Date.now() });
+    // অ্যাকাউন্ট মুছলে নিজের উত্তরগুলো খুঁজে মোছার জন্য
+    batch.set(db.doc(`serverState/${user.uid}`), { answerPaths: FieldValue.arrayUnion(aRef.path) }, { merge: true });
     await batch.commit();
 
     // প্রশ্নকারীকে জানানো
@@ -293,9 +276,11 @@ const actions = {
   },
 };
 
+Object.assign(actions, appointments, moderation, account);
+
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);
-  const fn = actions[req.body?.action];
+  const fn = Object.prototype.hasOwnProperty.call(actions, req.body?.action) ? actions[req.body.action] : null;
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
   return fn(req, user);
 });
