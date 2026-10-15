@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * নতুন স্ক্রিনগুলো নমুনা তথ্য দিয়ে আঁকা হয় আর ছবি তোলা হয় (app/build/screens/*.png)।
+ * নতুন স্ক্রিনগুলো নমুনা তথ্য দিয়ে আঁকা হয় আর ছবি তোলা হয় (app/build/screens ফোল্ডারে png)।
  * ক্র্যাশ হলে টেস্ট ব্যর্থ হয়; ছবি দেখে চোখে যাচাই করা যায়।
  */
 @RunWith(RobolectricTestRunner::class)
