@@ -209,10 +209,16 @@ test('চেম্বার: যাচাই, পুরোনো ডক, ফি�
   const K = require('../lib/care');
   const hospitals = new Map([['h1', { id: 'h1', nameEn: 'Trishal UHC', nameBn: 'ত্রিশাল', district: 'ময়মনসিংহ', upazilaId: 10, unionId: null }]]);
   assert.ok(K.parseChambers([], hospitals).error);
-  assert.ok(K.parseChambers([{ hospitalId: 'x', schedule: 'Sat' }], hospitals).error);
-  assert.ok(K.parseChambers([{ hospitalId: 'h1', schedule: '' }], hospitals).error);
-  assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', schedule: 'a' }), hospitals).error);
-  const ok = K.parseChambers([{ hospitalId: 'h1', schedule: 'Sat 5-9pm', appointments: true, serialPhone: '017-1234 5678' }], hospitals);
+  assert.ok(K.parseChambers([{ hospitalId: 'x', days: [1], start: '09:00', end: '10:00' }], hospitals).error);
+  const t = { days: [6, 0], start: '17:00', end: '21:00' };
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [], start: '17:00', end: '21:00' }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '21:00', end: '17:00' }], hospitals).error);
+  assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', ...t }), hospitals).error);
+  const ok = K.parseChambers([{ hospitalId: 'h1', ...t, schedule: 'Fridays closed', appointments: true, serialPhone: '017-1234 5678' }], hospitals);
+  assert.deepStrictEqual(ok.chambers[0].days, [0, 6]);
+  assert.ok(K.chamberOpenOn(ok.chambers[0], Date.UTC(2026, 9, 17))); // শনিবার
+  assert.ok(!K.chamberOpenOn(ok.chambers[0], Date.UTC(2026, 9, 19))); // সোমবার
+  assert.ok(K.chamberOpenOn({ schedule: 'old' }, Date.UTC(2026, 9, 19)));
   assert.strictEqual(ok.chambers[0].district, 'ময়মনসিংহ');
   assert.strictEqual(ok.chambers[0].serialPhone, '01712345678');
 
@@ -237,7 +243,8 @@ test('হোম নার্স: এলাকা, সেবা, মহিলা 
   assert.deepStrictEqual(h.services, ['injection', 'dressing']);
   assert.strictEqual(h.radiusKm, 5);
   assert.deepStrictEqual(h.upazilaIds, [5]);
-  const nurse = { homeVisit: h, lat: 23.81, lng: 90.41, gender: 'male' };
+  const nurse = { homeVisit: h, lat: 23.81, lng: 90.41, gender: 'male', locationSource: 'gps' };
+  assert.ok(!K.nurseCovers({ ...nurse, locationSource: 'district' }, { services: ['injection'], lat: 23.83, lng: 90.42, upazilaId: 9 }));
   const visit = { services: ['injection'], lat: 23.83, lng: 90.42, upazilaId: 9, femalePreferred: false };
   assert.ok(K.nurseCovers(nurse, visit)); // ~২.৪ কিমি
   assert.ok(!K.nurseCovers(nurse, { ...visit, services: ['saline'] }));
@@ -256,4 +263,25 @@ test('হোম নার্স: এলাকা, সেবা, মহিলা 
   const off = K.parseHomeVisit({ enabled: false, services: ['dressing'], radiusKm: 10 }).homeVisit;
   assert.strictEqual(off.enabled, false);
   assert.deepStrictEqual(off.services, ['dressing']);
+});
+
+test('হাসপাতালের স্থির তালিকা', () => {
+  const DIR = require('../lib/hospital-dir');
+  const list = DIR.inDistrict('ঢাকা');
+  assert.ok(list.length > 1000);
+  const h = DIR.find(list[0].id);
+  assert.strictEqual(h.nameEn, list[0].nameEn);
+  assert.strictEqual(DIR.find('dghs_0'), null);
+  // সিটি কর্পোরেশনের থানা এলাকার তালিকায় আছে
+  const { UPAZILA } = require('../lib/hospital-match');
+  assert.ok([...UPAZILA.values()].some((u) => u.district === 'ঢাকা' && u.en === 'Dhanmondi'));
+});
+
+test('ফোন নম্বর স্বাভাবিক করা', () => {
+  const P = require('../lib/care');
+  assert.strictEqual(P.normalizeBd('01712-345678'), '8801712345678');
+  assert.strictEqual(P.normalizeBd('+8801912345678'), '8801912345678');
+  assert.strictEqual(P.normalizeBd('1712345678'), '8801712345678');
+  assert.strictEqual(P.normalizeBd('01212345678'), null);
+  assert.strictEqual(P.normalizeBd('123'), null);
 });

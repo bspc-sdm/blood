@@ -39,7 +39,15 @@ module.exports = handler(
       }));
     const sent = await sendPush(reminders);
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent };
+    // ৩) আজকের অ্যাপয়েন্টমেন্ট, অপেক্ষায় থাকা অনুরোধ আর হোম ভিজিটের কথা মনে করানো
+    let care = null;
+    try {
+      care = await require('../../lib/reminders').dailyReminders(now);
+    } catch (e) {
+      console.error('care reminders failed', e);
+    }
+
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care };
   },
   { methods: ['GET'] },
 );

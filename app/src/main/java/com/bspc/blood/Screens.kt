@@ -348,13 +348,19 @@ fun BloodGroupChips(selected: String, onSelect: (String) -> Unit) {
 
 /** রক্ত লাগার সময় বাছাই (১২ ঘণ্টার ঘড়ি)। AlertDialog ছোট পর্দায় ঘড়ি কেটে দিতে পারে, তাই নিজস্ব Dialog। */
 @Composable
-fun TimePickerPopup(hour: Int?, minute: Int?, onPicked: (Int, Int) -> Unit, onDismiss: () -> Unit) {
+fun TimePickerPopup(
+    hour: Int?,
+    minute: Int?,
+    onPicked: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = tr("When is blood needed?", "কখন রক্ত লাগবে?"),
+) {
     val state = rememberTimePickerState(initialHour = hour ?: 12, initialMinute = minute ?: 0, is24Hour = false)
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    tr("When is blood needed?", "কখন রক্ত লাগবে?"),
+                    title,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
                 )

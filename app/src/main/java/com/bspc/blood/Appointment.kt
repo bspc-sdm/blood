@@ -306,7 +306,7 @@ private fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
                 RatingLine(p.rating, p.ratingCount)
                 if (chamber != null) {
                     IconLine(R.drawable.ic_local_hospital, chamber.label)
-                    IconLine(R.drawable.ic_schedule, chamber.schedule)
+                    IconLine(R.drawable.ic_schedule, chamber.timeText)
                 }
                 if (p.chambers.size > 1) {
                     Text(
@@ -359,7 +359,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                             Text(c.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (c.area.isNotBlank()) IconLine(R.drawable.ic_location_on, c.area)
                             if (c.room.isNotBlank()) IconLine(R.drawable.ic_info, tr("Room: ", "রুম: ") + c.room)
-                            IconLine(R.drawable.ic_schedule, c.schedule)
+                            IconLine(R.drawable.ic_schedule, c.timeText)
                             if (c.fee.isNotBlank()) IconLine(R.drawable.ic_info, tr("Fee: ", "ফি: ") + c.fee)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                                 if (p.appointments && c.appointments) {
@@ -439,7 +439,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 IconLine(R.drawable.ic_local_hospital, chamber.label)
-                IconLine(R.drawable.ic_schedule, chamber.schedule)
+                IconLine(R.drawable.ic_schedule, chamber.timeText)
                 OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
                     AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -462,6 +462,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                     errorMsg = when {
                         d == null -> tr("Pick a date", "তারিখ বেছে নিন")
                         d < Rules.todayUtcMidnight() -> tr("Pick today or a later date", "আজ বা পরের কোনো তারিখ দিন")
+                        !chamber.openOn(d) -> tr("The chamber is closed that day. Pick one of its days.", "সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।")
                         note.isBlank() -> tr("Write the reason for the visit", "কী সমস্যা, সংক্ষেপে লিখুন")
                         else -> null
                     }
@@ -589,7 +590,18 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                IconLine(R.drawable.ic_calendar_month, Rules.formatDate(a.date))
+                                IconLine(
+                                    R.drawable.ic_calendar_month,
+                                    Rules.formatDate(a.date) + (if (a.start.isNotBlank()) ", " + tr("from ", "") + Weekdays.time(a.start) + tr("", " থেকে") else ""),
+                                )
+                                if (a.serial > 0) {
+                                    Text(
+                                        tr("Serial #", "সিরিয়াল নং ") + num(a.serial),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                                 if (a.chamberLabel.isNotBlank()) IconLine(R.drawable.ic_local_hospital, a.chamberLabel + if (a.room.isNotBlank()) " · " + a.room else "")
                                 Text(a.note, style = MaterialTheme.typography.bodyMedium)
                                 if (a.providerNote.isNotBlank()) {
@@ -669,6 +681,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var oldChamber by remember { mutableStateOf<String?>(null) }
+    var homeAgreed by remember { mutableStateOf(false) }
+    var verifyPhone by remember { mutableStateOf(false) }
+    // হোম ভিজিটের দূরত্ব হিসাবের জন্য GPS লোকেশন লাগে (শুধু জেলা বেছে নিলে জেলার মাঝখান ধরা হয়)
+    var gpsPlace by remember { mutableStateOf(if (profile.locationSource == "gps") profile.placeName else null) }
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
@@ -684,7 +700,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     p.chambers.firstOrNull { it.hospitalId == null }?.let { old ->
                         oldChamber = old.hospitalName
                     }
-                    p.homeVisit?.let { home = it }
+                    p.homeVisit?.let {
+                        home = it
+                        homeAgreed = it.enabled // আগে চালু করে থাকলে আগেই সম্মতি দিয়েছেন
+                    }
                 }
             }
             .onFailure { errorMsg = it.message }
@@ -773,9 +792,26 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                             FilterChip(selected = home.radiusKm == r, onClick = { home = home.copy(radiusKm = r) }, label = { Text(tr("$r km", "${num(r)} কিমি")) })
                         }
                     }
-                    SmallNote(
-                        tr("Your location: ", "আপনার লোকেশন: ") + Districts.label(profile.placeName) +
-                            tr(" (change it in your profile)", " (প্রোফাইল থেকে বদলাতে পারেন)"),
+                    if (gpsPlace != null) {
+                        SmallNote(tr("Distance is counted from your current location in ", "দূরত্ব গোনা হয় আপনার বর্তমান লোকেশন থেকে: ") + Districts.label(gpsPlace))
+                    } else {
+                        InfoText(
+                            tr(
+                                "Set your current location so nearby patients can find you. Without it, only the upazilas below are used.",
+                                "কাছের রোগীরা যেন পান, বর্তমান লোকেশন দিন। না দিলে শুধু নিচে বেছে রাখা উপজেলাগুলো ধরা হবে।",
+                            ),
+                        )
+                    }
+                    GpsButton(
+                        if (gpsPlace == null) tr("Use my current location", "বর্তমান লোকেশন দিন") else tr("Update location", "লোকেশন আপডেট"),
+                        onLocated = { la, ln, d ->
+                            scope.launch {
+                                val uid = AuthRepository.currentUid ?: return@launch
+                                runCatching { ProfileRepository.saveLocation(uid, la, ln, d, "gps") }
+                                    .onSuccess { gpsPlace = d }
+                                    .onFailure { errorMsg = it.message }
+                            }
+                        },
                     )
                     Text(tr("Also these upazilas (optional)", "এই উপজেলাগুলোতেও (ঐচ্ছিক)"), style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -799,6 +835,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    TermsCheck(homeAgreed) { homeAgreed = it }
                     OutlinedTextField(
                         value = home.fee,
                         onValueChange = { home = home.copy(fee = it.take(60)) },
@@ -816,8 +853,13 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     errorMsg = when {
                         specialties.isEmpty() -> tr("Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
                         chambers.isEmpty() -> tr("Add at least one chamber", "অন্তত একটা চেম্বার যোগ করুন")
-                        chambers.any { it.schedule.isBlank() } -> tr("Enter days and time for each chamber", "প্রতিটা চেম্বারে কোন দিন ও কখন বসেন লিখুন")
+                        chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
+                        chambers.any { it.start.isBlank() || it.end.isBlank() || it.end <= it.start } ->
+                            tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
+                        home.enabled && !homeAgreed -> tr("Please accept the Home Nurse terms", "হোম নার্সের শর্তে সম্মতি দিন")
+                        home.enabled && gpsPlace == null && home.upazilaIds.isEmpty() ->
+                            tr("Set your current location or choose upazilas for home visits", "হোম ভিজিটের জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন")
                         else -> null
                     }
                     if (errorMsg == null) {
@@ -830,7 +872,9 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                                 )
                             }
                                 .onSuccess { onBack() }
-                                .onFailure { errorMsg = it.message }
+                                .onFailure {
+                                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true else errorMsg = it.message
+                                }
                             busy = false
                         }
                     }
@@ -839,6 +883,13 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             ) { ButtonContent(busy, tr("Save", "সেভ করুন")) }
         }
+    }
+
+    if (verifyPhone) {
+        PhoneVerifyDialog(onDismiss = { verifyPhone = false }, onVerified = {
+            verifyPhone = false
+            errorMsg = tr("Phone verified. Tap Save again.", "ফোন যাচাই হয়েছে। আবার সেভ চাপুন।")
+        })
     }
 
     pickFor?.let { idx ->
@@ -889,6 +940,20 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 
 @Composable
 private fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
+    var pickTime by remember { mutableIntStateOf(0) } // ১ শুরু, ২ শেষ
+    if (pickTime != 0) {
+        val cur = (if (pickTime == 1) c.start else c.end).split(":")
+        TimePickerPopup(
+            cur.getOrNull(0)?.toIntOrNull() ?: if (pickTime == 1) 17 else 21,
+            cur.getOrNull(1)?.toIntOrNull() ?: 0,
+            onPicked = { h, m ->
+                val t = Weekdays.hhmm(h, m)
+                onChange(if (pickTime == 1) c.copy(start = t) else c.copy(end = t))
+            },
+            onDismiss = { pickTime = 0 },
+            title = if (pickTime == 1) tr("Chamber starts at", "চেম্বার শুরু") else tr("Chamber ends at", "চেম্বার শেষ"),
+        )
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -899,11 +964,25 @@ private fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospi
                 IconButton(onClick = onChangeHospital) { AppIcon(R.drawable.ic_edit, tr("Change hospital", "হাসপাতাল বদলান")) }
                 IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
             }
+            Text(tr("Days", "কোন কোন বার"), style = MaterialTheme.typography.labelLarge)
+            ChipRows(Weekdays.ORDER.map { it.toString() }, c.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
+                val d = it.toInt()
+                onChange(c.copy(days = if (d in c.days) c.days - d else c.days + d))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { pickTime = 1 }) {
+                    Text(if (c.start.isBlank()) tr("Start time", "শুরুর সময়") else Weekdays.time(c.start))
+                }
+                Text("–")
+                OutlinedButton(onClick = { pickTime = 2 }) {
+                    Text(if (c.end.isBlank()) tr("End time", "শেষের সময়") else Weekdays.time(c.end))
+                }
+            }
             OutlinedTextField(
                 value = c.schedule,
                 onValueChange = { onChange(c.copy(schedule = it.take(120))) },
-                label = { Text(tr("Days and time", "কোন দিন, কখন")) },
-                placeholder = { Text(tr("e.g. Sat–Thu, 5–9 PM", "যেমন: শনি–বৃহস্পতি, বিকাল ৫–রাত ৯টা")) },
+                label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) },
+                placeholder = { Text(tr("e.g. Closed on public holidays", "যেমন: সরকারি ছুটির দিন বন্ধ")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )

@@ -49,10 +49,10 @@ async function eligibleNurses(visit, excludeUids) {
     if (!b.exists || b.get('status') !== 'approved' || b.get('type') !== 'nurse') return;
     const u = users[i];
     if (!u.exists) return;
-    const nurse = { ...d.data(), lat: u.get('lat'), lng: u.get('lng') };
+    const nurse = { ...d.data(), lat: u.get('lat'), lng: u.get('lng'), locationSource: u.get('locationSource') };
     const loose = { ...visit, femalePreferred: false };
     if (!K.nurseCovers(nurse, loose)) return;
-    const km = typeof nurse.lat === 'number' ? R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) : null;
+    const km = typeof nurse.lat === 'number' && nurse.locationSource === 'gps' ? R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) : null;
     out.push({ uid: d.id, km, female: nurse.gender === 'female', token: u.get('fcmToken'), lang: u.get('lang') });
   });
   out.sort((a, b) => (a.km ?? 99) - (b.km ?? 99));
@@ -114,6 +114,7 @@ const actions = {
     const err = (en, bn, code = 400) => new HttpError(code, C.tr(req, en, bn));
     const services = K.pickCodes(b.services, K.HOME_SERVICES, K.HOME_SERVICES.length);
     if (!services.length) throw err('Choose what you need', 'কী সেবা দরকার বেছে নিন');
+    if (b.termsAccepted !== true) throw err('Please accept the Home Nurse terms', 'হোম নার্সের শর্তে সম্মতি দিন');
     if (services.some((s) => K.NEEDS_PRESCRIPTION.includes(s)) && b.prescription !== true) {
       throw err('Injection or saline needs a doctor\'s prescription', 'ইনজেকশন বা স্যালাইনের জন্য ডাক্তারের প্রেসক্রিপশন লাগবে');
     }
@@ -132,6 +133,8 @@ const actions = {
       throw err('Home visit requests are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিটের অনুরোধ বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।', 403);
     }
     if (!phoneOf(me)) throw err('Add your phone number in your profile first', 'আগে প্রোফাইলে ফোন নম্বর দিন');
+    // অচেনা বাসায় নার্স যাবেন, তাই নম্বর যাচাই (SMS ব্যবস্থা চালু থাকলে)
+    await require('./phone').requireVerified(req, user.uid);
     const active = (await activeAsPatient(user.uid)).filter((d) => !K.visitExpired(d.data(), now));
     if (active.length >= 2) throw err('You already have 2 active requests', 'আপনার ২টা অনুরোধ এখনো চলছে');
     // নার্স খোঁজাও সীমিত, যাতে বারবার খুঁজে কেউ এলাকার নার্সের খবর না নেয়
@@ -147,6 +150,7 @@ const actions = {
       upazilaId,
       femalePreferred: b.femalePreferred === true,
       prescription: b.prescription === true,
+      termsAcceptedAt: now,
     };
 
     let targets;

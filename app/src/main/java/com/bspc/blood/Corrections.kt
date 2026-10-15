@@ -195,7 +195,7 @@ private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) ->
 
 /** অ্যাডমিন: পেশাদার ব্যাজের আবেদন আর তারিখ সংশোধনের অনুরোধ */
 @Composable
-fun AdminScreen(onBack: () -> Unit) {
+fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
@@ -205,6 +205,9 @@ fun AdminScreen(onBack: () -> Unit) {
     var badges by remember { mutableStateOf<List<BadgeRequest>>(emptyList()) }
     var reports by remember { mutableStateOf<List<ReportedItem>>(emptyList()) }
     var hospitalReqs by remember { mutableStateOf<List<HospitalRequestItem>>(emptyList()) }
+    var owners by remember { mutableStateOf<List<String>>(emptyList()) }
+    var admins by remember { mutableStateOf<List<String>>(emptyList()) }
+    var newAdmin by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     LaunchedEffect(reload) {
@@ -222,6 +225,11 @@ fun AdminScreen(onBack: () -> Unit) {
         runCatching { Hospitals.adminRequests() }
             .onSuccess { hospitalReqs = it }
             .onFailure { errorMsg = it.message }
+        if (isOwner) {
+            runCatching { Moderation.admins() }
+                .onSuccess { owners = it.first; admins = it.second }
+                .onFailure { errorMsg = it.message }
+        }
         loading = false
     }
 
@@ -288,6 +296,44 @@ fun AdminScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+
+            if (isOwner) {
+                SectionTitle(tr("Admins", "অ্যাডমিন"))
+                Text(
+                    tr(
+                        "Admins can approve badges and hospitals and handle reports. Only you (owner) can add or remove them.",
+                        "অ্যাডমিনরা ব্যাজ, হাসপাতাল অনুমোদন আর রিপোর্ট দেখতে পারেন। যোগ/বাদ শুধু আপনি (মালিক) করতে পারেন।",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                owners.forEach { Text("• $it " + tr("(owner)", "(মালিক)"), style = MaterialTheme.typography.bodyMedium) }
+                admins.forEach { e ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• $e", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { act("admin:$e") { Moderation.removeAdmin(e) } }, enabled = busyId == null) {
+                            Text(tr("Remove", "বাদ দিন"))
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newAdmin,
+                        onValueChange = { newAdmin = it.trim().take(200) },
+                        label = { Text(tr("Email of new admin", "নতুন অ্যাডমিনের ইমেইল")) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = {
+                            val e = newAdmin
+                            act("admin:add") { Moderation.addAdmin(e) }
+                            newAdmin = ""
+                        },
+                        enabled = busyId == null && newAdmin.contains("@"),
+                    ) { Text(tr("Add", "যোগ")) }
+                }
+                SmallNote(tr("They must log in to the app with this same email.", "তাদের এই ইমেইল দিয়েই অ্যাপে লগইন করতে হবে।"))
             }
 
             SectionTitle(tr("Hospital requests", "হাসপাতাল যোগের অনুরোধ") + " (${num(hospitalReqs.size)})")

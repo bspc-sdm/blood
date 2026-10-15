@@ -263,4 +263,5 @@ module.exports = {
   formatTimeEn,
   districtLabel,
   L,
+  bnDigits,
 };

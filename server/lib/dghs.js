@@ -29,7 +29,8 @@ function mapDistrict(name) {
 }
 
 function upazilaKey(s) {
-  let k = String(s || '').toLowerCase();
+  // "Kotwali (Dhaka)" → "kotwali": বন্ধনীর অংশ শুধু আলাদা করে চেনার জন্য
+  let k = String(s || '').toLowerCase().replace(/\([^)]*\)/g, '');
   for (const [re, to] of SPELLING) k = k.replace(re, to);
   return k.replace(/[^a-z]/g, '').replace(/sadar$/, '').replace(/^sadar/, '');
 }
@@ -66,12 +67,28 @@ const UPAZILA_ALIAS = {
   indurkani: 245, // আগের Zianagar
   shantiganj: 301, // আগের South Sunamganj
   sulla: 309, // Shalla
+  monoharganj: 13, // Monohargonj
+};
+
+// সিটি কর্পোরেশনের থানা: DGHS-এর নাম → geo.json-এর ইংরেজি নাম
+const THANA_ALIAS = {
+  chittogramport: 'Bandar (Chattogram Port)',
+  chattogramport: 'Bandar (Chattogram Port)',
+  uttarapaschim: 'Uttara West',
+  uttarapurba: 'Uttara East',
+  mugdapara: 'Mugda',
+  tejgaonindarea: 'Tejgaon Industrial Area',
+  shahjahanpur: 'Shajahanpur',
 };
 
 /** জেলার ভেতরে সবচেয়ে কাছের নামের উপজেলা (না মিললে null) */
 function mapUpazila(districtBn, name) {
   const alias = UPAZILA_ALIAS[letters(name)];
   if (alias && UPAZILA.get(alias)?.district === districtBn) return alias;
+  const thana = THANA_ALIAS[letters(name)];
+  if (thana) {
+    for (const u of UPAZILA.values()) if (u.district === districtBn && u.en === thana) return u.id;
+  }
   const k = upazilaKey(name);
   if (!k) return null;
   let best = null;
@@ -89,13 +106,20 @@ function mapUpazila(districtBn, name) {
   return bestScore >= 0.75 ? best.id : null;
 }
 
-function mapType(t, isPrivate) {
-  if (isPrivate) return 'private_hospital';
+function mapType(t, isPrivate, name = '') {
+  if (/Diagnostic/i.test(t)) return 'diagnostic';
+  if (isPrivate || /NGO/.test(t)) return /clinic/i.test(name) ? 'clinic' : 'private_hospital';
   if (/Medical College Hospital|Medical University Hospital/.test(t)) return 'govt_mch';
   if (/Postgraduate|Specialized|Special Purpose|Infectious|Chest|Trauma|Dental/.test(t)) return 'govt_specialized';
   if (/District\/General Hospital/.test(t)) return 'govt_district';
   if (/Upazila Health Complex/.test(t)) return 'govt_uhc';
   return 'govt_hospital';
+}
+
+/** সব বড় হাতের নাম ("POPULAR DIAGNOSTIC CENTRE LTD") → "Popular Diagnostic Centre Ltd" */
+function titleIfCaps(s) {
+  if (/[a-z]/.test(s) || !/[A-Z]/.test(s)) return s;
+  return s.toLowerCase().replace(/\b([a-z])/g, (c) => c.toUpperCase());
 }
 
 /** বাংলা নাম থেকে ঠিকানার অংশ (প্রথম কমার পরে) বাদ */
@@ -115,9 +139,9 @@ function toHospital(row) {
   return {
     id: `dghs_${id}`,
     data: {
-      nameEn: name.replace(/\s+/g, ' ').slice(0, 120),
+      nameEn: titleIfCaps(name.replace(/\s+/g, ' ')).slice(0, 120),
       nameBn: cleanBn(nameBn),
-      type: mapType(type, priv === '1'),
+      type: mapType(type, priv === '1', name),
       district: districtBn,
       upazilaId,
       unionId: null,

@@ -270,6 +270,7 @@ fun HomeTab(
             }
 
             // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
+            item(key = "update") { UpdateBanner() }
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
             // চলমান হোম নার্স ভিজিট (থাকলেই দেখায়)
             item(key = "home_visit") { ActiveVisitCard(refreshKey * 1000 + reload, onOpenHomeNurse) }

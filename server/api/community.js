@@ -1,7 +1,7 @@
 // Health Discussion, Health Tips আর পেশাদার ব্যাজ — সব একটা endpoint-এ (body.action দিয়ে আলাদা)।
 // ডাটাবেসের এই অংশ অ্যাপ সরাসরি পড়তে/লিখতে পারে না; সব এখান দিয়ে যায়, তাই ব্যাজ কেউ নিজে বসাতে পারে না।
 const { admin, db, FieldValue, HttpError, handler, sendPush } = require('../lib/firebase');
-const { isAdminToken } = require('../lib/admin');
+const { isAdmin, isOwner, adminEmails, clearCache } = require('../lib/admin');
 const R = require('../lib/rules');
 const C = require('../lib/community');
 
@@ -23,6 +23,7 @@ const account = require('../lib/account');
 const donors = require('../lib/donors');
 const hospitals = require('../lib/hospitals');
 const homevisit = require('../lib/homevisit');
+const phone = require('../lib/phone');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -35,7 +36,11 @@ const actions = {
     const s = await db.doc(`badges/${user.uid}`).get();
     return {
       badge: s.exists ? { type: s.get('type'), status: s.get('status') } : null,
-      isAdmin: isAdminToken(user),
+      isAdmin: await isAdmin(user),
+      isOwner: isOwner(user),
+      // ফোন যাচাই চালু আছে কি না, আর নিজের নম্বর যাচাই করা কি না
+      phoneCheck: phone.enabled(),
+      phoneVerified: await phone.isVerified(user.uid),
     };
   },
 
@@ -152,7 +157,7 @@ const actions = {
     const ref = db.doc(`questions/${id}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
-    if (s.get('uid') !== user.uid && !isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (s.get('uid') !== user.uid && !(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     await db.recursiveDelete(ref);
     return { ok: true };
   },
@@ -163,7 +168,7 @@ const actions = {
     const ref = db.doc(`questions/${id}/answers/${answerId}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
-    if (s.get('uid') !== user.uid && !isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (s.get('uid') !== user.uid && !(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     const batch = db.batch();
     batch.delete(ref);
     batch.update(db.doc(`questions/${id}`), { answerCount: FieldValue.increment(-1) });
@@ -217,7 +222,7 @@ const actions = {
     const ref = db.doc(`tips/${id}`);
     const s = await ref.get();
     if (!s.exists) return { ok: true };
-    if (s.get('uid') !== user.uid && !isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (s.get('uid') !== user.uid && !(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     await ref.delete();
     return { ok: true };
   },
@@ -249,7 +254,7 @@ const actions = {
   },
 
   async admin_badges(req, user) {
-    if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+    if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const snap = await db.collection('badges').where('status', '==', 'pending').limit(100).get();
     return {
       items: snap.docs.map((d) => ({
@@ -265,7 +270,7 @@ const actions = {
   },
 
   async admin_badge_resolve(req, user) {
-    if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+    if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const uid = req.body?.uid;
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`badges/${uid}`);
@@ -280,9 +285,36 @@ const actions = {
     });
     return { ok: true };
   },
+
+  // ---------- অ্যাডমিন যোগ/বাদ (শুধু মালিক) ----------
+  async admin_list(req, user) {
+    if (!isOwner(user)) throw new HttpError(403, C.tr(req, 'Owner only', 'শুধু মালিক'));
+    const snap = await db.collection('admins').limit(50).get();
+    return { owners: adminEmails(), items: snap.docs.map((d) => ({ email: d.id, addedAt: d.get('addedAt') || 0 })) };
+  },
+
+  async admin_add(req, user) {
+    if (!isOwner(user)) throw new HttpError(403, C.tr(req, 'Owner only', 'শুধু মালিক'));
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!/^[^\s@/]+@[^\s@/]+\.[a-z]{2,}$/.test(email) || email.length > 200) {
+      throw new HttpError(400, C.tr(req, 'Enter a valid email', 'সঠিক ইমেইল দিন'));
+    }
+    await db.doc(`admins/${email}`).set({ addedBy: user.uid, addedAt: Date.now() });
+    clearCache();
+    return { ok: true };
+  },
+
+  async admin_remove(req, user) {
+    if (!isOwner(user)) throw new HttpError(403, C.tr(req, 'Owner only', 'শুধু মালিক'));
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email || email.includes('/')) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    await db.doc(`admins/${email}`).delete();
+    clearCache();
+    return { ok: true };
+  },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions);
 
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);

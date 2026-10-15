@@ -87,7 +87,14 @@ data class Tip(
 /** নিজের ব্যাজ: type ("doctor" …), status ("pending" / "approved" / "rejected") */
 data class BadgeState(val type: String, val status: String)
 
-data class CommunityMe(val badge: BadgeState?, val isAdmin: Boolean) {
+data class CommunityMe(
+    val badge: BadgeState?,
+    val isAdmin: Boolean,
+    val isOwner: Boolean = false,
+    /** SMS দিয়ে ফোন যাচাই চালু আছে কি না */
+    val phoneCheck: Boolean = false,
+    val phoneVerified: Boolean = true,
+) {
     /** অনুমোদিত ব্যাজ থাকলে তার ধরন */
     val approvedBadge: String? get() = badge?.takeIf { it.status == "approved" }?.type
 }
@@ -120,7 +127,10 @@ object Community {
     suspend fun me(): CommunityMe {
         val o = call("me")
         val b = o.optJSONObject("badge")
-        return CommunityMe(b?.let { BadgeState(it.optString("type"), it.optString("status")) }, o.optBoolean("isAdmin"))
+        return CommunityMe(
+            b?.let { BadgeState(it.optString("type"), it.optString("status")) }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
+            o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true),
+        )
     }
 
     suspend fun questions(before: Long? = null): List<Question> =
@@ -230,6 +240,20 @@ object Moderation {
             "admin_report_resolve",
             JSONObject().put("targetPath", targetPath).put("remove", remove).apply { if (reportedUid != null) put("reportedUid", reportedUid) },
         )
+    }
+
+    /** মালিক: অ্যাডমিনের তালিকা (মালিকেরা + যোগ করা অ্যাডমিন) */
+    suspend fun admins(): Pair<List<String>, List<String>> {
+        val o = call("admin_list")
+        return o.optJSONArray("owners").strings() to (o.optJSONArray("items")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).optString("email") } } ?: emptyList())
+    }
+
+    suspend fun addAdmin(email: String) {
+        call("admin_add", JSONObject().put("email", email))
+    }
+
+    suspend fun removeAdmin(email: String) {
+        call("admin_remove", JSONObject().put("email", email))
     }
 
     /** অ্যাকাউন্ট আর সব তথ্য মোছা */

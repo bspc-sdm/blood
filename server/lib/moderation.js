@@ -2,7 +2,7 @@
 const { db, FieldValue, HttpError } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
-const { isAdminToken } = require('./admin');
+const { isAdmin } = require('./admin');
 const { useQuota } = require('./community-db');
 
 const KINDS = ['question', 'answer', 'tip', 'homevisit'];
@@ -83,7 +83,7 @@ module.exports = {
   },
 
   async admin_reports(req, user) {
-    if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+    if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     // modReports অ্যাপ সরাসরি লিখতে পারে না (Firestore নিয়মে নেই), তাই কেউ ভুয়া রিপোর্ট দিয়ে তালিকা ভরাতে পারে না
     const snap = await db.collection('modReports').where('status', '==', 'open').limit(200).get();
     // একই জিনিসের একাধিক রিপোর্ট একসাথে
@@ -141,7 +141,7 @@ module.exports = {
   },
 
   async admin_report_resolve(req, user) {
-    if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+    if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const path = req.body?.targetPath;
     if (typeof path !== 'string' || !PATH_RE.test(path)) {
       throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));

@@ -18,9 +18,11 @@ const db = admin.firestore();
 const { FieldValue } = admin.firestore;
 
 class HttpError extends Error {
-  constructor(status, message) {
+  constructor(status, message, code) {
     super(message);
     this.status = status;
+    // অ্যাপ যাতে নির্দিষ্ট অবস্থা চিনতে পারে (যেমন "phone_unverified")
+    if (code) this.code = code;
   }
 }
 
@@ -55,6 +57,7 @@ function handler(fn, { methods = ['POST'] } = {}) {
         error: status === 500
           ? (en ? 'Server error, please try again' : 'সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন')
           : en ? toEnglish(e.message) : e.message,
+        ...(e && e.code && status !== 500 && typeof e.code === 'string' && /^[a-z_]+$/.test(e.code) ? { code: e.code } : {}),
       });
     }
   };

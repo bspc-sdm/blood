@@ -134,7 +134,10 @@ object ServerApi {
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 val json = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
                 if (code !in 200..299) {
-                    throw IllegalStateException(json.optString("error").ifBlank { tr("Server error ($code)", "সার্ভারে সমস্যা ($code)") })
+                    throw ServerError(
+                        json.optString("error").ifBlank { tr("Server error ($code)", "সার্ভারে সমস্যা ($code)") },
+                        json.optString("code").ifBlank { null },
+                    )
                 }
                 json
             } catch (e: java.io.IOException) {
@@ -145,3 +148,6 @@ object ServerApi {
         }
     }
 }
+
+/** সার্ভারের ভুলের বার্তা; code দিয়ে নির্দিষ্ট অবস্থা চেনা যায় (যেমন "phone_unverified") */
+class ServerError(message: String, val code: String?) : IllegalStateException(message)

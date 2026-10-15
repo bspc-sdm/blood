@@ -1,6 +1,7 @@
-// অ্যাডমিন যাচাই: শুধু এই ইমেইলের (ইমেইল-কোডে যাচাইকৃত) অ্যাকাউন্ট অ্যাডমিনের কাজ করতে পারবে।
-// অন্য কাউকে অ্যাডমিন করতে চাইলে Vercel-এ ADMIN_EMAILS (কমা দিয়ে আলাদা) সেট করুন।
-const { admin, HttpError } = require('./firebase');
+// অ্যাডমিন যাচাই।
+// মালিক (owner): DEFAULT_ADMINS বা Vercel-এর ADMIN_EMAILS — শুধু তিনি অ্যাপ থেকে অন্য অ্যাডমিন যোগ/বাদ দিতে পারেন।
+// অন্য অ্যাডমিন: Firestore admins/{ইমেইল} (অ্যাপ সরাসরি পড়তে/লিখতে পারে না)।
+const { admin, db, HttpError } = require('./firebase');
 
 const DEFAULT_ADMINS = ['ekapkbd@gmail.com'];
 
@@ -19,17 +20,35 @@ async function verifyAdmin(req) {
   } catch {
     throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
   }
-  const email = (decoded.email || '').toLowerCase();
-  if (!decoded.email_verified || !adminEmails().includes(email)) {
+  if (!(await isAdmin(decoded))) {
     throw new HttpError(403, 'শুধু অ্যাডমিন এটা করতে পারবেন');
   }
   return decoded.uid;
 }
 
-/** যাচাই করা টোকেন অ্যাডমিনের কি না */
-function isAdminToken(decoded) {
+/** মালিক কি না (টোকেনের যাচাই করা ইমেইল) */
+function isOwner(decoded) {
   const email = (decoded.email || '').toLowerCase();
   return !!decoded.email_verified && adminEmails().includes(email);
 }
 
-module.exports = { verifyAdmin, isAdminToken };
+// অ্যাডমিন তালিকা এক মিনিট মনে রাখা হয়, যাতে প্রতিটা অনুরোধে ডাটাবেস পড়তে না হয়
+let cache = { at: 0, set: new Set() };
+async function extraAdmins() {
+  if (Date.now() - cache.at < 60 * 1000) return cache.set;
+  const snap = await db.collection('admins').limit(50).get();
+  cache = { at: Date.now(), set: new Set(snap.docs.map((d) => d.id)) };
+  return cache.set;
+}
+function clearCache() {
+  cache = { at: 0, set: new Set() };
+}
+
+/** যাচাই করা টোকেন অ্যাডমিনের কি না */
+async function isAdmin(decoded) {
+  if (isOwner(decoded)) return true;
+  const email = (decoded.email || '').toLowerCase();
+  return !!decoded.email_verified && !!email && (await extraAdmins()).has(email);
+}
+
+module.exports = { verifyAdmin, isAdmin, isOwner, adminEmails, clearCache };

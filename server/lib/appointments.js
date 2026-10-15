@@ -138,10 +138,9 @@ module.exports = {
     const err = (e) => new HttpError(400, C.tr(req, e[0], e[1]));
 
     const ids = [...new Set(b.chambers.map((c) => c && c.hospitalId).filter(R.isValidId))].slice(0, K.MAX_CHAMBERS);
-    const snaps = ids.length ? await db.getAll(...ids.map((id) => db.doc(`hospitals/${id}`))) : [];
-    const hospitals = new Map(
-      snaps.filter((s) => s.exists && s.get('status') !== 'removed').map((s) => [s.id, { id: s.id, ...s.data() }]),
-    );
+    const { findHospital } = require('./hospitals');
+    const found = await Promise.all(ids.map(findHospital));
+    const hospitals = new Map(found.filter(Boolean).map((h) => [h.id, h]));
     const parsed = K.parseChambers(b.chambers, hospitals);
     if (parsed.error) throw err(parsed.error);
     const specialties = K.pickCodes(b.specialties, K.specialtiesFor(badge), 5);
@@ -153,10 +152,14 @@ module.exports = {
       homeVisit = h.homeVisit;
     }
     const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
+    if (homeVisit.enabled && b.homeVisit?.termsAccepted !== true) {
+      throw err(['Please accept the Home Nurse terms', 'হোম নার্সের শর্তে সম্মতি দিন']);
+    }
     if (homeVisit.enabled) {
+      await require('./phone').requireVerified(req, user.uid);
       const u = await db.doc(`users/${user.uid}`).get();
-      if (typeof u.get('lat') !== 'number' && !homeVisit.upazilaIds.length) {
-        throw err(['Set your location in your profile, or choose upazilas', 'প্রোফাইলে আপনার লোকেশন দিন, অথবা উপজেলা বেছে নিন']);
+      if (!(typeof u.get('lat') === 'number' && u.get('locationSource') === 'gps') && !homeVisit.upazilaIds.length) {
+        throw err(['Set your current location or choose upazilas for home visits', 'হোম ভিজিটের জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন']);
       }
     }
     const listed = b.listed !== false;
@@ -180,6 +183,7 @@ module.exports = {
         gender,
         chambers: parsed.chambers,
         homeVisit,
+        ...(homeVisit.enabled ? { homeVisitTermsAt: Date.now() } : {}),
         updatedAt: Date.now(),
       }, { merge: true });
     });
@@ -206,6 +210,9 @@ module.exports = {
     const chambers = K.chambersOf(ps.data());
     const ch = chamberIndex == null ? chambers.find((c) => c.appointments) : chambers[chamberIndex];
     if (!ch || !ch.appointments) throw notTaking();
+    if (!K.chamberOpenOn(ch, date)) {
+      throw new HttpError(400, C.tr(req, 'The chamber is closed on that day. Pick one of its days.', 'সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।'));
+    }
     await useQuota(req, user.uid, 'book');
     const name = (await userName(user.uid)).slice(0, 80);
     const ref = await db.collection('appointments').add({
@@ -216,6 +223,8 @@ module.exports = {
       type: ps.get('type'),
       chamber: ch.hospitalName,
       chamberBn: ch.hospitalNameBn || '',
+      chamberKey: ch.hospitalId || ch.hospitalName || '',
+      start: ch.start || '',
       room: ch.room || '',
       schedule: ch.schedule,
       date,
@@ -252,6 +261,8 @@ module.exports = {
         chamber: d.get('chamber'),
         chamberBn: d.get('chamberBn') || '',
         room: d.get('room') || '',
+        start: d.get('start') || '',
+        serial: d.get('serial') || 0,
         schedule: d.get('schedule'),
         date: d.get('date'),
         note: d.get('note'),
@@ -284,7 +295,22 @@ module.exports = {
     else if (isProvider && a.status === 'pending' && action === 'decline') next = 'declined';
     else if ((isProvider || isPatient) && ['pending', 'confirmed'].includes(a.status) && action === 'cancel') next = 'cancelled';
     if (!next) throw new HttpError(400, C.tr(req, 'This can\'t be changed now', 'এখন এটা বদলানো যায় না'));
-    await ref.update({ status: next, providerNote: isProvider && note ? note : a.providerNote || '', updatedAt: Date.now() });
+    // নিশ্চিত হলে ওই দিনের ওই চেম্বারের পরের সিরিয়াল নম্বর (একই লেনদেনে, যাতে দুজন একই নম্বর না পান)
+    let serial = null;
+    await db.runTransaction(async (t) => {
+      const cur = await t.get(ref);
+      if (cur.get('status') !== a.status) throw new HttpError(409, C.tr(req, 'This changed just now. Refresh.', 'এইমাত্র বদলেছে। রিফ্রেশ করুন।'));
+      const update = { status: next, providerNote: isProvider && note ? note : a.providerNote || '', updatedAt: Date.now() };
+      if (next === 'confirmed') {
+        const key = require('node:crypto').createHash('md5').update(String(a.chamberKey || a.chamber || '')).digest('hex').slice(0, 10);
+        const cRef = db.doc(`serials/${a.providerUid}_${a.date}_${key}`);
+        const c = await t.get(cRef);
+        serial = (c.exists ? c.get('n') || 0 : 0) + 1;
+        t.set(cRef, { n: serial, at: Date.now() });
+        update.serial = serial;
+      }
+      t.update(ref, update);
+    });
 
     const to = isProvider ? a.patientUid : a.providerUid;
     const texts = {
@@ -292,7 +318,7 @@ module.exports = {
       declined: ['Appointment not accepted', 'অ্যাপয়েন্টমেন্ট নেওয়া হয়নি'],
       cancelled: ['Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে'],
     }[next];
-    await push(to, texts[0], texts[1], `${isProvider ? a.providerName : a.patientName} · ${dateLabel(a.date)}`, { type: 'appointment' });
+    await push(to, texts[0], texts[1], `${isProvider ? a.providerName : a.patientName} · ${dateLabel(a.date)}${serial ? ` · #${serial}` : ''}`, { type: 'appointment' });
     return { ok: true };
   },
 };

@@ -455,6 +455,7 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
     var lat by remember { mutableStateOf(profile.lat) }
     var lng by remember { mutableStateOf(profile.lng) }
     var district by remember { mutableStateOf(profile.placeName) }
+    var preciseLocation by remember { mutableStateOf(profile.locationSource == "gps") }
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var pickLocation by remember { mutableStateOf(false) }
     var pickUpazila by remember { mutableStateOf(false) }
@@ -464,6 +465,8 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var othersAvailable by remember { mutableStateOf(false) }
+    var agreed by remember { mutableStateOf(false) }
+    var verifyPhone by remember { mutableStateOf(false) }
 
     val options = nurse?.homeVisit?.services ?: HomeServices.ALL
     val needsRx = services.any { it in HomeServices.NEEDS_PRESCRIPTION }
@@ -483,6 +486,7 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
             whenMillis < 0 -> tr("Pick the date and time", "তারিখ ও সময় বেছে নিন")
             la == null || ln == null || d == null -> tr("Set the patient's location", "রোগীর লোকেশন দিন")
             address.isBlank() -> tr("Write the address (house, road, area)", "ঠিকানা লিখুন (বাসা, রোড, এলাকা)")
+            !agreed -> tr("Please accept the Home Nurse terms", "হোম নার্সের শর্তে সম্মতি দিন")
             else -> null
         }
         if (errorMsg != null || la == null || ln == null || d == null) return
@@ -517,9 +521,18 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
                         }
                     }
                 }
-                .onFailure { errorMsg = it.message }
+                .onFailure {
+                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true else errorMsg = it.message
+                }
             busy = false
         }
+    }
+
+    if (verifyPhone) {
+        PhoneVerifyDialog(onDismiss = { verifyPhone = false }, onVerified = {
+            verifyPhone = false
+            submit()
+        })
     }
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -528,9 +541,10 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
                 title = tr("Patient's location", "রোগীর লোকেশন"),
                 busy = false,
                 errorMsg = null,
-                onPicked = { la, ln, place, _ ->
+                onPicked = { la, ln, place, source ->
                     lat = la
                     lng = ln
+                    preciseLocation = source == "gps"
                     if (place != district) upazilaId = null
                     district = place
                     pickLocation = false
@@ -580,6 +594,21 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = { pickLocation = true }) { Text(tr("Change", "বদলান")) }
                 }
+                if (!preciseLocation) {
+                    InfoText(
+                        tr(
+                            "This is only the district. For the nearest nurse, use the current location (if you're with the patient) or choose the upazila.",
+                            "এটা শুধু জেলা। কাছের নার্স পেতে বর্তমান লোকেশন দিন (রোগীর কাছে থাকলে) অথবা উপজেলা বেছে নিন।",
+                        ),
+                    )
+                    GpsButton(tr("Use current location", "বর্তমান লোকেশন দিন"), onLocated = { la, ln, d ->
+                        lat = la
+                        lng = ln
+                        if (d != district) upazilaId = null
+                        district = d
+                        preciseLocation = true
+                    })
+                }
                 if (district != null) {
                     OutlinedButton(onClick = { pickUpazila = true }) {
                         Text(Areas.upazila(upazilaId)?.label ?: tr("Choose upazila (recommended)", "উপজেলা বেছে নিন (ভালো হয়)"))
@@ -608,6 +637,7 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
                     }
                 }
                 SmallNote(tr("The fee is paid to the nurse in cash. The app takes no money.", "ফি নার্সকে নগদে দেবেন। অ্যাপ কোনো টাকা নেয় না।"))
+                TermsCheck(agreed) { agreed = it }
                 ErrorText(errorMsg)
                 if (othersAvailable) {
                     OutlinedButton(onClick = { female = false; submit() }, enabled = !busy) { Text(tr("Send to all nurses", "সব নার্সকে পাঠান")) }
@@ -626,7 +656,7 @@ fun HomeVisitRequestDialog(profile: Profile, nurse: Provider?, onDismiss: () -> 
         }, onDismiss = { showDate = false })
     }
     if (showTime) {
-        TimePickerPopup(hour, minute, onPicked = { h, m -> hour = h; minute = m }, onDismiss = { showTime = false })
+        TimePickerPopup(hour, minute, onPicked = { h, m -> hour = h; minute = m }, onDismiss = { showTime = false }, title = tr("When should the nurse come?", "নার্স কখন আসবেন?"))
     }
     if (pickUpazila) {
         SearchPickDialog(
@@ -677,6 +707,28 @@ fun ActiveVisitCard(refreshKey: Int, onOpen: () -> Unit) {
                 )
             }
             AppIcon(R.drawable.ic_chevron_right, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+        }
+    }
+}
+
+/** শর্তে সম্মতির টিক, শর্তের পাতা খোলার লিংক সহ */
+@Composable
+fun TermsCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = checked, onCheckedChange = onChange)
+        Column(Modifier.weight(1f)) {
+            Text(
+                tr("I have read and accept the Home Nurse terms", "হোম নার্সের শর্ত পড়েছি এবং মেনে নিচ্ছি"),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.clickable { onChange(!checked) },
+            )
+            Text(
+                tr("Read the terms", "শর্তগুলো পড়ুন"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { openUrl(context, TERMS_URL) },
+            )
         }
     }
 }

@@ -427,7 +427,7 @@ fun App(
                 onBack = { back() },
             )
 
-            Screen.Admin -> AdminScreen(onBack = { back() })
+            Screen.Admin -> AdminScreen(isOwner = community?.isOwner == true, onBack = { back() })
 
             Screen.Settings -> {
                 val p = profile

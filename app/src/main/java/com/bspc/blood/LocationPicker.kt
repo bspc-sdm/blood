@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -114,5 +115,39 @@ fun LocationPicker(
                 }
             }
         }
+    }
+}
+
+/** "বর্তমান লোকেশন" বাটন: অনুমতি চেয়ে GPS থেকে আনুমানিক লোকেশন নেয় */
+@Composable
+fun GpsButton(text: String, onLocated: (Double, Double, String) -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun locate() {
+        scope.launch {
+            busy = true
+            error = null
+            val loc = runCatching { LocationHelper.current(context) }.getOrNull()
+            busy = false
+            if (loc == null) {
+                error = tr("Couldn't get your location. Turn on GPS and try again.", "লোকেশন পাওয়া যায়নি। GPS চালু করে আবার চেষ্টা করুন।")
+            } else {
+                onLocated(loc.first, loc.second, Districts.nearest(loc.first, loc.second).bn)
+            }
+        }
+    }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) locate() else error = tr("Location permission denied.", "লোকেশনের অনুমতি দেওয়া হয়নি।")
+    }
+    Column(modifier) {
+        OutlinedButton(
+            onClick = { if (LocationHelper.hasPermission(context)) locate() else launcher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
+            enabled = !busy,
+        ) { ButtonContent(busy, text, R.drawable.ic_location_on) }
+        ErrorText(error)
     }
 }

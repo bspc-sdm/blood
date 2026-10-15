@@ -211,22 +211,48 @@ data class Chamber(
     val upazilaId: Int?,
     val unionId: Int?,
     val room: String,
+    /** লেখা নোট (ঐচ্ছিক); আগের ভার্সনে এটাই ছিল সময় */
     val schedule: String,
     val fee: String,
     val appointments: Boolean,
     val serialPhone: String,
+    /** বার: ০ = রবি … ৬ = শনি */
+    val days: List<Int> = emptyList(),
+    /** "17:00" */
+    val start: String = "",
+    val end: String = "",
 ) {
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
     val area: String get() = Areas.label(district, upazilaId, unionId)
 
+    /** "শনি, রবি, সোম · বিকাল ৫:০০ – রাত ৯:০০" (+ নোট) */
+    val timeText: String
+        get() {
+            val parts = mutableListOf<String>()
+            if (days.isNotEmpty()) parts += Weekdays.ORDER.filter { it in days }.joinToString(", ") { Weekdays.short(it) }
+            if (start.isNotBlank() && end.isNotBlank()) parts += Weekdays.time(start) + " – " + Weekdays.time(end)
+            if (schedule.isNotBlank()) parts += schedule
+            return parts.joinToString(" · ")
+        }
+
+    /** এই তারিখে (UTC মধ্যরাত) বসেন কি না */
+    fun openOn(dateUtcMidnight: Long): Boolean {
+        if (days.isEmpty()) return true
+        val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        c.timeInMillis = dateUtcMidnight
+        return (c.get(java.util.Calendar.DAY_OF_WEEK) - 1) in days
+    }
+
     fun toJson(): JSONObject = JSONObject().put("hospitalId", hospitalId).put("room", room).put("schedule", schedule)
         .put("fee", fee).put("appointments", appointments).put("serialPhone", serialPhone)
+        .put("days", JSONArray(days)).put("start", start).put("end", end)
 
     companion object {
         fun parse(o: JSONObject) = Chamber(
             if (o.isNull("hospitalId")) null else o.optString("hospitalId"), o.str("hospitalName"), o.str("hospitalNameBn"),
             o.str("district"), o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.str("room"), o.str("schedule"),
             o.str("fee"), o.optBoolean("appointments"), o.str("serialPhone"),
+            o.optJSONArray("days").ints(), o.str("start"), o.str("end"),
         )
 
         fun from(h: Hospital) = Chamber(h.id, h.nameEn, h.nameBn, h.district, h.upazilaId, h.unionId, "", "", "", true, "")
@@ -241,7 +267,7 @@ data class HomeVisitSettings(
     val schedule: String = "",
     val fee: String = "",
 ) {
-    fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("radiusKm", radiusKm)
+    fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("termsAccepted", enabled).put("radiusKm", radiusKm)
         .put("upazilaIds", JSONArray(upazilaIds)).put("services", JSONArray(services)).put("schedule", schedule).put("fee", fee)
 
     companion object {
@@ -270,6 +296,31 @@ data class Provider(
     val ratingCount: Int,
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
+}
+
+object Weekdays {
+    /** বাংলাদেশে সপ্তাহ শুরু শনিবার */
+    val ORDER = listOf(6, 0, 1, 2, 3, 4, 5)
+
+    fun short(d: Int): String = when (d) {
+        0 -> tr("Sun", "রবি")
+        1 -> tr("Mon", "সোম")
+        2 -> tr("Tue", "মঙ্গল")
+        3 -> tr("Wed", "বুধ")
+        4 -> tr("Thu", "বৃহস্পতি")
+        5 -> tr("Fri", "শুক্র")
+        else -> tr("Sat", "শনি")
+    }
+
+    /** "17:00" → "বিকাল ৫:০০" */
+    fun time(hhmm: String): String {
+        val p = hhmm.split(":")
+        val h = p.getOrNull(0)?.toIntOrNull() ?: return hhmm
+        val m = p.getOrNull(1)?.toIntOrNull() ?: 0
+        return Rules.formatTime(h, m)
+    }
+
+    fun hhmm(h: Int, m: Int): String = "%02d:%02d".format(java.util.Locale.US, h, m)
 }
 
 object Specialties {
@@ -322,6 +373,8 @@ data class Appointment(
     val chamber: String,
     val chamberBn: String,
     val room: String,
+    val start: String,
+    val serial: Int,
     val schedule: String,
     val date: Long,
     val note: String,
@@ -398,7 +451,7 @@ object Appointments {
             val o = arr.getJSONObject(it)
             Appointment(
                 o.str("id"), o.str("role"), o.str("otherName"), o.str("type"), o.str("chamber"), o.str("chamberBn"),
-                o.str("room"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
+                o.str("room"), o.str("start"), o.optInt("serial"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
                 o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"),
             )
         }
@@ -516,7 +569,8 @@ object HomeVisits {
             JSONObject().put("mode", if (nurseUid != null) "direct" else "broadcast").put("nurseUid", nurseUid)
                 .put("services", JSONArray(services)).put("when", whenMillis).put("lat", lat).put("lng", lng)
                 .put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("placeName", placeName)
-                .put("address", address).put("note", note).put("femalePreferred", femalePreferred).put("prescription", prescription),
+                .put("address", address).put("note", note).put("femalePreferred", femalePreferred).put("prescription", prescription)
+                .put("termsAccepted", true),
         )
         return if (r.optBoolean("noNurse")) HomeVisitResult.NoNurse(r.optBoolean("othersAvailable"))
         else HomeVisitResult.Sent(r.optInt("notified"))

@@ -5,6 +5,7 @@ const { db, FieldValue, HttpError } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 const DISTRICTS = require('./districts');
+const DIR = require('./hospital-dir');
 
 const TYPES = [
   'govt_mch', // সরকারি মেডিকেল কলেজ/বিশ্ববিদ্যালয় হাসপাতাল
@@ -35,9 +36,31 @@ function hospital(d) {
   };
 }
 
-async function approvedIn(district) {
-  const snap = await db.collection('hospitals').where('district', '==', district).get();
-  return snap.docs.filter((d) => d.get('status') !== 'removed').map(hospital);
+// অ্যাপ থেকে যোগ হওয়া (অ্যাডমিন অনুমোদিত) হাসপাতাল অল্প, তাই কয়েক মিনিট মনে রাখা হয়
+const userCache = new Map();
+const USER_CACHE_MS = 5 * 60 * 1000;
+
+async function userAdded(district, fresh = false) {
+  const c = userCache.get(district);
+  if (!fresh && c && Date.now() - c.at < USER_CACHE_MS) return c.list;
+  const snap = await db.collection('hospitals').where('district', '==', district).where('source', '==', 'user').get();
+  const list = snap.docs.filter((d) => d.get('status') !== 'removed').map(hospital);
+  userCache.set(district, { at: Date.now(), list });
+  return list;
+}
+
+/** জেলার সব হাসপাতাল: DGHS-এর স্থির তালিকা + অ্যাপ থেকে যোগ হওয়া */
+async function approvedIn(district, fresh = false) {
+  return [...DIR.inDistrict(district), ...(await userAdded(district, fresh))];
+}
+
+/** id দিয়ে একটা হাসপাতাল (না পেলে null) */
+async function findHospital(id) {
+  if (typeof id !== 'string') return null;
+  if (id.startsWith('dghs_')) return DIR.find(id);
+  if (!R.isValidId(id)) return null;
+  const s = await db.doc(`hospitals/${id}`).get();
+  return s.exists && s.get('status') !== 'removed' ? hospital(s) : null;
 }
 
 function validLocation(req, district, upazilaId, unionId) {
@@ -81,7 +104,7 @@ const actions = {
     const item = { nameEn, district: b.district, upazilaId };
 
     // ১) আগে থেকেই অনুমোদিত?
-    const existing = (await approvedIn(b.district)).find((h) => isDuplicate(item, h));
+    const existing = (await approvedIn(b.district, true)).find((h) => isDuplicate(item, h));
     if (existing) return { ok: false, duplicateOf: existing };
 
     // ২) একই হাসপাতালের অনুরোধ অপেক্ষায়? তাহলে সেটার সাথে যোগ
@@ -115,7 +138,7 @@ const actions = {
 
   /** অ্যাডমিন: অপেক্ষায় থাকা অনুরোধ, সম্ভাব্য ডুপ্লিকেট সহ */
   async admin_hospital_requests(req, user) {
-    requireAdmin(req, user);
+    await requireAdmin(req, user);
     const snap = await db.collection('hospitalRequests').where('status', '==', 'pending').limit(100).get();
     const byDistrict = new Map();
     const items = [];
@@ -132,7 +155,7 @@ const actions = {
 
   /** অ্যাডমিন: অনুমোদন / বাতিল / আগের হাসপাতালের সাথে মেলানো */
   async admin_hospital_resolve(req, user) {
-    requireAdmin(req, user);
+    await requireAdmin(req, user);
     const { id, op, targetId } = req.body || {};
     if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`hospitalRequests/${id}`);
@@ -155,10 +178,11 @@ const actions = {
         createdAt: Date.now(),
       });
       await ref.update({ status: 'approved', hospitalId: h.id, reviewedAt: Date.now() });
+      userCache.delete(r.district);
       return { ok: true, hospitalId: h.id };
     }
     if (op === 'merge') {
-      if (!R.isValidId(targetId) || !(await db.doc(`hospitals/${targetId}`).get()).exists) {
+      if (!(await findHospital(targetId))) {
         throw new HttpError(400, C.tr(req, 'Choose the existing hospital', 'আগের হাসপাতালটা বেছে নিন'));
       }
       await ref.update({ status: 'merged', hospitalId: targetId, reviewedAt: Date.now() });
@@ -172,10 +196,10 @@ const actions = {
   },
 };
 
-function requireAdmin(req, user) {
+async function requireAdmin(req, user) {
   // আবর্তনশীল require এড়াতে এখানে
-  const { isAdminToken } = require('./admin');
-  if (!isAdminToken(user)) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+  const { isAdmin } = require('./admin');
+  if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
 }
 
 async function useQuotaLocal(req, uid) {
@@ -183,4 +207,4 @@ async function useQuotaLocal(req, uid) {
   await useQuota(req, uid, 'hospital');
 }
 
-module.exports = { actions, normalizeName, similarity, isDuplicate, TYPES, UPAZILA, UNION, DUP_THRESHOLD };
+module.exports = { actions, findHospital, normalizeName, similarity, isDuplicate, TYPES, UPAZILA, UNION, DUP_THRESHOLD };

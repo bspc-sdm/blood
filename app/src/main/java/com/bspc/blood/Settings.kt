@@ -213,6 +213,13 @@ fun SettingsScreen(
                 modifier = Modifier.clickable { openUrl(context, PRIVACY_URL) },
             )
             ListItem(
+                headlineContent = { Text(tr("Terms of use", "ব্যবহারের শর্ত")) },
+                leadingContent = { AppIcon(R.drawable.ic_list_alt, null) },
+                trailingContent = { AppIcon(R.drawable.ic_chevron_right, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable { openUrl(context, TERMS_URL) },
+            )
+            ListItem(
                 headlineContent = { Text(tr("Contact support", "সাপোর্টে যোগাযোগ")) },
                 supportingContent = { Text(SUPPORT_EMAIL) },
                 leadingContent = { AppIcon(R.drawable.ic_mail, null) },

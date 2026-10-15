@@ -15,6 +15,7 @@ const HOME_SERVICES = [
 const NEEDS_PRESCRIPTION = ['injection', 'saline', 'cannula'];
 const HOME_RADII = [3, 5, 10];
 const MAX_CHAMBERS = 3;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VISIT_OPEN_MS = 24 * 60 * 60 * 1000; // খোলা অনুরোধ ২৪ ঘণ্টা পর আর দেখায় না
 
 function str(v, max) {
@@ -46,8 +47,13 @@ function parseChambers(list, hospitals) {
   for (const c of list) {
     const h = c && hospitals.get(c.hospitalId);
     if (!h) return { error: ['Choose the hospital from the list', 'তালিকা থেকে হাসপাতাল বেছে নিন'] };
+    // বার (০ = রবি … ৬ = শনি, JS-এর মতো) আর সময় ("17:00"); লেখা শুধু বাড়তি নোট
+    const days = Array.isArray(c.days) ? [...new Set(c.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
+    const start = TIME_RE.test(c.start) ? c.start : '';
+    const end = TIME_RE.test(c.end) ? c.end : '';
     const schedule = str(c.schedule, 120);
-    if (!schedule) return { error: ['Enter days and time for each chamber', 'প্রতিটা চেম্বারে কোন দিন ও কখন বসেন লিখুন'] };
+    if (!days.length) return { error: ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'] };
+    if (!start || !end || end <= start) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
     out.push({
       hospitalId: h.id,
       hospitalName: h.nameEn,
@@ -56,6 +62,9 @@ function parseChambers(list, hospitals) {
       upazilaId: h.upazilaId || null,
       unionId: h.unionId || null,
       room: str(c.room, 60),
+      days,
+      start,
+      end,
       schedule,
       fee: str(c.fee, 40),
       appointments: c.appointments === true,
@@ -82,6 +91,13 @@ function chambersOf(doc) {
     appointments: doc.active !== false,
     serialPhone: '',
   }];
+}
+
+/** এই তারিখে (UTC মধ্যরাত) চেম্বার বসে কি না; পুরোনো চেম্বারে বার না থাকলে সব দিন */
+function chamberOpenOn(chamber, dateUtcMidnight) {
+  const days = chamber && Array.isArray(chamber.days) ? chamber.days : [];
+  if (!days.length) return true;
+  return days.includes(new Date(dateUtcMidnight).getUTCDay());
 }
 
 function isListed(doc) {
@@ -140,6 +156,8 @@ function nurseCovers(nurse, visit) {
   if (!visit.services.every((s) => h.services.includes(s))) return false;
   if (visit.femalePreferred && nurse.gender !== 'female') return false;
   if (visit.upazilaId && (h.upazilaIds || []).includes(visit.upazilaId)) return true;
+  // শুধু জেলা বেছে নেওয়া লোকেশন জেলার মাঝখান — দূরত্বের হিসাবে ভুল হয়, তাই শুধু GPS হলে
+  if (nurse.locationSource !== 'gps') return false;
   if (typeof nurse.lat !== 'number' || typeof nurse.lng !== 'number') return false;
   return R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) <= (h.radiusKm || 5);
 }
@@ -155,7 +173,15 @@ function visitExpired(v, now = Date.now()) {
   return now > until;
 }
 
+/** "01712-345678" / "+8801712345678" → "8801712345678" (বাংলাদেশি মোবাইল না হলে null) */
+function normalizeBd(raw) {
+  const d = String(raw || '').replace(/\D/g, '');
+  const local = d.startsWith('880') ? d.slice(2) : d.startsWith('0') ? d : `0${d}`;
+  return /^01[3-9]\d{8}$/.test(local) ? `88${local}` : null;
+}
+
 module.exports = {
+  normalizeBd,
   DOCTOR_SPECIALTIES,
   NURSE_SPECIALTIES,
   HOME_SERVICES,
@@ -170,6 +196,7 @@ module.exports = {
   parseChambers,
   chambersOf,
   isListed,
+  chamberOpenOn,
   takesAppointments,
   matchesFilter,
   parseHomeVisit,
