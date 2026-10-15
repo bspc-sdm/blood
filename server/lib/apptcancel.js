@@ -22,8 +22,10 @@ function stillValid(a, chambers) {
  */
 async function cancelStale(providerUid, keep, reason) {
   const today = R.todayDhakaUtcMidnight();
-  const snap = await db.collection('appointments').where('providerUid', '==', providerUid).limit(500).get();
-  const stale = snap.docs.filter((d) => ['pending', 'confirmed'].includes(d.get('status')) && (d.get('date') || 0) >= today && !keep(d.data()));
+  // চালু (অপেক্ষায়/নিশ্চিত) গুলোই — দুটো সমান-সমান খোঁজ, আলাদা ইনডেক্স লাগে না, পুরোনো বাতিলগুলো সীমা খায় না
+  const snaps = await Promise.all(['pending', 'confirmed'].map((st) =>
+    db.collection('appointments').where('providerUid', '==', providerUid).where('status', '==', st).limit(500).get()));
+  const stale = snaps.flatMap((s) => s.docs).filter((d) => (d.get('date') || 0) >= today && !keep(d.data()));
   if (!stale.length) return 0;
   for (let i = 0; i < stale.length; i += 400) {
     const batch = db.batch();

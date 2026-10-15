@@ -88,8 +88,20 @@ async function onStatusChange(kind, x, prev, next) {
       const { admin } = require('./firebase');
       email = await admin.auth().getUser(x.ownerUid).then((u) => u.email).catch(() => null);
     }
-    if (next === 'suspended') await ban(kind, x, email, { kind });
-    else if (prev === 'suspended') await unban(kind, x, email);
+    if (next === 'suspended') {
+      await ban(kind, x, email, { kind });
+    } else if (prev === 'suspended') {
+      // তালিকার পরিচয় তুলে নেওয়া; ইমেইলের নিষেধাজ্ঞা শুধু তখনই, যখন মালিকের আর কোনো বন্ধ তালিকা নেই
+      await unban(kind, x, null);
+      if (email && x.ownerUid) {
+        const others = await Promise.all(['ambulances', 'pharmacies', 'bloodBanks'].map((c) =>
+          db.collection(c).where('ownerUid', '==', x.ownerUid).where('status', '==', 'suspended').limit(1).get()));
+        if (others.every((s) => s.empty)) {
+          const k = emailKey(email);
+          if (k) await db.doc(`sanctions/${k}`).set({ listing: false }, { merge: true });
+        }
+      }
+    }
   } catch (e) {
     console.error('sanction update failed', e);
   }

@@ -246,6 +246,8 @@ function dhakaHHMM(now = Date.now()) {
 
 /** দোকান এখন খোলা কি না (রাত পেরিয়ে খোলা থাকলেও) */
 function pharmacyOpenNow(p, now = Date.now()) {
+  // মালিক সাময়িক বন্ধ রাখলে (ঈদ, সংস্কার) — তালিকা, "ওষুধ খুঁজুন" সব জায়গায় বন্ধ
+  if ((p.closedUntil || 0) > now) return false;
   if (p.open24) return true;
   const o = p.openAt;
   const c = p.closeAt;

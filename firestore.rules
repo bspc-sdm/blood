@@ -53,12 +53,11 @@ service cloud.firestore {
         && request.resource.data.neededByMillis <= request.time.toMillis() + 32 * 86400000
         && request.resource.data.neededByMillis + 86400000 > request.time.toMillis()
         && validRequest(request.resource.data);
-      // শুধু বন্ধ করা যায়: রক্তপ্রার্থী নিজে যেকোনো সময়, অন্য যে কেউ তারিখ পার হয়ে গেলে
+      // শুধু রক্তপ্রার্থী নিজে বন্ধ করতে পারেন। সময় পার হলে রাতের কাজ (সার্ভার) বন্ধ করে রাজি ডোনারদের জানায়।
       allow update: if signedIn()
         && onlyStatusChanges()
         && request.resource.data.status == 'closed'
-        && (resource.data.requesterUid == me()
-            || resource.data.neededByMillis + 86400000 < request.time.toMillis());
+        && resource.data.requesterUid == me();
       allow delete: if false;
 
       // রক্তপ্রার্থীর ফোন: শুধু রক্তপ্রার্থী নিজে আর যে ডোনার এখন রাজি আছে বা রক্ত দিয়েছে
