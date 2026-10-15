@@ -277,7 +277,8 @@ internal fun VisitCard(
                 )
             }
             IconLine(R.drawable.ic_schedule, whenLabel(v))
-            val place = listOf(v.placeName, Areas.label(v.district, v.upazilaId)).filter { it.isNotBlank() }.distinct().joinToString(" · ")
+            // placeName অনুরোধকারীর ভাষায় লেখা থাকে, তাই দেখানো হয় নিজের ভাষায় এলাকা
+            val place = Areas.label(v.district, v.upazilaId)
             IconLine(R.drawable.ic_location_on, place + (v.km?.let { " · " + Rules.formatKm(it) } ?: ""))
             if (v.otherName.isNotBlank()) {
                 IconLine(R.drawable.ic_person_outline, (if (v.role == "patient") tr("Nurse: ", "নার্স: ") else tr("Patient: ", "রোগী: ")) + v.otherName)
