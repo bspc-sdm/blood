@@ -47,7 +47,20 @@ module.exports = handler(
       console.error('care reminders failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care };
+    let med = null;
+    try {
+      med = await require('../../lib/pharmacy').dailyPharmacy(now);
+    } catch (e) {
+      console.error('pharmacy daily failed', e);
+    }
+    let inboxDeleted = 0;
+    try {
+      inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
+    } catch (e) {
+      console.error('inbox cleanup failed', e);
+    }
+
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted };
   },
   { methods: ['GET'] },
 );

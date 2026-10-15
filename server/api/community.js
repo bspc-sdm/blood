@@ -24,6 +24,9 @@ const donors = require('../lib/donors');
 const hospitals = require('../lib/hospitals');
 const homevisit = require('../lib/homevisit');
 const phone = require('../lib/phone');
+const inbox = require('../lib/inbox');
+const ambulance = require('../lib/ambulance');
+const pharmacy = require('../lib/pharmacy');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -41,6 +44,7 @@ const actions = {
       // ফোন যাচাই চালু আছে কি না, আর নিজের নম্বর যাচাই করা কি না
       phoneCheck: phone.enabled(),
       phoneVerified: await phone.isVerified(user.uid),
+      unread: await inbox.unreadCount(user.uid).catch(() => 0),
     };
   },
 
@@ -316,7 +320,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions);
 
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);

@@ -38,7 +38,7 @@ module.exports = {
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
 
-    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed] = await Promise.all([
+    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox] = await Promise.all([
       db.collection('requests').where('requesterUid', '==', uid).get(),
       db.collection('questions').where('uid', '==', uid).get(),
       db.collection('tips').where('uid', '==', uid).get(),
@@ -48,6 +48,10 @@ module.exports = {
       db.collection('modReports').where('reporterUid', '==', uid).get(),
       db.collection('homeVisits').where('patientUid', '==', uid).get(),
       db.collection('homeVisits').where('nurseUid', '==', uid).get(),
+      db.collection('ambulances').where('ownerUid', '==', uid).get(),
+      db.collection('medOrders').where('patientUid', '==', uid).get(),
+      db.collection('medOrders').where('chosen', '==', uid).get(),
+      db.collection('inbox').where('uid', '==', uid).limit(1000).get(),
     ]);
 
     await Promise.all([
@@ -92,6 +96,22 @@ module.exports = {
         await d.ref.update({ nurseName: '', ...(active ? { status: 'cancelled', cancelledBy: 'nurse' } : {}) });
         if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে', 'homevisit');
       }),
+      // অ্যাম্বুলেন্স, নোটিফিকেশনের তালিকা
+      deleteDocs([...myAmbulances.docs, ...myInbox.docs]),
+      // ওষুধের অর্ডার: নিজের ঠিকানা, নাম, ছবি মুছে, চলমান হলে বাতিল
+      ...medMine.docs.map(async (d) => {
+        const active = ['open', 'confirmed', 'ready', 'on_the_way'].includes(d.get('status'));
+        await d.ref.update({ patientName: '', address: '', items: '', lat: null, lng: null, comment: '', remindAt: null, remindDays: 0, openFor: [], ...(active ? { status: 'cancelled' } : {}) });
+        await db.doc(`medOrderPhotos/${d.id}`).delete().catch(() => {});
+        if (active && d.get('chosen')) await notify(d.get('chosen'), 'Order cancelled', 'অর্ডার বাতিল হয়েছে', 'pharmacy_order');
+      }),
+      ...medShop.docs.map(async (d) => {
+        const active = ['confirmed', 'ready', 'on_the_way'].includes(d.get('status'));
+        if (active) {
+          await d.ref.update({ status: 'cancelled' });
+          await notify(d.get('patientUid'), 'Order cancelled', 'অর্ডার বাতিল হয়েছে', 'pharmacy_mine');
+        }
+      }),
     ]);
 
     // ৮) প্রোফাইল (ছবি, ফোন সহ), ব্যাজ, চেম্বার, সার্ভারের হিসাব, লগইন কোড
@@ -100,6 +120,7 @@ module.exports = {
       userRef.delete(),
       db.doc(`badges/${uid}`).delete(),
       db.doc(`providers/${uid}`).delete(),
+      db.doc(`pharmacies/${uid}`).delete(),
       stateRef.delete(),
       email ? db.doc(`emailCodes/${E.docIdFor(email)}`).delete() : Promise.resolve(),
     ]);

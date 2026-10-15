@@ -287,3 +287,24 @@ test('ফোন নম্বর স্বাভাবিক করা', () => {
   assert.strictEqual(P.normalizeBd('01212345678'), null);
   assert.strictEqual(P.normalizeBd('123'), null);
 });
+
+test('ফার্মেসি: খোলা সময় আর কাছের দোকান বাছাই', () => {
+  const K = require('../lib/care');
+  const at = (h, m) => Date.UTC(2026, 9, 15, h - 6, m); // বাংলাদেশ সময় h:m
+  assert.strictEqual(K.dhakaHHMM(at(9, 5)), '09:05');
+  assert.ok(K.pharmacyOpenNow({ openAt: '09:00', closeAt: '23:00' }, at(12, 0)));
+  assert.ok(!K.pharmacyOpenNow({ openAt: '09:00', closeAt: '23:00' }, at(23, 30)));
+  assert.ok(K.pharmacyOpenNow({ openAt: '18:00', closeAt: '02:00' }, at(1, 0))); // রাত পেরিয়ে
+  assert.ok(!K.pharmacyOpenNow({ openAt: '18:00', closeAt: '02:00' }, at(10, 0)));
+  assert.ok(K.pharmacyOpenNow({ open24: true }, at(4, 0)));
+  const order = { lat: 24.75, lng: 90.4, upazilaId: 7 };
+  const ps = [
+    { id: 'far', lat: 24.9, lng: 90.4, upazilaId: 8, openAt: '09:00', closeAt: '23:00' },
+    { id: 'near', lat: 24.76, lng: 90.4, upazilaId: 8, openAt: '09:00', closeAt: '23:00' },
+    { id: 'closed', lat: 24.751, lng: 90.4, openAt: '09:00', closeAt: '10:00' },
+    { id: 'sameUpazila', upazilaId: 7, open24: true },
+  ];
+  assert.deepStrictEqual(K.pickPharmacies(order, ps, at(12, 0)).map((p) => p.id), ['near', 'sameUpazila']);
+  assert.deepStrictEqual(K.pickPharmacies(order, ps, at(12, 0), ['near']).map((p) => p.id), ['sameUpazila']);
+  assert.ok(K.medOrderExpired({ status: 'open', createdAt: 0 }, K.MED_OPEN_MS + 1));
+});

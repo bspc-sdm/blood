@@ -68,7 +68,38 @@ function handler(fn, { methods = ['POST'] } = {}) {
  * অকেজো টোকেন (অ্যাপ মুছে ফেলা ইত্যাদি) প্রোফাইল থেকে সরিয়ে দেওয়া হয়।
  * কতগুলো সফল হলো সেটা ফেরত দেয়।
  */
+/**
+ * অ্যাপের ভেতরের নোটিফিকেশন তালিকা (ঘণ্টা আইকন): inbox/{uid_উল্টো সময়_র‍্যান্ডম}।
+ * id-তে উল্টো সময় থাকায় uid দিয়ে খুঁজলে নতুনগুলো আগে আসে (আলাদা ইনডেক্স লাগে না)। ৩০ দিন পর ক্রন মুছে দেয়।
+ */
+async function addInbox(items) {
+  const now = Date.now();
+  const rows = items.filter((it) => it.uid && it.title);
+  for (let i = 0; i < rows.length; i += 400) {
+    const batch = db.batch();
+    rows.slice(i, i + 400).forEach((it, k) => {
+      const rev = String(9999999999999 - now).padStart(13, '0');
+      const id = `${it.uid}_${rev}_${(i + k).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      batch.set(db.doc(`inbox/${id}`), {
+        uid: it.uid,
+        title: String(it.title).slice(0, 200),
+        body: String(it.body || '').slice(0, 300),
+        data: it.data || {},
+        read: false,
+        createdAt: now,
+      });
+    });
+    await batch.commit();
+  }
+}
+
 async function sendPush(items) {
+  try {
+    await addInbox(items);
+  } catch (e) {
+    console.error('inbox write failed', e);
+  }
+  items = items.filter((it) => it.token);
   let sent = 0;
   for (let i = 0; i < items.length; i += 500) {
     const chunk = items.slice(i, i + 500);
@@ -101,4 +132,4 @@ async function sendPush(items) {
   return sent;
 }
 
-module.exports = { admin, db, FieldValue, HttpError, verifyUser, handler, sendPush };
+module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, handler, sendPush };

@@ -192,7 +192,55 @@ function normalizeBd(raw) {
   return /^01[3-9]\d{8}$/.test(local) ? `88${local}` : null;
 }
 
+// ---------- ফার্মেসি ----------
+const MED_NOTIFY = 8; // একটা অর্ডার সর্বোচ্চ কয়টা দোকানে যায়
+const MED_RADIUS_KM = 5;
+const MED_OPEN_MS = 3 * 3600 * 1000; // উত্তরের জন্য অর্ডার ৩ ঘণ্টা খোলা
+
+/** বাংলাদেশের সময় "HH:MM" */
+function dhakaHHMM(now = Date.now()) {
+  const d = new Date(now + 6 * 3600 * 1000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+/** দোকান এখন খোলা কি না (রাত পেরিয়ে খোলা থাকলেও) */
+function pharmacyOpenNow(p, now = Date.now()) {
+  if (p.open24) return true;
+  const o = p.openAt;
+  const c = p.closeAt;
+  if (!TIME_RE.test(o || '') || !TIME_RE.test(c || '')) return true;
+  const t = dhakaHHMM(now);
+  return o < c ? t >= o && t < c : t >= o || t < c;
+}
+
+/**
+ * অর্ডার কোন দোকানগুলোতে যাবে: খোলা, অনুমোদিত, কাছের (GPS থাকলে ৫ কিমি, নইলে একই উপজেলা), কাছেরটা আগে।
+ * pharmacies: [{ id, lat, lng, upazilaId, ... }]
+ */
+function pickPharmacies(order, pharmacies, now = Date.now(), exclude = []) {
+  return pharmacies
+    .filter((p) => !exclude.includes(p.id) && pharmacyOpenNow(p, now))
+    .map((p) => {
+      const km = typeof p.lat === 'number' && typeof order.lat === 'number' ? R.distanceKm(order.lat, order.lng, p.lat, p.lng) : null;
+      return { ...p, km };
+    })
+    .filter((p) => (p.km != null && p.km <= MED_RADIUS_KM) || (order.upazilaId && p.upazilaId === order.upazilaId))
+    .sort((a, b) => (a.km ?? 99) - (b.km ?? 99))
+    .slice(0, MED_NOTIFY);
+}
+
+function medOrderExpired(o, now = Date.now()) {
+  return o.status === 'open' && now - (o.openedAt || o.createdAt || 0) > MED_OPEN_MS;
+}
+
 module.exports = {
+  MED_NOTIFY,
+  MED_RADIUS_KM,
+  MED_OPEN_MS,
+  dhakaHHMM,
+  pharmacyOpenNow,
+  pickPharmacies,
+  medOrderExpired,
   normalizeBd,
   DOCTOR_SPECIALTIES,
   NURSE_SPECIALTIES,

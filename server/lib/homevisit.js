@@ -18,7 +18,7 @@ function inBangladesh(lat, lng) {
 }
 
 async function pushTo(list) {
-  const msgs = list.filter((m) => m.token);
+  const msgs = list.filter((m) => m.uid);
   if (!msgs.length) return;
   try {
     await sendPush(msgs);

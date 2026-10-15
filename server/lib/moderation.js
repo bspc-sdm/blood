@@ -5,19 +5,27 @@ const C = require('./community');
 const { isAdmin } = require('./admin');
 const { useQuota } = require('./community-db');
 
-const KINDS = ['question', 'answer', 'tip', 'homevisit'];
-const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+)$/;
+const KINDS = ['question', 'answer', 'tip', 'homevisit', 'ambulance', 'pharmacy'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
   if (kind === 'answer') return `questions/${id}/answers/${answerId}`;
   if (kind === 'homevisit') return `homeVisits/${id}`;
+  if (kind === 'ambulance') return `ambulances/${id}`;
+  if (kind === 'pharmacy') return `pharmacies/${id}`;
   return `tips/${id}`;
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
 async function removeTarget(path, reported) {
   const ref = db.doc(path);
+  if (path.startsWith('ambulances/') || path.startsWith('pharmacies/')) {
+    // মোছা হয় না, বন্ধ (suspended) — তালিকায় আর দেখায় না, মালিক নিজে আবার চালু করতে পারেন না
+    const s = await ref.get();
+    if (s.exists) await ref.update({ status: 'suspended', suspendedAt: Date.now() });
+    return;
+  }
   if (path.startsWith('homeVisits/')) {
     // হোম ভিজিট মোছা হয় না; যাকে রিপোর্ট করা হয়েছে (নার্স বা রোগী) তাকে হোম ভিজিট থেকে বাদ দেওয়া হয়
     if (reported) await require('./homevisit').blockFromHomeVisits(reported.uid, reported.role);
@@ -49,6 +57,10 @@ module.exports = {
     if (!target.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     let reason = '';
     let reported = null;
+    if (kind === 'ambulance' || kind === 'pharmacy') {
+      reason = C.cleanText(req.body?.reason, 300);
+      if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
+    }
     if (kind === 'homevisit') {
       // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন; কাকে রিপোর্ট করা হলো তা এখনই লিখে রাখা হয়
       const past = target.get('pastNurseUids') || [];
@@ -125,8 +137,10 @@ module.exports = {
             `${(t.get('services') || []).join(', ')} · ${t.get('status')}`,
             ...list[i].reasons,
           ].join('\n')
-          : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
-        authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || '',
+          : ['ambulance', 'pharmacy'].includes(list[i].kind)
+            ? [`${t.get('name') || ''} · ${t.get('phone') || ''} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
+            : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
+        authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || t.get('name') || '',
         reportedUid: list[i].reportedUid,
         reportedRole: list[i].reportedRole,
       });
