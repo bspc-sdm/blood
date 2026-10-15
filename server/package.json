@@ -6,7 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js test/stock.test.js"
+    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js"
   },
   "dependencies": {
     "firebase-admin": "13.10.0",

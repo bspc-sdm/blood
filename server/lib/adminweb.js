@@ -73,7 +73,6 @@ async function buildStats(now) {
   // দৈনিক সংখ্যা: একটা ফিল্ডে পরিসর (আলাদা ইনডেক্স লাগে না)
   const SERIES = [
     ['requests', 'requests', 'createdAtMillis'],
-    ['medOrders', 'medOrders', 'createdAt'],
     ['homeVisits', 'homeVisits', 'createdAt'],
     ['appointments', 'appointments', 'createdAt'],
   ];
@@ -81,7 +80,6 @@ async function buildStats(now) {
     days.map((d) => db.collection(col).where(field, '>=', d).where(field, '<', d + DAY)));
 
   const STATUS = {
-    medOrders: ['open', 'confirmed', 'ready', 'on_the_way', 'done', 'no_show', 'expired', 'cancelled'],
     homeVisits: ['open', 'accepted', 'on_the_way', 'done', 'expired', 'cancelled'],
     appointments: ['pending', 'confirmed', 'declined', 'cancelled', 'expired'],
   };
@@ -354,7 +352,6 @@ const LOGGED = {
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
   admin_ticket_reply: (b) => ({ target: `tickets/${b.id}`, detail: b.close === true ? (b.text ? 'replied+closed' : 'closed') : 'replied' }),
   admin_user_action: (b) => ({ target: `users/${b.uid}`, detail: b.op }),
-  admin_drug_request_resolve: (b) => ({ target: `drugRequests/${b.id}`, detail: b.approve === true ? 'approved' : 'rejected' }),
   admin_add: (b) => ({ target: 'config/admins', detail: `add ${b.email}` }),
   admin_remove: (b) => ({ target: 'config/admins', detail: `remove ${b.email}` }),
   correction_resolve: (b) => ({ target: `correctionRequests/${b.id}`, detail: b.approve === true ? 'approved' : 'rejected' }),

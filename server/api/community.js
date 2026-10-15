@@ -31,8 +31,6 @@ const pharmacy = require('../lib/pharmacy');
 const support = require('../lib/support');
 const adminweb = require('../lib/adminweb');
 const myrequests = require('../lib/myrequests');
-const stock = require('../lib/stock');
-const drugreq = require('../lib/drugreq');
 const sellerstats = require('../lib/sellerstats');
 
 function cursor(req) {
@@ -332,7 +330,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, stock.actions, drugreq.actions, sellerstats.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -367,7 +365,6 @@ actions.admin_overview = async (req, user) => {
     owner ? actions.admin_list(req, user).catch(() => null) : null,
   ]);
   const tickets = await part(async () => (await actions.admin_tickets({ ...req, body: { ...req.body, status: 'open' } }, user)).items);
-  const drugRequests = await part(async () => (await actions.admin_drug_requests({ ...req, body: { ...req.body, status: 'pending' } }, user)).items);
   return {
     me: { email: user.email, isOwner: owner },
     badges,
@@ -377,7 +374,6 @@ actions.admin_overview = async (req, user) => {
     reports,
     corrections,
     tickets,
-    drugRequests,
     admins: adminList,
     at: Date.now(),
   };

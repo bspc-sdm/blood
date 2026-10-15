@@ -118,7 +118,7 @@
     log: {
       admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স',
       admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
-      admin_user_action: 'ব্যবহারকারী', admin_drug_request_resolve: 'নতুন ওষুধ', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
+      admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
     detail: {
       approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
@@ -167,7 +167,6 @@
     S.lists['pharmacies:pending'] = itemsOf('pharmacies');
     S.lists['ambulances:pending'] = itemsOf('ambulances');
     S.lists['tickets:open'] = itemsOf('tickets');
-    S.lists['drugs:pending'] = itemsOf('drugRequests');
   }
   const itemsOf = (key) => (S.overview && S.overview[key] && Array.isArray(S.overview[key].items) ? S.overview[key].items : []);
   const pendingCount = (key) => itemsOf(key).length;
@@ -274,7 +273,6 @@
       { path: 'pharmacies', label: 'ফার্মেসি', icon: 'store', count: () => pendingCount('pharmacies') },
       { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
       { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
-      { path: 'drugs', label: 'নতুন ওষুধ', icon: 'medication', count: () => pendingCount('drugRequests') },
     ] },
     { group: 'সহায়তা', items: [
       { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
@@ -373,7 +371,6 @@
     pharmacies: (r) => pageListing('pharmacies', r),
     ambulances: (r) => pageListing('ambulances', r),
     hospitals: pageHospitals,
-    drugs: pageDrugs,
     tickets: pageTickets,
     ticket: pageTicket,
     reports: pageReports,
@@ -493,7 +490,6 @@
     ['pharmacies', 'pharmacies', 'ফার্মেসি অনুমোদন', 'store'],
     ['ambulances', 'ambulances', 'অ্যাম্বুলেন্স অনুমোদন', 'ambulance'],
     ['hospitalRequests', 'hospitals', 'হাসপাতাল যোগের অনুরোধ', 'hospital'],
-    ['drugRequests', 'drugs', 'নতুন ওষুধ যোগের অনুরোধ', 'medication'],
     ['tickets', 'tickets', 'উত্তরের অপেক্ষায় আপিল', 'help'],
     ['reports', 'reports', 'রিপোর্ট', 'flag'],
     ['corrections', 'corrections', 'তারিখ সংশোধন', 'calendar'],
@@ -565,7 +561,6 @@
     const SERIES = [
       ['newUsers', 'নতুন ব্যবহারকারী'],
       ['requests', 'রক্তের অনুরোধ'],
-      ['medOrders', 'ওষুধের অর্ডার'],
       ['homeVisits', 'হোম ভিজিটের অনুরোধ'],
       ['appointments', 'অ্যাপয়েন্টমেন্টের অনুরোধ'],
     ].filter(([k]) => Array.isArray(st.series && st.series[k]));
@@ -614,7 +609,6 @@
       h('h2', { class: 'section-title', text: 'অবস্থা অনুযায়ী (সব সময়ের)' }),
       h('div', { class: 'grid three' },
         h('div', { class: 'card chart-card' }, h('h3', { text: 'রক্তের গ্রুপ অনুযায়ী দাতা' }), hbars(groups)),
-        statusCard('ওষুধের অর্ডার', st.byStatus && st.byStatus.medOrders, L.order, 'done', ['done', 'no_show', 'expired', 'cancelled']),
         statusCard('হোম ভিজিট', st.byStatus && st.byStatus.homeVisits, L.visit, 'done', ['done', 'expired', 'cancelled']),
         statusCard('অ্যাপয়েন্টমেন্ট', st.byStatus && st.byStatus.appointments, L.appt, 'confirmed', ['confirmed', 'declined', 'cancelled', 'expired'])),
       h('p', { class: 'note', text: 'হিসাব ৩০ মিনিট পরপর নতুন হয়। "নতুন করে হিসাব" চাপলে এখনই হয় (ডাটাবেসের কিছু পড়া খরচ হয়)।' }));
@@ -756,7 +750,7 @@
   async function getList(kind, status) {
     const key = `${kind}:${status}`;
     if (S.lists[key]) return S.lists[key];
-    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', tickets: 'admin_tickets', drugs: 'admin_drug_requests' }[kind];
+    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', tickets: 'admin_tickets' }[kind];
     const res = await act(action, { status });
     S.lists[key] = res.items || [];
     return S.lists[key];
@@ -800,45 +794,6 @@
             actionBtn('মেলান', 'quiet', run(x.id, 'merge', d.id), 'আগের হাসপাতালের সাথে মেলানো হয়েছে', afterChange)))
           : '—') },
       ], (x) => [actionBtn('অনুমোদন', 'primary', run(x.id, 'approve'), 'হাসপাতাল তালিকায় যোগ হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(x.id, 'reject'), 'অনুরোধ বাতিল করা হয়েছে', afterChange)]));
-  }
-
-  // =========================================================
-  // নতুন ওষুধ যোগের অনুরোধ (দোকান থেকে)
-  // =========================================================
-  async function pageDrugs(r, alive) {
-    const tabs = [['pending', 'অপেক্ষায়'], ['approved', 'যোগ হয়েছে'], ['rejected', 'বাতিল']];
-    const st = tabs.some(([k]) => k === r.params.get('s')) ? r.params.get('s') : 'pending';
-    setTitle('নতুন ওষুধ যোগের অনুরোধ', { pending: 'অপেক্ষায়', approved: 'যোগ হয়েছে', rejected: 'বাতিল' }[st]);
-    const items = await getList('drugs', st);
-    if (alive && !alive()) return;
-    const field = (x, k, ph) => h('input', { class: 'cell-input', value: x[k] || '', placeholder: ph, 'aria-label': ph, 'data-k': k, maxlength: 120 });
-    const read = (row) => Object.fromEntries([...row.querySelectorAll('input[data-k]')].map((i) => [i.getAttribute('data-k'), i.value.trim()]));
-    const cols = st === 'pending' ? [
-      { label: 'ব্র্যান্ড', main: true, cell: (x) => field(x, 'name', 'ব্র্যান্ডের নাম') },
-      { label: 'জেনেরিক', cell: (x) => field(x, 'generic', 'জেনেরিক') },
-      { label: 'মাত্রা', cell: (x) => field(x, 'strength', 'মাত্রা') },
-      { label: 'ধরন', cell: (x) => field(x, 'form', 'ধরন') },
-      { label: 'কোম্পানি', cell: (x) => field(x, 'company', 'কোম্পানি') },
-      { label: 'কে চেয়েছে', cell: (x) => [x.pharmacyName || '—', h('div', { class: 'small', text: [x.district, fmtDate(x.createdAt)].filter(Boolean).join(', ') }), h('div', { class: 'small' }, userLink(x.pharmacyId, 'দোকানের মালিক'))] },
-    ] : [
-      { label: 'ব্র্যান্ড', main: true, cell: (x) => x.name },
-      { label: 'জেনেরিক ও মাত্রা', cell: (x) => [x.generic, x.strength].filter(Boolean).join(' ') || '—' },
-      { label: 'ধরন', cell: (x) => x.form || '—' },
-      { label: 'কোম্পানি', cell: (x) => x.company || '—' },
-      { label: 'কে চেয়েছে', cell: (x) => [x.pharmacyName || '—', h('div', { class: 'small', text: fmtDate(x.createdAt) })] },
-    ];
-    paint(alive,
-      toolbar({ tabs, current: st, base: 'drugs' }),
-      st === 'pending' ? h('p', { class: 'note', text: 'সরকারি (DGDA) তালিকায় নেই এমন ওষুধ। নাম-বানান দরকার হলে ঠিক করে "যোগ করুন" চাপুন — তখন সবার অ্যাপে খোঁজায় আসবে, আর অনুরোধকারী দোকানের তালিকায় যোগ হবে। আগে থেকে তালিকায় থাকলে বাতিল করুন।' }) : null,
-      table(items, cols, st === 'pending' ? (x) => {
-        // "যোগ করুন": নিজের সারির ঘরগুলোর (দরকারে ঠিক করা) লেখা নিয়ে
-        const add = actionBtn('যোগ করুন', 'primary', () => {
-          const v = read(add.closest('tr'));
-          if (!v.name || v.name.length < 2) throw new Error('ব্র্যান্ডের নাম দিন');
-          return act('admin_drug_request_resolve', { id: x.id, approve: true, ...v });
-        }, 'ওষুধ যোগ হয়েছে', afterChange);
-        return [add, actionBtn('বাতিল', 'warn', () => act('admin_drug_request_resolve', { id: x.id, approve: false }), 'অনুরোধ বাতিল করা হয়েছে', afterChange)];
-      } : null));
   }
 
   // =========================================================
