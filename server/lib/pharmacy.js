@@ -58,6 +58,43 @@ async function approvedIn(district) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+/**
+ * অর্ডার পরের কাছের খোলা দোকানে পাঠানো (আগে যেগুলোতে গেছে বাদ দিয়ে)।
+ * ফেরত: নতুন দোকান { id, name } অথবা null (আর কোনো দোকান নেই)।
+ */
+async function forwardOrder(ref, reason) {
+  const s = await ref.get();
+  if (!s.exists) return null;
+  const x = s.data();
+  if (x.status !== 'open') return null;
+  const all = (await approvedIn(x.district)).filter((p) => p.id !== x.patientUid);
+  const next = K.pickPharmacies({ lat: x.lat, lng: x.lng, upazilaId: x.upazilaId }, all, Date.now(), x.notified || [])[0];
+  const now = Date.now();
+  if (!next) {
+    await ref.update({ openFor: [], currentShop: null, currentName: '' });
+    await pushUid(x.patientUid, 'No other open pharmacy nearby has it', 'কাছের আর কোনো খোলা দোকানে পাওয়া যায়নি', '', { type: 'pharmacy_mine', orderId: ref.id });
+    return null;
+  }
+  const moved = await db.runTransaction(async (t) => {
+    const cur = await t.get(ref);
+    if (!cur.exists || cur.get('status') !== 'open') return false;
+    t.update(ref, {
+      openFor: [next.id],
+      notified: FieldValue.arrayUnion(next.id),
+      currentShop: next.id,
+      currentName: next.name || '',
+      openedAt: now,
+    });
+    return true;
+  });
+  if (!moved) return null;
+  await pushUid(next.id, 'New medicine order nearby', 'কাছে নতুন ওষুধের অর্ডার', '', { type: 'pharmacy_order', orderId: ref.id });
+  if (reason === 'none') {
+    await pushUid(x.patientUid, `Not available at ${x.currentName || 'the pharmacy'} — sent to ${next.name}`, `${x.currentName || 'দোকানে'} নেই — পাঠানো হলো ${next.name}-এ`, '', { type: 'pharmacy_mine', orderId: ref.id });
+  }
+  return { id: next.id, name: next.name };
+}
+
 function orderForPatient(d, photo) {
   const x = d.data();
   const replies = Object.entries(x.replies || {}).map(([pid, r]) => ({ pharmacyId: pid, ...r }));
@@ -74,6 +111,10 @@ function orderForPatient(d, photo) {
     chosenName: x.chosen && x.replies && x.replies[x.chosen] ? x.replies[x.chosen].name : '',
     replies,
     notifiedCount: (x.notified || []).length,
+    currentName: x.currentName || '',
+    // অন্য দোকানে পাঠানো যায়: এখনকার দোকান উত্তর দিয়েছে, বা ১০ মিনিটে দেয়নি, বা কোনো দোকানই নেই
+    canForward: x.status === 'open' && !K.medOrderExpired(x) && (!x.currentShop ||
+      !!(x.replies || {})[x.currentShop] || Date.now() - (x.openedAt || x.createdAt || 0) >= K.MED_FORWARD_MS),
     remindDays: x.remindDays || 0,
     rating: x.rating || 0,
     createdAt: x.createdAt,
@@ -199,7 +240,8 @@ const actions = {
       targets = [{ id: p.id, ...p.data() }];
     } else {
       const all = (await approvedIn(b.district)).filter((p) => p.id !== user.uid);
-      targets = K.pickPharmacies(order, all);
+      // এক সময়ে একটাই দোকান: কাছের সবচেয়ে ভালোটা ("নেই" বললে বা দেরি হলে পরেরটায় যায়)
+      targets = K.pickPharmacies(order, all).slice(0, 1);
       if (!targets.length) return { ok: false, noPharmacy: true };
     }
     await useQuota(req, user.uid, 'medOrder');
@@ -221,6 +263,8 @@ const actions = {
       upazilaId,
       notified: ids,
       openFor: ids,
+      currentShop: ids[0],
+      currentName: targets[0].name || '',
       replies: {},
       chosen: null,
       // চলমান অর্ডার আলাদা করে খোঁজার জন্য (শেষ/বাতিল হলে মুছে যায়), যাতে পুরোনো অর্ডার জমে নতুনটা না হারায়
@@ -370,8 +414,29 @@ const actions = {
     });
     if (b.status !== 'none') {
       await pushUid(patient, 'A pharmacy replied to your order', 'একটা ফার্মেসি আপনার অর্ডারে উত্তর দিয়েছে', shop.get('name'), { type: 'pharmacy_mine' });
+    } else {
+      // "নেই" বললে নিজে থেকেই পরের কাছের দোকানে
+      await forwardOrder(ref, 'none');
     }
     return { ok: true };
+  },
+
+  /** রোগী: উত্তর পছন্দ না হলে বা ১০ মিনিটে উত্তর না এলে পরের দোকানে */
+  async med_order_forward(req, user) {
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const ref = db.doc(`medOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('patientUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const x = s.data();
+    const replied = x.currentShop && (x.replies || {})[x.currentShop];
+    const waited = Date.now() - (x.openedAt || x.createdAt || 0) >= K.MED_FORWARD_MS;
+    if (x.status !== 'open' || K.medOrderExpired(x) || (x.currentShop && !replied && !waited)) {
+      throw new HttpError(400, C.tr(req, 'Please wait a little for the pharmacy to reply', 'দোকানের উত্তরের জন্য একটু অপেক্ষা করুন'));
+    }
+    const next = await forwardOrder(ref, 'patient');
+    if (!next) return { ok: false, noPharmacy: true };
+    return { ok: true, name: next.name };
   },
 
   /** রোগী একটা উত্তর বেছে নেন */

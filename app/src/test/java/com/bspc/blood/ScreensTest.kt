@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -245,5 +247,13 @@ class ScreensTest {
     fun healthTab() {
         show { HealthTab(0, nurseMe, {}, {}, {}, {}) }
         shot("health_tab")
+    }
+
+    @Test
+    fun drugSearch() {
+        show { MedicineScreen(profile, 0) {} }
+        rule.onNodeWithText("Search medicine name").performTextInput("Napa")
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Paracetamol", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        shot("drug_search")
     }
 }

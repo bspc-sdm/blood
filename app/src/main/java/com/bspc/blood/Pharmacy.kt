@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.bspc.blood
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -122,6 +124,10 @@ data class MedOrder(
     val chosenName: String = "",
     val replies: List<MedReply> = emptyList(),
     val notifiedCount: Int = 0,
+    /** এখন যে দোকানে আছে */
+    val currentName: String = "",
+    /** অন্য দোকানে পাঠানো যায় */
+    val canForward: Boolean = false,
     val remindDays: Int = 0,
     val rating: Int = 0,
     // দোকানের জন্য
@@ -163,7 +169,7 @@ object Pharmacies {
             o.str("mode"), o.str("address"), o.str("status"), o.optLong("createdAt"), o.str("otherPhone"),
             if (o.isNull("chosen")) null else o.optString("chosen").ifBlank { null }, o.str("chosenName"),
             (0 until rs.length()).map { val r = rs.getJSONObject(it); reply(r.str("pharmacyId"), r) },
-            o.optInt("notifiedCount"), o.optInt("remindDays"), o.optInt("rating"), o.str("patientName"),
+            o.optInt("notifiedCount"), o.str("currentName"), o.optBoolean("canForward"), o.optInt("remindDays"), o.optInt("rating"), o.str("patientName"),
             o.optJSONObject("myReply")?.let { reply("", it) },
             if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         )
@@ -222,6 +228,12 @@ object Pharmacies {
             "med_order_reply",
             JSONObject().put("id", id).put("status", status).put("total", total).put("fee", fee).put("note", note).put("altBrand", altBrand),
         )
+    }
+
+    /** পরের দোকানে পাঠানো; নতুন দোকানের নাম, না থাকলে null */
+    suspend fun forward(id: String): String? {
+        val r = call("med_order_forward", JSONObject().put("id", id))
+        return if (r.optBoolean("noPharmacy")) null else r.optString("name")
     }
 
     suspend fun choose(id: String, pharmacyId: String) {
@@ -285,7 +297,10 @@ fun MedicineScreen(profile: Profile, startTab: Int, onBack: () -> Unit) {
                     reorder = items to shop
                     tab = 0
                 })
-                else -> NearbyPharmacies(profile)
+                else -> NearbyPharmacies(profile, onOrderHere = { p ->
+                    reorder = "" to MedReply(p.id, p.name, "all", 0, 0, "", false, p.discount, p.rating)
+                    tab = 0
+                })
             }
         }
     }
@@ -360,12 +375,12 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (shop != null) {
-            InfoText(tr("This order goes only to ", "এই অর্ডার যাবে শুধু: ") + shop.name)
+            InfoText(tr("This order goes to ", "এই অর্ডার যাবে: ") + shop.name)
         } else {
             SmallNote(
                 tr(
-                    "Nearby open pharmacies get your order and reply with price. You choose one. Pay the pharmacy directly on delivery or pickup.",
-                    "কাছের খোলা ফার্মেসিগুলো অর্ডার পেয়ে দাম জানাবে, আপনি একটা বেছে নেবেন। টাকা সরাসরি ফার্মেসিকে — ডেলিভারি বা দোকান থেকে নেওয়ার সময়।",
+                    "Your order goes to the best open pharmacy near you. If they don't have it, it moves to the next one. To pick a shop yourself, use the Pharmacies tab. Pay the pharmacy directly.",
+                    "অর্ডার যাবে আপনার কাছের সবচেয়ে ভালো খোলা দোকানে; না থাকলে নিজে থেকেই পরের দোকানে। নিজে দোকান বাছতে \"ফার্মেসি\" ট্যাব দেখুন। টাকা সরাসরি দোকানকে।",
                 ),
             )
         }
@@ -380,6 +395,9 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
                 TextButton(onClick = { photo = null }) { Text(tr("Remove photo", "ছবি সরান")) }
             }
         }
+        DrugSearch(onPick = { d ->
+            items = (items.trimEnd().let { if (it.isEmpty()) it else it + "\n" } + d.orderLine + " × ").take(1000)
+        })
         OutlinedTextField(
             value = items,
             onValueChange = { items = it.take(1000) },
@@ -494,11 +512,12 @@ private fun MyMedOrders(reloadKey: Int, onReorder: (String, MedReply?) -> Unit) 
                         IconLine(if (o.mode == "pickup") R.drawable.ic_shopping_bag else R.drawable.ic_local_shipping, if (o.mode == "pickup") tr("Pickup", "দোকান থেকে নেবেন") else tr("Delivery", "ডেলিভারি"))
 
                         if (o.status == "open") {
+                            if (o.currentName.isNotBlank()) IconLine(R.drawable.ic_storefront, tr("Now with: ", "এখন আছে: ") + o.currentName)
                             val quotes = o.replies.filter { it.status != "none" }.sortedBy { it.total + it.fee }
                             if (quotes.isEmpty()) {
-                                SmallNote(tr("Sent to ${o.notifiedCount} pharmacies. Replies will appear here.", "${num(o.notifiedCount)}টা ফার্মেসিতে পাঠানো হয়েছে। উত্তর এখানে আসবে।"))
+                                SmallNote(tr("Waiting for the pharmacy to reply.", "দোকানের উত্তরের অপেক্ষা।"))
                             } else {
-                                Text(tr("Replies (cheapest first)", "উত্তর (কম দাম আগে)"), style = MaterialTheme.typography.titleSmall)
+                                Text(tr("Replies", "উত্তর"), style = MaterialTheme.typography.titleSmall)
                                 quotes.forEach { r ->
                                     HorizontalDivider()
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -520,6 +539,14 @@ private fun MyMedOrders(reloadKey: Int, onReorder: (String, MedReply?) -> Unit) 
                                     }
                                 }
                             }
+                        }
+                        if (o.canForward) {
+                            OutlinedButton(onClick = {
+                                act(o) {
+                                    val next = Pharmacies.forward(o.id)
+                                    infoMsg = if (next != null) tr("Sent to ", "পাঠানো হলো: ") + next else tr("No other open pharmacy nearby.", "কাছে আর কোনো খোলা দোকান নেই।")
+                                }
+                            }, enabled = busyId == null) { ButtonContent(busyId == o.id, tr("Send to another pharmacy", "অন্য দোকানে পাঠান")) }
                         }
                         if (o.chosenName.isNotBlank()) IconLine(R.drawable.ic_storefront, o.chosenName)
                         if (o.otherPhone.isNotBlank()) {
@@ -584,7 +611,7 @@ private fun MyMedOrders(reloadKey: Int, onReorder: (String, MedReply?) -> Unit) 
 }
 
 @Composable
-private fun NearbyPharmacies(profile: Profile) {
+private fun NearbyPharmacies(profile: Profile, onOrderHere: (Pharmacy) -> Unit) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
     var district by remember { mutableStateOf(profile.placeName) }
@@ -634,7 +661,10 @@ private fun NearbyPharmacies(profile: Profile) {
                         if (p.discount > 0) IconLine(R.drawable.ic_info, tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়"))
                         if (p.delivery) IconLine(R.drawable.ic_local_shipping, tr("Home delivery", "বাসায় ডেলিভারি") + if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "")
                         RatingLine(p.rating, p.ratingCount)
-                        Button(onClick = { callPhone(context, p.phone) }) { ButtonContent(false, tr("Call", "ফোন করুন"), R.drawable.ic_call) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { onOrderHere(p) }, enabled = p.openNow) { ButtonContent(false, tr("Order here", "এখানে অর্ডার"), R.drawable.ic_medication) }
+                            OutlinedButton(onClick = { callPhone(context, p.phone) }) { ButtonContent(false, tr("Call", "ফোন"), R.drawable.ic_call) }
+                        }
                     }
                 }
             }
@@ -993,5 +1023,48 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
             onDismiss = { pickTime = 0 },
             title = if (pickTime == 1) tr("Opens at", "খোলে") else tr("Closes at", "বন্ধ হয়"),
         )
+    }
+}
+
+/** ওষুধের নাম খুঁজে তালিকায় যোগ (DGDA-র নিবন্ধিত ওষুধ) */
+@Composable
+private fun DrugSearch(onPick: (Drug) -> Unit) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    var ready by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Drugs.ensure(context) } }
+        ready = true
+    }
+    val results by androidx.compose.runtime.produceState(initialValue = emptyList<Drug>(), query, ready) {
+        value = if (!ready) emptyList() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { Drugs.search(query) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it.take(40) },
+            label = { Text(tr("Search medicine name", "ওষুধের নাম খুঁজুন")) },
+            placeholder = { Text(tr("e.g. Napa, Seclo, Paracetamol", "যেমন: Napa, Seclo, Paracetamol")) },
+            leadingIcon = { AppIcon(R.drawable.ic_search, null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        results.forEach { d ->
+            androidx.compose.material3.Surface(
+                onClick = {
+                    onPick(d)
+                    query = ""
+                },
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Text(d.name + if (d.form.isNotBlank()) " · " + d.form else "", fontWeight = FontWeight.SemiBold)
+                    Text(listOf(d.generic, d.company).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (query.trim().length >= 2 && ready && results.isEmpty()) SmallNote(tr("Not found — write it below.", "পাওয়া যায়নি — নিচে নিজে লিখুন।"))
     }
 }

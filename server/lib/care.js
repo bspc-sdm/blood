@@ -193,7 +193,8 @@ function normalizeBd(raw) {
 }
 
 // ---------- ফার্মেসি ----------
-const MED_NOTIFY = 8; // একটা অর্ডার সর্বোচ্চ কয়টা দোকানে যায়
+const MED_NOTIFY = 8; // কতগুলো কাছের দোকানের মধ্যে থেকে বাছাই (অর্ডার যায় এক সময়ে একটাতেই)
+const MED_FORWARD_MS = 10 * 60 * 1000; // উত্তর না এলে এতক্ষণ পর রোগী অন্য দোকানে পাঠাতে পারেন
 const MED_RADIUS_KM = 5;
 const MED_OPEN_MS = 3 * 3600 * 1000; // উত্তরের জন্য অর্ডার ৩ ঘণ্টা খোলা
 
@@ -235,6 +236,7 @@ function medOrderExpired(o, now = Date.now()) {
 
 module.exports = {
   MED_NOTIFY,
+  MED_FORWARD_MS,
   MED_RADIUS_KM,
   MED_OPEN_MS,
   dhakaHHMM,
