@@ -205,6 +205,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
     var badges by remember { mutableStateOf<List<BadgeRequest>>(emptyList()) }
     var reports by remember { mutableStateOf<List<ReportedItem>>(emptyList()) }
     var hospitalReqs by remember { mutableStateOf<List<HospitalRequestItem>>(emptyList()) }
+    var ambulances by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
+    var pharmacies by remember { mutableStateOf<List<Pharmacy>>(emptyList()) }
     var owners by remember { mutableStateOf<List<String>>(emptyList()) }
     var admins by remember { mutableStateOf<List<String>>(emptyList()) }
     var newAdmin by remember { mutableStateOf("") }
@@ -225,6 +227,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
         runCatching { Hospitals.adminRequests() }
             .onSuccess { hospitalReqs = it }
             .onFailure { errorMsg = it.message }
+        runCatching { Ambulances.adminPending() }.onSuccess { ambulances = it }.onFailure { errorMsg = it.message }
+        runCatching { Pharmacies.adminPending() }.onSuccess { pharmacies = it }.onFailure { errorMsg = it.message }
         if (isOwner) {
             runCatching { Moderation.admins() }
                 .onSuccess { owners = it.first; admins = it.second }
@@ -336,6 +340,51 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                 SmallNote(tr("They must log in to the app with this same email.", "তাদের এই ইমেইল দিয়েই অ্যাপে লগইন করতে হবে।"))
             }
 
+            SectionTitle(tr("Pharmacies to approve", "অনুমোদনের অপেক্ষায় ফার্মেসি") + " (${num(pharmacies.size)})")
+            if (pharmacies.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            pharmacies.forEach { p ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(p.name, fontWeight = FontWeight.SemiBold)
+                        Text(tr("Licence: ", "লাইসেন্স: ") + p.licenseNo, style = MaterialTheme.typography.bodyMedium)
+                        Text(num(p.phone) + " · " + p.address + " · " + Areas.label(p.district, p.upazilaId), style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            tr("Check the licence with DGDA before approving.", "অনুমোদনের আগে ঔষধ প্রশাসন অধিদপ্তরে (DGDA) লাইসেন্স যাচাই করুন।"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                        Row {
+                            Button(onClick = { act("ph:" + p.id) { Pharmacies.resolve(p.id, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == "ph:" + p.id, tr("Approve", "অনুমোদন"))
+                            }
+                            TextButton(onClick = { act("ph:" + p.id) { Pharmacies.resolve(p.id, false) } }, enabled = busyId == null) {
+                                Text(tr("Reject", "বাতিল"))
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionTitle(tr("Ambulances to approve", "অনুমোদনের অপেক্ষায় অ্যাম্বুলেন্স") + " (${num(ambulances.size)})")
+            if (ambulances.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            ambulances.forEach { a ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(a.name, fontWeight = FontWeight.SemiBold)
+                        Text(tr("Vehicle: ", "গাড়ি: ") + a.vehicleNo + " · " + a.types.joinToString(", ") { AmbulanceTypes.label(it) }, style = MaterialTheme.typography.bodyMedium)
+                        Text(num(a.phone) + " · " + Areas.label(a.district, a.upazilaId), style = MaterialTheme.typography.bodySmall)
+                        Row {
+                            Button(onClick = { act("am:" + a.id) { Ambulances.resolve(a.id, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == "am:" + a.id, tr("Approve", "অনুমোদন"))
+                            }
+                            TextButton(onClick = { act("am:" + a.id) { Ambulances.resolve(a.id, false) } }, enabled = busyId == null) {
+                                Text(tr("Reject", "বাতিল"))
+                            }
+                        }
+                    }
+                }
+            }
+
             SectionTitle(tr("Hospital requests", "হাসপাতাল যোগের অনুরোধ") + " (${num(hospitalReqs.size)})")
             if (hospitalReqs.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
             AdminHospitalRequests(hospitalReqs, busyId) { id, op, target -> act(id) { Hospitals.resolve(id, op, target) } }
@@ -349,6 +398,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                             when (r.kind) {
                                 "question" -> tr("Question", "প্রশ্ন")
                                 "answer" -> tr("Answer", "উত্তর")
+                                "ambulance" -> tr("Ambulance", "অ্যাম্বুলেন্স")
+                                "pharmacy" -> tr("Pharmacy", "ফার্মেসি")
                                 "homevisit" -> if (r.reportedRole == "patient") tr("Home visit · patient", "হোম ভিজিট · রোগী") else tr("Home visit · nurse", "হোম ভিজিট · নার্স")
                                 else -> tr("Tip", "টিপস")
                             } + " · " + r.authorName.ifBlank { "-" } + " · " + tr("${num(r.count)} report(s)", "${num(r.count)}টি রিপোর্ট"),
@@ -359,7 +410,7 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                             Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true, r.reportedUid) } }, enabled = busyId == null) {
                                 ButtonContent(
                                     busyId == r.targetPath,
-                                    if (r.kind == "homevisit") tr("Block from home visits", "হোম ভিজিট থেকে বাদ দিন") else tr("Remove post", "পোস্ট মুছুন"),
+                                    if (r.kind == "homevisit") tr("Block from home visits", "হোম ভিজিট থেকে বাদ দিন") else if (r.kind == "ambulance" || r.kind == "pharmacy") tr("Suspend", "বন্ধ করুন") else tr("Remove post", "পোস্ট মুছুন"),
                                 )
                             }
                             TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false, r.reportedUid) } }, enabled = busyId == null) {

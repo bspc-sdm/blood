@@ -94,6 +94,8 @@ data class CommunityMe(
     /** SMS দিয়ে ফোন যাচাই চালু আছে কি না */
     val phoneCheck: Boolean = false,
     val phoneVerified: Boolean = true,
+    /** না-পড়া নোটিফিকেশন */
+    val unread: Int = 0,
 ) {
     /** অনুমোদিত ব্যাজ থাকলে তার ধরন */
     val approvedBadge: String? get() = badge?.takeIf { it.status == "approved" }?.type
@@ -129,7 +131,7 @@ object Community {
         val b = o.optJSONObject("badge")
         return CommunityMe(
             b?.let { BadgeState(it.optString("type"), it.optString("status")) }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
-            o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true),
+            o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true), o.optInt("unread"),
         )
     }
 

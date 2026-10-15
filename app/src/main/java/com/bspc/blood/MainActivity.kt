@@ -76,6 +76,8 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value == "homevisit",
                             onHomeVisitOpened = { openType.value = null },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services") },
+                            onTargetOpened = { openType.value = null },
                         )
                     }
                 }
@@ -96,6 +98,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "homevisit") openType.value = "homevisit"
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services") }?.let { openType.value = it }
     }
 }
 
@@ -115,7 +118,7 @@ sealed interface Screen {
     data object Login : Screen
     data object EditProfile : Screen
     data object PickLocation : Screen
-    /** নিচের ট্যাব: 0 হোম, 1 অ্যাপয়েন্টমেন্ট, 2 Health Discussion, 3 Health Tips, 4 প্রোফাইল */
+    /** ট্যাব: 0 হোম, 1 অ্যাপয়েন্টমেন্ট, 2 স্বাস্থ্য, 3 সেবা দিন, 4 প্রোফাইল */
     data class Main(val tab: Int = 0) : Screen
     data object NewRequest : Screen
     data class RequestDetail(val id: String) : Screen
@@ -129,13 +132,21 @@ sealed interface Screen {
     data object PostTip : Screen
     data object MyAppointments : Screen
     data object ChamberEdit : Screen
+    data object Inbox : Screen
+    data object Ambulance : Screen
+    /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
+    data class Medicine(val tab: Int = 0) : Screen
+    data object Shop : Screen
 }
 
 object Tabs {
     const val HOME = 0
     const val APPOINTMENT = 1
-    const val DISCUSSION = 2
-    const val TIPS = 3
+    /** আলোচনা + টিপস */
+    const val HEALTH = 2
+    /** "সেবা দিন": নিজের ফার্মেসি, অ্যাম্বুলেন্স, চেম্বার */
+    const val SERVICES = 3
+    /** নিচের বারে নেই; উপরের প্রোফাইলের ছবিতে চাপলে */
     const val PROFILE = 4
 }
 
@@ -150,6 +161,8 @@ fun App(
     onAppointmentsOpened: () -> Unit,
     openHomeVisit: Boolean,
     onHomeVisitOpened: () -> Unit,
+    openTarget: String? = null,
+    onTargetOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -176,6 +189,33 @@ fun App(
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
         if (stack.size == 1) homeRefresh++
+    }
+
+    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই) */
+    fun openFromData(data: Map<String, String>) {
+        val type = data["type"]
+        val requestId = data["requestId"]
+        val questionId = data["questionId"]
+        when {
+            requestId != null -> push(if (type == "response") Screen.MyRequestDetail(requestId) else Screen.RequestDetail(requestId))
+            questionId != null -> push(Screen.QuestionDetail(questionId))
+            type == "appointment" -> push(Screen.MyAppointments)
+            type == "homevisit" -> {
+                CareNav.openHomeNurse.value = true
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.APPOINTMENT)
+            }
+            type == "pharmacy_order" -> push(Screen.Shop)
+            type == "pharmacy_mine" -> push(Screen.Medicine(1))
+            type == "services" -> {
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
+            else -> {
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.HOME)
+            }
+        }
     }
 
     suspend fun route() {
@@ -217,6 +257,13 @@ fun App(
         if (openAppointments && ready) {
             push(Screen.MyAppointments)
             onAppointmentsOpened()
+        }
+    }
+    // ফার্মেসি আর "সেবা দিন"-এর নোটিফিকেশন
+    LaunchedEffect(openTarget, ready) {
+        if (openTarget != null && ready) {
+            openFromData(mapOf("type" to openTarget))
+            onTargetOpened()
         }
     }
     // হোম নার্সের নোটিফিকেশন: অ্যাপয়েন্টমেন্ট ট্যাবের "হোম নার্স" অংশ
@@ -281,6 +328,10 @@ fun App(
                 onPostTip = { push(Screen.PostTip) },
                 onOpenMyAppointments = { push(Screen.MyAppointments) },
                 onEditChamber = { push(Screen.ChamberEdit) },
+                onOpenInbox = { push(Screen.Inbox) },
+                onOpenAmbulance = { push(Screen.Ambulance) },
+                onOpenMedicine = { push(Screen.Medicine()) },
+                onOpenShop = { push(Screen.Shop) },
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
@@ -478,6 +529,14 @@ fun App(
                 isProvider = community?.approvedBadge in listOf("doctor", "nurse"),
                 onBack = { back() },
             )
+
+            Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
+
+            Screen.Ambulance -> profile?.let { pr -> AmbulanceScreen(pr, onBack = { back() }) }
+
+            is Screen.Medicine -> profile?.let { pr -> MedicineScreen(pr, current.tab, onBack = { back() }) }
+
+            Screen.Shop -> profile?.let { pr -> ShopScreen(pr, onBack = { back() }) }
 
             Screen.ChamberEdit -> profile?.let { pr ->
                 ChamberEditScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })

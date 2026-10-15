@@ -75,6 +75,10 @@ fun MainScreen(
     onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
     onAccountDeleted: () -> Unit,
+    onOpenInbox: () -> Unit = {},
+    onOpenAmbulance: () -> Unit = {},
+    onOpenMedicine: () -> Unit = {},
+    onOpenShop: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -116,15 +120,34 @@ fun MainScreen(
         }
     }
 
+    // প্রোফাইল এখন নিচের বারে নয়, উপরের ছবিতে চাপলে (Tabs.PROFILE)
     val items = listOf(
         NavItem(tr("Home", "হোম"), R.drawable.ic_home_filled, R.drawable.ic_home_outline),
         NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_event_filled, R.drawable.ic_event_outline),
-        NavItem(tr("Discussion", "আলোচনা"), R.drawable.ic_forum_filled, R.drawable.ic_forum_outline),
-        NavItem(tr("Health Tips", "হেলথ টিপস"), R.drawable.ic_lightbulb_filled, R.drawable.ic_lightbulb_outline),
-        NavItem(tr("Profile", "প্রোফাইল"), R.drawable.ic_person_filled, R.drawable.ic_person_outline),
+        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_health_and_safety_filled, R.drawable.ic_health_and_safety_outline),
+        NavItem(tr("Services", "সেবা দিন"), R.drawable.ic_storefront, R.drawable.ic_storefront),
     )
+    val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
     Scaffold(
+        topBar = {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Logo(iconSize = 30.dp)
+                Spacer(Modifier.weight(1f))
+                BellButton(community?.unread ?: 0, onOpenInbox)
+                IconButton(onClick = { onTabChange(Tabs.PROFILE) }) {
+                    if (avatar != null) {
+                        androidx.compose.foundation.Image(
+                            avatar,
+                            contentDescription = tr("Profile", "প্রোফাইল"),
+                            modifier = Modifier.size(32.dp).clip(CircleShape),
+                        )
+                    } else {
+                        AppIcon(R.drawable.ic_account_circle, tr("Profile", "প্রোফাইল"), Modifier.size(32.dp))
+                    }
+                }
+            }
+        },
         bottomBar = {
             NavigationBar {
                 items.forEachIndexed { i, item ->
@@ -153,10 +176,12 @@ fun MainScreen(
                         CareNav.openHomeNurse.value = true
                         onTabChange(Tabs.APPOINTMENT)
                     },
+                    onOpenAmbulance = onOpenAmbulance,
+                    onOpenMedicine = onOpenMedicine,
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
-                Tabs.DISCUSSION -> HealthDiscussionTab(communityRefresh, onOpenQuestion, onAsk)
-                Tabs.TIPS -> HealthTipsTab(communityRefresh, community, onOpenTip, onPostTip)
+                Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
+                Tabs.SERVICES -> ServicesTab(profile, community, homeRefresh, onOpenShop, onEditChamber, onCommunityChanged)
                 else -> ProfileTab(
                     profile = profile,
                     community = community,
@@ -187,6 +212,8 @@ fun HomeTab(
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
     onOpenHomeNurse: () -> Unit = {},
+    onOpenAmbulance: () -> Unit = {},
+    onOpenMedicine: () -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }
@@ -230,24 +257,8 @@ fun HomeTab(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Logo()
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
-                    IconButton(onClick = onOpenProfile) {
-                        if (avatar != null) {
-                            androidx.compose.foundation.Image(
-                                avatar,
-                                contentDescription = tr("Profile", "প্রোফাইল"),
-                                modifier = Modifier.size(32.dp).clip(CircleShape),
-                            )
-                        } else {
-                            AppIcon(R.drawable.ic_account_circle, tr("Profile", "প্রোফাইল"), Modifier.size(32.dp))
-                        }
-                    }
-                }
-            }
+            // অ্যাম্বুলেন্স, ওষুধ, হোম নার্স, রক্ত — এক ট্যাপে
+            item { QuickActions(onOpenAmbulance, onOpenMedicine, onOpenHomeNurse, onNewRequest) }
 
             if (processing.isNotEmpty()) {
                 items(processing, key = { "p_" + it.id }) { r -> ProcessingCard(r) { onOpenRequest(r.id) } }
@@ -261,6 +272,7 @@ fun HomeTab(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
                     AssistChip(
                         onClick = onChangeLocation,
                         label = { Text(Districts.label(profile.placeName), maxLines = 1) },

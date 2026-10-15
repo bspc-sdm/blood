@@ -32,6 +32,28 @@ object Photo {
         Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
+    /**
+     * প্রেসক্রিপশনের ছবি: লম্বা দিক সর্বোচ্চ ১৪০০ পিক্সেল, JPEG; base64 ২৮০ KB-র মধ্যে না আসা পর্যন্ত মান কমানো।
+     */
+    suspend fun toDocumentBase64(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
+        val src = decode(context, uri) ?: throw IllegalStateException(tr("Couldn't read the photo", "ছবিটা পড়া যায়নি"))
+        var maxSide = 1400
+        var quality = 75
+        while (true) {
+            val scale = minOf(1f, maxSide.toFloat() / maxOf(src.width, src.height))
+            val bmp = if (scale < 1f) Bitmap.createScaledBitmap(src, (src.width * scale).toInt(), (src.height * scale).toInt(), true) else src
+            val out = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            val b64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+            if (b64.length <= 280 * 1024 || maxSide <= 700) return@withContext b64
+            if (quality > 55) quality -= 10 else maxSide -= 200
+        }
+        @Suppress("UNREACHABLE_CODE")
+        ""
+    }
+
+    fun decodeImage(base64: String?): ImageBitmap? = decodeAvatar(base64)
+
     private fun decode(context: Context, uri: Uri): Bitmap? {
         if (Build.VERSION.SDK_INT >= 28) {
             // ImageDecoder ছবির ঘোরানো (EXIF) নিজেই ঠিক করে

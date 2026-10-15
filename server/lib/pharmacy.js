@@ -100,8 +100,15 @@ const actions = {
     const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
     const address = C.cleanText(b.address, 200);
     if (!address) throw err('Write the shop address', 'দোকানের ঠিকানা লিখুন');
-    const lat = typeof b.lat === 'number' && b.lat > 20.3 && b.lat < 26.8 ? Math.round(b.lat * 1000) / 1000 : null;
-    const lng = typeof b.lng === 'number' && b.lng > 87.9 && b.lng < 92.8 ? Math.round(b.lng * 1000) / 1000 : null;
+    const ref = db.doc(`pharmacies/${user.uid}`);
+    const s = await ref.get();
+    // নতুন লোকেশন না দিলে আগেরটা থাকে
+    let lat = typeof b.lat === 'number' && b.lat > 20.3 && b.lat < 26.8 ? Math.round(b.lat * 1000) / 1000 : null;
+    let lng = typeof b.lng === 'number' && b.lng > 87.9 && b.lng < 92.8 ? Math.round(b.lng * 1000) / 1000 : null;
+    if ((lat == null || lng == null) && s.exists && typeof s.get('lat') === 'number') {
+      lat = s.get('lat');
+      lng = s.get('lng');
+    }
     if (lat == null || lng == null) throw err('Set the shop location (stand in the shop and tap "Use current location")', 'দোকানের লোকেশন দিন (দোকানে দাঁড়িয়ে "বর্তমান লোকেশন" চাপুন)');
     const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
     const open24 = b.open24 === true;
@@ -127,8 +134,6 @@ const actions = {
       discount,
       updatedAt: Date.now(),
     };
-    const ref = db.doc(`pharmacies/${user.uid}`);
-    const s = await ref.get();
     if (s.exists) {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy was suspended after reports. Contact us.', 'রিপোর্টের পর আপনার ফার্মেসি বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
       const changed = ['name', 'licenseNo'].some((k) => s.get(k) !== data[k]);
