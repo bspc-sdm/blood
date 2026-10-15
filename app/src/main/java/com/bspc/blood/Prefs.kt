@@ -2,7 +2,16 @@ package com.bspc.blood
 
 import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -110,6 +119,7 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHighest = Color(0xFF303637),
 )
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GetBloodTheme(content: @Composable () -> Unit) {
     val dark = when (AppPrefs.theme.value) {
@@ -117,5 +127,39 @@ fun GetBloodTheme(content: @Composable () -> Unit) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, typography = AppTypography) {
+        // ছোঁয়ার ঘর ৪৮ থেকে ৪০dp: চিপ আর বাটনের চারপাশে বাড়তি ফাঁকা জায়গা কমে
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 40.dp, content = content)
+    }
+}
+
+/** বাংলা-ইংরেজি দুটোই সুন্দর দেখায় এমন ফন্ট (ওয়েব অ্যাডমিন প্যানেলেও একই) — SIL OFL */
+val HindSiliguri = FontFamily(
+    Font(R.font.hind_siliguri_regular, FontWeight.Normal),
+    Font(R.font.hind_siliguri_medium, FontWeight.Medium),
+    Font(R.font.hind_siliguri_semibold, FontWeight.SemiBold),
+    Font(R.font.hind_siliguri_bold, FontWeight.Bold),
+    Font(R.font.hind_siliguri_bold, FontWeight.ExtraBold),
+)
+
+/** Material-এর মাপ থেকে একটু ছোট, আর বাংলার জন্য লাইনের উচ্চতা ঠিক করা */
+private val AppTypography: Typography = Typography().let { t ->
+    fun TextStyle.f(size: Int, line: Int) = copy(fontFamily = HindSiliguri, fontSize = size.sp, lineHeight = line.sp)
+    Typography(
+        displayLarge = t.displayLarge.f(52, 60),
+        displayMedium = t.displayMedium.f(42, 50),
+        displaySmall = t.displaySmall.f(34, 42),
+        headlineLarge = t.headlineLarge.f(28, 36),
+        headlineMedium = t.headlineMedium.f(25, 32),
+        headlineSmall = t.headlineSmall.f(22, 29),
+        titleLarge = t.titleLarge.f(20, 27),
+        titleMedium = t.titleMedium.f(16, 23),
+        titleSmall = t.titleSmall.f(14, 20),
+        bodyLarge = t.bodyLarge.f(15, 22),
+        bodyMedium = t.bodyMedium.f(14, 20),
+        bodySmall = t.bodySmall.f(12, 17),
+        labelLarge = t.labelLarge.f(14, 18),
+        labelMedium = t.labelMedium.f(12, 16),
+        labelSmall = t.labelSmall.f(11, 15),
+    )
 }
