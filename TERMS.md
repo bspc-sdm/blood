@@ -34,6 +34,18 @@ Get Blood একটা যোগাযোগের মাধ্যম: রক্
 
 **দায়:** Get Blood ডাক্তার/নার্সের নিয়োগকর্তা নয়, সেবার মান বা ফলাফলের নিশ্চয়তা দেয় না। পেশাজীবীর ব্যাজ রেজিস্ট্রেশন নম্বর দেখে দেওয়া হয়, কিন্তু প্রতিটা সেবার দায়িত্ব সেই পেশাজীবী আর রোগী/পরিবারের নিজেদের। রেটিং আর রিপোর্ট দেখে অ্যাডমিন কাউকে অ্যাপের সেবা থেকে বাদ দিতে পারেন।
 
+## অ্যাম্বুলেন্স
+
+- অ্যাপ শুধু অ্যাম্বুলেন্সের তালিকা আর ফোন নম্বর দেখায়; অ্যাম্বুলেন্স পাঠায় না, ভাড়ার দায়ও নেয় না। জরুরি অবস্থায় আগে **৯৯৯**-এ ফোন করুন।
+- অ্যাম্বুলেন্সের মালিক/চালক: গাড়ির বৈধ রেজিস্ট্রেশন আর চালকের লাইসেন্স থাকতে হবে; তালিকায় লেখা ভাড়ার চেয়ে বেশি চাওয়া, ফোন ধরে না আসা বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন।
+- ব্যস্ত থাকলে "এখন খালি আছি" বন্ধ রাখুন, যাতে মানুষ ভুল করে সময় নষ্ট না করেন।
+
+## ফার্মেসি ও ওষুধের অর্ডার
+
+- অ্যাপ নিজে ওষুধ বিক্রি করে না; বিক্রি করে লাইসেন্সধারী ফার্মেসি, আর ওষুধের মান, দাম ও আইন মানার দায় সেই ফার্মেসির। টাকা সরাসরি ফার্মেসিকে, অ্যাপের মাধ্যমে নয়।
+- ফার্মেসি: বৈধ ড্রাগ লাইসেন্স থাকতে হবে; প্রেসক্রিপশন ছাড়া প্রেসক্রিপশনের ওষুধ (যেমন অ্যান্টিবায়োটিক) দেবেন না; গায়ে লেখা দামের (MRP) বেশি নেবেন না; একই ওষুধের অন্য ব্র্যান্ড দিতে চাইলে স্পষ্ট জানাবেন, গ্রাহক ডাক্তারের সাথে কথা বলে সিদ্ধান্ত নেবেন; প্রেসক্রিপশনের ছবি আর গ্রাহকের তথ্য গোপন রাখবেন।
+- গ্রাহক: সঠিক প্রেসক্রিপশন আর ঠিকানা দেবেন; বেছে নেওয়া অর্ডার নেবেন। কয়েকবার অর্ডার দিয়ে না নিলে কিছুদিনের জন্য অর্ডার দেওয়া বন্ধ হবে।
+
 ## পরিবর্তন ও যোগাযোগ
 
 শর্ত বদলালে এই পাতায় তারিখ সহ জানানো হবে। প্রশ্ন বা অভিযোগ: **ekapkbd@gmail.com**
@@ -47,5 +59,7 @@ Get Blood only connects people: blood requesters with donors, and patients with 
 Doctors and nurses must keep a valid BMDC/BNMC registration, work within their training and the law, and are responsible for the care they give.
 
 **Home Nurse:** injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid to the nurse directly in cash. Nurses must not give injections, saline or cannula without a prescription, should refer serious cases to a hospital, must cancel in the app if they cannot go, must keep patient details confidential, and may leave and report if they feel unsafe. Get Blood is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
+
+**Ambulance & pharmacy:** the app only lists ambulances and connects customers with licensed pharmacies; it sends no ambulance, sells no medicine and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, must disclose brand substitutions so the customer can ask their doctor, and must keep prescriptions confidential. Customers must give correct prescriptions and addresses and collect what they order; repeated no-shows block ordering for a while.
 
 Contact: ekapkbd@gmail.com

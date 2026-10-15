@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -155,10 +154,8 @@ fun EmergencyCallCard() {
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = { callPhone(context, "999") },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError),
-            ) { ButtonContent(false, num("999"), R.drawable.ic_call) }
+            // শান্ত রং: হালকা লাল কার্ডে টিল বাটন (গাঢ় লাল ভয় বাড়ায়)
+            Button(onClick = { callPhone(context, "999") }) { ButtonContent(false, num("999"), R.drawable.ic_call) }
         }
     }
 }
