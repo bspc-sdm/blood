@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value == "homevisit",
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support") },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "homevisit") openType.value = "homevisit"
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine") }?.let { openType.value = it }
     }
 }
 
@@ -207,6 +207,11 @@ fun App(
             }
             type == "support" -> push(Screen.Help())
             // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
+            type == "med_find" || type == "med_find_mine" -> {
+                ServicesNav.target.value = type
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
             type == "services" || type == "pharmacy_order" || type == "pharmacy_mine" -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)

@@ -215,6 +215,12 @@ class ScreensTest {
     }
 
     @Test
+    fun medicineFinder() {
+        show { MedFindPanel(profile) }
+        shot("med_find")
+    }
+
+    @Test
     fun pharmacyDirectory() {
         show { PharmacyContent(profile) }
         shot("pharmacy_content")

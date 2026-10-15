@@ -43,6 +43,7 @@ Lifolo একটা যোগাযোগের মাধ্যম: রক্ত
 ## ফার্মেসি
 
 - অ্যাপ শুধু ফার্মেসির তালিকা, খোলার সময় আর ফোন নম্বর দেখায়; ওষুধ বিক্রি করে না, অর্ডার নেয় না, দামের দায়ও নেয় না। কেনাকাটা সরাসরি দোকানের সাথে।
+- "ওষুধ খুঁজুন": তালিকা থেকে একটা ওষুধ বেছে কাছের কয়েকটা দোকানকে জিজ্ঞেস করা যায়; দোকান "আছে" বা "নেই" জানায়। "আছে" মানে দোকানের কথা — ফোন করে নিশ্চিত হয়ে নিন। ভুল করে বা ইচ্ছে করে মিথ্যা "আছে" বললে রিপোর্ট করুন।
 - ফার্মেসি: বৈধ ড্রাগ লাইসেন্স থাকতে হবে; প্রেসক্রিপশন ছাড়া প্রেসক্রিপশনের ওষুধ (যেমন অ্যান্টিবায়োটিক) দেবেন না; গায়ে লেখা দামের (MRP) বেশি নেবেন না; খোলার সময় আর ফোন নম্বর সঠিক রাখবেন। ভুল তথ্য বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন।
 
 ## পরিবর্তন ও যোগাযোগ
@@ -59,6 +60,6 @@ Doctors and nurses must keep a valid BMDC/BNMC registration, work within their t
 
 **Home Nurse:** injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid to the nurse directly in cash. Nurses must not give injections, saline or cannula without a prescription, should refer serious cases to a hospital, must cancel in the app if they cannot go, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
 
-**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct.
+**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
 
 Contact: ekapkbd@gmail.com

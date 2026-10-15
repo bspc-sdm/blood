@@ -131,16 +131,30 @@ object Pharmacies {
 
 }
 
-/** "সেবা" ট্যাবের ফার্মেসি অংশ: খোলা দোকান খোঁজা / নিজের ফার্মেসি */
+/** "সেবা" ট্যাবের ফার্মেসি অংশ: খোলা দোকান খোঁজা / ওষুধ খোঁজা / নিজের ফার্মেসি */
 @Composable
 fun PharmacyContent(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // নোটিফিকেশন থেকে: নিজের খোঁজের উত্তর → "ওষুধ খুঁজুন", দোকানের অনুরোধ → "আমার ফার্মেসি"
+    val target = ServicesNav.target.value
+    LaunchedEffect(target) {
+        when (target) {
+            "med_find_mine" -> tab = 1
+            "med_find" -> tab = 2
+        }
+        if (target != null) ServicesNav.target.value = null
+    }
     Column(Modifier.fillMaxSize()) {
         SecondaryTabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Find a pharmacy", "ফার্মেসি খুঁজুন")) })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("My pharmacy", "আমার ফার্মেসি")) })
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Pharmacies", "ফার্মেসি")) })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("Find a medicine", "ওষুধ খুঁজুন")) })
+            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(tr("My pharmacy", "আমার ফার্মেসি")) })
         }
-        if (tab == 0) NearbyPharmacies(profile) else MyPharmacyPanel(profile)
+        when (tab) {
+            0 -> NearbyPharmacies(profile)
+            1 -> MedFindPanel(profile)
+            else -> MyPharmacyPanel(profile)
+        }
     }
 }
 
@@ -208,6 +222,7 @@ private fun MyPharmacyPanel(profile: Profile) {
                         if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
                     }
                 }
+                if (s.status == "approved") PharmacyFindRequests()
                 stats?.let { st ->
                     val calls = st.optJSONObject("calls") ?: JSONObject()
                     Text(tr("Calls from the app", "অ্যাপ থেকে ফোন"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

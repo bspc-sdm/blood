@@ -75,6 +75,9 @@ fun HealthTab(
 @Composable
 fun ServicesTab(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // ওষুধ খোঁজার নোটিফিকেশন থেকে এলে ফার্মেসি অংশ
+    val target = ServicesNav.target.value
+    LaunchedEffect(target) { if (target == "med_find" || target == "med_find_mine") tab = 1 }
     Column(Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tab) {
             Tab(
