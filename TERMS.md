@@ -14,22 +14,24 @@ Lifolo একটা যোগাযোগের মাধ্যম: রক্ত
 
 ## ডাক্তার ও নার্স (ব্যাজধারী)
 
-- ব্যাজের জন্য দেওয়া রেজিস্ট্রেশন নম্বর (BMDC / BNMC) সঠিক ও চালু থাকতে হবে। নিবন্ধন বাতিল বা স্থগিত হলে সাথে সাথে অ্যাপে চেম্বার ও হোম ভিজিট বন্ধ করবেন।
+- ব্যাজের জন্য দেওয়া রেজিস্ট্রেশন নম্বর (BMDC / BNMC) সঠিক ও চালু থাকতে হবে। নিবন্ধন বাতিল বা স্থগিত হলে সাথে সাথে অ্যাপে চেম্বার ও বাসায় সেবা বন্ধ করবেন।
 - নিজের পেশাগত দক্ষতা আর দেশের আইন-বিধির মধ্যে থেকে সেবা দেবেন; সেবার দায়িত্ব আপনার নিজের।
 - চেম্বারের সময়, ফি আর ঠিকানা সঠিক রাখবেন।
 
-## হোম নার্স
+## বাসায় সেবা (বাসায় গিয়ে ডাক্তার ও নার্স)
+
+অ্যাপে শুধু তালিকা: যে ব্যাজধারী ডাক্তার ও নার্স রোগীর বাসায় যান, তাঁদের নাম, সেবা, এলাকা, সময়, ফি আর ফোন নম্বর। অ্যাপে কোনো অনুরোধ, বুকিং বা টাকা লেনদেন নেই; রোগী সরাসরি ফোন করে সময় আর ফি ঠিক করেন।
 
 **রোগী বা তার পরিবার:**
-- ইনজেকশন, স্যালাইন বা ক্যানুলার জন্য অনুরোধ দিতে হলে নিবন্ধিত ডাক্তারের প্রেসক্রিপশন থাকতে হবে, আর ওষুধ ও সরঞ্জাম প্রেসক্রিপশন অনুযায়ী তৈরি রাখবেন। নার্স প্রেসক্রিপশন দেখতে চাইবেন।
-- সঠিক ঠিকানা আর ফোন নম্বর দেবেন। রোগীর সাথে একজন প্রাপ্তবয়স্ক উপস্থিত থাকবেন।
-- নার্সের ফি সরাসরি নার্সকে দেবেন (নগদে)। অ্যাপ কোনো ফি নেয় না, ফেরতের দায়ও নেয় না।
-- নার্সের সাথে সম্মানজনক আচরণ করবেন। কোনো রকম হয়রানি হলে অ্যাপ থেকে রিপোর্ট করুন; গুরুতর হলে পুলিশে (৯৯৯) জানান।
+- ইনজেকশন, স্যালাইন বা ক্যানুলার জন্য নিবন্ধিত ডাক্তারের প্রেসক্রিপশন থাকতে হবে, আর ওষুধ ও সরঞ্জাম প্রেসক্রিপশন অনুযায়ী তৈরি রাখবেন। নার্স প্রেসক্রিপশন দেখতে চাইবেন।
+- ফোনে সঠিক ঠিকানা দেবেন। রোগীর সাথে একজন প্রাপ্তবয়স্ক উপস্থিত থাকবেন।
+- ফি সরাসরি ডাক্তার/নার্সকে দেবেন। অ্যাপ কোনো ফি নেয় না, ফেরতের দায়ও নেয় না।
+- সম্মানজনক আচরণ করবেন। ভুল নম্বর, বেশি টাকা চাওয়া, না আসা বা হয়রানি হলে অ্যাপ থেকে রিপোর্ট করুন; গুরুতর হলে পুলিশে (৯৯৯) জানান।
 
-**নার্স:**
-- শুধু নিজের প্রশিক্ষণ ও নিবন্ধনের মধ্যে থাকা সেবা দেবেন। প্রেসক্রিপশন ছাড়া ইনজেকশন, স্যালাইন বা ক্যানুলা দেবেন না। রোগীর অবস্থা গুরুতর মনে হলে বাসায় চিকিৎসা না করে হাসপাতালে পাঠানোর পরামর্শ দেবেন।
-- নেওয়া অনুরোধে সময়মতো যাবেন; যেতে না পারলে আগেই অ্যাপে বাতিল করবেন, যাতে অন্য নার্স পান।
-- রোগীর ঠিকানা, ফোন আর স্বাস্থ্যের তথ্য গোপন রাখবেন; সেবার বাইরে ব্যবহার করবেন না।
+**ডাক্তার ও নার্স:**
+- চালু করার সময় যে ফোন নম্বর দেন, তালিকায় সবাই সেটা দেখবেন — এতে সম্মতি দিয়েই চালু করবেন। যে এলাকায় আর যে সময়ে যেতে পারেন, শুধু সেটাই লিখবেন; না পারলে বন্ধ রাখবেন।
+- শুধু নিজের প্রশিক্ষণ ও নিবন্ধনের মধ্যে থাকা সেবা দেবেন। নার্স প্রেসক্রিপশন ছাড়া ইনজেকশন, স্যালাইন বা ক্যানুলা দেবেন না। রোগীর অবস্থা গুরুতর মনে হলে বাসায় চিকিৎসা না করে হাসপাতালে পাঠানোর পরামর্শ দেবেন।
+- ফোনে যে ফি বলেছেন তার বেশি চাইবেন না। রোগীর ঠিকানা, ফোন আর স্বাস্থ্যের তথ্য গোপন রাখবেন।
 - নিরাপত্তার জন্য কোথায় যাচ্ছেন তা পরিচিত কাউকে জানিয়ে রাখার পরামর্শ দেওয়া হয়। অস্বস্তি বা বিপদ মনে হলে সেবা না দিয়ে চলে আসতে পারেন এবং রিপোর্ট করবেন।
 
 **দায়:** Lifolo ডাক্তার/নার্সের নিয়োগকর্তা নয়, সেবার মান বা ফলাফলের নিশ্চয়তা দেয় না। পেশাজীবীর ব্যাজ রেজিস্ট্রেশন নম্বর দেখে দেওয়া হয়, কিন্তু প্রতিটা সেবার দায়িত্ব সেই পেশাজীবী আর রোগী/পরিবারের নিজেদের। রেটিং আর রিপোর্ট দেখে অ্যাডমিন কাউকে অ্যাপের সেবা থেকে বাদ দিতে পারেন।
@@ -58,7 +60,7 @@ Lifolo only connects people: blood requesters with donors, and patients with doc
 
 Doctors and nurses must keep a valid BMDC/BNMC registration, work within their training and the law, and are responsible for the care they give.
 
-**Home Nurse:** injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid to the nurse directly in cash. Nurses must not give injections, saline or cannula without a prescription, should refer serious cases to a hospital, must cancel in the app if they cannot go, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
+**Home care (doctors and nurses who visit homes):** the app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or cannula without a prescription; everyone should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
 
 **Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
 

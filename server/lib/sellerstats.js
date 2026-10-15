@@ -1,7 +1,7 @@
-// অ্যাম্বুলেন্স আর ফার্মেসির মালিকের নিজের হিসাব (শুধু নিজেরটাই দেখা যায়): অ্যাপ থেকে কতবার ফোন এসেছে।
-// প্রতিটা ফোনে দিনের গণনা একটা বাড়ে — দেখার সময় একটা ডক পড়লেই হয়।
+// অ্যাম্বুলেন্স, ফার্মেসি আর বাসায় সেবা দেওয়া ডাক্তার/নার্সের নিজের হিসাব (শুধু নিজেরটাই দেখা যায়):
+// অ্যাপ থেকে কতবার ফোন এসেছে। প্রতিটা ফোনে দিনের গণনা একটা বাড়ে — দেখার সময় একটা ডক পড়লেই হয়।
 //
-// ambulanceStats/{id}, pharmacyStats/{id}: { d: { YYYYMMDD: n }, total, callers, recent?: [{ rating, comment, at }] }
+// ambulanceStats/{id}, pharmacyStats/{id}, homeStats/{uid}: { d: { YYYYMMDD: n }, total, callers, recent?: [{ rating, comment, at }] }
 const { db, FieldValue } = require('./firebase');
 const R = require('./rules');
 
@@ -22,18 +22,21 @@ async function bumpCalls(collection, id, at = Date.now(), newCaller = false) {
 
 const bumpAmbulance = (id, at, newCaller) => bumpCalls('ambulanceStats', id, at, newCaller);
 
-async function addAmbulanceRating(ambulanceId, rating, comment) {
+/** সাম্প্রতিক ১০টা রেটিং/মন্তব্য (কে দিয়েছেন তা ছাড়া) */
+async function addRecentRating(collection, id, rating, comment) {
   try {
-    const ref = db.doc(`ambulanceStats/${ambulanceId}`);
+    const ref = db.doc(`${collection}/${id}`);
     await db.runTransaction(async (t) => {
       const s = await t.get(ref);
       const recent = ((s.exists && s.get('recent')) || []).slice(-9);
       t.set(ref, { recent: [...recent, { rating, comment, at: Date.now() }] }, { merge: true });
     });
   } catch (e) {
-    console.error('ambulance rating stats failed', e.message);
+    console.error('rating stats failed', e.message);
   }
 }
+
+const addAmbulanceRating = (id, rating, comment) => addRecentRating('ambulanceStats', id, rating, comment);
 
 /** গণনার ডক থেকে ৭/৩০/৯০ দিনের হিসাব আর ৩০ দিনের দৈনিক সংখ্যা */
 function callSummary(snap, now = Date.now()) {
@@ -72,4 +75,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, bumpCalls, bumpAmbulance, addAmbulanceRating, callSummary };
+module.exports = { actions, bumpCalls, bumpAmbulance, addAmbulanceRating, addRecentRating, callSummary };

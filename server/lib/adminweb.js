@@ -73,14 +73,14 @@ async function buildStats(now) {
   // দৈনিক সংখ্যা: একটা ফিল্ডে পরিসর (আলাদা ইনডেক্স লাগে না)
   const SERIES = [
     ['requests', 'requests', 'createdAtMillis'],
-    ['homeVisits', 'homeVisits', 'createdAt'],
+    // বাসায় সেবা: নতুন রোগী-ডাক্তার/নার্স যোগাযোগ (প্রথম ফোনের দিন)
+    ['homeCalls', 'homeCalls', 'firstAt'],
     ['appointments', 'appointments', 'createdAt'],
   ];
   const dailyQueries = SERIES.flatMap(([, col, field]) =>
     days.map((d) => db.collection(col).where(field, '>=', d).where(field, '<', d + DAY)));
 
   const STATUS = {
-    homeVisits: ['open', 'accepted', 'on_the_way', 'done', 'expired', 'cancelled'],
     appointments: ['pending', 'confirmed', 'declined', 'cancelled', 'expired'],
   };
   const statusQueries = Object.entries(STATUS).flatMap(([col, list]) => list.map((s) => db.collection(col).where('status', '==', s)));
@@ -93,6 +93,8 @@ async function buildStats(now) {
     ['nurses', db.collection('badges').where('type', '==', 'nurse').where('status', '==', 'approved')],
     ['nutritionists', db.collection('badges').where('type', '==', 'nutritionist').where('status', '==', 'approved')],
     ['trainers', db.collection('badges').where('type', '==', 'trainer').where('status', '==', 'approved')],
+    ['homeDoctors', db.collection('providers').where('type', '==', 'doctor').where('homeVisit.enabled', '==', true)],
+    ['homeNurses', db.collection('providers').where('type', '==', 'nurse').where('homeVisit.enabled', '==', true)],
     ['pharmacies', db.collection('pharmacies').where('status', '==', 'approved')],
     ['ambulances', db.collection('ambulances').where('status', '==', 'approved')],
     ['questions', db.collection('questions')],
@@ -166,7 +168,7 @@ const latest = (snap, field, n = 10) => snap.docs
   .slice(0, n);
 
 async function userView(uid) {
-  const [u, doc, badge, prov, shop, state, ambs, reqs, ordersMine, visitsMine, visitsNursed, apptMine, apptToMe, tickets, reportsAgainst] = await Promise.all([
+  const [u, doc, badge, prov, shop, state, ambs, reqs, ordersMine, visitsMine, visitsNursed, apptMine, apptToMe, tickets, reportsAgainst, homeStats] = await Promise.all([
     authUser(uid),
     db.doc(`users/${uid}`).get(),
     db.doc(`badges/${uid}`).get(),
@@ -182,6 +184,7 @@ async function userView(uid) {
     db.collection('appointments').where('providerUid', '==', uid).limit(50).get(),
     db.collection('tickets').where('uid', '==', uid).limit(20).get(),
     db.collection('modReports').where('reportedUid', '==', uid).limit(50).get(),
+    db.doc(`homeStats/${uid}`).get(),
   ]);
   if (!u && !doc.exists) return null;
   const st = (k) => (state.exists ? state.get(k) : undefined);
@@ -203,6 +206,9 @@ async function userView(uid) {
       listed: K.isListed(prov.data()),
       homeVisit: !!(prov.get('homeVisit') && prov.get('homeVisit').enabled),
       homeVisitBlocked: prov.get('homeVisitBlocked') === true,
+      homePhone: K.fixPhone(prov.get('homeVisit.phone')),
+      homeCalls: (homeStats.exists && homeStats.get('total')) || 0,
+      chambers: K.chambersOf(prov.data()).length,
     } : null,
     pharmacy: shop.exists ? { id: shop.id, name: shop.get('name'), status: shop.get('status'), phone: K.fixPhone(shop.get('phone')), district: shop.get('district') || '' } : null,
     ambulances: ambs.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), vehicleNo: d.get('vehicleNo') || '', phone: K.fixPhone(d.get('phone')) })),
@@ -305,9 +311,9 @@ const actions = {
           db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ homeVisitBlocked: FieldValue.delete() })),
         ]);
         break;
-      case 'homevisit_ban_patient':
-      case 'homevisit_ban_nurse':
-        await require('./homevisit').blockFromHomeVisits(uid, op === 'homevisit_ban_nurse' ? 'nurse' : 'patient');
+      case 'homecare_ban':
+      case 'homevisit_ban_nurse': // আগের নাম
+        await require('./homecare').blockHomeCare(uid);
         break;
       case 'med_unblock':
         await stateRef.set({ medNoShow: 0, medNoShowAt: FieldValue.delete() }, { merge: true });

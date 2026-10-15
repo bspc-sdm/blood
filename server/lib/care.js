@@ -1,4 +1,4 @@
-// ডাক্তার/নার্সের চেম্বার আর হোম নার্সের খাঁটি নিয়ম (ডাটাবেস ছাড়া, তাই টেস্ট করা যায়)।
+// ডাক্তার/নার্সের চেম্বার আর বাসায় সেবার খাঁটি নিয়ম (ডাটাবেস ছাড়া, তাই টেস্ট করা যায়)।
 const R = require('./rules');
 
 const DOCTOR_SPECIALTIES = [
@@ -8,15 +8,17 @@ const DOCTOR_SPECIALTIES = [
 ];
 const NURSE_SPECIALTIES = ['general_nursing', 'icu', 'midwife', 'home_care', 'pediatric_nursing', 'psychiatric_nursing'];
 
-// হোম নার্সের সেবা; প্রথম তিনটার জন্য প্রেসক্রিপশন লাগবে
+// বাসায় গিয়ে নার্স যে সেবা দেন; প্রথম তিনটার জন্য রোগীর কাছে প্রেসক্রিপশন থাকা লাগে
 const HOME_SERVICES = [
   'injection', 'saline', 'cannula', 'dressing', 'catheter', 'nebulizer', 'bp_sugar', 'elderly_care', 'newborn_care', 'post_op',
 ];
+// বাসায় গিয়ে ডাক্তার যে সেবা দেন
+const DOCTOR_HOME_SERVICES = ['checkup', 'follow_up', 'elderly_care', 'bedridden', 'child', 'palliative', 'post_op'];
 const NEEDS_PRESCRIPTION = ['injection', 'saline', 'cannula'];
-const HOME_RADII = [3, 5, 10];
+const HOME_RADII = [3, 5, 10, 20];
 const MAX_CHAMBERS = 3;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const VISIT_OPEN_MS = 24 * 60 * 60 * 1000; // খোলা অনুরোধ ২৪ ঘণ্টা পর আর দেখায় না
+const VISIT_OPEN_MS = 24 * 60 * 60 * 1000; // আগের অনুরোধ-ব্যবস্থা (বন্ধ) — পুরোনো ডক পড়ার জন্য
 
 function str(v, max) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -137,13 +139,22 @@ function matchesFilter(doc, f) {
   return chambersOf(doc).some((c) => chamberMatches(c, f));
 }
 
-/** হোম ভিজিটের সেটিং যাচাই */
-function parseHomeVisit(h) {
+function homeServicesFor(type) {
+  return type === 'doctor' ? DOCTOR_HOME_SERVICES : HOME_SERVICES;
+}
+
+/**
+ * বাসায় সেবার সেটিং যাচাই। ফোন নম্বরটা তালিকায় সবাই দেখবেন (রোগী সরাসরি ফোন করেন),
+ * তাই চালু করলে আলাদা করে দিতে হয়।
+ */
+function parseHomeVisit(h, type = 'nurse') {
   h = h || {};
   const enabled = h.enabled === true;
-  const services = pickCodes(h.services, HOME_SERVICES, HOME_SERVICES.length);
+  const services = pickCodes(h.services, homeServicesFor(type), 10);
   // বন্ধ করলেও আগের সেবা/এলাকা থেকে যায়, আবার চালু করলে নতুন করে লিখতে হয় না
   if (enabled && !services.length) return { error: ['Choose the services you provide at home', 'বাসায় কোন কোন সেবা দেন বেছে নিন'] };
+  const norm = normalizeBd(h.phone);
+  if (enabled && !norm) return { error: ['Enter a mobile number patients can call', 'রোগীরা যে নম্বরে ফোন করবেন, সেই মোবাইল নম্বর দিন'] };
   const radiusKm = HOME_RADII.includes(h.radiusKm) ? h.radiusKm : 5;
   const upazilaIds = Array.isArray(h.upazilaIds) ? [...new Set(h.upazilaIds.filter(Number.isInteger))].slice(0, 10) : [];
   return {
@@ -152,6 +163,7 @@ function parseHomeVisit(h) {
       radiusKm,
       upazilaIds,
       services,
+      phone: norm ? localBd(norm) : '',
       schedule: str(h.schedule, 120),
       fee: str(h.fee, 60),
     },
@@ -159,19 +171,32 @@ function parseHomeVisit(h) {
 }
 
 /**
- * এই নার্স কি এই অনুরোধে যেতে পারেন? nurse = providers ডক + users ডকের lat/lng/gender।
- * এলাকা: নিজের লোকেশন থেকে radiusKm-এর মধ্যে, অথবা বেছে রাখা উপজেলায়।
+ * এই ডাক্তার/নার্স কি খোঁজা জায়গায় যান? p = providers ডক + users ডকের lat/lng/locationSource/placeName।
+ * place: { lat, lng } (খুঁজছেন যিনি, GPS) আর/অথবা { district, upazilaId } (বেছে নেওয়া এলাকা)।
+ * মিললে { km } (দূরত্ব জানা না গেলে km = null), না মিললে null।
  */
-function nurseCovers(nurse, visit) {
-  const h = nurse.homeVisit;
-  if (!h || h.enabled !== true) return false;
-  if (!visit.services.every((s) => h.services.includes(s))) return false;
-  if (visit.femalePreferred && nurse.gender !== 'female') return false;
-  if (visit.upazilaId && (h.upazilaIds || []).includes(visit.upazilaId)) return true;
-  // শুধু জেলা বেছে নেওয়া লোকেশন জেলার মাঝখান — দূরত্বের হিসাবে ভুল হয়, তাই শুধু GPS হলে
-  if (nurse.locationSource !== 'gps') return false;
-  if (typeof nurse.lat !== 'number' || typeof nurse.lng !== 'number') return false;
-  return R.distanceKm(visit.lat, visit.lng, nurse.lat, nurse.lng) <= (h.radiusKm || 5);
+function homeMatch(p, place) {
+  const h = p.homeVisit;
+  if (!h || h.enabled !== true || p.homeVisitBlocked === true) return null;
+  const gps = p.locationSource === 'gps' && typeof p.lat === 'number' && typeof p.lng === 'number';
+  const ups = h.upazilaIds || [];
+  if (typeof place.lat === 'number' && typeof place.lng === 'number') {
+    const km = gps ? R.distanceKm(place.lat, place.lng, p.lat, p.lng) : null;
+    if (km != null && km <= (h.radiusKm || 5)) return { km };
+    if (place.upazilaId && ups.includes(place.upazilaId)) return { km };
+    return null;
+  }
+  if (place.upazilaId) {
+    if (ups.includes(place.upazilaId)) return { km: null };
+    // শুধু লোকেশন দিয়ে রাখা মানুষ: একই জেলায় থাকলে দেখানো (ফোনে জেনে নেবেন আসতে পারবেন কি না)
+    return gps && place.district && p.placeName === place.district ? { km: null } : null;
+  }
+  if (place.district) {
+    const { UPAZILA } = require('./hospital-match');
+    if (ups.some((id) => UPAZILA.get(id)?.district === place.district)) return { km: null };
+    return gps && p.placeName === place.district ? { km: null } : null;
+  }
+  return { km: null };
 }
 
 /**
@@ -259,6 +284,9 @@ module.exports = {
   DOCTOR_SPECIALTIES,
   NURSE_SPECIALTIES,
   HOME_SERVICES,
+  DOCTOR_HOME_SERVICES,
+  homeServicesFor,
+  homeMatch,
   NEEDS_PRESCRIPTION,
   HOME_RADII,
   MAX_CHAMBERS,
@@ -275,6 +303,5 @@ module.exports = {
   takesAppointments,
   matchesFilter,
   parseHomeVisit,
-  nurseCovers,
   visitExpired,
 };

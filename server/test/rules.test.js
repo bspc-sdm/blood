@@ -238,33 +238,40 @@ test('চেম্বার: যাচাই, পুরোনো ডক, ফি�
   assert.ok(K.matchesFilter(doc, {}));
 });
 
-test('হোম নার্স: এলাকা, সেবা, মহিলা নার্স', () => {
+test('বাসায় সেবা: সেটিং, ফোন, এলাকা মেলানো', () => {
   const K = require('../lib/care');
-  assert.ok(K.parseHomeVisit({ enabled: true, services: [] }).error);
-  const h = K.parseHomeVisit({ enabled: true, services: ['injection', 'bogus', 'dressing'], radiusKm: 7, upazilaIds: [5, 5, 'x'] }).homeVisit;
+  assert.ok(K.parseHomeVisit({ enabled: true, services: [], phone: '01712345678' }).error);
+  // চালু করলে রোগীরা যে নম্বরে ফোন করবেন তা লাগবে
+  assert.ok(K.parseHomeVisit({ enabled: true, services: ['dressing'] }).error);
+  assert.ok(K.parseHomeVisit({ enabled: true, services: ['dressing'], phone: '12345' }).error);
+  const h = K.parseHomeVisit({ enabled: true, services: ['injection', 'bogus', 'dressing'], radiusKm: 7, upazilaIds: [1, 1, 'x'], phone: '+8801712-345678' }).homeVisit;
   assert.deepStrictEqual(h.services, ['injection', 'dressing']);
   assert.strictEqual(h.radiusKm, 5);
-  assert.deepStrictEqual(h.upazilaIds, [5]);
-  const nurse = { homeVisit: h, lat: 23.81, lng: 90.41, gender: 'male', locationSource: 'gps' };
-  assert.ok(!K.nurseCovers({ ...nurse, locationSource: 'district' }, { services: ['injection'], lat: 23.83, lng: 90.42, upazilaId: 9 }));
-  const visit = { services: ['injection'], lat: 23.83, lng: 90.42, upazilaId: 9, femalePreferred: false };
-  assert.ok(K.nurseCovers(nurse, visit)); // ~২.৪ কিমি
-  assert.ok(!K.nurseCovers(nurse, { ...visit, services: ['saline'] }));
-  assert.ok(!K.nurseCovers(nurse, { ...visit, femalePreferred: true }));
-  assert.ok(K.nurseCovers({ ...nurse, gender: 'female' }, { ...visit, femalePreferred: true }));
-  const far = { ...visit, lat: 24.5, lng: 90.4 };
-  assert.ok(!K.nurseCovers(nurse, far));
-  assert.ok(K.nurseCovers(nurse, { ...far, upazilaId: 5 })); // বেছে রাখা উপজেলা
-  assert.ok(!K.nurseCovers({ homeVisit: { enabled: false } }, visit));
-  assert.ok(K.visitExpired({ status: 'open', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
-  assert.ok(!K.visitExpired({ status: 'accepted', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
-  // আবার খোলা হলে নতুন করে ২৪ ঘণ্টা; পরের দিনের সময় হলে সেই সময় পর্যন্ত
-  assert.ok(!K.visitExpired({ status: 'open', createdAt: 0, openedAt: 5 * K.VISIT_OPEN_MS }, 5.5 * K.VISIT_OPEN_MS));
-  assert.ok(!K.visitExpired({ status: 'open', createdAt: 0, when: 3 * K.VISIT_OPEN_MS }, 2 * K.VISIT_OPEN_MS));
-  assert.ok(K.visitExpired({ status: 'open', createdAt: 0, when: 3 * K.VISIT_OPEN_MS }, 4 * K.VISIT_OPEN_MS));
+  assert.deepStrictEqual(h.upazilaIds, [1]);
+  assert.strictEqual(h.phone, '01712345678');
+  // ডাক্তারের আলাদা সেবার তালিকা
+  const d = K.parseHomeVisit({ enabled: true, services: ['checkup', 'injection', 'bedridden'], radiusKm: 20, phone: '01812345678' }, 'doctor').homeVisit;
+  assert.deepStrictEqual(d.services, ['checkup', 'bedridden']);
+  assert.strictEqual(d.radiusKm, 20);
   const off = K.parseHomeVisit({ enabled: false, services: ['dressing'], radiusKm: 10 }).homeVisit;
   assert.strictEqual(off.enabled, false);
   assert.deepStrictEqual(off.services, ['dressing']);
+
+  const p = { homeVisit: h, lat: 23.81, lng: 90.41, locationSource: 'gps', placeName: 'ঢাকা' };
+  // খুঁজছেন যিনি তাঁর GPS থেকে: ব্যাসার্ধের মধ্যে হলে দূরত্ব সহ
+  const near = K.homeMatch(p, { lat: 23.83, lng: 90.42 });
+  assert.ok(near && near.km > 2 && near.km < 3);
+  assert.strictEqual(K.homeMatch(p, { lat: 24.5, lng: 90.4 }), null);
+  assert.ok(K.homeMatch(p, { lat: 24.5, lng: 90.4, upazilaId: 1 })); // বেছে রাখা উপজেলা
+  // শুধু জেলা বেছে নেওয়া লোকেশন দিয়ে দূরত্ব ধরা হয় না
+  assert.strictEqual(K.homeMatch({ ...p, locationSource: 'district' }, { lat: 23.83, lng: 90.42 }), null);
+  // এলাকা বেছে খুঁজলে: উপজেলা মিললে, অথবা একই জেলায় GPS
+  assert.ok(K.homeMatch(p, { district: 'কুমিল্লা', upazilaId: 1 }));
+  assert.ok(K.homeMatch(p, { district: 'কুমিল্লা' })); // উপজেলা ১ কুমিল্লায়
+  assert.ok(K.homeMatch(p, { district: 'ঢাকা' }));
+  assert.strictEqual(K.homeMatch({ ...p, homeVisit: { ...h, upazilaIds: [] } }, { district: 'কুমিল্লা' }), null);
+  assert.strictEqual(K.homeMatch({ ...p, homeVisit: { ...h, enabled: false } }, {}), null);
+  assert.strictEqual(K.homeMatch({ ...p, homeVisitBlocked: true }, {}), null);
 });
 
 test('হাসপাতালের স্থির তালিকা', () => {

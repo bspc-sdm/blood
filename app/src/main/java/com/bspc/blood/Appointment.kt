@@ -33,8 +33,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,13 +57,13 @@ import kotlinx.coroutines.launch
 
 private val PROVIDER_TYPES = listOf("doctor", "nurse")
 
-/** নোটিফিকেশন থেকে সরাসরি হোম নার্স ট্যাব খোলার জন্য */
+/** নোটিফিকেশন থেকে সরাসরি "বাসায় সেবা" অংশ খোলার জন্য */
 object CareNav {
-    val openHomeNurse = mutableStateOf(false)
+    val openHomeCare = mutableStateOf(false)
 }
 
 // ------------------------------------------------------------
-// ট্যাব: ডাক্তার / নার্স / হোম নার্স
+// ট্যাব: ডাক্তার / নার্স / বাসায় সেবা
 // ------------------------------------------------------------
 
 @Composable
@@ -76,10 +74,10 @@ fun AppointmentTab(
     onEditChamber: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(CareNav.openHomeNurse.value) {
-        if (CareNav.openHomeNurse.value) {
+    LaunchedEffect(CareNav.openHomeCare.value) {
+        if (CareNav.openHomeCare.value) {
             tab = 2
-            CareNav.openHomeNurse.value = false
+            CareNav.openHomeCare.value = false
         }
     }
 
@@ -103,29 +101,18 @@ fun AppointmentTab(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
-        TabRow(selectedTabIndex = tab) {
-            Tab(
-                selected = tab == 0,
-                onClick = { tab = 0 },
-                text = { Text(tr("Doctor", "ডাক্তার")) },
-                icon = { AppIcon(R.drawable.ic_stethoscope, null, Modifier.size(22.dp)) },
-            )
-            Tab(
-                selected = tab == 1,
-                onClick = { tab = 1 },
-                text = { Text(tr("Nurse", "নার্স")) },
-                icon = { AppIcon(R.drawable.ic_medical_services, null, Modifier.size(22.dp)) },
-            )
-            Tab(
-                selected = tab == 2,
-                onClick = { tab = 2 },
-                text = { Text(tr("Home Nurse", "হোম নার্স")) },
-                icon = { AppIcon(R.drawable.ic_home_health, null, Modifier.size(22.dp)) },
-            )
-        }
+        PillTabs(
+            tab,
+            listOf(
+                PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
+                PillTab(tr("Nurse", "নার্স"), R.drawable.ic_medical_services),
+                PillTab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health),
+            ),
+            { tab = it },
+        )
         when (tab) {
             0, 1 -> ProviderList(PROVIDER_TYPES[tab], profile)
-            else -> HomeNurseTab(profile, me)
+            else -> HomeCareTab(profile, me, onEditChamber)
         }
     }
 }
@@ -269,7 +256,7 @@ fun RatingLine(rating: Double, count: Int) {
 }
 
 @Composable
-private fun ProviderAvatar(type: String) {
+internal fun ProviderAvatar(type: String) {
     Box(
         Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer),
         contentAlignment = Alignment.Center,
@@ -326,8 +313,7 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
 fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, onBooked: () -> Unit) {
     val context = LocalContext.current
     var bookingIndex by remember { mutableStateOf<Int?>(null) }
-    var homeRequest by remember { mutableStateOf(false) }
-    var sentMsg by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(modifier = Modifier.fillMaxSize(), topBar = { BackTopBar(Badges.label(p.type), onDismiss) }) { padding ->
@@ -348,8 +334,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                 if (p.specialties.isNotEmpty()) {
                     Text(p.specialties.joinToString(" · ") { Specialties.label(it) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
                 }
-                InfoText(sentMsg)
-                SectionTitle(tr("Chambers", "চেম্বার"))
+                if (p.chambers.isNotEmpty()) SectionTitle(tr("Chambers", "চেম্বার"))
                 p.chambers.forEachIndexed { i, c ->
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -372,11 +357,11 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     }
                 }
                 val hv = p.homeVisit
-                if (p.type == "nurse" && hv != null && hv.enabled) {
+                if (hv != null && hv.enabled && hv.phone.isNotBlank()) {
                     SectionTitle(tr("Home visit", "বাসায় গিয়ে সেবা"))
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(hv.services.joinToString(", ") { HomeServices.label(it) }, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Text(hv.services.joinToString(" · ") { HomeServices.label(it) }, color = MaterialTheme.colorScheme.onTertiaryContainer)
                             Text(
                                 tr("Within ${hv.radiusKm} km", "${num(hv.radiusKm)} কিমির মধ্যে") +
                                     if (hv.upazilaIds.isNotEmpty()) " · " + hv.upazilaIds.mapNotNull { Areas.upazila(it)?.label }.joinToString(", ") else "",
@@ -385,8 +370,14 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                             )
                             if (hv.schedule.isNotBlank()) Text(hv.schedule, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
                             if (hv.fee.isNotBlank()) Text(tr("Fee: ", "ফি: ") + hv.fee, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { homeRequest = true }, modifier = Modifier.padding(top = 4.dp)) {
-                                ButtonContent(false, tr("Request a home visit", "বাসায় আসার অনুরোধ"), R.drawable.ic_home_health)
+                            Button(
+                                onClick = {
+                                    scope.launch { runCatching { HomeCare.called(p.uid) } }
+                                    callPhone(context, hv.phone)
+                                },
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) {
+                                ButtonContent(false, tr("Call to visit home", "বাসায় আসতে ফোন") + " " + num(hv.phone), R.drawable.ic_call)
                             }
                         }
                     }
@@ -404,17 +395,6 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
             onBooked = {
                 bookingIndex = null
                 onBooked()
-            },
-        )
-    }
-    if (homeRequest) {
-        HomeVisitRequestDialog(
-            profile = profile,
-            nurse = p,
-            onDismiss = { homeRequest = false },
-            onSent = {
-                homeRequest = false
-                sentMsg = it
             },
         )
     }
@@ -539,17 +519,18 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (isProvider) {
-                TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("My bookings", "আমার বুকিং")) })
-                    Tab(
-                        selected = tab == 1,
-                        onClick = { tab = 1 },
-                        text = {
-                            val n = list.count { it.role == "provider" && it.status == "pending" }
-                            Text(tr("Patients", "রোগীদের অনুরোধ") + if (n > 0) " (${num(n)})" else "")
-                        },
-                    )
-                }
+                PillTabs(
+                    tab,
+                    listOf(
+                        PillTab(tr("My bookings", "আমার বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled),
+                        PillTab(
+                            tr("Patients", "রোগীদের অনুরোধ"),
+                            R.drawable.ic_stethoscope,
+                            count = list.count { it.role == "provider" && it.status == "pending" },
+                        ),
+                    ),
+                    { tab = it },
+                )
             }
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -700,7 +681,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     }
                     p.homeVisit?.let {
                         home = it
-                        homeAgreed = it.enabled // আগে চালু করে থাকলে আগেই সম্মতি দিয়েছেন
+                        homeAgreed = it.enabled && it.phone.isNotBlank() // নতুন শর্তে (নম্বর দেখানো) আগে সম্মতি দিয়ে থাকলে
                     }
                 }
             }
@@ -743,12 +724,11 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     FilterChip(selected = gender == k, onClick = { gender = k }, label = { Text(l) })
                 }
             }
-            if (type == "nurse") {
-                SmallNote(tr("Patients who ask for a female nurse only notify female nurses.", "রোগী মহিলা নার্স চাইলে শুধু মহিলা নার্সরা নোটিফিকেশন পান।"))
-            }
+            SmallNote(tr("Patients can search home care with \"Female only\".", "বাসায় সেবায় রোগীরা \"শুধু মহিলা\" দিয়েও খুঁজতে পারেন।"))
             HorizontalDivider()
 
             SectionTitle(tr("Chambers (up to 3)", "চেম্বার (সর্বোচ্চ ৩টা)"))
+            if (chambers.isEmpty()) SmallNote(tr("Only visit homes? You can skip chambers and turn on home care below.", "শুধু বাসায় গিয়ে সেবা দেন? চেম্বার না দিয়ে নিচে বাসায় সেবা চালু করলেই হবে।"))
             oldChamber?.let {
                 InfoText(
                     tr(
@@ -771,17 +751,26 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 }
             }
 
-            if (type == "nurse") {
+            run {
                 HorizontalDivider()
-                SectionTitle(tr("Home visit", "বাসায় গিয়ে সেবা"))
+                SectionTitle(tr("Home care", "বাসায় সেবা"))
                 SwitchRow(
-                    tr("I go to patients' homes", "আমি রোগীর বাসায় যাই"),
-                    tr("Nearby patients can send you requests. Fee is paid in cash; the app takes no money.", "কাছের রোগীরা অনুরোধ পাঠাতে পারবেন। ফি নগদে; অ্যাপ কোনো টাকা নেয় না।"),
+                    tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"),
+                    tr("You appear in the \"Home care\" list and patients call you directly. Fee is settled between you; the app takes no money.", "\"বাসায় সেবা\" তালিকায় দেখাবেন, রোগীরা সরাসরি ফোন করবেন। ফি নিজেরা ঠিক করবেন; অ্যাপ কোনো টাকা নেয় না।"),
                     home.enabled,
-                ) { home = home.copy(enabled = it) }
+                ) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
                 if (home.enabled) {
+                    OutlinedTextField(
+                        value = home.phone,
+                        onValueChange = { home = home.copy(phone = it.filter { c -> c.isDigit() || c == '+' }.take(14)) },
+                        label = { Text(tr("Phone patients will call", "রোগীরা যে নম্বরে ফোন করবেন")) },
+                        supportingText = { Text(tr("Shown to everyone in the list", "তালিকায় সবাই দেখবেন")) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Text(tr("Services", "কী কী সেবা দেন"), style = MaterialTheme.typography.labelLarge)
-                    ChipRows(HomeServices.ALL, home.services.toSet(), perRow = 2, label = { HomeServices.label(it) }) {
+                    ChipRows(HomeServices.of(type), home.services.toSet(), perRow = 2, label = { HomeServices.label(it) }) {
                         home = home.copy(services = if (it in home.services) home.services - it else home.services + it)
                     }
                     Text(tr("How far from your location", "আপনার লোকেশন থেকে কত দূর"), style = MaterialTheme.typography.labelLarge)
@@ -833,7 +822,6 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    TermsCheck(homeAgreed) { homeAgreed = it }
                     OutlinedTextField(
                         value = home.fee,
                         onValueChange = { home = home.copy(fee = it.take(60)) },
@@ -842,6 +830,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    HomeCareTermsCheck(homeAgreed) { homeAgreed = it }
                 }
             }
 
@@ -850,14 +839,17 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 onClick = {
                     errorMsg = when {
                         specialties.isEmpty() -> tr("Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
-                        chambers.isEmpty() -> tr("Add at least one chamber", "অন্তত একটা চেম্বার যোগ করুন")
+                        chambers.isEmpty() && !home.enabled ->
+                            tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
                         chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
-                        home.enabled && !homeAgreed -> tr("Please accept the Home Nurse terms", "হোম নার্সের শর্তে সম্মতি দিন")
+                        home.enabled && !Regex("^(\\+?88)?01[3-9]\\d{8}$").matches(home.phone) ->
+                            tr("Enter a valid mobile number for home care", "বাসায় সেবার জন্য সঠিক মোবাইল নম্বর দিন")
+                        home.enabled && !homeAgreed -> tr("Please accept the home care terms", "বাসায় সেবার শর্তে সম্মতি দিন")
                         home.enabled && gpsPlace == null && home.upazilaIds.isEmpty() ->
-                            tr("Set your current location or choose upazilas for home visits", "হোম ভিজিটের জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন")
+                            tr("Set your current location or choose upazilas for home care", "বাসায় সেবার জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন")
                         else -> null
                     }
                     if (errorMsg == null) {
@@ -865,8 +857,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                             busy = true
                             runCatching {
                                 Appointments.save(
-                                    listed, takes, specialties.toList(), degrees.trim(), gender, chambers.toList(),
-                                    if (type == "nurse") home else null,
+                                    listed, takes, specialties.toList(), degrees.trim(), gender, chambers.toList(), home,
                                 )
                             }
                                 .onSuccess { onBack() }

@@ -24,6 +24,7 @@ const account = require('../lib/account');
 const donors = require('../lib/donors');
 const hospitals = require('../lib/hospitals');
 const homevisit = require('../lib/homevisit');
+const homecare = require('../lib/homecare');
 const phone = require('../lib/phone');
 const inbox = require('../lib/inbox');
 const ambulance = require('../lib/ambulance');
@@ -331,7 +332,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

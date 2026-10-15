@@ -104,7 +104,7 @@
       private_hospital: 'বেসরকারি হাসপাতাল', clinic: 'ক্লিনিক', diagnostic: 'ডায়াগনস্টিক সেন্টার',
     },
     amb: { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' },
-    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি' },
+    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা' },
     listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
     order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
     visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
@@ -112,7 +112,7 @@
     request: { open: 'চালু', closed: 'বন্ধ' },
     ticket: { open: 'উত্তরের অপেক্ষায়', answered: 'উত্তর দেওয়া হয়েছে', closed: 'বন্ধ' },
     category: {
-      account: 'অ্যাকাউন্ট', badge: 'ব্যাজ (ডাক্তার/নার্স)', pharmacy: 'ফার্মেসি', ambulance: 'অ্যাম্বুলেন্স', homevisit: 'হোম ভিজিট',
+      account: 'অ্যাকাউন্ট', badge: 'ব্যাজ (ডাক্তার/নার্স)', pharmacy: 'ফার্মেসি', ambulance: 'অ্যাম্বুলেন্স', homevisit: 'হোম ভিজিট (আগের)', homecare: 'বাসায় সেবা',
       medorder: 'ওষুধের অর্ডার', appointment: 'অ্যাপয়েন্টমেন্ট', blood: 'রক্তের অনুরোধ', other: 'অন্য কিছু',
     },
     log: {
@@ -122,8 +122,8 @@
     },
     detail: {
       approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
-      replied: 'উত্তর', 'replied+closed': 'উত্তর দিয়ে বন্ধ', closed: 'বন্ধ', homevisit_unban: 'হোম ভিজিটের নিষেধাজ্ঞা তোলা',
-      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
+      replied: 'উত্তর', 'replied+closed': 'উত্তর দিয়ে বন্ধ', closed: 'বন্ধ', homevisit_unban: 'বাসায় সেবার নিষেধাজ্ঞা তোলা',
+      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', homecare_ban: 'বাসায় সেবা বন্ধ', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
       disable: 'অ্যাকাউন্ট বন্ধ', enable: 'অ্যাকাউন্ট খোলা',
     },
   };
@@ -522,6 +522,8 @@
         kpi('চালু রক্তের অনুরোধ', t.openRequests, t.allRequests != null ? `মোট ${num(t.allRequests)}` : null),
         kpi('অনুমোদিত ডাক্তার', t.doctors),
         kpi('অনুমোদিত নার্স', t.nurses),
+        kpi('বাসায় যান: ডাক্তার', t.homeDoctors),
+        kpi('বাসায় যান: নার্স', t.homeNurses),
         kpi('তালিকায় ফার্মেসি', t.pharmacies),
         kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances));
     }).catch((e) => kpiBox.replaceChildren(h('p', { class: 'error', text: e.message })));
@@ -561,7 +563,7 @@
     const SERIES = [
       ['newUsers', 'নতুন ব্যবহারকারী'],
       ['requests', 'রক্তের অনুরোধ'],
-      ['homeVisits', 'হোম ভিজিটের অনুরোধ'],
+      ['homeCalls', 'বাসায় সেবায় নতুন যোগাযোগ'],
       ['appointments', 'অ্যাপয়েন্টমেন্টের অনুরোধ'],
     ].filter(([k]) => Array.isArray(st.series && st.series[k]));
 
@@ -601,6 +603,8 @@
         kpi('চালু রক্তের অনুরোধ', t.openRequests, t.allRequests != null ? `সব মিলিয়ে ${num(t.allRequests)}` : null),
         kpi('অনুমোদিত ডাক্তার', t.doctors),
         kpi('অনুমোদিত নার্স', t.nurses),
+        kpi('বাসায় যান: ডাক্তার', t.homeDoctors),
+        kpi('বাসায় যান: নার্স', t.homeNurses),
         kpi('পুষ্টিবিদ ও ট্রেইনার', (t.nutritionists || 0) + (t.trainers || 0)),
         kpi('তালিকায় ফার্মেসি', t.pharmacies),
         kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances),
@@ -609,7 +613,6 @@
       h('h2', { class: 'section-title', text: 'অবস্থা অনুযায়ী (সব সময়ের)' }),
       h('div', { class: 'grid three' },
         h('div', { class: 'card chart-card' }, h('h3', { text: 'রক্তের গ্রুপ অনুযায়ী দাতা' }), hbars(groups)),
-        statusCard('হোম ভিজিট', st.byStatus && st.byStatus.homeVisits, L.visit, 'done', ['done', 'expired', 'cancelled']),
         statusCard('অ্যাপয়েন্টমেন্ট', st.byStatus && st.byStatus.appointments, L.appt, 'confirmed', ['confirmed', 'declined', 'cancelled', 'expired'])),
       h('p', { class: 'note', text: 'হিসাব ৩০ মিনিট পরপর নতুন হয়। "নতুন করে হিসাব" চাপলে এখনই হয় (ডাটাবেসের কিছু পড়া খরচ হয়)।' }));
   }
@@ -803,14 +806,14 @@
     const items = itemsOf('reports');
     setTitle('রিপোর্ট', `${bn(items.length)}টা খোলা`);
     paint(alive, table(items, [
-      { label: 'কী', main: true, cell: (x) => [x.kind === 'homevisit' ? (x.reportedRole === 'patient' ? 'হোম ভিজিট: রোগী' : 'হোম ভিজিট: নার্স') : L.report[x.kind] || x.kind,
+      { label: 'কী', main: true, cell: (x) => [x.kind === 'homevisit' ? (x.reportedRole === 'patient' ? 'হোম ভিজিট (আগের): রোগী' : 'হোম ভিজিট (আগের): নার্স') : L.report[x.kind] || x.kind,
         h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: `${bn(x.count)}টি রিপোর্ট` }))] },
-      { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid ? h('div', { class: 'small' }, userLink(x.reportedUid)) : null] },
+      { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid || x.kind === 'homecare' ? h('div', { class: 'small' }, userLink(x.reportedUid || x.targetPath.split('/')[1])) : null] },
       { label: 'লেখা', cell: (x) => [h('div', { class: 'body', text: x.text || '' }),
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
       const body = { targetPath: x.targetPath, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
-      const removeLabel = x.kind === 'homevisit' ? 'হোম ভিজিট থেকে বাদ' : x.kind === 'ambulance' || x.kind === 'pharmacy' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
+      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
       return [
         actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
         actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
@@ -937,21 +940,30 @@
       h('div', { class: 'what' }, h('b', null, title, chip ? [' ', chip] : null), desc ? h('div', { class: 'note', text: desc }) : null),
       h('div', { class: 'actions' }, actions));
 
+    // বাসায় সেবা: শুধু ডাক্তার/নার্সের, অথবা আগের নিষেধাজ্ঞা থাকলে
+    const homeCareCtl = () => {
+      const blocked = u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked;
+      const pro = u.badge && ['doctor', 'nurse'].includes(u.badge.type);
+      if (!blocked && !pro) return null;
+      if (blocked) {
+        return ctl('বাসায় সেবা', u.blocks.homeVisitBlocked ? 'রিপোর্টের পর বন্ধ: তালিকায় দেখান না, নিজে আবার চালু করতে পারবেন না।' : 'আগের হোম ভিজিটে রোগী হিসেবে নিষেধাজ্ঞা ছিল (এখন অনুরোধ-ব্যবস্থা নেই)।',
+          h('span', { class: 'chip bad', text: 'বন্ধ' }),
+          [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'নিষেধাজ্ঞা তোলা হয়েছে। ডাক্তার/নার্স অ্যাপ থেকে নিজে আবার চালু করবেন।', reload)]);
+      }
+      const p = u.provider || {};
+      return ctl('বাসায় সেবা',
+        p.homeVisit ? `তালিকায় আছেন। রোগীরা ফোন করেন ${bn(p.homePhone) || '—'} নম্বরে; অ্যাপ থেকে ফোন এসেছে ${bn(p.homeCalls || 0)} বার।` : 'চালু করেননি।',
+        p.homeVisit ? h('span', { class: 'chip good', text: 'চালু' }) : null,
+        p.homeVisit ? [actionBtn('বাসায় সেবা বন্ধ করুন', 'warn', uact('homecare_ban'), 'বাসায় সেবা বন্ধ করা হয়েছে', reload)] : []);
+    };
+
     const controls = [
       ctl('অ্যাকাউন্ট', u.disabled ? 'বন্ধ: লগইন করতে পারবেন না।' : 'চালু।',
         h('span', { class: `chip ${u.disabled ? 'bad' : 'good'}`, text: u.disabled ? 'বন্ধ' : 'চালু' }),
         u.isOwner ? [h('span', { class: 'note', text: 'মালিকের অ্যাকাউন্ট' })]
           : u.disabled ? [actionBtn('অ্যাকাউন্ট খুলে দিন', 'tonal', uact('enable'), 'অ্যাকাউন্ট খুলে দেওয়া হয়েছে', reload)]
             : [actionBtn('অ্যাকাউন্ট বন্ধ করুন', 'warn', uact('disable'), 'অ্যাকাউন্ট বন্ধ করা হয়েছে', reload)]),
-      ctl('হোম ভিজিট',
-        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked
-          ? `নিষেধাজ্ঞা আছে: ${[u.blocks.homeVisitBanned ? 'রোগী হিসেবে অনুরোধ দিতে পারবেন না' : null, u.blocks.homeVisitBlocked ? 'নার্স হিসেবে ভিজিট নিতে পারবেন না' : null].filter(Boolean).join('; ')}।`
-          : 'কোনো নিষেধাজ্ঞা নেই।',
-        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
-        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked
-          ? [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'নিষেধাজ্ঞা তোলা হয়েছে। নার্স হলে অ্যাপ থেকে নিজে আবার হোম ভিজিট চালু করবেন।', reload)]
-          : [actionBtn('রোগী হিসেবে বন্ধ', 'warn', uact('homevisit_ban_patient'), 'রোগী হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload),
-            u.badge && u.badge.type === 'nurse' ? actionBtn('নার্স হিসেবে বন্ধ', 'warn', uact('homevisit_ban_nurse'), 'নার্স হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload) : null]),
+      homeCareCtl(),
       ctl('ওষুধের অর্ডার',
         u.blocks.medBlocked ? `অর্ডার নিয়ে না যাওয়ায় (${bn(u.blocks.medNoShow)} বার) অর্ডার দেওয়া বন্ধ আছে।` : u.blocks.medNoShow ? `অর্ডার নিয়ে যাননি ${bn(u.blocks.medNoShow)} বার।` : 'কোনো ব্লক নেই।',
         u.blocks.medBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
@@ -971,7 +983,7 @@
     (u.ambulances || []).forEach((a) => controls.push(ctl(`অ্যাম্বুলেন্স: ${a.name}`, [a.vehicleNo, bn(a.phone)].filter(Boolean).join(', '), listingChip(a.status),
       statusActions('admin_ambulance_resolve', a.id, a.status, 'অ্যাম্বুলেন্স'))));
     if (u.provider) {
-      controls.push(ctl('ডাক্তার/নার্সের তালিকা', `${u.provider.listed ? 'তালিকায় দেখা যায়' : 'তালিকায় নেই'}${u.provider.homeVisit ? ', হোম ভিজিট নেন' : ''}`, null, []));
+      controls.push(ctl('ডাক্তার/নার্সের তালিকা', `${u.provider.listed ? 'তালিকায় দেখা যায়' : 'তালিকায় নেই'}${u.provider.chambers ? `, ${bn(u.provider.chambers)}টা চেম্বার` : ', চেম্বার নেই'}${u.provider.homeVisit ? ', বাসায় যান' : ''}`, null, []));
     }
 
     const facts = [
@@ -1011,7 +1023,7 @@
         { label: 'ওষুধ', cell: (x) => `${bn(x.items)}টা` },
         { label: 'অবস্থা', cell: (x) => L.order[x.status] || x.status },
       ]),
-      actTable('হোম ভিজিট', A.visits, [
+      actTable('হোম ভিজিট (আগের)', A.visits, [
         { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
         { label: 'ভূমিকা', cell: (x) => (x.role === 'nurse' ? 'নার্স' : 'রোগী') },
         { label: 'সেবা', cell: (x) => (x.services || []).join(', ') || '—' },

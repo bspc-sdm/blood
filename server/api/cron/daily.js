@@ -39,7 +39,7 @@ module.exports = handler(
       }));
     const sent = await sendPush(reminders);
 
-    // ৩) আজকের অ্যাপয়েন্টমেন্ট, অপেক্ষায় থাকা অনুরোধ আর হোম ভিজিটের কথা মনে করানো
+    // ৩) আজকের অ্যাপয়েন্টমেন্ট আর অপেক্ষায় থাকা অনুরোধের কথা মনে করানো
     let care = null;
     try {
       care = await require('../../lib/reminders').dailyReminders(now);
@@ -52,6 +52,13 @@ module.exports = handler(
       med = await require('../../lib/pharmacy').dailyPharmacy(now);
     } catch (e) {
       console.error('pharmacy daily failed', e);
+    }
+    // আগের হোম ভিজিটের অনুরোধ-ব্যবস্থা বন্ধ (একবারের কাজ)
+    let homeVisits = null;
+    try {
+      homeVisits = await require('../../lib/homevisit').dailyHomeVisits(now);
+    } catch (e) {
+      console.error('home visit close failed', e);
     }
     let inboxDeleted = 0;
     try {
@@ -76,7 +83,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted, phonesFixed };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed };
   },
   { methods: ['GET'] },
 );

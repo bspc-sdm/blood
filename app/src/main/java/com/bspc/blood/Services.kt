@@ -17,8 +17,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,20 +46,14 @@ fun HealthTab(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            Tab(
-                selected = tab == 0,
-                onClick = { tab = 0 },
-                text = { Text(tr("Discussion", "আলোচনা")) },
-                icon = { AppIcon(if (tab == 0) R.drawable.ic_forum_filled else R.drawable.ic_forum_outline, null, Modifier.size(22.dp)) },
-            )
-            Tab(
-                selected = tab == 1,
-                onClick = { tab = 1 },
-                text = { Text(tr("Tips", "টিপস")) },
-                icon = { AppIcon(if (tab == 1) R.drawable.ic_lightbulb_filled else R.drawable.ic_lightbulb_outline, null, Modifier.size(22.dp)) },
-            )
-        }
+        PillTabs(
+            tab,
+            listOf(
+                PillTab(tr("Discussion", "আলোচনা"), R.drawable.ic_forum_outline, R.drawable.ic_forum_filled),
+                PillTab(tr("Tips", "টিপস"), R.drawable.ic_lightbulb_outline, R.drawable.ic_lightbulb_filled),
+            ),
+            { tab = it },
+        )
         if (tab == 0) HealthDiscussionTab(refreshKey, onOpenQuestion, onAsk)
         else HealthTipsTab(refreshKey, community, onOpenTip, onPostTip)
     }
@@ -79,20 +71,11 @@ fun ServicesTab(profile: Profile) {
     val target = ServicesNav.target.value
     LaunchedEffect(target) { if (target == "med_find" || target == "med_find_mine") tab = 1 }
     Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            Tab(
-                selected = tab == 0,
-                onClick = { tab = 0 },
-                text = { Text(tr("Ambulance", "অ্যাম্বুলেন্স")) },
-                icon = { AppIcon(R.drawable.ic_ambulance, null, Modifier.size(22.dp)) },
-            )
-            Tab(
-                selected = tab == 1,
-                onClick = { tab = 1 },
-                text = { Text(tr("Pharmacy", "ফার্মেসি")) },
-                icon = { AppIcon(R.drawable.ic_medication, null, Modifier.size(22.dp)) },
-            )
-        }
+        PillTabs(
+            tab,
+            listOf(PillTab(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance), PillTab(tr("Pharmacy", "ফার্মেসি"), R.drawable.ic_medication)),
+            { tab = it },
+        )
         if (tab == 0) AmbulanceContent(profile) else PharmacyContent(profile)
     }
 }

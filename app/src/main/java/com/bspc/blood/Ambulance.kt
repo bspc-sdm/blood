@@ -5,8 +5,6 @@ package com.bspc.blood
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.Tab
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -182,10 +180,12 @@ fun AmbulanceContent(profile: Profile, showMine: Boolean = true) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
         if (showMine) {
-            SecondaryTabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Find", "অ্যাম্বুলেন্স খুঁজুন")) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("My ambulance", "আমার অ্যাম্বুলেন্স")) })
-            }
+            PillTabs(
+                tab,
+                listOf(PillTab(tr("Find", "অ্যাম্বুলেন্স খুঁজুন"), R.drawable.ic_search), PillTab(tr("My ambulance", "আমার অ্যাম্বুলেন্স"), R.drawable.ic_person_outline)),
+                { tab = it },
+                secondary = true,
+            )
         }
         if (tab == 0 || !showMine) AmbulanceFinder(profile)
         else Column(
@@ -449,7 +449,7 @@ fun MyAmbulancesSection(profile: Profile) {
                     if (a.status == "suspended" || a.status == "rejected") {
                         AppealButton("ambulance")
                     }
-                    stats[a.id]?.let { st -> AmbulanceStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
+                    stats[a.id]?.let { st -> CallStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
                     if (a.status == "approved") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(tr("Available now", "এখন খালি আছি"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -577,9 +577,9 @@ fun ServiceTermsCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-/** অ্যাম্বুলেন্স মালিকের নিজের হিসাব (শুধু তিনিই দেখেন) */
+/** নিজের হিসাব: অ্যাপ থেকে ফোন, রেটিং, মন্তব্য (অ্যাম্বুলেন্স, বাসায় সেবা; শুধু নিজেই দেখেন) */
 @Composable
-private fun AmbulanceStatsBlock(st: org.json.JSONObject, expanded: Boolean, onToggle: () -> Unit) {
+internal fun CallStatsBlock(st: org.json.JSONObject, expanded: Boolean, onToggle: () -> Unit) {
     val calls = st.optJSONObject("calls") ?: org.json.JSONObject()
     val rc = st.optInt("ratingCount")
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

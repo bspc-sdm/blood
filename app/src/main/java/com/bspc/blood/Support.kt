@@ -60,14 +60,15 @@ object HelpNav {
 }
 
 object Tickets {
-    val CATEGORIES = listOf("account", "badge", "pharmacy", "ambulance", "homevisit", "medorder", "appointment", "blood", "other")
+    val CATEGORIES = listOf("account", "badge", "pharmacy", "ambulance", "homecare", "appointment", "blood", "other")
 
     fun label(c: String): String = when (c) {
         "account" -> tr("Account", "অ্যাকাউন্ট")
         "badge" -> tr("Badge (doctor/nurse)", "ব্যাজ (ডাক্তার/নার্স)")
         "pharmacy" -> tr("Pharmacy", "ফার্মেসি")
         "ambulance" -> tr("Ambulance", "অ্যাম্বুলেন্স")
-        "homevisit" -> tr("Home nurse", "হোম নার্স")
+        "homecare" -> tr("Home care", "বাসায় সেবা")
+        "homevisit" -> tr("Home nurse (old)", "হোম নার্স (আগের)")
         "medorder" -> tr("Medicine order", "ওষুধের অর্ডার")
         "appointment" -> tr("Appointment", "অ্যাপয়েন্টমেন্ট")
         "blood" -> tr("Blood request", "রক্তের অনুরোধ")

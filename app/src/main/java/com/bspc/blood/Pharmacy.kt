@@ -22,9 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -145,11 +143,16 @@ fun PharmacyContent(profile: Profile) {
         if (target != null) ServicesNav.target.value = null
     }
     Column(Modifier.fillMaxSize()) {
-        SecondaryTabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("Pharmacies", "ফার্মেসি")) })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("Find a medicine", "ওষুধ খুঁজুন")) })
-            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(tr("My pharmacy", "আমার ফার্মেসি")) })
-        }
+        PillTabs(
+            tab,
+            listOf(
+                PillTab(tr("Pharmacies", "ফার্মেসি"), R.drawable.ic_storefront),
+                PillTab(tr("Find a medicine", "ওষুধ খুঁজুন"), R.drawable.ic_search),
+                PillTab(tr("My pharmacy", "আমার ফার্মেসি"), R.drawable.ic_person_outline),
+            ),
+            { tab = it },
+            secondary = true,
+        )
         when (tab) {
             0 -> NearbyPharmacies(profile)
             1 -> MedFindPanel(profile)

@@ -38,7 +38,7 @@ module.exports = {
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
 
-    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox, myTickets, myFinds] = await Promise.all([
+    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox, myTickets, myFinds, callsMade, callsGot] = await Promise.all([
       db.collection('requests').where('requesterUid', '==', uid).get(),
       db.collection('questions').where('uid', '==', uid).get(),
       db.collection('tips').where('uid', '==', uid).get(),
@@ -54,6 +54,8 @@ module.exports = {
       db.collection('inbox').where('uid', '==', uid).limit(1000).get(),
       db.collection('tickets').where('uid', '==', uid).limit(500).get(),
       db.collection('medFinds').where('uid', '==', uid).limit(500).get(),
+      db.collection('homeCalls').where('uid', '==', uid).limit(1000).get(),
+      db.collection('homeCalls').where('providerUid', '==', uid).limit(1000).get(),
     ]);
 
     await Promise.all([
@@ -99,7 +101,7 @@ module.exports = {
         if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে', 'homevisit');
       }),
       // অ্যাম্বুলেন্স, নোটিফিকেশনের তালিকা
-      deleteDocs([...myAmbulances.docs, ...myInbox.docs, ...myTickets.docs, ...myFinds.docs]),
+      deleteDocs([...myAmbulances.docs, ...myInbox.docs, ...myTickets.docs, ...myFinds.docs, ...callsMade.docs, ...callsGot.docs]),
       ...myAmbulances.docs.map((d) => db.doc(`ambulanceStats/${d.id}`).delete()),
       // ওষুধের অর্ডার: নিজের ঠিকানা, নাম, ছবি মুছে, চলমান হলে বাতিল
       ...medMine.docs.map(async (d) => {
@@ -126,6 +128,8 @@ module.exports = {
       // দোকান আর তার ফোনের হিসাব
       db.doc(`pharmacies/${uid}`).delete(),
       db.doc(`pharmacyStats/${uid}`).delete(),
+      // বাসায় সেবার ফোনের হিসাব
+      db.doc(`homeStats/${uid}`).delete(),
       stateRef.delete(),
       email ? db.doc(`emailCodes/${E.docIdFor(email)}`).delete() : Promise.resolve(),
     ]);

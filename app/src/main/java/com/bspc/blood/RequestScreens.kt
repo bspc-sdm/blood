@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -689,16 +688,18 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                         )
                     }
                     if (r.isActive && !r.notified) {
-                        FilledTonalButton(
-                            onClick = {
+                        SmallAction(
+                            tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
+                            R.drawable.ic_notifications,
+                            {
                                 act {
                                     val n = ServerApi.notifyRequest(r.id)
                                     infoMsg = tr("${num(n)} donors notified", "${num(n)} জন ডোনারকে জানানো হয়েছে")
                                 }
                             },
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { ButtonContent(busy, tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"), R.drawable.ic_notifications) }
+                            primary = true,
+                            busy = busy,
+                        )
                     }
                     InfoText(infoMsg)
 
@@ -729,12 +730,10 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
 
                     ErrorText(errorMsg)
                     if (r.isActive) {
-                        Button(
-                            onClick = { confirmClose = true },
-                            enabled = !busy,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { ButtonContent(busy, tr("Got blood, close request", "রক্ত পেয়েছি, রিকোয়েস্ট বন্ধ করুন"), R.drawable.ic_check_circle) }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                            SmallAction(tr("Share", "শেয়ার"), R.drawable.ic_share, { shareRequest(context, r) })
+                            SmallAction(tr("Got blood, close", "রক্ত পেয়েছি, বন্ধ করুন"), R.drawable.ic_check_circle, { confirmClose = true }, primary = true, enabled = !busy)
+                        }
                     }
                 }
             }

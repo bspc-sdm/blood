@@ -1,5 +1,6 @@
 package com.bspc.blood
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -103,13 +105,10 @@ fun DonorRow(
             }
         }
         if (active && d.status == "accepted") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!d.confirmed) {
-                    FilledTonalButton(onClick = onConfirm, enabled = !busy) {
-                        ButtonContent(busy, tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle)
-                    }
-                }
-                TextButton(onClick = onRemove, enabled = !busy) { Text(tr("Remove", "বাদ দিন")) }
+            // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে
+            Row(Modifier.padding(start = 46.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!d.confirmed) SmallAction(tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle, onConfirm, busy = busy)
+                SmallAction(tr("Remove", "বাদ দিন"), R.drawable.ic_close, onRemove, enabled = !busy)
             }
         }
     }
@@ -152,7 +151,6 @@ fun CloseRequestDialog(requestId: String, responses: List<DonorResponse>, onDism
 
 @Composable
 fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
     var items by remember { mutableStateOf<List<Pair<BloodRequest, List<DonorResponse>>>>(emptyList()) }
@@ -194,90 +192,16 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
             }
             ErrorText(errorMsg)
             items.forEach { (r, responses) ->
-                val willing = responses.willing()
-                Card(
-                    Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            BloodGroupBadge(r.patientGroup, 44.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        r.hospital,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                    )
-                                    if (r.urgent) {
-                                        Spacer(Modifier.width(6.dp))
-                                        UrgentTag()
-                                    }
-                                }
-                                Text(
-                                    tr("${num(r.bags)} bag(s) · ", "${num(r.bags)} ব্যাগ · ") + Rules.formatNeeded(r),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            if (willing.isNotEmpty()) {
-                                IconButton(onClick = { shareRequest(context, r) }) { AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার")) }
-                            }
-                        }
-                        Countdown(r.deadlineMillis)
-
-                        if (r.notified) {
-                            IconLine(
-                                R.drawable.ic_notifications_active,
-                                tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
-                            )
-                        } else {
-                            FilledTonalButton(
-                                onClick = { act(r.id) { ServerApi.notifyRequest(r.id) } },
-                                enabled = busyId == null,
-                            ) { ButtonContent(busyId == r.id, tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"), R.drawable.ic_notifications) }
-                        }
-
-                        RequestProgress(r, responses)
-
-                        if (willing.isNotEmpty()) {
-                            HorizontalDivider()
-                            willing.sortedByDescending { it.counts() }.take(3).forEach { d ->
-                                DonorRow(
-                                    d,
-                                    active = true,
-                                    busy = busyId == r.id,
-                                    onConfirm = { act(r.id) { ServerApi.confirmDonor(r.id, d.donorUid) } },
-                                    onRemove = { act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
-                                )
-                            }
-                            if (willing.size > 3) {
-                                TextButton(onClick = { onOpen(r.id) }) {
-                                    Text(tr("See all ${num(willing.size)}", "সবাই দেখুন (${num(willing.size)})"))
-                                }
-                            }
-                        } else {
-                            Text(
-                                tr("No one has agreed yet. Share it with people you know — even far away.", "এখনো কেউ রাজি হননি। পরিচিতদের পাঠান — দূরে থাকলেও।"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            FilledTonalButton(onClick = { shareRequest(context, r) }, modifier = Modifier.fillMaxWidth()) {
-                                ButtonContent(false, tr("Send to people you know", "পরিচিতদের পাঠান"), R.drawable.ic_share)
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onOpen(r.id) }, modifier = Modifier.weight(1f)) { Text(tr("Details", "বিস্তারিত")) }
-                            FilledTonalButton(onClick = { closing = r to responses }, modifier = Modifier.weight(1f)) {
-                                Text(tr("Got blood", "রক্ত পেয়েছি"), maxLines = 1)
-                            }
-                        }
-                    }
-                }
+                MyRequestCard(
+                    r,
+                    responses,
+                    busyId,
+                    onNotify = { act(r.id) { ServerApi.notifyRequest(r.id) } },
+                    onConfirm = { d -> act(r.id) { ServerApi.confirmDonor(r.id, d.donorUid) } },
+                    onRemove = { d -> act(r.id) { ServerApi.updateResponse(r.id, "remove", d.donorUid) } },
+                    onOpen = { onOpen(r.id) },
+                    onClose = { closing = r to responses },
+                )
             }
         }
     }
@@ -292,5 +216,108 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
                 act(r.id) { ServerApi.closeRequest(r.id, chosen) }
             },
         )
+    }
+}
+
+/** "আমার রিকোয়েস্ট"-এর একটা কার্ড: অবস্থা, রাজি ডোনার (৩ জন পর্যন্ত), নিচে ছোট বাটন */
+@Composable
+internal fun MyRequestCard(
+    r: BloodRequest,
+    responses: List<DonorResponse>,
+    busyId: String?,
+    onNotify: () -> Unit,
+    onConfirm: (DonorResponse) -> Unit,
+    onRemove: (DonorResponse) -> Unit,
+    onOpen: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val busy = busyId == r.id
+    val willing = responses.willing()
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BloodGroupBadge(r.patientGroup, 44.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            r.hospital,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (r.urgent) {
+                            Spacer(Modifier.width(6.dp))
+                            UrgentTag()
+                        }
+                    }
+                    Text(
+                        tr("${num(r.bags)} bag(s) · ", "${num(r.bags)} ব্যাগ · ") + Rules.formatNeeded(r),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Countdown(r.deadlineMillis)
+
+            if (r.notified) {
+                IconLine(
+                    R.drawable.ic_notifications_active,
+                    tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
+                )
+            } else {
+                SmallAction(
+                    tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
+                    R.drawable.ic_notifications,
+                    { onNotify() },
+                    primary = true,
+                    enabled = busyId == null || busy,
+                    busy = busy,
+                )
+            }
+
+            RequestProgress(r, responses)
+
+            if (willing.isNotEmpty()) {
+                HorizontalDivider()
+                willing.sortedByDescending { it.counts() }.take(3).forEach { d ->
+                    DonorRow(
+                        d,
+                        active = true,
+                        busy = busy,
+                        onConfirm = { onConfirm(d) },
+                        onRemove = { onRemove(d) },
+                    )
+                }
+                if (willing.size > 3) {
+                    TextButton(onClick = onOpen) {
+                        Text(tr("See all ${num(willing.size)}", "সবাই দেখুন (${num(willing.size)})"))
+                    }
+                }
+            } else {
+                Text(
+                    tr("No one has agreed yet. Share it with people you know — even far away.", "এখনো কেউ রাজি হননি। পরিচিতদের পাঠান — দূরে থাকলেও।"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            HorizontalDivider()
+            // নিচে ছোট বাটন পাশাপাশি: বিস্তারিত, শেয়ার, রক্ত পেয়েছি
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SmallAction(tr("Details", "বিস্তারিত"), R.drawable.ic_list_alt, onOpen)
+                SmallAction(tr("Share", "শেয়ার"), R.drawable.ic_share, { shareRequest(context, r) })
+                SmallAction(tr("Got blood", "রক্ত পেয়েছি"), R.drawable.ic_check_circle, onClose, primary = willing.isNotEmpty())
+            }
+        }
     }
 }

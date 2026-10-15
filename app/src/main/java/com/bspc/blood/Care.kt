@@ -259,6 +259,7 @@ data class Chamber(
     }
 }
 
+/** বাসায় গিয়ে সেবা (ডাক্তার বা নার্স); phone = রোগীরা যে নম্বরে ফোন করবেন (তালিকায় সবাই দেখেন) */
 data class HomeVisitSettings(
     val enabled: Boolean = false,
     val radiusKm: Int = 5,
@@ -266,14 +267,16 @@ data class HomeVisitSettings(
     val services: List<String> = emptyList(),
     val schedule: String = "",
     val fee: String = "",
+    val phone: String = "",
 ) {
     fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("termsAccepted", enabled).put("radiusKm", radiusKm)
         .put("upazilaIds", JSONArray(upazilaIds)).put("services", JSONArray(services)).put("schedule", schedule).put("fee", fee)
+        .put("phone", phone)
 
     companion object {
         fun parse(o: JSONObject?) = if (o == null) null else HomeVisitSettings(
             o.optBoolean("enabled"), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(),
-            o.optJSONArray("services").strings(), o.str("schedule"), o.str("fee"),
+            o.optJSONArray("services").strings(), o.str("schedule"), o.str("fee"), o.str("phone"),
         )
     }
 }
@@ -464,15 +467,17 @@ object Appointments {
 }
 
 // ------------------------------------------------------------
-// হোম নার্স
+// বাসায় সেবা: যে ডাক্তার/নার্স রোগীর বাসায় যান — তালিকা আর সরাসরি ফোন
 // ------------------------------------------------------------
 
 object HomeServices {
-    val ALL = listOf(
+    val NURSE = listOf(
         "injection", "saline", "cannula", "dressing", "catheter", "nebulizer", "bp_sugar", "elderly_care", "newborn_care", "post_op",
     )
-    val NEEDS_PRESCRIPTION = setOf("injection", "saline", "cannula")
-    val RADII = listOf(3, 5, 10)
+    val DOCTOR = listOf("checkup", "follow_up", "elderly_care", "bedridden", "child", "palliative", "post_op")
+    val RADII = listOf(3, 5, 10, 20)
+
+    fun of(type: String) = if (type == "doctor") DOCTOR else NURSE
 
     fun label(code: String): String = when (code) {
         "injection" -> tr("Injection", "ইনজেকশন")
@@ -482,121 +487,74 @@ object HomeServices {
         "catheter" -> tr("Catheter", "ক্যাথেটার")
         "nebulizer" -> tr("Nebulizer", "নেবুলাইজার")
         "bp_sugar" -> tr("BP / sugar check", "প্রেসার / সুগার মাপা")
-        "elderly_care" -> tr("Elderly care", "বয়স্কদের সেবা")
+        "elderly_care" -> tr("Elderly care", "বয়স্ক রোগী")
         "newborn_care" -> tr("Newborn care", "নবজাতকের যত্ন")
-        "post_op" -> tr("Post-operation care", "অপারেশন-পরবর্তী সেবা")
+        "post_op" -> tr("After surgery", "অপারেশনের পরে")
+        "checkup" -> tr("Check-up at home", "বাসায় রোগী দেখা")
+        "follow_up" -> tr("Follow-up", "ফলো-আপ")
+        "bedridden" -> tr("Bedridden patient", "শয্যাশায়ী রোগী")
+        "child" -> tr("Child patient", "শিশু রোগী")
+        "palliative" -> tr("Palliative care", "প্যালিয়েটিভ কেয়ার")
         else -> code
     }
 }
 
-data class HomeVisit(
-    val id: String,
-    /** "patient" বা "nurse" (আমার ভূমিকা) */
-    val role: String,
-    /** "broadcast" বা "direct" */
-    val mode: String,
+/** তালিকার একজন ডাক্তার/নার্স (নিজের লোকেশন নয়, শুধু দূরত্ব) */
+data class HomePro(
+    val uid: String,
+    val type: String,
+    val name: String,
+    val specialties: List<String>,
+    val degrees: String,
+    val gender: String,
     val services: List<String>,
-    /** ০ = যত তাড়াতাড়ি সম্ভব */
-    val whenMillis: Long,
-    val district: String,
-    val upazilaId: Int?,
-    val placeName: String,
-    val note: String,
-    val femalePreferred: Boolean,
-    val prescription: Boolean,
-    /** open, accepted, on_the_way, done, cancelled, declined, expired */
-    val status: String,
-    val createdAt: Long,
-    val rating: Int,
-    /** রোগী এখন রেটিং দিতে পারেন (নার্স রওনা দিয়েছিলেন বা নিজে শেষ করেছেন) */
-    val canRate: Boolean,
-    val otherName: String,
-    val otherUid: String?,
-    val otherPhone: String,
-    val address: String,
+    val radiusKm: Int,
+    val upazilaIds: List<Int>,
+    val schedule: String,
+    val fee: String,
+    val phone: String,
     val km: Double?,
-    val lat: Double?,
-    val lng: Double?,
-    val notifiedCount: Int,
-    val canReport: Boolean,
+    val rating: Double,
+    val ratingCount: Int,
+    /** আগে অ্যাপ থেকে ফোন করেছি (রেটিং দেওয়া যায়) */
+    val called: Boolean,
+    val myRating: Int,
 ) {
-    val isActive: Boolean get() = status in setOf("open", "accepted", "on_the_way")
-    val isLive: Boolean get() = status == "accepted" || status == "on_the_way"
+    /** কোথায় যান: "৫ কিমির মধ্যে · দেবিদ্বার, বরুড়া" */
+    val coverage: String
+        get() {
+            val ups = upazilaIds.mapNotNull { Areas.upazila(it)?.label }
+            return (listOf(tr("Within $radiusKm km", "${num(radiusKm)} কিমির মধ্যে")) + ups).joinToString(" · ")
+        }
 }
 
-/** অনুরোধ পাঠানোর ফল */
-sealed interface HomeVisitResult {
-    data class Sent(val notified: Int) : HomeVisitResult
-    /** কাছে কোনো নার্স নেই; othersAvailable = শুধু মহিলা নার্স চাওয়ায় পাওয়া যায়নি */
-    data class NoNurse(val othersAvailable: Boolean) : HomeVisitResult
-}
-
-data class HomeVisitLists(val asPatient: List<HomeVisit>, val asNurse: List<HomeVisit>) {
-    val active: HomeVisit?
-        get() = asPatient.firstOrNull { it.isActive } ?: asNurse.firstOrNull { it.isLive }
-}
-
-object HomeVisits {
-    private fun parse(o: JSONObject) = HomeVisit(
-        o.str("id"), o.str("role"), o.str("mode"), o.optJSONArray("services").strings(), o.optLong("when"),
-        o.str("district"), o.intOrNull("upazilaId"), o.str("placeName"), o.str("note"),
-        o.optBoolean("femalePreferred"), o.optBoolean("prescription"), o.str("status"), o.optLong("createdAt"),
-        o.optInt("rating"), o.optBoolean("canRate"), o.str("otherName"), if (o.isNull("otherUid")) null else o.optString("otherUid").ifBlank { null },
-        o.str("otherPhone"), o.str("address"),
-        if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
-        if (o.isNull("lat") || !o.has("lat")) null else o.optDouble("lat"),
-        if (o.isNull("lng") || !o.has("lng")) null else o.optDouble("lng"),
-        o.optInt("notifiedCount"),
-        o.optBoolean("canReport", true),
+object HomeCare {
+    private fun parse(o: JSONObject) = HomePro(
+        o.str("uid"), o.str("type"), o.str("name"), o.optJSONArray("specialties").strings(), o.str("degrees"), o.str("gender"),
+        o.optJSONArray("services").strings(), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(), o.str("schedule"),
+        o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
+        o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
     )
 
-    suspend fun request(
-        nurseUid: String?,
-        services: List<String>,
-        whenMillis: Long,
-        lat: Double,
-        lng: Double,
-        district: String,
-        upazilaId: Int?,
-        placeName: String,
-        address: String,
-        note: String,
-        femalePreferred: Boolean,
-        prescription: Boolean,
-    ): HomeVisitResult {
-        val r = careCall(
-            "home_visit_request",
-            JSONObject().put("mode", if (nurseUid != null) "direct" else "broadcast").put("nurseUid", nurseUid)
-                .put("services", JSONArray(services)).put("when", whenMillis).put("lat", lat).put("lng", lng)
-                .put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("placeName", placeName)
-                .put("address", address).put("note", note).put("femalePreferred", femalePreferred).put("prescription", prescription)
-                .put("termsAccepted", true),
-        )
-        return if (r.optBoolean("noNurse")) HomeVisitResult.NoNurse(r.optBoolean("othersAvailable"))
-        else HomeVisitResult.Sent(r.optInt("notified"))
+    /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */
+    suspend fun list(type: String, lat: Double?, lng: Double?, district: String?, upazilaId: Int?, service: String?, female: Boolean): List<HomePro> {
+        val body = JSONObject().put("type", type).put("female", female)
+        if (lat != null && lng != null) body.put("lat", lat).put("lng", lng)
+        district?.let { body.put("district", it) }
+        upazilaId?.let { body.put("upazilaId", it) }
+        service?.let { body.put("service", it) }
+        val arr = careCall("home_providers", body).optJSONArray("items") ?: JSONArray()
+        return (0 until arr.length()).map { parse(arr.getJSONObject(it)) }
     }
 
-    suspend fun list(): HomeVisitLists {
-        val r = careCall("home_visits")
-        fun arr(k: String): List<HomeVisit> {
-            val a = r.optJSONArray(k) ?: JSONArray()
-            return (0 until a.length()).map { parse(a.getJSONObject(it)) }
-        }
-        return HomeVisitLists(arr("asPatient"), arr("asNurse"))
+    suspend fun called(uid: String) {
+        careCall("home_called", JSONObject().put("uid", uid))
     }
 
-    /** op: accept, decline, on_the_way, done, cancel, rate */
-    suspend fun update(id: String, op: String, rating: Int = 0, comment: String = "") {
-        careCall("home_visit_update", JSONObject().put("id", id).put("op", op).put("rating", rating).put("comment", comment))
+    suspend fun rate(uid: String, rating: Int, comment: String) {
+        careCall("home_rate", JSONObject().put("uid", uid).put("rating", rating).put("comment", comment))
     }
 
-    fun statusLabel(s: String, role: String): String = when (s) {
-        "open" -> if (role == "patient") tr("Looking for a nurse", "নার্স খোঁজা হচ্ছে") else tr("New request", "নতুন অনুরোধ")
-        "accepted" -> tr("Nurse coming", "নার্স আসবেন")
-        "on_the_way" -> tr("On the way", "রওনা দিয়েছেন")
-        "done" -> tr("Done", "সম্পন্ন")
-        "declined" -> tr("Nurse can't come", "নার্স আসতে পারবেন না")
-        "expired" -> tr("No one accepted", "কেউ নেননি")
-        else -> tr("Cancelled", "বাতিল")
-    }
+    /** নিজের হিসাব: ফোন, রেটিং, মন্তব্য, রিপোর্ট */
+    suspend fun stats(): JSONObject = careCall("home_stats")
 }

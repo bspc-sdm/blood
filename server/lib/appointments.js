@@ -25,7 +25,8 @@ function provider(d) {
     listed: K.isListed(x),
     appointments: K.takesAppointments(x),
     chambers,
-    homeVisit: x.type === 'nurse' && x.homeVisit ? x.homeVisit : null,
+    // বন্ধ থাকলেও নিজের সেটিং ফিরে পেতে লাগে; ফোন নম্বর শুধু চালু থাকলে (তখন তালিকায় এমনিতেই দেখায়)
+    homeVisit: x.homeVisit ? { ...x.homeVisit, phone: x.homeVisit.enabled && x.homeVisitBlocked !== true ? K.fixPhone(x.homeVisit.phone) : '' } : null,
     rating: count ? Math.round((x.ratingSum / count) * 10) / 10 : 0,
     ratingCount: count,
     // আগের ভার্সনের অ্যাপের জন্য
@@ -85,7 +86,7 @@ async function legacySave(req, user, badge) {
 module.exports = {
   /**
    * ডাক্তার/নার্সের তালিকা। ফিল্টার: district, upazilaId, unionId, hospitalId, specialty;
-   * homeVisit: true হলে শুধু বাসায় যাওয়া নার্স।
+   * homeVisit: true হলে শুধু বাসায় যান এমন মানুষ (আগের অ্যাপ; নতুন অ্যাপ home_providers ব্যবহার করে)।
    */
   async providers(req) {
     const b = req.body || {};
@@ -112,6 +113,8 @@ module.exports = {
       if (!K.isListed(x) || !K.matchesFilter(x, f)) return false;
       if (oldClient && !(K.takesAppointments(x) && K.chambersOf(x).some((c) => c.appointments))) return false;
       if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled && x.homeVisitBlocked !== true)) return false;
+      // শুধু বাসায় সেবা দেন (চেম্বার নেই) — চেম্বারের তালিকায় নয়, "বাসায় সেবা"-তে দেখান
+      if (b.homeVisit !== true && !K.chambersOf(x).length) return false;
       return true;
     });
     // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
@@ -145,25 +148,29 @@ module.exports = {
     const { findHospital } = require('./hospitals');
     const found = await Promise.all(ids.map(findHospital));
     const hospitals = new Map(found.filter(Boolean).map((h) => [h.id, h]));
-    const parsed = K.parseChambers(b.chambers, hospitals);
-    if (parsed.error) throw err(parsed.error);
     const specialties = K.pickCodes(b.specialties, K.specialtiesFor(badge), 5);
     if (!specialties.length) throw err(['Choose at least one specialty', 'অন্তত একটা বিশেষজ্ঞতা বেছে নিন']);
-    let homeVisit = { enabled: false };
-    if (badge === 'nurse') {
-      const h = K.parseHomeVisit(b.homeVisit);
-      if (h.error) throw err(h.error);
-      homeVisit = h.homeVisit;
+    // আগের অ্যাপ ডাক্তারের জন্য homeVisit পাঠায় না — তখন আগেরটা রেখে দেওয়া
+    // ২.১ পর্যন্ত অ্যাপে আলাদা ফোন নম্বরের ঘর নেই — আপডেট করতে বলা
+    if (b.homeVisit?.enabled === true && b.homeVisit.phone === undefined) {
+      throw new HttpError(409, C.tr(req, 'Please update the app to turn on home care', 'বাসায় সেবা চালু করতে অ্যাপ আপডেট করুন'), 'update_required');
     }
+    const hv = K.parseHomeVisit(b.homeVisit, badge);
+    if (hv.error) throw err(hv.error);
+    const homeVisit = hv.homeVisit;
+    const keepHome = b.homeVisit === undefined;
+    // শুধু বাসায় গিয়ে সেবা দিলে চেম্বার না থাকলেও চলে
+    const parsed = b.chambers.length === 0 && homeVisit.enabled ? { chambers: [] } : K.parseChambers(b.chambers, hospitals);
+    if (parsed.error) throw err(parsed.error);
     const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
     if (homeVisit.enabled && b.homeVisit?.termsAccepted !== true) {
-      throw err(['Please accept the Home Nurse terms', 'হোম নার্সের শর্তে সম্মতি দিন']);
+      throw err(['Please accept the home care terms', 'বাসায় সেবার শর্তে সম্মতি দিন']);
     }
     if (homeVisit.enabled) {
       await require('./phone').requireVerified(req, user.uid);
       const u = await db.doc(`users/${user.uid}`).get();
       if (!(typeof u.get('lat') === 'number' && u.get('locationSource') === 'gps') && !homeVisit.upazilaIds.length) {
-        throw err(['Set your current location or choose upazilas for home visits', 'হোম ভিজিটের জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন']);
+        throw err(['Set your current location or choose upazilas for home visits', 'বাসায় সেবার জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন']);
       }
     }
     const listed = b.listed !== false;
@@ -174,7 +181,7 @@ module.exports = {
     await db.runTransaction(async (t) => {
       const cur = await t.get(ref);
       if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
-        throw err(['Home visits are turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
+        throw err(['Home care is turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার বাসায় সেবা বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
       }
       t.set(ref, {
         type: badge,
@@ -186,7 +193,7 @@ module.exports = {
         degrees: K.str(b.degrees, 120),
         gender,
         chambers: parsed.chambers,
-        homeVisit,
+        ...(keepHome ? {} : { homeVisit }),
         ...(homeVisit.enabled ? { homeVisitTermsAt: Date.now() } : {}),
         updatedAt: Date.now(),
       }, { merge: true });

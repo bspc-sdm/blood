@@ -1,4 +1,4 @@
-// প্রতিদিন সকালের (বাংলাদেশ সময় ৯টা) মনে করিয়ে দেওয়া: আজকের অ্যাপয়েন্টমেন্ট, উত্তর না দেওয়া অনুরোধ, আজকের হোম ভিজিট।
+// প্রতিদিন সকালের (বাংলাদেশ সময় ৯টা) মনে করিয়ে দেওয়া: আজকের অ্যাপয়েন্টমেন্ট আর উত্তর না দেওয়া অনুরোধ।
 // Vercel-এর ফ্রি প্ল্যানে ক্রন দিনে একবারই চলে, তাই "কয়েক ঘণ্টা আগে" নয়, সকালেই সারাদিনের জন্য।
 const { db, sendPush } = require('./firebase');
 const R = require('./rules');
@@ -18,10 +18,9 @@ function msg(u, en, bn, bodyEn, bodyBn, data) {
 
 async function dailyReminders(now = Date.now()) {
   const today = R.todayDhakaUtcMidnight(now);
-  const [confirmed, pending, visits] = await Promise.all([
+  const [confirmed, pending] = await Promise.all([
     db.collection('appointments').where('date', '==', today).where('status', '==', 'confirmed').limit(1000).get(),
     db.collection('appointments').where('status', '==', 'pending').limit(1000).get(),
-    Promise.all(['accepted', 'on_the_way'].map((s) => db.collection('homeVisits').where('status', '==', s).limit(500).get())),
   ]);
   // তারিখ পেরিয়ে যাওয়া অপেক্ষার অনুরোধ বন্ধ, যাতে প্রতিদিন পড়তে না হয়
   const stale = pending.docs.filter((d) => (d.get('date') || 0) < today);
@@ -31,16 +30,9 @@ async function dailyReminders(now = Date.now()) {
     await batch.commit();
   }
   const waiting = pending.docs.filter((d) => (d.get('date') || 0) >= today && now - (d.get('createdAt') || now) > 12 * 60 * 60 * 1000);
-  // আজকের হোম ভিজিট (সময় দেওয়া থাকলে আজকের দিনে)
-  const todayVisits = visits.flatMap((s) => s.docs).filter((d) => {
-    const w = d.get('when') || 0;
-    return w >= today - 6 * 3600000 && w < today + 18 * 3600000;
-  });
-
   const u = await users([
     ...confirmed.docs.flatMap((d) => [d.get('patientUid'), d.get('providerUid')]),
     ...waiting.map((d) => d.get('providerUid')),
-    ...todayVisits.flatMap((d) => [d.get('patientUid'), d.get('nurseUid')]),
   ]);
   const out = [];
 
@@ -60,16 +52,9 @@ async function dailyReminders(now = Date.now()) {
     out.push(msg(u.get(uid), 'Appointment requests waiting', 'অ্যাপয়েন্টমেন্টের অনুরোধ অপেক্ষায়',
       `${n} patient(s) are waiting for your reply`, `${R.bnDigits(String(n))} জন রোগী উত্তরের অপেক্ষায়`, { type: 'appointment' }));
   }
-  // হোম ভিজিট: আজ
-  for (const d of todayVisits) {
-    const t = d.get('when') ? R.formatTimeEn(d.get('when')) : '';
-    const tb = d.get('when') ? R.formatTimeBn(d.get('when')) : '';
-    out.push(msg(u.get(d.get('patientUid')), 'Home nurse visit today', 'আজ হোম নার্স আসবেন', `${d.get('nurseName') || ''} ${t}`.trim(), `${d.get('nurseName') || ''} ${tb}`.trim(), { type: 'homevisit', visitId: d.id }));
-    out.push(msg(u.get(d.get('nurseUid')), 'Home visit today', 'আজ হোম ভিজিট আছে', `${d.get('patientName') || ''} ${t}`.trim(), `${d.get('patientName') || ''} ${tb}`.trim(), { type: 'homevisit', visitId: d.id }));
-  }
   const list = out.filter(Boolean);
   const sent = list.length ? await sendPush(list) : 0;
-  return { appointmentsToday: confirmed.size, waiting: waiting.length, visitsToday: todayVisits.length, sent };
+  return { appointmentsToday: confirmed.size, waiting: waiting.length, sent };
 }
 
 module.exports = { dailyReminders };

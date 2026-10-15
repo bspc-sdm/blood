@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
             sharedRequestId(intent)?.let { openRequestId.value = it }
-            if (openType.value == "homevisit") CareNav.openHomeNurse.value = true
+            if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
         }
         setContent {
             GetBloodTheme {
@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                             onQuestionOpened = { openQuestionId.value = null },
                             openAppointments = openType.value == "appointment",
                             onAppointmentsOpened = { openType.value = null },
-                            openHomeVisit = openType.value == "homevisit",
+                            openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
                             openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine") },
                             onTargetOpened = { openType.value = null },
@@ -97,10 +97,13 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = it
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
-        if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "homevisit") openType.value = "homevisit"
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine") }?.let { openType.value = it }
     }
 }
+
+/** বাসায় সেবার নোটিফিকেশন (আগের হোম নার্সের "homevisit" সহ) */
+private val HOME_CARE_TYPES = setOf("homevisit", "homecare")
 
 /** শেয়ার করা লিংক থেকে রিকোয়েস্টের id: https://…/r/{id} বা getblood://r/{id} */
 private fun sharedRequestId(intent: Intent?): String? {
@@ -200,8 +203,8 @@ fun App(
             requestId != null -> push(if (type == "response") Screen.MyRequestDetail(requestId) else Screen.RequestDetail(requestId))
             questionId != null -> push(Screen.QuestionDetail(questionId))
             type == "appointment" -> push(Screen.MyAppointments)
-            type == "homevisit" -> {
-                CareNav.openHomeNurse.value = true
+            type in HOME_CARE_TYPES -> {
+                CareNav.openHomeCare.value = true
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
@@ -279,10 +282,10 @@ fun App(
             onTargetOpened()
         }
     }
-    // হোম নার্সের নোটিফিকেশন: অ্যাপয়েন্টমেন্ট ট্যাবের "হোম নার্স" অংশ
+    // বাসায় সেবার নোটিফিকেশন (আগের "homevisit"-ও): অ্যাপয়েন্টমেন্ট ট্যাবের "বাসায় সেবা" অংশ
     LaunchedEffect(openHomeVisit, ready) {
         if (openHomeVisit && ready) {
-            CareNav.openHomeNurse.value = true
+            CareNav.openHomeCare.value = true
             while (stack.size > 1) stack.removeAt(stack.lastIndex)
             stack[0] = Screen.Main(Tabs.APPOINTMENT)
             onHomeVisitOpened()

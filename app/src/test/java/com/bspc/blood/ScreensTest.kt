@@ -45,17 +45,23 @@ class ScreensTest {
     )
     private val provider = Provider(
         "u1", "nurse", "Nasrin Akter", listOf("general_nursing", "home_care"), "BSc Nursing", "female", true, true,
-        listOf(chamber), HomeVisitSettings(true, 5, emptyList(), listOf("injection", "saline", "dressing"), "Every day 8 AM – 10 PM", "300 Tk"),
+        listOf(chamber), HomeVisitSettings(true, 5, emptyList(), listOf("injection", "saline", "dressing"), "Every day 8 AM – 10 PM", "300 Tk", "01712345678"),
         4.6, 12,
     )
 
-    private fun visit(role: String, status: String, canRate: Boolean = false) = HomeVisit(
-        "v$role$status", role, "broadcast", listOf("injection", "dressing"), 0L, "ময়মনসিংহ", null, "ময়মনসিংহ",
-        "Patient is 70, bedridden", true, true, status, 0L, 0, canRate,
-        if (status == "open" && role == "patient") "" else "Nasrin Akter", null,
-        if (status == "accepted" || status == "on_the_way") "01712345678" else "",
-        if (role == "nurse" && status == "open") "" else "House 12, Road 3, Ganginarpar",
-        if (role == "nurse") 2.4 else null, null, null, 18, true,
+    private fun homePro(type: String, name: String, services: List<String>, km: Double?, called: Boolean) = HomePro(
+        "h$type", type, name, if (type == "doctor") listOf("medicine") else listOf("general_nursing"),
+        if (type == "doctor") "MBBS, FCPS (Medicine)" else "BSc Nursing", "female", services, 5, listOf(1),
+        "Every day 8 AM – 10 PM", "500 Tk + transport", "01712345678", km, 4.6, 12, called, 0,
+    )
+
+    private val request = BloodRequest(
+        id = "r1", patientGroup = "B+", bags = 2, hospital = "Mymensingh Medical College Hospital", placeName = "ময়মনসিংহ",
+        neededByMillis = System.currentTimeMillis() + 86_400_000L, urgent = true, notified = true, notifiedCount = 23,
+    )
+    private val donors = listOf(
+        DonorResponse("d1", "Karim Uddin", "01811111111", "B+", "accepted", confirmed = true, distanceKm = 3),
+        DonorResponse("d2", "Sumon Mia", "01922222222", "O-", "accepted", distanceKm = 12, fareAfterKm = 5),
     )
 
     @Before
@@ -78,27 +84,38 @@ class ScreensTest {
     }
 
     @Test
-    fun visitCards() {
+    fun homeProCards() {
         show {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                VisitCard(visit("patient", "accepted"), null, {}, {}, {})
-                VisitCard(visit("nurse", "open"), null, {}, {}, {})
-                VisitCard(visit("patient", "done", canRate = true), null, {}, {}, {})
+                HomeProCard(homePro("doctor", "Dr. Farhana Islam", listOf("checkup", "elderly_care", "bedridden"), 2.4, true), {}, {}, {})
+                HomeProCard(homePro("nurse", "Nasrin Akter", listOf("injection", "saline", "dressing"), null, false), {}, null, {})
             }
         }
-        shot("visit_cards_en")
+        shot("home_pro_cards_en")
     }
 
     @Test
-    fun visitCardsBangla() {
+    fun homeProCardsBangla() {
         AppPrefs.lang.value = Lang.BN
         show {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                VisitCard(visit("nurse", "on_the_way"), null, {}, {}, {})
-                VisitCard(visit("patient", "open"), null, {}, {}, {})
+                HomeProCard(homePro("doctor", "ডা. ফারহানা ইসলাম", listOf("checkup", "follow_up", "child"), 3.0, true), {}, {}, {})
+                HomeProCard(homePro("nurse", "নাসরিন আক্তার", listOf("injection", "bp_sugar", "newborn_care"), null, false), {}, null, {})
             }
         }
-        shot("visit_cards_bn")
+        shot("home_pro_cards_bn")
+    }
+
+    @Test
+    fun myRequestCardBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                MyRequestCard(request, donors, null, {}, {}, {}, {}, {})
+                MyRequestCard(request.copy(id = "r2", urgent = false, notified = false), emptyList(), null, {}, {}, {}, {}, {})
+            }
+        }
+        shot("my_request_card_bn")
     }
 
     @Test
@@ -127,22 +144,36 @@ class ScreensTest {
     }
 
     @Test
-    fun homeNurseTab() {
-        show { HomeNurseTab(profile, nurseMe) }
-        shot("home_nurse_tab")
+    fun homeCareTab() {
+        AppPrefs.lang.value = Lang.BN
+        show { HomeCareTab(profile, nurseMe) {} }
+        shot("home_care_tab_bn")
     }
 
     @Test
-    fun homeVisitRequestDialog() {
-        show { HomeVisitRequestDialog(profile, null, {}, {}) }
-        rule.onNodeWithText("Injection").performClick()
-        shot("home_visit_request")
+    fun chamberEditScreenDoctorHome() {
+        AppPrefs.lang.value = Lang.BN
+        show { ChamberEditScreen("doctor", profile) {} }
+        // লোড শেষে সেটিং খোলা (নেটওয়ার্ক নেই, তাই না এলে শুধু ছবি)
+        runCatching {
+            rule.waitUntil(5_000) { rule.onAllNodesWithText("আমি রোগীর বাসায় গিয়ে সেবা দিই").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithText("আমি রোগীর বাসায় গিয়ে সেবা দিই").performClick()
+        }
+        shot("chamber_edit_doctor_home_bn")
     }
 
     @Test
     fun appointmentTab() {
         show { AppointmentTab(profile, nurseMe, {}, {}) }
         shot("appointment_tab")
+    }
+
+    @Test
+    fun appointmentTabBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        rule.onNodeWithText("বাসায় সেবা").performClick()
+        shot("appointment_tab_home_bn")
     }
 
     @Test

@@ -6,13 +6,14 @@ const { isAdmin } = require('./admin');
 const { useQuota } = require('./community-db');
 
 const K = require('./care');
-const KINDS = ['question', 'answer', 'tip', 'homevisit', 'ambulance', 'pharmacy'];
-const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+)$/;
+// homevisit: আগের অনুরোধ-ব্যবস্থার খোলা রিপোর্ট (নতুন নেওয়া হয় না); homecare: বাসায় সেবার তালিকার ডাক্তার/নার্স
+const KINDS = ['question', 'answer', 'tip', 'homecare', 'ambulance', 'pharmacy'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
   if (kind === 'answer') return `questions/${id}/answers/${answerId}`;
-  if (kind === 'homevisit') return `homeVisits/${id}`;
+  if (kind === 'homecare') return `providers/${id}`;
   if (kind === 'ambulance') return `ambulances/${id}`;
   if (kind === 'pharmacy') return `pharmacies/${id}`;
   return `tips/${id}`;
@@ -27,9 +28,14 @@ async function removeTarget(path, reported) {
     if (s.exists) await ref.update({ status: 'suspended', suspendedAt: Date.now() });
     return;
   }
+  if (path.startsWith('providers/')) {
+    // ডাক্তার/নার্স মোছা হয় না; বাসায় সেবা বন্ধ (তালিকায় আর দেখায় না, নিজে আবার চালু করতে পারেন না)
+    await require('./homecare').blockHomeCare(path.split('/')[1]);
+    return;
+  }
   if (path.startsWith('homeVisits/')) {
-    // হোম ভিজিট মোছা হয় না; যাকে রিপোর্ট করা হয়েছে (নার্স বা রোগী) তাকে হোম ভিজিট থেকে বাদ দেওয়া হয়
-    if (reported) await require('./homevisit').blockFromHomeVisits(reported.uid, reported.role);
+    // আগের অনুরোধ-ব্যবস্থার রিপোর্ট: নার্সকে রিপোর্ট করা হলে তাঁর বাসায় সেবা বন্ধ (রোগীর অনুরোধ এমনিতেই বন্ধ)
+    if (reported && reported.role === 'nurse') await require('./homecare').blockHomeCare(reported.uid);
     return;
   }
   if (path.startsWith('questions/') && path.split('/').length === 2) {
@@ -58,23 +64,10 @@ module.exports = {
     if (!target.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     let reason = '';
     let reported = null;
-    if (kind === 'ambulance' || kind === 'pharmacy') {
-      reason = C.cleanText(req.body?.reason, 300);
-      if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
+    if (kind === 'homecare' && (id === user.uid || !(target.get('homeVisit') && target.get('homeVisit').enabled))) {
+      throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
-    if (kind === 'homevisit') {
-      // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন; কাকে রিপোর্ট করা হলো তা এখনই লিখে রাখা হয়
-      const past = target.get('pastNurseUids') || [];
-      const isPatient = target.get('patientUid') === user.uid;
-      const isNurse = (!!target.get('nurseUid') && target.get('nurseUid') === user.uid) || past.includes(user.uid);
-      if (!isPatient && !isNurse) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
-      // রোগী রিপোর্ট করলে: এখনকার নার্স, না থাকলে যিনি নিয়ে সরে গেছেন
-      reported = isPatient
-        ? (target.get('nurseUid')
-          ? { uid: target.get('nurseUid'), role: 'nurse', name: target.get('nurseName') || '' }
-          : { uid: past[past.length - 1], role: 'nurse', name: target.get('pastNurseName') || '' })
-        : { uid: target.get('patientUid'), role: 'patient', name: target.get('patientName') || '' };
-      if (!reported.uid) throw new HttpError(400, C.tr(req, 'No nurse has accepted yet', 'এখনো কোনো নার্স নেননি'));
+    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare') {
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
     }
@@ -140,6 +133,8 @@ module.exports = {
           ].join('\n')
           : ['ambulance', 'pharmacy'].includes(list[i].kind)
             ? [`${t.get('name') || ''} · ${K.fixPhone(t.get('phone'))} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
+            : list[i].kind === 'homecare'
+              ? [`${t.get('type') === 'doctor' ? 'ডাক্তার' : 'নার্স'}: ${t.get('name') || ''} · ${K.fixPhone(t.get('homeVisit.phone'))}`, ...list[i].reasons].join('\n')
             : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
         authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || t.get('name') || '',
         reportedUid: list[i].reportedUid,
