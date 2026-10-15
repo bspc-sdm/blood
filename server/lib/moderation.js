@@ -7,8 +7,8 @@ const { useQuota } = require('./community-db');
 
 const K = require('./care');
 // homevisit: আগের অনুরোধ-ব্যবস্থার খোলা রিপোর্ট (নতুন নেওয়া হয় না); homecare: বাসায় সেবার তালিকার ডাক্তার/নার্স
-const KINDS = ['question', 'answer', 'tip', 'homecare', 'ambulance', 'pharmacy'];
-const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+)$/;
+const KINDS = ['question', 'answer', 'tip', 'homecare', 'ambulance', 'pharmacy', 'bloodbank'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+|bloodBanks\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
@@ -16,13 +16,14 @@ function targetPath(kind, id, answerId) {
   if (kind === 'homecare') return `providers/${id}`;
   if (kind === 'ambulance') return `ambulances/${id}`;
   if (kind === 'pharmacy') return `pharmacies/${id}`;
+  if (kind === 'bloodbank') return `bloodBanks/${id}`;
   return `tips/${id}`;
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
 async function removeTarget(path, reported) {
   const ref = db.doc(path);
-  if (path.startsWith('ambulances/') || path.startsWith('pharmacies/')) {
+  if (path.startsWith('ambulances/') || path.startsWith('pharmacies/') || path.startsWith('bloodBanks/')) {
     // মোছা হয় না, বন্ধ (suspended) — তালিকায় আর দেখায় না, মালিক নিজে আবার চালু করতে পারেন না
     const s = await ref.get();
     if (s.exists) await ref.update({ status: 'suspended', suspendedAt: Date.now() });
@@ -67,7 +68,7 @@ module.exports = {
     if (kind === 'homecare' && (id === user.uid || !(target.get('homeVisit') && target.get('homeVisit').enabled))) {
       throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
-    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare') {
+    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank') {
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
     }
@@ -131,7 +132,7 @@ module.exports = {
             `${(t.get('services') || []).join(', ')} · ${t.get('status')}`,
             ...list[i].reasons,
           ].join('\n')
-          : ['ambulance', 'pharmacy'].includes(list[i].kind)
+          : ['ambulance', 'pharmacy', 'bloodbank'].includes(list[i].kind)
             ? [`${t.get('name') || ''} · ${K.fixPhone(t.get('phone'))} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
             : list[i].kind === 'homecare'
               ? [`${t.get('type') === 'doctor' ? 'ডাক্তার' : 'নার্স'}: ${t.get('name') || ''} · ${K.fixPhone(t.get('homeVisit.phone'))}`, ...list[i].reasons].join('\n')

@@ -398,6 +398,7 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                                 "ambulance" -> tr("Ambulance", "অ্যাম্বুলেন্স")
                                 "pharmacy" -> tr("Pharmacy", "ফার্মেসি")
                                 "homecare" -> tr("Home care", "বাসায় সেবা")
+                                "bloodbank" -> tr("Blood bank", "ব্লাড ব্যাংক")
                                 "homevisit" -> if (r.reportedRole == "patient") tr("Home visit · patient", "হোম ভিজিট · রোগী") else tr("Home visit · nurse", "হোম ভিজিট · নার্স")
                                 else -> tr("Tip", "টিপস")
                             } + " · " + r.authorName.ifBlank { "-" } + " · " + tr("${num(r.count)} report(s)", "${num(r.count)}টি রিপোর্ট"),
@@ -408,7 +409,7 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                             Button(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, true, r.reportedUid) } }, enabled = busyId == null) {
                                 ButtonContent(
                                     busyId == r.targetPath,
-                                    if (r.kind == "homevisit" || r.kind == "homecare") tr("Turn off home care", "বাসায় সেবা বন্ধ করুন") else if (r.kind == "ambulance" || r.kind == "pharmacy") tr("Suspend", "বন্ধ করুন") else tr("Remove post", "পোস্ট মুছুন"),
+                                    if (r.kind == "homevisit" || r.kind == "homecare") tr("Turn off home care", "বাসায় সেবা বন্ধ করুন") else if (r.kind == "ambulance" || r.kind == "pharmacy" || r.kind == "bloodbank") tr("Suspend", "বন্ধ করুন") else tr("Remove post", "পোস্ট মুছুন"),
                                 )
                             }
                             TextButton(onClick = { act(r.targetPath) { Moderation.resolve(r.targetPath, false, r.reportedUid) } }, enabled = busyId == null) {

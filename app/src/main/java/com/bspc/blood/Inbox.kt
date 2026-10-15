@@ -164,7 +164,8 @@ fun BellButton(unread: Int, onClick: () -> Unit) {
         BadgedBox(badge = {
             if (unread > 0) Badge { Text(if (unread > 99) "99+" else num(unread)) }
         }) {
-            AppIcon(R.drawable.ic_notifications, tr("Notifications", "নোটিফিকেশন"))
+            // গোল ধাঁচের ঘণ্টা: না-পড়া থাকলে ভরাট, নইলে শুধু রেখা
+            AppIcon(if (unread > 0) R.drawable.ic_notifications_round_fill else R.drawable.ic_notifications_round, tr("Notifications", "নোটিফিকেশন"))
         }
     }
 }

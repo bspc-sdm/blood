@@ -60,7 +60,7 @@ fun HealthTab(
 }
 
 // ------------------------------------------------------------
-// "সেবা" ট্যাব: অ্যাম্বুলেন্স আর ফার্মেসি — দুটোই শুধু তালিকা আর সরাসরি ফোন (অ্যাপ কিছু বিক্রি করে না)
+// "সেবা" ট্যাব: অ্যাম্বুলেন্স, ফার্মেসি আর ব্লাড ব্যাংক — সবই শুধু তালিকা আর সরাসরি ফোন (অ্যাপ কিছু বিক্রি করে না)
 // ব্যাজ এখানে নেই — সেটা প্রোফাইল থেকে; চেম্বার অ্যাপয়েন্টমেন্ট ট্যাবে।
 // ------------------------------------------------------------
 
@@ -73,9 +73,17 @@ fun ServicesTab(profile: Profile) {
     Column(Modifier.fillMaxSize()) {
         PillTabs(
             tab,
-            listOf(PillTab(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance), PillTab(tr("Pharmacy", "ফার্মেসি"), R.drawable.ic_medication)),
+            listOf(
+                PillTab(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance),
+                PillTab(tr("Pharmacy", "ফার্মেসি"), R.drawable.ic_medication),
+                PillTab(tr("Blood bank", "ব্লাড ব্যাংক"), R.drawable.ic_bloodtype),
+            ),
             { tab = it },
         )
-        if (tab == 0) AmbulanceContent(profile) else PharmacyContent(profile)
+        when (tab) {
+            0 -> AmbulanceContent(profile)
+            1 -> PharmacyContent(profile)
+            else -> BloodBankContent(profile)
+        }
     }
 }

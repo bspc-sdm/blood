@@ -152,6 +152,32 @@ class ScreensTest {
     }
 
     @Test
+    fun bloodBankCardsBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                BloodBankCard(
+                    BloodBank("b1", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল ব্লাড ব্যাংক", "govt", "01712345678", "ময়মনসিংহ", null, "চরপাড়া", true, "", "", true, listOf("whole_blood", "components", "screening", "donate_here")),
+                    {}, {},
+                )
+                BloodBankCard(
+                    BloodBank("b2", "সন্ধানী, ময়মনসিংহ", "org", "01812345678", "ময়মনসিংহ", null, "মেডিকেল কলেজ ক্যাম্পাস", false, "09:00", "17:00", false, listOf("whole_blood", "donate_here")),
+                    {}, {},
+                )
+            }
+        }
+        shot("blood_bank_cards_bn")
+    }
+
+    @Test
+    fun servicesBloodBankBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { ServicesTab(profile) }
+        rule.onNodeWithText("ব্লাড ব্যাংক").performClick()
+        shot("services_blood_bank_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

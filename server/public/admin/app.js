@@ -104,7 +104,9 @@
       private_hospital: 'বেসরকারি হাসপাতাল', clinic: 'ক্লিনিক', diagnostic: 'ডায়াগনস্টিক সেন্টার',
     },
     amb: { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' },
-    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা' },
+    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', bloodbank: 'ব্লাড ব্যাংক' },
+    bankKind: { govt: 'সরকারি হাসপাতাল', private: 'বেসরকারি', org: 'স্বেচ্ছাসেবী সংগঠন' },
+    bankService: { whole_blood: 'পূর্ণ রক্ত', components: 'প্লাজমা ও অন্যান্য অংশ', platelets: 'প্লাটিলেট', screening: 'স্ক্রিনিং ও ক্রস-ম্যাচ', donate_here: 'এখানে রক্ত দেওয়া যায়' },
     listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
     order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
     visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
@@ -112,11 +114,11 @@
     request: { open: 'চালু', closed: 'বন্ধ' },
     ticket: { open: 'উত্তরের অপেক্ষায়', answered: 'উত্তর দেওয়া হয়েছে', closed: 'বন্ধ' },
     category: {
-      account: 'অ্যাকাউন্ট', badge: 'ব্যাজ (ডাক্তার/নার্স)', pharmacy: 'ফার্মেসি', ambulance: 'অ্যাম্বুলেন্স', homevisit: 'হোম ভিজিট (আগের)', homecare: 'বাসায় সেবা',
+      account: 'অ্যাকাউন্ট', badge: 'ব্যাজ (ডাক্তার/নার্স)', pharmacy: 'ফার্মেসি', ambulance: 'অ্যাম্বুলেন্স', bloodbank: 'ব্লাড ব্যাংক', homevisit: 'হোম ভিজিট (আগের)', homecare: 'বাসায় সেবা',
       medorder: 'ওষুধের অর্ডার', appointment: 'অ্যাপয়েন্টমেন্ট', blood: 'রক্তের অনুরোধ', other: 'অন্য কিছু',
     },
     log: {
-      admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স',
+      admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ',
       admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
@@ -166,6 +168,7 @@
     S.lists['badges:pending'] = itemsOf('badges');
     S.lists['pharmacies:pending'] = itemsOf('pharmacies');
     S.lists['ambulances:pending'] = itemsOf('ambulances');
+    S.lists['bloodBanks:pending'] = itemsOf('bloodBanks');
     S.lists['tickets:open'] = itemsOf('tickets');
   }
   const itemsOf = (key) => (S.overview && S.overview[key] && Array.isArray(S.overview[key].items) ? S.overview[key].items : []);
@@ -272,6 +275,7 @@
       { path: 'badges', label: 'ডাক্তার ও নার্স', icon: 'verified', count: () => pendingCount('badges') },
       { path: 'pharmacies', label: 'ফার্মেসি', icon: 'store', count: () => pendingCount('pharmacies') },
       { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
+      { path: 'bloodBanks', label: 'ব্লাড ব্যাংক', icon: 'blood', count: () => pendingCount('bloodBanks') },
       { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
     ] },
     { group: 'সহায়তা', items: [
@@ -370,6 +374,7 @@
     badges: (r) => pageListing('badges', r),
     pharmacies: (r) => pageListing('pharmacies', r),
     ambulances: (r) => pageListing('ambulances', r),
+    bloodBanks: (r) => pageListing('bloodBanks', r),
     hospitals: pageHospitals,
     tickets: pageTickets,
     ticket: pageTicket,
@@ -489,6 +494,7 @@
     ['badges', 'badges', 'ব্যাজের আবেদন', 'verified'],
     ['pharmacies', 'pharmacies', 'ফার্মেসি অনুমোদন', 'store'],
     ['ambulances', 'ambulances', 'অ্যাম্বুলেন্স অনুমোদন', 'ambulance'],
+    ['bloodBanks', 'bloodBanks', 'ব্লাড ব্যাংক অনুমোদন', 'blood'],
     ['hospitalRequests', 'hospitals', 'হাসপাতাল যোগের অনুরোধ', 'hospital'],
     ['tickets', 'tickets', 'উত্তরের অপেক্ষায় আপিল', 'help'],
     ['reports', 'reports', 'রিপোর্ট', 'flag'],
@@ -525,7 +531,8 @@
         kpi('বাসায় যান: ডাক্তার', t.homeDoctors),
         kpi('বাসায় যান: নার্স', t.homeNurses),
         kpi('তালিকায় ফার্মেসি', t.pharmacies),
-        kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances));
+        kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances),
+        kpi('তালিকায় ব্লাড ব্যাংক', t.bloodBanks));
     }).catch((e) => kpiBox.replaceChildren(h('p', { class: 'error', text: e.message })));
 
     act('admin_log').then((res) => {
@@ -608,6 +615,7 @@
         kpi('পুষ্টিবিদ ও ট্রেইনার', (t.nutritionists || 0) + (t.trainers || 0)),
         kpi('তালিকায় ফার্মেসি', t.pharmacies),
         kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances),
+        kpi('তালিকায় ব্লাড ব্যাংক', t.bloodBanks),
         kpi('আলোচনার প্রশ্ন', t.questions),
         kpi('স্বাস্থ্য টিপস', t.tips)),
       h('h2', { class: 'section-title', text: 'অবস্থা অনুযায়ী (সব সময়ের)' }),
@@ -740,7 +748,60 @@
       owner: (a) => a.ownerUid,
       actions: (a, st) => statusActions('admin_ambulance_resolve', a.id, st, 'অ্যাম্বুলেন্স'),
     },
+    bloodBanks: {
+      title: 'ব্লাড ব্যাংক',
+      action: 'admin_bloodbanks',
+      tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
+      search: 'নাম, ফোন, লাইসেন্স, এলাকা',
+      text: (b) => [b.name, b.phone, b.licenseNo, b.areaLabel, b.district, b.address],
+      cols: [
+        { label: 'নাম', main: true, cell: (b) => [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.bankKind[b.kind] || b.kind }),
+          b.addedByAdmin ? [' ', h('span', { class: 'chip', text: 'অ্যাডমিন যোগ করেছেন' })] : null,
+          h('div', { class: 'chips' }, (b.services || []).map((x) => h('span', { class: 'chip', text: L.bankService[x] || x })))] },
+        { label: 'লাইসেন্স', cell: (b) => b.licenseNo || '—' },
+        { label: 'ফোন', cell: (b) => bn(b.phone) },
+        { label: 'এলাকা', cell: (b) => [b.areaLabel || b.district || '—', b.address ? h('div', { class: 'small', text: b.address }) : null] },
+        { label: 'সময়', cell: (b) => (b.open24 ? '২৪ ঘণ্টা' : b.openAt ? `${bn(b.openAt)}–${bn(b.closeAt)}` : '—') },
+        { label: 'তারিখ', cell: (b) => fmtDate(b.reviewedAt || b.createdAt) },
+      ],
+      note: 'বেসরকারি ব্লাড ব্যাংকের লাইসেন্স স্বাস্থ্য অধিদপ্তরে যাচাই করুন। হাসপাতালের ব্লাড ব্যাংক হলে হাসপাতালে ফোন করে মিলিয়ে নিন।',
+      id: (b) => b.id,
+      owner: (b) => b.ownerUid,
+      actions: (b, st) => statusActions('admin_bloodbank_resolve', b.id, st, 'ব্লাড ব্যাংক'),
+      extra: () => bloodBankForm(),
+    },
   };
+
+  /** অ্যাডমিন নিজে চেনা ব্লাড ব্যাংক যোগ করেন (সাথে সাথে তালিকায়) */
+  function bloodBankForm() {
+    const input = (name, label, attrs = {}) => h('label', { class: 'field' }, h('span', { text: label }), h('input', { name, ...attrs }));
+    const district = h('select', { name: 'district', 'aria-label': 'জেলা' }, h('option', { value: '', text: 'জেলা বেছে নিন' }));
+    act('admin_districts').then((r) => (r.items || []).forEach((d) => district.append(h('option', { value: d, text: d })))).catch(() => {});
+    const kind = h('select', { name: 'kind', 'aria-label': 'ধরন' }, Object.entries(L.bankKind).map(([k, v]) => h('option', { value: k, text: v })));
+    const open24 = h('input', { type: 'checkbox', name: 'open24' });
+    const services = Object.entries(L.bankService).map(([k, v]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'svc', value: k }), h('span', { text: v })));
+    const form = h('form', { class: 'card pad bank-form', onsubmit: (e) => e.preventDefault() },
+      input('name', 'নাম', { maxlength: 100, required: true }),
+      h('label', { class: 'field' }, h('span', { text: 'ধরন' }), kind),
+      input('phone', 'ফোন (মোবাইল)', { inputmode: 'tel', maxlength: 15 }),
+      h('label', { class: 'field' }, h('span', { text: 'জেলা' }), district),
+      input('address', 'ঠিকানা', { maxlength: 200 }),
+      input('licenseNo', 'লাইসেন্স নম্বর (বেসরকারি হলে লাগবে)', { maxlength: 60 }),
+      h('label', { class: 'check' }, open24, h('span', { text: '২৪ ঘণ্টা খোলা' })),
+      h('div', { class: 'field-row' }, input('openAt', 'খোলে', { type: 'time' }), input('closeAt', 'বন্ধ হয়', { type: 'time' })),
+      h('div', { class: 'field' }, h('span', { text: 'সেবা' }), h('div', { class: 'checks' }, services)),
+      actionBtn('যোগ করুন', 'primary', async () => {
+        const f = new FormData(form);
+        await act('admin_bloodbank_add', {
+          name: String(f.get('name') || '').trim(), kind: f.get('kind'), phone: String(f.get('phone') || '').trim(),
+          district: f.get('district'), address: String(f.get('address') || '').trim(), licenseNo: String(f.get('licenseNo') || '').trim(),
+          open24: open24.checked, openAt: f.get('openAt') || '', closeAt: f.get('closeAt') || '', services: f.getAll('svc'),
+        });
+        form.reset();
+      }, 'ব্লাড ব্যাংক যোগ হয়েছে, তালিকায় দেখাচ্ছে', afterChange));
+    return [h('h2', { class: 'section-title', text: 'চেনা ব্লাড ব্যাংক নিজে যোগ করুন' }),
+      h('p', { class: 'note', text: 'যেমন সরকারি হাসপাতালের ব্লাড ব্যাংক বা সন্ধানী/রেড ক্রিসেন্ট। যোগ করলেই অ্যাপের তালিকায় দেখাবে।' }), form];
+  }
 
   function statusActions(action, id, st, what) {
     const run = (status) => () => act(action, { id, status });
@@ -753,7 +814,7 @@
   async function getList(kind, status) {
     const key = `${kind}:${status}`;
     if (S.lists[key]) return S.lists[key];
-    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', tickets: 'admin_tickets' }[kind];
+    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', bloodBanks: 'admin_bloodbanks', tickets: 'admin_tickets' }[kind];
     const res = await act(action, { status });
     S.lists[key] = res.items || [];
     return S.lists[key];
@@ -775,7 +836,7 @@
     const tb = toolbar({ tabs: def.tabs, current: st, base: kind, search: def.search, onSearch: (v) => { q = v; draw(); } });
     tb.append(countEl);
     draw();
-    paint(alive, tb, def.note && st === 'pending' ? h('p', { class: 'note', text: def.note }) : null, box);
+    paint(alive, tb, def.note && st === 'pending' ? h('p', { class: 'note', text: def.note }) : null, box, def.extra ? def.extra() : null);
   }
 
   // =========================================================
@@ -813,7 +874,7 @@
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
       const body = { targetPath: x.targetPath, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
-      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
+      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
       return [
         actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
         actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
@@ -980,6 +1041,8 @@
       controls.push(ctl(`ফার্মেসি: ${u.pharmacy.name}`, [bn(u.pharmacy.phone), u.pharmacy.district].filter(Boolean).join(', '), listingChip(u.pharmacy.status),
         statusActions('admin_pharmacy_resolve', u.pharmacy.id, u.pharmacy.status, 'ফার্মেসি').map((b) => b)));
     }
+    (u.bloodBanks || []).forEach((b) => controls.push(ctl(`ব্লাড ব্যাংক: ${b.name}`, [bn(b.phone), b.district].filter(Boolean).join(', '), listingChip(b.status),
+      statusActions('admin_bloodbank_resolve', b.id, b.status, 'ব্লাড ব্যাংক'))));
     (u.ambulances || []).forEach((a) => controls.push(ctl(`অ্যাম্বুলেন্স: ${a.name}`, [a.vehicleNo, bn(a.phone)].filter(Boolean).join(', '), listingChip(a.status),
       statusActions('admin_ambulance_resolve', a.id, a.status, 'অ্যাম্বুলেন্স'))));
     if (u.provider) {

@@ -38,7 +38,7 @@ module.exports = {
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
 
-    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox, myTickets, myFinds, callsMade, callsGot] = await Promise.all([
+    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox, myTickets, myFinds, callsMade, callsGot, myBanks] = await Promise.all([
       db.collection('requests').where('requesterUid', '==', uid).get(),
       db.collection('questions').where('uid', '==', uid).get(),
       db.collection('tips').where('uid', '==', uid).get(),
@@ -56,6 +56,7 @@ module.exports = {
       db.collection('medFinds').where('uid', '==', uid).limit(500).get(),
       db.collection('homeCalls').where('uid', '==', uid).limit(1000).get(),
       db.collection('homeCalls').where('providerUid', '==', uid).limit(1000).get(),
+      db.collection('bloodBanks').where('ownerUid', '==', uid).limit(10).get(),
     ]);
 
     await Promise.all([
@@ -103,6 +104,9 @@ module.exports = {
       // অ্যাম্বুলেন্স, নোটিফিকেশনের তালিকা
       deleteDocs([...myAmbulances.docs, ...myInbox.docs, ...myTickets.docs, ...myFinds.docs, ...callsMade.docs, ...callsGot.docs]),
       ...myAmbulances.docs.map((d) => db.doc(`ambulanceStats/${d.id}`).delete()),
+      // নিজের যোগ করা ব্লাড ব্যাংক (বন্ধ করা হলেও) আর তার হিসাব
+      deleteDocs(myBanks.docs),
+      ...myBanks.docs.map((d) => db.doc(`bloodBankStats/${d.id}`).delete()),
       // ওষুধের অর্ডার: নিজের ঠিকানা, নাম, ছবি মুছে, চলমান হলে বাতিল
       ...medMine.docs.map(async (d) => {
         const active = ['open', 'confirmed', 'ready', 'on_the_way'].includes(d.get('status'));

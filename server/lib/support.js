@@ -5,7 +5,7 @@ const R = require('./rules');
 const C = require('./community');
 const { useQuota, userName } = require('./community-db');
 
-const CATEGORIES = ['account', 'badge', 'pharmacy', 'ambulance', 'homevisit', 'homecare', 'medorder', 'appointment', 'blood', 'other'];
+const CATEGORIES = ['account', 'badge', 'pharmacy', 'ambulance', 'bloodbank', 'homevisit', 'homecare', 'medorder', 'appointment', 'blood', 'other'];
 const STATUSES = ['open', 'answered', 'closed'];
 const MAX_OPEN = 3;
 const MAX_MESSAGES = 40;

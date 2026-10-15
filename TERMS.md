@@ -48,6 +48,12 @@ Lifolo একটা যোগাযোগের মাধ্যম: রক্ত
 - "ওষুধ খুঁজুন": তালিকা থেকে একটা ওষুধ বেছে কাছের কয়েকটা দোকানকে জিজ্ঞেস করা যায়; দোকান "আছে" বা "নেই" জানায়। "আছে" মানে দোকানের কথা — ফোন করে নিশ্চিত হয়ে নিন। ভুল করে বা ইচ্ছে করে মিথ্যা "আছে" বললে রিপোর্ট করুন।
 - ফার্মেসি: বৈধ ড্রাগ লাইসেন্স থাকতে হবে; প্রেসক্রিপশন ছাড়া প্রেসক্রিপশনের ওষুধ (যেমন অ্যান্টিবায়োটিক) দেবেন না; গায়ে লেখা দামের (MRP) বেশি নেবেন না; খোলার সময় আর ফোন নম্বর সঠিক রাখবেন। ভুল তথ্য বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন।
 
+## ব্লাড ব্যাংক
+
+- অ্যাপ শুধু ব্লাড ব্যাংকের তালিকা, খোলার সময় আর ফোন নম্বর দেখায়; রক্ত সরবরাহ করে না, স্টকের নিশ্চয়তা দেয় না। রক্ত আছে কি না ফোন করে জেনে নিন।
+- রক্ত কেনা-বেচা আইনত নিষিদ্ধ। ব্লাড ব্যাংক শুধু নির্ধারিত পরীক্ষা ও প্রসেসিং খরচ নিতে পারে।
+- ব্লাড ব্যাংক: বেসরকারি হলে সরকারি লাইসেন্স থাকতে হবে; নিরাপদ রক্ত সঞ্চালন আইন ও বিধি মানবেন; খোলার সময় আর ফোন নম্বর সঠিক রাখবেন। রক্ত বিক্রি, ভুল তথ্য বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন। অ্যাডমিন নিজেও চেনা ব্লাড ব্যাংক তালিকায় যোগ করতে পারেন।
+
 ## পরিবর্তন ও যোগাযোগ
 
 শর্ত বদলালে এই পাতায় তারিখ সহ জানানো হবে। প্রশ্ন বা অভিযোগ: **ekapkbd@gmail.com**
@@ -62,6 +68,6 @@ Doctors and nurses must keep a valid BMDC/BNMC registration, work within their t
 
 **Home care (doctors and nurses who visit homes):** the app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or cannula without a prescription; everyone should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
 
-**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
+**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. Blood banks (government hospital, licensed private and volunteer organisations) are listed the same way — call to check availability; buying or selling blood is illegal and only processing costs may be charged. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
 
 Contact: ekapkbd@gmail.com

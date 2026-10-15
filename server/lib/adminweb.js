@@ -97,6 +97,7 @@ async function buildStats(now) {
     ['homeNurses', db.collection('providers').where('type', '==', 'nurse').where('homeVisit.enabled', '==', true)],
     ['pharmacies', db.collection('pharmacies').where('status', '==', 'approved')],
     ['ambulances', db.collection('ambulances').where('status', '==', 'approved')],
+    ['bloodBanks', db.collection('bloodBanks').where('status', '==', 'approved')],
     ['questions', db.collection('questions')],
     ['tips', db.collection('tips')],
     ['openTickets', db.collection('tickets').where('status', '==', 'open')],
@@ -168,7 +169,7 @@ const latest = (snap, field, n = 10) => snap.docs
   .slice(0, n);
 
 async function userView(uid) {
-  const [u, doc, badge, prov, shop, state, ambs, reqs, ordersMine, visitsMine, visitsNursed, apptMine, apptToMe, tickets, reportsAgainst, homeStats] = await Promise.all([
+  const [u, doc, badge, prov, shop, state, ambs, reqs, ordersMine, visitsMine, visitsNursed, apptMine, apptToMe, tickets, reportsAgainst, homeStats, banks] = await Promise.all([
     authUser(uid),
     db.doc(`users/${uid}`).get(),
     db.doc(`badges/${uid}`).get(),
@@ -185,6 +186,7 @@ async function userView(uid) {
     db.collection('tickets').where('uid', '==', uid).limit(20).get(),
     db.collection('modReports').where('reportedUid', '==', uid).limit(50).get(),
     db.doc(`homeStats/${uid}`).get(),
+    db.collection('bloodBanks').where('ownerUid', '==', uid).limit(5).get(),
   ]);
   if (!u && !doc.exists) return null;
   const st = (k) => (state.exists ? state.get(k) : undefined);
@@ -211,6 +213,7 @@ async function userView(uid) {
       chambers: K.chambersOf(prov.data()).length,
     } : null,
     pharmacy: shop.exists ? { id: shop.id, name: shop.get('name'), status: shop.get('status'), phone: K.fixPhone(shop.get('phone')), district: shop.get('district') || '' } : null,
+    bloodBanks: banks.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), phone: K.fixPhone(d.get('phone')), district: d.get('district') || '' })),
     ambulances: ambs.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), vehicleNo: d.get('vehicleNo') || '', phone: K.fixPhone(d.get('phone')) })),
     blocks: {
       homeVisitBanned: st('homeVisitBanned') === true,
@@ -353,6 +356,8 @@ const actions = {
 const LOGGED = {
   admin_badge_resolve: (b) => ({ target: `badges/${b.uid}`, detail: b.status || (b.approve === true ? 'approved' : 'rejected') }),
   admin_pharmacy_resolve: (b) => ({ target: `pharmacies/${b.id}`, detail: b.status || (b.approve === true ? 'approved' : 'rejected') }),
+  admin_bloodbank_resolve: (b) => ({ target: `bloodBanks/${b.id}`, detail: b.status || (b.approve === true ? 'approved' : 'rejected') }),
+  admin_bloodbank_add: (b) => ({ target: 'bloodBanks', detail: `add ${b.name || ''}` }),
   admin_ambulance_resolve: (b) => ({ target: `ambulances/${b.id}`, detail: b.status || (b.approve === true ? 'approved' : 'rejected') }),
   admin_hospital_resolve: (b) => ({ target: `hospitalRequests/${b.id}`, detail: b.op + (b.targetId ? ` → ${b.targetId}` : '') }),
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),

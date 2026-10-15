@@ -288,3 +288,10 @@ textarea.reply:focus { outline: none; border-color: var(--primary); }
 }
 .cell-input { width: 100%; min-width: 110px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--low); font-size: 14px; }
 .cell-input:focus { outline: none; border-color: var(--primary); }
+
+/* ব্লাড ব্যাংক যোগের ফর্ম */
+.bank-form select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--low); color: inherit; font: inherit; }
+.bank-form .field-row .field { flex: 1 1 140px; }
+.check { display: inline-flex; align-items: center; gap: 8px; margin: 0 16px 10px 0; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.checks { display: flex; flex-wrap: wrap; }
