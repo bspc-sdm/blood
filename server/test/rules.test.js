@@ -204,3 +204,49 @@ test('DGHS তালিকা মেলানো', () => {
   assert.strictEqual(u.data.type, 'govt_uhc');
   assert.ok(u.data.upazilaId);
 });
+
+test('চেম্বার: যাচাই, পুরোনো ডক, ফিল্টার', () => {
+  const K = require('../lib/care');
+  const hospitals = new Map([['h1', { id: 'h1', nameEn: 'Trishal UHC', nameBn: 'ত্রিশাল', district: 'ময়মনসিংহ', upazilaId: 10, unionId: null }]]);
+  assert.ok(K.parseChambers([], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'x', schedule: 'Sat' }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', schedule: '' }], hospitals).error);
+  assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', schedule: 'a' }), hospitals).error);
+  const ok = K.parseChambers([{ hospitalId: 'h1', schedule: 'Sat 5-9pm', appointments: true, serialPhone: '017-1234 5678' }], hospitals);
+  assert.strictEqual(ok.chambers[0].district, 'ময়মনসিংহ');
+  assert.strictEqual(ok.chambers[0].serialPhone, '01712345678');
+
+  const legacy = { type: 'doctor', chamber: 'My chamber', district: 'ঢাকা', schedule: 'Sun', active: true };
+  assert.strictEqual(K.chambersOf(legacy)[0].hospitalName, 'My chamber');
+  assert.ok(K.isListed(legacy) && K.takesAppointments(legacy));
+  assert.ok(!K.isListed({ active: false }));
+
+  const doc = { specialties: ['medicine'], chambers: ok.chambers };
+  assert.ok(K.matchesFilter(doc, { district: 'ময়মনসিংহ', upazilaId: 10 }));
+  assert.ok(K.matchesFilter(doc, { hospitalId: 'h1', specialty: 'medicine' }));
+  assert.ok(!K.matchesFilter(doc, { specialty: 'eye' }));
+  assert.ok(!K.matchesFilter(doc, { district: 'ঢাকা' }));
+  assert.ok(!K.matchesFilter(doc, { upazilaId: 11 }));
+  assert.ok(K.matchesFilter(doc, {}));
+});
+
+test('হোম নার্স: এলাকা, সেবা, মহিলা নার্স', () => {
+  const K = require('../lib/care');
+  assert.ok(K.parseHomeVisit({ enabled: true, services: [] }).error);
+  const h = K.parseHomeVisit({ enabled: true, services: ['injection', 'bogus', 'dressing'], radiusKm: 7, upazilaIds: [5, 5, 'x'] }).homeVisit;
+  assert.deepStrictEqual(h.services, ['injection', 'dressing']);
+  assert.strictEqual(h.radiusKm, 5);
+  assert.deepStrictEqual(h.upazilaIds, [5]);
+  const nurse = { homeVisit: h, lat: 23.81, lng: 90.41, gender: 'male' };
+  const visit = { services: ['injection'], lat: 23.83, lng: 90.42, upazilaId: 9, femalePreferred: false };
+  assert.ok(K.nurseCovers(nurse, visit)); // ~২.৪ কিমি
+  assert.ok(!K.nurseCovers(nurse, { ...visit, services: ['saline'] }));
+  assert.ok(!K.nurseCovers(nurse, { ...visit, femalePreferred: true }));
+  assert.ok(K.nurseCovers({ ...nurse, gender: 'female' }, { ...visit, femalePreferred: true }));
+  const far = { ...visit, lat: 24.5, lng: 90.4 };
+  assert.ok(!K.nurseCovers(nurse, far));
+  assert.ok(K.nurseCovers(nurse, { ...far, upazilaId: 5 })); // বেছে রাখা উপজেলা
+  assert.ok(!K.nurseCovers({ homeVisit: { enabled: false } }, visit));
+  assert.ok(K.visitExpired({ status: 'open', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
+  assert.ok(!K.visitExpired({ status: 'accepted', createdAt: 0 }, K.VISIT_OPEN_MS + 1));
+});

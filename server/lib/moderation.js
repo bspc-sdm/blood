@@ -5,18 +5,26 @@ const C = require('./community');
 const { isAdminToken } = require('./admin');
 const { useQuota } = require('./community-db');
 
-const KINDS = ['question', 'answer', 'tip'];
-const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+)$/;
+const KINDS = ['question', 'answer', 'tip', 'homevisit'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
   if (kind === 'answer') return `questions/${id}/answers/${answerId}`;
+  if (kind === 'homevisit') return `homeVisits/${id}`;
   return `tips/${id}`;
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
 async function removeTarget(path) {
   const ref = db.doc(path);
+  if (path.startsWith('homeVisits/')) {
+    // হোম ভিজিট মোছা হয় না; নার্সের বাসায় যাওয়ার সেবা বন্ধ হয় (আবার চালু করলে অ্যাডমিন দেখবেন)
+    const s = await ref.get();
+    const nurse = s.exists ? s.get('nurseUid') : null;
+    if (nurse) await db.doc(`providers/${nurse}`).set({ homeVisit: { enabled: false }, homeVisitBlocked: true }, { merge: true });
+    return;
+  }
   if (path.startsWith('questions/') && path.split('/').length === 2) {
     await db.recursiveDelete(ref);
   } else if (path.includes('/answers/')) {
@@ -39,13 +47,21 @@ module.exports = {
       throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
     const path = targetPath(kind, id, answerId);
-    if (!(await db.doc(path).get()).exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const target = await db.doc(path).get();
+    if (!target.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    let reason = '';
+    if (kind === 'homevisit') {
+      // শুধু রোগী আর যে নার্স নিয়েছেন তারাই রিপোর্ট করতে পারেন
+      if (![target.get('patientUid'), target.get('nurseUid')].includes(user.uid)) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+      reason = C.cleanText(req.body?.reason, 300);
+      if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
+    }
     await useQuota(req, user.uid, 'report');
     // একজন একই জিনিস একবারই রিপোর্ট করতে পারেন (অ্যাডমিন বাদ দেওয়ার পর আবার খোলা যায় না)
     const docId = `${path.replace(/\//g, '_')}__${user.uid}`.slice(0, 1400);
     const ref = db.doc(`modReports/${docId}`);
     if ((await ref.get()).exists) return { ok: true };
-    await ref.set({ kind, targetPath: path, reporterUid: user.uid, status: 'open', createdAt: Date.now() });
+    await ref.set({ kind, targetPath: path, reporterUid: user.uid, reason, status: 'open', createdAt: Date.now() });
     return { ok: true };
   },
 
@@ -58,8 +74,9 @@ module.exports = {
     snap.docs.forEach((d) => {
       const p = d.get('targetPath');
       if (typeof p !== 'string' || !PATH_RE.test(p)) return;
-      const g = groups.get(p) || { targetPath: p, kind: d.get('kind'), count: 0 };
+      const g = groups.get(p) || { targetPath: p, kind: d.get('kind'), count: 0, reasons: [] };
       g.count++;
+      if (d.get('reason')) g.reasons.push(d.get('reason'));
       groups.set(p, g);
     });
     const list = [...groups.values()];
@@ -76,8 +93,10 @@ module.exports = {
         targetPath: list[i].targetPath,
         kind: list[i].kind,
         count: list[i].count,
-        text: [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
-        authorName: t.get('authorName') || '',
+        text: list[i].kind === 'homevisit'
+          ? [`${t.get('patientName') || ''} → ${t.get('nurseName') || ''}`, `${(t.get('services') || []).join(', ')} · ${t.get('status')}`, ...list[i].reasons].join('\n')
+          : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
+        authorName: list[i].kind === 'homevisit' ? t.get('nurseName') || '' : t.get('authorName') || '',
       });
     }
     // মুছে যাওয়া পোস্টের রিপোর্ট বন্ধ করে দেওয়া, যাতে তালিকা ভরে না যায়

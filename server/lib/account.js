@@ -38,7 +38,7 @@ module.exports = {
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
 
-    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports] = await Promise.all([
+    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed] = await Promise.all([
       db.collection('requests').where('requesterUid', '==', uid).get(),
       db.collection('questions').where('uid', '==', uid).get(),
       db.collection('tips').where('uid', '==', uid).get(),
@@ -46,6 +46,8 @@ module.exports = {
       db.collection('appointments').where('providerUid', '==', uid).get(),
       db.collection('correctionRequests').where('uid', '==', uid).get(),
       db.collection('modReports').where('reporterUid', '==', uid).get(),
+      db.collection('homeVisits').where('patientUid', '==', uid).get(),
+      db.collection('homeVisits').where('nurseUid', '==', uid).get(),
     ]);
 
     await Promise.all([
@@ -76,9 +78,20 @@ module.exports = {
         await d.ref.update({ providerName: '', chamber: '', schedule: '', providerNote: '', ...(active ? { status: 'cancelled' } : {}) });
         if (active) await notify(d.get('patientUid'), 'Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে');
       }),
+      // ৭) হোম ভিজিট: নিজের অনুরোধের ঠিকানা/নাম মুছে, চলমান হলে বাতিল
+      ...visitsMine.docs.map(async (d) => {
+        const active = ['open', 'accepted', 'on_the_way'].includes(d.get('status'));
+        await d.ref.update({ patientName: '', address: '', note: '', placeName: '', ...(active ? { status: 'cancelled', cancelledBy: 'patient' } : {}) });
+        if (active && d.get('nurseUid')) await notify(d.get('nurseUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে');
+      }),
+      ...visitsNursed.docs.map(async (d) => {
+        const active = ['accepted', 'on_the_way'].includes(d.get('status'));
+        await d.ref.update({ nurseName: '', ...(active ? { status: 'cancelled', cancelledBy: 'nurse' } : {}) });
+        if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে');
+      }),
     ]);
 
-    // ৭) প্রোফাইল (ছবি, ফোন সহ), ব্যাজ, চেম্বার, সার্ভারের হিসাব, লগইন কোড
+    // ৮) প্রোফাইল (ছবি, ফোন সহ), ব্যাজ, চেম্বার, সার্ভারের হিসাব, লগইন কোড
     const email = E.normalizeEmail(user.email || '');
     await Promise.all([
       userRef.delete(),
@@ -88,7 +101,7 @@ module.exports = {
       email ? db.doc(`emailCodes/${E.docIdFor(email)}`).delete() : Promise.resolve(),
     ]);
 
-    // ৮) লগইন অ্যাকাউন্ট (আগের চেষ্টায় মুছে গিয়ে থাকলে সমস্যা নেই)
+    // ৯) লগইন অ্যাকাউন্ট (আগের চেষ্টায় মুছে গিয়ে থাকলে সমস্যা নেই)
     try {
       await admin.auth().deleteUser(uid);
     } catch (e) {

@@ -5,21 +5,36 @@ const R = require('./rules');
 const C = require('./community');
 const DISTRICTS = require('./districts');
 const { approvedBadge, useQuota, userName } = require('./community-db');
+const K = require('./care');
 
 const PROVIDER_TYPES = ['doctor', 'nurse'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function provider(d) {
+  const x = d.data();
+  const chambers = K.chambersOf(x);
+  const first = chambers[0] || {};
+  const count = x.ratingCount || 0;
   return {
     uid: d.id,
-    type: d.get('type'),
-    name: d.get('name'),
-    specialty: d.get('specialty') || '',
-    chamber: d.get('chamber'),
-    district: d.get('district'),
-    schedule: d.get('schedule'),
-    fee: d.get('fee') || '',
-    active: d.get('active') !== false,
+    type: x.type,
+    name: x.name,
+    specialties: x.specialties || [],
+    degrees: x.degrees || '',
+    gender: x.gender || '',
+    listed: K.isListed(x),
+    appointments: K.takesAppointments(x),
+    chambers,
+    homeVisit: x.type === 'nurse' && x.homeVisit && x.homeVisit.enabled ? x.homeVisit : null,
+    rating: count ? Math.round((x.ratingSum / count) * 10) / 10 : 0,
+    ratingCount: count,
+    // আগের ভার্সনের অ্যাপের জন্য
+    specialty: x.specialty || '',
+    chamber: first.hospitalName || '',
+    district: first.district || '',
+    schedule: first.schedule || '',
+    fee: first.fee || '',
+    active: K.isListed(x) && K.takesAppointments(x),
   };
 }
 
@@ -38,16 +53,64 @@ function dateLabel(millis) {
   return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
 }
 
+/** আগের ভার্সনের অ্যাপ (এক চেম্বার, লেখা দিয়ে) */
+async function legacySave(req, user, badge) {
+  const b = req.body || {};
+  const chamber = C.cleanText(b.chamber, 120);
+  const schedule = C.cleanText(b.schedule, 120);
+  if (!chamber) throw new HttpError(400, C.tr(req, 'Enter your chamber / hospital', 'চেম্বার / হাসপাতালের নাম দিন'));
+  if (!schedule) throw new HttpError(400, C.tr(req, 'Enter your days and time', 'কোন দিন ও কখন বসেন লিখুন'));
+  if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
+  const cur = await db.doc(`providers/${user.uid}`).get();
+  if (cur.exists && Array.isArray(cur.get('chambers'))) {
+    throw new HttpError(409, C.tr(req, 'Please update the app to edit your chambers', 'চেম্বার বদলাতে অ্যাপ আপডেট করুন'));
+  }
+  const active = b.active !== false;
+  await db.doc(`providers/${user.uid}`).set({
+    type: badge,
+    name: (await userName(user.uid)).slice(0, 80),
+    specialty: typeof b.specialty === 'string' ? b.specialty.trim().slice(0, 80) : '',
+    chamber,
+    district: b.district,
+    schedule,
+    fee: typeof b.fee === 'string' ? b.fee.trim().slice(0, 40) : '',
+    active,
+    listed: active,
+    appointments: active,
+    updatedAt: Date.now(),
+  }, { merge: true });
+  return { ok: true };
+}
+
 module.exports = {
-  /** কোন ধরনের (doctor/nurse) চালু থাকা সেবাদানকারীর তালিকা */
+  /**
+   * ডাক্তার/নার্সের তালিকা। ফিল্টার: district, upazilaId, unionId, hospitalId, specialty;
+   * homeVisit: true হলে শুধু বাসায় যাওয়া নার্স।
+   */
   async providers(req) {
-    const type = req.body?.type;
+    const b = req.body || {};
+    const type = b.type;
     if (!PROVIDER_TYPES.includes(type)) throw new HttpError(400, C.tr(req, 'Choose doctor or nurse', 'ডাক্তার বা নার্স বেছে নিন'));
-    const snap = await db.collection('providers').where('type', '==', type).where('active', '==', true).limit(300).get();
+    const f = {
+      district: typeof b.district === 'string' && DISTRICTS.some((d) => d.bn === b.district) ? b.district : null,
+      upazilaId: Number.isInteger(b.upazilaId) ? b.upazilaId : null,
+      unionId: Number.isInteger(b.unionId) ? b.unionId : null,
+      hospitalId: R.isValidId(b.hospitalId) ? b.hospitalId : null,
+      specialty: K.specialtiesFor(type).includes(b.specialty) ? b.specialty : null,
+    };
+    const snap = await db.collection('providers').where('type', '==', type).limit(500).get();
+    const docs = snap.docs.filter((d) => {
+      const x = d.data();
+      if (!K.isListed(x) || !K.matchesFilter(x, f)) return false;
+      if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled)) return false;
+      return true;
+    });
     // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
-    const badges = snap.docs.length ? await db.getAll(...snap.docs.map((d) => db.doc(`badges/${d.id}`))) : [];
-    const ok = new Set(badges.filter((b) => b.exists && b.get('status') === 'approved').map((b) => b.id));
-    return { items: snap.docs.filter((d) => ok.has(d.id)).map(provider) };
+    const badges = docs.length ? await db.getAll(...docs.map((d) => db.doc(`badges/${d.id}`))) : [];
+    const ok = new Set(badges.filter((x) => x.exists && x.get('status') === 'approved').map((x) => x.id));
+    const items = docs.filter((d) => ok.has(d.id)).map(provider);
+    items.sort((p, q) => q.ratingCount - p.ratingCount || String(p.name).localeCompare(String(q.name)));
+    return { items: items.slice(0, 150) };
   },
 
   /** নিজের চেম্বারের তথ্য (না থাকলে null) */
@@ -59,33 +122,59 @@ module.exports = {
   async provider_save(req, user) {
     const badge = await approvedBadge(user.uid);
     if (!PROVIDER_TYPES.includes(badge)) {
-      throw new HttpError(403, C.tr(req, 'Only verified doctors and nurses can take appointments', 'শুধু যাচাই করা ডাক্তার ও নার্স অ্যাপয়েন্টমেন্ট নিতে পারেন'));
+      throw new HttpError(403, C.tr(req, 'Only verified doctors and nurses can add chambers', 'শুধু যাচাই করা ডাক্তার ও নার্স চেম্বার যোগ করতে পারেন'));
     }
     const b = req.body || {};
-    const chamber = C.cleanText(b.chamber, 120);
-    const schedule = C.cleanText(b.schedule, 120);
-    const specialty = typeof b.specialty === 'string' ? b.specialty.trim().slice(0, 80) : '';
-    const fee = typeof b.fee === 'string' ? b.fee.trim().slice(0, 40) : '';
-    if (!chamber) throw new HttpError(400, C.tr(req, 'Enter your chamber / hospital', 'চেম্বার / হাসপাতালের নাম দিন'));
-    if (!schedule) throw new HttpError(400, C.tr(req, 'Enter your days and time', 'কোন দিন ও কখন বসেন লিখুন'));
-    if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
+    if (!Array.isArray(b.chambers)) return legacySave(req, user, badge);
+    const err = (e) => new HttpError(400, C.tr(req, e[0], e[1]));
+
+    const ids = [...new Set(b.chambers.map((c) => c && c.hospitalId).filter(R.isValidId))].slice(0, K.MAX_CHAMBERS);
+    const snaps = ids.length ? await db.getAll(...ids.map((id) => db.doc(`hospitals/${id}`))) : [];
+    const hospitals = new Map(
+      snaps.filter((s) => s.exists && s.get('status') !== 'removed').map((s) => [s.id, { id: s.id, ...s.data() }]),
+    );
+    const parsed = K.parseChambers(b.chambers, hospitals);
+    if (parsed.error) throw err(parsed.error);
+    const specialties = K.pickCodes(b.specialties, K.specialtiesFor(badge), 5);
+    if (!specialties.length) throw err(['Choose at least one specialty', 'অন্তত একটা বিশেষজ্ঞতা বেছে নিন']);
+    let homeVisit = { enabled: false };
+    if (badge === 'nurse') {
+      const h = K.parseHomeVisit(b.homeVisit);
+      if (h.error) throw err(h.error);
+      homeVisit = h.homeVisit;
+    }
+    const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
+    if (homeVisit.enabled) {
+      if ((await db.doc(`providers/${user.uid}`).get()).get('homeVisitBlocked') === true) {
+        throw err(['Home visits are turned off for your account after a report. Contact us.', 'রিপোর্টের পর আপনার হোম ভিজিট বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।']);
+      }
+      const u = await db.doc(`users/${user.uid}`).get();
+      if (typeof u.get('lat') !== 'number' && !homeVisit.upazilaIds.length) {
+        throw err(['Set your location in your profile, or choose upazilas', 'প্রোফাইলে আপনার লোকেশন দিন, অথবা উপজেলা বেছে নিন']);
+      }
+    }
+    const listed = b.listed !== false;
+    const takes = b.appointments === true;
     await db.doc(`providers/${user.uid}`).set({
       type: badge,
       name: (await userName(user.uid)).slice(0, 80),
-      specialty,
-      chamber,
-      district: b.district,
-      schedule,
-      fee,
-      active: b.active !== false,
+      listed,
+      appointments: takes,
+      active: listed && takes, // আগের ভার্সনের অ্যাপ এটা দেখে
+      specialties,
+      degrees: K.str(b.degrees, 120),
+      gender,
+      chambers: parsed.chambers,
+      homeVisit,
       updatedAt: Date.now(),
-    });
+    }, { merge: true });
     return { ok: true };
   },
 
   /** রোগীর অনুরোধ */
   async book(req, user) {
     const { providerUid, date } = req.body || {};
+    const chamberIndex = Number.isInteger(req.body?.chamberIndex) ? req.body.chamberIndex : null;
     if (!R.isValidId(providerUid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (providerUid === user.uid) throw new HttpError(400, C.tr(req, 'You can\'t book yourself', 'নিজের কাছে অ্যাপয়েন্টমেন্ট নেওয়া যায় না'));
     const today = R.todayDhakaUtcMidnight();
@@ -95,9 +184,13 @@ module.exports = {
     const note = C.cleanText(req.body?.note, 300);
     if (!note) throw new HttpError(400, C.tr(req, 'Write the reason for the visit', 'কী সমস্যা, সংক্ষেপে লিখুন'));
     const ps = await db.doc(`providers/${providerUid}`).get();
-    if (!ps.exists || ps.get('active') === false || !PROVIDER_TYPES.includes(await approvedBadge(providerUid))) {
-      throw new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
+    const notTaking = () => new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
+    if (!ps.exists || !K.isListed(ps.data()) || !K.takesAppointments(ps.data()) || !PROVIDER_TYPES.includes(await approvedBadge(providerUid))) {
+      throw notTaking();
     }
+    const chambers = K.chambersOf(ps.data());
+    const ch = chamberIndex == null ? chambers.find((c) => c.appointments) : chambers[chamberIndex];
+    if (!ch || !ch.appointments) throw notTaking();
     await useQuota(req, user.uid, 'book');
     const name = (await userName(user.uid)).slice(0, 80);
     const ref = await db.collection('appointments').add({
@@ -106,8 +199,10 @@ module.exports = {
       providerUid,
       providerName: ps.get('name'),
       type: ps.get('type'),
-      chamber: ps.get('chamber'),
-      schedule: ps.get('schedule'),
+      chamber: ch.hospitalName,
+      chamberBn: ch.hospitalNameBn || '',
+      room: ch.room || '',
+      schedule: ch.schedule,
       date,
       note,
       status: 'pending',
@@ -140,6 +235,8 @@ module.exports = {
         otherName: role === 'patient' ? d.get('providerName') : d.get('patientName'),
         type: d.get('type'),
         chamber: d.get('chamber'),
+        chamberBn: d.get('chamberBn') || '',
+        room: d.get('room') || '',
         schedule: d.get('schedule'),
         date: d.get('date'),
         note: d.get('note'),
