@@ -206,4 +206,44 @@ class ScreensTest {
         show { PhoneVerifyDialog({}, {}) }
         shot("phone_verify")
     }
+
+    @Test
+    fun quickActionsAndServices() {
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                QuickActions({}, {}, {}, {})
+            }
+        }
+        shot("quick_actions")
+    }
+
+    @Test
+    fun servicesTab() {
+        show { ServicesTab(profile, nurseMe, 0, {}, {}, {}) }
+        shot("services_tab")
+    }
+
+    @Test
+    fun ambulanceScreen() {
+        show { AmbulanceScreen(profile) {} }
+        shot("ambulance_screen")
+    }
+
+    @Test
+    fun medicineOrderForm() {
+        show { MedicineScreen(profile, 0) {} }
+        shot("medicine_order")
+    }
+
+    @Test
+    fun shopRegistration() {
+        show { ShopScreen(profile) {} }
+        shot("shop_edit")
+    }
+
+    @Test
+    fun healthTab() {
+        show { HealthTab(0, nurseMe, {}, {}, {}, {}) }
+        shot("health_tab")
+    }
 }
