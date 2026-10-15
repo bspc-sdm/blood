@@ -94,8 +94,9 @@ fun ProfileTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // উপরের ছবি-☰ থেকে আসা পাতা: প্রোফাইলসহ পুরো অ্যাপের মেনু
             Text(
-                tr("Profile", "প্রোফাইল"),
+                tr("Menu", "মেনু"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),

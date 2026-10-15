@@ -3,6 +3,8 @@ package com.bspc.blood
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -304,6 +306,31 @@ class ScreensTest {
         rule.onNodeWithText("ব্লাড ব্যাংক").performClick()
         rule.mainClock.advanceTimeBy(1000)
         shot("pill_tabs_autoscroll_bn")
+    }
+
+    /** উপরের বার: লোগো, ঘণ্টা, ছবি+☰ মেনু (ছবি ছাড়া ও ছবিসহ) */
+    @Test
+    fun topBarMenuAvatar() {
+        AppPrefs.lang.value = Lang.BN
+        val pic = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+            .apply { eraseColor(0xFFB07A5A.toInt()) }
+            .asImageBitmap()
+        show {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                listOf(null, pic).forEach { a ->
+                    androidx.compose.foundation.layout.Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Logo(iconSize = 30.dp)
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        BellButton(2) {}
+                        androidx.compose.material3.IconButton(onClick = {}) { MenuAvatar(a) }
+                    }
+                }
+            }
+        }
+        shot("top_bar_menu_avatar")
     }
 
     @Test

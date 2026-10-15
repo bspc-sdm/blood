@@ -42,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,17 +138,7 @@ fun MainScreen(
                 Logo(iconSize = 30.dp)
                 Spacer(Modifier.weight(1f))
                 BellButton(community?.unread ?: 0, onOpenInbox)
-                IconButton(onClick = { onTabChange(Tabs.PROFILE) }) {
-                    if (avatar != null) {
-                        androidx.compose.foundation.Image(
-                            avatar,
-                            contentDescription = tr("Profile", "প্রোফাইল"),
-                            modifier = Modifier.size(32.dp).clip(CircleShape),
-                        )
-                    } else {
-                        AppIcon(R.drawable.ic_account_circle, tr("Profile", "প্রোফাইল"), Modifier.size(32.dp))
-                    }
-                }
+                IconButton(onClick = { onTabChange(Tabs.PROFILE) }) { MenuAvatar(avatar) }
             }
         },
         bottomBar = { ModernNavBar(items, tab, onTabChange) },
@@ -401,3 +393,44 @@ internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> 
         }
     }
 }
+
+/**
+ * উপরের ডান কোণের ছবি = অ্যাপের মূল মেনু (Facebook-এর মতো): নিজের ছবি, কোণে ছোট ☰ চিহ্ন।
+ * চাপলে মেনু পাতা (প্রোফাইল, আমার রিকোয়েস্ট, সেটিংস, লগআউট…)।
+ */
+@Composable
+internal fun MenuAvatar(avatar: androidx.compose.ui.graphics.ImageBitmap?) {
+    val cs = MaterialTheme.colorScheme
+    Box(Modifier.size(36.dp)) {
+        val pic = Modifier.size(32.dp).align(Alignment.TopStart).clip(CircleShape)
+        if (avatar != null) {
+            androidx.compose.foundation.Image(
+                avatar,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = pic,
+            )
+        } else {
+            Box(pic.background(cs.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+                AppIcon(R.drawable.ic_person_filled, null, Modifier.size(22.dp), cs.onSurfaceVariant)
+            }
+        }
+        // কোণের ☰: চারপাশে পটভূমির রঙের সরু রিং, যাতে ছবির উপর আলাদা করে চোখে পড়ে
+        Box(
+            Modifier
+                .size(17.dp)
+                .align(Alignment.BottomEnd)
+                .clip(CircleShape)
+                .background(cs.background)
+                .padding(1.5.dp)
+                .clip(CircleShape)
+                .background(cs.surfaceContainerHighest),
+            contentAlignment = Alignment.Center,
+        ) {
+            AppIcon(R.drawable.ic_menu_round, null, Modifier.size(11.dp), cs.onSurface)
+        }
+        // স্ক্রিন রিডারের জন্য একটাই নাম
+        Box(Modifier.matchParentSize().semantics { contentDescription = tr("Menu and profile", "মেনু ও প্রোফাইল") })
+    }
+}
+
