@@ -377,6 +377,17 @@ actions.admin_overview = async (req, user) => {
   };
 };
 
+// অ্যাকাউন্ট বন্ধ কি না (Firebase Auth) — প্রতি অনুরোধে না পড়ে ১ মিনিট মনে রাখা
+const disabledCache = new Map();
+async function accountDisabled(uid) {
+  const c = disabledCache.get(uid);
+  if (c && Date.now() - c.at < 60 * 1000) return c.v;
+  const u = await admin.auth().getUser(uid).catch((e) => (e.code === 'auth/user-not-found' ? { disabled: true } : null));
+  const v = !!(u && u.disabled);
+  disabledCache.set(uid, { at: Date.now(), v });
+  return v;
+}
+
 // ওয়েব অ্যাডমিন প্যানেল (কুকি দিয়ে লগইন): শুধু অ্যাডমিন কাজ চলে, অ্যাপের সাধারণ কাজ নয়
 async function webUser(req, res) {
   const web = websession.user(req, res);
@@ -385,8 +396,8 @@ async function webUser(req, res) {
   const action = String(req.body?.action || '');
   if (action === 'web_logout') return web;
   if (!action.startsWith('admin_')) throw new HttpError(403, C.tr(req, 'Not available on the web panel', 'ওয়েব প্যানেলে এটা চলে না'));
-  // অ্যাডমিন থেকে বাদ পড়লে সাথে সাথে (তালিকার ১০ মিনিটের ক্যাশ বাদে) প্যানেলও বন্ধ
-  if (!(await isAdmin(web))) {
+  // অ্যাডমিন থেকে বাদ পড়লে বা অ্যাকাউন্ট বন্ধ হলে প্যানেলও বন্ধ
+  if (!(await isAdmin(web)) || (await accountDisabled(web.uid))) {
     websession.end(res);
     throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'), 'session_expired');
   }
@@ -404,7 +415,7 @@ module.exports = handler(async (req, res) => {
   const fn = Object.prototype.hasOwnProperty.call(actions, req.body?.action) ? actions[req.body.action] : null;
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
   const result = await fn(req, user, res);
-  // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী)
-  if (String(req.body.action).startsWith('admin_')) await adminweb.logAdmin(req.body.action, user, req.body);
+  // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী) — কিছু না বদলালে নয়
+  if (String(req.body.action).startsWith('admin_') && !(result && result.unchanged)) await adminweb.logAdmin(req.body.action, user, req.body);
   return result;
 });

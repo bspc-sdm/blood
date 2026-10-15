@@ -22,7 +22,7 @@ function pharmacyView(d, mine = false) {
   return {
     id: d.id,
     name: x.name,
-    phone: x.phone,
+    phone: K.fixPhone(x.phone),
     address: x.address || '',
     district: x.district,
     upazilaId: x.upazilaId || null,
@@ -163,7 +163,7 @@ const actions = {
     const data = {
       name,
       licenseNo,
-      phone: `0${phone.slice(2)}`,
+      phone: K.localBd(phone),
       district: b.district,
       upazilaId,
       address,
@@ -179,7 +179,7 @@ const actions = {
     };
     if (s.exists) {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy was suspended after reports. Contact us.', 'রিপোর্টের পর আপনার ফার্মেসি বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
-      const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => s.get(k) !== data[k]) || s.get('status') === 'rejected';
+      const changed = ['name', 'licenseNo', 'phone', 'district'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
@@ -324,7 +324,7 @@ const actions = {
     const usersSnap = ids.length ? await db.getAll(...ids.map((id) => db.doc(`users/${id}`))) : [];
     const phones = new Map(usersSnap.map((s) => [s.id, s.exists ? s.get('phone') || '' : '']));
     const shops = ids.length ? await db.getAll(...ids.map((id) => db.doc(`pharmacies/${id}`))) : [];
-    const shopPhone = new Map(shops.filter((s) => s.exists).map((s) => [s.id, s.get('phone')]));
+    const shopPhone = new Map(shops.filter((s) => s.exists).map((s) => [s.id, K.fixPhone(s.get('phone'))]));
 
     const live = (s) => ['confirmed', 'ready', 'on_the_way'].includes(s);
     const asPatient = mine.docs
@@ -530,7 +530,7 @@ const actions = {
       items: snap.docs.map((d) => ({
         ...pharmacyView(d, true),
         createdAt: d.get('createdAt') || null,
-        reviewedAt: d.get('reviewedAt') || d.get('suspendedAt') || null,
+        reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
       })),
     };
   },
@@ -544,7 +544,7 @@ const actions = {
     const ref = db.doc(`pharmacies/${id}`);
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    if (s.get('status') === status) return { ok: true };
+    if (s.get('status') === status) return { ok: true, unchanged: true };
     await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
     const msg = {
       approved: ['Your pharmacy is approved', 'আপনার ফার্মেসি অনুমোদিত হয়েছে'],

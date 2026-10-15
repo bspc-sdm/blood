@@ -18,7 +18,7 @@ function view(d, mine = false) {
   return {
     id: d.id,
     name: x.name,
-    phone: x.phone,
+    phone: K.fixPhone(x.phone),
     types: x.types || [],
     district: x.district,
     upazilaId: x.upazilaId || null,
@@ -75,7 +75,7 @@ const actions = {
     if (b.termsAccepted !== true) throw err('Please accept the terms', 'শর্তে সম্মতি দিন');
     const data = {
       name,
-      phone: `0${phone.slice(2)}`,
+      phone: K.localBd(phone),
       vehicleNo,
       types,
       district: b.district,
@@ -90,7 +90,7 @@ const actions = {
       const s = await ref.get();
       if (!s.exists || s.get('ownerUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'This ambulance was suspended after reports. Contact us.', 'রিপোর্টের পর এই অ্যাম্বুলেন্স বন্ধ আছে। আমাদের সাথে যোগাযোগ করুন।'));
-      const changed = ['name', 'phone', 'vehicleNo'].some((k) => s.get(k) !== data[k]) || s.get('status') === 'rejected';
+      const changed = ['name', 'phone', 'vehicleNo'].some((k) => (k === 'phone' ? K.fixPhone(s.get(k)) : s.get(k)) !== data[k]) || s.get('status') === 'rejected';
       await ref.update({ ...data, ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
@@ -162,7 +162,7 @@ const actions = {
         ...view(d, true),
         ownerUid: d.get('ownerUid') || null,
         createdAt: d.get('createdAt') || null,
-        reviewedAt: d.get('reviewedAt') || d.get('suspendedAt') || null,
+        reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
       })),
     };
   },
@@ -176,7 +176,7 @@ const actions = {
     const ref = db.doc(`ambulances/${id}`);
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    if (s.get('status') === status) return { ok: true };
+    if (s.get('status') === status) return { ok: true, unchanged: true };
     await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
     try {
       const u = await db.doc(`users/${s.get('ownerUid')}`).get();

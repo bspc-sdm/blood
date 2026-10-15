@@ -5,6 +5,7 @@ const C = require('./community');
 const { isAdmin } = require('./admin');
 const { useQuota } = require('./community-db');
 
+const K = require('./care');
 const KINDS = ['question', 'answer', 'tip', 'homevisit', 'ambulance', 'pharmacy'];
 const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+)$/;
 
@@ -138,7 +139,7 @@ module.exports = {
             ...list[i].reasons,
           ].join('\n')
           : ['ambulance', 'pharmacy'].includes(list[i].kind)
-            ? [`${t.get('name') || ''} · ${t.get('phone') || ''} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
+            ? [`${t.get('name') || ''} · ${K.fixPhone(t.get('phone'))} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
             : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
         authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('authorName') || t.get('name') || '',
         reportedUid: list[i].reportedUid,

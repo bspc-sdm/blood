@@ -136,7 +136,7 @@ async function buildStats(now) {
 function phoneVariants(raw) {
   const p = K.normalizeBd(raw);
   if (!p) return [];
-  const local = `0${p.slice(2)}`;
+  const local = K.localBd(p);
   return [local, `+${p}`, p];
 }
 
@@ -206,8 +206,8 @@ async function userView(uid) {
       homeVisit: !!(prov.get('homeVisit') && prov.get('homeVisit').enabled),
       homeVisitBlocked: prov.get('homeVisitBlocked') === true,
     } : null,
-    pharmacy: shop.exists ? { id: shop.id, name: shop.get('name'), status: shop.get('status'), phone: shop.get('phone') || '', district: shop.get('district') || '' } : null,
-    ambulances: ambs.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), vehicleNo: d.get('vehicleNo') || '', phone: d.get('phone') || '' })),
+    pharmacy: shop.exists ? { id: shop.id, name: shop.get('name'), status: shop.get('status'), phone: K.fixPhone(shop.get('phone')), district: shop.get('district') || '' } : null,
+    ambulances: ambs.docs.map((d) => ({ id: d.id, name: d.get('name'), status: d.get('status'), vehicleNo: d.get('vehicleNo') || '', phone: K.fixPhone(d.get('phone')) })),
     blocks: {
       homeVisitBanned: st('homeVisitBanned') === true,
       homeVisitBlocked: prov.exists && prov.get('homeVisitBlocked') === true,
@@ -258,8 +258,9 @@ const actions = {
       snap.docs.forEach((d) => found.set(d.id, null));
       // ফার্মেসি আর অ্যাম্বুলেন্সের নম্বর দিয়েও
       const [ph, am] = await Promise.all([
-        db.collection('pharmacies').where('phone', '==', `0${K.normalizeBd(q).slice(2)}`).limit(10).get(),
-        db.collection('ambulances').where('phone', '==', `0${K.normalizeBd(q).slice(2)}`).limit(10).get(),
+        // পুরোনো ভুল রূপ ("001…") সহ
+        db.collection('pharmacies').where('phone', 'in', [K.localBd(K.normalizeBd(q)), `0${K.localBd(K.normalizeBd(q))}`]).limit(10).get(),
+        db.collection('ambulances').where('phone', 'in', [K.localBd(K.normalizeBd(q)), `0${K.localBd(K.normalizeBd(q))}`]).limit(10).get(),
       ]);
       ph.docs.forEach((d) => found.set(d.id, null));
       am.docs.forEach((d) => found.set(d.get('ownerUid'), null));
@@ -289,6 +290,15 @@ const actions = {
     await requireAdmin(req, user);
     const { uid, op } = req.body || {};
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    // অ্যাডমিন বা মালিকের ওপর ব্যবস্থা: শুধু মালিক, আর মালিকের ওপর কেউ না
+    const target = await authUser(uid);
+    const targetEmail = target ? (target.email || '').toLowerCase() : '';
+    if (targetEmail && adminEmails().includes(targetEmail) && uid !== user.uid) {
+      throw new HttpError(403, C.tr(req, "Actions on the owner's account aren't allowed", 'মালিকের অ্যাকাউন্টে এই কাজ করা যায় না'));
+    }
+    if (targetEmail && !isOwner(user) && (await isAdmin({ email: targetEmail, email_verified: true }))) {
+      throw new HttpError(403, C.tr(req, 'Only the owner can act on an admin', 'অ্যাডমিনের ওপর শুধু মালিক ব্যবস্থা নিতে পারেন'));
+    }
     const stateRef = db.doc(`serverState/${uid}`);
     switch (op) {
       case 'homevisit_unban':
@@ -306,15 +316,9 @@ const actions = {
         break;
       case 'disable':
       case 'enable': {
-        const target = await authUser(uid);
         if (!target) throw new HttpError(404, C.tr(req, 'User not found', 'ব্যবহারকারী পাওয়া যায়নি'));
-        const email = (target.email || '').toLowerCase();
+        if (target.uid === user.uid) throw new HttpError(400, C.tr(req, "You can't change your own account", 'নিজের অ্যাকাউন্টে এটা করা যায় না'));
         if (op === 'disable') {
-          if (target.uid === user.uid) throw new HttpError(400, C.tr(req, "You can't disable yourself", 'নিজের অ্যাকাউন্ট বন্ধ করা যায় না'));
-          if (adminEmails().includes(email)) throw new HttpError(403, C.tr(req, "The owner can't be disabled", 'মালিকের অ্যাকাউন্ট বন্ধ করা যায় না'));
-          if (!isOwner(user) && email && (await isAdmin({ email, email_verified: true }))) {
-            throw new HttpError(403, C.tr(req, 'Only the owner can disable an admin', 'অ্যাডমিনের অ্যাকাউন্ট শুধু মালিক বন্ধ করতে পারেন'));
-          }
           await admin.auth().updateUser(uid, { disabled: true });
           // চালু লগইন বাতিল: নতুন টোকেন আর পাবে না, পুরোনোটা সর্বোচ্চ ১ ঘণ্টা
           await admin.auth().revokeRefreshTokens(uid);

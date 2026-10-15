@@ -950,7 +950,7 @@
           : 'কোনো নিষেধাজ্ঞা নেই।',
         u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
         u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked
-          ? [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'হোম ভিজিটের নিষেধাজ্ঞা তোলা হয়েছে', reload)]
+          ? [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'নিষেধাজ্ঞা তোলা হয়েছে। নার্স হলে অ্যাপ থেকে নিজে আবার হোম ভিজিট চালু করবেন।', reload)]
           : [actionBtn('রোগী হিসেবে বন্ধ', 'warn', uact('homevisit_ban_patient'), 'রোগী হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload),
             u.badge && u.badge.type === 'nurse' ? actionBtn('নার্স হিসেবে বন্ধ', 'warn', uact('homevisit_ban_nurse'), 'নার্স হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload) : null]),
       ctl('ওষুধের অর্ডার',

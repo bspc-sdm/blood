@@ -59,6 +59,7 @@ module.exports = handler(async (req, res) => {
       throw new HttpError(403, 'এই ইমেইল অ্যাডমিন হিসেবে যোগ করা নেই');
     }
     const user = await getOrCreateUser(email);
+    if (user.disabled) throw new HttpError(403, 'এই অ্যাকাউন্ট বন্ধ করা আছে');
     require('../../lib/websession').start(res, user.uid, email);
     return { ok: true };
   }

@@ -126,9 +126,12 @@ const actions = {
       const s = await t.get(ref);
       if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const messages = s.get('messages') || [];
+      if (text && messages.length >= MAX_MESSAGES) {
+        throw new HttpError(400, C.tr(req, 'This conversation is full. Close it; the user can start a new one.', 'এই কথোপকথন ভরে গেছে। বন্ধ করুন, ব্যবহারকারী নতুন করে লিখতে পারবেন।'));
+      }
       const now = Date.now();
       t.update(ref, {
-        ...(text ? { messages: [...messages, { from: 'admin', text, at: now, by: user.email || '' }].slice(-MAX_MESSAGES), lastFrom: 'admin' } : {}),
+        ...(text ? { messages: [...messages, { from: 'admin', text, at: now, by: user.email || '' }], lastFrom: 'admin' } : {}),
         status: close ? 'closed' : 'answered',
         updatedAt: now,
       });

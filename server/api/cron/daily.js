@@ -60,7 +60,23 @@ module.exports = handler(
       console.error('inbox cleanup failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted };
+    // পুরোনো ভুল রূপে ("001…") রাখা ফার্মেসি/অ্যাম্বুলেন্সের নম্বর ঠিক করা (একবারের কাজ, পরে কিছু পাবে না)
+    let phonesFixed = 0;
+    try {
+      const K = require('../../lib/care');
+      for (const col of ['pharmacies', 'ambulances']) {
+        const snap = await db.collection(col).where('phone', '>=', '001').where('phone', '<', '002').limit(400).get();
+        if (snap.empty) continue;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.update(d.ref, { phone: K.fixPhone(d.get('phone')) }));
+        await batch.commit();
+        phonesFixed += snap.size;
+      }
+    } catch (e) {
+      console.error('phone fix failed', e);
+    }
+
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, inboxDeleted, phonesFixed };
   },
   { methods: ['GET'] },
 );

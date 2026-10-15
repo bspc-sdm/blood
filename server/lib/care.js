@@ -192,6 +192,16 @@ function normalizeBd(raw) {
   return /^01[3-9]\d{8}$/.test(local) ? `88${local}` : null;
 }
 
+/** "8801712345678" → "01712345678" (দেখানো ও ডায়াল করার রূপ) */
+function localBd(normalized) {
+  return normalized ? normalized.slice(2) : '';
+}
+
+/** আগে ভুল করে "001…" রূপে রাখা নম্বর ঠিক করে দেখানো (পুরোনো ডক) */
+function fixPhone(p) {
+  return typeof p === 'string' && /^001[3-9]\d{8}$/.test(p) ? p.slice(1) : p || '';
+}
+
 // ---------- ফার্মেসি ----------
 const MED_NOTIFY = 8; // কতগুলো কাছের দোকানের মধ্যে থেকে বাছাই (অর্ডার যায় এক সময়ে একটাতেই)
 const MED_FORWARD_MS = 10 * 60 * 1000; // উত্তর না এলে এতক্ষণ পর রোগী অন্য দোকানে পাঠাতে পারেন
@@ -244,6 +254,8 @@ module.exports = {
   pickPharmacies,
   medOrderExpired,
   normalizeBd,
+  localBd,
+  fixPhone,
   DOCTOR_SPECIALTIES,
   NURSE_SPECIALTIES,
   HOME_SERVICES,
