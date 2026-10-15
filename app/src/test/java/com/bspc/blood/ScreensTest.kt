@@ -216,6 +216,22 @@ class ScreensTest {
     }
 
     @Test
+    fun whereAvailable() {
+        show {
+            Column(Modifier.padding(16.dp)) {
+                WhereAvailableCard(
+                    listOf(
+                        StockShop("a", "Lazz Pharma", "01711000000", "Charpara", true, true, 0.6, 4.6, listOf("k1", "k2"), mapOf("k1" to Triple(12, "strip", 5))),
+                        StockShop("b", "New Model Pharmacy", "01811000000", "Ganginarpar", false, false, 1.4, 0.0, listOf("k1"), emptyMap()),
+                    ),
+                    wanted = 2, chosenId = null, onChoose = {},
+                )
+            }
+        }
+        shot("where_available")
+    }
+
+    @Test
     fun ambulanceMine() {
         show { AmbulanceContent(profile) }
         shot("ambulance_content")

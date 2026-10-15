@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.bspc.blood
 
@@ -101,6 +101,9 @@ data class MedReply(
     val altBrand: Boolean,
     val discount: Int,
     val rating: Double,
+    /** "আনিয়ে দিতে পারব" — এখন নেই, eta: today / tomorrow / days */
+    val arrange: Boolean = false,
+    val eta: String = "",
 )
 
 data class MedOrder(
@@ -158,6 +161,7 @@ object Pharmacies {
     private fun reply(pid: String, o: JSONObject) = MedReply(
         pid, o.str("name"), o.str("status"), o.optInt("total"), o.optInt("fee"), o.str("note"),
         o.optBoolean("altBrand"), o.optInt("discount"), o.optDouble("rating", 0.0),
+        o.optBoolean("arrange"), o.str("eta"),
     )
 
     private fun order(o: JSONObject): MedOrder {
@@ -198,14 +202,14 @@ object Pharmacies {
 
     suspend fun order(
         items: String, photo: String?, needsPrescription: Boolean, mode: String, address: String,
-        lat: Double?, lng: Double?, district: String, upazilaId: Int?, pharmacyId: String?,
+        lat: Double?, lng: Double?, district: String, upazilaId: Int?, pharmacyId: String?, drugKeys: List<String> = emptyList(),
     ): MedOrderResult {
         val r = call(
             "med_order",
             JSONObject().put("items", items).put("photo", photo ?: JSONObject.NULL).put("needsPrescription", needsPrescription)
                 .put("mode", mode).put("address", address).put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL)
                 .put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
-                .put("pharmacyId", pharmacyId ?: JSONObject.NULL).put("termsAccepted", true),
+                .put("pharmacyId", pharmacyId ?: JSONObject.NULL).put("drugKeys", JSONArray(drugKeys)).put("termsAccepted", true),
         )
         return if (r.optBoolean("noPharmacy")) MedOrderResult.NoPharmacy else MedOrderResult.Sent(r.optInt("notified"))
     }
@@ -221,11 +225,18 @@ object Pharmacies {
 
     suspend fun photo(id: String): String = call("med_order_photo", JSONObject().put("id", id)).optString("photo")
 
-    suspend fun reply(id: String, status: String, total: Int, fee: Int, note: String, altBrand: Boolean) {
+    suspend fun reply(id: String, status: String, total: Int, fee: Int, note: String, altBrand: Boolean, eta: String? = null) {
         call(
             "med_order_reply",
-            JSONObject().put("id", id).put("status", status).put("total", total).put("fee", fee).put("note", note).put("altBrand", altBrand),
+            JSONObject().put("id", id).put("status", status).put("total", total).put("fee", fee).put("note", note).put("altBrand", altBrand)
+                .put("eta", eta ?: JSONObject.NULL),
         )
+    }
+
+    fun etaLabel(eta: String): String = when (eta) {
+        "today" -> tr("can arrange today", "আজই আনিয়ে দিতে পারবে")
+        "tomorrow" -> tr("can arrange by tomorrow", "কাল আনিয়ে দিতে পারবে")
+        else -> tr("can arrange in 2-3 days", "২-৩ দিনে আনিয়ে দিতে পারবে")
     }
 
     /** পরের দোকানে পাঠানো; নতুন দোকানের নাম, না থাকলে null */
@@ -369,7 +380,10 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
     val scope = rememberCoroutineScope()
     remember { Areas.ensure(context) }
     var items by remember(reorder) { mutableStateOf(reorder?.first ?: "") }
-    val shop = reorder?.second
+    // কোন দোকানে যাবে: আগের দোকান/ফার্মেসি ট্যাব থেকে, বা নিচের "কোথায় পাওয়া যায়" থেকে বাছা
+    var shop by remember(reorder) { mutableStateOf(reorder?.second) }
+    // তালিকা থেকে বাছা ওষুধ (লেখায় এখনো থাকলে তবেই পাঠানো হয়)
+    var picked by remember(reorder) { mutableStateOf(listOf<Drug>()) }
     var photo by remember(reorder) { mutableStateOf<String?>(null) }
     var photoBusy by remember { mutableStateOf(false) }
     var needsRx by remember { mutableStateOf(false) }
@@ -383,6 +397,11 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var verifyPhone by remember { mutableStateOf(false) }
+    val pickedKeys = picked.filter { items.contains(it.orderLine) }.map { it.key }.distinct()
+    val where by androidx.compose.runtime.produceState<List<StockShop>?>(null, pickedKeys, district, lat) {
+        val d = district
+        value = if (pickedKeys.isEmpty() || d == null) null else runCatching { Stock.find(d, pickedKeys, lat, lng) }.getOrNull()
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -408,7 +427,7 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
         if (errorMsg != null || d == null) return
         scope.launch {
             busy = true
-            runCatching { Pharmacies.order(items.trim(), photo, needsRx, mode, address.trim(), lat, lng, d, upazilaId, shop?.pharmacyId) }
+            runCatching { Pharmacies.order(items.trim(), photo, needsRx, mode, address.trim(), lat, lng, d, upazilaId, shop?.pharmacyId, pickedKeys) }
                 .onSuccess { r ->
                     when (r) {
                         is MedOrderResult.Sent -> onSent()
@@ -431,8 +450,13 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (shop != null) {
-            InfoText(tr("This order goes to ", "এই অর্ডার যাবে: ") + shop.name)
+        val target = shop
+        if (target != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                InfoText(tr("This order goes to ", "এই অর্ডার যাবে: ") + target.name)
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { shop = null }) { Text(tr("Change", "বদলান")) }
+            }
         } else {
             SmallNote(
                 tr(
@@ -454,6 +478,7 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
         }
         DrugSearch(onPick = { d ->
             items = (items.trimEnd().let { if (it.isEmpty()) it else it + "\n" } + d.orderLine + " × ").take(1000)
+            picked = picked + d
         })
         OutlinedTextField(
             value = items,
@@ -463,6 +488,9 @@ private fun MedOrderForm(profile: Profile, reorder: Pair<String, MedReply?>?, on
             minLines = 3,
             modifier = Modifier.fillMaxWidth(),
         )
+        WhereAvailableCard(where, pickedKeys.size, shop?.pharmacyId) { s ->
+            shop = MedReply(s.id, s.name, "all", 0, 0, "", false, 0, s.rating)
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = needsRx, onCheckedChange = { needsRx = it })
             Text(tr("Includes medicines that need a prescription (antibiotics etc.)", "প্রেসক্রিপশন লাগে এমন ওষুধ আছে (অ্যান্টিবায়োটিক ইত্যাদি)"), style = MaterialTheme.typography.bodyMedium)
@@ -581,13 +609,15 @@ private fun MyMedOrders(reloadKey: Int, onReorder: (String, MedReply?) -> Unit) 
                                         Column(Modifier.weight(1f)) {
                                             Text(r.name, fontWeight = FontWeight.SemiBold)
                                             Text(
-                                                (if (r.status == "all") tr("Has all", "সব আছে") else tr("Has some", "কিছু আছে")) + " · " + taka(r.total) +
+                                                (if (r.arrange) Pharmacies.etaLabel(r.eta) else if (r.status == "all") tr("Has all", "সব আছে") else tr("Has some", "কিছু আছে")) + " · " + taka(r.total) +
                                                     (if (r.fee > 0) " + " + tr("delivery ", "ডেলিভারি ") + taka(r.fee) else ""),
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                             if (r.discount > 0) SmallNote(tr("${r.discount}% off MRP", "MRP থেকে ${num(r.discount)}% ছাড়"))
                                             if (r.altBrand) SmallNote(tr("Offers another brand of the same medicine — ask your doctor first", "একই ওষুধের অন্য ব্র্যান্ড দিতে চায় — আগে ডাক্তারকে জিজ্ঞেস করুন"))
-                                            if (r.note.isNotBlank()) SmallNote(r.note)
+                                            // "আনিয়ে দেব"-র লেখা নোটের শুরুতে থাকে (পুরোনো অ্যাপের জন্য) — এখানে আলাদা দেখানো হয়েছে, তাই বাদ
+                                            val note = if (r.arrange) r.note.substringAfter(" · ", "").ifBlank { if (r.note.contains("আনিয়ে")) "" else r.note } else r.note
+                                            if (note.isNotBlank()) SmallNote(note)
                                             RatingLine(r.rating, if (r.rating > 0) 1 else 0)
                                         }
                                         Button(onClick = { act(o) { Pharmacies.choose(o.id, r.pharmacyId) } }, enabled = busyId == null) {
@@ -747,6 +777,8 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
     var photoOf by remember { mutableStateOf<String?>(null) }
     var busyId by remember { mutableStateOf<String?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
+    // দোকানের ভেতরের পাতা: "stock" স্টক তালিকা, "stats" বিক্রির হিসাব
+    var inner by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -766,6 +798,12 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
             runCatching { Pharmacies.update(o.id, op) }.onSuccess { reload++ }.onFailure { errorMsg = it.message; reload++ }
             busyId = null
         }
+    }
+
+    androidx.activity.compose.BackHandler(enabled = inner != null) { inner = null }
+    when (inner) {
+        "stock" -> { StockScreen(onBack = { inner = null }); return }
+        "stats" -> { ShopStatsScreen(onBack = { inner = null }); return }
     }
 
     if (editing || (!loading && !loadFailed && shop == null)) {
@@ -807,6 +845,12 @@ fun ShopScreen(profile: Profile, onBack: () -> Unit) {
                             RatingLine(s.rating, s.ratingCount)
                             if (s.status == "pending") SmallNote(tr("Orders will start coming after approval.", "অনুমোদনের পর অর্ডার আসা শুরু হবে।"))
                             if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
+                            if (s.status == "approved" || s.status == "pending") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                                    OutlinedButton(onClick = { inner = "stock" }) { ButtonContent(false, tr("Stock list", "স্টক তালিকা"), R.drawable.ic_list_alt) }
+                                    OutlinedButton(onClick = { inner = "stats" }) { ButtonContent(false, tr("Sales report", "বিক্রির হিসাব"), R.drawable.ic_history) }
+                                }
+                            }
                         }
                     }
                 }
@@ -855,7 +899,7 @@ private fun ShopOrderCard(o: MedOrder, busyId: String?, onPhoto: () -> Unit, onR
             if (o.hasPhoto) OutlinedButton(onClick = onPhoto) { ButtonContent(false, tr("See prescription", "প্রেসক্রিপশন দেখুন"), R.drawable.ic_add_photo_alternate) }
             IconLine(if (o.mode == "pickup") R.drawable.ic_shopping_bag else R.drawable.ic_local_shipping, if (o.mode == "pickup") tr("Customer will pick up", "গ্রাহক দোকান থেকে নেবেন") else tr("Home delivery", "বাসায় ডেলিভারি"))
             o.myReply?.let { r ->
-                SmallNote(tr("Your reply: ", "আপনার উত্তর: ") + (if (r.status == "all") tr("all", "সব আছে") else if (r.status == "some") tr("some", "কিছু আছে") else tr("none", "নেই")) + if (r.total > 0) " · " + taka(r.total) + (if (r.fee > 0) " + " + taka(r.fee) else "") else "")
+                SmallNote(tr("Your reply: ", "আপনার উত্তর: ") + (if (r.arrange) Pharmacies.etaLabel(r.eta) else if (r.status == "all") tr("all", "সব আছে") else if (r.status == "some") tr("some", "কিছু আছে") else tr("none", "নেই")) + if (r.total > 0) " · " + taka(r.total) + (if (r.fee > 0) " + " + taka(r.fee) else "") else "")
             }
             if (o.address.isNotBlank()) IconLine(R.drawable.ic_home_outline, o.address, MaterialTheme.colorScheme.onSurface)
             if (o.otherPhone.isNotBlank()) Button(onClick = { callPhone(context, o.otherPhone) }) { ButtonContent(false, tr("Call customer", "গ্রাহককে ফোন"), R.drawable.ic_call) }
@@ -882,7 +926,9 @@ private fun ShopOrderCard(o: MedOrder, busyId: String?, onPhoto: () -> Unit, onR
 @Composable
 private fun QuickReplyDialog(o: MedOrder, onDismiss: () -> Unit, onSent: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var status by remember { mutableStateOf(o.myReply?.status ?: "all") }
+    // "arrange" অ্যাপের ভেতরের বাছাই; সার্ভারে যায় status "all" + eta
+    var status by remember { mutableStateOf(if (o.myReply?.arrange == true) "arrange" else o.myReply?.status ?: "all") }
+    var eta by remember { mutableStateOf(o.myReply?.eta?.ifBlank { null } ?: "tomorrow") }
     var total by remember { mutableStateOf(o.myReply?.total?.takeIf { it > 0 }?.toString() ?: "") }
     var fee by remember { mutableStateOf(o.myReply?.fee?.takeIf { it > 0 }?.toString() ?: "") }
     var note by remember { mutableStateOf(o.myReply?.note ?: "") }
@@ -895,9 +941,20 @@ private fun QuickReplyDialog(o: MedOrder, onDismiss: () -> Unit, onSent: () -> U
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("all" to tr("Have all", "সব আছে"), "some" to tr("Have some", "কিছু আছে"), "none" to tr("Don't have", "নেই")).forEach { (k, l) ->
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "all" to tr("Have all", "সব আছে"), "some" to tr("Have some", "কিছু আছে"),
+                        "arrange" to tr("Can arrange", "আনিয়ে দিতে পারব"), "none" to tr("Don't have", "নেই"),
+                    ).forEach { (k, l) ->
                         FilterChip(selected = status == k, onClick = { status = k }, label = { Text(l) })
+                    }
+                }
+                if (status == "arrange") {
+                    Text(tr("By when", "কবে দিতে পারবেন"), style = MaterialTheme.typography.titleSmall)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("today" to tr("Today", "আজই"), "tomorrow" to tr("Tomorrow", "কাল"), "days" to tr("2-3 days", "২-৩ দিনে")).forEach { (k, l) ->
+                            FilterChip(selected = eta == k, onClick = { eta = k }, label = { Text(l) })
+                        }
                     }
                 }
                 if (status != "none") {
@@ -929,7 +986,8 @@ private fun QuickReplyDialog(o: MedOrder, onDismiss: () -> Unit, onSent: () -> U
                 if (errorMsg != null) return@TextButton
                 scope.launch {
                     busy = true
-                    runCatching { Pharmacies.reply(o.id, status, t, fee.toIntOrNull() ?: 0, note.trim(), altBrand) }
+                    val arrange = status == "arrange"
+                    runCatching { Pharmacies.reply(o.id, if (arrange) "all" else status, t, fee.toIntOrNull() ?: 0, note.trim(), altBrand, if (arrange) eta else null) }
                         .onSuccess { onSent() }.onFailure { errorMsg = it.message }
                     busy = false
                 }
@@ -1093,6 +1151,7 @@ private fun DrugSearch(onPick: (Drug) -> Unit) {
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Drugs.ensure(context) } }
         ready = true
+        Drugs.loadCustom()
     }
     val results by androidx.compose.runtime.produceState(initialValue = emptyList<Drug>(), query, ready) {
         value = if (!ready) emptyList() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { Drugs.search(query) }

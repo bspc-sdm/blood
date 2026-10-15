@@ -418,8 +418,15 @@ fun MyAmbulancesSection(profile: Profile) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
 
+    // মালিকের হিসাব: অ্যাপ থেকে কতবার ফোন, রেটিং, মন্তব্য, রিপোর্ট
+    var stats by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
+    var openStats by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
         runCatching { Ambulances.mine() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+        runCatching { Stock.ambulanceStats() }.onSuccess { o ->
+            val a = o.optJSONArray("items") ?: org.json.JSONArray()
+            stats = (0 until a.length()).associate { a.getJSONObject(it).let { x -> x.optString("id") to x } }
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -438,6 +445,7 @@ fun MyAmbulancesSection(profile: Profile) {
                     if (a.status == "suspended" || a.status == "rejected") {
                         AppealButton("ambulance")
                     }
+                    stats[a.id]?.let { st -> AmbulanceStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
                     if (a.status == "approved") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(tr("Available now", "এখন খালি আছি"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -561,6 +569,41 @@ fun ServiceTermsCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 2.dp).clickable { openUrl(context, TERMS_URL) },
             )
+        }
+    }
+}
+
+/** অ্যাম্বুলেন্স মালিকের নিজের হিসাব (শুধু তিনিই দেখেন) */
+@Composable
+private fun AmbulanceStatsBlock(st: org.json.JSONObject, expanded: Boolean, onToggle: () -> Unit) {
+    val calls = st.optJSONObject("calls") ?: org.json.JSONObject()
+    val rc = st.optInt("ratingCount")
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            tr("Calls from the app: ", "অ্যাপ থেকে ফোন: ") +
+                tr("${calls.optInt("7")} in 7 days · ${calls.optInt("30")} in 30 days", "৭ দিনে ${num(calls.optInt("7"))} · ৩০ দিনে ${num(calls.optInt("30"))}"),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            tr("Rating: ", "রেটিং: ") + (if (rc > 0) num(st.optDouble("rating").toString()) + " (${num(rc)})" else "—") +
+                if (st.optInt("reports") > 0) tr(" · ${st.optInt("reports")} report(s)", " · রিপোর্ট ${num(st.optInt("reports"))}টি") else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onToggle) { Text(if (expanded) tr("Hide details", "বিস্তারিত লুকান") else tr("Details", "বিস্তারিত")) }
+        if (expanded) {
+            val d = st.optJSONArray("daily") ?: org.json.JSONArray()
+            Text(tr("Calls per day, last 30 days", "গত ৩০ দিনে দিনে কতবার ফোন"), style = MaterialTheme.typography.titleSmall)
+            MiniBars((0 until d.length()).map { d.optInt(it) })
+            SmallNote(tr("${st.optInt("callers")} different people called from the app in total.", "মোট ${num(st.optInt("callers"))} জন আলাদা মানুষ অ্যাপ থেকে ফোন করেছেন।"))
+            val cm = st.optJSONArray("comments") ?: org.json.JSONArray()
+            if (cm.length() > 0) {
+                Text(tr("Recent ratings", "সাম্প্রতিক রেটিং"), style = MaterialTheme.typography.titleSmall)
+                (0 until cm.length()).forEach {
+                    val c = cm.getJSONObject(it)
+                    Text("★".repeat(c.optInt("rating").coerceIn(0, 5)) + if (c.optString("comment").isNotBlank()) "  " + c.optString("comment") else "", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }
