@@ -212,7 +212,8 @@ fun ProfileTab(
                 R.drawable.ic_history,
                 tr("Change last donation date", "শেষ রক্তদানের তারিখ বদলান"),
                 profile.lastDonationMillis?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি"),
-            ) { showDateDialog = true }
+                { showDateDialog = true },
+            )
             HorizontalDivider()
             ActionRow(R.drawable.ic_edit, tr("Edit profile", "প্রোফাইল এডিট"), null, onEditProfile)
             HorizontalDivider()
