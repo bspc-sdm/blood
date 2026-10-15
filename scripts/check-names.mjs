@@ -1,8 +1,8 @@
 // সহজ উচ্চারণের এক শব্দের নামের .com খালি আছে কি না (Verisign RDAP: 404 = খালি)।
 import { writeFileSync } from 'node:fs';
-const roots = ['caro', 'cura', 'medi', 'vita', 'sevo', 'jivo', 'helo', 'tendo', 'sano', 'kuro', 'lifo', 'amo', 'nira', 'suvo', 'pulso', 'medo', 'karo', 'sena', 'vela', 'nomo', 'rivo', 'tura', 'kemi', 'dovo', 'mira'];
-const ends = ['', 'la', 'va', 'ra', 'na', 'ko', 'lo', 'vi', 'ya', 'ly', 'go', 'zo', 'ni', 'mo', 'ti'];
-const extra = ['carevo', 'caremi', 'curaly', 'medvia', 'vitago', 'sevoka', 'jivoka', 'helvio', 'tendia', 'kurova', 'sanova', 'lifeso', 'amorio', 'nirova', 'suvola', 'medino', 'vitavo', 'carezo', 'jivana', 'pasho', 'shebo', 'arova', 'medlo', 'kindo', 'helpo', 'kairo', 'nuvo', 'zeno', 'luma', 'sobo', 'dakto', 'docko', 'medko', 'vaido', 'shastho', 'ranvo', 'tolu', 'kemo', 'bimo', 'jeevo'];
+const roots = ['care', 'cara', 'heal', 'hela', 'life', 'lifa', 'puls', 'aida', 'aido', 'medo', 'vida', 'vivo', 'kina', 'savi', 'nuro', 'ama', 'ela', 'oma', 'kura', 'lyfe', 'helth', 'curo', 'medi', 'vita', 'seva'];
+const ends = ['lo', 'la', 'ly', 'vo', 'va', 'ya', 'zo', 'ra', 'na', 'ko', 'go', 'mi', 'ni', 'ti', 'ri', 'o', 'a', 'io', 'ix', 'ify', 'ora', 'ova', 'ena', 'ero'];
+const extra = [];
 const names = new Set(extra);
 for (const r of roots) for (const e of ends) { const n = r + e; if (n.length >= 4 && n.length <= 7) names.add(n); }
 const out = [];
