@@ -83,7 +83,7 @@ fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
 
 /** রক্তের ব্যাগের ছবি, ভেতরে নম্বর; পূরণ হলে লাল ভরাট, নইলে শুধু রেখা */
 @Composable
-fun BloodBag(number: Int, filled: Boolean, onClick: (() -> Unit)? = null, description: String? = null) {
+fun BloodBag(number: Int, filled: Boolean, description: String? = null, onClick: (() -> Unit)? = null) {
     val red = MaterialTheme.colorScheme.error
     val empty = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
     Box(
