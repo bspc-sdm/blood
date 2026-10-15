@@ -62,7 +62,7 @@ android {
                 it.maxHeapSize = "3g"
                 // একটা টেস্ট ক্র্যাশ করলে বাকিগুলো যেন চলে
                 it.setForkEvery(1)
-                it.testLogging { events("started", "passed", "failed", "skipped"); showStandardStreams = false; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+                it.testLogging { events("started", "passed", "failed", "skipped"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
             }
         }
     }
