@@ -80,6 +80,8 @@ data class BloodRequest(
     val fulfilled: Boolean = false,
     /** কতজন ডোনার রাজি আছেন (শুধু সংখ্যা, সবাই দেখেন) */
     val acceptedCount: Int = 0,
+    /** রক্তপ্রার্থী জানিয়েছেন কত ব্যাগ পেয়েছেন (সব না পেলে রিকোয়েস্ট খোলা থাকে) */
+    val bagsReceived: Int = 0,
 ) {
     /** কাউন্টডাউন যে মুহূর্ত পর্যন্ত: দেওয়া সময়, না থাকলে ওই দিনের শেষ (বাংলাদেশের রাত ১২টা) */
     val deadlineMillis: Long

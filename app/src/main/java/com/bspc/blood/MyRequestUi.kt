@@ -63,7 +63,8 @@ fun AgreedLine(responses: List<DonorResponse>) {
 /** ১, ২, ৩… করে প্রতিটা ব্যাগ — যতগুলো পূরণ হয়েছে সেগুলো ভরাট */
 @Composable
 fun BagRow(r: BloodRequest, responses: List<DonorResponse>) {
-    val done = responses.willing().count { it.counts() }.coerceAtMost(r.bags)
+    // নিশ্চিত/রক্ত দেওয়া ডোনার, অথবা রক্তপ্রার্থী নিজে যত ব্যাগ পেয়েছেন বলেছেন — যেটা বেশি
+    val done = maxOf(responses.willing().count { it.counts() }, r.bagsReceived).coerceAtMost(r.bags)
     Row(
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -170,24 +171,26 @@ fun DonorRow(
 
 /** "রক্ত পেয়েছি": কে কে রক্ত দিয়েছেন বেছে রিকোয়েস্ট বন্ধ */
 @Composable
-fun CloseRequestDialog(requestId: String, bags: Int, responses: List<DonorResponse>, onDismiss: () -> Unit, onClose: (List<String>, Int) -> Unit) {
+fun CloseRequestDialog(requestId: String, bags: Int, responses: List<DonorResponse>, onDismiss: () -> Unit, onClose: (List<String>, Int) -> Unit, already: Int = 0) {
     val willing = responses.willing()
     // নিশ্চিত করা ডোনারদের আগে থেকেই টিক দেওয়া
     var donated by remember(requestId) { mutableStateOf(willing.filter { it.counts() }.map { it.donorUid }.toSet()) }
     // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); শুরুতে নিশ্চিত ডোনারের সংখ্যা
-    var received by remember(requestId) { mutableIntStateOf(donated.size.coerceIn(1, bags.coerceAtLeast(1))) }
+    var received by remember(requestId) { mutableIntStateOf(maxOf(donated.size, already).coerceIn(1, bags.coerceAtLeast(1))) }
+    // সব ব্যাগ পেলে বন্ধ; কম পেলে রিকোয়েস্ট খোলা থাকে, শুধু হিসাব সেভ হয়
+    val all = received >= bags
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?")) },
+        title = { Text(if (all) tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?") else tr("Blood received so far", "এখন পর্যন্ত কত রক্ত পেলেন")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(tr("Donors won't see it or get notified anymore.", "বন্ধ করলে ডোনাররা আর এটা দেখবেন না।"))
                 Text(tr("How many bags did you get?", "কত ব্যাগ পেয়েছেন?"), fontWeight = FontWeight.SemiBold)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..bags.coerceAtLeast(1)).forEach { i -> BloodBag(i, i <= received) { received = i } }
                 }
                 Text(
-                    tr("${num(received)} of ${num(bags)} bag(s)", "${num(bags)} ব্যাগের ${num(received)}টা পেয়েছি"),
+                    if (all) tr("All bags received — the request will close and donors won't see it anymore.", "সব ব্যাগ পেয়েছেন — রিকোয়েস্ট বন্ধ হবে, ডোনাররা আর দেখবেন না।")
+                    else tr("${num(received)} of ${num(bags)} received. The request stays open for the remaining ${num(bags - received)}.", "${num(bags)} ব্যাগের ${num(received)}টা পেয়েছেন। বাকি ${num(bags - received)}টার জন্য রিকোয়েস্ট চালু থাকবে।"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -205,7 +208,7 @@ fun CloseRequestDialog(requestId: String, bags: Int, responses: List<DonorRespon
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onClose(donated.toList(), received) }) { Text(tr("Close", "বন্ধ করুন")) } },
+        confirmButton = { TextButton(onClick = { onClose(donated.toList(), received) }) { Text(if (all) tr("Close", "বন্ধ করুন") else tr("Save", "সেভ করুন")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
     )
 }
@@ -275,6 +278,7 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
         CloseRequestDialog(
             requestId = r.id,
             bags = r.bags,
+            already = r.bagsReceived,
             responses = responses,
             onDismiss = { closing = null },
             onClose = { chosen, got ->

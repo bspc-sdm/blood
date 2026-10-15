@@ -24,10 +24,16 @@ module.exports = handler(async (req) => {
     const responses = responseRefs.length ? await t.getAll(...responseRefs) : [];
     const users = userRefs.length ? await t.getAll(...userRefs) : [];
 
-    // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); আগের অ্যাপ পাঠায় না
+    // কত ব্যাগ পেয়েছেন। সবগুলো না পেলে রিকোয়েস্ট খোলা থাকে (বাকি ব্যাগের জন্য), শুধু হিসাব আর ডোনার লেখা হয়।
+    // আগের অ্যাপ সংখ্যা পাঠায় না — তখন আগের মতো বন্ধ।
     const bags = reqSnap.get('bags') || 1;
     const got = Number.isInteger(req.body?.bagsReceived) ? Math.max(0, Math.min(bags, req.body.bagsReceived)) : null;
-    t.update(requestRef, { status: 'closed', closedAt: Date.now(), ...(got != null ? { bagsReceived: got } : {}) });
+    const partial = got != null && got < bags;
+    if (partial) {
+      t.update(requestRef, { bagsReceived: Math.max(got, reqSnap.get('bagsReceived') || 0), updatedAt: Date.now() });
+    } else {
+      t.update(requestRef, { status: 'closed', closedAt: Date.now(), ...(got != null ? { bagsReceived: got } : {}) });
+    }
     let marked = 0;
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন
@@ -39,7 +45,7 @@ module.exports = handler(async (req) => {
         t.update(userRefs[i], { lastDonationMillis: today });
       }
     });
-    return { marked };
+    return { marked, closed: !partial };
   });
 
   return { ok: true, ...result };

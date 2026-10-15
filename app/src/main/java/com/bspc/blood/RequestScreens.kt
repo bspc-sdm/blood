@@ -774,6 +774,7 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
         CloseRequestDialog(
             requestId = requestId,
             bags = request?.bags ?: 1,
+            already = request?.bagsReceived ?: 0,
             responses = responses,
             onDismiss = { confirmClose = false },
             onClose = { chosen, got ->
