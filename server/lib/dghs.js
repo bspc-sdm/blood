@@ -46,8 +46,32 @@ function editDistance(a, b) {
   return prev[n];
 }
 
+// বানান বা নাম বদলের কারণে আপনা থেকে না মেলা উপজেলা (DGHS নাম → আমাদের তালিকার id)
+const UPAZILA_ALIAS = {
+  saidpur: 422, // Syedpur
+  phultala: 207, // Fultola
+  dacope: 213, // Dakop
+  singair: 364, // Singiar
+  roypura: 315, // Raipura
+  matlabdakshin: 56, // Matlab South
+  matlabuttar: 58, // Matlab North
+  cumillaadarshasadar: 11, // Comilla Sadar
+  cumillasadardakshin: 14, // Sadarsouth
+  lakshmichari: 91, // Laxmichhari
+  senbagh: 49, // Senbug
+  fulchhari: 434, // Phulchari
+  rajibpur: 456, // Charrajibpur
+  raumari: 455, // Rowmari
+  royganj: 108, // Raigonj
+  indurkani: 245, // আগের Zianagar
+  shantiganj: 301, // আগের South Sunamganj
+  sulla: 309, // Shalla
+};
+
 /** জেলার ভেতরে সবচেয়ে কাছের নামের উপজেলা (না মিললে null) */
 function mapUpazila(districtBn, name) {
+  const alias = UPAZILA_ALIAS[letters(name)];
+  if (alias && UPAZILA.get(alias)?.district === districtBn) return alias;
   const k = upazilaKey(name);
   if (!k) return null;
   let best = null;
