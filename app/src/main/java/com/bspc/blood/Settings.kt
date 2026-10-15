@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.bspc.blood
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,179 +11,223 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-/** ইংরেজি অঙ্ক → বাংলা অঙ্ক */
-fun bnDigits(n: Int): String = n.toString().map { if (it.isDigit()) '০' + (it - '0') else it }.joinToString("")
-
 /**
- * সেটিংস: নোটিফিকেশন চালু/বন্ধ, দিনে কয়টা, কোন রোগীর গ্রুপের নোটিফিকেশন,
- * আর "রক্ত দরকার" তালিকায় কোন গ্রুপের রিকোয়েস্ট দেখাবে।
+ * সেটিংস (প্রোফাইল থেকে খোলে): ভাষা, থিম, নোটিফিকেশন, তালিকায় কোন গ্রুপ, এলাকা, অ্যাপ সম্পর্কে।
+ * প্রতিটা বদল সাথে সাথে সেভ হয়।
  */
 @Composable
-fun SettingsScreen(profile: Profile, onSaved: (Profile) -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(
+    profile: Profile,
+    onProfileChanged: (Profile) -> Unit,
+    onChangeLocation: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var errorMsg by remember { mutableStateOf<String?>(null) }
     val compatible = profile.compatibleGroups
 
-    var notify by remember { mutableStateOf(profile.notify) }
-    var maxPush by remember { mutableIntStateOf(profile.maxPushPerDay) }
-    var notifyGroups by remember { mutableStateOf(profile.effectiveNotifyGroups.toSet()) }
-    var viewGroups by remember { mutableStateOf(profile.effectiveViewGroups.toSet()) }
-    var busy by remember { mutableStateOf(false) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var hint by remember { mutableStateOf<String?>(null) }
+    fun save(updated: Profile) {
+        val uid = AuthRepository.currentUid ?: return
+        onProfileChanged(updated)
+        scope.launch {
+            runCatching { ProfileRepository.saveSettings(uid, updated) }
+                .onSuccess { errorMsg = null }
+                .onFailure { errorMsg = tr("Couldn't save. Check your internet.", "সেভ হয়নি, ইন্টারনেট দেখুন।") }
+        }
+    }
 
+    /** সব মানানসই গ্রুপ বাছা থাকলে null রাখা হয়, যাতে রক্তের গ্রুপ বদলালে নিজে থেকে মিলে যায় */
+    fun normalize(set: Set<String>, default: List<String>): List<String>? =
+        if (set == default.toSet()) null else Rules.BLOOD_GROUPS.filter { it in set }
+
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
+    }
+
+    Scaffold(topBar = { BackTopBar(tr("Settings", "সেটিংস"), onBack) }) { padding ->
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(onClick = onBack) { Text("← ফিরে যান") }
-        Text("⚙️ সেটিংস", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        ErrorText(errorMsg)
+
+        // ---- ভাষা ও থিম ----
+        SettingsCard {
+            SettingLabel(R.drawable.ic_language, tr("Language", "ভাষা"))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                listOf(Lang.EN to "English", Lang.BN to "বাংলা").forEachIndexed { i, (l, label) ->
+                    SegmentedButton(
+                        selected = AppPrefs.lang.value == l,
+                        onClick = { AppPrefs.setLang(context, l) },
+                        shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    ) { Text(label) }
+                }
+            }
+            HorizontalDivider(Modifier.padding(top = 16.dp))
+            SettingLabel(R.drawable.ic_dark_mode, tr("Theme", "থিম"))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                val modes = listOf(
+                    ThemeMode.SYSTEM to tr("System", "ফোনের মতো"),
+                    ThemeMode.LIGHT to tr("Light", "লাইট"),
+                    ThemeMode.DARK to tr("Dark", "ডার্ক"),
+                )
+                modes.forEachIndexed { i, (m, label) ->
+                    SegmentedButton(
+                        selected = AppPrefs.theme.value == m,
+                        onClick = { AppPrefs.setTheme(context, m) },
+                        shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+                    ) { Text(label, maxLines = 1) }
+                }
+            }
+        }
 
         // ---- নোটিফিকেশন ----
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("নোটিফিকেশন", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "আশেপাশে রক্ত দরকার হলে সাথে সাথে জানাবে",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+        SettingsCard {
+            ListItem(
+                headlineContent = { Text(tr("Notifications", "নোটিফিকেশন")) },
+                supportingContent = { Text(tr("When someone nearby needs blood", "আশেপাশে কারো রক্ত লাগলে")) },
+                leadingContent = { AppIcon(R.drawable.ic_notifications, null) },
+                trailingContent = {
+                    Switch(checked = profile.notify, onCheckedChange = { save(profile.copy(notify = it)) })
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            if (profile.notify) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr("Maximum per day", "দিনে সর্বোচ্চ"), style = MaterialTheme.typography.labelLarge)
+                    ChipRows(Rules.PUSH_PER_DAY_CHOICES.map { it.toString() }, setOf(profile.maxPushPerDay.toString()), perRow = 5, label = { num(it) }) {
+                        save(profile.copy(maxPushPerDay = it.toInt()))
                     }
-                    Switch(checked = notify, onCheckedChange = { notify = it })
-                }
-
-                if (notify) {
-                    Text("দিনে সর্বোচ্চ কয়টা নোটিফিকেশন চান", fontWeight = FontWeight.SemiBold)
-                    // ছোট ফোনেও যেন জায়গা হয়, প্রতি সারিতে ৩টা
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Rules.PUSH_PER_DAY_CHOICES.chunked(3).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { n ->
-                                    FilterChip(
-                                        selected = maxPush == n,
-                                        onClick = { maxPush = n },
-                                        label = { Text("${bnDigits(n)}টা") },
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Text("কোন গ্রুপের রোগীর জন্য নোটিফিকেশন চান", fontWeight = FontWeight.SemiBold)
-                    GroupMultiChips(compatible, notifyGroups) { g ->
-                        if (g in notifyGroups && notifyGroups.size == 1) {
-                            hint = "কমপক্ষে একটা গ্রুপ রাখতে হবে। কোনো নোটিফিকেশন না চাইলে উপরের সুইচ বন্ধ করুন।"
-                        } else {
-                            hint = null
-                            notifyGroups = if (g in notifyGroups) notifyGroups - g else notifyGroups + g
-                        }
+                    Text(tr("For patient blood groups", "রোগীর যে গ্রুপগুলোর জন্য"), style = MaterialTheme.typography.labelLarge)
+                    val selected = profile.effectiveNotifyGroups.toSet()
+                    ChipRows(compatible, selected) { g ->
+                        val next = if (g in selected) selected - g else selected + g
+                        if (next.isNotEmpty()) save(profile.copy(notifyGroups = normalize(next, compatible)))
                     }
                     Text(
-                        "আপনার গ্রুপ (${profile.bloodGroup}) থেকে শুধু এই গ্রুপগুলোর রোগীকে রক্ত দেওয়া যায়, তাই নোটিফিকেশনের জন্য এগুলোই দেখানো হচ্ছে।",
+                        tr(
+                            "Only groups you (${profile.bloodGroup}) can donate to.",
+                            "শুধু যাদের আপনি (${profile.bloodGroup}) রক্ত দিতে পারেন।",
+                        ),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
 
-        // ---- তালিকায় কোন গ্রুপ ----
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("\"রক্ত দরকার\" তালিকায় কোন গ্রুপের রিকোয়েস্ট দেখবেন", style = MaterialTheme.typography.titleMedium)
-                GroupMultiChips(Rules.BLOOD_GROUPS, viewGroups) { g ->
-                    if (g in viewGroups && viewGroups.size == 1) {
-                        hint = "তালিকার জন্য কমপক্ষে একটা গ্রুপ রাখতে হবে।"
-                    } else {
-                        hint = null
-                        viewGroups = if (g in viewGroups) viewGroups - g else viewGroups + g
-                    }
-                }
-                Text(
-                    "যাদের আপনি রক্ত দিতে পারেন না, তাদের রিকোয়েস্টও বেছে নিয়ে দেখতে পারেন — পরিচিতদের জানানোর জন্য। এগুলোর নোটিফিকেশন আসবে না।",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (viewGroups != compatible.toSet()) {
-                    TextButton(onClick = { viewGroups = compatible.toSet() }) {
-                        Text("শুধু যাদের রক্ত দিতে পারি")
-                    }
+        // ---- তালিকা ও এলাকা ----
+        SettingsCard {
+            SettingLabel(R.drawable.ic_tune, tr("Show requests for", "যে গ্রুপের রিকোয়েস্ট দেখাবে"))
+            Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val selected = profile.effectiveViewGroups.toSet()
+                ChipRows(Rules.BLOOD_GROUPS, selected) { g ->
+                    val next = if (g in selected) selected - g else selected + g
+                    if (next.isNotEmpty()) save(profile.copy(viewGroups = normalize(next, compatible)))
                 }
             }
+            HorizontalDivider(Modifier.padding(top = 16.dp))
+            ListItem(
+                headlineContent = { Text(tr("Area", "এলাকা")) },
+                supportingContent = { Text(Districts.label(profile.placeName)) },
+                leadingContent = { AppIcon(R.drawable.ic_location_on, null) },
+                trailingContent = { AppIcon(R.drawable.ic_chevron_right, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable(onClick = onChangeLocation),
+            )
         }
 
-        InfoText(hint)
-        ErrorText(errorMsg)
-
-        Button(
-            onClick = {
-                val uid = AuthRepository.currentUid ?: return@Button
-                // যাদের দিতে পারেন তাদের সবাই বাছা থাকলে null রাখা হয়, যাতে রক্তের গ্রুপ বদলালে নিজে থেকে মিলে যায়
-                val updated = profile.copy(
-                    notify = notify,
-                    maxPushPerDay = maxPush,
-                    notifyGroups = notifyGroups.takeIf { it != compatible.toSet() }
-                        ?.let { s -> Rules.BLOOD_GROUPS.filter { it in s } },
-                    viewGroups = viewGroups.takeIf { it != compatible.toSet() }
-                        ?.let { s -> Rules.BLOOD_GROUPS.filter { it in s } },
-                )
-                scope.launch {
-                    busy = true
-                    errorMsg = null
-                    runCatching { ProfileRepository.saveSettings(uid, updated) }
-                        .onSuccess { onSaved(updated) }
-                        .onFailure { errorMsg = "সেভ হয়নি: ${it.message}" }
-                    busy = false
-                }
-            },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
-        ) { ButtonContent(busy, "সেভ করুন") }
+        // ---- অ্যাপ সম্পর্কে ----
+        SettingsCard {
+            ListItem(
+                headlineContent = { Text(tr("Privacy policy", "প্রাইভেসি পলিসি")) },
+                leadingContent = { AppIcon(R.drawable.ic_privacy_tip, null) },
+                trailingContent = { AppIcon(R.drawable.ic_chevron_right, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable { openUrl(context, PRIVACY_URL) },
+            )
+            ListItem(
+                headlineContent = { Text(tr("Contact support", "সাপোর্টে যোগাযোগ")) },
+                supportingContent = { Text(SUPPORT_EMAIL) },
+                leadingContent = { AppIcon(R.drawable.ic_mail, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable { sendEmail(context, SUPPORT_EMAIL) },
+            )
+            ListItem(
+                headlineContent = { Text(tr("Version", "ভার্সন")) },
+                supportingContent = { Text(num(version)) },
+                leadingContent = { AppIcon(R.drawable.ic_info, null) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+        }
+    }
     }
 }
 
-/** একাধিক রক্তের গ্রুপ বাছাইয়ের চিপ (প্রতি সারিতে ৪টা) */
 @Composable
-fun GroupMultiChips(options: List<String>, selected: Set<String>, onToggle: (String) -> Unit) {
+private fun SettingsCard(content: @Composable () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) { Column { content() } }
+}
+
+@Composable
+private fun SettingLabel(icon: Int, text: String) {
+    ListItem(
+        headlineContent = { Text(text) },
+        leadingContent = { AppIcon(icon, null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+}
+
+/** চিপের সারি (একাধিক বাছাই) */
+@Composable
+fun ChipRows(
+    options: List<String>,
+    selected: Set<String>,
+    perRow: Int = 4,
+    label: (String) -> String = { it },
+    onToggle: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        options.chunked(4).forEach { row ->
+        options.chunked(perRow).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { g ->
                     FilterChip(
                         selected = g in selected,
                         onClick = { onToggle(g) },
-                        label = { Text(g, fontWeight = FontWeight.Bold) },
+                        label = { Text(label(g), fontWeight = FontWeight.Bold) },
                     )
                 }
             }
         }
     }
-}
-
-/** প্রোফাইল ট্যাবে সেটিংসের সংক্ষিপ্ত বিবরণ */
-fun settingsSummary(p: Profile): String {
-    val notif = if (!p.notify) {
-        "নোটিফিকেশন বন্ধ"
-    } else {
-        "দিনে সর্বোচ্চ ${bnDigits(p.maxPushPerDay)}টা নোটিফিকেশন · ${p.effectiveNotifyGroups.joinToString(", ")}"
-    }
-    return "$notif\nতালিকায়: ${p.effectiveViewGroups.joinToString(", ")}"
 }

@@ -12,20 +12,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,11 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+
+private data class NavItem(val label: String, val selectedIcon: Int, val icon: Int)
 
 @Composable
 fun MainScreen(
@@ -51,6 +56,7 @@ fun MainScreen(
     onTabChange: (Int) -> Unit,
     onOpenRequest: (String) -> Unit,
     onOpenMyRequest: (String) -> Unit,
+    onOpenMyRequests: () -> Unit,
     onNewRequest: () -> Unit,
     onEditProfile: () -> Unit,
     onChangeLocation: () -> Unit,
@@ -58,13 +64,17 @@ fun MainScreen(
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenSettings: () -> Unit,
+    community: CommunityMe?,
+    onCommunityChanged: (CommunityMe) -> Unit,
+    onOpenQuestion: (String) -> Unit,
+    onAsk: () -> Unit,
+    onOpenTip: (Tip) -> Unit,
+    onPostTip: () -> Unit,
 ) {
     val context = LocalContext.current
 
     // Android 13+ এ নোটিফিকেশনের অনুমতি চাওয়া
-    val notifLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -94,16 +104,30 @@ fun MainScreen(
         }
     }
 
-    val tabs = listOf("🩸" to "রক্ত দরকার", "📋" to "আমার রিকোয়েস্ট", "👤" to "প্রোফাইল")
+    val items = listOf(
+        NavItem(tr("Home", "হোম"), R.drawable.ic_home_filled, R.drawable.ic_home_outline),
+        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_event_filled, R.drawable.ic_event_outline),
+        NavItem(tr("Discussion", "আলোচনা"), R.drawable.ic_forum_filled, R.drawable.ic_forum_outline),
+        NavItem(tr("Health Tips", "হেলথ টিপস"), R.drawable.ic_lightbulb_filled, R.drawable.ic_lightbulb_outline),
+        NavItem(tr("Profile", "প্রোফাইল"), R.drawable.ic_person_filled, R.drawable.ic_person_outline),
+    )
+
     Scaffold(
         bottomBar = {
             NavigationBar {
-                tabs.forEachIndexed { i, (icon, label) ->
+                items.forEachIndexed { i, item ->
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { onTabChange(i) },
-                        icon = { Text(icon) },
-                        label = { Text(label) },
+                        icon = { AppIcon(if (tab == i) item.selectedIcon else item.icon, null) },
+                        label = {
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
                     )
                 }
             }
@@ -111,28 +135,59 @@ fun MainScreen(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                0 -> NearbyTab(profile, onOpenRequest, onChangeLocation, onOpenSettings)
-                1 -> MyRequestsTab(onOpenMyRequest, onNewRequest)
-                else -> ProfileTab(profile, onEditProfile, onChangeLocation, onLogout, onOpenAdmin, onOpenSettings)
+                Tabs.HOME -> HomeTab(profile, onOpenRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
+                Tabs.APPOINTMENT -> AppointmentTab()
+                Tabs.DISCUSSION -> HealthDiscussionTab(onOpenQuestion, onAsk)
+                Tabs.TIPS -> HealthTipsTab(community, onOpenTip, onPostTip)
+                else -> ProfileTab(
+                    profile = profile,
+                    community = community,
+                    onCommunityChanged = onCommunityChanged,
+                    onEditProfile = onEditProfile,
+                    onOpenMyRequests = onOpenMyRequests,
+                    onOpenSettings = onOpenSettings,
+                    onProfileChanged = onProfileChanged,
+                    onLogout = onLogout,
+                    onOpenAdmin = onOpenAdmin,
+                )
             }
         }
     }
 }
 
+// ------------------------------------------------------------
+// হোম
+// ------------------------------------------------------------
+
 @Composable
-fun NearbyTab(
+fun HomeTab(
     profile: Profile,
     onOpenRequest: (String) -> Unit,
+    onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Pair<BloodRequest, Double>>>(emptyList()) }
     var processing by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
-    val notEligible = Rules.notEligibleReason(profile)
     val groups = profile.effectiveViewGroups
+
+    LaunchedEffect(reload, profile.lat, profile.lng, groups) {
+        val lat = profile.lat
+        val lng = profile.lng
+        if (lat == null || lng == null) {
+            loading = false
+            return@LaunchedEffect
+        }
+        loading = true
+        errorMsg = null
+        runCatching { RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid) }
+            .onSuccess { list = it }
+            .onFailure { errorMsg = tr("Couldn't load requests", "রিকোয়েস্ট লোড হয়নি") }
+        loading = false
+    }
 
     // যেসব রিকোয়েস্টে রক্ত দিতে রাজি হয়েছেন (প্রসেসিং), কাউন্টডাউন সহ উপরে দেখায়
     LaunchedEffect(reload, profile.commitments) {
@@ -145,251 +200,155 @@ fun NearbyTab(
     }
     val processingIds = processing.map { it.id }.toSet()
     val others = list.filter { it.first.id !in processingIds }
+    val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
-    LaunchedEffect(reload, profile.lat, profile.lng, groups) {
-        val lat = profile.lat
-        val lng = profile.lng
-        if (lat == null || lng == null) {
-            loading = false
-            return@LaunchedEffect
-        }
-        loading = true
-        errorMsg = null
-        runCatching {
-            RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid)
-        }.onSuccess { list = it }.onFailure { errorMsg = "লোড হয়নি: ${it.message}" }
-        loading = false
-    }
-
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Column {
-                Text(
-                    "আশেপাশে রক্ত দরকার",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "${profile.placeName ?: ""} এলাকা · " + if (profile.viewGroups == null) {
-                        "${profile.bloodGroup} গ্রুপ দিতে পারে এমন রিকোয়েস্ট"
-                    } else {
-                        "${groups.joinToString(", ")} গ্রুপের রিকোয়েস্ট"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row {
-                    TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
-                    TextButton(onClick = onChangeLocation) { Text("📍 এলাকা") }
-                    TextButton(onClick = onOpenSettings) { Text("⚙️ গ্রুপ বাছাই") }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Logo()
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+                    IconButton(onClick = onOpenProfile) {
+                        if (avatar != null) {
+                            androidx.compose.foundation.Image(
+                                avatar,
+                                contentDescription = tr("Profile", "প্রোফাইল"),
+                                modifier = Modifier.size(32.dp).clip(CircleShape),
+                            )
+                        } else {
+                            AppIcon(R.drawable.ic_account_circle, tr("Profile", "প্রোফাইল"), Modifier.size(32.dp))
+                        }
+                    }
                 }
             }
-        }
-        if (processing.isNotEmpty()) {
-            items(processing, key = { "p_" + it.id }) { r ->
-                ProcessingCard(r) { onOpenRequest(r.id) }
+
+            if (processing.isNotEmpty()) {
+                items(processing, key = { "p_" + it.id }) { r -> ProcessingCard(r) { onOpenRequest(r.id) } }
             }
-        }
-        if (notEligible != null) {
+
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "$notEligible। এখন নতুন রিকোয়েস্টের নোটিফিকেশন আসবে না, তবে তালিকা দেখতে আর পরিচিতদের জানাতে পারবেন।",
-                        Modifier.padding(16.dp),
+                        tr("Nearby Requests", "আশেপাশের রিকোয়েস্ট"),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AssistChip(
+                        onClick = onChangeLocation,
+                        label = { Text(Districts.label(profile.placeName), maxLines = 1) },
+                        leadingIcon = { AppIcon(R.drawable.ic_location_on, null, Modifier.size(18.dp)) },
                     )
                 }
             }
+
+            when {
+                loading && others.isEmpty() -> item { LoadingBox() }
+                errorMsg != null -> item {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ErrorText(errorMsg)
+                        TextButton(onClick = { reload++ }) { Text(tr("Try again", "আবার চেষ্টা করুন")) }
+                    }
+                }
+                others.isEmpty() -> item {
+                    Column(
+                        Modifier.fillParentMaxHeight(0.75f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        EmptyState(
+                            R.drawable.ic_volunteer_activism,
+                            tr("Good news!", "সুখবর!"),
+                            tr("No requests in the queue right now.", "এই মুহূর্তে আশেপাশে কোনো রিকোয়েস্ট নেই।"),
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        Button(onClick = onNewRequest) {
+                            ButtonContent(false, tr("Create Request", "রিকোয়েস্ট দিন"), R.drawable.ic_add)
+                        }
+                    }
+                }
+                else -> items(others, key = { it.first.id }) { (r, d) -> RequestCard(r, d) { onOpenRequest(r.id) } }
+            }
         }
-        when {
-            loading -> item { LoadingBox() }
-            errorMsg != null -> item { ErrorText(errorMsg) }
-            others.isEmpty() -> item {
-                Text(
-                    "এই মুহূর্তে আপনার আশেপাশে (২৫ কিমির মধ্যে) মেলে এমন কোনো খোলা রিকোয়েস্ট নেই।",
-                    Modifier.padding(vertical = 24.dp),
-                )
-            }
-            else -> items(others, key = { it.first.id }) { (r, d) ->
-                RequestCard(r, d) { onOpenRequest(r.id) }
-            }
+
+        if (others.isNotEmpty()) {
+            ExtendedFloatingActionButton(
+                onClick = onNewRequest,
+                icon = { AppIcon(R.drawable.ic_add, null) },
+                text = { Text(tr("Create Request", "রিকোয়েস্ট দিন")) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            )
         }
     }
 }
 
+// ------------------------------------------------------------
+// আমার রিকোয়েস্ট (প্রোফাইল থেকে)
+// ------------------------------------------------------------
+
 @Composable
-fun MyRequestsTab(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit) {
-    var reload by remember { mutableIntStateOf(0) }
+fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
 
-    LaunchedEffect(reload) {
+    LaunchedEffect(Unit) {
         val uid = AuthRepository.currentUid ?: return@LaunchedEffect
-        loading = true
-        errorMsg = null
         runCatching { RequestRepository.mine(uid) }
-            .onSuccess { list = it }
-            .onFailure { errorMsg = "লোড হয়নি: ${it.message}" }
+            .onSuccess { l -> list = l.sortedWith(compareByDescending<BloodRequest> { it.isActive }.thenByDescending { it.serverCreatedMillis }) }
+            .onFailure { errorMsg = tr("Couldn't load", "লোড হয়নি") }
         loading = false
     }
     val activeCount = list.count { it.isActive }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "আমার রিকোয়েস্ট",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Button(
+    Scaffold(
+        topBar = { BackTopBar(tr("My Requests", "আমার রিকোয়েস্ট"), onBack) },
+        floatingActionButton = {
+            if (!loading && activeCount < Rules.MAX_OPEN_REQUESTS) {
+                ExtendedFloatingActionButton(
                     onClick = onNewRequest,
-                    enabled = !loading && activeCount < Rules.MAX_OPEN_REQUESTS,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("➕ নতুন রক্তের রিকোয়েস্ট দিন") }
-                if (activeCount >= Rules.MAX_OPEN_REQUESTS) {
-                    Text(
-                        "একসাথে সর্বোচ্চ ${Rules.MAX_OPEN_REQUESTS}টা খোলা রিকোয়েস্ট রাখা যায়। আগেরটা বন্ধ করে নতুনটা দিন।",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
-            }
-        }
-        when {
-            loading -> item { LoadingBox() }
-            errorMsg != null -> item { ErrorText(errorMsg) }
-            list.isEmpty() -> item {
-                Text("আপনি এখনো কোনো রিকোয়েস্ট দেননি।", Modifier.padding(vertical = 24.dp))
-            }
-            else -> items(list, key = { it.id }) { r ->
-                RequestCard(r, null) { onOpenMyRequest(r.id) }
-            }
-        }
-    }
-}
-
-@Composable
-fun ProfileTab(
-    profile: Profile,
-    onEditProfile: () -> Unit,
-    onChangeLocation: () -> Unit,
-    onLogout: () -> Unit,
-    onOpenAdmin: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    val context = LocalContext.current
-    val notEligible = Rules.notEligibleReason(profile)
-    val eligible = notEligible == null
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            "স্বাগতম, ${profile.name}",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("আপনার রক্তের গ্রুপ", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    profile.bloodGroup,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = BloodRed,
-                )
-                Text(
-                    profile.lastDonationMillis?.let { "শেষ রক্তদান: ${Rules.formatDate(it)}" }
-                        ?: "আগে কখনো রক্ত দেননি",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    listOfNotNull(
-                        Rules.ageYears(profile.birthDateMillis)?.let { "বয়স $it বছর" },
-                        profile.weightKg?.let { "ওজন $it কেজি" },
-                        profile.phone.ifBlank { null },
-                    ).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
+                    icon = { AppIcon(R.drawable.ic_add, null) },
+                    text = { Text(tr("Create Request", "রিকোয়েস্ট দিন")) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
             }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (eligible) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-            ),
+        },
+    ) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (eligible) {
+            if (activeCount >= Rules.MAX_OPEN_REQUESTS) {
+                item {
                     Text(
-                        "✅ আপনি এখন রক্ত দিতে পারবেন",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                } else {
-                    Text(
-                        "⏳ এখন রক্ত দিতে পারবেন না",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(notEligible ?: "")
-                }
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("এলাকা", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        (profile.placeName ?: "ঠিক করা হয়নি") +
-                            if (profile.locationSource == "gps") " (বর্তমান লোকেশন)" else "",
-                        style = MaterialTheme.typography.bodyLarge,
+                        tr(
+                            "You can keep up to ${num(Rules.MAX_OPEN_REQUESTS)} open requests.",
+                            "একসাথে সর্বোচ্চ ${num(Rules.MAX_OPEN_REQUESTS)}টা খোলা রিকোয়েস্ট রাখা যায়।",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = onChangeLocation) { Text("বদলান") }
             }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("⚙️ নোটিফিকেশন ও তালিকা", style = MaterialTheme.typography.titleMedium)
-                    Text(settingsSummary(profile), style = MaterialTheme.typography.bodySmall)
+            when {
+                loading -> item { LoadingBox() }
+                errorMsg != null -> item { ErrorText(errorMsg) }
+                list.isEmpty() -> item {
+                    Box(Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        EmptyState(R.drawable.ic_list_alt, tr("No requests yet", "এখনো কোনো রিকোয়েস্ট দেননি"), null)
+                    }
                 }
-                TextButton(onClick = onOpenSettings) { Text("সেটিংস") }
+                else -> items(list, key = { it.id }) { r -> RequestCard(r, null) { onOpenMyRequest(r.id) } }
             }
-        }
-
-        CorrectionCard(profile)
-
-        OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
-            Text("প্রোফাইল এডিট")
-        }
-        // শুধু অ্যাডমিনের অ্যাকাউন্টে দেখায়; আসল যাচাই সার্ভারে
-        if (AuthRepository.currentEmail.equals(SUPPORT_EMAIL, ignoreCase = true)) {
-            OutlinedButton(onClick = onOpenAdmin, modifier = Modifier.fillMaxWidth()) {
-                Text("🛠 অ্যাডমিন: তারিখ সংশোধনের অনুরোধ")
-            }
-        }
-        Disclaimer()
-        Row {
-            TextButton(onClick = { openUrl(context, PRIVACY_URL) }) { Text("প্রাইভেসি পলিসি") }
-            TextButton(onClick = onLogout) { Text("লগআউট") }
         }
     }
 }

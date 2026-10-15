@@ -26,4 +26,10 @@ async function verifyAdmin(req) {
   return decoded.uid;
 }
 
-module.exports = { verifyAdmin };
+/** যাচাই করা টোকেন অ্যাডমিনের কি না */
+function isAdminToken(decoded) {
+  const email = (decoded.email || '').toLowerCase();
+  return !!decoded.email_verified && adminEmails().includes(email);
+}
+
+module.exports = { verifyAdmin, isAdminToken };

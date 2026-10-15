@@ -26,6 +26,8 @@ data class Profile(
     val viewGroups: List<String>? = null,
     /** যেসব রিকোয়েস্টে "রক্ত দেব" চেপেছেন (সার্ভার লেখে); প্রসেসিং তালিকার জন্য */
     val commitments: List<String> = emptyList(),
+    /** প্রোফাইলের ছবি: ছোট JPEG, base64 (শুধু নিজে দেখেন) */
+    val photo: String? = null,
 ) {
     /** এই ডোনার যেসব রোগীর গ্রুপকে রক্ত দিতে পারেন */
     val compatibleGroups: List<String> get() = BloodCompat.patientsFor(bloodGroup)

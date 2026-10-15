@@ -30,7 +30,16 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon 2>&1 | tee build.log
+      # বিল্ড ব্যর্থ হলে কম্পাইলের ভুলগুলো annotation হিসেবে দেখানো (API দিয়ে পড়া যায়)
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line//$'\r'/}"
+          done
 
       - uses: actions/upload-artifact@v4
         with:

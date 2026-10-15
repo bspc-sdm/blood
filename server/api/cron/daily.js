@@ -33,7 +33,7 @@ module.exports = handler(
       .map((d) => ({
         uid: d.id,
         token: d.get('fcmToken'),
-        title: 'আপনি আবার রক্ত দিতে পারবেন ❤️',
+        title: 'আপনি আবার রক্ত দিতে পারবেন',
         body: 'অ্যাপ খুলে দেখুন আপনার আশেপাশে কারো রক্ত লাগবে কি না।',
         data: { type: 'eligible' },
       }));

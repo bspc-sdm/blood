@@ -86,13 +86,13 @@ object ServerApi {
     /** লগইন: কোড যাচাই, Firebase লগইন টোকেন ফেরত দেয় */
     suspend fun verifyLoginCode(email: String, code: String): String =
         request("/api/auth/verify-code", JSONObject().put("email", email).put("code", code), null)
-            .optString("token").ifBlank { throw IllegalStateException("লগইন হয়নি, আবার চেষ্টা করুন") }
+            .optString("token").ifBlank { throw IllegalStateException(tr("Login failed, try again", "লগইন হয়নি, আবার চেষ্টা করুন")) }
 
-    private suspend fun post(path: String, body: JSONObject): JSONObject {
+    internal suspend fun post(path: String, body: JSONObject): JSONObject {
         val user = FirebaseAuth.getInstance().currentUser
-            ?: throw IllegalStateException("আবার লগইন করুন")
+            ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
         val token = user.getIdToken(false).await().token
-            ?: throw IllegalStateException("আবার লগইন করুন")
+            ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
         return request(path, body, token)
     }
 
@@ -113,11 +113,11 @@ object ServerApi {
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 val json = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
                 if (code !in 200..299) {
-                    throw IllegalStateException(json.optString("error").ifBlank { "সার্ভারে সমস্যা ($code)" })
+                    throw IllegalStateException(json.optString("error").ifBlank { tr("Server error ($code)", "সার্ভারে সমস্যা ($code)") })
                 }
                 json
             } catch (e: java.io.IOException) {
-                throw IllegalStateException("সার্ভারে পৌঁছানো যায়নি। ইন্টারনেট দেখে আবার চেষ্টা করুন।")
+                throw IllegalStateException(tr("Couldn't reach the server. Check your internet.", "সার্ভারে পৌঁছানো যায়নি। ইন্টারনেট দেখে আবার চেষ্টা করুন।"))
             } finally {
                 conn.disconnect()
             }

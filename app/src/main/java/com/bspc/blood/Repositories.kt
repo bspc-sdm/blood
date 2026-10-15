@@ -64,6 +64,7 @@ object ProfileRepository {
             notifyGroups = groupList(snap.get("notifyGroups")),
             viewGroups = groupList(snap.get("viewGroups")),
             commitments = (snap.get("commitments") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty(),
+            photo = snap.getString("photo"),
         )
     }
 
@@ -116,6 +117,13 @@ object ProfileRepository {
 
     suspend fun setNotify(uid: String, on: Boolean) {
         users.document(uid).set(mapOf("notify" to on), SetOptions.merge()).await()
+    }
+
+    /** প্রোফাইলের ছবি সেভ (null দিলে মুছে যায়) */
+    suspend fun savePhoto(uid: String, base64: String?) {
+        users.document(uid)
+            .set(mapOf("photo" to (base64 ?: FieldValue.delete())), SetOptions.merge())
+            .await()
     }
 
     /** প্রসেসিং তালিকায় একটা রিকোয়েস্ট যোগ (সার্ভারও লেখে; পুরোনো সাড়ার জন্য অ্যাপ নিজে মিলিয়ে নেয়) */

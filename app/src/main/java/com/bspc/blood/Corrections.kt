@@ -5,6 +5,8 @@ package com.bspc.blood
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -82,7 +87,7 @@ object CorrectionRepository {
     }
 }
 
-/** প্রোফাইল পাতায়: অনুরোধের অবস্থা আর নতুন অনুরোধের বাটন */
+/** প্রোফাইল পাতায়: শেষ রক্তদানের তারিখ ভুল হলে সংশোধনের অনুরোধ */
 @Composable
 fun CorrectionCard(profile: Profile) {
     if (profile.lastDonationMillis == null) return
@@ -97,26 +102,25 @@ fun CorrectionCard(profile: Profile) {
         latest = runCatching { CorrectionRepository.latest(uid) }.getOrNull()
     }
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("শেষ রক্তদানের তারিখ ভুল?", style = MaterialTheme.typography.titleSmall)
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(tr("Wrong last donation date?", "শেষ রক্তদানের তারিখ ভুল?"), style = MaterialTheme.typography.titleSmall)
             val l = latest
-            when (l?.status) {
-                "pending" -> Text(
-                    "আপনার সংশোধনের অনুরোধ অ্যাডমিনের কাছে আছে: " +
-                        (l.requestedMillis?.let { Rules.formatDate(it) } ?: "কখনো রক্ত দিইনি"),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                "approved" -> Text("আপনার শেষ অনুরোধটি অনুমোদিত হয়েছে ✅", style = MaterialTheme.typography.bodySmall)
-                "rejected" -> Text("আপনার শেষ অনুরোধটি বাতিল হয়েছে", style = MaterialTheme.typography.bodySmall)
-                else -> Text(
-                    "আগের তারিখে নেওয়া বা মুছে ফেলা অ্যাপ থেকে সরাসরি করা যায় না। অ্যাডমিনের কাছে অনুরোধ পাঠান।",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            val status = when (l?.status) {
+                "pending" -> tr("Your correction request is under review.", "আপনার সংশোধনের অনুরোধ যাচাই চলছে।")
+                "approved" -> tr("Your last request was approved.", "আপনার শেষ অনুরোধ অনুমোদিত হয়েছে।")
+                "rejected" -> tr("Your last request was not approved.", "আপনার শেষ অনুরোধ অনুমোদন হয়নি।")
+                else -> null
+            }
+            if (status != null) {
+                Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             InfoText(infoMsg)
             if (l?.status != "pending") {
-                TextButton(onClick = { showDialog = true }) { Text("সংশোধনের অনুরোধ পাঠান") }
+                TextButton(onClick = { showDialog = true }) { Text(tr("Request a correction", "সংশোধনের অনুরোধ পাঠান")) }
             }
         }
     }
@@ -128,8 +132,8 @@ fun CorrectionCard(profile: Profile) {
                 showDialog = false
                 scope.launch {
                     runCatching { CorrectionRepository.create(uid, profile, requested, reason) }
-                        .onSuccess { infoMsg = "অনুরোধ পাঠানো হয়েছে। অ্যাডমিন দেখে ঠিক করে দেবেন।" }
-                        .onFailure { infoMsg = "পাঠানো যায়নি: ${it.message}" }
+                        .onSuccess { infoMsg = tr("Sent. An admin will review it.", "অনুরোধ পাঠানো হয়েছে। অ্যাডমিন দেখে ঠিক করবেন।") }
+                        .onFailure { infoMsg = tr("Couldn't send", "পাঠানো যায়নি") }
                     reload++
                 }
             },
@@ -147,22 +151,22 @@ private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) ->
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("তারিখ সংশোধনের অনুরোধ") },
+        title = { Text(tr("Date correction", "তারিখ সংশোধন")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = neverDonated, onCheckedChange = { neverDonated = it; if (it) date = null })
-                    Text("আসলে কখনো রক্ত দিইনি")
+                    Text(tr("I have actually never donated", "আসলে কখনো রক্ত দিইনি"))
                 }
                 if (!neverDonated) {
                     OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(date?.let { "সঠিক তারিখ: ${Rules.formatDate(it)}" } ?: "সঠিক তারিখ বেছে নিন")
+                        Text(date?.let { Rules.formatDate(it) } ?: tr("Pick the correct date", "সঠিক তারিখ বেছে নিন"))
                     }
                 }
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it.take(300) },
-                    label = { Text("কী ভুল হয়েছিল?") },
+                    label = { Text(tr("What went wrong?", "কী ভুল হয়েছিল?")) },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -172,15 +176,15 @@ private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) ->
         confirmButton = {
             TextButton(onClick = {
                 formError = when {
-                    !neverDonated && date == null -> "সঠিক তারিখ বেছে নিন"
-                    (date ?: 0L) > Rules.todayUtcMidnight() -> "ভবিষ্যতের তারিখ দেওয়া যাবে না"
-                    reason.isBlank() -> "কী ভুল হয়েছিল লিখুন"
+                    !neverDonated && date == null -> tr("Pick the correct date", "সঠিক তারিখ বেছে নিন")
+                    (date ?: 0L) > Rules.todayUtcMidnight() -> tr("Date can't be in the future", "ভবিষ্যতের তারিখ দেওয়া যাবে না")
+                    reason.isBlank() -> tr("Tell us what went wrong", "কী ভুল হয়েছিল লিখুন")
                     else -> null
                 }
                 if (formError == null) onSubmit(if (neverDonated) null else date, reason.trim())
-            }) { Text("পাঠান") }
+            }) { Text(tr("Send", "পাঠান")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("বাতিল") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
     )
 
     if (showPicker) {
@@ -188,7 +192,7 @@ private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) ->
     }
 }
 
-/** অ্যাডমিনের পাতা: অপেক্ষায় থাকা সংশোধনের অনুরোধ অনুমোদন বা বাতিল */
+/** অ্যাডমিন: পেশাদার ব্যাজের আবেদন আর তারিখ সংশোধনের অনুরোধ */
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -197,6 +201,7 @@ fun AdminScreen(onBack: () -> Unit) {
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var items by remember { mutableStateOf<List<CorrectionRequest>>(emptyList()) }
+    var badges by remember { mutableStateOf<List<BadgeRequest>>(emptyList()) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -204,52 +209,79 @@ fun AdminScreen(onBack: () -> Unit) {
         runCatching { ServerApi.adminCorrections() }
             .onSuccess { items = it }
             .onFailure { errorMsg = it.message }
+        runCatching { Community.adminBadges() }
+            .onSuccess { badges = it }
+            .onFailure { errorMsg = it.message }
         loading = false
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TextButton(onClick = onBack) { Text("← ফিরে যান") }
-        Text("অ্যাডমিন: তারিখ সংশোধনের অনুরোধ", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        TextButton(onClick = { reload++ }) { Text("🔄 রিফ্রেশ") }
-        ErrorText(errorMsg)
-        when {
-            loading -> LoadingBox()
-            items.isEmpty() && errorMsg == null -> Text("এখন কোনো অনুরোধ অপেক্ষায় নেই।")
-            else -> items.forEach { c ->
+    fun act(id: String, block: suspend () -> Unit) {
+        scope.launch {
+            busyId = id
+            runCatching { block() }.onFailure { errorMsg = it.message }
+            busyId = null
+            reload++
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            BackTopBar(tr("Admin", "অ্যাডমিন"), onBack) {
+                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+            }
+        },
+    ) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ErrorText(errorMsg)
+            if (loading) {
+                LoadingBox()
+                return@Column
+            }
+
+            SectionTitle(tr("Badge applications", "ব্যাজের আবেদন") + " (${num(badges.size)})")
+            if (badges.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            badges.forEach { b ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(c.name.ifBlank { "নাম নেই" }, fontWeight = FontWeight.SemiBold)
-                        Text("এখনকার তারিখ: " + (c.currentMillis?.let { Rules.formatDate(it) } ?: "নেই"))
-                        Text("চাওয়া তারিখ: " + (c.requestedMillis?.let { Rules.formatDate(it) } ?: "কখনো রক্ত দেননি"))
-                        Text("কারণ: ${c.reason}", style = MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(b.name.ifBlank { "-" }, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.width(8.dp))
+                            BadgeChip(b.type)
+                        }
+                        Text(b.email, style = MaterialTheme.typography.bodySmall)
+                        Text(tr("Reg. no: ", "রেজি. নম্বর: ") + b.regNo)
+                        Text(tr("Workplace: ", "কর্মস্থল: ") + b.workplace)
                         Row {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        busyId = c.id
-                                        runCatching { ServerApi.resolveCorrection(c.id, true) }
-                                            .onFailure { errorMsg = it.message }
-                                        busyId = null
-                                        reload++
-                                    }
-                                },
-                                enabled = busyId == null,
-                            ) { ButtonContent(busyId == c.id, "অনুমোদন") }
-                            TextButton(
-                                onClick = {
-                                    scope.launch {
-                                        busyId = c.id
-                                        runCatching { ServerApi.resolveCorrection(c.id, false) }
-                                            .onFailure { errorMsg = it.message }
-                                        busyId = null
-                                        reload++
-                                    }
-                                },
-                                enabled = busyId == null,
-                            ) { Text("বাতিল") }
+                            Button(onClick = { act(b.uid) { Community.resolveBadge(b.uid, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == b.uid, tr("Approve", "অনুমোদন"))
+                            }
+                            TextButton(onClick = { act(b.uid) { Community.resolveBadge(b.uid, false) } }, enabled = busyId == null) {
+                                Text(tr("Reject", "বাতিল"))
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionTitle(tr("Date corrections", "তারিখ সংশোধন") + " (${num(items.size)})")
+            if (items.isEmpty()) Text(tr("None pending.", "অপেক্ষায় কিছু নেই।"), style = MaterialTheme.typography.bodySmall)
+            items.forEach { c ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(c.name.ifBlank { "-" }, fontWeight = FontWeight.SemiBold)
+                        Text(tr("Current: ", "এখনকার: ") + (c.currentMillis?.let { Rules.formatDate(it) } ?: "-"))
+                        Text(tr("Requested: ", "চাওয়া: ") + (c.requestedMillis?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি")))
+                        Text(tr("Reason: ", "কারণ: ") + c.reason, style = MaterialTheme.typography.bodySmall)
+                        Row {
+                            Button(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == c.id, tr("Approve", "অনুমোদন"))
+                            }
+                            TextButton(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, false) } }, enabled = busyId == null) {
+                                Text(tr("Reject", "বাতিল"))
+                            }
                         }
                     }
                 }

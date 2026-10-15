@@ -65,7 +65,7 @@ module.exports = handler(async (req) => {
     const counts = new Map(donors.map((u, i) => [u.uid, pushedToday(states[i])]));
     donors = donors.filter((u) => counts.get(u.uid) < R.pushLimit(u));
 
-    const title = `🩸 ${request.patientGroup} রক্ত দরকার${request.urgent ? ' (জরুরি)' : ''}`;
+    const title = `${request.patientGroup} রক্ত দরকার${request.urgent ? ' (জরুরি)' : ''}`;
     const sent = await sendPush(
       donors.map((u) => ({
         uid: u.uid,

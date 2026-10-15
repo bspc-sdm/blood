@@ -44,12 +44,14 @@ object Rules {
     fun notEligibleReason(p: Profile): String? {
         val age = ageYears(p.birthDateMillis)
         return when {
-            age == null || p.weightKg == null -> "প্রোফাইলে জন্ম তারিখ আর ওজন দিন"
-            age < MIN_AGE -> "রক্ত দিতে বয়স কমপক্ষে $MIN_AGE বছর হতে হয়"
-            age > MAX_AGE -> "$MAX_AGE বছরের বেশি বয়সে রক্তদান সাধারণত করা হয় না"
-            p.weightKg < MIN_WEIGHT_KG -> "রক্ত দিতে ওজন কমপক্ষে $MIN_WEIGHT_KG কেজি হতে হয়"
-            !isEligible(p.lastDonationMillis) ->
-                "আপনি ${formatDate(nextEligibleMillis(p.lastDonationMillis) ?: 0L)} থেকে আবার রক্ত দিতে পারবেন (আর ${daysUntilEligible(p.lastDonationMillis)} দিন)"
+            age == null || p.weightKg == null -> tr("Add your birth date and weight", "জন্ম তারিখ আর ওজন দিন")
+            age < MIN_AGE -> tr("You must be at least ${num(MIN_AGE)} to donate", "রক্ত দিতে বয়স কমপক্ষে ${num(MIN_AGE)} বছর হতে হয়")
+            age > MAX_AGE -> tr("Donation is usually not advised after ${num(MAX_AGE)}", "${num(MAX_AGE)} বছরের বেশি বয়সে রক্তদান সাধারণত করা হয় না")
+            p.weightKg < MIN_WEIGHT_KG -> tr("You must weigh at least ${num(MIN_WEIGHT_KG)} kg", "ওজন কমপক্ষে ${num(MIN_WEIGHT_KG)} কেজি হতে হয়")
+            !isEligible(p.lastDonationMillis) -> tr(
+                "You can donate again from ${formatDate(nextEligibleMillis(p.lastDonationMillis) ?: 0L)}",
+                "${formatDate(nextEligibleMillis(p.lastDonationMillis) ?: 0L)} থেকে আবার রক্ত দিতে পারবেন",
+            )
             else -> null
         }
     }
@@ -85,8 +87,11 @@ object Rules {
         return minutes / 60 to minutes % 60
     }
 
-    /** "বিকাল ৪:০৫" — সার্ভারের formatTimeBn-এর মতো */
+    /** "4:05 PM" / "বিকাল ৪:০৫" */
     fun formatTime(hour: Int, minute: Int): String {
+        val h12 = if (hour % 12 == 0) 12 else hour % 12
+        val mm = minute.toString().padStart(2, '0')
+        if (!isBangla) return "$h12:$mm ${if (hour < 12) "AM" else "PM"}"
         val part = when {
             hour < 5 -> "রাত"
             hour < 12 -> "সকাল"
@@ -95,8 +100,7 @@ object Rules {
             hour < 20 -> "সন্ধ্যা"
             else -> "রাত"
         }
-        val h12 = if (hour % 12 == 0) 12 else hour % 12
-        return "$part ${bnDigits(h12)}:${bnDigits(minute).padStart(2, '০')}"
+        return "$part ${num(h12)}:${num(mm)}"
     }
 
     fun formatTime(millis: Long): String {
@@ -108,23 +112,25 @@ object Rules {
     fun formatNeeded(r: BloodRequest): String =
         formatDate(r.neededByMillis) + (r.neededAtMillis?.let { ", ${formatTime(it)}" } ?: "")
 
-    /** বাকি সময়: "১ দিন ২ ঘণ্টা ০৫ মিনিট ৩০ সেকেন্ড" */
+    /** বাকি সময়: "1d 02h 05m 30s" / "১ দিন ০২ ঘণ্টা ০৫ মিনিট ৩০ সেকেন্ড" */
     fun formatDuration(ms: Long): String {
         val total = (ms / 1000).coerceAtLeast(0)
         val d = total / 86400
         val h = (total % 86400) / 3600
         val m = (total % 3600) / 60
-        val s = total % 60
+        val sec = total % 60
+        fun two(v: Long) = num(v.toString().padStart(2, '0'))
         val parts = mutableListOf<String>()
-        if (d > 0) parts += "${bnDigits(d.toInt())} দিন"
-        if (d > 0 || h > 0) parts += "${bnDigits(h.toInt())} ঘণ্টা"
-        parts += "${bnDigits(m.toInt()).padStart(2, '০')} মিনিট"
-        parts += "${bnDigits(s.toInt()).padStart(2, '০')} সেকেন্ড"
+        if (d > 0) parts += num(d) + tr("d", " দিন")
+        if (d > 0 || h > 0) parts += two(h) + tr("h", " ঘণ্টা")
+        parts += two(m) + tr("m", " মিনিট")
+        parts += two(sec) + tr("s", " সেকেন্ড")
         return parts.joinToString(" ")
     }
 
     fun formatDate(millis: Long): String {
-        val f = SimpleDateFormat("d MMMM yyyy", Locale("bn", "BD"))
+        val f = if (isBangla) SimpleDateFormat("d MMMM yyyy", Locale("bn", "BD"))
+        else SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
         f.timeZone = TimeZone.getTimeZone("UTC")
         return f.format(Date(millis))
     }
@@ -146,7 +152,7 @@ object Rules {
         SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(millis))
 
     fun formatKm(km: Double): String =
-        if (km < 1) "১ কিমির কম দূরে" else "প্রায় ${"%.0f".format(Locale("bn", "BD"), km)} কিমি দূরে"
+        if (km < 1) tr("< 1 km", "১ কিমির কম") else num(Math.round(km)) + tr(" km", " কিমি")
 
     /** বাংলাদেশি মোবাইল নম্বর: 01XXXXXXXXX (১১ সংখ্যা)। +88 বা 88 থাকলে বাদ দেওয়া হয়। */
     fun normalizePhone(input: String): String? {

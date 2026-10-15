@@ -15,10 +15,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,18 +29,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 /**
  * বর্তমান লোকেশন (আনুমানিক) অথবা জেলা বেছে নেওয়ার স্ক্রিন।
- * onPicked(lat, lng, এলাকার নাম, "gps" বা "district")
+ * onPicked(lat, lng, এলাকার বাংলা নাম, "gps" বা "district")
  */
 @Composable
 fun LocationPicker(
     title: String,
-    subtitle: String,
     busy: Boolean,
     errorMsg: String?,
     onPicked: (Double, Double, String, String) -> Unit,
@@ -57,7 +57,7 @@ fun LocationPicker(
             val loc = runCatching { LocationHelper.current(context) }.getOrNull()
             gpsBusy = false
             if (loc == null) {
-                localError = "লোকেশন পাওয়া যায়নি। ফোনের লোকেশন (GPS) চালু করে আবার চেষ্টা করুন, অথবা নিচ থেকে জেলা বেছে নিন।"
+                localError = tr("Couldn't get your location. Turn on GPS or pick a district.", "লোকেশন পাওয়া যায়নি। GPS চালু করুন বা জেলা বেছে নিন।")
             } else {
                 val district = Districts.nearest(loc.first, loc.second)
                 onPicked(loc.first, loc.second, district.bn, "gps")
@@ -65,62 +65,54 @@ fun LocationPicker(
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) useGps() else localError = "লোকেশনের অনুমতি দেওয়া হয়নি। নিচ থেকে জেলা বেছে নিন।"
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) useGps() else localError = tr("Location permission denied. Pick a district.", "লোকেশনের অনুমতি দেওয়া হয়নি। জেলা বেছে নিন।")
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
-        Button(
-            onClick = {
-                if (LocationHelper.hasPermission(context)) {
-                    useGps()
-                } else {
-                    permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
-                }
-            },
-            enabled = !busy && !gpsBusy,
-            modifier = Modifier.fillMaxWidth(),
+    Scaffold(
+        topBar = {
+            if (onCancel != null) BackTopBar(title, onCancel) else TopAppBar(title = { Text(title) })
+        },
+    ) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ButtonContent(busy || gpsBusy, "📍 বর্তমান লোকেশন ব্যবহার করুন")
-        }
-        Text(
-            "আপনার সঠিক ঠিকানা কাউকে দেখানো হয় না, শুধু আনুমানিক এলাকা (≈১ কিমি) রাখা হয়।",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        ErrorText(localError ?: errorMsg)
-        Text("অথবা জেলা বেছে নিন", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            label = { Text("জেলার নাম খুঁজুন") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        val q = query.trim()
-        val list = Districts.ALL.filter {
-            q.isEmpty() || it.bn.contains(q) || it.en.contains(q, ignoreCase = true)
-        }
-        LazyColumn(Modifier.weight(1f)) {
-            items(list, key = { it.en }) { d ->
-                Text(
-                    "${d.bn} (${d.en})",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !busy) { onPicked(d.lat, d.lng, d.bn, "district") }
-                        .padding(vertical = 14.dp),
-                )
-                HorizontalDivider()
+            Button(
+                onClick = {
+                    if (LocationHelper.hasPermission(context)) useGps()
+                    else permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                },
+                enabled = !busy && !gpsBusy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { ButtonContent(busy || gpsBusy, tr("Use my current location", "বর্তমান লোকেশন ব্যবহার করুন"), R.drawable.ic_location_on) }
+            Text(
+                tr("Only your approximate area (~1 km) is saved.", "শুধু আনুমানিক এলাকা (≈১ কিমি) রাখা হয়।"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            ErrorText(localError ?: errorMsg)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(tr("Search district", "জেলা খুঁজুন")) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val q = query.trim()
+            val list = Districts.ALL
+                .filter { q.isEmpty() || it.bn.contains(q) || it.en.contains(q, ignoreCase = true) }
+                .sortedBy { if (isBangla) it.bn else it.en }
+            LazyColumn(Modifier.weight(1f)) {
+                items(list, key = { it.en }) { d ->
+                    ListItem(
+                        headlineContent = { Text(if (isBangla) d.bn else d.en) },
+                        supportingContent = { Text(if (isBangla) d.en else d.bn) },
+                        modifier = Modifier.clickable(enabled = !busy) { onPicked(d.lat, d.lng, d.bn, "district") },
+                    )
+                    HorizontalDivider()
+                }
             }
-        }
-        if (onCancel != null) {
-            TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("বাতিল") }
         }
     }
 }

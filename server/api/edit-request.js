@@ -94,7 +94,7 @@ module.exports = handler(async (req) => {
           .map((u) => ({
             uid: u.id,
             token: u.get('fcmToken'),
-            title: `✏️ ${before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন`,
+            title: `${before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন`,
             body: parts.join(' · '),
             data: { requestId, type: 'request' },
           })),

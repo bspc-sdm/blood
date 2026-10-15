@@ -31,9 +31,9 @@ object Notifier {
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "রক্তের রিকোয়েস্ট",
+                tr("Blood requests", "রক্তের রিকোয়েস্ট"),
                 NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = "আশেপাশে রক্ত দরকার হলে, কেউ সাড়া দিলে, আর আবার রক্ত দেওয়ার সময় হলে জানায়" }
+            ).apply { description = tr("Nearby blood requests and replies", "আশেপাশের রক্তের রিকোয়েস্ট আর সাড়া") }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -87,7 +87,7 @@ class BloodMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title ?: message.data["title"] ?: "রক্তদান"
+        val title = message.notification?.title ?: message.data["title"] ?: "Get Blood"
         val body = message.notification?.body ?: message.data["body"] ?: ""
         Notifier.show(this, title, body, message.data["requestId"], message.data["type"])
     }

@@ -140,3 +140,16 @@ test('রক্ত লাগার সময়: বাছা তারিখে
   assert.strictEqual(R.validateRequest({ ...good, neededAtMillis: at(10, 0) }, now), null);
   assert.ok(R.validateRequest({ ...good, neededAtMillis: at(30, 0) }, now));
 });
+
+test('কমিউনিটি: লেখা পরিষ্কার আর ব্যাজ', () => {
+  const C = require('../lib/community');
+  assert.strictEqual(C.cleanText('  hi  ', 10), 'hi');
+  assert.strictEqual(C.cleanText('a\n\n\n\nb', 10), 'a\n\nb');
+  assert.strictEqual(C.cleanText('   ', 10), null);
+  assert.strictEqual(C.cleanText('x'.repeat(11), 10), null);
+  assert.strictEqual(C.cleanText(5, 10), null);
+  assert.ok(C.isBadge('doctor') && C.isBadge('nurse') && C.isBadge('nutritionist'));
+  assert.ok(!C.isBadge('admin'));
+  assert.strictEqual(C.tr({ body: { lang: 'bn' } }, 'en', 'bn'), 'bn');
+  assert.strictEqual(C.tr({ body: {} }, 'en', 'bn'), 'en');
+});

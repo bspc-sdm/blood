@@ -88,4 +88,11 @@ object Districts {
 
     fun nearest(lat: Double, lng: Double): District =
         ALL.minBy { Geo.distanceKm(lat, lng, it.lat, it.lng) }
+
+    /** ডাটাবেসে জেলার নাম বাংলায় থাকে; ইংরেজি ভাষায় ইংরেজি নাম দেখানো */
+    fun label(bnName: String?): String {
+        if (bnName.isNullOrBlank()) return ""
+        if (isBangla) return bnName
+        return ALL.firstOrNull { it.bn == bnName }?.en ?: bnName
+    }
 }

@@ -1,0 +1,293 @@
+package com.bspc.blood
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+
+@Composable
+fun ProfileTab(
+    profile: Profile,
+    community: CommunityMe?,
+    onCommunityChanged: (CommunityMe) -> Unit,
+    onEditProfile: () -> Unit,
+    onOpenMyRequests: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onProfileChanged: (Profile) -> Unit,
+    onLogout: () -> Unit,
+    onOpenAdmin: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val notEligible = Rules.notEligibleReason(profile)
+    val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
+    var photoBusy by remember { mutableStateOf(false) }
+    var photoMenu by remember { mutableStateOf(false) }
+    var showBadgeDialog by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val uid = AuthRepository.currentUid
+        if (uri != null && uid != null) {
+            scope.launch {
+                photoBusy = true
+                errorMsg = null
+                runCatching {
+                    val b64 = Photo.toAvatarBase64(context, uri)
+                    ProfileRepository.savePhoto(uid, b64)
+                    b64
+                }.onSuccess { onProfileChanged(profile.copy(photo = it)) }
+                    .onFailure { errorMsg = tr("Couldn't upload the photo", "ছবি আপলোড হয়নি") }
+                photoBusy = false
+            }
+        }
+    }
+    fun pickPhoto() = picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                tr("Profile", "প্রোফাইল"),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onOpenSettings) { AppIcon(R.drawable.ic_settings_outline, tr("Settings", "সেটিংস")) }
+        }
+
+        // ---- ছবি, নাম, ব্যাজ ----
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Box(
+                    Modifier
+                        .size(104.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(enabled = !photoBusy) { if (avatar == null) pickPhoto() else photoMenu = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        photoBusy -> CircularProgressIndicator(Modifier.size(32.dp))
+                        avatar != null -> Image(
+                            avatar,
+                            contentDescription = tr("Profile photo", "প্রোফাইলের ছবি"),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        else -> AppIcon(R.drawable.ic_person_filled, null, Modifier.size(56.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(enabled = !photoBusy) { pickPhoto() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AppIcon(R.drawable.ic_photo_camera, tr("Change photo", "ছবি বদলান"), Modifier.size(18.dp), MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(profile.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            community?.approvedBadge?.let {
+                Spacer(Modifier.height(6.dp))
+                BadgeChip(it)
+            }
+            AuthRepository.currentEmail?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            ErrorText(errorMsg)
+        }
+
+        // ---- রক্তের গ্রুপ ও যোগ্যতা ----
+        Card(
+            Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (notEligible == null) MaterialTheme.colorScheme.tertiaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                BloodGroupBadge(profile.bloodGroup, 56.dp)
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (notEligible == null) tr("You can donate now", "এখন রক্ত দিতে পারবেন")
+                        else tr("Not eligible right now", "এখন রক্ত দিতে পারবেন না"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    if (notEligible != null) Text(notEligible, style = MaterialTheme.typography.bodySmall)
+                }
+                AppIcon(
+                    if (notEligible == null) R.drawable.ic_check_circle else R.drawable.ic_schedule,
+                    null,
+                    Modifier.size(28.dp),
+                )
+            }
+        }
+
+        // ---- তথ্য ----
+        Card(
+            Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                InfoLine(
+                    R.drawable.ic_history,
+                    tr("Last donation", "শেষ রক্তদান"),
+                    profile.lastDonationMillis?.let { Rules.formatDate(it) } ?: tr("Never", "কখনো দেননি"),
+                )
+                InfoLine(
+                    R.drawable.ic_person_outline,
+                    tr("Age · Weight", "বয়স · ওজন"),
+                    listOfNotNull(
+                        Rules.ageYears(profile.birthDateMillis)?.let { num(it) + tr(" yrs", " বছর") },
+                        profile.weightKg?.let { num(it) + tr(" kg", " কেজি") },
+                    ).joinToString(" · "),
+                )
+                InfoLine(R.drawable.ic_call, tr("Phone", "ফোন"), num(profile.phone))
+                InfoLine(R.drawable.ic_location_on, tr("Area", "এলাকা"), Districts.label(profile.placeName))
+            }
+        }
+
+        // ---- কাজ ----
+        Card(
+            Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        ) {
+            ActionRow(R.drawable.ic_list_alt, tr("My Requests", "আমার রিকোয়েস্ট"), null, onOpenMyRequests)
+            HorizontalDivider()
+            ActionRow(R.drawable.ic_edit, tr("Edit profile", "প্রোফাইল এডিট"), null, onEditProfile)
+            HorizontalDivider()
+            val badge = community?.badge
+            ActionRow(
+                R.drawable.ic_workspace_premium,
+                tr("Professional badge", "পেশাদার ব্যাজ"),
+                when (badge?.status) {
+                    "approved" -> Badges.label(badge.type)
+                    "pending" -> tr("Under review", "যাচাই চলছে")
+                    "rejected" -> tr("Not approved. Tap to apply again.", "অনুমোদন হয়নি। আবার আবেদন করুন।")
+                    else -> tr("For doctors, nurses and health experts", "ডাক্তার, নার্স ও স্বাস্থ্য বিশেষজ্ঞদের জন্য")
+                },
+                if (badge?.status == "pending" || badge?.status == "approved") null else ({ showBadgeDialog = true }),
+            )
+            HorizontalDivider()
+            ActionRow(R.drawable.ic_settings_outline, tr("Settings", "সেটিংস"), null, onOpenSettings)
+            if (community?.isAdmin == true || AuthRepository.currentEmail.equals(SUPPORT_EMAIL, ignoreCase = true)) {
+                HorizontalDivider()
+                ActionRow(R.drawable.ic_admin_panel_settings, tr("Admin", "অ্যাডমিন"), null, onOpenAdmin)
+            }
+        }
+
+        CorrectionCard(profile)
+
+        Card(
+            Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        ) {
+            ActionRow(R.drawable.ic_logout, tr("Log out", "লগআউট"), null, onLogout, MaterialTheme.colorScheme.error)
+        }
+    }
+
+    if (photoMenu) {
+        AlertDialog(
+            onDismissRequest = { photoMenu = false },
+            title = { Text(tr("Profile photo", "প্রোফাইলের ছবি")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    photoMenu = false
+                    pickPhoto()
+                }) { Text(tr("Change", "বদলান")) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    photoMenu = false
+                    val uid = AuthRepository.currentUid ?: return@TextButton
+                    scope.launch {
+                        runCatching { ProfileRepository.savePhoto(uid, null) }
+                            .onSuccess { onProfileChanged(profile.copy(photo = null)) }
+                            .onFailure { errorMsg = tr("Couldn't remove the photo", "ছবি মোছা যায়নি") }
+                    }
+                }) { Text(tr("Remove", "মুছুন")) }
+            },
+        )
+    }
+
+    if (showBadgeDialog) {
+        BadgeApplyDialog(
+            onDismiss = { showBadgeDialog = false },
+            onApplied = { type ->
+                showBadgeDialog = false
+                onCommunityChanged(
+                    (community ?: CommunityMe(null, false)).copy(badge = BadgeState(type, "pending"))
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ActionRow(
+    icon: Int,
+    title: String,
+    subtitle: String?,
+    onClick: (() -> Unit)?,
+    color: Color = Color.Unspecified,
+) {
+    ListItem(
+        headlineContent = { Text(title, color = color) },
+        supportingContent = if (subtitle != null) ({ Text(subtitle) }) else null,
+        leadingContent = { AppIcon(icon, null, tint = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else color) },
+        trailingContent = if (onClick != null) ({ AppIcon(R.drawable.ic_chevron_right, null) }) else null,
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+    )
+}

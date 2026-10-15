@@ -69,7 +69,7 @@ module.exports = handler(async (req) => {
         {
           uid: request.requesterUid,
           token,
-          title: '❤️ একজন ডোনার রাজি হয়েছেন',
+          title: 'একজন ডোনার রাজি হয়েছেন',
           body: `${request.donorName} (${request.donorGroup}) রক্ত দিতে রাজি। অ্যাপ খুলে নম্বর দেখুন।`,
           data: { requestId, type: 'response' },
         },
