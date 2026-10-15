@@ -1,0 +1,20 @@
+name: Fetch DGHS facility list
+
+# হাতে চালানো হয় (Actions → Run workflow); ফল artifact হিসেবে থাকে
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: node scripts/fetch-dghs.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dghs-raw
+          path: dghs-raw.json
