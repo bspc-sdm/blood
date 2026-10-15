@@ -38,6 +38,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.launch
 
 /** রাজি থাকা বা রক্ত দেওয়া ডোনার (রক্তপ্রার্থী শুধু এদেরই দেখতে পান) */
@@ -46,18 +48,38 @@ fun List<DonorResponse>.willing() = filter { it.status == "accepted" || it.statu
 /** নিশ্চিত বা রক্ত দেওয়া — ব্যাগ পূরণের হিসাবে ধরা হয় */
 fun DonorResponse.counts() = status == "donated" || (status == "accepted" && confirmed)
 
-/** "৩ জন রাজি · ১ জন নিশ্চিত" */
+/** "৩ জন রাজি · ১ জন নিশ্চিত" — বামে মানুষের আইকন */
 @Composable
-fun AgreedLine(responses: List<DonorResponse>) {
+fun AgreedLine(responses: List<DonorResponse>, iconSlot: Dp? = null) {
     val willing = responses.willing()
-    Text(
-        tr(
-            "${num(willing.size)} agreed · ${num(willing.count { it.counts() })} confirmed",
-            "${num(willing.size)} জন রাজি · ${num(willing.count { it.counts() })} জন নিশ্চিত",
-        ),
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.SemiBold,
-    )
+    SlotRow(R.drawable.ic_group_round, MaterialTheme.colorScheme.onSurface, iconSlot) {
+        Text(
+            tr(
+                "${num(willing.size)} agreed · ${num(willing.count { it.counts() })} confirmed",
+                "${num(willing.size)} জন রাজি · ${num(willing.count { it.counts() })} জন নিশ্চিত",
+            ),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/** কার্ডের বাম পাশের রক্তের গ্রুপের গোল যত চওড়া; নিচের আইকনগুলো এর মাঝ বরাবর থাকে */
+private val BADGE_SLOT = 44.dp
+
+/**
+ * বামে আইকন, ডানে লেখা। iconSlot দিলে আইকন ওই চওড়া ঘরের মাঝখানে বসে আর লেখা শুরু হয়
+ * হাসপাতালের নামের সাথে একই সোজা লাইনে — দেখতে গোছানো, সব আইকন গ্রুপের গোলের নিচে মাঝ বরাবর।
+ */
+@Composable
+private fun SlotRow(@androidx.annotation.DrawableRes icon: Int?, tint: Color, iconSlot: Dp?, content: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(if (iconSlot != null) Modifier.width(iconSlot) else Modifier, contentAlignment = Alignment.Center) {
+            if (icon != null) AppIcon(icon, null, Modifier.size(20.dp), tint)
+        }
+        Spacer(Modifier.width(if (iconSlot != null) 12.dp else 8.dp))
+        content()
+    }
 }
 
 /** ১, ২, ৩… করে প্রতিটা ব্যাগ — যতগুলো পূরণ হয়েছে সেগুলো ভরাট */
@@ -336,27 +358,33 @@ internal fun MyRequestCard(
                     AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার"), tint = MaterialTheme.colorScheme.primary)
                 }
             }
-            // সময়, ডোনার জানানো আর রাজি/নিশ্চিত — কাছাকাছি একসাথে
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Countdown(r.deadlineMillis)
+            // সময়, ডোনার জানানো আর রাজি/নিশ্চিত — কাছাকাছি একসাথে। আইকনগুলো উপরের গ্রুপের গোলের
+            // ঠিক নিচে মাঝ বরাবর, লেখাগুলো হাসপাতালের নামের সাথে এক লাইনে
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Countdown(r.deadlineMillis, iconSlot = BADGE_SLOT)
                 if (r.notified) {
-                    IconLine(
-                        R.drawable.ic_notifications_active,
-                        tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
-                    )
+                    SlotRow(R.drawable.ic_notifications_active, MaterialTheme.colorScheme.onSurfaceVariant, BADGE_SLOT) {
+                        Text(
+                            tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 } else {
-                    SmallAction(
-                        tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
-                        R.drawable.ic_notifications,
-                        { onNotify() },
-                        primary = true,
-                        enabled = busyId == null || busy,
-                        busy = busy,
-                    )
+                    SlotRow(null, Color.Unspecified, BADGE_SLOT) {
+                        SmallAction(
+                            tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
+                            R.drawable.ic_notifications,
+                            { onNotify() },
+                            primary = true,
+                            enabled = busyId == null || busy,
+                            busy = busy,
+                        )
+                    }
                 }
-                AgreedLine(responses)
+                AgreedLine(responses, iconSlot = BADGE_SLOT)
             }
-            BagRow(r, responses)
+            Box(Modifier.padding(start = BADGE_SLOT + 12.dp)) { BagRow(r, responses) }
 
             if (willing.isNotEmpty()) {
                 HorizontalDivider()

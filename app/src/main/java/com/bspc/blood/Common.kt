@@ -404,7 +404,7 @@ fun sendEmail(context: Context, to: String) {
 
 /** রক্ত লাগার সময় পর্যন্ত প্রতি সেকেন্ডে কমতে থাকা কাউন্টডাউন */
 @Composable
-fun Countdown(targetMillis: Long) {
+fun Countdown(targetMillis: Long, iconSlot: Dp? = null) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(targetMillis) {
         while (true) {
@@ -414,8 +414,11 @@ fun Countdown(targetMillis: Long) {
     }
     val left = targetMillis - now
     Row(verticalAlignment = Alignment.CenterVertically) {
-        AppIcon(R.drawable.ic_schedule, null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(8.dp))
+        // iconSlot: আইকনটা ওই চওড়া ঘরের মাঝখানে (যেমন উপরের রক্তের গ্রুপের গোলের ঠিক নিচে)
+        Box(if (iconSlot != null) Modifier.width(iconSlot) else Modifier, contentAlignment = Alignment.Center) {
+            AppIcon(R.drawable.ic_schedule, null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.width(if (iconSlot != null) 12.dp else 8.dp))
         Text(
             if (left > 0) Rules.formatDuration(left) else tr("Time's up", "সময় হয়ে গেছে"),
             style = MaterialTheme.typography.titleMedium,
