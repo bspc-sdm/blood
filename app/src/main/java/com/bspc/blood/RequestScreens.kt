@@ -388,6 +388,34 @@ fun RequestDetailScreen(
                         }
 
                         resp.status == "accepted" -> {
+                            // রক্তপ্রার্থী নিশ্চিত করেছেন কি না
+                            val (statusIcon, statusText) = when {
+                                resp.confirmed -> R.drawable.ic_check_circle to tr(
+                                    "The requester confirmed you. Please go to the hospital on time.",
+                                    "রক্তপ্রার্থী আপনাকে নিশ্চিত করেছেন। সময়মতো হাসপাতালে যান।",
+                                )
+                                r.fulfilled -> R.drawable.ic_info to tr(
+                                    "Enough donors are confirmed for now. Thank you! You'll be told if you're needed.",
+                                    "আপাতত যথেষ্ট ডোনার নিশ্চিত হয়েছেন। ধন্যবাদ! দরকার হলে জানানো হবে।",
+                                )
+                                else -> R.drawable.ic_schedule to tr(
+                                    "Waiting for the requester to confirm you.",
+                                    "রক্তপ্রার্থী আপনাকে নিশ্চিত করার অপেক্ষায়।",
+                                )
+                            }
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (resp.confirmed) MaterialTheme.colorScheme.tertiaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                ),
+                            ) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIcon(statusIcon, null, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(statusText, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                             Card(
                                 Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
@@ -617,39 +645,27 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
                     }
                     InfoText(infoMsg)
 
-                    val willing = responses.filter { it.status == "accepted" || it.status == "donated" }
+                    val willing = responses.willing()
+                    if (r.isActive) RequestProgress(r, responses)
                     SectionTitle(tr("Donors (${num(willing.size)})", "রাজি হয়েছেন (${num(willing.size)})"))
                     if (willing.isEmpty()) {
                         Note(tr("No one has responded yet.", "এখনো কেউ সাড়া দেননি।"))
+                    } else if (r.isActive) {
+                        Note(tr("Confirm the donors you'll take. Others are told when enough are confirmed.", "যাঁদের নেবেন তাঁদের নিশ্চিত করুন। যথেষ্ট নিশ্চিত হলে বাকিদের জানানো হয়।"))
                     }
-                    willing.forEach { d ->
+                    willing.sortedByDescending { it.counts() }.forEach { d ->
                         Card(
                             Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         ) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    BloodGroupBadge(d.donorGroup, 40.dp)
-                                    Spacer(Modifier.width(12.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(d.donorName, fontWeight = FontWeight.SemiBold)
-                                        Text(num(d.donorPhone), style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                    if (d.status == "donated") {
-                                        Tag(tr("Donated", "রক্ত দিয়েছেন"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                                    }
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { callPhone(context, d.donorPhone) }) {
-                                        ButtonContent(false, tr("Call", "কল করুন"), R.drawable.ic_call)
-                                    }
-                                    if (d.status == "accepted" && r.isActive) {
-                                        TextButton(
-                                            onClick = { act { RequestRepository.setResponseStatus(r.id, d.donorUid, "declined") } },
-                                            enabled = !busy,
-                                        ) { Text(tr("Remove", "বাদ দিন")) }
-                                    }
-                                }
+                            Column(Modifier.padding(12.dp)) {
+                                DonorRow(
+                                    d,
+                                    active = r.isActive,
+                                    busy = busy,
+                                    onConfirm = { act { ServerApi.confirmDonor(r.id, d.donorUid) } },
+                                    onRemove = { act { RequestRepository.setResponseStatus(r.id, d.donorUid, "declined") } },
+                                )
                             }
                         }
                     }
@@ -669,36 +685,14 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit) {
     }
 
     if (confirmClose) {
-        val willing = responses.filter { it.status == "accepted" || it.status == "donated" }
-        var donated by remember { mutableStateOf(willing.filter { it.status == "donated" }.map { it.donorUid }.toSet()) }
-        AlertDialog(
-            onDismissRequest = { confirmClose = false },
-            title = { Text(tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?")) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(tr("Donors won't see it or get notified anymore.", "বন্ধ করলে ডোনাররা আর এটা দেখবেন না।"))
-                    if (willing.isNotEmpty()) {
-                        Text(tr("Who donated?", "কে কে রক্ত দিয়েছেন?"), fontWeight = FontWeight.SemiBold)
-                        willing.forEach { d ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = d.donorUid in donated,
-                                    onCheckedChange = { on -> donated = if (on) donated + d.donorUid else donated - d.donorUid },
-                                )
-                                Text("${d.donorName} (${d.donorGroup})")
-                            }
-                        }
-                    }
-                }
+        CloseRequestDialog(
+            requestId = requestId,
+            responses = responses,
+            onDismiss = { confirmClose = false },
+            onClose = { chosen ->
+                confirmClose = false
+                act { ServerApi.closeRequest(requestId, chosen) }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmClose = false
-                    val chosen = donated.toList()
-                    act { ServerApi.closeRequest(requestId, chosen) }
-                }) { Text(tr("Close", "বন্ধ করুন")) }
-            },
-            dismissButton = { TextButton(onClick = { confirmClose = false }) { Text(tr("Cancel", "বাতিল")) } },
         )
     }
 }

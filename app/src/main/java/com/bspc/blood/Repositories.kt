@@ -185,6 +185,7 @@ object RequestRepository {
             ?: (s.getLong("createdAtMillis") ?: 0L),
         notified = s.contains("notifiedAt"),
         notifiedCount = (s.getLong("notifiedCount") ?: 0L).toInt(),
+        fulfilled = s.getBoolean("fulfilled") ?: false,
     )
 
     private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(
@@ -193,6 +194,7 @@ object RequestRepository {
         donorPhone = s.getString("donorPhone") ?: "",
         donorGroup = s.getString("donorGroup") ?: "",
         status = s.getString("status") ?: "accepted",
+        confirmed = s.getBoolean("confirmed") ?: false,
         createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
     )
 

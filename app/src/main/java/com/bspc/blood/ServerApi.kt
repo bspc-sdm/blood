@@ -34,6 +34,11 @@ object ServerApi {
         )
     }
 
+    /** রক্তপ্রার্থী রাজি হওয়া ডোনারকে নিশ্চিত করেন */
+    suspend fun confirmDonor(requestId: String, donorUid: String) {
+        post("/api/community", JSONObject().put("action", "confirm_donor").put("requestId", requestId).put("donorUid", donorUid))
+    }
+
     /** নিজের খোলা রিকোয়েস্ট এডিট। রাজি থাকা কতজন ডোনারকে পরিবর্তন জানানো হলো সেটা ফেরত দেয়। */
     suspend fun editRequest(
         requestId: String,

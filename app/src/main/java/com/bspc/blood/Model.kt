@@ -70,6 +70,8 @@ data class BloodRequest(
     /** সার্ভার আশেপাশের ডোনারদের জানিয়েছে কি না, আর কতজনকে */
     val notified: Boolean = false,
     val notifiedCount: Int = 0,
+    /** রক্তপ্রার্থী যত জনকে নিশ্চিত করেছেন তাতে দরকারি ব্যাগ পূরণ হয়েছে কি না (সার্ভার লেখে) */
+    val fulfilled: Boolean = false,
 ) {
     /** কাউন্টডাউন যে মুহূর্ত পর্যন্ত: দেওয়া সময়, না থাকলে ওই দিনের শেষ (বাংলাদেশের রাত ১২টা) */
     val deadlineMillis: Long
@@ -87,5 +89,7 @@ data class DonorResponse(
     val donorGroup: String = "",
     /** "accepted", "cancelled", "declined", "donated" */
     val status: String = "accepted",
+    /** রক্তপ্রার্থী এই ডোনারকে নিশ্চিত করেছেন (status তখনো "accepted") */
+    val confirmed: Boolean = false,
     val createdAtMillis: Long = 0,
 )

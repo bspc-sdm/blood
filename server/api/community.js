@@ -20,6 +20,7 @@ const { approvedBadge, useQuota, userName } = require('../lib/community-db');
 const appointments = require('../lib/appointments');
 const moderation = require('../lib/moderation');
 const account = require('../lib/account');
+const donors = require('../lib/donors');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -279,7 +280,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account);
+Object.assign(actions, appointments, moderation, account, donors);
 
 module.exports = handler(async (req) => {
   const user = await decodeUser(req);

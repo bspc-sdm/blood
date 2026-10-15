@@ -147,7 +147,7 @@ fun MainScreen(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                Tabs.HOME -> HomeTab(profile, homeRefresh, onOpenRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
+                Tabs.HOME -> HomeTab(profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.DISCUSSION -> HealthDiscussionTab(communityRefresh, onOpenQuestion, onAsk)
                 Tabs.TIPS -> HealthTipsTab(communityRefresh, community, onOpenTip, onPostTip)
@@ -177,6 +177,7 @@ fun HomeTab(
     profile: Profile,
     refreshKey: Int,
     onOpenRequest: (String) -> Unit,
+    onOpenMyRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -260,6 +261,9 @@ fun HomeTab(
                     )
                 }
             }
+
+            // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
+            item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
 
             when {
                 loading && others.isEmpty() -> item { LoadingBox() }
