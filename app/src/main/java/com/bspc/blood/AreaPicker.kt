@@ -366,13 +366,10 @@ fun AddHospitalDialog(
                     }
                 }
                 Text(tr("Type", "ধরন"), style = MaterialTheme.typography.labelLarge)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Hospitals.TYPES.chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row.forEach { t ->
-                                FilterChip(selected = type == t, onClick = { type = t }, label = { Text(Hospitals.typeLabel(t), maxLines = 1) })
-                            }
-                        }
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Hospitals.TYPES.forEach { t ->
+                        FilterChip(selected = type == t, onClick = { type = t }, label = { Text(Hospitals.typeLabel(t)) })
                     }
                 }
                 OutlinedTextField(

@@ -263,17 +263,15 @@ fun ChipRows(
     label: (String) -> String = { it },
     onToggle: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        options.chunked(perRow).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { g ->
-                    FilterChip(
-                        selected = g in selected,
-                        onClick = { onToggle(g) },
-                        label = { Text(label(g), fontWeight = FontWeight.Bold) },
-                    )
-                }
-            }
+    // জায়গা না থাকলে চিপ নিজে থেকেই পরের লাইনে যায় (লম্বা লেখা কাটা পড়ে না); perRow এখন শুধু পুরোনো ডাকের জন্য
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { g ->
+            FilterChip(
+                selected = g in selected,
+                onClick = { onToggle(g) },
+                label = { Text(label(g), fontWeight = FontWeight.Bold) },
+            )
         }
     }
 }
