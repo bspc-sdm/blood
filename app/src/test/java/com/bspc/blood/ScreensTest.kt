@@ -178,6 +178,18 @@ class ScreensTest {
     }
 
     @Test
+    fun requestCardsBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                RequestCard(request, 3.4) {}
+                RequestCard(request.copy(id = "r3", bags = 1, urgent = false, patientGroup = "O-"), 8.0) {}
+            }
+        }
+        shot("request_cards_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

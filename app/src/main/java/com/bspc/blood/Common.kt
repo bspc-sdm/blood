@@ -271,8 +271,8 @@ fun RequestCard(r: BloodRequest, distanceKm: Double?, onClick: () -> Unit) {
                 }
                 Spacer(Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(num(r.bags), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(tr("bags", "ব্যাগ"), style = MaterialTheme.typography.labelSmall)
+                    // কত ব্যাগ: রক্তের ব্যাগের ছবিতে সংখ্যা, এক নজরে চোখে পড়ে
+                    BloodBag(r.bags, filled = r.isActive, description = tr("${r.bags} bag(s) needed", "${num(r.bags)} ব্যাগ দরকার"))
                     if (!r.isActive) {
                         Spacer(Modifier.height(4.dp))
                         Tag(
