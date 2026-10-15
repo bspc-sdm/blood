@@ -985,6 +985,8 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                             FilterChip(
                                 selected = type == b,
                                 onClick = { type = b },
+                                // সংশোধনে পেশা বদলানো যায় না
+                                enabled = !correction || type == b,
                                 label = { Text(Badges.label(b)) },
                                 leadingIcon = { AppIcon(Badges.icon(b), null, Modifier.size(16.dp)) },
                             )

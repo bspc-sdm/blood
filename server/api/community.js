@@ -327,7 +327,8 @@ const actions = {
     if (cur.exists && cur.get('status') === 'approved') {
       await useQuota(req, user.uid, 'badge');
       await ref.update({
-        pendingChange: { type, regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
+        // পেশা বদলানো যায় না (তালিকা আর সেবা পেশা ধরে); শুধু নম্বর, কর্মস্থল আর নাম
+        pendingChange: { type: cur.get('type'), regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
       });
       return { ok: true, correction: true };
     }
@@ -350,7 +351,8 @@ const actions = {
     const status = ['pending', 'approved', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
     const snap = await db.collection('badges').where('status', '==', status).limit(300).get();
     // অপেক্ষার তালিকায় অনুমোদিত ব্যাজের সংশোধনের অনুরোধও
-    const changes = status === 'pending' ? await db.collection('badges').where('pendingChange.at', '>', 0).limit(100).get() : { docs: [] };
+    // (শুধু ওয়েব প্যানেলে — আগের অ্যাপে "বাতিল" চাপলে ব্যাজই চলে যেত)
+    const changes = status === 'pending' && req.body?.panel === true ? await db.collection('badges').where('pendingChange.at', '>', 0).limit(100).get() : { docs: [] };
     return {
       items: [...snap.docs, ...changes.docs].map((d) => ({
         change: d.get('pendingChange') || null,
@@ -408,6 +410,8 @@ const actions = {
       }
     }
     await ref.update({
+      // ব্যাজ বাতিল হলে ঝুলে থাকা সংশোধনের অনুরোধও সরে (নইলে আবার আবেদন করা যেত না)
+      ...(req.body?.approve === true ? {} : { pendingChange: FieldValue.delete() }),
       status: req.body?.approve === true ? 'approved' : 'rejected',
       reviewedAt: Date.now(),
       reviewedBy: user.uid,

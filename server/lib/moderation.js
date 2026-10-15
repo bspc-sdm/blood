@@ -103,11 +103,14 @@ module.exports = {
     if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     // modReports অ্যাপ সরাসরি লিখতে পারে না (Firestore নিয়মে নেই), তাই কেউ ভুয়া রিপোর্ট দিয়ে তালিকা ভরাতে পারে না
     const snap = await db.collection('modReports').where('status', '==', 'open').limit(200).get();
+    // ডাক্তারের চেম্বারের রিপোর্ট শুধু ওয়েব প্যানেলে (আগের অ্যাপে "সরান" চাপলে ভুল ব্যবস্থা হতো)
+    const panel = req.body?.panel === true;
     // একই জিনিসের একাধিক রিপোর্ট একসাথে
     const groups = new Map();
     snap.docs.forEach((d) => {
       const p = d.get('targetPath');
       if (typeof p !== 'string' || !PATH_RE.test(p)) return;
+      if (d.get('kind') === 'provider' && !panel) return;
       // একই ডাক্তারের "বাসায় সেবা" আর "চেম্বার" রিপোর্ট আলাদা (বাদ দিলে আলাদা ব্যবস্থা)
       const key = (d.get('reportedUid') ? `${p}|${d.get('reportedUid')}` : p) + (d.get('kind') === 'provider' ? '|provider' : '');
       const g = groups.get(key) || {

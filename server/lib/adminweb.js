@@ -81,7 +81,7 @@ async function buildStats(now) {
     days.map((d) => db.collection(col).where(field, '>=', d).where(field, '<', d + DAY)));
 
   const STATUS = {
-    appointments: ['pending', 'confirmed', 'declined', 'cancelled', 'expired'],
+    appointments: ['pending', 'confirmed', 'declined', 'cancelled', 'expired', 'completed'],
   };
   const statusQueries = Object.entries(STATUS).flatMap(([col, list]) => list.map((s) => db.collection(col).where('status', '==', s)));
 

@@ -110,7 +110,7 @@
     listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
     order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
     visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
-    appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ' },
+    appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ', completed: 'সম্পন্ন' },
     request: { open: 'চালু', closed: 'বন্ধ' },
     ticket: { open: 'উত্তরের অপেক্ষায়', answered: 'উত্তর দেওয়া হয়েছে', closed: 'বন্ধ' },
     category: {
@@ -159,7 +159,8 @@
     }
     return json;
   }
-  const act = (action, body) => post('/api/community', { action, ...body });
+  // panel: true — সার্ভার শুধু প্যানেলের জন্য বাড়তি জিনিস দেয় (ব্যাজ সংশোধন, চেম্বারের রিপোর্ট)
+  const act = (action, body) => post('/api/community', { action, panel: true, ...body });
 
   async function loadOverview() {
     S.overview = await act('admin_overview');
@@ -1121,6 +1122,13 @@
     const homeCareCtl = () => {
       const blocked = u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked;
       const pro = u.badge && ['doctor', 'nurse'].includes(u.badge.type);
+      const ps = u.provider || {};
+      // রিপোর্টে পুরো তালিকা বন্ধ থাকলে সেটা আগে (বাসায় সেবার ব্লক থাকলেও)
+      if (ps.suspended) {
+        return ctl('ডাক্তার/নার্সের তালিকা', ps.suspendReason === 'report' ? 'রিপোর্টের পর তালিকা (চেম্বার আর বাসায় সেবা) বন্ধ।' : 'অ্যাকাউন্ট বন্ধের সাথে তালিকাও বন্ধ।',
+          h('span', { class: 'chip bad', text: 'বন্ধ' }),
+          ps.suspendReason === 'report' ? [actionBtn('তালিকা আবার চালু', 'tonal', uact('provider_unsuspend'), 'তালিকা আবার চালু হয়েছে', reload)] : []);
+      }
       if (!blocked && !pro) return null;
       if (blocked) {
         return ctl('বাসায় সেবা', u.blocks.homeVisitBlocked ? 'রিপোর্টের পর বন্ধ: তালিকায় দেখান না, নিজে আবার চালু করতে পারবেন না।' : 'আগের হোম ভিজিটে রোগী হিসেবে নিষেধাজ্ঞা ছিল (এখন অনুরোধ-ব্যবস্থা নেই)।',
@@ -1128,11 +1136,6 @@
           [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'নিষেধাজ্ঞা তোলা হয়েছে। ডাক্তার/নার্স অ্যাপ থেকে নিজে আবার চালু করবেন।', reload)]);
       }
       const p = u.provider || {};
-      if (p.suspended) {
-        return ctl('ডাক্তার/নার্সের তালিকা', p.suspendReason === 'report' ? 'রিপোর্টের পর তালিকা (চেম্বার আর বাসায় সেবা) বন্ধ।' : 'অ্যাকাউন্ট বন্ধের সাথে তালিকাও বন্ধ।',
-          h('span', { class: 'chip bad', text: 'বন্ধ' }),
-          p.suspendReason === 'report' ? [actionBtn('তালিকা আবার চালু', 'tonal', uact('provider_unsuspend'), 'তালিকা আবার চালু হয়েছে', reload)] : []);
-      }
       return ctl('বাসায় সেবা',
         p.homeVisit ? `তালিকায় আছেন। রোগীরা ফোন করেন ${bn(p.homePhone) || '—'} নম্বরে; অ্যাপ থেকে ফোন এসেছে ${bn(p.homeCalls || 0)} বার।` : 'চালু করেননি।',
         p.homeVisit ? h('span', { class: 'chip good', text: 'চালু' }) : null,

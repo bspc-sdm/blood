@@ -62,7 +62,12 @@ async function cancelStale(providerUid, keep, reason) {
 async function suspendProvider(uid, reason) {
   const pRef = db.doc(`providers/${uid}`);
   const p = await pRef.get();
-  if (!p.exists || p.get('adminSuspended') === true) return false;
+  if (!p.exists) return false;
+  if (p.get('adminSuspended') === true) {
+    // আগে অ্যাকাউন্ট বন্ধের জন্য বন্ধ ছিল, এখন রিপোর্টও টিকেছে — অ্যাকাউন্ট চালু করলে যেন তালিকা ফিরে না আসে
+    if (reason === 'report' && p.get('suspendReason') !== 'report') await pRef.update({ suspendReason: 'report' });
+    return false;
+  }
   await pRef.update({
     adminSuspended: true,
     suspendReason: reason || 'admin',
