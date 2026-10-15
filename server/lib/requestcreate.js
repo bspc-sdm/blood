@@ -97,7 +97,10 @@ actions.request_reopen = async function requestReopen(req, user) {
     if (!byRequester || !x.closedAt || now - x.closedAt > REOPEN_MS || R.activeUntil(x) <= now) {
       throw new HttpError(400, C.tr(req, 'This request can no longer be opened again. Create a new one if needed.', 'এই রিকোয়েস্ট আর খোলা যায় না। দরকার হলে নতুন রিকোয়েস্ট দিন।'));
     }
-    t.update(ref, { status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now });
+    t.update(ref, {
+      status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now,
+      bagsReceived: x.bagsReceivedBefore || 0, bagsReceivedBefore: FieldValue.delete(),
+    });
     return x;
   });
   if (r) await require('./requestend').notifyEnded(id, r, 'reopened');

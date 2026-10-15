@@ -261,7 +261,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
             minDate = Rules.todayUtcMidnight(),
-            maxDate = Rules.todayUtcMidnight() + 31 * DAY_MS,
+            maxDate = Rules.todayUtcMidnight() + 30 * DAY_MS,
         )
     }
     if (showTime) {
@@ -994,7 +994,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             onPicked = { picked -> if (picked != null) neededBy = picked },
             onDismiss = { showDate = false },
             minDate = Rules.todayUtcMidnight(),
-            maxDate = Rules.todayUtcMidnight() + 31 * DAY_MS,
+            maxDate = Rules.todayUtcMidnight() + 30 * DAY_MS,
         )
     }
     if (showTime) {

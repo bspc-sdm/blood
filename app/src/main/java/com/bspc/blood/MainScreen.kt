@@ -239,7 +239,7 @@ fun HomeTab(
                             runCatching {
                                 ServerApi.updateResponse(r.id, op)
                                 AuthRepository.currentUid?.let { ProfileRepository.removeCommitments(it, listOf(r.id)) }
-                            }
+                            }.onFailure { errorMsg = it.message }
                             processingBusy = null
                             reload++
                         }

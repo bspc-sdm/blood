@@ -24,6 +24,9 @@ module.exports = handler(async (req) => {
     const userRefs = donated.map((d) => db.doc(`users/${d}`));
     const responses = responseRefs.length ? await t.getAll(...responseRefs) : [];
     const users = userRefs.length ? await t.getAll(...userRefs) : [];
+    // সব রাজি/রক্ত দেওয়া — নিশ্চিত সংখ্যা আবার গোনার জন্য (লেখার আগে পড়া)
+    const all = await t.get(requestRef.collection('responses').where('status', 'in', ['accepted', 'donated']));
+    const donatedBefore = all.docs.filter((d) => d.get('status') === 'donated').length;
 
     // কত ব্যাগ পেয়েছেন। সবগুলো না পেলে রিকোয়েস্ট খোলা থাকে (বাকি ব্যাগের জন্য), শুধু হিসাব আর ডোনার লেখা হয়।
     // আগের অ্যাপ সংখ্যা পাঠায় না — তখন আগের মতো বন্ধ।
@@ -31,13 +34,9 @@ module.exports = handler(async (req) => {
     const got = Number.isInteger(req.body?.bagsReceived) ? Math.max(0, Math.min(bags, req.body.bagsReceived)) : null;
     // ০ ব্যাগ = "আর লাগবে না": বন্ধ, কাউকে রক্তদাতা লেখা হয় না। কিছু পেলে (সব না) খোলা থাকে।
     const partial = got != null && got > 0 && got < bags;
-    // যত ব্যাগ পেয়েছেন তার বেশি জনকে "রক্ত দিয়েছেন" লেখা যায় না
-    const allowed = got == null ? donated.length : got;
-    if (partial) {
-      t.update(requestRef, { bagsReceived: Math.max(got, reqSnap.get('bagsReceived') || 0), updatedAt: Date.now() });
-    } else {
-      t.update(requestRef, { status: 'closed', closedAt: Date.now(), closedBy: got === 0 ? 'not_needed' : 'requester', ...(got != null ? { bagsReceived: got } : {}) });
-    }
+    // যত ব্যাগ পেয়েছেন তার বেশি জনকে "রক্ত দিয়েছেন" লেখা যায় না (আগে লেখা জন বাদ দিয়ে)
+    const allowed = got == null ? donated.length : Math.max(got - donatedBefore, 0);
+    const prevReceived = reqSnap.get('bagsReceived') || 0;
     const markedIds = [];
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন
@@ -50,6 +49,23 @@ module.exports = handler(async (req) => {
         t.update(userRefs[i], { lastDonationMillis: today });
       }
     });
+    // নিশ্চিত/রক্ত দেওয়া আবার গোনা ("ডোনার পাওয়া গেছে" আর "বাকি ব্যাগ" ঠিক রাখতে)
+    const marked = new Set(markedIds);
+    const confirmedCount = all.docs.filter((d) => d.get('status') === 'donated' || d.get('confirmed') === true || marked.has(d.id)).length;
+    const recount = { confirmedCount, fulfilled: confirmedCount >= bags };
+    if (partial) {
+      t.update(requestRef, { ...recount, bagsReceived: Math.max(got, prevReceived), updatedAt: Date.now() });
+    } else {
+      t.update(requestRef, {
+        ...recount,
+        status: 'closed',
+        closedAt: Date.now(),
+        closedBy: got === 0 ? 'not_needed' : 'requester',
+        // ভুল করে বন্ধ করে আবার খুললে আগের হিসাব ফেরত আসে
+        bagsReceivedBefore: prevReceived,
+        ...(got != null && got > 0 ? { bagsReceived: got } : {}),
+      });
+    }
     return { marked: markedIds.length, markedIds, closed: !partial, notNeeded: got === 0, r: reqSnap.data() };
   });
 

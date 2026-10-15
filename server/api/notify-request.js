@@ -77,7 +77,15 @@ module.exports = handler(async (req) => {
     // আগে যাঁদের জানানো হয়েছে তাঁরা বাদ (আবার জানানোর সময়) — তাহলে দূরের নতুন ডোনাররা আসেন
     const meta = await metaRef.get();
     const already = new Set((meta.exists && meta.get('uids')) || []);
-    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => !already.has(u.uid));
+    const allUsers = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    if (again) {
+      // যাঁরা আগেই সাড়া দিয়েছেন (রাজি, নিশ্চিত, বাদ পড়া) তাঁদের আবার নয়
+      const resp = await ref.collection('responses').get();
+      resp.docs.forEach((d) => already.add(d.id));
+      // ২.৯-এর আগে জানানো রিকোয়েস্টে তালিকা নেই — প্রথমবার যাঁরা পেয়েছিলেন আন্দাজে বাদ
+      if (!meta.exists) R.pickDonors(request, allUsers, now).forEach((u) => already.add(u.uid));
+    }
+    const users = allUsers.filter((u) => !already.has(u.uid));
     let donors = R.pickDonors(request, users, now);
 
     // প্রত্যেক ডোনার দিনে সর্বোচ্চ যতটা নোটিফিকেশন চেয়েছেন (সেটিংস, না বদলালে ৩টা)
