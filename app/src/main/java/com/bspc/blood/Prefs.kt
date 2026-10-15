@@ -182,7 +182,7 @@ fun GetBloodTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** বাংলা-ইংরেজি দুটোই সুন্দর দেখায় এমন ফন্ট (ওয়েব অ্যাডমিন প্যানেলেও একই) — SIL OFL */
+/** বাংলা অক্ষর Hind Siliguri-র, ইংরেজি অক্ষর Roboto-র (একই ফাইলে মেলানো; Hind-এর ইংরেজি ফাঁকা ফাঁকা দেখাত) — দুটোই খোলা লাইসেন্স (OFL / Apache) */
 val HindSiliguri = FontFamily(
     Font(R.font.hind_siliguri_regular, FontWeight.Normal),
     Font(R.font.hind_siliguri_medium, FontWeight.Medium),

@@ -3,6 +3,11 @@ package com.bspc.blood
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -282,6 +287,29 @@ class ScreensTest {
     fun logo() {
         show { Column(Modifier.padding(16.dp)) { Logo(iconSize = 30.dp) } }
         shot("logo")
+    }
+
+    /** সরু পর্দায় শেষের ট্যাব চাপলে সারি নিজে সরে ট্যাবটা পুরো দেখায় */
+    @Test
+    fun pillTabsAutoScroll() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            var sel by remember { mutableIntStateOf(0) }
+            Column(Modifier.width(260.dp)) {
+                PillTabs(sel, listOf(
+                    PillTab("অ্যাম্বুলেন্স", R.drawable.ic_ambulance), PillTab("ফার্মেসি", R.drawable.ic_medication), PillTab("ব্লাড ব্যাংক", R.drawable.ic_bloodtype),
+                ), { sel = it })
+            }
+        }
+        rule.onNodeWithText("ব্লাড ব্যাংক").performClick()
+        rule.mainClock.advanceTimeBy(1000)
+        shot("pill_tabs_autoscroll_bn")
+    }
+
+    @Test
+    fun englishFontServices() {
+        show { ServicesTab(profile) }
+        shot("services_en_font")
     }
 
     @Test
