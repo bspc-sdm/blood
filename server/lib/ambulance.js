@@ -152,27 +152,41 @@ const actions = {
     return { ok: true };
   },
 
+  /** অবস্থা অনুযায়ী তালিকা (ডিফল্ট: অপেক্ষায়) */
   async admin_ambulances(req, user) {
     await requireAdmin(req, user);
-    const snap = await db.collection('ambulances').where('status', '==', 'pending').limit(100).get();
-    return { items: snap.docs.map((d) => view(d, true)) };
+    const status = ['pending', 'approved', 'suspended', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
+    const snap = await db.collection('ambulances').where('status', '==', status).limit(300).get();
+    return {
+      items: snap.docs.map((d) => ({
+        ...view(d, true),
+        ownerUid: d.get('ownerUid') || null,
+        createdAt: d.get('createdAt') || null,
+        reviewedAt: d.get('reviewedAt') || d.get('suspendedAt') || null,
+      })),
+    };
   },
 
   async admin_ambulance_resolve(req, user) {
     await requireAdmin(req, user);
     const { id, approve } = req.body || {};
+    // অ্যাপ: approve; ওয়েব প্যানেল: status দিয়ে বন্ধ বা আবার চালুও
+    const status = ['approved', 'rejected', 'suspended'].includes(req.body?.status) ? req.body.status : approve === true ? 'approved' : 'rejected';
     if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`ambulances/${id}`);
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    await ref.update({ status: approve === true ? 'approved' : 'rejected', reviewedAt: Date.now() });
+    if (s.get('status') === status) return { ok: true };
+    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
     try {
       const u = await db.doc(`users/${s.get('ownerUid')}`).get();
       const lang = u.get('lang');
       await require('./firebase').sendPush([{
         uid: s.get('ownerUid'),
         token: u.get('fcmToken'),
-        title: approve === true ? R.L(lang, 'Your ambulance is now listed', 'আপনার অ্যাম্বুলেন্স তালিকায় এসেছে') : R.L(lang, 'Ambulance not approved', 'অ্যাম্বুলেন্স অনুমোদন হয়নি'),
+        title: status === 'approved' ? R.L(lang, 'Your ambulance is now listed', 'আপনার অ্যাম্বুলেন্স তালিকায় এসেছে')
+          : status === 'suspended' ? R.L(lang, 'Your ambulance was suspended. Contact us.', 'আপনার অ্যাম্বুলেন্স বন্ধ করা হয়েছে। আমাদের সাথে যোগাযোগ করুন।')
+            : R.L(lang, 'Ambulance not approved', 'অ্যাম্বুলেন্স অনুমোদন হয়নি'),
         body: s.get('name'),
         data: { type: 'services' },
       }]);

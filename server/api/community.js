@@ -28,6 +28,8 @@ const phone = require('../lib/phone');
 const inbox = require('../lib/inbox');
 const ambulance = require('../lib/ambulance');
 const pharmacy = require('../lib/pharmacy');
+const support = require('../lib/support');
+const adminweb = require('../lib/adminweb');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -260,9 +262,13 @@ const actions = {
 
   async admin_badges(req, user) {
     if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
-    const snap = await db.collection('badges').where('status', '==', 'pending').limit(100).get();
+    // অ্যাপ: অপেক্ষায়; ওয়েব প্যানেল: অনুমোদিত বা বাতিলও
+    const status = ['pending', 'approved', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
+    const snap = await db.collection('badges').where('status', '==', status).limit(300).get();
     return {
       items: snap.docs.map((d) => ({
+        status: d.get('status'),
+        reviewedAt: d.get('reviewedAt') || null,
         uid: d.id,
         type: d.get('type'),
         regNo: d.get('regNo'),
@@ -281,7 +287,8 @@ const actions = {
     const ref = db.doc(`badges/${uid}`);
     if (!(await ref.get()).exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
     if (req.body?.approve !== true) {
-      await db.doc(`providers/${uid}`).set({ active: false }, { merge: true }).catch(() => {});
+      // ব্যাজ বাতিল হলে ডাক্তার/নার্সের তালিকা থেকেও সরে যায় (নতুন আর পুরোনো দুই ধরনের অ্যাপেই)
+      await db.doc(`providers/${uid}`).set({ active: false, listed: false }, { merge: true }).catch(() => {});
     }
     await ref.update({
       status: req.body?.approve === true ? 'approved' : 'rejected',
@@ -321,7 +328,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -355,6 +362,7 @@ actions.admin_overview = async (req, user) => {
     part(() => require('../lib/corrections').pendingCorrections()),
     owner ? actions.admin_list(req, user).catch(() => null) : null,
   ]);
+  const tickets = await part(async () => (await actions.admin_tickets({ ...req, body: { ...req.body, status: 'open' } }, user)).items);
   return {
     me: { email: user.email, isOwner: owner },
     badges,
@@ -363,6 +371,7 @@ actions.admin_overview = async (req, user) => {
     hospitalRequests,
     reports,
     corrections,
+    tickets,
     admins: adminList,
     at: Date.now(),
   };
@@ -394,5 +403,8 @@ module.exports = handler(async (req, res) => {
   const user = hasBearer ? await decodeUser(req) : (await webUser(req, res)) || (await decodeUser(req));
   const fn = Object.prototype.hasOwnProperty.call(actions, req.body?.action) ? actions[req.body.action] : null;
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
-  return fn(req, user, res);
+  const result = await fn(req, user, res);
+  // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী)
+  if (String(req.body.action).startsWith('admin_')) await adminweb.logAdmin(req.body.action, user, req.body);
+  return result;
 });

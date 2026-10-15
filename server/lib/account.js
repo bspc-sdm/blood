@@ -38,7 +38,7 @@ module.exports = {
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
 
-    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox] = await Promise.all([
+    const [myRequests, myQuestions, myTips, asPatient, asProvider, corrections, reports, visitsMine, visitsNursed, myAmbulances, medMine, medShop, myInbox, myTickets] = await Promise.all([
       db.collection('requests').where('requesterUid', '==', uid).get(),
       db.collection('questions').where('uid', '==', uid).get(),
       db.collection('tips').where('uid', '==', uid).get(),
@@ -52,6 +52,7 @@ module.exports = {
       db.collection('medOrders').where('patientUid', '==', uid).get(),
       db.collection('medOrders').where('chosen', '==', uid).get(),
       db.collection('inbox').where('uid', '==', uid).limit(1000).get(),
+      db.collection('tickets').where('uid', '==', uid).limit(500).get(),
     ]);
 
     await Promise.all([
@@ -97,7 +98,7 @@ module.exports = {
         if (active) await notify(d.get('patientUid'), 'Home visit cancelled', 'হোম ভিজিট বাতিল হয়েছে', 'homevisit');
       }),
       // অ্যাম্বুলেন্স, নোটিফিকেশনের তালিকা
-      deleteDocs([...myAmbulances.docs, ...myInbox.docs]),
+      deleteDocs([...myAmbulances.docs, ...myInbox.docs, ...myTickets.docs]),
       // ওষুধের অর্ডার: নিজের ঠিকানা, নাম, ছবি মুছে, চলমান হলে বাতিল
       ...medMine.docs.map(async (d) => {
         const active = ['open', 'confirmed', 'ready', 'on_the_way'].includes(d.get('status'));

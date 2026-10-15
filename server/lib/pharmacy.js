@@ -14,6 +14,8 @@ const MAX_PHOTO_CHARS = 400 * 1024; // base64, ≈৩০০ KB ছবি
 const NO_SHOW_LIMIT = 3;
 const STATUS_ACTIVE = ['open', 'confirmed', 'ready', 'on_the_way'];
 
+const ADMIN_STATUSES = ['pending', 'approved', 'suspended', 'rejected'];
+
 function pharmacyView(d, mine = false) {
   const x = d.data();
   const n = x.ratingCount || 0;
@@ -519,21 +521,37 @@ const actions = {
   },
 
   // ---------- অ্যাডমিন ----------
+  /** অবস্থা অনুযায়ী তালিকা (ডিফল্ট: অপেক্ষায়) — ওয়েব প্যানেলে অনুমোদিত/বন্ধ/বাতিলও দেখা যায় */
   async admin_pharmacies(req, user) {
     await requireAdmin(req, user);
-    const snap = await db.collection('pharmacies').where('status', '==', 'pending').limit(100).get();
-    return { items: snap.docs.map((d) => pharmacyView(d, true)) };
+    const status = ADMIN_STATUSES.includes(req.body?.status) ? req.body.status : 'pending';
+    const snap = await db.collection('pharmacies').where('status', '==', status).limit(300).get();
+    return {
+      items: snap.docs.map((d) => ({
+        ...pharmacyView(d, true),
+        createdAt: d.get('createdAt') || null,
+        reviewedAt: d.get('reviewedAt') || d.get('suspendedAt') || null,
+      })),
+    };
   },
 
+  /** অনুমোদন/বাতিল (অ্যাপ: approve), ওয়েব প্যানেল থেকে বন্ধ বা আবার চালুও (status) */
   async admin_pharmacy_resolve(req, user) {
     await requireAdmin(req, user);
     const { id, approve } = req.body || {};
+    const status = ['approved', 'rejected', 'suspended'].includes(req.body?.status) ? req.body.status : approve === true ? 'approved' : 'rejected';
     if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const ref = db.doc(`pharmacies/${id}`);
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    await ref.update({ status: approve === true ? 'approved' : 'rejected', reviewedAt: Date.now() });
-    await pushUid(id, approve === true ? 'Your pharmacy is approved' : 'Pharmacy not approved', approve === true ? 'আপনার ফার্মেসি অনুমোদিত হয়েছে' : 'ফার্মেসি অনুমোদন হয়নি', s.get('name'), { type: 'services' });
+    if (s.get('status') === status) return { ok: true };
+    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}) });
+    const msg = {
+      approved: ['Your pharmacy is approved', 'আপনার ফার্মেসি অনুমোদিত হয়েছে'],
+      rejected: ['Pharmacy not approved', 'ফার্মেসি অনুমোদন হয়নি'],
+      suspended: ['Your pharmacy was suspended. Contact us.', 'আপনার ফার্মেসি বন্ধ করা হয়েছে। আমাদের সাথে যোগাযোগ করুন।'],
+    }[status];
+    await pushUid(id, msg[0], msg[1], s.get('name'), { type: 'services' });
     return { ok: true };
   },
 };

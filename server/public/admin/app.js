@@ -1,48 +1,83 @@
-// Lifolo ওয়েব অ্যাডমিন প্যানেল।
-// নিরাপত্তা: ব্যবহারকারীর লেখা সবসময় textContent দিয়ে বসানো হয় (কখনো innerHTML নয়),
-// লগইন httpOnly কুকিতে — এই স্ক্রিপ্ট সেটা দেখতে পায় না।
+// Lifolo ওয়েব অ্যাডমিন প্যানেল — বাম মেনু, ডানে পুরো পাতা।
+// নিরাপত্তা: ব্যবহারকারীর লেখা সবসময় textContent দিয়ে বসে (কখনো innerHTML নয়);
+// লগইন httpOnly কুকিতে, এই স্ক্রিপ্ট সেটা দেখতে পায় না।
 (function () {
   'use strict';
 
   const IDLE_MS = 30 * 60 * 1000;
   const AUTO_REFRESH_MS = 5 * 60 * 1000;
-  const app = document.getElementById('app');
+  const root = document.getElementById('root');
   const toastEl = document.getElementById('toast');
+  const ICONS = window.LF_ICONS || {};
 
-  let data = null;
-  let loadedAt = 0;
-  let lastActive = Date.now();
-  let busy = 0;
-  let loggedIn = false;
+  const S = {
+    me: null,
+    overview: null,
+    overviewAt: 0,
+    stats: null,
+    lists: {}, // "pharmacies:approved" → items
+    loggedIn: false,
+    busy: 0,
+    lastActive: Date.now(),
+  };
 
-  // ---------------- ছোট সাহায্যকারী ----------------
+  // =========================================================
+  // ছোট সাহায্যকারী
+  // =========================================================
   const BN = '০১২৩৪৫৬৭৮৯';
   const bn = (v) => String(v ?? '').replace(/[0-9]/g, (d) => BN[d]);
+  const SVGNS = 'http://www.w3.org/2000/svg';
 
-  /** DOM বানানো: স্ট্রিং সবসময় লেখা হিসেবে বসে */
   function h(tag, props, ...kids) {
     const el = document.createElement(tag);
-    if (props) {
-      for (const [k, v] of Object.entries(props)) {
-        if (v == null || v === false) continue;
-        if (k === 'class') el.className = v;
-        else if (k === 'text') el.textContent = v;
-        else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-        else el.setAttribute(k, v === true ? '' : String(v));
-      }
+    setProps(el, props);
+    append(el, kids);
+    return el;
+  }
+  function s(tag, props, ...kids) {
+    const el = document.createElementNS(SVGNS, tag);
+    setProps(el, props);
+    append(el, kids);
+    return el;
+  }
+  function setProps(el, props) {
+    if (!props) return;
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.setAttribute('class', v);
+      else if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : String(v));
     }
-    for (const kid of kids.flat()) {
+  }
+  function append(el, kids) {
+    for (const kid of kids.flat(3)) {
       if (kid == null || kid === false || kid === '') continue;
       el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
     }
-    return el;
+  }
+  function icon(name, cls) {
+    return s('svg', { class: cls || 'ic', viewBox: '0 0 960 960', 'aria-hidden': 'true' }, s('path', { d: ICONS[name] || '' }));
   }
 
-  const dateFmt = new Intl.DateTimeFormat('bn-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'long', year: 'numeric' });
-  const fmtDate = (ms) => {
-    const d = new Date(ms);
-    return ms && !Number.isNaN(d.getTime()) ? dateFmt.format(d) : '—';
-  };
+  const tz = { timeZone: 'Asia/Dhaka' };
+  const dFmt = new Intl.DateTimeFormat('bn-BD', { ...tz, day: 'numeric', month: 'short', year: 'numeric' });
+  const dtFmt = new Intl.DateTimeFormat('bn-BD', { ...tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  const dayFmt = new Intl.DateTimeFormat('bn-BD', { ...tz, day: 'numeric', month: 'short' });
+  const valid = (ms) => typeof ms === 'number' && ms > 0 && !Number.isNaN(new Date(ms).getTime());
+  const fmtDate = (ms) => (valid(ms) ? dFmt.format(new Date(ms)) : '—');
+  const fmtDT = (ms) => (valid(ms) ? dtFmt.format(new Date(ms)) : '—');
+  function ago(ms) {
+    if (!valid(ms)) return '—';
+    const m = Math.floor((Date.now() - ms) / 60000);
+    if (m < 1) return 'এইমাত্র';
+    if (m < 60) return `${bn(m)} মিনিট আগে`;
+    const hr = Math.floor(m / 60);
+    if (hr < 24) return `${bn(hr)} ঘণ্টা আগে`;
+    const d = Math.floor(hr / 24);
+    return d < 30 ? `${bn(d)} দিন আগে` : fmtDate(ms);
+  }
+  const num = (n) => (n == null ? '—' : bn(Number(n).toLocaleString('en-IN')));
 
   function toast(msg) {
     toastEl.textContent = msg;
@@ -50,22 +85,55 @@
     clearTimeout(toast.t);
     toast.t = setTimeout(() => { toastEl.hidden = true; }, 3200);
   }
-
   function store(key, value) {
-    try {
-      if (value == null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    } catch (e) { /* ব্রাউজারে জায়গা না থাকলে কিছু যায় আসে না */ }
+    try { if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* না থাকলেও চলে */ }
   }
   function load(key) {
     try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
   }
 
-  // ---------------- সার্ভার ----------------
+  // =========================================================
+  // লেবেল (অ্যাপের সাথে মিলিয়ে)
+  // =========================================================
+  const L = {
+    badge: { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'হেলথ ট্রেইনার' },
+    hospitalType: {
+      govt_mch: 'সরকারি মেডিকেল কলেজ হাসপাতাল', govt_specialized: 'সরকারি বিশেষায়িত হাসপাতাল',
+      govt_district: 'জেলা / সদর হাসপাতাল', govt_uhc: 'উপজেলা স্বাস্থ্য কমপ্লেক্স', govt_hospital: 'অন্যান্য সরকারি হাসপাতাল',
+      private_hospital: 'বেসরকারি হাসপাতাল', clinic: 'ক্লিনিক', diagnostic: 'ডায়াগনস্টিক সেন্টার',
+    },
+    amb: { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' },
+    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি' },
+    listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
+    order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
+    visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
+    appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ' },
+    request: { open: 'চালু', closed: 'বন্ধ' },
+    ticket: { open: 'উত্তরের অপেক্ষায়', answered: 'উত্তর দেওয়া হয়েছে', closed: 'বন্ধ' },
+    category: {
+      account: 'অ্যাকাউন্ট', badge: 'ব্যাজ (ডাক্তার/নার্স)', pharmacy: 'ফার্মেসি', ambulance: 'অ্যাম্বুলেন্স', homevisit: 'হোম ভিজিট',
+      medorder: 'ওষুধের অর্ডার', appointment: 'অ্যাপয়েন্টমেন্ট', blood: 'রক্তের অনুরোধ', other: 'অন্য কিছু',
+    },
+    log: {
+      admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স',
+      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
+      admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
+    },
+    detail: {
+      approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
+      replied: 'উত্তর', 'replied+closed': 'উত্তর দিয়ে বন্ধ', closed: 'বন্ধ', homevisit_unban: 'হোম ভিজিটের নিষেধাজ্ঞা তোলা',
+      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
+      disable: 'অ্যাকাউন্ট বন্ধ', enable: 'অ্যাকাউন্ট খোলা',
+    },
+  };
+  const listingChip = (st) => h('span', { class: `chip ${st === 'approved' ? 'good' : st === 'suspended' || st === 'rejected' ? 'bad' : 'pri'}`, text: L.listing[st] || st || '' });
+
+  // =========================================================
+  // সার্ভার
+  // =========================================================
   class ApiError extends Error {
     constructor(message, status, code) { super(message); this.status = status; this.code = code; }
   }
-
   async function post(path, body) {
     let res;
     try {
@@ -82,64 +150,61 @@
     try { json = await res.json(); } catch (e) { /* খালি উত্তর */ }
     if (!res.ok) {
       const err = new ApiError(json.error || 'সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন', res.status, json.code);
-      if (loggedIn && (res.status === 401 || json.code === 'session_expired')) {
-        loggedIn = false;
-        showLogin(err.message);
-      }
+      if (S.loggedIn && (res.status === 401 || json.code === 'session_expired')) showLogin(err.message);
       throw err;
     }
     return json;
   }
   const act = (action, body) => post('/api/community', { action, ...body });
 
-  // ---------------- লগইন ----------------
-  function setHeader(email) {
-    document.getElementById('who').hidden = !email;
-    document.getElementById('who-email').textContent = email || '';
+  async function loadOverview() {
+    S.overview = await act('admin_overview');
+    S.overviewAt = Date.now();
+    S.me = S.overview.me;
+    // অপেক্ষার তালিকা ক্যাশে
+    S.lists['badges:pending'] = itemsOf('badges');
+    S.lists['pharmacies:pending'] = itemsOf('pharmacies');
+    S.lists['ambulances:pending'] = itemsOf('ambulances');
+    S.lists['tickets:open'] = itemsOf('tickets');
   }
+  const itemsOf = (key) => (S.overview && S.overview[key] && Array.isArray(S.overview[key].items) ? S.overview[key].items : []);
+  const pendingCount = (key) => itemsOf(key).length;
 
+  // =========================================================
+  // লগইন
+  // =========================================================
   function showLogin(message) {
-    loggedIn = false;
-    data = null;
-    setHeader(null);
+    S.loggedIn = false;
+    S.overview = null;
+    S.lists = {};
+    S.stats = null;
     let stage = 'email';
     let email = load('lf_admin_email');
     let error = message || '';
     let sending = false;
 
     function draw() {
-      const form = h('form', { class: 'login', novalidate: true, onsubmit: submit });
-      form.append(
+      const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
         h('h1', { text: 'অ্যাডমিন লগইন' }),
         h('p', { text: stage === 'email'
           ? 'অ্যাপে যে ইমেইল দিয়ে লগইন করেন, সেটা দিন। ইমেইলে ৬ সংখ্যার কোড যাবে।'
           : `${email} ঠিকানায় কোড পাঠানো হয়েছে। ইমেইল খুলে কোডটা লিখুন।` }),
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
-      );
-      if (stage === 'email') {
-        form.append(
-          h('label', { class: 'field' },
-            h('span', { text: 'ইমেইল' }),
-            h('input', { type: 'email', name: 'email', autocomplete: 'email', required: true, value: email, autofocus: true })),
-          h('div', { class: 'row' },
-            h('button', { class: 'btn primary', type: 'submit', disabled: sending, text: sending ? 'পাঠানো হচ্ছে…' : 'কোড পাঠান' })),
-        );
-      } else {
-        form.append(
-          h('label', { class: 'field' },
-            h('span', { text: 'কোড' }),
-            h('input', { class: 'code-input', name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, required: true, autofocus: true })),
+        stage === 'email'
+          ? [h('label', { class: 'field' }, h('span', { text: 'ইমেইল' }),
+            h('input', { type: 'email', name: 'email', autocomplete: 'email', required: true, value: email })),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit', disabled: sending, text: sending ? 'পাঠানো হচ্ছে…' : 'কোড পাঠান' }))]
+          : [h('label', { class: 'field' }, h('span', { text: 'কোড' }),
+            h('input', { class: 'code-input', name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, required: true })),
           h('div', { class: 'row' },
             h('button', { class: 'btn primary', type: 'submit', disabled: sending, text: sending ? 'যাচাই হচ্ছে…' : 'লগইন করুন' }),
-            h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; draw(); }, text: 'ইমেইল বদলান' })),
-        );
-      }
-      form.append(h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। ৩০ মিনিট কিছু না করলে নিজে থেকে লগআউট হবে।' }));
-      app.replaceChildren(form);
+            h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; draw(); }, text: 'ইমেইল বদলান' }))],
+        h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। ৩০ মিনিট কিছু না করলে নিজে থেকে লগআউট হবে।' }));
+      root.replaceChildren(h('div', { class: 'login-wrap' }, form));
       const first = form.querySelector('input');
       if (first) first.focus();
     }
-
     async function submit(ev) {
       ev.preventDefault();
       if (sending) return;
@@ -161,9 +226,8 @@
         sending = true; draw();
         try {
           await post('/api/auth/verify-code', { email, code, web: true });
-          sending = false;
-          lastActive = Date.now();
-          await refresh(true);
+          S.lastActive = Date.now();
+          await start();
           return;
         } catch (e) { error = e.message; }
         sending = false; draw();
@@ -173,70 +237,179 @@
   }
 
   async function logout(message) {
-    try { await act('web_logout'); } catch (e) { /* মেয়াদ শেষ হলেও লগইন পাতা দেখানো হবে */ }
+    try { await act('web_logout'); } catch (e) { /* মেয়াদ শেষ হলেও লগইন পাতা */ }
     showLogin(message);
   }
-  document.getElementById('logout').addEventListener('click', () => logout('লগআউট হয়েছে।'));
 
-  // ---------------- তথ্য আনা ----------------
-  async function refresh(first) {
-    if (first) app.replaceChildren(h('p', { class: 'boot', text: 'লোড হচ্ছে…' }));
+  async function start() {
     try {
-      data = await act('admin_overview');
-      loadedAt = Date.now();
-      loggedIn = true;
-      setHeader(data.me && data.me.email);
-      render();
+      await loadOverview();
     } catch (e) {
       if (e.status === 401 || e.status === 403 || e.code === 'session_expired') {
-        showLogin(first ? (e.status === 403 ? e.message : '') : e.message);
-      } else if (first || !data) {
-        app.replaceChildren(
-          h('p', { class: 'error', role: 'alert', text: e.message }),
-          h('button', { class: 'btn quiet', type: 'button', onclick: () => refresh(true), text: 'আবার চেষ্টা করুন' }),
-        );
+        showLogin(e.status === 403 ? e.message : '');
       } else {
-        toast(e.message);
+        root.replaceChildren(h('div', { class: 'login-wrap' }, h('div', { class: 'card login' },
+          h('p', { class: 'error', role: 'alert', text: e.message }),
+          h('button', { class: 'btn quiet', type: 'button', onclick: start, text: 'আবার চেষ্টা করুন' }))));
       }
+      return;
+    }
+    S.loggedIn = true;
+    buildShell();
+    route();
+  }
+
+  // =========================================================
+  // কাঠামো: বাম মেনু + উপরের সারি + পাতা
+  // =========================================================
+  const NAV = [
+    { group: null, items: [
+      { path: '', label: 'ড্যাশবোর্ড', icon: 'home' },
+      { path: 'analytics', label: 'অ্যানালিটিক্স', icon: 'chart' },
+    ] },
+    { group: 'অনুমোদন', items: [
+      { path: 'badges', label: 'ডাক্তার ও নার্স', icon: 'verified', count: () => pendingCount('badges') },
+      { path: 'pharmacies', label: 'ফার্মেসি', icon: 'store', count: () => pendingCount('pharmacies') },
+      { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
+      { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
+    ] },
+    { group: 'সহায়তা', items: [
+      { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
+      { path: 'reports', label: 'রিপোর্ট', icon: 'flag', count: () => pendingCount('reports') },
+      { path: 'corrections', label: 'তারিখ সংশোধন', icon: 'calendar', count: () => pendingCount('corrections') },
+    ] },
+    { group: 'ব্যবস্থাপনা', items: [
+      { path: 'users', label: 'ব্যবহারকারী', icon: 'person' },
+      { path: 'log', label: 'কাজের ইতিহাস', icon: 'history' },
+      { path: 'admins', label: 'অ্যাডমিন', icon: 'admin', owner: true },
+    ] },
+  ];
+
+  let shell = null;
+  let navEl = null;
+  let titleEl = null;
+  let pageEl = null;
+  let topActions = null;
+
+  function buildShell() {
+    navEl = h('nav', { class: 'nav', 'aria-label': 'মেনু' });
+    titleEl = h('h1');
+    topActions = h('div', { class: 'top-actions' });
+    pageEl = h('main', { class: 'page', id: 'page', tabindex: '-1' });
+    shell = h('div', { class: 'shell' },
+      h('aside', { class: 'side' },
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
+        navEl,
+        h('div', { class: 'side-foot' },
+          h('div', { class: 'who', text: (S.me && S.me.email) || '' }),
+          h('button', { class: 'btn quiet', type: 'button', onclick: () => logout('লগআউট হয়েছে।') }, icon('logout'), 'লগআউট'))),
+      h('div', { class: 'scrim', onclick: () => shell.classList.remove('open') }),
+      h('div', { class: 'main' },
+        h('header', { class: 'topbar' },
+          h('button', { class: 'icon-btn menu-btn', type: 'button', 'aria-label': 'মেনু খুলুন', onclick: () => shell.classList.add('open') }, icon('menu')),
+          titleEl,
+          topActions,
+          h('button', { class: 'icon-btn', type: 'button', title: 'রিফ্রেশ', 'aria-label': 'রিফ্রেশ', onclick: () => refreshAll() }, icon('refresh'))),
+        pageEl));
+    root.replaceChildren(shell);
+    drawNav();
+  }
+
+  function drawNav() {
+    if (!navEl) return;
+    const cur = parseHash().name;
+    const kids = [];
+    for (const g of NAV) {
+      if (g.group) kids.push(h('div', { class: 'nav-group', text: g.group }));
+      for (const it of g.items) {
+        if (it.owner && !(S.me && S.me.isOwner)) continue;
+        const n = it.count ? it.count() : 0;
+        const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets');
+        kids.push(h('a', { href: `#/${it.path}`, class: on ? 'on' : null, 'aria-current': on ? 'page' : null, onclick: () => shell.classList.remove('open') },
+          icon(it.icon), h('span', { class: 'lbl', text: it.label }), n ? h('span', { class: 'n', text: bn(n) }) : null));
+      }
+    }
+    navEl.replaceChildren(...kids);
+  }
+
+  function setTitle(title, sub, actions) {
+    titleEl.replaceChildren(...[title, sub ? h('span', { class: 'sub', text: sub }) : null].filter(Boolean));
+    topActions.replaceChildren(...(actions || []));
+    document.title = `${title} — Lifolo অ্যাডমিন`;
+  }
+
+  async function refreshAll() {
+    try {
+      await loadOverview();
+      // অন্য অবস্থার তালিকা আবার আনা হবে
+      for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
+      drawNav();
+      route(true);
+      toast('হালনাগাদ হয়েছে');
+    } catch (e) {
+      if (S.loggedIn) toast(e.message);
     }
   }
 
-  // ---------------- অংশগুলোর সংজ্ঞা ----------------
-  const BADGE = { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'হেলথ ট্রেইনার' };
-  const HOSPITAL_TYPE = {
-    govt_mch: 'সরকারি মেডিকেল কলেজ হাসপাতাল',
-    govt_specialized: 'সরকারি বিশেষায়িত হাসপাতাল',
-    govt_district: 'জেলা / সদর হাসপাতাল',
-    govt_uhc: 'উপজেলা স্বাস্থ্য কমপ্লেক্স',
-    govt_hospital: 'অন্যান্য সরকারি হাসপাতাল',
-    private_hospital: 'বেসরকারি হাসপাতাল',
-    clinic: 'ক্লিনিক',
-    diagnostic: 'ডায়াগনস্টিক সেন্টার',
+  // =========================================================
+  // রাউটিং (#/pharmacies?s=approved)
+  // =========================================================
+  function parseHash() {
+    const raw = location.hash.replace(/^#\/?/, '');
+    const [path, query] = raw.split('?');
+    const parts = path.split('/');
+    const params = new URLSearchParams(query || '');
+    return { name: parts[0] || '', arg: parts[1] ? decodeURIComponent(parts[1]) : '', params };
+  }
+  const go = (hash) => { location.hash = hash; };
+
+  const PAGES = {
+    '': pageDashboard,
+    analytics: pageAnalytics,
+    badges: (r) => pageListing('badges', r),
+    pharmacies: (r) => pageListing('pharmacies', r),
+    ambulances: (r) => pageListing('ambulances', r),
+    hospitals: pageHospitals,
+    tickets: pageTickets,
+    ticket: pageTicket,
+    reports: pageReports,
+    corrections: pageCorrections,
+    users: pageUsers,
+    user: pageUser,
+    log: pageLog,
+    admins: pageAdmins,
   };
-  const AMB_TYPE = { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' };
-  const REPORT_KIND = { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি' };
 
-  const SECTIONS = [
-    { key: 'badges', title: 'ব্যাজের আবেদন', short: 'ব্যাজ', row: badgeRow },
-    { key: 'pharmacies', title: 'অনুমোদনের অপেক্ষায় ফার্মেসি', short: 'ফার্মেসি', row: pharmacyRow },
-    { key: 'ambulances', title: 'অনুমোদনের অপেক্ষায় অ্যাম্বুলেন্স', short: 'অ্যাম্বুলেন্স', row: ambulanceRow },
-    { key: 'hospitalRequests', title: 'হাসপাতাল যোগের অনুরোধ', short: 'হাসপাতাল', row: hospitalRow },
-    { key: 'reports', title: 'রিপোর্ট', short: 'রিপোর্ট', row: reportRow },
-    { key: 'corrections', title: 'রক্তদানের তারিখ সংশোধন', short: 'তারিখ সংশোধন', row: correctionRow },
-  ];
+  let routeSeq = 0;
+  function route(keepScroll) {
+    if (!S.loggedIn || !pageEl) return;
+    const r = parseHash();
+    const fn = PAGES[r.name] || pageDashboard;
+    const seq = ++routeSeq;
+    drawNav();
+    const y = window.scrollY;
+    pageEl.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    Promise.resolve(fn(r, () => seq === routeSeq)).catch((e) => {
+      if (seq !== routeSeq) return;
+      pageEl.replaceChildren(h('p', { class: 'error', role: 'alert', text: e.message }),
+        h('button', { class: 'btn quiet', type: 'button', onclick: () => route(), text: 'আবার চেষ্টা করুন' }));
+    }).then(() => {
+      if (keepScroll) window.scrollTo(0, y);
+    });
+    if (!keepScroll) window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', () => route());
 
-  const itemsOf = (key) => (data && data[key] && Array.isArray(data[key].items) ? data[key].items : []);
-
-  /** কাজ শেষে তালিকা থেকে সরানো */
-  function dropItem(key, pred) {
-    if (data && data[key]) data[key].items = data[key].items.filter((x) => !pred(x));
+  /** পাতা আঁকা — পুরোনো রাউটের দেরিতে আসা উত্তর যাতে নতুন পাতা না ঢেকে দেয় */
+  function paint(alive, ...nodes) {
+    if (alive && !alive()) return;
+    pageEl.replaceChildren(...nodes.flat().filter(Boolean));
   }
 
-  /**
-   * একটা কাজের বাটন। warn হলে প্রথম চাপে "নিশ্চিত?" হয়, ৪ সেকেন্ডের মধ্যে আবার চাপলে কাজ হয়।
-   * run সফল হলে done(): তালিকা থেকে সরিয়ে আবার আঁকা।
-   */
-  function actionBtn(label, kind, run, okMsg, done) {
+  // =========================================================
+  // কাজের বাটন: warn হলে প্রথম চাপে "নিশ্চিত?"
+  // =========================================================
+  function actionBtn(label, kind, run, okMsg, after) {
     const b = h('button', { type: 'button', class: `btn ${kind}`, text: label });
     let armed = false;
     let t = null;
@@ -249,241 +422,692 @@
         return;
       }
       clearTimeout(t);
-      const row = b.closest('.item, .list');
-      const buttons = row ? row.querySelectorAll('button') : [b];
+      const scope = b.closest('tr, .ctl, .card') || b.parentElement;
+      const buttons = scope.querySelectorAll('button');
       buttons.forEach((x) => { x.disabled = true; });
       b.textContent = '…';
-      busy++;
+      S.busy++;
       try {
         await run();
-        toast(okMsg);
-        done();
-        render();
+        if (okMsg) toast(okMsg);
+        if (after) await after();
       } catch (e) {
         buttons.forEach((x) => { x.disabled = false; });
         armed = false;
         b.classList.remove('armed');
         b.textContent = label;
-        const holder = row && row.classList.contains('item') ? row : null;
-        if (holder) {
-          const old = holder.querySelector('.item-error');
-          if (old) old.remove();
-          holder.append(h('p', { class: 'item-error', role: 'alert', text: e.message }));
-        } else if (loggedIn) {
-          toast(e.message);
-        }
+        const old = scope.querySelector('.row-error');
+        if (old) old.remove();
+        const holder = b.closest('td') || scope;
+        if (S.loggedIn) holder.append(h('div', { class: 'row-error', role: 'alert', text: e.message }));
       } finally {
-        busy--;
+        S.busy--;
       }
     });
     return b;
   }
 
-  const meta = (...parts) => h('div', { class: 'meta' }, parts.filter(Boolean).map((p) => h('span', null, p)));
-  const item = (main, actions) => h('article', { class: 'item' }, h('div', null, main), h('div', { class: 'actions' }, actions));
-
-  function badgeRow(b) {
-    const verify = b.type === 'doctor'
-      ? h('a', { href: 'https://www.bmdc.org.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BMDC ওয়েবসাইটে নম্বর মিলিয়ে দেখুন' })
-      : b.type === 'nurse'
-        ? h('a', { href: 'https://www.bnmc.gov.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BNMC ওয়েবসাইটে নম্বর মিলিয়ে দেখুন' })
-        : h('span', { class: 'hint', text: 'অনুমোদনের আগে সনদ দেখে নিন।' });
-    const done = () => dropItem('badges', (x) => x.uid === b.uid);
-    return item(
-      [
-        h('div', { class: 'title' }, b.name || '—', h('span', { class: 'chip', text: BADGE[b.type] || b.type || '' })),
-        meta(b.email, `রেজি. নম্বর: ${b.regNo || '—'}`, `কর্মস্থল: ${b.workplace || '—'}`, b.createdAt ? `আবেদন: ${fmtDate(b.createdAt)}` : null),
-        h('div', null, verify),
-      ],
-      [
-        actionBtn('অনুমোদন', 'primary', () => act('admin_badge_resolve', { uid: b.uid, approve: true }), 'ব্যাজ অনুমোদন করা হয়েছে', done),
-        actionBtn('বাতিল', 'warn', () => act('admin_badge_resolve', { uid: b.uid, approve: false }), 'আবেদন বাতিল করা হয়েছে', done),
-      ],
-    );
+  /** কাজ শেষে: অপেক্ষার সংখ্যা হালনাগাদ, এই তালিকা আবার আঁকা */
+  async function afterChange() {
+    try { await loadOverview(); } catch (e) { /* পরে আবার হবে */ }
+    for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
+    drawNav();
+    route(true);
   }
 
-  function pharmacyRow(p) {
-    const done = () => dropItem('pharmacies', (x) => x.id === p.id);
-    return item(
-      [
-        h('div', { class: 'title' }, p.name || '—'),
-        meta(`লাইসেন্স: ${p.licenseNo || '—'}`, bn(p.phone), p.areaLabel || p.district),
-        p.address ? h('div', { class: 'meta' }, h('span', null, p.address)) : null,
-        h('div', { class: 'hint', text: 'অনুমোদনের আগে ঔষধ প্রশাসন অধিদপ্তরে (DGDA) লাইসেন্স যাচাই করুন।' }),
-      ],
-      [
-        actionBtn('অনুমোদন', 'primary', () => act('admin_pharmacy_resolve', { id: p.id, approve: true }), 'ফার্মেসি অনুমোদন করা হয়েছে', done),
-        actionBtn('বাতিল', 'warn', () => act('admin_pharmacy_resolve', { id: p.id, approve: false }), 'ফার্মেসি বাতিল করা হয়েছে', done),
-      ],
-    );
+  // =========================================================
+  // টেবিল
+  // =========================================================
+  /** cols: [{label, cell(item) → node|string, main?}], actions(item) → [buttons] */
+  function table(items, cols, actions, onRow) {
+    if (!items.length) return h('div', { class: 'card empty', text: 'এখানে কিছু নেই।' });
+    return h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
+      h('thead', null, h('tr', null, cols.map((c) => h('th', { scope: 'col', text: c.label })), actions ? h('th', null) : null)),
+      h('tbody', null, items.map((it) => h('tr', { class: onRow ? 'click' : null, onclick: onRow ? (ev) => { if (!ev.target.closest('button, a')) onRow(it); } : null },
+        cols.map((c, i) => h('td', { class: c.main ? 'main-cell' : null, 'data-label': i === 0 ? null : c.label }, c.cell(it))),
+        actions ? h('td', { class: 'act' }, h('div', { class: 'actions' }, actions(it))) : null)))));
   }
 
-  function ambulanceRow(a) {
-    const done = () => dropItem('ambulances', (x) => x.id === a.id);
-    return item(
-      [
-        h('div', { class: 'title' }, a.name || '—', (a.types || []).map((t) => h('span', { class: 'chip', text: AMB_TYPE[t] || t }))),
-        meta(`গাড়ির নম্বর: ${a.vehicleNo || '—'}`, bn(a.phone), a.areaLabel || a.district),
-        a.area || a.fare ? meta(a.area ? `এলাকা: ${a.area}` : null, a.fare ? `ভাড়া: ${a.fare}` : null) : null,
-      ],
-      [
-        actionBtn('অনুমোদন', 'primary', () => act('admin_ambulance_resolve', { id: a.id, approve: true }), 'অ্যাম্বুলেন্স অনুমোদন করা হয়েছে', done),
-        actionBtn('বাতিল', 'warn', () => act('admin_ambulance_resolve', { id: a.id, approve: false }), 'অ্যাম্বুলেন্স বাতিল করা হয়েছে', done),
-      ],
-    );
+  function toolbar({ tabs, current, base, search, onSearch, count }) {
+    return h('div', { class: 'toolbar' },
+      tabs ? h('div', { class: 'seg', role: 'tablist' }, tabs.map(([key, label]) =>
+        h('a', { href: `#/${base}?s=${key}`, class: key === current ? 'on' : null, role: 'tab', 'aria-selected': key === current ? 'true' : 'false', text: label }))) : null,
+      onSearch ? h('label', { class: 'search' }, icon('search'),
+        h('input', { type: 'search', placeholder: search || 'খুঁজুন', 'aria-label': search || 'খুঁজুন', oninput: (e) => onSearch(e.target.value) })) : null,
+      count != null ? h('span', { class: 'count', text: `${bn(count)}টা` }) : null);
   }
 
-  function hospitalRow(r) {
-    const done = () => dropItem('hospitalRequests', (x) => x.id === r.id);
-    const dups = (r.possibleDuplicates || []);
-    return item(
-      [
-        h('div', { class: 'title' }, r.nameEn || r.nameBn || '—', r.count > 1 ? h('span', { class: 'chip alert', text: `${bn(r.count)} জন চেয়েছেন` }) : null),
-        r.nameBn && r.nameEn ? h('div', null, r.nameBn) : null,
-        meta(HOSPITAL_TYPE[r.type] || r.type, r.areaLabel || r.district),
-        r.address || r.phone ? meta(r.address, r.phone ? bn(r.phone) : null) : null,
-        dups.length
-          ? h('div', { class: 'dups' },
-            h('p', { text: 'তালিকায় একই রকম নামের হাসপাতাল আছে। একই হলে মিলিয়ে দিন:' }),
-            dups.map((d) => h('div', null,
-              h('span', null, [d.nameBn || d.nameEn, d.areaLabel].filter(Boolean).join(', ')),
-              actionBtn('মেলান', 'quiet', () => act('admin_hospital_resolve', { id: r.id, op: 'merge', targetId: d.id }), 'অনুরোধটা আগের হাসপাতালের সাথে মেলানো হয়েছে', done))))
-          : null,
-      ],
-      [
-        actionBtn('অনুমোদন', 'primary', () => act('admin_hospital_resolve', { id: r.id, op: 'approve' }), 'হাসপাতাল তালিকায় যোগ হয়েছে', done),
-        actionBtn('বাতিল', 'warn', () => act('admin_hospital_resolve', { id: r.id, op: 'reject' }), 'অনুরোধ বাতিল করা হয়েছে', done),
-      ],
-    );
+  const matches = (q, ...fields) => !q || fields.join(' ').toLowerCase().includes(q.trim().toLowerCase());
+  const userLink = (uid, text) => (uid ? h('a', { href: `#/user/${encodeURIComponent(uid)}`, text: text || 'ব্যবহারকারী দেখুন' }) : null);
+  const small = (...parts) => h('div', { class: 'small' }, parts.filter(Boolean).join('   '));
+
+  // =========================================================
+  // ড্যাশবোর্ড
+  // =========================================================
+  const QUEUES = [
+    ['badges', 'badges', 'ব্যাজের আবেদন', 'verified'],
+    ['pharmacies', 'pharmacies', 'ফার্মেসি অনুমোদন', 'store'],
+    ['ambulances', 'ambulances', 'অ্যাম্বুলেন্স অনুমোদন', 'ambulance'],
+    ['hospitalRequests', 'hospitals', 'হাসপাতাল যোগের অনুরোধ', 'hospital'],
+    ['tickets', 'tickets', 'উত্তরের অপেক্ষায় আপিল', 'help'],
+    ['reports', 'reports', 'রিপোর্ট', 'flag'],
+    ['corrections', 'corrections', 'তারিখ সংশোধন', 'calendar'],
+  ];
+
+  async function pageDashboard(r, alive) {
+    const total = QUEUES.reduce((a, [k]) => a + pendingCount(k), 0);
+    setTitle('ড্যাশবোর্ড', total ? `অপেক্ষায় ${bn(total)}টা কাজ` : 'অপেক্ষায় কোনো কাজ নেই');
+    const queues = h('div', { class: 'grid tiles' }, QUEUES.map(([key, path, label, ic]) => {
+      const n = pendingCount(key);
+      return h('a', { class: `queue${n ? '' : ' zero'}`, href: `#/${path}` },
+        h('div', { class: 'badge-ic' }, icon(ic)),
+        h('div', null, h('div', { class: 'num', text: bn(n) }), h('div', { class: 'lbl', text: label })));
+    }));
+    const kpiBox = h('div', { class: 'grid tiles' }, h('p', { class: 'note', text: 'হিসাব আসছে…' }));
+    const logBox = h('div', null, h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    paint(alive,
+      h('h2', { class: 'section-title', text: 'অপেক্ষায় যা আছে' }), queues,
+      h('h2', { class: 'section-title' }, 'এক নজরে', h('a', { class: 'more', href: '#/analytics', text: 'বিস্তারিত অ্যানালিটিক্স' })), kpiBox,
+      h('h2', { class: 'section-title' }, 'সাম্প্রতিক অ্যাডমিন কাজ', h('a', { class: 'more', href: '#/log', text: 'সব দেখুন' })), logBox);
+
+    getStats(false).then((st) => {
+      const t = st.totals || {};
+      const u = st.users || {};
+      const donors = Object.values(st.bloodGroups || {}).reduce((a, b) => a + (b || 0), 0);
+      kpiBox.replaceChildren(
+        kpi('মোট ব্যবহারকারী', u.total, u.new7 != null ? `গত ৭ দিনে নতুন ${bn(u.new7)}` : null),
+        kpi('গত ৭ দিনে সক্রিয়', u.active7, u.active30 != null ? `৩০ দিনে ${bn(u.active30)}` : null),
+        kpi('রক্তদাতা (গ্রুপ দেওয়া)', donors),
+        kpi('চালু রক্তের অনুরোধ', t.openRequests, t.allRequests != null ? `মোট ${num(t.allRequests)}` : null),
+        kpi('অনুমোদিত ডাক্তার', t.doctors),
+        kpi('অনুমোদিত নার্স', t.nurses),
+        kpi('তালিকায় ফার্মেসি', t.pharmacies),
+        kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances));
+    }).catch((e) => kpiBox.replaceChildren(h('p', { class: 'error', text: e.message })));
+
+    act('admin_log').then((res) => {
+      logBox.replaceChildren(logTable((res.items || []).slice(0, 6)));
+    }).catch((e) => logBox.replaceChildren(h('p', { class: 'error', text: e.message })));
   }
 
-  function reportRow(r) {
-    const done = () => dropItem('reports', (x) => x.targetPath === r.targetPath && x.reportedUid === r.reportedUid);
-    const kind = r.kind === 'homevisit'
-      ? (r.reportedRole === 'patient' ? 'হোম ভিজিট: রোগী' : 'হোম ভিজিট: নার্স')
-      : REPORT_KIND[r.kind] || r.kind;
-    const removeLabel = r.kind === 'homevisit' ? 'হোম ভিজিট থেকে বাদ দিন'
-      : r.kind === 'ambulance' || r.kind === 'pharmacy' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
-    const removedMsg = r.kind === 'homevisit' ? 'হোম ভিজিট থেকে বাদ দেওয়া হয়েছে'
-      : r.kind === 'ambulance' || r.kind === 'pharmacy' ? 'বন্ধ করা হয়েছে' : 'পোস্ট মুছে ফেলা হয়েছে';
-    // প্রশ্ন/উত্তর/টিপসের লেখায় কারণগুলো থাকে না, তাই আলাদা দেখানো
-    const showReasons = ['question', 'answer', 'tip'].includes(r.kind) && (r.reasons || []).length;
-    const body = { targetPath: r.targetPath, ...(r.reportedUid ? { reportedUid: r.reportedUid } : {}) };
-    return item(
-      [
-        h('div', { class: 'title' }, kind, h('span', { class: 'chip alert', text: `${bn(r.count)}টি রিপোর্ট` })),
-        r.authorName ? meta(r.authorName) : null,
-        h('p', { class: 'body', text: r.text || '' }),
-        showReasons ? h('ul', { class: 'reasons' }, r.reasons.map((x) => h('li', { text: x }))) : null,
-      ],
-      [
-        actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), removedMsg, done),
-        actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', done),
-      ],
-    );
+  function kpi(label, value, sub) {
+    return h('div', { class: 'card kpi' }, h('div', { class: 'v', text: num(value) }), h('div', { class: 'k', text: label }), sub ? h('div', { class: 'd', text: sub }) : null);
   }
 
-  function correctionRow(c) {
-    const done = () => dropItem('corrections', (x) => x.id === c.id);
-    return item(
-      [
-        h('div', { class: 'title' }, c.name || '—'),
-        meta(`এখনকার তারিখ: ${fmtDate(c.currentMillis)}`, `চাওয়া তারিখ: ${c.requestedMillis ? fmtDate(c.requestedMillis) : 'কখনো দেননি'}`),
-        c.reason ? h('p', { class: 'body', text: `কারণ: ${c.reason}` }) : null,
-      ],
-      [
-        actionBtn('অনুমোদন', 'primary', () => post('/api/admin/resolve', { id: c.id, approve: true }), 'তারিখ সংশোধন করা হয়েছে', done),
-        actionBtn('বাতিল', 'warn', () => post('/api/admin/resolve', { id: c.id, approve: false }), 'অনুরোধ বাতিল করা হয়েছে', done),
-      ],
-    );
+  async function getStats(fresh) {
+    if (!fresh && S.stats && Date.now() - S.stats._got < 10 * 60 * 1000) return S.stats;
+    const st = await act('admin_stats', fresh ? { fresh: true } : {});
+    st._got = Date.now();
+    S.stats = st;
+    return st;
   }
 
-  function adminsSection() {
-    const a = data.admins;
-    if (!a) return null;
-    const list = h('div', { class: 'list admins' });
-    (a.owners || []).forEach((e) => list.append(item([h('div', { class: 'title' }, e, h('span', { class: 'chip', text: 'মালিক' }))], [])));
-    (a.items || []).forEach(({ email }) => list.append(item(
-      [h('div', { class: 'title' }, email)],
-      [actionBtn('বাদ দিন', 'warn', () => act('admin_remove', { email }), 'অ্যাডমিন থেকে বাদ দেওয়া হয়েছে',
-        () => { a.items = a.items.filter((x) => x.email !== email); })],
-    )));
-    const input = h('input', { type: 'email', placeholder: 'নতুন অ্যাডমিনের ইমেইল', 'aria-label': 'নতুন অ্যাডমিনের ইমেইল', maxlength: 200 });
-    const add = actionBtn('যোগ করুন', 'primary', async () => {
-      const email = input.value.trim().toLowerCase();
-      if (!email.includes('@')) throw new Error('সঠিক ইমেইল দিন');
-      await act('admin_add', { email });
-      add.newEmail = email;
-    }, 'অ্যাডমিন যোগ হয়েছে', () => { a.items = [...(a.items || []), { email: add.newEmail }]; });
-    list.append(h('div', { class: 'add' }, input, add));
-    return h('section', { class: 'section', id: 'admins' },
-      h('h2', null, 'অ্যাডমিন'),
-      h('p', { class: 'note', text: 'অ্যাডমিনরা সব আবেদন আর রিপোর্ট দেখতে পারেন। যোগ বা বাদ শুধু মালিক করতে পারেন। তাদের এই ইমেইল দিয়েই লগইন করতে হবে।' }),
-      list);
+  // =========================================================
+  // অ্যানালিটিক্স
+  // =========================================================
+  async function pageAnalytics(r, alive, fresh) {
+    setTitle('অ্যানালিটিক্স', 'গত ৩০ দিন');
+    const st = await getStats(!!fresh);
+    if (alive && !alive()) return;
+    const t = st.totals || {};
+    const u = st.users || {};
+    const days = st.days || [];
+    const donors = Object.values(st.bloodGroups || {}).reduce((a, b) => a + (b || 0), 0);
+    setTitle('অ্যানালিটিক্স', `হিসাব ${ago(st.at)}`, [
+      actionBtn('নতুন করে হিসাব', 'quiet', () => pageAnalytics(r, alive, true), null),
+    ]);
+
+    const SERIES = [
+      ['newUsers', 'নতুন ব্যবহারকারী'],
+      ['requests', 'রক্তের অনুরোধ'],
+      ['medOrders', 'ওষুধের অর্ডার'],
+      ['homeVisits', 'হোম ভিজিটের অনুরোধ'],
+      ['appointments', 'অ্যাপয়েন্টমেন্টের অনুরোধ'],
+    ].filter(([k]) => Array.isArray(st.series && st.series[k]));
+
+    const charts = h('div', { class: 'grid three' }, SERIES.map(([k, label]) => barCard(label, st.series[k], days)));
+    const dataTable = h('details', { class: 'data' }, h('summary', { text: 'সংখ্যাগুলো টেবিলে দেখুন' }),
+      h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
+        h('thead', null, h('tr', null, h('th', { text: 'তারিখ' }), SERIES.map(([, l]) => h('th', { text: l })))),
+        h('tbody', null, days.slice().reverse().map((d, ri) => {
+          const i = days.length - 1 - ri;
+          return h('tr', null, h('td', { text: dayFmt.format(new Date(d)) }), SERIES.map(([k, l]) => h('td', { 'data-label': l, text: num(st.series[k][i]) })));
+        })))));
+
+    const groups = Object.entries(st.bloodGroups || {});
+    const statusCard = (title, map, labels, doneKey, endKeys) => {
+      const entries = Object.entries(map || {}).filter(([, v]) => v != null);
+      const ended = endKeys.reduce((a, k) => a + ((map || {})[k] || 0), 0);
+      const rate = ended ? Math.round(((map[doneKey] || 0) / ended) * 100) : null;
+      return h('div', { class: 'card chart-card' }, h('h3', { text: title }),
+        h('div', { class: 'note', text: rate != null ? `শেষ হওয়াগুলোর ${bn(rate)}% সম্পন্ন` : 'এখনো কিছু শেষ হয়নি' }),
+        hbars(entries.map(([k, v]) => [labels[k] || k, v])));
+    };
+
+    paint(alive,
+      h('h2', { class: 'section-title', text: 'ব্যবহারকারী' }),
+      h('div', { class: 'grid tiles' },
+        kpi('মোট ব্যবহারকারী', u.total),
+        kpi('গত ৭ দিনে নতুন', u.new7),
+        kpi('গত ৩০ দিনে নতুন', u.new30),
+        kpi('গত ৭ দিনে সক্রিয়', u.active7),
+        kpi('গত ৩০ দিনে সক্রিয়', u.active30),
+        kpi('রক্তদাতা (গ্রুপ দেওয়া)', donors, t.usersWithProfile != null ? `প্রোফাইল আছে ${num(t.usersWithProfile)} জনের` : null),
+        kpi('বন্ধ করা অ্যাকাউন্ট', u.disabled)),
+      h('h2', { class: 'section-title', text: 'দৈনিক কার্যক্রম (গত ৩০ দিন)' }),
+      charts, dataTable,
+      h('h2', { class: 'section-title', text: 'সেবা ও তালিকা' }),
+      h('div', { class: 'grid tiles' },
+        kpi('চালু রক্তের অনুরোধ', t.openRequests, t.allRequests != null ? `সব মিলিয়ে ${num(t.allRequests)}` : null),
+        kpi('অনুমোদিত ডাক্তার', t.doctors),
+        kpi('অনুমোদিত নার্স', t.nurses),
+        kpi('পুষ্টিবিদ ও ট্রেইনার', (t.nutritionists || 0) + (t.trainers || 0)),
+        kpi('তালিকায় ফার্মেসি', t.pharmacies),
+        kpi('তালিকায় অ্যাম্বুলেন্স', t.ambulances),
+        kpi('আলোচনার প্রশ্ন', t.questions),
+        kpi('স্বাস্থ্য টিপস', t.tips)),
+      h('h2', { class: 'section-title', text: 'অবস্থা অনুযায়ী (সব সময়ের)' }),
+      h('div', { class: 'grid three' },
+        h('div', { class: 'card chart-card' }, h('h3', { text: 'রক্তের গ্রুপ অনুযায়ী দাতা' }), hbars(groups)),
+        statusCard('ওষুধের অর্ডার', st.byStatus && st.byStatus.medOrders, L.order, 'done', ['done', 'no_show', 'expired', 'cancelled']),
+        statusCard('হোম ভিজিট', st.byStatus && st.byStatus.homeVisits, L.visit, 'done', ['done', 'expired', 'cancelled']),
+        statusCard('অ্যাপয়েন্টমেন্ট', st.byStatus && st.byStatus.appointments, L.appt, 'confirmed', ['confirmed', 'declined', 'cancelled', 'expired'])),
+      h('p', { class: 'note', text: 'হিসাব ৩০ মিনিট পরপর নতুন হয়। "নতুন করে হিসাব" চাপলে এখনই হয় (ডাটাবেসের কিছু পড়া খরচ হয়)।' }));
   }
 
-  // ---------------- আঁকা ----------------
-  function freshText() {
-    const m = Math.floor((Date.now() - loadedAt) / 60000);
-    return m < 1 ? 'এইমাত্র হালনাগাদ' : `${bn(m)} মিনিট আগে হালনাগাদ`;
-  }
-
-  function render() {
-    if (!data) return;
-    const counts = SECTIONS.map((s) => itemsOf(s.key).length);
-    const total = counts.reduce((a, b) => a + b, 0);
-
-    const headline = total
-      ? h('h1', null, 'অপেক্ষায় ', h('span', { class: 'n', text: bn(total) }), 'টা কাজ')
-      : h('h1', { class: 'clear', text: 'সব কাজ শেষ' });
-
-    const queues = h('ul', { class: 'queues', 'aria-label': 'কোন অংশে কতটা' },
-      SECTIONS.map((s, i) => h('li', null,
-        h('button', {
-          type: 'button',
-          class: counts[i] ? 'has' : 'zero',
-          onclick: () => document.getElementById(s.key).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }),
-        }, h('span', { class: 'count', text: bn(counts[i]) }), h('span', { text: s.short })))));
-
-    const fresh = h('div', { class: 'fresh' },
-      h('span', { id: 'fresh', text: freshText() }),
-      h('button', { type: 'button', class: 'btn quiet', onclick: () => refresh(false), text: 'রিফ্রেশ' }));
-
-    const sections = SECTIONS.map((s, i) => {
-      const part = data[s.key] || {};
-      const items = itemsOf(s.key);
-      return h('section', { class: `section${items.length ? '' : ' empty'}`, id: s.key },
-        h('h2', null, s.title, h('span', { class: 'c', text: items.length ? `${bn(items.length)}টা` : '' })),
-        part.error ? h('p', { class: 'part-error', role: 'alert', text: `এই অংশ আনা যায়নি: ${part.error}` }) : null,
-        items.length ? h('div', { class: 'list' }, items.map((x) => s.row(x))) : h('p', { class: 'empty-line', text: 'অপেক্ষায় কিছু নেই।' }));
+  /** ৩০ দিনের বার চার্ট — একটাই সিরিজ, তাই লেজেন্ড নেই; ছুঁলে তারিখ আর সংখ্যা */
+  function barCard(title, values, days) {
+    const vals = values.map((v) => (v == null ? 0 : v));
+    const total = vals.reduce((a, b) => a + b, 0);
+    const max = Math.max(1, ...vals);
+    const W = 300;
+    const H = 120;
+    const n = vals.length;
+    const slot = W / n;
+    const bw = Math.max(2, slot - 2); // বারের মাঝে ২px ফাঁক
+    const tip = h('div', { class: 'tip', hidden: true });
+    const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': `${title}: ৩০ দিনে মোট ${bn(total)}` });
+    vals.forEach((v, i) => {
+      const bh = v ? Math.max(3, (v / max) * (H - 6)) : 0;
+      const x = i * slot + 1;
+      const y = H - bh;
+      if (bh) {
+        // উপরের দুই কোণা গোল (৪px), নিচ সমান — শূন্য রেখায় বসানো
+        const rr = Math.min(4, bw / 2, bh);
+        svg.append(s('path', { class: 'bar', 'data-i': i, d: `M${x},${H}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + bw - rr}Q${x + bw},${y} ${x + bw},${y + rr}V${H}Z` }));
+      }
+      const hit = s('rect', { class: 'hit', x: i * slot, y: 0, width: slot, height: H });
+      const show = () => {
+        tip.hidden = false;
+        tip.textContent = `${dayFmt.format(new Date(days[i]))}: ${bn(v)}`;
+        tip.style.left = `${((i + 0.5) / n) * 100}%`;
+        svg.querySelectorAll('.bar').forEach((b) => b.classList.toggle('hl', Number(b.getAttribute('data-i')) === i));
+      };
+      hit.addEventListener('pointerenter', show);
+      hit.addEventListener('pointerdown', show);
+      svg.append(hit);
     });
-
-    app.replaceChildren(
-      h('div', { class: 'summary' }, h('div', { class: 'headline' }, headline, fresh), queues),
-      ...sections,
-      ...[adminsSection()].filter(Boolean),
-    );
+    svg.append(s('line', { class: 'base', x1: 0, x2: W, y1: H - 0.5, y2: H - 0.5 }));
+    svg.addEventListener('pointerleave', () => {
+      tip.hidden = true;
+      svg.querySelectorAll('.bar.hl').forEach((b) => b.classList.remove('hl'));
+    });
+    const peak = vals.indexOf(Math.max(...vals));
+    return h('div', { class: 'card chart-card' },
+      h('h3', { text: title }),
+      h('div', { class: 'total' }, bn(total), h('small', { text: total ? `সর্বোচ্চ ${bn(vals[peak])}, ${dayFmt.format(new Date(days[peak]))}` : 'এই সময়ে কিছু নেই' })),
+      h('div', { class: 'chart' }, tip, svg,
+        h('div', { class: 'x' }, h('span', { text: dayFmt.format(new Date(days[0])) }), h('span', { text: 'আজ' }))));
   }
 
-  // ---------------- সময় ধরে কাজ ----------------
+  function hbars(rows) {
+    const max = Math.max(1, ...rows.map(([, v]) => v || 0));
+    return h('div', { class: 'hbars' }, rows.map(([label, v]) => h('div', { class: 'hbar' },
+      h('span', { text: label }),
+      h('div', { class: 'track' }, (() => {
+        const f = h('div', { class: 'fill' });
+        f.style.width = `${((v || 0) / max) * 100}%`;
+        return f;
+      })()),
+      h('span', { class: 'val', text: num(v) }))));
+  }
+
+  // =========================================================
+  // অনুমোদনের তালিকা: ব্যাজ, ফার্মেসি, অ্যাম্বুলেন্স
+  // =========================================================
+  const LISTINGS = {
+    badges: {
+      title: 'ডাক্তার ও নার্স',
+      action: 'admin_badges',
+      tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['rejected', 'বাতিল']],
+      search: 'নাম, ইমেইল, রেজি. নম্বর',
+      text: (b) => [b.name, b.email, b.regNo, b.workplace, L.badge[b.type]],
+      cols: [
+        { label: 'নাম', main: true, cell: (b) => [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.badge[b.type] || b.type })] },
+        { label: 'ইমেইল', cell: (b) => b.email || '—' },
+        { label: 'রেজি. নম্বর', cell: (b) => [b.regNo || '—', h('div', { class: 'small' },
+          b.type === 'doctor' ? h('a', { href: 'https://www.bmdc.org.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BMDC-তে মেলান' })
+            : b.type === 'nurse' ? h('a', { href: 'https://www.bnmc.gov.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BNMC-তে মেলান' })
+              : 'সনদ দেখে নিন')] },
+        { label: 'কর্মস্থল', cell: (b) => b.workplace || '—' },
+        { label: 'তারিখ', cell: (b) => fmtDate(b.reviewedAt || b.createdAt) },
+      ],
+      id: (b) => b.uid,
+      owner: (b) => b.uid,
+      actions: (b, st) => {
+        const run = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve });
+        if (st === 'pending') return [actionBtn('অনুমোদন', 'primary', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', afterChange)];
+        if (st === 'approved') return [actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে, তালিকা থেকেও সরেছে', afterChange)];
+        return [actionBtn('অনুমোদন দিন', 'tonal', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange)];
+      },
+    },
+    pharmacies: {
+      title: 'ফার্মেসি',
+      action: 'admin_pharmacies',
+      tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
+      search: 'নাম, ফোন, লাইসেন্স, এলাকা',
+      text: (p) => [p.name, p.phone, p.licenseNo, p.areaLabel, p.district, p.address],
+      cols: [
+        { label: 'নাম', main: true, cell: (p) => [p.name || '—', p.rating ? h('div', { class: 'small', text: `রেটিং ${bn(p.rating)} (${bn(p.ratingCount)})` }) : null] },
+        { label: 'লাইসেন্স', cell: (p) => p.licenseNo || '—' },
+        { label: 'ফোন', cell: (p) => bn(p.phone) },
+        { label: 'এলাকা', cell: (p) => [p.areaLabel || p.district || '—', p.address ? h('div', { class: 'small', text: p.address }) : null] },
+        { label: 'সময়', cell: (p) => (p.open24 ? '২৪ ঘণ্টা' : p.openAt ? `${bn(p.openAt)}–${bn(p.closeAt)}` : '—') },
+        { label: 'তারিখ', cell: (p) => fmtDate(p.reviewedAt || p.createdAt) },
+      ],
+      note: 'অনুমোদনের আগে ঔষধ প্রশাসন অধিদপ্তরে (DGDA) লাইসেন্স যাচাই করুন।',
+      id: (p) => p.id,
+      owner: (p) => p.id,
+      actions: (p, st) => statusActions('admin_pharmacy_resolve', p.id, st, 'ফার্মেসি'),
+    },
+    ambulances: {
+      title: 'অ্যাম্বুলেন্স',
+      action: 'admin_ambulances',
+      tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
+      search: 'নাম, ফোন, গাড়ির নম্বর, এলাকা',
+      text: (a) => [a.name, a.phone, a.vehicleNo, a.areaLabel, a.district, a.area],
+      cols: [
+        { label: 'নাম', main: true, cell: (a) => [a.name || '—', h('div', { class: 'chips' }, (a.types || []).map((t) => h('span', { class: 'chip', text: L.amb[t] || t })))] },
+        { label: 'গাড়ির নম্বর', cell: (a) => a.vehicleNo || '—' },
+        { label: 'ফোন', cell: (a) => bn(a.phone) },
+        { label: 'এলাকা', cell: (a) => [a.areaLabel || a.district || '—', a.area ? h('div', { class: 'small', text: a.area }) : null] },
+        { label: 'ভাড়া', cell: (a) => a.fare || '—' },
+        { label: 'রেটিং', cell: (a) => (a.ratingCount ? `${bn(a.rating)} (${bn(a.ratingCount)})` : '—') },
+      ],
+      id: (a) => a.id,
+      owner: (a) => a.ownerUid,
+      actions: (a, st) => statusActions('admin_ambulance_resolve', a.id, st, 'অ্যাম্বুলেন্স'),
+    },
+  };
+
+  function statusActions(action, id, st, what) {
+    const run = (status) => () => act(action, { id, status });
+    if (st === 'pending') return [actionBtn('অনুমোদন', 'primary', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange), actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
+    if (st === 'approved') return [actionBtn('বন্ধ করুন', 'warn', run('suspended'), `${what} বন্ধ করা হয়েছে`, afterChange)];
+    if (st === 'suspended') return [actionBtn('আবার চালু করুন', 'tonal', run('approved'), `${what} আবার চালু হয়েছে`, afterChange)];
+    return [actionBtn('অনুমোদন দিন', 'tonal', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange)];
+  }
+
+  async function getList(kind, status) {
+    const key = `${kind}:${status}`;
+    if (S.lists[key]) return S.lists[key];
+    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', tickets: 'admin_tickets' }[kind];
+    const res = await act(action, { status });
+    S.lists[key] = res.items || [];
+    return S.lists[key];
+  }
+
+  async function pageListing(kind, r, alive) {
+    const def = LISTINGS[kind];
+    const st = def.tabs.some(([k]) => k === r.params.get('s')) ? r.params.get('s') : 'pending';
+    setTitle(def.title, L.listing[st]);
+    const items = await getList(kind, st);
+    let q = '';
+    const box = h('div');
+    const countEl = h('span', { class: 'count' });
+    const draw = () => {
+      const shown = items.filter((x) => matches(q, ...def.text(x)));
+      countEl.textContent = `${bn(shown.length)}টা`;
+      box.replaceChildren(table(shown, [...def.cols, { label: '', cell: (x) => userLink(def.owner(x), 'ব্যবহারকারী') }], (x) => def.actions(x, st)));
+    };
+    const tb = toolbar({ tabs: def.tabs, current: st, base: kind, search: def.search, onSearch: (v) => { q = v; draw(); } });
+    tb.append(countEl);
+    draw();
+    paint(alive, tb, def.note && st === 'pending' ? h('p', { class: 'note', text: def.note }) : null, box);
+  }
+
+  // =========================================================
+  // হাসপাতাল যোগের অনুরোধ
+  // =========================================================
+  function pageHospitals(r, alive) {
+    const items = itemsOf('hospitalRequests');
+    setTitle('হাসপাতাল যোগের অনুরোধ', `${bn(items.length)}টা অপেক্ষায়`);
+    const run = (id, op, targetId) => () => act('admin_hospital_resolve', { id, op, ...(targetId ? { targetId } : {}) });
+    paint(alive,
+      h('p', { class: 'note', text: 'ব্যবহারকারীরা যে হাসপাতাল তালিকায় পাননি, সেগুলো যোগ করতে চেয়েছেন। আগে থেকে একই হাসপাতাল থাকলে "মেলান" চাপুন।' }),
+      table(items, [
+        { label: 'হাসপাতাল', main: true, cell: (x) => [x.nameEn || x.nameBn || '—', x.nameBn && x.nameEn ? h('div', { class: 'small', text: x.nameBn }) : null,
+          x.count > 1 ? h('div', { class: 'chips' }, h('span', { class: 'chip pri', text: `${bn(x.count)} জন চেয়েছেন` })) : null] },
+        { label: 'ধরন', cell: (x) => L.hospitalType[x.type] || x.type || '—' },
+        { label: 'এলাকা', cell: (x) => [x.areaLabel || x.district || '—', x.address ? h('div', { class: 'small', text: x.address }) : null, x.phone ? h('div', { class: 'small', text: bn(x.phone) }) : null] },
+        { label: 'একই রকম নাম', cell: (x) => ((x.possibleDuplicates || []).length
+          ? (x.possibleDuplicates || []).map((d) => h('div', { class: 'small' }, [d.nameBn || d.nameEn, d.areaLabel].filter(Boolean).join(', '), ' ',
+            actionBtn('মেলান', 'quiet', run(x.id, 'merge', d.id), 'আগের হাসপাতালের সাথে মেলানো হয়েছে', afterChange)))
+          : '—') },
+      ], (x) => [actionBtn('অনুমোদন', 'primary', run(x.id, 'approve'), 'হাসপাতাল তালিকায় যোগ হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(x.id, 'reject'), 'অনুরোধ বাতিল করা হয়েছে', afterChange)]));
+  }
+
+  // =========================================================
+  // রিপোর্ট
+  // =========================================================
+  function pageReports(r, alive) {
+    const items = itemsOf('reports');
+    setTitle('রিপোর্ট', `${bn(items.length)}টা খোলা`);
+    paint(alive, table(items, [
+      { label: 'কী', main: true, cell: (x) => [x.kind === 'homevisit' ? (x.reportedRole === 'patient' ? 'হোম ভিজিট: রোগী' : 'হোম ভিজিট: নার্স') : L.report[x.kind] || x.kind,
+        h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: `${bn(x.count)}টি রিপোর্ট` }))] },
+      { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid ? h('div', { class: 'small' }, userLink(x.reportedUid)) : null] },
+      { label: 'লেখা', cell: (x) => [h('div', { class: 'body', text: x.text || '' }),
+        ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
+    ], (x) => {
+      const body = { targetPath: x.targetPath, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
+      const removeLabel = x.kind === 'homevisit' ? 'হোম ভিজিট থেকে বাদ' : x.kind === 'ambulance' || x.kind === 'pharmacy' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
+      return [
+        actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
+        actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
+      ];
+    }));
+  }
+
+  // =========================================================
+  // তারিখ সংশোধন
+  // =========================================================
+  function pageCorrections(r, alive) {
+    const items = itemsOf('corrections');
+    setTitle('রক্তদানের তারিখ সংশোধন', `${bn(items.length)}টা অপেক্ষায়`);
+    const run = (id, approve) => () => post('/api/admin/resolve', { id, approve });
+    paint(alive, table(items, [
+      { label: 'নাম', main: true, cell: (c) => [c.name || '—', h('div', { class: 'small' }, userLink(c.uid))] },
+      { label: 'এখনকার তারিখ', cell: (c) => fmtDate(c.currentMillis) },
+      { label: 'চাওয়া তারিখ', cell: (c) => (c.requestedMillis ? fmtDate(c.requestedMillis) : 'কখনো দেননি') },
+      { label: 'কারণ', cell: (c) => h('div', { class: 'body', text: c.reason || '—' }) },
+    ], (c) => [actionBtn('অনুমোদন', 'primary', run(c.id, true), 'তারিখ সংশোধন করা হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(c.id, false), 'অনুরোধ বাতিল করা হয়েছে', afterChange)]));
+  }
+
+  // =========================================================
+  // আপিল ও সমস্যা
+  // =========================================================
+  async function pageTickets(r, alive) {
+    const tabs = [['open', 'উত্তরের অপেক্ষায়'], ['answered', 'উত্তর দেওয়া'], ['closed', 'বন্ধ']];
+    const st = tabs.some(([k]) => k === r.params.get('s')) ? r.params.get('s') : 'open';
+    setTitle('আপিল ও সমস্যা', L.ticket[st]);
+    const items = await getList('tickets', st);
+    let q = '';
+    const box = h('div');
+    const countEl = h('span', { class: 'count' });
+    const draw = () => {
+      const shown = items.filter((x) => matches(q, x.name, x.email, L.category[x.category], ...(x.messages || []).map((m) => m.text)));
+      countEl.textContent = `${bn(shown.length)}টা`;
+      box.replaceChildren(table(shown, [
+        { label: 'কে', main: true, cell: (x) => [x.name || '—', h('div', { class: 'small', text: x.email || '' })] },
+        { label: 'বিষয়', cell: (x) => h('span', { class: 'chip pri', text: L.category[x.category] || x.category }) },
+        { label: 'শেষ বার্তা', cell: (x) => {
+          const m = (x.messages || [])[x.messages.length - 1];
+          return m ? [h('div', { class: 'body', text: m.text.length > 140 ? `${m.text.slice(0, 140)}…` : m.text }), h('div', { class: 'small', text: `${m.from === 'admin' ? 'আমরা' : 'ব্যবহারকারী'}, ${ago(m.at)}` })] : '—';
+        } },
+        { label: 'বার্তা', cell: (x) => bn((x.messages || []).length) },
+      ], null, (x) => go(`#/ticket/${encodeURIComponent(x.id)}`)));
+    };
+    const tb = toolbar({ tabs, current: st, base: 'tickets', search: 'নাম, ইমেইল বা লেখা', onSearch: (v) => { q = v; draw(); } });
+    tb.append(countEl);
+    draw();
+    paint(alive, tb, h('p', { class: 'note', text: 'অ্যাপের "সাহায্য ও আপিল" থেকে আসে। খোলা আপিলে যিনি বেশিক্ষণ অপেক্ষা করছেন, তিনি আগে।' }), box);
+  }
+
+  async function pageTicket(r, alive) {
+    setTitle('আপিল', '');
+    const res = await act('admin_ticket', { id: r.arg });
+    if (alive && !alive()) return;
+    const t = res.item;
+    setTitle(`আপিল: ${L.category[t.category] || t.category}`, L.ticket[t.status]);
+    const reply = h('textarea', { class: 'reply', placeholder: 'উত্তর লিখুন। ব্যবহারকারী অ্যাপে নোটিফিকেশন পাবেন।', 'aria-label': 'উত্তর', maxlength: 1500 });
+    const send = (close) => async () => {
+      const text = reply.value.trim();
+      if (!text && !close) throw new Error('উত্তর লিখুন');
+      await act('admin_ticket_reply', { id: t.id, text, close });
+    };
+    const doneTo = async () => {
+      delete S.lists['tickets:answered'];
+      delete S.lists['tickets:closed'];
+      await afterChange();
+    };
+    paint(alive,
+      h('div', { class: 'toolbar' }, h('a', { href: '#/tickets', text: 'সব আপিল' })),
+      h('div', { class: 'card pad' },
+        h('div', { class: 'profile' },
+          h('div', null, h('h2', { text: t.name || '—' }), h('div', { class: 'note', text: t.email || '' }), h('div', { class: 'small' }, userLink(t.uid, 'এই ব্যবহারকারীর সব কিছু দেখুন ও ব্যবস্থা নিন'))),
+          h('div', null, h('span', { class: `chip ${t.status === 'closed' ? '' : t.status === 'open' ? 'bad' : 'good'}`, text: L.ticket[t.status] }), h('div', { class: 'small', text: `খোলা হয়েছে ${fmtDT(t.createdAt)}` }))),
+        h('div', { class: 'convo' }, (t.messages || []).map((m) => h('div', { class: `msg ${m.from === 'admin' ? 'admin' : 'user'}` },
+          m.text, h('span', { class: 'when', text: `${m.from === 'admin' ? 'Lifolo টিম' : t.name || 'ব্যবহারকারী'}, ${fmtDT(m.at)}` })))),
+        reply,
+        h('div', { class: 'reply-actions' },
+          actionBtn('উত্তর পাঠান', 'primary', send(false), 'উত্তর পাঠানো হয়েছে', doneTo),
+          actionBtn('উত্তর দিয়ে বন্ধ করুন', 'tonal', send(true), 'উত্তর পাঠিয়ে বন্ধ করা হয়েছে', doneTo),
+          t.status !== 'closed' ? actionBtn('উত্তর ছাড়া বন্ধ করুন', 'warn', () => act('admin_ticket_reply', { id: t.id, close: true }), 'বন্ধ করা হয়েছে', doneTo) : null)));
+  }
+
+  // =========================================================
+  // ব্যবহারকারী
+  // =========================================================
+  async function pageUsers(r, alive) {
+    setTitle('ব্যবহারকারী', 'খুঁজুন ও ব্যবস্থা নিন');
+    const q0 = r.params.get('q') || '';
+    const input = h('input', { type: 'search', value: q0, placeholder: 'ইমেইল, ফোন নম্বর বা ইউজার আইডি', 'aria-label': 'ব্যবহারকারী খুঁজুন' });
+    const box = h('div');
+    const form = h('form', { class: 'field-row', onsubmit: (e) => { e.preventDefault(); go(`#/users?q=${encodeURIComponent(input.value.trim())}`); } },
+      input, h('button', { class: 'btn primary', type: 'submit' }, icon('search'), 'খুঁজুন'));
+    paint(alive, h('div', { class: 'card pad' }, form,
+      h('p', { class: 'note', text: 'ফোন নম্বর দিলে প্রোফাইল, ফার্মেসি আর অ্যাম্বুলেন্সের নম্বরেও খোঁজা হয়।' })), h('div', { class: 'section-title' }), box);
+    if (!q0) { input.focus(); return; }
+    box.replaceChildren(h('p', { class: 'note', text: 'খোঁজা হচ্ছে…' }));
+    try {
+      const res = await act('admin_user_find', { q: q0 });
+      if (alive && !alive()) return;
+      box.replaceChildren(table(res.items || [], [
+        { label: 'নাম', main: true, cell: (u) => [u.name || '—', u.disabled ? [' ', h('span', { class: 'chip bad', text: 'অ্যাকাউন্ট বন্ধ' })] : null] },
+        { label: 'ইমেইল', cell: (u) => u.email || '—' },
+        { label: 'ফোন', cell: (u) => bn(u.phone) || '—' },
+        { label: 'রক্তের গ্রুপ', cell: (u) => u.bloodGroup || '—' },
+        { label: 'এলাকা', cell: (u) => u.district || '—' },
+      ], null, (u) => go(`#/user/${encodeURIComponent(u.uid)}`)));
+    } catch (e) {
+      box.replaceChildren(h('p', { class: 'error', role: 'alert', text: e.message }));
+    }
+  }
+
+  async function pageUser(r, alive) {
+    setTitle('ব্যবহারকারী', '');
+    const res = await act('admin_user', { uid: r.arg });
+    if (alive && !alive()) return;
+    const u = res.user;
+    setTitle(u.name || u.email || 'ব্যবহারকারী', u.disabled ? 'অ্যাকাউন্ট বন্ধ' : '');
+    const reload = async () => { await afterChange(); };
+    const uact = (op) => () => act('admin_user_action', { uid: u.uid, op });
+
+    const ctl = (title, desc, chip, actions) => h('div', { class: 'ctl' },
+      h('div', { class: 'what' }, h('b', null, title, chip ? [' ', chip] : null), desc ? h('div', { class: 'note', text: desc }) : null),
+      h('div', { class: 'actions' }, actions));
+
+    const controls = [
+      ctl('অ্যাকাউন্ট', u.disabled ? 'বন্ধ: লগইন করতে পারবেন না।' : 'চালু।',
+        h('span', { class: `chip ${u.disabled ? 'bad' : 'good'}`, text: u.disabled ? 'বন্ধ' : 'চালু' }),
+        u.isOwner ? [h('span', { class: 'note', text: 'মালিকের অ্যাকাউন্ট' })]
+          : u.disabled ? [actionBtn('অ্যাকাউন্ট খুলে দিন', 'tonal', uact('enable'), 'অ্যাকাউন্ট খুলে দেওয়া হয়েছে', reload)]
+            : [actionBtn('অ্যাকাউন্ট বন্ধ করুন', 'warn', uact('disable'), 'অ্যাকাউন্ট বন্ধ করা হয়েছে', reload)]),
+      ctl('হোম ভিজিট',
+        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked
+          ? `নিষেধাজ্ঞা আছে: ${[u.blocks.homeVisitBanned ? 'রোগী হিসেবে অনুরোধ দিতে পারবেন না' : null, u.blocks.homeVisitBlocked ? 'নার্স হিসেবে ভিজিট নিতে পারবেন না' : null].filter(Boolean).join('; ')}।`
+          : 'কোনো নিষেধাজ্ঞা নেই।',
+        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
+        u.blocks.homeVisitBanned || u.blocks.homeVisitBlocked
+          ? [actionBtn('নিষেধাজ্ঞা তুলুন', 'tonal', uact('homevisit_unban'), 'হোম ভিজিটের নিষেধাজ্ঞা তোলা হয়েছে', reload)]
+          : [actionBtn('রোগী হিসেবে বন্ধ', 'warn', uact('homevisit_ban_patient'), 'রোগী হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload),
+            u.badge && u.badge.type === 'nurse' ? actionBtn('নার্স হিসেবে বন্ধ', 'warn', uact('homevisit_ban_nurse'), 'নার্স হিসেবে হোম ভিজিট বন্ধ করা হয়েছে', reload) : null]),
+      ctl('ওষুধের অর্ডার',
+        u.blocks.medBlocked ? `অর্ডার নিয়ে না যাওয়ায় (${bn(u.blocks.medNoShow)} বার) অর্ডার দেওয়া বন্ধ আছে।` : u.blocks.medNoShow ? `অর্ডার নিয়ে যাননি ${bn(u.blocks.medNoShow)} বার।` : 'কোনো ব্লক নেই।',
+        u.blocks.medBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
+        u.blocks.medBlocked || u.blocks.medNoShow ? [actionBtn('ব্লক তুলুন', 'tonal', uact('med_unblock'), 'ওষুধের অর্ডারের ব্লক তোলা হয়েছে', reload)] : []),
+    ];
+    if (u.badge) {
+      const run = (approve) => () => act('admin_badge_resolve', { uid: u.uid, approve });
+      controls.push(ctl(`ব্যাজ: ${L.badge[u.badge.type] || u.badge.type}`, `রেজি. নম্বর ${u.badge.regNo || '—'}${u.badge.workplace ? `, ${u.badge.workplace}` : ''}`,
+        listingChip(u.badge.status),
+        u.badge.status === 'approved' ? [actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে', reload)]
+          : [actionBtn('অনুমোদন দিন', 'tonal', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', reload), u.badge.status === 'pending' ? actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', reload) : null]));
+    }
+    if (u.pharmacy) {
+      controls.push(ctl(`ফার্মেসি: ${u.pharmacy.name}`, [bn(u.pharmacy.phone), u.pharmacy.district].filter(Boolean).join(', '), listingChip(u.pharmacy.status),
+        statusActions('admin_pharmacy_resolve', u.pharmacy.id, u.pharmacy.status, 'ফার্মেসি').map((b) => b)));
+    }
+    (u.ambulances || []).forEach((a) => controls.push(ctl(`অ্যাম্বুলেন্স: ${a.name}`, [a.vehicleNo, bn(a.phone)].filter(Boolean).join(', '), listingChip(a.status),
+      statusActions('admin_ambulance_resolve', a.id, a.status, 'অ্যাম্বুলেন্স'))));
+    if (u.provider) {
+      controls.push(ctl('ডাক্তার/নার্সের তালিকা', `${u.provider.listed ? 'তালিকায় দেখা যায়' : 'তালিকায় নেই'}${u.provider.homeVisit ? ', হোম ভিজিট নেন' : ''}`, null, []));
+    }
+
+    const facts = [
+      ['ইমেইল', u.email || '—'], ['ফোন', `${bn(u.phone) || '—'}${u.phoneVerified ? ' (যাচাই করা)' : ''}`],
+      ['রক্তের গ্রুপ', u.bloodGroup || '—'], ['এলাকা', u.district || '—'],
+      ['শেষ রক্তদান', u.lastDonationMillis ? fmtDate(u.lastDonationMillis) : 'দেননি / জানা নেই'],
+      ['যোগ দিয়েছেন', fmtDate(u.createdAt)], ['শেষ সক্রিয়', ago(u.lastSeenAt)],
+      ['তার বিরুদ্ধে রিপোর্ট', bn(u.activity.reportsAgainst)], ['ইউজার আইডি', u.uid],
+    ];
+
+    const A = u.activity;
+    const actTable = (title, items, cols) => [h('h2', { class: 'section-title', text: `${title} (${bn(items.length)})` }), table(items, cols)];
+    paint(alive,
+      h('div', { class: 'card pad' },
+        h('div', { class: 'profile' },
+          h('div', null, h('h2', { text: u.name || '—' }),
+            h('div', { class: 'chips' }, u.isOwner ? h('span', { class: 'chip pri', text: 'মালিক' }) : u.isAdmin ? h('span', { class: 'chip pri', text: 'অ্যাডমিন' }) : null,
+              u.badge && u.badge.status === 'approved' ? h('span', { class: 'chip good', text: L.badge[u.badge.type] }) : null)),
+          h('div', null, h('a', { href: `#/users?q=${encodeURIComponent(u.email || u.uid)}`, text: 'খোঁজায় ফিরুন' }))),
+        h('div', { class: 'facts' }, facts.map(([k, v]) => h('div', null, h('span', { text: k }), v)))),
+      h('h2', { class: 'section-title', text: 'ব্যবস্থা' }),
+      h('div', { class: 'card pad' }, controls),
+      actTable('আপিল ও সমস্যা', A.tickets, [
+        { label: 'বিষয়', main: true, cell: (x) => h('a', { href: `#/ticket/${encodeURIComponent(x.id)}`, text: L.category[x.category] || x.category }) },
+        { label: 'অবস্থা', cell: (x) => L.ticket[x.status] || x.status },
+        { label: 'শেষ হালনাগাদ', cell: (x) => fmtDT(x.at) },
+      ]),
+      actTable('রক্তের অনুরোধ', A.requests, [
+        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'গ্রুপ', cell: (x) => x.group || '—' },
+        { label: 'হাসপাতাল', cell: (x) => [x.hospital || '—', x.place ? h('div', { class: 'small', text: x.place }) : null] },
+        { label: 'অবস্থা', cell: (x) => L.request[x.status] || x.status },
+      ]),
+      actTable('ওষুধের অর্ডার', A.orders, [
+        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'ফার্মেসি', cell: (x) => x.shop || '—' },
+        { label: 'ওষুধ', cell: (x) => `${bn(x.items)}টা` },
+        { label: 'অবস্থা', cell: (x) => L.order[x.status] || x.status },
+      ]),
+      actTable('হোম ভিজিট', A.visits, [
+        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'ভূমিকা', cell: (x) => (x.role === 'nurse' ? 'নার্স' : 'রোগী') },
+        { label: 'সেবা', cell: (x) => (x.services || []).join(', ') || '—' },
+        { label: 'অবস্থা', cell: (x) => L.visit[x.status] || x.status },
+      ]),
+      actTable('অ্যাপয়েন্টমেন্ট', A.appointments, [
+        { label: 'অনুরোধের তারিখ', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'ভূমিকা', cell: (x) => (x.role === 'provider' ? 'ডাক্তার/নার্স' : 'রোগী') },
+        { label: 'দিন', cell: (x) => bn(x.date) || '—' },
+        { label: 'অবস্থা', cell: (x) => L.appt[x.status] || x.status },
+      ]));
+  }
+
+  // =========================================================
+  // কাজের ইতিহাস
+  // =========================================================
+  function logTable(items) {
+    return table(items, [
+      { label: 'কখন', main: true, cell: (x) => [fmtDT(x.at), h('div', { class: 'small', text: ago(x.at) })] },
+      { label: 'কে', cell: (x) => [x.by || '—', h('div', { class: 'small', text: x.via === 'web' ? 'ওয়েব থেকে' : 'অ্যাপ থেকে' })] },
+      { label: 'কী', cell: (x) => [L.log[x.action] || x.action, ': ', L.detail[x.detail] || x.detail || ''] },
+      { label: 'কোথায়', cell: (x) => {
+        const m = /^(users|pharmacies|badges)\/([A-Za-z0-9_-]+)$/.exec(x.target || '');
+        const t = /^tickets\/([A-Za-z0-9_-]+)$/.exec(x.target || '');
+        if (m) return userLink(m[2], 'ব্যবহারকারী');
+        if (t) return h('a', { href: `#/ticket/${encodeURIComponent(t[1])}`, text: 'আপিল' });
+        return h('span', { class: 'small', text: x.target || '' });
+      } },
+    ]);
+  }
+
+  async function pageLog(r, alive) {
+    setTitle('কাজের ইতিহাস', 'কোন অ্যাডমিন কবে কী করেছেন');
+    const res = await act('admin_log');
+    if (alive && !alive()) return;
+    let items = res.items || [];
+    const box = h('div', null, logTable(items));
+    const more = actionBtn('আরও আগের', 'quiet', async () => {
+      const last = items[items.length - 1];
+      const r2 = await act('admin_log', { before: last ? last.at : undefined });
+      items = items.concat(r2.items || []);
+      box.replaceChildren(logTable(items));
+      if (!(r2.items || []).length) more.remove();
+    }, null, () => { more.disabled = false; more.textContent = 'আরও আগের'; });
+    paint(alive, box, items.length >= 100 ? h('div', { class: 'toolbar' }, more) : null);
+  }
+
+  // =========================================================
+  // অ্যাডমিন (শুধু মালিক)
+  // =========================================================
+  function pageAdmins(r, alive) {
+    setTitle('অ্যাডমিন', 'যোগ বা বাদ শুধু মালিক');
+    const a = S.overview && S.overview.admins;
+    if (!a) {
+      paint(alive, h('p', { class: 'note', text: 'এই পাতা শুধু মালিক দেখতে পারেন।' }));
+      return;
+    }
+    const input = h('input', { type: 'email', placeholder: 'নতুন অ্যাডমিনের ইমেইল', 'aria-label': 'নতুন অ্যাডমিনের ইমেইল', maxlength: 200 });
+    const rows = [...(a.owners || []).map((email) => ({ email, owner: true })), ...(a.items || [])];
+    paint(alive,
+      h('p', { class: 'note', text: 'অ্যাডমিনরা সব আবেদন, আপিল আর রিপোর্ট দেখতে ও ব্যবস্থা নিতে পারেন। তাদের এই ইমেইল দিয়েই লগইন করতে হবে।' }),
+      h('div', { class: 'section-title' }),
+      table(rows, [
+        { label: 'ইমেইল', main: true, cell: (x) => [x.email, x.owner ? [' ', h('span', { class: 'chip pri', text: 'মালিক' })] : null] },
+      ], (x) => (x.owner ? [] : [actionBtn('বাদ দিন', 'warn', () => act('admin_remove', { email: x.email }), 'অ্যাডমিন থেকে বাদ দেওয়া হয়েছে', afterChange)])),
+      h('h2', { class: 'section-title', text: 'নতুন অ্যাডমিন' }),
+      h('div', { class: 'card pad' }, h('div', { class: 'field-row' }, input,
+        actionBtn('যোগ করুন', 'primary', async () => {
+          const email = input.value.trim().toLowerCase();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('সঠিক ইমেইল দিন');
+          await act('admin_add', { email });
+        }, 'অ্যাডমিন যোগ হয়েছে', afterChange))));
+  }
+
+  // =========================================================
+  // সময় ধরে কাজ
+  // =========================================================
   ['click', 'keydown', 'pointermove', 'scroll', 'touchstart'].forEach((ev) =>
-    window.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true }));
+    window.addEventListener(ev, () => { S.lastActive = Date.now(); }, { passive: true }));
 
   setInterval(() => {
-    if (!loggedIn) return;
-    if (Date.now() - lastActive > IDLE_MS) {
+    if (!S.loggedIn) return;
+    if (Date.now() - S.lastActive > IDLE_MS) {
       logout('৩০ মিনিট কিছু না করায় লগআউট হয়েছে। আবার লগইন করুন।');
       return;
     }
-    const f = document.getElementById('fresh');
-    if (f) f.textContent = freshText();
-    if (!document.hidden && !busy && Date.now() - loadedAt > AUTO_REFRESH_MS) refresh(false);
+    // পেছনে চুপচাপ শুধু অপেক্ষার সংখ্যা হালনাগাদ (পাতা নতুন করে আঁকা হয় না, লেখা হারায় না)
+    if (!document.hidden && !S.busy && Date.now() - S.overviewAt > AUTO_REFRESH_MS) {
+      loadOverview().then(drawNav).catch(() => {});
+    }
   }, 30000);
 
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && loggedIn && !busy && Date.now() - loadedAt > 2 * 60 * 1000) refresh(false);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && shell) shell.classList.remove('open');
   });
 
-  // শুরু: কুকি থাকলে সরাসরি তালিকা, না থাকলে লগইন
-  refresh(true);
+  start();
 })();

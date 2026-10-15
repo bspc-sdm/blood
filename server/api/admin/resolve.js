@@ -57,5 +57,10 @@ module.exports = handler(async (req, res) => {
     }
   }
 
+  if (!result.already) {
+    const { admin } = require('../../lib/firebase');
+    const u = await admin.auth().getUser(adminUid).catch(() => null);
+    await require('../../lib/adminweb').logAdmin('correction_resolve', { uid: adminUid, email: u?.email || '', webSession: !req.headers.authorization }, req.body);
+  }
   return { ok: true, ...result };
 });

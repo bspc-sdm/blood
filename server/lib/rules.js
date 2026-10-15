@@ -234,6 +234,7 @@ function formatTimeEn(millis) {
 }
 
 module.exports = {
+  BLOOD_GROUPS,
   DAY_MS,
   ELIGIBILITY_DAYS,
   MAX_REQUESTS_PER_DAY,
