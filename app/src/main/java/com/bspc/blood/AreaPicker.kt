@@ -322,11 +322,11 @@ fun AddHospitalDialog(
     val suggestions = (Hospitals.similar(nameEn, inArea, 4) +
         if (nameBn.trim().length >= 3) inArea.filter { it.nameBn.contains(nameBn.trim()) }.take(3) else emptyList()).distinct()
 
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Add a hospital", "হাসপাতাল যোগের অনুরোধ")) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    FormDialog(
+        title = tr("Add a hospital", "হাসপাতাল যোগের অনুরোধ"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     tr("An admin checks it before it appears in the list.", "অ্যাডমিন যাচাই করার পর তালিকায় আসবে।"),
                     style = MaterialTheme.typography.bodySmall,
@@ -486,4 +486,36 @@ fun AdminHospitalRequests(items: List<HospitalRequestItem>, busyId: String?, onR
 @Composable
 fun SmallNote(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.heightIn(min = 0.dp))
+}
+
+/**
+ * লেখার ঘর থাকা ফর্মের পপআপ। সাধারণ AlertDialog-এ লেখার ঘর আর অন্য অনেক কিছু একসাথে থাকলে
+ * টেস্টে স্ক্রিন স্থির হচ্ছিল না, তাই সাধারণ Dialog + নিজের লেআউট।
+ */
+@Composable
+fun FormDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 640.dp),
+        ) {
+            Column(Modifier.padding(top = 20.dp, bottom = 8.dp)) {
+                Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    content()
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+                    dismissButton()
+                    confirmButton()
+                }
+            }
+        }
+    }
 }

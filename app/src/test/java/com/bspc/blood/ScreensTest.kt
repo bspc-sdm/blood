@@ -149,38 +149,6 @@ class ScreensTest {
         shot("add_hospital")
     }
 
-    @Test
-    fun bisectAreaChipsInDialog() {
-        show {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = {},
-                confirmButton = {},
-                text = { Column(Modifier.verticalScroll(rememberScrollState())) { AreaChips("ময়মনসিংহ", null, null, { _, _, _ -> }, allowAllDistricts = false) } },
-            )
-        }
-        shot("bisect_areachips_dialog")
-    }
-
-    @Test
-    fun bisectTypeChipsInDialog() {
-        show {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = {},
-                confirmButton = {},
-                text = {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Hospitals.TYPES.chunked(2).forEach { row ->
-                            androidx.compose.foundation.layout.Row {
-                                row.forEach { t -> androidx.compose.material3.FilterChip(selected = false, onClick = {}, label = { androidx.compose.material3.Text(Hospitals.typeLabel(t), maxLines = 1) }) }
-                            }
-                        }
-                    }
-                },
-            )
-        }
-        shot("bisect_typechips_dialog")
-    }
-
     @Composable
     private fun FilledField() = androidx.compose.material3.OutlinedTextField(value = "Popular", onValueChange = {}, label = { androidx.compose.material3.Text("Name in English") })
 
@@ -195,18 +163,17 @@ class ScreensTest {
         androidx.compose.material3.AlertDialog(onDismissRequest = {}, confirmButton = {}, text = { Column(Modifier.verticalScroll(rememberScrollState())) { body() } })
     }
 
-    @Test fun b1FilledField() { alert { FilledField() }; shot("b1") }
-    @Test fun b2AreaChipsAndField() { alert { AreaChips("ময়মনসিংহ", null, null, { _, _, _ -> }, allowAllDistricts = false); FilledField() }; shot("b2") }
-    @Test fun b3EmptyAddHospital() { show { AddHospitalDialog("", "ময়মনসিংহ", null, {}, {}, {}) }; shot("b3") }
     @Test fun b4FieldAndChips() { alert { FilledField(); TypeChips() }; shot("b4") }
-    @Test fun b5ChipsWithSpacing() { alert { TypeChips() }; shot("b5") }
 
-    @Test
-    fun bisectAddHospitalNoIdle() {
-        rule.mainClock.autoAdvance = false
-        rule.setContent { GetBloodTheme { Surface { AddHospitalDialog("Popular Diagnostic", "ময়মনসিংহ", null, {}, {}, {}) } } }
-        rule.mainClock.advanceTimeBy(3000)
-        captureScreenRoboImage("build/screens/bisect_addhospital_frozen.png")
+    // লেখার ঘরে ফোকাস (জ্বলা-নেভা কার্সর) সরালে স্থির হয় কি না
+    @Test fun b6FieldAndChipsNoFocus() {
+        alert {
+            val fm = androidx.compose.ui.platform.LocalFocusManager.current
+            androidx.compose.runtime.LaunchedEffect(Unit) { fm.clearFocus(true) }
+            FilledField()
+            TypeChips()
+        }
+        shot("b6")
     }
 
     @Test
