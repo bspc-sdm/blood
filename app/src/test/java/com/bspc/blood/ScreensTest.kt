@@ -34,11 +34,11 @@ class ScreensTest {
     @get:Rule
     val rule = createComposeRule()
 
-    private val profile = Profile(name = "Rahim", phone = "01712345678", bloodGroup = "B+", lat = 24.75, lng = 90.4, placeName = "ময়মনসিংহ", locationSource = "district")
+    private val profile = Profile(name = "Rahim", phone = "01712345678", bloodGroup = "B+", lat = 24.75, lng = 90.4, placeName = "ময়মনসিংহ", locationSource = "district")
     private val nurseMe = CommunityMe(BadgeState("nurse", "approved"), isAdmin = false)
 
     private val chamber = Chamber(
-        "dghs_5", "Mymensingh Medical College Hospital", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "ময়মনসিংহ", null, null,
+        "dghs_5", "Mymensingh Medical College Hospital", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "ময়মনসিংহ", null, null,
         "Room 204", "Closed on public holidays", "500 Tk", true, "01700000000", listOf(6, 0, 1, 2), "17:00", "21:00",
     )
     private val provider = Provider(
@@ -48,7 +48,7 @@ class ScreensTest {
     )
 
     private fun visit(role: String, status: String, canRate: Boolean = false) = HomeVisit(
-        "v$role$status", role, "broadcast", listOf("injection", "dressing"), 0L, "ময়মনসিংহ", null, "ময়মনসিংহ",
+        "v$role$status", role, "broadcast", listOf("injection", "dressing"), 0L, "ময়মনসিংহ", null, "ময়মনসিংহ",
         "Patient is 70, bedridden", true, true, status, 0L, 0, canRate,
         if (status == "open" && role == "patient") "" else "Nasrin Akter", null,
         if (status == "accepted" || status == "on_the_way") "01712345678" else "",
@@ -145,7 +145,7 @@ class ScreensTest {
 
     @Test
     fun addHospitalDialog() {
-        show { AddHospitalDialog("Popular Diagnostic", "ময়মনসিংহ", null, {}, {}, {}) }
+        show { AddHospitalDialog("Popular Diagnostic", "ময়মনসিংহ", null, {}, {}, {}) }
         shot("add_hospital")
     }
 
@@ -155,7 +155,7 @@ class ScreensTest {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = {},
                 confirmButton = {},
-                text = { Column(Modifier.verticalScroll(rememberScrollState())) { AreaChips("ময়মনসিংহ", null, null, { _, _, _ -> }, allowAllDistricts = false) } },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) { AreaChips("ময়মনসিংহ", null, null, { _, _, _ -> }, allowAllDistricts = false) } },
             )
         }
         shot("bisect_areachips_dialog")
@@ -181,17 +181,37 @@ class ScreensTest {
         shot("bisect_typechips_dialog")
     }
 
+    @Composable
+    private fun FilledField() = androidx.compose.material3.OutlinedTextField(value = "Popular", onValueChange = {}, label = { androidx.compose.material3.Text("Name in English") })
+
+    @Composable
+    private fun TypeChips() = Hospitals.TYPES.chunked(2).forEach { row ->
+        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            row.forEach { t -> androidx.compose.material3.FilterChip(selected = false, onClick = {}, label = { androidx.compose.material3.Text(Hospitals.typeLabel(t), maxLines = 1) }) }
+        }
+    }
+
+    private fun alert(body: @Composable () -> Unit) = show {
+        androidx.compose.material3.AlertDialog(onDismissRequest = {}, confirmButton = {}, text = { Column(Modifier.verticalScroll(rememberScrollState())) { body() } })
+    }
+
+    @Test fun b1FilledField() { alert { FilledField() }; shot("b1") }
+    @Test fun b2AreaChipsAndField() { alert { AreaChips("ময়মনসিংহ", null, null, { _, _, _ -> }, allowAllDistricts = false); FilledField() }; shot("b2") }
+    @Test fun b3EmptyAddHospital() { show { AddHospitalDialog("", "ময়মনসিংহ", null, {}, {}, {}) }; shot("b3") }
+    @Test fun b4FieldAndChips() { alert { FilledField(); TypeChips() }; shot("b4") }
+    @Test fun b5ChipsWithSpacing() { alert { TypeChips() }; shot("b5") }
+
     @Test
     fun bisectAddHospitalNoIdle() {
         rule.mainClock.autoAdvance = false
-        rule.setContent { GetBloodTheme { Surface { AddHospitalDialog("Popular Diagnostic", "ময়মনসিংহ", null, {}, {}, {}) } } }
+        rule.setContent { GetBloodTheme { Surface { AddHospitalDialog("Popular Diagnostic", "ময়মনসিংহ", null, {}, {}, {}) } } }
         rule.mainClock.advanceTimeBy(3000)
         captureScreenRoboImage("build/screens/bisect_addhospital_frozen.png")
     }
 
     @Test
     fun hospitalPicker() {
-        show { HospitalPickerDialog("ময়মনসিংহ", null, {}, {}) }
+        show { HospitalPickerDialog("ময়মনসিংহ", null, {}, {}) }
         shot("hospital_picker")
     }
 
@@ -211,7 +231,7 @@ class ScreensTest {
 
     @Test
     fun adminHospitalRequests() {
-        val h = Hospital("r1", "Popular Diagnostic Centre", "পপুলার ডায়াগনস্টিক", "diagnostic", "ময়মনসিংহ", null, null, "Charpara", "")
+        val h = Hospital("r1", "Popular Diagnostic Centre", "পপুলার ডায়াগনস্টিক", "diagnostic", "ময়মনসিংহ", null, null, "Charpara", "")
         show {
             Column(Modifier.padding(16.dp)) {
                 AdminHospitalRequests(listOf(HospitalRequestItem(h, 3, listOf(h.copy(id = "dghs_1", nameEn = "Popular Diagnostic Center Ltd")))), null) { _, _, _ -> }

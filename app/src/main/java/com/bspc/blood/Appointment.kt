@@ -394,7 +394,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                         }
                     }
                 }
-                Disclaimer()
+                EmergencyNotice()
             }
         }
     }
