@@ -257,6 +257,8 @@ private fun NearbyPharmacies(profile: Profile) {
     val scope = rememberCoroutineScope()
     var reporting by remember { mutableStateOf<Pharmacy?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
+    var showArea by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
 
     LaunchedEffect(district, upazilaId, openNow) {
         val d = district ?: return@LaunchedEffect
@@ -268,15 +270,13 @@ private fun NearbyPharmacies(profile: Profile) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            // এলাকা আর "এখন খোলা" একই সারিতে
-            AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false) {
-                FilterChip(
-                    selected = openNow,
-                    onClick = { openNow = !openNow },
-                    label = { Text(tr("Open now", "এখন খোলা")) },
-                    leadingIcon = { AppIcon(R.drawable.ic_schedule, null, Modifier.size(18.dp)) },
-                )
-            }
+            FilterBar(
+                areaLabel = areaText(district, upazilaId),
+                onAreaClick = { showArea = true },
+                filterCount = if (openNow) 1 else 0,
+                onFilterClick = { showFilter = true },
+                active = if (openNow) listOf(ActiveFilter(tr("Open now", "এখন খোলা")) { openNow = false }) else emptyList(),
+            )
             ErrorText(errorMsg)
             InfoText(infoMsg)
         }
@@ -314,6 +314,14 @@ private fun NearbyPharmacies(profile: Profile) {
                     }
                 }
             }
+        }
+    }
+    if (showArea) {
+        AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
+    }
+    if (showFilter) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { openNow = false }) {
+            FilterSwitch(tr("Open now only", "শুধু এখন খোলা"), openNow) { openNow = it }
         }
     }
     reporting?.let { p ->

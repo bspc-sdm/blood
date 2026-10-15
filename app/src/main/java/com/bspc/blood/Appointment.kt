@@ -129,9 +129,10 @@ private fun ProviderList(type: String, profile: Profile) {
     var list by remember { mutableStateOf<List<Provider>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
     var pickHospital by remember { mutableStateOf(false) }
-    var pickSpecialty by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Provider?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
+    var showArea by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
 
     LaunchedEffect(type, filter, reload) {
         loading = true
@@ -153,36 +154,19 @@ private fun ProviderList(type: String, profile: Profile) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (filter.hospital == null) {
-                    AreaChips(filter.district, filter.upazilaId, filter.unionId, { d, u, n ->
-                        filter = filter.copy(district = d, upazilaId = u, unionId = n)
-                    })
-                }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = filter.hospital != null,
-                        onClick = { if (filter.hospital != null) filter = filter.copy(hospital = null) else pickHospital = true },
-                        label = { Text(filter.hospital?.label ?: tr("Hospital", "হাসপাতাল"), maxLines = 1) },
-                        leadingIcon = { AppIcon(R.drawable.ic_local_hospital, null, Modifier.size(18.dp)) },
-                        trailingIcon = if (filter.hospital != null) ({ AppIcon(R.drawable.ic_close, null, Modifier.size(16.dp)) }) else null,
-                    )
-                    FilterChip(
-                        selected = filter.specialty != null,
-                        onClick = { pickSpecialty = true },
-                        label = { Text(filter.specialty?.let { Specialties.label(it) } ?: tr("Specialty", "বিশেষজ্ঞতা"), maxLines = 1) },
-                        leadingIcon = { AppIcon(R.drawable.ic_tune, null, Modifier.size(18.dp)) },
-                    )
-                }
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text(tr("Search by name", "নাম দিয়ে খুঁজুন")) },
-                    leadingIcon = { AppIcon(R.drawable.ic_search, null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            // এক সারি: এলাকা · ফিল্টার (হাসপাতাল, বিশেষজ্ঞতা) · নাম খোঁজা
+            FilterBar(
+                areaLabel = areaText(filter.district, filter.upazilaId, filter.unionId),
+                onAreaClick = { showArea = true },
+                filterCount = listOfNotNull(filter.hospital, filter.specialty).size,
+                onFilterClick = { showFilter = true },
+                search = query,
+                onSearch = { query = it },
+                active = listOfNotNull(
+                    filter.hospital?.let { h -> ActiveFilter(h.label) { filter = filter.copy(hospital = null) } },
+                    filter.specialty?.let { sp -> ActiveFilter(Specialties.label(sp)) { filter = filter.copy(specialty = null) } },
+                ),
+            )
         }
         item { InfoText(infoMsg) }
         when {
@@ -204,6 +188,30 @@ private fun ProviderList(type: String, profile: Profile) {
         }
     }
 
+    if (showArea) {
+        AreaSheet(
+            filter.district, filter.upazilaId, filter.unionId,
+            // এলাকা বদলালে আগের হাসপাতাল আর মেলে না
+            { d, u, n -> filter = filter.copy(district = d, upazilaId = u, unionId = n, hospital = null) },
+            onDismiss = { showArea = false },
+            allowAllDistricts = true,
+            showUnion = true,
+        )
+    }
+    if (showFilter) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { filter = filter.copy(hospital = null, specialty = null) }) {
+            Text(tr("Hospital", "হাসপাতাল"), style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { pickHospital = true }) {
+                    ButtonContent(false, filter.hospital?.label ?: tr("Choose hospital", "হাসপাতাল বেছে নিন"), R.drawable.ic_local_hospital)
+                }
+                if (filter.hospital != null) TextButton(onClick = { filter = filter.copy(hospital = null) }) { Text(tr("Remove", "সরান")) }
+            }
+            FilterChoice(tr("Specialty", "বিশেষজ্ঞতা"), Specialties.of(type), filter.specialty, { Specialties.label(it) }) {
+                filter = filter.copy(specialty = it)
+            }
+        }
+    }
     if (pickHospital) {
         HospitalPickerDialog(
             initialDistrict = filter.district ?: profile.placeName,
@@ -213,19 +221,6 @@ private fun ProviderList(type: String, profile: Profile) {
                 pickHospital = false
             },
             onDismiss = { pickHospital = false },
-        )
-    }
-    if (pickSpecialty) {
-        SearchPickDialog(
-            title = tr("Specialty", "বিশেষজ্ঞতা"),
-            items = Specialties.of(type),
-            label = { Specialties.label(it) },
-            noneLabel = tr("All", "সব"),
-            onPick = {
-                filter = filter.copy(specialty = it)
-                pickSpecialty = false
-            },
-            onDismiss = { pickSpecialty = false },
         )
     }
     detail?.let { p ->

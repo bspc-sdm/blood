@@ -92,6 +92,7 @@ const actions = {
         authorName: x.anonymous ? null : x.authorName,
         mine: x.uid === user.uid,
         createdAt: x.createdAt,
+        editedAt: x.editedAt || 0,
         answerCount: x.answerCount || 0,
       },
       answers: as.docs.map((d) => ({
@@ -101,6 +102,7 @@ const actions = {
         badge: d.get('badge'),
         mine: d.get('uid') === user.uid,
         createdAt: d.get('createdAt'),
+        editedAt: d.get('editedAt') || 0,
       })),
     };
   },
@@ -164,6 +166,35 @@ const actions = {
     return { ok: true };
   },
 
+  /** নিজের প্রশ্ন বদলানো (উত্তর থাকলেও; "সম্পাদিত" দেখায়) */
+  async edit_question(req, user) {
+    const id = req.body?.id;
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const text = C.cleanText(req.body?.text, 1000);
+    if (!text) throw new HttpError(400, C.tr(req, 'Write your question (up to 1000 characters)', 'প্রশ্ন লিখুন (১০০০ অক্ষরের মধ্যে)'));
+    const ref = db.doc(`questions/${id}`);
+    const s = await ref.get();
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Question not found', 'প্রশ্নটা পাওয়া যায়নি'));
+    if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (s.get('text') === text) return { ok: true };
+    await ref.update({ text, editedAt: Date.now() });
+    return { ok: true };
+  },
+
+  async edit_answer(req, user) {
+    const { id, answerId } = req.body || {};
+    if (!R.isValidId(id) || !R.isValidId(answerId)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const text = C.cleanText(req.body?.text, 2000);
+    if (!text) throw new HttpError(400, C.tr(req, 'Write your answer (up to 2000 characters)', 'উত্তর লিখুন (২০০০ অক্ষরের মধ্যে)'));
+    const ref = db.doc(`questions/${id}/answers/${answerId}`);
+    const s = await ref.get();
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    if (s.get('text') === text) return { ok: true };
+    await ref.update({ text, editedAt: Date.now() });
+    return { ok: true };
+  },
+
   async delete_question(req, user) {
     const id = req.body?.id;
     if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
@@ -204,6 +235,7 @@ const actions = {
         badge: d.get('badge'),
         mine: d.get('uid') === user.uid,
         createdAt: d.get('createdAt'),
+        editedAt: d.get('editedAt') || 0,
       })),
     };
   },
@@ -227,6 +259,21 @@ const actions = {
       createdAt: Date.now(),
     });
     return { id: ref.id };
+  },
+
+  async edit_tip(req, user) {
+    const id = req.body?.id;
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const title = C.cleanText(req.body?.title, 120);
+    const body = C.cleanText(req.body?.body, 3000);
+    if (!title) throw new HttpError(400, C.tr(req, 'Add a title (up to 120 characters)', 'শিরোনাম দিন (১২০ অক্ষরের মধ্যে)'));
+    if (!body) throw new HttpError(400, C.tr(req, 'Write the tip (up to 3000 characters)', 'টিপস লিখুন (৩০০০ অক্ষরের মধ্যে)'));
+    const ref = db.doc(`tips/${id}`);
+    const s = await ref.get();
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
+    await ref.update({ title, body, editedAt: Date.now() });
+    return { ok: true };
   },
 
   async delete_tip(req, user) {

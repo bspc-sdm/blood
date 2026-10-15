@@ -208,6 +208,23 @@ class ScreensTest {
     }
 
     @Test
+    fun doctorListFilterBarBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        shot("doctor_filter_bar_bn")
+        rule.onNodeWithText("ফিল্টার").performClick()
+        rule.waitForIdle()
+        shot("doctor_filter_sheet_bn")
+    }
+
+    @Test
+    fun ambulanceFilterBarBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { ServicesTab(profile) }
+        shot("ambulance_filter_bar_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

@@ -171,6 +171,8 @@ private fun BloodBankFinder(profile: Profile) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var reporting by remember { mutableStateOf<BloodBank?>(null) }
+    var showArea by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
 
     LaunchedEffect(district, upazilaId, open24) {
         val d = district ?: return@LaunchedEffect
@@ -181,14 +183,13 @@ private fun BloodBankFinder(profile: Profile) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false) {
-                FilterChip(
-                    selected = open24,
-                    onClick = { open24 = !open24 },
-                    label = { Text(tr("24 hours", "২৪ ঘণ্টা")) },
-                    leadingIcon = { AppIcon(R.drawable.ic_schedule, null, Modifier.size(18.dp)) },
-                )
-            }
+            FilterBar(
+                areaLabel = areaText(district, upazilaId),
+                onAreaClick = { showArea = true },
+                filterCount = if (open24) 1 else 0,
+                onFilterClick = { showFilter = true },
+                active = if (open24) listOf(ActiveFilter(tr("24 hours", "২৪ ঘণ্টা")) { open24 = false }) else emptyList(),
+            )
             SmallNote(tr("Buying or selling blood is illegal; only processing costs apply.", "রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।"))
             ErrorText(errorMsg)
             InfoText(infoMsg)
@@ -213,6 +214,14 @@ private fun BloodBankFinder(profile: Profile) {
                     onReport = { reporting = b },
                 )
             }
+        }
+    }
+    if (showArea) {
+        AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
+    }
+    if (showFilter) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { open24 = false }) {
+            FilterSwitch(tr("Open 24 hours only", "শুধু ২৪ ঘণ্টা খোলা"), open24) { open24 = it }
         }
     }
     reporting?.let { b ->

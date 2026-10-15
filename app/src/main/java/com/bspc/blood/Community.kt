@@ -60,6 +60,7 @@ data class Question(
     val mine: Boolean,
     val createdAt: Long,
     val answerCount: Int,
+    val edited: Boolean = false,
 )
 
 data class Answer(
@@ -69,6 +70,7 @@ data class Answer(
     val badge: String,
     val mine: Boolean,
     val createdAt: Long,
+    val edited: Boolean = false,
 )
 
 data class Tip(
@@ -79,6 +81,7 @@ data class Tip(
     val badge: String,
     val mine: Boolean,
     val createdAt: Long,
+    val edited: Boolean = false,
 )
 
 /** নিজের ব্যাজ: type ("doctor" …), status ("pending" / "approved" / "rejected") */
@@ -121,6 +124,7 @@ object Community {
         mine = o.optBoolean("mine"),
         createdAt = o.optLong("createdAt"),
         answerCount = o.optInt("answerCount"),
+        edited = o.optLong("editedAt") > 0,
     )
 
     suspend fun me(): CommunityMe {
@@ -141,7 +145,7 @@ object Community {
         val answers = o.optJSONArray("answers")?.objects().orEmpty().map {
             Answer(
                 it.optString("id"), it.optString("text"), it.optString("authorName"),
-                it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"),
+                it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"), it.optLong("editedAt") > 0,
             )
         }
         return question(o.getJSONObject("question")) to answers
@@ -167,9 +171,21 @@ object Community {
             .optJSONArray("items")?.objects().orEmpty().map {
                 Tip(
                     it.optString("id"), it.optString("title"), it.optString("body"), it.optString("authorName"),
-                    it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"),
+                    it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"), it.optLong("editedAt") > 0,
                 )
             }
+
+    suspend fun editQuestion(id: String, text: String) {
+        call("edit_question", JSONObject().put("id", id).put("text", text))
+    }
+
+    suspend fun editAnswer(id: String, answerId: String, text: String) {
+        call("edit_answer", JSONObject().put("id", id).put("answerId", answerId).put("text", text))
+    }
+
+    suspend fun editTip(id: String, title: String, body: String) {
+        call("edit_tip", JSONObject().put("id", id).put("title", title).put("body", body))
+    }
 
     suspend fun postTip(title: String, body: String) {
         call("post_tip", JSONObject().put("title", title).put("body", body))
@@ -493,6 +509,9 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
     var reply by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    /** কী বদলানো হচ্ছে: প্রশ্ন (null) বা উত্তর (answer) */
+    var editingQuestion by remember { mutableStateOf(false) }
+    var editingAnswer by remember { mutableStateOf<Answer?>(null) }
     /** কী রিপোর্ট হচ্ছে: ("question", null) বা ("answer", answerId) */
     var reportTarget by remember { mutableStateOf<Pair<String, String?>?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
@@ -514,6 +533,9 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                 if (q != null && !q.mine) {
                     IconButton(onClick = { reportTarget = "question" to null }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
                 }
+                if (q != null && q.mine) {
+                    IconButton(onClick = { editingQuestion = true }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
+                }
                 if (q != null && (q.mine || me?.isAdmin == true)) {
                     IconButton(onClick = { confirmDelete = true }) { AppIcon(R.drawable.ic_delete, tr("Delete", "মুছুন")) }
                 }
@@ -534,6 +556,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             AuthorLine(d.first.authorName, null, d.first.createdAt)
                             Text(d.first.text, style = MaterialTheme.typography.titleMedium)
+                            if (d.first.edited) EditedNote()
                         }
                     }
                     item {
@@ -550,9 +573,13 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 AuthorLine(a.authorName, a.badge, a.createdAt)
                                 Text(a.text, style = MaterialTheme.typography.bodyLarge)
+                                if (a.edited) EditedNote()
                                 Row {
                                     if (!a.mine) {
                                         TextButton(onClick = { reportTarget = "answer" to a.id }) { Text(tr("Report", "রিপোর্ট")) }
+                                    }
+                                    if (a.mine) {
+                                        TextButton(onClick = { editingAnswer = a }) { Text(tr("Edit", "বদলান")) }
                                     }
                                     if (a.mine || me?.isAdmin == true) {
                                         TextButton(onClick = {
@@ -617,6 +644,34 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                         .onSuccess { infoMsg = tr("Reported. An admin will review it.", "রিপোর্ট পাঠানো হয়েছে। অ্যাডমিন দেখবেন।") }
                         .onFailure { errorMsg = it.message }
                 }
+            },
+        )
+    }
+
+    if (editingQuestion && q != null) {
+        EditTextDialog(
+            title = tr("Edit question", "প্রশ্ন বদলান"),
+            initial = q.text,
+            maxLen = 1000,
+            onDismiss = { editingQuestion = false },
+            onSave = { text, _ ->
+                Community.editQuestion(id, text)
+                editingQuestion = false
+                onChanged()
+                reload++
+            },
+        )
+    }
+    editingAnswer?.let { a ->
+        EditTextDialog(
+            title = tr("Edit answer", "উত্তর বদলান"),
+            initial = a.text,
+            maxLen = 2000,
+            onDismiss = { editingAnswer = null },
+            onSave = { text, _ ->
+                Community.editAnswer(id, a.id, text)
+                editingAnswer = null
+                reload++
             },
         )
     }
@@ -742,8 +797,11 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
 }
 
 @Composable
-fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: () -> Unit) {
+fun TipDetailScreen(tip0: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    // বদলালে এখানেই নতুনটা দেখায়
+    var tip by remember(tip0.id) { mutableStateOf(tip0) }
+    var editing by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -754,6 +812,9 @@ fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: (
             BackTopBar(tr("Health Tips", "হেলথ টিপস"), onBack) {
                 if (!tip.mine) {
                     IconButton(onClick = { confirmReport = true }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
+                }
+                if (tip.mine) {
+                    IconButton(onClick = { editing = true }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
                 }
                 if (tip.mine || me?.isAdmin == true) {
                     IconButton(onClick = { confirmDelete = true }) { AppIcon(R.drawable.ic_delete, tr("Delete", "মুছুন")) }
@@ -769,6 +830,7 @@ fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: (
             AuthorLine(tip.authorName, tip.badge, tip.createdAt)
             Spacer(Modifier.height(4.dp))
             Text(tip.body, style = MaterialTheme.typography.bodyLarge)
+            if (tip.edited) EditedNote()
             ErrorText(errorMsg)
             InfoText(infoMsg)
         }
@@ -784,6 +846,22 @@ fun TipDetailScreen(tip: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: (
                         .onSuccess { infoMsg = tr("Reported. An admin will review it.", "রিপোর্ট পাঠানো হয়েছে। অ্যাডমিন দেখবেন।") }
                         .onFailure { errorMsg = it.message }
                 }
+            },
+        )
+    }
+
+    if (editing) {
+        EditTextDialog(
+            title = tr("Edit tip", "টিপস বদলান"),
+            initial = tip.body,
+            maxLen = 3000,
+            initialTitle = tip.title,
+            onDismiss = { editing = false },
+            onSave = { body, title ->
+                Community.editTip(tip.id, title, body)
+                tip = tip.copy(title = title, body = body, edited = true)
+                editing = false
+                onChanged()
             },
         )
     }
@@ -960,5 +1038,50 @@ fun ReportDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         text = { Text(tr("Report if it's wrong, harmful or abusive. An admin will review it.", "ভুল, ক্ষতিকর বা আপত্তিকর মনে হলে রিপোর্ট করুন। অ্যাডমিন দেখবেন।")) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(tr("Report", "রিপোর্ট করুন")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
+    )
+}
+
+@Composable
+private fun EditedNote() {
+    Text(tr("Edited", "সম্পাদিত"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** নিজের লেখা বদলানো (প্রশ্ন, উত্তর; টিপস হলে শিরোনামও) */
+@Composable
+private fun EditTextDialog(
+    title: String,
+    initial: String,
+    maxLen: Int,
+    onDismiss: () -> Unit,
+    onSave: suspend (String, String) -> Unit,
+    initialTitle: String? = null,
+) {
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf(initial) }
+    var head by remember { mutableStateOf(initialTitle.orEmpty()) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = title,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (initialTitle != null) {
+                    OutlinedTextField(head, { head = it.take(120) }, label = { Text(tr("Title", "শিরোনাম")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                OutlinedTextField(text, { text = it.take(maxLen) }, minLines = 4, modifier = Modifier.fillMaxWidth())
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && text.isNotBlank() && (initialTitle == null || head.isNotBlank()), onClick = {
+                scope.launch {
+                    busy = true
+                    runCatching { onSave(text.trim(), head.trim()) }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }) { ButtonContent(busy, tr("Save", "সেভ করুন")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
 }

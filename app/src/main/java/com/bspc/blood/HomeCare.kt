@@ -77,7 +77,8 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var service by remember(type) { mutableStateOf<String?>(null) }
     var female by remember { mutableStateOf(false) }
-    var pickService by remember { mutableStateOf(false) }
+    var showArea by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
     var list by remember { mutableStateOf<List<HomePro>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -107,26 +108,16 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
         if (me?.approvedBadge == type) item { MyHomeCareCard(onEditChamber) }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (hasGps) {
-                        FilterChip(
-                            selected = nearMe,
-                            onClick = { nearMe = !nearMe },
-                            label = { Text(tr("Near me", "আমার কাছে")) },
-                            leadingIcon = { AppIcon(R.drawable.ic_location_on, null, Modifier.size(18.dp)) },
-                        )
-                    }
-                    FilterChip(
-                        selected = service != null,
-                        onClick = { pickService = true },
-                        label = { Text(service?.let { HomeServices.label(it) } ?: tr("Service", "সেবা"), maxLines = 1) },
-                        leadingIcon = { AppIcon(R.drawable.ic_tune, null, Modifier.size(18.dp)) },
-                    )
-                    FilterChip(selected = female, onClick = { female = !female }, label = { Text(tr("Female only", "শুধু মহিলা")) })
-                }
-                if (!nearMe) {
-                    AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
-                }
+                FilterBar(
+                    areaLabel = if (nearMe) tr("Near me", "আমার কাছে") else areaText(district, upazilaId),
+                    onAreaClick = { showArea = true },
+                    filterCount = listOfNotNull(service, if (female) "f" else null).size,
+                    onFilterClick = { showFilter = true },
+                    active = listOfNotNull(
+                        service?.let { sv -> ActiveFilter(HomeServices.label(sv)) { service = null } },
+                        if (female) ActiveFilter(tr("Female only", "শুধু মহিলা")) { female = false } else null,
+                    ),
+                )
                 SmallNote(
                     if (type == "nurse") {
                         tr(
@@ -174,18 +165,17 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
         item { EmergencyNotice() }
     }
 
-    if (pickService) {
-        SearchPickDialog(
-            title = tr("Service", "সেবা"),
-            items = HomeServices.of(type),
-            label = { HomeServices.label(it) },
-            noneLabel = tr("All", "সব"),
-            onPick = {
-                service = it
-                pickService = false
-            },
-            onDismiss = { pickService = false },
+    if (showArea) {
+        AreaSheet(
+            district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false },
+            nearMe = if (hasGps) nearMe else null, onNearMe = { nearMe = it },
         )
+    }
+    if (showFilter) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { service = null; female = false }) {
+            FilterChoice(tr("Service", "সেবা"), HomeServices.of(type), service, { HomeServices.label(it) }) { service = it }
+            FilterSwitch(tr("Female only", "শুধু মহিলা"), female) { female = it }
+        }
     }
     rating?.let { p ->
         StarRatingDialog(

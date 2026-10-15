@@ -143,26 +143,16 @@ fun statusText(s: String): String = when (s) {
 /** ৯৯৯ কার্ড: সবচেয়ে উপরে */
 @Composable
 fun EmergencyCallCard() {
+    // ছোট এক লাইন: বড় কার্ড জায়গা নষ্ট করে, তবু ৯৯৯ এক চাপে থাকা দরকার
     val context = LocalContext.current
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    tr("Emergency? Call 999", "জরুরি? ৯৯৯-এ ফোন করুন"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-                Text(
-                    tr("Free, 24 hours, works even with zero balance. They can send an ambulance.", "বিনামূল্যে, ২৪ ঘণ্টা, ব্যালেন্স না থাকলেও যায়। অ্যাম্বুলেন্স পাঠাতে পারে।"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            // শান্ত রং: হালকা লাল কার্ডে টিল বাটন (গাঢ় লাল ভয় বাড়ায়)
-            Button(onClick = { callPhone(context, "999") }) { ButtonContent(false, num("999"), R.drawable.ic_call) }
-        }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            tr("Emergency? 999 is free, 24 hours", "জরুরি হলে ৯৯৯ — বিনামূল্যে, ২৪ ঘণ্টা"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        SmallAction(num("999"), R.drawable.ic_call, { callPhone(context, "999") })
     }
 }
 
@@ -218,6 +208,8 @@ private fun AmbulanceFinder(profile: Profile) {
     var called by remember { mutableStateOf(setOf<String>()) }
     var rating by remember { mutableStateOf<Ambulance?>(null) }
     var reporting by remember { mutableStateOf<Ambulance?>(null) }
+    var showArea by remember { mutableStateOf(false) }
+    var showFilter by remember { mutableStateOf(false) }
 
     LaunchedEffect(district, upazilaId, type) {
         val d = district ?: return@LaunchedEffect
@@ -233,18 +225,16 @@ private fun AmbulanceFinder(profile: Profile) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { EmergencyCallCard() }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = type == null, onClick = { type = null }, label = { Text(tr("All", "সব")) })
-                        AmbulanceTypes.ALL.forEach { t ->
-                            FilterChip(selected = type == t, onClick = { type = t }, label = { Text(AmbulanceTypes.label(t)) })
-                        }
-                    }
-                }
+                FilterBar(
+                    areaLabel = areaText(district, upazilaId),
+                    onAreaClick = { showArea = true },
+                    filterCount = if (type != null) 1 else 0,
+                    onFilterClick = { showFilter = true },
+                    active = listOfNotNull(type?.let { t -> ActiveFilter(AmbulanceTypes.label(t)) { type = null } }),
+                )
             }
+            item { EmergencyCallCard() }
             item {
                 InfoText(infoMsg)
                 ErrorText(errorMsg)
@@ -275,6 +265,14 @@ private fun AmbulanceFinder(profile: Profile) {
         }
     }
 
+    if (showArea) {
+        AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
+    }
+    if (showFilter) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { type = null }) {
+            FilterChoice(tr("Ambulance type", "অ্যাম্বুলেন্সের ধরন"), AmbulanceTypes.ALL, type, { AmbulanceTypes.label(it) }) { type = it }
+        }
+    }
     rating?.let { a ->
         StarRatingDialog(
             title = tr("Rate ", "রেটিং: ") + a.name,
