@@ -27,10 +27,10 @@ object ServerApi {
     }
 
     /** "রক্ত পেয়েছি": রিকোয়েস্ট বন্ধ, আর যারা রক্ত দিয়েছেন তাদের তারিখ আপডেট */
-    suspend fun closeRequest(requestId: String, donatedUids: List<String>) {
+    suspend fun closeRequest(requestId: String, donatedUids: List<String>, bagsReceived: Int) {
         post(
             "/api/close-request",
-            JSONObject().put("requestId", requestId).put("donatedUids", JSONArray(donatedUids)),
+            JSONObject().put("requestId", requestId).put("donatedUids", JSONArray(donatedUids)).put("bagsReceived", bagsReceived),
         )
     }
 

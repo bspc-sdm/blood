@@ -1,4 +1,4 @@
-// রক্তপ্রার্থী "রক্ত পেয়েছি" চাপলে: রিকোয়েস্ট বন্ধ, আর যারা রক্ত দিয়েছেন তাদের শেষ রক্তদানের তারিখ আপডেট।
+// রক্তপ্রার্থী "রক্ত পেয়েছি" চাপলে: রিকোয়েস্ট বন্ধ, কত ব্যাগ পেয়েছেন লেখা, আর যারা রক্ত দিয়েছেন তাদের শেষ রক্তদানের তারিখ আপডেট।
 // শুধু একবারই কাজ করে, আর শুধু "রাজি" থাকা ডোনারদের — যাতে কেউ বারবার ডেকে কাউকে আটকে রাখতে না পারে।
 const { db, HttpError, verifyUser, handler } = require('../lib/firebase');
 const R = require('../lib/rules');
@@ -24,7 +24,10 @@ module.exports = handler(async (req) => {
     const responses = responseRefs.length ? await t.getAll(...responseRefs) : [];
     const users = userRefs.length ? await t.getAll(...userRefs) : [];
 
-    t.update(requestRef, { status: 'closed' });
+    // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); আগের অ্যাপ পাঠায় না
+    const bags = reqSnap.get('bags') || 1;
+    const got = Number.isInteger(req.body?.bagsReceived) ? Math.max(0, Math.min(bags, req.body.bagsReceived)) : null;
+    t.update(requestRef, { status: 'closed', closedAt: Date.now(), ...(got != null ? { bagsReceived: got } : {}) });
     let marked = 0;
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন

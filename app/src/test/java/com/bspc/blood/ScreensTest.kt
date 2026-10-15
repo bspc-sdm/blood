@@ -144,6 +144,14 @@ class ScreensTest {
     }
 
     @Test
+    fun closeRequestDialogBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { CloseRequestDialog("r1", 3, donors, {}, { _, _ -> }) }
+        rule.onNodeWithText("২").performClick()
+        shot("close_request_dialog_bn")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

@@ -1,5 +1,6 @@
 package com.bspc.blood
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.semantics.semantics
@@ -45,37 +46,50 @@ fun List<DonorResponse>.willing() = filter { it.status == "accepted" || it.statu
 /** নিশ্চিত বা রক্ত দেওয়া — ব্যাগ পূরণের হিসাবে ধরা হয় */
 fun DonorResponse.counts() = status == "donated" || (status == "accepted" && confirmed)
 
-/** "৩ জন রাজি · ১ জন নিশ্চিত", আর ১, ২, ৩… করে প্রতিটা ব্যাগ — যতগুলো পূরণ হয়েছে সেগুলো ভরাট */
+/** "৩ জন রাজি · ১ জন নিশ্চিত" */
+@Composable
+fun AgreedLine(responses: List<DonorResponse>) {
+    val willing = responses.willing()
+    Text(
+        tr(
+            "${num(willing.size)} agreed · ${num(willing.count { it.counts() })} confirmed",
+            "${num(willing.size)} জন রাজি · ${num(willing.count { it.counts() })} জন নিশ্চিত",
+        ),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+}
+
+/** ১, ২, ৩… করে প্রতিটা ব্যাগ — যতগুলো পূরণ হয়েছে সেগুলো ভরাট */
+@Composable
+fun BagRow(r: BloodRequest, responses: List<DonorResponse>) {
+    val done = responses.willing().count { it.counts() }.coerceAtMost(r.bags)
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        (1..r.bags).forEach { i -> BloodBag(i, i <= done) }
+    }
+}
+
 @Composable
 fun RequestProgress(r: BloodRequest, responses: List<DonorResponse>) {
-    val willing = responses.willing()
-    val done = willing.count { it.counts() }.coerceAtMost(r.bags)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            tr(
-                "${num(willing.size)} agreed · ${num(willing.count { it.counts() })} confirmed",
-                "${num(willing.size)} জন রাজি · ${num(willing.count { it.counts() })} জন নিশ্চিত",
-            ),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            (1..r.bags).forEach { i -> BloodBag(i, i <= done) }
-        }
+        AgreedLine(responses)
+        BagRow(r, responses)
     }
 }
 
 /** রক্তের ব্যাগের ছবি, ভেতরে নম্বর; পূরণ হলে লাল ভরাট, নইলে শুধু রেখা */
 @Composable
-fun BloodBag(number: Int, filled: Boolean) {
+fun BloodBag(number: Int, filled: Boolean, onClick: (() -> Unit)? = null) {
     val red = MaterialTheme.colorScheme.error
     val empty = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
     Box(
-        Modifier.size(width = 30.dp, height = 40.dp).semantics {
+        Modifier.size(width = 30.dp, height = 40.dp)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics {
             contentDescription = if (filled) tr("Bag $number arranged", "${num(number)} নম্বর ব্যাগ পূরণ") else tr("Bag $number needed", "${num(number)} নম্বর ব্যাগ বাকি")
         },
         contentAlignment = Alignment.Center,
@@ -156,16 +170,27 @@ fun DonorRow(
 
 /** "রক্ত পেয়েছি": কে কে রক্ত দিয়েছেন বেছে রিকোয়েস্ট বন্ধ */
 @Composable
-fun CloseRequestDialog(requestId: String, responses: List<DonorResponse>, onDismiss: () -> Unit, onClose: (List<String>) -> Unit) {
+fun CloseRequestDialog(requestId: String, bags: Int, responses: List<DonorResponse>, onDismiss: () -> Unit, onClose: (List<String>, Int) -> Unit) {
     val willing = responses.willing()
     // নিশ্চিত করা ডোনারদের আগে থেকেই টিক দেওয়া
     var donated by remember(requestId) { mutableStateOf(willing.filter { it.counts() }.map { it.donorUid }.toSet()) }
+    // কত ব্যাগ পেয়েছেন (সবগুলো না-ও পেতে পারেন); শুরুতে নিশ্চিত ডোনারের সংখ্যা
+    var received by remember(requestId) { mutableIntStateOf(donated.size.coerceIn(1, bags.coerceAtLeast(1))) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(tr("Close this request?", "রিকোয়েস্ট বন্ধ করবেন?")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("Donors won't see it or get notified anymore.", "বন্ধ করলে ডোনাররা আর এটা দেখবেন না।"))
+                Text(tr("How many bags did you get?", "কত ব্যাগ পেয়েছেন?"), fontWeight = FontWeight.SemiBold)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (1..bags.coerceAtLeast(1)).forEach { i -> BloodBag(i, i <= received) { received = i } }
+                }
+                Text(
+                    tr("${num(received)} of ${num(bags)} bag(s)", "${num(bags)} ব্যাগের ${num(received)}টা পেয়েছি"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (willing.isNotEmpty()) {
                     Text(tr("Who donated?", "কে কে রক্ত দিয়েছেন?"), fontWeight = FontWeight.SemiBold)
                     willing.forEach { d ->
@@ -180,7 +205,7 @@ fun CloseRequestDialog(requestId: String, responses: List<DonorResponse>, onDism
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onClose(donated.toList()) }) { Text(tr("Close", "বন্ধ করুন")) } },
+        confirmButton = { TextButton(onClick = { onClose(donated.toList(), received) }) { Text(tr("Close", "বন্ধ করুন")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
     )
 }
@@ -249,11 +274,12 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
     closing?.let { (r, responses) ->
         CloseRequestDialog(
             requestId = r.id,
+            bags = r.bags,
             responses = responses,
             onDismiss = { closing = null },
-            onClose = { chosen ->
+            onClose = { chosen, got ->
                 closing = null
-                act(r.id) { ServerApi.closeRequest(r.id, chosen) }
+                act(r.id) { ServerApi.closeRequest(r.id, chosen, got) }
             },
         )
     }
@@ -306,25 +332,27 @@ internal fun MyRequestCard(
                     AppIcon(R.drawable.ic_share, tr("Share", "শেয়ার"), tint = MaterialTheme.colorScheme.primary)
                 }
             }
-            Countdown(r.deadlineMillis)
-
-            if (r.notified) {
-                IconLine(
-                    R.drawable.ic_notifications_active,
-                    tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
-                )
-            } else {
-                SmallAction(
-                    tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
-                    R.drawable.ic_notifications,
-                    { onNotify() },
-                    primary = true,
-                    enabled = busyId == null || busy,
-                    busy = busy,
-                )
+            // সময়, ডোনার জানানো আর রাজি/নিশ্চিত — কাছাকাছি একসাথে
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Countdown(r.deadlineMillis)
+                if (r.notified) {
+                    IconLine(
+                        R.drawable.ic_notifications_active,
+                        tr("${num(r.notifiedCount)} donors notified", "${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে"),
+                    )
+                } else {
+                    SmallAction(
+                        tr("Notify nearby donors", "আশেপাশের ডোনারদের জানান"),
+                        R.drawable.ic_notifications,
+                        { onNotify() },
+                        primary = true,
+                        enabled = busyId == null || busy,
+                        busy = busy,
+                    )
+                }
+                AgreedLine(responses)
             }
-
-            RequestProgress(r, responses)
+            BagRow(r, responses)
 
             if (willing.isNotEmpty()) {
                 HorizontalDivider()

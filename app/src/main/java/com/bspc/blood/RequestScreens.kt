@@ -777,11 +777,12 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
     if (confirmClose) {
         CloseRequestDialog(
             requestId = requestId,
+            bags = request?.bags ?: 1,
             responses = responses,
             onDismiss = { confirmClose = false },
-            onClose = { chosen ->
+            onClose = { chosen, got ->
                 confirmClose = false
-                act { ServerApi.closeRequest(requestId, chosen) }
+                act { ServerApi.closeRequest(requestId, chosen, got) }
             },
         )
     }
