@@ -25,6 +25,8 @@ jobs:
           git checkout --orphan data-dghs
           git rm -rf --quiet .
           cp /tmp/out/dghs-raw.json .
+          # এই শাখায় সার্ভারের কোড নেই — Vercel যেন ডেপ্লয় না করে (নইলে "failed" দেখায়)
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
           git add dghs-raw.json
           git commit -m "DGHS facility registry snapshot"
           git push -f origin data-dghs

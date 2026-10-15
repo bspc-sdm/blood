@@ -48,6 +48,8 @@ jobs:
           git rm -rf --quiet .
           git clean -fdxq
           cp /tmp/out/* .
+          # এই শাখায় সার্ভারের কোড নেই — Vercel যেন ডেপ্লয় না করে (নইলে "failed" দেখায়)
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
           git add -A
           git commit -m "Screenshots ${{ github.sha }}" || true
           git push -f origin screens
