@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9"
+        versionCode = 10
+        versionName = "0.9.1"
     }
 
     signingConfigs {
@@ -26,6 +26,11 @@ android {
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+            // কিছু ফোনের (Realme/Oppo/Xiaomi) ইনস্টলার পুরোনো v1 সাইন না পেলে
+            // "package appears to be invalid" দেখায়, তাই সব ধরনের সাইন একসাথে
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
