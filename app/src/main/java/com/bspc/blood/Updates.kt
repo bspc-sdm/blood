@@ -152,10 +152,10 @@ fun PhoneVerifyDialog(onDismiss: () -> Unit, onVerified: () -> Unit) {
         }
     }
 
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Verify your phone", "ফোন নম্বর যাচাই")) },
-        text = {
+    FormDialog(
+        title = tr("Verify your phone", "ফোন নম্বর যাচাই"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     tr(

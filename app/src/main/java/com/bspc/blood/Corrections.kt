@@ -150,10 +150,10 @@ private fun CorrectionDialog(onDismiss: () -> Unit, onSubmit: (Long?, String) ->
     var showPicker by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr("Date correction", "তারিখ সংশোধন")) },
-        text = {
+    FormDialog(
+        title = tr("Date correction", "তারিখ সংশোধন"),
+        onDismiss = onDismiss,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = neverDonated, onCheckedChange = { neverDonated = it; if (it) date = null })

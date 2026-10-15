@@ -163,17 +163,11 @@ class ScreensTest {
         androidx.compose.material3.AlertDialog(onDismissRequest = {}, confirmButton = {}, text = { Column(Modifier.verticalScroll(rememberScrollState())) { body() } })
     }
 
-    @Test fun b4FieldAndChips() { alert { FilledField(); TypeChips() }; shot("b4") }
 
-    // লেখার ঘরে ফোকাস (জ্বলা-নেভা কার্সর) সরালে স্থির হয় কি না
-    @Test fun b6FieldAndChipsNoFocus() {
-        alert {
-            val fm = androidx.compose.ui.platform.LocalFocusManager.current
-            androidx.compose.runtime.LaunchedEffect(Unit) { fm.clearFocus(true) }
-            FilledField()
-            TypeChips()
-        }
-        shot("b6")
+    @Test
+    fun formDialogWithFieldAndChips() {
+        show { FormDialog("Form", {}, content = { Column { FilledField(); TypeChips() } }, confirmButton = {}, dismissButton = {}) }
+        shot("form_dialog")
     }
 
     @Test

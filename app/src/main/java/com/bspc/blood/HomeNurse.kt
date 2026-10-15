@@ -350,10 +350,10 @@ private fun RateVisitDialog(v: HomeVisit, onDismiss: () -> Unit, onDone: () -> U
     var comment by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Rate ", "রেটিং: ") + v.otherName) },
-        text = {
+    FormDialog(
+        title = tr("Rate ", "রেটিং: ") + v.otherName,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row {
                     (1..5).forEach { i ->
@@ -398,10 +398,10 @@ private fun ReportVisitDialog(v: HomeVisit, onDismiss: () -> Unit, onDone: () ->
     var reason by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Report a problem", "সমস্যা জানান")) },
-        text = {
+    FormDialog(
+        title = tr("Report a problem", "সমস্যা জানান"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     tr(

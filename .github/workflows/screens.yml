@@ -24,7 +24,7 @@ jobs:
       - name: Run screenshot tests
         run: |
           gradle compileDebugUnitTestKotlin 2>&1 | tail -5
-          for t in $(grep -A1 '@Test' app/src/test/java/com/bspc/blood/ScreensTest.kt | grep -oP 'fun \K\w+'); do
+          for t in $(grep -A1 '@Test' app/src/test/java/com/bspc/blood/ScreensTest.kt | grep -oP 'fun \K\w+' | sort -u); do
             echo "=== $t" | tee -a test.log
             gradle testDebugUnitTest --tests "com.bspc.blood.ScreensTest.$t" 2>&1 | grep -E "ScreensTest|Exception|Caused by|at com\.bspc|FAILED|exit value" | head -30 | tee -a test.log || true
           done

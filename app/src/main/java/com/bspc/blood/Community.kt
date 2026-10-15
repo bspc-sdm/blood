@@ -886,11 +886,11 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Professional badge", "পেশাদার ব্যাজ")) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FormDialog(
+        title = tr("Professional badge", "পেশাদার ব্যাজ"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("Profession", "পেশা"), style = MaterialTheme.typography.labelLarge)
                 Badges.ALL.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

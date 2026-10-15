@@ -433,11 +433,11 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(provider.name) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    FormDialog(
+        title = provider.name,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 IconLine(R.drawable.ic_local_hospital, chamber.label)
                 IconLine(R.drawable.ic_schedule, chamber.timeText)
                 OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
@@ -637,10 +637,10 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
 
     confirming?.let { a ->
         var note by remember(a.id) { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { confirming = null },
-            title = { Text(tr("Confirm appointment", "অ্যাপয়েন্টমেন্ট নিশ্চিত")) },
-            text = {
+        FormDialog(
+        title = tr("Confirm appointment", "অ্যাপয়েন্টমেন্ট নিশ্চিত"),
+        onDismiss = { confirming = null },
+        content = {
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it.take(200) },
@@ -649,14 +649,14 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
-            confirmButton = {
+        confirmButton = {
                 TextButton(onClick = {
                     confirming = null
                     act(a.id, "confirm", note.trim())
                 }) { Text(tr("Confirm", "নিশ্চিত করুন")) }
             },
-            dismissButton = { TextButton(onClick = { confirming = null }) { Text(tr("Cancel", "বাতিল")) } },
-        )
+        dismissButton = { TextButton(onClick = { confirming = null }) { Text(tr("Cancel", "বাতিল")) } },
+    )
     }
 }
 
