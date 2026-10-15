@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -372,7 +373,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                     "বিনামূল্যে। কাছের মানুষ অ্যাপে আপনার ফার্মেসি খুঁজে সরাসরি ফোন করবেন। অ্যাপ কিছু বিক্রি করে না, কোনো কমিশনও নেয় না।",
                 ),
             )
-            OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Pharmacy name", "ফার্মেসির নাম")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Pharmacy name", "ফার্মেসির নাম")) }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(licenseNo, { licenseNo = it.take(40) }, label = { Text(tr("Drug licence number", "ড্রাগ লাইসেন্স নম্বর")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(
                 phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
@@ -433,7 +434,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                         busy = true
                         runCatching {
                             Pharmacies.save(
-                                name.trim(), licenseNo.trim(), phone, d, upazilaId, address.trim(), lat, lng,
+                                TitleCase.name(name), licenseNo.trim(), phone, d, upazilaId, address.trim(), lat, lng,
                                 open24, openAt, closeAt, delivery, deliveryNote.trim(), discount.toIntOrNull() ?: 0,
                             )
                         }.onSuccess { onSaved(it) }.onFailure { errorMsg = it.message }

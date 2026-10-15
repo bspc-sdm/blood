@@ -262,6 +262,35 @@ class ScreensTest {
     }
 
     @Test
+    fun titleCaseRules() {
+        org.junit.Assert.assertEquals("Change Last Donation Date", TitleCase.ui("Change last donation date"))
+        org.junit.Assert.assertEquals("Find a Medicine", TitleCase.ui("Find a medicine"))
+        org.junit.Assert.assertEquals("Within 5 km", TitleCase.ui("Within 5 km"))
+        org.junit.Assert.assertEquals("ICU / Critical Care", TitleCase.ui("ICU / Critical care"))
+        org.junit.Assert.assertEquals("Fee: ", TitleCase.ui("Fee: "))
+        // বাক্য বদলায় না
+        org.junit.Assert.assertEquals("Call and agree on the time and fee.", TitleCase.ui("Call and agree on the time and fee."))
+        org.junit.Assert.assertEquals("Emergency? 999 is free, 24 hours", TitleCase.ui("Emergency? 999 is free, 24 hours"))
+        // নাম
+        org.junit.Assert.assertEquals("Mymensingh Medical College Hospital", TitleCase.name("mymensingh  medical college hospital"))
+        org.junit.Assert.assertEquals("Bank of Asia", TitleCase.name("bank of asia"))
+        org.junit.Assert.assertEquals("McDonald", TitleCase.name("McDonald"))
+        org.junit.Assert.assertEquals("রহিম উদ্দিন", TitleCase.name("রহিম উদ্দিন"))
+    }
+
+    @Test
+    fun logo() {
+        show { Column(Modifier.padding(16.dp)) { Logo(iconSize = 30.dp) } }
+        shot("logo")
+    }
+
+    @Test
+    fun englishTitleCaseScreens() {
+        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        shot("appointment_tab_en_titlecase")
+    }
+
+    @Test
     fun homeCareTab() {
         AppPrefs.lang.value = Lang.BN
         show { HomeCareTab(profile, nurseMe) {} }

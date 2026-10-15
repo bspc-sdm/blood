@@ -52,7 +52,56 @@ object AppPrefs {
 val isBangla: Boolean get() = AppPrefs.lang.value == Lang.BN
 
 /** বর্তমান ভাষা অনুযায়ী লেখা: tr("English", "বাংলা") */
-fun tr(en: String, bn: String): String = if (isBangla) bn else en
+fun tr(en: String, bn: String): String = if (isBangla) bn else TitleCase.ui(en)
+
+/**
+ * ইংরেজি ছোট লেখায় প্রতিটা শব্দের প্রথম অক্ষর বড় (Title Case) — শিরোনাম, বাটন, ট্যাব, লেবেল।
+ * a, of, in, to… (শুরুতে না হলে) ছোট থাকে; আগে থেকে বড় শব্দ (ICU, MBBS) আর একক (km, kg) যেমন আছে তেমন।
+ * পুরো বাক্যে (দাঁড়ি/প্রশ্নচিহ্ন আছে, বা লম্বা) লাগে না — বাক্য বড় হাতের হলে পড়তে কষ্ট।
+ */
+object TitleCase {
+    private val MINOR = setOf(
+        "a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet", "as", "at", "by", "in", "of", "off", "on", "per",
+        "to", "up", "via", "with", "from", "into", "onto", "over", "than", "vs",
+    )
+    private val UNITS = setOf("km", "kg", "mg", "ml", "g", "cm", "yrs", "min", "sec", "e.g.", "i.e.")
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun isSentence(s: String): Boolean {
+        val t = s.trim()
+        if (t.isEmpty()) return true
+        if (t.last() in ".?!:;") return true
+        if (Regex("[.?!;](\\s|$)").containsMatchIn(t)) return true
+        return t.split(' ').count { it.isNotBlank() } > 8
+    }
+
+    /** অ্যাপের নিজের লেখা (শুধু ছোট লেখায়) */
+    fun ui(s: String): String {
+        if (s.length > 80) return s
+        return cache.getOrPut(s) { if (isSentence(s)) s else words(s) }
+    }
+
+    /** ব্যবহারকারীর লেখা নাম (মানুষ, হাসপাতাল, দোকান) — বাংলায় কিছু বদলায় না */
+    fun name(s: String): String = words(s.trim().replace(Regex("\\s+"), " "))
+
+    private fun words(s: String): String {
+        val parts = s.split(" ")
+        val last = parts.indexOfLast { it.isNotBlank() }
+        return parts.mapIndexed { i, w ->
+            val core = w.trim { !it.isLetterOrDigit() }.lowercase()
+            val k = w.indexOfFirst { it.isLetter() }
+            when {
+                k < 0 -> w
+                !w[k].isLowerCase() -> w
+                core in UNITS -> w
+                i != 0 && i != last && core in MINOR -> w
+                // শব্দের আগে অঙ্ক থাকলে (যেমন "3rd") বদলায় না
+                w.substring(0, k).any { it.isDigit() } -> w
+                else -> w.substring(0, k) + w[k].uppercaseChar() + w.substring(k + 1)
+            }
+        }.joinToString(" ")
+    }
+}
 
 /** ভাষা অনুযায়ী অঙ্ক (বাংলায় ০-৯) */
 fun num(n: Number): String = num(n.toString())

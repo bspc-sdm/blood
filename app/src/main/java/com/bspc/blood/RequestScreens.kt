@@ -2,6 +2,8 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -226,7 +228,7 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
                                         requesterName = profile.name,
                                         patientGroup = group,
                                         bags = bags,
-                                        hospital = hospital.trim(),
+                                        hospital = TitleCase.name(hospital),
                                         placeName = place,
                                         lat = la,
                                         lng = ln,
@@ -895,7 +897,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
                         scope.launch {
                             busy = true
                             runCatching {
-                                ServerApi.editRequest(r.id, bags, hospital.trim(), neededBy, at, urgent, travelFare, note.trim())
+                                ServerApi.editRequest(r.id, bags, TitleCase.name(hospital), neededBy, at, urgent, travelFare, note.trim())
                             }.onSuccess { onSaved(it) }
                                 .onFailure { errorMsg = it.message ?: tr("Couldn't save", "সেভ হয়নি") }
                             busy = false
@@ -956,6 +958,7 @@ private fun HospitalField(value: String, onChange: (String) -> Unit, district: S
             onValueChange = { onChange(it.take(120)); picked = false },
             label = { Text(tr("Hospital", "হাসপাতাল")) },
             leadingIcon = { AppIcon(R.drawable.ic_local_hospital, null) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             singleLine = true,
             modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
         )

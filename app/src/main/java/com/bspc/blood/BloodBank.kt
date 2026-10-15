@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -349,7 +350,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Blood bank name", "ব্লাড ব্যাংকের নাম")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Blood bank name", "ব্লাড ব্যাংকের নাম")) }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text(tr("Type", "ধরন"), style = MaterialTheme.typography.labelLarge)
                 ChipRows(BloodBankInfo.KINDS, setOf(kind), label = { BloodBankInfo.kind(it) }) { kind = it }
                 OutlinedTextField(
@@ -408,7 +409,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                     runCatching {
                         BloodBanks.save(
                             BloodBank(
-                                existing?.id ?: "", name.trim(), kind, phone, d, upazilaId, address.trim(), open24,
+                                existing?.id ?: "", TitleCase.name(name), kind, phone, d, upazilaId, address.trim(), open24,
                                 if (open24) "" else openAt, if (open24) "" else closeAt, true, services.toList(),
                                 licenseNo.trim(),
                             ),

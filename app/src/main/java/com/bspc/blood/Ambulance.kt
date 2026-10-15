@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
@@ -505,7 +506,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(name, { name = it.take(80) }, label = { Text(tr("Service / driver name", "সার্ভিস বা চালকের নাম")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it.take(80) }, label = { Text(tr("Service / driver name", "সার্ভিস বা চালকের নাম")) }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
                     label = { Text(tr("Phone for calls", "যে নম্বরে ফোন আসবে")) },
@@ -546,7 +547,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 if (errorMsg != null || d == null) return@TextButton
                 scope.launch {
                     busy = true
-                    runCatching { Ambulances.save(existing?.id, name.trim(), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim()) }
+                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim()) }
                         .onSuccess { onSaved(it) }
                         .onFailure { errorMsg = it.message }
                     busy = false

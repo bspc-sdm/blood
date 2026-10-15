@@ -403,7 +403,7 @@ fun AddHospitalDialog(
                     if (errorMsg != null || d == null) return@TextButton
                     scope.launch {
                         busy = true
-                        runCatching { Hospitals.request(nameEn.trim(), nameBn.trim(), type, d, upazilaId, unionId, address.trim(), phone) }
+                        runCatching { Hospitals.request(TitleCase.name(nameEn), nameBn.trim(), type, d, upazilaId, unionId, address.trim(), phone) }
                             .onSuccess { r ->
                                 when (r) {
                                     is HospitalRequestResult.Exists -> existing = r.hospital

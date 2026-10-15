@@ -101,7 +101,7 @@ fun Logo(iconSize: Dp = 36.dp, showText: Boolean = true) {
             Spacer(Modifier.width(10.dp))
             Text(
                 APP_NAME,
-                fontSize = (iconSize.value * 0.62f).sp,
+                fontSize = (iconSize.value * 0.78f).sp, // লোগোর নাম একটু বড়
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary,
             )

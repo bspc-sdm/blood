@@ -2,6 +2,7 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -214,6 +215,7 @@ fun ProfileEditScreen(
                 onValueChange = { name = it.take(80) },
                 label = { Text(tr("Name", "নাম")) },
                 leadingIcon = { AppIcon(R.drawable.ic_person_outline, null) },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -300,7 +302,7 @@ fun ProfileEditScreen(
                     if (formError == null && cleanPhone != null) {
                         onSave(
                             Profile(
-                                name = name.trim(),
+                                name = TitleCase.name(name),
                                 phone = cleanPhone,
                                 bloodGroup = bloodGroup,
                                 birthDateMillis = birthDate,
