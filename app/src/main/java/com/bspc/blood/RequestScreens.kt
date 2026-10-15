@@ -16,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -162,14 +164,8 @@ fun NewRequestScreen(profile: Profile, onCreated: (String) -> Unit, onCancel: ()
             FieldLabel(tr("Bags needed", "কত ব্যাগ"))
             BagsPicker(bags) { bags = it }
 
-            OutlinedTextField(
-                value = hospital,
-                onValueChange = { hospital = it.take(120) },
-                label = { Text(tr("Hospital", "হাসপাতাল")) },
-                leadingIcon = { AppIcon(R.drawable.ic_local_hospital, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // লিখতে লিখতে নিচে হাসপাতালের তালিকা (বেছে নেওয়া এলাকার, নইলে নিজের জেলার)
+            HospitalField(hospital, { hospital = it }, place.ifBlank { null } ?: profile.placeName)
 
             OutlinedButton(onClick = { picking = true }, modifier = Modifier.fillMaxWidth()) {
                 AppIcon(R.drawable.ic_location_on, null, Modifier.size(18.dp))
@@ -864,14 +860,7 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             FieldLabel(tr("Bags needed", "কত ব্যাগ"))
             BagsPicker(bags) { bags = it }
 
-            OutlinedTextField(
-                value = hospital,
-                onValueChange = { hospital = it.take(120) },
-                label = { Text(tr("Hospital", "হাসপাতাল")) },
-                leadingIcon = { AppIcon(R.drawable.ic_local_hospital, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            HospitalField(hospital, { hospital = it }, r.placeName.ifBlank { null })
 
             FieldLabel(tr("Needed by", "কবে লাগবে"))
             DateTimeFields(neededBy, neededHour, neededMinute, { showDate = true }, { showTime = true })
@@ -935,5 +924,54 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
             },
             onDismiss = { showTime = false },
         )
+    }
+}
+
+/**
+ * হাসপাতালের ঘর: লিখতে থাকলে নিচে ওই জেলার হাসপাতালের নাম আসে (ওষুধের নামের মতো), চাপলে বসে যায়।
+ * তালিকায় না থাকলে লেখা নামটাই থাকে।
+ */
+@Composable
+private fun HospitalField(value: String, onChange: (String) -> Unit, district: String?) {
+    var all by remember(district) { mutableStateOf<List<Hospital>>(emptyList()) }
+    var focused by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf(false) }
+    LaunchedEffect(district) {
+        if (district != null) all = runCatching { Hospitals.inDistrict(district) }.getOrDefault(emptyList())
+    }
+    val q = value.trim()
+    val matches = remember(q, all, picked) {
+        if (q.length < 2 || picked) emptyList()
+        else {
+            val direct = all.filter { it.nameEn.contains(q, true) || it.nameBn.contains(q) }
+                .sortedBy { if (it.nameEn.startsWith(q, true) || it.nameBn.startsWith(q)) 0 else 1 }
+            // বানান একটু ভুল হলেও কাছের নাম
+            (direct + Hospitals.similar(q, all, 6)).distinctBy { it.id }.take(6)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { onChange(it.take(120)); picked = false },
+            label = { Text(tr("Hospital", "হাসপাতাল")) },
+            leadingIcon = { AppIcon(R.drawable.ic_local_hospital, null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+        )
+        if (focused && matches.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                Column {
+                    matches.forEach { h ->
+                        Column(
+                            Modifier.fillMaxWidth().clickable { onChange(h.label.take(120)); picked = true }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        ) {
+                            Text(h.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            val area = Areas.label(h.district, h.upazilaId, h.unionId)
+                            if (area.isNotBlank()) Text(area, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
