@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppPrefs.init(this)
+        Catalog.init(this)
         // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
         Thread { runCatching { Areas.ensure(this) } }.start()
         Notifier.ensureChannel(this)
@@ -76,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx") },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -98,7 +99,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review") }?.let { openType.value = it }
     }
 }
 
@@ -136,6 +137,7 @@ sealed interface Screen {
     data object MyAppointments : Screen
     data object MyPrescriptions : Screen
     data object RxAssist : Screen
+    data object RxReviews : Screen
     data object ChamberEdit : Screen
     data object Inbox : Screen
     data object Ambulance : Screen
@@ -246,6 +248,13 @@ fun App(
             type == "support" -> push(Screen.Help())
             // প্রেসক্রিপশন (নতুন, আবার দেখানোর দিন, ওষুধের অ্যালার্ম)
             type == "rx" -> push(Screen.MyPrescriptions)
+            type == "rx_review" -> push(Screen.RxReviews)
+            // ফার্মেসি/প্যাথলজির মালিক: নিজের পাতা
+            type == "rx_pharmacy" || type == "rx_lab" -> {
+                ServicesNav.target.value = if (type == "rx_lab") "lab_mine" else "pharmacy_mine"
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
             // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
             type == "med_find" || type == "med_find_mine" -> {
                 ServicesNav.target.value = type
@@ -305,6 +314,11 @@ fun App(
     // ব্যাজের অবস্থা (অ্যাডমিন অনুমোদন দিলে) পাতা বা ট্যাব বদলালেই নতুন করে আনা হয়
     LaunchedEffect(ready, stack.last()) {
         if (ready) runCatching { Community.me() }.onSuccess { community = it }
+    }
+    // প্যানেলে বদলানো তালিকা (বিশেষজ্ঞতা, সেবা…) — দিনে একবার
+    val appContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(ready) {
+        if (ready) runCatching { Catalog.refresh(appContext) }
     }
     LaunchedEffect(openAppointments, ready) {
         if (openAppointments && ready) {
@@ -601,6 +615,7 @@ fun App(
             Screen.MyAppointments -> MyAppointmentsScreen(onBack = { back() })
             Screen.MyPrescriptions -> profile?.let { pr -> MyPrescriptionsScreen(pr, onBack = { back() }) }
             Screen.RxAssist -> RxAssistScreen(onBack = { back() })
+            Screen.RxReviews -> RxReviewsScreen(onBack = { back() })
 
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
 

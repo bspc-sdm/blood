@@ -309,7 +309,10 @@ internal fun MyPharmacyPanel(profile: Profile) {
                         if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
                     }
                 }
-                if (s.status == "approved") PharmacyFindRequests()
+                if (s.status == "approved") {
+                    PharmacyRxSection()
+                    PharmacyFindRequests()
+                }
                 stats?.let { st ->
                     val calls = st.optJSONObject("calls") ?: JSONObject()
                     Text(tr("Calls from the app", "অ্যাপ থেকে ফোন"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

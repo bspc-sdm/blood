@@ -81,7 +81,8 @@ data class BloodBank(
 
 object BloodBankInfo {
     val KINDS = listOf("govt", "private", "org")
-    val SERVICES = listOf("whole_blood", "components", "platelets", "screening", "donate_here")
+    private val BUILT_IN = listOf("whole_blood", "components", "platelets", "screening", "donate_here")
+    val SERVICES: List<String> get() = Catalog.visible("bloodBankService") ?: BUILT_IN
 
     fun kind(k: String): String = when (k) {
         "govt" -> tr("Government hospital", "সরকারি হাসপাতাল")
@@ -89,7 +90,9 @@ object BloodBankInfo {
         else -> tr("Volunteer organisation", "স্বেচ্ছাসেবী সংগঠন")
     }
 
-    fun service(s: String): String = when (s) {
+    fun service(s: String): String = Catalog.label("bloodBankService", s) ?: builtInService(s)
+
+    private fun builtInService(s: String): String = when (s) {
         "whole_blood" -> tr("Whole blood", "পূর্ণ রক্ত")
         "components" -> tr("Plasma & components", "প্লাজমা ও অন্যান্য অংশ")
         "platelets" -> tr("Platelets", "প্লাটিলেট")

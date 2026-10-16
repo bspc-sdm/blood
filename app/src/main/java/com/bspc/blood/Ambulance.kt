@@ -81,9 +81,12 @@ data class Ambulance(
 )
 
 object AmbulanceTypes {
-    val ALL = listOf("general", "ac", "icu", "freezer")
+    private val BUILT_IN = listOf("general", "ac", "icu", "freezer")
+    val ALL: List<String> get() = Catalog.visible("ambulanceType") ?: BUILT_IN
 
-    fun label(t: String): String = when (t) {
+    fun label(t: String): String = Catalog.label("ambulanceType", t) ?: builtInLabel(t)
+
+    private fun builtInLabel(t: String): String = when (t) {
         "general" -> tr("General", "সাধারণ")
         "ac" -> tr("AC", "এসি")
         "icu" -> tr("ICU", "আইসিইউ")

@@ -45,6 +45,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,6 +122,8 @@ data class Rx(
     val followUpBookDate: Long?,
     val followUpNote: String,
     val chamberIndex: Int?,
+    /** ডাক্তারের সুপারিশ করা পরীক্ষার জায়গা (হাসপাতাল/ডায়াগনস্টিকের id) */
+    val testPlaceId: String? = null,
 ) {
     val cancelled: Boolean get() = status == "cancelled"
     val verifyUrl: String get() = ServerApi.BASE_URL + "/rx/" + code
@@ -150,6 +153,7 @@ data class Rx(
                 if (o.isNull("followUpBookDate")) null else o.optLong("followUpBookDate").takeIf { it > 0 },
                 o.str("followUpNote"),
                 if (o.isNull("chamberIndex") || !o.has("chamberIndex")) null else o.optInt("chamberIndex"),
+                o.str("testPlaceId").ifBlank { null },
             )
         }
     }
@@ -309,7 +313,7 @@ private fun PaperBlock(title: String, text: String) {
 
 /** পুরো পাতায় একটা প্রেসক্রিপশন: কাগজ, PDF, অ্যালার্ম, আবার দেখানোর সিরিয়াল; ডাক্তারের জন্য বাতিল */
 @Composable
-fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: () -> Unit = {}) {
+fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: () -> Unit = {}, profile: Profile? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -335,6 +339,8 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                 ErrorText(errorMsg)
                 InfoText(infoMsg)
                 RxPaper(rx)
+                // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
+                if (!asDoctor && profile != null) RxActivitySection(rx, profile)
                 if (!asDoctor && !rx.cancelled) {
                     // আবার দেখানো: এক চাপে সেই চেম্বারে সিরিয়াল
                     val book = rx.followUpBookDate
@@ -466,7 +472,7 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: () -> Unit) {
             }
         }
     }
-    open?.let { rx -> RxDetailDialog(rx, asDoctor = false, onDismiss = { open = null }) }
+    open?.let { rx -> RxDetailDialog(rx, asDoctor = false, onDismiss = { open = null }, profile = profile) }
     if (claiming) {
         RxClaimDialog(profile, onDismiss = { claiming = false }) { n ->
             claiming = false
@@ -677,10 +683,15 @@ fun RxDoctorTab() {
     var picking by remember { mutableStateOf(false) }
     var writingFor by remember { mutableStateOf<RxTarget?>(null) }
     var team by remember { mutableStateOf(false) }
+    var sub by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(reload) {
         runCatching { RxApi.doctorList() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize()) {
+    PillTabs(sub, listOf(PillTab(tr("Prescriptions", "প্রেসক্রিপশন")), PillTab(tr("Reports", "রিপোর্ট"))), { sub = it }, secondary = true)
+    if (sub == 1) {
+        RxReviewsPane(null, asDoctor = true)
+    } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Button(onClick = { picking = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
                 ButtonContent(false, tr("New prescription", "নতুন প্রেসক্রিপশন"), R.drawable.ic_edit_note)
@@ -696,6 +707,7 @@ fun RxDoctorTab() {
             }
             else -> items(l, key = { it.id }) { rx -> RxListCard(rx, asDoctor = true) { open = rx } }
         }
+    }
     }
     if (picking) {
         Dialog(onDismissRequest = { picking = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -795,6 +807,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
     val tests = remember { mutableStateListOf<String>() }
     var testInput by remember { mutableStateOf("") }
     var testPlace by remember { mutableStateOf("") }
+    var testPlaceId by remember { mutableStateOf<String?>(null) }
     var pickPlace by remember { mutableStateOf(false) }
     var advice by remember { mutableStateOf("") }
     var followDays by remember { mutableIntStateOf(0) }
@@ -817,6 +830,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                 .put("medicines", JSONArray(meds.map { it.toJson() }))
                 .put("tests", JSONArray(tests.toList()))
                 .put("testPlace", testPlace.trim())
+                .apply { testPlaceId?.let { put("testPlaceId", it) } }
                 .put("advice", advice.trim())
                 .put("followUpDays", followDays)
                 .put("followUpNote", followNote.trim())
@@ -890,7 +904,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                     OutlinedButton(onClick = { pickPlace = true }, modifier = Modifier.fillMaxWidth()) {
                         ButtonContent(false, testPlace.ifBlank { tr("Suggest where to test (optional)", "কোথায় করাবেন (ঐচ্ছিক)") }, R.drawable.ic_local_hospital)
                     }
-                    if (testPlace.isNotBlank()) TextButton(onClick = { testPlace = "" }) { Text(tr("Remove suggestion", "প্রস্তাব সরান")) }
+                    if (testPlace.isNotBlank()) TextButton(onClick = { testPlace = ""; testPlaceId = null }) { Text(tr("Remove suggestion", "প্রস্তাব সরান")) }
                 }
 
                 SectionTitle(tr("Advice", "পরামর্শ"))
@@ -927,7 +941,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
     if (pickPlace) {
         HospitalPickerDialog(
             initialDistrict = null,
-            onPick = { h -> testPlace = (if (isBangla && h.nameBn.isNotBlank()) h.nameBn else h.nameEn); pickPlace = false },
+            onPick = { h -> testPlace = (if (isBangla && h.nameBn.isNotBlank()) h.nameBn else h.nameEn); testPlaceId = h.id; pickPlace = false },
             onDismiss = { pickPlace = false },
         )
     }
@@ -1035,6 +1049,7 @@ fun RxAssistScreen(onBack: () -> Unit) {
     var doctors by remember { mutableStateOf<List<RxDoctor>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableIntStateOf(0) }
+    var sub by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         runCatching { RxApi.assisting() }.onSuccess { doctors = it }.onFailure { errorMsg = it.message }
     }
@@ -1053,7 +1068,9 @@ fun RxAssistScreen(onBack: () -> Unit) {
                 else -> {
                     if (d.size > 1) PillTabs(tab, d.map { PillTab(it.name) }, { tab = it })
                     val doc = d[tab.coerceIn(0, d.lastIndex)]
-                    RxPatientsPane(doc.uid, onPick = null) {
+                    PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো"))), { sub = it }, secondary = true)
+                    if (sub == 1) RxReviewsPane(doc.uid, asDoctor = false)
+                    else RxPatientsPane(doc.uid, onPick = null) {
                         if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }

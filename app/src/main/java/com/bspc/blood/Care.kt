@@ -443,14 +443,19 @@ object Specialties {
     val NUTRITIONIST = listOf("clinical_nutrition", "weight_diet", "diabetes_diet", "child_nutrition", "pregnancy_nutrition", "kidney_diet", "sports_nutrition")
     val TRAINER = listOf("weight_loss", "strength", "yoga", "rehab_exercise", "elderly_fitness", "women_fitness", "sports_training")
 
-    fun of(type: String) = when (type) {
+    /** প্যানেলের তালিকা থাকলে সেটা (নতুন যোগ করা সহ), নইলে অ্যাপের ভেতরেরটা */
+    fun of(type: String) = Catalog.visible("specialty", if (type in listOf("nurse", "nutritionist", "trainer")) type else "doctor") ?: builtIn(type)
+
+    private fun builtIn(type: String) = when (type) {
         "nurse" -> NURSE
         "nutritionist" -> NUTRITIONIST
         "trainer" -> TRAINER
         else -> DOCTOR
     }
 
-    fun label(code: String): String = when (code) {
+    fun label(code: String): String = Catalog.label("specialty", code) ?: builtInLabel(code)
+
+    private fun builtInLabel(code: String): String = when (code) {
         "medicine" -> tr("Medicine", "মেডিসিন")
         "pediatrics" -> tr("Child (Pediatrics)", "শিশু রোগ")
         "gynecology" -> tr("Gynae & Obstetrics", "গাইনি ও প্রসূতি")
@@ -617,9 +622,11 @@ object HomeServices {
     val DOCTOR = listOf("checkup", "follow_up", "elderly_care", "bedridden", "child", "palliative", "post_op")
     val RADII = listOf(3, 5, 10, 20)
 
-    fun of(type: String) = if (type == "doctor") DOCTOR else NURSE
+    fun of(type: String) = Catalog.visible("homeService", if (type == "doctor") "doctor" else "nurse") ?: if (type == "doctor") DOCTOR else NURSE
 
-    fun label(code: String): String = when (code) {
+    fun label(code: String): String = Catalog.label("homeService", code) ?: builtInLabel(code)
+
+    private fun builtInLabel(code: String): String = when (code) {
         "injection" -> tr("Injection", "ইনজেকশন")
         "saline" -> tr("Saline", "স্যালাইন")
         "cannula" -> tr("Cannula", "ক্যানুলা")

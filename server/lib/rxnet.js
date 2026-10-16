@@ -232,7 +232,7 @@ function labOrderView(d, withPhotos = false) {
   };
 }
 
-const MAX_PHOTO_B64 = 260 * 1024;
+const MAX_PHOTO_B64 = 300 * 1024;
 
 const actions = {
   // ======================= প্যানেলে প্যাথলজি অনুমোদন =======================
@@ -560,7 +560,7 @@ const actions = {
   },
 
   /**
-   * প্যাথলজি: ফল দেওয়া — items: [{ test, result, unit, range, flag }], note, photos (ছোট JPEG base64, সর্বোচ্চ ৩)।
+   * প্যাথলজি: ফল দেওয়া — items: [{ test, result, unit, range, flag }], note, photos (ছোট JPEG base64, সর্বোচ্চ ২ — ডকের ১MB সীমা)।
    * রোগী পান; ডাক্তারের "রিপোর্ট দেখা"-র তালিকায় যায় (টাকা না মিললে বিষয়বস্তু দেখেন না)।
    */
   async lab_report(req, user) {
@@ -575,7 +575,7 @@ const actions = {
       test: str(r?.test, 80), result: str(r?.result, 60), unit: str(r?.unit, 30), range: str(r?.range, 60),
       flag: ['high', 'low'].includes(r?.flag) ? r.flag : '',
     })).filter((r) => r.test && r.result);
-    const photos = (Array.isArray(req.body?.photos) ? req.body.photos : []).filter((p) => typeof p === 'string' && p.length > 100).slice(0, 3);
+    const photos = (Array.isArray(req.body?.photos) ? req.body.photos : []).filter((p) => typeof p === 'string' && p.length > 100).slice(0, 2);
     if (photos.some((p) => p.length > MAX_PHOTO_B64 || !/^[A-Za-z0-9+/=\s]+$/.test(p))) throw err(req, 'Photos are too large', 'ছবি অনেক বড়');
     if (!items.length && !photos.length) throw err(req, 'Enter at least one result or a photo of the report', 'অন্তত একটা ফল বা রিপোর্টের ছবি দিন');
     const now = Date.now();

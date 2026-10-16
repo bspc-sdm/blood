@@ -58,6 +58,11 @@ object VerifyDocs {
         DocSpec("authority", tr("Letter on the hospital's or organisation's pad", "হাসপাতাল বা সংগঠনের প্যাডে প্রত্যয়ন"), tr("For government hospitals or organisations", "সরকারি হাসপাতাল বা সংগঠন হলে দিন"), false),
     )
 
+    fun lab() = listOf(
+        DocSpec("license", tr("DGHS clinic/diagnostic licence", "স্বাস্থ্য অধিদপ্তরের ক্লিনিক/ডায়াগনস্টিক লাইসেন্স"), tr("Whole paper, number and expiry readable", "পুরো কাগজ, নম্বর আর মেয়াদ পড়া যায়"), true),
+        DocSpec("front", tr("Centre front (with signboard)", "সেন্টারের সামনের ছবি (সাইনবোর্ডসহ)"), tr("Name readable", "নাম পড়া যায়"), true),
+    )
+
     fun badge(type: String) = when (type) {
         "doctor" -> listOf(
             DocSpec("cert", tr("BMDC registration certificate", "BMDC নিবন্ধন সনদ"), tr("Optional — the number is checked online", "থাকলে দিন — নম্বর অনলাইনে মিলিয়ে দেখা হয়"), false),

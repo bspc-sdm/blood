@@ -131,6 +131,7 @@ object AdminApi {
             tr("Pharmacies", "ফার্মেসি") to o.items("pharmacies").length(),
             tr("Ambulances", "অ্যাম্বুলেন্স") to o.items("ambulances").length(),
             tr("Blood banks", "ব্লাড ব্যাংক") to o.items("bloodBanks").length(),
+            tr("Labs", "প্যাথলজি") to o.items("labs").length(),
             tr("New hospitals", "নতুন হাসপাতাল") to o.items("hospitalRequests").length(),
             tr("Reports on doctors", "ডাক্তারের বিরুদ্ধে রিপোর্ট") to (allReports.size - reports.size),
         )
