@@ -28,6 +28,7 @@ object Notifier {
     const val EXTRA_TYPE = "type"
     const val EXTRA_QUESTION_ID = "questionId"
     const val EXTRA_JOB_ID = "jobId" // FEATURE:jobs
+    const val EXTRA_KIND = "kind"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -55,6 +56,7 @@ object Notifier {
             if (type != null) putExtra(EXTRA_TYPE, type)
             if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
             if (jobId != null) putExtra(EXTRA_JOB_ID, jobId) // FEATURE:jobs
+            if (kind != null) putExtra(EXTRA_KIND, kind)
         }
         val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(

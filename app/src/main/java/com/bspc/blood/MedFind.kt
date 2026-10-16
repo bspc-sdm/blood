@@ -56,6 +56,8 @@ data class FindRequest(val id: String, val drug: FindDrug, val area: String, val
 /** নোটিফিকেশন থেকে "সেবা" ট্যাবের নির্দিষ্ট অংশ খোলা: "med_find" (দোকানের অনুরোধ) / "med_find_mine" (নিজের খোঁজ) */
 object ServicesNav {
     val target = mutableStateOf<String?>(null)
+    /** "services" নোটিফিকেশনের কোন সেবা (pharmacy/ambulance/bloodbank) — পুশের intent থেকে */
+    val kind = mutableStateOf<String?>(null)
 }
 
 object MedFind {

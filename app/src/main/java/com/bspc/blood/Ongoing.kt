@@ -79,6 +79,11 @@ fun OngoingSection(refreshKey: Int, onOpen: (Map<String, String>) -> Unit) {
     LaunchedEffect(refreshKey) {
         runCatching { OngoingApi.list() }.onSuccess { list = it }
     }
+    OngoingCards(list, onOpen)
+}
+
+@Composable
+fun OngoingCards(list: List<OngoingItem>, onOpen: (Map<String, String>) -> Unit) {
     if (list.isEmpty()) return
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
