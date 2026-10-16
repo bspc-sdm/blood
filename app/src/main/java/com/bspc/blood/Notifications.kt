@@ -95,6 +95,9 @@ class BloodMessagingService : FirebaseMessagingService() {
         if (!to.isNullOrBlank() && to != me) return
         val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], message.data["visitId"] ?: message.data["orderId"])
+        // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
+        val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
+            ?: message.data["findId"] ?: message.messageId
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag)
     }
 }

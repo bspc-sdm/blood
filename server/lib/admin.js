@@ -15,11 +15,8 @@ async function verifyAdmin(req, res) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   let decoded;
   if (token) {
-    try {
-      decoded = await admin.auth().verifyIdToken(token);
-    } catch {
-      throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
-    }
+    // বন্ধ বা লগইন বাতিল করা অ্যাকাউন্ট সাথে সাথে আটকায়
+    decoded = await require('./firebase').decodeToken(req, token);
   } else {
     // ওয়েব অ্যাডমিন প্যানেলের কুকি
     const web = require('./websession').user(req, res);

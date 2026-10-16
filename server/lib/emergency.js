@@ -137,7 +137,14 @@ async function closeExpired(now = Date.now()) {
   const snap = await db.collection('emergencies').where('status', '==', 'active').limit(50).get();
   let n = 0;
   for (const d of snap.docs.filter((x) => (x.get('endsAt') || 0) <= now)) {
-    await d.ref.update({ status: 'closed', closedAt: d.get('endsAt') || now, closedBy: 'expired' });
+    // দুটো অনুরোধ একসাথে এলে একজনই বন্ধ করে জানায়
+    const won = await db.runTransaction(async (t) => {
+      const cur = await t.get(d.ref);
+      if (!cur.exists || cur.get('status') !== 'active') return false;
+      t.update(d.ref, { status: 'closed', closedAt: d.get('endsAt') || now, closedBy: 'expired' });
+      return true;
+    });
+    if (!won) continue;
     await notifyComing(d.id, d.data(), ...ENDED_TEXT).catch((e) => console.error('emergency end push failed', e));
     n++;
   }
@@ -152,6 +159,8 @@ const actions = {
       db.doc(`users/${user.uid}`).get(),
     ]);
     const live = snap.docs.filter((d) => E.isLive(d.data()));
+    // সময় পেরোনো আহ্বান কেউ দেখতে এলেই বন্ধ (ক্রনের অপেক্ষা নয়) — "আসছি" বলা ডোনাররা সাথে সাথে জানেন
+    if (snap.docs.some((d) => !E.isLive(d.data()))) await closeExpired().catch((e) => console.error('emergency close failed', e));
     const ask = await askDonated(user.uid, me);
     if (!live.length) return { items: [], ask };
     const mine = await db.getAll(...live.map((d) => db.doc(`emergencies/${d.id}/donors/${user.uid}`)));
@@ -181,9 +190,15 @@ const actions = {
       if (!d.exists || !['coming', 'donated', 'not_donated'].includes(d.get('status'))) {
         throw new HttpError(400, C.tr(req, 'You did not say you were coming to this appeal', 'এই আহ্বানে আপনি "আসছি" বলেননি'));
       }
+      // একবারই উত্তর (বারবার "দিয়েছি" চেপে তারিখ সামনে ঠেলা যায় না)
+      if (d.get('status') !== 'coming') {
+        if (u.exists) t.update(uref, { [`emergencyComing.${id}`]: FieldValue.delete() });
+        return;
+      }
       t.update(dref, { status: donated ? 'donated' : 'not_donated', answeredAt: Date.now() });
       if (u.exists) {
-        const today = R.todayDhakaUtcMidnight();
+        // রক্তদানের দিন: আহ্বানের দিন (পরে জানালেও), আজকের পরে নয়
+        const today = R.todayDhakaUtcMidnight(Math.min(Date.now(), Math.max(d.get('comingAt') || 0, (e.exists && e.get('createdAt')) || 0) || Date.now()));
         const last = u.get('lastDonationMillis');
         t.update(uref, {
           [`emergencyComing.${id}`]: FieldValue.delete(),

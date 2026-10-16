@@ -92,11 +92,11 @@ object TitleCase {
 
     /**
      * ব্যবহারকারীর লেখা নাম (মানুষ, হাসপাতাল, দোকান) — বাংলায় কিছু বদলায় না।
-     * হাইফেন, ঊর্ধ্বকমা বা ডটের পরের অংশও বড় হাতের: "Al-Amin", "O'Brien", "Md.Rahim"
+     * হাইফেন বা ঊর্ধ্বকমার পরের অংশও বড় হাতের: "Al-Amin", "O'Brien" (কিন্তু "Mother's" ঠিক থাকে)
      */
     fun name(s: String): String =
         words(s.trim().replace(Regex("\\s+"), " "))
-            .replace(Regex("(?<=[A-Za-z][-'’.])([a-z])")) { it.value.uppercase() }
+            .replace(Regex("(?<=[A-Za-z][-'’])([a-z])(?=[a-z])")) { it.value.uppercase() }
 
     private fun words(s: String): String {
         val parts = s.split(" ")

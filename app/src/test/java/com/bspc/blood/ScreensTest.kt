@@ -287,6 +287,7 @@ class ScreensTest {
         // হাইফেন/ঊর্ধ্বকমার পরের অংশ
         org.junit.Assert.assertEquals("Al-Amin", TitleCase.name("al-amin"))
         org.junit.Assert.assertEquals("O'Brien", TitleCase.name("o'brien"))
+        org.junit.Assert.assertEquals("Mother's Care Hospital", TitleCase.name("mother's care hospital"))
         // বার্তা Title Case ছাড়া
         org.junit.Assert.assertEquals("Enter a valid email", TitleCase.plain(TitleCase.ui("Enter a valid email")))
     }

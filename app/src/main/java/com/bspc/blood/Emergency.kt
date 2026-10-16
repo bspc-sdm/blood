@@ -106,8 +106,8 @@ fun EmergencyBanner(refreshKey: Int) {
     if (items.isEmpty() && ask.isEmpty() && thanks == null) return
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         InfoText(thanks)
-        ask.forEach { q -> EmergencyAskCard(q) { msg -> thanks = msg; reload++ } }
-        items.forEach { e -> EmergencyCard(e, onDonated = { thanks = it }) { reload++ } }
+        ask.forEach { q -> androidx.compose.runtime.key(q.id) { EmergencyAskCard(q) { msg -> thanks = msg; reload++ } } }
+        items.forEach { e -> androidx.compose.runtime.key(e.id) { EmergencyCard(e, onDonated = { thanks = it }) { reload++ } } }
     }
 }
 

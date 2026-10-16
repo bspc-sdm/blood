@@ -13,6 +13,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -33,12 +34,14 @@ object AuthRepository {
         // ইন্টারনেট না থাকলেও লগআউট আটকায় না: সর্বোচ্চ ৪ সেকেন্ড চেষ্টা, তারপর লগআউট
         // (আসা নোটিফিকেশন লগআউট অবস্থায় দেখানো হয় না, তাই টোকেন সরাতে না পারলেও কিছু দেখা যায় না)
         if (currentUid != null) {
-            kotlinx.coroutines.withTimeoutOrNull(4000) {
+            // আলাদা কাজে চালানো, যাতে ধীর ইন্টারনেটে সংযোগের অপেক্ষায় লগআউট আটকে না থাকে
+            val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).async {
                 runCatching {
                     val token = FirebaseMessaging.getInstance().token.await()
                     ServerApi.post("/api/community", org.json.JSONObject().put("action", "device_unregister").put("token", token))
                 }
             }
+            kotlinx.coroutines.withTimeoutOrNull(4000) { job.await() }
         }
         auth.signOut()
         // পুরোনো টোকেন বাতিল (পেছনে; ইন্টারনেট না থাকলে পরে)
@@ -135,7 +138,8 @@ object ProfileRepository {
     /** এই ফোনকে অ্যাকাউন্টে যোগ (কয়েকটা ফোনে একসাথে নোটিফিকেশন); সার্ভারে না গেলে পুরোনো উপায়ে */
     suspend fun saveFcmToken(uid: String, token: String) {
         runCatching { ServerApi.post("/api/community", org.json.JSONObject().put("action", "device_register").put("token", token)) }
-            .onFailure { users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await() }
+            // সার্ভারে পৌঁছানো না গেলে পুরোনো উপায়ে; সার্ভার "না" বললে (যেমন অ্যাকাউন্ট বন্ধ) নয়
+            .onFailure { e -> if (e !is ServerError) users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await() }
     }
 
     suspend fun setNotify(uid: String, on: Boolean) {

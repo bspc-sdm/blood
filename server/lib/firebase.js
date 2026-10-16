@@ -157,12 +157,15 @@ async function sendPush(items) {
   // একই ফোনে একই বার্তা দুবার নয় (দুই অ্যাকাউন্টে একই টোকেন থাকলেও)
   const seen = new Set();
   const list = flat.filter((it) => {
-    const k = `${it.token}|${it.title}|${it.body}`;
+    // একই ফোন দুই অ্যাকাউন্টে থাকলে দুটোই যায় — ফোন নিজে শুধু এখন ঢোকা অ্যাকাউন্টেরটা দেখায় (forUid)
+    const k = `${it.token}|${it.uid || ''}|${it.title}|${it.body}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
-  let sent = 0;
+  // কতজন মানুষ পেলেন (কয়েকটা ফোন থাকলেও একজন একবার গোনা)
+  const reached = new Set();
+  let anon = 0;
   for (let i = 0; i < list.length; i += 500) {
     const chunk = list.slice(i, i + 500);
     // শুধু data বার্তা: অ্যাপ নিজে নোটিফিকেশন দেখায়, তাই লগআউট করা ফোনে বা অন্য অ্যাকাউন্টে ঢোকা ফোনে
@@ -181,7 +184,8 @@ async function sendPush(items) {
     const dead = [];
     result.responses.forEach((r, idx) => {
       if (r.success) {
-        sent++;
+        if (chunk[idx].uid) reached.add(chunk[idx].uid);
+        else anon++;
       } else if (
         ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(
           r.error?.code,
@@ -207,7 +211,7 @@ async function sendPush(items) {
       }
     }));
   }
-  return sent;
+  return reached.size + anon;
 }
 
 module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, decodeToken, accountDisabledError, handler, sendPush, tokensOf };
