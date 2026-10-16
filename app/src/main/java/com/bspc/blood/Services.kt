@@ -97,7 +97,7 @@ fun ServicesTab(profile: Profile) {
         else -> tr("My blood bank", "আমার ব্লাড ব্যাংক")
     }
     if (mineOpen) {
-        val close = { mineOpen = false; ownsKey++ }
+        val close: () -> Unit = { mineOpen = false; ownsKey += 1 }
         androidx.activity.compose.BackHandler(onBack = close)
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
