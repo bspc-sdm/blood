@@ -1,6 +1,6 @@
 // রক্তপ্রার্থী "রক্ত পেয়েছি" চাপলে: রিকোয়েস্ট বন্ধ, কত ব্যাগ পেয়েছেন লেখা, আর যারা রক্ত দিয়েছেন তাদের শেষ রক্তদানের তারিখ আপডেট।
 // শুধু একবারই কাজ করে, আর শুধু "রাজি" থাকা ডোনারদের — যাতে কেউ বারবার ডেকে কাউকে আটকে রাখতে না পারে।
-const { db, HttpError, verifyUser, handler } = require('../lib/firebase');
+const { db, FieldValue, HttpError, verifyUser, handler } = require('../lib/firebase');
 const R = require('../lib/rules');
 const { notifyEnded, pushUsers } = require('../lib/requestend');
 
@@ -61,6 +61,7 @@ module.exports = handler(async (req) => {
         status: 'closed',
         closedAt: Date.now(),
         closedBy: got === 0 ? 'not_needed' : 'requester',
+        geoOpen: FieldValue.delete(),
         // ভুল করে বন্ধ করে আবার খুললে আগের হিসাব ফেরত আসে
         bagsReceivedBefore: prevReceived,
         ...(got != null && got > 0 ? { bagsReceived: got } : {}),
