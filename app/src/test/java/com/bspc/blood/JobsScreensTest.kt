@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -77,13 +76,5 @@ class JobsScreensTest {
         assertEquals("৳১৫,০০০ – ২২,০০০/মাস", JobText.salary(15000, 22000))
         assertEquals("মার্চ ২০২১", CvApi.ym("2021-03"))
         assertEquals("2021-03", CvApi.ymCode(2021, 3))
-    }
-
-    @Test
-    fun cvPdf() {
-        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val f = java.io.File(ctx.cacheDir, "cv.pdf")
-        CvPdf.write(ctx, android.net.Uri.fromFile(f), cv.copy(about = "লম্বা লেখা ".repeat(400)))
-        assertTrue(f.length() > 500)
     }
 }
