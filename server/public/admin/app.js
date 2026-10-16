@@ -1404,7 +1404,7 @@
     setTitle(orig ? orig.name : 'নতুন পরীক্ষা', 'রিপোর্টের ছক');
     const err = h('p', { class: 'error', role: 'alert' });
     const body = h('tbody');
-    const numIn = (p, k, i) => h('input', { class: 'cell-input', style: 'width:64px', inputmode: 'decimal', value: p[k] && p[k][i] != null ? String(p[k][i]) : '', oninput: (e) => {
+    const numIn = (p, k, i) => h('input', { class: 'cell-input', style: 'width:56px;min-width:0;padding-left:6px;padding-right:6px', inputmode: 'decimal', value: p[k] && p[k][i] != null ? String(p[k][i]) : '', oninput: (e) => {
       const v = e.target.value.trim();
       p[k] = p[k] || [null, null];
       p[k][i] = v === '' ? null : Number(v);
@@ -1413,7 +1413,7 @@
     const pair = (p, k) => h('span', { style: 'display:flex;gap:4px;align-items:center' }, numIn(p, k, 0), '–', numIn(p, k, 1));
     function draw() {
       body.replaceChildren(...t.params.map((p, i) => h('tr', null,
-        h('td', { 'data-label': 'ঘর' }, h('input', { class: 'cell-input', value: p.name || '', maxlength: 60, oninput: (e) => { p.name = e.target.value; } })),
+        h('td', { 'data-label': 'ঘর' }, h('input', { class: 'cell-input', style: 'min-width:150px', value: p.name || '', maxlength: 60, oninput: (e) => { p.name = e.target.value; } })),
         h('td', { 'data-label': 'একক' }, h('input', { class: 'cell-input', style: 'width:90px', value: p.unit || '', maxlength: 20, oninput: (e) => { p.unit = e.target.value; } })),
         h('td', { 'data-label': 'স্বাভাবিক (সবার)' }, pair(p, 'r')),
         h('td', { 'data-label': 'পুরুষ' }, pair(p, 'm')),

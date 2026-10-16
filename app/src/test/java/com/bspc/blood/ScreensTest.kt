@@ -183,15 +183,32 @@ class ScreensTest {
             "l1", "rx1", "ABCDEFGH23", "পপুলার ডায়াগনস্টিক সেন্টার", "করিম উদ্দিন", 45, "male", "ডা. ফারহানা ইসলাম", listOf("CBC", "RBS"), "reported", 1_760_000_000_000L,
             LabReport(
                 listOf(
-                    LabResult("Hemoglobin", "10.2", "g/dL", "13.5–17.5", "low"),
-                    LabResult("WBC", "7,800", "/cmm", "4,000–11,000", ""),
-                    LabResult("RBS", "11.4", "mmol/L", "< 7.8", "high"),
+                    LabResult("Haemoglobin", "10.2", "g/dL", "13 – 17", "low", "CBC (Complete Blood Count)", "cbc", "hb", 13.0, 17.0),
+                    LabResult("Total WBC count", "7.8", "×10³/µL", "4 – 11", "", "CBC (Complete Blood Count)", "cbc", "wbc", 4.0, 11.0),
+                    LabResult("Blood glucose (random)", "11.4", "mmol/L", "3.9 – 7.8", "high", "Random Blood Sugar (RBS)", "rbs", "glu", 3.9, 7.8),
+                    LabResult("Findings & impression", "No active lung lesion.", "", "", "", "X-ray Chest P/A view", "cxr", "cxr", long = true),
                 ),
                 "খালি পেটে নয়", 1_760_100_000_000L, 0, emptyList(),
             ),
+            history = mapOf("rbs.glu" to listOf(LabHist("13.1", "high", 1_757_000_000_000L), LabHist("9.8", "high", 1_754_000_000_000L))),
         )
         show { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { LabReportView(o) } }
         shot("lab_report_bn")
+    }
+
+    @Test
+    fun careModeAttachesOnlyAllowedActions() {
+        CareMode.asUid.value = "patient1"
+        val ok = org.json.JSONObject().put("action", "rx_mine")
+        CareMode.attach("/api/community", ok)
+        org.junit.Assert.assertEquals("patient1", ok.optString("asUid"))
+        val no = org.json.JSONObject().put("action", "delete_account")
+        CareMode.attach("/api/community", no)
+        org.junit.Assert.assertFalse(no.has("asUid"))
+        CareMode.asUid.value = null
+        val off = org.json.JSONObject().put("action", "rx_mine")
+        CareMode.attach("/api/community", off)
+        org.junit.Assert.assertFalse(off.has("asUid"))
     }
 
     @Test
