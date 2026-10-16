@@ -131,6 +131,27 @@ object ProfileRepository {
         refreshDonorGeo(uid)
     }
 
+    /** শুধু নাম আর মোবাইল (নতুন নকশা N2-এর প্রথম ধাপ) — ডোনারের তথ্য বা সেটিংসে হাত দেয় না */
+    suspend fun saveContact(uid: String, name: String, phone: String) {
+        users.document(uid).set(
+            hashMapOf<String, Any?>("name" to name, "phone" to phone, "updatedAt" to FieldValue.serverTimestamp()),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    /** শুধু ডোনারের তথ্য: গ্রুপ, জন্ম তারিখ, ওজন, (প্রথমবার) শেষ রক্তদান — নাম-মোবাইলে হাত দেয় না */
+    suspend fun saveDonor(uid: String, profile: Profile, includeDonation: Boolean) {
+        val data = hashMapOf<String, Any?>(
+            "bloodGroup" to profile.bloodGroup,
+            "birthDateMillis" to profile.birthDateMillis,
+            "weightKg" to profile.weightKg,
+            "updatedAt" to FieldValue.serverTimestamp(),
+        )
+        if (includeDonation && profile.lastDonationMillis != null) data["lastDonationMillis"] = profile.lastDonationMillis
+        users.document(uid).set(data, SetOptions.merge()).await()
+        refreshDonorGeo(uid)
+    }
+
     suspend fun saveLocation(uid: String, lat: Double, lng: Double, placeName: String, source: String) {
         val rLat = Geo.round(lat)
         val rLng = Geo.round(lng)

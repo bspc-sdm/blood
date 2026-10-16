@@ -336,8 +336,13 @@ fun MyRequestSection(refreshKey: Int, onOpen: (String) -> Unit) {
     var recentClosed by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
     var hiddenClosed by remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(reload, refreshKey) {
-        val uid = AuthRepository.currentUid ?: return@LaunchedEffect
+    LaunchedEffect(reload, refreshKey, LoginGate.uid.value) {
+        val uid = AuthRepository.currentUid ?: run {
+            // লগইন নেই (অতিথি): আগের মানুষের রিকোয়েস্ট স্ক্রিনে রাখা নয়
+            items = emptyList()
+            recentClosed = emptyList()
+            return@LaunchedEffect
+        }
         runCatching {
             val mine = RequestRepository.mine(uid)
             val now = System.currentTimeMillis()

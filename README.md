@@ -22,7 +22,7 @@ Health app for Bangladesh — blood donors, ambulances, pharmacies, blood banks,
 
 ### সার্ভার (`server/`)
 - Vercel Hobby-তে সর্বোচ্চ ১২টা function — সব ভরা। তাই নতুন কাজ নতুন ফাইলে নয়: `api/community.js`-এ `action` হিসেবে (`lib/*.js`-এর `actions` অবজেক্ট), অথবা `api/share.js`-এ query দিয়ে, `vercel.json`-এর rewrite সহ।
-- `api/community.js`: একটা endpoint, `body.action` দিয়ে কাজ বাছাই; লগইন (Firebase ID token বা ওয়েবের কুকি) এখানেই যাচাই হয়। কেয়ারগিভার রোগীর হয়ে কাজ করলে `body.asUid` — শুধু `lib/careaccess.js`-এর `CARE_ACTIONS`।
+- `api/community.js`: একটা endpoint, `body.action` দিয়ে কাজ বাছাই; লগইন (Firebase ID token বা ওয়েবের কুকি) এখানেই যাচাই হয়। লগইন ছাড়া (অতিথি) শুধু `lib/guest.js`-এর `PUBLIC_ACTIONS` চলে — নতুন পড়ার কাজ অতিথিকে দিতে হলে সেখানে আর অ্যাপের `GuestApi.PUBLIC_ACTIONS`-এ যোগ করুন, আর কাজটা `user.uid == null` সামলায় কি না দেখুন। কেয়ারগিভার রোগীর হয়ে কাজ করলে `body.asUid` — শুধু `lib/careaccess.js`-এর `CARE_ACTIONS`।
 - `api/cron/daily.js`: প্রতিদিন ০৩:০০ UTC — মেয়াদ পেরোনো রিকোয়েস্ট, রিমাইন্ডার, geohash রক্ষণাবেক্ষণ, প্রেসক্রিপশনের ফলো-আপ/ওষুধ শেষের মনে করানো।
 - নতুন সংগ্রহ (collection) শুধু সার্ভার পড়ে-লেখে; `firestore.rules` ডিফল্টে সব বন্ধ।
 - Firestore ফ্রি প্ল্যান: শুধু এক-ঘরের সমান-সমান খোঁজ (composite index নেই)। ছবি Firestore ডকে base64 (Storage-এর জন্য Blaze লাগে)।

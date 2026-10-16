@@ -113,7 +113,8 @@ const actions = {
     // কাছেরটা আগে; দূরত্ব না জানলে বেশি রেটিং পাওয়া আগে
     found.sort((p, q) => (approxKm(p.km) ?? 999) - (approxKm(q.km) ?? 999) || (q.d.get('ratingCount') || 0) - (p.d.get('ratingCount') || 0));
     const top = found.slice(0, 100);
-    const mine = top.length ? await db.getAll(...top.map((f) => db.doc(`homeCalls/${user.uid}_${f.d.id}`))) : [];
+    // অতিথি (লগইন ছাড়া): নিজের কল/রেটিং নেই
+    const mine = top.length && user.uid ? await db.getAll(...top.map((f) => db.doc(`homeCalls/${user.uid}_${f.d.id}`))) : [];
     return { items: top.map((f, i) => ({ ...view(f.d, f.km, mine[i]), photo: f.thumb || '' })) };
   },
 

@@ -62,6 +62,8 @@ internal val HOME_PROVIDER_TYPES = listOf("doctor", "nurse")
 /** নোটিফিকেশন থেকে সরাসরি "বাসায় সেবা" অংশ খোলার জন্য */
 object CareNav {
     val openHomeCare = mutableStateOf(false)
+    /** হোমের "ডাক্তার" বাটন: ডাক্তারের তালিকা (বাসায় সেবা বা অন্য পেশার তালিকা খোলা থাকলেও) */
+    val openDoctors = mutableStateOf(false)
 }
 
 // ------------------------------------------------------------
@@ -81,6 +83,13 @@ fun AppointmentTab(
         if (CareNav.openHomeCare.value) {
             showHome = true
             CareNav.openHomeCare.value = false
+        }
+    }
+    LaunchedEffect(CareNav.openDoctors.value) {
+        if (CareNav.openDoctors.value) {
+            showHome = false
+            tab = 0
+            CareNav.openDoctors.value = false
         }
     }
 
@@ -332,7 +341,9 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     listOfNotNull(
                         // নিজের দেখা (preview): বাটন দেখায়, কাজ করে না
                         if (c.serialPhone.isNotBlank()) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, c.serialPhone) } else null,
-                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { if (!preview) bookingIndex = i } else null,
+                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) {
+                            if (!preview) LoginGate.require(tr("Log in to request an appointment", "অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন")) { bookingIndex = i }
+                        } else null,
                     ),
                 ),
             )

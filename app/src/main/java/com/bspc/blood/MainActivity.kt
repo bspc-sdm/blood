@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity() {
         // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
         Thread { runCatching { Areas.ensure(this) } }.start()
         Notifier.ensureChannel(this)
+        // অ্যাক্টিভিটি নতুন করে তৈরি হলে (যেমন লেখার আকার বদলালে) আগের পাতার অপেক্ষার কাজ আর চলে না — বাতিল
+        if (savedInstanceState != null) LoginGate.pending.value = null
         // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের রিকোয়েস্ট পড়া হয়
         if (savedInstanceState == null) {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
@@ -181,21 +183,38 @@ fun App(
     var homeRefresh by remember { mutableIntStateOf(0) }
     /** প্রশ্ন/টিপস পোস্ট বা মোছা হলে তালিকা নতুন করে লোড হয় */
     var communityRefresh by remember { mutableIntStateOf(0) }
+    /** লগআউট/অ্যাকাউন্ট মোছা/বন্ধ হলে বাড়ে: মূল পাতা পুরো নতুন করে তৈরি, আগের মানুষের তথ্য স্ক্রিনে থাকে না */
+    var session by remember { mutableIntStateOf(0) }
 
     fun resetTo(s: Screen) {
         stack.clear()
         stack.add(s)
     }
 
-    // অ্যাকাউন্ট বন্ধ করা হয়েছে (সার্ভার জানাল): সাথে সাথে লগআউট, লগইন পাতায় কারণ আর আপিলের ইমেইল
+    /** লগইনের ধাপ (নতুন নকশা N2): "login" → "basic" (নাম-মোবাইল) → "donor" (ডোনারের তথ্য); null = নেই */
+    var gateStep by remember { mutableStateOf<String?>(null) }
+    var gateError by remember { mutableStateOf<String?>(null) }
+
+    /** প্রোফাইল বসানো, সাথে LoginGate-এর হিসাব (নাম-মোবাইল আছে কি না, ডোনার কি না) */
+    fun setProfile(p: Profile?) {
+        profile = p
+        val loggedIn = AuthRepository.currentUid != null
+        LoginGate.profileReady.value = loggedIn && p?.isComplete == true
+        LoginGate.isDonor.value = loggedIn && p?.isDonor == true
+    }
+
+    // অ্যাকাউন্ট বন্ধ করা হয়েছে (সার্ভার জানাল): সাথে সাথে লগআউট; অতিথি হিসেবে চলে, লগইন পাতায় কারণ আর আপিলের ইমেইল
     val disabledMsg = SessionEvents.disabled.value
     LaunchedEffect(disabledMsg) {
         if (disabledMsg != null && AuthRepository.currentUid != null) {
             AuthRepository.signOutLocal()
-            profile = null
+            session++
             community = null
-            errorMsg = disabledMsg
-            resetTo(Screen.Login)
+            LoginGate.uid.value = null
+            setProfile(GuestArea.load(context))
+            resetTo(if (profile?.hasLocation == true) Screen.Main() else Screen.PickLocation)
+            gateError = disabledMsg
+            LoginGate.login()
         }
         SessionEvents.disabled.value = null
     }
@@ -208,7 +227,7 @@ fun App(
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && profile != null) {
                 val uid = AuthRepository.currentUid
                 if (uid != null) scope.launch {
-                    runCatching { ProfileRepository.load(uid) }.getOrNull()?.let { if (it.isComplete) profile = it }
+                    runCatching { ProfileRepository.load(uid) }.getOrNull()?.let { if (it.isComplete) setProfile(it) }
                 }
             }
         }
@@ -282,17 +301,18 @@ fun App(
 
     suspend fun route() {
         val uid = AuthRepository.currentUid
+        LoginGate.uid.value = uid
         if (uid == null) {
-            resetTo(Screen.Login)
+            // লগইন ছাড়া (অতিথি, নতুন নকশা N1): এলাকা ফোনে রাখা থাকলে সরাসরি হোম, নইলে আগে এলাকা
+            community = null
+            setProfile(GuestArea.load(context))
+            resetTo(if (profile?.hasLocation == true) Screen.Main() else Screen.PickLocation)
             return
         }
-        val p = ProfileRepository.load(uid)
-        profile = p
-        when {
-            p == null || !p.isComplete -> resetTo(Screen.EditProfile)
-            !p.hasLocation -> resetTo(Screen.PickLocation)
-            else -> resetTo(Screen.Main())
-        }
+        // নাম-মোবাইল না থাকলেও (লগইনের পর ফিরে গেলে) দেখা চলে — যে কাজে লাগে সেখানে চাওয়া হয় (নতুন নকশা N2)
+        val p = ProfileRepository.load(uid) ?: Profile()
+        setProfile(p)
+        resetTo(if (p.hasLocation) Screen.Main() else Screen.PickLocation)
     }
 
     LaunchedEffect(Unit) {
@@ -312,8 +332,9 @@ fun App(
     // নোটিফিকেশন থেকে এলে, মূল স্ক্রিন তৈরি হওয়ার পর রিকোয়েস্টটা খোলা
     val ready = stack.firstOrNull() is Screen.Main
     // ব্যাজের অবস্থা (অ্যাডমিন অনুমোদন দিলে) পাতা বা ট্যাব বদলালেই নতুন করে আনা হয়
-    LaunchedEffect(ready, stack.last()) {
-        if (ready) runCatching { Community.me() }.onSuccess { community = it }
+    LaunchedEffect(ready, stack.last(), LoginGate.uid.value) {
+        if (ready && !LoginGate.isGuest) runCatching { Community.me() }.onSuccess { community = it }
+        if (LoginGate.isGuest) community = null
     }
     // প্যানেলে বদলানো তালিকা (বিশেষজ্ঞতা, সেবা…) — দিনে একবার
     val appContext = androidx.compose.ui.platform.LocalContext.current
@@ -366,11 +387,103 @@ fun App(
     }
     LaunchedEffect(openRequestId, ready) {
         if (openRequestId != null && ready) {
-            push(
-                if (openAsRequester) Screen.MyRequestDetail(openRequestId)
-                else Screen.RequestDetail(openRequestId)
-            )
+            val target = if (openAsRequester) Screen.MyRequestDetail(openRequestId) else Screen.RequestDetail(openRequestId)
+            // শেয়ার করা লিংক লগইন ছাড়া খুললে: আগে লগইন (রিকোয়েস্টের বিস্তারিত লগইন করা মানুষই দেখেন)
+            if (LoginGate.isGuest) LoginGate.require(tr("Log in to see and respond to this request", "রিকোয়েস্টটা দেখতে ও সাড়া দিতে লগইন করুন")) { push(target) }
+            else push(target)
             onRequestOpened()
+        }
+    }
+
+    // যে কাজে অ্যাকাউন্ট লাগে (LoginGate.require): লগইন → নাম-মোবাইল → (দরকারে) ডোনারের তথ্য → কাজটা চালানো
+    fun nextGateStep() {
+        val pd = LoginGate.pending.value
+        if (pd == null) {
+            gateStep = null
+            return
+        }
+        gateStep = when {
+            LoginGate.isGuest -> "login"
+            !LoginGate.profileReady.value -> "basic"
+            pd.donor && !LoginGate.isDonor.value -> "donor"
+            else -> null
+        }
+        if (gateStep == null) {
+            LoginGate.pending.value = null
+            gateError = null
+            pd.then()
+        }
+    }
+
+    fun cancelGate() {
+        LoginGate.pending.value = null
+        gateStep = null
+        gateError = null
+    }
+
+    val gatePending = LoginGate.pending.value
+    LaunchedEffect(gatePending) {
+        if (gatePending != null) nextGateStep()
+    }
+
+    /**
+     * প্রোফাইল সেভ (প্রোফাইল এডিট, নাম-মোবাইল, ডোনারের তথ্য — তিন জায়গা থেকেই); সেভ হলে after।
+     * নাম-মোবাইলের ধাপে শুধু নাম-মোবাইল, ডোনারের ধাপে শুধু ডোনারের তথ্য লেখা হয় — অন্য তথ্য (আগের ডোনারের তথ্য,
+     * সেটিংস) যাতে পুরোনো বা ফাঁকা মানে মুছে না যায়।
+     */
+    fun saveProfile(basics: Profile, mode: ProfileMode, after: (Profile) -> Unit) {
+        val uid = AuthRepository.currentUid ?: return
+        scope.launch {
+            busy = true
+            errorMsg = null
+            // সার্ভার থেকে নতুন প্রোফাইল (রক্ত দেওয়ার পর সার্ভার তারিখ বসিয়ে থাকতে পারে)
+            val fresh = runCatching { ProfileRepository.load(uid) }.getOrNull() ?: profile
+            val firstDate = fresh?.lastDonationMillis == null
+            runCatching {
+                when (mode) {
+                    ProfileMode.BASIC -> ProfileRepository.saveContact(uid, basics.name, basics.phone)
+                    ProfileMode.DONOR -> ProfileRepository.saveDonor(uid, basics, includeDonation = firstDate)
+                    ProfileMode.FULL -> ProfileRepository.saveBasics(uid, basics, includeDonation = firstDate)
+                }
+            }
+                .onSuccess {
+                    val base = fresh ?: Profile()
+                    val merged = when (mode) {
+                        ProfileMode.BASIC -> base.copy(name = basics.name, phone = basics.phone)
+                        else -> base.copy(
+                            name = if (mode == ProfileMode.FULL) basics.name else base.name,
+                            phone = if (mode == ProfileMode.FULL) basics.phone else base.phone,
+                            bloodGroup = basics.bloodGroup,
+                            lastDonationMillis = if (firstDate) basics.lastDonationMillis else base.lastDonationMillis,
+                            birthDateMillis = basics.birthDateMillis,
+                            weightKg = basics.weightKg,
+                            notify = if (mode == ProfileMode.FULL) basics.notify else base.notify,
+                        )
+                    }
+                    setProfile(merged)
+                    after(merged)
+                }
+                .onFailure { errorMsg = tr("Couldn't save", "সেভ হয়নি") + ": ${it.message}" }
+            busy = false
+        }
+    }
+
+    /** হোমের চারটা বাটন: সংশ্লিষ্ট ট্যাবের তালিকা */
+    fun openQuick(key: String) {
+        while (stack.size > 1) stack.removeAt(stack.lastIndex)
+        when (key) {
+            "doctor" -> {
+                CareNav.openDoctors.value = true
+                stack[0] = Screen.Main(Tabs.APPOINTMENT)
+            }
+            else -> {
+                ServicesNav.target.value = when (key) {
+                    "medicine" -> "med_search"
+                    "bloodbank" -> "bloodbank"
+                    else -> "ambulance"
+                }
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
         }
     }
 
@@ -387,7 +500,7 @@ fun App(
     val base = stack.first()
     val p = profile
     Box(Modifier.fillMaxSize()) {
-        if (base is Screen.Main && p != null) {
+        if (base is Screen.Main && p != null) androidx.compose.runtime.key(session) {
             MainScreen(
                 profile = p,
                 tab = base.tab,
@@ -395,10 +508,10 @@ fun App(
                 onOpenRequest = { push(Screen.RequestDetail(it)) },
                 onOpenMyRequest = { push(Screen.MyRequestDetail(it)) },
                 onOpenMyRequests = { push(Screen.MyRequests) },
-                onNewRequest = { push(Screen.NewRequest) },
+                onNewRequest = { LoginGate.require(tr("Log in to request blood", "রক্তের রিকোয়েস্ট দিতে লগইন করুন")) { push(Screen.NewRequest) } },
                 onEditProfile = { push(Screen.EditProfile) },
                 onChangeLocation = { push(Screen.PickLocation) },
-                onProfileChanged = { profile = it },
+                onProfileChanged = { setProfile(it) },
                 onOpenAdmin = { push(Screen.Admin) },
                 onOpenSettings = { push(Screen.Settings) },
                 community = community,
@@ -406,30 +519,38 @@ fun App(
                 communityRefresh = communityRefresh,
                 onCommunityChanged = { community = it },
                 onOpenQuestion = { push(Screen.QuestionDetail(it)) },
-                onAsk = { push(Screen.AskQuestion) },
+                onAsk = { LoginGate.require(tr("Log in to ask a question", "প্রশ্ন করতে লগইন করুন")) { push(Screen.AskQuestion) } },
                 onOpenTip = { push(Screen.TipDetail(it)) },
                 onPostTip = { push(Screen.PostTip) },
                 onOpenMyAppointments = { push(Screen.MyAppointments) },
                 onEditChamber = { push(Screen.ChamberEdit) },
                 onOpenInbox = { push(Screen.Inbox) },
+                // লগআউট বা অ্যাকাউন্ট মোছার পর লগইন ছাড়া (অতিথি) হিসেবে চলে
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
-                        profile = null
-                        community = null
                         errorMsg = null
-                        resetTo(Screen.Login)
+                        session++
+                        runCatching { route() }
                     }
                 },
                 onAccountDeleted = {
                     scope.launch {
                         // ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া (নইলে খালি প্রোফাইল আবার তৈরি হতো)
                         AuthRepository.signOutLocal()
-                        profile = null
-                        community = null
-                        errorMsg = tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।")
-                        resetTo(Screen.Login)
+                        errorMsg = null
+                        session++
+                        runCatching { route() }
+                        android.widget.Toast.makeText(context, tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।"), android.widget.Toast.LENGTH_LONG).show()
                     }
+                },
+                onLogin = { LoginGate.login() },
+                onQuick = { openQuick(it) },
+                onOpenRequestGuest = { id ->
+                    LoginGate.require(tr("Log in to respond to this request", "সাড়া দিতে লগইন করুন"), donor = true) { push(Screen.RequestDetail(id)) }
+                },
+                onBecomeDonor = {
+                    LoginGate.require(tr("Log in to become a blood donor", "রক্তদাতা হতে লগইন করুন"), donor = true) {}
                 },
             )
         }
@@ -457,40 +578,21 @@ fun App(
                 busy = busy,
                 errorMsg = errorMsg,
                 onSave = { basics ->
-                    val uid = AuthRepository.currentUid ?: return@ProfileEditScreen
-                    scope.launch {
-                        busy = true
-                        errorMsg = null
-                        // সার্ভার থেকে নতুন প্রোফাইল (রক্ত দেওয়ার পর সার্ভার তারিখ বসিয়ে থাকতে পারে)
-                        val fresh = runCatching { ProfileRepository.load(uid) }.getOrNull() ?: profile
-                        val firstDate = fresh?.lastDonationMillis == null
-                        runCatching { ProfileRepository.saveBasics(uid, basics, includeDonation = firstDate) }
-                            .onSuccess {
-                                val merged = (fresh ?: Profile()).copy(
-                                    name = basics.name,
-                                    phone = basics.phone,
-                                    bloodGroup = basics.bloodGroup,
-                                    lastDonationMillis = if (firstDate) basics.lastDonationMillis else fresh?.lastDonationMillis,
-                                    birthDateMillis = basics.birthDateMillis,
-                                    weightKg = basics.weightKg,
-                                    notify = basics.notify,
-                                )
-                                profile = merged
-                                when {
-                                    !merged.hasLocation -> resetTo(Screen.PickLocation)
-                                    stack.size > 1 -> back()
-                                    else -> resetTo(Screen.Main())
-                                }
-                            }
-                            .onFailure { errorMsg = tr("Couldn't save", "সেভ হয়নি") + ": ${it.message}" }
-                        busy = false
+                    saveProfile(basics, if (profile?.isComplete == true) ProfileMode.FULL else ProfileMode.BASIC) { merged ->
+                        when {
+                            !merged.hasLocation -> resetTo(Screen.PickLocation)
+                            stack.size > 1 -> back()
+                            else -> resetTo(Screen.Main())
+                        }
                     }
                 },
-                onCancel = if (profile?.isComplete == true && stack.size > 1) {
+                onCancel = if (stack.size > 1) {
                     { back() }
                 } else {
                     null
                 },
+                // নাম-মোবাইল নেই: শুধু নাম-মোবাইল; প্রোফাইল থেকে এডিট: সব
+                mode = if (profile?.isComplete == true) ProfileMode.FULL else ProfileMode.BASIC,
             )
 
             Screen.PickLocation -> LocationPicker(
@@ -499,18 +601,23 @@ fun App(
                 errorMsg = errorMsg,
                 onPicked = { lat, lng, place, source ->
                     val uid = AuthRepository.currentUid
-                    if (uid != null) {
+                    if (uid == null) {
+                        // অতিথি: এলাকা শুধু এই ফোনে
+                        GuestArea.save(context, lat, lng, place, source)
+                        setProfile(GuestArea.load(context))
+                        if (stack.size > 1) back() else resetTo(Screen.Main())
+                    } else {
                         scope.launch {
                             busy = true
                             errorMsg = null
                             runCatching { ProfileRepository.saveLocation(uid, lat, lng, place, source) }
                                 .onSuccess {
-                                    profile = (profile ?: Profile()).copy(
+                                    setProfile((profile ?: Profile()).copy(
                                         lat = Geo.round(lat),
                                         lng = Geo.round(lng),
                                         placeName = place,
                                         locationSource = source,
-                                    )
+                                    ))
                                     if (stack.size > 1) back() else resetTo(Screen.Main())
                                 }
                                 .onFailure { errorMsg = tr("Couldn't save", "সেভ হয়নি") + ": ${it.message}" }
@@ -551,7 +658,7 @@ fun App(
                     RequestDetailScreen(
                         requestId = current.id,
                         profile = p,
-                        onProfileChanged = { profile = it },
+                        onProfileChanged = { setProfile(it) },
                         onOpenMine = { id -> stack[stack.lastIndex] = Screen.MyRequestDetail(id) },
                         onBack = { back() },
                     )
@@ -573,7 +680,7 @@ fun App(
                 } else {
                     SettingsScreen(
                         profile = p,
-                        onProfileChanged = { profile = it },
+                        onProfileChanged = { setProfile(it) },
                         onChangeLocation = { push(Screen.PickLocation) },
                         onBack = { back() },
                     )
@@ -631,6 +738,72 @@ fun App(
             )
         }
                 }
+            }
+        }
+        // লগইন/নাম-মোবাইল/ডোনারের তথ্য: নিচের পাতার উপরে (নিচের পাতা হারায় না, লগইনের পর সেখানেই ফেরা যায়)
+        val step = gateStep
+        val pd = LoginGate.pending.value
+        if (step != null && pd != null) {
+            // আলাদা পুরো-পর্দার ডায়ালগ: খোলা শিট বা ডায়ালগ (যেমন ডাক্তারের বিস্তারিত) থেকে চাইলেও সবার উপরে দেখায়
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { cancelGate() },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                androidx.compose.runtime.key(step) {
+                    when (step) {
+                        "login" -> LoginScreen(
+                            errorMsg = gateError,
+                            reason = pd.reason.ifBlank { null },
+                            onCancel = { cancelGate() },
+                            onLoggedIn = {
+                                scope.launch {
+                                    gateError = null
+                                    val uid = AuthRepository.currentUid ?: return@launch
+                                    LoginGate.uid.value = uid
+                                    runCatching { ProfileRepository.load(uid) }
+                                        .onSuccess { loaded ->
+                                            var p2 = loaded ?: Profile()
+                                            // অতিথি থাকার সময়ের এলাকা: প্রোফাইলে এলাকা না থাকলে সেটাই বসানো (আবার জিজ্ঞেস নয়)
+                                            val g = GuestArea.load(context)
+                                            if (!p2.hasLocation && g.lat != null && g.lng != null) {
+                                                runCatching { ProfileRepository.saveLocation(uid, g.lat, g.lng, g.placeName ?: "", g.locationSource ?: "district") }
+                                                    .onSuccess { p2 = p2.copy(lat = g.lat, lng = g.lng, placeName = g.placeName, locationSource = g.locationSource) }
+                                            }
+                                            setProfile(p2)
+                                            // অতিথির পাতা এলাকা বাছাই ছিল (যেমন অ্যাকাউন্ট বন্ধের পর): অ্যাকাউন্টে এলাকা থাকলে সরাসরি হোম
+                                            if (stack.first() !is Screen.Main && p2.hasLocation) resetTo(Screen.Main())
+                                            homeRefresh++
+                                            nextGateStep()
+                                        }
+                                        .onFailure {
+                                            // প্রোফাইল আনা গেল না: অর্ধেক লগইনে না রেখে বের হওয়া (নইলে পুরোনো তথ্যে সেভ হয়ে আসল তথ্য মুছতে পারত)
+                                            AuthRepository.signOutLocal()
+                                            LoginGate.uid.value = null
+                                            gateError = tr("Couldn't load your profile. Check your internet and log in again.", "প্রোফাইল আনা যায়নি। ইন্টারনেট দেখে আবার লগইন করুন।")
+                                        }
+                                }
+                            },
+                        )
+                        "basic" -> ProfileEditScreen(
+                            existing = profile,
+                            busy = busy,
+                            errorMsg = errorMsg,
+                            onSave = { basics -> saveProfile(basics, ProfileMode.BASIC) { nextGateStep() } },
+                            onCancel = { cancelGate() },
+                            mode = ProfileMode.BASIC,
+                        )
+                        else -> ProfileEditScreen(
+                            existing = profile,
+                            busy = busy,
+                            errorMsg = errorMsg,
+                            onSave = { basics -> saveProfile(basics, ProfileMode.DONOR) { nextGateStep() } },
+                            onCancel = { cancelGate() },
+                            mode = ProfileMode.DONOR,
+                        )
+                    }
+                }
+            }
             }
         }
     }

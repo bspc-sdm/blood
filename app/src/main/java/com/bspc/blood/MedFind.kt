@@ -214,7 +214,7 @@ fun MedFindPanel(profile: Profile) {
                     Button(
                         onClick = {
                             val d = district ?: run { errorMsg = tr("Choose a district", "জেলা বেছে নিন"); return@Button }
-                            scope.launch {
+                            LoginGate.require(tr("Log in to ask pharmacies", "দোকানে জিজ্ঞেস করতে লগইন করুন")) { scope.launch {
                                 busy = true
                                 errorMsg = null
                                 runCatching { MedFind.ask(c.i, d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null) }
@@ -232,7 +232,7 @@ fun MedFindPanel(profile: Profile) {
                                     }
                                     .onFailure { errorMsg = it.message }
                                 busy = false
-                            }
+                            } }
                         },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth(),

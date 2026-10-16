@@ -51,6 +51,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var errorMsg by remember { mutableStateOf<String?>(null) }
     val compatible = profile.compatibleGroups
+    // লগইন ছাড়া (অতিথি): শুধু ভাষা, থিম, এলাকা আর অ্যাপ সম্পর্কে — নোটিফিকেশন আর রক্তের পছন্দ অ্যাকাউন্টে থাকে
+    val guest = LoginGate.isGuest
 
     fun save(updated: Profile) {
         val uid = AuthRepository.currentUid ?: return
@@ -107,39 +109,80 @@ fun SettingsScreen(
             }
         }
 
-        // ---- নোটিফিকেশন ----
-        SettingsCard {
-            ListItem(
-                headlineContent = { Text(tr("Notifications", "নোটিফিকেশন")) },
-                supportingContent = { Text(tr("When someone nearby needs blood", "আশেপাশে কারো রক্ত লাগলে")) },
-                leadingContent = { AppIcon(R.drawable.ic_notifications, null) },
-                trailingContent = {
-                    Switch(checked = profile.notify, onCheckedChange = { save(profile.copy(notify = it)) })
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            )
-            if (profile.notify) {
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(tr("Maximum per day", "দিনে সর্বোচ্চ"), style = MaterialTheme.typography.labelLarge)
-                    ChipRows(Rules.PUSH_PER_DAY_CHOICES.map { it.toString() }, setOf(profile.maxPushPerDay.toString()), perRow = 5, label = { num(it) }) {
-                        save(profile.copy(maxPushPerDay = it.toInt()))
-                    }
-                    if (compatible.isEmpty()) {
-                        Text(
-                            tr("Add your blood group in your profile to get donation requests.", "রক্তদানের নোটিফিকেশন পেতে প্রোফাইলে রক্তের গ্রুপ দিন।"),
+        if (!guest) {
+            // ---- নোটিফিকেশন ----
+            SettingsCard {
+                ListItem(
+                    headlineContent = { Text(tr("Notifications", "নোটিফিকেশন")) },
+                    supportingContent = { Text(tr("When someone nearby needs blood", "আশেপাশে কারো রক্ত লাগলে")) },
+                    leadingContent = { AppIcon(R.drawable.ic_notifications, null) },
+                    trailingContent = {
+                        Switch(checked = profile.notify, onCheckedChange = { save(profile.copy(notify = it)) })
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+                if (profile.notify) {
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(tr("Maximum per day", "দিনে সর্বোচ্চ"), style = MaterialTheme.typography.labelLarge)
+                        ChipRows(Rules.PUSH_PER_DAY_CHOICES.map { it.toString() }, setOf(profile.maxPushPerDay.toString()), perRow = 5, label = { num(it) }) {
+                            save(profile.copy(maxPushPerDay = it.toInt()))
+                        }
+                        if (compatible.isEmpty()) {
+                            Text(
+                                tr("Add your blood group in your profile to get donation requests.", "রক্তদানের নোটিফিকেশন পেতে প্রোফাইলে রক্তের গ্রুপ দিন।"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else Text(tr("For patient blood groups", "রোগীর যে গ্রুপগুলোর জন্য"), style = MaterialTheme.typography.labelLarge)
+                        val selected = profile.effectiveNotifyGroups.toSet()
+                        ChipRows(compatible, selected) { g ->
+                            val next = if (g in selected) selected - g else selected + g
+                            if (next.isNotEmpty()) save(profile.copy(notifyGroups = normalize(next, compatible)))
+                        }
+                        if (compatible.isNotEmpty()) Text(
+                            tr(
+                                "Only groups you (${profile.bloodGroup}) can donate to.",
+                                "শুধু যাদের আপনি (${profile.bloodGroup}) রক্ত দিতে পারেন।",
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    } else Text(tr("For patient blood groups", "রোগীর যে গ্রুপগুলোর জন্য"), style = MaterialTheme.typography.labelLarge)
-                    val selected = profile.effectiveNotifyGroups.toSet()
-                    ChipRows(compatible, selected) { g ->
-                        val next = if (g in selected) selected - g else selected + g
-                        if (next.isNotEmpty()) save(profile.copy(notifyGroups = normalize(next, compatible)))
                     }
-                    if (compatible.isNotEmpty()) Text(
+                }
+            }
+
+            // ---- কতদূর যেতে রাজি ও যাতায়াত খরচ ----
+            SettingsCard {
+                SettingLabel(R.drawable.ic_location_on, tr("How far can you go to donate?", "রক্ত দিতে কতদূর যেতে পারবেন?"))
+                Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipRows(
+                        Rules.RADIUS_CHOICES.map { it.toString() },
+                        setOf(profile.maxKm.toString()),
+                        perRow = 4,
+                        label = { num(it) + tr(" km", " কিমি") },
+                    ) { save(profile.copy(maxKm = it.toInt())) }
+                    Text(
+                        tr("You'll be notified only for requests within this distance.", "এই দূরত্বের মধ্যে রিকোয়েস্ট হলেই নোটিফিকেশন পাবেন।"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider(Modifier.padding(top = 16.dp))
+                SettingLabel(R.drawable.ic_directions_run, tr("Travel cost", "যাতায়াত খরচ"))
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipRows(
+                        listOf("none") + Rules.FARE_AFTER_CHOICES.map { it.toString() },
+                        setOf(profile.fareAfterKm?.toString() ?: "none"),
+                        perRow = 2,
+                        label = {
+                            if (it == "none") tr("Not needed", "লাগবে না")
+                            else tr("Beyond ${num(it)} km", "${num(it)} কিমির বেশি হলে")
+                        },
+                    ) { save(profile.copy(fareAfterKm = it.toIntOrNull())) }
+                    Text(
                         tr(
-                            "Only groups you (${profile.bloodGroup}) can donate to.",
-                            "শুধু যাদের আপনি (${profile.bloodGroup}) রক্ত দিতে পারেন।",
+                            "If a request doesn't cover travel cost and it's farther than this, you won't be notified.",
+                            "রিকোয়েস্টে যাতায়াত খরচ না থাকলে আর এর চেয়ে দূরে হলে নোটিফিকেশন আসবে না।",
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -148,56 +191,19 @@ fun SettingsScreen(
             }
         }
 
-        // ---- কতদূর যেতে রাজি ও যাতায়াত খরচ ----
-        SettingsCard {
-            SettingLabel(R.drawable.ic_location_on, tr("How far can you go to donate?", "রক্ত দিতে কতদূর যেতে পারবেন?"))
-            Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChipRows(
-                    Rules.RADIUS_CHOICES.map { it.toString() },
-                    setOf(profile.maxKm.toString()),
-                    perRow = 4,
-                    label = { num(it) + tr(" km", " কিমি") },
-                ) { save(profile.copy(maxKm = it.toInt())) }
-                Text(
-                    tr("You'll be notified only for requests within this distance.", "এই দূরত্বের মধ্যে রিকোয়েস্ট হলেই নোটিফিকেশন পাবেন।"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            HorizontalDivider(Modifier.padding(top = 16.dp))
-            SettingLabel(R.drawable.ic_directions_run, tr("Travel cost", "যাতায়াত খরচ"))
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChipRows(
-                    listOf("none") + Rules.FARE_AFTER_CHOICES.map { it.toString() },
-                    setOf(profile.fareAfterKm?.toString() ?: "none"),
-                    perRow = 2,
-                    label = {
-                        if (it == "none") tr("Not needed", "লাগবে না")
-                        else tr("Beyond ${num(it)} km", "${num(it)} কিমির বেশি হলে")
-                    },
-                ) { save(profile.copy(fareAfterKm = it.toIntOrNull())) }
-                Text(
-                    tr(
-                        "If a request doesn't cover travel cost and it's farther than this, you won't be notified.",
-                        "রিকোয়েস্টে যাতায়াত খরচ না থাকলে আর এর চেয়ে দূরে হলে নোটিফিকেশন আসবে না।",
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
         // ---- তালিকা ও এলাকা ----
         SettingsCard {
-            SettingLabel(R.drawable.ic_tune, tr("Show requests for", "যে গ্রুপের রিকোয়েস্ট দেখাবে"))
-            Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val selected = profile.effectiveViewGroups.toSet()
-                ChipRows(Rules.BLOOD_GROUPS, selected) { g ->
-                    val next = if (g in selected) selected - g else selected + g
-                    if (next.isNotEmpty()) save(profile.copy(viewGroups = normalize(next, compatible)))
+            if (!guest) {
+                SettingLabel(R.drawable.ic_tune, tr("Show requests for", "যে গ্রুপের রিকোয়েস্ট দেখাবে"))
+                Column(Modifier.padding(start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val selected = profile.effectiveViewGroups.toSet()
+                    ChipRows(Rules.BLOOD_GROUPS, selected) { g ->
+                        val next = if (g in selected) selected - g else selected + g
+                        if (next.isNotEmpty()) save(profile.copy(viewGroups = normalize(next, compatible)))
+                    }
                 }
+                HorizontalDivider(Modifier.padding(top = 16.dp))
             }
-            HorizontalDivider(Modifier.padding(top = 16.dp))
             ListItem(
                 headlineContent = { Text(tr("Area", "এলাকা")) },
                 supportingContent = { Text(Districts.label(profile.placeName)) },

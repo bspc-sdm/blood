@@ -238,7 +238,7 @@ fun HospitalPickerDialog(
                     if (district != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(tr("Not in the list?", "তালিকায় নেই?"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { adding = true }) { Text(tr("Request to add", "যোগ করার অনুরোধ")) }
+                            TextButton(onClick = { LoginGate.require(tr("Log in to request a hospital", "হাসপাতাল যোগের অনুরোধ করতে লগইন করুন")) { adding = true } }) { Text(tr("Request to add", "যোগ করার অনুরোধ")) }
                         }
                     }
                     InfoText(infoMsg)

@@ -74,8 +74,9 @@ object Emergencies {
         )
     }
 
-    suspend fun active(): Pair<List<EmergencyAppeal>, List<EmergencyAsk>> {
-        val o = call("emergencies_active")
+    /** district: লগইন ছাড়া (অতিথি) হলে ফোনে রাখা এলাকার জেলা — সার্ভার সেই জেলার আহ্বান দেখায় */
+    suspend fun active(district: String? = null): Pair<List<EmergencyAppeal>, List<EmergencyAsk>> {
+        val o = call("emergencies_active", JSONObject().apply { if (LoginGate.isGuest && district != null) put("district", district) })
         val a = o.optJSONArray("items") ?: JSONArray()
         val q = o.optJSONArray("ask") ?: JSONArray()
         return (0 until a.length()).map { parse(a.getJSONObject(it)) } to
@@ -95,13 +96,13 @@ object Emergencies {
 
 /** হোমের সবার উপরে (চালু আহ্বান থাকলেই দেখায়) */
 @Composable
-fun EmergencyBanner(refreshKey: Int) {
+fun EmergencyBanner(refreshKey: Int, district: String? = null) {
     var items by remember { mutableStateOf<List<EmergencyAppeal>>(emptyList()) }
     var ask by remember { mutableStateOf<List<EmergencyAsk>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
     var thanks by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(refreshKey, reload) {
-        runCatching { Emergencies.active() }.onSuccess { items = it.first; ask = it.second }
+    LaunchedEffect(refreshKey, reload, LoginGate.uid.value, district) {
+        runCatching { Emergencies.active(district) }.onSuccess { items = it.first; ask = it.second }
     }
     if (items.isEmpty() && ask.isEmpty() && thanks == null) return
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -196,8 +197,11 @@ internal fun EmergencyCard(e: EmergencyAppeal, onDonated: (String) -> Unit = {},
             }
             Countdown(e.endsAt)
             val my = e.groups.firstOrNull { it.group == e.myGroup }
+            // লগইন ছাড়া, বা রক্তদাতার তথ্য দেওয়া নেই: "আসছি" চাপলে আগে সেগুলো চাওয়া হয় (নতুন নকশা N2)
+            val needDonor = e.myStatus.isBlank() && (LoginGate.isGuest || !LoginGate.isDonor.value)
             Text(
                 when {
+                    needDonor -> tr("Can you donate? Tap \"I'm coming\" to add your donor details first.", "রক্ত দিতে পারবেন? \"আসছি\" চাপুন, আগে রক্তদাতার তথ্য দিতে হবে।")
                     e.myStatus == "coming" -> tr("You're coming — thank you! Please bring your ID.", "আপনি আসছেন — ধন্যবাদ! সাথে পরিচয়পত্র আনুন।")
                     e.myStatus == "donated" -> tr("You donated — thank you!", "আপনি রক্ত দিয়েছেন — ধন্যবাদ!")
                     e.myGroup == Rules.UNKNOWN_GROUP || e.myGroup.isBlank() -> tr("Add your blood group in your profile to respond. Please tell people you know.", "সাড়া দিতে প্রোফাইলে রক্তের গ্রুপ দিন। পরিচিতদের জানাতে পারেন।")
@@ -224,6 +228,10 @@ internal fun EmergencyCard(e: EmergencyAppeal, onDonated: (String) -> Unit = {},
                         }
                     }, primary = true, busy = busy)
                     SmallAction(tr("Can't come", "আসতে পারছি না"), R.drawable.ic_close, { act("cancel") }, busy = busy)
+                } else if (needDonor) {
+                    SmallAction(tr("I'm coming", "আসছি"), R.drawable.ic_directions_run, {
+                        LoginGate.require(tr("Add your donor details to respond", "সাড়া দিতে রক্তদাতার তথ্য দিন"), donor = true) { onChanged() }
+                    }, primary = true, busy = busy)
                 } else if (e.canCome) {
                     SmallAction(tr("I'm coming", "আসছি"), R.drawable.ic_directions_run, { act("coming") }, primary = true, busy = busy)
                 }

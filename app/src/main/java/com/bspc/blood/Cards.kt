@@ -132,7 +132,8 @@ fun DirectoryCard(
                         Text(it, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     }
                 }
-                if (onReport != null) {
+                // লগইন ছাড়া (অতিথি) রিপোর্ট নেই — রিপোর্ট শুধু লগইন অবস্থায় অ্যাপ থেকে ফোন করার পরে
+                if (onReport != null && !LoginGate.isGuest) {
                     var menu by remember { mutableStateOf(false) }
                     Box {
                         IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
@@ -277,7 +278,7 @@ fun DetailSheet(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (secondary != null) TextButton(onClick = secondary.onClick) { ButtonContent(false, secondary.label, secondary.icon ?: R.drawable.ic_star) }
                         Spacer(Modifier.weight(1f))
-                        if (onReport != null) TextButton(onClick = onReport) { ButtonContent(false, tr("Report", "রিপোর্ট"), R.drawable.ic_flag) }
+                        if (onReport != null && !LoginGate.isGuest) TextButton(onClick = onReport) { ButtonContent(false, tr("Report", "রিপোর্ট"), R.drawable.ic_flag) }
                     }
                 }
             }

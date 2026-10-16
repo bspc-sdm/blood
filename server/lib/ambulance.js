@@ -90,7 +90,7 @@ const actions = {
     const snap = await db.collection('ambulances').where('district', '==', b.district).where('status', '==', 'approved').limit(300).get();
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং" বাটন থাকে)
-    const calls = user ? await db.collection('ambulanceCalls').where('uid', '==', user.uid).limit(200).get() : { docs: [] };
+    const calls = user && user.uid ? await db.collection('ambulanceCalls').where('uid', '==', user.uid).limit(200).get() : { docs: [] };
     const now = Date.now();
     const rateable = new Set(calls.docs.filter((c) => now - (c.get('at') || 0) <= RATE_WINDOW_MS
       && now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS).map((c) => c.get('ambulanceId')));

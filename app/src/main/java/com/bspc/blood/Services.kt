@@ -67,7 +67,12 @@ fun ServicesTab(profile: Profile) {
     // নিজের আছে কি না (০ অ্যাম্বুলেন্স, ১ ফার্মেসি, ২ ব্লাড ব্যাংক): থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে +
     var owns by remember { mutableStateOf(listOf(false, false, false, false)) }
     var ownsKey by remember { mutableIntStateOf(0) }
-    LaunchedEffect(ownsKey) {
+    LaunchedEffect(ownsKey, LoginGate.uid.value) {
+        // লগইন ছাড়া (অতিথি): নিজের কিছু নেই
+        if (LoginGate.isGuest) {
+            owns = listOf(false, false, false, false)
+            return@LaunchedEffect
+        }
         owns = listOf(
             runCatching { Ambulances.mine().isNotEmpty() }.getOrDefault(false),
             runCatching { Pharmacies.mine() != null }.getOrDefault(false),
@@ -79,6 +84,18 @@ fun ServicesTab(profile: Profile) {
     val target = ServicesNav.target.value
     LaunchedEffect(target) {
         when (target) {
+            // হোমের চারটা বাটন (নতুন নকশা N1): অ্যাম্বুলেন্স / ব্লাড ব্যাংক / ওষুধ খুঁজুন
+            "ambulance", "bloodbank" -> {
+                tab = if (target == "ambulance") 0 else 2
+                mineOpen = false
+                ServicesNav.target.value = null
+            }
+            "med_search" -> {
+                tab = 1
+                mineOpen = false
+                // ফার্মেসির ভেতরের "ওষুধ খুঁজুন" অংশ (PharmacyContent এটা দেখে খোলে)
+                ServicesNav.target.value = "med_find_mine"
+            }
             "med_find_mine" -> tab = 1
             "med_find", "pharmacy_mine" -> {
                 tab = 1
@@ -137,7 +154,9 @@ fun ServicesTab(profile: Profile) {
                 }
                 // প্রথমবার যোগ করা: উপরে +
                 if (!owns[tab]) {
-                    androidx.compose.material3.IconButton(onClick = { mineOpen = true }) {
+                    androidx.compose.material3.IconButton(onClick = {
+                        LoginGate.require(tr("Log in to add your service", "আপনার সেবা যোগ করতে লগইন করুন")) { mineOpen = true }
+                    }) {
                         AppIcon(R.drawable.ic_add, tr("Add ", "যোগ করুন: ") + mineTitle)
                     }
                 }
