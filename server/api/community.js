@@ -10,11 +10,7 @@ async function decodeUser(req) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) throw new HttpError(401, C.tr(req, 'Please log in', 'লগইন দরকার'));
-  try {
-    return await admin.auth().verifyIdToken(token);
-  } catch {
-    throw new HttpError(401, C.tr(req, 'Session expired, please log in again', 'লগইনের মেয়াদ শেষ, আবার লগইন করুন'));
-  }
+  return require('../lib/firebase').decodeToken(req, token);
 }
 
 const { approvedBadge, useQuota, userName } = require('../lib/community-db');
@@ -110,6 +106,8 @@ const actions = {
         text: x.text,
         authorName: x.anonymous ? null : x.authorName,
         mine: x.uid === user.uid,
+        // নিজের প্রশ্নে নাম লুকানো আছে কি না (পরে বদলানো যায়)
+        ...(x.uid === user.uid ? { anonymous: x.anonymous === true } : {}),
         createdAt: x.createdAt,
         editedAt: x.editedAt || 0,
         answerCount: x.answerCount || 0,
@@ -168,11 +166,10 @@ const actions = {
     if (asker && asker !== user.uid) {
       try {
         const u = await db.doc(`users/${asker}`).get();
-        const token = u.get('fcmToken');
-        if (token) {
+        if (u.exists) {
           await sendPush([{
             uid: asker,
-            token,
+            tokens: require('../lib/firebase').tokensOf(u),
             title: R.L(u.get('lang'), 'Your question has a new answer', 'আপনার প্রশ্নের উত্তর এসেছে'),
             body: text.slice(0, 120),
             data: { type: 'answer', questionId: id },
@@ -195,8 +192,14 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Question not found', 'প্রশ্নটা পাওয়া যায়নি'));
     if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
-    if (s.get('text') === text) return { ok: true };
-    await ref.update({ text, editedAt: Date.now() });
+    // "আমার নাম দেখাবে না" পরে চালু/বন্ধ করা যায় (না পাঠালে আগের মতো)
+    const anon = typeof req.body?.anonymous === 'boolean' && req.body.anonymous !== (s.get('anonymous') === true) ? { anonymous: req.body.anonymous } : {};
+    if (s.get('text') === text) {
+      if (Object.keys(anon).length) await ref.update(anon);
+      return { ok: true };
+    }
+    await ref.update({ text, editedAt: Date.now(), ...anon });
+    await moderation.reopenOnEdit(`questions/${id}`);
     return { ok: true };
   },
 
@@ -213,6 +216,7 @@ const actions = {
     if (!(await approvedBadge(user.uid))) throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
     if (s.get('text') === text) return { ok: true };
     await ref.update({ text, editedAt: Date.now() });
+    await moderation.reopenOnEdit(`questions/${id}/answers/${answerId}`);
     return { ok: true };
   },
 
@@ -224,6 +228,7 @@ const actions = {
     if (!s.exists) return { ok: true };
     if (s.get('uid') !== user.uid && !(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     await db.recursiveDelete(ref);
+    if (s.get('uid') !== user.uid) await adminweb.logAdmin('admin_delete_post', user, { path: `questions/${id}`, text: s.get('text') });
     return { ok: true };
   },
 
@@ -238,6 +243,7 @@ const actions = {
     batch.delete(ref);
     batch.update(db.doc(`questions/${id}`), { answerCount: FieldValue.increment(-1) });
     await batch.commit();
+    if (s.get('uid') !== user.uid) await adminweb.logAdmin('admin_delete_post', user, { path: `questions/${id}/answers/${answerId}`, text: s.get('text') });
     return { ok: true };
   },
 
@@ -295,7 +301,9 @@ const actions = {
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('uid') !== user.uid) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     if (!(await approvedBadge(user.uid))) throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
+    if (s.get('title') === title && s.get('body') === body) return { ok: true };
     await ref.update({ title, body, editedAt: Date.now() });
+    await moderation.reopenOnEdit(`tips/${id}`);
     return { ok: true };
   },
 
@@ -307,6 +315,7 @@ const actions = {
     if (!s.exists) return { ok: true };
     if (s.get('uid') !== user.uid && !(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Not allowed', 'অনুমতি নেই'));
     await ref.delete();
+    if (s.get('uid') !== user.uid) await adminweb.logAdmin('admin_delete_post', user, { path: `tips/${id}`, text: s.get('title') });
     return { ok: true };
   },
 
@@ -449,7 +458,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

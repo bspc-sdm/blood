@@ -66,6 +66,8 @@ object TitleCase {
     )
     private val UNITS = setOf("km", "kg", "mg", "ml", "g", "cm", "yrs", "min", "sec", "e.g.", "i.e.")
     private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** বদলানো রূপ → আসল লেখা (ভুল/তথ্যের বার্তা Title Case ছাড়া দেখাতে) */
+    private val original = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun isSentence(s: String): Boolean {
         val t = s.trim()
@@ -78,11 +80,23 @@ object TitleCase {
     /** অ্যাপের নিজের লেখা (শুধু ছোট লেখায়) */
     fun ui(s: String): String {
         if (s.length > 80) return s
-        return cache.getOrPut(s) { if (isSentence(s)) s else words(s) }
+        return cache.getOrPut(s) {
+            val out = if (isSentence(s)) s else words(s)
+            if (out != s) original[out] = s
+            out
+        }
     }
 
-    /** ব্যবহারকারীর লেখা নাম (মানুষ, হাসপাতাল, দোকান) — বাংলায় কিছু বদলায় না */
-    fun name(s: String): String = words(s.trim().replace(Regex("\\s+"), " "))
+    /** বার্তা (ভুল, তথ্য): Title Case-এর আগের রূপ — "Enter a Valid Email" নয়, "Enter a valid email" */
+    fun plain(s: String): String = original[s] ?: s
+
+    /**
+     * ব্যবহারকারীর লেখা নাম (মানুষ, হাসপাতাল, দোকান) — বাংলায় কিছু বদলায় না।
+     * হাইফেন, ঊর্ধ্বকমা বা ডটের পরের অংশও বড় হাতের: "Al-Amin", "O'Brien", "Md.Rahim"
+     */
+    fun name(s: String): String =
+        words(s.trim().replace(Regex("\\s+"), " "))
+            .replace(Regex("(?<=[A-Za-z][-'’.])([a-z])")) { it.value.uppercase() }
 
     private fun words(s: String): String {
         val parts = s.split(" ")

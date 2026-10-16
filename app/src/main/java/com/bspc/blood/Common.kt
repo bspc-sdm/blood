@@ -151,7 +151,7 @@ fun BackTopBar(title: String, onBack: () -> Unit, actions: @Composable RowScope.
 fun ErrorText(message: String?) {
     if (message != null) {
         Text(
-            message,
+            TitleCase.plain(message),
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(vertical = 4.dp),
@@ -163,7 +163,7 @@ fun ErrorText(message: String?) {
 fun InfoText(message: String?) {
     if (message != null) {
         Text(
-            message,
+            TitleCase.plain(message),
             color = MaterialTheme.colorScheme.tertiary,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(vertical = 4.dp),

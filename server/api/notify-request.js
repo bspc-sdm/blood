@@ -98,7 +98,7 @@ module.exports = handler(async (req) => {
     const sent = await sendPush(
       donors.map((u) => ({
         uid: u.uid,
-        token: u.fcmToken,
+        tokens: require('../lib/firebase').tokensOf(u),
         title: R.L(
           u.lang,
           `${request.patientGroup} blood needed${request.urgent ? ' (urgent)' : ''}`,

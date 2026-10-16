@@ -42,8 +42,7 @@ function provider(d) {
 async function push(uid, en, bn, body, data) {
   try {
     const u = await db.doc(`users/${uid}`).get();
-    const token = u.get('fcmToken');
-    if (token) await sendPush([{ uid, token, title: R.L(u.get('lang'), en, bn), body, data }]);
+    if (u.exists) await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body, data }]);
   } catch (e) {
     console.error('appointment push failed', e);
   }

@@ -72,12 +72,11 @@ module.exports = handler(async (req) => {
   // রক্তপ্রার্থীকে জানানো (না গেলেও সাড়া ঠিকই সেভ হয়েছে)
   try {
     const requester = await db.doc(`users/${request.requesterUid}`).get();
-    const token = requester.get('fcmToken');
-    if (token) {
+    if (requester.exists) {
       await sendPush([
         {
           uid: request.requesterUid,
-          token,
+          tokens: require('../lib/firebase').tokensOf(requester),
           title: R.L(requester.get('lang'), 'A donor is ready to give blood', 'একজন ডোনার রাজি হয়েছেন'),
           body: R.L(
             requester.get('lang'),

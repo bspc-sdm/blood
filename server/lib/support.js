@@ -29,7 +29,7 @@ async function notifyUser(uid, ticketId) {
     const lang = u.get('lang');
     await sendPush([{
       uid,
-      token: u.get('fcmToken'),
+      tokens: require('./firebase').tokensOf(u),
       title: R.L(lang, 'Reply from the Lifolo team', 'Lifolo টিমের উত্তর এসেছে'),
       body: R.L(lang, 'Open Help & appeals to read it', '"সাহায্য ও আপিল" খুলে দেখুন'),
       data: { type: 'support', ticketId },

@@ -13,6 +13,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 object AuthRepository {
@@ -28,16 +29,22 @@ object AuthRepository {
     }
 
     suspend fun signOut(context: Context) {
-        // লগআউটের পর এই ফোনে আর এই অ্যাকাউন্টের নোটিফিকেশন যেন না আসে
-        val uid = currentUid
-        if (uid != null) {
-            runCatching {
-                FirebaseFirestore.getInstance().collection("users").document(uid)
-                    .set(mapOf("fcmToken" to FieldValue.delete()), SetOptions.merge()).await()
+        // লগআউটের পর এই ফোনে আর এই অ্যাকাউন্টের নোটিফিকেশন যেন না আসে — শুধু এই ফোনের টোকেন সরে, অন্য ফোন চলতে থাকে।
+        // ইন্টারনেট না থাকলেও লগআউট আটকায় না: সর্বোচ্চ ৪ সেকেন্ড চেষ্টা, তারপর লগআউট
+        // (আসা নোটিফিকেশন লগআউট অবস্থায় দেখানো হয় না, তাই টোকেন সরাতে না পারলেও কিছু দেখা যায় না)
+        if (currentUid != null) {
+            kotlinx.coroutines.withTimeoutOrNull(4000) {
+                runCatching {
+                    val token = FirebaseMessaging.getInstance().token.await()
+                    ServerApi.post("/api/community", org.json.JSONObject().put("action", "device_unregister").put("token", token))
+                }
             }
         }
-        runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
+        // পুরোনো টোকেন বাতিল (পেছনে; ইন্টারনেট না থাকলে পরে)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
+        }
     }
 
     /** অ্যাকাউন্ট মোছার পর: ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া */
@@ -125,8 +132,10 @@ object ProfileRepository {
         users.document(uid).set(data, SetOptions.merge()).await()
     }
 
+    /** এই ফোনকে অ্যাকাউন্টে যোগ (কয়েকটা ফোনে একসাথে নোটিফিকেশন); সার্ভারে না গেলে পুরোনো উপায়ে */
     suspend fun saveFcmToken(uid: String, token: String) {
-        users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await()
+        runCatching { ServerApi.post("/api/community", org.json.JSONObject().put("action", "device_register").put("token", token)) }
+            .onFailure { users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await() }
     }
 
     suspend fun setNotify(uid: String, on: Boolean) {

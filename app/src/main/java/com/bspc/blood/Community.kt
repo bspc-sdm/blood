@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +62,8 @@ data class Question(
     val createdAt: Long,
     val answerCount: Int,
     val edited: Boolean = false,
+    /** নিজের প্রশ্নে: নাম লুকানো আছে কি না */
+    val anonymous: Boolean = false,
 )
 
 data class Answer(
@@ -132,6 +135,7 @@ object Community {
         createdAt = o.optLong("createdAt"),
         answerCount = o.optInt("answerCount"),
         edited = o.optLong("editedAt") > 0,
+        anonymous = o.optBoolean("anonymous"),
     )
 
     suspend fun me(): CommunityMe {
@@ -182,8 +186,8 @@ object Community {
                 )
             }
 
-    suspend fun editQuestion(id: String, text: String) {
-        call("edit_question", JSONObject().put("id", id).put("text", text))
+    suspend fun editQuestion(id: String, text: String, anonymous: Boolean? = null) {
+        call("edit_question", JSONObject().put("id", id).put("text", text).apply { if (anonymous != null) put("anonymous", anonymous) })
     }
 
     suspend fun editAnswer(id: String, answerId: String, text: String) {
@@ -525,6 +529,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
     /** কী বদলানো হচ্ছে: প্রশ্ন (null) বা উত্তর (answer) */
     var editingQuestion by remember { mutableStateOf(false) }
     var editingAnswer by remember { mutableStateOf<Answer?>(null) }
+    var deletingAnswer by remember { mutableStateOf<Answer?>(null) }
     /** কী রিপোর্ট হচ্ছে: ("question", null) বা ("answer", answerId) */
     var reportTarget by remember { mutableStateOf<Pair<String, String?>?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
@@ -570,6 +575,19 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                             AuthorLine(d.first.authorName, null, d.first.createdAt)
                             Text(d.first.text, style = MaterialTheme.typography.titleMedium)
                             if (d.first.edited) EditedNote()
+                            // নিজের প্রশ্নে পরে নাম লুকানো/দেখানো
+                            if (d.first.mine) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(tr("Hide my name", "আমার নাম দেখাবে না"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                    Switch(checked = d.first.anonymous, onCheckedChange = { on ->
+                                        scope.launch {
+                                            runCatching { Community.editQuestion(id, d.first.text, on) }
+                                                .onSuccess { onChanged(); reload++ }
+                                                .onFailure { errorMsg = it.message }
+                                        }
+                                    })
+                                }
+                            }
                         }
                     }
                     item {
@@ -595,13 +613,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                                         TextButton(onClick = { editingAnswer = a }) { Text(tr("Edit", "বদলান")) }
                                     }
                                     if (a.mine || me?.isAdmin == true) {
-                                        TextButton(onClick = {
-                                            scope.launch {
-                                                runCatching { Community.deleteAnswer(id, a.id) }
-                                                    .onSuccess { onChanged(); reload++ }
-                                                    .onFailure { errorMsg = it.message }
-                                            }
-                                        }) { Text(tr("Delete", "মুছুন")) }
+                                        TextButton(onClick = { deletingAnswer = a }) { Text(tr("Delete", "মুছুন")) }
                                     }
                                 }
                             }
@@ -686,6 +698,25 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                 editingAnswer = null
                 reload++
             },
+        )
+    }
+
+    deletingAnswer?.let { a ->
+        AlertDialog(
+            onDismissRequest = { deletingAnswer = null },
+            title = { Text(tr("Delete this answer?", "উত্তরটা মুছবেন?")) },
+            text = { if (!a.mine) Text(tr("You're deleting someone else's answer as an admin. This is recorded.", "অ্যাডমিন হিসেবে অন্যের উত্তর মুছছেন। এটা রেকর্ডে থাকবে।")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deletingAnswer = null
+                    scope.launch {
+                        runCatching { Community.deleteAnswer(id, a.id) }
+                            .onSuccess { onChanged(); reload++ }
+                            .onFailure { errorMsg = it.message }
+                    }
+                }) { Text(tr("Delete", "মুছুন")) }
+            },
+            dismissButton = { TextButton(onClick = { deletingAnswer = null }) { Text(tr("Cancel", "বাতিল")) } },
         )
     }
 

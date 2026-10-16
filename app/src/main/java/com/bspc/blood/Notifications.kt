@@ -89,6 +89,10 @@ class BloodMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // লগআউট করা ফোনে, বা এই ফোনে এখন অন্য অ্যাকাউন্ট থাকলে, আগের অ্যাকাউন্টের নোটিফিকেশন দেখানো হয় না
+        val me = AuthRepository.currentUid ?: return
+        val to = message.data["forUid"]
+        if (!to.isNullOrBlank() && to != me) return
         val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
         Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], message.data["visitId"] ?: message.data["orderId"])

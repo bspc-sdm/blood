@@ -146,6 +146,8 @@ object ServerApi {
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 val json = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
                 if (code !in 200..299) {
+                    // অ্যাকাউন্ট বন্ধ করা হয়েছে: অ্যাপ লগআউট করে কারণ দেখায়
+                    if (json.optString("code") == "account_disabled") SessionEvents.disabled.value = json.optString("error")
                     throw ServerError(
                         json.optString("error").ifBlank { tr("Server error ($code)", "সার্ভারে সমস্যা ($code)") },
                         json.optString("code").ifBlank { null },
@@ -163,3 +165,9 @@ object ServerApi {
 
 /** সার্ভারের ভুলের বার্তা; code দিয়ে নির্দিষ্ট অবস্থা চেনা যায় (যেমন "phone_unverified") */
 class ServerError(message: String, val code: String?) : IllegalStateException(message)
+
+/** সার্ভার থেকে আসা অবস্থা যা পুরো অ্যাপকে জানতে হয় */
+object SessionEvents {
+    /** অ্যাকাউন্ট বন্ধ — বার্তা (কারণ আর আপিলের ইমেইলসহ) */
+    val disabled = androidx.compose.runtime.mutableStateOf<String?>(null)
+}

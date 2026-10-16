@@ -39,6 +39,9 @@ import org.json.JSONObject
 // যথেষ্ট মানুষ আসছেন হলে সেই গ্রুপ বন্ধ — হাসপাতালে ভিড় এড়াতে।
 // ------------------------------------------------------------
 
+/** শেষ হওয়া আহ্বান, যেখানে "আসছি" বলেছিলেন — রক্ত দিয়েছেন কি না জানতে চাওয়া */
+data class EmergencyAsk(val id: String, val hospitalName: String, val endedAt: Long)
+
 data class EmergencyGroup(val group: String, val need: Int, val coming: Int, val full: Boolean)
 
 data class EmergencyAppeal(
@@ -71,9 +74,17 @@ object Emergencies {
         )
     }
 
-    suspend fun active(): List<EmergencyAppeal> {
-        val a = call("emergencies_active").optJSONArray("items") ?: JSONArray()
-        return (0 until a.length()).map { parse(a.getJSONObject(it)) }
+    suspend fun active(): Pair<List<EmergencyAppeal>, List<EmergencyAsk>> {
+        val o = call("emergencies_active")
+        val a = o.optJSONArray("items") ?: JSONArray()
+        val q = o.optJSONArray("ask") ?: JSONArray()
+        return (0 until a.length()).map { parse(a.getJSONObject(it)) } to
+            (0 until q.length()).map { q.getJSONObject(it).let { x -> EmergencyAsk(x.str("id"), x.str("hospitalName"), x.optLong("endedAt")) } }
+    }
+
+    /** রক্ত দিয়েছেন কি না (দিলে শেষ রক্তদানের তারিখ আজ) */
+    suspend fun donated(id: String, donated: Boolean) {
+        call("emergency_donated", JSONObject().put("id", id).put("donated", donated))
     }
 
     /** op: coming, cancel */
@@ -86,18 +97,59 @@ object Emergencies {
 @Composable
 fun EmergencyBanner(refreshKey: Int) {
     var items by remember { mutableStateOf<List<EmergencyAppeal>>(emptyList()) }
+    var ask by remember { mutableStateOf<List<EmergencyAsk>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
+    var thanks by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(refreshKey, reload) {
-        runCatching { Emergencies.active() }.onSuccess { items = it }
+        runCatching { Emergencies.active() }.onSuccess { items = it.first; ask = it.second }
     }
-    if (items.isEmpty()) return
+    if (items.isEmpty() && ask.isEmpty() && thanks == null) return
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items.forEach { e -> EmergencyCard(e) { reload++ } }
+        InfoText(thanks)
+        ask.forEach { q -> EmergencyAskCard(q) { msg -> thanks = msg; reload++ } }
+        items.forEach { e -> EmergencyCard(e, onDonated = { thanks = it }) { reload++ } }
+    }
+}
+
+/** আহ্বান শেষে: "রক্ত দিয়েছেন?" — দিলে শেষ রক্তদানের তারিখ ওঠে, ১২০ দিন রিকোয়েস্টের নোটিফিকেশন আসে না */
+@Composable
+internal fun EmergencyAskCard(q: EmergencyAsk, onDone: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    fun answer(yes: Boolean) {
+        scope.launch {
+            busy = true
+            errorMsg = null
+            runCatching { Emergencies.donated(q.id, yes) }
+                .onSuccess {
+                    onDone(
+                        if (yes) tr("Thank you! Your last donation date is set to today.", "ধন্যবাদ! আপনার শেষ রক্তদানের তারিখ আজ বসানো হয়েছে।")
+                        else tr("Thanks for letting us know.", "জানানোর জন্য ধন্যবাদ।"),
+                    )
+                }
+                .onFailure { errorMsg = it.message }
+            busy = false
+        }
+    }
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("Did you donate blood?", "রক্ত দিয়েছেন?"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                tr("You said you were coming to the emergency appeal at ${q.hospitalName}.", "${q.hospitalName}-এর জরুরি আহ্বানে আপনি \"আসছি\" বলেছিলেন।"),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            ErrorText(errorMsg)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallAction(tr("Yes, I donated", "হ্যাঁ, দিয়েছি"), R.drawable.ic_check_circle, { answer(true) }, primary = true, busy = busy)
+                SmallAction(tr("No", "না, দিইনি"), R.drawable.ic_close, { answer(false) }, enabled = !busy)
+            }
+        }
     }
 }
 
 @Composable
-internal fun EmergencyCard(e: EmergencyAppeal, onChanged: () -> Unit) {
+internal fun EmergencyCard(e: EmergencyAppeal, onDonated: (String) -> Unit = {}, onChanged: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -147,6 +199,7 @@ internal fun EmergencyCard(e: EmergencyAppeal, onChanged: () -> Unit) {
             Text(
                 when {
                     e.myStatus == "coming" -> tr("You're coming — thank you! Please bring your ID.", "আপনি আসছেন — ধন্যবাদ! সাথে পরিচয়পত্র আনুন।")
+                    e.myStatus == "donated" -> tr("You donated — thank you!", "আপনি রক্ত দিয়েছেন — ধন্যবাদ!")
                     e.myGroup == Rules.UNKNOWN_GROUP || e.myGroup.isBlank() -> tr("Add your blood group in your profile to respond. Please tell people you know.", "সাড়া দিতে প্রোফাইলে রক্তের গ্রুপ দিন। পরিচিতদের জানাতে পারেন।")
                     my == null -> tr("Your blood group isn't needed in this appeal. Please tell people you know.", "এই আহ্বানে আপনার গ্রুপ দরকার নেই। পরিচিতদের জানাতে পারেন।")
                     my.full -> tr("Enough donors are already coming for your group — thank you!", "আপনার গ্রুপের যথেষ্ট ডোনার আসছেন — ধন্যবাদ!")
@@ -159,6 +212,17 @@ internal fun EmergencyCard(e: EmergencyAppeal, onChanged: () -> Unit) {
             ErrorText(errorMsg)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (e.myStatus == "coming") {
+                    // হাসপাতালে রক্ত দেওয়া হয়ে গেলে এখনই জানানো যায়
+                    SmallAction(tr("I donated", "রক্ত দিয়েছি"), R.drawable.ic_check_circle, {
+                        scope.launch {
+                            busy = true
+                            errorMsg = null
+                            runCatching { Emergencies.donated(e.id, true) }
+                                .onSuccess { onDonated(tr("Thank you! Your last donation date is set to today.", "ধন্যবাদ! আপনার শেষ রক্তদানের তারিখ আজ বসানো হয়েছে।")); onChanged() }
+                                .onFailure { errorMsg = it.message }
+                            busy = false
+                        }
+                    }, primary = true, busy = busy)
                     SmallAction(tr("Can't come", "আসতে পারছি না"), R.drawable.ic_close, { act("cancel") }, busy = busy)
                 } else if (e.canCome) {
                     SmallAction(tr("I'm coming", "আসছি"), R.drawable.ic_directions_run, { act("coming") }, primary = true, busy = busy)

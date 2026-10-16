@@ -4,8 +4,9 @@
 //
 // emergencies/{id}: { hospitalId, hospitalName, district, districts[], lat, lng, radiusKm, groups: { g: { need, coming, notified, closed, adminClosed } },
 //                     contactPhone, note, status: active|closed, createdAt, endsAt, createdBy, waves }
-// emergencies/{id}/donors/{uid}: { group, status: notified|coming|cancelled, km, notifiedAt, comingAt }
-const { db, HttpError, sendPush } = require('./firebase');
+// emergencies/{id}/donors/{uid}: { group, status: notified|coming|cancelled|donated|not_donated, km, notifiedAt, comingAt }
+// users/{uid}.emergencyComing: { emergencyId: comingAt } — "আসছি" বলা আহ্বান; শেষে "রক্ত দিয়েছেন?" জিজ্ঞেস করতে
+const { db, FieldValue, HttpError, sendPush } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
@@ -53,7 +54,7 @@ async function sendWave(id) {
   });
   const sent = await sendPush(wave.map((u) => ({
     uid: u.uid,
-    token: u.token,
+    tokens: u.tokens,
     title: R.L(u.lang, `Emergency: ${u.group} blood needed`, `জরুরি: ${u.group} রক্ত দরকার`),
     body: R.L(u.lang, `${e.hospitalName} · ${R.formatKm(u.km, 'en')} · Lifolo team appeal — open to say you're coming`,
       `${e.hospitalName} · ${R.formatKm(u.km, 'bn')} · Lifolo টিমের আহ্বান — খুলে "আসছি" চাপুন`),
@@ -88,17 +89,59 @@ function view(d, me, mine) {
   };
 }
 
-async function notifyComing(id, e, en, bn) {
+async function notifyComing(id, e, en, bn, bodyEn = '', bodyBn = '') {
   const coming = await db.collection(`emergencies/${id}/donors`).where('status', '==', 'coming').get();
   if (coming.empty) return;
   const users = await db.getAll(...coming.docs.map((d) => db.doc(`users/${d.id}`)));
-  await sendPush(users.filter((u) => u.exists && u.get('fcmToken')).map((u) => ({
+  await sendPush(users.filter((u) => u.exists).map((u) => ({
     uid: u.id,
-    token: u.get('fcmToken'),
+    tokens: require('./firebase').tokensOf(u),
     title: R.L(u.get('lang'), en, bn),
-    body: e.hospitalName,
+    body: [e.hospitalName, R.L(u.get('lang'), bodyEn, bodyBn)].filter(Boolean).join(' · '),
     data: { type: 'emergency', emergencyId: id },
   })));
+}
+
+const ENDED_TEXT = [
+  'Emergency appeal ended', 'জরুরি আহ্বান শেষ',
+  'If you haven\'t left, no need to come. If you donated, tell us in the app. Thank you!',
+  'এখনো রওনা না দিলে আর আসার দরকার নেই। রক্ত দিয়ে থাকলে অ্যাপে জানান। ধন্যবাদ!',
+];
+const ASK_DAYS = 7;
+
+/** শেষ হওয়া আহ্বান, যেখানে "আসছি" বলেছিলেন কিন্তু রক্ত দিয়েছেন কি না জানাননি (৭ দিন পর্যন্ত) */
+async function askDonated(uid, me) {
+  const coming = (me && me.exists && me.get('emergencyComing')) || {};
+  const ids = Object.keys(coming).filter((k) => R.isValidId(k)).slice(0, 10);
+  if (!ids.length) return [];
+  const now = Date.now();
+  const docs = await db.getAll(...ids.map((k) => db.doc(`emergencies/${k}`)));
+  const stale = [];
+  const ask = [];
+  docs.forEach((d, i) => {
+    if (!d.exists) { stale.push(ids[i]); return; }
+    const e = d.data();
+    const endedAt = e.status === 'closed' ? e.closedAt || e.endsAt : e.endsAt;
+    if (E.isLive(e, now)) return;
+    if (now - (endedAt || 0) > ASK_DAYS * 24 * HOUR) { stale.push(ids[i]); return; }
+    ask.push({ id: d.id, hospitalName: e.hospitalName, endedAt: endedAt || 0 });
+  });
+  if (stale.length) {
+    await db.doc(`users/${uid}`).update(Object.fromEntries(stale.map((k) => [`emergencyComing.${k}`, FieldValue.delete()]))).catch(() => {});
+  }
+  return ask;
+}
+
+/** সময় পেরোনো আহ্বান বন্ধ করে যারা আসছিলেন তাদের জানানো (দৈনিক ক্রন) */
+async function closeExpired(now = Date.now()) {
+  const snap = await db.collection('emergencies').where('status', '==', 'active').limit(50).get();
+  let n = 0;
+  for (const d of snap.docs.filter((x) => (x.get('endsAt') || 0) <= now)) {
+    await d.ref.update({ status: 'closed', closedAt: d.get('endsAt') || now, closedBy: 'expired' });
+    await notifyComing(d.id, d.data(), ...ENDED_TEXT).catch((e) => console.error('emergency end push failed', e));
+    n++;
+  }
+  return n;
 }
 
 const actions = {
@@ -109,7 +152,8 @@ const actions = {
       db.doc(`users/${user.uid}`).get(),
     ]);
     const live = snap.docs.filter((d) => E.isLive(d.data()));
-    if (!live.length) return { items: [] };
+    const ask = await askDonated(user.uid, me);
+    if (!live.length) return { items: [], ask };
     const mine = await db.getAll(...live.map((d) => db.doc(`emergencies/${d.id}/donors/${user.uid}`)));
     const meData = me.exists ? me.data() : null;
     const items = live
@@ -117,7 +161,37 @@ const actions = {
       .filter(({ d, m }) => m.exists || (meData && (d.get('districts') || []).includes(meData.placeName)))
       .map(({ d, m }) => view(d, meData, m));
     items.sort((a, b) => b.createdAt - a.createdAt);
-    return { items };
+    return { items, ask };
+  },
+
+  /** "আসছি" বলা ডোনার: রক্ত দিয়েছেন কি না — দিলে শেষ রক্তদানের তারিখ আজ (শুধু সামনে) */
+  async emergency_donated(req, user) {
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const donated = req.body?.donated === true;
+    const eref = db.doc(`emergencies/${id}`);
+    const dref = db.doc(`emergencies/${id}/donors/${user.uid}`);
+    const uref = db.doc(`users/${user.uid}`);
+    await db.runTransaction(async (t) => {
+      const [e, d, u] = await Promise.all([t.get(eref), t.get(dref), t.get(uref)]);
+      // চলমান আহ্বানে "দিইনি" নয় — তখন "আসতে পারছি না" (গোনা কমে, অন্য কেউ আসতে পারেন)
+      if (!donated && e.exists && E.isLive(e.data())) {
+        throw new HttpError(400, C.tr(req, 'Tap "Can\'t come" instead', '"আসতে পারছি না" চাপুন'));
+      }
+      if (!d.exists || !['coming', 'donated', 'not_donated'].includes(d.get('status'))) {
+        throw new HttpError(400, C.tr(req, 'You did not say you were coming to this appeal', 'এই আহ্বানে আপনি "আসছি" বলেননি'));
+      }
+      t.update(dref, { status: donated ? 'donated' : 'not_donated', answeredAt: Date.now() });
+      if (u.exists) {
+        const today = R.todayDhakaUtcMidnight();
+        const last = u.get('lastDonationMillis');
+        t.update(uref, {
+          [`emergencyComing.${id}`]: FieldValue.delete(),
+          ...(donated && (last == null || last < today) ? { lastDonationMillis: today } : {}),
+        });
+      }
+    });
+    return { ok: true };
   },
 
   /** ডোনার: আসছি / আসতে পারছি না */
@@ -134,7 +208,7 @@ const actions = {
       const groups = s.get('groups') || {};
       const cur = d.exists ? d.get('status') : null;
       if (op === 'coming') {
-        if (cur === 'coming') return;
+        if (cur === 'coming' || cur === 'donated') return;
         const x = g && groups[g];
         if (!x) throw new HttpError(400, C.tr(req, 'Your blood group is not needed here', 'এখানে আপনার গ্রুপের রক্ত দরকার নেই'));
         if (!R.isEligibleDonor(me.data())) {
@@ -145,6 +219,7 @@ const actions = {
         // যথেষ্ট হলে নিজে থেকে বন্ধ (কেউ বাতিল করলে আবার খোলে)
         if (x.coming >= x.need) x.closed = true;
         t.set(dref, { uid: user.uid, group: g, status: 'coming', comingAt: Date.now(), ...(d.exists ? {} : { notifiedAt: null }) }, { merge: true });
+        t.update(db.doc(`users/${user.uid}`), { [`emergencyComing.${id}`]: Date.now() });
       } else {
         if (cur !== 'coming') return;
         const dg = d.get('group');
@@ -154,6 +229,7 @@ const actions = {
           if (!x.adminClosed && x.coming < x.need) x.closed = false;
         }
         t.update(dref, { status: 'cancelled', cancelledAt: Date.now() });
+        t.update(db.doc(`users/${user.uid}`), { [`emergencyComing.${id}`]: FieldValue.delete() });
       }
       t.update(ref, { groups });
     });
@@ -246,7 +322,7 @@ const actions = {
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (s.get('status') === 'closed') return { ok: true, unchanged: true };
     await ref.update({ status: 'closed', closedAt: Date.now() });
-    await notifyComing(id, s.data(), 'The emergency appeal has ended — if you haven\'t left yet, no need to come. Thank you!', 'জরুরি আহ্বান শেষ — এখনো রওনা না দিলে আর আসার দরকার নেই। ধন্যবাদ!');
+    await notifyComing(id, s.data(), ...ENDED_TEXT);
     return { ok: true };
   },
 
@@ -268,4 +344,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, sendWave };
+module.exports = { actions, sendWave, closeExpired };

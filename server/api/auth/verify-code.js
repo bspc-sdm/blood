@@ -65,6 +65,8 @@ module.exports = handler(async (req, res) => {
   }
 
   const user = await getOrCreateUser(email);
+  // বন্ধ করা অ্যাকাউন্ট: কাঁচা ইংরেজি ত্রুটির বদলে কারণ আর আপিলের ঠিকানা
+  if (user.disabled) throw await require('../../lib/firebase').accountDisabledError(req, user.uid);
   const token = await admin.auth().createCustomToken(user.uid);
   return { ok: true, token };
 });

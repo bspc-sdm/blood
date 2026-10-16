@@ -85,7 +85,7 @@ module.exports = {
     if (result.restored) {
       await pushTo([donorUid], (u) => ({
         uid: u.id,
-        token: u.get('fcmToken'),
+        tokens: require('./firebase').tokensOf(u),
         title: R.L(u.get('lang'), 'You are back on the request', 'আপনাকে আবার রিকোয়েস্টে রাখা হয়েছে'),
         body: R.L(u.get('lang'), `${r.hospital}: the requester removed you by mistake. Please wait for confirmation.`, `${r.hospital}: রক্তপ্রার্থী ভুল করে বাদ দিয়েছিলেন। নিশ্চিত করার অপেক্ষায় থাকুন।`),
         data: { requestId, type: 'request' },
@@ -96,7 +96,7 @@ module.exports = {
     if (op === 'remove') {
       await pushTo([donorUid], (u) => ({
         uid: u.id,
-        token: u.get('fcmToken'),
+        tokens: require('./firebase').tokensOf(u),
         title: R.L(u.get('lang'), 'You are no longer needed for this request', 'এই রিকোয়েস্টে আপনাকে আর লাগবে না'),
         body: R.L(u.get('lang'), `${r.hospital}: you don't need to go. Thank you for offering!`, `${r.hospital}: আপনাকে যেতে হবে না। রাজি হওয়ার জন্য ধন্যবাদ!`),
         data: { requestId, type: 'request' },
@@ -107,7 +107,7 @@ module.exports = {
       if (op === 'cancel') {
         await pushTo([r.requesterUid], (u) => ({
           uid: u.id,
-          token: u.get('fcmToken'),
+          tokens: require('./firebase').tokensOf(u),
           title: R.L(u.get('lang'), 'A confirmed donor cancelled', 'একজন নিশ্চিত ডোনার বাতিল করেছেন'),
           body: R.L(
             u.get('lang'),
@@ -121,7 +121,7 @@ module.exports = {
       if (result.reopened) {
         await pushTo(result.standby, (u) => ({
           uid: u.id,
-          token: u.get('fcmToken'),
+          tokens: require('./firebase').tokensOf(u),
           title: R.L(u.get('lang'), 'A donor may be needed again', 'আবার ডোনার লাগতে পারে'),
           body: R.L(u.get('lang'), 'The requester will confirm soon. Please stay available.', 'রক্তপ্রার্থী শিগগিরই নিশ্চিত করবেন। অনুগ্রহ করে প্রস্তুত থাকুন।'),
           data: { requestId, type: 'request' },
@@ -181,14 +181,14 @@ module.exports = {
             return u.id === donorUid
               ? {
                 uid: u.id,
-                token: u.get('fcmToken'),
+                tokens: require('./firebase').tokensOf(u),
                 title: R.L(lang, 'You are confirmed — please come', 'আপনাকে নিশ্চিত করা হয়েছে, অনুগ্রহ করে আসুন'),
                 body: `${r.hospital}${time}`,
                 data: { requestId, type: 'request' },
               }
               : {
                 uid: u.id,
-                token: u.get('fcmToken'),
+                tokens: require('./firebase').tokensOf(u),
                 title: R.L(lang, 'Enough donors for now — thank you!', 'আপাতত যথেষ্ট ডোনার পাওয়া গেছে, ধন্যবাদ!'),
                 body: R.L(lang, 'Please stay available in case it changes.', 'দরকার হলে আবার জানানো হবে।'),
                 data: { requestId, type: 'request' },

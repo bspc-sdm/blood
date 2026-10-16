@@ -185,6 +185,19 @@ fun App(
         stack.add(s)
     }
 
+    // অ্যাকাউন্ট বন্ধ করা হয়েছে (সার্ভার জানাল): সাথে সাথে লগআউট, লগইন পাতায় কারণ আর আপিলের ইমেইল
+    val disabledMsg = SessionEvents.disabled.value
+    LaunchedEffect(disabledMsg) {
+        if (disabledMsg != null && AuthRepository.currentUid != null) {
+            AuthRepository.signOutLocal()
+            profile = null
+            community = null
+            errorMsg = disabledMsg
+            resetTo(Screen.Login)
+        }
+        SessionEvents.disabled.value = null
+    }
+
     // অ্যাপে ফিরলে প্রোফাইল নতুন করে (সার্ভার শেষ রক্তদানের তারিখ বা প্রসেসিং তালিকা বদলে থাকতে পারে)
     @Suppress("DEPRECATION")
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current

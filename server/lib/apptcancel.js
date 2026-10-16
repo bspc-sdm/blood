@@ -43,7 +43,7 @@ async function cancelStale(providerUid, keep, reason) {
       const lang = u.get('lang');
       return {
         uid: u.id,
-        token: u.get('fcmToken'),
+        tokens: require('./firebase').tokensOf(u),
         title: R.L(lang, 'Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে'),
         body: `${d.get('providerName') || ''} · ${dateLabel(d.get('date'))} · ${R.L(lang, reason[0], reason[1])}`,
         data: { type: 'appointment' },

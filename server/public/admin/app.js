@@ -119,7 +119,7 @@
     },
     log: {
       admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ', admin_bloodbank_edit: 'ব্লাড ব্যাংক সম্পাদনা', admin_bloodbank_delete: 'ব্লাড ব্যাংক মোছা',
-      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
+      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_ticket_reply: 'আপিল',
       admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
@@ -1057,6 +1057,7 @@
         h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: `${bn(x.count)}টি রিপোর্ট` }))] },
       { label: 'কার', cell: (x) => [x.authorName || '—', x.reportedUid || x.kind === 'homecare' || x.kind === 'provider' ? h('div', { class: 'small' }, userLink(x.reportedUid || x.targetPath.split('/')[1])) : null] },
       { label: 'লেখা', cell: (x) => [h('div', { class: 'body', text: x.text || '' }),
+        x.snapshot ? h('div', { class: 'small' }, h('span', { class: 'chip bad', text: 'রিপোর্টের পর বদলেছে' }), ' রিপোর্টের সময়ের লেখা: ', x.snapshot) : null,
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
       const body = { targetPath: x.targetPath, kind: x.kind, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
@@ -1219,7 +1220,11 @@
         h('span', { class: `chip ${u.disabled ? 'bad' : 'good'}`, text: u.disabled ? 'বন্ধ' : 'চালু' }),
         u.isOwner ? [h('span', { class: 'note', text: 'মালিকের অ্যাকাউন্ট' })]
           : u.disabled ? [actionBtn('অ্যাকাউন্ট খুলে দিন', 'tonal', uact('enable'), 'অ্যাকাউন্ট খুলে দেওয়া হয়েছে', reload)]
-            : [actionBtn('অ্যাকাউন্ট বন্ধ করুন', 'warn', uact('disable'), 'অ্যাকাউন্ট বন্ধ করা হয়েছে', reload)]),
+            : (() => {
+              // কারণ ব্যবহারকারী লগইনের চেষ্টায় দেখেন
+              const reason = reasonBox();
+              return [reason, actionBtn('অ্যাকাউন্ট বন্ধ করুন', 'warn', () => act('admin_user_action', { uid: u.uid, op: 'disable', reason: reason.value.trim() }), 'অ্যাকাউন্ট বন্ধ করা হয়েছে', reload)];
+            })()),
       homeCareCtl(),
       ctl('ওষুধের অর্ডার',
         u.blocks.medBlocked ? `অর্ডার নিয়ে না যাওয়ায় (${bn(u.blocks.medNoShow)} বার) অর্ডার দেওয়া বন্ধ আছে।` : u.blocks.medNoShow ? `অর্ডার নিয়ে যাননি ${bn(u.blocks.medNoShow)} বার।` : 'কোনো ব্লক নেই।',

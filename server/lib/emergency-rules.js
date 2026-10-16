@@ -24,16 +24,16 @@ function parseGroups(raw) {
 /**
  * এই ধাপে কাকে কাকে জানানো হবে। users: users ডক (uid সহ), center: { lat, lng },
  * groups: emergency.groups, already: আগে জানানো uid-এর Set।
- * ফল: [{ uid, group, km, token, lang }] — প্রতিটা খোলা গ্রুপে কাছের মানুষ আগে।
+ * ফল: [{ uid, group, km, tokens, lang }] — প্রতিটা খোলা গ্রুপে কাছের মানুষ আগে।
  */
 function pickWave(users, center, groups, radiusKm, already, now = Date.now()) {
   const out = [];
   for (const [g, x] of Object.entries(groups)) {
     if (x.closed || x.coming >= x.need) continue;
     const list = users
-      .filter((u) => u.bloodGroup === g && u.fcmToken && u.notify !== false && !already.has(u.uid)
+      .filter((u) => u.bloodGroup === g && (u.fcmToken || (Array.isArray(u.fcmTokens) && u.fcmTokens.length)) && u.notify !== false && !already.has(u.uid)
         && typeof u.lat === 'number' && typeof u.lng === 'number' && R.isEligibleDonor(u, now))
-      .map((u) => ({ uid: u.uid, group: g, km: R.distanceKm(center.lat, center.lng, u.lat, u.lng), token: u.fcmToken, lang: u.lang }))
+      .map((u) => ({ uid: u.uid, group: g, km: R.distanceKm(center.lat, center.lng, u.lat, u.lng), tokens: [...new Set([...(Array.isArray(u.fcmTokens) ? u.fcmTokens : []), ...(u.fcmToken ? [u.fcmToken] : [])])].slice(-5), lang: u.lang }))
       .filter((u) => u.km <= radiusKm)
       .sort((a, b) => a.km - b.km)
       .slice(0, waveSize(x.need - x.coming));

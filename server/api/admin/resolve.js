@@ -36,12 +36,12 @@ module.exports = handler(async (req, res) => {
   if (!result.already) {
     try {
       const user = await db.doc(`users/${result.uid}`).get();
-      const token = user.get('fcmToken');
-      if (token) {
+      const tokens = require('../../lib/firebase').tokensOf(user);
+      if (user.exists) {
         await sendPush([
           {
             uid: result.uid,
-            token,
+            tokens,
             title: approve
               ? R.L(user.get('lang'), 'Date corrected', 'তারিখ সংশোধন হয়েছে')
               : R.L(user.get('lang'), 'Date correction not approved', 'তারিখ সংশোধনের অনুরোধ বাতিল হয়েছে'),

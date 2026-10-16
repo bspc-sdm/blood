@@ -160,14 +160,14 @@ function fareOk(user, request, km) {
 /**
  * রিকোয়েস্টের জন্য কোন ডোনারদের জানানো হবে: মানানসই গ্রুপ, যোগ্য, নোটিফিকেশন চালু,
  * ধাপে ধাপে দূরত্ব (৫ → ১০ → ২৫ কিমি) যতক্ষণ না যথেষ্ট ডোনার পাওয়া যায়।
- * users: [{ uid, bloodGroup, lastDonationMillis, lat, lng, notify, fcmToken }]
+ * users: [{ uid, bloodGroup, lastDonationMillis, lat, lng, notify, fcmToken, fcmTokens }]
  */
 function pickDonors(request, users, now = Date.now()) {
   const candidates = users
     .filter(
       (u) =>
         u.uid !== request.requesterUid &&
-        u.fcmToken &&
+        (u.fcmToken || (Array.isArray(u.fcmTokens) && u.fcmTokens.length)) &&
         u.notify !== false &&
         typeof u.lat === 'number' &&
         typeof u.lng === 'number' &&

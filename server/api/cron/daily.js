@@ -36,10 +36,10 @@ module.exports = handler(
       .where('lastDonationMillis', '<=', windowEnd)
       .get();
     const reminders = eligibleSnap.docs
-      .filter((d) => d.get('fcmToken') && d.get('notify') !== false)
+      .filter((d) => d.get('notify') !== false)
       .map((d) => ({
         uid: d.id,
-        token: d.get('fcmToken'),
+        tokens: require('../../lib/firebase').tokensOf(d),
         title: R.L(d.get('lang'), 'You can donate blood again', 'আপনি আবার রক্ত দিতে পারবেন'),
         body: R.L(d.get('lang'), 'Open the app to see if anyone nearby needs blood.', 'অ্যাপ খুলে দেখুন আপনার আশেপাশে কারো রক্ত লাগবে কি না।'),
         data: { type: 'eligible' },
@@ -67,6 +67,13 @@ module.exports = handler(
     } catch (e) {
       console.error('home visit close failed', e);
     }
+    // সময় পেরোনো জরুরি আহ্বান বন্ধ, "আসছি" বলা ডোনারদের জানানো (রক্ত দিলে অ্যাপে জানাতে বলা)
+    let emergenciesClosed = 0;
+    try {
+      emergenciesClosed = await require('../../lib/emergency').closeExpired(now);
+    } catch (e) {
+      console.error('emergency close failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -90,7 +97,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed };
   },
   { methods: ['GET'] },
 );

@@ -131,7 +131,7 @@ module.exports = handler(async (req) => {
           .filter((u) => u.exists)
           .map((u) => ({
             uid: u.id,
-            token: u.get('fcmToken'),
+            tokens: require('../lib/firebase').tokensOf(u),
             title: R.L(u.get('lang'), `${before.patientGroup} blood request updated`, `${before.patientGroup} রক্তের রিকোয়েস্টে পরিবর্তন`),
             body: describe(before, changes, u.get('lang')).join(' · '),
             data: { requestId, type: 'request' },

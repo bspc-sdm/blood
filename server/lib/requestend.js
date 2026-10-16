@@ -9,7 +9,7 @@ async function pushUsers(uids, make) {
   if (!ids.length) return 0;
   try {
     const users = await db.getAll(...ids.map((id) => db.doc(`users/${id}`)));
-    return await sendPush(users.filter((u) => u.exists).map((u) => ({ uid: u.id, token: u.get('fcmToken'), ...make(u, u.get('lang')) })));
+    return await sendPush(users.filter((u) => u.exists).map((u) => ({ uid: u.id, tokens: require('./firebase').tokensOf(u), ...make(u, u.get('lang')) })));
   } catch (e) {
     console.error('request end push failed', e);
     return 0;

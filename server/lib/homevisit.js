@@ -30,8 +30,8 @@ async function pushUid(uid, en, bn, body) {
   if (!uid) return;
   try {
     const u = await db.doc(`users/${uid}`).get();
-    if (!u.exists || !u.get('fcmToken')) return;
-    await sendPush([{ uid, token: u.get('fcmToken'), title: R.L(u.get('lang'), en, bn), body, data: { type: 'homecare' } }]);
+    if (!u.exists) return;
+    await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body, data: { type: 'homecare' } }]);
   } catch (e) {
     console.error('homevisit close push failed', e.message);
   }

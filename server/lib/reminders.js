@@ -13,7 +13,7 @@ async function users(uids) {
 function msg(u, en, bn, bodyEn, bodyBn, data) {
   if (!u) return null; // টোকেন না থাকলেও অ্যাপের ঘণ্টার তালিকায় যায়
   const lang = u.get('lang');
-  return { uid: u.id, token: u.get('fcmToken'), title: R.L(lang, en, bn), body: R.L(lang, bodyEn, bodyBn), data };
+  return { uid: u.id, tokens: require('./firebase').tokensOf(u), title: R.L(lang, en, bn), body: R.L(lang, bodyEn, bodyBn), data };
 }
 
 async function dailyReminders(now = Date.now()) {

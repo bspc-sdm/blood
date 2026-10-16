@@ -42,3 +42,15 @@ test('জরুরি আহ্বান: চালু থাকা', () => {
   assert.ok(!E.isLive({ status: 'active', endsAt: NOW - 1 }, NOW));
   assert.ok(!E.isLive({ status: 'closed', endsAt: NOW + 1 }, NOW));
 });
+
+test('জরুরি আহ্বান: কয়েকটা ফোন থাকলে সবগুলোতে যায় (নতুন fcmTokens)', () => {
+  const center = { lat: 23.8, lng: 90.4 };
+  const users = [
+    u('multi', 'A+', 23.8, { fcmToken: 't2', fcmTokens: ['t1', 't2'] }),
+    u('onlyList', 'A+', 23.81, { fcmToken: null, fcmTokens: ['t3'] }),
+  ];
+  const wave = E.pickWave(users, center, E.parseGroups({ 'A+': 2 }), 25, new Set(), NOW);
+  assert.deepStrictEqual(wave.map((x) => x.uid), ['multi', 'onlyList']);
+  assert.deepStrictEqual(wave[0].tokens, ['t1', 't2']);
+  assert.deepStrictEqual(wave[1].tokens, ['t3']);
+});

@@ -27,16 +27,51 @@ class HttpError extends Error {
 }
 
 /** অ্যাপ থেকে আসা Firebase লগইন টোকেন যাচাই করে uid ফেরত দেয় */
+const SUPPORT_EMAIL = 'ekapkbd@gmail.com';
+
+/** বন্ধ করা অ্যাকাউন্ট: কারণ (থাকলে) আর আপিলের ইমেইলসহ বার্তা; অ্যাপ "account_disabled" দেখে লগআউট করে */
+async function accountDisabledError(req, uid) {
+  let reason = '';
+  if (uid) reason = await db.doc(`serverState/${uid}`).get().then((s) => (s.exists && s.get('disabledReason')) || '').catch(() => '');
+  const en = req && req.body && req.body.lang === 'en';
+  const msg = en
+    ? `Your account was suspended by the Lifolo team.${reason ? ` Reason: ${reason}.` : ''} To appeal, email ${SUPPORT_EMAIL}`
+    : `আপনার অ্যাকাউন্ট Lifolo টিম বন্ধ করেছে।${reason ? ` কারণ: ${reason}।` : ''} আপিল করতে ইমেইল করুন: ${SUPPORT_EMAIL}`;
+  return new HttpError(403, msg, 'account_disabled');
+}
+
+/** JWT-র ভেতর থেকে uid (যাচাই ছাড়া — শুধু বন্ধ অ্যাকাউন্টের বার্তার জন্য) */
+function uidFromToken(token) {
+  try {
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).sub || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * লগইন টোকেন যাচাই — বন্ধ বা লগইন বাতিল করা অ্যাকাউন্টও সাথে সাথে ধরা পড়ে (১ ঘণ্টা অপেক্ষা নয়)
+ */
+async function decodeToken(req, token) {
+  try {
+    return await admin.auth().verifyIdToken(token, true);
+  } catch (e) {
+    if (['auth/user-disabled', 'auth/id-token-revoked'].includes(e.code)) {
+      const uid = uidFromToken(token);
+      const u = uid ? await admin.auth().getUser(uid).catch(() => null) : null;
+      if (u && u.disabled) throw await accountDisabledError(req, uid);
+    }
+    const en = req && req.body && req.body.lang === 'en';
+    throw new HttpError(401, en ? 'Session expired, please log in again' : 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
+  }
+}
+
 async function verifyUser(req) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) throw new HttpError(401, 'লগইন দরকার');
-  try {
-    const decoded = await admin.auth().verifyIdToken(token);
-    return decoded.uid;
-  } catch {
-    throw new HttpError(401, 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
-  }
+  const decoded = await decodeToken(req, token);
+  return decoded.uid;
 }
 
 /** সব API একই নিয়মে: শুধু POST, JSON উত্তর, ভুল হলে বাংলায় বার্তা */
@@ -92,28 +127,58 @@ async function addInbox(items) {
   }
 }
 
+/**
+ * একজন ব্যবহারকারীর সব ফোনের পুশ টোকেন (নতুন অ্যাপ: fcmTokens তালিকা, পুরোনো অ্যাপ: fcmToken)।
+ * x: users ডকের snapshot বা তার data (uid সহ)। সর্বোচ্চ ৫টা ফোন।
+ */
+function tokensOf(x) {
+  if (!x) return [];
+  const get = (k) => (typeof x.get === 'function' ? x.get(k) : x[k]);
+  const list = Array.isArray(get('fcmTokens')) ? get('fcmTokens') : [];
+  const one = get('fcmToken');
+  return [...new Set([...list, ...(one ? [one] : [])].filter((t) => typeof t === 'string' && t))].slice(-5);
+}
+
+/**
+ * পুশ পাঠানো। items: [{ uid, tokens? | token?, title, body, data }]
+ * টোকেন না থাকলেও অ্যাপের ঘণ্টার তালিকায় (inbox) লেখা হয় — ফোনে নোটিফিকেশন বন্ধ থাকলেও পরে দেখা যায়।
+ */
 async function sendPush(items) {
   try {
     await addInbox(items);
   } catch (e) {
     console.error('inbox write failed', e);
   }
-  items = items.filter((it) => it.token);
+  // প্রতি ফোন একটা বার্তা
+  const flat = items.flatMap((it) => {
+    const toks = Array.isArray(it.tokens) ? it.tokens : it.token ? [it.token] : [];
+    return [...new Set(toks)].map((token) => ({ ...it, token }));
+  });
+  // একই ফোনে একই বার্তা দুবার নয় (দুই অ্যাকাউন্টে একই টোকেন থাকলেও)
+  const seen = new Set();
+  const list = flat.filter((it) => {
+    const k = `${it.token}|${it.title}|${it.body}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   let sent = 0;
-  for (let i = 0; i < items.length; i += 500) {
-    const chunk = items.slice(i, i + 500);
+  for (let i = 0; i < list.length; i += 500) {
+    const chunk = list.slice(i, i + 500);
+    // শুধু data বার্তা: অ্যাপ নিজে নোটিফিকেশন দেখায়, তাই লগআউট করা ফোনে বা অন্য অ্যাকাউন্টে ঢোকা ফোনে
+    // আগের অ্যাকাউন্টের নোটিফিকেশন বাদ দিতে পারে ("forUid" = কার জন্য)
     const messages = chunk.map((it) => ({
       token: it.token,
-      notification: { title: it.title, body: it.body },
-      data: it.data || {},
-      android: {
-        priority: 'high',
-        notification: { channelId: 'blood_requests', tag: it.data?.requestId || undefined },
+      data: {
+        ...Object.fromEntries(Object.entries(it.data || {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])),
+        title: String(it.title || '').slice(0, 200),
+        body: String(it.body || '').slice(0, 1000),
+        ...(it.uid ? { forUid: String(it.uid) } : {}),
       },
+      android: { priority: 'high' },
     }));
     const result = await admin.messaging().sendEach(messages);
-    const cleanup = db.batch();
-    let dirty = false;
+    const dead = [];
     result.responses.forEach((r, idx) => {
       if (r.success) {
         sent++;
@@ -122,13 +187,27 @@ async function sendPush(items) {
           r.error?.code,
         )
       ) {
-        cleanup.set(db.doc(`users/${chunk[idx].uid}`), { fcmToken: FieldValue.delete() }, { merge: true });
-        dirty = true;
+        dead.push(chunk[idx]);
       }
     });
-    if (dirty) await cleanup.commit();
+    // অচল টোকেন সরানো: তালিকা থেকে, আর পুরোনো ঘরে সেটাই থাকলে সেটাও
+    await Promise.all(dead.filter((it) => it.uid).map(async (it) => {
+      const ref = db.doc(`users/${it.uid}`);
+      try {
+        await db.runTransaction(async (t) => {
+          const u = await t.get(ref);
+          if (!u.exists) return;
+          t.update(ref, {
+            fcmTokens: FieldValue.arrayRemove(it.token),
+            ...(u.get('fcmToken') === it.token ? { fcmToken: FieldValue.delete() } : {}),
+          });
+        });
+      } catch (e) {
+        console.error('token cleanup failed', e.message);
+      }
+    }));
   }
   return sent;
 }
 
-module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, handler, sendPush };
+module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, decodeToken, accountDisabledError, handler, sendPush, tokensOf };

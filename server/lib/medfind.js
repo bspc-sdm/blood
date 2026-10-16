@@ -56,7 +56,7 @@ async function pushUid(uid, en, bn, body, data) {
   try {
     const u = await db.doc(`users/${uid}`).get();
     if (!u.exists) return;
-    await sendPush([{ uid, token: u.get('fcmToken'), title: R.L(u.get('lang'), en, bn), body: body || '', data }]);
+    await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body: body || '', data }]);
   } catch (e) {
     console.error('med find push failed', e.message);
   }

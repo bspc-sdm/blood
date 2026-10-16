@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -283,6 +284,11 @@ class ScreensTest {
         org.junit.Assert.assertEquals("Bank of Asia", TitleCase.name("bank of asia"))
         org.junit.Assert.assertEquals("McDonald", TitleCase.name("McDonald"))
         org.junit.Assert.assertEquals("রহিম উদ্দিন", TitleCase.name("রহিম উদ্দিন"))
+        // হাইফেন/ঊর্ধ্বকমার পরের অংশ
+        org.junit.Assert.assertEquals("Al-Amin", TitleCase.name("al-amin"))
+        org.junit.Assert.assertEquals("O'Brien", TitleCase.name("o'brien"))
+        // বার্তা Title Case ছাড়া
+        org.junit.Assert.assertEquals("Enter a valid email", TitleCase.plain(TitleCase.ui("Enter a valid email")))
     }
 
     @Test
@@ -335,6 +341,21 @@ class ScreensTest {
         show { CloseRequestDialog("r1", 3, donors, {}, { _, _ -> }) }
         rule.onNodeWithText("আর লাগবে না").performClick()
         shot("close_dialog_not_needed_bn")
+    }
+
+    /** ২.১২: জরুরি আহ্বান শেষে "রক্ত দিয়েছেন?", মালিকের কার্ডে বাতিলের কারণ, সাপ্তাহিক বন্ধ */
+    @Test
+    fun accountGapFixesBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                EmergencyAskCard(EmergencyAsk("e1", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", 0L)) {}
+                StatusReasonLine("rejected", "লাইসেন্স যাচাই করা যায়নি")
+                Text(closedDaysText(listOf(5)))
+                ErrorText(tr("Enter a valid email", "সঠিক ইমেইল দিন"))
+            }
+        }
+        shot("account_gaps_bn")
     }
 
     /** ২.৮: "জানি না" রক্তের গ্রুপ, বাদ দেওয়া ডোনার ফিরিয়ে আনা */

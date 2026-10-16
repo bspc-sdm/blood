@@ -20,7 +20,7 @@ async function notify(uid, en, bn, type = 'appointment') {
   try {
     const u = await db.doc(`users/${uid}`).get();
     // টোকেন না থাকলেও অ্যাপের ঘণ্টার তালিকায় যায়
-    if (u.exists) await sendPush([{ uid, token: u.get('fcmToken'), title: R.L(u.get('lang'), en, bn), body: '', data: { type } }]);
+    if (u.exists) await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body: '', data: { type } }]);
   } catch (e) {
     console.error('delete-account push failed', e);
   }
