@@ -81,6 +81,13 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
+    // নার্সের চেম্বার বন্ধ (একবারের কাজ)
+    let nurseChambers = null;
+    try {
+      nurseChambers = await require('../../lib/cleanup').closeNurseChambers();
+    } catch (e) {
+      console.error('nurse chambers close failed', e);
+    }
     // ওষুধ খোঁজা: বন্ধ হওয়ার ২ দিন পরের খোঁজ মোছা
     let medFindsDeleted = 0;
     try {
@@ -131,7 +138,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers };
   },
   { methods: ['GET'] },
 );

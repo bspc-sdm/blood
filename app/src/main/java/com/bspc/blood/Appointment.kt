@@ -78,7 +78,7 @@ fun AppointmentTab(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(CareNav.openHomeCare.value) {
         if (CareNav.openHomeCare.value) {
-            tab = 2
+            tab = 1
             CareNav.openHomeCare.value = false
         }
     }
@@ -100,7 +100,7 @@ fun AppointmentTab(
             )
             if (isProvider && hasChamber == false) {
                 IconButton(onClick = onEditChamber) {
-                    AppIcon(R.drawable.ic_add, tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
+                    AppIcon(R.drawable.ic_add, if (me?.approvedBadge == "nurse") tr("Turn on home care", "বাসায় সেবা চালু করুন") else tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
                 }
             }
             IconButton(onClick = onOpenMyAppointments) {
@@ -110,21 +110,21 @@ fun AppointmentTab(
         PillTabs(
             tab,
             listOf(
+                // নার্সের চেম্বার নেই — নার্স "বাসায় সেবা"-র ভেতরে
                 PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
-                PillTab(tr("Nurse", "নার্স"), R.drawable.ic_medical_services),
                 PillTab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health),
             ),
             { tab = it },
         )
         when (tab) {
-            0, 1 -> ProviderList(PROVIDER_TYPES[tab], profile)
+            0 -> ProviderList("doctor", profile)
             else -> HomeCareTab(profile, me, onEditChamber)
         }
     }
     if (isProvider && hasChamber == true) {
         SmallFab(
-            tr("My chamber", "আমার চেম্বার"),
-            R.drawable.ic_stethoscope,
+            if (me?.approvedBadge == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
+            if (me?.approvedBadge == "nurse") R.drawable.ic_home_health else R.drawable.ic_stethoscope,
             onEditChamber,
             Modifier.align(Alignment.BottomEnd).padding(16.dp),
         )
@@ -736,7 +736,11 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
         loading = false
     }
 
-    Scaffold(topBar = { BackTopBar(tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack) }) { padding ->
+    // নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবা
+    val nurse = type == "nurse"
+    Scaffold(topBar = {
+        BackTopBar(if (nurse) tr("My home care & profile", "আমার বাসায় সেবা ও প্রোফাইল") else tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack)
+    }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -745,9 +749,11 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 LoadingBox()
                 return@Column
             }
-            SwitchRow(tr("Show me in the list", "তালিকায় আমাকে দেখাও"), null, listed) { listed = it }
-            SwitchRow(tr("Take appointments through the app", "অ্যাপে অ্যাপয়েন্টমেন্ট নেব"), null, takes) { takes = it }
-            HorizontalDivider()
+            if (!nurse) {
+                SwitchRow(tr("Show me in the list", "তালিকায় আমাকে দেখাও"), null, listed) { listed = it }
+                SwitchRow(tr("Take appointments through the app", "অ্যাপে অ্যাপয়েন্টমেন্ট নেব"), null, takes) { takes = it }
+                HorizontalDivider()
+            }
 
             SectionTitle(tr("Specialty", "বিশেষজ্ঞতা"))
             ChipRows(Specialties.of(type), specialties.toSet(), perRow = 2, label = { Specialties.label(it) }) {
@@ -769,6 +775,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
             }
             HorizontalDivider()
 
+            if (!nurse) {
             SectionTitle(tr("Chambers (up to 3)", "চেম্বার (সর্বোচ্চ ৩টা)"))
             oldChamber?.let {
                 InfoText(
@@ -791,9 +798,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }
+            }
 
             run {
-                HorizontalDivider()
+                if (!nurse) HorizontalDivider()
                 SectionTitle(tr("Home care", "বাসায় সেবা"))
                 SwitchRow(tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"), null, home.enabled) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
                 if (home.enabled) {
@@ -871,7 +879,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 onClick = {
                     errorMsg = when {
                         specialties.isEmpty() -> tr("Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
-                        chambers.isEmpty() && !home.enabled ->
+                        nurse && !home.enabled -> tr("Turn on home care", "বাসায় সেবা চালু করুন")
+                        !nurse && chambers.isEmpty() && !home.enabled ->
                             tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
                         chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
@@ -893,7 +902,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                             busy = true
                             runCatching {
                                 Appointments.save(
-                                    listed, takes, specialties.toList(), degrees.trim(), gender, chambers.toList(), home,
+                                    listed && !nurse, takes && !nurse, specialties.toList(), degrees.trim(), gender,
+                                    if (nurse) emptyList() else chambers.toList(), home,
                                 )
                             }
                                 .onSuccess { n ->

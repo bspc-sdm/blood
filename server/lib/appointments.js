@@ -8,6 +8,8 @@ const { approvedBadge, useQuota, userName } = require('./community-db');
 const K = require('./care');
 
 const PROVIDER_TYPES = ['doctor', 'nurse'];
+// চেম্বার আর অ্যাপয়েন্টমেন্ট শুধু ডাক্তারের; নার্স শুধু বাসায় সেবা (১৬ অক্টোবর ২০২৬)
+const CHAMBER_TYPES = ['doctor'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function provider(d) {
@@ -56,6 +58,9 @@ function dateLabel(millis) {
 /** আগের ভার্সনের অ্যাপ (এক চেম্বার, লেখা দিয়ে) */
 async function legacySave(req, user, badge) {
   const b = req.body || {};
+  if (!CHAMBER_TYPES.includes(badge)) {
+    throw new HttpError(409, C.tr(req, 'Nurses don\'t have chambers now. Update the app and turn on home care.', 'নার্সের চেম্বার আর নেই। অ্যাপ আপডেট করে বাসায় সেবা চালু করুন।'), 'update_required');
+  }
   const chamber = C.cleanText(b.chamber, 120);
   const schedule = C.cleanText(b.schedule, 120);
   if (!chamber) throw new HttpError(400, C.tr(req, 'Enter your chamber / hospital', 'চেম্বার / হাসপাতালের নাম দিন'));
@@ -95,6 +100,8 @@ module.exports = {
     const b = req.body || {};
     const type = b.type;
     if (!PROVIDER_TYPES.includes(type)) throw new HttpError(400, C.tr(req, 'Choose doctor or nurse', 'ডাক্তার বা নার্স বেছে নিন'));
+    // নার্সের চেম্বার নেই — পুরোনো অ্যাপের "নার্স" তালিকা ফাঁকা (নার্স "বাসায় সেবা"-তে)
+    if (!CHAMBER_TYPES.includes(type) && b.homeVisit !== true) return { items: [] };
     const f = {
       district: typeof b.district === 'string' && DISTRICTS.some((d) => d.bn === b.district) ? b.district : null,
       upazilaId: Number.isInteger(b.upazilaId) ? b.upazilaId : null,
@@ -143,6 +150,7 @@ module.exports = {
   },
 
   async provider_save(req, user) {
+    // (নার্স: চেম্বার নেই, শুধু বাসায় সেবা — নিচে CHAMBER_TYPES)
     // এই সার্ভারের মেমোরির তালিকা নতুন করে (নিজের বদল সাথে সাথে দেখা যায়)
     require('./memcache').clear('providers:');
     require('./memcache').clear('home:');
@@ -173,8 +181,10 @@ module.exports = {
     if (hv.error) throw err(hv.error);
     const homeVisit = hv.homeVisit;
     const keepHome = b.homeVisit === undefined;
-    // শুধু বাসায় গিয়ে সেবা দিলে চেম্বার না থাকলেও চলে
-    const parsed = b.chambers.length === 0 && homeVisit.enabled ? { chambers: [] } : K.parseChambers(b.chambers, hospitals);
+    // শুধু বাসায় গিয়ে সেবা দিলে চেম্বার না থাকলেও চলে; নার্সের চেম্বার নেই (পাঠালেও বাদ)
+    const nurse = !CHAMBER_TYPES.includes(badge);
+    if (nurse && !homeVisit.enabled && !keepHome) throw err(['Turn on home care', 'বাসায় সেবা চালু করুন']);
+    const parsed = nurse || (b.chambers.length === 0 && homeVisit.enabled) ? { chambers: [] } : K.parseChambers(b.chambers, hospitals);
     if (parsed.error) throw err(parsed.error);
     const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
     if (homeVisit.enabled && b.homeVisit?.termsAccepted !== true) {
@@ -191,8 +201,8 @@ module.exports = {
         throw err(['Set your current location or choose upazilas for home visits', 'বাসায় সেবার জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন']);
       }
     }
-    const listed = b.listed !== false;
-    const takes = b.appointments === true;
+    const listed = nurse ? false : b.listed !== false;
+    const takes = nurse ? false : b.appointments === true;
     // যাচাই করা নাম (ব্যাজের) — প্রোফাইলের নাম পরে বদলালেও তালিকায় যাচাই করা নামই থাকে
     const bs = await db.doc(`badges/${user.uid}`).get();
     const name = ((bs.exists && bs.get('name')) || (await userName(user.uid))).slice(0, 80);
@@ -248,7 +258,7 @@ module.exports = {
     const notTaking = () => new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
     // অ্যাডমিন বন্ধ করলে, বা ব্যাজ অন্য পেশার হলে বুকিং নয়
     if (!ps.exists || ps.get('adminSuspended') === true || !K.isListed(ps.data()) || !K.takesAppointments(ps.data())
-      || (await approvedBadge(providerUid)) !== ps.get('type') || !PROVIDER_TYPES.includes(ps.get('type'))) {
+      || (await approvedBadge(providerUid)) !== ps.get('type') || !CHAMBER_TYPES.includes(ps.get('type'))) {
       throw notTaking();
     }
     const chambers = K.chambersOf(ps.data());

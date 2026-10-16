@@ -57,4 +57,26 @@ async function cleanupRemovedFeatures() {
   return { done: allDone, counts };
 }
 
-module.exports = { cleanupRemovedFeatures };
+/**
+ * এক-বারের: নার্সের চেম্বার বন্ধ (নার্স শুধু বাসায় সেবা) — চেম্বার মুছে, চেম্বারের তালিকা আর অ্যাপয়েন্টমেন্ট বন্ধ,
+ * সামনের চালু অ্যাপয়েন্টমেন্ট বাতিল (রোগীরা নোটিফিকেশন পান)। শেষে config/cleanup.nurseChambers।
+ */
+async function closeNurseChambers() {
+  const flagRef = db.doc('config/cleanup');
+  const flag = await flagRef.get();
+  if (flag.exists && flag.get('nurseChambers')) return null;
+  const snap = await db.collection('providers').where('type', '==', 'nurse').limit(1000).get();
+  let closed = 0;
+  let cancelled = 0;
+  for (const d of snap.docs) {
+    const hasChambers = (Array.isArray(d.get('chambers')) && d.get('chambers').length) || d.get('chamber');
+    if (!hasChambers && d.get('listed') !== true && d.get('appointments') !== true && d.get('active') !== true) continue;
+    await d.ref.update({ chambers: [], chamber: FieldValue.delete(), listed: false, appointments: false, active: false });
+    closed++;
+    cancelled += (await require('./apptcancel').cancelStale(d.id, () => false, ['Nurses now offer home care only', 'নার্সরা এখন শুধু বাসায় সেবা দেন'])) || 0;
+  }
+  if (snap.size < 1000) await flagRef.set({ nurseChambers: Date.now() }, { merge: true });
+  return { closed, cancelled };
+}
+
+module.exports = { cleanupRemovedFeatures, closeNurseChambers };
