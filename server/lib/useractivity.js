@@ -164,9 +164,16 @@ async function jobs(uid) { // FEATURE:jobs
       headline: p.get('headline') || '', public: p.get('public') === true, openToWork: p.get('openToWork') === true,
       experience: (p.get('experience') || []).length, education: (p.get('education') || []).length, skills: (p.get('skills') || []).length,
     } : null,
-    employer: emp.exists ? { name: emp.get('name'), kind: emp.get('kind'), verified: emp.get('verified') === true, verifyStatus: emp.get('verifyStatus') || 'none', district: emp.get('district') || '' } : null,
+    employer: emp.exists ? {
+      name: emp.get('name'), kind: emp.get('kind'), verified: emp.get('verified') === true, verifyStatus: emp.get('verifyStatus') || 'none', district: emp.get('district') || '',
+      rejectedCount: emp.get('rejectedCount') || 0, reportCount: emp.get('reportCount') || 0, warnCount: emp.get('warnCount') || 0,
+      postingBlocked: emp.get('postingBlocked') === true, blockReason: emp.get('blockReason') || '',
+    } : null,
     applications: apps.docs.map((a, i) => ({
       at: a.get('createdAt') || 0, status: a.get('status'),
+      interviewAt: (a.get('interview') || {}).at || 0, interviewResponse: (a.get('interview') || {}).response || '',
+      offer: a.get('offer') ? { designation: a.get('offer').designation, salary: a.get('offer').salary, response: a.get('offer').response } : null,
+      withdrawReason: a.get('withdrawReason') || '',
       title: jobDocs[i] && jobDocs[i].exists ? jobDocs[i].get('title') : '(মুছে গেছে)',
       org: jobDocs[i] && jobDocs[i].exists ? jobDocs[i].get('orgName') : '',
     })).sort((a, b) => b.at - a.at),

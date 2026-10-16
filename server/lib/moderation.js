@@ -155,6 +155,7 @@ module.exports = {
       status: 'open',
       createdAt: Date.now(),
     });
+    if (kind === 'job') await require('./jobs').countReport(target); // FEATURE:jobs
     return { ok: true };
   },
 

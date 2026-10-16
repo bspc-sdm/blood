@@ -74,10 +74,10 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
-    // শেষ তারিখ পার হওয়া চাকরির বিজ্ঞাপন বন্ধ
+    // চাকরি: শেষ তারিখ পার হলে বিরতি, প্রস্তাবের মেয়াদ, সেভ করা চাকরির মনে করানো
     let jobsClosed = 0; // FEATURE:jobs
     try {
-      jobsClosed = await require('../../lib/jobs').closeExpiredJobs(now); // FEATURE:jobs
+      jobsClosed = await require('../../lib/jobs').daily(now); // FEATURE:jobs
     } catch (e) {
       console.error('job close failed', e);
     }
