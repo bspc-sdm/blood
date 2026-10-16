@@ -100,8 +100,11 @@ object Ambulances {
         return (0 until a.length()).map { parse(a.getJSONObject(it)) }
     }
 
-    suspend fun near(district: String, upazilaId: Int?, type: String?): List<Ambulance> =
-        list(call("ambulances", JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply { if (type != null) put("type", type) }))
+    /** তালিকা আর কয়টা গাড়ি এখন ট্রিপে আছে (সেগুলো তালিকায় দেখায় না) */
+    suspend fun near(district: String, upazilaId: Int?, type: String?): Pair<List<Ambulance>, Int> {
+        val o = call("ambulances", JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply { if (type != null) put("type", type) })
+        return list(o) to o.optInt("busyCount")
+    }
 
     suspend fun mine(): List<Ambulance> = list(call("ambulance_mine"))
 
@@ -237,12 +240,13 @@ private fun AmbulanceFinder(profile: Profile) {
     var reporting by remember { mutableStateOf<Ambulance?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
+    var busyCount by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(district, upazilaId, type) {
         val d = district ?: return@LaunchedEffect
         loading = true
         errorMsg = null
-        runCatching { Ambulances.near(d, upazilaId, type) }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+        runCatching { Ambulances.near(d, upazilaId, type) }.onSuccess { list = it.first; busyCount = it.second }.onFailure { errorMsg = it.message }
         loading = false
     }
 
@@ -266,12 +270,17 @@ private fun AmbulanceFinder(profile: Profile) {
                 InfoText(infoMsg)
                 ErrorText(errorMsg)
             }
+            // ট্রিপে থাকা গাড়ি তালিকায় নেই — শুধু সংখ্যা, যাতে বোঝা যায় এলাকায় গাড়ি আছে, এখন ব্যস্ত
+            if (!loading && busyCount > 0) item {
+                IconLine(R.drawable.ic_info, tr("$busyCount more on a trip now — they'll be listed when they're free.", "আরও ${num(busyCount)}টা গাড়ি এখন ট্রিপে আছে — খালি হলে তালিকায় আসবে।"))
+            }
             when {
                 loading -> item { LoadingBox() }
                 list.isEmpty() -> item {
                     EmptyState(
                         R.drawable.ic_ambulance,
-                        tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
+                        if (busyCount > 0) tr("All ambulances here are on a trip now", "এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে")
+                        else tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
                         tr("Call 999 above. Know an ambulance service? Ask them to join from \"My ambulance\".", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে \"আমার অ্যাম্বুলেন্স\" থেকে যোগ হতে বলুন।"),
                         Modifier.padding(top = 24.dp),
                     )
@@ -481,14 +490,19 @@ fun MyAmbulancesSection(profile: Profile) {
                     stats[a.id]?.let { st -> CallStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
                     if (a.status == "approved") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(tr("Available now", "এখন খালি আছি"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Text(if (a.available) tr("Available now", "এখন খালি আছি") else tr("On a trip / busy", "ট্রিপে আছি / ব্যস্ত"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             Switch(checked = a.available, onCheckedChange = { on ->
                                 scope.launch {
                                     runCatching { Ambulances.setAvailable(a.id, on) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
                                 }
                             })
                         }
-                        SmallNote(tr("Stays on for 12 hours, then turns off by itself — turn it on again when you're free.", "চালু করলে ১২ ঘণ্টা থাকে, তারপর নিজে বন্ধ হয়। খালি হলে আবার চালু করুন।"))
+                        SmallNote(
+                            tr(
+                                "Turn off when you go on a trip — you won't be listed until you turn it on again. \"Available\" lasts 12 hours. If you forget, after 12 hours you're listed again as \"Call to check\".",
+                                "ট্রিপে গেলে বন্ধ করুন — আবার চালু না করা পর্যন্ত তালিকায় দেখাবে না। \"খালি আছি\" ১২ ঘণ্টা থাকে। চালু করতে ভুলে গেলে ১২ ঘণ্টা পর \"ফোনে জেনে নিন\" হিসেবে আবার তালিকায় আসবে।",
+                            ),
+                        )
                     }
                 }
             }

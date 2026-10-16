@@ -23,6 +23,17 @@ function availableNow(x, now = Date.now()) {
   return now - at <= AVAILABLE_MS;
 }
 
+/**
+ * ট্রিপে আছে (চালক নিজে "খালি নেই" করেছেন) — তালিকায় দেখায় না; ট্রিপ শেষে "খালি আছি" চাপলে আবার আসে।
+ * চালক ভুলে গেলে ১২ ঘণ্টা পর আবার তালিকায় ("ফোনে জেনে নিন"), যাতে গাড়িটা চিরদিন হারিয়ে না যায়।
+ * নতুন যোগ হওয়া গাড়ি (কখনো বন্ধ করা হয়নি) ব্যস্ত ধরা হয় না।
+ */
+function busyNow(x, now = Date.now()) {
+  if (x.available !== false) return false;
+  const at = x.busyAt || x.availableAt || 0;
+  return at > 0 && now - at < AVAILABLE_MS;
+}
+
 function view(d, mine = false) {
   const x = d.data();
   const n = x.ratingCount || 0;
@@ -36,7 +47,8 @@ function view(d, mine = false) {
     area: x.area || '',
     fare: x.fare || '',
     available: availableNow(x),
-    availableAt: x.available === false ? 0 : x.availableAt || x.updatedAt || x.createdAt || 0,
+    // ০ = এখন ট্রিপে; অন্যথায় শেষ জানানোর সময় (খালি না হলে "ফোনে জেনে নিন")
+    availableAt: busyNow(x) ? 0 : x.availableAt || x.updatedAt || x.createdAt || 1,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
     ...(mine ? { vehicleNo: x.vehicleNo, status: x.status, statusReason: x.statusReason || '' } : {}),
@@ -72,13 +84,16 @@ const actions = {
     const now = Date.now();
     const rateable = new Set(calls.docs.filter((c) => now - (c.get('at') || 0) <= RATE_WINDOW_MS
       && now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS).map((c) => c.get('ambulanceId')));
-    let items = snap.docs.map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
-    if (TYPES.includes(b.type)) items = items.filter((a) => a.types.includes(b.type));
+    let docs = snap.docs;
+    if (TYPES.includes(b.type)) docs = docs.filter((d) => (d.get('types') || []).includes(b.type));
+    // ট্রিপে থাকা গাড়ি তালিকায় নয় — শুধু কয়টা ট্রিপে আছে তা জানানো
+    const busy = docs.filter((d) => busyNow(d.data(), now));
+    let items = docs.filter((d) => !busyNow(d.data(), now)).map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
     items.sort((a, c) =>
       (c.available - a.available) ||
       ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) ||
       (c.rating - a.rating) || (c.ratingCount - a.ratingCount));
-    return { items };
+    return { items, busyCount: busy.length };
   },
 
   async ambulance_mine(req, user) {
@@ -143,7 +158,8 @@ const actions = {
     const ref = db.doc(`ambulances/${id}`);
     const s = await ref.get();
     if (!s.exists || s.get('ownerUid') !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    await ref.update({ available: available === true, availableAt: Date.now(), updatedAt: Date.now() });
+    const on = available === true;
+    await ref.update({ available: on, availableAt: Date.now(), busyAt: on ? FieldValue.delete() : Date.now(), updatedAt: Date.now() });
     return { ok: true };
   },
 

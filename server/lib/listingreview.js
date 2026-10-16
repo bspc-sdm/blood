@@ -8,7 +8,7 @@ const C = require('./community');
 // তালিকার তথ্য নয় — অবস্থা, হিসাব আর সময়
 const META = new Set([
   'status', 'ownerUid', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy', 'suspendedAt', 'approvedName', 'lastApproved',
-  'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'closedUntil', 'editRejectedAt',
+  'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'closedUntil', 'editRejectedAt',
   'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
 ]);
 
