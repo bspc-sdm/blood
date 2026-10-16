@@ -62,6 +62,10 @@ async function legacySave(req, user, badge) {
   if (!schedule) throw new HttpError(400, C.tr(req, 'Enter your days and time', 'কোন দিন ও কখন বসেন লিখুন'));
   if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
   const cur = await db.doc(`providers/${user.uid}`).get();
+  // অ্যাডমিন বন্ধ করলে বা ব্যাজ বাতিল হলে পুরোনো অ্যাপ দিয়ে আবার চালু করা যায় না
+  if (cur.exists && (cur.get('adminSuspended') === true || cur.get('badgeRejected') === true)) {
+    throw new HttpError(403, C.tr(req, 'Your listing is turned off by the Lifolo team', 'আপনার তালিকা Lifolo টিম বন্ধ রেখেছে'));
+  }
   if (cur.exists && Array.isArray(cur.get('chambers'))) {
     throw new HttpError(409, C.tr(req, 'Please update the app to edit your chambers', 'চেম্বার বদলাতে অ্যাপ আপডেট করুন'));
   }
@@ -118,7 +122,8 @@ module.exports = {
     });
     // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
     const badges = docs.length ? await db.getAll(...docs.map((d) => db.doc(`badges/${d.id}`))) : [];
-    const ok = new Set(badges.filter((x) => x.exists && x.get('status') === 'approved').map((x) => x.id));
+    // ব্যাজ অনুমোদিত আর একই পেশার (ডাক্তারের তালিকায় শুধু ডাক্তার)
+    const ok = new Set(badges.filter((x) => x.exists && x.get('status') === 'approved' && x.get('type') === type).map((x) => x.id));
     const items = docs.filter((d) => ok.has(d.id)).map(provider);
     items.sort((p, q) => q.ratingCount - p.ratingCount || String(p.name).localeCompare(String(q.name)));
     return { items: items.slice(0, 150) };
@@ -223,14 +228,17 @@ module.exports = {
     if (!R.isValidId(providerUid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (providerUid === user.uid) throw new HttpError(400, C.tr(req, 'You can\'t book yourself', 'নিজের কাছে অ্যাপয়েন্টমেন্ট নেওয়া যায় না'));
     const today = R.todayDhakaUtcMidnight();
-    if (!Number.isInteger(date) || date < today || date > today + 60 * DAY_MS) {
+    // তারিখ = দিনের শুরু (অন্য সংখ্যা দিয়ে একই দিনে আলাদা সিরিয়াল বা দুবার বুকিং নয়)
+    if (!Number.isInteger(date) || date % DAY_MS !== 0 || date < today || date > today + 60 * DAY_MS) {
       throw new HttpError(400, C.tr(req, 'Pick a date within the next 60 days', 'আগামী ৬০ দিনের মধ্যে তারিখ দিন'));
     }
     const note = C.cleanText(req.body?.note, 300);
     if (!note) throw new HttpError(400, C.tr(req, 'Write the reason for the visit', 'কী সমস্যা, সংক্ষেপে লিখুন'));
     const ps = await db.doc(`providers/${providerUid}`).get();
     const notTaking = () => new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
-    if (!ps.exists || !K.isListed(ps.data()) || !K.takesAppointments(ps.data()) || !PROVIDER_TYPES.includes(await approvedBadge(providerUid))) {
+    // অ্যাডমিন বন্ধ করলে, বা ব্যাজ অন্য পেশার হলে বুকিং নয়
+    if (!ps.exists || ps.get('adminSuspended') === true || !K.isListed(ps.data()) || !K.takesAppointments(ps.data())
+      || (await approvedBadge(providerUid)) !== ps.get('type') || !PROVIDER_TYPES.includes(ps.get('type'))) {
       throw notTaking();
     }
     const chambers = K.chambersOf(ps.data());

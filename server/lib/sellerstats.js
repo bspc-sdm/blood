@@ -22,12 +22,27 @@ async function bumpCalls(collection, id, at = Date.now(), newCaller = false) {
 
 const bumpAmbulance = (id, at, newCaller) => bumpCalls('ambulanceStats', id, at, newCaller);
 
+function raterKey(collection, id, raterUid) {
+  return require('node:crypto').createHash('sha256').update(`${collection}:${id}:${raterUid}`).digest('hex').slice(0, 16);
+}
+
+/** অ্যাকাউন্ট মুছলে: তাঁর দেওয়া সাম্প্রতিক রেটিং/মন্তব্য মালিকের হিসাব থেকে সরানো */
+async function removeRecentRating(collection, id, raterUid) {
+  const who = raterKey(collection, id, raterUid);
+  const ref = db.doc(`${collection}/${id}`);
+  await db.runTransaction(async (t) => {
+    const s = await t.get(ref);
+    const recent = (s.exists && s.get('recent')) || [];
+    if (recent.some((r) => r.who === who)) t.set(ref, { recent: recent.filter((r) => r.who !== who) }, { merge: true });
+  }).catch((e) => console.error('remove rating failed', e.message));
+}
+
 /** সাম্প্রতিক ১০টা রেটিং/মন্তব্য (কে দিয়েছেন তা ছাড়া) */
 async function addRecentRating(collection, id, rating, comment, raterUid) {
   try {
     const ref = db.doc(`${collection}/${id}`);
     // একই মানুষ রেটিং বদলালে আগেরটা সরে নতুনটা বসে (দুবার দেখায় না); কে দিয়েছেন তা গোপন সংকেতে
-    const who = raterUid ? require('node:crypto').createHash('sha256').update(`${collection}:${id}:${raterUid}`).digest('hex').slice(0, 16) : null;
+    const who = raterUid ? raterKey(collection, id, raterUid) : null;
     await db.runTransaction(async (t) => {
       const s = await t.get(ref);
       const recent = ((s.exists && s.get('recent')) || []).filter((r) => !who || r.who !== who).slice(-9);
@@ -77,4 +92,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, bumpCalls, bumpAmbulance, addAmbulanceRating, addRecentRating, callSummary };
+module.exports = { actions, bumpCalls, bumpAmbulance, addAmbulanceRating, addRecentRating, removeRecentRating, callSummary };

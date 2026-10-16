@@ -109,15 +109,27 @@ object ServerApi {
         post("/api/admin/resolve", JSONObject().put("id", id).put("approve", approve))
     }
 
+    /** কোড চাওয়ার সময় সার্ভারের দেওয়া চিহ্ন (rid) — যাচাইয়ে পাঠালে অন্য কেউ ভুল কোড দিয়ে আটকাতে পারে না */
+    private var loginRidEmail = ""
+    private val loginRids = ArrayList<String>()
+
     /** লগইন: ইমেইলে কোড পাঠানো (লগইন ছাড়াই) */
     suspend fun sendLoginCode(email: String) {
-        request("/api/auth/send-code", JSONObject().put("email", email), null)
+        val rid = request("/api/auth/send-code", JSONObject().put("email", email), null).optString("rid")
+        synchronized(loginRids) {
+            if (loginRidEmail != email) { loginRids.clear(); loginRidEmail = email }
+            if (rid.isNotBlank()) { loginRids += rid; while (loginRids.size > 3) loginRids.removeAt(0) }
+        }
     }
 
     /** লগইন: কোড যাচাই, Firebase লগইন টোকেন ফেরত দেয় */
-    suspend fun verifyLoginCode(email: String, code: String): String =
-        request("/api/auth/verify-code", JSONObject().put("email", email).put("code", code), null)
+    suspend fun verifyLoginCode(email: String, code: String): String {
+        val rids = synchronized(loginRids) { if (loginRidEmail == email) loginRids.toList() else emptyList() }
+        val body = JSONObject().put("email", email).put("code", code)
+        if (rids.isNotEmpty()) body.put("rids", org.json.JSONArray(rids))
+        return request("/api/auth/verify-code", body, null)
             .optString("token").ifBlank { throw IllegalStateException(tr("Login failed, try again", "লগইন হয়নি, আবার চেষ্টা করুন")) }
+    }
 
     internal suspend fun post(path: String, body: JSONObject): JSONObject {
         val user = FirebaseAuth.getInstance().currentUser

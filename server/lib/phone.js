@@ -49,7 +49,8 @@ const actions = {
     await useQuota(req, user.uid, 'phoneCode');
     // একই নম্বরে: দিনে সর্বোচ্চ ৩টা, দুটোর মাঝে ১ মিনিট — যাতে অনেক অ্যাকাউন্ট দিয়ে কাউকে SMS-এ বিরক্ত করা না যায়
     const R = require('./rules');
-    const limRef = db.doc(`phoneLimits/${phone}`);
+    // নম্বর সরাসরি ডকের নামে নয়, গোপন চাবি দিয়ে হ্যাশ করে
+    const limRef = db.doc(`phoneLimits/h_${crypto.createHmac('sha256', String(process.env.CRON_SECRET || process.env.FIREBASE_SERVICE_ACCOUNT || 'phone')).update(`lim:${phone}`).digest('hex').slice(0, 40)}`);
     await db.runTransaction(async (t) => {
       const s = await t.get(limRef);
       const day = R.dhakaDayKey();

@@ -60,7 +60,8 @@ module.exports = handler(async (req) => {
       status: 'accepted',
       createdAtMillis: Date.now(),
     });
-    t.set(stateRef, { respondDay: day, respondCount: used + 1 }, { merge: true });
+    // respondedTo সার্ভারের নিজের তালিকাতেও (অ্যাপ প্রোফাইল বদলালেও অ্যাকাউন্ট মোছার সময় সব সাড়া খুঁজে পাওয়া যায়)
+    t.set(stateRef, { respondDay: day, respondCount: used + 1, respondedTo: { [requestId]: Date.now() } }, { merge: true });
     // ডোনারের "প্রসেসিং" তালিকার জন্য: কোন কোন রিকোয়েস্টে রাজি হয়েছেন (অ্যাপ নিজের প্রোফাইল থেকে পড়ে)
     // respondedTo স্থায়ী তালিকা: অ্যাকাউন্ট মুছলে নিজের সাড়া (নাম ও ফোন সহ) খুঁজে মোছার জন্য
     t.set(userRef, { commitments: { [requestId]: Date.now() }, respondedTo: { [requestId]: Date.now() } }, { merge: true });

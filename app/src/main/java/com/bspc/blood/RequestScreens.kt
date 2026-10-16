@@ -465,8 +465,8 @@ fun RequestDetailScreen(
                                 onClick = {
                                     act {
                                         ServerApi.updateResponse(r.id, "donated")
-                                        val day = ProfileRepository.markDonatedToday(uid!!)
-                                        onProfileChanged(profile.copy(lastDonationMillis = day))
+                                        // তারিখ সার্ভার বসায় (বাংলাদেশের দিন ধরে); ফোন থেকে আলাদা করে লেখা হয় না
+                                        ProfileRepository.load(uid!!)?.let(onProfileChanged)
                                     }
                                 },
                                 enabled = !busy,
@@ -525,8 +525,8 @@ fun RequestDetailScreen(
                                 onClick = {
                                     act {
                                         ServerApi.updateResponse(r.id, "donated")
-                                        val day = ProfileRepository.markDonatedToday(uid!!)
-                                        onProfileChanged(profile.copy(lastDonationMillis = day))
+                                        // তারিখ সার্ভার বসায় (বাংলাদেশের দিন ধরে); ফোন থেকে আলাদা করে লেখা হয় না
+                                        ProfileRepository.load(uid!!)?.let(onProfileChanged)
                                     }
                                 },
                                 enabled = !busy,

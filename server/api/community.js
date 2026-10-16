@@ -396,6 +396,8 @@ const actions = {
     if (!(await isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
     const uid = req.body?.uid;
     if (!R.isValidId(uid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    // নিজের ব্যাজ নিজে অনুমোদন/বাতিল নয় — অন্য অ্যাডমিন দেখবেন
+    if (uid === user.uid) throw new HttpError(403, C.tr(req, 'Another admin must review your own badge', 'নিজের ব্যাজ অন্য অ্যাডমিন দেখবেন'));
     const ref = db.doc(`badges/${uid}`);
     const bs = await ref.get();
     if (!bs.exists) throw new HttpError(404, C.tr(req, 'Application not found', 'আবেদনটা পাওয়া যায়নি'));
@@ -409,7 +411,13 @@ const actions = {
           type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid, verification,
           docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
         });
-        await db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ name: ch.name })).catch(() => {});
+        // পেশা বদলালে (যেমন ডাক্তার → নার্স) আগের পেশার তালিকা থেকে সরে; নতুন পেশায় আবার তথ্য দিয়ে চালু করবেন
+        const p = await db.doc(`providers/${uid}`).get().catch(() => null);
+        if (p && p.exists) {
+          const typeChanged = p.get('type') && p.get('type') !== ch.type;
+          await p.ref.update({ name: ch.name, ...(typeChanged ? { listed: false, active: false, appointments: false } : {}) }).catch(() => {});
+          if (typeChanged) await require('../lib/apptcancel').cancelStale(uid, () => false, ['The doctor/nurse is no longer listed', 'ডাক্তার/নার্স এখন তালিকায় নেই']);
+        }
       } else {
         await ref.update({ pendingChange: FieldValue.delete(), docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete() });
       }
@@ -429,14 +437,24 @@ const actions = {
       // সামনের অ্যাপয়েন্টমেন্ট বাতিল হয়ে রোগীরা জানেন
       const p = await pRef.get();
       if (p.exists) {
-        await pRef.set({ active: false, listed: false, badgeRejected: true }, { merge: true });
+        // আগে তালিকায় ছিলেন কি না মনে রাখা (আবার অনুমোদনে শুধু তখনই ফেরে)
+        const before = p.get('badgeRejected') === true ? {} : { listedBefore: p.get('listed') === true, activeBefore: p.get('active') === true };
+        await pRef.set({ active: false, listed: false, badgeRejected: true, ...before }, { merge: true });
         await require('../lib/apptcancel').cancelStale(uid, () => false, ['The doctor/nurse is no longer listed', 'ডাক্তার/নার্স এখন তালিকায় নেই']);
       }
     } else {
-      // আগে বাতিল হয়ে তালিকা থেকে সরে থাকলে আবার অনুমোদনে ফিরে আসেন
+      // আগে বাতিল হয়ে তালিকা থেকে সরে থাকলে আবার অনুমোদনে ফিরে আসেন — শুধু একই পেশায়, আগে তালিকায় থাকলে,
+      // আর অ্যাডমিন বন্ধ না রাখলে। পেশা বদলালে (ডাক্তার বাতিল → নার্স অনুমোদন) আগের পেশার তালিকায় ফেরেন না।
       const p = await pRef.get();
       if (p.exists && p.get('badgeRejected') === true) {
-        await pRef.update({ listed: true, active: p.get('appointments') === true, badgeRejected: FieldValue.delete() });
+        const same = p.get('type') === bs.get('type') && p.get('adminSuspended') !== true;
+        const listed = same && p.get('listedBefore') !== false;
+        await pRef.update({
+          listed,
+          active: listed && p.get('activeBefore') !== false && p.get('appointments') === true,
+          ...(same ? {} : { appointments: false }),
+          badgeRejected: FieldValue.delete(), listedBefore: FieldValue.delete(), activeBefore: FieldValue.delete(),
+        });
       }
     }
     await ref.update({

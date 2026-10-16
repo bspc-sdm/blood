@@ -23,6 +23,11 @@ function inBangladesh(lat, lng) {
   return typeof lat === 'number' && typeof lng === 'number' && lat > 20.3 && lat < 26.8 && lng > 87.9 && lng < 92.8;
 }
 
+/** দূরত্ব পুরো কিমিতে উপরের দিকে, ২ কিমির কম হলে ২ ("২ কিমির মধ্যে") */
+function approxKm(km) {
+  return km == null || !Number.isFinite(km) ? null : Math.max(2, Math.ceil(km));
+}
+
 /** তালিকায় যা দেখায় (ডাক্তার/নার্সের নিজের লোকেশন নয়, শুধু দূরত্ব) */
 function view(d, km, mine) {
   const x = d.data();
@@ -41,7 +46,8 @@ function view(d, km, mine) {
     schedule: h.schedule || '',
     fee: h.fee || '',
     phone: K.fixPhone(h.phone),
-    km: km == null ? null : Math.round(km * 10) / 10,
+    // মোটা দাগে (পুরো কিমি, কমপক্ষে ২): কয়েক জায়গা থেকে দূরত্ব মিলিয়ে বাসা বের করা না যায়
+    km: approxKm(km),
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
     // এই মানুষ আগে অ্যাপ থেকে ফোন করেছেন কি না, আর তাঁর দেওয়া রেটিং
@@ -96,7 +102,7 @@ const actions = {
       if (m) found.push({ d, km: m.km });
     });
     // কাছেরটা আগে; দূরত্ব না জানলে বেশি রেটিং পাওয়া আগে
-    found.sort((p, q) => (p.km ?? 999) - (q.km ?? 999) || (q.d.get('ratingCount') || 0) - (p.d.get('ratingCount') || 0));
+    found.sort((p, q) => (approxKm(p.km) ?? 999) - (approxKm(q.km) ?? 999) || (q.d.get('ratingCount') || 0) - (p.d.get('ratingCount') || 0));
     const top = found.slice(0, 100);
     const mine = top.length ? await db.getAll(...top.map((f) => db.doc(`homeCalls/${user.uid}_${f.d.id}`))) : [];
     return { items: top.map((f, i) => view(f.d, f.km, mine[i])) };

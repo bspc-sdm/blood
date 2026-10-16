@@ -177,12 +177,6 @@ object ProfileRepository {
         users.document(uid).update(first.key, first.value, *rest).await()
     }
 
-    /** আজকের তারিখকে শেষ রক্তদান হিসেবে সেভ করে, তারিখটা ফেরত দেয় */
-    suspend fun markDonatedToday(uid: String): Long {
-        val today = Rules.todayUtcMidnight()
-        users.document(uid).set(mapOf("lastDonationMillis" to today), SetOptions.merge()).await()
-        return today
-    }
 }
 
 object RequestRepository {
@@ -365,8 +359,9 @@ object RequestRepository {
         return (s.getString("name") ?: "") to (s.getString("phone") ?: "")
     }
 
+    /** একজন একটা রিকোয়েস্ট একবারই রিপোর্ট করতে পারেন (নথির নাম দিয়ে; ডাটাবেসের নিয়মও তাই চায়) */
     suspend fun report(requestId: String, uid: String) {
-        db.collection("reports").add(
+        db.collection("reports").document("${requestId}_$uid").set(
             mapOf(
                 "requestId" to requestId,
                 "reporterUid" to uid,

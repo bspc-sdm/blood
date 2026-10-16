@@ -220,8 +220,13 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
                         Text(p.specialties.joinToString(", ") { Specialties.label(it) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                 }
+                // সার্ভার পুরো কিমিতে দেয় (কমপক্ষে ২) — বাসার ঠিক জায়গা বোঝা না যায়
                 p.km?.let {
-                    Tag(tr("$it km", "${num(it.toString())} কিমি"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                    val k = kotlin.math.ceil(it).toInt().coerceAtLeast(2)
+                    Tag(
+                        if (k <= 2) tr("Within 2 km", "২ কিমির মধ্যে") else tr("About $k km", "প্রায় ${num(k)} কিমি"),
+                        MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
                 }
             }
             Text(p.services.joinToString(" · ") { HomeServices.label(it) }, style = MaterialTheme.typography.bodyMedium)

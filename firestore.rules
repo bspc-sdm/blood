@@ -7,23 +7,6 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function requestDoc(rid) { return get(/databases/$(database)/documents/requests/$(rid)); }
-    // রিকোয়েস্টের তথ্য ঠিক আছে কি না (সার্ভারের validateRequest-এর মতো)
-    function validRequest(d) {
-      return d.patientGroup in ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
-        && d.bags is int && d.bags >= 1 && d.bags <= 10
-        && d.hospital is string && d.hospital.size() > 0 && d.hospital.size() <= 120
-        && d.placeName is string && d.placeName.size() <= 40
-        && d.requesterName is string && d.requesterName.size() <= 80
-        && d.note is string && d.note.size() <= 300
-        && d.lat is number && d.lat >= 20.5 && d.lat <= 26.7
-        && d.lng is number && d.lng >= 88 && d.lng <= 92.7
-        && d.neededByMillis is int
-        && d.urgent is bool;
-    }
-    function onlyStatusChanges() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
-    }
-
     // প্রোফাইল (ফোন নম্বর, লোকেশন): শুধু নিজে দেখতে ও বদলাতে পারবে
     // শেষ রক্তদানের তারিখ একবার দিলে শুধু সামনে এগোনো যায়, পেছানো বা মোছা যায় না
     // (যাতে কেউ তারিখ পিছিয়ে সময়ের আগে "যোগ্য" সাজতে না পারে)
@@ -43,23 +26,9 @@ service cloud.firestore {
     // রক্তের রিকোয়েস্ট: লগইন করা সবাই দেখতে পারবে (ফোন নম্বর এখানে থাকে না)
     match /requests/{rid} {
       allow read: if signedIn();
-      // নতুন অ্যাপ সার্ভার দিয়ে তৈরি করে (সীমা সার্ভারে)। পুরোনো অ্যাপের জন্য সরাসরি তৈরি এখনো খোলা, কিন্তু
-      // শুধু এই ঘরগুলো, তারিখ ৩২ দিনের মধ্যে — ভুয়া "ডোনার পাওয়া গেছে"/রাজির সংখ্যা বসানো যায় না।
-      // সবাই আপডেট করলে এটা `if false` হবে।
-      allow create: if signedIn()
-        && request.resource.data.requesterUid == me()
-        && request.resource.data.status == 'open'
-        && request.resource.data.keys().hasOnly(['requesterUid', 'requesterName', 'patientGroup', 'bags', 'hospital',
-             'placeName', 'lat', 'lng', 'geohash', 'neededByMillis', 'neededAtMillis', 'urgent', 'travelFare', 'note',
-             'status', 'createdAtMillis', 'createdAt'])
-        && request.resource.data.neededByMillis <= request.time.toMillis() + 32 * 86400000
-        && request.resource.data.neededByMillis + 86400000 > request.time.toMillis()
-        && validRequest(request.resource.data);
-      // শুধু রক্তপ্রার্থী নিজে বন্ধ করতে পারেন। সময় পার হলে রাতের কাজ (সার্ভার) বন্ধ করে রাজি ডোনারদের জানায়।
-      allow update: if signedIn()
-        && onlyStatusChanges()
-        && request.resource.data.status == 'closed'
-        && resource.data.requesterUid == me();
+      // তৈরি আর বন্ধ শুধু সার্ভার দিয়ে (দৈনিক সীমা, ব্যাগের হিসাব, ডোনারদের জানানো, geoOpen — সব সার্ভারে)।
+      // আগের অ্যাপের সরাসরি তৈরি/বন্ধ করার ছাড় বন্ধ (১৬ অক্টোবর ২০২৬)।
+      allow create, update: if false;
       allow delete: if false;
 
       // রক্তপ্রার্থীর ফোন: শুধু রক্তপ্রার্থী নিজে আর যে ডোনার এখন রাজি আছে বা রক্ত দিয়েছে
@@ -83,17 +52,8 @@ service cloud.firestore {
               && resource.data.status in ['accepted', 'donated']));
         // "রক্ত দেব" শুধু সার্ভারের মাধ্যমে (দৈনিক সীমা আর যোগ্যতা সার্ভার যাচাই করে)
         allow create: if false;
-        allow update: if signedIn() && (
-          // ডোনার: রাজি থাকা অবস্থা থেকে শুধু বাতিল বা "রক্ত দিয়েছি"
-          (me() == donorUid
-            && resource.data.status == 'accepted'
-            && onlyStatusChanges()
-            && request.resource.data.status in ['cancelled', 'donated'])
-          // রক্তপ্রার্থী: শুধু কোনো ডোনারকে বাদ দিতে পারবে
-          || (requestDoc(rid).data.requesterUid == me()
-              && resource.data.status == 'accepted'
-              && onlyStatusChanges()
-              && request.resource.data.status == 'declined'));
+        // বাতিল, "রক্ত দিয়েছি", ডোনার বাদ দেওয়া — সব সার্ভার দিয়ে (হিসাব আর নোটিফিকেশন সেখানে)
+        allow update: if false;
         allow delete: if false;
       }
     }
@@ -101,13 +61,8 @@ service cloud.firestore {
     // শেষ রক্তদানের তারিখ সংশোধনের অনুরোধ: নিজের নামে পাঠানো আর নিজেরটা দেখা যায়;
     // অনুমোদন শুধু সার্ভারের মাধ্যমে অ্যাডমিন দেন
     match /correctionRequests/{id} {
-      allow create: if signedIn()
-        && request.resource.data.uid == me()
-        && request.resource.data.status == 'pending'
-        && request.resource.data.reason is string
-        && request.resource.data.reason.size() > 0
-        && request.resource.data.reason.size() <= 300
-        && (request.resource.data.requestedMillis == null || request.resource.data.requestedMillis is int);
+      // নতুন অনুরোধ সার্ভার দিয়ে (অ্যাপের "শেষ রক্তদানের তারিখ বদল"); সরাসরি লেখা বন্ধ
+      allow create: if false;
       allow read: if signedIn() && resource.data.uid == me();
       allow update, delete: if false;
     }
@@ -119,7 +74,13 @@ service cloud.firestore {
 
     // রিপোর্ট: যে কেউ পাঠাতে পারবে, কেউ পড়তে পারবে না (শুধু কনসোল থেকে দেখা যাবে)
     match /reports/{id} {
-      allow create: if signedIn() && request.resource.data.reporterUid == me();
+      // একজন একটা রিকোয়েস্ট একবারই (নথির নাম = রিকোয়েস্ট_নিজের uid), শুধু এই তিনটা ঘর
+      allow create: if signedIn()
+        && request.resource.data.reporterUid == me()
+        && request.resource.data.keys().hasOnly(['requestId', 'reporterUid', 'createdAtMillis'])
+        && request.resource.data.requestId is string
+        && id == request.resource.data.requestId + '_' + me()
+        && request.resource.data.createdAtMillis is int;
       allow read, update, delete: if false;
     }
   }

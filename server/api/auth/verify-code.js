@@ -6,7 +6,11 @@ const R = require('../../lib/rules');
 async function getOrCreateUser(email) {
   try {
     const user = await admin.auth().getUserByEmail(email);
-    if (!user.emailVerified) await admin.auth().updateUser(user.uid, { emailVerified: true });
+    if (!user.emailVerified) {
+      // ইমেইল যাচাই ছাড়া কেউ আগে এই ঠিকানায় অ্যাকাউন্ট খুলে থাকলে তার সব সেশন বাতিল — আসল মালিক একা থাকেন
+      await admin.auth().revokeRefreshTokens(user.uid);
+      await admin.auth().updateUser(user.uid, { emailVerified: true });
+    }
     return user;
   } catch (e) {
     if (e.code !== 'auth/user-not-found') throw e;
@@ -31,11 +35,27 @@ module.exports = handler(async (req, res) => {
   const day = R.dhakaDayKey(now);
   const hash = E.hashCode(email, code);
 
+  // নতুন অ্যাপ/প্যানেল: কোড চাওয়ার সময় পাওয়া rid পাঠায় — ভুলের গোনা শুধু সেই কোডে, তাই অন্য কেউ ভুল কোড
+  // দিয়ে আসল মানুষকে আটকাতে পারে না। rid ছাড়া (পুরোনো অ্যাপ) আগের মতো দিনে ১০ বার ভুলের সীমা।
+  const rids = (Array.isArray(req.body?.rids) ? req.body.rids : []).filter((x) => typeof x === 'string' && /^[0-9a-f]{32}$/.test(x)).slice(0, 5);
   const ok = await db.runTransaction(async (t) => {
     const snap = await t.get(ref);
     const d = snap.exists ? snap.data() : {};
-    const live = (Array.isArray(d.codes) ? d.codes : []).filter((c) => c && c.exp > now);
+    const all = Array.isArray(d.codes) ? d.codes : [];
+    const live = all.filter((c) => c && c.exp > now);
     if (!live.length) throw new HttpError(400, 'কোডের মেয়াদ শেষ বা কোড চাওয়া হয়নি। নতুন কোড চান।');
+
+    if (rids.length) {
+      const mine = live.filter((c) => c.rid && rids.includes(c.rid) && (c.fails || 0) < E.MAX_ATTEMPTS);
+      if (!mine.length) throw new HttpError(400, 'কোডের মেয়াদ শেষ বা অনেকবার ভুল হয়েছে। নতুন কোড চান।');
+      if (mine.some((c) => E.codesMatch(c.h, hash))) {
+        t.set(ref, { codes: [] }, { merge: true });
+        return true;
+      }
+      // ভুল: শুধু এই মানুষের কোডগুলোতে গোনা (৫ বার ভুলে সেই কোড বাতিল)
+      t.set(ref, { codes: live.map((c) => (mine.includes(c) ? { ...c, fails: (c.fails || 0) + 1 } : c)) }, { merge: true });
+      return false;
+    }
 
     // দিনে মোট ১০ বার ভুল দিলে সেদিন আর চেষ্টা করা যাবে না
     const failsToday = d.failDay === day ? d.failCount || 0 : 0;

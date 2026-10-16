@@ -81,6 +81,19 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
+    // ফোন-কোডের দৈনিক সীমার পুরোনো দিনের নথি (আগে ফোন নম্বরই নথির নাম ছিল) মোছা
+    let phoneLimitsDeleted = 0;
+    try {
+      const old = await db.collection('phoneLimits').where('day', '<', R.dhakaDayKey(now)).limit(400).get();
+      if (!old.empty) {
+        const b = db.batch();
+        old.docs.forEach((d) => b.delete(d.ref));
+        await b.commit();
+        phoneLimitsDeleted = old.size;
+      }
+    } catch (e) {
+      console.error('phone limits cleanup failed', e);
+    }
     // কাছের খোঁজার (geohash) রক্ষণাবেক্ষণ
     let geo = null;
     try {
@@ -111,7 +124,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted };
   },
   { methods: ['GET'] },
 );

@@ -209,7 +209,8 @@
       if (sending || waitSec() > 0) return;
       sending = true; error = ''; info = ''; draw();
       try {
-        await post('/api/auth/send-code', { email });
+        const r1 = await post('/api/auth/send-code', { email });
+        if (r1 && r1.rid) S.rids = [...(S.rids || []), r1.rid].slice(-3);
         info = 'নতুন কোড গেছে। না পেলে Spam বা All Mail দেখুন।';
         startTimer();
       } catch (e) { error = e.message; }
@@ -250,7 +251,8 @@
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { error = 'সঠিক ইমেইল দিন'; draw(); return; }
         sending = true; draw();
         try {
-          await post('/api/auth/send-code', { email });
+          const r2 = await post('/api/auth/send-code', { email });
+          S.rids = r2 && r2.rid ? [r2.rid] : [];
           store('lf_admin_email', email);
           stage = 'code';
           startTimer();
@@ -261,7 +263,7 @@
         if (code.length !== 6) { error = '৬ সংখ্যার কোড দিন'; draw(); return; }
         sending = true; draw();
         try {
-          await post('/api/auth/verify-code', { email, code, web: true });
+          await post('/api/auth/verify-code', { email, code, web: true, ...(S.rids && S.rids.length ? { rids: S.rids } : {}) });
           S.lastActive = Date.now();
           await start();
           return;

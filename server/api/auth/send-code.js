@@ -34,6 +34,7 @@ module.exports = handler(async (req) => {
   const now = Date.now();
   const day = R.dhakaDayKey(now);
   const code = E.newCode();
+  const rid = require('crypto').randomBytes(16).toString('hex');
 
   await db.runTransaction(async (t) => {
     const [snap, ipSnap, globalSnap] = await Promise.all([t.get(ref), t.get(ipRef), t.get(globalRef)]);
@@ -51,7 +52,8 @@ module.exports = handler(async (req) => {
     }
     // আগের চালু কোডগুলো রেখে দেওয়া হয় (সর্বোচ্চ ৩টা), নতুনটা যোগ হয়
     const live = (Array.isArray(d.codes) ? d.codes : []).filter((c) => c && c.exp > now);
-    const codes = [...live, { h: E.hashCode(email, code), exp: now + E.CODE_TTL_MS }].slice(-E.MAX_LIVE_CODES);
+    // rid: শুধু যে ফোন/ব্রাউজার কোড চেয়েছে সে জানে — যাচাইয়ে এটা দিলে অন্য কেউ ভুল কোড দিয়ে এই কোড আটকাতে পারে না
+    const codes = [...live, { h: E.hashCode(email, code), exp: now + E.CODE_TTL_MS, rid, fails: 0 }].slice(-E.MAX_LIVE_CODES);
     t.set(ipRef, { day, count: ipToday + 1 });
     t.set(globalRef, { day, count: globalToday + 1 });
     t.set(
@@ -68,5 +70,5 @@ module.exports = handler(async (req) => {
     await ref.update({ lastSentAt: 0 }).catch(() => {});
     throw new HttpError(502, 'ইমেইল পাঠানো যায়নি। একটু পর আবার চেষ্টা করুন।');
   }
-  return { ok: true };
+  return { ok: true, rid };
 });

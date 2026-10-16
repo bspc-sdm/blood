@@ -1,6 +1,6 @@
 // অ্যাকাউন্ট মোছা (Google Play-র নিয়মে অ্যাপের ভেতর থেকেই করা যেতে হয়)।
 // প্রোফাইল, ছবি, ফোন, ব্যাজ, চেম্বার, রক্তের রিকোয়েস্ট, সাড়া, প্রশ্ন, উত্তর, টিপস — সব মোছে।
-// অন্যজনের সাথে চলমান অ্যাপয়েন্টমেন্ট মোছে না; বাতিল করে, নিজের নাম/তথ্য সরিয়ে দেয় আর অন্যজনকে জানায়।
+// চলমান অ্যাপয়েন্টমেন্ট আগে বাতিল করে অন্যজনকে জানায়, তারপর সব অ্যাপয়েন্টমেন্টের রেকর্ড মোছে।
 // লগইন অ্যাকাউন্ট সবশেষে মোছা হয়, তাই মাঝপথে থেমে গেলে আবার চেষ্টা করলে বাকিটা হয়ে যায়।
 const { admin, db, FieldValue, sendPush } = require('./firebase');
 const R = require('./rules');
@@ -33,7 +33,10 @@ module.exports = {
     const stateRef = db.doc(`serverState/${uid}`);
     const [u, state] = await Promise.all([userRef.get(), stateRef.get()]);
 
-    const responded = Object.keys({ ...(u.get('respondedTo') || {}), ...(u.get('commitments') || {}) }).filter((x) => ID_RE.test(x));
+    // কোন কোন রিকোয়েস্টে সাড়া দিয়েছেন: প্রোফাইল (অ্যাপ বদলাতে পারে) আর সার্ভারের নিজের তালিকা — দুটো মিলিয়ে
+    const responded = Object.keys({
+      ...(u.get('respondedTo') || {}), ...(u.get('commitments') || {}), ...((state.exists && state.get('respondedTo')) || {}),
+    }).filter((x) => ID_RE.test(x));
     const answerPaths = ((state.exists && state.get('answerPaths')) || []).filter(
       (p) => typeof p === 'string' && /^questions\/[A-Za-z0-9_-]+\/answers\/[A-Za-z0-9_-]+$/.test(p),
     );
@@ -58,6 +61,14 @@ module.exports = {
       db.collection('homeCalls').where('providerUid', '==', uid).limit(1000).get(),
       db.collection('bloodBanks').where('ownerUid', '==', uid).limit(10).get(),
     ]);
+    // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংকে ফোনের রেকর্ড (কাকে, কবে, রেটিং, মন্তব্য), পুরোনো রিপোর্ট, হাসপাতাল যোগের অনুরোধ
+    const [ambCalls, pharmCalls, bankCalls, oldReports, hospReqs] = await Promise.all([
+      db.collection('ambulanceCalls').where('uid', '==', uid).limit(1000).get(),
+      db.collection('pharmacyCalls').where('uid', '==', uid).limit(1000).get(),
+      db.collection('bloodBankCalls').where('uid', '==', uid).limit(1000).get(),
+      db.collection('reports').where('reporterUid', '==', uid).limit(500).get(),
+      db.collection('hospitalRequests').where('requesterUids', 'array-contains', uid).limit(200).get(),
+    ]);
 
     // নিষেধাজ্ঞা অ্যাকাউন্ট মুছলেও থাকে (একই ইমেইলে নতুন অ্যাকাউন্ট খুললে আবার লাগে)।
     // বন্ধ করা অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংকের নিষেধাজ্ঞা বন্ধের সময়ই রাখা হয়েছে; এখানে বাসায় সেবার ব্লক।
@@ -68,12 +79,20 @@ module.exports = {
       console.error('keep sanctions failed', e);
     }
 
-    // নিজের দেওয়া বাসায় সেবার রেটিং হিসাব থেকে বাদ (মুছে নতুন অ্যাকাউন্টে আবার রেটিং দিয়ে গড় বদলানো যায় না)
-    await Promise.all(callsMade.docs.filter((d) => Number.isInteger(d.get('rating')) && d.get('rating') > 0).map((d) =>
-      db.doc(`providers/${d.get('providerUid')}`).update({
-        ratingSum: FieldValue.increment(-d.get('rating')),
-        ratingCount: FieldValue.increment(-1),
-      }).catch(() => {})));
+    // নিজের দেওয়া রেটিং হিসাব থেকে বাদ (মুছে নতুন অ্যাকাউন্টে আবার রেটিং দিয়ে গড় বদলানো যায় না),
+    // মালিকের "সাম্প্রতিক মন্তব্য" থেকেও
+    const rated = (d) => Number.isInteger(d.get('rating')) && d.get('rating') > 0;
+    const S = require('./sellerstats');
+    await Promise.all([
+      ...callsMade.docs.filter(rated).map((d) => Promise.all([
+        db.doc(`providers/${d.get('providerUid')}`).update({ ratingSum: FieldValue.increment(-d.get('rating')), ratingCount: FieldValue.increment(-1) }).catch(() => {}),
+        S.removeRecentRating('homeStats', d.get('providerUid'), uid),
+      ])),
+      ...ambCalls.docs.filter(rated).map((d) => Promise.all([
+        db.doc(`ambulances/${d.get('ambulanceId')}`).update({ ratingSum: FieldValue.increment(-d.get('rating')), ratingCount: FieldValue.increment(-1) }).catch(() => {}),
+        S.removeRecentRating('ambulanceStats', d.get('ambulanceId'), uid),
+      ])),
+    ]);
 
     // চালু রিকোয়েস্টে যাঁরা রাজি ছিলেন — মোছার আগে তালিকা রেখে পরে জানানো (যাতে কেউ শুধু শুধু হাসপাতালে না যান)
     const RE = require('./requestend');
@@ -103,17 +122,21 @@ module.exports = {
         await ref.delete();
         await ref.parent.parent.update({ answerCount: FieldValue.increment(-1) }).catch(() => {});
       }),
-      // ৬) অ্যাপয়েন্টমেন্ট: অন্যজনের রেকর্ড থাকে, কিন্তু চলমান হলে বাতিল আর নিজের তথ্য মুছে
+      // ৬) অ্যাপয়েন্টমেন্ট: চলমান হলে অন্যজনকে জানিয়ে, তারপর রেকর্ড পুরোপুরি মোছা (সিরিয়ালের গোনা আলাদা থাকে)
       ...asPatient.docs.map(async (d) => {
         const active = ['pending', 'confirmed'].includes(d.get('status'));
-        await d.ref.update({ patientName: '', note: '', ...(active ? { status: 'cancelled' } : {}) });
         if (active) await notify(d.get('providerUid'), 'Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে');
+        await d.ref.delete();
       }),
       ...asProvider.docs.map(async (d) => {
         const active = ['pending', 'confirmed'].includes(d.get('status'));
-        await d.ref.update({ providerName: '', chamber: '', schedule: '', providerNote: '', ...(active ? { status: 'cancelled' } : {}) });
         if (active) await notify(d.get('patientUid'), 'Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে');
+        await d.ref.delete();
       }),
+      // ফোনের রেকর্ড আর পুরোনো রিপোর্ট
+      deleteDocs([...ambCalls.docs, ...pharmCalls.docs, ...bankCalls.docs, ...oldReports.docs]),
+      // হাসপাতাল যোগের অনুরোধে নিজের নাম (অনুরোধটা অন্যদেরও হতে পারে, তাই শুধু নিজেকে সরানো)
+      ...hospReqs.docs.map((d) => d.ref.update({ requesterUids: FieldValue.arrayRemove(uid) }).catch(() => {})),
       // ৭) হোম ভিজিট: নিজের অনুরোধের ঠিকানা/নাম মুছে, চলমান হলে বাতিল
       ...visitsMine.docs.map(async (d) => {
         const active = ['open', 'accepted', 'on_the_way'].includes(d.get('status'));
