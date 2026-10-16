@@ -231,7 +231,11 @@ fun App(
         when {
             requestId != null -> push(if (type == "response") Screen.MyRequestDetail(requestId) else Screen.RequestDetail(requestId))
             questionId != null -> push(Screen.QuestionDetail(questionId))
-            type == "appointment" -> push(Screen.MyAppointments)
+            // চেম্বারে আসা বুকিং → "আমার চেম্বার"; নিজের নেওয়া অ্যাপয়েন্টমেন্ট → "আমার অ্যাপয়েন্টমেন্ট"
+            type == "appointment" -> push(
+                if (data["role"] == "provider" || (data["role"] == null && community?.approvedBadge in CHAMBER_TYPES)) Screen.ChamberEdit
+                else Screen.MyAppointments,
+            )
             type in HOME_CARE_TYPES -> {
                 CareNav.openHomeCare.value = true
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -300,7 +304,7 @@ fun App(
     }
     LaunchedEffect(openAppointments, ready) {
         if (openAppointments && ready) {
-            push(Screen.MyAppointments)
+            push(if (community?.approvedBadge in CHAMBER_TYPES) Screen.ChamberEdit else Screen.MyAppointments)
             onAppointmentsOpened()
         }
     }
@@ -582,10 +586,7 @@ fun App(
                 onBack = { back() },
             )
 
-            Screen.MyAppointments -> MyAppointmentsScreen(
-                isProvider = community?.approvedBadge in listOf("doctor", "nurse"),
-                onBack = { back() },
-            )
+            Screen.MyAppointments -> MyAppointmentsScreen(onBack = { back() })
 
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
 
@@ -593,7 +594,7 @@ fun App(
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
 
             Screen.ChamberEdit -> profile?.let { pr ->
-                ChamberEditScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
+                ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
             }
 
             is Screen.MyRequestDetail -> MyRequestDetailScreen(

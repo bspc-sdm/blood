@@ -146,7 +146,7 @@ class ScreensTest {
 
     @Test
     fun chamberEditScreenNurse() {
-        show { ChamberEditScreen("nurse", profile) {} }
+        show { ChamberEditScreen("nurse", profile, {}) }
         rule.waitUntil(5_000) { true }
         shot("chamber_edit_screen")
     }
@@ -218,7 +218,7 @@ class ScreensTest {
     @Test
     fun doctorListFilterBarBangla() {
         AppPrefs.lang.value = Lang.BN
-        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        show { AppointmentTab(profile, nurseMe, {}) }
         shot("doctor_filter_bar_bn")
         rule.onNodeWithText("ফিল্টার").performClick()
         rule.waitForIdle()
@@ -419,7 +419,7 @@ class ScreensTest {
 
     @Test
     fun englishTitleCaseScreens() {
-        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        show { AppointmentTab(profile, nurseMe, {}) }
         shot("appointment_tab_en_titlecase")
     }
 
@@ -433,7 +433,7 @@ class ScreensTest {
     @Test
     fun chamberEditScreenDoctorHome() {
         AppPrefs.lang.value = Lang.BN
-        show { ChamberEditScreen("doctor", profile) {} }
+        show { ChamberEditScreen("doctor", profile, {}) }
         // লোড শেষে সেটিং খোলা (নেটওয়ার্ক নেই, তাই না এলে শুধু ছবি)
         runCatching {
             rule.waitUntil(5_000) { rule.onAllNodesWithText("আমি রোগীর বাসায় গিয়ে সেবা দিই").fetchSemanticsNodes().isNotEmpty() }
@@ -443,15 +443,22 @@ class ScreensTest {
     }
 
     @Test
+    fun chamberHubBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { ChamberHubScreen("doctor", profile) {} }
+        shot("chamber_hub_bn")
+    }
+
+    @Test
     fun appointmentTab() {
-        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        show { AppointmentTab(profile, nurseMe, {}) }
         shot("appointment_tab")
     }
 
     @Test
     fun appointmentTabBangla() {
         AppPrefs.lang.value = Lang.BN
-        show { AppointmentTab(profile, nurseMe, {}, {}) }
+        show { AppointmentTab(profile, nurseMe, {}) }
         rule.onNodeWithText("বাসায় সেবা").performClick()
         shot("appointment_tab_home_bn")
     }

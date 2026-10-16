@@ -56,7 +56,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 
-private val PROVIDER_TYPES = listOf("doctor", "nurse")
+/** যাঁরা "আমার চেম্বার/বাসায় সেবা" পান */
+internal val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer")
+/** চেম্বার আর অ্যাপয়েন্টমেন্ট: ডাক্তার, পুষ্টিবিদ, ফিটনেস ট্রেইনার (নার্স শুধু বাসায় সেবা) */
+internal val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer")
+/** বাসায় সেবা: ডাক্তার আর নার্স */
+internal val HOME_CARE_TYPES = listOf("doctor", "nurse")
 
 /** নোটিফিকেশন থেকে সরাসরি "বাসায় সেবা" অংশ খোলার জন্য */
 object CareNav {
@@ -64,30 +69,43 @@ object CareNav {
 }
 
 // ------------------------------------------------------------
-// ট্যাব: ডাক্তার / নার্স / বাসায় সেবা
+// ট্যাব: ডাক্তার / পুষ্টিবিদ / ফিটনেস ট্রেইনার; উপরে ডানে "বাসায় সেবা"
 // ------------------------------------------------------------
 
 @Composable
 fun AppointmentTab(
     profile: Profile,
     me: CommunityMe?,
-    onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
     refreshKey: Int = 0,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showHome by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(CareNav.openHomeCare.value) {
         if (CareNav.openHomeCare.value) {
-            tab = 1
+            showHome = true
             CareNav.openHomeCare.value = false
         }
     }
 
-    // যাচাই করা ডাক্তার/নার্স: চেম্বার/প্রোফাইল আগে থেকে থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে + (প্রথমবার)
-    val isProvider = me?.approvedBadge in PROVIDER_TYPES
+    // যাচাই করা পেশাজীবী: চেম্বার/প্রোফাইল আগে থেকে থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে + (প্রথমবার)
+    val badge = me?.approvedBadge
+    val isProvider = badge in PROVIDER_TYPES
     var hasChamber by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(isProvider, refreshKey) {
         hasChamber = if (isProvider) runCatching { Appointments.mine() != null }.getOrNull() else null
+    }
+    if (showHome) {
+        // বাসায় সেবা: উপরের বাটন থেকে খোলা পাতা
+        androidx.activity.compose.BackHandler { showHome = false }
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { showHome = false }) { AppIcon(R.drawable.ic_arrow_back, tr("Back", "ফিরে যান")) }
+                Text(tr("Home care", "বাসায় সেবা"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            HomeCareTab(profile, me, onEditChamber)
+        }
+        return
     }
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
@@ -100,31 +118,34 @@ fun AppointmentTab(
             )
             if (isProvider && hasChamber == false) {
                 IconButton(onClick = onEditChamber) {
-                    AppIcon(R.drawable.ic_add, if (me?.approvedBadge == "nurse") tr("Turn on home care", "বাসায় সেবা চালু করুন") else tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
+                    AppIcon(R.drawable.ic_add, if (badge == "nurse") tr("Turn on home care", "বাসায় সেবা চালু করুন") else tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
                 }
             }
-            IconButton(onClick = onOpenMyAppointments) {
-                AppIcon(R.drawable.ic_calendar_month, tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"))
+            // বাসায় সেবা (আগে ক্যালেন্ডারের জায়গা; নিজের অ্যাপয়েন্টমেন্ট এখন প্রোফাইলে, চেম্বারের বুকিং "আমার চেম্বার"-এ)
+            androidx.compose.material3.TextButton(onClick = { showHome = true }) {
+                ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
             }
         }
         PillTabs(
             tab,
             listOf(
-                // নার্সের চেম্বার নেই — নার্স "বাসায় সেবা"-র ভেতরে
                 PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
-                PillTab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health),
+                PillTab(tr("Nutritionist", "পুষ্টিবিদ"), R.drawable.ic_restaurant),
+                PillTab(tr("Fitness trainer", "ফিটনেস ট্রেইনার"), R.drawable.ic_directions_run),
             ),
             { tab = it },
         )
-        when (tab) {
-            0 -> ProviderList("doctor", profile)
-            else -> HomeCareTab(profile, me, onEditChamber)
-        }
+        ProviderList(CHAMBER_TYPES[tab.coerceIn(0, CHAMBER_TYPES.lastIndex)], profile)
     }
     if (isProvider && hasChamber == true) {
         SmallFab(
-            if (me?.approvedBadge == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
-            if (me?.approvedBadge == "nurse") R.drawable.ic_home_health else R.drawable.ic_stethoscope,
+            if (badge == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
+            when (badge) {
+                "nurse" -> R.drawable.ic_home_health
+                "nutritionist" -> R.drawable.ic_restaurant
+                "trainer" -> R.drawable.ic_directions_run
+                else -> R.drawable.ic_stethoscope
+            },
             onEditChamber,
             Modifier.align(Alignment.BottomEnd).padding(16.dp),
         )
@@ -509,11 +530,20 @@ private fun statusLabel(s: String): String = when (s) {
     else -> tr("Cancelled", "বাতিল")
 }
 
+/** রোগী হিসেবে নিজের নেওয়া অ্যাপয়েন্টমেন্ট (প্রোফাইল → আমার অ্যাপয়েন্টমেন্ট) */
 @Composable
-fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
+fun MyAppointmentsScreen(onBack: () -> Unit) {
+    AppointmentsList(role = "patient", title = tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"), onBack = onBack)
+}
+
+/**
+ * অ্যাপয়েন্টমেন্টের তালিকা। role: "patient" (নিজে নেওয়া) বা "provider" (নিজের চেম্বারে আসা বুকিং)।
+ * onBack null হলে উপরের বার ছাড়া (আমার চেম্বারের ভেতরে)।
+ */
+@Composable
+fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendingCount: (Int) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
     var reload by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var busyId by remember { mutableStateOf<String?>(null) }
@@ -524,7 +554,7 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
     LaunchedEffect(reload) {
         loading = true
         runCatching { Appointments.list() }
-            .onSuccess { list = it; errorMsg = null }
+            .onSuccess { list = it; errorMsg = null; onPendingCount(it.count { a -> a.role == "provider" && a.status == "pending" }) }
             .onFailure { errorMsg = it.message }
         loading = false
     }
@@ -539,32 +569,19 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
         }
     }
 
-    val role = if (isProvider && tab == 1) "provider" else "patient"
     val shown = list.filter { it.role == role }
         .sortedWith(compareBy<Appointment> { it.status !in listOf("pending", "confirmed") }.thenByDescending { it.date })
 
     Scaffold(
         topBar = {
-            BackTopBar(tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"), onBack) {
-                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+            if (onBack != null) {
+                BackTopBar(title, onBack) {
+                    IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+                }
             }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            if (isProvider) {
-                PillTabs(
-                    tab,
-                    listOf(
-                        PillTab(tr("My bookings", "আমার বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled),
-                        PillTab(
-                            tr("Patients", "রোগীদের অনুরোধ"),
-                            R.drawable.ic_stethoscope,
-                            count = list.count { it.role == "provider" && it.status == "pending" },
-                        ),
-                    ),
-                    { tab = it },
-                )
-            }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -689,8 +706,85 @@ fun MyAppointmentsScreen(isProvider: Boolean, onBack: () -> Unit) {
 // আমার চেম্বার ও প্রোফাইল (ব্যাজধারী ডাক্তার/নার্স)
 // ------------------------------------------------------------
 
+/**
+ * "আমার চেম্বার": বুকিং · রোগী · সেটআপ (ডাক্তার, পুষ্টিবিদ, ফিটনেস ট্রেইনার)।
+ * নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবার সেটআপ।
+ */
 @Composable
-fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
+fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
+    if (type !in CHAMBER_TYPES) {
+        ChamberEditScreen(type, profile, onBack)
+        return
+    }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var pending by remember { mutableIntStateOf(0) }
+    Scaffold(topBar = { BackTopBar(tr("My chamber", "আমার চেম্বার"), onBack) }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            PillTabs(
+                tab,
+                listOf(
+                    PillTab(tr("Bookings", "বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled, count = pending),
+                    PillTab(tr("Patients", "রোগী"), R.drawable.ic_person_outline),
+                    PillTab(tr("Setup", "সেটআপ"), R.drawable.ic_settings_outline),
+                ),
+                { tab = it },
+            )
+            when (tab) {
+                0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
+                1 -> PatientsList()
+                else -> ChamberEditScreen(type, profile, onBack, embedded = true)
+            }
+        }
+    }
+}
+
+/** নিজের চেম্বারে আসা রোগীরা (একজন একবার): কতবার এসেছেন, শেষ কবে, নিশ্চিত থাকলে ফোন */
+@Composable
+private fun PatientsList() {
+    val context = LocalContext.current
+    var list by remember { mutableStateOf<List<Appointment>?>(null) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { Appointments.list() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+    }
+    data class Pat(val name: String, val count: Int, val last: Long, val phone: String)
+    val pats = remember(list) {
+        (list ?: emptyList()).filter { it.role == "provider" && it.status in listOf("confirmed", "completed") }
+            .groupBy { it.otherKey.ifBlank { it.otherName } }
+            .map { (_, a) -> Pat(a.first().otherName, a.size, a.maxOf { it.date }, a.firstOrNull { it.otherPhone.isNotBlank() }?.otherPhone.orEmpty()) }
+            .sortedByDescending { it.last }
+    }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { ErrorText(errorMsg) }
+        when {
+            list == null && errorMsg == null -> item { LoadingBox() }
+            pats.isEmpty() -> item {
+                Box(Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    EmptyState(R.drawable.ic_person_outline, tr("No patients yet", "এখনো কোনো রোগী নেই"), null)
+                }
+            }
+            else -> items(pats) { p ->
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(p.name.ifBlank { tr("Deleted account", "মুছে ফেলা অ্যাকাউন্ট") }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                tr("${p.count} visit(s) · last ", "${num(p.count)} বার · শেষ ") + Rules.formatDate(p.last),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (p.phone.isNotBlank()) {
+                            IconButton(onClick = { callPhone(context, p.phone) }) { AppIcon(R.drawable.ic_call, tr("Call", "ফোন")) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedded: Boolean = false) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
     val scope = rememberCoroutineScope()
@@ -736,10 +830,11 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
         loading = false
     }
 
-    // নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবা
+    // নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবা; পুষ্টিবিদ/ট্রেইনারের বাসায় সেবা নেই — শুধু চেম্বার
     val nurse = type == "nurse"
+    val homeCapable = type in HOME_CARE_TYPES
     Scaffold(topBar = {
-        BackTopBar(if (nurse) tr("My home care & profile", "আমার বাসায় সেবা ও প্রোফাইল") else tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack)
+        if (!embedded) BackTopBar(if (nurse) tr("My home care & profile", "আমার বাসায় সেবা ও প্রোফাইল") else tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack)
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -800,7 +895,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
             }
             }
 
-            run {
+            if (homeCapable) run {
                 if (!nurse) HorizontalDivider()
                 SectionTitle(tr("Home care", "বাসায় সেবা"))
                 SwitchRow(tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"), null, home.enabled) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
@@ -880,6 +975,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     errorMsg = when {
                         specialties.isEmpty() -> tr("Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
                         nurse && !home.enabled -> tr("Turn on home care", "বাসায় সেবা চালু করুন")
+                        !homeCapable && chambers.isEmpty() -> tr("Add a chamber", "অন্তত একটা চেম্বার যোগ করুন")
                         !nurse && chambers.isEmpty() && !home.enabled ->
                             tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
@@ -903,7 +999,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                             runCatching {
                                 Appointments.save(
                                     listed && !nurse, takes && !nurse, specialties.toList(), degrees.trim(), gender,
-                                    if (nurse) emptyList() else chambers.toList(), home,
+                                    if (nurse) emptyList() else chambers.toList(), if (homeCapable) home else HomeVisitSettings(),
                                 )
                             }
                                 .onSuccess { n ->

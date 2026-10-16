@@ -7,6 +7,8 @@ const DOCTOR_SPECIALTIES = [
   'endocrinology', 'chest', 'physical_medicine', 'general',
 ];
 const NURSE_SPECIALTIES = ['general_nursing', 'icu', 'midwife', 'home_care', 'pediatric_nursing', 'psychiatric_nursing'];
+const NUTRITIONIST_SPECIALTIES = ['clinical_nutrition', 'weight_diet', 'diabetes_diet', 'child_nutrition', 'pregnancy_nutrition', 'kidney_diet', 'sports_nutrition'];
+const TRAINER_SPECIALTIES = ['weight_loss', 'strength', 'yoga', 'rehab_exercise', 'elderly_fitness', 'women_fitness', 'sports_training'];
 
 // বাসায় গিয়ে নার্স যে সেবা দেন; প্রথম তিনটার জন্য রোগীর কাছে প্রেসক্রিপশন থাকা লাগে
 const HOME_SERVICES = [
@@ -29,7 +31,10 @@ function phone(v) {
 }
 
 function specialtiesFor(type) {
-  return type === 'nurse' ? NURSE_SPECIALTIES : DOCTOR_SPECIALTIES;
+  if (type === 'nurse') return NURSE_SPECIALTIES;
+  if (type === 'nutritionist') return NUTRITIONIST_SPECIALTIES;
+  if (type === 'trainer') return TRAINER_SPECIALTIES;
+  return DOCTOR_SPECIALTIES;
 }
 
 /** তালিকা থেকে শুধু বৈধ, অনন্য কোড */

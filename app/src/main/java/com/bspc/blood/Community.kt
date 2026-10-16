@@ -311,7 +311,7 @@ object Badges {
         "doctor" -> tr("Doctor", "ডাক্তার")
         "nurse" -> tr("Nurse", "নার্স")
         "nutritionist" -> tr("Nutritionist", "পুষ্টিবিদ")
-        "trainer" -> tr("Health Trainer", "হেলথ ট্রেইনার")
+        "trainer" -> tr("Fitness trainer", "ফিটনেস ট্রেইনার")
         else -> tr("Health Expert", "স্বাস্থ্য বিশেষজ্ঞ")
     }
 

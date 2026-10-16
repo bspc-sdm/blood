@@ -53,6 +53,7 @@ fun ProfileTab(
     onCommunityChanged: (CommunityMe) -> Unit,
     onEditProfile: () -> Unit,
     onOpenMyRequests: () -> Unit,
+    onOpenMyAppointments: () -> Unit,
     onOpenSettings: () -> Unit,
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
@@ -208,6 +209,9 @@ fun ProfileTab(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
             ActionRow(R.drawable.ic_list_alt, tr("My Requests", "আমার রিকোয়েস্ট"), null, onOpenMyRequests)
+            HorizontalDivider()
+            // নিজে নেওয়া অ্যাপয়েন্টমেন্ট (চেম্বারের বুকিং "আমার চেম্বার"-এ)
+            ActionRow(R.drawable.ic_calendar_month, tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"), null, onOpenMyAppointments)
             HorizontalDivider()
             ActionRow(
                 R.drawable.ic_history,

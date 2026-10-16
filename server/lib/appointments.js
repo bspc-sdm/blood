@@ -7,9 +7,12 @@ const DISTRICTS = require('./districts');
 const { approvedBadge, useQuota, userName } = require('./community-db');
 const K = require('./care');
 
-const PROVIDER_TYPES = ['doctor', 'nurse'];
-// চেম্বার আর অ্যাপয়েন্টমেন্ট শুধু ডাক্তারের; নার্স শুধু বাসায় সেবা (১৬ অক্টোবর ২০২৬)
-const CHAMBER_TYPES = ['doctor'];
+// "আমার চেম্বার/বাসায় সেবা" যাঁরা পান
+const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
+// চেম্বার আর অ্যাপয়েন্টমেন্ট: ডাক্তার, পুষ্টিবিদ, ফিটনেস ট্রেইনার; নার্স শুধু বাসায় সেবা (১৬ অক্টোবর ২০২৬)
+const CHAMBER_TYPES = ['doctor', 'nutritionist', 'trainer'];
+// বাসায় সেবা: ডাক্তার আর নার্স
+const HOME_TYPES = ['doctor', 'nurse'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function provider(d) {
@@ -156,7 +159,7 @@ module.exports = {
     require('./memcache').clear('home:');
     const badge = await approvedBadge(user.uid);
     if (!PROVIDER_TYPES.includes(badge)) {
-      throw new HttpError(403, C.tr(req, 'Only verified doctors and nurses can add chambers', 'শুধু যাচাই করা ডাক্তার ও নার্স চেম্বার যোগ করতে পারেন'));
+      throw new HttpError(403, C.tr(req, 'Only verified professionals can add chambers', 'শুধু যাচাই করা পেশাজীবীরা চেম্বার যোগ করতে পারেন'));
     }
     const b = req.body || {};
     if (!Array.isArray(b.chambers)) return legacySave(req, user, badge);
@@ -177,7 +180,9 @@ module.exports = {
     if (b.homeVisit?.enabled === true && b.homeVisit.phone === undefined) {
       throw new HttpError(409, C.tr(req, 'Please update the app to turn on home care', 'বাসায় সেবা চালু করতে অ্যাপ আপডেট করুন'), 'update_required');
     }
-    const hv = K.parseHomeVisit(b.homeVisit, badge);
+    // পুষ্টিবিদ/ট্রেইনারের বাসায় সেবা নেই
+    if (!HOME_TYPES.includes(badge) && b.homeVisit?.enabled === true) throw err(['Home care is for doctors and nurses', 'বাসায় সেবা শুধু ডাক্তার আর নার্সের']);
+    const hv = K.parseHomeVisit(HOME_TYPES.includes(badge) ? b.homeVisit : { enabled: false }, badge);
     if (hv.error) throw err(hv.error);
     const homeVisit = hv.homeVisit;
     const keepHome = b.homeVisit === undefined;
@@ -301,7 +306,7 @@ module.exports = {
       providerNote: '',
       createdAt: Date.now(),
     });
-    await push(providerUid, 'New appointment request', 'নতুন অ্যাপয়েন্টমেন্টের অনুরোধ', `${name} · ${dateLabel(date)}`, { type: 'appointment' });
+    await push(providerUid, 'New appointment request', 'নতুন অ্যাপয়েন্টমেন্টের অনুরোধ', `${name} · ${dateLabel(date)}`, { type: 'appointment', role: 'provider' });
     return { id: ref.id };
   },
 
@@ -343,6 +348,8 @@ module.exports = {
         status: d.get('status'),
         providerNote: d.get('providerNote') || '',
         otherPhone: d.get('status') === 'confirmed' ? phones.get(other) || '' : '',
+        // ডাক্তার নিজের রোগীদের এক জায়গায় দেখতে (আসল uid নয়, ছোট সংকেত)
+        otherKey: role === 'provider' ? require('crypto').createHash('sha256').update(`pat:${user.uid}:${other}`).digest('hex').slice(0, 12) : '',
         createdAt: d.get('createdAt'),
       };
     };
@@ -402,7 +409,7 @@ module.exports = {
       declined: ['Appointment not accepted', 'অ্যাপয়েন্টমেন্ট নেওয়া হয়নি'],
       cancelled: ['Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে'],
     }[next];
-    await push(to, texts[0], texts[1], `${isProvider ? a.providerName : a.patientName} · ${dateLabel(a.date)}${serial ? ` · #${serial}` : ''}`, { type: 'appointment' });
+    await push(to, texts[0], texts[1], `${isProvider ? a.providerName : a.patientName} · ${dateLabel(a.date)}${serial ? ` · #${serial}` : ''}`, { type: 'appointment', role: isProvider ? 'patient' : 'provider' });
     return { ok: true };
   },
 };

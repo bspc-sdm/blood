@@ -50,7 +50,7 @@ async function dailyReminders(now = Date.now()) {
   for (const d of stale) {
     out.push(msg(u.get(d.get('patientUid')), 'No reply to your appointment request', 'অ্যাপয়েন্টমেন্টের অনুরোধে সাড়া আসেনি',
       `${d.get('providerName') || ''} didn't reply. You can request another doctor.`,
-      `${d.get('providerName') || ''} সাড়া দেননি। অন্য ডাক্তারের কাছে অনুরোধ করতে পারেন।`, { type: 'appointment' }));
+      `${d.get('providerName') || ''} সাড়া দেননি। অন্য ডাক্তারের কাছে অনুরোধ করতে পারেন।`, { type: 'appointment', role: 'patient' }));
   }
 
   // রোগী: আজকের অ্যাপয়েন্টমেন্ট
@@ -58,16 +58,16 @@ async function dailyReminders(now = Date.now()) {
     const serial = d.get('serial') ? ` · #${d.get('serial')}` : '';
     out.push(msg(u.get(d.get('patientUid')), 'Appointment today', 'আজ অ্যাপয়েন্টমেন্ট আছে',
       `${d.get('providerName') || ''} · ${d.get('chamber') || ''}${serial}`,
-      `${d.get('providerName') || ''} · ${d.get('chamberBn') || d.get('chamber') || ''}${serial}`, { type: 'appointment' }));
+      `${d.get('providerName') || ''} · ${d.get('chamberBn') || d.get('chamber') || ''}${serial}`, { type: 'appointment', role: 'patient' }));
   }
   // ডাক্তার/নার্স: আজ কতজন, আর কতগুলো অনুরোধ অপেক্ষায়
   const countBy = (docs) => docs.reduce((m, d) => m.set(d.get('providerUid'), (m.get(d.get('providerUid')) || 0) + 1), new Map());
   for (const [uid, n] of countBy(confirmed.docs)) {
-    out.push(msg(u.get(uid), 'Your appointments today', 'আজকের অ্যাপয়েন্টমেন্ট', `${n} confirmed`, `${R.bnDigits(String(n))}টি নিশ্চিত`, { type: 'appointment' }));
+    out.push(msg(u.get(uid), 'Your appointments today', 'আজকের অ্যাপয়েন্টমেন্ট', `${n} confirmed`, `${R.bnDigits(String(n))}টি নিশ্চিত`, { type: 'appointment', role: 'provider' }));
   }
   for (const [uid, n] of countBy(waiting)) {
     out.push(msg(u.get(uid), 'Appointment requests waiting', 'অ্যাপয়েন্টমেন্টের অনুরোধ অপেক্ষায়',
-      `${n} patient(s) are waiting for your reply`, `${R.bnDigits(String(n))} জন রোগী উত্তরের অপেক্ষায়`, { type: 'appointment' }));
+      `${n} patient(s) are waiting for your reply`, `${R.bnDigits(String(n))} জন রোগী উত্তরের অপেক্ষায়`, { type: 'appointment', role: 'provider' }));
   }
   const list = out.filter(Boolean);
   const sent = list.length ? await sendPush(list) : 0;

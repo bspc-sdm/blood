@@ -369,8 +369,15 @@ object Specialties {
         "physical_medicine", "general",
     )
     val NURSE = listOf("general_nursing", "icu", "midwife", "home_care", "pediatric_nursing", "psychiatric_nursing")
+    val NUTRITIONIST = listOf("clinical_nutrition", "weight_diet", "diabetes_diet", "child_nutrition", "pregnancy_nutrition", "kidney_diet", "sports_nutrition")
+    val TRAINER = listOf("weight_loss", "strength", "yoga", "rehab_exercise", "elderly_fitness", "women_fitness", "sports_training")
 
-    fun of(type: String) = if (type == "nurse") NURSE else DOCTOR
+    fun of(type: String) = when (type) {
+        "nurse" -> NURSE
+        "nutritionist" -> NUTRITIONIST
+        "trainer" -> TRAINER
+        else -> DOCTOR
+    }
 
     fun label(code: String): String = when (code) {
         "medicine" -> tr("Medicine", "মেডিসিন")
@@ -399,6 +406,20 @@ object Specialties {
         "home_care" -> tr("Home care", "হোম কেয়ার")
         "pediatric_nursing" -> tr("Child nursing", "শিশু নার্সিং")
         "psychiatric_nursing" -> tr("Mental health nursing", "মানসিক স্বাস্থ্য নার্সিং")
+        "clinical_nutrition" -> tr("Clinical nutrition", "ক্লিনিক্যাল পুষ্টি")
+        "weight_diet" -> tr("Weight control diet", "ওজন নিয়ন্ত্রণের খাদ্য")
+        "diabetes_diet" -> tr("Diabetes diet", "ডায়াবেটিসের খাদ্য")
+        "child_nutrition" -> tr("Child nutrition", "শিশুর পুষ্টি")
+        "pregnancy_nutrition" -> tr("Pregnancy nutrition", "গর্ভকালীন পুষ্টি")
+        "kidney_diet" -> tr("Kidney diet", "কিডনি রোগের খাদ্য")
+        "sports_nutrition" -> tr("Sports nutrition", "খেলাধুলার পুষ্টি")
+        "weight_loss" -> tr("Weight loss", "ওজন কমানো")
+        "strength" -> tr("Strength training", "শক্তি বাড়ানো")
+        "yoga" -> tr("Yoga", "যোগব্যায়াম")
+        "rehab_exercise" -> tr("Rehab exercise", "রিহ্যাব ব্যায়াম")
+        "elderly_fitness" -> tr("Elderly fitness", "বয়স্কদের ব্যায়াম")
+        "women_fitness" -> tr("Women's fitness", "নারীদের ফিটনেস")
+        "sports_training" -> tr("Sports training", "খেলাধুলার প্রশিক্ষণ")
         else -> code
     }
 }
@@ -423,6 +444,8 @@ data class Appointment(
     /** নিশ্চিত হলে অপরজনের ফোন */
     val otherPhone: String,
     val createdAt: Long,
+    /** একই রোগী চেনার জন্য (সার্ভারের সংকেত; নাম নয়) */
+    val otherKey: String = "",
 ) {
     val chamberLabel: String get() = if (isBangla && chamberBn.isNotBlank()) chamberBn else chamber
 }
@@ -497,7 +520,7 @@ object Appointments {
             Appointment(
                 o.str("id"), o.str("role"), o.str("otherName"), o.str("type"), o.str("chamber"), o.str("chamberBn"),
                 o.str("room"), o.str("start"), o.optInt("serial"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
-                o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"),
+                o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"), o.str("otherKey"),
             )
         }
     }
