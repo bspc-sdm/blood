@@ -345,3 +345,6 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 .verify-side { grid-column: 2; }
 @media (max-width: 900px) { .verify-side { grid-column: auto; } }
+
+/* খোঁজার ঘর আর নিচের লেখার মাঝে ফাঁক */
+.search-hint { margin: 12px 0 0; }

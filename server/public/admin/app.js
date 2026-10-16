@@ -1368,7 +1368,7 @@
     const form = h('form', { class: 'field-row', onsubmit: (e) => { e.preventDefault(); go(`#/users?q=${encodeURIComponent(input.value.trim())}`); } },
       input, h('button', { class: 'btn primary', type: 'submit' }, icon('search'), 'খুঁজুন'));
     paint(alive, h('div', { class: 'card pad' }, form,
-      h('p', { class: 'note', text: 'ফোন নম্বর দিলে প্রোফাইল, ফার্মেসি আর অ্যাম্বুলেন্সের নম্বরেও খোঁজা হয়।' })), h('div', { class: 'section-title' }), box);
+      h('p', { class: 'note search-hint', text: 'ফোন নম্বর দিলে প্রোফাইল, ফার্মেসি, অ্যাম্বুলেন্স আর ব্লাড ব্যাংকের নম্বরেও খোঁজা হয়।' })), h('div', { class: 'section-title' }), box);
     if (!q0) { input.focus(); return; }
     box.replaceChildren(h('p', { class: 'note', text: 'খোঁজা হচ্ছে…' }));
     try {
