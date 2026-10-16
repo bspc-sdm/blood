@@ -170,7 +170,7 @@ private fun EmployerCard(e: Employer, onEdit: () -> Unit, onChanged: () -> Unit)
 @Composable
 private fun MyJobCard(j: Job, onOpen: () -> Unit, onEdit: () -> Unit, onApplicants: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow), onClick = onOpen) {
+    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(j.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(JobText.jobStatus(j.status, j.pausedBy), style = MaterialTheme.typography.labelLarge, color = cs.primary)
@@ -213,7 +213,7 @@ private fun EmployerEditScreen(existing: Employer?, profile: Profile, onBack: ()
             }
             OutlinedTextField(
                 phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
-                label = { Text(tr("Phone for applicants", "প্রার্থীদের জন্য ফোন")) },
+                label = { Text(tr("Organisation phone (for the Lifolo team)", "প্রতিষ্ঠানের ফোন (Lifolo টিমের যোগাযোগের জন্য)")) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
             AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
@@ -371,7 +371,7 @@ fun JobEditScreen(id: String?, profile: Profile, onBack: () -> Unit, onSaved: ()
             }
             questions.forEachIndexed { i, q -> QuestionEditor(q, onChange = { nq -> questions = questions.mapIndexed { k, x -> if (k == i) nq else x } }) { questions = questions.filterIndexed { k, _ -> k != i } } }
             if (questions.size < 5) {
-                TextButton(onClick = { questions = questions + QDraft("", "", "yesno", "", true) }) { ButtonContent(false, tr("Add a question", "প্রশ্ন যোগ করুন"), R.drawable.ic_add) }
+                TextButton(onClick = { questions = questions + QDraft("q" + java.lang.Long.toString(System.nanoTime() % 2_000_000_000L, 36), "", "yesno", "", true) }) { ButtonContent(false, tr("Add a question", "প্রশ্ন যোগ করুন"), R.drawable.ic_add) }
             }
             SmallNote(tr("Asking applicants for any fee or deposit is not allowed; such jobs are taken down.", "প্রার্থীর কাছে কোনো ফি বা জামানত চাওয়া যাবে না; চাইলে বিজ্ঞাপন বন্ধ করা হয়।"))
             ErrorText(errorMsg)

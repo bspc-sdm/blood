@@ -121,7 +121,7 @@ module.exports = {
     }
     if (kind === 'provider' && id === user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     // চাকরি: নিজের বিজ্ঞাপন নয়, আর শুধু চালু/বন্ধ (অনুমোদনের অপেক্ষার বিজ্ঞাপন সবাই দেখেন না)
-    if (kind === 'job' && (target.get('employerUid') === user.uid || !['open', 'closed'].includes(target.get('status')))) { // FEATURE:jobs
+    if (kind === 'job' && (target.get('employerUid') === user.uid || !['open', 'paused', 'closed'].includes(target.get('status')))) { // FEATURE:jobs
       throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
     // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবা: অ্যাপ থেকে ফোন করেছেন এমন মানুষই রিপোর্ট করতে পারেন (প্রতিযোগীর ভুয়া রিপোর্ট আটকাতে)

@@ -415,13 +415,15 @@ object JobsNav {
     val section = mutableStateOf<Int?>(null)
     /** পুশে চাপ দিলে কোন বিজ্ঞাপন (MainActivity intent থেকে বসায়) */
     val jobId = mutableStateOf<String?>(null)
-    val TYPES = setOf("job", "job_applicants", "job_mine")
+    val TYPES = setOf("job", "job_alert", "job_applicants", "job_mine")
 
     /** নোটিফিকেশনের ধরন → ট্যাবের অংশ আর উপরে খোলার পাতা */
     fun route(type: String?, jobId: String?): Pair<Int, JobsPage?> {
         val id = jobId ?: this.jobId.value
         this.jobId.value = null
         return when (type) {
+            // নতুন চাকরির অ্যালার্ট আর সেভ করা চাকরির মনে করানো: "চাকরি খুঁজুন"; বাকিটা নিজের আবেদন
+            "job_alert" -> 0 to id?.let { JobsPage.Detail(it) }
             "job" -> 1 to id?.let { JobsPage.Detail(it) }
             "job_applicants" -> 3 to id?.let { JobsPage.Applicants(it) }
             else -> 3 to null
@@ -701,7 +703,7 @@ fun JobCard(j: Job, onSave: (() -> Unit)? = null, onClick: () -> Unit) {
             IconLine(R.drawable.ic_nav_work, JobText.type(j.type) + " · " + JobText.category(j.category))
             IconLine(R.drawable.ic_schedule, tr("Apply by ", "আবেদনের শেষ তারিখ ") + Rules.formatDate(j.deadline))
             if (j.status != "open") Tag(JobText.jobStatus(j.status, j.pausedBy), cs.surfaceVariant, cs.onSurfaceVariant)
-            if (j.myStatus.isNotBlank()) Tag(tr("Already applied · ", "আগেই আবেদন করেছেন · ") + JobText.application(j.myStatus), cs.secondaryContainer, cs.onSecondaryContainer)
+            if (j.myStatus.isNotBlank() && j.myStatus != "withdrawn") Tag(tr("Already applied · ", "আগেই আবেদন করেছেন · ") + JobText.application(j.myStatus), cs.secondaryContainer, cs.onSecondaryContainer)
         }
     }
 }

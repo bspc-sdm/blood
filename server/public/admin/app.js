@@ -1343,7 +1343,7 @@
         h('div', { class: 'card pad verify-side' },
           h('h2', { class: 'section-title', text: 'না মিললে' }),
           h('div', { class: 'actions' }, reason, fixJob, reject),
-          hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
+          list === 'jobs' ? null /* FEATURE:jobs: বিজ্ঞাপনে কাগজের ছবি লাগে না */ : hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
           hasOwner ? h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' || list === 'employers' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')) : null)));
   }
 

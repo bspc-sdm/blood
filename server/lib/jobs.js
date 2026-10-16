@@ -32,6 +32,19 @@ const store = {
   openJobsIn: (district) => db.collection('jobs').where('status', '==', 'open').where('district', '==', district).limit(400).get(),
   jobsOf: (employerUid) => db.collection('jobs').where('employerUid', '==', employerUid).limit(100).get(),
   jobsByStatus: (status) => db.collection('jobs').where('status', '==', status).limit(300).get(),
+  /** দৈনিক কাজের জন্য সব চালু বিজ্ঞাপন (পাতা ধরে) */
+  allOpen: async () => {
+    const out = [];
+    let last = null;
+    for (;;) {
+      let q = db.collection('jobs').where('status', '==', 'open').orderBy('__name__').limit(500);
+      if (last) q = q.startAfter(last);
+      const s = await q.get();
+      out.push(...s.docs);
+      if (s.size < 500) return out;
+      last = s.docs[s.size - 1];
+    }
+  },
   applicationsOf: (uid) => db.collection('applications').where('uid', '==', uid).limit(200).get(),
   applicationsFor: (jobId) => db.collection('applications').where('jobId', '==', jobId).limit(300).get(),
   applicationsByStatus: (status) => db.collection('applications').where('status', '==', status).limit(500).get(),
@@ -190,7 +203,7 @@ function parseQuestions(req, v) {
     const text = C.cleanText(q.text, 200);
     if (!text) return null;
     const kind = Q_KINDS.includes(q.kind) ? q.kind : 'text';
-    let id = typeof q.id === 'string' && /^q[0-9a-z]{1,8}$/.test(q.id) ? q.id : `q${i + 1}`;
+    let id = typeof q.id === 'string' && /^q[0-9a-z]{1,8}$/.test(q.id) ? q.id : `q${Math.random().toString(36).slice(2, 8)}`;
     while (seen.has(id)) id = `q${Math.random().toString(36).slice(2, 8)}`;
     seen.add(id);
     const options = kind === 'choice' ? [...new Set(cleanList(q.options, 6, (o) => str(o, 60)))] : [];
@@ -399,7 +412,7 @@ async function sendAlerts(id, job) {
     return await require('./requestend').pushUsers(uids, (u, lang) => ({
       title: R.L(lang, 'New job for you', 'আপনার জন্য নতুন চাকরি'),
       body: [job.title, job.orgName].filter(Boolean).join(' · '),
-      data: { type: 'job', jobId: id },
+      data: { type: 'job_alert', jobId: id },
     }));
   } catch (e) {
     console.error('job alerts failed', e.message);
@@ -491,7 +504,8 @@ const actions = {
       });
     } else {
       const docsHave = hasDocs ? await V.saveDocs(req, 'employer', user.uid, user.uid, { ...x, ...data }, b.docs, false) : null;
-      const pending = docsHave || reverify;
+      // ট্রেড লাইসেন্স থাকলে তবেই যাচাইয়ের অপেক্ষায় (শুধু অফিসের ছবিতে নয়); যাচাই করা নিয়োগকর্তা ছবি দিলেও যাচাই থাকে
+      const pending = reverify || (docsHave && x.verified !== true && !!(docsHave.tradeLicense || (x.docsHave || {}).tradeLicense));
       await ref.update({
         ...data,
         ...(pending && x.verifyStatus !== 'pending' ? { verifyStatus: 'pending', verified: false, docsRequestedAt: FieldValue.delete() } : {}),
@@ -585,6 +599,8 @@ const actions = {
   async job_applicants(req, user) {
     const s = await ownJob(req, user, req.body?.id);
     const id = s.id;
+    // বন্ধ করা (রিপোর্ট/অ্যাডমিন) বা বাতিল বিজ্ঞাপনে প্রার্থীর যোগাযোগ আর দেখা যায় না
+    if (['suspended', 'rejected'].includes(s.get('status'))) throw err(req, 'This job was taken down', 'এই বিজ্ঞাপন বন্ধ করা হয়েছে', 403);
     const apps = (await store.applicationsFor(id)).docs;
     const uids = apps.map((d) => d.get('uid'));
     const [profiles, users, emails] = await Promise.all([
@@ -632,6 +648,9 @@ const actions = {
     const { jobId, uid, status } = b;
     if (!R.isValidId(uid) || !APP_STATUSES.includes(status)) throw err(req, 'Not found', 'পাওয়া যায়নি');
     const job = await ownJob(req, user, jobId);
+    if (['suspended', 'rejected'].includes(job.get('status'))) throw err(req, 'This job was taken down', 'এই বিজ্ঞাপন বন্ধ করা হয়েছে', 403);
+    const emp = await store.employer(user.uid).get();
+    if (emp.exists && emp.get('postingBlocked') === true) throw err(req, 'The Lifolo team has stopped hiring on your account', 'Lifolo টিম আপনার অ্যাকাউন্টে নিয়োগ বন্ধ রেখেছে', 403);
     const ref = store.application(jobId, uid);
     const a = await ref.get();
     if (!a.exists || a.get('status') === 'withdrawn') throw err(req, 'This application was withdrawn', 'আবেদনটা তুলে নেওয়া হয়েছে');
@@ -1175,8 +1194,7 @@ async function daily(now = Date.now()) {
   const today = R.todayDhakaUtcMidnight(now);
   const out = { paused: 0, offerReminders: 0, offersExpired: 0, savedReminders: 0 };
 
-  const open = await store.jobsByStatus('open');
-  const old = open.docs.filter((d) => (d.get('deadline') || 0) < today);
+  const old = (await store.allOpen()).filter((d) => (d.get('deadline') || 0) < today);
   for (let i = 0; i < old.length; i += 400) {
     const batch = db.batch();
     old.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'paused', pausedBy: 'deadline', pausedAt: now }));
@@ -1220,7 +1238,7 @@ async function daily(now = Date.now()) {
       await pushTo(d.get('uid'), (u, lang) => ({
         title: R.L(lang, 'Saved job closes in 2 days', 'সেভ করা চাকরির আবেদন ২ দিন পর শেষ'),
         body: [j.get('title'), j.get('orgName')].filter(Boolean).join(' · '),
-        data: { type: 'job', jobId: j.id },
+        data: { type: 'job_alert', jobId: j.id },
       }));
       out.savedReminders++;
     }
@@ -1230,15 +1248,23 @@ async function daily(now = Date.now()) {
 
 /** অ্যাকাউন্ট মোছার সময়: সিভি, নিয়োগকর্তার তথ্য, আবেদন, সেভ, অ্যালার্ট; চালু বিজ্ঞাপন বন্ধ */
 async function deleteForUser(uid) {
+  // আগে ব্যক্তিগত তথ্য (সিভি, নিয়োগকর্তা, অ্যালার্ট) — বাকি অংশ আটকালেও এগুলো মুছে যায়
+  const first = db.batch();
+  first.delete(store.profile(uid));
+  first.delete(store.employer(uid));
+  first.delete(store.alert(uid));
+  await first.commit();
   const [jobs, apps, saves] = await Promise.all([store.jobsOf(uid), store.applicationsOf(uid), store.savesOf(uid)]);
-  const batch = db.batch();
-  jobs.docs.filter((d) => LIVE.includes(d.get('status'))).forEach((d) => batch.update(d.ref, { status: 'closed', closedAt: Date.now(), closedBy: 'deleted' }));
-  apps.docs.forEach((d) => batch.delete(d.ref));
-  saves.docs.forEach((d) => batch.delete(d.ref));
-  batch.delete(store.profile(uid));
-  batch.delete(store.employer(uid));
-  batch.delete(store.alert(uid));
-  await batch.commit();
+  const ops = [
+    ...jobs.docs.filter((d) => LIVE.includes(d.get('status'))).map((d) => (b) => b.update(d.ref, { status: 'closed', closedAt: Date.now(), closedBy: 'deleted' })),
+    ...apps.docs.map((d) => (b) => b.delete(d.ref)),
+    ...saves.docs.map((d) => (b) => b.delete(d.ref)),
+  ];
+  for (let i = 0; i < ops.length; i += 400) {
+    const b = db.batch();
+    ops.slice(i, i + 400).forEach((op) => op(b));
+    await b.commit();
+  }
 }
 
 /** শেয়ার লিংকের পাতার জন্য: সবার জন্য খোলা সিভি */
