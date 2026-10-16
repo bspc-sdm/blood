@@ -79,16 +79,9 @@ function parseChambers(list, hospitals, allowCustom = false) {
     // বার (০ = রবি … ৬ = শনি, JS-এর মতো) আর সময় ("17:00"); লেখা শুধু বাড়তি নোট।
     // times: বার অনুযায়ী আলাদা সময়ের ভাগ; না থাকলে (আগের অ্যাপ) উপরের days/start/end একটাই ভাগ
     const rawTimes = Array.isArray(c.times) && c.times.length ? c.times : [{ days: c.days, start: c.start, end: c.end }];
-    if (rawTimes.length > MAX_CHAMBER_TIMES) return { error: ['Up to 4 time slots per chamber', 'এক চেম্বারে সর্বোচ্চ ৪টা সময়'] };
-    const times = [];
-    for (const t of rawTimes) {
-      const td = Array.isArray(t?.days) ? [...new Set(t.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
-      const ts = TIME_RE.test(t?.start) ? t.start : '';
-      const te = TIME_RE.test(t?.end) ? t.end : '';
-      if (!td.length) return { error: ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'] };
-      if (!ts || !te || te === ts) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
-      times.push({ days: td, start: ts, end: te });
-    }
+    const parsedTimes = parseTimes(rawTimes, ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'], ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন']);
+    if (parsedTimes.error) return parsedTimes;
+    const { times } = parsedTimes;
     // উপরের days = সব ভাগের বার একসাথে (বুকিং-এর বার মেলানো, আগের অ্যাপ); start/end = প্রথম ভাগ
     const days = [...new Set(times.flatMap((t) => t.days))].sort();
     const { start, end } = times[0];
@@ -126,6 +119,22 @@ function parseChambers(list, hospitals, allowCustom = false) {
     };
   }
   return { chambers: out };
+}
+
+/** বার আর শুরু–শেষের ভাগগুলো যাচাই (চেম্বার আর বাসায় সেবা দুটোতেই) */
+function parseTimes(raw, daysErr, timeErr) {
+  if (!Array.isArray(raw)) return { times: [] };
+  if (raw.length > MAX_CHAMBER_TIMES) return { error: ['Up to 4 time slots', 'সর্বোচ্চ ৪টা সময়'] };
+  const times = [];
+  for (const t of raw) {
+    const td = Array.isArray(t?.days) ? [...new Set(t.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
+    const ts = TIME_RE.test(t?.start) ? t.start : '';
+    const te = TIME_RE.test(t?.end) ? t.end : '';
+    if (!td.length) return { error: daysErr };
+    if (!ts || !te || te === ts) return { error: timeErr };
+    times.push({ days: td, start: ts, end: te });
+  }
+  return { times };
 }
 
 const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -257,6 +266,11 @@ function parseHomeVisit(h, type = 'nurse') {
   if (enabled && !norm) return { error: ['Enter a mobile number patients can call', 'রোগীরা যে নম্বরে ফোন করবেন, সেই মোবাইল নম্বর দিন'] };
   const radiusKm = HOME_RADII.includes(h.radiusKm) ? h.radiusKm : 5;
   const upazilaIds = Array.isArray(h.upazilaIds) ? [...new Set(h.upazilaIds.filter(Number.isInteger))].slice(0, 10) : [];
+  // কোন কোন বার কখন যান (নতুন অ্যাপ পাঠায়; আগের অ্যাপে শুধু লেখা নোট)
+  const pt = parseTimes(h.times, ['Choose the days you visit homes', 'কোন কোন বার বাসায় যান বেছে নিন'], ['Set the start and end time for home visits', 'বাসায় যাওয়ার শুরু আর শেষের সময় দিন']);
+  if (pt.error) return pt;
+  if (enabled && Array.isArray(h.times) && !pt.times.length) return { error: ['Set the days and time you visit homes', 'কোন বার কখন বাসায় যান দিন'] };
+  if (timeClash([{ times: pt.times }])) return { error: ['Two home-visit times overlap on the same day', 'বাসায় যাওয়ার দুটো সময় একই বারে মিলে যাচ্ছে'] };
   return {
     homeVisit: {
       enabled,
@@ -265,6 +279,7 @@ function parseHomeVisit(h, type = 'nurse') {
       services,
       phone: norm ? localBd(norm) : '',
       schedule: str(h.schedule, 120),
+      times: pt.times,
       noFee: h.noFee === true,
       fee: h.noFee === true ? '' : str(h.fee, 60),
     },

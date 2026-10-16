@@ -44,6 +44,7 @@ function view(d, km, mine) {
     radiusKm: h.radiusKm || 5,
     upazilaIds: h.upazilaIds || [],
     schedule: h.schedule || '',
+    times: Array.isArray(h.times) ? h.times : [],
     fee: h.fee || '',
     noFee: h.noFee === true,
     phone: K.fixPhone(h.phone),

@@ -247,6 +247,9 @@ data class ChamberTime(val days: List<Int> = emptyList(), val start: String = ""
 
 const val MAX_CHAMBER_TIMES = 4
 
+internal fun parseTimes(a: JSONArray?): List<ChamberTime> =
+    if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { t -> ChamberTime(t.optJSONArray("days").ints(), t.str("start"), t.str("end")) }
+
 /** একজন একই সময়ে দুই জায়গায় বসতে পারেন না — সার্ভারের timeClash-এর মতো (সপ্তাহের মিনিটে মিলিয়ে) */
 object ChamberTimes {
     private const val WEEK = 7 * 1440
@@ -263,6 +266,10 @@ object ChamberTimes {
             if (b <= WEEK) listOf(a to b) else listOf(a to WEEK, 0 to b - WEEK)
         }
     }
+
+    /** এক তালিকার ভাগগুলো নিজেদের মধ্যে মিলে যায় কি না (বাসায় সেবা) */
+    fun clashSlots(slots: List<ChamberTime>): Boolean =
+        clash(listOf(Chamber(null, "", "", "", null, null, "", "", "", false, "").withSlots(slots).copy(times = slots))) != null
 
     /** সময় মিলে যাওয়া দুই চেম্বার (একই চেম্বারের দুই ভাগ হলে দুটোই এক), নইলে null */
     fun clash(chambers: List<Chamber>): Pair<Chamber, Chamber>? {
@@ -340,9 +347,7 @@ data class Chamber(
             o.str("fee"), o.optBoolean("appointments"), o.str("serialPhone"),
             o.optJSONArray("days").ints(), o.str("start"), o.str("end"), o.optBoolean("noFee"),
             o.optBoolean("custom"), o.str("address"),
-            o.optJSONArray("times")?.let { a ->
-                (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { t -> ChamberTime(t.optJSONArray("days").ints(), t.str("start"), t.str("end")) }
-            }.orEmpty().takeIf { it.size > 1 }.orEmpty(),
+            parseTimes(o.optJSONArray("times")).takeIf { it.size > 1 }.orEmpty(),
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */
@@ -362,15 +367,21 @@ data class HomeVisitSettings(
     val fee: String = "",
     val phone: String = "",
     val noFee: Boolean = false,
+    /** কোন কোন বার কখন যান */
+    val times: List<ChamberTime> = emptyList(),
 ) {
+    /** "শুক্র · সকাল ৯:০০ – দুপুর ১:০০" — প্রতিটা ভাগ আলাদা লাইনে, তারপর নোট */
+    val timeText: String get() = (times.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
+
     fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("termsAccepted", enabled).put("radiusKm", radiusKm)
         .put("upazilaIds", JSONArray(upazilaIds)).put("services", JSONArray(services)).put("schedule", schedule).put("fee", fee)
-        .put("noFee", noFee).put("phone", phone)
+        .put("noFee", noFee).put("phone", phone).put("times", JSONArray(times.map { it.toJson() }))
 
     companion object {
         fun parse(o: JSONObject?) = if (o == null) null else HomeVisitSettings(
             o.optBoolean("enabled"), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(),
             o.optJSONArray("services").strings(), o.str("schedule"), o.str("fee"), o.str("phone"), o.optBoolean("noFee"),
+            parseTimes(o.optJSONArray("times")),
         )
     }
 }
@@ -652,7 +663,11 @@ data class HomePro(
     val canRate: Boolean = false,
     val noFee: Boolean = false,
     val photo: String = "",
+    val times: List<ChamberTime> = emptyList(),
 ) {
+    /** বার আর সময় (প্রতিটা ভাগ আলাদা লাইনে), তারপর নোট */
+    val timeText: String get() = (times.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
+
     val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
 
     /** কোথায় যান: "৫ কিমির মধ্যে · দেবিদ্বার, বরুড়া" */
@@ -669,7 +684,7 @@ object HomeCare {
         o.optJSONArray("services").strings(), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(), o.str("schedule"),
         o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
-        o.optBoolean("canRate"), o.optBoolean("noFee"), o.str("photo"),
+        o.optBoolean("canRate"), o.optBoolean("noFee"), o.str("photo"), parseTimes(o.optJSONArray("times")),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */

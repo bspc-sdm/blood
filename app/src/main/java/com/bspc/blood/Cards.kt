@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,9 +30,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -207,9 +211,20 @@ fun DetailSheet(
     footer: @Composable () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+    // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
+    val maxH = (LocalConfiguration.current.screenHeightDp * 0.92f).dp
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+      Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Surface(
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = cs.surfaceContainerLow,
+            modifier = Modifier.fillMaxWidth().heightIn(max = maxH),
+        ) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onDismiss) { AppIcon(R.drawable.ic_close, tr("Close", "বন্ধ করুন"), Modifier.size(24.dp), cs.onSurfaceVariant) }
+            }
             Column(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -267,5 +282,7 @@ fun DetailSheet(
                 }
             }
         }
+        }
+      }
     }
 }

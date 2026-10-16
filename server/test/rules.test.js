@@ -239,6 +239,12 @@ test('চেম্বার: যাচাই, পুরোনো ডক, ফি�
   // রাত পেরোনো: সোম ২২:০০–০২:০০ আর মঙ্গল ০১:০০–০৩:০০ মেলে
   assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '22:00', end: '02:00' }, { hospitalId: 'h1', days: [2], start: '01:00', end: '03:00' }], hospitals).error);
   assert.ok(!K.parseChambers([{ hospitalId: 'h1', days: [6], start: '22:00', end: '02:00' }, { hospitalId: 'h1', days: [0], start: '03:00', end: '05:00' }], hospitals).error);
+  // বাসায় সেবার বার ও সময়
+  const hvBase = { enabled: true, services: ['checkup'], phone: '01712345678' };
+  assert.deepStrictEqual(K.parseHomeVisit({ ...hvBase, times: [{ days: [5], start: '09:00', end: '13:00' }] }, 'doctor').homeVisit.times, [{ days: [5], start: '09:00', end: '13:00' }]);
+  assert.ok(K.parseHomeVisit({ ...hvBase, times: [] }, 'doctor').error);
+  assert.ok(!K.parseHomeVisit(hvBase, 'doctor').error); // আগের অ্যাপ: times নেই
+  assert.ok(K.parseHomeVisit({ ...hvBase, times: [{ days: [5], start: '09:00', end: '13:00' }, { days: [5], start: '12:00', end: '14:00' }] }, 'doctor').error);
   assert.ok(K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [], start: '17:00', end: '21:00' }] }], hospitals).error);
   assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', ...t }), hospitals).error);
   const ok = K.parseChambers([{ hospitalId: 'h1', ...t, schedule: 'Fridays closed', appointments: true, serialPhone: '017-1234 5678' }], hospitals);

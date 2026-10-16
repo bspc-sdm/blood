@@ -374,7 +374,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     listOf(
                         R.drawable.ic_medical_services to hv.services.joinToString(" · ") { HomeServices.label(it) },
                         R.drawable.ic_location_on to (listOf(tr("Within ${hv.radiusKm} km", "${num(hv.radiusKm)} কিমির মধ্যে")) + hv.upazilaIds.mapNotNull { Areas.upazila(it)?.label }).joinToString(" · "),
-                        R.drawable.ic_schedule to hv.schedule,
+                        R.drawable.ic_schedule to hv.timeText,
                         R.drawable.ic_payments to if (hv.noFee) tr("No fee", "ফি নেই") else if (hv.fee.isNotBlank()) tr("Fee: ", "ফি: ") + hv.fee else "",
                     ),
                     listOf(
@@ -945,11 +945,13 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                             AssistChip(onClick = { pickUpazila = true }, label = { Text(tr("Add", "যোগ")) }, leadingIcon = { AppIcon(R.drawable.ic_add, null, Modifier.size(16.dp)) })
                         }
                     }
+                    Text(tr("When you visit", "কখন যেতে পারেন"), style = MaterialTheme.typography.titleSmall)
+                    TimeSlotsEditor(home.times.ifEmpty { listOf(ChamberTime()) }) { home = home.copy(times = it) }
                     OutlinedTextField(
                         value = home.schedule,
                         onValueChange = { home = home.copy(schedule = it.take(120)) },
-                        label = { Text(tr("When you're available", "কখন যেতে পারেন")) },
-                        placeholder = { Text(tr("e.g. Every day 8 AM – 10 PM", "যেমন: প্রতিদিন সকাল ৮টা – রাত ১০টা")) },
+                        label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) },
+                        placeholder = { Text(tr("e.g. Call an hour before", "যেমন: এক ঘণ্টা আগে ফোন দিন")) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -988,6 +990,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                         chambers.any { it.fee.isBlank() && !it.noFee } ->
                             tr("Enter the fee for each chamber, or tick \"No fee\"", "প্রতিটা চেম্বারে ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
+                        home.enabled && home.times.ifEmpty { listOf(ChamberTime()) }.any { it.days.isEmpty() } -> tr("Choose the days you visit homes", "কোন কোন বার বাসায় যান বেছে নিন")
+                        home.enabled && home.times.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
+                            tr("Set the start and end time for home visits", "বাসায় যাওয়ার শুরু আর শেষের সময় দিন")
+                        home.enabled && ChamberTimes.clashSlots(home.times) -> tr("Two home-visit times overlap on the same day", "বাসায় যাওয়ার দুটো সময় একই বারে মিলে যাচ্ছে")
                         home.enabled && home.fee.isBlank() && !home.noFee ->
                             tr("Enter the home care fee, or tick \"No fee\"", "বাসায় সেবার ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
                         home.enabled && !Regex("^(\\+?88)?01[3-9]\\d{8}$").matches(home.phone) ->
@@ -1102,23 +1108,7 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 
 @Composable
 internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
-    // কোন ভাগের কোন সময় বাছা হচ্ছে: (ভাগের ক্রম, ১ শুরু / ২ শেষ)
-    var pickTime by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val slots = c.slots
-    pickTime?.let { (i, which) ->
-        val slot = slots.getOrNull(i) ?: return@let
-        val cur = (if (which == 1) slot.start else slot.end).split(":")
-        TimePickerPopup(
-            cur.getOrNull(0)?.toIntOrNull() ?: if (which == 1) 17 else 21,
-            cur.getOrNull(1)?.toIntOrNull() ?: 0,
-            onPicked = { h, m ->
-                val t = Weekdays.hhmm(h, m)
-                onChange(c.withSlots(slots.mapIndexed { j, x -> if (j != i) x else if (which == 1) x.copy(start = t) else x.copy(end = t) }))
-            },
-            onDismiss = { pickTime = null },
-            title = if (which == 1) tr("Chamber starts at", "চেম্বার শুরু") else tr("Chamber ends at", "চেম্বার শেষ"),
-        )
-    }
+
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (c.custom) {
@@ -1164,41 +1154,7 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                     IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
                 }
             }
-            // বার অনুযায়ী আলাদা সময়: প্রতিটা ভাগে বার আর শুরু–শেষ; "আরেকটা সময়" দিয়ে নতুন ভাগ
-            slots.forEachIndexed { i, slot ->
-                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (slots.size > 1) tr("Time ${i + 1}: days", "সময় ${num(i + 1)}: কোন কোন বার") else tr("Days", "কোন কোন বার"),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (slots.size > 1) {
-                        IconButton(onClick = { onChange(c.withSlots(slots.filterIndexed { j, _ -> j != i })) }, modifier = Modifier.size(32.dp)) {
-                            AppIcon(R.drawable.ic_close, tr("Remove this time", "এই সময় সরান"), Modifier.size(18.dp))
-                        }
-                    }
-                }
-                ChipRows(Weekdays.ORDER.map { it.toString() }, slot.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
-                    val d = it.toInt()
-                    val next = slot.copy(days = if (d in slot.days) slot.days - d else slot.days + d)
-                    onChange(c.withSlots(slots.mapIndexed { j, x -> if (j == i) next else x }))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { pickTime = i to 1 }) {
-                        Text(if (slot.start.isBlank()) tr("Start time", "শুরুর সময়") else Weekdays.time(slot.start))
-                    }
-                    Text("–")
-                    OutlinedButton(onClick = { pickTime = i to 2 }) {
-                        Text(if (slot.end.isBlank()) tr("End time", "শেষের সময়") else Weekdays.time(slot.end))
-                    }
-                }
-            }
-            if (slots.size < MAX_CHAMBER_TIMES) {
-                TextButton(onClick = { onChange(c.withSlots(slots + ChamberTime())) }) {
-                    ButtonContent(false, tr("Different time on other days", "অন্য বারে আলাদা সময়"), R.drawable.ic_add)
-                }
-            }
+            TimeSlotsEditor(c.slots) { onChange(c.withSlots(it)) }
             OutlinedTextField(
                 value = c.schedule,
                 onValueChange = { onChange(c.copy(schedule = it.take(120))) },
@@ -1252,5 +1208,61 @@ internal fun NoFeeCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
     ) {
         androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = onChange)
         Text(tr("No fee", "ফি চাই না"), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** বার আর শুরু–শেষের ভাগ (চেম্বার আর বাসায় সেবা): প্রতিটা ভাগে বার বাছা, সময়, আর "অন্য বারে আলাদা সময়" */
+@Composable
+internal fun TimeSlotsEditor(slots: List<ChamberTime>, onChange: (List<ChamberTime>) -> Unit) {
+    // কোন ভাগের কোন সময় বাছা হচ্ছে: (ভাগের ক্রম, ১ শুরু / ২ শেষ)
+    var pickTime by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    pickTime?.let { (i, which) ->
+        val slot = slots.getOrNull(i) ?: return@let
+        val cur = (if (which == 1) slot.start else slot.end).split(":")
+        TimePickerPopup(
+            cur.getOrNull(0)?.toIntOrNull() ?: if (which == 1) 17 else 21,
+            cur.getOrNull(1)?.toIntOrNull() ?: 0,
+            onPicked = { h, m ->
+                val t = Weekdays.hhmm(h, m)
+                onChange(slots.mapIndexed { j, x -> if (j != i) x else if (which == 1) x.copy(start = t) else x.copy(end = t) })
+            },
+            onDismiss = { pickTime = null },
+            title = if (which == 1) tr("Starts at", "শুরু") else tr("Ends at", "শেষ"),
+        )
+    }
+    // বার অনুযায়ী আলাদা সময়: প্রতিটা ভাগে বার আর শুরু–শেষ; "আরেকটা সময়" দিয়ে নতুন ভাগ
+    slots.forEachIndexed { i, slot ->
+        if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (slots.size > 1) tr("Time ${i + 1}: days", "সময় ${num(i + 1)}: কোন কোন বার") else tr("Days", "কোন কোন বার"),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            if (slots.size > 1) {
+                IconButton(onClick = { onChange(slots.filterIndexed { j, _ -> j != i }) }, modifier = Modifier.size(32.dp)) {
+                    AppIcon(R.drawable.ic_close, tr("Remove this time", "এই সময় সরান"), Modifier.size(18.dp))
+                }
+            }
+        }
+        ChipRows(Weekdays.ORDER.map { it.toString() }, slot.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
+            val d = it.toInt()
+            val next = slot.copy(days = if (d in slot.days) slot.days - d else slot.days + d)
+            onChange(slots.mapIndexed { j, x -> if (j == i) next else x })
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { pickTime = i to 1 }) {
+                Text(if (slot.start.isBlank()) tr("Start time", "শুরুর সময়") else Weekdays.time(slot.start))
+            }
+            Text("–")
+            OutlinedButton(onClick = { pickTime = i to 2 }) {
+                Text(if (slot.end.isBlank()) tr("End time", "শেষের সময়") else Weekdays.time(slot.end))
+            }
+        }
+    }
+    if (slots.size < MAX_CHAMBER_TIMES) {
+        TextButton(onClick = { onChange(slots + ChamberTime()) }) {
+            ButtonContent(false, tr("Different time on other days", "অন্য বারে আলাদা সময়"), R.drawable.ic_add)
+        }
     }
 }

@@ -211,7 +211,7 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
         details = listOf(
             R.drawable.ic_medical_services to p.services.joinToString(" · ") { HomeServices.label(it) },
             R.drawable.ic_location_on to if (areas.isEmpty()) "" else tr("Also visits: ", "যান: ") + areas.joinToString(", "),
-            R.drawable.ic_schedule to p.schedule,
+            R.drawable.ic_schedule to p.timeText,
             R.drawable.ic_payments to p.feeText,
         ),
         primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
@@ -231,7 +231,7 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
             DetailSection(
                 tr("Time and fee", "সময় ও ফি"),
                 listOf(
-                    R.drawable.ic_schedule to p.schedule,
+                    R.drawable.ic_schedule to p.timeText,
                     R.drawable.ic_payments to p.feeText,
                 ),
             ),
