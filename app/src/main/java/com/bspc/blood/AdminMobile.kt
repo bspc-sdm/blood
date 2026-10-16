@@ -472,7 +472,7 @@ private fun AdminEmergencyTab() {
                             e.groups.joinToString(" · ") { (g, need, coming) -> "$g " + tr("${num(coming)}/${num(need)} coming", "${num(need)} ব্যাগ, আসছেন ${num(coming)}") },
                         )
                         if (e.live) {
-                            IconLine(R.drawable.ic_schedule, tr("Ends ", "শেষ হবে ") + Rules.formatDateTime(e.endsAt))
+                            IconLine(R.drawable.ic_schedule, tr("Ends ", "শেষ হবে ") + Rules.formatDate(e.endsAt) + ", " + Rules.formatTime(e.endsAt))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                                 SmallAction(tr("Notify more donors", "আরও ডোনার জানান"), R.drawable.ic_notifications, {
                                     act(e.id) { val n = AdminApi.emergencyMore(e.id); tr("Notified $n more", "আরও ${num(n)} জনকে জানানো হয়েছে") }
