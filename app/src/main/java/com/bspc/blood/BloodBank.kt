@@ -157,12 +157,6 @@ fun BloodBankContent(profile: Profile) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SmallNote(
-                tr(
-                    "Run or work at a blood bank? Add it — people nearby will call you directly. Free, no commission.",
-                    "ব্লাড ব্যাংক চালান বা সেখানে কাজ করেন? যোগ করুন, কাছের মানুষ সরাসরি ফোন করবেন। বিনামূল্যে, কোনো কমিশন নেই।",
-                ),
-            )
             MyBloodBanksSection(profile)
         }
     }

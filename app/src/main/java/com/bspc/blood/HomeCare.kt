@@ -119,16 +119,7 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
                         if (female) ActiveFilter(tr("Female only", "শুধু মহিলা")) { female = false } else null,
                     ),
                 )
-                SmallNote(
-                    if (type == "nurse") {
-                        tr(
-                            "Call and agree on the time and fee. The app takes no money. For injection or saline, keep the doctor's prescription ready.",
-                            "ফোন করে সময় আর ফি ঠিক করে নিন, অ্যাপ কোনো টাকা নেয় না। ইনজেকশন বা স্যালাইনের জন্য ডাক্তারের প্রেসক্রিপশন রাখুন।",
-                        )
-                    } else {
-                        tr("Call and agree on the time and fee. The app takes no money.", "ফোন করে সময় আর ফি ঠিক করে নিন, অ্যাপ কোনো টাকা নেয় না।")
-                    },
-                )
+                if (type == "nurse") SmallNote(tr("Injection or saline needs a doctor's prescription.", "ইনজেকশন বা স্যালাইনে ডাক্তারের প্রেসক্রিপশন লাগবে।"))
             }
         }
         item {

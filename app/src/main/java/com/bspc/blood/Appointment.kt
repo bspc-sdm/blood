@@ -730,12 +730,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 LoadingBox()
                 return@Column
             }
-            SwitchRow(tr("Show me in the list", "তালিকায় আমাকে দেখাও"), tr("Patients can find you by area, hospital and specialty.", "রোগীরা এলাকা, হাসপাতাল আর বিশেষজ্ঞতা দিয়ে খুঁজে পাবেন।"), listed) { listed = it }
-            SwitchRow(
-                tr("Take appointments through the app", "অ্যাপে অ্যাপয়েন্টমেন্ট নেব"),
-                tr("If off, patients see your chamber info and serial phone only.", "বন্ধ থাকলে রোগীরা শুধু চেম্বারের তথ্য আর সিরিয়ালের ফোন দেখবেন।"),
-                takes,
-            ) { takes = it }
+            SwitchRow(tr("Show me in the list", "তালিকায় আমাকে দেখাও"), null, listed) { listed = it }
+            SwitchRow(tr("Take appointments through the app", "অ্যাপে অ্যাপয়েন্টমেন্ট নেব"), null, takes) { takes = it }
             HorizontalDivider()
 
             SectionTitle(tr("Specialty", "বিশেষজ্ঞতা"))
@@ -756,11 +752,9 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     FilterChip(selected = gender == k, onClick = { gender = k }, label = { Text(l) })
                 }
             }
-            SmallNote(tr("Patients can search home care with \"Female only\".", "বাসায় সেবায় রোগীরা \"শুধু মহিলা\" দিয়েও খুঁজতে পারেন।"))
             HorizontalDivider()
 
             SectionTitle(tr("Chambers (up to 3)", "চেম্বার (সর্বোচ্চ ৩টা)"))
-            if (chambers.isEmpty()) SmallNote(tr("Only visit homes? You can skip chambers and turn on home care below.", "শুধু বাসায় গিয়ে সেবা দেন? চেম্বার না দিয়ে নিচে বাসায় সেবা চালু করলেই হবে।"))
             oldChamber?.let {
                 InfoText(
                     tr(
@@ -786,11 +780,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
             run {
                 HorizontalDivider()
                 SectionTitle(tr("Home care", "বাসায় সেবা"))
-                SwitchRow(
-                    tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"),
-                    tr("You appear in the \"Home care\" list and patients call you directly. Fee is settled between you; the app takes no money.", "\"বাসায় সেবা\" তালিকায় দেখাবেন, রোগীরা সরাসরি ফোন করবেন। ফি নিজেরা ঠিক করবেন; অ্যাপ কোনো টাকা নেয় না।"),
-                    home.enabled,
-                ) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
+                SwitchRow(tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"), null, home.enabled) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
                 if (home.enabled) {
                     OutlinedTextField(
                         value = home.phone,
@@ -812,14 +802,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         }
                     }
                     if (gpsPlace != null) {
-                        SmallNote(tr("Distance is counted from your current location in ", "দূরত্ব গোনা হয় আপনার বর্তমান লোকেশন থেকে: ") + Districts.label(gpsPlace))
-                    } else {
-                        InfoText(
-                            tr(
-                                "Set your current location so nearby patients can find you. Without it, only the upazilas below are used.",
-                                "কাছের রোগীরা যেন পান, বর্তমান লোকেশন দিন। না দিলে শুধু নিচে বেছে রাখা উপজেলাগুলো ধরা হবে।",
-                            ),
-                        )
+                        SmallNote(tr("Location: ", "লোকেশন: ") + Districts.label(gpsPlace))
                     }
                     GpsButton(
                         if (gpsPlace == null) tr("Use my current location", "বর্তমান লোকেশন দিন") else tr("Update location", "লোকেশন আপডেট"),

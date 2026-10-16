@@ -404,7 +404,10 @@ fun App(
         }
         if (!(top is Screen.Main && p != null)) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                when (val current = stack.last()) {
+                // পাতা বদলালে (একই ধরনের অন্য রিকোয়েস্ট/প্রশ্নও) নতুন করে তৈরি — আগের পাতার তথ্য থেকে যায় না
+                val current = stack.last()
+                androidx.compose.runtime.key(current) {
+                when (current) {
             Screen.Loading -> SplashScreen()
 
             Screen.Login -> LoginScreen(
@@ -596,6 +599,7 @@ fun App(
                 onBack = { back() },
             )
         }
+                }
             }
         }
     }

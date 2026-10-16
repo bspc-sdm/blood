@@ -113,7 +113,7 @@ fun DocPhotosField(specs: List<DocSpec>, photos: Map<String, String>, onChange: 
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("Document photos", "কাগজের ছবি"), style = MaterialTheme.typography.labelLarge)
-        SmallNote(optionalNote ?: tr("The Lifolo team checks these before listing. Take a clear photo of the whole paper.", "তালিকায় আসার আগে Lifolo টিম এগুলো দেখে মিলিয়ে নেয়। পুরো কাগজের পরিষ্কার ছবি দিন।"))
+        SmallNote(optionalNote ?: tr("Clear photo of the whole paper.", "পুরো কাগজের পরিষ্কার ছবি দিন।"))
         specs.forEach { d ->
             val img = photos[d.type]
             Row(verticalAlignment = Alignment.CenterVertically) {

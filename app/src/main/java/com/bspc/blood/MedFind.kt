@@ -179,7 +179,6 @@ fun MedFindPanel(profile: Profile) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 // সার্চের ঠিক নিচে ছোট করে বোঝানো
-                supportingText = { Text(tr("Nearby pharmacies will say if they have it.", "কাছের ফার্মেসি জানাবে কার কাছে আছে।")) },
             )
             results.forEach { d ->
                 Surface(
@@ -336,7 +335,6 @@ fun PharmacyFindRequests() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                SmallNote(tr("People nearby ask if you have a medicine. Answer in one tap; they call you.", "কাছের মানুষ জানতে চান কোনো ওষুধ আপনার কাছে আছে কি না। এক চাপে উত্তর দিন; তারা ফোন করবেন।"))
             }
             Switch(checked = !off, onCheckedChange = { on ->
                 scope.launch { runCatching { MedFind.setOff(!on) }.onSuccess { off = !on }.onFailure { errorMsg = it.message } }

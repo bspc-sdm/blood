@@ -221,12 +221,6 @@ fun AmbulanceContent(profile: Profile, showMine: Boolean = true) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SmallNote(
-                tr(
-                    "Own or drive an ambulance? Add it — people in your area call you directly. Free: no commission.",
-                    "অ্যাম্বুলেন্সের মালিক বা চালক? যোগ করুন, আপনার এলাকার মানুষ সরাসরি ফোন করবেন। বিনামূল্যে, কোনো কমিশন নেই।",
-                ),
-            )
             MyAmbulancesSection(profile)
         }
     }
@@ -535,12 +529,7 @@ fun MyAmbulancesSection(profile: Profile) {
                                 }
                             })
                         }
-                        SmallNote(
-                            tr(
-                                "Turn off when you go on a trip — you won't be listed until you turn it on again. \"Available\" lasts 12 hours. If you forget, after 12 hours you're listed again as \"Call to check\".",
-                                "ট্রিপে গেলে বন্ধ করুন — আবার চালু না করা পর্যন্ত তালিকায় দেখাবে না। \"খালি আছি\" ১২ ঘণ্টা থাকে। চালু করতে ভুলে গেলে ১২ ঘণ্টা পর \"ফোনে জেনে নিন\" হিসেবে আবার তালিকায় আসবে।",
-                            ),
-                        )
+                        SmallNote(tr("Turn off when you go on a trip.", "ট্রিপে গেলে বন্ধ করুন।"))
                     }
                 }
             }

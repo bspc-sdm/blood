@@ -174,12 +174,6 @@ fun HelpScreen(startCategory: String?, onBack: () -> Unit) {
                 return@Column
             }
 
-            SmallNote(
-                tr(
-                    "Write to the Lifolo team about any problem — a suspended pharmacy or ambulance, a badge, an order, a blocked feature or anything else. You'll get a notification when we reply.",
-                    "যেকোনো সমস্যায় Lifolo টিমকে লিখুন: ফার্মেসি বা অ্যাম্বুলেন্স বন্ধ হওয়া, ব্যাজ, অর্ডার, কোনো সুবিধা বন্ধ হওয়া বা অন্য কিছু। উত্তর দিলে নোটিফিকেশন পাবেন।",
-                ),
-            )
 
             if (writing) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
@@ -194,7 +188,6 @@ fun HelpScreen(startCategory: String?, onBack: () -> Unit) {
                             value = text,
                             onValueChange = { text = it.take(1500) },
                             label = { Text(tr("Describe the problem", "সমস্যাটা খুলে লিখুন")) },
-                            supportingText = { Text(tr("Include names, dates or order details if you can.", "পারলে নাম, তারিখ বা অর্ডারের বিবরণ দিন।")) },
                             minLines = 4,
                             modifier = Modifier.fillMaxWidth(),
                         )

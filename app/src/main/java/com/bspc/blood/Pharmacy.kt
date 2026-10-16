@@ -321,7 +321,6 @@ private fun MyPharmacyPanel(profile: Profile) {
                     )
                     val d = st.optJSONArray("daily") ?: org.json.JSONArray()
                     MiniBars((0 until d.length()).map { d.optInt(it) })
-                    SmallNote(tr("Only you can see this.", "এই হিসাব শুধু আপনি দেখতে পান।"))
                 }
             }
         }
@@ -454,12 +453,6 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SmallNote(
-                tr(
-                    "Free. People nearby find your pharmacy in the app and call you directly. The app sells nothing and takes no commission.",
-                    "বিনামূল্যে। কাছের মানুষ অ্যাপে আপনার ফার্মেসি খুঁজে সরাসরি ফোন করবেন। অ্যাপ কিছু বিক্রি করে না, কোনো কমিশনও নেয় না।",
-                ),
-            )
             OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Pharmacy name", "ফার্মেসির নাম")) }, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(licenseNo, { licenseNo = it.take(40) }, label = { Text(tr("Drug licence number", "ড্রাগ লাইসেন্স নম্বর")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(
@@ -472,10 +465,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
             if (lat != null) {
                 InfoText(tr("Shop location set", "দোকানের লোকেশন নেওয়া হয়েছে"))
             } else {
-                SmallNote(
-                    if (hadLocation) tr("Location already set. Update only if you moved.", "লোকেশন আগেই দেওয়া আছে। দোকান সরালে আবার দিন।")
-                    else tr("Stand inside the shop and tap the button so people nearby find you.", "দোকানের ভেতরে দাঁড়িয়ে বাটন চাপুন, যাতে কাছের মানুষ খুঁজে পান।"),
-                )
+                SmallNote(if (hadLocation) tr("Update only if the shop moved.", "দোকান সরালে তবেই আবার দিন।") else tr("Stand inside the shop and tap the button.", "দোকানের ভেতরে দাঁড়িয়ে বাটন চাপুন।"))
                 GpsButton(tr("Use current location as shop location", "বর্তমান লোকেশনকে দোকানের লোকেশন ধরুন"), onLocated = { la, ln, _ -> lat = la; lng = ln })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
