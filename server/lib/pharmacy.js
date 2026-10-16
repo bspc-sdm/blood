@@ -30,12 +30,13 @@ function pharmacyView(d, mine = false) {
     open24: x.open24 === true,
     openNow: !closedUntil && K.pharmacyOpenNow(x),
     closedUntil,
+    closedDays: Array.isArray(x.closedDays) ? x.closedDays : [],
     delivery: x.delivery === true,
     deliveryNote: x.deliveryNote || '',
     discount: x.discount || 0,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
-    ...(mine ? { licenseNo: x.licenseNo, status: x.status, hasLocation: typeof x.lat === 'number' } : {}),
+    ...(mine ? { licenseNo: x.licenseNo, status: x.status, statusReason: x.statusReason || '', hasLocation: typeof x.lat === 'number' } : {}),
   };
 }
 
@@ -50,8 +51,32 @@ async function pushUid(uid, en, bn, body, data) {
   }
 }
 
+/** প্যানেলের তালিকায়: অনুমোদিতের পর কী বদলেছে, কারণ, আর অপেক্ষার তালিকায় সম্ভাব্য একই তালিকা */
+async function adminExtras(collection, d, status) {
+  const LR = require('./listingreview');
+  return {
+    statusReason: d.get('statusReason') || '',
+    changes: LR.changedFields(d.data()),
+    ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
+  };
+}
+
 async function requireAdmin(req, user) {
   if (!(await require('./admin').isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
+}
+
+/**
+ * জেলার অনুমোদিত ফার্মেসি — উপজেলা দেওয়া থাকলে আগে সেই উপজেলার (বড় জেলায় ৫০০-র সীমায় যেন কাছের দোকান বাদ না পড়ে),
+ * সাথে জেলার বাকিগুলো (GPS-এ কাছে কিন্তু পাশের উপজেলার দোকানের জন্য)
+ */
+async function areaPharmacies(district, upazilaId, limit = 500) {
+  const base = db.collection('pharmacies').where('district', '==', district).where('status', '==', 'approved');
+  const [local, all] = await Promise.all([
+    upazilaId ? base.where('upazilaId', '==', upazilaId).limit(limit).get() : Promise.resolve({ docs: [] }),
+    base.limit(limit).get(),
+  ]);
+  const seen = new Set();
+  return [...local.docs, ...all.docs].filter((d) => (seen.has(d.id) ? false : seen.add(d.id)));
 }
 
 const actions = {
@@ -103,6 +128,7 @@ const actions = {
       open24,
       openAt: open24 ? '' : b.openAt,
       closeAt: open24 ? '' : b.closeAt,
+      closedDays: K.pickClosedDays(b.closedDays),
       delivery: b.delivery === true,
       deliveryNote: K.str(b.deliveryNote, 120),
       discount,
@@ -112,7 +138,7 @@ const actions = {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy is suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, false);
       const { changed, approvedName } = K.reviewNeeded(s, data, ['licenseNo', 'phone', 'district']);
-      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, true);
@@ -147,6 +173,7 @@ const actions = {
     if (s.get('status') === 'suspended') {
       throw new HttpError(403, C.tr(req, 'A suspended pharmacy can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা ফার্মেসি সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
     }
+    await require('./moderation').assertNoOpenReports(req, `pharmacies/${user.uid}`);
     await ref.delete();
     await db.doc(`pharmacyStats/${user.uid}`).delete().catch(() => {});
     return { ok: true };
@@ -156,9 +183,9 @@ const actions = {
   async pharmacies(req) {
     const b = req.body || {};
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
-    const snap = await db.collection('pharmacies').where('district', '==', b.district).where('status', '==', 'approved').limit(500).get();
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
-    let items = snap.docs.map((d) => {
+    const docs = await areaPharmacies(b.district, upazilaId);
+    let items = docs.map((d) => {
       const v = pharmacyView(d);
       const x = d.data();
       v.km = typeof b.lat === 'number' && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
@@ -166,7 +193,8 @@ const actions = {
     });
     if (upazilaId) items = items.filter((p) => p.upazilaId === upazilaId || (p.km != null && p.km <= K.MED_RADIUS_KM));
     if (b.openNow === true) items = items.filter((p) => p.openNow);
-    items.sort((a, c) => (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || (c.rating - a.rating));
+    // খোলা আগে, তারপর কাছেরটা। রেটিং ক্রমে নয় — নতুন দোকান পিছিয়ে পড়ে আর রেটিং সাজানো যায়; রেটিং কার্ডে দেখায়
+    items.sort((a, c) => (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || a.name.localeCompare(c.name, 'bn'));
     return { items: items.slice(0, 100) };
   },
 
@@ -229,33 +257,19 @@ const actions = {
     const status = ADMIN_STATUSES.includes(req.body?.status) ? req.body.status : 'pending';
     const snap = await db.collection('pharmacies').where('status', '==', status).limit(300).get();
     return {
-      items: snap.docs.map((d) => ({
+      items: await Promise.all(snap.docs.map(async (d) => ({
         ...pharmacyView(d, true),
         createdAt: d.get('createdAt') || null,
         reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
-      })),
+        ...(await adminExtras('pharmacies', d, status)),
+      }))),
     };
   },
 
   /** অনুমোদন/বাতিল (অ্যাপ: approve), ওয়েব প্যানেল থেকে বন্ধ বা আবার চালুও (status) */
   async admin_pharmacy_resolve(req, user) {
     await requireAdmin(req, user);
-    const { id, approve } = req.body || {};
-    const status = ['approved', 'rejected', 'suspended'].includes(req.body?.status) ? req.body.status : approve === true ? 'approved' : 'rejected';
-    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    const ref = db.doc(`pharmacies/${id}`);
-    const s = await ref.get();
-    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
-    await require('./sanctions').onStatusChange('pharmacy', s.data(), s.get('status'), status);
-    const msg = {
-      approved: ['Your pharmacy is approved', 'আপনার ফার্মেসি অনুমোদিত হয়েছে'],
-      rejected: ['Pharmacy not approved', 'ফার্মেসি অনুমোদন হয়নি'],
-      suspended: ['Your pharmacy was suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'],
-    }[status];
-    await pushUid(id, msg[0], msg[1], s.get('name'), { type: 'services' });
-    return { ok: true };
+    return require('./listingreview').resolveListing(req, user, 'pharmacy', 'pharmacies', req.body?.id);
   },
 };
 
@@ -307,4 +321,4 @@ async function dailyPharmacy(now = Date.now()) {
   return { closed, photos, stockDocs };
 }
 
-module.exports = { actions, dailyPharmacy };
+module.exports = { areaPharmacies, actions, dailyPharmacy };

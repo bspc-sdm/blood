@@ -67,6 +67,10 @@ data class Ambulance(
     val status: String = "",
     /** শেষবার "খালি আছি" জানানোর সময় (০ = নিজে "ব্যস্ত" করেছেন); ১২ ঘণ্টা পর নিজে থেকে "জানা নেই" */
     val availableAt: Long = 0,
+    /** রেটিং দেওয়া যায় (অ্যাপ থেকে ফোনের ১ ঘণ্টা পর; সার্ভার মনে রাখে) */
+    val canRate: Boolean = false,
+    /** অ্যাডমিন বাতিল/বন্ধ করলে কারণ (শুধু নিজের) */
+    val statusReason: String = "",
 )
 
 object AmbulanceTypes {
@@ -88,7 +92,7 @@ object Ambulances {
         o.str("id"), o.str("name"), o.str("phone"), o.optJSONArray("types").strings(), o.str("district"),
         o.intOrNull("upazilaId"), o.str("area"), o.str("fare"), o.optBoolean("available", true),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.str("vehicleNo"), o.str("status"),
-        o.optLong("availableAt"),
+        o.optLong("availableAt"), o.optBoolean("canRate"), o.str("statusReason"),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -135,6 +139,25 @@ object Ambulances {
         call("admin_ambulance_resolve", JSONObject().put("id", id).put("approve", approve))
     }
 }
+
+/** অ্যাডমিন বাতিল/বন্ধ করলে কারণ (মালিকের নিজের কার্ডে) */
+@Composable
+internal fun StatusReasonLine(status: String, reason: String) {
+    if (reason.isNotBlank() && status in listOf("rejected", "suspended")) {
+        IconLine(R.drawable.ic_info, tr("Reason: ", "কারণ: ") + reason)
+    }
+}
+
+/** মোবাইল, ল্যান্ডলাইন (02…, 031…) বা হটলাইন (16XXX) — সার্ভারের contactPhone-এর মতো */
+fun isContactPhone(raw: String): Boolean {
+    val d = raw.filter { it.isDigit() }
+    val local = if (d.startsWith("880")) "0" + d.drop(3) else d
+    return Regex("^0?1[3-9]\\d{8}$").matches(local) || Regex("^1\\d{4}$").matches(d) || Regex("^0[2-9]\\d{7,9}$").matches(local)
+}
+
+/** সাপ্তাহিক বন্ধের দিন, যেমন "প্রতি শুক্র বন্ধ" */
+fun closedDaysText(days: List<Int>): String =
+    if (days.isEmpty()) "" else tr("Closed every ", "প্রতি ") + Weekdays.ORDER.filter { it in days }.joinToString(", ") { Weekdays.short(it) } + tr("", " বন্ধ")
 
 fun statusText(s: String): String = when (s) {
     "approved" -> tr("Listed", "তালিকায় আছে")
@@ -261,7 +284,7 @@ private fun AmbulanceFinder(profile: Profile) {
                             scope.launch { runCatching { Ambulances.called(a.id) } }
                             callPhone(context, a.phone)
                         },
-                        onRate = if (a.id in called) ({ rating = a }) else null,
+                        onRate = if (a.canRate) ({ rating = a }) else null,
                         onReport = { reporting = a },
                     )
                 }
@@ -448,6 +471,7 @@ fun MyAmbulancesSection(profile: Profile) {
                         Column(Modifier.weight(1f)) {
                             Text(a.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             SmallNote(a.vehicleNo + " · " + statusText(a.status))
+                            StatusReasonLine(a.status, a.statusReason)
                         }
                         IconButton(onClick = { editing = a }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
                     }
@@ -517,6 +541,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 OutlinedTextField(
                     phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
                     label = { Text(tr("Phone for calls", "যে নম্বরে ফোন আসবে")) },
+                    supportingText = { Text(tr("Mobile, landline or hotline", "মোবাইল, ল্যান্ডলাইন বা হটলাইন")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(vehicleNo, { vehicleNo = it.take(40) }, label = { Text(tr("Vehicle registration no.", "গাড়ির রেজিস্ট্রেশন নম্বর")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -544,7 +569,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 val d = district
                 errorMsg = when {
                     name.isBlank() -> tr("Enter the service or driver name", "সার্ভিস বা চালকের নাম লিখুন")
-                    phone.length < 11 -> tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন")
+                    !isContactPhone(phone) -> tr("Enter a valid phone number", "সঠিক ফোন নম্বর দিন")
                     vehicleNo.isBlank() -> tr("Enter the vehicle registration number", "গাড়ির রেজিস্ট্রেশন নম্বর দিন")
                     types.isEmpty() -> tr("Choose the ambulance type", "অ্যাম্বুলেন্সের ধরন বেছে নিন")
                     d == null -> tr("Choose a district", "জেলা বেছে নিন")

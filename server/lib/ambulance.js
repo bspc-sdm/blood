@@ -11,6 +11,8 @@ const { useQuota } = require('./community-db');
 const TYPES = ['general', 'ac', 'icu', 'freezer'];
 const MAX_PER_OWNER = 10;
 const RATE_WINDOW_MS = 7 * 24 * 3600 * 1000;
+// ফোন চেপে সাথে সাথে কেটে রেটিং দেওয়া যায় না: প্রথম ফোনের অন্তত ১ ঘণ্টা পর
+const RATE_AFTER_MS = 60 * 60 * 1000;
 // "এখন খালি আছি" কতক্ষণ থাকে: চালক ভুলে গেলে বা কাজ ছেড়ে দিলে যেন তাঁর নম্বর সবার উপরে না থাকে
 const AVAILABLE_MS = 12 * 3600 * 1000;
 
@@ -37,7 +39,17 @@ function view(d, mine = false) {
     availableAt: x.available === false ? 0 : x.availableAt || x.updatedAt || x.createdAt || 0,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
-    ...(mine ? { vehicleNo: x.vehicleNo, status: x.status } : {}),
+    ...(mine ? { vehicleNo: x.vehicleNo, status: x.status, statusReason: x.statusReason || '' } : {}),
+  };
+}
+
+/** প্যানেলের তালিকায়: অনুমোদিতের পর কী বদলেছে, কারণ, আর অপেক্ষার তালিকায় সম্ভাব্য একই তালিকা */
+async function adminExtras(collection, d, status) {
+  const LR = require('./listingreview');
+  return {
+    statusReason: d.get('statusReason') || '',
+    changes: LR.changedFields(d.data()),
+    ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
   };
 }
 
@@ -49,12 +61,17 @@ function requireAdmin(req, user) {
 
 const actions = {
   /** জেলার অনুমোদিত অ্যাম্বুলেন্স: খালি আগে, নিজের উপজেলার আগে, রেটিং বেশি আগে */
-  async ambulances(req) {
+  async ambulances(req, user) {
     const b = req.body || {};
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
     const snap = await db.collection('ambulances').where('district', '==', b.district).where('status', '==', 'approved').limit(300).get();
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
-    let items = snap.docs.map((d) => view(d));
+    // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং" বাটন থাকে)
+    const calls = user ? await db.collection('ambulanceCalls').where('uid', '==', user.uid).limit(200).get() : { docs: [] };
+    const now = Date.now();
+    const rateable = new Set(calls.docs.filter((c) => now - (c.get('at') || 0) <= RATE_WINDOW_MS
+      && now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS).map((c) => c.get('ambulanceId')));
+    let items = snap.docs.map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
     if (TYPES.includes(b.type)) items = items.filter((a) => a.types.includes(b.type));
     items.sort((a, c) =>
       (c.available - a.available) ||
@@ -74,8 +91,9 @@ const actions = {
     const err = (en, bn) => new HttpError(400, C.tr(req, en, bn));
     const name = C.cleanText(b.name, 80);
     if (!name) throw err('Enter the service or driver name', 'সার্ভিস বা চালকের নাম লিখুন');
-    const phone = K.normalizeBd(b.phone);
-    if (!phone) throw err('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন');
+    // মোবাইল, ল্যান্ডলাইন বা হটলাইন (সার্ভিসের অফিসের নম্বর)
+    const phone = K.contactPhone(b.phone);
+    if (!phone) throw err('Enter a valid phone number', 'সঠিক ফোন নম্বর দিন');
     const vehicleNo = C.cleanText(b.vehicleNo, 40);
     if (!vehicleNo) throw err('Enter the vehicle registration number', 'গাড়ির রেজিস্ট্রেশন নম্বর দিন');
     const types = K.pickCodes(b.types, TYPES, TYPES.length);
@@ -85,7 +103,7 @@ const actions = {
     if (b.termsAccepted !== true) throw err('Please accept the terms', 'শর্তে সম্মতি দিন');
     const data = {
       name,
-      phone: K.localBd(phone),
+      phone,
       vehicleNo,
       types,
       district: b.district,
@@ -102,8 +120,9 @@ const actions = {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'This ambulance is suspended. You can appeal from Profile → Help & appeals.', 'এই অ্যাম্বুলেন্স বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       await require('./sanctions').checkListing(req, 'ambulance', data, user.email, false);
       // নামের ছোট বানান-ঠিক হলে আবার যাচাই নয় (তালিকা থেকে সরে না); ফোন/গাড়ির নম্বর বা বড় বদলে যাচাই
-      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'vehicleNo']);
-      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
+      // জেলা বদলালেও আবার যাচাই (এক জায়গায় যাচাই করা গাড়ি অন্য জেলায় সরানো যায় না)
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'vehicleNo', 'district']);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     // রিপোর্টের পর বন্ধ হওয়া গাড়ি মুছে আবার যোগ করা যায় না
@@ -134,6 +153,7 @@ const actions = {
     const s = await ref.get();
     if (!s.exists || s.get('ownerUid') !== user.uid) return { ok: true };
     if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'A suspended ambulance can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা অ্যাম্বুলেন্স সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+    await require('./moderation').assertNoOpenReports(req, `ambulances/${id}`);
     await ref.delete();
     return { ok: true };
   },
@@ -147,7 +167,7 @@ const actions = {
     const callRef = db.doc(`ambulanceCalls/${user.uid}_${id}`);
     const prev = await callRef.get();
     const now = Date.now();
-    await callRef.set({ uid: user.uid, ambulanceId: id, at: now }, { merge: true });
+    await callRef.set({ uid: user.uid, ambulanceId: id, at: now, ...(prev.exists ? {} : { firstAt: now }) }, { merge: true });
     // মালিকের হিসাব: একই মানুষ ১০ মিনিটের মধ্যে আবার চাপলে নতুন ফোন ধরা হয় না
     if (!prev.exists || now - (prev.get('at') || 0) > 10 * 60 * 1000) {
       await require('./sellerstats').bumpAmbulance(id, now, !prev.exists);
@@ -167,12 +187,15 @@ const actions = {
       if (!c.exists || Date.now() - (c.get('at') || 0) > RATE_WINDOW_MS) {
         throw new HttpError(403, C.tr(req, 'You can rate after calling this ambulance from the app', 'অ্যাপ থেকে ফোন করার পর রেটিং দিতে পারবেন'));
       }
+      if (Date.now() - (c.get('firstAt') || c.get('at') || 0) < RATE_AFTER_MS) {
+        throw new HttpError(403, C.tr(req, 'You can rate 1 hour after your first call', 'প্রথম ফোনের ১ ঘণ্টা পর রেটিং দিতে পারবেন'));
+      }
       const old = c.get('rating') || 0;
       t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });
       t.update(callRef, { rating, comment: K.str(req.body?.comment, 300), ratedAt: Date.now() });
     });
     // মালিকের হিসাবে সাম্প্রতিক ১০টা রেটিং (কে দিয়েছেন তা ছাড়া)
-    await require('./sellerstats').addAmbulanceRating(id, rating, K.str(req.body?.comment, 300));
+    await require('./sellerstats').addRecentRating('ambulanceStats', id, rating, K.str(req.body?.comment, 300), user.uid);
     return { ok: true };
   },
 
@@ -182,43 +205,20 @@ const actions = {
     const status = ['pending', 'approved', 'suspended', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
     const snap = await db.collection('ambulances').where('status', '==', status).limit(300).get();
     return {
-      items: snap.docs.map((d) => ({
+      items: await Promise.all(snap.docs.map(async (d) => ({
         ...view(d, true),
         ownerUid: d.get('ownerUid') || null,
         createdAt: d.get('createdAt') || null,
         reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
-      })),
+        ...(await adminExtras('ambulances', d, status)),
+      }))),
     };
   },
 
   async admin_ambulance_resolve(req, user) {
     await requireAdmin(req, user);
-    const { id, approve } = req.body || {};
-    // অ্যাপ: approve; ওয়েব প্যানেল: status দিয়ে বন্ধ বা আবার চালুও
-    const status = ['approved', 'rejected', 'suspended'].includes(req.body?.status) ? req.body.status : approve === true ? 'approved' : 'rejected';
-    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    const ref = db.doc(`ambulances/${id}`);
-    const s = await ref.get();
-    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
-    await require('./sanctions').onStatusChange('ambulance', s.data(), s.get('status'), status);
-    try {
-      const u = await db.doc(`users/${s.get('ownerUid')}`).get();
-      const lang = u.get('lang');
-      await require('./firebase').sendPush([{
-        uid: s.get('ownerUid'),
-        token: u.get('fcmToken'),
-        title: status === 'approved' ? R.L(lang, 'Your ambulance is now listed', 'আপনার অ্যাম্বুলেন্স তালিকায় এসেছে')
-          : status === 'suspended' ? R.L(lang, 'Your ambulance was suspended. You can appeal from Profile → Help & appeals.', 'আপনার অ্যাম্বুলেন্স বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।')
-            : R.L(lang, 'Ambulance not approved', 'অ্যাম্বুলেন্স অনুমোদন হয়নি'),
-        body: s.get('name'),
-        data: { type: 'services' },
-      }]);
-    } catch (e) {
-      console.error('ambulance push failed', e);
-    }
-    return { ok: true };
+    // অ্যাপ: approve; ওয়েব প্যানেল: status দিয়ে বন্ধ বা আবার চালুও, সাথে কারণ
+    return require('./listingreview').resolveListing(req, user, 'ambulance', 'ambulances', req.body?.id);
   },
 };
 

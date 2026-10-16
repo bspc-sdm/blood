@@ -67,6 +67,9 @@ data class BloodBank(
     /** শুধু নিজের */
     val licenseNo: String = "",
     val status: String = "",
+    val statusReason: String = "",
+    /** সাপ্তাহিক বন্ধের দিন (০ = রবিবার) */
+    val closedDays: List<Int> = emptyList(),
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -99,7 +102,7 @@ object BloodBanks {
     private fun parse(o: JSONObject) = BloodBank(
         o.str("id"), o.str("name"), o.str("kind"), o.str("phone"), o.str("district"), o.intOrNull("upazilaId"), o.str("address"),
         o.optBoolean("open24"), o.str("openAt"), o.str("closeAt"), o.optBoolean("openNow", true), o.optJSONArray("services").strings(),
-        o.str("licenseNo"), o.str("status"),
+        o.str("licenseNo"), o.str("status"), o.str("statusReason"), o.optJSONArray("closedDays").ints(),
     )
 
     private fun list(o: JSONObject): List<BloodBank> {
@@ -119,7 +122,7 @@ object BloodBanks {
             JSONObject().put("id", b.id.ifBlank { null } ?: JSONObject.NULL).put("name", b.name).put("kind", b.kind).put("phone", b.phone)
                 .put("district", b.district).put("upazilaId", b.upazilaId ?: JSONObject.NULL).put("address", b.address)
                 .put("licenseNo", b.licenseNo).put("open24", b.open24).put("openAt", b.openAt).put("closeAt", b.closeAt)
-                .put("services", JSONArray(b.services)).put("termsAccepted", true),
+                .put("services", JSONArray(b.services)).put("closedDays", JSONArray(b.closedDays)).put("termsAccepted", true),
         ).optBoolean("pending")
 
     suspend fun delete(id: String) {
@@ -253,7 +256,7 @@ internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Uni
             }
             Text(b.services.joinToString(" · ") { BloodBankInfo.service(it) }, style = MaterialTheme.typography.bodyMedium)
             IconLine(R.drawable.ic_location_on, listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(" · "))
-            if (b.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, b.hoursText)
+            if (b.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(b.hoursText, closedDaysText(b.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = onCall) { ButtonContent(false, tr("Call", "ফোন করুন") + " " + num(b.phone), R.drawable.ic_call) }
                 Spacer(Modifier.weight(1f))
@@ -292,6 +295,7 @@ private fun MyBloodBanksSection(profile: Profile) {
                         Column(Modifier.weight(1f)) {
                             Text(b.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             SmallNote(BloodBankInfo.kind(b.kind) + " · " + statusText(b.status))
+                            StatusReasonLine(b.status, b.statusReason)
                         }
                         IconButton(onClick = { editing = b }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
                     }
@@ -340,6 +344,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
     var openAt by remember { mutableStateOf(existing?.openAt?.ifBlank { null } ?: "08:00") }
     var closeAt by remember { mutableStateOf(existing?.closeAt?.ifBlank { null } ?: "20:00") }
     var services by remember { mutableStateOf(existing?.services?.toSet() ?: setOf("whole_blood", "screening")) }
+    var closedDays by remember { mutableStateOf(existing?.closedDays?.toSet() ?: emptySet()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -356,6 +361,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                 OutlinedTextField(
                     phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
                     label = { Text(tr("Phone for calls", "যে নম্বরে ফোন আসবে")) },
+                    supportingText = { Text(tr("Mobile, landline or hotline", "মোবাইল, ল্যান্ডলাইন বা হটলাইন")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 if (kind == "private") {
@@ -373,6 +379,11 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                         OutlinedButton(onClick = { pickTime = 0 }, modifier = Modifier.weight(1f)) { Text(tr("Opens ", "খোলে ") + Weekdays.time(openAt)) }
                         OutlinedButton(onClick = { pickTime = 1 }, modifier = Modifier.weight(1f)) { Text(tr("Closes ", "বন্ধ ") + Weekdays.time(closeAt)) }
                     }
+                }
+                Text(tr("Weekly closed days (if any)", "সাপ্তাহিক বন্ধ (থাকলে)"), style = MaterialTheme.typography.labelLarge)
+                ChipRows(Weekdays.ORDER.map { it.toString() }, closedDays.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
+                    val d = it.toInt()
+                    closedDays = if (d in closedDays) closedDays - d else if (closedDays.size < 6) closedDays + d else closedDays
                 }
                 Text(tr("Services", "কী কী সেবা"), style = MaterialTheme.typography.labelLarge)
                 ChipRows(BloodBankInfo.SERVICES, services, perRow = 2, label = { BloodBankInfo.service(it) }) { s -> services = if (s in services) services - s else services + s }
@@ -394,7 +405,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                 val d = district
                 errorMsg = when {
                     name.isBlank() -> tr("Enter the blood bank name", "ব্লাড ব্যাংকের নাম লিখুন")
-                    phone.length < 11 -> tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন")
+                    !isContactPhone(phone) -> tr("Enter a valid phone number", "সঠিক ফোন নম্বর দিন")
                     kind == "private" && licenseNo.isBlank() -> tr("Enter the blood bank licence number", "ব্লাড ব্যাংকের লাইসেন্স নম্বর দিন")
                     d == null -> tr("Choose a district", "জেলা বেছে নিন")
                     address.isBlank() -> tr("Write the address", "ঠিকানা লিখুন")
@@ -411,7 +422,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                             BloodBank(
                                 existing?.id ?: "", TitleCase.name(name), kind, phone, d, upazilaId, address.trim(), open24,
                                 if (open24) "" else openAt, if (open24) "" else closeAt, true, services.toList(),
-                                licenseNo.trim(),
+                                licenseNo.trim(), closedDays = closedDays.sorted(),
                             ),
                         )
                     }

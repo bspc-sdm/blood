@@ -138,7 +138,7 @@ const actions = {
       t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });
       t.update(callRef, { rating, comment, ratedAt: Date.now() });
     });
-    await S.addRecentRating('homeStats', uid, rating, comment);
+    await S.addRecentRating('homeStats', uid, rating, comment, user.uid);
     return { ok: true };
   },
 
@@ -147,7 +147,7 @@ const actions = {
     const [p, st, reports] = await Promise.all([
       db.doc(`providers/${user.uid}`).get(),
       db.doc(`homeStats/${user.uid}`).get(),
-      db.collection('modReports').where('targetPath', '==', `providers/${user.uid}`).count().get(),
+      require('./moderation').reportCount(`providers/${user.uid}`).then((n) => ({ data: () => ({ count: n }) })),
     ]);
     const n = (p.exists && p.get('ratingCount')) || 0;
     return {

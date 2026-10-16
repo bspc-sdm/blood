@@ -23,13 +23,15 @@ async function bumpCalls(collection, id, at = Date.now(), newCaller = false) {
 const bumpAmbulance = (id, at, newCaller) => bumpCalls('ambulanceStats', id, at, newCaller);
 
 /** সাম্প্রতিক ১০টা রেটিং/মন্তব্য (কে দিয়েছেন তা ছাড়া) */
-async function addRecentRating(collection, id, rating, comment) {
+async function addRecentRating(collection, id, rating, comment, raterUid) {
   try {
     const ref = db.doc(`${collection}/${id}`);
+    // একই মানুষ রেটিং বদলালে আগেরটা সরে নতুনটা বসে (দুবার দেখায় না); কে দিয়েছেন তা গোপন সংকেতে
+    const who = raterUid ? require('node:crypto').createHash('sha256').update(`${collection}:${id}:${raterUid}`).digest('hex').slice(0, 16) : null;
     await db.runTransaction(async (t) => {
       const s = await t.get(ref);
-      const recent = ((s.exists && s.get('recent')) || []).slice(-9);
-      t.set(ref, { recent: [...recent, { rating, comment, at: Date.now() }] }, { merge: true });
+      const recent = ((s.exists && s.get('recent')) || []).filter((r) => !who || r.who !== who).slice(-9);
+      t.set(ref, { recent: [...recent, { rating, comment, at: Date.now(), ...(who ? { who } : {}) }] }, { merge: true });
     });
   } catch (e) {
     console.error('rating stats failed', e.message);
@@ -56,7 +58,7 @@ const actions = {
     const items = await Promise.all(mine.docs.map(async (a) => {
       const [st, reports] = await Promise.all([
         db.doc(`ambulanceStats/${a.id}`).get(),
-        db.collection('modReports').where('targetPath', '==', `ambulances/${a.id}`).count().get(),
+        require('./moderation').reportCount(`ambulances/${a.id}`).then((n) => ({ data: () => ({ count: n }) })),
       ]);
       const n = a.get('ratingCount') || 0;
       return {

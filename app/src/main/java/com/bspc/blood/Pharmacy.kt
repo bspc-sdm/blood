@@ -75,6 +75,9 @@ data class Pharmacy(
     val hasLocation: Boolean = false,
     /** মালিক সাময়িক বন্ধ রাখলে কবে পর্যন্ত (০ = খোলা নিয়মমতো) */
     val closedUntil: Long = 0,
+    /** সাপ্তাহিক বন্ধের দিন (০ = রবিবার) */
+    val closedDays: List<Int> = emptyList(),
+    val statusReason: String = "",
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -91,6 +94,7 @@ object Pharmacies {
         o.str("deliveryNote"), o.optInt("discount"), o.optDouble("rating", 0.0), o.optInt("ratingCount"),
         if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.str("licenseNo"), o.str("status"), o.optBoolean("hasLocation"), o.optLong("closedUntil"),
+        o.optJSONArray("closedDays").ints(), o.str("statusReason"),
     )
 
     /** until = null হলে আবার খোলা */
@@ -108,12 +112,14 @@ object Pharmacies {
     suspend fun save(
         name: String, licenseNo: String, phone: String, district: String, upazilaId: Int?, address: String,
         lat: Double?, lng: Double?, open24: Boolean, openAt: String, closeAt: String, delivery: Boolean, deliveryNote: String, discount: Int,
+        closedDays: List<Int> = emptyList(),
     ): Boolean = call(
         "pharmacy_save",
         JSONObject().put("name", name).put("licenseNo", licenseNo).put("phone", phone).put("district", district)
             .put("upazilaId", upazilaId ?: JSONObject.NULL).put("address", address).put("lat", lat ?: JSONObject.NULL)
             .put("lng", lng ?: JSONObject.NULL).put("open24", open24).put("openAt", openAt).put("closeAt", closeAt)
-            .put("delivery", delivery).put("deliveryNote", deliveryNote).put("discount", discount).put("termsAccepted", true),
+            .put("delivery", delivery).put("deliveryNote", deliveryNote).put("discount", discount)
+            .put("closedDays", JSONArray(closedDays)).put("termsAccepted", true),
     ).optBoolean("pending")
 
     suspend fun near(district: String, upazilaId: Int?, lat: Double?, lng: Double?, openNow: Boolean): List<Pharmacy> {
@@ -279,7 +285,8 @@ private fun MyPharmacyPanel(profile: Profile) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(statusText(s.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, s.hoursText)
+                        StatusReasonLine(s.status, s.statusReason)
+                        if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(s.hoursText, closedDaysText(s.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
                         IconLine(R.drawable.ic_call, num(s.phone))
                         if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
                         OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
@@ -372,7 +379,7 @@ private fun NearbyPharmacies(profile: Profile) {
                         }
                         IconLine(R.drawable.ic_location_on, p.address + (p.km?.let { " · " + Rules.formatKm(it) } ?: ""))
                         if (p.closedUntil > 0) IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত"))
-                        else if (p.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, p.hoursText)
+                        else if (p.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(p.hoursText, closedDaysText(p.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
                         if (p.discount > 0) IconLine(R.drawable.ic_info, tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়"))
                         if (p.delivery) IconLine(R.drawable.ic_local_shipping, tr("Home delivery", "বাসায় ডেলিভারি") + if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "")
                         RatingLine(p.rating, p.ratingCount)
@@ -428,6 +435,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
     var delivery by remember { mutableStateOf(existing?.delivery ?: true) }
     var deliveryNote by remember { mutableStateOf(existing?.deliveryNote ?: "") }
     var discount by remember { mutableStateOf(existing?.discount?.toString() ?: "0") }
+    var closedDays by remember { mutableStateOf(existing?.closedDays?.toSet() ?: emptySet()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var pickTime by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -473,6 +481,11 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                     OutlinedButton(onClick = { pickTime = 2 }) { Text(tr("Closes ", "বন্ধ ") + Weekdays.time(closeAt)) }
                 }
             }
+            Text(tr("Weekly closed days (if any)", "সাপ্তাহিক বন্ধ (থাকলে)"), style = MaterialTheme.typography.labelLarge)
+            ChipRows(Weekdays.ORDER.map { it.toString() }, closedDays.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
+                val d = it.toInt()
+                closedDays = if (d in closedDays) closedDays - d else if (closedDays.size < 6) closedDays + d else closedDays
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("Home delivery", "বাসায় ডেলিভারি দিই"), modifier = Modifier.weight(1f))
                 Switch(checked = delivery, onCheckedChange = { delivery = it })
@@ -508,6 +521,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                             Pharmacies.save(
                                 TitleCase.name(name), licenseNo.trim(), phone, d, upazilaId, address.trim(), lat, lng,
                                 open24, openAt, closeAt, delivery, deliveryNote.trim(), discount.toIntOrNull() ?: 0,
+                                closedDays.sorted(),
                             )
                         }.onSuccess { onSaved(it) }.onFailure { errorMsg = it.message }
                         busy = false

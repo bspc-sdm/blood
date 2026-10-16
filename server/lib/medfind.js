@@ -87,10 +87,11 @@ const actions = {
     const lat = typeof b.lat === 'number' ? Math.round(b.lat * 100) / 100 : null;
     const lng = typeof b.lng === 'number' ? Math.round(b.lng * 100) / 100 : null;
 
-    const snap = await db.collection('pharmacies').where('district', '==', b.district).where('status', '==', 'approved').limit(500).get();
+    // উপজেলার দোকান আগে খোঁজা — বড় জেলায় ৫০০-র সীমায় কাছের দোকান যেন বাদ না পড়ে
+    const docs = await require('./pharmacy').areaPharmacies(b.district, upazilaId);
     const day = R.dhakaDayKey();
     const now = Date.now();
-    let shops = snap.docs
+    let shops = docs
       .filter((s) => s.id !== user.uid && s.get('findOff') !== true)
       // একটা দোকানে দিনে বেশি অনুরোধ নয়
       .filter((s) => !(s.get('findDay') === day && (s.get('findCount') || 0) >= PER_SHOP_DAY))
@@ -103,13 +104,17 @@ const actions = {
           km: lat != null && typeof x.lat === 'number' ? R.distanceKm(lat, lng, x.lat, x.lng) : null,
         };
       });
+    if (!shops.length) return { ok: false, noPharmacy: true };
+    // শুধু এখন খোলা দোকান — বন্ধ দোকানে রাত ২টায় নোটিফিকেশন যায় না, আর উত্তরও আসে না
+    shops = shops.filter((p) => p.open);
+    if (!shops.length) return { ok: false, noneOpen: true };
+    // উপজেলায় (বা ৫ কিমির মধ্যে) খোলা দোকান থাকলে শুধু সেগুলো, নইলে জেলার খোলা দোকান
     if (upazilaId) {
       const near = shops.filter((p) => p.upazilaId === upazilaId || (p.km != null && p.km <= 5));
       if (near.length) shops = near;
     }
-    shops.sort((a, c) => (c.open - a.open) || ((a.km ?? 99) - (c.km ?? 99)));
+    shops.sort((a, c) => (a.km ?? 99) - (c.km ?? 99));
     const targets = shops.slice(0, NOTIFY_MAX);
-    if (!targets.length) return { ok: false, noPharmacy: true };
 
     await useQuota(req, user.uid, 'medFind');
     const ref = db.collection('medFinds').doc();
@@ -128,7 +133,7 @@ const actions = {
       expiresAt: now + OPEN_MS,
     });
     // দোকানের দৈনিক গণনা (নতুন দিনে আবার ১ থেকে)
-    const sameDay = new Set(snap.docs.filter((s) => s.get('findDay') === day).map((s) => s.id));
+    const sameDay = new Set(docs.filter((s) => s.get('findDay') === day).map((s) => s.id));
     await Promise.all(targets.map((t) => db.doc(`pharmacies/${t.id}`)
       .update(sameDay.has(t.id) ? { findCount: FieldValue.increment(1) } : { findDay: day, findCount: 1 })
       .catch(() => {})));

@@ -34,7 +34,18 @@ function view(d, mine = false) {
     closeAt: x.closeAt || '',
     openNow: K.pharmacyOpenNow(x),
     services: x.services || [],
-    ...(mine ? { licenseNo: x.licenseNo || '', status: x.status } : {}),
+    closedDays: Array.isArray(x.closedDays) ? x.closedDays : [],
+    ...(mine ? { licenseNo: x.licenseNo || '', status: x.status, statusReason: x.statusReason || '' } : {}),
+  };
+}
+
+/** প্যানেলের তালিকায়: অনুমোদিতের পর কী বদলেছে, কারণ, আর অপেক্ষার তালিকায় সম্ভাব্য একই তালিকা */
+async function adminExtras(collection, d, status) {
+  const LR = require('./listingreview');
+  return {
+    statusReason: d.get('statusReason') || '',
+    changes: LR.changedFields(d.data()),
+    ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
   };
 }
 
@@ -49,8 +60,9 @@ function parse(req, b) {
   if (!name) throw err('Enter the blood bank name', 'ব্লাড ব্যাংকের নাম লিখুন');
   const kind = KINDS.includes(b.kind) ? b.kind : null;
   if (!kind) throw err('Choose the type', 'ধরন বেছে নিন');
-  const phone = K.normalizeBd(b.phone);
-  if (!phone) throw err('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন');
+  // হাসপাতালের ব্লাড ব্যাংকের অনেক সময় শুধু ল্যান্ডলাইন বা হটলাইন থাকে
+  const phone = K.contactPhone(b.phone);
+  if (!phone) throw err('Enter a valid phone number', 'সঠিক ফোন নম্বর দিন');
   if (!DISTRICTS.some((d) => d.bn === b.district)) throw err('Choose a district', 'জেলা বেছে নিন');
   const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
   const address = C.cleanText(b.address, 200);
@@ -65,20 +77,9 @@ function parse(req, b) {
   const services = K.pickCodes(b.services, SERVICES, SERVICES.length);
   if (!services.length) throw err('Choose the services', 'কী কী সেবা দেন বেছে নিন');
   return {
-    name, kind, phone: K.localBd(phone), district: b.district, upazilaId, address, licenseNo,
-    open24, openAt: open24 ? '' : openAt, closeAt: open24 ? '' : closeAt, services, updatedAt: Date.now(),
+    name, kind, phone, district: b.district, upazilaId, address, licenseNo,
+    open24, openAt: open24 ? '' : openAt, closeAt: open24 ? '' : closeAt, closedDays: K.pickClosedDays(b.closedDays), services, updatedAt: Date.now(),
   };
-}
-
-async function pushOwner(uid, en, bn, body) {
-  if (!uid) return;
-  try {
-    const u = await db.doc(`users/${uid}`).get();
-    if (!u.exists || !u.get('fcmToken')) return;
-    await require('./firebase').sendPush([{ uid, token: u.get('fcmToken'), title: R.L(u.get('lang'), en, bn), body, data: { type: 'services' } }]);
-  } catch (e) {
-    console.error('blood bank push failed', e.message);
-  }
 }
 
 const actions = {
@@ -114,8 +115,8 @@ const actions = {
         throw new HttpError(403, C.tr(req, 'This blood bank is suspended. You can appeal from Profile → Help & appeals.', 'এই ব্লাড ব্যাংক বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       }
       await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, false);
-      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'licenseNo', 'kind']);
-      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...(changed ? { status: 'pending' } : {}) });
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'licenseNo', 'kind', 'district', 'address']);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     const mine = await db.collection('bloodBanks').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
@@ -135,6 +136,7 @@ const actions = {
     if (s.get('status') === 'suspended') {
       throw new HttpError(403, C.tr(req, 'A suspended blood bank can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা ব্লাড ব্যাংক সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
     }
+    await require('./moderation').assertNoOpenReports(req, `bloodBanks/${id}`);
     await Promise.all([ref.delete(), db.doc(`bloodBankStats/${id}`).delete()]);
     return { ok: true };
   },
@@ -159,7 +161,7 @@ const actions = {
     const items = await Promise.all(mine.docs.map(async (d) => {
       const [st, reports] = await Promise.all([
         db.doc(`bloodBankStats/${d.id}`).get(),
-        db.collection('modReports').where('targetPath', '==', `bloodBanks/${d.id}`).count().get(),
+        require('./moderation').reportCount(`bloodBanks/${d.id}`).then((n) => ({ data: () => ({ count: n }) })),
       ]);
       return { id: d.id, name: d.get('name'), status: d.get('status'), ...S.callSummary(st), reports: reports.data().count };
     }));
@@ -172,31 +174,22 @@ const actions = {
     const status = ['pending', 'approved', 'suspended', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
     const snap = await db.collection('bloodBanks').where('status', '==', status).limit(300).get();
     return {
-      items: snap.docs.map((d) => ({
+      items: await Promise.all(snap.docs.map(async (d) => ({
         ...view(d, true),
         ownerUid: d.get('ownerUid') || null,
         addedByAdmin: d.get('addedByAdmin') === true,
         createdAt: d.get('createdAt') || null,
         reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
-      })),
+        openAt: d.get('openAt') || '',
+        closeAt: d.get('closeAt') || '',
+        ...(await adminExtras('bloodBanks', d, status)),
+      }))),
     };
   },
 
   async admin_bloodbank_resolve(req, user) {
     await requireAdmin(req, user);
-    const { id } = req.body || {};
-    const status = ['approved', 'rejected', 'suspended'].includes(req.body?.status) ? req.body.status : req.body?.approve === true ? 'approved' : 'rejected';
-    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    const ref = db.doc(`bloodBanks/${id}`);
-    const s = await ref.get();
-    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    if (s.get('status') === status) return { ok: true, unchanged: true };
-    await ref.update({ status, reviewedAt: Date.now(), reviewedBy: user.uid, ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}), ...(status === 'approved' ? { approvedName: s.get('name') } : {}) });
-    await require('./sanctions').onStatusChange('bloodbank', s.data(), s.get('status'), status);
-    const en = status === 'approved' ? 'Your blood bank is now listed' : status === 'suspended' ? 'Your blood bank was suspended. You can appeal from Profile → Help & appeals.' : 'Blood bank not approved';
-    const bn = status === 'approved' ? 'আপনার ব্লাড ব্যাংক তালিকায় এসেছে' : status === 'suspended' ? 'আপনার ব্লাড ব্যাংক বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।' : 'ব্লাড ব্যাংক অনুমোদন হয়নি';
-    await pushOwner(s.get('ownerUid'), en, bn, s.get('name'));
-    return { ok: true };
+    return require('./listingreview').resolveListing(req, user, 'bloodbank', 'bloodBanks', req.body?.id);
   },
 
   /** প্যানেলের ফর্মের জন্য জেলার নাম */
@@ -211,6 +204,58 @@ const actions = {
     const data = parse(req, req.body || {});
     const ref = await db.collection('bloodBanks').add({ ...data, ownerUid: null, addedByAdmin: true, status: 'approved', createdAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid });
     return { ok: true, id: ref.id };
+  },
+
+  /** অ্যাডমিন যেকোনো ব্লাড ব্যাংকের তথ্য ঠিক করেন (ভুল নম্বর, সময়); মালিক থাকলে তাঁকে জানানো হয় */
+  async admin_bloodbank_edit(req, user) {
+    await requireAdmin(req, user);
+    const id = req.body?.id;
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const ref = db.doc(`bloodBanks/${id}`);
+    const s = await ref.get();
+    if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const data = parse(req, req.body || {});
+    const approved = s.get('status') === 'approved';
+    await ref.update({
+      ...data,
+      editedByAdmin: Date.now(),
+      // অ্যাডমিনের ঠিক করা তথ্যই এখন "অনুমোদিত"
+      ...(approved ? { approvedName: data.name, lastApproved: require('./listingreview').snapshot({ ...s.data(), ...data }) } : {}),
+    });
+    if (s.get('ownerUid')) {
+      await require('./requestend').pushUsers([s.get('ownerUid')], (u, lang) => ({
+        title: R.L(lang, 'The Lifolo team updated your blood bank details', 'Lifolo টিম আপনার ব্লাড ব্যাংকের তথ্য ঠিক করেছে'),
+        body: data.name,
+        data: { type: 'services' },
+      }));
+    }
+    return { ok: true };
+  },
+
+  /** অ্যাডমিন মুছে ফেলেন (বন্ধ হয়ে যাওয়া, দুবার যোগ হওয়া) — বন্ধ (suspended) নয়, তাই নিষেধাজ্ঞা থাকে না */
+  async admin_bloodbank_delete(req, user) {
+    await requireAdmin(req, user);
+    const id = req.body?.id;
+    if (!R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    const ref = db.doc(`bloodBanks/${id}`);
+    const s = await ref.get();
+    if (!s.exists) return { ok: true };
+    await Promise.all([ref.delete(), db.doc(`bloodBankStats/${id}`).delete().catch(() => {})]);
+    // এর খোলা রিপোর্টগুলো আর দরকার নেই
+    const reps = await db.collection('modReports').where('targetPath', '==', `bloodBanks/${id}`).where('status', '==', 'open').limit(200).get();
+    if (!reps.empty) {
+      const batch = db.batch();
+      reps.docs.forEach((d) => batch.update(d.ref, { status: 'dismissed', resolvedAt: Date.now() }));
+      await batch.commit();
+    }
+    if (s.get('ownerUid')) {
+      await require('./requestend').pushUsers([s.get('ownerUid')], (u, lang) => ({
+        title: R.L(lang, 'Your blood bank was removed from the list', 'আপনার ব্লাড ব্যাংক তালিকা থেকে সরানো হয়েছে'),
+        body: [s.get('name'), C.cleanText(req.body?.reason, 200) ? R.L(lang, `Reason: ${req.body.reason.trim()}`, `কারণ: ${req.body.reason.trim()}`) : ''].filter(Boolean).join(' · '),
+        data: { type: 'services' },
+      }));
+    }
+    return { ok: true };
   },
 };
 

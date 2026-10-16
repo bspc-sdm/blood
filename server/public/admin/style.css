@@ -308,3 +308,7 @@ textarea.reply:focus { outline: none; border-color: var(--primary); }
 .need b { min-width: 34px; color: var(--primary); }
 .need input { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; padding: 4px 0; }
 .bank-form .field-row .field { flex: 1 1 200px; }
+
+/* বাতিল/বন্ধের কারণ */
+.t .actions input.reason, .ctl .actions input.reason { min-width: 150px; max-width: 220px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--low); color: inherit; font: inherit; font-size: 13px; }
+.t .actions { flex-wrap: wrap; }

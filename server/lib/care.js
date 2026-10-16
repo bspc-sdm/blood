@@ -248,12 +248,39 @@ function dhakaHHMM(now = Date.now()) {
 function pharmacyOpenNow(p, now = Date.now()) {
   // মালিক সাময়িক বন্ধ রাখলে (ঈদ, সংস্কার) — তালিকা, "ওষুধ খুঁজুন" সব জায়গায় বন্ধ
   if ((p.closedUntil || 0) > now) return false;
-  if (p.open24) return true;
+  const off = Array.isArray(p.closedDays) ? p.closedDays : [];
+  // সাপ্তাহিক বন্ধের দিন (০ = রবিবার, বাংলাদেশের সময়ে)
+  const weekday = (ms) => new Date(ms + 6 * 3600 * 1000).getUTCDay();
+  if (p.open24) return !off.includes(weekday(now));
   const o = p.openAt;
   const c = p.closeAt;
-  if (!TIME_RE.test(o || '') || !TIME_RE.test(c || '')) return true;
+  if (!TIME_RE.test(o || '') || !TIME_RE.test(c || '')) return !off.includes(weekday(now));
   const t = dhakaHHMM(now);
-  return o < c ? t >= o && t < c : t >= o || t < c;
+  if (o < c) return t >= o && t < c && !off.includes(weekday(now));
+  // রাত পেরিয়ে খোলা: মাঝরাতের পরের অংশটা আগের দিনের পালা
+  if (t >= o) return !off.includes(weekday(now));
+  if (t < c) return !off.includes(weekday(now - 24 * 3600 * 1000));
+  return false;
+}
+
+/** সাপ্তাহিক বন্ধের দিন: ০–৬ (রবি–শনি), সর্বোচ্চ ৬টা (সপ্তাহে অন্তত একদিন খোলা) */
+function pickClosedDays(v) {
+  if (!Array.isArray(v)) return [];
+  const days = [...new Set(v.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+  return days.length >= 7 ? days.slice(0, 6) : days;
+}
+
+/**
+ * যোগাযোগের নম্বর: মোবাইল (01XXXXXXXXX), ল্যান্ডলাইন (02…, 031… — ৯-১১ অঙ্ক) বা হটলাইন (১৬XXX ধরনের ৫ অঙ্ক)।
+ * হাসপাতালের ব্লাড ব্যাংক আর অ্যাম্বুলেন্স সার্ভিসের অনেকের মোবাইল নেই। ফেরত: ডায়াল করার রূপ, নইলে null
+ */
+function contactPhone(raw) {
+  const mobile = normalizeBd(raw);
+  if (mobile) return localBd(mobile);
+  const d = String(raw || '').replace(/\D/g, '');
+  if (/^1\d{4}$/.test(d)) return d;
+  const local = d.startsWith('880') ? `0${d.slice(3)}` : d;
+  return /^0[2-9]\d{7,9}$/.test(local) ? local : null;
 }
 
 /**
@@ -318,7 +345,22 @@ function reviewNeeded(s, data, keys) {
   return { changed: nameChanged || other || status === 'rejected', approvedName: base };
 }
 
+/**
+ * অনুমোদিত তালিকার "শেষ অনুমোদিত তথ্য" (lastApproved) ঠিক রাখা:
+ * যাচাই ছাড়াই চলে যাওয়া বদলে (বানান-ঠিক, সময়) নতুন তথ্যই অনুমোদিত; যাচাইয়ে গেলে আগেরটা থেকে যায়
+ * (বাতিল হলে সেটাই ফেরত আসে)। আগের ভার্সনে অনুমোদিত তালিকায় না থাকলে এখন রাখা হয়।
+ */
+function keepApproved(s, data, changed) {
+  if (s.get('status') !== 'approved') return {};
+  const { snapshot } = require('./listingreview');
+  if (!changed) return { lastApproved: snapshot({ ...s.data(), ...data }) };
+  return s.get('lastApproved') ? {} : { lastApproved: snapshot(s.data()) };
+}
+
 module.exports = {
+  keepApproved,
+  pickClosedDays,
+  contactPhone,
   normId,
   smallNameEdit,
   reviewNeeded,

@@ -22,7 +22,7 @@ function targetPath(kind, id, answerId) {
 }
 
 /** লক্ষ্য মুছে ফেলা (প্রশ্ন হলে তার সব উত্তর সহ) */
-async function removeTarget(path, reported, kind) {
+async function removeTarget(path, reported, kind, reason = '') {
   if (path.startsWith('providers/') && kind === 'provider') {
     await require('./apptcancel').suspendProvider(path.split('/')[1], 'report');
     return;
@@ -31,10 +31,13 @@ async function removeTarget(path, reported, kind) {
   if (path.startsWith('ambulances/') || path.startsWith('pharmacies/') || path.startsWith('bloodBanks/')) {
     // মোছা হয় না, বন্ধ (suspended) — তালিকায় আর দেখায় না, মালিক নিজে আবার চালু করতে পারেন না
     const s = await ref.get();
-    if (s.exists) {
-      await ref.update({ status: 'suspended', suspendedAt: Date.now() });
-      const kind = path.startsWith('ambulances/') ? 'ambulance' : path.startsWith('pharmacies/') ? 'pharmacy' : 'bloodbank';
-      await require('./sanctions').onStatusChange(kind, s.data(), s.get('status'), 'suspended');
+    if (s.exists && s.get('status') !== 'suspended') {
+      // কারণ মালিক নিজের কার্ডে আর নোটিফিকেশনে দেখেন (কেন বন্ধ, কী নিয়ে আপিল করবেন)
+      await ref.update({ status: 'suspended', suspendedAt: Date.now(), statusReason: reason || '' });
+      const listingKind = path.startsWith('ambulances/') ? 'ambulance' : path.startsWith('pharmacies/') ? 'pharmacy' : 'bloodbank';
+      const x = { ...s.data(), ownerUid: s.get('ownerUid') || (listingKind === 'pharmacy' ? s.id : null) };
+      await require('./sanctions').onStatusChange(listingKind, x, s.get('status'), 'suspended');
+      await require('./listingreview').tellSuspendedByReport(listingKind, x, reason);
     }
     return;
   }
@@ -63,7 +66,24 @@ async function removeTarget(path, reported, kind) {
   }
 }
 
+/** মালিকের হিসাবে রিপোর্ট: শুধু খোলা আর টেকা (অ্যাডমিন "রেখে দিন" বললে গোনা হয় না) */
+async function reportCount(path) {
+  const [open, removed] = await Promise.all(['open', 'removed'].map((s) =>
+    db.collection('modReports').where('targetPath', '==', path).where('status', '==', s).count().get()));
+  return open.data().count + removed.data().count;
+}
+
+/** খোলা রিপোর্ট থাকলে মুছে আবার যোগ করে পরিষ্কার রেকর্ড পাওয়া আটকাতে */
+async function assertNoOpenReports(req, path) {
+  const s = await db.collection('modReports').where('targetPath', '==', path).where('status', '==', 'open').limit(1).get();
+  if (!s.empty) {
+    throw new HttpError(409, C.tr(req, 'This has an open report. It can be removed after the Lifolo team reviews it.', 'এটার একটা রিপোর্ট খোলা আছে। Lifolo টিম দেখার পর মুছতে পারবেন।'));
+  }
+}
+
 module.exports = {
+  reportCount,
+  assertNoOpenReports,
   async report(req, user) {
     const { kind, id, answerId } = req.body || {};
     if (!KINDS.includes(kind) || !R.isValidId(id) || (kind === 'answer' && !R.isValidId(answerId))) {
@@ -78,6 +98,11 @@ module.exports = {
       throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
     if (kind === 'provider' && id === user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবা: অ্যাপ থেকে ফোন করেছেন এমন মানুষই রিপোর্ট করতে পারেন (প্রতিযোগীর ভুয়া রিপোর্ট আটকাতে)
+    const callDoc = { ambulance: 'ambulanceCalls', pharmacy: 'pharmacyCalls', bloodbank: 'bloodBankCalls', homecare: 'homeCalls' }[kind];
+    if (callDoc && !(await db.doc(`${callDoc}/${user.uid}_${id}`).get()).exists) {
+      throw new HttpError(403, C.tr(req, 'You can report after calling from the app', 'অ্যাপ থেকে ফোন করার পর রিপোর্ট করতে পারবেন'));
+    }
     if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank' || kind === 'provider') {
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
@@ -186,7 +211,9 @@ module.exports = {
     }
     if (req.body?.remove === true) {
       const r = docs.find((d) => d.get('reportedUid'));
-      await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null, req.body?.kind);
+      // মালিককে যে কারণ দেখানো হবে: অ্যাডমিন লিখে দিলে সেটা, না হলে প্রথম রিপোর্টের কারণ
+      const reason = C.cleanText(req.body?.reason, 200) || C.cleanText(docs.map((d) => d.get('reason')).find(Boolean), 200) || '';
+      await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null, req.body?.kind, reason);
     }
     snap = { docs };
     const batch = db.batch();

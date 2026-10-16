@@ -78,7 +78,12 @@ object MedFind {
             JSONObject().put("i", i).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
                 .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL),
         )
-        return if (r.optBoolean("noPharmacy")) 0 else r.optInt("notified")
+        // ০: জেলায় অ্যাপে কোনো ফার্মেসি নেই; -১: আছে, কিন্তু এখন কোনোটা খোলা নেই
+        return when {
+            r.optBoolean("noPharmacy") -> 0
+            r.optBoolean("noneOpen") -> -1
+            else -> r.optInt("notified")
+        }
     }
 
     suspend fun mine(): List<MyFind> {
@@ -216,7 +221,9 @@ fun MedFindPanel(profile: Profile) {
                                 runCatching { MedFind.ask(c.i, d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null) }
                                     .onSuccess { n ->
                                         if (n == 0) {
-                                            errorMsg = tr("No pharmacy in the app nearby yet. Try the whole district.", "কাছে এখনো অ্যাপে কোনো ফার্মেসি নেই। পুরো জেলা বেছে দেখুন।")
+                                            errorMsg = tr("No pharmacy in this district has joined the app yet.", "এই জেলায় এখনো অ্যাপে কোনো ফার্মেসি যোগ হয়নি।")
+                                        } else if (n < 0) {
+                                            errorMsg = tr("No pharmacy nearby is open right now. Please try again later.", "এই মুহূর্তে কাছের কোনো ফার্মেসি খোলা নেই। একটু পরে আবার চেষ্টা করুন।")
                                         } else {
                                             infoMsg = tr("Asked $n nearby pharmacies. Answers will appear below, with a notification.", "কাছের ${num(n)}টা দোকানকে জিজ্ঞেস করা হয়েছে। উত্তর নিচে আসবে, নোটিফিকেশনও পাবেন।")
                                             chosen = null

@@ -118,7 +118,7 @@
       medorder: 'ওষুধের অর্ডার', appointment: 'অ্যাপয়েন্টমেন্ট', blood: 'রক্তের অনুরোধ', other: 'অন্য কিছু',
     },
     log: {
-      admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ',
+      admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ', admin_bloodbank_edit: 'ব্লাড ব্যাংক সম্পাদনা', admin_bloodbank_delete: 'ব্লাড ব্যাংক মোছা',
       admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_ticket_reply: 'আপিল',
       admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
@@ -839,8 +839,10 @@
         { label: 'লাইসেন্স', cell: (p) => p.licenseNo || '—' },
         { label: 'ফোন', cell: (p) => bn(p.phone) },
         { label: 'এলাকা', cell: (p) => [p.areaLabel || p.district || '—', p.address ? h('div', { class: 'small', text: p.address }) : null] },
-        { label: 'সময়', cell: (p) => (p.open24 ? '২৪ ঘণ্টা' : p.openAt ? `${bn(p.openAt)}–${bn(p.closeAt)}` : '—') },
+        { label: 'সময়', cell: (p) => [p.open24 ? '২৪ ঘণ্টা' : p.openAt ? `${bn(p.openAt)}–${bn(p.closeAt)}` : '—',
+          (p.closedDays || []).length ? h('div', { class: 'small', text: `বন্ধ: ${p.closedDays.map((d) => WEEKDAYS[d]).join(', ')}` }) : null] },
         { label: 'তারিখ', cell: (p) => fmtDate(p.reviewedAt || p.createdAt) },
+        { label: 'বদল / নোট', cell: (p) => reviewCell(p) },
       ],
       note: 'অনুমোদনের আগে ঔষধ প্রশাসন অধিদপ্তরে (DGDA) লাইসেন্স যাচাই করুন।',
       id: (p) => p.id,
@@ -860,6 +862,7 @@
         { label: 'এলাকা', cell: (a) => [a.areaLabel || a.district || '—', a.area ? h('div', { class: 'small', text: a.area }) : null] },
         { label: 'ভাড়া', cell: (a) => a.fare || '—' },
         { label: 'রেটিং', cell: (a) => (a.ratingCount ? `${bn(a.rating)} (${bn(a.ratingCount)})` : '—') },
+        { label: 'বদল / নোট', cell: (a) => reviewCell(a) },
       ],
       id: (a) => a.id,
       owner: (a) => a.ownerUid,
@@ -878,52 +881,117 @@
         { label: 'লাইসেন্স', cell: (b) => b.licenseNo || '—' },
         { label: 'ফোন', cell: (b) => bn(b.phone) },
         { label: 'এলাকা', cell: (b) => [b.areaLabel || b.district || '—', b.address ? h('div', { class: 'small', text: b.address }) : null] },
-        { label: 'সময়', cell: (b) => (b.open24 ? '২৪ ঘণ্টা' : b.openAt ? `${bn(b.openAt)}–${bn(b.closeAt)}` : '—') },
+        { label: 'সময়', cell: (b) => [b.open24 ? '২৪ ঘণ্টা' : b.openAt ? `${bn(b.openAt)}–${bn(b.closeAt)}` : '—',
+          (b.closedDays || []).length ? h('div', { class: 'small', text: `বন্ধ: ${b.closedDays.map((d) => WEEKDAYS[d]).join(', ')}` }) : null] },
         { label: 'তারিখ', cell: (b) => fmtDate(b.reviewedAt || b.createdAt) },
+        { label: 'বদল / নোট', cell: (b) => reviewCell(b) },
       ],
       note: 'বেসরকারি ব্লাড ব্যাংকের লাইসেন্স স্বাস্থ্য অধিদপ্তরে যাচাই করুন। হাসপাতালের ব্লাড ব্যাংক হলে হাসপাতালে ফোন করে মিলিয়ে নিন।',
       id: (b) => b.id,
       owner: (b) => b.ownerUid,
-      actions: (b, st) => statusActions('admin_bloodbank_resolve', b.id, st, 'ব্লাড ব্যাংক'),
-      extra: () => bloodBankForm(),
+      actions: (b, st) => [...statusActions('admin_bloodbank_resolve', b.id, st, 'ব্লাড ব্যাংক'),
+        h('button', { type: 'button', class: 'btn quiet', text: 'সম্পাদনা', onclick: () => { S.editBank = b; route(true); setTimeout(() => document.querySelector('.bank-form')?.scrollIntoView({ behavior: 'smooth' }), 50); } }),
+        actionBtn('মুছুন', 'warn', () => act('admin_bloodbank_delete', { id: b.id }), 'ব্লাড ব্যাংক মুছে ফেলা হয়েছে', afterChange)],
+      extra: () => bloodBankForm(S.editBank || null),
     },
   };
 
-  /** অ্যাডমিন নিজে চেনা ব্লাড ব্যাংক যোগ করেন (সাথে সাথে তালিকায়) */
-  function bloodBankForm() {
-    const input = (name, label, attrs = {}) => h('label', { class: 'field' }, h('span', { text: label }), h('input', { name, ...attrs }));
+  /** অ্যাডমিন নিজে চেনা ব্লাড ব্যাংক যোগ করেন (সাথে সাথে তালিকায়), বা কোনোটার তথ্য ঠিক করেন (edit) */
+  function bloodBankForm(edit) {
+    const e = edit || {};
+    const input = (name, label, attrs = {}) => h('label', { class: 'field' }, h('span', { text: label }), h('input', { name, value: e[name] ?? '', ...attrs }));
     const district = h('select', { name: 'district', 'aria-label': 'জেলা' }, h('option', { value: '', text: 'জেলা বেছে নিন' }));
-    act('admin_districts').then((r) => (r.items || []).forEach((d) => district.append(h('option', { value: d, text: d })))).catch(() => {});
+    act('admin_districts').then((r) => {
+      (r.items || []).forEach((d) => district.append(h('option', { value: d, text: d })));
+      if (e.district) district.value = e.district;
+    }).catch(() => {});
     const kind = h('select', { name: 'kind', 'aria-label': 'ধরন' }, Object.entries(L.bankKind).map(([k, v]) => h('option', { value: k, text: v })));
+    if (e.kind) kind.value = e.kind;
     const open24 = h('input', { type: 'checkbox', name: 'open24' });
-    const services = Object.entries(L.bankService).map(([k, v]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'svc', value: k }), h('span', { text: v })));
-    const form = h('form', { class: 'card pad bank-form', onsubmit: (e) => e.preventDefault() },
+    open24.checked = e.open24 === true;
+    const services = Object.entries(L.bankService).map(([k, v]) => {
+      const c = h('input', { type: 'checkbox', name: 'svc', value: k });
+      c.checked = (e.services || []).includes(k);
+      return h('label', { class: 'check' }, c, h('span', { text: v }));
+    });
+    const days = WEEKDAYS.map((v, i) => {
+      const c = h('input', { type: 'checkbox', name: 'off', value: String(i) });
+      c.checked = (e.closedDays || []).includes(i);
+      return h('label', { class: 'check' }, c, h('span', { text: v }));
+    });
+    const body = (f) => ({
+      name: String(f.get('name') || '').trim(), kind: f.get('kind'), phone: String(f.get('phone') || '').trim(),
+      district: f.get('district'), address: String(f.get('address') || '').trim(), licenseNo: String(f.get('licenseNo') || '').trim(),
+      open24: open24.checked, openAt: f.get('openAt') || '', closeAt: f.get('closeAt') || '', services: f.getAll('svc'),
+      closedDays: f.getAll('off').map(Number),
+    });
+    const form = h('form', { class: 'card pad bank-form', onsubmit: (ev) => ev.preventDefault() },
       input('name', 'নাম', { maxlength: 100, required: true }),
       h('label', { class: 'field' }, h('span', { text: 'ধরন' }), kind),
-      input('phone', 'ফোন (মোবাইল)', { inputmode: 'tel', maxlength: 15 }),
+      input('phone', 'ফোন (মোবাইল, ল্যান্ডলাইন বা হটলাইন)', { inputmode: 'tel', maxlength: 15 }),
       h('label', { class: 'field' }, h('span', { text: 'জেলা' }), district),
       input('address', 'ঠিকানা', { maxlength: 200 }),
       input('licenseNo', 'লাইসেন্স নম্বর (বেসরকারি হলে লাগবে)', { maxlength: 60 }),
       h('label', { class: 'check' }, open24, h('span', { text: '২৪ ঘণ্টা খোলা' })),
       h('div', { class: 'field-row' }, input('openAt', 'খোলে', { type: 'time' }), input('closeAt', 'বন্ধ হয়', { type: 'time' })),
+      h('div', { class: 'field' }, h('span', { text: 'সাপ্তাহিক বন্ধ' }), h('div', { class: 'checks' }, days)),
       h('div', { class: 'field' }, h('span', { text: 'সেবা' }), h('div', { class: 'checks' }, services)),
-      actionBtn('যোগ করুন', 'primary', async () => {
-        const f = new FormData(form);
-        await act('admin_bloodbank_add', {
-          name: String(f.get('name') || '').trim(), kind: f.get('kind'), phone: String(f.get('phone') || '').trim(),
-          district: f.get('district'), address: String(f.get('address') || '').trim(), licenseNo: String(f.get('licenseNo') || '').trim(),
-          open24: open24.checked, openAt: f.get('openAt') || '', closeAt: f.get('closeAt') || '', services: f.getAll('svc'),
-        });
-        form.reset();
-      }, 'ব্লাড ব্যাংক যোগ হয়েছে, তালিকায় দেখাচ্ছে', afterChange));
-    return [h('h2', { class: 'section-title', text: 'চেনা ব্লাড ব্যাংক নিজে যোগ করুন' }),
-      h('p', { class: 'note', text: 'যেমন সরকারি হাসপাতালের ব্লাড ব্যাংক বা সন্ধানী/রেড ক্রিসেন্ট। যোগ করলেই অ্যাপের তালিকায় দেখাবে।' }), form];
+      edit
+        ? h('div', { class: 'actions' },
+          actionBtn('সংরক্ষণ', 'primary', async () => {
+            await act('admin_bloodbank_edit', { id: edit.id, ...body(new FormData(form)) });
+            S.editBank = null;
+          }, 'তথ্য ঠিক করা হয়েছে', afterChange),
+          h('button', { type: 'button', class: 'btn quiet', text: 'বাদ দিন', onclick: () => { S.editBank = null; route(true); } }))
+        : actionBtn('যোগ করুন', 'primary', async () => {
+          await act('admin_bloodbank_add', body(new FormData(form)));
+          form.reset();
+        }, 'ব্লাড ব্যাংক যোগ হয়েছে, তালিকায় দেখাচ্ছে', afterChange));
+    return edit
+      ? [h('h2', { class: 'section-title', text: `সম্পাদনা: ${edit.name}` }),
+        h('p', { class: 'note', text: 'মালিক থাকলে তাঁকে জানানো হবে যে Lifolo টিম তথ্য ঠিক করেছে।' }), form]
+      : [h('h2', { class: 'section-title', text: 'চেনা ব্লাড ব্যাংক নিজে যোগ করুন' }),
+        h('p', { class: 'note', text: 'যেমন সরকারি হাসপাতালের ব্লাড ব্যাংক বা সন্ধানী/রেড ক্রিসেন্ট। যোগ করলেই অ্যাপের তালিকায় দেখাবে।' }), form];
+  }
+
+  const WEEKDAYS = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
+  const FIELD_LABEL = {
+    name: 'নাম', phone: 'ফোন', vehicleNo: 'গাড়ির নম্বর', licenseNo: 'লাইসেন্স', district: 'জেলা', upazilaId: 'উপজেলা', address: 'ঠিকানা',
+    kind: 'ধরন', types: 'ধরন', area: 'এলাকা', fare: 'ভাড়া', openAt: 'খোলে', closeAt: 'বন্ধ হয়', open24: '২৪ ঘণ্টা', services: 'সেবা',
+    closedDays: 'সাপ্তাহিক বন্ধ', delivery: 'হোম ডেলিভারি', deliveryNote: 'ডেলিভারির কথা', discount: 'ছাড়', lat: 'লোকেশন',
+  };
+  function showVal(field, v) {
+    if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '—';
+    if (field === 'closedDays') return v.map((d) => WEEKDAYS[d]).join(', ');
+    if (typeof v === 'boolean') return v ? 'হ্যাঁ' : 'না';
+    if (Array.isArray(v)) return v.map((x) => L.amb[x] || L.bankService[x] || x).join(', ');
+    return bn(v);
+  }
+  /** অনুমোদিত তথ্যের পর কী বদলেছে, কোন কারণে বাতিল/বন্ধ, আর একই ফোন/গাড়ি/লাইসেন্সের অন্য তালিকা */
+  function reviewCell(x) {
+    const out = [];
+    if (x.statusReason) out.push(h('div', { class: 'small', text: `কারণ: ${x.statusReason}` }));
+    (x.changes || []).filter((c) => c.field !== 'lng').forEach((c) => out.push(h('div', { class: 'small' },
+      h('b', { text: `${FIELD_LABEL[c.field] || c.field}: ` }), c.field === 'lat' ? 'বদলেছে' : `আগে ${showVal(c.field, c.before)} → এখন ${showVal(c.field, c.after)}`)));
+    (x.duplicates || []).forEach((d) => out.push(h('div', { class: 'small' },
+      h('span', { class: 'chip bad', text: `একই ${FIELD_LABEL[d.field] || d.field}` }), ' ', `${d.name || '—'} (${L.listing[d.status] || d.status})`)));
+    return out.length ? out : '—';
+  }
+
+  const REASONS = ['লাইসেন্স যাচাই করা যায়নি', 'ফোন নম্বর কাজ করে না', 'তথ্য অসম্পূর্ণ বা ভুল', 'একই তালিকা আগে থেকে আছে', 'রিপোর্ট সত্য পাওয়া গেছে', 'নিয়ম ভঙ্গ হয়েছে'];
+  /** বাতিল/বন্ধের কারণ — মালিক নোটিফিকেশনে আর নিজের কার্ডে দেখেন। তালিকা থেকে বাছা বা নিজে লেখা */
+  function reasonBox() {
+    if (!document.getElementById('reason-list')) {
+      document.body.append(h('datalist', { id: 'reason-list' }, REASONS.map((r) => h('option', { value: r }))));
+    }
+    return h('input', { class: 'reason', list: 'reason-list', maxlength: 200, placeholder: 'কারণ (মালিক দেখবেন)', 'aria-label': 'কারণ' });
   }
 
   function statusActions(action, id, st, what) {
-    const run = (status) => () => act(action, { id, status });
-    if (st === 'pending') return [actionBtn('অনুমোদন', 'primary', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange), actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
-    if (st === 'approved') return [actionBtn('বন্ধ করুন', 'warn', run('suspended'), `${what} বন্ধ করা হয়েছে`, afterChange)];
+    const reason = reasonBox();
+    const run = (status) => () => act(action, { id, status, reason: reason.value.trim() });
+    if (st === 'pending') return [reason, actionBtn('অনুমোদন', 'primary', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange), actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
+    if (st === 'approved') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), `${what} বন্ধ করা হয়েছে`, afterChange)];
     if (st === 'suspended') return [actionBtn('আবার চালু করুন', 'tonal', run('approved'), `${what} আবার চালু হয়েছে`, afterChange)];
     return [actionBtn('অনুমোদন দিন', 'tonal', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange)];
   }
@@ -991,9 +1059,12 @@
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
       const body = { targetPath: x.targetPath, kind: x.kind, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
+      const listing = x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank';
+      const reason = listing ? reasonBox() : null;
       const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'provider' ? 'তালিকা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
       return [
-        actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
+        reason,
+        actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true, ...(reason && reason.value.trim() ? { reason: reason.value.trim() } : {}) }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
         actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
       ];
     }));

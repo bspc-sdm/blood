@@ -26,7 +26,8 @@ function listingKeys(kind, x) {
   }
   const lic = normId(x.licenseNo);
   if (lic.length >= 3) keys.push(key('lic', lic));
-  const phone = K.normalizeBd(x.phone);
+  // মোবাইল হলে আন্তর্জাতিক রূপে (আগের নিষেধাজ্ঞার সাথে মেলে), ল্যান্ডলাইন/হটলাইন হলে যেমন আছে
+  const phone = K.normalizeBd(x.phone) || K.contactPhone(x.phone);
   if (phone) keys.push(key(`phone_${kind}`, phone));
   return keys;
 }

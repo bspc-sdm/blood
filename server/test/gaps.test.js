@@ -53,3 +53,33 @@ test('bags left counts confirmed donors or bags received, whichever is more', ()
   assert.equal(R.bagsLeft({ bags: 3, confirmedCount: 1, bagsReceived: 2 }), 1);
   assert.equal(R.bagsLeft({ bags: 2, confirmedCount: 3 }), 0);
 });
+
+// ২.১১: সার্ভিসের ফাঁক
+test('contact phone accepts mobile, landline and hotline', () => {
+  assert.equal(K.contactPhone('+8801712345678'), '01712345678');
+  assert.equal(K.contactPhone('02-9661551'), '029661551');
+  assert.equal(K.contactPhone('031 712345'), '031712345');
+  assert.equal(K.contactPhone('16263'), '16263');
+  assert.equal(K.contactPhone('999'), null);
+  assert.equal(K.contactPhone('0171234'), null);
+});
+
+test('weekly closed day makes the shop closed, overnight shift counts as the day before', () => {
+  // ২০২৬-১০-১৬ শুক্রবার; ঢাকা দুপুর ১২টা = UTC ০৬:০০
+  const friNoon = Date.UTC(2026, 9, 16, 6, 0);
+  const day = { openAt: '09:00', closeAt: '22:00' };
+  assert.equal(K.pharmacyOpenNow(day, friNoon), true);
+  assert.equal(K.pharmacyOpenNow({ ...day, closedDays: [5] }, friNoon), false);
+  assert.equal(K.pharmacyOpenNow({ open24: true, closedDays: [5] }, friNoon), false);
+  // রাত ১টা শনিবার (ঢাকা) — শুক্রবারের রাতের পালা
+  const satOneAm = Date.UTC(2026, 9, 16, 19, 0);
+  const night = { openAt: '20:00', closeAt: '02:00' };
+  assert.equal(K.pharmacyOpenNow({ ...night, closedDays: [5] }, satOneAm), false);
+  assert.equal(K.pharmacyOpenNow({ ...night, closedDays: [6] }, satOneAm), true);
+});
+
+test('closed days are cleaned and at least one day stays open', () => {
+  assert.deepEqual(K.pickClosedDays([5, 5, 9, -1, 'x', 0]), [0, 5]);
+  assert.equal(K.pickClosedDays([0, 1, 2, 3, 4, 5, 6]).length, 6);
+  assert.deepEqual(K.pickClosedDays(null), []);
+});
