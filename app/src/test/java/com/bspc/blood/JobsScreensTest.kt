@@ -61,7 +61,13 @@ class JobsScreensTest {
     fun jobsAndCvBangla() {
         show {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                JobCard(job) {}
+                JobCard(job, onSave = {}) {}
+                ApplicationStatusTag("interview")
+                ApplicationNextStep("interview", AppExtras("", Interview(System.currentTimeMillis() + 2 * DAY_MS, "inperson", "রহমান ট্রেডার্স, গাঙ্গিনারপাড়", "", "pending", ""), null, "", ""))
+                ApplicationNextStep("offered", AppExtras("", null, Offer("সেলস এক্সিকিউটিভ", 18000, Rules.todayUtcMidnight() + 7 * DAY_MS, Rules.todayUtcMidnight() + 2 * DAY_MS, "pending"), "", ""))
+                ApplicationNextStep("rejected", AppExtras("filled", null, null, "", ""))
+                Text(JobText.salaryOf(job.copy(salaryNegotiable = true, salaryMin = 0, salaryMax = 0)))
+                Text(JobText.salaryOf(job.copy(type = "internship", paid = false, durationMonths = 3)))
                 CvHeader(cv)
                 CvBody(cv)
                 Text(JobText.salary(15000, 22000))
