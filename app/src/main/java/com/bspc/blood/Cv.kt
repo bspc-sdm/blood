@@ -409,6 +409,7 @@ fun CvEditScreen(onBack: () -> Unit, onSaved: () -> Unit) {
     var want by remember { mutableStateOf(setOf<String>()) }
     var visibility by remember { mutableStateOf("employers") }
     var public by remember { mutableStateOf(false) }
+    var links by remember { mutableStateOf(listOf<String>()) }
     /** খোলা ফর্ম: -1 নেই, নইলে তালিকার স্থান (size = নতুন) */
     var editExp by remember { mutableIntStateOf(-1) }
     var editEdu by remember { mutableIntStateOf(-1) }
@@ -418,7 +419,7 @@ fun CvEditScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             base = c
             headline = c.headline; about = c.about; exp = c.experience; edu = c.education; certs = c.certs
             skills = c.skills; langs = c.languages; openToWork = c.openToWork || c.headline.isBlank()
-            want = c.wantCategories.toSet(); visibility = c.contactVisibility; public = c.public
+            want = c.wantCategories.toSet(); visibility = c.contactVisibility; public = c.public; links = c.links
         }.onFailure { errorMsg = it.message }
     }
     Scaffold(topBar = { BackTopBar(tr("My CV", "আমার সিভি"), onBack) }) { padding ->
@@ -443,6 +444,9 @@ fun CvEditScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             }
             WordsField(tr("Skills (e.g. MS Excel, driving)", "দক্ষতা (যেমন এমএস এক্সেল, গাড়ি চালানো)"), skills, max = 30) { skills = it }
             WordsField(tr("Languages", "ভাষা"), langs, max = 10, maxLen = 30) { langs = it }
+            WordsField(tr("Links (LinkedIn, Facebook, website)", "লিংক (LinkedIn, Facebook, ওয়েবসাইট)"), links, max = 5, maxLen = 300) { list ->
+                links = list.map { if (it.startsWith("http://") || it.startsWith("https://")) it else "https://$it" }
+            }
             CvSection(tr("Training & certificates", "প্রশিক্ষণ ও সনদ"), tr("Add", "যোগ করুন"), certs.size < 20, { editCert = certs.size }) {
                 certs.forEachIndexed { i, c -> CvRow(c.name, listOfNotNull(c.issuer.ifBlank { null }, c.year?.let { num(it) }).joinToString(" · "), { editCert = i }) { certs = certs.filterIndexed { k, _ -> k != i } } }
             }
@@ -498,7 +502,9 @@ fun CvEditScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                                 Cv(
                                     headline = headline.trim(), about = about.trim(), experience = exp, education = edu, skills = skills, languages = langs,
                                     certs = certs, openToWork = openToWork, wantCategories = if (openToWork) want.toList() else emptyList(),
-                                    contactVisibility = visibility, public = public,
+                                    contactVisibility = visibility, public = public, links = links,
+                                    // প্রোফাইল থেকে বদলানো ঘর (এখানে দেখানো হয় না) আগের মতো থাকে
+                                    showDonor = base?.showDonor ?: false,
                                 ),
                             )
                         }.onSuccess { onSaved() }.onFailure { errorMsg = it.message }
@@ -690,6 +696,7 @@ private fun CertDialog(cur: CvCert?, onDismiss: () -> Unit, onDone: (CvCert) -> 
     var name by remember { mutableStateOf(cur?.name ?: "") }
     var issuer by remember { mutableStateOf(cur?.issuer ?: "") }
     var year by remember { mutableStateOf(cur?.year?.toString() ?: "") }
+    var link by remember { mutableStateOf(cur?.link ?: "") }
     var err by remember { mutableStateOf<String?>(null) }
     FormDialog(
         title = tr("Training or certificate", "প্রশিক্ষণ বা সনদ"),
@@ -699,6 +706,7 @@ private fun CertDialog(cur: CvCert?, onDismiss: () -> Unit, onDone: (CvCert) -> 
                 OutlinedTextField(name, { name = it.take(100) }, label = { Text(tr("Name", "নাম")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(issuer, { issuer = it.take(100) }, label = { Text(tr("Given by (optional)", "যে প্রতিষ্ঠান দিয়েছে (ঐচ্ছিক)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, label = { Text(tr("Year (optional)", "সাল (ঐচ্ছিক)")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(link, { link = it.trim().take(300) }, label = { Text(tr("Certificate link (optional)", "সনদের লিংক (ঐচ্ছিক)")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth())
                 ErrorText(err)
             }
         },
@@ -709,7 +717,7 @@ private fun CertDialog(cur: CvCert?, onDismiss: () -> Unit, onDone: (CvCert) -> 
                     year.isNotBlank() && yearOf(year) == null -> tr("Write a correct year", "সঠিক সাল লিখুন")
                     else -> null
                 }
-                if (err == null) onDone(CvCert(name.trim(), issuer.trim(), yearOf(year)))
+                if (err == null) onDone(CvCert(name.trim(), issuer.trim(), yearOf(year), if (link.isBlank() || link.startsWith("http")) link else "https://$link"))
             }) { Text(tr("OK", "ঠিক আছে")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
@@ -843,5 +851,34 @@ object CvPdf {
         m.postTranslate(r.left + (r.width() - bmp.width * scale) / 2, r.top + (r.height() - bmp.height * scale) / 2)
         shader.setLocalMatrix(m)
         c.drawOval(r, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.shader = shader })
+    }
+}
+
+/** কয়েকটা শব্দ (দক্ষতা, ভাষা): লিখে "যোগ" চাপলে চিপ, চিপে চাপলে বাদ */
+@Composable
+fun WordsField(label: String, words: List<String>, max: Int, maxLen: Int = 40, onChange: (List<String>) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    fun add() {
+        val add = text.split(',', '،', ';').map { it.trim().take(maxLen) }.filter { it.isNotBlank() }
+        if (add.isNotEmpty()) onChange((words + add).distinctBy { it.lowercase() }.take(max))
+        text = ""
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(text, { text = it.take(maxLen * 2) }, label = { Text(label) }, singleLine = true, modifier = Modifier.weight(1f))
+            TextButton(onClick = { add() }, enabled = text.isNotBlank() && words.size < max) { Text(tr("Add", "যোগ")) }
+        }
+        if (words.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                words.forEach { w ->
+                    androidx.compose.material3.InputChip(
+                        selected = false,
+                        onClick = { onChange(words - w) },
+                        label = { Text(w) },
+                        trailingIcon = { AppIcon(R.drawable.ic_close, tr("Remove", "সরান"), Modifier.size(16.dp)) },
+                    )
+                }
+            }
+        }
     }
 }

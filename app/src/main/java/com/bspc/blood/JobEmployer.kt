@@ -758,32 +758,3 @@ private fun DecisionDialog(job: Job?, a: Applicant, s: String, onDismiss: () -> 
         TimePickerPopup(hour, minute, onPicked = { h, m -> hour = h; minute = m }, onDismiss = { pickTime = false }, title = tr("Interview time", "ইন্টারভিউর সময়"))
     }
 }
-
-/** কয়েকটা শব্দ (দক্ষতা, ভাষা): লিখে "যোগ" চাপলে চিপ, চিপে চাপলে বাদ */
-@Composable
-fun WordsField(label: String, words: List<String>, max: Int, maxLen: Int = 40, onChange: (List<String>) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    fun add() {
-        val add = text.split(',', '،', ';').map { it.trim().take(maxLen) }.filter { it.isNotBlank() }
-        if (add.isNotEmpty()) onChange((words + add).distinctBy { it.lowercase() }.take(max))
-        text = ""
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(text, { text = it.take(maxLen * 2) }, label = { Text(label) }, singleLine = true, modifier = Modifier.weight(1f))
-            TextButton(onClick = { add() }, enabled = text.isNotBlank() && words.size < max) { Text(tr("Add", "যোগ")) }
-        }
-        if (words.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                words.forEach { w ->
-                    androidx.compose.material3.InputChip(
-                        selected = false,
-                        onClick = { onChange(words - w) },
-                        label = { Text(w) },
-                        trailingIcon = { AppIcon(R.drawable.ic_close, tr("Remove", "সরান"), Modifier.size(16.dp)) },
-                    )
-                }
-            }
-        }
-    }
-}
