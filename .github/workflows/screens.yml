@@ -23,7 +23,12 @@ jobs:
       # প্রতিটা টেস্ট আলাদা প্রসেসে (একসাথে চালালে ৪-৫টার পর JVM বন্ধ হয়ে যায়)
       - name: Run screenshot tests
         run: |
-          gradle compileDebugUnitTestKotlin 2>&1 | tail -5
+          gradle compileDebugUnitTestKotlin 2>&1 | tee compile.log | tail -5
+          # কম্পাইলের ভুল থাকলে সরাসরি দেখানো (নইলে প্রতিটা টেস্ট আবার একই ভুলে আটকায়)
+          if grep -qE "^e: " compile.log; then
+            grep -E "^e: " compile.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+            exit 1
+          fi
           # ScreensTest.kt আর ফিচারের আলাদা ফাইল (যেমন JobsScreensTest.kt) — সবগুলো
           for f in app/src/test/java/com/bspc/blood/*ScreensTest.kt; do
             c=$(basename "$f" .kt)
