@@ -73,12 +73,6 @@ object VerifyDocs {
         )
     }
 
-    /** নিয়োগকর্তা: ট্রেড লাইসেন্স দিলে "যাচাই করা" চিহ্ন (না দিলেও বিজ্ঞাপন দেওয়া যায়, অ্যাডমিন দেখে চালু করেন) */
-    fun employer() = listOf(
-        DocSpec("tradeLicense", tr("Trade licence", "ট্রেড লাইসেন্স"), tr("Organisation name, address and expiry readable", "প্রতিষ্ঠানের নাম, ঠিকানা আর মেয়াদ পড়া যায়"), true),
-        DocSpec("office", tr("Office or shop photo (with signboard)", "অফিস বা দোকানের ছবি (সাইনবোর্ডসহ)"), tr("If you have it", "থাকলে দিন"), false),
-    )
-
     /** দরকারি ছবির কোনটা বাকি থাকলে বার্তা, নইলে null */
     fun missing(specs: List<DocSpec>, photos: Map<String, String>): String? {
         val miss = specs.filter { it.required && photos[it.type].isNullOrBlank() }
@@ -90,7 +84,6 @@ object VerifyDocs {
     /** পরে ছবি দেওয়া (অ্যাডমিন চাইলে) */
     suspend fun upload(kind: String, id: String, photos: Map<String, String>) {
         ServerApi.post("/api/community", JSONObject().put("action", "verify_docs_upload").put("kind", kind).put("id", id).put("docs", json(photos)))
-        OngoingApi.clear() // হোমের "চলমান"-এ "ছবি দিন" কার্ড সাথে সাথে বদলায়
     }
 }
 
@@ -120,7 +113,7 @@ fun DocPhotosField(specs: List<DocSpec>, photos: Map<String, String>, onChange: 
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("Document photos", "কাগজের ছবি"), style = MaterialTheme.typography.labelLarge)
-        SmallNote(optionalNote ?: tr("The Dorkar team checks these before listing. Take a clear photo of the whole paper.", "তালিকায় আসার আগে Dorkar টিম এগুলো দেখে মিলিয়ে নেয়। পুরো কাগজের পরিষ্কার ছবি দিন।"))
+        SmallNote(optionalNote ?: tr("The Lifolo team checks these before listing. Take a clear photo of the whole paper.", "তালিকায় আসার আগে Lifolo টিম এগুলো দেখে মিলিয়ে নেয়। পুরো কাগজের পরিষ্কার ছবি দিন।"))
         specs.forEach { d ->
             val img = photos[d.type]
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +150,7 @@ fun DocsNeededNotice(kind: String, id: String, specs: List<DocSpec>, missing: Bo
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                if (requested) tr("The Dorkar team asked for document photos", "Dorkar টিম কাগজের ছবি চেয়েছে")
+                if (requested) tr("The Lifolo team asked for document photos", "Lifolo টিম কাগজের ছবি চেয়েছে")
                 else tr("Document photos are needed for checking", "যাচাইয়ের জন্য কাগজের ছবি লাগবে"),
                 style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
             )

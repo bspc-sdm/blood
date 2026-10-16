@@ -186,7 +186,7 @@ module.exports = {
     await db.runTransaction(async (t) => {
       const cur = await t.get(ref);
       if (cur.exists && cur.get('adminSuspended') === true) {
-        throw new HttpError(403, C.tr(req, 'Your listing is turned off by the Dorkar team. You can appeal from Profile → Help & appeals.', 'Dorkar টিম আপনার তালিকা বন্ধ রেখেছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+        throw new HttpError(403, C.tr(req, 'Your listing is turned off by the Lifolo team. You can appeal from Profile → Help & appeals.', 'Lifolo টিম আপনার তালিকা বন্ধ রেখেছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       }
       if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
         throw err(['Home care is turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার বাসায় সেবা বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);

@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 66
-        versionName = "2.16.0"
+        versionCode = 68
+        versionName = "2.13.1"
     }
 
     signingConfigs {
@@ -88,8 +88,6 @@ dependencies {
     // লোকেশন, দূরত্ব হিসাব; WorkManager শুধু আগের ভার্সনের কাজ বন্ধ করতে
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.firebase:geofire-android-common:3.2.0")
-    // প্রোফাইল শেয়ারের QR কোড
-    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     testImplementation("junit:junit:4.13.2")

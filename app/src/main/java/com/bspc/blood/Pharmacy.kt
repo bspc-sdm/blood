@@ -164,7 +164,7 @@ fun PharmacyContent(profile: Profile) {
     LaunchedEffect(target) {
         when (target) {
             "med_find_mine" -> tab = 1
-            "med_find", "mine" -> tab = 2
+            "med_find" -> tab = 2
         }
         if (target != null) ServicesNav.target.value = null
     }

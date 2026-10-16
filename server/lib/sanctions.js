@@ -60,8 +60,8 @@ async function checkListing(req, kind, x, email, isNew) {
   if (!keys.length) return;
   const snaps = await db.getAll(...keys.map((k) => db.doc(`sanctions/${k}`)));
   if (snaps.some((s) => s.exists && s.get('listing') === true)) {
-    throw new HttpError(403, C.tr(req, 'This was suspended by the Dorkar team earlier. You can appeal from Profile → Help & appeals.',
-      'এটা আগে Dorkar টিম বন্ধ করেছিল। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
+    throw new HttpError(403, C.tr(req, 'This was suspended by the Lifolo team earlier. You can appeal from Profile → Help & appeals.',
+      'এটা আগে Lifolo টিম বন্ধ করেছিল। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
   }
 }
 

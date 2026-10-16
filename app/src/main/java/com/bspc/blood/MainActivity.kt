@@ -49,8 +49,6 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
-            intent?.getStringExtra(Notifier.EXTRA_JOB_ID)?.let { JobsNav.jobId.value = it } // FEATURE:jobs
-            intent?.getStringExtra(Notifier.EXTRA_KIND)?.let { ServicesNav.kind.value = it }
             sharedRequestId(intent)?.let { openRequestId.value = it }
             if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
         }
@@ -78,7 +76,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in (setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "badge") + JobsNav.TYPES /* FEATURE:jobs */) },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -94,15 +92,13 @@ class MainActivity : ComponentActivity() {
             openRequestId.value = it
         }
         intent.getStringExtra(Notifier.EXTRA_QUESTION_ID)?.let { openQuestionId.value = it }
-        intent.getStringExtra(Notifier.EXTRA_JOB_ID)?.let { JobsNav.jobId.value = it } // FEATURE:jobs
-        intent.getStringExtra(Notifier.EXTRA_KIND)?.let { ServicesNav.kind.value = it }
         sharedRequestId(intent)?.let {
             openType.value = null
             openRequestId.value = it
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in (setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "badge") + JobsNav.TYPES /* FEATURE:jobs */) }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency") }?.let { openType.value = it }
     }
 }
 
@@ -125,7 +121,7 @@ sealed interface Screen {
     data object Login : Screen
     data object EditProfile : Screen
     data object PickLocation : Screen
-    /** ট্যাব: 0 হোম, 1 সার্ভিস, 2 নোটিফিকেশন, 3 প্রোফাইল */
+    /** ট্যাব: 0 হোম, 1 অ্যাপয়েন্টমেন্ট, 2 স্বাস্থ্য, 3 সেবা, 4 প্রোফাইল */
     data class Main(val tab: Int = 0) : Screen
     data object NewRequest : Screen
     data class RequestDetail(val id: String) : Screen
@@ -144,24 +140,17 @@ sealed interface Screen {
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
     /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
     data class Help(val category: String? = null) : Screen
-    /** সার্ভিসের একটা সেবার পাতা (Services.kt) */
-    data class Service(val key: String) : Screen
-    /** উপরের ☰ মেনু (সেটিংস ইত্যাদি) */
-    data object Menu : Screen
-    /** সিভি বদলানো (প্রোফাইল থেকে) */
-    data object EditCv : Screen
-    /** চাকরির সব পাতা (Jobs.kt) */
-    data class Jobs(val page: JobsPage) : Screen // FEATURE:jobs
 }
 
-/** নিচের বার: হোম · সার্ভিস · নোটিফিকেশন · প্রোফাইল (সেটিংস উপরের ☰ মেনুতে) */
 object Tabs {
     const val HOME = 0
-    /** সব সেবা টাইল আকারে (ডাক্তার, স্বাস্থ্য, অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, চাকরি…) */
-    const val SERVICES = 1
-    const val NOTIFICATIONS = 2
-    /** প্রোফাইল = সিভি */
-    const val PROFILE = 3
+    const val APPOINTMENT = 1
+    /** আলোচনা + টিপস */
+    const val HEALTH = 2
+    /** "সেবা": ফার্মেসি (ওষুধ + নিজের দোকান), অ্যাম্বুলেন্স (খোঁজা + নিজেরটা) */
+    const val SERVICES = 3
+    /** নিচের বারে নেই; উপরের প্রোফাইলের ছবিতে চাপলে */
+    const val PROFILE = 4
 }
 
 @Composable
@@ -234,21 +223,8 @@ fun App(
         if (stack.size == 1) homeRefresh++
     }
 
-    /**
-     * নিচের বারের "সার্ভিস"-এর ভেতরে একটা সেবার পাতা খোলা।
-     * reset = পুশ নোটিফিকেশন থেকে (আগের পাতা মুছে "সার্ভিস" ট্যাবের উপরে); অ্যাপের ভেতর থেকে (হোমের "চলমান",
-     * নোটিফিকেশন ট্যাব) খুললে শুধু উপরে বসে, ফিরে গেলে যেখান থেকে এসেছিলেন সেখানেই।
-     */
-    fun openService(key: String, reset: Boolean = true) {
-        if (reset) {
-            while (stack.size > 1) stack.removeAt(stack.lastIndex)
-            stack[0] = Screen.Main(Tabs.SERVICES)
-        }
-        push(Screen.Service(key))
-    }
-
-    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা, পুশ আর হোমের "চলমান" — সব জায়গা থেকে) */
-    fun openFromData(data: Map<String, String>, fromPush: Boolean = false) {
+    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই) */
+    fun openFromData(data: Map<String, String>) {
         val type = data["type"]
         val requestId = data["requestId"]
         val questionId = data["questionId"]
@@ -258,20 +234,15 @@ fun App(
             type == "appointment" -> push(Screen.MyAppointments)
             type in HOME_CARE_TYPES -> {
                 CareNav.openHomeCare.value = true
-                openService("doctor", fromPush)
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
             type == "support" -> push(Screen.Help())
-            // FEATURE:jobs START
-            type in JobsNav.TYPES -> {
-                val (section, page) = JobsNav.route(type, data["jobId"])
-                JobsNav.section.value = section
-                openService("jobs", fromPush)
-                page?.let { push(Screen.Jobs(it)) }
-            }
-            // FEATURE:jobs END
+            // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
             type == "med_find" || type == "med_find_mine" -> {
                 ServicesNav.target.value = type
-                openService("pharmacy", fromPush)
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
             }
             // জরুরি আহ্বান: হোমের উপরের ব্যানার
             type == "emergency" -> {
@@ -279,19 +250,9 @@ fun App(
                 stack[0] = Screen.Main(Tabs.HOME)
                 homeRefresh++
             }
-            // মালিকের দিকের খবর: সেই সেবার "আমার …" অংশ
-            type == "pharmacy_order" || type == "pharmacy_mine" -> {
-                ServicesNav.target.value = "mine"
-                openService("pharmacy", fromPush)
-            }
-            type == "services" -> {
-                ServicesNav.target.value = "mine"
-                openService(Services.keyForKind(data["kind"]?.ifBlank { null } ?: ServicesNav.kind.value.also { ServicesNav.kind.value = null }), fromPush)
-            }
-            // পেশাদার ব্যাজ: প্রোফাইলে
-            type == "badge" -> {
+            type == "services" || type == "pharmacy_order" || type == "pharmacy_mine" -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.PROFILE)
+                stack[0] = Screen.Main(Tabs.SERVICES)
             }
             else -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -352,7 +313,7 @@ fun App(
     // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
     LaunchedEffect(openTarget, ready) {
         if (openTarget != null && ready) {
-            openFromData(mapOf("type" to openTarget), fromPush = true)
+            openFromData(mapOf("type" to openTarget))
             onTargetOpened()
         }
     }
@@ -360,7 +321,8 @@ fun App(
     LaunchedEffect(openHomeVisit, ready) {
         if (openHomeVisit && ready) {
             CareNav.openHomeCare.value = true
-            openService("doctor")
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+            stack[0] = Screen.Main(Tabs.APPOINTMENT)
             onHomeVisitOpened()
         }
     }
@@ -419,11 +381,6 @@ fun App(
                 onEditChamber = { push(Screen.ChamberEdit) },
                 onOpenInbox = { push(Screen.Inbox) },
                 onOpenAmbulance = { push(Screen.Ambulance) },
-                onOpenJobs = { push(Screen.Jobs(it)) }, // FEATURE:jobs
-                onOpenMenu = { push(Screen.Menu) },
-                onOpenService = { push(Screen.Service(it)) },
-                onOpenData = { openFromData(it) },
-                onEditCv = { push(Screen.EditCv) },
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
@@ -629,50 +586,6 @@ fun App(
 
             Screen.Ambulance -> profile?.let { pr -> AmbulanceScreen(pr, onBack = { back() }) }
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
-            is Screen.Service -> profile?.let { pr ->
-                ServiceScreen(
-                    current.key, pr, community, homeRefresh * 1000 + communityRefresh,
-                    onBack = { back() },
-                    onOpenMyAppointments = { push(Screen.MyAppointments) },
-                    onEditChamber = { push(Screen.ChamberEdit) },
-                    onOpenQuestion = { push(Screen.QuestionDetail(it)) },
-                    onAsk = { push(Screen.AskQuestion) },
-                    onOpenTip = { push(Screen.TipDetail(it)) },
-                    onPostTip = { push(Screen.PostTip) },
-                    onOpenJobs = { push(Screen.Jobs(it)) }, // FEATURE:jobs
-                )
-            }
-            Screen.Menu -> MenuScreen(
-                community = community,
-                onBack = { back() },
-                onOpenMyRequests = { push(Screen.MyRequests) },
-                onOpenMyAppointments = { push(Screen.MyAppointments) },
-                onOpenSettings = { push(Screen.Settings) },
-                onEditProfile = { push(Screen.EditProfile) },
-                onOpenAdmin = { push(Screen.Admin) },
-                onLogout = {
-                    scope.launch {
-                        AuthRepository.signOut(context)
-                        profile = null
-                        community = null
-                        errorMsg = null
-                        resetTo(Screen.Login)
-                    }
-                },
-                onAccountDeleted = {
-                    scope.launch {
-                        AuthRepository.signOutLocal()
-                        profile = null
-                        community = null
-                        errorMsg = tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।")
-                        resetTo(Screen.Login)
-                    }
-                },
-            )
-            Screen.EditCv -> CvEditScreen(onBack = { back() }, onSaved = { back() })
-            is Screen.Jobs -> profile?.let { pr -> // FEATURE:jobs
-                JobsPageScreen(current.page, pr, open = { push(Screen.Jobs(it)) }, replace = { stack[stack.lastIndex] = Screen.Jobs(it) }, back = { back() })
-            }
 
             Screen.ChamberEdit -> profile?.let { pr ->
                 ChamberEditScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })

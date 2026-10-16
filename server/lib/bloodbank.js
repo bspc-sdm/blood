@@ -244,7 +244,7 @@ const actions = {
     });
     if (s.get('ownerUid')) {
       await require('./requestend').pushUsers([s.get('ownerUid')], (u, lang) => ({
-        title: R.L(lang, 'The Dorkar team updated your blood bank details', 'Dorkar টিম আপনার ব্লাড ব্যাংকের তথ্য ঠিক করেছে'),
+        title: R.L(lang, 'The Lifolo team updated your blood bank details', 'Lifolo টিম আপনার ব্লাড ব্যাংকের তথ্য ঠিক করেছে'),
         body: data.name,
         data: { type: 'services', kind: 'bloodbank' },
       }));

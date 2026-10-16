@@ -35,8 +35,8 @@ async function accountDisabledError(req, uid) {
   if (uid) reason = await db.doc(`serverState/${uid}`).get().then((s) => (s.exists && s.get('disabledReason')) || '').catch(() => '');
   const en = req && req.body && req.body.lang === 'en';
   const msg = en
-    ? `Your account was suspended by the Dorkar team.${reason ? ` Reason: ${reason}.` : ''} To appeal, email ${SUPPORT_EMAIL}`
-    : `আপনার অ্যাকাউন্ট Dorkar টিম বন্ধ করেছে।${reason ? ` কারণ: ${reason}।` : ''} আপিল করতে ইমেইল করুন: ${SUPPORT_EMAIL}`;
+    ? `Your account was suspended by the Lifolo team.${reason ? ` Reason: ${reason}.` : ''} To appeal, email ${SUPPORT_EMAIL}`
+    : `আপনার অ্যাকাউন্ট Lifolo টিম বন্ধ করেছে।${reason ? ` কারণ: ${reason}।` : ''} আপিল করতে ইমেইল করুন: ${SUPPORT_EMAIL}`;
   return new HttpError(403, msg, 'account_disabled');
 }
 

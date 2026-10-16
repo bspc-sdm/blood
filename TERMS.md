@@ -1,8 +1,8 @@
-# Dorkar (আগের নাম Lifolo, Get Blood) — ব্যবহারের শর্ত / Terms of Use
+# Lifolo (আগের নাম Get Blood) — ব্যবহারের শর্ত / Terms of Use
 
 সর্বশেষ আপডেট: ১৫ অক্টোবর ২০২৬ (ওষুধের অর্ডার বন্ধ)
 
-Dorkar একটা যোগাযোগের মাধ্যম: রক্তপ্রার্থীর সাথে রক্তদাতার, আর রোগীর সাথে ডাক্তার, নার্স ও স্বাস্থ্য পেশাজীবীর যোগাযোগ করিয়ে দেয়। অ্যাপ নিজে কোনো চিকিৎসা, রক্ত বা সেবা দেয় না, আর কোনো টাকার লেনদেন করে না।
+Lifolo একটা যোগাযোগের মাধ্যম: রক্তপ্রার্থীর সাথে রক্তদাতার, আর রোগীর সাথে ডাক্তার, নার্স ও স্বাস্থ্য পেশাজীবীর যোগাযোগ করিয়ে দেয়। অ্যাপ নিজে কোনো চিকিৎসা, রক্ত বা সেবা দেয় না, আর কোনো টাকার লেনদেন করে না।
 
 ## সবার জন্য
 
@@ -34,7 +34,7 @@ Dorkar একটা যোগাযোগের মাধ্যম: রক্ত
 - ফোনে যে ফি বলেছেন তার বেশি চাইবেন না। রোগীর ঠিকানা, ফোন আর স্বাস্থ্যের তথ্য গোপন রাখবেন।
 - নিরাপত্তার জন্য কোথায় যাচ্ছেন তা পরিচিত কাউকে জানিয়ে রাখার পরামর্শ দেওয়া হয়। অস্বস্তি বা বিপদ মনে হলে সেবা না দিয়ে চলে আসতে পারেন এবং রিপোর্ট করবেন।
 
-**দায়:** Dorkar ডাক্তার/নার্সের নিয়োগকর্তা নয়, সেবার মান বা ফলাফলের নিশ্চয়তা দেয় না। পেশাজীবীর ব্যাজ রেজিস্ট্রেশন নম্বর দেখে দেওয়া হয়, কিন্তু প্রতিটা সেবার দায়িত্ব সেই পেশাজীবী আর রোগী/পরিবারের নিজেদের। রেটিং আর রিপোর্ট দেখে অ্যাডমিন কাউকে অ্যাপের সেবা থেকে বাদ দিতে পারেন।
+**দায়:** Lifolo ডাক্তার/নার্সের নিয়োগকর্তা নয়, সেবার মান বা ফলাফলের নিশ্চয়তা দেয় না। পেশাজীবীর ব্যাজ রেজিস্ট্রেশন নম্বর দেখে দেওয়া হয়, কিন্তু প্রতিটা সেবার দায়িত্ব সেই পেশাজীবী আর রোগী/পরিবারের নিজেদের। রেটিং আর রিপোর্ট দেখে অ্যাডমিন কাউকে অ্যাপের সেবা থেকে বাদ দিতে পারেন।
 
 ## অ্যাম্বুলেন্স
 
@@ -50,7 +50,7 @@ Dorkar একটা যোগাযোগের মাধ্যম: রক্ত
 
 ## জরুরি রক্তের আহ্বান
 
-- দুর্ঘটনা বা বড় জরুরি অবস্থায় Dorkar টিম হাসপাতালের ব্লাড ব্যাংকের সাথে কথা বলে আহ্বান দিতে পারে। কাছের যোগ্য ডোনারদের ধাপে ধাপে জানানো হয়, আর এমন আহ্বানে দিনের নোটিফিকেশনের সীমা মানা হয় না (নোটিফিকেশন বন্ধ রাখলে পাঠানো হয় না)।
+- দুর্ঘটনা বা বড় জরুরি অবস্থায় Lifolo টিম হাসপাতালের ব্লাড ব্যাংকের সাথে কথা বলে আহ্বান দিতে পারে। কাছের যোগ্য ডোনারদের ধাপে ধাপে জানানো হয়, আর এমন আহ্বানে দিনের নোটিফিকেশনের সীমা মানা হয় না (নোটিফিকেশন বন্ধ রাখলে পাঠানো হয় না)।
 - এখনই যেতে পারলে তবেই "আসছি" চাপুন; না পারলে "আসতে পারছি না" চাপুন, যাতে অন্য কেউ যেতে পারেন। কোনো গ্রুপের যথেষ্ট মানুষ আসছেন হলে সেই গ্রুপের জন্য আর আসতে হবে না।
 - হাসপাতালে গিয়ে সেখানকার নির্দেশনা মানুন; রক্ত নেওয়ার আগে হাসপাতাল নিজে যাচাই করবে।
 
@@ -68,12 +68,12 @@ Dorkar একটা যোগাযোগের মাধ্যম: রক্ত
 
 ## English summary
 
-Dorkar only connects people: blood requesters with donors, and patients with doctors, nurses and health professionals. The app does not provide treatment, blood or services and handles no money. Give accurate information; buying or selling blood is illegal; harassment and fake requests are not allowed and can lead to removal. In an emergency call 999. Health posts are general information, not a diagnosis.
+Lifolo only connects people: blood requesters with donors, and patients with doctors, nurses and health professionals. The app does not provide treatment, blood or services and handles no money. Give accurate information; buying or selling blood is illegal; harassment and fake requests are not allowed and can lead to removal. In an emergency call 999. Health posts are general information, not a diagnosis.
 
 Doctors and nurses must keep a valid BMDC/BNMC registration, work within their training and the law, and are responsible for the care they give.
 
-**Home care (doctors and nurses who visit homes):** the app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or cannula without a prescription; everyone should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Dorkar is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
+**Home care (doctors and nurses who visit homes):** the app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or cannula without a prescription; everyone should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
 
-**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. In a major emergency the Dorkar team may send an appeal after confirming with the hospital blood bank; nearby eligible donors are notified in waves (the daily notification limit doesn't apply, but turned-off notifications are respected). Tap "I'm coming" only if you can go now; groups close once enough donors are coming. Blood banks (government hospital, licensed private and volunteer organisations) are listed the same way — call to check availability; buying or selling blood is illegal and only processing costs may be charged. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
+**Ambulance & pharmacy:** the app only lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine, takes no orders and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription or charge above MRP, and must keep their hours and phone correct. In a major emergency the Lifolo team may send an appeal after confirming with the hospital blood bank; nearby eligible donors are notified in waves (the daily notification limit doesn't apply, but turned-off notifications are respected). Tap "I'm coming" only if you can go now; groups close once enough donors are coming. Blood banks (government hospital, licensed private and volunteer organisations) are listed the same way — call to check availability; buying or selling blood is illegal and only processing costs may be charged. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
 
 Contact: ekapkbd@gmail.com

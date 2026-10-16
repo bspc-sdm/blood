@@ -69,8 +69,11 @@ module.exports = handler(async (req) => {
       throw new HttpError(429, `একসাথে সর্বোচ্চ ${R.MAX_OPEN_REQUESTS}টা খোলা রিকোয়েস্ট রাখা যায়`);
     }
 
-    // কাছের ব্যবহারকারী (geohash): ডোনার সর্বোচ্চ যতদূর যেতে রাজি হতে পারেন, ততদূরের ভেতরের সবাই
-    const usersSnap = { docs: (await require('../lib/geo').near(db.collection('users'), 'geohash', request.lat, request.lng, Math.max(...R.RADIUS_CHOICES))).map((x) => x.doc) };
+    // কাছের জেলাগুলোর ব্যবহারকারী
+    const usersSnap = await db
+      .collection('users')
+      .where('placeName', 'in', R.nearDistricts(request.lat, request.lng))
+      .get();
     // আগে যাঁদের জানানো হয়েছে তাঁরা বাদ (আবার জানানোর সময়) — তাহলে দূরের নতুন ডোনাররা আসেন
     const meta = await metaRef.get();
     const already = new Set((meta.exists && meta.get('uids')) || []);

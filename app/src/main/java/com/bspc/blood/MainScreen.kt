@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 
-internal data class NavItem(val label: String, val selectedIcon: Int, val icon: Int, val badge: Int = 0)
+internal data class NavItem(val label: String, val selectedIcon: Int, val icon: Int)
 
 @Composable
 fun MainScreen(
@@ -83,11 +83,6 @@ fun MainScreen(
     onOpenAmbulance: () -> Unit = {},
     onOpenMedicine: () -> Unit = {},
     onOpenShop: () -> Unit = {},
-    onOpenJobs: (JobsPage) -> Unit = {}, // FEATURE:jobs
-    onOpenMenu: () -> Unit = {},
-    onOpenService: (String) -> Unit = {},
-    onOpenData: (Map<String, String>) -> Unit = {},
-    onEditCv: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -104,7 +99,6 @@ fun MainScreen(
 
     // এই ফোনের পুশ টোকেন সার্ভারের জন্য প্রোফাইলে রাখা
     LaunchedEffect(Unit) { runCatching { Notifier.syncToken() } }
-    LaunchedEffect(Unit) { JobAlarms.sync(context) } // FEATURE:jobs — সামনের ইন্টারভিউর মনে করানো
 
     // সার্ভার যেন নোটিফিকেশন এই ভাষায় পাঠায়
     val lang = AppPrefs.lang.value
@@ -130,54 +124,48 @@ fun MainScreen(
         }
     }
 
-    // নিচের বার: হোম · সার্ভিস · নোটিফিকেশন (না-পড়ার সংখ্যা) · প্রোফাইল
-    // নোটিফিকেশন ট্যাব খোলা থাকলে সংখ্যা দেখায় না (খুললেই সব পড়া হয়)
-    val unread = if (tab == Tabs.NOTIFICATIONS) 0 else community?.unread ?: 0
+    // প্রোফাইল এখন নিচের বারে নয়, উপরের ছবিতে চাপলে (Tabs.PROFILE)
     val items = listOf(
         NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
-        NavItem(tr("Services", "সার্ভিস"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
-        NavItem(tr("Notifications", "নোটিফিকেশন"), R.drawable.ic_notifications_round_fill, R.drawable.ic_notifications_round, unread),
-        NavItem(tr("Profile", "প্রোফাইল"), R.drawable.ic_person_filled, R.drawable.ic_person_outline),
+        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
+        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
+        NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
     )
+    val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
     Scaffold(
         topBar = {
-            // বামে লোগো আর নাম, ডানে ☰ মেনু (সেটিংস)
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Logo(iconSize = 30.dp)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onOpenMenu) {
-                    AppIcon(R.drawable.ic_menu_round, tr("Menu", "মেনু"), Modifier.size(26.dp))
-                }
+                BellButton(community?.unread ?: 0, onOpenInbox)
+                IconButton(onClick = { onTabChange(Tabs.PROFILE) }) { MenuAvatar(avatar) }
             }
         },
         bottomBar = { ModernNavBar(items, tab, onTabChange) },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                Tabs.SERVICES -> ServicesTab(onOpenService)
-                Tabs.NOTIFICATIONS -> NotificationsTab(
-                    homeRefresh,
-                    onOpen = onOpenData,
-                    onAllRead = { community?.let { onCommunityChanged(it.copy(unread = 0)) } },
-                )
-                Tabs.PROFILE -> ProfileTab(
-                    profile = profile,
-                    community = community,
-                    refreshKey = homeRefresh,
-                    onCommunityChanged = onCommunityChanged,
-                    onProfileChanged = onProfileChanged,
-                    onEditCv = onEditCv,
-                    onEditProfile = onEditProfile,
-                    onOpenHome = { onTabChange(Tabs.HOME) },
-                    onOpenMyApplications = { JobsNav.section.value = 1; onOpenService("jobs") }, // FEATURE:jobs
-                )
-                else -> HomeTab(
+                Tabs.HOME -> HomeTab(
                     profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
                     onOpenAmbulance = onOpenAmbulance,
                     onOpenMedicine = onOpenMedicine,
-                    onOpenData = onOpenData,
                 ) { onTabChange(Tabs.PROFILE) }
+                Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
+                Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
+                Tabs.SERVICES -> ServicesTab(profile)
+                else -> ProfileTab(
+                    profile = profile,
+                    community = community,
+                    onCommunityChanged = onCommunityChanged,
+                    onEditProfile = onEditProfile,
+                    onOpenMyRequests = onOpenMyRequests,
+                    onOpenSettings = onOpenSettings,
+                    onProfileChanged = onProfileChanged,
+                    onLogout = onLogout,
+                    onOpenAdmin = onOpenAdmin,
+                    onAccountDeleted = onAccountDeleted,
+                )
             }
         }
     }
@@ -197,7 +185,6 @@ fun HomeTab(
     onChangeLocation: () -> Unit,
     onOpenAmbulance: () -> Unit = {},
     onOpenMedicine: () -> Unit = {},
-    onOpenData: (Map<String, String>) -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }
@@ -286,11 +273,9 @@ fun HomeTab(
 
             // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
             item(key = "update") { UpdateBanner() }
-            // জরুরি আহ্বান (Dorkar টিম) সবার উপরে
+            // জরুরি আহ্বান (Lifolo টিম) সবার উপরে
             item(key = "emergency") { EmergencyBanner(refreshKey * 1000 + reload) }
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
-            // অন্য সেবায় চলমান কাজ (ফার্মেসি, ডাক্তার/নার্স, অ্যাম্বুলেন্স, চাকরি…) — শেষ হলে সরে যায়
-            item(key = "ongoing") { OngoingSection(refreshKey, reload, onOpenData) }
 
             when {
                 loading && others.isEmpty() -> item { LoadingBox() }
@@ -414,11 +399,7 @@ internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> 
                                 .background(if (sel) cs.primary else androidx.compose.ui.graphics.Color.Transparent),
                         )
                         Spacer(Modifier.weight(1f))
-                        androidx.compose.material3.BadgedBox(badge = {
-                            if (item.badge > 0) androidx.compose.material3.Badge { Text(if (item.badge > 99) "99+" else num(item.badge)) }
-                        }) {
-                            AppIcon(if (sel) item.selectedIcon else item.icon, null, Modifier.size(24.dp), color)
-                        }
+                        AppIcon(if (sel) item.selectedIcon else item.icon, null, Modifier.size(24.dp), color)
                         Spacer(Modifier.height(2.dp))
                         Text(
                             item.label,

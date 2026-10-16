@@ -30,7 +30,7 @@ async function notifyUser(uid, ticketId) {
     await sendPush([{
       uid,
       tokens: require('./firebase').tokensOf(u),
-      title: R.L(lang, 'Reply from the Dorkar team', 'Dorkar টিমের উত্তর এসেছে'),
+      title: R.L(lang, 'Reply from the Lifolo team', 'Lifolo টিমের উত্তর এসেছে'),
       body: R.L(lang, 'Open Help & appeals to read it', '"সাহায্য ও আপিল" খুলে দেখুন'),
       data: { type: 'support', ticketId },
     }]);

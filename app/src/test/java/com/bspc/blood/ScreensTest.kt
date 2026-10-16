@@ -180,7 +180,8 @@ class ScreensTest {
     @Test
     fun servicesBloodBankBangla() {
         AppPrefs.lang.value = Lang.BN
-        show { BloodBankContent(profile) }
+        show { ServicesTab(profile) }
+        rule.onNodeWithText("ব্লাড ব্যাংক").performClick()
         shot("services_blood_bank_bn")
     }
 
@@ -227,7 +228,7 @@ class ScreensTest {
     @Test
     fun ambulanceFilterBarBangla() {
         AppPrefs.lang.value = Lang.BN
-        show { AmbulanceContent(profile) }
+        show { ServicesTab(profile) }
         shot("ambulance_filter_bar_bn")
     }
 
@@ -385,38 +386,6 @@ class ScreensTest {
         shot("gap_fixes_bn")
     }
 
-    /** ২.১৬: নিচের বার (নোটিফিকেশনে সংখ্যা), হোমের "চলমান", ☰ মেনু */
-    @Test
-    fun newNavigationBangla() {
-        AppPrefs.lang.value = Lang.BN
-        val items = listOf(
-            NavItem("হোম", R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
-            NavItem("সার্ভিস", R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
-            NavItem("নোটিফিকেশন", R.drawable.ic_notifications_round_fill, R.drawable.ic_notifications_round, 3),
-            NavItem("প্রোফাইল", R.drawable.ic_person_filled, R.drawable.ic_person_outline),
-        )
-        show {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OngoingCards(
-                    listOf(
-                        OngoingItem("a", "job", "সেলস এক্সিকিউটিভ · রহমান ট্রেডার্স", "ইন্টারভিউর আমন্ত্রণ — উত্তর দিন", "", true, System.currentTimeMillis() + 86_400_000L, true, emptyMap()),
-                        OngoingItem("b", "pharmacy", "ফার্মেসি: নিউ লাইফ ফার্মেসি", "অনুমোদনের অপেক্ষায়", "", false, 0, false, emptyMap()),
-                        OngoingItem("c", "appointment", "অ্যাপয়েন্টমেন্ট: ডা. ফারহানা ইসলাম", "নিশ্চিত হয়েছে", "ময়মনসিংহ মেডিকেল · সিরিয়াল 4", false, Rules.todayUtcMidnight() + 86_400_000L, false, emptyMap()),
-                    ),
-                ) {}
-                ModernNavBar(items, 0) {}
-            }
-        }
-        shot("new_nav_bn")
-    }
-
-    @Test
-    fun servicesAndMenuBangla() {
-        AppPrefs.lang.value = Lang.BN
-        show { MenuScreen(null, {}, {}, {}, {}, {}, {}, {}, {}) }
-        shot("menu_bn")
-    }
-
     /** উপরের বার: লোগো, ঘণ্টা, ছবি+☰ মেনু (ছবি ছাড়া ও ছবিসহ) */
     @Test
     fun topBarMenuAvatar() {
@@ -444,7 +413,7 @@ class ScreensTest {
 
     @Test
     fun englishFontServices() {
-        show { ServicesTab {} }
+        show { ServicesTab(profile) }
         shot("services_en_font")
     }
 
@@ -552,8 +521,7 @@ class ScreensTest {
 
     @Test
     fun servicesTab() {
-        AppPrefs.lang.value = Lang.BN
-        show { ServicesTab {} }
+        show { ServicesTab(profile) }
         shot("services_tab")
     }
 

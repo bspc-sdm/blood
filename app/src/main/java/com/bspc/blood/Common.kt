@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 /** অ্যাপের নাম (আপাতত; চূড়ান্ত হলে শুধু এখানে আর strings.xml-এ বদলাতে হবে) */
-const val APP_NAME = "Dorkar"
+const val APP_NAME = "Lifolo"
 
 const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
 const val TERMS_URL = "https://github.com/bspc-sdm/blood/blob/main/TERMS.md"

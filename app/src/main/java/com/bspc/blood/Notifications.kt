@@ -27,8 +27,6 @@ object Notifier {
     /** "request" (ডোনারের জন্য), "response" (রক্তপ্রার্থীর জন্য), "eligible" */
     const val EXTRA_TYPE = "type"
     const val EXTRA_QUESTION_ID = "questionId"
-    const val EXTRA_JOB_ID = "jobId" // FEATURE:jobs
-    const val EXTRA_KIND = "kind"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -48,15 +46,13 @@ object Notifier {
 
     /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
     @SuppressLint("MissingPermission")
-    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null, jobId: String? = null) {
+    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null) {
         if (!canNotify(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (requestId != null) putExtra(EXTRA_REQUEST_ID, requestId)
             if (type != null) putExtra(EXTRA_TYPE, type)
             if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
-            if (jobId != null) putExtra(EXTRA_JOB_ID, jobId) // FEATURE:jobs
-            if (kind != null) putExtra(EXTRA_KIND, kind)
         }
         val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(
@@ -102,7 +98,7 @@ class BloodMessagingService : FirebaseMessagingService() {
         val body = message.notification?.body ?: message.data["body"] ?: ""
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
         val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
-            ?: message.data["findId"] ?: message.data["jobId"] /* FEATURE:jobs */ ?: message.messageId
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"], message.data["jobId"] /* FEATURE:jobs */)
+            ?: message.data["findId"] ?: message.messageId
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"])
     }
 }

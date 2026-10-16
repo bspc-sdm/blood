@@ -145,14 +145,6 @@ object BloodBanks {
 @Composable
 fun BloodBankContent(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    // নোটিফিকেশন/হোমের "চলমান" থেকে মালিক এলে: "আমার ব্লাড ব্যাংক"
-    val target = ServicesNav.target.value
-    LaunchedEffect(target) {
-        if (target == "mine") {
-            tab = 1
-            ServicesNav.target.value = null
-        }
-    }
     Column(Modifier.fillMaxSize()) {
         PillTabs(
             tab,

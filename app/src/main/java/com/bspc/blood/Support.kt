@@ -39,7 +39,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ------------------------------------------------------------
-// সাহায্য ও আপিল: ব্যবহারকারী লেখেন, Dorkar টিম ওয়েব প্যানেল থেকে উত্তর দেয়
+// সাহায্য ও আপিল: ব্যবহারকারী লেখেন, Lifolo টিম ওয়েব প্যানেল থেকে উত্তর দেয়
 // ------------------------------------------------------------
 
 data class TicketMessage(val fromAdmin: Boolean, val text: String, val at: Long)
@@ -176,8 +176,8 @@ fun HelpScreen(startCategory: String?, onBack: () -> Unit) {
 
             SmallNote(
                 tr(
-                    "Write to the Dorkar team about any problem — a suspended pharmacy or ambulance, a badge, an order, a blocked feature or anything else. You'll get a notification when we reply.",
-                    "যেকোনো সমস্যায় Dorkar টিমকে লিখুন: ফার্মেসি বা অ্যাম্বুলেন্স বন্ধ হওয়া, ব্যাজ, অর্ডার, কোনো সুবিধা বন্ধ হওয়া বা অন্য কিছু। উত্তর দিলে নোটিফিকেশন পাবেন।",
+                    "Write to the Lifolo team about any problem — a suspended pharmacy or ambulance, a badge, an order, a blocked feature or anything else. You'll get a notification when we reply.",
+                    "যেকোনো সমস্যায় Lifolo টিমকে লিখুন: ফার্মেসি বা অ্যাম্বুলেন্স বন্ধ হওয়া, ব্যাজ, অর্ডার, কোনো সুবিধা বন্ধ হওয়া বা অন্য কিছু। উত্তর দিলে নোটিফিকেশন পাবেন।",
                 ),
             )
 
@@ -209,7 +209,7 @@ fun HelpScreen(startCategory: String?, onBack: () -> Unit) {
                                             .onSuccess {
                                                 text = ""
                                                 writing = false
-                                                infoMsg = tr("Sent. The Dorkar team will reply here.", "পাঠানো হয়েছে। Dorkar টিম এখানেই উত্তর দেবে।")
+                                                infoMsg = tr("Sent. The Lifolo team will reply here.", "পাঠানো হয়েছে। Lifolo টিম এখানেই উত্তর দেবে।")
                                                 reload++
                                             }
                                             .onFailure { errorMsg = it.message }
@@ -278,7 +278,7 @@ private fun MessageBubble(m: TicketMessage) {
                 Text(m.text, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.padding(top = 2.dp))
                 Text(
-                    (if (m.fromAdmin) tr("Dorkar team", "Dorkar টিম") else tr("You", "আপনি")) + ", " + timeAgo(m.at),
+                    (if (m.fromAdmin) tr("Lifolo team", "Lifolo টিম") else tr("You", "আপনি")) + ", " + timeAgo(m.at),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

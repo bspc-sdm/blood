@@ -1,6 +1,6 @@
 // রক্তপ্রার্থী "রক্ত পেয়েছি" চাপলে: রিকোয়েস্ট বন্ধ, কত ব্যাগ পেয়েছেন লেখা, আর যারা রক্ত দিয়েছেন তাদের শেষ রক্তদানের তারিখ আপডেট।
 // শুধু একবারই কাজ করে, আর শুধু "রাজি" থাকা ডোনারদের — যাতে কেউ বারবার ডেকে কাউকে আটকে রাখতে না পারে।
-const { db, FieldValue, HttpError, verifyUser, handler } = require('../lib/firebase');
+const { db, HttpError, verifyUser, handler } = require('../lib/firebase');
 const R = require('../lib/rules');
 const { notifyEnded, pushUsers } = require('../lib/requestend');
 
@@ -61,7 +61,6 @@ module.exports = handler(async (req) => {
         status: 'closed',
         closedAt: Date.now(),
         closedBy: got === 0 ? 'not_needed' : 'requester',
-        geoOpen: FieldValue.delete(),
         // ভুল করে বন্ধ করে আবার খুললে আগের হিসাব ফেরত আসে
         bagsReceivedBefore: prevReceived,
         ...(got != null && got > 0 ? { bagsReceived: got } : {}),
@@ -72,8 +71,6 @@ module.exports = handler(async (req) => {
 
   // বন্ধ হলে: যাঁরা এখনো "রাজি" (রক্ত দেওয়া হিসেবে চিহ্নিত না), তাঁদের জানানো যে আর আসতে হবে না;
   // আর যাঁদের রক্তদান লেখা হলো তাঁদের ধন্যবাদ
-  // প্রোফাইলের "Dorkar দিয়ে কতবার" (দিনে একবার; ডোনার নিজে আগে চিহ্ন দিলে আবার গোনে না)
-  for (const id of result.markedIds || []) await require('../lib/donationcount').countDonation(id);
   if (result.closed && result.r) {
     await notifyEnded(requestId, result.r, result.notNeeded ? 'notNeeded' : 'closed');
     await pushUsers(result.markedIds, (u, lang) => ({

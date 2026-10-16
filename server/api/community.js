@@ -483,8 +483,7 @@ const actions = {
   },
 };
 
-// FEATURE:jobs — শেষের require('../lib/jobs').actions
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/cv').actions, require('../lib/ongoing').actions, require('../lib/jobs').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -505,7 +504,7 @@ actions.admin_overview = async (req, user) => {
   };
   const withArea = (list) => list.map((x) => ({ ...x, areaLabel: area(x.district, x.upazilaId, x.unionId) }));
   const owner = isOwner(user);
-  const [badges, pharmacies, ambulances, bloodBanks, hospitalRequests, reports, corrections, adminList, jobs, employers] = await Promise.all([
+  const [badges, pharmacies, ambulances, bloodBanks, hospitalRequests, reports, corrections, adminList] = await Promise.all([
     part(async () => (await actions.admin_badges(req, user)).items),
     part(async () => withArea((await actions.admin_pharmacies(req, user)).items)),
     part(async () => withArea((await actions.admin_ambulances(req, user)).items)),
@@ -518,8 +517,6 @@ actions.admin_overview = async (req, user) => {
     part(async () => (await actions.admin_reports(req, user)).items),
     part(() => require('../lib/corrections').pendingCorrections()),
     owner ? actions.admin_list(req, user).catch(() => null) : null,
-    part(async () => withArea((await actions.admin_jobs({ ...req, body: { ...req.body, status: 'pending' } }, user)).items)), // FEATURE:jobs
-    part(async () => withArea((await actions.admin_employers({ ...req, body: { ...req.body, status: 'pending' } }, user)).items)), // FEATURE:jobs
   ]);
   const tickets = await part(async () => (await actions.admin_tickets({ ...req, body: { ...req.body, status: 'open' } }, user)).items);
   return {
@@ -528,8 +525,6 @@ actions.admin_overview = async (req, user) => {
     pharmacies,
     ambulances,
     bloodBanks,
-    jobs,
-    employers,
     hospitalRequests,
     reports,
     corrections,

@@ -31,8 +31,7 @@ async function sendWave(id) {
   const e = s.data();
   if (!E.isLive(e)) return { sent: 0 };
   const [usersSnap, already] = await Promise.all([
-    // কাছের ব্যবহারকারী (geohash) — আগে জেলা ধরে সবাইকে পড়া হতো
-    require('./geo').near(db.collection('users'), 'geohash', e.lat, e.lng, e.radiusKm).then((list) => ({ docs: list.map((x) => x.doc) })),
+    db.collection('users').where('placeName', 'in', e.districts.slice(0, 30)).limit(10000).get(),
     ref.collection('donors').select().get(),
   ]);
   const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
@@ -57,8 +56,8 @@ async function sendWave(id) {
     uid: u.uid,
     tokens: u.tokens,
     title: R.L(u.lang, `Emergency: ${u.group} blood needed`, `জরুরি: ${u.group} রক্ত দরকার`),
-    body: R.L(u.lang, `${e.hospitalName} · ${R.formatKm(u.km, 'en')} · Dorkar team appeal — open to say you're coming`,
-      `${e.hospitalName} · ${R.formatKm(u.km, 'bn')} · Dorkar টিমের আহ্বান — খুলে "আসছি" চাপুন`),
+    body: R.L(u.lang, `${e.hospitalName} · ${R.formatKm(u.km, 'en')} · Lifolo team appeal — open to say you're coming`,
+      `${e.hospitalName} · ${R.formatKm(u.km, 'bn')} · Lifolo টিমের আহ্বান — খুলে "আসছি" চাপুন`),
     data: { type: 'emergency', emergencyId: id },
   })));
   return { sent, notified: wave.length };
@@ -182,7 +181,7 @@ const actions = {
     const eref = db.doc(`emergencies/${id}`);
     const dref = db.doc(`emergencies/${id}/donors/${user.uid}`);
     const uref = db.doc(`users/${user.uid}`);
-    const counted = await db.runTransaction(async (t) => {
+    await db.runTransaction(async (t) => {
       const [e, d, u] = await Promise.all([t.get(eref), t.get(dref), t.get(uref)]);
       // চলমান আহ্বানে "দিইনি" নয় — তখন "আসতে পারছি না" (গোনা কমে, অন্য কেউ আসতে পারেন)
       if (!donated && e.exists && E.isLive(e.data())) {
@@ -194,7 +193,7 @@ const actions = {
       // একবারই উত্তর (বারবার "দিয়েছি" চেপে তারিখ সামনে ঠেলা যায় না)
       if (d.get('status') !== 'coming') {
         if (u.exists) t.update(uref, { [`emergencyComing.${id}`]: FieldValue.delete() });
-        return false;
+        return;
       }
       t.update(dref, { status: donated ? 'donated' : 'not_donated', answeredAt: Date.now() });
       if (u.exists) {
@@ -206,10 +205,7 @@ const actions = {
           ...(donated && (last == null || last < today) ? { lastDonationMillis: today } : {}),
         });
       }
-      return donated;
     });
-    // প্রোফাইলের "Dorkar দিয়ে কতবার" (দিনে একবার)
-    if (counted) await require('./donationcount').countDonation(user.uid);
     return { ok: true };
   },
 

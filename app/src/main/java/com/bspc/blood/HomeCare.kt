@@ -253,8 +253,8 @@ private fun MyHomeCareCard(onEditChamber: () -> Unit) {
                 s.optBoolean("blocked") -> {
                     Text(
                         tr(
-                            "Turned off by the Dorkar team after a report. You can appeal.",
-                            "রিপোর্টের পর Dorkar টিম বন্ধ করেছে। আপিল করতে পারেন।",
+                            "Turned off by the Lifolo team after a report. You can appeal.",
+                            "রিপোর্টের পর Lifolo টিম বন্ধ করেছে। আপিল করতে পারেন।",
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )

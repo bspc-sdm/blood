@@ -1,4 +1,4 @@
-/* Dorkar অ্যাডমিন — অ্যাপের রং (Prefs.kt) আর আইকন, বাম মেনু + ডানে পুরো পাতা */
+/* Lifolo অ্যাডমিন — অ্যাপের রং (Prefs.kt) আর আইকন, বাম মেনু + ডানে পুরো পাতা */
 /* ইংরেজি অক্ষর Roboto-র (ঘন, ছোট লেখায় পরিষ্কার), বাংলা Hind Siliguri — অ্যাপেও একই */
 @font-face { font-family: 'Hind Siliguri'; font-style: normal; font-weight: 400; font-display: swap;
   src: url(/admin/fonts/hind-siliguri-bengali-400-normal.woff2) format('woff2');
@@ -348,4 +348,3 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* খোঁজার ঘর আর নিচের লেখার মাঝে ফাঁক */
 .search-hint { margin: 12px 0 0; }
-textarea.words { width: 100%; min-height: 220px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); resize: vertical; margin: 6px 0 12px; } /* FEATURE:jobs */

@@ -175,7 +175,7 @@ fun statusText(s: String): String = when (s) {
     "approved" -> tr("Listed", "তালিকায় আছে")
     "pending" -> tr("Waiting for approval", "অনুমোদনের অপেক্ষায়")
     "rejected" -> tr("Not approved", "অনুমোদন হয়নি")
-    "suspended" -> tr("Suspended by the Dorkar team", "Dorkar টিম বন্ধ করেছে")
+    "suspended" -> tr("Suspended by the Lifolo team", "Lifolo টিম বন্ধ করেছে")
     else -> s
 }
 
@@ -207,14 +207,6 @@ fun AmbulanceScreen(profile: Profile, onBack: () -> Unit) {
 @Composable
 fun AmbulanceContent(profile: Profile, showMine: Boolean = true) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    // নোটিফিকেশন/হোমের "চলমান" থেকে মালিক এলে: "আমার অ্যাম্বুলেন্স"
-    val target = ServicesNav.target.value
-    LaunchedEffect(target) {
-        if (target == "mine" && showMine) {
-            tab = 1
-            ServicesNav.target.value = null
-        }
-    }
     Column(Modifier.fillMaxSize()) {
         if (showMine) {
             PillTabs(

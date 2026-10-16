@@ -399,11 +399,6 @@ const LOGGED = {
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
   admin_ticket_reply: (b) => ({ target: `tickets/${b.id}`, detail: b.close === true ? (b.text ? 'replied+closed' : 'closed') : 'replied' }),
   // কোন অ্যাডমিন কার কোন ভাগ দেখলেন
-  admin_job_resolve: (b) => ({ target: `jobs/${b.id}`, detail: [b.status, b.reason].filter(Boolean).join(' · ') }), // FEATURE:jobs
-  admin_employer_resolve: (b) => ({ target: `employers/${b.id}`, detail: [b.status, b.reason].filter(Boolean).join(' · ') }), // FEATURE:jobs
-  admin_employer_warn: (b) => ({ target: `employers/${b.id}`, detail: b.reason || '' }), // FEATURE:jobs
-  admin_employer_block: (b) => ({ target: `employers/${b.id}`, detail: [b.block ? 'বন্ধ' : 'চালু', b.reason].filter(Boolean).join(' · ') }), // FEATURE:jobs
-  admin_job_words_save: (b) => ({ target: 'config/jobRules', detail: `${(b.words || []).length}টা শব্দ` }), // FEATURE:jobs
   admin_user_section: (b) => ({ target: `users/${b.uid}`, detail: `viewed ${b.section}` }),
   admin_verify_docs: (b) => ({ target: `${b.kind}/${b.id}`, detail: 'viewed documents' }),
   admin_request_docs: (b) => ({ target: `${b.kind}/${b.id}`, detail: `asked for documents${b.note ? `: ${b.note}` : ''}` }),

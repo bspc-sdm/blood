@@ -1,4 +1,4 @@
-// Dorkar ওয়েব অ্যাডমিন প্যানেল — বাম মেনু, ডানে পুরো পাতা।
+// Lifolo ওয়েব অ্যাডমিন প্যানেল — বাম মেনু, ডানে পুরো পাতা।
 // নিরাপত্তা: ব্যবহারকারীর লেখা সবসময় textContent দিয়ে বসে (কখনো innerHTML নয়);
 // লগইন httpOnly কুকিতে, এই স্ক্রিপ্ট সেটা দেখতে পায় না।
 (function () {
@@ -104,16 +104,10 @@
       private_hospital: 'বেসরকারি হাসপাতাল', clinic: 'ক্লিনিক', diagnostic: 'ডায়াগনস্টিক সেন্টার',
     },
     amb: { general: 'সাধারণ', ac: 'এসি', icu: 'আইসিইউ', freezer: 'ফ্রিজার ভ্যান' },
-    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', provider: 'ডাক্তার/নার্স (চেম্বার)', bloodbank: 'ব্লাড ব্যাংক', job: 'চাকরির বিজ্ঞাপন' },
+    report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', provider: 'ডাক্তার/নার্স (চেম্বার)', bloodbank: 'ব্লাড ব্যাংক' },
     bankKind: { govt: 'সরকারি হাসপাতাল', private: 'বেসরকারি', org: 'স্বেচ্ছাসেবী সংগঠন' },
     bankService: { whole_blood: 'পূর্ণ রক্ত', components: 'প্লাজমা ও অন্যান্য অংশ', platelets: 'প্লাটিলেট', screening: 'স্ক্রিনিং ও ক্রস-ম্যাচ', donate_here: 'এখানে রক্ত দেওয়া যায়' },
-    listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল', open: 'চালু', closed: 'শেষ', verified: 'যাচাই করা', none: 'যাচাই চাননি', paused: 'বিরতি', changes: 'ঠিক করতে বলা হয়েছে' },
-    jobCat: { health: 'স্বাস্থ্যসেবা', education: 'শিক্ষা', sales: 'বিক্রয় ও মার্কেটিং', accounts: 'হিসাব ও অর্থ', office: 'অফিস ও প্রশাসন', it: 'আইটি', driving: 'গাড়ি চালনা ও ডেলিভারি', factory: 'কারখানা', hospitality: 'হোটেল ও রেস্টুরেন্ট', security: 'নিরাপত্তা', construction: 'নির্মাণ ও মেরামত', domestic: 'গৃহস্থালি কাজ', other: 'অন্যান্য' }, // FEATURE:jobs
-    jobType: { fulltime: 'ফুলটাইম', parttime: 'পার্টটাইম', contract: 'চুক্তিভিত্তিক', internship: 'ইন্টার্নশিপ', remote: 'দূর থেকে কাজ' }, // FEATURE:jobs
-    edu: { none: 'লাগবে না', ssc: 'এসএসসি', hsc: 'এইচএসসি', diploma: 'ডিপ্লোমা', bachelor: 'স্নাতক', masters: 'স্নাতকোত্তর' }, // FEATURE:jobs
-    empKind: { company: 'কোম্পানি', shop: 'দোকান/ব্যবসা', hospital: 'হাসপাতাল/ক্লিনিক', school: 'শিক্ষাপ্রতিষ্ঠান', ngo: 'এনজিও/সংগঠন', household: 'বাসাবাড়ি', other: 'অন্যান্য' }, // FEATURE:jobs
-    app: { applied: 'আবেদন করা', seen: 'দেখা হয়েছে', shortlisted: 'শর্টলিস্ট', interview: 'ইন্টারভিউ', offered: 'প্রস্তাব দেওয়া', rejected: 'বাছাই হয়নি', hired: 'নিয়োগ', withdrawn: 'তুলে নিয়েছেন' }, // FEATURE:jobs
-    offer: { pending: 'উত্তরের অপেক্ষায়', accepted: 'গ্রহণ করেছেন', declined: 'ফিরিয়ে দিয়েছেন', expired: 'মেয়াদ শেষ' }, // FEATURE:jobs
+    listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
     order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
     visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
     appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ', completed: 'সম্পন্ন' },
@@ -125,7 +119,7 @@
     },
     log: {
       admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ', admin_bloodbank_edit: 'ব্লাড ব্যাংক সম্পাদনা', admin_bloodbank_delete: 'ব্লাড ব্যাংক মোছা',
-      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_user_section: 'ব্যবহারকারীর তথ্য দেখা', admin_job_resolve: 'চাকরির বিজ্ঞাপন', admin_employer_resolve: 'নিয়োগকর্তা যাচাই', admin_verify_docs: 'কাগজের ছবি দেখা', admin_request_docs: 'কাগজের ছবি চাওয়া', admin_ticket_reply: 'আপিল',
+      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_user_section: 'ব্যবহারকারীর তথ্য দেখা', admin_verify_docs: 'কাগজের ছবি দেখা', admin_request_docs: 'কাগজের ছবি চাওয়া', admin_ticket_reply: 'আপিল',
       admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
@@ -150,7 +144,7 @@
       res = await fetch(path, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-Dorkar-Admin': '1' },
+        headers: { 'Content-Type': 'application/json', 'X-Lifolo-Admin': '1' },
         body: JSON.stringify({ lang: 'bn', ...body }),
       });
     } catch (e) {
@@ -177,8 +171,6 @@
     S.lists['pharmacies:pending'] = itemsOf('pharmacies');
     S.lists['ambulances:pending'] = itemsOf('ambulances');
     S.lists['bloodBanks:pending'] = itemsOf('bloodBanks');
-    S.lists['jobs:pending'] = itemsOf('jobs'); // FEATURE:jobs
-    S.lists['employers:pending'] = itemsOf('employers'); // FEATURE:jobs
     S.lists['tickets:open'] = itemsOf('tickets');
   }
   const itemsOf = (key) => (S.overview && S.overview[key] && Array.isArray(S.overview[key].items) ? S.overview[key].items : []);
@@ -226,7 +218,7 @@
 
     function draw() {
       const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
-        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Dorkar' }), h('span', { text: 'অ্যাডমিন' })),
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
         h('h1', { text: 'লগইন' }),
         stage === 'code' ? h('p', { text: `কোড গেছে: ${email}` }) : null,
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
@@ -318,9 +310,6 @@
       { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
       { path: 'bloodBanks', label: 'ব্লাড ব্যাংক', icon: 'blood', count: () => pendingCount('bloodBanks') },
       { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
-      { path: 'jobs', label: 'চাকরির বিজ্ঞাপন', icon: 'work', count: () => pendingCount('jobs') }, // FEATURE:jobs
-      { path: 'employers', label: 'নিয়োগকর্তা', icon: 'verified', count: () => pendingCount('employers') }, // FEATURE:jobs
-      { path: 'jobwords', label: 'চাকরির নিষিদ্ধ শব্দ', icon: 'flag' }, // FEATURE:jobs
     ] },
     { group: 'সহায়তা', items: [
       { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
@@ -347,7 +336,7 @@
     pageEl = h('main', { class: 'page', id: 'page', tabindex: '-1' });
     shell = h('div', { class: 'shell' },
       h('aside', { class: 'side' },
-        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Dorkar' }), h('span', { text: 'অ্যাডমিন' })),
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
         navEl,
         h('div', { class: 'side-foot' },
           h('div', { class: 'who', text: (S.me && S.me.email) || '' }),
@@ -389,14 +378,14 @@
   function setTitle(title, sub, actions) {
     titleEl.replaceChildren(...[title, sub ? h('span', { class: 'sub', text: sub }) : null].filter(Boolean));
     topActions.replaceChildren(...(actions || []));
-    document.title = `${title} — Dorkar অ্যাডমিন`;
+    document.title = `${title} — Lifolo অ্যাডমিন`;
   }
 
   async function refreshAll() {
     try {
       await loadOverview();
       // অন্য অবস্থার তালিকা আবার আনা হবে
-      for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k) || k === 'jobs:open' /* FEATURE:jobs */) delete S.lists[k];
+      for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
       drawNav();
       route(true);
       toast('হালনাগাদ হয়েছে');
@@ -423,9 +412,6 @@
     emergency: pageEmergency,
     badges: (r, alive) => pageListing('badges', r, alive),
     pharmacies: (r, alive) => pageListing('pharmacies', r, alive),
-    jobs: (r, alive) => pageListing('jobs', r, alive), // FEATURE:jobs
-    employers: (r, alive) => pageListing('employers', r, alive), // FEATURE:jobs
-    jobwords: pageJobWords, // FEATURE:jobs
     ambulances: (r, alive) => pageListing('ambulances', r, alive),
     bloodBanks: (r, alive) => pageListing('bloodBanks', r, alive),
     hospitals: pageHospitals,
@@ -525,7 +511,7 @@
   /** কাজ শেষে: অপেক্ষার সংখ্যা হালনাগাদ, এই তালিকা আবার আঁকা */
   async function afterChange() {
     try { await loadOverview(); } catch (e) { /* পরে আবার হবে */ }
-    for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k) || k === 'jobs:open' /* FEATURE:jobs */) delete S.lists[k];
+    for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
     drawNav();
     route(true);
   }
@@ -565,8 +551,6 @@
     ['ambulances', 'ambulances', 'অ্যাম্বুলেন্স অনুমোদন', 'ambulance'],
     ['bloodBanks', 'bloodBanks', 'ব্লাড ব্যাংক অনুমোদন', 'blood'],
     ['hospitalRequests', 'hospitals', 'হাসপাতাল যোগের অনুরোধ', 'hospital'],
-    ['jobs', 'jobs', 'চাকরির বিজ্ঞাপন', 'work'], // FEATURE:jobs
-    ['employers', 'employers', 'নিয়োগকর্তা যাচাই', 'verified'], // FEATURE:jobs
     ['tickets', 'tickets', 'উত্তরের অপেক্ষায় আপিল', 'help'],
     ['reports', 'reports', 'রিপোর্ট', 'flag'],
     ['corrections', 'corrections', 'তারিখ সংশোধন', 'calendar'],
@@ -859,25 +843,6 @@
   // =========================================================
   // অনুমোদনের তালিকা: ব্যাজ, ফার্মেসি, অ্যাম্বুলেন্স
   // =========================================================
-  // FEATURE:jobs START
-  /** বেতনের লেখা: সীমা / আলোচনাসাপেক্ষ / বিনা বেতনে */
-  function jobSalary(j) {
-    if (j.paid === false) return `বিনা বেতনে${j.durationMonths ? ` · ${bn(j.durationMonths)} মাস` : ''}`;
-    const range = j.salaryMax ? `৳${bn(j.salaryMin)}–${bn(j.salaryMax)}` : '';
-    return [range, j.salaryNegotiable ? 'আলোচনাসাপেক্ষ' : ''].filter(Boolean).join(' · ') || '—';
-  }
-  /** নিয়োগকর্তার ইতিহাস: কতবার বাতিল, রিপোর্ট, সতর্ক; বিজ্ঞাপন বন্ধ কি না */
-  function empHistory(x) {
-    if (!x) return null;
-    const bits = [];
-    if (x.rejectedCount) bits.push(h('span', { class: 'chip', text: `বাতিল ${bn(x.rejectedCount)}` }));
-    if (x.reportCount) bits.push(h('span', { class: 'chip bad', text: `রিপোর্ট ${bn(x.reportCount)}` }));
-    if (x.warnCount) bits.push(h('span', { class: 'chip', text: `সতর্ক ${bn(x.warnCount)}` }));
-    if (x.postingBlocked) bits.push(h('span', { class: 'chip bad', text: 'বিজ্ঞাপন দেওয়া বন্ধ' }));
-    return bits.length ? h('div', { class: 'chips' }, bits) : null;
-  }
-  // FEATURE:jobs END
-
   const LISTINGS = {
     badges: {
       title: 'ব্যাজ',
@@ -958,72 +923,6 @@
       owner: (a) => a.ownerUid,
       actions: (a, st) => statusActions('admin_ambulance_resolve', a.id, st, 'অ্যাম্বুলেন্স'),
     },
-    // FEATURE:jobs START
-    jobs: {
-      title: 'চাকরির বিজ্ঞাপন',
-      action: 'admin_jobs',
-      tabs: [['pending', 'অপেক্ষায়'], ['changes', 'ঠিক করতে বলা'], ['open', 'চালু'], ['paused', 'বিরতি'], ['closed', 'শেষ'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
-      search: 'পদ, প্রতিষ্ঠান, এলাকা',
-      text: (j) => [j.title, j.orgName, j.areaLabel, j.district, L.jobCat[j.category]],
-      cols: [
-        { label: 'পদ', main: true, cell: (j) => [j.title, h('div', { class: 'chips' },
-          h('span', { class: 'chip pri', text: L.jobCat[j.category] || j.category }), h('span', { class: 'chip', text: L.jobType[j.type] || j.type }),
-          j.employerVerified ? h('span', { class: 'chip good', text: 'যাচাই করা নিয়োগকর্তা' }) : null,
-          ...(j.flags || []).map((f) => h('span', { class: 'chip bad', text: f.text })))] },
-        { label: 'প্রতিষ্ঠান', cell: (j) => [j.orgName || '—', empHistory(j.employer)] },
-        { label: 'বেতন', cell: (j) => jobSalary(j) },
-        { label: 'এলাকা', cell: (j) => j.areaLabel || j.district || '—' },
-        { label: 'শেষ তারিখ', cell: (j) => [fmtDate(j.deadline), h('div', { class: 'small', text: `${bn(j.applicants)} জন আবেদন` })] },
-        { label: 'বদল / নোট', cell: (j) => [reviewCell(j), j.statusReason ? h('div', { class: 'small', text: `কারণ: ${j.statusReason}` }) : null] },
-      ],
-      note: 'লাল চিহ্ন = স্বয়ংক্রিয় যাচাইয়ে যা ধরা পড়েছে। ছোটখাটো সমস্যা হলে "ঠিক করতে বলুন" (নিয়োগকর্তা বদলে আবার দেবেন); প্রতারণা বা ফি চাইলে বাতিল।',
-      id: (j) => j.id,
-      owner: (j) => j.employerUid,
-      actions: (j, st) => {
-        const reason = reasonBox();
-        const run = (status) => () => act('admin_job_resolve', { id: j.id, status, reason: reason.value.trim() });
-        const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/jobs:${encodeURIComponent(j.id)}`, text: 'যাচাই করে চালু' });
-        const fix = actionBtn('ঠিক করতে বলুন', 'tonal', run('changes'), 'নিয়োগকর্তাকে ঠিক করতে বলা হয়েছে', afterChange);
-        if (st === 'pending') return [reason, verifyBtn, fix, actionBtn('বাতিল', 'warn', run('rejected'), 'বিজ্ঞাপন বাতিল করা হয়েছে', afterChange)];
-        if (st === 'changes') return [reason, actionBtn('বাতিল', 'warn', run('rejected'), 'বিজ্ঞাপন বাতিল করা হয়েছে', afterChange)];
-        if (st === 'open' || st === 'paused') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), 'বিজ্ঞাপন বন্ধ করা হয়েছে', afterChange)];
-        if (st === 'suspended') return [actionBtn('আবার চালু করুন', 'tonal', run('approved'), 'আবার চালু হয়েছে', afterChange)];
-        if (st === 'rejected') return [verifyBtn];
-        return [];
-      },
-    },
-    employers: {
-      title: 'নিয়োগকর্তা',
-      action: 'admin_employers',
-      tabs: [['pending', 'যাচাইয়ের অপেক্ষায়'], ['verified', 'যাচাই করা'], ['rejected', 'বাতিল'], ['none', 'যাচাই চাননি']],
-      search: 'নাম, ফোন, এলাকা',
-      text: (e) => [e.name, e.phone, e.areaLabel, e.district, e.address],
-      cols: [
-        { label: 'নাম', main: true, cell: (e) => [e.name || '—', ' ', h('span', { class: 'chip pri', text: L.empKind[e.kind] || e.kind })] },
-        { label: 'ফোন', cell: (e) => bn(e.phone) },
-        { label: 'এলাকা', cell: (e) => [e.areaLabel || e.district || '—', e.address ? h('div', { class: 'small', text: e.address }) : null] },
-        { label: 'ওয়েবসাইট', cell: (e) => (e.website ? h('a', { href: /^https?:/.test(e.website) ? e.website : `https://${e.website}`, target: '_blank', rel: 'noopener noreferrer', text: e.website }) : '—') },
-        { label: 'ইতিহাস', cell: (e) => empHistory(e.history) || '—' },
-        { label: 'কাগজ / যাচাই', cell: (e) => reviewCell(e) },
-      ],
-      note: 'বারবার বাতিল বা রিপোর্ট হলে প্রথমে "সতর্ক করুন"; তারপরও নিয়ম ভাঙলে "বিজ্ঞাপন দেওয়া বন্ধ" (তাঁর সব চালু বিজ্ঞাপনও নামবে)।',
-      id: (e) => e.id,
-      owner: (e) => e.id,
-      actions: (e, st) => {
-        const reason = reasonBox();
-        const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/employers:${encodeURIComponent(e.id)}`, text: 'যাচাই করুন' });
-        const blocked = e.history && e.history.postingBlocked;
-        const discipline = [
-          actionBtn('সতর্ক করুন', 'tonal', () => act('admin_employer_warn', { id: e.id, reason: reason.value.trim() }), 'সতর্কবার্তা পাঠানো হয়েছে', afterChange),
-          blocked
-            ? actionBtn('বিজ্ঞাপন দেওয়া আবার চালু', 'tonal', () => act('admin_employer_block', { id: e.id, block: false }), 'আবার বিজ্ঞাপন দিতে পারবেন', afterChange)
-            : actionBtn('বিজ্ঞাপন দেওয়া বন্ধ', 'warn', () => act('admin_employer_block', { id: e.id, block: true, reason: reason.value.trim() }), 'বিজ্ঞাপন দেওয়া বন্ধ করা হয়েছে', afterChange),
-        ];
-        if (st === 'verified') return [reason, actionBtn('যাচাই বাতিল', 'warn', () => act('admin_employer_resolve', { id: e.id, status: 'rejected', reason: reason.value.trim() }), 'যাচাই বাতিল করা হয়েছে', afterChange), ...discipline];
-        return [reason, verifyBtn, ...discipline];
-      },
-    },
-    // FEATURE:jobs END
     bloodBanks: {
       title: 'ব্লাড ব্যাংক',
       action: 'admin_bloodbanks',
@@ -1105,7 +1004,7 @@
         }, 'ব্লাড ব্যাংক যোগ হয়েছে, তালিকায় দেখাচ্ছে', afterChange));
     return edit
       ? [h('h2', { class: 'section-title', text: `সম্পাদনা: ${edit.name}` }),
-        h('p', { class: 'note', text: 'মালিক থাকলে তাঁকে জানানো হবে যে Dorkar টিম তথ্য ঠিক করেছে।' }), form]
+        h('p', { class: 'note', text: 'মালিক থাকলে তাঁকে জানানো হবে যে Lifolo টিম তথ্য ঠিক করেছে।' }), form]
       : [h('h2', { class: 'section-title', text: 'চেনা ব্লাড ব্যাংক নিজে যোগ করুন' }),
         h('p', { class: 'note', text: 'যেমন সরকারি হাসপাতালের ব্লাড ব্যাংক বা সন্ধানী/রেড ক্রিসেন্ট। যোগ করলেই অ্যাপের তালিকায় দেখাবে।' }), form];
   }
@@ -1168,7 +1067,7 @@
   async function getList(kind, status) {
     const key = `${kind}:${status}`;
     if (S.lists[key]) return S.lists[key];
-    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', bloodBanks: 'admin_bloodbanks', tickets: 'admin_tickets', jobs: 'admin_jobs', employers: 'admin_employers' }[kind];
+    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', bloodBanks: 'admin_bloodbanks', tickets: 'admin_tickets' }[kind];
     const res = await act(action, { status });
     S.lists[key] = res.items || [];
     return S.lists[key];
@@ -1197,8 +1096,8 @@
   // যাচাই: কাগজের ছবি দেখে সব বিষয় টিক দিয়ে তবে অনুমোদন
   // #/verify/pharmacies:<id>, #/verify/badges:<uid>[:change]
   // =========================================================
-  const VERIFY_KIND = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge', jobs: 'job', employers: 'employer' };
-  const RESOLVE = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve', jobs: 'admin_job_resolve', employers: 'admin_employer_resolve' };
+  const VERIFY_KIND = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge' };
+  const RESOLVE = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve' };
 
   /** আবেদনে যা লেখা হয়েছে (ছবির সাথে মেলানোর জন্য) */
   function verifyFields(list, x) {
@@ -1213,17 +1112,6 @@
       return [['নাম', x.name], ['গাড়ির নম্বর', x.vehicleNo], ['ধরন', (x.types || []).map((t) => L.amb[t] || t).join(', ')],
         ['ফোন', bn(x.phone)], ['এলাকা', area], ['ভাড়া', x.fare]];
     }
-    if (list === 'jobs') { // FEATURE:jobs
-      const qk = { text: 'লেখা', choice: 'বাছাই', yesno: 'হ্যাঁ/না' };
-      return [['পদ', x.title], ['প্রতিষ্ঠান', x.orgName], ['ধরন', `${L.jobCat[x.category] || x.category} · ${L.jobType[x.type] || x.type}`],
-        ['বেতন (মাসিক)', jobSalary(x)], ['পদ সংখ্যা', bn(x.vacancies)], ['অভিজ্ঞতা', `${bn(x.experienceYears)} বছর`],
-        ['শিক্ষা', L.edu[x.education] || x.education], ['এলাকা', area], ['শেষ তারিখ', fmtDate(x.deadline)], ['কাজের বর্ণনা', x.description],
-        ['আবেদনের প্রশ্ন', (x.questions || []).map((q) => `${q.text} (${qk[q.kind] || q.kind}${q.required ? ', বাধ্যতামূলক' : ''})`).join('\n')],
-        ['স্বয়ংক্রিয় যাচাই', (x.flags || []).map((f) => f.text).join('\n') || 'কিছু ধরা পড়েনি']];
-    }
-    if (list === 'employers') { // FEATURE:jobs
-      return [['নাম', x.name], ['ধরন', L.empKind[x.kind] || x.kind], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['ওয়েবসাইট', x.website], ['পরিচয়', x.about]];
-    }
     if (list === 'pharmacies') {
       return [['নাম', x.name], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['সময়', hours]];
     }
@@ -1233,7 +1121,7 @@
 
   async function findForVerify(list, key) {
     const match = (it) => (list === 'badges' ? it.uid + (it.change ? ':change' : '') : it.id) === key;
-    for (const st of list === 'employers' ? ['pending', 'none', 'rejected'] : list === 'jobs' ? ['pending', 'changes', 'rejected'] : ['pending', 'rejected']) {
+    for (const st of ['pending', 'rejected']) {
       const items = await getList(list, st);
       const it = items.find(match);
       if (it) return { item: it, st };
@@ -1325,15 +1213,13 @@
       ? act('admin_badge_resolve', { uid: id, approve: false, reason: reason.value.trim(), ...(correction ? { correction: true } : {}) })
       : act(RESOLVE[list], { id, status: 'rejected', reason: reason.value.trim() })), 'বাতিল করা হয়েছে', done);
     const note = h('input', { class: 'reason', maxlength: 200, placeholder: 'কোন ছবি লাগবে (মালিক দেখবেন)', 'aria-label': 'কোন ছবি লাগবে' });
-    // চাকরি: ছোটখাটো সমস্যায় বাতিল না করে ঠিক করতে বলা (একই কারণের ঘর)
-    const fixJob = list === 'jobs' ? actionBtn('ঠিক করতে বলুন', 'tonal', () => act('admin_job_resolve', { id, status: 'changes', reason: reason.value.trim() }), 'নিয়োগকর্তাকে ঠিক করতে বলা হয়েছে', done) : null; // FEATURE:jobs
     const askDocs = actionBtn('ছবি চান', 'tonal', () => act('admin_request_docs', { kind, id, note: note.value.trim() }), 'মালিককে ছবি দিতে বলা হয়েছে', done);
     // মালিক আছে কি না (অ্যাডমিনের যোগ করা ব্লাড ব্যাংকের মালিক নেই)
-    const hasOwner = list === 'badges' || list === 'pharmacies' || list === 'employers' || !!x.ownerUid;
+    const hasOwner = list === 'badges' || list === 'pharmacies' || !!x.ownerUid;
 
     paint(alive,
       h('div', { class: 'verify' },
-        v.photos.length ? h('div', { class: 'card pad' }, h('h2', { class: 'section-title', text: 'কাগজের ছবি' }), photos) : null,
+        h('div', { class: 'card pad' }, h('h2', { class: 'section-title', text: 'কাগজের ছবি' }), photos),
         h('div', { class: 'card pad' },
           h('h2', { class: 'section-title', text: 'আবেদনে যা লেখা' }), fields,
           reviewCell(x) === '—' ? null : h('div', { class: 'note' }, reviewCell(x)),
@@ -1342,37 +1228,10 @@
         // আলাদা কার্ড: এখানকার বাটনের ভুলে অনুমোদনের বাটন খুলে যায় না
         h('div', { class: 'card pad verify-side' },
           h('h2', { class: 'section-title', text: 'না মিললে' }),
-          h('div', { class: 'actions' }, reason, fixJob, reject),
-          list === 'jobs' ? null /* FEATURE:jobs: বিজ্ঞাপনে কাগজের ছবি লাগে না */ : hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
-          hasOwner ? h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' || list === 'employers' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')) : null)));
+          h('div', { class: 'actions' }, reason, reject),
+          hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
+          hasOwner ? h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')) : null)));
   }
-
-  // FEATURE:jobs START
-  // =========================================================
-  // চাকরির নিষিদ্ধ/সন্দেহজনক শব্দ — থাকলে বিজ্ঞাপন সরাসরি চালু না হয়ে অপেক্ষার সারিতে আসে
-  // =========================================================
-  async function pageJobWords(r, alive) {
-    setTitle('চাকরির নিষিদ্ধ শব্দ', 'স্বয়ংক্রিয় যাচাই');
-    const res = await act('admin_job_words', {});
-    if (alive && !alive()) return;
-    const area = h('textarea', { rows: 12, class: 'words', 'aria-label': 'বাড়তি শব্দ, প্রতি লাইনে একটা' });
-    area.value = (res.words || []).join('\n');
-    const save = actionBtn('সেভ করুন', 'primary', async () => {
-      const words = area.value.split('\n').map((w) => w.trim()).filter(Boolean);
-      const out = await act('admin_job_words_save', { words });
-      area.value = (out.words || []).join('\n');
-      return out;
-    }, 'শব্দের তালিকা সেভ হয়েছে', afterChange);
-    paint(alive,
-      h('p', { class: 'note', text: 'বিজ্ঞাপনের পদ, বর্ণনা বা দক্ষতায় এই শব্দ থাকলে বিজ্ঞাপন সরাসরি চালু হয় না — লাল চিহ্নসহ "চাকরির বিজ্ঞাপন"-এর অপেক্ষার সারিতে আসে। ফি বা জামানত চাওয়া বিজ্ঞাপন সার্ভার আগেই আটকায়।' }),
-      h('div', { class: 'card pad' },
-        h('h2', { class: 'section-title', text: 'আগে থেকে দেওয়া শব্দ (সবসময় চালু)' }),
-        h('div', { class: 'chips' }, (res.defaults || []).map((w) => h('span', { class: 'chip', text: w }))),
-        h('h2', { class: 'section-title', text: 'বাড়তি শব্দ — প্রতি লাইনে একটা' }),
-        area,
-        h('div', { class: 'row' }, save)));
-  }
-  // FEATURE:jobs END
 
   // =========================================================
   // হাসপাতাল যোগের অনুরোধ
@@ -1410,9 +1269,9 @@
         ['question', 'answer', 'tip'].includes(x.kind) && (x.reasons || []).length ? h('div', { class: 'small', text: `কারণ: ${x.reasons.join('; ')}` }) : null] },
     ], (x) => {
       const body = { targetPath: x.targetPath, kind: x.kind, ...(x.reportedUid ? { reportedUid: x.reportedUid } : {}) };
-      const listing = x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' || x.kind === 'job';
+      const listing = x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank';
       const reason = listing ? reasonBox() : null;
-      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'provider' ? 'তালিকা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : x.kind === 'job' ? 'বিজ্ঞাপন বন্ধ' : 'পোস্ট মুছুন';
+      const removeLabel = x.kind === 'homevisit' || x.kind === 'homecare' ? 'বাসায় সেবা বন্ধ' : x.kind === 'provider' ? 'তালিকা বন্ধ' : x.kind === 'ambulance' || x.kind === 'pharmacy' || x.kind === 'bloodbank' ? 'বন্ধ করুন' : 'পোস্ট মুছুন';
       return [
         reason,
         actionBtn(removeLabel, 'warn', () => act('admin_report_resolve', { ...body, remove: true, ...(reason && reason.value.trim() ? { reason: reason.value.trim() } : {}) }), 'ব্যবস্থা নেওয়া হয়েছে', afterChange),
@@ -1490,7 +1349,7 @@
           h('div', null, h('h2', { text: t.name || '—' }), h('div', { class: 'note', text: t.email || '' }), h('div', { class: 'small' }, userLink(t.uid, 'এই ব্যবহারকারীর সব কিছু দেখুন ও ব্যবস্থা নিন'))),
           h('div', null, h('span', { class: `chip ${t.status === 'closed' ? '' : t.status === 'open' ? 'bad' : 'good'}`, text: L.ticket[t.status] }), h('div', { class: 'small', text: `খোলা হয়েছে ${fmtDT(t.createdAt)}` }))),
         h('div', { class: 'convo' }, (t.messages || []).map((m) => h('div', { class: `msg ${m.from === 'admin' ? 'admin' : 'user'}` },
-          m.text, h('span', { class: 'when', text: `${m.from === 'admin' ? 'Dorkar টিম' : t.name || 'ব্যবহারকারী'}, ${fmtDT(m.at)}` })))),
+          m.text, h('span', { class: 'when', text: `${m.from === 'admin' ? 'Lifolo টিম' : t.name || 'ব্যবহারকারী'}, ${fmtDT(m.at)}` })))),
         reply,
         h('div', { class: 'reply-actions' },
           actionBtn('উত্তর পাঠান', 'primary', send(false), 'উত্তর পাঠানো হয়েছে', doneTo),
@@ -1647,7 +1506,7 @@
   const RESP = { accepted: 'রাজি', donated: 'রক্ত দিয়েছেন', cancelled: 'বাতিল করেছেন', declined: 'বাদ পড়েছেন' };
   const EMER = { notified: 'জানানো হয়েছিল', coming: 'আসছি বলেছেন', cancelled: 'আসতে পারেননি', donated: 'রক্ত দিয়েছেন', not_donated: 'দেননি' };
   const CALLKIND = { ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', bloodbank: 'ব্লাড ব্যাংক', homecare: 'বাসায় সেবা' };
-  const USER_TABS = [['blood', 'রক্ত'], ['community', 'আলোচনা'], ['services', 'সেবা'], ['care', 'ডাক্তার ও অ্যাপয়েন্টমেন্ট'], ['jobs', 'চাকরি'],
+  const USER_TABS = [['blood', 'রক্ত'], ['community', 'আলোচনা'], ['services', 'সেবা'], ['care', 'ডাক্তার ও অ্যাপয়েন্টমেন্ট'],
     ['inbox', 'নোটিফিকেশন'], ['support', 'আপিল'], ['admin', 'অ্যাডমিন ব্যবস্থা'], ['timeline', 'সময়ক্রম']];
 
   function userTabs(u) {
@@ -1660,7 +1519,7 @@
     };
     const sub = (title, n) => h('h3', { class: 'sub-title', text: n == null ? title : `${title} (${bn(n)})` });
     const note = (t) => h('p', { class: 'note', text: t });
-    const idxNote = (v) => (v === 'index' ? note('এই অংশ দেখাতে Firestore-এ একটা সূচি (index) চালু করতে হবে — Dorkar টিমকে জানান।') : v ? note(v) : null);
+    const idxNote = (v) => (v === 'index' ? note('এই অংশ দেখাতে Firestore-এ একটা সূচি (index) চালু করতে হবে — Lifolo টিমকে জানান।') : v ? note(v) : null);
 
     const render = {
       blood: (d) => [
@@ -1768,27 +1627,6 @@
           { label: 'অবস্থা', cell: (x) => L.appt[x.status] || x.status },
         ]),
       ],
-      jobs: (d) => [ // FEATURE:jobs
-        d.cv ? h('div', { class: 'facts' }, [['সিভি', d.cv.headline || '—'], ['অভিজ্ঞতা', `${bn(d.cv.experience)}টা`], ['শিক্ষা', `${bn(d.cv.education)}টা`],
-          ['সবার জন্য খোলা', d.cv.public ? 'হ্যাঁ' : 'না'], ['কাজ খুঁজছেন', d.cv.openToWork ? 'হ্যাঁ' : 'না']].map(([k, v]) => h('div', null, h('span', { text: k }), v))) : note('সিভি বানাননি।'),
-        d.employer ? [sub('নিয়োগকর্তা হিসেবে'), h('p', null, `${d.employer.name} · ${L.empKind[d.employer.kind] || d.employer.kind} · ${L.listing[d.employer.verifyStatus] || d.employer.verifyStatus}`),
-          empHistory(d.employer), d.employer.blockReason ? note(`বিজ্ঞাপন দেওয়া বন্ধের কারণ: ${d.employer.blockReason}`) : null] : null,
-        sub('আবেদন', d.applications.length),
-        table(d.applications, [
-          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
-          { label: 'চাকরি', cell: (x) => [x.title, h('div', { class: 'small', text: x.org })] },
-          { label: 'অবস্থা', cell: (x) => [L.app[x.status] || x.status,
-            x.interviewAt ? h('div', { class: 'small', text: `ইন্টারভিউ: ${fmtDT(x.interviewAt)}` }) : null,
-            x.offer ? h('div', { class: 'small', text: `প্রস্তাব: ${x.offer.designation} · ৳${bn(x.offer.salary)} · ${L.offer[x.offer.response] || x.offer.response}` }) : null] },
-        ]),
-        sub('দেওয়া বিজ্ঞাপন', d.jobs.length),
-        table(d.jobs, [
-          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
-          { label: 'পদ', cell: (x) => x.title },
-          { label: 'আবেদন', cell: (x) => bn(x.applicants) },
-          { label: 'অবস্থা', cell: (x) => L.listing[x.status] || x.status },
-        ]),
-      ],
       inbox: (d) => [sub('গত ৩০ দিনের নোটিফিকেশন', d.items.length), table(d.items, [
         { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
         { label: 'নোটিফিকেশন', cell: (x) => [h('b', { text: x.title }), x.body ? h('div', { class: 'small', text: x.body }) : null] },
@@ -1809,9 +1647,9 @@
 
     // সব ভাগ এক তালিকায়, নতুন আগে
     async function timeline() {
-      const secs = ['blood', 'community', 'services', 'care', 'support', 'jobs'];
+      const secs = ['blood', 'community', 'services', 'care', 'support'];
       const all = await Promise.all(secs.map(load));
-      const [b, c, sv, ca, sp, jb] = all;
+      const [b, c, sv, ca, sp] = all;
       const ev = [
         ...b.requests.map((x) => ({ at: x.at, area: 'রক্ত', text: `রিকোয়েস্ট দিয়েছেন: ${x.group} · ${x.hospital}` })),
         ...b.responses.map((x) => ({ at: x.at, area: 'রক্ত', text: `সাড়া (${RESP[x.status] || x.status}): ${x.group} · ${x.hospital}` })),
@@ -1824,8 +1662,6 @@
         ...sv.medFinds.map((x) => ({ at: x.at, area: 'সেবা', text: `ওষুধ খুঁজেছেন: ${x.drug}` })),
         ...ca.appointments.map((x) => ({ at: x.at, area: 'ডাক্তার', text: `অ্যাপয়েন্টমেন্ট (${x.role === 'provider' ? 'ডাক্তার হিসেবে' : 'রোগী হিসেবে'}): ${x.other}` })),
         ...sp.items.map((x) => ({ at: x.at, area: 'আপিল', text: L.category[x.category] || x.category })),
-        ...jb.applications.map((x) => ({ at: x.at, area: 'চাকরি', text: `আবেদন করেছেন: ${x.title} (${L.app[x.status] || x.status})` })),
-        ...jb.jobs.map((x) => ({ at: x.at, area: 'চাকরি', text: `বিজ্ঞাপন দিয়েছেন: ${x.title}` })), // FEATURE:jobs
       ].filter((e) => e.at).sort((a, z) => z.at - a.at).slice(0, 200);
       return [sub('সব কাজ, নতুন আগে', ev.length), idxNote(b.responsesNote || c.answersNote), table(ev, [
         { label: 'কবে', main: true, cell: (x) => [fmtDT(x.at), h('div', { class: 'small', text: ago(x.at) })] },

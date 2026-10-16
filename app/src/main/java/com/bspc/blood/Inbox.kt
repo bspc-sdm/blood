@@ -96,42 +96,15 @@ internal fun inboxIcon(type: String?, kind: String? = null, title: String? = nul
     "support" -> R.drawable.ic_help
     "emergency" -> R.drawable.ic_warning
     "eligible" -> R.drawable.ic_favorite
-    "job", "job_alert", "job_applicants", "job_mine" -> R.drawable.ic_nav_work // FEATURE:jobs
     else -> R.drawable.ic_water_drop
 }
 
 @Composable
 fun InboxScreen(onBack: () -> Unit, onOpen: (Map<String, String>) -> Unit) {
-    var reload by remember { mutableIntStateOf(0) }
-    Scaffold(
-        topBar = {
-            BackTopBar(tr("Notifications", "নোটিফিকেশন"), onBack) {
-                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
-            }
-        },
-    ) { padding ->
-        InboxList(reload, onOpen, Modifier.padding(padding))
-    }
-}
-
-/** নিচের বারের "নোটিফিকেশন" ট্যাব: খুললেই সব পড়া ধরা হয় (onAllRead দিয়ে উপরের সংখ্যা শূন্য) */
-@Composable
-fun NotificationsTab(refreshKey: Int, onOpen: (Map<String, String>) -> Unit, onAllRead: () -> Unit) {
-    var reload by remember { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Notifications", "নোটিফিকেশন"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
-        }
-        InboxList(refreshKey * 1000 + reload, onOpen, Modifier.weight(1f), onAllRead)
-    }
-}
-
-@Composable
-fun InboxList(reload: Int, onOpen: (Map<String, String>) -> Unit, modifier: Modifier = Modifier, onAllRead: () -> Unit = {}) {
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<InboxItem>>(emptyList()) }
+    var reload by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -140,14 +113,20 @@ fun InboxList(reload: Int, onOpen: (Map<String, String>) -> Unit, modifier: Modi
                 list = it
                 errorMsg = null
                 // খুললেই সব পড়া ধরা হয় (কোনগুলো নতুন ছিল তা এবার হালকা রঙে দেখায়)
-                if (it.any { x -> !x.read }) runCatching { InboxApi.markAllRead() }.onSuccess { onAllRead() }
+                if (it.any { x -> !x.read }) runCatching { InboxApi.markAllRead() }
             }
             .onFailure { errorMsg = it.message }
         loading = false
     }
 
-    run {
-        LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+    Scaffold(
+        topBar = {
+            BackTopBar(tr("Notifications", "নোটিফিকেশন"), onBack) {
+                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+            }
+        },
+    ) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { Box(Modifier.padding(horizontal = 16.dp)) { ErrorText(errorMsg) } }
             when {
                 loading && list.isEmpty() -> item { LoadingBox() }
@@ -160,11 +139,7 @@ fun InboxList(reload: Int, onOpen: (Map<String, String>) -> Unit, modifier: Modi
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                // পুরোনো "সেবা" নোটিফিকেশনে kind নেই: শিরোনাম দেখে ঠিক সেবার পাতা
-                                val kind = if (n.data["type"] == "services") serviceKind(n.data["kind"], n.title) else null
-                                onOpen(if (kind != null) n.data + ("kind" to kind) else n.data)
-                            }
+                            .clickable { onOpen(n.data) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.Top,
                     ) {
