@@ -182,7 +182,7 @@ const actions = {
     const eref = db.doc(`emergencies/${id}`);
     const dref = db.doc(`emergencies/${id}/donors/${user.uid}`);
     const uref = db.doc(`users/${user.uid}`);
-    await db.runTransaction(async (t) => {
+    const counted = await db.runTransaction(async (t) => {
       const [e, d, u] = await Promise.all([t.get(eref), t.get(dref), t.get(uref)]);
       // চলমান আহ্বানে "দিইনি" নয় — তখন "আসতে পারছি না" (গোনা কমে, অন্য কেউ আসতে পারেন)
       if (!donated && e.exists && E.isLive(e.data())) {
@@ -194,7 +194,7 @@ const actions = {
       // একবারই উত্তর (বারবার "দিয়েছি" চেপে তারিখ সামনে ঠেলা যায় না)
       if (d.get('status') !== 'coming') {
         if (u.exists) t.update(uref, { [`emergencyComing.${id}`]: FieldValue.delete() });
-        return;
+        return false;
       }
       t.update(dref, { status: donated ? 'donated' : 'not_donated', answeredAt: Date.now() });
       if (u.exists) {
@@ -203,10 +203,13 @@ const actions = {
         const last = u.get('lastDonationMillis');
         t.update(uref, {
           [`emergencyComing.${id}`]: FieldValue.delete(),
-          ...(donated && (last == null || last < today) ? { lastDonationMillis: today, donationCount: FieldValue.increment(1) } : {}),
+          ...(donated && (last == null || last < today) ? { lastDonationMillis: today } : {}),
         });
       }
+      return donated;
     });
+    // প্রোফাইলের "Dorkar দিয়ে কতবার" (দিনে একবার)
+    if (counted) await require('./donationcount').countDonation(user.uid);
     return { ok: true };
   },
 

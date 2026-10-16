@@ -160,7 +160,11 @@ fun InboxList(reload: Int, onOpen: (Map<String, String>) -> Unit, modifier: Modi
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { onOpen(n.data) }
+                            .clickable {
+                                // পুরোনো "সেবা" নোটিফিকেশনে kind নেই: শিরোনাম দেখে ঠিক সেবার পাতা
+                                val kind = if (n.data["type"] == "services") serviceKind(n.data["kind"], n.title) else null
+                                onOpen(if (kind != null) n.data + ("kind" to kind) else n.data)
+                            }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.Top,
                     ) {

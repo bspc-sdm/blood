@@ -82,6 +82,8 @@ module.exports = {
     const { r } = result;
     // এক জায়গায় রক্ত দিলে অন্য রিকোয়েস্টের "রাজি" মুক্ত (সেই রক্তপ্রার্থীরা জানেন)
     if (result.donated) await require('./requestend').releaseOthers(donorUid, requestId);
+    // প্রোফাইলের "Dorkar দিয়ে কতবার" (দিনে একবার)
+    if (result.donated) await require('./donationcount').countDonation(donorUid);
     if (result.restored) {
       await pushTo([donorUid], (u) => ({
         uid: u.id,

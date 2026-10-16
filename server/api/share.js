@@ -42,7 +42,7 @@ ${body}
 const CAT = { health: 'স্বাস্থ্যসেবা', education: 'শিক্ষা', sales: 'বিক্রয় ও মার্কেটিং', accounts: 'হিসাব ও অর্থ', office: 'অফিস ও প্রশাসন', it: 'আইটি', driving: 'গাড়ি চালনা ও ডেলিভারি', factory: 'কারখানা', hospitality: 'হোটেল ও রেস্টুরেন্ট', security: 'নিরাপত্তা', construction: 'নির্মাণ ও মেরামত', domestic: 'গৃহস্থালি কাজ', other: 'অন্যান্য' };
 const ym = (v) => (v ? v.split('-').reverse().join('/') : '');
 
-async function cvPage(uid, res) { // FEATURE:jobs
+async function cvPage(uid, res) {
   let cv = null;
   try {
     cv = await require('../lib/cv').publicCv(uid);
@@ -60,7 +60,7 @@ async function cvPage(uid, res) { // FEATURE:jobs
   const roles = [
     cv.bloodGroup ? `রক্তদাতা ${esc(cv.bloodGroup)}${cv.donationCount ? ` · ${esc(cv.donationCount)} বার` : ''} · Blood donor` : '',
     cv.badge ? `${esc(BADGE[cv.badge] || 'যাচাই করা পেশাজীবী · Verified professional')}` : '',
-    cv.employerVerified ? 'যাচাই করা নিয়োগকর্তা · Verified employer' : '',
+    cv.employerVerified ? 'যাচাই করা নিয়োগকর্তা · Verified employer' : '', // FEATURE:jobs
   ].filter(Boolean).map((t) => `<span class="tag" style="background:#E8DEF8;color:#21005D">${t}</span>`).join(' ');
   const links = (cv.links || []).map((l) => `<div class="item"><a href="${esc(l)}" target="_blank" rel="noopener noreferrer nofollow">${esc(l.replace(/^https?:\/\//, ''))}</a></div>`).join('');
   const certs = cv.certs.map((e) => `<div class="item"><b>${esc(e.name)}</b>${e.issuer ? ` · ${esc(e.issuer)}` : ''}${e.year ? ` <span class="muted">${esc(e.year)}</span>` : ''}</div>`).join('');
@@ -95,7 +95,7 @@ module.exports = async (req, res) => {
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // সিভির শেয়ার লিংক (/cv/{uid}) — মালিক "সবাই দেখবে" চালু রাখলে তবেই
-  if (req.query.cv) { // FEATURE:jobs
+  if (req.query.cv) {
     await cvPage(String(req.query.cv), res);
     return;
   }

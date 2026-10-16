@@ -81,7 +81,7 @@ object Services {
     fun title(key: String) = ALL.firstOrNull { it.key == key }?.title?.invoke() ?: tr("Services", "সার্ভিস")
 
     /** পুরোনো "services" নোটিফিকেশনের kind → সেবার পাতা */
-    fun keyForKind(kind: String?) = when (kind) {
+    fun keyForKind(kind: String?) = when (kind?.ifBlank { null }) {
         "pharmacy" -> "pharmacy"
         "bloodbank" -> "bloodbank"
         else -> "ambulance"

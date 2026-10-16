@@ -5,10 +5,13 @@ const { db } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 
+/** বাতিল/বন্ধের খবর এতদিন পর্যন্ত চলমানে থাকে, তারপর শুধু সেই সেবার পাতায় */
+const ENDED_SHOW_MS = 30 * 86400000;
+
 const LISTING_NAME = { pharmacy: ['Pharmacy', 'ফার্মেসি'], ambulance: ['Ambulance', 'অ্যাম্বুলেন্স'], bloodbank: ['Blood bank', 'ব্লাড ব্যাংক'] };
 
 /** নিজের তালিকা (ফার্মেসি/অ্যাম্বুলেন্স/ব্লাড ব্যাংক): অনুমোদনের অপেক্ষা, ছবি চাওয়া, বাতিল/বন্ধ */
-function listingItem(req, kind, d) {
+function listingItem(req, kind, d, now) {
   const x = d.data();
   const [en, bn] = LISTING_NAME[kind];
   const title = `${C.tr(req, en, bn)}: ${x.name || ''}`;
@@ -19,10 +22,12 @@ function listingItem(req, kind, d) {
   }
   if (x.status === 'pending') return { key: `${kind}_${d.id}`, service: kind, title, line: C.tr(req, 'Waiting for approval', 'অনুমোদনের অপেক্ষায়'), note: '', action: false, at, open };
   if (x.status === 'rejected' || x.status === 'suspended') {
+    const endedAt = (x.status === 'suspended' && x.suspendedAt) || x.reviewedAt || at;
+    if (now - endedAt > ENDED_SHOW_MS) return null;
     return {
       key: `${kind}_${d.id}`, service: kind, title,
       line: x.status === 'rejected' ? C.tr(req, 'Not approved', 'অনুমোদন হয়নি') : C.tr(req, 'Suspended by the Dorkar team', 'Dorkar টিম বন্ধ করেছে'),
-      note: x.statusReason || '', action: true, at, open,
+      note: x.statusReason || '', action: true, at: endedAt, open,
     };
   }
   return null;
@@ -42,20 +47,20 @@ async function ongoing(req, uid) {
     db.collection('appointments').where('providerUid', '==', uid).where('status', '==', 'pending').limit(100).get(),
   ]);
   const items = [];
-  if (pharm.exists) items.push(listingItem(req, 'pharmacy', pharm));
-  ambs.docs.forEach((d) => items.push(listingItem(req, 'ambulance', d)));
-  banks.docs.forEach((d) => items.push(listingItem(req, 'bloodbank', d)));
+  if (pharm.exists) items.push(listingItem(req, 'pharmacy', pharm, now));
+  ambs.docs.forEach((d) => items.push(listingItem(req, 'ambulance', d, now)));
+  banks.docs.forEach((d) => items.push(listingItem(req, 'bloodbank', d, now)));
 
   // পেশাদার ব্যাজ (ডাক্তার/নার্স)
   if (badge.exists) {
     const b = badge.data();
     const title = C.tr(req, 'Professional badge', 'পেশাদার ব্যাজ');
     const open = { type: 'badge' };
-    const at = b.updatedAt || b.createdAt || 0;
+    const at = (b.pendingChange && b.pendingChange.at) || b.reviewedAt || b.createdAt || 0;
     if (b.docsRequestedAt) items.push({ key: 'badge', service: 'badge', title, line: C.tr(req, 'The Dorkar team asked for document photos', 'Dorkar টিম কাগজের ছবি চেয়েছে'), note: b.docsRequestNote || '', action: true, at, open });
     else if (b.status === 'pending') items.push({ key: 'badge', service: 'badge', title, line: C.tr(req, 'Under review', 'যাচাই চলছে'), note: '', action: false, at, open });
     else if (b.pendingChange) items.push({ key: 'badge', service: 'badge', title, line: C.tr(req, 'Correction under review', 'সংশোধন যাচাই চলছে'), note: '', action: false, at, open });
-    else if (b.status === 'rejected') items.push({ key: 'badge', service: 'badge', title, line: C.tr(req, 'Not approved', 'অনুমোদন হয়নি'), note: b.statusReason || '', action: true, at, open });
+    else if (b.status === 'rejected' && now - at <= ENDED_SHOW_MS) items.push({ key: 'badge', service: 'badge', title, line: C.tr(req, 'Not approved', 'অনুমোদন হয়নি'), note: b.statusReason || '', action: true, at, open });
   }
 
   // ওষুধ খোঁজা: খোলা থাকা পর্যন্ত
@@ -92,12 +97,13 @@ async function ongoing(req, uid) {
     });
   }
 
-  // চাকরি — FEATURE:jobs (মুছলে এই অংশ সরান)
+  // FEATURE:jobs START — চাকরি মুছলে START থেকে END পর্যন্ত সরান
   try {
     items.push(...(await require('./jobs').ongoing(req, uid, now)));
   } catch (e) {
     console.error('job ongoing failed', e.message);
   }
+  // FEATURE:jobs END
 
   // যেগুলোতে কিছু করতে হবে আগে, তারপর নতুনগুলো
   return items.filter(Boolean).sort((a, b) => (b.action - a.action) || (b.at - a.at)).slice(0, 20);

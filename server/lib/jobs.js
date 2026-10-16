@@ -545,7 +545,7 @@ const actions = {
       upd.interview = { at, mode, place: mode === 'inperson' ? place : '', link: mode === 'online' ? link : '', response: 'pending', sentAt: now };
     } else if (status === 'offered') {
       const o = b.offer || {};
-      const designation = C.cleanText(o.designation, 80) || job.get('title');
+      const designation = C.cleanText(o.designation, 80) || String(job.get('title') || '').slice(0, 80);
       const salary = Number.isInteger(o.salary) && o.salary >= 0 && o.salary <= 5000000 ? o.salary : -1;
       if (salary < 0) throw err(req, 'Write the monthly salary', 'মাসিক বেতন লিখুন');
       const joiningDate = Number.isInteger(o.joiningDate) ? o.joiningDate : 0;
@@ -1067,6 +1067,8 @@ async function ongoing(req, uid, now = Date.now()) {
     const j = jm.get(d.get('jobId'));
     if (!j || ['suspended', 'rejected'].includes(j.get('status'))) continue;
     const st = d.get('status');
+    // বিজ্ঞাপন বন্ধ/থামানো হলে শুধু ইন্টারভিউ আর প্রস্তাব চলমান থাকে
+    if (j.get('status') !== 'open' && !['interview', 'offered'].includes(st)) continue;
     const iv = d.get('interview');
     const o = d.get('offer');
     // প্রস্তাব ফিরিয়ে দেওয়া/মেয়াদ শেষ হলে আর চলমান নয়
@@ -1092,7 +1094,7 @@ async function ongoing(req, uid, now = Date.now()) {
   incoming.docs.forEach((d) => byJob.set(d.get('jobId'), [...(byJob.get(d.get('jobId')) || []), d]));
   for (const [jobId, list] of byJob) {
     const j = jm.get(jobId);
-    if (!j) continue;
+    if (!j || j.get('status') !== 'open') continue;
     items.push({
       key: `jobnew_${jobId}`, service: 'job', title: j.get('title'),
       line: C.tr(req, `${list.length} new application(s)`, `${list.length}টা নতুন আবেদন`), note: '', action: true,

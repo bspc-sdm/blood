@@ -49,6 +49,20 @@ data class OngoingItem(
 )
 
 object OngoingApi {
+    private var cache: List<OngoingItem>? = null
+    private var cachedAt = 0L
+
+    /** হোম বারবার তৈরি হলে (ট্যাব বদল, ফিরে আসা) সার্ভারে বারবার না গিয়ে ১ মিনিট আগের তালিকা */
+    suspend fun cached(force: Boolean): List<OngoingItem> {
+        val now = System.currentTimeMillis()
+        cache?.let { if (!force && now - cachedAt < 60_000) return it }
+        return list().also { cache = it; cachedAt = now }
+    }
+
+    fun clear() {
+        cache = null
+    }
+
     suspend fun list(): List<OngoingItem> {
         val a = ServerApi.post("/api/community", JSONObject().put("action", "home_ongoing")).optJSONArray("items") ?: return emptyList()
         return (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { o ->
@@ -74,10 +88,14 @@ object OngoingApi {
 
 /** হোমে "চলমান" অংশ; কিছু না থাকলে কিছুই দেখায় না */
 @Composable
-fun OngoingSection(refreshKey: Int, onOpen: (Map<String, String>) -> Unit) {
+fun OngoingSection(refreshKey: Int, manualKey: Int, onOpen: (Map<String, String>) -> Unit) {
     var list by remember { mutableStateOf<List<OngoingItem>>(emptyList()) }
-    LaunchedEffect(refreshKey) {
-        runCatching { OngoingApi.list() }.onSuccess { list = it }
+    var lastManual by remember { mutableStateOf(manualKey) }
+    LaunchedEffect(refreshKey, manualKey) {
+        // হোমে ফিরে এলে ১ মিনিটের ক্যাশ; রিফ্রেশ বাটন চাপলে সরাসরি নতুন করে
+        val force = manualKey != lastManual
+        lastManual = manualKey
+        runCatching { OngoingApi.cached(force) }.onSuccess { list = it }
     }
     OngoingCards(list, onOpen)
 }

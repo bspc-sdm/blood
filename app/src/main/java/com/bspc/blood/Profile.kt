@@ -249,10 +249,12 @@ fun ProfileTab(
                     }
                 }
             }
-            if (onOpenMyApplications != null) { // FEATURE:jobs
+            // FEATURE:jobs START
+            if (onOpenMyApplications != null) {
                 HorizontalDivider()
                 MenuRow(R.drawable.ic_nav_work, tr("My job applications", "আমার চাকরির আবেদন"), null, onOpenMyApplications)
             }
+            // FEATURE:jobs END
         }
 
         // ---- সিভি ----

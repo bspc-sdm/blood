@@ -90,6 +90,7 @@ object VerifyDocs {
     /** পরে ছবি দেওয়া (অ্যাডমিন চাইলে) */
     suspend fun upload(kind: String, id: String, photos: Map<String, String>) {
         ServerApi.post("/api/community", JSONObject().put("action", "verify_docs_upload").put("kind", kind).put("id", id).put("docs", json(photos)))
+        OngoingApi.clear() // হোমের "চলমান"-এ "ছবি দিন" কার্ড সাথে সাথে বদলায়
     }
 }
 

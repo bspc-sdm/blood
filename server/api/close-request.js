@@ -46,8 +46,7 @@ module.exports = handler(async (req) => {
       markedIds.push(snap.id);
       const last = users[i].exists ? users[i].get('lastDonationMillis') : null;
       if (users[i].exists && (last == null || last < today)) {
-        // প্রোফাইলের "রক্তদান" অংশের হিসাব (Dorkar দিয়ে কতবার)
-        t.update(userRefs[i], { lastDonationMillis: today, donationCount: FieldValue.increment(1) });
+        t.update(userRefs[i], { lastDonationMillis: today });
       }
     });
     // নিশ্চিত/রক্ত দেওয়া আবার গোনা ("ডোনার পাওয়া গেছে" আর "বাকি ব্যাগ" ঠিক রাখতে)
@@ -73,6 +72,8 @@ module.exports = handler(async (req) => {
 
   // বন্ধ হলে: যাঁরা এখনো "রাজি" (রক্ত দেওয়া হিসেবে চিহ্নিত না), তাঁদের জানানো যে আর আসতে হবে না;
   // আর যাঁদের রক্তদান লেখা হলো তাঁদের ধন্যবাদ
+  // প্রোফাইলের "Dorkar দিয়ে কতবার" (দিনে একবার; ডোনার নিজে আগে চিহ্ন দিলে আবার গোনে না)
+  for (const id of result.markedIds || []) await require('../lib/donationcount').countDonation(id);
   if (result.closed && result.r) {
     await notifyEnded(requestId, result.r, result.notNeeded ? 'notNeeded' : 'closed');
     await pushUsers(result.markedIds, (u, lang) => ({

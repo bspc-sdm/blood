@@ -234,16 +234,21 @@ fun App(
         if (stack.size == 1) homeRefresh++
     }
 
-    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই) */
-    /** নিচের বারের "সার্ভিস"-এর ভেতরে একটা সেবার পাতা খোলা (নোটিফিকেশন আর হোমের "চলমান" থেকে) */
-    fun openService(key: String) {
-        while (stack.size > 1) stack.removeAt(stack.lastIndex)
-        stack[0] = Screen.Main(Tabs.SERVICES)
+    /**
+     * নিচের বারের "সার্ভিস"-এর ভেতরে একটা সেবার পাতা খোলা।
+     * reset = পুশ নোটিফিকেশন থেকে (আগের পাতা মুছে "সার্ভিস" ট্যাবের উপরে); অ্যাপের ভেতর থেকে (হোমের "চলমান",
+     * নোটিফিকেশন ট্যাব) খুললে শুধু উপরে বসে, ফিরে গেলে যেখান থেকে এসেছিলেন সেখানেই।
+     */
+    fun openService(key: String, reset: Boolean = true) {
+        if (reset) {
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+            stack[0] = Screen.Main(Tabs.SERVICES)
+        }
         push(Screen.Service(key))
     }
 
     /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা, পুশ আর হোমের "চলমান" — সব জায়গা থেকে) */
-    fun openFromData(data: Map<String, String>) {
+    fun openFromData(data: Map<String, String>, fromPush: Boolean = false) {
         val type = data["type"]
         val requestId = data["requestId"]
         val questionId = data["questionId"]
@@ -253,20 +258,20 @@ fun App(
             type == "appointment" -> push(Screen.MyAppointments)
             type in HOME_CARE_TYPES -> {
                 CareNav.openHomeCare.value = true
-                openService("doctor")
+                openService("doctor", fromPush)
             }
             type == "support" -> push(Screen.Help())
             // FEATURE:jobs START
             type in JobsNav.TYPES -> {
                 val (section, page) = JobsNav.route(type, data["jobId"])
                 JobsNav.section.value = section
-                openService("jobs")
+                openService("jobs", fromPush)
                 page?.let { push(Screen.Jobs(it)) }
             }
             // FEATURE:jobs END
             type == "med_find" || type == "med_find_mine" -> {
                 ServicesNav.target.value = type
-                openService("pharmacy")
+                openService("pharmacy", fromPush)
             }
             // জরুরি আহ্বান: হোমের উপরের ব্যানার
             type == "emergency" -> {
@@ -274,8 +279,15 @@ fun App(
                 stack[0] = Screen.Main(Tabs.HOME)
                 homeRefresh++
             }
-            type == "pharmacy_order" || type == "pharmacy_mine" -> openService("pharmacy")
-            type == "services" -> openService(Services.keyForKind(data["kind"] ?: ServicesNav.kind.value.also { ServicesNav.kind.value = null }))
+            // মালিকের দিকের খবর: সেই সেবার "আমার …" অংশ
+            type == "pharmacy_order" || type == "pharmacy_mine" -> {
+                ServicesNav.target.value = "mine"
+                openService("pharmacy", fromPush)
+            }
+            type == "services" -> {
+                ServicesNav.target.value = "mine"
+                openService(Services.keyForKind(data["kind"]?.ifBlank { null } ?: ServicesNav.kind.value.also { ServicesNav.kind.value = null }), fromPush)
+            }
             // পেশাদার ব্যাজ: প্রোফাইলে
             type == "badge" -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -340,7 +352,7 @@ fun App(
     // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
     LaunchedEffect(openTarget, ready) {
         if (openTarget != null && ready) {
-            openFromData(mapOf("type" to openTarget))
+            openFromData(mapOf("type" to openTarget), fromPush = true)
             onTargetOpened()
         }
     }

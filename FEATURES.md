@@ -55,8 +55,7 @@
   - অ্যাকশনের তালিকা থেকে `require('../lib/jobs').actions` সরান।
   - `admin_overview` থেকে `jobs`, `employers` সরান।
 - `api/cron/daily.js`: `jobsClosed` সরান।
-- `api/share.js`: `cvPage` ফাংশন আর `req.query.cv` অংশ সরান।
-- `vercel.json`: `/cv/:uid` রিরাইট সরান।
+- `api/share.js`: শুধু `employerVerified` লাইন (`FEATURE:jobs`) সরান। `cvPage` আর `/cv/:uid` মূল প্রোফাইলের শেয়ার লিংক — রাখুন।
 - `lib/account.js`: `jobs.deleteForUser` সরান।
 - `lib/verify.js`: নিচের অংশগুলো সরান:
   - `DOCS.employer`, `DOCS.job`

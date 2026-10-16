@@ -8,6 +8,7 @@ const { admin, db, HttpError } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
+const { donationCountOf } = require('./donationcount');
 
 const profileRef = (uid) => db.doc(`profiles/${uid}`);
 
@@ -32,7 +33,7 @@ function cleanList(v, max, fn) {
 function parseProfile(req, b, before = null) {
   const year = new Date().getUTCFullYear();
   const prevVerified = new Map(((before && before.experience) || []).filter((e) => e.verified === true)
-    .map((e) => [`${e.title}|${e.org}|${e.from}`, e]));
+    .map((e) => [`${str(e.title, 80)}|${str(e.org, 100)}|${e.from}`, e]));
   const exp = cleanList(b.experience, 15, (e) => {
     if (!e || typeof e !== 'object') return null;
     const title = str(e.title, 80);
@@ -138,7 +139,7 @@ function eduLevel(list) {
  * সিভি দেখানোর রূপ। contact: ফোন/ইমেইল দেখানো যাবে কি না।
  * roles: { badge, employerVerified } — পেশাদার ব্যাজ আর যাচাই করা নিয়োগকর্তা (থাকলে)
  */
-function cvView(uid, p, u, { contact = false, email = '', roles = null, mine = false } = {}) {
+function cvView(uid, p, u, { contact = false, email = '', roles = null, mine = false, donor = false, donationCount = 0 } = {}) {
   const x = p || {};
   const showDonor = x.showDonor === true;
   return {
@@ -159,9 +160,9 @@ function cvView(uid, p, u, { contact = false, email = '', roles = null, mine = f
     contactVisibility: x.contactVisibility || 'employers',
     public: x.public === true,
     showDonor,
-    // ডোনার ব্যাজ: নিজে সবসময় দেখেন; অন্যরা শুধু চালু থাকলে
-    ...((mine || showDonor) && u && u.get('bloodGroup') && u.get('bloodGroup') !== 'unknown'
-      ? { bloodGroup: u.get('bloodGroup'), donationCount: u.get('donationCount') || 0 } : {}),
+    // ডোনার ব্যাজ: নিজে সবসময় দেখেন; অন্যরা শুধু শেয়ার লিংকে, আর মালিক চালু রাখলে (নিয়োগকর্তা দেখেন না)
+    ...((mine || (donor && showDonor)) && u && u.get('bloodGroup') && u.get('bloodGroup') !== 'unknown'
+      ? { bloodGroup: u.get('bloodGroup'), donationCount } : {}),
     ...(roles ? { badge: roles.badge || '', employerVerified: roles.employerVerified === true } : {}),
     complete: cvComplete(x),
     completeness: cvCompleteness(x, u),
@@ -179,20 +180,18 @@ async function emailOf(uid) {
 
 /** পেশাদার ব্যাজ আর যাচাই করা নিয়োগকর্তা */
 async function rolesOf(uid) {
-  const [b, e] = await Promise.all([
-    db.doc(`badges/${uid}`).get(),
-    db.doc(`employers/${uid}`).get(), // FEATURE:jobs — চাকরি মুছলে এই লাইন সরান (ডক না থাকলে এমনিতেই false)
-  ]);
+  const b = await db.doc(`badges/${uid}`).get();
+  const e = await db.doc(`employers/${uid}`).get(); // FEATURE:jobs — চাকরি মুছলে এই লাইন সরান
   return {
     badge: b.exists && b.get('status') === 'approved' ? b.get('type') || '' : '',
-    employerVerified: e.exists && e.get('verified') === true,
+    employerVerified: !!(typeof e !== 'undefined' && e && e.exists && e.get('verified') === true),
   };
 }
 
 const actions = {
   async cv_get(req, user) {
-    const [p, u, roles] = await Promise.all([profileRef(user.uid).get(), db.doc(`users/${user.uid}`).get(), rolesOf(user.uid)]);
-    return { cv: cvView(user.uid, p.exists ? p.data() : null, u, { contact: true, email: (user.email || '').toLowerCase(), roles, mine: true }) };
+    const [p, u, roles, donationCount] = await Promise.all([profileRef(user.uid).get(), db.doc(`users/${user.uid}`).get(), rolesOf(user.uid), donationCountOf(user.uid)]);
+    return { cv: cvView(user.uid, p.exists ? p.data() : null, u, { contact: true, email: (user.email || '').toLowerCase(), roles, mine: true, donationCount }) };
   },
 
   async cv_save(req, user) {
@@ -200,8 +199,8 @@ const actions = {
     const before = await ref.get();
     const data = parseProfile(req, req.body || {}, before.exists ? before.data() : null);
     await ref.set(data, { merge: false });
-    const [u, roles] = await Promise.all([db.doc(`users/${user.uid}`).get(), rolesOf(user.uid)]);
-    return { ok: true, cv: cvView(user.uid, data, u, { contact: true, email: (user.email || '').toLowerCase(), roles, mine: true }) };
+    const [u, roles, donationCount] = await Promise.all([db.doc(`users/${user.uid}`).get(), rolesOf(user.uid), donationCountOf(user.uid)]);
+    return { ok: true, cv: cvView(user.uid, data, u, { contact: true, email: (user.email || '').toLowerCase(), roles, mine: true, donationCount }) };
   },
 };
 
@@ -211,7 +210,9 @@ async function publicCv(uid) {
   const [p, u] = await Promise.all([profileRef(uid).get(), db.doc(`users/${uid}`).get()]);
   if (!p.exists || p.get('public') !== true) return null;
   const all = p.get('contactVisibility') === 'all';
-  return cvView(uid, p.data(), u, { contact: all, email: all ? await emailOf(uid) : '', roles: await rolesOf(uid) });
+  return cvView(uid, p.data(), u, {
+    contact: all, email: all ? await emailOf(uid) : '', roles: await rolesOf(uid), donor: true, donationCount: await donationCountOf(uid),
+  });
 }
 
 async function deleteForUser(uid) {

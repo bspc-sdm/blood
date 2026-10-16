@@ -131,7 +131,8 @@ fun MainScreen(
     }
 
     // নিচের বার: হোম · সার্ভিস · নোটিফিকেশন (না-পড়ার সংখ্যা) · প্রোফাইল
-    val unread = community?.unread ?: 0
+    // নোটিফিকেশন ট্যাব খোলা থাকলে সংখ্যা দেখায় না (খুললেই সব পড়া হয়)
+    val unread = if (tab == Tabs.NOTIFICATIONS) 0 else community?.unread ?: 0
     val items = listOf(
         NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
         NavItem(tr("Services", "সার্ভিস"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
@@ -289,7 +290,7 @@ fun HomeTab(
             item(key = "emergency") { EmergencyBanner(refreshKey * 1000 + reload) }
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
             // অন্য সেবায় চলমান কাজ (ফার্মেসি, ডাক্তার/নার্স, অ্যাম্বুলেন্স, চাকরি…) — শেষ হলে সরে যায়
-            item(key = "ongoing") { OngoingSection(refreshKey * 1000 + reload, onOpenData) }
+            item(key = "ongoing") { OngoingSection(refreshKey, reload, onOpenData) }
 
             when {
                 loading && others.isEmpty() -> item { LoadingBox() }
