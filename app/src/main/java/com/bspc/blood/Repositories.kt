@@ -1,8 +1,5 @@
 package com.bspc.blood
 
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
-
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
@@ -275,18 +272,6 @@ object RequestRepository {
      * তারপর ফোনেই দূরত্ব মেপে ধাপে ধাপে বাছাই (৫ → ১০ → ২৫ কিমি)।
      * patientGroups দিলে শুধু ওই রোগীর গ্রুপগুলোর রিকোয়েস্ট ফেরত দেয় (সেটিংসের "তালিকায় কোন গ্রুপ")।
      */
-    /** geohash-এর ঘর ধরে কাছের খোলা রিকোয়েস্ট (একই ঘর একবারই) */
-    private suspend fun nearbyByGeohash(lat: Double, lng: Double, maxKm: Int): List<BloodRequest> {
-        val bounds = GeoFireUtils.getGeoHashQueryBounds(GeoLocation(lat, lng), maxKm * 1000.0)
-        val seen = HashSet<String>()
-        val out = ArrayList<BloodRequest>()
-        for (b in bounds) {
-            val snap = requests.orderBy("geoOpen").startAt(b.startHash).endAt(b.endHash).limit(500).get().await()
-            for (d in snap.documents) if (seen.add(d.id)) out += fromSnap(d)
-        }
-        return out.filter { it.status == "open" }
-    }
-
     suspend fun nearbyOpen(
         lat: Double,
         lng: Double,
@@ -294,14 +279,11 @@ object RequestRepository {
         excludeUid: String?,
         maxKm: Int,
     ): List<Pair<BloodRequest, Double>> {
-        // geohash দিয়ে শুধু আশেপাশের খোলা রিকোয়েস্ট (geoOpen থাকে শুধু খোলা থাকা পর্যন্ত) — জেলা ধরে সব পড়ার চেয়ে অনেক কম পড়া
-        val all = runCatching { nearbyByGeohash(lat, lng, maxKm) }.getOrElse {
-            requests
-                .whereEqualTo("status", "open")
-                .whereIn("placeName", Districts.near(lat, lng))
-                .get().await()
-                .documents.map(::fromSnap)
-        }
+        val all = requests
+            .whereEqualTo("status", "open")
+            .whereIn("placeName", Districts.near(lat, lng))
+            .get().await()
+            .documents.map(::fromSnap)
 
         // তারিখ পার হয়ে যাওয়া রিকোয়েস্ট এখানে বন্ধ করা হয় না — রাতের কাজ বন্ধ করে রাজি ডোনারদের জানায়
 
