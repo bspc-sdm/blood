@@ -87,7 +87,8 @@ const actions = {
         return {
           id: d.id,
           text: x.text,
-          authorName: x.anonymous ? null : x.authorName,
+          // লগইন ছাড়া (অতিথি) প্রশ্নকারীর নাম দেখায় না — স্বাস্থ্যের প্রশ্নের পাশে আসল নাম কেউ জড়ো করতে না পারে
+          authorName: x.anonymous || !user.uid ? null : x.authorName,
           mine: x.uid === user.uid,
           createdAt: x.createdAt,
           answerCount: x.answerCount || 0,
@@ -108,7 +109,7 @@ const actions = {
       question: {
         id: qs.id,
         text: x.text,
-        authorName: x.anonymous ? null : x.authorName,
+        authorName: x.anonymous || !user.uid ? null : x.authorName,
         mine: x.uid === user.uid,
         // নিজের প্রশ্নে নাম লুকানো আছে কি না (পরে বদলানো যায়)
         ...(x.uid === user.uid ? { anonymous: x.anonymous === true } : {}),
@@ -629,7 +630,10 @@ module.exports = handler(async (req, res) => {
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
   // কেয়ারগিভার রোগীর হয়ে (body.asUid) — অনুমোদিত কাজ আর চালু সংযোগ হলে রোগীর uid দিয়ে
   const actor = user.guest ? user : await require('../lib/careaccess').actAs(req, user);
-  const result = await fn(req, actor, res);
+  // অতিথির অনুরোধ (সবই শুধু পড়া, কারো নিজের তথ্য নেই): একই অনুরোধের উত্তর এক মিনিট মেমোরিতে — বারবার ডাটাবেস পড়া নয়
+  const result = user.guest
+    ? await require('../lib/memcache').cached(`guest:${guest.cacheKey(req.body)}`, 60 * 1000, () => fn(req, actor, res))
+    : await fn(req, actor, res);
   // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী) — কিছু না বদলালে নয়
   if (String(req.body.action).startsWith('admin_') && !(result && result.unchanged)) await adminweb.logAdmin(req.body.action, user, req.body);
   return result;

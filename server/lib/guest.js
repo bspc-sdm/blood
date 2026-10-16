@@ -24,8 +24,9 @@ function guestUser() {
   return { uid: null, guest: true, email: '' };
 }
 
-// IP-প্রতি সীমা (একই সার্ভার চালু থাকা পর্যন্ত): মিনিটে ৬০টা অনুরোধ — যাতে কেউ টোকেন ছাড়া ডাটাবেস খালি না করে
-const PER_MINUTE = 60;
+// IP-প্রতি সীমা (একই সার্ভার চালু থাকা পর্যন্ত): মিনিটে ২৪০টা অনুরোধ — যাতে কেউ টোকেন ছাড়া ডাটাবেস খালি না করে।
+// মোবাইল অপারেটরের এক IP-র পেছনে অনেক মানুষ থাকেন, তাই খুব কম রাখা হয়নি; একই অনুরোধ ১ মিনিট মেমোরিতে থাকে।
+const PER_MINUTE = 240;
 const hits = new Map();
 function checkRate(req, now = Date.now()) {
   // Vercel x-forwarded-for নিজেই বসায়, তাই এটা বিশ্বাসযোগ্য
@@ -71,20 +72,32 @@ const actions = {
     if (typeof b.lat !== 'number' || typeof b.lng !== 'number' || b.lat < 20 || b.lat > 27 || b.lng < 88 || b.lng > 93) {
       throw new HttpError(400, C.tr(req, 'Choose your area', 'এলাকা বেছে নিন'));
     }
-    const maxKm = Number.isInteger(b.maxKm) ? Math.min(Math.max(b.maxKm, 5), 50) : 25;
-    // একই এলাকার অনুরোধ (প্রায় ১ কিমির ঘর) এক মিনিট মেমোরিতে
-    const key = `guestreq:${b.lat.toFixed(2)},${b.lng.toFixed(2)}:${maxKm}`;
-    const items = await require('./memcache').cached(key, 60 * 1000, async () => {
-      const found = await geo.near(db.collection('requests'), 'geoOpen', b.lat, b.lng, maxKm, { limitPerBound: 300 });
-      const now = Date.now();
-      return found
-        .filter(({ doc }) => R.isActive(doc.data(), now))
-        .map(({ doc, km }) => requestView(doc, km))
-        .sort((p, q) => (q.urgent - p.urgent) || (p.km - q.km))
-        .slice(0, 100);
+    const maxKm = Number.isInteger(b.maxKm) ? Math.min(Math.max(b.maxKm, 5), 25) : 10;
+    // ডাটাবেস খোঁজা ~৫ কিমির ঘর ধরে (ঘরের মাঝখান থেকে একটু বড় পরিধি) আর এক মিনিট মেমোরিতে —
+    // লোকেশন একটু একটু বদলে বারবার নতুন করে পড়ানো যায় না; দূরত্ব মাপা হয় আসল জায়গা থেকে
+    const cLat = Math.round(b.lat * 20) / 20;
+    const cLng = Math.round(b.lng * 20) / 20;
+    const found = await require('./memcache').cached(`guestreq:${cLat},${cLng}:${maxKm}`, 60 * 1000, async () => {
+      const list = await geo.near(db.collection('requests'), 'geoOpen', cLat, cLng, maxKm + 4, { limitPerBound: 200 });
+      return list.map(({ doc }) => ({ id: doc.id, x: doc.data() }));
     });
+    const now = Date.now();
+    const { docLike } = require('./memcache');
+    const items = found
+      .filter(({ x }) => R.isActive(x, now) && typeof x.lat === 'number' && typeof x.lng === 'number')
+      .map(({ id, x }) => ({ d: docLike(id, x), km: geo.distanceKm(b.lat, b.lng, x.lat, x.lng) }))
+      .filter(({ km }) => km <= maxKm)
+      .map(({ d, km }) => requestView(d, km))
+      .sort((p, q) => (q.urgent - p.urgent) || (p.km - q.km))
+      .slice(0, 100);
     return { items };
   },
 };
 
-module.exports = { PUBLIC_ACTIONS, isPublic, guestUser, checkRate, actions, requestView };
+/** অতিথির উত্তর মেমোরিতে রাখার চাবি: কাজ আর অনুরোধের তথ্য (ক্রম ঠিক রেখে) */
+function cacheKey(body) {
+  const b = body || {};
+  return JSON.stringify(Object.keys(b).sort().map((k) => [k, b[k]])).slice(0, 500);
+}
+
+module.exports = { PUBLIC_ACTIONS, isPublic, guestUser, checkRate, actions, requestView, cacheKey };

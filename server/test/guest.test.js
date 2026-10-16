@@ -48,8 +48,11 @@ test('অতিথি: তালিকা দেখা যায়, লেখ�
   assert.strictEqual(e.status, 200, JSON.stringify(e.body));
   assert.deepStrictEqual(e.body.ask, []);
 
+  s.set('questions/q1', { uid: 'u1', authorName: 'আসল নাম', anonymous: false, text: 'প্রশ্ন', createdAt: now, answerCount: 0 });
   const q = await guestCall('questions');
   assert.strictEqual(q.status, 200, JSON.stringify(q.body));
+  // অতিথি প্রশ্নকারীর নাম দেখেন না
+  assert.strictEqual(q.body.items.find((x) => x.id === 'q1').authorName, null);
 
   // লেখার কাজ, নিজের তথ্য: লগইন দরকার
   for (const action of ['ask', 'me', 'report', 'book', 'request_create', 'ambulance_called', 'med_find', 'admin_overview']) {
@@ -61,9 +64,9 @@ test('অতিথি: তালিকা দেখা যায়, লেখ�
   assert.strictEqual(asUid.status, 200);
 });
 
-test('অতিথি: IP-প্রতি মিনিটে ৬০টার বেশি নয়', async () => {
+test('অতিথি: IP-প্রতি মিনিটে ২৪০টার বেশি নয়', async () => {
   let last;
-  for (let i = 0; i < 61; i++) last = await guestCall('catalog_get', {}, '9.9.9.9');
+  for (let i = 0; i < 241; i++) last = await guestCall('catalog_get', {}, '9.9.9.9');
   assert.strictEqual(last.status, 429);
   const other = await guestCall('catalog_get', {}, '8.8.8.8');
   assert.strictEqual(other.status, 200);
