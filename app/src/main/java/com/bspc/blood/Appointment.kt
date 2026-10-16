@@ -311,39 +311,24 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
             (filter.district == null || c.district == filter.district) &&
             (filter.upazilaId == null || c.upazilaId == filter.upazilaId)
     } ?: p.chambers.firstOrNull()
-    Card(
+    DirectoryCard(
+        title = p.name,
+        avatar = { CardAvatar(p.photo, Badges.icon(p.type)) },
+        subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
+        rating = p.rating,
+        ratingCount = p.ratingCount,
+        details = if (chamber == null) emptyList() else listOf(
+            R.drawable.ic_local_hospital to chamber.label,
+            R.drawable.ic_schedule to chamber.timeText,
+            R.drawable.ic_payments to chamber.feeText,
+        ),
+        tags = listOfNotNull(
+            if (p.canBook) tr("Appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট") else null,
+            if (p.homeVisit?.enabled == true) tr("Home visit", "বাসায় যান") else null,
+        ),
+        note = if (p.chambers.size > 1) tr("+${p.chambers.size - 1} more chamber(s)", "আরও ${num(p.chambers.size - 1)}টা চেম্বার") else null,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(Modifier.padding(16.dp)) {
-            ProviderAvatar(p.type)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (p.degrees.isNotBlank()) Text(p.degrees, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (p.specialties.isNotEmpty()) {
-                    Text(p.specialties.joinToString(", ") { Specialties.label(it) }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                }
-                RatingLine(p.rating, p.ratingCount)
-                if (chamber != null) {
-                    IconLine(R.drawable.ic_local_hospital, chamber.label)
-                    IconLine(R.drawable.ic_schedule, chamber.timeText)
-                }
-                if (p.chambers.size > 1) {
-                    Text(
-                        tr("+${p.chambers.size - 1} more chamber(s)", "আরও ${num(p.chambers.size - 1)}টা চেম্বার"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (p.canBook) Tag(tr("Appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট"), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-                    if (p.homeVisit?.enabled == true) Tag(tr("Home visit", "বাসায় যান"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                }
-            }
-        }
-    }
+    )
 }
 
 /** ডাক্তার/নার্সের বিস্তারিত: সব চেম্বার, সিরিয়ালের ফোন, অ্যাপয়েন্টমেন্ট, হোম ভিজিট */
@@ -431,7 +416,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                         Text(tr("Report a problem", "সমস্যা রিপোর্ট করুন"))
                     }
                 }
-                EmergencyNotice()
+                EmergencyNotice("doctor")
             }
         }
     }

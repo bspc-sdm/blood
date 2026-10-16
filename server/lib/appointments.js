@@ -23,6 +23,7 @@ function provider(d) {
   return {
     uid: d.id,
     type: x.type,
+    photo: x.photoThumb || '',
     name: x.name,
     specialties: x.specialties || [],
     degrees: x.degrees || '',
@@ -126,7 +127,10 @@ module.exports = {
       const bs = ds.length ? await db.getAll(...ds.map((d) => db.doc(`badges/${d.id}`))) : [];
       // ব্যাজ অনুমোদিত আর একই পেশার (ডাক্তারের তালিকায় শুধু ডাক্তার)
       const okIds = new Set(bs.filter((x) => x.exists && x.get('status') === 'approved' && x.get('type') === type).map((x) => x.id));
-      return ds.filter((d) => okIds.has(d.id)).map((d) => ({ id: d.id, x: d.data() }));
+      const ok = ds.filter((d) => okIds.has(d.id));
+      // কার্ডের ছোট ছবি
+      const us = ok.length ? await db.getAll(...ok.map((d) => db.doc(`users/${d.id}`))) : [];
+      return ok.map((d, i) => ({ id: d.id, x: { ...d.data(), photoThumb: (us[i].exists && us[i].get('photoThumb')) || '' } }));
     });
     const all = new Map(cachedList.map(({ id, x }) => [id, M.docLike(id, x)]));
     // আগের ভার্সনের অ্যাপ (homeVisit পাঠায় না) সবাইকে বুক করতে দেয়, তাই তাকে শুধু অ্যাপয়েন্টমেন্ট নেওয়া মানুষ দেখানো

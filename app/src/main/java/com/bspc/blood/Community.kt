@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -1084,7 +1085,11 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
 
 /** জরুরি অবস্থায় এখানে নয় — স্থায়ী সতর্কবার্তা */
 @Composable
-fun EmergencyNotice() {
+fun EmergencyNotice(key: String = "health") {
+    // ✕ চাপলে এই পাতায় আর আসে না
+    val context = LocalContext.current
+    var hidden by remember { mutableStateOf(Dismissed.isOn(context, "999_$key")) }
+    if (hidden) return
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -1098,7 +1103,11 @@ fun EmergencyNotice() {
                     "জরুরি অবস্থায় এখনই ৯৯৯-এ ফোন করুন। এখানের উত্তর সাধারণ পরামর্শ, রোগ নির্ণয় নয়।",
                 ),
                 style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
             )
+            IconButton(onClick = { Dismissed.set(context, "999_$key"); hidden = true }, modifier = Modifier.size(32.dp)) {
+                AppIcon(R.drawable.ic_close, tr("Hide", "সরান"), Modifier.size(18.dp), MaterialTheme.colorScheme.onSecondaryContainer)
+            }
         }
     }
 }

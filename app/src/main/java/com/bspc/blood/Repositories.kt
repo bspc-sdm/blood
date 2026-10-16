@@ -66,6 +66,12 @@ object ProfileRepository {
     suspend fun load(uid: String): Profile? {
         val snap = users.document(uid).get().await()
         if (!snap.exists()) return null
+        // আগের ছবির ছোট সংস্করণ একবার বানিয়ে রাখা (তালিকার কার্ডের জন্য)
+        if (!snap.getString("photo").isNullOrBlank() && snap.getString("photoThumb").isNullOrBlank()) {
+            Photo.thumbFromAvatar(snap.getString("photo"))?.let { t ->
+                runCatching { users.document(uid).set(mapOf("photoThumb" to t), SetOptions.merge()).await() }
+            }
+        }
         return Profile(
             name = snap.getString("name") ?: "",
             phone = snap.getString("phone") ?: "",
@@ -174,8 +180,10 @@ object ProfileRepository {
 
     /** প্রোফাইলের ছবি সেভ (null দিলে মুছে যায়) */
     suspend fun savePhoto(uid: String, base64: String?) {
+        // ছোট ছবিও সাথে (ডাক্তার/নার্সের তালিকার কার্ডে দেখায়)
+        val thumb = Photo.thumbFromAvatar(base64)
         users.document(uid)
-            .set(mapOf("photo" to (base64 ?: FieldValue.delete())), SetOptions.merge())
+            .set(mapOf("photo" to (base64 ?: FieldValue.delete()), "photoThumb" to (thumb ?: FieldValue.delete())), SetOptions.merge())
             .await()
     }
 

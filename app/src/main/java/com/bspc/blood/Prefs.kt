@@ -51,6 +51,18 @@ object AppPrefs {
 
 val isBangla: Boolean get() = AppPrefs.lang.value == Lang.BN
 
+/** পাতায় ঢুকে কেটে দেওয়া নোটিশ (যেমন ৯৯৯-এর লাইন) — একবার কাটলে ওই পাতায় আর আসে না */
+object Dismissed {
+    private const val FILE = "dismissed_notes"
+
+    fun isOn(context: Context, key: String): Boolean =
+        runCatching { context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean(key, false) }.getOrDefault(false)
+
+    fun set(context: Context, key: String) {
+        runCatching { context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putBoolean(key, true).apply() }
+    }
+}
+
 /** বর্তমান ভাষা অনুযায়ী লেখা: tr("English", "বাংলা") */
 fun tr(en: String, bn: String): String = if (isBangla) bn else TitleCase.ui(en)
 

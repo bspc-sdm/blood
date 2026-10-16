@@ -95,23 +95,25 @@ const actions = {
           id: d.id,
           x: d.data(),
           loc: { lat: u.exists ? u.get('lat') : null, lng: u.exists ? u.get('lng') : null, locationSource: u.exists ? u.get('locationSource') : null, placeName: u.exists ? u.get('placeName') : null },
+          // কার্ডের ছোট ছবি (প্রোফাইলের ছবির ৯৬px সংস্করণ)
+          thumb: (u.exists && u.get('photoThumb')) || '',
         }));
     });
     const { docLike } = require('./memcache');
     const found = [];
-    all.forEach(({ id, x, loc }) => {
+    all.forEach(({ id, x, loc, thumb }) => {
       if (id === user.uid) return;
       if (service && !((x.homeVisit && x.homeVisit.services) || []).includes(service)) return;
       if (b.female === true && x.gender !== 'female') return;
       const m = K.homeMatch({ ...x, ...loc }, place);
-      if (m) found.push({ d: docLike(id, x), km: m.km });
+      if (m) found.push({ d: docLike(id, x), km: m.km, thumb });
     });
     if (!found.length) return { items: [] };
     // কাছেরটা আগে; দূরত্ব না জানলে বেশি রেটিং পাওয়া আগে
     found.sort((p, q) => (approxKm(p.km) ?? 999) - (approxKm(q.km) ?? 999) || (q.d.get('ratingCount') || 0) - (p.d.get('ratingCount') || 0));
     const top = found.slice(0, 100);
     const mine = top.length ? await db.getAll(...top.map((f) => db.doc(`homeCalls/${user.uid}_${f.d.id}`))) : [];
-    return { items: top.map((f, i) => view(f.d, f.km, mine[i])) };
+    return { items: top.map((f, i) => ({ ...view(f.d, f.km, mine[i]), photo: f.thumb || '' })) };
   },
 
   /** রোগী অ্যাপ থেকে ফোন বাটন চাপলে (ডাক্তার/নার্সের হিসাবের জন্য; ব্যর্থ হলেও ফোন আটকায় না) */

@@ -341,6 +341,8 @@ data class Provider(
     val homeVisit: HomeVisitSettings?,
     val rating: Double,
     val ratingCount: Int,
+    /** কার্ডের ছোট ছবি (base64) */
+    val photo: String = "",
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
 }
@@ -475,6 +477,7 @@ object Appointments {
             o.str("gender"), o.optBoolean("listed", true), o.optBoolean("appointments", false),
             (0 until ch.length()).map { Chamber.parse(ch.getJSONObject(it)) },
             HomeVisitSettings.parse(o.optJSONObject("homeVisit")), o.optDouble("rating", 0.0), o.optInt("ratingCount"),
+            o.str("photo"),
         )
     }
 
@@ -598,6 +601,7 @@ data class HomePro(
     /** রেটিং এখন দেওয়া যায় (প্রথম ফোনের ১ ঘণ্টা পর) */
     val canRate: Boolean = false,
     val noFee: Boolean = false,
+    val photo: String = "",
 ) {
     val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
 
@@ -615,7 +619,7 @@ object HomeCare {
         o.optJSONArray("services").strings(), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(), o.str("schedule"),
         o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
-        o.optBoolean("canRate"), o.optBoolean("noFee"),
+        o.optBoolean("canRate"), o.optBoolean("noFee"), o.str("photo"),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */

@@ -227,28 +227,19 @@ private fun BloodBankFinder(profile: Profile) {
 
 @Composable
 internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(R.drawable.ic_bloodtype, null, Modifier.size(24.dp), MaterialTheme.colorScheme.error)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(b.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(BloodBankInfo.kind(b.kind), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
-                if (b.openNow) Tag(tr("Open", "খোলা"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                else Tag(tr("Closed", "বন্ধ"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(b.services.joinToString(" · ") { BloodBankInfo.service(it) }, style = MaterialTheme.typography.bodyMedium)
-            IconLine(R.drawable.ic_location_on, listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(" · "))
-            if (b.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(b.hoursText, closedDaysText(b.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = onCall) { ButtonContent(false, tr("Call", "ফোন করুন") + " " + num(b.phone), R.drawable.ic_call) }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onReport) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
-            }
-        }
-    }
+    DirectoryCard(
+        title = b.name,
+        avatar = { CardAvatar(null, R.drawable.ic_bloodtype, MaterialTheme.colorScheme.error) },
+        subtitle = BloodBankInfo.kind(b.kind),
+        status = if (b.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
+        details = listOf(
+            R.drawable.ic_bloodtype to b.services.joinToString(" · ") { BloodBankInfo.service(it) },
+            R.drawable.ic_location_on to listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(" · "),
+            R.drawable.ic_schedule to listOf(b.hoursText, closedDaysText(b.closedDays)).filter { it.isNotBlank() }.joinToString(" · "),
+        ),
+        primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
+        onReport = onReport,
+    )
 }
 
 @Composable

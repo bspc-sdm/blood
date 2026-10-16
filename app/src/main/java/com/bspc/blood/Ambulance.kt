@@ -181,9 +181,11 @@ fun statusText(s: String): String = when (s) {
 
 /** ৯৯৯ কার্ড: সবচেয়ে উপরে */
 @Composable
-fun EmergencyCallCard() {
-    // ছোট এক লাইন: বড় কার্ড জায়গা নষ্ট করে, তবু ৯৯৯ এক চাপে থাকা দরকার
+fun EmergencyCallCard(key: String = "ambulance") {
+    // ছোট এক লাইন: বড় কার্ড জায়গা নষ্ট করে, তবু ৯৯৯ এক চাপে থাকা দরকার; ✕ চাপলে এই পাতায় আর আসে না
     val context = LocalContext.current
+    var hidden by remember { mutableStateOf(Dismissed.isOn(context, "999_$key")) }
+    if (hidden) return
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(
             tr("Emergency? 999 is free, 24 hours", "জরুরি হলে ৯৯৯ — বিনামূল্যে, ২৪ ঘণ্টা"),
@@ -192,6 +194,9 @@ fun EmergencyCallCard() {
             modifier = Modifier.weight(1f),
         )
         SmallAction(num("999"), R.drawable.ic_call, { callPhone(context, "999") })
+        IconButton(onClick = { Dismissed.set(context, "999_$key"); hidden = true }, modifier = Modifier.size(36.dp)) {
+            AppIcon(R.drawable.ic_close, tr("Hide", "সরান"), Modifier.size(18.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -282,7 +287,7 @@ private fun AmbulanceFinder(profile: Profile) {
                         R.drawable.ic_ambulance,
                         if (busyCount > 0) tr("All ambulances here are on a trip now", "এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে")
                         else tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
-                        tr("Call 999 above. Know an ambulance service? Ask them to join with + at the top.", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
+                        tr("Know an ambulance service? Ask them to join with + at the top.", "কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
                         Modifier.padding(top = 24.dp),
                     )
                 }
@@ -364,37 +369,30 @@ private fun AmbulanceFinder(profile: Profile) {
 
 @Composable
 private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(R.drawable.ic_ambulance, null, Modifier.size(26.dp), MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
-                Text(a.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                when {
-                    a.available -> Tag(tr("Available", "খালি আছে"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                    a.availableAt > 0 -> Tag(tr("Call to check", "ফোনে জেনে নিন"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
-                    else -> Tag(tr("Busy", "ব্যস্ত"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (a.available && a.availableAt > 0) {
-                SmallNote(tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt))
-            }
-            if (a.busySince > 0) SmallNote(tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince))
-            Text(a.types.joinToString(" · ") { AmbulanceTypes.label(it) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-            IconLine(R.drawable.ic_location_on, listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "))
-            if (a.fare.isNotBlank()) IconLine(R.drawable.ic_info, tr("Fare: ", "ভাড়া: ") + a.fare)
-            RatingLine(a.rating, a.ratingCount)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = onCall) { ButtonContent(false, tr("Call", "ফোন করুন") + " " + num(a.phone), R.drawable.ic_call) }
-                Spacer(Modifier.weight(1f))
-                if (onRate != null) TextButton(onClick = onRate) { Text(tr("Rate", "রেটিং")) }
-                IconButton(onClick = onReport) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
-            }
-        }
-    }
+    DirectoryCard(
+        title = a.name,
+        avatar = { CardAvatar(null, R.drawable.ic_ambulance) },
+        subtitle = a.types.joinToString(" · ") { AmbulanceTypes.label(it) },
+        status = when {
+            a.available -> CardStatus(tr("Available", "খালি আছে"), true)
+            a.availableAt > 0 -> CardStatus(tr("Call to check", "ফোনে জেনে নিন"), false)
+            else -> CardStatus(tr("Busy", "ব্যস্ত"), false)
+        },
+        rating = a.rating,
+        ratingCount = a.ratingCount,
+        details = listOf(
+            R.drawable.ic_location_on to listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "),
+            R.drawable.ic_payments to if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else "",
+        ),
+        note = when {
+            a.busySince > 0 -> tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince)
+            a.available && a.availableAt > 0 -> tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt)
+            else -> null
+        },
+        primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
+        secondary = onRate?.let { CardAction(tr("Rate", "রেটিং দিন"), null, it) },
+        onReport = onReport,
+    )
 }
 
 /** তারা আর মন্তব্য দিয়ে রেটিং (অ্যাম্বুলেন্স, ফার্মেসি) */

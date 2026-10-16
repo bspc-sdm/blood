@@ -133,7 +133,7 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
                         if (type == "doctor") R.drawable.ic_stethoscope else R.drawable.ic_medical_services,
                         if (type == "doctor") tr("No doctor who visits homes here yet", "এখানে বাসায় যান এমন ডাক্তার এখনো নেই")
                         else tr("No nurse who visits homes here yet", "এখানে বাসায় যান এমন নার্স এখনো নেই"),
-                        tr("Try another area or remove a filter. In an emergency call 999.", "অন্য এলাকা দিয়ে বা ফিল্টার সরিয়ে দেখুন। জরুরি হলে ৯৯৯-এ ফোন করুন।"),
+                        tr("Try another area or remove a filter.", "অন্য এলাকা দিয়ে বা ফিল্টার সরিয়ে দেখুন।"),
                     )
                     if (service != null || female) {
                         TextButton(onClick = { service = null; female = false }) { Text(tr("Remove filters", "ফিল্টার সরান")) }
@@ -154,7 +154,6 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
                 )
             }
         }
-        item { EmergencyNotice() }
     }
 
     if (showArea) {
@@ -195,43 +194,31 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
 
 @Composable
 internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ProviderAvatar(p.type)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (p.degrees.isNotBlank()) Text(p.degrees, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (p.specialties.isNotEmpty()) {
-                        Text(p.specialties.joinToString(", ") { Specialties.label(it) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                // সার্ভার পুরো কিমিতে দেয় (কমপক্ষে ২) — বাসার ঠিক জায়গা বোঝা না যায়
-                p.km?.let {
-                    val k = kotlin.math.ceil(it).toInt().coerceAtLeast(2)
-                    Tag(
-                        if (k <= 2) tr("Within 2 km", "২ কিমির মধ্যে") else tr("About $k km", "প্রায় ${num(k)} কিমি"),
-                        MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-            }
-            Text(p.services.joinToString(" · ") { HomeServices.label(it) }, style = MaterialTheme.typography.bodyMedium)
-            IconLine(R.drawable.ic_location_on, p.coverage)
-            if (p.schedule.isNotBlank()) IconLine(R.drawable.ic_schedule, p.schedule)
-            if (p.feeText.isNotBlank()) IconLine(R.drawable.ic_info, p.feeText)
-            RatingLine(p.rating, p.ratingCount)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = onCall) { ButtonContent(false, tr("Call", "ফোন করুন") + " " + num(p.phone), R.drawable.ic_call) }
-                Spacer(Modifier.weight(1f))
-                if (onRate != null) TextButton(onClick = onRate) { Text(if (p.myRating > 0) tr("Your rating ★${p.myRating}", "আপনার রেটিং ★${num(p.myRating)}") else tr("Rate", "রেটিং")) }
-                IconButton(onClick = onReport) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
-            }
-        }
+    // দূরত্ব একবারই (সার্ভার পুরো কিমিতে দেয়, কমপক্ষে ২ — বাসার ঠিক জায়গা বোঝা না যায়)
+    val dist = p.km?.let {
+        val k = kotlin.math.ceil(it).toInt().coerceAtLeast(2)
+        if (k <= 2) tr("Within 2 km", "২ কিমির মধ্যে") else tr("About $k km away", "প্রায় ${num(k)} কিমি দূরে")
     }
+    val areas = p.upazilaIds.mapNotNull { Areas.upazila(it)?.label }
+    DirectoryCard(
+        title = p.name,
+        avatar = { CardAvatar(p.photo, Badges.icon(p.type)) },
+        subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
+        rating = p.rating,
+        ratingCount = p.ratingCount,
+        meta = dist,
+        details = listOf(
+            R.drawable.ic_medical_services to p.services.joinToString(" · ") { HomeServices.label(it) },
+            R.drawable.ic_location_on to if (areas.isEmpty()) "" else tr("Also visits: ", "যান: ") + areas.joinToString(", "),
+            R.drawable.ic_schedule to p.schedule,
+            R.drawable.ic_payments to p.feeText,
+        ),
+        primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
+        secondary = onRate?.let {
+            CardAction(if (p.myRating > 0) tr("Your rating ★${p.myRating}", "আপনার রেটিং ★${num(p.myRating)}") else tr("Rate", "রেটিং দিন"), null, it)
+        },
+        onReport = onReport,
+    )
 }
 
 /** ব্যাজধারী ডাক্তার/নার্স নিজে: চালু আছে কি না, আর অ্যাপ থেকে কতবার ফোন এসেছে */

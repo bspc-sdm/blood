@@ -86,6 +86,19 @@ object Photo {
         return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
     }
 
+    /** তালিকার কার্ডের ছোট ছবি (৯৬×৯৬, ~৩–৫ KB) — পুরো ছবি তালিকায় পাঠালে ডেটা বেশি লাগে */
+    fun thumbFromAvatar(base64: String?): String? {
+        if (base64.isNullOrBlank()) return null
+        return runCatching {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            val small = Bitmap.createScaledBitmap(bmp, 96, 96, true)
+            val out = ByteArrayOutputStream()
+            small.compress(Bitmap.CompressFormat.JPEG, 70, out)
+            Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+        }.getOrNull()
+    }
+
     fun decodeAvatar(base64: String?): ImageBitmap? {
         if (base64.isNullOrBlank()) return null
         return runCatching {

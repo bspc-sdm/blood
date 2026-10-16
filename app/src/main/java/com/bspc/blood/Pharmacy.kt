@@ -373,29 +373,26 @@ private fun NearbyPharmacies(profile: Profile) {
                 )
             }
             else -> items(list, key = { it.id }) { p ->
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            if (p.openNow) Tag(tr("Open", "খোলা"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                            else Tag(tr("Closed", "বন্ধ"), MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconLine(R.drawable.ic_location_on, p.address + (p.km?.let { " · " + Rules.formatKm(it) } ?: ""))
-                        if (p.closedUntil > 0) IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত"))
-                        else if (p.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(p.hoursText, closedDaysText(p.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
-                        if (p.discount > 0) IconLine(R.drawable.ic_info, tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়"))
-                        if (p.delivery) IconLine(R.drawable.ic_local_shipping, tr("Home delivery", "বাসায় ডেলিভারি") + if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "")
-                        RatingLine(p.rating, p.ratingCount)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(onClick = {
-                                scope.launch { runCatching { Pharmacies.called(p.id) } }
-                                callPhone(context, p.phone)
-                            }) { ButtonContent(false, tr("Call", "ফোন করুন"), R.drawable.ic_call) }
-                            Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { reporting = p }) { Text(tr("Report", "রিপোর্ট"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        }
-                    }
-                }
+                DirectoryCard(
+                    title = p.name,
+                    avatar = { CardAvatar(null, R.drawable.ic_storefront) },
+                    status = if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
+                    rating = p.rating,
+                    ratingCount = p.ratingCount,
+                    meta = p.km?.let { Rules.formatKm(it) },
+                    details = listOf(
+                        R.drawable.ic_location_on to p.address,
+                        R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত")
+                            else listOf(p.hoursText, closedDaysText(p.closedDays)).filter { it.isNotBlank() }.joinToString(" · "),
+                        R.drawable.ic_payments to if (p.discount > 0) tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়") else "",
+                        R.drawable.ic_local_shipping to if (p.delivery) tr("Home delivery", "বাসায় ডেলিভারি") + (if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "") else "",
+                    ),
+                    primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) {
+                        scope.launch { runCatching { Pharmacies.called(p.id) } }
+                        callPhone(context, p.phone)
+                    },
+                    onReport = { reporting = p },
+                )
             }
         }
     }
