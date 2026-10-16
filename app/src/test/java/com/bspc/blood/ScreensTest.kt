@@ -177,6 +177,24 @@ class ScreensTest {
     }
 
     @Test
+    fun labReportBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val o = LabOrder(
+            "l1", "rx1", "ABCDEFGH23", "পপুলার ডায়াগনস্টিক সেন্টার", "করিম উদ্দিন", 45, "male", "ডা. ফারহানা ইসলাম", listOf("CBC", "RBS"), "reported", 1_760_000_000_000L,
+            LabReport(
+                listOf(
+                    LabResult("Hemoglobin", "10.2", "g/dL", "13.5–17.5", "low"),
+                    LabResult("WBC", "7,800", "/cmm", "4,000–11,000", ""),
+                    LabResult("RBS", "11.4", "mmol/L", "< 7.8", "high"),
+                ),
+                "খালি পেটে নয়", 1_760_100_000_000L, 0, emptyList(),
+            ),
+        )
+        show { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { LabReportView(o) } }
+        shot("lab_report_bn")
+    }
+
+    @Test
     fun medAlarmSlots() {
         org.junit.Assert.assertEquals(listOf(0, 3), MedAlarms.slotsOf("1+0+1"))
         org.junit.Assert.assertEquals(listOf(0, 1, 3), MedAlarms.slotsOf("1+1+1"))

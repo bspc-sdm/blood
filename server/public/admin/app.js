@@ -171,6 +171,7 @@
     S.lists['pharmacies:pending'] = itemsOf('pharmacies');
     S.lists['ambulances:pending'] = itemsOf('ambulances');
     S.lists['bloodBanks:pending'] = itemsOf('bloodBanks');
+    S.lists['labs:pending'] = itemsOf('labs');
     S.lists['tickets:open'] = itemsOf('tickets');
   }
   const itemsOf = (key) => (S.overview && S.overview[key] && Array.isArray(S.overview[key].items) ? S.overview[key].items : []);
@@ -311,6 +312,7 @@
       { path: 'pharmacies', label: 'ফার্মেসি', icon: 'store', count: () => pendingCount('pharmacies') },
       { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
       { path: 'bloodBanks', label: 'ব্লাড ব্যাংক', icon: 'blood', count: () => pendingCount('bloodBanks') },
+      { path: 'labs', label: 'প্যাথলজি', icon: 'hospital', count: () => pendingCount('labs') },
       { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
     ] },
     { group: 'সহায়তা', items: [
@@ -320,6 +322,7 @@
     ] },
     { group: 'ব্যবস্থাপনা', items: [
       { path: 'users', label: 'ব্যবহারকারী', icon: 'person' },
+      { path: 'catalog', label: 'বাছাইয়ের তালিকা', icon: 'menu' },
       { path: 'log', label: 'কাজের ইতিহাস', icon: 'history' },
       { path: 'admins', label: 'অ্যাডমিন', icon: 'admin', owner: true },
     ] },
@@ -416,6 +419,8 @@
     pharmacies: (r, alive) => pageListing('pharmacies', r, alive),
     ambulances: (r, alive) => pageListing('ambulances', r, alive),
     bloodBanks: (r, alive) => pageListing('bloodBanks', r, alive),
+    labs: (r, alive) => pageListing('labs', r, alive),
+    catalog: pageCatalog,
     hospitals: pageHospitals,
     tickets: pageTickets,
     ticket: pageTicket,
@@ -552,6 +557,7 @@
     ['pharmacies', 'pharmacies', 'ফার্মেসি অনুমোদন', 'store'],
     ['ambulances', 'ambulances', 'অ্যাম্বুলেন্স অনুমোদন', 'ambulance'],
     ['bloodBanks', 'bloodBanks', 'ব্লাড ব্যাংক অনুমোদন', 'blood'],
+    ['labs', 'labs', 'প্যাথলজি অনুমোদন', 'hospital'],
     ['hospitalRequests', 'hospitals', 'হাসপাতাল যোগের অনুরোধ', 'hospital'],
     ['tickets', 'tickets', 'উত্তরের অপেক্ষায় আপিল', 'help'],
     ['reports', 'reports', 'রিপোর্ট', 'flag'],
@@ -906,6 +912,26 @@
       owner: (p) => p.id,
       actions: (p, st) => statusActions('admin_pharmacy_resolve', p.id, st, 'ফার্মেসি'),
     },
+    labs: {
+      title: 'প্যাথলজি',
+      action: 'admin_labs',
+      tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
+      search: 'নাম, ফোন, লাইসেন্স, এলাকা',
+      text: (p) => [p.name, p.phone, p.licenseNo, p.areaLabel, p.district, p.address],
+      cols: [
+        { label: 'নাম', main: true, cell: (p) => [p.name || '—', h('div', { class: 'small', text: p.facilityId ? 'স্বাস্থ্য অধিদপ্তরের তালিকা থেকে' : 'নিজে লেখা' })] },
+        { label: 'লাইসেন্স', cell: (p) => p.licenseNo || '—' },
+        { label: 'ফোন', cell: (p) => bn(p.phone) },
+        { label: 'এলাকা', cell: (p) => [p.areaLabel || p.district || '—', p.address ? h('div', { class: 'small', text: p.address }) : null] },
+        { label: 'সময়', cell: (p) => [p.hours || '—', p.homeCollection ? h('div', { class: 'small', text: 'বাসা থেকে নমুনা নেয়' }) : null] },
+        { label: 'তারিখ', cell: (p) => fmtDate(p.reviewedAt || p.createdAt) },
+        { label: 'বদল / নোট', cell: (p) => reviewCell(p) },
+      ],
+      note: 'অনুমোদনের আগে স্বাস্থ্য অধিদপ্তরের (DGHS) ক্লিনিক/ডায়াগনস্টিক লাইসেন্স যাচাই করুন।',
+      id: (p) => p.id,
+      owner: (p) => p.id,
+      actions: (p, st) => statusActions('admin_lab_resolve', p.id, st, 'প্যাথলজি'),
+    },
     ambulances: {
       title: 'অ্যাম্বুলেন্স',
       action: 'admin_ambulances',
@@ -1058,7 +1084,7 @@
     const reason = reasonBox();
     const run = (status) => () => act(action, { id, status, reason: reason.value.trim() });
     // অনুমোদন শুধু যাচাইয়ের পাতা থেকে (কাগজ দেখে সব টিক দিয়ে)
-    const kind = { admin_pharmacy_resolve: 'pharmacies', admin_ambulance_resolve: 'ambulances', admin_bloodbank_resolve: 'bloodBanks' }[action];
+    const kind = { admin_pharmacy_resolve: 'pharmacies', admin_ambulance_resolve: 'ambulances', admin_bloodbank_resolve: 'bloodBanks', admin_lab_resolve: 'labs' }[action];
     const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/${kind}:${encodeURIComponent(id)}`, text: 'যাচাই করে অনুমোদন' });
     if (st === 'pending') return [reason, verifyBtn, actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
     if (st === 'approved') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), `${what} বন্ধ করা হয়েছে`, afterChange)];
@@ -1069,7 +1095,7 @@
   async function getList(kind, status) {
     const key = `${kind}:${status}`;
     if (S.lists[key]) return S.lists[key];
-    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', bloodBanks: 'admin_bloodbanks', tickets: 'admin_tickets' }[kind];
+    const action = { badges: 'admin_badges', pharmacies: 'admin_pharmacies', ambulances: 'admin_ambulances', bloodBanks: 'admin_bloodbanks', labs: 'admin_labs', tickets: 'admin_tickets' }[kind];
     const res = await act(action, { status });
     S.lists[key] = res.items || [];
     return S.lists[key];
@@ -1098,8 +1124,8 @@
   // যাচাই: কাগজের ছবি দেখে সব বিষয় টিক দিয়ে তবে অনুমোদন
   // #/verify/pharmacies:<id>, #/verify/badges:<uid>[:change]
   // =========================================================
-  const VERIFY_KIND = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge' };
-  const RESOLVE = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve' };
+  const VERIFY_KIND = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge', labs: 'lab' };
+  const RESOLVE = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve', labs: 'admin_lab_resolve' };
 
   /** আবেদনে যা লেখা হয়েছে (ছবির সাথে মেলানোর জন্য) */
   function verifyFields(list, x) {
@@ -1116,6 +1142,10 @@
     }
     if (list === 'pharmacies') {
       return [['নাম', x.name], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['সময়', hours]];
+    }
+    if (list === 'labs') {
+      return [['নাম', x.name], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['সময়', x.hours],
+        ['স্বাস্থ্য অধিদপ্তরের তালিকায়', x.facilityId ? 'আছে (তালিকা থেকে বাছা)' : 'নেই (নিজে লেখা)']];
     }
     return [['নাম', x.name], ['ধরন', L.bankKind[x.kind] || x.kind], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)],
       ['এলাকা ও ঠিকানা', area], ['সময়', hours]];
@@ -1280,6 +1310,61 @@
         actionBtn('রেখে দিন', 'quiet', () => act('admin_report_resolve', { ...body, remove: false }), 'রেখে দেওয়া হয়েছে', afterChange),
       ];
     }));
+  }
+
+  // =========================================================
+  // বাছাইয়ের তালিকা: বিশেষজ্ঞতা, বাসায় সেবা, অ্যাম্বুলেন্সের ধরন, ব্লাড ব্যাংকের সেবা
+  // যোগ, নাম বদল, লুকানো, ক্রম — মোছা যায় না (আগে কেউ বেছে রাখলে তাঁর প্রোফাইলে ভুল দেখাত)
+  // =========================================================
+  const CATALOG_LISTS = [
+    ['specialty', 'doctor', 'ডাক্তারের বিশেষজ্ঞতা'], ['specialty', 'nurse', 'নার্সের বিশেষজ্ঞতা'],
+    ['specialty', 'nutritionist', 'পুষ্টিবিদের বিশেষজ্ঞতা'], ['specialty', 'trainer', 'ফিটনেস ট্রেইনারের বিশেষজ্ঞতা'],
+    ['homeService', 'doctor', 'বাসায় সেবা: ডাক্তার'], ['homeService', 'nurse', 'বাসায় সেবা: নার্স'],
+    ['ambulanceType', 'all', 'অ্যাম্বুলেন্সের ধরন'], ['bloodBankService', 'all', 'ব্লাড ব্যাংকের সেবা'],
+  ];
+
+  async function pageCatalog(r, alive) {
+    const idx = Math.max(0, CATALOG_LISTS.findIndex(([k, t]) => `${k}.${t}` === r.params.get('l')));
+    const [kind, type, title] = CATALOG_LISTS[idx];
+    setTitle('বাছাইয়ের তালিকা', title);
+    const res = await act('catalog_get');
+    let rows = ((res.lists[kind] || {})[type] || []).map((i) => ({ ...i }));
+    const tabs = h('div', { class: 'seg tabs-wrap' }, CATALOG_LISTS.map(([k, t, label], i) =>
+      h('a', { href: `#/catalog?l=${k}.${t}`, class: i === idx ? 'on' : null, text: label })));
+    const body = h('tbody');
+    const err = h('p', { class: 'error', role: 'alert' });
+    function draw() {
+      body.replaceChildren(...rows.map((it, i) => h('tr', { class: it.hidden ? 'done' : null },
+        h('td', { 'data-label': 'বাংলা' }, h('input', { class: 'cell-input', value: it.bn || '', maxlength: 60, oninput: (e) => { it.bn = e.target.value; } })),
+        h('td', { 'data-label': 'English' }, h('input', { class: 'cell-input', value: it.en || '', maxlength: 60, oninput: (e) => { it.en = e.target.value; } })),
+        h('td', { 'data-label': 'কোড', class: 'small', text: it.code || 'নতুন' }),
+        h('td', { 'data-label': 'লুকানো' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!it.hidden, onchange: (e) => { it.hidden = e.target.checked; draw(); } }), 'লুকানো')),
+        h('td', { class: 'act' }, h('div', { class: 'actions' },
+          h('button', { class: 'icon-btn', type: 'button', title: 'ওপরে', disabled: i === 0, onclick: () => { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; draw(); }, text: '↑' }),
+          h('button', { class: 'icon-btn', type: 'button', title: 'নিচে', disabled: i === rows.length - 1, onclick: () => { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; draw(); }, text: '↓' }),
+          !it.code ? h('button', { class: 'icon-btn', type: 'button', title: 'সরান', onclick: () => { rows.splice(i, 1); draw(); } }, icon('close')) : null)))));
+    }
+    draw();
+    const save = h('button', { class: 'btn primary', type: 'button', text: 'সেভ করুন' });
+    save.addEventListener('click', async () => {
+      err.textContent = '';
+      save.disabled = true;
+      try {
+        const out = await act('admin_catalog_set', { kind, type, items: rows.map((x) => ({ code: x.code, bn: (x.bn || '').trim(), en: (x.en || '').trim(), hidden: !!x.hidden })) });
+        rows = out.items.map((i) => ({ ...i }));
+        draw();
+        toast('সেভ হয়েছে — অ্যাপে কয়েক ঘণ্টার মধ্যে দেখাবে');
+      } catch (e) { err.textContent = e.message; }
+      save.disabled = false;
+    });
+    paint(alive, tabs,
+      h('p', { class: 'note', text: 'নতুন নাম যোগ, বানান ঠিক বা লুকানো যায়। মোছা যায় না — আগে কেউ বেছে রাখলে তাঁর প্রোফাইলে ভুল দেখাত; লুকালে নতুন করে কেউ বাছতে পারবেন না।' }),
+      h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
+        h('thead', null, h('tr', null, ['বাংলা নাম', 'English name', 'কোড', '', ''].map((x) => h('th', { text: x })))), body)),
+      h('div', { class: 'reply-actions' },
+        h('button', { class: 'btn tonal', type: 'button', text: 'নতুন নাম যোগ', onclick: () => { rows.push({ code: '', bn: '', en: '', hidden: false }); draw(); } }),
+        save),
+      err);
   }
 
   // =========================================================

@@ -10,7 +10,9 @@
   const bn = (v) => String(v ?? '').replace(/[0-9]/g, (d) => BN[d]);
   const SVGNS = 'http://www.w3.org/2000/svg';
 
-  const S = { me: null, role: null, doctorUid: null, doctorName: '', chambers: [], view: 'write', target: null, open: null, rids: [] };
+  const S = { me: null, role: null, roles: [], doctorUid: null, doctorName: '', chambers: [], view: 'write', target: null, open: null, rids: [] };
+  const ROLE_LABEL = { doctor: 'ডাক্তার', assistant: 'সহকারী', pharmacy: 'ফার্মেসি', lab: 'প্যাথলজি' };
+  const FIRST_VIEW = { doctor: 'write', assistant: 'patients', pharmacy: 'dispense', lab: 'tests' };
 
   // ---------- ছোট সাহায্যকারী ----------
   function h(tag, props, ...kids) {
@@ -153,40 +155,51 @@
   async function start() {
     try {
       const me = await act('web_me');
-      if (!me.doctor && !(me.assisting || []).length) throw new ApiError('এই ইমেইল কোনো যাচাই করা ডাক্তার বা সহকারীর নয়', 403);
+      const roles = [me.doctor ? 'doctor' : null, (me.assisting || []).length ? 'assistant' : null, me.pharmacy ? 'pharmacy' : null, me.lab ? 'lab' : null].filter(Boolean);
+      if (!roles.length) throw new ApiError('এই ইমেইল কোনো যাচাই করা ডাক্তার, সহকারী, অনুমোদিত ফার্মেসি বা প্যাথলজির নয়', 403);
       S.me = me;
+      S.roles = roles;
       if (me.doctor) {
-        S.role = 'doctor';
-        S.doctorUid = null;
         const r = await act('rx_me');
-        S.doctorName = r.name;
+        S.ownName = r.name;
         S.chambers = r.chambers || [];
-        S.view = 'write';
-      } else {
-        S.role = 'assistant';
-        S.doctorUid = me.assisting[0].doctorUid;
-        S.doctorName = me.assisting[0].name;
-        S.view = 'patients';
       }
-      render();
+      await setRole(roles[0]);
     } catch (e) {
       showLogin(e.status === 401 ? '' : e.message);
     }
   }
 
+  async function setRole(role) {
+    S.role = role;
+    S.open = null;
+    S.target = null;
+    S.view = FIRST_VIEW[role];
+    if (role === 'doctor') { S.doctorUid = null; S.doctorName = S.ownName || ''; }
+    if (role === 'assistant') { S.doctorUid = S.me.assisting[0].doctorUid; S.doctorName = S.me.assisting[0].name; }
+    if (role === 'pharmacy') S.doctorName = S.me.pharmacy.name;
+    if (role === 'lab') S.doctorName = S.me.lab.name;
+    render();
+  }
+
   // ---------- কাঠামো ----------
   function render() {
-    const tabs = S.role === 'doctor'
-      ? [['write', 'নতুন প্রেসক্রিপশন'], ['list', 'আমার প্রেসক্রিপশন'], ['patients', 'রোগী'], ['team', 'সহকারী']]
-      : [['patients', 'রোগী']];
+    const tabs = {
+      doctor: [['write', 'নতুন প্রেসক্রিপশন'], ['list', 'আমার প্রেসক্রিপশন'], ['reports', 'রিপোর্ট'], ['patients', 'রোগী'], ['team', 'সহকারী']],
+      assistant: [['patients', 'রোগী'], ['payments', 'টাকা মেলানো']],
+      pharmacy: [['dispense', 'প্রেসক্রিপশনের ওষুধ'], ['stock', 'স্টক']],
+      lab: [['tests', 'পরীক্ষা ও রিপোর্ট']],
+    }[S.role];
     const top = h('header', { class: 'doc-top' },
-      h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: S.role === 'doctor' ? 'ডাক্তার' : 'সহকারী' })),
+      h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: ROLE_LABEL[S.role] })),
+      S.roles.length > 1 ? h('select', { class: 'cell-input', style: 'max-width:160px', onchange: (e) => setRole(e.target.value) },
+        S.roles.map((r) => h('option', { value: r, selected: r === S.role, text: ROLE_LABEL[r] }))) : null,
       h('nav', { class: 'seg' }, tabs.map(([k, label]) => h('a', { href: '#', class: S.view === k ? 'on' : null, text: label, onclick: (e) => { e.preventDefault(); S.view = k; S.open = null; render(); } }))),
       S.role === 'assistant' && S.me.assisting.length > 1
         ? h('select', { class: 'cell-input', style: 'max-width:240px', onchange: (e) => { const d = S.me.assisting[e.target.selectedIndex]; S.doctorUid = d.doctorUid; S.doctorName = d.name; render(); } },
           S.me.assisting.map((d) => h('option', { selected: d.doctorUid === S.doctorUid, text: d.name })))
         : null,
-      h('div', { class: 'who' }, h('span', { text: S.role === 'doctor' ? S.doctorName : `${S.doctorName}-এর সহকারী` }),
+      h('div', { class: 'who' }, h('span', { text: S.role === 'assistant' ? `${S.doctorName}-এর সহকারী` : S.doctorName }),
         h('button', { class: 'btn quiet', type: 'button', onclick: logout, text: 'লগআউট' })));
     const page = h('main', { class: 'doc-page' });
     root.replaceChildren(top, page);
@@ -194,6 +207,11 @@
     if (S.view === 'write') return writeView(page);
     if (S.view === 'list') return listView(page);
     if (S.view === 'team') return teamView(page);
+    if (S.view === 'reports') return reviewsView(page, true);
+    if (S.view === 'payments') return reviewsView(page, false);
+    if (S.view === 'dispense') return dispenseView(page);
+    if (S.view === 'stock') return stockView(page);
+    if (S.view === 'tests') return testsView(page);
     return patientsView(page, null);
   }
 
@@ -475,6 +493,258 @@
       list,
       h('div', { class: 'field-row' }, input, h('button', { class: 'btn primary', type: 'button', text: 'যোগ করুন', onclick: () => { const v = input.value.trim().toLowerCase(); if (v) { input.value = ''; save([...emails, v]); } } }))));
     draw();
+  }
+
+  // ---------- রিপোর্ট দেখা (ডাক্তার) / টাকা মেলানো (ডাক্তার ও সহকারী) ----------
+  const RV = { unpaid: 'টাকা দেওয়া হয়নি', claimed: 'টাকা পাঠিয়েছেন — মিলিয়ে দেখুন', paid: 'দেখার অপেক্ষায়', done: 'দেখা হয়েছে' };
+  const PAY = { bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket' };
+
+  async function reviewsView(page, asDoctor) {
+    if (asDoctor) {
+      const box = h('form', { class: 'card pad grid', onsubmit: (e) => e.preventDefault() }, h('b', { text: 'অনলাইনে রিপোর্ট দেখা' }), h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+      page.append(box);
+      act('review_settings').then((st) => {
+        const en = h('input', { type: 'checkbox', checked: st.enabled });
+        const noFee = h('input', { type: 'checkbox', checked: st.noFee });
+        const fee = h('input', { value: st.fee || '', maxlength: 40, placeholder: 'যেমন: ৩০০ টাকা' });
+        const num = h('input', { value: st.payNumber || '', maxlength: 20, inputmode: 'tel' });
+        const methods = Object.keys(PAY).map((m) => [m, h('input', { type: 'checkbox', checked: (st.payMethods || []).includes(m) })]);
+        const save = h('button', { class: 'btn primary', type: 'button', text: 'সেভ করুন' });
+        save.addEventListener('click', async () => {
+          save.disabled = true;
+          try {
+            await act('review_settings', { set: true, enabled: en.checked, noFee: noFee.checked, fee: fee.value.trim(), payNumber: num.value.trim(), payMethods: methods.filter(([, c]) => c.checked).map(([m]) => m) });
+            toast('সেভ হয়েছে');
+          } catch (e) { toast(e.message); }
+          save.disabled = false;
+        });
+        box.replaceChildren(h('b', { text: 'অনলাইনে রিপোর্ট দেখা' }),
+          h('p', { class: 'note', text: 'রোগী আপনার নম্বরে সরাসরি টাকা পাঠিয়ে TrxID দেবেন; আপনি বা সহকারী মিলিয়ে নিশ্চিত করলে তবেই রিপোর্ট খুলবে। Lifolo টাকা রাখে না।' }),
+          h('div', { class: 'checks' }, h('label', { class: 'check' }, en, 'চালু'), h('label', { class: 'check' }, noFee, 'ফি চাই না')),
+          h('div', { class: 'form-grid' }, h('label', { class: 'f' }, h('span', { text: 'ফি' }), fee), h('label', { class: 'f' }, h('span', { text: 'টাকা নেওয়ার নম্বর' }), num)),
+          h('div', { class: 'checks' }, methods.map(([m, c]) => h('label', { class: 'check' }, c, PAY[m]))),
+          h('div', null, save));
+      }).catch((e) => box.replaceChildren(h('p', { class: 'error', text: e.message })));
+    }
+    const listBox = h('div', { class: 'grid', style: 'margin-top:16px' }, h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    page.append(listBox);
+    let items;
+    try { items = (await act('reviews_doctor', forDoctor())).items; } catch (e) { listBox.replaceChildren(h('p', { class: 'error', text: e.message })); return; }
+    if (!items.length) { listBox.replaceChildren(h('div', { class: 'card empty', text: 'এখনো কোনো রিপোর্ট নেই' })); return; }
+    listBox.replaceChildren(...items.map((r) => {
+      const actions = h('div', { class: 'reply-actions' });
+      if (r.status === 'claimed') {
+        actions.append(
+          h('button', { class: 'btn primary', type: 'button', text: 'টাকা পেয়েছি', onclick: async () => { try { await act('review_confirm', { ...forDoctor(), id: r.id, ok: true }); toast('নিশ্চিত হয়েছে'); render(); } catch (e) { toast(e.message); } } }),
+          h('button', { class: 'btn warn', type: 'button', text: 'মেলেনি', onclick: async () => { try { await act('review_confirm', { ...forDoctor(), id: r.id, ok: false, note: 'TrxID মেলেনি' }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); } } }));
+      }
+      if (r.status === 'paid' && asDoctor) actions.append(h('button', { class: 'btn primary', type: 'button', text: 'রিপোর্ট দেখে জানান', onclick: () => readReport(page, r) }));
+      return h('div', { class: 'card pad grid' },
+        h('div', { class: 'toolbar', style: 'margin:0' }, h('b', { text: r.patientName || '—' }), h('span', { class: `chip ${r.status === 'claimed' || r.status === 'paid' ? 'pri' : r.status === 'done' ? 'good' : ''}`, text: RV[r.status] || r.status })),
+        h('div', { class: 'note', text: `${r.labName} · ${(r.tests || []).join(', ')}` }),
+        r.status === 'claimed' ? h('div', { text: `${PAY[r.method] || r.method} · TrxID: ${r.trxId}${r.fee ? ` · ${r.fee}` : ''}` }) : null,
+        r.status === 'done' && r.comment ? h('div', { style: 'white-space:pre-wrap', text: r.comment }) : null,
+        actions);
+    }));
+  }
+
+  function reportNodes(o) {
+    const rep = o.report || {};
+    return [
+      h('h3', { text: `${o.labName} · ${o.patientName}` }),
+      (rep.items || []).length ? h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
+        h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'স্বাভাবিক', ''].map((x) => h('th', { text: x })))),
+        h('tbody', null, rep.items.map((i) => h('tr', null, h('td', { class: 'main-cell', text: i.test }), h('td', { text: `${i.result} ${i.unit || ''}` }), h('td', { text: i.range || '—' }),
+          h('td', null, i.flag ? h('span', { class: 'chip bad', text: i.flag === 'high' ? 'বেশি' : 'কম' }) : null)))))) : null,
+      rep.note ? h('p', { text: rep.note }) : null,
+      (rep.photos || []).map((p) => h('img', { src: `data:image/jpeg;base64,${p}`, alt: 'রিপোর্টের ছবি', style: 'max-width:100%;border-radius:12px;margin-top:8px' })),
+    ];
+  }
+
+  async function readReport(page, r) {
+    page.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    try {
+      const o = (await act('lab_order_get', { id: r.labOrderId })).item;
+      const comment = h('textarea', { class: 'reply', maxlength: 1000, placeholder: 'রোগীকে কী জানাবেন' });
+      const send = h('button', { class: 'btn primary', type: 'button', text: 'রোগীকে পাঠান' });
+      send.addEventListener('click', async () => {
+        if (!comment.value.trim()) return;
+        send.disabled = true;
+        try { await act('review_done', { id: r.id, comment: comment.value.trim() }); toast('পাঠানো হয়েছে'); render(); } catch (e) { toast(e.message); send.disabled = false; }
+      });
+      page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })),
+        ...reportNodes(o), h('div', { class: 'block-title', text: 'আপনার মন্তব্য' }), comment,
+        h('p', { class: 'note', text: 'ওষুধ বদলাতে হলে "নতুন প্রেসক্রিপশন" থেকে লিখুন।' }), h('div', { class: 'reply-actions' }, send));
+    } catch (e) { page.replaceChildren(h('p', { class: 'error', text: e.message })); }
+  }
+
+  // ---------- ফার্মেসি: কোড দিয়ে খুলে ওষুধ দেওয়া, আসা প্রেসক্রিপশন ----------
+  async function dispenseView(page) {
+    const code = h('input', { class: 'cell-input', style: 'max-width:220px;text-transform:uppercase', maxlength: 10, placeholder: 'QR-এর নিচের কোড' });
+    const out = h('div', { class: 'grid', style: 'margin-top:12px' });
+    async function open(c) {
+      out.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+      try { drawRx((await act('rx_pharmacy_open', { code: c })).item); } catch (e) { out.replaceChildren(h('p', { class: 'error', text: e.message })); }
+    }
+    function drawRx(rx) {
+      const qty = {};
+      const rows = rx.medicines.map((m) => h('tr', null,
+        h('td', { class: 'main-cell', text: `${formShort(m.form)} ${m.name}`.trim() }),
+        h('td', { text: `${bn(m.dose)} · ${m.days ? `${bn(m.days)} দিন` : 'চলবে'}` }),
+        h('td', { text: m.need != null ? `${bn(m.got)}/${bn(m.need)}` : m.got ? `${bn(m.got)}` : '—' }),
+        h('td', null, m.done || rx.status === 'cancelled' ? h('span', { class: 'chip good', text: 'দেওয়া শেষ' })
+          : h('input', { class: 'cell-input', style: 'max-width:90px', inputmode: 'numeric', placeholder: m.left != null ? `বাকি ${bn(m.left)}` : 'কয়টা', oninput: (e) => { qty[m.i] = Number(e.target.value.replace(/\D/g, '')) || 0; } }))));
+      const save = h('button', { class: 'btn primary', type: 'button', text: 'যা দিলাম লিখে রাখুন' });
+      save.addEventListener('click', async () => {
+        const items = Object.entries(qty).filter(([, q]) => q > 0).map(([i, q]) => ({ i: Number(i), qty: q }));
+        if (!items.length) return;
+        save.disabled = true;
+        try { drawRx((await act('rx_dispense', { code: rx.code, items })).item); toast('লেখা হয়েছে'); } catch (e) { toast(e.message); save.disabled = false; }
+      });
+      out.replaceChildren(h('div', { class: 'card pad grid' },
+        rx.status === 'cancelled' ? h('p', { class: 'error', text: 'বাতিল করা প্রেসক্রিপশন — ওষুধ দেবেন না' }) : null,
+        h('b', { text: `${rx.doctor.name}${rx.doctor.regNo ? ` · BMDC ${rx.doctor.regNo}` : ''}` }),
+        h('div', { class: 'note', text: `${rx.patient.name}${rx.patient.age != null ? `, ${bn(rx.patient.age)} বছর` : ''} · ${fmtDate(rx.createdAt)}` }),
+        h('div', { class: 'table-wrap' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['ওষুধ', 'নিয়ম', 'কেনা', 'এখন দিলেন'].map((x) => h('th', { text: x })))), h('tbody', null, rows))),
+        (rx.dispensed || []).length ? h('div', { class: 'note', text: 'আগে দেওয়া: ' + rx.dispensed.map((d) => `${d.name} (${fmtDate(d.at)})`).join(', ') }) : null,
+        rx.status !== 'cancelled' && rx.medicines.some((m) => !m.done) ? h('div', null, save) : null));
+    }
+    const incoming = h('div', { class: 'grid' });
+    page.append(h('div', { class: 'card pad grid' }, h('b', { text: 'প্রেসক্রিপশনের ওষুধ দিন' }),
+      h('p', { class: 'note', text: 'কোড দিয়ে খুলে কয়টা দিলেন লিখুন। বাকিটা রোগী অন্য ফার্মেসি থেকে নিতে পারবেন।' }),
+      h('div', { class: 'field-row' }, code, h('button', { class: 'btn primary', type: 'button', text: 'খুলুন', onclick: () => open(code.value.trim().toUpperCase()) }))), out,
+      h('div', { class: 'block-title', text: 'আপনার কাছে পাঠানো প্রেসক্রিপশন' }), incoming);
+    try {
+      const items = (await act('rx_orders_pharmacy')).items.filter((o) => ['sent', 'ready'].includes(o.status));
+      incoming.replaceChildren(...(items.length ? items.map((o) => h('div', { class: 'ctl' },
+        h('div', { class: 'what' }, h('b', { text: o.patientName || '—' }), h('span', { class: 'note', text: `${o.status === 'ready' ? 'তৈরি' : 'নতুন'} · ${fmtDate(o.createdAt)}` })),
+        h('div', { class: 'actions' },
+          h('button', { class: 'btn primary', type: 'button', text: 'খুলুন', onclick: () => { code.value = o.code; open(o.code); } }),
+          o.status === 'sent' ? h('button', { class: 'btn quiet', type: 'button', text: 'তৈরি', onclick: async () => { try { await act('rx_order_update', { id: o.id, status: 'ready' }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); } } }) : null,
+          h('button', { class: 'btn warn', type: 'button', text: 'পারব না', onclick: async () => { try { await act('rx_order_update', { id: o.id, status: 'cancelled', reason: 'ওষুধ নেই' }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); } } })))) : [h('p', { class: 'note', text: 'এখন কিছু নেই' })]));
+    } catch (e) { incoming.replaceChildren(h('p', { class: 'error', text: e.message })); }
+  }
+
+  // ---------- ফার্মেসি: স্টক ----------
+  async function stockView(page) {
+    let names = [];
+    try { names = (await act('stock_get')).items; } catch (e) { page.append(h('p', { class: 'error', text: e.message })); return; }
+    const list = h('div', { class: 'chips' });
+    const countEl = h('span', { class: 'count' });
+    let q = '';
+    function draw() {
+      const shown = names.filter((n) => !q || n.toLowerCase().includes(q));
+      countEl.textContent = `${bn(names.length)}টা ওষুধ`;
+      list.replaceChildren(...shown.slice(0, 500).map((n) => h('span', { class: 'chip' }, n, ' ', h('button', { class: 'link', type: 'button', title: 'সরান', text: '✕', onclick: () => change([], [n]) }))));
+    }
+    async function change(add, remove) {
+      try { names = (await act('stock_set', { add, remove })).items; draw(); } catch (e) { toast(e.message); }
+    }
+    const dl = h('datalist', { id: 'stock-drugs' });
+    let t = null;
+    const input = h('input', { list: 'stock-drugs', placeholder: 'ওষুধের নাম লিখে বাছুন', oninput: (e) => {
+      clearTimeout(t);
+      const v = e.target.value.trim();
+      if (v.length < 2) return;
+      t = setTimeout(async () => { try { const r = await act('drug_search', { q: v }); dl.replaceChildren(...(r.items || []).map((d) => h('option', { value: d.name, text: [d.generic, d.form].filter(Boolean).join(' · ') }))); } catch (err) { /* লেখা চলবে */ } }, 300);
+    } });
+    const bulk = h('textarea', { class: 'reply', placeholder: 'অনেকগুলো একসাথে: প্রতি লাইনে একটা নাম' });
+    page.append(h('div', { class: 'card pad grid' },
+      h('b', { text: 'স্টকের তালিকা' }),
+      h('p', { class: 'note', text: 'রোগীরা প্রেসক্রিপশন থেকে দেখতে পাবেন কোন ফার্মেসিতে কয়টা ওষুধ আছে।' }),
+      h('div', { class: 'field-row' }, input, dl, h('button', { class: 'btn primary', type: 'button', text: 'যোগ', onclick: () => { const v = input.value.trim(); if (v) { input.value = ''; change([v], []); } } })),
+      bulk, h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'সব যোগ করুন', onclick: () => { const v = bulk.value.split('\n').map((x) => x.trim()).filter(Boolean); if (v.length) { bulk.value = ''; change(v, []); } } })),
+      h('div', { class: 'toolbar', style: 'margin:0' }, h('div', { class: 'search' }, icon('search'), h('input', { placeholder: 'তালিকায় খুঁজুন', oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } })), countEl),
+      list));
+    draw();
+  }
+
+  // ---------- প্যাথলজি: পরীক্ষা আর রিপোর্ট ----------
+  const LS = { sent: 'নতুন', received: 'নমুনা নেওয়া হয়েছে', reported: 'রিপোর্ট দেওয়া হয়েছে', cancelled: 'বাতিল' };
+
+  /** ছবি ছোট করে JPEG base64 (≤ ~২৮০ KB) */
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        let max = 1400;
+        let q = 0.75;
+        for (let i = 0; i < 8; i++) {
+          const sc = Math.min(1, max / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * sc);
+          c.height = Math.round(img.height * sc);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          const b64 = c.toDataURL('image/jpeg', q).split(',')[1];
+          if (b64.length <= 280 * 1024 || max <= 700) { URL.revokeObjectURL(url); resolve(b64); return; }
+          if (q > 0.55) q -= 0.1; else max -= 200;
+        }
+        reject(new Error('ছবি অনেক বড়'));
+      };
+      img.onerror = () => reject(new Error('ছবিটা পড়া যায়নি'));
+      img.src = url;
+    });
+  }
+
+  async function testsView(page) {
+    const code = h('input', { class: 'cell-input', style: 'max-width:220px;text-transform:uppercase', maxlength: 10, placeholder: 'QR-এর নিচের কোড' });
+    const listBox = h('div', { class: 'grid' }, h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    page.append(h('div', { class: 'card pad grid' }, h('b', { text: 'কাগজের প্রেসক্রিপশন নিয়ে এলে' }),
+      h('div', { class: 'field-row' }, code, h('button', { class: 'btn primary', type: 'button', text: 'খুলুন', onclick: async () => {
+        try { const o = (await act('lab_open_code', { code: code.value.trim().toUpperCase() })).item; reportForm(page, o); } catch (e) { toast(e.message); }
+      } }))), h('div', { class: 'block-title', text: 'পরীক্ষার অনুরোধ' }), listBox);
+    try {
+      const items = (await act('lab_orders')).items;
+      listBox.replaceChildren(...(items.length ? items.map((o) => h('div', { class: 'ctl' },
+        h('div', { class: 'what' }, h('b', { text: o.patientName || '—' }), h('span', { class: 'note', text: `${o.tests.join(', ')} · ${LS[o.status] || o.status} · ${fmtDate(o.createdAt)}` })),
+        h('div', { class: 'actions' },
+          o.status === 'sent' ? h('button', { class: 'btn quiet', type: 'button', text: 'নমুনা নিয়েছি', onclick: async () => { try { await act('lab_order_status', { id: o.id, status: 'received' }); render(); } catch (e) { toast(e.message); } } }) : null,
+          ['sent', 'received'].includes(o.status) ? h('button', { class: 'btn primary', type: 'button', text: 'রিপোর্ট দিন', onclick: () => reportForm(page, o) }) : null,
+          o.status === 'reported' ? h('button', { class: 'btn quiet', type: 'button', text: 'দেখুন', onclick: async () => {
+            try { const full = (await act('lab_order_get', { id: o.id })).item; page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })), ...reportNodes(full)); } catch (e) { toast(e.message); }
+          } }) : null))) : [h('p', { class: 'note', text: 'এখনো কোনো অনুরোধ নেই' })]));
+    } catch (e) { listBox.replaceChildren(h('p', { class: 'error', text: e.message })); }
+  }
+
+  function reportForm(page, o) {
+    const rows = o.tests.map((t) => ({ test: t, result: '', unit: '', range: '', flag: '' }));
+    const body = h('tbody');
+    function draw() {
+      body.replaceChildren(...rows.map((r) => h('tr', null,
+        h('td', null, h('input', { value: r.test, oninput: (e) => { r.test = e.target.value; } })),
+        h('td', null, h('input', { value: r.result, oninput: (e) => { r.result = e.target.value; } })),
+        h('td', null, h('input', { value: r.unit, oninput: (e) => { r.unit = e.target.value; } })),
+        h('td', null, h('input', { value: r.range, oninput: (e) => { r.range = e.target.value; } })),
+        h('td', null, h('select', { onchange: (e) => { r.flag = e.target.value; } }, [['', '—'], ['high', 'বেশি'], ['low', 'কম']].map(([v, l]) => h('option', { value: v, selected: r.flag === v, text: l })))))));
+    }
+    draw();
+    const note = h('textarea', { class: 'reply', maxlength: 500, placeholder: 'নোট (ঐচ্ছিক)' });
+    const photos = [];
+    const photoInfo = h('span', { class: 'note' });
+    const file = h('input', { type: 'file', accept: 'image/*', onchange: async (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!f || photos.length >= 2) return;
+      try { photos.push(await shrink(f)); photoInfo.textContent = `${bn(photos.length)}টা ছবি`; } catch (err) { toast(err.message); }
+    } });
+    const send = h('button', { class: 'btn primary', type: 'button', text: 'রিপোর্ট পাঠান' });
+    send.addEventListener('click', async () => {
+      send.disabled = true;
+      try {
+        await act('lab_report', { id: o.id, items: rows.filter((r) => r.test.trim() && r.result.trim()), note: note.value.trim(), photos });
+        toast('রোগীর কাছে রিপোর্ট গেছে');
+        render();
+      } catch (e) { toast(e.message); send.disabled = false; }
+    });
+    page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })),
+      h('div', { class: 'card pad grid' },
+        h('b', { text: `${o.patientName}${o.patientAge != null ? `, ${bn(o.patientAge)} বছর` : ''} · ডা. ${o.doctorName || ''}` }),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'meds' }, h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'একক', 'স্বাভাবিক মাত্রা', 'বেশি/কম'].map((x) => h('th', { text: x })))), body)),
+        h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'আরেকটা সারি', onclick: () => { rows.push({ test: '', result: '', unit: '', range: '', flag: '' }); draw(); } })),
+        note,
+        h('div', { class: 'field-row' }, h('label', { class: 'f' }, h('span', { text: 'ছাপানো রিপোর্টের ছবি (ঐচ্ছিক, সর্বোচ্চ ২টা)' }), file), photoInfo),
+        h('div', null, send)));
   }
 
   start();

@@ -83,7 +83,10 @@ module.exports = handler(async (req, res) => {
       const { db } = require('../../lib/firebase');
       const doctor = (await approvedBadge(user.uid)) === 'doctor';
       const assistant = doctor ? true : !(await db.collection('providers').where('assistantEmails', 'array-contains', email).limit(1).get()).empty;
-      if (!doctor && !assistant) throw new HttpError(403, 'এই ইমেইল কোনো যাচাই করা ডাক্তার বা ডাক্তারের সহকারীর নয়');
+      // অনুমোদিত ফার্মেসি আর প্যাথলজির মালিকও (ওষুধ দেওয়া, রিপোর্ট দেওয়া)
+      const [shop, lab] = doctor || assistant ? [null, null] : await Promise.all([db.doc(`pharmacies/${user.uid}`).get(), db.doc(`labs/${user.uid}`).get()]);
+      const owner = !!((shop && shop.exists && shop.get('status') === 'approved') || (lab && lab.exists && lab.get('status') === 'approved'));
+      if (!doctor && !assistant && !owner) throw new HttpError(403, 'এই ইমেইল কোনো যাচাই করা ডাক্তার, সহকারী, অনুমোদিত ফার্মেসি বা প্যাথলজির নয়');
       require('../../lib/websession').start(res, user.uid, email);
       return { ok: true };
     }
