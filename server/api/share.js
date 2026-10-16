@@ -63,6 +63,50 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // ফার্মেসির কাউন্টারের QR: /api/share?shopqr={কোড} → SVG (ভেতরে /shop/{কোড}; অ্যাপ স্ক্যান করে দোকান চেনে)
+  if (req.query.shopqr) {
+    const code = String(req.query.shopqr).toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+      res.status(404).send('');
+      return;
+    }
+    const svg = await require('qrcode').toString(`https://blood-server-ashy.vercel.app/shop/${code}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.status(200).send(svg);
+    return;
+  }
+
+  // ফোনের সাধারণ ক্যামেরায় দোকানের QR স্ক্যান করলে (/shop/{কোড}): কী করতে হবে
+  if (req.query.shop) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    const code = String(req.query.shop).toUpperCase();
+    let name = '';
+    if (/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+      try {
+        const snap = await db.collection('pharmacies').where('shopCode', '==', code).limit(1).get();
+        if (!snap.empty && snap.docs[0].get('status') === 'approved') name = snap.docs[0].get('name') || '';
+      } catch (e) {
+        console.error('shop page failed', e);
+      }
+    }
+    if (!name) {
+      res.status(404).send(page('Lifolo', '<div class="card"><h1>পাওয়া যায়নি</h1><p class="muted">এই কোডের কোনো ফার্মেসি Lifolo-তে নেই। / No pharmacy with this code.</p></div>'));
+      return;
+    }
+    // কাউন্টারের পোস্টারও এটাই (ছাপার বোতাম)
+    const qr = await require('qrcode').toString(`https://blood-server-ashy.vercel.app/shop/${code}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+    res.status(200).send(page(`${name} · Lifolo`, `<div class="card" style="text-align:center"><span class="tag" style="background:#CFEDEF;color:#00363C">Lifolo ফার্মেসি</span>
+<h1 style="margin-top:10px">${esc(name)}</h1>
+<p>প্রেসক্রিপশনের ওষুধ কিনতে Lifolo অ্যাপে এই QR স্ক্যান করুন</p>
+<div style="background:#fff;border-radius:16px;padding:12px;max-width:280px;margin:0 auto">${qr}</div>
+<p>দোকানের কোড: <b style="font-size:30px;letter-spacing:6px">${esc(code)}</b></p>
+<button onclick="window.print()" style="font:inherit;padding:10px 18px;border-radius:20px;border:0;background:#1F6F78;color:#fff">প্রিন্ট · Print</button>
+<p class="muted">Lifolo অ্যাপে প্রেসক্রিপশন খুলে "দোকানে আছি" → "QR স্ক্যান করুন" চাপুন, অথবা এই কোড লিখুন — প্রেসক্রিপশন এই দোকানে চলে যাবে।<br>Open your prescription in the Lifolo app → "I'm at a pharmacy" → scan this QR or type the code.</p></div>`));
+    return;
+  }
+
   // প্রেসক্রিপশন যাচাই (/rx/{code}): ফার্মেসি QR স্ক্যান করে দেখে আসল কি না
   if (req.query.rx) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

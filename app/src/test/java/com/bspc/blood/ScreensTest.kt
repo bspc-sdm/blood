@@ -197,6 +197,14 @@ class ScreensTest {
     }
 
     @Test
+    fun shopQrCode() {
+        org.junit.Assert.assertEquals("K7M2QX", ShopQr.codeOf("https://blood-server-ashy.vercel.app/shop/K7M2QX"))
+        org.junit.Assert.assertEquals("K7M2QX", ShopQr.codeOf("k7m2qx"))
+        org.junit.Assert.assertNull(ShopQr.codeOf("https://blood-server-ashy.vercel.app/rx/ABCDEFGH23"))
+        org.junit.Assert.assertNull(ShopQr.codeOf("https://example.com/"))
+    }
+
+    @Test
     fun careModeAttachesOnlyAllowedActions() {
         CareMode.asUid.value = "patient1"
         val ok = org.json.JSONObject().put("action", "rx_mine")

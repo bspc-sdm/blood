@@ -143,6 +143,9 @@ test('ডেমো অ্যাকাউন্টে প্রেসক্রি
   const shopOpts = await call(P, 'rx_pharmacy_options', { rxId: rx.id, district: DIST, lat: 24.752, lng: 90.407, mode: 'shop' });
   assert.strictEqual(shopOpts.items[0].id, U.ph1.uid);
   ok('সেবা ফার্মেসি অনলাইন চালু করল (৩ কিমি, ৩০ টাকা) — রোগী দেখলেন "২টার ২টা ওষুধ আছে"; "দোকানে আছি"-তে কাছের মা ফার্মেসি ওপরে');
+  const byName = await call(P, 'rx_pharmacy_options', { rxId: rx.id, district: DIST, lat: 24.9, lng: 90.6, mode: 'shop', q: 'মা ফার' });
+  assert.deepStrictEqual(byName.items.map((x) => x.id), [U.ph1.uid]);
+  ok('দোকানের নাম লিখে ("মা ফার") খুঁজলে দূরে থাকলেও সেই দোকান আসে');
   const far = await call(P, 'rx_pharmacy_options', { rxId: rx.id, district: DIST, lat: 24.9, lng: 90.6, mode: 'online' });
   assert.strictEqual(far.items.length, 0);
   ok('ডেলিভারির দূরত্বের বাইরে থাকলে অনলাইনের তালিকায় আসে না');

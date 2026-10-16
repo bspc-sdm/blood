@@ -17,6 +17,10 @@
       "destination": "/api/share?rx=:code"
     },
     {
+      "source": "/shop/:code",
+      "destination": "/api/share?shop=:code"
+    },
+    {
       "source": "/doctor",
       "destination": "/doctor/index.html"
     },

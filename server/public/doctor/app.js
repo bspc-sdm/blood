@@ -712,6 +712,10 @@
   }
 
   // ---------- ফার্মেসি: দোকানের কোড, অনলাইনে বিক্রি ----------
+  /** কাউন্টারের পোস্টার: /shop/{কোড} পাতাটাই (QR, নাম, কোড, ছাপার বোতাম) */
+  function printPoster(code) {
+    window.open(`/shop/${encodeURIComponent(code)}`, '_blank', 'noopener');
+  }
   async function shopView(page) {
     let d;
     try { d = await act('rx_pharmacy_home'); } catch (e) { page.append(h('p', { class: 'error', text: e.message })); return; }
@@ -727,9 +731,13 @@
       save.disabled = false;
     });
     page.append(
-      h('div', { class: 'card pad grid' }, h('b', { text: 'দোকানের কোড' }),
-        h('div', { style: 'font-size:34px;font-weight:800;letter-spacing:6px', text: d.shopCode }),
-        h('p', { class: 'note', text: 'কাউন্টারে লিখে রাখুন। ক্রেতা দোকানে দাঁড়িয়ে অ্যাপে এই কোড দিলে প্রেসক্রিপশন সাথে সাথে আপনার "প্রেসক্রিপশনের ওষুধ" তালিকায় আসবে।' })),
+      h('div', { class: 'card pad grid' }, h('b', { text: 'দোকানের QR আর কোড' }),
+        h('div', { style: 'display:flex;gap:20px;align-items:center;flex-wrap:wrap' },
+          h('img', { src: `/api/share?shopqr=${d.shopCode}`, alt: 'দোকানের QR', style: 'width:150px;height:150px;background:#fff;border-radius:12px;padding:6px' }),
+          h('div', { class: 'grid', style: 'gap:6px' },
+            h('div', { style: 'font-size:34px;font-weight:800;letter-spacing:6px', text: d.shopCode }),
+            h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'কাউন্টারের পোস্টার প্রিন্ট', onclick: () => printPoster(d.shopCode) })))),
+        h('p', { class: 'note', text: 'পোস্টারটা কাউন্টারে লাগিয়ে রাখুন। ক্রেতা অ্যাপে QR স্ক্যান করলে বা কোড/দোকানের নাম লিখলে প্রেসক্রিপশন সাথে সাথে আপনার "প্রেসক্রিপশনের ওষুধ" তালিকায় আসবে।' })),
       h('div', { class: 'card pad grid' }, h('b', { text: 'অনলাইনে বিক্রি' }),
         h('label', null, en, ' অনলাইনে প্রেসক্রিপশনের অর্ডার নিই (বাসায় পৌঁছে দিই)'),
         h('div', { class: 'field-row', style: 'align-items:center' }, h('span', { text: 'কত কিমি পর্যন্ত' }), radius),

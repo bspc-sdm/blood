@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -169,8 +170,8 @@ object RxNet {
     }
 
     /** mode "shop": দোকানে দাঁড়িয়ে (কাছেরটা আগে); "online": অনলাইনে বিক্রি করা দোকান */
-    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?, mode: String): List<PharmOption> =
-        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).put("mode", mode).apply { if (lat != null && lng != null) put("lat", lat).put("lng", lng) })
+    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?, mode: String, q: String = ""): List<PharmOption> =
+        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).put("mode", mode).put("q", q).apply { if (lat != null && lng != null) put("lat", lat).put("lng", lng) })
             .optJSONArray("items").objs().map {
                 PharmOption(it.str("id"), it.str("name"), it.str("phone"), it.str("address"), if (it.isNull("km")) null else it.optDouble("km"),
                     it.optBoolean("openNow"), it.optBoolean("keepsStock"), it.optInt("have"), it.optInt("total"), it.optJSONArray("missing").strings(),
@@ -275,6 +276,36 @@ object RxNet {
         if (set != null) b.put("set", true).put("enabled", set.enabled).put("noFee", set.noFee).put("fee", set.fee).put("payNumber", set.payNumber).put("payMethods", JSONArray(set.payMethods))
         val o = call("review_settings", b)
         return ReviewSettings(o.optBoolean("enabled"), o.optBoolean("noFee"), o.str("fee"), o.str("payNumber"), o.optJSONArray("payMethods").strings())
+    }
+}
+
+/** দোকানের QR: ভেতরে https://…/shop/{কোড}; স্ক্যান করলে কোড বের করা */
+object ShopQr {
+    fun url(code: String) = "${ServerApi.BASE_URL}/shop/$code"
+
+    private val CODE = Regex("^[A-HJ-NP-Z2-9]{6}$")
+
+    /** QR-এর লেখা → দোকানের কোড (আমাদের /shop/ লিংক, অথবা শুধু কোড) */
+    fun codeOf(raw: String): String? {
+        val t = raw.trim()
+        Regex("/shop/([A-Za-z0-9]{6})(?:[/?#].*)?$").find(t)?.let { m -> m.groupValues[1].uppercase().takeIf { CODE.matches(it) }?.let { return it } }
+        return t.uppercase().takeIf { CODE.matches(it) }
+    }
+
+    fun scan(context: android.content.Context, onCode: (String) -> Unit, onError: (String) -> Unit) {
+        val opts = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE).build()
+        com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(context, opts).startScan()
+            .addOnSuccessListener { b ->
+                val raw = b.rawValue.orEmpty()
+                val code = codeOf(raw)
+                when {
+                    code != null -> onCode(code)
+                    raw.contains("/rx/") -> onError(tr("That's a prescription QR. Scan the QR at the pharmacy counter.", "এটা প্রেসক্রিপশনের QR। ফার্মেসির কাউন্টারের QR স্ক্যান করুন।"))
+                    else -> onError(tr("This isn't a Lifolo pharmacy QR", "এটা Lifolo ফার্মেসির QR নয়"))
+                }
+            }
+            .addOnFailureListener { onError(tr("Couldn't open the scanner. Type the shop's name or code instead.", "স্ক্যানার খোলা গেল না। দোকানের নাম বা কোড লিখুন।")) }
     }
 }
 
@@ -527,6 +558,7 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
     var busy by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var shopCode by remember { mutableStateOf("") }
+    var nameQuery by remember { mutableStateOf("") }
     var ordering by remember { mutableStateOf<PharmOption?>(null) }
     // দোকানে দাঁড়িয়ে: এখনকার লোকেশন (অনুমতি থাকলে) — বাড়ির লোকেশন নয়
     LaunchedEffect(Unit) {
@@ -538,14 +570,31 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
             located = true
         }
     }
-    LaunchedEffect(district, located) {
+    LaunchedEffect(district, located, nameQuery) {
         val d = district ?: return@LaunchedEffect
         if (!located) return@LaunchedEffect
+        // নাম লিখতে থাকলে একটু থেমে খোঁজা
+        if (nameQuery.isNotBlank()) delay(400)
         list = null
         val gps = profile.locationSource == "gps"
         val (la, ln) = here ?: if (gps && profile.lat != null && profile.lng != null) profile.lat to profile.lng else (null to null)
-        runCatching { RxNet.pharmacyOptions(rx.id, d, la, ln, mode) }
+        runCatching { RxNet.pharmacyOptions(rx.id, d, la, ln, mode, nameQuery.trim()) }
             .onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message; list = emptyList() }
+    }
+    // কোড (লেখা বা QR থেকে) → দোকান → পাঠানো
+    fun sendByCode(code: String) {
+        scope.launch {
+            busy = "code"
+            errorMsg = null
+            runCatching { RxNet.shopFind(code) }.onSuccess { sh ->
+                runCatching { RxNet.sendPharmacy(rx.id, sh.id, "shop") }.onSuccess { onSent(sh.name) }.onFailure { errorMsg = it.message }
+            }.onFailure { errorMsg = it.message }
+            busy = null
+        }
+    }
+    fun scan() {
+        errorMsg = null
+        ShopQr.scan(context, onCode = { sendByCode(it) }, onError = { errorMsg = it })
     }
     fun send(id: String, name: String) {
         if (busy == null) scope.launch {
@@ -560,23 +609,27 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     if (mode == "shop") {
-                        Text(tr("Shop code (written at the counter)", "দোকানের কোড (কাউন্টারে লেখা থাকে)"), style = MaterialTheme.typography.labelLarge)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(shopCode, { shopCode = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
-                            Spacer(Modifier.width(8.dp))
-                            Button(onClick = {
-                                scope.launch {
-                                    busy = "code"
-                                    errorMsg = null
-                                    runCatching { RxNet.shopFind(shopCode) }.onSuccess { sh ->
-                                        runCatching { RxNet.sendPharmacy(rx.id, sh.id, "shop") }.onSuccess { onSent(sh.name) }.onFailure { errorMsg = it.message }
-                                    }.onFailure { errorMsg = it.message }
-                                    busy = null
-                                }
-                            }, enabled = busy == null && shopCode.length == 6, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy == "code", tr("Send", "পাঠান")) }
+                        // ১) কাউন্টারের QR স্ক্যান
+                        Button(onClick = { scan() }, enabled = busy == null, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(12.dp)) {
+                            ButtonContent(busy == "code", tr("Scan the shop's QR", "দোকানের QR স্ক্যান করুন"), R.drawable.ic_photo_camera)
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text(tr("Or pick the shop — nearest first", "অথবা দোকান বাছুন — কাছেরটা আগে"), style = MaterialTheme.typography.labelLarge)
+                        // ২) দোকানের নাম লিখে খোঁজা
+                        OutlinedTextField(
+                            nameQuery, { nameQuery = it.take(60) },
+                            label = { Text(tr("Or type the shop's name", "অথবা দোকানের নাম লিখুন")) },
+                            singleLine = true,
+                            leadingIcon = { AppIcon(R.drawable.ic_search, null, Modifier.size(20.dp)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        // ৩) কোড (QR কাজ না করলে)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(shopCode, { shopCode = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6) }, label = { Text(tr("Or the shop code", "অথবা দোকানের কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            OutlinedButton(onClick = { sendByCode(shopCode) }, enabled = busy == null && shopCode.length == 6, shape = RoundedCornerShape(12.dp)) { Text(tr("Send", "পাঠান")) }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(if (nameQuery.isBlank()) tr("Shops near you", "কাছের দোকান") else tr("Shops with this name", "এই নামের দোকান"), style = MaterialTheme.typography.labelLarge)
                     } else {
                         SmallNote(
                             tr(
@@ -594,7 +647,9 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
                     l.isEmpty() -> item {
                         EmptyState(
                             if (mode == "online") R.drawable.ic_local_shipping else R.drawable.ic_storefront,
-                            if (mode == "online") tr("No pharmacy here sells online yet", "এখানে এখনো কোনো ফার্মেসি অনলাইনে বিক্রি করে না") else tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
+                            if (mode == "online") tr("No pharmacy here sells online yet", "এখানে এখনো কোনো ফার্মেসি অনলাইনে বিক্রি করে না")
+                            else if (nameQuery.isNotBlank()) tr("No shop with this name in the app", "এই নামে অ্যাপে কোনো দোকান নেই")
+                            else tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
                             if (mode == "online") tr("Go to a pharmacy and show the QR.", "ফার্মেসিতে গিয়ে QR দেখিয়ে কিনুন।") else tr("Show the QR at the counter instead.", "কাউন্টারে QR দেখিয়েও কিনতে পারেন।"),
                             Modifier.fillMaxWidth().padding(top = 24.dp),
                         )
@@ -908,8 +963,13 @@ fun PharmacyRxSection() {
             Text(tr("Prescriptions", "প্রেসক্রিপশন"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             home?.let { h ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val qr = remember(h.shopCode) { Qr.bitmap(ShopQr.url(h.shopCode), 360)?.asImageBitmap() }
+                    if (qr != null) {
+                        Image(qr, tr("Shop QR", "দোকানের QR"), Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
+                        Spacer(Modifier.width(12.dp))
+                    }
                     Column(Modifier.weight(1f)) {
-                        Text(tr("Shop code", "দোকানের কোড"), style = MaterialTheme.typography.labelLarge)
+                        Text(tr("Shop QR & code", "দোকানের QR ও কোড"), style = MaterialTheme.typography.labelLarge)
                         Text(h.shopCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
                     }
                     Tag(
@@ -918,7 +978,8 @@ fun PharmacyRxSection() {
                         if (h.online.enabled) cs.onTertiaryContainer else cs.onSurfaceVariant,
                     )
                 }
-                SmallNote(tr("Write this at the counter. Customers enter it in the app to send you their prescription.", "কাউন্টারে লিখে রাখুন। ক্রেতা অ্যাপে এই কোড দিলে প্রেসক্রিপশন আপনার কাছে চলে আসবে।"))
+                SmallNote(tr("Put the QR at the counter (print the poster from the web panel or open the link). Customers scan it, type your shop's name or this code to send you their prescription.", "QR কাউন্টারে লাগিয়ে রাখুন (ওয়েব প্যানেল বা নিচের লিংক থেকে পোস্টার ছাপুন)। ক্রেতা QR স্ক্যান করলে, দোকানের নাম বা এই কোড লিখলে প্রেসক্রিপশন আপনার কাছে চলে আসবে।"))
+                SmallAction(tr("Open poster to print", "ছাপার পোস্টার খুলুন"), R.drawable.ic_share, { openUrl(context, ShopQr.url(h.shopCode)) })
             }
             SmallNote(tr("Or enter the code under the QR. Note how many you give — the rest can be given by another pharmacy.", "অথবা QR-এর নিচের কোড দিন। কয়টা দিলেন লিখে রাখুন — বাকিটা অন্য ফার্মেসি দিতে পারবে।"))
             Row(verticalAlignment = Alignment.CenterVertically) {

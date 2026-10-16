@@ -418,6 +418,8 @@ const actions = {
     if (!R.isValidId(b.rxId) || !s || !s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
     const mode = ['shop', 'online'].includes(b.mode) ? b.mode : null;
+    // দোকানের নাম দিয়ে খোঁজা (দোকানে দাঁড়িয়ে) — দূরত্বের সীমা ছাড়া পুরো জেলায়
+    const q = typeof b.q === 'string' ? b.q.trim().toLowerCase().slice(0, 60) : '';
     const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name) }));
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     const hasLoc = typeof b.lat === 'number' && typeof b.lng === 'number';
@@ -427,6 +429,7 @@ const actions = {
       const km = hasLoc && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
       return { d, x, km, on: onlineOf(x) };
     }).filter((p) => {
+      if (q) return String(p.x.name || '').toLowerCase().includes(q) && (mode !== 'online' || p.on.enabled);
       if (mode === 'online') {
         if (!p.on.enabled) return false;
         return p.km != null ? p.km <= p.on.radiusKm : !upazilaId || p.x.upazilaId === upazilaId;
