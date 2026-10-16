@@ -185,6 +185,14 @@ async function uniqueCode() {
 }
 
 const actions = {
+  /** ডাক্তার নিজে: নাম আর চেম্বারগুলোর নাম (ওয়েবে লেখার সময় চেম্বার বাছতে) */
+  async rx_me(req, user) {
+    await requireDoctor(req, user.uid);
+    const p = await db.doc(`providers/${user.uid}`).get();
+    const chambers = p.exists ? K.chambersOf(p.data()).map((c) => c.hospitalNameBn || c.hospitalName || '') : [];
+    return { name: (p.exists && p.get('name')) || '', degrees: (p.exists && p.get('degrees')) || '', chambers };
+  },
+
   // ---------- সহকারী ----------
   /** ডাক্তার: সহকারীদের ইমেইল */
   async rx_team(req, user) {

@@ -1,0 +1,47 @@
+/* Lifolo ডাক্তারের ওয়েব — অ্যাডমিনের রং আর কাঠামো, ওপরে প্রেসক্রিপশনের নিজের অংশ */
+.doc-top { display: flex; align-items: center; gap: 14px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+.doc-top .logo { padding: 0; }
+.doc-top .who { margin-left: auto; color: var(--muted); font-size: 14px; display: flex; gap: 10px; align-items: center; }
+.doc-page { padding: 20px 24px 64px; max-width: 1200px; margin: 0 auto; }
+.split { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } .doc-page { padding: 16px; } .doc-top { padding: 10px 12px; } }
+.plist { display: grid; gap: 6px; max-height: 70vh; overflow-y: auto; }
+.pitem { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; text-align: left; width: 100%; }
+.pitem:hover, .pitem.on { border-color: var(--primary); background: var(--low); }
+.pitem b { display: block; font-weight: 600; }
+.pitem small { color: var(--muted); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.f { display: flex; flex-direction: column; gap: 4px; }
+.f span { font-size: 13px; font-weight: 600; color: var(--muted); }
+.f input, .f textarea, .f select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--low); color: inherit; font: inherit; }
+.f textarea { min-height: 70px; resize: vertical; }
+.f input:focus, .f textarea:focus, .f select:focus { outline: none; border-color: var(--primary); }
+.meds { width: 100%; border-collapse: collapse; }
+.meds th { text-align: left; font-size: 12px; color: var(--faint); padding: 4px 6px; font-weight: 600; }
+.meds td { padding: 4px 6px; vertical-align: top; }
+.meds input, .meds select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--low); color: inherit; font: inherit; font-size: 14px; }
+@media (max-width: 900px) {
+  .meds, .meds tbody, .meds tr, .meds td { display: block; width: 100%; }
+  .meds thead { display: none; }
+  .meds tr { border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 8px; }
+}
+.block-title { font-weight: 600; margin: 18px 0 8px; color: var(--primary); }
+.paper { background: #fff; color: #111; border: 1px solid var(--line); border-radius: 12px; padding: 28px 32px; max-width: 800px; }
+.paper .ph { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 2px solid #1f6f78; padding-bottom: 12px; }
+.paper h2 { margin: 0; font-size: 22px; }
+.paper .muted { color: #555; font-size: 13px; }
+.paper .qr { width: 96px; height: 96px; }
+.paper .pt { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; font-weight: 600; }
+.paper .sec { margin-top: 12px; }
+.paper .sec b { color: #1f6f78; display: block; font-size: 13px; }
+.paper .rxsign { font-size: 28px; font-weight: 700; color: #1f6f78; margin-top: 14px; }
+.paper ol { padding-left: 22px; margin: 6px 0; }
+.paper ol li { margin-bottom: 8px; }
+.paper .how { color: #555; font-size: 14px; }
+.paper .foot { margin-top: 24px; font-size: 11px; color: #777; border-top: 1px solid #ddd; padding-top: 8px; }
+.paper .cancelled { color: #ba1a1a; font-weight: 700; }
+@media print {
+  body * { visibility: hidden; }
+  .paper, .paper * { visibility: visible; }
+  .paper { position: absolute; left: 0; top: 0; border: none; max-width: none; width: 100%; }
+}

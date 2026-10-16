@@ -49,6 +49,20 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // প্রেসক্রিপশনের QR (ডাক্তারের ওয়েবে ছাপার জন্য): /api/share?rxqr={code} → SVG
+  if (req.query.rxqr) {
+    const code = String(req.query.rxqr).toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{10}$/.test(code)) {
+      res.status(404).send('');
+      return;
+    }
+    const svg = await require('qrcode').toString(`https://blood-server-ashy.vercel.app/rx/${code}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.status(200).send(svg);
+    return;
+  }
+
   // প্রেসক্রিপশন যাচাই (/rx/{code}): ফার্মেসি QR স্ক্যান করে দেখে আসল কি না
   if (req.query.rx) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
