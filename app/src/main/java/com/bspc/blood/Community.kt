@@ -2,6 +2,8 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -397,7 +399,7 @@ fun HealthDiscussionTab(refreshKey: Int, onOpenQuestion: (String) -> Unit, onAsk
         loading = false
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().nestedScroll(FabScroll.connection)) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
@@ -772,7 +774,7 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
         loading = false
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().nestedScroll(FabScroll.connection)) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),

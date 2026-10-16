@@ -2,6 +2,8 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
@@ -225,7 +227,7 @@ fun HomeTab(
     val others = list.filter { it.first.id !in processingIds }
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().nestedScroll(FabScroll.connection)) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
@@ -336,6 +338,7 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
     val activeCount = list.count { it.isActive }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(FabScroll.connection),
         topBar = { BackTopBar(tr("My Requests", "আমার রিকোয়েস্ট"), onBack) },
         floatingActionButton = {
             if (!loading && activeCount < Rules.MAX_OPEN_REQUESTS) {

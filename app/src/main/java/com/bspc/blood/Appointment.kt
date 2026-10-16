@@ -2,6 +2,8 @@
 
 package com.bspc.blood
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -107,7 +109,7 @@ fun AppointmentTab(
         }
         return
     }
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().nestedScroll(FabScroll.connection)) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(

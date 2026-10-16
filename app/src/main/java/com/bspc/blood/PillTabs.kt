@@ -2,6 +2,8 @@
 
 package com.bspc.blood
 
+import androidx.compose.animation.animateContentSize
+
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
@@ -187,21 +189,44 @@ fun SmallAction(
 @Composable
 fun SmallFab(text: String, @DrawableRes icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
+    // তালিকা নিচে স্ক্রল করলে শুধু আইকন, উপরে স্ক্রল করলে আবার লেখাসহ (FabScroll)
+    val expanded = FabScroll.expanded.value
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        FabScroll.expanded.value = true
+        onDispose { }
+    }
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = cs.primary,
         contentColor = cs.onPrimary,
         shadowElevation = 4.dp,
-        modifier = modifier.heightIn(min = 44.dp),
+        modifier = modifier.heightIn(min = 44.dp).animateContentSize(),
     ) {
         Row(
-            Modifier.padding(start = 14.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            Modifier.padding(start = 12.dp, end = if (expanded) 16.dp else 12.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            AppIcon(icon, null, Modifier.size(20.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            AppIcon(icon, if (expanded) null else text, Modifier.size(20.dp))
+            androidx.compose.animation.AnimatedVisibility(
+                expanded,
+                enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut(),
+            ) {
+                Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
+/** ভাসমান বাটনের লেখা দেখানো/লুকানো: তালিকার ঘরে Modifier.nestedScroll(FabScroll.connection) */
+object FabScroll {
+    val expanded = androidx.compose.runtime.mutableStateOf(true)
+    val connection = object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+            // আঙুল উপরে (তালিকা নিচে যায়) = ছোট; আঙুল নিচে (তালিকা উপরে যায়) = বড়
+            if (available.y < -6f) expanded.value = false else if (available.y > 6f) expanded.value = true
+            return androidx.compose.ui.geometry.Offset.Zero
         }
     }
 }
