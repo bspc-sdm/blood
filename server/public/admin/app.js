@@ -126,7 +126,7 @@
     detail: {
       approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
       replied: 'উত্তর', 'replied+closed': 'উত্তর দিয়ে বন্ধ', closed: 'বন্ধ', homevisit_unban: 'বাসায় সেবার নিষেধাজ্ঞা তোলা',
-      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', homecare_ban: 'বাসায় সেবা বন্ধ', provider_unsuspend: 'ডাক্তারের তালিকা আবার চালু', provider_suspend: 'ডাক্তারের তালিকা বন্ধ', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
+      homevisit_ban_patient: 'হোম ভিজিট বন্ধ (রোগী)', homevisit_ban_nurse: 'হোম ভিজিট বন্ধ (নার্স)', homecare_ban: 'বাসায় সেবা বন্ধ', provider_unsuspend: 'ডাক্তারের তালিকা আবার চালু', provider_suspend: 'পেশাজীবীর তালিকা সাময়িক বন্ধ', provider_chambers_remove: 'চেম্বার সরানো', med_unblock: 'ওষুধের অর্ডারের ব্লক তোলা',
       disable: 'অ্যাকাউন্ট বন্ধ', enable: 'অ্যাকাউন্ট খোলা',
     },
   };
@@ -1409,7 +1409,7 @@
       if (ps.suspended) {
         return ctl('ডাক্তার/নার্সের তালিকা', ps.suspendReason === 'report' ? 'রিপোর্টের পর তালিকা (চেম্বার আর বাসায় সেবা) বন্ধ।' : 'অ্যাকাউন্ট বন্ধের সাথে তালিকাও বন্ধ।',
           h('span', { class: 'chip bad', text: 'বন্ধ' }),
-          ps.suspendReason === 'report' ? [actionBtn('তালিকা আবার চালু', 'tonal', uact('provider_unsuspend'), 'তালিকা আবার চালু হয়েছে', reload)] : []);
+          []);
       }
       if (!blocked && !pro) return null;
       if (blocked) {
@@ -1456,7 +1456,16 @@
     (u.ambulances || []).forEach((a) => controls.push(ctl(`অ্যাম্বুলেন্স: ${a.name}`, [a.vehicleNo, bn(a.phone)].filter(Boolean).join(', '), listingChip(a.status),
       statusActions('admin_ambulance_resolve', a.id, a.status, 'অ্যাম্বুলেন্স'))));
     if (u.provider) {
-      controls.push(ctl('ডাক্তার/নার্সের তালিকা', `${u.provider.listed ? 'তালিকায় দেখা যায়' : 'তালিকায় নেই'}${u.provider.chambers ? `, ${bn(u.provider.chambers)}টা চেম্বার` : ', চেম্বার নেই'}${u.provider.homeVisit ? ', বাসায় যান' : ''}`, null, []));
+      const pv = u.provider;
+      // সাময়িক বন্ধ / আবার চালু / চেম্বার সরানো (নিজে লেখা জায়গা ভুল বা ভুয়া হলে)
+      const pActs = pv.suspended
+        ? (pv.suspendReason === 'account' ? [] : [actionBtn('আবার চালু', 'tonal', uact('provider_unsuspend'), 'তালিকা আবার চালু হয়েছে', reload)])
+        : [
+          actionBtn('সাময়িক বন্ধ', 'warn', uact('provider_suspend'), 'তালিকা সাময়িক বন্ধ (চেম্বার আর বাসায় সেবা)', reload),
+          ...(pv.chambers ? [actionBtn('চেম্বার সরান', 'warn', uact('provider_chambers_remove'), 'চেম্বার সরানো হয়েছে, সামনের অ্যাপয়েন্টমেন্ট বাতিল', reload)] : []),
+        ];
+      controls.push(ctl('পেশাজীবীর তালিকা', `${pv.suspended ? 'বন্ধ' : pv.listed ? 'তালিকায় দেখা যায়' : 'তালিকায় নেই'}${pv.chambers ? `, ${bn(pv.chambers)}টা চেম্বার` : ', চেম্বার নেই'}${pv.homeVisit ? ', বাসায় যান' : ''}`,
+        pv.suspended ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null, pActs));
     }
 
     const facts = [

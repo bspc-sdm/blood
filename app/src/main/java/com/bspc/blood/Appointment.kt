@@ -121,9 +121,12 @@ fun AppointmentTab(
                     AppIcon(R.drawable.ic_add, if (badge == "nurse") tr("Turn on home care", "বাসায় সেবা চালু করুন") else tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
                 }
             }
-            // বাসায় সেবা (আগে ক্যালেন্ডারের জায়গা; নিজের অ্যাপয়েন্টমেন্ট এখন প্রোফাইলে, চেম্বারের বুকিং "আমার চেম্বার"-এ)
-            androidx.compose.material3.TextButton(onClick = { showHome = true }) {
-                ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
+            // যাঁর চেম্বার/বাসায় সেবা আছে: নিচের ভাসমান বাটন "আমার চেম্বার", তাই "বাসায় সেবা" উপরে;
+            // বাকিদের জন্য "বাসায় সেবা" নিচের ভাসমান বাটনে
+            if (isProvider && hasChamber == true) {
+                androidx.compose.material3.TextButton(onClick = { showHome = true }) {
+                    ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
+                }
             }
         }
         PillTabs(
@@ -149,6 +152,8 @@ fun AppointmentTab(
             onEditChamber,
             Modifier.align(Alignment.BottomEnd).padding(16.dp),
         )
+    } else {
+        SmallFab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health, { showHome = true }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
     }
 }
@@ -889,7 +894,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                 )
             }
             if (chambers.size < 3) {
-                OutlinedButton(onClick = { pickFor = -1 }, modifier = Modifier.fillMaxWidth()) {
+                // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে (হাসপাতালে বসেন না)
+                OutlinedButton(onClick = { if (type == "doctor") pickFor = -1 else chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }
@@ -978,6 +984,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                         !homeCapable && chambers.isEmpty() -> tr("Add a chamber", "অন্তত একটা চেম্বার যোগ করুন")
                         !nurse && chambers.isEmpty() && !home.enabled ->
                             tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
+                        chambers.any { it.custom && (it.hospitalName.trim().length < 3 || it.district.isBlank() || it.address.trim().length < 5) } ->
+                            tr("Write the place name, district and address", "জায়গার নাম, জেলা আর ঠিকানা লিখুন")
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
                         chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
@@ -1101,13 +1109,48 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    if (c.area.isNotBlank()) SmallNote(c.area)
+            if (c.custom) {
+                // নিজের জায়গা: নাম, জেলা, ঠিকানা (অনুমোদন লাগে না; সমস্যা হলে অ্যাডমিন সরান)
+                var pickDistrict by remember { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = c.hospitalName,
+                        onValueChange = { onChange(c.copy(hospitalName = it.take(100), hospitalNameBn = it.take(100))) },
+                        label = { Text(tr("Place name", "জায়গার নাম")) },
+                        placeholder = { Text(tr("e.g. Fit Life Gym", "যেমন: ফিট লাইফ জিম")) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
                 }
-                IconButton(onClick = onChangeHospital) { AppIcon(R.drawable.ic_edit, tr("Change hospital", "হাসপাতাল বদলান")) }
-                IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
+                OutlinedButton(onClick = { pickDistrict = true }, modifier = Modifier.fillMaxWidth()) {
+                    ButtonContent(false, if (c.district.isBlank()) tr("Choose district", "জেলা বেছে নিন") else Districts.label(c.district), R.drawable.ic_location_on)
+                }
+                OutlinedTextField(
+                    value = c.address,
+                    onValueChange = { onChange(c.copy(address = it.take(150))) },
+                    label = { Text(tr("Address", "ঠিকানা")) },
+                    placeholder = { Text(tr("House, road, area", "বাড়ি, রোড, এলাকা")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (pickDistrict) {
+                    SearchPickDialog(
+                        title = tr("District", "জেলা"),
+                        items = Districts.ALL,
+                        label = { Districts.label(it.bn) },
+                        onPick = { d -> if (d != null) onChange(c.copy(district = d.bn, upazilaId = null)); pickDistrict = false },
+                        onDismiss = { pickDistrict = false },
+                    )
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        if (c.area.isNotBlank()) SmallNote(c.area)
+                    }
+                    IconButton(onClick = onChangeHospital) { AppIcon(R.drawable.ic_edit, tr("Change hospital", "হাসপাতাল বদলান")) }
+                    IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
+                }
             }
             Text(tr("Days", "কোন কোন বার"), style = MaterialTheme.typography.labelLarge)
             ChipRows(Weekdays.ORDER.map { it.toString() }, c.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {

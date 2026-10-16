@@ -326,3 +326,16 @@ test('রক্তদানের তারিখ বদল: সতর্কত�
   assert.strictEqual(R.donationRisk(500 * D, 620 * D), null); // ১২০ দিন
   assert.strictEqual(R.donationRisk(500 * D, 500 * D), null);
 });
+
+test('নিজের লেখা চেম্বারের জায়গা (জিম/অফিস): নাম, জেলা, ঠিকানা লাগে', () => {
+  const K = require('../lib/care');
+  const t = { days: [1], start: '09:00', end: '11:00' };
+  const ok = K.parseChambers([{ placeName: 'Power Gym', district: 'ঢাকা', address: 'House 1, Road 2, Dhanmondi', ...t }], new Map(), true);
+  // ডাক্তার নিজে লিখতে পারেন না — হাসপাতালের তালিকা থেকে
+  assert.ok(K.parseChambers([{ placeName: 'Power Gym', district: 'ঢাকা', address: 'House 1, Road 2, Dhanmondi', ...t }], new Map()).error);
+  assert.ok(!ok.error);
+  assert.strictEqual(ok.chambers[0].custom, true);
+  assert.strictEqual(ok.chambers[0].hospitalId, null);
+  assert.ok(K.parseChambers([{ placeName: 'Gym', district: 'নেই', address: 'House 1, Road 2', ...t }], new Map(), true).error);
+  assert.ok(K.parseChambers([{ placeName: 'Power Gym', district: 'ঢাকা', address: '', ...t }], new Map(), true).error);
+});

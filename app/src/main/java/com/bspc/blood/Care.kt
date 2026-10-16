@@ -254,11 +254,14 @@ data class Chamber(
     val end: String = "",
     /** ডাক্তার/নার্স "ফি চাই না" টিক দিয়েছেন */
     val noFee: Boolean = false,
+    /** নিজে লেখা জায়গা (পুষ্টিবিদ/ট্রেইনারের জিম, অফিস) — hospitalName = জায়গার নাম */
+    val custom: Boolean = false,
+    val address: String = "",
 ) {
     /** তালিকায় দেখানোর লেখা: "ফি: ৫০০ টাকা" / "ফি নেই"; কিছু না দিলে (আগের ভার্সন) ফাঁকা */
     val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
-    val area: String get() = Areas.label(district, upazilaId, unionId)
+    val area: String get() = listOf(address, Areas.label(district, upazilaId, unionId)).filter { it.isNotBlank() }.joinToString(", ")
 
     /** "শনি, রবি, সোম · বিকাল ৫:০০ – রাত ৯:০০" (+ নোট) */
     val timeText: String
@@ -279,6 +282,7 @@ data class Chamber(
     }
 
     fun toJson(): JSONObject = JSONObject().put("hospitalId", hospitalId).put("room", room).put("schedule", schedule)
+        .apply { if (custom) put("placeName", hospitalName).put("district", district).put("address", address).apply { upazilaId?.let { put("upazilaId", it) } } }
         .put("fee", fee).put("noFee", noFee).put("appointments", appointments).put("serialPhone", serialPhone)
         .put("days", JSONArray(days)).put("start", start).put("end", end)
 
@@ -288,7 +292,11 @@ data class Chamber(
             o.str("district"), o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.str("room"), o.str("schedule"),
             o.str("fee"), o.optBoolean("appointments"), o.str("serialPhone"),
             o.optJSONArray("days").ints(), o.str("start"), o.str("end"), o.optBoolean("noFee"),
+            o.optBoolean("custom"), o.str("address"),
         )
+
+        /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */
+        fun customNew(district: String) = Chamber(null, "", "", district, null, null, "", "", "", true, "", custom = true)
 
         fun from(h: Hospital) = Chamber(h.id, h.nameEn, h.nameBn, h.district, h.upazilaId, h.unionId, "", "", "", true, "")
     }

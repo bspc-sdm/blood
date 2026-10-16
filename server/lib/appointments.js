@@ -189,7 +189,7 @@ module.exports = {
     // শুধু বাসায় গিয়ে সেবা দিলে চেম্বার না থাকলেও চলে; নার্সের চেম্বার নেই (পাঠালেও বাদ)
     const nurse = !CHAMBER_TYPES.includes(badge);
     if (nurse && !homeVisit.enabled && !keepHome) throw err(['Turn on home care', 'বাসায় সেবা চালু করুন']);
-    const parsed = nurse || (b.chambers.length === 0 && homeVisit.enabled) ? { chambers: [] } : K.parseChambers(b.chambers, hospitals);
+    const parsed = nurse || (b.chambers.length === 0 && homeVisit.enabled) ? { chambers: [] } : K.parseChambers(b.chambers, hospitals, badge !== 'doctor');
     if (parsed.error) throw err(parsed.error);
     const gender = ['male', 'female'].includes(b.gender) ? b.gender : '';
     if (homeVisit.enabled && b.homeVisit?.termsAccepted !== true) {

@@ -43,16 +43,36 @@ function pickCodes(v, allowed, max) {
   return [...new Set(v.filter((x) => allowed.includes(x)))].slice(0, max);
 }
 
+/** নিজের লেখা জায়গা: নাম, জেলা (আর থাকলে উপজেলা), ঠিকানা। অনুমোদন লাগে না — সমস্যা হলে অ্যাডমিন পরে সরান/বন্ধ করেন */
+function customPlace(c) {
+  const DISTRICTS = require('./districts');
+  const { UPAZILA } = require('./hospital-match');
+  const name = str(c.placeName, 100);
+  const address = str(c.address, 150);
+  if (name.length < 3) return { error: ['Write the name of the place', 'জায়গার নাম লিখুন'] };
+  if (!DISTRICTS.some((d) => d.bn === c.district)) return { error: ['Choose the district', 'জেলা বেছে নিন'] };
+  if (address.length < 5) return { error: ['Write the address', 'ঠিকানা লিখুন'] };
+  const u = Number.isInteger(c.upazilaId) ? UPAZILA.get(c.upazilaId) : null;
+  return { id: null, nameEn: name, nameBn: name, district: c.district, upazilaId: u && u.district === c.district ? u.id : null, unionId: null, custom: true, address };
+}
+
 /**
  * অ্যাপের পাঠানো চেম্বার যাচাই। hospitals: id → হাসপাতাল (সার্ভার আগে থেকে পড়ে রাখে)।
  * ভুল থাকলে { error: [en, bn] }।
  */
-function parseChambers(list, hospitals) {
+function parseChambers(list, hospitals, allowCustom = false) {
   if (!Array.isArray(list) || list.length === 0) return { error: ['Add at least one chamber', 'অন্তত একটা চেম্বার যোগ করুন'] };
   if (list.length > MAX_CHAMBERS) return { error: ['Up to 3 chambers', 'সর্বোচ্চ ৩টা চেম্বার'] };
   const out = [];
   for (const c of list) {
-    const h = c && hospitals.get(c.hospitalId);
+    // হাসপাতালের তালিকা থেকে বাছা, অথবা নিজের জায়গা (জিম, অফিস, দোকান) নাম-জেলা-ঠিকানা লিখে
+    let h = c && hospitals.get(c.hospitalId);
+    // নিজের লেখা জায়গা শুধু পুষ্টিবিদ আর ফিটনেস ট্রেইনারের (তাঁরা হাসপাতালে বসেন না); ডাক্তার তালিকা থেকে বাছেন
+    if (!h && c && !c.hospitalId && allowCustom) {
+      const place = customPlace(c);
+      if (place.error) return place;
+      h = place;
+    }
     if (!h) return { error: ['Choose the hospital from the list', 'তালিকা থেকে হাসপাতাল বেছে নিন'] };
     // বার (০ = রবি … ৬ = শনি, JS-এর মতো) আর সময় ("17:00"); লেখা শুধু বাড়তি নোট
     const days = Array.isArray(c.days) ? [...new Set(c.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
@@ -68,6 +88,7 @@ function parseChambers(list, hospitals) {
       district: h.district,
       upazilaId: h.upazilaId || null,
       unionId: h.unionId || null,
+      ...(h.custom ? { custom: true, address: h.address } : {}),
       room: str(c.room, 60),
       days,
       start,

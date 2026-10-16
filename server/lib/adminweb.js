@@ -331,9 +331,25 @@ const actions = {
       case 'provider_unsuspend':
         await require('./apptcancel').liftProvider(uid);
         break;
+      // সাময়িক বন্ধ: চেম্বার আর বাসায় সেবা তালিকা থেকে সরে, সামনের অ্যাপয়েন্টমেন্ট বাতিল; "আবার চালু" দিয়ে ফেরে
       case 'provider_suspend':
-        await require('./apptcancel').suspendProvider(uid, 'report');
+        await require('./apptcancel').suspendProvider(uid, 'admin');
         break;
+      // চেম্বার মুছে ফেলা (ভুল/ভুয়া জায়গা): সব চেম্বার সরে, সামনের অ্যাপয়েন্টমেন্ট বাতিল; বাসায় সেবা থাকে
+      case 'provider_chambers_remove': {
+        const pRef = db.doc(`providers/${uid}`);
+        const p = await pRef.get();
+        if (p.exists) {
+          await pRef.update({ chambers: [], chamber: FieldValue.delete(), listed: false, appointments: false, active: false });
+          await require('./apptcancel').cancelStale(uid, () => false, ['The chamber was removed', 'চেম্বারটা সরানো হয়েছে']);
+          await require('./requestend').pushUsers([uid], (u, lang) => ({
+            title: R.L(lang, 'Your chambers were removed by the Lifolo team', 'Lifolo টিম আপনার চেম্বার সরিয়ে দিয়েছে'),
+            body: String(req.body?.reason || '').trim().slice(0, 200),
+            data: { type: 'appointment', role: 'provider' },
+          }));
+        }
+        break;
+      }
       case 'homecare_ban':
       case 'homevisit_ban_nurse': // আগের নাম
         await require('./homecare').blockHomeCare(uid);
@@ -359,7 +375,7 @@ const actions = {
           await stateRef.set({ disabledReason: FieldValue.delete(), disabledAt: FieldValue.delete() }, { merge: true });
           // চেম্বারের তালিকা আগের মতো (বাসায় সেবা নিজে আবার চালু করবেন); রিপোর্টের কারণে বন্ধ থাকলে সেটা আলাদা
           const p = await db.doc(`providers/${uid}`).get();
-          if (p.exists && p.get('suspendReason') !== 'report') await require('./apptcancel').liftProvider(uid);
+          if (p.exists && p.get('suspendReason') === 'account') await require('./apptcancel').liftProvider(uid);
         }
         break;
       }
