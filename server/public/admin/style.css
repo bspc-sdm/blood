@@ -348,3 +348,4 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* খোঁজার ঘর আর নিচের লেখার মাঝে ফাঁক */
 .search-hint { margin: 12px 0 0; }
+textarea.words { width: 100%; min-height: 220px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); resize: vertical; margin: 6px 0 12px; } /* FEATURE:jobs */

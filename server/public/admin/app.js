@@ -107,12 +107,13 @@
     report: { question: 'প্রশ্ন', answer: 'উত্তর', tip: 'টিপস', ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', homecare: 'বাসায় সেবা', provider: 'ডাক্তার/নার্স (চেম্বার)', bloodbank: 'ব্লাড ব্যাংক', job: 'চাকরির বিজ্ঞাপন' },
     bankKind: { govt: 'সরকারি হাসপাতাল', private: 'বেসরকারি', org: 'স্বেচ্ছাসেবী সংগঠন' },
     bankService: { whole_blood: 'পূর্ণ রক্ত', components: 'প্লাজমা ও অন্যান্য অংশ', platelets: 'প্লাটিলেট', screening: 'স্ক্রিনিং ও ক্রস-ম্যাচ', donate_here: 'এখানে রক্ত দেওয়া যায়' },
-    listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল', open: 'চালু', closed: 'শেষ', verified: 'যাচাই করা', none: 'যাচাই চাননি' },
+    listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল', open: 'চালু', closed: 'শেষ', verified: 'যাচাই করা', none: 'যাচাই চাননি', paused: 'বিরতি', changes: 'ঠিক করতে বলা হয়েছে' },
     jobCat: { health: 'স্বাস্থ্যসেবা', education: 'শিক্ষা', sales: 'বিক্রয় ও মার্কেটিং', accounts: 'হিসাব ও অর্থ', office: 'অফিস ও প্রশাসন', it: 'আইটি', driving: 'গাড়ি চালনা ও ডেলিভারি', factory: 'কারখানা', hospitality: 'হোটেল ও রেস্টুরেন্ট', security: 'নিরাপত্তা', construction: 'নির্মাণ ও মেরামত', domestic: 'গৃহস্থালি কাজ', other: 'অন্যান্য' }, // FEATURE:jobs
-    jobType: { fulltime: 'ফুলটাইম', parttime: 'পার্টটাইম', contract: 'চুক্তিভিত্তিক', internship: 'ইন্টার্নশিপ' }, // FEATURE:jobs
+    jobType: { fulltime: 'ফুলটাইম', parttime: 'পার্টটাইম', contract: 'চুক্তিভিত্তিক', internship: 'ইন্টার্নশিপ', remote: 'দূর থেকে কাজ' }, // FEATURE:jobs
     edu: { none: 'লাগবে না', ssc: 'এসএসসি', hsc: 'এইচএসসি', diploma: 'ডিপ্লোমা', bachelor: 'স্নাতক', masters: 'স্নাতকোত্তর' }, // FEATURE:jobs
     empKind: { company: 'কোম্পানি', shop: 'দোকান/ব্যবসা', hospital: 'হাসপাতাল/ক্লিনিক', school: 'শিক্ষাপ্রতিষ্ঠান', ngo: 'এনজিও/সংগঠন', household: 'বাসাবাড়ি', other: 'অন্যান্য' }, // FEATURE:jobs
-    app: { applied: 'আবেদন করা', seen: 'দেখা হয়েছে', shortlisted: 'শর্টলিস্ট', interview: 'ইন্টারভিউ', rejected: 'বাছাই হয়নি', hired: 'নিয়োগ', withdrawn: 'তুলে নিয়েছেন' }, // FEATURE:jobs
+    app: { applied: 'আবেদন করা', seen: 'দেখা হয়েছে', shortlisted: 'শর্টলিস্ট', interview: 'ইন্টারভিউ', offered: 'প্রস্তাব দেওয়া', rejected: 'বাছাই হয়নি', hired: 'নিয়োগ', withdrawn: 'তুলে নিয়েছেন' }, // FEATURE:jobs
+    offer: { pending: 'উত্তরের অপেক্ষায়', accepted: 'গ্রহণ করেছেন', declined: 'ফিরিয়ে দিয়েছেন', expired: 'মেয়াদ শেষ' }, // FEATURE:jobs
     order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
     visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
     appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ', completed: 'সম্পন্ন' },
@@ -319,6 +320,7 @@
       { path: 'hospitals', label: 'হাসপাতাল', icon: 'hospital', count: () => pendingCount('hospitalRequests') },
       { path: 'jobs', label: 'চাকরির বিজ্ঞাপন', icon: 'work', count: () => pendingCount('jobs') }, // FEATURE:jobs
       { path: 'employers', label: 'নিয়োগকর্তা', icon: 'verified', count: () => pendingCount('employers') }, // FEATURE:jobs
+      { path: 'jobwords', label: 'চাকরির নিষিদ্ধ শব্দ', icon: 'flag' }, // FEATURE:jobs
     ] },
     { group: 'সহায়তা', items: [
       { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
@@ -423,6 +425,7 @@
     pharmacies: (r, alive) => pageListing('pharmacies', r, alive),
     jobs: (r, alive) => pageListing('jobs', r, alive), // FEATURE:jobs
     employers: (r, alive) => pageListing('employers', r, alive), // FEATURE:jobs
+    jobwords: pageJobWords, // FEATURE:jobs
     ambulances: (r, alive) => pageListing('ambulances', r, alive),
     bloodBanks: (r, alive) => pageListing('bloodBanks', r, alive),
     hospitals: pageHospitals,
@@ -856,6 +859,25 @@
   // =========================================================
   // অনুমোদনের তালিকা: ব্যাজ, ফার্মেসি, অ্যাম্বুলেন্স
   // =========================================================
+  // FEATURE:jobs START
+  /** বেতনের লেখা: সীমা / আলোচনাসাপেক্ষ / বিনা বেতনে */
+  function jobSalary(j) {
+    if (j.paid === false) return `বিনা বেতনে${j.durationMonths ? ` · ${bn(j.durationMonths)} মাস` : ''}`;
+    const range = j.salaryMax ? `৳${bn(j.salaryMin)}–${bn(j.salaryMax)}` : '';
+    return [range, j.salaryNegotiable ? 'আলোচনাসাপেক্ষ' : ''].filter(Boolean).join(' · ') || '—';
+  }
+  /** নিয়োগকর্তার ইতিহাস: কতবার বাতিল, রিপোর্ট, সতর্ক; বিজ্ঞাপন বন্ধ কি না */
+  function empHistory(x) {
+    if (!x) return null;
+    const bits = [];
+    if (x.rejectedCount) bits.push(h('span', { class: 'chip', text: `বাতিল ${bn(x.rejectedCount)}` }));
+    if (x.reportCount) bits.push(h('span', { class: 'chip bad', text: `রিপোর্ট ${bn(x.reportCount)}` }));
+    if (x.warnCount) bits.push(h('span', { class: 'chip', text: `সতর্ক ${bn(x.warnCount)}` }));
+    if (x.postingBlocked) bits.push(h('span', { class: 'chip bad', text: 'বিজ্ঞাপন দেওয়া বন্ধ' }));
+    return bits.length ? h('div', { class: 'chips' }, bits) : null;
+  }
+  // FEATURE:jobs END
+
   const LISTINGS = {
     badges: {
       title: 'ব্যাজ',
@@ -940,28 +962,31 @@
     jobs: {
       title: 'চাকরির বিজ্ঞাপন',
       action: 'admin_jobs',
-      tabs: [['pending', 'অপেক্ষায়'], ['open', 'চালু'], ['closed', 'শেষ'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
+      tabs: [['pending', 'অপেক্ষায়'], ['changes', 'ঠিক করতে বলা'], ['open', 'চালু'], ['paused', 'বিরতি'], ['closed', 'শেষ'], ['suspended', 'বন্ধ'], ['rejected', 'বাতিল']],
       search: 'পদ, প্রতিষ্ঠান, এলাকা',
       text: (j) => [j.title, j.orgName, j.areaLabel, j.district, L.jobCat[j.category]],
       cols: [
         { label: 'পদ', main: true, cell: (j) => [j.title, h('div', { class: 'chips' },
           h('span', { class: 'chip pri', text: L.jobCat[j.category] || j.category }), h('span', { class: 'chip', text: L.jobType[j.type] || j.type }),
-          j.employerVerified ? h('span', { class: 'chip good', text: 'যাচাই করা নিয়োগকর্তা' }) : null)] },
-        { label: 'প্রতিষ্ঠান', cell: (j) => j.orgName || '—' },
-        { label: 'বেতন', cell: (j) => `৳${bn(j.salaryMin)}–${bn(j.salaryMax)}` },
+          j.employerVerified ? h('span', { class: 'chip good', text: 'যাচাই করা নিয়োগকর্তা' }) : null,
+          ...(j.flags || []).map((f) => h('span', { class: 'chip bad', text: f.text })))] },
+        { label: 'প্রতিষ্ঠান', cell: (j) => [j.orgName || '—', empHistory(j.employer)] },
+        { label: 'বেতন', cell: (j) => jobSalary(j) },
         { label: 'এলাকা', cell: (j) => j.areaLabel || j.district || '—' },
         { label: 'শেষ তারিখ', cell: (j) => [fmtDate(j.deadline), h('div', { class: 'small', text: `${bn(j.applicants)} জন আবেদন` })] },
-        { label: 'বদল / নোট', cell: (j) => reviewCell(j) },
+        { label: 'বদল / নোট', cell: (j) => [reviewCell(j), j.statusReason ? h('div', { class: 'small', text: `কারণ: ${j.statusReason}` }) : null] },
       ],
-      note: 'বিজ্ঞাপনে কোনো ফি বা জামানত চাওয়া হলে, বা বেতন অস্বাভাবিক বেশি হলে বাতিল করুন।',
+      note: 'লাল চিহ্ন = স্বয়ংক্রিয় যাচাইয়ে যা ধরা পড়েছে। ছোটখাটো সমস্যা হলে "ঠিক করতে বলুন" (নিয়োগকর্তা বদলে আবার দেবেন); প্রতারণা বা ফি চাইলে বাতিল।',
       id: (j) => j.id,
       owner: (j) => j.employerUid,
       actions: (j, st) => {
         const reason = reasonBox();
         const run = (status) => () => act('admin_job_resolve', { id: j.id, status, reason: reason.value.trim() });
         const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/jobs:${encodeURIComponent(j.id)}`, text: 'যাচাই করে চালু' });
-        if (st === 'pending') return [reason, verifyBtn, actionBtn('বাতিল', 'warn', run('rejected'), 'বিজ্ঞাপন বাতিল করা হয়েছে', afterChange)];
-        if (st === 'open') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), 'বিজ্ঞাপন বন্ধ করা হয়েছে', afterChange)];
+        const fix = actionBtn('ঠিক করতে বলুন', 'tonal', run('changes'), 'নিয়োগকর্তাকে ঠিক করতে বলা হয়েছে', afterChange);
+        if (st === 'pending') return [reason, verifyBtn, fix, actionBtn('বাতিল', 'warn', run('rejected'), 'বিজ্ঞাপন বাতিল করা হয়েছে', afterChange)];
+        if (st === 'changes') return [reason, actionBtn('বাতিল', 'warn', run('rejected'), 'বিজ্ঞাপন বাতিল করা হয়েছে', afterChange)];
+        if (st === 'open' || st === 'paused') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), 'বিজ্ঞাপন বন্ধ করা হয়েছে', afterChange)];
         if (st === 'suspended') return [actionBtn('আবার চালু করুন', 'tonal', run('approved'), 'আবার চালু হয়েছে', afterChange)];
         if (st === 'rejected') return [verifyBtn];
         return [];
@@ -978,15 +1003,24 @@
         { label: 'ফোন', cell: (e) => bn(e.phone) },
         { label: 'এলাকা', cell: (e) => [e.areaLabel || e.district || '—', e.address ? h('div', { class: 'small', text: e.address }) : null] },
         { label: 'ওয়েবসাইট', cell: (e) => (e.website ? h('a', { href: /^https?:/.test(e.website) ? e.website : `https://${e.website}`, target: '_blank', rel: 'noopener noreferrer', text: e.website }) : '—') },
+        { label: 'ইতিহাস', cell: (e) => empHistory(e.history) || '—' },
         { label: 'কাগজ / যাচাই', cell: (e) => reviewCell(e) },
       ],
+      note: 'বারবার বাতিল বা রিপোর্ট হলে প্রথমে "সতর্ক করুন"; তারপরও নিয়ম ভাঙলে "বিজ্ঞাপন দেওয়া বন্ধ" (তাঁর সব চালু বিজ্ঞাপনও নামবে)।',
       id: (e) => e.id,
       owner: (e) => e.id,
       actions: (e, st) => {
         const reason = reasonBox();
         const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/employers:${encodeURIComponent(e.id)}`, text: 'যাচাই করুন' });
-        if (st === 'verified') return [reason, actionBtn('যাচাই বাতিল', 'warn', () => act('admin_employer_resolve', { id: e.id, status: 'rejected', reason: reason.value.trim() }), 'যাচাই বাতিল করা হয়েছে', afterChange)];
-        return [verifyBtn];
+        const blocked = e.history && e.history.postingBlocked;
+        const discipline = [
+          actionBtn('সতর্ক করুন', 'tonal', () => act('admin_employer_warn', { id: e.id, reason: reason.value.trim() }), 'সতর্কবার্তা পাঠানো হয়েছে', afterChange),
+          blocked
+            ? actionBtn('বিজ্ঞাপন দেওয়া আবার চালু', 'tonal', () => act('admin_employer_block', { id: e.id, block: false }), 'আবার বিজ্ঞাপন দিতে পারবেন', afterChange)
+            : actionBtn('বিজ্ঞাপন দেওয়া বন্ধ', 'warn', () => act('admin_employer_block', { id: e.id, block: true, reason: reason.value.trim() }), 'বিজ্ঞাপন দেওয়া বন্ধ করা হয়েছে', afterChange),
+        ];
+        if (st === 'verified') return [reason, actionBtn('যাচাই বাতিল', 'warn', () => act('admin_employer_resolve', { id: e.id, status: 'rejected', reason: reason.value.trim() }), 'যাচাই বাতিল করা হয়েছে', afterChange), ...discipline];
+        return [reason, verifyBtn, ...discipline];
       },
     },
     // FEATURE:jobs END
@@ -1180,9 +1214,12 @@
         ['ফোন', bn(x.phone)], ['এলাকা', area], ['ভাড়া', x.fare]];
     }
     if (list === 'jobs') { // FEATURE:jobs
+      const qk = { text: 'লেখা', choice: 'বাছাই', yesno: 'হ্যাঁ/না' };
       return [['পদ', x.title], ['প্রতিষ্ঠান', x.orgName], ['ধরন', `${L.jobCat[x.category] || x.category} · ${L.jobType[x.type] || x.type}`],
-        ['বেতন (মাসিক)', `৳${bn(x.salaryMin)}–${bn(x.salaryMax)}`], ['পদ সংখ্যা', bn(x.vacancies)], ['অভিজ্ঞতা', `${bn(x.experienceYears)} বছর`],
-        ['শিক্ষা', L.edu[x.education] || x.education], ['এলাকা', area], ['শেষ তারিখ', fmtDate(x.deadline)], ['কাজের বর্ণনা', x.description]];
+        ['বেতন (মাসিক)', jobSalary(x)], ['পদ সংখ্যা', bn(x.vacancies)], ['অভিজ্ঞতা', `${bn(x.experienceYears)} বছর`],
+        ['শিক্ষা', L.edu[x.education] || x.education], ['এলাকা', area], ['শেষ তারিখ', fmtDate(x.deadline)], ['কাজের বর্ণনা', x.description],
+        ['আবেদনের প্রশ্ন', (x.questions || []).map((q) => `${q.text} (${qk[q.kind] || q.kind}${q.required ? ', বাধ্যতামূলক' : ''})`).join('\n')],
+        ['স্বয়ংক্রিয় যাচাই', (x.flags || []).map((f) => f.text).join('\n') || 'কিছু ধরা পড়েনি']];
     }
     if (list === 'employers') { // FEATURE:jobs
       return [['নাম', x.name], ['ধরন', L.empKind[x.kind] || x.kind], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['ওয়েবসাইট', x.website], ['পরিচয়', x.about]];
@@ -1196,7 +1233,7 @@
 
   async function findForVerify(list, key) {
     const match = (it) => (list === 'badges' ? it.uid + (it.change ? ':change' : '') : it.id) === key;
-    for (const st of list === 'employers' ? ['pending', 'none', 'rejected'] : ['pending', 'rejected']) {
+    for (const st of list === 'employers' ? ['pending', 'none', 'rejected'] : list === 'jobs' ? ['pending', 'changes', 'rejected'] : ['pending', 'rejected']) {
       const items = await getList(list, st);
       const it = items.find(match);
       if (it) return { item: it, st };
@@ -1288,6 +1325,8 @@
       ? act('admin_badge_resolve', { uid: id, approve: false, reason: reason.value.trim(), ...(correction ? { correction: true } : {}) })
       : act(RESOLVE[list], { id, status: 'rejected', reason: reason.value.trim() })), 'বাতিল করা হয়েছে', done);
     const note = h('input', { class: 'reason', maxlength: 200, placeholder: 'কোন ছবি লাগবে (মালিক দেখবেন)', 'aria-label': 'কোন ছবি লাগবে' });
+    // চাকরি: ছোটখাটো সমস্যায় বাতিল না করে ঠিক করতে বলা (একই কারণের ঘর)
+    const fixJob = list === 'jobs' ? actionBtn('ঠিক করতে বলুন', 'tonal', () => act('admin_job_resolve', { id, status: 'changes', reason: reason.value.trim() }), 'নিয়োগকর্তাকে ঠিক করতে বলা হয়েছে', done) : null; // FEATURE:jobs
     const askDocs = actionBtn('ছবি চান', 'tonal', () => act('admin_request_docs', { kind, id, note: note.value.trim() }), 'মালিককে ছবি দিতে বলা হয়েছে', done);
     // মালিক আছে কি না (অ্যাডমিনের যোগ করা ব্লাড ব্যাংকের মালিক নেই)
     const hasOwner = list === 'badges' || list === 'pharmacies' || list === 'employers' || !!x.ownerUid;
@@ -1303,10 +1342,37 @@
         // আলাদা কার্ড: এখানকার বাটনের ভুলে অনুমোদনের বাটন খুলে যায় না
         h('div', { class: 'card pad verify-side' },
           h('h2', { class: 'section-title', text: 'না মিললে' }),
-          h('div', { class: 'actions' }, reason, reject),
+          h('div', { class: 'actions' }, reason, fixJob, reject),
           hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
           hasOwner ? h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' || list === 'employers' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')) : null)));
   }
+
+  // FEATURE:jobs START
+  // =========================================================
+  // চাকরির নিষিদ্ধ/সন্দেহজনক শব্দ — থাকলে বিজ্ঞাপন সরাসরি চালু না হয়ে অপেক্ষার সারিতে আসে
+  // =========================================================
+  async function pageJobWords(r, alive) {
+    setTitle('চাকরির নিষিদ্ধ শব্দ', 'স্বয়ংক্রিয় যাচাই');
+    const res = await act('admin_job_words', {});
+    if (alive && !alive()) return;
+    const area = h('textarea', { rows: 12, class: 'words', 'aria-label': 'বাড়তি শব্দ, প্রতি লাইনে একটা' });
+    area.value = (res.words || []).join('\n');
+    const save = actionBtn('সেভ করুন', 'primary', async () => {
+      const words = area.value.split('\n').map((w) => w.trim()).filter(Boolean);
+      const out = await act('admin_job_words_save', { words });
+      area.value = (out.words || []).join('\n');
+      return out;
+    }, 'শব্দের তালিকা সেভ হয়েছে');
+    paint(alive,
+      h('p', { class: 'note', text: 'বিজ্ঞাপনের পদ, বর্ণনা বা দক্ষতায় এই শব্দ থাকলে বিজ্ঞাপন সরাসরি চালু হয় না — লাল চিহ্নসহ "চাকরির বিজ্ঞাপন"-এর অপেক্ষার সারিতে আসে। ফি বা জামানত চাওয়া বিজ্ঞাপন সার্ভার আগেই আটকায়।' }),
+      h('div', { class: 'card pad' },
+        h('h2', { class: 'section-title', text: 'আগে থেকে দেওয়া শব্দ (সবসময় চালু)' }),
+        h('div', { class: 'chips' }, (res.defaults || []).map((w) => h('span', { class: 'chip', text: w }))),
+        h('h2', { class: 'section-title', text: 'বাড়তি শব্দ — প্রতি লাইনে একটা' }),
+        area,
+        h('div', { class: 'row' }, save)));
+  }
+  // FEATURE:jobs END
 
   // =========================================================
   // হাসপাতাল যোগের অনুরোধ
@@ -1705,12 +1771,15 @@
       jobs: (d) => [ // FEATURE:jobs
         d.cv ? h('div', { class: 'facts' }, [['সিভি', d.cv.headline || '—'], ['অভিজ্ঞতা', `${bn(d.cv.experience)}টা`], ['শিক্ষা', `${bn(d.cv.education)}টা`],
           ['সবার জন্য খোলা', d.cv.public ? 'হ্যাঁ' : 'না'], ['কাজ খুঁজছেন', d.cv.openToWork ? 'হ্যাঁ' : 'না']].map(([k, v]) => h('div', null, h('span', { text: k }), v))) : note('সিভি বানাননি।'),
-        d.employer ? [sub('নিয়োগকর্তা হিসেবে'), h('p', null, `${d.employer.name} · ${L.empKind[d.employer.kind] || d.employer.kind} · ${L.listing[d.employer.verifyStatus] || d.employer.verifyStatus}`)] : null,
+        d.employer ? [sub('নিয়োগকর্তা হিসেবে'), h('p', null, `${d.employer.name} · ${L.empKind[d.employer.kind] || d.employer.kind} · ${L.listing[d.employer.verifyStatus] || d.employer.verifyStatus}`),
+          empHistory(d.employer), d.employer.blockReason ? note(`বিজ্ঞাপন দেওয়া বন্ধের কারণ: ${d.employer.blockReason}`) : null] : null,
         sub('আবেদন', d.applications.length),
         table(d.applications, [
           { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
           { label: 'চাকরি', cell: (x) => [x.title, h('div', { class: 'small', text: x.org })] },
-          { label: 'অবস্থা', cell: (x) => L.app[x.status] || x.status },
+          { label: 'অবস্থা', cell: (x) => [L.app[x.status] || x.status,
+            x.interviewAt ? h('div', { class: 'small', text: `ইন্টারভিউ: ${fmtDT(x.interviewAt)}` }) : null,
+            x.offer ? h('div', { class: 'small', text: `প্রস্তাব: ${x.offer.designation} · ৳${bn(x.offer.salary)} · ${L.offer[x.offer.response] || x.offer.response}` }) : null] },
         ]),
         sub('দেওয়া বিজ্ঞাপন', d.jobs.length),
         table(d.jobs, [
