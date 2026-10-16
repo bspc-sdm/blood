@@ -58,6 +58,12 @@ module.exports = handler(async (req) => {
     const marked = new Set(markedIds);
     const confirmedCount = all.docs.filter((d) => d.get('status') === 'donated' || d.get('confirmed') === true || marked.has(d.id)).length;
     const recount = { confirmedCount, fulfilled: confirmedCount >= bags };
+    // আবার খোলার জন্য হিসাব — রিকোয়েস্টের নথিতে নয় (সবাই পড়তে পারে), সার্ভারের আলাদা নথিতে
+    if (!partial) {
+      t.set(requestRef.collection('meta').doc('close'), {
+        marks: closeMarks, day: today, confirmedBefore: reqSnap.get('confirmedCount') || 0, fulfilledBefore: reqSnap.get('fulfilled') === true, at: Date.now(),
+      });
+    }
     if (partial) {
       t.update(requestRef, { ...recount, bagsReceived: Math.max(got, prevReceived), updatedAt: Date.now() });
     } else {
@@ -69,8 +75,6 @@ module.exports = handler(async (req) => {
         geoOpen: FieldValue.delete(),
         // ভুল করে বন্ধ করে আবার খুললে আগের হিসাব ফেরত আসে
         bagsReceivedBefore: prevReceived,
-        closeMarks, closeDay: today,
-        confirmedBefore: reqSnap.get('confirmedCount') || 0, fulfilledBefore: reqSnap.get('fulfilled') === true,
         ...(got != null && got > 0 ? { bagsReceived: got } : {}),
       });
     }

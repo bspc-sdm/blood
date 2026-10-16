@@ -96,7 +96,10 @@ actions.request_reopen = async function requestReopen(req, user) {
     if (x.requesterUid !== user.uid) throw new HttpError(403, C.tr(req, 'This is not your request', 'এটা আপনার রিকোয়েস্ট না'));
     if (x.status === 'open') return null;
     // বন্ধের সময় যাঁদের "রক্ত দিয়েছেন" লেখা হয়েছিল — আবার "রাজি" অবস্থায়, তারিখও আগের মতো (সব পড়া আগে, লেখা পরে)
-    const marks = (Array.isArray(x.closeMarks) ? x.closeMarks : []).filter((m) => m && R.isValidId(m.uid)).slice(0, 20);
+    const closeRef = ref.collection('meta').doc('close');
+    const closeSnap = await t.get(closeRef);
+    const cm = closeSnap.exists ? closeSnap.data() : {};
+    const marks = (Array.isArray(cm.marks) ? cm.marks : []).filter((m) => m && R.isValidId(m.uid)).slice(0, 20);
     const respSnaps = marks.length ? await t.getAll(...marks.map((m) => ref.collection('responses').doc(m.uid))) : [];
     const userSnaps = marks.length ? await t.getAll(...marks.map((m) => db.doc(`users/${m.uid}`))) : [];
     const openSlots = await t.get(db.collection('requests').where('requesterUid', '==', user.uid).where('status', '==', 'open'));
@@ -111,7 +114,7 @@ actions.request_reopen = async function requestReopen(req, user) {
     marks.forEach((m, i) => {
       if (respSnaps[i].exists && respSnaps[i].get('status') === 'donated') t.update(respSnaps[i].ref, { status: 'accepted' });
       // বন্ধের দিন বসানো তারিখ এখনো থাকলে আগেরটা ফেরত (মাঝে নিজে বদলে থাকলে হাত দেওয়া হয় না)
-      if (m.prev !== 'keep' && userSnaps[i].exists && userSnaps[i].get('lastDonationMillis') === x.closeDay) {
+      if (m.prev !== 'keep' && userSnaps[i].exists && userSnaps[i].get('lastDonationMillis') === cm.day) {
         t.update(userSnaps[i].ref, { lastDonationMillis: m.prev == null ? FieldValue.delete() : m.prev });
       }
     });
@@ -119,9 +122,9 @@ actions.request_reopen = async function requestReopen(req, user) {
       status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now,
       ...(Geo.hash(x.lat, x.lng) ? { geoOpen: Geo.hash(x.lat, x.lng) } : {}),
       bagsReceived: x.bagsReceivedBefore || 0, bagsReceivedBefore: FieldValue.delete(),
-      ...(marks.length || x.confirmedBefore != null ? { confirmedCount: x.confirmedBefore || 0, fulfilled: x.fulfilledBefore === true } : {}),
-      closeMarks: FieldValue.delete(), closeDay: FieldValue.delete(), confirmedBefore: FieldValue.delete(), fulfilledBefore: FieldValue.delete(),
+      ...(closeSnap.exists ? { confirmedCount: cm.confirmedBefore || 0, fulfilled: cm.fulfilledBefore === true } : {}),
     });
+    if (closeSnap.exists) t.delete(closeRef);
     return x;
   });
   if (r) await require('./requestend').notifyEnded(id, r, 'reopened');
