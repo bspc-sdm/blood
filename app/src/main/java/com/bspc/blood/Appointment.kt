@@ -717,13 +717,16 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 listOf(
                     PillTab(tr("Bookings", "বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled, count = pending),
                     PillTab(tr("Patients", "রোগী"), R.drawable.ic_person_outline),
+                ) + (if (type == "doctor") listOf(PillTab(tr("Prescriptions", "প্রেসক্রিপশন"), R.drawable.ic_medication)) else emptyList()) +
                     PillTab(tr("Setup", "সেটআপ"), R.drawable.ic_settings_outline),
-                ),
                 { tab = it },
             )
+            // ডাক্তারের ট্যাব: বুকিং, রোগী, প্রেসক্রিপশন, সেটআপ; পুষ্টিবিদ/ট্রেইনারের প্রেসক্রিপশন নেই
+            val rxTab = if (type == "doctor") 2 else -1
             when (tab) {
                 0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
                 1 -> PatientsList()
+                rxTab -> RxDoctorTab()
                 else -> ChamberEditScreen(type, profile, onBack, embedded = true)
             }
         }

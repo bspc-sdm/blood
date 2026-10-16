@@ -75,6 +75,18 @@ module.exports = handler(async (req, res) => {
   // ওয়েব অ্যাডমিন প্যানেল: টোকেনের বদলে httpOnly কুকি, আর শুধু অ্যাডমিনরা
   if (req.body?.web === true) {
     const { isAdmin } = require('../../lib/admin');
+    // ডাক্তারের ওয়েব (প্রেসক্রিপশন): যাচাই করা ডাক্তার বা কোনো ডাক্তারের সহকারী
+    if (req.body?.panel === 'doctor') {
+      const user = await getOrCreateUser(email);
+      if (user.disabled) throw new HttpError(403, 'এই অ্যাকাউন্ট বন্ধ করা আছে');
+      const { approvedBadge } = require('../../lib/community-db');
+      const { db } = require('../../lib/firebase');
+      const doctor = (await approvedBadge(user.uid)) === 'doctor';
+      const assistant = doctor ? true : !(await db.collection('providers').where('assistantEmails', 'array-contains', email).limit(1).get()).empty;
+      if (!doctor && !assistant) throw new HttpError(403, 'এই ইমেইল কোনো যাচাই করা ডাক্তার বা ডাক্তারের সহকারীর নয়');
+      require('../../lib/websession').start(res, user.uid, email);
+      return { ok: true };
+    }
     if (!(await isAdmin({ email, email_verified: true }))) {
       throw new HttpError(403, 'এই ইমেইল অ্যাডমিন হিসেবে যোগ করা নেই');
     }

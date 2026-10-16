@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- প্রেসক্রিপশনের PDF শেয়ার (অ্যাপের cache/rx) -->
+<paths>
+    <cache-path name="rx" path="rx/" />
+</paths>

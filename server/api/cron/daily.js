@@ -115,6 +115,13 @@ module.exports = handler(
     } catch (e) {
       console.error('geo maintain failed', e);
     }
+    // প্রেসক্রিপশন: আবার দেখানোর ২ দিন আগে আর আগের দিন মনে করানো
+    let rxReminders = null;
+    try {
+      rxReminders = await require('../../lib/prescriptions').followUpReminders(now);
+    } catch (e) {
+      console.error('rx reminders failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -138,7 +145,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers, rxReminders };
   },
   { methods: ['GET'] },
 );

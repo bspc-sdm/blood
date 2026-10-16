@@ -49,6 +49,39 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // প্রেসক্রিপশন যাচাই (/rx/{code}): ফার্মেসি QR স্ক্যান করে দেখে আসল কি না
+  if (req.query.rx) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    res.setHeader('Cache-Control', 'no-store');
+    let x = null;
+    try {
+      x = await require('../lib/prescriptions').verify(req.query.rx);
+    } catch (e) {
+      console.error('rx verify failed', e);
+    }
+    if (!x) {
+      res.status(404).send(page('Lifolo', '<div class="card"><h1>পাওয়া যায়নি</h1><p class="muted">এই কোডের কোনো প্রেসক্রিপশন Lifolo-তে নেই। / No prescription with this code.</p></div>'));
+      return;
+    }
+    const d = new Date((x.createdAt || 0) + 6 * 3600 * 1000);
+    const date = `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
+    const meds = x.medicines.map((m) => `<li>${esc([m.form, m.name, m.strength].filter(Boolean).join(' '))}${m.dose ? ` — ${esc(m.dose)}` : ''}${m.days ? ` · ${esc(m.days)} দিন` : ''}</li>`).join('');
+    const body = `<div class="card">
+${x.status === 'cancelled' ? '<span class="tag" style="background:#777;color:#fff">বাতিল · Cancelled</span>' : '<span class="tag" style="background:#CFEDEF;color:#00363C">আসল · Genuine</span>'}
+<h1 style="margin-top:10px">${esc(x.doctor.name)}</h1>
+<div class="muted">${esc(x.doctor.degrees)}${x.doctor.regNo ? ` · BMDC ${esc(x.doctor.regNo)}` : ''}${x.doctor.chamber ? ` · ${esc(x.doctor.chamber)}` : ''}</div>
+<dl>
+<dt>রোগী · Patient</dt><dd>${esc(x.patient.name)}${x.patient.age != null ? `, ${esc(x.patient.age)} বছর` : ''}</dd>
+<dt>তারিখ · Date</dt><dd>${esc(date)}</dd>
+${meds ? `<dt>ওষুধ · Medicines</dt><dd><ol style="margin:4px 0 0;padding-left:20px">${meds}</ol></dd>` : ''}
+${x.tests.length ? `<dt>পরীক্ষা · Tests</dt><dd>${x.tests.map(esc).join(', ')}</dd>` : ''}
+</dl></div>
+<p class="muted" style="margin-top:16px">Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।<br>Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.</p>`;
+    res.status(200).send(page('প্রেসক্রিপশন যাচাই · Lifolo', body));
+    return;
+  }
+
   const id = String(req.query.id || '');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   if (!R.isValidId(id)) {

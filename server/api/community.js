@@ -503,7 +503,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -572,6 +572,14 @@ async function webUser(req, res) {
   if (web.error) throw new HttpError(401, C.tr(req, 'Session expired, please log in again', 'লগইনের মেয়াদ শেষ, আবার লগইন করুন'), 'session_expired');
   const action = String(req.body?.action || '');
   if (action === 'web_logout') return web;
+  // ডাক্তার/সহকারীর ওয়েব (প্রেসক্রিপশন): শুধু rx_ কাজ আর ওষুধ খোঁজা; কে কী পারেন তা কাজগুলো নিজেরা যাচাই করে
+  if (action.startsWith('rx_') || action === 'drug_search' || action === 'web_me') {
+    if (await accountDisabled(web.uid)) {
+      websession.end(res);
+      throw new HttpError(403, C.tr(req, 'This account is turned off', 'এই অ্যাকাউন্ট বন্ধ করা আছে'), 'session_expired');
+    }
+    return web;
+  }
   if (!action.startsWith('admin_')) throw new HttpError(403, C.tr(req, 'Not available on the web panel', 'ওয়েব প্যানেলে এটা চলে না'));
   // অ্যাডমিন থেকে বাদ পড়লে বা অ্যাকাউন্ট বন্ধ হলে প্যানেলও বন্ধ
   if (!(await isAdmin(web)) || (await accountDisabled(web.uid))) {
@@ -580,6 +588,13 @@ async function webUser(req, res) {
   }
   return web;
 }
+
+/** ওয়েবে কে ঢুকেছেন: ডাক্তার কি না, কার কার সহকারী */
+actions.web_me = async (req, user) => {
+  const [badge, assisting] = await Promise.all([approvedBadge(user.uid), actions.rx_assisting(req, user)]);
+  const p = await db.doc(`providers/${user.uid}`).get();
+  return { email: user.email || '', doctor: badge === 'doctor', name: (p.exists && p.get('name')) || '', assisting: assisting.items };
+};
 
 actions.web_logout = async (req, user, res) => {
   websession.end(res);

@@ -31,6 +31,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +69,8 @@ fun ProfileTab(
     var photoMenu by remember { mutableStateOf(false) }
     var showBadgeDialog by remember { mutableStateOf(false) }
     var showDateDialog by remember { mutableStateOf(false) }
+    var assisting by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { assisting = runCatching { RxApi.assisting().isNotEmpty() }.getOrDefault(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -213,6 +216,13 @@ fun ProfileTab(
             // নিজে নেওয়া অ্যাপয়েন্টমেন্ট (চেম্বারের বুকিং "আমার চেম্বার"-এ)
             ActionRow(R.drawable.ic_calendar_month, tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"), null, onOpenMyAppointments)
             HorizontalDivider()
+            ActionRow(R.drawable.ic_medication, tr("My prescriptions", "আমার প্রেসক্রিপশন"), null, { RxNav.open.value = "mine" })
+            HorizontalDivider()
+            // কোনো ডাক্তার সহকারী হিসেবে যোগ করলে তবেই
+            if (assisting) {
+                ActionRow(R.drawable.ic_group_round, tr("Doctor's assistant", "ডাক্তারের সহকারী"), null, { RxNav.open.value = "assist" })
+                HorizontalDivider()
+            }
             ActionRow(
                 R.drawable.ic_history,
                 tr("Change last donation date", "শেষ রক্তদানের তারিখ বদলান"),

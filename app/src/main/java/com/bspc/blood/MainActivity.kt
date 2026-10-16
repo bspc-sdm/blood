@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency") },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx") }?.let { openType.value = it }
     }
 }
 
@@ -134,6 +134,8 @@ sealed interface Screen {
     data class TipDetail(val tip: Tip) : Screen
     data object PostTip : Screen
     data object MyAppointments : Screen
+    data object MyPrescriptions : Screen
+    data object RxAssist : Screen
     data object ChamberEdit : Screen
     data object Inbox : Screen
     data object Ambulance : Screen
@@ -242,6 +244,8 @@ fun App(
                 stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
             type == "support" -> push(Screen.Help())
+            // প্রেসক্রিপশন (নতুন, আবার দেখানোর দিন, ওষুধের অ্যালার্ম)
+            type == "rx" -> push(Screen.MyPrescriptions)
             // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
             type == "med_find" || type == "med_find_mine" -> {
                 ServicesNav.target.value = type
@@ -306,6 +310,14 @@ fun App(
         if (openAppointments && ready) {
             push(if (community?.approvedBadge in CHAMBER_TYPES) Screen.ChamberEdit else Screen.MyAppointments)
             onAppointmentsOpened()
+        }
+    }
+    // প্রোফাইলের "আমার প্রেসক্রিপশন" / "ডাক্তারের সহকারী"
+    val rxOpen = RxNav.open.value
+    LaunchedEffect(rxOpen) {
+        if (rxOpen != null) {
+            push(if (rxOpen == "assist") Screen.RxAssist else Screen.MyPrescriptions)
+            RxNav.open.value = null
         }
     }
     // অন্য পাতার "আপিল করুন" / প্রোফাইলের "সাহায্য ও আপিল"
@@ -587,6 +599,8 @@ fun App(
             )
 
             Screen.MyAppointments -> MyAppointmentsScreen(onBack = { back() })
+            Screen.MyPrescriptions -> profile?.let { pr -> MyPrescriptionsScreen(pr, onBack = { back() }) }
+            Screen.RxAssist -> RxAssistScreen(onBack = { back() })
 
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
 

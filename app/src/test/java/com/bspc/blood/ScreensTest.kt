@@ -156,6 +156,34 @@ class ScreensTest {
         shot("chamber_editor")
     }
 
+    private val rx = Rx(
+        "rx1", "ABCDEFGH23", "active", 1_760_000_000_000L, "d1", "ডা. ফারহানা ইসলাম", "MBBS, FCPS (Medicine)", "A-12345", listOf("medicine"),
+        "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "চরপাড়া, ময়মনসিংহ", "01700000000", "করিম উদ্দিন", 45, "male",
+        "৩ দিন ধরে জ্বর, মাথাব্যথা", mapOf("bp" to "130/85", "temp" to "101°F", "pulse" to "92"), "Viral fever",
+        listOf(
+            RxMed("Napa", "Tablet", "Paracetamol 500 mg", "1+1+1", "after", 5),
+            RxMed("Fexo", "Tablet", "Fexofenadine 120 mg", "0+0+1", "after", 7),
+            RxMed("Omidon", "Tablet", "Domperidone 10 mg", "1+0+1", "before", 0, "বমি ভাব থাকলে"),
+        ),
+        listOf("CBC", "Dengue NS1"), "পপুলার ডায়াগনস্টিক সেন্টার, ময়মনসিংহ", "প্রচুর পানি পান করুন। বিশ্রাম নিন।",
+        1_760_600_000_000L, 1_760_600_000_000L, "রিপোর্ট নিয়ে আসবেন", 0,
+    )
+
+    @Test
+    fun rxPaperBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) { RxPaper(rx) } }
+        shot("rx_paper_bn")
+    }
+
+    @Test
+    fun medAlarmSlots() {
+        org.junit.Assert.assertEquals(listOf(0, 3), MedAlarms.slotsOf("1+0+1"))
+        org.junit.Assert.assertEquals(listOf(0, 1, 3), MedAlarms.slotsOf("1+1+1"))
+        org.junit.Assert.assertEquals(listOf(3), MedAlarms.slotsOf("0+0+½"))
+        org.junit.Assert.assertEquals(emptyList<Int>(), MedAlarms.slotsOf("প্রয়োজনে"))
+    }
+
     @Test
     fun adminScreenBangla() {
         AppPrefs.lang.value = Lang.BN

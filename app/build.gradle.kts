@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 83
-        versionName = "2.15.0"
+        versionCode = 84
+        versionName = "2.16.0"
     }
 
     signingConfigs {
@@ -89,6 +89,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.firebase:geofire-android-common:3.2.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    // প্রেসক্রিপশনের যাচাইয়ের QR
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
