@@ -429,6 +429,8 @@ const actions = {
       return { ok: true };
     }
     const pRef = db.doc(`providers/${uid}`);
+    require('../lib/memcache').clear('providers:');
+    require('../lib/memcache').clear('home:');
     // অপেক্ষা বা বাতিল থেকে অনুমোদন: প্যানেলে সব বিষয় টিক দেওয়া লাগবে
     const verification = req.body?.approve === true && bs.get('status') !== 'approved'
       ? require('../lib/verify').assertChecks(req, user, 'badge', bs.data(), req.body?.checks) : null;

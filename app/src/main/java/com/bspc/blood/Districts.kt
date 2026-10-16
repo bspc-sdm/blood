@@ -89,10 +89,70 @@ object Districts {
     fun nearest(lat: Double, lng: Double): District =
         ALL.minBy { Geo.distanceKm(lat, lng, it.lat, it.lng) }
 
+    /**
+     * GPS-এর জায়গা আসলে কোন জেলার ভেতরে (জেলার সীমানা দিয়ে)। সীমানার বাইরে পড়লে (নদী/সাগরের ধার) কাছের কেন্দ্র।
+     * শুধু কেন্দ্র ধরলে সীমান্তের কাছে ভুল হয় — যেমন উত্তরা গাজীপুর, দোহার ফরিদপুর হয়ে যেত।
+     */
+    fun at(context: android.content.Context, lat: Double, lng: Double): District {
+        val bn = runCatching { DistrictBounds.find(context, lat, lng) }.getOrNull()
+        return bn?.let { b -> ALL.firstOrNull { it.bn == b } } ?: nearest(lat, lng)
+    }
+
     /** ডাটাবেসে জেলার নাম বাংলায় থাকে; ইংরেজি ভাষায় ইংরেজি নাম দেখানো */
     fun label(bnName: String?): String {
         if (bnName.isNullOrBlank()) return ""
         if (isBangla) return bnName
         return ALL.firstOrNull { it.bn == bnName }?.en ?: bnName
     }
+}
+
+/**
+ * জেলার সীমানা: assets/district_bounds.json (প্রায় ২৮০ KB, একবার পড়া)।
+ * উৎস: OCHA / HDX — Bangladesh Subnational Administrative Boundaries (COD-AB, ADM2), CC BY-IGO;
+ * bd-offline-geocoder 0.1.1 (MIT) থেকে নেওয়া, ২০০ মিটার পর্যন্ত সরল করা।
+ */
+object DistrictBounds {
+    private class Shape(val name: String, val rings: List<DoubleArray>, val minLat: Double, val maxLat: Double, val minLng: Double, val maxLng: Double)
+
+    @Volatile private var shapes: List<Shape>? = null
+
+    private fun load(context: android.content.Context): List<Shape> {
+        shapes?.let { return it }
+        synchronized(this) {
+            shapes?.let { return it }
+            val text = context.applicationContext.assets.open("district_bounds.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val d = org.json.JSONObject(text).getJSONArray("d")
+            val list = (0 until d.length()).map { i ->
+                val e = d.getJSONArray(i)
+                val rs = e.getJSONArray(1)
+                val rings = (0 until rs.length()).map { k ->
+                    val r = rs.getJSONArray(k)
+                    DoubleArray(r.length()) { r.getDouble(it) }
+                }
+                var a = 90.0; var b = -90.0; var c = 180.0; var f = -180.0
+                rings.forEach { r -> for (j in r.indices step 2) { a = minOf(a, r[j]); b = maxOf(b, r[j]); c = minOf(c, r[j + 1]); f = maxOf(f, r[j + 1]) } }
+                Shape(e.getString(0), rings, a, b, c, f)
+            }
+            shapes = list
+            return list
+        }
+    }
+
+    /** ring = [lat, lng, lat, lng, …] */
+    private fun inside(lat: Double, lng: Double, r: DoubleArray): Boolean {
+        var c = false
+        val n = r.size / 2
+        var j = n - 1
+        for (i in 0 until n) {
+            val yi = r[2 * i]; val xi = r[2 * i + 1]; val yj = r[2 * j]; val xj = r[2 * j + 1]
+            if ((yi > lat) != (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) c = !c
+            j = i
+        }
+        return c
+    }
+
+    fun find(context: android.content.Context, lat: Double, lng: Double): String? =
+        load(context).firstOrNull { s ->
+            lat in s.minLat..s.maxLat && lng in s.minLng..s.maxLng && s.rings.any { inside(lat, lng, it) }
+        }?.name
 }

@@ -114,7 +114,7 @@ fun MainScreen(
             runCatching {
                 val loc = LocationHelper.current(context)
                 if (loc != null) {
-                    val place = Districts.nearest(loc.first, loc.second).bn
+                    val place = Districts.at(context, loc.first, loc.second).bn
                     ProfileRepository.saveLocation(uid, loc.first, loc.second, place, "gps")
                     onProfileChanged(
                         profile.copy(lat = Geo.round(loc.first), lng = Geo.round(loc.second), placeName = place)

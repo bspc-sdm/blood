@@ -45,6 +45,7 @@ function view(d, km, mine) {
     upazilaIds: h.upazilaIds || [],
     schedule: h.schedule || '',
     fee: h.fee || '',
+    noFee: h.noFee === true,
     phone: K.fixPhone(h.phone),
     // মোটা দাগে (পুরো কিমি, কমপক্ষে ২): কয়েক জায়গা থেকে দূরত্ব মিলিয়ে বাসা বের করা না যায়
     km: approxKm(km),
@@ -77,30 +78,35 @@ const actions = {
     if (Number.isInteger(b.upazilaId) && UPAZILA.has(b.upazilaId)) place.upazilaId = b.upazilaId;
     const service = K.homeServicesFor(b.type).includes(b.service) ? b.service : null;
 
-    const snap = await db.collection('providers').where('type', '==', b.type).where('homeVisit.enabled', '==', true).limit(1000).get();
-    // আগের ভার্সনে চালু করা মানুষের আলাদা ফোন নম্বর নেই — দেওয়ার আগে তালিকায় নেই
-    const docs = snap.docs.filter((d) => d.id !== user.uid && d.get('homeVisitBlocked') !== true && !!d.get('homeVisit.phone')
-      && (!service || (d.get('homeVisit.services') || []).includes(service))
-      && (b.female !== true || d.get('gender') === 'female'));
-    if (!docs.length) return { items: [] };
-    const [users, badges] = await Promise.all([
-      db.getAll(...docs.map((d) => db.doc(`users/${d.id}`))),
-      db.getAll(...docs.map((d) => db.doc(`badges/${d.id}`))),
-    ]);
-    const found = [];
-    docs.forEach((d, i) => {
+    // পুরো তালিকা (ডাক্তার/নার্স, তাঁদের লোকেশন আর ব্যাজ) ২ মিনিট মেমোরিতে — প্রতিবার খোলায় হাজারখানেক পড়া নয়
+    const all = await require('./memcache').cached(`home:${b.type}`, 2 * 60 * 1000, async () => {
+      const snap = await db.collection('providers').where('type', '==', b.type).where('homeVisit.enabled', '==', true).limit(1000).get();
+      // আগের ভার্সনে চালু করা মানুষের আলাদা ফোন নম্বর নেই — দেওয়ার আগে তালিকায় নেই
+      const docs = snap.docs.filter((d) => d.get('homeVisitBlocked') !== true && !!d.get('homeVisit.phone'));
+      if (!docs.length) return [];
+      const [users, badges] = await Promise.all([
+        db.getAll(...docs.map((d) => db.doc(`users/${d.id}`))),
+        db.getAll(...docs.map((d) => db.doc(`badges/${d.id}`))),
+      ]);
       // ব্যাজ বাতিল হলে বা ধরন বদলালে তালিকায় নেই
-      if (!badges[i].exists || badges[i].get('status') !== 'approved' || badges[i].get('type') !== b.type) return;
-      const u = users[i];
-      const m = K.homeMatch({
-        ...d.data(),
-        lat: u.exists ? u.get('lat') : null,
-        lng: u.exists ? u.get('lng') : null,
-        locationSource: u.exists ? u.get('locationSource') : null,
-        placeName: u.exists ? u.get('placeName') : null,
-      }, place);
-      if (m) found.push({ d, km: m.km });
+      return docs.map((d, i) => ({ d, u: users[i], ok: badges[i].exists && badges[i].get('status') === 'approved' && badges[i].get('type') === b.type }))
+        .filter((x) => x.ok)
+        .map(({ d, u }) => ({
+          id: d.id,
+          x: d.data(),
+          loc: { lat: u.exists ? u.get('lat') : null, lng: u.exists ? u.get('lng') : null, locationSource: u.exists ? u.get('locationSource') : null, placeName: u.exists ? u.get('placeName') : null },
+        }));
     });
+    const { docLike } = require('./memcache');
+    const found = [];
+    all.forEach(({ id, x, loc }) => {
+      if (id === user.uid) return;
+      if (service && !((x.homeVisit && x.homeVisit.services) || []).includes(service)) return;
+      if (b.female === true && x.gender !== 'female') return;
+      const m = K.homeMatch({ ...x, ...loc }, place);
+      if (m) found.push({ d: docLike(id, x), km: m.km });
+    });
+    if (!found.length) return { items: [] };
     // কাছেরটা আগে; দূরত্ব না জানলে বেশি রেটিং পাওয়া আগে
     found.sort((p, q) => (approxKm(p.km) ?? 999) - (approxKm(q.km) ?? 999) || (q.d.get('ratingCount') || 0) - (p.d.get('ratingCount') || 0));
     const top = found.slice(0, 100);

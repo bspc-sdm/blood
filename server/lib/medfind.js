@@ -143,7 +143,8 @@ const actions = {
 
   /** ক্রেতা: নিজের খোঁজ আর কোন দোকান "আছে" বলেছে */
   async med_finds_mine(req, user) {
-    const snap = await db.collection('medFinds').where('uid', '==', user.uid).limit(30).get();
+    // পুরোনো খোঁজ রোজ মুছে যায় (dailyCleanup), তাই এখানে সব চালু/সাম্প্রতিক খোঁজই আসে
+    const snap = await db.collection('medFinds').where('uid', '==', user.uid).limit(60).get();
     const docs = snap.docs.sort((a, c) => (c.get('createdAt') || 0) - (a.get('createdAt') || 0)).slice(0, 10);
     const ids = new Set();
     docs.forEach((d) => Object.entries(d.get('answers') || {}).forEach(([pid, a]) => a.have && ids.add(pid)));
@@ -197,7 +198,8 @@ const actions = {
   async med_find_requests(req, user) {
     const shop = await db.doc(`pharmacies/${user.uid}`).get();
     if (!shop.exists || shop.get('status') !== 'approved') return { items: [], findOff: shop.exists && shop.get('findOff') === true };
-    const snap = await db.collection('medFinds').where('notified', 'array-contains', user.uid).limit(60).get();
+    // পুরোনো খোঁজ রোজ মুছে যায় (dailyCleanup); একটা দোকানে দিনে সর্বোচ্চ ৩০টা আসে, তাই ১০০-তে আজকেরগুলো বাদ পড়ে না
+    const snap = await db.collection('medFinds').where('notified', 'array-contains', user.uid).limit(100).get();
     const now = Date.now();
     const items = snap.docs
       .filter((d) => !expired(d.data(), now))
@@ -250,4 +252,20 @@ const actions = {
   },
 };
 
-module.exports = { actions, searchDrugs, drugText };
+/** খোঁজ বন্ধ হওয়ার ২ দিন পর মুছে ফেলা — নইলে দোকান আর ক্রেতার তালিকায় পুরোনো খোঁজ জমে নতুনগুলো বাদ পড়ে */
+const KEEP_AFTER_EXPIRY_MS = 2 * 24 * 3600 * 1000;
+async function dailyCleanup(now = Date.now()) {
+  let deleted = 0;
+  for (let round = 0; round < 5; round++) {
+    const snap = await db.collection('medFinds').where('expiresAt', '<', now - KEEP_AFTER_EXPIRY_MS).limit(400).get();
+    if (snap.empty) break;
+    const b = db.batch();
+    snap.docs.forEach((d) => b.delete(d.ref));
+    await b.commit();
+    deleted += snap.size;
+    if (snap.size < 400) break;
+  }
+  return deleted;
+}
+
+module.exports = { actions, searchDrugs, drugText, dailyCleanup };

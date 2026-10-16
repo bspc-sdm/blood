@@ -58,7 +58,7 @@ fun LocationPicker(
             if (loc == null) {
                 localError = tr("Couldn't get your location. Turn on GPS or pick a district.", "লোকেশন পাওয়া যায়নি। GPS চালু করুন বা জেলা বেছে নিন।")
             } else {
-                val district = Districts.nearest(loc.first, loc.second)
+                val district = Districts.at(context, loc.first, loc.second)
                 onPicked(loc.first, loc.second, district.bn, "gps")
             }
         }
@@ -133,7 +133,7 @@ fun GpsButton(text: String, onLocated: (Double, Double, String) -> Unit, modifie
             if (loc == null) {
                 error = tr("Couldn't get your location. Turn on GPS and try again.", "লোকেশন পাওয়া যায়নি। GPS চালু করে আবার চেষ্টা করুন।")
             } else {
-                onLocated(loc.first, loc.second, Districts.nearest(loc.first, loc.second).bn)
+                onLocated(loc.first, loc.second, Districts.at(context, loc.first, loc.second).bn)
             }
         }
     }

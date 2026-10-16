@@ -35,9 +35,12 @@ module.exports = handler(async (req) => {
     // ০ ব্যাগ = "আর লাগবে না": বন্ধ, কাউকে রক্তদাতা লেখা হয় না। কিছু পেলে (সব না) খোলা থাকে।
     const partial = got != null && got > 0 && got < bags;
     // যত ব্যাগ পেয়েছেন তার বেশি জনকে "রক্ত দিয়েছেন" লেখা যায় না (আগে লেখা জন বাদ দিয়ে)
-    const allowed = got == null ? donated.length : Math.max(got - donatedBefore, 0);
+    // ব্যাগের সংখ্যা না পাঠালে (পুরোনো অ্যাপ) মোট ব্যাগের বেশি নয়
+    const allowed = Math.max((got == null ? bags : got) - donatedBefore, 0);
     const prevReceived = reqSnap.get('bagsReceived') || 0;
     const markedIds = [];
+    // ভুল করে বন্ধ করে আবার খুললে এই চিহ্নগুলো ফেরত যায় (requestcreate.js request_reopen)
+    const closeMarks = [];
     responses.forEach((snap, i) => {
       // শুধু যারা এখন "রাজি" অবস্থায় আছেন
       if (!snap.exists || snap.get('status') !== 'accepted') return;
@@ -45,9 +48,11 @@ module.exports = handler(async (req) => {
       t.update(snap.ref, { status: 'donated' });
       markedIds.push(snap.id);
       const last = users[i].exists ? users[i].get('lastDonationMillis') : null;
-      if (users[i].exists && (last == null || last < today)) {
+      const setDate = users[i].exists && (last == null || last < today);
+      if (setDate) {
         t.update(userRefs[i], { lastDonationMillis: today });
       }
+      closeMarks.push({ uid: snap.id, prev: setDate ? (last ?? null) : 'keep' });
     });
     // নিশ্চিত/রক্ত দেওয়া আবার গোনা ("ডোনার পাওয়া গেছে" আর "বাকি ব্যাগ" ঠিক রাখতে)
     const marked = new Set(markedIds);
@@ -64,6 +69,8 @@ module.exports = handler(async (req) => {
         geoOpen: FieldValue.delete(),
         // ভুল করে বন্ধ করে আবার খুললে আগের হিসাব ফেরত আসে
         bagsReceivedBefore: prevReceived,
+        closeMarks, closeDay: today,
+        confirmedBefore: reqSnap.get('confirmedCount') || 0, fulfilledBefore: reqSnap.get('fulfilled') === true,
         ...(got != null && got > 0 ? { bagsReceived: got } : {}),
       });
     }

@@ -102,13 +102,23 @@ module.exports = {
       hospitalId: R.isValidId(b.hospitalId) ? b.hospitalId : null,
       specialty: K.specialtiesFor(type).includes(b.specialty) ? b.specialty : null,
     };
-    // নতুন ধরনের ডক (listed) আর আগের ভার্সনের ডক (active) — দুটোই সমান-সমান খোঁজ
-    const [listedSnap, legacySnap] = await Promise.all([
-      db.collection('providers').where('type', '==', type).where('listed', '==', true).limit(1000).get(),
-      db.collection('providers').where('type', '==', type).where('active', '==', true).limit(300).get(),
-    ]);
-    const all = new Map();
-    [...listedSnap.docs, ...legacySnap.docs].forEach((d) => all.set(d.id, d));
+    // নতুন ধরনের ডক (listed) আর আগের ভার্সনের ডক (active) — দুটোই সমান-সমান খোঁজ।
+    // পুরো তালিকা আর ব্যাজ ২ মিনিট মেমোরিতে (প্রতিবার খোলায় হাজারখানেক পড়া নয়)
+    const M = require('./memcache');
+    const cachedList = await M.cached(`providers:${type}`, 2 * 60 * 1000, async () => {
+      const [listedSnap, legacySnap] = await Promise.all([
+        db.collection('providers').where('type', '==', type).where('listed', '==', true).limit(1000).get(),
+        db.collection('providers').where('type', '==', type).where('active', '==', true).limit(300).get(),
+      ]);
+      const m = new Map();
+      [...listedSnap.docs, ...legacySnap.docs].forEach((d) => m.set(d.id, d));
+      const ds = [...m.values()];
+      const bs = ds.length ? await db.getAll(...ds.map((d) => db.doc(`badges/${d.id}`))) : [];
+      // ব্যাজ অনুমোদিত আর একই পেশার (ডাক্তারের তালিকায় শুধু ডাক্তার)
+      const okIds = new Set(bs.filter((x) => x.exists && x.get('status') === 'approved' && x.get('type') === type).map((x) => x.id));
+      return ds.filter((d) => okIds.has(d.id)).map((d) => ({ id: d.id, x: d.data() }));
+    });
+    const all = new Map(cachedList.map(({ id, x }) => [id, M.docLike(id, x)]));
     // আগের ভার্সনের অ্যাপ (homeVisit পাঠায় না) সবাইকে বুক করতে দেয়, তাই তাকে শুধু অ্যাপয়েন্টমেন্ট নেওয়া মানুষ দেখানো
     const oldClient = b.homeVisit === undefined;
     const docs = [...all.values()].filter((d) => {
@@ -120,11 +130,8 @@ module.exports = {
       if (b.homeVisit !== true && !K.chambersOf(x).length) return false;
       return true;
     });
-    // ব্যাজ বাতিল হয়ে গেলে তালিকায় দেখাবে না
-    const badges = docs.length ? await db.getAll(...docs.map((d) => db.doc(`badges/${d.id}`))) : [];
-    // ব্যাজ অনুমোদিত আর একই পেশার (ডাক্তারের তালিকায় শুধু ডাক্তার)
-    const ok = new Set(badges.filter((x) => x.exists && x.get('status') === 'approved' && x.get('type') === type).map((x) => x.id));
-    const items = docs.filter((d) => ok.has(d.id)).map(provider);
+    // ব্যাজ বাতিল হলে তালিকায় নেই (উপরের মেমোরির তালিকাতেই বাদ)
+    const items = docs.map(provider);
     items.sort((p, q) => q.ratingCount - p.ratingCount || String(p.name).localeCompare(String(q.name)));
     return { items: items.slice(0, 150) };
   },
@@ -136,6 +143,9 @@ module.exports = {
   },
 
   async provider_save(req, user) {
+    // এই সার্ভারের মেমোরির তালিকা নতুন করে (নিজের বদল সাথে সাথে দেখা যায়)
+    require('./memcache').clear('providers:');
+    require('./memcache').clear('home:');
     const badge = await approvedBadge(user.uid);
     if (!PROVIDER_TYPES.includes(badge)) {
       throw new HttpError(403, C.tr(req, 'Only verified doctors and nurses can add chambers', 'শুধু যাচাই করা ডাক্তার ও নার্স চেম্বার যোগ করতে পারেন'));

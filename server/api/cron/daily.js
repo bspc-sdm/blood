@@ -81,6 +81,13 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
+    // ওষুধ খোঁজা: বন্ধ হওয়ার ২ দিন পরের খোঁজ মোছা
+    let medFindsDeleted = 0;
+    try {
+      medFindsDeleted = await require('../../lib/medfind').dailyCleanup(now);
+    } catch (e) {
+      console.error('med find cleanup failed', e);
+    }
     // ফোন-কোডের দৈনিক সীমার পুরোনো দিনের নথি (আগে ফোন নম্বরই নথির নাম ছিল) মোছা
     let phoneLimitsDeleted = 0;
     try {
@@ -124,7 +131,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted };
   },
   { methods: ['GET'] },
 );

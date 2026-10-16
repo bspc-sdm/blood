@@ -252,7 +252,11 @@ data class Chamber(
     /** "17:00" */
     val start: String = "",
     val end: String = "",
+    /** ডাক্তার/নার্স "ফি চাই না" টিক দিয়েছেন */
+    val noFee: Boolean = false,
 ) {
+    /** তালিকায় দেখানোর লেখা: "ফি: ৫০০ টাকা" / "ফি নেই"; কিছু না দিলে (আগের ভার্সন) ফাঁকা */
+    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
     val area: String get() = Areas.label(district, upazilaId, unionId)
 
@@ -275,7 +279,7 @@ data class Chamber(
     }
 
     fun toJson(): JSONObject = JSONObject().put("hospitalId", hospitalId).put("room", room).put("schedule", schedule)
-        .put("fee", fee).put("appointments", appointments).put("serialPhone", serialPhone)
+        .put("fee", fee).put("noFee", noFee).put("appointments", appointments).put("serialPhone", serialPhone)
         .put("days", JSONArray(days)).put("start", start).put("end", end)
 
     companion object {
@@ -283,7 +287,7 @@ data class Chamber(
             if (o.isNull("hospitalId")) null else o.optString("hospitalId"), o.str("hospitalName"), o.str("hospitalNameBn"),
             o.str("district"), o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.str("room"), o.str("schedule"),
             o.str("fee"), o.optBoolean("appointments"), o.str("serialPhone"),
-            o.optJSONArray("days").ints(), o.str("start"), o.str("end"),
+            o.optJSONArray("days").ints(), o.str("start"), o.str("end"), o.optBoolean("noFee"),
         )
 
         fun from(h: Hospital) = Chamber(h.id, h.nameEn, h.nameBn, h.district, h.upazilaId, h.unionId, "", "", "", true, "")
@@ -299,15 +303,16 @@ data class HomeVisitSettings(
     val schedule: String = "",
     val fee: String = "",
     val phone: String = "",
+    val noFee: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("termsAccepted", enabled).put("radiusKm", radiusKm)
         .put("upazilaIds", JSONArray(upazilaIds)).put("services", JSONArray(services)).put("schedule", schedule).put("fee", fee)
-        .put("phone", phone)
+        .put("noFee", noFee).put("phone", phone)
 
     companion object {
         fun parse(o: JSONObject?) = if (o == null) null else HomeVisitSettings(
             o.optBoolean("enabled"), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(),
-            o.optJSONArray("services").strings(), o.str("schedule"), o.str("fee"), o.str("phone"),
+            o.optJSONArray("services").strings(), o.str("schedule"), o.str("fee"), o.str("phone"), o.optBoolean("noFee"),
         )
     }
 }
@@ -561,7 +566,10 @@ data class HomePro(
     val myRating: Int,
     /** রেটিং এখন দেওয়া যায় (প্রথম ফোনের ১ ঘণ্টা পর) */
     val canRate: Boolean = false,
+    val noFee: Boolean = false,
 ) {
+    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
+
     /** কোথায় যান: "৫ কিমির মধ্যে · দেবিদ্বার, বরুড়া" */
     val coverage: String
         get() {
@@ -576,7 +584,7 @@ object HomeCare {
         o.optJSONArray("services").strings(), o.optInt("radiusKm", 5), o.optJSONArray("upazilaIds").ints(), o.str("schedule"),
         o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
-        o.optBoolean("canRate"),
+        o.optBoolean("canRate"), o.optBoolean("noFee"),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */

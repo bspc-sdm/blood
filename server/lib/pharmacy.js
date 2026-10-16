@@ -81,6 +81,14 @@ async function requireAdmin(req, user) {
  * সাথে জেলার বাকিগুলো (GPS-এ কাছে কিন্তু পাশের উপজেলার দোকানের জন্য)
  */
 async function areaPharmacies(district, upazilaId, limit = 500) {
+  // একই জেলার তালিকা ১ মিনিট মেমোরিতে (তালিকা আর ওষুধ খোঁজা — প্রতিবার ৫০০ পড়া নয়)
+  const M = require('./memcache');
+  const rows = await M.cached(`pharm:${district}:${upazilaId || ''}:${limit}`, 60 * 1000, async () =>
+    (await areaPharmaciesFresh(district, upazilaId, limit)).map((d) => ({ id: d.id, x: d.data() })));
+  return rows.map(({ id, x }) => M.docLike(id, x));
+}
+
+async function areaPharmaciesFresh(district, upazilaId, limit) {
   const base = db.collection('pharmacies').where('district', '==', district).where('status', '==', 'approved');
   const all = await base.limit(limit).get();
   // জেলার সব দোকান সীমার মধ্যে এলে আর খোঁজার দরকার নেই (পড়া বাঁচে)

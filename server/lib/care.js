@@ -68,7 +68,9 @@ function parseChambers(list, hospitals) {
       start,
       end,
       schedule,
-      fee: str(c.fee, 40),
+      // "ফি চাই না" টিক দিলে ফি ফাঁকা থাকে
+      noFee: c.noFee === true,
+      fee: c.noFee === true ? '' : str(c.fee, 40),
       appointments: c.appointments === true,
       serialPhone: phone(c.serialPhone),
     });
@@ -165,7 +167,8 @@ function parseHomeVisit(h, type = 'nurse') {
       services,
       phone: norm ? localBd(norm) : '',
       schedule: str(h.schedule, 120),
-      fee: str(h.fee, 60),
+      noFee: h.noFee === true,
+      fee: h.noFee === true ? '' : str(h.fee, 60),
     },
   };
 }

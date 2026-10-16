@@ -223,7 +223,7 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
             Text(p.services.joinToString(" · ") { HomeServices.label(it) }, style = MaterialTheme.typography.bodyMedium)
             IconLine(R.drawable.ic_location_on, p.coverage)
             if (p.schedule.isNotBlank()) IconLine(R.drawable.ic_schedule, p.schedule)
-            if (p.fee.isNotBlank()) IconLine(R.drawable.ic_info, tr("Fee: ", "ফি: ") + p.fee)
+            if (p.feeText.isNotBlank()) IconLine(R.drawable.ic_info, p.feeText)
             RatingLine(p.rating, p.ratingCount)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = onCall) { ButtonContent(false, tr("Call", "ফোন করুন") + " " + num(p.phone), R.drawable.ic_call) }

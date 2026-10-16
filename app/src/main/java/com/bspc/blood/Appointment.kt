@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -339,7 +340,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                             if (c.area.isNotBlank()) IconLine(R.drawable.ic_location_on, c.area)
                             if (c.room.isNotBlank()) IconLine(R.drawable.ic_info, tr("Room: ", "রুম: ") + c.room)
                             IconLine(R.drawable.ic_schedule, c.timeText)
-                            if (c.fee.isNotBlank()) IconLine(R.drawable.ic_info, tr("Fee: ", "ফি: ") + c.fee)
+                            if (c.feeText.isNotBlank()) IconLine(R.drawable.ic_info, c.feeText)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                                 if (p.appointments && c.appointments) {
                                     Button(onClick = { bookingIndex = i }) { ButtonContent(false, tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) }
@@ -366,7 +367,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             if (hv.schedule.isNotBlank()) Text(hv.schedule, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
-                            if (hv.fee.isNotBlank()) Text(tr("Fee: ", "ফি: ") + hv.fee, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
+                            if (hv.noFee || hv.fee.isNotBlank()) Text(if (hv.noFee) tr("No fee", "ফি নেই") else tr("Fee: ", "ফি: ") + hv.fee, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
                             Button(
                                 onClick = {
                                     scope.launch { runCatching { HomeCare.called(p.uid) } }
@@ -840,11 +841,13 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                     OutlinedTextField(
                         value = home.fee,
                         onValueChange = { home = home.copy(fee = it.take(60)) },
-                        label = { Text(tr("Fee (optional)", "ফি (ঐচ্ছিক)")) },
+                        label = { Text(tr("Fee", "ফি")) },
                         placeholder = { Text(tr("e.g. 300 Tk + transport", "যেমন: ৩০০ টাকা + যাতায়াত")) },
+                        enabled = !home.noFee,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    NoFeeCheck(home.noFee) { home = home.copy(noFee = it, fee = if (it) "" else home.fee) }
                     HomeCareTermsCheck(homeAgreed) { homeAgreed = it }
                 }
             }
@@ -859,7 +862,11 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit) {
                         chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
                         chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
+                        chambers.any { it.fee.isBlank() && !it.noFee } ->
+                            tr("Enter the fee for each chamber, or tick \"No fee\"", "প্রতিটা চেম্বারে ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
+                        home.enabled && home.fee.isBlank() && !home.noFee ->
+                            tr("Enter the home care fee, or tick \"No fee\"", "বাসায় সেবার ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
                         home.enabled && !Regex("^(\\+?88)?01[3-9]\\d{8}$").matches(home.phone) ->
                             tr("Enter a valid mobile number for home care", "বাসায় সেবার জন্য সঠিক মোবাইল নম্বর দিন")
                         home.enabled && !homeAgreed -> tr("Please accept the home care terms", "বাসায় সেবার শর্তে সম্মতি দিন")
@@ -1015,11 +1022,14 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                 OutlinedTextField(
                     value = c.fee,
                     onValueChange = { onChange(c.copy(fee = it.take(40))) },
-                    label = { Text(tr("Fee (optional)", "ফি (ঐচ্ছিক)")) },
+                    label = { Text(tr("Fee", "ফি")) },
+                    placeholder = { Text(tr("e.g. 500 Tk", "যেমন: ৫০০ টাকা")) },
+                    enabled = !c.noFee,
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
             }
+            NoFeeCheck(c.noFee) { onChange(c.copy(noFee = it, fee = if (it) "" else c.fee)) }
             OutlinedTextField(
                 value = c.serialPhone,
                 onValueChange = { onChange(c.copy(serialPhone = it.filter { ch -> ch.isDigit() || ch == '+' }.take(15))) },
@@ -1034,5 +1044,17 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                 Switch(checked = c.appointments, onCheckedChange = { onChange(c.copy(appointments = it)) })
             }
         }
+    }
+}
+
+/** "ফি চাই না" — ফি না নিলে টিক দিতে হয় (ফাঁকা রেখে যাওয়া যায় না) */
+@Composable
+internal fun NoFeeCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = onChange)
+        Text(tr("No fee", "ফি চাই না"), style = MaterialTheme.typography.bodyMedium)
     }
 }

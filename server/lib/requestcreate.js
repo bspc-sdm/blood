@@ -95,14 +95,32 @@ actions.request_reopen = async function requestReopen(req, user) {
     const x = s.data();
     if (x.requesterUid !== user.uid) throw new HttpError(403, C.tr(req, 'This is not your request', 'এটা আপনার রিকোয়েস্ট না'));
     if (x.status === 'open') return null;
+    // বন্ধের সময় যাঁদের "রক্ত দিয়েছেন" লেখা হয়েছিল — আবার "রাজি" অবস্থায়, তারিখও আগের মতো (সব পড়া আগে, লেখা পরে)
+    const marks = (Array.isArray(x.closeMarks) ? x.closeMarks : []).filter((m) => m && R.isValidId(m.uid)).slice(0, 20);
+    const respSnaps = marks.length ? await t.getAll(...marks.map((m) => ref.collection('responses').doc(m.uid))) : [];
+    const userSnaps = marks.length ? await t.getAll(...marks.map((m) => db.doc(`users/${m.uid}`))) : [];
+    const openSlots = await t.get(db.collection('requests').where('requesterUid', '==', user.uid).where('status', '==', 'open'));
     const byRequester = ['requester', 'not_needed'].includes(x.closedBy) || x.closedBy === undefined;
     if (!byRequester || !x.closedAt || now - x.closedAt > REOPEN_MS || R.activeUntil(x) <= now) {
       throw new HttpError(400, C.tr(req, 'This request can no longer be opened again. Create a new one if needed.', 'এই রিকোয়েস্ট আর খোলা যায় না। দরকার হলে নতুন রিকোয়েস্ট দিন।'));
     }
+    // খোলা রিকোয়েস্টের সীমা আবার খোলার সময়ও
+    if (openSlots.docs.filter((d) => R.isActive(d.data(), now)).length >= R.MAX_OPEN_REQUESTS) {
+      throw new HttpError(429, C.tr(req, `You can keep up to ${R.MAX_OPEN_REQUESTS} open requests`, `একসাথে সর্বোচ্চ ${R.MAX_OPEN_REQUESTS}টা খোলা রিকোয়েস্ট রাখা যায়`));
+    }
+    marks.forEach((m, i) => {
+      if (respSnaps[i].exists && respSnaps[i].get('status') === 'donated') t.update(respSnaps[i].ref, { status: 'accepted' });
+      // বন্ধের দিন বসানো তারিখ এখনো থাকলে আগেরটা ফেরত (মাঝে নিজে বদলে থাকলে হাত দেওয়া হয় না)
+      if (m.prev !== 'keep' && userSnaps[i].exists && userSnaps[i].get('lastDonationMillis') === x.closeDay) {
+        t.update(userSnaps[i].ref, { lastDonationMillis: m.prev == null ? FieldValue.delete() : m.prev });
+      }
+    });
     t.update(ref, {
       status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now,
       ...(Geo.hash(x.lat, x.lng) ? { geoOpen: Geo.hash(x.lat, x.lng) } : {}),
       bagsReceived: x.bagsReceivedBefore || 0, bagsReceivedBefore: FieldValue.delete(),
+      ...(marks.length || x.confirmedBefore != null ? { confirmedCount: x.confirmedBefore || 0, fulfilled: x.fulfilledBefore === true } : {}),
+      closeMarks: FieldValue.delete(), closeDay: FieldValue.delete(), confirmedBefore: FieldValue.delete(), fulfilledBefore: FieldValue.delete(),
     });
     return x;
   });

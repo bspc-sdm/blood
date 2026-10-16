@@ -117,7 +117,7 @@ module.exports = {
     // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবা: অ্যাপ থেকে ফোন করেছেন এমন মানুষই রিপোর্ট করতে পারেন (প্রতিযোগীর ভুয়া রিপোর্ট আটকাতে)
     const callDoc = { ambulance: 'ambulanceCalls', pharmacy: 'pharmacyCalls', bloodbank: 'bloodBankCalls', homecare: 'homeCalls' }[kind];
     // "ওষুধ খুঁজুন"-এ দোকান "আছে" বলেছিল (গিয়ে দেখলেন নেই) — সেটাও রিপোর্ট করা যায়
-    const answeredFind = async () => kind === 'pharmacy' && (await db.collection('medFinds').where('uid', '==', user.uid).limit(30).get())
+    const answeredFind = async () => kind === 'pharmacy' && (await db.collection('medFinds').where('uid', '==', user.uid).limit(60).get())
       .docs.some((d) => (d.get('answers') || {})[id]);
     if (callDoc && !(await db.doc(`${callDoc}/${user.uid}_${id}`).get()).exists && !(await answeredFind())) {
       throw new HttpError(403, C.tr(req, 'You can report after calling from the app', 'অ্যাপ থেকে ফোন করার পর রিপোর্ট করতে পারবেন'));
