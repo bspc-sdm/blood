@@ -115,6 +115,18 @@ class ScreensTest {
     }
 
     @Test
+    fun homeProDetailSheetBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.padding(16.dp)) {
+                HomeProCard(homePro("doctor", "ডা. ফারহানা ইসলাম", listOf("checkup", "follow_up", "child", "elderly_care"), 3.0, true), {}, {}, {})
+            }
+        }
+        rule.onNodeWithText("ডা. ফারহানা ইসলাম").performClick()
+        shot("home_pro_detail_bn")
+    }
+
+    @Test
     fun myRequestCardBangla() {
         AppPrefs.lang.value = Lang.BN
         show {

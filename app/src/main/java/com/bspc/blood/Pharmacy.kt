@@ -375,7 +375,7 @@ private fun NearbyPharmacies(profile: Profile) {
             else -> items(list, key = { it.id }) { p ->
                 DirectoryCard(
                     title = p.name,
-                    avatar = { CardAvatar(null, R.drawable.ic_storefront) },
+                    icon = R.drawable.ic_storefront,
                     status = if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
                     rating = p.rating,
                     ratingCount = p.ratingCount,
@@ -392,6 +392,29 @@ private fun NearbyPharmacies(profile: Profile) {
                         callPhone(context, p.phone)
                     },
                     onReport = { reporting = p },
+                    sections = listOf(
+                        DetailSection(
+                            tr("Address", "ঠিকানা"),
+                            listOf(
+                                R.drawable.ic_location_on to listOf(p.address, Areas.label(p.district, p.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
+                                R.drawable.ic_near_me to (p.km?.let { Rules.formatKm(it) } ?: ""),
+                            ),
+                        ),
+                        DetailSection(
+                            tr("Open hours", "খোলার সময়"),
+                            listOf(
+                                R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত") else p.hoursText,
+                                R.drawable.ic_calendar_month to closedDaysText(p.closedDays),
+                            ),
+                        ),
+                        DetailSection(
+                            tr("Discount and delivery", "ছাড় ও ডেলিভারি"),
+                            listOf(
+                                R.drawable.ic_payments to if (p.discount > 0) tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়") else tr("No discount", "ছাড় নেই"),
+                                R.drawable.ic_local_shipping to if (p.delivery) tr("Home delivery", "বাসায় ডেলিভারি") + (if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "") else tr("No home delivery", "বাসায় ডেলিভারি নেই"),
+                            ),
+                        ),
+                    ),
                 )
             }
         }

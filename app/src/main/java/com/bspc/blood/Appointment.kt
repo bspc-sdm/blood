@@ -317,7 +317,8 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
     } ?: p.chambers.firstOrNull()
     DirectoryCard(
         title = p.name,
-        avatar = { CardAvatar(p.photo, Badges.icon(p.type)) },
+        icon = Badges.icon(p.type),
+        photo = p.photo,
         subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
         rating = p.rating,
         ratingCount = p.ratingCount,
@@ -344,86 +345,77 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
     var reporting by remember { mutableStateOf(false) }
     var reported by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(modifier = Modifier.fillMaxSize(), topBar = { BackTopBar(Badges.label(p.type), onDismiss) }) { padding ->
-            Column(
-                Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ProviderAvatar(p.type)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(p.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        if (p.degrees.isNotBlank()) Text(p.degrees, style = MaterialTheme.typography.bodyMedium)
-                        RatingLine(p.rating, p.ratingCount)
-                    }
-                    BadgeChip(p.type)
-                }
-                if (p.specialties.isNotEmpty()) {
-                    Text(p.specialties.joinToString(" · ") { Specialties.label(it) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
-                }
-                if (p.chambers.isNotEmpty()) SectionTitle(tr("Chambers", "চেম্বার"))
-                p.chambers.forEachIndexed { i, c ->
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(c.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            if (c.area.isNotBlank()) IconLine(R.drawable.ic_location_on, c.area)
-                            if (c.room.isNotBlank()) IconLine(R.drawable.ic_info, tr("Room: ", "রুম: ") + c.room)
-                            IconLine(R.drawable.ic_schedule, c.timeText)
-                            if (c.feeText.isNotBlank()) IconLine(R.drawable.ic_info, c.feeText)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                                if (p.appointments && c.appointments) {
-                                    Button(onClick = { bookingIndex = i }) { ButtonContent(false, tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) }
-                                }
-                                if (c.serialPhone.isNotBlank()) {
-                                    OutlinedButton(onClick = { callPhone(context, c.serialPhone) }) {
-                                        ButtonContent(false, tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                val hv = p.homeVisit
-                if (hv != null && hv.enabled && hv.phone.isNotBlank()) {
-                    SectionTitle(tr("Home visit", "বাসায় গিয়ে সেবা"))
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
-                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(hv.services.joinToString(" · ") { HomeServices.label(it) }, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                            Text(
-                                tr("Within ${hv.radiusKm} km", "${num(hv.radiusKm)} কিমির মধ্যে") +
-                                    if (hv.upazilaIds.isNotEmpty()) " · " + hv.upazilaIds.mapNotNull { Areas.upazila(it)?.label }.joinToString(", ") else "",
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            if (hv.schedule.isNotBlank()) Text(hv.schedule, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
-                            if (hv.noFee || hv.fee.isNotBlank()) Text(if (hv.noFee) tr("No fee", "ফি নেই") else tr("Fee: ", "ফি: ") + hv.fee, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = {
-                                    scope.launch { runCatching { HomeCare.called(p.uid) } }
-                                    callPhone(context, hv.phone)
-                                },
-                                modifier = Modifier.padding(top = 4.dp),
-                            ) {
-                                ButtonContent(false, tr("Call to visit home", "বাসায় আসতে ফোন") + " " + num(hv.phone), R.drawable.ic_call)
-                            }
-                        }
-                    }
-                }
-                // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
-                if (p.uid != AuthRepository.currentUid) {
-                    if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
-                    else TextButton(onClick = { reporting = true }) {
-                        AppIcon(R.drawable.ic_flag, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Report a problem", "সমস্যা রিপোর্ট করুন"))
-                    }
-                }
-                EmergencyNotice("doctor")
-            }
+    // একই বিস্তারিত শিট (Cards.kt): প্রতিটা চেম্বার আলাদা ভাগে, তারপর বাসায় সেবা, পরিচিতি
+    val hv = p.homeVisit?.takeIf { it.enabled && it.phone.isNotBlank() }
+    val sections = buildList {
+        p.chambers.forEachIndexed { i, c ->
+            add(
+                DetailSection(
+                    c.label,
+                    listOf(
+                        R.drawable.ic_location_on to c.area,
+                        R.drawable.ic_info to if (c.room.isNotBlank()) tr("Room: ", "রুম: ") + c.room else "",
+                        R.drawable.ic_schedule to c.timeText,
+                        R.drawable.ic_payments to c.feeText,
+                        R.drawable.ic_call to if (c.serialPhone.isNotBlank()) tr("Serial by phone: ", "সিরিয়াল ফোনে: ") + num(c.serialPhone) else "",
+                    ),
+                    listOfNotNull(
+                        if (c.serialPhone.isNotBlank()) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { callPhone(context, c.serialPhone) } else null,
+                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { bookingIndex = i } else null,
+                    ),
+                ),
+            )
         }
+        if (hv != null) {
+            add(
+                DetailSection(
+                    tr("Home visit", "বাসায় গিয়ে সেবা"),
+                    listOf(
+                        R.drawable.ic_medical_services to hv.services.joinToString(" · ") { HomeServices.label(it) },
+                        R.drawable.ic_location_on to (listOf(tr("Within ${hv.radiusKm} km", "${num(hv.radiusKm)} কিমির মধ্যে")) + hv.upazilaIds.mapNotNull { Areas.upazila(it)?.label }).joinToString(" · "),
+                        R.drawable.ic_schedule to hv.schedule,
+                        R.drawable.ic_payments to if (hv.noFee) tr("No fee", "ফি নেই") else if (hv.fee.isNotBlank()) tr("Fee: ", "ফি: ") + hv.fee else "",
+                    ),
+                    listOf(
+                        CardAction(tr("Call to visit home", "বাসায় আসতে ফোন"), R.drawable.ic_call) {
+                            scope.launch { runCatching { HomeCare.called(p.uid) } }
+                            callPhone(context, hv.phone)
+                        },
+                    ),
+                ),
+            )
+        }
+        add(
+            DetailSection(
+                tr("About", "পরিচিতি"),
+                listOf(
+                    R.drawable.ic_school to p.degrees,
+                    R.drawable.ic_badge to Badges.label(p.type),
+                ),
+            ),
+        )
     }
+    DetailSheet(
+        title = p.name,
+        icon = Badges.icon(p.type),
+        photo = p.photo,
+        iconTint = MaterialTheme.colorScheme.primary,
+        subtitle = p.specialties.joinToString(" · ") { Specialties.label(it) },
+        status = null,
+        rating = p.rating,
+        ratingCount = p.ratingCount,
+        meta = null,
+        sections = sections,
+        primary = null,
+        secondary = null,
+        // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
+        onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
+        onDismiss = onDismiss,
+        footer = {
+            if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
+            EmergencyNotice("doctor")
+        },
+    )
 
     if (reporting) {
         ReasonReportDialog(

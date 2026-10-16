@@ -229,7 +229,8 @@ private fun BloodBankFinder(profile: Profile) {
 internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Unit) {
     DirectoryCard(
         title = b.name,
-        avatar = { CardAvatar(null, R.drawable.ic_bloodtype, MaterialTheme.colorScheme.error) },
+        icon = R.drawable.ic_bloodtype,
+        iconTint = MaterialTheme.colorScheme.error,
         subtitle = BloodBankInfo.kind(b.kind),
         status = if (b.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
         details = listOf(
@@ -239,6 +240,20 @@ internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Uni
         ),
         primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
         onReport = onReport,
+        sections = listOf(
+            DetailSection(tr("Available here", "যা পাওয়া যায়"), b.services.map { R.drawable.ic_bloodtype to BloodBankInfo.service(it) }),
+            DetailSection(
+                tr("Address", "ঠিকানা"),
+                listOf(R.drawable.ic_location_on to listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(", ")),
+            ),
+            DetailSection(
+                tr("Open hours", "খোলার সময়"),
+                listOf(
+                    R.drawable.ic_schedule to b.hoursText,
+                    R.drawable.ic_calendar_month to closedDaysText(b.closedDays),
+                ),
+            ),
+        ),
     )
 }
 

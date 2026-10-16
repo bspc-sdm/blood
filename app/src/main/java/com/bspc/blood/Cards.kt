@@ -4,6 +4,11 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,7 +25,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // ------------------------------------------------------------
@@ -45,6 +56,7 @@ import androidx.compose.ui.unit.dp
 //                ★ ৪.৫ (১২) · প্রায় ৩ কিমি      ← দূরত্ব শুধু এখানে, একবারই
 //   ── তথ্য (আইকনসহ, সর্বোচ্চ কয়েক লাইন) ──
 //   [ফোন করুন]                     [রেটিং]
+// কার্ড চাপলে নিচ থেকে বিস্তারিত শিট ওঠে (DetailSheet) — একই মাথা, তারপর ভাগে ভাগে সব তথ্য, নিচে ফোন।
 // ------------------------------------------------------------
 
 /** কার্ডের উপরে ডানের অবস্থা: খোলা/খালি (সবুজাভ) বা বন্ধ/ব্যস্ত (ধূসর) */
@@ -52,15 +64,18 @@ data class CardStatus(val text: String, val good: Boolean)
 
 data class CardAction(val label: String, @DrawableRes val icon: Int?, val onClick: () -> Unit)
 
+/** বিস্তারিত শিটের এক ভাগ: শিরোনাম, আইকনসহ লাইন, আর দরকার হলে ভাগের নিজের বাটন (যেমন চেম্বারের সিরিয়াল) */
+data class DetailSection(val title: String, val lines: List<Pair<Int, String>>, val actions: List<CardAction> = emptyList())
+
 /** গোল ছবি; ছবি না থাকলে আইকন */
 @Composable
-fun CardAvatar(photo: String?, @DrawableRes icon: Int, tint: Color = MaterialTheme.colorScheme.primary) {
+fun CardAvatar(photo: String?, @DrawableRes icon: Int, tint: Color = MaterialTheme.colorScheme.primary, size: Dp = 52.dp) {
     val bmp = remember(photo) { Photo.decodeAvatar(photo) }
     if (bmp != null) {
-        Image(bmp, null, Modifier.size(52.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+        Image(bmp, null, Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop)
     } else {
-        Box(Modifier.size(52.dp).clip(CircleShape).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            AppIcon(icon, null, Modifier.size(26.dp), tint)
+        Box(Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            AppIcon(icon, null, Modifier.size(size / 2), tint)
         }
     }
 }
@@ -68,7 +83,9 @@ fun CardAvatar(photo: String?, @DrawableRes icon: Int, tint: Color = MaterialThe
 @Composable
 fun DirectoryCard(
     title: String,
-    avatar: @Composable () -> Unit,
+    @DrawableRes icon: Int,
+    photo: String? = null,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
     subtitle: String? = null,
     status: CardStatus? = null,
     rating: Double = 0.0,
@@ -81,13 +98,20 @@ fun DirectoryCard(
     primary: CardAction? = null,
     secondary: CardAction? = null,
     onReport: (() -> Unit)? = null,
+    /** দিলে কার্ড চাপলে এই ভাগগুলো নিয়ে বিস্তারিত শিট খোলে */
+    sections: List<DetailSection>? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val cs = MaterialTheme.colorScheme
+    var sheet by remember { mutableStateOf(false) }
+    if (sheet && sections != null) {
+        DetailSheet(title, icon, photo, iconTint, subtitle, status, rating, ratingCount, meta, sections, primary, secondary, onReport, onDismiss = { sheet = false })
+    }
+    val tap: (() -> Unit)? = onClick ?: if (sections != null) ({ sheet = true }) else null
     val content: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                avatar()
+                CardAvatar(photo, icon, iconTint)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -100,12 +124,8 @@ fun DirectoryCard(
                     if (!subtitle.isNullOrBlank()) {
                         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    val metaParts = listOfNotNull(
-                        if (ratingCount > 0) "★ " + num(String.format(java.util.Locale.US, "%.1f", rating)) + " (" + num(ratingCount) + ")" else null,
-                        meta?.takeIf { it.isNotBlank() },
-                    )
-                    if (metaParts.isNotEmpty()) {
-                        Text(metaParts.joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    metaLine(rating, ratingCount, meta)?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     }
                 }
                 if (onReport != null) {
@@ -154,6 +174,98 @@ fun DirectoryCard(
     }
     val colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)
     // আকার আর রং অ্যাপের বাকি কার্ডের মতোই (Card-এর নিজের আকার)
-    if (onClick != null) Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = colors) { content() }
+    if (tap != null) Card(onClick = tap, modifier = Modifier.fillMaxWidth(), colors = colors) { content() }
     else Card(Modifier.fillMaxWidth(), colors = colors) { content() }
+}
+
+private fun metaLine(rating: Double, ratingCount: Int, meta: String?): String? = listOfNotNull(
+    if (ratingCount > 0) "★ " + num(String.format(java.util.Locale.US, "%.1f", rating)) + " (" + num(ratingCount) + ")" else null,
+    meta?.takeIf { it.isNotBlank() },
+).takeIf { it.isNotEmpty() }?.joinToString("  ·  ")
+
+/**
+ * বিস্তারিত শিট — সব তালিকায় এক রকম: বড় ছবি, নাম, বিশেষজ্ঞতা, রেটিং · দূরত্ব,
+ * তারপর ভাগে ভাগে পুরো তথ্য (কাটা পড়ে না), নিচে বড় ফোন বাটন, রেটিং আর রিপোর্ট।
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun DetailSheet(
+    title: String,
+    @DrawableRes icon: Int,
+    photo: String?,
+    iconTint: Color,
+    subtitle: String?,
+    status: CardStatus?,
+    rating: Double,
+    ratingCount: Int,
+    meta: String?,
+    sections: List<DetailSection>,
+    primary: CardAction?,
+    secondary: CardAction?,
+    onReport: (() -> Unit)?,
+    onDismiss: () -> Unit,
+    footer: @Composable () -> Unit = {},
+) {
+    val cs = MaterialTheme.colorScheme
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+            Column(
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CardAvatar(photo, icon, iconTint, size = 72.dp)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.primary)
+                        metaLine(rating, ratingCount, meta)?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant) }
+                        if (status != null) {
+                            Tag(status.text, if (status.good) cs.tertiaryContainer else cs.surfaceVariant, if (status.good) cs.onTertiaryContainer else cs.onSurfaceVariant)
+                        }
+                    }
+                }
+                sections.forEach { sec ->
+                    val lines = sec.lines.filter { it.second.isNotBlank() }
+                    if (lines.isEmpty() && sec.actions.isEmpty()) return@forEach
+                    HorizontalDivider(color = cs.outlineVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(sec.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        lines.forEach { (ic, text) ->
+                            Row(verticalAlignment = Alignment.Top) {
+                                AppIcon(ic, null, Modifier.padding(top = 2.dp).size(18.dp), cs.onSurfaceVariant)
+                                Spacer(Modifier.width(10.dp))
+                                Text(text, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+                            }
+                        }
+                        if (sec.actions.isNotEmpty()) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                sec.actions.forEach { a ->
+                                    OutlinedButton(onClick = a.onClick, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, a.label, a.icon) }
+                                }
+                            }
+                        }
+                    }
+                }
+                footer()
+            }
+            // নিচে সব সময় দেখা যায়: ফোন, রেটিং, রিপোর্ট
+            if (primary != null || secondary != null || onReport != null) {
+                HorizontalDivider(color = cs.outlineVariant, modifier = Modifier.padding(top = 12.dp))
+                Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (primary != null) {
+                        Button(onClick = primary.onClick, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                            ButtonContent(false, primary.label, primary.icon)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (secondary != null) TextButton(onClick = secondary.onClick) { ButtonContent(false, secondary.label, secondary.icon ?: R.drawable.ic_star) }
+                        Spacer(Modifier.weight(1f))
+                        if (onReport != null) TextButton(onClick = onReport) { ButtonContent(false, tr("Report", "রিপোর্ট"), R.drawable.ic_flag) }
+                    }
+                }
+            }
+        }
+    }
 }

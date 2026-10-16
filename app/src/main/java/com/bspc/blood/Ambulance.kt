@@ -371,7 +371,7 @@ private fun AmbulanceFinder(profile: Profile) {
 private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit) {
     DirectoryCard(
         title = a.name,
-        avatar = { CardAvatar(null, R.drawable.ic_ambulance) },
+        icon = R.drawable.ic_ambulance,
         subtitle = a.types.joinToString(" · ") { AmbulanceTypes.label(it) },
         status = when {
             a.available -> CardStatus(tr("Available", "খালি আছে"), true)
@@ -392,6 +392,27 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
         primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
         secondary = onRate?.let { CardAction(tr("Rate", "রেটিং দিন"), null, it) },
         onReport = onReport,
+        sections = listOf(
+            DetailSection(tr("Vehicle", "গাড়ি"), a.types.map { R.drawable.ic_ambulance to AmbulanceTypes.label(it) }),
+            DetailSection(
+                tr("Area and fare", "এলাকা ও ভাড়া"),
+                listOf(
+                    R.drawable.ic_location_on to listOf(a.area, Areas.label(a.district, a.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
+                    R.drawable.ic_payments to if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else "",
+                ),
+            ),
+            DetailSection(
+                tr("Right now", "এখনকার অবস্থা"),
+                listOf(
+                    R.drawable.ic_schedule to when {
+                        a.busySince > 0 -> tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince)
+                        a.available && a.availableAt > 0 -> tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt)
+                        a.available -> tr("Available", "খালি আছে")
+                        else -> tr("Call to check if it is free", "খালি আছে কিনা ফোনে জেনে নিন")
+                    },
+                ),
+            ),
+        ),
     )
 }
 

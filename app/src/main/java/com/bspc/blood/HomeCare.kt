@@ -202,7 +202,8 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
     val areas = p.upazilaIds.mapNotNull { Areas.upazila(it)?.label }
     DirectoryCard(
         title = p.name,
-        avatar = { CardAvatar(p.photo, Badges.icon(p.type)) },
+        icon = Badges.icon(p.type),
+        photo = p.photo,
         subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
         rating = p.rating,
         ratingCount = p.ratingCount,
@@ -218,6 +219,33 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
             CardAction(if (p.myRating > 0) tr("Your rating ★${p.myRating}", "আপনার রেটিং ★${num(p.myRating)}") else tr("Rate", "রেটিং দিন"), null, it)
         },
         onReport = onReport,
+        sections = listOf(
+            DetailSection(
+                tr("Services at home", "বাসায় যে সেবা দেন"),
+                p.services.map { R.drawable.ic_medical_services to HomeServices.label(it) },
+            ),
+            DetailSection(
+                tr("Where they go", "কোথায় যান"),
+                listOf(
+                    R.drawable.ic_location_on to p.coverage,
+                    R.drawable.ic_near_me to (dist ?: ""),
+                ),
+            ),
+            DetailSection(
+                tr("Time and fee", "সময় ও ফি"),
+                listOf(
+                    R.drawable.ic_schedule to p.schedule,
+                    R.drawable.ic_payments to p.feeText,
+                ),
+            ),
+            DetailSection(
+                tr("About", "পরিচিতি"),
+                listOf(
+                    R.drawable.ic_school to p.degrees,
+                    R.drawable.ic_badge to p.specialties.joinToString(", ") { Specialties.label(it) },
+                ),
+            ),
+        ),
     )
 }
 
