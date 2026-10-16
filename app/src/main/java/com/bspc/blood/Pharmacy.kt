@@ -397,7 +397,6 @@ private fun NearbyPharmacies(profile: Profile) {
                             tr("Address", "ঠিকানা"),
                             listOf(
                                 R.drawable.ic_location_on to listOf(p.address, Areas.label(p.district, p.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
-                                R.drawable.ic_near_me to (p.km?.let { Rules.formatKm(it) } ?: ""),
                             ),
                         ),
                         DetailSection(

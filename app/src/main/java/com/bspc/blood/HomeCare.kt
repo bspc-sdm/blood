@@ -226,23 +226,13 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
             ),
             DetailSection(
                 tr("Where they go", "কোথায় যান"),
-                listOf(
-                    R.drawable.ic_location_on to p.coverage,
-                    R.drawable.ic_near_me to (dist ?: ""),
-                ),
+                listOf(R.drawable.ic_location_on to p.coverage),
             ),
             DetailSection(
                 tr("Time and fee", "সময় ও ফি"),
                 listOf(
                     R.drawable.ic_schedule to p.schedule,
                     R.drawable.ic_payments to p.feeText,
-                ),
-            ),
-            DetailSection(
-                tr("About", "পরিচিতি"),
-                listOf(
-                    R.drawable.ic_school to p.degrees,
-                    R.drawable.ic_badge to p.specialties.joinToString(", ") { Specialties.label(it) },
                 ),
             ),
         ),
