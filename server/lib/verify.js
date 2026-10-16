@@ -28,6 +28,10 @@ const DOCS = {
     { type: 'license', label: 'স্বাস্থ্য অধিদপ্তরের ব্লাড ব্যাংক লাইসেন্স', hint: 'বেসরকারি হলে লাগবে', required: x && x.kind === 'private' },
     { type: 'authority', label: 'হাসপাতাল বা সংগঠনের প্যাডে প্রত্যয়ন', hint: 'সরকারি হাসপাতাল বা সংগঠন হলে দিন', required: false },
   ],
+  lab: () => [
+    { type: 'license', label: 'স্বাস্থ্য অধিদপ্তরের ক্লিনিক/ডায়াগনস্টিক লাইসেন্স', hint: 'পুরো কাগজ, নম্বর আর মেয়াদ পড়া যায়', required: true },
+    { type: 'front', label: 'সেন্টারের সামনের ছবি (সাইনবোর্ডসহ)', hint: 'নাম পড়া যায়', required: true },
+  ],
   badge: (x) => {
     const t = x && x.type;
     if (t === 'doctor') {
@@ -82,6 +86,14 @@ const CHECKS = {
       { id: 'license_valid', label: 'লাইসেন্সের মেয়াদ শেষ হয়নি', format: 'মেয়াদের শেষ তারিখ আজকের পরে' },
     ] : []),
     { ...PHONE_CHECK, label: 'হাসপাতাল বা ব্লাড ব্যাংকের নম্বরে ফোন করে নিশ্চিত হয়েছেন' },
+  ],
+  lab: () => [
+    { id: 'license_no', label: 'লাইসেন্সের নম্বর আর অ্যাপে লেখা নম্বর হুবহু এক', format: 'ছবিতে যেভাবে লেখা ঠিক সেভাবে' },
+    { id: 'license_name', label: 'লাইসেন্সে সেন্টারের নাম আর অ্যাপের নাম এক' },
+    { id: 'license_valid', label: 'লাইসেন্সের মেয়াদ শেষ হয়নি', format: 'মেয়াদের শেষ তারিখ আজকের পরে' },
+    { id: 'license_type', label: 'লাইসেন্স ডায়াগনস্টিক/প্যাথলজির জন্য (শুধু ক্লিনিক নয়)' },
+    { id: 'signboard', label: 'ছবির সাইনবোর্ডে একই নাম' },
+    PHONE_CHECK,
   ],
   badge: (x) => {
     const t = x && x.type;
@@ -228,14 +240,14 @@ async function ownerInfo(kind, id, x) {
   };
 }
 
-const COLL = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodBanks', badge: 'badges' };
+const COLL = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodBanks', badge: 'badges', lab: 'labs' };
 const isKind = (k) => Object.prototype.hasOwnProperty.call(COLL, k);
 
 async function loadTarget(req, kind, id) {
   if (!isKind(kind) || !R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
   const s = await db.doc(`${COLL[kind]}/${id}`).get();
   if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-  const owner = kind === 'badge' || kind === 'pharmacy' ? id : s.get('ownerUid');
+  const owner = kind === 'badge' || kind === 'pharmacy' || kind === 'lab' ? id : s.get('ownerUid');
   return { s, x: s.data(), owner };
 }
 
@@ -283,7 +295,7 @@ const actions = {
     if (!owner) throw new HttpError(400, C.tr(req, 'This was added by an admin and has no owner', 'এটা অ্যাডমিন যোগ করেছেন, কোনো মালিক নেই'));
     const note = C.cleanText(req.body?.note, 200) || '';
     await s.ref.update({ docsRequestedAt: Date.now(), docsRequestNote: note });
-    const label = { ambulance: ['ambulance', 'অ্যাম্বুলেন্স'], pharmacy: ['pharmacy', 'ফার্মেসি'], bloodbank: ['blood bank', 'ব্লাড ব্যাংক'], badge: ['badge', 'ব্যাজ'] }[kind];
+    const label = { ambulance: ['ambulance', 'অ্যাম্বুলেন্স'], pharmacy: ['pharmacy', 'ফার্মেসি'], bloodbank: ['blood bank', 'ব্লাড ব্যাংক'], badge: ['badge', 'ব্যাজ'], lab: ['diagnostic lab', 'প্যাথলজি'] }[kind];
     await require('./requestend').pushUsers([owner], (u, lang) => ({
       title: R.L(lang, `Add document photos for your ${label[0]}`, `আপনার ${label[1]}-এর কাগজের ছবি দিন`),
       body: [x.name || '', note].filter(Boolean).join(' · ') || R.L(lang, 'Open the app to add them. It will be checked after that.', 'অ্যাপ খুলে ছবি দিন। এরপর যাচাই হবে।'),

@@ -1,0 +1,747 @@
+// প্রেসক্রিপশনের পরের ধাপগুলো (১৬ অক্টোবর ২০২৬):
+//  ধাপ ২ ফার্মেসি — কোড দিয়ে প্রেসক্রিপশন খুলে কত ওষুধ দিল লেখা; বাকিটা অন্য ফার্মেসি দিতে পারে;
+//         রোগী দেখেন কেনা/বাকি; কেনা ওষুধ শেষ হওয়ার ২ দিন আগে মনে করানো (ক্রন)
+//  ধাপ ৪ স্টক — ফার্মেসি ওষুধের নামের তালিকা রাখে; রোগী দেখেন কোন দোকানে কয়টা আছে, প্রেসক্রিপশন পাঠান
+//  ধাপ ৩ প্যাথলজি — অনুমোদিত ল্যাবে পরীক্ষা পাঠানো, ল্যাব ফল লেখে, রোগী পান; ডাক্তার দেখেন শুধু টাকা মিললে
+//         (ডাক্তারের নিজের bKash/Nagad নম্বরে পাঠিয়ে TrxID — Lifolo টাকা ধরে না; ডাক্তার/সহকারী মিলিয়ে নিশ্চিত করেন)
+// সব সংগ্রহ (rxOrders, pharmacyStock, labs, labOrders, rxReviews) শুধু সার্ভার পড়ে-লেখে।
+const { db, FieldValue, HttpError, sendPush, tokensOf } = require('./firebase');
+const R = require('./rules');
+const C = require('./community');
+const K = require('./care');
+const DISTRICTS = require('./districts');
+const { UPAZILA } = require('./hospital-match');
+const { useQuota, approvedBadge } = require('./community-db');
+const P = require('./prescriptions');
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
+const notFound = (req) => err(req, 'Not found', 'পাওয়া যায়নি', 404);
+const str = (v, n) => (typeof v === 'string' ? v.replace(/\r\n/g, '\n').trim().slice(0, n) : '');
+const key = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+async function push(uid, en, bn, body, data) {
+  if (!uid) return;
+  try {
+    const u = await db.doc(`users/${uid}`).get();
+    if (!u.exists) return;
+    await sendPush([{ uid, tokens: tokensOf(u), title: R.L(u.get('lang'), en, bn), body: body || '', data }]);
+  } catch (e) {
+    console.error('rxnet push failed', e.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ওষুধের হিসাব
+// ---------------------------------------------------------------------------
+
+/** দিনে কয়টা: "1+0+1" → 2, "½+0+½" → 1; বুঝতে না পারলে 0 */
+function perDay(dose) {
+  const parts = String(dose || '').replace(/\s/g, '').replace(/½/g, '0.5').split('+');
+  if (parts.length < 2 || parts.length > 4) return 0;
+  let sum = 0;
+  for (const p of parts) {
+    const n = Number(p);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    sum += n;
+  }
+  return sum;
+}
+
+/** গোনা যায় এমন (ট্যাবলেট/ক্যাপসুল, ধরন না লেখা হলেও) */
+function countable(m) {
+  const f = String(m.form || '').toLowerCase();
+  return !f || f.includes('tablet') || f.includes('capsule') || f === 'tab.' || f === 'cap.';
+}
+
+/** কতটা লাগবে (পিস) — দিন আর নিয়ম জানা, গোনা যায় এমন ওষুধে; না জানলে null */
+function needQty(m) {
+  const d = perDay(m.dose);
+  return countable(m) && d > 0 && m.days > 0 ? Math.ceil(d * m.days) : null;
+}
+
+/** প্রতিটা ওষুধে কেনা আর বাকি */
+function medStatus(rx) {
+  const got = new Map();
+  for (const d of rx.dispensed || []) for (const it of d.items || []) got.set(it.i, (got.get(it.i) || 0) + it.qty);
+  return (rx.medicines || []).map((m, i) => {
+    const need = needQty(m);
+    const g = got.get(i) || 0;
+    return { i, name: m.name, form: m.form || '', strength: m.strength || '', dose: m.dose || '', days: m.days || 0, need, got: g,
+      left: need == null ? null : Math.max(0, need - g), done: need == null ? g > 0 && m.days > 0 : g >= need };
+  });
+}
+
+/**
+ * কবে মনে করাতে হবে: কেনা ওষুধ (গোনা যায়, নিয়ম জানা) যেদিন শেষ হবে তার ২ দিন আগে —
+ * পুরো কোর্স কেনা হয়ে গেলে নয়; "চলবে" ওষুধে সবসময়। ঢাকার তারিখ (UTC মধ্যরাত), না থাকলে null।
+ */
+function refillDate(rx, now = Date.now()) {
+  const first = new Map();
+  for (const d of rx.dispensed || []) for (const it of d.items || []) if (!first.has(it.i)) first.set(it.i, d.at);
+  let best = null;
+  for (const s of medStatus(rx)) {
+    const m = rx.medicines[s.i];
+    const pd = perDay(m.dose);
+    if (!countable(m) || pd <= 0 || s.got <= 0) continue;
+    if (s.need != null && s.got >= s.need) continue;
+    const runOut = P.dhakaToday(first.get(s.i)) + Math.floor(s.got / pd) * DAY_MS;
+    // অল্প কিনলে (২ দিনের কম) কাল মনে করানো — আজকের তারিখ পেরিয়ে গেলে ক্রন আর ধরে না
+    const at = Math.max(runOut - 2 * DAY_MS, P.dhakaToday(now) + DAY_MS);
+    if (best == null || at < best) best = at;
+  }
+  return best;
+}
+
+async function myPharmacy(req, user) {
+  const s = await db.doc(`pharmacies/${user.uid}`).get();
+  if (!s.exists || s.get('status') !== 'approved') {
+    throw err(req, 'Only approved pharmacies can do this', 'শুধু অনুমোদিত ফার্মেসি এটা করতে পারে', 403);
+  }
+  return s;
+}
+
+async function rxByCode(req, code) {
+  const c = String(code || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  if (!P.CODE_RE.test(c)) throw err(req, 'Check the code on the prescription', 'প্রেসক্রিপশনের কোডটা দেখে লিখুন');
+  const snap = await db.collection('prescriptions').where('code', '==', c).limit(1).get();
+  if (snap.empty) throw err(req, 'No prescription with this code', 'এই কোডের কোনো প্রেসক্রিপশন নেই', 404);
+  return snap.docs[0];
+}
+
+/** ফার্মেসির দেখা: ডাক্তার, রোগীর নাম-বয়স, তারিখ, ওষুধ (কেনা/বাকি), আগের বিক্রি — রোগনির্ণয়/ফোন নয় */
+function pharmacyRxView(d) {
+  const x = d.data();
+  return {
+    id: d.id,
+    code: x.code,
+    status: x.status,
+    createdAt: x.createdAt,
+    doctor: { name: x.doctor?.name || '', degrees: x.doctor?.degrees || '', regNo: x.doctor?.regNo || '' },
+    patient: { name: x.patient?.name || '', age: x.patient?.age ?? null },
+    medicines: medStatus(x).map((s) => ({ ...s, timing: x.medicines[s.i].timing || '', note: x.medicines[s.i].note || '' })),
+    dispensed: (x.dispensed || []).map((p) => ({ name: p.name, at: p.at, items: p.items })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// প্যাথলজি (ল্যাব) তালিকা
+// ---------------------------------------------------------------------------
+
+function labView(d, mine = false) {
+  const x = d.data();
+  return {
+    id: d.id,
+    name: x.name,
+    phone: K.fixPhone(x.phone),
+    address: x.address || '',
+    district: x.district,
+    upazilaId: x.upazilaId || null,
+    facilityId: x.facilityId || null,
+    homeCollection: x.homeCollection === true,
+    hours: x.hours || '',
+    ...(mine ? { licenseNo: x.licenseNo, status: x.status, statusReason: x.statusReason || '' } : {}),
+  };
+}
+
+async function areaLabs(district) {
+  const M = require('./memcache');
+  const rows = await M.cached(`labs:${district}`, 60 * 1000, async () =>
+    (await db.collection('labs').where('district', '==', district).limit(500).get()).docs
+      .filter((d) => d.get('status') === 'approved').map((d) => ({ id: d.id, x: d.data() })));
+  return rows.map(({ id, x }) => M.docLike(id, x));
+}
+
+async function myLab(req, user) {
+  const s = await db.doc(`labs/${user.uid}`).get();
+  if (!s.exists || s.get('status') !== 'approved') throw err(req, 'Only approved labs can do this', 'শুধু অনুমোদিত প্যাথলজি এটা করতে পারে', 403);
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// রিপোর্ট দেখানো (ডাক্তার)
+// ---------------------------------------------------------------------------
+
+function reviewSettings(prov) {
+  const r = (prov && prov.get && prov.get('reportReview')) || {};
+  return { enabled: r.enabled === true, noFee: r.noFee === true, fee: r.fee || '', payNumber: r.payNumber || '', payMethods: Array.isArray(r.payMethods) ? r.payMethods : [] };
+}
+
+function reviewView(d, withSecret = false) {
+  const x = d.data();
+  return {
+    id: d.id,
+    rxId: x.rxId,
+    labOrderId: x.labOrderId,
+    doctorUid: x.doctorUid,
+    doctorName: x.doctorName || '',
+    patientName: x.patientName || '',
+    labName: x.labName || '',
+    tests: x.tests || [],
+    status: x.status,
+    fee: x.fee || '',
+    noFee: x.noFee === true,
+    payNumber: x.payNumber || '',
+    payMethods: x.payMethods || [],
+    method: x.method || '',
+    ...(withSecret ? { trxId: x.trxId || '' } : {}),
+    rejectNote: x.rejectNote || '',
+    comment: x.comment || '',
+    newRxId: x.newRxId || null,
+    createdAt: x.createdAt || 0,
+    updatedAt: x.updatedAt || 0,
+  };
+}
+
+/** ডাক্তার নিজে বা তাঁর সহকারী */
+async function doctorOrAssistant(req, user, doctorUid) {
+  const d = typeof doctorUid === 'string' && doctorUid ? doctorUid : user.uid;
+  if (d === user.uid) {
+    if ((await approvedBadge(user.uid)) !== 'doctor') throw err(req, 'Doctors only', 'শুধু ডাক্তার', 403);
+    return { doctorUid: d, role: 'doctor' };
+  }
+  if (!R.isValidId(d)) throw notFound(req);
+  const p = await db.doc(`providers/${d}`).get();
+  const email = user.email_verified ? String(user.email || '').toLowerCase() : '';
+  if (!email || !p.exists || !(p.get('assistantEmails') || []).includes(email)) throw err(req, "You are not this doctor's assistant", 'আপনি এই ডাক্তারের সহকারী নন', 403);
+  return { doctorUid: d, role: 'assistant' };
+}
+
+function labOrderView(d, withPhotos = false) {
+  const x = d.data();
+  return {
+    id: d.id,
+    rxId: x.rxId,
+    code: x.code,
+    labId: x.labId,
+    labName: x.labName || '',
+    patientName: x.patientName || '',
+    patientAge: x.patientAge ?? null,
+    patientGender: x.patientGender || '',
+    doctorName: x.doctorName || '',
+    tests: x.tests || [],
+    status: x.status,
+    createdAt: x.createdAt || 0,
+    report: x.report ? {
+      items: x.report.items || [],
+      note: x.report.note || '',
+      reportedAt: x.report.reportedAt || 0,
+      photoCount: (x.report.photos || []).length,
+      ...(withPhotos ? { photos: x.report.photos || [] } : {}),
+    } : null,
+  };
+}
+
+const MAX_PHOTO_B64 = 260 * 1024;
+
+const actions = {
+  // ======================= প্যানেলে প্যাথলজি অনুমোদন =======================
+  async admin_labs(req, user) {
+    if (!(await require('./admin').isAdmin(user))) throw err(req, 'Admins only', 'শুধু অ্যাডমিন', 403);
+    const status = ['pending', 'approved', 'suspended', 'rejected'].includes(req.body?.status) ? req.body.status : 'pending';
+    const snap = await db.collection('labs').where('status', '==', status).limit(300).get();
+    const LR = require('./listingreview');
+    const { UPAZILA: U } = require('./hospital-match');
+    return {
+      items: await Promise.all(snap.docs.map(async (d) => ({
+        ...labView(d, true),
+        areaLabel: [U.get(d.get('upazilaId'))?.bn, d.get('district')].filter(Boolean).join(', '),
+        ownerUid: d.id,
+        createdAt: d.get('createdAt') || null,
+        reviewedAt: d.get('reviewedAt') || null,
+        changes: LR.changedFields(d.data()),
+        ...(['pending', 'rejected'].includes(status) ? { verify: await require('./verify').panelInfo('lab', d.id, d.data()).catch(() => null) } : {}),
+        verification: d.get('verification') || null,
+      }))),
+    };
+  },
+
+  async admin_lab_resolve(req, user) {
+    if (!(await require('./admin').isAdmin(user))) throw err(req, 'Admins only', 'শুধু অ্যাডমিন', 403);
+    return require('./listingreview').resolveListing(req, user, 'lab', 'labs', req.body?.id);
+  },
+
+  // ======================= ধাপ ২: ফার্মেসি =======================
+  /** ফার্মেসি: কোড দিয়ে প্রেসক্রিপশন খোলা */
+  async rx_pharmacy_open(req, user) {
+    await myPharmacy(req, user);
+    await useQuota(req, user.uid, 'rxPharm');
+    const d = await rxByCode(req, req.body?.code);
+    return { item: pharmacyRxView(d) };
+  },
+
+  /** ফার্মেসি: কত ওষুধ দিলেন (items: [{ i, qty }]) */
+  async rx_dispense(req, user) {
+    const shop = await myPharmacy(req, user);
+    const d0 = await rxByCode(req, req.body?.code);
+    const raw = Array.isArray(req.body?.items) ? req.body.items : [];
+    const now = Date.now();
+    const out = await db.runTransaction(async (t) => {
+      const s = await t.get(d0.ref);
+      const x = s.data();
+      if (x.status !== 'active') throw err(req, 'This prescription was cancelled. Do not dispense.', 'এই প্রেসক্রিপশন বাতিল। ওষুধ দেবেন না।', 409);
+      const st = medStatus(x);
+      const items = [];
+      for (const it of raw) {
+        if (!Number.isInteger(it?.i) || !st[it.i]) continue;
+        const qty = Number.isInteger(it.qty) ? it.qty : 0;
+        if (qty <= 0) continue;
+        if (qty > 1000) throw err(req, 'Check the quantity', 'পরিমাণ দেখে নিন');
+        const m = st[it.i];
+        if (m.left != null && qty > m.left) {
+          throw err(req, `${m.name}: only ${m.left} left on this prescription`, `${m.name}: এই প্রেসক্রিপশনে আর ${m.left}টা বাকি`, 409);
+        }
+        if (m.left == null && m.done) throw err(req, `${m.name} was already given`, `${m.name} আগেই দেওয়া হয়েছে`, 409);
+        items.push({ i: it.i, qty });
+      }
+      if (!items.length) throw err(req, 'Enter how many you gave', 'কয়টা দিলেন লিখুন');
+      const dispensed = [...(x.dispensed || []), { by: user.uid, name: shop.get('name') || '', at: now, items }].slice(-30);
+      const next = { ...x, dispensed };
+      t.update(d0.ref, { dispensed, refillAt: refillDate(next), refillNotifiedAt: FieldValue.delete() });
+      return { next, x };
+    });
+    // এই দোকানে পাঠানো খোলা অনুরোধ থাকলে সম্পন্ন
+    const orders = await db.collection('rxOrders').where('rxId', '==', d0.id).limit(50).get();
+    for (const o of orders.docs) {
+      if (o.get('pharmacyId') === user.uid && ['sent', 'ready'].includes(o.get('status'))) await o.ref.update({ status: 'done', doneAt: now });
+    }
+    if (out.x.patientUid) {
+      await push(out.x.patientUid, 'Medicines given from your prescription', 'প্রেসক্রিপশনের ওষুধ দেওয়া হয়েছে', shop.get('name') || '', { type: 'rx', id: d0.id });
+    }
+    return { item: pharmacyRxView({ id: d0.id, data: () => out.next }) };
+  },
+
+  /** রোগী: কোন ফার্মেসিতে প্রেসক্রিপশনের কয়টা ওষুধ আছে (যাঁরা স্টক রাখেন) */
+  async rx_pharmacy_options(req, user) {
+    const b = req.body || {};
+    const s = await db.doc(`prescriptions/${b.rxId}`).get().catch(() => null);
+    if (!R.isValidId(b.rxId) || !s || !s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
+    if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
+    const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name) }));
+    const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
+    const docs = await require('./pharmacy').areaPharmacies(b.district, upazilaId);
+    const near = docs.map((d) => {
+      const x = d.data();
+      const km = typeof b.lat === 'number' && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
+      return { d, x, km };
+    }).filter((p) => !upazilaId || p.x.upazilaId === upazilaId || (p.km != null && p.km <= K.MED_RADIUS_KM))
+      .sort((a, c) => (a.km ?? 99) - (c.km ?? 99)).slice(0, 40);
+    const stocks = near.length ? await db.getAll(...near.map((p) => db.doc(`pharmacyStock/${p.d.id}`))) : [];
+    const items = near.map((p, i) => {
+      const keys = new Set(stocks[i].exists ? stocks[i].get('keys') || [] : []);
+      const has = wanted.filter((w) => keys.has(w.k));
+      return {
+        id: p.d.id,
+        name: p.x.name,
+        phone: K.fixPhone(p.x.phone),
+        address: p.x.address || '',
+        km: p.km,
+        openNow: K.pharmacyOpenNow(p.x),
+        keepsStock: stocks[i].exists && keys.size > 0,
+        have: has.length,
+        total: wanted.length,
+        missing: wanted.filter((w) => !keys.has(w.k)).map((w) => w.name),
+      };
+    }).sort((a, c) => (c.have - a.have) || (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)));
+    return { items: items.slice(0, 30) };
+  },
+
+  /** রোগী: প্রেসক্রিপশন একটা ফার্মেসিতে পাঠানো — দোকান ওষুধ তৈরি রাখে */
+  async rx_send_pharmacy(req, user) {
+    const { rxId, pharmacyId } = req.body || {};
+    if (!R.isValidId(rxId) || !R.isValidId(pharmacyId)) throw notFound(req);
+    const [s, p] = await Promise.all([db.doc(`prescriptions/${rxId}`).get(), db.doc(`pharmacies/${pharmacyId}`).get()]);
+    if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
+    if (s.get('status') !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
+    if (!p.exists || p.get('status') !== 'approved') throw err(req, 'This pharmacy is not available', 'এই ফার্মেসি এখন নেই', 404);
+    const open = await db.collection('rxOrders').where('rxId', '==', rxId).limit(50).get();
+    if (open.docs.some((o) => o.get('pharmacyId') === pharmacyId && ['sent', 'ready'].includes(o.get('status')))) {
+      throw err(req, 'Already sent to this pharmacy', 'এই ফার্মেসিতে আগেই পাঠানো আছে', 409);
+    }
+    await useQuota(req, user.uid, 'rxSend');
+    const x = s.data();
+    const ref = await db.collection('rxOrders').add({
+      rxId, code: x.code, pharmacyId, pharmacyName: p.get('name') || '', patientUid: user.uid,
+      patientName: x.patient?.name || '', status: 'sent', note: str(req.body?.note, 200), createdAt: Date.now(),
+    });
+    await push(pharmacyId, 'A prescription was sent to your pharmacy', 'আপনার ফার্মেসিতে প্রেসক্রিপশন এসেছে', x.patient?.name || '', { type: 'rx_pharmacy', id: ref.id });
+    return { id: ref.id };
+  },
+
+  /** ফার্মেসি: আসা প্রেসক্রিপশন */
+  async rx_orders_pharmacy(req, user) {
+    await myPharmacy(req, user);
+    const snap = await db.collection('rxOrders').where('pharmacyId', '==', user.uid).limit(300).get();
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.createdAt - a.createdAt).slice(0, 100)
+      .map((o) => ({ id: o.id, rxId: o.rxId, code: o.code, patientName: o.patientName, note: o.note || '', status: o.status, createdAt: o.createdAt }));
+    return { items };
+  },
+
+  /** ফার্মেসি: তৈরি / পারবে না */
+  async rx_order_update(req, user) {
+    await myPharmacy(req, user);
+    const { id, status } = req.body || {};
+    if (!R.isValidId(id) || !['ready', 'cancelled'].includes(status)) throw notFound(req);
+    const ref = db.doc(`rxOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('pharmacyId') !== user.uid) throw notFound(req);
+    const reason = str(req.body?.reason, 200);
+    await ref.update({ status, ...(status === 'cancelled' ? { reason } : {}), updatedAt: Date.now() });
+    await push(s.get('patientUid'),
+      status === 'ready' ? `${s.get('pharmacyName')}: your medicines are ready` : `${s.get('pharmacyName')} can't provide your medicines`,
+      status === 'ready' ? `${s.get('pharmacyName')}: আপনার ওষুধ তৈরি` : `${s.get('pharmacyName')} ওষুধ দিতে পারবে না`,
+      reason, { type: 'rx', id: s.get('rxId') });
+    return { ok: true };
+  },
+
+  // ======================= ধাপ ৪: স্টক =======================
+  async stock_get(req, user) {
+    await myPharmacy(req, user);
+    const s = await db.doc(`pharmacyStock/${user.uid}`).get();
+    return { items: (s.exists && s.get('names')) || [], updatedAt: (s.exists && s.get('updatedAt')) || 0 };
+  },
+
+  /** add / remove: নামের তালিকা (সর্বোচ্চ ৩০০০) */
+  async stock_set(req, user) {
+    await myPharmacy(req, user);
+    const add = (Array.isArray(req.body?.add) ? req.body.add : []).map((n) => str(n, 100)).filter(Boolean).slice(0, 3000);
+    const remove = new Set((Array.isArray(req.body?.remove) ? req.body.remove : []).map(key));
+    const ref = db.doc(`pharmacyStock/${user.uid}`);
+    const names = await db.runTransaction(async (t) => {
+      const s = await t.get(ref);
+      const cur = (s.exists && s.get('names')) || [];
+      const map = new Map(cur.map((n) => [key(n), n]));
+      for (const n of add) if (!map.has(key(n))) map.set(key(n), n);
+      for (const k of remove) map.delete(k);
+      if (map.size > 3000) throw err(req, 'Up to 3000 medicines', 'সর্বোচ্চ ৩০০০টা ওষুধ');
+      const list = [...map.values()].sort((a, b) => a.localeCompare(b));
+      t.set(ref, { names: list, keys: list.map(key), updatedAt: Date.now() });
+      return list;
+    });
+    return { items: names };
+  },
+
+  // ======================= ধাপ ৩: প্যাথলজি =======================
+  async lab_me(req, user) {
+    const s = await db.doc(`labs/${user.uid}`).get();
+    if (!s.exists) return { lab: null };
+    const v = labView(s, true);
+    const x = s.data();
+    const docs = ['pending', 'rejected'].includes(x.status) || x.docsRequestedAt
+      ? await require('./verify').ownerInfo('lab', s.id, x).catch(() => ({})) : {};
+    return { lab: { ...v, ...docs, docsRequestNote: x.docsRequestNote || '' } };
+  },
+
+  /** নিবন্ধন/বদল: স্বাস্থ্য অধিদপ্তরের তালিকা থেকে সেন্টার (facilityId) বা নিজে লেখা; লাইসেন্স; কাগজের ছবি */
+  async lab_save(req, user) {
+    const b = req.body || {};
+    const ref = db.doc(`labs/${user.uid}`);
+    const s = await ref.get();
+    let fac = null;
+    if (typeof b.facilityId === 'string' && b.facilityId) {
+      fac = await require('./hospitals').findHospital(b.facilityId);
+      if (!fac) throw err(req, 'Choose the centre from the list again', 'তালিকা থেকে সেন্টারটা আবার বেছে নিন');
+    }
+    const name = C.cleanText(fac ? (fac.nameBn || fac.nameEn) : b.name, 120);
+    if (!name) throw err(req, 'Write the centre name', 'সেন্টারের নাম লিখুন');
+    const district = fac ? fac.district : b.district;
+    if (!DISTRICTS.some((d) => d.bn === district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
+    const upazilaId = fac ? fac.upazilaId || null : Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === district ? b.upazilaId : null;
+    const address = C.cleanText(b.address || (fac && fac.address) || '', 200);
+    if (!address) throw err(req, 'Write the address', 'ঠিকানা লিখুন');
+    const licenseNo = C.cleanText(b.licenseNo, 60);
+    if (!licenseNo) throw err(req, 'Enter the DGHS licence number', 'স্বাস্থ্য অধিদপ্তরের লাইসেন্স নম্বর দিন');
+    const phone = K.normalizeBd(b.phone);
+    if (!phone) throw err(req, 'Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন');
+    if (b.termsAccepted !== true) throw err(req, 'Please accept the terms', 'শর্তে সম্মতি দিন');
+    const data = {
+      name, facilityId: fac ? fac.id : null, district, upazilaId, address, licenseNo, phone: K.localBd(phone),
+      hours: str(b.hours, 80), homeCollection: b.homeCollection === true, updatedAt: Date.now(),
+    };
+    const V = require('./verify');
+    if (s.exists) {
+      if (s.get('status') === 'suspended') throw err(req, 'Your lab is suspended. You can appeal from Profile → Help & appeals.', 'আপনার প্যাথলজি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করুন।', 403);
+      const { changed, approvedName } = K.reviewNeeded(s, data, ['licenseNo', 'phone', 'district', 'facilityId']);
+      await V.saveDocs(req, 'lab', user.uid, user.uid, { ...s.data(), ...data }, b.docs, false);
+      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
+      return { ok: true, pending: changed || s.get('status') === 'pending' };
+    }
+    V.validateDocs(req, 'lab', data, b.docs, true);
+    await useQuota(req, user.uid, 'lab');
+    const docsHave = await V.saveDocs(req, 'lab', user.uid, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', docsHave: docsHave || {}, createdAt: Date.now() });
+    return { ok: true, pending: true };
+  },
+
+  async lab_delete(req, user) {
+    const ref = db.doc(`labs/${user.uid}`);
+    const s = await ref.get();
+    if (!s.exists) return { ok: true };
+    if (s.get('status') === 'suspended') throw err(req, "A suspended lab can't be removed", 'বন্ধ করা প্যাথলজি সরানো যায় না', 403);
+    await ref.delete();
+    await require('./verify').deleteDocs('lab', user.uid, s.data()).catch(() => {});
+    return { ok: true };
+  },
+
+  /** এলাকার অনুমোদিত প্যাথলজি (সেবা ট্যাবের তালিকা) */
+  async labs(req) {
+    const b = req.body || {};
+    if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
+    const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
+    let items = (await areaLabs(b.district)).map((d) => labView(d));
+    if (upazilaId) items = [...items.filter((l) => l.upazilaId === upazilaId), ...items.filter((l) => l.upazilaId !== upazilaId)];
+    if (b.facilityId) items.sort((a, c) => (c.facilityId === b.facilityId) - (a.facilityId === b.facilityId));
+    return { items: items.slice(0, 100) };
+  },
+
+  /** রোগী: প্রেসক্রিপশনের পরীক্ষা একটা প্যাথলজিতে পাঠানো */
+  async rx_send_lab(req, user) {
+    const { rxId, labId } = req.body || {};
+    if (!R.isValidId(rxId) || !R.isValidId(labId)) throw notFound(req);
+    const [s, l] = await Promise.all([db.doc(`prescriptions/${rxId}`).get(), db.doc(`labs/${labId}`).get()]);
+    if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
+    const x = s.data();
+    if (x.status !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
+    if (!l.exists || l.get('status') !== 'approved') throw err(req, 'This lab is not available', 'এই প্যাথলজি এখন নেই', 404);
+    const tests = (Array.isArray(req.body?.tests) ? req.body.tests : x.tests || []).filter((t) => (x.tests || []).includes(t));
+    if (!tests.length) throw err(req, 'Choose the tests', 'পরীক্ষা বেছে নিন');
+    const prev = await db.collection('labOrders').where('rxId', '==', rxId).limit(50).get();
+    if (prev.docs.some((o) => o.get('labId') === labId && ['sent', 'received'].includes(o.get('status')))) {
+      throw err(req, 'Already sent to this lab', 'এই প্যাথলজিতে আগেই পাঠানো আছে', 409);
+    }
+    await useQuota(req, user.uid, 'rxSend');
+    const ref = await db.collection('labOrders').add({
+      rxId, code: x.code, labId, labName: l.get('name') || '', patientUid: user.uid, patientName: x.patient?.name || '',
+      patientAge: x.patient?.age ?? null, patientGender: x.patient?.gender || '', doctorUid: x.doctorUid, doctorName: x.doctor?.name || '',
+      tests, status: 'sent', createdAt: Date.now(),
+    });
+    await push(labId, 'New test request', 'নতুন পরীক্ষার অনুরোধ', `${x.patient?.name || ''} · ${tests.join(', ')}`, { type: 'rx_lab', id: ref.id });
+    return { id: ref.id };
+  },
+
+  /** প্যাথলজি: আসা পরীক্ষা (ছবি ছাড়া) */
+  async lab_orders(req, user) {
+    await myLab(req, user);
+    const snap = await db.collection('labOrders').where('labId', '==', user.uid).limit(400).get();
+    return { items: snap.docs.map((d) => labOrderView(d)).sort((a, c) => c.createdAt - a.createdAt).slice(0, 150) };
+  },
+
+  /** প্যাথলজি: কোড দিয়ে খোলা (রোগী অ্যাপে না পাঠিয়ে কাগজ নিয়ে এলে) — নতুন অনুরোধ হিসেবে যোগ */
+  async lab_open_code(req, user) {
+    const lab = await myLab(req, user);
+    await useQuota(req, user.uid, 'rxPharm');
+    const d = await rxByCode(req, req.body?.code);
+    const x = d.data();
+    if (x.status !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
+    if (!(x.tests || []).length) throw err(req, 'No tests on this prescription', 'এই প্রেসক্রিপশনে কোনো পরীক্ষা নেই');
+    const prev = await db.collection('labOrders').where('rxId', '==', d.id).limit(50).get();
+    const mine = prev.docs.find((o) => o.get('labId') === user.uid && o.get('status') !== 'cancelled');
+    if (mine) return { item: labOrderView(mine) };
+    const ref = await db.collection('labOrders').add({
+      rxId: d.id, code: x.code, labId: user.uid, labName: lab.get('name') || '', patientUid: x.patientUid || null, patientName: x.patient?.name || '',
+      patientAge: x.patient?.age ?? null, patientGender: x.patient?.gender || '', doctorUid: x.doctorUid, doctorName: x.doctor?.name || '',
+      tests: x.tests, status: 'received', createdAt: Date.now(), walkIn: true,
+    });
+    return { item: labOrderView(await ref.get()) };
+  },
+
+  async lab_order_status(req, user) {
+    await myLab(req, user);
+    const { id, status } = req.body || {};
+    if (!R.isValidId(id) || !['received', 'cancelled'].includes(status)) throw notFound(req);
+    const ref = db.doc(`labOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('labId') !== user.uid || s.get('status') === 'reported') throw notFound(req);
+    await ref.update({ status, updatedAt: Date.now() });
+    if (status === 'cancelled') {
+      await push(s.get('patientUid'), `${s.get('labName')} can't do your tests`, `${s.get('labName')} পরীক্ষা করতে পারবে না`, '', { type: 'rx', id: s.get('rxId') });
+    }
+    return { ok: true };
+  },
+
+  /**
+   * প্যাথলজি: ফল দেওয়া — items: [{ test, result, unit, range, flag }], note, photos (ছোট JPEG base64, সর্বোচ্চ ৩)।
+   * রোগী পান; ডাক্তারের "রিপোর্ট দেখা"-র তালিকায় যায় (টাকা না মিললে বিষয়বস্তু দেখেন না)।
+   */
+  async lab_report(req, user) {
+    await myLab(req, user);
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`labOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('labId') !== user.uid || s.get('status') === 'cancelled') throw notFound(req);
+    const raw = Array.isArray(req.body?.items) ? req.body.items.slice(0, 60) : [];
+    const items = raw.map((r) => ({
+      test: str(r?.test, 80), result: str(r?.result, 60), unit: str(r?.unit, 30), range: str(r?.range, 60),
+      flag: ['high', 'low'].includes(r?.flag) ? r.flag : '',
+    })).filter((r) => r.test && r.result);
+    const photos = (Array.isArray(req.body?.photos) ? req.body.photos : []).filter((p) => typeof p === 'string' && p.length > 100).slice(0, 3);
+    if (photos.some((p) => p.length > MAX_PHOTO_B64 || !/^[A-Za-z0-9+/=\s]+$/.test(p))) throw err(req, 'Photos are too large', 'ছবি অনেক বড়');
+    if (!items.length && !photos.length) throw err(req, 'Enter at least one result or a photo of the report', 'অন্তত একটা ফল বা রিপোর্টের ছবি দিন');
+    const now = Date.now();
+    await ref.update({ status: 'reported', report: { items, note: str(req.body?.note, 500), photos, reportedAt: now }, reportedAt: now });
+    const x = s.data();
+    if (x.patientUid) await push(x.patientUid, 'Your test report is ready', 'আপনার পরীক্ষার রিপোর্ট এসেছে', x.labName || '', { type: 'rx', id: x.rxId });
+    // ডাক্তারের দেখার তালিকা
+    const prov = await db.doc(`providers/${x.doctorUid}`).get();
+    const st = reviewSettings(prov);
+    const status = !st.enabled ? 'off' : st.noFee ? 'paid' : 'unpaid';
+    await db.doc(`rxReviews/${id}`).set({
+      rxId: x.rxId, labOrderId: id, doctorUid: x.doctorUid, doctorName: x.doctorName || '', patientUid: x.patientUid || null,
+      patientName: x.patientName || '', labName: x.labName || '', tests: x.tests || [], status, fee: st.fee, noFee: st.noFee,
+      payNumber: st.payNumber, payMethods: st.payMethods, createdAt: now, updatedAt: now,
+    }, { merge: true });
+    if (status === 'paid') await push(x.doctorUid, 'A report is waiting for you', 'একটা রিপোর্ট দেখার অপেক্ষায়', x.patientName || '', { type: 'rx_review' });
+    return { ok: true };
+  },
+
+  /** রিপোর্ট পড়া: রোগী (নিজের), ল্যাব (নিজের), ডাক্তার (টাকা মিললে বা ফি না থাকলে) */
+  async lab_order_get(req, user) {
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const s = await db.doc(`labOrders/${id}`).get();
+    if (!s.exists) throw notFound(req);
+    const x = s.data();
+    let ok = x.patientUid === user.uid || x.labId === user.uid;
+    if (!ok && x.doctorUid === user.uid) {
+      const r = await db.doc(`rxReviews/${id}`).get();
+      ok = r.exists && ['paid', 'done'].includes(r.get('status'));
+      if (!ok) throw err(req, "The patient hasn't paid for the report review yet", 'রোগী এখনো রিপোর্ট দেখার টাকা দেননি', 402);
+    }
+    if (!ok) throw notFound(req);
+    return { item: labOrderView(s, true) };
+  },
+
+  /** রোগী: এই প্রেসক্রিপশনের ফার্মেসি/প্যাথলজি অনুরোধ, রিপোর্ট আর ডাক্তারের দেখা */
+  async rx_activity(req, user) {
+    const { rxId } = req.body || {};
+    if (!R.isValidId(rxId)) throw notFound(req);
+    const s = await db.doc(`prescriptions/${rxId}`).get();
+    if (!s.exists || (s.get('patientUid') !== user.uid && s.get('doctorUid') !== user.uid)) throw notFound(req);
+    const isPatient = s.get('patientUid') === user.uid;
+    const [orders, labs] = await Promise.all([
+      db.collection('rxOrders').where('rxId', '==', rxId).limit(50).get(),
+      db.collection('labOrders').where('rxId', '==', rxId).limit(50).get(),
+    ]);
+    const reviews = labs.size ? await db.getAll(...labs.docs.map((d) => db.doc(`rxReviews/${d.id}`))) : [];
+    // পরের খোলা চেম্বারের দিন (রিপোর্ট দেখানোর সিরিয়াল)
+    let nextOpen = null;
+    const ci = s.get('chamberIndex');
+    if (Number.isInteger(ci)) {
+      const prov = await db.doc(`providers/${s.get('doctorUid')}`).get();
+      const ch = prov.exists ? K.chambersOf(prov.data())[ci] : null;
+      if (ch && ch.appointments && K.takesAppointments(prov.data())) {
+        const today = P.dhakaToday();
+        for (let i = 0, d = today; i < 14; i++, d += DAY_MS) {
+          if (K.chamberOpenOn(ch, d)) { nextOpen = d; break; }
+        }
+      }
+    }
+    return {
+      medicines: isPatient ? medStatus(s.data()) : [],
+      dispensed: isPatient ? (s.get('dispensed') || []).map((p) => ({ name: p.name, at: p.at, items: p.items })) : [],
+      orders: isPatient ? orders.docs.map((d) => ({ id: d.id, pharmacyName: d.get('pharmacyName'), status: d.get('status'), reason: d.get('reason') || '', createdAt: d.get('createdAt') })) : [],
+      labOrders: labs.docs.filter((d) => isPatient || ['paid', 'done'].includes(reviews.find((r) => r.id === d.id)?.get('status'))).map((d) => labOrderView(d)),
+      reviews: reviews.filter((r) => r.exists).map((r) => reviewView(r)),
+      nextOpen,
+    };
+  },
+
+  // ======================= রিপোর্ট দেখানো (অনলাইনে, টাকা দিয়ে) =======================
+  /** ডাক্তার: সেটিং — চালু, ফি বা ফি নেই, যে নম্বরে টাকা পাঠাবেন, bKash/Nagad */
+  async review_settings(req, user) {
+    if ((await approvedBadge(user.uid)) !== 'doctor') throw err(req, 'Doctors only', 'শুধু ডাক্তার', 403);
+    const ref = db.doc(`providers/${user.uid}`);
+    if (req.body?.set === true) {
+      const b = req.body;
+      const enabled = b.enabled === true;
+      const noFee = b.noFee === true;
+      const fee = noFee ? '' : str(b.fee, 40);
+      const payMethods = (Array.isArray(b.payMethods) ? b.payMethods : []).filter((m) => ['bkash', 'nagad', 'rocket'].includes(m));
+      const pn = K.normalizeBd(b.payNumber);
+      if (enabled && !noFee) {
+        if (!fee) throw err(req, 'Enter the fee, or tick "No fee"', 'ফি দিন, অথবা "ফি চাই না" টিক দিন');
+        if (!pn) throw err(req, 'Enter the mobile number for payment', 'টাকা পাঠানোর মোবাইল নম্বর দিন');
+        if (!payMethods.length) throw err(req, 'Choose bKash, Nagad or Rocket', 'bKash, Nagad বা Rocket বেছে নিন');
+      }
+      await ref.set({ reportReview: { enabled, noFee, fee, payNumber: pn ? K.localBd(pn) : '', payMethods } }, { merge: true });
+    }
+    const p = await ref.get();
+    return reviewSettings(p);
+  },
+
+  /** রোগী: টাকা পাঠিয়ে TrxID */
+  async review_pay(req, user) {
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`rxReviews/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
+    if (!['unpaid'].includes(s.get('status'))) throw err(req, 'Already sent', 'আগেই পাঠানো হয়েছে', 409);
+    const trxId = str(req.body?.trxId, 40).replace(/\s/g, '');
+    if (!/^[A-Za-z0-9]{6,30}$/.test(trxId)) throw err(req, 'Enter the transaction ID from the payment SMS', 'টাকা পাঠানোর SMS-এর TrxID দিন');
+    const method = (s.get('payMethods') || []).includes(req.body?.method) ? req.body.method : (s.get('payMethods') || [])[0] || '';
+    await ref.update({ status: 'claimed', trxId, method, rejectNote: FieldValue.delete(), updatedAt: Date.now() });
+    await push(s.get('doctorUid'), 'Check a report-review payment', 'রিপোর্ট দেখার টাকা মিলিয়ে নিন', `${s.get('patientName')} · ${method} · ${trxId}`, { type: 'rx_review' });
+    return { ok: true };
+  },
+
+  /** ডাক্তার/সহকারী: সব রিপোর্ট দেখার অনুরোধ (TrxID সহ — মেলানোর জন্য; রিপোর্ট নয়) */
+  async reviews_doctor(req, user) {
+    const { doctorUid } = await doctorOrAssistant(req, user, req.body?.doctorUid);
+    const snap = await db.collection('rxReviews').where('doctorUid', '==', doctorUid).limit(400).get();
+    return { items: snap.docs.filter((d) => d.get('status') !== 'off').map((d) => reviewView(d, true)).sort((a, c) => c.updatedAt - a.updatedAt).slice(0, 150) };
+  },
+
+  /** ডাক্তার/সহকারী: টাকা মিলেছে (ok) বা মেলেনি */
+  async review_confirm(req, user) {
+    const { doctorUid } = await doctorOrAssistant(req, user, req.body?.doctorUid);
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`rxReviews/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('doctorUid') !== doctorUid || s.get('status') !== 'claimed') throw notFound(req);
+    const ok = req.body?.ok === true;
+    const note = str(req.body?.note, 200);
+    await ref.update(ok ? { status: 'paid', paidAt: Date.now(), updatedAt: Date.now() } : { status: 'unpaid', rejectNote: note || 'TrxID মেলেনি', updatedAt: Date.now() });
+    await push(s.get('patientUid'),
+      ok ? 'The doctor received your payment and will check the report' : "The doctor couldn't find your payment",
+      ok ? 'ডাক্তার টাকা পেয়েছেন, রিপোর্ট দেখবেন' : 'ডাক্তার আপনার টাকা খুঁজে পাননি',
+      ok ? '' : note, { type: 'rx', id: s.get('rxId') });
+    return { ok: true };
+  },
+
+  /** ডাক্তার: দেখে মন্তব্য (দরকার হলে নতুন প্রেসক্রিপশনের id) */
+  async review_done(req, user) {
+    if ((await approvedBadge(user.uid)) !== 'doctor') throw err(req, 'Doctors only', 'শুধু ডাক্তার', 403);
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`rxReviews/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('doctorUid') !== user.uid || s.get('status') !== 'paid') throw notFound(req);
+    const comment = str(req.body?.comment, 1000);
+    if (!comment) throw err(req, 'Write what the patient should know', 'রোগীকে কী জানাবেন লিখুন');
+    const newRxId = R.isValidId(req.body?.newRxId) ? req.body.newRxId : null;
+    await ref.update({ status: 'done', comment, newRxId, doneAt: Date.now(), updatedAt: Date.now() });
+    await push(s.get('patientUid'), 'The doctor checked your report', 'ডাক্তার আপনার রিপোর্ট দেখেছেন', comment.slice(0, 120), { type: 'rx', id: s.get('rxId') });
+    return { ok: true };
+  },
+};
+
+/** প্রতিদিন: কেনা ওষুধ শেষ হওয়ার ২ দিন আগে মনে করানো */
+async function refillReminders(now = Date.now()) {
+  const today = P.dhakaToday(now);
+  const snap = await db.collection('prescriptions').where('refillAt', '==', today).limit(500).get();
+  let sent = 0;
+  for (const d of snap.docs) {
+    const x = d.data();
+    if (x.status !== 'active' || !x.patientUid || x.refillNotifiedAt === today) continue;
+    const low = medStatus(x).filter((s) => s.got > 0 && !(s.need != null && s.got >= s.need)).map((s) => s.name);
+    await push(x.patientUid, 'Your medicines will run out in 2 days', '২ দিন পর ওষুধ শেষ হবে — কিনে নিন', low.join(', '), { type: 'rx', id: d.id });
+    await d.ref.update({ refillNotifiedAt: today });
+    sent++;
+  }
+  return { sent };
+}
+
+module.exports = { actions, refillReminders, perDay, needQty, medStatus, refillDate, countable, labView };

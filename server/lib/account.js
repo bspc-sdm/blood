@@ -179,6 +179,29 @@ module.exports = {
     const recentEmergencies = await db.collection('emergencies').orderBy('createdAt', 'desc').limit(200).get();
     await Promise.all(recentEmergencies.docs.map((d) => d.ref.collection('donors').doc(uid).delete().catch(() => {})));
 
+    // ৭খ) প্রেসক্রিপশন: রোগীর অ্যাকাউন্ট থেকে খুলে দেওয়া (ডাক্তারের লেখা রেকর্ড থাকে, কারো অ্যাকাউন্টে নয়);
+    // ফার্মেসি/প্যাথলজির অনুরোধ, রিপোর্ট দেখার অনুরোধ মোছা; নিজের প্যাথলজি আর স্টক মোছা
+    try {
+      const [rxs, rxPats, rxOrd, labOrd, revs] = await Promise.all([
+        db.collection('prescriptions').where('patientUid', '==', uid).limit(500).get(),
+        db.collection('rxPatients').where('linkedUid', '==', uid).limit(200).get(),
+        db.collection('rxOrders').where('patientUid', '==', uid).limit(500).get(),
+        db.collection('labOrders').where('patientUid', '==', uid).limit(500).get(),
+        db.collection('rxReviews').where('patientUid', '==', uid).limit(500).get(),
+      ]);
+      await Promise.all([
+        ...rxs.docs.map((d) => d.ref.update({ patientUid: null })),
+        ...rxPats.docs.map((d) => d.ref.update({ linkedUid: null })),
+        ...rxOrd.docs.map((d) => d.ref.delete()),
+        ...labOrd.docs.map((d) => d.ref.delete()),
+        ...revs.docs.map((d) => d.ref.delete()),
+        db.doc(`labs/${uid}`).delete(),
+        db.doc(`pharmacyStock/${uid}`).delete(),
+      ]);
+    } catch (e) {
+      console.error('rx cleanup failed', e);
+    }
+
     // ৮) প্রোফাইল (ছবি, ফোন সহ), ব্যাজ, চেম্বার, সার্ভারের হিসাব, লগইন কোড
     const email = E.normalizeEmail(user.email || '');
     await Promise.all([

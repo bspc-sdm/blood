@@ -503,7 +503,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -524,11 +524,12 @@ actions.admin_overview = async (req, user) => {
   };
   const withArea = (list) => list.map((x) => ({ ...x, areaLabel: area(x.district, x.upazilaId, x.unionId) }));
   const owner = isOwner(user);
-  const [badges, pharmacies, ambulances, bloodBanks, hospitalRequests, reports, corrections, adminList] = await Promise.all([
+  const [badges, pharmacies, ambulances, bloodBanks, labs, hospitalRequests, reports, corrections, adminList] = await Promise.all([
     part(async () => (await actions.admin_badges(req, user)).items),
     part(async () => withArea((await actions.admin_pharmacies(req, user)).items)),
     part(async () => withArea((await actions.admin_ambulances(req, user)).items)),
     part(async () => withArea((await actions.admin_bloodbanks(req, user)).items)),
+    part(async () => (await actions.admin_labs(req, user)).items),
     part(async () => (await actions.admin_hospital_requests(req, user)).items.map((h) => ({
       ...h,
       areaLabel: area(h.district, h.upazilaId, h.unionId),
@@ -545,6 +546,7 @@ actions.admin_overview = async (req, user) => {
     pharmacies,
     ambulances,
     bloodBanks,
+    labs,
     hospitalRequests,
     reports,
     corrections,

@@ -67,3 +67,26 @@ test('তালিকা: ডিফল্ট, নতুন কোড, মোছ�
   assert.ok(m2.specialty.doctor.some((i) => i.code === 'medicine'));
   assert.strictEqual(Cat.makeCode('Physio therapy', new Set(['c_physio_therapy'])), 'c_physio_therapy_2');
 });
+
+test('ওষুধের হিসাব: দিনে কয়টা, কতটা লাগবে, বাকি, কবে মনে করানো', () => {
+  const N = require('../lib/rxnet');
+  assert.strictEqual(N.perDay('1+0+1'), 2);
+  assert.strictEqual(N.perDay('½+0+½'), 1);
+  assert.strictEqual(N.perDay('প্রয়োজনে'), 0);
+  assert.strictEqual(N.needQty({ dose: '1+1+1', days: 5, form: 'Tablet' }), 15);
+  assert.strictEqual(N.needQty({ dose: '1+0+1', days: 0, form: 'Tablet' }), null); // চলবে
+  assert.strictEqual(N.needQty({ dose: '1+0+1', days: 5, form: 'Syrup' }), null); // গোনা যায় না
+  const day = Date.UTC(2026, 9, 10, 6); // ঢাকায় ১০ অক্টোবর দুপুর
+  const rx = {
+    medicines: [{ name: 'Napa', form: 'Tablet', dose: '1+1+1', days: 5 }, { name: 'Losectil', form: 'Capsule', dose: '1+0+0', days: 0 }],
+    dispensed: [{ at: day, items: [{ i: 0, qty: 9 }, { i: 1, qty: 30 }] }],
+  };
+  const st = N.medStatus(rx);
+  assert.deepStrictEqual([st[0].need, st[0].got, st[0].left, st[0].done], [15, 9, 6, false]);
+  assert.deepStrictEqual([st[1].need, st[1].got, st[1].left], [null, 30, null]);
+  // Napa ৯টা = ৩ দিন → ১৩ অক্টোবর শেষ, ১১ তারিখে মনে করানো; Losectil ৩০ দিন পরে
+  assert.strictEqual(N.refillDate(rx, day), Date.UTC(2026, 9, 11));
+  // পুরো কোর্স কেনা হলে Napa-র জন্য নয়
+  rx.dispensed.push({ at: day, items: [{ i: 0, qty: 6 }] });
+  assert.strictEqual(N.refillDate(rx, day), Date.UTC(2026, 10, 7));
+});

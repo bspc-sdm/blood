@@ -413,6 +413,7 @@ const LOGGED = {
   // অ্যাপ থেকে অ্যাডমিন অন্যের প্রশ্ন/উত্তর/টিপস মুছলে (কী মুছলেন তার শুরুটুকু)
   admin_delete_post: (b) => ({ target: b.path, detail: `deleted: ${String(b.text || '').slice(0, 120)}` }),
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
+  admin_lab_resolve: (b) => ({ target: `labs/${b.id}`, detail: [b.status || (b.approve === true ? 'approved' : 'rejected'), b.reason].filter(Boolean).join(' · ') }),
   admin_catalog_set: (b) => ({ target: `config/catalog/${b.kind}/${b.type}`, detail: `${(b.items || []).length} items` }),
   admin_ticket_reply: (b) => ({ target: `tickets/${b.id}`, detail: b.close === true ? (b.text ? 'replied+closed' : 'closed') : 'replied' }),
   // কোন অ্যাডমিন কার কোন ভাগ দেখলেন

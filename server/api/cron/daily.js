@@ -122,6 +122,13 @@ module.exports = handler(
     } catch (e) {
       console.error('rx reminders failed', e);
     }
+    // কেনা ওষুধ শেষ হওয়ার ২ দিন আগে
+    let refill = null;
+    try {
+      refill = await require('../../lib/rxnet').refillReminders(now);
+    } catch (e) {
+      console.error('refill reminders failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -145,7 +152,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers, rxReminders };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers, rxReminders, refill };
   },
   { methods: ['GET'] },
 );

@@ -31,6 +31,7 @@ const LABEL = {
   ambulance: ['ambulance', 'অ্যাম্বুলেন্স'],
   pharmacy: ['pharmacy', 'ফার্মেসি'],
   bloodbank: ['blood bank', 'ব্লাড ব্যাংক'],
+  lab: ['diagnostic lab', 'প্যাথলজি'],
 };
 
 async function tellOwner(ownerUid, title, body, kind) {
