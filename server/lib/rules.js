@@ -260,6 +260,9 @@ function formatTimeEn(millis) {
 
 module.exports = {
   RADIUS_CHOICES,
+  RADII_KM,
+  ENOUGH_DONORS,
+  DONORS_FOR,
   BLOOD_GROUPS,
   DAY_MS,
   ELIGIBILITY_DAYS,

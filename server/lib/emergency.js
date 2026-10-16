@@ -30,11 +30,17 @@ async function sendWave(id) {
   if (!s.exists) return { sent: 0 };
   const e = s.data();
   if (!E.isLive(e)) return { sent: 0 };
-  const [usersSnap, already] = await Promise.all([
-    // কাছের ব্যবহারকারী (geohash) — আগে জেলা ধরে সবাইকে পড়া হতো
-    require('./geo').near(db.collection('users'), 'geohash', e.lat, e.lng, e.radiusKm).then((list) => ({ docs: list.map((x) => x.doc) })),
+  const Geo = require('./geo');
+  // শুধু খোলা গ্রুপগুলোর মানুষ (donorGeo); পুরোনো প্রোফাইলে সেটা বসানো শেষ না হলে আগের মতো সবাই
+  const openGroups = Object.entries(e.groups || {}).filter(([, x]) => !x.closed && x.coming < x.need).map(([g]) => g);
+  if (!openGroups.length) return { sent: 0 };
+  const [found, already] = await Promise.all([
+    (await Geo.donorGeoReady(db))
+      ? Geo.nearDonors(db, openGroups, e.lat, e.lng, e.radiusKm)
+      : Geo.near(db.collection('users'), 'geohash', e.lat, e.lng, e.radiusKm),
     ref.collection('donors').select().get(),
   ]);
+  const usersSnap = { docs: found.map((x) => x.doc) };
   const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
   const wave = E.pickWave(users, center(e), e.groups, e.radiusKm, new Set(already.docs.map((d) => d.id)));
   if (!wave.length) return { sent: 0 };

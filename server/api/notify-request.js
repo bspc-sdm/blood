@@ -69,21 +69,31 @@ module.exports = handler(async (req) => {
       throw new HttpError(429, `একসাথে সর্বোচ্চ ${R.MAX_OPEN_REQUESTS}টা খোলা রিকোয়েস্ট রাখা যায়`);
     }
 
-    // কাছের ব্যবহারকারী (geohash): ডোনার সর্বোচ্চ যতদূর যেতে রাজি হতে পারেন, ততদূরের ভেতরের সবাই
-    const usersSnap = { docs: (await require('../lib/geo').near(db.collection('users'), 'geohash', request.lat, request.lng, Math.max(...R.RADIUS_CHOICES))).map((x) => x.doc) };
     // আগে যাঁদের জানানো হয়েছে তাঁরা বাদ (আবার জানানোর সময়) — তাহলে দূরের নতুন ডোনাররা আসেন
     const meta = await metaRef.get();
     const already = new Set((meta.exists && meta.get('uids')) || []);
-    const allUsers = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
     if (again) {
       // যাঁরা আগেই সাড়া দিয়েছেন (রাজি, নিশ্চিত, বাদ পড়া) তাঁদের আবার নয়
       const resp = await ref.collection('responses').get();
       resp.docs.forEach((d) => already.add(d.id));
-      // ২.৯-এর আগে জানানো রিকোয়েস্টে তালিকা নেই — প্রথমবার যাঁরা পেয়েছিলেন আন্দাজে বাদ
-      if (!meta.exists) R.pickDonors(request, allUsers, now).forEach((u) => already.add(u.uid));
     }
-    const users = allUsers.filter((u) => !already.has(u.uid));
-    let donors = R.pickDonors(request, users, now);
+
+    // কাছের ডোনার, ধাপে ধাপে (৫ → ১০ → ২৫ → ৫০ কিমি): যথেষ্ট পেলেই থামা।
+    // donorGeo (গ্রুপ|geohash) দিয়ে শুধু মানানসই গ্রুপের মানুষ পড়া হয়। পুরোনো প্রোফাইলে সেটা বসানো শেষ না হলে আগের মতো সবাই।
+    const Geo = require('../lib/geo');
+    const byGroup = await Geo.donorGeoReady(db);
+    const groups = R.DONORS_FOR[request.patientGroup] || [];
+    let donors = [];
+    for (const radius of byGroup ? R.RADII_KM : [Math.max(...R.RADIUS_CHOICES)]) {
+      const found = byGroup
+        ? await Geo.nearDonors(db, groups, request.lat, request.lng, radius)
+        : await Geo.near(db.collection('users'), 'geohash', request.lat, request.lng, radius);
+      const allUsers = found.map((x) => ({ uid: x.doc.id, ...x.doc.data() }));
+      // ২.৯-এর আগে জানানো রিকোয়েস্টে তালিকা নেই — প্রথমবার যাঁরা পেয়েছিলেন আন্দাজে বাদ
+      if (again && !meta.exists) R.pickDonors(request, allUsers, now).forEach((u) => already.add(u.uid));
+      donors = R.pickDonors(request, allUsers.filter((u) => !already.has(u.uid)), now);
+      if (donors.length >= R.ENOUGH_DONORS) break;
+    }
 
     // প্রত্যেক ডোনার দিনে সর্বোচ্চ যতটা নোটিফিকেশন চেয়েছেন (সেটিংস, না বদলালে ৩টা)
     const stateRefs = donors.map((u) => db.doc(`serverState/${u.uid}`));

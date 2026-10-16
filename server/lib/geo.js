@@ -22,6 +22,59 @@ const distanceKm = (aLat, aLng, bLat, bLng) => G.distanceBetween([aLat, aLng], [
 async function near(query, field, lat, lng, radiusKm, { limitPerBound = 2000 } = {}) {
   const bounds = G.geohashQueryBounds([lat, lng], radiusKm * 1000);
   const snaps = await Promise.all(bounds.map(([start, end]) => query.orderBy(field).startAt(start).endAt(end).limit(limitPerBound).get()));
+  return collect(snaps, lat, lng, radiusKm);
+}
+
+const GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+
+/**
+ * ডোনার খোঁজার ঘর: "গ্রুপ|geohash" (যেমন "O+|wh2kc1e70w")। গ্রুপ বা লোকেশন না থাকলে null।
+ * এক ঘরেই গ্রুপ আর জায়গা — তাই শুধু মানানসই গ্রুপের মানুষ পড়া হয়, আলাদা composite index লাগে না।
+ */
+function donorKey(bloodGroup, geohash) {
+  if (!GROUPS.includes(bloodGroup) || typeof geohash !== 'string' || !geohash) return null;
+  return `${bloodGroup}|${geohash}`;
+}
+
+/** ব্যবহারকারীর ডক থেকে donorGeo-র ঠিক মান */
+const donorKeyOf = (x) => donorKey(x.bloodGroup, x.geohash || hash(x.lat, x.lng));
+
+/**
+ * কাছের ডোনার: শুধু groups-এর মানুষ, radiusKm-এর ভেতরে (দূরত্বসহ, কাছেরটা আগে)।
+ * যোগ্যতা, নোটিফিকেশন চালু কি না — এসব আগের মতোই কোডে ছাঁকা হয়।
+ */
+async function nearDonors(db, groups, lat, lng, radiusKm, { limitPerBound = 2000 } = {}) {
+  const bounds = G.geohashQueryBounds([lat, lng], radiusKm * 1000);
+  const col = db.collection('users');
+  const list = [...new Set(groups)].filter((g) => GROUPS.includes(g));
+  const snaps = await Promise.all(list.flatMap((g) => bounds.map(([start, end]) =>
+    col.orderBy('donorGeo').startAt(`${g}|${start}`).endAt(`${g}|${end}`).limit(limitPerBound).get())));
+  return collect(snaps, lat, lng, radiusKm);
+}
+
+// সব পুরোনো প্রোফাইলে donorGeo বসানো শেষ হয়েছে কি না (একবার হ্যাঁ হলে আর পড়া হয় না)
+let donorGeoDone = false;
+async function donorGeoReady(db) {
+  if (donorGeoDone) return true;
+  const f = await db.doc('config/migrations').get().catch(() => null);
+  donorGeoDone = !!(f && f.exists && f.get('usersDonorGeo') === true);
+  return donorGeoDone;
+}
+
+/** ব্যবহারকারীদের donorGeo ঠিক করা (যাঁদের মান নেই বা পুরোনো) — কতজন বদলালো */
+async function fixDonorGeo(db, FieldValue, docs) {
+  const fix = docs
+    .map((d) => ({ d, key: donorKeyOf(d.data()) }))
+    .filter(({ d, key }) => (d.get('donorGeo') || null) !== key);
+  for (let i = 0; i < fix.length; i += 400) {
+    const b = db.batch();
+    fix.slice(i, i + 400).forEach(({ d, key }) => b.update(d.ref, { donorGeo: key || FieldValue.delete() }));
+    await b.commit();
+  }
+  return fix.length;
+}
+
+function collect(snaps, lat, lng, radiusKm) {
   const seen = new Set();
   const out = [];
   for (const snap of snaps) {
@@ -58,6 +111,23 @@ async function maintain(db, FieldValue, isActive, now = Date.now()) {
     out.usersFixed = fix.length;
     await flag.set({ usersGeohash: true, usersGeohashAt: now }, { merge: true });
   }
+  // donorGeo (গ্রুপ|geohash): একবার সবার জন্য, তারপর প্রতিদিন শুধু গত দিনে প্রোফাইল বা লোকেশন বদলানোদের জন্য
+  // (নতুন অ্যাপ নিজেই বসায়; এটা পুরোনো অ্যাপ থেকে বদলানো প্রোফাইলের জন্য)
+  const f2 = await flag.get();
+  if (!(f2.exists && f2.get('usersDonorGeo') === true)) {
+    const users = await db.collection('users').get();
+    out.donorGeoFixed = await fixDonorGeo(db, FieldValue, users.docs);
+    await flag.set({ usersDonorGeo: true, usersDonorGeoAt: now }, { merge: true });
+    donorGeoDone = true;
+  } else {
+    const since = now - 26 * 60 * 60 * 1000;
+    const [a, b] = await Promise.all([
+      db.collection('users').where('updatedAt', '>=', new Date(since)).get(),
+      db.collection('users').where('locationUpdatedAtMillis', '>=', since).get(),
+    ]);
+    const byId = new Map([...a.docs, ...b.docs].map((d) => [d.id, d]));
+    out.donorGeoFixed = await fixDonorGeo(db, FieldValue, [...byId.values()]);
+  }
   // খোলা রিকোয়েস্ট (geoOpen না থাকলে বসানো)
   const open = await db.collection('requests').where('status', '==', 'open').get();
   const opened = open.docs.filter((d) => !d.get('geoOpen') && isActive(d.data(), now) && hash(d.get('lat'), d.get('lng')));
@@ -79,4 +149,4 @@ async function maintain(db, FieldValue, isActive, now = Date.now()) {
   return out;
 }
 
-module.exports = { hash, near, distanceKm, maintain };
+module.exports = { hash, near, nearDonors, donorKey, donorKeyOf, donorGeoReady, fixDonorGeo, distanceKm, maintain };

@@ -122,6 +122,7 @@ object ProfileRepository {
         )
         if (includeDonation && profile.lastDonationMillis != null) data["lastDonationMillis"] = profile.lastDonationMillis
         users.document(uid).set(data, SetOptions.merge()).await()
+        refreshDonorGeo(uid)
     }
 
     suspend fun saveLocation(uid: String, lat: Double, lng: Double, placeName: String, source: String) {
@@ -136,6 +137,23 @@ object ProfileRepository {
             "locationUpdatedAtMillis" to System.currentTimeMillis(),
         )
         users.document(uid).set(data, SetOptions.merge()).await()
+        refreshDonorGeo(uid)
+    }
+
+    /**
+     * ডোনার খোঁজার ঘর "গ্রুপ|geohash" (যেমন "O+|wh2kc1e70w")। গ্রুপ বা লোকেশন বদলালে ঠিক করা হয়,
+     * যাতে সার্ভার শুধু মানানসই গ্রুপের কাছের মানুষ পড়ে। না পারলেও সমস্যা নেই — সার্ভার রোজ ঠিক করে।
+     */
+    private suspend fun refreshDonorGeo(uid: String) {
+        runCatching {
+            val s = users.document(uid).get().await()
+            val group = s.getString("bloodGroup")
+            val hash = s.getString("geohash")
+            val key = if (group != null && group in Rules.BLOOD_GROUPS && !hash.isNullOrEmpty()) "$group|$hash" else null
+            if (s.getString("donorGeo") != key) {
+                users.document(uid).set(mapOf("donorGeo" to (key ?: FieldValue.delete())), SetOptions.merge()).await()
+            }
+        }
     }
 
     /** এই ফোনকে অ্যাকাউন্টে যোগ (কয়েকটা ফোনে একসাথে নোটিফিকেশন); সার্ভারে না গেলে পুরোনো উপায়ে */
