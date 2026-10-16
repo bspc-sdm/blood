@@ -1339,7 +1339,7 @@
         h('td', { 'data-label': 'English' }, h('input', { class: 'cell-input', value: it.en || '', maxlength: 60, oninput: (e) => { it.en = e.target.value; } })),
         h('td', { 'data-label': 'কোড', class: 'small', text: it.code || 'নতুন' }),
         h('td', { 'data-label': 'লুকানো' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!it.hidden, onchange: (e) => { it.hidden = e.target.checked; draw(); } }), 'লুকানো')),
-        h('td', { class: 'act' }, h('div', { class: 'actions' },
+        h('td', { class: 'act' }, h('div', { class: 'actions', style: 'flex-wrap:nowrap' },
           h('button', { class: 'icon-btn', type: 'button', title: 'ওপরে', disabled: i === 0, onclick: () => { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; draw(); }, text: '↑' }),
           h('button', { class: 'icon-btn', type: 'button', title: 'নিচে', disabled: i === rows.length - 1, onclick: () => { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; draw(); }, text: '↓' }),
           !it.code ? h('button', { class: 'icon-btn', type: 'button', title: 'সরান', onclick: () => { rows.splice(i, 1); draw(); } }, icon('close')) : null)))));

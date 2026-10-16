@@ -191,7 +191,7 @@
       lab: [['tests', 'পরীক্ষা ও রিপোর্ট']],
     }[S.role];
     const top = h('header', { class: 'doc-top' },
-      h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: ROLE_LABEL[S.role] })),
+      h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), S.roles.length > 1 ? null : h('span', { text: ROLE_LABEL[S.role] })),
       S.roles.length > 1 ? h('select', { class: 'cell-input', style: 'max-width:160px', onchange: (e) => setRole(e.target.value) },
         S.roles.map((r) => h('option', { value: r, selected: r === S.role, text: ROLE_LABEL[r] }))) : null,
       h('nav', { class: 'seg' }, tabs.map(([k, label]) => h('a', { href: '#', class: S.view === k ? 'on' : null, text: label, onclick: (e) => { e.preventDefault(); S.view = k; S.open = null; render(); } }))),
@@ -739,11 +739,11 @@
     });
     page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })),
       h('div', { class: 'card pad grid' },
-        h('b', { text: `${o.patientName}${o.patientAge != null ? `, ${bn(o.patientAge)} বছর` : ''} · ডা. ${o.doctorName || ''}` }),
+        h('b', { text: [`${o.patientName}${o.patientAge != null ? `, ${bn(o.patientAge)} বছর` : ''}`, o.doctorName].filter(Boolean).join(' · ') }),
         h('div', { class: 'table-wrap' }, h('table', { class: 'meds' }, h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'একক', 'স্বাভাবিক মাত্রা', 'বেশি/কম'].map((x) => h('th', { text: x })))), body)),
         h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'আরেকটা সারি', onclick: () => { rows.push({ test: '', result: '', unit: '', range: '', flag: '' }); draw(); } })),
         note,
-        h('div', { class: 'field-row' }, h('label', { class: 'f' }, h('span', { text: 'ছাপানো রিপোর্টের ছবি (ঐচ্ছিক, সর্বোচ্চ ২টা)' }), file), photoInfo),
+        h('div', { class: 'grid', style: 'gap:6px' }, h('span', { class: 'note', text: 'ছাপানো রিপোর্টের ছবি (ঐচ্ছিক, সর্বোচ্চ ২টা)' }), h('div', { class: 'field-row', style: 'align-items:center' }, file, photoInfo)),
         h('div', null, send)));
   }
 
