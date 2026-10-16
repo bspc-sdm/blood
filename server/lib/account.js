@@ -161,6 +161,8 @@ module.exports = {
     await Promise.all([
       userRef.delete(),
       db.doc(`badges/${uid}`).delete(),
+      // কাগজের ছবি (লাইসেন্স, সনদ) — অ্যাকাউন্টের সাথে মুছে যায়
+      require('./verify').deleteForOwner(uid).catch(() => {}),
       db.doc(`providers/${uid}`).delete(),
       // দোকান আর তার ফোনের হিসাব
       db.doc(`pharmacies/${uid}`).delete(),

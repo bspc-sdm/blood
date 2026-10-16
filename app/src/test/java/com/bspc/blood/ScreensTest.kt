@@ -344,6 +344,19 @@ class ScreensTest {
         shot("close_dialog_not_needed_bn")
     }
 
+    /** ২.১৩: কাগজের ছবি দেওয়া, অ্যাডমিন ছবি চাইলে মালিকের কার্ডে */
+    @Test
+    fun verifyDocsBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                DocPhotosField(VerifyDocs.ambulance(), emptyMap(), {})
+                DocsNeededNotice("pharmacy", "p1", VerifyDocs.pharmacy(), missing = false, requested = true, note = "লাইসেন্সের পুরো পাতার ছবি দিন") {}
+            }
+        }
+        shot("verify_docs_bn")
+    }
+
     /** ২.১২: জরুরি আহ্বান শেষে "রক্ত দিয়েছেন?", মালিকের কার্ডে বাতিলের কারণ, সাপ্তাহিক বন্ধ */
     @Test
     fun accountGapFixesBangla() {

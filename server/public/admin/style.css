@@ -313,3 +313,32 @@ textarea.reply:focus { outline: none; border-color: var(--primary); }
 .t .actions input.reason, .ctl .actions input.reason { min-width: 150px; max-width: 220px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--low); color: inherit; font: inherit; font-size: 13px; }
 .t .actions { flex-wrap: wrap; }
 .link:disabled { color: var(--muted, #888); cursor: default; text-decoration: none; }
+
+/* যাচাইয়ের পাতা */
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.verify { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .verify { grid-template-columns: 1fr; } }
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.photo { margin: 0; }
+.photo img { width: 100%; max-height: 340px; object-fit: contain; background: var(--low); border: 1px solid var(--line); border-radius: 12px; cursor: zoom-in; }
+.photo figcaption { font-size: 14px; margin-top: 6px; font-weight: 600; }
+.photo.none .ph { height: 160px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted, #888); font-size: 14px; text-align: center; padding: 8px; }
+.kv { width: 100%; border-collapse: collapse; }
+.kv th { text-align: left; font-weight: 600; padding: 6px 10px 6px 0; width: 38%; vertical-align: top; color: var(--muted, #888); }
+.kv td { padding: 6px 0; }
+.checklist { padding-left: 20px; margin: 0; display: grid; gap: 12px; }
+.checklist label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-weight: 600; }
+.checklist input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.checklist .fmt { font-size: 13px; margin: 4px 0 0 30px; color: var(--muted, #888); }
+.verify .row { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+.verify .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.verify input.reason { min-width: 200px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--low); color: inherit; font: inherit; }
+.photo-zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
+.photo-zoom img { max-width: 100%; max-height: calc(100vh - 60px); object-fit: contain; }
+.photo-zoom .cap { color: #fff; margin-top: 8px; font-size: 14px; }
+
+/* ব্যবহারকারীর পূর্ণ দৃশ্য */
+.tabs-wrap { flex-wrap: wrap; margin-bottom: 12px; border-radius: 16px; }
+.seg a.on { background: var(--primary); color: var(--on-primary); }
+.sub-title { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
+.user-tab > .sub-title:first-child { margin-top: 0; }

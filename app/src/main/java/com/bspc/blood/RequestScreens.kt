@@ -1017,6 +1017,8 @@ fun EditRequestScreen(r: BloodRequest, onSaved: (Int) -> Unit, onCancel: () -> U
 @Composable
 private fun HospitalField(value: String, onChange: (String) -> Unit, district: String?) {
     var all by remember(district) { mutableStateOf<List<Hospital>>(emptyList()) }
+    var adding by remember { mutableStateOf(false) }
+    var addedMsg by remember { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf(false) }
     LaunchedEffect(district) {
@@ -1057,5 +1059,21 @@ private fun HospitalField(value: String, onChange: (String) -> Unit, district: S
                 }
             }
         }
+        // তালিকায় না পেলে: অ্যাডমিনকে যোগ করতে বলা (রিকোয়েস্টে আপাতত লেখা নামই থাকে)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Not in the list?", "তালিকায় নেই?"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { adding = true }) { Text(tr("Request to add", "যোগ করার অনুরোধ")) }
+        }
+        InfoText(addedMsg)
+    }
+    if (adding) {
+        AddHospitalDialog(
+            initialName = value.trim(),
+            initialDistrict = district,
+            initialUpazilaId = null,
+            onExisting = { h -> adding = false; onChange(h.label.take(120)) },
+            onSent = { msg -> adding = false; addedMsg = msg },
+            onDismiss = { adding = false },
+        )
     }
 }

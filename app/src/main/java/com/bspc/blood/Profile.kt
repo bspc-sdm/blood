@@ -231,6 +231,15 @@ fun ProfileTab(
                 },
                 if (badge?.status == "pending" || badge?.changePending == true) null else ({ showBadgeDialog = true }),
             )
+            // বাতিলের কারণ, আর অ্যাডমিন সনদের ছবি চাইলে এখানেই দেওয়া
+            if (badge != null) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    StatusReasonLine(badge.status, badge.statusReason)
+                    DocsNeededNotice("badge", AuthRepository.currentUid.orEmpty(), VerifyDocs.badge(badge.type), badge.docsMissing && badge.status == "pending", badge.docsRequested, badge.docsNote) {
+                        onCommunityChanged((community ?: CommunityMe(null, false)).copy(badge = badge.copy(docsMissing = false, docsRequested = false)))
+                    }
+                }
+            }
             HorizontalDivider()
             ActionRow(
                 R.drawable.ic_settings_outline,

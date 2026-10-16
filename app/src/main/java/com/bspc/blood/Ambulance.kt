@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -71,6 +72,12 @@ data class Ambulance(
     val canRate: Boolean = false,
     /** অ্যাডমিন বাতিল/বন্ধ করলে কারণ (শুধু নিজের) */
     val statusReason: String = "",
+    /** ট্রিপে আছে — কখন থেকে */
+    val busySince: Long = 0,
+    /** নিজের: দরকারি কাগজের ছবি বাকি / অ্যাডমিন ছবি চেয়েছেন */
+    val docsMissing: Boolean = false,
+    val docsRequested: Boolean = false,
+    val docsNote: String = "",
 )
 
 object AmbulanceTypes {
@@ -92,7 +99,8 @@ object Ambulances {
         o.str("id"), o.str("name"), o.str("phone"), o.optJSONArray("types").strings(), o.str("district"),
         o.intOrNull("upazilaId"), o.str("area"), o.str("fare"), o.optBoolean("available", true),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.str("vehicleNo"), o.str("status"),
-        o.optLong("availableAt"), o.optBoolean("canRate"), o.str("statusReason"),
+        o.optLong("availableAt"), o.optBoolean("canRate"), o.str("statusReason"), o.optLong("busySince"),
+        o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -100,21 +108,22 @@ object Ambulances {
         return (0 until a.length()).map { parse(a.getJSONObject(it)) }
     }
 
-    /** তালিকা আর কয়টা গাড়ি এখন ট্রিপে আছে (সেগুলো তালিকায় দেখায় না) */
-    suspend fun near(district: String, upazilaId: Int?, type: String?): Pair<List<Ambulance>, Int> {
+    /** খালি/অজানা গাড়ির তালিকা আর ট্রিপে থাকা গাড়ির আলাদা তালিকা */
+    suspend fun near(district: String, upazilaId: Int?, type: String?): Pair<List<Ambulance>, List<Ambulance>> {
         val o = call("ambulances", JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply { if (type != null) put("type", type) })
-        return list(o) to o.optInt("busyCount")
+        val busy = o.optJSONArray("busy") ?: JSONArray()
+        return list(o) to (0 until busy.length()).map { parse(busy.getJSONObject(it)) }
     }
 
     suspend fun mine(): List<Ambulance> = list(call("ambulance_mine"))
 
     /** পাঠালে আবার যাচাই লাগবে কি না ফেরত দেয় */
-    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String): Boolean =
+    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String, docs: Map<String, String> = emptyMap()): Boolean =
         call(
             "ambulance_save",
             JSONObject().put("id", id ?: JSONObject.NULL).put("name", name).put("phone", phone).put("vehicleNo", vehicleNo)
                 .put("types", JSONArray(types)).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
-                .put("area", area).put("fare", fare).put("termsAccepted", true),
+                .put("area", area).put("fare", fare).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)),
         ).optBoolean("pending")
 
     suspend fun setAvailable(id: String, available: Boolean) {
@@ -240,13 +249,15 @@ private fun AmbulanceFinder(profile: Profile) {
     var reporting by remember { mutableStateOf<Ambulance?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
-    var busyCount by remember { mutableIntStateOf(0) }
+    var busyList by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
+    var busyOpen by remember { mutableStateOf(false) }
+    val busyCount = busyList.size
 
     LaunchedEffect(district, upazilaId, type) {
         val d = district ?: return@LaunchedEffect
         loading = true
         errorMsg = null
-        runCatching { Ambulances.near(d, upazilaId, type) }.onSuccess { list = it.first; busyCount = it.second }.onFailure { errorMsg = it.message }
+        runCatching { Ambulances.near(d, upazilaId, type) }.onSuccess { list = it.first; busyList = it.second }.onFailure { errorMsg = it.message }
         loading = false
     }
 
@@ -270,10 +281,6 @@ private fun AmbulanceFinder(profile: Profile) {
                 InfoText(infoMsg)
                 ErrorText(errorMsg)
             }
-            // ট্রিপে থাকা গাড়ি তালিকায় নেই — শুধু সংখ্যা, যাতে বোঝা যায় এলাকায় গাড়ি আছে, এখন ব্যস্ত
-            if (!loading && busyCount > 0) item {
-                IconLine(R.drawable.ic_info, tr("$busyCount more on a trip now — they'll be listed when they're free.", "আরও ${num(busyCount)}টা গাড়ি এখন ট্রিপে আছে — খালি হলে তালিকায় আসবে।"))
-            }
             when {
                 loading -> item { LoadingBox() }
                 list.isEmpty() -> item {
@@ -286,6 +293,35 @@ private fun AmbulanceFinder(profile: Profile) {
                     )
                 }
                 else -> items(list, key = { it.id }) { a ->
+                    AmbulanceCard(
+                        a,
+                        onCall = {
+                            called = called + a.id
+                            scope.launch { runCatching { Ambulances.called(a.id) } }
+                            callPhone(context, a.phone)
+                        },
+                        onRate = if (a.canRate) ({ rating = a }) else null,
+                        onReport = { reporting = a },
+                    )
+                }
+            }
+            // ট্রিপে থাকা গাড়ি: আলাদা ভাঁজ করা অংশ; খালি গাড়ি না থাকলে নিজে থেকে খোলা
+            if (!loading && busyList.isNotEmpty()) {
+                val open = busyOpen || list.isEmpty()
+                item {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { busyOpen = !open }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            tr("On a trip now (${busyList.size})", "এখন ট্রিপে আছে (${num(busyList.size)})"),
+                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                        )
+                        AppIcon(R.drawable.ic_expand_more_round, if (open) tr("Hide", "লুকান") else tr("Show", "দেখুন"), Modifier.rotate(if (open) 180f else 0f))
+                    }
+                    if (open) SmallNote(tr("They're busy — call only if you can wait, to ask when they'll be free.", "এরা এখন ব্যস্ত — অপেক্ষা করতে পারলে ফোন করে জেনে নিন কখন খালি হবে।"))
+                }
+                if (open) items(busyList, key = { "busy_" + it.id }) { a ->
                     AmbulanceCard(
                         a,
                         onCall = {
@@ -352,6 +388,7 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
             if (a.available && a.availableAt > 0) {
                 SmallNote(tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt))
             }
+            if (a.busySince > 0) SmallNote(tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince))
             Text(a.types.joinToString(" · ") { AmbulanceTypes.label(it) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             IconLine(R.drawable.ic_location_on, listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "))
             if (a.fare.isNotBlank()) IconLine(R.drawable.ic_info, tr("Fare: ", "ভাড়া: ") + a.fare)
@@ -484,6 +521,7 @@ fun MyAmbulancesSection(profile: Profile) {
                         }
                         IconButton(onClick = { editing = a }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
                     }
+                    DocsNeededNotice("ambulance", a.id, VerifyDocs.ambulance(), a.docsMissing, a.docsRequested, a.docsNote) { reload++ }
                     if (a.status == "suspended" || a.status == "rejected") {
                         AppealButton("ambulance")
                     }
@@ -542,6 +580,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
     var upazilaId by remember { mutableStateOf(existing?.upazilaId) }
     var area by remember { mutableStateOf(existing?.area ?: "") }
     var fare by remember { mutableStateOf(existing?.fare ?: "") }
+    var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -565,6 +604,9 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
                 OutlinedTextField(area, { area = it.take(120) }, label = { Text(tr("Where you go (optional)", "কোন কোন এলাকায় যান (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(fare, { fare = it.take(120) }, label = { Text(tr("Fare (optional)", "ভাড়া (ঐচ্ছিক)")) }, placeholder = { Text(tr("e.g. Within city 800 Tk, per km 40 Tk", "যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা")) }, modifier = Modifier.fillMaxWidth())
+                // কাগজের ছবি: নতুন হলে দরকারি; বদলের সময় চাইলে নতুন ছবি
+                DocPhotosField(VerifyDocs.ambulance(), docs, { docs = it },
+                    if (existing != null) tr("Add new photos only if the papers changed.", "কাগজ বদলালে তবেই নতুন ছবি দিন।") else null)
                 ServiceTermsCheck(agreed) { agreed = it }
                 if (existing != null) {
                     TextButton(onClick = {
@@ -587,13 +629,14 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                     vehicleNo.isBlank() -> tr("Enter the vehicle registration number", "গাড়ির রেজিস্ট্রেশন নম্বর দিন")
                     types.isEmpty() -> tr("Choose the ambulance type", "অ্যাম্বুলেন্সের ধরন বেছে নিন")
                     d == null -> tr("Choose a district", "জেলা বেছে নিন")
+                    existing == null && VerifyDocs.missing(VerifyDocs.ambulance(), docs) != null -> VerifyDocs.missing(VerifyDocs.ambulance(), docs)
                     !agreed -> tr("Please accept the terms", "শর্তে সম্মতি দিন")
                     else -> null
                 }
                 if (errorMsg != null || d == null) return@TextButton
                 scope.launch {
                     busy = true
-                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim()) }
+                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim(), docs) }
                         .onSuccess { onSaved(it) }
                         .onFailure { errorMsg = it.message }
                     busy = false

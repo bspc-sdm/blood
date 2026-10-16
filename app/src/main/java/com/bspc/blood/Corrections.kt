@@ -290,9 +290,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                             )
                         }
                         Row {
-                            Button(onClick = { act(b.uid) { Community.resolveBadge(b.uid, true) } }, enabled = busyId == null) {
-                                ButtonContent(busyId == b.uid, tr("Approve", "অনুমোদন"))
-                            }
+                            // অনুমোদন শুধু ওয়েব প্যানেলে — কাগজের ছবি দেখে সব বিষয় টিক দিয়ে
+                            Text(tr("Approve in the web admin panel after checking the photos", "ছবি দেখে ওয়েব প্যানেলে অনুমোদন দিন"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
                             TextButton(onClick = { act(b.uid) { Community.resolveBadge(b.uid, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
                             }
@@ -353,9 +352,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.tertiary,
                         )
                         Row {
-                            Button(onClick = { act("ph:" + p.id) { Pharmacies.resolve(p.id, true) } }, enabled = busyId == null) {
-                                ButtonContent(busyId == "ph:" + p.id, tr("Approve", "অনুমোদন"))
-                            }
+                            // অনুমোদন শুধু ওয়েব প্যানেলে — কাগজের ছবি দেখে সব বিষয় টিক দিয়ে
+                            Text(tr("Approve in the web admin panel after checking the photos", "ছবি দেখে ওয়েব প্যানেলে অনুমোদন দিন"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
                             TextButton(onClick = { act("ph:" + p.id) { Pharmacies.resolve(p.id, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
                             }
@@ -373,9 +371,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                         Text(tr("Vehicle: ", "গাড়ি: ") + a.vehicleNo + " · " + a.types.joinToString(", ") { AmbulanceTypes.label(it) }, style = MaterialTheme.typography.bodyMedium)
                         Text(num(a.phone) + " · " + Areas.label(a.district, a.upazilaId), style = MaterialTheme.typography.bodySmall)
                         Row {
-                            Button(onClick = { act("am:" + a.id) { Ambulances.resolve(a.id, true) } }, enabled = busyId == null) {
-                                ButtonContent(busyId == "am:" + a.id, tr("Approve", "অনুমোদন"))
-                            }
+                            // অনুমোদন শুধু ওয়েব প্যানেলে — কাগজের ছবি দেখে সব বিষয় টিক দিয়ে
+                            Text(tr("Approve in the web admin panel after checking the photos", "ছবি দেখে ওয়েব প্যানেলে অনুমোদন দিন"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
                             TextButton(onClick = { act("am:" + a.id) { Ambulances.resolve(a.id, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
                             }
@@ -432,9 +429,8 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                         Text(tr("Requested: ", "চাওয়া: ") + (c.requestedMillis?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি")))
                         Text(tr("Reason: ", "কারণ: ") + c.reason, style = MaterialTheme.typography.bodySmall)
                         Row {
-                            Button(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, true) } }, enabled = busyId == null) {
-                                ButtonContent(busyId == c.id, tr("Approve", "অনুমোদন"))
-                            }
+                            // অনুমোদন শুধু ওয়েব প্যানেলে — কাগজের ছবি দেখে সব বিষয় টিক দিয়ে
+                            Text(tr("Approve in the web admin panel after checking the photos", "ছবি দেখে ওয়েব প্যানেলে অনুমোদন দিন"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
                             TextButton(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
                             }

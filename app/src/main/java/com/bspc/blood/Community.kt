@@ -95,6 +95,11 @@ data class BadgeState(
     val workplace: String = "",
     /** অনুমোদিত ব্যাজের তথ্য সংশোধনের অনুরোধ যাচাই চলছে */
     val changePending: Boolean = false,
+    val statusReason: String = "",
+    /** সনদের ছবি বাকি / অ্যাডমিন ছবি চেয়েছেন */
+    val docsMissing: Boolean = false,
+    val docsRequested: Boolean = false,
+    val docsNote: String = "",
 )
 
 data class CommunityMe(
@@ -142,7 +147,12 @@ object Community {
         val o = call("me")
         val b = o.optJSONObject("badge")
         return CommunityMe(
-            b?.let { BadgeState(it.optString("type"), it.optString("status"), it.optString("regNo"), it.optString("workplace"), it.optBoolean("changePending")) }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
+            b?.let {
+                BadgeState(
+                    it.optString("type"), it.optString("status"), it.optString("regNo"), it.optString("workplace"), it.optBoolean("changePending"),
+                    it.optString("statusReason"), it.optBoolean("docsMissing"), it.optBoolean("docsRequested"), it.optString("docsRequestNote"),
+                )
+            }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
             o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true), o.optInt("unread"),
         )
     }
@@ -206,8 +216,8 @@ object Community {
         call("delete_tip", JSONObject().put("id", id))
     }
 
-    suspend fun applyBadge(type: String, regNo: String, workplace: String) {
-        call("badge_apply", JSONObject().put("type", type).put("regNo", regNo).put("workplace", workplace))
+    suspend fun applyBadge(type: String, regNo: String, workplace: String, docs: Map<String, String> = emptyMap()) {
+        call("badge_apply", JSONObject().put("type", type).put("regNo", regNo).put("workplace", workplace).put("docs", VerifyDocs.json(docs)))
     }
 
     suspend fun adminBadges(): List<BadgeRequest> =
@@ -992,6 +1002,7 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
     var type by remember { mutableStateOf(current?.type ?: "doctor") }
     var regNo by remember { mutableStateOf(current?.regNo ?: "") }
     var workplace by remember { mutableStateOf(current?.workplace ?: "") }
+    var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
@@ -1039,6 +1050,8 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                DocPhotosField(VerifyDocs.badge(type), docs, { docs = it },
+                    if (correction) tr("Add a photo if your registration number changed.", "রেজিস্ট্রেশন নম্বর বদলালে সনদের ছবি দিন।") else null)
                 Text(
                     tr("An admin will verify this before the badge appears.", "অ্যাডমিন যাচাই করার পর ব্যাজ দেখা যাবে।"),
                     style = MaterialTheme.typography.bodySmall,
@@ -1050,10 +1063,11 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
         confirmButton = {
             TextButton(
                 onClick = {
+                    if (!correction) VerifyDocs.missing(VerifyDocs.badge(type), docs)?.let { errorMsg = it; return@TextButton }
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { Community.applyBadge(type, regNo.trim(), workplace.trim()) }
+                        runCatching { Community.applyBadge(type, regNo.trim(), workplace.trim(), docs) }
                             .onSuccess { onApplied(type) }
                             .onFailure { errorMsg = it.message }
                         busy = false

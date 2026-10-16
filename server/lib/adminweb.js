@@ -398,6 +398,10 @@ const LOGGED = {
   admin_delete_post: (b) => ({ target: b.path, detail: `deleted: ${String(b.text || '').slice(0, 120)}` }),
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
   admin_ticket_reply: (b) => ({ target: `tickets/${b.id}`, detail: b.close === true ? (b.text ? 'replied+closed' : 'closed') : 'replied' }),
+  // কোন অ্যাডমিন কার কোন ভাগ দেখলেন
+  admin_user_section: (b) => ({ target: `users/${b.uid}`, detail: `viewed ${b.section}` }),
+  admin_verify_docs: (b) => ({ target: `${b.kind}/${b.id}`, detail: 'viewed documents' }),
+  admin_request_docs: (b) => ({ target: `${b.kind}/${b.id}`, detail: `asked for documents${b.note ? `: ${b.note}` : ''}` }),
   admin_user_action: (b) => ({ target: `users/${b.uid}`, detail: [b.op, b.reason].filter(Boolean).join(' · ') }),
   admin_add: (b) => ({ target: 'config/admins', detail: `add ${b.email}` }),
   admin_remove: (b) => ({ target: 'config/admins', detail: `remove ${b.email}` }),

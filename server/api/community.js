@@ -61,6 +61,10 @@ const actions = {
         workplace: s.get('workplace') || '',
         // অনুমোদিত ব্যাজের তথ্য সংশোধনের অনুরোধ যাচাই চলছে কি না
         changePending: !!s.get('pendingChange'),
+        statusReason: s.get('statusReason') || '',
+        // অপেক্ষা/বাতিলে বা অ্যাডমিন চাইলে: কোন সনদের ছবি বাকি
+        ...(['pending', 'rejected'].includes(s.get('status')) || s.get('docsRequestedAt')
+          ? { ...(await require('../lib/verify').ownerInfo('badge', user.uid, s.data()).catch(() => ({}))), docsRequestNote: s.get('docsRequestNote') || '' } : {}),
       } : null,
       isAdmin: await isAdmin(user),
       isOwner: isOwner(user),
@@ -338,10 +342,13 @@ const actions = {
       await ref.update({
         // পেশা বদলানো যায় না (তালিকা আর সেবা পেশা ধরে); শুধু নম্বর, কর্মস্থল আর নাম
         pendingChange: { type: cur.get('type'), regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
+        ...(await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type: cur.get('type') }, req.body?.docs, false) ? { docsSentAt: Date.now() } : {}),
       });
       return { ok: true, correction: true };
     }
     await useQuota(req, user.uid, 'badge');
+    // সনদের ছবি (নার্স ও অন্য পেশায় দরকারি; ডাক্তারের নম্বর BMDC সাইটে মেলানো হয়)
+    await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type }, req.body?.docs, true);
     await ref.set({
       type,
       regNo,
@@ -363,7 +370,11 @@ const actions = {
     // (শুধু ওয়েব প্যানেলে — আগের অ্যাপে "বাতিল" চাপলে ব্যাজই চলে যেত)
     const changes = status === 'pending' && req.body?.panel === true ? await db.collection('badges').where('pendingChange.at', '>', 0).limit(100).get() : { docs: [] };
     return {
-      items: [...snap.docs, ...changes.docs].map((d) => ({
+      items: await Promise.all([...snap.docs, ...changes.docs].map(async (d) => ({
+        // কাগজ আর টিক দেওয়ার তালিকা (ওয়েব প্যানেল)
+        ...(req.body?.panel === true && (d.get('status') !== 'approved' || d.get('pendingChange'))
+          ? { verify: await require('../lib/verify').panelInfo('badge', d.id, { ...d.data(), type: (d.get('pendingChange') || {}).type || d.get('type') }).catch(() => null) } : {}),
+        verification: d.get('verification') || null,
         change: d.get('pendingChange') || null,
         status: d.get('status'),
         reviewedAt: d.get('reviewedAt') || null,
@@ -374,7 +385,7 @@ const actions = {
         name: d.get('name'),
         email: d.get('email'),
         createdAt: d.get('createdAt'),
-      })),
+      }))),
     };
   },
 
@@ -390,7 +401,8 @@ const actions = {
       const ch = bs.get('pendingChange');
       if (!ch) return { ok: true, unchanged: true };
       if (req.body?.approve === true) {
-        await ref.update({ type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid });
+        const verification = require('../lib/verify').assertChecks(req, user, 'badge', { type: ch.type }, req.body?.checks);
+        await ref.update({ type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid, verification });
         await db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ name: ch.name })).catch(() => {});
       } else {
         await ref.update({ pendingChange: FieldValue.delete() });
@@ -403,6 +415,9 @@ const actions = {
       return { ok: true };
     }
     const pRef = db.doc(`providers/${uid}`);
+    // অপেক্ষা বা বাতিল থেকে অনুমোদন: প্যানেলে সব বিষয় টিক দেওয়া লাগবে
+    const verification = req.body?.approve === true && bs.get('status') !== 'approved'
+      ? require('../lib/verify').assertChecks(req, user, 'badge', bs.data(), req.body?.checks) : null;
     if (req.body?.approve !== true) {
       // ব্যাজ বাতিল হলে ডাক্তার/নার্সের তালিকা থেকেও সরে যায় (নতুন আর পুরোনো দুই ধরনের অ্যাপেই),
       // সামনের অ্যাপয়েন্টমেন্ট বাতিল হয়ে রোগীরা জানেন
@@ -424,6 +439,10 @@ const actions = {
       status: req.body?.approve === true ? 'approved' : 'rejected',
       reviewedAt: Date.now(),
       reviewedBy: user.uid,
+      ...(verification ? { verification, docsRequestedAt: FieldValue.delete() } : {}),
+      // বাতিলের কারণ (ব্যবহারকারী দেখেন)
+      ...(req.body?.approve !== true && C.cleanText(req.body?.reason, 200) ? { statusReason: C.cleanText(req.body.reason, 200) } : {}),
+      ...(req.body?.approve === true ? { statusReason: FieldValue.delete() } : {}),
     });
     return { ok: true };
   },
@@ -458,7 +477,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

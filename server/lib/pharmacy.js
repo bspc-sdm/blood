@@ -59,7 +59,17 @@ async function adminExtras(collection, d, status) {
     editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
+    // কাগজ আর টিক দেওয়ার তালিকা (অপেক্ষা/বাতিলে — অনুমোদনের আগে), আর অনুমোদনের সময়ের যাচাই
+    ...(['pending', 'rejected'].includes(status) ? { verify: await require('./verify').panelInfo('pharmacy', d.id, d.data()).catch(() => null) } : {}),
+    verification: d.get('verification') || null,
   };
+}
+
+/** মালিকের নিজের কার্ডে: কোন কাগজের ছবি বাকি (অপেক্ষায়/বাতিল বা অ্যাডমিন চাইলে) */
+async function withDocs(kind, d, v) {
+  const x = d.data();
+  if (!['pending', 'rejected'].includes(x.status) && !x.docsRequestedAt) return v;
+  return { ...v, ...(await require('./verify').ownerInfo(kind, d.id, x).catch(() => ({}))), docsRequestNote: x.docsRequestNote || '' };
 }
 
 async function requireAdmin(req, user) {
@@ -84,7 +94,7 @@ const actions = {
   // ---------- দোকান ----------
   async pharmacy_me(req, user) {
     const s = await db.doc(`pharmacies/${user.uid}`).get();
-    return { pharmacy: s.exists ? pharmacyView(s, true) : null };
+    return { pharmacy: s.exists ? await withDocs('pharmacy', s, pharmacyView(s, true)) : null };
   },
 
   async pharmacy_save(req, user) {
@@ -140,11 +150,14 @@ const actions = {
       if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'Your pharmacy is suspended. You can appeal from Profile → Help & appeals.', 'আপনার ফার্মেসি বন্ধ করা আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
       await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, false);
       const { changed, approvedName } = K.reviewNeeded(s, data, ['licenseNo', 'phone', 'district']);
+      await require('./verify').saveDocs(req, 'pharmacy', user.uid, user.uid, { ...s.data(), ...data }, b.docs, false);
       await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, true);
     await useQuota(req, user.uid, 'pharmacy');
+    // কাগজের ছবি (ড্রাগ লাইসেন্স, দোকান) আগে
+    await require('./verify').saveDocs(req, 'pharmacy', user.uid, user.uid, data, b.docs, true);
     await ref.set({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
     return { ok: true, pending: true };
   },
@@ -178,6 +191,7 @@ const actions = {
     await require('./moderation').assertNoOpenReports(req, `pharmacies/${user.uid}`);
     await ref.delete();
     await db.doc(`pharmacyStats/${user.uid}`).delete().catch(() => {});
+    await require('./verify').deleteDocs('pharmacy', user.uid, s.data()).catch(() => {});
     return { ok: true };
   },
 

@@ -47,7 +47,17 @@ async function adminExtras(collection, d, status) {
     editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
+    // কাগজ আর টিক দেওয়ার তালিকা (অপেক্ষা/বাতিলে — অনুমোদনের আগে), আর অনুমোদনের সময়ের যাচাই
+    ...(['pending', 'rejected'].includes(status) ? { verify: await require('./verify').panelInfo('bloodbank', d.id, d.data()).catch(() => null) } : {}),
+    verification: d.get('verification') || null,
   };
+}
+
+/** মালিকের নিজের কার্ডে: কোন কাগজের ছবি বাকি (অপেক্ষায়/বাতিল বা অ্যাডমিন চাইলে) */
+async function withDocs(kind, d, v) {
+  const x = d.data();
+  if (!['pending', 'rejected'].includes(x.status) && !x.docsRequestedAt) return v;
+  return { ...v, ...(await require('./verify').ownerInfo(kind, d.id, x).catch(() => ({}))), docsRequestNote: x.docsRequestNote || '' };
 }
 
 async function requireAdmin(req, user) {
@@ -101,7 +111,7 @@ const actions = {
 
   async bloodbank_mine(req, user) {
     const snap = await db.collection('bloodBanks').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
-    return { items: snap.docs.map((d) => view(d, true)) };
+    return { items: await Promise.all(snap.docs.map((d) => withDocs('bloodbank', d, view(d, true)))) };
   },
 
   /** নতুন যোগ বা বদল। নাম, ফোন বা লাইসেন্স বদলালে আবার যাচাই */
@@ -119,6 +129,7 @@ const actions = {
       }
       await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, false);
       const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'licenseNo', 'kind', 'district', 'address']);
+      await require('./verify').saveDocs(req, 'bloodbank', b.id, user.uid, { ...s.data(), ...data }, b.docs, false);
       await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
@@ -126,8 +137,10 @@ const actions = {
     if (mine.size >= MAX_PER_OWNER) throw new HttpError(400, C.tr(req, 'Up to 3 blood banks per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ৩টা ব্লাড ব্যাংক'));
     await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, true);
     await useQuota(req, user.uid, 'bloodbank');
-    await db.collection('bloodBanks').add({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
-    return { ok: true, pending: true };
+    const ref = db.collection('bloodBanks').doc();
+    await require('./verify').saveDocs(req, 'bloodbank', ref.id, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
+    return { ok: true, pending: true, id: ref.id };
   },
 
   async bloodbank_delete(req, user) {
@@ -141,6 +154,7 @@ const actions = {
     }
     await require('./moderation').assertNoOpenReports(req, `bloodBanks/${id}`);
     await Promise.all([ref.delete(), db.doc(`bloodBankStats/${id}`).delete()]);
+    await require('./verify').deleteDocs('bloodbank', id, s.data()).catch(() => {});
     return { ok: true };
   },
 
@@ -246,6 +260,7 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) return { ok: true };
     await Promise.all([ref.delete(), db.doc(`bloodBankStats/${id}`).delete().catch(() => {})]);
+    await require('./verify').deleteDocs('bloodbank', id, s.data()).catch(() => {});
     // এর খোলা রিপোর্টগুলো আর দরকার নেই
     const reps = await db.collection('modReports').where('targetPath', '==', `bloodBanks/${id}`).where('status', '==', 'open').limit(200).get();
     if (!reps.empty) {

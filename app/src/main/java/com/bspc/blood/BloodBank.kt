@@ -70,6 +70,9 @@ data class BloodBank(
     val statusReason: String = "",
     /** সাপ্তাহিক বন্ধের দিন (০ = রবিবার) */
     val closedDays: List<Int> = emptyList(),
+    val docsMissing: Boolean = false,
+    val docsRequested: Boolean = false,
+    val docsNote: String = "",
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -103,6 +106,7 @@ object BloodBanks {
         o.str("id"), o.str("name"), o.str("kind"), o.str("phone"), o.str("district"), o.intOrNull("upazilaId"), o.str("address"),
         o.optBoolean("open24"), o.str("openAt"), o.str("closeAt"), o.optBoolean("openNow", true), o.optJSONArray("services").strings(),
         o.str("licenseNo"), o.str("status"), o.str("statusReason"), o.optJSONArray("closedDays").ints(),
+        o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
     )
 
     private fun list(o: JSONObject): List<BloodBank> {
@@ -116,13 +120,14 @@ object BloodBanks {
     suspend fun mine(): List<BloodBank> = list(call("bloodbank_mine"))
 
     /** আবার যাচাই লাগবে কি না ফেরত দেয় */
-    suspend fun save(b: BloodBank): Boolean =
+    suspend fun save(b: BloodBank, docs: Map<String, String> = emptyMap()): Boolean =
         call(
             "bloodbank_save",
             JSONObject().put("id", b.id.ifBlank { null } ?: JSONObject.NULL).put("name", b.name).put("kind", b.kind).put("phone", b.phone)
                 .put("district", b.district).put("upazilaId", b.upazilaId ?: JSONObject.NULL).put("address", b.address)
                 .put("licenseNo", b.licenseNo).put("open24", b.open24).put("openAt", b.openAt).put("closeAt", b.closeAt)
-                .put("services", JSONArray(b.services)).put("closedDays", JSONArray(b.closedDays)).put("termsAccepted", true),
+                .put("services", JSONArray(b.services)).put("closedDays", JSONArray(b.closedDays)).put("termsAccepted", true)
+                .put("docs", VerifyDocs.json(docs)),
         ).optBoolean("pending")
 
     suspend fun delete(id: String) {
@@ -300,6 +305,7 @@ private fun MyBloodBanksSection(profile: Profile) {
                         IconButton(onClick = { editing = b }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
                     }
                     if (b.status == "suspended" || b.status == "rejected") AppealButton("bloodbank")
+                    DocsNeededNotice("bloodbank", b.id, VerifyDocs.bloodBank(b.kind), b.docsMissing, b.docsRequested, b.docsNote) { reload++ }
                     stats[b.id]?.let { st -> CallStatsBlock(st, expanded = openStats == b.id) { openStats = if (openStats == b.id) null else b.id } }
                 }
             }
@@ -345,6 +351,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
     var closeAt by remember { mutableStateOf(existing?.closeAt?.ifBlank { null } ?: "20:00") }
     var services by remember { mutableStateOf(existing?.services?.toSet() ?: setOf("whole_blood", "screening")) }
     var closedDays by remember { mutableStateOf(existing?.closedDays?.toSet() ?: emptySet()) }
+    var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -387,6 +394,8 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                 }
                 Text(tr("Services", "কী কী সেবা"), style = MaterialTheme.typography.labelLarge)
                 ChipRows(BloodBankInfo.SERVICES, services, perRow = 2, label = { BloodBankInfo.service(it) }) { s -> services = if (s in services) services - s else services + s }
+                DocPhotosField(VerifyDocs.bloodBank(kind), docs, { docs = it },
+                    if (existing != null) tr("Add new photos only if the papers changed.", "কাগজ বদলালে তবেই নতুন ছবি দিন।") else null)
                 ServiceTermsCheck(agreed) { agreed = it }
                 if (existing != null) {
                     TextButton(onClick = {
@@ -411,6 +420,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                     address.isBlank() -> tr("Write the address", "ঠিকানা লিখুন")
                     !open24 && openAt == closeAt -> tr("Set the opening hours", "খোলার সময় দিন")
                     services.isEmpty() -> tr("Choose the services", "কী কী সেবা দেন বেছে নিন")
+                    existing == null && VerifyDocs.missing(VerifyDocs.bloodBank(kind), docs) != null -> VerifyDocs.missing(VerifyDocs.bloodBank(kind), docs)
                     !agreed -> tr("Please accept the terms", "শর্তে সম্মতি দিন")
                     else -> null
                 }
@@ -424,6 +434,7 @@ private fun BloodBankEditDialog(existing: BloodBank?, profile: Profile, onDismis
                                 if (open24) "" else openAt, if (open24) "" else closeAt, true, services.toList(),
                                 licenseNo.trim(), closedDays = closedDays.sorted(),
                             ),
+                            docs,
                         )
                     }
                         .onSuccess { onSaved(it) }

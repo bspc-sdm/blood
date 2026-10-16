@@ -234,6 +234,13 @@ fun HospitalPickerDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // খোঁজার ঘরের ঠিক নিচে (তালিকার শেষে খুঁজে পাওয়া কঠিন ছিল)
+                    if (district != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(tr("Not in the list?", "তালিকায় নেই?"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = { adding = true }) { Text(tr("Request to add", "যোগ করার অনুরোধ")) }
+                        }
+                    }
                     InfoText(infoMsg)
                     ErrorText(errorMsg)
                 }
@@ -247,19 +254,6 @@ fun HospitalPickerDialog(
                             items(shown, key = { it.id }) { h ->
                                 PickRow(h.label, listOf(Hospitals.typeLabel(h.type), Areas.label(null, h.upazilaId)).filter { it.isNotBlank() }.joinToString(" · ")) {
                                     onPick(h)
-                                }
-                            }
-                            item {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        tr("Can't find it?", "তালিকায় নেই?"),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    OutlinedButton(onClick = { adding = true }) {
-                                        AppIcon(R.drawable.ic_add, null, Modifier.size(18.dp))
-                                        Text("  " + tr("Request to add", "যোগ করার অনুরোধ"))
-                                    }
                                 }
                             }
                         }

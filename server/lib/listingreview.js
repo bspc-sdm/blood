@@ -10,6 +10,7 @@ const META = new Set([
   'status', 'ownerUid', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy', 'suspendedAt', 'approvedName', 'lastApproved',
   'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'closedUntil', 'editRejectedAt',
   'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
+  'verification', 'docsRequestedAt', 'docsRequestNote', 'docsSentAt',
 ]);
 
 function snapshot(x) {
@@ -73,10 +74,14 @@ async function resolveListing(req, user, kind, collection, id) {
     return { ok: true, restored: true };
   }
 
+  // অপেক্ষা বা বাতিল থেকে অনুমোদন: প্যানেলে ছবি দেখে সব বিষয় টিক দেওয়া লাগবে (বন্ধ থেকে আবার চালু হলে নয়)
+  const verification = status === 'approved' && ['pending', 'rejected'].includes(prev)
+    ? require('./verify').assertChecks(req, user, kind, x, req.body?.checks) : null;
   await ref.update({
     status,
     reviewedAt: Date.now(),
     reviewedBy: user.uid,
+    ...(verification ? { verification, docsRequestedAt: FieldValue.delete() } : {}),
     ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}),
     ...(status === 'approved'
       ? { approvedName: x.name, lastApproved: snapshot(x), statusReason: FieldValue.delete(), editRejectedReason: FieldValue.delete() }

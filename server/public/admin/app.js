@@ -305,7 +305,7 @@
       { path: 'emergency', label: 'জরুরি আহ্বান', icon: 'warning' },
     ] },
     { group: 'অনুমোদন', items: [
-      { path: 'badges', label: 'ডাক্তার ও নার্স', icon: 'verified', count: () => pendingCount('badges') },
+      { path: 'badges', label: 'ব্যাজ', icon: 'verified', count: () => pendingCount('badges') },
       { path: 'pharmacies', label: 'ফার্মেসি', icon: 'store', count: () => pendingCount('pharmacies') },
       { path: 'ambulances', label: 'অ্যাম্বুলেন্স', icon: 'ambulance', count: () => pendingCount('ambulances') },
       { path: 'bloodBanks', label: 'ব্লাড ব্যাংক', icon: 'blood', count: () => pendingCount('bloodBanks') },
@@ -362,7 +362,8 @@
       for (const it of g.items) {
         if (it.owner && !(S.me && S.me.isOwner)) continue;
         const n = it.count ? it.count() : 0;
-        const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets');
+        const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets')
+          || (cur === 'verify' && parseHash().arg.startsWith(`${it.path}:`));
         kids.push(h('a', { href: `#/${it.path}`, class: on ? 'on' : null, 'aria-current': on ? 'page' : null, onclick: (ev) => {
           shell.classList.remove('open');
           // এখনকার পাতার মেনুতেই চাপলে ঠিকানা বদলায় না — তবু নতুন করে আনা
@@ -422,6 +423,7 @@
     user: pageUser,
     log: pageLog,
     admins: pageAdmins,
+    verify: pageVerify,
   };
 
   let routeSeq = 0;
@@ -843,7 +845,7 @@
   // =========================================================
   const LISTINGS = {
     badges: {
-      title: 'ডাক্তার ও নার্স',
+      title: 'ব্যাজ',
       action: 'admin_badges',
       tabs: [['pending', 'অপেক্ষায়'], ['approved', 'অনুমোদিত'], ['rejected', 'বাতিল']],
       search: 'নাম, ইমেইল, রেজি. নম্বর',
@@ -863,18 +865,22 @@
         { label: 'কর্মস্থল', cell: (b) => [(b.change ? b.change.workplace : b.workplace) || '—',
           b.change && b.change.workplace !== b.workplace ? h('div', { class: 'small', text: `আগে: ${b.workplace || '—'}` }) : null] },
         { label: 'তারিখ', cell: (b) => fmtDate(b.change ? b.change.at : b.reviewedAt || b.createdAt) },
+        { label: 'কাগজ / যাচাই', cell: (b) => reviewCell(b) },
       ],
       id: (b) => b.uid + (b.change ? ':change' : ''),
       owner: (b) => b.uid,
       actions: (b, st) => {
-        const run = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve });
+        const reason = reasonBox();
+        const run = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve, reason: reason.value.trim() });
+        // অনুমোদন শুধু যাচাইয়ের পাতা থেকে (কাগজ দেখে সব টিক দিয়ে)
+        const verifyBtn = (label) => h('a', { class: 'btn primary', href: `#/verify/badges:${encodeURIComponent(b.uid + (b.change ? ':change' : ''))}`, text: label });
         if (st === 'pending' && b.change) {
           const fix = (approve) => () => act('admin_badge_resolve', { uid: b.uid, approve, correction: true });
-          return [actionBtn('সংশোধন মঞ্জুর', 'primary', fix(true), 'নতুন তথ্য বসানো হয়েছে', afterChange), actionBtn('সংশোধন বাতিল', 'warn', fix(false), 'অনুরোধ বাতিল, ব্যাজ আগের মতো', afterChange)];
+          return [verifyBtn('যাচাই করে মঞ্জুর'), actionBtn('সংশোধন বাতিল', 'warn', fix(false), 'অনুরোধ বাতিল, ব্যাজ আগের মতো', afterChange)];
         }
-        if (st === 'pending') return [actionBtn('অনুমোদন', 'primary', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange), actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', afterChange)];
-        if (st === 'approved') return [actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে, তালিকা থেকেও সরেছে', afterChange)];
-        return [actionBtn('অনুমোদন দিন', 'tonal', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', afterChange)];
+        if (st === 'pending') return [reason, verifyBtn('যাচাই করে অনুমোদন'), actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', afterChange)];
+        if (st === 'approved') return [reason, actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে, তালিকা থেকেও সরেছে', afterChange)];
+        return [verifyBtn('যাচাই করে অনুমোদন')];
       },
     },
     pharmacies: {
@@ -1019,6 +1025,15 @@
   /** অনুমোদিত তথ্যের পর কী বদলেছে, কোন কারণে বাতিল/বন্ধ, আর একই ফোন/গাড়ি/লাইসেন্সের অন্য তালিকা */
   function reviewCell(x) {
     const out = [];
+    if (x.verify) {
+      const req = x.verify.docs.filter((d) => d.required);
+      const miss = req.filter((d) => !d.has);
+      const got = x.verify.docs.filter((d) => d.has).length;
+      out.push(h('div', { class: 'chips' },
+        h('span', { class: `chip ${miss.length ? 'bad' : 'good'}`, text: miss.length ? `কাগজ বাকি: ${bn(miss.length)}টা` : `কাগজ: ${bn(got)}টা` }),
+        x.verify.docsRequestedAt ? h('span', { class: 'chip', text: `ছবি চাওয়া ${fmtDate(x.verify.docsRequestedAt)}` }) : null));
+    }
+    if (x.verification) out.push(h('div', { class: 'small', text: `যাচাই: ${x.verification.byEmail || '—'} · ${fmtDate(x.verification.at)}` }));
     if (x.statusReason) out.push(h('div', { class: 'small', text: `কারণ: ${x.statusReason}` }));
     if (x.editRejectedReason) out.push(h('div', { class: 'small', text: `শেষ বদল বাতিলের কারণ: ${x.editRejectedReason}` }));
     (x.changes || []).filter((c) => c.field !== 'lng').forEach((c) => out.push(h('div', { class: 'small' },
@@ -1040,10 +1055,13 @@
   function statusActions(action, id, st, what) {
     const reason = reasonBox();
     const run = (status) => () => act(action, { id, status, reason: reason.value.trim() });
-    if (st === 'pending') return [reason, actionBtn('অনুমোদন', 'primary', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange), actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
+    // অনুমোদন শুধু যাচাইয়ের পাতা থেকে (কাগজ দেখে সব টিক দিয়ে)
+    const kind = { admin_pharmacy_resolve: 'pharmacies', admin_ambulance_resolve: 'ambulances', admin_bloodbank_resolve: 'bloodBanks' }[action];
+    const verifyBtn = h('a', { class: 'btn primary', href: `#/verify/${kind}:${encodeURIComponent(id)}`, text: 'যাচাই করে অনুমোদন' });
+    if (st === 'pending') return [reason, verifyBtn, actionBtn('বাতিল', 'warn', run('rejected'), `${what} বাতিল করা হয়েছে`, afterChange)];
     if (st === 'approved') return [reason, actionBtn('বন্ধ করুন', 'warn', run('suspended'), `${what} বন্ধ করা হয়েছে`, afterChange)];
     if (st === 'suspended') return [actionBtn('আবার চালু করুন', 'tonal', run('approved'), `${what} আবার চালু হয়েছে`, afterChange)];
-    return [actionBtn('অনুমোদন দিন', 'tonal', run('approved'), `${what} অনুমোদন করা হয়েছে`, afterChange)];
+    return [verifyBtn];
   }
 
   async function getList(kind, status) {
@@ -1072,6 +1090,138 @@
     tb.append(countEl);
     draw();
     paint(alive, tb, def.note && st === 'pending' ? h('p', { class: 'note', text: def.note }) : null, box, def.extra ? def.extra() : null);
+  }
+
+  // =========================================================
+  // যাচাই: কাগজের ছবি দেখে সব বিষয় টিক দিয়ে তবে অনুমোদন
+  // #/verify/pharmacies:<id>, #/verify/badges:<uid>[:change]
+  // =========================================================
+  const VERIFY_KIND = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge' };
+  const RESOLVE = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve' };
+
+  /** আবেদনে যা লেখা হয়েছে (ছবির সাথে মেলানোর জন্য) */
+  function verifyFields(list, x) {
+    const c = x.change || {};
+    const area = [x.areaLabel || x.district, x.address || x.area].filter(Boolean).join(' · ');
+    const hours = x.open24 ? '২৪ ঘণ্টা' : x.openAt ? `${bn(x.openAt)}–${bn(x.closeAt)}` : '';
+    if (list === 'badges') {
+      return [['নাম', c.name || x.name], ['পেশা', L.badge[c.type || x.type] || c.type || x.type], ['রেজি. নম্বর', c.regNo || x.regNo],
+        ['কর্মস্থল', c.workplace || x.workplace], ['ইমেইল', x.email]];
+    }
+    if (list === 'ambulances') {
+      return [['নাম', x.name], ['গাড়ির নম্বর', x.vehicleNo], ['ধরন', (x.types || []).map((t) => L.amb[t] || t).join(', ')],
+        ['ফোন', bn(x.phone)], ['এলাকা', area], ['ভাড়া', x.fare]];
+    }
+    if (list === 'pharmacies') {
+      return [['নাম', x.name], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['সময়', hours]];
+    }
+    return [['নাম', x.name], ['ধরন', L.bankKind[x.kind] || x.kind], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)],
+      ['এলাকা ও ঠিকানা', area], ['সময়', hours]];
+  }
+
+  async function findForVerify(list, key) {
+    const match = (it) => (list === 'badges' ? it.uid + (it.change ? ':change' : '') : it.id) === key;
+    for (const st of ['pending', 'rejected']) {
+      const items = await getList(list, st);
+      const it = items.find(match);
+      if (it) return { item: it, st };
+    }
+    return null;
+  }
+
+  /** ছবি বড় করে দেখা (পর্দাজুড়ে, চাপলে বন্ধ) */
+  function zoomPhoto(src, label) {
+    const ov = h('div', { class: 'photo-zoom', role: 'dialog', 'aria-label': label, onclick: () => ov.remove() },
+      h('img', { src, alt: label }), h('div', { class: 'cap', text: `${label} — বন্ধ করতে চাপুন` }));
+    document.body.append(ov);
+  }
+
+  async function pageVerify(r, alive) {
+    const [list, ...rest] = r.arg.split(':');
+    const key = rest.join(':');
+    const kind = VERIFY_KIND[list];
+    if (!kind || !key) throw new Error('পাওয়া যায়নি');
+    const back = `#/${list}`;
+    setTitle('যাচাই', LISTINGS[list].title, [h('a', { class: 'btn quiet', href: back, text: 'ফিরে যান' })]);
+    const found = await findForVerify(list, key);
+    if (!found) {
+      paint(alive, h('div', { class: 'card pad' }, h('p', { text: 'এটা আর অপেক্ষার তালিকায় নেই (হয়তো আগেই সিদ্ধান্ত হয়েছে)।' }), h('a', { href: back, text: 'তালিকায় ফিরুন' })));
+      return;
+    }
+    const x = found.item;
+    const id = list === 'badges' ? x.uid : x.id;
+    const correction = list === 'badges' && !!x.change;
+    const v = await act('admin_verify_docs', { kind, id });
+    if (alive && !alive()) return;
+
+    // ছবি
+    const photos = h('div', { class: 'photos' }, v.photos.map((p) => {
+      const meta = v.docs.find((d) => d.type === p.type) || {};
+      if (!p.data) {
+        return h('figure', { class: 'photo none' }, h('div', { class: 'ph', text: meta.required ? 'দরকারি ছবি দেওয়া হয়নি' : 'দেওয়া হয়নি (ঐচ্ছিক)' }),
+          h('figcaption', null, p.label, meta.required ? [' ', h('span', { class: 'chip bad', text: 'দরকারি' })] : null));
+      }
+      const src = `data:image/jpeg;base64,${p.data}`;
+      return h('figure', { class: 'photo' },
+        h('img', { src, alt: p.label, onclick: () => zoomPhoto(src, p.label) }),
+        h('figcaption', null, p.label, h('span', { class: 'small', text: ` · ${fmtDate(p.at)} · বড় করতে চাপুন` })));
+    }));
+    const missing = v.docs.filter((d) => d.required && !d.has);
+
+    // লেখা তথ্য
+    const fields = h('table', { class: 'kv' }, h('tbody', null, verifyFields(list, x).map(([k, val]) =>
+      h('tr', null, h('th', { scope: 'row', text: k }), h('td', { text: val || '—' })))));
+
+    // টিক দেওয়ার তালিকা
+    const ticked = new Set();
+    const approveBtn = h('button', { type: 'button', class: 'btn primary', disabled: true, text: correction ? 'সংশোধন মঞ্জুর' : 'অনুমোদন দিন' });
+    const left = h('span', { class: 'small' });
+    const refresh = () => {
+      const n = v.checks.length - ticked.size;
+      approveBtn.disabled = n > 0 || missing.length > 0;
+      left.textContent = missing.length ? 'দরকারি ছবি নেই — আগে ছবি চান' : n > 0 ? `আরও ${bn(n)}টা বিষয় বাকি` : 'সব মিলেছে';
+    };
+    const checks = h('ol', { class: 'checklist' }, v.checks.map((c) => {
+      const box = h('input', { type: 'checkbox', id: `ck_${c.id}`, onchange: (e) => { if (e.target.checked) ticked.add(c.id); else ticked.delete(c.id); refresh(); } });
+      return h('li', null, h('label', { for: `ck_${c.id}` }, box, h('span', { class: 'lbl', text: c.label })),
+        c.format ? h('div', { class: 'fmt' }, h('b', { text: 'সঠিক রূপ: ' }), c.format) : null,
+        c.link ? h('div', { class: 'fmt' }, h('a', { href: c.link, target: '_blank', rel: 'noopener noreferrer', text: 'এখানে মিলিয়ে দেখুন ↗' })) : null);
+    }));
+    refresh();
+
+    const done = async () => { await loadOverview().catch(() => {}); S.lists = {}; go(back); };
+    approveBtn.addEventListener('click', async () => {
+      approveBtn.disabled = true;
+      try {
+        if (list === 'badges') await act('admin_badge_resolve', { uid: id, approve: true, checks: [...ticked], ...(correction ? { correction: true } : {}) });
+        else await act(RESOLVE[list], { id, status: 'approved', checks: [...ticked] });
+        toast('যাচাই করে অনুমোদন দেওয়া হয়েছে');
+        await done();
+      } catch (e) {
+        toast(e.message);
+        refresh();
+      }
+    });
+
+    const reason = reasonBox();
+    const reject = actionBtn(correction ? 'সংশোধন বাতিল' : 'বাতিল', 'warn', () => (list === 'badges'
+      ? act('admin_badge_resolve', { uid: id, approve: false, reason: reason.value.trim(), ...(correction ? { correction: true } : {}) })
+      : act(RESOLVE[list], { id, status: 'rejected', reason: reason.value.trim() })), 'বাতিল করা হয়েছে', done);
+    const note = h('input', { class: 'reason', maxlength: 200, placeholder: 'কোন ছবি লাগবে (মালিক দেখবেন)', 'aria-label': 'কোন ছবি লাগবে' });
+    const askDocs = actionBtn('ছবি চান', 'tonal', () => act('admin_request_docs', { kind, id, note: note.value.trim() }), 'মালিককে ছবি দিতে বলা হয়েছে', done);
+
+    paint(alive,
+      h('div', { class: 'verify' },
+        h('div', { class: 'card pad' }, h('h2', { class: 'section-title', text: 'কাগজের ছবি' }), photos),
+        h('div', { class: 'card pad' },
+          h('h2', { class: 'section-title', text: 'আবেদনে যা লেখা' }), fields,
+          reviewCell(x) === '—' ? null : h('div', { class: 'note' }, reviewCell(x)),
+          h('h2', { class: 'section-title', text: 'ছবি দেখে মিলিয়ে টিক দিন' }), checks,
+          h('div', { class: 'row' }, approveBtn, left),
+          h('h2', { class: 'section-title', text: 'না মিললে' }),
+          h('div', { class: 'actions' }, reason, reject),
+          x.ownerUid !== null ? h('div', { class: 'actions' }, note, askDocs) : null,
+          h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')))));
   }
 
   // =========================================================
@@ -1325,35 +1475,203 @@
         { label: 'পরে', cell: (x) => (x.to ? fmtDate(x.to) : 'কখনো দেননি') },
         { label: 'সতর্কতা', cell: (x) => (x.risk === 'backward' ? h('span', { class: 'chip bad', text: 'পেছানো' }) : x.risk === 'short_gap' ? h('span', { class: 'chip bad', text: '১২০ দিনের কম ফাঁক' }) : '—') },
       ]) : null,
-      actTable('আপিল ও সমস্যা', A.tickets, [
-        { label: 'বিষয়', main: true, cell: (x) => h('a', { href: `#/ticket/${encodeURIComponent(x.id)}`, text: L.category[x.category] || x.category }) },
-        { label: 'অবস্থা', cell: (x) => L.ticket[x.status] || x.status },
-        { label: 'শেষ হালনাগাদ', cell: (x) => fmtDT(x.at) },
-      ]),
-      actTable('রক্তের অনুরোধ', A.requests, [
-        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
-        { label: 'গ্রুপ', cell: (x) => x.group || '—' },
-        { label: 'হাসপাতাল', cell: (x) => [x.hospital || '—', x.place ? h('div', { class: 'small', text: x.place }) : null] },
-        { label: 'অবস্থা', cell: (x) => L.request[x.status] || x.status },
-      ]),
-      actTable('ওষুধের অর্ডার', A.orders, [
+      // আগের ব্যবস্থা (ওষুধের অর্ডার, হোম ভিজিট) — থাকলে
+      A.orders.length ? actTable('ওষুধের অর্ডার (আগের ব্যবস্থা)', A.orders, [
         { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
         { label: 'ফার্মেসি', cell: (x) => x.shop || '—' },
         { label: 'ওষুধ', cell: (x) => `${bn(x.items)}টা` },
         { label: 'অবস্থা', cell: (x) => L.order[x.status] || x.status },
-      ]),
-      actTable('হোম ভিজিট (আগের)', A.visits, [
+      ]) : null,
+      A.visits.length ? actTable('হোম ভিজিট (আগের ব্যবস্থা)', A.visits, [
         { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
         { label: 'ভূমিকা', cell: (x) => (x.role === 'nurse' ? 'নার্স' : 'রোগী') },
         { label: 'সেবা', cell: (x) => (x.services || []).join(', ') || '—' },
         { label: 'অবস্থা', cell: (x) => L.visit[x.status] || x.status },
-      ]),
-      actTable('অ্যাপয়েন্টমেন্ট', A.appointments, [
-        { label: 'অনুরোধের তারিখ', main: true, cell: (x) => fmtDT(x.at) },
-        { label: 'ভূমিকা', cell: (x) => (x.role === 'provider' ? 'ডাক্তার/নার্স' : 'রোগী') },
-        { label: 'দিন', cell: (x) => bn(x.date) || '—' },
-        { label: 'অবস্থা', cell: (x) => L.appt[x.status] || x.status },
-      ]));
+      ]) : null,
+      h('h2', { class: 'section-title', text: 'অ্যাপে যা যা করেছেন' }),
+      userTabs(u));
+  }
+
+  // =========================================================
+  // ব্যবহারকারীর পূর্ণ দৃশ্য: অ্যাপের ভাগ ধরে (শুধু দেখা)
+  // =========================================================
+  const RESP = { accepted: 'রাজি', donated: 'রক্ত দিয়েছেন', cancelled: 'বাতিল করেছেন', declined: 'বাদ পড়েছেন' };
+  const EMER = { notified: 'জানানো হয়েছিল', coming: 'আসছি বলেছেন', cancelled: 'আসতে পারেননি', donated: 'রক্ত দিয়েছেন', not_donated: 'দেননি' };
+  const CALLKIND = { ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', bloodbank: 'ব্লাড ব্যাংক', homecare: 'বাসায় সেবা' };
+  const USER_TABS = [['blood', 'রক্ত'], ['community', 'আলোচনা'], ['services', 'সেবা'], ['care', 'ডাক্তার ও অ্যাপয়েন্টমেন্ট'],
+    ['inbox', 'নোটিফিকেশন'], ['support', 'আপিল'], ['admin', 'অ্যাডমিন ব্যবস্থা'], ['timeline', 'সময়ক্রম']];
+
+  function userTabs(u) {
+    const cache = {};
+    const box = h('div', { class: 'user-tab' });
+    const bar = h('div', { class: 'seg tabs-wrap', role: 'tablist' });
+    const load = async (sec) => {
+      if (!cache[sec]) cache[sec] = act('admin_user_section', { uid: u.uid, section: sec });
+      return cache[sec];
+    };
+    const sub = (title, n) => h('h3', { class: 'sub-title', text: n == null ? title : `${title} (${bn(n)})` });
+    const note = (t) => h('p', { class: 'note', text: t });
+    const idxNote = (v) => (v === 'index' ? note('এই অংশ দেখাতে Firestore-এ একটা সূচি (index) চালু করতে হবে — Lifolo টিমকে জানান।') : v ? note(v) : null);
+
+    const render = {
+      blood: (d) => [
+        d.profile ? h('div', { class: 'facts' }, [
+          ['রক্তের গ্রুপ', d.profile.bloodGroup === 'unknown' ? 'জানা নেই' : d.profile.bloodGroup || '—'],
+          ['শেষ রক্তদান', d.profile.lastDonationMillis ? fmtDate(d.profile.lastDonationMillis) : '—'],
+          ['এলাকা', d.profile.placeName || '—'], ['নোটিফিকেশন', d.profile.notify ? 'চালু' : 'বন্ধ'],
+          ['ফোন (ডিভাইস)', `${bn(d.profile.devices)}টা`], ['এখন রাজি আছেন', `${bn(d.profile.openCommitments)}টা রিকোয়েস্টে`],
+        ].map(([k, v]) => h('div', null, h('span', { text: k }), v))) : null,
+        sub('তাঁর দেওয়া রিকোয়েস্ট', d.requests.length),
+        table(d.requests, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'রক্ত', cell: (x) => `${x.group || '—'} · ${bn(x.bags)} ব্যাগ` },
+          { label: 'হাসপাতাল', cell: (x) => [x.hospital || '—', x.place ? h('div', { class: 'small', text: x.place }) : null] },
+          { label: 'সাড়া', cell: (x) => `রাজি ${bn(x.accepted)} · নিশ্চিত ${bn(x.confirmed)}` },
+          { label: 'অবস্থা', cell: (x) => [L.request[x.status] || x.status, x.closedBy ? h('div', { class: 'small', text: { requester: 'নিজে বন্ধ', not_needed: 'আর লাগবে না', expired: 'সময় শেষ' }[x.closedBy] || x.closedBy }) : null] },
+        ]),
+        sub('যেসব রিকোয়েস্টে সাড়া দিয়েছেন', d.responses.length), idxNote(d.responsesNote),
+        table(d.responses, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'রিকোয়েস্ট', cell: (x) => [`${x.group || '—'} · ${x.hospital || '—'}`, x.requesterUid ? h('div', { class: 'small' }, userLink(x.requesterUid, 'রক্তপ্রার্থী')) : null] },
+          { label: 'অবস্থা', cell: (x) => (RESP[x.status] || x.status) + (x.confirmed ? ' · নিশ্চিত' : '') },
+        ]),
+        sub('জরুরি আহ্বান', d.emergencies.length), idxNote(d.emergenciesNote),
+        table(d.emergencies, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'হাসপাতাল', cell: (x) => x.hospital || '—' },
+          { label: 'সাড়া', cell: (x) => EMER[x.status] || x.status },
+        ]),
+        d.corrections.length ? [sub('রক্তদানের তারিখ সংশোধনের অনুরোধ', d.corrections.length), table(d.corrections, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'চাওয়া তারিখ', cell: (x) => (x.requestedMillis ? fmtDate(x.requestedMillis) : 'কখনো দেননি') },
+          { label: 'কারণ', cell: (x) => x.reason || '—' },
+          { label: 'অবস্থা', cell: (x) => x.status },
+        ])] : null,
+      ],
+      community: (d) => [
+        sub('প্রশ্ন', d.questions.length),
+        table(d.questions, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'প্রশ্ন', cell: (x) => [h('div', { class: 'body', text: x.text }), h('div', { class: 'chips' },
+            x.anonymous ? h('span', { class: 'chip', text: 'নাম লুকানো' }) : null, x.edited ? h('span', { class: 'chip', text: 'সম্পাদিত' }) : null)] },
+          { label: 'উত্তর', cell: (x) => bn(x.answers) },
+        ]),
+        sub('উত্তর', d.answers.length), idxNote(d.answersNote),
+        table(d.answers, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'উত্তর', cell: (x) => h('div', { class: 'body', text: x.text }) },
+        ]),
+        sub('টিপস', d.tips.length),
+        table(d.tips, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'টিপস', cell: (x) => [h('b', { text: x.title }), h('div', { class: 'small', text: x.body })] },
+        ]),
+        sub('যা রিপোর্ট করেছেন', d.reportsMade.length),
+        table(d.reportsMade, [
+          { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'কী', cell: (x) => L.report[x.kind] || x.kind },
+          { label: 'কারণ', cell: (x) => x.reason || '—' },
+          { label: 'অবস্থা', cell: (x) => ({ open: 'খোলা', removed: 'ব্যবস্থা নেওয়া হয়েছে', dismissed: 'রেখে দেওয়া' }[x.status] || x.status) },
+        ]),
+      ],
+      services: (d) => {
+        const lst = (title, items, extra) => [sub(title, items.length), table(items, [
+          { label: 'নাম', main: true, cell: (x) => [x.name || '—', x.verified ? h('div', { class: 'chips' }, h('span', { class: 'chip good', text: 'কাগজ যাচাই করা' })) : null] },
+          { label: 'তথ্য', cell: (x) => [extra(x), h('div', { class: 'small', text: [bn(x.phone), x.district].filter(Boolean).join(' · ') })] },
+          { label: 'অবস্থা', cell: (x) => [L.listing[x.status] || x.status, x.statusReason ? h('div', { class: 'small', text: `কারণ: ${x.statusReason}` }) : null] },
+          { label: 'রেটিং', cell: (x) => (x.rating ? bn(x.rating) : '—') },
+        ])];
+        return [
+          lst('তাঁর অ্যাম্বুলেন্স', d.ambulances, (x) => x.vehicleNo || ''),
+          lst('তাঁর ফার্মেসি', d.pharmacy ? [d.pharmacy] : [], (x) => `লাইসেন্স ${x.licenseNo || '—'}`),
+          lst('তাঁর ব্লাড ব্যাংক', d.bloodBanks, (x) => L.bankKind[x.kind] || x.kind || ''),
+          sub('যেখানে ফোন করেছেন', d.calls.length),
+          table(d.calls, [
+            { label: 'শেষ ফোন', main: true, cell: (x) => fmtDT(x.at) },
+            { label: 'কোথায়', cell: (x) => [x.name, h('div', { class: 'small', text: CALLKIND[x.kind] || x.kind })] },
+            { label: 'রেটিং', cell: (x) => (x.rating ? [`${bn(x.rating)} ★`, x.comment ? h('div', { class: 'small', text: x.comment }) : null] : '—') },
+          ]),
+          sub('ওষুধ খোঁজা', d.medFinds.length),
+          table(d.medFinds, [
+            { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+            { label: 'ওষুধ', cell: (x) => [x.drug, h('div', { class: 'small', text: x.district })] },
+            { label: 'উত্তর', cell: (x) => `${bn(x.asked)}টা দোকানে জিজ্ঞেস, ${bn(x.have)}টায় আছে` },
+          ]),
+        ];
+      },
+      care: (d) => [
+        d.provider ? [sub('ডাক্তার/নার্সের তালিকা'), h('div', { class: 'facts' }, [
+          ['পেশা', L.badge[d.provider.type] || d.provider.type || '—'], ['তালিকায়', d.provider.suspended ? 'বন্ধ' : d.provider.listed ? 'দেখা যায়' : 'নেই'],
+          ['বাসায় সেবা', d.provider.homeVisit ? `চালু · ${bn(d.provider.homePhone)}` : 'বন্ধ'], ['বাসায় সেবায় ফোন এসেছে', `${bn(d.homeCallsReceived)} জনের`],
+        ].map(([k, v]) => h('div', null, h('span', { text: k }), v))),
+        table(d.provider.chambers, [
+          { label: 'চেম্বার', main: true, cell: (x) => x.hospital || '—' },
+          { label: 'বার', cell: (x) => (x.days || []).map((n) => ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'][n]).join(', ') || '—' },
+          { label: 'সময়', cell: (x) => (x.start ? `${bn(x.start)}–${bn(x.end)}` : '—') },
+          { label: 'অ্যাপয়েন্টমেন্ট', cell: (x) => (x.appointments ? 'নেন' : 'নেন না') },
+        ])] : note('ডাক্তার/নার্সের তালিকায় নেই।'),
+        sub('অ্যাপয়েন্টমেন্ট', d.appointments.length),
+        table(d.appointments, [
+          { label: 'অনুরোধ', main: true, cell: (x) => fmtDT(x.at) },
+          { label: 'ভূমিকা', cell: (x) => (x.role === 'provider' ? 'ডাক্তার/নার্স হিসেবে' : 'রোগী হিসেবে') },
+          { label: 'কার সাথে', cell: (x) => [x.other || '—', h('div', { class: 'small', text: x.chamber })] },
+          { label: 'দিন', cell: (x) => [fmtDate(x.date), x.serial ? h('div', { class: 'small', text: `সিরিয়াল ${bn(x.serial)}` }) : null] },
+          { label: 'অবস্থা', cell: (x) => L.appt[x.status] || x.status },
+        ]),
+      ],
+      inbox: (d) => [sub('গত ৩০ দিনের নোটিফিকেশন', d.items.length), table(d.items, [
+        { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'নোটিফিকেশন', cell: (x) => [h('b', { text: x.title }), x.body ? h('div', { class: 'small', text: x.body }) : null] },
+      ])],
+      support: (d) => [sub('আপিল ও সমস্যা', d.items.length), table(d.items, [
+        { label: 'শেষ হালনাগাদ', main: true, cell: (x) => fmtDT(x.at) },
+        { label: 'বিষয়', cell: (x) => [h('a', { href: `#/ticket/${encodeURIComponent(x.id)}`, text: L.category[x.category] || x.category }), h('div', { class: 'small', text: x.subject })] },
+        { label: 'অবস্থা', cell: (x) => L.ticket[x.status] || x.status },
+      ])],
+      admin: (d) => [sub('এই ব্যবহারকারীর ওপর অ্যাডমিনদের কাজ', d.items.length), logTable(d.items)],
+    };
+
+    // সব ভাগ এক তালিকায়, নতুন আগে
+    async function timeline() {
+      const secs = ['blood', 'community', 'services', 'care', 'support'];
+      const all = await Promise.all(secs.map(load));
+      const [b, c, sv, ca, sp] = all;
+      const ev = [
+        ...b.requests.map((x) => ({ at: x.at, area: 'রক্ত', text: `রিকোয়েস্ট দিয়েছেন: ${x.group} · ${x.hospital}` })),
+        ...b.responses.map((x) => ({ at: x.at, area: 'রক্ত', text: `সাড়া (${RESP[x.status] || x.status}): ${x.group} · ${x.hospital}` })),
+        ...b.emergencies.map((x) => ({ at: x.at, area: 'জরুরি', text: `${EMER[x.status] || x.status}: ${x.hospital}` })),
+        ...c.questions.map((x) => ({ at: x.at, area: 'আলোচনা', text: `প্রশ্ন: ${x.text.slice(0, 80)}` })),
+        ...c.answers.map((x) => ({ at: x.at, area: 'আলোচনা', text: `উত্তর: ${x.text.slice(0, 80)}` })),
+        ...c.tips.map((x) => ({ at: x.at, area: 'আলোচনা', text: `টিপস: ${x.title}` })),
+        ...c.reportsMade.map((x) => ({ at: x.at, area: 'রিপোর্ট', text: `রিপোর্ট করেছেন: ${L.report[x.kind] || x.kind}` })),
+        ...sv.calls.map((x) => ({ at: x.at, area: 'সেবা', text: `ফোন করেছেন: ${x.name} (${CALLKIND[x.kind] || x.kind})${x.rating ? ` · ${x.rating}★` : ''}` })),
+        ...sv.medFinds.map((x) => ({ at: x.at, area: 'সেবা', text: `ওষুধ খুঁজেছেন: ${x.drug}` })),
+        ...ca.appointments.map((x) => ({ at: x.at, area: 'ডাক্তার', text: `অ্যাপয়েন্টমেন্ট (${x.role === 'provider' ? 'ডাক্তার হিসেবে' : 'রোগী হিসেবে'}): ${x.other}` })),
+        ...sp.items.map((x) => ({ at: x.at, area: 'আপিল', text: L.category[x.category] || x.category })),
+      ].filter((e) => e.at).sort((a, z) => z.at - a.at).slice(0, 200);
+      return [sub('সব কাজ, নতুন আগে', ev.length), idxNote(b.responsesNote || c.answersNote), table(ev, [
+        { label: 'কবে', main: true, cell: (x) => [fmtDT(x.at), h('div', { class: 'small', text: ago(x.at) })] },
+        { label: 'ভাগ', cell: (x) => h('span', { class: 'chip', text: x.area }) },
+        { label: 'কী', cell: (x) => x.text },
+      ])];
+    }
+
+    let current = '';
+    async function show(sec) {
+      current = sec;
+      [...bar.children].forEach((a) => a.classList.toggle('on', a.dataset.sec === sec));
+      box.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+      try {
+        const nodes = sec === 'timeline' ? await timeline() : render[sec](await load(sec));
+        if (current === sec) box.replaceChildren(...[nodes].flat(3).filter(Boolean));
+      } catch (e) {
+        delete cache[sec];
+        if (current === sec) box.replaceChildren(h('p', { class: 'error', role: 'alert', text: e.message }));
+      }
+    }
+    USER_TABS.forEach(([sec, label]) => bar.append(h('a', { href: '#', 'data-sec': sec, text: label, onclick: (e) => { e.preventDefault(); show(sec); } })));
+    show('blood');
+    return h('div', null, bar, h('div', { class: 'card pad' }, box));
   }
 
   // =========================================================

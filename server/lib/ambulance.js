@@ -63,7 +63,17 @@ async function adminExtras(collection, d, status) {
     editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
+    // কাগজ আর টিক দেওয়ার তালিকা (অপেক্ষা/বাতিলে — অনুমোদনের আগে), আর অনুমোদনের সময়ের যাচাই
+    ...(['pending', 'rejected'].includes(status) ? { verify: await require('./verify').panelInfo('ambulance', d.id, d.data()).catch(() => null) } : {}),
+    verification: d.get('verification') || null,
   };
+}
+
+/** মালিকের নিজের কার্ডে: কোন কাগজের ছবি বাকি (অপেক্ষায়/বাতিল বা অ্যাডমিন চাইলে) */
+async function withDocs(kind, d, v) {
+  const x = d.data();
+  if (!['pending', 'rejected'].includes(x.status) && !x.docsRequestedAt) return v;
+  return { ...v, ...(await require('./verify').ownerInfo(kind, d.id, x).catch(() => ({}))), docsRequestNote: x.docsRequestNote || '' };
 }
 
 function requireAdmin(req, user) {
@@ -87,18 +97,21 @@ const actions = {
     let docs = snap.docs;
     if (TYPES.includes(b.type)) docs = docs.filter((d) => (d.get('types') || []).includes(b.type));
     // ট্রিপে থাকা গাড়ি তালিকায় নয় — শুধু কয়টা ট্রিপে আছে তা জানানো
-    const busy = docs.filter((d) => busyNow(d.data(), now));
+    // ব্যস্ত গাড়ি আলাদা তালিকায় (অ্যাপে ভাঁজ করা অংশে) — দরকারে ফোন করে জানা যায় কবে ফিরবে
+    const busy = docs.filter((d) => busyNow(d.data(), now))
+      .map((d) => ({ ...view(d), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
+      .sort((a, c) => ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) || (a.busySince - c.busySince));
     let items = docs.filter((d) => !busyNow(d.data(), now)).map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
     items.sort((a, c) =>
       (c.available - a.available) ||
       ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) ||
       (c.rating - a.rating) || (c.ratingCount - a.ratingCount));
-    return { items, busyCount: busy.length };
+    return { items, busyCount: busy.length, busy: busy.slice(0, 50) };
   },
 
   async ambulance_mine(req, user) {
     const snap = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
-    return { items: snap.docs.map((d) => view(d, true)) };
+    return { items: await Promise.all(snap.docs.map((d) => withDocs('ambulance', d, view(d, true)))) };
   },
 
   /** নতুন যোগ বা বদল। নাম, ফোন বা গাড়ির নম্বর বদলালে আবার যাচাই */
@@ -138,6 +151,8 @@ const actions = {
       // নামের ছোট বানান-ঠিক হলে আবার যাচাই নয় (তালিকা থেকে সরে না); ফোন/গাড়ির নম্বর বা বড় বদলে যাচাই
       // জেলা বদলালেও আবার যাচাই (এক জায়গায় যাচাই করা গাড়ি অন্য জেলায় সরানো যায় না)
       const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'vehicleNo', 'district']);
+      // নতুন কাগজের ছবি দিলে (না দিলে আগেরগুলো থাকে)
+      await require('./verify').saveDocs(req, 'ambulance', b.id, user.uid, { ...s.data(), ...data }, b.docs, false);
       await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
@@ -148,8 +163,11 @@ const actions = {
     const mine = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw err('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স');
     await useQuota(req, user.uid, 'ambulance');
-    await db.collection('ambulances').add({ ...data, ownerUid: user.uid, status: 'pending', available: false, createdAt: Date.now() });
-    return { ok: true, pending: true };
+    // কাগজের ছবি (রেজিস্ট্রেশন, ফিটনেস, গাড়ি) আগে — না থাকলে তালিকা তৈরিই হয় না
+    const ref = db.collection('ambulances').doc();
+    await require('./verify').saveDocs(req, 'ambulance', ref.id, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', available: false, createdAt: Date.now() });
+    return { ok: true, pending: true, id: ref.id };
   },
 
   async ambulance_available(req, user) {
@@ -172,6 +190,7 @@ const actions = {
     if (s.get('status') === 'suspended') throw new HttpError(403, C.tr(req, 'A suspended ambulance can\'t be removed. You can appeal from Profile → Help & appeals.', 'বন্ধ করা অ্যাম্বুলেন্স সরানো যায় না। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।'));
     await require('./moderation').assertNoOpenReports(req, `ambulances/${id}`);
     await ref.delete();
+    await require('./verify').deleteDocs('ambulance', id, s.data()).catch(() => {});
     return { ok: true };
   },
 

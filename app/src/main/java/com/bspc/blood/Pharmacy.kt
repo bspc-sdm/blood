@@ -78,6 +78,9 @@ data class Pharmacy(
     /** সাপ্তাহিক বন্ধের দিন (০ = রবিবার) */
     val closedDays: List<Int> = emptyList(),
     val statusReason: String = "",
+    val docsMissing: Boolean = false,
+    val docsRequested: Boolean = false,
+    val docsNote: String = "",
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -95,6 +98,7 @@ object Pharmacies {
         if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.str("licenseNo"), o.str("status"), o.optBoolean("hasLocation"), o.optLong("closedUntil"),
         o.optJSONArray("closedDays").ints(), o.str("statusReason"),
+        o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
     )
 
     /** until = null হলে আবার খোলা */
@@ -113,13 +117,14 @@ object Pharmacies {
         name: String, licenseNo: String, phone: String, district: String, upazilaId: Int?, address: String,
         lat: Double?, lng: Double?, open24: Boolean, openAt: String, closeAt: String, delivery: Boolean, deliveryNote: String, discount: Int,
         closedDays: List<Int> = emptyList(),
+        docs: Map<String, String> = emptyMap(),
     ): Boolean = call(
         "pharmacy_save",
         JSONObject().put("name", name).put("licenseNo", licenseNo).put("phone", phone).put("district", district)
             .put("upazilaId", upazilaId ?: JSONObject.NULL).put("address", address).put("lat", lat ?: JSONObject.NULL)
             .put("lng", lng ?: JSONObject.NULL).put("open24", open24).put("openAt", openAt).put("closeAt", closeAt)
             .put("delivery", delivery).put("deliveryNote", deliveryNote).put("discount", discount)
-            .put("closedDays", JSONArray(closedDays)).put("termsAccepted", true),
+            .put("closedDays", JSONArray(closedDays)).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)),
     ).optBoolean("pending")
 
     suspend fun near(district: String, upazilaId: Int?, lat: Double?, lng: Double?, openNow: Boolean): List<Pharmacy> {
@@ -286,6 +291,7 @@ private fun MyPharmacyPanel(profile: Profile) {
                         Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(statusText(s.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         StatusReasonLine(s.status, s.statusReason)
+                        DocsNeededNotice("pharmacy", s.id, VerifyDocs.pharmacy(), s.docsMissing, s.docsRequested, s.docsNote) { reload++ }
                         if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(s.hoursText, closedDaysText(s.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
                         IconLine(R.drawable.ic_call, num(s.phone))
                         if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
@@ -436,6 +442,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
     var deliveryNote by remember { mutableStateOf(existing?.deliveryNote ?: "") }
     var discount by remember { mutableStateOf(existing?.discount?.toString() ?: "0") }
     var closedDays by remember { mutableStateOf(existing?.closedDays?.toSet() ?: emptySet()) }
+    var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var pickTime by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -498,6 +505,8 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                 label = { Text(tr("Usual discount on MRP (%)", "সাধারণত MRP থেকে কত % ছাড়")) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
+            DocPhotosField(VerifyDocs.pharmacy(), docs, { docs = it },
+                if (existing != null) tr("Add new photos only if the papers changed.", "কাগজ বদলালে তবেই নতুন ছবি দিন।") else null)
             ServiceTermsCheck(agreed) { agreed = it }
             ErrorText(errorMsg)
             Button(
@@ -511,6 +520,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                         address.isBlank() -> tr("Write the shop address", "দোকানের ঠিকানা লিখুন")
                         lat == null && !hadLocation -> tr("Set the shop location", "দোকানের লোকেশন দিন")
                         (discount.toIntOrNull() ?: 0) > 30 -> tr("Discount can be up to 30%", "ছাড় সর্বোচ্চ ৩০%")
+                        existing == null && VerifyDocs.missing(VerifyDocs.pharmacy(), docs) != null -> VerifyDocs.missing(VerifyDocs.pharmacy(), docs)
                         !agreed -> tr("Please accept the terms", "শর্তে সম্মতি দিন")
                         else -> null
                     }
@@ -521,7 +531,7 @@ private fun ShopEditScreen(existing: Pharmacy?, profile: Profile, onBack: () -> 
                             Pharmacies.save(
                                 TitleCase.name(name), licenseNo.trim(), phone, d, upazilaId, address.trim(), lat, lng,
                                 open24, openAt, closeAt, delivery, deliveryNote.trim(), discount.toIntOrNull() ?: 0,
-                                closedDays.sorted(),
+                                closedDays.sorted(), docs,
                             )
                         }.onSuccess { onSaved(it) }.onFailure { errorMsg = it.message }
                         busy = false
