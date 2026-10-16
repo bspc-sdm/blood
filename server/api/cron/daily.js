@@ -60,6 +60,13 @@ module.exports = handler(
     } catch (e) {
       console.error('pharmacy daily failed', e);
     }
+    // ফেরত নেওয়া চাকরি/সিভি ফিচারের রেখে যাওয়া ডেটা মোছা (একবারের কাজ)
+    let cleanup = null;
+    try {
+      cleanup = await require('../../lib/cleanup').cleanupRemovedFeatures();
+    } catch (e) {
+      console.error('cleanup failed', e);
+    }
     // আগের হোম ভিজিটের অনুরোধ-ব্যবস্থা বন্ধ (একবারের কাজ)
     let homeVisits = null;
     try {
@@ -97,7 +104,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup };
   },
   { methods: ['GET'] },
 );
