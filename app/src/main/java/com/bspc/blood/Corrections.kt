@@ -9,36 +9,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /** শেষ রক্তদানের তারিখ সংশোধনের অনুরোধ (অ্যাপ থেকে তারিখ পেছানো যায় না, অ্যাডমিন অনুমোদন দেন) */
 data class CorrectionRequest(
@@ -53,39 +41,6 @@ data class CorrectionRequest(
     val status: String = "pending",
     val createdAtMillis: Long = 0,
 )
-
-object CorrectionRepository {
-    private val col get() = FirebaseFirestore.getInstance().collection("correctionRequests")
-
-    /** নিজের সর্বশেষ অনুরোধ */
-    suspend fun latest(uid: String): CorrectionRequest? =
-        col.whereEqualTo("uid", uid).get().await().documents
-            .map {
-                CorrectionRequest(
-                    id = it.id,
-                    uid = uid,
-                    requestedMillis = it.getLong("requestedMillis"),
-                    reason = it.getString("reason") ?: "",
-                    status = it.getString("status") ?: "pending",
-                    createdAtMillis = it.getLong("createdAtMillis") ?: 0L,
-                )
-            }
-            .maxByOrNull { it.createdAtMillis }
-
-    suspend fun create(uid: String, profile: Profile, requestedMillis: Long?, reason: String) {
-        col.add(
-            hashMapOf<String, Any?>(
-                "uid" to uid,
-                "name" to profile.name.take(80),
-                "currentMillis" to profile.lastDonationMillis,
-                "requestedMillis" to requestedMillis,
-                "reason" to reason.take(300),
-                "status" to "pending",
-                "createdAtMillis" to System.currentTimeMillis(),
-            )
-        ).await()
-    }
-}
 
 object DonationDate {
     /** সার্ভারে বদল (অনুমোদন লাগে না; ঝুঁকি থাকলে confirmed লাগে, বদল লেখা থাকে) */

@@ -1,12 +1,12 @@
 {
   "name": "blood-server",
   "private": true,
-  "description": "রক্তদান অ্যাপের সার্ভার: পুশ নোটিফিকেশন, সাড়ার সীমা, দৈনিক রিমাইন্ডার",
+  "description": "Lifolo সার্ভার: অ্যাপের API, ওয়েব প্যানেল, দৈনিক ক্রন",
   "engines": {
     "node": "22.x"
   },
   "scripts": {
-    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js test/medfind.test.js test/emergency.test.js test/gaps.test.js test/cleanup.test.js test/geo.test.js test/prescriptions.test.js test/labtests.test.js test/rxflow.test.js"
+    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js test/medfind.test.js test/emergency.test.js test/gaps.test.js test/geo.test.js test/prescriptions.test.js test/labtests.test.js test/rxflow.test.js"
   },
   "dependencies": {
     "firebase-admin": "13.10.0",

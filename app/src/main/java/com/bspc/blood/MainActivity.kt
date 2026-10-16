@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
-import androidx.work.WorkManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -43,8 +42,6 @@ class MainActivity : ComponentActivity() {
         // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
         Thread { runCatching { Areas.ensure(this) } }.start()
         Notifier.ensureChannel(this)
-        // আগের ভার্সনের ৩০ মিনিট পরপর খোঁজার কাজ বন্ধ (এখন সার্ভার পুশ পাঠায়)
-        WorkManager.getInstance(this).cancelUniqueWork("check_requests")
         // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের রিকোয়েস্ট পড়া হয়
         if (savedInstanceState == null) {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)

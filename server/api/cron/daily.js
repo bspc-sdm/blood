@@ -54,39 +54,12 @@ module.exports = handler(
       console.error('care reminders failed', e);
     }
 
-    let med = null;
-    try {
-      med = await require('../../lib/pharmacy').dailyPharmacy(now);
-    } catch (e) {
-      console.error('pharmacy daily failed', e);
-    }
-    // ফেরত নেওয়া চাকরি/সিভি ফিচারের রেখে যাওয়া ডেটা মোছা (একবারের কাজ)
-    let cleanup = null;
-    try {
-      cleanup = await require('../../lib/cleanup').cleanupRemovedFeatures();
-    } catch (e) {
-      console.error('cleanup failed', e);
-    }
-    // আগের হোম ভিজিটের অনুরোধ-ব্যবস্থা বন্ধ (একবারের কাজ)
-    let homeVisits = null;
-    try {
-      homeVisits = await require('../../lib/homevisit').dailyHomeVisits(now);
-    } catch (e) {
-      console.error('home visit close failed', e);
-    }
     // সময় পেরোনো জরুরি আহ্বান বন্ধ, "আসছি" বলা ডোনারদের জানানো (রক্ত দিলে অ্যাপে জানাতে বলা)
     let emergenciesClosed = 0;
     try {
       emergenciesClosed = await require('../../lib/emergency').closeExpired(now);
     } catch (e) {
       console.error('emergency close failed', e);
-    }
-    // নার্সের চেম্বার বন্ধ (একবারের কাজ)
-    let nurseChambers = null;
-    try {
-      nurseChambers = await require('../../lib/cleanup').closeNurseChambers();
-    } catch (e) {
-      console.error('nurse chambers close failed', e);
     }
     // ওষুধ খোঁজা: বন্ধ হওয়ার ২ দিন পরের খোঁজ মোছা
     let medFindsDeleted = 0;
@@ -136,23 +109,8 @@ module.exports = handler(
       console.error('inbox cleanup failed', e);
     }
 
-    // পুরোনো ভুল রূপে ("001…") রাখা ফার্মেসি/অ্যাম্বুলেন্সের নম্বর ঠিক করা (একবারের কাজ, পরে কিছু পাবে না)
-    let phonesFixed = 0;
-    try {
-      const K = require('../../lib/care');
-      for (const col of ['pharmacies', 'ambulances']) {
-        const snap = await db.collection(col).where('phone', '>=', '001').where('phone', '<', '002').limit(400).get();
-        if (snap.empty) continue;
-        const batch = db.batch();
-        snap.docs.forEach((d) => batch.update(d.ref, { phone: K.fixPhone(d.get('phone')) }));
-        await batch.commit();
-        phonesFixed += snap.size;
-      }
-    } catch (e) {
-      console.error('phone fix failed', e);
-    }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo, phoneLimitsDeleted, medFindsDeleted, nurseChambers, rxReminders, refill };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill };
   },
   { methods: ['GET'] },
 );

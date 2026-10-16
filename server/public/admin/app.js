@@ -108,8 +108,6 @@
     bankKind: { govt: 'সরকারি হাসপাতাল', private: 'বেসরকারি', org: 'স্বেচ্ছাসেবী সংগঠন' },
     bankService: { whole_blood: 'পূর্ণ রক্ত', components: 'প্লাজমা ও অন্যান্য অংশ', platelets: 'প্লাটিলেট', screening: 'স্ক্রিনিং ও ক্রস-ম্যাচ', donate_here: 'এখানে রক্ত দেওয়া যায়' },
     listing: { pending: 'অনুমোদনের অপেক্ষায়', approved: 'অনুমোদিত', suspended: 'বন্ধ', rejected: 'বাতিল' },
-    order: { open: 'ফার্মেসির উত্তরের অপেক্ষা', confirmed: 'নিশ্চিত', ready: 'তৈরি', on_the_way: 'রওনা দিয়েছে', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', no_show: 'নেওয়া হয়নি', cancelled: 'বাতিল' },
-    visit: { open: 'নার্স খোঁজা চলছে', accepted: 'নার্স রাজি', on_the_way: 'নার্স রওনা দিয়েছেন', done: 'সম্পন্ন', expired: 'মেয়াদ শেষ', cancelled: 'বাতিল' },
     appt: { pending: 'অপেক্ষায়', confirmed: 'নিশ্চিত', declined: 'ফিরিয়ে দেওয়া', cancelled: 'বাতিল', expired: 'মেয়াদ শেষ', completed: 'সম্পন্ন' },
     request: { open: 'চালু', closed: 'বন্ধ' },
     ticket: { open: 'উত্তরের অপেক্ষায়', answered: 'উত্তর দেওয়া হয়েছে', closed: 'বন্ধ' },
@@ -1373,7 +1371,6 @@
   // =========================================================
   // রিপোর্টের ছক (পরীক্ষার ঘর, একক, স্বাভাবিক মাত্রা)
   // =========================================================
-  const rg = (r) => (!r ? '' : r[0] != null && r[1] != null ? `${r[0]}–${r[1]}` : r[1] != null ? `< ${r[1]}` : r[0] != null ? `> ${r[0]}` : '');
 
   async function pageLabTests(r, alive) {
     const res = await act('labtests_get');
@@ -1609,10 +1606,6 @@
               return [reason, actionBtn('অ্যাকাউন্ট বন্ধ করুন', 'warn', () => act('admin_user_action', { uid: u.uid, op: 'disable', reason: reason.value.trim() }), 'অ্যাকাউন্ট বন্ধ করা হয়েছে', reload)];
             })()),
       homeCareCtl(),
-      ctl('ওষুধের অর্ডার',
-        u.blocks.medBlocked ? `অর্ডার নিয়ে না যাওয়ায় (${bn(u.blocks.medNoShow)} বার) অর্ডার দেওয়া বন্ধ আছে।` : u.blocks.medNoShow ? `অর্ডার নিয়ে যাননি ${bn(u.blocks.medNoShow)} বার।` : 'কোনো ব্লক নেই।',
-        u.blocks.medBlocked ? h('span', { class: 'chip bad', text: 'বন্ধ' }) : null,
-        u.blocks.medBlocked || u.blocks.medNoShow ? [actionBtn('ব্লক তুলুন', 'tonal', uact('med_unblock'), 'ওষুধের অর্ডারের ব্লক তোলা হয়েছে', reload)] : []),
     ];
     if (u.badge) {
       const run = (approve) => () => act('admin_badge_resolve', { uid: u.uid, approve });
@@ -1668,19 +1661,6 @@
         { label: 'আগে', cell: (x) => (x.from ? fmtDate(x.from) : 'কখনো দেননি') },
         { label: 'পরে', cell: (x) => (x.to ? fmtDate(x.to) : 'কখনো দেননি') },
         { label: 'সতর্কতা', cell: (x) => (x.risk === 'backward' ? h('span', { class: 'chip bad', text: 'পেছানো' }) : x.risk === 'short_gap' ? h('span', { class: 'chip bad', text: '১২০ দিনের কম ফাঁক' }) : '—') },
-      ]) : null,
-      // আগের ব্যবস্থা (ওষুধের অর্ডার, হোম ভিজিট) — থাকলে
-      A.orders.length ? actTable('ওষুধের অর্ডার (আগের ব্যবস্থা)', A.orders, [
-        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
-        { label: 'ফার্মেসি', cell: (x) => x.shop || '—' },
-        { label: 'ওষুধ', cell: (x) => `${bn(x.items)}টা` },
-        { label: 'অবস্থা', cell: (x) => L.order[x.status] || x.status },
-      ]) : null,
-      A.visits.length ? actTable('হোম ভিজিট (আগের ব্যবস্থা)', A.visits, [
-        { label: 'তারিখ', main: true, cell: (x) => fmtDT(x.at) },
-        { label: 'ভূমিকা', cell: (x) => (x.role === 'nurse' ? 'নার্স' : 'রোগী') },
-        { label: 'সেবা', cell: (x) => (x.services || []).join(', ') || '—' },
-        { label: 'অবস্থা', cell: (x) => L.visit[x.status] || x.status },
       ]) : null,
       h('h2', { class: 'section-title', text: 'অ্যাপে যা যা করেছেন' }),
       userTabs(u));

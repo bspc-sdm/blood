@@ -85,12 +85,11 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
-    // লোকেশন, দূরত্ব হিসাব; WorkManager শুধু আগের ভার্সনের কাজ বন্ধ করতে
+    // লোকেশন, দূরত্ব হিসাব
     implementation("com.google.android.gms:play-services-location:21.3.0")
     // দোকানের QR স্ক্যান (Google-এর তৈরি স্ক্যানার — ক্যামেরার অনুমতি লাগে না)
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("com.firebase:geofire-android-common:3.2.0")
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
     // প্রেসক্রিপশনের যাচাইয়ের QR
     implementation("com.google.zxing:core:3.5.3")
 

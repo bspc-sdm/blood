@@ -42,7 +42,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -236,7 +235,6 @@ object RxNet {
     suspend fun labSave(facilityId: String?, name: String, district: String, upazilaId: Int?, address: String, licenseNo: String, phone: String, hours: String, homeCollection: Boolean, docs: Map<String, String>) =
         call("lab_save", JSONObject().put("facilityId", facilityId ?: JSONObject.NULL).put("name", name).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
             .put("address", address).put("licenseNo", licenseNo).put("phone", phone).put("hours", hours).put("homeCollection", homeCollection).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)))
-    suspend fun labDelete() = call("lab_delete")
     suspend fun labOrders(): List<LabOrder> = call("lab_orders").optJSONArray("items").objs().map(::labOrder)
     suspend fun labOpenCode(code: String): LabOrder = labOrder(call("lab_open_code", JSONObject().put("code", code)).getJSONObject("item"))
     suspend fun labStatus(id: String, status: String) = call("lab_order_status", JSONObject().put("id", id).put("status", status))

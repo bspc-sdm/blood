@@ -15,7 +15,6 @@ const { useQuota } = require('./community-db');
 const S = require('./sellerstats');
 
 const KINDS = ['govt', 'private', 'org'];
-const SERVICES = ['whole_blood', 'components', 'platelets', 'screening', 'donate_here'];
 const MAX_PER_OWNER = 3;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -281,4 +280,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, KINDS, SERVICES };
+module.exports = { actions, KINDS };

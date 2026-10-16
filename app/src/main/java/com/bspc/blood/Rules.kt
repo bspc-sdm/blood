@@ -10,7 +10,7 @@ import java.util.TimeZone
 
 const val DAY_MS = 24L * 60 * 60 * 1000
 
-/** অ্যাপের নিয়মগুলো এক জায়গায়। PLAN.md-এর "নিয়ম" অংশ দেখুন। */
+/** অ্যাপের নিয়মগুলো এক জায়গায় (সার্ভারের lib/rules.js-এর সাথে মেলানো)। */
 object Rules {
     /** শেষ রক্তদানের কত দিন পর আবার দেওয়া যাবে। চালুর আগে ডাক্তার/ব্লাড ব্যাংক থেকে নিশ্চিত হতে হবে। */
     const val ELIGIBILITY_DAYS = 120
@@ -62,10 +62,7 @@ object Rules {
         }
     }
 
-    fun isEligibleDonor(p: Profile): Boolean = notEligibleReason(p) == null
-
     /** "জানি না" — রক্ত দেওয়া/নোটিফিকেশন থেকে বাদ, রিকোয়েস্ট দেখা আর দেওয়া যায় */
-
     const val UNKNOWN_GROUP = "unknown"
 
     val BLOOD_GROUPS = listOf("A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-")
@@ -84,12 +81,6 @@ object Rules {
     fun isEligible(lastDonationMillis: Long?, now: Long = System.currentTimeMillis()): Boolean {
         val next = nextEligibleMillis(lastDonationMillis) ?: return true
         return now >= next
-    }
-
-    fun daysUntilEligible(lastDonationMillis: Long?, now: Long = System.currentTimeMillis()): Long {
-        val next = nextEligibleMillis(lastDonationMillis) ?: return 0
-        if (now >= next) return 0
-        return (next - now + DAY_MS - 1) / DAY_MS
     }
 
     /** DatePicker UTC মধ্যরাতের সময় দেয়, তাই তারিখগুলো UTC মধ্যরাত হিসেবে রাখা হয়। */
@@ -166,9 +157,6 @@ object Rules {
         return utc.timeInMillis
     }
 
-    fun dayKey(millis: Long): String =
-        SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(millis))
-
     fun formatKm(km: Double): String =
         if (km < 1) tr("< 1 km", "১ কিমির কম") else num(Math.round(km)) + tr(" km", " কিমি")
 
@@ -202,12 +190,6 @@ object BloodCompat {
 }
 
 object Geo {
-    /** ধাপে ধাপে খোঁজার দূরত্ব (কিমি) */
-    val RADII_KM = listOf(5.0, 10.0, 25.0)
-
-    /** এতগুলো পেলে আর দূরে খোঁজা হবে না */
-    const val ENOUGH_RESULTS = 5
-
     /** প্রাইভেসির জন্য স্থানাঙ্ক গোল করা হয় (২ দশমিক ঘর ≈ ১ কিমি) */
     fun round(value: Double): Double = Math.round(value * 100) / 100.0
 

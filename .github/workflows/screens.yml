@@ -29,7 +29,7 @@ jobs:
             grep -E "^e: " compile.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
             exit 1
           fi
-          # ScreensTest.kt আর ফিচারের আলাদা ফাইল (যেমন JobsScreensTest.kt) — সবগুলো
+          # ScreensTest.kt আর ফিচারের আলাদা *ScreensTest.kt ফাইল — সবগুলো
           for f in app/src/test/java/com/bspc/blood/*ScreensTest.kt; do
             c=$(basename "$f" .kt)
             for t in $(grep -A1 '@Test' "$f" | grep -oP 'fun \K\w+' | sort -u); do
@@ -48,6 +48,7 @@ jobs:
           mkdir -p /tmp/out
           cp app/build/screens/*.png /tmp/out/ 2>/dev/null || true
           cp app/build/test-results/testDebugUnitTest/*.xml /tmp/out/ 2>/dev/null || true
+          grep -E "^w: " compile.log > /tmp/out/warnings.txt 2>/dev/null || true
           cp test.log /tmp/out/ || true
           find . -name 'hs_err_pid*.log' -exec cp {} /tmp/out/ \; || true
           find app/build -name '*.log' -path '*test*' -exec cp {} /tmp/out/ \; 2>/dev/null || true

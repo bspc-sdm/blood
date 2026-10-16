@@ -4,7 +4,6 @@ package com.bspc.blood
 
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,10 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,13 +46,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 
 /** যাঁরা "আমার চেম্বার/বাসায় সেবা" পান */
@@ -280,30 +274,6 @@ private fun ProviderList(type: String, profile: Profile) {
                 infoMsg = tr("Request sent. You'll be notified when it's confirmed.", "অনুরোধ পাঠানো হয়েছে। নিশ্চিত হলে নোটিফিকেশন পাবেন।")
             },
         )
-    }
-}
-
-@Composable
-fun RatingLine(rating: Double, count: Int) {
-    if (count <= 0) return
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        AppIcon(R.drawable.ic_star_fill, null, Modifier.size(16.dp), MaterialTheme.colorScheme.tertiary)
-        Spacer(Modifier.width(4.dp))
-        Text(
-            num(String.format(java.util.Locale.US, "%.1f", rating)) + " (" + num(count) + ")",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-internal fun ProviderAvatar(type: String) {
-    Box(
-        Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer),
-        contentAlignment = Alignment.Center,
-    ) {
-        AppIcon(Badges.icon(type), null, Modifier.size(26.dp), MaterialTheme.colorScheme.onTertiaryContainer)
     }
 }
 

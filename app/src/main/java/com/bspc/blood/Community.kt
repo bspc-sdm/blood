@@ -119,15 +119,6 @@ data class CommunityMe(
     val approvedBadge: String? get() = badge?.takeIf { it.status == "approved" }?.type
 }
 
-data class BadgeRequest(
-    val uid: String,
-    val type: String,
-    val regNo: String,
-    val workplace: String,
-    val name: String,
-    val email: String,
-)
-
 object Community {
     private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject =
         ServerApi.post("/api/community", body.put("action", action).put("lang", AppPrefs.lang.value.code))
@@ -222,19 +213,6 @@ object Community {
     suspend fun applyBadge(type: String, regNo: String, workplace: String, docs: Map<String, String> = emptyMap()) {
         call("badge_apply", JSONObject().put("type", type).put("regNo", regNo).put("workplace", workplace).put("docs", VerifyDocs.json(docs)))
     }
-
-    suspend fun adminBadges(): List<BadgeRequest> =
-        // তথ্য সংশোধনের অনুরোধ শুধু ওয়েব প্যানেলে (এখানে "বাতিল" চাপলে ব্যাজই চলে যেত)
-        call("admin_badges").optJSONArray("items")?.objects().orEmpty().filter { it.isNull("change") || !it.has("change") }.map {
-            BadgeRequest(
-                it.optString("uid"), it.optString("type"), it.optString("regNo"),
-                it.optString("workplace"), it.optString("name"), it.optString("email"),
-            )
-        }
-
-    suspend fun resolveBadge(uid: String, approve: Boolean) {
-        call("admin_badge_resolve", JSONObject().put("uid", uid).put("approve", approve))
-    }
 }
 
 /** অ্যাডমিনের কাছে রিপোর্ট হওয়া পোস্ট */
@@ -263,38 +241,11 @@ object Moderation {
         )
     }
 
-    suspend fun adminReports(): List<ReportedItem> {
-        val arr = call("admin_reports").optJSONArray("items") ?: JSONArray()
-        // ডাক্তারের চেম্বারের রিপোর্ট শুধু ওয়েব প্যানেলে (আলাদা ব্যবস্থা লাগে)
-        return (0 until arr.length()).filter { arr.getJSONObject(it).optString("kind") != "provider" }.map {
-            val o = arr.getJSONObject(it)
-            ReportedItem(
-                o.optString("targetPath"), o.optString("kind"), o.optInt("count"), o.optString("text"), o.optString("authorName"),
-                if (o.isNull("reportedUid")) null else o.optString("reportedUid").ifBlank { null },
-                if (o.isNull("reportedRole")) null else o.optString("reportedRole").ifBlank { null },
-            )
-        }
-    }
-
     suspend fun resolve(targetPath: String, remove: Boolean, reportedUid: String? = null) {
         call(
             "admin_report_resolve",
             JSONObject().put("targetPath", targetPath).put("remove", remove).apply { if (reportedUid != null) put("reportedUid", reportedUid) },
         )
-    }
-
-    /** মালিক: অ্যাডমিনের তালিকা (মালিকেরা + যোগ করা অ্যাডমিন) */
-    suspend fun admins(): Pair<List<String>, List<String>> {
-        val o = call("admin_list")
-        return o.optJSONArray("owners").strings() to (o.optJSONArray("items")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).optString("email") } } ?: emptyList())
-    }
-
-    suspend fun addAdmin(email: String) {
-        call("admin_add", JSONObject().put("email", email))
-    }
-
-    suspend fun removeAdmin(email: String) {
-        call("admin_remove", JSONObject().put("email", email))
     }
 
     /** অ্যাকাউন্ট আর সব তথ্য মোছা */

@@ -53,7 +53,6 @@ async function addRecentRating(collection, id, rating, comment, raterUid) {
   }
 }
 
-const addAmbulanceRating = (id, rating, comment) => addRecentRating('ambulanceStats', id, rating, comment);
 
 /** গণনার ডক থেকে ৭/৩০/৯০ দিনের হিসাব আর ৩০ দিনের দৈনিক সংখ্যা */
 function callSummary(snap, now = Date.now()) {
@@ -92,4 +91,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, bumpCalls, bumpAmbulance, addAmbulanceRating, addRecentRating, removeRecentRating, callSummary };
+module.exports = { actions, bumpCalls, bumpAmbulance, addRecentRating, removeRecentRating, callSummary };

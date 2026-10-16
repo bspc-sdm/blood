@@ -169,7 +169,7 @@ const latest = (snap, field, n = 10) => snap.docs
   .slice(0, n);
 
 async function userView(uid) {
-  const [u, doc, badge, prov, shop, state, ambs, reqs, ordersMine, visitsMine, visitsNursed, apptMine, apptToMe, tickets, reportsAgainst, homeStats, banks] = await Promise.all([
+  const [u, doc, badge, prov, shop, state, ambs, reqs, apptMine, apptToMe, tickets, reportsAgainst, homeStats, banks] = await Promise.all([
     authUser(uid),
     db.doc(`users/${uid}`).get(),
     db.doc(`badges/${uid}`).get(),
@@ -178,9 +178,6 @@ async function userView(uid) {
     db.doc(`serverState/${uid}`).get(),
     db.collection('ambulances').where('ownerUid', '==', uid).limit(10).get(),
     db.collection('requests').where('requesterUid', '==', uid).limit(50).get(),
-    db.collection('medOrders').where('patientUid', '==', uid).limit(50).get(),
-    db.collection('homeVisits').where('patientUid', '==', uid).limit(50).get(),
-    db.collection('homeVisits').where('nurseUid', '==', uid).limit(50).get(),
     db.collection('appointments').where('patientUid', '==', uid).limit(50).get(),
     db.collection('appointments').where('providerUid', '==', uid).limit(50).get(),
     db.collection('tickets').where('uid', '==', uid).limit(20).get(),
@@ -190,7 +187,6 @@ async function userView(uid) {
   ]);
   if (!u && !doc.exists) return null;
   const st = (k) => (state.exists ? state.get(k) : undefined);
-  const noShowActive = (st('medNoShow') || 0) >= 3 && Date.now() - (st('medNoShowAt') || 0) < 90 * DAY;
   const created = u ? Date.parse(u.metadata.creationTime || '') || null : null;
   const seen = u ? Math.max(Date.parse(u.metadata.lastRefreshTime || '') || 0, Date.parse(u.metadata.lastSignInTime || '') || 0) || null : null;
   const email = u ? (u.email || '').toLowerCase() : '';
@@ -222,13 +218,9 @@ async function userView(uid) {
     blocks: {
       homeVisitBanned: st('homeVisitBanned') === true,
       homeVisitBlocked: prov.exists && prov.get('homeVisitBlocked') === true,
-      medNoShow: st('medNoShow') || 0,
-      medBlocked: noShowActive,
     },
     activity: {
       requests: latest(reqs, 'createdAtMillis').map(({ d, at }) => ({ id: d.id, at, status: d.get('status'), group: d.get('patientGroup'), hospital: d.get('hospital') || '', place: d.get('placeName') || '' })),
-      orders: latest(ordersMine, 'createdAt').map(({ d, at }) => ({ id: d.id, at, status: d.get('status'), shop: d.get('currentName') || '', items: (d.get('items') || []).length })),
-      visits: latest({ docs: [...visitsMine.docs, ...visitsNursed.docs] }, 'createdAt').map(({ d, at }) => ({ id: d.id, at, status: d.get('status'), role: d.get('nurseUid') === uid ? 'nurse' : 'patient', services: d.get('services') || [] })),
       appointments: latest({ docs: [...apptMine.docs, ...apptToMe.docs] }, 'createdAt').map(({ d, at }) => ({ id: d.id, at, status: d.get('status'), role: d.get('providerUid') === uid ? 'provider' : 'patient', date: d.get('date') || '' })),
       tickets: latest(tickets, 'updatedAt', 20).map(({ d, at }) => ({ id: d.id, at, status: d.get('status'), category: d.get('category') })),
       reportsAgainst: reportsAgainst.size,
@@ -353,9 +345,6 @@ const actions = {
       case 'homecare_ban':
       case 'homevisit_ban_nurse': // আগের নাম
         await require('./homecare').blockHomeCare(uid);
-        break;
-      case 'med_unblock':
-        await stateRef.set({ medNoShow: 0, medNoShowAt: FieldValue.delete() }, { merge: true });
         break;
       case 'disable':
       case 'enable': {

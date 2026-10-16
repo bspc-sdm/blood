@@ -34,4 +34,4 @@ function find(id) {
   return x ? toObj(x[0], x[1]) : null;
 }
 
-module.exports = { inDistrict, find, fetched: DIR.fetched };
+module.exports = { inDistrict, find };

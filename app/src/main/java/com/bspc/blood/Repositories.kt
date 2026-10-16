@@ -169,10 +169,6 @@ object ProfileRepository {
             .onFailure { e -> if (e !is ServerError) users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await() }
     }
 
-    suspend fun setNotify(uid: String, on: Boolean) {
-        users.document(uid).set(mapOf("notify" to on), SetOptions.merge()).await()
-    }
-
     /** অ্যাপের ভাষা ("en"/"bn"), সার্ভার নোটিফিকেশনের ভাষা ঠিক করতে ব্যবহার করে */
     suspend fun saveLang(uid: String, code: String) {
         users.document(uid).set(mapOf("lang" to code), SetOptions.merge()).await()
@@ -363,11 +359,6 @@ object RequestRepository {
     suspend fun myResponse(requestId: String, uid: String): DonorResponse? {
         val s = requests.document(requestId).collection("responses").document(uid).get().await()
         return if (s.exists()) responseFromSnap(s) else null
-    }
-
-    suspend fun setResponseStatus(requestId: String, donorUid: String, status: String) {
-        requests.document(requestId).collection("responses").document(donorUid)
-            .update("status", status).await()
     }
 
     /** শুধু রাজি থাকা বা রক্ত দেওয়া ডোনার (নিয়ম অনুযায়ী বাকিদের নম্বর রক্তপ্রার্থী দেখতে পারে না) */

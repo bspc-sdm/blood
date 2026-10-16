@@ -1,15 +1,12 @@
-// ফার্মেসি: শুধু তালিকা আর সরাসরি ফোন (অ্যাম্বুলেন্সের মতো)। লাইসেন্সধারী দোকান যোগ হয় (অ্যাডমিন যাচাই),
-// মানুষ এলাকার খোলা দোকান খুঁজে সরাসরি ফোন করেন। অ্যাপ ওষুধ বিক্রি করে না, অর্ডার নেয় না।
-// (আগে অ্যাপে অর্ডার ছিল — ২০২৬-১০-১৫ থেকে বন্ধ; পুরোনো অ্যাপ অর্ডার চাইলে বার্তা পায়।)
-const { db, FieldValue, HttpError, sendPush } = require('./firebase');
+// ফার্মেসির তালিকা: লাইসেন্সধারী দোকান যোগ হয় (অ্যাডমিন যাচাই), মানুষ এলাকার খোলা দোকান খুঁজে সরাসরি ফোন করেন।
+// প্রেসক্রিপশন থেকে ওষুধ দেওয়া, দোকানে/অনলাইনে অর্ডার, স্টক — rxnet.js।
+const { db, FieldValue, HttpError } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 const DISTRICTS = require('./districts');
 const { UPAZILA } = require('./hospital-match');
 const { useQuota } = require('./community-db');
-
-const STATUS_ACTIVE = ['open', 'confirmed', 'ready', 'on_the_way'];
 
 const ADMIN_STATUSES = ['pending', 'approved', 'suspended', 'rejected'];
 
@@ -38,17 +35,6 @@ function pharmacyView(d, mine = false) {
     ratingCount: n,
     ...(mine ? { licenseNo: x.licenseNo, status: x.status, statusReason: x.statusReason || '', hasLocation: typeof x.lat === 'number' } : {}),
   };
-}
-
-async function pushUid(uid, en, bn, body, data) {
-  if (!uid) return;
-  try {
-    const u = await db.doc(`users/${uid}`).get();
-    if (!u.exists) return;
-    await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body: body || '', data }]);
-  } catch (e) {
-    console.error('pharmacy push failed', e);
-  }
 }
 
 /** প্যানেলের তালিকায়: অনুমোদিতের পর কী বদলেছে, কারণ, আর অপেক্ষার তালিকায় সম্ভাব্য একই তালিকা */
@@ -245,36 +231,6 @@ const actions = {
     return require('./sellerstats').callSummary(s);
   },
 
-  // ---------- পুরোনো অ্যাপের ওষুধের অর্ডার (বন্ধ) ----------
-  async med_order(req) {
-    throw new HttpError(410, C.tr(req, 'Medicine ordering has been closed. Find an open pharmacy in Services and call them directly.', 'অ্যাপে ওষুধের অর্ডার বন্ধ করা হয়েছে। "সেবা" থেকে খোলা ফার্মেসি খুঁজে সরাসরি ফোন করুন।'), 'med_closed');
-  },
-
-  async med_orders(req, user) {
-    const shop = await db.doc(`pharmacies/${user.uid}`).get();
-    return { asPatient: [], asPharmacy: [], isPharmacy: shop.exists && shop.get('status') === 'approved' };
-  },
-
-  async med_order_photo(req) {
-    return actions.med_order(req);
-  },
-
-  async med_order_reply(req) {
-    return actions.med_order(req);
-  },
-
-  async med_order_forward(req) {
-    return actions.med_order(req);
-  },
-
-  async med_order_choose(req) {
-    return actions.med_order(req);
-  },
-
-  async med_order_update(req) {
-    return actions.med_order(req);
-  },
-
   // ---------- অ্যাডমিন ----------
   /** অবস্থা অনুযায়ী তালিকা (ডিফল্ট: অপেক্ষায়) — ওয়েব প্যানেলে অনুমোদিত/বন্ধ/বাতিলও দেখা যায় */
   async admin_pharmacies(req, user) {
@@ -298,53 +254,4 @@ const actions = {
   },
 };
 
-/**
- * ক্রন — একবারের কাজ (ওষুধের অর্ডার বন্ধের পর): চলমান অর্ডার বন্ধ করে দুই পক্ষকে জানানো,
- * প্রেসক্রিপশনের ছবি, পুরোনো স্টক সূচি আর নতুন ওষুধের অনুরোধ মুছে ফেলা।
- */
-async function dailyPharmacy(now = Date.now()) {
-  const flag = db.doc('serverState/_medOrdersClosed');
-  if ((await flag.get()).exists) return { done: true };
-  let closed = 0;
-  const notify = [];
-  for (const st of STATUS_ACTIVE) {
-    const snap = await db.collection('medOrders').where('status', '==', st).limit(500).get();
-    for (const d of snap.docs) {
-      await d.ref.update({ status: 'cancelled', cancelledAt: now, cancelledBy: 'system', openFor: [], livePatient: null, liveShop: null, remindAt: null, remindDays: 0 });
-      closed++;
-      notify.push(d.get('patientUid'));
-      if (d.get('chosen')) notify.push(d.get('chosen'));
-    }
-  }
-  // মাসিক রিমাইন্ডারও বন্ধ
-  const reminders = await db.collection('medOrders').where('remindDays', '>', 0).limit(500).get();
-  for (const d of reminders.docs) await d.ref.update({ remindAt: null, remindDays: 0 });
-  for (const uid of [...new Set(notify.filter(Boolean))]) {
-    await pushUid(uid, 'Medicine ordering in the app has closed', 'অ্যাপে ওষুধের অর্ডার বন্ধ হয়েছে', 'ফার্মেসিতে সরাসরি ফোন করুন — "সেবা" থেকে খোলা দোকান খুঁজুন', { type: 'services', kind: 'pharmacy' });
-  }
-  const del = async (col) => {
-    let n = 0;
-    for (;;) {
-      const snap = await db.collection(col).limit(400).get();
-      if (snap.empty) break;
-      const b = db.batch();
-      snap.docs.forEach((d) => b.delete(d.ref));
-      await b.commit();
-      n += snap.size;
-      if (snap.size < 400) break;
-    }
-    return n;
-  };
-  const photos = await del('medOrderPhotos');
-  // pharmacyStock আর মোছা হয় না: ২.১৭ থেকে নতুন স্টক তালিকা একই সংগ্রহে (নতুন ডাটাবেসে এই কাজ চললেও মুছবে না)
-  const stockDocs = 0;
-  await del('stockIdx');
-  await del('stockIndex');
-  await del('drugRequests');
-  await del('customDrugs');
-  await db.doc('config/customDrugs').delete().catch(() => {});
-  await flag.set({ at: now, closed, photos, stockDocs });
-  return { closed, photos, stockDocs };
-}
-
-module.exports = { areaPharmacies, actions, dailyPharmacy };
+module.exports = { areaPharmacies, actions };

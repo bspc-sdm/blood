@@ -167,15 +167,6 @@ object Hospitals {
         return if (r.optBoolean("merged")) HospitalRequestResult.Merged else HospitalRequestResult.Sent
     }
 
-    suspend fun adminRequests(): List<HospitalRequestItem> {
-        val arr = careCall("admin_hospital_requests").optJSONArray("items") ?: JSONArray()
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
-            val d = o.optJSONArray("possibleDuplicates") ?: JSONArray()
-            HospitalRequestItem(parse(o), o.optInt("count", 1), (0 until d.length()).map { i -> parse(d.getJSONObject(i)) })
-        }
-    }
-
     /** op: "approve", "reject", "merge" (targetId সহ) */
     suspend fun resolve(id: String, op: String, targetId: String? = null) {
         careCall("admin_hospital_resolve", JSONObject().put("id", id).put("op", op).apply { if (targetId != null) put("targetId", targetId) })

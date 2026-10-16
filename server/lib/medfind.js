@@ -62,7 +62,6 @@ async function pushUid(uid, en, bn, body, data) {
   }
 }
 
-const drugText = (d) => [d.name, [d.generic, d.form].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
 const expired = (x, now = Date.now()) => x.status !== 'open' || now > (x.expiresAt || 0);
 
 function areaLabel(x) {
@@ -268,4 +267,4 @@ async function dailyCleanup(now = Date.now()) {
   return deleted;
 }
 
-module.exports = { actions, searchDrugs, drugText, dailyCleanup };
+module.exports = { actions, searchDrugs, dailyCleanup };

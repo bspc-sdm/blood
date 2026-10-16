@@ -264,14 +264,6 @@ const actions = {
     return { ok: true, saved: have ? Object.keys(have).length : 0, ...(await ownerInfo(kind, id, { ...x, docsHave: { ...(x.docsHave || {}), ...(have || {}) }, docsRequestedAt: 0 })) };
   },
 
-  /** মালিক: নিজের তালিকার কোন কাগজ আছে/বাকি */
-  async verify_docs_mine(req, user) {
-    const { kind, id } = req.body || {};
-    const { x, owner } = await loadTarget(req, kind, id);
-    if (owner !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    return ownerInfo(kind, id, x);
-  },
-
   /** অ্যাডমিন: যাচাইয়ের জন্য কাগজের ছবি (প্যানেলে চাইলে তবেই আসে) */
   async admin_verify_docs(req, user) {
     if (!(await require('./admin').isAdmin(user))) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
