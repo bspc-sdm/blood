@@ -70,7 +70,8 @@ data class ServiceTile(val key: String, val title: () -> String, val subtitle: (
 
 object Services {
     val ALL = listOf(
-        ServiceTile("doctor", { tr("Doctor & appointment", "ডাক্তার ও অ্যাপয়েন্টমেন্ট") }, { tr("Chambers, serials, home care", "চেম্বার, সিরিয়াল, বাসায় সেবা") }, R.drawable.ic_stethoscope),
+        // "প্রফেশনালস": ডাক্তার, নার্স আর অন্য পেশাজীবী — key "doctor" পুরোনো নোটিফিকেশন/লিংকের জন্য একই রাখা
+        ServiceTile("doctor", { tr("Professionals", "প্রফেশনালস") }, { tr("Doctors, nurses & other experts — serials, home care", "ডাক্তার, নার্স ও অন্য বিশেষজ্ঞ — সিরিয়াল, বাসায় সেবা") }, R.drawable.ic_stethoscope),
         ServiceTile("health", { tr("Health talk", "স্বাস্থ্য আলোচনা") }, { tr("Ask questions, read tips", "প্রশ্ন করুন, টিপস পড়ুন") }, R.drawable.ic_forum_outline),
         ServiceTile("ambulance", { tr("Ambulance", "অ্যাম্বুলেন্স") }, { tr("Find nearby and call", "কাছের অ্যাম্বুলেন্সে ফোন") }, R.drawable.ic_ambulance),
         ServiceTile("pharmacy", { tr("Pharmacy", "ফার্মেসি") }, { tr("Open shops, find a medicine", "খোলা দোকান, ওষুধ খোঁজা") }, R.drawable.ic_medication),

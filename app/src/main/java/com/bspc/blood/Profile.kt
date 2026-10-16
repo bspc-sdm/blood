@@ -211,7 +211,7 @@ fun ProfileTab(
                 InfoLine(R.drawable.ic_history, tr("Last donation", "শেষ রক্তদান"), profile.lastDonationMillis?.let { Rules.formatDate(it) } ?: tr("Never", "কখনো দেননি"))
                 if ((c?.donationCount ?: 0) > 0) InfoLine(R.drawable.ic_volunteer_activism, tr("Donated through Dorkar", "Dorkar দিয়ে রক্তদান"), tr("${c?.donationCount} time(s)", "${num(c?.donationCount ?: 0)} বার"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallAction(tr("Nearby requests", "কাছের রিকোয়েস্ট"), R.drawable.ic_location_on, onOpenHome)
+                    SmallAction(tr("Active Feed", "অ্যাকটিভ ফিড"), R.drawable.ic_location_on, onOpenHome)
                     SmallAction(tr("Change last donation date", "শেষ রক্তদানের তারিখ বদলান"), R.drawable.ic_calendar_month, { showDateDialog = true })
                 }
                 if (c != null) {

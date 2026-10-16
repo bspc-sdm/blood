@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.IconButton
@@ -51,7 +52,14 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 
-internal data class NavItem(val label: String, val selectedIcon: Int, val icon: Int, val badge: Int = 0)
+internal data class NavItem(
+    val label: String,
+    val selectedIcon: Int,
+    val icon: Int,
+    val badge: Int = 0,
+    /** প্রোফাইল ট্যাবে আইকনের বদলে নিজের ছবি (না থাকলে আইকন) */
+    val avatar: androidx.compose.ui.graphics.ImageBitmap? = null,
+)
 
 @Composable
 fun MainScreen(
@@ -133,11 +141,12 @@ fun MainScreen(
     // নিচের বার: হোম · সার্ভিস · নোটিফিকেশন (না-পড়ার সংখ্যা) · প্রোফাইল
     // নোটিফিকেশন ট্যাব খোলা থাকলে সংখ্যা দেখায় না (খুললেই সব পড়া হয়)
     val unread = if (tab == Tabs.NOTIFICATIONS) 0 else community?.unread ?: 0
+    val myPhoto = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
     val items = listOf(
         NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
         NavItem(tr("Services", "সার্ভিস"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
         NavItem(tr("Notifications", "নোটিফিকেশন"), R.drawable.ic_notifications_round_fill, R.drawable.ic_notifications_round, unread),
-        NavItem(tr("Profile", "প্রোফাইল"), R.drawable.ic_person_filled, R.drawable.ic_person_outline),
+        NavItem(tr("Profile", "প্রোফাইল"), R.drawable.ic_person_filled, R.drawable.ic_person_outline, avatar = myPhoto),
     )
 
     Scaffold(
@@ -270,7 +279,7 @@ fun HomeTab(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        tr("Nearby Requests", "আশেপাশের রিকোয়েস্ট"),
+                        tr("Active Feed", "অ্যাকটিভ ফিড"),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),
@@ -417,7 +426,18 @@ internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> 
                         androidx.compose.material3.BadgedBox(badge = {
                             if (item.badge > 0) androidx.compose.material3.Badge { Text(if (item.badge > 99) "99+" else num(item.badge)) }
                         }) {
-                            AppIcon(if (sel) item.selectedIcon else item.icon, null, Modifier.size(24.dp), color)
+                            if (item.avatar != null) {
+                                // নিজের ছবি: বাছা থাকলে চারপাশে রঙের দাগ
+                                androidx.compose.foundation.Image(
+                                    item.avatar,
+                                    contentDescription = null,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.size(26.dp).clip(CircleShape)
+                                        .border(if (sel) 2.dp else 0.5.dp, if (sel) cs.primary else cs.outlineVariant, CircleShape),
+                                )
+                            } else {
+                                AppIcon(if (sel) item.selectedIcon else item.icon, null, Modifier.size(24.dp), color)
+                            }
                         }
                         Spacer(Modifier.height(2.dp))
                         Text(

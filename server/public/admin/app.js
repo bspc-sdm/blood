@@ -1647,7 +1647,7 @@
   const RESP = { accepted: 'রাজি', donated: 'রক্ত দিয়েছেন', cancelled: 'বাতিল করেছেন', declined: 'বাদ পড়েছেন' };
   const EMER = { notified: 'জানানো হয়েছিল', coming: 'আসছি বলেছেন', cancelled: 'আসতে পারেননি', donated: 'রক্ত দিয়েছেন', not_donated: 'দেননি' };
   const CALLKIND = { ambulance: 'অ্যাম্বুলেন্স', pharmacy: 'ফার্মেসি', bloodbank: 'ব্লাড ব্যাংক', homecare: 'বাসায় সেবা' };
-  const USER_TABS = [['blood', 'রক্ত'], ['community', 'আলোচনা'], ['services', 'সেবা'], ['care', 'ডাক্তার ও অ্যাপয়েন্টমেন্ট'], ['jobs', 'চাকরি'],
+  const USER_TABS = [['blood', 'রক্ত'], ['community', 'আলোচনা'], ['services', 'সেবা'], ['care', 'প্রফেশনালস'], ['jobs', 'চাকরি'],
     ['inbox', 'নোটিফিকেশন'], ['support', 'আপিল'], ['admin', 'অ্যাডমিন ব্যবস্থা'], ['timeline', 'সময়ক্রম']];
 
   function userTabs(u) {
