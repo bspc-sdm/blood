@@ -18,7 +18,7 @@
 |---|---|
 | সার্ভার | `server/lib/jobs.js` |
 | সার্ভার টেস্ট | `server/test/jobs.test.js` (আর `server/package.json`-এর `test` লাইন থেকে নামটা) |
-| অ্যাপ | `app/src/main/java/com/bspc/blood/` এর `Jobs.kt`, `JobDetail.kt`, `JobEmployer.kt`, `JobAlarms.kt`, `Cv.kt` |
+| অ্যাপ | `app/src/main/java/com/bspc/blood/` এর `Jobs.kt`, `JobDetail.kt`, `JobEmployer.kt`, `JobAlarms.kt` (সিভি `Cv.kt` এখন মূল প্রোফাইলের অংশ — মুছবেন না) |
 | অ্যাপ টেস্ট | `app/src/test/java/com/bspc/blood/JobsScreensTest.kt` |
 | আইকন | `app/src/main/res/drawable/ic_nav_work.xml`, `ic_nav_work_fill.xml` (অন্য কোথাও ব্যবহার না হলে) |
 
@@ -45,6 +45,9 @@
 - `MainScreen.kt`: `JobAlarms.sync` লাইন সরান।
 - `AndroidManifest.xml`: `JobAlarmReceiver` (চিহ্ন দেওয়া মন্তব্যসহ) সরান।
 - `Verify.kt`: `VerifyDocs.employer()` সরান।
+- `Services.kt`: সার্ভিসের তালিকায় "চাকরি" টাইল, `ServiceScreen`-এর `"jobs"` শাখা আর `onOpenJobs` প্যারামিটার সরান।
+- `MainScreen.kt`/`Profile.kt`: প্রোফাইলের "আমার চাকরির আবেদন" (`onOpenMyApplications`) সরান।
+- `Ongoing.kt`: চাকরির আইকনের লাইন সরান।
 
 **সার্ভার**
 - `.github/workflows/screens.yml` সব `*ScreensTest.kt` চালায়, তাই সেখানে কিছু বদলাতে হবে না।
@@ -73,6 +76,8 @@
 - `lib/adminweb.js`: `LOGGED`-এর `admin_job_resolve`, `admin_employer_resolve`, `admin_employer_warn`, `admin_employer_block`, `admin_job_words_save` সরান।
 - `lib/moderation.js`-এর `countReport` লাইনও সরান।
 - `lib/community.js`: `LIMITS`-এর `job`, `apply` সরান।
+- `lib/ongoing.js`: হোমের "চলমান"-এর চাকরির অংশ (`require('./jobs').ongoing`) সরান।
+- `lib/cv.js`: `rolesOf`-এর `employers/{uid}` লাইন সরান (সিভি নিজে থাকবে, ওটা মূল প্রোফাইল)।
 
 **অ্যাডমিন প্যানেল (`server/public/admin/app.js`)**
 - নিচের অংশগুলো সরান:
@@ -93,7 +98,6 @@
 
 ### ডাটাবেস (Firestore)
 কোড মুছলে নিচের কালেকশনগুলো আর কেউ পড়ে না। এগুলোর তথ্য আলাদা করে মোছা যায়:
-- `profiles` (সিভি)
 - `employers`
 - `jobs`
 - `applications`
