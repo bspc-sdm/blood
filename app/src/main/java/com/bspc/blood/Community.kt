@@ -323,7 +323,7 @@ object Badges {
         "doctor" -> R.drawable.ic_stethoscope
         "nurse" -> R.drawable.ic_medical_services
         "nutritionist" -> R.drawable.ic_restaurant
-        "trainer" -> R.drawable.ic_directions_run
+        "trainer" -> R.drawable.ic_fitness_center
         else -> R.drawable.ic_health_and_safety_filled
     }
 }

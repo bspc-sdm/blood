@@ -136,7 +136,7 @@ fun AppointmentTab(
             listOf(
                 PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
                 PillTab(tr("Nutritionist", "পুষ্টিবিদ"), R.drawable.ic_restaurant),
-                PillTab(tr("Fitness trainer", "ফিটনেস ট্রেইনার"), R.drawable.ic_directions_run),
+                PillTab(tr("Fitness trainer", "ফিটনেস ট্রেইনার"), R.drawable.ic_fitness_center),
             ),
             { tab = it },
         )
@@ -148,7 +148,7 @@ fun AppointmentTab(
             when (badge) {
                 "nurse" -> R.drawable.ic_home_health
                 "nutritionist" -> R.drawable.ic_restaurant
-                "trainer" -> R.drawable.ic_directions_run
+                "trainer" -> R.drawable.ic_fitness_center
                 else -> R.drawable.ic_stethoscope
             },
             onEditChamber,
@@ -218,8 +218,12 @@ private fun ProviderList(type: String, profile: Profile) {
             shown.isEmpty() -> item {
                 Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(
-                        if (type == "doctor") R.drawable.ic_stethoscope else R.drawable.ic_medical_services,
-                        if (type == "doctor") tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি") else tr("No nurses found", "কোনো নার্স পাওয়া যায়নি"),
+                        Badges.icon(type),
+                        when (type) {
+                            "nutritionist" -> tr("No nutritionists found", "কোনো পুষ্টিবিদ পাওয়া যায়নি")
+                            "trainer" -> tr("No fitness trainers found", "কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি")
+                            else -> tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি")
+                        },
                         tr("Try a wider area or remove a filter.", "বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।"),
                     )
                     if (filter != CareFilter()) {
