@@ -287,28 +287,14 @@ object JobsApi {
 
 /** সার্ভারের কোড → লেখা (সার্ভার, প্যানেল আর শেয়ার পাতার সাথে মেলানো) */
 object JobText {
-    val CATEGORIES = listOf("health", "education", "sales", "accounts", "office", "it", "driving", "factory", "hospitality", "security", "construction", "domestic", "other")
+    val CATEGORIES = WorkText.CATEGORIES
     val TYPES = listOf("fulltime", "parttime", "contract", "internship", "remote")
-    val EDUCATION = listOf("none", "ssc", "hsc", "diploma", "bachelor", "masters")
+    val EDUCATION = WorkText.EDUCATION
     val EMPLOYER_KINDS = listOf("company", "shop", "hospital", "school", "ngo", "household", "other")
     val REJECT_REASONS = listOf("experience", "skills", "education", "location", "filled", "other")
     val WITHDRAW_REASONS = listOf("got_job", "salary", "location", "other")
 
-    fun category(c: String) = when (c) {
-        "health" -> tr("Healthcare", "স্বাস্থ্যসেবা")
-        "education" -> tr("Education", "শিক্ষা")
-        "sales" -> tr("Sales & marketing", "বিক্রয় ও মার্কেটিং")
-        "accounts" -> tr("Accounts & finance", "হিসাব ও অর্থ")
-        "office" -> tr("Office & admin", "অফিস ও প্রশাসন")
-        "it" -> tr("IT", "আইটি")
-        "driving" -> tr("Driving & delivery", "গাড়ি চালনা ও ডেলিভারি")
-        "factory" -> tr("Factory", "কারখানা")
-        "hospitality" -> tr("Hotel & restaurant", "হোটেল ও রেস্টুরেন্ট")
-        "security" -> tr("Security", "নিরাপত্তা")
-        "construction" -> tr("Construction & repair", "নির্মাণ ও মেরামত")
-        "domestic" -> tr("Household work", "গৃহস্থালি কাজ")
-        else -> tr("Other", "অন্যান্য")
-    }
+    fun category(c: String) = WorkText.category(c)
 
     fun type(t: String) = when (t) {
         "fulltime" -> tr("Full-time", "ফুলটাইম")
@@ -319,14 +305,7 @@ object JobText {
         else -> t
     }
 
-    fun education(e: String) = when (e) {
-        "ssc" -> tr("SSC", "এসএসসি")
-        "hsc" -> tr("HSC", "এইচএসসি")
-        "diploma" -> tr("Diploma", "ডিপ্লোমা")
-        "bachelor" -> tr("Bachelor's", "স্নাতক")
-        "masters" -> tr("Master's", "স্নাতকোত্তর")
-        else -> tr("Not required", "লাগবে না")
-    }
+    fun education(e: String) = WorkText.education(e)
 
     fun employerKind(k: String) = when (k) {
         "company" -> tr("Company", "কোম্পানি")
@@ -410,7 +389,7 @@ sealed interface JobsPage {
     data object EditCv : JobsPage
 }
 
-/** নোটিফিকেশন থেকে চাকরি ট্যাবের কোন অংশ খুলবে (০ খুঁজুন, ১ আমার আবেদন, ২ সিভি, ৩ নিয়োগ দিন) */
+/** নোটিফিকেশন থেকে চাকরির কোন অংশ খুলবে (০ খুঁজুন, ১ আমার আবেদন, ২ নিয়োগ দিন); সিভি এখন প্রোফাইলে */
 object JobsNav {
     val section = mutableStateOf<Int?>(null)
     /** পুশে চাপ দিলে কোন বিজ্ঞাপন (MainActivity intent থেকে বসায়) */
@@ -425,8 +404,8 @@ object JobsNav {
             // নতুন চাকরির অ্যালার্ট আর সেভ করা চাকরির মনে করানো: "চাকরি খুঁজুন"; বাকিটা নিজের আবেদন
             "job_alert" -> 0 to id?.let { JobsPage.Detail(it) }
             "job" -> 1 to id?.let { JobsPage.Detail(it) }
-            "job_applicants" -> 3 to id?.let { JobsPage.Applicants(it) }
-            else -> 3 to null
+            "job_applicants" -> 2 to id?.let { JobsPage.Applicants(it) }
+            else -> 2 to null
         }
     }
 }
@@ -467,7 +446,6 @@ fun JobsTab(profile: Profile, refreshKey: Int, open: (JobsPage) -> Unit) {
             listOf(
                 PillTab(tr("Find jobs", "চাকরি খুঁজুন"), R.drawable.ic_search),
                 PillTab(tr("My applications", "আমার আবেদন"), R.drawable.ic_send),
-                PillTab(tr("My CV", "আমার সিভি"), R.drawable.ic_badge),
                 PillTab(tr("Hire", "নিয়োগ দিন"), R.drawable.ic_nav_work, R.drawable.ic_nav_work_fill),
             ),
             { tab = it },
@@ -475,7 +453,6 @@ fun JobsTab(profile: Profile, refreshKey: Int, open: (JobsPage) -> Unit) {
         when (tab) {
             0 -> JobSearch(profile, refreshKey) { open(JobsPage.Detail(it)) }
             1 -> MyApplicationsPanel(refreshKey, { open(JobsPage.Detail(it)) }, onFind = { tab = 0 })
-            2 -> MyCvPanel(refreshKey) { open(JobsPage.EditCv) }
             else -> HirePanel(profile, refreshKey, onEditJob = { open(JobsPage.Edit(it)) }, onOpenJob = { open(JobsPage.Detail(it)) }, onOpenApplicants = { open(JobsPage.Applicants(it)) })
         }
     }

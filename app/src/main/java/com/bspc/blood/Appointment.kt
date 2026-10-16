@@ -72,6 +72,8 @@ fun AppointmentTab(
     me: CommunityMe?,
     onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
+    /** সার্ভিসের পাতায় উপরের বারেই নাম থাকে, তাই এখানের শিরোনাম লাগে না */
+    showTitle: Boolean = true,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(CareNav.openHomeCare.value) {
@@ -82,7 +84,7 @@ fun AppointmentTab(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (showTitle) Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 tr("Appointment", "অ্যাপয়েন্টমেন্ট"),
                 style = MaterialTheme.typography.headlineSmall,

@@ -2,7 +2,7 @@
 
 package com.bspc.blood
 
-// FEATURE:jobs — পুরো ফাইলটা চাকরি ফিচারের (মুছলে FEATURES.md দেখুন)
+// প্রোফাইল = সিভি: অ্যাপের মূল অংশ (চাকরি ফিচার মুছলেও থাকে)
 
 import android.content.Context
 import android.content.Intent
@@ -37,6 +37,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -68,13 +71,46 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ------------------------------------------------------------
-// সিভি (LinkedIn-এর মতো প্রোফাইল): আবেদনে যায়, PDF করে রাখা যায়, চাইলে লিংক দিয়ে শেয়ার।
+// সিভি (LinkedIn-এর মতো প্রোফাইল): নিচের বারের "প্রোফাইল"-এ দেখায়, চাকরির আবেদনে যায়,
+// PDF করে রাখা যায়, চাইলে লিংক/QR দিয়ে শেয়ার। সার্ভার: lib/cv.js
 // ------------------------------------------------------------
 
-data class CvExp(val title: String, val org: String, val from: String, val to: String, val current: Boolean, val details: String)
+/** কাজের ক্ষেত্র আর শিক্ষার স্তরের লেখা (সিভি আর চাকরি দুই জায়গাতেই) */
+object WorkText {
+    val CATEGORIES = listOf("health", "education", "sales", "accounts", "office", "it", "driving", "factory", "hospitality", "security", "construction", "domestic", "other")
+    val EDUCATION = listOf("none", "ssc", "hsc", "diploma", "bachelor", "masters")
+
+    fun category(c: String) = when (c) {
+        "health" -> tr("Healthcare", "স্বাস্থ্যসেবা")
+        "education" -> tr("Education", "শিক্ষা")
+        "sales" -> tr("Sales & marketing", "বিক্রয় ও মার্কেটিং")
+        "accounts" -> tr("Accounts & finance", "হিসাব ও অর্থ")
+        "office" -> tr("Office & admin", "অফিস ও প্রশাসন")
+        "it" -> tr("IT", "আইটি")
+        "driving" -> tr("Driving & delivery", "গাড়ি চালনা ও ডেলিভারি")
+        "factory" -> tr("Factory", "কারখানা")
+        "hospitality" -> tr("Hotel & restaurant", "হোটেল ও রেস্টুরেন্ট")
+        "security" -> tr("Security", "নিরাপত্তা")
+        "construction" -> tr("Construction & repair", "নির্মাণ ও মেরামত")
+        "domestic" -> tr("Household work", "গৃহস্থালি কাজ")
+        else -> tr("Other", "অন্যান্য")
+    }
+
+    fun education(e: String) = when (e) {
+        "ssc" -> tr("SSC", "এসএসসি")
+        "hsc" -> tr("HSC", "এইচএসসি")
+        "diploma" -> tr("Diploma", "ডিপ্লোমা")
+        "bachelor" -> tr("Bachelor's", "স্নাতক")
+        "masters" -> tr("Master's", "স্নাতকোত্তর")
+        else -> tr("Not required", "লাগবে না")
+    }
+}
+
+/** verified: চাকরির প্রস্তাব নিয়ে যোগ হওয়া কর্মস্থল (নিয়োগকর্তা নিশ্চিত করেছেন) */
+data class CvExp(val title: String, val org: String, val from: String, val to: String, val current: Boolean, val details: String, val verified: Boolean = false)
 /** level: এসএসসি/এইচএসসি… (নিয়োগকর্তার ছাঁকার জন্য; খালি = বলা নেই) */
 data class CvEdu(val degree: String, val institute: String, val year: Int?, val result: String, val level: String = "")
-data class CvCert(val name: String, val issuer: String, val year: Int?)
+data class CvCert(val name: String, val issuer: String, val year: Int?, val link: String = "")
 
 data class Cv(
     val uid: String = "",
@@ -100,6 +136,17 @@ data class Cv(
     val completeness: Int = 0,
     val experienceYears: Int = 0,
     val eduLevel: String = "none",
+    /** বাইরের লিংক (LinkedIn, Facebook, ওয়েবসাইট) */
+    val links: List<String> = emptyList(),
+    /** শেয়ার লিংকে ডোনার ব্যাজ (রক্তের গ্রুপ) দেখাবে কি না */
+    val showDonor: Boolean = false,
+    val bloodGroup: String = "",
+    val donationCount: Int = 0,
+    /** পেশাদার ব্যাজ (doctor/nurse…) আর যাচাই করা নিয়োগকর্তা */
+    val badge: String = "",
+    val employerVerified: Boolean = false,
+    /** নিজের সিভিতে কোন অংশ বাকি: photo, headline, about, experience, education, skills, languages */
+    val missing: List<String> = emptyList(),
 )
 
 object CvApi {
@@ -115,14 +162,16 @@ object CvApi {
         }
         return Cv(
             o.str("uid"), o.str("name"), o.str("photo"), o.str("district"), o.str("headline"), o.str("about"),
-            arr("experience") { CvExp(it.str("title"), it.str("org"), it.str("from"), it.str("to"), it.optBoolean("current"), it.str("details")) },
+            arr("experience") { CvExp(it.str("title"), it.str("org"), it.str("from"), it.str("to"), it.optBoolean("current"), it.str("details"), it.optBoolean("verified")) },
             arr("education") { CvEdu(it.str("degree"), it.str("institute"), it.yearOrNull("year"), it.str("result"), it.str("level")) },
             o.optJSONArray("skills").strings(), o.optJSONArray("languages").strings(),
-            arr("certs") { CvCert(it.str("name"), it.str("issuer"), it.yearOrNull("year")) },
+            arr("certs") { CvCert(it.str("name"), it.str("issuer"), it.yearOrNull("year"), it.str("link")) },
             o.optBoolean("openToWork"), o.optJSONArray("wantCategories").strings(),
             o.str("contactVisibility").ifBlank { "employers" }, o.optBoolean("public"), o.optBoolean("complete"),
             o.str("phone"), o.str("email"),
             o.optInt("completeness"), o.optInt("experienceYears"), o.str("eduLevel").ifBlank { "none" },
+            o.optJSONArray("links").strings(), o.optBoolean("showDonor"), o.str("bloodGroup"), o.optInt("donationCount"),
+            o.str("badge"), o.optBoolean("employerVerified"), o.optJSONArray("missing").strings(),
         )
     }
 
@@ -138,7 +187,8 @@ object CvApi {
             .put("education", JSONArray(cv.education.map {
                 JSONObject().put("degree", it.degree).put("institute", it.institute).put("year", it.year ?: JSONObject.NULL).put("result", it.result).put("level", it.level)
             }))
-            .put("certs", JSONArray(cv.certs.map { JSONObject().put("name", it.name).put("issuer", it.issuer).put("year", it.year ?: JSONObject.NULL) }))
+            .put("certs", JSONArray(cv.certs.map { JSONObject().put("name", it.name).put("issuer", it.issuer).put("year", it.year ?: JSONObject.NULL).put("link", it.link) }))
+            .put("links", JSONArray(cv.links)).put("showDonor", cv.showDonor)
             .put("skills", JSONArray(cv.skills)).put("languages", JSONArray(cv.languages))
             .put("contactVisibility", cv.contactVisibility).put("public", cv.public).put("openToWork", cv.openToWork)
             .put("wantCategories", JSONArray(cv.wantCategories))
@@ -209,7 +259,14 @@ fun CvBody(cv: Cv) {
             cv.experience.forEach { e ->
                 Column {
                     Text(e.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Text(e.org, style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(e.org, style = MaterialTheme.typography.bodyMedium)
+                        if (e.verified) {
+                            Spacer(Modifier.size(6.dp))
+                            AppIcon(R.drawable.ic_verified, null, Modifier.size(16.dp), cs.primary)
+                            Text(tr(" Verified", " যাচাই করা"), style = MaterialTheme.typography.labelSmall, color = cs.primary)
+                        }
+                    }
                     val p = CvApi.period(e)
                     if (p.isNotBlank()) Text(p, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     if (e.details.isNotBlank()) Text(e.details, style = MaterialTheme.typography.bodyMedium)
@@ -241,96 +298,96 @@ fun CvBody(cv: Cv) {
             SectionTitle(tr("Training & certificates", "প্রশিক্ষণ ও সনদ"))
             cv.certs.forEach { c ->
                 Text(listOfNotNull(c.name, c.issuer.ifBlank { null }, c.year?.let { num(it) }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+                if (c.link.isNotBlank()) LinkText(c.link)
             }
+        }
+        if (cv.links.isNotEmpty()) {
+            SectionTitle(tr("Links", "লিংক"))
+            cv.links.forEach { LinkText(it) }
         }
         if (cv.wantCategories.isNotEmpty()) {
             SectionTitle(tr("Looking for", "যে কাজ খুঁজছেন"))
-            Text(cv.wantCategories.joinToString(", ") { JobText.category(it) }, style = MaterialTheme.typography.bodyMedium)
+            Text(cv.wantCategories.joinToString(", ") { WorkText.category(it) }, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
-/** "আমার সিভি" অংশ: দেখা, বদলানো, PDF, শেয়ার লিংক */
+/** লিংক (চাপলে ব্রাউজারে খোলে); দেখায় https:// ছাড়া */
 @Composable
-fun MyCvPanel(refreshKey: Int, onEditCv: () -> Unit) {
+fun LinkText(url: String) {
+    val context = LocalContext.current
+    Text(
+        url.removePrefix("https://").removePrefix("http://").removePrefix("www."),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable { openUrl(context, url) },
+    )
+}
+
+/** সিভির PDF সেভ আর শেয়ার (লিংক + QR) — প্রোফাইল পাতায় */
+@Composable
+fun CvShareActions(cv: Cv, onMakePublic: () -> Unit, onMessage: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var cv by remember { mutableStateOf<Cv?>(null) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
     var pdfBusy by remember { mutableStateOf(false) }
-    LaunchedEffect(refreshKey) {
-        runCatching { CvApi.mine() }.onSuccess { cv = it; errorMsg = null }.onFailure { errorMsg = it.message }
-    }
+    var sharing by remember { mutableStateOf(false) }
     val savePdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        val c = cv
-        if (uri != null && c != null) {
+        if (uri != null) {
             scope.launch {
                 pdfBusy = true
-                runCatching { withContext(Dispatchers.IO) { CvPdf.write(context, uri, c) } }
-                    .onSuccess { infoMsg = tr("PDF saved", "PDF সেভ হয়েছে"); errorMsg = null }
-                    .onFailure { errorMsg = tr("Couldn't save the PDF", "PDF সেভ হয়নি") }
+                runCatching { withContext(Dispatchers.IO) { CvPdf.write(context, uri, cv) } }
+                    .onSuccess { onMessage(tr("PDF saved", "PDF সেভ হয়েছে")) }
+                    .onFailure { onMessage(tr("Couldn't save the PDF", "PDF সেভ হয়নি")) }
                 pdfBusy = false
             }
         }
     }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ErrorText(errorMsg)
-        InfoText(infoMsg)
-        val c = cv
-        when {
-            c == null -> if (errorMsg == null) LoadingBox()
-            !c.complete && c.headline.isBlank() -> {
-                EmptyState(
-                    R.drawable.ic_badge,
-                    tr("Make your CV once", "একবার সিভি বানিয়ে রাখুন"),
-                    tr("Apply to any job with one tap, save it as PDF, or share a link.", "এক চাপে যেকোনো চাকরিতে আবেদন, PDF করে রাখা, বা লিংক দিয়ে শেয়ার।"),
-                    Modifier.padding(top = 24.dp),
-                )
-                Button(onClick = onEditCv, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Make my CV", "সিভি বানান"), R.drawable.ic_add) }
-            }
-            else -> {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CvHeader(c)
-                        if (!c.complete) {
-                            IconLine(R.drawable.ic_info, tr("Add your experience or education to apply for jobs.", "চাকরিতে আবেদন করতে অভিজ্ঞতা বা শিক্ষা যোগ করুন।"), MaterialTheme.colorScheme.error)
+    SmallAction(tr("Share", "শেয়ার"), R.drawable.ic_share, { sharing = true })
+    SmallAction(tr("PDF", "PDF"), R.drawable.ic_list_alt, {
+        savePdf.launch("CV-" + cv.name.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').ifBlank { "Dorkar" } + ".pdf")
+    }, busy = pdfBusy)
+    if (sharing) {
+        val url = CvApi.shareUrl(cv.uid)
+        val qr = remember(url) { Qr.bitmap(url, 640) }
+        AlertDialog(
+            onDismissRequest = { sharing = false },
+            title = { Text(tr("Share your profile", "প্রোফাইল শেয়ার করুন")) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (!cv.public) {
+                        SmallNote(tr("Your profile link is off. Turn it on so anyone with the link or QR can see your CV.", "প্রোফাইলের লিংক এখন বন্ধ। চালু করলে লিংক বা QR যাঁর কাছে থাকবে তিনিই সিভি দেখতে পারবেন।"))
+                        Button(onClick = { sharing = false; onMakePublic() }) { Text(tr("Turn on link", "লিংক চালু করুন")) }
+                    } else {
+                        qr?.let { Image(it, tr("QR code of your profile", "প্রোফাইলের QR কোড"), Modifier.size(220.dp)) }
+                        Text(url.removePrefix("https://"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SmallNote(tr("Others can scan the QR with their phone camera.", "অন্যরা ফোনের ক্যামেরায় QR স্ক্যান করে দেখতে পারবেন।"))
+                    }
+                }
+            },
+            confirmButton = {
+                if (cv.public) {
+                    TextButton(onClick = {
+                        sharing = false
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, cv.name + tr(" — profile on Dorkar: ", " — Dorkar-এ প্রোফাইল: ") + url)
                         }
-                        CvBody(c)
-                    }
+                        runCatching { context.startActivity(Intent.createChooser(send, tr("Share profile", "প্রোফাইল শেয়ার করুন"))) }
+                    }) { Text(tr("Share link", "লিংক পাঠান")) }
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallAction(tr("Edit", "বদলান"), R.drawable.ic_edit, onEditCv, primary = true)
-                    SmallAction(tr("Save as PDF", "PDF করুন"), R.drawable.ic_list_alt, {
-                        savePdf.launch("CV-" + c.name.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').ifBlank { "Dorkar" } + ".pdf")
-                    }, busy = pdfBusy)
-                    if (c.public) {
-                        SmallAction(tr("Share link", "লিংক শেয়ার"), R.drawable.ic_share, {
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, tr("My CV: ", "আমার সিভি: ") + CvApi.shareUrl(c.uid))
-                            }
-                            runCatching { context.startActivity(Intent.createChooser(send, tr("Share CV", "সিভি শেয়ার করুন"))) }
-                        })
-                    }
-                }
-                SmallNote(
-                    if (c.public) tr("Anyone with the link can see your CV.", "লিংক যাঁর কাছে থাকবে তিনিই সিভি দেখতে পারবেন।")
-                    else tr("To share a link, turn on \"Anyone with the link\" in Edit.", "লিংক শেয়ার করতে \"বদলান\"-এ গিয়ে \"লিংক দিয়ে সবাই দেখবে\" চালু করুন।"),
-                )
-                SmallNote(
-                    when (c.contactVisibility) {
-                        "none" -> tr("Your phone and email are hidden from everyone.", "আপনার ফোন আর ইমেইল কেউ দেখবে না।")
-                        "all" -> tr("Your phone and email show to employers you apply to and on the share link.", "যেখানে আবেদন করবেন সেই নিয়োগকর্তা আর শেয়ার লিংকে ফোন ও ইমেইল দেখাবে।")
-                        else -> tr("Only employers you apply to see your phone and email.", "শুধু যেখানে আবেদন করবেন সেই নিয়োগকর্তা ফোন আর ইমেইল দেখবেন।")
-                    },
-                )
-            }
-        }
+            },
+            dismissButton = { TextButton(onClick = { sharing = false }) { Text(tr("Close", "বন্ধ")) } },
+        )
     }
+}
+
+/** QR কোড ছবি (zxing) */
+object Qr {
+    fun bitmap(text: String, size: Int): androidx.compose.ui.graphics.ImageBitmap? = runCatching {
+        val m = com.google.zxing.qrcode.QRCodeWriter().encode(text, com.google.zxing.BarcodeFormat.QR_CODE, size, size, mapOf(com.google.zxing.EncodeHintType.MARGIN to 1))
+        val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() }
+        Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888).asImageBitmap()
+    }.getOrNull()
 }
 
 // ---------------- বদলানো ----------------
@@ -397,11 +454,11 @@ fun CvEditScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             if (openToWork) {
                 Text(tr("Fields you want (up to 5)", "যে ধরনের কাজ চান (৫টা পর্যন্ত)"), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    JobText.CATEGORIES.forEach { c ->
+                    WorkText.CATEGORIES.forEach { c ->
                         FilterChip(
                             selected = c in want,
                             onClick = { want = if (c in want) want - c else if (want.size < 5) want + c else want },
-                            label = { Text(JobText.category(c)) },
+                            label = { Text(WorkText.category(c)) },
                         )
                     }
                 }
@@ -609,7 +666,7 @@ private fun EduDialog(cur: CvEdu?, onDismiss: () -> Unit, onDone: (CvEdu) -> Uni
                 }
                 Text(tr("Level", "স্তর"), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    JobText.EDUCATION.drop(1).forEach { l -> FilterChip(selected = level == l, onClick = { level = if (level == l) "" else l }, label = { Text(JobText.education(l)) }) }
+                    WorkText.EDUCATION.drop(1).forEach { l -> FilterChip(selected = level == l, onClick = { level = if (level == l) "" else l }, label = { Text(WorkText.education(l)) }) }
                 }
                 ErrorText(err)
             }
@@ -768,7 +825,7 @@ object CvPdf {
         }
         if (cv.wantCategories.isNotEmpty()) {
             heading(tr("Looking for", "যে কাজ খুঁজছেন"))
-            text(cv.wantCategories.joinToString(", ") { JobText.category(it) }, body)
+            text(cv.wantCategories.joinToString(", ") { WorkText.category(it) }, body)
         }
         page?.let { doc.finishPage(it) }
         try {

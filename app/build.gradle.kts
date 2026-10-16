@@ -88,6 +88,8 @@ dependencies {
     // লোকেশন, দূরত্ব হিসাব; WorkManager শুধু আগের ভার্সনের কাজ বন্ধ করতে
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.firebase:geofire-android-common:3.2.0")
+    // প্রোফাইল শেয়ারের QR কোড
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     testImplementation("junit:junit:4.13.2")

@@ -102,10 +102,36 @@ internal fun inboxIcon(type: String?, kind: String? = null, title: String? = nul
 
 @Composable
 fun InboxScreen(onBack: () -> Unit, onOpen: (Map<String, String>) -> Unit) {
+    var reload by remember { mutableIntStateOf(0) }
+    Scaffold(
+        topBar = {
+            BackTopBar(tr("Notifications", "নোটিফিকেশন"), onBack) {
+                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+            }
+        },
+    ) { padding ->
+        InboxList(reload, onOpen, Modifier.padding(padding))
+    }
+}
+
+/** নিচের বারের "নোটিফিকেশন" ট্যাব: খুললেই সব পড়া ধরা হয় (onAllRead দিয়ে উপরের সংখ্যা শূন্য) */
+@Composable
+fun NotificationsTab(refreshKey: Int, onOpen: (Map<String, String>) -> Unit, onAllRead: () -> Unit) {
+    var reload by remember { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Notifications", "নোটিফিকেশন"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
+        }
+        InboxList(refreshKey * 1000 + reload, onOpen, Modifier.weight(1f), onAllRead)
+    }
+}
+
+@Composable
+fun InboxList(reload: Int, onOpen: (Map<String, String>) -> Unit, modifier: Modifier = Modifier, onAllRead: () -> Unit = {}) {
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<InboxItem>>(emptyList()) }
-    var reload by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -114,20 +140,14 @@ fun InboxScreen(onBack: () -> Unit, onOpen: (Map<String, String>) -> Unit) {
                 list = it
                 errorMsg = null
                 // খুললেই সব পড়া ধরা হয় (কোনগুলো নতুন ছিল তা এবার হালকা রঙে দেখায়)
-                if (it.any { x -> !x.read }) runCatching { InboxApi.markAllRead() }
+                if (it.any { x -> !x.read }) runCatching { InboxApi.markAllRead() }.onSuccess { onAllRead() }
             }
             .onFailure { errorMsg = it.message }
         loading = false
     }
 
-    Scaffold(
-        topBar = {
-            BackTopBar(tr("Notifications", "নোটিফিকেশন"), onBack) {
-                IconButton(onClick = { reload++ }) { AppIcon(R.drawable.ic_refresh, tr("Refresh", "রিফ্রেশ")) }
-            }
-        },
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(vertical = 8.dp)) {
+    run {
+        LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
             item { Box(Modifier.padding(horizontal = 16.dp)) { ErrorText(errorMsg) } }
             when {
                 loading && list.isEmpty() -> item { LoadingBox() }
