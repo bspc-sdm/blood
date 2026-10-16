@@ -82,13 +82,19 @@ fun MainScreen(
     onEditChamber: () -> Unit,
     onAccountDeleted: () -> Unit,
     onOpenInbox: () -> Unit = {},
+    onLogin: () -> Unit = {},
+    onQuick: (String) -> Unit = {},
+    onOpenRequestGuest: (String) -> Unit = {},
+    onBecomeDonor: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    // লগইন ছাড়া (অতিথি, নতুন নকশা N1): উপরে "লগইন", ঘণ্টা নেই; নোটিফিকেশনও নেই
+    val guest = LoginGate.isGuest
 
-    // Android 13+ এ নোটিফিকেশনের অনুমতি চাওয়া
+    // Android 13+ এ নোটিফিকেশনের অনুমতি চাওয়া (লগইনের পর — অতিথির কাছে কোনো নোটিফিকেশন যায় না)
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33 &&
+    LaunchedEffect(guest) {
+        if (!guest && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -97,11 +103,11 @@ fun MainScreen(
     }
 
     // এই ফোনের পুশ টোকেন সার্ভারের জন্য প্রোফাইলে রাখা
-    LaunchedEffect(Unit) { runCatching { Notifier.syncToken() } }
+    LaunchedEffect(guest) { if (!guest) runCatching { Notifier.syncToken() } }
 
     // সার্ভার যেন নোটিফিকেশন এই ভাষায় পাঠায়
     val lang = AppPrefs.lang.value
-    LaunchedEffect(lang) {
+    LaunchedEffect(lang, guest) {
         val uid = AuthRepository.currentUid ?: return@LaunchedEffect
         runCatching { ProfileRepository.saveLang(uid, lang.code) }
     }
@@ -137,8 +143,13 @@ fun MainScreen(
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Logo(iconSize = 30.dp)
                 Spacer(Modifier.weight(1f))
-                BellButton(community?.unread ?: 0, onOpenInbox)
-                IconButton(onClick = { onTabChange(Tabs.PROFILE) }) { MenuAvatar(avatar) }
+                if (guest) {
+                    IconButton(onClick = onOpenSettings) { AppIcon(R.drawable.ic_settings_outline, tr("App settings", "অ্যাপ সেটিংস")) }
+                    FilledTonalButton(onClick = onLogin, modifier = Modifier.padding(end = 8.dp)) { Text(tr("Log in", "লগইন")) }
+                } else {
+                    BellButton(community?.unread ?: 0, onOpenInbox)
+                    IconButton(onClick = { onTabChange(Tabs.PROFILE) }) { MenuAvatar(avatar) }
+                }
             }
         },
         bottomBar = { ModernNavBar(items, tab, onTabChange) },
@@ -146,12 +157,17 @@ fun MainScreen(
         Box(Modifier.padding(padding)) {
             when (tab) {
                 Tabs.HOME -> HomeTab(
-                    profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
+                    profile, homeRefresh, if (guest) onOpenRequestGuest else onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
+                    onQuick = onQuick, onBecomeDonor = onBecomeDonor,
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
                 Tabs.SERVICES -> ServicesTab(profile)
-                else -> ProfileTab(
+                // অতিথির প্রোফাইল নেই (উপরের ছবির বদলে "লগইন")
+                else -> if (guest) HomeTab(
+                    profile, homeRefresh, onOpenRequestGuest, onOpenMyRequest, onNewRequest, onChangeLocation,
+                    onQuick = onQuick, onBecomeDonor = onBecomeDonor,
+                ) {} else ProfileTab(
                     profile = profile,
                     community = community,
                     onCommunityChanged = onCommunityChanged,
@@ -181,8 +197,11 @@ fun HomeTab(
     onOpenMyRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
+    onQuick: (String) -> Unit = {},
+    onBecomeDonor: () -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
+    val guest = LoginGate.isGuest
     var reload by remember { mutableIntStateOf(0) }
     val homeScope = androidx.compose.runtime.rememberCoroutineScope()
     var processingBusy by remember { mutableStateOf<String?>(null) }
@@ -192,7 +211,7 @@ fun HomeTab(
     var processing by remember { mutableStateOf<List<BloodRequest>>(emptyList()) }
     val groups = profile.effectiveViewGroups
 
-    LaunchedEffect(reload, refreshKey, profile.lat, profile.lng, groups, profile.maxKm) {
+    LaunchedEffect(reload, refreshKey, profile.lat, profile.lng, groups, profile.maxKm, guest) {
         val lat = profile.lat
         val lng = profile.lng
         if (lat == null || lng == null) {
@@ -201,15 +220,19 @@ fun HomeTab(
         }
         loading = true
         errorMsg = null
-        runCatching { RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid, profile.maxKm) }
+        // অতিথি: সার্ভার থেকে (নাম-ফোন ছাড়া); লগইন করা: আগের মতো সরাসরি ডাটাবেস
+        runCatching {
+            if (guest) GuestApi.nearbyRequests(lat, lng, profile.maxKm)
+            else RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid, profile.maxKm)
+        }
             .onSuccess { list = it }
             .onFailure { errorMsg = tr("Couldn't load requests", "রিকোয়েস্ট লোড হয়নি") }
         loading = false
     }
 
     // যেসব রিকোয়েস্টে রক্ত দিতে রাজি হয়েছেন (প্রসেসিং), কাউন্টডাউন সহ উপরে দেখায়
-    LaunchedEffect(reload, refreshKey, profile.commitments) {
-        val uid = AuthRepository.currentUid ?: return@LaunchedEffect
+    LaunchedEffect(reload, refreshKey, profile.commitments, guest) {
+        val uid = AuthRepository.currentUid ?: run { processing = emptyList(); return@LaunchedEffect }
         processing = if (profile.commitments.isEmpty()) {
             emptyList()
         } else {
@@ -226,6 +249,10 @@ fun HomeTab(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // উপরে: "রক্ত দিতে চাই" (যিনি এখনো ডোনার নন) আর জরুরি সেবার চারটা বাটন (নতুন নকশা N1)
+            if (!profile.isDonor) item(key = "donor_card") { BecomeDonorCard(onBecomeDonor) }
+            item(key = "quick") { HomeQuickActions(onQuick) }
+
             if (processing.isNotEmpty()) {
                 items(processing, key = { "p_" + it.id }) { r ->
                     // শেষ হয়ে যাওয়া রিকোয়েস্টে: রক্ত দিয়েছি / দিইনি — সার্ভার তারিখ আর অন্য রিকোয়েস্ট সামলায়
@@ -270,7 +297,7 @@ fun HomeTab(
             // নিজের খোলা রিকোয়েস্টের অবস্থা (থাকলেই দেখায়), অন্যদের রিকোয়েস্টের উপরে
             item(key = "update") { UpdateBanner() }
             // জরুরি আহ্বান (Lifolo টিম) সবার উপরে
-            item(key = "emergency") { EmergencyBanner(refreshKey * 1000 + reload) }
+            item(key = "emergency") { EmergencyBanner(refreshKey * 1000 + reload, district = profile.placeName) }
             item(key = "my_request") { MyRequestSection(refreshKey * 1000 + reload, onOpenMyRequest) }
 
             when {

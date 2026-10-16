@@ -418,12 +418,14 @@ fun RequestDetailScreen(
 
                         resp == null && !r.isActive -> {}
 
-                        resp == null && profile.bloodGroup == Rules.UNKNOWN_GROUP -> Note(
-                            tr(
-                                "Add your blood group in your profile to donate. You can still share this request.",
-                                "রক্ত দিতে প্রোফাইলে আপনার রক্তের গ্রুপ দিন। চাইলে রিকোয়েস্টটা পরিচিতদের পাঠাতে পারেন।",
-                            )
-                        )
+                        // ডোনারের তথ্য (গ্রুপ, জন্ম তারিখ, ওজন) নেই: আগে সেটা চেয়ে নেওয়া (নতুন নকশা N2)
+                        resp == null && !profile.isDonor -> {
+                            Button(
+                                onClick = { LoginGate.require(tr("Add your donor details to respond", "সাড়া দিতে রক্তদাতার তথ্য দিন"), donor = true) {} },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { ButtonContent(false, tr("I want to donate", "রক্ত দিতে চাই"), R.drawable.ic_volunteer_activism) }
+                            Note(tr("You can still share this request.", "চাইলে রিকোয়েস্টটা পরিচিতদের পাঠাতে পারেন।"))
+                        }
 
                         resp == null && !compatible -> Note(
                             tr(

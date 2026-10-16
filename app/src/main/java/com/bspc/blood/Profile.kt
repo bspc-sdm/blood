@@ -153,8 +153,10 @@ fun ProfileTab(
             ErrorText(errorMsg)
         }
 
-        // ---- রক্তের গ্রুপ ও যোগ্যতা ----
-        Card(
+        // ---- রক্তের গ্রুপ ও যোগ্যতা (রক্তদাতার তথ্য না থাকলে "রক্ত দিতে চাই") ----
+        if (!profile.isDonor) {
+            BecomeDonorCard { LoginGate.require(tr("Add your donor details", "রক্তদাতার তথ্য দিন"), donor = true) {} }
+        } else Card(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = if (notEligible == null) MaterialTheme.colorScheme.tertiaryContainer

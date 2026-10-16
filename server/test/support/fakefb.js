@@ -88,11 +88,14 @@ const write = {
   },
 };
 
-function collection(cpath, filters = [], lim = Infinity) {
+function collection(cpath, filters = [], lim = Infinity, ord = null) {
   const q = {
-    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim),
-    orderBy: () => q,
-    limit: (n) => collection(cpath, filters, n),
+    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim, ord),
+    // orderBy + startAt/endAt (geohash-এর ঘর ধরে খোঁজা) — ঘর না থাকা ডক বাদ পড়ে, আসলের মতো
+    orderBy: (f) => collection(cpath, filters, lim, f),
+    startAt: (v) => collection(cpath, [...filters, [ord, '>=', v]], lim, ord),
+    endAt: (v) => collection(cpath, [...filters, [ord, '<=', v]], lim, ord),
+    limit: (n) => collection(cpath, filters, n, ord),
     startAfter: () => q,
     select: () => q,
     get: async () => {

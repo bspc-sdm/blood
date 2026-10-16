@@ -161,6 +161,15 @@ async function closeExpired(now = Date.now()) {
 const actions = {
   /** নিজের জেলার (বা যাকে জানানো হয়েছে তার) চালু আহ্বান */
   async emergencies_active(req, user) {
+    // অতিথি (লগইন ছাড়া): ফোনে রাখা এলাকার জেলার আহ্বান, নিজের অবস্থা ছাড়া; "আসছি" চাপলে অ্যাপ লগইন চায়
+    if (!user.uid) {
+      const district = typeof req.body?.district === 'string' ? req.body.district : '';
+      const live = (await db.collection('emergencies').where('status', '==', 'active').limit(20).get()).docs
+        .filter((d) => E.isLive(d.data()) && (d.get('districts') || []).includes(district));
+      const items = live.map((d) => view(d, null, null));
+      items.sort((a, b) => b.createdAt - a.createdAt);
+      return { items, ask: [] };
+    }
     const [snap, me] = await Promise.all([
       db.collection('emergencies').where('status', '==', 'active').limit(20).get(),
       db.doc(`users/${user.uid}`).get(),

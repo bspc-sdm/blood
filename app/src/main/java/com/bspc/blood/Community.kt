@@ -513,7 +513,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
         topBar = {
             BackTopBar(tr("Question", "প্রশ্ন"), onBack) {
                 if (q != null && !q.mine) {
-                    IconButton(onClick = { reportTarget = "question" to null }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
+                    IconButton(onClick = { LoginGate.require(tr("Log in to report", "রিপোর্ট করতে লগইন করুন")) { reportTarget = "question" to null } }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
                 }
                 if (q != null && q.mine) {
                     IconButton(onClick = { editingQuestion = true }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
@@ -571,7 +571,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                                 if (a.edited) EditedNote()
                                 Row {
                                     if (!a.mine) {
-                                        TextButton(onClick = { reportTarget = "answer" to a.id }) { Text(tr("Report", "রিপোর্ট")) }
+                                        TextButton(onClick = { LoginGate.require(tr("Log in to report", "রিপোর্ট করতে লগইন করুন")) { reportTarget = "answer" to a.id } }) { Text(tr("Report", "রিপোর্ট")) }
                                     }
                                     if (a.mine) {
                                         TextButton(onClick = { editingAnswer = a }) { Text(tr("Edit", "বদলান")) }
@@ -819,7 +819,7 @@ fun TipDetailScreen(tip0: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: 
         topBar = {
             BackTopBar(tr("Health Tips", "হেলথ টিপস"), onBack) {
                 if (!tip.mine) {
-                    IconButton(onClick = { confirmReport = true }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
+                    IconButton(onClick = { LoginGate.require(tr("Log in to report", "রিপোর্ট করতে লগইন করুন")) { confirmReport = true } }) { AppIcon(R.drawable.ic_flag, tr("Report", "রিপোর্ট")) }
                 }
                 if (tip.mine) {
                     IconButton(onClick = { editing = true }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }

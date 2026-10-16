@@ -116,7 +116,11 @@ object ServerApi {
 
     internal suspend fun post(path: String, body: JSONObject): JSONObject {
         val user = FirebaseAuth.getInstance().currentUser
-            ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
+        if (user == null) {
+            // লগইন ছাড়া (অতিথি): শুধু পড়ার কিছু কাজ টোকেন ছাড়া যায়; বাকিগুলো লগইন চায় (নেটে যাওয়ার আগেই)
+            if (path == "/api/community" && body.optString("action") in GuestApi.PUBLIC_ACTIONS) return request(path, body, null)
+            throw LoginRequired(tr("Log in to do this", "এর জন্য লগইন করুন"))
+        }
         val token = user.getIdToken(false).await().token
             ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
         // কেয়ারগিভার রোগীর হয়ে কাজ করছেন (অনুমোদিত কাজে রোগীর uid যোগ হয়)
@@ -159,6 +163,9 @@ object ServerApi {
         }
     }
 }
+
+/** লগইন ছাড়া এমন কাজ চাওয়া হয়েছে যাতে অ্যাকাউন্ট লাগে */
+class LoginRequired(message: String) : IllegalStateException(message)
 
 /** সার্ভারের ভুলের বার্তা; code দিয়ে নির্দিষ্ট অবস্থা চেনা যায় (যেমন "phone_unverified") */
 class ServerError(message: String, val code: String?) : IllegalStateException(message)

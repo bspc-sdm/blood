@@ -1,0 +1,38 @@
+name: Compile check (branch)
+
+# শুধু কাজের শাখায়: কম্পাইল আর নতুন স্ক্রিনশট টেস্ট (রিলিজে হাত দেয় না)। main-এ মেলানোর আগে মুছে দেওয়া হয়।
+on:
+  push:
+    branches: [guest-mode]
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile app and tests
+        run: |
+          set -o pipefail
+          gradle compileDebugUnitTestKotlin --no-daemon 2>&1 | tee compile.log | tail -5
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |What went wrong" -A2 compile.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: New guest screenshot tests
+        run: |
+          set -o pipefail
+          for t in guestHomeTopBangla guestLoginReasonBangla donorDetailsFormBangla providerDetailDialog; do
+            gradle testDebugUnitTest --no-daemon --tests "com.bspc.blood.ScreensTest.$t" 2>&1 | tee -a test.log | tail -3
+          done
+      - name: Report test failures
+        if: failure()
+        run: |
+          grep -E "FAILED|Exception|Caused by|at com\.bspc" test.log | head -30 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done

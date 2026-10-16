@@ -32,6 +32,7 @@ const adminweb = require('../lib/adminweb');
 const myrequests = require('../lib/myrequests');
 const sellerstats = require('../lib/sellerstats');
 const medfind = require('../lib/medfind');
+const guest = require('../lib/guest');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -502,7 +503,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions, require('../lib/labtests').actions, require('../lib/careaccess').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions, require('../lib/labtests').actions, require('../lib/careaccess').actions, guest.actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -613,13 +614,21 @@ actions.web_logout = async (req, user, res) => {
 
 module.exports = handler(async (req, res) => {
   const hasBearer = String(req.headers.authorization || '').startsWith('Bearer ');
-  const user = hasBearer ? await decodeUser(req) : (await webUser(req, res)) || (await decodeUser(req));
+  let user = hasBearer ? await decodeUser(req) : await webUser(req, res);
+  if (!user) {
+    // লগইন ছাড়া (অতিথি): শুধু পড়ার কিছু কাজ, IP-প্রতি সীমাসহ; বাকি সব কাজে আগের মতো "লগইন দরকার"
+    if (!guest.isPublic(req.body?.action)) user = await decodeUser(req);
+    else {
+      guest.checkRate(req);
+      user = guest.guestUser();
+    }
+  }
   const fn = Object.prototype.hasOwnProperty.call(actions, req.body?.action) ? actions[req.body.action] : null;
   // বাছাইয়ের তালিকা (প্যানেলে বদলানো যায়) — ৫ মিনিটে একবার পড়া
   await require('../lib/catalog').load();
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
   // কেয়ারগিভার রোগীর হয়ে (body.asUid) — অনুমোদিত কাজ আর চালু সংযোগ হলে রোগীর uid দিয়ে
-  const actor = await require('../lib/careaccess').actAs(req, user);
+  const actor = user.guest ? user : await require('../lib/careaccess').actAs(req, user);
   const result = await fn(req, actor, res);
   // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী) — কিছু না বদলালে নয়
   if (String(req.body.action).startsWith('admin_') && !(result && result.unchanged)) await adminweb.logAdmin(req.body.action, user, req.body);

@@ -51,9 +51,12 @@ import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** লগইন/সাইন আপ: ইমেইল দিন → ইমেইলে আসা ৬ সংখ্যার কোড দিন। প্রথমবার হলে নতুন অ্যাকাউন্ট তৈরি হয়। */
+/**
+ * লগইন/সাইন আপ: ইমেইল দিন → ইমেইলে আসা ৬ সংখ্যার কোড দিন। প্রথমবার হলে নতুন অ্যাকাউন্ট তৈরি হয়।
+ * reason: কোন কাজের জন্য লগইন চাওয়া হলো (যেমন "সাড়া দিতে লগইন করুন"); onCancel থাকলে উপরে ফেরার বাটন।
+ */
 @Composable
-fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit) {
+fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit, reason: String? = null, onCancel: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
@@ -99,7 +102,10 @@ fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // ভাষা বদলানোর সুযোগ লগইনের আগেই
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (onCancel != null) {
+                androidx.compose.material3.IconButton(onClick = onCancel) { AppIcon(R.drawable.ic_arrow_back, tr("Back", "পেছনে")) }
+            }
             Spacer(Modifier.weight(1f))
             SingleChoiceSegmentedButtonRow {
                 listOf(Lang.EN to "EN", Lang.BN to "বাং").forEachIndexed { i, (l, label) ->
@@ -112,9 +118,13 @@ fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(64.dp))
+        Spacer(Modifier.height(if (reason.isNullOrBlank()) 64.dp else 40.dp))
         Logo(iconSize = 56.dp)
-        Spacer(Modifier.height(48.dp))
+        if (!reason.isNullOrBlank()) {
+            Spacer(Modifier.height(20.dp))
+            Text(reason, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        Spacer(Modifier.height(if (reason.isNullOrBlank()) 48.dp else 28.dp))
 
         OutlinedTextField(
             value = email,
@@ -174,7 +184,14 @@ fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit) {
     }
 }
 
-/** নাম, ফোন, রক্তের গ্রুপ, জন্ম তারিখ, ওজন, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়। */
+/** প্রোফাইল ফর্মের ধরন (নতুন নকশা N2): শুরুতে শুধু নাম-মোবাইল, রক্ত দিতে চাইলে ডোনারের তথ্য, প্রোফাইল এডিটে সব */
+enum class ProfileMode { BASIC, DONOR, FULL }
+
+/**
+ * নাম, ফোন, রক্তের গ্রুপ, জন্ম তারিখ, ওজন, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়।
+ * BASIC: শুধু নাম আর মোবাইল। DONOR: শুধু ডোনারের তথ্য (গ্রুপ, জন্ম তারিখ, ওজন, শেষ রক্তদান)।
+ * FULL: সব; ডোনারের অংশ ফাঁকা রাখলে শুধু নাম-মোবাইল সেভ হয়।
+ */
 @Composable
 fun ProfileEditScreen(
     existing: Profile?,
@@ -182,23 +199,32 @@ fun ProfileEditScreen(
     errorMsg: String?,
     onSave: (Profile) -> Unit,
     onCancel: (() -> Unit)?,
+    mode: ProfileMode = ProfileMode.FULL,
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var phone by remember { mutableStateOf(existing?.phone ?: "") }
-    var bloodGroup by remember { mutableStateOf(existing?.bloodGroup ?: "") }
+    var bloodGroup by remember { mutableStateOf(existing?.bloodGroup?.takeUnless { mode == ProfileMode.DONOR && it == Rules.UNKNOWN_GROUP } ?: "") }
     var birthDate by remember { mutableStateOf(existing?.birthDateMillis) }
     var weight by remember { mutableStateOf(existing?.weightKg?.toString() ?: "") }
     var showBirthPicker by remember { mutableStateOf(false) }
-    var neverDonated by remember { mutableStateOf(existing != null && existing.lastDonationMillis == null) }
+    // আগে ডোনারের তথ্য দেওয়া থাকলেই "কখনো রক্ত দিইনি" আগে থেকে টিক (শুধু নাম-মোবাইল দেওয়া মানুষের নয়)
+    var neverDonated by remember { mutableStateOf(existing != null && existing.bloodGroup.isNotEmpty() && existing.lastDonationMillis == null) }
     var lastDonation by remember { mutableStateOf(existing?.lastDonationMillis) }
     var showPicker by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
     val savedDonation = existing?.lastDonationMillis
+    val showContact = mode != ProfileMode.DONOR
+    val showDonor = mode != ProfileMode.BASIC
+    val title = when (mode) {
+        ProfileMode.BASIC -> tr("Your profile", "আপনার প্রোফাইল")
+        ProfileMode.DONOR -> tr("Donor details", "রক্তদাতার তথ্য")
+        ProfileMode.FULL -> tr("Edit profile", "প্রোফাইল এডিট")
+    }
 
     Scaffold(
         topBar = {
             if (onCancel != null) {
-                BackTopBar(tr("Edit profile", "প্রোফাইল এডিট"), onCancel)
+                BackTopBar(title, onCancel)
             }
         },
     ) { padding ->
@@ -207,77 +233,98 @@ fun ProfileEditScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (onCancel == null) {
-                Text(tr("Your profile", "আপনার প্রোফাইল"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             }
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it.take(80) },
-                label = { Text(tr("Name", "নাম")) },
-                leadingIcon = { AppIcon(R.drawable.ic_person_outline, null) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text(tr("Mobile number", "মোবাইল নম্বর")) },
-                leadingIcon = { AppIcon(R.drawable.ic_call, null) },
-                placeholder = { Text("01XXXXXXXXX") },
-                supportingText = { Text(tr("Shown only after you agree to donate", "শুধু \"রক্ত দেব\" চাপার পর অন্যজন দেখবেন")) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text(tr("Blood group", "রক্তের গ্রুপ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it }, allowUnknown = true)
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showBirthPicker = true }, modifier = Modifier.weight(1f)) {
-                    AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(birthDate?.let { Rules.formatDate(it) } ?: tr("Birth date", "জন্ম তারিখ"), maxLines = 1)
-                }
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { v -> weight = v.filter { it.isDigit() }.take(3) },
-                    label = { Text(tr("Weight (kg)", "ওজন (কেজি)")) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Text(tr("Last donation", "শেষ রক্তদান"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            // একবার তারিখ দিলে সেটা শুধু সামনে এগোনো যায় (নিরাপত্তার নিয়মেও তাই)
-            if (savedDonation == null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = neverDonated,
-                        onCheckedChange = {
-                            neverDonated = it
-                            if (it) lastDonation = null
-                        },
-                    )
-                    Text(tr("I have never donated", "কখনো রক্ত দিইনি"))
-                }
-            }
-            if (savedDonation != null) {
-                // আগে দেওয়া তারিখ এখানে নয়, প্রোফাইলের "শেষ রক্তদানের তারিখ বদলান" থেকে (সতর্কতা সহ)
-                Text(Rules.formatDate(savedDonation), style = MaterialTheme.typography.bodyLarge)
+            if (mode == ProfileMode.DONOR) {
                 Text(
-                    tr("To change it, use \"Change last donation date\" in Profile.", "বদলাতে প্রোফাইলের \"শেষ রক্তদানের তারিখ বদলান\" চাপুন।"),
-                    style = MaterialTheme.typography.bodySmall,
+                    tr(
+                        "We use these to know when you can donate and to send you only requests your blood group can help.",
+                        "আপনি কখন রক্ত দিতে পারবেন আর কোন রিকোয়েস্ট আপনার গ্রুপের সাথে মেলে, তা বুঝতে এগুলো লাগে।",
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else if (!neverDonated) {
-                OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    AppIcon(R.drawable.ic_history, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(lastDonation?.let { Rules.formatDate(it) } ?: tr("Pick date", "তারিখ বেছে নিন"))
+            }
+
+            if (showContact) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(80) },
+                    label = { Text(tr("Name", "নাম")) },
+                    leadingIcon = { AppIcon(R.drawable.ic_person_outline, null) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text(tr("Mobile number", "মোবাইল নম্বর")) },
+                    leadingIcon = { AppIcon(R.drawable.ic_call, null) },
+                    placeholder = { Text("01XXXXXXXXX") },
+                    supportingText = { Text(tr("Shown only after you agree to donate", "শুধু \"রক্ত দেব\" চাপার পর অন্যজন দেখবেন")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            if (showDonor) {
+                if (mode == ProfileMode.FULL) {
+                    Text(
+                        tr("Donor details (only if you want to donate blood)", "রক্তদাতার তথ্য (শুধু রক্ত দিতে চাইলে)"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Text(tr("Blood group", "রক্তের গ্রুপ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it }, allowUnknown = mode == ProfileMode.FULL)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showBirthPicker = true }, modifier = Modifier.weight(1f)) {
+                        AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(birthDate?.let { Rules.formatDate(it) } ?: tr("Birth date", "জন্ম তারিখ"), maxLines = 1)
+                    }
+                    OutlinedTextField(
+                        value = weight,
+                        onValueChange = { v -> weight = v.filter { it.isDigit() }.take(3) },
+                        label = { Text(tr("Weight (kg)", "ওজন (কেজি)")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                Text(tr("Last donation", "শেষ রক্তদান"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                // একবার তারিখ দিলে সেটা শুধু সামনে এগোনো যায় (নিরাপত্তার নিয়মেও তাই)
+                if (savedDonation == null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = neverDonated,
+                            onCheckedChange = {
+                                neverDonated = it
+                                if (it) lastDonation = null
+                            },
+                        )
+                        Text(tr("I have never donated", "কখনো রক্ত দিইনি"))
+                    }
+                }
+                if (savedDonation != null) {
+                    // আগে দেওয়া তারিখ এখানে নয়, প্রোফাইলের "শেষ রক্তদানের তারিখ বদলান" থেকে (সতর্কতা সহ)
+                    Text(Rules.formatDate(savedDonation), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("To change it, use \"Change last donation date\" in Profile.", "বদলাতে প্রোফাইলের \"শেষ রক্তদানের তারিখ বদলান\" চাপুন।"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (!neverDonated) {
+                    OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        AppIcon(R.drawable.ic_history, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(lastDonation?.let { Rules.formatDate(it) } ?: tr("Pick date", "তারিখ বেছে নিন"))
+                    }
                 }
             }
 
@@ -287,29 +334,37 @@ fun ProfileEditScreen(
                 onClick = {
                     val cleanPhone = Rules.normalizePhone(phone)
                     val age = Rules.ageYears(birthDate) ?: 0
+                    // প্রোফাইল এডিটে ডোনারের অংশ পুরো ফাঁকা থাকলে সেটা যাচাই হয় না (শুধু নাম-মোবাইল)
+                    val donorTouched = mode == ProfileMode.DONOR ||
+                        (mode == ProfileMode.FULL && (bloodGroup.isNotEmpty() || birthDate != null || weight.isNotBlank() || lastDonation != null || savedDonation != null))
                     formError = when {
-                        name.isBlank() -> tr("Enter your name", "নাম লিখুন")
-                        cleanPhone == null -> tr("Enter a valid mobile number (01…, 11 digits)", "সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)")
+                        showContact && name.isBlank() -> tr("Enter your name", "নাম লিখুন")
+                        showContact && cleanPhone == null -> tr("Enter a valid mobile number (01…, 11 digits)", "সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)")
+                        !donorTouched -> null
                         bloodGroup.isEmpty() -> tr("Choose your blood group", "রক্তের গ্রুপ বেছে নিন")
                         birthDate == null -> tr("Add your birth date", "জন্ম তারিখ দিন")
                         age < 10 || age > 100 -> tr("Check your birth date", "জন্ম তারিখ ঠিক নেই")
                         (weight.toIntOrNull() ?: 0) !in 20..250 -> tr("Enter a valid weight (kg)", "সঠিক ওজন দিন (কেজি)")
-                        !neverDonated && lastDonation == null ->
+                        savedDonation == null && !neverDonated && lastDonation == null ->
                             tr("Add your last donation date, or tick \"never donated\"", "শেষ রক্তদানের তারিখ দিন, অথবা \"কখনো রক্ত দিইনি\" টিক দিন")
                         (lastDonation ?: 0L) > Rules.todayUtcMidnight() -> tr("Date can't be in the future", "ভবিষ্যতের তারিখ দেওয়া যাবে না")
                         else -> null
                     }
-                    if (formError == null && cleanPhone != null) {
+                    if (formError == null) {
+                        val base = existing ?: Profile()
+                        val contact = if (showContact && cleanPhone != null) base.copy(name = TitleCase.name(name), phone = cleanPhone) else base
                         onSave(
-                            Profile(
-                                name = TitleCase.name(name),
-                                phone = cleanPhone,
-                                bloodGroup = bloodGroup,
-                                birthDateMillis = birthDate,
-                                weightKg = weight.toIntOrNull(),
-                                lastDonationMillis = if (neverDonated) null else lastDonation,
-                                notify = existing?.notify ?: true,
-                            )
+                            if (donorTouched) {
+                                contact.copy(
+                                    bloodGroup = bloodGroup,
+                                    birthDateMillis = birthDate,
+                                    weightKg = weight.toIntOrNull(),
+                                    lastDonationMillis = savedDonation ?: if (neverDonated) null else lastDonation,
+                                    notify = existing?.notify ?: true,
+                                )
+                            } else {
+                                contact.copy(notify = existing?.notify ?: true)
+                            }
                         )
                     }
                 },

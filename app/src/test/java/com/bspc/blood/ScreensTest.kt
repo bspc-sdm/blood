@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -80,6 +81,44 @@ class ScreensTest {
         Areas.ensure(ctx)
         AppPrefs.lang.value = Lang.EN
         AppPrefs.theme.value = ThemeMode.LIGHT
+        // বেশিরভাগ স্ক্রিন লগইন করা ডোনারের চোখে (অতিথির আলাদা টেস্ট নিচে)
+        LoginGate.uid.value = "demo"
+        LoginGate.profileReady.value = true
+        LoginGate.isDonor.value = true
+    }
+
+    @Test
+    fun guestHomeTopBangla() {
+        AppPrefs.lang.value = Lang.BN
+        LoginGate.uid.value = null
+        LoginGate.profileReady.value = false
+        LoginGate.isDonor.value = false
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                BecomeDonorCard {}
+                HomeQuickActions {}
+                RequestCard(request, 3.2) {}
+            }
+        }
+        rule.onNodeWithText("ব্লাড ব্যাংক").assertExists()
+        shot("guest_home_top_bn")
+    }
+
+    @Test
+    fun guestLoginReasonBangla() {
+        AppPrefs.lang.value = Lang.BN
+        LoginGate.uid.value = null
+        show { LoginScreen(errorMsg = null, onLoggedIn = {}, reason = "সাড়া দিতে লগইন করুন", onCancel = {}) }
+        rule.onNodeWithText("সাড়া দিতে লগইন করুন").assertExists()
+        shot("guest_login_reason_bn")
+    }
+
+    @Test
+    fun donorDetailsFormBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { ProfileEditScreen(existing = profile.copy(bloodGroup = "", birthDateMillis = null, weightKg = null), busy = false, errorMsg = null, onSave = {}, onCancel = {}, mode = ProfileMode.DONOR) }
+        rule.onNodeWithText("রক্তদাতার তথ্য").assertExists()
+        shot("donor_details_bn")
     }
 
     private fun show(content: @Composable () -> Unit) {

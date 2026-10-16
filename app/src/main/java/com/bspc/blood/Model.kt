@@ -48,7 +48,11 @@ data class Profile(
         get() = viewGroups?.filter { it in Rules.BLOOD_GROUPS }?.ifEmpty { null } ?: compatibleGroups.ifEmpty { Rules.BLOOD_GROUPS }
 
     val hasLocation: Boolean get() = lat != null && lng != null
-    val isComplete: Boolean get() = bloodGroup.isNotEmpty() && phone.isNotEmpty() && birthDateMillis != null && weightKg != null
+    /** অ্যাকাউন্টের ন্যূনতম তথ্য (নতুন নকশা N2): নাম আর মোবাইল */
+    val isComplete: Boolean get() = name.isNotBlank() && phone.isNotEmpty()
+
+    /** রক্তদাতার তথ্য দেওয়া আছে (গ্রুপ জানা, জন্ম তারিখ, ওজন) — রক্তের সাড়া আর নোটিফিকেশনের জন্য লাগে */
+    val isDonor: Boolean get() = bloodGroup in Rules.BLOOD_GROUPS && birthDateMillis != null && weightKg != null
 }
 
 data class BloodRequest(
