@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -310,7 +311,7 @@ class ScreensTest {
         AppPrefs.lang.value = Lang.BN
         show { AppointmentTab(profile, nurseMe, {}) }
         shot("doctor_filter_bar_bn")
-        rule.onNodeWithText("ফিল্টার").performClick()
+        rule.onNodeWithContentDescription("ফিল্টার").performClick()
         rule.waitForIdle()
         shot("doctor_filter_sheet_bn")
     }
