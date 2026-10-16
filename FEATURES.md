@@ -18,7 +18,7 @@
 |---|---|
 | সার্ভার | `server/lib/jobs.js` |
 | সার্ভার টেস্ট | `server/test/jobs.test.js` (আর `server/package.json`-এর `test` লাইন থেকে নামটা) |
-| অ্যাপ | `app/src/main/java/com/bspc/blood/Jobs.kt`, `app/src/main/java/com/bspc/blood/Cv.kt` |
+| অ্যাপ | `app/src/main/java/com/bspc/blood/` এর `Jobs.kt`, `JobDetail.kt`, `JobEmployer.kt`, `JobAlarms.kt`, `Cv.kt` |
 | অ্যাপ টেস্ট | `app/src/test/java/com/bspc/blood/JobsScreensTest.kt` |
 | আইকন | `app/src/main/res/drawable/ic_nav_work.xml`, `ic_nav_work_fill.xml` (অন্য কোথাও ব্যবহার না হলে) |
 
@@ -42,9 +42,12 @@
   - `jobId` প্যারামিটার
   - ট্যাগে `jobId`
 - `Inbox.kt`: চাকরির আইকনের লাইন সরান।
+- `MainScreen.kt`: `JobAlarms.sync` লাইন সরান।
+- `AndroidManifest.xml`: `JobAlarmReceiver` (চিহ্ন দেওয়া মন্তব্যসহ) সরান।
 - `Verify.kt`: `VerifyDocs.employer()` সরান।
 
 **সার্ভার**
+- `.github/workflows/screens.yml` সব `*ScreensTest.kt` চালায়, তাই সেখানে কিছু বদলাতে হবে না।
 - `api/community.js`:
   - অ্যাকশনের তালিকা থেকে `require('../lib/jobs').actions` সরান।
   - `admin_overview` থেকে `jobs`, `employers` সরান।
@@ -67,7 +70,8 @@
   - `report`-এর শর্ত
   - `admin_reports`-এর লেখা
 - `lib/useractivity.js`: `jobs` অংশ সরান (`SECTIONS`, `LOADERS`, ফাংশন)।
-- `lib/adminweb.js`: `LOGGED`-এর `admin_job_resolve`, `admin_employer_resolve` সরান।
+- `lib/adminweb.js`: `LOGGED`-এর `admin_job_resolve`, `admin_employer_resolve`, `admin_employer_warn`, `admin_employer_block`, `admin_job_words_save` সরান।
+- `lib/moderation.js`-এর `countReport` লাইনও সরান।
 - `lib/community.js`: `LIMITS`-এর `job`, `apply` সরান।
 
 **অ্যাডমিন প্যানেল (`server/public/admin/app.js`)**
@@ -81,6 +85,10 @@
   - যাচাই পাতার `jobs`/`employers`
   - ব্যবহারকারীর "চাকরি" ট্যাব আর টাইমলাইন
   - রিপোর্টের `job` লেবেল
+  - "চাকরির নিষিদ্ধ শব্দ" মেনু আর `pageJobWords` (START/END)
+  - `jobSalary`, `empHistory` (START/END)
+  - `afterChange`-এর `jobs:open`
+  - `style.css`-এর `textarea.words`
 - `scripts/build-admin-icons.js`: `work` আইকন সরান। তারপর `icons.js` আবার বানান।
 
 ### ডাটাবেস (Firestore)
@@ -90,6 +98,9 @@
 - `jobs`
 - `applications`
 - `verifyDocs`-এর `employer_*` ছবি
+- `jobSaves` (সেভ করা চাকরি)
+- `jobAlerts` (চাকরির অ্যালার্ট)
+- `config/jobRules` (নিষিদ্ধ শব্দ)
 
 ### যাচাই
 - `npm test`
