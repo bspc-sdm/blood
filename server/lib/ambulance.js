@@ -99,7 +99,7 @@ const actions = {
     // ট্রিপে থাকা গাড়ি তালিকায় নয় — শুধু কয়টা ট্রিপে আছে তা জানানো
     // ব্যস্ত গাড়ি আলাদা তালিকায় (অ্যাপে ভাঁজ করা অংশে) — দরকারে ফোন করে জানা যায় কবে ফিরবে
     const busy = docs.filter((d) => busyNow(d.data(), now))
-      .map((d) => ({ ...view(d), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
+      .map((d) => ({ ...view(d), canRate: rateable.has(d.id), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
       .sort((a, c) => ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) || (a.busySince - c.busySince));
     let items = docs.filter((d) => !busyNow(d.data(), now)).map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
     items.sort((a, c) =>
@@ -162,11 +162,12 @@ const actions = {
     await require('./sanctions').checkListing(req, 'ambulance', data, user.email, true);
     const mine = await db.collection('ambulances').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw err('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স');
+    // কাগজের ছবি (রেজিস্ট্রেশন, ফিটনেস, গাড়ি) আগে — না থাকলে তালিকা তৈরিই হয় না, দৈনিক সীমাও খরচ হয় না
+    require('./verify').validateDocs(req, 'ambulance', data, b.docs, true);
     await useQuota(req, user.uid, 'ambulance');
-    // কাগজের ছবি (রেজিস্ট্রেশন, ফিটনেস, গাড়ি) আগে — না থাকলে তালিকা তৈরিই হয় না
     const ref = db.collection('ambulances').doc();
-    await require('./verify').saveDocs(req, 'ambulance', ref.id, user.uid, data, b.docs, true);
-    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', available: false, createdAt: Date.now() });
+    const docsHave = await require('./verify').saveDocs(req, 'ambulance', ref.id, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', available: false, docsHave: docsHave || {}, createdAt: Date.now() });
     return { ok: true, pending: true, id: ref.id };
   },
 

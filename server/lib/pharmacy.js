@@ -155,10 +155,11 @@ const actions = {
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     await require('./sanctions').checkListing(req, 'pharmacy', data, user.email, true);
+    // কাগজের ছবি (ড্রাগ লাইসেন্স, দোকান) আগে — দৈনিক সীমা খরচের আগেই পরীক্ষা
+    require('./verify').validateDocs(req, 'pharmacy', data, b.docs, true);
     await useQuota(req, user.uid, 'pharmacy');
-    // কাগজের ছবি (ড্রাগ লাইসেন্স, দোকান) আগে
-    await require('./verify').saveDocs(req, 'pharmacy', user.uid, user.uid, data, b.docs, true);
-    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
+    const docsHave = await require('./verify').saveDocs(req, 'pharmacy', user.uid, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', docsHave: docsHave || {}, createdAt: Date.now() });
     return { ok: true, pending: true };
   },
 

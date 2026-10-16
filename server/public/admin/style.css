@@ -342,3 +342,6 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .seg a.on { background: var(--primary); color: var(--on-primary); }
 .sub-title { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
 .user-tab > .sub-title:first-child { margin-top: 0; }
+
+.verify-side { grid-column: 2; }
+@media (max-width: 900px) { .verify-side { grid-column: auto; } }

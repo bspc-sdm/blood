@@ -119,7 +119,7 @@
     },
     log: {
       admin_badge_resolve: 'ব্যাজ', admin_pharmacy_resolve: 'ফার্মেসি', admin_ambulance_resolve: 'অ্যাম্বুলেন্স', admin_bloodbank_resolve: 'ব্লাড ব্যাংক', admin_bloodbank_add: 'ব্লাড ব্যাংক যোগ', admin_bloodbank_edit: 'ব্লাড ব্যাংক সম্পাদনা', admin_bloodbank_delete: 'ব্লাড ব্যাংক মোছা',
-      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_ticket_reply: 'আপিল',
+      admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_user_section: 'ব্যবহারকারীর তথ্য দেখা', admin_verify_docs: 'কাগজের ছবি দেখা', admin_request_docs: 'কাগজের ছবি চাওয়া', admin_ticket_reply: 'আপিল',
       admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
     },
@@ -1189,7 +1189,12 @@
     }));
     refresh();
 
-    const done = async () => { await loadOverview().catch(() => {}); S.lists = {}; go(back); };
+    const done = async () => {
+      // অপেক্ষার তালিকা loadOverview নতুন করে দেয়; বাকিগুলো আবার আনা হবে
+      for (const k of Object.keys(S.lists)) delete S.lists[k];
+      await loadOverview().catch(() => {});
+      go(back);
+    };
     approveBtn.addEventListener('click', async () => {
       approveBtn.disabled = true;
       try {
@@ -1209,6 +1214,8 @@
       : act(RESOLVE[list], { id, status: 'rejected', reason: reason.value.trim() })), 'বাতিল করা হয়েছে', done);
     const note = h('input', { class: 'reason', maxlength: 200, placeholder: 'কোন ছবি লাগবে (মালিক দেখবেন)', 'aria-label': 'কোন ছবি লাগবে' });
     const askDocs = actionBtn('ছবি চান', 'tonal', () => act('admin_request_docs', { kind, id, note: note.value.trim() }), 'মালিককে ছবি দিতে বলা হয়েছে', done);
+    // মালিক আছে কি না (অ্যাডমিনের যোগ করা ব্লাড ব্যাংকের মালিক নেই)
+    const hasOwner = list === 'badges' || list === 'pharmacies' || !!x.ownerUid;
 
     paint(alive,
       h('div', { class: 'verify' },
@@ -1217,11 +1224,13 @@
           h('h2', { class: 'section-title', text: 'আবেদনে যা লেখা' }), fields,
           reviewCell(x) === '—' ? null : h('div', { class: 'note' }, reviewCell(x)),
           h('h2', { class: 'section-title', text: 'ছবি দেখে মিলিয়ে টিক দিন' }), checks,
-          h('div', { class: 'row' }, approveBtn, left),
+          h('div', { class: 'row' }, approveBtn, left)),
+        // আলাদা কার্ড: এখানকার বাটনের ভুলে অনুমোদনের বাটন খুলে যায় না
+        h('div', { class: 'card pad verify-side' },
           h('h2', { class: 'section-title', text: 'না মিললে' }),
           h('div', { class: 'actions' }, reason, reject),
-          x.ownerUid !== null ? h('div', { class: 'actions' }, note, askDocs) : null,
-          h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')))));
+          hasOwner ? h('div', { class: 'actions' }, note, askDocs) : h('p', { class: 'note', text: 'এটা অ্যাডমিন যোগ করেছেন, মালিক নেই।' }),
+          hasOwner ? h('div', { class: 'small' }, userLink(list === 'badges' ? x.uid : list === 'pharmacies' ? x.id : x.ownerUid, 'মালিকের সব তথ্য')) : null)));
   }
 
   // =========================================================
@@ -1628,7 +1637,13 @@
         { label: 'বিষয়', cell: (x) => [h('a', { href: `#/ticket/${encodeURIComponent(x.id)}`, text: L.category[x.category] || x.category }), h('div', { class: 'small', text: x.subject })] },
         { label: 'অবস্থা', cell: (x) => L.ticket[x.status] || x.status },
       ])],
-      admin: (d) => [sub('এই ব্যবহারকারীর ওপর অ্যাডমিনদের কাজ', d.items.length), logTable(d.items)],
+      admin: (d) => {
+        // শুধু দেখা (পাতা খোলা) আলাদা, আসল ব্যবস্থা আগে
+        const acts = d.items.filter((x) => x.action !== 'admin_user_section');
+        const views = d.items.filter((x) => x.action === 'admin_user_section');
+        return [sub('এই ব্যবহারকারীর ওপর অ্যাডমিনদের ব্যবস্থা', acts.length), logTable(acts),
+          sub('কে কবে এই পাতা দেখেছেন', views.length), logTable(views)];
+      },
     };
 
     // সব ভাগ এক তালিকায়, নতুন আগে

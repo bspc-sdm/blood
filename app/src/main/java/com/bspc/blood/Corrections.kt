@@ -429,8 +429,9 @@ fun AdminScreen(isOwner: Boolean, onBack: () -> Unit) {
                         Text(tr("Requested: ", "চাওয়া: ") + (c.requestedMillis?.let { Rules.formatDate(it) } ?: tr("Never donated", "কখনো দেননি")))
                         Text(tr("Reason: ", "কারণ: ") + c.reason, style = MaterialTheme.typography.bodySmall)
                         Row {
-                            // অনুমোদন শুধু ওয়েব প্যানেলে — কাগজের ছবি দেখে সব বিষয় টিক দিয়ে
-                            Text(tr("Approve in the web admin panel after checking the photos", "ছবি দেখে ওয়েব প্যানেলে অনুমোদন দিন"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).align(Alignment.CenterVertically))
+                            Button(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, true) } }, enabled = busyId == null) {
+                                ButtonContent(busyId == c.id, tr("Approve", "অনুমোদন"))
+                            }
                             TextButton(onClick = { act(c.id) { ServerApi.resolveCorrection(c.id, false) } }, enabled = busyId == null) {
                                 Text(tr("Reject", "বাতিল"))
                             }

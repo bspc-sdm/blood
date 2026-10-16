@@ -10,7 +10,7 @@ const META = new Set([
   'status', 'ownerUid', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy', 'suspendedAt', 'approvedName', 'lastApproved',
   'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'closedUntil', 'editRejectedAt',
   'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
-  'verification', 'docsRequestedAt', 'docsRequestNote', 'docsSentAt',
+  'verification', 'docsRequestedAt', 'docsRequestNote', 'docsSentAt', 'docsHave',
 ]);
 
 function snapshot(x) {
@@ -69,6 +69,7 @@ async function resolveListing(req, user, kind, collection, id) {
       ...extra, ...x.lastApproved, approvedName: x.lastApproved.name || x.approvedName || x.name, status: 'approved',
       // কারণ শুধু নোটিফিকেশনে আর প্যানেলের নোটে; তালিকা চালুই থাকে
       statusReason: FieldValue.delete(), editRejectedReason: reason, editRejectedAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid,
+      docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
     });
     await tellOwner(x.ownerUid, [`Your ${en} changes were not accepted — the earlier details stay listed`, `আপনার ${bn}-এর বদল গ্রহণ হয়নি — আগের তথ্যই তালিকায় আছে`], withReason, kind);
     return { ok: true, restored: true };
@@ -81,7 +82,7 @@ async function resolveListing(req, user, kind, collection, id) {
     status,
     reviewedAt: Date.now(),
     reviewedBy: user.uid,
-    ...(verification ? { verification, docsRequestedAt: FieldValue.delete() } : {}),
+    ...(verification ? { verification, docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete() } : {}),
     ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}),
     ...(status === 'approved'
       ? { approvedName: x.name, lastApproved: snapshot(x), statusReason: FieldValue.delete(), editRejectedReason: FieldValue.delete() }

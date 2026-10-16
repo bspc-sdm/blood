@@ -124,18 +124,16 @@ function cleanB64(v) {
   return jpeg || png ? s : null;
 }
 
-/** কোন কোন কাগজ জমা আছে */
+/** কোন কোন কাগজ জমা আছে — তালিকার নথির docsHave থেকে (ছবি না নামিয়েই) */
 async function present(kind, id, x) {
-  const list = DOCS[kind](x);
-  const snaps = await db.getAll(...list.map((d) => db.doc(docId(kind, id, d.type))));
-  return new Set(list.filter((d, i) => snaps[i].exists).map((d) => d.type));
+  return new Set(Object.keys((x && x.docsHave) || {}));
 }
 
 /**
- * তালিকা বা ব্যাজ সেভের সাথে আসা ছবি রাখা। isNew হলে দরকারি সব ছবি লাগবে।
- * docs: { type: base64 } — না পাঠানো ছবি আগের মতো থাকে।
+ * ছবি পরীক্ষা (লেখার আগে) — দৈনিক সীমা খরচের আগেই ভুল ধরা পড়ে।
+ * ফেরত: { type: base64 } শুধু ঠিকঠাক ছবি
  */
-async function saveDocs(req, kind, id, ownerUid, x, docs, isNew) {
+function validateDocs(req, kind, x, docs, isNew) {
   const list = DOCS[kind](x);
   const given = docs && typeof docs === 'object' ? docs : {};
   const clean = {};
@@ -153,12 +151,24 @@ async function saveDocs(req, kind, id, ownerUid, x, docs, isNew) {
         `এই কাগজের ছবি দিন: ${missing.map((d) => d.label).join(', ')}। ছবি দেওয়ার জায়গা না দেখলে অ্যাপ হালনাগাদ করুন।`), 'docs_required');
     }
   }
+  return clean;
+}
+
+/**
+ * তালিকা বা ব্যাজ সেভের সাথে আসা ছবি রাখা। isNew হলে দরকারি সব ছবি লাগবে।
+ * docs: { type: base64 } — না পাঠানো ছবি আগের মতো থাকে।
+ */
+async function saveDocs(req, kind, id, ownerUid, x, docs, isNew) {
+  const clean = validateDocs(req, kind, x, docs, isNew);
   const types = Object.keys(clean);
-  if (!types.length) return 0;
+  if (!types.length) return null;
+  const now = Date.now();
   const batch = db.batch();
-  types.forEach((t) => batch.set(db.doc(docId(kind, id, t)), { kind, listingId: id, type: t, ownerUid: ownerUid || null, data: clean[t], size: clean[t].length, at: Date.now() }));
+  types.forEach((t) => batch.set(db.doc(docId(kind, id, t)), { kind, listingId: id, type: t, ownerUid: ownerUid || null, data: clean[t], size: clean[t].length, at: now }));
+  // আগে থেকে থাকা তালিকা/ব্যাজ: কোন ছবি আছে তার হিসাব একই সাথে (নতুন তালিকায় ডাকা জায়গা নিজে বসায়)
+  if (!isNew) batch.update(db.doc(`${COLL[kind]}/${id}`), Object.fromEntries(types.map((t) => [`docsHave.${t}`, now])));
   await batch.commit();
-  return types.length;
+  return Object.fromEntries(types.map((t) => [t, now]));
 }
 
 async function deleteDocs(kind, id, x) {
@@ -179,6 +189,11 @@ async function deleteForOwner(uid) {
  * ফেরত: সংরক্ষণের জন্য যাচাইয়ের রেকর্ড
  */
 function assertChecks(req, user, kind, x, checks) {
+  const have = new Set(Object.keys((x && x.docsHave) || {}));
+  const noPhoto = DOCS[kind](x).filter((d) => d.required && !have.has(d.type));
+  if (noPhoto.length) {
+    throw new HttpError(400, C.tr(req, 'Required document photos are missing — ask the owner for them first.', 'দরকারি কাগজের ছবি নেই — আগে মালিকের কাছে ছবি চান।'), 'docs_required');
+  }
   const need = CHECKS[kind](x).map((c) => c.id);
   const got = new Set(Array.isArray(checks) ? checks.filter((c) => typeof c === 'string') : []);
   const missing = need.filter((id) => !got.has(id));
@@ -230,10 +245,11 @@ const actions = {
     const { kind, id } = req.body || {};
     const { s, x, owner } = await loadTarget(req, kind, id);
     if (owner !== user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-    const n = await saveDocs(req, kind, id, user.uid, x, req.body?.docs, false);
-    if (n && x.docsRequestedAt) await s.ref.update({ docsRequestedAt: FieldValue.delete(), docsSentAt: Date.now() });
-    else if (n) await s.ref.update({ docsSentAt: Date.now() });
-    return { ok: true, saved: n, ...(await ownerInfo(kind, id, x)) };
+    validateDocs(req, kind, x, req.body?.docs, false);
+    await require('./community-db').useQuota(req, user.uid, 'docs');
+    const have = await saveDocs(req, kind, id, user.uid, x, req.body?.docs, false);
+    if (have) await s.ref.update({ docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(), docsSentAt: Date.now() });
+    return { ok: true, saved: have ? Object.keys(have).length : 0, ...(await ownerInfo(kind, id, { ...x, docsHave: { ...(x.docsHave || {}), ...(have || {}) }, docsRequestedAt: 0 })) };
   },
 
   /** মালিক: নিজের তালিকার কোন কাগজ আছে/বাকি */
@@ -251,6 +267,8 @@ const actions = {
     const { x } = await loadTarget(req, kind, id);
     const list = DOCS[kind](x);
     const snaps = await db.getAll(...list.map((d) => db.doc(docId(kind, id, d.type))));
+    // হিসাব আসল ছবি থেকে (তালিকার docsHave পুরোনো হলেও ঠিক দেখায়)
+    x.docsHave = Object.fromEntries(list.filter((d, i) => snaps[i].exists).map((d) => [d.type, (x.docsHave || {})[d.type] || Date.now()]));
     return {
       ...(await panelInfo(kind, id, x)),
       photos: list.map((d, i) => ({ type: d.type, label: d.label, data: snaps[i].exists ? snaps[i].get('data') : null, at: snaps[i].exists ? snaps[i].get('at') : 0 })),
@@ -275,4 +293,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, spec, saveDocs, deleteDocs, deleteForOwner, assertChecks, panelInfo, ownerInfo, DOCS, CHECKS };
+module.exports = { actions, spec, validateDocs, saveDocs, deleteDocs, deleteForOwner, assertChecks, panelInfo, ownerInfo, DOCS, CHECKS };

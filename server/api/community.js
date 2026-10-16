@@ -343,13 +343,16 @@ const actions = {
         // পেশা বদলানো যায় না (তালিকা আর সেবা পেশা ধরে); শুধু নম্বর, কর্মস্থল আর নাম
         pendingChange: { type: cur.get('type'), regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
         ...(await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type: cur.get('type') }, req.body?.docs, false) ? { docsSentAt: Date.now() } : {}),
+        docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
       });
       return { ok: true, correction: true };
     }
+    // সনদের ছবি (নার্স ও অন্য পেশায় দরকারি; ডাক্তারের নম্বর BMDC সাইটে মেলানো হয়) — সীমা খরচের আগে পরীক্ষা
+    require('../lib/verify').validateDocs(req, 'badge', { type }, req.body?.docs, true);
     await useQuota(req, user.uid, 'badge');
-    // সনদের ছবি (নার্স ও অন্য পেশায় দরকারি; ডাক্তারের নম্বর BMDC সাইটে মেলানো হয়)
-    await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type }, req.body?.docs, true);
+    const docsHave = (await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type }, req.body?.docs, true)) || {};
     await ref.set({
+      docsHave,
       type,
       regNo,
       workplace,
@@ -401,11 +404,14 @@ const actions = {
       const ch = bs.get('pendingChange');
       if (!ch) return { ok: true, unchanged: true };
       if (req.body?.approve === true) {
-        const verification = require('../lib/verify').assertChecks(req, user, 'badge', { type: ch.type }, req.body?.checks);
-        await ref.update({ type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid, verification });
+        const verification = require('../lib/verify').assertChecks(req, user, 'badge', { type: ch.type, docsHave: bs.get('docsHave') }, req.body?.checks);
+        await ref.update({
+          type: ch.type, regNo: ch.regNo, workplace: ch.workplace, name: ch.name, pendingChange: FieldValue.delete(), reviewedAt: Date.now(), reviewedBy: user.uid, verification,
+          docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
+        });
         await db.doc(`providers/${uid}`).get().then((p) => p.exists && p.ref.update({ name: ch.name })).catch(() => {});
       } else {
-        await ref.update({ pendingChange: FieldValue.delete() });
+        await ref.update({ pendingChange: FieldValue.delete(), docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete() });
       }
       await require('../lib/requestend').pushUsers([uid], (u, lang) => ({
         title: req.body?.approve === true ? R.L(lang, 'Your badge details were updated', 'আপনার ব্যাজের তথ্য সংশোধন হয়েছে') : R.L(lang, 'Badge correction not accepted', 'ব্যাজের তথ্য সংশোধনের অনুরোধ গ্রহণ হয়নি'),
@@ -439,7 +445,7 @@ const actions = {
       status: req.body?.approve === true ? 'approved' : 'rejected',
       reviewedAt: Date.now(),
       reviewedBy: user.uid,
-      ...(verification ? { verification, docsRequestedAt: FieldValue.delete() } : {}),
+      ...(verification ? { verification, docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete() } : {}),
       // বাতিলের কারণ (ব্যবহারকারী দেখেন)
       ...(req.body?.approve !== true && C.cleanText(req.body?.reason, 200) ? { statusReason: C.cleanText(req.body.reason, 200) } : {}),
       ...(req.body?.approve === true ? { statusReason: FieldValue.delete() } : {}),

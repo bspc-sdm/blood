@@ -136,10 +136,11 @@ const actions = {
     const mine = await db.collection('bloodBanks').where('ownerUid', '==', user.uid).limit(MAX_PER_OWNER).get();
     if (mine.size >= MAX_PER_OWNER) throw new HttpError(400, C.tr(req, 'Up to 3 blood banks per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ৩টা ব্লাড ব্যাংক'));
     await require('./sanctions').checkListing(req, 'bloodbank', data, user.email, true);
+    require('./verify').validateDocs(req, 'bloodbank', data, b.docs, true);
     await useQuota(req, user.uid, 'bloodbank');
     const ref = db.collection('bloodBanks').doc();
-    await require('./verify').saveDocs(req, 'bloodbank', ref.id, user.uid, data, b.docs, true);
-    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', createdAt: Date.now() });
+    const docsHave = await require('./verify').saveDocs(req, 'bloodbank', ref.id, user.uid, data, b.docs, true);
+    await ref.set({ ...data, ownerUid: user.uid, status: 'pending', docsHave: docsHave || {}, createdAt: Date.now() });
     return { ok: true, pending: true, id: ref.id };
   },
 

@@ -1,7 +1,7 @@
 // Health Discussion (প্রশ্ন-উত্তর), Health Tips আর পেশাদার ব্যাজের নিয়ম — আলাদা রাখা হয়েছে যাতে টেস্ট করা যায়।
 
 const BADGES = ['doctor', 'nurse', 'nutritionist', 'trainer', 'expert'];
-const LIMITS = { ask: 5, answer: 40, tip: 5, badge: 3, book: 5, report: 20, hospital: 10, homevisit: 5, homevisitTry: 20, phoneCode: 5, ambulance: 10, pharmacy: 5, medTry: 30, medOrder: 10, ticket: 5, medFind: 5, bloodbank: 5, dateChange: 3 }; // দিনে সর্বোচ্চ
+const LIMITS = { ask: 5, answer: 40, tip: 5, badge: 3, book: 5, report: 20, hospital: 10, homevisit: 5, homevisitTry: 20, phoneCode: 5, ambulance: 10, pharmacy: 5, medTry: 30, medOrder: 10, ticket: 5, medFind: 5, bloodbank: 5, dateChange: 3, docs: 10 }; // দিনে সর্বোচ্চ
 const PAGE = 30;
 
 function cleanText(v, max) {
