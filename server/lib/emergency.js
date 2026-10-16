@@ -31,7 +31,8 @@ async function sendWave(id) {
   const e = s.data();
   if (!E.isLive(e)) return { sent: 0 };
   const [usersSnap, already] = await Promise.all([
-    db.collection('users').where('placeName', 'in', e.districts.slice(0, 30)).limit(10000).get(),
+    // কাছের ব্যবহারকারী (geohash) — আগে জেলা ধরে সবাইকে পড়া হতো
+    require('./geo').near(db.collection('users'), 'geohash', e.lat, e.lng, e.radiusKm).then((list) => ({ docs: list.map((x) => x.doc) })),
     ref.collection('donors').select().get(),
   ]);
   const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));

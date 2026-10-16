@@ -7,3 +7,7 @@
 - [x] কোড ফেরত
 - [x] CI → main → রিলিজ 2.13.1 (lifolo-2.13.1-68.apk) ✔
 - [x] চাকরি/সিভির রেখে যাওয়া ডেটা মোছা: lib/cleanup.js, দৈনিক ক্রনে একবার (config/cleanup.jobsRemoved লেখা হলে শেষ)
+
+## 2.13.2 (69): geohash রক্তে আবার চালু
+- [x] cb316e9 (geohash) ফেরত আনা, চাকরির অংশ বাদ; দৈনিক ক্রনে geo.maintain + cleanup দুটোই
+- [ ] CI → main → রিলিজ 2.13.2

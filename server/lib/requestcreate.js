@@ -6,6 +6,7 @@ const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 
+const Geo = require('./geo');
 const GEOHASH_RE = /^[0-9bcdefghjkmnpqrstuvwxyz]{1,12}$/;
 
 const actions = {
@@ -63,7 +64,8 @@ const actions = {
         placeName: r.placeName,
         lat,
         lng,
-        ...(geohash ? { geohash } : {}),
+        // কাছের খোঁজার জন্য: geohash সার্ভারই হিসাব করে; geoOpen শুধু খোলা থাকা পর্যন্ত (বন্ধ হলে মোছে)
+        ...(Geo.hash(lat, lng) || geohash ? { geohash: Geo.hash(lat, lng) || geohash, geoOpen: Geo.hash(lat, lng) || geohash } : {}),
         neededByMillis: r.neededByMillis,
         neededAtMillis: r.neededAtMillis,
         urgent: b.urgent === true,
@@ -99,6 +101,7 @@ actions.request_reopen = async function requestReopen(req, user) {
     }
     t.update(ref, {
       status: 'open', closedAt: FieldValue.delete(), closedBy: FieldValue.delete(), reopenedAt: now,
+      ...(Geo.hash(x.lat, x.lng) ? { geoOpen: Geo.hash(x.lat, x.lng) } : {}),
       bagsReceived: x.bagsReceivedBefore || 0, bagsReceivedBefore: FieldValue.delete(),
     });
     return x;

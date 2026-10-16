@@ -51,7 +51,7 @@ async function cleanupRemovedFeatures() {
   });
 
   if (allDone) {
-    await Promise.all(['config/jobRules', 'config/migrations'].map((p) => db.doc(p).delete().catch(() => {})));
+    await Promise.all(['config/jobRules'].map((p) => db.doc(p).delete().catch(() => {})));
     await flagRef.set({ [FLAG]: Date.now() }, { merge: true });
   }
   return { done: allDone, counts };

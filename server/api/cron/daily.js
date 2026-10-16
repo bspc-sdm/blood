@@ -1,6 +1,6 @@
 // প্রতিদিন একবার (বাংলাদেশ সময় সকাল ৯টার কাছাকাছি) Vercel নিজে এটা চালায়:
 // ১) মেয়াদ পেরোনো রিকোয়েস্ট বন্ধ করা  ২) যারা গত ২৪ ঘণ্টায় আবার রক্ত দেওয়ার যোগ্য হয়েছেন তাদের জানানো
-const { db, HttpError, handler, sendPush } = require('../../lib/firebase');
+const { db, FieldValue, HttpError, handler, sendPush } = require('../../lib/firebase');
 const R = require('../../lib/rules');
 
 module.exports = handler(
@@ -16,7 +16,7 @@ module.exports = handler(
     const expired = open.docs.filter((d) => !R.isActive(d.data(), now));
     for (let i = 0; i < expired.length; i += 400) {
       const batch = db.batch();
-      expired.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'closed', closedAt: now, closedBy: 'expired' }));
+      expired.slice(i, i + 400).forEach((d) => batch.update(d.ref, { status: 'closed', closedAt: now, closedBy: 'expired', geoOpen: FieldValue.delete() }));
       await batch.commit();
     }
     // সময় শেষ হওয়া রিকোয়েস্টে যাঁরা রাজি ছিলেন তাঁদের জানানো (যাতে কেউ শুধু শুধু না যান, আর রক্ত দিলে জানান)
@@ -81,6 +81,13 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
+    // কাছের খোঁজার (geohash) রক্ষণাবেক্ষণ
+    let geo = null;
+    try {
+      geo = await require('../../lib/geo').maintain(db, FieldValue, R.isActive, now);
+    } catch (e) {
+      console.error('geo maintain failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -104,7 +111,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, cleanup, geo };
   },
   { methods: ['GET'] },
 );
