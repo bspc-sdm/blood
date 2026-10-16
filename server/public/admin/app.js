@@ -396,7 +396,7 @@
     try {
       await loadOverview();
       // অন্য অবস্থার তালিকা আবার আনা হবে
-      for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
+      for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k) || k === 'jobs:open' /* FEATURE:jobs */) delete S.lists[k];
       drawNav();
       route(true);
       toast('হালনাগাদ হয়েছে');
@@ -525,7 +525,7 @@
   /** কাজ শেষে: অপেক্ষার সংখ্যা হালনাগাদ, এই তালিকা আবার আঁকা */
   async function afterChange() {
     try { await loadOverview(); } catch (e) { /* পরে আবার হবে */ }
-    for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k)) delete S.lists[k];
+    for (const k of Object.keys(S.lists)) if (!/:(pending|open)$/.test(k) || k === 'jobs:open' /* FEATURE:jobs */) delete S.lists[k];
     drawNav();
     route(true);
   }
@@ -1362,7 +1362,7 @@
       const out = await act('admin_job_words_save', { words });
       area.value = (out.words || []).join('\n');
       return out;
-    }, 'শব্দের তালিকা সেভ হয়েছে');
+    }, 'শব্দের তালিকা সেভ হয়েছে', afterChange);
     paint(alive,
       h('p', { class: 'note', text: 'বিজ্ঞাপনের পদ, বর্ণনা বা দক্ষতায় এই শব্দ থাকলে বিজ্ঞাপন সরাসরি চালু হয় না — লাল চিহ্নসহ "চাকরির বিজ্ঞাপন"-এর অপেক্ষার সারিতে আসে। ফি বা জামানত চাওয়া বিজ্ঞাপন সার্ভার আগেই আটকায়।' }),
       h('div', { class: 'card pad' },
