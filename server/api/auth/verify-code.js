@@ -75,7 +75,7 @@ module.exports = handler(async (req, res) => {
   // ওয়েব অ্যাডমিন প্যানেল: টোকেনের বদলে httpOnly কুকি, আর শুধু অ্যাডমিনরা
   if (req.body?.web === true) {
     const { isAdmin } = require('../../lib/admin');
-    // ডাক্তারের ওয়েব (প্রেসক্রিপশন): যাচাই করা ডাক্তার বা কোনো ডাক্তারের সহকারী
+    // পার্টনার ওয়েব: যাচাই করা ডাক্তার, কোনো ডাক্তারের সহকারী, বা অনুমোদিত ফার্মেসি/প্যাথলজির মালিক
     if (req.body?.panel === 'doctor') {
       const user = await getOrCreateUser(email);
       if (user.disabled) throw new HttpError(403, 'এই অ্যাকাউন্ট বন্ধ করা আছে');

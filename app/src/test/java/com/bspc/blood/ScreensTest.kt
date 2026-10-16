@@ -641,12 +641,6 @@ class ScreensTest {
     }
 
     @Test
-    fun ambulanceScreen() {
-        show { AmbulanceScreen(profile) {} }
-        shot("ambulance_screen")
-    }
-
-    @Test
     fun helpScreen() {
         show { HelpScreen("pharmacy") {} }
         shot("help_appeal")

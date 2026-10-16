@@ -97,7 +97,7 @@
   // লেবেল (অ্যাপের সাথে মিলিয়ে)
   // =========================================================
   const L = {
-    badge: { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'হেলথ ট্রেইনার' },
+    badge: { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'ফিটনেস ট্রেইনার' },
     hospitalType: {
       govt_mch: 'সরকারি মেডিকেল কলেজ হাসপাতাল', govt_specialized: 'সরকারি বিশেষায়িত হাসপাতাল',
       govt_district: 'জেলা / সদর হাসপাতাল', govt_uhc: 'উপজেলা স্বাস্থ্য কমপ্লেক্স', govt_hospital: 'অন্যান্য সরকারি হাসপাতাল',
@@ -122,6 +122,7 @@
       admin_hospital_resolve: 'হাসপাতাল', admin_report_resolve: 'রিপোর্ট', admin_delete_post: 'পোস্ট মোছা (অ্যাপ)', admin_user_section: 'ব্যবহারকারীর তথ্য দেখা', admin_verify_docs: 'কাগজের ছবি দেখা', admin_request_docs: 'কাগজের ছবি চাওয়া', admin_ticket_reply: 'আপিল',
       admin_emergency_create: 'জরুরি আহ্বান', admin_emergency_more: 'জরুরি: আরও জানানো', admin_emergency_group: 'জরুরি: গ্রুপ', admin_emergency_close: 'জরুরি: শেষ',
       admin_user_action: 'ব্যবহারকারী', admin_add: 'অ্যাডমিন যোগ', admin_remove: 'অ্যাডমিন বাদ', correction_resolve: 'তারিখ সংশোধন',
+      admin_lab_resolve: 'প্যাথলজি', admin_catalog_set: 'বাছাইয়ের তালিকা', admin_labtests_set: 'রিপোর্টের ছক',
     },
     detail: {
       approved: 'অনুমোদন', rejected: 'বাতিল', suspended: 'বন্ধ', approve: 'অনুমোদন', reject: 'বাতিল', removed: 'সরানো হয়েছে', kept: 'রেখে দেওয়া',
@@ -1618,7 +1619,8 @@
       controls.push(ctl(`ব্যাজ: ${L.badge[u.badge.type] || u.badge.type}`, `রেজি. নম্বর ${u.badge.regNo || '—'}${u.badge.workplace ? `, ${u.badge.workplace}` : ''}`,
         listingChip(u.badge.status),
         u.badge.status === 'approved' ? [actionBtn('ব্যাজ বাতিল', 'warn', run(false), 'ব্যাজ বাতিল করা হয়েছে', reload)]
-          : [actionBtn('অনুমোদন দিন', 'tonal', run(true), 'ব্যাজ অনুমোদন করা হয়েছে', reload), u.badge.status === 'pending' ? actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', reload) : null]));
+          // অনুমোদন শুধু যাচাই পাতা থেকে (ছবি দেখে চেকলিস্ট টিক; সার্ভার টিক ছাড়া অনুমোদন নেয় না)
+          : [h('a', { class: 'btn primary', href: `#/verify/badges:${encodeURIComponent(u.uid)}`, text: 'যাচাই করে অনুমোদন' }), u.badge.status === 'pending' ? actionBtn('বাতিল', 'warn', run(false), 'আবেদন বাতিল করা হয়েছে', reload) : null]));
     }
     if (u.pharmacy) {
       controls.push(ctl(`ফার্মেসি: ${u.pharmacy.name}`, [bn(u.pharmacy.phone), u.pharmacy.district].filter(Boolean).join(', '), listingChip(u.pharmacy.status),
@@ -1811,7 +1813,7 @@
           { label: 'অবস্থা', cell: (x) => L.appt[x.status] || x.status },
         ]),
       ],
-      inbox: (d) => [sub('গত ৩০ দিনের নোটিফিকেশন', d.items.length), table(d.items, [
+      inbox: (d) => [sub('গত ২১ দিনের নোটিফিকেশন', d.items.length), table(d.items, [
         { label: 'কবে', main: true, cell: (x) => fmtDT(x.at) },
         { label: 'নোটিফিকেশন', cell: (x) => [h('b', { text: x.title }), x.body ? h('div', { class: 'small', text: x.body }) : null] },
       ])],

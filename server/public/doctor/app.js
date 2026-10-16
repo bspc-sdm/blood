@@ -109,7 +109,7 @@
       const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
         h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'ডাক্তার' })),
         h('h1', { text: 'লগইন' }),
-        h('p', { text: stage === 'code' ? `কোড গেছে: ${email}` : 'যাচাই করা ডাক্তার বা ডাক্তারের সহকারী — অ্যাপের ইমেইলটাই দিন।' }),
+        h('p', { text: stage === 'code' ? `কোড গেছে: ${email}` : 'যাচাই করা ডাক্তার, ডাক্তারের সহকারী, বা অনুমোদিত ফার্মেসি ও প্যাথলজি — অ্যাপের ইমেইলটাই দিন।' }),
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
         stage === 'email'
           ? [h('label', { class: 'field' }, h('span', { text: 'ইমেইল' }), h('input', { type: 'email', name: 'email', autocomplete: 'email', required: true, value: email })),

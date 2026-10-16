@@ -142,7 +142,6 @@ sealed interface Screen {
     data object RxReviews : Screen
     data object ChamberEdit : Screen
     data object Inbox : Screen
-    data object Ambulance : Screen
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
     /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
     data class Help(val category: String? = null) : Screen
@@ -416,7 +415,6 @@ fun App(
                 onOpenMyAppointments = { push(Screen.MyAppointments) },
                 onEditChamber = { push(Screen.ChamberEdit) },
                 onOpenInbox = { push(Screen.Inbox) },
-                onOpenAmbulance = { push(Screen.Ambulance) },
                 onLogout = {
                     scope.launch {
                         AuthRepository.signOut(context)
@@ -624,8 +622,6 @@ fun App(
             Screen.RxReviews -> RxReviewsScreen(onBack = { back() })
 
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
-
-            Screen.Ambulance -> profile?.let { pr -> AmbulanceScreen(pr, onBack = { back() }) }
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
 
             Screen.ChamberEdit -> profile?.let { pr ->

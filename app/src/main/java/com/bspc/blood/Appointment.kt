@@ -910,6 +910,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
             if (homeCapable) run {
                 if (!nurse) HorizontalDivider()
                 SectionTitle(tr("Home care", "বাসায় সেবা"))
+                // রিপোর্টের পর বন্ধ হলে কারণ আর আপিল, চালু থাকলে ফোনের হিসাব
+                MyHomeCareCard(null)
                 SwitchRow(tr("I visit patients at home", "আমি রোগীর বাসায় গিয়ে সেবা দিই"), null, home.enabled) { on -> home = home.copy(enabled = on, phone = home.phone.ifBlank { profile.phone }) }
                 if (home.enabled) {
                     OutlinedTextField(

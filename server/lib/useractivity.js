@@ -165,11 +165,22 @@ async function support(uid) {
   };
 }
 
+/**
+ * এই মানুষের ওপর অ্যাডমিনের সব কাজ: তাঁর অ্যাকাউন্ট, ব্যাজ, আর তাঁর ফার্মেসি/অ্যাম্বুলেন্স/ব্লাড ব্যাংক/প্যাথলজির সিদ্ধান্ত।
+ * (আগে শুধু users/{uid} দেখা হতো, তাই ব্যাজ বা তালিকার অনুমোদন-বাতিল এখানে আসত না)
+ */
 async function adminLog(uid) {
-  const snap = await db.collection('adminLog').where('target', '==', `users/${uid}`).limit(50).get();
+  const owned = await Promise.all(['pharmacies', 'ambulances', 'bloodBanks', 'labs'].map((c) =>
+    db.collection(c).where('ownerUid', '==', uid).limit(20).get().then((s) => s.docs.map((d) => `${c}/${d.id}`)).catch(() => [])));
+  const targets = [...new Set([`users/${uid}`, `badges/${uid}`, ...owned.flat()])];
+  const chunks = [];
+  for (let i = 0; i < targets.length; i += 30) chunks.push(targets.slice(i, i + 30));
+  const snaps = await Promise.all(chunks.map((t) => db.collection('adminLog').where('target', 'in', t).limit(100).get()));
   return {
-    items: snap.docs.map((d) => ({ at: d.get('at') || 0, action: d.get('action'), detail: d.get('detail') || '', by: d.get('by') || '', via: d.get('via') || '' }))
-      .sort((a, b) => b.at - a.at),
+    items: snaps.flatMap((s) => s.docs)
+      .map((d) => ({ at: d.get('at') || 0, action: d.get('action'), detail: d.get('detail') || '', by: d.get('by') || '', via: d.get('via') || '', target: d.get('target') || '' }))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 100),
   };
 }
 

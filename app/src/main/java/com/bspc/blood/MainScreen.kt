@@ -82,9 +82,6 @@ fun MainScreen(
     onEditChamber: () -> Unit,
     onAccountDeleted: () -> Unit,
     onOpenInbox: () -> Unit = {},
-    onOpenAmbulance: () -> Unit = {},
-    onOpenMedicine: () -> Unit = {},
-    onOpenShop: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -150,8 +147,6 @@ fun MainScreen(
             when (tab) {
                 Tabs.HOME -> HomeTab(
                     profile, homeRefresh, onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
-                    onOpenAmbulance = onOpenAmbulance,
-                    onOpenMedicine = onOpenMedicine,
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
@@ -186,8 +181,6 @@ fun HomeTab(
     onOpenMyRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
-    onOpenAmbulance: () -> Unit = {},
-    onOpenMedicine: () -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
     var reload by remember { mutableIntStateOf(0) }

@@ -239,13 +239,17 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
     )
 }
 
-/** ব্যাজধারী ডাক্তার/নার্স নিজে: চালু আছে কি না, আর অ্যাপ থেকে কতবার ফোন এসেছে */
+/**
+ * ব্যাজধারী ডাক্তার/নার্স নিজে: চালু আছে কি না, রিপোর্টের পর বন্ধ কি না (আপিলসহ), আর অ্যাপ থেকে কতবার ফোন এসেছে।
+ * সেটআপ পাতার ভেতরে দেখানো হয় (onEditChamber = null): তখন বাটন নেই, আর বন্ধ থাকলে কিছুই দেখায় না।
+ */
 @Composable
-private fun MyHomeCareCard(onEditChamber: () -> Unit) {
+internal fun MyHomeCareCard(onEditChamber: (() -> Unit)?) {
     var st by remember { mutableStateOf<JSONObject?>(null) }
     var expanded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { st = runCatching { HomeCare.stats() }.getOrNull() }
     val s = st ?: return
+    if (onEditChamber == null && !s.optBoolean("blocked") && !s.optBoolean("enabled")) return
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("Your home care", "আপনার বাসায় সেবা"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -263,8 +267,9 @@ private fun MyHomeCareCard(onEditChamber: () -> Unit) {
                 s.optBoolean("enabled") -> {
                     Text(tr("You are in the list — patients call you directly.", "আপনি তালিকায় আছেন — রোগীরা সরাসরি ফোন করবেন।"), style = MaterialTheme.typography.bodyMedium)
                     CallStatsBlock(s, expanded) { expanded = !expanded }
-                    OutlinedButton(onClick = onEditChamber) { ButtonContent(false, tr("Change settings", "সেটিং বদলান"), R.drawable.ic_edit) }
+                    if (onEditChamber != null) OutlinedButton(onClick = onEditChamber) { ButtonContent(false, tr("Change settings", "সেটিং বদলান"), R.drawable.ic_edit) }
                 }
+                onEditChamber == null -> Unit
                 else -> {
                     Text(
                         tr("Do you visit patients at home? Turn it on so patients nearby can call you.", "রোগীর বাসায় যান? চালু করুন, কাছের রোগীরা সরাসরি ফোন করবেন।"),

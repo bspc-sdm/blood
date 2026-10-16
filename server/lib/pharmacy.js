@@ -300,7 +300,7 @@ const actions = {
 
 /**
  * ক্রন — একবারের কাজ (ওষুধের অর্ডার বন্ধের পর): চলমান অর্ডার বন্ধ করে দুই পক্ষকে জানানো,
- * প্রেসক্রিপশনের ছবি, স্টক তালিকা আর নতুন ওষুধের অনুরোধ মুছে ফেলা।
+ * প্রেসক্রিপশনের ছবি, পুরোনো স্টক সূচি আর নতুন ওষুধের অনুরোধ মুছে ফেলা।
  */
 async function dailyPharmacy(now = Date.now()) {
   const flag = db.doc('serverState/_medOrdersClosed');
@@ -336,7 +336,8 @@ async function dailyPharmacy(now = Date.now()) {
     return n;
   };
   const photos = await del('medOrderPhotos');
-  const stockDocs = await del('pharmacyStock');
+  // pharmacyStock আর মোছা হয় না: ২.১৭ থেকে নতুন স্টক তালিকা একই সংগ্রহে (নতুন ডাটাবেসে এই কাজ চললেও মুছবে না)
+  const stockDocs = 0;
   await del('stockIdx');
   await del('stockIndex');
   await del('drugRequests');

@@ -203,14 +203,6 @@ fun EmergencyCallCard(key: String = "ambulance") {
     }
 }
 
-/** হোম বা নোটিফিকেশন থেকে খোলার পুরো পাতা */
-@Composable
-fun AmbulanceScreen(profile: Profile, onBack: () -> Unit) {
-    Scaffold(topBar = { BackTopBar(tr("Ambulance", "অ্যাম্বুলেন্স"), onBack) }) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) { AmbulanceContent(profile, showMine = false) }
-    }
-}
-
 /** "সেবা" ট্যাবের অ্যাম্বুলেন্স অংশ: খুঁজুন / আমার অ্যাম্বুলেন্স (যোগ করা) */
 @Composable
 fun AmbulanceContent(profile: Profile, showMine: Boolean = true) {
