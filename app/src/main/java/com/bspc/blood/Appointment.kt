@@ -61,7 +61,7 @@ internal val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer
 /** চেম্বার আর অ্যাপয়েন্টমেন্ট: ডাক্তার, পুষ্টিবিদ, ফিটনেস ট্রেইনার (নার্স শুধু বাসায় সেবা) */
 internal val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer")
 /** বাসায় সেবা: ডাক্তার আর নার্স */
-internal val HOME_CARE_TYPES = listOf("doctor", "nurse")
+internal val HOME_PROVIDER_TYPES = listOf("doctor", "nurse")
 
 /** নোটিফিকেশন থেকে সরাসরি "বাসায় সেবা" অংশ খোলার জন্য */
 object CareNav {
@@ -832,7 +832,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
 
     // নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবা; পুষ্টিবিদ/ট্রেইনারের বাসায় সেবা নেই — শুধু চেম্বার
     val nurse = type == "nurse"
-    val homeCapable = type in HOME_CARE_TYPES
+    val homeCapable = type in HOME_PROVIDER_TYPES
     Scaffold(topBar = {
         if (!embedded) BackTopBar(if (nurse) tr("My home care & profile", "আমার বাসায় সেবা ও প্রোফাইল") else tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack)
     }) { padding ->
