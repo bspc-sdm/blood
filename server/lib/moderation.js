@@ -101,7 +101,7 @@ async function reportCount(path) {
 async function assertNoOpenReports(req, path) {
   const s = await db.collection('modReports').where('targetPath', '==', path).where('status', '==', 'open').limit(1).get();
   if (!s.empty) {
-    throw new HttpError(409, C.tr(req, 'This has an open report. It can be removed after the Lifolo team reviews it.', 'এটার একটা রিপোর্ট খোলা আছে। Lifolo টিম দেখার পর মুছতে পারবেন।'));
+    throw new HttpError(409, C.tr(req, 'This has an open report. It can be removed after the Dorkar team reviews it.', 'এটার একটা রিপোর্ট খোলা আছে। Dorkar টিম দেখার পর মুছতে পারবেন।'));
   }
 }
 

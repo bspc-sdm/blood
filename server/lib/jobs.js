@@ -526,7 +526,7 @@ const actions = {
     const emp = await store.employer(user.uid).get();
     if (!emp.exists) throw err(req, 'Add your organisation details first', 'আগে প্রতিষ্ঠানের তথ্য দিন');
     if (emp.get('postingBlocked') === true) {
-      throw err(req, 'The Lifolo team has stopped job posting for your account', 'Lifolo টিম আপনার অ্যাকাউন্টে চাকরির বিজ্ঞাপন দেওয়া বন্ধ রেখেছে', 403);
+      throw err(req, 'The Dorkar team has stopped job posting for your account', 'Dorkar টিম আপনার অ্যাকাউন্টে চাকরির বিজ্ঞাপন দেওয়া বন্ধ রেখেছে', 403);
     }
     const data = parseJob(req, b);
     const flags = flagsFor(data, await bannedWords());
@@ -650,7 +650,7 @@ const actions = {
     const job = await ownJob(req, user, jobId);
     if (['suspended', 'rejected'].includes(job.get('status'))) throw err(req, 'This job was taken down', 'এই বিজ্ঞাপন বন্ধ করা হয়েছে', 403);
     const emp = await store.employer(user.uid).get();
-    if (emp.exists && emp.get('postingBlocked') === true) throw err(req, 'The Lifolo team has stopped hiring on your account', 'Lifolo টিম আপনার অ্যাকাউন্টে নিয়োগ বন্ধ রেখেছে', 403);
+    if (emp.exists && emp.get('postingBlocked') === true) throw err(req, 'The Dorkar team has stopped hiring on your account', 'Dorkar টিম আপনার অ্যাকাউন্টে নিয়োগ বন্ধ রেখেছে', 403);
     const ref = store.application(jobId, uid);
     const a = await ref.get();
     if (!a.exists || a.get('status') === 'withdrawn') throw err(req, 'This application was withdrawn', 'আবেদনটা তুলে নেওয়া হয়েছে');
@@ -1078,7 +1078,7 @@ const actions = {
     if (!s.exists) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
     await ref.update({ warnCount: FieldValue.increment(1), lastWarnAt: Date.now(), lastWarnReason: reason });
     await pushTo(id, (u, lang) => ({
-      title: R.L(lang, 'Warning from the Lifolo team', 'Lifolo টিমের সতর্কবার্তা'),
+      title: R.L(lang, 'Warning from the Dorkar team', 'Dorkar টিমের সতর্কবার্তা'),
       body: reason,
       data: { type: 'job_mine' },
     }));

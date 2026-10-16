@@ -305,7 +305,7 @@ fun MyCvPanel(refreshKey: Int, onEditCv: () -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SmallAction(tr("Edit", "বদলান"), R.drawable.ic_edit, onEditCv, primary = true)
                     SmallAction(tr("Save as PDF", "PDF করুন"), R.drawable.ic_list_alt, {
-                        savePdf.launch("CV-" + c.name.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').ifBlank { "Lifolo" } + ".pdf")
+                        savePdf.launch("CV-" + c.name.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').ifBlank { "Dorkar" } + ".pdf")
                     }, busy = pdfBusy)
                     if (c.public) {
                         SmallAction(tr("Share link", "লিংক শেয়ার"), R.drawable.ic_share, {

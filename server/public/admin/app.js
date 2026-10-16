@@ -1,4 +1,4 @@
-// Lifolo ওয়েব অ্যাডমিন প্যানেল — বাম মেনু, ডানে পুরো পাতা।
+// Dorkar ওয়েব অ্যাডমিন প্যানেল — বাম মেনু, ডানে পুরো পাতা।
 // নিরাপত্তা: ব্যবহারকারীর লেখা সবসময় textContent দিয়ে বসে (কখনো innerHTML নয়);
 // লগইন httpOnly কুকিতে, এই স্ক্রিপ্ট সেটা দেখতে পায় না।
 (function () {
@@ -150,7 +150,7 @@
       res = await fetch(path, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-Lifolo-Admin': '1' },
+        headers: { 'Content-Type': 'application/json', 'X-Dorkar-Admin': '1' },
         body: JSON.stringify({ lang: 'bn', ...body }),
       });
     } catch (e) {
@@ -226,7 +226,7 @@
 
     function draw() {
       const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
-        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Dorkar' }), h('span', { text: 'অ্যাডমিন' })),
         h('h1', { text: 'লগইন' }),
         stage === 'code' ? h('p', { text: `কোড গেছে: ${email}` }) : null,
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
@@ -347,7 +347,7 @@
     pageEl = h('main', { class: 'page', id: 'page', tabindex: '-1' });
     shell = h('div', { class: 'shell' },
       h('aside', { class: 'side' },
-        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
+        h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Dorkar' }), h('span', { text: 'অ্যাডমিন' })),
         navEl,
         h('div', { class: 'side-foot' },
           h('div', { class: 'who', text: (S.me && S.me.email) || '' }),
@@ -389,7 +389,7 @@
   function setTitle(title, sub, actions) {
     titleEl.replaceChildren(...[title, sub ? h('span', { class: 'sub', text: sub }) : null].filter(Boolean));
     topActions.replaceChildren(...(actions || []));
-    document.title = `${title} — Lifolo অ্যাডমিন`;
+    document.title = `${title} — Dorkar অ্যাডমিন`;
   }
 
   async function refreshAll() {
@@ -1105,7 +1105,7 @@
         }, 'ব্লাড ব্যাংক যোগ হয়েছে, তালিকায় দেখাচ্ছে', afterChange));
     return edit
       ? [h('h2', { class: 'section-title', text: `সম্পাদনা: ${edit.name}` }),
-        h('p', { class: 'note', text: 'মালিক থাকলে তাঁকে জানানো হবে যে Lifolo টিম তথ্য ঠিক করেছে।' }), form]
+        h('p', { class: 'note', text: 'মালিক থাকলে তাঁকে জানানো হবে যে Dorkar টিম তথ্য ঠিক করেছে।' }), form]
       : [h('h2', { class: 'section-title', text: 'চেনা ব্লাড ব্যাংক নিজে যোগ করুন' }),
         h('p', { class: 'note', text: 'যেমন সরকারি হাসপাতালের ব্লাড ব্যাংক বা সন্ধানী/রেড ক্রিসেন্ট। যোগ করলেই অ্যাপের তালিকায় দেখাবে।' }), form];
   }
@@ -1490,7 +1490,7 @@
           h('div', null, h('h2', { text: t.name || '—' }), h('div', { class: 'note', text: t.email || '' }), h('div', { class: 'small' }, userLink(t.uid, 'এই ব্যবহারকারীর সব কিছু দেখুন ও ব্যবস্থা নিন'))),
           h('div', null, h('span', { class: `chip ${t.status === 'closed' ? '' : t.status === 'open' ? 'bad' : 'good'}`, text: L.ticket[t.status] }), h('div', { class: 'small', text: `খোলা হয়েছে ${fmtDT(t.createdAt)}` }))),
         h('div', { class: 'convo' }, (t.messages || []).map((m) => h('div', { class: `msg ${m.from === 'admin' ? 'admin' : 'user'}` },
-          m.text, h('span', { class: 'when', text: `${m.from === 'admin' ? 'Lifolo টিম' : t.name || 'ব্যবহারকারী'}, ${fmtDT(m.at)}` })))),
+          m.text, h('span', { class: 'when', text: `${m.from === 'admin' ? 'Dorkar টিম' : t.name || 'ব্যবহারকারী'}, ${fmtDT(m.at)}` })))),
         reply,
         h('div', { class: 'reply-actions' },
           actionBtn('উত্তর পাঠান', 'primary', send(false), 'উত্তর পাঠানো হয়েছে', doneTo),
@@ -1660,7 +1660,7 @@
     };
     const sub = (title, n) => h('h3', { class: 'sub-title', text: n == null ? title : `${title} (${bn(n)})` });
     const note = (t) => h('p', { class: 'note', text: t });
-    const idxNote = (v) => (v === 'index' ? note('এই অংশ দেখাতে Firestore-এ একটা সূচি (index) চালু করতে হবে — Lifolo টিমকে জানান।') : v ? note(v) : null);
+    const idxNote = (v) => (v === 'index' ? note('এই অংশ দেখাতে Firestore-এ একটা সূচি (index) চালু করতে হবে — Dorkar টিমকে জানান।') : v ? note(v) : null);
 
     const render = {
       blood: (d) => [

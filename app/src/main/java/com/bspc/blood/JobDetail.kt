@@ -103,7 +103,7 @@ fun JobDetailScreen(id: String, onBack: () -> Unit, onEditCv: () -> Unit, onEdit
             if (j.mine) {
                 if (j.statusReason.isNotBlank() && j.status in listOf("rejected", "suspended", "changes")) IconLine(R.drawable.ic_info, tr("Reason: ", "কারণ: ") + j.statusReason)
                 if (j.status == "pending" && j.flags.isNotEmpty()) {
-                    SmallNote(tr("The Lifolo team will check this before it goes live: ", "চালুর আগে Lifolo টিম দেখবে: ") + j.flags.joinToString("; "))
+                    SmallNote(tr("The Dorkar team will check this before it goes live: ", "চালুর আগে Dorkar টিম দেখবে: ") + j.flags.joinToString("; "))
                 }
             }
             Text(JobText.salaryOf(j), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = cs.primary)
@@ -217,7 +217,7 @@ fun JobDetailScreen(id: String, onBack: () -> Unit, onEditCv: () -> Unit, onEdit
             onSubmit = { reason ->
                 Moderation.report("job", id, reason = reason)
                 reporting = false
-                infoMsg = tr("Reported. The Lifolo team will check it.", "রিপোর্ট করা হয়েছে। Lifolo টিম দেখবে।")
+                infoMsg = tr("Reported. The Dorkar team will check it.", "রিপোর্ট করা হয়েছে। Dorkar টিম দেখবে।")
             },
         )
     }

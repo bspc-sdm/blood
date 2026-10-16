@@ -65,7 +65,7 @@ const actions = {
       { merge: true },
     );
     try {
-      await send(phone, `Lifolo: your code is ${code}. It expires in 10 minutes.`);
+      await send(phone, `Dorkar: your code is ${code}. It expires in 10 minutes.`);
     } catch (e) {
       console.error('sms failed', e);
       throw new HttpError(502, C.tr(req, 'Couldn\'t send the SMS. Try again later.', 'SMS পাঠানো যায়নি। পরে আবার চেষ্টা করুন।'));

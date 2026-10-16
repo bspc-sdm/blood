@@ -34,7 +34,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ------------------------------------------------------------
-// জরুরি রক্তের আহ্বান (দুর্ঘটনা ইত্যাদি) — Lifolo টিম ওয়েব প্যানেল থেকে দেয়।
+// জরুরি রক্তের আহ্বান (দুর্ঘটনা ইত্যাদি) — Dorkar টিম ওয়েব প্যানেল থেকে দেয়।
 // হোমের সবার উপরে ব্যানার: কোন গ্রুপের কত দরকার, কতজন আসছেন; নিজের গ্রুপ দরকার হলে "আসছি"।
 // যথেষ্ট মানুষ আসছেন হলে সেই গ্রুপ বন্ধ — হাসপাতালে ভিড় এড়াতে।
 // ------------------------------------------------------------
@@ -168,7 +168,7 @@ internal fun EmergencyCard(e: EmergencyAppeal, onDonated: (String) -> Unit = {},
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppIcon(R.drawable.ic_warning, null, Modifier.size(20.dp), cs.error)
                 Spacer(Modifier.width(8.dp))
-                Text(tr("Emergency appeal · Lifolo team", "জরুরি আহ্বান · Lifolo টিম"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = cs.error)
+                Text(tr("Emergency appeal · Dorkar team", "জরুরি আহ্বান · Dorkar টিম"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = cs.error)
             }
             Column {
                 Text(e.hospitalName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

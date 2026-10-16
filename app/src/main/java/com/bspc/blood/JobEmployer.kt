@@ -71,7 +71,7 @@ fun HirePanel(profile: Profile, refreshKey: Int, onEditJob: (String?) -> Unit, o
         EmployerEditScreen(employer, profile, onBack = { editing = false }) { e ->
             editing = false
             employer = e
-            infoMsg = if (e?.verifyStatus == "pending") tr("Saved. The Lifolo team will check the trade licence.", "সেভ হয়েছে। Lifolo টিম ট্রেড লাইসেন্স দেখে যাচাই করবে।") else tr("Saved", "সেভ হয়েছে")
+            infoMsg = if (e?.verifyStatus == "pending") tr("Saved. The Dorkar team will check the trade licence.", "সেভ হয়েছে। Dorkar টিম ট্রেড লাইসেন্স দেখে যাচাই করবে।") else tr("Saved", "সেভ হয়েছে")
             reload++
         }
         return
@@ -149,7 +149,7 @@ private fun EmployerCard(e: Employer, onEdit: () -> Unit, onChanged: () -> Unit)
                 style = MaterialTheme.typography.labelLarge, color = cs.primary,
             )
             if (e.postingBlocked) {
-                IconLine(R.drawable.ic_warning, tr("The Lifolo team has stopped job posting for you. Reason: ", "Lifolo টিম আপনার বিজ্ঞাপন দেওয়া বন্ধ রেখেছে। কারণ: ") + e.blockReason, cs.error)
+                IconLine(R.drawable.ic_warning, tr("The Dorkar team has stopped job posting for you. Reason: ", "Dorkar টিম আপনার বিজ্ঞাপন দেওয়া বন্ধ রেখেছে। কারণ: ") + e.blockReason, cs.error)
                 AppealButton("other")
             }
             if (e.verifyStatus == "rejected" && e.statusReason.isNotBlank()) IconLine(R.drawable.ic_info, tr("Reason: ", "কারণ: ") + e.statusReason)
@@ -213,7 +213,7 @@ private fun EmployerEditScreen(existing: Employer?, profile: Profile, onBack: ()
             }
             OutlinedTextField(
                 phone, { phone = it.filter { c -> c.isDigit() || c == '+' }.take(15) },
-                label = { Text(tr("Organisation phone (for the Lifolo team)", "প্রতিষ্ঠানের ফোন (Lifolo টিমের যোগাযোগের জন্য)")) },
+                label = { Text(tr("Organisation phone (for the Dorkar team)", "প্রতিষ্ঠানের ফোন (Dorkar টিমের যোগাযোগের জন্য)")) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
             AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
@@ -415,8 +415,8 @@ fun JobEditScreen(id: String?, profile: Profile, onBack: () -> Unit, onSaved: ()
                             doneMsg = when {
                                 st == "open" -> tr("Your job is live.", "বিজ্ঞাপন চালু হয়েছে।")
                                 st == "paused" -> tr("Saved. The job is paused — resume it from the job page.", "সেভ হয়েছে। বিজ্ঞাপনে বিরতি আছে — বিজ্ঞাপনের পাতা থেকে আবার চালু করুন।")
-                                flagged -> tr("Sent for checking. Something in the post needs a look by the Lifolo team before it goes live.", "যাচাইয়ের জন্য পাঠানো হয়েছে। বিজ্ঞাপনের কিছু অংশ চালুর আগে Lifolo টিম দেখবে।")
-                                else -> tr("Sent for checking. It goes live after the Lifolo team approves (usually within a day).", "যাচাইয়ের জন্য পাঠানো হয়েছে। Lifolo টিম অনুমোদন দিলে চালু হবে (সাধারণত এক দিনের মধ্যে)।")
+                                flagged -> tr("Sent for checking. Something in the post needs a look by the Dorkar team before it goes live.", "যাচাইয়ের জন্য পাঠানো হয়েছে। বিজ্ঞাপনের কিছু অংশ চালুর আগে Dorkar টিম দেখবে।")
+                                else -> tr("Sent for checking. It goes live after the Dorkar team approves (usually within a day).", "যাচাইয়ের জন্য পাঠানো হয়েছে। Dorkar টিম অনুমোদন দিলে চালু হবে (সাধারণত এক দিনের মধ্যে)।")
                             }
                         }.onFailure { errorMsg = it.message }
                         busy = false

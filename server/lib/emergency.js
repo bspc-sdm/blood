@@ -57,8 +57,8 @@ async function sendWave(id) {
     uid: u.uid,
     tokens: u.tokens,
     title: R.L(u.lang, `Emergency: ${u.group} blood needed`, `জরুরি: ${u.group} রক্ত দরকার`),
-    body: R.L(u.lang, `${e.hospitalName} · ${R.formatKm(u.km, 'en')} · Lifolo team appeal — open to say you're coming`,
-      `${e.hospitalName} · ${R.formatKm(u.km, 'bn')} · Lifolo টিমের আহ্বান — খুলে "আসছি" চাপুন`),
+    body: R.L(u.lang, `${e.hospitalName} · ${R.formatKm(u.km, 'en')} · Dorkar team appeal — open to say you're coming`,
+      `${e.hospitalName} · ${R.formatKm(u.km, 'bn')} · Dorkar টিমের আহ্বান — খুলে "আসছি" চাপুন`),
     data: { type: 'emergency', emergencyId: id },
   })));
   return { sent, notified: wave.length };

@@ -374,10 +374,10 @@ object JobText {
         "open" -> tr("Live", "চালু")
         "paused" -> if (pausedBy == "deadline") tr("Paused — deadline passed", "বিরতি — শেষ তারিখ পার") else tr("Paused — not taking applications", "বিরতি — আবেদন নেওয়া বন্ধ")
         "pending" -> tr("Waiting for approval", "অনুমোদনের অপেক্ষায়")
-        "changes" -> tr("The Lifolo team asked for changes", "Lifolo টিম কিছু ঠিক করতে বলেছে")
+        "changes" -> tr("The Dorkar team asked for changes", "Dorkar টিম কিছু ঠিক করতে বলেছে")
         "closed" -> tr("Closed — position filled", "বন্ধ — লোক পাওয়া গেছে")
         "rejected" -> tr("Not approved", "অনুমোদন হয়নি")
-        "suspended" -> tr("Taken down by the Lifolo team", "Lifolo টিম বন্ধ করেছে")
+        "suspended" -> tr("Taken down by the Dorkar team", "Dorkar টিম বন্ধ করেছে")
         else -> s
     }
 

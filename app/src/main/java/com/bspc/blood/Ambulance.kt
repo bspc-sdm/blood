@@ -175,7 +175,7 @@ fun statusText(s: String): String = when (s) {
     "approved" -> tr("Listed", "তালিকায় আছে")
     "pending" -> tr("Waiting for approval", "অনুমোদনের অপেক্ষায়")
     "rejected" -> tr("Not approved", "অনুমোদন হয়নি")
-    "suspended" -> tr("Suspended by the Lifolo team", "Lifolo টিম বন্ধ করেছে")
+    "suspended" -> tr("Suspended by the Dorkar team", "Dorkar টিম বন্ধ করেছে")
     else -> s
 }
 

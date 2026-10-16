@@ -65,7 +65,7 @@ jobs:
           set -e
           CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
           NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          VAPK="lifolo-${NAME}-${CODE}.apk"
+          VAPK="dorkar-${NAME}-${CODE}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$VAPK"
           cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
           URL="https://github.com/${{ github.repository }}/releases/download/latest/$VAPK"
@@ -80,7 +80,7 @@ jobs:
             git push -f origin refs/tags/latest
             gh release edit latest --notes "$NOTES"
             # ভার্সনের নামের APK শেষ ৩টা রাখা
-            gh release view latest --json assets --jq '.assets[].name' | grep -E '^lifolo-.*\.apk$' | sort -V | head -n -3 | while read -r old; do
+            gh release view latest --json assets --jq '.assets[].name' | grep -E '^(lifolo|dorkar)-.*\.apk$' | sort -V | head -n -3 | while read -r old; do
               gh release delete-asset latest "$old" --yes
             done
           else

@@ -119,7 +119,7 @@ fun DocPhotosField(specs: List<DocSpec>, photos: Map<String, String>, onChange: 
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("Document photos", "কাগজের ছবি"), style = MaterialTheme.typography.labelLarge)
-        SmallNote(optionalNote ?: tr("The Lifolo team checks these before listing. Take a clear photo of the whole paper.", "তালিকায় আসার আগে Lifolo টিম এগুলো দেখে মিলিয়ে নেয়। পুরো কাগজের পরিষ্কার ছবি দিন।"))
+        SmallNote(optionalNote ?: tr("The Dorkar team checks these before listing. Take a clear photo of the whole paper.", "তালিকায় আসার আগে Dorkar টিম এগুলো দেখে মিলিয়ে নেয়। পুরো কাগজের পরিষ্কার ছবি দিন।"))
         specs.forEach { d ->
             val img = photos[d.type]
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -156,7 +156,7 @@ fun DocsNeededNotice(kind: String, id: String, specs: List<DocSpec>, missing: Bo
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                if (requested) tr("The Lifolo team asked for document photos", "Lifolo টিম কাগজের ছবি চেয়েছে")
+                if (requested) tr("The Dorkar team asked for document photos", "Dorkar টিম কাগজের ছবি চেয়েছে")
                 else tr("Document photos are needed for checking", "যাচাইয়ের জন্য কাগজের ছবি লাগবে"),
                 style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
             )
