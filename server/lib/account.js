@@ -165,6 +165,7 @@ module.exports = {
       require('./verify').deleteForOwner(uid).catch(() => {}),
       // সিভি, নিয়োগকর্তার তথ্য, আবেদন; চালু চাকরির বিজ্ঞাপন বন্ধ
       require('./jobs').deleteForUser(uid).catch((e) => console.error('job data delete failed', e.message)), // FEATURE:jobs
+      require('./cv').deleteForUser(uid).catch((e) => console.error('cv delete failed', e.message)),
       db.doc(`providers/${uid}`).delete(),
       // দোকান আর তার ফোনের হিসাব
       db.doc(`pharmacies/${uid}`).delete(),

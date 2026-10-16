@@ -8,6 +8,7 @@ require.cache[path.join(__dirname, '../lib/firebase.js')] = {
   exports: { db: { doc: () => ({}), collection: () => ({}) }, admin: {}, FieldValue: {}, HttpError: class extends Error { constructor(s, m) { super(m); this.status = s; } }, sendPush: async () => 0 },
 };
 const J = require('../lib/jobs');
+const CV = require('../lib/cv');
 const R = require('../lib/rules');
 
 const req = { headers: {}, body: {} };
@@ -33,7 +34,7 @@ test('চাকরির বিজ্ঞাপনে ফি বা জামা�
 });
 
 test('সিভি: অসম্পূর্ণ লাইন বাদ, তারিখ উল্টো হলে ভুল, আবেদনের মতো সম্পূর্ণ কি না', () => {
-  const p = J.parseProfile(req, {
+  const p = CV.parseProfile(req, {
     headline: 'হিসাবরক্ষক',
     experience: [{ title: 'হিসাবরক্ষক', org: 'আল-আমিন স্টোর', from: '2021-03', current: true }, { title: '', org: 'x' }],
     education: [{ degree: 'বিকম', institute: 'আনন্দ মোহন কলেজ', year: 2020 }],
@@ -45,9 +46,9 @@ test('সিভি: অসম্পূর্ণ লাইন বাদ, তা�
   assert.deepStrictEqual(p.skills, ['Excel', 'Tally']);
   assert.strictEqual(p.contactVisibility, 'employers');
   assert.strictEqual(p.public, false);
-  assert.ok(J.cvComplete(p));
-  assert.ok(!J.cvComplete({ headline: 'x', experience: [], education: [] }));
-  assert.throws(() => J.parseProfile(req, { experience: [{ title: 'a', org: 'b', from: '2022-05', to: '2021-01' }] }));
+  assert.ok(CV.cvComplete(p));
+  assert.ok(!CV.cvComplete({ headline: 'x', experience: [], education: [] }));
+  assert.throws(() => CV.parseProfile(req, { experience: [{ title: 'a', org: 'b', from: '2022-05', to: '2021-01' }] }));
 });
 
 test('বেতন: আলোচনাসাপেক্ষ চলে, বিনা বেতনের ইন্টার্নশিপে বেতন লাগে না, মেয়াদ ৬ মাস পর্যন্ত', () => {
@@ -88,7 +89,21 @@ test('স্বয়ংক্রিয় যাচাই: সন্দেহ�
 
 test('সিভি: মোট অভিজ্ঞতা আর পূরণের হার', () => {
   const now = Date.UTC(2026, 9, 16);
-  assert.strictEqual(J.experienceYears([{ from: '2021-03', current: true }], now), 5);
-  assert.strictEqual(J.experienceYears([{ from: '2020-01', to: '2020-12' }, { from: '2022-01', to: '2022-06' }], now), 1);
-  assert.strictEqual(J.cvCompleteness({ headline: 'x', experience: [{}] }, null), 29);
+  assert.strictEqual(CV.experienceYears([{ from: '2021-03', current: true }], now), 5);
+  assert.strictEqual(CV.experienceYears([{ from: '2020-01', to: '2020-12' }, { from: '2022-01', to: '2022-06' }], now), 1);
+  assert.strictEqual(CV.cvCompleteness({ headline: 'x', experience: [{}] }, null), 29);
+});
+
+test('সিভি: যাচাই করা কর্মস্থল শুধু আগে থেকে থাকলে টেকে, বাইরের লিংক https', () => {
+  const before = { experience: [{ title: 'সেলস', org: 'রহমান', from: '2026-10', verified: true, jobId: 'j1' }] };
+  const p = CV.parseProfile(req, {
+    experience: [{ title: 'সেলস', org: 'রহমান', from: '2026-10', current: true, verified: true }, { title: 'নিজে লেখা', org: 'X', verified: true }],
+    links: ['linkedin.com/in/karim', 'https://github.com/karim'],
+  }, before);
+  assert.strictEqual(p.experience[0].verified, true);
+  assert.strictEqual(p.experience[0].jobId, 'j1');
+  assert.strictEqual(p.experience[1].verified, undefined);
+  assert.deepStrictEqual(p.links, ['https://linkedin.com/in/karim', 'https://github.com/karim']);
+  assert.throws(() => CV.parseProfile(req, { links: ['not a link'] }));
+  assert.strictEqual(p.showDonor, false);
 });

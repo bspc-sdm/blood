@@ -203,7 +203,7 @@ const actions = {
         const last = u.get('lastDonationMillis');
         t.update(uref, {
           [`emergencyComing.${id}`]: FieldValue.delete(),
-          ...(donated && (last == null || last < today) ? { lastDonationMillis: today } : {}),
+          ...(donated && (last == null || last < today) ? { lastDonationMillis: today, donationCount: FieldValue.increment(1) } : {}),
         });
       }
     });

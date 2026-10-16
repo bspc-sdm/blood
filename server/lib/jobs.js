@@ -17,6 +17,8 @@ const K = require('./care');
 const DISTRICTS = require('./districts');
 const { UPAZILA } = require('./hospital-match');
 const { useQuota } = require('./community-db');
+// সিভি এখন মূল প্রোফাইলের অংশ (lib/cv.js) — চাকরি সেটা ব্যবহার করে
+const { CATEGORIES, EDUCATION, cvView, cvComplete, emailOf, profileRef } = require('./cv');
 
 // ---------- ডেটাবেস ----------
 const store = {
@@ -58,11 +60,8 @@ const store = {
 };
 
 // ---------- তালিকা ----------
-const CATEGORIES = ['health', 'education', 'sales', 'accounts', 'office', 'it', 'driving', 'factory', 'hospitality', 'security', 'construction', 'domestic', 'other'];
 const TYPES = ['fulltime', 'parttime', 'contract', 'internship', 'remote'];
-const EDUCATION = ['none', 'ssc', 'hsc', 'diploma', 'bachelor', 'masters'];
 const EMPLOYER_KINDS = ['company', 'shop', 'hospital', 'school', 'ngo', 'household', 'other'];
-const VISIBILITY = ['none', 'employers', 'all'];
 const COVER = ['optional', 'required', 'off'];
 const Q_KINDS = ['text', 'choice', 'yesno'];
 // নিয়োগকর্তা যা দিতে পারেন ("নিয়োগ" আসে প্রার্থী প্রস্তাব নিলে)
@@ -79,120 +78,8 @@ const str = (v, max) => (typeof v === 'string' ? v.trim().replace(/\s+\n/g, '\n'
 const YM = /^(19[5-9]\d|20\d\d)-(0[1-9]|1[0-2])$/;
 const ymOf = (ms) => { const d = new Date(ms); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 
-// ---------- সিভি ----------
 function cleanList(v, max, fn) {
   return (Array.isArray(v) ? v : []).slice(0, max).map(fn).filter(Boolean);
-}
-
-function parseProfile(req, b) {
-  const year = new Date().getUTCFullYear();
-  const exp = cleanList(b.experience, 15, (e) => {
-    if (!e || typeof e !== 'object') return null;
-    const title = str(e.title, 80);
-    const org = str(e.org, 100);
-    if (!title || !org) return null;
-    const from = YM.test(e.from || '') ? e.from : '';
-    const current = e.current === true;
-    const to = !current && YM.test(e.to || '') ? e.to : '';
-    if (from && to && to < from) throw err(req, `"${title}": end date is before start date`, `"${title}": শেষের তারিখ শুরুর আগে`);
-    return { title, org, from, to, current, details: str(e.details, 500) };
-  });
-  const edu = cleanList(b.education, 10, (e) => {
-    if (!e || typeof e !== 'object') return null;
-    const degree = str(e.degree, 100);
-    const institute = str(e.institute, 120);
-    if (!degree || !institute) return null;
-    const y = Number.isInteger(e.year) && e.year >= 1950 && e.year <= year + 6 ? e.year : null;
-    // স্তর (নিয়োগকর্তার ছাঁকার জন্য): এসএসসি, এইচএসসি…
-    const level = EDUCATION.includes(e.level) && e.level !== 'none' ? e.level : '';
-    return { degree, institute, year: y, result: str(e.result, 40), level };
-  });
-  const certs = cleanList(b.certs, 20, (e) => {
-    if (!e || typeof e !== 'object') return null;
-    const name = str(e.name, 100);
-    if (!name) return null;
-    const y = Number.isInteger(e.year) && e.year >= 1950 && e.year <= year + 1 ? e.year : null;
-    return { name, issuer: str(e.issuer, 100), year: y };
-  });
-  const words = (v, n, len) => [...new Set(cleanList(v, n, (s) => str(s, len)))];
-  return {
-    headline: str(b.headline, 100),
-    about: str(b.about, 1000),
-    experience: exp,
-    education: edu,
-    skills: words(b.skills, 30, 40),
-    languages: words(b.languages, 10, 30),
-    certs,
-    contactVisibility: VISIBILITY.includes(b.contactVisibility) ? b.contactVisibility : 'employers',
-    public: b.public === true,
-    openToWork: b.openToWork === true,
-    wantCategories: K.pickCodes(b.wantCategories, CATEGORIES, 5),
-    updatedAt: Date.now(),
-  };
-}
-
-/** আবেদন করার মতো সিভি: শিরোনাম, আর অভিজ্ঞতা বা শিক্ষা অন্তত একটা */
-const cvComplete = (p) => !!(p && p.headline && ((p.experience || []).length || (p.education || []).length));
-
-/** সিভি কতটা পূরণ (%) — ছবি, শিরোনাম, পরিচয়, অভিজ্ঞতা, শিক্ষা, দক্ষতা, ভাষা */
-function cvCompleteness(p, u) {
-  const x = p || {};
-  const parts = [!!(u && u.get('photo')), !!x.headline, !!x.about, !!(x.experience || []).length, !!(x.education || []).length, !!(x.skills || []).length, !!(x.languages || []).length];
-  return Math.round((parts.filter(Boolean).length / parts.length) * 100);
-}
-
-/** মোট অভিজ্ঞতা (পূর্ণ বছর) */
-function experienceYears(list, now = Date.now()) {
-  let months = 0;
-  const cur = ymOf(now);
-  for (const e of list || []) {
-    if (!e.from) continue;
-    const end = e.current ? cur : e.to;
-    if (!end) continue;
-    const [fy, fm] = e.from.split('-').map(Number);
-    const [ty, tm] = end.split('-').map(Number);
-    months += Math.max(0, (ty - fy) * 12 + (tm - fm) + 1);
-  }
-  return Math.floor(months / 12);
-}
-
-/** সর্বোচ্চ শিক্ষার স্তর */
-function eduLevel(list) {
-  let best = 0;
-  for (const e of list || []) best = Math.max(best, EDUCATION.indexOf(e.level || 'none'));
-  return EDUCATION[Math.max(0, best)];
-}
-
-/** সিভি দেখানোর রূপ। contact: ফোন/ইমেইল দেখানো যাবে কি না */
-function cvView(uid, p, u, { contact = false, email = '' } = {}) {
-  const x = p || {};
-  return {
-    uid,
-    name: (u && u.get('name')) || '',
-    photo: (u && u.get('photo')) || '',
-    district: (u && u.get('placeName')) || '',
-    headline: x.headline || '',
-    about: x.about || '',
-    experience: x.experience || [],
-    education: x.education || [],
-    skills: x.skills || [],
-    languages: x.languages || [],
-    certs: x.certs || [],
-    openToWork: x.openToWork === true,
-    wantCategories: x.wantCategories || [],
-    contactVisibility: x.contactVisibility || 'employers',
-    public: x.public === true,
-    complete: cvComplete(x),
-    completeness: cvCompleteness(x, u),
-    experienceYears: experienceYears(x.experience),
-    eduLevel: eduLevel(x.education),
-    updatedAt: x.updatedAt || 0,
-    ...(contact ? { phone: K.fixPhone(u && u.get('phone')), email } : {}),
-  };
-}
-
-async function emailOf(uid) {
-  return admin.auth().getUser(uid).then((a) => (a.email || '').toLowerCase()).catch(() => '');
 }
 
 // ---------- চাকরি ----------
@@ -456,19 +343,6 @@ function parseAnswers(req, job, raw) {
 }
 
 const actions = {
-  // ================= সিভি =================
-  async cv_get(req, user) {
-    const [p, u] = await Promise.all([store.profile(user.uid).get(), store.user(user.uid).get()]);
-    return { cv: cvView(user.uid, p.exists ? p.data() : null, u, { contact: true, email: (user.email || '').toLowerCase() }) };
-  },
-
-  async cv_save(req, user) {
-    const data = parseProfile(req, req.body || {});
-    await store.profile(user.uid).set(data, { merge: false });
-    const u = await store.user(user.uid).get();
-    return { ok: true, cv: cvView(user.uid, data, u, { contact: true, email: (user.email || '').toLowerCase() }) };
-  },
-
   // ================= নিয়োগকর্তা =================
   async employer_get(req, user) {
     const s = await store.employer(user.uid).get();
@@ -841,7 +715,7 @@ const actions = {
         const org = job.exists ? job.get('orgName') : '';
         const list = (p.get('experience') || []).filter((e) => !(e.title === o.designation && e.org === org && e.current));
         t.update(pref, {
-          experience: [{ title: o.designation, org, from: ymOf(o.joiningDate), to: '', current: true, details: '' }, ...list].slice(0, 15),
+          experience: [{ title: o.designation, org, from: ymOf(o.joiningDate), to: '', current: true, details: '', verified: true, jobId }, ...list].slice(0, 15),
           updatedAt: now,
         });
       });
@@ -1250,7 +1124,6 @@ async function daily(now = Date.now()) {
 async function deleteForUser(uid) {
   // আগে ব্যক্তিগত তথ্য (সিভি, নিয়োগকর্তা, অ্যালার্ট) — বাকি অংশ আটকালেও এগুলো মুছে যায়
   const first = db.batch();
-  first.delete(store.profile(uid));
   first.delete(store.employer(uid));
   first.delete(store.alert(uid));
   await first.commit();
@@ -1267,16 +1140,6 @@ async function deleteForUser(uid) {
   }
 }
 
-/** শেয়ার লিংকের পাতার জন্য: সবার জন্য খোলা সিভি */
-async function publicCv(uid) {
-  if (!R.isValidId(uid)) return null;
-  const [p, u] = await Promise.all([store.profile(uid).get(), store.user(uid).get()]);
-  if (!p.exists || p.get('public') !== true) return null;
-  const all = p.get('contactVisibility') === 'all';
-  return cvView(uid, p.data(), u, { contact: all, email: all ? await emailOf(uid) : '' });
-}
-
 module.exports = {
-  actions, CATEGORIES, TYPES, EDUCATION, EMPLOYER_KINDS, parseProfile, parseJob, flagsFor, cvComplete, cvCompleteness, experienceYears,
-  daily, deleteForUser, publicCv, suspendByReport, countReport, DEFAULT_WORDS,
+  actions, CATEGORIES, TYPES, EDUCATION, EMPLOYER_KINDS, parseJob, flagsFor, daily, deleteForUser, suspendByReport, countReport, DEFAULT_WORDS,
 };

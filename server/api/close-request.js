@@ -46,7 +46,8 @@ module.exports = handler(async (req) => {
       markedIds.push(snap.id);
       const last = users[i].exists ? users[i].get('lastDonationMillis') : null;
       if (users[i].exists && (last == null || last < today)) {
-        t.update(userRefs[i], { lastDonationMillis: today });
+        // প্রোফাইলের "রক্তদান" অংশের হিসাব (Dorkar দিয়ে কতবার)
+        t.update(userRefs[i], { lastDonationMillis: today, donationCount: FieldValue.increment(1) });
       }
     });
     // নিশ্চিত/রক্ত দেওয়া আবার গোনা ("ডোনার পাওয়া গেছে" আর "বাকি ব্যাগ" ঠিক রাখতে)
