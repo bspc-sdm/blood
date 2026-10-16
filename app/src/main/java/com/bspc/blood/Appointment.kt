@@ -735,7 +735,8 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
             val rxTab = if (type == "doctor") 2 else -1
             when (tab) {
                 0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
-                1 -> PatientsList()
+                // ডাক্তার: সব রোগী এক জায়গায়, নামের পাশে প্রেসক্রিপশন লেখা; অন্যদের আগের মতো
+                1 -> if (type == "doctor") DoctorPatientsTab() else PatientsList()
                 rxTab -> RxDoctorTab()
                 else -> ChamberEditScreen(type, profile, onBack, embedded = true)
             }

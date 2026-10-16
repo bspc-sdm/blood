@@ -200,6 +200,10 @@ test('ডেমো অ্যাকাউন্টে প্রেসক্রি
   const rep2 = await call(P, 'lab_order_get', { id: lo2.id });
   assert.deepStrictEqual(rep2.history['hba1c.hba1c'].map((h) => [h.result, h.flag]), [['8.6', 'high']]);
   ok('পরের প্রেসক্রিপশনে আবার HbA1c — নতুন রিপোর্টে আগের ফল পাশে: "আগে: 8.6↑"');
+  const hist = await call(D, 'rx_patient_history', { rxPatientId: pat.id });
+  assert.deepStrictEqual(hist.items.map((r) => r.id).sort(), [rx.id, rx2.id].sort());
+  await fails(P, 'rx_patient_history', { rxPatientId: pat.id }, 403);
+  ok('ডাক্তার রোগীর নাম চাপলে তাঁকে দেওয়া আগের ২টা প্রেসক্রিপশন দেখলেন; রোগী নিজে এই তালিকা চাইতে পারেন না');
 
   // ---------- ৮. পরিবারের সদস্য ----------
   await call(P, 'family_set', { family: [{ name: 'আব্দুল করিম', relation: 'স্বামী', age: 60, gender: 'male', phone: '01811000002' }] });

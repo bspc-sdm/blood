@@ -40,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -161,6 +162,9 @@ data class Rx(
 
 data class RxPatient(val id: String, val name: String, val age: Int?, val gender: String, val phone: String, val linked: Boolean)
 data class RxAppt(val id: String, val name: String, val date: Long, val serial: Int?, val chamber: String)
+/** অ্যাপে আগে আসা রোগী (শেষ অ্যাপয়েন্টমেন্ট ধরে) */
+data class RxAppPatient(val appointmentId: String, val name: String, val count: Int, val last: Long)
+data class RxPatientsData(val patients: List<RxPatient>, val appts: List<RxAppt>, val appPatients: List<RxAppPatient>)
 data class RxDoctor(val uid: String, val name: String, val degrees: String)
 
 object RxText {
@@ -230,11 +234,20 @@ object RxApi {
     private fun patient(o: JSONObject) = RxPatient(o.str("id"), o.str("name"), if (o.isNull("age") || !o.has("age")) null else o.optInt("age"), o.str("gender"), o.str("phone"), o.optBoolean("linked"))
 
     /** (এন্ট্রি করা রোগী, আজকের আশেপাশের অ্যাপয়েন্টমেন্ট) */
-    suspend fun patients(doctorUid: String? = null): Pair<List<RxPatient>, List<RxAppt>> {
+    suspend fun patients(doctorUid: String? = null): RxPatientsData {
         val o = call("rx_patients", JSONObject().apply { if (doctorUid != null) put("doctorUid", doctorUid) })
-        return o.optJSONArray("patients").objs().map(::patient) to
-            o.optJSONArray("appointments").objs().map { RxAppt(it.str("id"), it.str("name"), it.optLong("date"), it.optInt("serial").takeIf { s -> s > 0 }, it.str("chamber")) }
+        return RxPatientsData(
+            o.optJSONArray("patients").objs().map(::patient),
+            o.optJSONArray("appointments").objs().map { RxAppt(it.str("id"), it.str("name"), it.optLong("date"), it.optInt("serial").takeIf { s -> s > 0 }, it.str("chamber")) },
+            o.optJSONArray("appPatients").objs().map { RxAppPatient(it.str("appointmentId"), it.str("name"), it.optInt("count"), it.optLong("last")) },
+        )
     }
+
+    /** ডাক্তার: এই রোগীকে আগে দেওয়া প্রেসক্রিপশন */
+    suspend fun patientHistory(t: RxTarget): List<Rx> = call(
+        "rx_patient_history",
+        JSONObject().apply { if (t.rxPatientId != null) put("rxPatientId", t.rxPatientId) else put("appointmentId", t.appointmentId) },
+    ).optJSONArray("items").objs().map { Rx.parse(it) }
 
     suspend fun addPatient(doctorUid: String?, name: String, age: Int?, gender: String, phone: String): RxPatient {
         val b = JSONObject().put("name", name).put("age", age ?: JSONObject.NULL).put("gender", gender).put("phone", phone)
@@ -549,7 +562,7 @@ private fun RxClaimDialog(profile: Profile, onDismiss: () -> Unit, onAdded: (Int
 data class RxTarget(val appointmentId: String? = null, val rxPatientId: String? = null, val name: String, val age: Int? = null, val gender: String = "")
 
 @Composable
-private fun PatientRow(title: String, subtitle: String, tag: String?, onClick: (() -> Unit)?) {
+private fun PatientRow(title: String, subtitle: String, tag: String?, onClick: (() -> Unit)?, onWrite: (() -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val content: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -558,18 +571,28 @@ private fun PatientRow(title: String, subtitle: String, tag: String?, onClick: (
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                if (tag != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Tag(tag, cs.secondaryContainer, cs.onSecondaryContainer)
+                }
             }
-            if (tag != null) Tag(tag, cs.secondaryContainer, cs.onSecondaryContainer)
-            if (onClick != null) AppIcon(R.drawable.ic_chevron_right, null, Modifier.size(20.dp), cs.onSurfaceVariant)
+            // ডাক্তার: নামের পাশেই প্রেসক্রিপশন লেখা
+            if (onWrite != null) {
+                Spacer(Modifier.width(8.dp))
+                SmallAction(tr("Write", "লিখুন"), R.drawable.ic_edit_note, onWrite, primary = true)
+            } else if (onClick != null) AppIcon(R.drawable.ic_chevron_right, null, Modifier.size(20.dp), cs.onSurfaceVariant)
         }
     }
     if (onClick != null) Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) { content() } else Card(Modifier.fillMaxWidth()) { content() }
 }
 
-/** ডাক্তার/সহকারীর রোগীর তালিকা: আজকের অ্যাপয়েন্টমেন্ট, এন্ট্রি করা রোগী, খোঁজা, নতুন যোগ */
+/**
+ * ডাক্তার/সহকারীর রোগীর তালিকা: আজ-কালকের অ্যাপয়েন্টমেন্ট, অ্যাপে আগে আসা রোগী, এন্ট্রি করা রোগী, খোঁজা, নতুন যোগ।
+ * onWrite থাকলে (ডাক্তার) প্রতিটা নামের পাশে "লিখুন"; onOpen = নাম চাপলে (আগের প্রেসক্রিপশন)।
+ */
 @Composable
-fun RxPatientsPane(doctorUid: String?, onPick: ((RxTarget) -> Unit)?, header: @Composable () -> Unit = {}) {
-    var data by remember { mutableStateOf<Pair<List<RxPatient>, List<RxAppt>>?>(null) }
+fun RxPatientsPane(doctorUid: String?, onWrite: ((RxTarget) -> Unit)?, onOpen: ((RxTarget) -> Unit)? = null, header: @Composable () -> Unit = {}) {
+    var data by remember { mutableStateOf<RxPatientsData?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var q by remember { mutableStateOf("") }
@@ -577,11 +600,14 @@ fun RxPatientsPane(doctorUid: String?, onPick: ((RxTarget) -> Unit)?, header: @C
     LaunchedEffect(reload, doctorUid) {
         runCatching { RxApi.patients(doctorUid) }.onSuccess { data = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
+    val click: (RxTarget) -> (() -> Unit)? = { t -> (onOpen ?: onWrite)?.let { f -> { f(t) } } }
+    val write: (RxTarget) -> (() -> Unit)? = { t -> onWrite?.let { f -> { f(t) } } }
+    fun hit(vararg s: String) = q.isBlank() || s.any { it.contains(q.trim(), ignoreCase = true) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { header() }
         item {
             Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                ButtonContent(false, tr("New patient", "নতুন রোগী"), R.drawable.ic_add)
+                ButtonContent(false, if (onWrite != null) tr("New patient + prescription", "নতুন রোগী + প্রেসক্রিপশন") else tr("New patient", "নতুন রোগী"), R.drawable.ic_add)
             }
             ErrorText(errorMsg)
         }
@@ -589,17 +615,6 @@ fun RxPatientsPane(doctorUid: String?, onPick: ((RxTarget) -> Unit)?, header: @C
         if (d == null) {
             if (errorMsg == null) item { LoadingBox() }
         } else {
-            if (d.second.isNotEmpty()) {
-                item { SectionTitle(tr("Appointments in the app", "অ্যাপের অ্যাপয়েন্টমেন্ট")) }
-                items(d.second, key = { "a" + it.id }) { a ->
-                    PatientRow(
-                        a.name.ifBlank { "-" },
-                        listOf(Rules.formatDate(a.date), a.chamber).filter { it.isNotBlank() }.joinToString(" · "),
-                        a.serial?.let { tr("Serial $it", "সিরিয়াল ${num(it)}") },
-                        onPick?.let { p -> { p(RxTarget(appointmentId = a.id, name = a.name)) } },
-                    )
-                }
-            }
             item {
                 OutlinedTextField(
                     q, { q = it.take(40) },
@@ -609,15 +624,42 @@ fun RxPatientsPane(doctorUid: String?, onPick: ((RxTarget) -> Unit)?, header: @C
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            val shown = d.first.filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) || it.phone.contains(q.trim()) }
+            val appts = d.appts.filter { hit(it.name) }
+            if (appts.isNotEmpty()) {
+                item { SectionTitle(tr("Appointments (today & tomorrow)", "অ্যাপের অ্যাপয়েন্টমেন্ট (আজ–কাল)")) }
+                items(appts, key = { "a" + it.id }) { a ->
+                    val t = RxTarget(appointmentId = a.id, name = a.name)
+                    PatientRow(
+                        a.name.ifBlank { "-" },
+                        listOf(Rules.formatDate(a.date), a.chamber).filter { it.isNotBlank() }.joinToString(" · "),
+                        a.serial?.let { tr("Serial $it", "সিরিয়াল ${num(it)}") },
+                        click(t), write(t),
+                    )
+                }
+            }
+            val shown = d.patients.filter { hit(it.name, it.phone) }
+            item { SectionTitle(tr("Entered patients", "এন্ট্রি করা রোগী")) }
             if (shown.isEmpty()) item { SmallNote(tr("No patients entered yet", "এখনো কোনো রোগী এন্ট্রি করা হয়নি")) }
             items(shown, key = { "p" + it.id }) { p ->
+                val t = RxTarget(rxPatientId = p.id, name = p.name, age = p.age, gender = p.gender)
                 PatientRow(
                     p.name,
                     listOfNotNull(p.age?.let { tr("$it yrs", "${num(it)} বছর") }, RxText.gender(p.gender).ifBlank { null }, num(p.phone)).joinToString(" · "),
                     if (p.linked) tr("In app", "অ্যাপে আছেন") else null,
-                    onPick?.let { pick -> { pick(RxTarget(rxPatientId = p.id, name = p.name, age = p.age, gender = p.gender)) } },
+                    click(t), write(t),
                 )
+            }
+            val past = d.appPatients.filter { hit(it.name) }
+            if (past.isNotEmpty()) {
+                item { SectionTitle(tr("Came through the app before", "অ্যাপে আগে এসেছেন")) }
+                items(past, key = { "h" + it.appointmentId }) { a ->
+                    val t = RxTarget(appointmentId = a.appointmentId, name = a.name)
+                    PatientRow(
+                        a.name.ifBlank { tr("Deleted account", "মুছে ফেলা অ্যাকাউন্ট") },
+                        tr("${a.count} visit(s) · last ", "${num(a.count)} বার · শেষ ") + Rules.formatDate(a.last),
+                        null, click(t), write(t),
+                    )
+                }
             }
         }
     }
@@ -625,7 +667,60 @@ fun RxPatientsPane(doctorUid: String?, onPick: ((RxTarget) -> Unit)?, header: @C
         RxPatientAddDialog(doctorUid, onDismiss = { adding = false }) { p ->
             adding = false
             reload++
-            onPick?.invoke(RxTarget(rxPatientId = p.id, name = p.name, age = p.age, gender = p.gender))
+            onWrite?.invoke(RxTarget(rxPatientId = p.id, name = p.name, age = p.age, gender = p.gender))
+        }
+    }
+}
+
+/**
+ * ডাক্তার: "আমার চেম্বার → রোগী" — সব রোগী এক জায়গায়; নামের পাশে "লিখুন", নাম চাপলে আগের প্রেসক্রিপশন।
+ */
+@Composable
+fun DoctorPatientsTab() {
+    var chambers by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) { chambers = runCatching { Appointments.mine()?.chambers?.map { it.label } }.getOrNull().orEmpty() }
+    var writingFor by remember { mutableStateOf<RxTarget?>(null) }
+    var history by remember { mutableStateOf<RxTarget?>(null) }
+    var open by remember { mutableStateOf<Rx?>(null) }
+    var reload by remember { mutableIntStateOf(0) }
+    key(reload) { RxPatientsPane(null, onWrite = { writingFor = it }, onOpen = { history = it }) }
+    history?.let { t -> PatientHistoryDialog(t, onDismiss = { history = null }, onWrite = { writingFor = t }, onOpen = { open = it }) }
+    writingFor?.let { t ->
+        RxEditorDialog(t, chambers, onDismiss = { writingFor = null }) { rx ->
+            writingFor = null
+            history = null
+            reload++
+            open = rx
+        }
+    }
+    open?.let { rx -> RxDetailDialog(rx, asDoctor = true, onDismiss = { open = null }) }
+}
+
+/** একজন রোগীকে এই ডাক্তারের আগের প্রেসক্রিপশন, আর নতুন লেখা */
+@Composable
+private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: () -> Unit, onOpen: (Rx) -> Unit) {
+    var list by remember { mutableStateOf<List<Rx>?>(null) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(t) { runCatching { RxApi.patientHistory(t) }.onSuccess { list = it }.onFailure { errorMsg = it.message; list = emptyList() } }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Scaffold(topBar = { BackTopBar(t.name.ifBlank { tr("Patient", "রোগী") }, onDismiss) }) { padding ->
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Button(onClick = onWrite, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
+                        ButtonContent(false, tr("Write a prescription", "প্রেসক্রিপশন লিখুন"), R.drawable.ic_edit_note)
+                    }
+                    ErrorText(errorMsg)
+                }
+                val l = list
+                when {
+                    l == null -> item { LoadingBox() }
+                    l.isEmpty() -> item { EmptyState(R.drawable.ic_medication, tr("No prescription for this patient yet", "এই রোগীকে এখনো প্রেসক্রিপশন দেননি"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
+                    else -> {
+                        item { SectionTitle(tr("Earlier prescriptions", "আগের প্রেসক্রিপশন")) }
+                        items(l, key = { it.id }) { rx -> RxListCard(rx, asDoctor = true) { onOpen(rx) } }
+                    }
+                }
+            }
         }
     }
 }
@@ -727,7 +822,7 @@ fun RxDoctorTab() {
         Dialog(onDismissRequest = { picking = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Scaffold(topBar = { BackTopBar(tr("Choose patient", "রোগী বাছুন"), { picking = false }) }) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
-                    RxPatientsPane(null, onPick = { t -> picking = false; writingFor = t })
+                    RxPatientsPane(null, onWrite = { t -> picking = false; writingFor = t })
                 }
             }
         }
@@ -1084,7 +1179,7 @@ fun RxAssistScreen(onBack: () -> Unit) {
                     val doc = d[tab.coerceIn(0, d.lastIndex)]
                     PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো"))), { sub = it }, secondary = true)
                     if (sub == 1) RxReviewsPane(doc.uid, asDoctor = false)
-                    else RxPatientsPane(doc.uid, onPick = null) {
+                    else RxPatientsPane(doc.uid, onWrite = null) {
                         if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }

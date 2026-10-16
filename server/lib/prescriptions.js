@@ -241,7 +241,41 @@ const actions = {
       .filter((d) => ['pending', 'confirmed', 'completed'].includes(d.get('status')) && d.get('date') >= today - 2 * DAY_MS && d.get('date') <= today + DAY_MS)
       .map((d) => ({ id: d.id, name: d.get('patientName') || '', date: d.get('date'), serial: d.get('serial') || null, status: d.get('status'), chamber: d.get('chamberBn') || d.get('chamber') || '' }))
       .sort((a, b) => a.date - b.date || (a.serial || 999) - (b.serial || 999));
-    return { role, patients, appointments };
+    // অ্যাপে আগে আসা রোগী (নিশ্চিত/সম্পন্ন অ্যাপয়েন্টমেন্ট) — রোগী ধরে এক সারি, শেষ অ্যাপয়েন্টমেন্ট দিয়ে লেখা যায়
+    const groups = new Map();
+    for (const d of appts.docs) {
+      if (!['confirmed', 'completed'].includes(d.get('status')) || !d.get('patientUid')) continue;
+      const k = `${d.get('patientUid')}|${d.get('memberId') || ''}`;
+      const g = groups.get(k) || { appointmentId: d.id, name: d.get('patientName') || '', count: 0, last: 0 };
+      g.count++;
+      if ((d.get('date') || 0) >= g.last) Object.assign(g, { appointmentId: d.id, name: d.get('patientName') || g.name, last: d.get('date') || 0 });
+      groups.set(k, g);
+    }
+    const appPatients = [...groups.values()].sort((a, b) => b.last - a.last).slice(0, 300);
+    return { role, patients, appointments, appPatients };
+  },
+
+  /** ডাক্তার: একজন রোগীকে আগে দেওয়া প্রেসক্রিপশন (এন্ট্রি করা রোগী বা অ্যাপের অ্যাপয়েন্টমেন্ট ধরে) */
+  async rx_patient_history(req, user) {
+    await requireDoctor(req, user.uid);
+    const b = req.body || {};
+    const snap = await db.collection('prescriptions').where('doctorUid', '==', user.uid).limit(500).get();
+    let match;
+    if (R.isValidId(b.rxPatientId)) {
+      const p = await db.doc(`rxPatients/${b.rxPatientId}`).get();
+      if (!p.exists || p.get('doctorUid') !== user.uid) throw err(req, 'Patient not found', 'রোগী পাওয়া যায়নি', 404);
+      match = (d) => d.get('rxPatientId') === p.id;
+    } else if (R.isValidId(b.appointmentId)) {
+      const a = await db.doc(`appointments/${b.appointmentId}`).get();
+      if (!a.exists || a.get('providerUid') !== user.uid) throw err(req, 'Appointment not found', 'অ্যাপয়েন্টমেন্ট পাওয়া যায়নি', 404);
+      const uid = a.get('patientUid');
+      const name = String(a.get('patientName') || '').trim();
+      // পরিবারের সদস্যের নামে নেওয়া হলে একই অ্যাকাউন্টের অন্য সদস্যের প্রেসক্রিপশন আলাদা
+      match = (d) => d.get('appointmentId') === a.id || (uid && d.get('patientUid') === uid && String(d.get('patient.name') || '').trim() === name);
+    } else {
+      throw err(req, 'Choose the patient', 'রোগী বেছে নিন');
+    }
+    return { items: snap.docs.filter(match).map(rxView).sort((x, y) => y.createdAt - x.createdAt) };
   },
 
   async rx_patient_add(req, user) {

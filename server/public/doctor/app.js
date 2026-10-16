@@ -12,7 +12,7 @@
 
   const S = { me: null, role: null, roles: [], doctorUid: null, doctorName: '', chambers: [], view: 'write', target: null, open: null, rids: [] };
   const ROLE_LABEL = { doctor: 'ডাক্তার', assistant: 'সহকারী', pharmacy: 'ফার্মেসি', lab: 'প্যাথলজি' };
-  const FIRST_VIEW = { doctor: 'write', assistant: 'patients', pharmacy: 'dispense', lab: 'tests' };
+  const FIRST_VIEW = { doctor: 'patients', assistant: 'patients', pharmacy: 'dispense', lab: 'tests' };
 
   // ---------- ছোট সাহায্যকারী ----------
   function h(tag, props, ...kids) {
@@ -185,7 +185,7 @@
   // ---------- কাঠামো ----------
   function render() {
     const tabs = {
-      doctor: [['write', 'নতুন প্রেসক্রিপশন'], ['list', 'আমার প্রেসক্রিপশন'], ['reports', 'রিপোর্ট'], ['patients', 'রোগী'], ['team', 'সহকারী']],
+      doctor: [['patients', 'রোগী'], ['list', 'আমার প্রেসক্রিপশন'], ['reports', 'রিপোর্ট'], ['team', 'সহকারী']],
       assistant: [['patients', 'রোগী'], ['payments', 'টাকা মেলানো']],
       pharmacy: [['dispense', 'প্রেসক্রিপশনের ওষুধ'], ['shop', 'দোকানের কোড ও অনলাইন'], ['stock', 'স্টক ও চাহিদা']],
       lab: [['tests', 'পরীক্ষা ও রিপোর্ট']],
@@ -205,6 +205,7 @@
     root.replaceChildren(top, page);
     if (S.open) return paperView(page, S.open);
     if (S.view === 'write') return writeView(page);
+    if (S.view === 'history') return historyView(page, S.target);
     if (S.view === 'list') return listView(page);
     if (S.view === 'team') return teamView(page);
     if (S.view === 'reports') return reviewsView(page, true);
@@ -213,7 +214,31 @@
     if (S.view === 'stock') return stockView(page);
     if (S.view === 'shop') return shopView(page);
     if (S.view === 'tests') return testsView(page);
+    // ডাক্তার: নামের পাশে "লিখুন", নাম চাপলে আগের প্রেসক্রিপশন
+    if (S.role === 'doctor') {
+      return patientsView(page, (t) => { S.target = t; S.view = 'history'; render(); }, (t) => { S.target = t; S.view = 'write'; render(); });
+    }
     return patientsView(page, null);
+  }
+
+  /** ডাক্তার: একজন রোগীকে আগে দেওয়া প্রেসক্রিপশন, আর নতুন লেখা */
+  async function historyView(page, t) {
+    const write = h('button', { class: 'btn primary', type: 'button', text: 'প্রেসক্রিপশন লিখুন', onclick: () => { S.view = 'write'; render(); } });
+    page.append(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← রোগীর তালিকা', onclick: () => { S.target = null; S.view = 'patients'; render(); } }),
+      h('h2', { style: 'margin:0', text: t.name || 'রোগী' }), write));
+    const box = h('div', null, h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    page.append(box);
+    try {
+      const r = await act('rx_patient_history', t.rxPatientId ? { rxPatientId: t.rxPatientId } : { appointmentId: t.appointmentId });
+      const rows = r.items.map((rx) => h('tr', { class: 'click', onclick: () => { S.open = rx; render(); } },
+        h('td', { 'data-label': 'তারিখ', text: fmtDate(rx.createdAt) }),
+        h('td', { class: 'main-cell', 'data-label': 'রোগনির্ণয়', text: rx.diagnosis || '—' }),
+        h('td', { 'data-label': 'ওষুধ', text: rx.medicines.map((m) => m.name).slice(0, 4).join(', ') }),
+        h('td', { 'data-label': 'অবস্থা' }, h('span', { class: `chip ${rx.status === 'cancelled' ? 'bad' : 'good'}`, text: rx.status === 'cancelled' ? 'বাতিল' : 'চালু' }))));
+      box.replaceChildren(rows.length
+        ? h('div', { class: 'card table-wrap' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['তারিখ', 'রোগনির্ণয়', 'ওষুধ', 'অবস্থা'].map((x) => h('th', { text: x })))), h('tbody', null, rows)))
+        : h('div', { class: 'card empty', text: 'এই রোগীকে এখনো প্রেসক্রিপশন দেননি' }));
+    } catch (e) { box.replaceChildren(h('p', { class: 'error', text: e.message })); }
   }
 
   async function logout() {
@@ -222,7 +247,8 @@
   }
 
   // ---------- রোগীর তালিকা (বাছাই/এন্ট্রি) ----------
-  async function patientsView(page, onPick) {
+  /** onPick: নাম চাপলে; onWrite থাকলে (ডাক্তার) নামের পাশে "লিখুন" বোতাম */
+  async function patientsView(page, onPick, onWrite) {
     const wrap = h('div', { class: 'grid' });
     page.append(wrap);
     wrap.append(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
@@ -235,18 +261,31 @@
     }
     let q = '';
     const list = h('div', { class: 'plist' });
+    const row = (ic, t, title, sub) => {
+      const main = h('button', { class: 'pitem', type: 'button', style: onWrite ? 'flex:1' : null, onclick: onPick ? () => onPick(t) : null },
+        icon(ic), h('div', null, h('b', { text: title }), h('small', { text: sub })));
+      if (!onWrite) return main;
+      return h('div', { style: 'display:flex;gap:8px;align-items:center' }, main,
+        h('button', { class: 'btn primary', type: 'button', style: 'white-space:nowrap', text: 'প্রেসক্রিপশন লিখুন', onclick: () => onWrite(t) }));
+    };
+    const hit = (...xs) => !q || xs.some((x) => String(x || '').toLowerCase().includes(q));
     function drawList() {
       const items = [];
-      if (data.appointments.length) {
-        items.push(h('div', { class: 'block-title', text: 'অ্যাপের অ্যাপয়েন্টমেন্ট' }));
-        data.appointments.forEach((a) => items.push(h('button', { class: 'pitem', type: 'button', onclick: onPick ? () => onPick({ appointmentId: a.id, name: a.name }) : null },
-          icon('event'), h('div', null, h('b', { text: a.name || '—' }), h('small', { text: [fmtDay(a.date), a.serial ? `সিরিয়াল ${bn(a.serial)}` : '', a.chamber].filter(Boolean).join(' · ') })))));
+      const appts = data.appointments.filter((a) => hit(a.name));
+      if (appts.length) {
+        items.push(h('div', { class: 'block-title', text: 'অ্যাপের অ্যাপয়েন্টমেন্ট (আজ–কাল)' }));
+        appts.forEach((a) => items.push(row('event', { appointmentId: a.id, name: a.name }, a.name || '—', [fmtDay(a.date), a.serial ? `সিরিয়াল ${bn(a.serial)}` : '', a.chamber].filter(Boolean).join(' · '))));
       }
       items.push(h('div', { class: 'block-title', text: 'এন্ট্রি করা রোগী' }));
-      const shown = data.patients.filter((p) => !q || p.name.toLowerCase().includes(q) || p.phone.includes(q));
+      const shown = data.patients.filter((p) => hit(p.name, p.phone));
       if (!shown.length) items.push(h('p', { class: 'note', text: 'কেউ নেই' }));
-      shown.forEach((p) => items.push(h('button', { class: 'pitem', type: 'button', onclick: onPick ? () => onPick({ rxPatientId: p.id, name: p.name, age: p.age, gender: p.gender }) : null },
-        icon('person'), h('div', null, h('b', { text: p.name }), h('small', { text: [p.age != null ? `${bn(p.age)} বছর` : '', GENDER[p.gender] || '', bn(p.phone), p.linked ? 'অ্যাপে আছেন' : ''].filter(Boolean).join(' · ') })))));
+      shown.forEach((p) => items.push(row('person', { rxPatientId: p.id, name: p.name, age: p.age, gender: p.gender }, p.name,
+        [p.age != null ? `${bn(p.age)} বছর` : '', GENDER[p.gender] || '', bn(p.phone), p.linked ? 'অ্যাপে আছেন' : ''].filter(Boolean).join(' · '))));
+      const past = (data.appPatients || []).filter((a) => hit(a.name));
+      if (past.length) {
+        items.push(h('div', { class: 'block-title', text: 'অ্যাপে আগে এসেছেন' }));
+        past.forEach((a) => items.push(row('event', { appointmentId: a.appointmentId, name: a.name }, a.name || '—', `${bn(a.count)} বার · শেষ ${fmtDay(a.last)}`)));
+      }
       list.replaceChildren(...items);
     }
     const search = h('div', { class: 'search' }, icon('search'), h('input', { placeholder: 'নাম বা ফোন দিয়ে খুঁজুন', oninput: (e) => { q = e.target.value.trim().toLowerCase(); drawList(); } }));
@@ -263,18 +302,19 @@
         f.reset();
         data.patients = [r.patient, ...data.patients.filter((p) => p.id !== r.patient.id)];
         drawList();
-        if (onPick) onPick({ rxPatientId: r.patient.id, name: r.patient.name, age: r.patient.age, gender: r.patient.gender });
+        const t = { rxPatientId: r.patient.id, name: r.patient.name, age: r.patient.age, gender: r.patient.gender };
+        if (onWrite) onWrite(t); else if (onPick) onPick(t);
       } catch (err) { toast(err.message); }
       btn.disabled = false;
     } },
-    h('b', { text: 'নতুন রোগী' }),
+    h('b', { text: onWrite ? 'নতুন রোগী + প্রেসক্রিপশন' : 'নতুন রোগী' }),
     h('div', { class: 'form-grid' },
       h('label', { class: 'f' }, h('span', { text: 'নাম' }), h('input', { name: 'pname', required: true, maxlength: 80 })),
       h('label', { class: 'f' }, h('span', { text: 'বয়স' }), h('input', { name: 'age', inputmode: 'numeric', maxlength: 3 })),
       h('label', { class: 'f' }, h('span', { text: 'লিঙ্গ' }), h('select', { name: 'gender' }, h('option', { value: '', text: '—' }), h('option', { value: 'male', text: 'পুরুষ' }), h('option', { value: 'female', text: 'মহিলা' }))),
       h('label', { class: 'f' }, h('span', { text: 'মোবাইল' }), h('input', { name: 'phone', required: true, inputmode: 'tel', maxlength: 20 }))),
     h('p', { class: 'note', text: 'রোগী এই নম্বর আর প্রেসক্রিপশনের কোড দিয়ে নিজের অ্যাপে প্রেসক্রিপশন যোগ করবেন।' }),
-    h('div', null, h('button', { class: 'btn primary', type: 'submit', text: onPick ? 'যোগ করে লিখুন' : 'যোগ করুন' })));
+    h('div', null, h('button', { class: 'btn primary', type: 'submit', text: onWrite || onPick ? 'যোগ করে লিখুন' : 'যোগ করুন' })));
     wrap.replaceChildren(add, search, list);
     drawList();
   }
@@ -378,6 +418,7 @@
         const r = await act('rx_create', body);
         const got = await act('rx_get', { id: r.id });
         S.target = null;
+        S.view = 'patients';
         S.open = got.item;
         toast('প্রেসক্রিপশন দেওয়া হয়েছে');
         render();
