@@ -1052,6 +1052,56 @@ async function suspendByReport(id, reason) {
   }));
 }
 
+/** হোমের "চলমান": প্রার্থীর চলমান আবেদন, নিয়োগকর্তার নতুন আবেদন */
+async function ongoing(req, uid, now = Date.now()) {
+  const [mine, incoming] = await Promise.all([
+    store.applicationsOf(uid),
+    db.collection('applications').where('employerUid', '==', uid).where('status', '==', 'applied').limit(300).get(),
+  ]);
+  const active = mine.docs.filter((d) => ['applied', 'seen', 'shortlisted', 'interview', 'offered'].includes(d.get('status')));
+  const jobIds = [...new Set([...active.map((d) => d.get('jobId')), ...incoming.docs.map((d) => d.get('jobId'))])];
+  const jobs = await store.getAll(jobIds.map((id) => store.job(id)));
+  const jm = new Map(jobs.filter((j) => j.exists).map((j) => [j.id, j]));
+  const items = [];
+  for (const d of active) {
+    const j = jm.get(d.get('jobId'));
+    if (!j || ['suspended', 'rejected'].includes(j.get('status'))) continue;
+    const st = d.get('status');
+    const iv = d.get('interview');
+    const o = d.get('offer');
+    // প্রস্তাব ফিরিয়ে দেওয়া/মেয়াদ শেষ হলে আর চলমান নয়
+    if (st === 'offered' && o && o.response !== 'pending') continue;
+    if (st === 'interview' && iv && iv.at < now - 6 * 3600000) continue;
+    const line = {
+      applied: C.tr(req, 'Applied', 'আবেদন করা হয়েছে'),
+      seen: C.tr(req, 'Seen by the employer', 'নিয়োগকর্তা দেখেছেন'),
+      shortlisted: C.tr(req, 'Shortlisted', 'শর্টলিস্টে আছেন'),
+      interview: iv && iv.response === 'pending' ? C.tr(req, 'Interview invitation — reply', 'ইন্টারভিউর আমন্ত্রণ — উত্তর দিন') : C.tr(req, 'Interview', 'ইন্টারভিউ'),
+      offered: C.tr(req, 'Job offer — reply', 'চাকরির প্রস্তাব — উত্তর দিন'),
+    }[st];
+    items.push({
+      key: `job_${d.id}`, service: 'job', title: `${j.get('title')} · ${j.get('orgName') || ''}`, line, note: '',
+      ...(st === 'interview' && iv ? { date: iv.at, dateTime: true } : {}),
+      ...(st === 'offered' && o ? { date: o.expiresAt } : {}),
+      action: (st === 'interview' && iv && iv.response === 'pending') || st === 'offered',
+      at: d.get('updatedAt') || d.get('createdAt') || 0,
+      open: { type: 'job', jobId: d.get('jobId') },
+    });
+  }
+  const byJob = new Map();
+  incoming.docs.forEach((d) => byJob.set(d.get('jobId'), [...(byJob.get(d.get('jobId')) || []), d]));
+  for (const [jobId, list] of byJob) {
+    const j = jm.get(jobId);
+    if (!j) continue;
+    items.push({
+      key: `jobnew_${jobId}`, service: 'job', title: j.get('title'),
+      line: C.tr(req, `${list.length} new application(s)`, `${list.length}টা নতুন আবেদন`), note: '', action: true,
+      at: Math.max(...list.map((d) => d.get('createdAt') || 0)), open: { type: 'job_applicants', jobId },
+    });
+  }
+  return items;
+}
+
 /** কেউ বিজ্ঞাপন রিপোর্ট করলে নিয়োগকর্তার হিসাবে (প্যানেলে ইতিহাস) */
 async function countReport(jobDoc) {
   const uid = jobDoc && jobDoc.get('employerUid');
@@ -1141,5 +1191,5 @@ async function deleteForUser(uid) {
 }
 
 module.exports = {
-  actions, CATEGORIES, TYPES, EDUCATION, EMPLOYER_KINDS, parseJob, flagsFor, daily, deleteForUser, suspendByReport, countReport, DEFAULT_WORDS,
+  actions, CATEGORIES, TYPES, EDUCATION, EMPLOYER_KINDS, parseJob, flagsFor, daily, deleteForUser, ongoing, suspendByReport, countReport, DEFAULT_WORDS,
 };
