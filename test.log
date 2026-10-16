@@ -1,0 +1,192 @@
+=== ScreensTest.accountGapFixesBangla
+ScreensTest > accountGapFixesBangla STARTED
+ScreensTest > accountGapFixesBangla PASSED
+=== ScreensTest.addHospitalDialog
+ScreensTest > addHospitalDialog STARTED
+ScreensTest > addHospitalDialog PASSED
+=== ScreensTest.adminHospitalRequests
+ScreensTest > adminHospitalRequests STARTED
+ScreensTest > adminHospitalRequests PASSED
+=== ScreensTest.adminScreenBangla
+ScreensTest > adminScreenBangla STARTED
+ScreensTest > adminScreenBangla STANDARD_ERROR
+ScreensTest > adminScreenBangla PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 4' finished with non-zero exit value 1
+BUILD FAILED in 10s
+=== ScreensTest.ambulanceFilterBarBangla
+ScreensTest > ambulanceFilterBarBangla STARTED
+ScreensTest > ambulanceFilterBarBangla PASSED
+=== ScreensTest.ambulanceMine
+ScreensTest > ambulanceMine STARTED
+ScreensTest > ambulanceMine STANDARD_ERROR
+ScreensTest > ambulanceMine PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 6' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.appointmentTab
+ScreensTest > appointmentTab STARTED
+ScreensTest > appointmentTab PASSED
+=== ScreensTest.appointmentTabBangla
+ScreensTest > appointmentTabBangla STARTED
+ScreensTest > appointmentTabBangla PASSED
+=== ScreensTest.areaPickerBangla
+ScreensTest > areaPickerBangla STARTED
+ScreensTest > areaPickerBangla PASSED
+=== ScreensTest.bloodBankCardsBangla
+ScreensTest > bloodBankCardsBangla STARTED
+ScreensTest > bloodBankCardsBangla PASSED
+=== ScreensTest.careModeAttachesOnlyAllowedActions
+ScreensTest > careModeAttachesOnlyAllowedActions STARTED
+ScreensTest > careModeAttachesOnlyAllowedActions PASSED
+=== ScreensTest.chamberEditScreenDoctorHome
+ScreensTest > chamberEditScreenDoctorHome STARTED
+ScreensTest > chamberEditScreenDoctorHome PASSED
+=== ScreensTest.chamberEditScreenNurse
+ScreensTest > chamberEditScreenNurse STARTED
+ScreensTest > chamberEditScreenNurse PASSED
+=== ScreensTest.chamberEditor
+ScreensTest > chamberEditor STARTED
+ScreensTest > chamberEditor PASSED
+=== ScreensTest.chamberHubBangla
+ScreensTest > chamberHubBangla STARTED
+ScreensTest > chamberHubBangla PASSED
+=== ScreensTest.closeDialogNotNeededBangla
+ScreensTest > closeDialogNotNeededBangla STARTED
+ScreensTest > closeDialogNotNeededBangla STANDARD_ERROR
+ScreensTest > closeDialogNotNeededBangla PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 16' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.closeRequestDialogBangla
+ScreensTest > closeRequestDialogBangla STARTED
+ScreensTest > closeRequestDialogBangla PASSED
+=== ScreensTest.doctorListFilterBarBangla
+ScreensTest > doctorListFilterBarBangla STARTED
+ScreensTest > doctorListFilterBarBangla PASSED
+=== ScreensTest.donationDateDialogBangla
+ScreensTest > donationDateDialogBangla STARTED
+ScreensTest > donationDateDialogBangla PASSED
+=== ScreensTest.emergencyCardsBangla
+ScreensTest > emergencyCardsBangla STARTED
+ScreensTest > emergencyCardsBangla PASSED
+=== ScreensTest.englishFontServices
+ScreensTest > englishFontServices STARTED
+ScreensTest > englishFontServices PASSED
+=== ScreensTest.englishTitleCaseScreens
+ScreensTest > englishTitleCaseScreens STARTED
+ScreensTest > englishTitleCaseScreens STANDARD_ERROR
+ScreensTest > englishTitleCaseScreens SKIPPED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 22' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.formDialogWithFieldAndChips
+ScreensTest > formDialogWithFieldAndChips STARTED
+ScreensTest > formDialogWithFieldAndChips PASSED
+=== ScreensTest.gapFixesBangla
+ScreensTest > gapFixesBangla STARTED
+ScreensTest > gapFixesBangla PASSED
+=== ScreensTest.healthTab
+ScreensTest > healthTab STARTED
+ScreensTest > healthTab PASSED
+=== ScreensTest.helpScreen
+ScreensTest > helpScreen STARTED
+ScreensTest > helpScreen PASSED
+=== ScreensTest.homeCareTab
+ScreensTest > homeCareTab STARTED
+ScreensTest > homeCareTab PASSED
+=== ScreensTest.homeProCards
+ScreensTest > homeProCards STARTED
+ScreensTest > homeProCards PASSED
+=== ScreensTest.homeProCardsBangla
+ScreensTest > homeProCardsBangla STARTED
+ScreensTest > homeProCardsBangla STANDARD_ERROR
+ScreensTest > homeProCardsBangla PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 29' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.homeProDetailSheetBangla
+ScreensTest > homeProDetailSheetBangla STARTED
+ScreensTest > homeProDetailSheetBangla PASSED
+=== ScreensTest.hospitalPicker
+ScreensTest > hospitalPicker STARTED
+ScreensTest > hospitalPicker PASSED
+=== ScreensTest.labReportBangla
+ScreensTest > labReportBangla STARTED
+ScreensTest > labReportBangla PASSED
+=== ScreensTest.logo
+ScreensTest > logo STARTED
+ScreensTest > logo STANDARD_ERROR
+ScreensTest > logo PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 33' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.medAlarmSlots
+ScreensTest > medAlarmSlots STARTED
+ScreensTest > medAlarmSlots PASSED
+=== ScreensTest.medicineFinder
+ScreensTest > medicineFinder STARTED
+ScreensTest > medicineFinder PASSED
+=== ScreensTest.myRequestCardBangla
+ScreensTest > myRequestCardBangla STARTED
+ScreensTest > myRequestCardBangla PASSED
+=== ScreensTest.navBarAndAreaPickerBangla
+ScreensTest > navBarAndAreaPickerBangla STARTED
+ScreensTest > navBarAndAreaPickerBangla PASSED
+=== ScreensTest.pharmacyDirectory
+ScreensTest > pharmacyDirectory STARTED
+ScreensTest > pharmacyDirectory PASSED
+=== ScreensTest.phoneVerifyDialog
+ScreensTest > phoneVerifyDialog STARTED
+ScreensTest > phoneVerifyDialog STANDARD_ERROR
+ScreensTest > phoneVerifyDialog PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 39' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.pillTabsAutoScroll
+ScreensTest > pillTabsAutoScroll STARTED
+ScreensTest > pillTabsAutoScroll STANDARD_ERROR
+ScreensTest > pillTabsAutoScroll PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 40' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.providerCardAndDetail
+ScreensTest > providerCardAndDetail STARTED
+ScreensTest > providerCardAndDetail STANDARD_ERROR
+ScreensTest > providerCardAndDetail PASSED
+> Task :app:testDebugUnitTest FAILED
+> Process 'Gradle Test Executor 41' finished with non-zero exit value 1
+BUILD FAILED in 9s
+=== ScreensTest.providerDetailDialog
+ScreensTest > providerDetailDialog STARTED
+ScreensTest > providerDetailDialog PASSED
+=== ScreensTest.requestCardsBangla
+ScreensTest > requestCardsBangla STARTED
+ScreensTest > requestCardsBangla PASSED
+=== ScreensTest.requestGapFixesBangla
+ScreensTest > requestGapFixesBangla STARTED
+ScreensTest > requestGapFixesBangla PASSED
+=== ScreensTest.rxPaperBangla
+ScreensTest > rxPaperBangla STARTED
+ScreensTest > rxPaperBangla PASSED
+=== ScreensTest.servicesBloodBankBangla
+ScreensTest > servicesBloodBankBangla STARTED
+ScreensTest > servicesBloodBankBangla PASSED
+=== ScreensTest.servicesTab
+ScreensTest > servicesTab STARTED
+ScreensTest > servicesTab PASSED
+=== ScreensTest.shopQrCode
+ScreensTest > shopQrCode STARTED
+ScreensTest > shopQrCode PASSED
+=== ScreensTest.titleCaseRules
+ScreensTest > titleCaseRules STARTED
+ScreensTest > titleCaseRules PASSED
+=== ScreensTest.topBarMenuAvatar
+ScreensTest > topBarMenuAvatar STARTED
+ScreensTest > topBarMenuAvatar PASSED
+=== ScreensTest.upazilaPickerWithThanas
+ScreensTest > upazilaPickerWithThanas STARTED
+ScreensTest > upazilaPickerWithThanas PASSED
+=== ScreensTest.verifyDocsBangla
+ScreensTest > verifyDocsBangla STARTED
+ScreensTest > verifyDocsBangla PASSED
