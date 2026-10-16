@@ -197,6 +197,8 @@ module.exports = {
         ...revs.docs.map((d) => d.ref.delete()),
         db.doc(`labs/${uid}`).delete(),
         db.doc(`pharmacyStock/${uid}`).delete(),
+        db.doc(`pharmacyMissed/${uid}`).delete(),
+        require('./careaccess').deleteFor(uid),
       ]);
     } catch (e) {
       console.error('rx cleanup failed', e);

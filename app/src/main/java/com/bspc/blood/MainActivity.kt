@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review") },
+                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") },
                             onTargetOpened = { openType.value = null },
                         )
                     }
@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") }?.let { openType.value = it }
     }
 }
 
@@ -136,6 +136,8 @@ sealed interface Screen {
     data object PostTip : Screen
     data object MyAppointments : Screen
     data object MyPrescriptions : Screen
+    data object Care : Screen
+    data class CareFor(val uid: String, val name: String) : Screen
     data object RxAssist : Screen
     data object RxReviews : Screen
     data object ChamberEdit : Screen
@@ -249,6 +251,8 @@ fun App(
             // প্রেসক্রিপশন (নতুন, আবার দেখানোর দিন, ওষুধের অ্যালার্ম)
             type == "rx" -> push(Screen.MyPrescriptions)
             type == "rx_review" -> push(Screen.RxReviews)
+            // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর খবর / নতুন আমন্ত্রণ
+            type == "care" -> push(Screen.Care)
             // ফার্মেসি/প্যাথলজির মালিক: নিজের পাতা
             type == "rx_pharmacy" || type == "rx_lab" -> {
                 ServicesNav.target.value = if (type == "rx_lab") "lab_mine" else "pharmacy_mine"
@@ -330,7 +334,7 @@ fun App(
     val rxOpen = RxNav.open.value
     LaunchedEffect(rxOpen) {
         if (rxOpen != null) {
-            push(if (rxOpen == "assist") Screen.RxAssist else Screen.MyPrescriptions)
+            push(if (rxOpen == "assist") Screen.RxAssist else if (rxOpen == "care") Screen.Care else Screen.MyPrescriptions)
             RxNav.open.value = null
         }
     }
@@ -614,6 +618,8 @@ fun App(
 
             Screen.MyAppointments -> MyAppointmentsScreen(onBack = { back() })
             Screen.MyPrescriptions -> profile?.let { pr -> MyPrescriptionsScreen(pr, onBack = { back() }) }
+            Screen.Care -> CareScreen(onBack = { back() }, onOpenFor = { uid, name -> push(Screen.CareFor(uid, name)) })
+            is Screen.CareFor -> profile?.let { pr -> CareModeScreen(current.uid, current.name, pr, onBack = { back() }) }
             Screen.RxAssist -> RxAssistScreen(onBack = { back() })
             Screen.RxReviews -> RxReviewsScreen(onBack = { back() })
 

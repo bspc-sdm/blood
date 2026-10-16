@@ -75,12 +75,30 @@ data class MedStat(val i: Int, val name: String, val form: String, val dose: Str
 }
 
 data class Dispensing(val name: String, val at: Long, val items: List<Pair<Int, Int>>)
-data class RxOrder(val id: String, val pharmacyName: String, val status: String, val reason: String, val createdAt: Long)
-data class LabResult(val test: String, val result: String, val unit: String, val range: String, val flag: String)
+data class RxOrder(
+    val id: String, val pharmacyName: String, val status: String, val reason: String, val createdAt: Long,
+    val mode: String = "shop", val price: String = "", val eta: String = "", val deliveryFee: String = "", val missed: List<String> = emptyList(),
+) {
+    val open: Boolean get() = status in setOf("sent", "ready", "accepted", "out")
+}
+data class LabResult(
+    val test: String, val result: String, val unit: String, val range: String, val flag: String,
+    val group: String = "", val code: String = "", val key: String = "", val low: Double? = null, val high: Double? = null, val long: Boolean = false,
+)
+data class LabHist(val result: String, val flag: String, val at: Long)
+/** পরীক্ষার ছক: ঘর, একক, স্বাভাবিক মাত্রা (ল্যাবের নিজের থাকলে সেটা), লেখা-ফলের বাছাই */
+data class LabParam(val key: String, val name: String, val unit: String, val low: Double?, val high: Double?, val range: String, val text: String, val options: List<String>, val long: Boolean)
+data class LabForm(val test: String, val code: String?, val name: String, val params: List<LabParam>)
+data class Missed(val k: String, val name: String, val count: Int, val lastAt: Long)
+data class OnlineSettings(val enabled: Boolean, val radiusKm: Int, val fee: String, val note: String)
+data class PharmacyHome(val shopCode: String, val online: OnlineSettings, val hasLocation: Boolean, val missed: List<Missed>)
+data class ShopInfo(val id: String, val name: String, val address: String, val phone: String, val online: Boolean, val deliveryFee: String)
 data class LabReport(val items: List<LabResult>, val note: String, val reportedAt: Long, val photoCount: Int, val photos: List<String>)
 data class LabOrder(
     val id: String, val rxId: String, val code: String, val labName: String, val patientName: String, val patientAge: Int?,
     val patientGender: String, val doctorName: String, val tests: List<String>, val status: String, val createdAt: Long, val report: LabReport?,
+    /** একই রোগীর আগের ফল: "code.key" → নতুন আগে */
+    val history: Map<String, List<LabHist>> = emptyMap(),
 )
 data class RxReview(
     val id: String, val rxId: String, val labOrderId: String, val doctorUid: String, val doctorName: String, val patientName: String,
@@ -88,9 +106,16 @@ data class RxReview(
     val payMethods: List<String>, val method: String, val trxId: String, val rejectNote: String, val comment: String, val updatedAt: Long,
 )
 data class RxActivity(val meds: List<MedStat>, val dispensed: List<Dispensing>, val orders: List<RxOrder>, val labOrders: List<LabOrder>, val reviews: List<RxReview>, val nextOpen: Long?)
-data class PharmOption(val id: String, val name: String, val phone: String, val address: String, val km: Double?, val openNow: Boolean, val keepsStock: Boolean, val have: Int, val total: Int, val missing: List<String>)
+data class PharmOption(
+    val id: String, val name: String, val phone: String, val address: String, val km: Double?, val openNow: Boolean, val keepsStock: Boolean,
+    val have: Int, val total: Int, val missing: List<String>, val online: Boolean = false, val deliveryFee: String = "", val onlineNote: String = "",
+)
 data class PharmRx(val id: String, val code: String, val status: String, val createdAt: Long, val doctorName: String, val regNo: String, val patientName: String, val patientAge: Int?, val meds: List<MedStat>, val dispensed: List<Dispensing>)
-data class PharmOrder(val id: String, val code: String, val patientName: String, val note: String, val status: String, val createdAt: Long)
+data class PharmOrder(
+    val id: String, val code: String, val patientName: String, val note: String, val status: String, val createdAt: Long,
+    val mode: String = "shop", val price: String = "", val eta: String = "", val deliveryFee: String = "", val address: String = "", val phone: String = "",
+    val missed: List<String> = emptyList(),
+)
 data class Lab(
     val id: String, val name: String, val phone: String, val address: String, val district: String, val upazilaId: Int?, val facilityId: String?,
     val homeCollection: Boolean, val hours: String, val licenseNo: String = "", val status: String = "", val statusReason: String = "",
@@ -102,6 +127,7 @@ object RxNet {
     private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject = ServerApi.post("/api/community", body.put("action", action))
     private fun JSONArray?.objs(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
     private fun JSONObject.intN(k: String): Int? = if (isNull(k) || !has(k)) null else optInt(k)
+    private fun JSONObject.dblN(k: String): Double? = if (isNull(k) || !has(k)) null else optDouble(k).takeIf { !it.isNaN() }
 
     private fun med(o: JSONObject) = MedStat(o.optInt("i"), o.str("name"), o.str("form"), o.str("dose"), o.optInt("days"), o.intN("need"), o.optInt("got"), o.intN("left"), o.optBoolean("done"))
     private fun disp(o: JSONObject) = Dispensing(o.str("name"), o.optLong("at"), o.optJSONArray("items").objs().map { it.optInt("i") to it.optInt("qty") })
@@ -110,7 +136,10 @@ object RxNet {
         o.str("doctorName"), o.optJSONArray("tests").strings(), o.str("status"), o.optLong("createdAt"),
         o.optJSONObject("report")?.let { r ->
             LabReport(
-                r.optJSONArray("items").objs().map { LabResult(it.str("test"), it.str("result"), it.str("unit"), it.str("range"), it.str("flag")) },
+                r.optJSONArray("items").objs().map {
+                    LabResult(it.str("test"), it.str("result"), it.str("unit"), it.str("range"), it.str("flag"), it.str("group"), it.str("code"), it.str("key"),
+                        it.dblN("low"), it.dblN("high"), it.optBoolean("long"))
+                },
                 r.str("note"), r.optLong("reportedAt"), r.optInt("photoCount"), r.optJSONArray("photos").strings(),
             )
         },
@@ -130,24 +159,39 @@ object RxNet {
         val o = call("rx_activity", JSONObject().put("rxId", rxId))
         return RxActivity(
             o.optJSONArray("medicines").objs().map(::med), o.optJSONArray("dispensed").objs().map(::disp),
-            o.optJSONArray("orders").objs().map { RxOrder(it.str("id"), it.str("pharmacyName"), it.str("status"), it.str("reason"), it.optLong("createdAt")) },
+            o.optJSONArray("orders").objs().map {
+                RxOrder(it.str("id"), it.str("pharmacyName"), it.str("status"), it.str("reason"), it.optLong("createdAt"),
+                    it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.optJSONArray("missed").strings())
+            },
             o.optJSONArray("labOrders").objs().map(::labOrder), o.optJSONArray("reviews").objs().map(::review),
             if (o.isNull("nextOpen") || !o.has("nextOpen")) null else o.optLong("nextOpen"),
         )
     }
 
-    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?): List<PharmOption> =
-        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).apply { if (lat != null && lng != null) put("lat", lat).put("lng", lng) })
+    /** mode "shop": দোকানে দাঁড়িয়ে (কাছেরটা আগে); "online": অনলাইনে বিক্রি করা দোকান */
+    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?, mode: String): List<PharmOption> =
+        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).put("mode", mode).apply { if (lat != null && lng != null) put("lat", lat).put("lng", lng) })
             .optJSONArray("items").objs().map {
                 PharmOption(it.str("id"), it.str("name"), it.str("phone"), it.str("address"), if (it.isNull("km")) null else it.optDouble("km"),
-                    it.optBoolean("openNow"), it.optBoolean("keepsStock"), it.optInt("have"), it.optInt("total"), it.optJSONArray("missing").strings())
+                    it.optBoolean("openNow"), it.optBoolean("keepsStock"), it.optInt("have"), it.optInt("total"), it.optJSONArray("missing").strings(),
+                    it.optBoolean("online"), it.str("deliveryFee"), it.str("onlineNote"))
             }
 
-    suspend fun sendPharmacy(rxId: String, pharmacyId: String) = call("rx_send_pharmacy", JSONObject().put("rxId", rxId).put("pharmacyId", pharmacyId))
+    suspend fun sendPharmacy(rxId: String, pharmacyId: String, mode: String = "shop", address: String = "", phone: String = "", note: String = "") =
+        call("rx_send_pharmacy", JSONObject().put("rxId", rxId).put("pharmacyId", pharmacyId).put("mode", mode).put("address", address).put("phone", phone).put("note", note))
+    suspend fun withdraw(orderId: String, notAvailable: Boolean) = call("rx_order_withdraw", JSONObject().put("id", orderId).put("reason", if (notAvailable) "not_available" else "other"))
+    suspend fun shopFind(code: String): ShopInfo = call("rx_shop_find", JSONObject().put("code", code)).getJSONObject("item").let {
+        ShopInfo(it.str("id"), it.str("name"), it.str("address"), it.str("phone"), it.optBoolean("online"), it.str("deliveryFee"))
+    }
     suspend fun labs(district: String, facilityId: String? = null): List<Lab> =
         call("labs", JSONObject().put("district", district).apply { if (facilityId != null) put("facilityId", facilityId) }).optJSONArray("items").objs().map(::lab)
     suspend fun sendLab(rxId: String, labId: String, tests: List<String>) = call("rx_send_lab", JSONObject().put("rxId", rxId).put("labId", labId).put("tests", JSONArray(tests)))
-    suspend fun labOrder(id: String): LabOrder = labOrder(call("lab_order_get", JSONObject().put("id", id)).getJSONObject("item"))
+    suspend fun labOrder(id: String): LabOrder {
+        val o = call("lab_order_get", JSONObject().put("id", id))
+        val h = o.optJSONObject("history")
+        val hist = h?.keys()?.asSequence()?.associateWith { k -> h.optJSONArray(k).objs().map { LabHist(it.str("result"), it.str("flag"), it.optLong("at")) } }.orEmpty()
+        return labOrder(o.getJSONObject("item")).copy(history = hist)
+    }
     suspend fun pay(id: String, method: String, trxId: String) = call("review_pay", JSONObject().put("id", id).put("method", method).put("trxId", trxId))
 
     // ফার্মেসি
@@ -158,10 +202,31 @@ object RxNet {
             o.optJSONArray("medicines").objs().map(::med), o.optJSONArray("dispensed").objs().map(::disp))
     }
     suspend fun pharmacyOpen(code: String): PharmRx = pharmRx(call("rx_pharmacy_open", JSONObject().put("code", code)).getJSONObject("item"))
-    suspend fun dispense(code: String, items: Map<Int, Int>): PharmRx =
-        pharmRx(call("rx_dispense", JSONObject().put("code", code).put("items", JSONArray(items.filterValues { it > 0 }.map { (i, q) -> JSONObject().put("i", i).put("qty", q) }))).getJSONObject("item"))
-    suspend fun pharmacyOrders(): List<PharmOrder> = call("rx_orders_pharmacy").optJSONArray("items").objs().map { PharmOrder(it.str("id"), it.str("code"), it.str("patientName"), it.str("note"), it.str("status"), it.optLong("createdAt")) }
-    suspend fun orderUpdate(id: String, status: String, reason: String = "") = call("rx_order_update", JSONObject().put("id", id).put("status", status).put("reason", reason))
+    /** missing: যে ওষুধ নেই (প্রেসক্রিপশনের ক্রম) — রোগী জানেন, দোকানের "দিতে পারেননি" তালিকায় জমা */
+    suspend fun dispense(code: String, items: Map<Int, Int>, missing: Set<Int> = emptySet()): PharmRx =
+        pharmRx(
+            call(
+                "rx_dispense",
+                JSONObject().put("code", code).put("missing", JSONArray(missing.toList()))
+                    .put("items", JSONArray(items.filter { it.value > 0 && it.key !in missing }.map { (i, q) -> JSONObject().put("i", i).put("qty", q) })),
+            ).getJSONObject("item"),
+        )
+    suspend fun pharmacyOrders(): List<PharmOrder> = call("rx_orders_pharmacy").optJSONArray("items").objs().map {
+        PharmOrder(it.str("id"), it.str("code"), it.str("patientName"), it.str("note"), it.str("status"), it.optLong("createdAt"),
+            it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.str("address"), it.str("phone"), it.optJSONArray("missed").strings())
+    }
+    suspend fun orderUpdate(id: String, status: String, reason: String = "", price: String = "", eta: String = "") =
+        call("rx_order_update", JSONObject().put("id", id).put("status", status).put("reason", reason).put("price", price).put("eta", eta))
+    suspend fun pharmacyHome(): PharmacyHome {
+        val o = call("rx_pharmacy_home")
+        val on = o.optJSONObject("online") ?: JSONObject()
+        return PharmacyHome(
+            o.str("shopCode"), OnlineSettings(on.optBoolean("enabled"), on.optInt("radiusKm", 3), on.str("fee"), on.str("note")), o.optBoolean("hasLocation"),
+            o.optJSONArray("missed").objs().map { Missed(it.str("k"), it.str("name"), it.optInt("count"), it.optLong("lastAt")) },
+        )
+    }
+    suspend fun onlineSet(s: OnlineSettings) = call("rx_pharmacy_online_set", JSONObject().put("enabled", s.enabled).put("radiusKm", s.radiusKm).put("fee", s.fee).put("note", s.note))
+    suspend fun missedClear(k: String) = call("rx_missed_clear", JSONObject().put("k", k))
     suspend fun stock(): List<String> = call("stock_get").optJSONArray("items").strings()
     suspend fun stockSet(add: List<String>, remove: List<String>): List<String> = call("stock_set", JSONObject().put("add", JSONArray(add)).put("remove", JSONArray(remove))).optJSONArray("items").strings()
 
@@ -177,7 +242,27 @@ object RxNet {
     suspend fun labReport(id: String, items: List<LabResult>, note: String, photos: List<String>) = call(
         "lab_report",
         JSONObject().put("id", id).put("note", note).put("photos", JSONArray(photos))
-            .put("items", JSONArray(items.map { JSONObject().put("test", it.test).put("result", it.result).put("unit", it.unit).put("range", it.range).put("flag", it.flag) })),
+            .put(
+                "items",
+                JSONArray(items.map {
+                    JSONObject().put("test", it.test).put("result", it.result).put("unit", it.unit).put("range", it.range).put("flag", it.flag).apply {
+                        if (it.code.isNotBlank()) put("group", it.group).put("code", it.code).put("key", it.key)
+                        if (it.low != null) put("low", it.low)
+                        if (it.high != null) put("high", it.high)
+                        if (it.long) put("long", true)
+                    }
+                }),
+            ),
+    )
+    suspend fun labForm(id: String): List<LabForm> = call("lab_form", JSONObject().put("id", id)).optJSONArray("forms").objs().map { f ->
+        LabForm(f.str("test"), f.str("code").ifBlank { null }, f.str("name"), f.optJSONArray("params").objs().map {
+            LabParam(it.str("key"), it.str("name"), it.str("unit"), it.dblN("low"), it.dblN("high"), it.str("range"), it.str("text"), it.optJSONArray("options").strings(), it.optBoolean("long"))
+        })
+    }
+    /** ল্যাবের নিজের মেশিনের মাত্রা (code, key, low, high) */
+    suspend fun labRanges(list: List<LabResult>) = call(
+        "lab_ranges_set",
+        JSONObject().put("ranges", JSONArray(list.map { JSONObject().put("code", it.code).put("key", it.key).put("low", it.low ?: JSONObject.NULL).put("high", it.high ?: JSONObject.NULL) })),
     )
 
     // ডাক্তার/সহকারী
@@ -204,8 +289,11 @@ object RxNetText {
     fun orderStatus(s: String): String = when (s) {
         "sent" -> tr("Sent — waiting", "পাঠানো হয়েছে — অপেক্ষায়")
         "ready" -> tr("Ready to collect", "তৈরি — নিয়ে আসুন")
+        "accepted" -> tr("Order accepted", "অর্ডার নিয়েছে")
+        "out" -> tr("On the way", "পথে আছে")
         "done" -> tr("Given", "দেওয়া হয়েছে")
         "cancelled" -> tr("Can't provide", "দিতে পারবে না")
+        "withdrawn" -> tr("Taken back", "ফিরিয়ে নিয়েছেন")
         else -> s
     }
 
@@ -228,7 +316,29 @@ object RxNetText {
     fun flag(f: String): String = when (f) {
         "high" -> tr("High", "বেশি")
         "low" -> tr("Low", "কম")
+        "abnormal" -> tr("Abnormal", "অস্বাভাবিক")
         else -> ""
+    }
+
+    /** সংখ্যার ফল মাত্রার সাথে মিলিয়ে বেশি/কম */
+    fun autoFlag(result: String, low: Double?, high: Double?): String? {
+        if (low == null && high == null) return null
+        val v = result.replace(",", "").trim().toDoubleOrNull() ?: return null
+        return when {
+            high != null && v > high -> "high"
+            low != null && v < low -> "low"
+            else -> ""
+        }
+    }
+
+    fun range(low: Double?, high: Double?): String {
+        fun f(d: Double) = if (d == Math.floor(d)) d.toLong().toString() else d.toString()
+        return when {
+            low != null && high != null -> "${f(low)} – ${f(high)}"
+            high != null -> "< ${f(high)}"
+            low != null -> "> ${f(low)}"
+            else -> ""
+        }
     }
 }
 
@@ -243,7 +353,8 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
-    var pickPharmacy by remember { mutableStateOf(false) }
+    var pickPharmacy by remember { mutableStateOf<String?>(null) }
+    var withdrawing by remember { mutableStateOf<RxOrder?>(null) }
     var pickLab by remember { mutableStateOf(false) }
     var report by remember { mutableStateOf<String?>(null) }
     var paying by remember { mutableStateOf<RxReview?>(null) }
@@ -270,13 +381,33 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
                 }
                 a.dispensed.forEach { d -> SmallNote(d.name + " · " + Rules.formatDate(d.at)) }
                 a.orders.forEach { o ->
-                    IconLine(R.drawable.ic_storefront, o.pharmacyName + " — " + RxNetText.orderStatus(o.status) + if (o.reason.isNotBlank()) " (${o.reason})" else "")
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconLine(
+                            if (o.mode == "online") R.drawable.ic_local_shipping else R.drawable.ic_storefront,
+                            o.pharmacyName + " — " + RxNetText.orderStatus(o.status) + if (o.reason.isNotBlank()) " (${o.reason})" else "",
+                        )
+                        val extra = listOf(o.price, o.eta, o.deliveryFee.takeIf { it.isNotBlank() }?.let { tr("Delivery: $it", "ডেলিভারি: $it") }.orEmpty()).filter { it.isNotBlank() }
+                        if (o.open && extra.isNotEmpty()) SmallNote(extra.joinToString(" · "))
+                        if (o.missed.isNotEmpty()) SmallNote(tr("Didn't have: ", "ছিল না: ") + o.missed.joinToString(", "))
+                        // দোকান সব দিতে না পারলে ফিরিয়ে নিয়ে অন্য দোকানে
+                        if (o.status in setOf("sent", "ready", "accepted")) SmallAction(tr("Take back", "ফিরিয়ে নিন"), R.drawable.ic_close, { withdrawing = o })
+                    }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
-                    OutlinedButton(onClick = { pickPharmacy = true }, modifier = Modifier.fillMaxWidth()) {
-                        ButtonContent(false, tr("Send to a pharmacy", "ফার্মেসিতে পাঠান"), R.drawable.ic_storefront)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { pickPharmacy = "shop" }, modifier = Modifier.weight(1f)) {
+                            ButtonContent(false, tr("I'm at a pharmacy", "দোকানে আছি"), R.drawable.ic_storefront)
+                        }
+                        OutlinedButton(onClick = { pickPharmacy = "online" }, modifier = Modifier.weight(1f)) {
+                            ButtonContent(false, tr("Order online", "অনলাইনে অর্ডার"), R.drawable.ic_local_shipping)
+                        }
                     }
-                    SmallNote(tr("Or show the QR at any pharmacy. They note what they give; the rest can come from another pharmacy.", "অথবা যেকোনো ফার্মেসিতে QR দেখান। যতটা দেবে লিখে রাখবে; বাকিটা অন্য ফার্মেসি থেকে নিতে পারবেন।"))
+                    SmallNote(
+                        tr(
+                            "At the shop: send the prescription to it in the app, or show the QR. They note what they give; get the rest from another shop.",
+                            "দোকানে গিয়ে: অ্যাপে সেই দোকানে পাঠান, অথবা QR দেখান। যতটা দেবে লিখে রাখবে; বাকিটা অন্য দোকান থেকে নিন।",
+                        ),
+                    )
                 }
             }
         }
@@ -320,10 +451,19 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
         }
     }
 
-    if (pickPharmacy) PharmacyPickDialog(rx, profile, onDismiss = { pickPharmacy = false }) { name ->
-        pickPharmacy = false
-        infoMsg = tr("Sent to $name", "$name-এ পাঠানো হয়েছে")
-        reload++
+    pickPharmacy?.let { mode ->
+        PharmacyPickDialog(rx, profile, mode, onDismiss = { pickPharmacy = null }) { name ->
+            pickPharmacy = null
+            infoMsg = if (mode == "online") tr("Order sent to $name. Pay when the medicines arrive.", "$name-এ অর্ডার গেছে। ওষুধ পৌঁছালে দাম দেবেন।") else tr("Sent to $name", "$name-এ পাঠানো হয়েছে")
+            reload++
+        }
+    }
+    withdrawing?.let { o ->
+        WithdrawDialog(o, onDismiss = { withdrawing = null }) {
+            withdrawing = null
+            infoMsg = tr("Taken back. You can send it to another pharmacy.", "ফিরিয়ে নেওয়া হয়েছে। অন্য ফার্মেসিতে পাঠাতে পারেন।")
+            reload++
+        }
     }
     if (pickLab) LabPickDialog(rx, profile, onDismiss = { pickLab = false }) { name ->
         pickLab = false
@@ -371,53 +511,111 @@ private fun ReportReviewBox(rx: Rx, r: RxReview?, nextOpen: Long?, busy: Boolean
     }
 }
 
-/** কাছের ফার্মেসি: কোনটায় প্রেসক্রিপশনের কয়টা ওষুধ আছে (যাঁরা স্টক রাখেন), পাঠানো বা ফোন */
+/**
+ * ফার্মেসি বাছাই। mode "shop" — দোকানে দাঁড়িয়ে: এখনকার লোকেশনে সবচেয়ে কাছের দোকান ওপরে, অথবা দোকানের কোড;
+ * "online" — শুধু যাঁরা অনলাইনে বিক্রি করেন (ডেলিভারির দূরত্বে), যেখানে বেশি ওষুধ আছে আগে; ঠিকানা দিয়ে অর্ডার।
+ */
 @Composable
-private fun PharmacyPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSent: (String) -> Unit) {
+private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss: () -> Unit, onSent: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var district by remember { mutableStateOf(profile.placeName) }
+    var here by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var located by remember { mutableStateOf(mode != "shop" || !LocationHelper.hasPermission(context)) }
     var list by remember { mutableStateOf<List<PharmOption>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
-    LaunchedEffect(district) {
+    var shopCode by remember { mutableStateOf("") }
+    var ordering by remember { mutableStateOf<PharmOption?>(null) }
+    // দোকানে দাঁড়িয়ে: এখনকার লোকেশন (অনুমতি থাকলে) — বাড়ির লোকেশন নয়
+    LaunchedEffect(Unit) {
+        if (!located) {
+            runCatching { LocationHelper.current(context) }.getOrNull()?.let { (la, ln) ->
+                here = la to ln
+                runCatching { Districts.at(context, la, ln).bn }.getOrNull()?.let { district = it }
+            }
+            located = true
+        }
+    }
+    LaunchedEffect(district, located) {
         val d = district ?: return@LaunchedEffect
+        if (!located) return@LaunchedEffect
         list = null
         val gps = profile.locationSource == "gps"
-        runCatching { RxNet.pharmacyOptions(rx.id, d, if (gps) profile.lat else null, if (gps) profile.lng else null) }
+        val (la, ln) = here ?: if (gps && profile.lat != null && profile.lng != null) profile.lat to profile.lng else (null to null)
+        runCatching { RxNet.pharmacyOptions(rx.id, d, la, ln, mode) }
             .onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message; list = emptyList() }
     }
+    fun send(id: String, name: String) {
+        if (busy == null) scope.launch {
+            busy = id
+            errorMsg = null
+            runCatching { RxNet.sendPharmacy(rx.id, id, "shop") }.onSuccess { onSent(name) }.onFailure { errorMsg = it.message }
+            busy = null
+        }
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(topBar = { BackTopBar(tr("Choose a pharmacy", "ফার্মেসি বাছুন"), onDismiss) }) { padding ->
+        Scaffold(topBar = { BackTopBar(if (mode == "online") tr("Order online", "অনলাইনে অর্ডার") else tr("Send to this shop", "এই দোকানে দিন"), onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
+                    if (mode == "shop") {
+                        Text(tr("Shop code (written at the counter)", "দোকানের কোড (কাউন্টারে লেখা থাকে)"), style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(shopCode, { shopCode = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Button(onClick = {
+                                scope.launch {
+                                    busy = "code"
+                                    errorMsg = null
+                                    runCatching { RxNet.shopFind(shopCode) }.onSuccess { sh ->
+                                        runCatching { RxNet.sendPharmacy(rx.id, sh.id, "shop") }.onSuccess { onSent(sh.name) }.onFailure { errorMsg = it.message }
+                                    }.onFailure { errorMsg = it.message }
+                                    busy = null
+                                }
+                            }, enabled = busy == null && shopCode.length == 6, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy == "code", tr("Send", "পাঠান")) }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(tr("Or pick the shop — nearest first", "অথবা দোকান বাছুন — কাছেরটা আগে"), style = MaterialTheme.typography.labelLarge)
+                    } else {
+                        SmallNote(
+                            tr(
+                                "Only pharmacies that deliver. You pay the shop when the medicines arrive — Lifolo doesn't take money.",
+                                "শুধু যাঁরা বাসায় পৌঁছে দেন। ওষুধ পৌঁছালে দোকানকে দাম দেবেন — Lifolo টাকা নেয় না।",
+                            ),
+                        )
+                    }
                     FilterBar(areaLabel = areaText(district, null), onAreaClick = { showArea = true })
                     ErrorText(errorMsg)
                 }
                 val l = list
                 when {
                     l == null -> item { LoadingBox() }
-                    l.isEmpty() -> item { EmptyState(R.drawable.ic_storefront, tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
+                    l.isEmpty() -> item {
+                        EmptyState(
+                            if (mode == "online") R.drawable.ic_local_shipping else R.drawable.ic_storefront,
+                            if (mode == "online") tr("No pharmacy here sells online yet", "এখানে এখনো কোনো ফার্মেসি অনলাইনে বিক্রি করে না") else tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
+                            if (mode == "online") tr("Go to a pharmacy and show the QR.", "ফার্মেসিতে গিয়ে QR দেখিয়ে কিনুন।") else tr("Show the QR at the counter instead.", "কাউন্টারে QR দেখিয়েও কিনতে পারেন।"),
+                            Modifier.fillMaxWidth().padding(top = 24.dp),
+                        )
+                    }
                     else -> items(l, key = { it.id }) { p ->
                         DirectoryCard(
                             title = p.name,
-                            icon = R.drawable.ic_storefront,
+                            icon = if (mode == "online") R.drawable.ic_local_shipping else R.drawable.ic_storefront,
                             status = if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
                             meta = p.km?.let { Rules.formatKm(it) },
-                            subtitle = if (p.keepsStock) tr("Has ${p.have} of ${p.total} medicines", "${num(p.total)}টার ${num(p.have)}টা ওষুধ আছে") else tr("Stock not listed — call to ask", "স্টকের তালিকা নেই — ফোনে জেনে নিন"),
+                            subtitle = if (p.keepsStock) tr("Has ${p.have} of ${p.total} medicines", "${num(p.total)}টার ${num(p.have)}টা ওষুধ আছে") else tr("Stock not listed", "স্টকের তালিকা নেই"),
                             details = listOf(
                                 R.drawable.ic_location_on to p.address,
+                                R.drawable.ic_local_shipping to if (mode == "online" && p.deliveryFee.isNotBlank()) tr("Delivery: ", "ডেলিভারি: ") + p.deliveryFee else "",
+                                R.drawable.ic_info to if (mode == "online") p.onlineNote else "",
                                 R.drawable.ic_info to if (p.keepsStock && p.missing.isNotEmpty()) tr("Missing: ", "নেই: ") + p.missing.joinToString(", ") else "",
                             ),
-                            primary = CardAction(if (busy == p.id) "…" else tr("Send prescription", "প্রেসক্রিপশন পাঠান"), R.drawable.ic_send) {
-                                if (busy == null) scope.launch {
-                                    busy = p.id
-                                    errorMsg = null
-                                    runCatching { RxNet.sendPharmacy(rx.id, p.id) }.onSuccess { onSent(p.name) }.onFailure { errorMsg = it.message }
-                                    busy = null
-                                }
-                            },
+                            primary = CardAction(
+                                if (busy == p.id) "…" else if (mode == "online") tr("Order", "অর্ডার করুন") else tr("Send here", "এই দোকানে দিন"),
+                                if (mode == "online") R.drawable.ic_local_shipping else R.drawable.ic_send,
+                            ) { if (mode == "online") ordering = p else send(p.id, p.name) },
                             secondary = CardAction(tr("Call", "ফোন"), R.drawable.ic_call) { callPhone(context, p.phone) },
                         )
                     }
@@ -426,6 +624,84 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, 
         }
     }
     if (showArea) AreaSheet(district, null, null, { d, _, _ -> district = d }, onDismiss = { showArea = false })
+    ordering?.let { p -> OnlineOrderDialog(rx, p, profile, onDismiss = { ordering = null }) { ordering = null; onSent(p.name) } }
+}
+
+/** অনলাইন অর্ডার: কোথায় পৌঁছাবে আর ফোন (দাম পৌঁছালে, দোকানকে সরাসরি) */
+@Composable
+private fun OnlineOrderDialog(rx: Rx, p: PharmOption, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var address by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf(profile.phone) }
+    var note by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = p.name,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (p.deliveryFee.isNotBlank()) IconLine(R.drawable.ic_local_shipping, tr("Delivery: ", "ডেলিভারি: ") + p.deliveryFee)
+                if (p.keepsStock && p.missing.isNotEmpty()) SmallNote(tr("May not have: ", "না-ও থাকতে পারে: ") + p.missing.joinToString(", "))
+                OutlinedTextField(address, { address = it.take(200) }, label = { Text(tr("Delivery address", "কোথায় পৌঁছাবে (ঠিকানা)")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    phone, { phone = it.take(20) },
+                    label = { Text(tr("Mobile number", "মোবাইল নম্বর")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(note, { note = it.take(200) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
+                SmallNote(tr("Pay the shop when it arrives (cash on delivery). The shop sees your address and number only for this order.", "ওষুধ পৌঁছালে দোকানকে দাম দেবেন (ক্যাশ অন ডেলিভারি)। ঠিকানা আর নম্বর দোকান শুধু এই অর্ডারের জন্য দেখবে।"))
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    busy = true
+                    errorMsg = null
+                    runCatching { RxNet.sendPharmacy(rx.id, p.id, "online", address.trim(), phone.trim(), note.trim()) }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }, enabled = !busy && address.isNotBlank() && phone.isNotBlank()) { ButtonContent(busy, tr("Place order", "অর্ডার দিন")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
+}
+
+/** রোগী: দোকান থেকে প্রেসক্রিপশন ফিরিয়ে নেওয়া — ওষুধ না থাকলে দোকানের "দিতে পারেননি" তালিকায় যায় */
+@Composable
+private fun WithdrawDialog(o: RxOrder, onDismiss: () -> Unit, onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var notAvailable by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = tr("Take back from ${o.pharmacyName}?", "${o.pharmacyName} থেকে ফিরিয়ে নেবেন?"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(tr("Why?", "কেন?"), style = MaterialTheme.typography.labelLarge)
+                ChipRows(listOf("na", "other"), setOf(if (notAvailable) "na" else "other"), perRow = 1, label = {
+                    if (it == "na") tr("They don't have the medicines", "ওদের কাছে ওষুধ নেই") else tr("Another reason", "অন্য কারণ")
+                }) { notAvailable = it == "na" }
+                SmallNote(tr("Medicines not bought yet stay on the prescription — send it to another shop.", "যে ওষুধ কেনা বাকি, তা প্রেসক্রিপশনে থাকবে — অন্য দোকানে পাঠান।"))
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    busy = true
+                    errorMsg = null
+                    runCatching { RxNet.withdraw(o.id, notAvailable) }.onSuccess { onDone() }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }, enabled = !busy) { ButtonContent(busy, tr("Take back", "ফিরিয়ে নিন")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
 }
 
 /** প্যাথলজি বাছাই: ডাক্তারের সুপারিশ করা সেন্টার (অ্যাপে থাকলে) আগে; কোন পরীক্ষা পাঠাবেন */
@@ -510,14 +786,30 @@ fun LabReportView(o: LabOrder) {
     Text(o.labName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text(listOfNotNull(o.patientName, o.patientAge?.let { tr("$it yrs", "${num(it)} বছর") }, o.report?.reportedAt?.let { Rules.formatDate(it) }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
     val r = o.report ?: return
-    if (r.items.isNotEmpty()) {
+    // পরীক্ষা ধরে ভাগ (CBC, লিপিড…); একই রোগীর আগের ফল পাশে
+    val groups = mutableListOf<Pair<String, MutableList<LabResult>>>()
+    r.items.forEach { it -> if (groups.lastOrNull()?.first != it.group) groups.add(it.group to mutableListOf(it)) else groups.last().second.add(it) }
+    groups.forEach { (name, rows) ->
         Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                r.items.forEach { it ->
+                if (name.isNotBlank()) Text(name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = cs.primary)
+                rows.forEach { it ->
+                    if (it.long) {
+                        Text(it.test, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text(it.result, style = MaterialTheme.typography.bodyMedium)
+                        return@forEach
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(it.test, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                             if (it.range.isNotBlank()) Text(tr("Normal: ", "স্বাভাবিক: ") + it.range, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                            val prev = if (it.code.isNotBlank()) o.history["${it.code}.${it.key}"].orEmpty() else emptyList()
+                            if (prev.isNotEmpty()) {
+                                Text(
+                                    tr("Before: ", "আগে: ") + prev.take(3).joinToString(", ") { h -> num(h.result) + (if (h.flag == "high") "↑" else if (h.flag == "low") "↓" else "") + " (" + Rules.formatDate(h.at) + ")" },
+                                    style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                                )
+                            }
                         }
                         Text(it.result + if (it.unit.isNotBlank()) " " + it.unit else "", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold,
                             color = if (it.flag.isNotBlank()) cs.error else cs.onSurface)
@@ -577,15 +869,24 @@ private fun PayDialog(r: RxReview, onDismiss: () -> Unit, onDone: () -> Unit) {
 
 @Composable
 fun PharmacyRxSection() {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var code by remember { mutableStateOf("") }
     var opened by remember { mutableStateOf<PharmRx?>(null) }
     var orders by remember { mutableStateOf<List<PharmOrder>>(emptyList()) }
+    var home by remember { mutableStateOf<PharmacyHome?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
     var stockOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(reload) { runCatching { RxNet.pharmacyOrders() }.onSuccess { orders = it } }
+    var onlineOpen by remember { mutableStateOf(false) }
+    var missedOpen by remember { mutableStateOf(false) }
+    var accepting by remember { mutableStateOf<PharmOrder?>(null) }
+    LaunchedEffect(reload) {
+        runCatching { RxNet.pharmacyOrders() }.onSuccess { orders = it }
+        runCatching { RxNet.pharmacyHome() }.onSuccess { home = it }
+    }
     fun open(c: String) {
         scope.launch {
             busy = true
@@ -594,33 +895,71 @@ fun PharmacyRxSection() {
             busy = false
         }
     }
+    fun update(o: PharmOrder, status: String, reason: String = "", price: String = "", eta: String = "") {
+        scope.launch {
+            errorMsg = null
+            runCatching { RxNet.orderUpdate(o.id, status, reason, price, eta) }.onSuccess { infoMsg = tr("The patient was told", "রোগীকে জানানো হয়েছে") }.onFailure { errorMsg = it.message }
+            reload++
+        }
+    }
     val cs = MaterialTheme.colorScheme
     Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(tr("Prescriptions", "প্রেসক্রিপশন"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            SmallNote(tr("Enter the code under the QR. Note how many you give — the rest can be given by another pharmacy.", "QR-এর নিচের কোড দিন। কয়টা দিলেন লিখে রাখুন — বাকিটা অন্য ফার্মেসি দিতে পারবে।"))
+            home?.let { h ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("Shop code", "দোকানের কোড"), style = MaterialTheme.typography.labelLarge)
+                        Text(h.shopCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
+                    }
+                    Tag(
+                        if (h.online.enabled) tr("Selling online", "অনলাইনে বিক্রি চালু") else tr("In-shop only", "শুধু দোকানে"),
+                        if (h.online.enabled) cs.tertiaryContainer else cs.surfaceVariant,
+                        if (h.online.enabled) cs.onTertiaryContainer else cs.onSurfaceVariant,
+                    )
+                }
+                SmallNote(tr("Write this at the counter. Customers enter it in the app to send you their prescription.", "কাউন্টারে লিখে রাখুন। ক্রেতা অ্যাপে এই কোড দিলে প্রেসক্রিপশন আপনার কাছে চলে আসবে।"))
+            }
+            SmallNote(tr("Or enter the code under the QR. Note how many you give — the rest can be given by another pharmacy.", "অথবা QR-এর নিচের কোড দিন। কয়টা দিলেন লিখে রাখুন — বাকিটা অন্য ফার্মেসি দিতে পারবে।"))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Prescription code", "প্রেসক্রিপশনের কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = { open(code) }, enabled = !busy && code.length == 10, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy, tr("Open", "খুলুন")) }
             }
             ErrorText(errorMsg)
-            val pending = orders.filter { it.status in listOf("sent", "ready") }
+            InfoText(infoMsg)
+            val pending = orders.filter { it.status in listOf("sent", "ready", "accepted", "out") }
             if (pending.isNotEmpty()) {
                 Text(tr("Sent to you", "আপনার কাছে পাঠানো"), style = MaterialTheme.typography.labelLarge)
                 pending.forEach { o ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    val online = o.mode == "online"
+                    Card(colors = CardDefaults.cardColors(containerColor = cs.surface)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                Tag(if (online) tr("Online order", "অনলাইন অর্ডার") else tr("In the shop", "দোকানে এসেছেন"), if (online) cs.primaryContainer else cs.secondaryContainer, if (online) cs.onPrimaryContainer else cs.onSecondaryContainer)
+                            }
                             Text(RxNetText.orderStatus(o.status) + " · " + timeAgo(o.createdAt), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                        }
-                        SmallAction(tr("Open", "খুলুন"), null, { code = o.code; open(o.code) }, primary = true)
-                        if (o.status == "sent") {
-                            Spacer(Modifier.width(6.dp))
-                            SmallAction(tr("Ready", "তৈরি"), null, { scope.launch { runCatching { RxNet.orderUpdate(o.id, "ready") }.onFailure { errorMsg = it.message }; reload++ } })
+                            if (online) {
+                                IconLine(R.drawable.ic_location_on, o.address)
+                                IconLine(R.drawable.ic_call, num(o.phone))
+                            }
+                            if (o.note.isNotBlank()) SmallNote(o.note)
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                SmallAction(if (online) tr("Open & note medicines", "খুলে ওষুধ লিখুন") else tr("Open", "খুলুন"), null, { code = o.code; open(o.code) }, primary = true)
+                                if (!online && o.status == "sent") SmallAction(tr("Ready", "তৈরি"), null, { update(o, "ready") })
+                                if (online && o.status == "sent") SmallAction(tr("Accept", "অর্ডার নিলাম"), null, { accepting = o })
+                                if (online && o.status in setOf("sent", "accepted")) SmallAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), null, { update(o, "out") })
+                                if (online) SmallAction(tr("Call", "ফোন"), R.drawable.ic_call, { callPhone(context, o.phone) })
+                                SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) })
+                            }
                         }
                     }
                 }
+            }
+            OutlinedButton(onClick = { onlineOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Selling online", "অনলাইনে বিক্রি"), R.drawable.ic_local_shipping) }
+            OutlinedButton(onClick = { missedOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                ButtonContent(false, tr("Asked for but not available", "চেয়েও পাননি এমন ওষুধ") + (home?.missed?.size?.takeIf { it > 0 }?.let { " (${num(it)})" } ?: ""), R.drawable.ic_list_alt)
             }
             OutlinedButton(onClick = { stockOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("My stock list", "আমার স্টকের তালিকা"), R.drawable.ic_list_alt) }
             SmallNote(tr("Keep a stock list so patients can see which medicines you have.", "স্টকের তালিকা রাখলে রোগীরা দেখতে পাবেন আপনার কাছে কোন ওষুধ আছে।"))
@@ -628,14 +967,128 @@ fun PharmacyRxSection() {
     }
     opened?.let { rx -> DispenseDialog(rx, onDismiss = { opened = null; reload++ }) }
     if (stockOpen) StockDialog { stockOpen = false }
+    home?.let { h ->
+        if (onlineOpen) OnlineSettingsDialog(h, onDismiss = { onlineOpen = false }) { onlineOpen = false; infoMsg = tr("Saved", "সেভ হয়েছে"); reload++ }
+        if (missedOpen) MissedDialog(h.missed, onDismiss = { missedOpen = false; reload++ })
+    }
+    accepting?.let { o ->
+        AcceptOrderDialog(o, onDismiss = { accepting = null }) { price, eta ->
+            accepting = null
+            update(o, "accepted", price = price, eta = eta)
+        }
+    }
 }
 
-/** ফার্মেসি: প্রতিটা ওষুধে কয়টা দিলেন */
+@Composable
+private fun AcceptOrderDialog(o: PharmOrder, onDismiss: () -> Unit, onAccept: (String, String) -> Unit) {
+    var price by remember { mutableStateOf("") }
+    var eta by remember { mutableStateOf("") }
+    FormDialog(
+        title = tr("Accept order", "অর্ডার নিন"),
+        onDismiss = onDismiss,
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(o.patientName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(price, { price = it.take(40) }, label = { Text(tr("Total price (optional)", "মোট দাম (ঐচ্ছিক)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(eta, { eta = it.take(60) }, label = { Text(tr("When will it arrive (optional)", "কখন পৌঁছাবে (ঐচ্ছিক)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                SmallNote(tr("The patient pays you on delivery.", "রোগী ওষুধ পেয়ে আপনাকে দাম দেবেন।"))
+            }
+        },
+        confirmButton = { TextButton(onClick = { onAccept(price.trim(), eta.trim()) }) { Text(tr("Accept", "নিলাম")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
+    )
+}
+
+/** ফার্মেসি: অনলাইনে বিক্রি চালু/বন্ধ, ডেলিভারির দূরত্ব, চার্জ */
+@Composable
+private fun OnlineSettingsDialog(h: PharmacyHome, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var enabled by remember { mutableStateOf(h.online.enabled) }
+    var radius by remember { mutableStateOf(h.online.radiusKm.toString()) }
+    var fee by remember { mutableStateOf(h.online.fee) }
+    var note by remember { mutableStateOf(h.online.note) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = tr("Selling online", "অনলাইনে বিক্রি"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Take prescription orders and deliver", "প্রেসক্রিপশনের অর্ডার নিই, বাসায় পৌঁছে দিই"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                }
+                OutlinedTextField(
+                    radius, { radius = it.filter { c -> c.isDigit() }.take(2) },
+                    label = { Text(tr("Up to how many km", "কত কিমি পর্যন্ত")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(fee, { fee = it.take(40) }, label = { Text(tr("Delivery charge (e.g. Tk 30)", "ডেলিভারি চার্জ (যেমন: ৩০ টাকা)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(note, { note = it.take(120) }, label = { Text(tr("Note (e.g. delivery 10 AM – 9 PM)", "নোট (যেমন: সকাল ১০টা–রাত ৯টা)")) }, modifier = Modifier.fillMaxWidth())
+                SmallNote(tr("Orders come only from verified prescriptions. Customers pay you directly — Lifolo takes nothing.", "অর্ডার আসবে শুধু যাচাই করা প্রেসক্রিপশন থেকে। ক্রেতা টাকা সরাসরি আপনাকে দেবেন — Lifolo কিছু নেয় না।"))
+                if (!h.hasLocation) Text(tr("Add your shop's location first (edit your pharmacy).", "আগে দোকানের লোকেশন দিন (ফার্মেসির তথ্য বদলে)।"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    busy = true
+                    errorMsg = null
+                    runCatching { RxNet.onlineSet(OnlineSettings(enabled, radius.toIntOrNull()?.coerceIn(1, 30) ?: 3, fee.trim(), note.trim())) }
+                        .onSuccess { onSaved() }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }, enabled = !busy) { ButtonContent(busy, tr("Save", "সেভ")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
+}
+
+/** ক্রেতা চেয়েও পাননি এমন ওষুধ (কতবার) — স্টকে আনলে "এনেছি" */
+@Composable
+private fun MissedDialog(start: List<Missed>, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val list = remember { mutableStateListOf(*start.toTypedArray()) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Scaffold(topBar = { BackTopBar(tr("Asked for but not available", "চেয়েও পাননি এমন ওষুধ"), onDismiss) }) { padding ->
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    SmallNote(tr("Medicines customers came for but you couldn't give. Keep them in stock to sell more.", "ক্রেতা প্রেসক্রিপশন নিয়ে এসে যে ওষুধ পাননি। স্টকে রাখলে বিক্রি বাড়বে।"))
+                    ErrorText(errorMsg)
+                }
+                if (list.isEmpty()) item { EmptyState(R.drawable.ic_check_circle, tr("Nothing yet", "এখনো কিছু নেই"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
+                items(list, key = { it.k }) { m ->
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(m.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                                Text(tr("${m.count} times · last ", "${num(m.count)} বার · শেষ ") + Rules.formatDate(m.lastAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            SmallAction(tr("Got it in stock", "এনেছি"), R.drawable.ic_check_circle, {
+                                scope.launch {
+                                    runCatching { RxNet.missedClear(m.k); RxNet.stockSet(listOf(m.name), emptyList()) }
+                                        .onSuccess { list.remove(m) }.onFailure { errorMsg = it.message }
+                                }
+                            })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** ফার্মেসি: প্রতিটা ওষুধে কয়টা দিলেন; না থাকলে "নেই" (রোগী জানেন, চাহিদার তালিকায় জমা) */
 @Composable
 private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var rx by remember { mutableStateOf(start) }
     val qty = remember { mutableStateMapOf<Int, String>() }
+    val none = remember { mutableStateListOf<Int>() }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
@@ -650,24 +1103,34 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
                 InfoText(infoMsg)
                 rx.meds.forEach { m ->
                     Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(listOf(RxText.formShort(m.form), m.name).filter { it.isNotBlank() }.joinToString(" "), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                                Text(num(m.dose) + " · " + (if (m.days > 0) tr("${m.days} days", "${num(m.days)} দিন") else tr("Continue", "চলবে")), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                                Text(m.boughtText + (m.left?.let { tr(" · $it left", " · বাকি ${num(it)}") } ?: ""), style = MaterialTheme.typography.bodySmall, color = if (m.done) cs.primary else cs.onSurfaceVariant)
+                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(listOf(RxText.formShort(m.form), m.name).filter { it.isNotBlank() }.joinToString(" "), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                                    Text(num(m.dose) + " · " + (if (m.days > 0) tr("${m.days} days", "${num(m.days)} দিন") else tr("Continue", "চলবে")), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                                    Text(m.boughtText + (m.left?.let { tr(" · $it left", " · বাকি ${num(it)}") } ?: ""), style = MaterialTheme.typography.bodySmall, color = if (m.done) cs.primary else cs.onSurfaceVariant)
+                                }
+                                if (!m.done && rx.status != "cancelled" && m.i !in none) {
+                                    OutlinedTextField(
+                                        qty[m.i].orEmpty(), { qty[m.i] = it.filter { c -> c.isDigit() }.take(4) },
+                                        label = { Text(tr("Qty", "কয়টা")) },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.width(96.dp),
+                                    )
+                                }
                             }
                             if (!m.done && rx.status != "cancelled") {
-                                OutlinedTextField(
-                                    qty[m.i].orEmpty(), { qty[m.i] = it.filter { c -> c.isDigit() }.take(4) },
-                                    label = { Text(tr("Qty", "কয়টা")) },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.width(96.dp),
+                                androidx.compose.material3.FilterChip(
+                                    selected = m.i in none,
+                                    onClick = { if (m.i in none) none.remove(m.i) else { none.add(m.i); qty.remove(m.i) } },
+                                    label = { Text(tr("Don't have it", "নেই")) },
                                 )
                             }
                         }
                     }
                 }
+                if (none.isNotEmpty()) SmallNote(tr("The patient will be told, and it goes on your \"asked for but not available\" list.", "রোগী জানবেন, আর ওষুধটা আপনার \"চেয়েও পাননি\" তালিকায় জমা হবে।"))
                 if (rx.dispensed.isNotEmpty()) {
                     Text(tr("Given before", "আগে দেওয়া"), style = MaterialTheme.typography.labelLarge)
                     rx.dispensed.forEach { d -> SmallNote(d.name + " · " + Rules.formatDate(d.at) + " · " + d.items.joinToString(", ") { (i, q) -> (rx.meds.getOrNull(i)?.name ?: "") + " ×" + num(q) }) }
@@ -678,13 +1141,13 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
                             scope.launch {
                                 busy = true
                                 errorMsg = null
-                                runCatching { RxNet.dispense(rx.code, qty.mapValues { it.value.toIntOrNull() ?: 0 }) }
-                                    .onSuccess { rx = it; qty.clear(); infoMsg = tr("Saved", "লেখা হয়েছে") }
+                                runCatching { RxNet.dispense(rx.code, qty.mapValues { it.value.toIntOrNull() ?: 0 }, none.toSet()) }
+                                    .onSuccess { rx = it; qty.clear(); none.clear(); infoMsg = tr("Saved", "লেখা হয়েছে") }
                                     .onFailure { errorMsg = it.message }
                                 busy = false
                             }
                         },
-                        enabled = !busy && qty.values.any { (it.toIntOrNull() ?: 0) > 0 },
+                        enabled = !busy && (qty.values.any { (it.toIntOrNull() ?: 0) > 0 } || none.isNotEmpty()),
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                     ) { ButtonContent(busy, tr("Save what I gave", "যা দিলাম লিখে রাখুন"), R.drawable.ic_check_circle) }
@@ -967,11 +1430,33 @@ private fun LabEditScreen(existing: Lab?, profile: Profile, onBack: () -> Unit, 
     }
 }
 
-/** প্যাথলজি: ফল লেখা (প্রতিটা পরীক্ষায় ফল, একক, স্বাভাবিক মাত্রা, বেশি/কম) আর রিপোর্টের ছবি */
+/** রিপোর্ট লেখার একটা ঘর: ছকের (fixed) হলে নাম-একক বদলায় না; সংখ্যার ঘরে মাত্রা দুটো ঘরে */
+private data class EntryRow(
+    val r: LabResult,
+    val fixed: Boolean,
+    val numeric: Boolean,
+    val options: List<String>,
+    val base: Pair<Double?, Double?>,
+    val lowText: String,
+    val highText: String,
+)
+
+private fun fmtNum(d: Double?): String = when {
+    d == null -> ""
+    d == Math.floor(d) && !d.isInfinite() -> d.toLong().toString()
+    else -> d.toString()
+}
+
+/**
+ * প্যাথলজি: রিপোর্ট দেওয়া — প্রতিটা পরীক্ষার ছক (ঘর, একক, স্বাভাবিক মাত্রা ভরা), শুধু ফল লিখুন;
+ * বেশি/কম নিজে থেকে। মেশিনের মাত্রা আলাদা হলে বদলে "আমার ল্যাবের জন্য রাখুন"। ছক না থাকলে আগের মতো নিজে লেখা।
+ */
 @Composable
 private fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val rows = remember { mutableStateListOf(*order.tests.map { LabResult(it, "", "", "", "") }.toTypedArray()) }
+    val rows = remember { mutableStateListOf<EntryRow>() }
+    var loaded by remember { mutableStateOf(false) }
+    var keepRanges by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
     var photos by remember { mutableStateOf(mapOf<String, String>()) }
     var busy by remember { mutableStateOf(false) }
@@ -982,23 +1467,103 @@ private fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent:
             DocSpec("p2", tr("Report photo 2", "রিপোর্টের ছবি ২"), tr("Optional", "ঐচ্ছিক"), false),
         )
     }
+    LaunchedEffect(order.id) {
+        val forms = runCatching { RxNet.labForm(order.id) }.getOrElse { order.tests.map { t -> LabForm(t, null, t, emptyList()) } }
+        rows.clear()
+        forms.forEach { f ->
+            if (f.code != null && f.params.isNotEmpty()) {
+                f.params.forEach { p ->
+                    val numeric = p.low != null || p.high != null
+                    rows.add(
+                        EntryRow(
+                            LabResult(p.name, "", p.unit, if (numeric) RxNetText.range(p.low, p.high) else p.range.ifBlank { p.text }, "", f.name, f.code, p.key, p.low, p.high, p.long),
+                            fixed = true, numeric = numeric, options = p.options, base = p.low to p.high, lowText = fmtNum(p.low), highText = fmtNum(p.high),
+                        ),
+                    )
+                }
+            } else {
+                rows.add(EntryRow(LabResult(f.test, "", "", "", ""), fixed = false, numeric = false, options = emptyList(), base = null to null, lowText = "", highText = ""))
+            }
+        }
+        loaded = true
+    }
+    fun flagOf(e: EntryRow): String = if (e.numeric) RxNetText.autoFlag(e.r.result, e.r.low, e.r.high) ?: e.r.flag else e.r.flag
     Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Scaffold(topBar = { BackTopBar(tr("Report", "রিপোর্ট") + " · " + order.patientName, { if (!busy) onDismiss() }) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                rows.forEachIndexed { i, r ->
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                val cs = MaterialTheme.colorScheme
+                Text(
+                    listOfNotNull(
+                        order.patientName, order.patientAge?.let { tr("$it yrs", "${num(it)} বছর") },
+                        when (order.patientGender) { "female" -> tr("Female", "নারী"); "male" -> tr("Male", "পুরুষ"); else -> null },
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+                )
+                if (!loaded) { LoadingBox(); return@Column }
+                if (rows.any { it.fixed }) {
+                    SmallNote(tr("Rows, units and normal ranges are filled in — just write the results. High/low is marked by itself.", "ঘর, একক আর স্বাভাবিক মাত্রা ভরা আছে — শুধু ফল লিখুন। বেশি/কম নিজে থেকে বসবে।"))
+                }
+                var lastGroup: String? = null
+                rows.forEachIndexed { i, e ->
+                    val r = e.r
+                    if (e.fixed && r.group != lastGroup) Text(r.group, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = cs.primary)
+                    lastGroup = if (e.fixed) r.group else null
+                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(r.test, { rows[i] = r.copy(test = it.take(80)) }, label = { Text(tr("Test", "পরীক্ষা")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(r.result, { rows[i] = r.copy(result = it.take(60)) }, label = { Text(tr("Result", "ফল")) }, singleLine = true, modifier = Modifier.weight(1f))
-                                OutlinedTextField(r.unit, { rows[i] = r.copy(unit = it.take(30)) }, label = { Text(tr("Unit", "একক")) }, singleLine = true, modifier = Modifier.weight(1f))
+                            if (e.fixed) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(r.test, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    val f = flagOf(e)
+                                    if (f.isNotBlank()) Tag(RxNetText.flag(f), cs.errorContainer, cs.onErrorContainer)
+                                }
+                            } else {
+                                OutlinedTextField(r.test, { rows[i] = e.copy(r = r.copy(test = it.take(80))) }, label = { Text(tr("Test", "পরীক্ষা")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                             }
-                            OutlinedTextField(r.range, { rows[i] = r.copy(range = it.take(60)) }, label = { Text(tr("Normal range", "স্বাভাবিক মাত্রা")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            ChipRows(listOf("high", "low"), setOf(r.flag), perRow = 2, label = { RxNetText.flag(it) }) { rows[i] = r.copy(flag = if (r.flag == it) "" else it) }
+                            if (r.long) {
+                                OutlinedTextField(r.result, { rows[i] = e.copy(r = r.copy(result = it.take(2000))) }, label = { Text(tr("Findings", "ফলাফল")) }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                            } else {
+                                if (e.options.isNotEmpty()) ChipRows(e.options, setOf(r.result), perRow = 4) { rows[i] = e.copy(r = r.copy(result = if (r.result == it) "" else it)) }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        r.result, { rows[i] = e.copy(r = r.copy(result = it.take(60))) },
+                                        label = { Text(tr("Result", "ফল")) },
+                                        singleLine = true,
+                                        keyboardOptions = if (e.numeric) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (e.fixed) {
+                                        if (r.unit.isNotBlank()) Text(r.unit, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+                                    } else {
+                                        OutlinedTextField(r.unit, { rows[i] = e.copy(r = r.copy(unit = it.take(30))) }, label = { Text(tr("Unit", "একক")) }, singleLine = true, modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                            if (e.numeric) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(tr("Normal", "স্বাভাবিক"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                                    OutlinedTextField(
+                                        e.lowText, { v -> val t = v.filter { c -> c.isDigit() || c == '.' }.take(10); rows[i] = e.copy(lowText = t, r = r.copy(low = t.toDoubleOrNull())) },
+                                        label = { Text(tr("Low", "নিচে")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                                    )
+                                    OutlinedTextField(
+                                        e.highText, { v -> val t = v.filter { c -> c.isDigit() || c == '.' }.take(10); rows[i] = e.copy(highText = t, r = r.copy(high = t.toDoubleOrNull())) },
+                                        label = { Text(tr("High", "ওপরে")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            } else if (!r.long) {
+                                OutlinedTextField(r.range, { rows[i] = e.copy(r = r.copy(range = it.take(60))) }, label = { Text(tr("Normal range", "স্বাভাবিক মাত্রা")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                ChipRows(listOf("high", "low", "abnormal"), setOf(r.flag), perRow = 3, label = { RxNetText.flag(it) }) { rows[i] = e.copy(r = r.copy(flag = if (r.flag == it) "" else it)) }
+                            }
                         }
                     }
                 }
-                TextButton(onClick = { rows.add(LabResult("", "", "", "", "")) }) { ButtonContent(false, tr("Add a row", "আরেকটা সারি"), R.drawable.ic_add) }
+                TextButton(onClick = { rows.add(EntryRow(LabResult("", "", "", "", ""), false, false, emptyList(), null to null, "", "")) }) { ButtonContent(false, tr("Add a row", "আরেকটা সারি"), R.drawable.ic_add) }
+                if (rows.any { it.numeric }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr("Keep changed ranges for my lab", "বদলানো মাত্রা আমার ল্যাবের জন্য রাখুন"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Switch(checked = keepRanges, onCheckedChange = { keepRanges = it })
+                    }
+                }
                 OutlinedTextField(note, { note = it.take(500) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
                 DocPhotosField(photoSpecs, photos, { photos = it }, tr("Photos of the printed report, if you like.", "চাইলে ছাপানো রিপোর্টের ছবি দিন।"))
                 ErrorText(errorMsg)
@@ -1007,12 +1572,20 @@ private fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent:
                         scope.launch {
                             busy = true
                             errorMsg = null
-                            runCatching { RxNet.labReport(order.id, rows.filter { it.test.isNotBlank() && it.result.isNotBlank() }, note.trim(), photos.values.filter { it.isNotBlank() }) }
-                                .onSuccess { onSent() }.onFailure { errorMsg = it.message }
+                            runCatching {
+                                if (keepRanges) {
+                                    val changed = rows.filter { it.fixed && it.numeric && (it.r.low != it.base.first || it.r.high != it.base.second) }.map { it.r }
+                                    if (changed.isNotEmpty()) RxNet.labRanges(changed)
+                                }
+                                val items = rows.filter { it.r.test.isNotBlank() && it.r.result.isNotBlank() }.map { e ->
+                                    e.r.copy(result = e.r.result.trim(), flag = flagOf(e), range = if (e.numeric) RxNetText.range(e.r.low, e.r.high) else e.r.range)
+                                }
+                                RxNet.labReport(order.id, items, note.trim(), photos.values.filter { it.isNotBlank() })
+                            }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
                             busy = false
                         }
                     },
-                    enabled = !busy && (rows.any { it.test.isNotBlank() && it.result.isNotBlank() } || photos.isNotEmpty()),
+                    enabled = !busy && (rows.any { it.r.test.isNotBlank() && it.r.result.isNotBlank() } || photos.isNotEmpty()),
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                 ) { ButtonContent(busy, tr("Send report", "রিপোর্ট পাঠান"), R.drawable.ic_send) }

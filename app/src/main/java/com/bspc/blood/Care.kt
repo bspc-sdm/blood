@@ -582,11 +582,12 @@ object Appointments {
     }
 
     /** chamberKey: যে হাসপাতালের চেম্বার দেখে বুক করছেন — সার্ভার মিলিয়ে নেয় (চেম্বার বদলালে ভুল বুকিং হয় না) */
-    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String, chamberKey: String? = null) {
+    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String, chamberKey: String? = null, memberId: String? = null) {
         careCall(
             "book",
             JSONObject().put("providerUid", providerUid).put("chamberIndex", chamberIndex).put("date", date).put("note", note)
-                .apply { if (chamberKey != null) put("chamberKey", chamberKey) },
+                .apply { if (chamberKey != null) put("chamberKey", chamberKey) }
+                .apply { if (memberId != null) put("memberId", memberId) },
         )
     }
 

@@ -503,7 +503,7 @@ const actions = {
   },
 };
 
-Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions);
+Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, homevisit.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions, require('../lib/labtests').actions, require('../lib/careaccess').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।
@@ -575,7 +575,7 @@ async function webUser(req, res) {
   const action = String(req.body?.action || '');
   if (action === 'web_logout') return web;
   // ডাক্তার/সহকারীর ওয়েব (প্রেসক্রিপশন): শুধু rx_ কাজ আর ওষুধ খোঁজা; কে কী পারেন তা কাজগুলো নিজেরা যাচাই করে
-  if (action.startsWith('rx_') || action.startsWith('stock_') || action.startsWith('lab_') || action.startsWith('review') || ['drug_search', 'web_me', 'catalog_get'].includes(action)) {
+  if (action.startsWith('rx_') || action.startsWith('stock_') || action.startsWith('lab_') || action.startsWith('review') || ['drug_search', 'web_me', 'catalog_get', 'labtests_get'].includes(action)) {
     if (await accountDisabled(web.uid)) {
       websession.end(res);
       throw new HttpError(403, C.tr(req, 'This account is turned off', 'এই অ্যাকাউন্ট বন্ধ করা আছে'), 'session_expired');
@@ -619,7 +619,9 @@ module.exports = handler(async (req, res) => {
   // বাছাইয়ের তালিকা (প্যানেলে বদলানো যায়) — ৫ মিনিটে একবার পড়া
   await require('../lib/catalog').load();
   if (!fn) throw new HttpError(400, C.tr(req, 'Unknown request. Please update the app.', 'অজানা অনুরোধ। অ্যাপ আপডেট করুন।'));
-  const result = await fn(req, user, res);
+  // কেয়ারগিভার রোগীর হয়ে (body.asUid) — অনুমোদিত কাজ আর চালু সংযোগ হলে রোগীর uid দিয়ে
+  const actor = await require('../lib/careaccess').actAs(req, user);
+  const result = await fn(req, actor, res);
   // অ্যাডমিনের কাজ ইতিহাসে (কে, কখন, কী) — কিছু না বদলালে নয়
   if (String(req.body.action).startsWith('admin_') && !(result && result.unchanged)) await adminweb.logAdmin(req.body.action, user, req.body);
   return result;

@@ -292,14 +292,24 @@ module.exports = {
     }
     // একই দিনে একই ডাক্তারের কাছে একটার বেশি চালু অনুরোধ নয়
     const dup = await db.collection('appointments').where('patientUid', '==', user.uid).where('providerUid', '==', providerUid).where('date', '==', date).limit(10).get();
-    if (dup.docs.some((d) => ['pending', 'confirmed'].includes(d.get('status')))) {
+    const forMember = typeof req.body?.memberId === 'string' && req.body.memberId ? req.body.memberId : null;
+    if (dup.docs.some((d) => ['pending', 'confirmed'].includes(d.get('status')) && (d.get('memberId') || null) === forMember)) {
       throw new HttpError(409, C.tr(req, 'You already have a request with this doctor for that day', 'সেদিন এই ডাক্তারের কাছে আপনার অনুরোধ আগে থেকেই আছে'));
     }
+    // পরিবারের সদস্যের (নিজের অ্যাকাউন্ট নেই) নামে সিরিয়াল
+    let member = null;
+    if (typeof req.body?.memberId === 'string' && req.body.memberId) {
+      const u = await db.doc(`users/${user.uid}`).get();
+      member = ((u.exists && u.get('family')) || []).find((m) => m.id === req.body.memberId) || null;
+      if (!member) throw new HttpError(404, C.tr(req, 'Family member not found', 'পরিবারের সদস্য পাওয়া যায়নি'));
+    }
     await useQuota(req, user.uid, 'book');
-    const name = (await userName(user.uid)).slice(0, 80);
+    const name = (member ? member.name : await userName(user.uid)).slice(0, 80);
     const ref = await db.collection('appointments').add({
       patientUid: user.uid,
       patientName: name,
+      ...(member ? { memberId: member.id, patientAge: member.age ?? null, patientGender: member.gender || '' } : {}),
+      ...(user.actingBy ? { byCaretaker: user.actingBy } : {}),
       providerUid,
       providerName: ps.get('name'),
       type: ps.get('type'),

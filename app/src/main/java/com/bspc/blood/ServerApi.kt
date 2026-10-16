@@ -136,6 +136,8 @@ object ServerApi {
             ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
         val token = user.getIdToken(false).await().token
             ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
+        // কেয়ারগিভার রোগীর হয়ে কাজ করছেন (অনুমোদিত কাজে রোগীর uid যোগ হয়)
+        CareMode.attach(path, body)
         return request(path, body, token)
     }
 

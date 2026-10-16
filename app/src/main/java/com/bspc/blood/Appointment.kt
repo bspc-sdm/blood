@@ -454,6 +454,10 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
     var showDate by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // কার জন্য: নিজে, অথবা পরিবারের সদস্য (যাঁর নিজের অ্যাকাউন্ট নেই)
+    var family by remember { mutableStateOf<List<FamilyMember>>(emptyList()) }
+    var memberId by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) { runCatching { CareApi.family() }.onSuccess { family = it } }
 
     FormDialog(
         title = provider.name,
@@ -462,6 +466,12 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 IconLine(R.drawable.ic_local_hospital, chamber.label)
                 IconLine(R.drawable.ic_schedule, chamber.timeText)
+                if (family.isNotEmpty()) {
+                    Text(tr("For whom", "কার জন্য"), style = MaterialTheme.typography.labelLarge)
+                    ChipRows(listOf("") + family.map { it.id }, setOf(memberId), label = { id ->
+                        if (id.isBlank()) (CareMode.name.value.ifBlank { tr("Me", "আমি") }) else family.firstOrNull { it.id == id }?.name.orEmpty()
+                    }) { memberId = it }
+                }
                 OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
                     AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -491,7 +501,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                     if (errorMsg == null && d != null) {
                         scope.launch {
                             busy = true
-                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName) }
+                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName, memberId.ifBlank { null }) }
                                 .onSuccess { onBooked() }
                                 .onFailure { errorMsg = it.message }
                             busy = false

@@ -323,6 +323,7 @@
     { group: 'ব্যবস্থাপনা', items: [
       { path: 'users', label: 'ব্যবহারকারী', icon: 'person' },
       { path: 'catalog', label: 'বাছাইয়ের তালিকা', icon: 'menu' },
+      { path: 'labtests', label: 'রিপোর্টের ছক', icon: 'hospital' },
       { path: 'log', label: 'কাজের ইতিহাস', icon: 'history' },
       { path: 'admins', label: 'অ্যাডমিন', icon: 'admin', owner: true },
     ] },
@@ -421,6 +422,7 @@
     bloodBanks: (r, alive) => pageListing('bloodBanks', r, alive),
     labs: (r, alive) => pageListing('labs', r, alive),
     catalog: pageCatalog,
+    labtests: pageLabTests,
     hospitals: pageHospitals,
     tickets: pageTickets,
     ticket: pageTicket,
@@ -1363,6 +1365,92 @@
         h('thead', null, h('tr', null, ['বাংলা নাম', 'English name', 'কোড', '', ''].map((x) => h('th', { text: x })))), body)),
       h('div', { class: 'reply-actions' },
         h('button', { class: 'btn tonal', type: 'button', text: 'নতুন নাম যোগ', onclick: () => { rows.push({ code: '', bn: '', en: '', hidden: false }); draw(); } }),
+        save),
+      err);
+  }
+
+  // =========================================================
+  // রিপোর্টের ছক (পরীক্ষার ঘর, একক, স্বাভাবিক মাত্রা)
+  // =========================================================
+  const rg = (r) => (!r ? '' : r[0] != null && r[1] != null ? `${r[0]}–${r[1]}` : r[1] != null ? `< ${r[1]}` : r[0] != null ? `> ${r[0]}` : '');
+
+  async function pageLabTests(r, alive) {
+    const res = await act('labtests_get');
+    if (alive && !alive()) return;
+    const tests = res.tests || [];
+    const code = r.params.get('t');
+    if (code != null) return labTestEditor(alive, tests, code);
+    setTitle('রিপোর্টের ছক', `${bn(tests.length)}টা পরীক্ষা`);
+    let q = '';
+    const box = h('div');
+    const draw = () => {
+      const shown = tests.filter((t) => matches(q, t.name, t.bn, ...(t.aliases || [])));
+      box.replaceChildren(table(shown, [
+        { label: 'পরীক্ষা', main: true, cell: (t) => [t.name, h('div', { class: 'small', text: t.bn || '' })] },
+        { label: 'ঘর', cell: (t) => bn(t.params.length) },
+        { label: 'অন্য নাম', cell: (t) => h('div', { class: 'small', text: (t.aliases || []).slice(0, 4).join(', ') }) },
+        { label: '', cell: (t) => (t.hidden ? h('span', { class: 'chip', text: 'লুকানো' }) : '') },
+      ], null, (t) => go(`#/labtests?t=${encodeURIComponent(t.code)}`)));
+    };
+    const tb = h('div', { class: 'toolbar' }, h('div', { class: 'search' }, icon('search'), h('input', { placeholder: 'পরীক্ষা খুঁজুন', oninput: (e) => { q = e.target.value; draw(); } })),
+      h('button', { class: 'btn primary', type: 'button', text: 'নতুন পরীক্ষা', onclick: () => go('#/labtests?t=') }));
+    draw();
+    paint(alive, tb, h('p', { class: 'note', text: 'প্যাথলজি রিপোর্ট দিতে গেলে এই ঘরগুলো ভরা পায়, শুধু ফল লেখে; বেশি/কম নিজে থেকে বসে। ডাক্তারের লেখা পরীক্ষার নাম "অন্য নাম"-এর সাথে মিলিয়ে ছক বাছা হয়। মাত্রাগুলো সাধারণ প্রাপ্তবয়স্কের — ল্যাব নিজের মেশিনের মাত্রা রাখতে পারে।' }), box);
+  }
+
+  function labTestEditor(alive, tests, code) {
+    const orig = tests.find((t) => t.code === code);
+    const t = orig ? JSON.parse(JSON.stringify(orig)) : { code: '', name: '', bn: '', aliases: [], params: [{ key: '', name: '' }] };
+    setTitle(orig ? orig.name : 'নতুন পরীক্ষা', 'রিপোর্টের ছক');
+    const err = h('p', { class: 'error', role: 'alert' });
+    const body = h('tbody');
+    const numIn = (p, k, i) => h('input', { class: 'cell-input', style: 'width:64px', inputmode: 'decimal', value: p[k] && p[k][i] != null ? String(p[k][i]) : '', oninput: (e) => {
+      const v = e.target.value.trim();
+      p[k] = p[k] || [null, null];
+      p[k][i] = v === '' ? null : Number(v);
+      if (p[k][0] == null && p[k][1] == null) delete p[k];
+    } });
+    const pair = (p, k) => h('span', { style: 'display:flex;gap:4px;align-items:center' }, numIn(p, k, 0), '–', numIn(p, k, 1));
+    function draw() {
+      body.replaceChildren(...t.params.map((p, i) => h('tr', null,
+        h('td', { 'data-label': 'ঘর' }, h('input', { class: 'cell-input', value: p.name || '', maxlength: 60, oninput: (e) => { p.name = e.target.value; } })),
+        h('td', { 'data-label': 'একক' }, h('input', { class: 'cell-input', style: 'width:90px', value: p.unit || '', maxlength: 20, oninput: (e) => { p.unit = e.target.value; } })),
+        h('td', { 'data-label': 'স্বাভাবিক (সবার)' }, pair(p, 'r')),
+        h('td', { 'data-label': 'পুরুষ' }, pair(p, 'm')),
+        h('td', { 'data-label': 'নারী' }, pair(p, 'f')),
+        h('td', { 'data-label': 'লেখা-ফল' }, h('input', { class: 'cell-input', style: 'width:110px', value: p.text || '', maxlength: 40, placeholder: 'যেমন Negative', oninput: (e) => { p.text = e.target.value; } })),
+        h('td', { 'data-label': 'বাছাই' }, h('input', { class: 'cell-input', value: (p.options || []).join(', '), placeholder: 'কমা দিয়ে', oninput: (e) => { p.options = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); } })),
+        h('td', { 'data-label': 'লম্বা লেখা' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!p.long, onchange: (e) => { p.long = e.target.checked; } }), 'লম্বা')),
+        h('td', { class: 'act' }, h('div', { class: 'actions', style: 'flex-wrap:nowrap' },
+          h('button', { class: 'icon-btn', type: 'button', title: 'ওপরে', disabled: i === 0, onclick: () => { [t.params[i - 1], t.params[i]] = [t.params[i], t.params[i - 1]]; draw(); }, text: '↑' }),
+          h('button', { class: 'icon-btn', type: 'button', title: 'নিচে', disabled: i === t.params.length - 1, onclick: () => { [t.params[i + 1], t.params[i]] = [t.params[i], t.params[i + 1]]; draw(); }, text: '↓' }),
+          h('button', { class: 'icon-btn', type: 'button', title: 'সরান', onclick: () => { t.params.splice(i, 1); draw(); } }, icon('close')))))));
+    }
+    draw();
+    const name = h('input', { class: 'cell-input', value: t.name, maxlength: 80, placeholder: 'যেমন Serum Magnesium', oninput: (e) => { t.name = e.target.value; } });
+    const bnName = h('input', { class: 'cell-input', value: t.bn || '', maxlength: 80, placeholder: 'বাংলা নাম (ঐচ্ছিক)', oninput: (e) => { t.bn = e.target.value; } });
+    const aliases = h('input', { class: 'cell-input', value: (t.aliases || []).join(', '), placeholder: 'ডাক্তার যেভাবে লেখেন: s magnesium, mg', oninput: (e) => { t.aliases = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); } });
+    const hidden = h('input', { type: 'checkbox', checked: !!t.hidden, onchange: (e) => { t.hidden = e.target.checked; } });
+    const save = h('button', { class: 'btn primary', type: 'button', text: 'সেভ করুন' });
+    save.addEventListener('click', async () => {
+      err.textContent = '';
+      save.disabled = true;
+      try {
+        const out = await act('admin_labtests_set', { test: t });
+        toast('সেভ হয়েছে');
+        go(`#/labtests?t=${encodeURIComponent(out.test.code)}`);
+      } catch (e) { err.textContent = e.message; save.disabled = false; }
+    });
+    paint(alive,
+      h('div', { class: 'toolbar' }, h('a', { class: 'btn quiet', href: '#/labtests', text: '← সব পরীক্ষা' })),
+      h('div', { class: 'card pad grid' },
+        h('label', null, 'পরীক্ষার নাম', name), h('label', null, 'বাংলা নাম', bnName), h('label', null, 'অন্য নাম (মেলানোর জন্য)', aliases),
+        h('label', { class: 'check' }, hidden, 'লুকানো (নতুন রিপোর্টে আর আসবে না)')),
+      h('p', { class: 'note', text: 'সংখ্যার ঘরে স্বাভাবিক মাত্রা দিন — "সবার" অথবা পুরুষ/নারী আলাদা। শুধু ওপরের সীমা থাকলে নিচেরটা খালি রাখুন (যেমন কোলেস্টেরল < ২০০)। লেখা-ফলের ঘরে (Negative/Positive) মাত্রা খালি রেখে "লেখা-ফল" আর "বাছাই" দিন। এক্স-রে/আল্ট্রাসনোর মতো রিপোর্টে "লম্বা"।' }),
+      h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
+        h('thead', null, h('tr', null, ['ঘর', 'একক', 'স্বাভাবিক (সবার)', 'পুরুষ', 'নারী', 'লেখা-ফল', 'বাছাই', '', ''].map((x) => h('th', { text: x })))), body)),
+      h('div', { class: 'reply-actions' },
+        h('button', { class: 'btn tonal', type: 'button', text: 'আরেকটা ঘর', onclick: () => { t.params.push({ key: '', name: '' }); draw(); } }),
         save),
       err);
   }

@@ -433,20 +433,24 @@ private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
 // ------------------------------------------------------------
 
 @Composable
-fun MyPrescriptionsScreen(profile: Profile, onBack: () -> Unit) {
+fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     var list by remember { mutableStateOf<List<Rx>?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var open by remember { mutableStateOf<Rx?>(null) }
     var claiming by remember { mutableStateOf(false) }
+    // পরিবারের সদস্যের প্রেসক্রিপশনও একই অ্যাকাউন্টে — নাম ধরে আলাদা দেখা
+    var who by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
         runCatching { RxApi.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
     Scaffold(
         topBar = {
-            BackTopBar(tr("My prescriptions", "আমার প্রেসক্রিপশন"), onBack) {
-                IconButton(onClick = { claiming = true }) { AppIcon(R.drawable.ic_add, tr("Add a prescription", "প্রেসক্রিপশন যোগ করুন")) }
+            if (onBack != null) {
+                BackTopBar(tr("My prescriptions", "আমার প্রেসক্রিপশন"), onBack) {
+                    IconButton(onClick = { claiming = true }) { AppIcon(R.drawable.ic_add, tr("Add a prescription", "প্রেসক্রিপশন যোগ করুন")) }
+                }
             }
         },
     ) { padding ->
@@ -454,8 +458,15 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: () -> Unit) {
             item {
                 ErrorText(errorMsg)
                 InfoText(infoMsg)
+                if (onBack == null && !list.isNullOrEmpty()) {
+                    TextButton(onClick = { claiming = true }) { ButtonContent(false, tr("Add a prescription with code", "কোড দিয়ে প্রেসক্রিপশন যোগ করুন"), R.drawable.ic_add) }
+                }
+                val names = list.orEmpty().map { it.patientName.trim() }.filter { it.isNotBlank() }.distinct()
+                if (names.size > 1) {
+                    ChipRows(listOf("") + names, setOf(who ?: ""), label = { if (it.isBlank()) tr("Everyone", "সবাই") else it }) { who = it.ifBlank { null } }
+                }
             }
-            val l = list
+            val l = list?.filter { who == null || it.patientName.trim() == who }
             when {
                 l == null && errorMsg == null -> item { LoadingBox() }
                 l.isNullOrEmpty() -> item {
@@ -496,7 +507,10 @@ private fun RxClaimDialog(profile: Profile, onDismiss: () -> Unit, onAdded: (Int
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    tr("Write the code printed under the QR, and the mobile number you gave at the chamber.", "QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দিয়েছিলেন, সেটা দিন।"),
+                    tr(
+                        "Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member's (add them in Profile → Caregivers & family).",
+                        "QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)।",
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.fillMaxWidth())

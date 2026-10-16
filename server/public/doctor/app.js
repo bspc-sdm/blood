@@ -187,7 +187,7 @@
     const tabs = {
       doctor: [['write', 'নতুন প্রেসক্রিপশন'], ['list', 'আমার প্রেসক্রিপশন'], ['reports', 'রিপোর্ট'], ['patients', 'রোগী'], ['team', 'সহকারী']],
       assistant: [['patients', 'রোগী'], ['payments', 'টাকা মেলানো']],
-      pharmacy: [['dispense', 'প্রেসক্রিপশনের ওষুধ'], ['stock', 'স্টক']],
+      pharmacy: [['dispense', 'প্রেসক্রিপশনের ওষুধ'], ['shop', 'দোকানের কোড ও অনলাইন'], ['stock', 'স্টক ও চাহিদা']],
       lab: [['tests', 'পরীক্ষা ও রিপোর্ট']],
     }[S.role];
     const top = h('header', { class: 'doc-top' },
@@ -211,6 +211,7 @@
     if (S.view === 'payments') return reviewsView(page, false);
     if (S.view === 'dispense') return dispenseView(page);
     if (S.view === 'stock') return stockView(page);
+    if (S.view === 'shop') return shopView(page);
     if (S.view === 'tests') return testsView(page);
     return patientsView(page, null);
   }
@@ -548,14 +549,36 @@
     }));
   }
 
-  function reportNodes(o) {
+  const FLAG = { high: 'বেশি', low: 'কম', abnormal: 'অস্বাভাবিক' };
+
+  /** রিপোর্ট: পরীক্ষা ধরে ভাগ, বেশি/কম চিহ্ন, আগের ফল (history: { 'code.key': [{ result, at }] }) */
+  function reportNodes(o, history) {
     const rep = o.report || {};
+    const items = rep.items || [];
+    const groups = [];
+    for (const i of items) {
+      const g = i.group || '';
+      let cur = groups[groups.length - 1];
+      if (!cur || cur.name !== g) groups.push(cur = { name: g, rows: [] });
+      cur.rows.push(i);
+    }
+    const prev = (i) => {
+      const list = history && i.code && i.key ? history[`${i.code}.${i.key}`] || [] : [];
+      return list.length ? list.slice(0, 3).map((p) => `${p.result}${p.flag ? (p.flag === 'high' ? '↑' : p.flag === 'low' ? '↓' : '*') : ''} (${fmtDate(p.at)})`).join(', ') : '';
+    };
+    const hasHist = items.some((i) => prev(i));
     return [
       h('h3', { text: `${o.labName} · ${o.patientName}` }),
-      (rep.items || []).length ? h('div', { class: 'card table-wrap' }, h('table', { class: 't' },
-        h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'স্বাভাবিক', ''].map((x) => h('th', { text: x })))),
-        h('tbody', null, rep.items.map((i) => h('tr', null, h('td', { class: 'main-cell', text: i.test }), h('td', { text: `${i.result} ${i.unit || ''}` }), h('td', { text: i.range || '—' }),
-          h('td', null, i.flag ? h('span', { class: 'chip bad', text: i.flag === 'high' ? 'বেশি' : 'কম' }) : null)))))) : null,
+      ...groups.map((g) => h('div', { class: 'card table-wrap', style: 'margin-bottom:10px' },
+        g.name ? h('div', { class: 'block-title', style: 'padding:10px 12px 0', text: g.name }) : null,
+        h('table', { class: 't' },
+          h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'স্বাভাবিক', '', hasHist ? 'আগে' : null].filter((x) => x != null).map((x) => h('th', { text: x })))),
+          h('tbody', null, g.rows.map((i) => h('tr', null,
+            h('td', { class: 'main-cell', text: i.test }),
+            h('td', { style: i.long ? 'white-space:pre-wrap' : null, text: `${i.result} ${i.unit || ''}`.trim() }),
+            h('td', { text: i.range || '—' }),
+            h('td', null, i.flag ? h('span', { class: 'chip bad', text: FLAG[i.flag] || i.flag }) : null),
+            hasHist ? h('td', { class: 'note', text: prev(i) || '—' }) : null)))))),
       rep.note ? h('p', { text: rep.note }) : null,
       (rep.photos || []).map((p) => h('img', { src: `data:image/jpeg;base64,${p}`, alt: 'রিপোর্টের ছবি', style: 'max-width:100%;border-radius:12px;margin-top:8px' })),
     ];
@@ -564,7 +587,8 @@
   async function readReport(page, r) {
     page.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
     try {
-      const o = (await act('lab_order_get', { id: r.labOrderId })).item;
+      const got = await act('lab_order_get', { id: r.labOrderId });
+      const o = got.item;
       const comment = h('textarea', { class: 'reply', maxlength: 1000, placeholder: 'রোগীকে কী জানাবেন' });
       const send = h('button', { class: 'btn primary', type: 'button', text: 'রোগীকে পাঠান' });
       send.addEventListener('click', async () => {
@@ -573,12 +597,14 @@
         try { await act('review_done', { id: r.id, comment: comment.value.trim() }); toast('পাঠানো হয়েছে'); render(); } catch (e) { toast(e.message); send.disabled = false; }
       });
       page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })),
-        ...reportNodes(o), h('div', { class: 'block-title', text: 'আপনার মন্তব্য' }), comment,
+        ...reportNodes(o, got.history), h('div', { class: 'block-title', text: 'আপনার মন্তব্য' }), comment,
         h('p', { class: 'note', text: 'ওষুধ বদলাতে হলে "নতুন প্রেসক্রিপশন" থেকে লিখুন।' }), h('div', { class: 'reply-actions' }, send));
     } catch (e) { page.replaceChildren(h('p', { class: 'error', text: e.message })); }
   }
 
-  // ---------- ফার্মেসি: কোড দিয়ে খুলে ওষুধ দেওয়া, আসা প্রেসক্রিপশন ----------
+  // ---------- ফার্মেসি: কোড দিয়ে খুলে ওষুধ দেওয়া, আসা প্রেসক্রিপশন (দোকানে / অনলাইনে) ----------
+  const OS = { sent: 'নতুন', ready: 'তৈরি', accepted: 'নেওয়া হয়েছে', out: 'পথে', done: 'দেওয়া হয়েছে', cancelled: 'পারেননি', withdrawn: 'ফিরিয়ে নিয়েছেন' };
+
   async function dispenseView(page) {
     const code = h('input', { class: 'cell-input', style: 'max-width:220px;text-transform:uppercase', maxlength: 10, placeholder: 'QR-এর নিচের কোড' });
     const out = h('div', { class: 'grid', style: 'margin-top:12px' });
@@ -588,24 +614,28 @@
     }
     function drawRx(rx) {
       const qty = {};
+      const none = new Set();
       const rows = rx.medicines.map((m) => h('tr', null,
         h('td', { class: 'main-cell', text: `${formShort(m.form)} ${m.name}`.trim() }),
         h('td', { text: `${bn(m.dose)} · ${m.days ? `${bn(m.days)} দিন` : 'চলবে'}` }),
         h('td', { text: m.need != null ? `${bn(m.got)}/${bn(m.need)}` : m.got ? `${bn(m.got)}` : '—' }),
         h('td', null, m.done || rx.status === 'cancelled' ? h('span', { class: 'chip good', text: 'দেওয়া শেষ' })
-          : h('input', { class: 'cell-input', style: 'max-width:90px', inputmode: 'numeric', placeholder: m.left != null ? `বাকি ${bn(m.left)}` : 'কয়টা', oninput: (e) => { qty[m.i] = Number(e.target.value.replace(/\D/g, '')) || 0; } }))));
+          : h('input', { class: 'cell-input', style: 'max-width:90px', inputmode: 'numeric', placeholder: m.left != null ? `বাকি ${bn(m.left)}` : 'কয়টা', oninput: (e) => { qty[m.i] = Number(e.target.value.replace(/\D/g, '')) || 0; } })),
+        h('td', null, m.done || rx.status === 'cancelled' ? null
+          : h('label', { class: 'note', style: 'white-space:nowrap' }, h('input', { type: 'checkbox', onchange: (e) => { if (e.target.checked) none.add(m.i); else none.delete(m.i); } }), ' নেই'))));
       const save = h('button', { class: 'btn primary', type: 'button', text: 'যা দিলাম লিখে রাখুন' });
       save.addEventListener('click', async () => {
-        const items = Object.entries(qty).filter(([, q]) => q > 0).map(([i, q]) => ({ i: Number(i), qty: q }));
-        if (!items.length) return;
+        const items = Object.entries(qty).filter(([i, q]) => q > 0 && !none.has(Number(i))).map(([i, q]) => ({ i: Number(i), qty: q }));
+        if (!items.length && !none.size) return;
         save.disabled = true;
-        try { drawRx((await act('rx_dispense', { code: rx.code, items })).item); toast('লেখা হয়েছে'); } catch (e) { toast(e.message); save.disabled = false; }
+        try { drawRx((await act('rx_dispense', { code: rx.code, items, missing: [...none] })).item); toast(items.length ? 'লেখা হয়েছে' : 'রোগীকে জানানো হয়েছে'); } catch (e) { toast(e.message); save.disabled = false; }
       });
       out.replaceChildren(h('div', { class: 'card pad grid' },
         rx.status === 'cancelled' ? h('p', { class: 'error', text: 'বাতিল করা প্রেসক্রিপশন — ওষুধ দেবেন না' }) : null,
         h('b', { text: `${rx.doctor.name}${rx.doctor.regNo ? ` · BMDC ${rx.doctor.regNo}` : ''}` }),
         h('div', { class: 'note', text: `${rx.patient.name}${rx.patient.age != null ? `, ${bn(rx.patient.age)} বছর` : ''} · ${fmtDate(rx.createdAt)}` }),
-        h('div', { class: 'table-wrap' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['ওষুধ', 'নিয়ম', 'কেনা', 'এখন দিলেন'].map((x) => h('th', { text: x })))), h('tbody', null, rows))),
+        h('div', { class: 'table-wrap' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['ওষুধ', 'নিয়ম', 'কেনা', 'এখন দিলেন', ''].map((x) => h('th', { text: x })))), h('tbody', null, rows))),
+        h('p', { class: 'note', text: '"নেই" টিক দিলে রোগী জানবেন, আর ওষুধটা আপনার "যা দিতে পারেননি" তালিকায় জমা হবে।' }),
         (rx.dispensed || []).length ? h('div', { class: 'note', text: 'আগে দেওয়া: ' + rx.dispensed.map((d) => `${d.name} (${fmtDate(d.at)})`).join(', ') }) : null,
         rx.status !== 'cancelled' && rx.medicines.some((m) => !m.done) ? h('div', null, save) : null));
     }
@@ -614,21 +644,79 @@
       h('p', { class: 'note', text: 'কোড দিয়ে খুলে কয়টা দিলেন লিখুন। বাকিটা রোগী অন্য ফার্মেসি থেকে নিতে পারবেন।' }),
       h('div', { class: 'field-row' }, code, h('button', { class: 'btn primary', type: 'button', text: 'খুলুন', onclick: () => open(code.value.trim().toUpperCase()) }))), out,
       h('div', { class: 'block-title', text: 'আপনার কাছে পাঠানো প্রেসক্রিপশন' }), incoming);
+    const upd = async (o, status, extra = {}) => {
+      try { await act('rx_order_update', { id: o.id, status, ...extra }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); }
+    };
     try {
-      const items = (await act('rx_orders_pharmacy')).items.filter((o) => ['sent', 'ready'].includes(o.status));
-      incoming.replaceChildren(...(items.length ? items.map((o) => h('div', { class: 'ctl' },
-        h('div', { class: 'what' }, h('b', { text: o.patientName || '—' }), h('span', { class: 'note', text: `${o.status === 'ready' ? 'তৈরি' : 'নতুন'} · ${fmtDate(o.createdAt)}` })),
-        h('div', { class: 'actions' },
-          h('button', { class: 'btn primary', type: 'button', text: 'খুলুন', onclick: () => { code.value = o.code; open(o.code); } }),
-          o.status === 'sent' ? h('button', { class: 'btn quiet', type: 'button', text: 'তৈরি', onclick: async () => { try { await act('rx_order_update', { id: o.id, status: 'ready' }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); } } }) : null,
-          h('button', { class: 'btn warn', type: 'button', text: 'পারব না', onclick: async () => { try { await act('rx_order_update', { id: o.id, status: 'cancelled', reason: 'ওষুধ নেই' }); toast('রোগীকে জানানো হয়েছে'); render(); } catch (e) { toast(e.message); } } })))) : [h('p', { class: 'note', text: 'এখন কিছু নেই' })]));
+      const items = (await act('rx_orders_pharmacy')).items.filter((o) => ['sent', 'ready', 'accepted', 'out'].includes(o.status));
+      incoming.replaceChildren(...(items.length ? items.map((o) => {
+        const online = o.mode === 'online';
+        const price = h('input', { class: 'cell-input', style: 'max-width:140px', maxlength: 40, placeholder: 'মোট দাম (ঐচ্ছিক)' });
+        const eta = h('input', { class: 'cell-input', style: 'max-width:180px', maxlength: 60, placeholder: 'কখন পৌঁছাবে (ঐচ্ছিক)' });
+        return h('div', { class: 'card pad grid' },
+          h('div', { class: 'toolbar', style: 'margin:0' }, h('b', { text: o.patientName || '—' }),
+            h('span', { class: `chip ${online ? 'pri' : ''}`, text: online ? 'অনলাইন অর্ডার' : 'দোকানে এসেছেন' }), h('span', { class: 'chip', text: OS[o.status] || o.status }),
+            h('span', { class: 'note', text: fmtDate(o.createdAt) })),
+          online ? h('div', { text: `ঠিকানা: ${o.address || '—'} · ফোন: ${o.phone || '—'}${o.deliveryFee ? ` · ডেলিভারি চার্জ: ${o.deliveryFee}` : ''}` }) : null,
+          o.note ? h('div', { class: 'note', text: o.note }) : null,
+          online && o.status === 'sent' ? h('div', { class: 'field-row' }, price, eta) : null,
+          h('div', { class: 'actions', style: 'display:flex;gap:8px;flex-wrap:wrap' },
+            h('button', { class: 'btn primary', type: 'button', text: online ? 'খুলে ওষুধ লিখুন' : 'খুলুন', onclick: () => { code.value = o.code; open(o.code); window.scrollTo({ top: 0, behavior: 'smooth' }); } }),
+            !online && o.status === 'sent' ? h('button', { class: 'btn quiet', type: 'button', text: 'তৈরি', onclick: () => upd(o, 'ready') }) : null,
+            online && o.status === 'sent' ? h('button', { class: 'btn tonal', type: 'button', text: 'অর্ডার নিলাম', onclick: () => upd(o, 'accepted', { price: price.value.trim(), eta: eta.value.trim() }) }) : null,
+            online && ['sent', 'accepted'].includes(o.status) ? h('button', { class: 'btn quiet', type: 'button', text: 'পাঠিয়ে দিয়েছি', onclick: () => upd(o, 'out') }) : null,
+            h('button', { class: 'btn warn', type: 'button', text: 'পারব না', onclick: () => upd(o, 'cancelled', { reason: 'ওষুধ নেই' }) })));
+      }) : [h('p', { class: 'note', text: 'এখন কিছু নেই' })]));
     } catch (e) { incoming.replaceChildren(h('p', { class: 'error', text: e.message })); }
+  }
+
+  // ---------- ফার্মেসি: দোকানের কোড, অনলাইনে বিক্রি ----------
+  async function shopView(page) {
+    let d;
+    try { d = await act('rx_pharmacy_home'); } catch (e) { page.append(h('p', { class: 'error', text: e.message })); return; }
+    const on = d.online;
+    const en = h('input', { type: 'checkbox', checked: on.enabled });
+    const radius = h('input', { class: 'cell-input', style: 'max-width:90px', inputmode: 'numeric', value: String(on.radiusKm || 3) });
+    const fee = h('input', { class: 'cell-input', style: 'max-width:220px', maxlength: 40, value: on.fee, placeholder: 'যেমন: ৩০ টাকা, ৫০০ টাকার ওপরে ফ্রি' });
+    const note = h('input', { class: 'cell-input', maxlength: 120, value: on.note, placeholder: 'নোট (যেমন: সকাল ১০টা–রাত ৯টা ডেলিভারি)' });
+    const save = h('button', { class: 'btn primary', type: 'button', text: 'সেভ' });
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try { await act('rx_pharmacy_online_set', { enabled: en.checked, radiusKm: Number(radius.value.replace(/\D/g, '')) || 3, fee: fee.value.trim(), note: note.value.trim() }); toast('সেভ হয়েছে'); } catch (e) { toast(e.message); }
+      save.disabled = false;
+    });
+    page.append(
+      h('div', { class: 'card pad grid' }, h('b', { text: 'দোকানের কোড' }),
+        h('div', { style: 'font-size:34px;font-weight:800;letter-spacing:6px', text: d.shopCode }),
+        h('p', { class: 'note', text: 'কাউন্টারে লিখে রাখুন। ক্রেতা দোকানে দাঁড়িয়ে অ্যাপে এই কোড দিলে প্রেসক্রিপশন সাথে সাথে আপনার "প্রেসক্রিপশনের ওষুধ" তালিকায় আসবে।' })),
+      h('div', { class: 'card pad grid' }, h('b', { text: 'অনলাইনে বিক্রি' }),
+        h('label', null, en, ' অনলাইনে প্রেসক্রিপশনের অর্ডার নিই (বাসায় পৌঁছে দিই)'),
+        h('div', { class: 'field-row', style: 'align-items:center' }, h('span', { text: 'কত কিমি পর্যন্ত' }), radius),
+        h('div', { class: 'field-row', style: 'align-items:center' }, h('span', { text: 'ডেলিভারি চার্জ' }), fee),
+        note,
+        h('p', { class: 'note', text: 'টাকা ক্রেতা আপনাকে সরাসরি দেবেন (ক্যাশ অন ডেলিভারি) — Lifolo টাকা নেয় না। শুধু যাচাই করা প্রেসক্রিপশন থেকে অর্ডার আসবে।' }),
+        d.hasLocation ? null : h('p', { class: 'error', text: 'দোকানের লোকেশন দেওয়া নেই — অ্যাপে ফার্মেসির তথ্য বদলে লোকেশন দিন।' }),
+        h('div', null, save)));
   }
 
   // ---------- ফার্মেসি: স্টক ----------
   async function stockView(page) {
     let names = [];
     try { names = (await act('stock_get')).items; } catch (e) { page.append(h('p', { class: 'error', text: e.message })); return; }
+    const missBox = h('div', { class: 'card pad grid' }, h('b', { text: 'যা চেয়েও দিতে পারেননি' }), h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    page.append(missBox);
+    (async () => {
+      try {
+        const m = (await act('rx_pharmacy_home')).missed || [];
+        missBox.replaceChildren(h('b', { text: 'যা চেয়েও দিতে পারেননি' }),
+          h('p', { class: 'note', text: 'ক্রেতা প্রেসক্রিপশন নিয়ে এসে যে ওষুধ পাননি — কতবার। স্টকে আনলে "এনেছি" চাপুন।' }),
+          ...(m.length ? m.slice(0, 100).map((x) => h('div', { class: 'ctl' },
+            h('div', { class: 'what' }, h('b', { text: x.name }), h('span', { class: 'note', text: `${bn(x.count)} বার · শেষ ${fmtDate(x.lastAt)}` })),
+            h('div', { class: 'actions' }, h('button', { class: 'btn quiet', type: 'button', text: 'এনেছি', onclick: async () => {
+              try { await act('rx_missed_clear', { k: x.k }); await change([x.name], []); render(); } catch (e) { toast(e.message); }
+            } })))) : [h('p', { class: 'note', text: 'এখনো কিছু নেই' })]));
+      } catch (e) { missBox.replaceChildren(h('p', { class: 'error', text: e.message })); }
+    })();
     const list = h('div', { class: 'chips' });
     const countEl = h('span', { class: 'count' });
     let q = '';
@@ -702,23 +790,67 @@
           o.status === 'sent' ? h('button', { class: 'btn quiet', type: 'button', text: 'নমুনা নিয়েছি', onclick: async () => { try { await act('lab_order_status', { id: o.id, status: 'received' }); render(); } catch (e) { toast(e.message); } } }) : null,
           ['sent', 'received'].includes(o.status) ? h('button', { class: 'btn primary', type: 'button', text: 'রিপোর্ট দিন', onclick: () => reportForm(page, o) }) : null,
           o.status === 'reported' ? h('button', { class: 'btn quiet', type: 'button', text: 'দেখুন', onclick: async () => {
-            try { const full = (await act('lab_order_get', { id: o.id })).item; page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })), ...reportNodes(full)); } catch (e) { toast(e.message); }
+            try { const full = await act('lab_order_get', { id: o.id }); page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })), ...reportNodes(full.item, full.history)); } catch (e) { toast(e.message); }
           } }) : null))) : [h('p', { class: 'note', text: 'এখনো কোনো অনুরোধ নেই' })]));
     } catch (e) { listBox.replaceChildren(h('p', { class: 'error', text: e.message })); }
   }
 
-  function reportForm(page, o) {
-    const rows = o.tests.map((t) => ({ test: t, result: '', unit: '', range: '', flag: '' }));
-    const body = h('tbody');
+  /** রিপোর্ট দেওয়া: প্রতিটা পরীক্ষার ছক (ঘর, একক, স্বাভাবিক মাত্রা ভরা) — শুধু ফল লিখুন; বেশি/কম নিজে থেকে */
+  async function reportForm(page, o) {
+    page.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
+    let forms = [];
+    try { forms = (await act('lab_form', { id: o.id })).forms || []; } catch (e) { forms = o.tests.map((t) => ({ test: t, code: null, name: t, params: [] })); }
+    const flagOf = (r) => {
+      const v = Number(String(r.result).replace(/,/g, '').trim());
+      if (!String(r.result).trim() || !Number.isFinite(v) || (r.low == null && r.high == null)) return r.flag || '';
+      if (r.high != null && v > r.high) return 'high';
+      if (r.low != null && v < r.low) return 'low';
+      return '';
+    };
+    const rangeText = (r) => (r.low != null && r.high != null ? `${r.low} – ${r.high}` : r.high != null ? `< ${r.high}` : r.low != null ? `> ${r.low}` : r.range || '');
+    // ছক থাকলে তার ঘর; না থাকলে একটা খালি সারি (আগের মতো নিজে লেখা)
+    const groups = forms.map((f) => ({
+      name: f.code ? f.name : '',
+      code: f.code,
+      rows: f.params.length ? f.params.map((p) => ({ test: p.name, group: f.name, code: f.code, key: p.key, result: '', unit: p.unit, low: p.low, high: p.high, base: [p.low, p.high],
+        range: p.range || p.text || '', options: p.options || [], long: p.long, numeric: p.low != null || p.high != null, flag: '' }))
+        : [{ test: f.test, result: '', unit: '', range: '', flag: '', free: true }],
+    }));
+    const extra = { name: '', rows: [] };
+    groups.push(extra);
+    const box = h('div', { class: 'grid' });
+    function rowEl(r) {
+      const flagEl = h('span');
+      const showFlag = () => { const f = flagOf(r); flagEl.replaceChildren(f ? h('span', { class: 'chip bad', text: FLAG[f] }) : document.createTextNode('')); };
+      let resultEl;
+      if (r.long) resultEl = h('textarea', { class: 'reply', style: 'min-height:90px', placeholder: 'লিখুন', oninput: (e) => { r.result = e.target.value; } }, r.result);
+      else if (r.options && r.options.length) {
+        const id = `opt-${Math.random().toString(36).slice(2)}`;
+        resultEl = h('span', null, h('input', { list: id, value: r.result, placeholder: r.range || 'বাছুন', oninput: (e) => { r.result = e.target.value; } }),
+          h('datalist', { id }, r.options.map((x) => h('option', { value: x }))));
+      } else resultEl = h('input', { value: r.result, inputmode: r.numeric ? 'decimal' : null, oninput: (e) => { r.result = e.target.value; showFlag(); } });
+      const rangeEl = r.numeric
+        ? h('span', { style: 'display:flex;gap:4px;align-items:center' },
+          h('input', { style: 'width:70px', inputmode: 'decimal', value: r.low ?? '', placeholder: 'নিচে', oninput: (e) => { const v = e.target.value.trim(); r.low = v === '' ? null : Number(v); showFlag(); } }), '–',
+          h('input', { style: 'width:70px', inputmode: 'decimal', value: r.high ?? '', placeholder: 'ওপরে', oninput: (e) => { const v = e.target.value.trim(); r.high = v === '' ? null : Number(v); showFlag(); } }))
+        : h('input', { value: r.range, oninput: (e) => { r.range = e.target.value; } });
+      const flagSel = r.numeric ? flagEl : h('select', { onchange: (e) => { r.flag = e.target.value; } }, [['', '—'], ['high', 'বেশি'], ['low', 'কম'], ['abnormal', 'অস্বাভাবিক']].map(([v, l]) => h('option', { value: v, selected: r.flag === v, text: l })));
+      showFlag();
+      return h('tr', null,
+        h('td', null, r.free || !r.code ? h('input', { value: r.test, placeholder: 'পরীক্ষা', oninput: (e) => { r.test = e.target.value; } }) : h('span', { class: 'main-cell', text: r.test })),
+        h('td', null, resultEl),
+        h('td', null, r.code ? h('span', { text: r.unit || '' }) : h('input', { style: 'width:80px', value: r.unit, oninput: (e) => { r.unit = e.target.value; } })),
+        h('td', null, rangeEl),
+        h('td', null, flagSel));
+    }
     function draw() {
-      body.replaceChildren(...rows.map((r) => h('tr', null,
-        h('td', null, h('input', { value: r.test, oninput: (e) => { r.test = e.target.value; } })),
-        h('td', null, h('input', { value: r.result, oninput: (e) => { r.result = e.target.value; } })),
-        h('td', null, h('input', { value: r.unit, oninput: (e) => { r.unit = e.target.value; } })),
-        h('td', null, h('input', { value: r.range, oninput: (e) => { r.range = e.target.value; } })),
-        h('td', null, h('select', { onchange: (e) => { r.flag = e.target.value; } }, [['', '—'], ['high', 'বেশি'], ['low', 'কম']].map(([v, l]) => h('option', { value: v, selected: r.flag === v, text: l })))))));
+      box.replaceChildren(...groups.filter((g) => g.rows.length).map((g) => h('div', { class: 'card table-wrap' },
+        g.name ? h('div', { class: 'block-title', style: 'padding:10px 12px 0', text: g.name }) : null,
+        h('table', { class: 'meds' }, h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'একক', 'স্বাভাবিক মাত্রা', 'বেশি/কম'].map((x) => h('th', { text: x })))),
+          h('tbody', null, g.rows.map(rowEl))))));
     }
     draw();
+    const keep = h('input', { type: 'checkbox' });
     const note = h('textarea', { class: 'reply', maxlength: 500, placeholder: 'নোট (ঐচ্ছিক)' });
     const photos = [];
     const photoInfo = h('span', { class: 'note' });
@@ -730,18 +862,32 @@
     } });
     const send = h('button', { class: 'btn primary', type: 'button', text: 'রিপোর্ট পাঠান' });
     send.addEventListener('click', async () => {
+      const rows = groups.flatMap((g) => g.rows).filter((r) => String(r.test).trim() && String(r.result).trim());
+      const bad = rows.find((r) => (r.low != null && !Number.isFinite(r.low)) || (r.high != null && !Number.isFinite(r.high)));
+      if (bad) { toast(`${bad.test}: মাত্রা দেখে নিন`); return; }
       send.disabled = true;
       try {
-        await act('lab_report', { id: o.id, items: rows.filter((r) => r.test.trim() && r.result.trim()), note: note.value.trim(), photos });
+        if (keep.checked) {
+          const changed = groups.flatMap((g) => g.rows).filter((r) => r.code && r.numeric !== undefined && r.base && (r.low !== r.base[0] || r.high !== r.base[1]));
+          if (changed.length) await act('lab_ranges_set', { ranges: changed.map((r) => ({ code: r.code, key: r.key, low: r.low, high: r.high })) });
+        }
+        await act('lab_report', {
+          id: o.id,
+          items: rows.map((r) => ({ test: r.test, result: String(r.result).trim(), unit: r.unit || '', range: r.numeric ? rangeText(r) : r.range || '', flag: flagOf(r),
+            ...(r.group && r.code ? { group: r.group, code: r.code, key: r.key } : {}), ...(r.low != null ? { low: r.low } : {}), ...(r.high != null ? { high: r.high } : {}), ...(r.long ? { long: true } : {}) })),
+          note: note.value.trim(), photos,
+        });
         toast('রোগীর কাছে রিপোর্ট গেছে');
         render();
       } catch (e) { toast(e.message); send.disabled = false; }
     });
     page.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn quiet', type: 'button', text: '← ফিরে যান', onclick: render })),
       h('div', { class: 'card pad grid' },
-        h('b', { text: [`${o.patientName}${o.patientAge != null ? `, ${bn(o.patientAge)} বছর` : ''}`, o.doctorName].filter(Boolean).join(' · ') }),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'meds' }, h('thead', null, h('tr', null, ['পরীক্ষা', 'ফল', 'একক', 'স্বাভাবিক মাত্রা', 'বেশি/কম'].map((x) => h('th', { text: x })))), body)),
-        h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'আরেকটা সারি', onclick: () => { rows.push({ test: '', result: '', unit: '', range: '', flag: '' }); draw(); } })),
+        h('b', { text: [`${o.patientName}${o.patientAge != null ? `, ${bn(o.patientAge)} বছর` : ''}${o.patientGender ? ` · ${o.patientGender === 'female' ? 'নারী' : 'পুরুষ'}` : ''}`, o.doctorName].filter(Boolean).join(' · ') }),
+        h('p', { class: 'note', text: 'ঘর, একক আর স্বাভাবিক মাত্রা ভরা আছে — শুধু ফল লিখুন। বেশি/কম নিজে থেকে বসবে। আপনার মেশিনের মাত্রা আলাদা হলে বদলে নিন।' }),
+        box,
+        h('div', null, h('button', { class: 'btn tonal', type: 'button', text: 'আরেকটা সারি', onclick: () => { extra.rows.push({ test: '', result: '', unit: '', range: '', flag: '', free: true }); draw(); } })),
+        h('label', { class: 'note' }, keep, ' বদলানো মাত্রা আমার ল্যাবের জন্য রেখে দিন (পরের রিপোর্টে এটাই আসবে)'),
         note,
         h('div', { class: 'grid', style: 'gap:6px' }, h('span', { class: 'note', text: 'ছাপানো রিপোর্টের ছবি (ঐচ্ছিক, সর্বোচ্চ ২টা)' }), h('div', { class: 'field-row', style: 'align-items:center' }, file, photoInfo)),
         h('div', null, send)));

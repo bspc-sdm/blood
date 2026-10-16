@@ -278,7 +278,7 @@ const actions = {
       if (!a.exists || a.get('providerUid') !== user.uid) throw err(req, 'Appointment not found', 'অ্যাপয়েন্টমেন্ট পাওয়া যায়নি', 404);
       appointmentId = a.id;
       patientUid = a.get('patientUid');
-      base = { name: a.get('patientName') || '' };
+      base = { name: a.get('patientName') || '', ...(a.get('patientAge') != null ? { age: a.get('patientAge') } : {}), ...(a.get('patientGender') ? { gender: a.get('patientGender') } : {}) };
     } else if (R.isValidId(b.rxPatientId)) {
       const p = await db.doc(`rxPatients/${b.rxPatientId}`).get();
       if (!p.exists || p.get('doctorUid') !== user.uid) throw err(req, 'Patient not found', 'রোগী পাওয়া যায়নি', 404);
@@ -345,7 +345,7 @@ const actions = {
     });
     if (rxPatientId) await db.doc(`rxPatients/${rxPatientId}`).update({ lastRxAt: now });
     if (patientUid) {
-      await push(patientUid, `New prescription from ${doctor.name}`, `${doctor.name} নতুন প্রেসক্রিপশন দিয়েছেন`, '', { type: 'rx', id: ref.id });
+      await require('./careaccess').pushPatient(patientUid, `New prescription from ${doctor.name}`, `${doctor.name} নতুন প্রেসক্রিপশন দিয়েছেন`, '', { type: 'rx', id: ref.id });
     }
     return { id: ref.id, code };
   },
@@ -384,10 +384,11 @@ const actions = {
     await useQuota(req, user.uid, 'rxClaim');
     const phone = K.normalizeBd(req.body?.phone);
     const u = await db.doc(`users/${user.uid}`).get();
-    const mine = K.normalizeBd(u.get('phone'));
+    // নিজের প্রোফাইলের নম্বর, অথবা পরিবারের কোনো সদস্যের নম্বর (তাঁর প্রেসক্রিপশন এই অ্যাকাউন্টে)
+    const allowed = [u.get('phone'), ...((u.get('family') || []).map((m) => m.phone))].map((p) => K.normalizeBd(p)).filter(Boolean);
     const notMatch = () => err(req, "The code and phone number don't match", 'কোড আর ফোন নম্বর মেলেনি');
-    if (!phone || phone !== mine) {
-      throw err(req, 'Use the same mobile number as in your profile', 'প্রোফাইলের মোবাইল নম্বরটাই দিন');
+    if (!phone || !allowed.includes(phone)) {
+      throw err(req, 'Use the mobile number in your profile or a family member\'s number', 'প্রোফাইলের বা পরিবারের সদস্যের মোবাইল নম্বরটাই দিন');
     }
     const snap = await db.collection('prescriptions').where('code', '==', code).limit(1).get();
     if (snap.empty) throw notMatch();
@@ -445,7 +446,7 @@ async function followUpReminders(now = Date.now()) {
       const x = d.data();
       if (x.status !== 'active' || !x.patientUid) continue;
       const name = x.doctor?.name || '';
-      await push(
+      await require('./careaccess').pushPatient(
         x.patientUid,
         days === 1 ? `Tomorrow: see ${name} again` : `In 2 days: see ${name} again`,
         days === 1 ? `কাল ${name}-এর কাছে আবার দেখানোর দিন` : `২ দিন পর ${name}-এর কাছে আবার দেখানোর দিন`,
