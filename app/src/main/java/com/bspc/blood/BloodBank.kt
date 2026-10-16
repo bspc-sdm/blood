@@ -189,7 +189,7 @@ private fun BloodBankFinder(profile: Profile) {
                 EmptyState(
                     R.drawable.ic_bloodtype,
                     tr("No blood bank in the app here yet", "এখানে এখনো অ্যাপে কোনো ব্লাড ব্যাংক নেই"),
-                    tr("Know one? Ask them to join from \"My blood bank\".", "কোনো ব্লাড ব্যাংক চিনলে \"আমার ব্লাড ব্যাংক\" থেকে যোগ হতে বলুন।"),
+                    tr("Know one? Ask them to join with + at the top.", "কোনো ব্লাড ব্যাংক চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
                     Modifier.padding(top = 24.dp),
                 )
             }

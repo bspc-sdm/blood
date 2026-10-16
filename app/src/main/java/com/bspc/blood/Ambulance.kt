@@ -282,7 +282,7 @@ private fun AmbulanceFinder(profile: Profile) {
                         R.drawable.ic_ambulance,
                         if (busyCount > 0) tr("All ambulances here are on a trip now", "এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে")
                         else tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
-                        tr("Call 999 above. Know an ambulance service? Ask them to join from \"My ambulance\".", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে \"আমার অ্যাম্বুলেন্স\" থেকে যোগ হতে বলুন।"),
+                        tr("Call 999 above. Know an ambulance service? Ask them to join with + at the top.", "উপরের ৯৯৯-এ ফোন করুন। কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
                         Modifier.padding(top = 24.dp),
                     )
                 }

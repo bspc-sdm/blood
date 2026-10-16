@@ -368,7 +368,7 @@ private fun NearbyPharmacies(profile: Profile) {
                 EmptyState(
                     R.drawable.ic_storefront,
                     tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
-                    tr("Know a pharmacy? Ask them to join from \"My pharmacy\".", "কোনো ফার্মেসি চিনলে \"আমার ফার্মেসি\" থেকে যোগ হতে বলুন।"),
+                    tr("Know a pharmacy? Ask them to join with + at the top.", "কোনো ফার্মেসি চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
                     Modifier.padding(top = 24.dp),
                 )
             }
