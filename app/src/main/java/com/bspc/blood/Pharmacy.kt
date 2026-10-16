@@ -162,11 +162,10 @@ fun PharmacyContent(profile: Profile) {
     // নোটিফিকেশন থেকে: নিজের খোঁজের উত্তর → "ওষুধ খুঁজুন", দোকানের অনুরোধ → "আমার ফার্মেসি"
     val target = ServicesNav.target.value
     LaunchedEffect(target) {
-        when (target) {
-            "med_find_mine" -> tab = 1
-            "med_find" -> tab = 2
+        if (target == "med_find_mine") {
+            tab = 1
+            ServicesNav.target.value = null
         }
-        if (target != null) ServicesNav.target.value = null
     }
     Column(Modifier.fillMaxSize()) {
         PillTabs(
@@ -174,22 +173,21 @@ fun PharmacyContent(profile: Profile) {
             listOf(
                 PillTab(tr("Pharmacies", "ফার্মেসি"), R.drawable.ic_storefront),
                 PillTab(tr("Find a medicine", "ওষুধ খুঁজুন"), R.drawable.ic_search),
-                PillTab(tr("My pharmacy", "আমার ফার্মেসি"), R.drawable.ic_person_outline),
             ),
             { tab = it },
             secondary = true,
         )
+        // নিজের ফার্মেসি: "সেবা" পাতার নিচের ভাসমান বাটন / উপরের + থেকে (ServicesTab)
         when (tab) {
             0 -> NearbyPharmacies(profile)
-            1 -> MedFindPanel(profile)
-            else -> MyPharmacyPanel(profile)
+            else -> MedFindPanel(profile)
         }
     }
 }
 
 /** নিজের ফার্মেসি: না থাকলে যোগ করার আমন্ত্রণ, থাকলে অবস্থা, বদলানো আর অ্যাপ থেকে কতবার ফোন এসেছে */
 @Composable
-private fun MyPharmacyPanel(profile: Profile) {
+internal fun MyPharmacyPanel(profile: Profile) {
     var shop by remember { mutableStateOf<Pharmacy?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }

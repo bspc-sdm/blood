@@ -144,22 +144,8 @@ object BloodBanks {
 /** "সেবা" → ব্লাড ব্যাংক: খুঁজুন | আমার ব্লাড ব্যাংক */
 @Composable
 fun BloodBankContent(profile: Profile) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        PillTabs(
-            tab,
-            listOf(PillTab(tr("Find", "খুঁজুন"), R.drawable.ic_search), PillTab(tr("My blood bank", "আমার ব্লাড ব্যাংক"), R.drawable.ic_person_outline)),
-            { tab = it },
-            secondary = true,
-        )
-        if (tab == 0) BloodBankFinder(profile)
-        else Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            MyBloodBanksSection(profile)
-        }
-    }
+    // নিজের ব্লাড ব্যাংক: "সেবা" পাতার নিচের ভাসমান বাটন / উপরের + থেকে (ServicesTab)
+    BloodBankFinder(profile)
 }
 
 @Composable
@@ -266,7 +252,7 @@ internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Uni
 }
 
 @Composable
-private fun MyBloodBanksSection(profile: Profile) {
+internal fun MyBloodBanksSection(profile: Profile) {
     var list by remember { mutableStateOf<List<BloodBank>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<BloodBank?>(null) }

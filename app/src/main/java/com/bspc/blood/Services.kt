@@ -67,23 +67,90 @@ fun HealthTab(
 @Composable
 fun ServicesTab(profile: Profile) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    // ওষুধ খোঁজার নোটিফিকেশন থেকে এলে ফার্মেসি অংশ
-    val target = ServicesNav.target.value
-    LaunchedEffect(target) { if (target == "med_find" || target == "med_find_mine") tab = 1 }
-    Column(Modifier.fillMaxSize()) {
-        PillTabs(
-            tab,
-            listOf(
-                PillTab(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance),
-                PillTab(tr("Pharmacy", "ফার্মেসি"), R.drawable.ic_medication),
-                PillTab(tr("Blood bank", "ব্লাড ব্যাংক"), R.drawable.ic_bloodtype),
-            ),
-            { tab = it },
+    // নিজের অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংকের পাতা খোলা কি না
+    var mineOpen by rememberSaveable { mutableStateOf(false) }
+    // নিজের আছে কি না (০ অ্যাম্বুলেন্স, ১ ফার্মেসি, ২ ব্লাড ব্যাংক): থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে +
+    var owns by remember { mutableStateOf(listOf(false, false, false)) }
+    var ownsKey by remember { mutableIntStateOf(0) }
+    LaunchedEffect(ownsKey) {
+        owns = listOf(
+            runCatching { Ambulances.mine().isNotEmpty() }.getOrDefault(false),
+            runCatching { Pharmacies.mine() != null }.getOrDefault(false),
+            runCatching { BloodBanks.mine().isNotEmpty() }.getOrDefault(false),
         )
-        when (tab) {
-            0 -> AmbulanceContent(profile)
-            1 -> PharmacyContent(profile)
-            else -> BloodBankContent(profile)
+    }
+    // নোটিফিকেশন থেকে: নিজের ওষুধ খোঁজা → ফার্মেসি; দোকানের অনুরোধ/অর্ডার → নিজের ফার্মেসির পাতা
+    val target = ServicesNav.target.value
+    LaunchedEffect(target) {
+        when (target) {
+            "med_find_mine" -> tab = 1
+            "med_find", "pharmacy_mine" -> {
+                tab = 1
+                mineOpen = true
+                ServicesNav.target.value = null
+            }
+        }
+    }
+    val mineTitle = when (tab) {
+        0 -> tr("My ambulance", "আমার অ্যাম্বুলেন্স")
+        1 -> tr("My pharmacy", "আমার ফার্মেসি")
+        else -> tr("My blood bank", "আমার ব্লাড ব্যাংক")
+    }
+    if (mineOpen) {
+        val close = { mineOpen = false; ownsKey++ }
+        androidx.activity.compose.BackHandler(onBack = close)
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.IconButton(onClick = close) { AppIcon(R.drawable.ic_arrow_back, tr("Back", "ফিরে যান")) }
+                Text(mineTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            when (tab) {
+                0 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MyAmbulancesSection(profile)
+                }
+                1 -> MyPharmacyPanel(profile)
+                else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MyBloodBanksSection(profile)
+                }
+            }
+        }
+        return
+    }
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                    PillTabs(
+                        tab,
+                        listOf(
+                            PillTab(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance),
+                            PillTab(tr("Pharmacy", "ফার্মেসি"), R.drawable.ic_medication),
+                            PillTab(tr("Blood bank", "ব্লাড ব্যাংক"), R.drawable.ic_bloodtype),
+                        ),
+                        { tab = it },
+                    )
+                }
+                // প্রথমবার যোগ করা: উপরে +
+                if (!owns[tab]) {
+                    androidx.compose.material3.IconButton(onClick = { mineOpen = true }) {
+                        AppIcon(R.drawable.ic_add, tr("Add ", "যোগ করুন: ") + mineTitle)
+                    }
+                }
+            }
+            when (tab) {
+                0 -> AmbulanceContent(profile, showMine = false)
+                1 -> PharmacyContent(profile)
+                else -> BloodBankContent(profile)
+            }
+        }
+        // নিজের থাকলে: নিচে ভাসমান বাটন, চাপলে নিজের পাতা
+        if (owns[tab]) {
+            SmallFab(
+                mineTitle,
+                when (tab) { 0 -> R.drawable.ic_ambulance; 1 -> R.drawable.ic_storefront; else -> R.drawable.ic_bloodtype },
+                { mineOpen = true },
+                Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            )
         }
     }
 }

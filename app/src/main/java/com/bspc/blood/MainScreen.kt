@@ -151,7 +151,7 @@ fun MainScreen(
                     onOpenAmbulance = onOpenAmbulance,
                     onOpenMedicine = onOpenMedicine,
                 ) { onTabChange(Tabs.PROFILE) }
-                Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
+                Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
                 Tabs.SERVICES -> ServicesTab(profile)
                 else -> ProfileTab(

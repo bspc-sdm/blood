@@ -251,6 +251,8 @@ fun App(
                 homeRefresh++
             }
             type == "services" || type == "pharmacy_order" || type == "pharmacy_mine" -> {
+                // দোকানের মালিকের খবর: সরাসরি নিজের ফার্মেসির পাতা
+                if (type != "services") ServicesNav.target.value = "pharmacy_mine"
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)
             }

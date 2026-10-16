@@ -73,6 +73,7 @@ fun AppointmentTab(
     me: CommunityMe?,
     onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
+    refreshKey: Int = 0,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(CareNav.openHomeCare.value) {
@@ -82,6 +83,13 @@ fun AppointmentTab(
         }
     }
 
+    // যাচাই করা ডাক্তার/নার্স: চেম্বার/প্রোফাইল আগে থেকে থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে + (প্রথমবার)
+    val isProvider = me?.approvedBadge in PROVIDER_TYPES
+    var hasChamber by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isProvider, refreshKey) {
+        hasChamber = if (isProvider) runCatching { Appointments.mine() != null }.getOrNull() else null
+    }
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -90,17 +98,14 @@ fun AppointmentTab(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
+            if (isProvider && hasChamber == false) {
+                IconButton(onClick = onEditChamber) {
+                    AppIcon(R.drawable.ic_add, tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
+                }
+            }
             IconButton(onClick = onOpenMyAppointments) {
                 AppIcon(R.drawable.ic_calendar_month, tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"))
             }
-        }
-        if (me?.approvedBadge in PROVIDER_TYPES) {
-            AssistChip(
-                onClick = onEditChamber,
-                label = { Text(tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল")) },
-                leadingIcon = { AppIcon(R.drawable.ic_edit, null, Modifier.size(18.dp)) },
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
         }
         PillTabs(
             tab,
@@ -115,6 +120,15 @@ fun AppointmentTab(
             0, 1 -> ProviderList(PROVIDER_TYPES[tab], profile)
             else -> HomeCareTab(profile, me, onEditChamber)
         }
+    }
+    if (isProvider && hasChamber == true) {
+        SmallFab(
+            tr("My chamber", "আমার চেম্বার"),
+            R.drawable.ic_stethoscope,
+            onEditChamber,
+            Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        )
+    }
     }
 }
 

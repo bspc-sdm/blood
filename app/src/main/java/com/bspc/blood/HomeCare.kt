@@ -106,7 +106,6 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (me?.approvedBadge == type) item { MyHomeCareCard(onEditChamber) }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterBar(
