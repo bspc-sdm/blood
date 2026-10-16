@@ -96,6 +96,7 @@ internal fun inboxIcon(type: String?, kind: String? = null, title: String? = nul
     "support" -> R.drawable.ic_help
     "emergency" -> R.drawable.ic_warning
     "eligible" -> R.drawable.ic_favorite
+    "job", "job_applicants", "job_mine" -> R.drawable.ic_nav_work // FEATURE:jobs
     else -> R.drawable.ic_water_drop
 }
 

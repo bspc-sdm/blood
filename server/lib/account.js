@@ -163,6 +163,8 @@ module.exports = {
       db.doc(`badges/${uid}`).delete(),
       // কাগজের ছবি (লাইসেন্স, সনদ) — অ্যাকাউন্টের সাথে মুছে যায়
       require('./verify').deleteForOwner(uid).catch(() => {}),
+      // সিভি, নিয়োগকর্তার তথ্য, আবেদন; চালু চাকরির বিজ্ঞাপন বন্ধ
+      require('./jobs').deleteForUser(uid).catch((e) => console.error('job data delete failed', e.message)), // FEATURE:jobs
       db.doc(`providers/${uid}`).delete(),
       // দোকান আর তার ফোনের হিসাব
       db.doc(`pharmacies/${uid}`).delete(),

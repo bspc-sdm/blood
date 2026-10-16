@@ -8,8 +8,8 @@ const { useQuota } = require('./community-db');
 const K = require('./care');
 // homevisit: আগের অনুরোধ-ব্যবস্থার খোলা রিপোর্ট (নতুন নেওয়া হয় না); homecare: বাসায় সেবার তালিকার ডাক্তার/নার্স
 // provider: চেম্বারের তালিকার ডাক্তার/নার্স (রিপোর্ট টিকলে পুরো তালিকা বন্ধ)
-const KINDS = ['question', 'answer', 'tip', 'homecare', 'provider', 'ambulance', 'pharmacy', 'bloodbank'];
-const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+|bloodBanks\/[A-Za-z0-9_-]+)$/;
+const KINDS = ['question', 'answer', 'tip', 'homecare', 'provider', 'ambulance', 'pharmacy', 'bloodbank', 'job'];
+const PATH_RE = /^(questions\/[A-Za-z0-9_-]+(\/answers\/[A-Za-z0-9_-]+)?|tips\/[A-Za-z0-9_-]+|homeVisits\/[A-Za-z0-9_-]+|providers\/[A-Za-z0-9_-]+|ambulances\/[A-Za-z0-9_-]+|pharmacies\/[A-Za-z0-9_-]+|bloodBanks\/[A-Za-z0-9_-]+|jobs\/[A-Za-z0-9_-]+)$/;
 
 function targetPath(kind, id, answerId) {
   if (kind === 'question') return `questions/${id}`;
@@ -18,6 +18,7 @@ function targetPath(kind, id, answerId) {
   if (kind === 'ambulance') return `ambulances/${id}`;
   if (kind === 'pharmacy') return `pharmacies/${id}`;
   if (kind === 'bloodbank') return `bloodBanks/${id}`;
+  if (kind === 'job') return `jobs/${id}`; // FEATURE:jobs
   return `tips/${id}`;
 }
 
@@ -25,6 +26,11 @@ function targetPath(kind, id, answerId) {
 async function removeTarget(path, reported, kind, reason = '') {
   if (path.startsWith('providers/') && kind === 'provider') {
     await require('./apptcancel').suspendProvider(path.split('/')[1], 'report');
+    return;
+  }
+  if (path.startsWith('jobs/')) {
+    // চাকরির বিজ্ঞাপন বন্ধ (মোছা নয়); নিয়োগকর্তা আর আবেদনকারীরা জানেন
+    await require('./jobs').suspendByReport(path.split('/')[1], reason); // FEATURE:jobs
     return;
   }
   const ref = db.doc(path);
@@ -114,6 +120,10 @@ module.exports = {
       throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     }
     if (kind === 'provider' && id === user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    // চাকরি: নিজের বিজ্ঞাপন নয়, আর শুধু চালু/বন্ধ (অনুমোদনের অপেক্ষার বিজ্ঞাপন সবাই দেখেন না)
+    if (kind === 'job' && (target.get('employerUid') === user.uid || !['open', 'closed'].includes(target.get('status')))) { // FEATURE:jobs
+      throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+    }
     // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবা: অ্যাপ থেকে ফোন করেছেন এমন মানুষই রিপোর্ট করতে পারেন (প্রতিযোগীর ভুয়া রিপোর্ট আটকাতে)
     const callDoc = { ambulance: 'ambulanceCalls', pharmacy: 'pharmacyCalls', bloodbank: 'bloodBankCalls', homecare: 'homeCalls' }[kind];
     // "ওষুধ খুঁজুন"-এ দোকান "আছে" বলেছিল (গিয়ে দেখলেন নেই) — সেটাও রিপোর্ট করা যায়
@@ -122,7 +132,7 @@ module.exports = {
     if (callDoc && !(await db.doc(`${callDoc}/${user.uid}_${id}`).get()).exists && !(await answeredFind())) {
       throw new HttpError(403, C.tr(req, 'You can report after calling from the app', 'অ্যাপ থেকে ফোন করার পর রিপোর্ট করতে পারবেন'));
     }
-    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank' || kind === 'provider') {
+    if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank' || kind === 'provider' || kind === 'job') {
       reason = C.cleanText(req.body?.reason, 300);
       if (!reason) throw new HttpError(400, C.tr(req, 'Write what happened', 'কী হয়েছে লিখুন'));
     }
@@ -196,6 +206,8 @@ module.exports = {
             `${(t.get('services') || []).join(', ')} · ${t.get('status')}`,
             ...list[i].reasons,
           ].join('\n')
+          : list[i].kind === 'job'
+            ? [`${t.get('title') || ''} · ${t.get('orgName') || ''} · ${t.get('district') || ''}`, t.get('description') || '', ...list[i].reasons].join('\n')
           : ['ambulance', 'pharmacy', 'bloodbank'].includes(list[i].kind)
             ? [`${t.get('name') || ''} · ${K.fixPhone(t.get('phone'))} · ${t.get('district') || ''}`, ...list[i].reasons].join('\n')
             : list[i].kind === 'provider'
@@ -204,7 +216,7 @@ module.exports = {
               ? [`${t.get('type') === 'doctor' ? 'ডাক্তার' : 'নার্স'}: ${t.get('name') || ''} · ${K.fixPhone(t.get('homeVisit.phone'))}`, ...list[i].reasons].join('\n')
             : [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'),
         // বেনামি প্রশ্নে প্রশ্নকারীর নাম অ্যাডমিনও দেখেন না
-        authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('anonymous') === true ? 'বেনামি' : t.get('authorName') || t.get('name') || '',
+        authorName: list[i].kind === 'homevisit' ? list[i].reportedName : list[i].kind === 'job' ? t.get('orgName') || '' : t.get('anonymous') === true ? 'বেনামি' : t.get('authorName') || t.get('name') || '',
         // রিপোর্টের পর লেখা বদলে থাকলে রিপোর্টের সময়ের লেখা
         ...(list[i].snapshot && list[i].snapshot !== [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n').slice(0, 3000)
           ? { snapshot: list[i].snapshot } : {}),

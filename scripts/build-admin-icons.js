@@ -11,7 +11,7 @@ const NAMES = {
   person: 'ic_person_filled', history: 'ic_history', admin: 'ic_admin_panel_settings', logout: 'ic_logout',
   refresh: 'ic_refresh', search: 'ic_search', blood: 'ic_bloodtype', medication: 'ic_medication',
   homeHealth: 'ic_home_health', event: 'ic_event_filled', mail: 'ic_mail', check: 'ic_check_circle',
-  warning: 'ic_warning', close: 'ic_close', stethoscope: 'ic_stethoscope', forum: 'ic_forum_filled', call: 'ic_call',
+  warning: 'ic_warning', close: 'ic_close', stethoscope: 'ic_stethoscope', forum: 'ic_forum_filled', call: 'ic_call', work: 'ic_nav_work_fill',
 };
 const out = {
   // অ্যাপে নেই, Material Symbols থেকে (Apache 2.0)

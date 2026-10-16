@@ -6,7 +6,7 @@ const C = require('./community');
 const R = require('./rules');
 const K = require('./care');
 
-const SECTIONS = ['blood', 'community', 'services', 'care', 'inbox', 'support', 'admin'];
+const SECTIONS = ['blood', 'community', 'services', 'care', 'jobs', 'inbox', 'support', 'admin'];
 
 const ms = (v) => (typeof v === 'number' ? v : v && typeof v.toMillis === 'function' ? v.toMillis() : 0);
 const newest = (docs, field, n = 30) => docs
@@ -150,6 +150,30 @@ async function care(uid) {
   };
 }
 
+/** চাকরি: সিভি, আবেদন, নিয়োগকর্তা হলে বিজ্ঞাপন */
+async function jobs(uid) { // FEATURE:jobs
+  const [p, emp, apps, mine] = await Promise.all([
+    db.doc(`profiles/${uid}`).get(),
+    db.doc(`employers/${uid}`).get(),
+    db.collection('applications').where('uid', '==', uid).limit(100).get(),
+    db.collection('jobs').where('employerUid', '==', uid).limit(100).get(),
+  ]);
+  const jobDocs = apps.docs.length ? await db.getAll(...apps.docs.map((a) => db.doc(`jobs/${a.get('jobId')}`))) : [];
+  return {
+    cv: p.exists ? {
+      headline: p.get('headline') || '', public: p.get('public') === true, openToWork: p.get('openToWork') === true,
+      experience: (p.get('experience') || []).length, education: (p.get('education') || []).length, skills: (p.get('skills') || []).length,
+    } : null,
+    employer: emp.exists ? { name: emp.get('name'), kind: emp.get('kind'), verified: emp.get('verified') === true, verifyStatus: emp.get('verifyStatus') || 'none', district: emp.get('district') || '' } : null,
+    applications: apps.docs.map((a, i) => ({
+      at: a.get('createdAt') || 0, status: a.get('status'),
+      title: jobDocs[i] && jobDocs[i].exists ? jobDocs[i].get('title') : '(মুছে গেছে)',
+      org: jobDocs[i] && jobDocs[i].exists ? jobDocs[i].get('orgName') : '',
+    })).sort((a, b) => b.at - a.at),
+    jobs: mine.docs.map((d) => ({ at: d.get('createdAt') || 0, title: d.get('title'), status: d.get('status'), applicants: d.get('applicants') || 0 })).sort((a, b) => b.at - a.at),
+  };
+}
+
 async function inbox(uid) {
   const snap = await db.collection('inbox').where('uid', '==', uid).limit(60).get();
   return {
@@ -173,7 +197,7 @@ async function adminLog(uid) {
   };
 }
 
-const LOADERS = { blood, community, services, care, inbox, support, admin: adminLog };
+const LOADERS = { blood, community, services, care, jobs, inbox, support, admin: adminLog };
 
 const actions = {
   /** অ্যাডমিন: একজন ব্যবহারকারীর একটা ভাগের সব কাজ (শুধু দেখা) */

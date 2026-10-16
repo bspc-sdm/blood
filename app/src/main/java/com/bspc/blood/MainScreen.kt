@@ -83,6 +83,7 @@ fun MainScreen(
     onOpenAmbulance: () -> Unit = {},
     onOpenMedicine: () -> Unit = {},
     onOpenShop: () -> Unit = {},
+    onOpenJobs: (JobsPage) -> Unit = {}, // FEATURE:jobs
 ) {
     val context = LocalContext.current
 
@@ -130,6 +131,7 @@ fun MainScreen(
         NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
         NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
         NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
+        NavItem(tr("Jobs", "চাকরি"), R.drawable.ic_nav_work_fill, R.drawable.ic_nav_work), // FEATURE:jobs
     )
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
@@ -154,6 +156,7 @@ fun MainScreen(
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onOpenMyAppointments, onEditChamber)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
                 Tabs.SERVICES -> ServicesTab(profile)
+                Tabs.JOBS -> JobsTab(profile, homeRefresh, onOpenJobs) // FEATURE:jobs
                 else -> ProfileTab(
                     profile = profile,
                     community = community,

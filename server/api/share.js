@@ -39,6 +39,42 @@ ${body}
 </main></body></html>`;
 }
 
+const CAT = { health: 'স্বাস্থ্যসেবা', education: 'শিক্ষা', sales: 'বিক্রয় ও মার্কেটিং', accounts: 'হিসাব ও অর্থ', office: 'অফিস ও প্রশাসন', it: 'আইটি', driving: 'গাড়ি চালনা ও ডেলিভারি', factory: 'কারখানা', hospitality: 'হোটেল ও রেস্টুরেন্ট', security: 'নিরাপত্তা', construction: 'নির্মাণ ও মেরামত', domestic: 'গৃহস্থালি কাজ', other: 'অন্যান্য' };
+const ym = (v) => (v ? v.split('-').reverse().join('/') : '');
+
+async function cvPage(uid, res) { // FEATURE:jobs
+  let cv = null;
+  try {
+    cv = await require('../lib/jobs').publicCv(uid);
+  } catch (e) {
+    console.error('cv load failed', e);
+  }
+  if (!cv) {
+    res.status(404).send(page('সিভি / CV', '<p>এই সিভি দেখা যাচ্ছে না। / This CV is not public.</p>'));
+    return;
+  }
+  const sec = (title, inner) => (inner ? `<h2>${esc(title)}</h2>${inner}` : '');
+  const exp = cv.experience.map((e) => `<div class="item"><b>${esc(e.title)}</b> · ${esc(e.org)}<div class="muted">${esc(ym(e.from))}${e.from ? ' – ' : ''}${e.current ? 'এখন পর্যন্ত' : esc(ym(e.to))}</div>${e.details ? `<p>${esc(e.details)}</p>` : ''}</div>`).join('');
+  const edu = cv.education.map((e) => `<div class="item"><b>${esc(e.degree)}</b> · ${esc(e.institute)}<div class="muted">${esc(e.year || '')}${e.result ? ` · ${esc(e.result)}` : ''}</div></div>`).join('');
+  const certs = cv.certs.map((e) => `<div class="item"><b>${esc(e.name)}</b>${e.issuer ? ` · ${esc(e.issuer)}` : ''}${e.year ? ` <span class="muted">${esc(e.year)}</span>` : ''}</div>`).join('');
+  const chips = (list) => (list.length ? `<div class="chips">${list.map((x) => `<span>${esc(x)}</span>`).join('')}</div>` : '');
+  const photo = cv.photo ? `<img class="ph" src="data:image/jpeg;base64,${esc(cv.photo)}" alt="">` : `<div class="group">${esc((cv.name || '?').slice(0, 1))}</div>`;
+  const body = `<style>.item{margin:10px 0}.item p{margin:4px 0 0}h2{font-size:17px;margin:22px 0 6px}.chips span{display:inline-block;background:#CFEDEF;color:#00363C;border-radius:999px;padding:3px 10px;margin:3px 4px 0 0;font-size:14px}.ph{width:72px;height:72px;border-radius:50%;object-fit:cover}</style>
+<div class="card">
+<div class="row">${photo}<div><h1>${esc(cv.name)}</h1><div class="muted">${esc(cv.headline)}</div><div class="muted">${esc(cv.district)}</div>
+${cv.openToWork ? '<span class="tag" style="background:#CFEDEF;color:#00363C">কাজ খুঁজছেন · Open to work</span>' : ''}</div></div>
+${cv.phone || cv.email ? `<dl>${cv.phone ? `<dt>ফোন · Phone</dt><dd>${esc(cv.phone)}</dd>` : ''}${cv.email ? `<dt>ইমেইল · Email</dt><dd>${esc(cv.email)}</dd>` : ''}</dl>` : ''}
+${sec('নিজের সম্পর্কে · About', cv.about ? `<p>${esc(cv.about)}</p>` : '')}
+${sec('অভিজ্ঞতা · Experience', exp)}
+${sec('শিক্ষা · Education', edu)}
+${sec('দক্ষতা · Skills', chips(cv.skills))}
+${sec('ভাষা · Languages', chips(cv.languages))}
+${sec('প্রশিক্ষণ ও সনদ · Certificates', certs)}
+${sec('যে কাজ খুঁজছেন · Looking for', chips(cv.wantCategories.map((c) => CAT[c] || c)))}
+</div>`;
+  res.status(200).send(page(`${cv.name} — সিভি`, body));
+}
+
 module.exports = async (req, res) => {
   if (req.query.assetlinks) {
     res.setHeader('Content-Type', 'application/json');
@@ -49,8 +85,13 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const id = String(req.query.id || '');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  // সিভির শেয়ার লিংক (/cv/{uid}) — মালিক "সবাই দেখবে" চালু রাখলে তবেই
+  if (req.query.cv) { // FEATURE:jobs
+    await cvPage(String(req.query.cv), res);
+    return;
+  }
+  const id = String(req.query.id || '');
   if (!R.isValidId(id)) {
     res.status(404).send(page('Lifolo', '<p>রিকোয়েস্টটা পাওয়া যায়নি। / Request not found.</p>'));
     return;

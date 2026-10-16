@@ -74,6 +74,13 @@ module.exports = handler(
     } catch (e) {
       console.error('emergency close failed', e);
     }
+    // শেষ তারিখ পার হওয়া চাকরির বিজ্ঞাপন বন্ধ
+    let jobsClosed = 0; // FEATURE:jobs
+    try {
+      jobsClosed = await require('../../lib/jobs').closeExpiredJobs(now); // FEATURE:jobs
+    } catch (e) {
+      console.error('job close failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -97,7 +104,7 @@ module.exports = handler(
       console.error('phone fix failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, med, homeVisits, inboxDeleted, phonesFixed, emergenciesClosed, jobsClosed };
   },
   { methods: ['GET'] },
 );

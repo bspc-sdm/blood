@@ -49,6 +49,13 @@ const DOCS = {
   },
 };
 
+// চাকরি আর নিয়োগকর্তা
+DOCS.employer = () => [ // FEATURE:jobs
+  { type: 'tradeLicense', label: 'ট্রেড লাইসেন্স', hint: 'প্রতিষ্ঠানের নাম, ঠিকানা আর মেয়াদ পড়া যায়', required: true },
+  { type: 'office', label: 'অফিস বা দোকানের ছবি (সাইনবোর্ডসহ)', hint: 'থাকলে দিন', required: false },
+];
+DOCS.job = () => []; // FEATURE:jobs
+
 // ---------- অ্যাডমিন যা যা মিলিয়ে টিক দেবেন (format = সঠিক রূপ) ----------
 const PHONE_CHECK = { id: 'phone', label: 'অ্যাপে দেওয়া নম্বরে ফোন করে কথা হয়েছে', format: 'মোবাইল ১১ অঙ্ক (০১…); ল্যান্ডলাইন এলাকার কোড দিয়ে (০২…, ০৯১…); হটলাইন ৫ অঙ্ক (১৬…)' };
 
@@ -109,6 +116,20 @@ const CHECKS = {
     ];
   },
 };
+
+CHECKS.employer = () => [ // FEATURE:jobs
+  { id: 'name_match', label: 'ট্রেড লাইসেন্সে প্রতিষ্ঠানের নাম অ্যাপের নামের সাথে মেলে', format: 'বানানের ছোট পার্থক্য চলবে, অন্য প্রতিষ্ঠান নয়' },
+  { id: 'license_valid', label: 'ট্রেড লাইসেন্স চলতি মেয়াদের', format: 'লাইসেন্সে লেখা অর্থবছর বা মেয়াদের শেষ তারিখ আজকের পরে' },
+  { id: 'address', label: 'লাইসেন্সের ঠিকানা আর অ্যাপের জেলা মেলে' },
+  { id: 'authority', label: 'সিটি কর্পোরেশন, পৌরসভা বা ইউনিয়ন পরিষদের সিল-স্বাক্ষর আছে' },
+  { ...PHONE_CHECK, label: 'প্রতিষ্ঠানের নম্বরে ফোন করে নিশ্চিত হয়েছেন' },
+];
+CHECKS.job = () => [ // FEATURE:jobs
+  { id: 'no_fee', label: 'কোথাও কোনো ফি, জামানত বা টাকা চাওয়া হয়নি', format: '"রেজিস্ট্রেশন ফি", "জামানত", "ট্রেনিং ফি" থাকলে বাতিল করুন' },
+  { id: 'salary', label: 'বেতনের সীমা পদের সাথে বাস্তবসম্মত', format: 'অস্বাভাবিক বেশি বেতন প্রতারণার সাধারণ ফাঁদ' },
+  { id: 'lawful', label: 'কাজের বর্ণনা স্পষ্ট আর বৈধ', format: 'বিদেশে পাঠানো, MLM, "ঘরে বসে আয়" বা অস্পষ্ট কাজ হলে বাতিল' },
+  { id: 'org_real', label: 'প্রতিষ্ঠান বা নিয়োগকর্তা বাস্তব', format: 'প্রতিষ্ঠানের তথ্য দেখে, দরকারে ফোন করে নিশ্চিত' },
+];
 
 const spec = (kind, x) => ({ docs: DOCS[kind](x), checks: CHECKS[kind](x) });
 const docId = (kind, id, type) => `verifyDocs/${kind}_${id}_${type}`;
@@ -228,14 +249,14 @@ async function ownerInfo(kind, id, x) {
   };
 }
 
-const COLL = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodBanks', badge: 'badges' };
+const COLL = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodBanks', badge: 'badges', employer: 'employers', job: 'jobs' };
 const isKind = (k) => Object.prototype.hasOwnProperty.call(COLL, k);
 
 async function loadTarget(req, kind, id) {
   if (!isKind(kind) || !R.isValidId(id)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
   const s = await db.doc(`${COLL[kind]}/${id}`).get();
   if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
-  const owner = kind === 'badge' || kind === 'pharmacy' ? id : s.get('ownerUid');
+  const owner = kind === 'badge' || kind === 'pharmacy' || kind === 'employer' ? id : kind === 'job' ? s.get('employerUid') : s.get('ownerUid');
   return { s, x: s.data(), owner };
 }
 
@@ -248,7 +269,13 @@ const actions = {
     validateDocs(req, kind, x, req.body?.docs, false);
     await require('./community-db').useQuota(req, user.uid, 'docs');
     const have = await saveDocs(req, kind, id, user.uid, x, req.body?.docs, false);
-    if (have) await s.ref.update({ docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(), docsSentAt: Date.now() });
+    if (have) {
+      await s.ref.update({
+        docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(), docsSentAt: Date.now(),
+        // নিয়োগকর্তা ট্রেড লাইসেন্স দিলে যাচাইয়ের অপেক্ষায়
+        ...(kind === 'employer' && x.verified !== true && have.tradeLicense ? { verifyStatus: 'pending' } : {}),
+      });
+    }
     return { ok: true, saved: have ? Object.keys(have).length : 0, ...(await ownerInfo(kind, id, { ...x, docsHave: { ...(x.docsHave || {}), ...(have || {}) }, docsRequestedAt: 0 })) };
   },
 
@@ -266,7 +293,7 @@ const actions = {
     const { kind, id } = req.body || {};
     const { x } = await loadTarget(req, kind, id);
     const list = DOCS[kind](x);
-    const snaps = await db.getAll(...list.map((d) => db.doc(docId(kind, id, d.type))));
+    const snaps = list.length ? await db.getAll(...list.map((d) => db.doc(docId(kind, id, d.type)))) : [];
     // হিসাব আসল ছবি থেকে (তালিকার docsHave পুরোনো হলেও ঠিক দেখায়)
     x.docsHave = Object.fromEntries(list.filter((d, i) => snaps[i].exists).map((d) => [d.type, (x.docsHave || {})[d.type] || Date.now()]));
     return {
@@ -283,11 +310,11 @@ const actions = {
     if (!owner) throw new HttpError(400, C.tr(req, 'This was added by an admin and has no owner', 'এটা অ্যাডমিন যোগ করেছেন, কোনো মালিক নেই'));
     const note = C.cleanText(req.body?.note, 200) || '';
     await s.ref.update({ docsRequestedAt: Date.now(), docsRequestNote: note });
-    const label = { ambulance: ['ambulance', 'অ্যাম্বুলেন্স'], pharmacy: ['pharmacy', 'ফার্মেসি'], bloodbank: ['blood bank', 'ব্লাড ব্যাংক'], badge: ['badge', 'ব্যাজ'] }[kind];
+    const label = { ambulance: ['ambulance', 'অ্যাম্বুলেন্স'], pharmacy: ['pharmacy', 'ফার্মেসি'], bloodbank: ['blood bank', 'ব্লাড ব্যাংক'], badge: ['badge', 'ব্যাজ'], employer: ['organisation', 'প্রতিষ্ঠান'], job: ['job', 'চাকরির বিজ্ঞাপন'] }[kind];
     await require('./requestend').pushUsers([owner], (u, lang) => ({
       title: R.L(lang, `Add document photos for your ${label[0]}`, `আপনার ${label[1]}-এর কাগজের ছবি দিন`),
       body: [x.name || '', note].filter(Boolean).join(' · ') || R.L(lang, 'Open the app to add them. It will be checked after that.', 'অ্যাপ খুলে ছবি দিন। এরপর যাচাই হবে।'),
-      data: { type: kind === 'badge' ? 'badge' : 'services', ...(kind === 'badge' ? {} : { kind }) },
+      data: kind === 'badge' ? { type: 'badge' } : kind === 'employer' || kind === 'job' ? { type: 'job_mine' } : { type: 'services', kind },
     }));
     return { ok: true };
   },

@@ -73,6 +73,12 @@ object VerifyDocs {
         )
     }
 
+    /** নিয়োগকর্তা: ট্রেড লাইসেন্স দিলে "যাচাই করা" চিহ্ন (না দিলেও বিজ্ঞাপন দেওয়া যায়, অ্যাডমিন দেখে চালু করেন) */
+    fun employer() = listOf(
+        DocSpec("tradeLicense", tr("Trade licence", "ট্রেড লাইসেন্স"), tr("Organisation name, address and expiry readable", "প্রতিষ্ঠানের নাম, ঠিকানা আর মেয়াদ পড়া যায়"), true),
+        DocSpec("office", tr("Office or shop photo (with signboard)", "অফিস বা দোকানের ছবি (সাইনবোর্ডসহ)"), tr("If you have it", "থাকলে দিন"), false),
+    )
+
     /** দরকারি ছবির কোনটা বাকি থাকলে বার্তা, নইলে null */
     fun missing(specs: List<DocSpec>, photos: Map<String, String>): String? {
         val miss = specs.filter { it.required && photos[it.type].isNullOrBlank() }
