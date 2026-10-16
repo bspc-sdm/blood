@@ -9,7 +9,7 @@ const C = require('./community');
 const META = new Set([
   'status', 'ownerUid', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy', 'suspendedAt', 'approvedName', 'lastApproved',
   'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'closedUntil', 'editRejectedAt',
-  'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin',
+  'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
 ]);
 
 function snapshot(x) {
@@ -61,7 +61,13 @@ async function resolveListing(req, user, kind, collection, id) {
 
   // অনুমোদিত তালিকার বদল বাতিল: আগের অনুমোদিত তথ্য ফিরে আসে, তালিকায় থাকে
   if (status === 'rejected' && prev === 'pending' && x.lastApproved) {
-    await ref.update({ ...x.lastApproved, approvedName: x.lastApproved.name || x.approvedName || x.name, status: 'approved', statusReason: reason, editRejectedAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid });
+    // বাতিল হওয়া বদলে নতুন যোগ হওয়া ঘরগুলোও মুছে যায় (আগের অনুমোদিত তথ্যে যা ছিল না)
+    const extra = Object.fromEntries(Object.keys(snapshot(x)).filter((k) => !(k in x.lastApproved)).map((k) => [k, FieldValue.delete()]));
+    await ref.update({
+      ...extra, ...x.lastApproved, approvedName: x.lastApproved.name || x.approvedName || x.name, status: 'approved',
+      // কারণ শুধু নোটিফিকেশনে আর প্যানেলের নোটে; তালিকা চালুই থাকে
+      statusReason: FieldValue.delete(), editRejectedReason: reason, editRejectedAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid,
+    });
     await tellOwner(x.ownerUid, [`Your ${en} changes were not accepted — the earlier details stay listed`, `আপনার ${bn}-এর বদল গ্রহণ হয়নি — আগের তথ্যই তালিকায় আছে`], withReason);
     return { ok: true, restored: true };
   }
@@ -72,7 +78,7 @@ async function resolveListing(req, user, kind, collection, id) {
     reviewedBy: user.uid,
     ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}),
     ...(status === 'approved'
-      ? { approvedName: x.name, lastApproved: snapshot(x), statusReason: FieldValue.delete() }
+      ? { approvedName: x.name, lastApproved: snapshot(x), statusReason: FieldValue.delete(), editRejectedReason: FieldValue.delete() }
       : { statusReason: reason }),
   });
   await require('./sanctions').onStatusChange(kind, x, prev, status);

@@ -56,6 +56,7 @@ async function adminExtras(collection, d, status) {
   const LR = require('./listingreview');
   return {
     statusReason: d.get('statusReason') || '',
+    editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
   };
@@ -71,10 +72,10 @@ async function requireAdmin(req, user) {
  */
 async function areaPharmacies(district, upazilaId, limit = 500) {
   const base = db.collection('pharmacies').where('district', '==', district).where('status', '==', 'approved');
-  const [local, all] = await Promise.all([
-    upazilaId ? base.where('upazilaId', '==', upazilaId).limit(limit).get() : Promise.resolve({ docs: [] }),
-    base.limit(limit).get(),
-  ]);
+  const all = await base.limit(limit).get();
+  // জেলার সব দোকান সীমার মধ্যে এলে আর খোঁজার দরকার নেই (পড়া বাঁচে)
+  if (!upazilaId || all.size < limit) return all.docs;
+  const local = await base.where('upazilaId', '==', upazilaId).limit(limit).get();
   const seen = new Set();
   return [...local.docs, ...all.docs].filter((d) => (seen.has(d.id) ? false : seen.add(d.id)));
 }
@@ -128,7 +129,8 @@ const actions = {
       open24,
       openAt: open24 ? '' : b.openAt,
       closeAt: open24 ? '' : b.closeAt,
-      closedDays: K.pickClosedDays(b.closedDays),
+      // পুরোনো অ্যাপ এই ঘর পাঠায় না — তখন আগের মান থাকে
+      ...(Array.isArray(b.closedDays) ? { closedDays: K.pickClosedDays(b.closedDays) } : {}),
       delivery: b.delivery === true,
       deliveryNote: K.str(b.deliveryNote, 120),
       discount,

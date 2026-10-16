@@ -48,6 +48,7 @@ async function adminExtras(collection, d, status) {
   const LR = require('./listingreview');
   return {
     statusReason: d.get('statusReason') || '',
+    editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
   };

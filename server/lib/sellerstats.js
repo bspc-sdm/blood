@@ -69,7 +69,7 @@ const actions = {
         rating: n ? Math.round((a.get('ratingSum') / n) * 10) / 10 : 0,
         ratingCount: n,
         // কে দিয়েছেন তা দেখানো হয় না (রোগীর গোপনীয়তা)
-        comments: ((st.exists && st.get('recent')) || []).slice().reverse(),
+        comments: ((st.exists && st.get('recent')) || []).slice().reverse().map(({ who, ...c }) => c),
         reports: reports.data().count,
       };
     }));

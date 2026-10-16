@@ -82,8 +82,6 @@ async function assertNoOpenReports(req, path) {
 }
 
 module.exports = {
-  reportCount,
-  assertNoOpenReports,
   async report(req, user) {
     const { kind, id, answerId } = req.body || {};
     if (!KINDS.includes(kind) || !R.isValidId(id) || (kind === 'answer' && !R.isValidId(answerId))) {
@@ -100,7 +98,10 @@ module.exports = {
     if (kind === 'provider' && id === user.uid) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     // অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবা: অ্যাপ থেকে ফোন করেছেন এমন মানুষই রিপোর্ট করতে পারেন (প্রতিযোগীর ভুয়া রিপোর্ট আটকাতে)
     const callDoc = { ambulance: 'ambulanceCalls', pharmacy: 'pharmacyCalls', bloodbank: 'bloodBankCalls', homecare: 'homeCalls' }[kind];
-    if (callDoc && !(await db.doc(`${callDoc}/${user.uid}_${id}`).get()).exists) {
+    // "ওষুধ খুঁজুন"-এ দোকান "আছে" বলেছিল (গিয়ে দেখলেন নেই) — সেটাও রিপোর্ট করা যায়
+    const answeredFind = async () => kind === 'pharmacy' && (await db.collection('medFinds').where('uid', '==', user.uid).limit(30).get())
+      .docs.some((d) => (d.get('answers') || {})[id]);
+    if (callDoc && !(await db.doc(`${callDoc}/${user.uid}_${id}`).get()).exists && !(await answeredFind())) {
       throw new HttpError(403, C.tr(req, 'You can report after calling from the app', 'অ্যাপ থেকে ফোন করার পর রিপোর্ট করতে পারবেন'));
     }
     if (kind === 'ambulance' || kind === 'pharmacy' || kind === 'homecare' || kind === 'bloodbank' || kind === 'provider') {
@@ -211,8 +212,9 @@ module.exports = {
     }
     if (req.body?.remove === true) {
       const r = docs.find((d) => d.get('reportedUid'));
-      // মালিককে যে কারণ দেখানো হবে: অ্যাডমিন লিখে দিলে সেটা, না হলে প্রথম রিপোর্টের কারণ
-      const reason = C.cleanText(req.body?.reason, 200) || C.cleanText(docs.map((d) => d.get('reason')).find(Boolean), 200) || '';
+      // মালিককে যে কারণ দেখানো হবে: অ্যাডমিন লিখে দিলে সেটা, নইলে সাধারণ কথা — রিপোর্টকারীর নিজের লেখা নয়
+      // (শুধু ফোন করা মানুষ রিপোর্ট করতে পারেন, লেখা দেখে মালিক চিনে ফেলতে পারেন)
+      const reason = String(req.body?.reason || '').trim().slice(0, 200) || 'ব্যবহারকারীর রিপোর্ট যাচাই করে সত্য পাওয়া গেছে';
       await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null, req.body?.kind, reason);
     }
     snap = { docs };
@@ -222,3 +224,7 @@ module.exports = {
     return { ok: true };
   },
 };
+
+// সহায়ক ফাংশন — api/community.js সব export-কে অ্যাকশন বানায়, তাই এগুলো গোনার বাইরে (enumerable নয়)
+Object.defineProperty(module.exports, 'reportCount', { value: reportCount, enumerable: false });
+Object.defineProperty(module.exports, 'assertNoOpenReports', { value: assertNoOpenReports, enumerable: false });

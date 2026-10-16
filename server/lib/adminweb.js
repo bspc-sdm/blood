@@ -275,6 +275,10 @@ const actions = {
       ]);
       ph.docs.forEach((d) => found.set(d.id, null));
       am.docs.forEach((d) => found.set(d.get('ownerUid'), null));
+    } else if (K.contactPhone(q)) {
+      // ল্যান্ডলাইন/হটলাইন: অ্যাম্বুলেন্স আর ব্লাড ব্যাংকের নম্বর
+      const [am, bb] = await Promise.all(['ambulances', 'bloodBanks'].map((c) => db.collection(c).where('phone', '==', K.contactPhone(q)).limit(10).get()));
+      [...am.docs, ...bb.docs].forEach((d) => d.get('ownerUid') && found.set(d.get('ownerUid'), null));
     } else if (R.isValidId(q)) {
       found.set(q, null);
     }

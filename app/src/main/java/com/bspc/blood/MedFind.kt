@@ -223,7 +223,7 @@ fun MedFindPanel(profile: Profile) {
                                         if (n == 0) {
                                             errorMsg = tr("No pharmacy in this district has joined the app yet.", "এই জেলায় এখনো অ্যাপে কোনো ফার্মেসি যোগ হয়নি।")
                                         } else if (n < 0) {
-                                            errorMsg = tr("No pharmacy nearby is open right now. Please try again later.", "এই মুহূর্তে কাছের কোনো ফার্মেসি খোলা নেই। একটু পরে আবার চেষ্টা করুন।")
+                                            errorMsg = tr("No pharmacy nearby can take a question right now (closed or busy). Please try again later.", "এই মুহূর্তে কাছের কোনো ফার্মেসি খোলা বা জিজ্ঞাসা নেওয়ার মতো নেই। একটু পরে আবার চেষ্টা করুন।")
                                         } else {
                                             infoMsg = tr("Asked $n nearby pharmacies. Answers will appear below, with a notification.", "কাছের ${num(n)}টা দোকানকে জিজ্ঞেস করা হয়েছে। উত্তর নিচে আসবে, নোটিফিকেশনও পাবেন।")
                                             chosen = null

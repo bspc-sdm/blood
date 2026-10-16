@@ -44,6 +44,7 @@ async function adminExtras(collection, d, status) {
   const LR = require('./listingreview');
   return {
     statusReason: d.get('statusReason') || '',
+    editRejectedReason: d.get('editRejectedReason') || '',
     changes: LR.changedFields(d.data()),
     ...(status === 'pending' ? { duplicates: await LR.possibleDuplicates(collection, d.id, d.data()).catch(() => []) } : {}),
   };
@@ -78,7 +79,9 @@ function parse(req, b) {
   if (!services.length) throw err('Choose the services', 'কী কী সেবা দেন বেছে নিন');
   return {
     name, kind, phone, district: b.district, upazilaId, address, licenseNo,
-    open24, openAt: open24 ? '' : openAt, closeAt: open24 ? '' : closeAt, closedDays: K.pickClosedDays(b.closedDays), services, updatedAt: Date.now(),
+    open24, openAt: open24 ? '' : openAt, closeAt: open24 ? '' : closeAt, services, updatedAt: Date.now(),
+    // পুরোনো অ্যাপ এই ঘর পাঠায় না — তখন আগের মান থাকে
+    ...(Array.isArray(b.closedDays) ? { closedDays: K.pickClosedDays(b.closedDays) } : {}),
   };
 }
 
@@ -215,6 +218,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     const data = parse(req, req.body || {});
+    // প্যানেলের ফর্মে উপজেলা নেই — না পাঠালে আগেরটা থাকে
+    if (req.body?.upazilaId === undefined) data.upazilaId = s.get('upazilaId') || null;
     const approved = s.get('status') === 'approved';
     await ref.update({
       ...data,

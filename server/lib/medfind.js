@@ -91,6 +91,7 @@ const actions = {
     const docs = await require('./pharmacy').areaPharmacies(b.district, upazilaId);
     const day = R.dhakaDayKey();
     const now = Date.now();
+    if (!docs.some((s) => s.id !== user.uid)) return { ok: false, noPharmacy: true };
     let shops = docs
       .filter((s) => s.id !== user.uid && s.get('findOff') !== true)
       // একটা দোকানে দিনে বেশি অনুরোধ নয়
@@ -104,8 +105,7 @@ const actions = {
           km: lat != null && typeof x.lat === 'number' ? R.distanceKm(lat, lng, x.lat, x.lng) : null,
         };
       });
-    if (!shops.length) return { ok: false, noPharmacy: true };
-    // শুধু এখন খোলা দোকান — বন্ধ দোকানে রাত ২টায় নোটিফিকেশন যায় না, আর উত্তরও আসে না
+    // শুধু এখন খোলা দোকান (জিজ্ঞাসা বন্ধ রাখা বা আজকের সীমা পার হওয়া দোকান বাদ) — বন্ধ দোকানে রাত ২টায় নোটিফিকেশন যায় না, আর উত্তরও আসে না
     shops = shops.filter((p) => p.open);
     if (!shops.length) return { ok: false, noneOpen: true };
     // উপজেলায় (বা ৫ কিমির মধ্যে) খোলা দোকান থাকলে শুধু সেগুলো, নইলে জেলার খোলা দোকান

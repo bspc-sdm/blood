@@ -971,6 +971,7 @@
   function reviewCell(x) {
     const out = [];
     if (x.statusReason) out.push(h('div', { class: 'small', text: `কারণ: ${x.statusReason}` }));
+    if (x.editRejectedReason) out.push(h('div', { class: 'small', text: `শেষ বদল বাতিলের কারণ: ${x.editRejectedReason}` }));
     (x.changes || []).filter((c) => c.field !== 'lng').forEach((c) => out.push(h('div', { class: 'small' },
       h('b', { text: `${FIELD_LABEL[c.field] || c.field}: ` }), c.field === 'lat' ? 'বদলেছে' : `আগে ${showVal(c.field, c.before)} → এখন ${showVal(c.field, c.after)}`)));
     (x.duplicates || []).forEach((d) => out.push(h('div', { class: 'small' },
