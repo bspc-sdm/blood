@@ -85,7 +85,8 @@ function parse(req, b) {
   const openAt = TIME_RE.test(b.openAt) ? b.openAt : '';
   const closeAt = TIME_RE.test(b.closeAt) ? b.closeAt : '';
   if (!open24 && (!openAt || !closeAt || openAt === closeAt)) throw err('Set the opening hours or choose 24 hours', 'খোলার সময় দিন অথবা ২৪ ঘণ্টা বেছে নিন');
-  const services = K.pickCodes(b.services, SERVICES, SERVICES.length);
+  const allServices = require('./catalog').codes('bloodBankService');
+  const services = K.pickCodes(b.services, allServices, allServices.length);
   if (!services.length) throw err('Choose the services', 'কী কী সেবা দেন বেছে নিন');
   return {
     name, kind, phone, district: b.district, upazilaId, address, licenseNo,

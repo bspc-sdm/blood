@@ -33,6 +33,9 @@ function phone(v) {
 }
 
 function specialtiesFor(type) {
+  // প্যানেলের তালিকা থেকে (নতুন যোগ করা সহ); না পেলে নিচের নির্দিষ্টগুলো
+  const fromCatalog = require('./catalog').codes('specialty', ['nurse', 'nutritionist', 'trainer'].includes(type) ? type : 'doctor');
+  if (fromCatalog.length) return fromCatalog;
   if (type === 'nurse') return NURSE_SPECIALTIES;
   if (type === 'nutritionist') return NUTRITIONIST_SPECIALTIES;
   if (type === 'trainer') return TRAINER_SPECIALTIES;
@@ -249,6 +252,8 @@ function matchesFilter(doc, f) {
 }
 
 function homeServicesFor(type) {
+  const fromCatalog = require('./catalog').codes('homeService', type === 'doctor' ? 'doctor' : 'nurse');
+  if (fromCatalog.length) return fromCatalog;
   return type === 'doctor' ? DOCTOR_HOME_SERVICES : HOME_SERVICES;
 }
 

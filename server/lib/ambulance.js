@@ -95,7 +95,7 @@ const actions = {
     const rateable = new Set(calls.docs.filter((c) => now - (c.get('at') || 0) <= RATE_WINDOW_MS
       && now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS).map((c) => c.get('ambulanceId')));
     let docs = snap.docs;
-    if (TYPES.includes(b.type)) docs = docs.filter((d) => (d.get('types') || []).includes(b.type));
+    if (require('./catalog').codes('ambulanceType').includes(b.type)) docs = docs.filter((d) => (d.get('types') || []).includes(b.type));
     // ট্রিপে থাকা গাড়ি তালিকায় নয় — শুধু কয়টা ট্রিপে আছে তা জানানো
     // ব্যস্ত গাড়ি আলাদা তালিকায় (অ্যাপে ভাঁজ করা অংশে) — দরকারে ফোন করে জানা যায় কবে ফিরবে
     const busy = docs.filter((d) => busyNow(d.data(), now))
@@ -125,7 +125,8 @@ const actions = {
     if (!phone) throw err('Enter a valid phone number', 'সঠিক ফোন নম্বর দিন');
     const vehicleNo = C.cleanText(b.vehicleNo, 40);
     if (!vehicleNo) throw err('Enter the vehicle registration number', 'গাড়ির রেজিস্ট্রেশন নম্বর দিন');
-    const types = K.pickCodes(b.types, TYPES, TYPES.length);
+    const allTypes = require('./catalog').codes('ambulanceType');
+    const types = K.pickCodes(b.types, allTypes, allTypes.length);
     if (!types.length) throw err('Choose the ambulance type', 'অ্যাম্বুলেন্সের ধরন বেছে নিন');
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err('Choose a district', 'জেলা বেছে নিন');
     const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;

@@ -54,3 +54,16 @@ test('যাচাইয়ের কোড', () => {
   assert.ok(!P.CODE_RE.test('ABCDEFGH01')); // ০ আর ১ বাদ (O/I-এর সাথে গুলিয়ে যায়)
   assert.ok(!P.CODE_RE.test('abc'));
 });
+
+test('তালিকা: ডিফল্ট, নতুন কোড, মোছা যায় না', () => {
+  const Cat = require('../lib/catalog');
+  const m = Cat.merge(null);
+  assert.ok(m.specialty.doctor.some((i) => i.code === 'medicine' && i.bn === 'মেডিসিন'));
+  assert.ok(Cat.codes('ambulanceType').includes('icu'));
+  // সংরক্ষিত তালিকায় ক্রম বদল আর নতুন নাম; বাদ পড়া ডিফল্ট শেষে থাকে
+  const m2 = Cat.merge({ specialty: { doctor: [{ code: 'eye', en: 'Eye', bn: 'চোখ' }, { code: 'c_physio', en: 'Physio', bn: 'ফিজিও' }] } });
+  assert.strictEqual(m2.specialty.doctor[0].code, 'eye');
+  assert.strictEqual(m2.specialty.doctor[0].bn, 'চোখ');
+  assert.ok(m2.specialty.doctor.some((i) => i.code === 'medicine'));
+  assert.strictEqual(Cat.makeCode('Physio therapy', new Set(['c_physio_therapy'])), 'c_physio_therapy_2');
+});
