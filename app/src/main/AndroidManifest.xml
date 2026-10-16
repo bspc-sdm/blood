@@ -39,6 +39,10 @@
             </intent-filter>
         </activity>
 
+        <!-- FEATURE:jobs: ইন্টারভিউর আগে ফোনে মনে করানো -->
+        <receiver
+            android:name=".JobAlarmReceiver"
+            android:exported="false" />
         <service
             android:name=".BloodMessagingService"
             android:exported="false">

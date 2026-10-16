@@ -72,7 +72,8 @@ import org.json.JSONObject
 // ------------------------------------------------------------
 
 data class CvExp(val title: String, val org: String, val from: String, val to: String, val current: Boolean, val details: String)
-data class CvEdu(val degree: String, val institute: String, val year: Int?, val result: String)
+/** level: এসএসসি/এইচএসসি… (নিয়োগকর্তার ছাঁকার জন্য; খালি = বলা নেই) */
+data class CvEdu(val degree: String, val institute: String, val year: Int?, val result: String, val level: String = "")
 data class CvCert(val name: String, val issuer: String, val year: Int?)
 
 data class Cv(
@@ -95,6 +96,10 @@ data class Cv(
     val complete: Boolean = false,
     val phone: String = "",
     val email: String = "",
+    /** সিভি কতটা পূরণ (%), মোট অভিজ্ঞতা (বছর), সর্বোচ্চ শিক্ষার স্তর — সার্ভার হিসাব করে */
+    val completeness: Int = 0,
+    val experienceYears: Int = 0,
+    val eduLevel: String = "none",
 )
 
 object CvApi {
@@ -111,12 +116,13 @@ object CvApi {
         return Cv(
             o.str("uid"), o.str("name"), o.str("photo"), o.str("district"), o.str("headline"), o.str("about"),
             arr("experience") { CvExp(it.str("title"), it.str("org"), it.str("from"), it.str("to"), it.optBoolean("current"), it.str("details")) },
-            arr("education") { CvEdu(it.str("degree"), it.str("institute"), it.yearOrNull("year"), it.str("result")) },
+            arr("education") { CvEdu(it.str("degree"), it.str("institute"), it.yearOrNull("year"), it.str("result"), it.str("level")) },
             o.optJSONArray("skills").strings(), o.optJSONArray("languages").strings(),
             arr("certs") { CvCert(it.str("name"), it.str("issuer"), it.yearOrNull("year")) },
             o.optBoolean("openToWork"), o.optJSONArray("wantCategories").strings(),
             o.str("contactVisibility").ifBlank { "employers" }, o.optBoolean("public"), o.optBoolean("complete"),
             o.str("phone"), o.str("email"),
+            o.optInt("completeness"), o.optInt("experienceYears"), o.str("eduLevel").ifBlank { "none" },
         )
     }
 
@@ -130,7 +136,7 @@ object CvApi {
                     .put("current", it.current).put("details", it.details)
             }))
             .put("education", JSONArray(cv.education.map {
-                JSONObject().put("degree", it.degree).put("institute", it.institute).put("year", it.year ?: JSONObject.NULL).put("result", it.result)
+                JSONObject().put("degree", it.degree).put("institute", it.institute).put("year", it.year ?: JSONObject.NULL).put("result", it.result).put("level", it.level)
             }))
             .put("certs", JSONArray(cv.certs.map { JSONObject().put("name", it.name).put("issuer", it.issuer).put("year", it.year ?: JSONObject.NULL) }))
             .put("skills", JSONArray(cv.skills)).put("languages", JSONArray(cv.languages))
@@ -588,6 +594,7 @@ private fun EduDialog(cur: CvEdu?, onDismiss: () -> Unit, onDone: (CvEdu) -> Uni
     var institute by remember { mutableStateOf(cur?.institute ?: "") }
     var year by remember { mutableStateOf(cur?.year?.toString() ?: "") }
     var result by remember { mutableStateOf(cur?.result ?: "") }
+    var level by remember { mutableStateOf(cur?.level ?: "") }
     var err by remember { mutableStateOf<String?>(null) }
     FormDialog(
         title = tr("Education", "শিক্ষা"),
@@ -600,6 +607,10 @@ private fun EduDialog(cur: CvEdu?, onDismiss: () -> Unit, onDone: (CvEdu) -> Uni
                     OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, label = { Text(tr("Year", "সাল")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedTextField(result, { result = it.take(40) }, label = { Text(tr("Result", "ফলাফল")) }, singleLine = true, modifier = Modifier.weight(1f))
                 }
+                Text(tr("Level", "স্তর"), style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    JobText.EDUCATION.drop(1).forEach { l -> FilterChip(selected = level == l, onClick = { level = if (level == l) "" else l }, label = { Text(JobText.education(l)) }) }
+                }
                 ErrorText(err)
             }
         },
@@ -610,7 +621,7 @@ private fun EduDialog(cur: CvEdu?, onDismiss: () -> Unit, onDone: (CvEdu) -> Uni
                     year.isNotBlank() && yearOf(year) == null -> tr("Write a correct year", "সঠিক সাল লিখুন")
                     else -> null
                 }
-                if (err == null) onDone(CvEdu(degree.trim(), institute.trim(), yearOf(year), result.trim()))
+                if (err == null) onDone(CvEdu(degree.trim(), institute.trim(), yearOf(year), result.trim(), level))
             }) { Text(tr("OK", "ঠিক আছে")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },

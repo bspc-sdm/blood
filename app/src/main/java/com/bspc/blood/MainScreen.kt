@@ -100,6 +100,7 @@ fun MainScreen(
 
     // এই ফোনের পুশ টোকেন সার্ভারের জন্য প্রোফাইলে রাখা
     LaunchedEffect(Unit) { runCatching { Notifier.syncToken() } }
+    LaunchedEffect(Unit) { JobAlarms.sync(context) } // FEATURE:jobs — সামনের ইন্টারভিউর মনে করানো
 
     // সার্ভার যেন নোটিফিকেশন এই ভাষায় পাঠায়
     val lang = AppPrefs.lang.value
