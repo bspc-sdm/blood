@@ -46,7 +46,7 @@ object Notifier {
 
     /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
     @SuppressLint("MissingPermission")
-    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null) {
+    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null) {
         if (!canNotify(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -60,7 +60,8 @@ object Notifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_blood)
+            // অ্যাম্বুলেন্সের খবরে অ্যাম্বুলেন্সের আইকন, বাকি সব অ্যাপের রক্তের ফোঁটা
+            .setSmallIcon(if (type == "services" && serviceKind(kind, title) == "ambulance") R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -98,6 +99,6 @@ class BloodMessagingService : FirebaseMessagingService() {
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
         val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
             ?: message.data["findId"] ?: message.messageId
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag)
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"])
     }
 }

@@ -231,7 +231,7 @@ const actions = {
       await require('./requestend').pushUsers([s.get('ownerUid')], (u, lang) => ({
         title: R.L(lang, 'The Lifolo team updated your blood bank details', 'Lifolo টিম আপনার ব্লাড ব্যাংকের তথ্য ঠিক করেছে'),
         body: data.name,
-        data: { type: 'services' },
+        data: { type: 'services', kind: 'bloodbank' },
       }));
     }
     return { ok: true };
@@ -257,7 +257,7 @@ const actions = {
       await require('./requestend').pushUsers([s.get('ownerUid')], (u, lang) => ({
         title: R.L(lang, 'Your blood bank was removed from the list', 'আপনার ব্লাড ব্যাংক তালিকা থেকে সরানো হয়েছে'),
         body: [s.get('name'), C.cleanText(req.body?.reason, 200) ? R.L(lang, `Reason: ${req.body.reason.trim()}`, `কারণ: ${req.body.reason.trim()}`) : ''].filter(Boolean).join(' · '),
-        data: { type: 'services' },
+        data: { type: 'services', kind: 'bloodbank' },
       }));
     }
     return { ok: true };

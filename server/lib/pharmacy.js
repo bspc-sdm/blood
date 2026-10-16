@@ -297,7 +297,7 @@ async function dailyPharmacy(now = Date.now()) {
   const reminders = await db.collection('medOrders').where('remindDays', '>', 0).limit(500).get();
   for (const d of reminders.docs) await d.ref.update({ remindAt: null, remindDays: 0 });
   for (const uid of [...new Set(notify.filter(Boolean))]) {
-    await pushUid(uid, 'Medicine ordering in the app has closed', 'অ্যাপে ওষুধের অর্ডার বন্ধ হয়েছে', 'ফার্মেসিতে সরাসরি ফোন করুন — "সেবা" থেকে খোলা দোকান খুঁজুন', { type: 'services' });
+    await pushUid(uid, 'Medicine ordering in the app has closed', 'অ্যাপে ওষুধের অর্ডার বন্ধ হয়েছে', 'ফার্মেসিতে সরাসরি ফোন করুন — "সেবা" থেকে খোলা দোকান খুঁজুন', { type: 'services', kind: 'pharmacy' });
   }
   const del = async (col) => {
     let n = 0;

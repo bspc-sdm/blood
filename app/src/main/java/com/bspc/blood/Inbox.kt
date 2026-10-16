@@ -70,12 +70,29 @@ object InboxApi {
 }
 
 /** নোটিফিকেশনের ধরন অনুযায়ী আইকন */
-private fun inboxIcon(type: String?): Int = when (type) {
+/** সেবার নোটিফিকেশনে কোন সেবা: সার্ভারের kind, পুরোনো নোটিফিকেশনে শিরোনাম দেখে */
+internal fun serviceKind(kind: String?, title: String?): String? {
+    if (!kind.isNullOrBlank()) return kind
+    val t = title.orEmpty().lowercase()
+    return when {
+        "অ্যাম্বুলেন্স" in t || "ambulance" in t -> "ambulance"
+        "ব্লাড ব্যাংক" in t || "blood bank" in t -> "bloodbank"
+        "ফার্মেসি" in t || "pharmacy" in t -> "pharmacy"
+        else -> null
+    }
+}
+
+internal fun inboxIcon(type: String?, kind: String? = null, title: String? = null): Int = when (type) {
+    "services" -> when (serviceKind(kind, title)) {
+        "ambulance" -> R.drawable.ic_ambulance
+        "bloodbank" -> R.drawable.ic_bloodtype
+        "pharmacy" -> R.drawable.ic_medication
+        else -> R.drawable.ic_storefront
+    }
     "appointment" -> R.drawable.ic_calendar_month
     "homevisit", "homecare" -> R.drawable.ic_home_health
     "answer" -> R.drawable.ic_forum_outline
     "pharmacy_order", "pharmacy_mine", "med_find", "med_find_mine" -> R.drawable.ic_medication
-    "services" -> R.drawable.ic_storefront
     "support" -> R.drawable.ic_help
     "emergency" -> R.drawable.ic_warning
     "eligible" -> R.drawable.ic_favorite
@@ -132,7 +149,7 @@ fun InboxScreen(onBack: () -> Unit, onOpen: (Map<String, String>) -> Unit) {
                             modifier = Modifier.size(40.dp),
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                AppIcon(inboxIcon(n.data["type"]), null, Modifier.size(22.dp))
+                                AppIcon(inboxIcon(n.data["type"], n.data["kind"], n.title), null, Modifier.size(22.dp))
                             }
                         }
                         Spacer(Modifier.width(12.dp))

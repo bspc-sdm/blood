@@ -210,7 +210,7 @@
       sending = true; error = ''; info = ''; draw();
       try {
         await post('/api/auth/send-code', { email });
-        info = 'নতুন কোড পাঠানো হয়েছে। আগের কোডগুলোও ১০ মিনিট চলবে।';
+        info = 'নতুন কোড গেছে। না পেলে Spam বা All Mail দেখুন।';
         startTimer();
       } catch (e) { error = e.message; }
       sending = false; draw();
@@ -219,10 +219,8 @@
     function draw() {
       const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
         h('div', { class: 'logo' }, h('div', { class: 'dot' }, icon('blood')), h('b', { text: 'Lifolo' }), h('span', { text: 'অ্যাডমিন' })),
-        h('h1', { text: 'অ্যাডমিন লগইন' }),
-        h('p', { text: stage === 'email'
-          ? 'অ্যাপে যে ইমেইল দিয়ে লগইন করেন, সেটা দিন। ইমেইলে ৬ সংখ্যার কোড যাবে।'
-          : `${email} ঠিকানায় কোড পাঠানো হয়েছে। ইমেইল খুলে কোডটা লিখুন।` }),
+        h('h1', { text: 'লগইন' }),
+        stage === 'code' ? h('p', { text: `কোড গেছে: ${email}` }) : null,
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
         info && stage === 'code' ? h('p', { class: 'note', role: 'status', text: info }) : null,
         stage === 'email'
@@ -236,9 +234,8 @@
             h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; info = ''; draw(); }, text: 'ইমেইল বদলান' })),
           h('div', { class: 'row' },
             h('button', { class: 'link resend', type: 'button', disabled: sending || waitSec() > 0, onclick: resend,
-              text: waitSec() > 0 ? `আবার কোড পাঠান (${bn(waitSec())} সেকেন্ড)` : 'আবার কোড পাঠান' })),
-          h('p', { class: 'note', text: 'ইমেইল না পেলে Spam আর All Mail দেখুন। যে Gmail থেকে কোড যায়, সেই একই ঠিকানায় চাইলে কোড শুধু Sent/All Mail-এ থাকে।' })],
-        h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। প্যানেলে ২ ঘণ্টা কিছু না করলে নিজে থেকে লগআউট হবে।' }));
+              text: waitSec() > 0 ? `আবার কোড পাঠান (${bn(waitSec())} সেকেন্ড)` : 'আবার কোড পাঠান' }))],
+        null);
       root.replaceChildren(h('div', { class: 'login-wrap' }, form));
       const first = form.querySelector('input');
       if (first) first.focus();
@@ -366,7 +363,11 @@
         if (it.owner && !(S.me && S.me.isOwner)) continue;
         const n = it.count ? it.count() : 0;
         const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets');
-        kids.push(h('a', { href: `#/${it.path}`, class: on ? 'on' : null, 'aria-current': on ? 'page' : null, onclick: () => shell.classList.remove('open') },
+        kids.push(h('a', { href: `#/${it.path}`, class: on ? 'on' : null, 'aria-current': on ? 'page' : null, onclick: (ev) => {
+          shell.classList.remove('open');
+          // এখনকার পাতার মেনুতেই চাপলে ঠিকানা বদলায় না — তবু নতুন করে আনা
+          if (location.hash === `#/${it.path}`) { ev.preventDefault(); route(false, true); }
+        } },
           icon(it.icon), h('span', { class: 'lbl', text: it.label }), n ? h('span', { class: 'n', text: bn(n) }) : null));
       }
     }
@@ -408,10 +409,10 @@
     '': pageDashboard,
     analytics: pageAnalytics,
     emergency: pageEmergency,
-    badges: (r) => pageListing('badges', r),
-    pharmacies: (r) => pageListing('pharmacies', r),
-    ambulances: (r) => pageListing('ambulances', r),
-    bloodBanks: (r) => pageListing('bloodBanks', r),
+    badges: (r, alive) => pageListing('badges', r, alive),
+    pharmacies: (r, alive) => pageListing('pharmacies', r, alive),
+    ambulances: (r, alive) => pageListing('ambulances', r, alive),
+    bloodBanks: (r, alive) => pageListing('bloodBanks', r, alive),
     hospitals: pageHospitals,
     tickets: pageTickets,
     ticket: pageTicket,
@@ -424,24 +425,39 @@
   };
 
   let routeSeq = 0;
-  function route(keepScroll) {
+  /**
+   * পাতা আঁকা। fresh = মেনু থেকে আসা: সার্ভার থেকে নতুন তথ্য এনে তারপর আঁকা
+   * (আগে লগইনের সময়ের তথ্যই দেখাত, নতুন রিপোর্ট/আবেদন দেখতে ব্রাউজার রিলোড লাগত)
+   */
+  function route(keepScroll, fresh) {
     if (!S.loggedIn || !pageEl) return;
     const r = parseHash();
     const fn = PAGES[r.name] || pageDashboard;
     const seq = ++routeSeq;
+    const alive = () => seq === routeSeq;
     drawNav();
     const y = window.scrollY;
     pageEl.replaceChildren(h('p', { class: 'note', text: 'লোড হচ্ছে…' }));
-    Promise.resolve(fn(r, () => seq === routeSeq)).catch((e) => {
+    const load = async () => {
+      if (fresh) {
+        S.lists = {};
+        S.stats = null;
+        await loadOverview();
+        if (!alive()) return;
+        drawNav();
+      }
+      return fn(r, alive);
+    };
+    load().catch((e) => {
       if (seq !== routeSeq) return;
       pageEl.replaceChildren(h('p', { class: 'error', role: 'alert', text: e.message }),
-        h('button', { class: 'btn quiet', type: 'button', onclick: () => route(), text: 'আবার চেষ্টা করুন' }));
+        h('button', { class: 'btn quiet', type: 'button', onclick: () => route(false, true), text: 'আবার চেষ্টা করুন' }));
     }).then(() => {
       if (keepScroll) window.scrollTo(0, y);
     });
     if (!keepScroll) window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', () => route());
+  window.addEventListener('hashchange', () => route(false, true));
 
   /** পাতা আঁকা — পুরোনো রাউটের দেরিতে আসা উত্তর যাতে নতুন পাতা না ঢেকে দেয় */
   function paint(alive, ...nodes) {

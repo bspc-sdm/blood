@@ -32,12 +32,13 @@ const LABEL = {
   bloodbank: ['blood bank', 'ব্লাড ব্যাংক'],
 };
 
-async function tellOwner(ownerUid, title, body) {
+async function tellOwner(ownerUid, title, body, kind) {
   if (!ownerUid) return;
   await require('./requestend').pushUsers([ownerUid], (u, lang) => ({
     title: R.L(lang, title[0], title[1]),
     body: typeof body === 'function' ? body(lang) : body || '',
-    data: { type: 'services' },
+    // kind: অ্যাপ নোটিফিকেশনে ঠিক আইকন দেখায় (অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক)
+    data: { type: 'services', ...(kind ? { kind } : {}) },
   }));
 }
 
@@ -68,7 +69,7 @@ async function resolveListing(req, user, kind, collection, id) {
       // কারণ শুধু নোটিফিকেশনে আর প্যানেলের নোটে; তালিকা চালুই থাকে
       statusReason: FieldValue.delete(), editRejectedReason: reason, editRejectedAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid,
     });
-    await tellOwner(x.ownerUid, [`Your ${en} changes were not accepted — the earlier details stay listed`, `আপনার ${bn}-এর বদল গ্রহণ হয়নি — আগের তথ্যই তালিকায় আছে`], withReason);
+    await tellOwner(x.ownerUid, [`Your ${en} changes were not accepted — the earlier details stay listed`, `আপনার ${bn}-এর বদল গ্রহণ হয়নি — আগের তথ্যই তালিকায় আছে`], withReason, kind);
     return { ok: true, restored: true };
   }
 
@@ -85,7 +86,7 @@ async function resolveListing(req, user, kind, collection, id) {
   const title = status === 'approved' ? [`Your ${en} is now listed`, `আপনার ${bn} তালিকায় এসেছে`]
     : status === 'suspended' ? [`Your ${en} was suspended. You can appeal from Profile → Help & appeals.`, `আপনার ${bn} বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।`]
       : [`${en[0].toUpperCase()}${en.slice(1)} not approved`, `${bn} অনুমোদন হয়নি`];
-  await tellOwner(x.ownerUid, title, withReason);
+  await tellOwner(x.ownerUid, title, withReason, kind);
   return { ok: true };
 }
 
@@ -93,7 +94,7 @@ async function resolveListing(req, user, kind, collection, id) {
 async function tellSuspendedByReport(kind, x, reason) {
   const [en, bn] = LABEL[kind] || LABEL.ambulance;
   await tellOwner(x.ownerUid, [`Your ${en} was suspended after a report. You can appeal from Profile → Help & appeals.`, `রিপোর্টের পর আপনার ${bn} বন্ধ করা হয়েছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।`],
-    (lang) => [x.name, reason ? R.L(lang, `Reason: ${reason}`, `কারণ: ${reason}`) : ''].filter(Boolean).join(' · '));
+    (lang) => [x.name, reason ? R.L(lang, `Reason: ${reason}`, `কারণ: ${reason}`) : ''].filter(Boolean).join(' · '), kind);
 }
 
 /** প্যানেলের অপেক্ষার তালিকায়: একই ফোন/গাড়ি/লাইসেন্স আগে থেকে আছে কি না */
