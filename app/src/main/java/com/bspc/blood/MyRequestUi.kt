@@ -557,7 +557,7 @@ private fun NotifyAgainRow(r: BloodRequest, busy: Boolean, busyId: String?, onNo
             )
         } else {
             SmallAction(
-                tr("Notify more donors (${num(r.bagsLeft)} bag(s) left)", "আরও ডোনারকে জানান (বাকি ${num(r.bagsLeft)} ব্যাগ)"),
+                tr("Notify", "জানান"),
                 R.drawable.ic_notifications,
                 onNotifyAgain,
                 primary = true,

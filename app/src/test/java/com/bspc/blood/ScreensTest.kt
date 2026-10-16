@@ -50,7 +50,7 @@ class ScreensTest {
     private val chamber = Chamber(
         "dghs_5", "Mymensingh Medical College Hospital", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "ময়মনসিংহ", null, null,
         "Room 204", "Closed on public holidays", "500 Tk", true, "01700000000", listOf(6, 0, 1, 2), "17:00", "21:00",
-    )
+    ).withSlots(listOf(ChamberTime(listOf(6, 0, 1, 2), "17:00", "21:00"), ChamberTime(listOf(5), "09:00", "12:00")))
     private val provider = Provider(
         "u1", "nurse", "Nasrin Akter", listOf("general_nursing", "home_care"), "BSc Nursing", "female", true, true,
         listOf(chamber), HomeVisitSettings(true, 5, emptyList(), listOf("injection", "saline", "dressing"), "Every day 8 AM – 10 PM", "300 Tk", "01712345678"),
@@ -154,6 +154,13 @@ class ScreensTest {
     fun chamberEditor() {
         show { Column(Modifier.padding(16.dp)) { ChamberEditor(chamber, {}, {}, {}) } }
         shot("chamber_editor")
+    }
+
+    @Test
+    fun adminScreenBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { AdminScreen(isOwner = true, onBack = {}) }
+        shot("admin_bn")
     }
 
     @Test

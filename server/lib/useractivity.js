@@ -142,7 +142,7 @@ async function care(uid) {
   return {
     provider: prov.exists ? {
       name: prov.get('name') || '', type: prov.get('type') || '', listed: K.isListed(prov.data()), suspended: prov.get('adminSuspended') === true,
-      chambers: K.chambersOf(prov.data()).map((c) => ({ hospital: c.custom ? `${c.hospitalName} (নিজে লেখা) · ${c.address || ''}` : c.hospitalName, days: c.days || [], start: c.start || '', end: c.end || '', appointments: !!c.appointments })),
+      chambers: K.chambersOf(prov.data()).map((c) => ({ hospital: c.custom ? `${c.hospitalName} (নিজে লেখা) · ${c.address || ''}` : c.hospitalName, days: c.days || [], start: c.start || '', end: c.end || '', times: K.chamberTimes(c), appointments: !!c.appointments })),
       homeVisit: !!(prov.get('homeVisit') && prov.get('homeVisit').enabled), homePhone: K.fixPhone(prov.get('homeVisit.phone')),
     } : null,
     appointments: [...newest(mine.docs, 'createdAt', 50).map(appt('patient')), ...newest(toMe.docs, 'createdAt', 50).map(appt('provider'))].sort((a, b) => b.at - a.at),

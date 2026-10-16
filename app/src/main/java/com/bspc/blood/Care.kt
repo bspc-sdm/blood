@@ -234,6 +234,46 @@ object Hospitals {
 // ডাক্তার/নার্স আর চেম্বার
 // ------------------------------------------------------------
 
+/** চেম্বারের এক ভাগ সময়: কোন কোন বার, কখন থেকে কখন */
+data class ChamberTime(val days: List<Int> = emptyList(), val start: String = "", val end: String = "") {
+    val text: String
+        get() = listOf(
+            Weekdays.ORDER.filter { it in days }.joinToString(", ") { Weekdays.short(it) },
+            if (start.isNotBlank() && end.isNotBlank()) Weekdays.time(start) + " – " + Weekdays.time(end) else "",
+        ).filter { it.isNotBlank() }.joinToString(" · ")
+
+    fun toJson(): JSONObject = JSONObject().put("days", JSONArray(days)).put("start", start).put("end", end)
+}
+
+const val MAX_CHAMBER_TIMES = 4
+
+/** একজন একই সময়ে দুই জায়গায় বসতে পারেন না — সার্ভারের timeClash-এর মতো (সপ্তাহের মিনিটে মিলিয়ে) */
+object ChamberTimes {
+    private const val WEEK = 7 * 1440
+
+    private fun min(t: String): Int? = t.split(":").takeIf { it.size == 2 }?.let { (h, m) -> h.toIntOrNull()?.let { hh -> m.toIntOrNull()?.let { hh * 60 + it } } }
+
+    private fun intervals(t: ChamberTime): List<Pair<Int, Int>> {
+        val s = min(t.start) ?: return emptyList()
+        var e = min(t.end) ?: return emptyList()
+        if (e <= s) e += 1440
+        return t.days.flatMap { d ->
+            val a = d * 1440 + s
+            val b = d * 1440 + e
+            if (b <= WEEK) listOf(a to b) else listOf(a to WEEK, 0 to b - WEEK)
+        }
+    }
+
+    /** সময় মিলে যাওয়া দুই চেম্বার (একই চেম্বারের দুই ভাগ হলে দুটোই এক), নইলে null */
+    fun clash(chambers: List<Chamber>): Pair<Chamber, Chamber>? {
+        val all = chambers.flatMap { c -> c.slots.flatMap { t -> intervals(t).map { c to it } } }.sortedBy { it.second.first }
+        for (i in 1 until all.size) for (j in i - 1 downTo 0) {
+            if (all[j].second.second > all[i].second.first) return all[j].first to all[i].first
+        }
+        return null
+    }
+}
+
 data class Chamber(
     val hospitalId: String?,
     val hospitalName: String,
@@ -257,24 +297,30 @@ data class Chamber(
     /** নিজে লেখা জায়গা (পুষ্টিবিদ/ট্রেইনারের জিম, অফিস) — hospitalName = জায়গার নাম */
     val custom: Boolean = false,
     val address: String = "",
+    /** বার অনুযায়ী আলাদা সময় (একাধিক হলে); ফাঁকা হলে উপরের days/start/end একটাই ভাগ */
+    val times: List<ChamberTime> = emptyList(),
 ) {
+    /** সব সময়ের ভাগ — এডিটর আর দেখানো এটাই ব্যবহার করে */
+    val slots: List<ChamberTime> get() = times.ifEmpty { listOf(ChamberTime(days, start, end)) }
+
+    /** ভাগ বদলালে উপরের days (সব বার) আর start/end (প্রথম ভাগ) মিলিয়ে রাখা — আগের অ্যাপ আর বুকিং-এর জন্য */
+    fun withSlots(list: List<ChamberTime>): Chamber {
+        val l = list.ifEmpty { listOf(ChamberTime()) }
+        return copy(times = if (l.size > 1) l else emptyList(), days = l.flatMap { it.days }.distinct().sorted(), start = l.first().start, end = l.first().end)
+    }
+
     /** তালিকায় দেখানোর লেখা: "ফি: ৫০০ টাকা" / "ফি নেই"; কিছু না দিলে (আগের ভার্সন) ফাঁকা */
     val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
     val area: String get() = listOf(address, Areas.label(district, upazilaId, unionId)).filter { it.isNotBlank() }.joinToString(", ")
 
-    /** "শনি, রবি, সোম · বিকাল ৫:০০ – রাত ৯:০০" (+ নোট) */
+    /** "শনি, রবি, সোম · বিকাল ৫:০০ – রাত ৯:০০" — প্রতিটা ভাগ আলাদা লাইনে (+ নোট) */
     val timeText: String
-        get() {
-            val parts = mutableListOf<String>()
-            if (days.isNotEmpty()) parts += Weekdays.ORDER.filter { it in days }.joinToString(", ") { Weekdays.short(it) }
-            if (start.isNotBlank() && end.isNotBlank()) parts += Weekdays.time(start) + " – " + Weekdays.time(end)
-            if (schedule.isNotBlank()) parts += schedule
-            return parts.joinToString(" · ")
-        }
+        get() = (slots.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
 
     /** এই তারিখে (UTC মধ্যরাত) বসেন কি না */
     fun openOn(dateUtcMidnight: Long): Boolean {
+        val days = slots.flatMap { it.days }
         if (days.isEmpty()) return true
         val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
         c.timeInMillis = dateUtcMidnight
@@ -285,6 +331,7 @@ data class Chamber(
         .apply { if (custom) put("placeName", hospitalName).put("district", district).put("address", address).apply { upazilaId?.let { put("upazilaId", it) } } }
         .put("fee", fee).put("noFee", noFee).put("appointments", appointments).put("serialPhone", serialPhone)
         .put("days", JSONArray(days)).put("start", start).put("end", end)
+        .apply { if (times.size > 1) put("times", JSONArray(times.map { it.toJson() })) }
 
     companion object {
         fun parse(o: JSONObject) = Chamber(
@@ -293,6 +340,9 @@ data class Chamber(
             o.str("fee"), o.optBoolean("appointments"), o.str("serialPhone"),
             o.optJSONArray("days").ints(), o.str("start"), o.str("end"), o.optBoolean("noFee"),
             o.optBoolean("custom"), o.str("address"),
+            o.optJSONArray("times")?.let { a ->
+                (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { t -> ChamberTime(t.optJSONArray("days").ints(), t.str("start"), t.str("end")) }
+            }.orEmpty().takeIf { it.size > 1 }.orEmpty(),
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */

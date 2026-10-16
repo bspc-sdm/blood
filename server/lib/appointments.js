@@ -282,7 +282,12 @@ module.exports = {
       throw new HttpError(400, C.tr(req, 'The chamber is closed on that day. Pick one of its days.', 'সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।'));
     }
     // আজকের চেম্বারের সময় শেষ হয়ে গেলে আজকের সিরিয়াল নয় (রাত পেরোনো চেম্বার বাদে)
-    if (date === today && ch.start && ch.end && ch.start < ch.end && K.dhakaHHMM() >= ch.end) {
+    // সেদিনের ভাগগুলো (একই চেম্বারে বার অনুযায়ী আলাদা সময়); সিরিয়ালের শুরু = সেদিনের প্রথম ভাগ
+    const slotsToday = K.chamberTimesOn(ch, date).slice().sort((x, y) => (x.start || '').localeCompare(y.start || ''));
+    const now = K.dhakaHHMM();
+    const over = (t) => t.start && t.end && t.start < t.end && now >= t.end;
+    const slotStart = (date === today ? slotsToday.find((t) => !over(t)) : slotsToday[0])?.start || ch.start || '';
+    if (date === today && slotsToday.length && slotsToday.every(over)) {
       throw new HttpError(400, C.tr(req, "Today's chamber time is over. Pick another day.", 'আজকের চেম্বারের সময় শেষ। অন্য দিন বেছে নিন।'));
     }
     // একই দিনে একই ডাক্তারের কাছে একটার বেশি চালু অনুরোধ নয়
@@ -301,7 +306,7 @@ module.exports = {
       chamber: ch.hospitalName,
       chamberBn: ch.hospitalNameBn || '',
       chamberKey: ch.hospitalId || ch.hospitalName || '',
-      start: ch.start || '',
+      start: slotStart,
       room: ch.room || '',
       schedule: ch.schedule,
       date,

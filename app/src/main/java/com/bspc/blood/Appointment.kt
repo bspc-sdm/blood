@@ -338,7 +338,7 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
 
 /** ডাক্তার/নার্সের বিস্তারিত: সব চেম্বার, সিরিয়ালের ফোন, অ্যাপয়েন্টমেন্ট, হোম ভিজিট */
 @Composable
-fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, onBooked: () -> Unit) {
+fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, onBooked: () -> Unit, preview: Boolean = false) {
     val context = LocalContext.current
     var bookingIndex by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
@@ -360,8 +360,9 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                         R.drawable.ic_call to if (c.serialPhone.isNotBlank()) tr("Serial by phone: ", "সিরিয়াল ফোনে: ") + num(c.serialPhone) else "",
                     ),
                     listOfNotNull(
-                        if (c.serialPhone.isNotBlank()) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { callPhone(context, c.serialPhone) } else null,
-                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { bookingIndex = i } else null,
+                        // নিজের দেখা (preview): বাটন দেখায়, কাজ করে না
+                        if (c.serialPhone.isNotBlank()) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, c.serialPhone) } else null,
+                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { if (!preview) bookingIndex = i } else null,
                     ),
                 ),
             )
@@ -378,8 +379,10 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     ),
                     listOf(
                         CardAction(tr("Call to visit home", "বাসায় আসতে ফোন"), R.drawable.ic_call) {
-                            scope.launch { runCatching { HomeCare.called(p.uid) } }
-                            callPhone(context, hv.phone)
+                            if (!preview) {
+                                scope.launch { runCatching { HomeCare.called(p.uid) } }
+                                callPhone(context, hv.phone)
+                            }
                         },
                     ),
                 ),
@@ -412,6 +415,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
         onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
         onDismiss = onDismiss,
         footer = {
+            if (preview) SmallNote(tr("This is how patients see you. Save to update it.", "রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।"))
             if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
             EmergencyNotice("doctor")
         },
@@ -793,6 +797,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     var verifyPhone by remember { mutableStateOf(false) }
     // হোম ভিজিটের দূরত্ব হিসাবের জন্য GPS লোকেশন লাগে (শুধু জেলা বেছে নিলে জেলার মাঝখান ধরা হয়)
     var gpsPlace by remember { mutableStateOf(if (profile.locationSource == "gps") profile.placeName else null) }
+    var preview by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
@@ -831,6 +836,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
             if (loading) {
                 LoadingBox()
                 return@Column
+            }
+            // রোগীরা তালিকায় চাপলে যেমন দেখবেন (সেভ না করেও, এখনকার বদলসহ)
+            OutlinedButton(onClick = { preview = true }, modifier = Modifier.fillMaxWidth()) {
+                ButtonContent(false, tr("See how patients see it", "রোগীরা যেমন দেখবেন"), R.drawable.ic_info)
             }
             if (!nurse) {
                 SwitchRow(tr("Show me in the list", "তালিকায় আমাকে দেখাও"), null, listed) { listed = it }
@@ -969,9 +978,13 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                             tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
                         chambers.any { it.custom && (it.hospitalName.trim().length < 3 || it.district.isBlank() || it.address.trim().length < 5) } ->
                             tr("Write the place name, district and address", "জায়গার নাম, জেলা আর ঠিকানা লিখুন")
-                        chambers.any { it.days.isEmpty() } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
-                        chambers.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
+                        chambers.any { ch -> ch.slots.any { it.days.isEmpty() } } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
+                        chambers.any { ch -> ch.slots.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
+                        !nurse && ChamberTimes.clash(chambers) != null -> ChamberTimes.clash(chambers)!!.let { (x, y) ->
+                            if (x === y) tr("Two times in \"${x.label}\" overlap on the same day", "\"${x.label}\" চেম্বারে একই বারে দুটো সময় মিলে যাচ্ছে")
+                            else tr("\"${x.label}\" and \"${y.label}\" overlap on the same day and time", "\"${x.label}\" আর \"${y.label}\" একই বারে একই সময়ে পড়েছে — একসাথে দুই জায়গায় বসা যায় না")
+                        }
                         chambers.any { it.fee.isBlank() && !it.noFee } ->
                             tr("Enter the fee for each chamber, or tick \"No fee\"", "প্রতিটা চেম্বারে ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
@@ -1017,6 +1030,19 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
         }
     }
 
+    if (preview) {
+        ProviderDetailDialog(
+            Provider(
+                AuthRepository.currentUid ?: "", type, profile.name, specialties.toList(), degrees.trim(), gender, listed, takes,
+                if (nurse) emptyList() else chambers.toList(), if (homeCapable) home.copy(phone = home.phone.ifBlank { " " }) else null, 0.0, 0,
+                photo = Photo.thumbFromAvatar(profile.photo) ?: "",
+            ),
+            profile,
+            onDismiss = { preview = false },
+            onBooked = {},
+            preview = true,
+        )
+    }
     if (verifyPhone) {
         PhoneVerifyDialog(onDismiss = { verifyPhone = false }, onVerified = {
             verifyPhone = false
@@ -1076,18 +1102,21 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 
 @Composable
 internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
-    var pickTime by remember { mutableIntStateOf(0) } // ১ শুরু, ২ শেষ
-    if (pickTime != 0) {
-        val cur = (if (pickTime == 1) c.start else c.end).split(":")
+    // কোন ভাগের কোন সময় বাছা হচ্ছে: (ভাগের ক্রম, ১ শুরু / ২ শেষ)
+    var pickTime by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val slots = c.slots
+    pickTime?.let { (i, which) ->
+        val slot = slots.getOrNull(i) ?: return@let
+        val cur = (if (which == 1) slot.start else slot.end).split(":")
         TimePickerPopup(
-            cur.getOrNull(0)?.toIntOrNull() ?: if (pickTime == 1) 17 else 21,
+            cur.getOrNull(0)?.toIntOrNull() ?: if (which == 1) 17 else 21,
             cur.getOrNull(1)?.toIntOrNull() ?: 0,
             onPicked = { h, m ->
                 val t = Weekdays.hhmm(h, m)
-                onChange(if (pickTime == 1) c.copy(start = t) else c.copy(end = t))
+                onChange(c.withSlots(slots.mapIndexed { j, x -> if (j != i) x else if (which == 1) x.copy(start = t) else x.copy(end = t) }))
             },
-            onDismiss = { pickTime = 0 },
-            title = if (pickTime == 1) tr("Chamber starts at", "চেম্বার শুরু") else tr("Chamber ends at", "চেম্বার শেষ"),
+            onDismiss = { pickTime = null },
+            title = if (which == 1) tr("Chamber starts at", "চেম্বার শুরু") else tr("Chamber ends at", "চেম্বার শেষ"),
         )
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
@@ -1135,18 +1164,39 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                     IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
                 }
             }
-            Text(tr("Days", "কোন কোন বার"), style = MaterialTheme.typography.labelLarge)
-            ChipRows(Weekdays.ORDER.map { it.toString() }, c.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
-                val d = it.toInt()
-                onChange(c.copy(days = if (d in c.days) c.days - d else c.days + d))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { pickTime = 1 }) {
-                    Text(if (c.start.isBlank()) tr("Start time", "শুরুর সময়") else Weekdays.time(c.start))
+            // বার অনুযায়ী আলাদা সময়: প্রতিটা ভাগে বার আর শুরু–শেষ; "আরেকটা সময়" দিয়ে নতুন ভাগ
+            slots.forEachIndexed { i, slot ->
+                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (slots.size > 1) tr("Time ${i + 1}: days", "সময় ${num(i + 1)}: কোন কোন বার") else tr("Days", "কোন কোন বার"),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (slots.size > 1) {
+                        IconButton(onClick = { onChange(c.withSlots(slots.filterIndexed { j, _ -> j != i })) }, modifier = Modifier.size(32.dp)) {
+                            AppIcon(R.drawable.ic_close, tr("Remove this time", "এই সময় সরান"), Modifier.size(18.dp))
+                        }
+                    }
                 }
-                Text("–")
-                OutlinedButton(onClick = { pickTime = 2 }) {
-                    Text(if (c.end.isBlank()) tr("End time", "শেষের সময়") else Weekdays.time(c.end))
+                ChipRows(Weekdays.ORDER.map { it.toString() }, slot.days.map { it.toString() }.toSet(), perRow = 4, label = { Weekdays.short(it.toInt()) }) {
+                    val d = it.toInt()
+                    val next = slot.copy(days = if (d in slot.days) slot.days - d else slot.days + d)
+                    onChange(c.withSlots(slots.mapIndexed { j, x -> if (j == i) next else x }))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { pickTime = i to 1 }) {
+                        Text(if (slot.start.isBlank()) tr("Start time", "শুরুর সময়") else Weekdays.time(slot.start))
+                    }
+                    Text("–")
+                    OutlinedButton(onClick = { pickTime = i to 2 }) {
+                        Text(if (slot.end.isBlank()) tr("End time", "শেষের সময়") else Weekdays.time(slot.end))
+                    }
+                }
+            }
+            if (slots.size < MAX_CHAMBER_TIMES) {
+                TextButton(onClick = { onChange(c.withSlots(slots + ChamberTime())) }) {
+                    ButtonContent(false, tr("Different time on other days", "অন্য বারে আলাদা সময়"), R.drawable.ic_add)
                 }
             }
             OutlinedTextField(

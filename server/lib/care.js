@@ -19,6 +19,8 @@ const DOCTOR_HOME_SERVICES = ['checkup', 'follow_up', 'elderly_care', 'bedridden
 const NEEDS_PRESCRIPTION = ['injection', 'saline', 'cannula'];
 const HOME_RADII = [3, 5, 10, 20];
 const MAX_CHAMBERS = 3;
+// এক চেম্বারে বার অনুযায়ী আলাদা সময় (যেমন শনি-সোম বিকাল, শুক্র সকাল)
+const MAX_CHAMBER_TIMES = 4;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VISIT_OPEN_MS = 24 * 60 * 60 * 1000; // আগের অনুরোধ-ব্যবস্থা (বন্ধ) — পুরোনো ডক পড়ার জন্য
 
@@ -74,13 +76,23 @@ function parseChambers(list, hospitals, allowCustom = false) {
       h = place;
     }
     if (!h) return { error: ['Choose the hospital from the list', 'তালিকা থেকে হাসপাতাল বেছে নিন'] };
-    // বার (০ = রবি … ৬ = শনি, JS-এর মতো) আর সময় ("17:00"); লেখা শুধু বাড়তি নোট
-    const days = Array.isArray(c.days) ? [...new Set(c.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
-    const start = TIME_RE.test(c.start) ? c.start : '';
-    const end = TIME_RE.test(c.end) ? c.end : '';
+    // বার (০ = রবি … ৬ = শনি, JS-এর মতো) আর সময় ("17:00"); লেখা শুধু বাড়তি নোট।
+    // times: বার অনুযায়ী আলাদা সময়ের ভাগ; না থাকলে (আগের অ্যাপ) উপরের days/start/end একটাই ভাগ
+    const rawTimes = Array.isArray(c.times) && c.times.length ? c.times : [{ days: c.days, start: c.start, end: c.end }];
+    if (rawTimes.length > MAX_CHAMBER_TIMES) return { error: ['Up to 4 time slots per chamber', 'এক চেম্বারে সর্বোচ্চ ৪টা সময়'] };
+    const times = [];
+    for (const t of rawTimes) {
+      const td = Array.isArray(t?.days) ? [...new Set(t.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
+      const ts = TIME_RE.test(t?.start) ? t.start : '';
+      const te = TIME_RE.test(t?.end) ? t.end : '';
+      if (!td.length) return { error: ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'] };
+      if (!ts || !te || te === ts) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
+      times.push({ days: td, start: ts, end: te });
+    }
+    // উপরের days = সব ভাগের বার একসাথে (বুকিং-এর বার মেলানো, আগের অ্যাপ); start/end = প্রথম ভাগ
+    const days = [...new Set(times.flatMap((t) => t.days))].sort();
+    const { start, end } = times[0];
     const schedule = str(c.schedule, 120);
-    if (!days.length) return { error: ['Choose the days for each chamber', 'প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন'] };
-    if (!start || !end || end === start) return { error: ['Set the start and end time for each chamber', 'প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন'] };
     out.push({
       hospitalId: h.id,
       hospitalName: h.nameEn,
@@ -93,6 +105,7 @@ function parseChambers(list, hospitals, allowCustom = false) {
       days,
       start,
       end,
+      ...(times.length > 1 ? { times } : {}),
       schedule,
       // "ফি চাই না" টিক দিলে ফি ফাঁকা থাকে
       noFee: c.noFee === true,
@@ -101,7 +114,50 @@ function parseChambers(list, hospitals, allowCustom = false) {
       serialPhone: phone(c.serialPhone),
     });
   }
+  // একজন একই সময়ে দুই জায়গায় বসতে পারেন না: সব চেম্বারের সব ভাগ মিলিয়ে একই বারে সময় মিলে গেলে আটকানো
+  const clash = timeClash(out);
+  if (clash) {
+    const [a, b] = clash;
+    const same = a === b;
+    return {
+      error: same
+        ? ['Two times in the same chamber overlap on the same day', `"${a.hospitalNameBn || a.hospitalName}" চেম্বারে একই বারে দুটো সময় মিলে যাচ্ছে`]
+        : [`${a.hospitalName} and ${b.hospitalName} overlap on the same day and time`, `"${a.hospitalNameBn || a.hospitalName}" আর "${b.hospitalNameBn || b.hospitalName}" একই বারে একই সময়ে পড়েছে — একসাথে দুই জায়গায় বসা যায় না`],
+    };
+  }
   return { chambers: out };
+}
+
+const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const WEEK_MIN = 7 * 1440;
+
+/** সপ্তাহের মিনিটে সময়ের টুকরো; রাত পেরোলে (শেষ < শুরু, যেমন ২০:০০–০০:০০) পরের দিনে গড়ায় */
+function weekIntervals(t) {
+  const out = [];
+  const s = toMin(t.start);
+  let e = toMin(t.end);
+  if (e <= s) e += 1440;
+  for (const d of t.days) {
+    const a = d * 1440 + s;
+    const b = d * 1440 + e;
+    if (b <= WEEK_MIN) out.push([a, b]);
+    else out.push([a, WEEK_MIN], [0, b - WEEK_MIN]);
+  }
+  return out;
+}
+
+/** দুই ভাগের সময় মিলে গেলে সেই দুই চেম্বার, নইলে null */
+function timeClash(chambers) {
+  const all = [];
+  for (const c of chambers) for (const t of chamberTimes(c)) for (const iv of weekIntervals(t)) all.push({ c, iv });
+  all.sort((x, y) => x.iv[0] - y.iv[0]);
+  for (let i = 1; i < all.length; i++) {
+    // আগের যেকোনো টুকরোর শেষের আগে শুরু হলে মিলে গেছে (শুধু ছোঁয়া — ১২:০০ শেষ, ১২:০০ শুরু — চলে)
+    for (let j = i - 1; j >= 0; j--) {
+      if (all[j].iv[1] > all[i].iv[0]) return [all[j].c, all[i].c];
+    }
+  }
+  return null;
 }
 
 /** আগের ভার্সনের এক চেম্বারের ডক → নতুন ধরন */
@@ -128,18 +184,34 @@ const DAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
 /** আগের ভার্সনের অ্যাপের জন্য এক লাইনে সময়: "Sat, Sun · 17:00–21:00 · নোট" */
 function scheduleText(c) {
   if (!c) return '';
-  const parts = [];
-  if (Array.isArray(c.days) && c.days.length) parts.push(DAY_ORDER.filter((d) => c.days.includes(d)).map((d) => DAY_EN[d]).join(', '));
-  if (c.start && c.end) parts.push(`${c.start}–${c.end}`);
+  const slot = (t) => {
+    const parts = [];
+    if (Array.isArray(t.days) && t.days.length) parts.push(DAY_ORDER.filter((d) => t.days.includes(d)).map((d) => DAY_EN[d]).join(', '));
+    if (t.start && t.end) parts.push(`${t.start}–${t.end}`);
+    return parts.join(' · ');
+  };
+  const parts = [chamberTimes(c).map(slot).filter(Boolean).join('; ')].filter(Boolean);
   if (c.schedule) parts.push(c.schedule);
   return parts.join(' · ');
 }
 
+/** চেম্বারের সময়ের ভাগগুলো (আগের ডকে একটাই: days/start/end) */
+function chamberTimes(c) {
+  if (!c) return [];
+  if (Array.isArray(c.times) && c.times.length) return c.times;
+  return [{ days: Array.isArray(c.days) ? c.days : [], start: c.start || '', end: c.end || '' }];
+}
+
+/** এই তারিখের বারে যে ভাগগুলো বসে (বার না দেওয়া পুরোনো চেম্বারে সব) */
+function chamberTimesOn(c, dateUtcMidnight) {
+  const day = new Date(dateUtcMidnight).getUTCDay();
+  return chamberTimes(c).filter((t) => !t.days.length || t.days.includes(day));
+}
+
 /** এই তারিখে (UTC মধ্যরাত) চেম্বার বসে কি না; পুরোনো চেম্বারে বার না থাকলে সব দিন */
 function chamberOpenOn(chamber, dateUtcMidnight) {
-  const days = chamber && Array.isArray(chamber.days) ? chamber.days : [];
-  if (!days.length) return true;
-  return days.includes(new Date(dateUtcMidnight).getUTCDay());
+  if (!chamber) return false;
+  return chamberTimesOn(chamber, dateUtcMidnight).length > 0;
 }
 
 function isListed(doc) {
@@ -387,6 +459,10 @@ function keepApproved(s, data, changed) {
 }
 
 module.exports = {
+  timeClash,
+  chamberTimes,
+  chamberTimesOn,
+  MAX_CHAMBER_TIMES,
   keepApproved,
   pickClosedDays,
   contactPhone,

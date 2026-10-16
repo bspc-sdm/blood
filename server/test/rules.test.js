@@ -215,6 +215,31 @@ test('চেম্বার: যাচাই, পুরোনো ডক, ফি�
   assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '17:00', end: '17:00' }], hospitals).error);
   assert.ok(!K.parseChambers([{ hospitalId: 'h1', days: [1], start: '20:00', end: '00:00' }], hospitals).error); // রাত ১২টা পর্যন্ত
   assert.strictEqual(K.scheduleText({ days: [0, 6], start: '17:00', end: '21:00', schedule: 'x' }), 'Sat, Sun · 17:00–21:00 · x');
+  // এক চেম্বারে বার অনুযায়ী আলাদা সময়
+  const multi = K.parseChambers([{ hospitalId: 'h1', times: [{ days: [6, 1], start: '17:00', end: '21:00' }, { days: [5], start: '09:00', end: '12:00' }] }], hospitals);
+  assert.ok(!multi.error);
+  assert.deepStrictEqual(multi.chambers[0].days, [1, 5, 6]);
+  assert.strictEqual(multi.chambers[0].start, '17:00');
+  assert.strictEqual(multi.chambers[0].times.length, 2);
+  assert.strictEqual(K.scheduleText(multi.chambers[0]), 'Sat, Mon · 17:00–21:00; Fri · 09:00–12:00');
+  const fri = Date.UTC(2026, 9, 16); // শুক্রবার
+  assert.ok(K.chamberOpenOn(multi.chambers[0], fri));
+  assert.strictEqual(K.chamberTimesOn(multi.chambers[0], fri)[0].start, '09:00');
+  assert.ok(!K.chamberOpenOn(multi.chambers[0], Date.UTC(2026, 9, 18))); // রবিবার
+  // একই দিন সকাল-বিকাল চলে, হুবহু একই সময় দুবার নয়
+  assert.ok(!K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [1], start: '17:00', end: '21:00' }] }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [1, 2], start: '09:00', end: '12:00' }] }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [1], start: '11:00', end: '13:00' }] }], hospitals).error);
+  assert.ok(!K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [1], start: '12:00', end: '13:00' }] }], hospitals).error); // ছুঁয়ে গেলে চলে
+  // দুই চেম্বারে একই বারে একই সময় নয়
+  const two = (b) => K.parseChambers([{ hospitalId: 'h1', days: [1], start: '17:00', end: '21:00' }, { hospitalId: 'h1', ...b }], hospitals);
+  assert.ok(two({ days: [1], start: '20:00', end: '22:00' }).error);
+  assert.ok(!two({ days: [2], start: '17:00', end: '21:00' }).error);
+  assert.ok(!two({ days: [1], start: '09:00', end: '12:00' }).error);
+  // রাত পেরোনো: সোম ২২:০০–০২:০০ আর মঙ্গল ০১:০০–০৩:০০ মেলে
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', days: [1], start: '22:00', end: '02:00' }, { hospitalId: 'h1', days: [2], start: '01:00', end: '03:00' }], hospitals).error);
+  assert.ok(!K.parseChambers([{ hospitalId: 'h1', days: [6], start: '22:00', end: '02:00' }, { hospitalId: 'h1', days: [0], start: '03:00', end: '05:00' }], hospitals).error);
+  assert.ok(K.parseChambers([{ hospitalId: 'h1', times: [{ days: [1], start: '09:00', end: '12:00' }, { days: [], start: '17:00', end: '21:00' }] }], hospitals).error);
   assert.ok(K.parseChambers(Array(4).fill({ hospitalId: 'h1', ...t }), hospitals).error);
   const ok = K.parseChambers([{ hospitalId: 'h1', ...t, schedule: 'Fridays closed', appointments: true, serialPhone: '017-1234 5678' }], hospitals);
   assert.deepStrictEqual(ok.chambers[0].days, [0, 6]);
