@@ -188,6 +188,33 @@
     let email = load('lf_admin_email');
     let error = message || '';
     let sending = false;
+    let info = '';
+    // আবার কোড চাওয়া যায় ১ মিনিট পর (সার্ভারের সীমার সাথে মিলিয়ে)
+    let resendAt = 0;
+    let tick = null;
+    const waitSec = () => Math.max(0, Math.ceil((resendAt - Date.now()) / 1000));
+    function startTimer() {
+      resendAt = Date.now() + 60 * 1000;
+      clearInterval(tick);
+      tick = setInterval(() => {
+        const b = root.querySelector('.resend');
+        if (!b) { clearInterval(tick); return; }
+        const n = waitSec();
+        b.disabled = n > 0 || sending;
+        b.textContent = n > 0 ? `আবার কোড পাঠান (${bn(n)} সেকেন্ড)` : 'আবার কোড পাঠান';
+        if (!n) clearInterval(tick);
+      }, 1000);
+    }
+    async function resend() {
+      if (sending || waitSec() > 0) return;
+      sending = true; error = ''; info = ''; draw();
+      try {
+        await post('/api/auth/send-code', { email });
+        info = 'নতুন কোড পাঠানো হয়েছে। আগের কোডগুলোও ১০ মিনিট চলবে।';
+        startTimer();
+      } catch (e) { error = e.message; }
+      sending = false; draw();
+    }
 
     function draw() {
       const form = h('form', { class: 'card login', novalidate: true, onsubmit: submit },
@@ -197,6 +224,7 @@
           ? 'অ্যাপে যে ইমেইল দিয়ে লগইন করেন, সেটা দিন। ইমেইলে ৬ সংখ্যার কোড যাবে।'
           : `${email} ঠিকানায় কোড পাঠানো হয়েছে। ইমেইল খুলে কোডটা লিখুন।` }),
         error ? h('p', { class: 'error', role: 'alert', text: error }) : null,
+        info && stage === 'code' ? h('p', { class: 'note', role: 'status', text: info }) : null,
         stage === 'email'
           ? [h('label', { class: 'field' }, h('span', { text: 'ইমেইল' }),
             h('input', { type: 'email', name: 'email', autocomplete: 'email', required: true, value: email })),
@@ -205,7 +233,11 @@
             h('input', { class: 'code-input', name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, required: true })),
           h('div', { class: 'row' },
             h('button', { class: 'btn primary', type: 'submit', disabled: sending, text: sending ? 'যাচাই হচ্ছে…' : 'লগইন করুন' }),
-            h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; draw(); }, text: 'ইমেইল বদলান' }))],
+            h('button', { class: 'link', type: 'button', onclick: () => { stage = 'email'; error = ''; info = ''; draw(); }, text: 'ইমেইল বদলান' })),
+          h('div', { class: 'row' },
+            h('button', { class: 'link resend', type: 'button', disabled: sending || waitSec() > 0, onclick: resend,
+              text: waitSec() > 0 ? `আবার কোড পাঠান (${bn(waitSec())} সেকেন্ড)` : 'আবার কোড পাঠান' })),
+          h('p', { class: 'note', text: 'ইমেইল না পেলে Spam আর All Mail দেখুন। যে Gmail থেকে কোড যায়, সেই একই ঠিকানায় চাইলে কোড শুধু Sent/All Mail-এ থাকে।' })],
         h('p', { class: 'note', text: 'শুধু অ্যাডমিনদের জন্য। প্যানেলে ২ ঘণ্টা কিছু না করলে নিজে থেকে লগআউট হবে।' }));
       root.replaceChildren(h('div', { class: 'login-wrap' }, form));
       const first = form.querySelector('input');
@@ -224,6 +256,7 @@
           await post('/api/auth/send-code', { email });
           store('lf_admin_email', email);
           stage = 'code';
+          startTimer();
         } catch (e) { error = e.message; }
         sending = false; draw();
       } else {
