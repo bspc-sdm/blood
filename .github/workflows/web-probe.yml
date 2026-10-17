@@ -2,62 +2,14 @@ name: Web probe (temp)
 on:
   push:
     branches: [web-probe]
-permissions:
-  contents: write
 jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-      - name: Live browser check
+      - name: Wait for new build live
         run: |
-          mkdir -p /tmp/out /tmp/pw && cd /tmp/pw
-          npm init -y >/dev/null && npm i --silent playwright@1.49.1 >/dev/null && npx playwright install --with-deps chromium >/dev/null 2>&1
-          cat > run.mjs <<'JS'
-          import { chromium } from 'playwright';
-          import fs from 'node:fs';
-          const B = 'https://blood-server-ashy.vercel.app';
-          const pages = [['home','/'],['services','/services/ambulance'],['pharmacy','/services/pharmacy'],['doctors','/appointment'],['health','/health/discussion'],['work-guest','/work'],['settings','/settings']];
-          const sizes = { mobile: { width: 390, height: 844 }, tablet: { width: 820, height: 1180 }, desktop: { width: 1440, height: 960 } };
-          const b = await chromium.launch();
-          const log = [];
-          for (const [sz, vp] of Object.entries(sizes)) {
-            const ctx = await b.newContext({ viewport: vp, locale: 'bn-BD', isMobile: sz === 'mobile' });
-            await ctx.addInitScript(() => { try { localStorage.setItem('lf.guestArea', JSON.stringify({lat:24.75,lng:90.41,placeName:'ময়মনসিংহ',source:'district'})); localStorage.setItem('lf.filterArea', JSON.stringify({district:'ময়মনসিংহ',upazilaId:null,unionId:null})); } catch {} });
-            for (const [n, p] of pages) {
-              const page = await ctx.newPage();
-              const errs = [];
-              page.on('pageerror', (e) => errs.push('pageerror ' + e.message));
-              page.on('console', (m) => { if (m.type() === 'error') errs.push('console ' + m.text()); });
-              page.on('requestfailed', (r) => errs.push('reqfail ' + r.url() + ' ' + (r.failure()?.errorText || '')));
-              await page.goto(B + p, { waitUntil: 'networkidle', timeout: 45000 }).catch((e) => errs.push('goto ' + e.message));
-              await page.waitForTimeout(1500);
-              const ov = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-              if (ov > 1) errs.push('overflow ' + ov);
-              await page.screenshot({ path: `/tmp/out/${n}-${sz}.png` });
-              log.push({ n, sz, errs });
-              await page.close();
-            }
-            await ctx.close();
-          }
-          // লগইনের প্রথম ধাপ (কোড পাঠানো নয়, শুধু ডায়ালগ খোলে কি না)
-          const ctx = await b.newContext({ viewport: sizes.mobile, locale: 'bn-BD' });
-          const page = await ctx.newPage();
-          await page.goto(B + '/', { waitUntil: 'networkidle' });
-          await page.getByRole('button', { name: 'লগইন' }).first().click();
-          await page.waitForTimeout(800);
-          await page.screenshot({ path: '/tmp/out/login-dialog-mobile.png' });
-          await b.close();
-          fs.writeFileSync('/tmp/out/log.json', JSON.stringify(log, null, 1));
-          JS
-          node run.mjs
-      - name: Save
-        if: always()
-        run: |
-          cd /tmp/out
-          git init -q . && git checkout -q -b web-probe-out
-          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
-          git -c user.name=ci -c user.email=ci@x add -A && git -c user.name=ci -c user.email=ci@x commit -qm probe
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web-probe-out
+          for i in $(seq 1 45); do
+            if curl -s -m 20 https://blood-server-ashy.vercel.app/ | grep -q '/w/assets/index-Clb3b_Z0.js'; then echo "LIVE after $i"; exit 0; fi
+            sleep 20
+          done
+          echo "not live"; exit 1
