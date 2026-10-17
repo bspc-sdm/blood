@@ -10,6 +10,7 @@ Health app for Bangladesh — blood donors, ambulances, pharmacies, blood banks,
 |---|---|---|
 | Android অ্যাপ | Kotlin, Jetpack Compose, Material 3 | `app/` |
 | সার্ভার | Node 22, Vercel serverless functions | `server/api`, `server/lib` |
+| ওয়েব অ্যাপ (মোবাইল, ট্যাবলেট, ডেস্কটপ) | React + TypeScript (Vite), অ্যাপের একই সার্ভার ও অ্যাকাউন্ট | `web/` → বিল্ড `server/public/w` → `/` (বিস্তারিত `web/README.md`) |
 | অ্যাডমিন প্যানেল (ওয়েব) | সাধারণ JS, কোনো বিল্ড লাগে না | `server/public/admin` → `/admin` |
 | ডাক্তার/সহকারী/ফার্মেসি/ল্যাবের ওয়েব | সাধারণ JS | `server/public/doctor` → `/doctor` |
 | ডাটাবেস | Firebase Firestore (Spark/ফ্রি প্ল্যান), Firebase Auth (ইমেইল কোড) | `firestore.rules` |
