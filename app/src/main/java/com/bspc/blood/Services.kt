@@ -84,18 +84,6 @@ fun ServicesTab(profile: Profile) {
     val target = ServicesNav.target.value
     LaunchedEffect(target) {
         when (target) {
-            // হোমের চারটা বাটন (নতুন নকশা N1): অ্যাম্বুলেন্স / ব্লাড ব্যাংক / ওষুধ খুঁজুন
-            "ambulance", "bloodbank" -> {
-                tab = if (target == "ambulance") 0 else 2
-                mineOpen = false
-                ServicesNav.target.value = null
-            }
-            "med_search" -> {
-                tab = 1
-                mineOpen = false
-                // ফার্মেসির ভেতরের "ওষুধ খুঁজুন" অংশ (PharmacyContent এটা দেখে খোলে)
-                ServicesNav.target.value = "med_find_mine"
-            }
             "med_find_mine" -> tab = 1
             "med_find", "pharmacy_mine" -> {
                 tab = 1

@@ -62,8 +62,6 @@ internal val HOME_PROVIDER_TYPES = listOf("doctor", "nurse")
 /** নোটিফিকেশন থেকে সরাসরি "বাসায় সেবা" অংশ খোলার জন্য */
 object CareNav {
     val openHomeCare = mutableStateOf(false)
-    /** হোমের "ডাক্তার" বাটন: ডাক্তারের তালিকা (বাসায় সেবা বা অন্য পেশার তালিকা খোলা থাকলেও) */
-    val openDoctors = mutableStateOf(false)
 }
 
 // ------------------------------------------------------------
@@ -83,13 +81,6 @@ fun AppointmentTab(
         if (CareNav.openHomeCare.value) {
             showHome = true
             CareNav.openHomeCare.value = false
-        }
-    }
-    LaunchedEffect(CareNav.openDoctors.value) {
-        if (CareNav.openDoctors.value) {
-            showHome = false
-            tab = 0
-            CareNav.openDoctors.value = false
         }
     }
 

@@ -83,7 +83,6 @@ fun MainScreen(
     onAccountDeleted: () -> Unit,
     onOpenInbox: () -> Unit = {},
     onLogin: () -> Unit = {},
-    onQuick: (String) -> Unit = {},
     onOpenRequestGuest: (String) -> Unit = {},
     onBecomeDonor: () -> Unit = {},
 ) {
@@ -158,7 +157,7 @@ fun MainScreen(
             when (tab) {
                 Tabs.HOME -> HomeTab(
                     profile, homeRefresh, if (guest) onOpenRequestGuest else onOpenRequest, onOpenMyRequest, onNewRequest, onChangeLocation,
-                    onQuick = onQuick, onBecomeDonor = onBecomeDonor,
+                    onBecomeDonor = onBecomeDonor,
                 ) { onTabChange(Tabs.PROFILE) }
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
@@ -166,7 +165,7 @@ fun MainScreen(
                 // অতিথির প্রোফাইল নেই (উপরের ছবির বদলে "লগইন")
                 else -> if (guest) HomeTab(
                     profile, homeRefresh, onOpenRequestGuest, onOpenMyRequest, onNewRequest, onChangeLocation,
-                    onQuick = onQuick, onBecomeDonor = onBecomeDonor,
+                    onBecomeDonor = onBecomeDonor,
                 ) {} else ProfileTab(
                     profile = profile,
                     community = community,
@@ -197,7 +196,6 @@ fun HomeTab(
     onOpenMyRequest: (String) -> Unit,
     onNewRequest: () -> Unit,
     onChangeLocation: () -> Unit,
-    onQuick: (String) -> Unit = {},
     onBecomeDonor: () -> Unit = {},
     onOpenProfile: () -> Unit,
 ) {
@@ -249,9 +247,8 @@ fun HomeTab(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // উপরে: "রক্ত দিতে চাই" (যিনি এখনো ডোনার নন) আর জরুরি সেবার চারটা বাটন (নতুন নকশা N1)
+            // উপরে: "রক্ত দিতে চাই" (যিনি এখনো ডোনার নন)। সেবার তালিকা নিচের বারেই, হোমে আলাদা বাটন নয়
             if (!profile.isDonor) item(key = "donor_card") { BecomeDonorCard(onBecomeDonor) }
-            item(key = "quick") { HomeQuickActions(onQuick) }
 
             if (processing.isNotEmpty()) {
                 items(processing, key = { "p_" + it.id }) { r ->

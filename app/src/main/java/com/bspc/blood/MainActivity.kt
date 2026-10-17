@@ -468,25 +468,6 @@ fun App(
         }
     }
 
-    /** হোমের চারটা বাটন: সংশ্লিষ্ট ট্যাবের তালিকা */
-    fun openQuick(key: String) {
-        while (stack.size > 1) stack.removeAt(stack.lastIndex)
-        when (key) {
-            "doctor" -> {
-                CareNav.openDoctors.value = true
-                stack[0] = Screen.Main(Tabs.APPOINTMENT)
-            }
-            else -> {
-                ServicesNav.target.value = when (key) {
-                    "medicine" -> "med_search"
-                    "bloodbank" -> "bloodbank"
-                    else -> "ambulance"
-                }
-                stack[0] = Screen.Main(Tabs.SERVICES)
-            }
-        }
-    }
-
     BackHandler(enabled = stack.size > 1) { back() }
 
     // মূল পাতায় হোম ছাড়া অন্য ট্যাবে থাকলে "পেছনে" চাপলে হোমে ফেরা
@@ -545,7 +526,6 @@ fun App(
                     }
                 },
                 onLogin = { LoginGate.login() },
-                onQuick = { openQuick(it) },
                 onOpenRequestGuest = { id ->
                     LoginGate.require(tr("Log in to respond to this request", "সাড়া দিতে লগইন করুন"), donor = true) { push(Screen.RequestDetail(id)) }
                 },

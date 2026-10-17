@@ -95,11 +95,10 @@ class ScreensTest {
         show {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 BecomeDonorCard {}
-                HomeQuickActions {}
                 RequestCard(request, 3.2) {}
             }
         }
-        rule.onNodeWithText("ব্লাড ব্যাংক").assertExists()
+        rule.onNodeWithText("রক্ত দিতে চাই").assertExists()
         shot("guest_home_top_bn")
     }
 

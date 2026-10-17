@@ -1,10 +1,7 @@
 package com.bspc.blood
 
 import android.content.Context
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,8 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 
@@ -119,45 +114,6 @@ object GuestApi {
                 confirmedCount = x.optInt("confirmedCount"),
                 bagsReceived = x.optInt("bagsReceived"),
             ) to x.optDouble("km", 0.0)
-        }
-    }
-}
-
-/** হোমের উপরের চারটা বাটন: এক চাপে জরুরি সেবার তালিকা (key: ambulance, medicine, bloodbank, doctor) */
-@Composable
-fun HomeQuickActions(onOpen: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        QuickTile(tr("Ambulance", "অ্যাম্বুলেন্স"), R.drawable.ic_ambulance, Modifier.weight(1f)) { onOpen("ambulance") }
-        QuickTile(tr("Find medicine", "ওষুধ খুঁজুন"), R.drawable.ic_medication, Modifier.weight(1f)) { onOpen("medicine") }
-        QuickTile(tr("Blood bank", "ব্লাড ব্যাংক"), R.drawable.ic_bloodtype, Modifier.weight(1f)) { onOpen("bloodbank") }
-        QuickTile(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope, Modifier.weight(1f)) { onOpen("doctor") }
-    }
-}
-
-@Composable
-private fun QuickTile(label: String, @DrawableRes icon: Int, modifier: Modifier, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier,
-    ) {
-        Column(
-            Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                AppIcon(icon, null, Modifier.padding(8.dp).size(24.dp), MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
