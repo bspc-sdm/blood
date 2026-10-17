@@ -3,13 +3,15 @@
 .work-mobile-title { display: block; }
 @media (min-width: 720px) { .work-mobile-title { display: none; } }
 
-.work-crumb { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 14px; font-weight: 500; min-height: 32px; }
-.work-crumb svg { width: 18px; height: 18px; }
-@media (max-width: 719px) { .work-crumb { display: none; } }
 
 /* হিসাবের সারি */
 .work-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-@media (max-width: 719px) { .work-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 719px) {
+  .work-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .work-stat { padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
+  .work-stat .v { font-size: 22px; line-height: 28px; }
+  .work-stat .l { grid-column: 1 / -1; font-size: 12px; line-height: 16px; }
+}
 .work-stat { position: relative; }
 .work-stat .v { font-size: 26px; line-height: 32px; }
 .work-stat-ic { width: 20px; height: 20px; color: var(--primary); }

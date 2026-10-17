@@ -58,7 +58,8 @@ export function AreaPicker({
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [dist, setDist] = useState<string | null>(value?.district ?? null);
-  const [upz, setUpz] = useState<number | null>(value?.upazilaId ?? null);
+  // ইউনিয়ন না চাইলে উপজেলার ধাপ থেকেই শুরু (বাছা উপজেলা থাকলেও)
+  const [upz, setUpz] = useState<number | null>(withUnions ? value?.upazilaId ?? null : null);
   const [gps, setGps] = useState(false);
 
   useEffect(() => {

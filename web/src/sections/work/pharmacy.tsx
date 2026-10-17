@@ -1,9 +1,9 @@
 // /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, ওষুধ খোঁজার অনুরোধ, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen, PharmacyFindRequests)
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
-import { FormPage, Workspace } from '@/shell/templates';
+import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
@@ -14,7 +14,7 @@ import { formatDate, formatKm, normalizePhone, timeAgo, todayUtcMidnight } from 
 import { DAY_MS, DHAKA_OFFSET_MS } from '@/lib/rules';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
-  AppealButton, AreaField, DocPhotosField, DocsNeededNotice, Flash, MiniBars, PAPERS_CHANGED, Stat, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
+  AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MiniBars, PAPERS_CHANGED, Stat, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
   closedDaysText, hoursText, missingDocs, myBusinessTitle, pharmacyDocs, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type CallSummary, type Pharmacy,
 } from './shared';
@@ -36,11 +36,11 @@ export function MyPharmacy() {
   const [delErr, setDelErr] = useState<string | null>(null);
   useAreas();
   const title = myBusinessTitle('pharmacy');
-  if (gate) return <Workspace title={title}>{gate}</Workspace>;
+  if (gate) return <BizPage title={title}>{gate}</BizPage>;
 
   if (!ph) {
     return (
-      <Workspace title={title} intro={<Crumb />}>
+      <BizPage title={title}>
         <Flash msg={flash} />
         <EmptyState
           icon="storefront"
@@ -49,7 +49,7 @@ export function MyPharmacy() {
         >
           <Button icon="add" onClick={() => nav('/work/pharmacy/new')}>{tr('Add my pharmacy', 'আমার ফার্মেসি যোগ করুন')}</Button>
         </EmptyState>
-      </Workspace>
+      </BizPage>
     );
   }
 
@@ -94,9 +94,9 @@ export function MyPharmacy() {
   const hours = [hoursText(ph), closedDaysText(ph.closedDays)].filter(Boolean).join(' · ');
 
   return (
-    <Workspace
+    <BizPage
       title={title}
-      intro={<Crumb />}
+     
       actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/pharmacy/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}
     >
       <Flash msg={flash} error={err} />
@@ -186,12 +186,8 @@ export function MyPharmacy() {
           onClose={() => setDel(false)}
         />
       ) : null}
-    </Workspace>
+    </BizPage>
   );
-}
-
-function Crumb() {
-  return <Link to="/work" className="work-crumb"><Icon name="arrow_back" />{tr('My work', 'আমার কাজ')}</Link>;
 }
 
 /** পার্টনার প্যানেলের (/doctor) লিংক: প্রেসক্রিপশন, অর্ডার, স্টক, রিপোর্ট সেখানে */

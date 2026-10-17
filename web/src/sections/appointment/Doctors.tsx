@@ -75,9 +75,9 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
       <div className="row appt-title">
         <h1 className="t-headline grow appt-h1">{tr('Appointment', 'অ্যাপয়েন্টমেন্ট')}</h1>
         {!guest ? (
-          <Link className="btn text small has-icon" to="/my-appointments">
+          <Link className="btn text small has-icon appt-my-link" to="/my-appointments" aria-label={tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')} title={tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')}>
             <Icon name="event_outline" />
-            {tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')}
+            <span className="appt-wide-only">{tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')}</span>
           </Link>
         ) : null}
         <Link className="appt-home-btn" to="/appointment/home-care">

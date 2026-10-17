@@ -192,7 +192,7 @@ export function MedFind() {
       <ListDetail list={list} detail={null} placeholder={<div className="col gap-12">{placeholder}</div>} />
       {showArea ? (
         <AreaPicker
-          value={area}
+          value={area ? { district: area.district, upazilaId: null } : null}
           allowAllDistrict
           onClose={() => setShowArea(false)}
           onPicked={(v) => {

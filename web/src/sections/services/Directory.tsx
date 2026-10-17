@@ -204,7 +204,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       <ListDetail list={list} detail={detail} placeholder={placeholder} />
       {showArea ? (
         <AreaPicker
-          value={area}
+          value={area ? { district: area.district, upazilaId: null } : null}
           onClose={() => setShowArea(false)}
           onPicked={(v) => {
             setArea({ district: v.district, upazilaId: v.upazilaId ?? null, unionId: null });

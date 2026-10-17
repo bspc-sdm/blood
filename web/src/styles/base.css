@@ -203,7 +203,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
 /* খালি অবস্থা, লোডিং, ত্রুটি */
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 40px 24px; color: var(--on-surface-variant); }
-.empty svg { width: 64px; height: 64px; opacity: .55; }
+.empty > svg { width: 64px; height: 64px; opacity: .55; }
 .empty .t { font-size: 20px; line-height: 27px; font-weight: 700; opacity: .8; text-wrap: balance; }
 .empty .s { max-width: 40ch; }
 .loading { display: flex; justify-content: center; padding: 40px; }

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, ChoiceChips, ConfirmDialog, EmptyState, ErrorText, Field, IconButton, Switch, Tag, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
-import { FormPage, Workspace } from '@/shell/templates';
+import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
@@ -12,7 +12,7 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
-  AppealButton, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_BLOODBANKS, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
+  AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_BLOODBANKS, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
   bloodBankDocs, callsLine, closedDaysText, hoursText, isContactPhone, missingDocs, myBusinessTitle, phoneInput, sentForApproval, useAfterChange, useAreas, useCatalog, useFlash, useWorkGate,
   type BloodBank, type ListingStats,
 } from './shared';
@@ -36,7 +36,7 @@ export function MyBloodBanks() {
   const [details, setDetails] = useState<BloodBank | null>(null);
   useAreas();
   const title = myBusinessTitle('bloodbank');
-  if (gate) return <Workspace title={title}>{gate}</Workspace>;
+  if (gate) return <BizPage title={title}>{gate}</BizPage>;
 
   const st = new Map((stats.data?.items ?? []).map((x) => [x.id, x]));
   const canAdd = list.length < MAX_BLOODBANKS;
@@ -65,9 +65,8 @@ export function MyBloodBanks() {
   );
 
   return (
-    <Workspace
+    <BizPage
       title={title}
-      intro={<Link to="/work" className="work-crumb"><Icon name="arrow_back" />{tr('My work', 'আমার কাজ')}</Link>}
       actions={canAdd ? <Button icon="add" onClick={() => nav('/work/bloodbank/new')}>{tr('Add blood bank', 'ব্লাড ব্যাংক যোগ করুন')}</Button> : null}
     >
       <Flash msg={flash} />
@@ -170,7 +169,7 @@ export function MyBloodBanks() {
         />
       ) : null}
       {details && st.get(details.id) ? <StatsDialog title={details.name} st={st.get(details.id)!} onClose={() => setDetails(null)} /> : null}
-    </Workspace>
+    </BizPage>
   );
 }
 

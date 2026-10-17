@@ -11,6 +11,7 @@ import { useSession } from '@/lib/session';
 import { num, tr } from '@/lib/i18n';
 import { areaLabel, areasReady, ensureAreas } from '@/lib/geo';
 import { formatTimeHM } from '@/lib/format';
+import { SubPageBar, Workspace } from '@/shell/templates';
 
 // ---------- ধরন ----------
 export type Kind = 'ambulance' | 'pharmacy' | 'bloodbank' | 'lab';
@@ -527,3 +528,13 @@ export function useWorkGate(): ReactNode | null {
   return null;
 }
 
+
+/** একটা ব্যবসার পাতা: উপরে "পেছনে" বার ("আমার কাজ"-এ ফেরা), নিচে চওড়া কাজের পাতা */
+export function BizPage({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <>
+      <SubPageBar title={title} backTo="/work" />
+      <Workspace title={title} actions={actions}>{children}</Workspace>
+    </>
+  );
+}

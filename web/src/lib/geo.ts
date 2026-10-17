@@ -50,7 +50,8 @@ export const district = (bn?: string | null) => (bn ? DISTRICTS.find((d) => d.bn
 export function districtLabel(bn?: string | null): string {
   if (!bn) return '';
   if (isBangla()) return bn;
-  return DISTRICTS.find((d) => d.bn === bn)?.en ?? bn;
+  const n = bnNorm(bn);
+  return DISTRICTS.find((d) => d.bn === bn || bnNorm(d.bn) === n)?.en ?? bn;
 }
 const lbl = (x?: { bn: string; en: string }) => (x ? (isBangla() ? x.bn : x.en) : '');
 

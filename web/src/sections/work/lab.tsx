@@ -1,9 +1,9 @@
 // /work/lab — নিজের প্যাথলজি: অবস্থা, কাগজ, বদল; পরীক্ষা আর রিপোর্ট পার্টনার প্যানেলে (অ্যাপের MyLabPanel, LabEditScreen)
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorText, ListRow, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
-import { FormPage, Workspace } from '@/shell/templates';
+import { FormPage } from '@/shell/templates';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
@@ -12,7 +12,7 @@ import { areaLabel, bnNorm } from '@/lib/geo';
 import { normalizePhone } from '@/lib/format';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
-  AppealButton, AreaField, DocPhotosField, DocsNeededNotice, Flash, PAPERS_CHANGED, StatusReason, StatusTag, TermsCheck,
+  AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, PAPERS_CHANGED, StatusReason, StatusTag, TermsCheck,
   labDocs, missingDocs, myBusinessTitle, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type Lab,
 } from './shared';
@@ -30,11 +30,10 @@ export function MyLab() {
   const [delErr, setDelErr] = useState<string | null>(null);
   useAreas();
   const title = myBusinessTitle('lab');
-  const crumb = <Link to="/work" className="work-crumb"><Icon name="arrow_back" />{tr('My work', 'আমার কাজ')}</Link>;
-  if (gate) return <Workspace title={title}>{gate}</Workspace>;
+  if (gate) return <BizPage title={title}>{gate}</BizPage>;
   if (!lab) {
     return (
-      <Workspace title={title} intro={crumb}>
+      <BizPage title={title}>
         <Flash msg={flash} />
         <EmptyState
           icon="local_hospital"
@@ -43,7 +42,7 @@ export function MyLab() {
         >
           <Button icon="add" onClick={() => nav('/work/lab/new')}>{tr('Add my lab', 'আমার প্যাথলজি যোগ করুন')}</Button>
         </EmptyState>
-      </Workspace>
+      </BizPage>
     );
   }
   async function remove() {
@@ -62,7 +61,7 @@ export function MyLab() {
   }
   const place = [lab.address, areaLabel(lab.district, lab.upazilaId)].filter(Boolean).join(', ');
   return (
-    <Workspace title={title} intro={crumb} actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/lab/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}>
+    <BizPage title={title} actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/lab/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}>
       <Flash msg={flash} />
       <DocsNeededNotice kind="lab" id={lab.id} specs={labDocs()} item={lab} onDone={after} />
       <div className="ws-grid side">
@@ -119,7 +118,7 @@ export function MyLab() {
           onClose={() => setDel(false)}
         />
       ) : null}
-    </Workspace>
+    </BizPage>
   );
 }
 

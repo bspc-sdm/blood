@@ -57,6 +57,7 @@
 /* রাজি ডোনার */
 .blood-donor .semi { min-width: 0; }
 .blood-indent { padding-left: 46px; }
+@media (max-width: 479px) { .blood-mine .blood-indent { padding-left: 0; } .blood-mine { padding: 10px; margin: 0 -4px; } .blood-mycard { padding: 12px; } }
 .blood-undo { gap: 6px; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--surface-high); }
 
 /* শেয়ার */
@@ -91,3 +92,10 @@
 .blood-suggest { display: flex; flex-direction: column; border-radius: 12px; background: var(--surface-high); overflow: hidden; }
 .blood-suggest button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 14px; border: 0; background: transparent; text-align: left; color: inherit; }
 .blood-suggest button:hover { background: var(--primary-a12); }
+
+/* খালি অবস্থার ভেতরের বাটনে আইকন সাধারণ মাপে (কিটের .empty svg বড় আইকনের জন্য) */
+.blood-empty .empty .btn svg { width: 18px; height: 18px; opacity: 1; }
+@media (max-width: 599px) {
+  .blood-groups .chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .blood-groups .chip { min-width: 0; padding: 0 8px; }
+}

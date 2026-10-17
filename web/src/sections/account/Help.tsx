@@ -135,7 +135,7 @@ export function HelpPage() {
 
   const list = (
     <div className="list-inner">
-      <Button icon="edit_note" block onClick={() => nav(`/help/new${startCat ? `?category=${encodeURIComponent(startCat)}` : ''}`)}>{tr('Write to us', 'আমাদের লিখুন')}</Button>
+      <Button icon="edit_note" className="acct-write" onClick={() => nav(`/help/new${startCat ? `?category=${encodeURIComponent(startCat)}` : ''}`)}>{tr('Write to us', 'আমাদের লিখুন')}</Button>
       <h2 className="acct-sec">{tr('My messages', 'আমার অনুরোধ')}</h2>
       {q.isLoading ? (
         <SkeletonCards n={3} h={92} />

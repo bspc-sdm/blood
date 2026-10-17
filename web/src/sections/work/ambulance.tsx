@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, ChoiceChips, ConfirmDialog, EmptyState, ErrorText, Field, IconButton, Tag, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
-import { FormPage, Workspace } from '@/shell/templates';
+import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
@@ -13,7 +13,7 @@ import { areaLabel } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
-  AppealButton, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_AMBULANCES, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck,
+  AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_AMBULANCES, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck,
   ambulanceDocs, callsLine, isContactPhone, missingDocs, myBusinessTitle, phoneInput, sentForApproval, useAfterChange, useAreas, useCatalog, useFlash, useWorkGate,
   type Ambulance, type ListingStats,
 } from './shared';
@@ -36,7 +36,7 @@ export function MyAmbulances() {
   const [details, setDetails] = useState<Ambulance | null>(null);
   useAreas();
   const title = myBusinessTitle('ambulance');
-  if (gate) return <Workspace title={title}>{gate}</Workspace>;
+  if (gate) return <BizPage title={title}>{gate}</BizPage>;
 
   const st = new Map((stats.data?.items ?? []).map((x) => [x.id, x]));
   const canAdd = list.length < MAX_AMBULANCES;
@@ -97,10 +97,9 @@ export function MyAmbulances() {
 
   const live = list.filter((a) => a.status === 'approved');
   return (
-    <Workspace
+    <BizPage
       title={title}
       actions={canAdd ? <Button icon="add" onClick={() => nav('/work/ambulance/new')}>{tr('Add ambulance', 'অ্যাম্বুলেন্স যোগ করুন')}</Button> : null}
-      intro={<Link to="/work" className="work-crumb"><Icon name="arrow_back" />{tr('My work', 'আমার কাজ')}</Link>}
     >
       <Flash msg={flash} error={err} />
       {list.length ? (
@@ -152,8 +151,10 @@ export function MyAmbulances() {
                     </div>
                   </td>
                   <td>
-                    {avail(a)}
-                    {a.status === 'approved' && a.available && a.availableAt > 1 ? <span className="t-body-s muted">{tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt)}</span> : null}
+                    <div className="col gap-2">
+                      {avail(a)}
+                      {a.status === 'approved' && a.available && a.availableAt > 1 ? <span className="t-body-s muted">{tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt)}</span> : null}
+                    </div>
                   </td>
                   <td>{callsCell(a)}</td>
                   <td>{actions(a)}</td>
@@ -211,7 +212,7 @@ export function MyAmbulances() {
         />
       ) : null}
       {details && st.get(details.id) ? <StatsDialog title={`${details.name} · ${details.vehicleNo}`} st={st.get(details.id)!} onClose={() => setDetails(null)} /> : null}
-    </Workspace>
+    </BizPage>
   );
 }
 

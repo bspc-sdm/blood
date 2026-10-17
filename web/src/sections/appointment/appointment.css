@@ -1,7 +1,7 @@
 /* অ্যাপয়েন্টমেন্ট অংশ — শুধু টোকেন (লাইট/ডার্ক দুটোতেই চলে); সব ক্লাস appt- দিয়ে শুরু */
 
 /* তালিকার মাথা: শিরোনাম + ছোট টিল "বাসায় সেবা" বাটন (অ্যাপের মতো) */
-.appt-title { min-height: 44px; flex-wrap: wrap; }
+.appt-title { min-height: 44px; }
 .appt-h1 { min-width: 0; }
 @media (min-width: 720px) {
   /* বড় পর্দায় উপরের বারে পাতার নাম থাকে */
@@ -14,6 +14,10 @@
   background: var(--primary); color: var(--on-primary); font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; flex: none;
 }
 .appt-home-btn svg { width: 16px; height: 16px; }
+.appt-title { flex-wrap: nowrap; }
+.appt-wide-only { display: none; }
+.appt-my-link { padding-left: 8px; padding-right: 8px; }
+@media (min-width: 720px) { .appt-wide-only { display: inline; } }
 .appt-home-btn:hover { box-shadow: var(--shadow); }
 
 /* পিল ট্যাব তালিকার কিনারা পর্যন্ত */

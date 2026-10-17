@@ -129,21 +129,21 @@ export function Home({ selectedId }: { selectedId: string | null }) {
       {!guest ? <MyRequestSection /> : null}
 
       {!place ? (
-        <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')}>
+        <div className="blood-empty"><EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')}>
           <Button icon="location_on" onClick={() => setPicking(true)}>{tr('Choose area', 'এলাকা বেছে নিন')}</Button>
-        </EmptyState>
+        </EmptyState></div>
       ) : nearby.isLoading && !others.length ? (
         <SkeletonCards n={3} />
       ) : nearby.error ? (
         <ErrorBox error={tr("Couldn't load requests", 'রিকোয়েস্ট লোড হয়নি')} onRetry={() => nearby.refetch()} />
       ) : !others.length ? (
-        <EmptyState
+        <div className="blood-empty"><EmptyState
           icon="volunteer_activism"
           title={tr('Good news!', 'সুখবর!')}
           text={tr(`No requests within ${num(maxKm)} km right now.`, `এই মুহূর্তে ${num(maxKm)} কিমির মধ্যে কোনো রিকোয়েস্ট নেই।`)}
         >
           <Button icon="add" onClick={newRequest} style={{ marginTop: 16 }}>{tr('Create Request', 'রিকোয়েস্ট দিন')}</Button>
-        </EmptyState>
+        </EmptyState></div>
       ) : (
         others.map(({ r, km }) => <RequestCard key={r.id} r={r} km={km} selected={r.id === selectedId} onClick={() => open(r.id)} />)
       )}

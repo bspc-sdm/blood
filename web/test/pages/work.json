@@ -14,7 +14,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -34,7 +36,8 @@
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
    },
-   "theme": "dark"
+   "theme": "dark",
+   "lang": "bn"
   },
   "full": true
  },
@@ -54,7 +57,8 @@
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
    },
-   "lang": "en"
+   "lang": "en",
+   "theme": "light"
   },
   "full": true,
   "sizes": [
@@ -77,7 +81,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "click": [
    "text=ছবি দিন"
@@ -102,7 +108,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -121,7 +129,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -140,7 +150,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "click": [
    "button:has-text(\"বিস্তারিত\")"
@@ -161,7 +173,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -180,7 +194,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "click": [
    "button:has-text(\"সেভ করুন\")"
@@ -205,7 +221,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -224,7 +242,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -243,7 +263,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "click": [
    "button:has-text(\"কয়েক দিন বন্ধ থাকবে\")"
@@ -268,7 +290,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -287,7 +311,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -306,7 +332,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -325,7 +353,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -344,7 +374,9 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   },
   "full": true
  },
@@ -363,18 +395,26 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "locationSource": "gps"
-   }
+   },
+   "lang": "bn",
+   "theme": "light"
   }
  },
  {
   "name": "guest",
   "path": "/work",
-  "test": {},
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  },
   "full": true
  },
  {
   "name": "guest-add",
   "path": "/work/add",
-  "test": {}
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
  }
 ]

@@ -108,6 +108,8 @@
 .acct-ph { color: var(--on-surface-variant); opacity: .35; margin: 80px auto; }
 
 /* ---------- সাহায্য ও আপিল ---------- */
+.acct-write { width: 100%; }
+@media (min-width: 720px) { .acct-write { width: auto; align-self: flex-start; } }
 .acct-sec { font-size: 14px; line-height: 20px; font-weight: 700; color: var(--primary); padding-top: 8px; }
 .acct-ticket { display: flex; flex-direction: column; gap: 4px; }
 .acct-thread { display: flex; flex-direction: column; gap: 10px; }

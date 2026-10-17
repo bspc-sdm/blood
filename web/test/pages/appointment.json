@@ -1,0 +1,827 @@
+[
+ {
+  "name": "list-guest",
+  "path": "/appointment",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   },
+   "guestArea": {
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "source": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "list",
+  "path": "/appointment",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "list-en",
+  "path": "/appointment",
+  "test": {
+   "lang": "en",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "mobile",
+   "desktop"
+  ]
+ },
+ {
+  "name": "list-dark",
+  "path": "/appointment",
+  "test": {
+   "lang": "bn",
+   "theme": "dark",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "mobile",
+   "desktop"
+  ]
+ },
+ {
+  "name": "nutritionist",
+  "path": "/appointment?t=nutritionist",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   },
+   "guestArea": {
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "source": "gps"
+   }
+  }
+ },
+ {
+  "name": "filter",
+  "path": "/appointment",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button[aria-label=\"ফিল্টার\"]"
+  ]
+ },
+ {
+  "name": "area",
+  "path": "/appointment",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".area-btn"
+  ]
+ },
+ {
+  "name": "detail",
+  "path": "/appointment/doctor/p_mahmuda",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "detail-guest",
+  "path": "/appointment/doctor/p_tanvir",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   },
+   "guestArea": {
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "source": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "detail-dark",
+  "path": "/appointment/doctor/p_mahmuda",
+  "test": {
+   "lang": "bn",
+   "theme": "dark",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "mobile",
+   "desktop"
+  ]
+ },
+ {
+  "name": "book",
+  "path": "/appointment/doctor/p_mahmuda",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"অ্যাপয়েন্টমেন্ট চাই\") >> visible=true"
+  ]
+ },
+ {
+  "name": "book-filled",
+  "path": "/appointment/doctor/p_mahmuda",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"অ্যাপয়েন্টমেন্ট চাই\") >> visible=true",
+   ".dialog .chip >> nth=0",
+   ".dialog button:has-text(\"অনুরোধ পাঠান\")"
+  ],
+  "fill": []
+ },
+ {
+  "name": "home-care-guest",
+  "path": "/appointment/home-care",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   },
+   "guestArea": {
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "source": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "home-care-nurse",
+  "path": "/appointment/home-care?t=nurse",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "home-care-detail",
+  "path": "/appointment/home-care/n_rumana?t=nurse",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "home-care-rate",
+  "path": "/appointment/home-care/p_mizan",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"আপনার রেটিং\") >> visible=true"
+  ]
+ },
+ {
+  "name": "home-care-filter",
+  "path": "/appointment/home-care?t=nurse",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button[aria-label=\"ফিল্টার\"]"
+  ]
+ },
+ {
+  "name": "my-guest",
+  "path": "/my-appointments",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   },
+   "guestArea": {
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "source": "gps"
+   }
+  }
+ },
+ {
+  "name": "my",
+  "path": "/my-appointments",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "my-detail",
+  "path": "/my-appointments/a1",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "my-cancel",
+  "path": "/my-appointments/a1",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"অ্যাপয়েন্টমেন্ট বাতিল\") >> visible=true"
+  ]
+ },
+ {
+  "name": "pro-bookings",
+  "path": "/work/pro",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro-bookings-dark",
+  "path": "/work/pro",
+  "test": {
+   "lang": "bn",
+   "theme": "dark",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "desktop"
+  ]
+ },
+ {
+  "name": "pro-waiting",
+  "path": "/work/pro?v=waiting",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro-confirm",
+  "path": "/work/pro?v=waiting",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"নিশ্চিত করুন\") >> visible=true"
+  ]
+ },
+ {
+  "name": "pro-upcoming",
+  "path": "/work/pro?v=upcoming",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "desktop"
+  ]
+ },
+ {
+  "name": "pro-patients",
+  "path": "/work/pro/patients",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro-setup",
+  "path": "/work/pro/chamber",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro-preview",
+  "path": "/work/pro/chamber",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"রোগীরা যেমন দেখবেন\")"
+  ]
+ },
+ {
+  "name": "pro-home",
+  "path": "/work/pro/home",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro-en",
+  "path": "/work/pro",
+  "test": {
+   "lang": "en",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "sizes": [
+   "desktop",
+   "mobile"
+  ]
+ }
+]

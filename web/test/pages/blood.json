@@ -8,7 +8,8 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "source": "district"
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 800
@@ -22,7 +23,8 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "source": "district"
-   }
+   },
+   "lang": "bn"
   },
   "wait": 800
  },
@@ -35,7 +37,8 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "source": "district"
-   }
+   },
+   "lang": "bn"
   },
   "click": [
    "button.blood-become"
@@ -289,7 +292,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 900
@@ -786,7 +790,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "wait": 800
  },
@@ -815,7 +820,8 @@
     "nearby": [],
     "requests?requesterUid=u1": []
    },
-   "docs": {}
+   "docs": {},
+   "lang": "bn"
   },
   "wait": 800
  },
@@ -1066,7 +1072,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 900
@@ -1318,7 +1325,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "click": [
    "button:has-text('রক্ত দেব'):visible"
@@ -1572,7 +1580,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "click": [
    "button[aria-label='শেয়ার']:visible"
@@ -1826,7 +1835,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 900
@@ -2078,7 +2088,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "wait": 800
  },
@@ -2329,7 +2340,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 900
@@ -2581,7 +2593,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "click": [
    "button:has-text('রক্ত পেয়েছি, বন্ধ করুন'):visible"
@@ -2835,7 +2848,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "wait": 800
  },
@@ -3086,7 +3100,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 900
@@ -3338,7 +3353,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "full": true,
   "wait": 800
@@ -3590,7 +3606,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "click": [
    "button.chip:has-text('B+')",
@@ -3845,7 +3862,8 @@
      "name": "রাকিব হাসান",
      "phone": "01711000001"
     }
-   }
+   },
+   "lang": "bn"
   },
   "fill": [
    [
@@ -3865,7 +3883,8 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "source": "district"
-   }
+   },
+   "lang": "bn"
   },
   "wait": 600
  },
@@ -3878,7 +3897,8 @@
     "lng": 90.41,
     "placeName": "ময়মনসিংহ",
     "source": "district"
-   }
+   },
+   "lang": "bn"
   },
   "wait": 600
  }
