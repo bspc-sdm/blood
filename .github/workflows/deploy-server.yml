@@ -1,0 +1,34 @@
+name: Deploy server
+
+# Vercel নিজে আর কোনো push-এ ডেপ্লয় করে না (server/vercel.json: git.deploymentEnabled = false) —
+# Vercel বাতিল করা (Ignored Build Step) ডেপ্লয়ও দিনের ১০০টার হিসাবে ধরে, তাই অ্যাপ বা লেখা বদলালেও সীমা খরচ হতো।
+# এখন শুধু main-এ server/ ফোল্ডারে বদল হলে এখান থেকে একবার ডেপ্লয় হয় (Vercel Deploy Hook দিয়ে)।
+# অল্প সময়ে কয়েকটা push হলে আগেরটা বাতিল হয়ে শুধু শেষটা যায়, আর ১০ মিনিট অপেক্ষা করে — একসাথে অনেক বদল এক ডেপ্লয়ে।
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Wait for more pushes (batch)
+        if: github.event_name == 'push'
+        run: sleep 600
+      - name: Trigger Vercel deploy hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK সিক্রেট নেই — Vercel › Settings › Git › Deploy Hooks-এ main-এর হুক বানিয়ে GitHub › Settings › Secrets › Actions-এ রাখুন"
+            exit 1
+          fi
+          curl -fsS -X POST "$HOOK"
