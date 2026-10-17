@@ -282,12 +282,10 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
     const rest = [...F.store.keys()].filter((p) => p.startsWith(`${c}/`));
     assert.deepStrictEqual(rest, [], c);
   }
-  // যা থেকে যায় (account.js-এর deleteNow ধরে না — রিপোর্টে লেখা): ডাক্তারের লেখা প্রেসক্রিপশন, সহকারীর এন্ট্রি করা রোগী,
-  // নতুন দিনের সিরিয়ালের গোনা, মালিকের কাজের লগ
   const mentions = [...F.store.entries()].filter(([, v]) => [...demoUids].some((u) => JSON.stringify(v).includes(`"${u}"`) || JSON.stringify(v).includes(u)))
     .map(([k]) => k);
   const serialLeft = [...F.store.keys()].filter((k) => k.startsWith(`serials/${DOC}_`));
   const gaps = [...new Set([...mentions, ...serialLeft])].map((k) => k.split('/')[0]).sort();
-  for (const g of gaps) assert.ok(['prescriptions', 'rxPatients', 'serials', 'adminLog', 'adminLogs', 'auditLog'].includes(g), `অপ্রত্যাশিত বাকি: ${g}`);
-  assert.ok(gaps.includes('prescriptions') && gaps.includes('rxPatients'), 'জানা ফাঁক: ডাক্তারের লেখা প্রেসক্রিপশন, সহকারীর এন্ট্রি');
+  // ডাক্তারের লেখা প্রেসক্রিপশন আর এন্ট্রি করা রোগীও এখন মোছে; বাকি থাকে শুধু নতুন দিনের সিরিয়ালের গোনা আর কাজের লগ
+  for (const g of gaps) assert.ok(['serials', 'adminLog', 'adminLogs', 'auditLog'].includes(g), `অপ্রত্যাশিত বাকি: ${g}`);
 });

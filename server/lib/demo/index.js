@@ -122,11 +122,35 @@ async function wipe() {
   const emails = (m.exists && m.get('emails')) || {};
   // ১) ডেমো অ্যাকাউন্টের সব ডেটা — আসল "অ্যাকাউন্ট মোছা" দিয়ে (পরীক্ষার সময় যা বানানো হয়েছে সেটাও যায়)
   const { deletion } = require('../account');
-  for (let i = 0; i < uids.length; i += 5) {
-    await Promise.all(uids.slice(i, i + 5).map(async (uid) => {
+  for (let i = 0; i < uids.length; i += 10) {
+    await Promise.all(uids.slice(i, i + 10).map(async (uid) => {
       await deletion.deleteNow(uid, emails[uid] || null).catch((e) => console.error('demo wipe user', uid, e.message));
       await admin.auth().deleteUser(uid).catch(() => {});
     }));
+  }
+  // ১ক) ডেমো ডাক্তারের লেখা প্রেসক্রিপশন আর এন্ট্রি করা রোগী (অ্যাকাউন্ট মোছা শুধু রোগীর দিক ধরে) — সাথে সেগুলোর
+  //     ফার্মেসি/প্যাথলজির অনুরোধ আর রিপোর্ট দেখার অনুরোধ
+  for (const uid of uids) {
+    const [rxs, pts] = await Promise.all([
+      db.collection('prescriptions').where('doctorUid', '==', uid).limit(500).get(),
+      db.collection('rxPatients').where('doctorUid', '==', uid).limit(1000).get(),
+    ]);
+    for (const rx of rxs.docs) {
+      const [orders, labs] = await Promise.all([
+        db.collection('rxOrders').where('rxId', '==', rx.id).limit(50).get(),
+        db.collection('labOrders').where('rxId', '==', rx.id).limit(50).get(),
+      ]);
+      const b = db.batch();
+      orders.docs.forEach((d) => b.delete(d.ref));
+      labs.docs.forEach((d) => { b.delete(d.ref); b.delete(db.doc(`rxReviews/${d.id}`)); });
+      b.delete(rx.ref);
+      await b.commit();
+    }
+    for (let i = 0; i < pts.docs.length; i += 400) {
+      const b = db.batch();
+      pts.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+      await b.commit();
+    }
   }
   // ২) বানানো ডকগুলো (যেগুলো কারো নামে নয়)
   for (let i = 0; i < paths.length; i += 400) {
