@@ -2,21 +2,29 @@ name: Web probe (temp)
 on:
   push:
     branches: [web-probe]
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - name: Wait for new build live
+      - name: Check
         run: |
+          mkdir -p /tmp/out && cd /tmp/out
           B=https://blood-server-ashy.vercel.app
-          for i in $(seq 1 45); do
-            if curl -s -m 20 $B/ | grep -q '/w/assets/index-CcGJvbLj.js'; then echo "LIVE after $i"; break; fi
-            sleep 20
-          done
-          curl -s $B/ | grep -q '/w/assets/index-CcGJvbLj.js' || { echo "not live"; exit 1; }
-          echo "doctor: $(curl -s -o /dev/null -w '%{http_code}' $B/doctor) $(curl -s $B/doctor | grep -c '/w/assets/')"
+          {
+          echo "doctor: $(curl -s -o /dev/null -w '%{http_code}' $B/doctor) spa=$(curl -s $B/doctor | grep -c '/w/assets/')"
           echo "doctor app.js: $(curl -s -o /dev/null -w '%{http_code}' $B/doctor/app.js)"
           echo "work/rx: $(curl -s -o /dev/null -w '%{http_code}' $B/work/rx)"
           echo "admin: $(curl -s -o /dev/null -w '%{http_code}' $B/admin)"
           echo "api: $(curl -s $B/api/health)"
           echo "panel login: $(curl -s -H 'content-type: application/json' -d '{"email":"x@example.com","code":"123456","web":true,"panel":"doctor"}' $B/api/auth/verify-code)"
+          } > result.txt
+      - name: Save
+        if: always()
+        run: |
+          cd /tmp/out
+          git init -q . && git checkout -q -b web-probe-out
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
+          git -c user.name=ci -c user.email=ci@x add -A && git -c user.name=ci -c user.email=ci@x commit -qm probe
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web-probe-out
