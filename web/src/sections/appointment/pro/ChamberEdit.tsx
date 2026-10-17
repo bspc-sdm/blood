@@ -279,10 +279,7 @@ export function ChamberEdit({ type, onSaved }: { type: string; onSaved: () => vo
       <div className="row wrap">
         <Button variant="outline" icon="info" onClick={() => setPreview(true)}>{tr('See how patients see it', 'রোগীরা যেমন দেখবেন')}</Button>
       </div>
-      <div className={homeCapable ? 'appt-setup-grid' : 'col gap-16'}>
-        {profileCard}
-        {homeCard}
-      </div>
+      {profileCard}
 
       {!nurse ? (
         <section className="col gap-12">
@@ -320,6 +317,8 @@ export function ChamberEdit({ type, onSaved }: { type: string; onSaved: () => vo
           </div>
         </section>
       ) : null}
+
+      {homeCard}
 
       <div className="appt-savebar">
         <ErrorText>{err}</ErrorText>

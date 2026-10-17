@@ -122,13 +122,15 @@ export default ProfessionalWorkspace;
 /** প্রেসক্রিপশন, টিম আর সহকারী — আলাদা ওয়েব প্যানেলে */
 function DoctorPanelCard() {
   return (
-    <a className="card click row gap-16 appt-panel-card" href="/doctor">
-      <span className="appt-panel-ico"><Icon name="medication" /></span>
-      <span className="col gap-2 grow">
-        <span className="t-title-m">{tr('Prescriptions', 'প্রেসক্রিপশন')}</span>
-        <span className="t-body-s muted">{tr('Prescriptions, patients, team and assistants', 'প্রেসক্রিপশন, রোগী, টিম ও সহকারী')}</span>
+    <a className="card click appt-panel-card" href="/doctor">
+      <span className="row wrap gap-16">
+        <span className="appt-panel-ico"><Icon name="medication" /></span>
+        <span className="col gap-2 grow">
+          <span className="t-title-m">{tr('Prescriptions', 'প্রেসক্রিপশন')}</span>
+          <span className="t-body-s muted">{tr('Prescriptions, patients, team and assistants', 'প্রেসক্রিপশন, রোগী, টিম ও সহকারী')}</span>
+        </span>
+        <span className="btn text has-icon"><Icon name="language" />{tr('Open web panel', 'ওয়েব প্যানেল খুলুন')}</span>
       </span>
-      <span className="btn text has-icon"><Icon name="language" />{tr('Open web panel', 'ওয়েব প্যানেল খুলুন')}</span>
     </a>
   );
 }
@@ -254,7 +256,7 @@ function BookingsTab({ list, loading, error, reload, hasChamber, onSetup }: { li
                   <td className="appt-nowrap">{a.start ? hhmmText(a.start) : '—'}</td>
                   {chambers.length > 1 && !chamber ? <td>{apptChamber(a)}</td> : null}
                   <td><Tag tone={statusTone(a.status)}>{statusLabel(a.status)}</Tag></td>
-                  <td>{a.otherPhone ? <PhoneLine phone={a.otherPhone} /> : <span className="muted">—</span>}</td>
+                  <td className="appt-phone-cell">{a.otherPhone ? <PhoneLine phone={a.otherPhone} /> : <span className="muted">—</span>}</td>
                   <td>{actions(a)}</td>
                 </tr>
               ))}
@@ -266,7 +268,7 @@ function BookingsTab({ list, loading, error, reload, hasChamber, onSetup }: { li
           {rows.map((a) => (
             <article key={a.id} className={cx('card col gap-6', !isActive(a.status) && a.status !== 'completed' && 'appt-dim')}>
               <div className="row">
-                {serialCell(a)}
+                {a.serial > 0 ? serialCell(a) : null}
                 <span className="t-title-m grow clamp2">{name(a)}</span>
                 <Tag tone={statusTone(a.status)}>{statusLabel(a.status)}</Tag>
               </div>
@@ -395,7 +397,7 @@ function PatientsTab({ list, loading, error }: { list: Appointment[]; loading: b
                   <td className="t-title-s">{p.name || tr('Deleted account', 'মুছে ফেলা অ্যাকাউন্ট')}</td>
                   <td className="num">{num(p.count)}</td>
                   <td className="appt-nowrap">{formatDate(p.last)}</td>
-                  <td>{p.phone ? <PhoneLine phone={p.phone} /> : <span className="muted">—</span>}</td>
+                  <td className="appt-phone-cell">{p.phone ? <PhoneLine phone={p.phone} /> : <span className="muted">—</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -443,7 +445,6 @@ function HomeCareTab({ onSetup }: { onSetup: () => void }) {
   return (
     <div className="col gap-16">
       <div className="row wrap">
-        <Tag tone="good">{tr('In the list', 'তালিকায় আছেন')}</Tag>
         <span className="t-body-m grow">{tr('You are in the list — patients call you directly.', 'আপনি তালিকায় আছেন — রোগীরা সরাসরি ফোন করবেন।')}</span>
         <Button variant="outline" icon="edit" onClick={onSetup}>{tr('Change settings', 'সেটিং বদলান')}</Button>
       </div>

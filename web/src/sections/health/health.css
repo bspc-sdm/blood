@@ -75,7 +75,8 @@
 @media print {
   @page { size: A4; margin: 14mm; }
   body > *:not(.health-print) { display: none !important; }
-  html, body { background: Canvas !important; color-scheme: light; }
+  :root, :root[data-theme] { color-scheme: light !important; }
+  html, body { background: Canvas !important; }
   .health-print { display: block; color-scheme: light; color: CanvasText; background: Canvas; }
   .health-print .health-paper { border: 0; padding: 0; background: Canvas; color: CanvasText; gap: 8px; }
   .health-print .muted, .health-print .health-paper-h, .health-print .health-rx-sign { color: CanvasText; }

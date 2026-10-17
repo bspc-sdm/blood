@@ -61,6 +61,8 @@
 .appt-table td { vertical-align: top; }
 .appt-table .appt-td-name { min-width: 180px; max-width: 320px; }
 .appt-nowrap { white-space: nowrap; }
+.appt-phone-cell .row { flex-wrap: nowrap; white-space: nowrap; }
+.appt-acts { flex-wrap: nowrap; }
 .appt-serial-chip {
   display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 8px; border-radius: 10px;
   background: var(--primary-container); color: var(--on-primary-container); font-size: 16px; font-weight: 700; flex: none;
@@ -70,7 +72,8 @@
 .appt-stat-hot .l { color: inherit; opacity: .85; }
 .appt-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
 .appt-search { max-width: 420px; }
-.appt-panel-card { align-items: center; flex-wrap: wrap; text-decoration: none; }
+.appt-panel-card { text-decoration: none; }
+.appt-panel-card > .row { align-items: center; }
 .appt-panel-ico { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--primary-container); color: var(--on-primary-container); flex: none; }
 .appt-panel-ico svg { width: 24px; height: 24px; }
 .appt-comment { padding: 8px 0; border-bottom: 1px solid var(--outline-variant); }
@@ -82,9 +85,7 @@
 .appt-bars span { flex: 1; min-width: 2px; background: var(--primary); border-radius: 3px 3px 0 0; }
 
 /* সেটআপ */
-.appt-setup-grid { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
-@media (min-width: 1100px) { .appt-setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.appt-sec-card { border: 1px solid var(--outline-variant); }
+.appt-sec-card { border: 1px solid var(--outline-variant); max-width: 880px; }
 .appt-ch-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); align-items: start; }
 .appt-ch-ed { background: var(--surface-lowest); border: 1px solid var(--outline-variant); }
 .appt-add-ch {
