@@ -8,42 +8,28 @@ jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - name: Probe
+      - name: Probe live
         run: |
           mkdir -p /tmp/out && cd /tmp/out
-          KEY=$(python3 -c "import json;print(json.load(open('$GITHUB_WORKSPACE/app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")
-          for ref in "" "https://blood-server-ashy.vercel.app/"; do
-            H=(); [ -n "$ref" ] && H=(-H "Referer: $ref" -H "Origin: https://blood-server-ashy.vercel.app")
-            echo "== referer=$ref" >> key.txt
-            curl -sS "${H[@]}" -H 'content-type: application/json' -d '{"token":"x","returnSecureToken":true}' "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=$KEY" >> key.txt 2>&1; echo >> key.txt
-            curl -sS "${H[@]}" "https://firestore.googleapis.com/v1/projects/blood-3eb28/databases/(default)/documents/requests?pageSize=1&key=$KEY" | head -c 400 >> key.txt 2>&1; echo >> key.txt
-          done
           B=https://blood-server-ashy.vercel.app
-          call() { curl -sS -m 30 -H 'content-type: application/json' -H 'accept-language: bn' -d "$2" "$B/api/community" > "$1.json"; echo "$1 $(head -c 150 $1.json)" >> summary.txt; }
-          call guest_requests '{"action":"guest_requests","lat":24.7471,"lng":90.4203,"maxKm":25}'
-          call emergencies_active '{"action":"emergencies_active","district":"ময়মনসিংহ"}'
-          call questions '{"action":"questions"}'
-          call tips '{"action":"tips"}'
-          call providers '{"action":"providers","district":"ময়মনসিংহ"}'
-          call providers_any '{"action":"providers"}'
-          call home_providers '{"action":"home_providers","district":"ময়মনসিংহ"}'
-          call hospitals '{"action":"hospitals","district":"ময়মনসিংহ"}'
-          call ambulances '{"action":"ambulances","district":"ময়মনসিংহ"}'
-          call pharmacies '{"action":"pharmacies","district":"ময়মনসিংহ"}'
-          call bloodbanks '{"action":"bloodbanks","district":"ময়মনসিংহ"}'
-          call labs '{"action":"labs","district":"ময়মনসিংহ"}'
-          call drug_search '{"action":"drug_search","q":"napa"}'
-          call catalog_get '{"action":"catalog_get"}'
-          curl -sS -m 20 -o /dev/null -w "%{http_code} %{content_type}\n" $B/ > root.txt
-          curl -sS -m 20 -D - -o /dev/null $B/admin >> root.txt
-          QID=$(python3 -c "import json;d=json.load(open('questions.json'));print(d['items'][0]['id'] if d.get('items') else '')" 2>/dev/null)
-          [ -n "$QID" ] && call question "{\"action\":\"question\",\"id\":\"$QID\"}"
-          ls -la
+          for i in $(seq 1 40); do
+            if curl -s -m 20 $B/ | grep -q '/w/assets/'; then echo "live after $i tries" > live.txt; break; fi
+            sleep 20
+          done
+          for p in / /services/pharmacy /request/abc /work /w/manifest.webmanifest /w/data/geo.json /admin /doctor /r/doesnotexist /api/health /favicon.ico /.well-known/assetlinks.json; do
+            echo "== $p" >> paths.txt
+            curl -s -m 20 -o body.tmp -D hdr.tmp -w "%{http_code} %{content_type}\n" "$B$p" >> paths.txt
+            grep -iE "^(content-security-policy|cache-control|x-frame-options):" hdr.tmp | cut -c1-160 >> paths.txt
+            head -c 200 body.tmp | tr '\n' ' ' >> paths.txt; echo >> paths.txt
+          done
+          JS=$(curl -s $B/ | grep -oE '/w/assets/index-[^"]+\.js' | head -1); echo "main js: $JS" >> paths.txt
+          curl -s -o /dev/null -D - "$B$JS" | grep -iE "^(HTTP|cache-control|content-type)" >> paths.txt
+          curl -sS -m 30 -H 'content-type: application/json' -d '{"action":"catalog_get"}' $B/api/community | head -c 120 >> paths.txt
       - name: Save
         if: always()
         run: |
-          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
-          git checkout --orphan web-probe-out; git rm -rf --quiet .; git clean -fdxq
-          cp /tmp/out/* . ; mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
-          git add -A; git commit -qm "probe ${{ github.sha }}"; git push -f origin web-probe-out
+          cd /tmp/out
+          git init -q . && git checkout -q -b web-probe-out
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
+          git -c user.name=ci -c user.email=ci@x add -A && git -c user.name=ci -c user.email=ci@x commit -qm probe
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web-probe-out
