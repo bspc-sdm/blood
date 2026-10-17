@@ -489,7 +489,7 @@ function HomeStatusNote() {
     return (
       <div className="card danger col gap-6">
         <span className="t-body-m">{tr('Turned off by the Lifolo team after a report. You can appeal.', 'রিপোর্টের পর Lifolo টিম বন্ধ করেছে। আপিল করতে পারেন।')}</span>
-        <Link className="btn outline small has-icon" to="/help" style={{ alignSelf: 'flex-start' }}><Icon name="help" />{tr('Appeal / contact us', 'আপিল করুন / আমাদের লিখুন')}</Link>
+        <Link className="btn outline small has-icon" to="/help/new?category=appointment" style={{ alignSelf: 'flex-start' }}><Icon name="help" />{tr('Appeal / contact us', 'আপিল করুন / আমাদের লিখুন')}</Link>
       </div>
     );
   }

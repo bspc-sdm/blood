@@ -159,7 +159,7 @@ export function MyPharmacy() {
               <Button variant="tonal" icon="schedule" disabled={busy} onClick={() => setPausing(true)}>{tr('Closed for some days', 'কয়েক দিন বন্ধ থাকবে')}</Button>
             )
           ) : null}
-          {ph.status === 'suspended' || ph.status === 'rejected' ? <AppealButton /> : null}
+          {ph.status === 'suspended' || ph.status === 'rejected' ? <AppealButton category="pharmacy" /> : null}
           {ph.status !== 'suspended' ? (
             <Button variant="danger-text" disabled={busy} onClick={() => { setDelErr(null); setDel(true); }}>{tr('Remove my pharmacy', 'ফার্মেসি মুছে ফেলুন')}</Button>
           ) : null}

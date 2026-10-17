@@ -85,9 +85,9 @@ export function StatusReason({ status, reason }: { status: string; reason?: stri
 }
 
 /** বাতিল/বন্ধ হলে: আপিল (সাহায্য পাতা) */
-export function AppealButton() {
+export function AppealButton({ category }: { category?: 'ambulance' | 'pharmacy' | 'bloodbank' | 'other' }) {
   return (
-    <Link to="/help" className="btn outline has-icon small">
+    <Link to={`/help/new?category=${category ?? 'other'}`} className="btn outline has-icon small">
       <Icon name="help" />
       {tr('Appeal / contact us', 'আপিল করুন / আমাদের লিখুন')}
     </Link>

@@ -116,7 +116,7 @@ export function MyBloodBanks() {
                     <div className="col gap-4">
                       <StatusTag status={b.status} />
                       <StatusReason status={b.status} reason={b.statusReason} />
-                      {b.status === 'rejected' || b.status === 'suspended' ? <AppealButton /> : null}
+                      {b.status === 'rejected' || b.status === 'suspended' ? <AppealButton category="bloodbank" /> : null}
                     </div>
                   </td>
                   <td>
@@ -151,7 +151,7 @@ export function MyBloodBanks() {
                 {st.get(b.id) ? <Button variant="text" small onClick={() => setDetails(b)}>{tr('Details', 'বিস্তারিত')}</Button> : null}
               </div>
               <div className="row wrap gap-8">
-                {b.status === 'rejected' || b.status === 'suspended' ? <AppealButton /> : null}
+                {b.status === 'rejected' || b.status === 'suspended' ? <AppealButton category="bloodbank" /> : null}
                 <span className="grow" />
                 {actions(b)}
               </div>

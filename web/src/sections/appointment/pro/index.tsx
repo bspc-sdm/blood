@@ -429,7 +429,7 @@ function HomeCareTab({ onSetup }: { onSetup: () => void }) {
       <div className="card danger col">
         <span className="t-title-m">{tr('Your home care', 'আপনার বাসায় সেবা')}</span>
         <p className="t-body-m">{tr('Turned off by the Lifolo team after a report. You can appeal.', 'রিপোর্টের পর Lifolo টিম বন্ধ করেছে। আপিল করতে পারেন।')}</p>
-        <Link className="btn outline has-icon" to="/help" style={{ alignSelf: 'flex-start' }}><Icon name="help" />{tr('Appeal / contact us', 'আপিল করুন / আমাদের লিখুন')}</Link>
+        <Link className="btn outline has-icon" to="/help/new?category=appointment" style={{ alignSelf: 'flex-start' }}><Icon name="help" />{tr('Appeal / contact us', 'আপিল করুন / আমাদের লিখুন')}</Link>
       </div>
     );
   }

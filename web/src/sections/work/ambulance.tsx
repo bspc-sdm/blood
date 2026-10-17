@@ -148,7 +148,7 @@ export function MyAmbulances() {
                     <div className="col gap-4">
                       <StatusTag status={a.status} />
                       <StatusReason status={a.status} reason={a.statusReason} />
-                      {a.status === 'rejected' || a.status === 'suspended' ? <AppealButton /> : null}
+                      {a.status === 'rejected' || a.status === 'suspended' ? <AppealButton category="ambulance" /> : null}
                     </div>
                   </td>
                   <td>
@@ -190,7 +190,7 @@ export function MyAmbulances() {
                 {st.get(a.id) ? <Button variant="text" small onClick={() => setDetails(a)}>{tr('Details', 'বিস্তারিত')}</Button> : null}
               </div>
               <div className="row wrap gap-8">
-                {a.status === 'rejected' || a.status === 'suspended' ? <AppealButton /> : null}
+                {a.status === 'rejected' || a.status === 'suspended' ? <AppealButton category="ambulance" /> : null}
                 <span className="grow" />
                 {actions(a)}
               </div>
