@@ -7,4 +7,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          for i in $(seq 1 45); do curl -s -m 20 https://blood-server-ashy.vercel.app/ | grep -q '/w/assets/index-DERsw72G.js' && exit 0; sleep 20; done; exit 1
+          for i in $(seq 1 45); do curl -s -m 20 https://blood-server-ashy.vercel.app/ | grep -q '/w/assets/index-DsAdGLsB.js' && break; sleep 20; done
+          curl -s -m 20 https://blood-server-ashy.vercel.app/ | grep -q '/w/assets/index-DsAdGLsB.js' || exit 1
+          echo DEMO:; curl -s -m 20 -X POST -H 'Content-Type: application/json' -d '{"demoRoles":true}' https://blood-server-ashy.vercel.app/api/auth/verify-code; echo
+          echo LOGIN:; curl -s -m 20 -X POST -H 'Content-Type: application/json' -d '{"demo":"doctor"}' https://blood-server-ashy.vercel.app/api/auth/verify-code; echo
+          echo ADMIN:; curl -s -m 20 -o /dev/null -w '%{http_code}' https://blood-server-ashy.vercel.app/admin; echo
