@@ -366,8 +366,8 @@ fun ProfileTab(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         tr(
-                            "Your profile, photo, phone number, requests, questions, answers, tips, appointments and badge will be deleted permanently. This can't be undone.",
-                            "আপনার প্রোফাইল, ছবি, ফোন নম্বর, রিকোয়েস্ট, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট আর ব্যাজ চিরতরে মুছে যাবে। এটা আর ফেরানো যাবে না।",
+                            "Your account will be deleted permanently after 30 days: profile, photo, phone number, requests, questions, answers, tips, appointments, badge and your businesses. Until then your listings and notifications are off and you are logged out everywhere. Log in again within 30 days to cancel and get everything back.",
+                            "৩০ দিন পর আপনার অ্যাকাউন্ট চিরতরে মুছে যাবে: প্রোফাইল, ছবি, ফোন নম্বর, রিকোয়েস্ট, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, ব্যাজ আর আপনার ব্যবসা। এর মধ্যে আপনার তালিকা আর নোটিফিকেশন বন্ধ থাকবে, সব ফোন থেকে লগআউট হবে। ৩০ দিনের মধ্যে আবার লগইন করলে মোছা বাতিল হবে, সব আগের মতো ফিরবে।",
                         )
                     )
                     if (deleting) CircularProgressIndicator(Modifier.size(24.dp))
@@ -391,7 +391,7 @@ fun ProfileTab(
                         }
                     },
                     enabled = !deleting,
-                ) { Text(tr("Delete permanently", "চিরতরে মুছুন"), color = MaterialTheme.colorScheme.error) }
+                ) { Text(tr("Delete account", "অ্যাকাউন্ট মুছুন"), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !deleting) { Text(tr("Cancel", "বাতিল")) } },
         )

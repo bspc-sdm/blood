@@ -232,6 +232,15 @@ fun App(
         SessionEvents.disabled.value = null
     }
 
+    // মোছার অপেক্ষায় থাকা অ্যাকাউন্টে আবার লগইন করলে সার্ভার মোছা বাতিল করে — জানানো
+    val restored = SessionEvents.restored.value
+    LaunchedEffect(restored) {
+        if (restored) {
+            android.widget.Toast.makeText(context, tr("Account deletion cancelled. Everything is back as before.", "অ্যাকাউন্ট মোছা বাতিল হয়েছে। সব আগের মতো আছে।"), android.widget.Toast.LENGTH_LONG).show()
+            SessionEvents.restored.value = false
+        }
+    }
+
     // অ্যাপে ফিরলে প্রোফাইল নতুন করে (সার্ভার শেষ রক্তদানের তারিখ বা প্রসেসিং তালিকা বদলে থাকতে পারে)
     @Suppress("DEPRECATION")
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -549,7 +558,7 @@ fun App(
                         errorMsg = null
                         session++
                         runCatching { route() }
-                        android.widget.Toast.makeText(context, tr("Your account has been deleted.", "আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।"), android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, tr("Your account will be deleted in 30 days. Log in again before then to cancel.", "৩০ দিন পর আপনার অ্যাকাউন্ট মুছে যাবে। এর মধ্যে আবার লগইন করলে মোছা বাতিল হবে।"), android.widget.Toast.LENGTH_LONG).show()
                     }
                 },
                 onLogin = { LoginGate.login() },
