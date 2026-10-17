@@ -1,8 +1,22 @@
-// অস্থায়ী — এই অংশ বানানো হচ্ছে
-import { EmptyState } from '@/ui/kit';
+// "সেবা" (অ্যাপের ServicesTab): অ্যাম্বুলেন্স / ফার্মেসি (+ ওষুধ খুঁজুন) / ব্লাড ব্যাংক / প্যাথলজি।
+// পথ: /services → /services/ambulance; /services/:kind; /services/:kind/:id; /services/pharmacy/medicine
+// নিজের ব্যবসা এখানে নয় — "আমার কাজ" (/work)।
+import { Navigate, matchPath, useLocation } from 'react-router-dom';
 import { usePageTitle } from '@/shell/chrome';
+import { tr, useLang } from '@/lib/i18n';
+import { isKind } from './data';
+import { Directory } from './Directory';
+import { MedFind } from './MedFind';
+import './services.css';
 
-export default function Section() {
-  usePageTitle('services');
-  return <EmptyState icon="info" title="services" />;
+export default function Services() {
+  useLang();
+  usePageTitle(tr('Services', 'সেবা'));
+  const { pathname } = useLocation();
+
+  if (matchPath('/services/pharmacy/medicine', pathname)) return <MedFind />;
+  const detail = matchPath('/services/:kind/:id', pathname);
+  const kind = (detail ?? matchPath('/services/:kind', pathname))?.params.kind;
+  if (!isKind(kind)) return <Navigate to="/services/ambulance" replace />;
+  return <Directory key={kind} kind={kind} id={detail?.params.id ?? null} />;
 }

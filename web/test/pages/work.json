@@ -1,0 +1,380 @@
+[
+ {
+  "name": "overview",
+  "path": "/work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "overview-dark",
+  "path": "/work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "theme": "dark"
+  },
+  "full": true
+ },
+ {
+  "name": "overview-en",
+  "path": "/work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "en"
+  },
+  "full": true,
+  "sizes": [
+   "desktop",
+   "mobile"
+  ]
+ },
+ {
+  "name": "overview-docs-dialog",
+  "path": "/work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "click": [
+   "text=ছবি দিন"
+  ],
+  "sizes": [
+   "desktop",
+   "mobile"
+  ]
+ },
+ {
+  "name": "add-chooser",
+  "path": "/work/add",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "ambulance",
+  "path": "/work/ambulance",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "ambulance-stats",
+  "path": "/work/ambulance",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "click": [
+   "button:has-text(\"বিস্তারিত\")"
+  ]
+ },
+ {
+  "name": "ambulance-new",
+  "path": "/work/ambulance/new",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "ambulance-new-error",
+  "path": "/work/ambulance/new",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "click": [
+   "button:has-text(\"সেভ করুন\")"
+  ],
+  "sizes": [
+   "mobile",
+   "desktop"
+  ]
+ },
+ {
+  "name": "ambulance-edit",
+  "path": "/work/ambulance/amb1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pharmacy",
+  "path": "/work/pharmacy",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pharmacy-pause",
+  "path": "/work/pharmacy",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "click": [
+   "button:has-text(\"কয়েক দিন বন্ধ থাকবে\")"
+  ],
+  "sizes": [
+   "mobile",
+   "desktop"
+  ]
+ },
+ {
+  "name": "pharmacy-edit",
+  "path": "/work/pharmacy/edit",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "bloodbank",
+  "path": "/work/bloodbank",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "bloodbank-edit",
+  "path": "/work/bloodbank/bb1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "lab",
+  "path": "/work/lab",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "lab-edit",
+  "path": "/work/lab/edit",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pro",
+  "path": "/work/pro",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   }
+  }
+ },
+ {
+  "name": "guest",
+  "path": "/work",
+  "test": {},
+  "full": true
+ },
+ {
+  "name": "guest-add",
+  "path": "/work/add",
+  "test": {}
+ }
+]

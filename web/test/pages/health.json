@@ -1,0 +1,687 @@
+[
+ {
+  "name": "disc-guest",
+  "path": "/health",
+  "test": {}
+ },
+ {
+  "name": "disc-user",
+  "path": "/health/discussion",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  }
+ },
+ {
+  "name": "question-guest",
+  "path": "/health/question/q1",
+  "test": {},
+  "full": true
+ },
+ {
+  "name": "question-doctor",
+  "path": "/health/question/q1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "question-mine",
+  "path": "/health/question/q3",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  }
+ },
+ {
+  "name": "question-report",
+  "path": "/health/question/q1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button[aria-label='রিপোর্ট'] >> visible=true"
+  ]
+ },
+ {
+  "name": "question-edit",
+  "path": "/health/question/q3",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button[aria-label='বদলান'] >> visible=true"
+  ]
+ },
+ {
+  "name": "question-delete-answer-admin",
+  "path": "/health/question/q1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "isAdmin": true
+   }
+  },
+  "click": [
+   "button.danger-text >> visible=true"
+  ]
+ },
+ {
+  "name": "ask",
+  "path": "/health/ask",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "fill": [
+   [
+    "#health-q",
+    "বুকে মাঝে মাঝে চাপ লাগে, বিশেষ করে সিঁড়ি দিয়ে উঠলে। কী করা উচিত?"
+   ]
+  ]
+ },
+ {
+  "name": "ask-guest",
+  "path": "/health/ask",
+  "test": {}
+ },
+ {
+  "name": "tips-guest",
+  "path": "/health/tips",
+  "test": {}
+ },
+ {
+  "name": "tips-doctor",
+  "path": "/health/tips",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  }
+ },
+ {
+  "name": "tip-detail",
+  "path": "/health/tip/t1",
+  "test": {}
+ },
+ {
+  "name": "tip-mine",
+  "path": "/health/tip/t2",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  }
+ },
+ {
+  "name": "tip-edit",
+  "path": "/health/tip/t2",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  },
+  "click": [
+   "button[aria-label='বদলান'] >> visible=true"
+  ]
+ },
+ {
+  "name": "post-tip",
+  "path": "/health/post-tip",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  }
+ },
+ {
+  "name": "post-tip-nobadge",
+  "path": "/health/post-tip",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  }
+ },
+ {
+  "name": "badge-new",
+  "path": "/health/badge",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "badge-pending",
+  "path": "/health/badge",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "nurse",
+     "status": "pending",
+     "regNo": "N-22018",
+     "workplace": "সূর্যকান্ত হাসপাতাল",
+     "docsMissing": true,
+     "docsRequested": false,
+     "docsRequestNote": ""
+    }
+   }
+  },
+  "click": [
+   "button:has-text('ছবি দিন') >> nth=0"
+  ]
+ },
+ {
+  "name": "badge-approved",
+  "path": "/health/badge",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "doctor",
+     "status": "approved",
+     "regNo": "A-54321",
+     "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
+    }
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "badge-rejected",
+  "path": "/health/badge",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "me": {
+    "badge": {
+     "type": "nutritionist",
+     "status": "rejected",
+     "regNo": "",
+     "workplace": "নিজস্ব চেম্বার",
+     "statusReason": "সনদের ছবি পড়া যাচ্ছে না",
+     "docsMissing": true,
+     "docsRequested": true,
+     "docsRequestNote": "সনদের পুরো পাতার পরিষ্কার ছবি দিন।"
+    }
+   }
+  }
+ },
+ {
+  "name": "badge-guest",
+  "path": "/health/badge",
+  "test": {}
+ },
+ {
+  "name": "rx-guest",
+  "path": "/prescriptions",
+  "test": {}
+ },
+ {
+  "name": "rx-list",
+  "path": "/prescriptions",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  }
+ },
+ {
+  "name": "rx-detail",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "rx-detail-dark",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "theme": "dark"
+  }
+ },
+ {
+  "name": "rx-detail-en",
+  "path": "/prescriptions/rx2",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "en"
+  },
+  "full": true
+ },
+ {
+  "name": "rx-claim",
+  "path": "/prescriptions",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('কোড দিয়ে যোগ করুন') >> visible=true"
+  ],
+  "fill": [
+   [
+    "input.health-code",
+    "K7M2Q9XA4T"
+   ]
+  ]
+ },
+ {
+  "name": "rx-shop",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('দোকানে আছি') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-online-order",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('অনলাইনে অর্ডার') >> visible=true",
+   "button:has-text('অর্ডার করুন') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-withdraw",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('ফিরিয়ে নিন') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-lab",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('পরীক্ষা করাতে পাঠান') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-report",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('রিপোর্ট দেখুন') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-pay",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   }
+  },
+  "click": [
+   "button:has-text('টাকা পাঠিয়েছি') >> visible=true"
+  ],
+  "fill": [
+   [
+    "dialog input, [role=dialog] input",
+    "8K3J2LMN0P"
+   ]
+  ]
+ }
+]

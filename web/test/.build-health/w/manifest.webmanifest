@@ -1,0 +1,14 @@
+{
+  "name": "Lifolo",
+  "short_name": "Lifolo",
+  "description": "আশেপাশে রক্তের রিকোয়েস্ট, অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, ডাক্তারের সিরিয়াল",
+  "lang": "bn",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7FAFA",
+  "theme_color": "#1F6F78",
+  "icons": [
+    { "src": "/w/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

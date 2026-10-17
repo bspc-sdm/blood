@@ -1,0 +1,394 @@
+[
+ {
+  "name": "redirect-noarea",
+  "path": "/services",
+  "test": {}
+ },
+ {
+  "name": "amb-guest",
+  "path": "/services/ambulance",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "amb-detail-guest",
+  "path": "/services/ambulance/amb2",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "amb-filter",
+  "path": "/services/ambulance?type=icu",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   "[aria-label=\"ফিল্টার\"]"
+  ]
+ },
+ {
+  "name": "amb-user-detail",
+  "path": "/services/ambulance/amb1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "amb-rate",
+  "path": "/services/ambulance/amb1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".ld-detail .services-foot button:has-text(\"রেটিং দিন\")"
+  ]
+ },
+ {
+  "name": "amb-menu",
+  "path": "/services/ambulance",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".services-more button"
+  ]
+ },
+ {
+  "name": "amb-busy-detail",
+  "path": "/services/ambulance/amb4",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "amb-empty",
+  "path": "/services/ambulance",
+  "test": {
+   "filterArea": {
+    "district": "ঢাকা",
+    "upazilaId": null,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "pharm-user",
+  "path": "/services/pharmacy",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "pharm-detail",
+  "path": "/services/pharmacy/ph2?open=1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "pharm-report",
+  "path": "/services/pharmacy/ph1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".ld-detail .services-report"
+  ]
+ },
+ {
+  "name": "pharm-area",
+  "path": "/services/pharmacy",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".area-btn"
+  ]
+ },
+ {
+  "name": "bb-guest",
+  "path": "/services/bloodbank",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "bb-detail",
+  "path": "/services/bloodbank/bb1",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "lab-guest",
+  "path": "/services/lab",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "lab-detail",
+  "path": "/services/lab/lab1",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "med-guest",
+  "path": "/services/pharmacy/medicine?q=Napa",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "wait": 900
+ },
+ {
+  "name": "med-chosen",
+  "path": "/services/pharmacy/medicine?q=Napa",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "click": [
+   ".services-drug"
+  ],
+  "wait": 600
+ },
+ {
+  "name": "med-user",
+  "path": "/services/pharmacy/medicine",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "amb-en",
+  "path": "/services/ambulance/amb1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   },
+   "lang": "en"
+  }
+ },
+ {
+  "name": "pharm-dark",
+  "path": "/services/pharmacy/ph1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   },
+   "theme": "dark"
+  }
+ },
+ {
+  "name": "notfound",
+  "path": "/services/bloodbank/zzz",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ }
+]

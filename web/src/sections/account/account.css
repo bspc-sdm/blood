@@ -1,0 +1,121 @@
+/* অ্যাকাউন্ট অংশ: প্রোফাইল, সেটিংস, নোটিফিকেশন, সাহায্য, কেয়ারগিভার — শুধু টোকেন (লাইট/ডার্ক দুটোতেই) */
+
+.acct-page { padding: 8px 16px 96px; min-width: 0; }
+@media (min-width: 720px) { .acct-page { padding: 16px 24px 48px; } }
+@media (min-width: 1180px) { .acct-page { padding: 20px 32px 48px; } }
+.acct-narrow { width: 100%; max-width: 640px; margin: 0 auto; }
+.acct-mhead { padding: 4px 0 12px; }
+@media (min-width: 720px) { .acct-mhead { display: none; } }
+
+/* ---------- প্রোফাইল: মোবাইলে এক কলাম (অ্যাপের ক্রমে), বড় পর্দায় দুই কলাম ---------- */
+.acct-profile { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 640px; margin: 0 auto; }
+.acct-col { display: contents; }
+.acct-o1 { order: 1; } .acct-o2 { order: 2; } .acct-o3 { order: 3; } .acct-o4 { order: 4; } .acct-o5 { order: 5; } .acct-o6 { order: 6; }
+@media (min-width: 1000px) {
+  .acct-profile { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); max-width: 1120px; gap: 20px; align-items: start; }
+  .acct-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .acct-left { position: sticky; top: 80px; }
+}
+
+.acct-summary { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 24px 16px 20px; }
+.acct-photo-wrap { position: relative; width: 104px; height: 104px; margin-bottom: 6px; }
+.acct-photo {
+  width: 104px; height: 104px; border-radius: 50%; border: 0; padding: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-high); color: var(--on-surface-variant);
+}
+.acct-photo.static { margin-bottom: 4px; }
+.acct-photo img { width: 100%; height: 100%; object-fit: cover; }
+.acct-cam {
+  position: absolute; right: -2px; bottom: -2px; width: 34px; height: 34px; border-radius: 50%; border: 0;
+  background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--surface-low);
+}
+.acct-cam:disabled, .acct-photo:disabled { opacity: .6; }
+.acct-name { overflow-wrap: anywhere; }
+.acct-email { overflow-wrap: anywhere; }
+.acct-badge { align-self: center; border-radius: 999px; padding: 2px 10px 2px 8px; }
+
+.acct-elig { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: var(--r-card); background: var(--surface-high); color: var(--on-surface); }
+.acct-elig.ok { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.acct-elig > svg { flex: none; }
+
+.acct-donor-cta {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-radius: 14px; text-align: left;
+  background: var(--secondary-container); color: var(--on-secondary-container);
+}
+.acct-donor-cta svg { flex: none; }
+.acct-donor-cta:hover { filter: brightness(1.03); }
+
+.acct-infos { display: flex; flex-direction: column; gap: 14px; }
+.acct-info { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.acct-info > svg { color: var(--primary); flex: none; margin-top: 2px; }
+.acct-info .t-body-l { overflow-wrap: anywhere; }
+
+.acct-bizq { display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 16px; background: var(--primary-container); color: var(--on-primary-container); }
+.acct-bizq svg { flex: none; }
+.acct-bizq .btn.text { color: var(--on-primary-container); }
+
+.acct-menu { background: var(--surface-low); border-radius: var(--r-card); padding: 4px 0; min-width: 0; }
+.acct-menu .list-row { border-radius: 0; }
+.acct-menu .list-row:disabled { opacity: 1; }
+.acct-menu .list-row:disabled:hover { background: transparent; }
+.acct-div { margin: 0 16px; }
+.acct-under { padding: 0 16px 12px 56px; display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 419px) { .acct-under { padding-left: 16px; } }
+
+.acct-docs { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--r-card); background: var(--secondary-container); color: var(--on-secondary-container); }
+.acct-docs .muted { color: inherit; opacity: .85; }
+.acct-doc-thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: none; }
+
+/* ---------- সেটিংস ও কেয়ারগিভার: কার্ড, বড় পর্দায় দুই কলাম ---------- */
+.form-page > .form-inner.acct-settings { max-width: 640px; gap: 12px; }
+.acct-scols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (min-width: 1180px) {
+  .form-page > .form-inner.acct-settings { max-width: 1040px; }
+  .acct-scols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+}
+.acct-scard { background: var(--surface-low); border-radius: var(--r-card); padding: 4px 0 12px; display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.acct-scard > .divider { margin: 8px 0 4px; }
+.acct-scard > .list-row { border-radius: 0; }
+.acct-scard.pad { padding: 16px; gap: 10px; }
+.acct-slabel { display: flex; align-items: center; gap: 16px; min-height: 52px; padding: 8px 16px 4px; font-size: 15px; line-height: 22px; font-weight: 400; }
+.acct-slabel svg { color: var(--on-surface-variant); flex: none; }
+.acct-srow { display: flex; align-items: center; gap: 16px; padding: 4px 16px; min-width: 0; }
+.acct-srow > svg { color: var(--on-surface-variant); flex: none; }
+.acct-srow.static { min-height: 56px; padding: 8px 16px; }
+.acct-sbody { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 4px; }
+.acct-seg { padding: 0 16px 8px; }
+.acct-seg .seg { display: flex; width: 100%; }
+.acct-seg .seg button { flex: 1; min-width: 0; padding: 0 8px; white-space: nowrap; }
+
+.acct-person { display: flex; flex-direction: column; gap: 10px; }
+.acct-wrap { overflow-wrap: anywhere; }
+.acct-person .act { max-width: 100%; }
+
+/* ---------- নোটিফিকেশন ---------- */
+.acct-listhead { min-height: 40px; margin-bottom: -8px; }
+.acct-notes { display: flex; flex-direction: column; background: var(--surface-low); border-radius: var(--r-card); overflow: hidden; }
+.acct-notes li + li { border-top: 1px solid var(--outline-variant); }
+.acct-note { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border: 0; background: transparent; color: inherit; text-align: left; }
+.acct-note:hover { background: var(--primary-a12); }
+.acct-note.sel { background: var(--secondary-container); color: var(--on-secondary-container); }
+.acct-note .t-title-s { font-weight: 700; }
+.acct-note .t-title-s.acct-read { font-weight: 400; }
+.acct-nicon { width: 40px; height: 40px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface-variant); color: var(--on-surface-variant); }
+.acct-nicon.new { background: var(--primary-container); color: var(--on-primary-container); }
+.acct-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex: none; margin-top: 6px; }
+.acct-ph { color: var(--on-surface-variant); opacity: .35; margin: 80px auto; }
+
+/* ---------- সাহায্য ও আপিল ---------- */
+.acct-sec { font-size: 14px; line-height: 20px; font-weight: 700; color: var(--primary); padding-top: 8px; }
+.acct-ticket { display: flex; flex-direction: column; gap: 4px; }
+.acct-thread { display: flex; flex-direction: column; gap: 10px; }
+.acct-bubble { max-width: min(88%, 420px); align-self: flex-start; padding: 10px 14px; border-radius: 16px; background: var(--surface-high); display: flex; flex-direction: column; gap: 2px; }
+.acct-bubble.admin { align-self: flex-end; background: var(--primary-container); color: var(--on-primary-container); }
+.acct-bubble.admin .muted { color: inherit; opacity: .8; }
+
+/* ---------- ডায়ালগ ---------- */
+.acct-risk { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--r-card); background: var(--error-container); color: var(--on-error-container); }
+.acct-left-act { margin-right: auto; }
+@media (max-width: 479px) { .acct-left-act { width: 100%; } }

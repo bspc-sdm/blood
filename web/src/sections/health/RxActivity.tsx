@@ -1,0 +1,736 @@
+// প্রেসক্রিপশনের ভেতরে: ওষুধ কেনা (দোকানে / অনলাইনে, ফিরিয়ে নেওয়া), পরীক্ষা পাঠানো, রিপোর্ট, ডাক্তারকে দেখানো —
+// অ্যাপের RxNet.kt: RxActivitySection, PharmacyPickDialog, OnlineOrderDialog, WithdrawDialog, LabPickDialog,
+// LabReportDialog/LabReportView, ReportReviewBox, PayDialog
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Action, Button, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
+import { AreaPicker, type AreaValue } from '@/ui/AreaPicker';
+import { call, errorText } from '@/lib/api';
+import { num, tr, useLang } from '@/lib/i18n';
+import { formatDate, formatKm } from '@/lib/format';
+import { areaLabel } from '@/lib/geo';
+import { useSession } from '@/lib/session';
+import { useCareMode } from '@/lib/care';
+import { imgSrc, useFlash } from './common';
+import type { Rx } from './Prescriptions';
+
+interface MedStat { i: number; name: string; form: string; dose: string; days: number; need: number | null; got: number; left: number | null; done: boolean }
+interface Dispensing { name: string; at: number; items: { i: number; qty: number }[] }
+interface RxOrder { id: string; pharmacyName: string; status: string; reason: string; createdAt: number; mode: string; price: string; eta: string; deliveryFee: string; missed: string[] }
+interface LabResult { test: string; result: string; unit: string; range: string; flag: string; group?: string; code?: string; key?: string; long?: boolean }
+interface LabOrder {
+  id: string; rxId: string; code: string; labName: string; patientName: string; patientAge: number | null; patientGender: string; doctorName: string;
+  tests: string[]; status: string; createdAt: number; report: { items: LabResult[]; note: string; reportedAt: number; photoCount: number; photos?: string[] } | null;
+}
+interface RxReview { id: string; labOrderId: string; doctorName: string; status: string; fee: string; noFee: boolean; payNumber: string; payMethods: string[]; rejectNote: string; comment: string }
+interface Activity { medicines: MedStat[]; dispensed: Dispensing[]; orders: RxOrder[]; labOrders: LabOrder[]; reviews: RxReview[]; nextOpen: number | null }
+interface PharmOption { id: string; name: string; phone: string; address: string; km: number | null; openNow: boolean; keepsStock: boolean; have: number; total: number; missing: string[]; online: boolean; deliveryFee: string; onlineNote: string }
+interface Lab { id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; facilityId: string | null; homeCollection: boolean; hours: string }
+
+// ---------- লেখা (অ্যাপের RxNetText) ----------
+const payLabel = (m: string) => ({ bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket' })[m] ?? m;
+function orderStatus(s: string) {
+  switch (s) {
+    case 'sent': return tr('Sent — waiting', 'পাঠানো হয়েছে — অপেক্ষায়');
+    case 'ready': return tr('Ready to collect', 'তৈরি — নিয়ে আসুন');
+    case 'accepted': return tr('Order accepted', 'অর্ডার নিয়েছে');
+    case 'out': return tr('On the way', 'পথে আছে');
+    case 'done': return tr('Given', 'দেওয়া হয়েছে');
+    case 'cancelled': return tr("Can't provide", 'দিতে পারবে না');
+    case 'withdrawn': return tr('Taken back', 'ফিরিয়ে নিয়েছেন');
+    default: return s;
+  }
+}
+function labStatus(s: string) {
+  switch (s) {
+    case 'sent': return tr('Sent — waiting', 'পাঠানো হয়েছে — অপেক্ষায়');
+    case 'received': return tr('Sample taken', 'নমুনা নেওয়া হয়েছে');
+    case 'reported': return tr('Report ready', 'রিপোর্ট এসেছে');
+    case 'cancelled': return tr("Can't do", 'করতে পারবে না');
+    default: return s;
+  }
+}
+function reviewStatus(s: string) {
+  switch (s) {
+    case 'unpaid': return tr('Not paid', 'টাকা দেওয়া হয়নি');
+    case 'claimed': return tr('Payment sent — doctor is checking', 'টাকা পাঠিয়েছেন — ডাক্তার মিলিয়ে দেখছেন');
+    case 'paid': return tr('Doctor is checking the report', 'ডাক্তার রিপোর্ট দেখছেন');
+    case 'done': return tr('Doctor checked', 'ডাক্তার দেখেছেন');
+    default: return '';
+  }
+}
+const flagLabel = (f: string) => (f === 'high' ? tr('High', 'বেশি') : f === 'low' ? tr('Low', 'কম') : f === 'abnormal' ? tr('Abnormal', 'অস্বাভাবিক') : '');
+function boughtText(m: MedStat) {
+  if (m.need != null) return tr(`Bought ${m.got}/${m.need}`, `কেনা ${num(m.got)}/${num(m.need)}`);
+  if (m.got > 0) return tr(`Bought ${m.got}`, `কেনা ${num(m.got)}`) + (m.days === 0 ? tr(' (continue)', ' (চলবে)') : '');
+  return tr('Not bought yet', 'এখনো কেনা হয়নি');
+}
+const OPEN = ['sent', 'ready', 'accepted', 'out'];
+const callTel = (phone: string) => {
+  if (phone) window.location.href = `tel:${phone}`;
+};
+
+/** এলাকা: প্রোফাইলের জেলা দিয়ে শুরু */
+function useStartArea(): AreaValue | null {
+  const s = useSession();
+  const d = s.profile?.placeName || s.place?.placeName || '';
+  return d ? { district: d, upazilaId: null } : null;
+}
+
+// ---------- মূল অংশ ----------
+export function RxActivitySection({ rx }: { rx: Rx }) {
+  const lang = useLang();
+  const care = useCareMode();
+  const { uid } = useSession();
+  const qc = useQueryClient();
+  const key = ['rx_activity', rx.id, care?.uid ?? null, lang, uid];
+  const q = useQuery({ queryKey: key, queryFn: () => call<Activity>('rx_activity', { rxId: rx.id }) });
+  const [info, setInfo] = useFlash();
+  const [err, setErr] = useState<string | null>(null);
+  const [pick, setPick] = useState<'shop' | 'online' | null>(null);
+  const [withdrawing, setWithdrawing] = useState<RxOrder | null>(null);
+  const [pickLab, setPickLab] = useState(false);
+  const [report, setReport] = useState<string | null>(null);
+  const [paying, setPaying] = useState<RxReview | null>(null);
+  const [serialBusy, setSerialBusy] = useState(false);
+  const reload = () => qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
+  const cancelled = rx.status === 'cancelled';
+
+  if (q.isPending) return <SkeletonCards n={1} h={120} />;
+  if (q.isError) return <ErrorText>{errorText(q.error)}</ErrorText>;
+  const a = q.data;
+
+  async function serial(date: number) {
+    setSerialBusy(true);
+    setErr(null);
+    try {
+      await call('book', { providerUid: rx.doctorUid, chamberIndex: rx.chamberIndex ?? 0, date, note: tr('Show the report', 'রিপোর্ট দেখানো') });
+      setInfo(tr('Serial request sent', 'সিরিয়ালের অনুরোধ গেছে'));
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setSerialBusy(false);
+  }
+
+  return (
+    <>
+      <ErrorText>{err}</ErrorText>
+      <InfoText>{info}</InfoText>
+      {rx.medicines?.length ? (
+        <section className="card col" aria-label={tr('Medicines bought', 'ওষুধ কেনা')}>
+          <h3 className="t-title-m">{tr('Medicines bought', 'ওষুধ কেনা')}</h3>
+          {a.medicines.map((m) => (
+            <div key={m.i} className="row">
+              <span className="t-body-l grow">{m.name}</span>
+              <Tag tone={m.done ? 'good' : undefined}>{boughtText(m)}</Tag>
+            </div>
+          ))}
+          {a.dispensed.map((d, i) => (
+            <span key={i} className="t-body-s muted">{d.name + ' · ' + formatDate(d.at)}</span>
+          ))}
+          {a.orders.map((o) => {
+            const extra = [o.price, o.eta, o.deliveryFee ? tr(`Delivery: ${o.deliveryFee}`, `ডেলিভারি: ${o.deliveryFee}`) : ''].filter(Boolean);
+            return (
+              <div key={o.id} className="col gap-4">
+                <IconLine icon={o.mode === 'online' ? 'local_shipping' : 'storefront'}>
+                  {o.pharmacyName + ' — ' + orderStatus(o.status) + (o.reason ? ` (${o.reason})` : '')}
+                </IconLine>
+                {OPEN.includes(o.status) && extra.length ? <span className="t-body-s muted">{extra.join(' · ')}</span> : null}
+                {o.missed?.length ? <span className="t-body-s muted">{tr("Didn't have: ", 'ছিল না: ') + o.missed.join(', ')}</span> : null}
+                {['sent', 'ready', 'accepted'].includes(o.status) ? (
+                  <div><Action icon="close" onClick={() => setWithdrawing(o)}>{tr('Take back', 'ফিরিয়ে নিন')}</Action></div>
+                ) : null}
+              </div>
+            );
+          })}
+          {!cancelled && a.medicines.some((m) => !m.done) ? (
+            <>
+              <div className="health-two">
+                <Button variant="outline" icon="storefront" onClick={() => setPick('shop')}>{tr("I'm at a pharmacy", 'দোকানে আছি')}</Button>
+                <Button variant="outline" icon="local_shipping" onClick={() => setPick('online')}>{tr('Order online', 'অনলাইনে অর্ডার')}</Button>
+              </div>
+              <span className="t-body-s muted">
+                {tr(
+                  'At the shop: send the prescription to it in the app, or show the QR. They note what they give; get the rest from another shop.',
+                  'দোকানে গিয়ে: অ্যাপে সেই দোকানে পাঠান, অথবা QR দেখান। যতটা দেবে লিখে রাখবে; বাকিটা অন্য দোকান থেকে নিন।',
+                )}
+              </span>
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
+      {rx.tests?.length ? (
+        <section className="card col" aria-label={tr('Tests and reports', 'পরীক্ষা ও রিপোর্ট')}>
+          <h3 className="t-title-m">{tr('Tests and reports', 'পরীক্ষা ও রিপোর্ট')}</h3>
+          {a.labOrders.map((o) => {
+            const r = a.reviews.find((x) => x.labOrderId === o.id) ?? null;
+            return (
+              <div key={o.id} className="col gap-6 health-lab-order">
+                <div className="row">
+                  <span className="t-body-l semi grow">{o.labName}</span>
+                  <Tag tone={o.status === 'reported' ? 'good' : undefined}>{labStatus(o.status)}</Tag>
+                </div>
+                <span className="t-body-s muted">{o.tests.join(', ')}</span>
+                {o.status === 'reported' ? (
+                  <>
+                    <div><Action primary icon="list_alt" onClick={() => setReport(o.id)}>{tr('See report', 'রিপোর্ট দেখুন')}</Action></div>
+                    <ReportReviewBox rx={rx} r={r} nextOpen={a.nextOpen} busy={serialBusy} onPay={setPaying} onSerial={serial} />
+                  </>
+                ) : null}
+              </div>
+            );
+          })}
+          {!cancelled ? <Button variant="outline" icon="local_hospital" block onClick={() => setPickLab(true)}>{tr('Send tests to a lab', 'পরীক্ষা করাতে পাঠান')}</Button> : null}
+        </section>
+      ) : null}
+
+      {pick ? (
+        <PharmacyPickDialog
+          rx={rx}
+          mode={pick}
+          onClose={() => setPick(null)}
+          onSent={(name) => {
+            setInfo(pick === 'online' ? tr(`Order sent to ${name}. Pay when the medicines arrive.`, `${name}-এ অর্ডার গেছে। ওষুধ পৌঁছালে দাম দেবেন।`) : tr(`Sent to ${name}`, `${name}-এ পাঠানো হয়েছে`));
+            setPick(null);
+            reload();
+          }}
+        />
+      ) : null}
+      {withdrawing ? (
+        <WithdrawDialog
+          o={withdrawing}
+          onClose={() => setWithdrawing(null)}
+          onDone={() => {
+            setWithdrawing(null);
+            setInfo(tr('Taken back. You can send it to another pharmacy.', 'ফিরিয়ে নেওয়া হয়েছে। অন্য ফার্মেসিতে পাঠাতে পারেন।'));
+            reload();
+          }}
+        />
+      ) : null}
+      {pickLab ? (
+        <LabPickDialog
+          rx={rx}
+          onClose={() => setPickLab(false)}
+          onSent={(name) => {
+            setPickLab(false);
+            setInfo(tr(`Sent to ${name}`, `${name}-এ পাঠানো হয়েছে`));
+            reload();
+          }}
+        />
+      ) : null}
+      {report ? <LabReportDialog id={report} onClose={() => setReport(null)} /> : null}
+      {paying ? (
+        <PayDialog
+          r={paying}
+          onClose={() => setPaying(null)}
+          onDone={() => {
+            setPaying(null);
+            setInfo(tr('Sent. The doctor will check the payment.', 'পাঠানো হয়েছে। ডাক্তার টাকা মিলিয়ে দেখবেন।'));
+            reload();
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** রিপোর্ট আসার পর: সিরিয়াল নিয়ে দেখানো, অথবা অনলাইনে (ফি দিয়ে) */
+function ReportReviewBox({ rx, r, nextOpen, busy, onPay, onSerial }: { rx: Rx; r: RxReview | null; nextOpen: number | null; busy: boolean; onPay: (r: RxReview) => void; onSerial: (d: number) => void }) {
+  const live = r && r.status && r.status !== 'off';
+  return (
+    <div className="col gap-6">
+      {live && r ? (
+        <>
+          <span className="t-body-m c-primary">{reviewStatus(r.status)}</span>
+          {r.status === 'unpaid' ? (
+            <>
+              <span className="t-body-m">
+                {tr(`Show online: fee ${r.fee}. Send to ${r.payNumber} (`, `অনলাইনে দেখান: ফি ${r.fee}। ${num(r.payNumber)} নম্বরে (`) + r.payMethods.map(payLabel).join(', ') + tr('), then enter the TrxID.', ') পাঠিয়ে TrxID দিন।')}
+              </span>
+              {r.rejectNote ? <span className="t-body-s c-error">{tr("Doctor's note: ", 'ডাক্তারের নোট: ') + r.rejectNote}</span> : null}
+              <div><Action primary icon="payments" onClick={() => onPay(r)}>{tr("I've sent the money", 'টাকা পাঠিয়েছি')}</Action></div>
+            </>
+          ) : null}
+          {r.status === 'done' && r.comment ? (
+            <div className="card tonal col gap-2">
+              <span className="t-label-l semi">{r.doctorName}</span>
+              <p className="t-body-m pre">{r.comment}</p>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      {nextOpen != null && rx.chamberIndex != null && r?.status !== 'done' ? (
+        <div>
+          <Action icon="calendar_month" busy={busy} onClick={() => onSerial(nextOpen)}>
+            {tr('Get a serial to show it (', 'দেখানোর সিরিয়াল নিন (') + formatDate(nextOpen) + ')'}
+          </Action>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- ফার্মেসি বাছাই ----------
+function PharmacyPickDialog({ rx, mode, onClose, onSent }: { rx: Rx; mode: 'shop' | 'online'; onClose: () => void; onSent: (name: string) => void }) {
+  const s = useSession();
+  const start = useStartArea();
+  const [area, setArea] = useState<AreaValue | null>(start);
+  const [showArea, setShowArea] = useState(false);
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+  const [located, setLocated] = useState(mode !== 'shop');
+  const [name, setName] = useState('');
+  const [nameQ, setNameQ] = useState('');
+  const [shopCode, setShopCode] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState<PharmOption | null>(null);
+
+  // দোকানে দাঁড়িয়ে: অনুমতি আগেই দেওয়া থাকলে এখনকার লোকেশন (নতুন করে অনুমতি চাওয়া নয়)
+  useEffect(() => {
+    if (located) return;
+    let off = false;
+    const done = () => {
+      if (!off) setLocated(true);
+    };
+    const perms = navigator.permissions;
+    if (!perms || !navigator.geolocation) {
+      done();
+      return;
+    }
+    perms
+      .query({ name: 'geolocation' as PermissionName })
+      .then((p) => {
+        if (p.state !== 'granted') return done();
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!off) setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            done();
+          },
+          done,
+          { timeout: 8000, maximumAge: 60000 },
+        );
+      })
+      .catch(done);
+    return () => {
+      off = true;
+    };
+  }, [located]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setNameQ(name.trim()), name.trim() ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [name]);
+
+  const gps = s.profile?.locationSource === 'gps' && s.profile.lat != null && s.profile.lng != null ? { lat: s.profile.lat, lng: s.profile.lng } : null;
+  const loc = here ?? gps;
+  const q = useQuery({
+    queryKey: ['rx_pharmacy_options', rx.id, mode, area?.district, area?.upazilaId ?? null, nameQ, loc?.lat ?? null, loc?.lng ?? null],
+    queryFn: () =>
+      call<{ items?: PharmOption[] }>('rx_pharmacy_options', {
+        rxId: rx.id, district: area!.district, mode, q: nameQ,
+        ...(area?.upazilaId ? { upazilaId: area.upazilaId } : {}),
+        ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
+      }).then((r) => r.items ?? []),
+    enabled: !!area && located,
+    staleTime: 0,
+  });
+
+  async function send(id: string, nm: string) {
+    if (busy) return;
+    setBusy(id);
+    setErr(null);
+    try {
+      await call('rx_send_pharmacy', { rxId: rx.id, pharmacyId: id, mode: 'shop' });
+      onSent(nm);
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setBusy(null);
+  }
+  async function sendByCode() {
+    setBusy('code');
+    setErr(null);
+    try {
+      const r = await call<{ item: { id: string; name: string } }>('rx_shop_find', { code: shopCode });
+      await call('rx_send_pharmacy', { rxId: rx.id, pharmacyId: r.item.id, mode: 'shop' });
+      onSent(r.item.name);
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setBusy(null);
+  }
+
+  const online = mode === 'online';
+  return (
+    <Dialog onClose={() => !busy && onClose()} size="wide" title={online ? tr('Order online', 'অনলাইনে অর্ডার') : tr('Send to this shop', 'এই দোকানে দিন')}>
+      {!online ? (
+        <>
+          <TextInput label={tr("Type the shop's name", 'দোকানের নাম লিখুন')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} type="search" />
+          <div className="row top health-code-row">
+            <TextInput
+              label={tr('Or the shop code', 'অথবা দোকানের কোড')}
+              value={shopCode}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => setShopCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+              className="input health-code"
+            />
+            <Button variant="outline" square busy={busy === 'code'} disabled={!!busy || shopCode.length !== 6} onClick={sendByCode}>{tr('Send', 'পাঠান')}</Button>
+          </div>
+        </>
+      ) : (
+        <p className="t-body-s muted">{tr("Only pharmacies that deliver. You pay the shop when the medicines arrive — Lifolo doesn't take money.", 'শুধু যাঁরা বাসায় পৌঁছে দেন। ওষুধ পৌঁছালে দোকানকে দাম দেবেন — Lifolo টাকা নেয় না।')}</p>
+      )}
+      <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} />
+      {!online ? <span className="t-label-l">{nameQ ? tr('Shops with this name', 'এই নামের দোকান') : tr('Shops near you', 'কাছের দোকান')}</span> : null}
+      <ErrorText>{err}</ErrorText>
+      <div className="col gap-12">
+        {!area ? (
+          <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')} />
+        ) : q.isPending ? (
+          <Loading />
+        ) : q.isError ? (
+          <ErrorText>{errorText(q.error)}</ErrorText>
+        ) : !q.data.length ? (
+          <EmptyState
+            icon={online ? 'local_shipping' : 'storefront'}
+            title={online ? tr('No pharmacy here sells online yet', 'এখানে এখনো কোনো ফার্মেসি অনলাইনে বিক্রি করে না') : nameQ ? tr('No shop with this name in the app', 'এই নামে অ্যাপে কোনো দোকান নেই') : tr('No pharmacy in the app here yet', 'এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই')}
+            text={online ? tr('Go to a pharmacy and show the QR.', 'ফার্মেসিতে গিয়ে QR দেখিয়ে কিনুন।') : tr('Show the QR at the counter instead.', 'কাউন্টারে QR দেখিয়েও কিনতে পারেন।')}
+          />
+        ) : (
+          q.data.map((p) => (
+            <DirectoryCard
+              key={p.id}
+              title={p.name}
+              icon={online ? 'local_shipping' : 'storefront'}
+              status={p.openNow ? { text: tr('Open', 'খোলা'), good: true } : { text: tr('Closed', 'বন্ধ'), good: false }}
+              meta={p.km != null ? formatKm(p.km) : null}
+              subtitle={p.keepsStock ? tr(`Has ${p.have} of ${p.total} medicines`, `${num(p.total)}টার ${num(p.have)}টা ওষুধ আছে`) : tr('Stock not listed', 'স্টকের তালিকা নেই')}
+              details={[
+                ['location_on', p.address],
+                ['local_shipping', online && p.deliveryFee ? tr('Delivery: ', 'ডেলিভারি: ') + p.deliveryFee : ''],
+                ['info', online ? p.onlineNote : ''],
+                ['warning', p.keepsStock && p.missing.length ? tr('Missing: ', 'নেই: ') + p.missing.join(', ') : ''],
+              ]}
+              primary={{ label: online ? tr('Order', 'অর্ডার করুন') : tr('Send here', 'এই দোকানে দিন'), icon: online ? 'local_shipping' : 'send', busy: busy === p.id, onClick: () => (online ? setOrdering(p) : send(p.id, p.name)) }}
+              secondary={p.phone ? { label: tr('Call', 'ফোন'), icon: 'call', onClick: () => callTel(p.phone) } : null}
+            />
+          ))
+        )}
+      </div>
+      {showArea ? (
+        <AreaPicker
+          value={area}
+          onClose={() => setShowArea(false)}
+          onPicked={(v) => {
+            setArea(v);
+            setShowArea(false);
+          }}
+        />
+      ) : null}
+      {ordering ? (
+        <OnlineOrderDialog
+          rx={rx}
+          p={ordering}
+          onClose={() => setOrdering(null)}
+          onSent={() => {
+            const nm = ordering.name;
+            setOrdering(null);
+            onSent(nm);
+          }}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+/** অনলাইন অর্ডার: কোথায় পৌঁছাবে আর ফোন (দাম পৌঁছালে, দোকানকে সরাসরি) */
+function OnlineOrderDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PharmOption; onClose: () => void; onSent: () => void }) {
+  const s = useSession();
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState(s.profile?.phone ?? '');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Dialog
+      onClose={() => !busy && onClose()}
+      title={p.name}
+      actions={
+        <>
+          <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
+          <Button
+            busy={busy}
+            disabled={!address.trim() || !phone.trim()}
+            onClick={async () => {
+              setBusy(true);
+              setErr(null);
+              try {
+                await call('rx_send_pharmacy', { rxId: rx.id, pharmacyId: p.id, mode: 'online', address: address.trim(), phone: phone.trim(), note: note.trim() });
+                onSent();
+              } catch (e) {
+                setErr(errorText(e));
+                setBusy(false);
+              }
+            }}
+          >
+            {tr('Place order', 'অর্ডার দিন')}
+          </Button>
+        </>
+      }
+    >
+      {p.deliveryFee ? <IconLine icon="local_shipping">{tr('Delivery: ', 'ডেলিভারি: ') + p.deliveryFee}</IconLine> : null}
+      {p.keepsStock && p.missing.length ? <span className="t-body-s muted">{tr('May not have: ', 'না-ও থাকতে পারে: ') + p.missing.join(', ')}</span> : null}
+      <TextArea label={tr('Delivery address', 'কোথায় পৌঁছাবে (ঠিকানা)')} rows={2} maxLength={200} value={address} onChange={(e) => setAddress(e.target.value)} />
+      <TextInput label={tr('Mobile number', 'মোবাইল নম্বর')} type="tel" inputMode="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <TextInput label={tr('Note (optional)', 'নোট (ঐচ্ছিক)')} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
+      <span className="t-body-s muted">{tr('Pay the shop when it arrives (cash on delivery). The shop sees your address and number only for this order.', 'ওষুধ পৌঁছালে দোকানকে দাম দেবেন (ক্যাশ অন ডেলিভারি)। ঠিকানা আর নম্বর দোকান শুধু এই অর্ডারের জন্য দেখবে।')}</span>
+      <ErrorText>{err}</ErrorText>
+    </Dialog>
+  );
+}
+
+/** দোকান থেকে প্রেসক্রিপশন ফিরিয়ে নেওয়া */
+function WithdrawDialog({ o, onClose, onDone }: { o: RxOrder; onClose: () => void; onDone: () => void }) {
+  const [why, setWhy] = useState<'na' | 'other'>('na');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Dialog
+      size="small"
+      onClose={() => !busy && onClose()}
+      title={tr(`Take back from ${o.pharmacyName}?`, `${o.pharmacyName} থেকে ফিরিয়ে নেবেন?`)}
+      actions={
+        <>
+          <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
+          <Button
+            busy={busy}
+            onClick={async () => {
+              setBusy(true);
+              setErr(null);
+              try {
+                await call('rx_order_withdraw', { id: o.id, reason: why === 'na' ? 'not_available' : 'other' });
+                onDone();
+              } catch (e) {
+                setErr(errorText(e));
+                setBusy(false);
+              }
+            }}
+          >
+            {tr('Take back', 'ফিরিয়ে নিন')}
+          </Button>
+        </>
+      }
+    >
+      <span className="t-label-l">{tr('Why?', 'কেন?')}</span>
+      <div className="health-stack-chips">
+        <ChoiceChips
+          value={why}
+          onChange={setWhy}
+          options={[
+            { value: 'na', label: tr("They don't have the medicines", 'ওদের কাছে ওষুধ নেই') },
+            { value: 'other', label: tr('Another reason', 'অন্য কারণ') },
+          ]}
+        />
+      </div>
+      <span className="t-body-s muted">{tr('Medicines not bought yet stay on the prescription — send it to another shop.', 'যে ওষুধ কেনা বাকি, তা প্রেসক্রিপশনে থাকবে — অন্য দোকানে পাঠান।')}</span>
+      <ErrorText>{err}</ErrorText>
+    </Dialog>
+  );
+}
+
+// ---------- প্যাথলজি ----------
+function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; onSent: (name: string) => void }) {
+  const start = useStartArea();
+  const [area, setArea] = useState<AreaValue | null>(start);
+  const [showArea, setShowArea] = useState(false);
+  const [chosen, setChosen] = useState<string[]>(rx.tests ?? []);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const q = useQuery({
+    queryKey: ['labs', area?.district, area?.upazilaId ?? null, rx.testPlaceId ?? null],
+    queryFn: () =>
+      call<{ items?: Lab[] }>('labs', { district: area!.district, ...(area?.upazilaId ? { upazilaId: area.upazilaId } : {}), ...(rx.testPlaceId ? { facilityId: rx.testPlaceId } : {}) }).then((r) => r.items ?? []),
+    enabled: !!area,
+  });
+  const testOptions = useMemo(() => (rx.tests ?? []).map((t) => ({ value: t, label: t })), [rx.tests]);
+
+  async function send(lab: Lab) {
+    if (busy || !chosen.length) {
+      if (!chosen.length) setErr(tr('Choose the tests', 'পরীক্ষা বেছে নিন'));
+      return;
+    }
+    setBusy(lab.id);
+    setErr(null);
+    try {
+      await call('rx_send_lab', { rxId: rx.id, labId: lab.id, tests: chosen });
+      onSent(lab.name);
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setBusy(null);
+  }
+
+  return (
+    <Dialog onClose={() => !busy && onClose()} size="wide" title={tr('Choose a lab', 'প্যাথলজি বাছুন')}>
+      <span className="t-label-l">{tr('Tests to send', 'কোন পরীক্ষা পাঠাবেন')}</span>
+      <ChoiceChips multi options={testOptions} value={chosen} onChange={setChosen} />
+      <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} />
+      <ErrorText>{err}</ErrorText>
+      <div className="col gap-12">
+        {!area ? (
+          <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')} />
+        ) : q.isPending ? (
+          <Loading />
+        ) : q.isError ? (
+          <ErrorText>{errorText(q.error)}</ErrorText>
+        ) : !q.data.length ? (
+          <EmptyState icon="local_hospital" title={tr('No lab in the app here yet', 'এখানে এখনো অ্যাপে কোনো প্যাথলজি নেই')} text={tr('You can still take the prescription to any lab.', 'যেকোনো প্যাথলজিতে প্রেসক্রিপশন নিয়ে গিয়েও করাতে পারেন।')} />
+        ) : (
+          q.data.map((lab) => {
+            const suggested = !!rx.testPlaceId && lab.facilityId === rx.testPlaceId;
+            return (
+              <DirectoryCard
+                key={lab.id}
+                title={lab.name}
+                icon="local_hospital"
+                status={suggested ? { text: tr('Doctor suggested', 'ডাক্তারের সুপারিশ'), good: true } : null}
+                subtitle={lab.homeCollection ? tr('Sample from home', 'বাসা থেকে নমুনা নেয়') : null}
+                details={[['location_on', lab.address], ['schedule', lab.hours]]}
+                primary={{ label: tr('Send tests', 'পরীক্ষা পাঠান'), icon: 'send', busy: busy === lab.id, onClick: () => send(lab) }}
+                secondary={lab.phone ? { label: tr('Call', 'ফোন'), icon: 'call', onClick: () => callTel(lab.phone) } : null}
+              />
+            );
+          })
+        )}
+      </div>
+      {showArea ? (
+        <AreaPicker
+          value={area}
+          onClose={() => setShowArea(false)}
+          onPicked={(v) => {
+            setArea(v);
+            setShowArea(false);
+          }}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+/** রিপোর্ট: ফলের তালিকা (বেশি/কম চিহ্নসহ), আগের ফল, নোট, ছবি */
+function LabReportDialog({ id, onClose }: { id: string; onClose: () => void }) {
+  const care = useCareMode();
+  const lang = useLang();
+  const q = useQuery({
+    queryKey: ['lab_order_get', id, care?.uid ?? null, lang],
+    queryFn: () => call<{ item: LabOrder; history?: Record<string, { result: string; flag: string; at: number }[]> }>('lab_order_get', { id }),
+  });
+  return (
+    <Dialog onClose={onClose} size="wide" title={tr('Test report', 'পরীক্ষার রিপোর্ট')}>
+      {q.isPending ? <Loading /> : q.isError ? <ErrorText>{errorText(q.error)}</ErrorText> : <LabReportView o={q.data.item} history={q.data.history ?? {}} />}
+    </Dialog>
+  );
+}
+
+function LabReportView({ o, history }: { o: LabOrder; history: Record<string, { result: string; flag: string; at: number }[]> }) {
+  const r = o.report;
+  const groups: { name: string; rows: LabResult[] }[] = [];
+  for (const it of r?.items ?? []) {
+    const g = it.group ?? '';
+    if (groups.length && groups[groups.length - 1].name === g) groups[groups.length - 1].rows.push(it);
+    else groups.push({ name: g, rows: [it] });
+  }
+  return (
+    <div className="col gap-12">
+      <div className="col gap-2">
+        <span className="t-title-l">{o.labName}</span>
+        <span className="t-body-m muted">{[o.patientName, o.patientAge != null ? tr(`${o.patientAge} yrs`, `${num(o.patientAge)} বছর`) : null, r?.reportedAt ? formatDate(r.reportedAt) : null].filter(Boolean).join(' · ')}</span>
+      </div>
+      {groups.map((g, gi) => (
+        <div key={gi} className="card col">
+          {g.name ? <span className="t-title-s c-primary">{g.name}</span> : null}
+          {g.rows.map((it, i) => {
+            if (it.long) {
+              return (
+                <div key={i} className="col gap-2">
+                  <span className="t-body-l semi">{it.test}</span>
+                  <p className="t-body-m pre">{it.result}</p>
+                </div>
+              );
+            }
+            const prev = it.code ? history[`${it.code}.${it.key}`] ?? [] : [];
+            return (
+              <div key={i} className="row health-result">
+                <div className="col gap-2 grow">
+                  <span className="t-body-l semi">{it.test}</span>
+                  {it.range ? <span className="t-body-s muted">{tr('Normal: ', 'স্বাভাবিক: ') + it.range}</span> : null}
+                  {prev.length ? (
+                    <span className="t-body-s muted">
+                      {tr('Before: ', 'আগে: ') + prev.slice(0, 3).map((h) => num(h.result) + (h.flag === 'high' ? '↑' : h.flag === 'low' ? '↓' : '') + ' (' + formatDate(h.at) + ')').join(', ')}
+                    </span>
+                  ) : null}
+                </div>
+                <span className={it.flag ? 't-body-l semi c-error none' : 't-body-l semi none'}>{it.result + (it.unit ? ' ' + it.unit : '')}</span>
+                {it.flag ? <Tag tone="error">{flagLabel(it.flag)}</Tag> : null}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {r?.note ? <p className="t-body-m pre">{r.note}</p> : null}
+      {(r?.photos ?? []).map((p, i) => (
+        <img key={i} src={imgSrc(p)} alt={tr('Report photo', 'রিপোর্টের ছবি')} className="health-report-photo" />
+      ))}
+    </div>
+  );
+}
+
+/** রোগী: ডাক্তারের নম্বরে টাকা পাঠিয়ে TrxID */
+function PayDialog({ r, onClose, onDone }: { r: RxReview; onClose: () => void; onDone: () => void }) {
+  const [method, setMethod] = useState(r.payMethods[0] ?? '');
+  const [trx, setTrx] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Dialog
+      onClose={() => !busy && onClose()}
+      title={tr('Payment for showing the report', 'রিপোর্ট দেখানোর টাকা')}
+      actions={
+        <>
+          <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
+          <Button
+            busy={busy}
+            disabled={trx.length < 6}
+            onClick={async () => {
+              setBusy(true);
+              setErr(null);
+              try {
+                await call('review_pay', { id: r.id, method, trxId: trx });
+                onDone();
+              } catch (e) {
+                setErr(errorText(e));
+                setBusy(false);
+              }
+            }}
+          >
+            {tr('Send', 'পাঠান')}
+          </Button>
+        </>
+      }
+    >
+      <p className="t-body-l">{tr(`Send ${r.fee} to ${r.payNumber} with `, `${r.fee} পাঠান ${num(r.payNumber)} নম্বরে — `) + r.payMethods.map(payLabel).join(' / ')}</p>
+      <span className="t-body-s muted">{tr("The money goes straight to the doctor. Lifolo doesn't hold or take any of it.", 'টাকা সরাসরি ডাক্তারের কাছে যায়। Lifolo টাকা রাখে না, কিছু কাটে না।')}</span>
+      {r.payMethods.length > 1 ? <ChoiceChips value={method} onChange={setMethod} options={r.payMethods.map((m) => ({ value: m, label: payLabel(m) }))} /> : null}
+      <TextInput
+        label={tr('Transaction ID (TrxID)', 'ট্রানজেকশন আইডি (TrxID)')}
+        value={trx}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(e) => setTrx(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 30))}
+      />
+      <ErrorText>{err}</ErrorText>
+    </Dialog>
+  );
+}
