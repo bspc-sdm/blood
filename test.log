@@ -1,0 +1,4 @@
+=== doctorListFilterBarBangla
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+ScreensTest > doctorListFilterBarBangla STARTED
+ScreensTest > doctorListFilterBarBangla PASSED
