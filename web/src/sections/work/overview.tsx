@@ -1,7 +1,7 @@
 // /work — "আমার কাজ": প্রতিটা ব্যবসার অবস্থা, হিসাব আর দ্রুত কাজ (অ্যাপের WorkTab)
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, EmptyState } from '@/ui/kit';
+import { Button } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { Workspace } from '@/shell/templates';
 import { useSession } from '@/lib/session';
