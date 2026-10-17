@@ -71,6 +71,13 @@ function docRef(path) {
     update: async (data) => { write.update(path, data); },
     delete: async () => { store.delete(path); },
     collection: (name) => collection(`${path}/${name}`),
+    // আসলের মতো: ডকের parent = কালেকশন, কালেকশনের parent = তার উপরের ডক (না থাকলে null)
+    get parent() {
+      const parts = path.split('/');
+      const cpath = parts.slice(0, -1).join('/');
+      const up = parts.length > 2 ? parts.slice(0, -2).join('/') : null;
+      return { id: parts[parts.length - 2], path: cpath, parent: up ? docRef(up) : null };
+    },
   };
 }
 
@@ -114,6 +121,7 @@ function collection(cpath, filters = [], lim = Infinity, ord = null) {
         })).slice(0, lim).map(snap);
       return { docs, empty: !docs.length, size: docs.length, forEach: (fn) => docs.forEach(fn) };
     },
+    count: () => ({ get: async () => { const r = await q.get(); return { data: () => ({ count: r.size }) }; } }),
     add: async (data) => {
       const id = `a${(++autoId).toString().padStart(6, '0')}`;
       write.set(`${cpath}/${id}`, data);
@@ -128,8 +136,14 @@ const db = {
   doc: (p) => docRef(p),
   collection: (c) => collection(c),
   getAll: async (...refs) => refs.map((r) => snap(r.path)),
+  // ডক আর তার নিচের সব সাব-কালেকশন
+  recursiveDelete: async (ref) => {
+    const p = ref.path;
+    [...store.keys()].filter((k) => k === p || k.startsWith(`${p}/`)).forEach((k) => store.delete(k));
+  },
   runTransaction: async (fn) => fn({
     get: async (r) => (r.path ? snap(r.path) : r.get()),
+    getAll: async (...refs) => refs.map((r) => snap(r.path)),
     set: (r, d, o) => write.set(r.path, d, o),
     update: (r, d) => write.update(r.path, d),
     delete: (r) => store.delete(r.path),
@@ -168,7 +182,16 @@ const admin = {
     verifyIdToken: async (t) => { const u = users.get(t); if (!u) throw new Error('bad token'); return { uid: u.uid, email: u.email, email_verified: true }; },
     getUser: async (uid) => { const u = users.get(uid); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return { ...u, disabled: false }; },
     revokeRefreshTokens: async () => {},
+    createCustomToken: async (uid) => `ctok_${uid}`,
     deleteUser: async (uid) => { users.delete(uid); },
+    createUser: async (d) => {
+      const uid = d.uid || `u${(++autoId).toString().padStart(8, '0')}`;
+      if (users.has(uid)) throw Object.assign(new Error('exists'), { code: 'auth/uid-already-exists' });
+      if (d.email && [...users.values()].some((x) => x.email === d.email)) throw Object.assign(new Error('exists'), { code: 'auth/email-already-exists' });
+      users.set(uid, { uid, email: d.email, displayName: d.displayName });
+      return users.get(uid);
+    },
+    updateUser: async (uid, d) => { const u = users.get(uid); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); Object.assign(u, d); return u; },
     getUserByEmail: async (e) => { const u = [...users.values()].find((x) => x.email === e); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return u; },
   }),
   firestore: { FieldValue },

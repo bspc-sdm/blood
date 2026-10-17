@@ -325,6 +325,7 @@
       { path: 'labtests', label: 'রিপোর্টের ছক', icon: 'hospital' },
       { path: 'log', label: 'কাজের ইতিহাস', icon: 'history' },
       { path: 'admins', label: 'অ্যাডমিন', icon: 'admin', owner: true },
+      { path: 'demo', label: 'ডেমো (পরীক্ষা)', icon: 'person', owner: true }, // ডেমো — মুছলে এই লাইন, PAGES.demo আর pageDemo মুছবেন
     ] },
   ];
 
@@ -431,6 +432,7 @@
     user: pageUser,
     log: pageLog,
     admins: pageAdmins,
+    demo: pageDemo, // ডেমো
     verify: pageVerify,
   };
 
@@ -1913,6 +1915,35 @@
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('সঠিক ইমেইল দিন');
           await act('admin_add', { email });
         }, 'অ্যাডমিন যোগ হয়েছে', afterChange))));
+  }
+
+  // =========================================================
+  // ডেমো (শুধু মালিক, শুধু পরীক্ষার জন্য) — অ্যাপ/ওয়েবের লগইন পাতায় রোলে চাপলেই সেই ডেমো অ্যাকাউন্ট
+  // =========================================================
+  async function pageDemo(r, alive) {
+    setTitle('ডেমো (পরীক্ষা)', 'সব রোলের ডেমো অ্যাকাউন্ট আর ডামি তথ্য');
+    let st;
+    try {
+      st = await act('admin_demo_status');
+    } catch (e) {
+      paint(alive, h('p', { class: 'note', text: e.message }));
+      return;
+    }
+    if (alive && !alive()) return;
+    const when = st.active && st.at ? new Date(st.at).toLocaleString('bn-BD') : '';
+    paint(alive,
+      h('p', { class: 'note', text: st.active
+        ? `ডেমো চালু আছে (বানানো ${when}, ${bn(st.docs || 0)}টা ডামি তথ্য)। অ্যাপ আর ওয়েবের লগইন পাতায় "ডেমো" অংশে রোলে চাপলেই সেই অ্যাকাউন্টে ঢোকা যায়।`
+        : 'ডেমো বন্ধ। "ডেমো বানান" চাপলে সব রোলের অ্যাকাউন্ট আর ডামি তথ্য তৈরি হবে।' }),
+      h('div', { class: 'card pad' }, h('div', { class: 'field-row' },
+        actionBtn(st.active ? 'নতুন করে বানান' : 'ডেমো বানান', st.active ? 'warn' : 'primary', () => act('admin_demo_seed'), 'ডেমো তৈরি হয়েছে', () => route(true)),
+        st.active ? actionBtn('সব ডেমো মুছুন', 'warn', () => act('admin_demo_wipe'), 'সব ডেমো মুছে ফেলা হয়েছে', () => route(true)) : null)),
+      h('h2', { class: 'section-title', text: 'রোল' }),
+      table(st.roles || [], [
+        { label: 'রোল', main: true, cell: (x) => x.role },
+        { label: 'অ্যাকাউন্ট', cell: (x) => x.email },
+      ]),
+      h('p', { class: 'note', text: 'অ্যাডমিনের কাজ আপনার নিজের অ্যাকাউন্টেই পরীক্ষা করুন — ডেমো বানালে অনুমোদনের অপেক্ষায় থাকা ডামি জিনিসও আসে। নতুন করে বানালে আগের সব ডেমো (পরীক্ষার সময় বানানোসহ) মুছে যায়।' }));
   }
 
   // =========================================================

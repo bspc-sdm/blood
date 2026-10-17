@@ -7,6 +7,7 @@ import { num, toAsciiDigits, tr, trPlain } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { isComplete, isDonor, saveContact, saveDonor, type Profile } from '@/lib/profile';
 import { ProfileForm } from './ProfileForm';
+import { DemoRoleList } from '@/demo/DemoRoles'; // ডেমো
 
 type Step = 'email' | 'code' | 'contact' | 'donor';
 
@@ -102,6 +103,7 @@ export function LoginFlow() {
           </div>
         </form>
       ) : null}
+      {step === 'email' ? <DemoRoleList onDone={() => setStep('contact')} /> : null /* ডেমো */}
       {step === 'code' ? (
         <form className="col gap-12" onSubmit={(e) => { e.preventDefault(); verify(); }}>
           <InfoText>{info}</InfoText>

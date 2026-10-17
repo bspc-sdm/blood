@@ -66,6 +66,7 @@ fun ProfileTab(
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
     var photoBusy by remember { mutableStateOf(false) }
     var photoMenu by remember { mutableStateOf(false) }
+    var demoSwitch by remember { mutableStateOf(false) } // ডেমো
     var showBadgeDialog by remember { mutableStateOf(false) }
     var showDateDialog by remember { mutableStateOf(false) }
     // "আপনার কি কোনো ব্যবসা আছে?" — যাঁর এখনো নেই; "না" বললে কার্ডের বদলে নিচে সাধারণ এক লাইন (২.২০.০)
@@ -322,6 +323,10 @@ fun ProfileTab(
             Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
+            if (DemoLogin.isDemo(AuthRepository.currentUid)) { // ডেমো
+                ActionRow(R.drawable.ic_sync, tr("Switch role", "রোল বদলান"), tr("Demo", "ডেমো"), { demoSwitch = true })
+                HorizontalDivider()
+            }
             ActionRow(R.drawable.ic_logout, tr("Log out", "লগআউট"), null, onLogout)
             HorizontalDivider()
             ActionRow(
@@ -334,6 +339,7 @@ fun ProfileTab(
         }
     }
 
+    if (demoSwitch) DemoSwitchDialog(onDismiss = { demoSwitch = false }) // ডেমো
     if (photoMenu) {
         AlertDialog(
             onDismissRequest = { photoMenu = false },
