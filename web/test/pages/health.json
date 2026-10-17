@@ -18,14 +18,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   }
  },
  {
@@ -48,7 +52,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -60,7 +64,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -78,14 +83,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   }
  },
  {
@@ -99,14 +108,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button[aria-label='রিপোর্ট'] >> visible=true"
@@ -123,14 +136,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button[aria-label='বদলান'] >> visible=true"
@@ -147,13 +164,14 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "me": {
+    "badge": null,
     "isAdmin": true
    },
    "lang": "bn",
@@ -174,14 +192,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "fill": [
    [
@@ -217,7 +239,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -229,7 +251,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -254,7 +277,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -266,7 +289,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -283,7 +307,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -295,7 +319,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -315,7 +340,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -327,7 +352,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -344,14 +370,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   }
  },
  {
@@ -365,14 +395,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "full": true
  },
@@ -387,7 +421,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -402,7 +436,8 @@
      "docsMissing": true,
      "docsRequested": false,
      "docsRequestNote": ""
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -422,7 +457,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -434,7 +469,8 @@
      "status": "approved",
      "regNo": "A-54321",
      "workplace": "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -452,7 +488,7 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
@@ -468,7 +504,8 @@
      "docsMissing": true,
      "docsRequested": true,
      "docsRequestNote": "সনদের পুরো পাতার পরিষ্কার ছবি দিন।"
-    }
+    },
+    "isAdmin": false
    },
    "lang": "bn",
    "theme": "light"
@@ -501,14 +538,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   }
  },
  {
@@ -522,14 +563,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "full": true
  },
@@ -544,14 +589,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "theme": "dark",
-   "lang": "bn"
+   "lang": "bn",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   }
  },
  {
@@ -565,14 +614,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "en",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "full": true
  },
@@ -587,14 +640,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('কোড দিয়ে যোগ করুন') >> visible=true"
@@ -617,14 +674,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('দোকানে আছি') >> visible=true"
@@ -641,14 +702,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('অনলাইনে অর্ডার') >> visible=true",
@@ -666,14 +731,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('ফিরিয়ে নিন') >> visible=true"
@@ -690,14 +759,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('পরীক্ষা করাতে পাঠান') >> visible=true"
@@ -714,14 +787,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('রিপোর্ট দেখুন') >> visible=true"
@@ -738,14 +815,18 @@
    "profile": {
     "name": "পারভেজ",
     "phone": "01712345678",
-    "placeName": "ময়মনসিংহ",
+    "placeName": "ময়মনসিংহ",
     "lat": 24.75,
     "lng": 90.41,
     "locationSource": "district",
     "bloodGroup": "B+"
    },
    "lang": "bn",
-   "theme": "light"
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
   },
   "click": [
    "button:has-text('টাকা পাঠিয়েছি') >> visible=true"

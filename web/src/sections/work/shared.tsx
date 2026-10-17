@@ -12,6 +12,7 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel, areasReady, ensureAreas } from '@/lib/geo';
 import { formatTimeHM } from '@/lib/format';
 import { SubPageBar, Workspace } from '@/shell/templates';
+import { useMobile } from '@/shell/chrome';
 
 // ---------- ধরন ----------
 export type Kind = 'ambulance' | 'pharmacy' | 'bloodbank' | 'lab';
@@ -303,7 +304,7 @@ export function DocPhotosField({ specs, photos, onChange, note }: { specs: DocSp
           const img = photos[d.type];
           return (
             <div key={d.type} className="work-doc">
-              {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="work-doc-thumb" /> : <span className="work-doc-thumb empty"><Icon name="photo_camera" /></span>}
+              {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="work-doc-thumb" /> : <span className="work-doc-thumb blank"><Icon name="photo_camera" /></span>}
               <div className="col gap-2 grow">
                 <span className="t-title-s">{d.label + (d.required ? ' *' : '')}</span>
                 <span className="t-body-s muted">{d.hint}</span>
@@ -503,7 +504,7 @@ export function useWorkGate(): ReactNode | null {
   if (!s.ready) return <Loading />;
   if (s.guest) {
     return (
-      <EmptyState
+      <WorkEmpty
         icon="storefront"
         title={tr('Do you have a business?', 'আপনার কি কোনো ব্যবসা আছে?')}
         text={tr('Ambulance, pharmacy, blood bank or lab — add it so patients nearby can find you.', 'অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা প্যাথলজি — যোগ করলে আশেপাশের রোগীরা আপনাকে খুঁজে পাবেন।')}
@@ -511,7 +512,7 @@ export function useWorkGate(): ReactNode | null {
         <Button icon="add" onClick={() => s.requireLogin(tr('Log in to add your business', 'আপনার ব্যবসা যোগ করতে লগইন করুন'), () => nav('/work/add'))}>
           {tr('Yes, add it', 'হ্যাঁ, যোগ করুন')}
         </Button>
-      </EmptyState>
+      </WorkEmpty>
     );
   }
   if (!s.workLoaded) {
@@ -531,10 +532,20 @@ export function useWorkGate(): ReactNode | null {
 
 /** একটা ব্যবসার পাতা: উপরে "পেছনে" বার ("আমার কাজ"-এ ফেরা), নিচে চওড়া কাজের পাতা */
 export function BizPage({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
+  const mobile = useMobile();
   return (
     <>
-      <SubPageBar title={title} backTo="/work" />
-      <Workspace title={title} actions={actions}>{children}</Workspace>
+      <SubPageBar title={title} backTo="/work" actions={!mobile && actions ? <div className="row gap-8 work-bar-actions">{actions}</div> : undefined} />
+      <Workspace title={title} actions={mobile ? actions : undefined}>{children}</Workspace>
     </>
+  );
+}
+
+/** খালি অবস্থা (ভেতরের বাটনের আইকন ছোট থাকে) */
+export function WorkEmpty(props: { icon: string; title: string; text?: string; children?: ReactNode }) {
+  return (
+    <div className="work-empty">
+      <EmptyState {...props} />
+    </div>
   );
 }

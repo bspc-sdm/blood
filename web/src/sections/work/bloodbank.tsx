@@ -1,7 +1,7 @@
 // /work/bloodbank — নিজের ব্লাড ব্যাংক (সর্বোচ্চ ৩টা): তালিকা, হিসাব, যোগ/বদল/সরানো (অ্যাপের MyBloodBanksSection, BloodBankEditDialog)
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, ChoiceChips, ConfirmDialog, EmptyState, ErrorText, Field, IconButton, Switch, Tag, TextInput } from '@/ui/kit';
+import { Button, ChoiceChips, ConfirmDialog, ErrorText, Field, IconButton, Switch, Tag, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
@@ -15,6 +15,7 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_BLOODBANKS, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
   bloodBankDocs, callsLine, closedDaysText, hoursText, isContactPhone, missingDocs, myBusinessTitle, phoneInput, sentForApproval, useAfterChange, useAreas, useCatalog, useFlash, useWorkGate,
   type BloodBank, type ListingStats,
+  WorkEmpty,
 } from './shared';
 
 const BB_KINDS = ['govt', 'private', 'org'];
@@ -82,9 +83,9 @@ export function MyBloodBanks() {
         <DocsNeededNotice key={b.id} kind="bloodbank" id={b.id} specs={bloodBankDocs(b.kind)} item={b} onDone={after} title={b.name} />
       ))}
       {!list.length ? (
-        <EmptyState icon="bloodtype" title={tr('No blood bank added yet', 'এখনো কোনো ব্লাড ব্যাংক যোগ করা হয়নি')}>
+        <WorkEmpty icon="bloodtype" title={tr('No blood bank added yet', 'এখনো কোনো ব্লাড ব্যাংক যোগ করা হয়নি')}>
           <Button icon="add" onClick={() => nav('/work/bloodbank/new')}>{tr('Add blood bank', 'ব্লাড ব্যাংক যোগ করুন')}</Button>
-        </EmptyState>
+        </WorkEmpty>
       ) : wide ? (
         <div className="table-wrap">
           <table className="table work-table">
@@ -182,12 +183,12 @@ export function BloodBankForm({ id }: { id: string | null }) {
   let body = gate;
   if (!body && id && !existing) {
     body = (
-      <EmptyState icon="bloodtype" title={tr('Not found', 'পাওয়া যায়নি')}>
+      <WorkEmpty icon="bloodtype" title={tr('Not found', 'পাওয়া যায়নি')}>
         <Link to="/work/bloodbank" className="btn">{myBusinessTitle('bloodbank')}</Link>
-      </EmptyState>
+      </WorkEmpty>
     );
   }
-  if (!body && !id && s.work.bloodBanks.length >= MAX_BLOODBANKS) body = <EmptyState icon="bloodtype" title={tr('Up to 3 blood banks per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ৩টা ব্লাড ব্যাংক')} />;
+  if (!body && !id && s.work.bloodBanks.length >= MAX_BLOODBANKS) body = <WorkEmpty icon="bloodtype" title={tr('Up to 3 blood banks per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ৩টা ব্লাড ব্যাংক')} />;
   return (
     <FormPage title={title} backTo="/work/bloodbank">
       {body ?? <BloodBankEditor existing={existing} onDone={(flash) => nav('/work/bloodbank', { state: { flash } })} />}

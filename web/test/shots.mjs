@@ -28,7 +28,7 @@ for (const size of SIZES) {
     const errs = [];
     page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error' && !/googleapis|Failed to load resource|firestore|identitytoolkit/i.test(m.text())) errs.push('console: ' + m.text()); });
-    await page.addInitScript((t) => { window.__lfTest = t; try { if (t && t.lang) localStorage.setItem('lf.lang', t.lang); if (t && t.theme) localStorage.setItem('lf.theme', t.theme); if (t && t.guestArea) localStorage.setItem('lf.guestArea', JSON.stringify(t.guestArea)); if (t && t.filterArea) localStorage.setItem('lf.filterArea', JSON.stringify(t.filterArea)); } catch {} }, p.test || {});
+    await page.addInitScript((t) => { window.__lfTest = t; try { localStorage.clear(); localStorage.setItem('lf.lang', (t && t.lang) || 'bn'); if (t && t.theme) localStorage.setItem('lf.theme', t.theme); if (t && t.guestArea) localStorage.setItem('lf.guestArea', JSON.stringify(t.guestArea)); if (t && t.filterArea) localStorage.setItem('lf.filterArea', JSON.stringify(t.filterArea)); } catch {} }, p.test || {});
     await page.goto(`http://localhost:${PORT}${p.path}`, { waitUntil: 'networkidle' }).catch((e) => errs.push('goto: ' + e.message));
     for (const sel of p.click || []) {
       try { await page.locator(sel).first().click({ timeout: 4000 }); await page.waitForTimeout(350); } catch (e) { errs.push('click ' + sel + ': ' + e.message.split('\n')[0]); }

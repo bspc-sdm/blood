@@ -1,7 +1,7 @@
 // /work/ambulance — নিজের অ্যাম্বুলেন্স: তালিকা, খালি/ব্যস্ত, হিসাব, যোগ/বদল/সরানো (অ্যাপের MyAmbulancesSection)
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, ChoiceChips, ConfirmDialog, EmptyState, ErrorText, Field, IconButton, Tag, TextInput } from '@/ui/kit';
+import { Button, ChoiceChips, ConfirmDialog, ErrorText, Field, IconButton, Tag, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
@@ -16,6 +16,7 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_AMBULANCES, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck,
   ambulanceDocs, callsLine, isContactPhone, missingDocs, myBusinessTitle, phoneInput, sentForApproval, useAfterChange, useAreas, useCatalog, useFlash, useWorkGate,
   type Ambulance, type ListingStats,
+  WorkEmpty,
 } from './shared';
 
 export function MyAmbulances() {
@@ -115,9 +116,9 @@ export function MyAmbulances() {
       ))}
 
       {!list.length ? (
-        <EmptyState icon="ambulance" title={tr('No ambulance added yet', 'এখনো কোনো অ্যাম্বুলেন্স যোগ করা হয়নি')}>
+        <WorkEmpty icon="ambulance" title={tr('No ambulance added yet', 'এখনো কোনো অ্যাম্বুলেন্স যোগ করা হয়নি')}>
           <Button icon="add" onClick={() => nav('/work/ambulance/new')}>{tr('Add ambulance', 'অ্যাম্বুলেন্স যোগ করুন')}</Button>
-        </EmptyState>
+        </WorkEmpty>
       ) : wide ? (
         <div className="table-wrap">
           <table className="table work-table">
@@ -226,16 +227,16 @@ export function AmbulanceForm({ id }: { id: string | null }) {
   if (id && !existing) {
     return (
       <FormPage title={title} backTo="/work/ambulance">
-        <EmptyState icon="ambulance" title={tr('Not found', 'পাওয়া যায়নি')}>
+        <WorkEmpty icon="ambulance" title={tr('Not found', 'পাওয়া যায়নি')}>
           <Link to="/work/ambulance" className="btn">{myBusinessTitle('ambulance')}</Link>
-        </EmptyState>
+        </WorkEmpty>
       </FormPage>
     );
   }
   if (!id && s.work.ambulances.length >= MAX_AMBULANCES) {
     return (
       <FormPage title={title} backTo="/work/ambulance">
-        <EmptyState icon="ambulance" title={tr('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স')} />
+        <WorkEmpty icon="ambulance" title={tr('Up to 10 ambulances per account', 'একটা অ্যাকাউন্টে সর্বোচ্চ ১০টা অ্যাম্বুলেন্স')} />
       </FormPage>
     );
   }

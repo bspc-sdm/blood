@@ -1,7 +1,7 @@
 // /work/lab — নিজের প্যাথলজি: অবস্থা, কাগজ, বদল; পরীক্ষা আর রিপোর্ট পার্টনার প্যানেলে (অ্যাপের MyLabPanel, LabEditScreen)
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorText, ListRow, Loading, Switch, TextInput } from '@/ui/kit';
+import { Button, ConfirmDialog, Dialog, ErrorText, ListRow, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { useSession } from '@/lib/session';
@@ -15,6 +15,7 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, PAPERS_CHANGED, StatusReason, StatusTag, TermsCheck,
   labDocs, missingDocs, myBusinessTitle, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type Lab,
+  WorkEmpty,
 } from './shared';
 import { PartnerCard } from './pharmacy';
 
@@ -35,13 +36,13 @@ export function MyLab() {
     return (
       <BizPage title={title}>
         <Flash msg={flash} />
-        <EmptyState
+        <WorkEmpty
           icon="local_hospital"
           title={tr('Run a diagnostic centre?', 'ডায়াগনস্টিক সেন্টার চালান?')}
           text={tr('Join so patients can send you tests from their prescriptions, and give reports in the app. Free.', 'যোগ দিন — রোগীরা প্রেসক্রিপশন থেকে আপনার কাছে পরীক্ষা পাঠাবেন, রিপোর্ট অ্যাপেই দেবেন। বিনামূল্যে।')}
         >
           <Button icon="add" onClick={() => nav('/work/lab/new')}>{tr('Add my lab', 'আমার প্যাথলজি যোগ করুন')}</Button>
-        </EmptyState>
+        </WorkEmpty>
       </BizPage>
     );
   }
@@ -89,7 +90,7 @@ export function MyLab() {
             <span className="work-ic"><Icon name="local_hospital" /></span>
             <div className="col gap-4 grow">
               <h3 className="t-title-m">{lab.name}</h3>
-              <span className="t-label-l c-primary">{statusText(lab.status)}</span>
+              {lab.status !== 'approved' ? <span className="t-label-l c-primary">{statusText(lab.status)}</span> : null}
             </div>
             <StatusTag status={lab.status} />
           </div>

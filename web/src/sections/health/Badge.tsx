@@ -59,7 +59,7 @@ export function DocPhotosField({ specs, photos, onChange, note }: { specs: DocSp
       />
       {specs.map((d) => (
         <div key={d.type} className="row health-doc">
-          {photos[d.type] ? <img src={imgSrc(photos[d.type])} alt="" className="health-doc-thumb" /> : <span className="health-doc-thumb empty"><Icon name="photo_camera" /></span>}
+          {photos[d.type] ? <img src={imgSrc(photos[d.type])} alt="" className="health-doc-thumb" /> : <span className="health-doc-thumb health-doc-ph"><Icon name="photo_camera" /></span>}
           <div className="col gap-2 grow">
             <span className="t-body-m semi">{d.label}{d.required ? ' *' : ''}</span>
             <span className="t-body-s muted">{d.hint}</span>
@@ -235,7 +235,7 @@ export function BadgePage() {
           ) : null}
           <div className="field">
             <span className="label">{tr('Profession', 'পেশা')}</span>
-            <div className="chips" role="group" aria-label={tr('Profession', 'পেশা')}>
+            <div className="chips health-chips" role="group" aria-label={tr('Profession', 'পেশা')}>
               {BADGES.map((b) => (
                 <button key={b} type="button" className="chip lead" aria-pressed={t === b} disabled={correction && t !== b} onClick={() => setType(b)}>
                   <Icon name={badgeIcon(b)} />

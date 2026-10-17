@@ -89,7 +89,7 @@ function TipCard({ t, selected, onClick }: { t: Tip; selected: boolean; onClick:
     >
       <AuthorLine name={t.authorName} badge={t.badge} createdAt={t.createdAt} />
       <h3 className="t-title-m">{t.title}</h3>
-      <p className="t-body-m muted pre health-clamp3">{t.body}</p>
+      <p className="t-body-m muted health-clamp3">{t.body}</p>
     </article>
   );
 }

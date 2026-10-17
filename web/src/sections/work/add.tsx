@@ -34,11 +34,11 @@ export function AddBusiness() {
             return (
               <button key={k} type="button" className="work-choice" onClick={() => pick(k)}>
                 <span className="work-ic"><Icon name={businessIcon(k)} /></span>
-                <span className="col gap-2 grow">
+                <span className="col gap-4 grow">
                   <span className="t-title-m">{businessName(k)}</span>
                   <span className="t-body-s muted">{desc(k)}</span>
+                  {n > 0 ? <Tag tone="good">{max(k) > 1 ? tr(`Added ${n}`, `${num(n)}টা যোগ করা আছে`) : tr('Added', 'যোগ করা আছে')}</Tag> : null}
                 </span>
-                {n > 0 ? <Tag tone="good">{max(k) > 1 ? tr(`Added ${n}`, `${num(n)}টা যোগ করা আছে`) : tr('Added', 'যোগ করা আছে')}</Tag> : null}
                 <Icon name="chevron_right" className="work-chev" />
               </button>
             );

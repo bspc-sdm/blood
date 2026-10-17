@@ -99,7 +99,7 @@ function QuestionCard({ q, selected, onClick }: { q: Question; selected: boolean
       }}
     >
       <AuthorLine name={q.authorName} createdAt={q.createdAt} />
-      <p className="t-body-l pre health-clamp4">{q.text}</p>
+      <p className="t-body-l health-clamp4">{q.text}</p>
       <IconLine icon="forum_outline" color={q.answerCount > 0 ? 'var(--tertiary)' : undefined}>{answersText(q.answerCount)}</IconLine>
     </article>
   );

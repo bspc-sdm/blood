@@ -1,7 +1,7 @@
 // /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, ওষুধ খোঁজার অনুরোধ, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen, PharmacyFindRequests)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
+import { Button, ConfirmDialog, Dialog, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
@@ -17,6 +17,7 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MiniBars, PAPERS_CHANGED, Stat, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
   closedDaysText, hoursText, missingDocs, myBusinessTitle, pharmacyDocs, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type CallSummary, type Pharmacy,
+  WorkEmpty,
 } from './shared';
 
 interface FindReq { id: string; drug: { name: string; generic?: string; form?: string; company?: string }; area: string; km: number | null; answer: 'yes' | 'no' | null; createdAt: number }
@@ -42,13 +43,13 @@ export function MyPharmacy() {
     return (
       <BizPage title={title}>
         <Flash msg={flash} />
-        <EmptyState
+        <WorkEmpty
           icon="storefront"
           title={tr('Have a licensed pharmacy?', 'লাইসেন্সধারী ফার্মেসি আছে?')}
           text={tr('Add it so people nearby can find it — especially at night — and call you directly. Free: no commission, the app sells nothing.', 'যোগ করুন, যাতে কাছের মানুষ (বিশেষ করে রাতে) খুঁজে পেয়ে সরাসরি ফোন করতে পারেন। বিনামূল্যে: কোনো কমিশন নেই, অ্যাপ কিছু বিক্রি করে না।')}
         >
           <Button icon="add" onClick={() => nav('/work/pharmacy/new')}>{tr('Add my pharmacy', 'আমার ফার্মেসি যোগ করুন')}</Button>
-        </EmptyState>
+        </WorkEmpty>
       </BizPage>
     );
   }
@@ -135,7 +136,7 @@ export function MyPharmacy() {
             <span className="work-ic"><Icon name="storefront" /></span>
             <div className="col gap-4 grow">
               <h3 className="t-title-m">{ph.name}</h3>
-              <span className="t-label-l c-primary">{statusText(ph.status)}</span>
+              {ph.status !== 'approved' ? <span className="t-label-l c-primary">{statusText(ph.status)}</span> : null}
             </div>
             <StatusTag status={ph.status} closed={ph.closedUntil > 0} />
           </div>

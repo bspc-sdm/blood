@@ -12,6 +12,7 @@ import {
   StatusTag, Stat, ambulanceDocs, badgeIcon, badgeLabel, bloodBankDocs, businessIcon, businessName, callsLine, labDocs, pharmacyDocs, statusCounts,
   useAfterChange, useWorkGate, DocsNeededNotice, MAX_AMBULANCES, MAX_BLOODBANKS,
   type Ambulance, type BloodBank, type CallSummary, type Kind, type Lab, type ListingStats, type Pharmacy,
+  WorkEmpty,
 } from './shared';
 
 export function WorkOverview() {
@@ -37,13 +38,13 @@ export function WorkOverview() {
   if (!hasBusiness && !w.professional) {
     return (
       <Workspace title={title}>
-        <EmptyState
+        <WorkEmpty
           icon="storefront"
           title={tr('Do you have a business?', 'আপনার কি কোনো ব্যবসা আছে?')}
           text={tr('Ambulance, pharmacy, blood bank or lab — add it so patients nearby can find you.', 'অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা প্যাথলজি — যোগ করলে আশেপাশের রোগীরা আপনাকে খুঁজে পাবেন।')}
         >
           <Button icon="add" onClick={() => nav('/work/add')}>{tr('Add business', 'ব্যবসা যোগ করুন')}</Button>
-        </EmptyState>
+        </WorkEmpty>
       </Workspace>
     );
   }
