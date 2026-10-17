@@ -145,14 +145,25 @@ export async function processing(uid: string, ids: string[]): Promise<BloodReque
   const active: BloodRequest[] = [];
   const finished: string[] = [];
   const now = Date.now();
+  // পড়তে ভুল হলে (ইন্টারনেট নেই) কিছুই সরানো হয় না — অ্যাপের মতো ভুলটা বাইরে যায়
+  let failed = false;
   await Promise.all(ids.map(async (id) => {
-    const r = await getRequest(id).catch(() => null);
-    const resp = r ? await myResponse(id, uid).catch(() => null) : null;
+    const r = await getRequest(id).catch(() => {
+      failed = true;
+      return null;
+    });
+    if (failed && !r) return;
+    const resp = r ? await myResponse(id, uid).catch(() => {
+      failed = true;
+      return undefined;
+    }) : null;
+    if (resp === undefined) return;
     const endedAt = !r ? 0 : r.closedAtMillis > 0 ? r.closedAtMillis : activeUntil(r);
     const recentlyEnded = !!r && !isActive(r, now) && now - endedAt < 3 * DAY_MS;
     if (r && resp?.status === 'accepted' && (isActive(r, now) || recentlyEnded)) active.push(r);
     else finished.push(id);
   }));
+  if (failed) throw new Error('offline');
   dropCommitments(uid, finished).catch(() => {});
   return active.sort((a, b) => deadline(a) - deadline(b));
 }

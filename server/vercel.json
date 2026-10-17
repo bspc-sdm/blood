@@ -120,7 +120,7 @@
       ]
     },
     {
-      "source": "/((?!api/|admin|doctor|w/assets/).*)",
+      "source": "/((?!api/|admin|doctor|w/assets/|r/|rx/|shop/|\\.well-known/).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",

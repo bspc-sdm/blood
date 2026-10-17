@@ -2,7 +2,7 @@
 // লগইন থাকলে Firebase টোকেন যায়; না থাকলে শুধু অতিথির কাজগুলো (server/lib/guest.js) চলে।
 import { auth } from './firebase';
 import { getLang, tr } from './i18n';
-import { careTarget } from './care';
+import { careTarget, setCareMode } from './care';
 import { testUser } from './testmode';
 
 /** লগইন ছাড়া যে কাজগুলো চলে — server/lib/guest.js-এর তালিকার সাথে মেলানো */
@@ -54,6 +54,8 @@ async function request(path: string, body: Record<string, unknown>, token: strin
   }
   if (!res.ok) {
     if (json.code === 'account_disabled') disabledListeners.forEach((f) => f(json.error || ''));
+    // রোগী কেয়ারগিভার থেকে সরিয়ে দিয়েছেন: মোড বন্ধ, যাতে বাকি সব আবার নিজের হয়ে চলে
+    if (json.code === 'care_revoked') setCareMode(null);
     throw new ServerError(json.error || tr(`Server error (${res.status})`, `সার্ভারে সমস্যা (${res.status})`), res.status, json.code);
   }
   return json;

@@ -149,9 +149,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener('scroll', f, { passive: true });
     return () => window.removeEventListener('scroll', f);
   }, []);
-  // পাতা বদলালে উপরে
+  // পাতা বদলালে উপরে; নিজের কাজ/প্রোফাইলে গেলে কেয়ারগিভার মোড বন্ধ (অন্যের হয়ে নিজের চেম্বার চালানো নয়)
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (/^\/(work|profile|settings|care)(\/|$)/.test(pathname)) setCareMode(null);
   }, [pathname]);
   return (
     <div className={cx('shell', detailOpen > 0 && 'detail-open', subOpen > 0 && 'sub-open')}>

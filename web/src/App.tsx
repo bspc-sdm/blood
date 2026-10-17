@@ -1,9 +1,10 @@
 // পথ (route) — প্রতিটা অংশ আলাদা ফাইলে, দরকার হলে তবেই আনা হয় (প্রথম পাতা দ্রুত খোলে)
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './shell/AppShell';
 import { Loading } from './ui/kit';
 import { NotFound } from './pages/NotFound';
+import { ErrorBoundary } from './shell/ErrorBoundary';
 
 const Blood = lazy(() => import('./sections/blood'));
 const Services = lazy(() => import('./sections/services'));
@@ -13,8 +14,10 @@ const Work = lazy(() => import('./sections/work'));
 const Account = lazy(() => import('./sections/account'));
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
     <AppShell>
+      <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* হোম: রক্তের রিকোয়েস্ট */}
@@ -41,6 +44,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </AppShell>
   );
 }

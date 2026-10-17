@@ -23,6 +23,19 @@ import { applyTheme } from './lib/theme';
 import { getLang } from './lib/i18n';
 
 applyTheme();
+// নতুন ডিপ্লয়ের পর পুরোনো ট্যাবে কোনো অংশের ফাইল না পেলে একবার নিজে থেকে আবার লোড
+window.addEventListener('vite:preloadError', (e) => {
+  e.preventDefault();
+  try {
+    const k = 'lf.reloadedAt';
+    const last = Number(sessionStorage.getItem(k) || 0);
+    if (Date.now() - last < 10000) return;
+    sessionStorage.setItem(k, String(Date.now()));
+  } catch {
+    /* তবুও লোড */
+  }
+  window.location.reload();
+});
 document.documentElement.lang = getLang();
 
 createRoot(document.getElementById('root')!).render(

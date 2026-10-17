@@ -10,10 +10,19 @@ const ACTIONS = new Set([
 let state: { uid: string; name: string } | null = null;
 const subs = new Set<() => void>();
 
+const changeListeners = new Set<() => void>();
+/** মোড বদলালে (query.ts পুরোনো ক্যাশ ফেলে দেয়) */
+export function onCareChange(f: () => void) {
+  changeListeners.add(f);
+}
 export function setCareMode(v: { uid: string; name: string } | null) {
+  if ((state?.uid ?? null) === (v?.uid ?? null)) return;
   state = v;
   subs.forEach((f) => f());
+  changeListeners.forEach((f) => f());
 }
+/** এখন কার হয়ে (না থাকলে null) */
+export const careUid = () => state?.uid ?? null;
 export function useCareMode() {
   return useSyncExternalStore(
     (f) => {
