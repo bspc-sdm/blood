@@ -428,17 +428,23 @@ export function Dialog({
 }: { open?: boolean; onClose: () => void; title?: ReactNode; children?: ReactNode; actions?: ReactNode; size?: 'small' | 'wide'; sheet?: boolean; labelledBy?: string }) {
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
+  // onClose প্রতিবার নতুন হতে পারে — তাই ref-এ; নইলে প্রতিটা অক্ষর লেখার পর ফোকাস অন্য ঘরে চলে যেত
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     openDialogs++;
     document.body.style.overflow = 'hidden';
     const prev = document.activeElement as HTMLElement | null;
+    // খোলার সময় একবারই: আগে লেখার ঘর, না থাকলে প্রথম বাটন
     const t = setTimeout(() => {
-      const f = box.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button:not([data-close])');
-      (f ?? box.current)?.focus();
+      const el = box.current;
+      if (!el || el.contains(document.activeElement)) return;
+      const f = el.querySelector<HTMLElement>('input:not([type=hidden]):not([disabled]), select, textarea') ?? el.querySelector<HTMLElement>('button:not([data-close])');
+      (f ?? el).focus();
     }, 30);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') closeRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -448,10 +454,10 @@ export function Dialog({
       if (!openDialogs) document.body.style.overflow = '';
       prev?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return createPortal(
-    <div className={cx('overlay', sheet && 'sheet')} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={cx('overlay', sheet && 'sheet')} onMouseDown={(e) => e.target === e.currentTarget && closeRef.current()}>
       <div ref={box} className={cx('dialog', size)} role="dialog" aria-modal="true" aria-labelledby={title ? id : labelledBy} tabIndex={-1}>
         {title ? (
           <div className="row">
