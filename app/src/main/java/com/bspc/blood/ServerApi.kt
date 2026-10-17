@@ -110,8 +110,10 @@ object ServerApi {
         val rids = synchronized(loginRids) { if (loginRidEmail == email) loginRids.toList() else emptyList() }
         val body = JSONObject().put("email", email).put("code", code)
         if (rids.isNotEmpty()) body.put("rids", org.json.JSONArray(rids))
-        return request("/api/auth/verify-code", body, null)
-            .optString("token").ifBlank { throw IllegalStateException(tr("Login failed, try again", "লগইন হয়নি, আবার চেষ্টা করুন")) }
+        val r = request("/api/auth/verify-code", body, null)
+        val token = r.optString("token").ifBlank { throw IllegalStateException(tr("Login failed, try again", "লগইন হয়নি, আবার চেষ্টা করুন")) }
+        if (r.optBoolean("restored")) SessionEvents.restored.value = true
+        return token
     }
 
     internal suspend fun post(path: String, body: JSONObject): JSONObject {
@@ -174,4 +176,6 @@ class ServerError(message: String, val code: String?) : IllegalStateException(me
 object SessionEvents {
     /** অ্যাকাউন্ট বন্ধ — বার্তা (কারণ আর আপিলের ইমেইলসহ) */
     val disabled = androidx.compose.runtime.mutableStateOf<String?>(null)
+    /** লগইনে মোছার অনুরোধ বাতিল হয়েছে (৩০ দিনের মধ্যে আবার লগইন) */
+    val restored = androidx.compose.runtime.mutableStateOf(false)
 }
