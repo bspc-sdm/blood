@@ -1,0 +1,1 @@
+import{j as t}from"./react-Dgo57h9W.js";import{J as r}from"./index-C9sStzs7.js";import"./firebase-Dd4-SEMk.js";function a(){return t.jsx(r,{icon:"medication",title:"পরীক্ষা ও রিপোর্ট"})}export{a as LabOrdersWorkspace,a as default};
