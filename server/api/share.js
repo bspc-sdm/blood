@@ -184,6 +184,7 @@ ${r.urgent && active ? '<span class="tag">জরুরি · Urgent</span>' : ''
 <dt>যাতায়াত খরচ · Travel cost</dt><dd>${r.travelFare ? 'দেওয়া হবে · Will be paid' : 'দেওয়া হবে না · Not provided'}</dd>
 </dl></div>
 ${active ? `<a class="btn primary" href="${esc(intent)}">অ্যাপে খুলে সাড়া দিন · Open in app</a>` : ''}
+${active ? `<a class="btn secondary" href="/request/${encodeURIComponent(id)}">ওয়েবে খুলে সাড়া দিন · Open on the web</a>` : ''}
 <a class="btn secondary" href="${esc(APK_URL)}">অ্যাপ নামান · Download Lifolo</a>
 <p class="muted" style="margin-top:20px">রক্ত কেনাবেচা নিষিদ্ধ। চূড়ান্তভাবে ব্লাড ব্যাংক ক্রসম্যাচ করে ঠিক করবে।<br>Blood can't be bought or sold. The blood bank decides after cross-matching.</p>`;
   res.status(200).send(page(title, body));

@@ -14,6 +14,15 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: false,
     chunkSizeWarningLimit: 900,
+    // বড় লাইব্রেরি আলাদা ফাইলে — আমাদের কোড বদলালেও ব্রাউজারে আগেরগুলো জমা থাকে
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          react: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+        },
+      },
+    },
   },
   server: {
     // লোকাল চালালে API লাইভ সার্ভারে যায়
