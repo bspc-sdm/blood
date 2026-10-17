@@ -1,1 +1,0 @@
-import{j as t}from"./react-Dgo57h9W.js";import{J as o}from"./index-C9sStzs7.js";import"./firebase-Dd4-SEMk.js";function m(){return t.jsx(o,{icon:"medication",title:"প্রেসক্রিপশন"})}export{m as DoctorRxWorkspace,m as default};
