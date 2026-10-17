@@ -2,7 +2,6 @@
 
 package com.bspc.blood
 
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -96,15 +95,18 @@ fun AppointmentTab(
         }
         return
     }
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().nestedScroll(FabScroll.connection)) {
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // শিরোনামের পাশে "বাসায় সেবা" বাটন (আগে নিচে ভাসমান ছিল; ২.২০.১)
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 tr("Appointment", "অ্যাপয়েন্টমেন্ট"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
+            androidx.compose.material3.FilledTonalButton(onClick = { showHome = true }) {
+                ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
+            }
         }
         PillTabs(
             tab,
@@ -118,8 +120,6 @@ fun AppointmentTab(
         ProviderList(CHAMBER_TYPES[tab.coerceIn(0, CHAMBER_TYPES.lastIndex)], profile)
     }
     // নিজের চেম্বার বা বাসায় সেবা এখানে নেই — "আমার কাজ" ট্যাবে (২.২০.০)
-    SmallFab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health, { showHome = true }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-    }
 }
 
 @Composable
