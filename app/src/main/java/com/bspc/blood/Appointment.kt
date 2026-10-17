@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -104,8 +105,19 @@ fun AppointmentTab(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            androidx.compose.material3.FilledTonalButton(onClick = { showHome = true }) {
-                ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
+            // ছোট টিল বাটন (অ্যাপের মূল রং)
+            androidx.compose.material3.Button(
+                onClick = { showHome = true },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp),
+            ) {
+                AppIcon(R.drawable.ic_home_health, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onPrimary)
+                Text(
+                    tr("Home care", "বাসায় সেবা"),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
             }
         }
         PillTabs(
