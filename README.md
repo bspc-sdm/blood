@@ -56,7 +56,7 @@ gradle assembleDebug
 স্ক্রিনশট টেস্ট (Robolectric + Roborazzi): `.github/workflows/screens.yml` হাতে চালালে ছবি `screens` শাখায় জমা হয়।
 
 **ডিপ্লয়:**
-- Vercel নিজে কোনো push-এ ডিপ্লয় করে না (`server/vercel.json`: `git.deploymentEnabled: false`) — বাতিল হওয়া (Ignored Build Step) ডিপ্লয়ও দিনের ১০০টার সীমায় গোনা হয়। `main`-এ `server/` বদলালে `.github/workflows/deploy-server.yml` ১০ মিনিট অপেক্ষা করে (এর মাঝে আরও push হলে আগেরটা বাতিল) তারপর Vercel Deploy Hook ডাকে — তাই কয়েকটা বদল মিলে একটা ডিপ্লয়। হুকের URL GitHub সিক্রেট `VERCEL_DEPLOY_HOOK`-এ। হাতে ডিপ্লয়: Actions › Deploy server › Run workflow।
+- Vercel নিজে কোনো push-এ ডিপ্লয় করে না (`server/vercel.json`: `git.deploymentEnabled: false`) — বাতিল হওয়া (Ignored Build Step) ডিপ্লয়ও দিনের ১০০টার সীমায় গোনা হয়। `main`-এ `server/` বদলালে `.github/workflows/deploy-server.yml` ১০ মিনিট অপেক্ষা করে (এর মাঝে আরও push হলে আগেরটা বাতিল) তারপর Vercel Deploy Hook ডাকে — তাই কয়েকটা বদল মিলে একটা ডিপ্লয়। হুকের URL GitHub সিক্রেট `VERCEL_DEPLOY_HOOK`-এ। হাতে ডিপ্লয়: Actions › Deploy server › Run workflow। হুক না থাকলে: এক কমিটে `server/vercel.json` থেকে `git` অংশ সরিয়ে push (Vercel নিজে ডিপ্লয় করে), সফল হলে পরের কমিটে আবার ফিরিয়ে দেওয়া — একটা ডিপ্লয় খরচ।
 - `main`-এ `app/` বদলালে `build.yml` APK বানিয়ে GitHub-এর `latest` রিলিজে রাখে (`lifolo-<version>-<code>.apk`)। ভার্সন: `app/build.gradle.kts`-এর `versionName`/`versionCode`।
 
 ## হাসপাতাল/ডায়াগনস্টিকের তালিকা
