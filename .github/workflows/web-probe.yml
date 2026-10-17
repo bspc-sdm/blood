@@ -8,8 +8,15 @@ jobs:
     steps:
       - name: Wait for new build live
         run: |
+          B=https://blood-server-ashy.vercel.app
           for i in $(seq 1 45); do
-            if curl -s -m 20 https://blood-server-ashy.vercel.app/ | grep -q '/w/assets/index-Clb3b_Z0.js'; then echo "LIVE after $i"; exit 0; fi
+            if curl -s -m 20 $B/ | grep -q '/w/assets/index-CcGJvbLj.js'; then echo "LIVE after $i"; break; fi
             sleep 20
           done
-          echo "not live"; exit 1
+          curl -s $B/ | grep -q '/w/assets/index-CcGJvbLj.js' || { echo "not live"; exit 1; }
+          echo "doctor: $(curl -s -o /dev/null -w '%{http_code}' $B/doctor) $(curl -s $B/doctor | grep -c '/w/assets/')"
+          echo "doctor app.js: $(curl -s -o /dev/null -w '%{http_code}' $B/doctor/app.js)"
+          echo "work/rx: $(curl -s -o /dev/null -w '%{http_code}' $B/work/rx)"
+          echo "admin: $(curl -s -o /dev/null -w '%{http_code}' $B/admin)"
+          echo "api: $(curl -s $B/api/health)"
+          echo "panel login: $(curl -s -H 'content-type: application/json' -d '{"email":"x@example.com","code":"123456","web":true,"panel":"doctor"}' $B/api/auth/verify-code)"
