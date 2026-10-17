@@ -166,13 +166,15 @@ module.exports = {
     const DOC_NAME = doc.name; // "ডা. ডেমো হাসান" (index.js)
     const DOC_DEGREES = 'এমবিবিএস, এফসিপিএস (মেডিসিন) — ডেমো'; // services ভাগের প্রেসক্রিপশনের সাথে মিলিয়ে
     const DOC_REG = 'DEMO-A-10001';
+    // ডেমোতে যেকোনো দিন সকাল-বিকাল সিরিয়াল নেওয়া যায় (মালিক যেদিনই পরীক্ষা করুন, "আজ" খোলা থাকে)
+    const ALL_DAYS = [6, 0, 1, 2, 3, 4, 5];
     const ch1 = chamber('dghs_392', {
-      room: 'ডেমো চেম্বার · বহির্বিভাগ ৩১২', days: [6, 0, 1, 2, 3, 4], start: '17:00', end: '21:00',
-      fee: '৫০০ টাকা', serialPhone: '01700000202', schedule: 'সরকারি ছুটির দিন বন্ধ (ডেমো)',
+      room: 'ডেমো চেম্বার · বহির্বিভাগ ৩১২',
+      times: [{ days: ALL_DAYS, start: '10:00', end: '13:00' }, { days: ALL_DAYS, start: '16:00', end: '22:30' }],
+      fee: '৫০০ টাকা', serialPhone: '01700000202', schedule: 'ডেমো চেম্বার — প্রতিদিন খোলা',
     });
     const ch2 = chamber('dghs_382', {
-      room: 'ডেমো চেম্বার · রুম ৫',
-      times: [{ days: [1, 3], start: '09:00', end: '12:00' }, { days: [5], start: '10:00', end: '13:00' }],
+      room: 'ডেমো চেম্বার · রুম ৫', days: [5], start: '14:00', end: '15:30',
       fee: '৪০০ টাকা', schedule: 'শুক্রবার শুধু ফলো-আপ (ডেমো)',
     });
     const docChambers = [ch1, ch2];
@@ -233,6 +235,7 @@ module.exports = {
       shirin: ['ডেমো রোগী শিরিন আক্তার', 29, 'female', '01700000315'],
       fatema: ['ডেমো রোগী ফাতেমা বেগম', 61, 'female', '01700000316'],
       moriom: ['ডেমো রোগী মরিয়ম নেসা', 52, 'female', '01700000317'],
+      rashed: ['ডেমো রোগী রাশেদুল ইসলাম', 49, 'male', '01700000319'],
       kamal: ['ডেমো রোগী কামাল হোসেন', 40, 'male', '01700000318'],
     };
     const bp = {};
@@ -271,9 +274,8 @@ module.exports = {
     // আজকের সিরিয়াল (ডেমো ডাক্তার)
     const tSalma = await appt(bp.salma, D, todayCh, today, { status: 'confirmed', serial: 1, note: 'থাইরয়েডের রিপোর্ট দেখাতে চাই, ক্লান্ত লাগে', createdAt: now - 2 * DAY });
     const tKarim = await appt(bp.karim, D, todayCh, today, { status: 'confirmed', serial: 2, note: 'প্রেসার বেশি থাকছে, মাথা ভার লাগে', createdAt: now - 2 * DAY + 3 * 3600 * 1000 });
-    const tMe = await appt(me, D, todayCh, today, {
-      status: 'confirmed', serial: 3, note: 'ডায়াবেটিসের ফলো-আপ, রিপোর্ট দেখাতে চাই', providerNote: 'আগের রিপোর্ট সাথে আনবেন', createdAt: now - DAY,
-    });
+    // ডেমো রোগীর আজ এই ডাক্তারের কাছে কিছু নেই — মালিক নিজে সিরিয়াল নেবেন (রোগীর পুরো যাত্রা)
+    await appt(bp.rashed, D, todayCh, today, { status: 'confirmed', serial: 3, note: 'ডায়াবেটিসের ফলো-আপ, রিপোর্ট দেখাতে চাই', providerNote: 'আগের রিপোর্ট সাথে আনবেন', createdAt: now - DAY });
     await appt(bp.moriom, D, todayCh, today, { status: 'confirmed', serial: 4, note: 'হাঁটুতে ব্যথা, ঘুম কম হয়', createdAt: now - DAY + 3600 * 1000 });
     await appt(bp.habib, D, todayCh, today, { status: 'pending', note: 'তিন দিন ধরে জ্বর আর গা ব্যথা', createdAt: now - 2 * 3600 * 1000 });
     await appt(bp.shirin, D, todayCh, today, { status: 'cancelled', note: 'মাথাব্যথা', createdAt: now - DAY, updatedAt: now - 5 * 3600 * 1000 });
@@ -296,13 +298,16 @@ module.exports = {
     const d10 = prevOpen(ch1, today - 10 * DAY);
     await appt(bp.karim, D, ch1, d10, { status: 'completed', serial: 3, note: 'প্রেসারের ওষুধ শেষ', createdAt: d10 - DAY });
 
-    // ডেমো রোগীর অন্য ডাক্তারের কাছে: অপেক্ষায় (সামনে), উত্তর আসেনি, না করা, বাতিল
+    // ডেমো রোগীর অন্য ডাক্তারের কাছে: নিশ্চিত আর অপেক্ষায় (সামনে), উত্তর আসেনি, না করা, বাতিল
     const mah = docs['rx-doc-mahbub'];
     const mDate = nextOpen(mah.ch[0], today + 3 * DAY);
-    await appt(me, mah, mah.ch[0], mDate, { status: 'pending', note: 'বুকে চাপ লাগে, সিঁড়ি ভাঙলে হাঁপিয়ে যাই', createdAt: now - 3 * 3600 * 1000 });
+    await appt(me, mah, mah.ch[0], mDate, {
+      status: 'confirmed', serial: 2, note: 'বুকে চাপ লাগে, সিঁড়ি ভাঙলে হাঁপিয়ে যাই', providerNote: 'ইসিজি রিপোর্ট সাথে আনবেন', createdAt: now - 20 * 3600 * 1000,
+    });
     const mOld = prevOpen(mah.ch[0], today - 40 * DAY);
     await appt(me, mah, mah.ch[0], mOld, { status: 'expired', note: 'ইসিজি রিপোর্ট দেখাতে', createdAt: mOld - 3 * DAY, updatedAt: mOld + DAY });
     const kam = docs['rx-doc-kamrul'];
+    await appt(me, kam, kam.ch[0], nextOpen(kam.ch[0], today + 2 * DAY), { status: 'pending', note: 'ছেলের জ্বর আর কাশি (ছেলের জন্য)', createdAt: now - 3 * 3600 * 1000 });
     const kOld = prevOpen(kam.ch[0], today - 12 * DAY);
     await appt(me, kam, kam.ch[0], kOld, { status: 'declined', note: 'ছেলের জ্বর আর কাশি (ছেলের জন্য)', providerNote: 'সেদিন সিরিয়াল পূর্ণ, অন্য দিন নিন', createdAt: kOld - 2 * DAY });
     const nas = docs['rx-doc-nasrin'];

@@ -75,9 +75,8 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   const patAppts = (await call(PT, 'my_appointments')).items.filter((a) => a.role === 'patient');
   const st = new Set(patAppts.map((a) => a.status));
   for (const x of ['confirmed', 'pending', 'completed', 'expired', 'declined', 'cancelled']) assert.ok(st.has(x), x);
-  const mine3 = patAppts.find((a) => a.date === today);
-  assert.strictEqual(mine3.serial, 3);
-  assert.strictEqual(mine3.otherPhone, '01700000201');
+  assert.ok(!patAppts.some((a) => a.date === today), 'আজ ডেমো ডাক্তারের কাছে রোগীর কিছু নেই — নিজে সিরিয়াল নেবেন');
+  assert.ok(patAppts.some((a) => a.status === 'confirmed' && a.serial === 2 && a.otherPhone === '01700000213'), 'নিশ্চিত হলে ডাক্তারের ফোন');
 
   // ---------- সহকারী ----------
   const assisting = (await call(AS, 'rx_assisting')).items;
@@ -144,52 +143,96 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   assert.ok(pend.some((b) => b.name === 'ডা. ডেমো তানভীর রহমান' && b.status === 'pending' && b.type === 'doctor'));
   assert.ok(pend.some((b) => b.name === 'ডা. ডেমো কামরুল ইসলাম' && b.change && b.change.regNo === 'DEMO-A-55555'));
 
-  // =================== পরীক্ষকের মতো কাজ ===================
-  // রোগী সিরিয়াল চান → ডাক্তার নিশ্চিত করেন
+  // =================== রোগীর পুরো যাত্রা (journey.json) — আসল কাজ দিয়ে ===================
+  // J: রোগী আজ (চেম্বারের সময় শেষ হলে কাল) ডেমো ডাক্তারের সিরিয়াল চান
   const ch1 = hasan.chambers[0];
-  let date = today + DAY;
-  while (!K.chamberOpenOn(ch1, date)) date += DAY;
-  const dup = await raw(PT, 'book', { providerUid: DOC, chamberIndex: 0, date: today, note: 'আবার' });
-  assert.ok([400, 409].includes(dup.status), 'আজকের সিরিয়াল আগেই আছে / সময় শেষ');
-  const booked = await call(PT, 'book', { providerUid: DOC, chamberIndex: 0, date, note: 'ডেমো পরীক্ষা: সুগার মাপাতে চাই', chamberKey: ch1.hospitalId });
-  await call(DOC, 'appointment_update', { id: booked.id, op: 'confirm', providerNote: '' });
+  let b = await raw(PT, 'book', { providerUid: DOC, chamberIndex: 0, date: today, note: 'সুগার বেশি, মাথা ঘোরে', chamberKey: ch1.hospitalId });
+  if (b.status !== 200) {
+    assert.match(b.body.error, /সময় শেষ/);
+    b = await raw(PT, 'book', { providerUid: DOC, chamberIndex: 0, date: today + DAY, note: 'সুগার বেশি, মাথা ঘোরে', chamberKey: ch1.hospitalId });
+  }
+  assert.strictEqual(b.status, 200, JSON.stringify(b.body));
+  const apptId = b.body.id;
+  const dup = await raw(PT, 'book', { providerUid: DOC, chamberIndex: 0, date: (await db.doc(`appointments/${apptId}`).get()).get('date'), note: 'আবার' });
+  assert.strictEqual(dup.status, 409, 'একই দিনে দুবার নয়');
+  // J: ডাক্তার নিশ্চিত করেন → সিরিয়াল; সহকারীর রোগীর তালিকায় আসে; ফোন নম্বর দুজনেই দেখেন
+  assert.strictEqual((await raw(AS, 'appointment_update', { id: apptId, op: 'confirm' })).status, 400, 'সহকারী বুকিং নিশ্চিত করতে পারেন না');
+  await call(DOC, 'appointment_update', { id: apptId, op: 'confirm', providerNote: 'সিরিয়াল এলে ফোন করা হবে' });
+  const myA = (await call(PT, 'my_appointments')).items.find((a) => a.id === apptId);
+  assert.strictEqual(myA.status, 'confirmed');
+  assert.ok(myA.serial >= 1 && myA.otherPhone);
+  const docA = (await call(DOC, 'my_appointments')).items.find((a) => a.id === apptId && a.role === 'provider');
+  assert.strictEqual(docA.otherPhone, (await db.doc(`users/${PT}`).get()).get('phone'));
+  assert.ok((await call(AS, 'rx_patients', { doctorUid: DOC })).appointments.some((a) => a.id === apptId && a.serial === myA.serial));
+  // J: ডাক্তার ওষুধ আর পরীক্ষা দিয়ে প্রেসক্রিপশন লেখেন
+  const made = await call(DOC, 'rx_create', {
+    appointmentId: apptId, chamberIndex: 0, complaints: 'সুগার বেশি, মাথা ঘোরে', findings: { bp: '140/90' }, diagnosis: 'Type 2 DM',
+    medicines: [
+      { name: 'Comet', form: 'Tablet', strength: '500 mg', dose: '1+0+1', days: 30, timing: 'after' },
+      { name: 'Napa', form: 'Tablet', strength: '500 mg', dose: '1+1+1', days: 3, timing: 'after' },
+    ],
+    tests: ['CBC', 'HbA1c'], advice: 'মিষ্টি বাদ', followUpDays: 15,
+  });
+  // J: রোগী প্রেসক্রিপশন দেখেন
+  const got = (await call(PT, 'rx_mine')).items.find((r) => r.id === made.id);
+  assert.deepStrictEqual(got.tests, ['CBC', 'HbA1c']);
+  // J: রোগী ডেমো ফার্মেসিতে অনলাইনে অর্ডার দেন (স্টকে আছে দেখায়) → ফার্মেসি নেয়, পাঠায়, ওষুধ লেখে
+  const onl = (await call(PT, 'rx_pharmacy_options', { rxId: made.id, district: DIST, upazilaId: 466, mode: 'online' })).items.find((o) => o.id === PH);
+  assert.ok(onl && onl.online && onl.have === 2, JSON.stringify(onl));
+  const ord = await call(PT, 'rx_send_pharmacy', { rxId: made.id, pharmacyId: PH, mode: 'online', address: 'ডেমো বাসা ৫, চরপাড়া', phone: '01700000101' });
+  await call(PH, 'rx_order_update', { id: ord.id, status: 'accepted', price: '৪২০ টাকা', eta: 'এক ঘণ্টায়' });
+  await call(PH, 'rx_order_update', { id: ord.id, status: 'out' });
+  await call(PH, 'rx_dispense', { code: made.code, items: [{ i: 0, qty: 60 }, { i: 1, qty: 9 }] });
+  const a1 = await call(PT, 'rx_activity', { rxId: made.id });
+  assert.strictEqual(a1.orders[0].status, 'done');
+  assert.ok(a1.medicines.every((m) => m.done));
+  // J: রোগী ডেমো প্যাথলজিতে পরীক্ষা পাঠান → প্যাথলজি নমুনা নেয়, রিপোর্ট দেয়
+  await call(PT, 'rx_send_lab', { rxId: made.id, labId: LAB, tests: ['CBC', 'HbA1c'] });
+  assert.strictEqual((await raw(PT, 'rx_send_lab', { rxId: made.id, labId: LAB })).status, 409, 'একই প্যাথলজিতে আবার নয়');
+  const lo = (await call(LAB, 'lab_orders')).items.find((o) => o.rxId === made.id);
+  await call(LAB, 'lab_order_status', { id: lo.id, status: 'received' });
+  const forms = (await call(LAB, 'lab_form', { id: lo.id })).forms;
+  assert.deepStrictEqual(forms.map((f) => f.code), ['cbc', 'hba1c']);
+  const vals = { hb: '13.2', wbc: '7.5', plt: '250', hba1c: '7.9' };
+  const items = forms.flatMap((f) => f.params.filter((p) => vals[p.key]).map((p) => ({ test: p.name, result: vals[p.key], unit: p.unit, group: f.name, code: f.code, key: p.key, low: p.low, high: p.high })));
+  await call(LAB, 'lab_report', { id: lo.id, items, note: 'ডেমো রিপোর্ট' });
+  // J: রোগী রিপোর্ট দেখেন (আগের HbA1c পাশে)
+  const pr = await call(PT, 'lab_order_get', { id: lo.id });
+  assert.strictEqual(pr.item.report.items.find((i) => i.key === 'hba1c').flag, 'high');
+  assert.strictEqual(pr.history['hba1c.hba1c'][0].result, '8.4');
+  // J: ডাক্তার রিপোর্ট দেখেন — অনলাইনে রিপোর্ট দেখার ফি: রোগী TrxID দেন → সহকারী মেলান → ডাক্তার পড়েন ও জানান
+  assert.strictEqual((await raw(DOC, 'lab_order_get', { id: lo.id })).status, 402, 'টাকা মেলার আগে ডাক্তার রিপোর্ট দেখেন না');
+  await call(PT, 'review_pay', { id: lo.id, trxId: 'DEMO9X8Y7Z', method: 'bkash' });
+  assert.ok((await call(AS, 'reviews_doctor', { doctorUid: DOC })).items.some((r) => r.id === lo.id && r.status === 'claimed' && r.trxId === 'DEMO9X8Y7Z'));
+  await call(AS, 'review_confirm', { doctorUid: DOC, id: lo.id, ok: true });
+  const dr = await call(DOC, 'lab_order_get', { id: lo.id });
+  assert.ok(dr.item.report.items.length >= 4);
+  assert.strictEqual(dr.history['hba1c.hba1c'][0].result, '8.4', 'ডাক্তারও আগের ফল দেখেন');
+  await call(DOC, 'review_done', { id: lo.id, comment: 'HbA1c একটু বেশি, ওষুধ চলবে। ১৫ দিন পর আসবেন।' });
+  const fin = await call(PT, 'rx_activity', { rxId: made.id });
+  assert.strictEqual(fin.reviews.find((r) => r.labOrderId === lo.id).comment, 'HbA1c একটু বেশি, ওষুধ চলবে। ১৫ দিন পর আসবেন।');
+  // ডাক্তারের "রোগী" ইতিহাসে আগের প্রেসক্রিপশন আসে (পরীক্ষার ফল এখানে নয় — রিপোর্ট শুধু "রিপোর্ট" ট্যাবে)
+  const hist = (await call(DOC, 'rx_patient_history', { appointmentId: apptId })).items;
+  assert.ok(hist.some((r) => r.id === made.id) && hist.some((r) => r.code === RXD.CODES.B));
+
+  // =================== আরও কয়েকটা কাজ ===================
   const habib = todays.find((a) => a.status === 'pending');
   await call(DOC, 'appointment_update', { id: habib.id, op: 'confirm', providerNote: 'সন্ধ্যা ৭টায় আসবেন' });
-  assert.strictEqual((await db.doc(`appointments/${habib.id}`).get()).get('serial'), 5, 'আজকের পরের সিরিয়াল ৫');
-
-  // ডাক্তার আজকের রোগীর জন্য প্রেসক্রিপশন লেখেন → রোগী সাথে সাথে পান
-  const made = await call(DOC, 'rx_create', {
-    appointmentId: 'demo-rx-appt-03', chamberIndex: 0, diagnosis: 'Type 2 DM (controlled)',
-    medicines: [{ name: 'Comet', form: 'Tablet', strength: '500 mg', dose: '1+0+1', days: 30, timing: 'after' }], tests: ['FBS', 'HbA1c'], followUpDays: 30,
-  });
-  assert.ok((await call(PT, 'rx_mine')).items.some((r) => r.id === made.id));
-
-  // রোগী দোকানে পাঠান → ফার্মেসি ওষুধ দেয়
+  assert.ok((await db.doc(`appointments/${habib.id}`).get()).get('serial') >= 5, 'আজকের আগের সিরিয়ালের পরে');
+  // দোকানে গিয়ে (আগের প্রেসক্রিপশন)
   await call(PT, 'rx_send_pharmacy', { rxId: rxB.id, pharmacyId: PH, mode: 'shop' });
   assert.ok((await call(PH, 'rx_orders_pharmacy')).items.some((o) => o.rxId === rxB.id && o.status === 'sent'));
   const disp = await call(PH, 'rx_dispense', { code: RXD.CODES.B, items: [{ i: 0, qty: 30 }, { i: 2, qty: 30 }] });
   assert.ok(disp.item.medicines[0].done && disp.item.medicines[2].done);
   assert.strictEqual((await raw(PH, 'rx_dispense', { code: RXD.CODES.C, items: [{ i: 0, qty: 1 }] })).status, 409, 'বাতিল প্রেসক্রিপশনে ওষুধ নয়');
-  // অনলাইন অর্ডার নেওয়া
   await call(PH, 'rx_order_update', { id: 'demo-rx-order-karim-online', status: 'accepted', price: '৮৫০ টাকা', eta: 'আজ রাত ৮টা' });
-
-  // সহকারী টাকা মেলান → ডাক্তার রিপোর্ট দেখে জানান
+  // আগে থেকে থাকা রিপোর্ট দেখার অনুরোধ
   await call(AS, 'review_confirm', { doctorUid: DOC, id: 'demo-rx-lab-me-lipid', ok: true });
   await call(DOC, 'review_done', { id: 'demo-rx-lab-me-lipid', comment: 'কোলেস্টেরল কমছে, ওষুধ চলবে।' });
   await call(DOC, 'review_done', { id: 'demo-rx-lab-salma-tsh', comment: 'TSH বেশি — Thyrox 75 চলবে।' });
-
-  // প্যাথলজি: নমুনা নেয়, রিপোর্ট দেয় → রোগী টাকা পাঠান
   await call(LAB, 'lab_order_status', { id: 'demo-rx-lab-salma-new', status: 'received' });
-  const form = (await call(LAB, 'lab_form', { id: 'demo-rx-lab-me-cbc' })).forms[0];
-  assert.strictEqual(form.code, 'cbc');
-  await call(LAB, 'lab_report', { id: 'demo-rx-lab-me-cbc', items: [{ test: 'Haemoglobin', result: '13.8', unit: 'g/dL', group: form.name, code: 'cbc', key: 'hb', low: 13, high: 17 }] });
-  const unpaid = (await call(PT, 'rx_activity', { rxId: rxB.id })).reviews.find((r) => r.labOrderId === 'demo-rx-lab-me-cbc');
-  assert.strictEqual(unpaid.status, 'unpaid');
+  await call(LAB, 'lab_report', { id: 'demo-rx-lab-me-cbc', items: [{ test: 'Haemoglobin', result: '13.8', unit: 'g/dL', group: 'CBC (Complete Blood Count)', code: 'cbc', key: 'hb', low: 13, high: 17 }] });
   await call(PT, 'review_pay', { id: 'demo-rx-lab-me-cbc', trxId: 'TEST12345', method: 'bkash' });
-  // রোগী নিজে পরীক্ষা পাঠান (নতুন প্রেসক্রিপশন থেকে)
-  await call(PT, 'rx_send_lab', { rxId: made.id, labId: LAB, tests: ['FBS', 'HbA1c'] });
-  // একই প্যাথলজিতে চালু থাকা অবস্থায় আবার পাঠানো যায় না
-  assert.strictEqual((await raw(PT, 'rx_send_lab', { rxId: made.id, labId: LAB })).status, 409);
 
   // কাগজের প্রেসক্রিপশন কোড দিয়ে যোগ
   const phone = (await db.doc(`users/${PT}`).get()).get('phone');

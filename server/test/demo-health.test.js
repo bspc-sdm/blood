@@ -6,9 +6,10 @@ const assert = require('assert');
 const SERVER = path.join(__dirname, '..');
 const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
-// অন্য ভাগগুলোর (blood, services, rx) নিজেদের টেস্ট আছে — এখানে শুধু health ভাগ, তাই সেগুলো খালি রাখা।
-// সব ভাগ একসাথে চালাতে: DEMO_ALL=1 node --test test/demo-health.test.js
-if (!process.env.DEMO_ALL) {
+// সব ভাগ (blood → services → rx → health) একসাথে বানানো হয় — কেয়ারগিভারের যাত্রায় rx ভাগের প্রেসক্রিপশন,
+// প্যাথলজি আর ফার্মেসি লাগে। শুধু health ভাগ আলাদা করে দেখতে: HEALTH_ONLY=1 (তখন যাত্রার টেস্ট বাদ)
+const HEALTH_ONLY = !!process.env.HEALTH_ONLY;
+if (HEALTH_ONLY) {
   for (const p of ['blood', 'services', 'rx']) {
     const file = require.resolve(path.join(SERVER, `lib/demo/${p}.js`));
     require.cache[file] = { id: file, filename: file, loaded: true, exports: { async seed() {} } };
@@ -218,4 +219,96 @@ test('health ডেমো: দেখা, পরীক্ষকের কাজ, 
   assert.ok((await db.doc('users/realuser0002').get()).exists);
   const logs = [...F.store.keys()].filter((k) => k.startsWith('adminLog/'));
   if (logs.length) t.diagnostic(`মোছার পরও অ্যাডমিনের কাজের ইতিহাসে ${logs.length}টা লেখা থাকে (ডেমো জিনিসের পথসহ)`);
+});
+
+// রোগীর পুরো যাত্রা — কেয়ারগিভার রুমা রোগী রহিমের হয়ে (body.asUid): ডাক্তারের সিরিয়াল, প্রেসক্রিপশন, রিপোর্ট, ওষুধ
+test('কেয়ারগিভারের যাত্রা: রোগীর হয়ে সিরিয়াল, প্রেসক্রিপশন, রিপোর্ট, ফার্মেসি আর প্যাথলজি', { skip: HEALTH_ONLY }, async () => {
+  await ok(OWNER, 'admin_demo_seed');
+  const CG = U('caregiver');
+  const P = U('patient');
+  const as = { asUid: P };
+  const DIST = 'ময়মনসিংহ';
+
+  // চালু সংযোগ
+  assert.strictEqual((await ok(CG, 'care_list')).caringFor.find((x) => x.patientUid === P).status, 'active');
+
+  // প্রেসক্রিপশন (rx ভাগ): রহিমের নামে ডা. ডেমো হাসানের
+  const rxs = (await ok(CG, 'rx_mine', as)).items;
+  assert.ok(rxs.length >= 3, 'রহিমের প্রেসক্রিপশন দেখা যায়');
+  assert.strictEqual((await ok(CG, 'rx_mine')).items.length, 0, 'asUid ছাড়া নিজের (রুমার) — খালি');
+  const rxB = (await ok(CG, 'rx_get', { ...as, id: 'demo-rx-b' })).item;
+  assert.strictEqual(rxB.doctorUid, U('doctor'));
+
+  // পরীক্ষা ও রিপোর্ট
+  const act = await ok(CG, 'rx_activity', { ...as, rxId: 'demo-rx-b' });
+  assert.ok(act.labOrders.some((l) => l.id === 'demo-rx-lab-me-lipid' && l.status === 'reported'));
+  const rep = await ok(CG, 'lab_order_get', { ...as, id: 'demo-rx-lab-me-lipid' });
+  assert.ok(rep.item.report && rep.item.report.items.length > 0, 'রিপোর্টের ঘরগুলো');
+  assert.strictEqual((await call(CG, 'lab_order_get', { id: 'demo-rx-lab-me-lipid' })).status, 404, 'রোগীর হয়ে না হলে রিপোর্ট দেখা যায় না');
+  // আগের প্রেসক্রিপশনের পরীক্ষা ডেমো প্যাথলজিতে পাঠানো
+  assert.ok((await ok(CG, 'labs', { ...as, district: DIST })).items.some((l) => l.id === U('lab')));
+  const lo = await ok(CG, 'rx_send_lab', { ...as, rxId: 'demo-rx-a', labId: U('lab') });
+  assert.strictEqual((await db.doc(`labOrders/${lo.id}`).get()).get('patientUid'), P);
+  // CBC-র নমুনা আগেই নেওয়া — একই প্যাথলজিতে demo-rx-b আবার পাঠানো যায় না
+  assert.strictEqual((await call(CG, 'rx_send_lab', { ...as, rxId: 'demo-rx-b', labId: U('lab') })).status, 409);
+
+  // ওষুধ: বাকি ওষুধ (Bislol, Napa) ডেমো লাইফ ফার্মেসিতে
+  const opts = (await ok(CG, 'rx_pharmacy_options', { ...as, rxId: 'demo-rx-b', district: DIST, mode: 'shop' })).items;
+  assert.ok(opts.some((o) => o.id === U('pharmacy')), 'ডেমো ফার্মেসি তালিকায়');
+  const ord = await ok(CG, 'rx_send_pharmacy', { ...as, rxId: 'demo-rx-b', pharmacyId: U('pharmacy'), mode: 'shop' });
+  const od = (await db.doc(`rxOrders/${ord.id}`).get()).data();
+  assert.strictEqual(od.patientUid, P);
+  assert.strictEqual(od.byCaretaker, CG, 'কে পাঠিয়েছেন তা লেখা থাকে');
+  assert.ok((await ok(CG, 'rx_activity', { ...as, rxId: 'demo-rx-b' })).orders.some((o) => o.id === ord.id && o.status === 'sent'));
+  await ok(CG, 'rx_order_withdraw', { ...as, id: ord.id });
+
+  // ডাক্তারের সিরিয়াল: প্রেসক্রিপশনের "আবার দেখানো" দিনে, আর ডাক্তারের তালিকা থেকে
+  assert.ok((await ok(CG, 'providers', { ...as, type: 'doctor', district: DIST })).items.some((p) => p.uid === U('doctor')));
+  const prov = (await db.doc(`providers/${U('doctor')}`).get()).data();
+  const K = require(path.join(SERVER, 'lib/care.js'));
+  const R = require(path.join(SERVER, 'lib/rules.js'));
+  const today = R.todayDhakaUtcMidnight();
+  const mineBefore = (await ok(CG, 'my_appointments', as)).items;
+  let date = null;
+  let ci = null;
+  for (let i = 1; i < 30 && date == null; i++) {
+    const d = today + i * 86400000;
+    const idx = K.chambersOf(prov).findIndex((c) => c.appointments && K.chamberOpenOn(c, d));
+    if (idx >= 0 && !mineBefore.some((a) => a.date === d && a.status !== 'cancelled')) { date = d; ci = idx; }
+  }
+  assert.ok(date, 'ডাক্তারের খোলা দিন');
+  const bk = await ok(CG, 'book', { ...as, providerUid: U('doctor'), chamberIndex: ci, date, note: 'ডেমো: রুমা রহিমের হয়ে সিরিয়াল নিলেন' });
+  const ap = (await db.doc(`appointments/${bk.id}`).get()).data();
+  assert.strictEqual(ap.patientUid, P);
+  assert.strictEqual(ap.patientName, 'ডেমো রোগী রহিম');
+  assert.strictEqual(ap.byCaretaker, CG);
+  // রোগীর সব অ্যাপয়েন্টমেন্ট (আজকের নিশ্চিত সিরিয়াল সহ) আর বাতিল করা
+  const appts = (await ok(CG, 'my_appointments', as)).items;
+  assert.ok(appts.some((a) => a.id === bk.id && a.status === 'pending'));
+  assert.ok(appts.some((a) => a.status === 'confirmed' && a.otherName === 'ডা. ডেমো হাসান'));
+  // ডাক্তারও দেখেন (রহিমের নামে)
+  assert.ok((await ok(U('doctor'), 'my_appointments')).items.some((a) => a.id === bk.id && a.otherName === 'ডেমো রোগী রহিম'));
+  await ok(CG, 'appointment_update', { ...as, id: bk.id, op: 'cancel' });
+  assert.strictEqual((await db.doc(`appointments/${bk.id}`).get()).get('status'), 'cancelled');
+  // পরিবারের সদস্য দেখা যায়, বদলানো যায় না
+  assert.strictEqual((await ok(CG, 'family_get', as)).family.length, 2);
+
+  // যা রোগীর হয়ে করা যায় না
+  for (const a of ['med_find', 'pharmacy_called', 'profile_save', 'family_set', 'inbox', 'request_create', 'ask', 'report', 'ticket_create', 'care_invite', 'care_remove', 'delete_account', 'rx_claim_x']) {
+    const r = await call(CG, a, { ...as, text: 'x' });
+    assert.strictEqual(r.status, a === 'rx_claim_x' ? 403 : 403, `${a}: ${JSON.stringify(r.body)}`);
+  }
+
+  // রোগী সরিয়ে দিলে সাথে সাথে বন্ধ
+  await ok(P, 'care_remove', { caretakerUid: CG });
+  for (const a of ['rx_mine', 'my_appointments', 'book']) {
+    const r = await call(CG, a, as);
+    assert.strictEqual(r.status, 403, a);
+    assert.strictEqual(r.body.code, 'care_revoked');
+  }
+
+  // মোছা: রুমার বানানো সিরিয়াল, অর্ডার, পরীক্ষার অনুরোধ (রহিমের নামে) সব যায়
+  await ok(OWNER, 'admin_demo_wipe');
+  for (const p of [`appointments/${bk.id}`, `rxOrders/${ord.id}`, `labOrders/${lo.id}`]) assert.ok(!F.store.has(p), p);
+  assert.deepStrictEqual([...F.store.entries()].filter(([, v]) => v && v.demo === true).map(([k]) => k), []);
 });
