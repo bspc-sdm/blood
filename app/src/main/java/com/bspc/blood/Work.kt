@@ -100,12 +100,25 @@ object MyWork {
     /** অন্তত একবার আনা হয়েছে (তার আগে প্রোফাইলে "আপনার কি কোনো ব্যবসা আছে?" দেখানো হয় না — মালিকের কাছে ঝলক দিত) */
     val loaded = mutableStateOf(false)
 
+    /** শেষবার আনতে গিয়ে কোন ভুল হয়েছিল (প্রোফাইলে দেখায়, "আবার চেষ্টা করুন" সহ); সব এলে null */
+    val error = mutableStateOf<String?>(null)
+
     /** নিচের বারে "আমার কাজ" দেখাবে কি না */
     val has: Boolean get() = summary.value.any
 
     fun clear() {
         summary.value = WorkSummary()
         loaded.value = false
+        error.value = null
+    }
+
+    /** একবার ব্যর্থ হলে (ধীর সার্ভার, নেটওয়ার্ক) আরেকবার চেষ্টা */
+    private suspend fun <T> twice(block: suspend () -> T): Result<T> {
+        val first = runCatching { block() }
+        if (first.isSuccess) return first
+        if (first.exceptionOrNull() is kotlinx.coroutines.CancellationException) return first
+        kotlinx.coroutines.delay(1500)
+        return runCatching { block() }
     }
 
     /** কোনো একটা আনতে না পারলে (ইন্টারনেট) সেটার আগের হিসাবই থাকে — ট্যাব হঠাৎ হারিয়ে যায় না */
@@ -116,10 +129,10 @@ object MyWork {
         }
         val old = summary.value
         coroutineScope {
-            val amb = async { runCatching { Ambulances.mine() } }
-            val ph = async { runCatching { Pharmacies.mine() } }
-            val bb = async { runCatching { BloodBanks.mine() } }
-            val lb = async { runCatching { RxNet.labMine() } }
+            val amb = async { twice { Ambulances.mine() } }
+            val ph = async { twice { Pharmacies.mine() } }
+            val bb = async { twice { BloodBanks.mine() } }
+            val lb = async { twice { RxNet.labMine() } }
             val a = amb.await()
             val p = ph.await()
             val b = bb.await()
@@ -133,7 +146,15 @@ object MyWork {
                 lab = if (l.isSuccess) l.getOrNull() else old.lab,
                 professional = badge?.takeIf { it in PROVIDER_TYPES },
             )
-            if (a.isSuccess && p.isSuccess && b.isSuccess && l.isSuccess) loaded.value = true
+            val failed = listOf("ambulance" to a, "pharmacy" to p, "bloodbank" to b, "lab" to l).filter { it.second.isFailure }
+            // বাতিল (পাতা বদলানো) ভুল নয়
+            if (failed.any { it.second.exceptionOrNull() is kotlinx.coroutines.CancellationException }) return@coroutineScope
+            if (failed.isEmpty()) {
+                loaded.value = true
+                error.value = null
+            } else {
+                error.value = failed.joinToString(" · ") { (k, r) -> businessName(k) + ": " + (r.exceptionOrNull()?.message ?: "?") }
+            }
         }
     }
 }

@@ -14,8 +14,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 95
-        versionName = "2.20.2"
+        versionCode = 96
+        versionName = "2.20.3"
     }
 
     signingConfigs {

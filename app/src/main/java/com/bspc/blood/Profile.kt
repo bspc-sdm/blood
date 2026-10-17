@@ -72,6 +72,8 @@ fun ProfileTab(
     val businessKey = "business_q_" + AuthRepository.currentUid.orEmpty()
     var businessNo by remember { mutableStateOf(Dismissed.isOn(context, businessKey)) }
     val hasBusiness = MyWork.summary.value.hasBusiness
+    // প্রোফাইল খুললে নিজের ব্যবসার হিসাব নতুন করে (আগে আনতে ব্যর্থ হয়ে থাকলে)
+    LaunchedEffect(Unit) { if (!MyWork.loaded.value) MyWork.refresh(community?.approvedBadge) }
     var assisting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { assisting = runCatching { RxApi.assisting().isNotEmpty() }.getOrDefault(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -187,6 +189,26 @@ fun ProfileTab(
             }
         }
 
+        // নিজের ব্যবসার তথ্য আনা যায়নি: কারণ দেখানো আর আবার চেষ্টা (নইলে "আমার কাজ" ট্যাব চুপচাপ হারিয়ে থাকে)
+        MyWork.error.value?.let { err ->
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        tr("Couldn't load your business", "আপনার ব্যবসার তথ্য আনা যায়নি"),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    TextButton(onClick = { scope.launch { MyWork.refresh(community?.approvedBadge) } }) {
+                        Text(tr("Try again", "আবার চেষ্টা করুন"))
+                    }
+                }
+            }
+        }
         if (MyWork.loaded.value && !hasBusiness && !businessNo) {
             BusinessQuestionCard(
                 onYes = { WorkNav.startAdd() },
