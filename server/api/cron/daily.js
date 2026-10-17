@@ -102,6 +102,13 @@ module.exports = handler(
     } catch (e) {
       console.error('refill reminders failed', e);
     }
+    // নিজে মুছতে চাওয়া অ্যাকাউন্ট, ৩০ দিনে আবার লগইন হয়নি: এখন মোছা
+    let accountsDeleted = 0;
+    try {
+      accountsDeleted = await require('../../lib/account').deletion.runDue(now);
+    } catch (e) {
+      console.error('scheduled account deletion failed', e);
+    }
     let inboxDeleted = 0;
     try {
       inboxDeleted = await require('../../lib/inbox').cleanupInbox(now);
@@ -110,7 +117,7 @@ module.exports = handler(
     }
 
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill };
   },
   { methods: ['GET'] },
 );

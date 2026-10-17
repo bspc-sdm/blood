@@ -40,6 +40,15 @@ async function accountDisabledError(req, uid) {
   return new HttpError(403, msg, 'account_disabled');
 }
 
+/** মোছার অপেক্ষায় থাকা অ্যাকাউন্টের বার্তা (কবে মুছবে, আর আবার লগইন করলে বাতিল) */
+function deletionPendingMessage(req, at) {
+  const en = req && req.body && req.body.lang === 'en';
+  const day = new Date(at).toLocaleDateString(en ? 'en-GB' : 'bn-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'long', year: 'numeric' });
+  return en
+    ? `Your account will be deleted on ${day}. Log in again before then to keep it.`
+    : `আপনার অ্যাকাউন্ট ${day} মুছে যাবে। এর আগে আবার লগইন করলে মোছা বাতিল হবে।`;
+}
+
 /** JWT-র ভেতর থেকে uid (যাচাই ছাড়া — শুধু বন্ধ অ্যাকাউন্টের বার্তার জন্য) */
 function uidFromToken(token) {
   try {
@@ -60,6 +69,11 @@ async function decodeToken(req, token) {
       const uid = uidFromToken(token);
       const u = uid ? await admin.auth().getUser(uid).catch(() => null) : null;
       if (u && u.disabled) throw await accountDisabledError(req, uid);
+      // নিজে মোছার অনুরোধ করেছেন (৩০ দিনের অপেক্ষা): অন্য ফোনেও লগআউট, কারণসহ
+      if (u && e.code === 'auth/id-token-revoked') {
+        const at = await db.doc(`serverState/${uid}`).get().then((s) => (s.exists && s.get('deleteAt')) || 0).catch(() => 0);
+        if (at) throw new HttpError(403, deletionPendingMessage(req, at), 'account_disabled');
+      }
     }
     const en = req && req.body && req.body.lang === 'en';
     throw new HttpError(401, en ? 'Session expired, please log in again' : 'লগইনের মেয়াদ শেষ, আবার লগইন করুন');
@@ -214,4 +228,4 @@ async function sendPush(items) {
   return reached.size + anon;
 }
 
-module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, decodeToken, accountDisabledError, handler, sendPush, tokensOf };
+module.exports = { addInbox, admin, db, FieldValue, HttpError, verifyUser, decodeToken, accountDisabledError, deletionPendingMessage, handler, sendPush, tokensOf };

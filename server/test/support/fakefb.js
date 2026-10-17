@@ -167,6 +167,8 @@ const admin = {
   auth: () => ({
     verifyIdToken: async (t) => { const u = users.get(t); if (!u) throw new Error('bad token'); return { uid: u.uid, email: u.email, email_verified: true }; },
     getUser: async (uid) => { const u = users.get(uid); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return { ...u, disabled: false }; },
+    revokeRefreshTokens: async () => {},
+    deleteUser: async (uid) => { users.delete(uid); },
     getUserByEmail: async (e) => { const u = [...users.values()].find((x) => x.email === e); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return u; },
   }),
   firestore: { FieldValue },

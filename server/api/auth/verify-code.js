@@ -72,6 +72,12 @@ module.exports = handler(async (req, res) => {
   });
   if (!ok) throw new HttpError(400, 'কোড মেলেনি। আবার দেখে লিখুন।');
 
+  /** মোছার অপেক্ষায় (৩০ দিন) থাকা অ্যাকাউন্টে আবার লগইন = মোছা বাতিল, লুকানো সব আগের মতো */
+  const keepAccount = (uid) => require('../../lib/account').deletion.cancel(uid).catch((e) => {
+    console.error('cancel deletion failed', e);
+    return false;
+  });
+
   // ওয়েব অ্যাডমিন প্যানেল: টোকেনের বদলে httpOnly কুকি, আর শুধু অ্যাডমিনরা
   if (req.body?.web === true) {
     const { isAdmin } = require('../../lib/admin');
@@ -87,6 +93,7 @@ module.exports = handler(async (req, res) => {
       const [shop, lab] = doctor || assistant ? [null, null] : await Promise.all([db.doc(`pharmacies/${user.uid}`).get(), db.doc(`labs/${user.uid}`).get()]);
       const owner = !!((shop && shop.exists && shop.get('status') === 'approved') || (lab && lab.exists && lab.get('status') === 'approved'));
       if (!doctor && !assistant && !owner) throw new HttpError(403, 'এই ইমেইল কোনো যাচাই করা ডাক্তার, সহকারী, অনুমোদিত ফার্মেসি বা প্যাথলজির নয়');
+      await keepAccount(user.uid);
       require('../../lib/websession').start(res, user.uid, email);
       return { ok: true };
     }
@@ -95,6 +102,7 @@ module.exports = handler(async (req, res) => {
     }
     const user = await getOrCreateUser(email);
     if (user.disabled) throw new HttpError(403, 'এই অ্যাকাউন্ট বন্ধ করা আছে');
+    await keepAccount(user.uid);
     require('../../lib/websession').start(res, user.uid, email);
     return { ok: true };
   }
@@ -102,6 +110,7 @@ module.exports = handler(async (req, res) => {
   const user = await getOrCreateUser(email);
   // বন্ধ করা অ্যাকাউন্ট: কাঁচা ইংরেজি ত্রুটির বদলে কারণ আর আপিলের ঠিকানা
   if (user.disabled) throw await require('../../lib/firebase').accountDisabledError(req, user.uid);
+  const restored = await keepAccount(user.uid);
   const token = await admin.auth().createCustomToken(user.uid);
-  return { ok: true, token };
+  return { ok: true, token, restored };
 });
