@@ -34,6 +34,8 @@ const CENTER = { lat: 24.7539, lng: 90.4073, place: 'ময়মনসিংহ
 
 const uidOf = (key) => `demo-${key}`;
 const isDemoUid = (uid) => typeof uid === 'string' && uid.startsWith('demo-');
+/** ডেমো আর আসল আলাদা: ডেমোর কাজে আসলদের নোটিফিকেশন যায় না, ডেমো ডোনার আসল রিকোয়েস্টে সাড়া দিতে পারে না (আর উল্টোটাও) */
+const sameWorld = (a, b) => isDemoUid(a) === isDemoUid(b);
 
 const DOMAIN = 'lifolo-demo.test';
 const demoEmail = (key) => `${key}@${DOMAIN}`;
@@ -171,6 +173,9 @@ async function login(key) {
   const email = demoEmail(r.key);
   const uid = Object.keys(m.get('emails') || {}).find((u) => m.get('emails')[u] === email);
   if (!uid) throw new HttpError(404, 'ডেমো চালু নেই');
+  // সাধারণ লগইনের মতো: বন্ধ করা অ্যাকাউন্টে কারণসহ বার্তা
+  const au = await admin.auth().getUser(uid).catch(() => null);
+  if (au && au.disabled) throw await require('../firebase').accountDisabledError({ body: {} }, uid);
   // সাধারণ লগইনের মতো: মোছার অপেক্ষায় থাকলে আবার লগইনে মোছা বাতিল
   const restored = await require('../account').deletion.cancel(uid).catch(() => false);
   return { ok: true, token: await admin.auth().createCustomToken(uid), restored, demo: true };
@@ -194,4 +199,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, seed, wipe, roles, login, ROLES, CENTER, uidOf, isDemoUid, isDemoEmail, demoEmail, near };
+module.exports = { actions, seed, wipe, roles, login, ROLES, CENTER, uidOf, isDemoUid, sameWorld, isDemoEmail, demoEmail, near };

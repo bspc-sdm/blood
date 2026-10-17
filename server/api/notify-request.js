@@ -88,7 +88,8 @@ module.exports = handler(async (req) => {
       const found = byGroup
         ? await Geo.nearDonors(db, groups, request.lat, request.lng, radius)
         : await Geo.near(db.collection('users'), 'geohash', request.lat, request.lng, radius);
-      const allUsers = found.map((x) => ({ uid: x.doc.id, ...x.doc.data() }));
+      // ডেমো: ডেমোর রিকোয়েস্ট শুধু ডেমো ডোনারদের, আসলটা শুধু আসলদের (ডেমো মুছলে filter অংশ মুছবেন)
+      const allUsers = found.map((x) => ({ uid: x.doc.id, ...x.doc.data() })).filter((x) => require('../lib/demo').sameWorld(uid, x.uid));
       // ২.৯-এর আগে জানানো রিকোয়েস্টে তালিকা নেই — প্রথমবার যাঁরা পেয়েছিলেন আন্দাজে বাদ
       if (again && !meta.exists) R.pickDonors(request, allUsers, now).forEach((u) => already.add(u.uid));
       donors = R.pickDonors(request, allUsers.filter((u) => !already.has(u.uid)), now);

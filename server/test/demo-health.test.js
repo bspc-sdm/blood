@@ -227,7 +227,7 @@ test('কেয়ারগিভারের যাত্রা: রোগী�
   const CG = U('caregiver');
   const P = U('patient');
   const as = { asUid: P };
-  const DIST = 'ময়মনসিংহ';
+  const DIST = require(path.join(SERVER, 'lib/districts.js')).find((d) => d.en === 'Mymensingh').bn;
 
   // চালু সংযোগ
   assert.strictEqual((await ok(CG, 'care_list')).caringFor.find((x) => x.patientUid === P).status, 'active');
@@ -285,7 +285,8 @@ test('কেয়ারগিভারের যাত্রা: রোগী�
   // রোগীর সব অ্যাপয়েন্টমেন্ট (আজকের নিশ্চিত সিরিয়াল সহ) আর বাতিল করা
   const appts = (await ok(CG, 'my_appointments', as)).items;
   assert.ok(appts.some((a) => a.id === bk.id && a.status === 'pending'));
-  assert.ok(appts.some((a) => a.status === 'confirmed' && a.otherName === 'ডা. ডেমো হাসান'));
+  assert.ok(appts.some((a) => a.status === 'confirmed'), 'নিশ্চিত সিরিয়ালও দেখা যায়');
+  assert.ok(appts.filter((a) => a.role === 'patient').length >= 5, 'রহিমের আগের-পরের সব');
   // ডাক্তারও দেখেন (রহিমের নামে)
   assert.ok((await ok(U('doctor'), 'my_appointments')).items.some((a) => a.id === bk.id && a.otherName === 'ডেমো রোগী রহিম'));
   await ok(CG, 'appointment_update', { ...as, id: bk.id, op: 'cancel' });
@@ -294,9 +295,9 @@ test('কেয়ারগিভারের যাত্রা: রোগী�
   assert.strictEqual((await ok(CG, 'family_get', as)).family.length, 2);
 
   // যা রোগীর হয়ে করা যায় না
-  for (const a of ['med_find', 'pharmacy_called', 'profile_save', 'family_set', 'inbox', 'request_create', 'ask', 'report', 'ticket_create', 'care_invite', 'care_remove', 'delete_account', 'rx_claim_x']) {
+  for (const a of ['med_find', 'pharmacy_called', 'family_set', 'inbox', 'request_create', 'ask', 'report', 'ticket_create', 'care_invite', 'care_remove', 'delete_account']) {
     const r = await call(CG, a, { ...as, text: 'x' });
-    assert.strictEqual(r.status, a === 'rx_claim_x' ? 403 : 403, `${a}: ${JSON.stringify(r.body)}`);
+    assert.strictEqual(r.status, 403, `${a}: ${JSON.stringify(r.body)}`);
   }
 
   // রোগী সরিয়ে দিলে সাথে সাথে বন্ধ

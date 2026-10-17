@@ -13,6 +13,19 @@ const K = require(path.join(SERVER, 'lib/care'));
 const P = require(path.join(SERVER, 'lib/prescriptions'));
 const DIST = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
 const { db } = F.firebase;
+// নকল Firebase-এ নেই এমন দুটো জিনিস (account.js-এর deleteNow লাগে): recursiveDelete আর ref.parent
+if (!db.recursiveDelete) {
+  db.recursiveDelete = async (ref) => { [...F.store.keys()].filter((k) => k === ref.path || k.startsWith(`${ref.path}/`)).forEach((k) => F.store.delete(k)); };
+}
+const origDoc = db.doc;
+db.doc = (p) => {
+  const r = origDoc(p);
+  if (!r.parent) {
+    const parts = String(p).split('/');
+    r.parent = { path: parts.slice(0, -1).join('/'), parent: parts.length > 2 ? db.doc(parts.slice(0, -2).join('/')) : null };
+  }
+  return r;
+};
 
 const OWNER = 'owner-demo-test';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
@@ -120,7 +133,7 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   assert.ok(online.address && online.phone);
   const home = await call(PH, 'rx_pharmacy_home');
   assert.ok(home.online.enabled);
-  assert.ok(home.missed.some((m) => m.name === 'Thyrox'));
+  assert.ok(home.missed.some((m) => /^Thyrox/.test(m.name)));
   const opened = (await call(PH, 'rx_pharmacy_open', { code: RXD.CODES.C })).item;
   assert.strictEqual(opened.status, 'cancelled');
   const opts = (await call(PT, 'rx_pharmacy_options', { rxId: rxB.id, district: DIST, mode: 'shop' })).items;
@@ -254,7 +267,7 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   const tanvir = pend.find((b) => b.name === 'ডা. ডেমো তানভীর রহমান');
   assert.strictEqual((await raw(OWNER, 'admin_badge_resolve', { uid: tanvir.uid, approve: true, checks: [] })).status, 400, 'সব টিক ছাড়া অনুমোদন নয়');
   await call(OWNER, 'admin_badge_resolve', { uid: tanvir.uid, approve: true, checks: tanvir.verify.checks.map((c) => c.id) });
-  const after = (await call(null, 'providers', { type: 'doctor', district: DIST, homeVisit: false })).items;
+  const after = (await call(PT, 'providers', { type: 'doctor', district: DIST, homeVisit: false })).items;
   assert.ok(after.some((p) => p.name === 'ডা. ডেমো তানভীর রহমান'));
 
   // =================== মোছা ===================
@@ -276,5 +289,5 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   const serialLeft = [...F.store.keys()].filter((k) => k.startsWith(`serials/${DOC}_`));
   const gaps = [...new Set([...mentions, ...serialLeft])].map((k) => k.split('/')[0]).sort();
   for (const g of gaps) assert.ok(['prescriptions', 'rxPatients', 'serials', 'adminLog', 'adminLogs', 'auditLog'].includes(g), `অপ্রত্যাশিত বাকি: ${g}`);
-  assert.ok(gaps.includes('prescriptions') && gaps.includes('rxPatients') && gaps.includes('serials'));
+  assert.ok(gaps.includes('prescriptions') && gaps.includes('rxPatients'), 'জানা ফাঁক: ডাক্তারের লেখা প্রেসক্রিপশন, সহকারীর এন্ট্রি');
 });

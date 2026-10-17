@@ -25,6 +25,8 @@ module.exports = handler(async (req) => {
     const u = userSnap.data() || {};
     if (!R.isActive(r)) throw new HttpError(400, 'রিকোয়েস্টটা বন্ধ হয়ে গেছে');
     if (r.requesterUid === uid) throw new HttpError(400, 'নিজের রিকোয়েস্টে সাড়া দেওয়া যায় না');
+    // ডেমো: ডেমো আর আসল একে অপরের রিকোয়েস্টে সাড়া দিতে পারে না (ডেমো মুছলে এই লাইন মুছবেন)
+    if (!require('../lib/demo').sameWorld(uid, r.requesterUid)) throw new HttpError(403, 'ডেমো অ্যাকাউন্ট আর আসল অ্যাকাউন্ট একে অপরের রিকোয়েস্টে সাড়া দিতে পারে না');
     if (!u.phone || !u.bloodGroup) throw new HttpError(400, 'আগে প্রোফাইল পূরণ করুন');
     if (u.bloodGroup === 'unknown') throw new HttpError(400, 'রক্ত দিতে আগে প্রোফাইলে আপনার রক্তের গ্রুপ দিন');
     if (!R.canDonate(u.bloodGroup, r.patientGroup)) {

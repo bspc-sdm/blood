@@ -113,7 +113,8 @@ const actions = {
       if (near.length) shops = near;
     }
     shops.sort((a, c) => (a.km ?? 99) - (c.km ?? 99));
-    const targets = shops.slice(0, NOTIFY_MAX);
+    // ডেমো: ডেমোর খোঁজ শুধু ডেমো দোকানে, আসল খোঁজ শুধু আসল দোকানে (ডেমো মুছলে filter অংশ মুছবেন)
+    const targets = shops.filter((x) => require('./demo').sameWorld(user.uid, x.id)).slice(0, NOTIFY_MAX);
 
     await useQuota(req, user.uid, 'medFind');
     const ref = db.collection('medFinds').doc();

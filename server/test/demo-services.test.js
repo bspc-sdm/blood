@@ -222,6 +222,16 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
     address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true, delivery: true, deliveryNote: 'ফ্রি', discount: 12, closedDays: [], termsAccepted: true,
   });
   assert.strictEqual((await ok(PH, 'pharmacy_me')).pharmacy.status, 'approved', 'সময়/ছাড় বদলালে আবার যাচাই লাগে না');
+  // লাইসেন্স বদল → যাচাই; মালিক বাতিল করলে আগের অনুমোদিত তথ্য ফেরে (গাইডে বলা আছে)
+  await ok(PH, 'pharmacy_save', {
+    name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-9999', phone: '01700000150', district: DISTRICT, upazilaId: 466,
+    address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true, delivery: true, discount: 12, termsAccepted: true,
+  });
+  assert.strictEqual((await ok(PH, 'pharmacy_me')).pharmacy.status, 'pending');
+  await ok(OWNER, 'admin_pharmacy_resolve', { id: PH, status: 'rejected', reason: 'ডেমো' });
+  const back = (await ok(PH, 'pharmacy_me')).pharmacy;
+  assert.strictEqual(back.status, 'approved');
+  assert.strictEqual(back.licenseNo, 'DEMO-DL-1501');
   // রোগী: নতুন অনলাইন অর্ডার, ওষুধ খোঁজা, রেটিং, রিপোর্ট, ফোন
   const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, চরপাড়া', phone: '01700000159' });
   assert.ok((await ok(PH, 'rx_orders_pharmacy')).items.some((o) => o.id === sent.id && o.status === 'sent'));
