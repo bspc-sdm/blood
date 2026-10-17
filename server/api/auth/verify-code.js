@@ -81,22 +81,6 @@ module.exports = handler(async (req, res) => {
   // ওয়েব অ্যাডমিন প্যানেল: টোকেনের বদলে httpOnly কুকি, আর শুধু অ্যাডমিনরা
   if (req.body?.web === true) {
     const { isAdmin } = require('../../lib/admin');
-    // পার্টনার ওয়েব: যাচাই করা ডাক্তার, কোনো ডাক্তারের সহকারী, বা অনুমোদিত ফার্মেসি/প্যাথলজির মালিক
-    if (req.body?.panel === 'doctor') {
-      const user = await getOrCreateUser(email);
-      if (user.disabled) throw new HttpError(403, 'এই অ্যাকাউন্ট বন্ধ করা আছে');
-      const { approvedBadge } = require('../../lib/community-db');
-      const { db } = require('../../lib/firebase');
-      const doctor = (await approvedBadge(user.uid)) === 'doctor';
-      const assistant = doctor ? true : !(await db.collection('providers').where('assistantEmails', 'array-contains', email).limit(1).get()).empty;
-      // অনুমোদিত ফার্মেসি আর প্যাথলজির মালিকও (ওষুধ দেওয়া, রিপোর্ট দেওয়া)
-      const [shop, lab] = doctor || assistant ? [null, null] : await Promise.all([db.doc(`pharmacies/${user.uid}`).get(), db.doc(`labs/${user.uid}`).get()]);
-      const owner = !!((shop && shop.exists && shop.get('status') === 'approved') || (lab && lab.exists && lab.get('status') === 'approved'));
-      if (!doctor && !assistant && !owner) throw new HttpError(403, 'এই ইমেইল কোনো যাচাই করা ডাক্তার, সহকারী, অনুমোদিত ফার্মেসি বা প্যাথলজির নয়');
-      await keepAccount(user.uid);
-      require('../../lib/websession').start(res, user.uid, email);
-      return { ok: true };
-    }
     if (!(await isAdmin({ email, email_verified: true }))) {
       throw new HttpError(403, 'এই ইমেইল অ্যাডমিন হিসেবে যোগ করা নেই');
     }
