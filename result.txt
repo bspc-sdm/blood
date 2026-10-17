@@ -1,0 +1,6 @@
+doctor: 200 spa=4
+doctor app.js: 200
+work/rx: 200
+admin: 200
+api: {"ok":true,"firebase":true}
+panel login: {"error":"কোডের মেয়াদ শেষ বা কোড চাওয়া হয়নি। নতুন কোড চান।"}
