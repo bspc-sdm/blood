@@ -87,7 +87,8 @@ const actions = {
     const lng = typeof b.lng === 'number' ? Math.round(b.lng * 100) / 100 : null;
 
     // উপজেলার দোকান আগে খোঁজা — বড় জেলায় ৫০০-র সীমায় কাছের দোকান যেন বাদ না পড়ে
-    const docs = await require('./pharmacy').areaPharmacies(b.district, upazilaId);
+    // ডেমো: ডেমোর খোঁজ শুধু ডেমো দোকানে, আসল খোঁজ শুধু আসল দোকানে (ডেমো মুছলে filter অংশ মুছবেন)
+    const docs = (await require('./pharmacy').areaPharmacies(b.district, upazilaId)).filter((s) => require('./demo').sameWorld(user.uid, s.id));
     const day = R.dhakaDayKey();
     const now = Date.now();
     if (!docs.some((s) => s.id !== user.uid)) return { ok: false, noPharmacy: true };
@@ -113,8 +114,7 @@ const actions = {
       if (near.length) shops = near;
     }
     shops.sort((a, c) => (a.km ?? 99) - (c.km ?? 99));
-    // ডেমো: ডেমোর খোঁজ শুধু ডেমো দোকানে, আসল খোঁজ শুধু আসল দোকানে (ডেমো মুছলে filter অংশ মুছবেন)
-    const targets = shops.filter((x) => require('./demo').sameWorld(user.uid, x.id)).slice(0, NOTIFY_MAX);
+    const targets = shops.slice(0, NOTIFY_MAX);
 
     await useQuota(req, user.uid, 'medFind');
     const ref = db.collection('medFinds').doc();

@@ -122,7 +122,8 @@ test('অতিথি: আশেপাশের রিকোয়েস্ট (
   assert.ok(g.body.items.find((i) => i.id === 'demo-rq-fare').travelFare);
 
   const em = await call(null, 'emergencies_active', { district: DISTRICT });
-  assert.deepStrictEqual(em.body.items.map((i) => i.id), ['demo-em-live']);
+  // ডেমো আহ্বান অতিথি (আর আসল ব্যবহারকারী) দেখেন না — শুধু ডেমো অ্যাকাউন্ট
+  assert.deepStrictEqual(em.body.items.map((i) => i.id), []);
 
   const banks = await call(null, 'bloodbanks', { district: DISTRICT });
   const names = banks.body.items.map((b) => b.id);

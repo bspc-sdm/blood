@@ -98,6 +98,8 @@ function makeCtx(users) {
 async function ensureUser(key, email, name) {
   try {
     const u = await admin.auth().getUserByEmail(email);
+    // অন্য কেউ নিজের অ্যাকাউন্টে এই ঠিকানা বসিয়ে থাকলে ডেমো সেখানে কখনো নয়
+    if (u.uid !== uidOf(key)) throw new HttpError(409, `ডেমো ঠিকানা ${email} অন্য অ্যাকাউন্টে আছে — ডেমো বানানো বন্ধ`);
     return u.uid;
   } catch (e) {
     if (e.code !== 'auth/user-not-found') throw e;
@@ -118,13 +120,14 @@ const PARTS = ['./blood', './services', './rx', './health'];
 async function wipe() {
   const m = await db.doc(MANIFEST).get();
   const paths = (m.exists && m.get('paths')) || [];
-  const uids = (m.exists && m.get('uids')) || [];
+  const uids = ((m.exists && m.get('uids')) || []).filter(isDemoUid);
+  let errors = 0;
   const emails = (m.exists && m.get('emails')) || {};
   // ১) ডেমো অ্যাকাউন্টের সব ডেটা — আসল "অ্যাকাউন্ট মোছা" দিয়ে (পরীক্ষার সময় যা বানানো হয়েছে সেটাও যায়)
   const { deletion } = require('../account');
   for (let i = 0; i < uids.length; i += 10) {
     await Promise.all(uids.slice(i, i + 10).map(async (uid) => {
-      await deletion.deleteNow(uid, emails[uid] || null).catch((e) => console.error('demo wipe user', uid, e.message));
+      await deletion.deleteNow(uid, emails[uid] || null).catch((e) => { errors++; console.error('demo wipe user', uid, e.message); });
       await admin.auth().deleteUser(uid).catch(() => {});
     }));
   }
@@ -158,6 +161,8 @@ async function wipe() {
     paths.slice(i, i + 400).forEach((p) => b.delete(db.doc(p)));
     await b.commit();
   }
+  // কিছু মোছা না গেলে তালিকা থাকে — আবার "সব ডেমো মুছুন" চাপলে বাকিটা যায়
+  if (errors) throw new HttpError(500, `${errors}টা ডেমো অ্যাকাউন্ট পুরো মোছা যায়নি — আবার "সব ডেমো মুছুন" চাপুন`);
   await db.doc(MANIFEST).delete();
   return { users: uids.length, docs: paths.length };
 }
@@ -172,10 +177,13 @@ async function seed() {
     users[r.key] = { uid, email, name: r.name };
     emails[uid] = email;
   }
+  // আগে থেকেই তালিকায় — মাঝপথে থেমে গেলেও "সব ডেমো মুছুন" সব পায়
+  await db.doc(MANIFEST).set({ paths: [], uids: Object.values(users).map((u) => u.uid), emails, at: Date.now(), partial: true });
   const ctx = makeCtx(users);
   for (const p of PARTS) {
     await require(p).seed(ctx);
     await ctx.flush();
+    await db.doc(MANIFEST).set({ paths: [...ctx.paths], uids: [...Object.values(users).map((u) => u.uid), ...ctx.extraUids], emails, at: Date.now(), partial: true });
   }
   const uids = [...Object.values(users).map((u) => u.uid), ...ctx.extraUids];
   await db.doc(MANIFEST).set({ paths: [...ctx.paths], uids, emails, at: Date.now() });
@@ -196,7 +204,7 @@ async function login(key) {
   if (!r || !m.exists) throw new HttpError(404, 'ডেমো চালু নেই');
   const email = demoEmail(r.key);
   const uid = Object.keys(m.get('emails') || {}).find((u) => m.get('emails')[u] === email);
-  if (!uid) throw new HttpError(404, 'ডেমো চালু নেই');
+  if (!uid || !isDemoUid(uid)) throw new HttpError(404, 'ডেমো চালু নেই');
   // সাধারণ লগইনের মতো: বন্ধ করা অ্যাকাউন্টে কারণসহ বার্তা
   const au = await admin.auth().getUser(uid).catch(() => null);
   if (au && au.disabled) throw await require('../firebase').accountDisabledError({ body: {} }, uid);

@@ -1,7 +1,7 @@
 // ===== ডেমো (শুধু পরীক্ষার জন্য) — ডেমো মুছলে এই ফোল্ডার আর LoginFlow/Profile-এর "ডেমো" লাইনগুলো মুছবেন =====
 // লগইন পাতায় রোলের তালিকা: চাপলেই সেই ডেমো অ্যাকাউন্টে ঢোকা (ইমেইল/কোড নেই)। সার্ভারে ডেমো চালু না থাকলে কিছুই দেখায় না।
 import { useEffect, useState } from 'react';
-import { signInWithCustomToken, signOut } from 'firebase/auth';
+import { signInWithCustomToken } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth } from '@/lib/firebase';
 import { postPublic, errorText } from '@/lib/api';
@@ -33,10 +33,10 @@ export function DemoRoleList({ onDone }: { onDone: () => void }) {
     try {
       const r = await postPublic<{ token?: string; restored?: boolean }>('/api/auth/verify-code', { demo: key });
       if (!r.token) throw new Error(tr('Login failed', 'লগইন হয়নি'));
+      // আগের অ্যাকাউন্ট থেকে আলাদা করে বের হওয়া নয় — নতুন লগইনেই বদলায় (বের হলে পাতা সরে গিয়ে ভুল দেখানো যেত না)
       setCareMode(null);
-      if (auth.currentUser) await signOut(auth);
-      qc.clear();
       await signInWithCustomToken(auth, r.token);
+      qc.clear();
       if (r.restored) toast(tr('Account deletion cancelled.', 'অ্যাকাউন্ট মোছা বাতিল হয়েছে।'));
       onDone();
     } catch (e) {

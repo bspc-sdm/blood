@@ -41,7 +41,8 @@ async function sendWave(id) {
     ref.collection('donors').select().get(),
   ]);
   const usersSnap = { docs: found.map((x) => x.doc) };
-  const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+  // ডেমো: আসল আহ্বানে ডেমো ডোনার নয়, ডেমোতে আসল নয় (ডেমো মুছলে filter অংশ মুছবেন)
+  const users = usersSnap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => require('./demo').isDemoUid(u.uid) === (e.demo === true));
   const wave = E.pickWave(users, center(e), e.groups, e.radiusKm, new Set(already.docs.map((d) => d.id)));
   if (!wave.length) return { sent: 0 };
   const now = Date.now();
@@ -165,7 +166,7 @@ const actions = {
     if (!user.uid) {
       const district = typeof req.body?.district === 'string' ? req.body.district : '';
       const live = (await db.collection('emergencies').where('status', '==', 'active').limit(20).get()).docs
-        .filter((d) => E.isLive(d.data()) && (d.get('districts') || []).includes(district));
+        .filter((d) => E.isLive(d.data()) && (d.get('districts') || []).includes(district) && d.get('demo') !== true); // ডেমো আহ্বান অতিথিকে নয়
       const items = live.map((d) => view(d, null, null));
       items.sort((a, b) => b.createdAt - a.createdAt);
       return { items, ask: [] };
@@ -174,7 +175,8 @@ const actions = {
       db.collection('emergencies').where('status', '==', 'active').limit(20).get(),
       db.doc(`users/${user.uid}`).get(),
     ]);
-    const live = snap.docs.filter((d) => E.isLive(d.data()));
+    // ডেমো আহ্বান শুধু ডেমো অ্যাকাউন্টে, আসলটা শুধু আসলে (ডেমো মুছলে filter অংশ মুছবেন)
+    const live = snap.docs.filter((d) => E.isLive(d.data()) && (d.get('demo') === true) === require('./demo').isDemoUid(user.uid));
     // সময় পেরোনো আহ্বান কেউ দেখতে এলেই বন্ধ (ক্রনের অপেক্ষা নয়) — "আসছি" বলা ডোনাররা সাথে সাথে জানেন
     if (snap.docs.some((d) => !E.isLive(d.data()))) await closeExpired().catch((e) => console.error('emergency close failed', e));
     const ask = await askDonated(user.uid, me);
@@ -236,6 +238,7 @@ const actions = {
     await db.runTransaction(async (t) => {
       const [s, d] = await Promise.all([t.get(ref), t.get(dref)]);
       if (!s.exists || !E.isLive(s.data())) throw new HttpError(400, C.tr(req, 'This appeal has ended', 'এই আহ্বান শেষ হয়ে গেছে'));
+      if ((s.get('demo') === true) !== require('./demo').isDemoUid(user.uid)) throw new HttpError(403, C.tr(req, 'Not available', 'এটা আপনার জন্য নয়')); // ডেমো
       const groups = s.get('groups') || {};
       const cur = d.exists ? d.get('status') : null;
       if (op === 'coming') {

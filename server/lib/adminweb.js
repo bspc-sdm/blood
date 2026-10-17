@@ -387,6 +387,8 @@ const actions = {
 
 // কোন কাজগুলো ইতিহাসে লেখা হবে, আর অনুরোধ থেকে কী লিখে রাখা হবে
 const LOGGED = {
+  admin_demo_seed: () => ({ target: 'demo', detail: 'seed' }), // ডেমো
+  admin_demo_wipe: () => ({ target: 'demo', detail: 'wipe' }), // ডেমো
   admin_badge_resolve: (b) => ({ target: `badges/${b.uid}`, detail: b.status || (b.approve === true ? 'approved' : 'rejected') }),
   admin_pharmacy_resolve: (b) => ({ target: `pharmacies/${b.id}`, detail: [b.status || (b.approve === true ? 'approved' : 'rejected'), b.reason].filter(Boolean).join(' · ') }),
   admin_bloodbank_resolve: (b) => ({ target: `bloodBanks/${b.id}`, detail: [b.status || (b.approve === true ? 'approved' : 'rejected'), b.reason].filter(Boolean).join(' · ') }),
