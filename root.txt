@@ -1,0 +1,24 @@
+404 text/plain; charset=utf-8
+HTTP/2 200 
+accept-ranges: bytes
+access-control-allow-origin: *
+age: 0
+cache-control: no-cache
+content-disposition: inline; filename="admin"
+content-security-policy: default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+content-type: text/html; charset=utf-8
+cross-origin-opener-policy: same-origin
+date: Sat, 17 Oct 2026 16:19:52 GMT
+etag: "3bd9e7cc3ba981f2aa2b67e6b684ea1b"
+last-modified: Sat, 17 Oct 2026 16:19:52 GMT
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: no-referrer
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-robots-tag: noindex, nofollow
+x-vercel-cache: MISS
+x-vercel-id: iad1::w626w-1792253992734-abc8ad06f85b
+content-length: 651
+

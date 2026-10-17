@@ -1,0 +1,14 @@
+guest_requests {"items":[]}
+emergencies_active {"items":[],"ask":[]}
+questions {"items":[]}
+tips {"items":[]}
+providers {"error":"Choose doctor or nurse"}
+providers_any {"error":"Choose doctor or nurse"}
+home_providers {"error":"Choose doctor or nurse"}
+hospitals {"error":"Choose a district"}
+ambulances {"error":"Choose a district"}
+pharmacies {"error":"Choose a district"}
+bloodbanks {"error":"Choose a district"}
+labs {"error":"Choose a district"}
+drug_search {"items":[{"i":21375,"name":"Napa","generic":"Paracetamol 80 mg/ml","form":"Paediatric Drops","company":"Beximco Pharmaceuticals Ltd."},{"i":21376,"na
+catalog_get {"lists":{"specialty":{"doctor":[{"code":"medicine","en":"Medicine","bn":"মেডিসিন"},{"code":"pediatrics","en":"Child (Pediatrics)","bn":

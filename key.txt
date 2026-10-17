@@ -1,0 +1,46 @@
+== referer=
+{
+  "error": {
+    "code": 400,
+    "message": "INVALID_CUSTOM_TOKEN : Invalid assertion format. 3 dot separated segments required.",
+    "errors": [
+      {
+        "message": "INVALID_CUSTOM_TOKEN : Invalid assertion format. 3 dot separated segments required.",
+        "domain": "global",
+        "reason": "invalid"
+      }
+    ]
+  }
+}
+
+{
+  "error": {
+    "code": 403,
+    "message": "Missing or insufficient permissions.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+== referer=https://blood-server-ashy.vercel.app/
+{
+  "error": {
+    "code": 400,
+    "message": "INVALID_CUSTOM_TOKEN : Invalid assertion format. 3 dot separated segments required.",
+    "errors": [
+      {
+        "message": "INVALID_CUSTOM_TOKEN : Invalid assertion format. 3 dot separated segments required.",
+        "domain": "global",
+        "reason": "invalid"
+      }
+    ]
+  }
+}
+
+{
+  "error": {
+    "code": 403,
+    "message": "Missing or insufficient permissions.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
