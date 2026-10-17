@@ -81,6 +81,7 @@ fun MainScreen(
     onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
     onAccountDeleted: () -> Unit,
+    onOpenBusiness: (String) -> Unit = {},
     onOpenInbox: () -> Unit = {},
     onLogin: () -> Unit = {},
     onOpenRequestGuest: (String) -> Unit = {},
@@ -134,6 +135,9 @@ fun MainScreen(
         NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
         NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
         NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
+    ) + (
+        // "আমার কাজ" শুধু যাঁর নিজের ব্যবসা, চেম্বার বা বাসায় সেবা আছে (Tabs.WORK = ৪, তাই তালিকার পঞ্চম ঘর)
+        if (!guest && MyWork.has) listOf(NavItem(tr("My work", "আমার কাজ"), R.drawable.ic_nav_work_fill, R.drawable.ic_nav_work)) else emptyList()
     )
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
@@ -162,6 +166,7 @@ fun MainScreen(
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
                 Tabs.SERVICES -> ServicesTab(profile)
+                Tabs.WORK -> if (!guest && MyWork.has) WorkTab(onOpenBusiness, onEditChamber) else Box(Modifier.fillMaxSize())
                 // অতিথির প্রোফাইল নেই (উপরের ছবির বদলে "লগইন")
                 else -> if (guest) HomeTab(
                     profile, homeRefresh, onOpenRequestGuest, onOpenMyRequest, onNewRequest, onChangeLocation,
@@ -401,6 +406,10 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
 @Composable
 internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
+    // পাঁচ ট্যাবে (ব্যবসা থাকলে) ছোট ফোনে বা বড় লেখার সেটিংয়ে লম্বা নাম ("অ্যাপয়েন্টমেন্ট") কেটে যেতে পারে —
+    // তখন সব ট্যাবের লেখা একসাথে একটু ছোট হয় (সর্বনিম্ন ৮০%), যাতে নাম পুরো পড়া যায় আর সবগুলো এক মাপের থাকে
+    var labelScale by remember(items.size) { mutableStateOf(1f) }
+    val baseLabel = MaterialTheme.typography.labelSmall
     androidx.compose.material3.Surface(color = cs.surface) {
         Column {
             androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = cs.outlineVariant)
@@ -424,11 +433,15 @@ internal fun ModernNavBar(items: List<NavItem>, tab: Int, onTabChange: (Int) -> 
                         Spacer(Modifier.height(2.dp))
                         Text(
                             item.label,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = baseLabel.copy(fontSize = baseLabel.fontSize * labelScale),
+                            // মাপ ঠিক করার সময় ঘর বদলায় না (বাছা ট্যাবের মোটা লেখাও একই মাপে মাপা হয়)
                             fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                             color = color,
                             maxLines = 1,
+                            softWrap = false,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 2.dp),
+                            onTextLayout = { r -> if (r.hasVisualOverflow && labelScale > 0.8f) labelScale = (labelScale - 0.05f).coerceAtLeast(0.8f) },
                         )
                         Spacer(Modifier.weight(1f))
                     }

@@ -84,13 +84,6 @@ fun AppointmentTab(
         }
     }
 
-    // যাচাই করা পেশাজীবী: চেম্বার/প্রোফাইল আগে থেকে থাকলে নিচে ভাসমান বাটন, না থাকলে উপরে + (প্রথমবার)
-    val badge = me?.approvedBadge
-    val isProvider = badge in PROVIDER_TYPES
-    var hasChamber by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(isProvider, refreshKey) {
-        hasChamber = if (isProvider) runCatching { Appointments.mine() != null }.getOrNull() else null
-    }
     if (showHome) {
         // বাসায় সেবা: উপরের বাটন থেকে খোলা পাতা
         androidx.activity.compose.BackHandler { showHome = false }
@@ -112,18 +105,6 @@ fun AppointmentTab(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            if (isProvider && hasChamber == false) {
-                IconButton(onClick = onEditChamber) {
-                    AppIcon(R.drawable.ic_add, if (badge == "nurse") tr("Turn on home care", "বাসায় সেবা চালু করুন") else tr("Add my chamber", "আমার চেম্বার যোগ করুন"))
-                }
-            }
-            // যাঁর চেম্বার/বাসায় সেবা আছে: নিচের ভাসমান বাটন "আমার চেম্বার", তাই "বাসায় সেবা" উপরে;
-            // বাকিদের জন্য "বাসায় সেবা" নিচের ভাসমান বাটনে
-            if (isProvider && hasChamber == true) {
-                androidx.compose.material3.TextButton(onClick = { showHome = true }) {
-                    ButtonContent(false, tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health)
-                }
-            }
         }
         PillTabs(
             tab,
@@ -136,21 +117,8 @@ fun AppointmentTab(
         )
         ProviderList(CHAMBER_TYPES[tab.coerceIn(0, CHAMBER_TYPES.lastIndex)], profile)
     }
-    if (isProvider && hasChamber == true) {
-        SmallFab(
-            if (badge == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
-            when (badge) {
-                "nurse" -> R.drawable.ic_home_health
-                "nutritionist" -> R.drawable.ic_restaurant
-                "trainer" -> R.drawable.ic_fitness_center
-                else -> R.drawable.ic_stethoscope
-            },
-            onEditChamber,
-            Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        )
-    } else {
-        SmallFab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health, { showHome = true }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-    }
+    // নিজের চেম্বার বা বাসায় সেবা এখানে নেই — "আমার কাজ" ট্যাবে (২.২০.০)
+    SmallFab(tr("Home care", "বাসায় সেবা"), R.drawable.ic_home_health, { showHome = true }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 

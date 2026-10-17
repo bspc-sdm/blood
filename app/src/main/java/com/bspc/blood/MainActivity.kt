@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
     /** নোটিফিকেশনে চাপ দিলে কোন রিকোয়েস্ট খুলতে হবে */
     private val openRequestId = mutableStateOf<String?>(null)
     private val openType = mutableStateOf<String?>(null)
+    /** "services" নোটিফিকেশনে কোন ব্যবসা (ambulance, pharmacy, bloodbank, lab) */
+    private val openKind = mutableStateOf<String?>(null)
     private val openQuestionId = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +50,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
+            openKind.value = intent?.getStringExtra(Notifier.EXTRA_KIND)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
             sharedRequestId(intent)?.let { openRequestId.value = it }
             if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
@@ -77,7 +80,8 @@ class MainActivity : ComponentActivity() {
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
                             openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") },
-                            onTargetOpened = { openType.value = null },
+                            openTargetKind = openKind.value,
+                            onTargetOpened = { openType.value = null; openKind.value = null },
                         )
                     }
                 }
@@ -98,7 +102,10 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") }?.let { openType.value = it }
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") }?.let {
+            openKind.value = intent.getStringExtra(Notifier.EXTRA_KIND)
+            openType.value = it
+        }
     }
 }
 
@@ -140,6 +147,8 @@ sealed interface Screen {
     data object RxAssist : Screen
     data object RxReviews : Screen
     data object ChamberEdit : Screen
+    /** নিজের এক ধরনের ব্যবসা: "ambulance" | "pharmacy" | "bloodbank" | "lab" */
+    data class MyBusiness(val kind: String) : Screen
     data object Inbox : Screen
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
     /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
@@ -153,8 +162,10 @@ object Tabs {
     const val HEALTH = 2
     /** "সেবা": ফার্মেসি (ওষুধ + নিজের দোকান), অ্যাম্বুলেন্স (খোঁজা + নিজেরটা) */
     const val SERVICES = 3
+    /** "আমার কাজ": নিজের ব্যবসা, চেম্বার, বাসায় সেবা — নিচের বারে শুধু যাঁর এগুলো আছে (২.২০.০) */
+    const val WORK = 4
     /** নিচের বারে নেই; উপরের প্রোফাইলের ছবিতে চাপলে */
-    const val PROFILE = 4
+    const val PROFILE = 5
 }
 
 @Composable
@@ -169,6 +180,7 @@ fun App(
     openHomeVisit: Boolean,
     onHomeVisitOpened: () -> Unit,
     openTarget: String? = null,
+    openTargetKind: String? = null,
     onTargetOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -210,6 +222,7 @@ fun App(
             AuthRepository.signOutLocal()
             session++
             community = null
+            MyWork.clear()
             LoginGate.uid.value = null
             setProfile(GuestArea.load(context))
             resetTo(if (profile?.hasLocation == true) Screen.Main() else Screen.PickLocation)
@@ -268,14 +281,10 @@ fun App(
             type == "rx_review" -> push(Screen.RxReviews)
             // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর খবর / নতুন আমন্ত্রণ
             type == "care" -> push(Screen.Care)
-            // ফার্মেসি/প্যাথলজির মালিক: নিজের পাতা
-            type == "rx_pharmacy" || type == "rx_lab" -> {
-                ServicesNav.target.value = if (type == "rx_lab") "lab_mine" else "pharmacy_mine"
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.SERVICES)
-            }
-            // পুরোনো ওষুধের অর্ডারের নোটিফিকেশনও "সেবা" ট্যাবে
-            type == "med_find" || type == "med_find_mine" -> {
+            // ফার্মেসি/প্যাথলজির মালিক (প্রেসক্রিপশন, পরীক্ষার অনুরোধ), দোকানের কাছে ওষুধ খোঁজা: নিজের পাতা ("আমার কাজ")
+            type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
+            // নিজের ওষুধ খোঁজার উত্তর: সেবা › ফার্মেসি › "ওষুধ খুঁজুন"
+            type == "med_find_mine" -> {
                 ServicesNav.target.value = type
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)
@@ -286,11 +295,16 @@ fun App(
                 stack[0] = Screen.Main(Tabs.HOME)
                 homeRefresh++
             }
-            type == "services" || type == "pharmacy_order" || type == "pharmacy_mine" -> {
-                // দোকানের মালিকের খবর: সরাসরি নিজের ফার্মেসির পাতা
-                if (type != "services") ServicesNav.target.value = "pharmacy_mine"
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.SERVICES)
+            // দোকানের মালিকের খবর: সরাসরি নিজের ফার্মেসির পাতা
+            type == "pharmacy_order" || type == "pharmacy_mine" -> push(Screen.MyBusiness("pharmacy"))
+            // অনুমোদন/বাতিল/বন্ধের খবর (kind: কোন ব্যবসা) — নিজের সেই পাতা; kind না থাকলে "আমার কাজ"
+            type == "services" -> {
+                val kind = data["kind"]
+                if (kind in BUSINESS_KINDS) push(Screen.MyBusiness(kind!!))
+                else {
+                    while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                    stack[0] = Screen.Main(if (MyWork.has) Tabs.WORK else Tabs.HOME)
+                }
             }
             else -> {
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -305,6 +319,7 @@ fun App(
         if (uid == null) {
             // লগইন ছাড়া (অতিথি, নতুন নকশা N1): এলাকা ফোনে রাখা থাকলে সরাসরি হোম, নইলে আগে এলাকা
             community = null
+            MyWork.clear()
             setProfile(GuestArea.load(context))
             resetTo(if (profile?.hasLocation == true) Screen.Main() else Screen.PickLocation)
             return
@@ -336,6 +351,17 @@ fun App(
         if (ready && !LoginGate.isGuest) runCatching { Community.me() }.onSuccess { community = it }
         if (LoginGate.isGuest) community = null
     }
+    // "আমার কাজ" (নিজের ব্যবসা, চেম্বার): মূল পাতায় ফিরলে, লগইন বদলালে বা ব্যাজ বদলালে নতুন করে
+    val workBadge = community?.approvedBadge
+    LaunchedEffect(ready, stack.size == 1, homeRefresh, LoginGate.uid.value, workBadge) {
+        if (ready && stack.size == 1) MyWork.refresh(workBadge)
+    }
+    // শেষ ব্যবসাটাও মুছে গেলে (বা লগআউট) "আমার কাজ" ট্যাব থাকে না — হোমে ফেরা
+    val workHas = MyWork.has
+    LaunchedEffect(workHas, stack.firstOrNull()) {
+        val b = stack.firstOrNull()
+        if (!workHas && b is Screen.Main && b.tab == Tabs.WORK) stack[0] = Screen.Main(Tabs.HOME)
+    }
     // প্যানেলে বদলানো তালিকা (বিশেষজ্ঞতা, সেবা…) — দিনে একবার
     val appContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(ready) {
@@ -366,7 +392,7 @@ fun App(
     // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
     LaunchedEffect(openTarget, ready) {
         if (openTarget != null && ready) {
-            openFromData(mapOf("type" to openTarget))
+            openFromData(listOfNotNull("type" to openTarget, openTargetKind?.let { "kind" to it }).toMap())
             onTargetOpened()
         }
     }
@@ -505,6 +531,7 @@ fun App(
                 onPostTip = { push(Screen.PostTip) },
                 onOpenMyAppointments = { push(Screen.MyAppointments) },
                 onEditChamber = { push(Screen.ChamberEdit) },
+                onOpenBusiness = { push(Screen.MyBusiness(it)) },
                 onOpenInbox = { push(Screen.Inbox) },
                 // লগআউট বা অ্যাকাউন্ট মোছার পর লগইন ছাড়া (অতিথি) হিসেবে চলে
                 onLogout = {
@@ -712,6 +739,8 @@ fun App(
                 ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
             }
 
+            is Screen.MyBusiness -> profile?.let { pr -> MyBusinessScreen(current.kind, pr, onBack = { back() }) }
+
             is Screen.MyRequestDetail -> MyRequestDetailScreen(
                 requestId = current.id,
                 onBack = { back() },
@@ -719,6 +748,16 @@ fun App(
         }
                 }
             }
+        }
+        // "ব্যবসা যোগ করুন" (প্রোফাইল, অতিথির সেটিংস, "আমার কাজ"): কোন ব্যবসা → সেই পাতা (কিছু না থাকলে পাতাটাই ফর্ম)
+        if (WorkNav.picker.value && !LoginGate.isGuest) {
+            AddBusinessDialog(
+                onPick = { k ->
+                    WorkNav.picker.value = false
+                    push(Screen.MyBusiness(k))
+                },
+                onDismiss = { WorkNav.picker.value = false },
+            )
         }
         // লগইন/নাম-মোবাইল/ডোনারের তথ্য: নিচের পাতার উপরে (নিচের পাতা হারায় না, লগইনের পর সেখানেই ফেরা যায়)
         val step = gateStep

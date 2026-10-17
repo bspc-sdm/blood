@@ -214,6 +214,20 @@ fun SettingsScreen(
             )
         }
 
+        // অতিথি: প্রোফাইল নেই, তাই ব্যবসা যোগের পথ এখানে (চাপলে লগইন, তারপর কোন ব্যবসা)
+        if (LoginGate.isGuest) {
+            SettingsCard {
+                ListItem(
+                    headlineContent = { Text(tr("Add your business", "আপনার ব্যবসা যোগ করুন")) },
+                    supportingContent = { Text(tr("Ambulance, pharmacy, blood bank, lab", "অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি")) },
+                    leadingContent = { AppIcon(R.drawable.ic_storefront, null) },
+                    trailingContent = { AppIcon(R.drawable.ic_chevron_right, null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { WorkNav.startAdd() },
+                )
+            }
+        }
+
         // ---- অ্যাপ সম্পর্কে ----
         SettingsCard {
             ListItem(

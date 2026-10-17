@@ -119,6 +119,69 @@ class ScreensTest {
         shot("donor_details_bn")
     }
 
+    @Test
+    fun workTabBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val amb = (1..10).map { i ->
+            Ambulance("a$i", "Lifeline $i", "01700000000", listOf("ac"), "ময়মনসিংহ", null, "", "", available = i <= 7, rating = 0.0, ratingCount = 0, status = if (i == 10) "pending" else "approved")
+        }
+        val bank = BloodBank("b1", "Sandhani Blood Bank", "org", "01700000000", "ময়মনসিংহ", null, "", true, "", "", true, emptyList(), status = "approved")
+        MyWork.summary.value = WorkSummary(
+            ambulances = amb,
+            pharmacy = Pharmacy("p1", "Lazz Pharma", "01700000000", "", "ময়মনসিংহ", null, "09:00", "22:00", false, true, false, "", 0, 0.0, 0, status = "pending"),
+            bloodBanks = listOf(bank, bank.copy(id = "b2"), bank.copy(id = "b3", status = "rejected")),
+            lab = Lab("l1", "Popular Diagnostic", "01700000000", "", "ময়মনসিংহ", null, null, true, "", status = "approved"),
+            professional = "doctor",
+        )
+        show { WorkTab({}, {}) }
+        rule.onNodeWithText("আমার চেম্বার").assertExists()
+        rule.onNodeWithText("১০টা · ৭টা খালি · ১টা যাচাই চলছে").assertExists()
+        shot("work_tab_bn")
+        MyWork.clear()
+    }
+
+    @Test
+    fun businessQuestionBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                BusinessQuestionCard({}, {})
+            }
+        }
+        rule.onNodeWithText("আপনার কি কোনো ব্যবসা আছে?").assertExists()
+        shot("business_question_bn")
+    }
+
+    @Test
+    fun addBusinessDialogBangla() {
+        AppPrefs.lang.value = Lang.BN
+        show { AddBusinessDialog({}, {}) }
+        rule.onNodeWithText("আপনার কোন ব্যবসা?").assertExists()
+        shot("add_business_bn")
+    }
+
+    /** পাঁচ ট্যাবে (ব্যবসা থাকলে) ছোট ফোনেও লেখা কাটে না */
+    @Test
+    fun navBarFiveTabsBangla() {
+        AppPrefs.lang.value = Lang.BN
+        val items = listOf(
+            NavItem("হোম", R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
+            NavItem("অ্যাপয়েন্টমেন্ট", R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
+            NavItem("স্বাস্থ্য", R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
+            NavItem("সেবা", R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
+            NavItem("আমার কাজ", R.drawable.ic_nav_work_fill, R.drawable.ic_nav_work),
+        )
+        // ৩৬০dp চওড়া ফোন
+        show { androidx.compose.foundation.layout.Box(Modifier.width(360.dp)) { ModernNavBar(items, 1) {} } }
+        rule.waitForIdle()
+        shot("nav_five_tabs_bn")
+        listOf("অ্যাপয়েন্টমেন্ট", "আমার কাজ").forEach { label ->
+            val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            rule.onNodeWithText(label).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+            org.junit.Assert.assertFalse("$label কেটে গেছে", results.first().hasVisualOverflow)
+        }
+    }
+
     private fun show(content: @Composable () -> Unit) {
         rule.setContent { GetBloodTheme { Surface { content() } } }
         rule.waitForIdle()

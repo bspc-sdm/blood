@@ -27,6 +27,8 @@ object Notifier {
     /** "request" (ডোনারের জন্য), "response" (রক্তপ্রার্থীর জন্য), "eligible" */
     const val EXTRA_TYPE = "type"
     const val EXTRA_QUESTION_ID = "questionId"
+    /** "services" নোটিফিকেশনে কোন ব্যবসা */
+    const val EXTRA_KIND = "kind"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -53,6 +55,7 @@ object Notifier {
             if (requestId != null) putExtra(EXTRA_REQUEST_ID, requestId)
             if (type != null) putExtra(EXTRA_TYPE, type)
             if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
+            if (kind != null) putExtra(EXTRA_KIND, kind)
         }
         val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(

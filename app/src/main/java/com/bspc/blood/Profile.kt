@@ -68,6 +68,10 @@ fun ProfileTab(
     var photoMenu by remember { mutableStateOf(false) }
     var showBadgeDialog by remember { mutableStateOf(false) }
     var showDateDialog by remember { mutableStateOf(false) }
+    // "আপনার কি কোনো ব্যবসা আছে?" — যাঁর এখনো নেই; "না" বললে কার্ডের বদলে নিচে সাধারণ এক লাইন (২.২০.০)
+    val businessKey = "business_q_" + AuthRepository.currentUid.orEmpty()
+    var businessNo by remember { mutableStateOf(Dismissed.isOn(context, businessKey)) }
+    val hasBusiness = MyWork.summary.value.hasBusiness
     var assisting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { assisting = runCatching { RxApi.assisting().isNotEmpty() }.getOrDefault(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -183,6 +187,16 @@ fun ProfileTab(
             }
         }
 
+        if (MyWork.loaded.value && !hasBusiness && !businessNo) {
+            BusinessQuestionCard(
+                onYes = { WorkNav.startAdd() },
+                onNo = {
+                    Dismissed.set(context, businessKey)
+                    businessNo = true
+                },
+            )
+        }
+
         // ---- তথ্য ----
         Card(
             Modifier.fillMaxWidth(),
@@ -236,6 +250,10 @@ fun ProfileTab(
             HorizontalDivider()
             ActionRow(R.drawable.ic_edit, tr("Edit profile", "প্রোফাইল এডিট"), null, onEditProfile)
             HorizontalDivider()
+            if (MyWork.loaded.value && !hasBusiness && businessNo) {
+                ActionRow(R.drawable.ic_storefront, tr("Add a business", "ব্যবসা যোগ করুন"), tr("Ambulance, pharmacy, blood bank, lab", "অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি"), { WorkNav.startAdd() })
+                HorizontalDivider()
+            }
             val badge = community?.badge
             ActionRow(
                 R.drawable.ic_workspace_premium,
