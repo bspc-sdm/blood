@@ -25,6 +25,9 @@ async function getOrCreateUser(email) {
 }
 
 module.exports = handler(async (req, res) => {
+  // ডেমো (পরীক্ষা): লগইন পাতার রোলের তালিকা আর এক ক্লিকে লগইন — ডেমো মুছলে এই দুই লাইনও মুছবেন
+  if (req.body?.demoRoles === true) return require('../../lib/demo').roles();
+  if (typeof req.body?.demo === 'string') return require('../../lib/demo').login(req.body.demo);
   const email = E.normalizeEmail(req.body?.email);
   const code = String(req.body?.code || '').trim();
   if (!email) throw new HttpError(400, 'সঠিক ইমেইল দিন');

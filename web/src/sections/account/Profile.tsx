@@ -14,6 +14,7 @@ import { isDonor, type Profile } from '@/lib/profile';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { store } from '@/lib/store';
+import { DemoSwitchDialog, isDemoUid } from '@/demo/DemoRoles'; // ডেমো
 import { DocsNeededCard, DonationDateDialog, PhoneVerifyDialog, PhotoMenuDialog, usePhotoPicker } from './dialogs';
 import { SUPPORT_EMAIL, badgeLabel, hasBusiness, useAccountState } from './util';
 
@@ -137,6 +138,7 @@ function MemberProfile({ profile }: { profile: Profile }) {
   const { me, work, workLoaded } = useAccountState();
   const photo = usePhotoPicker();
   const [photoMenu, setPhotoMenu] = useState(false);
+  const [demoSwitch, setDemoSwitch] = useState(false); // ডেমো
   const [dateDialog, setDateDialog] = useState(false);
   const [phoneDialog, setPhoneDialog] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -349,6 +351,7 @@ function MemberProfile({ profile }: { profile: Profile }) {
               {isAdmin ? <ListRow icon="admin_panel_settings" title={tr('Admin', 'অ্যাডমিন')} href="/admin" /> : null}
             </Menu>
             <Menu>
+              {isDemoUid(s.uid) ? <ListRow icon="sync" title={tr('Switch role', 'রোল বদলান')} sub={tr('Demo', 'ডেমো')} onClick={() => setDemoSwitch(true)} /> : null /* ডেমো */}
               <ListRow icon="logout" title={tr('Log out', 'লগআউট')} onClick={logout} trailing={<span />} />
               <ListRow icon="delete" title={tr('Delete account', 'অ্যাকাউন্ট মুছুন')} danger onClick={() => { setDeleteError(null); setConfirmDelete(true); }} trailing={<span />} />
             </Menu>
@@ -356,6 +359,7 @@ function MemberProfile({ profile }: { profile: Profile }) {
         </div>
       </div>
 
+      {demoSwitch ? <DemoSwitchDialog onClose={() => setDemoSwitch(false)} onDone={() => { setDemoSwitch(false); nav('/', { replace: true }); }} /> : null /* ডেমো */}
       {photoMenu ? <PhotoMenuDialog onClose={() => setPhotoMenu(false)} onChange={photo.pick} onRemove={photo.remove} /> : null}
       {dateDialog ? (
         <DonationDateDialog

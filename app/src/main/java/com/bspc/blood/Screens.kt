@@ -181,6 +181,7 @@ fun LoginScreen(errorMsg: String?, onLoggedIn: () -> Unit, reason: String? = nul
             }
         }
         ErrorText(localError ?: errorMsg)
+        if (!codeSent) DemoRoleList(onLoggedIn) // ডেমো
     }
 }
 

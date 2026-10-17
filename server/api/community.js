@@ -505,6 +505,8 @@ const actions = {
 };
 
 Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions, require('../lib/labtests').actions, require('../lib/careaccess').actions, guest.actions);
+// ডেমো (পরীক্ষা) — ডেমো মুছলে এই লাইনও মুছবেন
+Object.assign(actions, require('../lib/demo').actions);
 
 /**
  * ওয়েব প্যানেল: ঢুকলেই সব অপেক্ষমাণ কাজ একসাথে, এলাকার নাম সহ।

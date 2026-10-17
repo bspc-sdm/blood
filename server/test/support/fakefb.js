@@ -168,7 +168,16 @@ const admin = {
     verifyIdToken: async (t) => { const u = users.get(t); if (!u) throw new Error('bad token'); return { uid: u.uid, email: u.email, email_verified: true }; },
     getUser: async (uid) => { const u = users.get(uid); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return { ...u, disabled: false }; },
     revokeRefreshTokens: async () => {},
+    createCustomToken: async (uid) => `ctok_${uid}`,
     deleteUser: async (uid) => { users.delete(uid); },
+    createUser: async (d) => {
+      const uid = d.uid || `u${(++autoId).toString().padStart(8, '0')}`;
+      if (users.has(uid)) throw Object.assign(new Error('exists'), { code: 'auth/uid-already-exists' });
+      if (d.email && [...users.values()].some((x) => x.email === d.email)) throw Object.assign(new Error('exists'), { code: 'auth/email-already-exists' });
+      users.set(uid, { uid, email: d.email, displayName: d.displayName });
+      return users.get(uid);
+    },
+    updateUser: async (uid, d) => { const u = users.get(uid); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); Object.assign(u, d); return u; },
     getUserByEmail: async (e) => { const u = [...users.values()].find((x) => x.email === e); if (!u) throw Object.assign(new Error('nf'), { code: 'auth/user-not-found' }); return u; },
   }),
   firestore: { FieldValue },
