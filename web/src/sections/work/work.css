@@ -109,3 +109,5 @@
 @media (max-width: 1099px) { .work-side { order: -1; } }
 .work-empty .btn svg { width: 18px; height: 18px; opacity: 1; }
 .work-empty .btn { margin-top: 8px; }
+.work-td-svc { max-width: 220px; }
+@media (min-width: 1180px) { .work-bar-actions { margin-right: 8px; } }

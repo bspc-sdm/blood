@@ -8,8 +8,8 @@ import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { formatDate } from '@/lib/format';
-import { tr } from '@/lib/i18n';
-import { apptChamber, apptWhen, isActive, parseAppointment, serialText, statusLabel, statusTone, today, type Appointment } from './model';
+import { num, tr } from '@/lib/i18n';
+import { badgeLabel, apptChamber, apptWhen, isActive, parseAppointment, serialText, statusLabel, statusTone, today, type Appointment } from './model';
 
 export function MyAppointmentsPage({ detailId }: { detailId: string | null }) {
   const title = tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট');
@@ -136,13 +136,13 @@ function ApptDetail({ a, onCancel }: { a: Appointment; onCancel: () => void }) {
   return (
     <>
       <div className="row">
-        <h2 className="t-title-l grow">{a.otherName || tr('Deleted account', 'মুছে ফেলা অ্যাকাউন্ট')}</h2>
         <Tag tone={statusTone(a.status)}>{statusLabel(a.status)}</Tag>
+        <span className="t-body-s muted grow">{badgeLabel(a.type)}</span>
       </div>
       {a.serial > 0 ? (
         <div className="card tonal appt-serial">
-          <span className="t-label-m">{tr('Serial', 'সিরিয়াল')}</span>
-          <span className="appt-serial-n num">{serialText(a.serial)}</span>
+          <span className="t-label-m">{tr('Serial #', 'সিরিয়াল নং ').trim()}</span>
+          <span className="appt-serial-n num">{num(a.serial)}</span>
         </div>
       ) : null}
       <div className="col">

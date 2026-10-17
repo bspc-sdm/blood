@@ -12,11 +12,11 @@ import { usePageTitle, useTwoPane } from '@/shell/chrome';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
-import { formatDate, dateInputValue, fromDateInput } from '@/lib/format';
+import { formatDate, dateInputValue, dhakaHourMinute, fromDateInput } from '@/lib/format';
 import { isBangla, num, tr } from '@/lib/i18n';
 import { areaLabel, upazila } from '@/lib/geo';
 import {
-  CHAMBER_TYPES, DAY_MS, badgeIcon, badgeLabel, canBook, chamberArea, chamberLabel, chamberOpenOn, chamberTimeText, coverageText, feeText, homeServiceLabel,
+  CHAMBER_TYPES, DAY_MS, badgeIcon, dayShort, slotsOf, badgeLabel, canBook, chamberArea, chamberLabel, chamberOpenOn, chamberTimeText, coverageText, feeText, homeServiceLabel,
   parseProvider, ratingLine, specialtiesOf, specialtyLabel, timesText, today, useCatalog, type Chamber, type FamilyMember, type Hospital, type Provider,
 } from './model';
 import { AreaSheet, DetailBlock, DetailHead, EmergencyNotice, FilterChoice, FilterSheet, HospitalPickerDialog, ReasonReportDialog, useAreasReady, type AreaSel } from './shared';
@@ -74,6 +74,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
     <div className="list-inner appt-pre">
       <div className="row appt-title">
         <h1 className="t-headline grow appt-h1">{tr('Appointment', 'অ্যাপয়েন্টমেন্ট')}</h1>
+        <div className="row appt-title-end">
         {!guest ? (
           <Link className="btn text small has-icon appt-my-link" to="/my-appointments" aria-label={tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')} title={tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')}>
             <Icon name="event_outline" />
@@ -84,6 +85,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           <Icon name="home_health" />
           {tr('Home care', 'বাসায় সেবা')}
         </Link>
+        </div>
       </div>
       <div className="appt-bleed">
         <PillTabs
@@ -260,7 +262,6 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
               ['info', c.room ? tr('Room: ', 'রুম: ') + c.room : ''],
               ['schedule', chamberTimeText(c)],
               ['payments', feeText(c.noFee, c.fee)],
-              ['call', c.serialPhone ? tr('Serial by phone: ', 'সিরিয়াল ফোনে: ') + num(c.serialPhone) : ''],
             ]}
           >
             {p.appointments && c.appointments ? (
@@ -347,12 +348,21 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
 function nextOpenDays(c: Chamber, count: number): number[] {
   const out: number[] = [];
   const t0 = today();
+  // আজকের চেম্বারের সময় শেষ হয়ে গেলে আজ নয় (রাত পেরোনো চেম্বার বাদে) — সার্ভারের নিয়মের মতো
+  const [h, m] = dhakaHourMinute(Date.now());
+  const now = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const todayOver = () => {
+    const sl = slotsOf(c).filter((t) => t.days.includes(new Date(t0).getUTCDay()));
+    return sl.length > 0 && sl.every((t) => t.start && t.end && t.start < t.end && now >= t.end);
+  };
   for (let i = 0; i <= 60 && out.length < count; i++) {
     const d = t0 + i * DAY_MS;
-    if (chamberOpenOn(c, d)) out.push(d);
+    if (chamberOpenOn(c, d) && !(i === 0 && todayOver())) out.push(d);
   }
   return out;
 }
+/** "শনি, ১৭ অক্টোবর" */
+const dayChip = (d: number) => dayShort(new Date(d).getUTCDay()) + ', ' + formatDate(d).replace(/\s+\S+$/, '');
 
 function BookDialog({ provider, index, onClose, onBooked }: { provider: Provider; index: number; onClose: () => void; onBooked: () => void }) {
   const ch = provider.chambers[index];
@@ -418,7 +428,7 @@ function BookDialog({ provider, index, onClose, onBooked }: { provider: Provider
       <div className="col gap-6">
         <span className="t-label-l">{tr('Pick a date', 'তারিখ বেছে নিন')}</span>
         {quick.length ? (
-          <ChoiceChips options={quick.map((d) => ({ value: d, label: formatDate(d) }))} value={date} onChange={(v: number) => setDate(v)} />
+          <ChoiceChips options={quick.map((d) => ({ value: d, label: dayChip(d) }))} value={date} onChange={(v: number) => setDate(v)} />
         ) : null}
         <input
           type="date"

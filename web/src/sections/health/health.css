@@ -48,8 +48,14 @@
 .health-meds { gap: 10px; }
 .health-med-n { width: 26px; flex: none; }
 .health-qr { flex: none; border-radius: 4px; }
-.health-qr .bg { fill: var(--surface-lowest); }
-.health-qr .fg { fill: var(--on-surface); }
+/* QR সবসময় হালকা জমিনে গাঢ় ঘর (উল্টো QR অনেক স্ক্যানার পড়ে না) — ডার্ক থিমে টোকেন অদলবদল */
+.health-qr { --health-qr-bg: var(--surface-lowest); --health-qr-fg: var(--on-surface); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .health-qr { --health-qr-bg: var(--on-surface); --health-qr-fg: var(--surface-lowest); }
+}
+:root[data-theme='dark'] .health-qr { --health-qr-bg: var(--on-surface); --health-qr-fg: var(--surface-lowest); }
+.health-qr .bg { fill: var(--health-qr-bg); }
+.health-qr .fg { fill: var(--health-qr-fg); }
 .health-code { font-family: 'Roboto', monospace; letter-spacing: .12em; text-transform: uppercase; }
 .health-code-row > .field { flex: 1; }
 .health-code-row > .btn { margin-top: 22px; min-height: 48px; }

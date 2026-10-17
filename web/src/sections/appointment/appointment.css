@@ -6,8 +6,6 @@
 @media (min-width: 720px) {
   /* বড় পর্দায় উপরের বারে পাতার নাম থাকে */
   .appt-title .appt-h1, .ws .appt-h1 { display: none; }
-  .appt-title { justify-content: flex-end; }
-  .appt-title .grow { flex: 1; }
 }
 .appt-home-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px;
@@ -15,6 +13,7 @@
 }
 .appt-home-btn svg { width: 16px; height: 16px; }
 .appt-title { flex-wrap: nowrap; }
+.appt-title-end { margin-left: auto; flex: none; gap: 4px; }
 .appt-wide-only { display: none; }
 .appt-my-link { padding-left: 8px; padding-right: 8px; }
 @media (min-width: 720px) { .appt-wide-only { display: inline; } }

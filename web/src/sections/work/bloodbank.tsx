@@ -92,6 +92,7 @@ export function MyBloodBanks() {
             <thead>
               <tr>
                 <th>{tr('Blood bank name', 'ব্লাড ব্যাংকের নাম')}</th>
+                <th>{tr('Services', 'কী কী সেবা')}</th>
                 <th>{tr('Address', 'ঠিকানা')}</th>
                 <th>{tr('Open hours', 'খোলার সময়')}</th>
                 <th>{tr('Status', 'অবস্থা')}</th>
@@ -108,6 +109,7 @@ export function MyBloodBanks() {
                       <span className="t-body-s muted">{kindLabel(b.kind)}</span>
                     </div>
                   </td>
+                  <td className="work-td-svc">{b.services.map(cat.label).join(' · ')}</td>
                   <td className="work-td-area">{place(b)}</td>
                   <td>{hours(b)}</td>
                   <td>

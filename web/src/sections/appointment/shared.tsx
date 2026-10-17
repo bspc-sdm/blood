@@ -96,6 +96,10 @@ export function AreaSheet({
               <ListRow icon="location_on" title={tr('My current location', 'আমার বর্তমান লোকেশন')} sub={tr('Nearest first', 'কাছেরগুলো আগে')} onClick={onNearMe} trailing={check(nearMe === true)} />
             ) : null}
             {allowAll ? <ListRow icon="map" title={tr('All districts', 'সব জেলা')} onClick={() => pick(null, null, null)} trailing={check(sel(null, null, null))} /> : null}
+            {value.district ? (
+              <ListRow icon="location_on" title={areaLabel(value.district, value.upazilaId, value.unionId)} sub={tr('Selected', 'বাছা আছে')} onClick={() => { setDist(value.district); setUpz(null); }} />
+            ) : null}
+            <hr className="divider" />
             {districtsSorted().map((d) => (
               <ListRow key={d.en} title={isBangla() ? d.bn : d.en} onClick={() => { setDist(d.bn); setUpz(null); }} trailing={value.district === d.bn && nearMe !== true ? <Icon name="check_circle" className="c-primary" style={{ width: 20, height: 20 }} /> : undefined} />
             ))}

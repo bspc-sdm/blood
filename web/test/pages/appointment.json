@@ -315,10 +315,48 @@
   },
   "click": [
    "button:has-text(\"অ্যাপয়েন্টমেন্ট চাই\") >> visible=true",
-   ".dialog .chip >> nth=0",
+   ".dialog button.chip:has-text(\"অক্টোবর\") >> nth=1"
+  ],
+  "fill": [
+   [
+    ".dialog textarea",
+    "ডায়াবেটিসের ফলো-আপ, সুগার বেশি থাকছে"
+   ]
+  ]
+ },
+ {
+  "name": "book-validate",
+  "path": "/appointment/doctor/p_rafiq",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"অ্যাপয়েন্টমেন্ট চাই\") >> visible=true",
+   ".dialog button.chip >> nth=0",
    ".dialog button:has-text(\"অনুরোধ পাঠান\")"
   ],
-  "fill": []
+  "sizes": [
+   "mobile"
+  ]
  },
  {
   "name": "home-care-guest",

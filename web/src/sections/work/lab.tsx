@@ -90,7 +90,7 @@ export function MyLab() {
             <span className="work-ic"><Icon name="local_hospital" /></span>
             <div className="col gap-4 grow">
               <h3 className="t-title-m">{lab.name}</h3>
-              {lab.status !== 'approved' ? <span className="t-label-l c-primary">{statusText(lab.status)}</span> : null}
+              
             </div>
             <StatusTag status={lab.status} />
           </div>
