@@ -72,6 +72,7 @@ export function MyLab() {
               icon="list_alt"
               title={tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট')}
               sub={tr('Test requests from prescriptions, sample taken, give report', 'প্রেসক্রিপশন থেকে আসা পরীক্ষা, নমুনা নেওয়া, রিপোর্ট দেওয়া')}
+              to="/work/lab/orders"
             />
           ) : (
             <section className="card work-partner">

@@ -1,6 +1,6 @@
 // পেশাদারের কাজের জায়গা (/work/pro/*): বুকিং (সিরিয়ালের সারি), রোগী, চেম্বার ও প্রোফাইল সেটআপ, বাসায় সেবার হিসাব —
 // অ্যাপের ChamberHubScreen / AppointmentsList(role = provider) / PatientsList / ChamberEditScreen / MyHomeCareCard।
-// কম্পিউটারে চেম্বারের সহকারী বা ডাক্তার ব্যবহার করবেন — তাই চওড়া টেবিল। প্রেসক্রিপশন, টিম, সহকারী: /doctor প্যানেল।
+// কম্পিউটারে চেম্বারের সহকারী বা ডাক্তার ব্যবহার করবেন — তাই চওড়া টেবিল। প্রেসক্রিপশন, টিম, সহকারী: /work/rx।
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -92,10 +92,10 @@ export function ProfessionalWorkspace({ base = '/work/pro' }: { base?: string })
       }
       actions={
         type === 'doctor' ? (
-          <a className="btn tonal has-icon" href="/doctor">
+          <Link className="btn tonal has-icon" to="/work/rx">
             <Icon name="edit_note" />
             {tr('Write a prescription', 'প্রেসক্রিপশন লিখুন')}
-          </a>
+          </Link>
         ) : undefined
       }
     >
@@ -119,19 +119,19 @@ export function ProfessionalWorkspace({ base = '/work/pro' }: { base?: string })
 }
 export default ProfessionalWorkspace;
 
-/** প্রেসক্রিপশন, টিম আর সহকারী — আলাদা ওয়েব প্যানেলে */
+/** প্রেসক্রিপশন, টিম আর সহকারী (আমার কাজ › প্রেসক্রিপশন) */
 function DoctorPanelCard() {
   return (
-    <a className="card click appt-panel-card" href="/doctor">
+    <Link className="card click appt-panel-card" to="/work/rx">
       <span className="row wrap gap-16">
         <span className="appt-panel-ico"><Icon name="medication" /></span>
         <span className="col gap-2 grow">
           <span className="t-title-m">{tr('Prescriptions', 'প্রেসক্রিপশন')}</span>
           <span className="t-body-s muted">{tr('Prescriptions, patients, team and assistants', 'প্রেসক্রিপশন, রোগী, টিম ও সহকারী')}</span>
         </span>
-        <span className="btn text has-icon"><Icon name="language" />{tr('Open web panel', 'ওয়েব প্যানেল খুলুন')}</span>
+        <span className="btn text has-icon"><Icon name="chevron_right" />{tr('Open', 'খুলুন')}</span>
       </span>
-    </a>
+    </Link>
   );
 }
 

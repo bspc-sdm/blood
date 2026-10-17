@@ -28,10 +28,12 @@ export interface WorkSummary {
   lab: any | null;
   /** অনুমোদিত পেশাদার ব্যাজ (চেম্বার বা বাসায় সেবা) */
   professional: string | null;
+  /** যেসব ডাক্তারের সহকারী (প্রেসক্রিপশন/রোগী এন্ট্রি) */
+  assisting: { doctorUid: string; name: string; degrees: string }[];
 }
 export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
-const emptyWork = (): WorkSummary => ({ ambulances: [], pharmacy: null, bloodBanks: [], lab: null, professional: null });
-export const workHas = (w: WorkSummary) => w.ambulances.length > 0 || !!w.pharmacy || w.bloodBanks.length > 0 || !!w.lab || !!w.professional;
+const emptyWork = (): WorkSummary => ({ ambulances: [], pharmacy: null, bloodBanks: [], lab: null, professional: null, assisting: [] });
+export const workHas = (w: WorkSummary) => w.ambulances.length > 0 || !!w.pharmacy || w.bloodBanks.length > 0 || !!w.lab || !!w.professional || w.assisting.length > 0;
 
 /** এলাকা (রক্তের তালিকা, কাছের জিনিস): লগইন থাকলে প্রোফাইলের, নইলে এই ব্রাউজারের */
 export interface Place { lat: number; lng: number; placeName: string; source: 'gps' | 'district' }
@@ -135,12 +137,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return f();
       }
     };
-    const [a, p, b, l, m] = await Promise.allSettled([
+    const [a, p, b, l, m, x] = await Promise.allSettled([
       twice(() => call('ambulance_mine')),
       twice(() => call('pharmacy_me')),
       twice(() => call('bloodbank_mine')),
       twice(() => call('lab_me')),
       twice(() => call<CommunityMe>('me')),
+      twice(() => call<{ items?: WorkSummary['assisting'] }>('rx_assisting')),
     ]);
     if (uidRef.current !== u.uid) return;
     if (m.status === 'fulfilled') setMe(m.value);
@@ -152,6 +155,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         bloodBanks: b.status === 'fulfilled' ? b.value.items ?? [] : old.bloodBanks,
         lab: l.status === 'fulfilled' ? l.value.lab ?? null : old.lab,
         professional: badge && badge.status === 'approved' && PROVIDER_TYPES.includes(badge.type) ? badge.type : m.status === 'fulfilled' ? null : old.professional,
+        assisting: x.status === 'fulfilled' ? x.value.items ?? [] : old.assisting,
       };
     });
     const failed = [a, p, b, l].filter((r) => r.status === 'rejected') as PromiseRejectedResult[];

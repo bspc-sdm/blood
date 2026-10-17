@@ -35,7 +35,7 @@ export function WorkOverview() {
   if (gate) return <Workspace title={title}>{gate}</Workspace>;
 
   const hasBusiness = amb.length > 0 || !!ph || bbs.length > 0 || !!lab;
-  if (!hasBusiness && !w.professional) {
+  if (!hasBusiness && !w.professional && !w.assisting.length) {
     return (
       <Workspace title={title}>
         <WorkEmpty
@@ -106,6 +106,18 @@ export function WorkOverview() {
           />
         ) : null}
 
+        {w.professional === 'doctor' || w.assisting.length ? (
+          <BizCard
+            icon="edit_note"
+            title={tr('Prescriptions', 'প্রেসক্রিপশন')}
+            sub={w.professional === 'doctor'
+              ? tr('Patients, write prescriptions, team, report reviews', 'রোগী, প্রেসক্রিপশন লেখা, টিম, রিপোর্ট দেখানো')
+              : tr("Doctor's assistant · ", 'ডাক্তারের সহকারী · ') + w.assisting.map((d) => d.name).join(', ')}
+            to="/work/rx"
+            actions={<Link to="/work/rx" className="btn small has-icon"><Icon name="edit_note" />{tr('Open', 'খুলুন')}</Link>}
+          />
+        ) : null}
+
         {amb.length ? (
           <BizCard
             kind="ambulance"
@@ -140,7 +152,7 @@ export function WorkOverview() {
             note={ph.closedUntil > 0 ? tr('Closed until ', 'বন্ধ থাকবে ') + formatDate(ph.closedUntil) + tr('', ' পর্যন্ত') : null}
             actions={
               <>
-                {ph.status === 'approved' ? <a href="/doctor" className="btn outline small has-icon"><Icon name="medication" />{tr('Prescriptions & orders', 'প্রেসক্রিপশন ও অর্ডার')}</a> : null}
+                {ph.status === 'approved' ? <Link to="/work/pharmacy/orders" className="btn outline small has-icon"><Icon name="medication" />{tr('Prescriptions & orders', 'প্রেসক্রিপশন ও অর্ডার')}</Link> : null}
                 <Link to="/work/pharmacy/edit" className="btn text small has-icon"><Icon name="edit" />{tr('Edit details', 'তথ্য বদলান')}</Link>
               </>
             }
@@ -166,7 +178,7 @@ export function WorkOverview() {
             to="/work/lab"
             actions={
               <>
-                {lab.status === 'approved' ? <a href="/doctor" className="btn outline small has-icon"><Icon name="list_alt" />{tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট')}</a> : null}
+                {lab.status === 'approved' ? <Link to="/work/lab/orders" className="btn outline small has-icon"><Icon name="list_alt" />{tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট')}</Link> : null}
                 <Link to="/work/lab/edit" className="btn text small has-icon"><Icon name="edit" />{tr('Edit details', 'তথ্য বদলান')}</Link>
               </>
             }

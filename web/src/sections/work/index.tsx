@@ -13,6 +13,10 @@ import { LabForm, MyLab } from './lab';
 import './work.css';
 
 const Pro = lazy(() => import('../appointment/pro'));
+// প্রেসক্রিপশন (ডাক্তার ও সহকারী), ফার্মেসির অর্ডার/স্টক, প্যাথলজির অর্ডার/রিপোর্ট — আগে /doctor প্যানেলে ছিল
+const DoctorRx = lazy(() => import('../rx/doctor'));
+const PharmacyRx = lazy(() => import('../rx/partner/pharmacy'));
+const LabOrders = lazy(() => import('../rx/partner/lab'));
 
 export default function WorkSection() {
   useLang();
@@ -26,6 +30,10 @@ export default function WorkSection() {
       </Suspense>
     );
   }
+  const lazyPage = (el: JSX.Element) => <Suspense fallback={<Loading />}>{el}</Suspense>;
+  if (matchPath({ path: '/work/rx/*', end: false }, pathname)) return lazyPage(<DoctorRx />);
+  if (matchPath({ path: '/work/pharmacy/orders/*', end: false }, pathname)) return lazyPage(<PharmacyRx />);
+  if (matchPath({ path: '/work/lab/orders/*', end: false }, pathname)) return lazyPage(<LabOrders />);
   if (m('/work')) return <WorkOverview />;
   if (m('/work/add')) return <AddBusiness />;
 

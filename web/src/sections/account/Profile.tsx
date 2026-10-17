@@ -313,7 +313,7 @@ function MemberProfile({ profile }: { profile: Profile }) {
                 sub={tr('People who can help you in the app', 'যাঁরা অ্যাপে আপনার হয়ে কাজ করতে পারেন')}
                 onClick={() => nav('/care')}
               />
-              {assisting.data?.items?.length ? <ListRow icon="group_round" title={tr("Doctor's assistant", 'ডাক্তারের সহকারী')} href="/doctor" /> : null}
+              {assisting.data?.items?.length ? <ListRow icon="group_round" title={tr("Doctor's assistant", 'ডাক্তারের সহকারী')} onClick={() => nav('/work/rx')} /> : null}
             </Menu>
             <Menu>
               <ListRow

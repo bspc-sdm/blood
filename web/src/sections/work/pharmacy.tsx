@@ -1,6 +1,6 @@
 // /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, ওষুধ খোঁজার অনুরোধ, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen, PharmacyFindRequests)
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
@@ -117,6 +117,7 @@ export function MyPharmacy() {
               icon="medication"
               title={tr('Prescriptions & orders', 'প্রেসক্রিপশন ও অর্ডার')}
               sub={tr('Give medicines from a prescription, online orders and stock', 'প্রেসক্রিপশন থেকে ওষুধ দেওয়া, অনলাইন অর্ডার ও স্টক')}
+              to="/work/pharmacy/orders"
             />
           ) : null}
           <section className="card col gap-8">
@@ -191,8 +192,8 @@ export function MyPharmacy() {
   );
 }
 
-/** পার্টনার প্যানেলের (/doctor) লিংক: প্রেসক্রিপশন, অর্ডার, স্টক, রিপোর্ট সেখানে */
-export function PartnerCard({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+/** প্রেসক্রিপশন/অর্ডার/স্টক বা পরীক্ষা/রিপোর্টের পাতায় যাওয়ার কার্ড */
+export function PartnerCard({ icon, title, sub, to }: { icon: string; title: string; sub: string; to: string }) {
   return (
     <section className="card work-partner">
       <span className="work-ic"><Icon name={icon} /></span>
@@ -200,10 +201,10 @@ export function PartnerCard({ icon, title, sub }: { icon: string; title: string;
         <h3 className="t-title-m">{title}</h3>
         <span className="t-body-s muted">{sub}</span>
       </div>
-      <a href="/doctor" className="btn work-open-btn">
+      <Link to={to} className="btn work-open-btn">
         {tr('Open', 'খুলুন')}
         <Icon name="chevron_right" />
-      </a>
+      </Link>
     </section>
   );
 }
