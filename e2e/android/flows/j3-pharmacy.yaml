@@ -27,6 +27,7 @@ env:
     element: "দোকানে এসেছেন"
     direction: DOWN
     timeout: 20000
+    centerElement: true
     optional: true
 - takeScreenshot: j3-04b-shop-order
 - tapOn:

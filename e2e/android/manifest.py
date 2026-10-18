@@ -8,7 +8,7 @@ have = {os.path.splitext(f)[0]: f for f in os.listdir(shots) if f.endswith(".png
 rows = []
 for key, title, expect in STEPS:
     j = key.split("-")[0]
-    if key.startswith("j1-00") is False and "-00" in key:
+    if not key.startswith("j1-00") and "-00" in key:
         continue
     jt, role = JOURNEYS[j]
     rows.append({

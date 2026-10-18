@@ -44,8 +44,9 @@ env:
     timeout: 5000
 - takeScreenshot: j8-06-donor-home
 - tapOn: "সেটিংস ও প্রোফাইল"
-- extendedWaitUntil:
-    visible: ".*এখন রক্ত দিতে পারবেন.*"
+- scrollUntilVisible:
+    element: ".*রক্ত দিতে পারবেন.*"
+    direction: UP
     timeout: 20000
     optional: true
 - takeScreenshot: j8-07-donor-profile

@@ -26,6 +26,21 @@ appId: com.bspc.blood
     direction: DOWN
     timeout: 60000
 - takeScreenshot: ${J}-00b-login
+# যাত্রা ১-এ: ডেমো তালিকার একেবারে নিচ (শেষ রোল নিচের বারের নিচে চাপা পড়ে কি না), তারপর আবার ওপরে
+- runFlow:
+    when:
+      true: ${J == 'j1'}
+    commands:
+      - scrollUntilVisible:
+          element: ".*কে(?:য়|য়)ারগিভার.*"
+          direction: DOWN
+          timeout: 20000
+      - scroll
+      - takeScreenshot: ${J}-00c-login-bottom
+      - scrollUntilVisible:
+          element: ".*${ROLE}.*"
+          direction: UP
+          timeout: 20000
 - tapOn: ".*${ROLE}.*"
 - extendedWaitUntil:
     visible: "সেটিংস ও প্রোফাইল"

@@ -12,10 +12,10 @@ env:
     optional: true
 - takeScreenshot: j2-01-ambulance-list
 - scrollUntilVisible:
-    element: "ডেমো জীবন অ্যাম্বুলেন্স .এসি.*"
+    element: "ডেমো জীবন অ্যাম্বুলেন্স .এসি."
     direction: DOWN
     timeout: 20000
-- tapOn: "ডেমো জীবন অ্যাম্বুলেন্স .এসি.*"
+- tapOn: "ডেমো জীবন অ্যাম্বুলেন্স .এসি."
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j2-02-ambulance-sheet
@@ -30,10 +30,14 @@ env:
     text: "ফার্মেসি"
     index: 0
 - extendedWaitUntil:
-    visible: "ডেমো লাইফ ফার্মেসি.*"
+    visible: "ডেমো .*ফার্মেসি"
     timeout: 30000
 - takeScreenshot: j2-04-pharmacy-list
-- tapOn: "ডেমো লাইফ ফার্মেসি.*"
+- scrollUntilVisible:
+    element: "ডেমো লাইফ ফার্মেসি"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "ডেমো লাইফ ফার্মেসি"
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j2-05-pharmacy-sheet

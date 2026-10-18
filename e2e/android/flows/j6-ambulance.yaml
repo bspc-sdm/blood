@@ -24,18 +24,18 @@ env:
 - tapOn:
     id: "amb_available"
     index: 0
-- waitForAnimationToEnd:
-    timeout: 5000
 - extendedWaitUntil:
-    visible: ".*ট্রিপে আছি.*"
-    timeout: 15000
+    visible: "ZZZ-never-shown"
+    timeout: 5000
     optional: true
-- takeScreenshot: j6-04-switch-off
+- takeScreenshot: j6-04-switch-toggled
 - tapOn:
     id: "amb_available"
     index: 0
-- waitForAnimationToEnd:
+- extendedWaitUntil:
+    visible: "ZZZ-never-shown"
     timeout: 5000
-- takeScreenshot: j6-05-switch-on-again
+    optional: true
+- takeScreenshot: j6-05-switch-restored
 - scroll
 - takeScreenshot: j6-06-more-vehicles

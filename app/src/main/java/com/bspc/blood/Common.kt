@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -146,6 +148,9 @@ fun SplashScreen() {
  */
 @Composable
 fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolean = true, content: @Composable () -> Unit) {
+    // E2E (Android 15 এমুলেটর, তিন বাটনের বার): ডায়ালগের ভেতরে নিচের বারের মাপ তবুও ০ আসে — শেষের বাটন বারের নিচে চলে যেত।
+    // মূল পাতার (Activity) মাপ ডায়ালগ খোলার আগে নিয়ে রাখা; ভেতরের মাপ কম হলে বাকিটুকু নিচে ফাঁকা।
+    val outerNav = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismissRequest,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = dismissOnClickOutside, decorFitsSystemWindows = false),
@@ -162,7 +167,8 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolea
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp)) { content() }
+        val innerNav = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp + maxOf(outerNav - innerNav, 0.dp))) { content() }
     }
 }
 

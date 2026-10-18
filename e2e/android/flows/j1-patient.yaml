@@ -43,8 +43,10 @@ env:
     visible: ".*পরীক্ষা.*"
     timeout: 20000
     optional: true
-- waitForAnimationToEnd:
-    timeout: 4000
+- extendedWaitUntil:
+    visible: "ডেমো .*"
+    timeout: 20000
+    optional: true
 - takeScreenshot: j1-06-lab-pick
 - back
 - tapOn:
@@ -70,9 +72,13 @@ env:
     text: "ফার্মেসি"
     index: 0
 - extendedWaitUntil:
-    visible: "ডেমো লাইফ ফার্মেসি.*"
+    visible: "ডেমো .*ফার্মেসি"
     timeout: 30000
-- tapOn: "ডেমো লাইফ ফার্মেসি.*"
+- scrollUntilVisible:
+    element: "ডেমো লাইফ ফার্মেসি"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "ডেমো লাইফ ফার্মেসি"
 - extendedWaitUntil:
     visible: ".*ছা(?:ড়|ড়) ও ডেলিভারি.*"
     timeout: 10000
