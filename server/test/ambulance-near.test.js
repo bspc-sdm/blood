@@ -97,7 +97,8 @@ async function seedNear() {
 test('lat/lng ছাড়া (পুরোনো অ্যাপ): আগের সাজানো — খালি আগে, রেটিং বেশি আগে; km নেই', async () => {
   await seedNear();
   const r = await list(REAL);
-  assert.deepStrictEqual(ids(r), ['nA', 'nD', 'nB', 'nF', 'demo-svc-x-near', 'nE']);
+  // nF আর ডেমো গাড়ি সমান (খালি, রেটিং নেই) — তখন ডাটাবেসের ক্রম: Firestore-এ (আর PostgreSQL-এ) ডকের id-র ক্রম
+  assert.deepStrictEqual(ids(r), ['nA', 'nD', 'nB', 'demo-svc-x-near', 'nF', 'nE']);
   assert.ok(r.items.every((a) => a.km === undefined && a.kmApprox === undefined));
   assert.deepStrictEqual(r.busy.map((a) => a.id), ['nT'], 'ট্রিপের তালিকা আগের মতো');
   assert.strictEqual(r.nearestId, 'nA', 'দূরত্ব না জানলে প্রথম খালি গাড়ি');

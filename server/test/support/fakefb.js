@@ -126,10 +126,12 @@ function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc'
           throw new Error(`op ${op}`);
         }))
         .sort((a, b) => {
-          if (!ord) return 0;
+          // আসলের মতো: orderBy না থাকলে (বা সমান হলে) ডকের ঠিকানার ক্রমে
+          const byPath = a < b ? -1 : a > b ? 1 : 0;
+          if (!ord) return byPath;
           const x = getPath(store.get(a), ord);
           const y = getPath(store.get(b), ord);
-          const c = x === y ? 0 : x == null ? -1 : y == null ? 1 : x < y ? -1 : 1;
+          const c = x === y ? byPath : x == null ? -1 : y == null ? 1 : x < y ? -1 : 1;
           return dir === 'desc' ? -c : c;
         })
         .filter((p, i, all) => !after || i > all.indexOf(after))
@@ -231,6 +233,7 @@ function handler(fn) {
 }
 
 module.exports = {
+  // TEST_DB=pg হলে store আর db আসল PostgreSQL-এর (নিচে pgmode.install)
   store, pushes, users,
   firebase: {
     addInbox: async () => {}, admin, db, FieldValue, HttpError, handler,
@@ -241,3 +244,5 @@ module.exports = {
     tokensOf: (u) => [`tok_${u.id}`],
   },
 };
+
+if (process.env.TEST_DB === 'pg') require('./pgmode').install(module.exports);

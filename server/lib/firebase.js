@@ -14,8 +14,12 @@ if (!admin.apps.length) {
   admin.initializeApp({ credential: admin.credential.cert(loadServiceAccount()) });
 }
 
-const db = admin.firestore();
-const { FieldValue } = admin.firestore;
+// ডাটাবেস: DATABASE_URL থাকলে PostgreSQL (lib/pgstore.js — Firestore-এর মতো একই API), না থাকলে Firestore।
+// লগইন (auth) আর পুশ (messaging) সবসময় Firebase-এই থাকে।
+const usePg = !!process.env.DATABASE_URL;
+const store = usePg ? require('./pgstore') : null;
+const db = usePg ? store.db : admin.firestore();
+const FieldValue = usePg ? store.FieldValue : admin.firestore.FieldValue;
 
 class HttpError extends Error {
   constructor(status, message, code) {
