@@ -190,13 +190,14 @@ function decide({ vercel = {}, secrets = {}, current = {} }) {
   return { updates, gaps, sources };
 }
 
-function gapMessage(gaps, hadToken) {
+function gapMessage(gaps, hadToken, vercelError) {
   const lines = [
     '## ❌ কিছু গোপন সেটিং পাওয়া যায়নি',
     '',
+    ...(vercelError ? [`Vercel: ${vercelError}`, ''] : []),
     hadToken
       ? 'Vercel-এ নিচের মানগুলো **Sensitive** — Vercel নিজেও আর দেখায় না, তাই আনা যায়নি (বা Vercel-এ নেই)।'
-      : 'VERCEL_TOKEN সিক্রেট নেই, আর VPS-এও মানগুলো আগে বসানো হয়নি।',
+      : 'Vercel থেকে আনা যায়নি (VERCEL_TOKEN নেই বা কাজ করছে না), আর VPS-এও মানগুলো আগে বসানো হয়নি।',
     'প্রতিটার জন্য GitHub-এ **একই নামে** একটা সিক্রেট যোগ করুন (Settings → Secrets and variables → Actions → New repository secret), তারপর আবার Run workflow:',
     '',
     '| সিক্রেটের নাম (হুবহু) | মান কোথায় পাবেন |',
@@ -221,7 +222,15 @@ async function main() {
     const token = (process.env.VERCEL_TOKEN || '').trim();
     let result = { values: {}, unreadable: [], absent: [], other: [], token: false };
     if (token) {
-      result = { ...(await fetchVercel(token)), token: true };
+      try {
+        result = { ...(await fetchVercel(token)), token: true };
+      } catch (e) {
+        // আবার চালানোর সময় টোকেনের মেয়াদ শেষ হলেও চলবে — মান VPS-এ আগে থেকেই আছে (না থাকলে পরের ধাপ থামায়)
+        const why = `${e.message}${e.cause ? ` (${e.cause.code || e.cause.message})` : ''}`;
+        console.log(`::warning::Vercel থেকে আনা যায়নি: ${why}`);
+        fs.writeFileSync(out, JSON.stringify({ ...result, error: why }), { mode: 0o600 });
+        return;
+      }
       console.log(`Vercel project: ${result.projectId}${result.teamId ? ` (team ${result.teamId})` : ''}`);
       console.log(`  read:       ${Object.keys(result.values).join(', ') || '-'}`);
       console.log(`  sensitive:  ${result.unreadable.join(', ') || '-'}`);
@@ -248,7 +257,7 @@ async function main() {
     }
     for (const val of Object.values(d.updates)) mask(val);
     if (d.gaps.length) {
-      const msg = gapMessage(d.gaps, v.token);
+      const msg = gapMessage(d.gaps, v.token, v.error);
       if (summary) fs.appendFileSync(summary, msg);
       console.log(`::error::এই সেটিংগুলো পাওয়া যায়নি: ${d.gaps.map((g) => g.key).join(', ')} — কোথা থেকে আনবেন, Summary পাতায় লেখা আছে।`);
       process.exit(3);

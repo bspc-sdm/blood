@@ -1,194 +1,167 @@
-# Lifolo সার্ভার VPS-এ চালানো (Vercel ছাড়া)
+# Lifolo সার্ভার নিজের VPS-এ (কোনো কমান্ড লিখতে হয় না)
 
-এই গাইড মেনে চললে Lifolo-র সার্ভার (API, ওয়েব, অ্যাডমিন প্যানেল, দৈনিক ক্রন) একটা Contabo VPS-এ চলবে।
-Firebase লগইন আর নোটিফিকেশন (FCM) আগের মতোই থাকবে। প্রতিটা কমান্ড হুবহু কপি করে চালান।
-`<...>` চিহ্নের জায়গায় নিজের মান বসান।
+সব কাজ GitHub-এর বোতাম চেপে হয়। আপনার কাজ শুধু:
+**VPS নেওয়া → Vercel টোকেন বানানো → GitHub-এ ৩টা সিক্রেট দেওয়া → "Run workflow" চাপা।**
 
-> `deploy/setup-vps.sh` আর `server/standalone/` main শাখায় আসার (merge) পরেই নিচের ধাপগুলো করুন।
+VPS দুই জায়গার যেকোনো একটা:
+- **Contabo** (মাসে টাকা লাগে, ঝামেলা কম) → অংশ ক
+- **Oracle Cloud** (বিনামূল্যে, তবে কার্ড লাগে আর কয়েকটা বাড়তি ধাপ) → অংশ খ
 
----
-
-## ১. VPS কেনা
-
-- **কোথায়:** [contabo.com](https://contabo.com) → **Cloud VPS** → **Cloud VPS 10** (সবচেয়ে ছোট প্ল্যান)।
-  এই সার্ভার আর ডাটাবেসের জন্য এটাই যথেষ্ট। বড় প্ল্যান এখন শুধু বেশি খরচ, পরে এক ক্লিকে বাড়ানো যায়।
-- **Region:** **Asia (Singapore)**। বাংলাদেশ থেকে সবচেয়ে কাছে, তাই অ্যাপ দ্রুত চলবে।
-  ইউরোপ/আমেরিকা সস্তা হলেও সেখানে প্রতিটা অনুরোধে প্রায় ২০০ ms বেশি সময় লাগে।
-- **Image (OS):** **Ubuntu 24.04**। স্ক্রিপ্টটা এই ভার্সনেই পরীক্ষা করা।
-- **Login:** "Password" বেছে root-এর জন্য শক্ত একটা পাসওয়ার্ড দিন, আর সেটা লিখে রাখুন।
-- কেনার পর ইমেইলে VPS-এর **IP ঠিকানা** আসবে (যেমন `203.0.113.10`)।
-
-## ২. ডোমেইনকে VPS-এর দিকে পাঠানো
-
-যেখান থেকে ডোমেইন কিনেছেন, সেখানকার DNS সেটিংয়ে একটা রেকর্ড যোগ করুন:
-
-| Type | Name (Host) | Value | TTL |
-|---|---|---|---|
-| A | `api` (বা যে সাবডোমেইন চান; পুরো ডোমেইনের জন্য `@`) | VPS-এর IP | 300 |
-
-এতে ঠিকানা হবে `api.<আপনার-ডোমেইন>`। ৫ থেকে ৩০ মিনিট অপেক্ষা করুন, তারপর নিজের কম্পিউটারে দেখুন:
-
-```
-nslookup api.<আপনার-ডোমেইন>
-```
-
-উত্তরে VPS-এর IP দেখালে পরের ধাপে যান।
-
-## ৩. প্রথমবার VPS-এ লগইন (SSH)
-
-Windows-এ **PowerShell** খুলুন (Mac/Linux হলে Terminal), তারপর চালান:
-
-```
-ssh root@<VPS-এর-IP>
-```
-
-প্রথমবার `yes` লিখে Enter দিন, তারপর root-এর পাসওয়ার্ড দিন। পাসওয়ার্ড লেখার সময় স্ক্রিনে কিছু দেখা যায় না, এটাই স্বাভাবিক।
-
-## ৪. সেটআপ স্ক্রিপ্ট চালানো
-
-VPS-এ লগইন করা অবস্থায় চালান:
-
-```
-curl -fsSLO https://raw.githubusercontent.com/bspc-sdm/blood/main/deploy/setup-vps.sh
-bash setup-vps.sh api.<আপনার-ডোমেইন> <আপনার-ইমেইল>
-```
-
-এতে ৫ থেকে ১০ মিনিট লাগে। স্ক্রিপ্ট যা যা করে:
-
-- Node, PostgreSQL, nginx আর ফায়ারওয়াল বসায়
-- নিরাপত্তা আপডেট নিজে নিজে চালু করে
-- কোড `/opt/lifolo`-এ রাখে
-- সার্ভার, দৈনিক ক্রন (সকাল ৯টা, ঢাকা) আর দৈনিক ব্যাকআপ চালু করে
-- HTTPS সার্টিফিকেট নেয়
-
-শেষে একটা বক্সে GitHub-এর জন্য কিছু মান দেখায়। ওই লেখাটা রেখে দিন (৬ নম্বর ধাপে লাগবে)।
-
-যদি "সার্টিফিকেট পাওয়া যায়নি" দেখায়, তাহলে DNS এখনো পৌঁছায়নি। ১৫ মিনিট পর একই কমান্ড আবার চালান।
-স্ক্রিপ্টটা যতবার খুশি চালানো যায়, এতে কোনো ক্ষতি হয় না।
-সবসময় এভাবে নামানো কপি থেকে চালান, `/opt/lifolo` থেকে নয়। স্ক্রিপ্ট নিজেও `/opt/lifolo` থেকে চালাতে দেয় না।
-
-## ৫. গোপন সেটিং বসানো (`/etc/lifolo/env`)
-
-**মানগুলো কোথায় পাবেন:** Vercel → [vercel.com/dashboard](https://vercel.com/dashboard) → সার্ভারের প্রজেক্ট
-(`blood-server`) → **Settings** → **Environment Variables**। প্রতিটা নামের পাশের চোখের চিহ্নে চাপলে মান দেখা যায়।
-
-VPS-এ ফাইলটা খুলুন:
-
-```
-nano /etc/lifolo/env
-```
-
-প্রতিটা লাইনে `=` এর পরে মান বসান:
-
-| নাম | কী বসাবেন |
-|---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | নিচের নোট দেখুন |
-| `ADMIN_EMAILS` | Vercel-এর মান হুবহু |
-| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Vercel-এর মান হুবহু |
-| `SMS_URL_TEMPLATE` | Vercel-এর মান, দুপাশে `'` দিয়ে, যেমন `SMS_URL_TEMPLATE='https://...&number={to}&message={msg}'` |
-| `CRON_SECRET`, `WEB_SESSION_SECRET` | স্ক্রিপ্ট নিজেই বসিয়ে দিয়েছে। Vercel-এ এগুলো থাকলে Vercel-এর মান দিয়ে বদলে দিন। |
-
-**FIREBASE_SERVICE_ACCOUNT:** এই মানটা এক লাইনে থাকতে হবে।
-1. Vercel-এর মান কপি করে নিজের কম্পিউটারে `key.json` নামে সেভ করুন।
-2. Vercel-এ মান লুকানো ("Sensitive") থাকলে নতুন চাবি নিন: Firebase Console → ⚙️ Project settings → **Service accounts** → **Generate new private key**।
-3. তারপর PowerShell-এ চালান:
-   ```
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("key.json"))
-   ```
-   (Mac/Linux-এ চালান `base64 -w0 key.json`)
-4. যে লম্বা লেখাটা আসে, সেটা `FIREBASE_SERVICE_ACCOUNT=` এর পরে পেস্ট করুন।
-
-অন্য কোনো মান লুকানো থাকলে মূল জায়গা থেকে নতুন করে নিন:
-- Gmail App Password: Google Account → Security → App passwords
-- SMS লিংক: SMS গেটওয়ের ড্যাশবোর্ড
-
-`DATABASE_URL` লাইনটা যেমন আছে (`#` সহ) তেমনই রাখুন। ডাটা সরানোর পরের ধাপে এটা চালু হবে।
-
-সেভ করে বেরোতে `Ctrl+O`, তারপর `Enter`, তারপর `Ctrl+X` চাপুন। এরপর সার্ভার আবার চালু করুন:
-
-```
-systemctl restart lifolo
-```
-
-## ৬. GitHub-এ সিক্রেট যোগ করা (নিজে নিজে ডেপ্লয়)
-
-GitHub → `bspc-sdm/blood` → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**।
-৪ নম্বর ধাপের শেষে যে মানগুলো দেখিয়েছিল, সেগুলো দিন:
-
-| Name | Value |
-|---|---|
-| `VPS_HOST` | VPS-এর IP |
-| `VPS_USER` | `lifolo` |
-| `VPS_SSH_KEY` | VPS-এ `cat /root/lifolo-deploy-key` চালিয়ে পুরো লেখাটা (`-----BEGIN` থেকে `END ... KEY-----` পর্যন্ত) |
-| `VPS_KNOWN_HOSTS` | স্ক্রিপ্টের দেখানো লাইন (`<IP> ssh-ed25519 AAAA...`)। এটা ছাড়া ডেপ্লয় চলবে না। |
-
-কপি করা হয়ে গেলে VPS থেকে চাবিটা মুছে দিন:
-
-```
-rm /root/lifolo-deploy-key
-```
-
-এরপর থেকে main-এ `server/` বদলালে GitHub নিজেই টেস্ট চালায়, তারপর VPS-এ ডেপ্লয় করে।
-হাতে চালাতে চাইলে: GitHub → **Actions** → **Deploy server (VPS)** → **Run workflow**।
-
-## ৭. Firebase-এ নতুন ডোমেইনের অনুমতি
-
-ওয়েবে লগইন কাজ করার জন্য এটা দরকার।
-Firebase Console → **Authentication** → **Settings** → **Authorized domains** → **Add domain** → `api.<আপনার-ডোমেইন>` লিখে যোগ করুন।
-
-## ৮. চলছে কি না দেখা
-
-ব্রাউজারে খুলুন:
-- `https://api.<আপনার-ডোমেইন>/healthz` → `{"ok":true,...}` দেখালে সার্ভার চালু আছে।
-- `https://api.<আপনার-ডোমেইন>/api/health` → `{"ok":true,"firebase":true}` দেখালে Firebase-এর সাথেও যুক্ত।
-- `https://api.<আপনার-ডোমেইন>/` → Lifolo ওয়েব, আর `/admin` → অ্যাডমিন প্যানেল।
-
-VPS-এ:
-
-```
-systemctl status lifolo --no-pager          # active (running) দেখাবে
-journalctl -u lifolo -n 100 --no-pager      # শেষ ১০০ লাইন লগ (ভুল থাকলে এখানে)
-systemctl list-timers 'lifolo*' --no-pager  # পরের ক্রন আর ব্যাকআপ কখন
-journalctl -u lifolo-cron -n 20 --no-pager  # শেষ দৈনিক ক্রনের ফল
-```
-
-ক্রন এখনই একবার চালিয়ে দেখতে চাইলে: `systemctl start lifolo-cron`
-
-## ৯. ব্যাকআপ আর ফেরত আনা (restore)
-
-প্রতিদিন রাত ৩:৩০-এ (ঢাকা) PostgreSQL-এর ব্যাকআপ `/var/backups/lifolo`-এ জমা হয়। ১৪ দিনের পুরোনোগুলো নিজে মুছে যায়।
-(ব্যাকআপ শুধু PostgreSQL-এর। ডাটা Firestore থেকে PostgreSQL-এ সরানোর পর থেকে এটা কাজে লাগবে।)
-
-```
-ls -lh /var/backups/lifolo                 # কোন কোন ব্যাকআপ আছে
-systemctl start lifolo-backup              # এখনই একটা নতুন ব্যাকআপ
-```
-
-একটা ব্যাকআপ ফেরত আনতে:
-
-```
-systemctl start lifolo-backup              # ১) এখনকার অবস্থারও একটা ব্যাকআপ (ভুল হলে ফেরার পথ)
-systemctl stop lifolo                      # ২) সার্ভার থামানো
-sudo -u postgres pg_restore --clean --if-exists --no-owner --role=lifolo \
-  -d lifolo /var/backups/lifolo/lifolo-<তারিখ-সময়>.dump
-systemctl start lifolo                     # ৩) আবার চালু
-```
-
-`<তারিখ-সময়>` বসাবেন `ls`-এ দেখা ফাইলের নাম থেকে, যেমন `lifolo-20261020-213000.dump`।
-
-ব্যাকআপ নিজের কম্পিউটারেও রাখতে চাইলে PowerShell-এ চালান:
-
-```
-scp root@<VPS-এর-IP>:/var/backups/lifolo/lifolo-<তারিখ-সময়>.dump .
-```
+> ⚠️ পাসওয়ার্ড, চাবি বা টোকেন কখনো চ্যাটে (Claude-সহ কাউকে) পাঠাবেন না। শুধু GitHub-এর সিক্রেটে বসাবেন।
 
 ---
 
-**কোড হাতে আপডেট করা** (GitHub ছাড়া; GitHub যা চালায়, ঠিক সেটাই):
+## ক. Contabo
+
+1. **কেনা:** [contabo.com](https://contabo.com) → **Cloud VPS** → **Cloud VPS 6** (100 GB NVMe)।
+   - Region: **Asia (Singapore)**
+   - Image: **Ubuntu 24.04**
+   - Password: root-এর জন্য একটা শক্ত পাসওয়ার্ড দিন। কাগজে বা পাসওয়ার্ড ম্যানেজারে লিখে রাখুন।
+   - অর্ডার করে টাকা দিন। ১০ থেকে ৩০ মিনিটে VPS চালু হয়।
+2. **IP খোঁজা:** [my.contabo.com](https://my.contabo.com) → বাঁ দিকে **VPS control** → আপনার VPS-এর সারিতে **IP Address**
+   (যেমন `203.0.113.10`)। Contabo-র ইমেইলেও থাকে।
+3. এরপর **অংশ গ**।
+
+## খ. Oracle Cloud (Always Free)
+
+1. **অ্যাকাউন্ট:** [cloud.oracle.com](https://cloud.oracle.com) → **Sign up**।
+   - **Home Region: Singapore** বাছুন। এটা পরে আর বদলানো যায় না।
+   - কার্ড চায় শুধু যাচাইয়ের জন্য। অল্প টাকা আটকে রেখে আবার ফেরত দেয়।
+2. **Pay As You Go করে নিন (জরুরি):** Oracle কিছু দিন অলস পড়ে থাকা বিনামূল্যের মেশিন ফেরত নিয়ে নিতে পারে।
+   আমাদের অ্যাপ বেশিরভাগ সময় অলসই থাকে। Pay As You Go-তে এটা হয় না।
+   ☰ মেনু → **Billing & Cost Management** → **Upgrade and Manage Payment** → **Upgrade to Pay As You Go**।
+   - Always Free সীমার ভেতরে থাকলে বিল **০ টাকা**ই থাকে।
+   - নিচের মাপের বাইরে কিছু বানাবেন না।
+3. **মেশিন বানানো:** ☰ → **Compute** → **Instances** → **Create instance**।
+   - Name: `lifolo`
+   - **Image:** Change image → **Ubuntu** → **Canonical Ubuntu 24.04**
+   - **Shape:** Change shape → **Ampere** → **VM.Standard.A1.Flex**
+     - OCPU: **2**, Memory: **12 GB** (পাশে "Always Free-eligible" লেখা থাকবে)
+   - **Networking:** যেমন আছে থাক। **Assign a public IPv4 address = Yes** থাকা চাই।
+   - **Add SSH keys:** **Generate a key pair for me** → **Save private key**।
+     একটা `.key` ফাইল নামবে। এটা হারাবেন না, কাউকে দেবেন না।
+   - **Create** চাপুন।
+   - "**Out of host capacity**" দেখালে Singapore-এ এখন খালি মেশিন নেই।
+     কয়েক ঘণ্টা পর আবার চেষ্টা করুন, বা **Placement**-এ অন্য availability domain / fault domain বেছে আবার Create চাপুন।
+4. **পোর্ট 80 আর 443 খোলা** (না খুললে ওয়েবসাইট খুলবে না):
+   instance-এর পাতা → **Networking** (বা Primary VNIC) → **Subnet**-এর নামে চাপুন → **Security** (বা Security Lists)
+   → **Default Security List** → **Security rules** / Ingress Rules → **Add Ingress Rules**:
+   - Source CIDR: `0.0.0.0/0`, IP Protocol: **TCP**, Destination Port Range: `80` → **Add Ingress Rules**
+   - আবার **Add Ingress Rules**: একই, শুধু Destination Port Range: `443`
+
+   (মেশিনের ভেতরের ফায়ারওয়াল GitHub নিজেই খুলে দেয়।)
+5. **IP খোঁজা:** Compute → Instances → `lifolo` → **Public IP address** (যেমন `140.245.x.x`)।
+6. এরপর **অংশ গ**।
+
+## গ. Vercel টোকেন
+
+[vercel.com](https://vercel.com)-এ লগইন → ওপরে ডানে নিজের ছবি → **Account Settings** → বাঁ দিকে **Tokens**
+→ Token Name: `lifolo-vps` → Scope: যে টিমে `blood-server` প্রজেক্ট আছে → Expiration: **30 days** → **Create**
+→ যে লম্বা লেখাটা দেখায় সেটা কপি করুন (একবারই দেখায়)।
+
+## ঘ. GitHub-এ সিক্রেট
+
+[github.com/bspc-sdm/blood](https://github.com/bspc-sdm/blood) → ওপরে **Settings** → বাঁ দিকে
+**Secrets and variables** → **Actions** → সবুজ **New repository secret** → Name আর Secret দিয়ে **Add secret**।
+প্রতিটার জন্য আলাদা করে:
+
+| Name (হুবহু) | Contabo হলে | Oracle হলে |
+|---|---|---|
+| `VPS_HOST` | VPS-এর IP | VPS-এর IP |
+| `VPS_ROOT_PASSWORD` | root পাসওয়ার্ড | (দেবেন না) |
+| `VPS_SSH_KEY` | (দেবেন না) | `.key` ফাইলটা Notepad-এ খুলে **পুরো** লেখা (`-----BEGIN` থেকে `-----END ... KEY-----` পর্যন্ত) |
+| `VERCEL_TOKEN` | গ অংশের টোকেন | গ অংশের টোকেন |
+
+## ঙ. Run workflow
+
+[github.com/bspc-sdm/blood](https://github.com/bspc-sdm/blood) → ওপরে **Actions** → বাঁ দিকে **Setup VPS**
+→ ডানে **Run workflow**:
+- Branch: `main`
+- provider: `contabo` বা `oracle`
+- domain: **খালি রাখুন**
+- সবুজ **Run workflow** চাপুন।
+
+১০ থেকে ২০ মিনিট লাগে। পাতাটা রিফ্রেশ করলে হলুদ বৃত্ত ঘুরতে দেখবেন।
+
+**সফল হলে:** সবুজ ✓ আসে। রানে চাপলে **Summary**-তে লেখা থাকে **✅ সার্ভার চালু: https://…sslip.io**।
+সেই ঠিকানার শেষে `/api/health` লাগিয়ে খুললে `{"ok":true,...}` দেখাবে।
+
+**ব্যর্থ হলে:** লাল ✗ আসে। রানে চাপুন → লাল ✗ দেওয়া ধাপে চাপুন → সেই লেখার **স্ক্রিনশট Claude-কে পাঠান**।
+Summary-তে কোনো সিক্রেট যোগ করতে বললে (যেমন `GMAIL_APP_PASSWORD`), ঘ অংশের মতো সেই নামে যোগ করে আবার **Run workflow** চাপুন।
+বারবার চালালেও কোনো ক্ষতি হয় না।
+
+---
+
+## এরপর যা নিজে নিজে চলে
+
+- **ডেপ্লয়:** main-এ সার্ভারের কোড বদলালে GitHub নিজেই VPS-এ বসায় (Deploy server (VPS))।
+- **ব্যাকআপ:** প্রতি রাতে ৩:৩০-এ ডাটাবেসের ব্যাকআপ হয়। কপি থাকে VPS-এ আর Firebase-এর Cloud Storage-এর `backups/` ফোল্ডারে, শেষ ১৪ দিনের।
+  - Summary-তে "Cloud Storage কাজ করছে না" দেখালে: Firebase Console → **Build** → **Storage** → **Get started** চাপুন। তারপর Setup VPS আবার চালান।
+- **সার্ভার বন্ধ হলে ইমেইল:** প্রতি ১০ মিনিটে GitHub দেখে। বন্ধ পেলে আপনার GitHub-এর ইমেইলে জানায়।
+
+**যা করবেন না:**
+- `VPS_ROOT_PASSWORD` / `VPS_SSH_KEY` সিক্রেট মুছবেন না, বদলাবেন না। GitHub এটা দিয়েই VPS-এ ঢোকে।
+- Contabo প্যানেলে root পাসওয়ার্ড বদলাবেন না।
+
+## পরে লাগবে (Claude বললে)
+
+- **PostgreSQL-এ যাওয়া:** Actions → **Cutover to PostgreSQL** → mode `cutover` → Run workflow।
+  - কিছু গোলমাল হলে একই জায়গা থেকে mode `rollback` দিন।
+  - শুধু দেখতে mode `status` দিন।
+- **ব্যাকআপ ফেরত আনা:** Actions → **Restore backup** → from `cloud`, backup `list` দিলে তালিকা দেখায়।
+  - তারপর `latest` বা তালিকার একটা নাম দিয়ে আবার চালালে সেটা ফেরত আসে।
+  - VPS পুরো নষ্ট হলে: নতুন VPS → Setup VPS → Restore backup (`cloud`, `latest`)।
+
+---
+
+## কারিগরি নোট (সাহায্যকারীর জন্য)
+
+**ফাইল:**
+- `.github/workflows/setup-vps.yml`: Vercel env (REST API) আনে, তারপর `deploy/ci/vps-connect.sh`, `deploy/setup-vps.sh`, `/etc/lifolo/env`, Firebase authorized domain, HTTPS পরীক্ষা।
+- `deploy-vps.yml`, `cutover.yml` (`deploy/cutover.sh`), `restore-backup.yml` (`deploy/restore.sh`), `uptime.yml`।
+
+**SSH:** GitHub workflow নিজে সিক্রেট লিখতে পারে না (PAT ছাড়া), আর রিপো public, তাই লগে চাবি ছাপানো যায় না।
+তাই `deploy/ci/derive-keys.js` গোপন মান থেকে (Contabo: root পাসওয়ার্ড; Oracle: ubuntu-র প্রাইভেট চাবি) scrypt দিয়ে
+প্রতিবার একই দুটো ed25519 চাবি বানায়:
+- VPS-এর **host key**: `/etc/ssh/lifolo_host_ed25519_key`, `sshd_config.d/00-lifolo.conf`-এ বসানো। GitHub এটাকে পিন করে চেনে।
+- Contabo-তে root-এর **লগইন চাবি**।
+
+প্রথম সংযোগ trust-on-first-use; আসল host key-এর fingerprint লগে আর Summary-তে থাকে। এরপর
+`PasswordAuthentication no` আর `PermitRootLogin prohibit-password` বসে। জরুরি পথ: Contabo-র VNC, বা Oracle-এ instance-এর **Console connection**।
+
+**ঝুঁকি (জেনে নেওয়া):**
+- নিরাপত্তা এখন পুরোটা ওই একটা সিক্রেটের ওপর। Contabo-তে পাসওয়ার্ড দুর্বল হলে চাবিও দুর্বল।
+  তবে পাসওয়ার্ড লগইন বন্ধ, তাই অনুমান করে মেলাতে হলে প্রতিবার scrypt আর SSH-এর ধাপ পেরোতে হয়, আর fail2ban আছে।
+- GitHub-এ যার Actions চালানোর অনুমতি আছে, সে root-এর সমান। আগের আলাদা "শুধু ডেপ্লয়" চাবি আর নেই,
+  কারণ সেটা রাখলে বাড়তি সিক্রেট হাতে কপি করতে হতো।
+
+**Oracle:**
+- ছবির `/etc/iptables/rules.v4` (শেষে REJECT, InstanceServices নিয়ম) রাখা হয়।
+- REJECT-এর আগে 80/443 যোগ হয়। `netfilter-persistent` বুটে এটা বসায়।
+- ufw বসানো হয় না, কারণ ufw প্যাকেজ netfilter-persistent সরিয়ে দেয়।
+
+**সেটিং:**
+- মান বাছাইয়ের ক্রম: GitHub secret (একই নাম) > Vercel (production) > VPS-এ আগে থেকে থাকা।
+- `FIREBASE_SERVICE_ACCOUNT` base64 করে রাখা হয়।
+- `CRON_SECRET` / `WEB_SESSION_SECRET` Vercel থেকে পড়া না গেলে VPS নিজে বানায়।
+- `DATABASE_URL` `#` দিয়ে বন্ধ থাকে, Cutover চালু করে।
+
+**হাতে (VPS-এর কনসোলে, root হিসেবে):**
 
 ```
-sudo -u lifolo -H /usr/local/sbin/lifolo-deploy
+systemctl status lifolo                         # সার্ভার
+journalctl -u lifolo -n 100 --no-pager          # লগ
+sudo -u lifolo -H /usr/local/sbin/lifolo-deploy # কোড আপডেট
+lifolo-restore cloud list                       # Cloud Storage-এর ব্যাকআপ
+lifolo-restore cloud latest                     # ফেরত আনা (আগে এখনকার অবস্থার ব্যাকআপ নেয়)
 ```
 
-**`deploy/` ফোল্ডারে কিছু বদলালে** (nginx, systemd, ব্যাকআপ): GitHub এগুলো নিজে বসায় না।
-VPS-এ ৪ নম্বর ধাপের দুটো কমান্ড আবার চালান।
+**ব্যাকআপ:**
+- `lifolo-backup.timer` প্রতিদিন 21:30 UTC-তে চলে: `pg_dump` → `/var/backups/lifolo` (১৪ দিন)।
+- সফল হলে `lifolo-backup-upload.service` চলে (`server/standalone/backup-upload.js`):
+  `gs://<project>.firebasestorage.app/backups/` (বা `.appspot.com`, বা env-এ `BACKUP_BUCKET`), শেষ ১৪টা রাখে।
+- হাতে ফেরত আনা: `node standalone/backup-upload.js download latest /tmp/x.dump` (lifolo হিসেবে, env লোড করে),
+  তারপর `sudo -u postgres pg_restore --clean --if-exists --no-owner --role=lifolo -d lifolo < /tmp/x.dump`।
+  `lifolo-restore` এই কাজটাই করে।
+
+**অ্যাপ:** অ্যাপ এখনো `blood-server-ashy.vercel.app` ব্যবহার করে। নতুন ঠিকানায় নেওয়া আলাদা ধাপ (অ্যাপের `ServerApi.BASE_URL`)।
