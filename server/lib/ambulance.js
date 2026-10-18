@@ -22,6 +22,8 @@ const REMIND_BEFORE_MS = 60 * 60 * 1000;
 const REMIND_EVERY_MS = 10 * 60 * 1000;
 // গাড়ির জায়গা বেছে নেওয়া জেলার কেন্দ্র থেকে এর বেশি দূরে হলে ভুল ধরা হয়
 const BASE_MAX_KM = 80;
+// জায়গা না দেওয়া গাড়ি জেলার যেকোনো জায়গায় থাকতে পারে — সাজানোর সময় এতটা দূরে ধরা, যাতে নিশ্চিত কাছের গাড়ি আগে আসে
+const APPROX_EXTRA_KM = 5;
 
 /** বাংলাদেশের ভেতরের স্থানাঙ্ক (৩ দশমিক ≈ ১০০ মিটার), নইলে null */
 function point(lat, lng) {
@@ -191,14 +193,17 @@ const actions = {
       return { v, owner: d.get('ownerUid') };
     });
     const sameUpazila = (x) => (upazilaId && x.upazilaId === upazilaId ? 1 : 0);
+    const sortKm = (x) => (x.km == null ? 9999 : x.km + (x.kmApprox ? APPROX_EXTRA_KM : 0));
     rows.sort(({ v: a }, { v: c }) =>
       (c.available - a.available) ||
-      (from ? (a.km ?? 9999) - (c.km ?? 9999) : 0) ||
+      (from ? sortKm(a) - sortKm(c) : 0) ||
       (sameUpazila(c) - sameUpazila(a)) ||
       (c.rating - a.rating) || (c.ratingCount - a.ratingCount));
     const items = rows.map((r) => r.v);
     const uid = user && user.uid;
-    const nearest = rows.find((r) => r.v.available && r.owner !== uid && require('./demo').sameWorld(uid, r.owner));
+    // শুধু ফ্রিজার ভ্যান (মৃতদেহ নেওয়ার গাড়ি) রোগীর জরুরি ফোনে নয় — "ফ্রিজার" দিয়ে ছাঁকলে তবেই
+    const forPatient = (v) => b.type === 'freezer' || v.types.some((t) => t !== 'freezer');
+    const nearest = rows.find((r) => r.v.available && forPatient(r.v) && r.owner !== uid && require('./demo').sameWorld(uid, r.owner));
     await remind;
     return { items, busyCount: busy.length, busy: busy.slice(0, 50), nearestId: nearest ? nearest.v.id : null };
   },

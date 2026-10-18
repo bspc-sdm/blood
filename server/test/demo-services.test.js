@@ -192,7 +192,7 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.strictEqual(labMe.status, 'approved');
   assert.strictEqual((await ok(LAB, 'lab_orders')).items.length >= 0, true, 'অনুমোদিত প্যাথলজি — পরীক্ষার তালিকা খোলে');
   const myAmb = (await ok(AMB, 'ambulance_mine')).items;
-  assert.deepStrictEqual(myAmb.map((a) => a.status).sort(), ['approved', 'approved', 'pending']);
+  assert.deepStrictEqual(myAmb.map((a) => a.status).sort(), ['approved', 'approved', 'approved', 'pending']);
   const ambStats = (await ok(AMB, 'ambulance_stats')).items;
   const acStats = ambStats.find((a) => a.id === 'demo-svc-amb-ac');
   assert.ok(acStats.calls[30] > 0 && acStats.comments.length === 2 && acStats.rating > 4);
