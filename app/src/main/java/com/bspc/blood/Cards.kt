@@ -225,7 +225,8 @@ fun DetailSheet(
     val maxH = (LocalConfiguration.current.screenHeightDp * 0.92f).dp
     // জানালা EdgeToEdgeDialog-এর (Common.kt): সত্যিই পুরো পর্দার, তাই সিস্টেম আসল মাপ পাঠায়। ওপরে স্ট্যাটাস বার আর
     // নিচে নেভিগেশন বার (তিন বাটন বা অঙ্গভঙ্গি) একবারই — প্যানেলের রং বারের পেছন পর্যন্ত, বাটনগুলো বারের ওপরে।
-    EdgeToEdgeDialog(onDismissRequest = onDismiss, dismissOnClickOutside = false) {
+    // স্ট্যাটাস বারের আইকন সাদা: ওপরে পেছনের পাতা আবছা কালো
+    EdgeToEdgeDialog(onDismissRequest = onDismiss, dismissOnClickOutside = false, lightStatusBar = false) {
       Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)), contentAlignment = Alignment.BottomCenter) {
         Surface(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),

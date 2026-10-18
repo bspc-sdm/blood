@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -145,13 +144,12 @@ fun SplashScreen() {
  * অ্যাপের সব পুরো-পর্দার ডায়ালগ আর নিচ থেকে ওঠা বিস্তারিত শিট এই একটা জানালা দিয়েই (FullScreenDialog, DetailSheet)।
  *
  * কেন (২.২৬.১, Android 15-এ নিচের বারের নিচে বাটন চাপা পড়ার আসল কারণ): Compose 1.7-এর Dialog
- * usePlatformDefaultWidth = false হলে জানালার মাপ নিজে বসায় — Configuration.screenHeightDp থেকে
- * (window.setLayout(কনটেন্টের মাপ)), আর জানালাকে FLAG_LAYOUT_IN_SCREEN / fitInsetsTypes = 0 দেয় না। তাই
- * decorFitsSystemWindows = false দিলেও জানালাটা আসলে পুরো পর্দার নয়: সিস্টেম সেটাকে স্ট্যাটাস বারের নিচ থেকে
- * screenHeightDp-এর মাপে বসায়। targetSdk 35-এ (Android 15, edge-to-edge বাধ্যতামূলক) screenHeightDp আর পুরো
- * নিচের বার বাদ দেয় না — জানালার নিচটা তিন-বাটনের বারের ভেতরে ঢুকে যায়, অথচ ভেতরে নিচের বারের মাপ ০ আসে
- * (জানালা "ভাসমান", মাপ সিস্টেম আগেই খেয়ে ফেলে)। ফলে safeDrawingPadding / navigationBarsPadding কিছুই করে না,
- * আর আগের জোড়াতালি (Activity-র মাপ ধার করা) কোনো রানে কাজ করে, কোনো রানে করে না।
+ * usePlatformDefaultWidth = false হলে জানালার মাপ নিজে বসায় (window.setLayout(কনটেন্টের মাপ), কনটেন্ট
+ * Configuration.screenHeightDp পর্যন্ত — targetSdk 35-এ সেটা পুরো পর্দা), আর জানালাকে FLAG_LAYOUT_IN_SCREEN /
+ * fitInsetsTypes = 0 দেয় না। তাই decorFitsSystemWindows = false দিলেও সিস্টেম জানালাটা নিজের হিসাবে বারগুলোর
+ * ভেতরে বসায়: E2E-তে (Pixel 6, তিন বাটন) জানালা ১২৮–২৩৫৮px, অথচ বার ২২৭৪px থেকে — জানালার নিচের ৮৪px বারের নিচে,
+ * আর ভেতরে নিচের বারের মাপ ০। ফলে safeDrawingPadding / navigationBarsPadding কিছুই করত না, আর আগের জোড়াতালি
+ * (Activity-র মাপ ধার করা) কোনো রানে কাজ করত, কোনো রানে না।
  *
  * এখানে এক নিয়ম: জানালা সত্যিই পুরো পর্দার (MATCH_PARENT, FLAG_LAYOUT_IN_SCREEN, fitInsets = 0, কাটআউটেও) —
  * Compose 1.8+ নিজেও decorFitsSystemWindows = false-এ এটাই করে। তখন সিস্টেম আসল মাপ পাঠায়, আর ভেতরের কনটেন্ট
@@ -186,17 +184,6 @@ fun EdgeToEdgeDialog(
                 }
             }
         }
-        // TEMP-INSETS (শুধু debug বিল্ডে, E2E-র logcat-এ মাপ দেখার জন্য — প্রকাশের আগে মুছতে হবে)
-        val navB = WindowInsets.navigationBars.getBottom(androidx.compose.ui.platform.LocalDensity.current)
-        val safeB = WindowInsets.safeDrawing.getBottom(androidx.compose.ui.platform.LocalDensity.current)
-        androidx.compose.runtime.LaunchedEffect(navB, safeB) {
-            if ((view.context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-                delay(600)
-                val loc = IntArray(2).also { view.getLocationOnScreen(it) }
-                val ri = androidx.core.view.ViewCompat.getRootWindowInsets(view)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-                android.util.Log.i("LifoloInsets", "dialog navB=$navB safeB=$safeB view=${view.width}x${view.height}@${loc[0]},${loc[1]} decor=${window?.decorView?.width}x${window?.decorView?.height} attrs.h=${window?.attributes?.height} flags=0x${Integer.toHexString(window?.attributes?.flags ?: 0)} rootNav=$ri screenHdp=${view.resources.configuration.screenHeightDp}")
-            }
-        }
         content()
     }
 }
@@ -207,6 +194,15 @@ private fun fillScreenEdgeToEdge(w: android.view.Window) {
     androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
     w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT, android.view.WindowManager.LayoutParams.MATCH_PARENT)
     w.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR)
+    // বারের পেছনে জানালা নিজে কিছু আঁকে না (নইলে পুরোনো নিয়মে স্ট্যাটাস বারের জায়গা কালো হয়) — কনটেন্ট বা পেছনের আবছা দেখা যায়
+    w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+    w.statusBarColor = android.graphics.Color.TRANSPARENT
+    w.navigationBarColor = android.graphics.Color.TRANSPARENT
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+        // মূল পাতার মতো (enableEdgeToEdge): তিন-বাটনের বারের পেছনে সিস্টেমের বাড়তি আবরণ নয়
+        w.isStatusBarContrastEnforced = false
+        w.isNavigationBarContrastEnforced = false
+    }
     val a = w.attributes
     if (android.os.Build.VERSION.SDK_INT >= 30) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     else if (android.os.Build.VERSION.SDK_INT >= 28) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
