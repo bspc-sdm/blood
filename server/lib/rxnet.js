@@ -423,7 +423,8 @@ const actions = {
     const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name) }));
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     const hasLoc = typeof b.lat === 'number' && typeof b.lng === 'number';
-    const docs = await require('./pharmacy').areaPharmacies(b.district, upazilaId);
+    // ডেমো: ডেমো রোগী শুধু ডেমো দোকান, আসল রোগী শুধু আসল দোকান (ডেমো মুছলে filter অংশ মুছবেন)
+    const docs = (await require('./pharmacy').areaPharmacies(b.district, upazilaId)).filter((d) => require('./demo').sameWorld(user.uid, d.id));
     const near = docs.map((d) => {
       const x = d.data();
       const km = hasLoc && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
@@ -468,7 +469,7 @@ const actions = {
     await useQuota(req, user.uid, 'medTry');
     const snap = await db.collection('pharmacies').where('shopCode', '==', c).limit(1).get();
     const d = snap.docs[0];
-    if (!d || d.get('status') !== 'approved') throw err(req, 'No pharmacy with this code', 'এই কোডের কোনো ফার্মেসি নেই', 404);
+    if (!d || d.get('status') !== 'approved' || !require('./demo').sameWorld(user.uid, d.id)) throw err(req, 'No pharmacy with this code', 'এই কোডের কোনো ফার্মেসি নেই', 404); // ডেমো: আলাদা
     const on = onlineOf(d.data());
     return { item: { id: d.id, name: d.get('name'), address: d.get('address') || '', phone: K.fixPhone(d.get('phone')), online: on.enabled, deliveryFee: on.fee } };
   },
@@ -485,7 +486,7 @@ const actions = {
     const [s, p] = await Promise.all([db.doc(`prescriptions/${rxId}`).get(), db.doc(`pharmacies/${pharmacyId}`).get()]);
     if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
     if (s.get('status') !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
-    if (!p.exists || p.get('status') !== 'approved') throw err(req, 'This pharmacy is not available', 'এই ফার্মেসি এখন নেই', 404);
+    if (!p.exists || p.get('status') !== 'approved' || !require('./demo').sameWorld(user.uid, pharmacyId)) throw err(req, 'This pharmacy is not available', 'এই ফার্মেসি এখন নেই', 404); // ডেমো: আলাদা
     if (!medStatus(s.data()).some((m) => !m.done)) throw err(req, 'All medicines on this prescription were already bought', 'এই প্রেসক্রিপশনের সব ওষুধ কেনা হয়ে গেছে', 409);
     let delivery = {};
     if (mode === 'online') {
@@ -761,7 +762,7 @@ const actions = {
     if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
     const x = s.data();
     if (x.status !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
-    if (!l.exists || l.get('status') !== 'approved') throw err(req, 'This lab is not available', 'এই প্যাথলজি এখন নেই', 404);
+    if (!l.exists || l.get('status') !== 'approved' || !require('./demo').sameWorld(user.uid, labId)) throw err(req, 'This lab is not available', 'এই প্যাথলজি এখন নেই', 404); // ডেমো: আলাদা
     const tests = (Array.isArray(req.body?.tests) ? req.body.tests : x.tests || []).filter((t) => (x.tests || []).includes(t));
     if (!tests.length) throw err(req, 'Choose the tests', 'পরীক্ষা বেছে নিন');
     const prev = await db.collection('labOrders').where('rxId', '==', rxId).limit(50).get();

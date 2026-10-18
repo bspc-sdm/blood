@@ -256,6 +256,8 @@ module.exports = {
     const chamberIndex = Number.isInteger(req.body?.chamberIndex) ? req.body.chamberIndex : null;
     if (!R.isValidId(providerUid)) throw new HttpError(400, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (providerUid === user.uid) throw new HttpError(400, C.tr(req, 'You can\'t book yourself', 'নিজের কাছে অ্যাপয়েন্টমেন্ট নেওয়া যায় না'));
+    // ডেমো: ডেমো রোগী শুধু ডেমো ডাক্তার, আসল রোগী শুধু আসল ডাক্তার (ডেমো মুছলে এই লাইন মুছবেন)
+    if (!require('./demo').sameWorld(user.uid, providerUid)) throw new HttpError(404, C.tr(req, 'Not taking appointments right now', 'এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না'));
     const today = R.todayDhakaUtcMidnight();
     // তারিখ = দিনের শুরু (অন্য সংখ্যা দিয়ে একই দিনে আলাদা সিরিয়াল বা দুবার বুকিং নয়)
     if (!Number.isInteger(date) || date % DAY_MS !== 0 || date < today || date > today + 60 * DAY_MS) {
