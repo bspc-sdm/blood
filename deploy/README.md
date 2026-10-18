@@ -65,6 +65,7 @@ bash setup-vps.sh api.<আপনার-ডোমেইন> <আপনার-ই�
 
 যদি "সার্টিফিকেট পাওয়া যায়নি" দেখায়, তাহলে DNS এখনো পৌঁছায়নি। ১৫ মিনিট পর একই কমান্ড আবার চালান।
 স্ক্রিপ্টটা যতবার খুশি চালানো যায়, এতে কোনো ক্ষতি হয় না।
+সবসময় এভাবে নামানো কপি থেকে চালান, `/opt/lifolo` থেকে নয়। স্ক্রিপ্ট নিজেও `/opt/lifolo` থেকে চালাতে দেয় না।
 
 ## ৫. গোপন সেটিং বসানো (`/etc/lifolo/env`)
 
@@ -119,7 +120,7 @@ GitHub → `bspc-sdm/blood` → **Settings** → **Secrets and variables** → *
 | `VPS_HOST` | VPS-এর IP |
 | `VPS_USER` | `lifolo` |
 | `VPS_SSH_KEY` | VPS-এ `cat /root/lifolo-deploy-key` চালিয়ে পুরো লেখাটা (`-----BEGIN` থেকে `END ... KEY-----` পর্যন্ত) |
-| `VPS_KNOWN_HOSTS` | স্ক্রিপ্টের দেখানো লাইন (`<IP> ssh-ed25519 AAAA...`) |
+| `VPS_KNOWN_HOSTS` | স্ক্রিপ্টের দেখানো লাইন (`<IP> ssh-ed25519 AAAA...`)। এটা ছাড়া ডেপ্লয় চলবে না। |
 
 কপি করা হয়ে গেলে VPS থেকে চাবিটা মুছে দিন:
 
@@ -183,9 +184,11 @@ scp root@<VPS-এর-IP>:/var/backups/lifolo/lifolo-<তারিখ-সময�
 
 ---
 
-**কোড হাতে আপডেট করা** (GitHub ছাড়া):
+**কোড হাতে আপডেট করা** (GitHub ছাড়া; GitHub যা চালায়, ঠিক সেটাই):
 
 ```
-sudo -u lifolo git -C /opt/lifolo pull
-systemctl restart lifolo
+sudo -u lifolo -H /usr/local/sbin/lifolo-deploy
 ```
+
+**`deploy/` ফোল্ডারে কিছু বদলালে** (nginx, systemd, ব্যাকআপ): GitHub এগুলো নিজে বসায় না।
+VPS-এ ৪ নম্বর ধাপের দুটো কমান্ড আবার চালান।

@@ -2,23 +2,25 @@ name: Deploy server (VPS)
 
 # Contabo VPS-এ সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health দেখা।
 # GitHub-এ VPS_HOST, VPS_USER, VPS_SSH_KEY সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
-# VPS_KNOWN_HOSTS (ঐচ্ছিক, তবে ভালো): setup-vps.sh শেষে যে লাইন দেখায়; না থাকলে প্রথমবার ssh-keyscan দিয়ে নেওয়া হয়।
+# VPS_KNOWN_HOSTS-ও লাগে (setup-vps.sh শেষে যে লাইন দেখায়) — VPS-এর পরিচয় যাচাই, নইলে মাঝপথে কেউ নকল সার্ভার সাজাতে পারে।
+# VPS-এ চাবিটা command= দিয়ে বাঁধা: SSH করলেই /usr/local/sbin/lifolo-deploy (deploy/lifolo-deploy.sh) চলে —
+# git pull → npm ci --omit=dev (lock বদলালে) → systemctl restart lifolo → /healthz।
+# deploy/ (nginx, systemd, এই স্ক্রিপ্টগুলো) বদলালে VPS-এ setup-vps.sh আবার চালাতে হয়; এই workflow সেগুলো বসায় না।
 on:
   push:
     branches: [main]
     paths:
       - "server/**"
-      - "deploy/**"
       - ".github/workflows/deploy-vps.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# একসাথে দুটো ডেপ্লয় নয়; নতুন push এলে পুরোনোটা বাতিল
+# একসাথে দুটো ডেপ্লয় নয়; চলতি ডেপ্লয় মাঝপথে বাতিল নয় (npm ci-র মাঝে থামলে node_modules ভাঙা থাকত)
 concurrency:
   group: deploy-vps
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -55,7 +57,8 @@ jobs:
 
   deploy:
     needs: test
-    if: needs.test.outputs.enabled == 'true'
+    # শুধু main থেকে (হাতে চালালেও অন্য শাখা থেকে নয়)
+    if: needs.test.outputs.enabled == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -68,50 +71,21 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          if [ -n "$VPS_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            echo "::warning::VPS_KNOWN_HOSTS নেই — ssh-keyscan দিয়ে হোস্ট চাবি নেওয়া হচ্ছে"
-            ssh-keyscan -t ed25519 -T 15 "$VPS_HOST" > ~/.ssh/known_hosts
+          if [ -z "$VPS_KNOWN_HOSTS" ]; then
+            echo "::error::VPS_KNOWN_HOSTS secret নেই — setup-vps.sh-এর শেষে দেখানো লাইনটা যোগ করুন"
+            exit 1
           fi
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Pull, install, restart, health check
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
+        # চাবির command= নিজেই lifolo-deploy চালায় (এখানে কমান্ড পাঠানো লাগে না, পাঠালেও উপেক্ষা হয়)
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
-            "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          cd /opt/lifolo
-          lock_before=$(git rev-parse HEAD:server/package-lock.json)
-          git pull --ff-only --quiet
-          echo "commit: $(git log -1 --format='%h %s')"
-          cd server
-          # npm ci node_modules মুছে আবার বসায় — চলন্ত সার্ভারের পরে লোড হওয়া মডিউল যাতে না হারায়, শুধু lock বদলালে
-          if [ "$lock_before" != "$(git rev-parse HEAD:server/package-lock.json)" ] || [ ! -d node_modules ]; then
-            npm ci --omit=dev --no-audit --no-fund
-          else
-            echo "package-lock.json unchanged, skipping npm ci"
-          fi
-          sudo -n /usr/bin/systemctl restart lifolo
-          for i in $(seq 1 30); do
-            if curl -fsS -m 3 http://127.0.0.1:3000/healthz >/dev/null 2>&1; then
-              echo "healthz ok"
-              break
-            fi
-            if [ "$i" = 30 ]; then
-              echo "::error::server did not become healthy"
-              sudo -n /usr/bin/systemctl is-active lifolo || true
-              journalctl -u lifolo -n 40 --no-pager || true
-              exit 1
-            fi
-            sleep 1
-          done
-          # Firebase/ডাটাবেসসহ পুরো পরীক্ষা — ব্যর্থ হলে সতর্কবার্তা (সেটিং বাকি থাকতে পারে)
-          if curl -fsS -m 15 http://127.0.0.1:3000/api/health; then echo; else echo "::warning::/api/health failed — check /etc/lifolo/env"; fi
-          REMOTE
+            "$VPS_USER@$VPS_HOST" deploy
 
       - name: Clean up key
         if: always()

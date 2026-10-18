@@ -279,6 +279,17 @@ test('req/res সাহায্যকারী Vercel-এর মতো: body, q
     const bin = await call(port, 'POST', '/api/echo', { headers: { 'content-type': 'application/octet-stream' }, body: Buffer.alloc(10) });
     assert.strictEqual(bin.json.body, 'buf:10');
 
+    const proto = await call(port, 'GET', '/api/echo?__proto__=x&ok=1', { headers: { cookie: '__proto__=y' } });
+    assert.strictEqual(proto.json.query.__proto__, 'x');
+    assert.strictEqual(proto.json.cookies.__proto__, 'y');
+    assert.strictEqual({}.x, undefined);
+
+    // "//host/..." — host বদলায় না, API-তেও যায় না
+    const dbl = await call(port, 'GET', '//evil.example/api/echo');
+    assert.strictEqual(dbl.status, 404);
+    fs.writeFileSync(path.join(dir, 'public/w/.env'), 'SECRET=1');
+    assert.strictEqual((await call(port, 'GET', '/w/.env')).status, 404);
+
     const rw = await call(port, 'GET', '/e/q1?id=evil&extra=2');
     assert.deepStrictEqual(rw.json.query, { id: 'q1', fixed: '1', extra: '2' });
 

@@ -10,6 +10,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const stream = require('stream');
 const querystring = require('querystring');
 const { loadVercelConfig, scanApi, matchSource, applyDestination } = require('./vercel-config');
 
@@ -63,11 +64,16 @@ if (!globalThis[CTX_SYMBOL]) {
 }
 
 // ---------- Vercel-এর মতো req/res সাহায্যকারী ----------
+/** obj[k] = v, কিন্তু "__proto__" নামের চাবিও সাধারণ মান হিসেবে (প্রোটোটাইপ বদলায় না, বাদও পড়ে না) */
+function setOwn(obj, k, v) {
+  Object.defineProperty(obj, k, { value: v, enumerable: true, writable: true, configurable: true });
+}
+
 function parseQuery(searchParams) {
   const q = {};
   for (const [k, v] of searchParams) {
-    if (Object.prototype.hasOwnProperty.call(q, k)) q[k] = [].concat(q[k], v);
-    else q[k] = v;
+    if (Object.prototype.hasOwnProperty.call(q, k)) setOwn(q, k, [].concat(q[k], v));
+    else setOwn(q, k, v);
   }
   return q;
 }
@@ -82,9 +88,9 @@ function parseCookies(header) {
     let v = part.slice(i + 1).trim();
     if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
     try {
-      out[k] = decodeURIComponent(v);
+      setOwn(out, k, decodeURIComponent(v));
     } catch {
-      out[k] = v;
+      setOwn(out, k, v);
     }
   }
   return out;
@@ -291,7 +297,8 @@ function createApp(options = {}) {
       } catch {
         return null;
       }
-      if (s === '.' || s === '..' || s.includes('/') || s.includes('\\') || s.includes('\0')) return null;
+      // . দিয়ে শুরু (.., .env, .git ...) — public/-এ এমন কিছু দেওয়া হয় না
+      if (s.startsWith('.') || s.includes('/') || s.includes('\\') || s.includes('\0')) return null;
       parts.push(s);
     }
     let file = path.join(publicDir, ...parts);
@@ -359,12 +366,10 @@ function createApp(options = {}) {
       res.end();
       return;
     }
-    const stream = fs.createReadStream(file);
-    stream.on('error', (e) => {
-      console.error('[static] read failed', file, e.message);
-      res.destroy(e);
+    // pipeline: ক্লায়েন্ট মাঝপথে চলে গেলে ফাইলও বন্ধ হয় (fd জমে না)
+    stream.pipeline(fs.createReadStream(file), res, (e) => {
+      if (e && e.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.error('[static] read failed', file, e.message);
     });
-    stream.pipe(res);
   }
 
   async function invokeFunction(req, res, target, url, query, headers) {
@@ -382,6 +387,8 @@ function createApp(options = {}) {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Connection', 'close');
       res.end(status === 413 ? 'Request Entity Too Large\n\nFUNCTION_PAYLOAD_TOO_LARGE\n' : `${e.message}\n`);
+      // বাকি বড় বডি আর নেওয়া নয় — উত্তর চলে গেলে সংযোগ বন্ধ
+      if (status === 413) res.on('finish', () => req.destroy());
       return;
     }
     req.query = query;
@@ -392,6 +399,7 @@ function createApp(options = {}) {
       fn = loadHandler(route);
     } catch (e) {
       console.error(`[api] failed to load ${route.rel}:`, e && e.stack ? e.stack : e);
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.status(500).send('A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n');
       return;
     }
@@ -443,13 +451,22 @@ function createApp(options = {}) {
     });
     if (closing) res.setHeader('Connection', 'close');
     try {
-      if (!req.url || req.url[0] !== '/') {
+      // শুধু "/..." পথ; "//host/..." হলে URL পার্সার host বদলে দেয়, তাই origin জুড়ে পার্স করা
+      let url = null;
+      if (req.url && req.url[0] === '/') {
+        try {
+          url = new URL(`http://localhost${req.url}`);
+        } catch {
+          url = null;
+        }
+      }
+      if (!url || url.host !== 'localhost') {
         res.statusCode = 400;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.end('Bad Request');
         return;
       }
       normalizeClientIp(req);
-      const url = new URL(req.url, 'http://localhost');
       const pathname = url.pathname;
 
       // সার্ভারের নিজের জীবিত-আছি পরীক্ষা (ডাটাবেস/Firebase ছাড়া); আসল সংযোগ পরীক্ষা /api/health
@@ -547,8 +564,18 @@ function start(options = {}) {
 
 if (require.main === module) {
   process.on('unhandledRejection', (e) => console.error('[server] unhandled rejection:', e && e.stack ? e.stack : e));
+  let current = null;
+  // ধরা না পড়া exception-এর পর প্রসেসের অবস্থা অনিশ্চিত: লগ, চলতি অনুরোধ শেষ করতে দেওয়া, তারপর বন্ধ (systemd আবার চালায়)
+  process.on('uncaughtException', (e) => {
+    console.error('[server] uncaught exception, restarting:', e && e.stack ? e.stack : e);
+    const exit = () => process.exit(1);
+    setTimeout(exit, 10_000).unref();
+    if (current) current.shutdown(8000).then(exit, exit);
+    else exit();
+  });
   start()
     .then((app) => {
+      current = app;
       console.log(`[server] Lifolo listening on ${app.server.address().address}:${app.port} (${app.routes.size} API routes)`);
       // প্রথম অনুরোধের আগেই হ্যান্ডলারগুলো লোড (ভুল থাকলে এখনই লগে আসে; সার্ভার তবু চলে)
       setImmediate(() => {
