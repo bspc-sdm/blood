@@ -249,7 +249,8 @@ test('ডেমো: ডেমো গাড়ির জায়গা আলা
   const r = await ok('demo-patient', 'ambulances', { district: DISTRICT, lat: MYM.lat, lng: MYM.lng });
   const km = r.items.filter((a) => a.available).map((a) => a.km);
   assert.ok(new Set(km).size >= 4, `আলাদা দূরত্ব: ${km}`);
-  assert.deepStrictEqual(km, [...km].sort((a, b) => a - b).length ? km : km);
+  const exact = r.items.filter((a) => a.available && !a.kmApprox).map((a) => a.km);
+  assert.deepStrictEqual(exact, [...exact].sort((a, b) => a - b), 'কাছেরটা আগে');
   const near = r.items.find((a) => a.id === r.nearestId);
   assert.ok(near && near.available && !near.types.every((t) => t === 'freezer'));
   assert.ok(r.items.find((a) => a.id === 'demo-svc-amb-freezer').kmApprox, 'ফ্রিজার ভ্যানের জায়গা দেওয়া নেই');
