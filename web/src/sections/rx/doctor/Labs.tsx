@@ -32,7 +32,7 @@ export function DoctorLabList({ labs }: { labs: DoctorLab[] }) {
                 {flagged.length ? (
                   <span className="t-body-s c-error">
                     {tr('High/low: ', 'বেশি/কম: ')
-                      + flagged.slice(0, 4).map((it) => `${it.test} ${num(it.result)}${it.unit ? ' ' + it.unit : ''} (${flagLabel(it.flag)})`).join(', ')
+                      + flagged.slice(0, 4).map((it) => `${it.test} ${it.result}${it.unit ? ' ' + it.unit : ''} (${flagLabel(it.flag)})`).join(', ')
                       + (flagged.length > 4 ? ' +' + num(flagged.length - 4) : '')}
                   </span>
                 ) : items.length ? (

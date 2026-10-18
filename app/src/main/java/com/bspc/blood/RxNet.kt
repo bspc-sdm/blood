@@ -949,7 +949,7 @@ fun DoctorLabList(labs: List<DoctorLab>) {
                     if (flagged.isNotEmpty()) {
                         Text(
                             tr("High/low: ", "বেশি/কম: ") + flagged.take(4).joinToString(", ") { f ->
-                                f.test + " " + num(f.result) + (if (f.unit.isNotBlank()) " " + f.unit else "") + " (" + RxNetText.flag(f.flag) + ")"
+                                f.test + " " + f.result + (if (f.unit.isNotBlank()) " " + f.unit else "") + " (" + RxNetText.flag(f.flag) + ")"
                             } + (if (flagged.size > 4) " +" + num(flagged.size - 4) else ""),
                             style = MaterialTheme.typography.bodySmall, color = cs.error,
                         )
