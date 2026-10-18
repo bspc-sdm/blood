@@ -1616,8 +1616,90 @@ private fun StockDialog(onDismiss: () -> Unit) {
 // - কেয়ারগিভার মোডেও চলে (rx_mine, rx_send_* — CareMode-এর তালিকায় আছে)
 // ------------------------------------------------------------
 
-/** পাঠানোর পর শিটে যা লেখা থাকে */
-fun rxSentNote() = tr("Sent — see the status on the prescription", "পাঠানো হয়েছে — প্রেসক্রিপশনে অবস্থা দেখুন")
+/** পাঠানোর পর যা জানানো হয়: কোন প্রেসক্রিপশন (ডাক্তার, তারিখ), কোথায়, কীভাবে — mode "shop" | "online" | "lab" | "lab_home" */
+data class RxSent(val rxId: String, val doctorName: String, val date: Long, val place: String, val mode: String)
+
+/**
+ * পাঠানোর পরের লেখা। "এরপর কী" সার্ভারের আসল নোটিফিকেশনের সাথে মিলিয়ে (server/lib/rxnet.js):
+ * দোকান — rx_order_update "ready" ("আপনার ওষুধ তৈরি"); অনলাইন — "accepted" (দাম · সময়);
+ * প্যাথলজি — নমুনা নেওয়ায় (received) কোনো নোটিফিকেশন যায় না, তাই "দেখলে জানাবে" লেখা নয়:
+ * বাসা থেকে হলে lab_home_confirm ("… আসবে"), আর রিপোর্ট এলে ("আপনার পরীক্ষার রিপোর্ট এসেছে")।
+ */
+object RxSentText {
+    fun mode(m: String) = when (m) {
+        "online" -> tr("Home delivery", "বাসায় ডেলিভারি")
+        "lab_home" -> tr("Sample from home", "বাসা থেকে নমুনা")
+        "lab" -> tr("You'll give the sample at the lab", "প্যাথলজিতে গিয়ে নমুনা দেবেন")
+        else -> tr("You'll collect at the shop", "দোকানে গিয়ে নেবেন")
+    }
+
+    fun next(m: String) = when (m) {
+        "online" -> tr("You'll get a notification when the pharmacy tells you the price and time", "ফার্মেসি দাম আর সময় জানালে নোটিফিকেশন পাবেন")
+        "lab_home" -> tr("You'll get a notification when the lab sets the time to come, and when the report is ready", "প্যাথলজি বাসায় আসার সময় জানালে নোটিফিকেশন পাবেন; রিপোর্ট এলেও জানাবে")
+        "lab" -> tr("Go to the lab to give the sample; you'll get a notification when the report is ready", "প্যাথলজিতে গিয়ে নমুনা দিন; রিপোর্ট এলে নোটিফিকেশন পাবেন")
+        else -> tr("You'll get a notification when the pharmacy has your medicines ready", "ফার্মেসি ওষুধ তৈরি করলে নোটিফিকেশন পাবেন")
+    }
+
+    @androidx.annotation.DrawableRes
+    fun modeIcon(m: String) = when (m) {
+        "online" -> R.drawable.ic_local_shipping
+        "lab_home" -> R.drawable.ic_home_health
+        "lab" -> R.drawable.ic_local_hospital
+        else -> R.drawable.ic_storefront
+    }
+}
+
+/**
+ * ফার্মেসি/প্যাথলজির পাতা থেকে পাঠানোর পর: বড় টিক, কী কোথায় গেল, এরপর কী — আর "প্রেসক্রিপশন খুলুন"
+ * (সেখানে অবস্থা আর "ফিরিয়ে নিন")। আগে শুধু বাটনের ওপরে ছোট এক লাইন ছিল, চোখে পড়ত না।
+ */
+@Composable
+fun RxSentDialog(s: RxSent, onOpen: () -> Unit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { AppIcon(R.drawable.ic_check_circle, null, Modifier.size(64.dp), cs.primary) },
+        title = {
+            Text(
+                tr("Prescription sent", "প্রেসক্রিপশন পাঠানো হয়েছে"),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconLine(R.drawable.ic_medication, listOf(s.doctorName.ifBlank { tr("Doctor", "ডাক্তার") }, Rules.formatDate(s.date)).joinToString(" · "), cs.onSurface)
+                IconLine(if (s.mode.startsWith("lab")) R.drawable.ic_local_hospital else R.drawable.ic_storefront, s.place, cs.onSurface)
+                IconLine(RxSentText.modeIcon(s.mode), RxSentText.mode(s.mode), cs.onSurface)
+                // এরপর কী
+                Card(colors = CardDefaults.cardColors(containerColor = cs.secondaryContainer)) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AppIcon(R.drawable.ic_notifications, null, Modifier.size(20.dp), cs.onSecondaryContainer)
+                        Spacer(Modifier.width(10.dp))
+                        Text(RxSentText.next(s.mode), style = MaterialTheme.typography.bodyMedium, color = cs.onSecondaryContainer)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onOpen, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, tr("Open prescription", "প্রেসক্রিপশন খুলুন"), R.drawable.ic_medication) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("OK", "ঠিক আছে")) } },
+    )
+}
+
+/** পাঠানোর ভুল: যে ঘরে চাপা হয়েছে সেখানেই, লাল ঘরে আইকনসহ (ছোট লাল লাইন চোখ এড়িয়ে যেত) */
+@Composable
+fun SendErrorCard(message: String?) {
+    if (message == null) return
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.errorContainer), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(R.drawable.ic_warning, null, Modifier.size(20.dp), cs.onErrorContainer)
+            Spacer(Modifier.width(10.dp))
+            Text(TitleCase.plain(message), style = MaterialTheme.typography.bodyMedium, color = cs.onErrorContainer)
+        }
+    }
+}
 
 /**
  * শিটের ওপর থেকে লগইন লাগলে: শিট বন্ধ → লগইন (নাম-মোবাইল) → then (শিট আবার খোলা আর পাঠানো শুরু)।
@@ -1629,15 +1711,19 @@ fun rxSendGate(close: () -> Unit, then: () -> Unit) {
     LoginGate.require(tr("Log in to send a prescription", "প্রেসক্রিপশন পাঠাতে লগইন করুন"), then = then)
 }
 
-/** lab বা pharmacy — যেটা দেওয়া। প্রেসক্রিপশন বাছাই → (পেছনে গেলে আবার বাছাই) → পাঠানো → onSent */
+/** lab বা pharmacy — যেটা দেওয়া। প্রেসক্রিপশন বাছাই → (পেছনে গেলে আবার বাছাই) → পাঠানো → onSent (কী কোথায় গেল) */
 @Composable
-fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit, onSent: (RxSent) -> Unit) {
     var rx by remember { mutableStateOf<Rx?>(null) }
     val r = rx
     when {
         r == null -> RxPickDialog(forLab = lab != null, onDismiss = onDismiss) { rx = it }
-        lab != null -> LabPickDialog(r, profile, onDismiss = { rx = null }, only = lab) { onSent() }
-        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = { rx = null }, onSent = onSent)
+        lab != null -> LabPickDialog(r, profile, onDismiss = { rx = null }, only = lab) { name, home ->
+            onSent(RxSent(r.id, r.doctorName, r.createdAt, name, if (home) "lab_home" else "lab"))
+        }
+        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = { rx = null }) { mode ->
+            onSent(RxSent(r.id, r.doctorName, r.createdAt, pharmacy.name, mode))
+        }
     }
 }
 
