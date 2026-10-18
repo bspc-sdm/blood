@@ -11,7 +11,7 @@ export const PUBLIC_ACTIONS = new Set([
   'emergencies_active',
   'questions', 'question', 'tips',
   'providers', 'home_providers', 'hospitals',
-  'ambulances', 'pharmacies', 'bloodbanks', 'labs',
+  'ambulances', 'pharmacies', 'bloodbanks', 'labs', 'lab_prices_public',
   'drug_search', 'catalog_get',
 ]);
 

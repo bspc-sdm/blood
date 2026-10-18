@@ -85,6 +85,26 @@ const ACTIVITY = {
       {
         id: 'l2', rxId: 'rx1', code: 'K7M2Q9XA4T', labId: 'lab2', labName: 'পপুলার ডায়াগনস্টিক', patientName: 'পারভেজ', patientAge: 34, patientGender: 'male', doctorName: DOCTOR.name,
         tests: ['S. Creatinine'], status: 'received', createdAt: now - 20 * H, report: null,
+        prices: { items: [{ test: 'S. Creatinine', name: 'Serum Creatinine', price: 350, tat: 'একই দিন' }], missing: [], subtotal: 350, discountPct: null, estimate: 350 },
+      },
+      {
+        id: 'l3', rxId: 'rx1', code: 'K7M2Q9XA4T', labId: 'lab1', labName: 'সিটি ডায়াগনস্টিক সেন্টার', patientName: 'পারভেজ', patientAge: 34, patientGender: 'male', doctorName: DOCTOR.name,
+        tests: ['S. Creatinine'], status: 'sent', createdAt: now - 2 * H, report: null,
+        prices: { items: [{ test: 'S. Creatinine', name: 'Serum Creatinine', price: 400, tat: 'একই দিন' }], missing: [], subtotal: 400, discountPct: 10, estimate: 360 },
+        home: {
+          status: 'confirmed', date: dhakaToday() + D, slot: 'early', note: 'খালি পেটে থাকব', fee: 150, visitDate: dhakaToday() + D, time: '08:00', at: dhakaToday() + D + 2 * H,
+          confirmNote: 'রাত ১০টার পর কিছু খাবেন না', declineNote: '', address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401',
+        },
+      },
+      // বাসা থেকে নমুনা — চাওয়া সময় পেরিয়ে গেছে (প্যাথলজি এখনো জানায়নি); ECG-র দাম তালিকায় নেই
+      {
+        id: 'l4', rxId: 'rx1', code: 'K7M2Q9XA4T', labId: 'lab3', labName: 'রয়েল ল্যাব', patientName: 'পারভেজ', patientAge: 34, patientGender: 'male', doctorName: DOCTOR.name,
+        tests: ['CBC', 'ECG'], status: 'sent', createdAt: now - 30 * H, report: null,
+        prices: { items: [{ test: 'CBC', name: 'CBC (Complete Blood Count)', price: 350, tat: 'একই দিন' }], missing: ['ECG'], subtotal: 350, discountPct: null, estimate: 350 },
+        home: {
+          status: 'expired', date: dhakaToday() - D, slot: 'morning', note: '', fee: 100, visitDate: 0, time: '', at: 0,
+          confirmNote: '', declineNote: '', address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401',
+        },
       },
     ],
     reviews: [
@@ -117,6 +137,27 @@ const PHARMACIES = [
   { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01811000001', address: 'চরপাড়া মোড়, ময়মনসিংহ', km: 0.4, openNow: true, keepsStock: true, have: 2, total: 2, missing: [], online: false, deliveryFee: '', onlineNote: '' },
   { id: 'ph2', name: 'মেডিপ্লাস ফার্মেসি', phone: '01811000002', address: 'মেডিকেল কলেজ রোড, ময়মনসিংহ', km: 1.2, openNow: true, keepsStock: true, have: 1, total: 2, missing: ['Napa'], online: true, deliveryFee: '৳৪০ (৩ কিমির মধ্যে)', onlineNote: 'রাত ১০টা পর্যন্ত ডেলিভারি' },
   { id: 'ph3', name: 'নিউ মা ফার্মেসি', phone: '01811000003', address: 'গাঙ্গিনারপাড়, ময়মনসিংহ', km: 2.6, openNow: false, keepsStock: false, have: 0, total: 2, missing: [], online: true, deliveryFee: '৳৫০', onlineNote: '' },
+];
+/** rx_lab_options — rx1-এর পরীক্ষা (CBC, Lipid profile, S. Creatinine) কোথায় কয়টা, কত */
+const LAB_OPTIONS = [
+  {
+    id: 'lab1', name: 'সিটি ডায়াগনস্টিক সেন্টার', phone: '01911000001', address: 'চরপাড়া মোড়, ময়মনসিংহ', district: 'ময়মনসিংহ', upazilaId: null, facilityId: 'h1', homeCollection: true, hours: 'সকাল ৮টা – রাত ১০টা',
+    suggested: true, priced: true, have: 3, total: 3, missing: [], subtotal: 2000, discountPct: 10, estimate: 1800, homeFee: 150, tat: 'একই দিন',
+    items: [{ test: 'CBC', name: 'CBC (Complete Blood Count)', price: 400, tat: 'একই দিন' }, { test: 'Lipid profile', name: 'Lipid Profile', price: 1200, tat: 'একই দিন' }, { test: 'S. Creatinine', name: 'Serum Creatinine', price: 400, tat: 'একই দিন' }],
+  },
+  {
+    id: 'lab2', name: 'পপুলার ডায়াগনস্টিক', phone: '01911000002', address: 'নতুন বাজার, ময়মনসিংহ', district: 'ময়মনসিংহ', upazilaId: null, facilityId: null, homeCollection: false, hours: '২৪ ঘণ্টা',
+    suggested: false, priced: true, have: 2, total: 3, missing: ['Lipid profile'], subtotal: 700, discountPct: null, estimate: 700, homeFee: null, tat: 'একই দিন / ২৪ ঘণ্টা',
+    items: [{ test: 'CBC', name: 'CBC (Complete Blood Count)', price: 350, tat: 'একই দিন' }, { test: 'S. Creatinine', name: 'Serum Creatinine', price: 350, tat: '২৪ ঘণ্টা' }],
+  },
+  {
+    id: 'lab3', name: 'রয়েল ল্যাব', phone: '01911000003', address: 'গাঙ্গিনারপাড়, ময়মনসিংহ', district: 'ময়মনসিংহ', upazilaId: null, facilityId: null, homeCollection: true, hours: 'সকাল ৮টা – রাত ৯টা',
+    suggested: false, priced: false, have: null, total: 3, missing: [], subtotal: null, discountPct: null, estimate: null, homeFee: null, tat: '', items: [],
+  },
+  {
+    id: 'lab4', name: 'ত্রিশাল প্যাথলজি', phone: '01911000004', address: 'ত্রিশাল পৌরসভা', district: 'ময়মনসিংহ', upazilaId: null, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা',
+    suggested: false, priced: true, have: 0, total: 3, missing: ['CBC', 'Lipid profile', 'S. Creatinine'], subtotal: null, discountPct: null, estimate: null, homeFee: null, tat: '', items: [],
+  },
 ];
 const LABS = [
   { id: 'lab1', name: 'সিটি ডায়াগনস্টিক সেন্টার', phone: '01911000001', address: 'চরপাড়া মোড়, ময়মনসিংহ', district: 'ময়মনসিংহ', upazilaId: null, facilityId: 'h1', homeCollection: true, hours: 'সকাল ৮টা – রাত ১০টা' },
@@ -166,6 +207,9 @@ export default {
   rx_order_withdraw: () => ({ ok: true }),
   rx_send_lab: () => ({ id: 'l9' }),
   labs: () => ({ items: LABS }),
+  rx_lab_options: () => ({ items: LAB_OPTIONS, lastHome: { address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401' } }),
+  lab_home_change: () => ({ ok: true }),
+  lab_home_cancel: () => ({ ok: true }),
   lab_order_get: () => LAB_REPORT,
   review_pay: () => ({ ok: true }),
 };

@@ -837,5 +837,142 @@
     "8K3J2LMN0P"
    ]
   ]
+ },
+ {
+  "name": "rx-lab-home",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  },
+  "click": [
+   "button:has-text('পরীক্ষা করাতে পাঠান') >> visible=true",
+   "[role=dialog] button:has-text('পরীক্ষা পাঠান') >> nth=0"
+  ]
+ },
+ {
+  "name": "rx-home-expired",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "rx-home-change",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  },
+  "click": [
+   "button:has-text('সময় বদলান') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-home-cancel",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  },
+  "click": [
+   "button:has-text('প্যাথলজিতে গিয়ে দেব') >> visible=true"
+  ]
+ },
+ {
+  "name": "rx-home-expired-en",
+  "path": "/prescriptions/rx1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "en",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  },
+  "full": true
  }
 ]

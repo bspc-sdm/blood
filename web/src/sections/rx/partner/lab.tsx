@@ -1,5 +1,6 @@
 // /work/lab/orders/* — প্যাথলজির ডেস্ক (আগে /doctor প্যানেলে ছিল): পরীক্ষার অনুরোধ, কোড দিয়ে খোলা, নমুনা নেওয়া,
-// রিপোর্ট দেওয়া (ছকের ঘর, একক, স্বাভাবিক মাত্রা), ছবি, আর নিজের মেশিনের স্বাভাবিক মাত্রা
+// বাসা থেকে নমুনার সময় নিশ্চিত করা, রিপোর্ট দেওয়া (ছকের ঘর, একক, স্বাভাবিক মাত্রা), ছবি, পরীক্ষা ও দাম (শুধু ওয়েবে),
+// আর নিজের মেশিনের স্বাভাবিক মাত্রা
 // (অ্যাপের MyLabPanel, LabReportEntryDialog, LabReportView)
 import { useMemo, useState } from 'react';
 import { matchPath, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -13,7 +14,9 @@ import { formatDateTime, timeAgo } from '@/lib/format';
 import { CodeBox, PartnerPage, useInvalidate, usePartnerGate, useWide } from './common';
 import { LabDetail } from './labdetail';
 import { LabRanges } from './labranges';
+import { LabPrices } from './labprices';
 import { ageText, genderText, labStatusText, labTone, type LabOrder } from './model';
+import { homeLabTag } from './labdetail';
 
 const BASE = '/work/lab/orders';
 
@@ -28,7 +31,8 @@ export function LabOrdersWorkspace() {
 
   const m = (p: string) => matchPath({ path: BASE + p, end: true }, pathname);
   const ranges = !!m('/ranges');
-  const detail = ranges ? null : m('/:id');
+  const prices = !!m('/prices');
+  const detail = ranges || prices ? null : m('/:id');
   const fresh = (orders.data?.items ?? []).filter((o) => o.status === 'sent').length;
 
   return (
@@ -36,15 +40,16 @@ export function LabOrdersWorkspace() {
       <div className="rxp-tabs">
         <PillTabs
           label={title}
-          value={ranges ? 'ranges' : 'orders'}
-          onChange={(k) => nav(k === 'ranges' ? `${BASE}/ranges` : BASE)}
+          value={ranges ? 'ranges' : prices ? 'prices' : 'orders'}
+          onChange={(k) => nav(k === 'ranges' ? `${BASE}/ranges` : k === 'prices' ? `${BASE}/prices` : BASE)}
           tabs={[
             { key: 'orders', label: tr('Test requests', 'পরীক্ষার অনুরোধ'), icon: 'list_alt', count: fresh },
+            { key: 'prices', label: tr('Tests & prices', 'পরীক্ষা ও দাম'), icon: 'payments' },
             { key: 'ranges', label: tr('Normal ranges', 'স্বাভাবিক মাত্রা'), icon: 'tune' },
           ]}
         />
       </div>
-      {ranges ? <LabRanges /> : detail?.params.id ? <LabDetail key={detail.params.id} id={detail.params.id} orders={orders.data?.items ?? null} ordersLoading={orders.isLoading} /> : <LabList orders={orders} />}
+      {ranges ? <LabRanges /> : prices ? <LabPrices /> : detail?.params.id ? <LabDetail key={detail.params.id} id={detail.params.id} orders={orders.data?.items ?? null} ordersLoading={orders.isLoading} /> : <LabList orders={orders} />}
     </PartnerPage>
   );
 }
@@ -175,7 +180,12 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
                       <span className="t-body-s muted">{[who(o), o.code].filter(Boolean).join(' · ')}</span>
                     </div>
                   </td>
-                  <td className="rxp-td-tests">{o.tests.join(', ')}</td>
+                  <td className="rxp-td-tests">
+                    <div className="col gap-4">
+                      <span>{o.tests.join(', ')}</span>
+                      {homeLabTag(o)}
+                    </div>
+                  </td>
                   <td className="t-body-s">{o.doctorName || '—'}</td>
                   <td><Tag tone={labTone(o.status)}>{labStatusText(o.status)}</Tag></td>
                   <td className="t-body-s muted rxp-nowrap" title={formatDateTime(o.createdAt)}>{timeAgo(o.createdAt)}</td>
@@ -195,6 +205,7 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
               </div>
               <span className="t-body-s muted">{[who(o), timeAgo(o.createdAt)].filter(Boolean).join(' · ')}</span>
               <span className="t-body-m">{o.tests.join(', ')}</span>
+              {homeLabTag(o)}
               {o.doctorName ? <span className="t-body-s muted">{o.doctorName}</span> : null}
               {actions(o)}
             </article>

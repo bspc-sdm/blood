@@ -1,5 +1,5 @@
 // ডেমো ডেটা — ভাগ: services (দেখুন index.js)
-// ফার্মেসি (তালিকা, স্টক, ওষুধ খোঁজা, অনলাইন অর্ডার), প্যাথলজি, অ্যাম্বুলেন্স, বাসায় সেবা (নার্স/ডাক্তার),
+// ফার্মেসি (তালিকা, স্টক, ওষুধ খোঁজা, অনলাইন অর্ডার), প্যাথলজি (পরীক্ষা ও দামসহ), অ্যাম্বুলেন্স, বাসায় সেবা (নার্স/ডাক্তার),
 // রেটিং, রিপোর্ট আর মালিকের অনুমোদনের জন্য অপেক্ষার তালিকা।
 //
 // রক্তের ভাগ (blood) আগে চলে, প্রেসক্রিপশনের ভাগ (rx) পরে। অনলাইন অর্ডার প্রেসক্রিপশন ছাড়া হয় না
@@ -313,6 +313,66 @@ module.exports = {
       name: 'ডেমো ত্রিশাল ডায়াগনস্টিক', address: 'ত্রিশাল বাসস্ট্যান্ড, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2203', phone: '01700000162',
       hours: 'সকাল ৯টা – সন্ধ্যা ৭টা', homeCollection: true, upazilaId: TRISHAL, status: 'approved',
     });
+    // দামের তালিকা নেই — রোগী দেখেন "দাম জানা নেই — ফোনে জেনে নিন"
+    const labRoyal = await ctx.extraUser('svc-lab-royal', { name: 'ডেমো রয়েল ল্যাবের মালিক', phone: '01700000164', placeName: DISTRICT });
+    await lab(labRoyal, {
+      name: 'ডেমো রয়েল ল্যাব', address: 'নতুন বাজার, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2205', phone: '01700000164',
+      hours: 'সকাল ৮টা – রাত ৯টা', status: 'approved', createdAt: now - 40 * day,
+    });
+
+    // পরীক্ষা ও দাম (labprices.js) — ডেমো প্যাথলজির পুরো তালিকা, ১০% ছাড়, বাসা থেকে নমুনা ১৫০ টাকা;
+    // পেছনের প্যাথলজিগুলোর আধা তালিকা, আলাদা দাম (রয়েল ল্যাবের তালিকাই নেই)
+    const P_ = (code, name, price, tat, on = true) => ({ code, name, price, tat, on });
+    await ctx.set(`labPrices/${LAB}`, {
+      items: [
+        P_('cbc', 'CBC (Complete Blood Count)', 400, 'একই দিন'),
+        P_('esr', 'ESR', 150, 'একই দিন'),
+        P_('rbs', 'Random Blood Sugar (RBS)', 100, '১ ঘণ্টা'),
+        P_('fbs', 'Fasting Blood Sugar (FBS)', 100, '১ ঘণ্টা'),
+        P_('2habf', '2 Hours After Breakfast (2HABF)', 100, '১ ঘণ্টা'),
+        P_('hba1c', 'HbA1c', 1000, 'একই দিন'),
+        P_('lipid', 'Lipid Profile', 1200, 'একই দিন'),
+        P_('creat', 'Serum Creatinine', 400, 'একই দিন'),
+        P_('alt', 'SGPT (ALT)', 400, 'একই দিন'),
+        P_('uric', 'Serum Uric Acid', 450, 'একই দিন'),
+        P_('tsh', 'TSH', 900, '২৪ ঘণ্টা'),
+        P_('thyroid', 'Thyroid Profile (TSH, FT4, FT3)', 2200, '২৪ ঘণ্টা'),
+        P_('urine_re', 'Urine R/E', 200, 'একই দিন'),
+        P_('blood_group', 'Blood Grouping & Rh Typing', 150, '৩০ মিনিট'),
+        P_('hbsag', 'HBsAg', 500, 'একই দিন'),
+        P_('ecg', 'ECG', 400, '৩০ মিনিট'),
+        // ছকে নেই — নিজে লেখা
+        P_(null, 'Serum Vitamin B12', 1800, '৪৮ ঘণ্টা'),
+        // মেশিন নষ্ট — এখন হয় না
+        P_('usg_abd', 'USG of Whole Abdomen', 1500, 'একই দিন', false),
+      ],
+      discountPct: 10, homeFee: 150, updatedAt: now - 5 * day,
+    });
+    await ctx.set(`labPrices/${labPop}`, {
+      items: [
+        P_('cbc', 'CBC (Complete Blood Count)', 350, 'একই দিন'),
+        P_('rbs', 'Random Blood Sugar (RBS)', 80, '১ ঘণ্টা'),
+        P_('fbs', 'Fasting Blood Sugar (FBS)', 80, '১ ঘণ্টা'),
+        P_('hba1c', 'HbA1c', 950, '২৪ ঘণ্টা'),
+        P_('lipid', 'Lipid Profile', 1100, '২৪ ঘণ্টা'),
+        P_('creat', 'Serum Creatinine', 350, 'একই দিন'),
+        P_('urine_re', 'Urine R/E', 150, 'একই দিন'),
+        P_('ecg', 'ECG', 350, '৩০ মিনিট'),
+        P_('usg_abd', 'USG of Whole Abdomen', 1400, 'একই দিন'),
+      ],
+      discountPct: null, homeFee: null, updatedAt: now - 12 * day,
+    });
+    await ctx.set(`labPrices/${labTri}`, {
+      items: [
+        P_('cbc', 'CBC (Complete Blood Count)', 300, '২৪ ঘণ্টা'),
+        P_('rbs', 'Random Blood Sugar (RBS)', 70, '১ ঘণ্টা'),
+        P_('hba1c', 'HbA1c', 900, '২ দিন'),
+        P_('tsh', 'TSH', 850, '২ দিন'),
+        P_('urine_re', 'Urine R/E', 120, 'একই দিন'),
+      ],
+      discountPct: 5, homeFee: 100, updatedAt: now - 20 * day,
+    });
+
     const labNew = await ctx.extraUser('svc-lab-new', { name: 'ডেমো নিউ লাইফ ল্যাবের মালিক', phone: '01700000163', placeName: DISTRICT });
     await lab(labNew, {
       name: 'ডেমো নিউ লাইফ ল্যাব', address: 'কাচিঝুলি, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2204', phone: '01700000163',
@@ -478,6 +538,6 @@ module.exports = {
     // মেমোরিতে রাখা তালিকা (ফার্মেসি, প্যাথলজি, বাসায় সেবা, অতিথির উত্তর) নতুন করে — লেখা শেষ হওয়ার পর
     await ctx.flush();
     const M = require('../memcache');
-    ['pharm:', 'labs:', 'home:', 'providers:', 'guest:'].forEach((k) => M.clear(k));
+    ['pharm:', 'labs:', 'labprices:', 'home:', 'providers:', 'guest:'].forEach((k) => M.clear(k));
   },
 };

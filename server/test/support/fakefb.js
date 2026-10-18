@@ -96,16 +96,17 @@ const write = {
   },
 };
 
-function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc') {
+function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc', after = null) {
   const q = {
-    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim, ord, dir),
+    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim, ord, dir, after),
     // orderBy + startAt/endAt (geohash-এর ঘর ধরে খোঁজা) — ঘর না থাকা ডক বাদ পড়ে, আসলের মতো;
     // সাজানো হয় limit-এর আগে (orderBy('at', 'desc').limit(n) = নতুন n-টা)
-    orderBy: (f, d = 'asc') => collection(cpath, filters, lim, f, d),
-    startAt: (v) => collection(cpath, [...filters, [ord, '>=', v]], lim, ord, dir),
-    endAt: (v) => collection(cpath, [...filters, [ord, '<=', v]], lim, ord, dir),
-    limit: (n) => collection(cpath, filters, n, ord, dir),
-    startAfter: () => q,
+    orderBy: (f, d = 'asc') => collection(cpath, filters, lim, f, d, after),
+    startAt: (v) => collection(cpath, [...filters, [ord, '>=', v]], lim, ord, dir, after),
+    endAt: (v) => collection(cpath, [...filters, [ord, '<=', v]], lim, ord, dir, after),
+    limit: (n) => collection(cpath, filters, n, ord, dir, after),
+    // ডক দিয়ে কার্সর (পাতায় পাতায় পড়া): একই সাজানোয় সেই ডকের পরেরগুলো; অন্য কিছু দিলে আগের মতো উপেক্ষা
+    startAfter: (v) => (v && typeof v === 'object' && v.ref && v.ref.path ? collection(cpath, filters, lim, ord, dir, v.ref.path) : q),
     select: () => q,
     get: async () => {
       const depth = cpath.split('/').length + 1;
@@ -128,6 +129,7 @@ function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc'
           const c = x === y ? 0 : x == null ? -1 : y == null ? 1 : x < y ? -1 : 1;
           return dir === 'desc' ? -c : c;
         })
+        .filter((p, i, all) => !after || i > all.indexOf(after))
         .slice(0, lim).map(snap);
       return { docs, empty: !docs.length, size: docs.length, forEach: (fn) => docs.forEach(fn) };
     },

@@ -443,5 +443,185 @@
    "desktop",
    "mobile"
   ]
+ },
+ {
+  "name": "lab-prices",
+  "path": "/work/lab/orders/prices",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "lab-prices-add",
+  "path": "/work/lab/orders/prices",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true,
+  "fill": [
+   [
+    "input[placeholder='পরীক্ষা খুঁজুন']",
+    "lipid"
+   ]
+  ]
+ },
+ {
+  "name": "lab-prices-dark",
+  "path": "/work/lab/orders/prices",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "dark"
+  },
+  "full": true
+ },
+ {
+  "name": "lab-prices-en",
+  "path": "/work/lab/orders/prices",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "en",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "lab-home",
+  "path": "/work/lab/orders/lh1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "lab-home-confirm",
+  "path": "/work/lab/orders/lh1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true,
+  "click": [
+   "button:has-text('সময় নিশ্চিত করুন') >> visible=true"
+  ]
+ },
+ {
+  "name": "lab-home-decline",
+  "path": "/work/lab/orders/lh1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true,
+  "click": [
+   "button:has-text('বাসায় যেতে পারব না') >> visible=true"
+  ]
+ },
+ {
+  "name": "lab-home-expired",
+  "path": "/work/lab/orders/lh2",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
  }
 ]

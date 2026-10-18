@@ -159,3 +159,14 @@
 .rxp-report th:nth-child(3) { width: 20%; }
 .rxp-report th:nth-child(4) { width: 96px; }
 @media (max-width: 719px) { .rxp-report { table-layout: auto; } }
+
+/* ---------- পরীক্ষা ও দাম, বাসা থেকে নমুনা ---------- */
+.lp-table td { padding: 8px 12px; }
+.lp-price { width: 110px; }
+.lp-price-wrap { flex: none; width: 112px; }
+.lp-price-wrap .lp-price { width: 100%; }
+.lp-tat { width: 100%; min-width: 120px; }
+.lp-on { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.lp-on input { width: 18px; height: 18px; accent-color: var(--primary); }
+.lp-home-tag { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; max-width: 100%; padding: 2px 10px; border-radius: 999px; background: var(--tertiary-container, var(--secondary-container)); color: var(--on-tertiary-container, var(--on-secondary-container)); font-size: 13px; font-weight: 600; line-height: 20px; }
+.lp-home-tag svg { width: 16px; height: 16px; flex: none; }

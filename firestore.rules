@@ -67,6 +67,9 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // প্রেসক্রিপশন, ফার্মেসি/প্যাথলজির অর্ডার, স্টক, প্যাথলজির পরীক্ষা ও দাম (labPrices), বাসা থেকে নমুনা (labOrders.home) —
+    // এখানে কোনো নিয়ম নেই, তাই অ্যাপ থেকে সরাসরি পড়া-লেখা বন্ধ; সব সার্ভার দিয়ে (server/lib/rxnet.js, labprices.js)।
+
     // সার্ভারের হিসাব (দৈনিক সীমা ইত্যাদি): অ্যাপ থেকে পড়া বা লেখা যাবে না
     match /serverState/{uid} {
       allow read, write: if false;

@@ -118,6 +118,42 @@ test('প্যাথলজি: তালিকা, প্যাথলজির 
     LOG('রোগী টাকা দিলেন → সহকারী মেলালেন → ডাক্তার রিপোর্ট পড়ে মন্তব্য দিলেন → রোগী মন্তব্য পেলেন');
   }
 
+  // ---- পরীক্ষা ও দাম (ডেমো প্যাথলজির পুরো তালিকা; পেছনের প্যাথলজির আধা তালিকা, একটার নেই) ----
+  const pub = (await ok(null, 'labs', { district: DISTRICT })).items;
+  const byName = (n) => pub.find((x) => x.name === n);
+  // এলাকার তালিকায় শুধু সারাংশ; পুরো তালিকা বিস্তারিতে (lab_prices_public, অতিথিও)
+  const sum = byName('ডেমো সিটি ডায়াগনস্টিক সেন্টার').prices;
+  assert.deepStrictEqual([sum.count, sum.discountPct, sum.homeFee], [17, 10, 150], '১৬টা ছকের পরীক্ষা + ১টা নিজে লেখা (USG বন্ধ)');
+  assert.strictEqual(sum.items, undefined, 'তালিকায় পুরো দামের তালিকা নেই');
+  const city = (await ok(null, 'lab_prices_public', { labId: byName('ডেমো সিটি ডায়াগনস্টিক সেন্টার').id })).prices;
+  assert.strictEqual(city.items.length, 17);
+  assert.strictEqual(sum.from, Math.min(...city.items.map((i) => i.price)));
+  assert.ok(city.items.some((i) => i.name === 'Serum Vitamin B12' && i.code === null));
+  assert.ok(byName('ডেমো পপুলার প্যাথলজি').prices.count < 17);
+  assert.strictEqual(byName('ডেমো রয়েল ল্যাব').prices, null, 'তালিকা নেই — "দাম জানা নেই"');
+  const own = await ok(LAB, 'lab_prices_get');
+  assert.strictEqual(own.items.length, 18, 'মালিক বন্ধগুলোও দেখেন');
+  LOG(`পরীক্ষা ও দাম: সিটি ${city.items.length}টা (ছাড় ${city.discountPct}%, বাসা থেকে ৳${city.homeFee}), পপুলার ${byName('ডেমো পপুলার প্যাথলজি').prices.count}টা, রয়েল — তালিকা নেই`);
+  const rx3 = await ok(DOC, 'rx_create', { appointmentId: apId, tests: ['CBC', 'HbA1c', 'TSH'] });
+  const opt = (await ok(P, 'rx_lab_options', { rxId: rx3.id, district: DISTRICT })).items;
+  LOG('রোগীর বাছাই (CBC, HbA1c, TSH):', opt.map((x) => `${x.name} ${x.priced ? `${x.have}/${x.total} ৳${x.estimate}` : 'দাম জানা নেই'}`).join(' · '));
+  assert.strictEqual(opt[0].have, 3);
+  assert.strictEqual(opt[opt.length - 1].priced === false || opt[opt.length - 1].have < 3, true);
+  assert.ok(!opt.some((x) => !x.id.startsWith('demo-')), 'শুধু ডেমো প্যাথলজি');
+  // বাসা থেকে নমুনার অনুরোধ (পেছনের রোগী করিম) — সময় নিশ্চিত
+  const ho = (await ok(LAB, 'lab_orders')).items.find((o) => o.id === 'demo-rx-lab-fatema-home');
+  assert.deepStrictEqual([ho.status, ho.home.status, ho.home.slot, ho.home.fee], ['sent', 'requested', 'early', 150]);
+  assert.ok(ho.home.address && ho.prices && ho.prices.estimate === Math.round(2300 * 0.9));
+  const tomorrow = require(path.join(SERVER, 'lib/prescriptions')).dhakaToday() + 86400000;
+  await ok(LAB, 'lab_home_confirm', { id: ho.id, date: tomorrow, time: '07:30', note: 'রাত ১০টার পর কিছু খাবেন না' });
+  assert.ok(F.pushes.slice(-1)[0].title.includes('কাল সকাল ৭টা ৩০ মিনিটে আসবে'));
+  LOG(`বাসা থেকে নমুনা: ফাতেমা (কাল সকাল ৭–৯, ৳${ho.home.fee}) → প্যাথলজি "কাল সকাল ৭:৩০" নিশ্চিত করলেন, আনুমানিক ৳${ho.prices.estimate}`);
+  // ডেমো রোগী বাসা থেকে চান
+  const rxH = await ok(DOC, 'rx_create', { appointmentId: apId, tests: ['RBS'] });
+  const hs = await ok(P, 'rx_send_lab', { rxId: rxH.id, labId: LAB, home: { address: 'ডেমো বাসা', phone: '01700000101', day: 1, slot: 'morning' } });
+  await ok(LAB, 'lab_home_decline', { id: hs.id });
+  LOG('ডেমো রোগী বাসা থেকে চাইলেন → প্যাথলজি "বাসায় যেতে পারব না"');
+
   // ---- প্যাথলজি: অর্ডার "করতে পারবে না" ----
   const waiting = (await ok(LAB, 'lab_orders')).items.find((o) => o.status === 'sent');
   if (waiting) {

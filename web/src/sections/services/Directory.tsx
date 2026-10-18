@@ -14,8 +14,19 @@ import {
   type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
 } from './data';
 import { Emergency999, EntryDetail, FilterSheet, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
+import type { PublicPrices } from '@/lib/labprice';
 
 const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodbanks', lab: 'labs' };
+
+/**
+ * প্যাথলজির বিস্তারিত: এলাকার তালিকায় শুধু দামের সারাংশ, পুরো পরীক্ষা ও দামের তালিকা এখানে আলাদা করে
+ * (lab_prices_public — অতিথিও পারেন; সার্ভারে এক মিনিট মেমোরিতে, এখানে এক মিনিট রাখা)।
+ */
+function LabEntryDetail({ lab, backTo }: { lab: Lab; backTo: string }) {
+  const q = useCall<{ prices: PublicPrices | null }>('lab_prices_public', { labId: lab.id }, { enabled: !!lab.prices, staleTime: 60 * 1000 });
+  const full = !lab.prices ? null : q.data ? q.data.prices : q.isError ? null : undefined;
+  return <EntryDetail e={labEntry(lab, full)} backTo={backTo} />;
+}
 
 /** এলাকার নাম (উপজেলার তালিকা এলে আবার আঁকা) */
 function useAreasLoaded() {
@@ -179,7 +190,9 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
     const raw = items.find((x) => x.id === id) ?? busy.find((x) => x.id === id) ?? recall<any>(kind, id);
     if (raw) {
       const e = toEntry(raw);
-      detail = <EntryDetail e={e} backTo={listPath} onRate={e.canRate ? rateGate(e) : undefined} onReport={e.reportable ? reportGate(e) : undefined} />;
+      detail = kind === 'lab'
+        ? <LabEntryDetail key={raw.id} lab={raw as Lab} backTo={listPath} />
+        : <EntryDetail e={e} backTo={listPath} onRate={e.canRate ? rateGate(e) : undefined} onReport={e.reportable ? reportGate(e) : undefined} />;
     } else if (area && (q.isLoading || q.isFetching)) {
       detail = (
         <DetailPane title={kindLabel(kind)} backTo={listPath}>
@@ -258,7 +271,7 @@ function Summary({ kind, area, items, busyCount, loading }: { kind: Kind; area: 
     kind === 'ambulance'
       ? [[tr('Available', 'খালি আছে'), items.filter((a) => a.available).length], [tr('Call to check', 'ফোনে জেনে নিন'), items.filter((a) => !a.available).length], [tr('On a trip', 'ট্রিপে'), busyCount]]
       : kind === 'lab'
-        ? [[tr('Labs', 'প্যাথলজি'), items.length], [tr('Sample from home', 'বাসা থেকে নমুনা নেয়'), items.filter((l) => l.homeCollection).length]]
+        ? [[tr('Labs', 'প্যাথলজি'), items.length], [tr('With prices', 'দাম দেওয়া'), items.filter((l) => l.prices).length], [tr('Sample from home', 'বাসা থেকে নমুনা নেয়'), items.filter((l) => l.homeCollection).length]]
         : [[tr('Open', 'খোলা'), items.filter((x) => x.openNow).length], [tr('Total', 'মোট'), items.length]];
   return (
     <div className="services-ph">
