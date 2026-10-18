@@ -1,8 +1,8 @@
 name: Deploy server (VPS)
 
-# VPS-এ (Contabo বা Oracle) সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health।
-# সংযোগ Setup VPS-এর মতোই (deploy/ci/vps-connect.sh): VPS_HOST + VPS_ROOT_PASSWORD (Contabo) বা VPS_SSH_KEY (Oracle) —
-# সেগুলো থেকে বানানো চাবি আর পিন করা host key। সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
+# Contabo VPS-এ সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health।
+# সংযোগ Setup VPS-এর মতোই (deploy/ci/vps-connect.sh): VPS_HOST + VPS_ROOT_PASSWORD —
+# তা থেকে বানানো চাবি আর পিন করা host key। সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
 # VPS-এ /usr/local/sbin/lifolo-deploy (deploy/lifolo-deploy.sh) lifolo ব্যবহারকারী হিসেবে চলে:
 # git pull → npm ci --omit=dev (lock বদলালে) → systemctl restart lifolo → /healthz।
 # deploy/ (nginx, systemd, এই স্ক্রিপ্টগুলো) বদলালে Setup VPS আবার চালাতে হয়; এই workflow সেগুলো বসায় না।
@@ -48,13 +48,12 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
-          if [ -n "$VPS_HOST" ] && { [ -n "$VPS_ROOT_PASSWORD" ] || [ -n "$VPS_SSH_KEY" ]; }; then
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_ROOT_PASSWORD" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::VPS_HOST আর VPS_ROOT_PASSWORD / VPS_SSH_KEY সেট করা নেই — ডেপ্লয় বাদ"
+            echo "::notice::VPS_HOST আর VPS_ROOT_PASSWORD সেট করা নেই — ডেপ্লয় বাদ"
           fi
 
   deploy:
@@ -70,11 +69,10 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: bash deploy/ci/vps-connect.sh
 
       - name: Pull, install, restart, health check
-        run: ssh vps 'sudo -n -u lifolo -H /usr/local/sbin/lifolo-deploy'
+        run: ssh vps 'sudo -u lifolo -H /usr/local/sbin/lifolo-deploy'
 
       - name: Clean up key
         if: always()

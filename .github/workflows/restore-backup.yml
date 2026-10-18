@@ -36,7 +36,6 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: bash deploy/ci/vps-connect.sh
 
       - name: Restore (${{ inputs.from }} / ${{ inputs.backup }})
@@ -46,7 +45,7 @@ jobs:
         run: |
           [[ "$BACKUP" =~ ^(latest|list|lifolo-[0-9]{8}-[0-9]{6}\.dump)$ ]] || { echo "::error::backup হবে latest, list, বা lifolo-YYYYMMDD-HHMMSS.dump"; exit 1; }
           # shellcheck disable=SC2029  # মান ওপরে যাচাই করা
-          ssh vps "sudo -n /usr/local/sbin/lifolo-restore '$FROM' '$BACKUP'"
+          ssh vps "/usr/local/sbin/lifolo-restore '$FROM' '$BACKUP'"
 
       - name: Clean up
         if: always()

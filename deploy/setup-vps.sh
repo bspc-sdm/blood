@@ -9,8 +9,6 @@
 # যা করে: lifolo ব্যবহারকারী, Node 22, PostgreSQL, nginx, certbot, ফায়ারওয়াল (SSH/80/443), unattended-upgrades, fail2ban,
 # ডাটাবেস + র‍্যান্ডম পাসওয়ার্ড (/etc/lifolo/env), কোড /opt/lifolo-এ, systemd সার্ভিস + দৈনিক ক্রন + দৈনিক ব্যাকআপ
 # (VPS-এ আর Firebase-এর Cloud Storage-এ), nginx সাইট আর Let's Encrypt সার্টিফিকেট।
-# Contabo (x86_64) আর Oracle Cloud Always Free (Ampere, arm64) — দুটোতেই চলে। Oracle-এর নিজস্ব iptables নিয়ম
-# (/etc/iptables/rules.v4, যা 80/443 আটকায়) থাকলে ufw নয়, ওই ফাইলেই 80/443 খোলা হয় (স্থায়ীভাবে)।
 #
 # নিরাপত্তা: root হিসেবে যা বসানো হয় (systemd, nginx, ব্যাকআপ/ডেপ্লয় স্ক্রিপ্ট) তা GitHub থেকে root-এর নিজের নতুন কপি
 # থেকে নেওয়া হয় — lifolo ব্যবহারকারীর /opt/lifolo থেকে নয় (সেটা বদলাতে পারলেও root পর্যন্ত যাওয়া যায় না)।
@@ -52,19 +50,7 @@ say "প্যাকেজ (nginx, PostgreSQL, certbot, ufw, fail2ban ...)"
 # dpkg ভেঙে দেয়; নিচে নিজেদের সেটিং বসিয়ে আমরাই চালু করি
 printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
 chmod 0755 /usr/sbin/policy-rc.d
-# ফায়ারওয়াল: Oracle-এর ছবিতে iptables নিয়ম (rules.v4, শেষে REJECT) + netfilter-persistent থাকে। ufw প্যাকেজ
-# netfilter-persistent-কে সরিয়ে দেয় (Breaks) — তাহলে বুটে Oracle-এর নিয়ম আর বসত না। তাই সেখানে ufw নয়।
-local FW=ufw IPT_RULES=/etc/iptables/rules.v4
-if [ -f "$IPT_RULES" ] && grep -qE '^-A INPUT .*-j REJECT' "$IPT_RULES"; then FW=iptables; fi
-local PKGS=(ca-certificates curl gnupg git openssl fail2ban unattended-upgrades nginx certbot postgresql postgresql-contrib)
-if [ "$FW" = iptables ]; then
-  # বসানোর সময় এখনকার নিয়ম দিয়ে rules.v4 লিখে ফেলা নয়
-  echo 'iptables-persistent iptables-persistent/autosave_v4 boolean false' | debconf-set-selections
-  echo 'iptables-persistent iptables-persistent/autosave_v6 boolean false' | debconf-set-selections
-  PKGS+=(iptables-persistent)
-else
-  PKGS+=(ufw)
-fi
+local PKGS=(ca-certificates curl gnupg git openssl ufw fail2ban unattended-upgrades nginx certbot postgresql postgresql-contrib)
 if ! "${APT[@]}" install "${PKGS[@]}"; then
   rm -f /usr/sbin/policy-rc.d
   die "প্যাকেজ বসানো যায়নি (ওপরের লেখা দেখুন)"
@@ -93,34 +79,22 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
 fi
 passwd -l "$APP_USER" >/dev/null  # পাসওয়ার্ডে লগইন নয়, শুধু SSH চাবি
 
-if [ "$FW" = iptables ]; then
-  # Oracle Cloud: ছবির সাথে আসা iptables নিয়ম (শেষে সব REJECT) netfilter-persistent দিয়ে প্রতি বুটে বসে।
-  # ufw চালু করলে দুটো একসাথে গোলমাল করে, আর Oracle-এর InstanceServices নিয়ম (মেটাডেটা/ডিস্ক) মোছা বিপজ্জনক —
-  # তাই ওই ফাইলেই REJECT-এর আগে 80/443 খোলা, তারপর ফাইল থেকে আবার বসানো (বুটেও একই ফাইল)।
-  say "ফায়ারওয়াল (Oracle iptables): 80, 443 খোলা — $IPT_RULES"
-  open_iptables_web "$IPT_RULES"
-  iptables-restore --test < "$IPT_RULES" || die "$IPT_RULES ঠিক নেই"
-  iptables-restore < "$IPT_RULES"
-  systemctl enable netfilter-persistent >/dev/null
-  iptables -S INPUT
-else
-  say "ফায়ারওয়াল (ufw): শুধু SSH, 80, 443"
-  # SSH যে পোর্টে চলছে সেটাই খোলা (Contabo-তে সাধারণত 22) — ভুল পোর্ট বন্ধ করে নিজেকে আটকে ফেলা নয়
-  local ssh_ports
-  ssh_ports="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}' | sort -u)"
-  [ -n "$ssh_ports" ] || ssh_ports=22
-  ufw default deny incoming >/dev/null
-  ufw default allow outgoing >/dev/null
-  # "limit" নয়: GitHub Actions অল্প সময়ে কয়েকবার ঢোকে, limit তাতে আটকে দেয়। পাসওয়ার্ড লগইন বন্ধ আর fail2ban আছে।
-  for p in $ssh_ports; do
-    ufw delete limit "$p/tcp" >/dev/null 2>&1 || true
-    ufw allow "$p/tcp" >/dev/null
-  done
-  ufw allow 80/tcp >/dev/null
-  ufw allow 443/tcp >/dev/null
-  ufw --force enable >/dev/null
-  ufw status verbose | head -20
-fi
+say "ফায়ারওয়াল (ufw): শুধু SSH, 80, 443"
+# SSH যে পোর্টে চলছে সেটাই খোলা (Contabo-তে সাধারণত 22) — ভুল পোর্ট বন্ধ করে নিজেকে আটকে ফেলা নয়
+local ssh_ports
+ssh_ports="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}' | sort -u)"
+[ -n "$ssh_ports" ] || ssh_ports=22
+ufw default deny incoming >/dev/null
+ufw default allow outgoing >/dev/null
+# "limit" নয়: GitHub Actions অল্প সময়ে কয়েকবার ঢোকে, limit তাতে আটকে দেয়। পাসওয়ার্ড লগইন বন্ধ আর fail2ban আছে।
+for p in $ssh_ports; do
+  ufw delete limit "$p/tcp" >/dev/null 2>&1 || true
+  ufw allow "$p/tcp" >/dev/null
+done
+ufw allow 80/tcp >/dev/null
+ufw allow 443/tcp >/dev/null
+ufw --force enable >/dev/null
+ufw status verbose | head -20
 
 say "নিরাপত্তা আপডেট নিজে নিজে (unattended-upgrades)"
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
@@ -247,15 +221,14 @@ if [ ! -f "$CERT" ]; then
   write_site "$SRC" "$DOMAIN" lifolo-http.conf
   say "TLS সার্টিফিকেট (Let's Encrypt)"
   local MY_IPS DNS_IPS matched=no ip
-  # Oracle-এ মেশিন নিজের ভেতরের IP (10.x) জানে, বাইরের IP নয় — workflow PUBLIC_IP দেয়
-  MY_IPS="$(hostname -I) ${PUBLIC_IP:-}"
+  MY_IPS="$(hostname -I)"
   DNS_IPS="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
   for ip in $DNS_IPS; do case " $MY_IPS " in *" $ip "*) matched=yes ;; esac; done
   [ "$matched" = yes ] || warn "$DOMAIN এখনো এই VPS-এর IP-তে যায় না (DNS: ${DNS_IPS:-কিছু না}; এই VPS: $MY_IPS)। A রেকর্ড ঠিক করে কিছুক্ষণ পর আবার চালান।"
   certbot certonly --webroot -w /var/www/letsencrypt -d "$DOMAIN" -m "$EMAIL" \
     --agree-tos --no-eff-email --non-interactive --keep-until-expiring \
     --deploy-hook "systemctl reload nginx" \
-    || warn "সার্টিফিকেট পাওয়া যায়নি। বাইরে থেকে পোর্ট 80 খোলা কি না (Oracle: Security List) আর DNS দেখুন, তারপর আবার চালান।"
+    || warn "সার্টিফিকেট পাওয়া যায়নি। বাইরে থেকে পোর্ট 80 খোলা কি না আর DNS দেখুন, তারপর আবার চালান।"
 fi
 if [ -f "$CERT" ]; then
   write_site "$SRC" "$DOMAIN" lifolo-https.conf
@@ -295,18 +268,6 @@ set_if_empty() {
   else
     printf '%s=%s\n' "$key" "$value" >> "$file"
   fi
-}
-
-# Oracle-এর rules.v4-এ প্রথম "-A INPUT ... -j REJECT"-এর আগে 80 আর 443 খোলার নিয়ম (আগে থেকে থাকলে কিছু নয়)
-open_iptables_web() {
-  local f="$1" p rule
-  for p in 80 443; do
-    rule="-A INPUT -p tcp -m state --state NEW -m tcp --dport $p -j ACCEPT"
-    grep -qxF -- "$rule" "$f" && continue
-    awk -v r="$rule" '!done && /^-A INPUT .*-j REJECT/ {print r; done=1} {print}' "$f" > "$f.new"
-    chmod --reference="$f" "$f.new"
-    mv "$f.new" "$f"
-  done
 }
 
 write_site() {

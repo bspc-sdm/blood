@@ -86,6 +86,6 @@ jobs:
           URL: ${{ steps.url.outputs.url }}
         run: |
           echo "## ❌ Lifolo সার্ভার সাড়া দিচ্ছে না" >> "$GITHUB_STEP_SUMMARY"
-          echo "$URL — VPS চালু আছে কি না (Contabo/Oracle প্যানেল) দেখুন, এই পাতার স্ক্রিনশট Claude-কে পাঠান।" >> "$GITHUB_STEP_SUMMARY"
+          echo "$URL — VPS চালু আছে কি না (Contabo প্যানেল) দেখুন, এই পাতার স্ক্রিনশট Claude-কে পাঠান।" >> "$GITHUB_STEP_SUMMARY"
           echo "::error::সার্ভার বন্ধ: $URL"
           exit 1

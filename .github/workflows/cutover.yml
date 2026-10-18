@@ -42,7 +42,6 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: bash deploy/ci/vps-connect.sh
 
       - name: Run ${{ inputs.mode }}
@@ -54,7 +53,7 @@ jobs:
           [[ "$ONLY" =~ ^[A-Za-z0-9_,]*$ ]] || { echo "::error::only-তে শুধু কালেকশনের নাম, কমা দিয়ে"; exit 1; }
           set -o pipefail
           # shellcheck disable=SC2029  # মানগুলো ওপরে যাচাই করা (choice/boolean/নাম)
-          ssh vps "sudo -n bash -s -- '$MODE' '$KEEP_DEMO' '$ONLY'" < deploy/cutover.sh | tee "$RUNNER_TEMP/cutover.log"
+          ssh vps "bash -s -- '$MODE' '$KEEP_DEMO' '$ONLY'" < deploy/cutover.sh | tee "$RUNNER_TEMP/cutover.log"
 
       - name: Summary
         if: always()

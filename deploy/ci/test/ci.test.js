@@ -25,8 +25,6 @@ test('চাবি: একই গোপন মান → একই চাবি;
   assert.notStrictEqual(a.host.publicKey.split(' ')[1], a.root.publicKey.split(' ')[1]);
   assert.notStrictEqual(K.derive('Pass-124').root.publicKey, a.root.publicKey);
   assert.throws(() => K.derive('  '));
-  const keyText = '-----BEGIN OPENSSH PRIVATE KEY-----\r\nabc\r\n-----END OPENSSH PRIVATE KEY-----\r\n';
-  assert.strictEqual(K.derive(keyText).host.publicKey, K.derive(keyText.replace(/\r/g, '')).host.publicKey);
 });
 
 test('চাবি: OpenSSH-এর ফাইল হিসেবে চলে, আর সই যাচাই হয় (ssh-keygen থাকলে)', (t) => {

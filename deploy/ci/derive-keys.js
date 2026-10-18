@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// VPS-এর SSH চাবি একটা গোপন মান (Contabo: root পাসওয়ার্ড; Oracle: ubuntu-র প্রাইভেট চাবি) থেকে বানানো —
+// VPS-এর SSH চাবি একটা গোপন মান (Contabo-র root পাসওয়ার্ড, VPS_ROOT_PASSWORD) থেকে বানানো —
 // প্রতিবার একই চাবি আসে, তাই GitHub-এ আলাদা চাবি রাখতে হয় না (workflow নিজে সিক্রেট লিখতে পারে না)।
 //
 //   LIFOLO_MASTER='<গোপন মান>' node deploy/ci/derive-keys.js <ফোল্ডার>
 //
 // ফোল্ডারে লেখে (0600):
 //   host_ed25519, host_ed25519.pub   — VPS-এর SSH host key (সার্ভারে বসানো হয়; GitHub এটা দিয়েই সার্ভার চেনে)
-//   root_ed25519, root_ed25519.pub   — root-এ ঢোকার চাবি (Contabo)
+//   root_ed25519, root_ed25519.pub   — root-এ ঢোকার চাবি
 //
 // scrypt (N=2^16) — পাসওয়ার্ড অনুমান করে চাবি মেলানো ধীর। লেবেল আলাদা, তাই একটা চাবি থেকে অন্যটা বের করা যায় না।
 // কোনো চাবি stdout-এ ছাপা হয় না; শুধু ফাইলে।
@@ -18,7 +18,7 @@ const path = require('path');
 const SALT_PREFIX = 'lifolo-vps-v1|';
 const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 
-/** গোপন মান স্বাভাবিক করা: Windows-এর \r\n → \n, শুরু/শেষের ফাঁকা বাদ (পেস্ট করার সময় যা যোগ হয়) */
+/** গোপন মান স্বাভাবিক করা: শুরু/শেষের ফাঁকা আর লাইন-শেষ বাদ (পেস্ট করার সময় যা যোগ হয়) */
 function normalizeMaster(s) {
   return String(s || '').replace(/\r\n?/g, '\n').trim();
 }

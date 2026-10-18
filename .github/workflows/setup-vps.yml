@@ -1,26 +1,20 @@
 name: Setup VPS
 
-# নতুন VPS (Contabo বা Oracle Cloud) এক বোতামে প্রস্তুত করা — Actions → Setup VPS → Run workflow।
+# নতুন Contabo VPS (Ubuntu 24.04) এক বোতামে প্রস্তুত করা — Actions → Setup VPS → Run workflow।
 # আবার চালালেও ক্ষতি নেই (idempotent)। বাংলা গাইড: deploy/README.md
 #
 # সিক্রেট (Settings → Secrets and variables → Actions):
 #   VPS_HOST           VPS-এর IP
-#   VPS_ROOT_PASSWORD  Contabo: root পাসওয়ার্ড          (provider = contabo)
-#   VPS_SSH_KEY        Oracle: নামানো প্রাইভেট চাবির লেখা  (provider = oracle)
+#   VPS_ROOT_PASSWORD  Contabo-তে দেওয়া root পাসওয়ার্ড
 #   VERCEL_TOKEN       Vercel থেকে সার্ভারের গোপন সেটিং আনার জন্য
 #   ঐচ্ছিক, Vercel-এ "Sensitive" হলে একই নামে: FIREBASE_SERVICE_ACCOUNT, ADMIN_EMAILS, GMAIL_USER,
 #   GMAIL_APP_PASSWORD, SMS_URL_TEMPLATE, CRON_SECRET, WEB_SESSION_SECRET
 #
-# ধাপ: Vercel-এর মান আনা → SSH (প্রথমবার: পাসওয়ার্ড/চাবি দিয়ে ঢুকে GitHub-এর চাবি বসানো, পাসওয়ার্ড লগইন বন্ধ;
+# ধাপ: Vercel-এর মান আনা → SSH (প্রথমবার: root পাসওয়ার্ড দিয়ে ঢুকে GitHub-এর চাবি বসানো, পাসওয়ার্ড লগইন বন্ধ;
 # দেখুন deploy/ci/vps-connect.sh) → setup-vps.sh → /etc/lifolo/env → Firebase-এ ডোমেইন → HTTPS পরীক্ষা → ব্যাকআপ পরীক্ষা।
 on:
   workflow_dispatch:
     inputs:
-      provider:
-        description: "VPS কোথায়? contabo (root পাসওয়ার্ড) বা oracle (ubuntu + চাবি)"
-        type: choice
-        options: [contabo, oracle]
-        default: contabo
       domain:
         description: "নিজের ডোমেইন (ঐচ্ছিক)। খালি রাখলে বিনামূল্যের <IP>.sslip.io"
         type: string
@@ -80,10 +74,8 @@ jobs:
       - name: Connect to VPS (first time - install GitHub's key, turn off password login)
         id: ssh
         env:
-          PROVIDER: ${{ inputs.provider }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_ROOT_PASSWORD: ${{ inputs.provider == 'contabo' && secrets.VPS_ROOT_PASSWORD || '' }}
-          VPS_SSH_KEY: ${{ inputs.provider == 'oracle' && secrets.VPS_SSH_KEY || '' }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
           BOOTSTRAP: "yes"
         run: bash deploy/ci/vps-connect.sh
 
@@ -98,20 +90,19 @@ jobs:
           WEB_SESSION_SECRET: ${{ secrets.WEB_SESSION_SECRET }}
         run: |
           T="$RUNNER_TEMP/lifolo"
-          ssh vps 'sudo -n cat /etc/lifolo/env 2>/dev/null || true' > "$T/current.env"
+          ssh vps 'cat /etc/lifolo/env 2>/dev/null || true' > "$T/current.env"
           node deploy/ci/server-env.js merge "$T/vercel.json" "$T/current.env" "$T/new.env" --check
 
       - name: Install everything on the VPS (5-15 minutes)
         env:
           DOMAIN: ${{ steps.host.outputs.domain }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
           BRANCH: ${{ github.ref_name }}
         run: |
           [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::branch-এর নাম ঠিক নেই: $BRANCH"; exit 1; }
           # root-এর নিজের ফোল্ডারে স্ক্রিপ্টের কপি (সেটআপ /opt/lifolo থেকে চলে না)
-          ssh vps 'sudo -n install -d -m 700 /root/lifolo-setup && sudo -n tee /root/lifolo-setup/setup-vps.sh >/dev/null' < deploy/setup-vps.sh
+          ssh vps 'install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/setup-vps.sh' < deploy/setup-vps.sh
           # shellcheck disable=SC2029  # মানগুলো ইচ্ছা করেই এখানে বসানো (ওপরে যাচাই করা)
-          ssh vps "sudo -n env PUBLIC_IP='$VPS_HOST' bash /root/lifolo-setup/setup-vps.sh '$DOMAIN' '$OWNER_EMAIL' '$BRANCH'"
+          ssh vps "bash /root/lifolo-setup/setup-vps.sh '$DOMAIN' '$OWNER_EMAIL' '$BRANCH'"
 
       - name: Write secret settings (/etc/lifolo/env) and restart
         id: envfile
@@ -125,9 +116,9 @@ jobs:
           WEB_SESSION_SECRET: ${{ secrets.WEB_SESSION_SECRET }}
         run: |
           T="$RUNNER_TEMP/lifolo"
-          ssh vps 'sudo -n cat /etc/lifolo/env' > "$T/current.env"
+          ssh vps 'cat /etc/lifolo/env' > "$T/current.env"
           node deploy/ci/server-env.js merge "$T/vercel.json" "$T/current.env" "$T/new.env"
-          ssh vps 'sudo -n sh -c "umask 027 && cat > /etc/lifolo/env.new && chown root:lifolo /etc/lifolo/env.new && chmod 0640 /etc/lifolo/env.new && mv /etc/lifolo/env.new /etc/lifolo/env && systemctl restart lifolo"' < "$T/new.env"
+          ssh vps 'umask 027 && cat > /etc/lifolo/env.new && chown root:lifolo /etc/lifolo/env.new && chmod 0640 /etc/lifolo/env.new && mv /etc/lifolo/env.new /etc/lifolo/env && systemctl restart lifolo' < "$T/new.env"
           rm -f "$T/current.env" "$T/new.env"
 
       - name: Allow the new address in Firebase login
@@ -137,7 +128,7 @@ jobs:
           DOMAIN: ${{ steps.host.outputs.domain }}
         run: |
           # সার্ভিস অ্যাকাউন্ট VPS থেকে (লগে আসে না), এই রানারে শুধু মেমোরিতে
-          FIREBASE_SERVICE_ACCOUNT="$(ssh vps 'sudo -n sed -nE "s/^FIREBASE_SERVICE_ACCOUNT=\"?([^\"]*)\"?$/\1/p" /etc/lifolo/env')"
+          FIREBASE_SERVICE_ACCOUNT="$(ssh vps 'sed -nE "s/^FIREBASE_SERVICE_ACCOUNT=\"?([^\"]*)\"?$/\1/p" /etc/lifolo/env')"
           echo "::add-mask::$FIREBASE_SERVICE_ACCOUNT"
           export FIREBASE_SERVICE_ACCOUNT
           node deploy/ci/firebase-domain.js "$DOMAIN"
@@ -145,7 +136,6 @@ jobs:
       - name: Check https://<address>/healthz and /api/health
         env:
           DOMAIN: ${{ steps.host.outputs.domain }}
-          PROVIDER: ${{ inputs.provider }}
         run: |
           ok=no
           for _ in $(seq 1 20); do
@@ -156,14 +146,10 @@ jobs:
             code=0
             curl -sS -m 10 -o /dev/null "http://$DOMAIN/" || code=$?
             if [ "$code" = 7 ] || [ "$code" = 28 ]; then
-              if [ "$PROVIDER" = oracle ]; then
-                echo "::error::বাইরে থেকে পোর্ট 80/443 বন্ধ। Oracle-এ VCN-এর Security List-এ 80 আর 443 খুলুন (README-র Oracle অংশ, ধাপ ৪), তারপর আবার Run workflow।"
-              else
-                echo "::error::বাইরে থেকে পোর্ট 80/443-এ পৌঁছানো যাচ্ছে না। কয়েক মিনিট পর আবার Run workflow চালান; না হলে স্ক্রিনশট পাঠান।"
-              fi
+              echo "::error::বাইরে থেকে পোর্ট 80/443-এ পৌঁছানো যাচ্ছে না। কয়েক মিনিট পর আবার Run workflow চালান; না হলে স্ক্রিনশট পাঠান।"
             else
               echo "::error::https://$DOMAIN কাজ করছে না (সার্টিফিকেট বা সেটিং)। ১৫ মিনিট পর আবার Run workflow চালান; আবারও হলে এই ধাপের স্ক্রিনশট পাঠান।"
-              ssh vps 'sudo -n systemctl is-active lifolo; sudo -n journalctl -u lifolo -n 30 --no-pager' || true
+              ssh vps 'systemctl is-active lifolo; journalctl -u lifolo -n 30 --no-pager' || true
             fi
             exit 1
           fi
@@ -173,13 +159,12 @@ jobs:
         continue-on-error: true
         run: |
           # ব্যাকআপ শেষ হলে আপলোড নিজেই চলে (OnSuccess); এখানে আবার start দিলে সেটা শেষ হওয়া পর্যন্ত অপেক্ষা করে
-          ssh vps 'sudo -n systemctl start lifolo-backup && sudo -n systemctl start lifolo-backup-upload; rc=$?; sudo -n journalctl -u lifolo-backup-upload -n 6 --no-pager -o cat; exit $rc'
+          ssh vps 'systemctl start lifolo-backup && systemctl start lifolo-backup-upload; rc=$?; journalctl -u lifolo-backup-upload -n 6 --no-pager -o cat; exit $rc'
 
       - name: Summary
         if: always()
         env:
           DOMAIN: ${{ steps.host.outputs.domain }}
-          PROVIDER: ${{ inputs.provider }}
           FB_OK: ${{ steps.fbdomain.outcome }}
           BACKUP_OK: ${{ steps.backup.outcome }}
           JOB_OK: ${{ job.status }}
@@ -190,8 +175,8 @@ jobs:
               echo
               echo "- পরীক্ষা: https://$DOMAIN/api/health"
               echo "- অ্যাডমিন প্যানেল: https://$DOMAIN/admin"
-              echo "- VPS: $PROVIDER। SSH-এ এখন শুধু GitHub-এর চাবি চলে, পাসওয়ার্ড নয়। $([ "$PROVIDER" = contabo ] && echo "জরুরি দরকারে Contabo প্যানেলের VNC কনসোল।")"
-              echo "- **VPS_ROOT_PASSWORD / VPS_SSH_KEY সিক্রেট মুছবেন না বা বদলাবেন না** — এখন থেকে GitHub এটা দিয়েই VPS-এ ঢোকে।"
+              echo "- SSH-এ এখন শুধু GitHub-এর চাবি চলে, পাসওয়ার্ড নয়। জরুরি দরকারে Contabo প্যানেলের VNC কনসোল।"
+              echo "- **VPS_ROOT_PASSWORD সিক্রেট মুছবেন না বা বদলাবেন না** — এখন থেকে GitHub এটা দিয়েই VPS-এ ঢোকে।"
               if [ "$FB_OK" != success ]; then
                 echo "- ⚠️ Firebase-এ ঠিকানাটা নিজে যোগ করা যায়নি। হাতে করুন: Firebase Console → Authentication → Settings → Authorized domains → Add domain → \`$DOMAIN\`"
               fi
