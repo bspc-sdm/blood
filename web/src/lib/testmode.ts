@@ -14,11 +14,11 @@ export function testUser() {
   const u = window.__lfTest?.user;
   return u ? { ...u, getIdToken: async () => 'test-token' } : null;
 }
-/** পরীক্ষায় Firestore-এর একটা ডক (path যেমন "requests/abc") */
+/** পরীক্ষায় সার্ভারের বদলে একটা ডক (path যেমন "requests/abc") */
 export function testDoc(path: string): any | undefined {
   return TEST_MODE ? window.__lfTest?.docs?.[path] : undefined;
 }
-/** পরীক্ষায় Firestore কোয়েরির ফল (চাবি নিজের মতো, যেমন "requests?requesterUid=u1") */
+/** পরীক্ষায় সার্ভারের তালিকার বদলে কোয়েরির ফল (চাবি নিজের মতো, যেমন "requests?requesterUid=u1") */
 export function testQuery(key: string): any[] | undefined {
   return TEST_MODE ? window.__lfTest?.queries?.[key] : undefined;
 }

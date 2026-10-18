@@ -1,8 +1,5 @@
 package com.bspc.blood
 
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
-
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
@@ -10,11 +7,6 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FieldPath
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -47,6 +39,8 @@ object AuthRepository {
             kotlinx.coroutines.withTimeoutOrNull(4000) { job.await() }
         }
         auth.signOut()
+        // ফোনে রাখা সার্ভারের উত্তর (প্রোফাইল, রিকোয়েস্ট) — পরের মানুষ যেন না দেখেন
+        OfflineCache.clear()
         // পুরোনো টোকেন বাতিল (পেছনে; ইন্টারনেট না থাকলে পরে)
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
@@ -57,219 +51,268 @@ object AuthRepository {
     suspend fun signOutLocal() {
         runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
+        OfflineCache.clear()
     }
 }
 
-object ProfileRepository {
-    private val users get() = FirebaseFirestore.getInstance().collection("users")
+/**
+ * সার্ভারের পড়া উত্তর ফোনে রাখা — আগে Firestore নিজেই রাখত, তাই ইন্টারনেট না থাকলেও শেষ দেখা প্রোফাইল,
+ * রিকোয়েস্ট আর তালিকা দেখাত। এখনও তাই: শুধু সার্ভারে পৌঁছানো না গেলে শেষ উত্তর; সার্ভার "না" বললে সেটাই দেখায়।
+ * অ্যাকাউন্ট অনুযায়ী আলাদা; লগআউটে মুছে যায়।
+ */
+object OfflineCache {
+    private const val FILE = "server_cache"
+    private const val MAX_ENTRIES = 150
 
+    @Volatile private var prefs: android.content.SharedPreferences? = null
+
+    fun init(context: Context) {
+        prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    }
+
+    fun clear() {
+        runCatching { prefs?.edit()?.clear()?.apply() }
+    }
+
+    /** /api/community-র পড়ার কাজ; key = কাজ আর তার প্যারামিটার */
+    suspend fun read(key: String, body: org.json.JSONObject): org.json.JSONObject {
+        val k = "${AuthRepository.currentUid}|$key"
+        return try {
+            ServerApi.post("/api/community", body).also { put(k, it) }
+        } catch (e: Exception) {
+            if (e is ServerError || e is LoginRequired || e is kotlinx.coroutines.CancellationException) throw e
+            get(k) ?: throw e
+        }
+    }
+
+    private fun get(k: String): org.json.JSONObject? = runCatching {
+        prefs?.getString(k, null)?.substringAfter('\n')?.let { org.json.JSONObject(it) }
+    }.getOrNull()
+
+    private fun put(k: String, o: org.json.JSONObject) {
+        val p = prefs ?: return
+        runCatching {
+            val e = p.edit()
+            if (p.all.size >= MAX_ENTRIES) {
+                // পুরোনো অর্ধেক সরানো
+                p.all.entries.sortedBy { (it.value as? String)?.substringBefore('\n')?.toLongOrNull() ?: 0L }
+                    .take(MAX_ENTRIES / 2).forEach { e.remove(it.key) }
+            }
+            e.putString(k, "${System.currentTimeMillis()}\n$o").apply()
+        }
+    }
+}
+
+private fun org.json.JSONObject.has0(k: String) = has(k) && !isNull(k)
+private fun org.json.JSONObject.longN(k: String): Long? = if (has0(k)) optLong(k) else null
+private fun org.json.JSONObject.dblN(k: String): Double? = if (has0(k)) optDouble(k).takeIf { !it.isNaN() } else null
+private fun org.json.JSONObject.strN(k: String): String? = if (has0(k)) optString(k) else null
+private fun org.json.JSONObject.strList(k: String): List<String>? =
+    optJSONArray(k)?.let { a -> (0 until a.length()).mapNotNull { a.opt(it) as? String } }
+
+/** প্রোফাইল (users/{uid}) — সার্ভার দিয়ে (profile_get / profile_update); নিজেরটাই, নিয়ম server/lib/clientdata.js-এ */
+object ProfileRepository {
+    private suspend fun update(set: org.json.JSONObject? = null, commitAdd: String? = null, commitRemove: Collection<String>? = null) {
+        val body = org.json.JSONObject().put("action", "profile_update")
+        if (set != null) body.put("set", set)
+        if (commitAdd != null) body.put("commitAdd", commitAdd)
+        if (!commitRemove.isNullOrEmpty()) body.put("commitRemove", org.json.JSONArray(commitRemove))
+        ServerApi.post("/api/community", body)
+    }
+
+    /** uid আগের মতো (ডাকার জায়গা বদলায়নি); সার্ভার লগইন করা মানুষের প্রোফাইলই দেয় */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun load(uid: String): Profile? {
-        val snap = users.document(uid).get().await()
-        if (!snap.exists()) return null
+        val x = OfflineCache.read("profile", org.json.JSONObject().put("action", "profile_get")).optJSONObject("profile") ?: return null
         // আগের ছবির ছোট সংস্করণ একবার বানিয়ে রাখা (তালিকার কার্ডের জন্য)
-        if (!snap.getString("photo").isNullOrBlank() && snap.getString("photoThumb").isNullOrBlank()) {
-            Photo.thumbFromAvatar(snap.getString("photo"))?.let { t ->
-                runCatching { users.document(uid).set(mapOf("photoThumb" to t), SetOptions.merge()).await() }
+        val photo = x.strN("photo")
+        if (!photo.isNullOrBlank() && !x.optBoolean("hasPhotoThumb")) {
+            Photo.thumbFromAvatar(photo)?.let { t ->
+                runCatching { update(org.json.JSONObject().put("photoThumb", t)) }
             }
         }
         return Profile(
-            name = snap.getString("name") ?: "",
-            phone = snap.getString("phone") ?: "",
-            bloodGroup = snap.getString("bloodGroup") ?: "",
-            lastDonationMillis = snap.getLong("lastDonationMillis"),
-            birthDateMillis = snap.getLong("birthDateMillis"),
-            weightKg = snap.getLong("weightKg")?.toInt(),
-            lat = snap.getDouble("lat"),
-            lng = snap.getDouble("lng"),
-            placeName = snap.getString("placeName"),
-            locationSource = snap.getString("locationSource"),
-            notify = snap.getBoolean("notify") ?: true,
-            maxPushPerDay = snap.getLong("maxPushPerDay")?.toInt()
+            name = x.strN("name") ?: "",
+            phone = x.strN("phone") ?: "",
+            bloodGroup = x.strN("bloodGroup") ?: "",
+            lastDonationMillis = x.longN("lastDonationMillis"),
+            birthDateMillis = x.longN("birthDateMillis"),
+            weightKg = x.longN("weightKg")?.toInt(),
+            lat = x.dblN("lat"),
+            lng = x.dblN("lng"),
+            placeName = x.strN("placeName"),
+            locationSource = x.strN("locationSource"),
+            notify = if (x.has0("notify")) x.optBoolean("notify", true) else true,
+            maxPushPerDay = x.longN("maxPushPerDay")?.toInt()
                 ?.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT) ?: Rules.DEFAULT_PUSH_PER_DAY,
-            notifyGroups = groupList(snap.get("notifyGroups")),
-            viewGroups = groupList(snap.get("viewGroups")),
-            commitments = (snap.get("commitments") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty(),
-            photo = snap.getString("photo"),
-            maxKm = snap.getLong("maxKm")?.toInt()?.takeIf { it in Rules.RADIUS_CHOICES } ?: Rules.DEFAULT_RADIUS_KM,
-            fareAfterKm = snap.getLong("fareAfterKm")?.toInt(),
+            notifyGroups = groupList(x.strList("notifyGroups")),
+            viewGroups = groupList(x.strList("viewGroups")),
+            commitments = x.optJSONObject("commitments")?.keys()?.asSequence()?.toList().orEmpty(),
+            photo = photo,
+            maxKm = x.longN("maxKm")?.toInt()?.takeIf { it in Rules.RADIUS_CHOICES } ?: Rules.DEFAULT_RADIUS_KM,
+            fareAfterKm = x.longN("fareAfterKm")?.toInt(),
         )
     }
 
-    private fun groupList(raw: Any?): List<String>? =
-        (raw as? List<*>)?.filterIsInstance<String>()?.filter { it in Rules.BLOOD_GROUPS }
+    private fun groupList(raw: List<String>?): List<String>? = raw?.filter { it in Rules.BLOOD_GROUPS }
+
+    private fun org.json.JSONObject.putN(k: String, v: Any?): org.json.JSONObject = put(k, v ?: org.json.JSONObject.NULL)
 
     /** সেটিংস: নোটিফিকেশন চালু/বন্ধ, দিনে কয়টা, কোন গ্রুপের নোটিফিকেশন, তালিকায় কোন গ্রুপ */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveSettings(uid: String, p: Profile) {
-        val data = hashMapOf<String, Any?>(
-            "notify" to p.notify,
-            "maxPushPerDay" to p.maxPushPerDay.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT),
-            "notifyGroups" to p.notifyGroups,
-            "viewGroups" to p.viewGroups,
-            "maxKm" to p.maxKm,
-            "fareAfterKm" to (p.fareAfterKm ?: FieldValue.delete()),
+        update(
+            org.json.JSONObject()
+                .put("notify", p.notify)
+                .put("maxPushPerDay", p.maxPushPerDay.coerceIn(1, Rules.MAX_PUSH_PER_DAY_LIMIT))
+                .putN("notifyGroups", p.notifyGroups?.let { org.json.JSONArray(it) })
+                .putN("viewGroups", p.viewGroups?.let { org.json.JSONArray(it) })
+                .put("maxKm", p.maxKm)
+                // null = মোছা
+                .putN("fareAfterKm", p.fareAfterKm),
         )
-        users.document(uid).set(data, SetOptions.merge()).await()
     }
 
     /**
      * নাম, ফোন, গ্রুপ, শেষ রক্তদান। লোকেশন আলাদাভাবে সেভ হয়।
      * includeDonation: শুধু যখন আগে কোনো তারিখ সেভ নেই (প্রথমবার) — পরে তারিখ সার্ভার বা "তারিখ বদলান" দিয়ে বদলায়।
-     * নইলে পুরোনো তারিখ পাঠালে নিয়মে আটকে "PERMISSION_DENIED" হতো।
+     * নইলে পুরোনো তারিখ পাঠালে সার্ভার আটকায় (তারিখ শুধু সামনে এগোয়)।
      */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveBasics(uid: String, profile: Profile, includeDonation: Boolean = true) {
-        val data = hashMapOf<String, Any?>(
-            "name" to profile.name,
-            "phone" to profile.phone,
-            "bloodGroup" to profile.bloodGroup,
-            "birthDateMillis" to profile.birthDateMillis,
-            "weightKg" to profile.weightKg,
-            "notify" to profile.notify,
-            "updatedAt" to FieldValue.serverTimestamp(),
-        )
-        if (includeDonation && profile.lastDonationMillis != null) data["lastDonationMillis"] = profile.lastDonationMillis
-        users.document(uid).set(data, SetOptions.merge()).await()
-        refreshDonorGeo(uid)
+        val set = org.json.JSONObject()
+            .put("name", profile.name)
+            .put("phone", profile.phone)
+            .put("bloodGroup", profile.bloodGroup)
+            .putN("birthDateMillis", profile.birthDateMillis)
+            .putN("weightKg", profile.weightKg)
+            .put("notify", profile.notify)
+        if (includeDonation && profile.lastDonationMillis != null) set.put("lastDonationMillis", profile.lastDonationMillis)
+        // ডোনার খোঁজার ঘর ("গ্রুপ|geohash") সার্ভার নিজেই ঠিক করে
+        update(set)
     }
 
     /** শুধু নাম আর মোবাইল (নতুন নকশা N2-এর প্রথম ধাপ) — ডোনারের তথ্য বা সেটিংসে হাত দেয় না */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveContact(uid: String, name: String, phone: String) {
-        users.document(uid).set(
-            hashMapOf<String, Any?>("name" to name, "phone" to phone, "updatedAt" to FieldValue.serverTimestamp()),
-            SetOptions.merge(),
-        ).await()
+        update(org.json.JSONObject().put("name", name).put("phone", phone))
     }
 
     /** শুধু ডোনারের তথ্য: গ্রুপ, জন্ম তারিখ, ওজন, (প্রথমবার) শেষ রক্তদান — নাম-মোবাইলে হাত দেয় না */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveDonor(uid: String, profile: Profile, includeDonation: Boolean) {
-        val data = hashMapOf<String, Any?>(
-            "bloodGroup" to profile.bloodGroup,
-            "birthDateMillis" to profile.birthDateMillis,
-            "weightKg" to profile.weightKg,
-            "updatedAt" to FieldValue.serverTimestamp(),
-        )
-        if (includeDonation && profile.lastDonationMillis != null) data["lastDonationMillis"] = profile.lastDonationMillis
-        users.document(uid).set(data, SetOptions.merge()).await()
-        refreshDonorGeo(uid)
+        val set = org.json.JSONObject()
+            .put("bloodGroup", profile.bloodGroup)
+            .putN("birthDateMillis", profile.birthDateMillis)
+            .putN("weightKg", profile.weightKg)
+        if (includeDonation && profile.lastDonationMillis != null) set.put("lastDonationMillis", profile.lastDonationMillis)
+        update(set)
     }
 
+    /** লোকেশন (গোল করা); geohash, ডোনার খোঁজার ঘর আর সময় সার্ভার বসায় */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveLocation(uid: String, lat: Double, lng: Double, placeName: String, source: String) {
-        val rLat = Geo.round(lat)
-        val rLng = Geo.round(lng)
-        val data = hashMapOf<String, Any?>(
-            "lat" to rLat,
-            "lng" to rLng,
-            "geohash" to Geo.hash(rLat, rLng),
-            "placeName" to placeName,
-            "locationSource" to source,
-            "locationUpdatedAtMillis" to System.currentTimeMillis(),
+        update(
+            org.json.JSONObject()
+                .put("lat", Geo.round(lat))
+                .put("lng", Geo.round(lng))
+                .put("placeName", placeName)
+                .put("locationSource", source),
         )
-        users.document(uid).set(data, SetOptions.merge()).await()
-        refreshDonorGeo(uid)
     }
 
-    /**
-     * ডোনার খোঁজার ঘর "গ্রুপ|geohash" (যেমন "O+|wh2kc1e70w")। গ্রুপ বা লোকেশন বদলালে ঠিক করা হয়,
-     * যাতে সার্ভার শুধু মানানসই গ্রুপের কাছের মানুষ পড়ে। না পারলেও সমস্যা নেই — সার্ভার রোজ ঠিক করে।
-     */
-    private suspend fun refreshDonorGeo(uid: String) {
-        runCatching {
-            val s = users.document(uid).get().await()
-            val group = s.getString("bloodGroup")
-            val hash = s.getString("geohash")
-            val key = if (group != null && group in Rules.BLOOD_GROUPS && !hash.isNullOrEmpty()) "$group|$hash" else null
-            if (s.getString("donorGeo") != key) {
-                users.document(uid).set(mapOf("donorGeo" to (key ?: FieldValue.delete())), SetOptions.merge()).await()
-            }
-        }
-    }
-
-    /** এই ফোনকে অ্যাকাউন্টে যোগ (কয়েকটা ফোনে একসাথে নোটিফিকেশন); সার্ভারে না গেলে পুরোনো উপায়ে */
+    /** এই ফোনকে অ্যাকাউন্টে যোগ (কয়েকটা ফোনে একসাথে নোটিফিকেশন) */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveFcmToken(uid: String, token: String) {
+        // সার্ভারে না গেলে পরে আবার (অ্যাপ খুললে / টোকেন বদলালে) — আগের সরাসরি ডাটাবেসে লেখার পথ আর নেই;
+        // আগের মতোই ভুল বাইরে যায় না
         runCatching { ServerApi.post("/api/community", org.json.JSONObject().put("action", "device_register").put("token", token)) }
-            // সার্ভারে পৌঁছানো না গেলে পুরোনো উপায়ে; সার্ভার "না" বললে (যেমন অ্যাকাউন্ট বন্ধ) নয়
-            .onFailure { e -> if (e !is ServerError) users.document(uid).set(mapOf("fcmToken" to token), SetOptions.merge()).await() }
     }
 
     /** অ্যাপের ভাষা ("en"/"bn"), সার্ভার নোটিফিকেশনের ভাষা ঠিক করতে ব্যবহার করে */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun saveLang(uid: String, code: String) {
-        users.document(uid).set(mapOf("lang" to code), SetOptions.merge()).await()
+        update(org.json.JSONObject().put("lang", code))
     }
 
     /** প্রোফাইলের ছবি সেভ (null দিলে মুছে যায়) */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun savePhoto(uid: String, base64: String?) {
         // ছোট ছবিও সাথে (ডাক্তার/নার্সের তালিকার কার্ডে দেখায়)
         val thumb = Photo.thumbFromAvatar(base64)
-        users.document(uid)
-            .set(mapOf("photo" to (base64 ?: FieldValue.delete()), "photoThumb" to (thumb ?: FieldValue.delete())), SetOptions.merge())
-            .await()
+        update(org.json.JSONObject().putN("photo", base64).putN("photoThumb", thumb))
     }
 
     /** প্রসেসিং তালিকায় একটা রিকোয়েস্ট যোগ (সার্ভারও লেখে; পুরোনো সাড়ার জন্য অ্যাপ নিজে মিলিয়ে নেয়) */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun addCommitment(uid: String, requestId: String) {
-        users.document(uid)
-            .set(mapOf("commitments" to mapOf(requestId to System.currentTimeMillis())), SetOptions.merge())
-            .await()
+        update(commitAdd = requestId)
     }
 
     /** শেষ হয়ে যাওয়া (বন্ধ, বাতিল, রক্ত দেওয়া) রিকোয়েস্ট প্রসেসিং তালিকা থেকে সরানো */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun removeCommitments(uid: String, requestIds: Collection<String>) {
         if (requestIds.isEmpty()) return
-        val updates = requestIds.associate { FieldPath.of("commitments", it) to FieldValue.delete() }
-        val first = updates.entries.first()
-        val rest = updates.entries.drop(1).flatMap { listOf(it.key, it.value) }.toTypedArray()
-        users.document(uid).update(first.key, first.value, *rest).await()
+        requestIds.toList().chunked(100).forEach { update(commitRemove = it) }
     }
 
 }
 
+/** রক্তের রিকোয়েস্ট — সার্ভার দিয়ে (কে কী দেখতে পারে: server/lib/clientdata.js) */
 object RequestRepository {
-    private val db get() = FirebaseFirestore.getInstance()
-    private val requests get() = db.collection("requests")
+    private suspend fun read(key: String, body: org.json.JSONObject) = OfflineCache.read(key, body)
 
-    private fun fromSnap(s: DocumentSnapshot) = BloodRequest(
-        id = s.id,
-        requesterUid = s.getString("requesterUid") ?: "",
-        requesterName = s.getString("requesterName") ?: "",
-        patientGroup = s.getString("patientGroup") ?: "",
-        bags = (s.getLong("bags") ?: 1L).toInt(),
-        hospital = s.getString("hospital") ?: "",
-        placeName = s.getString("placeName") ?: "",
-        lat = s.getDouble("lat") ?: 0.0,
-        lng = s.getDouble("lng") ?: 0.0,
-        neededByMillis = s.getLong("neededByMillis") ?: 0L,
-        neededAtMillis = s.getLong("neededAtMillis"),
-        urgent = s.getBoolean("urgent") ?: false,
-        travelFare = s.getBoolean("travelFare") ?: false,
-        note = s.getString("note") ?: "",
-        status = s.getString("status") ?: "open",
-        createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
-        serverCreatedMillis = s.getTimestamp("createdAt")?.toDate()?.time
-            ?: (s.getLong("createdAtMillis") ?: 0L),
-        notified = s.contains("notifiedAt"),
-        notifiedCount = (s.getLong("notifiedCount") ?: 0L).toInt(),
-        fulfilled = s.getBoolean("fulfilled") ?: false,
-        acceptedCount = (s.getLong("acceptedCount") ?: 0L).toInt().coerceAtLeast(0),
-        bagsReceived = (s.getLong("bagsReceived") ?: 0L).toInt().coerceAtLeast(0),
-        confirmedCount = (s.getLong("confirmedCount") ?: 0L).toInt().coerceAtLeast(0),
-        closedAtMillis = s.getLong("closedAt") ?: 0L,
-        closedBy = s.getString("closedBy") ?: "",
-        notifyRounds = (s.getLong("notifyRounds") ?: (if (s.contains("notifiedAt")) 1L else 0L)).toInt(),
-        lastNotifiedMillis = s.getLong("lastNotifiedAt") ?: (s.getTimestamp("notifiedAt")?.toDate()?.time ?: 0L),
+    private fun fromJson(x: org.json.JSONObject): BloodRequest {
+        val notified = x.has0("notifiedAt")
+        val createdAtMillis = x.longN("createdAtMillis") ?: 0L
+        return BloodRequest(
+            id = x.strN("id") ?: "",
+            requesterUid = x.strN("requesterUid") ?: "",
+            requesterName = x.strN("requesterName") ?: "",
+            patientGroup = x.strN("patientGroup") ?: "",
+            bags = (x.longN("bags") ?: 1L).toInt(),
+            hospital = x.strN("hospital") ?: "",
+            placeName = x.strN("placeName") ?: "",
+            lat = x.dblN("lat") ?: 0.0,
+            lng = x.dblN("lng") ?: 0.0,
+            neededByMillis = x.longN("neededByMillis") ?: 0L,
+            neededAtMillis = x.longN("neededAtMillis"),
+            urgent = x.optBoolean("urgent", false),
+            travelFare = x.optBoolean("travelFare", false),
+            note = x.strN("note") ?: "",
+            status = x.strN("status") ?: "open",
+            createdAtMillis = createdAtMillis,
+            serverCreatedMillis = x.longN("createdAt") ?: createdAtMillis,
+            notified = notified,
+            notifiedCount = (x.longN("notifiedCount") ?: 0L).toInt(),
+            fulfilled = x.optBoolean("fulfilled", false),
+            acceptedCount = (x.longN("acceptedCount") ?: 0L).toInt().coerceAtLeast(0),
+            bagsReceived = (x.longN("bagsReceived") ?: 0L).toInt().coerceAtLeast(0),
+            confirmedCount = (x.longN("confirmedCount") ?: 0L).toInt().coerceAtLeast(0),
+            closedAtMillis = x.longN("closedAt") ?: 0L,
+            closedBy = x.strN("closedBy") ?: "",
+            notifyRounds = (x.longN("notifyRounds") ?: (if (notified) 1L else 0L)).toInt(),
+            lastNotifiedMillis = x.longN("lastNotifiedAt") ?: (x.longN("notifiedAt") ?: 0L),
+        )
+    }
+
+    private fun responseFromJson(x: org.json.JSONObject) = DonorResponse(
+        donorUid = x.strN("donorUid") ?: "",
+        donorName = x.strN("donorName") ?: "",
+        donorPhone = x.strN("donorPhone") ?: "",
+        donorGroup = x.strN("donorGroup") ?: "",
+        status = x.strN("status") ?: "accepted",
+        confirmed = x.optBoolean("confirmed", false),
+        distanceKm = x.longN("distanceKm")?.toInt(),
+        fareAfterKm = x.longN("fareAfterKm")?.toInt(),
+        createdAtMillis = x.longN("createdAtMillis") ?: 0L,
     )
 
-    private fun responseFromSnap(s: DocumentSnapshot) = DonorResponse(
-        donorUid = s.getString("donorUid") ?: s.id,
-        donorName = s.getString("donorName") ?: "",
-        donorPhone = s.getString("donorPhone") ?: "",
-        donorGroup = s.getString("donorGroup") ?: "",
-        status = s.getString("status") ?: "accepted",
-        confirmed = s.getBoolean("confirmed") ?: false,
-        distanceKm = s.getLong("distanceKm")?.toInt(),
-        fareAfterKm = s.getLong("fareAfterKm")?.toInt(),
-        createdAtMillis = s.getLong("createdAtMillis") ?: 0L,
-    )
+    private fun org.json.JSONObject.objs(k: String): List<org.json.JSONObject> =
+        optJSONArray(k)?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
 
-    /** রিকোয়েস্ট তৈরি করে। রক্তপ্রার্থীর ফোন আলাদা গোপন ডকুমেন্টে থাকে। */
+    private fun action(name: String) = org.json.JSONObject().put("action", name)
+
     /** নতুন রিকোয়েস্ট সার্ভার দিয়ে তৈরি (সীমা আর যাচাই সার্ভারে) */
     suspend fun create(r: BloodRequest, requesterPhone: String): String {
         val lat = Geo.round(r.lat)
@@ -293,37 +336,21 @@ object RequestRepository {
         return ServerApi.post("/api/community", body).getString("id")
     }
 
-    suspend fun get(id: String): BloodRequest? {
-        val s = requests.document(id).get().await()
-        return if (s.exists()) fromSnap(s) else null
-    }
+    suspend fun get(id: String): BloodRequest? =
+        read("req:$id", action("blood_request_get").put("requestId", id)).optJSONObject("request")?.let(::fromJson)
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun mine(uid: String): List<BloodRequest> =
-        requests.whereEqualTo("requesterUid", uid).get().await()
-            .documents.map(::fromSnap)
+        read("mine", action("blood_requests_mine")).objs("items")
+            .map(::fromJson)
             .sortedByDescending { it.createdAtMillis }
 
-    suspend fun close(id: String) {
-        requests.document(id).update("status", "closed").await()
-    }
-
     /**
-     * আশেপাশের খোলা রিকোয়েস্ট। একটাই কোয়েরি: কাছের জেলাগুলোর খোলা রিকোয়েস্ট আনা হয়,
-     * তারপর ফোনেই দূরত্ব মেপে ধাপে ধাপে বাছাই (৫ → ১০ → ২৫ কিমি)।
-     * patientGroups দিলে শুধু ওই রোগীর গ্রুপগুলোর রিকোয়েস্ট ফেরত দেয় (সেটিংসের "তালিকায় কোন গ্রুপ")।
+     * আশেপাশের খোলা রিকোয়েস্ট। সার্ভার geohash দিয়ে (না চললে কাছের জেলাগুলো) খোঁজে, চালু-গুলো রাখে, নিজেরগুলো বাদ দেয়,
+     * patientGroups মিলিয়ে (সেটিংসের "তালিকায় কোন গ্রুপ"), ডোনার যতদূর যেতে রাজি ততদূর; জরুরি আগে, তারপর কাছেরটা।
+     * তারিখ পার হয়ে যাওয়া রিকোয়েস্ট এখানে বন্ধ করা হয় না — রাতের কাজ বন্ধ করে রাজি ডোনারদের জানায়।
      */
-    /** geohash-এর ঘর ধরে কাছের খোলা রিকোয়েস্ট (একই ঘর একবারই) */
-    private suspend fun nearbyByGeohash(lat: Double, lng: Double, maxKm: Int): List<BloodRequest> {
-        val bounds = GeoFireUtils.getGeoHashQueryBounds(GeoLocation(lat, lng), maxKm * 1000.0)
-        val seen = HashSet<String>()
-        val out = ArrayList<BloodRequest>()
-        for (b in bounds) {
-            val snap = requests.orderBy("geoOpen").startAt(b.startHash).endAt(b.endHash).limit(500).get().await()
-            for (d in snap.documents) if (seen.add(d.id)) out += fromSnap(d)
-        }
-        return out.filter { it.status == "open" }
-    }
-
+    @Suppress("UNUSED_PARAMETER")
     suspend fun nearbyOpen(
         lat: Double,
         lng: Double,
@@ -331,29 +358,12 @@ object RequestRepository {
         excludeUid: String?,
         maxKm: Int,
     ): List<Pair<BloodRequest, Double>> {
-        // geohash দিয়ে শুধু আশেপাশের খোলা রিকোয়েস্ট (geoOpen থাকে শুধু খোলা থাকা পর্যন্ত) — জেলা ধরে সব পড়ার চেয়ে অনেক কম পড়া
-        val all = runCatching { nearbyByGeohash(lat, lng, maxKm) }.getOrElse {
-            requests
-                .whereEqualTo("status", "open")
-                .whereIn("placeName", Districts.near(lat, lng))
-                .get().await()
-                .documents.map(::fromSnap)
-        }
-
-        // তারিখ পার হয়ে যাওয়া রিকোয়েস্ট এখানে বন্ধ করা হয় না — রাতের কাজ বন্ধ করে রাজি ডোনারদের জানায়
-
-        val candidates = all
-            .filter {
-                it.isActive &&
-                    it.requesterUid != excludeUid &&
-                    (patientGroups == null || it.patientGroup in patientGroups)
-            }
-            .map { it to Geo.distanceKm(lat, lng, it.lat, it.lng) }
-
-        // ডোনার যতদূর যেতে রাজি, ততদূর পর্যন্ত
-        return candidates.filter { it.second <= maxKm }.sortedWith(
-            compareByDescending<Pair<BloodRequest, Double>> { it.first.urgent }.thenBy { it.second }
-        )
+        val groups = patientGroups?.sorted()
+        val body = action("blood_requests_near").put("lat", lat).put("lng", lng).put("maxKm", maxKm)
+            .put("groups", groups?.let { org.json.JSONArray(it) } ?: org.json.JSONObject.NULL)
+        return read("near:$lat,$lng,$maxKm,${groups?.joinToString(",")}", body).objs("items")
+            .map { fromJson(it) to it.optDouble("km", Geo.distanceKm(lat, lng, it.optDouble("lat"), it.optDouble("lng"))) }
+            .sortedWith(compareByDescending<Pair<BloodRequest, Double>> { it.first.urgent }.thenBy { it.second })
     }
 
     // ---- ডোনারের সাড়া ----
@@ -377,35 +387,27 @@ object RequestRepository {
         return active.sortedBy { it.deadlineMillis }
     }
 
-    suspend fun myResponse(requestId: String, uid: String): DonorResponse? {
-        val s = requests.document(requestId).collection("responses").document(uid).get().await()
-        return if (s.exists()) responseFromSnap(s) else null
-    }
+    /** নিজের সাড়া (সার্ভার শুধু নিজেরটা দেয়) */
+    suspend fun myResponse(requestId: String, uid: String): DonorResponse? =
+        read("resp:$requestId", action("blood_response_get").put("requestId", requestId))
+            .optJSONObject("response")?.let(::responseFromJson)?.let { if (it.donorUid.isEmpty()) it.copy(donorUid = uid) else it }
 
-    /** শুধু রাজি থাকা বা রক্ত দেওয়া ডোনার (নিয়ম অনুযায়ী বাকিদের নম্বর রক্তপ্রার্থী দেখতে পারে না) */
+    /** শুধু রাজি থাকা বা রক্ত দেওয়া ডোনার (শুধু রক্তপ্রার্থী দেখতে পারেন; বাকিদের নম্বর নয়) */
     suspend fun responses(requestId: String): List<DonorResponse> =
-        requests.document(requestId).collection("responses")
-            .whereIn("status", listOf("accepted", "donated"))
-            .get().await()
-            .documents.map(::responseFromSnap)
+        read("resps:$requestId", action("blood_responses_list").put("requestId", requestId)).objs("items")
+            .map(::responseFromJson)
             .sortedBy { it.createdAtMillis }
 
-    /** রক্তপ্রার্থীর নাম ও ফোন। শুধু রক্তপ্রার্থী নিজে বা সাড়া দেওয়া ডোনার পড়তে পারে। */
+    /** রক্তপ্রার্থীর নাম ও ফোন। শুধু রক্তপ্রার্থী নিজে বা রাজি থাকা / রক্ত দেওয়া ডোনার পায়। */
     suspend fun requesterContact(requestId: String): Pair<String, String>? {
-        val s = requests.document(requestId).collection("private").document("contact").get().await()
-        if (!s.exists()) return null
-        return (s.getString("name") ?: "") to (s.getString("phone") ?: "")
+        val c = read("contact:$requestId", action("blood_contact_get").put("requestId", requestId)).optJSONObject("contact") ?: return null
+        return (c.strN("name") ?: "") to (c.strN("phone") ?: "")
     }
 
-    /** একজন একটা রিকোয়েস্ট একবারই রিপোর্ট করতে পারেন (নথির নাম দিয়ে; ডাটাবেসের নিয়মও তাই চায়) */
+    /** একজন একটা রিকোয়েস্ট একবারই রিপোর্ট করতে পারেন (দ্বিতীয়বার সার্ভার "না" বলে) */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun report(requestId: String, uid: String) {
-        db.collection("reports").document("${requestId}_$uid").set(
-            mapOf(
-                "requestId" to requestId,
-                "reporterUid" to uid,
-                "createdAtMillis" to System.currentTimeMillis(),
-            )
-        ).await()
+        ServerApi.post("/api/community", action("report_request").put("requestId", requestId))
     }
 }
 

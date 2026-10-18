@@ -1,7 +1,8 @@
-// প্রোফাইল (users/{uid}) — অ্যাপের ProfileRepository-র মতো; Firestore-এর নিয়ম একই
-import { deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc, FieldPath } from 'firebase/firestore';
-import { db } from './firebase';
-import { geohash, roundCoord } from './geo';
+// প্রোফাইল (users/{uid}) — অ্যাপের ProfileRepository-র মতো। সরাসরি Firestore নয়, সার্ভার দিয়ে
+// (profile_get / profile_update — server/lib/clientdata.js; নিজের প্রোফাইলই, নিয়ম সেখানে)।
+// uid প্যারামিটার আগের মতো থাকে (ডাকার জায়গা বদলায়নি); সার্ভার লগইন করা মানুষের প্রোফাইলই নেয়।
+import { call } from './api';
+import { roundCoord } from './geo';
 import { BLOOD_GROUPS, DEFAULT_PUSH_PER_DAY, DEFAULT_RADIUS_KM, MAX_PUSH_PER_DAY_LIMIT, RADIUS_CHOICES, patientsFor } from './rules';
 
 export interface Profile {
@@ -34,10 +35,9 @@ export const emptyProfile = (): Profile => ({
 const groupList = (raw: unknown) => (Array.isArray(raw) ? raw.filter((g): g is string => typeof g === 'string' && BLOOD_GROUPS.includes(g)) : null);
 const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-export async function loadProfile(uid: string): Promise<Profile | null> {
-  const snap = await getDoc(doc(db, 'users', uid));
-  if (!snap.exists()) return null;
-  const x = snap.data();
+export async function loadProfile(_uid: string): Promise<Profile | null> {
+  const { profile: x } = await call<{ profile: Record<string, any> | null }>('profile_get');
+  if (!x) return null;
   const maxKm = numOrNull(x.maxKm);
   return {
     name: x.name ?? '',
@@ -79,76 +79,60 @@ export function effectiveNotifyGroups(p: Profile): string[] {
 }
 
 // ---------- সেভ ----------
-const ref = (uid: string) => doc(db, 'users', uid);
-
-/** ডোনার খোঁজার ঘর "গ্রুপ|geohash" ঠিক রাখা (না পারলেও সার্ভার রোজ ঠিক করে) */
-async function refreshDonorGeo(uid: string) {
-  try {
-    const s = await getDoc(ref(uid));
-    const group = s.get('bloodGroup');
-    const hash = s.get('geohash');
-    const key = group && BLOOD_GROUPS.includes(group) && hash ? `${group}|${hash}` : null;
-    if (s.get('donorGeo') !== key) await setDoc(ref(uid), { donorGeo: key ?? deleteField() }, { merge: true });
-  } catch {
-    /* সার্ভার পরে ঠিক করে */
-  }
+/** নিজের প্রোফাইলে ঘর বসানো (merge); null = খালি, fareAfterKm/photo/photoThumb-এ null = মোছা */
+async function update(body: { set?: Record<string, unknown>; commitAdd?: string; commitRemove?: string[] }) {
+  await call('profile_update', body);
 }
 
-export async function saveContact(uid: string, name: string, phone: string) {
-  await setDoc(ref(uid), { name, phone, updatedAt: serverTimestamp() }, { merge: true });
+export async function saveContact(_uid: string, name: string, phone: string) {
+  await update({ set: { name, phone } });
 }
 
-/** ডোনারের তথ্য; শেষ রক্তদান শুধু প্রথমবার (পরে সার্ভার বা "তারিখ বদলান" দিয়ে) */
-export async function saveDonor(uid: string, p: Pick<Profile, 'bloodGroup' | 'birthDateMillis' | 'weightKg' | 'lastDonationMillis'>, includeDonation: boolean) {
-  const data: Record<string, unknown> = { bloodGroup: p.bloodGroup, birthDateMillis: p.birthDateMillis, weightKg: p.weightKg, updatedAt: serverTimestamp() };
-  if (includeDonation && p.lastDonationMillis != null) data.lastDonationMillis = p.lastDonationMillis;
-  await setDoc(ref(uid), data, { merge: true });
-  await refreshDonorGeo(uid);
+/** ডোনারের তথ্য; শেষ রক্তদান শুধু প্রথমবার (পরে সার্ভার বা "তারিখ বদলান" দিয়ে)। ডোনার খোঁজার ঘর সার্ভার ঠিক করে */
+export async function saveDonor(_uid: string, p: Pick<Profile, 'bloodGroup' | 'birthDateMillis' | 'weightKg' | 'lastDonationMillis'>, includeDonation: boolean) {
+  const set: Record<string, unknown> = { bloodGroup: p.bloodGroup, birthDateMillis: p.birthDateMillis, weightKg: p.weightKg };
+  if (includeDonation && p.lastDonationMillis != null) set.lastDonationMillis = p.lastDonationMillis;
+  await update({ set });
 }
 
-export async function saveBasics(uid: string, p: Profile, includeDonation: boolean) {
-  const data: Record<string, unknown> = {
-    name: p.name, phone: p.phone, bloodGroup: p.bloodGroup, birthDateMillis: p.birthDateMillis, weightKg: p.weightKg, notify: p.notify, updatedAt: serverTimestamp(),
+export async function saveBasics(_uid: string, p: Profile, includeDonation: boolean) {
+  const set: Record<string, unknown> = {
+    name: p.name, phone: p.phone, bloodGroup: p.bloodGroup, birthDateMillis: p.birthDateMillis, weightKg: p.weightKg, notify: p.notify,
   };
-  if (includeDonation && p.lastDonationMillis != null) data.lastDonationMillis = p.lastDonationMillis;
-  await setDoc(ref(uid), data, { merge: true });
-  await refreshDonorGeo(uid);
+  if (includeDonation && p.lastDonationMillis != null) set.lastDonationMillis = p.lastDonationMillis;
+  await update({ set });
 }
 
-export async function saveLocation(uid: string, lat: number, lng: number, placeName: string, source: 'gps' | 'district') {
-  const rLat = roundCoord(lat);
-  const rLng = roundCoord(lng);
-  await setDoc(ref(uid), { lat: rLat, lng: rLng, geohash: geohash(rLat, rLng), placeName, locationSource: source, locationUpdatedAtMillis: Date.now() }, { merge: true });
-  await refreshDonorGeo(uid);
+/** লোকেশন (রাউন্ড করা); geohash আর সময় সার্ভার বসায় */
+export async function saveLocation(_uid: string, lat: number, lng: number, placeName: string, source: 'gps' | 'district') {
+  await update({ set: { lat: roundCoord(lat), lng: roundCoord(lng), placeName, locationSource: source } });
 }
 
-export async function saveSettings(uid: string, p: Profile) {
-  await setDoc(ref(uid), {
-    notify: p.notify,
-    maxPushPerDay: Math.min(Math.max(p.maxPushPerDay, 1), MAX_PUSH_PER_DAY_LIMIT),
-    notifyGroups: p.notifyGroups,
-    viewGroups: p.viewGroups,
-    maxKm: p.maxKm,
-    fareAfterKm: p.fareAfterKm ?? deleteField(),
-  }, { merge: true });
+export async function saveSettings(_uid: string, p: Profile) {
+  await update({
+    set: {
+      notify: p.notify,
+      maxPushPerDay: Math.min(Math.max(p.maxPushPerDay, 1), MAX_PUSH_PER_DAY_LIMIT),
+      notifyGroups: p.notifyGroups,
+      viewGroups: p.viewGroups,
+      maxKm: p.maxKm,
+      fareAfterKm: p.fareAfterKm ?? null,
+    },
+  });
 }
 
-export async function saveLang(uid: string, code: string) {
-  await setDoc(ref(uid), { lang: code }, { merge: true });
+export async function saveLang(_uid: string, code: string) {
+  await update({ set: { lang: code } });
 }
 
-export async function savePhoto(uid: string, base64: string | null, thumb: string | null) {
-  await setDoc(ref(uid), { photo: base64 ?? deleteField(), photoThumb: thumb ?? deleteField() }, { merge: true });
+export async function savePhoto(_uid: string, base64: string | null, thumb: string | null) {
+  await update({ set: { photo: base64, photoThumb: thumb } });
 }
 
-export async function addCommitment(uid: string, requestId: string) {
-  await setDoc(ref(uid), { commitments: { [requestId]: Date.now() } }, { merge: true });
+export async function addCommitment(_uid: string, requestId: string) {
+  await update({ commitAdd: requestId });
 }
 
-export async function removeCommitments(uid: string, ids: string[]) {
-  if (!ids.length) return;
-  const args: unknown[] = [];
-  ids.forEach((id) => args.push(new FieldPath('commitments', id), deleteField()));
-  const [f, v, ...rest] = args;
-  await updateDoc(ref(uid), f as FieldPath, v, ...rest);
+export async function removeCommitments(_uid: string, ids: string[]) {
+  for (let i = 0; i < ids.length; i += 100) await update({ commitRemove: ids.slice(i, i + 100) });
 }

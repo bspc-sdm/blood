@@ -260,6 +260,7 @@ function formatTimeEn(millis) {
 
 module.exports = {
   RADIUS_CHOICES,
+  DEFAULT_RADIUS_KM,
   RADII_KM,
   ENOUGH_DONORS,
   DONORS_FOR,

@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppPrefs.init(this)
+        // সার্ভারের শেষ উত্তর (ইন্টারনেট না থাকলে দেখানোর জন্য)
+        OfflineCache.init(this)
         Catalog.init(this)
         // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
         Thread { runCatching { Areas.ensure(this) } }.start()

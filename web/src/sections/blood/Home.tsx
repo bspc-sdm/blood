@@ -1,5 +1,5 @@
 // হোম: আশেপাশের রক্তের রিকোয়েস্ট — অ্যাপের HomeTab (MainScreen.kt)।
-// অতিথি: সার্ভার থেকে (guest_requests); লগইন করা: Firestore থেকে geohash দিয়ে, দেখার গ্রুপ মিলিয়ে, নিজেরগুলো বাদ।
+// অতিথি: সার্ভার থেকে (guest_requests); লগইন করা: সার্ভার থেকে (blood_requests_near) geohash দিয়ে, দেখার গ্রুপ মিলিয়ে, নিজেরগুলো বাদ।
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
