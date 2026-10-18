@@ -57,8 +57,22 @@ function labs(b) {
   if (empty(b)) return { items: [] };
   return {
     items: [
-      { id: 'lab1', name: 'নিরাময় ডায়াগনস্টিক সেন্টার', phone: '01711001001', address: 'নওমহল, ময়মনসিংহ', district: D, upazilaId: SADAR, facilityId: null, homeCollection: true, hours: 'সকাল ৭টা – রাত ১০টা' },
-      { id: 'lab2', name: 'ত্রিশাল প্যাথলজি সেন্টার', phone: '01811001102', address: 'ত্রিশাল পৌরসভা', district: D, upazilaId: TRISHAL, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা, শুক্রবার বন্ধ' },
+      {
+        id: 'lab1', name: 'নিরাময় ডায়াগনস্টিক সেন্টার', phone: '01711001001', address: 'নওমহল, ময়মনসিংহ', district: D, upazilaId: SADAR, facilityId: null, homeCollection: true, hours: 'সকাল ৭টা – রাত ১০টা',
+        prices: {
+          items: [
+            { code: 'cbc', name: 'CBC (Complete Blood Count)', price: 400, tat: 'একই দিন' },
+            { code: 'rbs', name: 'Random Blood Sugar (RBS)', price: 100, tat: '১ ঘণ্টা' },
+            { code: 'hba1c', name: 'HbA1c', price: 1000, tat: 'একই দিন' },
+            { code: 'lipid', name: 'Lipid Profile', price: 1200, tat: 'একই দিন' },
+            { code: 'tsh', name: 'TSH', price: 900, tat: '২৪ ঘণ্টা' },
+            { code: 'urine_re', name: 'Urine R/E', price: 200, tat: 'একই দিন' },
+            { code: null, name: 'Serum Vitamin B12', price: 1800, tat: '৪৮ ঘণ্টা' },
+          ],
+          discountPct: 10, homeFee: 150, updatedAt: Date.now() - 5 * 86400000,
+        },
+      },
+      { id: 'lab2', name: 'ত্রিশাল প্যাথলজি সেন্টার', phone: '01811001102', address: 'ত্রিশাল পৌরসভা', district: D, upazilaId: TRISHAL, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা, শুক্রবার বন্ধ', prices: null },
     ],
   };
 }

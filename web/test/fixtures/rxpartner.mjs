@@ -139,6 +139,15 @@ const LAB = 'পপুলার ডায়াগনস্টিক সেন�
 const lo = (o) => ({ rxId: 'lrx-' + o.id, labId: 'u-work', labName: LAB, doctorName: DOC1.name, report: null, ...o });
 let labOrders = [
   lo({ id: 'lo1', code: 'H9KD3PW7MA', patientName: 'মো. জাহিদ হাসান', patientAge: 36, patientGender: 'male', tests: ['CBC', 'RBS', 'S. Creatinine'], status: 'sent', createdAt: now - 20 * M }),
+  // বাসা থেকে নমুনা — সময় জানানো বাকি
+  lo({
+    id: 'lh1', code: 'V6TR4MW8KA', patientName: 'আব্দুল করিম', patientAge: 58, patientGender: 'male', tests: ['Lipid Profile', 'ECG'], status: 'sent', createdAt: now - 12 * M,
+    prices: { items: [{ test: 'Lipid Profile', name: 'Lipid Profile', price: 1200, tat: 'একই দিন' }, { test: 'ECG', name: 'ECG', price: 400, tat: '৩০ মিনিট' }], missing: [], subtotal: 1600, discountPct: 10, estimate: 1440 },
+    home: {
+      status: 'requested', date: Date.UTC(new Date(now + 6 * H).getUTCFullYear(), new Date(now + 6 * H).getUTCMonth(), new Date(now + 6 * H).getUTCDate()) + D, slot: 'early',
+      note: 'খালি পেটে থাকব', fee: 150, visitDate: 0, time: '', at: 0, confirmNote: '', declineNote: '', address: 'বাসা ১২, রোড ৩, কাচিঝুলি, ময়মনসিংহ', phone: '01712000345',
+    },
+  }),
   lo({ id: 'lo2', code: 'H4QW7ZK2MP', patientName: 'রহিমা খাতুন', patientAge: 58, patientGender: 'female', tests: ['Lipid Profile', 'HbA1c', 'Urine R/E'], status: 'received', createdAt: now - 3 * H }),
   lo({ id: 'lo3', code: 'Q7RM2XE5VB', patientName: 'তাসলিমা আক্তার', patientAge: 24, patientGender: 'female', tests: ['Dengue NS1', 'CBC'], status: 'sent', createdAt: now - 45 * M, doctorName: DOC2.name }),
   lo({ id: 'lo4', code: 'N5WC8KT3JH', patientName: 'আরিফুল ইসলাম', patientAge: 31, patientGender: 'male', tests: ['TSH', 'X-ray Chest P/A view', 'Vit B12 level'], status: 'received', createdAt: now - 1 * D }),
@@ -153,6 +162,20 @@ let labOrders = [
   }),
 ];
 let ranges = {};
+// পরীক্ষা ও দাম (lab_prices_get / lab_prices_set)
+let prices = {
+  items: [
+    { code: 'cbc', name: 'CBC (Complete Blood Count)', price: 400, tat: 'একই দিন', on: true },
+    { code: 'rbs', name: 'Random Blood Sugar (RBS)', price: 100, tat: '১ ঘণ্টা', on: true },
+    { code: 'hba1c', name: 'HbA1c', price: 1000, tat: 'একই দিন', on: true },
+    { code: 'lipid', name: 'Lipid Profile', price: 1200, tat: 'একই দিন', on: true },
+    { code: 'tsh', name: 'TSH', price: 900, tat: '২৪ ঘণ্টা', on: true },
+    { code: 'ecg', name: 'ECG', price: 400, tat: '৩০ মিনিট', on: true },
+    { code: null, name: 'Serum Vitamin B12', price: 1800, tat: '৪৮ ঘণ্টা', on: true },
+    { code: 'usg_abd', name: 'USG of Whole Abdomen', price: 1500, tat: 'একই দিন', on: false },
+  ],
+  discountPct: 10, homeFee: 150, updatedAt: now - 5 * D, homeCollection: true,
+};
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 function match(name) {
@@ -263,4 +286,22 @@ export default {
     return { ok: true, count: Object.keys(ranges).length };
   },
   labtests_get: () => ({ tests: TESTS }),
+  lab_prices_get: () => prices,
+  lab_prices_set: (b) => {
+    const items = (b.items || []).map((i) => {
+      const t = i.code ? TESTS.find((x) => x.code === i.code) : match(i.name);
+      return { code: t ? t.code : null, name: t ? t.name : i.name, price: i.price, tat: i.tat || '', on: i.on !== false };
+    });
+    prices = { ...prices, items, discountPct: b.discountPct || null, homeFee: b.homeFee ?? null, updatedAt: Date.now() };
+    return prices;
+  },
+  lab_home_confirm: (b) => {
+    if (!/^\d\d:\d\d$/.test(String(b.time || ''))) return err(400, 'সময় বেছে নিন');
+    labOrders = labOrders.map((o) => (o.id === b.id && o.home ? { ...o, home: { ...o.home, status: 'confirmed', visitDate: b.date, time: b.time, confirmNote: b.note || '' } } : o));
+    return { ok: true };
+  },
+  lab_home_decline: (b) => {
+    labOrders = labOrders.map((o) => (o.id === b.id && o.home ? { ...o, home: { ...o.home, status: 'declined', declineNote: b.note || '', address: undefined, phone: undefined } } : o));
+    return { ok: true };
+  },
 };

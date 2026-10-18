@@ -183,7 +183,7 @@ async function deleteNow(uid, email) {
   await Promise.all(recentEmergencies.docs.map((d) => d.ref.collection('donors').doc(uid).delete().catch(() => {})));
 
   // ৭খ) প্রেসক্রিপশন: রোগীর অ্যাকাউন্ট থেকে খুলে দেওয়া (ডাক্তারের লেখা রেকর্ড থাকে, কারো অ্যাকাউন্টে নয়);
-  // ফার্মেসি/প্যাথলজির অনুরোধ, রিপোর্ট দেখার অনুরোধ মোছা; নিজের প্যাথলজি আর স্টক মোছা
+  // ফার্মেসি/প্যাথলজির অনুরোধ (বাসা থেকে নমুনার ঠিকানা-ফোনসহ), রিপোর্ট দেখার অনুরোধ মোছা; নিজের প্যাথলজি, দামের তালিকা আর স্টক মোছা
   try {
     const [rxs, rxPats, rxOrd, labOrd, revs] = await Promise.all([
       db.collection('prescriptions').where('patientUid', '==', uid).limit(500).get(),
@@ -199,6 +199,12 @@ async function deleteNow(uid, email) {
       ...labOrd.docs.map((d) => d.ref.delete()),
       ...revs.docs.map((d) => d.ref.delete()),
       db.doc(`labs/${uid}`).delete(),
+      // প্যাথলজির পরীক্ষা ও দামের তালিকা
+      db.doc(`labPrices/${uid}`).delete(),
+      // নিজের প্যাথলজিতে আসা অর্ডারে রোগীর বাসার ঠিকানা-ফোন (অর্ডার রোগীর কাছে থাকে, প্যাথলজি আর নেই)
+      db.collection('labOrders').where('labId', '==', uid).limit(500).get().then((s) => Promise.all(s.docs
+        .filter((d) => d.get('home.address') || d.get('home.phone'))
+        .map((d) => d.ref.update({ 'home.address': FieldValue.delete(), 'home.phone': FieldValue.delete() }).catch(() => {})))),
       db.doc(`pharmacyStock/${uid}`).delete(),
       db.doc(`pharmacyMissed/${uid}`).delete(),
       // দোকানের পণ্য আর হিসাব-খাতা (কেনা, বিক্রি, দিনের যোগফল)

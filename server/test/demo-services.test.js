@@ -291,7 +291,7 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   // পরীক্ষার সময় ডেমো অ্যাকাউন্টের কাজে বানানো জিনিসও (ফোন, রেটিং, খোঁজ, অর্ডার, রিপোর্ট) নেই
   // (মালিকের নিজের কাজের ইতিহাস adminLog থাকে — সেটা মালিকের)
   const MINE = ['pharmacies', 'pharmacyStock', 'pharmacyStats', 'pharmacyMissed', 'pharmacyCalls', 'pharmacyRatings', 'medFinds', 'rxOrders', 'prescriptions',
-    'labs', 'ambulances', 'ambulanceStats', 'ambulanceCalls', 'providers', 'badges', 'homeStats', 'homeCalls', 'modReports', 'verifyDocs',
+    'labs', 'labPrices', 'ambulances', 'ambulanceStats', 'ambulanceCalls', 'providers', 'badges', 'homeStats', 'homeCalls', 'modReports', 'verifyDocs',
     'sanctions', 'users', 'serverState', 'inbox'];
   const traces = [...F.store.entries()]
     .filter(([k]) => MINE.includes(k.split('/')[0]))

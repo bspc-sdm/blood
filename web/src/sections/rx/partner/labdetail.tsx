@@ -1,13 +1,18 @@
-// প্যাথলজি — একটা পরীক্ষার অনুরোধ: অবস্থা বদল, রিপোর্ট দেওয়া (ছকের ঘর ভরা — শুধু ফল লিখুন; বেশি/কম নিজে থেকে),
+// প্যাথলজি — একটা পরীক্ষার অনুরোধ: অবস্থা বদল, বাসা থেকে নমুনা (ঠিকানা, ফোন, চাওয়া সময় → সময় নিশ্চিত / যেতে পারব না),
+// পাঠানোর সময়ের আনুমানিক দাম, রিপোর্ট দেওয়া (ছকের ঘর ভরা — শুধু ফল লিখুন; বেশি/কম নিজে থেকে),
 // ছবি, নোট; দেওয়া হলে রিপোর্ট দেখা ও ছাপা (অ্যাপের LabReportEntryDialog, LabReportView; প্যানেলের reportForm)
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, ConfirmDialog, ErrorBox, ErrorText, IconButton, SkeletonCards, Switch, Tag, TextArea, cx, toast } from '@/ui/kit';
+import { Button, ChoiceChips, ConfirmDialog, Dialog, ErrorBox, ErrorText, IconButton, IconLine, SkeletonCards, Switch, Tag, TextArea, TextInput, cx, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, tr, trPlain } from '@/lib/i18n';
-import { formatDateTime, formatDayOf } from '@/lib/format';
+import { formatDateTime, formatDayOf, todayUtcMidnight } from '@/lib/format';
+import {
+  SLOT_KEYS, dayWord, estimateText, homeFeeText, slotText, slotTimes, hhmmText, taka, visitText, wantedText,
+  type LabHome, type Slot,
+} from '@/lib/labprice';
 import { compressDocument } from '../../work/shared';
 import { Panel, focusNext, useInvalidate, useWide } from './common';
 import {
@@ -16,6 +21,20 @@ import {
 } from './model';
 
 const BASE = '/work/lab/orders';
+const DAY = 24 * 60 * 60 * 1000;
+
+/** তালিকার সারিতে "বাসা থেকে" চিহ্ন (চাওয়া/নিশ্চিত সময়সহ) */
+export function homeLabTag(o: LabOrder) {
+  const h = o.home;
+  if (!h || !['sent', 'received'].includes(o.status)) return null;
+  if (h.status === 'declined') return <span className="t-body-s muted">{tr('Home visit: no', 'বাসায় যাওয়া: না')}</span>;
+  return (
+    <span className="lp-home-tag">
+      <Icon name="home_health" />
+      {h.status === 'confirmed' ? tr(`From home · ${visitText(h)}`, `বাসা থেকে · ${visitText(h)}`) : tr(`From home · ${wantedText(h)}`, `বাসা থেকে · ${wantedText(h)}`)}
+    </span>
+  );
+}
 
 export function LabDetail({ id, orders, ordersLoading }: { id: string; orders: LabOrder[] | null; ordersLoading: boolean }) {
   const fromList = orders?.find((o) => o.id === id) ?? null;
@@ -34,7 +53,27 @@ function OrderView({ o }: { o: LabOrder }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [declineNote, setDeclineNote] = useState('');
   const active = o.status === 'sent' || o.status === 'received';
+  const h = o.home;
+  const homeOpen = !!h && o.status === 'sent' && h.status !== 'declined';
+
+  async function decline() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await call('lab_home_decline', { id: o.id, note: declineNote.trim() });
+      await invalidate('lab_orders');
+      setDeclining(false);
+      toast(tr('The patient was told', 'রোগীকে জানানো হয়েছে'));
+    } catch (e) {
+      setErr(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function setStatus(status: 'received' | 'cancelled') {
     setBusy(true);
@@ -71,6 +110,7 @@ function OrderView({ o }: { o: LabOrder }) {
         <div className="row wrap gap-6">
           {o.tests.map((t) => <Tag key={t} tone="primary">{t}</Tag>)}
         </div>
+        {o.prices ? <PriceLine p={o.prices} /> : null}
         {active ? (
           <div className="row wrap gap-8">
             {o.status === 'sent' ? <Button variant="tonal" icon="check_circle" busy={busy} onClick={() => setStatus('received')}>{tr('Sample taken', 'নমুনা নিয়েছি')}</Button> : null}
@@ -80,8 +120,58 @@ function OrderView({ o }: { o: LabOrder }) {
         <ErrorText>{err}</ErrorText>
       </section>
 
+      {h && active ? (
+        <Panel title={tr('Sample from home', 'বাসা থেকে নমুনা')} icon="home_health" actions={<Tag tone={h.status === 'confirmed' ? 'good' : h.status === 'declined' ? undefined : 'primary'}>{homeStatusLab(h)}</Tag>}>
+          {h.address ? <IconLine icon="location_on">{h.address}</IconLine> : null}
+          {h.phone ? (
+            <IconLine icon="call">
+              <a className="rxp-phone num" href={`tel:${h.phone}`}>{num(h.phone)}</a>
+            </IconLine>
+          ) : null}
+          <IconLine icon="schedule">{tr('Wants: ', 'চেয়েছেন: ') + wantedText(h)}</IconLine>
+          {h.status === 'confirmed' ? <IconLine icon="check_circle">{tr('You said: ', 'আপনি জানিয়েছেন: ') + visitText(h)}</IconLine> : null}
+          {h.note ? <IconLine icon="info">{h.note}</IconLine> : null}
+          {h.fee != null ? <IconLine icon="payments">{homeFeeText(h.fee)}</IconLine> : null}
+          {homeOpen ? (
+            <div className="row wrap gap-8">
+              <Button icon="check_circle" disabled={busy} onClick={() => setConfirming(true)}>{h.status === 'confirmed' ? tr('Change time', 'সময় বদলান') : tr('Confirm time', 'সময় নিশ্চিত করুন')}</Button>
+              <Button variant="danger-text" disabled={busy} onClick={() => { setDeclineNote(''); setDeclining(true); }}>{tr("Can't go to the home", 'বাসায় যেতে পারব না')}</Button>
+            </div>
+          ) : null}
+        </Panel>
+      ) : null}
+
       {active ? <ReportEntry key={o.id} o={o} /> : o.status === 'reported' ? <ReportPane o={o} /> : null}
 
+      {confirming && h ? (
+        <HomeConfirmDialog
+          id={o.id}
+          home={h}
+          onClose={() => setConfirming(false)}
+          onDone={async () => {
+            setConfirming(false);
+            await invalidate('lab_orders');
+            toast(tr('The patient was told the time', 'রোগীকে সময় জানানো হয়েছে'));
+          }}
+        />
+      ) : null}
+      {declining ? (
+        <Dialog
+          size="small"
+          onClose={() => !busy && setDeclining(false)}
+          title={tr("Can't go to the home?", 'বাসায় যেতে পারবেন না?')}
+          actions={
+            <>
+              <Button variant="text" disabled={busy} onClick={() => setDeclining(false)}>{tr('Back', 'ফিরে যান')}</Button>
+              <Button variant="danger" busy={busy} onClick={decline}>{tr("Can't go", 'যেতে পারব না')}</Button>
+            </>
+          }
+        >
+          <span className="t-body-m muted">{tr('The request stays — the patient can come to the lab.', 'অনুরোধ থাকবে — রোগী প্যাথলজিতে এসে নমুনা দেবেন।')}</span>
+          <TextInput label={tr('Reason (optional)', 'কারণ (ঐচ্ছিক)')} maxLength={120} value={declineNote} onChange={(e) => setDeclineNote(e.target.value)} />
+          <ErrorText>{err}</ErrorText>
+        </Dialog>
+      ) : null}
       {cancelling ? (
         <ConfirmDialog
           title={tr("Can't do these tests?", 'পরীক্ষাগুলো করতে পারবেন না?')}
@@ -95,6 +185,69 @@ function OrderView({ o }: { o: LabOrder }) {
         />
       ) : null}
     </div>
+  );
+}
+
+const homeStatusLab = (h: LabHome) =>
+  h.status === 'confirmed' ? tr('Time confirmed', 'সময় নিশ্চিত') : h.status === 'declined' ? tr('Not going', 'যাবেন না') : tr('Waiting for your time', 'সময় জানানো বাকি');
+
+/** পাঠানোর সময়ের আনুমানিক দাম: "আনুমানিক ৳২,৩৪০ · সব পরীক্ষায় ১০% ছাড় · দামের তালিকায় নেই: ECG" */
+export function PriceLine({ p }: { p: NonNullable<LabOrder['prices']> }) {
+  return (
+    <div className="col gap-2">
+      <span className="t-body-m semi">
+        {estimateText(p.estimate)}
+        {p.discountPct ? <span className="muted"> ({taka(p.subtotal)}, {tr(`${num(p.discountPct)}% off`, `${num(p.discountPct)}% ছাড়`)})</span> : null}
+      </span>
+      {p.missing.length ? <span className="t-body-s muted">{tr('Not in the price list: ', 'দামের তালিকায় নেই: ') + p.missing.join(', ')}</span> : null}
+    </div>
+  );
+}
+
+/** সময় নিশ্চিত: দিন (আজ/কাল/পরশু), সময়ের ভাগ, ঠিক সময় (আধা ঘণ্টা পরপর), নোট — রোগী সাথে সাথে জানেন */
+function HomeConfirmDialog({ id, home, onClose, onDone }: { id: string; home: LabHome; onClose: () => void; onDone: () => void }) {
+  const today = todayUtcMidnight();
+  const days = [0, 1, 2].map((k) => today + k * DAY);
+  const startDay = home.status === 'confirmed' && home.visitDate >= today ? home.visitDate : days.includes(home.date) ? home.date : today + DAY;
+  const [date, setDate] = useState(startDay);
+  const startSlot = (SLOT_KEYS.find((s) => home.time && slotTimes(s).includes(home.time)) ?? (home.slot || 'morning')) as Slot;
+  const [slot, setSlot] = useState<Slot>(startSlot);
+  const [time, setTime] = useState(home.time && slotTimes(startSlot).includes(home.time) ? home.time : slotTimes(startSlot)[0]);
+  const [note, setNote] = useState(home.confirmNote || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function send() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await call('lab_home_confirm', { id, date, time, note: note.trim() });
+      onDone();
+    } catch (e) {
+      setErr(errorText(e));
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog
+      onClose={() => !busy && onClose()}
+      title={tr('Confirm the time', 'সময় নিশ্চিত করুন')}
+      actions={
+        <>
+          <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
+          <Button busy={busy} icon="send" onClick={send}>{tr('Tell the patient', 'রোগীকে জানান')}</Button>
+        </>
+      }
+    >
+      <span className="t-body-s muted">{tr('Wants: ', 'চেয়েছেন: ') + wantedText(home)}</span>
+      <span className="t-label-l">{tr('Day', 'দিন')}</span>
+      <ChoiceChips value={date} onChange={setDate} options={days.map((d) => ({ value: d, label: dayWord(d) }))} />
+      <span className="t-label-l">{tr('Time', 'সময়')}</span>
+      <ChoiceChips value={slot} onChange={(s: Slot) => { setSlot(s); setTime(slotTimes(s)[0]); }} options={SLOT_KEYS.map((s) => ({ value: s, label: slotText(s) }))} />
+      <ChoiceChips value={time} onChange={setTime} options={slotTimes(slot).map((t) => ({ value: t, label: hhmmText(t) }))} />
+      <TextInput label={tr('Note for the patient (optional)', 'রোগীর জন্য নোট (ঐচ্ছিক)')} maxLength={120} value={note} placeholder={tr('e.g. Come with an empty stomach', 'যেমন: খালি পেটে থাকবেন')} onChange={(e) => setNote(e.target.value)} />
+      <span className="t-body-m semi c-primary">{`${dayWord(date)} ${hhmmText(time)}`}</span>
+      <ErrorText>{err}</ErrorText>
+    </Dialog>
   );
 }
 

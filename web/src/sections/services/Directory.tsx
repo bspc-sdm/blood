@@ -258,7 +258,7 @@ function Summary({ kind, area, items, busyCount, loading }: { kind: Kind; area: 
     kind === 'ambulance'
       ? [[tr('Available', 'খালি আছে'), items.filter((a) => a.available).length], [tr('Call to check', 'ফোনে জেনে নিন'), items.filter((a) => !a.available).length], [tr('On a trip', 'ট্রিপে'), busyCount]]
       : kind === 'lab'
-        ? [[tr('Labs', 'প্যাথলজি'), items.length], [tr('Sample from home', 'বাসা থেকে নমুনা নেয়'), items.filter((l) => l.homeCollection).length]]
+        ? [[tr('Labs', 'প্যাথলজি'), items.length], [tr('With prices', 'দাম দেওয়া'), items.filter((l) => l.prices).length], [tr('Sample from home', 'বাসা থেকে নমুনা নেয়'), items.filter((l) => l.homeCollection).length]]
         : [[tr('Open', 'খোলা'), items.filter((x) => x.openNow).length], [tr('Total', 'মোট'), items.length]];
   return (
     <div className="services-ph">

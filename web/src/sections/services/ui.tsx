@@ -197,11 +197,24 @@ export function EntryDetail({ e, backTo, onRate, onReport }: { e: Entry; backTo:
       </div>
       {e.sections.map((s) => {
         const lines = s.lines.filter((l) => l[1]);
-        if (!lines.length && !s.link) return null;
+        if (!lines.length && !s.link && !s.rows?.length) return null;
         return (
           <section key={s.title} className="services-sec">
             <hr className="divider" />
             <h3 className="t-title-s">{s.title}</h3>
+            {s.rows?.length ? (
+              <ul className="services-prices">
+                {s.rows.map((r) => (
+                  <li key={r.name}>
+                    <span className="col gap-2 grow">
+                      <span>{r.name}</span>
+                      {r.sub ? <span className="t-body-s muted">{r.sub}</span> : null}
+                    </span>
+                    <span className="semi num">{r.value}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             {lines.map(([ic, text]) => (
               <div key={ic + text} className="services-line">
                 <Icon name={ic} />

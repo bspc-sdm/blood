@@ -4,7 +4,7 @@
 //  ধাপ ৪ স্টক — ফার্মেসি ওষুধের নামের তালিকা রাখে; রোগী দেখেন কোন দোকানে কয়টা আছে, প্রেসক্রিপশন পাঠান
 //  ধাপ ৩ প্যাথলজি — অনুমোদিত ল্যাবে পরীক্ষা পাঠানো, ল্যাব ফল লেখে, রোগী পান; ডাক্তার দেখেন শুধু টাকা মিললে
 //         (ডাক্তারের নিজের bKash/Nagad নম্বরে পাঠিয়ে TrxID — Lifolo টাকা ধরে না; ডাক্তার/সহকারী মিলিয়ে নিশ্চিত করেন)
-// সব সংগ্রহ (rxOrders, pharmacyStock, labs, labOrders, rxReviews) শুধু সার্ভার পড়ে-লেখে।
+// সব সংগ্রহ (rxOrders, pharmacyStock, labs, labOrders, labPrices, rxReviews) শুধু সার্ভার পড়ে-লেখে।
 const { db, FieldValue, HttpError, sendPush, tokensOf } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
@@ -23,6 +23,8 @@ const key = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' 
 /** রোগী আর তাঁর কেয়ারগিভারদের */
 const pushPatient = (...a) => require('./careaccess').pushPatient(...a);
 const LT = require('./labtests');
+// পরীক্ষার দাম আর বাসা থেকে নমুনা (labprices.js)
+const LP = require('./labprices');
 
 async function push(uid, en, bn, body, data) {
   if (!uid) return;
@@ -212,8 +214,14 @@ async function doctorOrAssistant(req, user, doctorUid) {
   return { doctorUid: d, role: 'assistant' };
 }
 
-function labOrderView(d, withPhotos = false) {
+/**
+ * ল্যাব অর্ডার। who: কে দেখছেন — 'patient' (রোগী/কেয়ারগিভার), 'lab' (সেই প্যাথলজি), নইলে (ডাক্তার) কেউ নন।
+ * বাসার ঠিকানা-ফোন শুধু রোগী, আর প্যাথলজি অর্ডার চালু থাকা পর্যন্ত (বাসায় যাওয়া বাতিল না হলে)।
+ */
+function labOrderView(d, withPhotos = false, who = null) {
   const x = d.data();
+  const open = ['sent', 'received'].includes(x.status);
+  const contact = who === 'patient' || (who === 'lab' && open && x.home && x.home.status !== 'declined');
   return {
     id: d.id,
     rxId: x.rxId,
@@ -227,6 +235,9 @@ function labOrderView(d, withPhotos = false) {
     tests: x.tests || [],
     status: x.status,
     createdAt: x.createdAt || 0,
+    // পাঠানোর সময়ের আনুমানিক দাম (প্যাথলজি আর রোগী একই হিসাব দেখেন)
+    prices: x.prices || null,
+    home: LP.homeView(x.home, contact),
     report: x.report ? {
       items: x.report.items || [],
       note: x.report.note || '',
@@ -807,13 +818,72 @@ const actions = {
     const b = req.body || {};
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
-    let items = (await areaLabs(b.district)).map((d) => labView(d));
+    const docs = await areaLabs(b.district);
+    // পরীক্ষা ও দাম (চালু পরীক্ষাগুলো, ছাড়, বাসার চার্জ) — তালিকা না থাকলে null
+    const pm = await LP.pricesFor(b.district, docs.map((d) => d.id));
+    let items = docs.map((d) => ({ ...labView(d), prices: LP.publicView(pm.get(d.id), d.data()) }));
     if (upazilaId) items = [...items.filter((l) => l.upazilaId === upazilaId), ...items.filter((l) => l.upazilaId !== upazilaId)];
     if (b.facilityId) items.sort((a, c) => (c.facilityId === b.facilityId) - (a.facilityId === b.facilityId));
     return { items: items.slice(0, 100) };
   },
 
-  /** রোগী: প্রেসক্রিপশনের পরীক্ষা একটা প্যাথলজিতে পাঠানো */
+  /**
+   * রোগী (বা কেয়ারগিভার): প্রেসক্রিপশনের পরীক্ষা কোন প্যাথলজিতে কয়টা হয়, আনুমানিক কত — tests: বাছা পরীক্ষা (না দিলে সব)।
+   * সাজানো: যেখানে বেশি পরীক্ষা হয় → কম দাম → কাছে (একই উপজেলা / দূরত্ব)। দামের তালিকা নেই এমন প্যাথলজিও আসে (priced: false)।
+   * lastHome: আগের বার বাসা থেকে নমুনার ঠিকানা-ফোন (ফর্মে আগে থেকে বসাতে)।
+   */
+  async rx_lab_options(req, user) {
+    const b = req.body || {};
+    if (!R.isValidId(b.rxId)) throw notFound(req);
+    const s = await db.doc(`prescriptions/${b.rxId}`).get();
+    if (!s.exists || s.get('patientUid') !== user.uid) throw notFound(req);
+    if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 'Choose a district', 'জেলা বেছে নিন');
+    const all = s.get('tests') || [];
+    const picked = (Array.isArray(b.tests) ? b.tests : all).filter((t) => all.includes(t));
+    const wanted = picked.length ? picked : all;
+    const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
+    const hasLoc = typeof b.lat === 'number' && typeof b.lng === 'number';
+    const place = s.get('testPlaceId') || null;
+    await LT.load();
+    const area = await areaLabs(b.district);
+    const pm = await LP.pricesFor(b.district, area.map((d) => d.id));
+    // ডেমো: ডেমো রোগী শুধু ডেমো প্যাথলজি, আসল রোগী শুধু আসল (ডেমো মুছলে filter অংশ মুছবেন)
+    const items = area.filter((d) => require('./demo').sameWorld(user.uid, d.id)).map((d) => {
+      const x = d.data();
+      const px = pm.get(d.id) || null;
+      const e = LP.estimate(wanted, px, x);
+      const km = hasLoc && typeof x.lat === 'number' && typeof x.lng === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
+      return {
+        ...labView(d),
+        suggested: !!place && x.facilityId === place,
+        near: !!upazilaId && x.upazilaId === upazilaId,
+        km,
+        priced: !!e,
+        have: e ? e.have : null,
+        total: wanted.length,
+        missing: e ? e.missing : [],
+        items: e ? e.items : [],
+        subtotal: e ? e.subtotal : null,
+        discountPct: e ? e.discountPct : null,
+        estimate: e ? e.estimate : null,
+        homeFee: x.homeCollection === true && px && Number.isInteger(px.homeFee) ? px.homeFee : null,
+        tat: e ? e.tat : '',
+      };
+    });
+    // দামের তালিকা না থাকলে কয়টা হয় জানা নেই — একটাও হয় না এমন প্যাথলজির আগে, অন্তত একটা হয় এমনটার পরে
+    const rank = (o) => (o.priced ? o.have * 2 : 1);
+    items.sort((a, c) => (rank(c) - rank(a))
+      || ((a.estimate ?? Infinity) - (c.estimate ?? Infinity))
+      || (Number(c.near) - Number(a.near))
+      || ((a.km ?? 999) - (c.km ?? 999))
+      || (Number(c.suggested) - Number(a.suggested)));
+    // আগের বার বাসা থেকে নমুনার ঠিকানা (নিজের অর্ডার থেকেই)
+    const mine = await db.collection('labOrders').where('patientUid', '==', user.uid).limit(200).get();
+    const last = mine.docs.filter((o) => o.get('home.address')).sort((a, c) => (c.get('createdAt') || 0) - (a.get('createdAt') || 0))[0];
+    return { items: items.slice(0, 60), lastHome: last ? { address: last.get('home.address'), phone: last.get('home.phone') || '' } : null };
+  },
+
+  /** রোগী: প্রেসক্রিপশনের পরীক্ষা একটা প্যাথলজিতে পাঠানো (home: বাসা থেকে নমুনা — ঠিকানা, ফোন, দিন, সময়, নোট) */
   async rx_send_lab(req, user) {
     const { rxId, labId } = req.body || {};
     if (!R.isValidId(rxId) || !R.isValidId(labId)) throw notFound(req);
@@ -824,17 +894,30 @@ const actions = {
     if (!l.exists || l.get('status') !== 'approved' || !require('./demo').sameWorld(user.uid, labId)) throw err(req, 'This lab is not available', 'এই প্যাথলজি এখন নেই', 404); // ডেমো: আলাদা
     const tests = (Array.isArray(req.body?.tests) ? req.body.tests : x.tests || []).filter((t) => (x.tests || []).includes(t));
     if (!tests.length) throw err(req, 'Choose the tests', 'পরীক্ষা বেছে নিন');
+    // বাসা থেকে নমুনা (চাইলে) — প্যাথলজি বাসা থেকে না নিলে নয়
+    const home = LP.cleanHome(req, req.body?.home, l.data());
     const prev = await db.collection('labOrders').where('rxId', '==', rxId).limit(50).get();
     if (prev.docs.some((o) => o.get('labId') === labId && ['sent', 'received'].includes(o.get('status')))) {
       throw err(req, 'Already sent to this lab', 'এই প্যাথলজিতে আগেই পাঠানো আছে', 409);
     }
     await useQuota(req, user.uid, 'rxSend');
+    // এখনকার দামের তালিকা থেকে হিসাব রেখে দেওয়া (পরে দাম বদলালেও এই অর্ডারে একই থাকে)
+    await LT.load();
+    const pd = await db.doc(`labPrices/${labId}`).get();
+    const px = pd.exists ? pd.data() : null;
+    const est = LP.estimate(tests, px, l.data());
     const ref = await db.collection('labOrders').add({
       rxId, code: x.code, labId, labName: l.get('name') || '', patientUid: user.uid, patientName: x.patient?.name || '',
       patientAge: x.patient?.age ?? null, patientGender: x.patient?.gender || '', doctorUid: x.doctorUid, doctorName: x.doctor?.name || '',
       tests, status: 'sent', createdAt: Date.now(),
+      ...(est ? { prices: LP.snapshot(est) } : {}),
+      ...(home ? { home: { ...home, fee: px && Number.isInteger(px.homeFee) ? px.homeFee : null } } : {}),
+      ...(user.actingBy ? { byCaretaker: user.actingBy } : {}),
     });
-    await push(labId, 'New test request', 'নতুন পরীক্ষার অনুরোধ', `${x.patient?.name || ''} · ${tests.join(', ')}`, { type: 'rx_lab', id: ref.id });
+    await push(labId,
+      home ? 'New test request — sample from home' : 'New test request',
+      home ? 'নতুন পরীক্ষা — বাসা থেকে নমুনা' : 'নতুন পরীক্ষার অনুরোধ',
+      `${x.patient?.name || ''} · ${tests.join(', ')}`, { type: 'rx_lab', id: ref.id });
     return { id: ref.id };
   },
 
@@ -842,7 +925,7 @@ const actions = {
   async lab_orders(req, user) {
     await myLab(req, user);
     const snap = await db.collection('labOrders').where('labId', '==', user.uid).limit(400).get();
-    return { items: snap.docs.map((d) => labOrderView(d)).sort((a, c) => c.createdAt - a.createdAt).slice(0, 150) };
+    return { items: snap.docs.map((d) => labOrderView(d, false, 'lab')).sort((a, c) => c.createdAt - a.createdAt).slice(0, 150) };
   },
 
   /** প্যাথলজি: কোড দিয়ে খোলা (রোগী অ্যাপে না পাঠিয়ে কাগজ নিয়ে এলে) — নতুন অনুরোধ হিসেবে যোগ */
@@ -855,13 +938,18 @@ const actions = {
     if (!(x.tests || []).length) throw err(req, 'No tests on this prescription', 'এই প্রেসক্রিপশনে কোনো পরীক্ষা নেই');
     const prev = await db.collection('labOrders').where('rxId', '==', d.id).limit(50).get();
     const mine = prev.docs.find((o) => o.get('labId') === user.uid && o.get('status') !== 'cancelled');
-    if (mine) return { item: labOrderView(mine) };
+    if (mine) return { item: labOrderView(mine, false, 'lab') };
+    // নিজের দামের তালিকা থেকে হিসাব (কাউন্টারে বলে দিতে)
+    await LT.load();
+    const pd = await db.doc(`labPrices/${user.uid}`).get();
+    const est = LP.estimate(x.tests, pd.exists ? pd.data() : null, lab.data());
     const ref = await db.collection('labOrders').add({
       rxId: d.id, code: x.code, labId: user.uid, labName: lab.get('name') || '', patientUid: x.patientUid || null, patientName: x.patient?.name || '',
       patientAge: x.patient?.age ?? null, patientGender: x.patient?.gender || '', doctorUid: x.doctorUid, doctorName: x.doctor?.name || '',
       tests: x.tests, status: 'received', createdAt: Date.now(), walkIn: true,
+      ...(est ? { prices: LP.snapshot(est) } : {}),
     });
-    return { item: labOrderView(await ref.get()) };
+    return { item: labOrderView(await ref.get(), false, 'lab') };
   },
 
   async lab_order_status(req, user) {
@@ -875,6 +963,48 @@ const actions = {
     if (status === 'cancelled') {
       await pushPatient(s.get('patientUid'), `${s.get('labName')} can't do your tests`, `${s.get('labName')} পরীক্ষা করতে পারবে না`, '', { type: 'rx', id: s.get('rxId') });
     }
+    return { ok: true };
+  },
+
+  /**
+   * প্যাথলজি: বাসা থেকে নমুনার সময় নিশ্চিত — date (দিন, UTC মধ্যরাত), time ("08:00"), note (ঐচ্ছিক)।
+   * রোগী (আর কেয়ারগিভার) জানেন: "সিটি ডায়াগনস্টিক কাল সকাল ৮টায় আসবে"। নমুনা নেওয়ার আগে আবার বদলানো যায়।
+   */
+  async lab_home_confirm(req, user) {
+    await myLab(req, user);
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`labOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('labId') !== user.uid || !s.get('home')) throw notFound(req);
+    if (s.get('status') !== 'sent' || s.get('home.status') === 'declined') throw err(req, "The home visit can't be changed now", 'এখন আর বাসায় যাওয়ার সময় বদলানো যায় না', 409);
+    const v = LP.cleanVisit(req, req.body?.date, req.body?.time);
+    const note = str(req.body?.note, 120);
+    const now = Date.now();
+    await ref.update({
+      'home.status': 'confirmed', 'home.visitDate': v.visitDate, 'home.time': v.time, 'home.at': v.at,
+      'home.confirmNote': note, 'home.confirmedAt': now, updatedAt: now,
+    });
+    const w = LP.visitWords(v.visitDate, v.time, now);
+    const lab = s.get('labName') || '';
+    await pushPatient(s.get('patientUid'), `${lab} will come ${w.en}`, `${lab} ${w.bn} আসবে`, note, { type: 'rx', id: s.get('rxId') });
+    return { ok: true, at: v.at };
+  },
+
+  /** প্যাথলজি: বাসায় যেতে পারবে না — অর্ডার থাকে (রোগী প্যাথলজিতে এসে নমুনা দেবেন), রোগী জানেন */
+  async lab_home_decline(req, user) {
+    await myLab(req, user);
+    const { id } = req.body || {};
+    if (!R.isValidId(id)) throw notFound(req);
+    const ref = db.doc(`labOrders/${id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('labId') !== user.uid || !s.get('home')) throw notFound(req);
+    if (s.get('status') !== 'sent' || s.get('home.status') === 'declined') throw err(req, "The home visit can't be changed now", 'এখন আর বাসায় যাওয়ার সময় বদলানো যায় না', 409);
+    const note = str(req.body?.note, 120);
+    const now = Date.now();
+    await ref.update({ 'home.status': 'declined', 'home.declineNote': note, 'home.declinedAt': now, updatedAt: now });
+    const lab = s.get('labName') || '';
+    await pushPatient(s.get('patientUid'), `${lab} can't come to your home — give the sample at the lab`, `${lab} বাসায় আসতে পারবে না — প্যাথলজিতে গিয়ে নমুনা দিন`, note, { type: 'rx', id: s.get('rxId') });
     return { ok: true };
   },
 
@@ -941,7 +1071,8 @@ const actions = {
       if (!ok) throw err(req, "The patient hasn't paid for the report review yet", 'রোগী এখনো রিপোর্ট দেখার টাকা দেননি', 402);
     }
     if (!ok) throw notFound(req);
-    return { item: labOrderView(s, true), history: await reportHistory(x.patientUid, id, x.reportedAt || Date.now()) };
+    const who = x.patientUid === user.uid ? 'patient' : x.labId === user.uid ? 'lab' : null;
+    return { item: labOrderView(s, true, who), history: await reportHistory(x.patientUid, id, x.reportedAt || Date.now()) };
   },
 
   /** প্যাথলজি: রিপোর্টের ফর্ম — প্রতিটা পরীক্ষার ছক (ঘর, একক, স্বাভাবিক মাত্রা; ল্যাবের নিজের মাত্রা থাকলে সেটা) */
@@ -1008,7 +1139,7 @@ const actions = {
         id: d.id, pharmacyId: d.get('pharmacyId'), pharmacyName: d.get('pharmacyName'), status: d.get('status'), reason: d.get('reason') || '', createdAt: d.get('createdAt'),
         mode: d.get('mode') || 'shop', price: d.get('price') || '', eta: d.get('eta') || '', deliveryFee: d.get('deliveryFee') || '', missed: d.get('missed') || [],
       })).sort((a, c) => c.createdAt - a.createdAt) : [],
-      labOrders: labs.docs.filter((d) => isPatient || DOCTOR_SEES.includes(reviews.find((r) => r.id === d.id)?.get('status'))).map((d) => labOrderView(d)),
+      labOrders: labs.docs.filter((d) => isPatient || DOCTOR_SEES.includes(reviews.find((r) => r.id === d.id)?.get('status'))).map((d) => labOrderView(d, false, isPatient ? 'patient' : null)),
       reviews: reviews.filter((r) => r.exists).map((r) => reviewView(r)),
       nextOpen,
     };

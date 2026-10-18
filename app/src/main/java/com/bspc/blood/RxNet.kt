@@ -99,6 +99,10 @@ data class LabOrder(
     val patientGender: String, val doctorName: String, val tests: List<String>, val status: String, val createdAt: Long, val report: LabReport?,
     /** একই রোগীর আগের ফল: "code.key" → নতুন আগে */
     val history: Map<String, List<LabHist>> = emptyMap(),
+    /** পাঠানোর সময়ের আনুমানিক দাম (LabPrice.kt) */
+    val prices: PriceSnap? = null,
+    /** বাসা থেকে নমুনা (চাইলে) */
+    val home: LabHome? = null,
 )
 data class RxReview(
     val id: String, val rxId: String, val labOrderId: String, val doctorUid: String, val doctorName: String, val patientName: String,
@@ -128,6 +132,8 @@ data class Lab(
     val id: String, val name: String, val phone: String, val address: String, val district: String, val upazilaId: Int?, val facilityId: String?,
     val homeCollection: Boolean, val hours: String, val licenseNo: String = "", val status: String = "", val statusReason: String = "",
     val docsMissing: Boolean = false, val docsRequested: Boolean = false, val docsNote: String = "",
+    /** পরীক্ষা ও দাম (সবার দেখা; তালিকা না থাকলে null) */
+    val prices: LabPrices? = null,
 )
 data class ReviewSettings(val enabled: Boolean, val noFee: Boolean, val fee: String, val payNumber: String, val payMethods: List<String>)
 
@@ -150,6 +156,20 @@ object RxNet {
         o.str("id"), o.str("rxId"), o.str("code"), o.str("labName"), o.str("patientName"), o.intN("patientAge"), o.str("patientGender"),
         o.str("doctorName"), o.optJSONArray("tests").strings(), o.str("status"), o.optLong("createdAt"),
         o.optJSONObject("report")?.let { r -> reportOf(r) },
+        prices = o.optJSONObject("prices")?.let(::snap),
+        home = o.optJSONObject("home")?.let(::home),
+    )
+    private fun snap(p: JSONObject) = PriceSnap(
+        p.optJSONArray("items").objs().map { SnapItem(it.str("test"), it.str("name"), it.optInt("price"), it.str("tat")) },
+        p.optJSONArray("missing").strings(), p.optInt("subtotal"), p.intN("discountPct"), p.optInt("estimate"),
+    )
+    private fun home(h: JSONObject) = LabHome(
+        h.str("status").ifBlank { "requested" }, h.optLong("date"), h.str("slot"), h.str("note"), h.intN("fee"), h.optLong("visitDate"), h.str("time"),
+        h.str("confirmNote"), h.str("declineNote"), h.str("address"), h.str("phone"),
+    )
+    private fun prices(p: JSONObject) = LabPrices(
+        p.optJSONArray("items").objs().map { PriceItem(it.str("code").ifBlank { null }, it.str("name"), it.optInt("price"), it.str("tat")) },
+        p.intN("discountPct"), p.intN("homeFee"),
     )
 
     /** ডাক্তার: রোগীর ইতিহাস / প্রেসক্রিপশনের labOrders (ফল শুধু open হলে) */
@@ -168,6 +188,7 @@ object RxNet {
         o.str("id"), o.str("name"), o.str("phone"), o.str("address"), o.str("district"), o.intN("upazilaId"), o.str("facilityId").ifBlank { null },
         o.optBoolean("homeCollection"), o.str("hours"), o.str("licenseNo"), o.str("status"), o.str("statusReason"),
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
+        o.optJSONObject("prices")?.let(::prices),
     )
 
     suspend fun activity(rxId: String): RxActivity {
@@ -200,7 +221,27 @@ object RxNet {
     }
     suspend fun labs(district: String, facilityId: String? = null): List<Lab> =
         call("labs", JSONObject().put("district", district).apply { if (facilityId != null) put("facilityId", facilityId) }).optJSONArray("items").objs().map(::lab)
-    suspend fun sendLab(rxId: String, labId: String, tests: List<String>) = call("rx_send_lab", JSONObject().put("rxId", rxId).put("labId", labId).put("tests", JSONArray(tests)))
+    /** home: বাসা থেকে নমুনা (ঠিকানা, ফোন, দিন ০/১/২, সময়ের ভাগ, নোট) — না চাইলে null */
+    suspend fun sendLab(rxId: String, labId: String, tests: List<String>, home: HomeRequest? = null) = call(
+        "rx_send_lab",
+        JSONObject().put("rxId", rxId).put("labId", labId).put("tests", JSONArray(tests)).apply {
+            if (home != null) put("home", JSONObject().put("address", home.address).put("phone", home.phone).put("day", home.day).put("slot", home.slot).put("note", home.note))
+        },
+    )
+    /** এই প্রেসক্রিপশনের পরীক্ষা কোন প্যাথলজিতে কয়টা হয়, আনুমানিক কত (সার্ভার সাজায়: বেশি পরীক্ষা → কম দাম → কাছে) */
+    suspend fun labOptions(rxId: String, district: String, tests: List<String>): LabOptions {
+        val o = call("rx_lab_options", JSONObject().put("rxId", rxId).put("district", district).put("tests", JSONArray(tests)))
+        val last = o.optJSONObject("lastHome")
+        return LabOptions(
+            o.optJSONArray("items").objs().map {
+                LabOption(
+                    lab(it), it.optBoolean("suggested"), it.optBoolean("priced"), it.intN("have"), it.optInt("total"), it.optJSONArray("missing").strings(),
+                    it.intN("subtotal"), it.intN("discountPct"), it.intN("estimate"), it.intN("homeFee"), it.str("tat"),
+                )
+            },
+            last?.str("address").orEmpty(), last?.str("phone").orEmpty(),
+        )
+    }
     /** self: ডাক্তার নিজের কাজে (কেয়ারগিভার মোড চালু থাকলেও রোগীর uid নয় — asUid খালি দিলে সার্ভার নিজেকেই ধরে) */
     suspend fun labOrder(id: String, self: Boolean = false): LabOrder {
         val o = call("lab_order_get", JSONObject().put("id", id).apply { if (self) put("asUid", "") })
@@ -254,6 +295,10 @@ object RxNet {
     suspend fun labOrders(): List<LabOrder> = call("lab_orders").optJSONArray("items").objs().map(::labOrder)
     suspend fun labOpenCode(code: String): LabOrder = labOrder(call("lab_open_code", JSONObject().put("code", code)).getJSONObject("item"))
     suspend fun labStatus(id: String, status: String) = call("lab_order_status", JSONObject().put("id", id).put("status", status))
+    /** বাসা থেকে নমুনা: সময় নিশ্চিত (date: UTC মধ্যরাত, time "08:00") — রোগী জানেন */
+    suspend fun homeConfirm(id: String, date: Long, time: String, note: String) = call("lab_home_confirm", JSONObject().put("id", id).put("date", date).put("time", time).put("note", note))
+    /** বাসায় যেতে পারব না — অর্ডার থাকে, রোগী জানেন */
+    suspend fun homeDecline(id: String, note: String) = call("lab_home_decline", JSONObject().put("id", id).put("note", note))
     suspend fun labReport(id: String, items: List<LabResult>, note: String, photos: List<String>) = call(
         "lab_report",
         JSONObject().put("id", id).put("note", note).put("photos", JSONArray(photos))
@@ -477,6 +522,15 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
                             Tag(RxNetText.labStatus(o.status), if (o.status == "reported") cs.tertiaryContainer else cs.surfaceVariant, if (o.status == "reported") cs.onTertiaryContainer else cs.onSurfaceVariant)
                         }
                         SmallNote(o.tests.joinToString(", "))
+                        // পাঠানোর সময়ের আনুমানিক দাম, বাসা থেকে নমুনার অবস্থা
+                        if (o.prices != null && o.status != "cancelled") Text(LabPriceText.snapLine(o.prices, o.home), style = MaterialTheme.typography.bodySmall)
+                        if (o.home != null && o.status in setOf("sent", "received")) {
+                            IconLine(
+                                R.drawable.ic_home_health, LabPriceText.homeStatusPatient(o.home),
+                                when (o.home.status) { "declined" -> cs.error; "confirmed" -> cs.primary; else -> cs.onSurfaceVariant },
+                            )
+                            if (o.home.status == "confirmed" && o.home.confirmNote.isNotBlank() && o.status == "sent") SmallNote(o.home.confirmNote)
+                        }
                         if (o.status == "reported") {
                             SmallAction(tr("See report", "রিপোর্ট দেখুন"), R.drawable.ic_list_alt, { report = o.id }, primary = true)
                             val r = a.reviews.firstOrNull { it.labOrderId == o.id }
@@ -780,21 +834,36 @@ private fun WithdrawDialog(o: RxOrder, onDismiss: () -> Unit, onDone: () -> Unit
     )
 }
 
-/** প্যাথলজি বাছাই: ডাক্তারের সুপারিশ করা সেন্টার (অ্যাপে থাকলে) আগে; কোন পরীক্ষা পাঠাবেন */
+/**
+ * প্যাথলজি বাছাই: কোন পরীক্ষা পাঠাবেন; প্রতিটা প্যাথলজিতে কয়টা হয় ("৩টার ৩টা"), আনুমানিক কত, কোনটা হয় না, রিপোর্ট কতক্ষণে —
+ * বেশি পরীক্ষা → কম দাম → কাছের আগে (সার্ভার সাজায়)। দামের তালিকা না থাকলে "দাম জানা নেই — ফোনে জেনে নিন"।
+ * বাসা থেকে নমুনা নিলে পাঠানোর আগে বেছে নেওয়া যায় (LabSendDialog)।
+ */
 @Composable
 private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSent: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var district by remember { mutableStateOf(profile.placeName) }
-    var list by remember { mutableStateOf<List<Lab>?>(null) }
+    var opts by remember { mutableStateOf<LabOptions?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf<LabOption?>(null) }
     val chosen = remember { mutableStateListOf(*rx.tests.toTypedArray()) }
-    LaunchedEffect(district) {
+    LaunchedEffect(district, chosen.toList()) {
         val d = district ?: return@LaunchedEffect
-        list = null
-        runCatching { RxNet.labs(d, rx.testPlaceId) }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message; list = emptyList() }
+        if (chosen.isEmpty()) { opts = LabOptions(emptyList(), "", ""); return@LaunchedEffect }
+        runCatching { RxNet.labOptions(rx.id, d, chosen.toList()) }.onSuccess { opts = it; errorMsg = null }.onFailure { errorMsg = it.message; opts = LabOptions(emptyList(), "", "") }
+    }
+    fun send(o: LabOption) {
+        if (busy != null || chosen.isEmpty()) return
+        if (o.lab.homeCollection) { sending = o; return }
+        scope.launch {
+            busy = o.lab.id
+            errorMsg = null
+            runCatching { RxNet.sendLab(rx.id, o.lab.id, chosen.toList()) }.onSuccess { onSent(o.lab.name) }.onFailure { errorMsg = it.message }
+            busy = null
+        }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(topBar = { BackTopBar(tr("Choose a lab", "প্যাথলজি বাছুন"), onDismiss) }) { padding ->
@@ -806,29 +875,32 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSen
                     FilterBar(areaLabel = areaText(district, null), onAreaClick = { showArea = true })
                     ErrorText(errorMsg)
                 }
-                val l = list
+                val l = opts?.items
                 when {
                     l == null -> item { LoadingBox() }
+                    chosen.isEmpty() -> item { EmptyState(R.drawable.ic_list_alt, tr("Choose the tests", "পরীক্ষা বেছে নিন"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
                     l.isEmpty() -> item {
                         EmptyState(R.drawable.ic_local_hospital, tr("No lab in the app here yet", "এখানে এখনো অ্যাপে কোনো প্যাথলজি নেই"),
                             tr("You can still take the prescription to any lab.", "যেকোনো প্যাথলজিতে প্রেসক্রিপশন নিয়ে গিয়েও করাতে পারেন।"), Modifier.fillMaxWidth().padding(top = 24.dp))
                     }
-                    else -> items(l, key = { it.id }) { lab ->
-                        val suggested = rx.testPlaceId != null && lab.facilityId == rx.testPlaceId
+                    else -> items(l, key = { it.lab.id }) { o ->
+                        val lab = o.lab
                         DirectoryCard(
                             title = lab.name,
                             icon = R.drawable.ic_local_hospital,
-                            status = if (suggested) CardStatus(tr("Doctor suggested", "ডাক্তারের সুপারিশ"), true) else null,
-                            subtitle = if (lab.homeCollection) tr("Sample from home", "বাসা থেকে নমুনা নেয়") else null,
-                            details = listOf(R.drawable.ic_location_on to lab.address, R.drawable.ic_schedule to lab.hours),
-                            primary = CardAction(if (busy == lab.id) "…" else tr("Send tests", "পরীক্ষা পাঠান"), R.drawable.ic_send) {
-                                if (busy == null && chosen.isNotEmpty()) scope.launch {
-                                    busy = lab.id
-                                    errorMsg = null
-                                    runCatching { RxNet.sendLab(rx.id, lab.id, chosen.toList()) }.onSuccess { onSent(lab.name) }.onFailure { errorMsg = it.message }
-                                    busy = null
-                                }
-                            },
+                            status = if (o.suggested) CardStatus(tr("Doctor suggested", "ডাক্তারের সুপারিশ"), true) else null,
+                            subtitle = if (o.priced) LabPriceText.cover(o.have ?: 0, o.total) + " · " + LabPriceText.estimate(o.estimate ?: 0) else LabPriceText.noPrice(),
+                            meta = if (o.priced) LabPriceText.discount(o.discountPct).ifBlank { null } else null,
+                            details = listOf(
+                                R.drawable.ic_warning to if (o.priced && o.missing.isNotEmpty()) tr("Not here: ", "এখানে হয় না: ") + o.missing.joinToString(", ") else "",
+                                R.drawable.ic_schedule to if (o.tat.isNotBlank()) tr("Report: ", "রিপোর্ট: ") + o.tat else "",
+                                R.drawable.ic_home_health to if (lab.homeCollection) listOf(
+                                    tr("Sample from home", "বাসা থেকে নমুনা নেয়"),
+                                    o.homeFee?.let { if (it == 0) tr("free", "ফ্রি") else LabPriceText.taka(it) }.orEmpty(),
+                                ).filter { it.isNotBlank() }.joinToString(" · ") else "",
+                                R.drawable.ic_location_on to lab.address,
+                            ),
+                            primary = CardAction(if (busy == lab.id) "…" else tr("Send tests", "পরীক্ষা পাঠান"), R.drawable.ic_send) { send(o) },
                             secondary = CardAction(tr("Call", "ফোন"), R.drawable.ic_call) { callPhone(context, lab.phone) },
                         )
                     }
@@ -837,6 +909,14 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSen
         }
     }
     if (showArea) AreaSheet(district, null, null, { d, _, _ -> district = d }, onDismiss = { showArea = false })
+    sending?.let { o ->
+        // কেয়ারগিভার হলে নিজের নম্বর নয় — আগের বারের (রোগীর) নম্বর, না থাকলে খালি
+        LabSendDialog(o, opts?.lastAddress.orEmpty(), opts?.lastPhone.orEmpty(), if (CareMode.asUid.value != null) "" else profile.phone, onDismiss = { sending = null }) { home ->
+            RxNet.sendLab(rx.id, o.lab.id, chosen.toList(), home)
+            sending = null
+            onSent(o.lab.name)
+        }
+    }
 }
 
 /** রিপোর্ট: ফলের তালিকা (বেশি/কম চিহ্নসহ), নোট, ছবি */
@@ -1391,15 +1471,30 @@ fun LabContent(profile: Profile) {
                     tr("Know a diagnostic centre? Ask them to join with + at the top.", "কোনো ডায়াগনস্টিক সেন্টার চিনলে উপরের + দিয়ে যোগ হতে বলুন।"), Modifier.fillMaxWidth().padding(top = 24.dp))
             }
             else -> items(l, key = { it.id }) { lab ->
+                val p = lab.prices
+                val from = p?.items?.minOfOrNull { it.price }
                 DirectoryCard(
                     title = lab.name,
                     icon = R.drawable.ic_local_hospital,
                     subtitle = if (lab.homeCollection) tr("Sample from home", "বাসা থেকে নমুনা নেয়") else null,
-                    details = listOf(R.drawable.ic_location_on to lab.address, R.drawable.ic_schedule to lab.hours),
+                    details = listOf(
+                        R.drawable.ic_location_on to lab.address, R.drawable.ic_schedule to lab.hours,
+                        R.drawable.ic_payments to if (p != null && from != null) {
+                            tr("${p.items.size} tests · from ${LabPriceText.taka(from)}", "${num(p.items.size)}টা পরীক্ষার দাম · ${LabPriceText.taka(from)} থেকে") +
+                                LabPriceText.discount(p.discountPct).let { if (it.isBlank()) "" else " · $it" }
+                        } else "",
+                    ),
                     primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) { callPhone(context, lab.phone) },
                     sections = listOf(
                         DetailSection(tr("Address", "ঠিকানা"), listOf(R.drawable.ic_location_on to listOf(lab.address, Areas.label(lab.district, lab.upazilaId)).filter { it.isNotBlank() }.joinToString(", "))),
                         DetailSection(tr("Hours", "সময়"), listOf(R.drawable.ic_schedule to lab.hours, R.drawable.ic_home_health to if (lab.homeCollection) tr("Collects samples from home", "বাসা থেকে নমুনা নেয়") else "")),
+                        // পরীক্ষা ও দাম (সব চালু পরীক্ষা), ছাড়, বাসার চার্জ — তালিকা না থাকলে "দাম জানা নেই"
+                        DetailSection(
+                            tr("Tests & prices", "পরীক্ষা ও দাম"),
+                            if (p != null) listOf(R.drawable.ic_payments to LabPriceText.discount(p.discountPct), R.drawable.ic_home_health to if (lab.homeCollection) LabPriceText.homeFee(p.homeFee) else "")
+                            else listOf(R.drawable.ic_call to LabPriceText.noPrice()),
+                            rows = p?.items?.map { DetailRow(it.name, LabPriceText.taka(it.price), if (it.tat.isNotBlank()) tr("Report: ", "রিপোর্ট: ") + it.tat else "") }.orEmpty(),
+                        ),
                         DetailSection(tr("Tests from a prescription", "প্রেসক্রিপশনের পরীক্ষা"), listOf(R.drawable.ic_medication to tr("Open your prescription and tap \"Send tests to a lab\".", "আপনার প্রেসক্রিপশন খুলে \"পরীক্ষা করাতে পাঠান\" চাপুন।"))),
                     ),
                 )
@@ -1424,6 +1519,9 @@ fun MyLabPanel(profile: Profile) {
     var entering by remember { mutableStateOf<LabOrder?>(null) }
     var viewing by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf<LabOrder?>(null) }
+    var declining by remember { mutableStateOf<LabOrder?>(null) }
+    val context = LocalContext.current
     LaunchedEffect(reload) {
         runCatching { RxNet.labMine() }.onSuccess { lab = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
@@ -1468,6 +1566,8 @@ fun MyLabPanel(profile: Profile) {
                     Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(tr("Tests", "পরীক্ষা"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            // পরীক্ষা ও দাম বসানো ওয়েবে (বসে করার কাজ)
+                            SmallAction(tr("Set prices on the web", "দাম বসাতে ওয়েবে খুলুন"), R.drawable.ic_payments, { openUrl(context, ServerApi.BASE_URL + "/work/lab/orders/prices") })
                             SmallNote(tr("Patient came with a paper prescription? Enter the code under the QR.", "রোগী কাগজের প্রেসক্রিপশন নিয়ে এলে QR-এর নিচের কোড দিন।"))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
@@ -1496,6 +1596,25 @@ fun MyLabPanel(profile: Profile) {
                                         "reported" -> SmallAction(tr("View", "দেখুন"), null, { viewing = o.id })
                                     }
                                 }
+                                // বাসা থেকে নমুনা: ঠিকানা, ফোন, চাওয়া/নিশ্চিত সময় — সময় নিশ্চিত, বা যেতে পারব না
+                                val h = o.home
+                                if (h != null && o.status in setOf("sent", "received")) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        IconLine(R.drawable.ic_home_health, LabPriceText.homeLineLab(h), if (h.status == "requested") cs.primary else cs.onSurfaceVariant)
+                                        if (h.status != "declined") {
+                                            if (h.address.isNotBlank()) IconLine(R.drawable.ic_location_on, h.address)
+                                            if (h.phone.isNotBlank()) SmallAction(num(h.phone), R.drawable.ic_call, { callPhone(context, h.phone) })
+                                            if (h.note.isNotBlank()) SmallNote(h.note)
+                                        }
+                                        if (o.status == "sent" && h.status != "declined") {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                SmallAction(if (h.status == "confirmed") tr("Change time", "সময় বদলান") else tr("Confirm time", "সময় নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = o }, primary = h.status != "confirmed")
+                                                SmallAction(tr("Can't go", "যেতে পারব না"), R.drawable.ic_close, { declining = o })
+                                            }
+                                        }
+                                    }
+                                }
+                                if (o.prices != null && o.status in setOf("sent", "received")) SmallNote(LabPriceText.snapLine(o.prices, o.home))
                             }
                         }
                     }
@@ -1504,6 +1623,8 @@ fun MyLabPanel(profile: Profile) {
         }
     }
     entering?.let { o -> LabReportEntryDialog(o, onDismiss = { entering = null }) { entering = null; infoMsg = tr("Report sent to the patient", "রোগীর কাছে রিপোর্ট গেছে"); reload++ } }
+    confirming?.let { o -> HomeConfirmDialog(o, onDismiss = { confirming = null }) { confirming = null; infoMsg = tr("The patient was told the time", "রোগীকে সময় জানানো হয়েছে"); reload++ } }
+    declining?.let { o -> HomeDeclineDialog(o, onDismiss = { declining = null }) { declining = null; infoMsg = tr("The patient was told", "রোগীকে জানানো হয়েছে"); reload++ } }
     viewing?.let { id -> LabReportDialog(id) { viewing = null } }
 }
 

@@ -1,6 +1,7 @@
 // ফার্মেসি আর প্যাথলজির কাজ (/work/pharmacy/orders, /work/lab/orders) — সার্ভারের আকার (server/lib/rxnet.js)
 // আর অ্যাপের লেখা (RxNet.kt-এর RxNetText, Prescriptions.kt-এর formShort)।
 import { num, tr } from '@/lib/i18n';
+import type { LabHome, PriceSnap } from '@/lib/labprice';
 
 // ---------- ফার্মেসি ----------
 export interface PharmMed {
@@ -90,7 +91,14 @@ export interface LabOrder {
   id: string; rxId: string; code: string; labId: string; labName: string; patientName: string; patientAge: number | null; patientGender: string;
   doctorName: string; tests: string[]; status: string; createdAt: number;
   report: { items: LabResult[]; note: string; reportedAt: number; photoCount: number; photos?: string[] } | null;
+  /** পাঠানোর সময়ের আনুমানিক দাম (দামের তালিকা থাকলে) */
+  prices?: PriceSnap | null;
+  /** বাসা থেকে নমুনা (চাইলে) */
+  home?: LabHome | null;
 }
+/** lab_prices_get — নিজের তালিকা (বন্ধগুলোসহ) */
+export interface LabPriceItem { code: string | null; name: string; price: number; tat: string; on: boolean }
+export interface LabPriceList { items: LabPriceItem[]; discountPct: number | null; homeFee: number | null; updatedAt: number; homeCollection: boolean }
 export interface HistoryPoint { result: string; unit?: string; flag: string; at: number; lab?: string }
 export interface FormParam { key: string; name: string; unit: string; low: number | null; high: number | null; range: string; text: string; options: string[]; long: boolean }
 export interface LabForm { test: string; code: string | null; name: string; params: FormParam[] }

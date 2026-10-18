@@ -68,8 +68,11 @@ data class CardStatus(val text: String, val good: Boolean)
 
 data class CardAction(val label: String, @DrawableRes val icon: Int?, val onClick: () -> Unit)
 
-/** বিস্তারিত শিটের এক ভাগ: শিরোনাম, আইকনসহ লাইন, আর দরকার হলে ভাগের নিজের বাটন (যেমন চেম্বারের সিরিয়াল) */
-data class DetailSection(val title: String, val lines: List<Pair<Int, String>>, val actions: List<CardAction> = emptyList())
+/** বিস্তারিত শিটের এক ভাগ: শিরোনাম, আইকনসহ লাইন, আর দরকার হলে ভাগের নিজের বাটন (যেমন চেম্বারের সিরিয়াল); rows: ছোট সারণি (প্যাথলজির পরীক্ষা ও দাম) */
+data class DetailSection(val title: String, val lines: List<Pair<Int, String>>, val actions: List<CardAction> = emptyList(), val rows: List<DetailRow> = emptyList())
+
+/** সারণির সারি: বাঁয়ে নাম (নিচে ছোট লেখা), ডানে মান */
+data class DetailRow(val name: String, val value: String, val sub: String = "")
 
 /** গোল ছবি; ছবি না থাকলে আইকন */
 @Composable
@@ -244,10 +247,21 @@ fun DetailSheet(
                 }
                 sections.forEach { sec ->
                     val lines = sec.lines.filter { it.second.isNotBlank() }
-                    if (lines.isEmpty() && sec.actions.isEmpty()) return@forEach
+                    if (lines.isEmpty() && sec.actions.isEmpty() && sec.rows.isEmpty()) return@forEach
                     HorizontalDivider(color = cs.outlineVariant)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(sec.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        sec.rows.forEachIndexed { i, r ->
+                            if (i > 0) HorizontalDivider(color = cs.outlineVariant.copy(alpha = 0.5f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(r.name, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+                                    if (r.sub.isNotBlank()) Text(r.sub, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Text(r.value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                         lines.forEach { (ic, text) ->
                             Row(verticalAlignment = Alignment.Top) {
                                 AppIcon(ic, null, Modifier.padding(top = 2.dp).size(18.dp), cs.onSurfaceVariant)

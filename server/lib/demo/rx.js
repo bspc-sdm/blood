@@ -8,7 +8,8 @@
 //  - আজকের সিরিয়াল (নিশ্চিত ১–৪, অপেক্ষায়, বাতিল), সামনের আর আগের অ্যাপয়েন্টমেন্ট; ডেমো রোগীর সব অবস্থার অ্যাপয়েন্টমেন্ট
 //  - আজকের সিরিয়াল চলছে (এখন ২ নম্বর, গড় ~৮ মিনিট), ৪ নম্বর রোগী ২০ মিনিট সময় চেয়েছেন (উত্তরের অপেক্ষায়)
 //  - প্রেসক্রিপশন (রোগীর, এন্ট্রি করা রোগীর, কাগজের — কোড দিয়ে যোগ করার জন্য, একটা বাতিল), ফার্মেসিতে পাঠানো/অনলাইন অর্ডার,
-//    "চেয়েও পাননি" তালিকা, স্টক, প্যাথলজিতে পরীক্ষা (নতুন, নমুনা নেওয়া, রিপোর্ট দেওয়া, বাতিল), রিপোর্ট দেখানোর অনুরোধ
+//    "চেয়েও পাননি" তালিকা, স্টক, প্যাথলজিতে পরীক্ষা (নতুন, নমুনা নেওয়া, রিপোর্ট দেওয়া, বাতিল, বাসা থেকে নমুনা — সময় নিশ্চিতের অপেক্ষায়),
+//    পাঠানোর সময়ের আনুমানিক দাম (services ভাগের labPrices থেকে), রিপোর্ট দেখানোর অনুরোধ
 // ফার্মেসি আর প্যাথলজির তালিকা (pharmacies/{uid}, labs/{uid}) services ভাগ বানায়; না পেলে (বা দরকারি ঘর না থাকলে) এখানে যোগ হয়।
 const crypto = require('crypto');
 const { db } = require('../firebase');
@@ -18,6 +19,7 @@ const K = require('../care');
 const P = require('../prescriptions');
 const RX = require('../rxnet');
 const LT = require('../labtests');
+const LP = require('../labprices');
 
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
@@ -108,9 +110,9 @@ module.exports = {
     // আগের ভাগগুলোর লেখা পড়া (ফার্মেসি/প্যাথলজির নাম, রোগীর ফোন) — ব্যাচ আগে পাঠিয়ে
     // ---------------------------------------------------------------
     await ctx.flush();
-    const [shopS, labS, stockS, missedS, patS, docS, asstS] = await db.getAll(
+    const [shopS, labS, stockS, missedS, patS, docS, asstS, priceS] = await db.getAll(
       db.doc(`pharmacies/${shopU.uid}`), db.doc(`labs/${labU.uid}`), db.doc(`pharmacyStock/${shopU.uid}`), db.doc(`pharmacyMissed/${shopU.uid}`),
-      db.doc(`users/${pat.uid}`), db.doc(`users/${doc.uid}`), db.doc(`users/${asst.uid}`),
+      db.doc(`users/${pat.uid}`), db.doc(`users/${doc.uid}`), db.doc(`users/${asst.uid}`), db.doc(`labPrices/${labU.uid}`),
     );
 
     // নিজেদের প্রোফাইল (blood ভাগ আগে লিখে থাকলে শুধু ফাঁকা ঘর)
@@ -452,6 +454,13 @@ module.exports = {
       medicines: [med('Fexo', 'Tablet', '120 mg', '0+0+1', 7, 'after'), med('Napa', 'Tablet', '500 mg', '1+1+1', 3, 'after', 'জ্বর থাকলে')],
       tests: ['RBS'], advice: 'গরম পানি খাবেন, বিশ্রাম নিন।',
     });
+    // বাসা থেকে নমুনার অনুরোধের প্রেসক্রিপশন (ফাতেমা — ডায়াবেটিস)
+    const rxF = await rx('fatema', {
+      p: bp.fatema, createdAt: now - 3 * 3600 * 1000, appointmentId: null, ci: null,
+      complaints: 'পায়ে জ্বালাপোড়া, পিপাসা বেশি', diagnosis: 'Type 2 DM (follow-up)',
+      medicines: [med('Comet', 'Tablet', '500 mg', '1+0+1', 30, 'after')], tests: ['HbA1c', 'FBS', 'Lipid profile'],
+      advice: 'খালি পেটে নমুনা দেবেন।',
+    });
     void rxC; void rxPaper;
 
     // ---------------------------------------------------------------
@@ -485,9 +494,16 @@ module.exports = {
     // ---------------------------------------------------------------
     // প্যাথলজি: পরীক্ষা আর রিপোর্ট, ডাক্তারের রিপোর্ট দেখা
     // ---------------------------------------------------------------
+    // চালু অর্ডারে পাঠানোর সময়ের দাম (rx_send_lab-এর মতো) — services ভাগের দামের তালিকা থেকে
+    await LT.load();
+    const labDoc = lab || { homeCollection: true };
+    const priceX = priceS.exists ? priceS.data() : null;
+    const est = (tests) => LP.snapshot(LP.estimate(tests, priceX, labDoc));
     const labOrder = (id, r, p, o) => set(`labOrders/${id}`, {
       rxId: r.id, code: r.code, labId: labU.uid, labName, patientUid: p.uid || null, patientName: r.patient.name, patientAge: r.patient.age,
       patientGender: r.patient.gender, doctorUid: doc.uid, doctorName: DOC_NAME, tests: o.tests, status: o.status, createdAt: o.createdAt,
+      ...(['sent', 'received'].includes(o.status) && est(o.tests) ? { prices: est(o.tests) } : {}),
+      ...(o.home ? { home: o.home } : {}),
       ...(o.report ? { report: { items: o.report, note: o.note || '', photos: [], reportedAt: o.reportedAt }, reportedAt: o.reportedAt } : {}),
       ...(o.updatedAt ? { updatedAt: o.updatedAt } : {}),
     });
@@ -544,6 +560,14 @@ module.exports = {
       report: [...reportRows('RBS', 'male', { glu: '6.8' }), ...reportRows('CBC', 'male', { hb: '14.1', esr: '12', wbc: '8.1', plt: '240' })],
     });
     await review('demo-rx-lab-karim', rxKarimOld, bp.karim, { tests: ['CBC', 'RBS'], status: 'unpaid', createdAt: at(d10, '19:00') + DAY });
+    // বাসা থেকে নমুনা — কাল সকাল ৭–৯, প্যাথলজি "সময় নিশ্চিত করুন" চাপবে (বা "বাসায় যেতে পারব না")
+    await labOrder('demo-rx-lab-fatema-home', rxF, bp.fatema, {
+      tests: ['HbA1c', 'FBS', 'Lipid profile'], status: 'sent', createdAt: now - 15 * MIN,
+      home: {
+        address: 'ডেমো বাসা ৫, স্কুল রোড, কাচিঝুলি, ময়মনসিংহ', phone: bp.fatema.phone, date: today + DAY, slot: 'early',
+        note: 'খালি পেটে থাকব', fee: priceX && Number.isInteger(priceX.homeFee) ? priceX.homeFee : null, status: 'requested', requestedAt: now - 15 * MIN,
+      },
+    });
     // ল্যাব বাতিল করেছে
     await labOrder('demo-rx-lab-nasima-usg', rxD, bp.nasima, { tests: ['USG of whole abdomen'], status: 'cancelled', createdAt: at(d2, '19:00'), updatedAt: at(d2, '19:00') + 3 * 3600 * 1000 });
 

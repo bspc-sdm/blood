@@ -76,3 +76,9 @@
 }
 .services-stars button:hover { background: var(--primary-a12); }
 .services-stars svg { width: 32px; height: 32px; }
+
+/* প্যাথলজির পরীক্ষা ও দাম */
+.services-prices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.services-prices li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--outline-variant); min-width: 0; }
+.services-prices li:last-child { border-bottom: 0; }
+.services-prices li .col { min-width: 0; }
