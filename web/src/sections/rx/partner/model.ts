@@ -97,8 +97,10 @@ export interface LabOrder {
   home?: LabHome | null;
 }
 /** lab_prices_get — নিজের তালিকা (বন্ধগুলোসহ) */
-export interface LabPriceItem { code: string | null; name: string; price: number; tat: string; on: boolean }
-export interface LabPriceList { items: LabPriceItem[]; discountPct: number | null; homeFee: number | null; updatedAt: number; homeCollection: boolean }
+/** hidden: ছকে এখন লুকানো পরীক্ষা — রোগীরা দেখেন না; আবার সেভ করলে নাম দিয়ে নিজে লেখা হিসেবে থাকে */
+export interface LabPriceItem { code: string | null; name: string; price: number; tat: string; on: boolean; hidden?: boolean }
+/** kept: সেভের সময় লুকানো পরীক্ষা যেগুলো নিজে লেখা হিসেবে রাখা হলো (নাম) */
+export interface LabPriceList { items: LabPriceItem[]; discountPct: number | null; homeFee: number | null; updatedAt: number; homeCollection: boolean; kept?: string[] }
 export interface HistoryPoint { result: string; unit?: string; flag: string; at: number; lab?: string }
 export interface FormParam { key: string; name: string; unit: string; low: number | null; high: number | null; range: string; text: string; options: string[]; long: boolean }
 export interface LabForm { test: string; code: string | null; name: string; params: FormParam[] }

@@ -13,9 +13,9 @@ import { taka } from '@/lib/labprice';
 import { Panel, useInvalidate, useWide } from './common';
 import { parseNum, type LabPriceItem, type LabPriceList, type TestDef } from './model';
 
-interface Row { id: number; code: string | null; name: string; price: string; tat: string; on: boolean }
+interface Row { id: number; code: string | null; name: string; price: string; tat: string; on: boolean; hidden?: boolean }
 let seq = 0;
-const rowOf = (i: LabPriceItem): Row => ({ id: ++seq, code: i.code, name: i.name, price: String(i.price), tat: i.tat || '', on: i.on !== false });
+const rowOf = (i: LabPriceItem): Row => ({ id: ++seq, code: i.code, name: i.name, price: String(i.price), tat: i.tat || '', on: i.on !== false, hidden: i.hidden === true });
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9ঀ-৿]+/g, ' ').trim();
 const TAT = () => [tr('30 minutes', '৩০ মিনিট'), tr('1 hour', '১ ঘণ্টা'), tr('Same day', 'একই দিন'), tr('24 hours', '২৪ ঘণ্টা'), tr('2 days', '২ দিন'), tr('3 days', '৩ দিন')];
 /** দাম: পূর্ণ সংখ্যা ১–২,০০,০০০ (বাংলা অঙ্ক চলে); খালি null, ভুল NaN */
@@ -81,12 +81,15 @@ function Editor({ data, tests }: { data: LabPriceList; tests: TestDef[] }) {
     setBusy(true);
     setErr(null);
     try {
-      await call<LabPriceList>('lab_prices_set', {
-        items: rows.map((r) => ({ ...(r.code ? { code: r.code } : { name: r.name }), price: priceOf(r.price), tat: r.tat.trim(), on: r.on })),
+      // ছকে লুকানো পরীক্ষা: কোডের সাথে নামও — সার্ভার নাম দিয়ে নিজে লেখা হিসেবে রাখে (সেভ আটকায় না)
+      const out = await call<LabPriceList>('lab_prices_set', {
+        items: rows.map((r) => ({ ...(r.code ? { code: r.code, ...(r.hidden ? { name: r.name } : {}) } : { name: r.name }), price: priceOf(r.price), tat: r.tat.trim(), on: r.on })),
         discountPct: d, homeFee: data.homeCollection ? h : null,
       });
       setDirty(false);
-      toast(tr('Saved — patients see these prices now', 'সেভ হয়েছে — রোগীরা এখন এই দাম দেখবেন'));
+      toast(out.kept?.length
+        ? tr(`Saved. ${out.kept.join(', ')} is no longer in the test list — kept as your own test`, `সেভ হয়েছে। ${out.kept.join(', ')} এখন পরীক্ষার ছকে নেই — নিজে লেখা পরীক্ষা হিসেবে রাখা হলো`)
+        : tr('Saved — patients see these prices now', 'সেভ হয়েছে — রোগীরা এখন এই দাম দেখবেন'));
       await invalidate('lab_prices_get');
     } catch (e) {
       setErr(errorText(e));
@@ -100,7 +103,9 @@ function Editor({ data, tests }: { data: LabPriceList; tests: TestDef[] }) {
   const nameCell = (r: Row) => (
     <div className="col gap-2">
       <span className={cx('semi', !r.on && 'muted')}>{r.name}</span>
-      {isBangla() && r.code && bn.get(r.code) ? <span className="t-body-s muted">{bn.get(r.code)}</span> : !r.code ? <span className="t-body-s muted">{tr('Own test', 'নিজে লেখা')}</span> : null}
+      {r.hidden ? (
+        <span className="t-body-s c-error">{tr('Removed from the test list — patients don\'t see it; save to keep it as your own test', 'পরীক্ষার ছক থেকে সরানো — রোগীরা দেখেন না; সেভ করলে নিজে লেখা হিসেবে থাকবে')}</span>
+      ) : isBangla() && r.code && bn.get(r.code) ? <span className="t-body-s muted">{bn.get(r.code)}</span> : !r.code ? <span className="t-body-s muted">{tr('Own test', 'নিজে লেখা')}</span> : null}
     </div>
   );
   const priceInput = (r: Row, i: number) => (

@@ -14,6 +14,8 @@ const PUBLIC_ACTIONS = new Set([
   'questions', 'question', 'tips',
   'providers', 'home_providers', 'hospitals',
   'ambulances', 'pharmacies', 'bloodbanks', 'labs',
+  // একটা প্যাথলজির পুরো পরীক্ষা ও দামের তালিকা (বিস্তারিত খুললে; labprices.js)
+  'lab_prices_public',
   'drug_search', 'catalog_get',
 ]);
 

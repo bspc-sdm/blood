@@ -3,7 +3,9 @@
 import { num, tr } from './i18n';
 import { formatDate, formatTimeHM, todayUtcMidnight } from './format';
 
-/** সবার দেখা দামের তালিকা (labs-এর prices) — শুধু চালু পরীক্ষা */
+/** এলাকার তালিকার সারাংশ (labs-এর prices): কয়টা পরীক্ষার দাম, সবচেয়ে কম দাম, ছাড়, বাসার চার্জ */
+export interface PriceSummary { count: number; from: number; discountPct: number | null; homeFee: number | null; updatedAt: number }
+/** একটা প্যাথলজির পুরো তালিকা (lab_prices_public, বিস্তারিত খুললে) — শুধু চালু পরীক্ষা */
 export interface PublicPrices {
   items: { code: string | null; name: string; price: number; tat: string }[];
   discountPct: number | null;
@@ -19,9 +21,12 @@ export interface PriceSnap {
   estimate: number;
 }
 export type Slot = 'early' | 'morning' | 'afternoon';
-/** অর্ডারের "বাসা থেকে" অংশ — ঠিকানা-ফোন শুধু রোগী আর (অর্ডার চালু থাকলে) সেই প্যাথলজি পান */
+/**
+ * অর্ডারের "বাসা থেকে" অংশ — ঠিকানা-ফোন শুধু রোগী আর (অর্ডার চালু থাকলে) সেই প্যাথলজি পান।
+ * expired: চাওয়া দিন-সময় পেরিয়ে গেছে, প্যাথলজি এখনো সময় জানায়নি (সার্ভার দেখানোর সময় হিসাব করে)।
+ */
 export interface LabHome {
-  status: 'requested' | 'confirmed' | 'declined';
+  status: 'requested' | 'confirmed' | 'declined' | 'expired';
   date: number; slot: Slot | ''; note: string; fee: number | null;
   visitDate: number; time: string; at: number; confirmNote: string; declineNote: string;
   address?: string; phone?: string;
@@ -63,6 +68,7 @@ export const visitText = (h: LabHome) => (h.time ? `${dayWord(h.visitDate || h.d
 export function homeStatusPatient(h: LabHome): string {
   if (h.status === 'confirmed') return tr(`Coming ${visitText(h)}`, `${visitText(h)} আসবে`);
   if (h.status === 'declined') return tr("Can't come home — give the sample at the lab", 'বাসায় আসবে না — প্যাথলজিতে গিয়ে নমুনা দিন');
+  if (h.status === 'expired') return tr(`Sample from home · ${wantedText(h)} — time has passed`, `বাসা থেকে নমুনা · ${wantedText(h)} — সময় পেরিয়ে গেছে`);
   return tr(`Sample from home · ${wantedText(h)} — waiting for the time`, `বাসা থেকে নমুনা · ${wantedText(h)} — সময় জানাবে`);
 }
 
@@ -74,6 +80,19 @@ export const discountText = (d: number | null | undefined) => (d ? tr(`${num(d)}
 export const homeFeeText = (fee: number | null | undefined) =>
   fee == null ? '' : fee === 0 ? tr('Sample from home: free', 'বাসা থেকে নমুনা: ফ্রি') : tr(`Sample from home: ${taka(fee)}`, `বাসা থেকে নমুনা: ${taka(fee)}`);
 export const NO_PRICE = () => tr('Price not known — ask on the phone', 'দাম জানা নেই — ফোনে জেনে নিন');
+/** "ECG দাম জানা নেই" — দামের তালিকায় না থাকা পরীক্ষা (হিসাবে ধরা হয়নি) */
+export const missingText = (m: string[]) => (m.length ? tr(`No price for ${m.join(', ')}`, `${m.join(', ')} দাম জানা নেই`) : '');
+/** প্যাথলজি বাছাইয়ের কার্ডে: "৩টার ২টা পরীক্ষা · আনুমানিক ৳১,২৫০" — একটাও না হলে দাম নয় (৳০ নয়) */
+export const coverEstimateText = (have: number, total: number, estimate: number | null) =>
+  [coverText(have, total), estimate != null ? estimateText(estimate) : ''].filter(Boolean).join(' · ');
+/** অর্ডারে রাখা দামের লাইন (রোগীর দিক): "আনুমানিক ৳২,৩৪০ (সব পরীক্ষায় ১০% ছাড়) + বাসা থেকে নমুনা: ৳১৫০ · ECG দাম জানা নেই" */
+export function snapText(p: PriceSnap, home?: LabHome | null): string {
+  return estimateText(p.estimate) + (p.discountPct ? ` (${discountText(p.discountPct)})` : '')
+    + (home?.fee != null && home.status !== 'declined' ? ` + ${homeFeeText(home.fee)}` : '')
+    + (p.missing.length ? ` · ${missingText(p.missing)}` : '');
+}
+/** বাসা থেকে নমুনার অনুরোধ রোগী বদলাতে/বাতিল করতে পারেন — প্যাথলজি সময় জানানোর আগে (সময় পেরিয়ে গেলেও) */
+export const homeEditable = (h: LabHome | null | undefined, orderStatus: string) => !!h && orderStatus === 'sent' && (h.status === 'requested' || h.status === 'expired');
 
 /** আজকের যে সময় পেরিয়ে গেছে (ঢাকার ঘড়িতে) */
 export function slotPassed(day: number, s: Slot): boolean {

@@ -121,15 +121,19 @@ test('প্যাথলজি: তালিকা, প্যাথলজির 
   // ---- পরীক্ষা ও দাম (ডেমো প্যাথলজির পুরো তালিকা; পেছনের প্যাথলজির আধা তালিকা, একটার নেই) ----
   const pub = (await ok(null, 'labs', { district: DISTRICT })).items;
   const byName = (n) => pub.find((x) => x.name === n);
-  const city = byName('ডেমো সিটি ডায়াগনস্টিক সেন্টার').prices;
-  assert.strictEqual(city.items.length, 17, '১৬টা ছকের পরীক্ষা + ১টা নিজে লেখা (USG বন্ধ)');
-  assert.deepStrictEqual([city.discountPct, city.homeFee], [10, 150]);
+  // এলাকার তালিকায় শুধু সারাংশ; পুরো তালিকা বিস্তারিতে (lab_prices_public, অতিথিও)
+  const sum = byName('ডেমো সিটি ডায়াগনস্টিক সেন্টার').prices;
+  assert.deepStrictEqual([sum.count, sum.discountPct, sum.homeFee], [17, 10, 150], '১৬টা ছকের পরীক্ষা + ১টা নিজে লেখা (USG বন্ধ)');
+  assert.strictEqual(sum.items, undefined, 'তালিকায় পুরো দামের তালিকা নেই');
+  const city = (await ok(null, 'lab_prices_public', { labId: byName('ডেমো সিটি ডায়াগনস্টিক সেন্টার').id })).prices;
+  assert.strictEqual(city.items.length, 17);
+  assert.strictEqual(sum.from, Math.min(...city.items.map((i) => i.price)));
   assert.ok(city.items.some((i) => i.name === 'Serum Vitamin B12' && i.code === null));
-  assert.ok(byName('ডেমো পপুলার প্যাথলজি').prices.items.length < 17);
+  assert.ok(byName('ডেমো পপুলার প্যাথলজি').prices.count < 17);
   assert.strictEqual(byName('ডেমো রয়েল ল্যাব').prices, null, 'তালিকা নেই — "দাম জানা নেই"');
   const own = await ok(LAB, 'lab_prices_get');
   assert.strictEqual(own.items.length, 18, 'মালিক বন্ধগুলোও দেখেন');
-  LOG(`পরীক্ষা ও দাম: সিটি ${city.items.length}টা (ছাড় ${city.discountPct}%, বাসা থেকে ৳${city.homeFee}), পপুলার ${byName('ডেমো পপুলার প্যাথলজি').prices.items.length}টা, রয়েল — তালিকা নেই`);
+  LOG(`পরীক্ষা ও দাম: সিটি ${city.items.length}টা (ছাড় ${city.discountPct}%, বাসা থেকে ৳${city.homeFee}), পপুলার ${byName('ডেমো পপুলার প্যাথলজি').prices.count}টা, রয়েল — তালিকা নেই`);
   const rx3 = await ok(DOC, 'rx_create', { appointmentId: apId, tests: ['CBC', 'HbA1c', 'TSH'] });
   const opt = (await ok(P, 'rx_lab_options', { rxId: rx3.id, district: DISTRICT })).items;
   LOG('রোগীর বাছাই (CBC, HbA1c, TSH):', opt.map((x) => `${x.name} ${x.priced ? `${x.have}/${x.total} ৳${x.estimate}` : 'দাম জানা নেই'}`).join(' · '));

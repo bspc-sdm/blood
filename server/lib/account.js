@@ -201,10 +201,9 @@ async function deleteNow(uid, email) {
       db.doc(`labs/${uid}`).delete(),
       // প্যাথলজির পরীক্ষা ও দামের তালিকা
       db.doc(`labPrices/${uid}`).delete(),
-      // নিজের প্যাথলজিতে আসা অর্ডারে রোগীর বাসার ঠিকানা-ফোন (অর্ডার রোগীর কাছে থাকে, প্যাথলজি আর নেই)
-      db.collection('labOrders').where('labId', '==', uid).limit(500).get().then((s) => Promise.all(s.docs
-        .filter((d) => d.get('home.address') || d.get('home.phone'))
-        .map((d) => d.ref.update({ 'home.address': FieldValue.delete(), 'home.phone': FieldValue.delete() }).catch(() => {})))),
+      // নিজের প্যাথলজিতে আসা সব অর্ডারে রোগীর বাসার ঠিকানা-ফোন (অর্ডার রোগীর কাছে থাকে, প্যাথলজি আর নেই) —
+      // আগে চালুগুলো, তারপর বাকি সব, পাতায় পাতায় শেষ পর্যন্ত (labprices.js stripHomes)
+      require('./labprices').stripHomes(uid).catch((e) => console.error('lab home strip failed', e.message)),
       db.doc(`pharmacyStock/${uid}`).delete(),
       db.doc(`pharmacyMissed/${uid}`).delete(),
       // দোকানের পণ্য আর হিসাব-খাতা (কেনা, বিক্রি, দিনের যোগফল)

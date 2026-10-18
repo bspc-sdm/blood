@@ -31,7 +31,9 @@ export function homeLabTag(o: LabOrder) {
   return (
     <span className="lp-home-tag">
       <Icon name="home_health" />
-      {h.status === 'confirmed' ? tr(`From home · ${visitText(h)}`, `বাসা থেকে · ${visitText(h)}`) : tr(`From home · ${wantedText(h)}`, `বাসা থেকে · ${wantedText(h)}`)}
+      {h.status === 'confirmed'
+        ? tr(`From home · ${visitText(h)}`, `বাসা থেকে · ${visitText(h)}`)
+        : tr(`From home · ${wantedText(h)}`, `বাসা থেকে · ${wantedText(h)}`) + (h.status === 'expired' ? tr(' — time has passed', ' — সময় পেরিয়ে গেছে') : '')}
     </span>
   );
 }
@@ -121,7 +123,7 @@ function OrderView({ o }: { o: LabOrder }) {
       </section>
 
       {h && active ? (
-        <Panel title={tr('Sample from home', 'বাসা থেকে নমুনা')} icon="home_health" actions={<Tag tone={h.status === 'confirmed' ? 'good' : h.status === 'declined' ? undefined : 'primary'}>{homeStatusLab(h)}</Tag>}>
+        <Panel title={tr('Sample from home', 'বাসা থেকে নমুনা')} icon="home_health" actions={<Tag tone={h.status === 'confirmed' ? 'good' : h.status === 'declined' || h.status === 'expired' ? undefined : 'primary'}>{homeStatusLab(h)}</Tag>}>
           {h.address ? <IconLine icon="location_on">{h.address}</IconLine> : null}
           {h.phone ? (
             <IconLine icon="call">
@@ -188,8 +190,10 @@ function OrderView({ o }: { o: LabOrder }) {
   );
 }
 
+/** expired: রোগীর চাওয়া সময় পেরিয়ে গেছে, এখনো সময় জানানো হয়নি — এখনো নিশ্চিত করা যায়, রোগীও বদলাতে পারেন */
 const homeStatusLab = (h: LabHome) =>
-  h.status === 'confirmed' ? tr('Time confirmed', 'সময় নিশ্চিত') : h.status === 'declined' ? tr('Not going', 'যাবেন না') : tr('Waiting for your time', 'সময় জানানো বাকি');
+  h.status === 'confirmed' ? tr('Time confirmed', 'সময় নিশ্চিত') : h.status === 'declined' ? tr('Not going', 'যাবেন না')
+    : h.status === 'expired' ? tr('Time has passed', 'সময় পেরিয়ে গেছে') : tr('Waiting for your time', 'সময় জানানো বাকি');
 
 /** পাঠানোর সময়ের আনুমানিক দাম: "আনুমানিক ৳২,৩৪০ · সব পরীক্ষায় ১০% ছাড় · দামের তালিকায় নেই: ECG" */
 export function PriceLine({ p }: { p: NonNullable<LabOrder['prices']> }) {

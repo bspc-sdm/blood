@@ -2,9 +2,9 @@
 // বাসা থেকে নমুনা), রিপোর্ট, ডাক্তারকে দেখানো —
 // অ্যাপের RxNet.kt: RxActivitySection, PharmacyPickDialog, OnlineOrderDialog, WithdrawDialog, LabPickDialog,
 // LabReportDialog/LabReportView, ReportReviewBox, PayDialog
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Action, Button, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
+import { Action, Button, ChoiceChips, ConfirmDialog, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
 import { AreaPicker, type AreaValue } from '@/ui/AreaPicker';
 import { call, errorText } from '@/lib/api';
 import { num, tr, useLang } from '@/lib/i18n';
@@ -13,7 +13,7 @@ import { areaLabel } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import {
-  NO_PRICE, SLOT_KEYS, coverText, dayWord, discountText, estimateText, homeFeeText, homeStatusPatient, slotPassed, slotText, taka,
+  NO_PRICE, SLOT_KEYS, coverEstimateText, dayWord, discountText, homeEditable, homeFeeText, homeStatusPatient, slotPassed, slotText, snapText, taka,
   type LabHome, type PriceSnap, type Slot,
 } from '@/lib/labprice';
 import { imgSrc, useFlash } from './common';
@@ -38,6 +38,18 @@ interface LabOption {
   subtotal: number | null; discountPct: number | null; estimate: number | null; homeFee: number | null; tat: string;
 }
 interface LastHome { address: string; phone: string }
+/** বাসা থেকে নমুনার অনুরোধ (rx_send_lab / lab_home_change-এর home): day ০ আজ, ১ কাল, ২ পরশু */
+interface HomeReq { address: string; phone: string; day: number; slot: Slot; note: string }
+
+/** মান বদলানোর পর ms পর্যন্ত থেমে থাকলে তবেই নতুন মান (পরীক্ষার চিপ টিপতে টিপতে প্রতিবার সার্ভার ডাকা নয়) */
+function useDebounced<T>(v: T, ms: number): T {
+  const [d, setD] = useState(v);
+  useEffect(() => {
+    const t = setTimeout(() => setD(v), ms);
+    return () => clearTimeout(t);
+  }, [v, ms]);
+  return d;
+}
 
 // ---------- লেখা (অ্যাপের RxNetText) ----------
 const payLabel = (m: string) => ({ bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket' })[m] ?? m;
@@ -102,6 +114,10 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
   const [pick, setPick] = useState<'shop' | 'online' | null>(null);
   const [withdrawing, setWithdrawing] = useState<RxOrder | null>(null);
   const [pickLab, setPickLab] = useState(false);
+  const [homeEdit, setHomeEdit] = useState<LabOrder | null>(null);
+  const [homeCancel, setHomeCancel] = useState<LabOrder | null>(null);
+  const [homeBusy, setHomeBusy] = useState(false);
+  const [homeErr, setHomeErr] = useState<string | null>(null);
   const [report, setReport] = useState<string | null>(null);
   const [paying, setPaying] = useState<RxReview | null>(null);
   const [serialBusy, setSerialBusy] = useState(false);
@@ -184,13 +200,19 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
                   <Tag tone={o.status === 'reported' ? 'good' : undefined}>{labStatus(o.status)}</Tag>
                 </div>
                 <span className="t-body-s muted">{o.tests.join(', ')}</span>
-                {o.prices && o.status !== 'cancelled' ? (
-                  <span className="t-body-s">{estimateText(o.prices.estimate) + (o.prices.discountPct ? ` (${discountText(o.prices.discountPct)})` : '') + (o.home?.fee != null && o.home.status !== 'declined' ? ` + ${homeFeeText(o.home.fee)}` : '')}</span>
-                ) : null}
+                {/* পাঠানোর সময়ের আনুমানিক দাম; তালিকায় না থাকা পরীক্ষা ("ECG দাম জানা নেই") */}
+                {o.prices && o.status !== 'cancelled' ? <span className="t-body-s">{snapText(o.prices, o.home)}</span> : null}
                 {o.home && ['sent', 'received'].includes(o.status) ? (
-                  <IconLine icon="home_health" color={o.home.status === 'declined' ? 'var(--error)' : o.home.status === 'confirmed' ? 'var(--primary)' : undefined}>{homeStatusPatient(o.home)}</IconLine>
+                  <IconLine icon="home_health" color={o.home.status === 'declined' || o.home.status === 'expired' ? 'var(--error)' : o.home.status === 'confirmed' ? 'var(--primary)' : undefined}>{homeStatusPatient(o.home)}</IconLine>
                 ) : null}
                 {o.home?.status === 'confirmed' && o.home.confirmNote && o.status === 'sent' ? <span className="t-body-s muted">{o.home.confirmNote}</span> : null}
+                {/* প্যাথলজি সময় জানানোর আগে (সময় পেরিয়ে গেলেও): সময় বদলানো, বা বাসা থেকে নয় — প্যাথলজিতে গিয়ে */}
+                {!cancelled && homeEditable(o.home, o.status) ? (
+                  <div className="row wrap gap-8">
+                    <Action primary={o.home?.status === 'expired'} icon="edit" onClick={() => setHomeEdit(o)}>{tr('Change time', 'সময় বদলান')}</Action>
+                    <Action icon="close" onClick={() => { setHomeErr(null); setHomeCancel(o); }}>{tr("I'll go to the lab", 'প্যাথলজিতে গিয়ে দেব')}</Action>
+                  </div>
+                ) : null}
                 {o.status === 'reported' ? (
                   <>
                     <div><Action primary icon="list_alt" onClick={() => setReport(o.id)}>{tr('See report', 'রিপোর্ট দেখুন')}</Action></div>
@@ -224,6 +246,44 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
             setWithdrawing(null);
             setInfo(tr('Taken back. You can send it to another pharmacy.', 'ফিরিয়ে নেওয়া হয়েছে। অন্য ফার্মেসিতে পাঠাতে পারেন।'));
             reload();
+          }}
+        />
+      ) : null}
+      {homeEdit?.home ? (
+        <LabSendDialog
+          title={homeEdit.labName}
+          change={homeEdit.home}
+          homeFee={homeEdit.home.fee}
+          last={null}
+          onClose={() => setHomeEdit(null)}
+          onSubmit={async (home) => {
+            await call('lab_home_change', { id: homeEdit.id, home });
+            setHomeEdit(null);
+            setInfo(tr('The lab was told the new time', 'প্যাথলজিকে নতুন সময় জানানো হয়েছে'));
+            reload();
+          }}
+        />
+      ) : null}
+      {homeCancel ? (
+        <ConfirmDialog
+          title={tr('No sample from home?', 'বাসা থেকে নমুনা লাগবে না?')}
+          text={tr('The tests stay with this lab — go there to give the sample. The lab will be told.', 'পরীক্ষা এই প্যাথলজিতেই থাকবে — সেখানে গিয়ে নমুনা দেবেন। প্যাথলজিকে জানানো হবে।')}
+          confirm={tr("I'll go to the lab", 'প্যাথলজিতে গিয়ে দেব')}
+          busy={homeBusy}
+          error={homeErr}
+          onClose={() => !homeBusy && setHomeCancel(null)}
+          onConfirm={async () => {
+            setHomeBusy(true);
+            setHomeErr(null);
+            try {
+              await call('lab_home_cancel', { id: homeCancel.id });
+              setHomeCancel(null);
+              setInfo(tr('The lab was told — go there to give the sample', 'প্যাথলজিকে জানানো হয়েছে — সেখানে গিয়ে নমুনা দিন'));
+              reload();
+            } catch (e) {
+              setHomeErr(errorText(e));
+            }
+            setHomeBusy(false);
           }}
         />
       ) : null}
@@ -574,13 +634,15 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [homeFor, setHomeFor] = useState<LabOption | null>(null);
+  // চিপ টিপতে টিপতে প্রতিবার নয় — থামার ৪৫০ মিলিসেকেন্ড পর (সার্ভারে দিনের সীমাও আছে)
+  const asked = useDebounced(chosen, 450);
   const q = useQuery({
-    queryKey: ['rx_lab_options', rx.id, area?.district, area?.upazilaId ?? null, chosen.join('|'), care?.uid ?? null],
+    queryKey: ['rx_lab_options', rx.id, area?.district, area?.upazilaId ?? null, asked.join('|'), care?.uid ?? null],
     queryFn: () =>
       call<{ items?: LabOption[]; lastHome?: LastHome | null }>('rx_lab_options', {
-        rxId: rx.id, district: area!.district, tests: chosen, ...(area?.upazilaId ? { upazilaId: area.upazilaId } : {}),
+        rxId: rx.id, district: area!.district, tests: asked, ...(area?.upazilaId ? { upazilaId: area.upazilaId } : {}),
       }),
-    enabled: !!area && chosen.length > 0,
+    enabled: !!area && asked.length > 0,
     placeholderData: (prev) => prev,
   });
   const testOptions = useMemo(() => (rx.tests ?? []).map((t) => ({ value: t, label: t })), [rx.tests]);
@@ -630,7 +692,7 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
               title={lab.name}
               icon="local_hospital"
               status={lab.suggested ? { text: tr('Doctor suggested', 'ডাক্তারের সুপারিশ'), good: true } : null}
-              subtitle={lab.priced ? `${coverText(lab.have ?? 0, lab.total)} · ${estimateText(lab.estimate ?? 0)}` : NO_PRICE()}
+              subtitle={lab.priced ? coverEstimateText(lab.have ?? 0, lab.total, lab.estimate) : NO_PRICE()}
               meta={lab.priced && lab.discountPct ? discountText(lab.discountPct) : null}
               details={[
                 ['warning', lab.priced && lab.missing.length ? tr('Not here: ', 'এখানে হয় না: ') + lab.missing.join(', ') : ''],
@@ -656,12 +718,13 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
       ) : null}
       {homeFor ? (
         <LabSendDialog
-          rx={rx}
-          lab={homeFor}
-          tests={chosen}
+          title={homeFor.name}
+          header={homeFor.priced ? <span className="t-body-m semi">{coverEstimateText(homeFor.have ?? 0, homeFor.total, homeFor.estimate)}</span> : <span className="t-body-s muted">{NO_PRICE()}</span>}
+          homeFee={homeFor.homeFee}
           last={q.data?.lastHome ?? null}
           onClose={() => setHomeFor(null)}
-          onSent={() => {
+          onSubmit={async (home) => {
+            await call('rx_send_lab', { rxId: rx.id, labId: homeFor.id, tests: chosen, ...(home ? { home } : {}) });
             const nm = homeFor.name;
             setHomeFor(null);
             onSent(nm);
@@ -672,31 +735,35 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
   );
 }
 
-/** বাসা থেকে নমুনা নেয় এমন প্যাথলজিতে পাঠানো: প্যাথলজিতে গিয়ে, অথবা বাসা থেকে (ঠিকানা, ফোন, দিন, সময়, নোট) */
-function LabSendDialog({ rx, lab, tests, last, onClose, onSent }: { rx: Rx; lab: LabOption; tests: string[]; last: LastHome | null; onClose: () => void; onSent: () => void }) {
+/**
+ * বাসা থেকে নমুনা নেয় এমন প্যাথলজিতে পাঠানো: প্যাথলজিতে গিয়ে, অথবা বাসা থেকে (ঠিকানা, ফোন, দিন, সময়, নোট)।
+ * change: পাঠানো অনুরোধের সময় বদল (প্যাথলজি সময় জানানোর আগে) — শুধু বাসার ঘরগুলো, আগেরটা বসানো।
+ */
+function LabSendDialog({ title, header, homeFee, last, change, onClose, onSubmit }: {
+  title: string; header?: ReactNode; homeFee: number | null; last: LastHome | null; change?: LabHome;
+  onClose: () => void; onSubmit: (home: HomeReq | null) => Promise<void>;
+}) {
   const s = useSession();
   const care = useCareMode();
+  const DAYMS = 24 * 60 * 60 * 1000;
+  const today = todayUtcMidnight();
+  const was = change ? Math.round((change.date - today) / DAYMS) : 1;
   const [how, setHow] = useState<'lab' | 'home'>('home');
-  const [address, setAddress] = useState(last?.address ?? '');
-  const [phone, setPhone] = useState(last?.phone || (care ? '' : s.profile?.phone ?? ''));
-  const [day, setDay] = useState(1);
-  const [slot, setSlot] = useState<Slot>('early');
-  const [note, setNote] = useState('');
+  const [address, setAddress] = useState(change?.address ?? last?.address ?? '');
+  const [phone, setPhone] = useState(change?.phone || last?.phone || (care ? '' : s.profile?.phone ?? ''));
+  // সময় পেরিয়ে যাওয়া অনুরোধ বদলালে কাল থেকে
+  const [day, setDay] = useState(change && change.status !== 'expired' && was >= 0 && was <= 2 ? was : 1);
+  const [slot, setSlot] = useState<Slot>(change && SLOT_KEYS.includes(change.slot as Slot) ? (change.slot as Slot) : 'early');
+  const [note, setNote] = useState(change?.note ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const slots = SLOT_KEYS.filter((k) => !slotPassed(day, k));
-  const home = how === 'home';
-  const DAYMS = 24 * 60 * 60 * 1000;
-  const today = todayUtcMidnight();
+  const home = !!change || how === 'home';
   async function send() {
     setBusy(true);
     setErr(null);
     try {
-      await call('rx_send_lab', {
-        rxId: rx.id, labId: lab.id, tests,
-        ...(home ? { home: { address: address.trim(), phone: phone.trim(), day, slot: slots.includes(slot) ? slot : slots[0], note: note.trim() } } : {}),
-      });
-      onSent();
+      await onSubmit(home ? { address: address.trim(), phone: phone.trim(), day, slot: slots.includes(slot) ? slot : slots[0], note: note.trim() } : null);
     } catch (e) {
       setErr(errorText(e));
       setBusy(false);
@@ -705,28 +772,30 @@ function LabSendDialog({ rx, lab, tests, last, onClose, onSent }: { rx: Rx; lab:
   return (
     <Dialog
       onClose={() => !busy && onClose()}
-      title={lab.name}
+      title={change ? tr(`${title} — change the time`, `${title} — সময় বদলান`) : title}
       actions={
         <>
           <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
-          <Button busy={busy} icon="send" disabled={home && (!address.trim() || !phone.trim() || !slots.length)} onClick={send}>{tr('Send', 'পাঠান')}</Button>
+          <Button busy={busy} icon="send" disabled={home && (!address.trim() || !phone.trim() || !slots.length)} onClick={send}>{change ? tr('Change', 'বদলান') : tr('Send', 'পাঠান')}</Button>
         </>
       }
     >
-      {lab.priced ? <span className="t-body-m semi">{`${coverText(lab.have ?? 0, lab.total)} · ${estimateText(lab.estimate ?? 0)}`}</span> : <span className="t-body-s muted">{NO_PRICE()}</span>}
-      <div className="health-stack-chips">
-        <ChoiceChips
-          value={how}
-          onChange={setHow}
-          options={[
-            { value: 'home', label: tr('Come and take the sample from home', 'বাসা থেকে নমুনা নিতে আসবে') },
-            { value: 'lab', label: tr("I'll go to the lab", 'প্যাথলজিতে গিয়ে দেব') },
-          ]}
-        />
-      </div>
+      {header}
+      {!change ? (
+        <div className="health-stack-chips">
+          <ChoiceChips
+            value={how}
+            onChange={setHow}
+            options={[
+              { value: 'home', label: tr('Come and take the sample from home', 'বাসা থেকে নমুনা নিতে আসবে') },
+              { value: 'lab', label: tr("I'll go to the lab", 'প্যাথলজিতে গিয়ে দেব') },
+            ]}
+          />
+        </div>
+      ) : null}
       {home ? (
         <>
-          {lab.homeFee != null ? <IconLine icon="payments">{homeFeeText(lab.homeFee)}</IconLine> : null}
+          {homeFee != null ? <IconLine icon="payments">{homeFeeText(homeFee)}</IconLine> : null}
           <TextArea label={tr('Home address', 'বাসার ঠিকানা')} rows={2} maxLength={200} value={address} onChange={(e) => setAddress(e.target.value)} />
           <TextInput label={tr('Mobile number', 'মোবাইল নম্বর')} type="tel" inputMode="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} />
           <span className="t-label-l">{tr('When', 'কবে')}</span>

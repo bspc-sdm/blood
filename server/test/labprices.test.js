@@ -114,13 +114,19 @@ test('পরীক্ষা ও দাম, বাসা থেকে নমু�
   await call(L3, 'lab_prices_set', { items: [] });
   assert.ok(!F.store.has(`labPrices/${L3}`));
 
-  // ---------- ২. সবার দেখা তালিকা (অতিথিও): চালু পরীক্ষা, ছাড়, বাসার চার্জ ----------
+  // ---------- ২. সবার দেখা তালিকা (অতিথিও): এলাকার তালিকায় সারাংশ, বিস্তারিতে পুরো তালিকা ----------
   const pub = (await call(null, 'labs', { district: DIST })).items;
-  const p1 = pub.find((l) => l.id === L1).prices;
+  const s1 = pub.find((l) => l.id === L1).prices;
+  assert.deepStrictEqual(s1, { count: 4, from: 400, discountPct: 10, homeFee: 150, updatedAt: s1.updatedAt }, 'তালিকায় শুধু সারাংশ (বন্ধ ECG গোনা নয়)');
+  const p1 = (await call(null, 'lab_prices_public', { labId: L1 })).prices;
   assert.deepStrictEqual(p1.items.map((i) => [i.name, i.price]), [['CBC (Complete Blood Count)', 400], ['HbA1c', 1000], ['Lipid Profile', 1200], ['Serum Vitamin B12', 1800]], 'বন্ধ পরীক্ষা (ECG) দেখায় না');
   assert.deepStrictEqual([p1.discountPct, p1.homeFee], [10, 150]);
+  assert.deepStrictEqual((await call(X, 'lab_prices_public', { labId: L1 })).prices, p1, 'লগইন করা হলেও একই');
   assert.strictEqual(pub.find((l) => l.id === L2).prices.homeFee, null);
   assert.strictEqual(pub.find((l) => l.id === L3).prices, null, 'তালিকা নেই');
+  assert.strictEqual((await call(null, 'lab_prices_public', { labId: L3 })).prices, null);
+  await fails(null, 'lab_prices_public', { labId: L4 }, 404); // অপেক্ষার প্যাথলজি নয়
+  await fails(null, 'lab_prices_public', { labId: '../x' }, 404);
   assert.ok(!pub.some((l) => l.id === L4), 'অপেক্ষার প্যাথলজি নেই');
 
   // ---------- ৩. প্রেসক্রিপশন: কোথায় কয়টা হয়, কত — সাজানো ----------
@@ -274,4 +280,174 @@ test('পরীক্ষা ও দাম, বাসা থেকে নমু�
   await account.deletion.deleteNow(P, U.pat.email);
   assert.ok(![...F.store.entries()].some(([k, v]) => k.startsWith('labOrders/') && v.patientUid === P), 'রোগীর সব অর্ডার মুছেছে');
   assert.ok(![...F.store.values()].some((v) => JSON.stringify(v).includes(HOME)), 'ঠিকানা কোথাও নেই');
+});
+
+// পর্যালোচনার পর ঠিক করা (প্রতিটার জন্য আলাদা পরীক্ষা): বাংলা নাম, বাসার কথা নোটিফিকেশনে, সময় পেরোনো, রোগীর বদল/বাতিল,
+// একটাও না হলে দাম নয়, অবস্থার নিয়ম, অর্ডার ধরে ঠিকানা, লুকানো পরীক্ষা, সারাংশ/সীমা/শেষ ঠিকানা, প্যাথলজি সরানো, ডাক্তারের জায়গা।
+test('পর্যালোচনার পর: বাংলা নাম, বাসার অনুরোধ, অবস্থা, লুকানো পরীক্ষা, মোছা', async () => {
+  const LT = require(path.join(SERVER, 'lib/labtests'));
+  const RL = require(path.join(SERVER, 'lib/rules'));
+  const LIM = require(path.join(SERVER, 'lib/community')).LIMITS;
+  const V = {
+    doc: { uid: 'lqDoctor', email: 'doc@lq.test', name: 'ডা. পর্যালোচনা' },
+    pat: { uid: 'lqPatient', email: 'pat@lq.test', name: 'রোগী করিম', phone: '01711000501' },
+    cg: { uid: 'lqCaregiver', email: 'cg@lq.test', name: 'মেয়ে রিমা' },
+    other: { uid: 'lqOther', email: 'o@lq.test', name: 'অন্য' },
+    a: { uid: 'lqLabA', email: 'a@lq.test', name: 'আলফা ল্যাব' },
+    b: { uid: 'lqLabB', email: 'b@lq.test', name: 'বিটা ল্যাব' },
+    c: { uid: 'lqLabC', email: 'c@lq.test', name: 'ডাক্তারের বলা ল্যাব' },
+  };
+  const s = F.store;
+  for (const u of Object.values(V)) {
+    F.users.set(u.uid, { uid: u.uid, email: u.email, displayName: u.name });
+    s.set(`users/${u.uid}`, { name: u.name, phone: u.phone || '', lang: 'bn', fcmTokens: [] });
+  }
+  s.set(`badges/${V.doc.uid}`, { type: 'doctor', status: 'approved', regNo: 'A-778', name: V.doc.name });
+  s.set(`providers/${V.doc.uid}`, { type: 'doctor', name: V.doc.name, degrees: 'MBBS', specialties: ['medicine'], listed: true, chambers: [] });
+  const lab = (u, x = {}) => s.set(`labs/${u.uid}`, { name: u.name, status: 'approved', district: DIST, upazilaId: SADAR, address: 'চরপাড়া', phone: '01711000497', licenseNo: 'DGHS-Q', ownerUid: u.uid, ...x });
+  lab(V.a, { homeCollection: true });
+  lab(V.b);
+  lab(V.c, { facilityId: 'fac-lq-1' });
+  s.set(`careLinks/${V.pat.uid}_${V.cg.uid}`, { patientUid: V.pat.uid, caretakerUid: V.cg.uid, status: 'active' });
+  const PT = V.pat.uid, DR = V.doc.uid, A = V.a.uid, B = V.b.uid, CGq = V.cg.uid, XO = V.other.uid;
+  clearCache();
+
+  // ---------- ১. বাংলা নিজে লেখা নাম: দুটো আলাদা বাংলা পরীক্ষা "দুবার" নয়; যতিচিহ্নে আলাদা হলেও একই; খালি নাম নয় ----------
+  await call(A, 'lab_prices_set', { items: [{ name: 'রক্তের গ্রুপ', price: 150 }, { name: 'প্রস্রাবের পরীক্ষা', price: 200 }, { code: 'ecg', price: 300 }], homeFee: 100 });
+  await fails(A, 'lab_prices_set', { items: [{ name: 'রক্তের গ্রুপ', price: 150 }, { name: 'রক্তের-গ্রুপ!', price: 100 }] }, 400);
+  await fails(A, 'lab_prices_set', { items: [{ name: '— ?', price: 10 }] }, 400);
+  await call(B, 'lab_prices_set', { items: [{ code: 'cbc', price: 350 }, { code: 'tsh', price: 800 }] });
+
+  const ptd = (await call(DR, 'rx_patient_add', { name: V.pat.name, age: 40, gender: 'male', phone: V.pat.phone })).patient;
+  const mk = async (tests, extra = {}) => {
+    const r = await call(DR, 'rx_create', { rxPatientId: ptd.id, tests, ...extra });
+    await call(PT, 'rx_claim', { code: r.code, phone: V.pat.phone });
+    return r;
+  };
+  const rxBn = await mk(['রক্তের গ্রুপ', 'ডেঙ্গু পরীক্ষা']);
+  let opt = await call(PT, 'rx_lab_options', { rxId: rxBn.id, district: DIST });
+  const oa = opt.items.find((l) => l.id === A);
+  assert.deepStrictEqual([oa.have, oa.total, oa.estimate, oa.missing], [1, 2, 150, ['ডেঙ্গু পরীক্ষা']], 'অন্য বাংলা নামের পরীক্ষার সাথে মেলে না');
+  assert.deepStrictEqual(oa.items.map((i) => i.name), ['রক্তের গ্রুপ']);
+
+  // ---------- ৩. একটাও না হলে দাম নয় (৳০ নয়), অর্ডারে কিছু রাখা হয় না; কিছু না হলে অর্ডারে কোনটা নেই ----------
+  const ob = opt.items.find((l) => l.id === B);
+  assert.deepStrictEqual([ob.priced, ob.have, ob.estimate, ob.subtotal, ob.missing], [true, 0, null, null, ['রক্তের গ্রুপ', 'ডেঙ্গু পরীক্ষা']]);
+  const toB = await call(PT, 'rx_send_lab', { rxId: rxBn.id, labId: B });
+  assert.ok(!('prices' in F.store.get(`labOrders/${toB.id}`)), 'একটাও না হলে অর্ডারে দাম নেই');
+  const toA = await call(PT, 'rx_send_lab', { rxId: rxBn.id, labId: A });
+  assert.deepStrictEqual([F.store.get(`labOrders/${toA.id}`).prices.estimate, F.store.get(`labOrders/${toA.id}`).prices.missing], [150, ['ডেঙ্গু পরীক্ষা']]);
+
+  // ---------- ৮. একই ছকের পরীক্ষা দুবার নয়; ডাক্তারের বলা প্যাথলজি সবার আগে ----------
+  const rxDup = await mk(['CBC', 'CBC with ESR', 'TSH'], { testPlaceId: 'fac-lq-1' });
+  opt = await call(PT, 'rx_lab_options', { rxId: rxDup.id, district: DIST, upazilaId: SADAR });
+  const od = opt.items.find((l) => l.id === B);
+  assert.deepStrictEqual([od.have, od.total, od.estimate, od.missing], [2, 2, 1150, []], 'CBC আর CBC with ESR একই — একবার');
+  assert.strictEqual(opt.items[0].id, V.c.uid, 'ডাক্তারের বলা জায়গা (দামের তালিকা না থাকলেও) আগে');
+  assert.strictEqual(opt.items[0].suggested, true);
+  assert.strictEqual(opt.items[0].total, 2);
+
+  // ---------- ৪. অবস্থার নিয়ম: বাতিল আবার খোলা যায় না ----------
+  await fails(B, 'lab_order_status', { id: toB.id, status: 'sent' }, 404);
+  await call(B, 'lab_order_status', { id: toB.id, status: 'cancelled' });
+  await fails(B, 'lab_order_status', { id: toB.id, status: 'received' }, 409);
+  await fails(B, 'lab_order_status', { id: toB.id, status: 'cancelled' }, 409);
+  await call(A, 'lab_order_status', { id: toA.id, status: 'received' });
+  await fails(A, 'lab_order_status', { id: toA.id, status: 'received' }, 409);
+  await call(A, 'lab_order_status', { id: toA.id, status: 'cancelled' });
+  await fails(A, 'lab_order_status', { id: toA.id, status: 'received' }, 409);
+
+  // ---------- ২. বাসা থেকে: নোটিফিকেশনে দরকারি কথা (ফোন নয়), শেষ ঠিকানা serverState-এ ----------
+  const ADDR = 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ';
+  const home = { address: ADDR, phone: V.pat.phone, day: 1, slot: 'morning', note: '' };
+  const rxH = await mk(['রক্তের গ্রুপ']);
+  const h1 = await call(PT, 'rx_send_lab', { rxId: rxH.id, labId: A, home });
+  const pb = lastPush(A);
+  assert.strictEqual(pb.body, `বাসা থেকে নমুনা · কাল সকাল ৯–১২ · চরপাড়া… · ${V.pat.name} · রক্তের গ্রুপ`, 'পুরোনো অ্যাপের প্যাথলজিও নোটিফিকেশনে দিন-সময়-এলাকা পান');
+  assert.ok(!pb.body.includes('01711000501') && !pb.body.includes('রোড ২'), 'ফোন আর পুরো ঠিকানা নোটিফিকেশনে নয়');
+  assert.deepStrictEqual(F.store.get(`serverState/${PT}`).labHome.address, ADDR);
+  // শেষ ঠিকানা অর্ডার খুঁজে নয়, রাখা জায়গা থেকে
+  F.store.set(`serverState/${PT}`, { ...F.store.get(`serverState/${PT}`), labHome: { address: 'নতুন ঠিকানা', phone: '01711000502', at: 1 } });
+  assert.deepStrictEqual((await call(PT, 'rx_lab_options', { rxId: rxH.id, district: DIST })).lastHome, { address: 'নতুন ঠিকানা', phone: '01711000502' });
+
+  // ---------- ২. সময় পেরিয়ে গেলে দুই দিকেই "expired"; রোগী সময় বদলান / বাতিল করেন ----------
+  const o1 = F.store.get(`labOrders/${h1.id}`);
+  F.store.set(`labOrders/${h1.id}`, { ...o1, home: { ...o1.home, date: today - DAY } });
+  assert.strictEqual((await call(A, 'lab_orders')).items.find((o) => o.id === h1.id).home.status, 'expired');
+  assert.strictEqual((await call(PT, 'rx_activity', { rxId: rxH.id })).labOrders[0].home.status, 'expired');
+  assert.strictEqual((await call(PT, 'lab_order_get', { id: h1.id })).item.home.status, 'expired');
+  await fails(XO, 'lab_home_change', { id: h1.id, home }, 404);
+  await fails(A, 'lab_home_change', { id: h1.id, home }, 404);
+  await fails(PT, 'lab_home_change', { id: h1.id, home: { ...home, slot: 'night' } }, 400);
+  await call(PT, 'lab_home_change', { id: h1.id, home: { ...home, day: 2, slot: 'afternoon', address: 'বাসা ৯, কাঁচিঝুলি' } });
+  let cur = (await call(A, 'lab_orders')).items.find((o) => o.id === h1.id).home;
+  assert.deepStrictEqual([cur.status, cur.date, cur.slot, cur.address, cur.fee], ['requested', today + 2 * DAY, 'afternoon', 'বাসা ৯, কাঁচিঝুলি', 100]);
+  assert.strictEqual(lastPush(A).title, 'রোগী বাসা থেকে নমুনার সময় বদলেছেন');
+  assert.match(lastPush(A).body, /^রোগী করিম · বাসা থেকে নমুনা · পরশু বিকেল ৩–৬ · কাঁচিঝুলি…$/);
+  // কেয়ারগিভার রোগীর হয়ে বাতিল করেন → সাধারণ পরীক্ষা (অর্ডার থাকে), ঠিকানা মোছে, প্যাথলজি জানে
+  await fails(CGq, 'lab_home_cancel', { id: h1.id }, 404);
+  await call(CGq, 'lab_home_cancel', { asUid: PT, id: h1.id });
+  const after = F.store.get(`labOrders/${h1.id}`);
+  assert.deepStrictEqual([after.status, after.home], ['sent', undefined]);
+  assert.strictEqual(lastPush(A).title, 'বাসায় যেতে হবে না — রোগী প্যাথলজিতে এসে নমুনা দেবেন');
+  await fails(PT, 'lab_home_cancel', { id: h1.id }, 404);
+  // প্যাথলজি সময় জানালে রোগী আর বদলাতে/বাতিল করতে পারেন না (ফোন করে)
+  const rxH2 = await mk(['প্রস্রাবের পরীক্ষা']);
+  const h2 = await call(PT, 'rx_send_lab', { rxId: rxH2.id, labId: A, home });
+  await call(A, 'lab_home_confirm', { id: h2.id, date: today + DAY, time: '09:30' });
+  await fails(PT, 'lab_home_change', { id: h2.id, home }, 409);
+  await fails(PT, 'lab_home_cancel', { id: h2.id }, 409);
+
+  // ---------- ৪. rx_activity: ঠিকানা অর্ডার ধরে (অর্ডারের রোগী), প্রেসক্রিপশনের মালিক দেখে নয় ----------
+  F.store.set('labOrders/lq-foreign', { ...F.store.get(`labOrders/${h2.id}`), patientUid: 'lqSomeoneElse', home: { ...F.store.get(`labOrders/${h2.id}`).home, address: 'অন্যের বাসা', phone: '01711000599' } });
+  const act = await call(PT, 'rx_activity', { rxId: rxH2.id });
+  assert.strictEqual(act.labOrders.find((o) => o.id === h2.id).home.address, ADDR);
+  const foreign = act.labOrders.find((o) => o.id === 'lq-foreign');
+  assert.ok(foreign && foreign.home.address === undefined && !leaks(act, 'অন্যের বাসা'), 'অন্যের পাঠানো অর্ডারের ঠিকানা নয়');
+  F.store.delete('labOrders/lq-foreign');
+
+  // ---------- ৫. ছকে লুকানো পরীক্ষা: সবার দেখায় নেই, সেভ আটকায় না (নিজে লেখা হিসেবে থাকে) ----------
+  assert.ok((await call(null, 'lab_prices_public', { labId: A })).prices.items.some((i) => i.code === 'ecg'));
+  const ecg = require(path.join(SERVER, 'lib/labtests-defaults.json')).find((t) => t.code === 'ecg');
+  F.store.set('config/labTests', { tests: [{ ...ecg, hidden: true }] });
+  await LT.load(Date.now() + 60 * 60 * 1000);
+  clearCache();
+  const hidPub = (await call(null, 'lab_prices_public', { labId: A })).prices;
+  assert.ok(!hidPub.items.some((i) => i.code === 'ecg'), 'লুকানো কোডের সারি সবার দেখায় নেই');
+  assert.strictEqual((await call(null, 'labs', { district: DIST })).items.find((l) => l.id === A).prices.count, 2);
+  assert.strictEqual((await call(A, 'lab_prices_get')).items.find((i) => i.code === 'ecg').hidden, true, 'মালিক দেখেন — লুকানো');
+  const kept = await call(A, 'lab_prices_set', { items: (await call(A, 'lab_prices_get')).items, homeFee: 100 });
+  assert.deepStrictEqual(kept.kept, ['ECG'], 'সেভ আটকায়নি, নাম দিয়ে রাখা');
+  assert.deepStrictEqual(kept.items.find((i) => i.name === 'ECG'), { code: null, name: 'ECG', price: 300, tat: '', on: true });
+  assert.ok((await call(null, 'lab_prices_public', { labId: A })).prices.items.some((i) => i.name === 'ECG' && i.code === null), 'নিজে লেখা হিসেবে রাখলে দেখায়');
+  F.store.delete('config/labTests');
+  await LT.load(Date.now() + 2 * 60 * 60 * 1000);
+  clearCache();
+
+  // ---------- ৬. সীমা: দিনের সীমা শেষ হলে rx_lab_options নয় ----------
+  const st = F.store.get(`serverState/${PT}`) || {};
+  F.store.set(`serverState/${PT}`, { ...st, rxPharmDay: RL.dhakaDayKey(), rxPharmCount: LIM.rxPharm });
+  await fails(PT, 'rx_lab_options', { rxId: rxH.id, district: DIST }, 429);
+  F.store.set(`serverState/${PT}`, st);
+
+  // ---------- ৭. প্যাথলজি সরানো: দামের তালিকা আর চালু অর্ডারের ঠিকানা মোছে ----------
+  assert.ok(F.store.has(`labPrices/${A}`) && F.store.get(`labOrders/${h2.id}`).home.address);
+  await call(A, 'lab_delete');
+  assert.ok(!F.store.has(`labPrices/${A}`), 'দামের তালিকা মুছেছে');
+  const h2doc = F.store.get(`labOrders/${h2.id}`);
+  assert.ok(h2doc.home.address === undefined && h2doc.home.phone === undefined && h2doc.home.status === 'confirmed', 'চালু অর্ডারে ঠিকানা-ফোন নেই');
+  await fails(null, 'lab_prices_public', { labId: A }, 404);
+
+  // ---------- ৭. অ্যাকাউন্ট মোছা: অনেক অর্ডার (এক পাতার বেশি) — সবগুলোর ঠিকানা মোছে, চালুগুলো আগে ----------
+  for (let i = 0; i < 700; i++) {
+    F.store.set(`labOrders/lq-bulk-${String(i).padStart(4, '0')}`, {
+      labId: B, patientUid: PT, rxId: rxDup.id, status: i % 50 === 0 ? 'sent' : 'reported', tests: ['CBC'], createdAt: i,
+      home: { address: `বাসা ${i}, চরপাড়া`, phone: '01711000501', status: 'requested', date: today, slot: 'early' },
+    });
+  }
+  await account.deletion.deleteNow(B, V.b.email);
+  const bulk = [...F.store.entries()].filter(([k]) => k.startsWith('labOrders/lq-bulk-'));
+  assert.strictEqual(bulk.length, 700);
+  assert.ok(bulk.every(([, v]) => v.home.address === undefined && v.home.phone === undefined), 'এক পাতার বেশি অর্ডারেও ঠিকানা নেই');
+  bulk.forEach(([k]) => F.store.delete(k));
 });

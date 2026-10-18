@@ -96,6 +96,16 @@ const ACTIVITY = {
           confirmNote: 'রাত ১০টার পর কিছু খাবেন না', declineNote: '', address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401',
         },
       },
+      // বাসা থেকে নমুনা — চাওয়া সময় পেরিয়ে গেছে (প্যাথলজি এখনো জানায়নি); ECG-র দাম তালিকায় নেই
+      {
+        id: 'l4', rxId: 'rx1', code: 'K7M2Q9XA4T', labId: 'lab3', labName: 'রয়েল ল্যাব', patientName: 'পারভেজ', patientAge: 34, patientGender: 'male', doctorName: DOCTOR.name,
+        tests: ['CBC', 'ECG'], status: 'sent', createdAt: now - 30 * H, report: null,
+        prices: { items: [{ test: 'CBC', name: 'CBC (Complete Blood Count)', price: 350, tat: 'একই দিন' }], missing: ['ECG'], subtotal: 350, discountPct: null, estimate: 350 },
+        home: {
+          status: 'expired', date: dhakaToday() - D, slot: 'morning', note: '', fee: 100, visitDate: 0, time: '', at: 0,
+          confirmNote: '', declineNote: '', address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401',
+        },
+      },
     ],
     reviews: [
       { id: 'l1', rxId: 'rx1', labOrderId: 'l1', doctorUid: 'd1', doctorName: DOCTOR.name, patientName: 'পারভেজ', labName: 'সিটি ডায়াগনস্টিক সেন্টার', tests: ['CBC', 'Lipid profile'], status: 'unpaid', fee: '৩০০ টাকা', noFee: false, payNumber: '01711000000', payMethods: ['bkash', 'nagad'], method: '', rejectNote: '', comment: '', createdAt: now - 6 * H, updatedAt: now - 6 * H },
@@ -143,6 +153,10 @@ const LAB_OPTIONS = [
   {
     id: 'lab3', name: 'রয়েল ল্যাব', phone: '01911000003', address: 'গাঙ্গিনারপাড়, ময়মনসিংহ', district: 'ময়মনসিংহ', upazilaId: null, facilityId: null, homeCollection: true, hours: 'সকাল ৮টা – রাত ৯টা',
     suggested: false, priced: false, have: null, total: 3, missing: [], subtotal: null, discountPct: null, estimate: null, homeFee: null, tat: '', items: [],
+  },
+  {
+    id: 'lab4', name: 'ত্রিশাল প্যাথলজি', phone: '01911000004', address: 'ত্রিশাল পৌরসভা', district: 'ময়মনসিংহ', upazilaId: null, facilityId: null, homeCollection: false, hours: 'সকাল ৮টা – সন্ধ্যা ৭টা',
+    suggested: false, priced: true, have: 0, total: 3, missing: ['CBC', 'Lipid profile', 'S. Creatinine'], subtotal: null, discountPct: null, estimate: null, homeFee: null, tat: '', items: [],
   },
 ];
 const LABS = [
@@ -194,6 +208,8 @@ export default {
   rx_send_lab: () => ({ id: 'l9' }),
   labs: () => ({ items: LABS }),
   rx_lab_options: () => ({ items: LAB_OPTIONS, lastHome: { address: 'বাসা ৭, রোড ২, চরপাড়া, ময়মনসিংহ', phone: '01711000401' } }),
+  lab_home_change: () => ({ ok: true }),
+  lab_home_cancel: () => ({ ok: true }),
   lab_order_get: () => LAB_REPORT,
   review_pay: () => ({ ok: true }),
 };

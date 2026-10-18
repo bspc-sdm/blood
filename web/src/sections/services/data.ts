@@ -5,7 +5,7 @@ import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDate, formatKm, formatTimeHM, timeAgo } from '@/lib/format';
 import { areaLabel } from '@/lib/geo';
-import { NO_PRICE, discountText, homeFeeText, taka, type PublicPrices } from '@/lib/labprice';
+import { NO_PRICE, discountText, homeFeeText, taka, type PriceSummary, type PublicPrices } from '@/lib/labprice';
 
 export type Kind = 'ambulance' | 'pharmacy' | 'bloodbank' | 'lab';
 export const KINDS: Kind[] = ['ambulance', 'pharmacy', 'bloodbank', 'lab'];
@@ -45,8 +45,8 @@ export interface BloodBank {
 export interface Lab {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; facilityId: string | null;
   homeCollection: boolean; hours: string;
-  /** পরীক্ষা ও দাম (চালু পরীক্ষা, ছাড়, বাসার চার্জ) — তালিকা না থাকলে null */
-  prices?: PublicPrices | null;
+  /** পরীক্ষা ও দামের সারাংশ (কয়টা, সবচেয়ে কম, ছাড়, বাসার চার্জ) — তালিকা না থাকলে null; পুরো তালিকা lab_prices_public */
+  prices?: PriceSummary | null;
 }
 export interface ListResult<T> { items: T[]; busy?: T[]; busyCount?: number }
 
@@ -192,23 +192,29 @@ export function bloodBankEntry(b: BloodBank, lists: Lists | null): Entry {
   };
 }
 
-export function labEntry(l: Lab): Entry {
+/**
+ * প্যাথলজি: কার্ডে সারাংশ ("১২টা পরীক্ষার দাম · ৳১৫০ থেকে"); বিস্তারিতে পুরো তালিকা — full: lab_prices_public-এর উত্তর
+ * (undefined = এখনো আসছে, null = তালিকা নেই)।
+ */
+export function labEntry(l: Lab, full?: PublicPrices | null): Entry {
   const p = l.prices ?? null;
-  const from = p ? Math.min(...p.items.map((i) => i.price)) : null;
+  const priceLines: Line[] = p
+    ? [['payments', discountText(p.discountPct)], ['home_health', l.homeCollection ? homeFeeText(p.homeFee) : ''], ['sync', full === undefined ? tr('Loading the price list…', 'দামের তালিকা আসছে…') : '']]
+    : [['call', NO_PRICE()]];
   return {
     id: l.id, kind: 'lab', title: l.name, icon: 'local_hospital',
     subtitle: l.homeCollection ? tr('Sample from home', 'বাসা থেকে নমুনা নেয়') : null,
     details: [
       ['location_on', l.address], ['schedule', l.hours],
-      ['payments', p ? tr(`${p.items.length} tests · from ${taka(from)}`, `${num(p.items.length)}টা পরীক্ষার দাম · ${taka(from)} থেকে`) + (p.discountPct ? ` · ${discountText(p.discountPct)}` : '') : ''],
+      ['payments', p ? tr(`${p.count} tests · from ${taka(p.from)}`, `${num(p.count)}টা পরীক্ষার দাম · ${taka(p.from)} থেকে`) + (p.discountPct ? ` · ${discountText(p.discountPct)}` : '') : ''],
     ],
     sections: [
       { title: tr('Address', 'ঠিকানা'), lines: [['location_on', join([l.address, areaLabel(l.district, l.upazilaId)], ', ')]] },
       { title: tr('Hours', 'সময়'), lines: [['schedule', l.hours], ['home_health', l.homeCollection ? tr('Collects samples from home', 'বাসা থেকে নমুনা নেয়') : '']] },
       {
         title: tr('Tests & prices', 'পরীক্ষা ও দাম'),
-        lines: p ? [['payments', discountText(p.discountPct)], ['home_health', l.homeCollection ? homeFeeText(p.homeFee) : '']] : [['call', NO_PRICE()]],
-        rows: p ? p.items.map((i) => ({ name: i.name, value: taka(i.price), sub: i.tat ? tr('Report: ', 'রিপোর্ট: ') + i.tat : '' })) : undefined,
+        lines: priceLines,
+        rows: p && full ? full.items.map((i) => ({ name: i.name, value: taka(i.price), sub: i.tat ? tr('Report: ', 'রিপোর্ট: ') + i.tat : '' })) : undefined,
       },
       {
         title: tr('Tests from a prescription', 'প্রেসক্রিপশনের পরীক্ষা'),

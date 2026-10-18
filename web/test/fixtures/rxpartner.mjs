@@ -148,6 +148,14 @@ let labOrders = [
       note: 'খালি পেটে থাকব', fee: 150, visitDate: 0, time: '', at: 0, confirmNote: '', declineNote: '', address: 'বাসা ১২, রোড ৩, কাচিঝুলি, ময়মনসিংহ', phone: '01712000345',
     },
   }),
+  // বাসা থেকে নমুনা — রোগীর চাওয়া সময় পেরিয়ে গেছে (সার্ভার 'expired' দেখায়)
+  lo({
+    id: 'lh2', code: 'P3XK7RM2QA', patientName: 'নাসরিন সুলতানা', patientAge: 45, patientGender: 'female', tests: ['RBS'], status: 'sent', createdAt: now - 26 * H,
+    home: {
+      status: 'expired', date: Date.UTC(new Date(now + 6 * H).getUTCFullYear(), new Date(now + 6 * H).getUTCMonth(), new Date(now + 6 * H).getUTCDate()) - D, slot: 'morning',
+      note: '', fee: 150, visitDate: 0, time: '', at: 0, confirmNote: '', declineNote: '', address: 'বাসা ৪, গোলকিবাড়ি রোড, ময়মনসিংহ', phone: '01712000346',
+    },
+  }),
   lo({ id: 'lo2', code: 'H4QW7ZK2MP', patientName: 'রহিমা খাতুন', patientAge: 58, patientGender: 'female', tests: ['Lipid Profile', 'HbA1c', 'Urine R/E'], status: 'received', createdAt: now - 3 * H }),
   lo({ id: 'lo3', code: 'Q7RM2XE5VB', patientName: 'তাসলিমা আক্তার', patientAge: 24, patientGender: 'female', tests: ['Dengue NS1', 'CBC'], status: 'sent', createdAt: now - 45 * M, doctorName: DOC2.name }),
   lo({ id: 'lo4', code: 'N5WC8KT3JH', patientName: 'আরিফুল ইসলাম', patientAge: 31, patientGender: 'male', tests: ['TSH', 'X-ray Chest P/A view', 'Vit B12 level'], status: 'received', createdAt: now - 1 * D }),
@@ -173,6 +181,8 @@ let prices = {
     { code: 'ecg', name: 'ECG', price: 400, tat: '৩০ মিনিট', on: true },
     { code: null, name: 'Serum Vitamin B12', price: 1800, tat: '৪৮ ঘণ্টা', on: true },
     { code: 'usg_abd', name: 'USG of Whole Abdomen', price: 1500, tat: 'একই দিন', on: false },
+    // ছকে এখন লুকানো পরীক্ষা (অ্যাডমিন সরিয়েছেন) — সেভ করলে নিজে লেখা হিসেবে থাকে
+    { code: 'esr', name: 'ESR', price: 150, tat: 'একই দিন', on: true, hidden: true },
   ],
   discountPct: 10, homeFee: 150, updatedAt: now - 5 * D, homeCollection: true,
 };
@@ -288,12 +298,15 @@ export default {
   labtests_get: () => ({ tests: TESTS }),
   lab_prices_get: () => prices,
   lab_prices_set: (b) => {
+    const kept = [];
     const items = (b.items || []).map((i) => {
+      // লুকানো কোড (esr) নাম দিয়ে নিজে লেখা হিসেবে
+      if (i.code === 'esr') { kept.push(i.name || 'ESR'); return { code: null, name: i.name || 'ESR', price: i.price, tat: i.tat || '', on: i.on !== false }; }
       const t = i.code ? TESTS.find((x) => x.code === i.code) : match(i.name);
       return { code: t ? t.code : null, name: t ? t.name : i.name, price: i.price, tat: i.tat || '', on: i.on !== false };
     });
     prices = { ...prices, items, discountPct: b.discountPct || null, homeFee: b.homeFee ?? null, updatedAt: Date.now() };
-    return prices;
+    return { ...prices, kept };
   },
   lab_home_confirm: (b) => {
     if (!/^\d\d:\d\d$/.test(String(b.time || ''))) return err(400, 'সময় বেছে নিন');
