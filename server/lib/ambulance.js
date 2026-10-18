@@ -1,6 +1,7 @@
 // অ্যাম্বুলেন্স: মালিক/চালক নিজের অ্যাম্বুলেন্স যোগ করেন, অ্যাডমিন যাচাই করে অনুমোদন দেন,
 // রোগীর লোকজন এলাকা দিয়ে খুঁজে সরাসরি ফোন করেন। টাকা অ্যাপে নেই।
 const { db, FieldValue, HttpError } = require('./firebase');
+const geo = require('./geo');
 const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
@@ -15,6 +16,29 @@ const RATE_WINDOW_MS = 7 * 24 * 3600 * 1000;
 const RATE_AFTER_MS = 60 * 60 * 1000;
 // "এখন খালি আছি" কতক্ষণ থাকে: চালক ভুলে গেলে বা কাজ ছেড়ে দিলে যেন তাঁর নম্বর সবার উপরে না থাকে
 const AVAILABLE_MS = 12 * 3600 * 1000;
+// "এখনো খালি আছেন?" — খালি থাকার মেয়াদ শেষ হওয়ার এই সময় আগে চালককে একবার মনে করানো
+const REMIND_BEFORE_MS = 60 * 60 * 1000;
+// মনে করানোর খোঁজ: তালিকা পড়ার সাথে (Hobby প্ল্যানে ঘন ঘন ক্রন নেই) — এক সার্ভারে ১০ মিনিটে একবারের বেশি নয়
+const REMIND_EVERY_MS = 10 * 60 * 1000;
+// গাড়ির জায়গা বেছে নেওয়া জেলার কেন্দ্র থেকে এর বেশি দূরে হলে ভুল ধরা হয়
+const BASE_MAX_KM = 80;
+
+/** বাংলাদেশের ভেতরের স্থানাঙ্ক (৩ দশমিক ≈ ১০০ মিটার), নইলে null */
+function point(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < 20.3 || lat > 26.8 || lng < 87.9 || lng > 92.8) return null;
+  return { lat: Math.round(lat * 1000) / 1000, lng: Math.round(lng * 1000) / 1000 };
+}
+
+/**
+ * গাড়ি কোথা থেকে চলে: চালক GPS দিয়ে জায়গা দিলে সেটা, নইলে জেলার কেন্দ্র (উপজেলার স্থানাঙ্ক আমাদের কাছে নেই)।
+ * exact = false হলে দূরত্ব আনুমানিক ("প্রায়")।
+ */
+function baseOf(x) {
+  if (typeof x.lat === 'number' && typeof x.lng === 'number') return { lat: x.lat, lng: x.lng, exact: true };
+  const d = DISTRICTS.find((y) => y.bn === x.district);
+  return d ? { lat: d.lat, lng: d.lng, exact: false } : null;
+}
 
 /** খালি কি না — শেষবার জানানোর ১২ ঘণ্টা পর নিজে থেকে "জানা নেই" */
 function availableNow(x, now = Date.now()) {
@@ -49,9 +73,11 @@ function view(d, mine = false) {
     available: availableNow(x),
     // ০ = এখন ট্রিপে; অন্যথায় শেষ জানানোর সময় (খালি না হলে "ফোনে জেনে নিন")
     availableAt: busyNow(x) ? 0 : x.availableAt || x.updatedAt || x.createdAt || 1,
+    // খালি থাকলে কখন পর্যন্ত (চালকের কার্ডে "আর ৪৫ মিনিট")
+    availableUntil: availableNow(x) ? (x.availableAt || x.updatedAt || x.createdAt || 0) + AVAILABLE_MS : 0,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
-    ...(mine ? { vehicleNo: x.vehicleNo, status: x.status, statusReason: x.statusReason || '' } : {}),
+    ...(mine ? { vehicleNo: x.vehicleNo, status: x.status, statusReason: x.statusReason || '', hasBase: typeof x.lat === 'number' } : {}),
   };
 }
 
@@ -76,6 +102,52 @@ async function withDocs(kind, d, v) {
   return { ...v, ...(await require('./verify').ownerInfo(kind, d.id, x).catch(() => ({}))), docsRequestNote: x.docsRequestNote || '' };
 }
 
+/**
+ * "এখনো খালি আছেন?": "খালি আছি"-র মেয়াদ (১২ ঘণ্টা) শেষ হওয়ার শেষ এক ঘণ্টায় থাকা গাড়ির মালিককে একবার পুশ।
+ * একবারই — ডকে reminderSentAt (এই খালি থাকার পালার availableAt-এর পরে হলে আর নয়); আবার চালু করলে নতুন পালা।
+ * কোয়েরি শুধু availableAt-এর range (এক ঘরের index নিজে থেকেই থাকে, আলাদা composite index লাগে না); বাকিটা কোডে ছাঁকা।
+ * কয়েকটা সার্ভার একসাথে পেলেও transaction দিয়ে একজনই পাঠায়। ফেরত: কয়টা গাড়ির জন্য পাঠানো হলো।
+ */
+async function remindAvailable(now = Date.now()) {
+  const snap = await db.collection('ambulances')
+    .where('availableAt', '>=', now - AVAILABLE_MS)
+    .where('availableAt', '<=', now - AVAILABLE_MS + REMIND_BEFORE_MS)
+    .limit(300).get();
+  const due = (x) => x.status === 'approved' && x.available === true && availableNow(x, now) && (x.reminderSentAt || 0) < x.availableAt;
+  const claimed = [];
+  for (const d of snap.docs.filter((y) => due(y.data()))) {
+    const ok = await db.runTransaction(async (t) => {
+      const s = await t.get(d.ref);
+      if (!s.exists || !due(s.data())) return false;
+      t.update(d.ref, { reminderSentAt: now });
+      return true;
+    }).catch(() => false);
+    if (ok) claimed.push(d);
+  }
+  if (!claimed.length) return 0;
+  const { sendPush, tokensOf } = require('./firebase');
+  const owners = [...new Set(claimed.map((d) => d.get('ownerUid')).filter(Boolean))];
+  if (!owners.length) return claimed.length;
+  const users = new Map((await db.getAll(...owners.map((u) => db.doc(`users/${u}`)))).filter((u) => u.exists).map((u) => [u.id, u]));
+  const items = claimed.filter((d) => users.has(d.get('ownerUid'))).map((d) => {
+    const u = users.get(d.get('ownerUid'));
+    const lang = u.get('lang');
+    return {
+      uid: u.id,
+      tokens: tokensOf(u),
+      title: R.L(lang, `${d.get('name')} — still available?`, `${d.get('name')} — এখনো খালি আছেন?`),
+      body: R.L(lang, 'If yes, open and tap "Keep available".', 'হ্যাঁ হলে খুলে "আবার চালু রাখুন" চাপুন।'),
+      // অ্যাপ/ওয়েব: "আমার কাজ" › আমার অ্যাম্বুলেন্স
+      data: { type: 'services', kind: 'ambulance', ambulanceId: d.id },
+    };
+  });
+  if (items.length) await sendPush(items);
+  return claimed.length;
+}
+
+// এই সার্ভারে শেষবার কখন খোঁজা হয়েছে (memcache-এ — পরীক্ষায় clear() দিলে আবার খোঁজে)
+const maybeRemind = () => require('./memcache').cached('ambulance:remind', REMIND_EVERY_MS, () => remindAvailable());
+
 function requireAdmin(req, user) {
   return require('./admin').isAdmin(user).then((ok) => {
     if (!ok) throw new HttpError(403, C.tr(req, 'Admins only', 'শুধু অ্যাডমিন'));
@@ -83,10 +155,16 @@ function requireAdmin(req, user) {
 }
 
 const actions = {
-  /** জেলার অনুমোদিত অ্যাম্বুলেন্স: খালি আগে, নিজের উপজেলার আগে, রেটিং বেশি আগে */
+  /**
+   * জেলার অনুমোদিত অ্যাম্বুলেন্স: খালি আগে, তারপর কাছেরটা আগে (lat/lng দিলে), নিজের উপজেলার আগে, রেটিং বেশি আগে।
+   * lat/lng: রোগীর লোকজনের এখনকার জায়গা (GPS), না দিলে অ্যাপ এলাকার কেন্দ্র পাঠায়; পুরোনো অ্যাপ কিছুই পাঠায় না → আগের সাজানো।
+   * nearestId: "সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন" বাটনের গাড়ি (ডেমো আর আসল আলাদা — আসল মানুষকে ডেমো গাড়ি নয়)।
+   */
   async ambulances(req, user) {
     const b = req.body || {};
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
+    // চালকদের "এখনো খালি আছেন?" — তালিকা পড়ার সাথে পাশাপাশি (অপেক্ষা যোগ হয় না বললেই চলে)
+    const remind = maybeRemind().catch((e) => console.error('ambulance remind failed', e.message));
     const snap = await db.collection('ambulances').where('district', '==', b.district).where('status', '==', 'approved').limit(300).get();
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং" বাটন থাকে)
@@ -101,12 +179,28 @@ const actions = {
     const busy = docs.filter((d) => busyNow(d.data(), now))
       .map((d) => ({ ...view(d), canRate: rateable.has(d.id), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
       .sort((a, c) => ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) || (a.busySince - c.busySince));
-    let items = docs.filter((d) => !busyNow(d.data(), now)).map((d) => ({ ...view(d), canRate: rateable.has(d.id) }));
-    items.sort((a, c) =>
+    const from = point(b.lat, b.lng);
+    const rows = docs.filter((d) => !busyNow(d.data(), now)).map((d) => {
+      const v = { ...view(d), canRate: rateable.has(d.id) };
+      const base = from ? baseOf(d.data()) : null;
+      if (base) {
+        v.km = Math.round(geo.distanceKm(from.lat, from.lng, base.lat, base.lng) * 10) / 10;
+        // গাড়ির জায়গা দেওয়া নেই — জেলার কেন্দ্র ধরে, তাই "প্রায়"
+        if (!base.exact) v.kmApprox = true;
+      }
+      return { v, owner: d.get('ownerUid') };
+    });
+    const sameUpazila = (x) => (upazilaId && x.upazilaId === upazilaId ? 1 : 0);
+    rows.sort(({ v: a }, { v: c }) =>
       (c.available - a.available) ||
-      ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) ||
+      (from ? (a.km ?? 9999) - (c.km ?? 9999) : 0) ||
+      (sameUpazila(c) - sameUpazila(a)) ||
       (c.rating - a.rating) || (c.ratingCount - a.ratingCount));
-    return { items, busyCount: busy.length, busy: busy.slice(0, 50) };
+    const items = rows.map((r) => r.v);
+    const uid = user && user.uid;
+    const nearest = rows.find((r) => r.v.available && r.owner !== uid && require('./demo').sameWorld(uid, r.owner));
+    await remind;
+    return { items, busyCount: busy.length, busy: busy.slice(0, 50), nearestId: nearest ? nearest.v.id : null };
   },
 
   async ambulance_mine(req, user) {
@@ -131,6 +225,12 @@ const actions = {
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err('Choose a district', 'জেলা বেছে নিন');
     const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
     if (b.termsAccepted !== true) throw err('Please accept the terms', 'শর্তে সম্মতি দিন');
+    // গাড়ির জায়গা (ঐচ্ছিক, ফোনের GPS) — "সবচেয়ে কাছের" খুঁজতে; না দিলে জেলার কেন্দ্র ধরা হয়
+    const base = point(b.lat, b.lng);
+    const dc = DISTRICTS.find((d) => d.bn === b.district);
+    if (base && geo.distanceKm(base.lat, base.lng, dc.lat, dc.lng) > BASE_MAX_KM) {
+      throw err('The vehicle location is outside the chosen district', 'গাড়ির জায়গা বেছে নেওয়া জেলার বাইরে');
+    }
     const data = {
       name,
       phone,
@@ -140,6 +240,7 @@ const actions = {
       upazilaId,
       area: K.str(b.area, 120),
       fare: K.str(b.fare, 120),
+      ...(base ? { lat: base.lat, lng: base.lng } : {}),
       updatedAt: Date.now(),
     };
     if (b.id) {
@@ -154,7 +255,12 @@ const actions = {
       const { changed, approvedName } = K.reviewNeeded(s, data, ['phone', 'vehicleNo', 'district']);
       // নতুন কাগজের ছবি দিলে (না দিলে আগেরগুলো থাকে)
       await require('./verify').saveDocs(req, 'ambulance', b.id, user.uid, { ...s.data(), ...data }, b.docs, false);
-      await ref.update({ ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}) });
+      // নতুন জায়গা না দিলে আগেরটা থাকে; জেলা বদলালে পুরোনো জায়গা আর খাটে না — মুছে জেলার কেন্দ্র
+      const dropBase = !base && typeof s.get('lat') === 'number' && s.get('district') !== data.district;
+      await ref.update({
+        ...data, ...(approvedName ? { approvedName } : {}), ...K.keepApproved(s, data, changed), ...(changed ? { status: 'pending' } : {}),
+        ...(dropBase ? { lat: FieldValue.delete(), lng: FieldValue.delete() } : {}),
+      });
       return { ok: true, pending: changed || s.get('status') === 'pending' };
     }
     // রিপোর্টের পর বন্ধ হওয়া গাড়ি মুছে আবার যোগ করা যায় না
@@ -261,4 +367,4 @@ const actions = {
   },
 };
 
-module.exports = { actions, TYPES };
+module.exports = { actions, TYPES, AVAILABLE_MS, remindAvailable };
