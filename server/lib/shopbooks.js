@@ -720,6 +720,27 @@ const actions = {
     return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.at - a.at).slice(0, 200).map(({ demo, ...x }) => x) };
   },
 
+  /**
+   * অ্যাপের ছোট "আজকের হিসাব" কার্ড (পুরো হিসাব শুধু ওয়েবে): আজকের বিক্রি, লাভ, কম স্টক আর ৬০ দিনে মেয়াদ শেষের সংখ্যা।
+   * priced = দাম বসানো কোনো পণ্য আছে কি না (না থাকলে অ্যাপ শুধু "ওয়েবে খুলুন" দেখায়)।
+   */
+  async books_today(req, user) {
+    await myShop(req, user);
+    const now = Date.now();
+    const [d, snap] = await Promise.all([dayRef(user.uid, dayKey(now)).get(), itemsCol(user.uid).limit(MAX_ITEMS).get()]);
+    const x = (d.exists && d.data()) || {};
+    let low = 0;
+    let expiring = 0;
+    let priced = false;
+    for (const s of snap.docs) {
+      const v = itemView(s.id, s.data(), new Set(), now);
+      if (v.low) low++;
+      if (v.expDays != null && v.expDays <= 60 && (v.qty == null || v.qty > 0)) expiring++;
+      if (v.price != null) priced = true;
+    }
+    return { sales: Math.round(x.sales || 0), net: r2(x.net || 0), profit: r2(x.profit || 0), writeOff: r2(x.writeOff || 0), low, expiring, priced };
+  },
+
   // ======================= হিসাব (লাভ-ক্ষতি) =======================
   async books_report(req, user) {
     await myShop(req, user);

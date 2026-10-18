@@ -286,6 +286,8 @@ test('হিসাব: জানা ডেটা থেকে বিক্রি
   assert.ok(t.expiring[0].expDays >= 19 && t.expiring[0].expDays <= 60);
   assert.deepStrictEqual(t.noSale.map((x) => x.name), ['Tofen'], '৩০ দিনে বিক্রি নেই (নতুনগুলো নয়)');
 
+  // অ্যাপের ছোট কার্ড: আজকের সংখ্যা
+  assert.deepStrictEqual(await ok(A, 'books_today'), { sales: 4, net: 129.11, profit: 28.11, writeOff: 9, low: 1, expiring: 1, priced: true });
   const w = await ok(A, 'books_report', { period: '7d' });
   assert.strictEqual(w.daily.length, 7);
   assert.deepStrictEqual([w.totals.sales, w.totals.net, w.totals.profit, w.totals.netProfit], [5, 157.11, 38.11, 29.11]);
@@ -313,6 +315,7 @@ test('শুধু দোকানের মালিক: অন্য কেউ
     assert.strictEqual((await call(U, action, body)).status, 403, action);
   }
   assert.strictEqual((await call(null, 'books_items')).status, 401, 'লগইন ছাড়া নয়');
+  assert.strictEqual((await call(U, 'books_today')).status, 403);
   // কেয়ারগিভার হয়েও নয়
   assert.strictEqual((await call(U, 'books_items', { asUid: A })).status, 403);
   // অন্য দোকান: নিজের খালি খাতা, অন্যেরটা বদলায় না
@@ -349,6 +352,8 @@ test('ডেমো: "ডেমো লাইফ ফার্মেসি"-র প
   const D = require(path.join(SERVER, 'lib/demo/books.js'));
 
   const items = (await ok(PH, 'books_items')).items;
+  const today = await ok(PH, 'books_today');
+  assert.deepStrictEqual([today.sales, today.net, today.profit, today.low, today.expiring, today.priced], [7, 1959, 395.15, 5, 2, true]);
   assert.strictEqual(items.length, D.ITEMS.length);
   assert.strictEqual(items.filter((i) => i.inStock).length, 24, 'স্টকের তালিকা সেবার ডেমোর মতো ২৪টা');
   assert.deepStrictEqual(items.filter((i) => !i.inStock).map((i) => i.name).sort(), ['Nexum 20', 'Thyrox 50']);
