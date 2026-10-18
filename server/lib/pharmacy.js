@@ -11,15 +11,22 @@ const { useQuota } = require('./community-db');
 const ADMIN_STATUSES = ['pending', 'approved', 'suspended', 'rejected'];
 
 // ---------- রেটিং (অ্যাম্বুলেন্স/বাসায় সেবার মতো; পারভেজ, ১৮ অক্টোবর ২০২৬) ----------
+// রেটিং দোকানের সেবার — ওষুধ কেমন কাজ করল তার নয় (ওষুধ দোকানদার বানান না)। তাই কয়েকটা দিক, প্রতিটা ১–৫ তারা:
+//   behaviour — ব্যবহার (সবাই);
+//   price     — ঠিক ওষুধ ও ন্যায্য দাম (প্রেসক্রিপশনে যা লেখা তা-ই দিয়েছে কি না) — শুধু যিনি এই দোকান থেকে কিনেছেন;
+//   delivery  — ডেলিভারির দ্রুততা — শুধু যাঁর এই দোকানে অনলাইন অর্ডার "দেওয়া হয়েছে" (done)।
 // কে দিতে পারেন: (১) অ্যাপ থেকে এই দোকানে ফোন করেছেন — প্রথম ফোনের ১ ঘণ্টা পর, শেষ ফোনের ৭ দিনের মধ্যে (অ্যাম্বুলেন্সের মতো);
 // (২) এই দোকানে পাঠানো প্রেসক্রিপশনের অর্ডার "দেওয়া হয়েছে" (done) হয়েছে, বা (৩) এই দোকান তাঁর প্রেসক্রিপশন থেকে ওষুধ দিয়েছে —
-// কেনার ৩০ দিনের মধ্যে (ওষুধ খেয়ে, দাম মিলিয়ে বোঝা যায়)। দোকানের মালিক নিজের দোকানে নয়; ডেমো আর আসল আলাদা।
-// একজন একটা দোকানে একটাই রেটিং (পরে বদলানো যায়) — pharmacyRatings/{uid}_{pharmacyId}: { uid, pharmacyId, rating, comment, ratedAt }
-// গড়: pharmacies/{id}.ratingSum / ratingCount (কার্ডের "★ ৪.৭ (৩১)" এখান থেকেই); সাম্প্রতিক ১০টা মন্তব্য pharmacyStats/{id}.recent
+// কেনার ৭ দিনের মধ্যে (সেবা মনে থাকতে থাকতে; ফোনের মতোই)। দোকানের মালিক নিজের দোকানে নয়; ডেমো আর আসল আলাদা।
+// একজন একটা দোকানে একটাই রেটিং (পরে বদলানো যায়) —
+//   pharmacyRatings/{uid}_{pharmacyId}: { uid, pharmacyId, rating (দিকগুলোর গড়, পূর্ণসংখ্যা), aspects: { behaviour: 4, ... }, comment, ratedAt }
+// গড়: pharmacies/{id}.ratingSum / ratingCount (কার্ডের "★ ৪.৭ (৩১)" এখান থেকেই — সব দিকের মিলিত রেটিং);
+// দিকভিত্তিক: pharmacies/{id}.aspects.{behaviour|price|delivery}.sum / count; সাম্প্রতিক ১০টা মন্তব্য pharmacyStats/{id}.recent
 const RATE_WINDOW_MS = 7 * 24 * 3600 * 1000;
 // ফোন চেপে সাথে সাথে কেটে রেটিং দেওয়া যায় না: প্রথম ফোনের অন্তত ১ ঘণ্টা পর
 const RATE_AFTER_MS = 60 * 60 * 1000;
-const BOUGHT_WINDOW_MS = 30 * 24 * 3600 * 1000;
+const BOUGHT_WINDOW_MS = 7 * 24 * 3600 * 1000;
+const ASPECTS = ['behaviour', 'price', 'delivery'];
 
 /** ফোনের রেকর্ড দিয়ে: 'ok' / 'wait' (১ ঘণ্টা হয়নি) / null */
 function callBasis(c, now) {
@@ -27,20 +34,57 @@ function callBasis(c, now) {
   return now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS ? 'ok' : 'wait';
 }
 
-/** কোন কোন দোকান থেকে গত ৩০ দিনে ওষুধ পেয়েছেন (অর্ডার সম্পন্ন বা প্রেসক্রিপশনে দেওয়া) */
+/**
+ * গত ৭ দিনে কোন দোকান থেকে ওষুধ পেয়েছেন (অর্ডার সম্পন্ন বা প্রেসক্রিপশনে দেওয়া) — দোকান → 'shop' / 'online'
+ * ('online' = অনলাইন অর্ডার সম্পন্ন — তখন ডেলিভারির রেটিংও)
+ */
 async function boughtFrom(uid, now = Date.now()) {
   const [orders, rxs] = await Promise.all([
     db.collection('rxOrders').where('patientUid', '==', uid).limit(200).get(),
     db.collection('prescriptions').where('patientUid', '==', uid).limit(200).get(),
   ]);
-  const out = new Set();
+  const out = new Map();
   orders.docs.forEach((o) => {
-    if (o.get('status') === 'done' && now - (o.get('doneAt') || o.get('updatedAt') || o.get('createdAt') || 0) <= BOUGHT_WINDOW_MS) out.add(o.get('pharmacyId'));
+    if (o.get('status') !== 'done' || now - (o.get('doneAt') || o.get('updatedAt') || o.get('createdAt') || 0) > BOUGHT_WINDOW_MS) return;
+    const id = o.get('pharmacyId');
+    if (o.get('mode') === 'online') out.set(id, 'online');
+    else if (!out.has(id)) out.set(id, 'shop');
   });
   rxs.docs.forEach((r) => (r.get('dispensed') || []).forEach((d) => {
-    if (d && d.by && now - (d.at || 0) <= BOUGHT_WINDOW_MS) out.add(d.by);
+    if (d && d.by && now - (d.at || 0) <= BOUGHT_WINDOW_MS && !out.has(d.by)) out.set(d.by, 'shop');
   }));
   return out;
+}
+
+/** কেনার ধরন থেকে কোন দিকগুলোতে রেটিং দেওয়া যায় */
+function aspectsFor(bought) {
+  if (bought === 'online') return ASPECTS.slice();
+  if (bought === 'shop') return ['behaviour', 'price'];
+  return ['behaviour'];
+}
+
+/** দোকানের দিকভিত্তিক গড়: { behaviour: { rating: 4.6, count: 10 }, ... } (যেগুলোতে অন্তত একটা রেটিং) */
+function aspectView(x) {
+  const a = (x && x.aspects) || {};
+  const out = {};
+  ASPECTS.forEach((k) => {
+    const n = (a[k] && a[k].count) || 0;
+    if (n > 0) out[k] = { rating: Math.round((a[k].sum / n) * 10) / 10, count: n };
+  });
+  return out;
+}
+
+/** আগের আর নতুন দিকের রেটিংয়ের পার্থক্য — pharmacies/{id}-এর update (aspects.behaviour.sum ইত্যাদি) */
+function aspectDelta(oldA, newA) {
+  const up = {};
+  ASPECTS.forEach((k) => {
+    const o = Number.isInteger(oldA && oldA[k]) ? oldA[k] : 0;
+    const n = Number.isInteger(newA && newA[k]) ? newA[k] : 0;
+    if (n - o) up[`aspects.${k}.sum`] = FieldValue.increment(n - o);
+    const dc = (n ? 1 : 0) - (o ? 1 : 0);
+    if (dc) up[`aspects.${k}.count`] = FieldValue.increment(dc);
+  });
+  return up;
 }
 
 /** দোকানের মালিক নিজে, বা ডেমো ↔ আসল — রেটিং নয় */
@@ -66,7 +110,10 @@ async function removeRatingsBy(uid) {
     const pid = d.get('pharmacyId');
     const r = d.get('rating');
     if (R.isValidId(pid) && Number.isInteger(r) && r > 0) {
-      await db.doc(`pharmacies/${pid}`).update({ ratingSum: FieldValue.increment(-r), ratingCount: FieldValue.increment(-1) }).catch(() => {});
+      // মিলিত গড়ের সাথে দিকভিত্তিক যোগফল/সংখ্যা থেকেও বাদ
+      await db.doc(`pharmacies/${pid}`).update({
+        ratingSum: FieldValue.increment(-r), ratingCount: FieldValue.increment(-1), ...aspectDelta(d.get('aspects'), null),
+      }).catch(() => {});
       await S.removeRecentRating('pharmacyStats', pid, uid);
     }
     await d.ref.delete();
@@ -74,16 +121,20 @@ async function removeRatingsBy(uid) {
   if (snap.size) require('./memcache').clear('pharm:');
 }
 
-/** তালিকার জন্য: কোন দোকানগুলোতে রেটিং দেওয়া যায় (অতিথি হলে খালি) */
+/** তালিকার জন্য: কোন দোকানে কোন কোন দিকে রেটিং দেওয়া যায় — দোকান → ['behaviour', ...] (অতিথি হলে খালি) */
 async function rateableFor(uid, ids, now = Date.now()) {
-  if (!uid || !ids.length) return new Set();
+  const out = new Map();
+  if (!uid || !ids.length) return out;
   const [calls, bought] = await Promise.all([
     db.collection('pharmacyCalls').where('uid', '==', uid).limit(200).get(),
     boughtFrom(uid, now),
   ]);
-  const ok = new Set(bought);
-  calls.docs.forEach((c) => { if (callBasis(c, now) === 'ok') ok.add(c.get('pharmacyId')); });
-  return new Set(ids.filter((id) => ok.has(id) && !cannotRate(uid, id)));
+  const called = new Set();
+  calls.docs.forEach((c) => { if (callBasis(c, now) === 'ok') called.add(c.get('pharmacyId')); });
+  ids.forEach((id) => {
+    if ((bought.has(id) || called.has(id)) && !cannotRate(uid, id)) out.set(id, aspectsFor(bought.get(id)));
+  });
+  return out;
 }
 
 function pharmacyView(d, mine = false) {
@@ -109,6 +160,8 @@ function pharmacyView(d, mine = false) {
     discount: x.discount || 0,
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
+    // দিকভিত্তিক গড় (বিস্তারিতে "ব্যবহার ★৪.৬ · ডেলিভারি ★৪.২")
+    aspects: aspectView(x),
     ...(mine ? { licenseNo: x.licenseNo, status: x.status, statusReason: x.statusReason || '', hasLocation: typeof x.lat === 'number' } : {}),
   };
 }
@@ -285,9 +338,9 @@ const actions = {
     // খোলা আগে, তারপর কাছেরটা। রেটিং ক্রমে নয় — নতুন দোকান পিছিয়ে পড়ে আর রেটিং সাজানো যায়; রেটিং কার্ডে দেখায়
     items.sort((a, c) => (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || a.name.localeCompare(c.name, 'bn'));
     items = items.slice(0, 100);
-    // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং দিন" বাটন থাকে) — অতিথির জন্য নয়
+    // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং দিন" বাটন থাকে) আর কোন দিকে — অতিথির জন্য নয়
     const rateable = await rateableFor(user && user.uid, items.map((p) => p.id));
-    return { items: items.map((p) => ({ ...p, canRate: rateable.has(p.id) })) };
+    return { items: items.map((p) => ({ ...p, canRate: rateable.has(p.id), rateAspects: rateable.get(p.id) || [] })) };
   },
 
   /** কেউ অ্যাপ থেকে ফোন করলে — মালিকের হিসাবের জন্য (একই মানুষ ১০ মিনিটে একবার); রেটিং/রিপোর্ট এর পরেই */
@@ -307,12 +360,25 @@ const actions = {
     return { ok: true };
   },
 
-  /** ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) */
+  /**
+   * ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) — দোকানের সেবার, দিকভিত্তিক:
+   * { id, aspects: { behaviour: 1-5, price?: 1-5, delivery?: 1-5 }, comment }। ব্যবহার লাগবেই; কোন দিক দেওয়া যায় তা সার্ভার ঠিক করে।
+   * পুরোনো অ্যাপ শুধু rating পাঠায় — তখন সেটা ব্যবহারের রেটিং।
+   */
   async pharmacy_rate(req, user) {
-    const { id } = req.body || {};
-    const rating = Number.isInteger(req.body?.rating) ? req.body.rating : 0;
-    if (!R.isValidId(id) || rating < 1 || rating > 5) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
-    const comment = K.str(req.body?.comment, 300);
+    const b = req.body || {};
+    const { id } = b;
+    const stars = (v) => Number.isInteger(v) && v >= 1 && v <= 5;
+    const given = b.aspects && typeof b.aspects === 'object' && !Array.isArray(b.aspects)
+      ? b.aspects : (b.rating !== undefined ? { behaviour: b.rating } : {});
+    const aspects = {};
+    for (const [k, v] of Object.entries(given)) {
+      if (v == null || v === 0) continue; // না দেওয়া দিক
+      if (!ASPECTS.includes(k) || !stars(v)) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
+      aspects[k] = v;
+    }
+    if (!R.isValidId(id) || !aspects.behaviour) throw new HttpError(400, C.tr(req, 'Rate the behaviour with 1 to 5 stars', 'ব্যবহারে ১ থেকে ৫ তারা দিন'));
+    const comment = K.str(b.comment, 300);
     const ref = db.doc(`pharmacies/${id}`);
     const rateRef = db.doc(`pharmacyRatings/${user.uid}_${id}`);
     const now = Date.now();
@@ -321,22 +387,37 @@ const actions = {
     if (!p.exists || !require('./demo').sameWorld(user.uid, id)) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
     if (cannotRate(user.uid, id, p)) throw new HttpError(403, C.tr(req, "You can't rate your own pharmacy", 'নিজের ফার্মেসিতে রেটিং দেওয়া যায় না'));
     const byCall = callBasis(c, now);
-    if (byCall !== 'ok' && !(await boughtFrom(user.uid, now)).has(id)) {
+    const bought = (await boughtFrom(user.uid, now)).get(id);
+    if (byCall !== 'ok' && !bought) {
       if (byCall === 'wait') throw new HttpError(403, C.tr(req, 'You can rate 1 hour after your first call', 'প্রথম ফোনের ১ ঘণ্টা পর রেটিং দিতে পারবেন'));
       throw new HttpError(403, C.tr(req, 'You can rate after calling this pharmacy from the app or getting medicines from it', 'অ্যাপ থেকে ফোন করার বা এই দোকান থেকে ওষুধ নেওয়ার পর রেটিং দিতে পারবেন'));
     }
+    // শুধু ফোন করেছেন — দাম/ডেলিভারি জানেন না; অনলাইন অর্ডার ছাড়া ডেলিভারি নয়
+    const allowed = aspectsFor(bought);
+    if (Object.keys(aspects).some((k) => !allowed.includes(k))) {
+      throw new HttpError(403, aspects.delivery && allowed.includes('price')
+        ? C.tr(req, 'You can rate delivery after an online order from this shop is delivered', 'এই দোকানের অনলাইন অর্ডার পৌঁছানোর পর ডেলিভারির রেটিং দেওয়া যায়')
+        : C.tr(req, 'You can rate price and delivery after getting medicines from this shop', 'এই দোকান থেকে ওষুধ নেওয়ার পর দাম ও ডেলিভারির রেটিং দেওয়া যায়'));
+    }
+    const vals = Object.values(aspects);
+    // মিলিত রেটিং = দেওয়া দিকগুলোর গড় (পূর্ণসংখ্যায়) — কার্ডের গড় এ দিয়েই
+    const rating = Math.round(vals.reduce((a, v) => a + v, 0) / vals.length);
     await db.runTransaction(async (t) => {
       const [r, shop] = await Promise.all([t.get(rateRef), t.get(ref)]);
       if (!shop.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const old = (r.exists && r.get('rating')) || 0;
-      t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });
-      t.set(rateRef, { uid: user.uid, pharmacyId: id, rating, comment, ratedAt: now, ...(r.exists ? {} : { firstRatedAt: now }) }, { merge: true });
+      // আগের রেটিংয়ের দিক (আগের রেটিংয়ে দিক না থাকলে কিছু নয় — তখন দিকের যোগফলে সেটা ছিলই না)
+      const oldAspects = (r.exists && r.get('aspects')) || null;
+      t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1), ...aspectDelta(oldAspects, aspects) });
+      // merge নয় — নইলে আগের দেওয়া দিক (যেমন ডেলিভারি) নতুন রেটিংয়ে না থাকলেও থেকে যেত
+      const firstRatedAt = (r.exists && (r.get('firstRatedAt') || r.get('ratedAt'))) || now;
+      t.set(rateRef, { uid: user.uid, pharmacyId: id, rating, aspects, comment, ratedAt: now, firstRatedAt });
     });
     // মালিকের হিসাবে সাম্প্রতিক ১০টা রেটিং (কে দিয়েছেন তা ছাড়া)
     await require('./sellerstats').addRecentRating('pharmacyStats', id, rating, comment, user.uid);
     // মেমোরির তালিকা নতুন করে, যাতে কার্ডে নতুন গড় সাথে সাথে দেখায়
     require('./memcache').clear('pharm:');
-    return { ok: true };
+    return { ok: true, rating };
   },
 
   /** দোকানের মালিক: অ্যাপ থেকে কতবার ফোন এসেছে, রেটিং, সাম্প্রতিক মন্তব্য, রিপোর্ট (অ্যাম্বুলেন্সের হিসাবের মতো) */
@@ -351,6 +432,7 @@ const actions = {
       ...require('./sellerstats').callSummary(s),
       rating: n ? Math.round((p.get('ratingSum') / n) * 10) / 10 : 0,
       ratingCount: n,
+      aspects: aspectView(p.exists ? p.data() : null),
       // কে দিয়েছেন তা দেখানো হয় না (রোগীর গোপনীয়তা)
       comments: ((s.exists && s.get('recent')) || []).slice().reverse().map(({ who, ...c }) => c),
       reports,
