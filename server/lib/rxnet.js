@@ -105,11 +105,12 @@ async function myPharmacy(req, user) {
   return s;
 }
 
-async function rxByCode(req, code) {
+async function rxByCode(req, code, uid) {
   const c = String(code || '').trim().toUpperCase().replace(/[\s-]/g, '');
   if (!P.CODE_RE.test(c)) throw err(req, 'Check the code on the prescription', 'প্রেসক্রিপশনের কোডটা দেখে লিখুন');
   const snap = await db.collection('prescriptions').where('code', '==', c).limit(1).get();
-  if (snap.empty) throw err(req, 'No prescription with this code', 'এই কোডের কোনো প্রেসক্রিপশন নেই', 404);
+  // ডেমো: ডেমো দোকান/প্যাথলজি আসল প্রেসক্রিপশন খুলতে পারে না, আসলরাও ডেমোর নয় (ডেমো মুছলে uid অংশ মুছবেন)
+  if (snap.empty || (uid && !require('./demo').sameWorld(uid, snap.docs[0].get('doctorUid')))) throw err(req, 'No prescription with this code', 'এই কোডের কোনো প্রেসক্রিপশন নেই', 404);
   return snap.docs[0];
 }
 
@@ -407,14 +408,14 @@ const actions = {
   async rx_pharmacy_open(req, user) {
     await myPharmacy(req, user);
     await useQuota(req, user.uid, 'rxPharm');
-    const d = await rxByCode(req, req.body?.code);
+    const d = await rxByCode(req, req.body?.code, user.uid);
     return { item: pharmacyRxView(d) };
   },
 
   /** ফার্মেসি: কত ওষুধ দিলেন (items: [{ i, qty }]) */
   async rx_dispense(req, user) {
     const shop = await myPharmacy(req, user);
-    const d0 = await rxByCode(req, req.body?.code);
+    const d0 = await rxByCode(req, req.body?.code, user.uid);
     const raw = Array.isArray(req.body?.items) ? req.body.items : [];
     const now = Date.now();
     const out = await db.runTransaction(async (t) => {
@@ -848,7 +849,7 @@ const actions = {
   async lab_open_code(req, user) {
     const lab = await myLab(req, user);
     await useQuota(req, user.uid, 'rxPharm');
-    const d = await rxByCode(req, req.body?.code);
+    const d = await rxByCode(req, req.body?.code, user.uid);
     const x = d.data();
     if (x.status !== 'active') throw err(req, 'This prescription was cancelled', 'এই প্রেসক্রিপশন বাতিল', 409);
     if (!(x.tests || []).length) throw err(req, 'No tests on this prescription', 'এই প্রেসক্রিপশনে কোনো পরীক্ষা নেই');
