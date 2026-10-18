@@ -58,7 +58,7 @@ async function dailyReminders(now = Date.now()) {
     const serial = d.get('serial') ? ` · #${d.get('serial')}` : '';
     out.push(msg(u.get(d.get('patientUid')), 'Appointment today', 'আজ অ্যাপয়েন্টমেন্ট আছে',
       `${d.get('providerName') || ''} · ${d.get('chamber') || ''}${serial}`,
-      `${d.get('providerName') || ''} · ${d.get('chamberBn') || d.get('chamber') || ''}${serial}`, { type: 'appointment', role: 'patient' }));
+      `${d.get('providerName') || ''} · ${d.get('chamberBn') || d.get('chamber') || ''}${R.bnNumbers(serial)}`, { type: 'appointment', role: 'patient' }));
   }
   // ডাক্তার/নার্স: আজ কতজন, আর কতগুলো অনুরোধ অপেক্ষায়
   const countBy = (docs) => docs.reduce((m, d) => m.set(d.get('providerUid'), (m.get(d.get('providerUid')) || 0) + 1), new Map());

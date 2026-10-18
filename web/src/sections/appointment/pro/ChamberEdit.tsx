@@ -8,7 +8,7 @@ import { call, errorText, ServerError } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { isBangla, num, toAsciiDigits, tr } from '@/lib/i18n';
-import { DISTRICTS, areaLabel, currentPosition, distanceKm, districtAt, districtLabel, upazila, upazilasOf } from '@/lib/geo';
+import { DISTRICTS, areaLabel, bnNorm, currentPosition, distanceKm, districtAt, districtLabel, upazila, upazilasOf } from '@/lib/geo';
 import {
   HOME_RADII, HOME_TYPES, MAX_CHAMBERS, MAX_CHAMBER_TIMES, WEEK_ORDER, chamberArea, chamberLabel, clash, dayShort, homeServiceLabel, homeServicesOf, parseProvider, slotsOf,
   specialtiesOf, specialtyLabel, withSlots, type Chamber, type ChamberTime, type HomeStats, type HomeVisit, type Provider,
@@ -484,7 +484,7 @@ function UpazilaPicker({ own, lat, lng, onPick, onClose }: { own: string; lat: n
     <Dialog onClose={onClose} title={tr('Upazila', 'উপজেলা')}>
       <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search', 'খুঁজুন')} aria-label={tr('Search', 'খুঁজুন')} />
       <div className="col gap-2 appt-pick-list">
-        {items.filter((u) => !t || u.bn.includes(q.trim()) || u.en.toLowerCase().includes(t)).map((u) => (
+        {items.filter((u) => !t || bnNorm(u.bn).includes(bnNorm(q.trim())) || u.en.toLowerCase().includes(t)).map((u) => (
           <ListRow key={u.id} title={label(u)} onClick={() => onPick(u.id)} trailing={<span />} />
         ))}
         {!items.length ? <p className="t-body-m muted" style={{ padding: 16 }}>{tr('Nothing found', 'কিছু পাওয়া যায়নি')}</p> : null}

@@ -8,7 +8,7 @@ import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { formatDateTime, timeAgo } from '@/lib/format';
-import { Panel, useInvalidate, useWide } from './common';
+import { Panel, useInvalidate, useWideWithSide } from './common';
 import { isOpenOrder, orderStatusShop, orderTone, type OnlineSettings, type PharmOrder, type PharmacyHome } from './model';
 
 const BASE = '/work/pharmacy/orders';
@@ -103,7 +103,7 @@ function AcceptDialog({ order, onClose }: { order: PharmOrder; onClose: () => vo
 }
 
 export function OnlineTab({ orders }: { orders: UseQueryResult<{ items: PharmOrder[] }, Error> }) {
-  const wide = useWide();
+  const wide = useWideWithSide();
   const nav = useNavigate();
   const up = useOrderUpdate();
   const [view, setView] = useState<'open' | 'past'>('open');

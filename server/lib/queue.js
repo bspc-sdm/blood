@@ -362,7 +362,7 @@ async function pushProvider(uid, en, bn, body, data) {
   try {
     const { sendPush, tokensOf } = require('./firebase');
     const u = await db.doc(`users/${uid}`).get();
-    if (u.exists) await sendPush([{ uid, tokens: tokensOf(u), title: R.L(u.get('lang'), en, bn), body: body || '', data }]);
+    if (u.exists) await sendPush([{ uid, tokens: tokensOf(u), title: R.L(u.get('lang'), en, bn), body: R.L(u.get('lang'), body || '', R.bnNumbers(body || '')), data }]);
   } catch (e) {
     console.error('queue push failed', e.message);
   }

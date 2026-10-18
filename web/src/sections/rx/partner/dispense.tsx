@@ -12,7 +12,7 @@ import { formatDayOf, timeAgo } from '@/lib/format';
 import { CodeBox, Panel, focusNext, useInvalidate, useWide } from './common';
 import { CancelOrderDialog, useOrderUpdate } from './online';
 import { RxSaleOffer } from './books/rxsale';
-import { ageText, boughtText, doseText, isOpenOrder, medTitle, orderStatusShop, orderTone, type PharmMed, type PharmOrder, type PharmRx, type PharmacyHome } from './model';
+import { ageText, boughtText, doseText, isOpenOrder, timingText, medTitle, orderStatusShop, orderTone, type PharmMed, type PharmOrder, type PharmRx, type PharmacyHome } from './model';
 
 const BASE = '/work/pharmacy/orders';
 
@@ -153,7 +153,7 @@ function DispenseForm({ start, onNext }: { start: PharmRx; onNext: () => void })
   const medName = (m: PharmMed) => (
     <div className="col gap-2">
       <span className="semi">{medTitle(m)}{m.strength ? <span className="muted"> · {m.strength}</span> : null}</span>
-      {m.timing || m.note ? <span className="t-body-s muted">{[m.timing, m.note].filter(Boolean).join(' · ')}</span> : null}
+      {m.timing || m.note ? <span className="t-body-s muted">{[timingText(m.timing), m.note].filter(Boolean).join(' · ')}</span> : null}
     </div>
   );
   const bought = (m: PharmMed) => (

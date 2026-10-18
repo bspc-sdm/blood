@@ -107,7 +107,7 @@
 
 /* সিরিয়াল চলছে (queue.tsx): রোগীর কার্ড আর ডাক্তার/সহকারীর সারি */
 .appt-q { border: 1px solid var(--outline-variant); background: var(--surface-lowest); }
-.appt-q-line { color: var(--primary); font-weight: 600; }
+.appt-q-line { display: block; color: var(--primary); font-weight: 600; }
 .appt-q-nums { display: flex; gap: 24px; flex-wrap: wrap; }
 .appt-q-big { font-size: 28px; line-height: 34px; font-weight: 700; color: var(--on-surface); }
 .appt-q-big.mine { color: var(--primary); }

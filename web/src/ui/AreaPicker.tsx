@@ -7,7 +7,7 @@ import { store } from '@/lib/store';
 import { useSession } from '@/lib/session';
 import { tr, isBangla } from '@/lib/i18n';
 import {
-  areaLabel, areasReady, currentPosition, districtAt, districtsSorted, ensureAreas, searchAreas, unionsOf, upazilasOf, DISTRICTS, district as findDistrict, type AreaHit,
+  areaLabel, areasReady, bnNorm, currentPosition, districtAt, districtsSorted, ensureAreas, searchAreas, unionsOf, upazilasOf, DISTRICTS, district as findDistrict, type AreaHit,
 } from '@/lib/geo';
 import type { Place } from '@/lib/session';
 
@@ -17,7 +17,8 @@ export function PlacePicker({ title, onPicked, onClose, busy, error }: { title?:
   const [err, setErr] = useState<string | null>(null);
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return districtsSorted().filter((d) => !t || d.bn.includes(q.trim()) || d.en.toLowerCase().includes(t));
+    const b = bnNorm(q.trim());
+    return districtsSorted().filter((d) => !t || bnNorm(d.bn).includes(b) || d.en.toLowerCase().includes(t));
   }, [q]);
 
   async function useGps() {

@@ -238,6 +238,11 @@ function bnDigits(t) {
   return String(t).replace(/\d/g, (c) => '০১২৩৪৫৬৭৮৯'[c]);
 }
 
+/** নোটিফিকেশনের লেখায় সংখ্যা বাংলা অঙ্কে — শুধু আলাদা সংখ্যা (তারিখ, সিরিয়াল, দাম); "HbA1c", "B12"-এর মতো নামের ভেতরের অঙ্ক নয় */
+function bnNumbers(t) {
+  return String(t).replace(/(^|[^A-Za-z0-9])(\d+)(?![A-Za-z0-9])/g, (m, pre, d) => pre + bnDigits(d));
+}
+
 function formatKm(km, lang) {
   if (lang === 'en') return km < 1 ? '< 1 km away' : `about ${Math.round(km)} km away`;
   return km < 1 ? '১ কিমির কম দূরে' : `প্রায় ${bnDigits(Math.round(km))} কিমি দূরে`;
@@ -298,4 +303,5 @@ module.exports = {
   districtLabel,
   L,
   bnDigits,
+  bnNumbers,
 };

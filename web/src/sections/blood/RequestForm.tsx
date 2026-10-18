@@ -10,7 +10,7 @@ import { PlacePicker } from '@/ui/AreaPicker';
 import { FormPage } from '@/shell/templates';
 import { call, errorText } from '@/lib/api';
 import { isBangla, num, toAsciiDigits, tr } from '@/lib/i18n';
-import { areaLabel, districtLabel, geohash, roundCoord } from '@/lib/geo';
+import { areaLabel, bnNorm, districtLabel, geohash, roundCoord } from '@/lib/geo';
 import { useSession, type Place } from '@/lib/session';
 import { BLOOD_GROUPS, DAY_MS, MAX_OPEN_REQUESTS, dhakaMillis } from '@/lib/rules';
 import { dateInputValue, dhakaHourMinute, formatDate, formatTimeHM, fromDateInput, normalizePhone, todayUtcMidnight } from '@/lib/format';
@@ -116,9 +116,10 @@ function HospitalField({ value, onChange, district }: { value: string; onChange:
   const matches = useMemo(() => {
     if (q.length < 2 || picked) return [];
     const ql = q.toLowerCase();
-    const starts = (h: Hospital) => h.nameEn.toLowerCase().startsWith(ql) || h.nameBn.startsWith(q);
+    const qb = bnNorm(q);
+    const starts = (h: Hospital) => h.nameEn.toLowerCase().startsWith(ql) || bnNorm(h.nameBn).startsWith(qb);
     return (hq.data ?? [])
-      .filter((h) => h.nameEn.toLowerCase().includes(ql) || h.nameBn.includes(q))
+      .filter((h) => h.nameEn.toLowerCase().includes(ql) || bnNorm(h.nameBn).includes(qb))
       .sort((a, b) => Number(starts(b)) - Number(starts(a)))
       .slice(0, 6);
   }, [q, hq.data, picked]);

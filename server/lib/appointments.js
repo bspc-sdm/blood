@@ -48,7 +48,8 @@ function provider(d) {
 async function push(uid, en, bn, body, data) {
   try {
     const u = await db.doc(`users/${uid}`).get();
-    if (u.exists) await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body, data }]);
+    // বাংলায় তারিখ/নম্বর বাংলা অঙ্কে (ওয়েব/অ্যাপের বাকি লেখার মতো)
+    if (u.exists) await sendPush([{ uid, tokens: require('./firebase').tokensOf(u), title: R.L(u.get('lang'), en, bn), body: R.L(u.get('lang'), body, R.bnNumbers(body)), data }]);
   } catch (e) {
     console.error('appointment push failed', e);
   }

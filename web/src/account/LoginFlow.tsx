@@ -92,7 +92,8 @@ export function LoginFlow() {
 
   return (
     <Dialog onClose={() => s.finishPending(false)} title={title}>
-      {p.reason ? <p className="t-body-m" style={{ background: 'var(--secondary-container)', color: 'var(--on-secondary-container)', padding: '10px 14px', borderRadius: 12 }}>{p.reason}</p> : null}
+      {/* লগইনের কারণ (যেমন "রক্তদাতা হতে লগইন করুন") শুধু লগইনের ধাপে — লগইন থাকা অবস্থায় প্রোফাইল/রক্তদাতার তথ্যে নয় */}
+      {p.reason && (step === 'email' || step === 'code') ? <p className="t-body-m" style={{ background: 'var(--secondary-container)', color: 'var(--on-secondary-container)', padding: '10px 14px', borderRadius: 12 }}>{p.reason}</p> : null}
       {step === 'email' ? (
         <form className="col gap-12" onSubmit={(e) => { e.preventDefault(); sendCode(); }}>
           <p className="t-body-m muted">{tr('We will email you a code. No password needed.', 'ইমেইলে একটা কোড যাবে, পাসওয়ার্ড লাগবে না।')}</p>
