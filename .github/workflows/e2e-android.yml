@@ -6,7 +6,7 @@ name: E2E Android (Maestro)
 on:
   # TEMP-REGISTER
   push:
-    branches: [e2e-android-never-pushed]
+    branches: [e2e-android-register]
   workflow_dispatch:
     inputs:
       only:
@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   e2e:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
