@@ -124,6 +124,7 @@ const actions = {
     if (!R.isValidId(uid) || uid === user.uid) return { ok: true };
     const p = await db.doc(`providers/${uid}`).get();
     if (!p.exists || !(p.get('homeVisit') && p.get('homeVisit').enabled)) return { ok: true };
+    if (!require('./demo').sameWorld(user.uid, uid)) return { ok: true }; // ডেমো: আলাদা — অন্য জগতের ফোন গোনা হয় না
     const ref = db.doc(`homeCalls/${user.uid}_${uid}`);
     const prev = await ref.get();
     const now = Date.now();
@@ -138,6 +139,7 @@ const actions = {
     const { uid } = req.body || {};
     const rating = Number.isInteger(req.body?.rating) ? req.body.rating : 0;
     if (!R.isValidId(uid) || rating < 1 || rating > 5) throw new HttpError(400, C.tr(req, 'Choose 1 to 5 stars', '১ থেকে ৫ তারা দিন'));
+    if (!require('./demo').sameWorld(user.uid, uid)) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি')); // ডেমো: আলাদা
     const comment = K.str(req.body?.comment, 300);
     const callRef = db.doc(`homeCalls/${user.uid}_${uid}`);
     const ref = db.doc(`providers/${uid}`);

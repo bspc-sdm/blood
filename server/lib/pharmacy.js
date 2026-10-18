@@ -348,7 +348,7 @@ const actions = {
     const { id } = req.body || {};
     if (!R.isValidId(id) || id === user.uid) return { ok: true };
     const p = await db.doc(`pharmacies/${id}`).get();
-    if (!p.exists) return { ok: true };
+    if (!p.exists || !require('./demo').sameWorld(user.uid, id)) return { ok: true }; // ডেমো: আলাদা — অন্য জগতের ফোন গোনা হয় না
     const callRef = db.doc(`pharmacyCalls/${user.uid}_${id}`);
     const prev = await callRef.get();
     const now = Date.now();

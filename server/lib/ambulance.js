@@ -202,6 +202,7 @@ const actions = {
     if (!R.isValidId(id)) return { ok: true };
     const a = await db.doc(`ambulances/${id}`).get();
     if (!a.exists || a.get('ownerUid') === user.uid) return { ok: true };
+    if (!require('./demo').sameWorld(user.uid, a.get('ownerUid'))) return { ok: true }; // ডেমো: আলাদা — অন্য জগতের ফোন গোনা হয় না
     const callRef = db.doc(`ambulanceCalls/${user.uid}_${id}`);
     const prev = await callRef.get();
     const now = Date.now();
@@ -221,7 +222,7 @@ const actions = {
     const ref = db.doc(`ambulances/${id}`);
     await db.runTransaction(async (t) => {
       const [c, a] = await Promise.all([t.get(callRef), t.get(ref)]);
-      if (!a.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
+      if (!a.exists || !require('./demo').sameWorld(user.uid, a.get('ownerUid'))) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি')); // ডেমো: আলাদা
       if (!c.exists || Date.now() - (c.get('at') || 0) > RATE_WINDOW_MS) {
         throw new HttpError(403, C.tr(req, 'You can rate after calling this ambulance from the app', 'অ্যাপ থেকে ফোন করার পর রেটিং দিতে পারবেন'));
       }
