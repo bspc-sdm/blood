@@ -118,7 +118,13 @@ async function ensureUser(key, email, name) {
 }
 
 // ভাগগুলো — প্রতিটা { seed(ctx) } দেয়। প্যানেল ধাপে ধাপে ডাকে (প্রতিটা আলাদা অনুরোধ, যাতে সার্ভারের ৬০ সেকেন্ডের সীমা না পেরোয়)
-const PARTS = [['./blood', 'রক্তদান'], ['./services', 'সেবা'], ['./rx', 'ডাক্তার ও প্রেসক্রিপশন'], ['./health', 'স্বাস্থ্য ও কেয়ারগিভার']];
+// require সরাসরি লেখা — Vercel শুধু সরাসরি লেখা require-এর ফাইল সার্ভারে তোলে (চলক দিয়ে লিখলে ফাইল যায় না)
+const PARTS = [
+  [() => require('./blood'), 'রক্তদান'],
+  [() => require('./services'), 'সেবা'],
+  [() => require('./rx'), 'ডাক্তার ও প্রেসক্রিপশন'],
+  [() => require('./health'), 'স্বাস্থ্য ও কেয়ারগিভার'],
+];
 const STEPS = 1 + PARTS.length; // ০: আগেরটা মোছা + অ্যাকাউন্ট, তারপর প্রতিটা ভাগ
 const BUDGET_MS = 35 * 1000; // এক অনুরোধে মোছার সময় — বাকিটা পরের অনুরোধে
 
@@ -224,7 +230,7 @@ async function seedStep(step) {
   const [mod, name] = PARTS[step - 1];
   const ctx = makeCtx(usersFrom(m));
   try {
-    await require(mod).seed(ctx);
+    await mod().seed(ctx);
     await ctx.flush();
   } catch (e) {
     console.error('demo seed', name, e);
