@@ -254,13 +254,15 @@ const MAX_PHOTO_B64 = 300 * 1024;
 
 /**
  * একই রোগীর আগের রিপোর্টের ফল — ছকের ঘর ধরে (`code.key`), নতুন আগে, প্রতিটায় সর্বোচ্চ ৫টা।
- * রোগী আর ডাক্তার একই পরীক্ষার আগের-পরের ফল পাশাপাশি দেখেন।
+ * রোগী আর ডাক্তার একই পরীক্ষার আগের-পরের ফল পাশাপাশি দেখেন (সব ল্যাবের)।
+ * onlyLab: প্যাথলজি নিজে দেখলে শুধু তার নিজের আগের অর্ডারগুলো — অন্য ল্যাবের ফল কখনো নয় (১৮ অক্টোবর ২০২৬, গোপনীয়তা)।
  */
-async function reportHistory(patientUid, exceptId, before) {
+async function reportHistory(patientUid, exceptId, before, onlyLab = null) {
   if (!patientUid) return {};
   const snap = await db.collection('labOrders').where('patientUid', '==', patientUid).limit(200).get();
   const out = {};
-  for (const d of snap.docs.filter((o) => o.id !== exceptId && o.get('status') === 'reported' && (o.get('reportedAt') || 0) < before)
+  for (const d of snap.docs.filter((o) => o.id !== exceptId && o.get('status') === 'reported' && (o.get('reportedAt') || 0) < before
+    && (!onlyLab || o.get('labId') === onlyLab))
     .sort((a, c) => (c.get('reportedAt') || 0) - (a.get('reportedAt') || 0))) {
     for (const it of d.get('report.items') || []) {
       if (!it.code || !it.key || it.long) continue;
@@ -342,6 +344,98 @@ const SHOP_CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
 function onlineOf(x) {
   const o = (x && x.online) || {};
   return { enabled: o.enabled === true, radiusKm: Number.isInteger(o.radiusKm) ? o.radiusKm : 3, fee: o.fee || '', note: o.note || '' };
+}
+
+// ---------------------------------------------------------------------------
+// অনলাইন অর্ডারের ডেলিভারির ঠিকানা-ফোন কতদিন থাকে (১৮ অক্টোবর ২০২৬, গোপনীয়তা)
+//  - অর্ডার বন্ধ (দেওয়া হয়েছে / বাতিল / ফিরিয়ে নেওয়া) হলে closedAt, আর ঠিকানা-ফোন থাকলে purgeContactAt = ৭ দিন পর;
+//    দৈনিক ক্রন (purgeClosedContacts) purgeContactAt পেরোনোগুলো থেকে ঠিকানা-ফোন মোছে, চিহ্নটাও সরায় — তাই প্রশ্ন সস্তা
+//  - ফার্মেসি সরালে / মালিকের অ্যাকাউন্ট মুছলে সেই দোকানের সব অর্ডার থেকে এখনই (stripOrderContacts)
+//  রোগীর নিজের অর্ডারের ইতিহাস (rx_activity) ঠিকানা দেখায় না, তাই কিছু ভাঙে না; দোকানও শুধু চালু অর্ডারে দেখে।
+// ---------------------------------------------------------------------------
+const CONTACT_KEEP_MS = 7 * DAY_MS;
+const CONTACT_STRIP = () => ({ address: FieldValue.delete(), phone: FieldValue.delete(), purgeContactAt: FieldValue.delete() });
+
+/** বন্ধ হওয়ার সময় অর্ডারে যোগ হয়: closedAt, আর ঠিকানা-ফোন থাকলে কবে মুছবে */
+function closeMarks(x, now = Date.now()) {
+  return { closedAt: now, ...(x && (x.address || x.phone) ? { purgeContactAt: now + CONTACT_KEEP_MS } : {}) };
+}
+
+/** পাতায় পাতায় (৩০০) পড়ে যেগুলোতে ঠিকানা-ফোন আছে সেগুলো থেকে মোছা; cursor: true হলে পরের পাতা startAfter দিয়ে */
+async function stripPages(q, { cursor = true, maxPages = 500 } = {}) {
+  const PAGE = 300;
+  let n = 0;
+  let last = null;
+  for (let page = 0; page < maxPages; page++) {
+    const s = await (cursor && last ? q.startAfter(last) : q).limit(PAGE).get();
+    const hit = s.docs.filter((d) => d.get('address') || d.get('phone') || d.get('purgeContactAt') != null);
+    if (hit.length) {
+      const upd = () => ({ ...CONTACT_STRIP(), contactRemovedAt: Date.now() });
+      const b = db.batch();
+      hit.forEach((d) => b.update(d.ref, upd()));
+      // মাঝে কোনো অর্ডার মুছে গেলে (যেমন একই অ্যাকাউন্ট মোছায় রোগীর নিজের অর্ডার) পুরো batch আটকায় — তখন একটা একটা করে
+      await b.commit().catch(() => Promise.all(hit.map((d) => d.ref.update(upd()).catch(() => {}))));
+      n += hit.length;
+    }
+    if (s.size < PAGE) break;
+    last = s.docs[s.docs.length - 1];
+  }
+  return n;
+}
+
+/** ফার্মেসি সরালে / মালিকের অ্যাকাউন্ট মুছলে: সেই দোকানের সব অর্ডার থেকে ঠিকানা-ফোন, শেষ পর্যন্ত */
+async function stripOrderContacts(pharmacyId) {
+  if (!R.isValidId(pharmacyId)) return 0;
+  return stripPages(db.collection('rxOrders').where('pharmacyId', '==', pharmacyId));
+}
+
+/**
+ * দৈনিক ক্রন: বন্ধ হওয়ার ৭ দিন পেরোনো অর্ডারের ঠিকানা-ফোন মোছা। মোছার সাথে purgeContactAt সরে যায়,
+ * তাই প্রতিবার একই প্রশ্নের প্রথম পাতাই নতুন (cursor লাগে না); একবারে সর্বোচ্চ ২০ পাতা, বাকি পরের দিন।
+ */
+async function purgeClosedContacts(now = Date.now()) {
+  return stripPages(db.collection('rxOrders').where('purgeContactAt', '<=', now), { cursor: false, maxPages: 20 });
+}
+
+/**
+ * এই নিয়মের আগে বন্ধ হওয়া অনলাইন অর্ডার (purgeContactAt নেই): একবারই সব অনলাইন অর্ডার পাতায় পাতায় দেখা —
+ * বন্ধ আর ৭ দিন পেরোনো হলে এখনই মোছা, ৭ দিন না হলে purgeContactAt বসানো। অগ্রগতি maintenance/rxOrderContacts-এ;
+ * শেষ হলে done, তারপর প্রতিদিন শুধু একটা ডক পড়া।
+ */
+async function backfillClosedContacts(now = Date.now(), maxPages = 20) {
+  const ref = db.doc('maintenance/rxOrderContacts');
+  const st = await ref.get();
+  if (st.exists && st.get('done')) return { done: true, stripped: 0, marked: 0 };
+  const PAGE = 300;
+  const q = db.collection('rxOrders').where('mode', '==', 'online');
+  let last = null;
+  const lastPath = st.exists ? st.get('last') : null;
+  if (lastPath) {
+    const ls = await db.doc(lastPath).get();
+    // কার্সরের অর্ডার মুছে গেলে শুরু থেকে আবার (কাজটা একই অর্ডারে দুবার হলেও ক্ষতি নেই)
+    if (ls.exists) last = ls;
+  }
+  let stripped = 0;
+  let marked = 0;
+  let done = false;
+  for (let page = 0; page < maxPages; page++) {
+    const s = await (last ? q.startAfter(last) : q).limit(PAGE).get();
+    const b = db.batch();
+    let ops = 0;
+    for (const d of s.docs) {
+      const x = d.data();
+      if (OPEN_ORDER.includes(x.status) || !(x.address || x.phone) || x.purgeContactAt != null) continue;
+      const closed = x.closedAt || x.doneAt || x.updatedAt || x.createdAt || 0;
+      if (closed + CONTACT_KEEP_MS <= now) { b.update(d.ref, { ...CONTACT_STRIP(), contactRemovedAt: now }); stripped++; }
+      else { b.update(d.ref, { closedAt: closed, purgeContactAt: closed + CONTACT_KEEP_MS }); marked++; }
+      ops++;
+    }
+    if (ops) await b.commit();
+    if (s.size < PAGE) { done = true; break; }
+    last = s.docs[s.docs.length - 1];
+  }
+  await ref.set(done ? { done: true, doneAt: now } : { last: last ? last.ref.path : null, updatedAt: now }, { merge: true });
+  return { done, stripped, marked };
 }
 
 async function uniqueShopCode() {
@@ -478,7 +572,7 @@ const actions = {
     for (const o of orders.docs) {
       if (o.get('pharmacyId') !== user.uid || !OPEN_ORDER.includes(o.get('status'))) continue;
       const added = missed.filter((n) => !(o.get('missed') || []).includes(n));
-      const upd = { ...(out.none ? {} : { status: 'done', doneAt: now }), ...(added.length ? { missed: [...(o.get('missed') || []), ...added].slice(0, 30) } : {}) };
+      const upd = { ...(out.none ? {} : { status: 'done', doneAt: now, ...closeMarks(o.data(), now) }), ...(added.length ? { missed: [...(o.get('missed') || []), ...added].slice(0, 30) } : {}) };
       if (Object.keys(upd).length) await o.ref.update(upd);
       if (!logged) await addMissed(user.uid, added);
       logged = true;
@@ -622,7 +716,7 @@ const actions = {
     }
     await ref.update({
       status: 'withdrawn', withdrawReason: notAvailable ? 'not_available' : 'other',
-      ...(added.length ? { missed: [...(s.get('missed') || []), ...added].slice(0, 30) } : {}), updatedAt: Date.now(),
+      ...(added.length ? { missed: [...(s.get('missed') || []), ...added].slice(0, 30) } : {}), updatedAt: Date.now(), ...closeMarks(s.data()),
     });
     await addMissed(s.get('pharmacyId'), added);
     await push(s.get('pharmacyId'), 'The customer took back the prescription', 'ক্রেতা প্রেসক্রিপশন ফিরিয়ে নিয়েছেন', s.get('patientName') || '', { type: 'rx_pharmacy', id });
@@ -666,7 +760,7 @@ const actions = {
     const reason = str(req.body?.reason, 200);
     const missedNames = await missingNames(s.get('rxId'), req.body?.missing);
     const update = { status, updatedAt: Date.now() };
-    if (status === 'cancelled') update.reason = reason;
+    if (status === 'cancelled') Object.assign(update, { reason }, closeMarks(s.data(), update.updatedAt));
     if (status === 'accepted') {
       update.price = str(req.body?.price, 40);
       update.eta = str(req.body?.eta, 60);
@@ -1031,7 +1125,11 @@ const actions = {
     if (s.get('status') !== 'sent' || s.get('home.status') === 'declined') throw err(req, "The home visit can't be changed now", 'এখন আর বাসায় যাওয়ার সময় বদলানো যায় না', 409);
     const note = str(req.body?.note, 120);
     const now = Date.now();
-    await ref.update({ 'home.status': 'declined', 'home.declineNote': note, 'home.declinedAt': now, updatedAt: now });
+    // বাসায় যাওয়া হবে না, তাই রোগীর ঠিকানা-ফোন প্যাথলজির কাছে রাখার দরকার নেই — এখনই মোছা (দিন/সময়/অবস্থা ইতিহাসে থাকে)
+    await ref.update({
+      'home.status': 'declined', 'home.declineNote': note, 'home.declinedAt': now,
+      'home.address': FieldValue.delete(), 'home.phone': FieldValue.delete(), updatedAt: now,
+    });
     const lab = s.get('labName') || '';
     await pushPatient(s.get('patientUid'), `${lab} can't come to your home — give the sample at the lab`, `${lab} বাসায় আসতে পারবে না — প্যাথলজিতে গিয়ে নমুনা দিন`, note, { type: 'rx', id: s.get('rxId') });
     return { ok: true };
@@ -1135,7 +1233,9 @@ const actions = {
     }
     if (!ok) throw notFound(req);
     const who = x.patientUid === user.uid ? 'patient' : x.labId === user.uid ? 'lab' : null;
-    return { item: labOrderView(s, true, who), history: await reportHistory(x.patientUid, id, x.reportedAt || Date.now()) };
+    // প্যাথলজি পায় শুধু নিজের আগের ফল; রোগী আর (অনুমতি পাওয়া) ডাক্তার সব ল্যাবের
+    const history = await reportHistory(x.patientUid, id, x.reportedAt || Date.now(), who === 'lab' ? x.labId : null);
+    return { item: labOrderView(s, true, who), history };
   },
 
   /** প্যাথলজি: রিপোর্টের ফর্ম — প্রতিটা পরীক্ষার ছক (ঘর, একক, স্বাভাবিক মাত্রা; ল্যাবের নিজের মাত্রা থাকলে সেটা) */
@@ -1307,4 +1407,4 @@ async function refillReminders(now = Date.now()) {
   return { sent };
 }
 
-module.exports = { actions, refillReminders, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };
+module.exports = { actions, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };

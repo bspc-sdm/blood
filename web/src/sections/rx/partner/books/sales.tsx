@@ -152,7 +152,7 @@ export function SalesTab() {
                 <li key={s.id}>
                   <div className="row">
                     <Tag tone={s.source === 'counter' ? undefined : s.source === 'rx' ? 'primary' : 'info'}>{sourceText(s.source)}</Tag>
-                    <span className="t-body-s muted grow">{period === 'today' ? formatTime(s.at) : formatDayOf(s.at)}{s.rx?.patient ? ` · ${s.rx.patient}` : s.customer ? ` · ${s.customer}` : ''}</span>
+                    <span className="t-body-s muted grow">{period === 'today' ? formatTime(s.at) : formatDayOf(s.at)}{s.rx?.code ? ` · ${s.rx.code}` : s.customer ? ` · ${s.customer}` : ''}</span>
                     <span className="num semi">{money(s.totals.net)}</span>
                     <IconButton small icon="delete" label={tr('Delete', 'মুছুন')} onClick={() => setDeleting(s)} />
                   </div>

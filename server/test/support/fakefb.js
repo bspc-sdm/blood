@@ -110,7 +110,10 @@ function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc'
     select: () => q,
     get: async () => {
       const depth = cpath.split('/').length + 1;
-      const docs = [...store.keys()].filter((p) => p.startsWith(`${cpath}/`) && p.split('/').length === depth)
+      // collectionGroup: '**/নাম' — যেকোনো গভীরতায় ওই নামের সংগ্রহের ডক
+      const group = cpath.startsWith('**/') ? cpath.slice(3) : null;
+      const inCol = (p) => (group ? p.split('/').length % 2 === 0 && p.split('/').slice(-2)[0] === group : p.startsWith(`${cpath}/`) && p.split('/').length === depth);
+      const docs = [...store.keys()].filter(inCol)
         .filter((p) => filters.every(([f, op, v]) => {
           const x = getPath(store.get(p), f);
           if (op === '==') return JSON.stringify(x) === JSON.stringify(v);
@@ -147,6 +150,7 @@ function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc'
 const db = {
   doc: (p) => docRef(p),
   collection: (c) => collection(c),
+  collectionGroup: (name) => collection(`**/${name}`),
   getAll: async (...refs) => refs.map((r) => snap(r.path)),
   // ডক আর তার নিচের সব সাব-কালেকশন
   recursiveDelete: async (ref) => {

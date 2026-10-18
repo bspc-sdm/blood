@@ -597,7 +597,8 @@ const actions = {
       at = disp.at;
       source = await sourceOf(d.id, user.uid, disp.at);
       ref = db.doc(`shopBooks/${user.uid}/sales/${rxSaleId(d.id, disp.at)}`);
-      rxInfo = { rxId: d.id, code: d.get('code'), at: disp.at, patient: d.get('patient.name') || '' };
+      // রোগীর নাম নয় (১৮ অক্টোবর ২০২৬, গোপনীয়তা) — শুধু প্রেসক্রিপশনের কোড/id আর ভাগের সময় (একই ভাগ দুবার না তোলার জন্য)
+      rxInfo = { rxId: d.id, code: d.get('code'), at: disp.at };
       const meds = d.get('medicines') || [];
       const given = new Map();
       for (const l of Array.isArray(b.lines) ? b.lines.slice(0, MAX_LINES) : []) if (Number.isInteger(l?.i)) given.set(l.i, l);
@@ -706,7 +707,7 @@ const actions = {
         unitPrice: v ? v.price : null, unitDisc: v && v.price != null ? r2(v.price - v.salePrice) : 0, unitCost: v ? v.cost : null, stockQty: v ? v.qty : null,
       };
     });
-    return { code: d.get('code'), at: disp.at, source, recorded: done.exists, patient: d.get('patient.name') || '', lines };
+    return { code: d.get('code'), at: disp.at, source, recorded: done.exists, lines };
   },
 
   /** বিক্রির তালিকা — period ('today' | '7d' | '30d' | 'month'), না দিলে ৭ দিন */
@@ -715,7 +716,8 @@ const actions = {
     const { start } = periodOf(req.body?.period || '7d');
     const snap = await bookCol(user.uid, 'sales').where('at', '>=', start).orderBy('at', 'desc').limit(300).get();
     // একই মিলিসেকেন্ডে দুটো বিক্রি হলে ক্রম যেন প্রতিবার একই থাকে: সময়, তারপর তোলার সময় (নতুন আগে), তারপর id
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => x);
+    // আগে তোলা বিক্রিতে রোগীর নাম (rx.patient) থাকতে পারে — দেখানো হয় না; দৈনিক ক্রন সেগুলো মুছে দেয় (stripSalePatientNames)
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => (x.rx ? { ...x, rx: noPatient(x.rx) } : x));
     items.sort((a, c) => ((c.at || 0) - (a.at || 0)) || ((c.createdAt || 0) - (a.createdAt || 0)) || (a.id < c.id ? -1 : a.id > c.id ? 1 : 0));
     return { items };
   },
@@ -897,10 +899,53 @@ function report(period, days, dayDocs, rows, stockKeys, now = Date.now()) {
   };
 }
 
+/** বিক্রির rx থেকে রোগীর নাম বাদ */
+function noPatient(rx) {
+  const { patient, patientName, ...rest } = rx || {};
+  return rest;
+}
+
+/**
+ * একবারের পরিষ্কার (১৮ অক্টোবর ২০২৬): আগে প্রেসক্রিপশনের বিক্রিতে রোগীর নাম (rx.patient) রাখা হতো — এখন আর রাখা হয় না।
+ * সব দোকানের 'sales' (collectionGroup, কোনো ফিল্টার ছাড়া — আলাদা index লাগে না) পাতায় পাতায় দেখে নামটা মোছা।
+ * অগ্রগতি maintenance/salePatientNames-এ; প্রতিদিন সর্বোচ্চ maxPages পাতা, শেষ হলে done — তারপর প্রতিদিন শুধু একটা ডক পড়া।
+ * রোগীর uid বিক্রিতে রাখা হয়নি কখনো, তাই অ্যাকাউন্ট মোছার সময় খুঁজে বের করার চেয়ে এটাই সহজ আর সবার জন্য ঠিক।
+ */
+async function stripSalePatientNames(now = Date.now(), maxPages = 20) {
+  const ref = db.doc('maintenance/salePatientNames');
+  const st = await ref.get();
+  if (st.exists && st.get('done')) return { done: true, cleaned: 0 };
+  const PAGE = 300;
+  const q = db.collectionGroup('sales');
+  let last = null;
+  const lastPath = st.exists ? st.get('last') : null;
+  if (lastPath) {
+    const ls = await db.doc(lastPath).get();
+    // কার্সরের বিক্রি মুছে গেলে শুরু থেকে আবার (একই কাজ দুবার হলেও ক্ষতি নেই)
+    if (ls.exists) last = ls;
+  }
+  let cleaned = 0;
+  let done = false;
+  for (let page = 0; page < maxPages; page++) {
+    const s = await (last ? q.startAfter(last) : q).limit(PAGE).get();
+    const hit = s.docs.filter((d) => d.ref.path.startsWith('shopBooks/') && (d.get('rx.patient') !== undefined || d.get('rx.patientName') !== undefined));
+    if (hit.length) {
+      const b = db.batch();
+      hit.forEach((d) => b.update(d.ref, { 'rx.patient': FieldValue.delete(), 'rx.patientName': FieldValue.delete() }));
+      await b.commit().catch(() => Promise.all(hit.map((d) => d.ref.update({ 'rx.patient': FieldValue.delete(), 'rx.patientName': FieldValue.delete() }).catch(() => {}))));
+      cleaned += hit.length;
+    }
+    if (s.size < PAGE) { done = true; break; }
+    last = s.docs[s.docs.length - 1];
+  }
+  await ref.set(done ? { done: true, doneAt: now } : { last: last ? last.ref.path : null, updatedAt: now }, { merge: true });
+  return { done, cleaned };
+}
+
 /** অ্যাকাউন্ট মোছা: পণ্য আর পুরো হিসাব-খাতা */
 async function deleteFor(uid) {
   if (!R.isValidId(uid)) return;
   await Promise.all([db.recursiveDelete(db.doc(`shopItems/${uid}`)), db.recursiveDelete(db.doc(`shopBooks/${uid}`))]);
 }
 
-module.exports = { actions, deleteFor, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };
+module.exports = { actions, deleteFor, stripSalePatientNames, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };

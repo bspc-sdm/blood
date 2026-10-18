@@ -6,7 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js test/medfind.test.js test/emergency.test.js test/gaps.test.js test/geo.test.js test/prescriptions.test.js test/labtests.test.js test/rxflow.test.js test/labhistory.test.js test/labprices.test.js test/guest.test.js test/deletion.test.js test/demo.test.js test/demo-blood.test.js test/demo-services.test.js test/demo-rx.test.js test/demo-health.test.js test/demo-pharmacy.test.js test/demo-lab.test.js test/pharmacyrate.test.js test/shopbooks.test.js test/queue.test.js test/demo-ambulance.test.js test/ambulance-near.test.js"
+    "test": "node --test test/rules.test.js test/email.test.js test/websession.test.js test/medfind.test.js test/emergency.test.js test/gaps.test.js test/geo.test.js test/prescriptions.test.js test/labtests.test.js test/rxflow.test.js test/labhistory.test.js test/labprices.test.js test/guest.test.js test/deletion.test.js test/demo.test.js test/demo-blood.test.js test/demo-services.test.js test/demo-rx.test.js test/demo-health.test.js test/demo-pharmacy.test.js test/demo-lab.test.js test/pharmacyrate.test.js test/shopbooks.test.js test/queue.test.js test/demo-ambulance.test.js test/ambulance-near.test.js test/privacy-gaps.test.js"
   },
   "dependencies": {
     "firebase-admin": "13.10.0",

@@ -11,7 +11,7 @@ export interface ShopItem {
 }
 export interface SaleLine { itemId: string; name: string; qty: number; unitPrice: number | null; unitDisc: number; discount: number; net: number; unitCost: number | null; cost: number | null; profit: number | null; i?: number }
 export interface SaleTotals { gross: number; discount: number; billDiscount: number; net: number; cost: number; profit: number; netCosted: number; unpriced: number }
-export interface Sale { id: string; at: number; day: string; source: 'counter' | 'rx' | 'online'; lines: SaleLine[]; totals: SaleTotals; rx?: { code: string; patient: string }; customer?: string }
+export interface Sale { id: string; at: number; day: string; source: 'counter' | 'rx' | 'online'; lines: SaleLine[]; totals: SaleTotals; rx?: { code: string } /* রোগীর নাম রাখা হয় না — শুধু প্রেসক্রিপশনের কোড */; customer?: string }
 export interface Purchase { id: string; at: number; supplier: string; note: string; lines: { itemId: string; name: string; qty: number; unitCost: number | null; expiry: string | null; total: number | null }[]; total: number }
 export interface Adjust { id: string; kind: 'writeoff' | 'count'; name: string; before: number | null; after: number | null; delta: number; loss: number; reason: string; at: number }
 export interface RankRow { id: string; name: string; qty: number; net: number; profit: number; loss: number; lossQty: number }
@@ -27,7 +27,7 @@ export interface Report {
 }
 /** books_rx_preview */
 export interface RxPreview {
-  code: string; at: number; source: 'rx' | 'online'; recorded: boolean; patient: string;
+  code: string; at: number; source: 'rx' | 'online'; recorded: boolean;
   lines: { i: number; name: string; qty: number; itemId: string | null; itemName: string; unitPrice: number | null; unitDisc: number; unitCost: number | null; stockQty: number | null }[];
 }
 export type Period = 'today' | '7d' | '30d' | 'month';

@@ -204,6 +204,8 @@ async function deleteNow(uid, email) {
       // নিজের প্যাথলজিতে আসা সব অর্ডারে রোগীর বাসার ঠিকানা-ফোন (অর্ডার রোগীর কাছে থাকে, প্যাথলজি আর নেই) —
       // আগে চালুগুলো, তারপর বাকি সব, পাতায় পাতায় শেষ পর্যন্ত (labprices.js stripHomes)
       require('./labprices').stripHomes(uid).catch((e) => console.error('lab home strip failed', e.message)),
+      // নিজের দোকানে আসা অনলাইন অর্ডারে রোগীর ডেলিভারির ঠিকানা-ফোন (দোকান আর নেই) — পাতায় পাতায় শেষ পর্যন্ত
+      require('./rxnet').stripOrderContacts(uid).catch((e) => console.error('rx order contact strip failed', e.message)),
       db.doc(`pharmacyStock/${uid}`).delete(),
       db.doc(`pharmacyMissed/${uid}`).delete(),
       // দোকানের পণ্য আর হিসাব-খাতা (কেনা, বিক্রি, দিনের যোগফল)

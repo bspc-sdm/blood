@@ -53,7 +53,6 @@ function rng(seed) {
 /** "এখন থেকে n দিন পরের মাস" → "YYYY-MM" (ঢাকা) */
 const monthAt = (ms) => new Date(ms + 6 * 3600 * 1000).toISOString().slice(0, 7);
 
-const RX_PATIENTS = ['ডেমো রোগী রহিম', 'ডেমো রোগী নাসিমা', 'ডেমো রোগী করিম', 'ডেমো রোগী সালমা', 'ডেমো রোগী জাকির'];
 const COUNTER = ['', '', '', 'ডেমো ক্রেতা রাকিব', '', 'ডেমো ক্রেতা মিতু', ''];
 
 /** দিনের যোগফলে যোগ (shopbooks.js-এর dayAdd-এর মতো, শুধু মেমোরিতে) */
@@ -115,7 +114,8 @@ module.exports = {
         const priced = B.priceSale(lines, bill);
         const sale = {
           at, day: B.dayKey(at), source, lines: priced.lines, totals: priced.totals, billDisc: bill,
-          ...(source !== 'counter' ? { rx: { code: '', at, patient: pick(RX_PATIENTS) } } : {}),
+          // রোগীর নাম নয় (আসল বিক্রির মতো) — শুধু প্রেসক্রিপশনের কোড
+          ...(source !== 'counter' ? { rx: { code: `DEMO${String(n + 1).padStart(6, '0')}`, at } } : {}),
           customer: source === 'counter' ? pick(COUNTER) : '', createdAt: at,
         };
         for (const l of priced.lines) {

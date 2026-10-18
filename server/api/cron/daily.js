@@ -124,7 +124,23 @@ module.exports = handler(
       console.error('ambulance reminders failed', e);
     }
 
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders };
+    // গোপনীয়তা (১৮ অক্টোবর ২০২৬): বন্ধ অনলাইন অর্ডারের ডেলিভারির ঠিকানা-ফোন ৭ দিন পর মোছা (purgeContactAt ধরে, সস্তা);
+    // এই নিয়মের আগে বন্ধ হওয়াগুলোর একবারের পরিষ্কার; দোকানের হিসাব-খাতার পুরোনো বিক্রি থেকে রোগীর নাম (একবারের)
+    const privacy = {};
+    try {
+      const RX = require('../../lib/rxnet');
+      privacy.rxOrderBackfill = await RX.backfillClosedContacts(now);
+      privacy.rxOrderContactsPurged = await RX.purgeClosedContacts(now);
+    } catch (e) {
+      console.error('rx order contact purge failed', e);
+    }
+    try {
+      privacy.salePatientNames = await require('../../lib/shopbooks').stripSalePatientNames(now);
+    } catch (e) {
+      console.error('sale patient name cleanup failed', e);
+    }
+
+    return { ok: true, privacy, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders };
   },
   { methods: ['GET'] },
 );

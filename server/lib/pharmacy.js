@@ -318,6 +318,8 @@ const actions = {
     // দোকানের নাম uid দিয়ে — আবার যোগ করলে গড় শূন্য থেকে, তাই আগের রেটিংগুলোও মোছা (নইলে পরে বদলালে গড় ভুল হতো)
     await deleteRatingsOf(user.uid).catch(() => {});
     await require('./verify').deleteDocs('pharmacy', user.uid, s.data()).catch(() => {});
+    // দোকান নেই — অনলাইন অর্ডারের ডেলিভারির ঠিকানা-ফোন সব অর্ডার থেকে মোছা (পাতায় পাতায়, শেষ পর্যন্ত)
+    await require('./rxnet').stripOrderContacts(user.uid).catch((e) => console.error('rx order contact strip failed', e.message));
     return { ok: true };
   },
 
