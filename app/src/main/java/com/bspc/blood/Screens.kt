@@ -3,7 +3,9 @@
 package com.bspc.blood
 
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -283,10 +285,21 @@ fun ProfileEditScreen(
                 BloodGroupChips(selected = bloodGroup, onSelect = { bloodGroup = it }, allowUnknown = mode == ProfileMode.FULL)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { showBirthPicker = true }, modifier = Modifier.weight(1f)) {
-                        AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(birthDate?.let { Rules.formatDate(it) } ?: tr("Birth date", "জন্ম তারিখ"), maxLines = 1)
+                    // জন্ম তারিখ ওজনের ঘরের মতো একই আকারের ঘর — চাপলে ক্যালেন্ডার (পারভেজ: "মিল নেই, বাজে লাগছে")
+                    Box(Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = birthDate?.let { Rules.formatDate(it) } ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(tr("Birth date", "জন্ম তারিখ")) },
+                            trailingIcon = { AppIcon(R.drawable.ic_calendar_month, null, Modifier.size(20.dp)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(
+                            Modifier.matchParentSize().padding(top = 8.dp)
+                                .clickable(onClickLabel = tr("Pick birth date", "জন্ম তারিখ বাছুন")) { showBirthPicker = true },
+                        )
                     }
                     OutlinedTextField(
                         value = weight,
