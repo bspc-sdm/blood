@@ -1974,6 +1974,8 @@ fun MyLabPanel(profile: Profile) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var orders by remember { mutableStateOf<List<LabOrder>>(emptyList()) }
+    // অনুরোধ আসার আগে "এখনো কোনো অনুরোধ নেই" দেখাত (E2E-র ছবিতে ধরা পড়ে) — আসার পরেই শুধু
+    var ordersLoaded by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
     var entering by remember { mutableStateOf<LabOrder?>(null) }
     var viewing by remember { mutableStateOf<String?>(null) }
@@ -1984,7 +1986,7 @@ fun MyLabPanel(profile: Profile) {
     LaunchedEffect(reload) {
         runCatching { RxNet.labMine() }.onSuccess { lab = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
-        if (lab?.status == "approved") runCatching { RxNet.labOrders() }.onSuccess { orders = it }
+        if (lab?.status == "approved") runCatching { RxNet.labOrders() }.onSuccess { orders = it; ordersLoaded = true }
     }
     if (editing) {
         androidx.activity.compose.BackHandler { editing = false }
@@ -2040,7 +2042,7 @@ fun MyLabPanel(profile: Profile) {
                                     }
                                 }, enabled = !busy && code.length == 10, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy, tr("Open", "খুলুন")) }
                             }
-                            if (orders.isEmpty()) SmallNote(tr("No test requests yet", "এখনো কোনো পরীক্ষার অনুরোধ নেই"))
+                            if (orders.isEmpty() && ordersLoaded) SmallNote(tr("No test requests yet", "এখনো কোনো পরীক্ষার অনুরোধ নেই"))
                             orders.forEach { o ->
                                 HorizontalDivider()
                                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -25,6 +25,7 @@ appId: com.bspc.blood
     element: ".*${ROLE}.*"
     direction: DOWN
     timeout: 60000
+    centerElement: true
 - takeScreenshot: ${J}-00b-login
 # যাত্রা ১-এ: ডেমো তালিকার একেবারে নিচ (শেষ রোল নিচের বারের নিচে চাপা পড়ে কি না), তারপর আবার ওপরে
 - runFlow:
@@ -41,6 +42,7 @@ appId: com.bspc.blood
           element: ".*${ROLE}.*"
           direction: UP
           timeout: 20000
+          centerElement: true
 - tapOn: ".*${ROLE}.*"
 - extendedWaitUntil:
     visible: "সেটিংস ও প্রোফাইল"

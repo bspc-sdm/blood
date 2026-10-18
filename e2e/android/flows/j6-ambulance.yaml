@@ -20,6 +20,7 @@ env:
       id: "amb_available"
     direction: DOWN
     timeout: 15000
+    centerElement: true
 - takeScreenshot: j6-03-switch-before
 - tapOn:
     id: "amb_available"
