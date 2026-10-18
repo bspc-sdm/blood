@@ -36,6 +36,8 @@ export interface Chamber {
   custom: boolean;
   address: string;
   times: ChamberTime[];
+  /** রোগীপ্রতি গড় সময় (মিনিট) — সিরিয়ালের আনুমানিক সময়ে, আগের হিসাব কম থাকলে */
+  patientMin: number | null;
 }
 export interface HomeVisit {
   enabled: boolean;
@@ -159,6 +161,7 @@ export function parseChamber(o: any): Chamber {
     custom: o?.custom === true,
     address: s(o?.address),
     times: times.length > 1 ? times : [],
+    patientMin: intOrNull(o?.patientMin),
   };
 }
 export function parseHomeVisit(o: any): HomeVisit | null {

@@ -201,6 +201,8 @@ async function deleteNow(uid, email) {
       db.doc(`labs/${uid}`).delete(),
       db.doc(`pharmacyStock/${uid}`).delete(),
       db.doc(`pharmacyMissed/${uid}`).delete(),
+      // দোকানের পণ্য আর হিসাব-খাতা (কেনা, বিক্রি, দিনের যোগফল)
+      require('./shopbooks').deleteFor(uid),
       require('./careaccess').deleteFor(uid),
       // ডাক্তারের আজকের/আগের সিরিয়ালের সারি (queues)
       require('./queue').deleteFor(uid),

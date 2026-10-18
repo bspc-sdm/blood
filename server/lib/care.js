@@ -108,6 +108,8 @@ function parseChambers(list, hospitals, allowCustom = false) {
       fee: c.noFee === true ? '' : str(c.fee, 40),
       appointments: c.appointments === true,
       serialPhone: phone(c.serialPhone),
+      // রোগীপ্রতি গড় সময় (মিনিট) — সিরিয়ালের আনুমানিক সময়ে, আগের হিসাব কম থাকলে (queue.js)
+      ...(Number.isInteger(c.patientMin) && c.patientMin >= 1 && c.patientMin <= 120 ? { patientMin: c.patientMin } : {}),
     });
   }
   // একজন একই সময়ে দুই জায়গায় বসতে পারেন না: সব চেম্বারের সব ভাগ মিলিয়ে একই বারে সময় মিলে গেলে আটকানো
