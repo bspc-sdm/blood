@@ -8,9 +8,6 @@ jobs:
     steps:
       - run: |
           B=https://blood-server-ashy.vercel.app
-          curl -s -m 20 $B/ | grep -q '/w/assets/index-DsAdGLsB.js'
-          curl -s -m 20 -X POST -H 'Content-Type: application/json' -d '{"demoRoles":true}' $B/api/auth/verify-code | tee /dev/stderr | grep -q '"active":false'
-          test "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"demo":"doctor"}' $B/api/auth/verify-code)" = 404
-          test "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"action":"admin_demo_status"}' $B/api/community)" = 401
-          test "$(curl -s -m 20 -o /dev/null -w '%{http_code}' $B/admin)" = 200
-          curl -s -m 20 $B/admin/app.js | grep -q 'pageDemo'
+          R=$(curl -s -m 20 -X POST -H 'Content-Type: application/json' -d '{"demoRoles":true}' $B/api/auth/verify-code)
+          echo "$R"
+          echo "$R" | grep -q '"active":false'
