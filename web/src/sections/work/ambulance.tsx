@@ -1,7 +1,7 @@
 // /work/ambulance — নিজের অ্যাম্বুলেন্স: তালিকা, খালি/ব্যস্ত, হিসাব, যোগ/বদল/সরানো (অ্যাপের MyAmbulancesSection)
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, ChoiceChips, ConfirmDialog, ErrorText, Field, IconButton, Tag, TextInput } from '@/ui/kit';
+import { Button, ChoiceChips, ConfirmDialog, ErrorText, Field, IconButton, InfoText, Tag, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { useMedia } from '@/shell/chrome';
@@ -9,7 +9,7 @@ import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
-import { areaLabel } from '@/lib/geo';
+import { areaLabel, currentPosition } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
@@ -18,6 +18,26 @@ import {
   type Ambulance, type ListingStats,
   WorkEmpty,
 } from './shared';
+
+/** "খালি আছি"-র মেয়াদ শেষ হতে আর কত মিনিট (এক ঘণ্টার কম হলে), নইলে null */
+function minutesLeft(a: Ambulance): number | null {
+  if (a.status !== 'approved' || !a.available) return null;
+  const until = a.availableUntil || (a.availableAt > 1 ? a.availableAt + 12 * 3600 * 1000 : 0);
+  const left = until - Date.now();
+  return left > 0 && left < 3600 * 1000 ? Math.max(1, Math.ceil(left / 60000)) : null;
+}
+
+/** মেয়াদের শেষ ঘণ্টায়: "খালি আছে — আর ৪৫ মিনিট" আর এক চাপে আবার ১২ ঘণ্টা ("এখনো খালি আছেন?" পুশ এখানেই আনে) */
+function StillAvailable({ a, busy, onRenew }: { a: Ambulance; busy: boolean; onRenew: () => void }) {
+  const left = minutesLeft(a);
+  if (left == null) return null;
+  return (
+    <div className="work-still">
+      <span className="t-body-m semi grow">{tr(`Available — ${left} min left`, `খালি আছে — আর ${num(left)} মিনিট`)}</span>
+      <Button small busy={busy} onClick={onRenew}>{tr('Keep available', 'আবার চালু রাখুন')}</Button>
+    </div>
+  );
+}
 
 export function MyAmbulances() {
   const s = useSession();
@@ -155,6 +175,7 @@ export function MyAmbulances() {
                     <div className="col gap-2">
                       {avail(a)}
                       {a.status === 'approved' && a.available && a.availableAt > 1 ? <span className="t-body-s muted">{tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt)}</span> : null}
+                      <StillAvailable a={a} busy={busy === a.id} onRenew={() => toggle(a, true)} />
                     </div>
                   </td>
                   <td>{callsCell(a)}</td>
@@ -182,6 +203,7 @@ export function MyAmbulances() {
               {a.status === 'approved' ? (
                 <div className="col gap-2">
                   {avail(a)}
+                  <StillAvailable a={a} busy={busy === a.id} onRenew={() => toggle(a, true)} />
                   <span className="t-body-s muted">{tr('Turn off when you go on a trip.', 'ট্রিপে গেলে বন্ধ করুন।')}</span>
                 </div>
               ) : null}
@@ -260,12 +282,28 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
   const [place, setPlace] = useState<AreaValue | null>(existing ? { district: existing.district, upazilaId: existing.upazilaId } : p?.placeName ? { district: p.placeName, upazilaId: null } : null);
   const [area, setArea] = useState(existing?.area ?? '');
   const [fare, setFare] = useState(existing?.fare ?? '');
+  // গাড়ির জায়গা (ঐচ্ছিক): "সবচেয়ে কাছের" খুঁজতে; না দিলে জেলার কেন্দ্র ধরা হয়
+  const [base, setBase] = useState<{ lat: number; lng: number } | null>(null);
+  const [gps, setGps] = useState(false);
+  const [gpsErr, setGpsErr] = useState<string | null>(null);
   const [docs, setDocs] = useState<Record<string, string>>({});
   const [agreed, setAgreed] = useState(!!existing);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [del, setDel] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
+
+  async function useGps() {
+    setGps(true);
+    setGpsErr(null);
+    try {
+      setBase(await currentPosition());
+    } catch {
+      setGpsErr(tr("Couldn't get your location. Allow location in the browser.", 'লোকেশন পাওয়া যায়নি। ব্রাউজারে লোকেশনের অনুমতি দিন।'));
+    } finally {
+      setGps(false);
+    }
+  }
 
   async function save() {
     const specs = ambulanceDocs();
@@ -282,7 +320,7 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
     try {
       const r = await call<{ pending?: boolean }>('ambulance_save', {
         id: existing?.id ?? null, name: name.trim(), phone, vehicleNo: vehicleNo.trim(), types, district: place.district, upazilaId: place.upazilaId ?? null,
-        area: area.trim(), fare: fare.trim(), termsAccepted: true, docs,
+        area: area.trim(), fare: fare.trim(), termsAccepted: true, docs, ...(base ? { lat: base.lat, lng: base.lng } : {}),
       });
       after();
       onDone(r.pending ? sentForApproval('ambulance') : tr('Saved', 'সেভ হয়েছে'));
@@ -322,6 +360,17 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
         <ChoiceChips multi options={cat.options} value={types} onChange={setTypes} />
       </Field>
       <AreaField label={tr('Base area', 'কোথা থেকে চলে')} value={place} onChange={setPlace} />
+      <div className="col gap-6">
+        {base ? (
+          <InfoText>{tr('Vehicle location set', 'গাড়ির জায়গা নেওয়া হয়েছে')}</InfoText>
+        ) : (
+          <>
+            <span className="t-body-s muted">{existing?.hasBase ? tr('Location given. Update only if you moved.', 'জায়গা দেওয়া আছে। সরলে তবেই আবার দিন।') : tr('Optional — so nearby patients find you first.', 'ঐচ্ছিক — কাছের রোগী আগে খুঁজে পাবেন।')}</span>
+            <Button variant="outline" icon="location_on" busy={gps} onClick={useGps} className="work-self-start">{tr('Use current location as vehicle location', 'বর্তমান লোকেশনকে গাড়ির জায়গা ধরুন')}</Button>
+          </>
+        )}
+        <ErrorText>{gpsErr}</ErrorText>
+      </div>
       <TextInput label={tr('Where you go (optional)', 'কোন কোন এলাকায় যান (ঐচ্ছিক)')} value={area} maxLength={120} onChange={(e) => setArea(e.target.value)} />
       <TextInput label={tr('Fare (optional)', 'ভাড়া (ঐচ্ছিক)')} placeholder={tr('e.g. Within city 800 Tk, per km 40 Tk', 'যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা')} value={fare} maxLength={120} onChange={(e) => setFare(e.target.value)} />
       <DocPhotosField specs={ambulanceDocs()} photos={docs} onChange={setDocs} note={existing ? PAPERS_CHANGED() : null} />

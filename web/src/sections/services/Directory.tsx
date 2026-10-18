@@ -1,5 +1,5 @@
 // সেবার তালিকা: অ্যাম্বুলেন্স / ফার্মেসি / ব্লাড ব্যাংক / প্যাথলজি — এলাকা, ফিল্টার, কার্ড, আর পাশে (বা পুরো পাতায়) বিস্তারিত
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ActiveChips, Avatar, Button, ChoiceChips, EmptyState, ErrorBox, FilterBar, Loading, SkeletonCards, Switch } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
@@ -7,13 +7,13 @@ import { AreaPicker, useFilterArea } from '@/ui/AreaPicker';
 import { ListDetail, DetailPane } from '@/shell/templates';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
-import { areaLabel, ensureAreas } from '@/lib/geo';
+import { areaLabel, currentPosition, district as findDistrict, districtAt, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import {
-  ambulanceEntry, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, useCatalog,
+  ambulanceEntry, ambulanceKm, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, useCatalog,
   type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
 } from './data';
-import { Emergency999, EntryDetail, FilterSheet, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
+import { Emergency999, EntryDetail, FilterSheet, NearestCall, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
 import type { PublicPrices } from '@/lib/labprice';
 
 const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodbanks', lab: 'labs' };
@@ -38,6 +38,53 @@ function useAreasLoaded() {
       live = false;
     };
   }, []);
+}
+
+type Origin = { lat: number; lng: number; byArea: boolean };
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/**
+ * অ্যাম্বুলেন্সের দূরত্ব কোথা থেকে: ব্রাউজারে লোকেশনের অনুমতি আগেই দেওয়া থাকলে এখনকার জায়গা (বেছে নেওয়া জেলার ভেতরে হলে),
+ * নইলে প্রোফাইলের GPS জায়গা (একই জেলা), নইলে জেলার কেন্দ্র ("এলাকা ধরে")। অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি।
+ * GPS-এর জন্য সর্বোচ্চ ২.৫ সেকেন্ড অপেক্ষা; তারপর একবার ঠিক হলে আর বদলায় না (বাটনের গাড়ি হঠাৎ বদলে যেন ভুল জায়গায় চাপ না পড়ে)।
+ */
+function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin: Origin | null; ready: boolean } {
+  const s = useSession();
+  const [gps, setGps] = useState<{ lat: number; lng: number; district: string } | null | undefined>(on ? undefined : null);
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    const done = (v: { lat: number; lng: number; district: string } | null) => {
+      if (!live || settled.current) return;
+      settled.current = true;
+      setGps(v);
+    };
+    const timer = setTimeout(() => done(null), 2500);
+    const q = navigator.permissions?.query?.({ name: 'geolocation' as PermissionName });
+    if (!q) done(null);
+    else {
+      q.then(async (p) => {
+        if (p.state !== 'granted') return null;
+        const pos = await currentPosition();
+        return { lat: pos.lat, lng: pos.lng, district: (await districtAt(pos.lat, pos.lng)).bn };
+      })
+        .then((v) => done(v), () => done(null));
+    }
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [on]);
+  const origin = useMemo<Origin | null>(() => {
+    if (!on || !district) return null;
+    if (gps && gps.district === district) return { lat: r3(gps.lat), lng: r3(gps.lng), byArea: false };
+    const p = s.place;
+    if (p?.source === 'gps' && p.placeName === district) return { lat: r3(p.lat), lng: r3(p.lng), byArea: false };
+    const d = findDistrict(district);
+    return d ? { lat: d.lat, lng: d.lng, byArea: true } : null;
+  }, [on, district, gps, s.place]);
+  return { origin, ready: !on || gps !== undefined };
 }
 
 export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
@@ -67,14 +114,17 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   const clearFilters = () => setParams(new URLSearchParams(), { replace: true });
 
   const gps = s.place?.source === 'gps' ? s.place : null;
+  const { origin, ready } = useAmbulanceOrigin(area?.district, kind === 'ambulance');
   const body = useMemo(() => {
     const b: Record<string, unknown> = { district: area?.district, upazilaId: area?.upazilaId ?? null };
     if (kind === 'ambulance' && type) b.type = type;
+    // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে)
+    if (kind === 'ambulance' && origin) Object.assign(b, { lat: origin.lat, lng: origin.lng });
     if (kind === 'pharmacy') Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow });
     if (kind === 'bloodbank') b.open24 = open24;
     return b;
-  }, [kind, area?.district, area?.upazilaId, type, openNow, open24, gps?.lat, gps?.lng]);
-  const q = useCall<ListResult<any>>(ACTION[kind], body, { enabled: !!area?.district });
+  }, [kind, area?.district, area?.upazilaId, type, openNow, open24, gps?.lat, gps?.lng, origin]);
+  const q = useCall<ListResult<any>>(ACTION[kind], body, { enabled: !!area?.district && ready });
   const items = q.data?.items ?? [];
   const busy = (q.data?.busy ?? []) as Ambulance[];
   useEffect(() => {
@@ -159,6 +209,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       >
         <ActiveChips items={chips} />
       </FilterBar>
+      {kind === 'ambulance' ? <Nearest list={items as Ambulance[]} id={q.data?.nearestId} byArea={!!origin?.byArea} lists={lists} /> : null}
       {kind === 'ambulance' ? <Emergency999 /> : null}
       {kind === 'bloodbank' ? (
         <p className="t-body-s muted">{tr('Buying or selling blood is illegal; only processing costs apply.', 'রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।')}</p>
@@ -245,6 +296,17 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       {reporting ? <ReportDialog kind={kind} id={reporting} onClose={() => setReporting(null)} /> : null}
     </>
   );
+}
+
+/** তালিকার উপরে বড় বাটন: সবচেয়ে কাছের খালি গাড়িতে এক চাপে ফোন — নিচের লাইনে নাম, দূরত্ব, ধরন */
+function Nearest({ list, id, byArea, lists }: { list: Ambulance[]; id?: string | null; byArea: boolean; lists: ReturnType<typeof useCatalog> }) {
+  const a = id ? list.find((x) => x.id === id) : undefined;
+  if (!a) return null;
+  const km = ambulanceKm(a);
+  const sub = [a.name, km ? km + (byArea ? tr(' (by area)', ' (এলাকা ধরে)') : '') : byArea ? tr('By area', 'এলাকা ধরে') : null, a.types.map((t) => ambulanceTypeLabel(lists, t)).join(', ')]
+    .filter(Boolean)
+    .join(' · ');
+  return <NearestCall id={a.id} phone={a.phone} sub={sub} />;
 }
 
 /** ট্রিপে থাকা গাড়ি: আলাদা ভাঁজ করা অংশ; খালি গাড়ি না থাকলে নিজে থেকে খোলা */

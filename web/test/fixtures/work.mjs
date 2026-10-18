@@ -17,7 +17,9 @@ const summary = (d) => {
 let ambulances = [
   {
     id: 'amb1', name: 'জননী অ্যাম্বুলেন্স সার্ভিস', phone: '01711223344', types: ['ac', 'general'], district: MYM, upazilaId: SADAR,
-    area: 'মেডিকেল কলেজ, চরপাড়া, ঢাকা রুট', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৫৫০০ টাকা', available: true, availableAt: now - 2 * HOUR,
+    // সোয়া ১১ ঘণ্টা আগে "খালি" — মেয়াদের শেষ ঘণ্টা: "খালি আছে — আর ৪৫ মিনিট"
+    area: 'মেডিকেল কলেজ, চরপাড়া, ঢাকা রুট', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৫৫০০ টাকা', available: true, availableAt: now - 11.25 * HOUR,
+    availableUntil: now + 0.75 * HOUR, hasBase: true,
     rating: 4.6, ratingCount: 23, vehicleNo: 'ময়মনসিংহ-ছ ১১-০০৪৫', status: 'approved', statusReason: '',
   },
   {
@@ -94,7 +96,7 @@ export default {
     return { ok: true, pending: true, id };
   },
   ambulance_available: (b) => {
-    ambulances = ambulances.map((a) => (a.id === b.id ? { ...a, available: !!b.available, availableAt: b.available ? Date.now() : 0 } : a));
+    ambulances = ambulances.map((a) => (a.id === b.id ? { ...a, available: !!b.available, availableAt: b.available ? Date.now() : 0, availableUntil: b.available ? Date.now() + 12 * HOUR : 0 } : a));
     return { ok: true };
   },
   ambulance_delete: (b) => {

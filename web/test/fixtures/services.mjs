@@ -24,10 +24,17 @@ function ambulances(b, { authed }) {
     { id: 'amb3', name: 'সেবা ফ্রিজার ভ্যান', phone: '01911000303', types: ['freezer'], district: D, upazilaId: SADAR, area: 'মেডিকেল কলেজ গেট', fare: '', available: false, availableAt: t - 20 * H, rating: 0, ratingCount: 0, canRate: false },
   ];
   if (b.type) items = items.filter((a) => a.types.includes(b.type));
+  // দূরত্ব (lat/lng দিলে): খালিগুলো কাছেরটা আগে; ফ্রিজারের জায়গা দেওয়া নেই → "প্রায়"
+  if (typeof b.lat === 'number') {
+    const KM = { amb1: 1.2, amb2: 18.6, amb3: 0.4 };
+    items = items.map((a) => ({ ...a, km: KM[a.id], ...(a.id === 'amb3' ? { kmApprox: true } : {}) }))
+      .sort((x, y) => (y.available - x.available) || (x.km - y.km));
+  }
+  const nearest = items.find((a) => a.available && (b.type === 'freezer' || a.types.some((t) => t !== 'freezer')));
   const busy = [
     { id: 'amb4', name: 'রহমত অ্যাম্বুলেন্স', phone: '01611000404', types: ['general', 'ac'], district: D, upazilaId: MUKTAGACHA, area: 'মুক্তাগাছা বাজার', fare: '৭০০ টাকা থেকে', available: false, availableAt: 0, rating: 3.8, ratingCount: 5, canRate: false, busy: true, busySince: t - 2 * H },
   ].filter((a) => !b.type || a.types.includes(b.type));
-  return { items, busyCount: busy.length, busy };
+  return { items, busyCount: busy.length, busy, nearestId: nearest ? nearest.id : null };
 }
 
 function pharmacies(b, { authed } = {}) {
