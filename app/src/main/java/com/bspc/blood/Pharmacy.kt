@@ -78,6 +78,8 @@ data class Pharmacy(
     val docsMissing: Boolean = false,
     val docsRequested: Boolean = false,
     val docsNote: String = "",
+    /** রেটিং দেওয়া যায় (অ্যাপ থেকে ফোনের ১ ঘণ্টা পর, বা এই দোকান থেকে ওষুধ নেওয়ার পর; সার্ভার মনে রাখে) */
+    val canRate: Boolean = false,
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -96,6 +98,7 @@ object Pharmacies {
         o.str("licenseNo"), o.str("status"), o.optBoolean("hasLocation"), o.optLong("closedUntil"),
         o.optJSONArray("closedDays").ints(), o.str("statusReason"),
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
+        o.optBoolean("canRate"),
     )
 
     /** until = null হলে আবার খোলা */
@@ -138,7 +141,12 @@ object Pharmacies {
         call("pharmacy_called", JSONObject().put("id", id))
     }
 
-    /** নিজের দোকানে অ্যাপ থেকে কতবার ফোন এসেছে */
+    /** ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) — অ্যাম্বুলেন্সের মতো */
+    suspend fun rate(id: String, rating: Int, comment: String) {
+        call("pharmacy_rate", JSONObject().put("id", id).put("rating", rating).put("comment", comment))
+    }
+
+    /** নিজের দোকানে অ্যাপ থেকে কতবার ফোন এসেছে, রেটিং, সাম্প্রতিক মন্তব্য */
     suspend fun stats(): JSONObject = call("pharmacy_stats")
 
     suspend fun adminPending(): List<Pharmacy> {
@@ -338,11 +346,14 @@ private fun NearbyPharmacies(profile: Profile) {
     val gps = profile.locationSource == "gps"
     val scope = rememberCoroutineScope()
     var reporting by remember { mutableStateOf<Pharmacy?>(null) }
+    var rating by remember { mutableStateOf<Pharmacy?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
+    // রেটিংয়ের পর আবার আনা — কার্ডে নতুন গড়
+    var reload by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(district, upazilaId, openNow) {
+    LaunchedEffect(district, upazilaId, openNow, reload) {
         val d = district ?: return@LaunchedEffect
         loading = true
         runCatching { Pharmacies.near(d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, openNow) }
@@ -391,6 +402,7 @@ private fun NearbyPharmacies(profile: Profile) {
                         scope.launch { runCatching { Pharmacies.called(p.id) } }
                         callPhone(context, p.phone)
                     },
+                    secondary = if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
                     onReport = { reporting = p },
                     sections = listOf(
                         DetailSection(
@@ -425,6 +437,18 @@ private fun NearbyPharmacies(profile: Profile) {
         FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { openNow = false }) {
             FilterSwitch(tr("Open now only", "শুধু এখন খোলা"), openNow) { openNow = it }
         }
+    }
+    rating?.let { p ->
+        StarRatingDialog(
+            title = tr("Rate ", "রেটিং: ") + p.name,
+            onDismiss = { rating = null },
+            onSubmit = { stars, comment ->
+                Pharmacies.rate(p.id, stars, comment)
+                rating = null
+                infoMsg = tr("Thanks for the rating!", "রেটিং দেওয়ার জন্য ধন্যবাদ!")
+                reload++
+            },
+        )
     }
     reporting?.let { p ->
         ReasonReportDialog(

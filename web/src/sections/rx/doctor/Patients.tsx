@@ -13,8 +13,9 @@ import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import {
   ageText, dayText, deletedName, findTarget, forDoctor, genderLabel, targetBody, targetKey, targetSearch,
-  type Actor, type DoctorRx, type RxPatient, type RxPatientsData, type RxTarget,
+  type Actor, type DoctorLab, type DoctorRx, type RxPatient, type RxPatientsData, type RxTarget,
 } from './model';
+import { DoctorLabList } from './Labs';
 
 type Link = (path: string, extra?: Record<string, string>) => string;
 
@@ -356,7 +357,7 @@ export function PatientAddDialog({ actor, onClose, onAdded }: { actor: Actor; on
 // ---------------- একজন রোগীর আগের প্রেসক্রিপশন ----------------
 function HistoryPane({ target, link, wide, onClose, onWrite }: { target: RxTarget; link: Link; wide: boolean; onClose: () => void; onWrite: () => void }) {
   const nav = useNavigate();
-  const q = useCall<{ items: DoctorRx[] }>('rx_patient_history', targetBody(target));
+  const q = useCall<{ items: DoctorRx[]; labOrders?: DoctorLab[] }>('rx_patient_history', targetBody(target));
   const name = target.name || tr('Patient', 'রোগী');
   return (
     <div className="col gap-12">
@@ -378,7 +379,21 @@ function HistoryPane({ target, link, wide, onClose, onWrite }: { target: RxTarge
       ) : (
         <>
           <h3 className="rxd-group-title">{tr('Earlier prescriptions', 'আগের প্রেসক্রিপশন')}</h3>
-          {q.data.items.map((rx) => <RxCard key={rx.id} rx={rx} onClick={() => nav(link('/view/' + rx.id))} title={formatDate(rx.createdAt)} />)}
+          {q.data.items.map((rx) => {
+            // এই প্রেসক্রিপশনের পার্টনার ল্যাবের পরীক্ষা — ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে
+            const labs = (q.data.labOrders ?? []).filter((o) => o.rxId === rx.id);
+            return (
+              <div key={rx.id} className="col gap-6">
+                <RxCard rx={rx} onClick={() => nav(link('/view/' + rx.id))} title={formatDate(rx.createdAt)} />
+                {labs.length ? (
+                  <section className="card col gap-6 rxd-labs-card" aria-label={tr('Test reports', 'পরীক্ষার রিপোর্ট')}>
+                    <span className="t-label-m muted">{tr('Test reports', 'পরীক্ষার রিপোর্ট')}</span>
+                    <DoctorLabList labs={labs} />
+                  </section>
+                ) : null}
+              </div>
+            );
+          })}
         </>
       )}
     </div>

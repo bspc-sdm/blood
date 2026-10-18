@@ -275,7 +275,11 @@ const actions = {
     } else {
       throw err(req, 'Choose the patient', 'রোগী বেছে নিন');
     }
-    return { items: snap.docs.filter(match).map(rxView).sort((x, y) => y.createdAt - x.createdAt) };
+    const items = snap.docs.filter(match).map(rxView).sort((x, y) => y.createdAt - x.createdAt);
+    // পার্টনার ল্যাবের পরীক্ষা: অবস্থা সবসময়, ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে (rxnet.labsForDoctor)।
+    // শুধু ডাক্তার নিজে (সহকারী এই তালিকা পান না — আগের নিয়মই)।
+    const labOrders = await require('./rxnet').labsForDoctor(user.uid, items.map((r) => r.id));
+    return { items, labOrders };
   },
 
   async rx_patient_add(req, user) {
@@ -449,6 +453,10 @@ const actions = {
     if (!R.isValidId(id)) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
     const s = await db.doc(`prescriptions/${id}`).get();
     if (!s.exists || (s.get('patientUid') !== user.uid && s.get('doctorUid') !== user.uid)) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
+    // লেখক ডাক্তার: এই প্রেসক্রিপশনের ল্যাব অর্ডার (ইতিহাসের একই নিয়মে); রোগী নিজের সব পান rx_activity দিয়ে
+    if (s.get('doctorUid') === user.uid && s.get('patientUid') !== user.uid) {
+      return { item: rxView(s), labOrders: await require('./rxnet').labsForDoctor(user.uid, [s.id]) };
+    }
     return { item: rxView(s) };
   },
 };

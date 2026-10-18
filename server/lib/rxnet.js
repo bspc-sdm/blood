@@ -259,6 +259,64 @@ async function reportHistory(patientUid, exceptId, before) {
 }
 
 // ---------------------------------------------------------------------------
+// ডাক্তারের রোগীর ইতিহাসে পরীক্ষার রিপোর্ট (১৮ অক্টোবর ২০২৬, "ডাক্তারকে রিপোর্ট দেখানো")
+// ---------------------------------------------------------------------------
+
+/**
+ * ডাক্তার ফল দেখেন শুধু lab_order_get-এর একই শর্তে: রিপোর্ট দেখার অনুরোধ (rxReviews) 'paid' বা 'done' —
+ * অর্থাৎ রোগী টাকা দিয়েছেন আর ডাক্তার/সহকারী মিলিয়ে নিয়েছেন, অথবা ডাক্তার "ফি চাই না" দিয়েছেন (রিপোর্ট আসার সাথে সাথে 'paid')।
+ * 'off' (অনলাইনে রিপোর্ট দেখা বন্ধ ছিল), 'unpaid', 'claimed' — ফল নয়, শুধু অবস্থা।
+ */
+const DOCTOR_SEES = ['paid', 'done'];
+/** ইতিহাসে সর্বোচ্চ কয়টা প্রেসক্রিপশনের (নতুনগুলো) ল্যাব অর্ডার, আর প্রতিটায় কয়টা — উত্তর ছোট রাখতে */
+const LAB_HISTORY_RX = 20;
+const LAB_PER_RX = 10;
+
+/**
+ * ডাক্তারের দিক থেকে একটা ল্যাব অর্ডার: অবস্থা সবসময় (পাঠানো/নমুনা নেওয়া/বাতিল/রিপোর্ট এসেছে);
+ * ফল (report: ঘর, নোট — ছবি নয়) শুধু open হলে, নইলে null। review: রিপোর্ট দেখার অনুরোধের অবস্থা — টাকা/TrxID নয়।
+ */
+function doctorLabView(d, r) {
+  const x = d.data();
+  const review = r && r.exists ? r.get('status') || null : null;
+  const open = x.status === 'reported' && DOCTOR_SEES.includes(review);
+  const v = labOrderView(d);
+  return {
+    id: d.id,
+    rxId: x.rxId,
+    labName: x.labName || '',
+    tests: x.tests || [],
+    status: x.status,
+    createdAt: x.createdAt || 0,
+    reportedAt: x.reportedAt || 0,
+    review,
+    open,
+    report: open ? v.report : null,
+    // ডাক্তার নিজে রোগীকে যা জানিয়েছিলেন
+    comment: open && review === 'done' ? r.get('comment') || '' : '',
+  };
+}
+
+/**
+ * এই ডাক্তারের প্রেসক্রিপশনগুলোর (rxIds — ডাক্তারের নিজের বলে আগেই মেলানো) ল্যাব অর্ডার, নতুন আগে।
+ * প্রেসক্রিপশন ধরে খোঁজা, তারপর অর্ডার আর অনুরোধ দুটোরই doctorUid মিলিয়ে — অন্য ডাক্তারের কিছু কখনো আসে না।
+ */
+async function labsForDoctor(doctorUid, rxIds) {
+  const ids = [...new Set((rxIds || []).filter((id) => R.isValidId(id)))].slice(0, LAB_HISTORY_RX);
+  if (!doctorUid || !ids.length) return [];
+  const snaps = await Promise.all(ids.map((id) => db.collection('labOrders').where('rxId', '==', id).limit(30).get()));
+  const docs = snaps.flatMap((s) => s.docs
+    .filter((d) => d.get('doctorUid') === doctorUid)
+    .sort((a, c) => (c.get('createdAt') || 0) - (a.get('createdAt') || 0))
+    .slice(0, LAB_PER_RX));
+  if (!docs.length) return [];
+  const reviews = await db.getAll(...docs.map((d) => db.doc(`rxReviews/${d.id}`)));
+  return docs
+    .map((d, i) => doctorLabView(d, reviews[i] && reviews[i].exists && reviews[i].get('doctorUid') === doctorUid ? reviews[i] : null))
+    .sort((a, c) => c.createdAt - a.createdAt);
+}
+
+// ---------------------------------------------------------------------------
 // ফার্মেসির অর্ডার (দোকানে গিয়ে / অনলাইনে) আর "দিতে পারেননি" তালিকা
 // ---------------------------------------------------------------------------
 
@@ -878,7 +936,7 @@ const actions = {
     let ok = x.patientUid === user.uid || x.labId === user.uid;
     if (!ok && x.doctorUid === user.uid) {
       const r = await db.doc(`rxReviews/${id}`).get();
-      ok = r.exists && ['paid', 'done'].includes(r.get('status'));
+      ok = r.exists && DOCTOR_SEES.includes(r.get('status')); // ইতিহাসের doctorLabView-এর একই নিয়ম
       if (!ok) throw err(req, "The patient hasn't paid for the report review yet", 'রোগী এখনো রিপোর্ট দেখার টাকা দেননি', 402);
     }
     if (!ok) throw notFound(req);
@@ -949,7 +1007,7 @@ const actions = {
         id: d.id, pharmacyId: d.get('pharmacyId'), pharmacyName: d.get('pharmacyName'), status: d.get('status'), reason: d.get('reason') || '', createdAt: d.get('createdAt'),
         mode: d.get('mode') || 'shop', price: d.get('price') || '', eta: d.get('eta') || '', deliveryFee: d.get('deliveryFee') || '', missed: d.get('missed') || [],
       })).sort((a, c) => c.createdAt - a.createdAt) : [],
-      labOrders: labs.docs.filter((d) => isPatient || ['paid', 'done'].includes(reviews.find((r) => r.id === d.id)?.get('status'))).map((d) => labOrderView(d)),
+      labOrders: labs.docs.filter((d) => isPatient || DOCTOR_SEES.includes(reviews.find((r) => r.id === d.id)?.get('status'))).map((d) => labOrderView(d)),
       reviews: reviews.filter((r) => r.exists).map((r) => reviewView(r)),
       nextOpen,
     };
@@ -1052,4 +1110,4 @@ async function refillReminders(now = Date.now()) {
   return { sent };
 }
 
-module.exports = { actions, refillReminders, perDay, needQty, medStatus, refillDate, countable, labView };
+module.exports = { actions, refillReminders, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };

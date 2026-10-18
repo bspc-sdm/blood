@@ -105,6 +105,14 @@ data class RxReview(
     val labName: String, val tests: List<String>, val status: String, val fee: String, val noFee: Boolean, val payNumber: String,
     val payMethods: List<String>, val method: String, val trxId: String, val rejectNote: String, val comment: String, val updatedAt: Long,
 )
+/**
+ * ডাক্তারের দিক থেকে ল্যাব অর্ডার (rx_patient_history / rx_get-এর labOrders, সার্ভারের doctorLabView)।
+ * অবস্থা সবসময়; report শুধু open হলে (রিপোর্ট দেখার টাকা মিলেছে বা "ফি চাই না") — নইলে null। review: অনুরোধের অবস্থা।
+ */
+data class DoctorLab(
+    val id: String, val rxId: String, val labName: String, val tests: List<String>, val status: String, val createdAt: Long, val reportedAt: Long,
+    val review: String?, val open: Boolean, val report: LabReport?, val comment: String,
+)
 data class RxActivity(val meds: List<MedStat>, val dispensed: List<Dispensing>, val orders: List<RxOrder>, val labOrders: List<LabOrder>, val reviews: List<RxReview>, val nextOpen: Long?)
 data class PharmOption(
     val id: String, val name: String, val phone: String, val address: String, val km: Double?, val openNow: Boolean, val keepsStock: Boolean,
@@ -131,19 +139,26 @@ object RxNet {
 
     private fun med(o: JSONObject) = MedStat(o.optInt("i"), o.str("name"), o.str("form"), o.str("dose"), o.optInt("days"), o.intN("need"), o.optInt("got"), o.intN("left"), o.optBoolean("done"))
     private fun disp(o: JSONObject) = Dispensing(o.str("name"), o.optLong("at"), o.optJSONArray("items").objs().map { it.optInt("i") to it.optInt("qty") })
+    private fun reportOf(r: JSONObject) = LabReport(
+        r.optJSONArray("items").objs().map {
+            LabResult(it.str("test"), it.str("result"), it.str("unit"), it.str("range"), it.str("flag"), it.str("group"), it.str("code"), it.str("key"),
+                it.dblN("low"), it.dblN("high"), it.optBoolean("long"))
+        },
+        r.str("note"), r.optLong("reportedAt"), r.optInt("photoCount"), r.optJSONArray("photos").strings(),
+    )
     private fun labOrder(o: JSONObject) = LabOrder(
         o.str("id"), o.str("rxId"), o.str("code"), o.str("labName"), o.str("patientName"), o.intN("patientAge"), o.str("patientGender"),
         o.str("doctorName"), o.optJSONArray("tests").strings(), o.str("status"), o.optLong("createdAt"),
-        o.optJSONObject("report")?.let { r ->
-            LabReport(
-                r.optJSONArray("items").objs().map {
-                    LabResult(it.str("test"), it.str("result"), it.str("unit"), it.str("range"), it.str("flag"), it.str("group"), it.str("code"), it.str("key"),
-                        it.dblN("low"), it.dblN("high"), it.optBoolean("long"))
-                },
-                r.str("note"), r.optLong("reportedAt"), r.optInt("photoCount"), r.optJSONArray("photos").strings(),
-            )
-        },
+        o.optJSONObject("report")?.let { r -> reportOf(r) },
     )
+
+    /** ডাক্তার: রোগীর ইতিহাস / প্রেসক্রিপশনের labOrders (ফল শুধু open হলে) */
+    fun doctorLabs(a: JSONArray?): List<DoctorLab> = a.objs().map {
+        DoctorLab(
+            it.str("id"), it.str("rxId"), it.str("labName"), it.optJSONArray("tests").strings(), it.str("status"), it.optLong("createdAt"), it.optLong("reportedAt"),
+            it.str("review").ifBlank { null }, it.optBoolean("open"), it.optJSONObject("report")?.let { r -> reportOf(r) }, it.str("comment"),
+        )
+    }
     private fun review(o: JSONObject) = RxReview(
         o.str("id"), o.str("rxId"), o.str("labOrderId"), o.str("doctorUid"), o.str("doctorName"), o.str("patientName"), o.str("labName"),
         o.optJSONArray("tests").strings(), o.str("status"), o.str("fee"), o.optBoolean("noFee"), o.str("payNumber"), o.optJSONArray("payMethods").strings(),
@@ -186,8 +201,9 @@ object RxNet {
     suspend fun labs(district: String, facilityId: String? = null): List<Lab> =
         call("labs", JSONObject().put("district", district).apply { if (facilityId != null) put("facilityId", facilityId) }).optJSONArray("items").objs().map(::lab)
     suspend fun sendLab(rxId: String, labId: String, tests: List<String>) = call("rx_send_lab", JSONObject().put("rxId", rxId).put("labId", labId).put("tests", JSONArray(tests)))
-    suspend fun labOrder(id: String): LabOrder {
-        val o = call("lab_order_get", JSONObject().put("id", id))
+    /** self: ডাক্তার নিজের কাজে (কেয়ারগিভার মোড চালু থাকলেও রোগীর uid নয় — asUid খালি দিলে সার্ভার নিজেকেই ধরে) */
+    suspend fun labOrder(id: String, self: Boolean = false): LabOrder {
+        val o = call("lab_order_get", JSONObject().put("id", id).apply { if (self) put("asUid", "") })
         val h = o.optJSONObject("history")
         val hist = h?.keys()?.asSequence()?.associateWith { k -> h.optJSONArray(k).objs().map { LabHist(it.str("result"), it.str("flag"), it.optLong("at")) } }.orEmpty()
         return labOrder(o.getJSONObject("item")).copy(history = hist)
@@ -340,6 +356,13 @@ object RxNetText {
         "paid" -> tr("Doctor is checking the report", "ডাক্তার রিপোর্ট দেখছেন")
         "done" -> tr("Doctor checked", "ডাক্তার দেখেছেন")
         else -> ""
+    }
+
+    /** রিপোর্ট এসেছে কিন্তু ডাক্তারের জন্য ফল বন্ধ — কেন, কী করলে খুলবে (ওয়েবের labLocked) */
+    fun labLocked(review: String?): String = when (review) {
+        "unpaid" -> tr("You can see it when the patient asks you to check the report", "রোগী রিপোর্ট দেখানোর অনুরোধ করলে দেখা যাবে")
+        "claimed" -> tr("The patient sent the fee — confirm it in Reports to see the results", "রোগী টাকা পাঠিয়েছেন — \"রিপোর্ট\" থেকে টাকা মিলিয়ে নিলে দেখা যাবে")
+        else -> tr("Online report review was off — see the report with the patient", "অনলাইনে রিপোর্ট দেখা বন্ধ ছিল — রিপোর্ট রোগীর কাছ থেকে দেখে নিন")
     }
 
     fun flag(f: String): String = when (f) {
@@ -818,10 +841,10 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSen
 
 /** রিপোর্ট: ফলের তালিকা (বেশি/কম চিহ্নসহ), নোট, ছবি */
 @Composable
-fun LabReportDialog(orderId: String, onDismiss: () -> Unit) {
+fun LabReportDialog(orderId: String, self: Boolean = false, onDismiss: () -> Unit) {
     var order by remember { mutableStateOf<LabOrder?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(orderId) { runCatching { RxNet.labOrder(orderId) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
+    LaunchedEffect(orderId) { runCatching { RxNet.labOrder(orderId, self) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(topBar = { BackTopBar(tr("Test report", "পরীক্ষার রিপোর্ট"), onDismiss) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -880,6 +903,73 @@ fun LabReportView(o: LabOrder) {
         val bmp = remember(p) { Photo.decodeImage(p) }
         if (bmp != null) Image(bmp, tr("Report photo", "রিপোর্টের ছবি"), Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.FillWidth)
     }
+}
+
+// ------------------------------------------------------------
+// ডাক্তার: রোগীর ইতিহাসে / প্রেসক্রিপশনে পার্টনার ল্যাবের পরীক্ষা (১৮ অক্টোবর ২০২৬, "ডাক্তারকে রিপোর্ট দেখানো")
+// অবস্থা সবসময়; ফল শুধু রিপোর্ট দেখার টাকা মিললে বা "ফি চাই না" হলে — পুরো রিপোর্ট (আগের ফলসহ) LabReportDialog-এ।
+// ওয়েবের web/src/sections/rx/doctor/Labs.tsx
+// ------------------------------------------------------------
+
+/** "পরীক্ষার রিপোর্ট" কার্ড; কিছু না থাকলে emptyNote (না দিলে কার্ডই নয়) */
+@Composable
+fun DoctorLabsCard(labs: List<DoctorLab>, emptyNote: String? = null) {
+    if (labs.isEmpty() && emptyNote == null) return
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("Test reports", "পরীক্ষার রিপোর্ট"), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+            if (labs.isEmpty()) SmallNote(emptyNote.orEmpty()) else DoctorLabList(labs)
+        }
+    }
+}
+
+@Composable
+fun DoctorLabList(labs: List<DoctorLab>) {
+    val cs = MaterialTheme.colorScheme
+    var reading by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        labs.forEachIndexed { i, o ->
+            if (i > 0) HorizontalDivider()
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val (tagBg, tagFg) = when (o.status) {
+                    "reported" -> cs.tertiaryContainer to cs.onTertiaryContainer
+                    "cancelled" -> cs.errorContainer to cs.onErrorContainer
+                    else -> cs.surfaceVariant to cs.onSurfaceVariant
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(o.labName.ifBlank { tr("Lab", "প্যাথলজি") }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Tag(RxNetText.labStatus(o.status), tagBg, tagFg)
+                }
+                SmallNote(listOf(o.tests.joinToString(", "), Rules.formatDate(if (o.reportedAt > 0) o.reportedAt else o.createdAt)).filter { it.isNotBlank() }.joinToString(" · "))
+                val r = o.report
+                if (o.status == "reported" && o.open && r != null) {
+                    // বেশি/কম ফলগুলো এক লাইনে — পুরোটা "রিপোর্ট দেখুন"-এ
+                    val flagged = r.items.filter { it.flag.isNotBlank() && !it.long }
+                    if (flagged.isNotEmpty()) {
+                        Text(
+                            tr("High/low: ", "বেশি/কম: ") + flagged.take(4).joinToString(", ") { f ->
+                                f.test + " " + num(f.result) + (if (f.unit.isNotBlank()) " " + f.unit else "") + " (" + RxNetText.flag(f.flag) + ")"
+                            } + (if (flagged.size > 4) " +" + num(flagged.size - 4) else ""),
+                            style = MaterialTheme.typography.bodySmall, color = cs.error,
+                        )
+                    } else if (r.items.isNotEmpty()) {
+                        SmallNote(tr("${r.items.size} result(s)", "${num(r.items.size)}টা ফল"))
+                    }
+                    if (o.review == "paid") SmallNote(tr("Not replied yet — reply from Reports", "রোগীকে এখনো জানাননি — \"রিপোর্ট\" থেকে জানান"))
+                    if (o.comment.isNotBlank()) Text(tr("You told the patient: ", "রোগীকে জানিয়েছিলেন: ") + o.comment, style = MaterialTheme.typography.bodySmall)
+                    SmallAction(tr("See report", "রিপোর্ট দেখুন"), R.drawable.ic_list_alt, { reading = o.id }, primary = true)
+                } else if (o.status == "reported") {
+                    Row(verticalAlignment = Alignment.Top) {
+                        AppIcon(R.drawable.ic_privacy_tip, null, Modifier.padding(top = 2.dp).size(16.dp), cs.onSurfaceVariant)
+                        Spacer(Modifier.width(6.dp))
+                        SmallNote(RxNetText.labLocked(o.review))
+                    }
+                }
+            }
+        }
+    }
+    reading?.let { id -> LabReportDialog(id, self = true) { reading = null } }
 }
 
 /** রোগী: ডাক্তারের নম্বরে টাকা পাঠিয়ে TrxID */
@@ -1715,7 +1805,7 @@ private fun ReviewReadDialog(r: RxReview, onDismiss: () -> Unit, onDone: () -> U
     var comment by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(r.id) { runCatching { RxNet.labOrder(r.labOrderId) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
+    LaunchedEffect(r.id) { runCatching { RxNet.labOrder(r.labOrderId, self = true) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
     Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(topBar = { BackTopBar(r.patientName, { if (!busy) onDismiss() }) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

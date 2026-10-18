@@ -61,6 +61,14 @@ export interface LabOrder {
   tests: string[]; status: string; createdAt: number; report: { items: LabResult[]; note: string; reportedAt: number; photoCount: number; photos?: string[] } | null;
 }
 export type LabHistory = Record<string, { result: string; flag: string; at: number }[]>;
+/**
+ * ডাক্তারের দিক থেকে ল্যাব অর্ডার (rx_patient_history / rx_get-এর labOrders, সার্ভারের doctorLabView)।
+ * অবস্থা সবসময়; report শুধু open হলে (রিপোর্ট দেখার টাকা মিলেছে বা "ফি চাই না") — নইলে null।
+ */
+export interface DoctorLab {
+  id: string; rxId: string; labName: string; tests: string[]; status: string; createdAt: number; reportedAt: number;
+  review: string | null; open: boolean; report: LabOrder['report']; comment: string;
+}
 
 // ---------- লেখা (অ্যাপের RxText / RxNetText) ----------
 export const MAX_ASSISTANTS = 5; // সার্ভারের MAX_ASSISTANTS
@@ -90,6 +98,24 @@ export function reviewStatus(s: string) {
     case 'paid': return tr('Doctor is checking the report', 'ডাক্তার রিপোর্ট দেখছেন');
     case 'done': return tr('Doctor checked', 'ডাক্তার দেখেছেন');
     default: return s;
+  }
+}
+/** ল্যাব অর্ডারের অবস্থা (রোগীর পাতার labStatus-এর মতো, অ্যাপের RxNetText.labStatus) */
+export function labStatus(s: string) {
+  switch (s) {
+    case 'sent': return tr('Sent — waiting', 'পাঠানো হয়েছে — অপেক্ষায়');
+    case 'received': return tr('Sample taken', 'নমুনা নেওয়া হয়েছে');
+    case 'reported': return tr('Report ready', 'রিপোর্ট এসেছে');
+    case 'cancelled': return tr("Can't do", 'করতে পারবে না');
+    default: return s;
+  }
+}
+/** রিপোর্ট এসেছে কিন্তু ফল বন্ধ — কেন, কী করলে খুলবে (অ্যাপের RxNetText.labLocked) */
+export function labLocked(review: string | null) {
+  switch (review) {
+    case 'unpaid': return tr('You can see it when the patient asks you to check the report', 'রোগী রিপোর্ট দেখানোর অনুরোধ করলে দেখা যাবে');
+    case 'claimed': return tr('The patient sent the fee — confirm it in Reports to see the results', 'রোগী টাকা পাঠিয়েছেন — "রিপোর্ট" থেকে টাকা মিলিয়ে নিলে দেখা যাবে');
+    default: return tr('Online report review was off — see the report with the patient', 'অনলাইনে রিপোর্ট দেখা বন্ধ ছিল — রিপোর্ট রোগীর কাছ থেকে দেখে নিন');
   }
 }
 export const flagLabel = (f: string) => (f === 'high' ? tr('High', 'বেশি') : f === 'low' ? tr('Low', 'কম') : f === 'abnormal' ? tr('Abnormal', 'অস্বাভাবিক') : '');

@@ -248,8 +248,8 @@ function ReviewReadDialog({ r, onClose, onDone }: { r: RxReview; onClose: () => 
   );
 }
 
-/** রিপোর্ট: পরীক্ষা ধরে ভাগ, বেশি/কম চিহ্ন, একই রোগীর আগের ফল (অ্যাপের LabReportView) */
-function LabReportView({ o, history }: { o: LabOrder; history: LabHistory }) {
+/** রিপোর্ট: পরীক্ষা ধরে ভাগ, বেশি/কম চিহ্ন, একই রোগীর আগের ফল (অ্যাপের LabReportView) — রোগীর ইতিহাসেও (Labs.tsx) */
+export function LabReportView({ o, history }: { o: LabOrder; history: LabHistory }) {
   const rep = o.report;
   const groups: { name: string; rows: LabResult[] }[] = [];
   for (const it of rep?.items ?? []) {

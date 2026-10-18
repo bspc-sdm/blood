@@ -228,7 +228,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
           {kind === 'bloodbank' ? <Switch label={tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')} checked={open24} onChange={(v) => setParam('h24', v ? '1' : null)} /> : null}
         </FilterSheet>
       ) : null}
-      {rating ? <RatingDialog id={rating.id} name={rating.name} onClose={() => setRating(null)} /> : null}
+      {rating ? <RatingDialog kind={kind} id={rating.id} name={rating.name} onClose={() => setRating(null)} /> : null}
       {reporting ? <ReportDialog kind={kind} id={reporting} onClose={() => setReporting(null)} /> : null}
     </>
   );
