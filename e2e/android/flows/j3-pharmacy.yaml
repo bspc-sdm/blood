@@ -1,0 +1,79 @@
+# যাত্রা ৩ — ফার্মেসি: আমার কাজ, আসা প্রেসক্রিপশন, "তৈরি", ওষুধ দেওয়া, "বিক্রির হিসাবে তুলবেন?"
+appId: com.bspc.blood
+env:
+  J: j3
+  ROLE: ডেমো ফার্মেসির মালিক
+---
+- runFlow: ../common/start.yaml
+- tapOn: "আমার কাজ"
+- extendedWaitUntil:
+    visible: ".*ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- takeScreenshot: j3-01-my-work
+- tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+- extendedWaitUntil:
+    visible: ".*তথ্য বদলান.*"
+    timeout: 30000
+- takeScreenshot: j3-02-my-pharmacy
+- scrollUntilVisible:
+    element: "আপনার কাছে পাঠানো"
+    direction: DOWN
+    timeout: 30000
+    optional: true
+- takeScreenshot: j3-03-incoming
+- scroll
+- takeScreenshot: j3-04-incoming-more
+- scrollUntilVisible:
+    element: "ডেমো রোগী রহিম"
+    direction: UP
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: "তৈরি"
+    below: "ডেমো রোগী রহিম"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j3-05-marked-ready
+# প্রেসক্রিপশনের কোড দিয়ে খোলা (রহিমের DEMXRXB333) — ১টা Comet দেওয়া
+- scrollUntilVisible:
+    element: ".*প্রেসক্রিপশনের কোড.*"
+    direction: UP
+    timeout: 15000
+- tapOn: ".*প্রেসক্রিপশনের কোড.*"
+- inputText: "DEMXRXB333"
+- hideKeyboard
+- tapOn:
+    text: "খুলুন"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*ওষুধ দিন.*"
+    timeout: 30000
+- takeScreenshot: j3-06-dispense-open
+- tapOn:
+    text: ".*কয়টা.*"
+    index: 0
+- inputText: "1"
+- hideKeyboard
+- scrollUntilVisible:
+    element: ".*যা দিলাম লিখে রাখুন.*"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: j3-07-dispense-filled
+- tapOn: ".*যা দিলাম লিখে রাখুন.*"
+- extendedWaitUntil:
+    visible: ".*বিক্রির হিসাবে তুলবেন.*"
+    timeout: 30000
+    optional: true
+- scrollUntilVisible:
+    element: ".*এখন না.*"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: j3-08-sale-offer
+- tapOn:
+    text: ".*এখন না.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j3-09-after-not-now

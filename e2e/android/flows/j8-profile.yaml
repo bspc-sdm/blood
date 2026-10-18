@@ -1,0 +1,60 @@
+# যাত্রা ৮ — প্রোফাইল: রোল বদলান, রক্তদাতার তথ্যের ফর্ম (জন্ম তারিখ আর ওজনের ঘর)
+appId: com.bspc.blood
+env:
+  J: j8
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+# রোগী (এখনো রক্তদাতা নন): হোমের "রক্ত দিতে চাই" → ফর্ম (সেভ করা হয় না)
+- tapOn: "রক্ত দিতে চাই.*"
+- extendedWaitUntil:
+    visible: ".*রক্তদাতার তথ্য.*"
+    timeout: 20000
+- takeScreenshot: j8-01-donor-form
+- tapOn: ".*জন্ম তারিখ.*"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j8-02-birth-picker
+- tapOn: "ঠিক আছে"
+- tapOn: ".*ওজন.*"
+- inputText: "65"
+- hideKeyboard
+- takeScreenshot: j8-03-donor-form-filled
+- back
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "সেটিংস ও প্রোফাইল"
+- takeScreenshot: j8-04-profile
+- scrollUntilVisible:
+    element: ".*রোল বদলান.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: ".*রোল বদলান.*"
+- extendedWaitUntil:
+    visible: ".*ডেমো ডোনার করিম.*"
+    timeout: 30000
+- takeScreenshot: j8-05-switch-role
+- tapOn: ".*ডেমো ডোনার করিম.*"
+- extendedWaitUntil:
+    visible: "সেটিংস ও প্রোফাইল"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: j8-06-donor-home
+- tapOn: "সেটিংস ও প্রোফাইল"
+- extendedWaitUntil:
+    visible: ".*এখন রক্ত দিতে পারবেন.*"
+    timeout: 20000
+    optional: true
+- takeScreenshot: j8-07-donor-profile
+- scrollUntilVisible:
+    element: ".*প্রোফাইল এডিট.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: ".*প্রোফাইল এডিট.*"
+- scrollUntilVisible:
+    element: ".*ওজন.*"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: j8-08-donor-edit-fields
+- back

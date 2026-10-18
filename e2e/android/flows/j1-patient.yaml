@@ -1,0 +1,110 @@
+# যাত্রা ১ — রোগী: হোম, অ্যাপয়েন্টমেন্ট, প্রেসক্রিপশন, উপরের দুই বাটন, ফার্মেসিতে পাঠানো (দোকানে গিয়ে), সফলতার ডায়ালগ, অবস্থা
+appId: com.bspc.blood
+env:
+  J: j1
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- extendedWaitUntil:
+    visible: ".*আমার রিকোয়েস্ট.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j1-01-home
+- tapOn: "সেটিংস ও প্রোফাইল"
+- extendedWaitUntil:
+    visible: ".*আমার অ্যাপয়েন্টমেন্ট.*"
+    timeout: 20000
+- takeScreenshot: j1-02-profile
+- tapOn: ".*আমার অ্যাপয়েন্টমেন্ট.*"
+- extendedWaitUntil:
+    visible: ".*ডা. ডেমো.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j1-03-appointments
+- back
+- tapOn: ".*আমার প্রেসক্রিপশন.*"
+- extendedWaitUntil:
+    visible: ".*Bislol.*"
+    timeout: 30000
+- takeScreenshot: j1-04-rx-list
+- tapOn: ".*Bislol.*"
+- extendedWaitUntil:
+    visible: ".*ফার্মেসিতে পাঠান.*"
+    timeout: 30000
+- takeScreenshot: j1-05-rx-top-buttons
+- tapOn:
+    text: ".*প্যাথলজিতে পাঠান.*"
+- extendedWaitUntil:
+    visible: ".*পরীক্ষা.*"
+    timeout: 20000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j1-06-lab-pick
+- back
+- tapOn:
+    text: ".*ফার্মেসিতে পাঠান.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*দোকানে আছি.*"
+    timeout: 10000
+- takeScreenshot: j1-07-send-choice
+- tapOn: ".*দোকানে আছি.*"
+- extendedWaitUntil:
+    visible: ".*দোকানের কোড.*"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j1-08-shop-mode-pick
+- back
+- back
+- back
+# সেবা › ফার্মেসি › ডেমো লাইফ ফার্মেসি › এই ফার্মেসিতে প্রেসক্রিপশন পাঠান
+- tapOn: "সেবা"
+- tapOn:
+    text: "ফার্মেসি"
+    index: 0
+- extendedWaitUntil:
+    visible: "ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- tapOn: "ডেমো লাইফ ফার্মেসি.*"
+- extendedWaitUntil:
+    visible: ".*ছাড় ও ডেলিভারি.*"
+    timeout: 10000
+- takeScreenshot: j1-09-pharmacy-sheet
+- scrollUntilVisible:
+    element: ".*এই ফার্মেসিতে প্রেসক্রিপশন পাঠান.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: ".*এই ফার্মেসিতে প্রেসক্রিপশন পাঠান.*"
+- extendedWaitUntil:
+    visible: ".*Bislol.*"
+    timeout: 30000
+- takeScreenshot: j1-10-which-rx
+- tapOn: ".*Bislol.*"
+- extendedWaitUntil:
+    visible: ".*দোকানে গিয়ে নেব.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j1-11-send-dialog
+- tapOn: ".*দোকানে গিয়ে নেব.*"
+- extendedWaitUntil:
+    visible: ".*প্রেসক্রিপশন পাঠানো হয়েছে.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j1-12-sent-dialog
+- tapOn:
+    text: ".*প্রেসক্রিপশন খুলুন.*"
+    optional: true
+- extendedWaitUntil:
+    visible: ".*ওষুধ কেনা.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j1-13-rx-opened
+- scrollUntilVisible:
+    element: ".*ডেমো লাইফ ফার্মেসি — .*"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+- takeScreenshot: j1-14-rx-status

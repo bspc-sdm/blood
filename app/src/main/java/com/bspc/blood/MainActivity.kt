@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package com.bspc.blood
 
 import android.content.Intent
@@ -21,7 +23,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.async
@@ -72,7 +77,8 @@ class MainActivity : ComponentActivity() {
                     }
                     enableEdgeToEdge(style, style)
                 }
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                // testTagsAsResourceId: স্বয়ংক্রিয় টেস্ট (Maestro) যেন কয়েকটা testTag দিয়ে বাটন খুঁজে পায় — দেখতে কিছু বদলায় না
+                Surface(modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
                     Box(modifier = Modifier.safeDrawingPadding()) {
                         App(
                             openRequestId = openRequestId.value,

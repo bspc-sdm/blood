@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
@@ -647,7 +648,7 @@ fun MyAmbulancesSection(profile: Profile) {
                     if (a.status == "approved") {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(if (a.available) tr("Available now", "এখন খালি আছি") else tr("On a trip / busy", "ট্রিপে আছি / ব্যস্ত"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Switch(checked = a.available, onCheckedChange = { on ->
+                            Switch(checked = a.available, modifier = Modifier.testTag("amb_available"), onCheckedChange = { on ->
                                 scope.launch {
                                     runCatching { Ambulances.setAvailable(a.id, on) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
                                 }

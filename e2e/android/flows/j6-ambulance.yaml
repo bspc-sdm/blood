@@ -1,0 +1,41 @@
+# যাত্রা ৬ — অ্যাম্বুলেন্স: আমার গাড়িগুলো, "এখন খালি আছি" সুইচ (বন্ধ করে আবার চালু — আগের অবস্থায় ফেরত)
+appId: com.bspc.blood
+env:
+  J: j6
+  ROLE: ডেমো অ্যাম্বুলেন্স চালক
+---
+- runFlow: ../common/start.yaml
+- tapOn: "আমার কাজ"
+- extendedWaitUntil:
+    visible: "অ্যাম্বুলেন্স.*"
+    timeout: 30000
+- takeScreenshot: j6-01-my-work
+- tapOn: "অ্যাম্বুলেন্স.*"
+- extendedWaitUntil:
+    visible: ".*ডেমো জীবন.*"
+    timeout: 30000
+- takeScreenshot: j6-02-my-ambulances
+- scrollUntilVisible:
+    element:
+      id: "amb_available"
+    direction: DOWN
+    timeout: 15000
+- takeScreenshot: j6-03-switch-before
+- tapOn:
+    id: "amb_available"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*ট্রিপে আছি.*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: j6-04-switch-off
+- tapOn:
+    id: "amb_available"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: j6-05-switch-on-again
+- scroll
+- takeScreenshot: j6-06-more-vehicles

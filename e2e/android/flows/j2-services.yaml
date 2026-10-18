@@ -1,0 +1,66 @@
+# যাত্রা ২ — সেবা ট্যাব: অ্যাম্বুলেন্স, ফার্মেসি, প্যাথলজি, ব্লাড ব্যাংকের তালিকা আর বিস্তারিত (নিচের বাটন কাটা পড়ে কি না)
+appId: com.bspc.blood
+env:
+  J: j2
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেবা"
+- extendedWaitUntil:
+    visible: "ডেমো .*অ্যাম্বুলেন্স.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j2-01-ambulance-list
+- scrollUntilVisible:
+    element: "ডেমো জীবন অ্যাম্বুলেন্স .এসি.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "ডেমো জীবন অ্যাম্বুলেন্স .এসি.*"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j2-02-ambulance-sheet
+- scroll
+- takeScreenshot: j2-03-ambulance-sheet-bottom
+- back
+- scrollUntilVisible:
+    element: "ফার্মেসি"
+    direction: UP
+    timeout: 10000
+- tapOn:
+    text: "ফার্মেসি"
+    index: 0
+- extendedWaitUntil:
+    visible: "ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- takeScreenshot: j2-04-pharmacy-list
+- tapOn: "ডেমো লাইফ ফার্মেসি.*"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j2-05-pharmacy-sheet
+- scroll
+- takeScreenshot: j2-06-pharmacy-sheet-bottom
+- back
+- tapOn: "প্যাথলজি"
+- extendedWaitUntil:
+    visible: "ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+    timeout: 30000
+- takeScreenshot: j2-07-lab-list
+- tapOn: "ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j2-08-lab-sheet
+- scroll
+- takeScreenshot: j2-09-lab-sheet-bottom
+- back
+- tapOn: "ব্লাড ব্যাংক"
+- extendedWaitUntil:
+    visible: "ডেমো .*ব্লাড.*"
+    timeout: 30000
+- takeScreenshot: j2-10-bloodbank-list
+- tapOn: "ডেমো জীবনধারা ব্লাড ব্যাংক.*"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j2-11-bloodbank-sheet
+- scroll
+- takeScreenshot: j2-12-bloodbank-sheet-bottom
+- back
