@@ -29,6 +29,18 @@ async function notify(uid, en, bn, type = 'appointment') {
 }
 
 /** এখনই সব মোছা (৩০ দিন পর দৈনিক ক্রন থেকে) */
+/** ডাক্তারের রোগীর তালিকা (rxPatients) পাতায় পাতায় শেষ পর্যন্ত মোছা */
+async function deleteDoctorPatients(uid) {
+  for (;;) {
+    const snap = await db.collection('rxPatients').where('doctorUid', '==', uid).limit(400).get();
+    if (snap.empty) return;
+    const b = db.batch();
+    snap.docs.forEach((d) => b.delete(d.ref));
+    await b.commit();
+    if (snap.size < 400) return;
+  }
+}
+
 async function deleteNow(uid, email) {
   const userRef = db.doc(`users/${uid}`);
   const stateRef = db.doc(`serverState/${uid}`);
@@ -213,6 +225,8 @@ async function deleteNow(uid, email) {
       require('./careaccess').deleteFor(uid),
       // ডাক্তারের আজকের/আগের সিরিয়ালের সারি (queues)
       require('./queue').deleteFor(uid),
+      // ডাক্তারের নিজে লেখা রোগীর তালিকা (নাম, বয়স, ফোন) — পারভেজ "ওকে", ১৮ অক্টোবর; লেখা প্রেসক্রিপশন রোগীর কাগজ, তাই থাকে
+      deleteDoctorPatients(uid).catch((e) => console.error('rx patients delete failed', e.message)),
     ]);
   } catch (e) {
     console.error('rx cleanup failed', e);
