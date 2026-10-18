@@ -1,0 +1,118 @@
+name: Deploy server (VPS)
+
+# Contabo VPS-এ সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health দেখা।
+# GitHub-এ VPS_HOST, VPS_USER, VPS_SSH_KEY সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
+# VPS_KNOWN_HOSTS (ঐচ্ছিক, তবে ভালো): setup-vps.sh শেষে যে লাইন দেখায়; না থাকলে প্রথমবার ssh-keyscan দিয়ে নেওয়া হয়।
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# একসাথে দুটো ডেপ্লয় নয়; নতুন push এলে পুরোনোটা বাতিল
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+      - name: Server tests
+        working-directory: server
+        run: npm test
+      - name: Are VPS secrets set?
+        id: check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_USER" ] && [ -n "$VPS_SSH_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VPS_HOST / VPS_USER / VPS_SSH_KEY সেট করা নেই — ডেপ্লয় বাদ"
+          fi
+
+  deploy:
+    needs: test
+    if: needs.test.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: SSH key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::VPS_KNOWN_HOSTS নেই — ssh-keyscan দিয়ে হোস্ট চাবি নেওয়া হচ্ছে"
+            ssh-keyscan -t ed25519 -T 15 "$VPS_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Pull, install, restart, health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/lifolo
+          lock_before=$(git rev-parse HEAD:server/package-lock.json)
+          git pull --ff-only --quiet
+          echo "commit: $(git log -1 --format='%h %s')"
+          cd server
+          # npm ci node_modules মুছে আবার বসায় — চলন্ত সার্ভারের পরে লোড হওয়া মডিউল যাতে না হারায়, শুধু lock বদলালে
+          if [ "$lock_before" != "$(git rev-parse HEAD:server/package-lock.json)" ] || [ ! -d node_modules ]; then
+            npm ci --omit=dev --no-audit --no-fund
+          else
+            echo "package-lock.json unchanged, skipping npm ci"
+          fi
+          sudo -n /usr/bin/systemctl restart lifolo
+          for i in $(seq 1 30); do
+            if curl -fsS -m 3 http://127.0.0.1:3000/healthz >/dev/null 2>&1; then
+              echo "healthz ok"
+              break
+            fi
+            if [ "$i" = 30 ]; then
+              echo "::error::server did not become healthy"
+              sudo -n /usr/bin/systemctl is-active lifolo || true
+              journalctl -u lifolo -n 40 --no-pager || true
+              exit 1
+            fi
+            sleep 1
+          done
+          # Firebase/ডাটাবেসসহ পুরো পরীক্ষা — ব্যর্থ হলে সতর্কবার্তা (সেটিং বাকি থাকতে পারে)
+          if curl -fsS -m 15 http://127.0.0.1:3000/api/health; then echo; else echo "::warning::/api/health failed — check /etc/lifolo/env"; fi
+          REMOTE
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

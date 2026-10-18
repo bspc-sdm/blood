@@ -10,7 +10,7 @@ const SERVER = path.join(__dirname, '..');
 const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
 const { start } = require(path.join(SERVER, 'standalone/server.js'));
-const { runCron } = require(path.join(SERVER, 'standalone/cron.js'));
+const { runCron, runWithRetry } = require(path.join(SERVER, 'standalone/cron.js'));
 const { loadVercelConfig, compileSource, matchSource } = require(path.join(SERVER, 'standalone/vercel-config.js'));
 
 process.env.CRON_SECRET = 'test-cron-secret';
@@ -216,6 +216,12 @@ test('ক্রন: গোপন চাবি ছাড়া 401, চাবি�
   await assert.rejects(runCron('/api/cron/daily', { PORT: String(port) }), /CRON_SECRET/);
   const bad = await runCron('/api/cron/daily', { CRON_SECRET: 'nope', PORT: String(port) });
   assert.strictEqual(bad.status, 401);
+  // সার্ভার বন্ধ থাকলে শুধু সংযোগের ভুলে আবার চেষ্টা, তারপর ব্যর্থ
+  const closed = http.createServer();
+  await new Promise((r) => closed.listen(0, '127.0.0.1', r));
+  const deadPort = closed.address().port;
+  await new Promise((r) => closed.close(r));
+  await assert.rejects(runWithRetry('/api/cron/daily', { CRON_SECRET: 'x', PORT: String(deadPort) }, 2, 10), (e) => e.code === 'ECONNREFUSED');
 });
 
 // ---------- req/res সাহায্যকারী: আলাদা ছোট সার্ভার ফোল্ডার দিয়ে ----------

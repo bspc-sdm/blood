@@ -1,0 +1,45 @@
+# Lifolo API সার্ভার (server/standalone/server.js) — nginx-এর পেছনে 127.0.0.1:$PORT-এ
+[Unit]
+Description=Lifolo API server
+After=network-online.target postgresql.service
+Wants=network-online.target
+# বারবার পড়ে গেলেও থেমে না থাকা
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=lifolo
+Group=lifolo
+WorkingDirectory=/opt/lifolo/server
+EnvironmentFile=/etc/lifolo/env
+ExecStart=/usr/bin/node standalone/server.js
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=35
+LimitNOFILE=65536
+
+# সুরক্ষা: চলন্ত সার্ভার কোড বা সিস্টেমের কিছু বদলাতে পারে না
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

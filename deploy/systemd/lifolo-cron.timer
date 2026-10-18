@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Lifolo daily cron at 03:00 UTC (09:00 Dhaka)
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+# মেশিন বন্ধ থাকায় বাদ পড়লে চালু হওয়ার পরই একবার
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

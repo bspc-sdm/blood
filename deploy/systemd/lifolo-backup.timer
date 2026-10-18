@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Lifolo PostgreSQL backup at 21:30 UTC (03:30 Dhaka)
+
+[Timer]
+OnCalendar=*-*-* 21:30:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

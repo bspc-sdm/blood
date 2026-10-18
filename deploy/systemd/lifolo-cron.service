@@ -1,0 +1,21 @@
+# দৈনিক ক্রন: vercel.json-এর "crons" ("/api/cron/daily", 0 3 * * *)-এর বদলে
+[Unit]
+Description=Lifolo daily cron (/api/cron/daily)
+After=lifolo.service
+Wants=lifolo.service
+
+[Service]
+Type=oneshot
+User=lifolo
+Group=lifolo
+WorkingDirectory=/opt/lifolo/server
+EnvironmentFile=/etc/lifolo/env
+ExecStart=/usr/bin/node standalone/cron.js /api/cron/daily
+TimeoutStartSec=20min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=

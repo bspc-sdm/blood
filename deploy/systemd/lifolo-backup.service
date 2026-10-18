@@ -1,0 +1,16 @@
+# PostgreSQL-এর দৈনিক ব্যাকআপ (/var/backups/lifolo, ১৪ দিন রাখা)
+[Unit]
+Description=Lifolo PostgreSQL backup
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/local/sbin/lifolo-backup
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/lifolo
+ProtectHome=true
+PrivateTmp=true

@@ -32,9 +32,26 @@ function runCron(cronPath = '/api/cron/daily', env = process.env) {
   });
 }
 
+/**
+ * সার্ভার তখন চালু না থাকলে (যেমন ঠিক ০৩:০০-এ রিস্টার্ট) কয়েকবার আবার চেষ্টা — শুধু সংযোগই না হলে।
+ * অনুরোধ একবার পৌঁছে গেলে আর নয়: দৈনিক কাজ দুবার চললে একই নোটিফিকেশন দুবার যেতে পারে।
+ */
+async function runWithRetry(cronPath, env = process.env, attempts = 5, waitMs = 30_000) {
+  for (let i = 1; ; i++) {
+    try {
+      return await runCron(cronPath, env);
+    } catch (e) {
+      const notConnected = ['ECONNREFUSED', 'EHOSTUNREACH', 'ENOTFOUND', 'EAI_AGAIN'].includes(e && e.code);
+      if (!notConnected || i >= attempts) throw e;
+      console.error(`[cron] server not reachable (${e.code}), retry ${i}/${attempts - 1} in ${waitMs / 1000}s`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+}
+
 if (require.main === module) {
   const p = process.argv[2] || '/api/cron/daily';
-  runCron(p).then(
+  runWithRetry(p).then(
     (r) => {
       console.log(`[cron] ${p} -> ${r.status} ${r.body.slice(0, 2000)}`);
       process.exit(r.status >= 200 && r.status < 300 ? 0 : 1);
@@ -46,4 +63,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { runCron };
+module.exports = { runCron, runWithRetry };
