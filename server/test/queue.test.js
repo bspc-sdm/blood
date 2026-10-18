@@ -5,6 +5,8 @@ const test = require('node:test');
 const path = require('path');
 const assert = require('assert');
 const SERVER = path.join(__dirname, '..');
+// ঘড়ি ঢাকার মাঝরাতের আগে (চেম্বারের সময় দিনের সময়ের ওপর নির্ভর করে — যখনই চালান একই ফল; রাতের ভুলটা: demo-night.test.js)
+require('./support/clock').setDhaka('2026-10-19 23:50');
 const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
 const api = require(path.join(SERVER, 'api/community.js'));

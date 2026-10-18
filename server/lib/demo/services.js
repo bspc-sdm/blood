@@ -124,10 +124,12 @@ module.exports = {
       }
     };
 
-    // ডেমো ফার্মেসি (লগইন করা যায়) — অনুমোদিত, অনলাইনে বিক্রি চালু, স্টক আছে
+    // ডেমো ফার্মেসি (লগইন করা যায়) — অনুমোদিত, অনলাইনে বিক্রি চালু, স্টক আছে।
+    // ২৪ ঘণ্টা খোলা (rx ভাগের মতো): আগে সকাল ৬টা–রাত ২টা ছিল, তাই রাত ২–৬টায় (ঢাকা) দোকান "বন্ধ" — ডেমো রোগীর
+    // "ওষুধ খুঁজুন" ডেমো দোকানে পৌঁছাত না (রাতে পরীক্ষা করলে যাত্রা ভাঙত, demo-pharmacy.test-ও)।
     await pharmacy(PH, {
       name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', loc: phLoc,
-      address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', openAt: '06:00', closeAt: '02:00',
+      address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true,
       delivery: true, deliveryNote: 'চরপাড়া, মেডিকেল গেট, গাঙ্গিনারপাড় — ৩০ টাকা', discount: 10, status: 'approved',
       docTypes: ['license', 'front', 'pharmacist'], createdAt: now - 90 * day, ratingSum: 54, ratingCount: 12, callsPerDay: 3,
       aspects: { behaviour: { sum: 56, count: 12 }, price: { sum: 44, count: 10 }, delivery: { sum: 29, count: 7 } },
