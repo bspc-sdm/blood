@@ -11,8 +11,9 @@ import { useCall } from '@/lib/query';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import { RxPaper, patientLine } from '../../health/Prescriptions';
-import { SELF, statusTag, useRxInvalidate, type DoctorRx } from './model';
+import { SELF, statusTag, useRxInvalidate, type DoctorLab, type DoctorRx } from './model';
 import { RxCard } from './Patients';
+import { DoctorLabList } from './Labs';
 
 type Link = (path: string, extra?: Record<string, string>) => string;
 
@@ -101,11 +102,12 @@ function PrintIcon() {
 export function RxViewPage({ id, link }: { id: string; link: Link }) {
   const nav = useNavigate();
   const invalidate = useRxInvalidate();
-  const q = useCall<{ item: DoctorRx }>('rx_get', { id, ...SELF });
+  const q = useCall<{ item: DoctorRx; labOrders?: DoctorLab[] }>('rx_get', { id, ...SELF });
   const [cancelling, setCancelling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const rx = q.data?.item ?? null;
+  const labs = q.data?.labOrders ?? [];
   const back = () => (window.history.length > 1 ? nav(-1) : nav(link('/list')));
 
   async function doCancel() {
@@ -153,6 +155,17 @@ export function RxViewPage({ id, link }: { id: string; link: Link }) {
             <p className="t-body-s muted">{tr('The patient adds the prescription to their own app with this number and the code.', 'রোগী এই নম্বর আর কোড দিয়ে নিজের অ্যাপে প্রেসক্রিপশন যোগ করবেন।')}</p>
           ) : null}
         </section>
+        {rx.tests?.length || labs.length ? (
+          // পার্টনার ল্যাবের পরীক্ষা — অবস্থা সবসময়, ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে
+          <section className="card col gap-6" aria-label={tr('Test reports', 'পরীক্ষার রিপোর্ট')}>
+            <span className="t-label-m muted">{tr('Test reports', 'পরীক্ষার রিপোর্ট')}</span>
+            {labs.length ? (
+              <DoctorLabList labs={labs} />
+            ) : (
+              <span className="t-body-s muted">{tr('The patient has not sent these tests to a partner lab yet', 'রোগী এখনো কোনো পার্টনার ল্যাবে পরীক্ষা পাঠাননি')}</span>
+            )}
+          </section>
+        ) : null}
         <Button icon="edit_note" variant="outline" onClick={() => nav(link('/write'))}>{tr('New prescription', 'নতুন প্রেসক্রিপশন')}</Button>
         {active ? (
           <Button variant="danger-text" icon="close" onClick={() => { setErr(null); setCancelling(true); }}>

@@ -235,8 +235,9 @@ export function EntryDetail({ e, backTo, onRate, onReport }: { e: Entry; backTo:
   );
 }
 
-// ---------- রেটিং (অ্যাপের StarRatingDialog) ----------
-export function RatingDialog({ id, name, onClose }: { id: string; name: string; onClose: () => void }) {
+// ---------- রেটিং (অ্যাপের StarRatingDialog) — অ্যাম্বুলেন্স আর ফার্মেসি ----------
+const RATE: Partial<Record<Kind, [action: string, list: string]>> = { ambulance: ['ambulance_rate', 'ambulances'], pharmacy: ['pharmacy_rate', 'pharmacies'] };
+export function RatingDialog({ kind = 'ambulance', id, name, onClose }: { kind?: Kind; id: string; name: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
@@ -246,9 +247,11 @@ export function RatingDialog({ id, name, onClose }: { id: string; name: string; 
     setBusy(true);
     setErr(null);
     try {
-      await call('ambulance_rate', { id, rating: stars, comment: comment.trim() });
+      const [action, list] = RATE[kind] ?? RATE.ambulance!;
+      await call(action, { id, rating: stars, comment: comment.trim() });
       toast(tr('Thanks for the rating!', 'রেটিং দেওয়ার জন্য ধন্যবাদ!'));
-      qc.invalidateQueries({ queryKey: ['ambulances'] });
+      // তালিকা নতুন করে: কার্ডে নতুন গড় (★ ৪.৭ (৩২))
+      qc.invalidateQueries({ queryKey: [list] });
       onClose();
     } catch (e) {
       setErr(errorText(e));

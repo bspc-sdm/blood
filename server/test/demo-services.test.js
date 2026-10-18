@@ -173,6 +173,11 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.strictEqual(finds.find((f) => f.id === 'demo-svc-find-2').open, false);
   const pAmb = await ok(P, 'ambulances', { district: DISTRICT });
   assert.ok(pAmb.items.find((a) => a.name === 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস').canRate, 'ফোনের ১ ঘণ্টা পর রেটিং');
+  // ডেমো লাইফ ফার্মেসি থেকে আগের অর্ডারে ওষুধ নিয়েছেন → ফোন ছাড়াই রেটিং; ২৪ ঘণ্টা ফার্মেসিতে ফোনও নেই, কেনাও নেই → নয়
+  const pPh = (await ok(P, 'pharmacies', { district: DISTRICT })).items;
+  assert.ok(pPh.find((p) => p.id === PH).canRate, 'সম্পন্ন অর্ডার → ফার্মেসিতে রেটিং');
+  assert.strictEqual(pPh.find((p) => p.id === X('svc-ph-24h')).canRate, false, 'ফোন বা কেনা ছাড়া নয়');
+  assert.strictEqual((await ok(PH, 'pharmacies', { district: DISTRICT })).items.find((p) => p.id === PH).canRate, false, 'নিজের দোকানে নয়');
   const pNurse = await ok(P, 'home_providers', { type: 'nurse', district: DISTRICT });
   assert.ok(pNurse.items.find((n) => n.uid === NURSE).canRate);
 
@@ -240,6 +245,9 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.ok(mf.ok && mf.notified >= 1, JSON.stringify(mf));
   await ok(P, 'ambulance_rate', { id: 'demo-svc-amb-icu', rating: 4, comment: 'ভালো সার্ভিস' });
   await ok(P, 'home_rate', { uid: NURSE, rating: 5, comment: 'খুব যত্নশীল' });
+  await ok(P, 'pharmacy_rate', { id: PH, rating: 5, comment: 'রাতেও ডেলিভারি দিয়েছে' });
+  assert.strictEqual((await db.doc(`pharmacies/${PH}`).get()).get('ratingCount'), 13);
+  assert.strictEqual((await ok(PH, 'pharmacy_stats')).comments[0].comment, 'রাতেও ডেলিভারি দিয়েছে');
   await ok(P, 'pharmacy_called', { id: X('svc-ph-24h') });
   await ok(P, 'ambulance_called', { id: 'demo-svc-amb-ac' });
   await ok(P, 'home_called', { uid: NURSE });
@@ -266,7 +274,7 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.deepStrictEqual(left, []);
   // পরীক্ষার সময় ডেমো অ্যাকাউন্টের কাজে বানানো জিনিসও (ফোন, রেটিং, খোঁজ, অর্ডার, রিপোর্ট) নেই
   // (মালিকের নিজের কাজের ইতিহাস adminLog থাকে — সেটা মালিকের)
-  const MINE = ['pharmacies', 'pharmacyStock', 'pharmacyStats', 'pharmacyMissed', 'pharmacyCalls', 'medFinds', 'rxOrders', 'prescriptions',
+  const MINE = ['pharmacies', 'pharmacyStock', 'pharmacyStats', 'pharmacyMissed', 'pharmacyCalls', 'pharmacyRatings', 'medFinds', 'rxOrders', 'prescriptions',
     'labs', 'ambulances', 'ambulanceStats', 'ambulanceCalls', 'providers', 'badges', 'homeStats', 'homeCalls', 'modReports', 'verifyDocs',
     'sanctions', 'users', 'serverState', 'inbox'];
   const traces = [...F.store.entries()]

@@ -18,6 +18,8 @@ export interface Pharmacy {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; openAt: string; closeAt: string;
   open24: boolean; openNow: boolean; closedUntil: number; closedDays: number[]; delivery: boolean; deliveryNote: string; discount: number;
   rating: number; ratingCount: number; km: number | null;
+  /** রেটিং দেওয়া যায় (অ্যাপ থেকে ফোনের ১ ঘণ্টা পর, বা এই দোকান থেকে ওষুধ নেওয়ার পর; সার্ভার মনে রাখে) */
+  canRate?: boolean;
 }
 export interface BloodBank {
   id: string; name: string; kind: string; phone: string; district: string; upazilaId: number | null; address: string; open24: boolean;
@@ -142,7 +144,7 @@ export function pharmacyEntry(p: Pharmacy): Entry {
         lines: [['payments', discount || tr('No discount', 'ছাড় নেই')], ['local_shipping', delivery || tr('No home delivery', 'বাসায় ডেলিভারি নেই')]],
       },
     ],
-    phone: p.phone, reportable: true,
+    phone: p.phone, canRate: !!p.canRate, reportable: true,
   };
 }
 

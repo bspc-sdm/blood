@@ -93,6 +93,8 @@ async function deleteNow(uid, email) {
       db.doc(`ambulances/${d.get('ambulanceId')}`).update({ ratingSum: FieldValue.increment(-d.get('rating')), ratingCount: FieldValue.increment(-1) }).catch(() => {}),
       S.removeRecentRating('ambulanceStats', d.get('ambulanceId'), uid),
     ])),
+    // ফার্মেসির রেটিং আলাদা সংগ্রহে (ফোন ছাড়া কেনার পরেও দেওয়া যায়) — গড় ঠিক করে রেকর্ডসহ মোছা
+    require('./pharmacy').removeRatingsBy(uid).catch((e) => console.error('pharmacy ratings cleanup failed', e.message)),
   ]);
 
   // চালু রিকোয়েস্টে যাঁরা রাজি ছিলেন — মোছার আগে তালিকা রেখে পরে জানানো (যাতে কেউ শুধু শুধু হাসপাতালে না যান)
@@ -216,6 +218,8 @@ async function deleteNow(uid, email) {
     // দোকান আর তার ফোনের হিসাব
     db.doc(`pharmacies/${uid}`).delete(),
     db.doc(`pharmacyStats/${uid}`).delete(),
+    // নিজের দোকানে অন্যদের দেওয়া রেটিং (দোকানই নেই)
+    require('./pharmacy').deleteRatingsOf(uid).catch(() => {}),
     // বাসায় সেবার ফোনের হিসাব
     db.doc(`homeStats/${uid}`).delete(),
     stateRef.delete(),

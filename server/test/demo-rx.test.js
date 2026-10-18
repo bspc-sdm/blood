@@ -224,9 +224,17 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   await call(DOC, 'review_done', { id: lo.id, comment: 'HbA1c একটু বেশি, ওষুধ চলবে। ১৫ দিন পর আসবেন।' });
   const fin = await call(PT, 'rx_activity', { rxId: made.id });
   assert.strictEqual(fin.reviews.find((r) => r.labOrderId === lo.id).comment, 'HbA1c একটু বেশি, ওষুধ চলবে। ১৫ দিন পর আসবেন।');
-  // ডাক্তারের "রোগী" ইতিহাসে আগের প্রেসক্রিপশন আসে (পরীক্ষার ফল এখানে নয় — রিপোর্ট শুধু "রিপোর্ট" ট্যাবে)
-  const hist = (await call(DOC, 'rx_patient_history', { appointmentId: apptId })).items;
+  // ডাক্তারের "রোগী" ইতিহাসে আগের প্রেসক্রিপশন, আর পাশে পার্টনার ল্যাবের পরীক্ষা — ফল শুধু টাকা মিললে (J-18)
+  const h = await call(DOC, 'rx_patient_history', { appointmentId: apptId });
+  const hist = h.items;
   assert.ok(hist.some((r) => r.id === made.id) && hist.some((r) => r.code === RXD.CODES.B));
+  const hl = Object.fromEntries(h.labOrders.map((o) => [o.id, o]));
+  assert.ok(hl[lo.id].open && hl[lo.id].review === 'done' && hl[lo.id].report.items.length >= 4, 'আজকের রিপোর্ট (টাকা মিলেছে) — ফলসহ');
+  assert.ok(hl['demo-rx-lab-me-old'].open && hl['demo-rx-lab-me-old'].comment, '৭৫ দিন আগের রিপোর্ট — দেখা হয়েছে, নিজের মন্তব্যসহ');
+  assert.ok(!hl['demo-rx-lab-me-lipid'].open && hl['demo-rx-lab-me-lipid'].review === 'claimed' && hl['demo-rx-lab-me-lipid'].report === null, 'টাকা মেলানো বাকি — ফল নয়');
+  assert.strictEqual(hl['demo-rx-lab-me-cbc'].status, 'received');
+  const kh = await call(DOC, 'rx_patient_history', { appointmentId: todays.find((a) => a.serial === 2).id });
+  assert.ok(kh.labOrders.some((o) => o.id === 'demo-rx-lab-karim' && o.review === 'unpaid' && o.report === null), 'করিম টাকা দেননি — ফল নয়');
 
   // =================== আরও কয়েকটা কাজ ===================
   const habib = todays.find((a) => a.status === 'pending');

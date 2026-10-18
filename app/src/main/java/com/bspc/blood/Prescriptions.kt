@@ -166,6 +166,8 @@ data class RxAppt(val id: String, val name: String, val date: Long, val serial: 
 data class RxAppPatient(val appointmentId: String, val name: String, val count: Int, val last: Long)
 data class RxPatientsData(val patients: List<RxPatient>, val appts: List<RxAppt>, val appPatients: List<RxAppPatient>)
 data class RxDoctor(val uid: String, val name: String, val degrees: String)
+/** ডাক্তার: একজন রোগীর আগের প্রেসক্রিপশন আর সেগুলোর পার্টনার ল্যাবের পরীক্ষা (ফল শুধু টাকা মিললে / ফি না থাকলে) */
+data class RxHistory(val items: List<Rx>, val labs: List<DoctorLab>)
 
 object RxText {
     val FINDINGS = listOf("bp", "pulse", "temp", "weight", "spo2", "other")
@@ -243,11 +245,18 @@ object RxApi {
         )
     }
 
-    /** ডাক্তার: এই রোগীকে আগে দেওয়া প্রেসক্রিপশন */
-    suspend fun patientHistory(t: RxTarget): List<Rx> = call(
-        "rx_patient_history",
-        JSONObject().apply { if (t.rxPatientId != null) put("rxPatientId", t.rxPatientId) else put("appointmentId", t.appointmentId) },
-    ).optJSONArray("items").objs().map { Rx.parse(it) }
+    /** ডাক্তার: এই রোগীকে আগে দেওয়া প্রেসক্রিপশন, পাশে ল্যাবের পরীক্ষা */
+    suspend fun patientHistory(t: RxTarget): RxHistory {
+        val o = call(
+            "rx_patient_history",
+            JSONObject().apply { if (t.rxPatientId != null) put("rxPatientId", t.rxPatientId) else put("appointmentId", t.appointmentId) },
+        )
+        return RxHistory(o.optJSONArray("items").objs().map { Rx.parse(it) }, RxNet.doctorLabs(o.optJSONArray("labOrders")))
+    }
+
+    /** ডাক্তার: নিজের লেখা প্রেসক্রিপশনের ল্যাব অর্ডার (rx_get; asUid খালি — কেয়ারগিভার মোডেও নিজের হয়ে) */
+    suspend fun doctorLabs(id: String): List<DoctorLab> =
+        RxNet.doctorLabs(call("rx_get", JSONObject().put("id", id).put("asUid", "")).optJSONArray("labOrders"))
 
     suspend fun addPatient(doctorUid: String?, name: String, age: Int?, gender: String, phone: String): RxPatient {
         val b = JSONObject().put("name", name).put("age", age ?: JSONObject.NULL).put("gender", gender).put("phone", phone)
@@ -335,6 +344,9 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
     var confirmCancel by remember { mutableStateOf(false) }
     var alarms by remember { mutableStateOf(false) }
     var alarmOn by remember { mutableStateOf(MedAlarms.isOn(context, rx.id)) }
+    // ডাক্তার: এই প্রেসক্রিপশনের পার্টনার ল্যাবের পরীক্ষা (ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে)
+    var doctorLabs by remember { mutableStateOf<List<DoctorLab>?>(null) }
+    LaunchedEffect(rx.id, asDoctor) { if (asDoctor) doctorLabs = runCatching { RxApi.doctorLabs(rx.id) }.getOrNull() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
@@ -352,6 +364,12 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                 ErrorText(errorMsg)
                 InfoText(infoMsg)
                 RxPaper(rx)
+                if (asDoctor) {
+                    val dl = doctorLabs
+                    if (dl != null && (dl.isNotEmpty() || rx.tests.isNotEmpty())) {
+                        DoctorLabsCard(dl, tr("The patient has not sent these tests to a partner lab yet", "রোগী এখনো কোনো পার্টনার ল্যাবে পরীক্ষা পাঠাননি"))
+                    }
+                }
                 // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
                 if (!asDoctor && profile != null) RxActivitySection(rx, profile)
                 if (!asDoctor && !rx.cancelled) {
@@ -700,8 +718,11 @@ fun DoctorPatientsTab() {
 @Composable
 private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: () -> Unit, onOpen: (Rx) -> Unit) {
     var list by remember { mutableStateOf<List<Rx>?>(null) }
+    var labs by remember { mutableStateOf<List<DoctorLab>>(emptyList()) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(t) { runCatching { RxApi.patientHistory(t) }.onSuccess { list = it }.onFailure { errorMsg = it.message; list = emptyList() } }
+    LaunchedEffect(t) {
+        runCatching { RxApi.patientHistory(t) }.onSuccess { list = it.items; labs = it.labs }.onFailure { errorMsg = it.message; list = emptyList() }
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(topBar = { BackTopBar(t.name.ifBlank { tr("Patient", "রোগী") }, onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -717,7 +738,14 @@ private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: ()
                     l.isEmpty() -> item { EmptyState(R.drawable.ic_medication, tr("No prescription for this patient yet", "এই রোগীকে এখনো প্রেসক্রিপশন দেননি"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
                     else -> {
                         item { SectionTitle(tr("Earlier prescriptions", "আগের প্রেসক্রিপশন")) }
-                        items(l, key = { it.id }) { rx -> RxListCard(rx, asDoctor = true) { onOpen(rx) } }
+                        items(l, key = { it.id }) { rx ->
+                            // প্রেসক্রিপশনের নিচে তার পার্টনার ল্যাবের পরীক্ষা — ফল শুধু টাকা মিললে / ফি না থাকলে
+                            val mine = labs.filter { it.rxId == rx.id }
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                RxListCard(rx, asDoctor = true) { onOpen(rx) }
+                                if (mine.isNotEmpty()) DoctorLabsCard(mine)
+                            }
+                        }
                     }
                 }
             }

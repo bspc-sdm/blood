@@ -217,3 +217,9 @@
 .rxd-rep td { vertical-align: top; }
 .rxd-rep td.pre { max-width: 360px; }
 .rxd-photo { width: 100%; border-radius: 12px; }
+
+/* ---------- রোগীর ইতিহাসে / প্রেসক্রিপশনে পার্টনার ল্যাবের রিপোর্ট (Labs.tsx) ---------- */
+.rxd-labs-card { padding: 12px 14px; }
+.rxd-lab + .rxd-lab { padding-top: 8px; border-top: 1px solid var(--outline-variant); }
+.rxd-lab-locked { align-items: flex-start; }
+.rxd-lab-locked > svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }

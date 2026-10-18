@@ -30,11 +30,11 @@ function ambulances(b, { authed }) {
   return { items, busyCount: busy.length, busy };
 }
 
-function pharmacies(b) {
+function pharmacies(b, { authed } = {}) {
   if (empty(b)) return { items: [] };
   const gps = typeof b.lat === 'number';
   let items = [
-    { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', district: D, upazilaId: SADAR, openAt: '', closeAt: '', open24: true, openNow: true, closedUntil: 0, closedDays: [], delivery: true, deliveryNote: 'শহরের ভেতরে ৩০ টাকা', discount: 10, rating: 4.7, ratingCount: 31, km: gps ? 0.6 : null },
+    { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', district: D, upazilaId: SADAR, openAt: '', closeAt: '', open24: true, openNow: true, closedUntil: 0, closedDays: [], delivery: true, deliveryNote: 'শহরের ভেতরে ৩০ টাকা', discount: 10, rating: 4.7, ratingCount: 31, km: gps ? 0.6 : null, canRate: !!authed },
     { id: 'ph2', name: 'নিউ মডেল ড্রাগ হাউস', phone: '01811000602', address: 'গাঙ্গিনাপাড়, ছোটবাজার', district: D, upazilaId: SADAR, openAt: '09:00', closeAt: '23:00', open24: false, openNow: true, closedUntil: 0, closedDays: [5], delivery: false, deliveryNote: '', discount: 5, rating: 4.2, ratingCount: 12, km: gps ? 1.8 : null },
     { id: 'ph3', name: 'ত্রিশাল মেডিসিন কর্নার', phone: '01911000703', address: 'দরিরামপুর, ত্রিশাল', district: D, upazilaId: TRISHAL, openAt: '08:00', closeAt: '22:00', open24: false, openNow: false, closedUntil: now() + 3 * 24 * H, closedDays: [], delivery: true, deliveryNote: '', discount: 0, rating: 0, ratingCount: 0, km: gps ? 19.4 : null },
   ];
@@ -106,5 +106,6 @@ export default {
   pharmacy_called: () => ({ ok: true }),
   bloodbank_called: () => ({ ok: true }),
   ambulance_rate: () => ({ ok: true }),
+  pharmacy_rate: () => ({ ok: true }),
   report: () => ({ ok: true }),
 };
