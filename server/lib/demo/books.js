@@ -114,8 +114,9 @@ module.exports = {
         const priced = B.priceSale(lines, bill);
         const sale = {
           at, day: B.dayKey(at), source, lines: priced.lines, totals: priced.totals, billDisc: bill,
-          // রোগীর নাম নয় (আসল বিক্রির মতো) — শুধু প্রেসক্রিপশনের কোড
-          ...(source !== 'counter' ? { rx: { code: `DEMO${String(n + 1).padStart(6, '0')}`, at } } : {}),
+          // রোগীর নাম নয় (আসল বিক্রির মতো) — শুধু প্রেসক্রিপশনের কোড।
+          // আগে এখানে নাম বাছতে একটা rand() লাগত — সেটা রেখে দেওয়া, যাতে ডেমোর বাকি সংখ্যা (আর টেস্ট) আগের মতো থাকে
+          ...(source !== 'counter' && rand() >= 0 ? { rx: { code: `DEMO${String(n + 1).padStart(6, '0')}`, at } } : {}),
           customer: source === 'counter' ? pick(COUNTER) : '', createdAt: at,
         };
         for (const l of priced.lines) {
