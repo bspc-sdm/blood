@@ -202,6 +202,8 @@ async function deleteNow(uid, email) {
       db.doc(`pharmacyStock/${uid}`).delete(),
       db.doc(`pharmacyMissed/${uid}`).delete(),
       require('./careaccess').deleteFor(uid),
+      // ডাক্তারের আজকের/আগের সিরিয়ালের সারি (queues)
+      require('./queue').deleteFor(uid),
     ]);
   } catch (e) {
     console.error('rx cleanup failed', e);

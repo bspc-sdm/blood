@@ -257,6 +257,13 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.strictEqual(lifeAfter.rating, 4.5);
   assert.deepStrictEqual(lifeAfter.aspects, { behaviour: { rating: 4.7, count: 13 }, price: { rating: 4.5, count: 11 }, delivery: { rating: 4.3, count: 8 } });
   assert.strictEqual((await ok(PH, 'pharmacy_stats')).comments[0].comment, 'রাতেও ডেলিভারি দিয়েছে');
+  // গাইডের S-30: বদলে ব্যবহার ৩, দাম ৩, ডেলিভারি খালি → ★ ৪.৪ (১৩), আগের ডেলিভারির ৫ সরে যায়
+  await ok(P, 'pharmacy_rate', { id: PH, aspects: { behaviour: 3, price: 3 } });
+  const lifeRe = (await ok(P, 'pharmacies', { district: DISTRICT })).items.find((p) => p.id === PH);
+  assert.deepStrictEqual([lifeRe.rating, lifeRe.ratingCount], [4.4, 13]);
+  assert.deepStrictEqual(lifeRe.aspects, { behaviour: { rating: 4.5, count: 13 }, price: { rating: 4.3, count: 11 }, delivery: { rating: 4.1, count: 7 } });
+  assert.deepStrictEqual((await ok(P, 'pharmacies', { district: DISTRICT })).items.find((p) => p.id === X('svc-ph-model')).aspects,
+    { behaviour: { rating: 3.7, count: 6 }, price: { rating: 3.3, count: 4 } });
   await ok(P, 'pharmacy_called', { id: X('svc-ph-24h') });
   await ok(P, 'ambulance_called', { id: 'demo-svc-amb-ac' });
   await ok(P, 'home_called', { uid: NURSE });
