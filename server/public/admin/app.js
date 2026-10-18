@@ -1920,6 +1920,28 @@
   // =========================================================
   // ডেমো (শুধু মালিক, শুধু পরীক্ষার জন্য) — অ্যাপ/ওয়েবের লগইন পাতায় রোলে চাপলেই সেই ডেমো অ্যাকাউন্ট
   // =========================================================
+  /** ডেমো বানানো/মোছা ধাপে ধাপে — প্রতিটা আলাদা অনুরোধ (সার্ভারের সময়ের সীমা) */
+  async function demoRun(kind, progress) {
+    if (kind === 'wipe') {
+      for (let i = 0; i < 20; i++) {
+        progress.textContent = 'মোছা হচ্ছে…';
+        const r = await act('admin_demo_wipe');
+        if (!r.more) { progress.textContent = ''; return; }
+        progress.textContent = `মোছা হচ্ছে — বাকি ${bn(r.left)}টা অ্যাকাউন্ট…`;
+      }
+      throw new Error('মোছা শেষ হয়নি — আবার চাপুন');
+    }
+    let step = 0;
+    let label = 'আগের ডেমো মোছা আর অ্যাকাউন্ট';
+    for (let i = 0; i < 40 && step !== null; i++) {
+      progress.textContent = `বানানো হচ্ছে: ${label}…`;
+      const r = await act('admin_demo_seed', { step });
+      step = r.next;
+      label = r.label || '';
+    }
+    progress.textContent = '';
+  }
+
   async function pageDemo(r, alive) {
     setTitle('ডেমো (পরীক্ষা)', 'সব রোলের ডেমো অ্যাকাউন্ট আর ডামি তথ্য');
     let st;
@@ -1931,13 +1953,15 @@
     }
     if (alive && !alive()) return;
     const when = st.active && st.at ? new Date(st.at).toLocaleString('bn-BD') : '';
+    const progress = h('p', { class: 'note', 'aria-live': 'polite' });
     paint(alive,
       h('p', { class: 'note', text: st.active
-        ? `ডেমো চালু আছে (বানানো ${when}, ${bn(st.docs || 0)}টা ডামি তথ্য)। অ্যাপ আর ওয়েবের লগইন পাতায় "ডেমো" অংশে রোলে চাপলেই সেই অ্যাকাউন্টে ঢোকা যায়।`
+        ? (st.partial ? 'ডেমো বানানো মাঝপথে থেমে আছে। "নতুন করে বানান" চাপুন।' : `ডেমো চালু আছে (বানানো ${when}, ${bn(st.docs || 0)}টা ডামি তথ্য)। অ্যাপ আর ওয়েবের লগইন পাতায় "ডেমো" অংশে রোলে চাপলেই সেই অ্যাকাউন্টে ঢোকা যায়।`)
         : 'ডেমো বন্ধ। "ডেমো বানান" চাপলে সব রোলের অ্যাকাউন্ট আর ডামি তথ্য তৈরি হবে।' }),
       h('div', { class: 'card pad' }, h('div', { class: 'field-row' },
-        actionBtn(st.active ? 'নতুন করে বানান' : 'ডেমো বানান', st.active ? 'warn' : 'primary', () => act('admin_demo_seed'), 'ডেমো তৈরি হয়েছে', () => route(true)),
-        st.active ? actionBtn('সব ডেমো মুছুন', 'warn', () => act('admin_demo_wipe'), 'সব ডেমো মুছে ফেলা হয়েছে', () => route(true)) : null)),
+        actionBtn(st.active ? 'নতুন করে বানান' : 'ডেমো বানান', st.active ? 'warn' : 'primary', () => demoRun('seed', progress), 'ডেমো তৈরি হয়েছে', () => route(true)),
+        st.active ? actionBtn('সব ডেমো মুছুন', 'warn', () => demoRun('wipe', progress), 'সব ডেমো মুছে ফেলা হয়েছে', () => route(true)) : null),
+        progress),
       h('h2', { class: 'section-title', text: 'রোল' }),
       table(st.roles || [], [
         { label: 'রোল', main: true, cell: (x) => x.role },

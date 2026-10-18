@@ -61,3 +61,24 @@ test('ডেমো মোছা: সব ডেমো ডক আর অ্যা�
   assert.ok((await db.doc('users/realuser0001').get()).exists);
   assert.strictEqual((await post(verify, { demo: 'doctor' })).status, 404, 'মোছার পর লগইন বন্ধ');
 });
+
+test('প্যানেলের মতো ধাপে ধাপে বানানো আর মোছা', async () => {
+  let step = 0;
+  const seen = [];
+  while (step !== null) {
+    const r = await call(OWNER, 'admin_demo_seed', { step });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+    seen.push(step);
+    // মাঝপথে লগইনের তালিকা বন্ধ থাকে
+    if (r.body.next !== null) assert.strictEqual((await post(verify, { demoRoles: true })).body.active, false);
+    step = r.body.next;
+  }
+  assert.deepStrictEqual(seen, [0, 1, 2, 3, 4]);
+  assert.strictEqual((await post(verify, { demoRoles: true })).body.active, true);
+  const st = await call(OWNER, 'admin_demo_status');
+  assert.ok(st.body.docs > 100 && st.body.partial === false);
+  let w;
+  for (let i = 0; i < 5; i++) { w = await call(OWNER, 'admin_demo_wipe'); if (!w.body.more) break; }
+  assert.strictEqual(w.status, 200, JSON.stringify(w.body));
+  assert.deepStrictEqual([...F.store.entries()].filter(([, v]) => v && v.demo === true).map(([k]) => k), []);
+});

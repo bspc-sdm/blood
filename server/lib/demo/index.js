@@ -60,9 +60,12 @@ const MANIFEST = 'serverState/_demo';
 function makeCtx(users) {
   const paths = new Set();
   const extra = [];
+  const pending = [];
   let batch = db.batch();
   let n = 0;
   const flush = async () => {
+    // পেছনের মানুষদের Auth অ্যাকাউন্ট একসাথে (একটা একটা করে বানালে সময় শেষ হয়ে যেত)
+    await Promise.all(pending.splice(0));
     if (n) await batch.commit();
     batch = db.batch();
     n = 0;
@@ -82,9 +85,9 @@ function makeCtx(users) {
     },
     async extraUser(key, profile = {}) {
       const uid = uidOf(`x-${key}`);
-      await admin.auth().createUser({ uid, displayName: profile.name || key }).catch((e) => {
+      pending.push(admin.auth().createUser({ uid, displayName: profile.name || key }).catch((e) => {
         if (e.code !== 'auth/uid-already-exists') throw e;
-      });
+      }));
       extra.push(uid);
       await ctx.set(`users/${uid}`, profile);
       return uid;
@@ -114,86 +117,144 @@ async function ensureUser(key, email, name) {
   return uid;
 }
 
-// ভাগগুলো — প্রতিটা { seed(ctx) } দেয়
-const PARTS = ['./blood', './services', './rx', './health'];
+// ভাগগুলো — প্রতিটা { seed(ctx) } দেয়। প্যানেল ধাপে ধাপে ডাকে (প্রতিটা আলাদা অনুরোধ, যাতে সার্ভারের ৬০ সেকেন্ডের সীমা না পেরোয়)
+const PARTS = [['./blood', 'রক্তদান'], ['./services', 'সেবা'], ['./rx', 'ডাক্তার ও প্রেসক্রিপশন'], ['./health', 'স্বাস্থ্য ও কেয়ারগিভার']];
+const STEPS = 1 + PARTS.length; // ০: আগেরটা মোছা + অ্যাকাউন্ট, তারপর প্রতিটা ভাগ
+const BUDGET_MS = 35 * 1000; // এক অনুরোধে মোছার সময় — বাকিটা পরের অনুরোধে
 
-async function wipe() {
-  const m = await db.doc(MANIFEST).get();
-  const paths = (m.exists && m.get('paths')) || [];
-  const uids = ((m.exists && m.get('uids')) || []).filter(isDemoUid);
+/** ডেমো ডাক্তারের লেখা প্রেসক্রিপশন আর এন্ট্রি করা রোগী (অ্যাকাউন্ট মোছা শুধু রোগীর দিক ধরে) — সাথে সেগুলোর অনুরোধ */
+async function sweepDoctor(uid) {
+  const [rxs, pts] = await Promise.all([
+    db.collection('prescriptions').where('doctorUid', '==', uid).limit(500).get(),
+    db.collection('rxPatients').where('doctorUid', '==', uid).limit(1000).get(),
+  ]);
+  for (const rx of rxs.docs) {
+    const [orders, labs] = await Promise.all([
+      db.collection('rxOrders').where('rxId', '==', rx.id).limit(50).get(),
+      db.collection('labOrders').where('rxId', '==', rx.id).limit(50).get(),
+    ]);
+    const b = db.batch();
+    orders.docs.forEach((d) => b.delete(d.ref));
+    labs.docs.forEach((d) => { b.delete(d.ref); b.delete(db.doc(`rxReviews/${d.id}`)); });
+    b.delete(rx.ref);
+    await b.commit();
+  }
+  for (let i = 0; i < pts.docs.length; i += 400) {
+    const b = db.batch();
+    pts.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+    await b.commit();
+  }
+}
+
+/**
+ * সব ডেমো মোছা। সময় বেশি লাগলে যতটা হলো ততটা তালিকা থেকে বাদ দিয়ে {more:true} — প্যানেল আবার ডাকে।
+ * opts.all: পরীক্ষায় একবারে সব (সময়ের সীমা নেই)
+ */
+async function wipe(opts = {}) {
+  const t0 = Date.now();
+  const ref = db.doc(MANIFEST);
+  const m = await ref.get();
+  if (!m.exists) return { users: 0, docs: 0 };
+  const paths = m.get('paths') || [];
+  let uids = (m.get('uids') || []).filter(isDemoUid);
+  const emails = m.get('emails') || {};
+  const total = uids.length;
   let errors = 0;
-  const emails = (m.exists && m.get('emails')) || {};
   // ১) ডেমো অ্যাকাউন্টের সব ডেটা — আসল "অ্যাকাউন্ট মোছা" দিয়ে (পরীক্ষার সময় যা বানানো হয়েছে সেটাও যায়)
   const { deletion } = require('../account');
-  for (let i = 0; i < uids.length; i += 10) {
-    await Promise.all(uids.slice(i, i + 10).map(async (uid) => {
-      await deletion.deleteNow(uid, emails[uid] || null).catch((e) => { errors++; console.error('demo wipe user', uid, e.message); });
-      await admin.auth().deleteUser(uid).catch(() => {});
+  while (uids.length) {
+    const chunk = uids.slice(0, 10);
+    const failed = [];
+    await Promise.all(chunk.map(async (uid) => {
+      try {
+        await sweepDoctor(uid);
+        await deletion.deleteNow(uid, emails[uid] || null);
+        await admin.auth().deleteUser(uid).catch(() => {});
+      } catch (e) {
+        errors++;
+        failed.push(uid);
+        console.error('demo wipe user', uid, e.message);
+      }
     }));
+    uids = [...uids.slice(10), ...failed];
+    if (errors > 30) break;
+    await ref.update({ uids });
+    if (!opts.all && uids.length && Date.now() - t0 > BUDGET_MS) return { more: true, left: uids.length };
   }
-  // ১ক) ডেমো ডাক্তারের লেখা প্রেসক্রিপশন আর এন্ট্রি করা রোগী (অ্যাকাউন্ট মোছা শুধু রোগীর দিক ধরে) — সাথে সেগুলোর
-  //     ফার্মেসি/প্যাথলজির অনুরোধ আর রিপোর্ট দেখার অনুরোধ
-  for (const uid of uids) {
-    const [rxs, pts] = await Promise.all([
-      db.collection('prescriptions').where('doctorUid', '==', uid).limit(500).get(),
-      db.collection('rxPatients').where('doctorUid', '==', uid).limit(1000).get(),
-    ]);
-    for (const rx of rxs.docs) {
-      const [orders, labs] = await Promise.all([
-        db.collection('rxOrders').where('rxId', '==', rx.id).limit(50).get(),
-        db.collection('labOrders').where('rxId', '==', rx.id).limit(50).get(),
-      ]);
-      const b = db.batch();
-      orders.docs.forEach((d) => b.delete(d.ref));
-      labs.docs.forEach((d) => { b.delete(d.ref); b.delete(db.doc(`rxReviews/${d.id}`)); });
-      b.delete(rx.ref);
-      await b.commit();
-    }
-    for (let i = 0; i < pts.docs.length; i += 400) {
-      const b = db.batch();
-      pts.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
-      await b.commit();
-    }
-  }
+  if (uids.length) throw new HttpError(500, `${uids.length}টা ডেমো অ্যাকাউন্ট পুরো মোছা যায়নি — আবার "সব ডেমো মুছুন" চাপুন`);
   // ২) বানানো ডকগুলো (যেগুলো কারো নামে নয়)
   for (let i = 0; i < paths.length; i += 400) {
     const b = db.batch();
     paths.slice(i, i + 400).forEach((p) => b.delete(db.doc(p)));
     await b.commit();
   }
-  // কিছু মোছা না গেলে তালিকা থাকে — আবার "সব ডেমো মুছুন" চাপলে বাকিটা যায়
-  if (errors) throw new HttpError(500, `${errors}টা ডেমো অ্যাকাউন্ট পুরো মোছা যায়নি — আবার "সব ডেমো মুছুন" চাপুন`);
-  await db.doc(MANIFEST).delete();
-  return { users: uids.length, docs: paths.length };
+  await ref.delete();
+  return { users: total, docs: paths.length };
 }
 
-async function seed() {
-  await wipe();
+/** manifest-এর ইমেইল থেকে লগইনের রোলগুলো */
+function usersFrom(m) {
+  const emails = m.get('emails') || {};
   const users = {};
-  const emails = {};
   for (const r of ROLES) {
-    const email = demoEmail(r.key);
-    const uid = await ensureUser(r.key, email, r.name);
-    users[r.key] = { uid, email, name: r.name };
-    emails[uid] = email;
+    const uid = Object.keys(emails).find((u) => emails[u] === demoEmail(r.key));
+    if (uid) users[r.key] = { uid, email: demoEmail(r.key), name: r.name };
   }
-  // আগে থেকেই তালিকায় — মাঝপথে থেমে গেলেও "সব ডেমো মুছুন" সব পায়
-  await db.doc(MANIFEST).set({ paths: [], uids: Object.values(users).map((u) => u.uid), emails, at: Date.now(), partial: true });
-  const ctx = makeCtx(users);
-  for (const p of PARTS) {
-    await require(p).seed(ctx);
+  return users;
+}
+
+/**
+ * এক ধাপ বানানো। ০: আগের ডেমো মোছা (সময় লাগলে {more}) আর লগইনের অ্যাকাউন্ট; ১..: একেকটা ভাগ।
+ * উত্তর: {next} — পরের ধাপ (শেষ হলে null)
+ */
+async function seedStep(step) {
+  const ref = db.doc(MANIFEST);
+  if (step === 0) {
+    const w = await wipe();
+    if (w.more) return { next: 0, label: `আগের ডেমো মোছা হচ্ছে (বাকি ${w.left})` };
+    const list = await Promise.all(ROLES.map(async (r) => ({ r, uid: await ensureUser(r.key, demoEmail(r.key), r.name) })));
+    const emails = {};
+    list.forEach(({ r, uid }) => { emails[uid] = demoEmail(r.key); });
+    // আগে থেকেই তালিকায় — মাঝপথে থেমে গেলেও "সব ডেমো মুছুন" সব পায়
+    await ref.set({ paths: [], uids: list.map((x) => x.uid), emails, at: Date.now(), partial: true });
+    return { next: 1, label: PARTS[0][1] };
+  }
+  const m = await ref.get();
+  if (!m.exists) throw new HttpError(409, 'আগে প্রথম ধাপ চালান');
+  const [mod, name] = PARTS[step - 1];
+  const ctx = makeCtx(usersFrom(m));
+  try {
+    await require(mod).seed(ctx);
     await ctx.flush();
-    await db.doc(MANIFEST).set({ paths: [...ctx.paths], uids: [...Object.values(users).map((u) => u.uid), ...ctx.extraUids], emails, at: Date.now(), partial: true });
+  } catch (e) {
+    console.error('demo seed', name, e);
+    // যতটা লেখা হয়েছে ততটা তালিকায় — মুছলে সব যায়
+    await ref.update({ paths: [...new Set([...(m.get('paths') || []), ...ctx.paths])], uids: [...new Set([...(m.get('uids') || []), ...ctx.extraUids])] }).catch(() => {});
+    throw new HttpError(400, `ডেমো বানানো "${name}" ধাপে থেমেছে: ${e && e.message ? String(e.message).slice(0, 300) : e}`);
   }
-  const uids = [...Object.values(users).map((u) => u.uid), ...ctx.extraUids];
-  await db.doc(MANIFEST).set({ paths: [...ctx.paths], uids, emails, at: Date.now() });
-  return { users: ROLES.map((r) => ({ key: r.key, role: r.bn, email: users[r.key].email })), docs: ctx.paths.size };
+  const last = step === PARTS.length;
+  await ref.update({
+    paths: [...new Set([...(m.get('paths') || []), ...ctx.paths])],
+    uids: [...new Set([...(m.get('uids') || []), ...ctx.extraUids])],
+    at: Date.now(),
+    partial: !last,
+  });
+  return last ? { next: null } : { next: step + 1, label: PARTS[step][1] };
+}
+
+/** পরীক্ষায়: সব ধাপ একসাথে */
+async function seed() {
+  await wipe({ all: true });
+  let step = 0;
+  while (step !== null) step = (await seedStep(step)).next;
+  const m = await db.doc(MANIFEST).get();
+  return { users: ROLES.map((r) => ({ key: r.key, role: r.bn, email: demoEmail(r.key) })), docs: (m.get('paths') || []).length };
 }
 
 /** লগইন পাতার "ডেমো" অংশ: ডেমো চালু থাকলে রোলের তালিকা, নইলে খালি */
 async function roles() {
   const m = await db.doc(MANIFEST).get();
-  if (!m.exists) return { active: false, roles: [] };
+  if (!m.exists || m.get('partial')) return { active: false, roles: [] };
   return { active: true, roles: ROLES.map((r) => ({ key: r.key, name: r.name, role: r.bn })) };
 }
 
@@ -214,10 +275,15 @@ async function login(key) {
 }
 
 const actions = {
+  /** body.step: ০ থেকে শুরু; উত্তরের next ধরে প্যানেল আবার ডাকে (null = শেষ) */
   async admin_demo_seed(req, user) {
     if (!isOwner(user)) throw new HttpError(403, 'শুধু মালিক');
-    return seed();
+    const step = Number.isInteger(req.body?.step) ? req.body.step : null;
+    if (step === null) return seed(); // পুরোনো ডাক (পরীক্ষা)
+    if (step < 0 || step >= STEPS) throw new HttpError(400, 'ধাপ ঠিক নেই');
+    return { ...(await seedStep(step)), steps: STEPS };
   },
+  /** সময় লাগলে {more:true} — প্যানেল আবার ডাকে */
   async admin_demo_wipe(req, user) {
     if (!isOwner(user)) throw new HttpError(403, 'শুধু মালিক');
     return wipe();
@@ -227,8 +293,8 @@ const actions = {
     const m = await db.doc(MANIFEST).get();
     const roles = ROLES.map((r) => ({ key: r.key, role: r.bn, email: demoEmail(r.key) }));
     if (!m.exists) return { active: false, roles };
-    return { active: true, at: m.get('at'), docs: (m.get('paths') || []).length, roles };
+    return { active: true, partial: m.get('partial') === true, at: m.get('at'), docs: (m.get('paths') || []).length, roles };
   },
 };
 
-module.exports = { actions, seed, wipe, roles, login, ROLES, CENTER, uidOf, isDemoUid, sameWorld, isDemoEmail, demoEmail, near };
+module.exports = { actions, seed, seedStep, wipe, roles, login, ROLES, CENTER, uidOf, isDemoUid, sameWorld, isDemoEmail, demoEmail, near };
