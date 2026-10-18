@@ -163,10 +163,14 @@ test('কাউন্টারে বিক্রি: পণ্যের ছা�
   assert.strictEqual(d.items[ace.id].neg, -1);
 
   // বেশি বিক্রি হলে ০-তে থামে, স্টকের তালিকা থেকে সরে
-  await ok(A, 'books_sale_add', { lines: [{ itemId: comet.id, qty: 9 }] });
+  const over = (await ok(A, 'books_sale_add', { lines: [{ itemId: comet.id, qty: 9 }] })).sale;
   assert.strictEqual((await item(A, 'Comet 500')).qty, 0);
   assert.ok(!(await stockNames(A)).includes('Comet 500'));
-  const last = (await ok(A, 'books_sales', { period: 'today' })).items[0];
+  // একই মিলিসেকেন্ডে আগের বিক্রিও হতে পারে — "প্রথমটা" না ধরে id দিয়ে খোঁজা
+  const sales = (await ok(A, 'books_sales', { period: 'today' })).items;
+  const last = sales.find((x) => x.id === over.id);
+  assert.ok(last, 'আজকের তালিকায় আছে');
+  assert.deepStrictEqual(sales.map((x) => x.id), (await ok(A, 'books_sales', { period: 'today' })).items.map((x) => x.id), 'ক্রম প্রতিবার একই');
   assert.strictEqual(last.lines[0].qty, 9);
   assert.strictEqual(last.lines[0].dec, 4, 'আসলে ৪টা কমেছে');
   await ok(A, 'books_sale_delete', { id: last.id });

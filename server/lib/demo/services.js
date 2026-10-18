@@ -397,7 +397,12 @@ module.exports = {
         docsHave: have,
         createdAt: created,
         available: x.available === true,
+        // গাড়ি যেখানে অপেক্ষা করে (চালক GPS দিয়ে দিলে) — আসলের মতো ২ দশমিকে কাটা; না থাকলে জেলার কেন্দ্র ধরে "প্রায়" দূরত্ব
+        ...(x.at ? require('../ambulance').point(x.at.lat, x.at.lng) : {}),
         ...(x.availableAt ? { availableAt: x.availableAt } : {}),
+        // "এখনো খালি আছেন?" — আসলের মতো খালি করার ১১ ঘণ্টা পর (মেয়াদ পেরোনো গাড়িতে আর নেই; সাড়ে ১১ ঘণ্টার মিনিতে আগেই পেরিয়েছে → তালিকা খুললেই পুশ)
+        ...(x.status === 'approved' && x.available === true && x.availableAt && now - x.availableAt < require('../ambulance').AVAILABLE_MS
+          ? { remindAt: x.availableAt + require('../ambulance').REMIND_AT_MS } : {}),
         ...(x.busyAt ? { busyAt: x.busyAt } : {}),
         ...(x.status === 'approved' ? {
           reviewedAt: created + day, reviewedBy: 'demo', approvedName: x.name, lastApproved: snapshot(data),
@@ -414,7 +419,7 @@ module.exports = {
     const AMB_AC = 'demo-svc-amb-ac';
     await ambulance(AMB_AC, AMB, {
       name: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)', phone: '01700000170', vehicleNo: 'DEMO-MYM-CHA-11-0001', types: ['ac', 'general'],
-      area: 'মেডিকেল কলেজ গেট, চরপাড়া', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৫৫০০ টাকা', status: 'approved',
+      area: 'মেডিকেল কলেজ গেট, চরপাড়া', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৫৫০০ টাকা', status: 'approved', at: at3(loc(0.8, 1.2)),
       available: true, availableAt: now - 30 * MIN, ratingSum: 42, ratingCount: 9, callsPerDay: 2,
       recent: [
         { rating: 4, comment: 'ভাড়া একটু বেশি, তবে গাড়ি পরিষ্কার', at: now - 9 * day, who: 'demo0000000000a1' },
@@ -425,9 +430,16 @@ module.exports = {
     await ctx.set(`ambulanceCalls/${P}_${AMB_AC}`, { uid: P, ambulanceId: AMB_AC, at: now - 4 * day, firstAt: now - 4 * day, rating: 5, comment: 'রাত ২টায় ফোন করেছিলাম, ২০ মিনিটে এসেছে। অনেক ধন্যবাদ।', ratedAt: now - 3 * day });
     await ambulance('demo-svc-amb-nonac', AMB, {
       name: 'ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)', phone: '01700000171', vehicleNo: 'DEMO-MYM-CHA-11-0002', types: ['general'],
-      area: 'চরপাড়া, কাচিঝুলি', fare: 'শহরের মধ্যে ৫০০ টাকা', status: 'approved',
+      area: 'চরপাড়া, কাচিঝুলি', fare: 'শহরের মধ্যে ৫০০ টাকা', status: 'approved', at: at3(loc(1.5, 0.5)),
       // এখন ট্রিপে (চালক "ট্রিপে আছি" করেছেন)
       available: false, availableAt: now - 50 * MIN, busyAt: now - 50 * MIN, ratingSum: 8, ratingCount: 2,
+    });
+    // "এখনো খালি আছেন?": সাড়ে ১১ ঘণ্টা আগে "খালি" জানানো — চালকের কার্ডে "আর ৩০ মিনিট", তালিকা খুললেই চালকের কাছে পুশ
+    // (ডেমো বানানোর আধা ঘণ্টা পর এটা "ফোনে জেনে নিন" হয়ে যায়, যদি না চালক "আবার চালু রাখুন" চাপেন)
+    await ambulance('demo-svc-amb-mini', AMB, {
+      name: 'ডেমো জীবন মিনি অ্যাম্বুলেন্স', phone: '01700000176', vehicleNo: 'DEMO-MYM-CHA-11-0007', types: ['general'],
+      area: 'গাঙ্গিনারপাড়, পাটগুদাম', fare: 'শহরের মধ্যে ৪০০ টাকা', status: 'approved', at: at3(loc(-2.5, -1.5)),
+      available: true, availableAt: now - 11.5 * HOUR, ratingSum: 9, ratingCount: 2,
     });
     // ডেমো চালকের নতুন আইসিইউ গাড়ি — অনুমোদনের অপেক্ষায়
     await ambulance('demo-svc-amb-icu-new', AMB, {
@@ -438,19 +450,20 @@ module.exports = {
     const AMB_MOMOTA = 'demo-svc-amb-momota';
     await ambulance(AMB_MOMOTA, ambMomota, {
       name: 'ডেমো মমতা অ্যাম্বুলেন্স', phone: '01700000173', vehicleNo: 'DEMO-MYM-GA-12-0004', types: ['general'], upazilaId: TRISHAL,
-      area: 'ত্রিশাল বাসস্ট্যান্ড', fare: 'আলোচনা সাপেক্ষে', status: 'approved', available: true, availableAt: now - 3 * HOUR, ratingSum: 16, ratingCount: 5,
+      area: 'ত্রিশাল বাসস্ট্যান্ড', fare: 'আলোচনা সাপেক্ষে', status: 'approved', at: at3(loc(2, -19)), available: true, availableAt: now - 3 * HOUR, ratingSum: 16, ratingCount: 5,
     });
     const ambIcu = await ctx.extraUser('svc-amb-icu', { name: 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিসের মালিক', phone: '01700000174', placeName: DISTRICT });
     const AMB_ICU = 'demo-svc-amb-icu';
     await ambulance(AMB_ICU, ambIcu, {
       name: 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস', phone: '01700000174', vehicleNo: 'DEMO-MYM-CHA-13-0005', types: ['icu', 'ac'],
-      area: 'মেডিকেল কলেজ হাসপাতাল', fare: 'ঢাকা ১৫০০০ টাকা', status: 'approved',
+      area: 'মেডিকেল কলেজ হাসপাতাল', fare: 'ঢাকা ১৫০০০ টাকা', status: 'approved', at: at3(loc(0.5, 0.9)),
       // ১২ ঘণ্টার বেশি আগে "খালি" জানিয়েছে → "ফোনে জেনে নিন"
       available: true, availableAt: now - 20 * HOUR, ratingSum: 23, ratingCount: 5,
     });
     const ambFreezer = await ctx.extraUser('svc-amb-freezer', { name: 'ডেমো ফ্রিজার ভ্যানের মালিক', phone: '01700000175', placeName: DISTRICT });
     await ambulance('demo-svc-amb-freezer', ambFreezer, {
       name: 'ডেমো শেষ যাত্রা ফ্রিজার ভ্যান', phone: '01700000175', vehicleNo: 'DEMO-MYM-CHA-14-0006', types: ['freezer'],
+      // গাড়ির জায়গা দেওয়া নেই → জেলার কেন্দ্র ধরে "প্রায়" দূরত্ব
       area: 'পুরো ময়মনসিংহ বিভাগ', fare: 'দূরত্ব অনুযায়ী', status: 'approved', available: true, availableAt: now - 2 * HOUR,
     });
     // রোগী ৩ ঘণ্টা আগে আইসিইউ সার্ভিসে ফোন করেছিলেন → এখন রেটিং দিতে পারবেন

@@ -4,9 +4,13 @@ package com.bspc.blood
 
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,10 +44,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -74,7 +82,31 @@ data class Ambulance(
     val docsMissing: Boolean = false,
     val docsRequested: Boolean = false,
     val docsNote: String = "",
+    /** দূরত্ব (পুরো কিমি, ০ = ১ কিমির কম) — শুধু আসল GPS পাঠালে (gps: true); kmApprox: গাড়ির জায়গা দেওয়া নেই, জেলার কেন্দ্র ধরে */
+    val km: Double? = null,
+    val kmApprox: Boolean = false,
+    /** খালি থাকলে কখন পর্যন্ত (১২ ঘণ্টা; চালকের কার্ডে "আর ৪৫ মিনিট") */
+    val availableUntil: Long = 0,
+    /** নিজের: গাড়ির জায়গা (GPS) দেওয়া আছে */
+    val hasBase: Boolean = false,
 )
+
+/** তালিকা: খালি/অজানা, ট্রিপে, আর "সবচেয়ে কাছের খালি" গাড়ির id (না থাকলে null) */
+data class AmbulanceList(val items: List<Ambulance>, val busy: List<Ambulance>, val nearestId: String?)
+
+/**
+ * পুরো কিমি ("৩ কিমি"), ১-এর কম হলে "১ কিমির কম" — চালকের জায়গা ~১ কিমির ঘরে কাটা, তাই দশমিক নয়;
+ * জায়গা দেওয়া না থাকলে "প্রায় ২ কিমি"
+ */
+fun ambulanceKm(a: Ambulance): String? {
+    val km = a.km ?: return null
+    if (a.kmApprox) {
+        val n = Math.round(km).coerceAtLeast(1L)
+        return tr("about $n km", "প্রায় ${num(n)} কিমি")
+    }
+    if (km < 1) return tr("< 1 km", "১ কিমির কম")
+    return num(Math.round(km)) + tr(" km", " কিমি")
+}
 
 object AmbulanceTypes {
     private val BUILT_IN = listOf("general", "ac", "icu", "freezer")
@@ -100,6 +132,10 @@ object Ambulances {
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.str("vehicleNo"), o.str("status"),
         o.optLong("availableAt"), o.optBoolean("canRate"), o.str("statusReason"), o.optLong("busySince"),
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
+        km = if (o.has("km") && !o.isNull("km")) o.optDouble("km") else null,
+        kmApprox = o.optBoolean("kmApprox"),
+        availableUntil = o.optLong("availableUntil"),
+        hasBase = o.optBoolean("hasBase"),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -107,23 +143,43 @@ object Ambulances {
         return (0 until a.length()).map { parse(a.getJSONObject(it)) }
     }
 
-    /** খালি/অজানা গাড়ির তালিকা আর ট্রিপে থাকা গাড়ির আলাদা তালিকা */
-    suspend fun near(district: String, upazilaId: Int?, type: String?): Pair<List<Ambulance>, List<Ambulance>> {
-        val o = call("ambulances", JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply { if (type != null) put("type", type) })
+    /**
+     * খালি/অজানা গাড়ির তালিকা আর ট্রিপে থাকা গাড়ির আলাদা তালিকা।
+     * lat/lng (শুধু ফোনের আসল GPS — সাথে gps: true) দিলে সার্ভার কাছের খালি গাড়ি আগে সাজায়, প্রতিটায় দূরত্ব দেয়,
+     * আর "সবচেয়ে কাছের" গাড়ি বেছে দেয়। GPS না থাকলে ("এলাকা ধরে") কিছুই পাঠানো হয় না — আগের মতো নিজের উপজেলা আগে।
+     */
+    suspend fun near(district: String, upazilaId: Int?, type: String?, lat: Double? = null, lng: Double? = null): AmbulanceList {
+        val o = call(
+            "ambulances",
+            JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply {
+                if (type != null) put("type", type)
+                if (lat != null && lng != null) put("lat", lat).put("lng", lng).put("gps", true)
+            },
+        )
         val busy = o.optJSONArray("busy") ?: JSONArray()
-        return list(o) to (0 until busy.length()).map { parse(busy.getJSONObject(it)) }
+        return AmbulanceList(list(o), (0 until busy.length()).map { parse(busy.getJSONObject(it)) }, o.str("nearestId").ifBlank { null })
     }
 
     suspend fun mine(): List<Ambulance> = list(call("ambulance_mine"))
 
-    /** পাঠালে আবার যাচাই লাগবে কি না ফেরত দেয় */
-    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String, docs: Map<String, String> = emptyMap()): Boolean =
-        call(
+    /** সেভের ফল: আবার যাচাই লাগবে কি না; গাড়ির জায়গা জেলার বাইরে হওয়ায় বাদ গেছে কি না (বাকিটা সেভ হয়) */
+    data class SaveResult(val pending: Boolean, val baseIgnored: Boolean)
+
+    /** clearBase: "জায়গা মুছুন" — আগে দেওয়া গাড়ির জায়গা মোছে (জেলার কেন্দ্র ধরা হয়) */
+    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String, docs: Map<String, String> = emptyMap(), lat: Double? = null, lng: Double? = null, clearBase: Boolean = false): SaveResult {
+        val o = call(
             "ambulance_save",
             JSONObject().put("id", id ?: JSONObject.NULL).put("name", name).put("phone", phone).put("vehicleNo", vehicleNo)
                 .put("types", JSONArray(types)).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
-                .put("area", area).put("fare", fare).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)),
-        ).optBoolean("pending")
+                .put("area", area).put("fare", fare).put("termsAccepted", true).put("docs", VerifyDocs.json(docs))
+                // গাড়ির জায়গা (ঐচ্ছিক) — না দিলে আগেরটা থাকে; সার্ভার ~১ কিমির ঘরে কেটে রাখে
+                .apply {
+                    if (lat != null && lng != null) put("lat", lat).put("lng", lng)
+                    else if (clearBase) put("clearBase", true)
+                },
+        )
+        return SaveResult(o.optBoolean("pending"), o.optBoolean("baseIgnored"))
+    }
 
     suspend fun setAvailable(id: String, available: Boolean) {
         call("ambulance_available", JSONObject().put("id", id).put("available", available))
@@ -242,13 +298,51 @@ private fun AmbulanceFinder(profile: Profile) {
     var busyList by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
     var busyOpen by remember { mutableStateOf(false) }
     val busyCount = busyList.size
+    var nearestId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(district, upazilaId, type) {
+    // দূরত্ব কোথা থেকে: লোকেশনের অনুমতি আগেই দেওয়া থাকলে এখনকার জায়গা (অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি);
+    // সর্বোচ্চ ২.৫ সেকেন্ড অপেক্ষা, তারপর একবার ঠিক হলে আর বদলায় না (বাটনের গাড়ি হঠাৎ বদলে যেন ভুল জায়গায় চাপ না পড়ে)
+    var gpsPoint by remember { mutableStateOf<Triple<Double, Double, String>?>(null) }
+    var gpsReady by remember { mutableStateOf(!LocationHelper.hasPermission(context)) }
+    LaunchedEffect(Unit) {
+        if (!gpsReady) {
+            val loc = kotlinx.coroutines.withTimeoutOrNull(2500) { runCatching { LocationHelper.current(context) }.getOrNull() }
+            gpsPoint = loc?.let { Triple(it.first, it.second, Districts.at(context, it.first, it.second).bn) }
+            gpsReady = true
+        }
+    }
+    // এখনকার জায়গা বেছে নেওয়া জেলার ভেতরে হলে সেটা, নইলে প্রোফাইলের GPS জায়গা (একই জেলা), নইলে null = "এলাকা ধরে"
+    // (তখন স্থানাঙ্ক পাঠানো হয় না — জেলার কেন্দ্র থেকে দূরত্ব অর্থহীন, আর নিজের উপজেলার গাড়ি আগে আসা নষ্ট করে)
+    fun origin(d: String): Pair<Double, Double>? {
+        val g = gpsPoint
+        val pLat = profile.lat
+        val pLng = profile.lng
+        return when {
+            g != null && g.third == d -> g.first to g.second
+            profile.locationSource == "gps" && pLat != null && pLng != null && profile.placeName == d -> pLat to pLng
+            else -> null
+        }
+    }
+    var byArea by remember { mutableStateOf(false) }
+
+    LaunchedEffect(district, upazilaId, type, gpsReady) {
         val d = district ?: return@LaunchedEffect
+        if (!gpsReady) return@LaunchedEffect
         loading = true
         errorMsg = null
-        runCatching { Ambulances.near(d, upazilaId, type) }.onSuccess { list = it.first; busyList = it.second }.onFailure { errorMsg = it.message }
+        val o = origin(d)
+        // ২ দশমিক (≈১ কিমি) — সার্ভারও এভাবেই কাটে
+        val r2 = { v: Double -> Math.round(v * 100) / 100.0 }
+        runCatching { Ambulances.near(d, upazilaId, type, o?.first?.let(r2), o?.second?.let(r2)) }
+            .onSuccess { list = it.items; busyList = it.busy; nearestId = it.nearestId; byArea = o == null }
+            .onFailure { errorMsg = it.message }
         loading = false
+    }
+
+    fun callAmbulance(a: Ambulance) {
+        called = called + a.id
+        scope.launch { runCatching { Ambulances.called(a.id) } }
+        callPhone(context, a.phone)
     }
 
     run {
@@ -265,6 +359,10 @@ private fun AmbulanceFinder(profile: Profile) {
                     onFilterClick = { showFilter = true },
                     active = listOfNotNull(type?.let { t -> ActiveFilter(AmbulanceTypes.label(t)) { type = null } }),
                 )
+            }
+            // সবচেয়ে কাছের খালি গাড়ি: এক চাপে ফোন (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়)
+            if (!loading) list.firstOrNull { it.id == nearestId }?.let { a ->
+                item(key = "nearest") { NearestCallButton(a, byArea) { callAmbulance(a) } }
             }
             item { EmergencyCallCard() }
             item {
@@ -285,11 +383,7 @@ private fun AmbulanceFinder(profile: Profile) {
                 else -> items(list, key = { it.id }) { a ->
                     AmbulanceCard(
                         a,
-                        onCall = {
-                            called = called + a.id
-                            scope.launch { runCatching { Ambulances.called(a.id) } }
-                            callPhone(context, a.phone)
-                        },
+                        onCall = { callAmbulance(a) },
                         onRate = if (a.canRate) ({ rating = a }) else null,
                         onReport = { reporting = a },
                     )
@@ -314,11 +408,7 @@ private fun AmbulanceFinder(profile: Profile) {
                 if (open) items(busyList, key = { "busy_" + it.id }) { a ->
                     AmbulanceCard(
                         a,
-                        onCall = {
-                            called = called + a.id
-                            scope.launch { runCatching { Ambulances.called(a.id) } }
-                            callPhone(context, a.phone)
-                        },
+                        onCall = { callAmbulance(a) },
                         onRate = if (a.canRate) ({ rating = a }) else null,
                         onReport = { reporting = a },
                     )
@@ -358,6 +448,29 @@ private fun AmbulanceFinder(profile: Profile) {
     }
 }
 
+/** তালিকার উপরে বড় বাটন: সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে এক চাপে ফোন — নিচের লাইনে নাম, দূরত্ব, ধরন */
+@Composable
+private fun NearestCallButton(a: Ambulance, byArea: Boolean, onCall: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    // এলাকা ধরে হলে দূরত্ব নয় (জানা নেই), শুধু "এলাকা ধরে"
+    val where = if (byArea) tr("By area", "এলাকা ধরে") else ambulanceKm(a)
+    val sub = listOfNotNull(a.name, where, a.types.joinToString(", ") { AmbulanceTypes.label(it) }.ifBlank { null }).joinToString(" · ")
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.primary).clickable(onClick = onCall)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(cs.onPrimary), contentAlignment = Alignment.Center) {
+            AppIcon(R.drawable.ic_call, null, Modifier.size(24.dp), cs.primary)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(tr("Call the nearest free ambulance", "সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = cs.onPrimary)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = cs.onPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
 @Composable
 private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit) {
     DirectoryCard(
@@ -371,6 +484,7 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
         },
         rating = a.rating,
         ratingCount = a.ratingCount,
+        meta = ambulanceKm(a),
         details = listOf(
             R.drawable.ic_location_on to listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "),
             R.drawable.ic_payments to if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else "",
@@ -539,6 +653,11 @@ fun MyAmbulancesSection(profile: Profile) {
                                 }
                             })
                         }
+                        StillAvailableRow(a) {
+                            scope.launch {
+                                runCatching { Ambulances.setAvailable(a.id, true) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
+                            }
+                        }
                         SmallNote(tr("Turn off when you go on a trip.", "ট্রিপে গেলে বন্ধ করুন।"))
                     }
                 }
@@ -554,10 +673,12 @@ fun MyAmbulancesSection(profile: Profile) {
             existing = editing,
             profile = profile,
             onDismiss = { adding = false; editing = null },
-            onSaved = { pending ->
+            onSaved = { r ->
                 adding = false
                 editing = null
-                infoMsg = if (pending) tr("Sent for approval. It will be listed after an admin checks it.", "অনুমোদনের জন্য পাঠানো হয়েছে। অ্যাডমিন যাচাই করলে তালিকায় আসবে।") else tr("Saved", "সেভ হয়েছে")
+                infoMsg = (if (r.pending) tr("Sent for approval. It will be listed after an admin checks it.", "অনুমোদনের জন্য পাঠানো হয়েছে। অ্যাডমিন যাচাই করলে তালিকায় আসবে।") else tr("Saved", "সেভ হয়েছে")) +
+                    // জায়গা জেলার বাইরে হলে সার্ভার শুধু জায়গাটা বাদ দেয়, বাকিটা সেভ হয়
+                    (if (r.baseIgnored) tr(" — vehicle location was outside the district, not saved", " — গাড়ির জায়গা জেলার বাইরে, তাই নেওয়া হয়নি") else "")
                 reload++
             },
             onDeleted = {
@@ -568,8 +689,39 @@ fun MyAmbulancesSection(profile: Profile) {
     }
 }
 
+/**
+ * "খালি আছি"-র মেয়াদের শেষ ঘণ্টায়: "খালি আছে — আর ৪৫ মিনিট" আর এক চাপে আবার ১২ ঘণ্টা
+ * ("এখনো খালি আছেন?" পুশ এখানেই আনে)। মিনিট প্রতি ৩০ সেকেন্ডে নতুন করে গোনা।
+ */
 @Composable
-private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismiss: () -> Unit, onSaved: (Boolean) -> Unit, onDeleted: () -> Unit) {
+private fun StillAvailableRow(a: Ambulance, onRenew: () -> Unit) {
+    if (a.status != "approved" || !a.available) return
+    val until = if (a.availableUntil > 0) a.availableUntil else if (a.availableAt > 1) a.availableAt + 12 * 3600_000L else 0L
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(until) {
+        while (true) {
+            kotlinx.coroutines.delay(30_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val left = until - now
+    if (until <= 0 || left <= 0 || left >= 3600_000L) return
+    val minutes = ((left + 59_999) / 60_000).coerceAtLeast(1)
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cs.tertiaryContainer).padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            tr("Available — $minutes min left", "খালি আছে — আর ${num(minutes)} মিনিট"),
+            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = cs.onTertiaryContainer, modifier = Modifier.weight(1f),
+        )
+        Button(onClick = onRenew) { Text(tr("Keep available", "আবার চালু রাখুন")) }
+    }
+}
+
+@Composable
+private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismiss: () -> Unit, onSaved: (Ambulances.SaveResult) -> Unit, onDeleted: () -> Unit) {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var phone by remember { mutableStateOf(existing?.phone ?: profile.phone) }
@@ -579,6 +731,10 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
     var upazilaId by remember { mutableStateOf(existing?.upazilaId) }
     var area by remember { mutableStateOf(existing?.area ?: "") }
     var fare by remember { mutableStateOf(existing?.fare ?: "") }
+    // গাড়ি যেখানে অপেক্ষা করে (ঐচ্ছিক): "সবচেয়ে কাছের" খুঁজতে; না দিলে জেলার কেন্দ্র ধরা হয়। clearBase: "জায়গা মুছুন"
+    var baseLat by remember { mutableStateOf<Double?>(null) }
+    var baseLng by remember { mutableStateOf<Double?>(null) }
+    var clearBase by remember { mutableStateOf(false) }
     var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var agreed by remember { mutableStateOf(existing != null) }
     var busy by remember { mutableStateOf(false) }
@@ -601,6 +757,13 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 ChipRows(AmbulanceTypes.ALL, types, label = { AmbulanceTypes.label(it) }) { t -> types = if (t in types) types - t else types + t }
                 Text(tr("Base area", "কোথা থেকে চলে"), style = MaterialTheme.typography.labelLarge)
                 AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
+                BaseLocationRow(
+                    hasBase = existing?.hasBase == true,
+                    picked = baseLat != null,
+                    cleared = clearBase,
+                    onPicked = { la, ln -> baseLat = la; baseLng = ln; clearBase = false },
+                    onClear = { baseLat = null; baseLng = null; clearBase = existing?.hasBase == true },
+                )
                 OutlinedTextField(area, { area = it.take(120) }, label = { Text(tr("Where you go (optional)", "কোন কোন এলাকায় যান (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(fare, { fare = it.take(120) }, label = { Text(tr("Fare (optional)", "ভাড়া (ঐচ্ছিক)")) }, placeholder = { Text(tr("e.g. Within city 800 Tk, per km 40 Tk", "যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা")) }, modifier = Modifier.fillMaxWidth())
                 // কাগজের ছবি: নতুন হলে দরকারি; বদলের সময় চাইলে নতুন ছবি
@@ -635,7 +798,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                 if (errorMsg != null || d == null) return@TextButton
                 scope.launch {
                     busy = true
-                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim(), docs) }
+                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim(), docs, baseLat, baseLng, clearBase) }
                         .onSuccess { onSaved(it) }
                         .onFailure { errorMsg = it.message }
                     busy = false
@@ -644,6 +807,66 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
+}
+
+// গাড়ির জায়গার GPS এর চেয়ে খারাপ (মিটার) হলে নেওয়া হয় না
+private const val BASE_MAX_ACCURACY_M = 200f
+
+/**
+ * গাড়ি যেখানে অপেক্ষা করে (স্ট্যান্ড/হাসপাতাল গেট) — বাসা নয়। শুধু ঠিক GPS (high accuracy, ২০০ মিটারের ভেতরে) নেওয়া হয়;
+ * ভুল বা না পেলে এই সারিতেই লেখা — ফর্ম সেভ আটকায় না। সঠিক লোকেশনের অনুমতি শুধু এখানে চাওয়া হয়।
+ * "জায়গা মুছুন": নতুন নেওয়াটা বাদ, আগে দেওয়া থাকলে সেভ করলে সার্ভারেও মোছে।
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun BaseLocationRow(hasBase: Boolean, picked: Boolean, cleared: Boolean, onPicked: (Double, Double) -> Unit, onClear: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun locate() {
+        scope.launch {
+            busy = true
+            error = null
+            val loc = runCatching { kotlinx.coroutines.withTimeoutOrNull(25_000) { LocationHelper.precise(context) } }.getOrNull()
+            busy = false
+            when {
+                loc == null -> error = tr("Couldn't get your location. Turn on GPS and try again.", "লোকেশন পাওয়া যায়নি। GPS চালু করে আবার চেষ্টা করুন।")
+                loc.third > BASE_MAX_ACCURACY_M -> error = tr("Couldn't get an accurate location — go outside and try again.", "লোকেশন ঠিকমতো পাওয়া যায়নি — বাইরে গিয়ে আবার চেষ্টা করুন")
+                else -> onPicked(loc.first, loc.second)
+            }
+        }
+    }
+
+    // অ্যান্ড্রয়েড ১২+: সঠিক আর আনুমানিক একসাথে চাইতে হয়; কেউ শুধু আনুমানিক দিলে accuracy খারাপ আসে → উপরের লেখা
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        if (granted.values.any { it }) locate() else error = tr("Location permission denied.", "লোকেশনের অনুমতি দেওয়া হয়নি।")
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(tr("Where the vehicle waits (stand / hospital gate) — not your home", "গাড়ি যেখানে অপেক্ষা করে (স্ট্যান্ড/হাসপাতাল গেট) — বাসা নয়"), style = MaterialTheme.typography.labelLarge)
+        when {
+            picked -> InfoText(tr("Vehicle location set", "গাড়ির জায়গা নেওয়া হয়েছে"))
+            cleared -> SmallNote(tr("Location will be removed when you save.", "সেভ করলে জায়গা মুছে যাবে।"))
+            hasBase -> SmallNote(tr("Location given. Update only if the waiting place changed.", "জায়গা দেওয়া আছে। অপেক্ষার জায়গা বদলালে তবেই আবার দিন।"))
+            else -> SmallNote(tr("Optional — stand there and tap. Nearby patients find you first; only the area (about 1 km) is kept.", "ঐচ্ছিক — সেখানে দাঁড়িয়ে চাপুন। কাছের রোগী আগে খুঁজে পাবেন; শুধু এলাকা (প্রায় ১ কিমি) রাখা হয়।"))
+        }
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!picked) {
+                OutlinedButton(
+                    onClick = {
+                        if (LocationHelper.hasFine(context)) locate()
+                        else launcher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                    },
+                    enabled = !busy,
+                ) { ButtonContent(busy, tr("Use current location", "বর্তমান লোকেশন ধরুন"), R.drawable.ic_location_on) }
+            }
+            if (picked || (hasBase && !cleared)) {
+                TextButton(onClick = { error = null; onClear() }, enabled = !busy) { ButtonContent(false, tr("Remove location", "জায়গা মুছুন"), R.drawable.ic_close) }
+            }
+        }
+        ErrorText(error)
+    }
 }
 
 /** অ্যাম্বুলেন্স/ফার্মেসির শর্তে সম্মতি */

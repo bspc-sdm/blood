@@ -714,7 +714,10 @@ const actions = {
     await myShop(req, user);
     const { start } = periodOf(req.body?.period || '7d');
     const snap = await bookCol(user.uid, 'sales').where('at', '>=', start).orderBy('at', 'desc').limit(300).get();
-    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => x) };
+    // একই মিলিসেকেন্ডে দুটো বিক্রি হলে ক্রম যেন প্রতিবার একই থাকে: সময়, তারপর তোলার সময় (নতুন আগে), তারপর id
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => x);
+    items.sort((a, c) => ((c.at || 0) - (a.at || 0)) || ((c.createdAt || 0) - (a.createdAt || 0)) || (a.id < c.id ? -1 : a.id > c.id ? 1 : 0));
+    return { items };
   },
 
   /** ভুল বিক্রি মোছা: পরিমাণ আর দিনের হিসাব ফিরে যায় (প্রেসক্রিপশনেরটা আবার তোলা যায়) */

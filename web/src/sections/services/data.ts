@@ -14,6 +14,10 @@ export const isKind = (k: string | undefined): k is Kind => !!k && (KINDS as str
 export interface Ambulance {
   id: string; name: string; phone: string; types: string[]; district: string; upazilaId: number | null; area: string; fare: string;
   available: boolean; availableAt: number; rating: number; ratingCount: number; canRate?: boolean; busy?: boolean; busySince?: number;
+  /** দূরত্ব (পুরো কিমি, ০ = ১ কিমির কম) — শুধু আসল GPS পাঠালে (gps: true); kmApprox: গাড়ির জায়গা দেওয়া নেই, জেলার কেন্দ্র ধরে */
+  km?: number | null; kmApprox?: boolean;
+  /** খালি থাকলে কখন পর্যন্ত (চালকের কার্ডে "আর ৪৫ মিনিট") */
+  availableUntil?: number;
 }
 export interface Pharmacy {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; openAt: string; closeAt: string;
@@ -48,7 +52,7 @@ export interface Lab {
   /** পরীক্ষা ও দামের সারাংশ (কয়টা, সবচেয়ে কম, ছাড়, বাসার চার্জ) — তালিকা না থাকলে null; পুরো তালিকা lab_prices_public */
   prices?: PriceSummary | null;
 }
-export interface ListResult<T> { items: T[]; busy?: T[]; busyCount?: number }
+export interface ListResult<T> { items: T[]; busy?: T[]; busyCount?: number; nearestId?: string | null }
 
 // ---------- লেবেল ----------
 export const kindLabel = (k: Kind) =>
@@ -122,6 +126,16 @@ export interface Entry {
   rateAspects?: RateAspect[];
 }
 
+/**
+ * অ্যাম্বুলেন্সের দূরত্ব: পুরো কিমি ("৩ কিমি"), ১-এর কম হলে "১ কিমির কম" — চালকের জায়গা ~১ কিমির ঘরে কাটা, তাই দশমিক নয়;
+ * জায়গা দেওয়া না থাকলে "প্রায় ২ কিমি"
+ */
+export function ambulanceKm(a: Pick<Ambulance, 'km' | 'kmApprox'>): string | null {
+  if (a.km == null || !Number.isFinite(a.km)) return null;
+  if (a.kmApprox) return tr(`about ${Math.max(1, Math.round(a.km))} km`, `প্রায় ${num(Math.max(1, Math.round(a.km)))} কিমি`);
+  return formatKm(a.km);
+}
+
 export function ambulanceEntry(a: Ambulance, lists: Lists | null): Entry {
   const loc = join([areaLabel(a.district, a.upazilaId), a.area], ' · ');
   const fare = a.fare ? tr('Fare: ', 'ভাড়া: ') + a.fare : '';
@@ -132,7 +146,7 @@ export function ambulanceEntry(a: Ambulance, lists: Lists | null): Entry {
     id: a.id, kind: 'ambulance', title: a.name, icon: 'ambulance',
     subtitle: a.types.map((t) => ambulanceTypeLabel(lists, t)).join(' · '),
     status: a.available ? { text: tr('Available', 'খালি আছে'), good: true } : a.availableAt > 0 ? { text: tr('Call to check', 'ফোনে জেনে নিন'), good: false } : { text: tr('Busy', 'ব্যস্ত'), good: false },
-    meta: metaLine(a.rating, a.ratingCount),
+    meta: metaLine(a.rating, a.ratingCount, ambulanceKm(a)),
     details: [['location_on', loc], ['payments', fare]],
     note: now,
     sections: [

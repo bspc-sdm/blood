@@ -424,4 +424,28 @@ object LocationHelper {
             ?: client.lastLocation.await()
         return loc?.let { it.latitude to it.longitude }
     }
+
+    /** সঠিক লোকেশনের অনুমতি (শুধু গাড়ির জায়গার মতো কাজে চাওয়া হয়) */
+    fun hasFine(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * ঠিক জায়গা (গাড়ি যেখানে অপেক্ষা করে): high accuracy, পুরোনো জায়গা নয়, সর্বোচ্চ ২০ সেকেন্ড।
+     * ফেরত (lat, lng, accuracy মিটারে) — accuracy জানা না থাকলে Float.MAX_VALUE; না পেলে null।
+     * শুধু আনুমানিক লোকেশনের অনুমতি দিলে accuracy খারাপ আসে — যে ডাকে সে বাতিল করে।
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun precise(context: Context): Triple<Double, Double, Float>? {
+        if (!hasPermission(context) && !hasFine(context)) return null
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val req = com.google.android.gms.location.CurrentLocationRequest.Builder()
+            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setMaxUpdateAgeMillis(0)
+            .setDurationMillis(20_000)
+            .build()
+        val loc = client.getCurrentLocation(req, null).await() ?: return null
+        return Triple(loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy else Float.MAX_VALUE)
+    }
 }

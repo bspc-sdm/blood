@@ -115,9 +115,16 @@ module.exports = handler(
     } catch (e) {
       console.error('inbox cleanup failed', e);
     }
+    // অ্যাম্বুলেন্স "এখনো খালি আছেন?" — আসল খোঁজ তালিকা পড়ার সাথে (lib/ambulance), এখানে বাড়তি নিরাপত্তা;
+    // সাথে পুরোনো খালি গাড়িতে (remindAt আসার আগের) remindAt বসানো
+    let ambulanceReminders = 0;
+    try {
+      ambulanceReminders = await require('../../lib/ambulance').remindAvailable(now, { backfill: true });
+    } catch (e) {
+      console.error('ambulance reminders failed', e);
+    }
 
-
-    return { ok: true, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill };
+    return { ok: true, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders };
   },
   { methods: ['GET'] },
 );

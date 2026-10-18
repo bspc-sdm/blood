@@ -8,9 +8,11 @@ const C = require('./community');
 // তালিকার তথ্য নয় — অবস্থা, হিসাব আর সময়
 const META = new Set([
   'status', 'ownerUid', 'createdAt', 'updatedAt', 'reviewedAt', 'reviewedBy', 'suspendedAt', 'approvedName', 'lastApproved',
-  'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'closedUntil', 'editRejectedAt',
+  'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'reminderSentAt', 'remindAt', 'closedUntil', 'editRejectedAt',
   'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
   'verification', 'docsRequestedAt', 'docsRequestNote', 'docsSentAt', 'docsHave',
+  // GPS-এর জায়গা (২ দশমিকে কাটা স্থানাঙ্ক) — অ্যাডমিনের "কী বদলেছে"-তে সংখ্যা দেখানোর মানে নেই, যাচাইও লাগে না
+  'lat', 'lng',
 ]);
 
 function snapshot(x) {
@@ -22,7 +24,9 @@ function changedFields(x) {
   const before = x && x.lastApproved;
   if (!before) return [];
   const now = snapshot(x);
+  // পুরোনো lastApproved-এ এখনকার META ঘর (যেমন lat/lng) থাকতে পারে — সেগুলোও বাদ
   return [...new Set([...Object.keys(before), ...Object.keys(now)])]
+    .filter((k) => !META.has(k))
     .filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(now[k] ?? null))
     .map((k) => ({ field: k, before: before[k] ?? null, after: now[k] ?? null }));
 }
@@ -60,6 +64,12 @@ async function resolveListing(req, user, kind, collection, id) {
   // পুরোনো ফার্মেসির নথিতে ownerUid না-ও থাকতে পারে — ফার্মেসির id-ই মালিকের uid
   const x = { ...s.data(), ownerUid: s.get('ownerUid') || (collection === 'pharmacies' ? id : null) };
   const [en, bn] = LABEL[kind];
+  // অ্যাম্বুলেন্সের "এখনো খালি আছেন?": তালিকায় না থাকলে মনে করানো নয়; আবার তালিকায় এলে (খালি থাকলে, এই পালায় পাঠানো না হলে) ফিরে আসে
+  const remind = (approved) => {
+    if (collection !== 'ambulances') return {};
+    const on = approved && x.available === true && typeof x.availableAt === 'number' && (x.reminderSentAt || 0) < x.availableAt;
+    return { remindAt: on ? x.availableAt + require('./ambulance').REMIND_AT_MS : FieldValue.delete() };
+  };
   const withReason = (lang) => [x.name, reason ? R.L(lang, `Reason: ${reason}`, `কারণ: ${reason}`) : ''].filter(Boolean).join(' · ');
 
   // অনুমোদিত তালিকার বদল বাতিল: আগের অনুমোদিত তথ্য ফিরে আসে, তালিকায় থাকে
@@ -70,7 +80,7 @@ async function resolveListing(req, user, kind, collection, id) {
       ...extra, ...x.lastApproved, approvedName: x.lastApproved.name || x.approvedName || x.name, status: 'approved',
       // কারণ শুধু নোটিফিকেশনে আর প্যানেলের নোটে; তালিকা চালুই থাকে
       statusReason: FieldValue.delete(), editRejectedReason: reason, editRejectedAt: Date.now(), reviewedAt: Date.now(), reviewedBy: user.uid,
-      docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
+      docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(), ...remind(true),
     });
     await tellOwner(x.ownerUid, [`Your ${en} changes were not accepted — the earlier details stay listed`, `আপনার ${bn}-এর বদল গ্রহণ হয়নি — আগের তথ্যই তালিকায় আছে`], withReason, kind);
     return { ok: true, restored: true };
@@ -85,6 +95,7 @@ async function resolveListing(req, user, kind, collection, id) {
     reviewedBy: user.uid,
     ...(verification ? { verification, docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete() } : {}),
     ...(status === 'suspended' ? { suspendedAt: Date.now() } : {}),
+    ...remind(status === 'approved'),
     ...(status === 'approved'
       ? { approvedName: x.name, lastApproved: snapshot(x), statusReason: FieldValue.delete(), editRejectedReason: FieldValue.delete() }
       : { statusReason: reason }),

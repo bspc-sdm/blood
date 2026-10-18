@@ -149,6 +149,34 @@ export async function districtAt(lat: number, lng: number): Promise<District> {
 }
 
 /** ব্রাউজারের কাছে আনুমানিক লোকেশন চাওয়া */
+/** লোকেশন পাওয়া গেছে, কিন্তু যথেষ্ট ঠিক নয় (accuracy খারাপ) */
+export class InaccuratePosition extends Error {
+  accuracy: number;
+  constructor(accuracy: number) {
+    super('inaccurate');
+    this.accuracy = accuracy;
+  }
+}
+
+/**
+ * ঠিক জায়গা (গাড়ির জায়গা দেওয়ার মতো কাজে): high accuracy, পুরোনো জায়গা নয়;
+ * accuracy maxM মিটারের বেশি খারাপ হলে InaccuratePosition (ঘরের ভেতরে/ওয়াই-ফাই দিয়ে আন্দাজ ইত্যাদি)।
+ */
+export function precisePosition(maxM = 200): Promise<{ lat: number; lng: number; accuracy: number }> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) return reject(new Error('no-geo'));
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const accuracy = p.coords.accuracy;
+        if (!Number.isFinite(accuracy) || accuracy > maxM) reject(new InaccuratePosition(accuracy));
+        else resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy });
+      },
+      (e) => reject(e),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
+  });
+}
+
 export function currentPosition(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) return reject(new Error('no-geo'));

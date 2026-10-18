@@ -111,3 +111,9 @@
 .work-empty .btn { margin-top: 8px; }
 .work-td-svc { max-width: 220px; }
 @media (min-width: 1180px) { .work-bar-actions { margin-right: 8px; } }
+
+/* অ্যাম্বুলেন্স: "খালি আছি"-র মেয়াদের শেষ ঘণ্টা — আবার চালু রাখার বাটন */
+.work-still {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 12px;
+  background: var(--tertiary-container); color: var(--on-tertiary-container);
+}

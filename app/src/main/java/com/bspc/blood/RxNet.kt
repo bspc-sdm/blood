@@ -1378,6 +1378,7 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
+    var saleAt by remember { mutableStateOf<Long?>(null) } // বিক্রির হিসাবে তোলার প্রস্তাব (PharmacyBooks.kt)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(topBar = { BackTopBar(tr("Give medicines", "ওষুধ দিন"), onDismiss) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1421,6 +1422,7 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
                     Text(tr("Given before", "আগে দেওয়া"), style = MaterialTheme.typography.labelLarge)
                     rx.dispensed.forEach { d -> SmallNote(d.name + " · " + Rules.formatDate(d.at) + " · " + d.items.joinToString(", ") { (i, q) -> (rx.meds.getOrNull(i)?.name ?: "") + " ×" + num(q) }) }
                 }
+                saleAt?.let { a -> androidx.compose.runtime.key(a) { RxSaleOffer(rx.code, a) { saleAt = null } } }
                 if (rx.status != "cancelled" && rx.meds.any { !it.done }) {
                     Button(
                         onClick = {
@@ -1428,7 +1430,12 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
                                 busy = true
                                 errorMsg = null
                                 runCatching { RxNet.dispense(rx.code, qty.mapValues { it.value.toIntOrNull() ?: 0 }, none.toSet()) }
-                                    .onSuccess { rx = it; qty.clear(); none.clear(); infoMsg = tr("Saved", "লেখা হয়েছে") }
+                                    .onSuccess {
+                                        // নতুন ভাগ লেখা হলে (শুধু "নেই" দিলে নয়) বিক্রির হিসাবে তোলার প্রস্তাব
+                                        val last = it.dispensed.lastOrNull()?.at
+                                        if (last != null && last != rx.dispensed.lastOrNull()?.at) saleAt = last
+                                        rx = it; qty.clear(); none.clear(); infoMsg = tr("Saved", "লেখা হয়েছে")
+                                    }
                                     .onFailure { errorMsg = it.message }
                                 busy = false
                             }

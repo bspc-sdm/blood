@@ -140,6 +140,40 @@
   }
  },
  {
+  "name": "amb-nearest-gps",
+  "path": "/services/ambulance",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "demo@example.com"
+   },
+   "profile": {
+    "name": "রাকিব হাসান",
+    "phone": "01700000000",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
+  "name": "amb-nearest-icu-area",
+  "path": "/services/ambulance?type=icu",
+  "test": {
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": 466,
+    "unionId": null
+   }
+  }
+ },
+ {
   "name": "amb-empty",
   "path": "/services/ambulance",
   "test": {

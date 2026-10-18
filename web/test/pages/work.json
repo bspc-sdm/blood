@@ -416,5 +416,31 @@
    "lang": "bn",
    "theme": "light"
   }
+ },
+ {
+  "name": "ambulance-renew",
+  "path": "/work/ambulance",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button:has-text(\"আবার চালু রাখুন\")"
+  ],
+  "sizes": [
+   "desktop"
+  ]
  }
 ]

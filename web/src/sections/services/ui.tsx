@@ -69,6 +69,20 @@ export function Emergency999() {
   );
 }
 
+// ---------- সবচেয়ে কাছের খালি অ্যাম্বুলেন্স: এক চাপে ফোন (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়) ----------
+export function NearestCall({ id, phone, sub }: { id: string; phone: string; sub: string }) {
+  const { guest } = useSession();
+  return (
+    <a className="services-nearest" href={`tel:${phone}`} onClick={() => recordCall('ambulance', id, guest)}>
+      <span className="ic"><Icon name="call" /></span>
+      <span className="col gap-2 grow">
+        <span className="t-title-m">{tr('Call the nearest free ambulance', 'সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন')}</span>
+        <span className="t-body-s sub">{sub}</span>
+      </span>
+    </a>
+  );
+}
+
 // ---------- ⋮ মেনু (রিপোর্ট) ----------
 function MoreMenu({ onReport }: { onReport: () => void }) {
   const [open, setOpen] = useState(false);
