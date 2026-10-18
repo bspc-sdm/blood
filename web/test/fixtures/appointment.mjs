@@ -160,7 +160,7 @@ function queueToday() {
     role: 'doctor',
     date: today(),
     chambers: [{
-      chamberKey: 'dghs_3', key: 'k3', name: 'Labib Hospital', nameBn: 'লাবিব হাসপাতাল', start: '17:00', avgMin: 8, avgFrom: 'history', lateAsked: 1,
+      date: today(), chamberKey: 'dghs_3', key: 'k3', name: 'Labib Hospital', nameBn: 'লাবিব হাসপাতাল', start: '17:00', avgMin: 8, avgFrom: 'history', lateAsked: 1,
       queue: { started: true, current: 2, paused: false, finished: false, next: 4, left: 2, max: 5, startedAt: Date.now() - 16 * M, lastAt: Date.now() - 8 * M },
       rows: [
         row('q1', 1, 'আব্দুল করিম', 'done'),

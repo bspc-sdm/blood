@@ -173,6 +173,15 @@ test('কেনার পর: অর্ডার "দেওয়া হয়�
   assert.deepStrictEqual(doc.get('aspects'), { behaviour: 3, price: 2 }, 'আগের ডেলিভারি রেটিং পড়ে থাকে না');
   assert.ok(doc.get('firstRatedAt') > 0);
   assert.deepStrictEqual((await listItem(U, F2)).aspects, { behaviour: { rating: 3, count: 1 }, price: { rating: 2, count: 1 } });
+  // পুরোনো অ্যাপ থেকে আবার রেটিং (শুধু rating): শুধু ব্যবহার বদলায়, আগের দামের রেটিং থাকে; মিলিত = (৫ + ২) / ২ → ৪
+  r = await ok(U, 'pharmacy_rate', { id: F2, rating: 5 });
+  assert.strictEqual(r.rating, 4);
+  assert.deepStrictEqual((await db.doc(`pharmacyRatings/${U}_${F2}`).get()).get('aspects'), { behaviour: 5, price: 2 });
+  assert.deepStrictEqual(await agg(F2), [4, 1]);
+  assert.deepStrictEqual(await aspAgg(F2), { behaviour: [5, 1], price: [2, 1] });
+  // নতুন অ্যাপে সব দিক আবার — আগের মতো পুরোটা বদলায়
+  await ok(U, 'pharmacy_rate', { id: F2, aspects: { behaviour: 3, price: 2 } });
+  assert.deepStrictEqual(await aspAgg(F2), { behaviour: [3, 1], price: [2, 1] });
 
   // দোকানে দাঁড়িয়ে প্রেসক্রিপশনের কোড দিয়ে ওষুধ নেওয়া (অর্ডার ছাড়া) — ব্যবহার আর দাম
   await db.doc('prescriptions/rx2').set({ patientUid: U, status: 'active', dispensed: [{ by: C2, name: 'দোকান', at: now - 5 * DAY, items: [{ i: 0, qty: 10 }] }] });

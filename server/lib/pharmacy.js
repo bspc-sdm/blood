@@ -363,14 +363,14 @@ const actions = {
   /**
    * ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) — দোকানের সেবার, দিকভিত্তিক:
    * { id, aspects: { behaviour: 1-5, price?: 1-5, delivery?: 1-5 }, comment }। ব্যবহার লাগবেই; কোন দিক দেওয়া যায় তা সার্ভার ঠিক করে।
-   * পুরোনো অ্যাপ শুধু rating পাঠায় — তখন সেটা ব্যবহারের রেটিং।
+   * পুরোনো অ্যাপ শুধু rating পাঠায় — তখন সেটা ব্যবহারের রেটিং; আগে দেওয়া দাম/ডেলিভারির রেটিং থাকে (শুধু ব্যবহার বদলায়)।
    */
   async pharmacy_rate(req, user) {
     const b = req.body || {};
     const { id } = b;
     const stars = (v) => Number.isInteger(v) && v >= 1 && v <= 5;
-    const given = b.aspects && typeof b.aspects === 'object' && !Array.isArray(b.aspects)
-      ? b.aspects : (b.rating !== undefined ? { behaviour: b.rating } : {});
+    const legacy = !(b.aspects && typeof b.aspects === 'object' && !Array.isArray(b.aspects));
+    const given = !legacy ? b.aspects : (b.rating !== undefined ? { behaviour: b.rating } : {});
     const aspects = {};
     for (const [k, v] of Object.entries(given)) {
       if (v == null || v === 0) continue; // না দেওয়া দিক
@@ -399,19 +399,22 @@ const actions = {
         ? C.tr(req, 'You can rate delivery after an online order from this shop is delivered', 'এই দোকানের অনলাইন অর্ডার পৌঁছানোর পর ডেলিভারির রেটিং দেওয়া যায়')
         : C.tr(req, 'You can rate price and delivery after getting medicines from this shop', 'এই দোকান থেকে ওষুধ নেওয়ার পর দাম ও ডেলিভারির রেটিং দেওয়া যায়'));
     }
-    const vals = Object.values(aspects);
     // মিলিত রেটিং = দেওয়া দিকগুলোর গড় (পূর্ণসংখ্যায়) — কার্ডের গড় এ দিয়েই
-    const rating = Math.round(vals.reduce((a, v) => a + v, 0) / vals.length);
-    await db.runTransaction(async (t) => {
+    const avgOf = (o) => { const vals = Object.values(o); return Math.round(vals.reduce((a, v) => a + v, 0) / vals.length); };
+    const rating = await db.runTransaction(async (t) => {
       const [r, shop] = await Promise.all([t.get(rateRef), t.get(ref)]);
       if (!shop.exists) throw new HttpError(404, C.tr(req, 'Not found', 'পাওয়া যায়নি'));
       const old = (r.exists && r.get('rating')) || 0;
       // আগের রেটিংয়ের দিক (আগের রেটিংয়ে দিক না থাকলে কিছু নয় — তখন দিকের যোগফলে সেটা ছিলই না)
       const oldAspects = (r.exists && r.get('aspects')) || null;
-      t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1), ...aspectDelta(oldAspects, aspects) });
-      // merge নয় — নইলে আগের দেওয়া দিক (যেমন ডেলিভারি) নতুন রেটিংয়ে না থাকলেও থেকে যেত
+      // পুরোনো অ্যাপ শুধু ব্যবহারের তারা পাঠায় — আগে নতুন অ্যাপে দেওয়া দাম/ডেলিভারি মুছে না দিয়ে রাখা
+      const next = legacy && oldAspects ? { ...Object.fromEntries(Object.entries(oldAspects).filter(([k, v]) => ASPECTS.includes(k) && stars(v))), ...aspects } : aspects;
+      const value = avgOf(next);
+      t.update(ref, { ratingSum: FieldValue.increment(value - old), ratingCount: FieldValue.increment(old ? 0 : 1), ...aspectDelta(oldAspects, next) });
+      // merge নয় — নইলে আগের দেওয়া দিক (যেমন ডেলিভারি) নতুন রেটিংয়ে না থাকলেও থেকে যেত (পুরোনো অ্যাপে উপরে নিজে মেলানো)
       const firstRatedAt = (r.exists && (r.get('firstRatedAt') || r.get('ratedAt'))) || now;
-      t.set(rateRef, { uid: user.uid, pharmacyId: id, rating, aspects, comment, ratedAt: now, firstRatedAt });
+      t.set(rateRef, { uid: user.uid, pharmacyId: id, rating: value, aspects: next, comment, ratedAt: now, firstRatedAt });
+      return value;
     });
     // মালিকের হিসাবে সাম্প্রতিক ১০টা রেটিং (কে দিয়েছেন তা ছাড়া)
     await require('./sellerstats').addRecentRating('pharmacyStats', id, rating, comment, user.uid);

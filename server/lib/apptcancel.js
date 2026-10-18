@@ -34,6 +34,7 @@ async function cancelStale(providerUid, keep, reason) {
     }));
     await batch.commit();
   }
+  require('./queue').forget(providerUid);
   try {
     const patients = [...new Set(stale.map((d) => d.get('patientUid')))];
     const users = await db.getAll(...patients.map((id) => db.doc(`users/${id}`)));

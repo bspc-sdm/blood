@@ -301,3 +301,181 @@ test('ডেমো: আজকের সিরিয়াল চলছে, এ�
   await call(OWNER, 'admin_demo_wipe');
   assert.deepStrictEqual([...F.store.keys()].filter((k) => k.startsWith('queues/')), [], 'ডেমো মুছলে সারি নেই');
 });
+
+// ---------------------------------------------------------------
+// রিভিউয়ের ভুলগুলো আর হয় না
+// ---------------------------------------------------------------
+const DAYMS = 24 * 3600 * 1000;
+function person(uid) {
+  F.users.set(uid, { uid, email: `${uid}@q.test`, displayName: uid });
+  F.store.set(`users/${uid}`, { name: uid, lang: 'bn', fcmTokens: [`tok_${uid}`] });
+}
+/** প্রোফাইলের ডক ছাড়া ডাক্তার (শুধু ব্যাজ) আর সরাসরি লেখা নিশ্চিত সিরিয়াল */
+function seedDoctor(uid, { profile = false } = {}) {
+  person(uid);
+  F.store.set(`badges/${uid}`, { type: 'doctor', status: 'approved', name: uid });
+  if (profile) F.store.set(`providers/${uid}`, { type: 'doctor', name: uid, chambers: [] });
+}
+function seedAppt(id, doc, patient, date, serial, chamberKey) {
+  person(patient);
+  F.store.set(`appointments/${id}`, {
+    providerUid: doc, patientUid: patient, date, serial, status: 'confirmed', chamberKey, chamber: 'Night Clinic', chamberBn: 'রাতের চেম্বার',
+    providerName: 'ডা. রাত', patientName: patient, start: '20:00', createdAt: serial,
+  });
+}
+
+test('দুজন একসাথে "পরের রোগী": পুরোনো নম্বর দেখে চাপলে কিছু হয় না (stale); প্রোফাইল ডক না থাকলেও গড় লেখা যায়', async () => {
+  const D = 'qStaleDoc';
+  seedDoctor(D); // providers/{uid} নেই
+  const KEY = 'dghs_901';
+  for (let s = 1; s <= 4; s++) seedAppt(`qStale${s}`, D, `qStaleP${s}`, TODAY, s, KEY);
+  Date.now = () => T;
+  try {
+    at(0);
+    let r = await call(D, 'queue_control', { chamberKey: KEY, op: 'start' });
+    assert.strictEqual(r.chamber.queue.current, 1);
+    at(6);
+    // ডাক্তার আর সহকারী দুজনেই ১ নম্বর দেখে "পরের রোগী" — প্রথমটায় ২, দ্বিতীয়টায় কিছু নয় (৩ নয়)
+    r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 1 });
+    assert.deepStrictEqual([r.chamber.queue.current, r.stale], [2, undefined]);
+    r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 1 });
+    assert.deepStrictEqual([r.stale, r.chamber.queue.current, r.chamber.queue.next], [true, 2, 3], 'কেউ বাদ পড়েননি');
+    const q = F.store.get(`queues/${D}_${TODAY}_${Q.keyOf(KEY)}`);
+    assert.deepStrictEqual([q.current, q.done], [2, [1]]);
+    // "এখন দেখছি"-তেও একই
+    r = await call(D, 'queue_control', { chamberKey: KEY, op: 'set', serial: 4, expect: 1 });
+    assert.deepStrictEqual([r.stale, r.chamber.queue.current], [true, 2]);
+    // প্রোফাইলের ডক ছিল না — "পরের রোগী" আটকায়নি, গড় merge করে লেখা
+    assert.deepStrictEqual(F.store.get(`providers/${D}`).queueStats[Q.keyOf(KEY)].n, 1);
+    // queue_control-এ অ্যাপয়েন্টমেন্ট একবারই পড়া হয় (আগে দুবার load())
+    let reads = 0;
+    const orig = db.collection;
+    db.collection = (c) => { if (c === 'appointments') reads++; return orig(c); };
+    try {
+      at(12);
+      r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 2 });
+    } finally {
+      db.collection = orig;
+    }
+    assert.deepStrictEqual([r.chamber.queue.current, reads], [3, 1]);
+    assert.strictEqual(F.store.get(`providers/${D}`).queueStats[Q.keyOf(KEY)].n, 2, 'ফেরত দেখায়ও নতুন গড়');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('"আগে ২ জন" নোটিফিকেশন একসাথে দুটো অনুরোধেও একবার', async () => {
+  const D = 'qNearDoc';
+  seedDoctor(D, { profile: true });
+  const KEY = 'dghs_902';
+  for (let s = 1; s <= 3; s++) seedAppt(`qNear${s}`, D, `qNearP${s}`, TODAY, s, KEY);
+  F.store.set(`queues/${D}_${TODAY}_${Q.keyOf(KEY)}`, { providerUid: D, date: TODAY, chamberKey: KEY, key: Q.keyOf(KEY), started: true, current: 1, pos: 1, done: [] });
+  const L1 = await Q._q.load(D, TODAY, KEY);
+  const L2 = await Q._q.load(D, TODAY, KEY);
+  const sent = await Promise.all([Q._q.notifyNear(L1), Q._q.notifyNear(L2)]);
+  assert.strictEqual(sent[0] + sent[1], 2, 'দুজন রোগী, প্রত্যেকে একবার');
+  assert.strictEqual(pushesTo('qNearP2', /আগে/).length, 1);
+  assert.strictEqual(pushesTo('qNearP3', /আগে/).length, 1);
+});
+
+test('রোগীর খোঁজ ১৫ সেকেন্ড মেমোরিতে; সারি/অ্যাপয়েন্টমেন্ট বদলালে সাথে সাথে নতুন', async () => {
+  const D = 'qCacheDoc';
+  seedDoctor(D, { profile: true });
+  const KEY = 'dghs_903';
+  for (let s = 1; s <= 4; s++) seedAppt(`qCache${s}`, D, `qCacheP${s}`, TODAY, s, KEY);
+  Date.now = () => T;
+  try {
+    at(0);
+    let v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+    assert.strictEqual(v.ahead, 3);
+    let reads = 0;
+    const orig = db.collection;
+    db.collection = (c) => { if (c === 'appointments') reads++; return orig(c); };
+    try {
+      // মেমোরি থেকে: ডাটাবেসে সরাসরি বদল (যেমন অন্য সার্ভার) এখনই দেখায় না, অ্যাপয়েন্টমেন্টের তালিকাও আবার পড়া হয় না
+      F.store.set('appointments/qCache1', { ...F.store.get('appointments/qCache1'), status: 'cancelled' });
+      v = await call('qCacheP3', 'appointment_queue', { id: 'qCache3' });
+      assert.strictEqual(v.ahead, 2);
+      v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+      assert.strictEqual(v.ahead, 3);
+      assert.strictEqual(reads, 0);
+      // ১৫ সেকেন্ড পর নতুন করে
+      T += 16 * 1000;
+      v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+      assert.strictEqual(v.ahead, 2);
+      assert.strictEqual(reads, 1);
+    } finally {
+      db.collection = orig;
+    }
+    // অ্যাপ দিয়ে বাতিল → সাথে সাথে
+    await call('qCacheP2', 'appointment_update', { id: 'qCache2', op: 'cancel' });
+    v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+    assert.strictEqual(v.ahead, 1);
+    // সারি চালালে → সাথে সাথে
+    await call(D, 'queue_control', { chamberKey: KEY, op: 'start' });
+    v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+    assert.deepStrictEqual([v.started, v.current, v.ahead], [true, 3, 1]);
+    await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 3 });
+    v = await call('qCacheP4', 'appointment_queue', { id: 'qCache4' });
+    assert.strictEqual(v.state, 'now');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('মাঝরাত পেরোনো চেম্বার: ভোর ৬টা পর্যন্ত গতকালের চলমান সারি — ডাক্তার, রোগী, দেরি; শেষ হলে আজকেরটা নিজে থেকে শুরু হয় না', async () => {
+  const D = 'qNightDoc';
+  seedDoctor(D, { profile: true });
+  const KEY = 'dghs_904';
+  const YEST = TODAY - DAYMS;
+  for (let s = 1; s <= 3; s++) seedAppt(`qNight${s}`, D, `qNightP${s}`, YEST, s, KEY);
+  seedAppt('qNightToday', D, 'qNightP9', TODAY, 1, KEY); // একই চেম্বারে আজকের সিরিয়াল
+  let now = YEST + 16 * 3600 * 1000; // গতকাল রাত ১০টা (ঢাকা)
+  Date.now = () => now;
+  try {
+    assert.strictEqual(Q._q.earlyHours(now), false);
+    await call(D, 'queue_control', { chamberKey: KEY, op: 'start' });
+    now += 10 * MIN;
+    await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 1 });
+    // রাত ১২:৩০ (আজকের তারিখ)
+    now = TODAY - 6 * 3600 * 1000 + 30 * MIN;
+    assert.strictEqual(R.todayDhakaUtcMidnight(now), TODAY);
+    assert.strictEqual(Q._q.earlyHours(now), true);
+    let td = await call(D, 'queue_today');
+    assert.deepStrictEqual(td.chambers.map((c) => [c.date, c.queue.current, c.chamberKey]), [[YEST, 2, KEY]], 'গতকালেরটাই, আজকেরটা পরে');
+    // রোগী: গতকালের অ্যাপয়েন্টমেন্টেও সারি দেখেন আর সময় চাইতে পারেন
+    let v = await call('qNightP3', 'appointment_queue', { id: 'qNight3' });
+    assert.deepStrictEqual([v.live, v.current, v.ahead], [true, 2, 1]);
+    await call('qNightP3', 'appointment_late', { id: 'qNight3', minutes: 10 });
+    await call(D, 'appointment_late_reply', { id: 'qNight3', op: 'ok' });
+    // পুরোনো অ্যাপ (date ছাড়া) আর নতুন অ্যাপ (date সহ) — দুটোই গতকালেরটা চালায়
+    let r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 2 });
+    assert.strictEqual(r.chamber.queue.current, 3);
+    assert.strictEqual(r.chamber.date, YEST);
+    r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 3, date: YEST });
+    assert.strictEqual(r.chamber.queue.finished, true);
+    // শেষের পর আবার চাপলেও আজকের সারি শুরু হয় না
+    r = await call(D, 'queue_control', { chamberKey: KEY, op: 'next', expect: 0, date: YEST });
+    assert.deepStrictEqual([r.chamber.date, r.chamber.queue.finished], [YEST, true]);
+    assert.strictEqual(F.store.get(`queues/${D}_${TODAY}_${Q.keyOf(KEY)}`), undefined);
+    td = await call(D, 'queue_today');
+    assert.deepStrictEqual(td.chambers.map((c) => [c.date, c.queue.started]), [[TODAY, false]], 'গতকালেরটা শেষ — এখন আজকেরটা');
+    v = await call('qNightP3', 'appointment_queue', { id: 'qNight3' });
+    assert.strictEqual(v.state, 'done');
+    // সকাল ৭টায় গতকালের কিছু নয়
+    now = TODAY + 3600 * 1000;
+    v = await call('qNightP3', 'appointment_queue', { id: 'qNight3' });
+    assert.strictEqual(v.live, false);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('অ্যাকাউন্ট মুছলে ১০০০-এর বেশি দিনের সারিও মোছে', async () => {
+  const D = 'qManyDoc';
+  for (let i = 0; i < 1100; i++) F.store.set(`queues/${D}_${i}_k`, { providerUid: D, date: i, started: true });
+  F.store.set('queues/other_1_k', { providerUid: 'other', date: 1 });
+  assert.strictEqual(await Q.deleteFor(D), 1100);
+  assert.deepStrictEqual([...F.store.keys()].filter((k) => k.startsWith(`queues/${D}_`)), []);
+  assert.ok(F.store.has('queues/other_1_k'));
+});

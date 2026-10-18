@@ -8,11 +8,12 @@ async function cached(key, ttlMs, load) {
   if (hit && now - hit.at < ttlMs) return hit.value;
   // একসাথে কয়েকটা অনুরোধ এলে একবারই পড়া
   if (hit && hit.pending) return hit.pending;
+  // পড়ার মাঝে clear() হলে পুরোনো পড়াটা আর রাখা হয় না (নইলে মোছার পরও পুরোনো তথ্য ttl পর্যন্ত থেকে যেত)
   const pending = load().then((value) => {
-    store.set(key, { at: Date.now(), value });
+    if (store.get(key)?.pending === pending) store.set(key, { at: Date.now(), value });
     return value;
   }, (e) => {
-    store.delete(key);
+    if (store.get(key)?.pending === pending) store.delete(key);
     throw e;
   });
   store.set(key, { ...(hit || { at: 0 }), pending });

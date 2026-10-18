@@ -430,6 +430,8 @@ module.exports = {
       }
       t.update(ref, update);
     });
+    // রোগীর "সিরিয়াল চলছে"-র মেমোরি (queue.js) — নিশ্চিত/বাতিল হলে ক্রম বদলায়
+    require('./queue').forget(a.providerUid);
 
     const to = isProvider ? a.patientUid : a.providerUid;
     const texts = {

@@ -2,6 +2,8 @@
 //  - PatientQueue: রোগী (বা কেয়ারগিভার) — আজকের নিশ্চিত সিরিয়ালে এখন কত চলছে, আগে কতজন, কখন আসবেন, "দেরি হবে"
 //  - QueuePanel: ডাক্তার/সহকারী — "শুরু করুন", "পরের রোগী", সিরিয়াল চেপে "এখন দেখছি", "বিরতি", দেরির উত্তর
 // খোলা থাকলে ৩০ সেকেন্ডে একবার নতুন করে আনে (রিয়েলটাইম নয়)।
+// "পরের রোগী"/"এখন দেখছি"-তে এখন দেখা নম্বর (expect) আর সারির দিন (date) যায় — অন্য কেউ এইমাত্র এগিয়ে থাকলে সার্ভার কিছু করে না
+// (stale), তখন শুধু নতুন করে আনা। মাঝরাত পেরোনো চেম্বারে ভোর ৬টা পর্যন্ত গতকালের সারি চলে।
 import { useState } from 'react';
 import { Action, Button, ChoiceChips, Dialog, ErrorText, Tag, TextInput, cx, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
@@ -9,7 +11,7 @@ import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { formatTime } from '@/lib/format';
 import { isBangla, num, tr } from '@/lib/i18n';
-import { today, type Appointment } from './model';
+import { DAY_MS, today, type Appointment } from './model';
 
 const REFRESH = 30_000;
 export const LATE_MINUTES = [10, 20, 30, 60];
@@ -32,13 +34,16 @@ export interface PatientQueueInfo {
 }
 export interface QueueRow { id: string; serial: number; name: string; status: string; state: string; ahead: number; late: LateInfo | null }
 export interface QueueChamber {
+  /** কোন দিনের সারি (মাঝরাত পেরোলে গতকালের) */
+  date?: number;
   chamberKey: string; key: string; name: string; nameBn: string; start: string; avgMin: number; avgFrom: string; lateAsked: number;
   queue: { started: boolean; current: number; paused: boolean; finished: boolean; next: number | null; left: number; max: number };
   rows: QueueRow[];
 }
 
-/** আজকের নিশ্চিত সিরিয়াল কি না (সারির তথ্য তখনই) */
-export const queueLive = (a: Appointment) => a.role === 'patient' && a.status === 'confirmed' && a.serial > 0 && a.date === today();
+/** আজকের নিশ্চিত সিরিয়াল কি না (সারির তথ্য তখনই); ভোর ৬টার আগে গতকালেরটাও (চেম্বার মাঝরাত পেরোলে — সার্ভার ঠিক করে চলছে কি না) */
+export const queueLive = (a: Appointment) => a.role === 'patient' && a.status === 'confirmed' && a.serial > 0
+  && (a.date === today() || (a.date === today() - DAY_MS && new Date().getHours() < 6));
 const lateText = (min: number) => tr(`${min} min late`, `${num(min)} মিনিট দেরি হবে`);
 
 export function usePatientQueue(a: Appointment) {
@@ -200,8 +205,9 @@ function QueueChamberCard({ c, many, doctorUid, reload }: { c: QueueChamber; man
     setBusy(key);
     setErr(null);
     try {
-      await call(action, { ...extra, ...b });
-      if (done) toast(done);
+      const r = await call<{ stale?: boolean }>(action, { ...extra, ...b });
+      // stale: অন্য কেউ (ডাক্তার/সহকারী) এইমাত্র বদলেছেন — কিছু হয়নি, শুধু নতুন অবস্থা দেখানো
+      if (done && !r?.stale) toast(done);
       reload();
     } catch (e) {
       setErr(errorText(e));
@@ -209,7 +215,10 @@ function QueueChamberCard({ c, many, doctorUid, reload }: { c: QueueChamber; man
       setBusy(null);
     }
   }
-  const control = (op: string, more: Record<string, unknown> = {}, done?: string) => run(op + (more.appointmentId ?? ''), 'queue_control', { chamberKey: c.chamberKey, op, ...more }, done);
+  // expect = এখন যে নম্বর দেখছি (০ = কেউ না); date = এই সারির দিন
+  const control = (op: string, more: Record<string, unknown> = {}, done?: string) => run(op + (more.appointmentId ?? ''), 'queue_control', {
+    chamberKey: c.chamberKey, op, expect: qs.started ? qs.current || 0 : 0, ...(c.date ? { date: c.date } : {}), ...more,
+  }, done);
   const status = qs.paused ? tr('Break', 'বিরতি') : qs.finished ? tr('Done', 'শেষ') : qs.started ? tr('Running', 'চলছে') : tr('Not started', 'শুরু হয়নি');
   const rows = c.rows.filter((r) => r.state !== 'cancelled');
   return (

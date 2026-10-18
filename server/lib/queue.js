@@ -16,6 +16,11 @@
 //   current = এখন যাঁকে দেখছেন (০ = কেউ না); pos = ক্রমে কত পর্যন্ত এসেছে (পেছনের কাউকে চাপলে সরে না)
 // appointments/{id}-এ: lateMin, lateNote, lateAt, lateStatus ('asked' | 'ok' | 'later'), lateReplyAt, lateCount, nearPushAt
 // queues অ্যাপ সরাসরি পড়তে/লিখতে পারে না (Firestore নিয়মে নেই) — সব এখান দিয়ে।
+//
+// - মাঝরাত পেরোনো চেম্বার: ঢাকার ভোর ৬টার আগে গতকালের শুরু হওয়া সারি (শেষ না হলে) চলতে থাকে — ডাক্তার, সহকারী আর রোগী সবাই সেটাই দেখেন।
+// - দুজন একসাথে "পরের রোগী" চাপলে একজন বাদ পড়বে না: অ্যাপ যে নম্বর দেখছে সেটা expect-এ পাঠায়; সারি ততক্ষণে এগিয়ে গেলে
+//   কিছু বদলায় না, উত্তরে stale: true (অ্যাপ শুধু নতুন করে আনে)।
+// - রোগীর ৩০ সেকেন্ডের খোঁজে চেম্বারের হিসাব মেমোরিতে ১৫ সেকেন্ড (memcache); সারি/দেরি/অ্যাপয়েন্টমেন্ট বদলালে সাথে সাথে মোছে।
 const crypto = require('crypto');
 const { db, FieldValue, HttpError } = require('./firebase');
 const R = require('./rules');
@@ -35,11 +40,47 @@ const LATE_MINUTES = [10, 20, 30, 60];
 const MAX_LATE_ASKS = 3;
 const CHAMBER_TYPES = ['doctor', 'nutritionist', 'trainer'];
 const ACTIVE = ['confirmed', 'completed'];
+const DAY = 24 * 3600 * 1000;
+const ROLLOVER_H = 6; // ঢাকার এই ঘণ্টা পর্যন্ত গতকালের চলমান সারি চলে
+const PATIENT_CACHE_MS = 15 * 1000;
+const M = require('./memcache');
 
 const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
 const keyOf = (chamberKey) => crypto.createHash('md5').update(String(chamberKey)).digest('hex').slice(0, 10);
 const apptKey = (a) => a.chamberKey || a.chamber || '';
 const queueId = (providerUid, date, key) => `${providerUid}_${date}_${key}`;
+const queueRef = (providerUid, date, key) => db.doc(`queues/${queueId(providerUid, date, key)}`);
+const cacheKey = (providerUid, date, chamberKey) => `queue:${providerUid}:${date}:${chamberKey}`;
+/** রোগীর দেখার মেমোরি মোছা (সারি, দেরি, অ্যাপয়েন্টমেন্টের অবস্থা বদলালে) */
+const forget = (providerUid) => M.clear(`queue:${providerUid}:`);
+
+/** ঢাকার ভোর ৬টার আগে কি না */
+function earlyHours(now = Date.now()) {
+  return now + 6 * 3600 * 1000 - R.todayDhakaUtcMidnight(now) < ROLLOVER_H * 3600 * 1000;
+}
+const running = (s) => !!(s && s.exists && s.get('started') && !s.get('finished'));
+
+/**
+ * ডাক্তার/সহকারীর কোন দিনের সারি: আজ; ভোর ৬টার আগে গতকালের শুরু হওয়া, শেষ না হওয়া সারি থাকলে সেটা।
+ * wanted = অ্যাপ যে দিনের সারি দেখছে — গতকালেরটা দেখলে (শেষ হয়ে গেলেও) সেই দিনেরই, যাতে শেষ রোগীর পর আবার "পরের রোগী" চাপলে আজকেরটা শুরু না হয়
+ */
+async function queueDate(providerUid, chamberKey, wanted, now = Date.now()) {
+  const today = R.todayDhakaUtcMidnight(now);
+  if (wanted === today || !earlyHours(now)) return today;
+  const y = today - DAY;
+  const s = await queueRef(providerUid, y, keyOf(chamberKey)).get();
+  if (s.exists && s.get('started') && (wanted === y || !s.get('finished'))) return y;
+  return today;
+}
+
+/** রোগীর অ্যাপয়েন্টমেন্টের সারির দিন: আজকের হলে আজ; গতকালের হলে (ভোর ৬টার আগে, সেই সারি শুরু হয়ে থাকলে) গতকাল; নইলে null */
+async function apptQueueDate(a, now = Date.now()) {
+  const today = R.todayDhakaUtcMidnight(now);
+  if (a.date === today) return today;
+  if (a.date !== today - DAY || !earlyHours(now)) return null;
+  const s = await queueRef(a.providerUid, a.date, keyOf(apptKey(a))).get();
+  return s.exists && s.get('started') ? a.date : null;
+}
 
 /** ঢাকার এই দিনের (UTC মধ্যরাত) "HH:MM" — মিলিসেকেন্ডে */
 function atTime(date, hhmm) {
@@ -188,7 +229,7 @@ const chamberFor = (chambers, a) => chambers.find((c) => (c.hospitalId || c.hosp
 async function load(providerUid, date, chamberKey, cache = {}) {
   const key = keyOf(chamberKey);
   const [qs, cs, ps, all] = await Promise.all([
-    db.doc(`queues/${queueId(providerUid, date, key)}`).get(),
+    queueRef(providerUid, date, key).get(),
     db.doc(`serials/${queueId(providerUid, date, key)}`).get(),
     cache.provider ? Promise.resolve(cache.provider) : db.doc(`providers/${providerUid}`).get(),
     cache.appts ? Promise.resolve(cache.appts) : todayAppts(providerUid, date),
@@ -198,8 +239,12 @@ async function load(providerUid, date, chamberKey, cache = {}) {
   const nums = numbers(appts, cs.exists ? cs.get('n') || 0 : 0);
   const provider = ps.exists ? ps.data() : {};
   const chamber = chamberFor(K.chambersOf(provider), appts[0] || { chamberKey });
-  return { key, q, nums, appts, provider, chamber };
+  return { key, date, q, nums, appts, provider, chamber };
 }
+
+/** রোগীর দেখার জন্য (৩০ সেকেন্ডে একবার খোঁজে) — ১৫ সেকেন্ড মেমোরিতে; বদল হলে forget() */
+const loadForPatient = (providerUid, date, chamberKey) =>
+  M.cached(cacheKey(providerUid, date, chamberKey), PATIENT_CACHE_MS, () => load(providerUid, date, chamberKey));
 
 function queueView(q, nums) {
   const list = order(q, nums);
@@ -235,6 +280,8 @@ function chamberView(L, now = Date.now()) {
   return {
     chamberKey: apptKey(first),
     key,
+    // কোন দিনের সারি (মাঝরাত পেরোলে গতকালের) — অ্যাপ "পরের রোগী"-তে এটা ফেরত পাঠায়
+    date: L.date,
     name: (chamber && chamber.hospitalName) || first.chamber || '',
     nameBn: (chamber && chamber.hospitalNameBn) || first.chamberBn || '',
     start: first.start || (chamber && chamber.start) || '',
@@ -287,9 +334,19 @@ async function notifyNear(L) {
     const ahead = i + (q.current ? 1 : 0);
     if (ahead >= 1 && ahead <= NEAR) due.push({ a, ahead });
   }
+  let sent = 0;
   for (const { a, ahead } of due) {
-    await db.doc(`appointments/${a.id}`).update({ nearPushAt: Date.now() }).catch(() => {});
+    // দেখা আর লেখা একসাথে (transaction): দুটো অনুরোধ একসাথে এলেও নোটিফিকেশন একবারই
+    const ref = db.doc(`appointments/${a.id}`);
+    const mine = await db.runTransaction(async (t) => {
+      const s = await t.get(ref);
+      if (!s.exists || s.get('nearPushAt') || s.get('status') !== 'confirmed') return false;
+      t.update(ref, { nearPushAt: Date.now() });
+      return true;
+    }).catch(() => false);
     a.nearPushAt = Date.now();
+    if (!mine) continue;
+    sent++;
     await pushPatient(
       a.patientUid,
       `${ahead} before you — please come to the chamber`,
@@ -298,7 +355,7 @@ async function notifyNear(L) {
       { type: 'appointment', role: 'patient', id: a.id },
     );
   }
-  return due.length;
+  return sent;
 }
 
 async function pushProvider(uid, en, bn, body, data) {
@@ -318,17 +375,35 @@ const actions = {
   /** ডাক্তার/সহকারী: আজকের চেম্বারগুলোর সিরিয়াল আর কে কোথায় (body.doctorUid = সহকারী কার হয়ে) */
   async queue_today(req, user) {
     const { doctorUid, role } = await controller(req, user, req.body?.doctorUid);
-    const date = R.todayDhakaUtcMidnight();
+    const now = Date.now();
+    const date = R.todayDhakaUtcMidnight(now);
     const [appts, ps] = await Promise.all([todayAppts(doctorUid, date), db.doc(`providers/${doctorUid}`).get()]);
-    const keys = [...new Set(appts.filter((a) => Number.isInteger(a.serial) && a.serial > 0).map(apptKey))];
     const chambers = [];
+    // মাঝরাত পেরোনো চেম্বার: ভোর ৬টার আগে গতকালের চলমান সারি আগে (সেই চেম্বারের আজকেরটা তখন নয়)
+    const carried = new Set();
+    if (earlyHours(now)) {
+      const y = date - DAY;
+      const qs = await db.collection('queues').where('providerUid', '==', doctorUid).where('date', '==', y).limit(20).get();
+      const live = qs.docs.filter(running).map((d) => d.get('chamberKey'));
+      if (live.length) {
+        const yAppts = await todayAppts(doctorUid, y);
+        for (const k of new Set(live)) {
+          if (!yAppts.some((a) => apptKey(a) === k && Number.isInteger(a.serial) && a.serial > 0)) continue;
+          chambers.push(chamberView(await load(doctorUid, y, k, { appts: yAppts, provider: ps })));
+          carried.add(k);
+        }
+      }
+    }
+    const keys = [...new Set(appts.filter((a) => Number.isInteger(a.serial) && a.serial > 0).map(apptKey))].filter((k) => !carried.has(k));
     for (const k of keys) chambers.push(chamberView(await load(doctorUid, date, k, { appts, provider: ps })));
     return { role, date, chambers };
   },
 
   /**
    * ডাক্তার/সহকারী: op = start | next | set (appointmentId বা serial) | pause | resume
-   * body: { chamberKey, op, appointmentId?, serial?, doctorUid? }
+   * body: { chamberKey, op, appointmentId?, serial?, doctorUid?, expect?, date? }
+   * expect = অ্যাপ এখন যে নম্বর দেখছে (০ = কেউ না) — next/set-এ সারি ততক্ষণে বদলে গেলে কিছু নয়, উত্তরে stale: true
+   * (পুরোনো অ্যাপ expect পাঠায় না — তখন আগের মতো); date = চেম্বারের দেখা দিন (queue_today-এর chamber.date)
    */
   async queue_control(req, user) {
     const b = req.body || {};
@@ -336,7 +411,8 @@ const actions = {
     const op = String(b.op || '');
     if (!['start', 'next', 'set', 'pause', 'resume'].includes(op)) throw err(req, 'Unknown action', 'অজানা কাজ');
     const chamberKey = typeof b.chamberKey === 'string' ? b.chamberKey : '';
-    const date = R.todayDhakaUtcMidnight();
+    const date = await queueDate(doctorUid, chamberKey, Number.isInteger(b.date) ? b.date : null);
+    const expect = (op === 'next' || op === 'set') && Number.isInteger(b.expect) && b.expect >= 0 ? b.expect : null;
     const L = await load(doctorUid, date, chamberKey);
     if (!L.appts.some((a) => ACTIVE.includes(a.status) && a.serial > 0)) throw err(req, 'No confirmed serial today', 'আজ কোনো নিশ্চিত সিরিয়াল নেই', 404);
     let target = null;
@@ -351,12 +427,15 @@ const actions = {
         throw err(req, 'Choose the serial', 'সিরিয়াল বেছে নিন');
       }
     }
-    const ref = db.doc(`queues/${queueId(doctorUid, date, L.key)}`);
+    const ref = queueRef(doctorUid, date, L.key);
     const pRef = db.doc(`providers/${doctorUid}`);
-    await db.runTransaction(async (t) => {
+    // ফেরত: সারির নতুন অবস্থা (আবার পড়তে হয় না), গড় বদলালে নতুন হিসাব, stale = অ্যাপের দেখা নম্বর পুরোনো
+    const res = await db.runTransaction(async (t) => {
       const [qs, ps] = await Promise.all([t.get(ref), t.get(pRef)]);
       const now = Date.now();
       const q = qs.exists ? qs.data() : { started: false, current: 0, pos: 0, done: [] };
+      // অন্য কেউ (ডাক্তার/সহকারী) এইমাত্র এগিয়েছেন — আবার এগোলে একজন রোগী বাদ পড়তেন
+      if (expect != null && (q.started ? q.current || 0 : 0) !== expect) return { q, stale: true };
       const done = new Set(q.done || []);
       const up = { providerUid: doctorUid, date, chamberKey, key: L.key, updatedAt: now };
       // বিরতি থেকে ফেরা: বিরতির সময়টা গড়ে না ধরতে শেষ বদলের সময় সামনে সরানো
@@ -366,9 +445,9 @@ const actions = {
         if (op === 'pause' && !q.paused) Object.assign(up, { paused: true, pausedAt: now });
         if (op === 'resume') Object.assign(up, resumed());
         t.set(ref, up, { merge: true });
-        return;
+        return { q: { ...q, ...up } };
       }
-      if (op === 'start' && q.started) return; // দুবার চাপলে কিছু নয়
+      if (op === 'start' && q.started) return { q }; // দুবার চাপলে কিছু নয়
       const fresh = op === 'start' || !q.started;
       const cur = fresh ? 0 : q.current || 0;
       const pos = fresh ? 0 : q.pos || 0;
@@ -385,18 +464,20 @@ const actions = {
           // সবাই দেখা শেষ
           Object.assign(up, resumed(), { started: true, current: 0, done: [...done].sort((x, y) => x - y), finished: true, lastAt: now });
           t.set(ref, up, { merge: true });
-          return;
+          return { q: { ...q, ...up } };
         }
         n = nx.n;
         if (nx.forward) newPos = n;
       }
       // গড়: আগের রোগী থেকে এই রোগী পর্যন্ত (বিরতি বাদ, ১–৬০ মিনিট হলে)
       const lastAt = q.paused ? (q.lastAt || now) + Math.max(0, now - (q.pausedAt || now)) : q.lastAt || 0;
+      let stats = null;
       if (!fresh && cur && lastAt) {
         const gap = (now - lastAt) / MIN;
         if (gap >= MIN_GAP_MIN && gap <= MAX_GAP_MIN) {
-          const stats = (ps.exists && ps.get('queueStats')) || {};
-          t.update(pRef, { [`queueStats.${L.key}`]: addGap(stats[L.key], gap, now) });
+          stats = addGap(((ps.exists && ps.get('queueStats')) || {})[L.key], gap, now);
+          // merge (update নয়) — প্রোফাইলের ডক না থাকলেও "পরের রোগী" আটকায় না
+          t.set(pRef, { queueStats: { [L.key]: stats } }, { merge: true });
         }
       }
       Object.assign(up, {
@@ -405,10 +486,17 @@ const actions = {
         ...(fresh ? { startedAt: now } : {}),
       });
       t.set(ref, up, { merge: true });
+      return { q: { ...q, ...up }, stats };
     });
-    const after = await load(doctorUid, date, chamberKey);
-    if (op !== 'pause') await notifyNear(after);
-    return { chamber: chamberView(after) };
+    forget(doctorUid);
+    // আবার load() নয়: অ্যাপয়েন্টমেন্টগুলো একই, শুধু সারি (আর গড়) বদলেছে
+    const after = {
+      ...L,
+      q: res.q,
+      provider: res.stats ? { ...L.provider, queueStats: { ...(L.provider.queueStats || {}), [L.key]: res.stats } } : L.provider,
+    };
+    if (!res.stale && op !== 'pause') await notifyNear(after);
+    return { chamber: chamberView(after), ...(res.stale ? { stale: true } : {}) };
   },
 
   /** রোগী (বা কেয়ারগিভার): আজকের নিশ্চিত সিরিয়ালে এখন কত চলছে, আগে কতজন, কখন আসবেন */
@@ -418,9 +506,10 @@ const actions = {
     const s = await db.doc(`appointments/${id}`).get();
     if (!s.exists || s.get('patientUid') !== user.uid) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
     const a = { id: s.id, ...s.data() };
-    const date = R.todayDhakaUtcMidnight();
-    if (a.status !== 'confirmed' || a.date !== date || !(a.serial > 0)) return { live: false };
-    return patientView(a, await load(a.providerUid, date, apptKey(a)));
+    if (a.status !== 'confirmed' || !(a.serial > 0)) return { live: false };
+    const date = await apptQueueDate(a);
+    if (date == null) return { live: false };
+    return patientView(a, await loadForPatient(a.providerUid, date, apptKey(a)));
   },
 
   /** রোগী (বা কেয়ারগিভার): "দেরি হবে" — ১০/২০/৩০/৬০ মিনিট + ছোট নোট; সিরিয়াল পার হওয়ার আগে, দিনে একটা (বদলানো যায়) */
@@ -431,8 +520,8 @@ const actions = {
     const s = await ref.get();
     if (!s.exists || s.get('patientUid') !== user.uid) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
     const a = { id: s.id, ...s.data() };
-    const date = R.todayDhakaUtcMidnight();
-    if (a.status !== 'confirmed' || a.date !== date || !(a.serial > 0)) throw err(req, "Only for today's confirmed serial", 'শুধু আজকের নিশ্চিত সিরিয়ালে', 409);
+    const date = a.status === 'confirmed' && a.serial > 0 ? await apptQueueDate(a) : null;
+    if (date == null) throw err(req, "Only for today's confirmed serial", 'শুধু আজকের নিশ্চিত সিরিয়ালে', 409);
     const minutes = Number(b.minutes);
     if (!LATE_MINUTES.includes(minutes)) throw err(req, 'Choose how late', 'কত দেরি হবে বেছে নিন');
     if (a.lateStatus === 'later') throw err(req, 'The doctor already moved you to the end', 'ডাক্তার আপনাকে আগেই শেষে রেখেছেন', 409);
@@ -442,6 +531,7 @@ const actions = {
     if (place.state !== 'waiting') throw err(req, 'Your serial has already passed', 'আপনার সিরিয়াল পার হয়ে গেছে', 409);
     const note = C.cleanText(b.note, 100);
     await ref.update({ lateMin: minutes, lateNote: note, lateAt: Date.now(), lateStatus: 'asked', lateReplyAt: 0, lateCount: (a.lateCount || 0) + 1 });
+    forget(a.providerUid);
     await pushProvider(
       a.providerUid,
       `Patient will be ${minutes} min late`,
@@ -464,12 +554,13 @@ const actions = {
     const op = b.op === 'later' ? 'later' : b.op === 'ok' ? 'ok' : null;
     if (!op) throw err(req, 'Choose a reply', 'উত্তর বেছে নিন');
     if (!a.lateStatus) throw err(req, 'No request for more time', 'সময় চাওয়ার অনুরোধ নেই', 409);
-    const date = R.todayDhakaUtcMidnight();
-    if (a.status !== 'confirmed' || a.date !== date) throw err(req, 'This changed just now. Refresh.', 'এইমাত্র বদলেছে। রিফ্রেশ করুন।', 409);
+    const date = a.status === 'confirmed' ? await apptQueueDate(a) : null;
+    if (date == null) throw err(req, 'This changed just now. Refresh.', 'এইমাত্র বদলেছে। রিফ্রেশ করুন।', 409);
     const L = await load(a.providerUid, date, apptKey(a));
     const place = placeOf(L.q, L.nums, a.serial);
     if (!['waiting'].includes(place.state)) throw err(req, 'This serial has already passed', 'এই সিরিয়াল পার হয়ে গেছে', 409);
     await ref.update({ lateStatus: op, lateReplyAt: Date.now(), ...(op === 'later' ? { nearPushAt: FieldValue.delete() } : {}) });
+    forget(a.providerUid);
     const { pushPatient } = require('./careaccess');
     await pushPatient(
       a.patientUid,
@@ -487,17 +578,22 @@ const actions = {
 
 /** অ্যাকাউন্ট মুছলে: ডাক্তারের সিরিয়ালের সারি (রোগীর নাম নেই, তবু ডাক্তারের uid আছে) */
 async function deleteFor(uid) {
-  const snap = await db.collection('queues').where('providerUid', '==', uid).limit(1000).get();
-  for (let i = 0; i < snap.docs.length; i += 400) {
+  // ১০০০-এর বেশি দিনের সারি থাকলেও সব — খালি না হওয়া পর্যন্ত ৪০০টা করে
+  let n = 0;
+  for (;;) {
+    const snap = await db.collection('queues').where('providerUid', '==', uid).limit(400).get();
+    if (snap.empty) break;
     const batch = db.batch();
-    snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    snap.docs.forEach((d) => batch.delete(d.ref));
     await batch.commit();
+    n += snap.size;
   }
-  return snap.size;
+  forget(uid);
+  return n;
 }
 
 module.exports = {
-  actions, deleteFor, keyOf, queueId,
-  _q: { numbers, nextAfter, order, placeOf, avgFor, addGap, etaFor, atTime },
+  actions, deleteFor, keyOf, queueId, forget,
+  _q: { numbers, nextAfter, order, placeOf, avgFor, addGap, etaFor, atTime, earlyHours, queueDate, apptQueueDate, notifyNear, load },
   DEFAULT_MIN, LATE_MINUTES,
 };

@@ -168,8 +168,9 @@ test('কাউন্টারে বিক্রি: পণ্যের ছা�
   assert.ok(!(await stockNames(A)).includes('Comet 500'));
   const last = (await ok(A, 'books_sales', { period: 'today' })).items[0];
   assert.strictEqual(last.lines[0].qty, 9);
+  assert.strictEqual(last.lines[0].dec, 4, 'আসলে ৪টা কমেছে');
   await ok(A, 'books_sale_delete', { id: last.id });
-  assert.strictEqual((await item(A, 'Comet 500')).qty, 9, 'মুছলে পরিমাণ ফেরে');
+  assert.strictEqual((await item(A, 'Comet 500')).qty, 4, 'মুছলে আসলে যতটা কমেছিল ততটাই ফেরে (৪টা ছিল, ৯টা বিক্রি — ৯ নয়)');
   assert.ok((await stockNames(A)).includes('Comet 500'));
   const d2 = await dayDoc(A);
   assert.deepStrictEqual([d2.sales, d2.net, d2.profit], [4, 109.11, 28.11]);
@@ -200,7 +201,7 @@ test('প্রেসক্রিপশন: rx_dispense আগের মতো�
   assert.deepStrictEqual(pv.lines.map((l) => [l.name, l.qty, l.itemName, l.unitPrice, l.unitDisc, l.unitCost]), [
     ['Comet', 6, 'Comet 500', 8, 0.8, 5], ['Seclo', 10, 'Seclo', 7, 0, 4.5], ['Napa', 2, '', null, 0, null],
   ]);
-  // Seclo-র দাম কাউন্টারে বদলানো, Napa দোকানের তালিকায় নেই (দাম ছাড়া, নতুন পণ্য হয়)
+  // Seclo-র দাম কাউন্টারে বদলানো, Napa দোকানের তালিকায় নেই (দাম ছাড়া, শুধু নাম দিয়ে লাইন — ফাঁকা পণ্য তৈরি হয় না)
   const s = (await ok(A, 'books_sale_add', { source: 'rx', rx: { code: 'H4QW7ZK2MP', at: pv.at }, lines: [{ i: 0, itemId: pv.lines[0].itemId }, { i: 1, unitPrice: 6.5, unitDisc: 0 }, { i: 2 }] })).sale;
   assert.strictEqual(s.source, 'rx');
   assert.deepStrictEqual([s.totals.gross, s.totals.discount, s.totals.net, s.totals.cost, s.totals.profit, s.totals.unpriced], [113, 4.8, 108.2, 75, 33.2, 1]);
@@ -208,7 +209,9 @@ test('প্রেসক্রিপশন: rx_dispense আগের মতো�
   assert.strictEqual(s.rx.code, 'H4QW7ZK2MP');
   assert.strictEqual((await item(A, 'Comet 500')).qty, 0, '৪টা ছিল, ৬টা দিলে ০');
   assert.strictEqual((await item(A, 'Seclo')).qty, 20);
-  assert.ok(await item(A, 'Napa'));
+  assert.strictEqual(await item(A, 'Napa'), undefined, 'না মেলা ওষুধে নতুন পণ্য নয়');
+  assert.ok(![...F.store.keys()].some((k) => k.startsWith(`shopItems/${A}/items/`) && F.store.get(k).name === 'Napa'));
+  assert.deepStrictEqual([s.lines[2].noItem, s.lines[2].dec, s.lines[2].unitPrice], [true, 0, null]);
   assert.strictEqual((await call(A, 'books_sale_add', { source: 'rx', rx: { code: 'H4QW7ZK2MP', at: pv.at }, lines: [] })).status, 409, 'একই ভাগ দুবার নয়');
   assert.strictEqual((await ok(A, 'books_rx_preview', { code: 'H4QW7ZK2MP' })).recorded, true);
   // পরিমাণ দোকানের লেখা থেকে — বেশি পাঠালেও নয়
@@ -327,6 +330,122 @@ test('শুধু দোকানের মালিক: অন্য কেউ
   assert.strictEqual((await call(X, 'books_item_delete', { id: c.id })).status, 200);
   assert.ok(await item(A, 'Comet 500'), 'অন্য দোকানের পণ্য মোছে না');
   assert.strictEqual((await ok(X, 'books_report', { period: 'today' })).totals.sales, 0);
+});
+
+test('রিভিউয়ের ভুলগুলো আর হয় না: পুরোনো নামে পণ্যের উপর লেখা, কেনা মুছলে পরিমাণ/দাম, বিক্রি মুছলে বাড়তি, তালিকার নতুনগুলো, সীমা, নষ্টের ক্ষতি, বিলের ছাড়', async () => {
+  const A = 'shopFixA001';
+  await shop(A, ['Napa']);
+  await ok(A, 'books_items');
+
+  // ১. নাম বদলানো পণ্যের id পুরোনো নামের — পুরোনো নাম stock_set দিয়ে ফিরলে আসল পণ্যটা ফাঁকা হয়ে যায় না
+  const napa = await item(A, 'Napa');
+  await ok(A, 'books_item_save', { id: napa.id, name: 'Napa 500', price: 1.2, cost: 0.8, qty: 40 });
+  await ok(A, 'stock_set', { add: ['Napa'] });
+  const list = (await ok(A, 'books_items')).items;
+  const n5 = list.find((x) => x.name === 'Napa 500');
+  assert.deepStrictEqual([n5 && n5.id, n5 && n5.price, n5 && n5.qty], [napa.id, 1.2, 40], 'Napa 500 আগের মতোই');
+  assert.strictEqual(F.store.get(`shopItems/${A}/items/${napa.id}`).name, 'Napa 500');
+  assert.strictEqual(list.filter((x) => x.id === napa.id).length, 1);
+  // একই সময়ে কেনায় তৈরি হওয়া পণ্যের উপরও নয়: তালিকায় নাম আছে, পণ্যটা প্রথম পড়ার পরে তৈরি — ফাঁকা দিয়ে বদলায় না
+  await db.doc(`pharmacyStock/${A}`).set({ names: ['Napa', 'Napa 500', 'Zimax'], keys: ['napa', 'napa 500', 'zimax'], updatedAt: 2 });
+  const origCol = db.collection;
+  db.collection = (c) => {
+    const col = origCol(c);
+    if (c !== `shopItems/${A}/items`) return col;
+    return { ...col, limit: (n) => ({ get: async () => {
+      const r = await col.limit(n).get();
+      // পড়ার ঠিক পরে অন্য অনুরোধে কেনা: Zimax ৩০টা
+      await db.doc(`shopItems/${A}/items/${B.idOf('Zimax')}`).set({ name: 'Zimax', key: 'zimax', qty: 30, cost: 20, price: 35, createdAt: 1, updatedAt: 1 });
+      return r;
+    } }) };
+  };
+  try {
+    await ok(A, 'books_items');
+  } finally {
+    db.collection = origCol;
+  }
+  assert.deepStrictEqual([F.store.get(`shopItems/${A}/items/${B.idOf('Zimax')}`).qty, F.store.get(`shopItems/${A}/items/${B.idOf('Zimax')}`).price], [30, 35]);
+
+  // ২. পরিমাণ না লেখা পণ্যে কেনা মুছলে আবার "লেখা নেই" (০ নয়), স্টকের তালিকায় আগের মতো; দাম/মেয়াদ আগেরটায়
+  const fexo = (await ok(A, 'books_item_save', { name: 'Fexo 120', price: 10 })).item;
+  assert.strictEqual(fexo.qty, null);
+  const p = await ok(A, 'books_purchase_add', { lines: [{ itemId: fexo.id, qty: 10, unitCost: 6, price: 12, expiry: '2027-05' }] });
+  let f = await item(A, 'Fexo 120');
+  assert.deepStrictEqual([f.qty, f.cost, f.price, f.expiry], [10, 6, 12, '2027-05']);
+  assert.strictEqual(p.purchase.undo, undefined, 'ফেরানোর তথ্য উত্তরে দেখানো হয় না');
+  await ok(A, 'books_purchase_delete', { id: p.id });
+  f = await item(A, 'Fexo 120');
+  assert.deepStrictEqual([f.qty, f.inStock, f.cost, f.price, f.expiry], [null, true, null, 10, null]);
+  // তালিকায় না থাকা (হাতে "নেই") পণ্য: কেনায় আসে, মুছলে আবার "নেই"
+  await ok(A, 'books_item_stock', { id: fexo.id, on: false });
+  const p2 = await ok(A, 'books_purchase_add', { lines: [{ itemId: fexo.id, qty: 5 }] });
+  assert.ok((await stockNames(A)).includes('Fexo 120'));
+  await ok(A, 'books_purchase_delete', { id: p2.id });
+  f = await item(A, 'Fexo 120');
+  assert.deepStrictEqual([f.qty, f.inStock], [null, false]);
+  // কেনার পরে হাতে বদলানো বিক্রি দাম মুছলেও থাকে
+  const p3 = await ok(A, 'books_purchase_add', { lines: [{ itemId: fexo.id, qty: 5, unitCost: 6, price: 12 }] });
+  await ok(A, 'books_item_save', { id: fexo.id, name: 'Fexo 120', price: 13, cost: 6.5 });
+  await ok(A, 'books_purchase_delete', { id: p3.id });
+  f = await item(A, 'Fexo 120');
+  assert.deepStrictEqual([f.qty, f.price, f.cost], [null, 13, 6.5], 'হাতে বসানো কেনা/বিক্রি দাম থাকে');
+
+  // ৩. বেশি বিক্রির পর মুছলে শুধু যতটা কমেছিল (১টা বাড়তি নয়); পরিমাণ না লেখা পণ্যে কিছুই নয়
+  const ace = (await ok(A, 'books_item_save', { name: 'Ace', qty: 3, cost: 1, price: 2 })).item;
+  const sale = await ok(A, 'books_sale_add', { lines: [{ itemId: ace.id, qty: 2 }, { itemId: ace.id, qty: 2 }, { itemId: fexo.id, qty: 1 }] });
+  assert.deepStrictEqual(sale.sale.lines.map((l) => l.dec), [2, 1, 0]);
+  assert.strictEqual((await item(A, 'Ace')).qty, 0);
+  await ok(A, 'books_item_save', { id: fexo.id, name: 'Fexo 120', qty: 7, price: 13, cost: 6.5 });
+  await ok(A, 'books_sale_delete', { id: sale.id });
+  assert.strictEqual((await item(A, 'Ace')).qty, 3);
+  assert.strictEqual((await item(A, 'Fexo 120')).qty, 7, 'বিক্রির সময় পরিমাণ লেখা ছিল না — পরে গোনা ৭ বাড়ে না');
+
+  // ৪. তালিকায় নতুনগুলো আগে, পুরোনো সীমা পেরোলেও (১১০০টা বিক্রি, ৫১০টা কেনা, ৫১০টা বদল — নতুনটা শেষে লেখা)
+  const now = Date.now();
+  for (let i = 1100; i >= 1; i--) F.store.set(`shopBooks/${A}/sales/old${i}`, { at: now - i * 1000, day: B.dayKey(now), source: 'counter', lines: [], totals: {} });
+  for (let i = 510; i >= 1; i--) F.store.set(`shopBooks/${A}/purchases/old${i}`, { at: now - i * 1000, day: B.dayKey(now), lines: [], total: 0 });
+  for (let i = 510; i >= 1; i--) F.store.set(`shopBooks/${A}/adjust/old${i}`, { at: now - i * 1000, day: B.dayKey(now), kind: 'count' });
+  F.store.set(`shopBooks/${A}/sales/zNewest`, { at: now + 500, day: B.dayKey(now), source: 'counter', lines: [], totals: {} });
+  F.store.set(`shopBooks/${A}/purchases/zNewest`, { at: now + 500, day: B.dayKey(now), lines: [], total: 0 });
+  F.store.set(`shopBooks/${A}/adjust/zNewest`, { at: now + 500, day: B.dayKey(now), kind: 'count' });
+  const sl = (await ok(A, 'books_sales', { period: '7d' })).items;
+  assert.deepStrictEqual([sl.length, sl[0].id], [300, 'zNewest']);
+  const pl = (await ok(A, 'books_purchases')).items;
+  assert.deepStrictEqual([pl.length, pl[0].id], [200, 'zNewest']);
+  const al = (await ok(A, 'books_adjusts')).items;
+  assert.deepStrictEqual([al.length, al[0].id], [200, 'zNewest']);
+  assert.ok(sl.every((x, i) => i === 0 || sl[i - 1].at >= x.at));
+
+  // ৫. স্টকের তালিকা ভরা থাকলে নতুন নাম চুপচাপ বাদ নয় — জানানো হয়, তালিকা আগের মতো
+  const Z = 'shopFixFull';
+  const full = Array.from({ length: 3000 }, (_, i) => `Med ${String(i).padStart(4, '0')}`);
+  await shop(Z, full);
+  const r = await call(Z, 'books_item_save', { name: 'Zzz New' });
+  assert.strictEqual(r.status, 400);
+  assert.match(r.body.error, /সর্বোচ্চ/);
+  assert.deepStrictEqual((await stockNames(Z)).length, 3000);
+  assert.ok((await stockNames(Z)).includes('Med 0000'));
+  // সরানো যায়
+  F.store.set(`shopItems/${Z}/items/${B.idOf('Med 0000')}`, { name: 'Med 0000', key: 'med 0000', qty: null });
+  await ok(Z, 'books_item_stock', { id: B.idOf('Med 0000'), on: false });
+  assert.strictEqual((await stockNames(Z)).length, 2999);
+
+  // ৬. নষ্ট: যতটা ছিল তার বেশি ক্ষতি নয়
+  const sec = (await ok(A, 'books_item_save', { name: 'Seclo', qty: 3, cost: 4 })).item;
+  const before = await dayDoc(A);
+  const w = (await ok(A, 'books_adjust', { itemId: sec.id, kind: 'writeoff', qty: 5 })).adjust;
+  assert.deepStrictEqual([w.before, w.after, w.delta, w.loss], [3, 0, -3, 12]);
+  const after = await dayDoc(A);
+  assert.deepStrictEqual([round(after.writeOff - (before.writeOff || 0)), round(after.woq - (before.woq || 0))], [12, 3]);
+
+  // ৮. বিলের ছাড়ের ভাগে পয়সার গরমিল কোনো লাইনের নিট ঋণাত্মক করে না
+  const ps = B.priceSale([9.43, 8.73, 8.07, 0.13].map((p, k) => ({ itemId: `i${k}`, name: `M${k}`, qty: 1, unitPrice: p, unitDisc: 0, unitCost: null })), { type: 'amt', v: 25.98 });
+  assert.ok(ps.lines.every((l) => l.net >= 0), JSON.stringify(ps.lines.map((l) => l.net)));
+  assert.strictEqual(round(ps.lines.reduce((a, l) => a + l.net, 0)), 0.38);
+  assert.deepStrictEqual([ps.totals.billDiscount, ps.totals.net], [25.98, 0.38]);
+  // ১০০% ছাড়: সব লাইন ০
+  const all = B.priceSale([0.07, 0.07, 0.07].map((p, k) => ({ itemId: `i${k}`, name: `M${k}`, qty: 1, unitPrice: p, unitDisc: 0, unitCost: null })), { type: 'pct', v: 100 });
+  assert.deepStrictEqual(all.lines.map((l) => l.net), [0, 0, 0]);
 });
 
 test('অ্যাকাউন্ট মুছলে পণ্য আর পুরো হিসাব-খাতা মোছে', async () => {

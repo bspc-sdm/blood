@@ -45,6 +45,8 @@ import org.json.JSONObject
 // - রোগী (বা কেয়ারগিভার): আজকের নিশ্চিত সিরিয়ালে এখন কত চলছে, আগে কতজন, কখন আসবেন, "দেরি হবে"
 // - ডাক্তার/সহকারী: "শুরু করুন", "পরের রোগী", সিরিয়াল চেপে "এখন দেখছি", "বিরতি", দেরির উত্তর
 // পাতা খোলা আর অ্যাপ সামনে থাকলে ৩০ সেকেন্ডে একবার নতুন করে আনে (রিয়েলটাইম নয়)।
+// "পরের রোগী"/"এখন দেখছি"-তে এখন দেখা নম্বর (expect) আর সারির দিন (date) যায় — অন্য কেউ এইমাত্র এগিয়ে থাকলে সার্ভার
+// কিছু করে না (stale), তখন শুধু নতুন করে আনা। মাঝরাত পেরোনো চেম্বারে ভোর ৬টা পর্যন্ত গতকালের সারি চলে।
 // ------------------------------------------------------------
 
 private const val QUEUE_REFRESH_MS = 30_000L
@@ -71,7 +73,8 @@ data class PatientQueueInfo(
 
 data class QueueRow(val id: String, val serial: Int, val name: String, val status: String, val state: String, val late: LateInfo?)
 data class QueueState(val started: Boolean, val current: Int, val paused: Boolean, val finished: Boolean, val next: Int?)
-data class QueueChamber(val chamberKey: String, val name: String, val nameBn: String, val avgMin: Int, val queue: QueueState, val rows: List<QueueRow>) {
+/** date = কোন দিনের সারি (মাঝরাত পেরোলে গতকালের; পুরোনো সার্ভারে ০) */
+data class QueueChamber(val chamberKey: String, val name: String, val nameBn: String, val avgMin: Int, val queue: QueueState, val rows: List<QueueRow>, val date: Long = 0L) {
     val label: String get() = if (isBangla && nameBn.isNotBlank()) nameBn else name
 }
 
@@ -104,16 +107,24 @@ object QueueApi {
                 c.str("chamberKey"), c.str("name"), c.str("nameBn"), c.optInt("avgMin", 10),
                 QueueState(q.optBoolean("started"), q.optInt("current"), q.optBoolean("paused"), q.optBoolean("finished"), q.optInt("next").takeIf { it > 0 }),
                 c.optJSONArray("rows").objs().map { r -> QueueRow(r.str("id"), r.optInt("serial"), r.str("name"), r.str("status"), r.str("state"), late(r.optJSONObject("late"))) },
+                c.optLong("date", 0L),
             )
         }
 
-    suspend fun control(doctorUid: String?, chamberKey: String, op: String, appointmentId: String? = null) {
-        call(
+    /**
+     * expect = এখন যে নম্বর দেখছি (০ = কেউ না) — অন্য কেউ এইমাত্র এগিয়ে থাকলে সার্ভার কিছু করে না;
+     * ফেরত true = stale (কিছু হয়নি, শুধু নতুন করে আনতে হবে)
+     */
+    suspend fun control(doctorUid: String?, c: QueueChamber, op: String, appointmentId: String? = null): Boolean {
+        val o = call(
             "queue_control",
-            JSONObject().put("chamberKey", chamberKey).put("op", op)
+            JSONObject().put("chamberKey", c.chamberKey).put("op", op)
+                .put("expect", if (c.queue.started) c.queue.current else 0)
+                .apply { if (c.date > 0L) put("date", c.date) }
                 .apply { if (doctorUid != null) put("doctorUid", doctorUid) }
                 .apply { if (appointmentId != null) put("appointmentId", appointmentId) },
         )
+        return o.optBoolean("stale")
     }
 
     suspend fun reply(id: String, op: String) {
@@ -137,8 +148,12 @@ private fun rememberResumed(): Boolean {
     return resumed
 }
 
-/** আজকের নিশ্চিত সিরিয়াল কি না (সারির তথ্য তখনই) */
-fun Appointment.queueLive(): Boolean = role == "patient" && status == "confirmed" && serial > 0 && date == Rules.todayUtcMidnight()
+/** আজকের নিশ্চিত সিরিয়াল কি না (সারির তথ্য তখনই); ভোর ৬টার আগে গতকালেরটাও (চেম্বার মাঝরাত পেরোলে — সার্ভার ঠিক করে চলছে কি না) */
+fun Appointment.queueLive(): Boolean {
+    if (role != "patient" || status != "confirmed" || serial <= 0) return false
+    val today = Rules.todayUtcMidnight()
+    return date == today || (date == today - DAY_MS && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) < 6)
+}
 
 private fun lateLabel(min: Int) = tr("$min min late", "${num(min)} মিনিট দেরি হবে")
 
@@ -345,19 +360,19 @@ private fun QueueChamberCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!q.started) {
-                    Button(onClick = { act("start") { QueueApi.control(doctorUid, c.chamberKey, "start") } }, enabled = busy == null) {
+                    Button(onClick = { act("start") { QueueApi.control(doctorUid, c, "start") } }, enabled = busy == null) {
                         ButtonContent(busy == "start", tr("Start", "শুরু করুন"), R.drawable.ic_chevron_right)
                     }
                 } else {
-                    Button(onClick = { act("next") { QueueApi.control(doctorUid, c.chamberKey, "next") } }, enabled = busy == null && !(q.finished && q.next == null)) {
+                    Button(onClick = { act("next") { QueueApi.control(doctorUid, c, "next") } }, enabled = busy == null && !(q.finished && q.next == null)) {
                         ButtonContent(busy == "next", tr("Next patient", "পরের রোগী"), R.drawable.ic_chevron_right)
                     }
                     if (q.paused) {
-                        OutlinedButton(onClick = { act("resume") { QueueApi.control(doctorUid, c.chamberKey, "resume") } }, enabled = busy == null) {
+                        OutlinedButton(onClick = { act("resume") { QueueApi.control(doctorUid, c, "resume") } }, enabled = busy == null) {
                             ButtonContent(busy == "resume", tr("Resume", "আবার শুরু"), R.drawable.ic_sync)
                         }
                     } else {
-                        OutlinedButton(onClick = { act("pause") { QueueApi.control(doctorUid, c.chamberKey, "pause") } }, enabled = busy == null && !q.finished) {
+                        OutlinedButton(onClick = { act("pause") { QueueApi.control(doctorUid, c, "pause") } }, enabled = busy == null && !q.finished) {
                             ButtonContent(busy == "pause", tr("Break", "বিরতি"), R.drawable.ic_schedule)
                         }
                     }
@@ -378,7 +393,7 @@ private fun QueueChamberCard(
                         // সিরিয়াল চাপলে "এখন দেখছি"
                         Row(
                             Modifier.fillMaxWidth().clickable(enabled = busy == null && !now) {
-                                act("set" + r.id) { QueueApi.control(doctorUid, c.chamberKey, "set", r.id) }
+                                act("set" + r.id) { QueueApi.control(doctorUid, c, "set", r.id) }
                             },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

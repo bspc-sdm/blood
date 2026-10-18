@@ -135,7 +135,7 @@ const stockKeysOf = (s) => new Set((s && s.exists && s.get('keys')) || []);
  * স্টকের নামের তালিকা বদলানো (rxnet.js-এর stock_set-এর একই আকার: names সাজানো, keys, updatedAt) —
  * পণ্যের হিসাবের একই transaction-এ, যাতে দুটো কখনো আলাদা না হয়। পড়া আগে (t.get), এটা লেখার সময়।
  */
-function stockWrite(t, uid, snap, add, remove) {
+function stockWrite(t, uid, snap, add, remove, req) {
   if (!add.length && !remove.length) return;
   const cur = (snap.exists && snap.get('names')) || [];
   const map = new Map(cur.map((n) => [key(n), n]));
@@ -143,7 +143,9 @@ function stockWrite(t, uid, snap, add, remove) {
   for (const n of add) if (!map.has(key(n))) { map.set(key(n), n); changed = true; }
   for (const n of remove) if (map.delete(key(n))) changed = true;
   if (!changed) return;
-  const list = [...map.values()].sort((a, b) => a.localeCompare(b)).slice(0, MAX_ITEMS);
+  const list = [...map.values()].sort((a, b) => a.localeCompare(b));
+  // সীমা পেরোলে চুপচাপ কোনো নাম বাদ নয় (stock_set-এর মতো জানানো) — শুধু নাম বাড়লে; সরানোয় কখনো আটকায় না
+  if (list.length > MAX_ITEMS && list.length > cur.length) throw err(req, `Up to ${MAX_ITEMS} medicines`, `সর্বোচ্চ ${MAX_ITEMS}টা ওষুধ`);
   t.set(stockRef(uid), { names: list, keys: list.map(key), updatedAt: Date.now() });
 }
 
@@ -195,15 +197,17 @@ function priceSale(rawLines, billDisc) {
   const sumAfter = r2(lines.reduce((a, l) => a + l.after, 0));
   let bd = 0;
   if (billDisc && sumAfter > 0) bd = r2(Math.min(sumAfter, billDisc.type === 'pct' ? (sumAfter * billDisc.v) / 100 : billDisc.v));
-  // ভাগ করার পর পয়সার গরমিল শেষ টাকা-ওয়ালা লাইনে
-  let left = bd;
-  const lastPriced = lines.map((l) => l.after > 0).lastIndexOf(true);
+  // অনুপাতে ভাগ (কোনো লাইনের ভাগ তার ছাড়ের পরের দামের বেশি নয়); পয়সার গরমিল শেষ থেকে যে লাইনে জায়গা আছে সেখানে —
+  // কোনো লাইনের নিট কখনো ঋণাত্মক নয়, আর ভাগের যোগফল ঠিক বিলের ছাড়
+  const shares = lines.map((l) => (bd > 0 && l.after > 0 ? Math.min(l.after, r2((bd * l.after) / sumAfter)) : 0));
+  let left = r2(bd - shares.reduce((a, v) => a + v, 0));
+  for (let i = lines.length - 1; i >= 0 && left !== 0; i--) {
+    const move = left > 0 ? Math.min(r2(lines[i].after - shares[i]), left) : -Math.min(shares[i], -left);
+    shares[i] = r2(shares[i] + move);
+    left = r2(left - move);
+  }
   const out = lines.map((l, i) => {
-    let share = 0;
-    if (bd > 0 && l.after > 0) {
-      share = i === lastPriced ? left : r2((bd * l.after) / sumAfter);
-      left = r2(left - share);
-    }
+    const share = shares[i];
     const net = r2(l.after - share);
     const cost = l.unitCost != null ? r2(l.qty * l.unitCost) : null;
     const profit = l.priced && cost != null ? r2(net - cost) : null;
@@ -293,18 +297,32 @@ async function loadItems(uid) {
   const rows = snap.docs.map((d) => ({ id: d.id, x: d.data() }));
   const have = new Set(rows.map((r) => r.x.key || key(r.x.name)));
   const names = (stock.exists && stock.get('names')) || [];
-  const missing = names.filter((n) => !have.has(key(n))).slice(0, Math.max(0, MAX_ITEMS - rows.length));
+  // আগের কোনো পণ্যের ঘরে কখনো লেখা নয়: নাম বদলানো পণ্যের id পুরোনো নামের (idOf) — সেই নাম আবার তালিকায় এলে
+  // ওই id-তে ফাঁকা পণ্য বসালে আসল পণ্যটা ("Napa 500") মুছে যেত। তাই চাবি আর id দুটোই দেখে, আর
+  // transaction-এ পড়ে না থাকলে তবেই তৈরি (একই সময়ে কেনা/বিক্রিতে তৈরি হওয়া পণ্যের উপর লেখা হয় না)।
+  const ids = new Set(rows.map((r) => r.id));
+  const seen = new Set();
+  const missing = names.filter((n) => {
+    const k = key(n);
+    if (have.has(k) || seen.has(k) || ids.has(idOf(n))) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, Math.max(0, MAX_ITEMS - rows.length));
   if (missing.length) {
     const now = Date.now();
     for (let i = 0; i < missing.length; i += 400) {
-      const b = db.batch();
-      for (const n of missing.slice(i, i + 400)) {
-        const id = idOf(n);
-        const x = newItem(n, {}, now);
-        b.set(itemRef(uid, id), x);
-        rows.push({ id, x });
-      }
-      await b.commit();
+      const part = missing.slice(i, i + 400);
+      const made = await db.runTransaction(async (t) => {
+        const snaps = await t.getAll(...part.map((n) => itemRef(uid, idOf(n))));
+        return part.map((n, k) => {
+          const id = idOf(n);
+          if (snaps[k].exists) return { id, x: snaps[k].data() };
+          const x = newItem(n, {}, now);
+          t.set(itemRef(uid, id), x);
+          return { id, x };
+        });
+      });
+      rows.push(...made);
     }
   }
   return { rows, stockKeys: stockKeysOf(stock) };
@@ -382,7 +400,7 @@ const actions = {
         }
         t.set(ref, next);
       }
-      stockWrite(t, user.uid, st, add, remove.filter((n) => !add.includes(n)));
+      stockWrite(t, user.uid, st, add, remove.filter((n) => !add.includes(n)), req);
       const keys = stockKeysOf(st);
       add.forEach((n) => keys.add(key(n)));
       remove.filter((n) => !add.includes(n)).forEach((n) => keys.delete(key(n)));
@@ -399,7 +417,7 @@ const actions = {
     await db.runTransaction(async (t) => {
       const [s, st] = [await t.get(itemRef(user.uid, id)), await t.get(stockRef(user.uid))];
       if (!s.exists) return;
-      stockWrite(t, user.uid, st, [], [s.get('name')]);
+      stockWrite(t, user.uid, st, [], [s.get('name')], req);
       t.delete(itemRef(user.uid, id));
     });
     return { ok: true };
@@ -415,7 +433,7 @@ const actions = {
       const [s, st] = [await t.get(itemRef(user.uid, id)), await t.get(stockRef(user.uid))];
       if (!s.exists) throw notFound(req);
       const name = s.get('name');
-      stockWrite(t, user.uid, st, on ? [name] : [], on ? [] : [name]);
+      stockWrite(t, user.uid, st, on ? [name] : [], on ? [] : [name], req);
       const keys = stockKeysOf(st);
       if (on) keys.add(key(name)); else keys.delete(key(name));
       return { item: itemView(id, s.data(), keys) };
@@ -449,11 +467,20 @@ const actions = {
       const snaps = await t.getAll(...ids.map((id) => itemRef(user.uid, id)));
       const st = await t.get(stockRef(user.uid));
       const cur = new Map(snaps.map((s, i) => [ids[i], s.exists ? s.data() : null]));
+      const keys = stockKeysOf(st);
       const add = [];
       const remove = [];
       const saved = [];
+      // মুছলে হুবহু ফেরানোর জন্য: কেনার আগে প্রতিটা পণ্যের পরিমাণ (null = লেখা ছিল না), কেনা দাম, বিক্রি দাম, মেয়াদ, স্টকের তালিকায় ছিল কি না
+      const undo = {};
       for (const l of lines) {
         let x = cur.get(l.id);
+        if (!undo[l.id]) {
+          undo[l.id] = x
+            ? { qty: x.qty ?? null, cost: x.cost ?? null, price: x.price ?? null, expiry: x.expiry ?? null, inStock: keys.has(x.key || key(x.name)) }
+            // এই কেনাতেই নতুন পণ্য: গণনা ০ থেকে শুরু
+            : { qty: 0, cost: null, price: null, expiry: null, inStock: false };
+        }
         if (!x) {
           if (!l.name) throw notFound(req);
           x = newItem(l.name, {}, now);
@@ -469,24 +496,31 @@ const actions = {
         cur.set(l.id, x);
         saved.push({ itemId: l.id, name: x.name, qty: l.qty, unitCost: l.unitCost, expiry: l.expiry, total: l.unitCost != null ? r2(l.qty * l.unitCost) : null });
       }
-      for (const id of ids) t.set(itemRef(user.uid, id), cur.get(id));
-      stockWrite(t, user.uid, st, add, remove);
+      for (const id of ids) {
+        const x = cur.get(id);
+        t.set(itemRef(user.uid, id), x);
+        // কেনার পরের দাম/মেয়াদ — মোছার সময় এর পরে কেউ হাতে বদলে থাকলে সেটা রাখা হয়
+        undo[id].after = { cost: x.cost ?? null, price: x.price ?? null, expiry: x.expiry ?? null };
+      }
+      stockWrite(t, user.uid, st, add, remove, req);
       const doc = {
-        at, day: dayKey(at), supplier: str(b.supplier, 80), note: str(b.note, 200), lines: saved,
+        at, day: dayKey(at), supplier: str(b.supplier, 80), note: str(b.note, 200), lines: saved, undo,
         total: r2(saved.reduce((a, l) => a + (l.total || 0), 0)), createdAt: now,
       };
       t.set(ref, doc);
       dayAdd(t, user.uid, doc.day, { purchases: 1, bought: doc.total });
       return doc;
     });
-    return { id: ref.id, purchase: { id: ref.id, ...out } };
+    const { undo, ...shown } = out;
+    return { id: ref.id, purchase: { id: ref.id, ...shown } };
   },
 
   /** কেনার তালিকা (গত ৯০ দিন) */
   async books_purchases(req, user) {
     await myShop(req, user);
-    const snap = await bookCol(user.uid, 'purchases').where('at', '>=', Date.now() - 90 * DAY_MS).limit(500).get();
-    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.at - a.at).slice(0, 200).map(({ demo, ...x }) => x) };
+    // নতুনগুলো আগে, সীমার মধ্যে (সীমা আগে কেটে পরে সাজালে নতুনগুলোই বাদ পড়তে পারত)
+    const snap = await bookCol(user.uid, 'purchases').where('at', '>=', Date.now() - 90 * DAY_MS).orderBy('at', 'desc').limit(200).get();
+    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, undo, ...x }) => x) };
   },
 
   /** ভুল করে লেখা কেনা মোছা: পরিমাণ ফিরে যায় (গড় কেনা দাম যেমন আছে তেমন) */
@@ -504,16 +538,34 @@ const actions = {
       const st = await t.get(stockRef(user.uid));
       const add = [];
       const remove = [];
+      const same = (a, c) => (a ?? null) === (c ?? null);
       snaps.forEach((it, k) => {
         if (!it.exists) return;
         const x = it.data();
         const q = (p.lines || []).filter((l) => l.itemId === ids[k]).reduce((a, l) => a + l.qty, 0);
-        if (x.qty == null) return;
-        const nq = r2(Math.max(0, x.qty - q));
-        stockChange(x.name, x.qty, nq, add, remove);
-        t.update(it.ref, { qty: nq, updatedAt: Date.now() });
+        const u = p.undo && p.undo[ids[k]];
+        if (!u) {
+          // আগের (undo ছাড়া) কেনা: শুধু পরিমাণ কমে
+          if (x.qty == null) return;
+          const nq = r2(Math.max(0, x.qty - q));
+          stockChange(x.name, x.qty, nq, add, remove);
+          t.update(it.ref, { qty: nq, updatedAt: Date.now() });
+          return;
+        }
+        const up = { updatedAt: Date.now() };
+        if (u.qty == null) {
+          // কেনার আগে পরিমাণ লেখা ছিল না — আবার "লেখা নেই", স্টকের তালিকায় আগের মতো
+          up.qty = null;
+          if (u.inStock) add.push(x.name); else remove.push(x.name);
+        } else if (x.qty != null) {
+          up.qty = r2(Math.max(0, x.qty - q));
+          stockChange(x.name, x.qty, up.qty, add, remove);
+        }
+        // এই কেনায় বদলানো কেনা দাম/বিক্রি দাম/মেয়াদ আগেরটায় — পরে হাতে বদলানো হলে সেটাই থাকে
+        for (const f of ['cost', 'price', 'expiry']) if (u.after && same(x[f], u.after[f]) && !same(x[f], u[f])) up[f] = u[f] ?? null;
+        t.update(it.ref, up);
       });
-      stockWrite(t, user.uid, st, add, remove);
+      stockWrite(t, user.uid, st, add, remove, req);
       t.delete(ref);
       dayAdd(t, user.uid, p.day, { purchases: -1, bought: -(p.total || 0) });
     });
@@ -570,16 +622,22 @@ const actions = {
     if (isRx && want.some((w) => !w.itemId)) {
       const { rows } = await loadItems(user.uid);
       const list = rows.map((r) => ({ id: r.id, key: r.x.key || key(r.x.name) }));
-      for (const w of want) if (!w.itemId) w.itemId = matchItem(w.name, list)?.id || idOf(w.name);
+      for (const w of want) {
+        if (w.itemId) continue;
+        const m = matchItem(w.name, list);
+        // দোকানের তালিকায় মেলে না: শুধু নাম দিয়ে বিক্রির লাইন — নতুন (ফাঁকা) পণ্য তৈরি হয় না, কোনো পণ্যের পরিমাণেও হাত পড়ে না
+        if (m) w.itemId = m.id;
+        else { w.itemId = `x${idOf(w.name).slice(1)}`; w.noItem = true; }
+      }
     }
-    const ids = [...new Set(want.map((w) => w.itemId))];
+    const ids = [...new Set(want.filter((w) => !w.noItem).map((w) => w.itemId))];
     const sale = await db.runTransaction(async (t) => {
       if (isRx && (await t.get(ref)).exists) throw err(req, 'This sale is already in your books', 'এই বিক্রি আগেই হিসাবে তোলা হয়েছে', 409);
-      const snaps = await t.getAll(...ids.map((id) => itemRef(user.uid, id)));
+      const snaps = ids.length ? await t.getAll(...ids.map((id) => itemRef(user.uid, id))) : [];
       const st = await t.get(stockRef(user.uid));
       const cur = new Map(snaps.map((s, i) => [ids[i], s.exists ? s.data() : null]));
       const lines = want.map((w) => {
-        let x = cur.get(w.itemId);
+        let x = w.noItem ? { name: w.name, price: null, cost: null, disc: null } : cur.get(w.itemId);
         if (!x) {
           if (!w.name) throw notFound(req);
           x = newItem(w.name, {}, now);
@@ -592,19 +650,29 @@ const actions = {
         return { i: w.i, itemId: w.itemId, name: x.name, qty: w.qty, unitPrice, unitDisc, unitCost: x.cost ?? null };
       });
       const priced = priceSale(lines, billDisc);
+      want.forEach((w, k) => { if (w.noItem) priced.lines[k].noItem = true; });
       const add = [];
       const remove = [];
       const sold = new Map();
-      for (const l of priced.lines) sold.set(l.itemId, (sold.get(l.itemId) || 0) + l.qty);
+      for (const l of priced.lines) if (!l.noItem) sold.set(l.itemId, (sold.get(l.itemId) || 0) + l.qty);
+      // আসলে কতটা কমল (পণ্যপ্রতি) — মুছলে ঠিক এটুকুই ফেরে
+      const decOf = new Map();
       for (const [id, q] of sold) {
         const x = cur.get(id);
         const before = x.qty ?? null;
         // হিসাবের চেয়ে বেশি বিক্রি হলে ০ (দোকান পরে গণনা ঠিক করবে) — বিক্রি আটকায় না
         const nq = before == null ? null : r2(Math.max(0, before - q));
+        decOf.set(id, before == null ? 0 : r2(before - nq));
         stockChange(x.name, before, nq, add, remove);
         t.set(itemRef(user.uid, id), { ...x, qty: nq, lastSaleAt: Math.max(x.lastSaleAt || 0, at), updatedAt: now });
       }
-      stockWrite(t, user.uid, st, add, remove);
+      // লাইনে ভাগ করে রাখা (একই পণ্য কয়েক লাইনে থাকলে ক্রমে)
+      for (const l of priced.lines) {
+        const left = decOf.get(l.itemId) || 0;
+        l.dec = r2(Math.min(l.qty, left));
+        if (decOf.has(l.itemId)) decOf.set(l.itemId, r2(left - l.dec));
+      }
+      stockWrite(t, user.uid, st, add, remove, req);
       const doc = {
         at, day: dayKey(at), source, lines: priced.lines, totals: priced.totals, billDisc: billDisc || null,
         ...(rxInfo ? { rx: rxInfo } : {}), customer: str(b.customer, 60), createdAt: now,
@@ -645,8 +713,8 @@ const actions = {
   async books_sales(req, user) {
     await myShop(req, user);
     const { start } = periodOf(req.body?.period || '7d');
-    const snap = await bookCol(user.uid, 'sales').where('at', '>=', start).limit(1000).get();
-    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.at - a.at).slice(0, 300).map(({ demo, ...x }) => x) };
+    const snap = await bookCol(user.uid, 'sales').where('at', '>=', start).orderBy('at', 'desc').limit(300).get();
+    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => x) };
   },
 
   /** ভুল বিক্রি মোছা: পরিমাণ আর দিনের হিসাব ফিরে যায় (প্রেসক্রিপশনেরটা আবার তোলা যায়) */
@@ -659,19 +727,21 @@ const actions = {
       const s = await t.get(ref);
       if (!s.exists) throw notFound(req);
       const sale = s.data();
-      const ids = [...new Set((sale.lines || []).map((l) => l.itemId))];
+      const ids = [...new Set((sale.lines || []).filter((l) => !l.noItem).map((l) => l.itemId))];
       const snaps = ids.length ? await t.getAll(...ids.map((i) => itemRef(user.uid, i))) : [];
       const st = await t.get(stockRef(user.uid));
       const add = [];
       const remove = [];
       snaps.forEach((it, k) => {
         if (!it.exists || it.get('qty') == null) return;
-        const q = (sale.lines || []).filter((l) => l.itemId === ids[k]).reduce((a, l) => a + l.qty, 0);
+        // বিক্রিতে আসলে যতটা কমেছিল (dec; ০-তে থামলে কম) — আগের বিক্রিতে dec নেই, তখন পুরো পরিমাণ
+        const q = (sale.lines || []).filter((l) => l.itemId === ids[k] && !l.noItem).reduce((a, l) => a + (typeof l.dec === 'number' ? l.dec : l.qty), 0);
+        if (!q) return;
         const nq = r2(it.get('qty') + q);
         stockChange(it.get('name'), it.get('qty'), nq, add, remove);
         t.update(it.ref, { qty: nq, updatedAt: Date.now() });
       });
-      stockWrite(t, user.uid, st, add, remove);
+      stockWrite(t, user.uid, st, add, remove, req);
       t.delete(ref);
       saleDayAdd(t, user.uid, sale, -1);
     });
@@ -698,16 +768,18 @@ const actions = {
       const x = it.data();
       const before = x.qty ?? null;
       const after = kind === 'count' ? q : before == null ? null : r2(Math.max(0, before - q));
-      const delta = kind === 'count' ? r2(q - (before || 0)) : -q;
-      const loss = kind === 'writeoff' && x.cost != null ? r2(q * x.cost) : 0;
+      // নষ্ট: পরিমাণ জানা থাকলে যতটা আসলে ছিল তার বেশি ক্ষতি নয়
+      const gone = kind === 'writeoff' ? (before == null ? q : r2(Math.min(q, before))) : 0;
+      const delta = kind === 'count' ? r2(q - (before || 0)) : -gone;
+      const loss = kind === 'writeoff' && x.cost != null ? r2(gone * x.cost) : 0;
       const add = [];
       const remove = [];
       stockChange(x.name, before, after, add, remove);
       t.update(it.ref, { qty: after, updatedAt: now });
-      stockWrite(t, user.uid, st, add, remove);
+      stockWrite(t, user.uid, st, add, remove, req);
       const doc = { kind, itemId: b.itemId, name: x.name, before, after, delta, unitCost: x.cost ?? null, loss, reason: str(b.reason, 120), at: now, day: dayKey(now), createdAt: now };
       t.set(ref, doc);
-      dayAdd(t, user.uid, doc.day, kind === 'writeoff' ? { adjusts: 1, writeOff: loss, woq: q } : { adjusts: 1 });
+      dayAdd(t, user.uid, doc.day, kind === 'writeoff' ? { adjusts: 1, writeOff: loss, woq: gone } : { adjusts: 1 });
       return doc;
     });
     return { id: ref.id, adjust: { id: ref.id, ...out } };
@@ -716,8 +788,8 @@ const actions = {
   /** নষ্ট/গণনার তালিকা (গত ৯০ দিন) */
   async books_adjusts(req, user) {
     await myShop(req, user);
-    const snap = await bookCol(user.uid, 'adjust').where('at', '>=', Date.now() - 90 * DAY_MS).limit(500).get();
-    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.at - a.at).slice(0, 200).map(({ demo, ...x }) => x) };
+    const snap = await bookCol(user.uid, 'adjust').where('at', '>=', Date.now() - 90 * DAY_MS).orderBy('at', 'desc').limit(200).get();
+    return { items: snap.docs.map((d) => ({ id: d.id, ...d.data() })).map(({ demo, ...x }) => x) };
   },
 
   /**
