@@ -6,11 +6,11 @@ env:
 ---
 - runFlow: ../common/start.yaml
 - extendedWaitUntil:
-    visible: ".*আমার রিকোয়েস্ট.*"
+    visible: ".*আমার রিকো(?:য়|য়)েস্ট.*"
     timeout: 30000
     optional: true
 - scrollUntilVisible:
-    element: ".*আমার রিকোয়েস্ট.*"
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
     direction: DOWN
     timeout: 15000
     optional: true
@@ -18,19 +18,19 @@ env:
 - scroll
 - takeScreenshot: j7-02-home-requests
 - tapOn: "সেটিংস ও প্রোফাইল"
-- tapOn: ".*আমার রিকোয়েস্ট.*"
+- tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
 - extendedWaitUntil:
-    visible: ".*ডেমো চরপাড়া জেনারেল হাসপাতাল.*"
+    visible: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
     timeout: 30000
 - takeScreenshot: j7-03-my-requests
-- tapOn: ".*ডেমো চরপাড়া জেনারেল হাসপাতাল.*"
+- tapOn: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
 - extendedWaitUntil:
-    visible: ".*রাজি হয়েছেন.*"
+    visible: ".*রাজি হ(?:য়|য়)েছেন.*"
     timeout: 30000
     optional: true
 - takeScreenshot: j7-04-request-detail
 - scrollUntilVisible:
-    element: ".*রাজি হয়েছেন.*"
+    element: ".*রাজি হ(?:য়|য়)েছেন.*"
     direction: DOWN
     timeout: 15000
     optional: true

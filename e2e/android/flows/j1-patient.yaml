@@ -6,16 +6,16 @@ env:
 ---
 - runFlow: ../common/start.yaml
 - extendedWaitUntil:
-    visible: ".*আমার রিকোয়েস্ট.*"
+    visible: ".*আমার রিকো(?:য়|য়)েস্ট.*"
     timeout: 30000
     optional: true
 - takeScreenshot: j1-01-home
 - tapOn: "সেটিংস ও প্রোফাইল"
 - extendedWaitUntil:
-    visible: ".*আমার অ্যাপয়েন্টমেন্ট.*"
+    visible: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
     timeout: 20000
 - takeScreenshot: j1-02-profile
-- tapOn: ".*আমার অ্যাপয়েন্টমেন্ট.*"
+- tapOn: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
 - extendedWaitUntil:
     visible: ".*ডা. ডেমো.*"
     timeout: 30000
@@ -69,7 +69,7 @@ env:
     timeout: 30000
 - tapOn: "ডেমো লাইফ ফার্মেসি.*"
 - extendedWaitUntil:
-    visible: ".*ছাড় ও ডেলিভারি.*"
+    visible: ".*ছা(?:ড়|ড়) ও ডেলিভারি.*"
     timeout: 10000
 - takeScreenshot: j1-09-pharmacy-sheet
 - scrollUntilVisible:
@@ -83,14 +83,14 @@ env:
 - takeScreenshot: j1-10-which-rx
 - tapOn: ".*Bislol.*"
 - extendedWaitUntil:
-    visible: ".*দোকানে গিয়ে নেব.*"
+    visible: ".*দোকানে গি(?:য়|য়)ে নেব.*"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j1-11-send-dialog
-- tapOn: ".*দোকানে গিয়ে নেব.*"
+- tapOn: ".*দোকানে গি(?:য়|য়)ে নেব.*"
 - extendedWaitUntil:
-    visible: ".*প্রেসক্রিপশন পাঠানো হয়েছে.*"
+    visible: ".*প্রেসক্রিপশন পাঠানো হ(?:য়|য়)েছে.*"
     timeout: 30000
     optional: true
 - takeScreenshot: j1-12-sent-dialog

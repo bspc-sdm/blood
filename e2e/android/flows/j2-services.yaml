@@ -42,10 +42,10 @@ env:
 - back
 - tapOn: "প্যাথলজি"
 - extendedWaitUntil:
-    visible: "ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+    visible: "ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
     timeout: 30000
 - takeScreenshot: j2-07-lab-list
-- tapOn: "ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+- tapOn: "ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j2-08-lab-sheet

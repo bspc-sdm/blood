@@ -51,7 +51,7 @@ env:
     timeout: 30000
 - takeScreenshot: j3-06-dispense-open
 - tapOn:
-    text: ".*কয়টা.*"
+    text: ".*ক(?:য়|য়)টা.*"
     index: 0
 - inputText: "1"
 - hideKeyboard

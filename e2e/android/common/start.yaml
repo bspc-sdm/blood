@@ -16,7 +16,7 @@ appId: com.bspc.blood
 - tapOn: ".*জেলা খুঁজুন.*"
 - inputText: "Mymensingh"
 - hideKeyboard
-- tapOn: "ময়মনসিংহ.*"
+- tapOn: "ম(?:য়|য়)মনসিংহ.*"
 - extendedWaitUntil:
     visible: "লগইন"
     timeout: 40000

@@ -7,16 +7,16 @@ env:
 - runFlow: ../common/start.yaml
 - tapOn: "আমার কাজ"
 - extendedWaitUntil:
-    visible: ".*ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+    visible: ".*ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
     timeout: 30000
 - takeScreenshot: j4-01-my-work
-- tapOn: ".*ডেমো সিটি ডায়াগনস্টিক সেন্টার.*"
+- tapOn: ".*ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
 - extendedWaitUntil:
     visible: ".*তথ্য বদলান.*"
     timeout: 30000
 - takeScreenshot: j4-02-my-lab
 - scrollUntilVisible:
-    element: ".*(নমুনা নিয়েছি|রিপোর্ট দিন).*"
+    element: ".*(নমুনা নি(?:য়|য়)েছি|রিপোর্ট দিন).*"
     direction: DOWN
     timeout: 30000
     optional: true

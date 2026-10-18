@@ -3,6 +3,6 @@ appId: com.bspc.blood
 ---
 - runFlow:
     when:
-      visible: ".*(isn't responding|সাড়া দিচ্ছে না).*"
+      visible: ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*"
     commands:
       - tapOn: "(Wait|অপেক্ষা করুন)"
