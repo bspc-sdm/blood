@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -132,6 +134,35 @@ fun SplashScreen() {
         )
         Spacer(Modifier.height(32.dp))
         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+    }
+}
+
+/**
+ * পুরো পর্দার ডায়ালগ (প্রেসক্রিপশনের বিস্তারিত, ফার্মেসি/প্যাথলজি বাছাই, রিপোর্ট…) — সবগুলো এটা দিয়েই।
+ * অ্যাপ edge-to-edge (MainActivity-র enableEdgeToEdge): মূল পাতা safeDrawingPadding পায়, কিন্তু ডায়ালগ আলাদা জানালা —
+ * Android 15-এ সেটা ফোনের নিচের বারের পেছনে আঁকা হত অথচ ভেতরে বারের মাপ ০ আসত, তাই শেষের বাটন বারের নিচে কাটা পড়ত।
+ * এখানে decorFitsSystemWindows = false (মাপ ঠিক আসে) আর একবারই safeDrawingPadding (ওপরে স্ট্যাটাস বার, নিচে নেভিগেশন বার
+ * ও কিবোর্ড) — ভেতরের Scaffold/TopAppBar আর দ্বিতীয়বার জায়গা নেয় না। নিচে আরও একটু ফাঁকা, শেষ বাটন বারের গায়ে লেগে না থাকে।
+ */
+@Composable
+fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolean = true, content: @Composable () -> Unit) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = dismissOnClickOutside, decorFitsSystemWindows = false),
+    ) {
+        val bg = MaterialTheme.colorScheme.background
+        // ডায়ালগের জানালার ওপরের/নিচের বারের আইকন থিমের সাথে মিলিয়ে (নইলে হালকা থিমে সাদা আইকন সাদার ওপর)
+        val view = androidx.compose.ui.platform.LocalView.current
+        val light = bg.luminance() >= 0.5f
+        androidx.compose.runtime.SideEffect {
+            (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+                androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
+                    isAppearanceLightStatusBars = light
+                    isAppearanceLightNavigationBars = light
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp)) { content() }
     }
 }
 

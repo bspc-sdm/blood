@@ -204,7 +204,8 @@ fun LabSendDialog(
                     OutlinedTextField(note, { note = it.take(120) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, placeholder = { Text(tr("e.g. I will be fasting", "যেমন: খালি পেটে থাকব")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     SmallNote(tr("The lab will confirm the time.", "প্যাথলজি সময় নিশ্চিত করে জানাবে।"))
                 }
-                ErrorText(errorMsg)
+                // পাঠানো না গেলে এই ডায়ালগেই, লাল ঘরে
+                SendErrorCard(errorMsg)
             }
         },
         confirmButton = {

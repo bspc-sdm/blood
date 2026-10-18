@@ -37,8 +37,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,7 +56,7 @@ fun <T> SearchPickDialog(
     var query by remember { mutableStateOf("") }
     val q = query.trim()
     val shown = if (q.isEmpty()) items else items.filter { label(it).contains(q, true) || (subtitle?.invoke(it)?.contains(q, true) == true) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surface,
@@ -216,7 +214,7 @@ fun HospitalPickerDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surface,
@@ -492,7 +490,7 @@ fun FormDialog(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,

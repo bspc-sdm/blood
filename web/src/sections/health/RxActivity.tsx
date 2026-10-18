@@ -2,9 +2,11 @@
 // বাসা থেকে নমুনা), রিপোর্ট, ডাক্তারকে দেখানো —
 // অ্যাপের RxNet.kt: RxActivitySection, PharmacyPickDialog, OnlineOrderDialog, WithdrawDialog, LabPickDialog,
 // LabReportDialog/LabReportView, ReportReviewBox, PayDialog
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Action, Button, ChoiceChips, ConfirmDialog, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, ListRow, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
+import { Action, Button, ChoiceChips, ConfirmDialog, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, ListRow, Loading, SkeletonCards, Tag, TextArea, TextInput, toast } from '@/ui/kit';
+import { Icon } from '@/ui/Icon';
 import { AreaPicker, type AreaValue } from '@/ui/AreaPicker';
 import { call, errorText } from '@/lib/api';
 import { num, tr, useLang } from '@/lib/i18n';
@@ -16,7 +18,7 @@ import {
   NO_PRICE, SLOT_KEYS, breakdownText, coverEstimateText, dayWord, discountText, hereText, homeEditable, homeFeeText, homeStatusPatient, slotPassed, slotText, snapText, taka,
   type LabHome, type PriceSnap, type Slot,
 } from '@/lib/labprice';
-import { imgSrc, useFlash } from './common';
+import { imgSrc } from './common';
 import type { Rx } from './Prescriptions';
 
 interface MedStat { i: number; name: string; form: string; dose: string; days: number; need: number | null; got: number; left: number | null; done: boolean }
@@ -133,7 +135,8 @@ export function RxActivitySection({ rx, paper }: { rx: Rx; paper?: ReactNode }) 
   const qc = useQueryClient();
   const key = ['rx_activity', rx.id, care?.uid ?? null, lang, uid];
   const q = useQuery({ queryKey: key, queryFn: () => call<Activity>('rx_activity', { rxId: rx.id }) });
-  const [info, setInfo] = useFlash();
+  // কাজ হলে টোস্ট (পর্দার নিচে) — আগে উপরের এক লাইনে যেত, নিচ থেকে পাঠালে স্ক্রল না করে দেখা যেত না
+  const setInfo = (m: string) => toast(m);
   const [err, setErr] = useState<string | null>(null);
   const [pick, setPick] = useState<'shop' | 'online' | null>(null);
   const [withdrawing, setWithdrawing] = useState<RxOrder | null>(null);
@@ -178,7 +181,6 @@ export function RxActivitySection({ rx, paper }: { rx: Rx; paper?: ReactNode }) 
         </div>
       ) : null}
       <ErrorText>{err}</ErrorText>
-      <InfoText>{info}</InfoText>
       {paper}
       {rx.medicines?.length ? (
         <section className="card col" aria-label={tr('Medicines bought', 'ওষুধ কেনা')}>
@@ -209,10 +211,8 @@ export function RxActivitySection({ rx, paper }: { rx: Rx; paper?: ReactNode }) 
           })}
           {!cancelled && a.medicines.some((m) => !m.done) ? (
             <>
-              <div className="health-two">
-                <Button variant="outline" icon="storefront" onClick={() => setPick('shop')}>{tr("I'm at a pharmacy", 'দোকানে আছি')}</Button>
-                <Button variant="outline" icon="local_shipping" onClick={() => setPick('online')}>{tr('Order online', 'অনলাইনে অর্ডার')}</Button>
-              </div>
+              {/* উপরের বড় বাটনের মতোই একটা — একই বাছাই (দোকানে আছি / অনলাইনে অর্ডার); আগের দুই বাটন ভেঙে দুই লাইনে যেত */}
+              <Button variant="outline" icon="medication" block onClick={() => setSendChoice(true)}>{tr('Send to a pharmacy', 'ফার্মেসিতে পাঠান')}</Button>
               <span className="t-body-s muted">
                 {tr(
                   'At the shop: send the prescription to it in the app, or show the QR. They note what they give; get the rest from another shop.',
@@ -507,7 +507,7 @@ function PharmacyPickDialog({ rx, mode, onClose, onSent }: { rx: Rx; mode: 'shop
       )}
       <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} />
       {!online ? <span className="t-label-l">{nameQ ? tr('Shops with this name', 'এই নামের দোকান') : tr('Shops near you', 'কাছের দোকান')}</span> : null}
-      <ErrorText>{err}</ErrorText>
+      <SendError>{err}</SendError>
       <div className="col gap-12">
         {!area ? (
           <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')} />
@@ -611,7 +611,7 @@ function OnlineOrderDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PharmOption;
       <TextInput label={tr('Mobile number', 'মোবাইল নম্বর')} type="tel" inputMode="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} />
       <TextInput label={tr('Note (optional)', 'নোট (ঐচ্ছিক)')} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
       <span className="t-body-s muted">{tr('Pay the shop when it arrives (cash on delivery). The shop sees your address and number only for this order.', 'ওষুধ পৌঁছালে দোকানকে দাম দেবেন (ক্যাশ অন ডেলিভারি)। ঠিকানা আর নম্বর দোকান শুধু এই অর্ডারের জন্য দেখবে।')}</span>
-      <ErrorText>{err}</ErrorText>
+      <SendError>{err}</SendError>
     </Dialog>
   );
 }
@@ -671,7 +671,7 @@ function WithdrawDialog({ o, onClose, onDone }: { o: RxOrder; onClose: () => voi
  * বেশি পরীক্ষা → কম দাম → কাছের আগে (সার্ভার সাজায়)। দামের তালিকা না থাকলে "দাম জানা নেই — ফোনে জেনে নিন"।
  * বাসা থেকে নমুনা নিলে পাঠানোর আগে বেছে নেওয়া যায় (ঠিকানা, ফোন, দিন, সময়)।
  */
-function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab; onClose: () => void; onSent: (name: string) => void }) {
+function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab; onClose: () => void; onSent: (name: string, home: boolean) => void }) {
   const start = useStartArea();
   const care = useCareMode();
   // only: প্যাথলজির পাতা থেকে এলে শুধু এই প্যাথলজি — তার জেলায় খোঁজা, এলাকা বদলানো নেই
@@ -717,7 +717,7 @@ function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab;
     setErr(null);
     try {
       await call('rx_send_lab', { rxId: rx.id, labId: lab.id, tests: chosen });
-      onSent(lab.name);
+      onSent(lab.name, false);
     } catch (e) {
       setErr(errorText(e));
     }
@@ -729,7 +729,7 @@ function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab;
       <span className="t-label-l">{tr('Tests to send', 'কোন পরীক্ষা পাঠাবেন')}</span>
       <ChoiceChips multi options={testOptions} value={chosen} onChange={setChosen} />
       {!only ? <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} /> : null}
-      <ErrorText>{err}</ErrorText>
+      <SendError>{err}</SendError>
       <div className="col gap-12">
         {!area ? (
           <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')} />
@@ -785,7 +785,7 @@ function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab;
             await call('rx_send_lab', { rxId: rx.id, labId: homeFor.id, tests: chosen, ...(home ? { home } : {}) });
             const nm = homeFor.name;
             setHomeFor(null);
-            onSent(nm);
+            onSent(nm, !!home);
           }}
         />
       ) : null}
@@ -867,7 +867,7 @@ function LabSendDialog({ title, header, homeFee, last, change, onClose, onSubmit
           <span className="t-body-s muted">{tr('The lab will confirm the time.', 'প্যাথলজি সময় নিশ্চিত করে জানাবে।')}</span>
         </>
       ) : null}
-      <ErrorText>{err}</ErrorText>
+      <SendError>{err}</SendError>
     </Dialog>
   );
 }
@@ -993,33 +993,120 @@ function PayDialog({ r, onClose, onDone }: { r: RxReview; onClose: () => void; o
 // প্যাথলজি → LabPickDialog (শুধু এই প্যাথলজি); ফার্মেসি → দোকানে গিয়ে নেব / অনলাইনে অর্ডার (OnlineOrderDialog)।
 // সব ওষুধ কেনা হয়ে গেলে সার্ভারের ৪০৯ "সব ওষুধ কেনা হয়ে গেছে" দেখায় (প্রতিটার rx_activity আনা হয় না)। কেয়ারগিভার মোডেও চলে।
 
-/** বিস্তারিতের শেষ ভাগ: "এই প্যাথলজিতে/ফার্মেসিতে প্রেসক্রিপশন পাঠান" — অতিথি হলে আগে লগইন */
+/** পাঠানোর পর যা জানানো হয়: কোন প্রেসক্রিপশন (ডাক্তার, তারিখ), কোথায়, কীভাবে */
+type SentMode = 'shop' | 'online' | 'lab' | 'lab_home';
+interface RxSent { rxId: string; doctorName: string; date: number; place: string; mode: SentMode }
+
+function sentModeText(m: SentMode) {
+  switch (m) {
+    case 'online': return tr('Home delivery', 'বাসায় ডেলিভারি');
+    case 'lab_home': return tr('Sample from home', 'বাসা থেকে নমুনা');
+    case 'lab': return tr("You'll give the sample at the lab", 'প্যাথলজিতে গিয়ে নমুনা দেবেন');
+    default: return tr("You'll collect at the shop", 'দোকানে গিয়ে নেবেন');
+  }
+}
+/**
+ * "এরপর কী" — সার্ভারের আসল নোটিফিকেশনের সাথে মিলিয়ে (server/lib/rxnet.js): দোকান — "আপনার ওষুধ তৈরি" (ready);
+ * অনলাইন — "অর্ডার নিয়েছে" (দাম · সময়); প্যাথলজি — নমুনা নেওয়ায় নোটিফিকেশন যায় না, বাসা থেকে হলে "… আসবে",
+ * আর রিপোর্ট এলে "আপনার পরীক্ষার রিপোর্ট এসেছে"।
+ */
+function sentNextText(m: SentMode) {
+  switch (m) {
+    case 'online': return tr("You'll get a notification when the pharmacy tells you the price and time", 'ফার্মেসি দাম আর সময় জানালে নোটিফিকেশন পাবেন');
+    case 'lab_home': return tr("You'll get a notification when the lab sets the time to come, and when the report is ready", 'প্যাথলজি বাসায় আসার সময় জানালে নোটিফিকেশন পাবেন; রিপোর্ট এলেও জানাবে');
+    case 'lab': return tr("Go to the lab to give the sample; you'll get a notification when the report is ready", 'প্যাথলজিতে গিয়ে নমুনা দিন; রিপোর্ট এলে নোটিফিকেশন পাবেন');
+    default: return tr("You'll get a notification when the pharmacy has your medicines ready", 'ফার্মেসি ওষুধ তৈরি করলে নোটিফিকেশন পাবেন');
+  }
+}
+const sentModeIcon = (m: SentMode) => (m === 'online' ? 'local_shipping' : m === 'lab_home' ? 'home_health' : m === 'lab' ? 'local_hospital' : 'storefront');
+
+/** পাঠানোর পর: বড় টিক, কী কোথায় গেল, এরপর কী — আর "প্রেসক্রিপশন খুলুন" (সেখানে অবস্থা আর "ফিরিয়ে নিন") */
+function RxSentDialog({ s, onOpen, onClose }: { s: RxSent; onOpen: () => void; onClose: () => void }) {
+  return (
+    <Dialog
+      onClose={onClose}
+      size="small"
+      labelledBy="rx-sent-title"
+      actions={
+        <>
+          <Button variant="text" onClick={onClose}>{tr('OK', 'ঠিক আছে')}</Button>
+          <Button icon="medication" onClick={onOpen}>{tr('Open prescription', 'প্রেসক্রিপশন খুলুন')}</Button>
+        </>
+      }
+    >
+      <div className="health-sent">
+        <Icon name="check_circle" size={64} className="health-sent-icon" />
+        <h2 id="rx-sent-title" className="t-title-l">{tr('Prescription sent', 'প্রেসক্রিপশন পাঠানো হয়েছে')}</h2>
+      </div>
+      <div className="col gap-6">
+        <IconLine icon="medication" color="var(--on-surface)">{[s.doctorName || tr('Doctor', 'ডাক্তার'), formatDate(s.date)].join(' · ')}</IconLine>
+        <IconLine icon={s.mode.startsWith('lab') ? 'local_hospital' : 'storefront'} color="var(--on-surface)">{s.place}</IconLine>
+        <IconLine icon={sentModeIcon(s.mode)} color="var(--on-surface)">{sentModeText(s.mode)}</IconLine>
+      </div>
+      {/* এরপর কী */}
+      <div className="card tonal row gap-8 health-sent-next">
+        <Icon name="notifications" size={20} />
+        <span className="t-body-m">{sentNextText(s.mode)}</span>
+      </div>
+    </Dialog>
+  );
+}
+
+/** পাঠানোর ভুল: যেখানে চাপা হয়েছে সেই ডায়ালগেই, লাল ঘরে আইকনসহ — আর চোখের সামনে স্ক্রল করে আনা (লম্বা তালিকার নিচে চাপলেও দেখা যায়) */
+function SendError({ children }: { children?: string | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (children) ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [children]);
+  if (!children) return null;
+  return (
+    <div ref={ref} className="card danger row gap-8 health-send-err" role="alert">
+      <Icon name="warning" size={20} />
+      <span className="t-body-m">{children}</span>
+    </div>
+  );
+}
+
+/** বিস্তারিতের শেষ ভাগ: "এই প্যাথলজিতে/ফার্মেসিতে প্রেসক্রিপশন পাঠান" — অতিথি হলে আগে লগইন; পাঠানোর পর RxSentDialog */
 export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: PlacePharmacy }) {
   const s = useSession();
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [picking, setPicking] = useState(false);
   const [rx, setRx] = useState<Rx | null>(null);
-  const [sent, setSent] = useFlash();
+  const [sent, setSent] = useState<RxSent | null>(null);
   const close = () => {
     setRx(null);
     setPicking(false);
   };
-  const done = () => {
-    if (rx) qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
+  const done = (place: string, mode: SentMode) => {
+    if (rx) {
+      qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
+      setSent({ rxId: rx.id, doctorName: rx.doctor?.name ?? '', date: rx.createdAt, place, mode });
+    }
     close();
-    setSent(tr('Sent — see the status on the prescription', 'পাঠানো হয়েছে — প্রেসক্রিপশনে অবস্থা দেখুন'));
   };
   return (
     <section className="services-sec">
       <hr className="divider" />
       <h3 className="t-title-s">{lab ? tr('Tests from a prescription', 'প্রেসক্রিপশনের পরীক্ষা') : tr('Prescription', 'প্রেসক্রিপশন')}</h3>
-      <InfoText>{sent}</InfoText>
       <Button icon="send" block onClick={() => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => setPicking(true))}>
         {lab ? tr('Send a prescription to this lab', 'এই প্যাথলজিতে প্রেসক্রিপশন পাঠান') : tr('Send a prescription to this pharmacy', 'এই ফার্মেসিতে প্রেসক্রিপশন পাঠান')}
       </Button>
       {picking && !rx ? <RxPickDialog forLab={!!lab} onClose={close} onPick={setRx} /> : null}
-      {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={() => setRx(null)} onSent={done} /> : null}
-      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={() => setRx(null)} onSent={done} /> : null}
+      {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={() => setRx(null)} onSent={(name, home) => done(name, home ? 'lab_home' : 'lab')} /> : null}
+      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={() => setRx(null)} onSent={(mode) => done(pharmacy.name, mode)} /> : null}
+      {sent ? (
+        <RxSentDialog
+          s={sent}
+          onClose={() => setSent(null)}
+          // প্রেসক্রিপশনের পাতা (Prescriptions.tsx-এর পথ) — দোকান/প্যাথলজির বিস্তারিত পথ বদলালেই বন্ধ; কেয়ারগিভার মোড এই পথে থাকে
+          onOpen={() => {
+            setSent(null);
+            nav(`/prescriptions/${sent.rxId}`);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -1040,7 +1127,7 @@ function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: (
       {q.isPending ? (
         <Loading />
       ) : q.isError ? (
-        <ErrorText>{errorText(q.error)}</ErrorText>
+        <SendError>{errorText(q.error)}</SendError>
       ) : !list.length ? (
         <EmptyState icon="list_alt" title={forLab ? tr('No prescription with tests', 'পরীক্ষা লেখা কোনো প্রেসক্রিপশন নেই') : tr('No prescription with medicines', 'ওষুধ লেখা কোনো প্রেসক্রিপশন নেই')} />
       ) : (
@@ -1071,7 +1158,7 @@ function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: (
  * অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার।
  * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
-function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharmacy; onClose: () => void; onSent: () => void }) {
+function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharmacy; onClose: () => void; onSent: (mode: 'shop' | 'online') => void }) {
   const care = useCareMode();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1089,7 +1176,7 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
     setErr(null);
     try {
       await call('rx_send_pharmacy', { rxId: rx.id, pharmacyId: p.id, mode: 'shop' });
-      onSent();
+      onSent('shop');
     } catch (e) {
       setErr(errorText(e));
       setBusy(false);
@@ -1119,8 +1206,8 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
           />
         ) : null}
       </div>
-      <ErrorText>{err}</ErrorText>
-      {ordering ? <OnlineOrderDialog rx={rx} p={ordering} onClose={() => setOrdering(null)} onSent={onSent} /> : null}
+      <SendError>{err}</SendError>
+      {ordering ? <OnlineOrderDialog rx={rx} p={ordering} onClose={() => setOrdering(null)} onSent={() => onSent('online')} /> : null}
     </Dialog>
   );
 }

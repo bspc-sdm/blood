@@ -773,10 +773,7 @@ fun App(
         val pd = LoginGate.pending.value
         if (step != null && pd != null) {
             // আলাদা পুরো-পর্দার ডায়ালগ: খোলা শিট বা ডায়ালগ (যেমন ডাক্তারের বিস্তারিত) থেকে চাইলেও সবার উপরে দেখায়
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = { cancelGate() },
-                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-            ) {
+            FullScreenDialog(onDismissRequest = { cancelGate() }) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 androidx.compose.runtime.key(step) {
                     when (step) {

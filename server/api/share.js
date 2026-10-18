@@ -103,7 +103,7 @@ module.exports = async (req, res) => {
 <div style="background:#fff;border-radius:16px;padding:12px;max-width:280px;margin:0 auto">${qr}</div>
 <p>দোকানের কোড: <b style="font-size:30px;letter-spacing:6px">${esc(code)}</b></p>
 <button onclick="window.print()" style="font:inherit;padding:10px 18px;border-radius:20px;border:0;background:#1F6F78;color:#fff">প্রিন্ট · Print</button>
-<p class="muted">Lifolo অ্যাপে প্রেসক্রিপশন খুলে "দোকানে আছি" → "QR স্ক্যান করুন" চাপুন, অথবা এই কোড লিখুন — প্রেসক্রিপশন এই দোকানে চলে যাবে।<br>Open your prescription in the Lifolo app → "I'm at a pharmacy" → scan this QR or type the code.</p></div>`));
+<p class="muted">Lifolo অ্যাপে প্রেসক্রিপশন খুলে "ফার্মেসিতে পাঠান" → "দোকানে আছি" → "QR স্ক্যান করুন" চাপুন, অথবা এই কোড লিখুন — প্রেসক্রিপশন এই দোকানে চলে যাবে।<br>Open your prescription in the Lifolo app → "Send to a pharmacy" → "I'm at a pharmacy" → scan this QR or type the code.</p></div>`));
     return;
   }
 

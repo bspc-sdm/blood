@@ -71,6 +71,11 @@ span.health-qr-code { cursor: auto; }
 .health-two .btn { padding-left: 10px; padding-right: 12px; white-space: normal; text-align: left; }
 .health-send .btn { min-height: 52px; font-size: 16px; justify-content: center; text-align: center; }
 @media (max-width: 359px) { .health-two { grid-template-columns: 1fr; } }
+/* পাঠানোর পর: বড় টিক আর শিরোনাম মাঝখানে, "এরপর কী" রঙিন ঘরে; ভুল লাল ঘরে */
+.health-sent { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding-top: 8px; }
+.health-sent-icon { color: var(--primary); }
+.health-sent-next, .health-send-err { align-items: center; padding: 12px; }
+.health-sent-next > svg, .health-send-err > svg { flex: none; }
 .health-lab-order { padding-bottom: 10px; border-bottom: 1px solid var(--outline-variant); }
 .health-stack-chips .chips { flex-direction: column; align-items: flex-start; }
 .health-stack-chips .chip { height: auto; min-height: 36px; white-space: normal; text-align: left; }

@@ -58,8 +58,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -490,14 +488,17 @@ object RxNetText {
 // রোগী: প্রেসক্রিপশনের ভেতরে — ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
 // ------------------------------------------------------------
 
-/** paper দিলে: উপরে বড় "ফার্মেসিতে পাঠান" / "প্যাথলজিতে পাঠান", তারপর কাগজ, তারপর বাকিটা — লম্বা কাগজের নিচে বাটন খুঁজে পাওয়া যেত না */
+/**
+ * paper দিলে: উপরে বড় "ফার্মেসিতে পাঠান" / "প্যাথলজিতে পাঠান", তারপর কাগজ, তারপর বাকিটা — লম্বা কাগজের নিচে বাটন খুঁজে পাওয়া যেত না।
+ * snack: পাঠানো/ফিরিয়ে নেওয়ার পর খবর পাতার নিচে স্ন্যাকবারে — আগে উপরের এক লাইনে যেত, নিচ থেকে পাঠালে স্ক্রল না করে দেখা যেত না।
+ */
 @Composable
-fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)? = null) {
+fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material3.SnackbarHostState? = null, paper: (@Composable () -> Unit)? = null) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var act by remember { mutableStateOf<RxActivity?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
     var pickPharmacy by remember { mutableStateOf<String?>(null) }
     var withdrawing by remember { mutableStateOf<RxOrder?>(null) }
     var pickLab by remember { mutableStateOf(false) }
@@ -510,11 +511,16 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
     LaunchedEffect(reload) {
         runCatching { RxNet.activity(rx.id) }.onSuccess { act = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
+    // কাজ হলে: স্ন্যাকবার (না থাকলে টোস্ট) — যেখানেই স্ক্রল করা থাকুক, চোখে পড়ে
+    fun info(m: String) {
+        val s = snack
+        if (s != null) scope.launch { s.showSnackbar(m, withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Long) }
+        else android.widget.Toast.makeText(context, m, android.widget.Toast.LENGTH_LONG).show()
+    }
     val a = act
     // লোড হওয়ার সময় উপরের বাটন নেই, কাগজ আগের মতোই দেখায়
     if (a == null) {
         ErrorText(errorMsg)
-        InfoText(infoMsg)
         paper?.invoke()
         return
     }
@@ -538,7 +544,6 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
         }
     }
     ErrorText(errorMsg)
-    InfoText(infoMsg)
     paper?.invoke()
 
     // ---- ওষুধ ----
@@ -567,13 +572,9 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
                     }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { pickPharmacy = "shop" }, modifier = Modifier.weight(1f)) {
-                            ButtonContent(false, tr("I'm at a pharmacy", "দোকানে আছি"), R.drawable.ic_storefront)
-                        }
-                        OutlinedButton(onClick = { pickPharmacy = "online" }, modifier = Modifier.weight(1f)) {
-                            ButtonContent(false, tr("Order online", "অনলাইনে অর্ডার"), R.drawable.ic_local_shipping)
-                        }
+                    // উপরের বড় বাটনের মতোই একটা — একই বাছাই (দোকানে আছি / অনলাইনে অর্ডার); আগের দুই বাটন ভেঙে দুই লাইনে যেত
+                    OutlinedButton(onClick = { sendChoice = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp)) {
+                        ButtonContent(false, tr("Send to a pharmacy", "ফার্মেসিতে পাঠান"), R.drawable.ic_medication)
                     }
                     SmallNote(
                         tr(
@@ -622,7 +623,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
                                     busy = true
                                     errorMsg = null
                                     runCatching { Appointments.book(rx.doctorUid, rx.chamberIndex ?: 0, date, tr("Show the report", "রিপোর্ট দেখানো")) }
-                                        .onSuccess { infoMsg = tr("Serial request sent", "সিরিয়ালের অনুরোধ গেছে") }
+                                        .onSuccess { info(tr("Serial request sent", "সিরিয়ালের অনুরোধ গেছে")) }
                                         .onFailure { errorMsg = it.message }
                                     busy = false
                                 }
@@ -668,20 +669,20 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
     pickPharmacy?.let { mode ->
         PharmacyPickDialog(rx, profile, mode, onDismiss = { pickPharmacy = null }) { name ->
             pickPharmacy = null
-            infoMsg = if (mode == "online") tr("Order sent to $name. Pay when the medicines arrive.", "$name-এ অর্ডার গেছে। ওষুধ পৌঁছালে দাম দেবেন।") else tr("Sent to $name", "$name-এ পাঠানো হয়েছে")
+            info(if (mode == "online") tr("Order sent to $name. Pay when the medicines arrive.", "$name-এ অর্ডার গেছে। ওষুধ পৌঁছালে দাম দেবেন।") else tr("Sent to $name", "$name-এ পাঠানো হয়েছে"))
             reload++
         }
     }
     withdrawing?.let { o ->
         WithdrawDialog(o, onDismiss = { withdrawing = null }) {
             withdrawing = null
-            infoMsg = tr("Taken back. You can send it to another pharmacy.", "ফিরিয়ে নেওয়া হয়েছে। অন্য ফার্মেসিতে পাঠাতে পারেন।")
+            info(tr("Taken back. You can send it to another pharmacy.", "ফিরিয়ে নেওয়া হয়েছে। অন্য ফার্মেসিতে পাঠাতে পারেন।"))
             reload++
         }
     }
-    if (pickLab) LabPickDialog(rx, profile, onDismiss = { pickLab = false }) { name ->
+    if (pickLab) LabPickDialog(rx, profile, onDismiss = { pickLab = false }) { name, _ ->
         pickLab = false
-        infoMsg = tr("Sent to $name", "$name-এ পাঠানো হয়েছে")
+        info(tr("Sent to $name", "$name-এ পাঠানো হয়েছে"))
         reload++
     }
     homeEdit?.let { o ->
@@ -692,7 +693,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
             ) { req ->
                 if (req != null) RxNet.homeChange(o.id, req)
                 homeEdit = null
-                infoMsg = tr("The lab was told the new time", "প্যাথলজিকে নতুন সময় জানানো হয়েছে")
+                info(tr("The lab was told the new time", "প্যাথলজিকে নতুন সময় জানানো হয়েছে"))
                 reload++
             }
         }
@@ -700,7 +701,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
     homeCancel?.let { o ->
         HomeCancelDialog(o, onDismiss = { homeCancel = null }) {
             homeCancel = null
-            infoMsg = tr("The lab was told — go there to give the sample", "প্যাথলজিকে জানানো হয়েছে — সেখানে গিয়ে নমুনা দিন")
+            info(tr("The lab was told — go there to give the sample", "প্যাথলজিকে জানানো হয়েছে — সেখানে গিয়ে নমুনা দিন"))
             reload++
         }
     }
@@ -708,7 +709,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)?
     paying?.let { r ->
         PayDialog(r, onDismiss = { paying = null }) {
             paying = null
-            infoMsg = tr("Sent. The doctor will check the payment.", "পাঠানো হয়েছে। ডাক্তার টাকা মিলিয়ে দেখবেন।")
+            info(tr("Sent. The doctor will check the payment.", "পাঠানো হয়েছে। ডাক্তার টাকা মিলিয়ে দেখবেন।"))
             reload++
         }
     }
@@ -807,8 +808,12 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
             busy = null
         }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(topBar = { BackTopBar(if (mode == "online") tr("Order online", "অনলাইনে অর্ডার") else tr("Send to this shop", "এই দোকানে দিন"), onDismiss) }) { padding ->
+    FullScreenDialog(onDismissRequest = onDismiss) {
+        // ভুল (পাঠানো না গেলে) নিচে আটকে — তালিকার নিচে দোকানে চাপলেও স্ক্রল না করে দেখা যায়
+        Scaffold(
+            topBar = { BackTopBar(if (mode == "online") tr("Order online", "অনলাইনে অর্ডার") else tr("Send to this shop", "এই দোকানে দিন"), onDismiss) },
+            bottomBar = { SendErrorBar(errorMsg) },
+        ) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     if (mode == "shop") {
@@ -842,7 +847,6 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
                         )
                     }
                     FilterBar(areaLabel = areaText(district, null), onAreaClick = { showArea = true })
-                    ErrorText(errorMsg)
                 }
                 val l = list
                 when {
@@ -913,7 +917,7 @@ private fun OnlineOrderDialog(rx: Rx, p: PharmOption, profile: Profile, onDismis
                 )
                 OutlinedTextField(note, { note = it.take(200) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
                 SmallNote(tr("Pay the shop when it arrives (cash on delivery). The shop sees your address and number only for this order.", "ওষুধ পৌঁছালে দোকানকে দাম দেবেন (ক্যাশ অন ডেলিভারি)। ঠিকানা আর নম্বর দোকান শুধু এই অর্ডারের জন্য দেখবে।"))
-                ErrorText(errorMsg)
+                SendErrorCard(errorMsg)
             }
         },
         confirmButton = {
@@ -971,7 +975,7 @@ private fun WithdrawDialog(o: RxOrder, onDismiss: () -> Unit, onDone: () -> Unit
  * only: প্যাথলজির পাতা থেকে এলে শুধু এই প্যাথলজি (তার জেলায় খোঁজা, এলাকা বদলানো নেই) — পরীক্ষা বাছাই আর বাসার নমুনা আগের মতোই।
  */
 @Composable
-private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only: Lab? = null, onSent: (String) -> Unit) {
+private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only: Lab? = null, onSent: (name: String, home: Boolean) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var district by remember { mutableStateOf(only?.district?.ifBlank { null } ?: profile.placeName) }
@@ -1002,19 +1006,18 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only:
         scope.launch {
             busy = o.lab.id
             errorMsg = null
-            runCatching { RxNet.sendLab(rx.id, o.lab.id, chosen.toList()) }.onSuccess { onSent(o.lab.name) }.onFailure { errorMsg = it.message }
+            runCatching { RxNet.sendLab(rx.id, o.lab.id, chosen.toList()) }.onSuccess { onSent(o.lab.name, false) }.onFailure { errorMsg = it.message }
             busy = null
         }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(topBar = { BackTopBar(only?.name ?: tr("Choose a lab", "প্যাথলজি বাছুন"), onDismiss) }) { padding ->
+    FullScreenDialog(onDismissRequest = onDismiss) {
+        Scaffold(topBar = { BackTopBar(only?.name ?: tr("Choose a lab", "প্যাথলজি বাছুন"), onDismiss) }, bottomBar = { SendErrorBar(errorMsg) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(tr("Tests to send", "কোন পরীক্ষা পাঠাবেন"), style = MaterialTheme.typography.labelLarge)
                     ChipRows(rx.tests, chosen.toSet(), perRow = 3) { t -> if (t in chosen) chosen.remove(t) else chosen.add(t) }
                     Spacer(Modifier.height(8.dp))
                     if (only == null) FilterBar(areaLabel = areaText(district, upazilaId), onAreaClick = { showArea = true })
-                    ErrorText(errorMsg)
                 }
                 // শুধু এই প্যাথলজি; তালিকায় না এলে (দূরের সারিতে) দামের হিসাব ছাড়াই — পাঠানো তবু যায়, সার্ভার মিলিয়ে নেয়
                 val l = opts?.items?.let { all ->
@@ -1069,7 +1072,7 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only:
         ) { home ->
             RxNet.sendLab(rx.id, o.lab.id, chosen.toList(), home)
             sending = null
-            onSent(o.lab.name)
+            onSent(o.lab.name, home != null)
         }
     }
 }
@@ -1080,7 +1083,7 @@ fun LabReportDialog(orderId: String, self: Boolean = false, onDismiss: () -> Uni
     var order by remember { mutableStateOf<LabOrder?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(orderId) { runCatching { RxNet.labOrder(orderId, self) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Test report", "পরীক্ষার রিপোর্ট"), onDismiss) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ErrorText(errorMsg)
@@ -1442,7 +1445,7 @@ private fun MissedDialog(start: List<Missed>, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val list = remember { mutableStateListOf(*start.toTypedArray()) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Asked for but not available", "চেয়েও পাননি এমন ওষুধ"), onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
@@ -1482,7 +1485,7 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var saleAt by remember { mutableStateOf<Long?>(null) } // বিক্রির হিসাবে তোলার প্রস্তাব (PharmacyBooks.kt)
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Give medicines", "ওষুধ দিন"), onDismiss) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val cs = MaterialTheme.colorScheme
@@ -1571,7 +1574,7 @@ private fun StockDialog(onDismiss: () -> Unit) {
     fun change(add: List<String>, remove: List<String>) {
         scope.launch { runCatching { RxNet.stockSet(add, remove) }.onSuccess { items = it; errorMsg = null }.onFailure { errorMsg = it.message } }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Stock list", "স্টকের তালিকা"), onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
@@ -1701,6 +1704,13 @@ fun SendErrorCard(message: String?) {
     }
 }
 
+/** পুরো পর্দার বাছাইয়ের নিচে আটকে থাকা ভুলের ঘর (Scaffold-এর bottomBar) — ভুল না থাকলে কিছুই না */
+@Composable
+fun SendErrorBar(message: String?) {
+    if (message == null) return
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { SendErrorCard(message) }
+}
+
 /**
  * শিটের ওপর থেকে লগইন লাগলে: শিট বন্ধ → লগইন (নাম-মোবাইল) → then (শিট আবার খোলা আর পাঠানো শুরু)।
  * শিট খোলা রেখে লগইন চাইলে লগইনের পাতা শিটের পেছনে পড়ে যেত।
@@ -1742,10 +1752,10 @@ private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onPick: (Rx) ->
             list = emptyList()
         }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Which prescription?", "কোন প্রেসক্রিপশন পাঠাবেন?"), onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                item { ErrorText(errorMsg) }
+                item { SendErrorCard(errorMsg) }
                 val l = list
                 when {
                     l == null -> item { LoadingBox() }
@@ -1780,7 +1790,7 @@ private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onPick: (Rx) ->
  * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
 @Composable
-private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, onSent: (mode: String) -> Unit) {
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
     // null = খোঁজা চলছে; Result-এর ভেতরে null = দোকানের হিসাব পাওয়া যায়নি
@@ -1814,7 +1824,7 @@ private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss:
                         scope.launch {
                             busy = true
                             errorMsg = null
-                            runCatching { RxNet.sendPharmacy(rx.id, p.id, "shop") }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
+                            runCatching { RxNet.sendPharmacy(rx.id, p.id, "shop") }.onSuccess { onSent("shop") }.onFailure { errorMsg = it.message }
                             busy = false
                         }
                     },
@@ -1829,13 +1839,13 @@ private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss:
                         modifier = Modifier.clickable(enabled = !busy) { ordering = opt },
                     )
                 }
-                ErrorText(errorMsg)
+                SendErrorCard(errorMsg)
             }
         },
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
-    ordering?.let { o -> OnlineOrderDialog(rx, o, profile, onDismiss = { ordering = null }) { ordering = null; onSent() } }
+    ordering?.let { o -> OnlineOrderDialog(rx, o, profile, onDismiss = { ordering = null }) { ordering = null; onSent("online") } }
 }
 
 // ------------------------------------------------------------
@@ -1847,9 +1857,9 @@ fun LabContent(profile: Profile) {
     val context = LocalContext.current
     var district by remember { mutableStateOf(profile.placeName) }
     var openLab by remember { mutableStateOf<Lab?>(null) }
-    // বিস্তারিত থেকে প্রেসক্রিপশন পাঠানো: কোন প্যাথলজিতে, আর পাঠানোর পর শিটে "পাঠানো হয়েছে"
+    // বিস্তারিত থেকে প্রেসক্রিপশন পাঠানো: কোন প্যাথলজিতে, আর পাঠানোর পর "পাঠানো হয়েছে" ডায়ালগ
     var sendTo by remember { mutableStateOf<Lab?>(null) }
-    var sentNote by remember { mutableStateOf<String?>(null) }
+    var sent by remember { mutableStateOf<RxSent?>(null) }
     var list by remember { mutableStateOf<List<Lab>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
@@ -1893,27 +1903,29 @@ fun LabContent(profile: Profile) {
     if (showArea) AreaSheet(district, null, null, { d, _, _ -> district = d }, onDismiss = { showArea = false })
     openLab?.let { lab ->
         LabInfoSheet(
-            lab, sentNote,
+            lab,
             onSendRx = { rxSendGate(close = { openLab = null }) { openLab = lab; sendTo = lab } },
-            onDismiss = { openLab = null; sentNote = null },
+            onDismiss = { openLab = null },
         )
     }
     // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
     sendTo?.let { lab ->
         RxSendFlow(lab = lab, pharmacy = null, profile = profile, onDismiss = { sendTo = null }) {
             sendTo = null
-            sentNote = rxSentNote()
+            sent = it
         }
     }
+    // "প্রেসক্রিপশন খুলুন": ডায়ালগ আর শিট বন্ধ, তারপর সেই প্রেসক্রিপশন (নোটিফিকেশনের মতোই "আমার প্রেসক্রিপশন" হয়ে)
+    sent?.let { s -> RxSentDialog(s, onOpen = { sent = null; openLab = null; RxNav.openRx(s.rxId) }, onDismiss = { sent = null }) }
 }
 
 /**
  * প্যাথলজির বিস্তারিত: ঠিকানা, সময়, পরীক্ষা ও দাম — পুরো তালিকা এখানে আলাদা করে (lab_prices_public; অতিথিও পারেন,
  * সার্ভারে এক মিনিট মেমোরিতে)। তালিকা না থাকলে "দাম জানা নেই"।
- * sentNote: এই পাতা থেকে পাঠানোর পর "পাঠানো হয়েছে"; onSendRx: "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান"।
+ * onSendRx: "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান" (পাঠানোর পর RxSentDialog — আগের ছোট "পাঠানো হয়েছে" লাইন আর নেই)।
  */
 @Composable
-private fun LabInfoSheet(lab: Lab, sentNote: String?, onSendRx: () -> Unit, onDismiss: () -> Unit) {
+private fun LabInfoSheet(lab: Lab, onSendRx: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val p = lab.prices
     // null = আসছে; Result-এর ভেতরে null = তালিকা নেই
@@ -1943,7 +1955,7 @@ private fun LabInfoSheet(lab: Lab, sentNote: String?, onSendRx: () -> Unit, onDi
             // প্রেসক্রিপশনের পরীক্ষা: এখান থেকেই পাঠানো (আগে শুধু লেখা ছিল "প্রেসক্রিপশন খুলে … চাপুন")
             DetailSection(
                 tr("Tests from a prescription", "প্রেসক্রিপশনের পরীক্ষা"),
-                listOf(R.drawable.ic_check_circle to sentNote.orEmpty()),
+                emptyList(),
                 button = CardAction(tr("Send a prescription to this lab", "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
             ),
         ),
@@ -2206,7 +2218,7 @@ private fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent:
         loaded = true
     }
     fun flagOf(e: EntryRow): String = if (e.numeric) RxNetText.autoFlag(e.r.result, e.r.low, e.r.high) ?: e.r.flag else e.r.flag
-    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+    FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }, dismissOnClickOutside = false) {
         Scaffold(topBar = { BackTopBar(tr("Report", "রিপোর্ট") + " · " + order.patientName, { if (!busy) onDismiss() }) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val cs = MaterialTheme.colorScheme
@@ -2375,7 +2387,7 @@ private fun ReviewReadDialog(r: RxReview, onDismiss: () -> Unit, onDone: () -> U
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(r.id) { runCatching { RxNet.labOrder(r.labOrderId, self = true) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
-    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }) {
         Scaffold(topBar = { BackTopBar(r.patientName, { if (!busy) onDismiss() }) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ErrorText(errorMsg)

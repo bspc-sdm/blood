@@ -57,8 +57,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -266,9 +264,19 @@ object RxApi {
     }
 }
 
-/** অন্য পাতা থেকে প্রেসক্রিপশনের পাতা খোলা: "mine" (রোগী), "assist" (সহকারী) */
+/** অন্য পাতা থেকে প্রেসক্রিপশনের পাতা খোলা: "mine" (রোগী), "assist" (সহকারী); rxId: খোলার পর সরাসরি এই প্রেসক্রিপশন */
 object RxNav {
     val open = mutableStateOf<String?>(null)
+    val rxId = mutableStateOf<String?>(null)
+
+    /**
+     * ফার্মেসি/প্যাথলজির পাতা থেকে পাঠানোর পর "প্রেসক্রিপশন খুলুন": "আমার প্রেসক্রিপশন" (প্রোফাইলের পথ) → তালিকা এলে এই প্রেসক্রিপশন।
+     * কেয়ারগিভার মোডে নতুন পাতা নয় — মোডের পাতাতেই "আমার প্রেসক্রিপশন" আছে, সেটাই খোলে (নতুন পাতায় গেলে মোড বন্ধ হয়ে রোগীরটা মিলত না)।
+     */
+    fun openRx(id: String) {
+        rxId.value = id
+        if (CareMode.asUid.value == null) open.value = "mine"
+    }
 }
 
 // ------------------------------------------------------------
@@ -378,14 +386,16 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
     var confirmCancel by remember { mutableStateOf(false) }
+    // পাঠানো, ফিরিয়ে নেওয়া, সিরিয়াল, অ্যালার্ম — খবর নিচের স্ন্যাকবারে (স্ক্রল যেখানেই থাকুক দেখা যায়)
+    val snack = remember { androidx.compose.material3.SnackbarHostState() }
+    fun info(m: String) { scope.launch { snack.showSnackbar(m, withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Long) } }
     var alarms by remember { mutableStateOf(false) }
     var alarmOn by remember { mutableStateOf(MedAlarms.isOn(context, rx.id)) }
     // ডাক্তার: এই প্রেসক্রিপশনের পার্টনার ল্যাবের পরীক্ষা (ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে)
     var doctorLabs by remember { mutableStateOf<List<DoctorLab>?>(null) }
     LaunchedEffect(rx.id, asDoctor) { if (asDoctor) doctorLabs = runCatching { RxApi.doctorLabs(rx.id) }.getOrNull() }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(
             topBar = {
                 BackTopBar(tr("Prescription", "প্রেসক্রিপশন"), onDismiss) {
@@ -394,13 +404,13 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                     }
                 }
             },
+            snackbarHost = { androidx.compose.material3.SnackbarHost(snack) },
         ) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ErrorText(errorMsg)
-                InfoText(infoMsg)
                 // রোগী: কাগজ RxActivitySection-এর ভেতরে — উপরে পাঠানোর বাটন, তারপর কাগজ
                 val patient = !asDoctor && profile != null
                 if (!patient) RxPaper(rx)
@@ -411,7 +421,7 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                     }
                 }
                 // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
-                if (patient && profile != null) RxActivitySection(rx, profile) { RxPaper(rx) }
+                if (patient && profile != null) RxActivitySection(rx, profile, snack) { RxPaper(rx) }
                 if (!asDoctor && !rx.cancelled) {
                     // আবার দেখানো: এক চাপে সেই চেম্বারে সিরিয়াল
                     val book = rx.followUpBookDate
@@ -427,7 +437,7 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                                             errorMsg = null
                                             runCatching {
                                                 Appointments.book(rx.doctorUid, rx.chamberIndex, book, rx.followUpNote.ifBlank { tr("Follow-up", "ফলো-আপ") })
-                                            }.onSuccess { infoMsg = tr("Request sent. You'll get a notification when the doctor confirms.", "অনুরোধ গেছে। ডাক্তার নিশ্চিত করলে নোটিফিকেশন পাবেন।") }
+                                            }.onSuccess { info(tr("Request sent. You'll get a notification when the doctor confirms.", "অনুরোধ গেছে। ডাক্তার নিশ্চিত করলে নোটিফিকেশন পাবেন।")) }
                                                 .onFailure { errorMsg = it.message }
                                             busy = false
                                         }
@@ -461,7 +471,7 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
         MedAlarmDialog(rx, onDismiss = { alarms = false }) {
             alarms = false
             alarmOn = true
-            infoMsg = tr("Medicine alarm is on", "ওষুধের অ্যালার্ম চালু হয়েছে")
+            info(tr("Medicine alarm is on", "ওষুধের অ্যালার্ম চালু হয়েছে"))
         }
     }
     if (confirmCancel) {
@@ -515,6 +525,14 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     var who by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
         runCatching { RxApi.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
+    }
+    // "প্রেসক্রিপশন খুলুন" (পাঠানোর পর): তালিকা এলে সরাসরি সেটার বিস্তারিত — তালিকায় না পেলে আলাদা করে আনা
+    val wantId = RxNav.rxId.value
+    LaunchedEffect(wantId, list) {
+        val id = wantId ?: return@LaunchedEffect
+        val l = list ?: return@LaunchedEffect
+        RxNav.rxId.value = null
+        (l.firstOrNull { it.id == id } ?: runCatching { RxApi.get(id) }.getOrNull())?.let { open = it }
     }
     Scaffold(
         topBar = {
@@ -763,7 +781,7 @@ private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: ()
     LaunchedEffect(t) {
         runCatching { RxApi.patientHistory(t) }.onSuccess { list = it.items; labs = it.labs }.onFailure { errorMsg = it.message; list = emptyList() }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(t.name.ifBlank { tr("Patient", "রোগী") }, onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
@@ -887,7 +905,7 @@ fun RxDoctorTab() {
     }
     }
     if (picking) {
-        Dialog(onDismissRequest = { picking = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        FullScreenDialog(onDismissRequest = { picking = false }) {
             Scaffold(topBar = { BackTopBar(tr("Choose patient", "রোগী বাছুন"), { picking = false }) }) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     RxPatientsPane(null, onWrite = { t -> picking = false; writingFor = t })
@@ -1023,7 +1041,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
         }
     }
 
-    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+    FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }, dismissOnClickOutside = false) {
         Scaffold(topBar = { BackTopBar(tr("Prescription", "প্রেসক্রিপশন"), { if (!busy) onDismiss() }) }) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),

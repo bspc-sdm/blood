@@ -372,10 +372,10 @@ private fun NearbyPharmacies(profile: Profile) {
     var showFilter by remember { mutableStateOf(false) }
     // রেটিংয়ের পর আবার আনা — কার্ডে নতুন গড়
     var reload by remember { mutableIntStateOf(0) }
-    // বিস্তারিত শিট, আর সেখান থেকে প্রেসক্রিপশন পাঠানো (কোন দোকানে; পাঠানোর পর শিটে লেখা)
+    // বিস্তারিত শিট, আর সেখান থেকে প্রেসক্রিপশন পাঠানো (কোন দোকানে; পাঠানোর পর "পাঠানো হয়েছে" ডায়ালগ)
     var openShop by remember { mutableStateOf<Pharmacy?>(null) }
     var sendTo by remember { mutableStateOf<Pharmacy?>(null) }
-    var sentNote by remember { mutableStateOf<String?>(null) }
+    var sent by remember { mutableStateOf<RxSent?>(null) }
 
     LaunchedEffect(district, upazilaId, openNow, reload) {
         val d = district ?: return@LaunchedEffect
@@ -439,23 +439,25 @@ private fun NearbyPharmacies(profile: Profile) {
             p.name, R.drawable.ic_storefront, null, MaterialTheme.colorScheme.primary, null,
             if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
             p.rating, p.ratingCount, p.km?.let { Rules.formatKm(it) },
-            pharmacySections(p, sentNote) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
+            pharmacySections(p) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
             CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) {
                 scope.launch { runCatching { Pharmacies.called(p.id) } }
                 callPhone(context, p.phone)
             },
             if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
             { reporting = p },
-            onDismiss = { openShop = null; sentNote = null },
+            onDismiss = { openShop = null },
         )
     }
     // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
     sendTo?.let { p ->
         RxSendFlow(lab = null, pharmacy = p, profile = profile, onDismiss = { sendTo = null }) {
             sendTo = null
-            sentNote = rxSentNote()
+            sent = it
         }
     }
+    // "প্রেসক্রিপশন খুলুন": ডায়ালগ আর শিট বন্ধ, তারপর সেই প্রেসক্রিপশন (সেখানে অবস্থা আর "ফিরিয়ে নিন")
+    sent?.let { s -> RxSentDialog(s, onOpen = { sent = null; openShop = null; RxNav.openRx(s.rxId) }, onDismiss = { sent = null }) }
     if (showArea) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
     }
@@ -490,7 +492,7 @@ private fun NearbyPharmacies(profile: Profile) {
 }
 
 /** ফার্মেসির বিস্তারিতের ভাগ: ঠিকানা, সময়, ছাড়-ডেলিভারি, রেটিং, আর "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান" */
-private fun pharmacySections(p: Pharmacy, sentNote: String?, onSendRx: () -> Unit): List<DetailSection> = listOf(
+private fun pharmacySections(p: Pharmacy, onSendRx: () -> Unit): List<DetailSection> = listOf(
     DetailSection(
         tr("Address", "ঠিকানা"),
         listOf(
@@ -515,7 +517,7 @@ private fun pharmacySections(p: Pharmacy, sentNote: String?, onSendRx: () -> Uni
     DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
     DetailSection(
         tr("Prescription", "প্রেসক্রিপশন"),
-        listOf(R.drawable.ic_check_circle to sentNote.orEmpty()),
+        emptyList(),
         button = CardAction(tr("Send a prescription to this pharmacy", "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
     ),
 )
