@@ -388,9 +388,13 @@ function ShopCodePanel() {
   return (
     <Panel title={tr('Shop QR & code', 'দোকানের QR ও কোড')} icon="share">
       <div className="rxp-shop">
-        {qrOk ? <img className="rxp-qr" src={`/api/share?shopqr=${encodeURIComponent(h.shopCode)}`} alt={tr('Shop QR', 'দোকানের QR')} onError={() => setQrOk(false)} /> : null}
-        <div className="col gap-6">
+        {/* QR-এর নিচেই কোড — স্ক্যান না হলে ক্রেতা লিখে পাঠাতে পারেন */}
+        <div className="col rxp-qr-box">
+          {qrOk ? <img className="rxp-qr" src={`/api/share?shopqr=${encodeURIComponent(h.shopCode)}`} alt={tr('Shop QR', 'দোকানের QR')} onError={() => setQrOk(false)} /> : null}
+          <span className="t-label-s muted">{tr('Code', 'কোড')}</span>
           <span className="rxp-shop-code num">{h.shopCode}</span>
+        </div>
+        <div className="col gap-6">
           <Button variant="tonal" small icon="share" onClick={() => window.open(`/shop/${encodeURIComponent(h.shopCode)}`, '_blank', 'noopener')}>
             {tr('Print counter poster', 'কাউন্টারের পোস্টার প্রিন্ট')}
           </Button>

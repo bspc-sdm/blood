@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Dialog, DirectoryCard, EmptyState, ErrorBox, ErrorText, InfoText, Loading, SkeletonCards, Tag, TextInput } from '@/ui/kit';
+import { Button, Dialog, DirectoryCard, EmptyState, ErrorBox, ErrorText, InfoText, Loading, SkeletonCards, Tag, TextInput, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { DetailPane, ListDetail } from '@/shell/templates';
 import { usePageTitle } from '@/shell/chrome';
@@ -286,6 +286,29 @@ function Qr({ text, size }: { text: string; size: number }) {
   );
 }
 
+/** কোড চার অক্ষর করে ভাগ: "AB23CD45EF" → "AB23 CD45 EF" (দোকানে পড়ে লেখা সহজ) */
+export const groupCode = (code: string) => (code.match(/.{1,4}/g) ?? []).join(' ');
+
+/** QR-এর নিচে কোড লেখা — স্ক্যান না হলে দোকান হাতে লিখতে পারে; চাপলে কপি (ছাপায় শুধু লেখা) */
+function QrWithCode({ text, code, size, print }: { text: string; code: string; size: number; print?: boolean }) {
+  const copy = () => {
+    navigator.clipboard?.writeText(code).then(() => toast(tr('Code copied', 'কোড কপি হয়েছে'))).catch(() => {});
+  };
+  return (
+    <div className="col health-qr-box">
+      <Qr text={text} size={size} />
+      <span className="t-label-s muted">{tr('Code', 'কোড')}</span>
+      {print ? (
+        <span className="health-qr-code">{groupCode(code)}</span>
+      ) : (
+        <button type="button" className="health-qr-code" onClick={copy} title={tr('Copy the code', 'কোড কপি করুন')} aria-label={tr('Code ', 'কোড ') + code}>
+          {groupCode(code)}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function PaperBlock({ title, children }: { title: string; children: string }) {
   return (
     <div className="col gap-2">
@@ -311,7 +334,7 @@ export function RxPaper({ rx, print }: { rx: Rx; print?: boolean }) {
           {d.regNo ? <span className="t-body-s muted">BMDC {d.regNo}</span> : null}
           {ch && (ch.name || ch.address) ? <span className="t-body-s muted">{[ch.name, ch.address, print ? ch.phone : ''].filter(Boolean).join(', ')}</span> : null}
         </div>
-        <Qr text={verifyUrl} size={print ? 96 : 84} />
+        <QrWithCode text={verifyUrl} code={rx.code} size={print ? 96 : 84} print={print} />
       </div>
       {rx.status === 'cancelled' ? <Tag tone="error">{tr('Cancelled', 'বাতিল')}</Tag> : null}
       <hr className="divider" />

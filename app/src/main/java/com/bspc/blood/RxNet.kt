@@ -1253,13 +1253,17 @@ fun PharmacyRxSection() {
             home?.let { h ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val qr = remember(h.shopCode) { Qr.bitmap(ShopQr.url(h.shopCode), 360)?.asImageBitmap() }
+                    // QR-এর নিচেই কোড (প্রেসক্রিপশনের QR-এর মতো) — QR না থাকলে পাশে বড় করে
                     if (qr != null) {
-                        Image(qr, tr("Shop QR", "দোকানের QR"), Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Image(qr, tr("Shop QR", "দোকানের QR"), Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
+                            QrCodeText(h.shopCode)
+                        }
                         Spacer(Modifier.width(12.dp))
                     }
                     Column(Modifier.weight(1f)) {
                         Text(tr("Shop QR & code", "দোকানের QR ও কোড"), style = MaterialTheme.typography.labelLarge)
-                        Text(h.shopCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
+                        if (qr == null) Text(h.shopCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
                     }
                     Tag(
                         if (h.online.enabled) tr("Selling online", "অনলাইনে বিক্রি চালু") else tr("In-shop only", "শুধু দোকানে"),

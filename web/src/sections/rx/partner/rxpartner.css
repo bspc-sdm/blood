@@ -74,6 +74,7 @@
 .rxp-missed .col { min-width: 0; }
 .rxp-shop { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .rxp-qr { width: 112px; height: 112px; padding: 6px; border-radius: 12px; background: var(--surface-lowest); border: 1px solid var(--outline-variant); flex: none; }
+.rxp-qr-box { align-items: center; gap: 2px; flex: none; }
 .rxp-shop-code { font-size: 28px; line-height: 34px; font-weight: 800; letter-spacing: .2em; color: var(--primary); }
 
 /* টেবিলের সারি */

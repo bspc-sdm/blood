@@ -3,6 +3,7 @@
 package com.bspc.blood
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -274,6 +275,37 @@ object RxNav {
 // প্রেসক্রিপশনের কাগজ (রোগী আর ডাক্তার দুজনেই একই রকম দেখেন)
 // ------------------------------------------------------------
 
+/**
+ * QR-এর নিচের কোড: ছোট "কোড" লেখা, তার নিচে বড় এক-মাপের অক্ষরে চার চার করে ভাগ ("AB23 CD45 EF") —
+ * QR স্ক্যান না হলে দোকান পড়ে লিখতে পারে। চেপে ধরলে কপি।
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun QrCodeText(code: String) {
+    if (code.isBlank()) return
+    val context = LocalContext.current
+    val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(top = 2.dp).combinedClickable(onClick = {}, onLongClick = {
+            clip.setText(androidx.compose.ui.text.AnnotatedString(code))
+            android.widget.Toast.makeText(context, tr("Code copied", "কোড কপি হয়েছে"), android.widget.Toast.LENGTH_SHORT).show()
+        }),
+    ) {
+        Text(tr("Code", "কোড"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            RxCode.grouped(code),
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
+            maxLines = 1, softWrap = false,
+        )
+    }
+}
+
+/** কোড চার অক্ষর করে ভাগ: "AB23CD45EF" → "AB23 CD45 EF" */
+object RxCode {
+    fun grouped(code: String): String = code.chunked(4).joinToString(" ")
+}
+
 @Composable
 fun RxPaper(rx: Rx) {
     val cs = MaterialTheme.colorScheme
@@ -288,7 +320,13 @@ fun RxPaper(rx: Rx) {
                     if (rx.regNo.isNotBlank()) Text("BMDC " + rx.regNo, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     if (rx.chamberName.isNotBlank()) Text(listOf(rx.chamberName, rx.chamberAddress).filter { it.isNotBlank() }.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                 }
-                if (qr != null) Image(qr.asImageBitmap(), tr("Verification QR", "যাচাইয়ের QR"), Modifier.size(84.dp))
+                if (qr != null) {
+                    // QR-এর নিচে কোড — স্ক্যান না হলে দোকান হাতে লিখতে পারে
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(qr.asImageBitmap(), tr("Verification QR", "যাচাইয়ের QR"), Modifier.size(84.dp))
+                        QrCodeText(rx.code)
+                    }
+                }
             }
             if (rx.cancelled) Tag(tr("Cancelled", "বাতিল"), cs.errorContainer, cs.onErrorContainer)
             HorizontalDivider()

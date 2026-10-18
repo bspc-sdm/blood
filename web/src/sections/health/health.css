@@ -56,6 +56,13 @@
 :root[data-theme='dark'] .health-qr { --health-qr-bg: var(--on-surface); --health-qr-fg: var(--surface-lowest); }
 .health-qr .bg { fill: var(--health-qr-bg); }
 .health-qr .fg { fill: var(--health-qr-fg); }
+.health-qr-box { flex: none; align-items: center; gap: 2px; }
+/* QR-এর নিচের কোড: বড়, এক মাপের অক্ষর, ফাঁক দিয়ে — দোকান পড়ে লিখতে পারে */
+.health-qr-code {
+  font-family: 'Roboto Mono', ui-monospace, 'Roboto', monospace; font-size: 16px; font-weight: 600; letter-spacing: .08em;
+  white-space: nowrap; color: var(--on-surface); background: none; border: 0; padding: 0; cursor: pointer;
+}
+span.health-qr-code { cursor: auto; }
 .health-code { font-family: 'Roboto', monospace; letter-spacing: .12em; text-transform: uppercase; }
 .health-code-row > .field { flex: 1; }
 .health-code-row > .btn { margin-top: 22px; min-height: 48px; }

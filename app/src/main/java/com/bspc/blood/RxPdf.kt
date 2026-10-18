@@ -99,7 +99,14 @@ object RxPdf {
         if (rx.specialties.isNotEmpty()) text(rx.specialties.joinToString(", ") { Specialties.label(it) }, paint(11f, color = teal), headW, gap = 2f)
         if (rx.regNo.isNotBlank()) text("BMDC " + rx.regNo, paint(10f, color = grey), headW, gap = 2f)
         text(listOf(rx.chamberName, rx.chamberAddress, rx.chamberPhone).filter { it.isNotBlank() }.joinToString(", "), paint(10f, color = grey), headW)
-        y = maxOf(y, top + qrSize + 4f)
+        // QR-এর নিচে কোড: ছোট "কোড", তার নিচে বড় এক-মাপের অক্ষরে "AB23 CD45 EF" — স্ক্যান না হলে দোকান হাতে লেখে
+        val cx = (W - M - qrSize / 2).toFloat()
+        canvas.drawText(tr("Code", "কোড"), cx, top + qrSize + 10f, paint(7f, color = grey).apply { textAlign = Paint.Align.CENTER })
+        canvas.drawText(
+            RxCode.grouped(rx.code), cx, top + qrSize + 23f,
+            TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11f; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textAlign = Paint.Align.CENTER; letterSpacing = 0.08f },
+        )
+        y = maxOf(y, top + qrSize + 28f)
         text(tr("Verify: ", "যাচাই: ") + rx.code, paint(8f, color = grey), W - 2 * M)
         if (rx.cancelled) text(tr("CANCELLED", "বাতিল"), paint(14f, true, Color.RED))
         line()
