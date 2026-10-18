@@ -9,6 +9,16 @@ export PATH="$PATH:$HOME/.maestro/bin"
 export MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
 
 adb wait-for-device
+boot_wait() { for i in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && return 0; sleep 2; done; }
+# ফোনের ভাষা বাংলা (অ্যাপ ফোনের ভাষা ধরে — বাংলাদেশের ফোনের মতো)
+adb root >/dev/null 2>&1 || true; sleep 3; adb wait-for-device
+adb shell setprop persist.sys.locale bn-BD
+adb shell setprop ctl.restart zygote
+sleep 10; adb wait-for-device; boot_wait
+echo "locale: $(adb shell getprop persist.sys.locale)"
+# ধীর এমুলেটরে লঞ্চারের "সাড়া দিচ্ছে না" ডায়ালগ যেন না আসে
+adb shell settings put global hide_error_dialogs 1 || true
+sleep 30
 # তিন বাটনের নিচের বার — বাটন কাটা পড়ছে কি না সবচেয়ে ভালো বোঝা যায়
 adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton || true
 adb install -r "$W/app/build/outputs/apk/debug/app-debug.apk"
