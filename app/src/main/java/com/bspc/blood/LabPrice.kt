@@ -124,6 +124,16 @@ object LabPriceText {
         else -> tr("Sample from home: ${taka(fee)}", "বাসা থেকে নমুনা: ${taka(fee)}")
     }
     fun noPrice() = tr("Price not known — ask on the phone", "দাম জানা নেই — ফোনে জেনে নিন")
+    /** প্যাথলজির পাতা থেকে পাঠানোর আগে: "এখানে হয় ৩/৪টা পরীক্ষা; হয় না: X" */
+    fun here(have: Int, total: Int, missing: List<String>) =
+        tr("$have/$total tests done here", "এখানে হয় ${num(have)}/${num(total)}টা পরীক্ষা") + if (missing.isNotEmpty()) tr("; not done: ", "; হয় না: ") + missing.joinToString(", ") else ""
+    /** "দাম ৳১,৪০০ − ১০% ছাড় = আনুমানিক ৳১,২৬০" (ছাড় না থাকলে শুধু "আনুমানিক ৳১,৪০০"); একটাও না হলে খালি */
+    fun breakdown(subtotal: Int?, discountPct: Int?, est: Int?): String = when {
+        est == null -> ""
+        subtotal != null && discountPct != null && discountPct > 0 ->
+            tr("Price ${taka(subtotal)} − ${discountPct}% off = about ${taka(est)}", "দাম ${taka(subtotal)} − ${num(discountPct)}% ছাড় = আনুমানিক ${taka(est)}")
+        else -> estimate(est)
+    }
 
     /** অর্ডারে রাখা দামের এক লাইন: "আনুমানিক ৳২,৩৪০ (১০% ছাড়) + বাসা থেকে নমুনা: ৳১৫০ · ECG দাম জানা নেই" */
     fun snapLine(p: PriceSnap, home: LabHome?): String =

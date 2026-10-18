@@ -76,6 +76,15 @@ export function homeStatusPatient(h: LabHome): string {
 export const coverText = (have: number, total: number) => tr(`${have} of ${total} tests`, `${num(total)}টার ${num(have)}টা পরীক্ষা`);
 /** "আনুমানিক ৳১,২৫০" */
 export const estimateText = (v: number) => tr(`About ${taka(v)}`, `আনুমানিক ${taka(v)}`);
+/** প্যাথলজির পাতা থেকে পাঠানোর আগে: "এখানে হয় ৩/৪টা পরীক্ষা; হয় না: X" */
+export const hereText = (have: number, total: number, missing: string[]) =>
+  tr(`${have}/${total} tests done here`, `এখানে হয় ${num(have)}/${num(total)}টা পরীক্ষা`) + (missing.length ? tr('; not done: ', '; হয় না: ') + missing.join(', ') : '');
+/** "দাম ৳১,৪০০ − ১০% ছাড় = আনুমানিক ৳১,২৬০" (ছাড় না থাকলে শুধু "আনুমানিক ৳১,৪০০"); একটাও না হলে খালি */
+export function breakdownText(subtotal: number | null, discountPct: number | null, est: number | null): string {
+  if (est == null) return '';
+  if (subtotal != null && discountPct) return tr(`Price ${taka(subtotal)} − ${discountPct}% off = about ${taka(est)}`, `দাম ${taka(subtotal)} − ${num(discountPct)}% ছাড় = আনুমানিক ${taka(est)}`);
+  return estimateText(est);
+}
 export const discountText = (d: number | null | undefined) => (d ? tr(`${num(d)}% off all tests`, `সব পরীক্ষায় ${num(d)}% ছাড়`) : '');
 export const homeFeeText = (fee: number | null | undefined) =>
   fee == null ? '' : fee === 0 ? tr('Sample from home: free', 'বাসা থেকে নমুনা: ফ্রি') : tr(`Sample from home: ${taka(fee)}`, `বাসা থেকে নমুনা: ${taka(fee)}`);

@@ -127,7 +127,27 @@ data class RxActivity(val meds: List<MedStat>, val dispensed: List<Dispensing>, 
 data class PharmOption(
     val id: String, val name: String, val phone: String, val address: String, val km: Double?, val openNow: Boolean, val keepsStock: Boolean,
     val have: Int, val total: Int, val missing: List<String>, val online: Boolean = false, val deliveryFee: String = "", val onlineNote: String = "",
+    /** আনুমানিক খরচ (দোকানের হিসাব-খাতার দাম থেকে) — একটারও দাম না জানলে null */
+    val estimate: PharmEstimate? = null,
 )
+/** total: পুরো টাকা; priced: কয়টা ওষুধের দাম জানা; of: কেনা বাকি কয়টা */
+data class PharmEstimate(val total: Int, val priced: Int, val of: Int)
+
+/** ফার্মেসির আনুমানিক খরচের লেখা (বাছাইয়ের তালিকা আর দোকানের পাতা থেকে পাঠানো) */
+object PharmEstimateText {
+    /** "আনুমানিক ৳৪৮০ (৫টার মধ্যে ৪টার দাম জানা)" / "আনুমানিক ৳৪৮০" / "দাম দোকানে জেনে নিন" */
+    fun line(e: PharmEstimate?): String = when {
+        e == null -> tr("Ask the shop for the price", "দাম দোকানে জেনে নিন")
+        e.priced < e.of -> tr("About ${LabPriceText.taka(e.total)} (price known for ${e.priced} of ${e.of})", "আনুমানিক ${LabPriceText.taka(e.total)} (${num(e.of)}টার মধ্যে ${num(e.priced)}টার দাম জানা)")
+        else -> tr("About ${LabPriceText.taka(e.total)}", "আনুমানিক ${LabPriceText.taka(e.total)}")
+    }
+    /** দোকানের পাতা থেকে: "এখানে আছে ৩/৫টা ওষুধ; নেই: X, Y" — স্টকের তালিকা না রাখলে "স্টকের তালিকা রাখে না — দোকানে জেনে নিন" */
+    fun here(p: PharmOption): String = when {
+        !p.keepsStock -> tr("Doesn't keep a stock list — ask at the shop", "স্টকের তালিকা রাখে না — দোকানে জেনে নিন")
+        else -> tr("Has ${p.have}/${p.total} medicines", "এখানে আছে ${num(p.have)}/${num(p.total)}টা ওষুধ") +
+            if (p.missing.isNotEmpty()) tr("; missing: ", "; নেই: ") + p.missing.joinToString(", ") else ""
+    }
+}
 data class PharmRx(val id: String, val code: String, val status: String, val createdAt: Long, val doctorName: String, val regNo: String, val patientName: String, val patientAge: Int?, val meds: List<MedStat>, val dispensed: List<Dispensing>)
 data class PharmOrder(
     val id: String, val code: String, val patientName: String, val note: String, val status: String, val createdAt: Long,
@@ -211,12 +231,17 @@ object RxNet {
     }
 
     /** mode "shop": দোকানে দাঁড়িয়ে (কাছেরটা আগে); "online": অনলাইনে বিক্রি করা দোকান */
-    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?, mode: String, q: String = ""): List<PharmOption> =
-        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).put("mode", mode).put("q", q).apply { if (lat != null && lng != null) put("lat", lat).put("lng", lng) })
+    /** placeId: দোকানের নিজের পাতা থেকে — শুধু সেই দোকান (দূরে হলেও, অনলাইনে না নিলেও) */
+    suspend fun pharmacyOptions(rxId: String, district: String, lat: Double?, lng: Double?, mode: String, q: String = "", placeId: String? = null): List<PharmOption> =
+        call("rx_pharmacy_options", JSONObject().put("rxId", rxId).put("district", district).put("mode", mode).put("q", q).apply {
+            if (lat != null && lng != null) put("lat", lat).put("lng", lng)
+            if (placeId != null) put("placeId", placeId)
+        })
             .optJSONArray("items").objs().map {
                 PharmOption(it.str("id"), it.str("name"), it.str("phone"), it.str("address"), if (it.isNull("km")) null else it.optDouble("km"),
                     it.optBoolean("openNow"), it.optBoolean("keepsStock"), it.optInt("have"), it.optInt("total"), it.optJSONArray("missing").strings(),
-                    it.optBoolean("online"), it.str("deliveryFee"), it.str("onlineNote"))
+                    it.optBoolean("online"), it.str("deliveryFee"), it.str("onlineNote"),
+                    it.optJSONObject("estimate")?.let { e -> PharmEstimate(e.optInt("total"), e.optInt("priced"), e.optInt("of")) })
             }
 
     suspend fun sendPharmacy(rxId: String, pharmacyId: String, mode: String = "shop", address: String = "", phone: String = "", note: String = "") =
@@ -240,8 +265,12 @@ object RxNet {
      * এই প্রেসক্রিপশনের পরীক্ষা কোন প্যাথলজিতে কয়টা হয়, আনুমানিক কত
      * (সার্ভার সাজায়: ডাক্তারের বলা জায়গা → বেশি পরীক্ষা → কম দাম → কাছে — উপজেলা দিলে একই উপজেলা আগে)
      */
-    suspend fun labOptions(rxId: String, district: String, upazilaId: Int?, tests: List<String>): LabOptions {
-        val o = call("rx_lab_options", JSONObject().put("rxId", rxId).put("district", district).put("tests", JSONArray(tests)).apply { if (upazilaId != null) put("upazilaId", upazilaId) })
+    /** placeId: প্যাথলজির নিজের পাতা থেকে — শুধু সেই প্যাথলজি */
+    suspend fun labOptions(rxId: String, district: String, upazilaId: Int?, tests: List<String>, placeId: String? = null): LabOptions {
+        val o = call("rx_lab_options", JSONObject().put("rxId", rxId).put("district", district).put("tests", JSONArray(tests)).apply {
+            if (upazilaId != null) put("upazilaId", upazilaId)
+            if (placeId != null) put("placeId", placeId)
+        })
         val last = o.optJSONObject("lastHome")
         return LabOptions(
             o.optJSONArray("items").objs().map {
@@ -840,6 +869,7 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
                                 R.drawable.ic_local_shipping to if (mode == "online" && p.deliveryFee.isNotBlank()) tr("Delivery: ", "ডেলিভারি: ") + p.deliveryFee else "",
                                 R.drawable.ic_info to if (mode == "online") p.onlineNote else "",
                                 R.drawable.ic_info to if (p.keepsStock && p.missing.isNotEmpty()) tr("Missing: ", "নেই: ") + p.missing.joinToString(", ") else "",
+                                R.drawable.ic_payments to PharmEstimateText.line(p.estimate),
                             ),
                             primary = CardAction(
                                 if (busy == p.id) "…" else if (mode == "online") tr("Order", "অর্ডার করুন") else tr("Send here", "এই দোকানে দিন"),
@@ -872,6 +902,7 @@ private fun OnlineOrderDialog(rx: Rx, p: PharmOption, profile: Profile, onDismis
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (p.deliveryFee.isNotBlank()) IconLine(R.drawable.ic_local_shipping, tr("Delivery: ", "ডেলিভারি: ") + p.deliveryFee)
                 if (p.keepsStock && p.missing.isNotEmpty()) SmallNote(tr("May not have: ", "না-ও থাকতে পারে: ") + p.missing.joinToString(", "))
+                IconLine(R.drawable.ic_payments, PharmEstimateText.line(p.estimate))
                 OutlinedTextField(address, { address = it.take(200) }, label = { Text(tr("Delivery address", "কোথায় পৌঁছাবে (ঠিকানা)")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     phone, { phone = it.take(20) },
@@ -959,7 +990,7 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only:
         if (!first) delay(450)
         first = false
         val tests = chosen.toList()
-        runCatching { RxNet.labOptions(rx.id, d, upazilaId, tests) }.onSuccess { opts = it; errorMsg = null }.onFailure {
+        runCatching { RxNet.labOptions(rx.id, d, upazilaId, tests, only?.id) }.onSuccess { opts = it; errorMsg = null }.onFailure {
             if (it is kotlinx.coroutines.CancellationException) throw it
             errorMsg = it.message
             opts = LabOptions(emptyList(), "", "")
@@ -1005,11 +1036,14 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only:
                             title = lab.name,
                             icon = R.drawable.ic_local_hospital,
                             status = if (o.suggested) CardStatus(tr("Doctor suggested", "ডাক্তারের সুপারিশ"), true) else null,
-                            // একটাও না হলে দাম নয় (৳০ নয়)
-                            subtitle = if (o.priced) LabPriceText.coverEstimate(o.have ?: 0, o.total, o.estimate) else LabPriceText.noPrice(),
-                            meta = if (o.priced) LabPriceText.discount(o.discountPct).ifBlank { null } else null,
+                            // একটাও না হলে দাম নয় (৳০ নয়); প্যাথলজির পাতা থেকে এলে "এখানে হয় ৩/৪টা পরীক্ষা; হয় না: X" আর দামের ভাঙা হিসাব
+                            subtitle = if (!o.priced) LabPriceText.noPrice()
+                            else if (only != null) LabPriceText.here(o.have ?: 0, o.total, o.missing)
+                            else LabPriceText.coverEstimate(o.have ?: 0, o.total, o.estimate),
+                            meta = if (o.priced && only == null) LabPriceText.discount(o.discountPct).ifBlank { null } else null,
                             details = listOf(
-                                R.drawable.ic_warning to if (o.priced && o.missing.isNotEmpty()) tr("Not here: ", "এখানে হয় না: ") + o.missing.joinToString(", ") else "",
+                                R.drawable.ic_payments to if (o.priced && only != null) LabPriceText.breakdown(o.subtotal, o.discountPct, o.estimate) else "",
+                                R.drawable.ic_warning to if (o.priced && only == null && o.missing.isNotEmpty()) tr("Not here: ", "এখানে হয় না: ") + o.missing.joinToString(", ") else "",
                                 R.drawable.ic_schedule to if (o.tat.isNotBlank()) tr("Report: ", "রিপোর্ট: ") + o.tat else "",
                                 R.drawable.ic_home_health to if (lab.homeCollection) listOf(
                                     tr("Sample from home", "বাসা থেকে নমুনা নেয়"),
@@ -1655,28 +1689,36 @@ private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onPick: (Rx) ->
 }
 
 /**
- * ফার্মেসির পাতা থেকে: দোকানে গিয়ে নেব (সাথে সাথে পাঠানো), অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার (ঠিকানা-ফোন-নোট)।
- * দোকান অনলাইনে নেয় কিনা: rx_pharmacy_options (online, দোকানের নাম দিয়ে) — ডেলিভারি চার্জ আর কোন ওষুধ নেই তা-ও আসে।
+ * ফার্মেসির পাতা থেকে: আগে এই দোকানের হিসাব (কয়টা ওষুধ আছে, কোনটা নেই, আনুমানিক খরচ), তারপর দোকানে গিয়ে নেব (সাথে সাথে পাঠানো),
+ * অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার (ঠিকানা-ফোন-নোট)।
+ * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
 @Composable
 private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
-    // null = খোঁজা চলছে; Result-এর ভেতরে null = অনলাইনে নেয় না
+    // null = খোঁজা চলছে; Result-এর ভেতরে null = দোকানের হিসাব পাওয়া যায়নি
     var online by remember { mutableStateOf<Result<PharmOption?>?>(null) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var ordering by remember { mutableStateOf<PharmOption?>(null) }
     LaunchedEffect(rx.id, p.id) {
-        online = runCatching { RxNet.pharmacyOptions(rx.id, p.district, null, null, "online", p.name.take(60)).firstOrNull { it.id == p.id } }
+        online = runCatching { RxNet.pharmacyOptions(rx.id, p.district, null, null, "shop", placeId = p.id).firstOrNull { it.id == p.id } }
             .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
     }
-    val opt = online?.getOrNull()
+    val here = online?.getOrNull()
+    val opt = here?.takeIf { it.online }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(p.name) },
         text = {
             Column {
+                // পাঠানোর আগে এই দোকানের হিসাব
+                if (here != null) {
+                    IconLine(if (here.keepsStock) R.drawable.ic_check_circle else R.drawable.ic_info, PharmEstimateText.here(here))
+                    IconLine(R.drawable.ic_payments, PharmEstimateText.line(here.estimate))
+                    Spacer(Modifier.height(4.dp))
+                }
                 ListItem(
                     headlineContent = { Text(tr("I'll go to the shop", "দোকানে গিয়ে নেব")) },
                     leadingContent = { AppIcon(R.drawable.ic_storefront, null, tint = cs.primary) },
@@ -1692,7 +1734,7 @@ private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss:
                     },
                 )
                 when {
-                    online == null -> SmallNote(tr("Checking online orders…", "অনলাইন অর্ডার নেয় কিনা দেখা হচ্ছে…"))
+                    online == null -> SmallNote(tr("Checking this shop…", "এই দোকানের হিসাব দেখা হচ্ছে…"))
                     opt != null -> ListItem(
                         headlineContent = { Text(tr("Order online — home delivery", "অনলাইনে অর্ডার — বাসায় ডেলিভারি")) },
                         supportingContent = if (opt.deliveryFee.isNotBlank()) ({ Text(tr("Delivery: ", "ডেলিভারি: ") + opt.deliveryFee) }) else null,

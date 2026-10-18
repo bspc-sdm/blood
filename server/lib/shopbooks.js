@@ -131,22 +131,87 @@ function itemView(id, x, stockKeys, now = Date.now()) {
 
 const stockKeysOf = (s) => new Set((s && s.exists && s.get('keys')) || []);
 
+// ---------------------------------------------------------------------------
+// রোগীর আনুমানিক খরচের জন্য দাম (পারভেজ, ১৮ অক্টোবর ২০২৬): pharmacyStock/{uid}.prices = { চাবি: ছাড় বাদে বিক্রি দাম }
+// — রোগী প্রেসক্রিপশন পাঠানোর আগে প্রতিটা দোকানে "আনুমানিক ৳…" দেখেন (rx_pharmacy_options একটা ডকই পড়ে)।
+// শুধু মোট দেখানো হয়, আলাদা ওষুধের দাম রোগী পান না। পাতা/বাক্সের দাম বাদ: পাতায় কয়টা জানা নেই, পিস ধরে গুণ করলে ভুল হতো।
+// ---------------------------------------------------------------------------
+const PACK_UNITS = ['strip', 'box'];
+// ডকের সীমা (১ MiB) থেকে দূরে: names + keys-এর পাশে দামের ভাগ সর্বোচ্চ ~১০০ KB (চাবির বাইট + ৯)
+const PRICE_BYTES = 100 * 1000;
+
+/** পণ্যের রোগীকে দেখানোর দাম (প্রতি পিস/বোতল/টিউব…) — না জানলে বা পাতা/বাক্সের দাম হলে null */
+function patientPriceOf(x) {
+  if (!x || typeof x.price !== 'number' || PACK_UNITS.includes(x.unit)) return null;
+  const v = r2(x.price - unitDiscOf(x.price, x.disc));
+  return v > 0 ? v : null;
+}
+
+/** দামের ভাগ ছোট রাখা: Firestore-এর বিশেষ নাম বাদ; বেশি হলে স্টকে থাকাগুলো আগে (চাবির ক্রমে), সীমা পর্যন্ত */
+function capPrices(prices, inStock = new Set()) {
+  const ents = Object.entries(prices || {}).filter(([k, v]) => k && !/^__.*__$/.test(k) && typeof v === 'number' && v > 0);
+  const size = (k) => Buffer.byteLength(k) + 9;
+  if (ents.length <= MAX_ITEMS && ents.reduce((a, [k]) => a + size(k), 0) <= PRICE_BYTES) return Object.fromEntries(ents);
+  ents.sort(([a], [b]) => (Number(inStock.has(b)) - Number(inStock.has(a))) || (a < b ? -1 : a > b ? 1 : 0));
+  const out = {};
+  let used = 0;
+  let n = 0;
+  for (const [k, v] of ents) {
+    if (n >= MAX_ITEMS || used + size(k) > PRICE_BYTES) continue;
+    out[k] = v;
+    used += size(k);
+    n++;
+  }
+  return out;
+}
+
+/** পণ্যের তালিকা থেকে পুরো দামের ভাগ (পুরোনো দোকানে একবার বসানো, ডেমো) */
+function pricesFromItems(list, inStock) {
+  const out = Object.create(null);
+  for (const x of list) {
+    const p = patientPriceOf(x);
+    if (p != null) out[x.key || key(x.name)] = p;
+  }
+  return capPrices(out, inStock);
+}
+
 /**
  * স্টকের নামের তালিকা বদলানো (rxnet.js-এর stock_set-এর একই আকার: names সাজানো, keys, updatedAt) —
  * পণ্যের হিসাবের একই transaction-এ, যাতে দুটো কখনো আলাদা না হয়। পড়া আগে (t.get), এটা লেখার সময়।
+ * prices: Map(চাবি → দাম | null) — এই কাজে যেসব পণ্যের দাম বদলাল (null = সরানো); বাকি দাম যেমন ছিল তেমন থাকে।
  */
-function stockWrite(t, uid, snap, add, remove, req) {
-  if (!add.length && !remove.length) return;
+function stockWrite(t, uid, snap, add, remove, req, prices = null) {
   const cur = (snap.exists && snap.get('names')) || [];
   const map = new Map(cur.map((n) => [key(n), n]));
   let changed = false;
   for (const n of add) if (!map.has(key(n))) { map.set(key(n), n); changed = true; }
   for (const n of remove) if (map.delete(key(n))) changed = true;
-  if (!changed) return;
-  const list = [...map.values()].sort((a, b) => a.localeCompare(b));
+  const was = (snap.exists && snap.get('prices')) || {};
+  // প্রোটোটাইপ ছাড়া (ওষুধের নাম "constructor" হলেও ভুল নয়)
+  const nextPrices = Object.assign(Object.create(null), was);
+  let pChanged = false;
+  for (const [k, v] of prices || []) {
+    if (v == null) { if (k in nextPrices) { delete nextPrices[k]; pChanged = true; } } else if (nextPrices[k] !== v) { nextPrices[k] = v; pChanged = true; }
+  }
+  if (!changed && !pChanged) return;
+  const list = changed ? [...map.values()].sort((a, b) => a.localeCompare(b)) : cur;
   // সীমা পেরোলে চুপচাপ কোনো নাম বাদ নয় (stock_set-এর মতো জানানো) — শুধু নাম বাড়লে; সরানোয় কখনো আটকায় না
   if (list.length > MAX_ITEMS && list.length > cur.length) throw err(req, `Up to ${MAX_ITEMS} medicines`, `সর্বোচ্চ ${MAX_ITEMS}টা ওষুধ`);
-  t.set(stockRef(uid), { names: list, keys: list.map(key), updatedAt: Date.now() });
+  const keys = list.map(key);
+  // পুরো ডক লেখা (merge নয় — merge-এ সরানো দাম থেকে যেত); pricesAll (পুরোনো দোকানের একবারের ভরাট হয়েছে) রাখা
+  t.set(stockRef(uid), {
+    names: list, keys, prices: capPrices(nextPrices, new Set(keys)),
+    ...(snap.exists && snap.get('pricesAll') ? { pricesAll: true } : {}), updatedAt: Date.now(),
+  });
+}
+
+/** একটা পণ্যের দাম বদলের তালিকায় (নাম বদলালে পুরোনো চাবির দাম সরে) */
+function priceChange(prices, before, after) {
+  const kb = before ? before.key || key(before.name) : null;
+  const ka = after ? after.key || key(after.name) : null;
+  if (kb && kb !== ka) prices.set(kb, null);
+  if (ka) prices.set(ka, patientPriceOf(after));
+  return prices;
 }
 
 /** পরিমাণ বদলালে স্টকের তালিকা: ০ হলে সরে, ০ থেকে বাড়লে আসে (পরিমাণ না জানলে বদলায় না) */
@@ -400,7 +465,7 @@ const actions = {
         }
         t.set(ref, next);
       }
-      stockWrite(t, user.uid, st, add, remove.filter((n) => !add.includes(n)), req);
+      stockWrite(t, user.uid, st, add, remove.filter((n) => !add.includes(n)), req, priceChange(new Map(), s.exists ? s.data() : null, next));
       const keys = stockKeysOf(st);
       add.forEach((n) => keys.add(key(n)));
       remove.filter((n) => !add.includes(n)).forEach((n) => keys.delete(key(n)));
@@ -417,7 +482,7 @@ const actions = {
     await db.runTransaction(async (t) => {
       const [s, st] = [await t.get(itemRef(user.uid, id)), await t.get(stockRef(user.uid))];
       if (!s.exists) return;
-      stockWrite(t, user.uid, st, [], [s.get('name')], req);
+      stockWrite(t, user.uid, st, [], [s.get('name')], req, priceChange(new Map(), s.data(), null));
       t.delete(itemRef(user.uid, id));
     });
     return { ok: true };
@@ -496,13 +561,15 @@ const actions = {
         cur.set(l.id, x);
         saved.push({ itemId: l.id, name: x.name, qty: l.qty, unitCost: l.unitCost, expiry: l.expiry, total: l.unitCost != null ? r2(l.qty * l.unitCost) : null });
       }
+      const prices = new Map();
       for (const id of ids) {
         const x = cur.get(id);
         t.set(itemRef(user.uid, id), x);
         // কেনার পরের দাম/মেয়াদ — মোছার সময় এর পরে কেউ হাতে বদলে থাকলে সেটা রাখা হয়
         undo[id].after = { cost: x.cost ?? null, price: x.price ?? null, expiry: x.expiry ?? null };
+        priceChange(prices, null, x);
       }
-      stockWrite(t, user.uid, st, add, remove, req);
+      stockWrite(t, user.uid, st, add, remove, req, prices);
       const doc = {
         at, day: dayKey(at), supplier: str(b.supplier, 80), note: str(b.note, 200), lines: saved, undo,
         total: r2(saved.reduce((a, l) => a + (l.total || 0), 0)), createdAt: now,
@@ -538,6 +605,7 @@ const actions = {
       const st = await t.get(stockRef(user.uid));
       const add = [];
       const remove = [];
+      const prices = new Map();
       const same = (a, c) => (a ?? null) === (c ?? null);
       snaps.forEach((it, k) => {
         if (!it.exists) return;
@@ -564,8 +632,9 @@ const actions = {
         // এই কেনায় বদলানো কেনা দাম/বিক্রি দাম/মেয়াদ আগেরটায় — পরে হাতে বদলানো হলে সেটাই থাকে
         for (const f of ['cost', 'price', 'expiry']) if (u.after && same(x[f], u.after[f]) && !same(x[f], u[f])) up[f] = u[f] ?? null;
         t.update(it.ref, up);
+        if ('price' in up) priceChange(prices, null, { ...x, ...up });
       });
-      stockWrite(t, user.uid, st, add, remove, req);
+      stockWrite(t, user.uid, st, add, remove, req, prices);
       t.delete(ref);
       dayAdd(t, user.uid, p.day, { purchases: -1, bought: -(p.total || 0) });
     });
@@ -942,10 +1011,51 @@ async function stripSalePatientNames(now = Date.now(), maxPages = 20) {
   return { done, cleaned };
 }
 
+/**
+ * একবারের ভরাট (১৮ অক্টোবর ২০২৬): দামের ভাগ আসার আগের দোকানে pharmacyStock/{uid}.prices পণ্য থেকে বসানো।
+ * stripSalePatientNames-এর মতো: pharmacyStock পাতায় পাতায়, অগ্রগতি maintenance/stockPrices-এ, শেষ হলে done।
+ * প্রতিটা দোকান নিজের transaction-এ (স্টকের ডক + পণ্য একসাথে পড়ে) — একই সময়ে দোকান দাম বদলালেও পুরোনো দাম বসে না;
+ * pricesAll থাকলে আর ছোঁয়া হয় না (পরের সব বদল stockWrite নিজেই লেখে)।
+ */
+async function backfillStockPrices(now = Date.now(), maxPages = 4) {
+  const ref = db.doc('maintenance/stockPrices');
+  const st = await ref.get();
+  if (st.exists && st.get('done')) return { done: true, filled: 0 };
+  const PAGE = 50;
+  const q = db.collection('pharmacyStock');
+  let last = null;
+  const lastPath = st.exists ? st.get('last') : null;
+  if (lastPath) {
+    const ls = await db.doc(lastPath).get();
+    if (ls.exists) last = ls;
+  }
+  let filled = 0;
+  let done = false;
+  const fill = async (d) => {
+    if (d.get('pricesAll') || !R.isValidId(d.id)) return;
+    await db.runTransaction(async (t) => {
+      const s = await t.get(stockRef(d.id));
+      if (!s.exists || s.get('pricesAll')) return;
+      const items = await t.get(itemsCol(d.id).limit(MAX_ITEMS));
+      t.update(s.ref, { prices: pricesFromItems(items.docs.map((x) => x.data()), stockKeysOf(s)), pricesAll: true });
+      filled++;
+    }).catch((e) => console.error('stock prices backfill failed', d.id, e.message));
+  };
+  for (let page = 0; page < maxPages; page++) {
+    const s = await (last ? q.startAfter(last) : q).limit(PAGE).get();
+    // ১০টা করে একসাথে (ক্রনের সময়ের মধ্যে)
+    for (let i = 0; i < s.docs.length; i += 10) await Promise.all(s.docs.slice(i, i + 10).map(fill));
+    if (s.size < PAGE) { done = true; break; }
+    last = s.docs[s.docs.length - 1];
+  }
+  await ref.set(done ? { done: true, doneAt: now } : { last: last ? last.ref.path : null, updatedAt: now }, { merge: true });
+  return { done, filled };
+}
+
 /** অ্যাকাউন্ট মোছা: পণ্য আর পুরো হিসাব-খাতা */
 async function deleteFor(uid) {
   if (!R.isValidId(uid)) return;
   await Promise.all([db.recursiveDelete(db.doc(`shopItems/${uid}`)), db.recursiveDelete(db.doc(`shopBooks/${uid}`))]);
 }
 
-module.exports = { actions, deleteFor, stripSalePatientNames, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };
+module.exports = { actions, deleteFor, stripSalePatientNames, backfillStockPrices, pricesFromItems, patientPriceOf, capPrices, PRICE_BYTES, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };

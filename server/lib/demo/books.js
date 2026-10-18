@@ -182,5 +182,9 @@ module.exports = {
         disc: it.disc, lowAt: it.lowAt, expiry: it.expiry, lastSaleAt: it.lastSaleAt, createdAt: now - 90 * DAY, updatedAt: now - DAY,
       });
     }
+
+    // ---------- রোগীর আনুমানিক খরচের দাম (আসল দোকানের মতো stockWrite যা রাখত) — সেবা ভাগের স্টকের নামের পাশে ----------
+    const inStock = new Set(items.filter((it) => it.finalQty > 0).map((it) => B.key(it.name)));
+    await ctx.set(`pharmacyStock/${PH}`, { prices: B.pricesFromItems(items, inStock), pricesAll: true }, { merge: true });
   },
 };

@@ -139,8 +139,15 @@ module.exports = handler(
     } catch (e) {
       console.error('sale patient name cleanup failed', e);
     }
+    // পুরোনো দোকানে রোগীর আনুমানিক খরচের দাম (pharmacyStock.prices) একবার বসানো
+    let stockPrices = null;
+    try {
+      stockPrices = await require('../../lib/shopbooks').backfillStockPrices(now);
+    } catch (e) {
+      console.error('stock prices backfill failed', e);
+    }
 
-    return { ok: true, privacy, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders };
+    return { ok: true, privacy, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders, stockPrices };
   },
   { methods: ['GET'] },
 );

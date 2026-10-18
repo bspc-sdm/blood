@@ -62,6 +62,9 @@ test('ফার্মেসি: দোকান, রোগী, কেয়া�
   LOG(`রোগীর প্রেসক্রিপশন: ${mine.length}টা`);
   const opts = (await ok(P, 'rx_pharmacy_options', { rxId: 'demo-svc-rx-d', district: DISTRICT, mode: 'online' })).items;
   assert.ok(opts.some((o) => o.id === PH), 'অনলাইনে ডেমো ফার্মেসি বাছাই করা যায়');
+  const est = opts.find((o) => o.id === PH).estimate;
+  LOG('ডেমো ফার্মেসিতে আনুমানিক খরচ', JSON.stringify(est));
+  assert.ok(est && est.total > 0 && est.priced > 0, 'ডেমো ফার্মেসিতে আনুমানিক খরচ দেখা যায় (হিসাব-খাতার দাম)');
   assert.ok(opts.every((o) => o.id.startsWith('demo-')), 'ডেমো রোগী শুধু ডেমো দোকান দেখেন? (না হলে আসল দোকানও আসে)');
   const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, চরপাড়া', phone: '01700000159' });
   LOG('রোগী অনলাইন অর্ডার পাঠালেন');

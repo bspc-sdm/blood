@@ -81,6 +81,33 @@ function medStatus(rx) {
 }
 
 /**
+ * দোকানে আনুমানিক খরচ: স্টকে আছে আর দাম জানা ওষুধে দাম × বাকি পরিমাণ (দাম = দোকানের ছাড় বাদে বিক্রি দাম, প্রতি পিস/বোতল…)।
+ * পরিমাণ না জানলে: সিরাপ/মলম/ড্রপ ইত্যাদি (গোনা যায় না) ১টা ধরা; ট্যাবলেট/ক্যাপসুলে কয়টা জানা নেই — দাম ধরা হয় না।
+ * { total (পুরো টাকা), priced (কয়টার দাম জানা), of (কেনা বাকি কয়টা) } — একটারও দাম না জানলে null।
+ */
+function pharmacyEstimate(wanted, keys, prices) {
+  if (!prices) return null;
+  let sum = 0;
+  let priced = 0;
+  for (const w of wanted) {
+    if (!keys.has(w.k)) continue;
+    const p = Object.prototype.hasOwnProperty.call(prices, w.k) ? prices[w.k] : null;
+    if (typeof p !== 'number' || !(p > 0)) continue;
+    const q = w.left != null ? w.left : w.countable ? null : 1;
+    if (!(q > 0)) continue;
+    sum += p * q;
+    priced++;
+  }
+  return priced ? { total: Math.round(sum), priced, of: wanted.length } : null;
+}
+
+/** placeId-এর একটা দোকান/প্যাথলজি: অনুমোদিত আর এই জেলার হলে [ডক], নইলে [] */
+async function onePlace(col, id, district) {
+  const d = await db.doc(`${col}/${id}`).get();
+  return d.exists && d.get('status') === 'approved' && d.get('district') === district ? [d] : [];
+}
+
+/**
  * কবে মনে করাতে হবে: কেনা ওষুধ (গোনা যায়, নিয়ম জানা) যেদিন শেষ হবে তার ২ দিন আগে —
  * পুরো কোর্স কেনা হয়ে গেলে নয়; "চলবে" ওষুধে সবসময়। ঢাকার তারিখ (UTC মধ্যরাত), না থাকলে null।
  */
@@ -599,16 +626,21 @@ const actions = {
     const mode = ['shop', 'online'].includes(b.mode) ? b.mode : null;
     // দোকানের নাম দিয়ে খোঁজা (দোকানে দাঁড়িয়ে) — দূরত্বের সীমা ছাড়া পুরো জেলায়
     const q = typeof b.q === 'string' ? b.q.trim().toLowerCase().slice(0, 60) : '';
-    const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name) }));
+    // কেনা বাকি ওষুধ: কতটা বাকি (left), গোনা যায় কি না — আনুমানিক খরচের জন্য
+    const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name), left: m.left, countable: countable(m) }));
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     const hasLoc = typeof b.lat === 'number' && typeof b.lng === 'number';
+    // placeId: দোকানের নিজের পাতা থেকে পাঠানো — শুধু সেই দোকান (দূরে বা অন্য উপজেলায় হলেও; একই জেলা আর একই ডেমো/আসল জগৎ)
+    const placeId = R.isValidId(b.placeId) ? b.placeId : null;
     // ডেমো: ডেমো রোগী শুধু ডেমো দোকান, আসল রোগী শুধু আসল দোকান (ডেমো মুছলে filter অংশ মুছবেন)
-    const docs = (await require('./pharmacy').areaPharmacies(b.district, upazilaId)).filter((d) => require('./demo').sameWorld(user.uid, d.id));
+    const docs = (placeId ? await onePlace('pharmacies', placeId, b.district) : await require('./pharmacy').areaPharmacies(b.district, upazilaId))
+      .filter((d) => require('./demo').sameWorld(user.uid, d.id));
     const near = docs.map((d) => {
       const x = d.data();
       const km = hasLoc && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
       return { d, x, km, on: onlineOf(x) };
     }).filter((p) => {
+      if (placeId) return true;
       if (q) return String(p.x.name || '').toLowerCase().includes(q) && (mode !== 'online' || p.on.enabled);
       if (mode === 'online') {
         if (!p.on.enabled) return false;
@@ -620,6 +652,7 @@ const actions = {
     const items = near.map((p, i) => {
       const keys = new Set(stocks[i].exists ? stocks[i].get('keys') || [] : []);
       const has = wanted.filter((w) => keys.has(w.k));
+      const prices = stocks[i].exists ? stocks[i].get('prices') || null : null;
       return {
         id: p.d.id,
         name: p.x.name,
@@ -634,6 +667,7 @@ const actions = {
         online: p.on.enabled,
         deliveryFee: p.on.fee,
         onlineNote: p.on.note,
+        estimate: pharmacyEstimate(wanted, keys, prices),
       };
     });
     if (mode === 'shop') items.sort((a, c) => (a.km ?? 99) - (c.km ?? 99));
@@ -854,7 +888,9 @@ const actions = {
       for (const k of remove) map.delete(k);
       if (map.size > 3000) throw err(req, 'Up to 3000 medicines', 'সর্বোচ্চ ৩০০০টা ওষুধ');
       const list = [...map.values()].sort((a, b) => a.localeCompare(b));
-      t.set(ref, { names: list, keys: list.map(key), updatedAt: Date.now() });
+      // হিসাব-খাতার পণ্যের দাম (shopbooks.js, রোগীর আনুমানিক খরচ) যেমন আছে তেমন থাকে
+      const keep = s.exists ? { ...(s.get('prices') ? { prices: s.get('prices') } : {}), ...(s.get('pricesAll') ? { pricesAll: true } : {}) } : {};
+      t.set(ref, { names: list, keys: list.map(key), ...keep, updatedAt: Date.now() });
       return list;
     });
     return { items: names };
@@ -962,8 +998,13 @@ const actions = {
     const place = s.get('testPlaceId') || null;
     await LT.load();
     const total = LP.countTests(wanted);
-    const area = await areaLabs(b.district);
-    const pm = await LP.pricesFor(b.district, area.map((d) => d.id));
+    // placeId: প্যাথলজির নিজের পাতা থেকে পাঠানো — শুধু সেটা (জেলার তালিকার সীমার বাইরে হলেও), দাম সরাসরি পড়া
+    // (pricesFor-এর জেলার ক্যাশে একটা প্যাথলজির দাম রাখলে অন্যদের তালিকা ভুল হতো)
+    const placeId = R.isValidId(b.placeId) ? b.placeId : null;
+    const area = placeId ? await onePlace('labs', placeId, b.district) : await areaLabs(b.district);
+    const pm = placeId
+      ? new Map(area.length ? [[placeId, await db.doc(`labPrices/${placeId}`).get().then((p) => (p.exists ? p.data() : null))]].filter(([, v]) => v) : [])
+      : await LP.pricesFor(b.district, area.map((d) => d.id));
     // ডেমো: ডেমো রোগী শুধু ডেমো প্যাথলজি, আসল রোগী শুধু আসল (ডেমো মুছলে filter অংশ মুছবেন)
     const items = area.filter((d) => require('./demo').sameWorld(user.uid, d.id)).map((d) => {
       const x = d.data();
@@ -1407,4 +1448,4 @@ async function refillReminders(now = Date.now()) {
   return { sent };
 }
 
-module.exports = { actions, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };
+module.exports = { actions, pharmacyEstimate, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };

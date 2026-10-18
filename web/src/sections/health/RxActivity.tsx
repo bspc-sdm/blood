@@ -13,7 +13,7 @@ import { areaLabel } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import {
-  NO_PRICE, SLOT_KEYS, coverEstimateText, dayWord, discountText, homeEditable, homeFeeText, homeStatusPatient, slotPassed, slotText, snapText, taka,
+  NO_PRICE, SLOT_KEYS, breakdownText, coverEstimateText, dayWord, discountText, hereText, homeEditable, homeFeeText, homeStatusPatient, slotPassed, slotText, snapText, taka,
   type LabHome, type PriceSnap, type Slot,
 } from '@/lib/labprice';
 import { imgSrc, useFlash } from './common';
@@ -30,7 +30,23 @@ interface LabOrder {
 }
 interface RxReview { id: string; labOrderId: string; doctorName: string; status: string; fee: string; noFee: boolean; payNumber: string; payMethods: string[]; rejectNote: string; comment: string }
 interface Activity { medicines: MedStat[]; dispensed: Dispensing[]; orders: RxOrder[]; labOrders: LabOrder[]; reviews: RxReview[]; nextOpen: number | null }
-interface PharmOption { id: string; name: string; phone: string; address: string; km: number | null; openNow: boolean; keepsStock: boolean; have: number; total: number; missing: string[]; online: boolean; deliveryFee: string; onlineNote: string }
+interface PharmOption {
+  id: string; name: string; phone: string; address: string; km: number | null; openNow: boolean; keepsStock: boolean; have: number; total: number; missing: string[];
+  online: boolean; deliveryFee: string; onlineNote: string;
+  /** আনুমানিক খরচ (দোকানের হিসাব-খাতার দাম): total পুরো টাকা, priced কয়টার দাম জানা, of কেনা বাকি কয়টা — একটারও দাম না জানলে null */
+  estimate?: { total: number; priced: number; of: number } | null;
+}
+/** "আনুমানিক ৳৪৮০ (৫টার মধ্যে ৪টার দাম জানা)" / "আনুমানিক ৳৪৮০" / "দাম দোকানে জেনে নিন" */
+function pharmEstimateText(e: PharmOption['estimate']): string {
+  if (!e) return tr('Ask the shop for the price', 'দাম দোকানে জেনে নিন');
+  if (e.priced < e.of) return tr(`About ${taka(e.total)} (price known for ${e.priced} of ${e.of})`, `আনুমানিক ${taka(e.total)} (${num(e.of)}টার মধ্যে ${num(e.priced)}টার দাম জানা)`);
+  return tr(`About ${taka(e.total)}`, `আনুমানিক ${taka(e.total)}`);
+}
+/** দোকানের পাতা থেকে: "এখানে আছে ৩/৫টা ওষুধ; নেই: X, Y" — স্টকের তালিকা না রাখলে "স্টকের তালিকা রাখে না — দোকানে জেনে নিন" */
+function pharmHereText(p: PharmOption): string {
+  if (!p.keepsStock) return tr("Doesn't keep a stock list — ask at the shop", 'স্টকের তালিকা রাখে না — দোকানে জেনে নিন');
+  return tr(`Has ${p.have}/${p.total} medicines`, `এখানে আছে ${num(p.have)}/${num(p.total)}টা ওষুধ`) + (p.missing.length ? tr('; missing: ', '; নেই: ') + p.missing.join(', ') : '');
+}
 /** rx_lab_options — এই প্রেসক্রিপশনের পরীক্ষা কোথায় কয়টা হয়, আনুমানিক কত */
 interface LabOption {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; facilityId: string | null; homeCollection: boolean; hours: string;
@@ -519,6 +535,7 @@ function PharmacyPickDialog({ rx, mode, onClose, onSent }: { rx: Rx; mode: 'shop
                 ['local_shipping', online && p.deliveryFee ? tr('Delivery: ', 'ডেলিভারি: ') + p.deliveryFee : ''],
                 ['info', online ? p.onlineNote : ''],
                 ['warning', p.keepsStock && p.missing.length ? tr('Missing: ', 'নেই: ') + p.missing.join(', ') : ''],
+                ['payments', pharmEstimateText(p.estimate)],
               ]}
               primary={{ label: online ? tr('Order', 'অর্ডার করুন') : tr('Send here', 'এই দোকানে দিন'), icon: online ? 'local_shipping' : 'send', busy: busy === p.id, onClick: () => (online ? setOrdering(p) : send(p.id, p.name)) }}
               secondary={p.phone ? { label: tr('Call', 'ফোন'), icon: 'call', onClick: () => callTel(p.phone) } : null}
@@ -589,6 +606,7 @@ function OnlineOrderDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PharmOption;
     >
       {p.deliveryFee ? <IconLine icon="local_shipping">{tr('Delivery: ', 'ডেলিভারি: ') + p.deliveryFee}</IconLine> : null}
       {p.keepsStock && p.missing.length ? <span className="t-body-s muted">{tr('May not have: ', 'না-ও থাকতে পারে: ') + p.missing.join(', ')}</span> : null}
+      <IconLine icon="payments">{pharmEstimateText(p.estimate)}</IconLine>
       <TextArea label={tr('Delivery address', 'কোথায় পৌঁছাবে (ঠিকানা)')} rows={2} maxLength={200} value={address} onChange={(e) => setAddress(e.target.value)} />
       <TextInput label={tr('Mobile number', 'মোবাইল নম্বর')} type="tel" inputMode="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} />
       <TextInput label={tr('Note (optional)', 'নোট (ঐচ্ছিক)')} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -666,10 +684,12 @@ function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab;
   // চিপ টিপতে টিপতে প্রতিবার নয় — থামার ৪৫০ মিলিসেকেন্ড পর (সার্ভারে দিনের সীমাও আছে)
   const asked = useDebounced(chosen, 450);
   const q = useQuery({
-    queryKey: ['rx_lab_options', rx.id, area?.district, area?.upazilaId ?? null, asked.join('|'), care?.uid ?? null],
+    queryKey: ['rx_lab_options', rx.id, area?.district, area?.upazilaId ?? null, asked.join('|'), care?.uid ?? null, only?.id ?? null],
     queryFn: () =>
       call<{ items?: LabOption[]; lastHome?: LastHome | null }>('rx_lab_options', {
         rxId: rx.id, district: area!.district, tests: asked, ...(area?.upazilaId ? { upazilaId: area.upazilaId } : {}),
+        // প্যাথলজির পাতা থেকে: শুধু সেটা (জেলার তালিকার সীমার বাইরে হলেও)
+        ...(only ? { placeId: only.id } : {}),
       }),
     enabled: !!area && asked.length > 0,
     placeholderData: (prev) => prev,
@@ -728,10 +748,12 @@ function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab;
               title={lab.name}
               icon="local_hospital"
               status={lab.suggested ? { text: tr('Doctor suggested', 'ডাক্তারের সুপারিশ'), good: true } : null}
-              subtitle={lab.priced ? coverEstimateText(lab.have ?? 0, lab.total, lab.estimate) : NO_PRICE()}
-              meta={lab.priced && lab.discountPct ? discountText(lab.discountPct) : null}
+              // প্যাথলজির পাতা থেকে এলে: "এখানে হয় ৩/৪টা পরীক্ষা; হয় না: X" আর দামের ভাঙা হিসাব (দাম, ছাড়, মোট)
+              subtitle={!lab.priced ? NO_PRICE() : only ? hereText(lab.have ?? 0, lab.total, lab.missing) : coverEstimateText(lab.have ?? 0, lab.total, lab.estimate)}
+              meta={lab.priced && lab.discountPct && !only ? discountText(lab.discountPct) : null}
               details={[
-                ['warning', lab.priced && lab.missing.length ? tr('Not here: ', 'এখানে হয় না: ') + lab.missing.join(', ') : ''],
+                ['payments', lab.priced && only ? breakdownText(lab.subtotal, lab.discountPct, lab.estimate) : ''],
+                ['warning', lab.priced && !only && lab.missing.length ? tr('Not here: ', 'এখানে হয় না: ') + lab.missing.join(', ') : ''],
                 ['schedule', lab.tat ? tr('Report: ', 'রিপোর্ট: ') + lab.tat : ''],
                 ['home_health', lab.homeCollection ? [tr('Sample from home', 'বাসা থেকে নমুনা নেয়'), lab.homeFee != null ? (lab.homeFee ? taka(lab.homeFee) : tr('free', 'ফ্রি')) : ''].filter(Boolean).join(' · ') : ''],
                 ['location_on', lab.address],
@@ -1045,8 +1067,9 @@ function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: (
 }
 
 /**
- * ফার্মেসির পাতা থেকে: দোকানে গিয়ে নেব (সাথে সাথে পাঠানো), অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার।
- * দোকান অনলাইনে নেয় কিনা: rx_pharmacy_options (online, দোকানের নাম দিয়ে) — ডেলিভারি চার্জ আর কোন ওষুধ নেই তা-ও আসে।
+ * ফার্মেসির পাতা থেকে: আগে এই দোকানের হিসাব (কয়টা ওষুধ আছে, কোনটা নেই, আনুমানিক খরচ), তারপর দোকানে গিয়ে নেব (সাথে সাথে পাঠানো),
+ * অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার।
+ * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
 function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharmacy; onClose: () => void; onSent: () => void }) {
   const care = useCareMode();
@@ -1054,9 +1077,9 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
   const [err, setErr] = useState<string | null>(null);
   const [ordering, setOrdering] = useState<PharmOption | null>(null);
   const q = useQuery({
-    queryKey: ['rx_pharmacy_options', rx.id, 'online', p.district, null, p.name.slice(0, 60), null, null, p.id, care?.uid ?? null],
+    queryKey: ['rx_pharmacy_options', rx.id, 'place', p.district, null, '', null, null, p.id, care?.uid ?? null],
     queryFn: () =>
-      call<{ items?: PharmOption[] }>('rx_pharmacy_options', { rxId: rx.id, district: p.district, mode: 'online', q: p.name.slice(0, 60) })
+      call<{ items?: PharmOption[] }>('rx_pharmacy_options', { rxId: rx.id, district: p.district, mode: 'shop', placeId: p.id })
         .then((r) => (r.items ?? []).find((x) => x.id === p.id) ?? null),
     staleTime: 0,
   });
@@ -1072,13 +1095,21 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
       setBusy(false);
     }
   }
-  const online = q.data ?? null;
+  const here = q.data ?? null;
+  const online = here?.online ? here : null;
   return (
     <Dialog onClose={() => !busy && onClose()} size="small" title={p.name}>
+      {/* পাঠানোর আগে এই দোকানের হিসাব */}
+      {here ? (
+        <div className="col gap-4">
+          <IconLine icon={here.keepsStock ? 'check_circle' : 'info'}>{pharmHereText(here)}</IconLine>
+          <IconLine icon="payments">{pharmEstimateText(here.estimate)}</IconLine>
+        </div>
+      ) : null}
       <div className="col gap-4">
         <ListRow icon="storefront" title={tr("I'll go to the shop", 'দোকানে গিয়ে নেব')} trailing={busy ? <span className="spinner small" /> : undefined} onClick={shop} />
         {q.isPending ? (
-          <span className="t-body-s muted">{tr('Checking online orders…', 'অনলাইন অর্ডার নেয় কিনা দেখা হচ্ছে…')}</span>
+          <span className="t-body-s muted">{tr('Checking this shop…', 'এই দোকানের হিসাব দেখা হচ্ছে…')}</span>
         ) : online ? (
           <ListRow
             icon="local_shipping"
