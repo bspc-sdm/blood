@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
@@ -69,7 +70,11 @@ data class CardStatus(val text: String, val good: Boolean)
 data class CardAction(val label: String, @DrawableRes val icon: Int?, val onClick: () -> Unit)
 
 /** বিস্তারিত শিটের এক ভাগ: শিরোনাম, আইকনসহ লাইন, আর দরকার হলে ভাগের নিজের বাটন (যেমন চেম্বারের সিরিয়াল); rows: ছোট সারণি (প্যাথলজির পরীক্ষা ও দাম) */
-data class DetailSection(val title: String, val lines: List<Pair<Int, String>>, val actions: List<CardAction> = emptyList(), val rows: List<DetailRow> = emptyList())
+data class DetailSection(
+    val title: String, val lines: List<Pair<Int, String>>, val actions: List<CardAction> = emptyList(), val rows: List<DetailRow> = emptyList(),
+    /** ভাগের নিচে পুরো চওড়া ভরাট বাটন (যেমন "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান") */
+    val button: CardAction? = null,
+)
 
 /** সারণির সারি: বাঁয়ে নাম (নিচে ছোট লেখা), ডানে মান */
 data class DetailRow(val name: String, val value: String, val sub: String = "")
@@ -217,8 +222,10 @@ fun DetailSheet(
     val cs = MaterialTheme.colorScheme
     // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
     val maxH = (LocalConfiguration.current.screenHeightDp * 0.92f).dp
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
-      Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    // decorFitsSystemWindows = false: নইলে Android 15-এ (edge-to-edge) ডায়ালগ ফোনের নিচের বারের পেছনে আঁকা হত অথচ
+    // ভেতরে নিচের বারের মাপ ০ আসত — "ফোন করুন" বাটন বারের নিচে কাটা পড়ত। এখন মাপ আসে, navigationBarsPadding কাজ করে।
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false, decorFitsSystemWindows = false)) {
+      Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.BottomCenter) {
         Surface(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = cs.surfaceContainerLow,
@@ -247,7 +254,7 @@ fun DetailSheet(
                 }
                 sections.forEach { sec ->
                     val lines = sec.lines.filter { it.second.isNotBlank() }
-                    if (lines.isEmpty() && sec.actions.isEmpty() && sec.rows.isEmpty()) return@forEach
+                    if (lines.isEmpty() && sec.actions.isEmpty() && sec.rows.isEmpty() && sec.button == null) return@forEach
                     HorizontalDivider(color = cs.outlineVariant)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(sec.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -274,6 +281,11 @@ fun DetailSheet(
                                 sec.actions.forEach { a ->
                                     OutlinedButton(onClick = a.onClick, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, a.label, a.icon) }
                                 }
+                            }
+                        }
+                        sec.button?.let { b ->
+                            Button(onClick = b.onClick, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                                ButtonContent(false, b.label, b.icon)
                             }
                         }
                     }

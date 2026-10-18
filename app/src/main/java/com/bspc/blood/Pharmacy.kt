@@ -372,6 +372,10 @@ private fun NearbyPharmacies(profile: Profile) {
     var showFilter by remember { mutableStateOf(false) }
     // রেটিংয়ের পর আবার আনা — কার্ডে নতুন গড়
     var reload by remember { mutableIntStateOf(0) }
+    // বিস্তারিত শিট, আর সেখান থেকে প্রেসক্রিপশন পাঠানো (কোন দোকানে; পাঠানোর পর শিটে লেখা)
+    var openShop by remember { mutableStateOf<Pharmacy?>(null) }
+    var sendTo by remember { mutableStateOf<Pharmacy?>(null) }
+    var sentNote by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(district, upazilaId, openNow, reload) {
         val d = district ?: return@LaunchedEffect
@@ -424,32 +428,32 @@ private fun NearbyPharmacies(profile: Profile) {
                     },
                     secondary = if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
                     onReport = { reporting = p },
-                    sections = listOf(
-                        DetailSection(
-                            tr("Address", "ঠিকানা"),
-                            listOf(
-                                R.drawable.ic_location_on to listOf(p.address, Areas.label(p.district, p.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
-                            ),
-                        ),
-                        DetailSection(
-                            tr("Open hours", "খোলার সময়"),
-                            listOf(
-                                R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত") else p.hoursText,
-                                R.drawable.ic_calendar_month to closedDaysText(p.closedDays),
-                            ),
-                        ),
-                        DetailSection(
-                            tr("Discount and delivery", "ছাড় ও ডেলিভারি"),
-                            listOf(
-                                R.drawable.ic_payments to if (p.discount > 0) tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়") else tr("No discount", "ছাড় নেই"),
-                                R.drawable.ic_local_shipping to if (p.delivery) tr("Home delivery", "বাসায় ডেলিভারি") + (if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "") else tr("No home delivery", "বাসায় ডেলিভারি নেই"),
-                            ),
-                        ),
-                        // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে লাইন খালি — ভাগটা দেখায় না)
-                        DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
-                    ),
+                    // বিস্তারিত তালিকার নিজের শিটে (নিচে) — "প্রেসক্রিপশন পাঠান"-এর পর লেখা দেখানো আর লগইনের আগে শিট বন্ধ করা যায়
+                    onClick = { openShop = p },
                 )
             }
+        }
+    }
+    openShop?.let { p ->
+        DetailSheet(
+            p.name, R.drawable.ic_storefront, null, MaterialTheme.colorScheme.primary, null,
+            if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
+            p.rating, p.ratingCount, p.km?.let { Rules.formatKm(it) },
+            pharmacySections(p, sentNote) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
+            CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) {
+                scope.launch { runCatching { Pharmacies.called(p.id) } }
+                callPhone(context, p.phone)
+            },
+            if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
+            { reporting = p },
+            onDismiss = { openShop = null; sentNote = null },
+        )
+    }
+    // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
+    sendTo?.let { p ->
+        RxSendFlow(lab = null, pharmacy = p, profile = profile, onDismiss = { sendTo = null }) {
+            sendTo = null
+            sentNote = rxSentNote()
         }
     }
     if (showArea) {
@@ -484,6 +488,37 @@ private fun NearbyPharmacies(profile: Profile) {
         )
     }
 }
+
+/** ফার্মেসির বিস্তারিতের ভাগ: ঠিকানা, সময়, ছাড়-ডেলিভারি, রেটিং, আর "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান" */
+private fun pharmacySections(p: Pharmacy, sentNote: String?, onSendRx: () -> Unit): List<DetailSection> = listOf(
+    DetailSection(
+        tr("Address", "ঠিকানা"),
+        listOf(
+            R.drawable.ic_location_on to listOf(p.address, Areas.label(p.district, p.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
+        ),
+    ),
+    DetailSection(
+        tr("Open hours", "খোলার সময়"),
+        listOf(
+            R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত") else p.hoursText,
+            R.drawable.ic_calendar_month to closedDaysText(p.closedDays),
+        ),
+    ),
+    DetailSection(
+        tr("Discount and delivery", "ছাড় ও ডেলিভারি"),
+        listOf(
+            R.drawable.ic_payments to if (p.discount > 0) tr("${p.discount}% off MRP", "MRP থেকে ${num(p.discount)}% ছাড়") else tr("No discount", "ছাড় নেই"),
+            R.drawable.ic_local_shipping to if (p.delivery) tr("Home delivery", "বাসায় ডেলিভারি") + (if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "") else tr("No home delivery", "বাসায় ডেলিভারি নেই"),
+        ),
+    ),
+    // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে লাইন খালি — ভাগটা দেখায় না)
+    DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
+    DetailSection(
+        tr("Prescription", "প্রেসক্রিপশন"),
+        listOf(R.drawable.ic_check_circle to sentNote.orEmpty()),
+        button = CardAction(tr("Send a prescription to this pharmacy", "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
+    ),
+)
 
 // ---------- রেটিং: দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) ----------
 /** দিকগুলো: ব্যবহার (সবসময়), ঠিক ওষুধ ও ন্যায্য দাম (কিনলে), ডেলিভারির দ্রুততা (অনলাইন অর্ডার পৌঁছালে) */

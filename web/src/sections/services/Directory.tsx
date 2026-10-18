@@ -15,6 +15,7 @@ import {
 } from './data';
 import { Emergency999, EntryDetail, FilterSheet, NearestCall, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
 import type { PublicPrices } from '@/lib/labprice';
+import { RxSendFromPlace } from '@/sections/health/RxActivity';
 
 const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodbanks', lab: 'labs' };
 
@@ -25,7 +26,11 @@ const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharm
 function LabEntryDetail({ lab, backTo }: { lab: Lab; backTo: string }) {
   const q = useCall<{ prices: PublicPrices | null }>('lab_prices_public', { labId: lab.id }, { enabled: !!lab.prices, staleTime: 60 * 1000 });
   const full = !lab.prices ? null : q.data ? q.data.prices : q.isError ? null : undefined;
-  return <EntryDetail e={labEntry(lab, full)} backTo={backTo} />;
+  return (
+    <EntryDetail e={labEntry(lab, full)} backTo={backTo}>
+      <RxSendFromPlace lab={lab} />
+    </EntryDetail>
+  );
 }
 
 /** এলাকার নাম (উপজেলার তালিকা এলে আবার আঁকা) */
@@ -245,7 +250,12 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       const e = toEntry(raw);
       detail = kind === 'lab'
         ? <LabEntryDetail key={raw.id} lab={raw as Lab} backTo={listPath} />
-        : <EntryDetail e={e} backTo={listPath} onRate={e.canRate ? rateGate(e) : undefined} onReport={e.reportable ? reportGate(e) : undefined} />;
+        : (
+          <EntryDetail key={raw.id} e={e} backTo={listPath} onRate={e.canRate ? rateGate(e) : undefined} onReport={e.reportable ? reportGate(e) : undefined}>
+            {/* ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো */}
+            {kind === 'pharmacy' ? <RxSendFromPlace pharmacy={raw as Pharmacy} /> : null}
+          </EntryDetail>
+        );
     } else if (area && (q.isLoading || q.isFetching)) {
       detail = (
         <DetailPane title={kindLabel(kind)} backTo={listPath}>

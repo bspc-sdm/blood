@@ -937,12 +937,13 @@ private fun WithdrawDialog(o: RxOrder, onDismiss: () -> Unit, onDone: () -> Unit
  * প্যাথলজি বাছাই: কোন পরীক্ষা পাঠাবেন; প্রতিটা প্যাথলজিতে কয়টা হয় ("৩টার ৩টা"), আনুমানিক কত, কোনটা হয় না, রিপোর্ট কতক্ষণে —
  * বেশি পরীক্ষা → কম দাম → কাছের আগে (সার্ভার সাজায়)। দামের তালিকা না থাকলে "দাম জানা নেই — ফোনে জেনে নিন"।
  * বাসা থেকে নমুনা নিলে পাঠানোর আগে বেছে নেওয়া যায় (LabSendDialog)।
+ * only: প্যাথলজির পাতা থেকে এলে শুধু এই প্যাথলজি (তার জেলায় খোঁজা, এলাকা বদলানো নেই) — পরীক্ষা বাছাই আর বাসার নমুনা আগের মতোই।
  */
 @Composable
-private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSent: (String) -> Unit) {
+private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only: Lab? = null, onSent: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var district by remember { mutableStateOf(profile.placeName) }
+    var district by remember { mutableStateOf(only?.district?.ifBlank { null } ?: profile.placeName) }
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var opts by remember { mutableStateOf<LabOptions?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -975,16 +976,22 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, onSen
         }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(topBar = { BackTopBar(tr("Choose a lab", "প্যাথলজি বাছুন"), onDismiss) }) { padding ->
+        Scaffold(topBar = { BackTopBar(only?.name ?: tr("Choose a lab", "প্যাথলজি বাছুন"), onDismiss) }) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(tr("Tests to send", "কোন পরীক্ষা পাঠাবেন"), style = MaterialTheme.typography.labelLarge)
                     ChipRows(rx.tests, chosen.toSet(), perRow = 3) { t -> if (t in chosen) chosen.remove(t) else chosen.add(t) }
                     Spacer(Modifier.height(8.dp))
-                    FilterBar(areaLabel = areaText(district, upazilaId), onAreaClick = { showArea = true })
+                    if (only == null) FilterBar(areaLabel = areaText(district, upazilaId), onAreaClick = { showArea = true })
                     ErrorText(errorMsg)
                 }
-                val l = opts?.items
+                // শুধু এই প্যাথলজি; তালিকায় না এলে (দূরের সারিতে) দামের হিসাব ছাড়াই — পাঠানো তবু যায়, সার্ভার মিলিয়ে নেয়
+                val l = opts?.items?.let { all ->
+                    if (only == null) all
+                    else all.filter { it.lab.id == only.id }.ifEmpty {
+                        listOf(LabOption(only, false, false, null, chosen.size, emptyList(), null, null, null, if (only.homeCollection) only.prices?.homeFee else null, ""))
+                    }
+                }
                 when {
                     l == null -> item { LoadingBox() }
                     chosen.isEmpty() -> item { EmptyState(R.drawable.ic_list_alt, tr("Choose the tests", "পরীক্ষা বেছে নিন"), null, Modifier.fillMaxWidth().padding(top = 24.dp)) }
@@ -1564,6 +1571,142 @@ private fun StockDialog(onDismiss: () -> Unit) {
 }
 
 // ------------------------------------------------------------
+// প্যাথলজি/ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো (আগে শুধু প্রেসক্রিপশন খুলে পাঠানো যেত)
+// - আগে কোন প্রেসক্রিপশন: রোগীর চালু (বাতিল নয়) — প্যাথলজিতে পরীক্ষা লেখা, ফার্মেসিতে ওষুধ লেখা
+//   (সব ওষুধ কেনা হয়ে গেলে সার্ভারের ৪০৯ "সব ওষুধ কেনা হয়ে গেছে" দেখায় — প্রতিটার rx_activity আনা হয় না)
+// - তারপর আগের পথই: প্যাথলজি → LabPickDialog (শুধু এই প্যাথলজি); ফার্মেসি → দোকানে গিয়ে নেব / অনলাইনে অর্ডার (OnlineOrderDialog)
+// - কেয়ারগিভার মোডেও চলে (rx_mine, rx_send_* — CareMode-এর তালিকায় আছে)
+// ------------------------------------------------------------
+
+/** পাঠানোর পর শিটে যা লেখা থাকে */
+fun rxSentNote() = tr("Sent — see the status on the prescription", "পাঠানো হয়েছে — প্রেসক্রিপশনে অবস্থা দেখুন")
+
+/**
+ * শিটের ওপর থেকে লগইন লাগলে: শিট বন্ধ → লগইন (নাম-মোবাইল) → then (শিট আবার খোলা আর পাঠানো শুরু)।
+ * শিট খোলা রেখে লগইন চাইলে লগইনের পাতা শিটের পেছনে পড়ে যেত।
+ */
+fun rxSendGate(close: () -> Unit, then: () -> Unit) {
+    if (!LoginGate.isGuest && LoginGate.profileReady.value) { then(); return }
+    close()
+    LoginGate.require(tr("Log in to send a prescription", "প্রেসক্রিপশন পাঠাতে লগইন করুন"), then = then)
+}
+
+/** lab বা pharmacy — যেটা দেওয়া। প্রেসক্রিপশন বাছাই → (পেছনে গেলে আবার বাছাই) → পাঠানো → onSent */
+@Composable
+fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+    var rx by remember { mutableStateOf<Rx?>(null) }
+    val r = rx
+    when {
+        r == null -> RxPickDialog(forLab = lab != null, onDismiss = onDismiss) { rx = it }
+        lab != null -> LabPickDialog(r, profile, onDismiss = { rx = null }, only = lab) { onSent() }
+        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = { rx = null }, onSent = onSent)
+    }
+}
+
+/** রোগীর চালু প্রেসক্রিপশন — প্রতিটায় ডাক্তার, তারিখ, আর পরীক্ষা (forLab) বা ওষুধের নাম */
+@Composable
+private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onPick: (Rx) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var list by remember { mutableStateOf<List<Rx>?>(null) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { RxApi.mine() }.onSuccess { all ->
+            list = all.filter { !it.cancelled && if (forLab) it.tests.isNotEmpty() else it.medicines.isNotEmpty() }
+        }.onFailure {
+            if (it is kotlinx.coroutines.CancellationException) throw it
+            errorMsg = it.message
+            list = emptyList()
+        }
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Scaffold(topBar = { BackTopBar(tr("Which prescription?", "কোন প্রেসক্রিপশন পাঠাবেন?"), onDismiss) }) { padding ->
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item { ErrorText(errorMsg) }
+                val l = list
+                when {
+                    l == null -> item { LoadingBox() }
+                    l.isEmpty() -> item {
+                        EmptyState(
+                            R.drawable.ic_list_alt,
+                            if (forLab) tr("No prescription with tests", "পরীক্ষা লেখা কোনো প্রেসক্রিপশন নেই") else tr("No prescription with medicines", "ওষুধ লেখা কোনো প্রেসক্রিপশন নেই"),
+                            null, Modifier.fillMaxWidth().padding(top = 24.dp),
+                        )
+                    }
+                    else -> items(l, key = { it.id }) { rx ->
+                        Card(onClick = { onPick(rx) }, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(rx.doctorName.ifBlank { tr("Doctor", "ডাক্তার") }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(Rules.formatDate(rx.createdAt), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                                Text(
+                                    if (forLab) rx.tests.joinToString(", ") else rx.medicines.joinToString(", ") { it.name },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ফার্মেসির পাতা থেকে: দোকানে গিয়ে নেব (সাথে সাথে পাঠানো), অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার (ঠিকানা-ফোন-নোট)।
+ * দোকান অনলাইনে নেয় কিনা: rx_pharmacy_options (online, দোকানের নাম দিয়ে) — ডেলিভারি চার্জ আর কোন ওষুধ নেই তা-ও আসে।
+ */
+@Composable
+private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val cs = MaterialTheme.colorScheme
+    // null = খোঁজা চলছে; Result-এর ভেতরে null = অনলাইনে নেয় না
+    var online by remember { mutableStateOf<Result<PharmOption?>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    var ordering by remember { mutableStateOf<PharmOption?>(null) }
+    LaunchedEffect(rx.id, p.id) {
+        online = runCatching { RxNet.pharmacyOptions(rx.id, p.district, null, null, "online", p.name.take(60)).firstOrNull { it.id == p.id } }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+    }
+    val opt = online?.getOrNull()
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(p.name) },
+        text = {
+            Column {
+                ListItem(
+                    headlineContent = { Text(tr("I'll go to the shop", "দোকানে গিয়ে নেব")) },
+                    leadingContent = { AppIcon(R.drawable.ic_storefront, null, tint = cs.primary) },
+                    trailingContent = if (busy) ({ ButtonContent(true, "") }) else null,
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable(enabled = !busy) {
+                        scope.launch {
+                            busy = true
+                            errorMsg = null
+                            runCatching { RxNet.sendPharmacy(rx.id, p.id, "shop") }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
+                            busy = false
+                        }
+                    },
+                )
+                when {
+                    online == null -> SmallNote(tr("Checking online orders…", "অনলাইন অর্ডার নেয় কিনা দেখা হচ্ছে…"))
+                    opt != null -> ListItem(
+                        headlineContent = { Text(tr("Order online — home delivery", "অনলাইনে অর্ডার — বাসায় ডেলিভারি")) },
+                        supportingContent = if (opt.deliveryFee.isNotBlank()) ({ Text(tr("Delivery: ", "ডেলিভারি: ") + opt.deliveryFee) }) else null,
+                        leadingContent = { AppIcon(R.drawable.ic_local_shipping, null, tint = cs.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(enabled = !busy) { ordering = opt },
+                    )
+                }
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
+    ordering?.let { o -> OnlineOrderDialog(rx, o, profile, onDismiss = { ordering = null }) { ordering = null; onSent() } }
+}
+
+// ------------------------------------------------------------
 // প্যাথলজি: "সেবা" ট্যাবের তালিকা আর নিজের সেন্টার
 // ------------------------------------------------------------
 
@@ -1572,6 +1715,9 @@ fun LabContent(profile: Profile) {
     val context = LocalContext.current
     var district by remember { mutableStateOf(profile.placeName) }
     var openLab by remember { mutableStateOf<Lab?>(null) }
+    // বিস্তারিত থেকে প্রেসক্রিপশন পাঠানো: কোন প্যাথলজিতে, আর পাঠানোর পর শিটে "পাঠানো হয়েছে"
+    var sendTo by remember { mutableStateOf<Lab?>(null) }
+    var sentNote by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Lab>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
@@ -1613,15 +1759,29 @@ fun LabContent(profile: Profile) {
         }
     }
     if (showArea) AreaSheet(district, null, null, { d, _, _ -> district = d }, onDismiss = { showArea = false })
-    openLab?.let { lab -> LabInfoSheet(lab, onDismiss = { openLab = null }) }
+    openLab?.let { lab ->
+        LabInfoSheet(
+            lab, sentNote,
+            onSendRx = { rxSendGate(close = { openLab = null }) { openLab = lab; sendTo = lab } },
+            onDismiss = { openLab = null; sentNote = null },
+        )
+    }
+    // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
+    sendTo?.let { lab ->
+        RxSendFlow(lab = lab, pharmacy = null, profile = profile, onDismiss = { sendTo = null }) {
+            sendTo = null
+            sentNote = rxSentNote()
+        }
+    }
 }
 
 /**
  * প্যাথলজির বিস্তারিত: ঠিকানা, সময়, পরীক্ষা ও দাম — পুরো তালিকা এখানে আলাদা করে (lab_prices_public; অতিথিও পারেন,
  * সার্ভারে এক মিনিট মেমোরিতে)। তালিকা না থাকলে "দাম জানা নেই"।
+ * sentNote: এই পাতা থেকে পাঠানোর পর "পাঠানো হয়েছে"; onSendRx: "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান"।
  */
 @Composable
-private fun LabInfoSheet(lab: Lab, onDismiss: () -> Unit) {
+private fun LabInfoSheet(lab: Lab, sentNote: String?, onSendRx: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val p = lab.prices
     // null = আসছে; Result-এর ভেতরে null = তালিকা নেই
@@ -1648,7 +1808,12 @@ private fun LabInfoSheet(lab: Lab, onDismiss: () -> Unit) {
                 ) else listOf(R.drawable.ic_call to LabPriceText.noPrice()),
                 rows = list?.items?.map { DetailRow(it.name, LabPriceText.taka(it.price), if (it.tat.isNotBlank()) tr("Report: ", "রিপোর্ট: ") + it.tat else "") }.orEmpty(),
             ),
-            DetailSection(tr("Tests from a prescription", "প্রেসক্রিপশনের পরীক্ষা"), listOf(R.drawable.ic_medication to tr("Open your prescription and tap \"Send tests to a lab\".", "আপনার প্রেসক্রিপশন খুলে \"পরীক্ষা করাতে পাঠান\" চাপুন।"))),
+            // প্রেসক্রিপশনের পরীক্ষা: এখান থেকেই পাঠানো (আগে শুধু লেখা ছিল "প্রেসক্রিপশন খুলে … চাপুন")
+            DetailSection(
+                tr("Tests from a prescription", "প্রেসক্রিপশনের পরীক্ষা"),
+                listOf(R.drawable.ic_check_circle to sentNote.orEmpty()),
+                button = CardAction(tr("Send a prescription to this lab", "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
+            ),
         ),
         CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) { callPhone(context, lab.phone) }, null, null, onDismiss = onDismiss,
     )

@@ -38,6 +38,13 @@ interface LabOption {
   subtotal: number | null; discountPct: number | null; estimate: number | null; homeFee: number | null; tat: string;
 }
 interface LastHome { address: string; phone: string }
+/** সেবার তালিকার প্যাথলজি (services/data-র Lab) — পাতা থেকে পাঠানোর সময় */
+export interface PlaceLab {
+  id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; facilityId: string | null;
+  homeCollection: boolean; hours: string; prices?: { homeFee: number | null } | null;
+}
+/** সেবার তালিকার ফার্মেসি — যতটুকু লাগে */
+export interface PlacePharmacy { id: string; name: string; district: string }
 /** বাসা থেকে নমুনার অনুরোধ (rx_send_lab / lab_home_change-এর home): day ০ আজ, ১ কাল, ২ পরশু */
 interface HomeReq { address: string; phone: string; day: number; slot: Slot; note: string }
 
@@ -646,10 +653,11 @@ function WithdrawDialog({ o, onClose, onDone }: { o: RxOrder; onClose: () => voi
  * বেশি পরীক্ষা → কম দাম → কাছের আগে (সার্ভার সাজায়)। দামের তালিকা না থাকলে "দাম জানা নেই — ফোনে জেনে নিন"।
  * বাসা থেকে নমুনা নিলে পাঠানোর আগে বেছে নেওয়া যায় (ঠিকানা, ফোন, দিন, সময়)।
  */
-function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; onSent: (name: string) => void }) {
+function LabPickDialog({ rx, only, onClose, onSent }: { rx: Rx; only?: PlaceLab; onClose: () => void; onSent: (name: string) => void }) {
   const start = useStartArea();
   const care = useCareMode();
-  const [area, setArea] = useState<AreaValue | null>(start);
+  // only: প্যাথলজির পাতা থেকে এলে শুধু এই প্যাথলজি — তার জেলায় খোঁজা, এলাকা বদলানো নেই
+  const [area, setArea] = useState<AreaValue | null>(only?.district ? { district: only.district, upazilaId: null } : start);
   const [showArea, setShowArea] = useState(false);
   const [chosen, setChosen] = useState<string[]>(rx.tests ?? []);
   const [busy, setBusy] = useState<string | null>(null);
@@ -667,7 +675,14 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
     placeholderData: (prev) => prev,
   });
   const testOptions = useMemo(() => (rx.tests ?? []).map((t) => ({ value: t, label: t })), [rx.tests]);
-  const items = q.data?.items ?? [];
+  const all = q.data?.items ?? [];
+  // শুধু এই প্যাথলজি; তালিকায় না এলে (বা আনা না গেলে) দামের হিসাব ছাড়াই — পাঠানো তবু যায়, সার্ভার মিলিয়ে নেয়
+  const mine = only ? all.filter((l) => l.id === only.id) : all;
+  const items: LabOption[] = !only || mine.length || !(q.data || q.isError) ? mine : [{
+    id: only.id, name: only.name, phone: only.phone, address: only.address, district: only.district, upazilaId: only.upazilaId, facilityId: only.facilityId,
+    homeCollection: only.homeCollection, hours: only.hours, suggested: false, priced: false, have: null, total: chosen.length, missing: [], items: [],
+    subtotal: null, discountPct: null, estimate: null, homeFee: only.homeCollection ? only.prices?.homeFee ?? null : null, tat: '',
+  }];
 
   async function send(lab: LabOption) {
     if (busy || !chosen.length) {
@@ -690,10 +705,10 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
   }
 
   return (
-    <Dialog onClose={() => !busy && onClose()} size="wide" title={tr('Choose a lab', 'প্যাথলজি বাছুন')}>
+    <Dialog onClose={() => !busy && onClose()} size="wide" title={only?.name ?? tr('Choose a lab', 'প্যাথলজি বাছুন')}>
       <span className="t-label-l">{tr('Tests to send', 'কোন পরীক্ষা পাঠাবেন')}</span>
       <ChoiceChips multi options={testOptions} value={chosen} onChange={setChosen} />
-      <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} />
+      {!only ? <FilterBar areaLabel={area ? areaLabel(area.district, area.upazilaId) : ''} onArea={() => setShowArea(true)} /> : null}
       <ErrorText>{err}</ErrorText>
       <div className="col gap-12">
         {!area ? (
@@ -702,7 +717,7 @@ function LabPickDialog({ rx, onClose, onSent }: { rx: Rx; onClose: () => void; o
           <EmptyState icon="list_alt" title={tr('Choose the tests', 'পরীক্ষা বেছে নিন')} />
         ) : q.isPending ? (
           <Loading />
-        ) : q.isError ? (
+        ) : q.isError && !only ? (
           <ErrorText>{errorText(q.error)}</ErrorText>
         ) : !items.length ? (
           <EmptyState icon="local_hospital" title={tr('No lab in the app here yet', 'এখানে এখনো অ্যাপে কোনো প্যাথলজি নেই')} text={tr('You can still take the prescription to any lab.', 'যেকোনো প্যাথলজিতে প্রেসক্রিপশন নিয়ে গিয়েও করাতে পারেন।')} />
@@ -947,6 +962,134 @@ function PayDialog({ r, onClose, onDone }: { r: RxReview; onClose: () => void; o
         onChange={(e) => setTrx(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 30))}
       />
       <ErrorText>{err}</ErrorText>
+    </Dialog>
+  );
+}
+
+// ---------- প্যাথলজি/ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো (অ্যাপের RxSendFlow) ----------
+// আগে কোন প্রেসক্রিপশন (রোগীর চালু — প্যাথলজিতে পরীক্ষা লেখা, ফার্মেসিতে ওষুধ লেখা), তারপর আগের পথই:
+// প্যাথলজি → LabPickDialog (শুধু এই প্যাথলজি); ফার্মেসি → দোকানে গিয়ে নেব / অনলাইনে অর্ডার (OnlineOrderDialog)।
+// সব ওষুধ কেনা হয়ে গেলে সার্ভারের ৪০৯ "সব ওষুধ কেনা হয়ে গেছে" দেখায় (প্রতিটার rx_activity আনা হয় না)। কেয়ারগিভার মোডেও চলে।
+
+/** বিস্তারিতের শেষ ভাগ: "এই প্যাথলজিতে/ফার্মেসিতে প্রেসক্রিপশন পাঠান" — অতিথি হলে আগে লগইন */
+export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: PlacePharmacy }) {
+  const s = useSession();
+  const qc = useQueryClient();
+  const [picking, setPicking] = useState(false);
+  const [rx, setRx] = useState<Rx | null>(null);
+  const [sent, setSent] = useFlash();
+  const close = () => {
+    setRx(null);
+    setPicking(false);
+  };
+  const done = () => {
+    if (rx) qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
+    close();
+    setSent(tr('Sent — see the status on the prescription', 'পাঠানো হয়েছে — প্রেসক্রিপশনে অবস্থা দেখুন'));
+  };
+  return (
+    <section className="services-sec">
+      <hr className="divider" />
+      <h3 className="t-title-s">{lab ? tr('Tests from a prescription', 'প্রেসক্রিপশনের পরীক্ষা') : tr('Prescription', 'প্রেসক্রিপশন')}</h3>
+      <InfoText>{sent}</InfoText>
+      <Button icon="send" block onClick={() => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => setPicking(true))}>
+        {lab ? tr('Send a prescription to this lab', 'এই প্যাথলজিতে প্রেসক্রিপশন পাঠান') : tr('Send a prescription to this pharmacy', 'এই ফার্মেসিতে প্রেসক্রিপশন পাঠান')}
+      </Button>
+      {picking && !rx ? <RxPickDialog forLab={!!lab} onClose={close} onPick={setRx} /> : null}
+      {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={() => setRx(null)} onSent={done} /> : null}
+      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={() => setRx(null)} onSent={done} /> : null}
+    </section>
+  );
+}
+
+/** রোগীর চালু প্রেসক্রিপশন — ডাক্তার, তারিখ, আর পরীক্ষা (forLab) বা ওষুধের নাম */
+function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: () => void; onPick: (rx: Rx) => void }) {
+  const lang = useLang();
+  const care = useCareMode();
+  const { uid } = useSession();
+  // প্রেসক্রিপশনের পাতার একই চাবি — একবার আনা থাকলে আবার নয়
+  const q = useQuery({
+    queryKey: ['rx_mine', care?.uid ?? null, lang, uid],
+    queryFn: () => call<{ items?: Rx[] }>('rx_mine').then((r) => r.items ?? []),
+  });
+  const list = (q.data ?? []).filter((r) => r.status !== 'cancelled' && (forLab ? (r.tests ?? []).length > 0 : (r.medicines ?? []).length > 0));
+  return (
+    <Dialog onClose={onClose} title={tr('Which prescription?', 'কোন প্রেসক্রিপশন পাঠাবেন?')}>
+      {q.isPending ? (
+        <Loading />
+      ) : q.isError ? (
+        <ErrorText>{errorText(q.error)}</ErrorText>
+      ) : !list.length ? (
+        <EmptyState icon="list_alt" title={forLab ? tr('No prescription with tests', 'পরীক্ষা লেখা কোনো প্রেসক্রিপশন নেই') : tr('No prescription with medicines', 'ওষুধ লেখা কোনো প্রেসক্রিপশন নেই')} />
+      ) : (
+        <div className="col gap-4">
+          {list.map((r) => (
+            <ListRow
+              key={r.id}
+              icon={forLab ? 'local_hospital' : 'medication'}
+              title={r.doctor?.name || tr('Doctor', 'ডাক্তার')}
+              sub={
+                <>
+                  {formatDate(r.createdAt)}
+                  <br />
+                  {forLab ? (r.tests ?? []).join(', ') : (r.medicines ?? []).map((m) => m.name).join(', ')}
+                </>
+              }
+              onClick={() => onPick(r)}
+            />
+          ))}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+/**
+ * ফার্মেসির পাতা থেকে: দোকানে গিয়ে নেব (সাথে সাথে পাঠানো), অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার।
+ * দোকান অনলাইনে নেয় কিনা: rx_pharmacy_options (online, দোকানের নাম দিয়ে) — ডেলিভারি চার্জ আর কোন ওষুধ নেই তা-ও আসে।
+ */
+function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharmacy; onClose: () => void; onSent: () => void }) {
+  const care = useCareMode();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState<PharmOption | null>(null);
+  const q = useQuery({
+    queryKey: ['rx_pharmacy_options', rx.id, 'online', p.district, null, p.name.slice(0, 60), null, null, p.id, care?.uid ?? null],
+    queryFn: () =>
+      call<{ items?: PharmOption[] }>('rx_pharmacy_options', { rxId: rx.id, district: p.district, mode: 'online', q: p.name.slice(0, 60) })
+        .then((r) => (r.items ?? []).find((x) => x.id === p.id) ?? null),
+    staleTime: 0,
+  });
+  async function shop() {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await call('rx_send_pharmacy', { rxId: rx.id, pharmacyId: p.id, mode: 'shop' });
+      onSent();
+    } catch (e) {
+      setErr(errorText(e));
+      setBusy(false);
+    }
+  }
+  const online = q.data ?? null;
+  return (
+    <Dialog onClose={() => !busy && onClose()} size="small" title={p.name}>
+      <div className="col gap-4">
+        <ListRow icon="storefront" title={tr("I'll go to the shop", 'দোকানে গিয়ে নেব')} trailing={busy ? <span className="spinner small" /> : undefined} onClick={shop} />
+        {q.isPending ? (
+          <span className="t-body-s muted">{tr('Checking online orders…', 'অনলাইন অর্ডার নেয় কিনা দেখা হচ্ছে…')}</span>
+        ) : online ? (
+          <ListRow
+            icon="local_shipping"
+            title={tr('Order online — home delivery', 'অনলাইনে অর্ডার — বাসায় ডেলিভারি')}
+            sub={online.deliveryFee ? tr('Delivery: ', 'ডেলিভারি: ') + online.deliveryFee : undefined}
+            onClick={() => !busy && setOrdering(online)}
+          />
+        ) : null}
+      </div>
+      <ErrorText>{err}</ErrorText>
+      {ordering ? <OnlineOrderDialog rx={rx} p={ordering} onClose={() => setOrdering(null)} onSent={onSent} /> : null}
     </Dialog>
   );
 }

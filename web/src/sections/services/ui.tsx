@@ -193,7 +193,8 @@ export function ServiceCard({
 }
 
 // ---------- বিস্তারিত ----------
-export function EntryDetail({ e, backTo, onRate, onReport }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void }) {
+/** children: ভাগগুলোর পরে, নিচের ফোনের আগে (যেমন "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান") */
+export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode }) {
   const nav = useNavigate();
   const two = useTwoPane();
   const { guest } = useSession();
@@ -246,6 +247,7 @@ export function EntryDetail({ e, backTo, onRate, onReport }: { e: Entry; backTo:
           </section>
         );
       })}
+      {children}
       <div className="services-foot">
         <PhoneLine big phone={e.phone} onCall={() => recordCall(e.kind, e.id, guest)} />
         {onRate || (e.reportable && onReport) ? (

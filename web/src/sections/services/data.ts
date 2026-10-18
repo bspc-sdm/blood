@@ -230,11 +230,7 @@ export function labEntry(l: Lab, full?: PublicPrices | null): Entry {
         lines: priceLines,
         rows: p && full ? full.items.map((i) => ({ name: i.name, value: taka(i.price), sub: i.tat ? tr('Report: ', 'রিপোর্ট: ') + i.tat : '' })) : undefined,
       },
-      {
-        title: tr('Tests from a prescription', 'প্রেসক্রিপশনের পরীক্ষা'),
-        lines: [['medication', tr('Open your prescription and tap "Send tests to a lab".', 'আপনার প্রেসক্রিপশন খুলে "পরীক্ষা করাতে পাঠান" চাপুন।')]],
-        link: { to: '/prescriptions', label: tr('My prescriptions', 'আমার প্রেসক্রিপশন'), icon: 'list_alt' },
-      },
+      // "প্রেসক্রিপশনের পরীক্ষা" — এখন বিস্তারিতের নিচে বাটন (RxSendFromPlace), আগে শুধু লেখা ছিল "প্রেসক্রিপশন খুলে … চাপুন"
     ],
     phone: l.phone, reportable: false,
   };
