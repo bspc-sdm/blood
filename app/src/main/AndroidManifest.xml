@@ -2,8 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- আনুমানিক লোকেশন (≈১-৩ কিমি) যথেষ্ট; সঠিক লোকেশন চাওয়া হয় না -->
+    <!-- আনুমানিক লোকেশন (≈১-৩ কিমি) সব জায়গায় যথেষ্ট -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- সঠিক লোকেশন শুধু অ্যাম্বুলেন্সের "গাড়ি যেখানে অপেক্ষা করে" বাটনে চাওয়া হয় (আনুমানিকটা ২-৩ কিমি ভুল হতে পারে);
+         সার্ভারে তবুও ~১ কিমির ঘরে কেটে রাখা হয়, আসল GPS কখনো নয়। অন্য কোথাও চাওয়া হয় না। -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- ওষুধ খাওয়ার অ্যালার্ম: ফোন চালু হলে আবার সেট করা -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

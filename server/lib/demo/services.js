@@ -397,9 +397,12 @@ module.exports = {
         docsHave: have,
         createdAt: created,
         available: x.available === true,
-        // গাড়ির জায়গা (চালক GPS দিয়ে দিলে) — না থাকলে জেলার কেন্দ্র ধরে "প্রায়" দূরত্ব
-        ...(x.at ? { lat: x.at.lat, lng: x.at.lng } : {}),
+        // গাড়ি যেখানে অপেক্ষা করে (চালক GPS দিয়ে দিলে) — আসলের মতো ২ দশমিকে কাটা; না থাকলে জেলার কেন্দ্র ধরে "প্রায়" দূরত্ব
+        ...(x.at ? require('../ambulance').point(x.at.lat, x.at.lng) : {}),
         ...(x.availableAt ? { availableAt: x.availableAt } : {}),
+        // "এখনো খালি আছেন?" — আসলের মতো খালি করার ১১ ঘণ্টা পর (মেয়াদ পেরোনো গাড়িতে আর নেই; সাড়ে ১১ ঘণ্টার মিনিতে আগেই পেরিয়েছে → তালিকা খুললেই পুশ)
+        ...(x.status === 'approved' && x.available === true && x.availableAt && now - x.availableAt < require('../ambulance').AVAILABLE_MS
+          ? { remindAt: x.availableAt + require('../ambulance').REMIND_AT_MS } : {}),
         ...(x.busyAt ? { busyAt: x.busyAt } : {}),
         ...(x.status === 'approved' ? {
           reviewedAt: created + day, reviewedBy: 'demo', approvedName: x.name, lastApproved: snapshot(data),

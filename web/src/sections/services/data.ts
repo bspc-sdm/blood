@@ -14,7 +14,7 @@ export const isKind = (k: string | undefined): k is Kind => !!k && (KINDS as str
 export interface Ambulance {
   id: string; name: string; phone: string; types: string[]; district: string; upazilaId: number | null; area: string; fare: string;
   available: boolean; availableAt: number; rating: number; ratingCount: number; canRate?: boolean; busy?: boolean; busySince?: number;
-  /** দূরত্ব (কিমি, এক দশমিক) — তালিকায় lat/lng পাঠালে; kmApprox: গাড়ির জায়গা দেওয়া নেই, জেলার কেন্দ্র ধরে */
+  /** দূরত্ব (পুরো কিমি, ০ = ১ কিমির কম) — শুধু আসল GPS পাঠালে (gps: true); kmApprox: গাড়ির জায়গা দেওয়া নেই, জেলার কেন্দ্র ধরে */
   km?: number | null; kmApprox?: boolean;
   /** খালি থাকলে কখন পর্যন্ত (চালকের কার্ডে "আর ৪৫ মিনিট") */
   availableUntil?: number;
@@ -126,12 +126,14 @@ export interface Entry {
   rateAspects?: RateAspect[];
 }
 
-/** অ্যাম্বুলেন্সের দূরত্ব: "২.৩ কিমি" (১০-এর বেশি হলে পূর্ণ সংখ্যা); জায়গা দেওয়া না থাকলে "প্রায় ২ কিমি" */
+/**
+ * অ্যাম্বুলেন্সের দূরত্ব: পুরো কিমি ("৩ কিমি"), ১-এর কম হলে "১ কিমির কম" — চালকের জায়গা ~১ কিমির ঘরে কাটা, তাই দশমিক নয়;
+ * জায়গা দেওয়া না থাকলে "প্রায় ২ কিমি"
+ */
 export function ambulanceKm(a: Pick<Ambulance, 'km' | 'kmApprox'>): string | null {
   if (a.km == null || !Number.isFinite(a.km)) return null;
   if (a.kmApprox) return tr(`about ${Math.max(1, Math.round(a.km))} km`, `প্রায় ${num(Math.max(1, Math.round(a.km)))} কিমি`);
-  const v = a.km < 10 ? a.km.toFixed(1) : String(Math.round(a.km));
-  return num(v) + tr(' km', ' কিমি');
+  return formatKm(a.km);
 }
 
 export function ambulanceEntry(a: Ambulance, lists: Lists | null): Entry {

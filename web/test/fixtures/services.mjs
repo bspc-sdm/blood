@@ -24,9 +24,9 @@ function ambulances(b, { authed }) {
     { id: 'amb3', name: 'সেবা ফ্রিজার ভ্যান', phone: '01911000303', types: ['freezer'], district: D, upazilaId: SADAR, area: 'মেডিকেল কলেজ গেট', fare: '', available: false, availableAt: t - 20 * H, rating: 0, ratingCount: 0, canRate: false },
   ];
   if (b.type) items = items.filter((a) => a.types.includes(b.type));
-  // দূরত্ব (lat/lng দিলে): খালিগুলো কাছেরটা আগে; ফ্রিজারের জায়গা দেওয়া নেই → "প্রায়"
-  if (typeof b.lat === 'number') {
-    const KM = { amb1: 1.2, amb2: 18.6, amb3: 0.4 };
+  // দূরত্ব (আসল GPS — gps: true — দিলে): খালিগুলো কাছেরটা আগে, পুরো কিমি (০ = ১ কিমির কম); ফ্রিজারের জায়গা দেওয়া নেই → "প্রায়"
+  if (typeof b.lat === 'number' && b.gps === true) {
+    const KM = { amb1: 0, amb2: 19, amb3: 0 };
     items = items.map((a) => ({ ...a, km: KM[a.id], ...(a.id === 'amb3' ? { kmApprox: true } : {}) }))
       .sort((x, y) => (y.available - x.available) || (x.km - y.km));
   }

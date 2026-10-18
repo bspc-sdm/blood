@@ -7,7 +7,7 @@ import { AreaPicker, useFilterArea } from '@/ui/AreaPicker';
 import { ListDetail, DetailPane } from '@/shell/templates';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
-import { areaLabel, currentPosition, district as findDistrict, districtAt, ensureAreas } from '@/lib/geo';
+import { areaLabel, currentPosition, districtAt, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import {
   ambulanceEntry, ambulanceKm, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, useCatalog,
@@ -40,12 +40,15 @@ function useAreasLoaded() {
   }, []);
 }
 
-type Origin = { lat: number; lng: number; byArea: boolean };
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
+/** byArea: GPS নেই — সার্ভারে স্থানাঙ্ক পাঠানো হয় না, আগের মতো নিজের উপজেলা আগে; lat/lng তখন null */
+type Origin = { lat: number; lng: number; byArea: false } | { lat: null; lng: null; byArea: true };
+// ২ দশমিক (≈১ কিমি) — সার্ভারও এভাবেই কাটে; এর বেশি সূক্ষ্ম পাঠানোর দরকার নেই
+const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /**
  * অ্যাম্বুলেন্সের দূরত্ব কোথা থেকে: ব্রাউজারে লোকেশনের অনুমতি আগেই দেওয়া থাকলে এখনকার জায়গা (বেছে নেওয়া জেলার ভেতরে হলে),
- * নইলে প্রোফাইলের GPS জায়গা (একই জেলা), নইলে জেলার কেন্দ্র ("এলাকা ধরে")। অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি।
+ * নইলে প্রোফাইলের GPS জায়গা (একই জেলা), নইলে "এলাকা ধরে" (স্থানাঙ্ক নয় — জেলার কেন্দ্র থেকে দূরত্ব অর্থহীন, উপজেলার ক্রম নষ্ট করে)।
+ * অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি।
  * GPS-এর জন্য সর্বোচ্চ ২.৫ সেকেন্ড অপেক্ষা; তারপর একবার ঠিক হলে আর বদলায় না (বাটনের গাড়ি হঠাৎ বদলে যেন ভুল জায়গায় চাপ না পড়ে)।
  */
 function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin: Origin | null; ready: boolean } {
@@ -78,11 +81,10 @@ function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin
   }, [on]);
   const origin = useMemo<Origin | null>(() => {
     if (!on || !district) return null;
-    if (gps && gps.district === district) return { lat: r3(gps.lat), lng: r3(gps.lng), byArea: false };
+    if (gps && gps.district === district) return { lat: r2(gps.lat), lng: r2(gps.lng), byArea: false };
     const p = s.place;
-    if (p?.source === 'gps' && p.placeName === district) return { lat: r3(p.lat), lng: r3(p.lng), byArea: false };
-    const d = findDistrict(district);
-    return d ? { lat: d.lat, lng: d.lng, byArea: true } : null;
+    if (p?.source === 'gps' && p.placeName === district) return { lat: r2(p.lat), lng: r2(p.lng), byArea: false };
+    return { lat: null, lng: null, byArea: true };
   }, [on, district, gps, s.place]);
   return { origin, ready: !on || gps !== undefined };
 }
@@ -118,8 +120,8 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   const body = useMemo(() => {
     const b: Record<string, unknown> = { district: area?.district, upazilaId: area?.upazilaId ?? null };
     if (kind === 'ambulance' && type) b.type = type;
-    // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে)
-    if (kind === 'ambulance' && origin) Object.assign(b, { lat: origin.lat, lng: origin.lng });
+    // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে) — শুধু আসল GPS হলে; "এলাকা ধরে" হলে কিছুই নয় (উপজেলা আগে)
+    if (kind === 'ambulance' && origin && !origin.byArea) Object.assign(b, { lat: origin.lat, lng: origin.lng, gps: true });
     if (kind === 'pharmacy') Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow });
     if (kind === 'bloodbank') b.open24 = open24;
     return b;
@@ -302,8 +304,8 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
 function Nearest({ list, id, byArea, lists }: { list: Ambulance[]; id?: string | null; byArea: boolean; lists: ReturnType<typeof useCatalog> }) {
   const a = id ? list.find((x) => x.id === id) : undefined;
   if (!a) return null;
-  const km = ambulanceKm(a);
-  const sub = [a.name, km ? km + (byArea ? tr(' (by area)', ' (এলাকা ধরে)') : '') : byArea ? tr('By area', 'এলাকা ধরে') : null, a.types.map((t) => ambulanceTypeLabel(lists, t)).join(', ')]
+  // এলাকা ধরে হলে দূরত্ব নয় (জানা নেই), শুধু "এলাকা ধরে"
+  const sub = [a.name, byArea ? tr('By area', 'এলাকা ধরে') : ambulanceKm(a), a.types.map((t) => ambulanceTypeLabel(lists, t)).join(', ')]
     .filter(Boolean)
     .join(' · ');
   return <NearestCall id={a.id} phone={a.phone} sub={sub} />;
