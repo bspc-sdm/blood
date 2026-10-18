@@ -1,0 +1,97 @@
+name: E2E Android (Maestro)
+
+# ডেমো রোলগুলো দিয়ে অ্যাপের মূল যাত্রা এমুলেটরে চালিয়ে প্রতিটা ধাপের ছবি — হাতে চাপতে হয় না।
+# শুধু হাতে চালানো (workflow_dispatch); প্রোডাকশন সার্ভারে, শুধু ডেমো অ্যাকাউন্টে।
+# ফল: artifact "e2e-android" আর "e2e-android-shots" শাখা (ছবি + manifest.json)।
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "শুধু এই যাত্রাগুলো (যেমন: j1 j3) — খালি রাখলে সব"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e2e-android
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon 2>&1 | tee build.log
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: Probe production as demo roles (read only)
+        continue-on-error: true
+        run: |
+          mkdir -p e2e-out
+          bash e2e/android/probe.sh 2>&1 | tee e2e-out/probe.txt
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          E2E_ONLY: ${{ inputs.only }}
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disk-size: 6000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: bash e2e/android/run.sh
+      - name: Manifest
+        if: always()
+        run: |
+          python3 e2e/android/manifest.py e2e-out/shots e2e-out/shots/manifest.json || true
+          cat e2e-out/results.txt || true
+          for f in e2e-out/debug/crash-*.txt; do [ -s "$f" ] && { echo "::warning::crash in $f"; head -40 "$f"; }; done || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-android
+          path: e2e-out
+          retention-days: 7
+      - name: Save to e2e-android-shots branch
+        if: always()
+        run: |
+          set -e
+          cp -r e2e-out /tmp/e2e-out
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan e2e-android-shots
+          git rm -rf --quiet .
+          git clean -fdxq
+          cp -r /tmp/e2e-out/* .
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
+          git add -A
+          git commit -qm "E2E Android shots ${{ github.sha }} run ${{ github.run_id }}" || true
+          git push -f origin e2e-android-shots

@@ -1,0 +1,8 @@
+# এমুলেটরের সিস্টেম ডায়ালগ ("… isn't responding") থাকলে সরানো
+appId: com.bspc.blood
+---
+- runFlow:
+    when:
+      visible: ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*"
+    commands:
+      - tapOn: "(Wait|অপেক্ষা করুন)"

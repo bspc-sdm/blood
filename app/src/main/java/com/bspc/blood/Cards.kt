@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -224,14 +226,18 @@ fun DetailSheet(
     val maxH = (LocalConfiguration.current.screenHeightDp * 0.92f).dp
     // decorFitsSystemWindows = false: নইলে Android 15-এ (edge-to-edge) ডায়ালগ ফোনের নিচের বারের পেছনে আঁকা হত অথচ
     // ভেতরে নিচের বারের মাপ ০ আসত — "ফোন করুন" বাটন বারের নিচে কাটা পড়ত। এখন মাপ আসে, navigationBarsPadding কাজ করে।
+    // E2E (Android 15, তিন বাটনের বার): ডায়ালগের ভেতরে নিচের বারের মাপ ০ আসে, তাই "ফোন করুন" বারের নিচে কাটা পড়ত।
+    // মূল পাতার (Activity) মাপটা ডায়ালগ খোলার আগে নিয়ে রাখা — দুটোর বড়টা নিচে ফাঁকা রাখা হয়।
+    val outerNav = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false, decorFitsSystemWindows = false)) {
+      val innerNav = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
       Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.BottomCenter) {
         Surface(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = cs.surfaceContainerLow,
             modifier = Modifier.fillMaxWidth().heightIn(max = maxH),
         ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = maxOf(outerNav, innerNav) + 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onDismiss) { AppIcon(R.drawable.ic_close, tr("Close", "বন্ধ করুন"), Modifier.size(24.dp), cs.onSurfaceVariant) }

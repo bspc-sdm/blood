@@ -1,0 +1,51 @@
+# অ্যাপ নতুন করে খোলা (সব ডেটা মুছে) → এলাকা ময়মনসিংহ → লগইন → ডেমো রোল
+# env: J (যাত্রার নাম, ছবির নামের শুরু), ROLE (ডেমো তালিকায় যে নামে চাপতে হবে)
+appId: com.bspc.blood
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+      notifications: allow
+- runFlow: dismiss.yaml
+- extendedWaitUntil:
+    visible: ".*জেলা খুঁজুন.*"
+    timeout: 60000
+- runFlow: dismiss.yaml
+- takeScreenshot: ${J}-00a-location
+- tapOn: ".*জেলা খুঁজুন.*"
+- inputText: "Mymensingh"
+- hideKeyboard
+- tapOn: "ম(?:য়|য়)মনসিংহ.*"
+- extendedWaitUntil:
+    visible: "লগইন"
+    timeout: 40000
+- tapOn: "লগইন"
+- scrollUntilVisible:
+    element: ".*${ROLE}.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- takeScreenshot: ${J}-00b-login
+# যাত্রা ১-এ: ডেমো তালিকার একেবারে নিচ (শেষ রোল নিচের বারের নিচে চাপা পড়ে কি না), তারপর আবার ওপরে
+- runFlow:
+    when:
+      true: ${J == 'j1'}
+    commands:
+      - scrollUntilVisible:
+          element: ".*কে(?:য়|য়)ারগিভার.*"
+          direction: DOWN
+          timeout: 20000
+      - scroll
+      - takeScreenshot: ${J}-00c-login-bottom
+      - scrollUntilVisible:
+          element: ".*${ROLE}.*"
+          direction: UP
+          timeout: 20000
+          centerElement: true
+- tapOn: ".*${ROLE}.*"
+- extendedWaitUntil:
+    visible: "সেটিংস ও প্রোফাইল"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000

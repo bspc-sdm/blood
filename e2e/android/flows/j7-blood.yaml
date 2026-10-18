@@ -1,0 +1,42 @@
+# যাত্রা ৭ — রক্ত: আমার রিকোয়েস্ট, রাজি ডোনারের তালিকা
+appId: com.bspc.blood
+env:
+  J: j7
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- extendedWaitUntil:
+    visible: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    timeout: 30000
+    optional: true
+- scrollUntilVisible:
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- takeScreenshot: j7-01-home-my-request
+- scroll
+- takeScreenshot: j7-02-home-requests
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+- extendedWaitUntil:
+    visible: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
+    timeout: 30000
+- takeScreenshot: j7-03-my-requests
+- tapOn: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
+- extendedWaitUntil:
+    visible: ".*রাজি হ(?:য়|য়)েছেন.*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: j7-04-request-detail
+- scrollUntilVisible:
+    element: ".*রাজি হ(?:য়|য়)েছেন.*"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- scroll
+- takeScreenshot: j7-05-donors
