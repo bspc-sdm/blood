@@ -363,7 +363,9 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
             ) {
                 ErrorText(errorMsg)
                 InfoText(infoMsg)
-                RxPaper(rx)
+                // রোগী: কাগজ RxActivitySection-এর ভেতরে — উপরে পাঠানোর বাটন, তারপর কাগজ
+                val patient = !asDoctor && profile != null
+                if (!patient) RxPaper(rx)
                 if (asDoctor) {
                     val dl = doctorLabs
                     if (dl != null && (dl.isNotEmpty() || rx.tests.isNotEmpty())) {
@@ -371,7 +373,7 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                     }
                 }
                 // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
-                if (!asDoctor && profile != null) RxActivitySection(rx, profile)
+                if (patient && profile != null) RxActivitySection(rx, profile) { RxPaper(rx) }
                 if (!asDoctor && !rx.cancelled) {
                     // আবার দেখানো: এক চাপে সেই চেম্বারে সিরিয়াল
                     val book = rx.followUpBookDate
