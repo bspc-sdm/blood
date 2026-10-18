@@ -49,6 +49,15 @@ function run() {
     await db.doc('v/2').set({ "a'b": { 'c"d': 5 } });
     assert.deepStrictEqual(ids(await db.collection('v').where("a'b.c\"d", '==', 5).get()), ['2']);
     assert.deepStrictEqual(ids(await db.collection('v').where('quote', '==', "it's \"quoted\" -- '; DROP TABLE docs; --").get()), ['1']);
+    // অ্যারে parameter-এ বিশেষ চিহ্ন (", ',', {}, ', \\, NULL লেখা)
+    const odd = ['a"b', 'c,d', '{x}', "e'f", 'g\\h', 'NULL', ')); DELETE FROM docs; --'];
+    for (const [i, v] of odd.entries()) await db.doc(`odd/${v.replace(/\//g, '_')}`).set({ v, i });
+    assert.strictEqual((await db.collection('odd').where('v', 'in', odd).get()).size, odd.length);
+    assert.strictEqual((await db.collection('odd').where('v', 'not-in', odd.slice(1)).get()).size, 1);
+    assert.strictEqual((await db.collection('odd').where(FieldPath.documentId(), 'in', odd).get()).size, odd.length);
+    assert.strictEqual((await db.collection('odd').orderBy('v').startAt("e'f").endAt("e'f").get()).docs[0].get('i'), 3);
+    await assert.rejects(db.collection("x'; DROP TABLE docs; --").get().then(() => { throw new Error('ok'); }), /ok/);
+    assert.ok(sync.query("SELECT count(*)::int AS n FROM docs").rows[0].n >= odd.length);
   });
 
   test('set merge, update (ডট-ঠিকানা), FieldValue — Firestore-এর নিয়মে', async () => {
