@@ -39,7 +39,8 @@ function Editor({ data, tests }: { data: LabPriceList; tests: TestDef[] }) {
   const [rows, setRows] = useState<Row[]>(() => data.items.map(rowOf));
   const [disc, setDisc] = useState(data.discountPct ? String(data.discountPct) : '');
   const [fee, setFee] = useState(data.homeFee != null ? String(data.homeFee) : '');
-  const [dirty, setDirty] = useState(false);
+  // ছকে লুকানো সারি থাকলে সেভ চালু — সেভে সেগুলো নিজে লেখা হিসেবে থেকে যায়
+  const [dirty, setDirty] = useState(() => data.items.some((i) => i.hidden));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [tried, setTried] = useState(false);

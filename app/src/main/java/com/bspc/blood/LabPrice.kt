@@ -27,15 +27,21 @@ import kotlinx.coroutines.launch
 // দাম বসানো শুধু ওয়েবে (মালিকের নিয়ম: বসে করার কাজ ওয়েবে) — অ্যাপে রোগী দেখেন আর পাঠান, প্যাথলজি বাসার সময় নিশ্চিত করে।
 // ------------------------------------------------------------
 
-/** সবার দেখা দামের তালিকা (চালু পরীক্ষা) */
+/** সবার দেখা দামের তালিকা (চালু পরীক্ষা) — একটা প্যাথলজির পুরোটা, বিস্তারিত খুললে (lab_prices_public) */
 data class PriceItem(val code: String?, val name: String, val price: Int, val tat: String)
 data class LabPrices(val items: List<PriceItem>, val discountPct: Int?, val homeFee: Int?)
+
+/** এলাকার তালিকার সারাংশ (labs-এর prices): কয়টা পরীক্ষার দাম, সবচেয়ে কম দাম, ছাড়, বাসার চার্জ */
+data class PriceSummary(val count: Int, val from: Int, val discountPct: Int?, val homeFee: Int?)
 
 /** অর্ডারে রাখা পাঠানোর সময়ের দাম */
 data class SnapItem(val test: String, val name: String, val price: Int, val tat: String)
 data class PriceSnap(val items: List<SnapItem>, val missing: List<String>, val subtotal: Int, val discountPct: Int?, val estimate: Int)
 
-/** অর্ডারের "বাসা থেকে" অংশ — ঠিকানা-ফোন শুধু রোগী আর (অর্ডার চালু থাকলে) সেই প্যাথলজি পান */
+/**
+ * অর্ডারের "বাসা থেকে" অংশ — ঠিকানা-ফোন শুধু রোগী আর (অর্ডার চালু থাকলে) সেই প্যাথলজি পান।
+ * status: requested | confirmed | declined | expired (চাওয়া সময় পেরিয়ে গেছে, প্যাথলজি এখনো জানায়নি — সার্ভার হিসাব করে)
+ */
 data class LabHome(
     val status: String, val date: Long, val slot: String, val note: String, val fee: Int?, val visitDate: Long, val time: String,
     val confirmNote: String, val declineNote: String, val address: String, val phone: String,
@@ -90,18 +96,27 @@ object LabPriceText {
     fun homeStatusPatient(h: LabHome): String = when (h.status) {
         "confirmed" -> tr("Coming ${visit(h)}", "${visit(h)} আসবে")
         "declined" -> tr("Can't come home — give the sample at the lab", "বাসায় আসবে না — প্যাথলজিতে গিয়ে নমুনা দিন")
+        "expired" -> tr("Sample from home · ${wanted(h)} — time has passed", "বাসা থেকে নমুনা · ${wanted(h)} — সময় পেরিয়ে গেছে")
         else -> tr("Sample from home · ${wanted(h)} — waiting for the time", "বাসা থেকে নমুনা · ${wanted(h)} — সময় জানাবে")
     }
+
+    /** রোগী বদলাতে/বাতিল করতে পারেন — প্যাথলজি সময় জানানোর আগে (সময় পেরিয়ে গেলেও) */
+    fun homeEditable(h: LabHome?, orderStatus: String) = h != null && orderStatus == "sent" && (h.status == "requested" || h.status == "expired")
 
     /** প্যাথলজির দিক থেকে ছোট লাইন */
     fun homeLineLab(h: LabHome): String = when (h.status) {
         "confirmed" -> tr("From home · ${visit(h)}", "বাসা থেকে · ${visit(h)}")
         "declined" -> tr("Home visit: no", "বাসায় যাওয়া: না")
+        "expired" -> tr("From home · ${wanted(h)} — time has passed", "বাসা থেকে · ${wanted(h)} — সময় পেরিয়ে গেছে")
         else -> tr("From home · ${wanted(h)} — confirm the time", "বাসা থেকে · ${wanted(h)} — সময় জানান")
     }
 
     fun cover(have: Int, total: Int) = tr("$have of $total tests", "${num(total)}টার ${num(have)}টা পরীক্ষা")
     fun estimate(v: Int) = tr("About ${taka(v)}", "আনুমানিক ${taka(v)}")
+    /** "৩টার ২টা পরীক্ষা · আনুমানিক ৳১,২৫০" — একটাও না হলে দাম নয় (৳০ নয়) */
+    fun coverEstimate(have: Int, total: Int, est: Int?) = cover(have, total) + if (est != null) " · " + estimate(est) else ""
+    /** "ECG দাম জানা নেই" — দামের তালিকায় না থাকা পরীক্ষা (হিসাবে ধরা হয়নি) */
+    fun missing(m: List<String>) = if (m.isEmpty()) "" else tr("No price for ${m.joinToString(", ")}", "${m.joinToString(", ")} দাম জানা নেই")
     fun discount(d: Int?) = if (d == null || d == 0) "" else tr("${d}% off all tests", "সব পরীক্ষায় ${num(d)}% ছাড়")
     fun homeFee(fee: Int?) = when (fee) {
         null -> ""
@@ -110,10 +125,11 @@ object LabPriceText {
     }
     fun noPrice() = tr("Price not known — ask on the phone", "দাম জানা নেই — ফোনে জেনে নিন")
 
-    /** অর্ডারে রাখা দামের এক লাইন: "আনুমানিক ৳২,৩৪০ (১০% ছাড়) + বাসা থেকে নমুনা: ৳১৫০" */
+    /** অর্ডারে রাখা দামের এক লাইন: "আনুমানিক ৳২,৩৪০ (১০% ছাড়) + বাসা থেকে নমুনা: ৳১৫০ · ECG দাম জানা নেই" */
     fun snapLine(p: PriceSnap, home: LabHome?): String =
         estimate(p.estimate) + (if (p.discountPct != null && p.discountPct > 0) " (" + tr("${p.discountPct}% off", "${num(p.discountPct)}% ছাড়") + ")" else "") +
-            (if (home?.fee != null && home.status != "declined") " + " + homeFee(home.fee) else "")
+            (if (home?.fee != null && home.status != "declined") " + " + homeFee(home.fee) else "") +
+            (if (p.missing.isNotEmpty()) " · " + missing(p.missing) else "")
 
     /** আজকের পেরিয়ে যাওয়া সময় */
     fun slotPassed(day: Int, s: String): Boolean {
@@ -132,37 +148,40 @@ object LabPriceText {
 /**
  * রোগী (বা কেয়ারগিভার): বাসা থেকে নমুনা নেয় এমন প্যাথলজিতে পাঠানো — প্যাথলজিতে গিয়ে, অথবা বাসা থেকে
  * (ঠিকানা আগের বারেরটা, ফোন প্রোফাইলের; দিন আজ/কাল/পরশু; সময়ের ভাগ; ছোট নোট)।
+ * change: পাঠানো অনুরোধের সময় বদল (প্যাথলজি সময় জানানোর আগে) — শুধু বাসার ঘরগুলো, আগেরটা বসানো।
+ * header: ওপরের লাইন ("৩টার ৩টা পরীক্ষা · আনুমানিক ৳১,৮০০"), headerBold: দাম জানা থাকলে মোটা।
  */
 @Composable
 fun LabSendDialog(
-    opt: LabOption, lastAddress: String, lastPhone: String, profilePhone: String,
-    onDismiss: () -> Unit, onSend: suspend (HomeRequest?) -> Unit,
+    title: String, header: String?, headerBold: Boolean, homeFee: Int?, lastAddress: String, lastPhone: String, profilePhone: String,
+    onDismiss: () -> Unit, change: LabHome? = null, onSend: suspend (HomeRequest?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val was = if (change != null) Math.round((change.date - LabPriceText.today()).toDouble() / 86_400_000L).toInt() else 1
     var home by remember { mutableStateOf(true) }
-    var address by remember { mutableStateOf(lastAddress) }
-    var phone by remember { mutableStateOf(lastPhone.ifBlank { profilePhone }) }
-    var day by remember { mutableIntStateOf(1) }
-    var slot by remember { mutableStateOf("early") }
-    var note by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf(change?.address?.ifBlank { null } ?: lastAddress) }
+    var phone by remember { mutableStateOf(change?.phone?.ifBlank { null } ?: lastPhone.ifBlank { profilePhone }) }
+    // সময় পেরিয়ে যাওয়া অনুরোধ বদলালে কাল থেকে
+    var day by remember { mutableIntStateOf(if (change != null && change.status != "expired" && was in 0..2) was else 1) }
+    var slot by remember { mutableStateOf(change?.slot?.takeIf { it in LabPriceText.SLOTS } ?: "early") }
+    var note by remember { mutableStateOf(change?.note.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     val slots = LabPriceText.SLOTS.filter { !LabPriceText.slotPassed(day, it) }
     val pickedSlot = if (slot in slots) slot else slots.firstOrNull()
     FormDialog(
-        title = opt.lab.name,
+        title = if (change != null) tr("$title — change the time", "$title — সময় বদলান") else title,
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    if (opt.priced) LabPriceText.cover(opt.have ?: 0, opt.total) + " · " + LabPriceText.estimate(opt.estimate ?: 0) else LabPriceText.noPrice(),
-                    style = MaterialTheme.typography.bodyMedium, fontWeight = if (opt.priced) FontWeight.SemiBold else FontWeight.Normal,
-                )
-                ChipRows(listOf("home", "lab"), setOf(if (home) "home" else "lab"), perRow = 1, label = {
-                    if (it == "home") tr("Come and take the sample from home", "বাসা থেকে নমুনা নিতে আসবে") else tr("I'll go to the lab", "প্যাথলজিতে গিয়ে দেব")
-                }) { home = it == "home" }
+                if (header != null) Text(header, style = MaterialTheme.typography.bodyMedium, fontWeight = if (headerBold) FontWeight.SemiBold else FontWeight.Normal)
+                if (change == null) {
+                    ChipRows(listOf("home", "lab"), setOf(if (home) "home" else "lab"), perRow = 1, label = {
+                        if (it == "home") tr("Come and take the sample from home", "বাসা থেকে নমুনা নিতে আসবে") else tr("I'll go to the lab", "প্যাথলজিতে গিয়ে দেব")
+                    }) { home = it == "home" }
+                }
                 if (home) {
-                    if (opt.homeFee != null) IconLine(R.drawable.ic_payments, LabPriceText.homeFee(opt.homeFee))
+                    if (homeFee != null) IconLine(R.drawable.ic_payments, LabPriceText.homeFee(homeFee))
                     OutlinedTextField(address, { address = it.take(200) }, label = { Text(tr("Home address", "বাসার ঠিকানা")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(
                         phone, { phone = it.take(20) }, label = { Text(tr("Mobile number", "মোবাইল নম্বর")) }, singleLine = true,
@@ -187,7 +206,9 @@ fun LabSendDialog(
                         .onFailure { errorMsg = it.message }
                     busy = false
                 }
-            }, enabled = !busy && (!home || (address.isNotBlank() && phone.isNotBlank() && pickedSlot != null))) { ButtonContent(busy, tr("Send", "পাঠান"), R.drawable.ic_send) }
+            }, enabled = !busy && (!home || (address.isNotBlank() && phone.isNotBlank() && pickedSlot != null))) {
+                ButtonContent(busy, if (change != null) tr("Change", "বদলান") else tr("Send", "পাঠান"), R.drawable.ic_send)
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
@@ -267,6 +288,35 @@ fun HomeDeclineDialog(order: LabOrder, onDismiss: () -> Unit, onDone: () -> Unit
                     busy = false
                 }
             }, enabled = !busy) { ButtonContent(busy, tr("Can't go", "যেতে পারব না")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Back", "ফিরে যান")) } },
+    )
+}
+
+/** রোগী (বা কেয়ারগিভার): বাসা থেকে নমুনা লাগবে না — পরীক্ষা এই প্যাথলজিতেই থাকে, সেখানে গিয়ে নমুনা; প্যাথলজি জানে */
+@Composable
+fun HomeCancelDialog(order: LabOrder, onDismiss: () -> Unit, onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = tr("No sample from home?", "বাসা থেকে নমুনা লাগবে না?"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallNote(tr("The tests stay with this lab — go there to give the sample. The lab will be told.", "পরীক্ষা এই প্যাথলজিতেই থাকবে — সেখানে গিয়ে নমুনা দেবেন। প্যাথলজিকে জানানো হবে।"))
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    busy = true
+                    errorMsg = null
+                    runCatching { RxNet.homeCancel(order.id) }.onSuccess { onDone() }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }, enabled = !busy) { ButtonContent(busy, tr("I'll go to the lab", "প্যাথলজিতে গিয়ে দেব")) }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Back", "ফিরে যান")) } },
     )
