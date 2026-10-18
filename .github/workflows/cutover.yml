@@ -1,0 +1,72 @@
+name: Cutover to PostgreSQL
+
+# Firestore → VPS-এর PostgreSQL-এ চলে যাওয়া (একবার), বা ফেরা। pg-migration শাখা main-এ merge হওয়ার পরে চালান।
+# Actions → Cutover to PostgreSQL → Run workflow।
+#   mode = cutover   কপি (ডেমো বাদ) → --verify দিয়ে মেলানো → DATABASE_URL চালু → restart → পরীক্ষা → সংখ্যা।
+#                    কিছু ব্যর্থ হলে নিজে থেকেই Firestore-এ ফেরে। কয়েক মিনিট সার্ভার বন্ধ থাকে।
+#   mode = rollback  DATABASE_URL বন্ধ → আবার Firestore (PostgreSQL-এর ডেটা থাকে)।
+#   mode = status    এখন কোনটা চলছে, PostgreSQL-এ কত ডক।
+# VPS-এ যা চলে: deploy/cutover.sh
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "cutover = PostgreSQL-এ যাওয়া, rollback = Firestore-এ ফেরা, status = শুধু দেখা"
+        type: choice
+        options: [cutover, rollback, status]
+        default: status
+      keep_demo:
+        description: "ডেমো অ্যাকাউন্ট/ডেটাও রাখা (সাধারণত না — পরে অ্যাডমিন প্যানেল থেকে আবার বানানো যায়)"
+        type: boolean
+        default: false
+      only:
+        description: "শুধু এই কালেকশনগুলো, কমা দিয়ে (খালি = সব)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Run ${{ inputs.mode }}
+        env:
+          MODE: ${{ inputs.mode }}
+          KEEP_DEMO: ${{ inputs.keep_demo }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          [[ "$ONLY" =~ ^[A-Za-z0-9_,]*$ ]] || { echo "::error::only-তে শুধু কালেকশনের নাম, কমা দিয়ে"; exit 1; }
+          set -o pipefail
+          # shellcheck disable=SC2029  # মানগুলো ওপরে যাচাই করা (choice/boolean/নাম)
+          ssh vps "sudo -n bash -s -- '$MODE' '$KEEP_DEMO' '$ONLY'" < deploy/cutover.sh | tee "$RUNNER_TEMP/cutover.log"
+
+      - name: Summary
+        if: always()
+        env:
+          MODE: ${{ inputs.mode }}
+          JOB_OK: ${{ job.status }}
+        run: |
+          {
+            if [ "$JOB_OK" = success ]; then echo "## ✅ $MODE শেষ"; else echo "## ❌ $MODE হয়নি — লাল ধাপের স্ক্রিনশট Claude-কে পাঠান"; fi
+            echo
+            echo '```'
+            tail -40 "$RUNNER_TEMP/cutover.log" 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config

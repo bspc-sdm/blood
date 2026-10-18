@@ -1,0 +1,24 @@
+# ব্যাকআপ VPS-এর বাইরে: সবচেয়ে নতুন /var/backups/lifolo/lifolo-*.dump → Firebase প্রজেক্টের Cloud Storage বাকেট
+# (backups/ ফোল্ডার, শেষ ১৪টা)। lifolo-backup.service সফল হলে নিজে চলে (OnSuccess=)। হাতে: systemctl start lifolo-backup-upload
+[Unit]
+Description=Lifolo backup upload to Cloud Storage
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lifolo
+Group=lifolo
+WorkingDirectory=/opt/lifolo/server
+EnvironmentFile=/etc/lifolo/env
+Environment=BACKUP_DIR=/var/backups/lifolo BACKUP_KEEP=14
+ExecStart=/usr/bin/node standalone/backup-upload.js upload
+TimeoutStartSec=30min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadOnlyPaths=/var/backups/lifolo
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=

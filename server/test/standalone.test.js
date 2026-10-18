@@ -358,3 +358,85 @@ test('বন্ধ করার সময় চলতি অনুরোধ শ
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('ব্যাকআপ আপলোড (Cloud Storage): বাকেট খোঁজা, তোলা, শেষ ১৪টা রাখা, নামানো — নকল Google API', async () => {
+  const B = require(path.join(SERVER, 'standalone/backup-upload.js'));
+  const { signedJwt } = require(path.join(SERVER, 'standalone/gtoken.js'));
+  const crypto = require('crypto');
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const sa = {
+    type: 'service_account', project_id: 'blood-3eb28', client_email: 'sa@blood-3eb28.iam.gserviceaccount.com',
+    private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }), token_uri: 'https://oauth2.googleapis.com/token',
+  };
+
+  // JWT সই আসল চাবিতে যাচাই হয়
+  const [h, c, s] = signedJwt(sa).split('.');
+  assert.ok(crypto.verify('RSA-SHA256', Buffer.from(`${h}.${c}`), publicKey, Buffer.from(s, 'base64url')));
+  assert.strictEqual(JSON.parse(Buffer.from(c, 'base64url')).iss, sa.client_email);
+
+  assert.deepStrictEqual(B.bucketCandidates('p', {}), ['p.firebasestorage.app', 'p.appspot.com']);
+  assert.deepStrictEqual(B.bucketCandidates('p', { BACKUP_BUCKET: 'gs://my-b/' }), ['my-b']);
+  const names = Array.from({ length: 16 }, (_, i) => `backups/lifolo-202610${String(i + 1).padStart(2, '0')}-213000.dump`);
+  assert.deepStrictEqual(B.toPrune([...names, 'backups/other.txt', 'x/lifolo-20260101-000000.dump'].reverse(), 14), names.slice(0, 2));
+  assert.deepStrictEqual(B.toPrune(names.slice(0, 3), 14), []);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lifolo-bk-'));
+  assert.strictEqual(B.newestLocal(dir), null);
+  fs.writeFileSync(path.join(dir, 'lifolo-20261017-213000.dump'), 'old');
+  fs.writeFileSync(path.join(dir, 'lifolo-20261018-213000.dump'), 'PGDMP-new');
+  fs.writeFileSync(path.join(dir, '.lifolo-20261019-213000.dump.partial'), 'partial');
+  assert.strictEqual(B.newestLocal(dir), path.join(dir, 'lifolo-20261018-213000.dump'));
+
+  // নকল GCS: firebasestorage.app নেই (404), appspot.com আছে; আগে থেকে ১৪টা ব্যাকআপ
+  const store = new Map(names.slice(0, 14).map((n) => [n, Buffer.from('x')]));
+  const log = [];
+  const realFetch = global.fetch;
+  global.fetch = async (u, opts = {}) => {
+    const url = new URL(u);
+    const method = opts.method || 'GET';
+    log.push(`${method} ${url.hostname}${url.pathname}`);
+    const res = (status, body) => new Response(body === undefined ? null : (Buffer.isBuffer(body) ? body : JSON.stringify(body)), { status });
+    if (url.hostname === 'oauth2.googleapis.com') return res(200, { access_token: 'tok' });
+    assert.strictEqual(opts.headers.Authorization, 'Bearer tok');
+    const m = /^\/(upload\/)?storage\/v1\/b\/([^/]+)(\/o(?:\/(.+))?)?$/.exec(url.pathname);
+    const bucket = decodeURIComponent(m[2]);
+    if (bucket !== 'blood-3eb28.appspot.com') return res(404, { error: 'nf' });
+    if (!m[3]) return res(200, { name: bucket });
+    if (m[1] && method === 'POST') {
+      store.set(url.searchParams.get('name'), Buffer.from(opts.body));
+      return res(200, {});
+    }
+    if (m[4] && method === 'DELETE') {
+      store.delete(decodeURIComponent(m[4]));
+      return res(204);
+    }
+    if (m[4]) return store.has(decodeURIComponent(m[4])) ? res(200, store.get(decodeURIComponent(m[4]))) : res(404, {});
+    const items = [...store.keys()].filter((n) => n.startsWith(url.searchParams.get('prefix'))).map((name) => ({ name, size: '1', updated: 't' }));
+    return res(200, { items });
+  };
+  const env = { FIREBASE_SERVICE_ACCOUNT: Buffer.from(JSON.stringify(sa)).toString('base64'), BACKUP_DIR: dir, BACKUP_KEEP: '14' };
+  const out = [];
+  const realLog = console.log;
+  console.log = (...a) => out.push(a.join(' '));
+  try {
+    assert.strictEqual(await B.main(['upload'], env), 0);
+    assert.strictEqual(store.size, 14);
+    assert.strictEqual(String(store.get('backups/lifolo-20261018-213000.dump')), 'PGDMP-new');
+    assert.ok(!store.has(names[0]));
+    assert.ok(store.has(names[1]));
+    assert.ok(out.some((l) => l.includes('uploaded gs://blood-3eb28.appspot.com/backups/lifolo-20261018-213000.dump')));
+
+    const dest = path.join(dir, 'restore.dump');
+    assert.strictEqual(await B.main(['download', 'latest', dest], env), 0);
+    assert.strictEqual(fs.readFileSync(dest, 'utf8'), 'PGDMP-new');
+    await assert.rejects(B.main(['download', '../etc/passwd', dest], env), /নাম ঠিক নেই/);
+    assert.strictEqual(await B.main(['check'], env), 0);
+
+    // বাকেট একটাও নেই → স্পষ্ট ত্রুটি
+    await assert.rejects(B.main(['check'], { ...env, BACKUP_BUCKET: 'nope' }), /Storage → Get started/);
+  } finally {
+    global.fetch = realFetch;
+    console.log = realLog;
+    fs.rmSync(dir, { recursive: true });
+  }
+});

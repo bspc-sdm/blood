@@ -1,0 +1,53 @@
+name: Restore backup
+
+# PostgreSQL-এর ব্যাকআপ ফেরত আনা — Actions → Restore backup → Run workflow।
+#   from = cloud  Firebase Cloud Storage-এর backups/ থেকে (VPS নষ্ট হলে নতুন VPS-এ Setup VPS চালিয়ে তারপর এটা)
+#   from = local  এই VPS-এর /var/backups/lifolo থেকে
+#   backup = latest, list (শুধু তালিকা), বা নির্দিষ্ট নাম (যেমন lifolo-20261020-213000.dump)
+# ফেরত আনার আগে এখনকার অবস্থার একটা ব্যাকআপ নেওয়া হয়। VPS-এ যা চলে: deploy/restore.sh (/usr/local/sbin/lifolo-restore)
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "cloud = Firebase Cloud Storage, local = VPS-এর নিজের কপি"
+        type: choice
+        options: [cloud, local]
+        default: cloud
+      backup:
+        description: "latest, list (শুধু তালিকা দেখা), বা ব্যাকআপের নাম"
+        type: string
+        default: list
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Restore (${{ inputs.from }} / ${{ inputs.backup }})
+        env:
+          FROM: ${{ inputs.from }}
+          BACKUP: ${{ inputs.backup }}
+        run: |
+          [[ "$BACKUP" =~ ^(latest|list|lifolo-[0-9]{8}-[0-9]{6}\.dump)$ ]] || { echo "::error::backup হবে latest, list, বা lifolo-YYYYMMDD-HHMMSS.dump"; exit 1; }
+          # shellcheck disable=SC2029  # মান ওপরে যাচাই করা
+          ssh vps "sudo -n /usr/local/sbin/lifolo-restore '$FROM' '$BACKUP'"
+
+      - name: Clean up
+        if: always()
+        run: ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config

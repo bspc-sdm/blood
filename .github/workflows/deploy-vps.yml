@@ -1,11 +1,11 @@
 name: Deploy server (VPS)
 
-# Contabo VPS-এ সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health দেখা।
-# GitHub-এ VPS_HOST, VPS_USER, VPS_SSH_KEY সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
-# VPS_KNOWN_HOSTS-ও লাগে (setup-vps.sh শেষে যে লাইন দেখায়) — VPS-এর পরিচয় যাচাই, নইলে মাঝপথে কেউ নকল সার্ভার সাজাতে পারে।
-# VPS-এ চাবিটা command= দিয়ে বাঁধা: SSH করলেই /usr/local/sbin/lifolo-deploy (deploy/lifolo-deploy.sh) চলে —
+# VPS-এ (Contabo বা Oracle) সার্ভার ডেপ্লয়: আগে সার্ভারের টেস্ট, তারপর SSH করে git pull → npm ci → restart → health।
+# সংযোগ Setup VPS-এর মতোই (deploy/ci/vps-connect.sh): VPS_HOST + VPS_ROOT_PASSWORD (Contabo) বা VPS_SSH_KEY (Oracle) —
+# সেগুলো থেকে বানানো চাবি আর পিন করা host key। সিক্রেট না থাকলে ডেপ্লয় ধাপ নিজে থেকেই বাদ পড়ে (টেস্ট তবু চলে)।
+# VPS-এ /usr/local/sbin/lifolo-deploy (deploy/lifolo-deploy.sh) lifolo ব্যবহারকারী হিসেবে চলে:
 # git pull → npm ci --omit=dev (lock বদলালে) → systemctl restart lifolo → /healthz।
-# deploy/ (nginx, systemd, এই স্ক্রিপ্টগুলো) বদলালে VPS-এ setup-vps.sh আবার চালাতে হয়; এই workflow সেগুলো বসায় না।
+# deploy/ (nginx, systemd, এই স্ক্রিপ্টগুলো) বদলালে Setup VPS আবার চালাতে হয়; এই workflow সেগুলো বসায় না।
 on:
   push:
     branches: [main]
@@ -41,18 +41,20 @@ jobs:
       - name: Server tests
         working-directory: server
         run: npm test
+      - name: Deploy helper tests (deploy/ci)
+        run: node --test deploy/ci/test/*.test.js
       - name: Are VPS secrets set?
         id: check
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
-          if [ -n "$VPS_HOST" ] && [ -n "$VPS_USER" ] && [ -n "$VPS_SSH_KEY" ]; then
+          if [ -n "$VPS_HOST" ] && { [ -n "$VPS_ROOT_PASSWORD" ] || [ -n "$VPS_SSH_KEY" ]; }; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::VPS_HOST / VPS_USER / VPS_SSH_KEY সেট করা নেই — ডেপ্লয় বাদ"
+            echo "::notice::VPS_HOST আর VPS_ROOT_PASSWORD / VPS_SSH_KEY সেট করা নেই — ডেপ্লয় বাদ"
           fi
 
   deploy:
@@ -62,31 +64,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: SSH key
+      - uses: actions/checkout@v5
+
+      - name: Connect to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-        run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          if [ -z "$VPS_KNOWN_HOSTS" ]; then
-            echo "::error::VPS_KNOWN_HOSTS secret নেই — setup-vps.sh-এর শেষে দেখানো লাইনটা যোগ করুন"
-            exit 1
-          fi
-          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+        run: bash deploy/ci/vps-connect.sh
 
       - name: Pull, install, restart, health check
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        # চাবির command= নিজেই lifolo-deploy চালায় (এখানে কমান্ড পাঠানো লাগে না, পাঠালেও উপেক্ষা হয়)
-        run: |
-          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
-            "$VPS_USER@$VPS_HOST" deploy
+        run: ssh vps 'sudo -n -u lifolo -H /usr/local/sbin/lifolo-deploy'
 
       - name: Clean up key
         if: always()
-        run: rm -f ~/.ssh/id_deploy
+        run: ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config

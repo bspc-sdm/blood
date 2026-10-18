@@ -1,8 +1,9 @@
-# PostgreSQL-এর দৈনিক ব্যাকআপ (/var/backups/lifolo, ১৪ দিন রাখা)
+# PostgreSQL-এর দৈনিক ব্যাকআপ (/var/backups/lifolo, ১৪ দিন রাখা); সফল হলে Cloud Storage-এ কপি
 [Unit]
 Description=Lifolo PostgreSQL backup
 After=postgresql.service
 Requires=postgresql.service
+OnSuccess=lifolo-backup-upload.service
 
 [Service]
 Type=oneshot
