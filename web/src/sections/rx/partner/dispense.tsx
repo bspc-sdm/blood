@@ -11,6 +11,7 @@ import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { formatDayOf, timeAgo } from '@/lib/format';
 import { CodeBox, Panel, focusNext, useInvalidate, useWide } from './common';
 import { CancelOrderDialog, useOrderUpdate } from './online';
+import { RxSaleOffer } from './books/rxsale';
 import { ageText, boughtText, doseText, isOpenOrder, medTitle, orderStatusShop, orderTone, type PharmMed, type PharmOrder, type PharmRx, type PharmacyHome } from './model';
 
 const BASE = '/work/pharmacy/orders';
@@ -238,6 +239,7 @@ function DispenseForm({ start, onNext }: { start: PharmRx; onNext: () => void })
       ) : null}
       <ErrorText>{err}</ErrorText>
       <InfoText>{info}</InfoText>
+      <RxSaleOffer rx={rx} />
       <div className="row wrap gap-8 rxp-actions">
         {!cancelled && open.length ? (
           <Button icon="check_circle" busy={busy} disabled={!can} onClick={save} title="Ctrl + Enter">

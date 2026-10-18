@@ -19,6 +19,7 @@ import {
 } from '../model';
 import { MiniBars, StatTile, ratingValue, useAreasReady } from '../shared';
 import { ChamberEdit } from './ChamberEdit';
+import { QueuePanel } from '../queue';
 import '../appointment.css';
 
 export function ProfessionalWorkspace({ base = '/work/pro' }: { base?: string }) {
@@ -223,6 +224,7 @@ function BookingsTab({ list, loading, error, reload, hasChamber, onSetup }: { li
         ) : null}
         <IconButton icon="refresh" label={tr('Refresh', 'রিফ্রেশ')} onClick={reload} />
       </div>
+      {view === 'today' ? <QueuePanel /> : null}
       <ErrorText>{err}</ErrorText>
       {!rows.length ? (
         <EmptyState icon="calendar_month" title={tr('No appointments', 'কোনো অ্যাপয়েন্টমেন্ট নেই')}>

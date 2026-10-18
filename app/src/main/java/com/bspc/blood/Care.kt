@@ -297,6 +297,8 @@ data class Chamber(
     val address: String = "",
     /** বার অনুযায়ী আলাদা সময় (একাধিক হলে); ফাঁকা হলে উপরের days/start/end একটাই ভাগ */
     val times: List<ChamberTime> = emptyList(),
+    /** রোগীপ্রতি গড় সময় (মিনিট) — সিরিয়ালের আনুমানিক সময়ে; null = ঠিক করা নেই (১০ ধরা হয়) */
+    val patientMin: Int? = null,
 ) {
     /** সব সময়ের ভাগ — এডিটর আর দেখানো এটাই ব্যবহার করে */
     val slots: List<ChamberTime> get() = times.ifEmpty { listOf(ChamberTime(days, start, end)) }
@@ -330,6 +332,7 @@ data class Chamber(
         .put("fee", fee).put("noFee", noFee).put("appointments", appointments).put("serialPhone", serialPhone)
         .put("days", JSONArray(days)).put("start", start).put("end", end)
         .apply { if (times.size > 1) put("times", JSONArray(times.map { it.toJson() })) }
+        .put("patientMin", patientMin ?: JSONObject.NULL)
 
     companion object {
         fun parse(o: JSONObject) = Chamber(
@@ -339,6 +342,7 @@ data class Chamber(
             o.optJSONArray("days").ints(), o.str("start"), o.str("end"), o.optBoolean("noFee"),
             o.optBoolean("custom"), o.str("address"),
             parseTimes(o.optJSONArray("times")).takeIf { it.size > 1 }.orEmpty(),
+            o.intOrNull("patientMin"),
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */

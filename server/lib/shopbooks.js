@@ -229,8 +229,8 @@ function priceSale(rawLines, billDisc) {
   };
 }
 
-/** বিক্রির দিনের যোগফল (sign = -1 হলে বাদ — বিক্রি মুছলে) */
-function saleDayAdd(t, uid, sale, sign = 1) {
+/** বিক্রির দিনের যোগফলে কী যোগ হবে (sign = -1 হলে বাদ — বিক্রি মুছলে); ডেমোও এটা দিয়েই দিন বানায় */
+function saleDayDelta(sale, sign = 1) {
   const s = (v) => sign * (v || 0);
   const items = {};
   for (const l of sale.lines) {
@@ -242,12 +242,13 @@ function saleDayAdd(t, uid, sale, sign = 1) {
     items[l.itemId] = cur;
   }
   const T = sale.totals;
-  dayAdd(t, uid, sale.day, {
+  return {
     sales: s(1), gross: s(T.gross), discount: s(T.discount), net: s(T.net), cost: s(T.cost), profit: s(T.profit), nc: s(T.netCosted),
     src: { [sale.source]: { n: s(1), net: s(T.net) } },
     items,
-  });
+  };
 }
+const saleDayAdd = (t, uid, sale, sign = 1) => dayAdd(t, uid, sale.day, saleDayDelta(sale, sign));
 
 /** প্রেসক্রিপশনের ওষুধের নাম → দোকানের পণ্য: হুবহু নাম, নইলে একটাই মেলে এমন "নাম + শক্তি" */
 function matchItem(name, list) {
@@ -806,4 +807,4 @@ async function deleteFor(uid) {
   await Promise.all([db.recursiveDelete(db.doc(`shopItems/${uid}`)), db.recursiveDelete(db.doc(`shopBooks/${uid}`))]);
 }
 
-module.exports = { actions, deleteFor, priceSale, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };
+module.exports = { actions, deleteFor, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };

@@ -16,6 +16,8 @@ import {
   type Actor, type DoctorLab, type DoctorRx, type RxPatient, type RxPatientsData, type RxTarget,
 } from './model';
 import { DoctorLabList } from './Labs';
+import { QueuePanel } from '../../appointment/queue';
+import '../../appointment/appointment.css';
 
 type Link = (path: string, extra?: Record<string, string>) => string;
 
@@ -47,6 +49,15 @@ export function PatientsPage({ actor, link }: { actor: Actor; link: Link }) {
     />
   );
 
+  // সহকারী: আজকের সিরিয়াল চালান (ডাক্তার নিজে "আমার চেম্বার › বুকিং"-এ)
+  if (!doctor) {
+    return (
+      <div className="col gap-16">
+        <QueuePanel doctorUid={actor.doctorUid} />
+        {list}
+      </div>
+    );
+  }
   if (!target) return list;
   const history = <HistoryPane key={targetKey(target)} target={target} link={link} wide={wide} onClose={() => select(null)} onWrite={() => write(target)} />;
   if (!wide) return history;

@@ -339,3 +339,57 @@ test('অ্যাকাউন্ট মুছলে পণ্য আর পু�
   await account.deletion.deleteNow(A, `${A}@example.com`);
   assert.deepStrictEqual(mine(), []);
 });
+
+test('ডেমো: "ডেমো লাইফ ফার্মেসি"-র পণ্য, কেনা, বিক্রি আর হিসাব; স্টকের ২৪টা নাম আগের মতো; ডেমো মুছলে কিছু থাকে না', async () => {
+  const OWNER = 'owner-demo-test';
+  F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
+  const seed = await call(OWNER, 'admin_demo_seed');
+  assert.strictEqual(seed.status, 200, JSON.stringify(seed.body));
+  const PH = 'demo-pharmacy';
+  const D = require(path.join(SERVER, 'lib/demo/books.js'));
+
+  const items = (await ok(PH, 'books_items')).items;
+  assert.strictEqual(items.length, D.ITEMS.length);
+  assert.strictEqual(items.filter((i) => i.inStock).length, 24, 'স্টকের তালিকা সেবার ডেমোর মতো ২৪টা');
+  assert.deepStrictEqual(items.filter((i) => !i.inStock).map((i) => i.name).sort(), ['Nexum 20', 'Thyrox 50']);
+  // শুরুর পরিমাণ কখনো ঋণাত্মক নয় (শেষ − কেনা + বিক্রি + নষ্ট)
+  const sales = [...F.store.entries()].filter(([k]) => k.startsWith(`shopBooks/${PH}/sales/`)).map(([, v]) => v);
+  const buys = [...F.store.entries()].filter(([k]) => k.startsWith(`shopBooks/${PH}/purchases/`)).map(([, v]) => v);
+  for (const it of items) {
+    const sold = sales.flatMap((s) => s.lines).filter((l) => l.itemId === it.id).reduce((a, l) => a + l.qty, 0);
+    const bought = buys.flatMap((p) => p.lines).filter((l) => l.itemId === it.id).reduce((a, l) => a + l.qty, 0);
+    assert.ok(it.qty - bought + sold >= 0, `${it.name}: শুরুর পরিমাণ`);
+  }
+
+  const rep = {};
+  for (const p of ['today', '7d', '30d', 'month']) rep[p] = await ok(PH, 'books_report', { period: p });
+  const t30 = rep['30d'];
+  assert.ok(t30.totals.sales > 250 && t30.totals.net > 10000, JSON.stringify(t30.totals));
+  assert.ok(t30.totals.profit > 0 && t30.totals.writeOff > 0 && t30.totals.bought > 0);
+  assert.ok(t30.bySource.rx.n > 0 && t30.bySource.online.n > 0);
+  assert.ok(rep.today.totals.sales >= 7);
+  assert.deepStrictEqual(t30.belowCost.map((x) => x.name), ['Flagyl']);
+  assert.deepStrictEqual(t30.low.map((x) => x.name), ['Nexum 20', 'Thyrox 50', 'Cef-3', 'Rosuva', 'Montene']);
+  assert.deepStrictEqual(t30.expiring.map((x) => x.name), ['Ceevit', 'Azithrocin']);
+  assert.deepStrictEqual(t30.noSale.map((x) => x.name).sort(), ['Tofen', 'Xinc']);
+  // দিনের যোগফল আর বিক্রিগুলো মেলে
+  const sum = sales.filter((s) => t30.daily.some((d) => d.day === s.day)).reduce((a, s) => a + s.totals.net, 0);
+  assert.strictEqual(Math.round(sum * 100) / 100, t30.totals.net);
+  // গাইডের সংখ্যা (স্থির)
+  const show = (r) => ({ ...r.totals, top: r.topSales.slice(0, 3).map((x) => `${x.name} ${x.net}`), topP: r.topProfit.slice(0, 3).map((x) => `${x.name} ${x.profit}`), below: r.belowCost.map((x) => `${x.name} ${x.loss}/${x.lossQty}`), src: r.bySource, stock: r.stock });
+  console.log('DEMO_BOOKS', JSON.stringify({ today: show(rep.today), d7: show(rep['7d']), d30: show(t30) }));
+  // ডেমোর প্রেসক্রিপশন থেকে ওষুধ দিয়ে বিক্রি তোলা (অ্যাজমা: Montene, Alatrol — পথে থাকা অনলাইন অর্ডার)
+  await ok(PH, 'rx_dispense', { code: 'DEMSVCRXB3', items: [{ i: 0, qty: 8 }, { i: 1, qty: 10 }] });
+  const pv = await ok(PH, 'books_rx_preview', { code: 'DEMSVCRXB3' });
+  assert.strictEqual(pv.source, 'online');
+  assert.deepStrictEqual(pv.lines.map((l) => [l.itemName, l.unitPrice]), [['Montene', 16], ['Alatrol', 3.5]]);
+  await ok(PH, 'books_sale_add', { source: 'rx', rx: { code: 'DEMSVCRXB3', at: pv.at } });
+  assert.strictEqual((await item(PH, 'Montene')).qty, 0, 'Montene ৮টা ছিল');
+  assert.ok(!(await stockNames(PH)).includes('Montene'));
+
+  let w;
+  for (let i = 0; i < 5; i++) { w = await call(OWNER, 'admin_demo_wipe'); if (!w.body.more) break; }
+  assert.strictEqual(w.status, 200, JSON.stringify(w.body));
+  assert.deepStrictEqual([...F.store.keys()].filter((k) => k.startsWith(`shopItems/${PH}`) || k.startsWith(`shopBooks/${PH}`)), []);
+  assert.deepStrictEqual([...F.store.entries()].filter(([, v]) => v && v.demo === true).map(([k]) => k), []);
+});

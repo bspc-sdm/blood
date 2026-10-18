@@ -563,6 +563,63 @@
   "full": true
  },
  {
+  "name": "my-queue",
+  "path": "/my-appointments/a0",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
+  "name": "my-late",
+  "path": "/my-appointments/a0",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "patient@example.com"
+   },
+   "profile": {
+    "name": "মো. সাকিব হাসান",
+    "phone": "01711000123",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps",
+    "bloodGroup": "B+"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "click": [
+   "button:has-text(\"দেরি হবে\") >> visible=true",
+   ".dialog button.chip:has-text(\"২০ মিনিট\")"
+  ]
+ },
+ {
   "name": "my-cancel",
   "path": "/my-appointments/a1",
   "test": {

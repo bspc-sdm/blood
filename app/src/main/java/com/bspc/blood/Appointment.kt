@@ -541,6 +541,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // ডাক্তার: আজকের সিরিয়াল চালানো — শুরু, পরের রোগী, বিরতি, দেরির উত্তর (Queue.kt; আজ সিরিয়াল না থাকলে কিছু নয়)
+                if (role == "provider") item { QueuePanel(null, refreshKey = reload) }
                 item { ErrorText(errorMsg) }
                 when {
                     loading && list.isEmpty() -> item { LoadingBox() }
@@ -586,6 +588,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                     )
                                 }
                                 if (a.chamberLabel.isNotBlank()) IconLine(R.drawable.ic_local_hospital, a.chamberLabel + if (a.room.isNotBlank()) " · " + a.room else "")
+                                // আজকের নিশ্চিত সিরিয়াল: এখন কত চলছে, আগে কতজন, কখন আসবেন, "দেরি হবে" (Queue.kt)
+                                if (a.role == "patient") PatientQueueCard(a)
                                 Text(a.note, style = MaterialTheme.typography.bodyMedium)
                                 if (a.providerNote.isNotBlank()) {
                                     Text(tr("Note: ", "নোট: ") + a.providerNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
@@ -1162,6 +1166,21 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("Appointments in app at this chamber", "এই চেম্বারে অ্যাপে অ্যাপয়েন্টমেন্ট"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Switch(checked = c.appointments, onCheckedChange = { onChange(c.copy(appointments = it)) })
+            }
+            // রোগীপ্রতি গড় সময় — সিরিয়ালের আনুমানিক সময়ে (আগের হিসাব কম থাকলে); খালি = ১০ মিনিট
+            if (c.appointments) {
+                OutlinedTextField(
+                    value = c.patientMin?.let { num(it) } ?: "",
+                    onValueChange = { v ->
+                        val n = v.map { ch -> if (ch in '০'..'৯') '0' + (ch - '০') else ch }.filter { it.isDigit() }.joinToString("").take(3).toIntOrNull()
+                        onChange(c.copy(patientMin = n?.takeIf { it > 0 }?.coerceAtMost(120)))
+                    },
+                    label = { Text(tr("Avg. time per patient (min)", "রোগীপ্রতি গড় সময় (মিনিট)")) },
+                    placeholder = { Text(num(10)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

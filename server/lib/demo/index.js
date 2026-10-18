@@ -122,6 +122,7 @@ async function ensureUser(key, email, name) {
 const PARTS = [
   [() => require('./blood'), 'রক্তদান'],
   [() => require('./services'), 'সেবা'],
+  [() => require('./books'), 'দোকানের হিসাব'],
   [() => require('./rx'), 'ডাক্তার ও প্রেসক্রিপশন'],
   [() => require('./health'), 'স্বাস্থ্য ও কেয়ারগিভার'],
 ];
