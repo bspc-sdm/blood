@@ -14,6 +14,8 @@ import './rxpartner.css';
 
 /** চওড়া পর্দা: টেবিল; নইলে কার্ড */
 export const useWide = () => useMedia('(min-width: 1000px)');
+/** পাশে সেটিং-এর ঘরসহ পাতার ছক (অনলাইন অর্ডার): মাঝের জায়গা ছোট, তাই ছক শুধু বড় পর্দায় — ১৩৬৬ পর্দায় কাজের বোতাম কেটে যেত */
+export const useWideWithSide = () => useMedia('(min-width: 1600px)');
 
 /** পাতা: উপরে "পেছনে" বার (নিজের ব্যবসার পাতায় ফেরা), নিচে চওড়া কাজের জায়গা */
 export function PartnerPage({ title, backTo, actions, children }: { title: string; backTo: string; actions?: ReactNode; children: ReactNode }) {

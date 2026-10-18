@@ -68,6 +68,8 @@ export function boughtText(m: PharmMed): string {
 }
 export const doseText = (m: { dose: string; days: number }) =>
   [m.dose ? num(m.dose) : '', m.days > 0 ? tr(`${m.days} days`, `${num(m.days)} দিন`) : tr('Continue', 'চলবে')].filter(Boolean).join(' · ');
+/** খাওয়ার সময় ('after'/'before' — সার্ভার কাঁচা মান দেয়) */
+export const timingText = (t: string) => (t === 'after' ? tr('After food', 'খাবারের পরে') : t === 'before' ? tr('Before food', 'খাবারের আগে') : t);
 export const ageText = (age: number | null | undefined) => (age != null ? tr(`${age} yrs`, `${num(age)} বছর`) : null);
 export const genderText = (g: string) => (g === 'female' ? tr('Female', 'নারী') : g === 'male' ? tr('Male', 'পুরুষ') : null);
 

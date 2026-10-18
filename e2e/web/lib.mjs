@@ -1,0 +1,344 @@
+// e2e সাহায্যকারী: ব্রাউজার, ডেমো রোলে লগইন/রোল বদল, ধাপের স্ক্রিনশট আর manifest, নিজে থেকে কিছু ভুল ধরা
+// (পাশে স্ক্রল, কনসোল/সার্ভারের ভুল, বাংলায় ইংরেজি লেখা)।
+import fs from 'node:fs';
+import path from 'node:path';
+import { chromium } from 'playwright-core';
+import { BASE, E2E } from './stack.mjs';
+
+export const SHOTS = path.join(E2E, 'web/shots');
+export const PHONE = { width: 412, height: 915 };
+export const DESKTOP = { width: 1366, height: 900 };
+const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+/** ডেমো রোলের নাম যেমন লগইন পাতার তালিকায় দেখায় (server/lib/demo/index.js ROLES[].bn) */
+export const ROLE_LABEL = {
+  patient: 'সাধারণ ব্যবহারকারী / রোগী',
+  donor: 'রক্তদাতা',
+  doctor: 'ডাক্তার',
+  assistant: 'ডাক্তারের সহকারী',
+  pharmacy: 'ফার্মেসি',
+  lab: 'প্যাথলজি / ল্যাব',
+  ambulance: 'অ্যাম্বুলেন্স',
+  bloodbank: 'ব্লাড ব্যাংক',
+  homecare: 'বাসায় সেবা (নার্স)',
+  caregiver: 'কেয়ারগিভার',
+};
+export const PHONE_ROLES = new Set(['patient', 'donor', 'caregiver', 'ambulance', 'guest', 'homecare', 'bloodbank']);
+
+export const manifest = [];
+export const issues = []; // নিজে থেকে ধরা সন্দেহ — হাতে দেখে bug/ঠিক আছে ঠিক করা হয়
+
+let browser;
+/** স্ট্যাকের ঘড়ি (stack.mjs লিখে রাখে) — ব্রাউজারও একই সময়ে */
+export function clockOff() {
+  if (process.env.E2E_TIME_OFFSET_MS) return Number(process.env.E2E_TIME_OFFSET_MS);
+  const f = path.join(E2E, '.build/clock.json');
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')).offset : 0;
+}
+export async function launch() {
+  browser = await chromium.launch({ executablePath: CHROME, args: ['--lang=bn-BD'] });
+  return browser;
+}
+export async function close() {
+  await browser?.close();
+}
+
+const pad = (n) => String(n).padStart(2, '0');
+
+/**
+ * একটা যাত্রা (journey): নিজের ফোল্ডার, নিজের ক্রমিক ধাপ।
+ * J.page(role) — সেই রোলের পাতা (ফোন বা ডেস্কটপ মাপ), দরকার হলে লগইন/রোল বদল ডেমো তালিকা দিয়ে
+ */
+export class Journey {
+  constructor(no, slug, titleBn) {
+    this.no = no;
+    this.id = `${pad(no)}-${slug}`;
+    this.titleBn = titleBn;
+    this.step = 0;
+    this.pages = {}; // viewport -> {ctx, page, role}
+    this.errs = [];
+    this.done = [];
+    this.scId = '';
+    fs.mkdirSync(path.join(SHOTS, this.id), { recursive: true });
+  }
+
+  async ctxFor(vp) {
+    if (this.pages[vp]) return this.pages[vp];
+    const isPhone = vp === 'phone';
+    const ctx = await browser.newContext({
+      viewport: isPhone ? PHONE : DESKTOP, deviceScaleFactor: 1, locale: 'bn-BD', timezoneId: 'Asia/Dhaka',
+      isMobile: isPhone, hasTouch: isPhone,
+      geolocation: { latitude: 24.7539, longitude: 90.4073 }, permissions: ['geolocation', 'clipboard-read', 'clipboard-write'],
+    });
+    const off = clockOff();
+    if (off) await ctx.clock.install({ time: Date.now() + off });
+    await ctx.addInitScript(() => {
+      // tel: লিংক — আসল ফোন খোলার বদলে লিখে রাখা (অ্যাপের নিজের কাজ, যেমন ফোনের হিসাব, আগের মতোই চলে)
+      document.addEventListener('click', (e) => {
+        const a = e.target && e.target.closest && e.target.closest('a[href^="tel:"]');
+        if (a) { e.preventDefault(); window.__lastTel = a.getAttribute('href'); }
+      }, true);
+      const open0 = window.open;
+      window.open = (u, ...r) => (String(u || '').startsWith('tel:') ? ((window.__lastTel = String(u)), null) : open0.call(window, u, ...r));
+      try {
+        if (!localStorage.getItem('lf.lang')) localStorage.setItem('lf.lang', 'bn');
+        // ফোনে "অ্যাপ নামান" জাতীয় বাধা বন্ধ নয় — আসল ব্যবহারকারীর মতোই
+      } catch {}
+    });
+    const page = await ctx.newPage();
+    page.setDefaultTimeout(8000);
+    const errs = this.errs;
+    page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`));
+    page.on('console', (m) => {
+      if (m.type() === 'error' && !/Failed to load resource|favicon/i.test(m.text())) errs.push(`console: ${m.text().slice(0, 200)}`);
+    });
+    page.on('response', async (r) => {
+      if (r.url().includes('/api/') && r.status() >= 500) errs.push(`api ${r.status()} ${r.url()}`);
+    });
+    page.on('dialog', (d) => d.accept().catch(() => {}));
+    this.pages[vp] = { ctx, page, role: null, vp };
+    return this.pages[vp];
+  }
+
+  /** এই রোলের পাতা (ফোন/ডেস্কটপ রোল দেখে, বা vp দিয়ে জোর করে) — লগইন/রোল বদল ডেমো তালিকা দিয়ে */
+  async as(role, vp = PHONE_ROLES.has(role) ? 'phone' : 'desktop') {
+    const P = await this.ctxFor(vp);
+    if (P.role !== role) {
+      await switchRole(P.page, role, P.role);
+      P.role = role;
+    }
+    this.cur = P;
+    return P.page;
+  }
+
+  get page() {
+    return this.cur.page;
+  }
+
+  /** ধাপের স্ক্রিনশট + manifest; status: ok|bug|fixed; opt.full = পুরো পাতা */
+  async shot(titleBn, expectedBn, opt = {}) {
+    const page = opt.page || this.cur.page;
+    const P = Object.values(this.pages).find((x) => x.page === page) || this.cur;
+    this.step++;
+    await settle(page);
+    // ডায়ালগ খোলা থাকলে পুরো পাতার ছবি ভুল দেখায় (ডায়ালগ পর্দার মাপে আটকে থাকে) — তখন শুধু পর্দা
+    if (opt.full && (await page.locator('[role=dialog]:visible').count())) opt = { ...opt, full: false };
+    if (opt.full) await page.evaluate(() => window.scrollTo(0, 0));
+    const auto = await autoCheck(page);
+    const errs = this.errs.splice(0);
+    const file = `${this.id}/${pad(this.step)}-step.png`;
+    if (opt.full) {
+      // পুরো পাতা: জানালাটাই লম্বা করে ছবি (fullPage-এ নিচের/পাশের স্থির মেনু মাঝখানে বসে যায়)
+      const vp = page.viewportSize();
+      const h = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+      if (h > vp.height + 4) {
+        await page.setViewportSize({ width: vp.width, height: Math.min(h, 5000) });
+        await page.waitForTimeout(250);
+        await page.screenshot({ path: path.join(SHOTS, file) });
+        await page.setViewportSize(vp);
+      } else await page.screenshot({ path: path.join(SHOTS, file) });
+    } else await page.screenshot({ path: path.join(SHOTS, file) });
+    const entry = {
+      journey: this.id,
+      journeyTitleBn: this.titleBn,
+      step: this.step,
+      titleBn,
+      role: P.role || 'guest',
+      viewport: P.vp === 'phone' ? `ফোন ${PHONE.width}×${PHONE.height}` : `ডেস্কটপ ${DESKTOP.width}×${DESKTOP.height}`,
+      file,
+      expectedBn,
+      status: opt.status || 'ok',
+      noteBn: opt.noteBn || '',
+      scenario: opt.sc || this.scId || '',
+      url: page.url().replace(BASE, ''),
+    };
+    if (opt.check === false) {
+      entry.status = 'bug';
+    }
+    manifest.push(entry);
+    const found = [...auto, ...errs];
+    if (found.length) issues.push({ file, titleBn, found });
+    if (process.env.E2E_TRACE) console.log(`  ${file}  ${titleBn}${found.length ? `  !! ${found.join(' | ').slice(0, 300)}` : ''}`);
+    return entry;
+  }
+
+  /** একটা দৃশ্য (গাইডের scenario): ভুল হলে স্ক্রিনশট রেখে পরেরটায় যাওয়া */
+  async sc(id, titleBn, fn) {
+    this.scId = id;
+    this.scTitle = titleBn;
+    const t0 = Date.now();
+    try {
+      await fn();
+      this.done.push({ id, ok: true });
+    } catch (e) {
+      const msg = e.message.split('\n')[0].slice(0, 220);
+      const at = (/journeys\/[^)]+:(\d+):\d+/.exec(e.stack || '') || [])[0] || '';
+      console.error(`   !! ${id} ${titleBn}: ${msg} @${at}`);
+      this.done.push({ id, ok: false, msg });
+      try {
+        if (this.cur) await this.shot(`${titleBn} — এখানে আটকে গেছে`, 'পরের ধাপে যাওয়া যায়নি', { status: 'bug', noteBn: `স্বয়ংক্রিয় ধাপ থেমেছে: ${msg}` });
+      } catch {}
+    }
+    if (process.env.E2E_TRACE) console.log(`  [${id}] ${Math.round((Date.now() - t0) / 1000)}s`);
+    this.scId = '';
+  }
+
+  async end() {
+    for (const P of Object.values(this.pages)) await P.ctx.close().catch(() => {});
+    this.pages = {};
+  }
+}
+
+/** নেটওয়ার্ক থামা আর লোড চিহ্ন চলে যাওয়া পর্যন্ত */
+export async function settle(page, ms = 250) {
+  await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector('.loading, [aria-busy="true"], .skeleton'), null, { timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(ms);
+}
+
+/** পাশে স্ক্রল, আর বাংলা মোডে ইংরেজি বাক্য (৩+ শব্দ) */
+async function autoCheck(page) {
+  return page.evaluate(() => {
+    const out = [];
+    const over = document.documentElement.scrollWidth - window.innerWidth;
+    if (over > 1) out.push(`horizontal overflow ${over}px`);
+    // কাটা পড়া লেখা: ডান দিকে পর্দার বাইরে যাওয়া দৃশ্যমান উপাদান
+    const W = window.innerWidth;
+    const cut = [];
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || cs.position === 'fixed') continue;
+      if (r.right > W + 2 && r.left < W && el.children.length === 0 && (el.textContent || '').trim()) {
+        // স্ক্রল করা যায় এমন পাত্রের ভেতরে হলে ঠিক আছে
+        let p = el.parentElement;
+        let scroller = false;
+        while (p && p !== document.body) {
+          const s = getComputedStyle(p);
+          if (/(auto|scroll|hidden)/.test(s.overflowX)) { scroller = true; break; }
+          p = p.parentElement;
+        }
+        if (!scroller) cut.push((el.textContent || '').trim().slice(0, 30));
+      }
+    }
+    if (cut.length) out.push(`cut off at right: ${cut.slice(0, 4).join(' / ')}`);
+    if ((localStorage.getItem('lf.lang') || 'bn') === 'bn') {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const eng = new Set();
+      const OK = /^(USG.*|.*abdomen.*|Lifolo|OK|PDF|QR|SMS|BMI|ECG|CBC|HbA1c|Rx|ID|Spam|Gmail|Google|Maps|WhatsApp|Imo|bKash|Nagad|Android|App|Play Store|Email|Hb|mg|ml|Tab|Cap|Syp|Inj|kg|cm|mmHg|mg\/dL|mmol\/L|Napa|Ace|Seclo|Losectil|Metformin|Paracetamol|Omeprazole|Amlodipine|Lipid Profile|S\.? ?Creatinine|Blood Sugar|Urine R\/E|X-Ray|USG|FBS|RBS|TSH|SGPT|Chest|Whole Abdomen|ESR|Serum|Hemoglobin|Negative|Positive|A\+|B\+|O\+|AB\+|A-|B-|O-|AB-)$/i;
+      while (walker.nextNode()) {
+        const n = walker.currentNode;
+        const t = (n.textContent || '').trim();
+        if (!t || t.length < 8) continue;
+        const el = n.parentElement;
+        if (!el || el.closest('script,style,code,input,textarea,[translate="no"],.mono,.drug,.rx-med')) continue;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        // ৩+ ইংরেজি শব্দ পরপর, বাংলা নেই
+        if (/[ঀ-৿]/.test(t)) continue;
+        const words = t.split(/\s+/).filter((w) => /^[A-Za-z][A-Za-z'’,.:;!?()-]*$/.test(w));
+        // কোড/সংক্ষেপ (সব বড় হাতের) বাদ — অন্তত দুটো ছোট হাতের সাধারণ শব্দ লাগবে
+        const plain = words.filter((w) => /^[A-Za-z]?[a-z]{2,}/.test(w));
+        // UI বাক্য চেনা যায় সাধারণ ইংরেজি ছোট শব্দে (ওষুধ/পরীক্ষার নাম ইংরেজিতেই থাকে, সেগুলো বাদ)
+        const fn = words.filter((w) => /^(the|to|and|of|is|are|a|an|your|you|not|no|this|for|in|with|please|will|was|has|have|be|can|on|at|from|by|or|it|yet|here|there|now|more|all|add|tap|send|save|cancel|open|close|try|again|log|login|sign)$/i.test(w.replace(/[^A-Za-z]/g, '')));
+        if (words.length >= 3 && plain.length >= 2 && fn.length >= 1 && !OK.test(t)) eng.add(t.slice(0, 60));
+      }
+      if (eng.size) out.push(`english text: ${[...eng].slice(0, 5).join(' / ')}`);
+    }
+    return out;
+  });
+}
+
+/** লগইন পাতার ডেমো তালিকা দিয়ে ঢোকা, বা প্রোফাইল › রোল বদলান */
+export async function switchRole(page, role, current) {
+  if (role === 'guest') {
+    if (current && current !== 'guest' && current !== 'owner') await logout(page);
+    else await page.goto(`${BASE}/`);
+    return;
+  }
+  // 'owner' = শুধু অ্যাডমিন প্যানেলে (কুকি) ঢোকা — ওয়েব অ্যাপে তখনো অতিথি
+  if (!current || current === 'guest' || current === 'owner') {
+    await page.goto(`${BASE}/login`);
+    const dlg = page.getByRole('dialog');
+    await dlg.getByText('ডেমো (পরীক্ষার জন্য)').waitFor();
+    await dlg.getByText(ROLE_LABEL[role], { exact: false }).first().click();
+  } else {
+    await page.goto(`${BASE}/profile`);
+    await page.getByText('রোল বদলান', { exact: true }).first().click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByText('ডেমো (পরীক্ষার জন্য)').waitFor();
+    await dlg.getByText(ROLE_LABEL[role], { exact: false }).first().click();
+  }
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), null, { timeout: 15000 });
+  await settle(page);
+}
+
+export async function logout(page) {
+  await page.goto(`${BASE}/profile`);
+  await page.getByText('লগআউট', { exact: true }).first().click();
+  const dlg = page.getByRole('dialog');
+  if (await dlg.count()) await dlg.getByRole('button', { name: 'লগআউট' }).click().catch(() => {});
+  await settle(page);
+}
+
+/** লেখা দেখে চাপা (প্রথম দৃশ্যমান) */
+export async function tap(page, text, opt = {}) {
+  const scope = opt.in ? page.locator(opt.in) : page;
+  const loc = typeof text === 'string' || text instanceof RegExp
+    ? (opt.role ? scope.getByRole(opt.role, { name: text, exact: opt.exact ?? false })
+      // লেখা না থাকলে আইকন-বোতামের নাম (aria-label) দিয়ে
+      : scope.getByText(text, { exact: opt.exact ?? false }).or(scope.getByRole('button', { name: text, exact: opt.exact ?? false })))
+    : text;
+  const el = vis(loc).first();
+  await el.scrollIntoViewIfNeeded().catch(() => {});
+  await el.click({ timeout: opt.timeout || 8000 });
+  await settle(page, opt.wait ?? 200);
+}
+
+export async function has(page, text, timeout = 5000) {
+  try {
+    await vis(page.getByText(text, { exact: false })).first().waitFor({ timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function go(page, p, { soft = false } = {}) {
+  if (soft) {
+    // পাতা নতুন করে না খুলে অ্যাপের ভেতরেই যাওয়া (মেনু/লিংক চাপার মতো) — কেয়ারগিভার মোড মেমোরিতে থাকে, রিলোডে চলে যায়
+    await page.evaluate((to) => { history.pushState({}, '', to); dispatchEvent(new PopStateEvent('popstate', { state: {} })); }, p);
+  } else await page.goto(`${BASE}${p}`);
+  await settle(page);
+}
+
+export function writeManifest(dir = SHOTS) {
+  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 1));
+  fs.writeFileSync(path.join(dir, 'issues.json'), JSON.stringify(issues, null, 1));
+}
+
+/** পরীক্ষার ঘড়িতে ঢাকার আজকের (বা n দিন পরের) তারিখ YYYY-MM-DD */
+export function dhakaISO(days = 0) {
+  const t = Date.now() + clockOff() + 6 * 3600 * 1000 + days * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+/** ইংরেজি অঙ্ক → বাংলা */
+export const bn = (x) => String(x).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d]);
+
+/** দৃশ্যমান লেখা আসা পর্যন্ত অপেক্ষা (না এলে ভুল) */
+export async function see(page, text, timeout = 8000) {
+  await vis(page.getByText(text, { exact: false })).first().waitFor({ timeout });
+}
+
+/** শুধু দৃশ্যমানগুলো (Playwright ১.৪৯-এ filter({visible}) নেই) */
+export const vis = (loc) => loc.and(loc.page().locator(':visible'));
+
+/** অ্যাডমিন প্যানেলের কাজের বোতাম: সতর্কতার বোতামে প্রথম চাপে ‘নিশ্চিত? আবার চাপুন’ — তখন আবার চাপা */
+export async function adminAct(page, loc) {
+  await loc.click();
+  await page.waitForTimeout(200);
+  const armed = page.getByRole('button', { name: 'নিশ্চিত? আবার চাপুন' });
+  if (await armed.count()) await armed.first().click();
+  await settle(page, 700);
+}

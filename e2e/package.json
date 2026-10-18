@@ -1,0 +1,13 @@
+{
+  "name": "lifolo-e2e",
+  "private": true,
+  "description": "Lifolo ওয়েবের পুরো যাত্রা Playwright দিয়ে (লোকাল সার্ভার + Auth emulator)",
+  "scripts": {
+    "stack": "node web/stack.mjs",
+    "run": "node web/run.mjs"
+  },
+  "devDependencies": {
+    "firebase-tools": "13.29.1",
+    "playwright-core": "1.49.1"
+  }
+}

@@ -60,7 +60,7 @@ async function pushPatient(uid, en, bn, body, data) {
   try {
     const [u, carers] = await Promise.all([db.doc(`users/${uid}`).get(), activeCaretakers(uid)]);
     const list = [];
-    if (u.exists) list.push({ uid, tokens: tokensOf(u), title: R.L(u.get('lang'), en, bn), body: body || '', data });
+    if (u.exists) list.push({ uid, tokens: tokensOf(u), title: R.L(u.get('lang'), en, bn), body: R.L(u.get('lang'), body || '', R.bnNumbers(body || '')), data });
     if (carers.length) {
       const name = (u.exists && u.get('name')) || '';
       const cs = await db.getAll(...carers.map((c) => db.doc(`users/${c}`)));
@@ -68,7 +68,7 @@ async function pushPatient(uid, en, bn, body, data) {
         if (!c.exists) continue;
         // প্রেসক্রিপশনের খবরে rxId-ও — চাপলে রোগীর হয়ে সেই প্রেসক্রিপশনই খোলে
         const extra = data && data.rxId ? { rxId: data.rxId } : {};
-        list.push({ uid: c.id, tokens: tokensOf(c), title: `${name}: ${R.L(c.get('lang'), en, bn)}`, body: body || '', data: { type: 'care', asUid: uid, ...extra } });
+        list.push({ uid: c.id, tokens: tokensOf(c), title: `${name}: ${R.L(c.get('lang'), en, bn)}`, body: R.L(c.get('lang'), body || '', R.bnNumbers(body || '')), data: { type: 'care', asUid: uid, ...extra } });
       }
     }
     if (list.length) await sendPush(list);

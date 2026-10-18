@@ -11,6 +11,9 @@ const META = new Set([
   'statusReason', 'ratingSum', 'ratingCount', 'available', 'availableAt', 'busyAt', 'reminderSentAt', 'remindAt', 'closedUntil', 'editRejectedAt',
   'updatedAt', 'findDay', 'findCount', 'findOff', 'editedByAdmin', 'addedByAdmin', 'editRejectedReason',
   'verification', 'docsRequestedAt', 'docsRequestNote', 'docsSentAt', 'docsHave',
+  // ফার্মেসির দিকভিত্তিক রেটিংয়ের হিসাব, অনলাইন বিক্রির সেটিং (মালিক নিজে বদলান, যাচাই লাগে না) আর ডেমোর চিহ্ন —
+  // এগুলো "কী বদলেছে"-তে আসবে না, আর বদল বাতিল হলে আগের মানে ফেরে না বা মুছে যায় না
+  'aspects', 'online', 'demo',
   // GPS-এর জায়গা (২ দশমিকে কাটা স্থানাঙ্ক) — অ্যাডমিনের "কী বদলেছে"-তে সংখ্যা দেখানোর মানে নেই, যাচাইও লাগে না
   'lat', 'lng',
 ]);
