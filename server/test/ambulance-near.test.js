@@ -197,7 +197,8 @@ test('মনে করানো: শেষ ঘণ্টায় একবার
 
 test('আবার চালু রাখলে নতুন পালা: মেয়াদ নতুন করে ১২ ঘণ্টা, পরের শেষ ঘণ্টায় আবার একবার', async () => {
   clearAll();
-  const now = Date.now();
+  // মনে করানো এক সেকেন্ড আগে — নবায়নের availableAt যেন একই মিলিসেকেন্ডে না পড়ে
+  const now = Date.now() - 1000;
   await amb('rRenew', 'rOwnR', { name: 'নবায়ন', availableAt: now - 11.5 * HOUR });
   assert.strictEqual(await AMB.remindAvailable(now), 1);
   await ok('rOwnR', 'ambulance_available', { id: 'rRenew', available: true });
