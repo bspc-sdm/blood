@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -80,6 +81,10 @@ data class Pharmacy(
     val docsNote: String = "",
     /** রেটিং দেওয়া যায় (অ্যাপ থেকে ফোনের ১ ঘণ্টা পর, বা এই দোকান থেকে ওষুধ নেওয়ার পর; সার্ভার মনে রাখে) */
     val canRate: Boolean = false,
+    /** কোন দিকে রেটিং দেওয়া যায় ("behaviour", "price", "delivery") — সার্ভার ঠিক করে */
+    val rateAspects: List<String> = emptyList(),
+    /** দিকভিত্তিক গড়: দিক → (গড়, কতজন) — যেগুলোতে অন্তত একটা রেটিং */
+    val aspects: Map<String, Pair<Double, Int>> = emptyMap(),
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -99,7 +104,17 @@ object Pharmacies {
         o.optJSONArray("closedDays").ints(), o.str("statusReason"),
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
         o.optBoolean("canRate"),
+        o.optJSONArray("rateAspects").strings(),
+        aspectsOf(o.optJSONObject("aspects")),
     )
+
+    private fun aspectsOf(o: JSONObject?): Map<String, Pair<Double, Int>> {
+        if (o == null) return emptyMap()
+        return RATE_ASPECTS.mapNotNull { k ->
+            val a = o.optJSONObject(k) ?: return@mapNotNull null
+            if (a.optInt("count") > 0) k to (a.optDouble("rating", 0.0) to a.optInt("count")) else null
+        }.toMap()
+    }
 
     /** until = null হলে আবার খোলা */
     suspend fun pause(until: Long?) {
@@ -141,9 +156,14 @@ object Pharmacies {
         call("pharmacy_called", JSONObject().put("id", id))
     }
 
-    /** ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) — অ্যাম্বুলেন্সের মতো */
-    suspend fun rate(id: String, rating: Int, comment: String) {
-        call("pharmacy_rate", JSONObject().put("id", id).put("rating", rating).put("comment", comment))
+    /**
+     * ফোন বা কেনার পর রেটিং (একজন একটা দোকানে একবার; পরে বদলানো যায়) — দোকানের সেবার, দিকে দিকে:
+     * aspects = দিক → ১–৫ তারা (ব্যবহার লাগবেই; দাম/ডেলিভারি সার্ভার যেগুলো দেয়)
+     */
+    suspend fun rate(id: String, aspects: Map<String, Int>, comment: String) {
+        val a = JSONObject()
+        aspects.forEach { (k, v) -> if (v > 0) a.put(k, v) }
+        call("pharmacy_rate", JSONObject().put("id", id).put("aspects", a).put("comment", comment))
     }
 
     /** নিজের দোকানে অ্যাপ থেকে কতবার ফোন এসেছে, রেটিং, সাম্প্রতিক মন্তব্য */
@@ -425,6 +445,8 @@ private fun NearbyPharmacies(profile: Profile) {
                                 R.drawable.ic_local_shipping to if (p.delivery) tr("Home delivery", "বাসায় ডেলিভারি") + (if (p.deliveryNote.isNotBlank()) " · " + p.deliveryNote else "") else tr("No home delivery", "বাসায় ডেলিভারি নেই"),
                             ),
                         ),
+                        // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে লাইন খালি — ভাগটা দেখায় না)
+                        DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
                     ),
                 )
             }
@@ -439,8 +461,9 @@ private fun NearbyPharmacies(profile: Profile) {
         }
     }
     rating?.let { p ->
-        StarRatingDialog(
+        PharmacyRatingDialog(
             title = tr("Rate ", "রেটিং: ") + p.name,
+            aspects = p.rateAspects,
             onDismiss = { rating = null },
             onSubmit = { stars, comment ->
                 Pharmacies.rate(p.id, stars, comment)
@@ -460,6 +483,91 @@ private fun NearbyPharmacies(profile: Profile) {
             },
         )
     }
+}
+
+// ---------- রেটিং: দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) ----------
+/** দিকগুলো: ব্যবহার (সবসময়), ঠিক ওষুধ ও ন্যায্য দাম (কিনলে), ডেলিভারির দ্রুততা (অনলাইন অর্ডার পৌঁছালে) */
+internal val RATE_ASPECTS = listOf("behaviour", "price", "delivery")
+
+/** রেটিংয়ের জানালার পুরো নাম */
+private fun aspectLabel(a: String): String = when (a) {
+    "behaviour" -> tr("Behaviour", "ব্যবহার")
+    "price" -> tr("Right medicine & fair price", "ঠিক ওষুধ ও ন্যায্য দাম")
+    else -> tr("Delivery speed", "ডেলিভারির দ্রুততা")
+}
+
+/** বিস্তারিতের ছোট লাইন: "ব্যবহার ★৪.৬ · ডেলিভারি ★৪.২" */
+private fun aspectsText(aspects: Map<String, Pair<Double, Int>>): String = RATE_ASPECTS.mapNotNull { a ->
+    val v = aspects[a] ?: return@mapNotNull null
+    val short = when (a) {
+        "behaviour" -> tr("Behaviour", "ব্যবহার")
+        "price" -> tr("Medicine & price", "ঠিক ওষুধ ও দাম")
+        else -> tr("Delivery", "ডেলিভারি")
+    }
+    short + " ★" + num(String.format(java.util.Locale.US, "%.1f", v.first))
+}.joinToString(" · ")
+
+/** দিকে দিকে তারা আর মন্তব্য (অ্যাম্বুলেন্সের StarRatingDialog-এর মতো) — ব্যবহার না দিলে জমা হয় না */
+@Composable
+private fun PharmacyRatingDialog(title: String, aspects: List<String>, onDismiss: () -> Unit, onSubmit: suspend (Map<String, Int>, String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    // ব্যবহার সবসময়; বাকিগুলো সার্ভার যা দিয়েছে
+    val shown = listOf("behaviour") + RATE_ASPECTS.filter { it != "behaviour" && it in aspects }
+    var stars by remember { mutableStateOf(mapOf<String, Int>()) }
+    var comment by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = title,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    tr("About the shop's service — not how well the medicine worked", "দোকানের সেবা নিয়ে — ওষুধ কেমন কাজ করল তা নয়"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                shown.forEach { a ->
+                    Column {
+                        Text(aspectLabel(a), style = MaterialTheme.typography.labelLarge)
+                        if (a == "price") {
+                            Text(
+                                tr("Gave what the prescription said, charged a fair price", "প্রেসক্রিপশনে যা লেখা তা-ই দিয়েছে, দাম ঠিক নিয়েছে"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Row {
+                            val cur = stars[a] ?: 0
+                            (1..5).forEach { i ->
+                                IconButton(onClick = { stars = stars + (a to i) }) {
+                                    AppIcon(if (i <= cur) R.drawable.ic_star_fill else R.drawable.ic_star, aspectLabel(a) + " " + num(i), Modifier.size(28.dp), MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it.take(300) },
+                    label = { Text(tr("Comment (optional)", "মন্তব্য (ঐচ্ছিক)")) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && (stars["behaviour"] ?: 0) > 0, onClick = {
+                scope.launch {
+                    busy = true
+                    runCatching { onSubmit(stars.filterKeys { it in shown }, comment.trim()) }.onFailure { errorMsg = it.message }
+                    busy = false
+                }
+            }) { ButtonContent(busy, tr("Submit", "জমা দিন")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Later", "পরে")) } },
+    )
 }
 
 @Composable

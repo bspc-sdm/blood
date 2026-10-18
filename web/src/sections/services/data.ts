@@ -20,7 +20,23 @@ export interface Pharmacy {
   rating: number; ratingCount: number; km: number | null;
   /** রেটিং দেওয়া যায় (অ্যাপ থেকে ফোনের ১ ঘণ্টা পর, বা এই দোকান থেকে ওষুধ নেওয়ার পর; সার্ভার মনে রাখে) */
   canRate?: boolean;
+  /** কোন দিকে রেটিং দেওয়া যায় — ব্যবহার সবসময়; দাম কিনলে; ডেলিভারি অনলাইন অর্ডার পৌঁছালে (সার্ভার ঠিক করে) */
+  rateAspects?: RateAspect[];
+  /** দিকভিত্তিক গড় (যেগুলোতে অন্তত একটা রেটিং) */
+  aspects?: Partial<Record<RateAspect, { rating: number; count: number }>>;
 }
+/** ফার্মেসির রেটিং দোকানের সেবার — ওষুধ কেমন কাজ করল তার নয় */
+export type RateAspect = 'behaviour' | 'price' | 'delivery';
+export const RATE_ASPECTS: RateAspect[] = ['behaviour', 'price', 'delivery'];
+/** রেটিংয়ের জানালার পুরো নাম */
+export const aspectLabel = (a: RateAspect) =>
+  a === 'behaviour' ? tr('Behaviour', 'ব্যবহার') : a === 'price' ? tr('Right medicine & fair price', 'ঠিক ওষুধ ও ন্যায্য দাম') : tr('Delivery speed', 'ডেলিভারির দ্রুততা');
+/** বিস্তারিতের ছোট লাইনের নাম */
+const aspectShort = (a: RateAspect) =>
+  a === 'behaviour' ? tr('Behaviour', 'ব্যবহার') : a === 'price' ? tr('Medicine & price', 'ঠিক ওষুধ ও দাম') : tr('Delivery', 'ডেলিভারি');
+/** "ব্যবহার ★৪.৬ · ডেলিভারি ★৪.২" (কোনো দিকে রেটিং না থাকলে খালি) */
+export const aspectsText = (x?: Pharmacy['aspects']) =>
+  RATE_ASPECTS.filter((a) => (x?.[a]?.count ?? 0) > 0).map((a) => `${aspectShort(a)} ★${num(x![a]!.rating.toFixed(1))}`).join(' · ');
 export interface BloodBank {
   id: string; name: string; kind: string; phone: string; district: string; upazilaId: number | null; address: string; open24: boolean;
   openAt: string; closeAt: string; openNow: boolean; services: string[]; closedDays: number[];
@@ -97,6 +113,8 @@ export interface Entry {
   id: string; kind: Kind; title: string; icon: string; tint?: 'error'; subtitle?: string | null;
   status?: { text: string; good: boolean } | null; meta?: string | null; details: Line[]; note?: string | null;
   sections: Section[]; phone: string; canRate?: boolean; reportable: boolean;
+  /** শুধু ফার্মেসি: রেটিংয়ের কোন দিকগুলো দেওয়া যায় */
+  rateAspects?: RateAspect[];
 }
 
 export function ambulanceEntry(a: Ambulance, lists: Lists | null): Entry {
@@ -143,8 +161,10 @@ export function pharmacyEntry(p: Pharmacy): Entry {
         title: tr('Discount and delivery', 'ছাড় ও ডেলিভারি'),
         lines: [['payments', discount || tr('No discount', 'ছাড় নেই')], ['local_shipping', delivery || tr('No home delivery', 'বাসায় ডেলিভারি নেই')]],
       },
+      // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে ভাগটা দেখায় না)
+      { title: tr('Service rating', 'সেবার রেটিং'), lines: [['star', aspectsText(p.aspects)]] },
     ],
-    phone: p.phone, canRate: !!p.canRate, reportable: true,
+    phone: p.phone, canRate: !!p.canRate, reportable: true, rateAspects: p.rateAspects ?? [],
   };
 }
 

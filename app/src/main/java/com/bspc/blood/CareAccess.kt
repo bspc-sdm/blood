@@ -59,6 +59,8 @@ object CareMode {
         "rx_mine", "rx_get", "rx_claim", "rx_activity", "rx_pharmacy_options", "rx_send_pharmacy", "rx_order_withdraw", "rx_shop_find",
         "rx_send_lab", "labs", "lab_order_get", "review_pay", "labtests_get",
         "my_appointments", "book", "appointment_update", "providers", "family_get",
+        // সিরিয়াল কত চলছে, দেরি হবে (Queue.kt)
+        "appointment_queue", "appointment_late",
     )
 
     fun attach(path: String, body: JSONObject) {

@@ -107,6 +107,8 @@ module.exports = {
           reviewedAt: created + day, reviewedBy: 'demo', approvedName: x.name, lastApproved: snapshot(data),
           verification: verification(['license_no', 'license_name', 'license_addr', 'license_valid', 'license_seal', 'signboard', 'phone'], created + day),
           ratingSum: x.ratingSum || 0, ratingCount: x.ratingCount || 0,
+          // দিকভিত্তিক (ব্যবহার / ঠিক ওষুধ ও ন্যায্য দাম / ডেলিভারির দ্রুততা) — বিস্তারিতে আলাদা লাইনে
+          ...(x.aspects ? { aspects: x.aspects } : {}),
         } : {}),
         ...(x.closedUntil ? { closedUntil: x.closedUntil } : {}),
         ...(x.online ? { online: { ...x.online, updatedAt: created + 2 * day } } : {}),
@@ -128,6 +130,7 @@ module.exports = {
       address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', openAt: '06:00', closeAt: '02:00',
       delivery: true, deliveryNote: 'চরপাড়া, মেডিকেল গেট, গাঙ্গিনারপাড় — ৩০ টাকা', discount: 10, status: 'approved',
       docTypes: ['license', 'front', 'pharmacist'], createdAt: now - 90 * day, ratingSum: 54, ratingCount: 12, callsPerDay: 3,
+      aspects: { behaviour: { sum: 56, count: 12 }, price: { sum: 44, count: 10 }, delivery: { sum: 29, count: 7 } },
       online: { enabled: true, radiusKm: 10, fee: '৩০ টাকা', note: 'সকাল ৮টা – রাত ১১টা ডেলিভারি' }, shopCode: 'DEMQKP',
       stock: STOCK,
     });
@@ -144,6 +147,7 @@ module.exports = {
       name: 'ডেমো ২৪ ঘণ্টা ফার্মেসি', licenseNo: 'DEMO-DL-1502', phone: '01700000151', loc: loc(0.8, -0.4),
       address: 'মেডিকেল কলেজ গেট, ময়মনসিংহ', open24: true, delivery: true, deliveryNote: 'রাতেও ডেলিভারি, ৫০ টাকা', discount: 5,
       status: 'approved', ratingSum: 38, ratingCount: 9, callsPerDay: 4,
+      aspects: { behaviour: { sum: 37, count: 9 }, price: { sum: 26, count: 6 }, delivery: { sum: 17, count: 4 } },
       online: { enabled: true, radiusKm: 5, fee: '৫০ টাকা', note: '২৪ ঘণ্টা' },
       stock: ['Napa', 'Ace', 'Seclo', 'Maxpro', 'Fexo', 'Alatrol', 'Montene', 'Ceevit', 'Comet', 'Ecosprin', 'Orsaline-N', 'Flagyl'],
     });
@@ -152,6 +156,7 @@ module.exports = {
       name: 'ডেমো নিউ মডেল ফার্মেসি', licenseNo: 'DEMO-DL-1503', phone: '01700000152', loc: loc(-0.6, 0.5),
       address: 'গাঙ্গিনারপাড়, ময়মনসিংহ', openAt: '09:00', closeAt: '22:00', closedDays: [5], discount: 12,
       status: 'approved', ratingSum: 21, ratingCount: 6, callsPerDay: 2,
+      aspects: { behaviour: { sum: 22, count: 6 }, price: { sum: 13, count: 4 } },
       stock: ['Napa', 'Seclo', 'Sergel', 'Alatrol', 'Monas', 'Calbo', 'Bislol', 'Amdocal', 'Rosuva'],
     });
     const phSeba = await ctx.extraUser('svc-ph-seba', { name: 'ডেমো সেবা ড্রাগ হাউসের মালিক', phone: '01700000153', placeName: DISTRICT });
@@ -218,9 +223,9 @@ module.exports = {
       advice: 'ধুলাবালি এড়িয়ে চলবেন।',
     });
     await rx(RXC, 'DEMSVCRXC4', {
-      createdAt: now - 7 * day, complaints: 'দুর্বলতা, মাড়ি থেকে রক্ত', diagnosis: 'ভিটামিন সি-র ঘাটতি', bp: '১২০/৮০',
+      createdAt: now - 2.5 * day, complaints: 'দুর্বলতা, মাড়ি থেকে রক্ত', diagnosis: 'ভিটামিন সি-র ঘাটতি', bp: '১২০/৮০',
       medicines: [med('Ceevit', 'Tablet', '250 mg', '1+0+0', 30)],
-      dispensed: [{ by: PH, name: 'ডেমো লাইফ ফার্মেসি', at: now - 6 * day, items: [{ i: 0, qty: 30 }] }],
+      dispensed: [{ by: PH, name: 'ডেমো লাইফ ফার্মেসি', at: now - 1 * day, items: [{ i: 0, qty: 30 }] }],
     });
     await rx(RXD, 'DEMSVCRXD5', {
       createdAt: now - 3 * HOUR, complaints: 'ডায়াবেটিস ও কোলেস্টেরলের নিয়মিত চেকআপ', diagnosis: 'টাইপ-২ ডায়াবেটিস, ডিসলিপিডেমিয়া', bp: '১৪০/৯০',
@@ -245,10 +250,10 @@ module.exports = {
       rxId: RXB, code: 'DEMSVCRXB3', pharmacyId: PH, pharmacyName: 'ডেমো লাইফ ফার্মেসি', status: 'out', createdAt: now - 4 * HOUR,
       extra: { price: '৪৮০ টাকা', eta: 'আজ সন্ধ্যা ৭টার মধ্যে', updatedAt: now - 1 * HOUR },
     });
-    // ৩) আগের অর্ডার — দেওয়া হয়ে গেছে
+    // ৩) আগের অর্ডার — গতকাল দেওয়া হয়ে গেছে (অনলাইন, ৭ দিনের মধ্যে → রোগী ব্যবহার, দাম আর ডেলিভারি — তিন দিকেই রেটিং দিতে পারেন)
     await order('demo-svc-ord-c', {
-      rxId: RXC, code: 'DEMSVCRXC4', pharmacyId: PH, pharmacyName: 'ডেমো লাইফ ফার্মেসি', status: 'done', createdAt: now - 6.2 * day,
-      extra: { price: '১৮০ টাকা', eta: 'এক ঘণ্টার মধ্যে', doneAt: now - 6 * day, updatedAt: now - 6 * day },
+      rxId: RXC, code: 'DEMSVCRXC4', pharmacyId: PH, pharmacyName: 'ডেমো লাইফ ফার্মেসি', status: 'done', createdAt: now - 1.2 * day,
+      extra: { price: '১৮০ টাকা', eta: 'এক ঘণ্টার মধ্যে', doneAt: now - 1 * day, updatedAt: now - 1 * day },
     });
 
     // ---------- ওষুধ খোঁজা ----------

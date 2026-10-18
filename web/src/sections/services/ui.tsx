@@ -10,7 +10,7 @@ import { store } from '@/lib/store';
 import { useSession } from '@/lib/session';
 import { DetailPane } from '@/shell/templates';
 import { useTwoPane } from '@/shell/chrome';
-import { kindLabel, recordCall, reportKind, type Entry, type Kind } from './data';
+import { RATE_ASPECTS, aspectLabel, kindLabel, recordCall, reportKind, type Entry, type Kind, type RateAspect } from './data';
 
 // ---------- উপরের ট্যাব ----------
 export function ServiceTabs({ kind, sub }: { kind: Kind; sub?: 'list' | 'medicine' }) {
@@ -237,18 +237,42 @@ export function EntryDetail({ e, backTo, onRate, onReport }: { e: Entry; backTo:
 
 // ---------- রেটিং (অ্যাপের StarRatingDialog) — অ্যাম্বুলেন্স আর ফার্মেসি ----------
 const RATE: Partial<Record<Kind, [action: string, list: string]>> = { ambulance: ['ambulance_rate', 'ambulances'], pharmacy: ['pharmacy_rate', 'pharmacies'] };
-export function RatingDialog({ kind = 'ambulance', id, name, onClose }: { kind?: Kind; id: string; name: string; onClose: () => void }) {
+
+/** ১–৫ তারা */
+function Stars({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
+  return (
+    <div className="services-stars" role="radiogroup" aria-label={label}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button key={i} type="button" role="radio" aria-checked={value === i} aria-label={num(i)} onClick={() => onChange(i)}>
+          <Icon name={i <= value ? 'star_fill' : 'star'} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * ফার্মেসিতে রেটিং দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) — দিকে দিকে তারা: ব্যবহার (সবসময়),
+ * ঠিক ওষুধ ও ন্যায্য দাম (কিনলে), ডেলিভারির দ্রুততা (অনলাইন অর্ডার পৌঁছালে) — কোনগুলো তা সার্ভার বলে (aspects)
+ */
+export function RatingDialog({ kind = 'ambulance', id, name, aspects, onClose }: { kind?: Kind; id: string; name: string; aspects?: RateAspect[]; onClose: () => void }) {
   const qc = useQueryClient();
+  const pharmacy = kind === 'pharmacy';
+  // ব্যবহার সবসময় থাকে; বাকিগুলো সার্ভারের দেওয়া ক্রমে
+  const shown: RateAspect[] = ['behaviour', ...RATE_ASPECTS.filter((a) => a !== 'behaviour' && aspects?.includes(a))];
   const [stars, setStars] = useState(0);
+  const [by, setBy] = useState<Partial<Record<RateAspect, number>>>({});
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const ready = pharmacy ? (by.behaviour ?? 0) > 0 : stars > 0;
   async function submit() {
     setBusy(true);
     setErr(null);
     try {
       const [action, list] = RATE[kind] ?? RATE.ambulance!;
-      await call(action, { id, rating: stars, comment: comment.trim() });
+      const picked = Object.fromEntries(shown.filter((a) => (by[a] ?? 0) > 0).map((a) => [a, by[a]]));
+      await call(action, pharmacy ? { id, aspects: picked, comment: comment.trim() } : { id, rating: stars, comment: comment.trim() });
       toast(tr('Thanks for the rating!', 'রেটিং দেওয়ার জন্য ধন্যবাদ!'));
       // তালিকা নতুন করে: কার্ডে নতুন গড় (★ ৪.৭ (৩২))
       qc.invalidateQueries({ queryKey: [list] });
@@ -267,17 +291,24 @@ export function RatingDialog({ kind = 'ambulance', id, name, onClose }: { kind?:
       actions={
         <>
           <Button variant="text" disabled={busy} onClick={onClose}>{tr('Later', 'পরে')}</Button>
-          <Button variant="text" busy={busy} disabled={stars < 1} onClick={submit}>{tr('Submit', 'জমা দিন')}</Button>
+          <Button variant="text" busy={busy} disabled={!ready} onClick={submit}>{tr('Submit', 'জমা দিন')}</Button>
         </>
       }
     >
-      <div className="services-stars" role="radiogroup" aria-label={tr('Rating', 'রেটিং')}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <button key={i} type="button" role="radio" aria-checked={stars === i} aria-label={num(i)} onClick={() => setStars(i)}>
-            <Icon name={i <= stars ? 'star_fill' : 'star'} />
-          </button>
-        ))}
-      </div>
+      {pharmacy ? (
+        <div className="col gap-12">
+          <p className="t-body-m muted">{tr("About the shop's service — not how well the medicine worked", 'দোকানের সেবা নিয়ে — ওষুধ কেমন কাজ করল তা নয়')}</p>
+          {shown.map((a) => (
+            <div key={a} className="col gap-4">
+              <span className="t-label-l">{aspectLabel(a)}</span>
+              {a === 'price' ? <span className="t-body-s muted">{tr('Gave what the prescription said, charged a fair price', 'প্রেসক্রিপশনে যা লেখা তা-ই দিয়েছে, দাম ঠিক নিয়েছে')}</span> : null}
+              <Stars value={by[a] ?? 0} onChange={(n) => setBy((x) => ({ ...x, [a]: n }))} label={aspectLabel(a)} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Stars value={stars} onChange={setStars} label={tr('Rating', 'রেটিং')} />
+      )}
       <TextArea label={tr('Comment (optional)', 'মন্তব্য (ঐচ্ছিক)')} rows={2} maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} />
       <ErrorText>{err}</ErrorText>
     </Dialog>

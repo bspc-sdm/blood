@@ -225,6 +225,13 @@ module.exports = {
       if (homeVisit.enabled && cur.exists && cur.get('homeVisitBlocked') === true) {
         throw err(['Home care is turned off for your account after a report. You can appeal from Profile → Help & appeals.', 'রিপোর্টের পর আপনার বাসায় সেবা বন্ধ আছে। প্রোফাইলের "সাহায্য ও আপিল" থেকে আপিল করতে পারেন।']);
       }
+      // আগের অ্যাপ "রোগীপ্রতি গড় সময়" পাঠায় না — তখন একই চেম্বারের আগেরটা রাখা
+      const before = cur.exists ? K.chambersOf(cur.data()) : [];
+      parsed.chambers.forEach((c, i) => {
+        if (b.chambers[i] && b.chambers[i].patientMin !== undefined) return;
+        const old = before.find((x) => (x.hospitalId || x.hospitalName) === (c.hospitalId || c.hospitalName));
+        if (old && Number.isInteger(old.patientMin)) c.patientMin = old.patientMin;
+      });
       t.set(ref, {
         type: badge,
         name,
@@ -423,6 +430,8 @@ module.exports = {
       }
       t.update(ref, update);
     });
+    // রোগীর "সিরিয়াল চলছে"-র মেমোরি (queue.js) — নিশ্চিত/বাতিল হলে ক্রম বদলায়
+    require('./queue').forget(a.providerUid);
 
     const to = isProvider ? a.patientUid : a.providerUid;
     const texts = {

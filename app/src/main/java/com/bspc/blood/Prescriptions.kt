@@ -1208,7 +1208,11 @@ fun RxAssistScreen(onBack: () -> Unit) {
                     PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো"))), { sub = it }, secondary = true)
                     if (sub == 1) RxReviewsPane(doc.uid, asDoctor = false)
                     else RxPatientsPane(doc.uid, onWrite = null) {
-                        if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            // সহকারী আজকের সিরিয়াল চালান (Queue.kt)
+                            QueuePanel(doc.uid)
+                        }
                     }
                 }
             }

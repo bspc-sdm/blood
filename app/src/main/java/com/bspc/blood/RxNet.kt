@@ -1112,6 +1112,7 @@ fun PharmacyRxSection() {
             }
             OutlinedButton(onClick = { stockOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("My stock list", "আমার স্টকের তালিকা"), R.drawable.ic_list_alt) }
             SmallNote(tr("Keep a stock list so patients can see which medicines you have.", "স্টকের তালিকা রাখলে রোগীরা দেখতে পাবেন আপনার কাছে কোন ওষুধ আছে।"))
+            PharmacyTodayCard() // আজকের হিসাব (পুরো হিসাব ওয়েবে) — PharmacyBooks.kt
         }
     }
     opened?.let { rx -> DispenseDialog(rx, onDismiss = { opened = null; reload++ }) }

@@ -6,6 +6,7 @@
 //    অনলাইনে রিপোর্ট দেখার ফি
 //  - আরও ৪ জন ডাক্তার (গাইনি, শিশু, হৃদরোগ, চর্ম) + ১ জন যাচাইয়ের অপেক্ষায় (হাড়) + ১ জনের ব্যাজ-সংশোধনের অনুরোধ
 //  - আজকের সিরিয়াল (নিশ্চিত ১–৪, অপেক্ষায়, বাতিল), সামনের আর আগের অ্যাপয়েন্টমেন্ট; ডেমো রোগীর সব অবস্থার অ্যাপয়েন্টমেন্ট
+//  - আজকের সিরিয়াল চলছে (এখন ২ নম্বর, গড় ~৮ মিনিট), ৪ নম্বর রোগী ২০ মিনিট সময় চেয়েছেন (উত্তরের অপেক্ষায়)
 //  - প্রেসক্রিপশন (রোগীর, এন্ট্রি করা রোগীর, কাগজের — কোড দিয়ে যোগ করার জন্য, একটা বাতিল), ফার্মেসিতে পাঠানো/অনলাইন অর্ডার,
 //    "চেয়েও পাননি" তালিকা, স্টক, প্যাথলজিতে পরীক্ষা (নতুন, নমুনা নেওয়া, রিপোর্ট দেওয়া, বাতিল), রিপোর্ট দেখানোর অনুরোধ
 // ফার্মেসি আর প্যাথলজির তালিকা (pharmacies/{uid}, labs/{uid}) services ভাগ বানায়; না পেলে (বা দরকারি ঘর না থাকলে) এখানে যোগ হয়।
@@ -263,6 +264,7 @@ module.exports = {
         schedule: ch.schedule || '', date, note: o.note, status: o.status, providerNote: o.providerNote || '',
         ...(o.serial ? { serial: o.serial } : {}),
         ...(o.cancelledBy ? { cancelledBy: o.cancelledBy } : {}),
+        ...(o.extra || {}),
         createdAt: o.createdAt, ...(o.status !== 'pending' ? { updatedAt: o.updatedAt || o.createdAt + 2 * 3600 * 1000 } : {}),
       });
       return id;
@@ -276,7 +278,11 @@ module.exports = {
     const tKarim = await appt(bp.karim, D, todayCh, today, { status: 'confirmed', serial: 2, note: 'প্রেসার বেশি থাকছে, মাথা ভার লাগে', createdAt: now - 2 * DAY + 3 * 3600 * 1000 });
     // ডেমো রোগীর আজ এই ডাক্তারের কাছে কিছু নেই — মালিক নিজে সিরিয়াল নেবেন (রোগীর পুরো যাত্রা)
     await appt(bp.rashed, D, todayCh, today, { status: 'confirmed', serial: 3, note: 'ডায়াবেটিসের ফলো-আপ, রিপোর্ট দেখাতে চাই', providerNote: 'আগের রিপোর্ট সাথে আনবেন', createdAt: now - DAY });
-    await appt(bp.moriom, D, todayCh, today, { status: 'confirmed', serial: 4, note: 'হাঁটুতে ব্যথা, ঘুম কম হয়', createdAt: now - DAY + 3600 * 1000 });
+    // ৪ নম্বর রোগী সময় চেয়েছেন — ডাক্তার/সহকারী "ঠিক আছে" বা "পরে আসুন" চাপবেন (queue.js)
+    await appt(bp.moriom, D, todayCh, today, {
+      status: 'confirmed', serial: 4, note: 'হাঁটুতে ব্যথা, ঘুম কম হয়', createdAt: now - DAY + 3600 * 1000,
+      extra: { lateMin: 20, lateNote: 'জ্যামে আটকে আছি', lateAt: now - 5 * MIN, lateStatus: 'asked', lateReplyAt: 0, lateCount: 1 },
+    });
     await appt(bp.habib, D, todayCh, today, { status: 'pending', note: 'তিন দিন ধরে জ্বর আর গা ব্যথা', createdAt: now - 2 * 3600 * 1000 });
     await appt(bp.shirin, D, todayCh, today, { status: 'cancelled', note: 'মাথাব্যথা', createdAt: now - DAY, updatedAt: now - 5 * 3600 * 1000 });
     // কাল/সামনে
@@ -320,6 +326,16 @@ module.exports = {
     await appt(bp.habib, mah, mah.ch[0], prevOpen(mah.ch[0], today - 9 * DAY), { status: 'completed', serial: 2, note: 'বুকে ব্যথা', createdAt: now - 12 * DAY });
 
     for (const [sk, n] of serialMax) await set(sk, { n, at: now - 3600 * 1000 });
+
+    // আজকের সিরিয়াল চলছে (queue.js): ১ নম্বর দেখা শেষ, এখন ২ নম্বর; ডাক্তার গড়ে ~৮ মিনিট নেন।
+    // মালিক নিজে আজ সিরিয়াল নিলে (৫ নম্বর) তাঁর কার্ডে "এখন চলছে", "আগে কতজন", আনুমানিক সময় আসে।
+    const qKey = md5key(todayCh.hospitalId || todayCh.hospitalName || '');
+    await set(`queues/${doc.uid}_${today}_${qKey}`, {
+      providerUid: doc.uid, date: today, chamberKey: todayCh.hospitalId || todayCh.hospitalName || '', key: qKey,
+      started: true, current: 2, pos: 2, done: [1], paused: false, pausedAt: 0, finished: false,
+      startedAt: now - 16 * MIN, lastAt: now - 8 * MIN, advances: [now - 16 * MIN, now - 8 * MIN], updatedAt: now - 8 * MIN,
+    });
+    await set(`providers/${doc.uid}`, { queueStats: { [qKey]: { avg: 8, n: 40, at: now - 8 * MIN } } }, { merge: true });
 
     // ---------------------------------------------------------------
     // এন্ট্রি করা রোগী (সহকারী এন্ট্রি করেছেন — অ্যাপে অ্যাকাউন্ট নেই)

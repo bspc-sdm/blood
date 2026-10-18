@@ -7,7 +7,7 @@ import { Icon } from '@/ui/Icon';
 import { call, errorText, ServerError } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
-import { isBangla, num, tr } from '@/lib/i18n';
+import { isBangla, num, toAsciiDigits, tr } from '@/lib/i18n';
 import { DISTRICTS, areaLabel, currentPosition, distanceKm, districtAt, districtLabel, upazila, upazilasOf } from '@/lib/geo';
 import {
   HOME_RADII, HOME_TYPES, MAX_CHAMBERS, MAX_CHAMBER_TIMES, WEEK_ORDER, chamberArea, chamberLabel, clash, dayShort, homeServiceLabel, homeServicesOf, parseProvider, slotsOf,
@@ -36,6 +36,7 @@ function chamberJson(c: Chamber) {
     start: c.start,
     end: c.end,
     ...(c.times.length > 1 ? { times: c.times } : {}),
+    patientMin: c.patientMin,
   };
 }
 function homeJson(h: HomeVisit) {
@@ -386,7 +387,7 @@ export function ChamberEdit({ type, onSaved }: { type: string; onSaved: () => vo
 function blankChamber(district: string, custom: boolean): Chamber {
   return {
     hospitalId: null, hospitalName: '', hospitalNameBn: '', district, upazilaId: null, unionId: null, room: '', schedule: '', fee: '',
-    appointments: true, serialPhone: '', days: [], start: '', end: '', noFee: false, custom, address: '', times: [],
+    appointments: true, serialPhone: '', days: [], start: '', end: '', noFee: false, custom, address: '', times: [], patientMin: null,
   };
 }
 
@@ -427,6 +428,18 @@ function ChamberEditor({ c, onChange, onChangeHospital, onDistrict, onRemove }: 
       <Check checked={c.noFee} onChange={(v) => onChange({ ...c, noFee: v, fee: v ? '' : c.fee })}>{tr('No fee', 'ফি চাই না')}</Check>
       <TextInput label={tr('Serial phone (optional)', 'সিরিয়ালের ফোন (ঐচ্ছিক)')} inputMode="tel" value={c.serialPhone} onChange={(e) => onChange({ ...c, serialPhone: e.target.value.replace(/[^0-9+]/g, '').slice(0, 15) })} />
       <Switch label={tr('Appointments in app at this chamber', 'এই চেম্বারে অ্যাপে অ্যাপয়েন্টমেন্ট')} checked={c.appointments} onChange={(v) => onChange({ ...c, appointments: v })} />
+      {c.appointments ? (
+        <TextInput
+          label={tr('Avg. time per patient (min)', 'রোগীপ্রতি গড় সময় (মিনিট)')}
+          inputMode="numeric"
+          placeholder={num(10)}
+          value={c.patientMin ? num(c.patientMin) : ''}
+          onChange={(e) => {
+            const n = parseInt(toAsciiDigits(e.target.value).replace(/[^0-9]/g, '').slice(0, 3), 10);
+            onChange({ ...c, patientMin: Number.isFinite(n) && n > 0 ? Math.min(n, 120) : null });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

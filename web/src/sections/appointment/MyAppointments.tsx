@@ -10,6 +10,7 @@ import { useSession } from '@/lib/session';
 import { formatDate } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
 import { badgeLabel, apptChamber, apptWhen, isActive, parseAppointment, serialText, statusLabel, statusTone, today, type Appointment } from './model';
+import { PatientQueue, PatientQueueLine, usePatientQueue } from './queue';
 
 export function MyAppointmentsPage({ detailId }: { detailId: string | null }) {
   const title = tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট');
@@ -125,6 +126,7 @@ function ApptCard({ a, selected, onClick }: { a: Appointment; selected: boolean;
       </div>
       <IconLine icon="calendar_month">{apptWhen(a, formatDate)}</IconLine>
       {a.serial > 0 ? <span className="t-title-s bold c-primary">{serialText(a.serial)}</span> : null}
+      <PatientQueueLine a={a} />
       {a.chamber ? <IconLine icon="local_hospital">{apptChamber(a) + (a.room ? ' · ' + a.room : '')}</IconLine> : null}
       {a.note ? <p className="t-body-m clamp2">{a.note}</p> : null}
       {a.providerNote ? <p className="t-body-m appt-note">{tr('Note: ', 'নোট: ') + a.providerNote}</p> : null}
@@ -133,18 +135,21 @@ function ApptCard({ a, selected, onClick }: { a: Appointment; selected: boolean;
 }
 
 function ApptDetail({ a, onCancel }: { a: Appointment; onCancel: () => void }) {
+  // আজকের সিরিয়াল চললে নম্বর নিচের সারির কার্ডেই (দুবার নয়)
+  const live = usePatientQueue(a).data?.live === true;
   return (
     <>
       <div className="row">
         <Tag tone={statusTone(a.status)}>{statusLabel(a.status)}</Tag>
         <span className="t-body-s muted grow">{badgeLabel(a.type)}</span>
       </div>
-      {a.serial > 0 ? (
+      {a.serial > 0 && !live ? (
         <div className="card tonal appt-serial">
           <span className="t-label-m">{tr('Serial #', 'সিরিয়াল নং ').trim()}</span>
           <span className="appt-serial-n num">{num(a.serial)}</span>
         </div>
       ) : null}
+      <PatientQueue a={a} />
       <div className="col">
         <IconLine icon="calendar_month">{apptWhen(a, formatDate)}</IconLine>
         {a.chamber ? <IconLine icon="local_hospital">{apptChamber(a) + (a.room ? ' · ' + a.room : '')}</IconLine> : null}

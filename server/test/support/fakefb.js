@@ -3,6 +3,7 @@ const SENT = Symbol('fv');
 const store = new Map(); // path -> data
 const pushes = [];
 let autoId = 0;
+let txQueue = Promise.resolve();
 
 const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
 const getPath = (o, p) => String(p).split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
@@ -95,14 +96,15 @@ const write = {
   },
 };
 
-function collection(cpath, filters = [], lim = Infinity, ord = null) {
+function collection(cpath, filters = [], lim = Infinity, ord = null, dir = 'asc') {
   const q = {
-    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim, ord),
-    // orderBy + startAt/endAt (geohash-এর ঘর ধরে খোঁজা) — ঘর না থাকা ডক বাদ পড়ে, আসলের মতো
-    orderBy: (f) => collection(cpath, filters, lim, f),
-    startAt: (v) => collection(cpath, [...filters, [ord, '>=', v]], lim, ord),
-    endAt: (v) => collection(cpath, [...filters, [ord, '<=', v]], lim, ord),
-    limit: (n) => collection(cpath, filters, n, ord),
+    where: (f, op, v) => collection(cpath, [...filters, [f, op, v]], lim, ord, dir),
+    // orderBy + startAt/endAt (geohash-এর ঘর ধরে খোঁজা) — ঘর না থাকা ডক বাদ পড়ে, আসলের মতো;
+    // সাজানো হয় limit-এর আগে (orderBy('at', 'desc').limit(n) = নতুন n-টা)
+    orderBy: (f, d = 'asc') => collection(cpath, filters, lim, f, d),
+    startAt: (v) => collection(cpath, [...filters, [ord, '>=', v]], lim, ord, dir),
+    endAt: (v) => collection(cpath, [...filters, [ord, '<=', v]], lim, ord, dir),
+    limit: (n) => collection(cpath, filters, n, ord, dir),
     startAfter: () => q,
     select: () => q,
     get: async () => {
@@ -118,7 +120,15 @@ function collection(cpath, filters = [], lim = Infinity, ord = null) {
           if (op === '<') return x < v;
           if (op === '>') return x > v;
           throw new Error(`op ${op}`);
-        })).slice(0, lim).map(snap);
+        }))
+        .sort((a, b) => {
+          if (!ord) return 0;
+          const x = getPath(store.get(a), ord);
+          const y = getPath(store.get(b), ord);
+          const c = x === y ? 0 : x == null ? -1 : y == null ? 1 : x < y ? -1 : 1;
+          return dir === 'desc' ? -c : c;
+        })
+        .slice(0, lim).map(snap);
       return { docs, empty: !docs.length, size: docs.length, forEach: (fn) => docs.forEach(fn) };
     },
     count: () => ({ get: async () => { const r = await q.get(); return { data: () => ({ count: r.size }) }; } }),
@@ -141,13 +151,18 @@ const db = {
     const p = ref.path;
     [...store.keys()].filter((k) => k === p || k.startsWith(`${p}/`)).forEach((k) => store.delete(k));
   },
-  runTransaction: async (fn) => fn({
-    get: async (r) => (r.path ? snap(r.path) : r.get()),
-    getAll: async (...refs) => refs.map((r) => snap(r.path)),
-    set: (r, d, o) => write.set(r.path, d, o),
-    update: (r, d) => write.update(r.path, d),
-    delete: (r) => store.delete(r.path),
-  }),
+  // আসলের মতো একটার পর একটা (একই ডক দুটো transaction-এ একসাথে পড়ে-লিখলে আসলে একটা আবার চলে — এখানে পরেরটা অপেক্ষা করে)
+  runTransaction: (fn) => {
+    const run = txQueue.then(() => fn({
+      get: async (r) => (r.path ? snap(r.path) : r.get()),
+      getAll: async (...refs) => refs.map((r) => snap(r.path)),
+      set: (r, d, o) => write.set(r.path, d, o),
+      update: (r, d) => write.update(r.path, d),
+      delete: (r) => store.delete(r.path),
+    }));
+    txQueue = run.catch(() => {});
+    return run;
+  },
   batch: () => {
     const ops = [];
     const b = {

@@ -73,7 +73,7 @@ test('প্যানেলের মতো ধাপে ধাপে বান�
     if (r.body.next !== null) assert.strictEqual((await post(verify, { demoRoles: true })).body.active, false);
     step = r.body.next;
   }
-  assert.deepStrictEqual(seen, [0, 1, 2, 3, 4]);
+  assert.deepStrictEqual(seen, [0, 1, 2, 3, 4, 5]);
   assert.strictEqual((await post(verify, { demoRoles: true })).body.active, true);
   const st = await call(OWNER, 'admin_demo_status');
   assert.ok(st.body.docs > 100 && st.body.partial === false);

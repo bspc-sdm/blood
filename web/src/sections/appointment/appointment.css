@@ -104,3 +104,21 @@
   position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--bg);
   padding: 12px 0; border-top: 1px solid var(--outline-variant); display: flex; flex-direction: column; gap: 6px;
 }
+
+/* সিরিয়াল চলছে (queue.tsx): রোগীর কার্ড আর ডাক্তার/সহকারীর সারি */
+.appt-q { border: 1px solid var(--outline-variant); background: var(--surface-lowest); }
+.appt-q-line { color: var(--primary); font-weight: 600; }
+.appt-q-nums { display: flex; gap: 24px; flex-wrap: wrap; }
+.appt-q-big { font-size: 28px; line-height: 34px; font-weight: 700; color: var(--on-surface); }
+.appt-q-big.mine { color: var(--primary); }
+.appt-q-big.soft { color: var(--on-surface-variant); font-size: 22px; }
+.appt-q-eta { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+.appt-q-eta svg { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.appt-qp { border: 1px solid var(--outline-variant); }
+.appt-qp-rows { display: flex; flex-direction: column; gap: 6px; }
+.appt-qp-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px; border-radius: 12px; background: var(--surface-low); min-width: 0; }
+.appt-qp-row.now { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.appt-qp-pick { display: flex; align-items: center; gap: 10px; flex: 1 1 220px; min-width: 0; border: 0; background: transparent; color: inherit; text-align: left; padding: 0; cursor: pointer; }
+.appt-qp-pick:disabled { cursor: default; }
+.appt-qp-name { min-width: 0; }
+.appt-qp-reply { margin-left: auto; }

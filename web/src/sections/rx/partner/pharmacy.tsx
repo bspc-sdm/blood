@@ -7,7 +7,10 @@ import { useCall } from '@/lib/query';
 import { PartnerPage, usePartnerGate } from './common';
 import { DispenseTab } from './dispense';
 import { OnlineTab } from './online';
-import { StockTab } from './stock';
+import { ItemsTab } from './books/items';
+import { BuyTab } from './books/buy';
+import { SalesTab } from './books/sales';
+import { ReportTab } from './books/report';
 import type { PharmOrder } from './model';
 
 const BASE = '/work/pharmacy/orders';
@@ -23,7 +26,8 @@ export function PharmacyRxWorkspace() {
 
   const m = (p: string) => matchPath({ path: BASE + p, end: true }, pathname);
   const rx = m('/rx/:code');
-  const tab = m('/online') ? 'online' : m('/stock') ? 'stock' : 'dispense';
+  // হিসাব-খাতা (পারভেজ, ১৮ অক্টোবর ২০২৬): ‘স্টক’ এখন ‘পণ্য ও স্টক’ (দাম/পরিমাণ ঐচ্ছিক), সাথে মাল কেনা, বিক্রি, হিসাব
+  const tab = m('/online') ? 'online' : m('/stock') ? 'stock' : m('/buy') ? 'buy' : m('/sales') ? 'sales' : m('/books') ? 'books' : 'dispense';
   const list = orders.data?.items ?? [];
   const shopNew = list.filter((o) => o.mode !== 'online' && o.status === 'sent').length;
   const onlineNew = list.filter((o) => o.mode === 'online' && o.status === 'sent').length;
@@ -38,11 +42,14 @@ export function PharmacyRxWorkspace() {
           tabs={[
             { key: 'dispense', label: tr('Give medicines', 'ওষুধ দিন'), icon: 'medication', count: shopNew },
             { key: 'online', label: tr('Online orders', 'অনলাইন অর্ডার'), icon: 'local_shipping', count: onlineNew },
-            { key: 'stock', label: tr('Stock', 'স্টক'), icon: 'list_alt' },
+            { key: 'stock', label: tr('Products & stock', 'পণ্য ও স্টক'), icon: 'list_alt' },
+            { key: 'buy', label: tr('Stock in', 'মাল কেনা'), icon: 'storefront' },
+            { key: 'sales', label: tr('Sales', 'বিক্রি'), icon: 'payments' },
+            { key: 'books', label: tr('Accounts', 'হিসাব'), icon: 'history' },
           ]}
         />
       </div>
-      {tab === 'online' ? <OnlineTab orders={orders} /> : tab === 'stock' ? <StockTab /> : <DispenseTab code={rx?.params.code ?? null} orders={orders} />}
+      {tab === 'online' ? <OnlineTab orders={orders} /> : tab === 'stock' ? <ItemsTab /> : tab === 'buy' ? <BuyTab /> : tab === 'sales' ? <SalesTab /> : tab === 'books' ? <ReportTab /> : <DispenseTab code={rx?.params.code ?? null} orders={orders} />}
     </PartnerPage>
   );
 }

@@ -123,6 +123,7 @@ function appointments() {
   const Q = (o) => ({ role: 'provider', type: 'doctor', chamber: 'Labib Hospital', chamberBn: 'লাবিব হাসপাতাল', room: '২০৪', start: '17:00', serial: 0, schedule: '', providerNote: '', otherPhone: '', createdAt: Date.now() - DAY, ...o });
   return {
     items: [
+      P({ id: 'a0', otherName: 'ডা. রফিকুল ইসলাম', chamber: 'Mymensingh Medical College Hospital', chamberBn: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল', room: 'হৃদরোগ বিভাগ, ৫ম তলা', start: '15:00', serial: 9, date: t, note: 'বুকে চাপ লাগে, ইসিজি দেখাতে', status: 'confirmed', otherPhone: '01811000444' }),
       P({ id: 'a1', otherName: 'ডা. মাহমুদা আক্তার', chamber: 'Labib Hospital', chamberBn: 'লাবিব হাসপাতাল', room: '২০৪', start: '17:00', serial: 7, date: t + DAY, note: 'ডায়াবেটিসের ফলো-আপ, সুগার বেশি থাকছে', status: 'confirmed', providerNote: 'সন্ধ্যা ৬টার মধ্যে আসবেন', otherPhone: '01711000222' }),
       P({ id: 'a2', otherName: 'ডা. তানভীর হাসান', chamber: 'Community Based Medical College Hospital', chamberBn: '', room: '১১৫', start: '16:00', date: t + 3 * DAY, note: 'ছেলের তিন দিন ধরে জ্বর আর কাশি', status: 'pending' }),
       P({ id: 'a3', otherName: 'ডা. রফিকুল ইসলাম', chamber: 'Mymensingh Medical College Hospital', chamberBn: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল', start: '15:00', serial: 3, date: t - 12 * DAY, note: 'বুকে ব্যথা, ইসিজি রিপোর্ট দেখাতে', status: 'completed' }),
@@ -139,6 +140,36 @@ function appointments() {
       Q({ id: 'q9', otherName: 'কামরুল হাসান', otherKey: 'k7', date: t - 3 * DAY, note: 'জ্বর', status: 'declined' }),
       Q({ id: 'q10', otherName: 'শিরিন আক্তার', otherKey: 'k8', date: t - 5 * DAY, note: 'চেকআপ', status: 'cancelled' }),
     ],
+  };
+}
+
+// সিরিয়াল চলছে (server/lib/queue.js): রোগীর আজকের a0, আর ডাক্তার/সহকারীর আজকের সারি
+const M = 60 * 1000;
+const r5 = (ms, up) => (up ? Math.ceil(ms / (5 * M)) : Math.floor(ms / (5 * M))) * 5 * M;
+function appointmentQueue(b) {
+  if (b.id !== 'a0') return { live: false };
+  const eta = r5(Date.now() + 32 * M, true);
+  return {
+    live: true, serial: 9, started: true, paused: false, current: 5, state: 'waiting', ahead: 4, later: false, avgMin: 8, avgFrom: 'history',
+    eta, arriveBy: r5(eta - 20 * M, false), late: { min: 20, note: 'জ্যামে আছি', at: Date.now() - 4 * M, status: 'asked' }, canLate: true,
+  };
+}
+function queueToday() {
+  const row = (id, serial, name, state, late = null) => ({ id, serial, name, status: state === 'cancelled' ? 'cancelled' : 'confirmed', state, ahead: 0, late });
+  return {
+    role: 'doctor',
+    date: today(),
+    chambers: [{
+      date: today(), chamberKey: 'dghs_3', key: 'k3', name: 'Labib Hospital', nameBn: 'লাবিব হাসপাতাল', start: '17:00', avgMin: 8, avgFrom: 'history', lateAsked: 1,
+      queue: { started: true, current: 2, paused: false, finished: false, next: 4, left: 2, max: 5, startedAt: Date.now() - 16 * M, lastAt: Date.now() - 8 * M },
+      rows: [
+        row('q1', 1, 'আব্দুল করিম', 'done'),
+        row('q2', 2, 'সালমা খাতুন', 'now'),
+        row('q3', 3, 'মো. হাবিবুর রহমান', 'later', { min: 30, note: '', at: Date.now() - 20 * M, status: 'later' }),
+        row('q11', 4, 'জাহানারা বেগম', 'waiting', { min: 20, note: 'জ্যামে আটকে আছি', at: Date.now() - 5 * M, status: 'asked' }),
+        row('q12', 5, 'মো. কামাল উদ্দিন', 'waiting'),
+      ],
+    }],
   };
 }
 
@@ -174,6 +205,11 @@ export default {
   book: () => ({ id: 'a_new' }),
   my_appointments: appointments,
   appointment_update: () => ({ ok: true }),
+  appointment_queue: appointmentQueue,
+  appointment_late: () => ({ ok: true }),
+  appointment_late_reply: () => ({ ok: true, chamber: queueToday().chambers[0] }),
+  queue_today: queueToday,
+  queue_control: () => ({ chamber: queueToday().chambers[0] }),
   provider_me: () => ({ provider: ME_PROVIDER }),
   provider_save: () => ({ ok: true, cancelled: 0 }),
 };

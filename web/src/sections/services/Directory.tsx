@@ -11,7 +11,7 @@ import { areaLabel, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import {
   ambulanceEntry, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, useCatalog,
-  type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy,
+  type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
 } from './data';
 import { Emergency999, EntryDetail, FilterSheet, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
 
@@ -40,7 +40,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   const [showArea, setShowArea] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [busyOpen, setBusyOpen] = useState(false);
-  const [rating, setRating] = useState<{ id: string; name: string } | null>(null);
+  const [rating, setRating] = useState<{ id: string; name: string; aspects?: RateAspect[] } | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
 
   // ফিল্টার URL-এ (বিস্তারিত খুলে ফিরে এলেও থাকে)
@@ -78,7 +78,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
 
   const listPath = `/services/${kind}${search}`;
   const open = (eid: string) => nav(`/services/${kind}/${eid}${search}`);
-  const rateGate = (e: Entry) => () => s.requireLogin(tr('Log in to do this', 'এর জন্য লগইন করুন'), () => setRating({ id: e.id, name: e.title }));
+  const rateGate = (e: Entry) => () => s.requireLogin(tr('Log in to do this', 'এর জন্য লগইন করুন'), () => setRating({ id: e.id, name: e.title, aspects: e.rateAspects }));
   const reportGate = (e: Entry) => () => s.requireLogin(tr('Log in to report', 'রিপোর্ট করতে লগইন করুন'), () => setReporting(e.id));
 
   const card = (e: Entry) => (
@@ -228,7 +228,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
           {kind === 'bloodbank' ? <Switch label={tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')} checked={open24} onChange={(v) => setParam('h24', v ? '1' : null)} /> : null}
         </FilterSheet>
       ) : null}
-      {rating ? <RatingDialog kind={kind} id={rating.id} name={rating.name} onClose={() => setRating(null)} /> : null}
+      {rating ? <RatingDialog kind={kind} id={rating.id} name={rating.name} aspects={rating.aspects} onClose={() => setRating(null)} /> : null}
       {reporting ? <ReportDialog kind={kind} id={reporting} onClose={() => setReporting(null)} /> : null}
     </>
   );
