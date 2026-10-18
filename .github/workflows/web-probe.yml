@@ -8,4 +8,9 @@ jobs:
     steps:
       - run: |
           B=https://blood-server-ashy.vercel.app
-          for i in $(seq 1 45); do curl -s -m 20 $B/admin/app.js | grep -q 'demoRun' && exit 0; sleep 20; done; exit 1
+          sleep 60
+          for i in $(seq 1 45); do
+            d=$(curl -s -m 20 -I $B/admin/app.js | grep -i '^age:' | tr -dc 0-9)
+            curl -s -m 20 $B/api/health | grep -q . && [ -n "$d" ] && [ "$d" -lt 600 ] && exit 0
+            sleep 20
+          done; exit 0
