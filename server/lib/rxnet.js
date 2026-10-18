@@ -606,9 +606,9 @@ const actions = {
     }
     if (!logged) await addMissed(user.uid, missed);
     if (out.x.patientUid && out.none && missed.length) {
-      await pushPatient(out.x.patientUid, `${shop.get('name') || ''} doesn't have some medicines`, `${shop.get('name') || ''}-এ কিছু ওষুধ নেই`, missed.join(', '), { type: 'rx', id: d0.id });
+      await pushPatient(out.x.patientUid, `${shop.get('name') || ''} doesn't have some medicines`, `${shop.get('name') || ''}-এ কিছু ওষুধ নেই`, missed.join(', '), { type: 'rx', id: d0.id, rxId: d0.id });
     } else if (out.x.patientUid && !out.none) {
-      await pushPatient(out.x.patientUid, 'Medicines given from your prescription', 'প্রেসক্রিপশনের ওষুধ দেওয়া হয়েছে', shop.get('name') || '', { type: 'rx', id: d0.id });
+      await pushPatient(out.x.patientUid, 'Medicines given from your prescription', 'প্রেসক্রিপশনের ওষুধ দেওয়া হয়েছে', shop.get('name') || '', { type: 'rx', id: d0.id, rxId: d0.id });
     }
     return { item: pharmacyRxView({ id: d0.id, data: () => out.next }) };
   },
@@ -725,7 +725,7 @@ const actions = {
     await push(pharmacyId,
       mode === 'online' ? 'New online order' : 'A customer sent a prescription to your shop',
       mode === 'online' ? 'নতুন অনলাইন অর্ডার' : 'দোকানে একজন প্রেসক্রিপশন পাঠিয়েছেন',
-      x.patient?.name || '', { type: 'rx_pharmacy', id: ref.id });
+      x.patient?.name || '', { type: 'rx_pharmacy', id: ref.id, rxId });
     return { id: ref.id };
   },
 
@@ -753,7 +753,7 @@ const actions = {
       ...(added.length ? { missed: [...(s.get('missed') || []), ...added].slice(0, 30) } : {}), updatedAt: Date.now(), ...closeMarks(s.data()),
     });
     await addMissed(s.get('pharmacyId'), added);
-    await push(s.get('pharmacyId'), 'The customer took back the prescription', 'ক্রেতা প্রেসক্রিপশন ফিরিয়ে নিয়েছেন', s.get('patientName') || '', { type: 'rx_pharmacy', id });
+    await push(s.get('pharmacyId'), 'The customer took back the prescription', 'ক্রেতা প্রেসক্রিপশন ফিরিয়ে নিয়েছেন', s.get('patientName') || '', { type: 'rx_pharmacy', id, rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -812,7 +812,7 @@ const actions = {
     }[status];
     const body = status === 'accepted' ? [update.price, update.eta].filter(Boolean).join(' · ')
       : status === 'cancelled' ? [reason, added.length ? `নেই: ${added.join(', ')}` : ''].filter(Boolean).join(' · ') : '';
-    await pushPatient(s.get('patientUid'), T[0], T[1], body, { type: 'rx', id: s.get('rxId') });
+    await pushPatient(s.get('patientUid'), T[0], T[1], body, { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -1077,7 +1077,7 @@ const actions = {
     await push(labId,
       home ? 'New test request — sample from home' : 'New test request',
       home ? 'নতুন পরীক্ষা — বাসা থেকে নমুনা' : 'নতুন পরীক্ষার অনুরোধ',
-      line ? { en: `${line.en} · ${head}`, bn: `${line.bn} · ${head}` } : head, { type: 'rx_lab', id: ref.id });
+      line ? { en: `${line.en} · ${head}`, bn: `${line.bn} · ${head}` } : head, { type: 'rx_lab', id: ref.id, rxId });
     return { id: ref.id };
   },
 
@@ -1125,7 +1125,7 @@ const actions = {
     if (!allowed) throw err(req, "This request can't be changed now", 'এই অনুরোধ এখন আর বদলানো যায় না', 409);
     await ref.update({ status, updatedAt: Date.now() });
     if (status === 'cancelled') {
-      await pushPatient(s.get('patientUid'), `${s.get('labName')} can't do your tests`, `${s.get('labName')} পরীক্ষা করতে পারবে না`, '', { type: 'rx', id: s.get('rxId') });
+      await pushPatient(s.get('patientUid'), `${s.get('labName')} can't do your tests`, `${s.get('labName')} পরীক্ষা করতে পারবে না`, '', { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     }
     return { ok: true };
   },
@@ -1151,7 +1151,7 @@ const actions = {
     });
     const w = LP.visitWords(v.visitDate, v.time, now);
     const lab = s.get('labName') || '';
-    await pushPatient(s.get('patientUid'), `${lab} will come ${w.en}`, `${lab} ${w.bn} আসবে`, note, { type: 'rx', id: s.get('rxId') });
+    await pushPatient(s.get('patientUid'), `${lab} will come ${w.en}`, `${lab} ${w.bn} আসবে`, note, { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true, at: v.at };
   },
 
@@ -1172,7 +1172,7 @@ const actions = {
       'home.address': FieldValue.delete(), 'home.phone': FieldValue.delete(), updatedAt: now,
     });
     const lab = s.get('labName') || '';
-    await pushPatient(s.get('patientUid'), `${lab} can't come to your home — give the sample at the lab`, `${lab} বাসায় আসতে পারবে না — প্যাথলজিতে গিয়ে নমুনা দিন`, note, { type: 'rx', id: s.get('rxId') });
+    await pushPatient(s.get('patientUid'), `${lab} can't come to your home — give the sample at the lab`, `${lab} বাসায় আসতে পারবে না — প্যাথলজিতে গিয়ে নমুনা দিন`, note, { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -1185,7 +1185,7 @@ const actions = {
     const now = Date.now();
     await ref.update({ home: FieldValue.delete(), homeCancelledAt: now, updatedAt: now });
     await push(s.get('labId'), 'No home visit — the patient will come to the lab', 'বাসায় যেতে হবে না — রোগী প্যাথলজিতে এসে নমুনা দেবেন',
-      `${s.get('patientName') || ''} · ${(s.get('tests') || []).join(', ')}`, { type: 'rx_lab', id: s.id });
+      `${s.get('patientName') || ''} · ${(s.get('tests') || []).join(', ')}`, { type: 'rx_lab', id: s.id, rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -1206,7 +1206,7 @@ const actions = {
     const line = LP.homePushLine(home, now);
     const head = `${s.get('patientName') || ''} · `;
     await push(s.get('labId'), 'The patient changed the home visit', 'রোগী বাসা থেকে নমুনার সময় বদলেছেন',
-      { en: head + line.en, bn: head + line.bn }, { type: 'rx_lab', id: s.id });
+      { en: head + line.en, bn: head + line.bn }, { type: 'rx_lab', id: s.id, rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -1245,7 +1245,7 @@ const actions = {
     const now = Date.now();
     await ref.update({ status: 'reported', report: { items, note: str(req.body?.note, 500), photos, reportedAt: now }, reportedAt: now });
     const x = s.data();
-    if (x.patientUid) await pushPatient(x.patientUid, 'Your test report is ready', 'আপনার পরীক্ষার রিপোর্ট এসেছে', x.labName || '', { type: 'rx', id: x.rxId });
+    if (x.patientUid) await pushPatient(x.patientUid, 'Your test report is ready', 'আপনার পরীক্ষার রিপোর্ট এসেছে', x.labName || '', { type: 'rx', id: x.rxId, rxId: x.rxId, labOrderId: id });
     // ডাক্তারের দেখার তালিকা
     const prov = await db.doc(`providers/${x.doctorUid}`).get();
     const st = reviewSettings(prov);
@@ -1255,7 +1255,7 @@ const actions = {
       patientName: x.patientName || '', labName: x.labName || '', tests: x.tests || [], status, fee: st.fee, noFee: st.noFee,
       payNumber: st.payNumber, payMethods: st.payMethods, createdAt: now, updatedAt: now,
     }, { merge: true });
-    if (status === 'paid') await push(x.doctorUid, 'A report is waiting for you', 'একটা রিপোর্ট দেখার অপেক্ষায়', x.patientName || '', { type: 'rx_review' });
+    if (status === 'paid') await push(x.doctorUid, 'A report is waiting for you', 'একটা রিপোর্ট দেখার অপেক্ষায়', x.patientName || '', { type: 'rx_review', rxId: x.rxId, labOrderId: id });
     return { ok: true };
   },
 
@@ -1386,7 +1386,7 @@ const actions = {
     if (!/^[A-Za-z0-9]{6,30}$/.test(trxId)) throw err(req, 'Enter the transaction ID from the payment SMS', 'টাকা পাঠানোর SMS-এর TrxID দিন');
     const method = (s.get('payMethods') || []).includes(req.body?.method) ? req.body.method : (s.get('payMethods') || [])[0] || '';
     await ref.update({ status: 'claimed', trxId, method, rejectNote: FieldValue.delete(), updatedAt: Date.now() });
-    await push(s.get('doctorUid'), 'Check a report-review payment', 'রিপোর্ট দেখার টাকা মিলিয়ে নিন', `${s.get('patientName')} · ${method} · ${trxId}`, { type: 'rx_review' });
+    await push(s.get('doctorUid'), 'Check a report-review payment', 'রিপোর্ট দেখার টাকা মিলিয়ে নিন', `${s.get('patientName')} · ${method} · ${trxId}`, { type: 'rx_review', rxId: s.get('rxId'), labOrderId: id });
     return { ok: true };
   },
 
@@ -1411,7 +1411,7 @@ const actions = {
     await pushPatient(s.get('patientUid'),
       ok ? 'The doctor received your payment and will check the report' : "The doctor couldn't find your payment",
       ok ? 'ডাক্তার টাকা পেয়েছেন, রিপোর্ট দেখবেন' : 'ডাক্তার আপনার টাকা খুঁজে পাননি',
-      ok ? '' : note, { type: 'rx', id: s.get('rxId') });
+      ok ? '' : note, { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true };
   },
 
@@ -1427,7 +1427,7 @@ const actions = {
     if (!comment) throw err(req, 'Write what the patient should know', 'রোগীকে কী জানাবেন লিখুন');
     const newRxId = R.isValidId(req.body?.newRxId) ? req.body.newRxId : null;
     await ref.update({ status: 'done', comment, newRxId, doneAt: Date.now(), updatedAt: Date.now() });
-    await pushPatient(s.get('patientUid'), 'The doctor checked your report', 'ডাক্তার আপনার রিপোর্ট দেখেছেন', comment.slice(0, 120), { type: 'rx', id: s.get('rxId') });
+    await pushPatient(s.get('patientUid'), 'The doctor checked your report', 'ডাক্তার আপনার রিপোর্ট দেখেছেন', comment.slice(0, 120), { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true };
   },
 };
@@ -1441,7 +1441,7 @@ async function refillReminders(now = Date.now()) {
     const x = d.data();
     if (x.status !== 'active' || !x.patientUid || x.refillNotifiedAt === today) continue;
     const low = medStatus(x).filter((s) => s.got > 0 && !(s.need != null && s.got >= s.need)).map((s) => s.name);
-    await pushPatient(x.patientUid, 'Your medicines will run out in 2 days', '২ দিন পর ওষুধ শেষ হবে — কিনে নিন', low.join(', '), { type: 'rx', id: d.id });
+    await pushPatient(x.patientUid, 'Your medicines will run out in 2 days', '২ দিন পর ওষুধ শেষ হবে — কিনে নিন', low.join(', '), { type: 'rx', id: d.id, rxId: d.id });
     await d.ref.update({ refillNotifiedAt: today });
     sent++;
   }

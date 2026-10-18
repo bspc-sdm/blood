@@ -118,12 +118,16 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
       return '/appointment/home-care';
     case 'support':
       return data.ticketId ? `/help/${data.ticketId}` : '/help';
-    case 'rx':
-      return data.id ? `/prescriptions/${data.id}` : '/prescriptions';
+    // প্রেসক্রিপশনের খবর: সেই প্রেসক্রিপশন (পুরোনো নোটিফিকেশনে শুধু id — সেটাও প্রেসক্রিপশনের)
+    case 'rx': {
+      const rid = data.rxId || data.id;
+      return rid ? `/prescriptions/${encodeURIComponent(rid)}` : '/prescriptions';
+    }
     case 'rx_review':
       return '/work/pro';
+    // কেয়ারগিভারকে রোগীর প্রেসক্রিপশনের খবর: কেয়ারগিভার পাতা রোগীর মোড চালু করে সেই প্রেসক্রিপশন খোলে
     case 'care':
-      return '/care';
+      return data.asUid && data.rxId ? `/care?for=${encodeURIComponent(data.asUid)}&rx=${encodeURIComponent(data.rxId)}` : '/care';
     case 'badge':
       return '/health/badge';
     case 'rx_pharmacy':

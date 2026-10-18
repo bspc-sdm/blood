@@ -383,7 +383,7 @@ const actions = {
     });
     if (rxPatientId) await db.doc(`rxPatients/${rxPatientId}`).update({ lastRxAt: now });
     if (patientUid) {
-      await require('./careaccess').pushPatient(patientUid, `New prescription from ${doctor.name}`, `${doctor.name} নতুন প্রেসক্রিপশন দিয়েছেন`, '', { type: 'rx', id: ref.id });
+      await require('./careaccess').pushPatient(patientUid, `New prescription from ${doctor.name}`, `${doctor.name} নতুন প্রেসক্রিপশন দিয়েছেন`, '', { type: 'rx', id: ref.id, rxId: ref.id });
     }
     return { id: ref.id, code };
   },
@@ -493,7 +493,7 @@ async function followUpReminders(now = Date.now()) {
         days === 1 ? `Tomorrow: see ${name} again` : `In 2 days: see ${name} again`,
         days === 1 ? `কাল ${name}-এর কাছে আবার দেখানোর দিন` : `২ দিন পর ${name}-এর কাছে আবার দেখানোর দিন`,
         x.followUpNote || '',
-        { type: 'rx', id: d.id },
+        { type: 'rx', id: d.id, rxId: d.id },
       );
       sent++;
     }

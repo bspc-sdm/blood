@@ -193,6 +193,16 @@ test('প্যাথলজি: তালিকা, প্যাথলজির 
   assert.strictEqual((await call(LAB, 'lab_open_code', { code: 'RE2LRX3456' })).status, 404);
   LOG('ডেমো প্যাথলজি আসল প্রেসক্রিপশনের কোড দিলে "এই কোডের কোনো প্রেসক্রিপশন নেই"');
 
+  // ---- নোটিফিকেশনে rxId (রিপোর্ট, বাসা থেকে নমুনা, রিপোর্ট দেখানো) ----
+  const rxPushes = F.pushes.filter((p) => ['rx', 'rx_lab', 'rx_review'].includes(p.data?.type));
+  for (const p of rxPushes) {
+    assert.ok(typeof p.data.rxId === 'string' && p.data.rxId, `${p.data.type} নোটিফিকেশনে rxId নেই: ${p.title}`);
+    if (p.data.type === 'rx') assert.strictEqual(p.data.rxId, p.data.id);
+  }
+  assert.deepStrictEqual([...new Set(rxPushes.map((p) => p.data.type))].sort(), ['rx', 'rx_lab', 'rx_review']);
+  assert.ok(F.pushes.filter((p) => p.data?.type === 'care' && p.data.asUid).every((p) => p.data.rxId));
+  LOG(`প্যাথলজি আর রিপোর্ট দেখানোর ${rxPushes.length}টা নোটিফিকেশনে rxId`);
+
   // ---- মোছা ----
   for (let i = 0; i < 5; i++) if (!(await ok(OWNER, 'admin_demo_wipe')).more) break;
   const left = [...F.store.entries()].filter(([, v]) => v && v.demo === true).map(([k]) => k);

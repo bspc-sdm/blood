@@ -10,6 +10,7 @@ import { call } from '@/lib/api';
 import { tr, useLang } from '@/lib/i18n';
 import { formatDateTime, timeAgo } from '@/lib/format';
 import { useCall } from '@/lib/query';
+import { setCareMode } from '@/lib/care';
 import { useSession } from '@/lib/session';
 import { inboxIcon, inboxTarget, useAccountState } from './util';
 import { useBack } from './nav';
@@ -61,7 +62,12 @@ export function InboxPage() {
 
   const items = q.data?.items ?? [];
   const sel = selId ? items.find((x) => x.id === selId) ?? null : null;
-  const open = (it: InboxItem) => (two ? nav(`/inbox/${encodeURIComponent(it.id)}`) : nav(inboxTarget(it.data ?? {}, me, work)));
+  // নোটিফিকেশন নিজের — কেয়ারগিভার মোড চালু থাকলে বন্ধ করে খোলা (রোগীর খবর /care হয়ে আবার রোগীর মোডে যায়)
+  const go = (data: Record<string, string>) => {
+    setCareMode(null);
+    nav(inboxTarget(data, me, work));
+  };
+  const open = (it: InboxItem) => (two ? nav(`/inbox/${encodeURIComponent(it.id)}`) : go(it.data ?? {}));
   const refresh = <IconButton icon="refresh" label={tr('Refresh', 'রিফ্রেশ')} onClick={() => q.refetch()} disabled={q.isFetching} />;
 
   const list = (
@@ -109,7 +115,7 @@ export function InboxPage() {
             </div>
             {sel.body ? <p className="t-body-l pre">{sel.body}</p> : null}
             <div>
-              <Button icon="chevron_right" onClick={() => nav(inboxTarget(sel.data ?? {}, me, work))}>{tr('Open', 'খুলুন')}</Button>
+              <Button icon="chevron_right" onClick={() => go(sel.data ?? {})}>{tr('Open', 'খুলুন')}</Button>
             </div>
           </>
         )}

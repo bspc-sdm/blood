@@ -125,6 +125,8 @@ fun CareScreen(onBack: () -> Unit, onOpenFor: (String, String) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(reload) {
         runCatching { CareApi.list() }.onSuccess { data = it; errorMsg = null }.onFailure { errorMsg = it.message }
+        // নোটিফিকেশন থেকে এসে রোগীর প্রেসক্রিপশন খোলা না গেলে কারণ
+        RxNav.notice.value?.let { infoMsg = it; RxNav.notice.value = null }
     }
     fun act(block: suspend () -> Unit, ok: String? = null) {
         scope.launch {
@@ -389,6 +391,9 @@ fun CareModeScreen(patientUid: String, patientName: String, profile: Profile, on
         }
     }
     var tab by remember { mutableIntStateOf(0) }
+    // নোটিফিকেশন থেকে রোগীর প্রেসক্রিপশন খুলতে হলে "প্রেসক্রিপশন" ভাগ (সেখানের তালিকাই খোলে)
+    val wantRx = RxNav.rxId.value
+    LaunchedEffect(wantRx) { if (wantRx != null) tab = 0 }
     val cs = MaterialTheme.colorScheme
     Scaffold(topBar = { BackTopBar(patientName.ifBlank { tr("Patient", "রোগী") }, onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {

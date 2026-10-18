@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
     /** "services" নোটিফিকেশনে কোন ব্যবসা (ambulance, pharmacy, bloodbank, lab) */
     private val openKind = mutableStateOf<String?>(null)
     private val openQuestionId = mutableStateOf<String?>(null)
+    /** প্রেসক্রিপশনের নোটিফিকেশন: কোন প্রেসক্রিপশন (rxId), কেয়ারগিভারকে এলে কোন রোগীর (asUid) */
+    private val openExtra = mutableStateOf<Map<String, String>>(emptyMap())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
             openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
             openKind.value = intent?.getStringExtra(Notifier.EXTRA_KIND)
             openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
+            openExtra.value = rxExtras(intent)
             sharedRequestId(intent)?.let { openRequestId.value = it }
             if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
         }
@@ -81,7 +84,8 @@ class MainActivity : ComponentActivity() {
                             onHomeVisitOpened = { openType.value = null },
                             openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") },
                             openTargetKind = openKind.value,
-                            onTargetOpened = { openType.value = null; openKind.value = null },
+                            openTargetExtra = openExtra.value,
+                            onTargetOpened = { openType.value = null; openKind.value = null; openExtra.value = emptyMap() },
                         )
                     }
                 }
@@ -104,10 +108,15 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") }?.let {
             openKind.value = intent.getStringExtra(Notifier.EXTRA_KIND)
+            openExtra.value = rxExtras(intent)
             openType.value = it
         }
     }
 }
+
+/** নোটিফিকেশনের rxId আর asUid (যেগুলো আছে) */
+private fun rxExtras(intent: Intent?): Map<String, String> = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID)
+    .mapNotNull { k -> intent?.getStringExtra(k)?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
 
 /** বাসায় সেবার নোটিফিকেশন (আগের হোম নার্সের "homevisit" সহ) */
 private val HOME_CARE_TYPES = setOf("homevisit", "homecare")
@@ -181,6 +190,7 @@ fun App(
     onHomeVisitOpened: () -> Unit,
     openTarget: String? = null,
     openTargetKind: String? = null,
+    openTargetExtra: Map<String, String> = emptyMap(),
     onTargetOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -266,6 +276,28 @@ fun App(
         if (stack.size == 1) homeRefresh++
     }
 
+    /**
+     * কেয়ারগিভারের নোটিফিকেশন: রোগীর কেয়ারগিভার মোড খুলে সেই প্রেসক্রিপশন (মোডের "প্রেসক্রিপশন" তালিকা এলে খোলে)।
+     * এখন আর কেয়ারগিভার না হলে "কেয়ারগিভার ও পরিবার" পাতা, সাথে ছোট বার্তা।
+     */
+    fun openCareRx(asUid: String, rxId: String) {
+        val top = stack.last()
+        if (top is Screen.CareFor && top.uid == asUid) {
+            RxNav.rxId.value = rxId
+            return
+        }
+        scope.launch {
+            val link = runCatching { CareApi.list() }.getOrNull()?.caringFor?.firstOrNull { it.patientUid == asUid && it.status == "active" }
+            if (link != null) {
+                RxNav.rxId.value = rxId
+                push(Screen.CareFor(asUid, link.patientName))
+            } else {
+                RxNav.notice.value = tr("You can't open this prescription now — you're no longer their caregiver", "এই প্রেসক্রিপশন এখন খোলা যাচ্ছে না — আপনি আর তাঁর কেয়ারগিভার নন")
+                push(Screen.Care)
+            }
+        }
+    }
+
     /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই) */
     fun openFromData(data: Map<String, String>) {
         val type = data["type"]
@@ -285,10 +317,16 @@ fun App(
                 stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
             type == "support" -> push(Screen.Help())
-            // প্রেসক্রিপশন (নতুন, আবার দেখানোর দিন, ওষুধের অ্যালার্ম)
-            type == "rx" -> push(Screen.MyPrescriptions)
+            // প্রেসক্রিপশন (নতুন, দোকান/প্যাথলজির খবর, রিপোর্ট, আবার দেখানোর দিন): সরাসরি সেই প্রেসক্রিপশন।
+            // rxId না থাকলে (ওষুধের অ্যালার্ম) তালিকা; পুরোনো নোটিফিকেশনে শুধু id (সেটাও প্রেসক্রিপশনের id)
+            type == "rx" -> {
+                val id = data["rxId"] ?: data["id"]
+                if (id != null) RxNav.openRx(id, own = true) else push(Screen.MyPrescriptions)
+            }
             type == "rx_review" -> push(Screen.RxReviews)
-            // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর খবর / নতুন আমন্ত্রণ
+            // কেয়ারগিভারকে রোগীর প্রেসক্রিপশনের খবর: রোগীর হয়ে (কেয়ারগিভার মোডে) সেই প্রেসক্রিপশন
+            type == "care" && data["asUid"] != null && data["rxId"] != null -> openCareRx(data["asUid"]!!, data["rxId"]!!)
+            // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর অন্য খবর / নতুন আমন্ত্রণ
             type == "care" -> push(Screen.Care)
             // ফার্মেসি/প্যাথলজির মালিক (প্রেসক্রিপশন, পরীক্ষার অনুরোধ), দোকানের কাছে ওষুধ খোঁজা: নিজের পাতা ("আমার কাজ")
             type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
@@ -386,7 +424,9 @@ fun App(
     val rxOpen = RxNav.open.value
     LaunchedEffect(rxOpen) {
         if (rxOpen != null) {
-            push(if (rxOpen == "assist") Screen.RxAssist else if (rxOpen == "care") Screen.Care else Screen.MyPrescriptions)
+            val next = if (rxOpen == "assist") Screen.RxAssist else if (rxOpen == "care") Screen.Care else Screen.MyPrescriptions
+            // "আমার প্রেসক্রিপশন" খোলাই থাকলে আবার নয় — সেই পাতাই প্রেসক্রিপশনটা খোলে
+            if (stack.last() != next) push(next)
             RxNav.open.value = null
         }
     }
@@ -401,7 +441,7 @@ fun App(
     // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
     LaunchedEffect(openTarget, ready) {
         if (openTarget != null && ready) {
-            openFromData(listOfNotNull("type" to openTarget, openTargetKind?.let { "kind" to it }).toMap())
+            openFromData(listOfNotNull("type" to openTarget, openTargetKind?.let { "kind" to it }).toMap() + openTargetExtra)
             onTargetOpened()
         }
     }

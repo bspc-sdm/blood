@@ -240,5 +240,16 @@ test('ডেমো অ্যাকাউন্টে প্রেসক্রি
   assert.deepStrictEqual([f4.name, f4.params[0].range], ['Serum Magnesium', '1.7 – 2.2']);
   ok('অ্যাডমিন প্যানেল থেকে নতুন পরীক্ষা "Serum Magnesium" যোগ করলেন — ডাক্তার "S. Magnesium" লিখলে ল্যাব সেই ছক পায়; অন্য পরীক্ষার নামের সাথে মিলে গেলে আটকায়; ডাক্তার অ্যাডমিন কাজ করতে পারেন না');
 
-  assert.ok(step >= 28);
+  // প্রেসক্রিপশনের সব নোটিফিকেশনে rxId — চাপলে অ্যাপ সেই প্রেসক্রিপশনই খোলে (কেয়ারগিভারেরটাতেও)
+  const rxPushes = F.pushes.filter((p) => ['rx', 'rx_pharmacy', 'rx_lab', 'rx_review'].includes(p.data?.type));
+  for (const p of rxPushes) {
+    assert.ok(typeof p.data.rxId === 'string' && p.data.rxId, `${p.data.type} নোটিফিকেশনে rxId নেই: ${p.title}`);
+    if (p.data.type === 'rx') assert.strictEqual(p.data.rxId, p.data.id);
+  }
+  assert.deepStrictEqual([...new Set(rxPushes.map((p) => p.data.type))].sort(), ['rx', 'rx_lab', 'rx_pharmacy']);
+  const carePushes = F.pushes.filter((p) => p.data?.type === 'care' && p.data.asUid);
+  assert.ok(carePushes.length >= 3 && carePushes.every((p) => p.data.asUid === P && p.data.rxId));
+  ok(`প্রেসক্রিপশনের ${rxPushes.length}টা নোটিফিকেশন আর ছেলের ${carePushes.length}টা — সবগুলোতে rxId`);
+
+  assert.ok(step >= 29);
 });

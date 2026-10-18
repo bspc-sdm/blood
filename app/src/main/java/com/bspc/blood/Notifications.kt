@@ -29,6 +29,10 @@ object Notifier {
     const val EXTRA_QUESTION_ID = "questionId"
     /** "services" নোটিফিকেশনে কোন ব্যবসা */
     const val EXTRA_KIND = "kind"
+    /** প্রেসক্রিপশনের নোটিফিকেশনে কোন প্রেসক্রিপশন */
+    const val EXTRA_RX_ID = "rxId"
+    /** কেয়ারগিভারকে এলে কোন রোগীর হয়ে */
+    const val EXTRA_AS_UID = "asUid"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -48,7 +52,7 @@ object Notifier {
 
     /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
     @SuppressLint("MissingPermission")
-    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null) {
+    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null, extras: Map<String, String> = emptyMap()) {
         if (!canNotify(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -56,6 +60,7 @@ object Notifier {
             if (type != null) putExtra(EXTRA_TYPE, type)
             if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
             if (kind != null) putExtra(EXTRA_KIND, kind)
+            extras.forEach { (k, v) -> putExtra(k, v) }
         }
         val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(
@@ -102,6 +107,8 @@ class BloodMessagingService : FirebaseMessagingService() {
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
         val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
             ?: message.data["findId"] ?: message.messageId
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"])
+        // প্রেসক্রিপশনের খবরে কোন প্রেসক্রিপশন, কেয়ারগিভারকে এলে কোন রোগীর — চাপলে সরাসরি সেটা
+        val extras = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID).mapNotNull { k -> message.data[k]?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
+        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"], extras)
     }
 }

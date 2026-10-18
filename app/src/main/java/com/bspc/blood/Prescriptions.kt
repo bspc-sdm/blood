@@ -268,14 +268,17 @@ object RxApi {
 object RxNav {
     val open = mutableStateOf<String?>(null)
     val rxId = mutableStateOf<String?>(null)
+    /** খোলার পাতায় দেখানোর ছোট বার্তা (যেমন প্রেসক্রিপশন খোলা গেল না) */
+    val notice = mutableStateOf<String?>(null)
 
     /**
      * ফার্মেসি/প্যাথলজির পাতা থেকে পাঠানোর পর "প্রেসক্রিপশন খুলুন": "আমার প্রেসক্রিপশন" (প্রোফাইলের পথ) → তালিকা এলে এই প্রেসক্রিপশন।
      * কেয়ারগিভার মোডে নতুন পাতা নয় — মোডের পাতাতেই "আমার প্রেসক্রিপশন" আছে, সেটাই খোলে (নতুন পাতায় গেলে মোড বন্ধ হয়ে রোগীরটা মিলত না)।
+     * own: নিজের প্রেসক্রিপশন (নিজের নোটিফিকেশন) — কেয়ারগিভার মোডে থাকলেও নিজের "আমার প্রেসক্রিপশন" খোলে (নতুন পাতায় মোড বন্ধ হয়)।
      */
-    fun openRx(id: String) {
+    fun openRx(id: String, own: Boolean = false) {
         rxId.value = id
-        if (CareMode.asUid.value == null) open.value = "mine"
+        if (own || CareMode.asUid.value == null) open.value = "mine"
     }
 }
 
@@ -526,15 +529,23 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     LaunchedEffect(reload) {
         runCatching { RxApi.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
-    // "প্রেসক্রিপশন খুলুন" (পাঠানোর পর): তালিকা এলে সরাসরি সেটার বিস্তারিত — তালিকায় না পেলে আলাদা করে আনা
+    // "প্রেসক্রিপশন খুলুন" (পাঠানোর পর) আর নোটিফিকেশন: তালিকা এলে সরাসরি সেটার বিস্তারিত — তালিকায় না পেলে আলাদা করে আনা।
+    // নতুন "আমার প্রেসক্রিপশন" পাতা খোলার অপেক্ষায় থাকলে (RxNav.open) এই পাতা নেয় না — নতুন পাতাটা নেবে।
+    // মোছা হয়ে গেলে বা দেখার সুযোগ না থাকলে তালিকাই থাকে, নিচে ছোট বার্তা।
     val wantId = RxNav.rxId.value
-    LaunchedEffect(wantId, list) {
+    val pendingOpen = RxNav.open.value
+    val snack = remember { androidx.compose.material3.SnackbarHostState() }
+    LaunchedEffect(wantId, list, pendingOpen) {
         val id = wantId ?: return@LaunchedEffect
+        if (pendingOpen != null) return@LaunchedEffect
         val l = list ?: return@LaunchedEffect
         RxNav.rxId.value = null
-        (l.firstOrNull { it.id == id } ?: runCatching { RxApi.get(id) }.getOrNull())?.let { open = it }
+        val rx = l.firstOrNull { it.id == id } ?: runCatching { RxApi.get(id) }.getOrNull()
+        if (rx != null) open = rx
+        else snack.showSnackbar(tr("This prescription can't be opened — it may have been deleted", "প্রেসক্রিপশনটা খোলা যাচ্ছে না — হয়তো মুছে ফেলা হয়েছে"), withDismissAction = true)
     }
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snack) },
         topBar = {
             if (onBack != null) {
                 BackTopBar(tr("My prescriptions", "আমার প্রেসক্রিপশন"), onBack) {

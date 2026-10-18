@@ -2,8 +2,8 @@
 // - আমার কেয়ারগিভার (সর্বোচ্চ ২ জন, ইমেইল দিয়ে আমন্ত্রণ, তাঁরা রাজি হলে চালু)
 // - যাঁদের দেখাশোনা করি: রাজি/না, "ওঁর হয়ে খুলুন" (কেয়ার মোড — উপরে ফিতা দেখায়), সরে যান
 // - পরিবারের সদস্য (নিজের অ্যাকাউন্ট নেই): সর্বোচ্চ ৬ জন
-import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Action, Avatar, Button, ChoiceChips, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, SkeletonCards, Tag, TextInput, toast } from '@/ui/kit';
 import { SubPageBar } from '@/shell/templates';
 import { usePageTitle } from '@/shell/chrome';
@@ -49,6 +49,22 @@ export function CarePage() {
   const [confirm, setConfirm] = useState<{ text: string; run: () => Promise<unknown> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // নোটিফিকেশন থেকে (?for=রোগী&rx=প্রেসক্রিপশন): এখনো কেয়ারগিভার হলে রোগীর মোডে সেই প্রেসক্রিপশন, নইলে কারণ
+  const [params, setParams] = useSearchParams();
+  const forUid = params.get('for');
+  const forRx = params.get('rx');
+  useEffect(() => {
+    if (!forUid || !forRx || !q.data) return;
+    const link = q.data.caringFor.find((c) => c.patientUid === forUid && c.status === 'active');
+    if (link) {
+      setCareMode({ uid: link.patientUid, name: link.patientName });
+      nav(`/prescriptions/${encodeURIComponent(forRx)}`, { replace: true });
+    } else {
+      setError(tr("You can't open this prescription now — you're no longer their caregiver", 'এই প্রেসক্রিপশন এখন খোলা যাচ্ছে না — আপনি আর তাঁর কেয়ারগিভার নন'));
+      setParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forUid, forRx, q.data]);
 
   async function act(run: () => Promise<unknown>, ok?: string) {
     setBusy(true);
