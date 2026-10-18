@@ -4,6 +4,9 @@ name: E2E Android (Maestro)
 # শুধু হাতে চালানো (workflow_dispatch); প্রোডাকশন সার্ভারে, শুধু ডেমো অ্যাকাউন্টে।
 # ফল: artifact "e2e-android" আর "e2e-android-shots" শাখা (ছবি + manifest.json)।
 on:
+  # TEMP-REGISTER
+  push:
+    branches: [e2e-android-never-pushed]
   workflow_dispatch:
     inputs:
       only:
