@@ -11,7 +11,9 @@ env:
     visible: ".*রক্তদাতার তথ্য.*"
     timeout: 20000
 - takeScreenshot: j8-01-donor-form
-- tapOn: ".*জন্ম তারিখ.*"
+# জন্ম তারিখের ঘর (লেখা পড়া যায় না, তাই ওজনের ঘরের বাঁ পাশের জায়গায় চাপ)
+- tapOn:
+    point: "25%,39%"
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j8-02-birth-picker

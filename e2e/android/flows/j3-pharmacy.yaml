@@ -24,13 +24,14 @@ env:
 - scroll
 - takeScreenshot: j3-04-incoming-more
 - scrollUntilVisible:
-    element: "ডেমো রোগী রহিম"
-    direction: UP
-    timeout: 15000
+    element: "দোকানে এসেছেন"
+    direction: DOWN
+    timeout: 20000
     optional: true
+- takeScreenshot: j3-04b-shop-order
 - tapOn:
     text: "তৈরি"
-    below: "ডেমো রোগী রহিম"
+    below: "দোকানে এসেছেন"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000

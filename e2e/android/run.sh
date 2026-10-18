@@ -40,6 +40,6 @@ for f in $ORDER; do
   adb logcat -d -t 3000 > "$OUT/debug/logcat-$f.txt" 2>/dev/null || true
 done
 # কোথাও অন্য ফোল্ডারে ছবি পড়ে থাকলে
-find "$W/e2e" "$HOME/.maestro" -name 'j[0-9]-*.png' -newer "$W/e2e/android/run.sh" -exec cp -n {} "$OUT/shots/" \; 2>/dev/null || true
+find "$OUT/debug" "$W/e2e" "$HOME/.maestro" -name 'j[0-9]-*.png' -newer "$W/e2e/android/run.sh" -exec cp -n {} "$OUT/shots/" \; 2>/dev/null || true
 ls "$OUT/shots" | wc -l
 exit 0

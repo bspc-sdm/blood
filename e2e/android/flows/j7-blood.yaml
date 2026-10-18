@@ -18,6 +18,10 @@ env:
 - scroll
 - takeScreenshot: j7-02-home-requests
 - tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 20000
 - tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
 - extendedWaitUntil:
     visible: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"

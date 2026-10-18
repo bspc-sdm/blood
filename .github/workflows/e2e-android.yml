@@ -39,6 +39,11 @@ jobs:
         if: failure()
         run: |
           grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: Probe production as demo roles (read only)
+        continue-on-error: true
+        run: |
+          mkdir -p e2e-out
+          bash e2e/android/probe.sh 2>&1 | tee e2e-out/probe.txt
       - name: Install Maestro
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash

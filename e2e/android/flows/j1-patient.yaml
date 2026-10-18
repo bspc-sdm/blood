@@ -11,8 +11,9 @@ env:
     optional: true
 - takeScreenshot: j1-01-home
 - tapOn: "সেটিংস ও প্রোফাইল"
-- extendedWaitUntil:
-    visible: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
+- scrollUntilVisible:
+    element: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
+    direction: DOWN
     timeout: 20000
 - takeScreenshot: j1-02-profile
 - tapOn: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
@@ -22,6 +23,10 @@ env:
     optional: true
 - takeScreenshot: j1-03-appointments
 - back
+- scrollUntilVisible:
+    element: ".*আমার প্রেসক্রিপশন.*"
+    direction: DOWN
+    timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
 - extendedWaitUntil:
     visible: ".*Bislol.*"
