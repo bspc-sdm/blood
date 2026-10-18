@@ -8,6 +8,4 @@ jobs:
     steps:
       - run: |
           B=https://blood-server-ashy.vercel.app
-          R=$(curl -s -m 20 -X POST -H 'Content-Type: application/json' -d '{"demoRoles":true}' $B/api/auth/verify-code)
-          echo "$R"
-          echo "$R" | grep -q '"active":true'
+          for i in $(seq 1 45); do curl -s -m 20 $B/admin/app.js | grep -q 'demoRun' && exit 0; sleep 20; done; exit 1
