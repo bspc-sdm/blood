@@ -3,6 +3,7 @@
 package com.bspc.blood
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,11 +23,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -455,8 +461,9 @@ object RxNetText {
 // রোগী: প্রেসক্রিপশনের ভেতরে — ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
 // ------------------------------------------------------------
 
+/** paper দিলে: উপরে বড় "ফার্মেসিতে পাঠান" / "প্যাথলজিতে পাঠান", তারপর কাগজ, তারপর বাকিটা — লম্বা কাগজের নিচে বাটন খুঁজে পাওয়া যেত না */
 @Composable
-fun RxActivitySection(rx: Rx, profile: Profile) {
+fun RxActivitySection(rx: Rx, profile: Profile, paper: (@Composable () -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var act by remember { mutableStateOf<RxActivity?>(null) }
     var reload by remember { mutableIntStateOf(0) }
@@ -465,6 +472,7 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
     var pickPharmacy by remember { mutableStateOf<String?>(null) }
     var withdrawing by remember { mutableStateOf<RxOrder?>(null) }
     var pickLab by remember { mutableStateOf(false) }
+    var sendChoice by remember { mutableStateOf(false) }
     var homeEdit by remember { mutableStateOf<LabOrder?>(null) }
     var homeCancel by remember { mutableStateOf<LabOrder?>(null) }
     var report by remember { mutableStateOf<String?>(null) }
@@ -474,10 +482,35 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
         runCatching { RxNet.activity(rx.id) }.onSuccess { act = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
     val a = act
+    // লোড হওয়ার সময় উপরের বাটন নেই, কাগজ আগের মতোই দেখায়
+    if (a == null) {
+        ErrorText(errorMsg)
+        InfoText(infoMsg)
+        paper?.invoke()
+        return
+    }
+    val cs = MaterialTheme.colorScheme
+
+    // ---- উপরে: পাঠানোর বড় বাটন (নিচের বাটনের মতোই শর্ত) ----
+    val canPharmacy = !rx.cancelled && rx.medicines.isNotEmpty() && a.meds.any { !it.done }
+    val canLab = !rx.cancelled && rx.tests.isNotEmpty()
+    if (canPharmacy || canLab) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (canPharmacy) {
+                Button(onClick = { sendChoice = true }, modifier = Modifier.weight(1f).heightIn(min = 56.dp), shape = RoundedCornerShape(12.dp)) {
+                    ButtonContent(false, tr("Send to a pharmacy", "ফার্মেসিতে পাঠান"), R.drawable.ic_medication)
+                }
+            }
+            if (canLab) {
+                Button(onClick = { pickLab = true }, modifier = Modifier.weight(1f).heightIn(min = 56.dp), shape = RoundedCornerShape(12.dp)) {
+                    ButtonContent(false, tr("Send to a lab", "প্যাথলজিতে পাঠান"), R.drawable.ic_local_hospital)
+                }
+            }
+        }
+    }
     ErrorText(errorMsg)
     InfoText(infoMsg)
-    if (a == null) return
-    val cs = MaterialTheme.colorScheme
+    paper?.invoke()
 
     // ---- ওষুধ ----
     if (rx.medicines.isNotEmpty()) {
@@ -578,6 +611,31 @@ fun RxActivitySection(rx: Rx, profile: Profile) {
         }
     }
 
+    // ফার্মেসিতে পাঠান → দোকানে আছি, না অনলাইনে
+    if (sendChoice) {
+        AlertDialog(
+            onDismissRequest = { sendChoice = false },
+            title = { Text(tr("Send to a pharmacy", "ফার্মেসিতে পাঠান")) },
+            text = {
+                Column {
+                    ListItem(
+                        headlineContent = { Text(tr("I'm at a pharmacy — send to this shop", "দোকানে আছি — এই দোকানে পাঠান")) },
+                        leadingContent = { AppIcon(R.drawable.ic_storefront, null, tint = cs.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { sendChoice = false; pickPharmacy = "shop" },
+                    )
+                    ListItem(
+                        headlineContent = { Text(tr("Order online — home delivery", "অনলাইনে অর্ডার — বাসায় ডেলিভারি")) },
+                        leadingContent = { AppIcon(R.drawable.ic_local_shipping, null, tint = cs.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { sendChoice = false; pickPharmacy = "online" },
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { sendChoice = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
+    }
     pickPharmacy?.let { mode ->
         PharmacyPickDialog(rx, profile, mode, onDismiss = { pickPharmacy = null }) { name ->
             pickPharmacy = null

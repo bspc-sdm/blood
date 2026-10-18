@@ -4,7 +4,7 @@
 // LabReportDialog/LabReportView, ReportReviewBox, PayDialog
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Action, Button, ChoiceChips, ConfirmDialog, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
+import { Action, Button, ChoiceChips, ConfirmDialog, Dialog, DirectoryCard, EmptyState, ErrorText, FilterBar, IconLine, InfoText, ListRow, Loading, SkeletonCards, Tag, TextArea, TextInput } from '@/ui/kit';
 import { AreaPicker, type AreaValue } from '@/ui/AreaPicker';
 import { call, errorText } from '@/lib/api';
 import { num, tr, useLang } from '@/lib/i18n';
@@ -102,7 +102,8 @@ function useStartArea(): AreaValue | null {
 }
 
 // ---------- মূল অংশ ----------
-export function RxActivitySection({ rx }: { rx: Rx }) {
+/** paper দিলে: উপরে বড় "ফার্মেসিতে পাঠান" / "প্যাথলজিতে পাঠান", তারপর কাগজ, তারপর বাকিটা — লম্বা কাগজের নিচে বাটন খুঁজে পাওয়া যেত না */
+export function RxActivitySection({ rx, paper }: { rx: Rx; paper?: ReactNode }) {
   const lang = useLang();
   const care = useCareMode();
   const { uid } = useSession();
@@ -114,6 +115,7 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
   const [pick, setPick] = useState<'shop' | 'online' | null>(null);
   const [withdrawing, setWithdrawing] = useState<RxOrder | null>(null);
   const [pickLab, setPickLab] = useState(false);
+  const [sendChoice, setSendChoice] = useState(false);
   const [homeEdit, setHomeEdit] = useState<LabOrder | null>(null);
   const [homeCancel, setHomeCancel] = useState<LabOrder | null>(null);
   const [homeBusy, setHomeBusy] = useState(false);
@@ -124,9 +126,13 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
   const reload = () => qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
   const cancelled = rx.status === 'cancelled';
 
-  if (q.isPending) return <SkeletonCards n={1} h={120} />;
-  if (q.isError) return <ErrorText>{errorText(q.error)}</ErrorText>;
+  // লোড হওয়ার সময় উপরের বাটন নেই, কাগজ আগের মতোই দেখায়
+  if (q.isPending) return <>{paper}<SkeletonCards n={1} h={120} /></>;
+  if (q.isError) return <>{paper}<ErrorText>{errorText(q.error)}</ErrorText></>;
   const a = q.data;
+  // নিচের বাটনের মতোই শর্ত: বাতিল নয়, আর কোনো ওষুধ এখনো পুরো কেনা হয়নি / পরীক্ষা আছে
+  const canPharmacy = !cancelled && !!rx.medicines?.length && a.medicines.some((m) => !m.done);
+  const canLab = !cancelled && !!rx.tests?.length;
 
   async function serial(date: number) {
     setSerialBusy(true);
@@ -142,8 +148,15 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
 
   return (
     <>
+      {canPharmacy || canLab ? (
+        <div className={canPharmacy && canLab ? 'health-two health-send' : 'col health-send'}>
+          {canPharmacy ? <Button icon="medication" block onClick={() => setSendChoice(true)}>{tr('Send to a pharmacy', 'ফার্মেসিতে পাঠান')}</Button> : null}
+          {canLab ? <Button icon="local_hospital" block onClick={() => setPickLab(true)}>{tr('Send to a lab', 'প্যাথলজিতে পাঠান')}</Button> : null}
+        </div>
+      ) : null}
       <ErrorText>{err}</ErrorText>
       <InfoText>{info}</InfoText>
+      {paper}
       {rx.medicines?.length ? (
         <section className="card col" aria-label={tr('Medicines bought', 'ওষুধ কেনা')}>
           <h3 className="t-title-m">{tr('Medicines bought', 'ওষুধ কেনা')}</h3>
@@ -226,6 +239,14 @@ export function RxActivitySection({ rx }: { rx: Rx }) {
         </section>
       ) : null}
 
+      {sendChoice ? (
+        <Dialog onClose={() => setSendChoice(false)} size="small" title={tr('Send to a pharmacy', 'ফার্মেসিতে পাঠান')}>
+          <div className="col gap-4">
+            <ListRow icon="storefront" title={tr("I'm at a pharmacy — send to this shop", 'দোকানে আছি — এই দোকানে পাঠান')} onClick={() => { setSendChoice(false); setPick('shop'); }} />
+            <ListRow icon="local_shipping" title={tr('Order online — home delivery', 'অনলাইনে অর্ডার — বাসায় ডেলিভারি')} onClick={() => { setSendChoice(false); setPick('online'); }} />
+          </div>
+        </Dialog>
+      ) : null}
       {pick ? (
         <PharmacyPickDialog
           rx={rx}

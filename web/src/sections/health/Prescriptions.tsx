@@ -211,8 +211,8 @@ function RxDetail({ id, initial, listLoading, back }: { id: string; initial: Rx 
     <DetailPane title={tr('Prescription', 'প্রেসক্রিপশন')} onBack={back} actions={rx ? <PrintButton /> : null}>
       {rx ? (
         <>
-          <RxPaper rx={rx} />
-          <RxActivitySection rx={rx} />
+          {/* কাগজ RxActivitySection-এর ভেতরে: উপরে পাঠানোর বাটন, তারপর কাগজ */}
+          <RxActivitySection rx={rx} paper={<RxPaper rx={rx} />} />
           <FollowUpCard rx={rx} />
           {createPortal(
             <div className="health-print" aria-hidden="true">
