@@ -20,6 +20,7 @@ const TYPES = [
 const USER_TYPES = ['govt_hospital', 'private_hospital', 'clinic', 'diagnostic', 'govt_mch', 'govt_specialized', 'govt_district', 'govt_uhc'];
 
 const { normalizeName, similarity, isDuplicate, UPAZILA, UNION, DUP_THRESHOLD } = require('./hospital-match');
+const { clip } = require('./text');
 
 function hospital(d) {
   const x = typeof d.data === 'function' ? d.data() : d;
@@ -94,12 +95,12 @@ const actions = {
     if (!nameEn || !/[A-Za-z]/.test(nameEn)) {
       throw new HttpError(400, C.tr(req, 'Enter the hospital name in English', 'হাসপাতালের নাম ইংরেজিতে লিখুন'));
     }
-    const nameBn = typeof b.nameBn === 'string' ? b.nameBn.trim().slice(0, 120) : '';
+    const nameBn = typeof b.nameBn === 'string' ? clip(b.nameBn.trim(), 120) : '';
     if (!USER_TYPES.includes(b.type)) throw new HttpError(400, C.tr(req, 'Choose the type', 'ধরন বেছে নিন'));
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     const unionId = Number.isInteger(b.unionId) ? b.unionId : null;
     validLocation(req, b.district, upazilaId, unionId);
-    const address = typeof b.address === 'string' ? b.address.trim().slice(0, 200) : '';
+    const address = typeof b.address === 'string' ? clip(b.address.trim(), 200) : '';
     const phone = typeof b.phone === 'string' ? b.phone.replace(/[^0-9+]/g, '').slice(0, 15) : '';
     const item = { nameEn, district: b.district, upazilaId };
 

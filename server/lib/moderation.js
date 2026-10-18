@@ -6,6 +6,7 @@ const { isAdmin } = require('./admin');
 const { useQuota } = require('./community-db');
 
 const K = require('./care');
+const { clip } = require('./text');
 // homevisit: আগের অনুরোধ-ব্যবস্থার খোলা রিপোর্ট (নতুন নেওয়া হয় না); homecare: বাসায় সেবার তালিকার ডাক্তার/নার্স
 // provider: চেম্বারের তালিকার ডাক্তার/নার্স (রিপোর্ট টিকলে পুরো তালিকা বন্ধ)
 const KINDS = ['question', 'answer', 'tip', 'homecare', 'provider', 'ambulance', 'pharmacy', 'bloodbank'];
@@ -140,7 +141,7 @@ module.exports = {
       reporterUid: user.uid,
       reason,
       // রিপোর্টের সময়ের লেখা (পরে বদলালে অ্যাডমিন দুটো মিলিয়ে দেখেন)
-      ...(['question', 'answer', 'tip'].includes(kind) ? { snapshot: [target.get('title'), target.get('text') || target.get('body')].filter(Boolean).join('\n').slice(0, 3000) } : {}),
+      ...(['question', 'answer', 'tip'].includes(kind) ? { snapshot: clip([target.get('title'), target.get('text') || target.get('body')].filter(Boolean).join('\n'), 3000) } : {}),
       ...(reported ? { reportedUid: reported.uid, reportedRole: reported.role, reportedName: reported.name } : {}),
       status: 'open',
       createdAt: Date.now(),
@@ -206,7 +207,7 @@ module.exports = {
         // বেনামি প্রশ্নে প্রশ্নকারীর নাম অ্যাডমিনও দেখেন না
         authorName: list[i].kind === 'homevisit' ? list[i].reportedName : t.get('anonymous') === true ? 'বেনামি' : t.get('authorName') || t.get('name') || '',
         // রিপোর্টের পর লেখা বদলে থাকলে রিপোর্টের সময়ের লেখা
-        ...(list[i].snapshot && list[i].snapshot !== [t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n').slice(0, 3000)
+        ...(list[i].snapshot && list[i].snapshot !== clip([t.get('title'), t.get('text') || t.get('body')].filter(Boolean).join('\n'), 3000)
           ? { snapshot: list[i].snapshot } : {}),
         reportedUid: list[i].reportedUid,
         reportedRole: list[i].reportedRole,
@@ -242,7 +243,7 @@ module.exports = {
       const r = docs.find((d) => d.get('reportedUid'));
       // মালিককে যে কারণ দেখানো হবে: অ্যাডমিন লিখে দিলে সেটা, নইলে সাধারণ কথা — রিপোর্টকারীর নিজের লেখা নয়
       // (শুধু ফোন করা মানুষ রিপোর্ট করতে পারেন, লেখা দেখে মালিক চিনে ফেলতে পারেন)
-      const reason = String(req.body?.reason || '').trim().slice(0, 200) || 'ব্যবহারকারীর রিপোর্ট যাচাই করে সত্য পাওয়া গেছে';
+      const reason = clip(String(req.body?.reason || '').trim(), 200) || 'ব্যবহারকারীর রিপোর্ট যাচাই করে সত্য পাওয়া গেছে';
       await removeTarget(path, r ? { uid: r.get('reportedUid'), role: r.get('reportedRole') } : null, req.body?.kind, reason);
     }
     snap = { docs };

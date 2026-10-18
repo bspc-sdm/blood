@@ -15,13 +15,14 @@ const crypto = require('crypto');
 const { db, FieldValue, HttpError } = require('./firebase');
 const R = require('./rules');
 const C = require('./community');
+const { clip } = require('./text');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_ITEMS = 3000; // স্টকের তালিকার সীমার সমান
 const MAX_LINES = 100;
 const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
 const notFound = (req) => err(req, 'Not found', 'পাওয়া যায়নি', 404);
-const str = (v, n) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '');
+const str = (v, n) => (typeof v === 'string' ? clip(v.replace(/\s+/g, ' ').trim(), n) : '');
 /** rxnet.js-এর stock_set-এর একই চাবি (প্রেসক্রিপশনের নাম মেলানো) */
 const key = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const idOf = (name) => `k${crypto.createHash('sha1').update(key(name)).digest('hex').slice(0, 16)}`;
@@ -1034,9 +1035,10 @@ async function backfillStockPrices(now = Date.now(), maxPages = 4) {
   const fill = async (d) => {
     if (d.get('pricesAll') || !R.isValidId(d.id)) return;
     await db.runTransaction(async (t) => {
+      // পড়ার ক্রম বিক্রির মতোই: আগে পণ্য, তারপর স্টক — উল্টো হলে PostgreSQL-এ একই সময়ের বিক্রির সাথে deadlock হয়
+      const items = await t.get(itemsCol(d.id).limit(MAX_ITEMS));
       const s = await t.get(stockRef(d.id));
       if (!s.exists || s.get('pricesAll')) return;
-      const items = await t.get(itemsCol(d.id).limit(MAX_ITEMS));
       t.update(s.ref, { prices: pricesFromItems(items.docs.map((x) => x.data()), stockKeysOf(s)), pricesAll: true });
       filled++;
     }).catch((e) => console.error('stock prices backfill failed', d.id, e.message));

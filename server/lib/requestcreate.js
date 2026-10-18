@@ -7,6 +7,7 @@ const C = require('./community');
 const K = require('./care');
 
 const Geo = require('./geo');
+const { clip } = require('./text');
 const GEOHASH_RE = /^[0-9bcdefghjkmnpqrstuvwxyz]{1,12}$/;
 
 const actions = {
@@ -19,7 +20,7 @@ const actions = {
     const r = {
       patientGroup: b.patientGroup,
       bags: b.bags,
-      hospital: typeof b.hospital === 'string' ? b.hospital.trim().slice(0, 120) : '',
+      hospital: typeof b.hospital === 'string' ? clip(b.hospital.trim(), 120) : '',
       placeName: b.placeName,
       lat,
       lng,
@@ -34,7 +35,7 @@ const actions = {
     if (!phone) throw err('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন');
     const name = C.cleanText(b.requesterName, 80);
     if (!name) throw err('Enter your name', 'নাম লিখুন');
-    const note = typeof b.note === 'string' ? b.note.trim().slice(0, 300) : '';
+    const note = typeof b.note === 'string' ? clip(b.note.trim(), 300) : '';
     const geohash = typeof b.geohash === 'string' && GEOHASH_RE.test(b.geohash) ? b.geohash : null;
 
     const stateRef = db.doc(`serverState/${user.uid}`);

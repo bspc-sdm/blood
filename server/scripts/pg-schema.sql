@@ -1,6 +1,8 @@
 -- Lifolo: Firestore-এর মতো ডক স্টোর, PostgreSQL-এ (lib/pgstore.js এটা ব্যবহার করে)।
--- বারবার চালানো নিরাপদ (IF NOT EXISTS / CREATE OR REPLACE)। pgstore চালু হওয়ার সময় নিজেই একবার চালায়
--- (PG_AUTO_SCHEMA=0 দিলে চালায় না — তখন হাতে: psql "$DATABASE_URL" -f scripts/pg-schema.sql)।
+-- বারবার চালানো নিরাপদ (IF NOT EXISTS / CREATE OR REPLACE)। pgstore চালু হওয়ার সময় ডাটাবেসের fs_meta.schema_version
+-- এই ফাইলের শেষের সংস্করণের সাথে না মিললে তবেই চালায় (মিললে কোনো DDL নয় — চালুর সময় লেখা আটকায় না)।
+-- PG_AUTO_SCHEMA=0 দিলে চালায়ই না — তখন হাতে: psql "$DATABASE_URL" -f scripts/pg-schema.sql
+-- এই ফাইল বদলালে শেষের schema_version বাড়ান, নইলে চালু থাকা ডাটাবেসে বদল পৌঁছাবে না।
 --
 -- এক টেবিল, প্রতিটা Firestore ডক একটা সারি:
 --   path = পুরো ঠিকানা (requests/abc/responses/xyz), coll = কালেকশনের ঠিকানা (requests/abc/responses),
@@ -12,8 +14,12 @@
 --   GeoPoint   {"$geo": {"lat": .., "lng": ..}}
 --   Reference  {"$ref": "users/abc"}
 --   Bytes      {"$bytes": "base64"}
---   NaN/±Infinity {"$num": "NaN"}
+--   NaN/±Infinity {"$num": "NaN"} / {"$num": "Infinity"} / {"$num": "-Infinity"}
+--   লেখা (মান আর চাবি): U+0000 → U+0001 U+0001, U+0001 → U+0001 U+0002 (jsonb U+0000 রাখতে পারে না; ক্রম একই থাকে)
 --   ডকের ভেতরের কোনো map-এর চাবি '$' দিয়ে শুরু হলে আরেকটা '$' জুড়ে রাখা হয় ("$x" → "$$x")।
+
+-- schema-র সংস্করণ (pgstore.ensureSchema দেখে)
+CREATE TABLE IF NOT EXISTS fs_meta (key text PRIMARY KEY, value text NOT NULL);
 
 CREATE TABLE IF NOT EXISTS docs (
   path       text COLLATE "C" PRIMARY KEY,
@@ -50,7 +56,8 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   END
 $$;
 
--- সংখ্যার মতো তুলনা: number, bool (0/1), timestamp (সেকেন্ড.ন্যানো)। অন্য ধরনে NULL।
+-- সংখ্যার মতো তুলনা: number, ±Infinity, bool (0/1), timestamp (সেকেন্ড.ন্যানো)। অন্য ধরনে (আর NaN-এ) NULL।
+-- (বদলালে এই ফাংশনের expression index-গুলো REINDEX করতে হয় — পুরোনো সারির মান index-এ পুরোনো থাকে)
 CREATE OR REPLACE FUNCTION fs_num(x jsonb) RETURNS numeric
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT CASE
@@ -59,6 +66,8 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     WHEN jsonb_typeof(x) = 'boolean' THEN CASE WHEN x::boolean THEN 1::numeric ELSE 0::numeric END
     WHEN jsonb_typeof(x) = 'object' AND x ? '$ts'
       THEN (x->'$ts'->>'s')::numeric + (x->'$ts'->>'n')::numeric / 1000000000
+    WHEN jsonb_typeof(x) = 'object' AND x ? '$num' AND x->>'$num' IN ('Infinity', '-Infinity')
+      THEN (x->>'$num')::numeric
   END
 $$;
 
@@ -107,3 +116,7 @@ SELECT fs_index('geohash', 'str');
 SELECT fs_index('createdAt', 'num');
 SELECT fs_index('at', 'num');
 SELECT fs_index('remindAt', 'num');
+
+-- শেষে: এই সংস্করণ বসানো (ফাইল বদলালে সংখ্যা বাড়ান)
+INSERT INTO fs_meta (key, value) VALUES ('schema_version', '2')
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;

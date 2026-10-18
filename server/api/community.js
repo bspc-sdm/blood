@@ -33,6 +33,7 @@ const myrequests = require('../lib/myrequests');
 const sellerstats = require('../lib/sellerstats');
 const medfind = require('../lib/medfind');
 const guest = require('../lib/guest');
+const { clip } = require('../lib/text');
 
 function cursor(req) {
   const b = req.body?.before;
@@ -135,7 +136,7 @@ const actions = {
     await useQuota(req, user.uid, 'ask');
     const ref = await db.collection('questions').add({
       uid: user.uid,
-      authorName: (await userName(user.uid)).slice(0, 80),
+      authorName: clip(await userName(user.uid), 80),
       anonymous: req.body?.anonymous === true,
       text,
       createdAt: Date.now(),
@@ -157,7 +158,7 @@ const actions = {
     const qs = await qRef.get();
     if (!qs.exists) throw new HttpError(404, C.tr(req, 'Question not found', 'প্রশ্নটা পাওয়া যায়নি'));
     await useQuota(req, user.uid, 'answer');
-    const name = (await userName(user.uid)).slice(0, 80);
+    const name = clip(await userName(user.uid), 80);
     const batch = db.batch();
     const aRef = qRef.collection('answers').doc();
     batch.set(aRef, { uid: user.uid, authorName: name, badge, text, createdAt: Date.now() });
@@ -176,7 +177,7 @@ const actions = {
             uid: asker,
             tokens: require('../lib/firebase').tokensOf(u),
             title: R.L(u.get('lang'), 'Your question has a new answer', 'আপনার প্রশ্নের উত্তর এসেছে'),
-            body: text.slice(0, 120),
+            body: clip(text, 120),
             data: { type: 'answer', questionId: id },
           }]);
         }
@@ -285,7 +286,7 @@ const actions = {
     await useQuota(req, user.uid, 'tip');
     const ref = await db.collection('tips').add({
       uid: user.uid,
-      authorName: (await userName(user.uid)).slice(0, 80),
+      authorName: clip(await userName(user.uid), 80),
       badge,
       title,
       body,
@@ -342,7 +343,7 @@ const actions = {
       await useQuota(req, user.uid, 'badge');
       await ref.update({
         // পেশা বদলানো যায় না (তালিকা আর সেবা পেশা ধরে); শুধু নম্বর, কর্মস্থল আর নাম
-        pendingChange: { type: cur.get('type'), regNo, workplace, name: (await userName(user.uid)).slice(0, 80), at: Date.now() },
+        pendingChange: { type: cur.get('type'), regNo, workplace, name: clip(await userName(user.uid), 80), at: Date.now() },
         ...(await require('../lib/verify').saveDocs(req, 'badge', user.uid, user.uid, { type: cur.get('type') }, req.body?.docs, false) ? { docsSentAt: Date.now() } : {}),
         docsRequestedAt: FieldValue.delete(), docsRequestNote: FieldValue.delete(),
       });
@@ -357,7 +358,7 @@ const actions = {
       type,
       regNo,
       workplace,
-      name: (await userName(user.uid)).slice(0, 80),
+      name: clip(await userName(user.uid), 80),
       email: user.email || '',
       status: 'pending',
       createdAt: Date.now(),

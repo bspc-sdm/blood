@@ -18,6 +18,7 @@ if (!admin.apps.length) {
 // লগইন (auth) আর পুশ (messaging) সবসময় Firebase-এই থাকে।
 const usePg = !!process.env.DATABASE_URL;
 const store = usePg ? require('./pgstore') : null;
+const { clip } = require('./text');
 const db = usePg ? store.db : admin.firestore();
 const FieldValue = usePg ? store.FieldValue : admin.firestore.FieldValue;
 
@@ -135,8 +136,8 @@ async function addInbox(items) {
       const id = `${it.uid}_${rev}_${(i + k).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       batch.set(db.doc(`inbox/${id}`), {
         uid: it.uid,
-        title: String(it.title).slice(0, 200),
-        body: String(it.body || '').slice(0, 300),
+        title: clip(it.title, 200),
+        body: clip(it.body || '', 300),
         data: it.data || {},
         createdAt: now,
       });
@@ -192,8 +193,8 @@ async function sendPush(items) {
       token: it.token,
       data: {
         ...Object.fromEntries(Object.entries(it.data || {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])),
-        title: String(it.title || '').slice(0, 200),
-        body: String(it.body || '').slice(0, 1000),
+        title: clip(it.title || '', 200),
+        body: clip(it.body || '', 1000),
         ...(it.uid ? { forUid: String(it.uid) } : {}),
       },
       android: { priority: 'high' },

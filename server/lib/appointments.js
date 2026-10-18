@@ -6,6 +6,7 @@ const C = require('./community');
 const DISTRICTS = require('./districts');
 const { approvedBadge, useQuota, userName } = require('./community-db');
 const K = require('./care');
+const { clip } = require('./text');
 
 // "আমার চেম্বার/বাসায় সেবা" যাঁরা পান
 const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
@@ -81,12 +82,12 @@ async function legacySave(req, user, badge) {
   const active = b.active !== false;
   await db.doc(`providers/${user.uid}`).set({
     type: badge,
-    name: (await userName(user.uid)).slice(0, 80),
-    specialty: typeof b.specialty === 'string' ? b.specialty.trim().slice(0, 80) : '',
+    name: clip(await userName(user.uid), 80),
+    specialty: typeof b.specialty === 'string' ? clip(b.specialty.trim(), 80) : '',
     chamber,
     district: b.district,
     schedule,
-    fee: typeof b.fee === 'string' ? b.fee.trim().slice(0, 40) : '',
+    fee: typeof b.fee === 'string' ? clip(b.fee.trim(), 40) : '',
     active,
     listed: active,
     appointments: active,
@@ -214,7 +215,7 @@ module.exports = {
     const takes = nurse ? false : b.appointments === true;
     // যাচাই করা নাম (ব্যাজের) — প্রোফাইলের নাম পরে বদলালেও তালিকায় যাচাই করা নামই থাকে
     const bs = await db.doc(`badges/${user.uid}`).get();
-    const name = ((bs.exists && bs.get('name')) || (await userName(user.uid))).slice(0, 80);
+    const name = clip((bs.exists && bs.get('name')) || (await userName(user.uid)), 80);
     const ref = db.doc(`providers/${user.uid}`);
     // অ্যাডমিন একই সময়ে বন্ধ করলেও যেন আবার চালু হয়ে না যায়: পড়া আর লেখা একই লেনদেনে
     await db.runTransaction(async (t) => {
@@ -313,7 +314,7 @@ module.exports = {
       if (!member) throw new HttpError(404, C.tr(req, 'Family member not found', 'পরিবারের সদস্য পাওয়া যায়নি'));
     }
     await useQuota(req, user.uid, 'book');
-    const name = (member ? member.name : await userName(user.uid)).slice(0, 80);
+    const name = clip(member ? member.name : await userName(user.uid), 80);
     const ref = await db.collection('appointments').add({
       patientUid: user.uid,
       patientName: name,
@@ -398,7 +399,7 @@ module.exports = {
       throw new HttpError(403, C.tr(req, 'Your professional badge is not active', 'আপনার পেশাদার ব্যাজ এখন চালু নেই'));
     }
     const isPatient = a.patientUid === user.uid;
-    const note = typeof req.body?.providerNote === 'string' ? req.body.providerNote.trim().slice(0, 200) : '';
+    const note = typeof req.body?.providerNote === 'string' ? clip(req.body.providerNote.trim(), 200) : '';
     let next = null;
     if (isProvider && a.status === 'pending' && action === 'confirm') next = 'confirmed';
     else if (isProvider && a.status === 'pending' && action === 'decline') next = 'declined';

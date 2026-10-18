@@ -2,6 +2,7 @@
 // উৎস: hris.mohfw.gov.bd/public/facility-registry (সরকারি প্রকাশিত তালিকা)। শুধু একবার শুরুতে তালিকা ভরার জন্য।
 const DISTRICTS = require('./districts');
 const { normalizeName, UPAZILA } = require('./hospital-match');
+const { clip } = require('./text');
 
 const letters = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
 
@@ -124,7 +125,7 @@ function titleIfCaps(s) {
 
 /** বাংলা নাম থেকে ঠিকানার অংশ (প্রথম কমার পরে) বাদ */
 function cleanBn(s) {
-  return String(s || '').split(/[,،]/)[0].replace(/[।|]+$/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return clip(String(s || '').split(/[,،]/)[0].replace(/[।|]+$/g, '').replace(/\s+/g, ' ').trim(), 120);
 }
 
 /**
@@ -139,13 +140,13 @@ function toHospital(row) {
   return {
     id: `dghs_${id}`,
     data: {
-      nameEn: titleIfCaps(name.replace(/\s+/g, ' ')).slice(0, 120),
+      nameEn: clip(titleIfCaps(name.replace(/\s+/g, ' ')), 120),
       nameBn: cleanBn(nameBn),
       type: mapType(type, priv === '1', name),
       district: districtBn,
       upazilaId,
       unionId: null,
-      address: [upazila, union, paurasava, cityCorp].filter(Boolean).join(', ').slice(0, 200),
+      address: clip([upazila, union, paurasava, cityCorp].filter(Boolean).join(', '), 200),
       phone: '',
       normKey: normalizeName(name),
       source: 'dghs',

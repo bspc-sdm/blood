@@ -6,6 +6,7 @@
 const fb = () => require('./firebase');
 const C = require('./community');
 const DEFAULTS = require('./labtests-defaults.json');
+const { clip } = require('./text');
 
 const TTL = 5 * 60 * 1000;
 const MAX_TESTS = 200;
@@ -131,33 +132,33 @@ function cleanTest(req, t, taken) {
   const bn = C.cleanText(String(t?.bn || ''), 80) || '';
   let code = typeof t.code === 'string' && /^[a-z0-9_]{1,40}$/.test(t.code) ? t.code : null;
   if (!code) {
-    const base = norm(name).replace(/\s+/g, '_').slice(0, 30) || 'test';
+    const base = clip(norm(name).replace(/\s+/g, '_'), 30) || 'test';
     code = base;
     for (let i = 2; taken.has(code); i++) code = `${base}_${i}`;
   }
   const aliases = [...new Set((Array.isArray(t.aliases) ? t.aliases : String(t.aliases || '').split(','))
-    .map((a) => String(a).trim().toLowerCase().slice(0, 60)).filter(Boolean))].slice(0, 20);
+    .map((a) => clip(String(a).trim().toLowerCase(), 60)).filter(Boolean))].slice(0, 20);
   const raw = Array.isArray(t.params) ? t.params : [];
   if (!raw.length || raw.length > MAX_PARAMS) throw E(`1–${MAX_PARAMS} rows`, `১–${MAX_PARAMS}টা ঘর`);
   const keys = new Set();
   const params = raw.map((p, i) => {
     const pn = C.cleanText(String(p?.name || ''), 60);
     if (!pn) throw E(`Row ${i + 1}: write the name`, `ঘর ${i + 1}: নাম লিখুন`);
-    let key = typeof p.key === 'string' && /^[a-z0-9_]{1,30}$/.test(p.key) ? p.key : norm(pn).replace(/\s+/g, '_').slice(0, 24) || `p${i + 1}`;
+    let key = typeof p.key === 'string' && /^[a-z0-9_]{1,30}$/.test(p.key) ? p.key : clip(norm(pn).replace(/\s+/g, '_'), 24) || `p${i + 1}`;
     while (keys.has(key)) key = `${key}_${i + 1}`;
     keys.add(key);
     const out = { key, name: pn };
-    const unit = String(p.unit || '').trim().slice(0, 20);
+    const unit = clip(String(p.unit || '').trim(), 20);
     if (unit) out.unit = unit;
     for (const k of ['r', 'm', 'f']) {
       const v = pair(p[k]);
       if (Number.isNaN(v)) throw E(`${pn}: check the normal range`, `${pn}: স্বাভাবিক মাত্রা দেখে নিন`);
       if (v) out[k] = v;
     }
-    const text = String(p.text || '').trim().slice(0, 40);
+    const text = clip(String(p.text || '').trim(), 40);
     if (text) out.text = text;
     const options = (Array.isArray(p.options) ? p.options : String(p.options || '').split(','))
-      .map((o) => String(o).trim().slice(0, 30)).filter(Boolean).slice(0, 10);
+      .map((o) => clip(String(o).trim(), 30)).filter(Boolean).slice(0, 10);
     if (options.length) out.options = options;
     if (p.long === true) out.long = true;
     return out;

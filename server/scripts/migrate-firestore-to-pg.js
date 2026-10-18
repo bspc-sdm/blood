@@ -1,31 +1,47 @@
 #!/usr/bin/env node
-// Firestore → PostgreSQL (docs টেবিল): সব কালেকশন আর সাব-কালেকশন (যেকোনো গভীরতায়) পড়ে ব্যাচে লেখা।
+// Firestore → PostgreSQL (docs টেবিল): সব কালেকশন আর জানা সাব-কালেকশন (যেকোনো গভীরতায়) পড়ে ব্যাচে লেখা।
 // বারবার চালানো নিরাপদ (upsert) — মাঝপথে থামলে আবার চালালেই হয়।
 //
 //   FIREBASE_SERVICE_ACCOUNT='{...}' DATABASE_URL=postgres://... node scripts/migrate-firestore-to-pg.js
-//   ... --verify            শুধু মেলানো: প্রতিটা কালেকশনের ডকের সংখ্যা, আর কিছু ডক হুবহু (--sample 20)
+//   ... --verify            শুধু মেলানো: প্রতিটা কালেকশনের ডকের id-র পুরো তালিকা দুই দিকে, আর কিছু ডক হুবহু (--sample 20)
 //   ... --only users,tips   শুধু এই top-level কালেকশনগুলো
-//   ... --batch 400         এক INSERT-এ কতগুলো ডক
+//   ... --batch 400         এক INSERT-এ (আর Firestore-এর এক পাতায়) কতগুলো ডক
+//   ... --parents a,b       কোন কালেকশনের ডকের নিচে সাব-কালেকশন খোঁজা হবে (ডিফল্ট: PARENTS, নিচে)
+//   ... --deep              সব ডকের নিচে সাব-কালেকশন খোঁজা (ধীর, খরচ বেশি — অজানা সাব-কালেকশন আছে কিনা দেখতে)
 //
-// সাবধান: Firestore-এর প্রতিটা ডক একবার পড়া হয় (বিনামূল্যের প্ল্যানে দিনে ৫০,০০০ পড়া) — বেশি ডক থাকলে
-// --only দিয়ে কয়েক দিনে ভাগ করে চালান। লেখা হয় শুধু PostgreSQL-এ; Firestore-এ কিছু বদলায় না।
+// Firestore-এর পড়ার খরচ (বিনামূল্যের প্ল্যানে দিনে ৫০,০০০):
+//  - সাধারণ কালেকশন: documentId ধরে পাতায় পাতায় কোয়েরি — প্রতি ডকে ১ পড়া।
+//  - PARENTS-এর কালেকশন (নিচে সাব-কালেকশন থাকতে পারে): listDocuments (তথ্যহীন "missing" ডকসহ, প্রতি ডকে ১) +
+//    getAll (প্রতি ডকে ১) + প্রতিটা ডকে listCollections (১) — প্রতি ডকে প্রায় ৩।
+//  - --verify: প্রতি ডকে ১ (id-র তালিকা, select()) + PARENTS-এ listDocuments/listCollections (প্রতি ডকে ২) + নমুনা।
+// বেশি ডক থাকলে --only দিয়ে কয়েক দিনে ভাগ করে চালান। লেখা হয় শুধু PostgreSQL-এ; Firestore-এ কিছু বদলায় না।
 //
 // মানের রূপ pgstore-এর মতোই (lib/pgstore.js-এর encode): Timestamp → {"$ts":..}, GeoPoint → {"$geo":..},
 // DocumentReference → {"$ref": "ঠিকানা"}, Bytes → {"$bytes": base64}। createTime/updateTime → created_at/updated_at।
+// লেখায় U+0000 থাকলে ফেরতযোগ্য escape হয় (pgstore পড়লে আসলটা ফেরে); একা surrogate (অর্ধেক ইমোজি) U+FFFD হয় —
+// দুটোর সংখ্যাই শেষে লগে আসে।
 const path = require('path');
 const PG = require(path.join(__dirname, '..', 'lib', 'pgstore'));
 
-const { encode, docParts } = PG._internal;
+const { encode, docParts, textStats } = PG._internal;
+
+// সার্ভারের কোডে যেসব কালেকশনের ডকের নিচে সাব-কালেকশন আছে (requests/{id}/responses|private|meta,
+// emergencies/{id}/donors, questions/{id}/answers, shopBooks/{uid}/sales|purchases|days|adjust, shopItems/{uid}/items)।
+// নতুন সাব-কালেকশন যোগ হলে এখানেও যোগ করুন — নইলে কপি হবে না (--deep দিয়ে ধরা পড়ে)।
+const PARENTS = ['requests', 'emergencies', 'questions', 'shopBooks', 'shopItems'];
 
 function parseArgs(argv) {
-  const o = { verify: false, only: null, batch: 400, sample: 20, concurrency: 8 };
+  const o = { verify: false, only: null, batch: 400, sample: 20, concurrency: 8, parents: PARENTS, deep: false };
+  const list = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--verify') o.verify = true;
-    else if (a === '--only') o.only = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
+    else if (a === '--only') o.only = list(argv[++i]);
     else if (a === '--batch') o.batch = Math.max(1, Number(argv[++i]) || 400);
     else if (a === '--sample') o.sample = Math.max(0, Number(argv[++i]) || 0);
     else if (a === '--concurrency') o.concurrency = Math.max(1, Number(argv[++i]) || 8);
+    else if (a === '--parents') o.parents = list(argv[++i]);
+    else if (a === '--deep') o.deep = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return o;
@@ -43,19 +59,50 @@ async function pool(items, n, fn) {
 }
 
 const tsToDate = (t) => (t && typeof t.toDate === 'function' ? t.toDate() : null);
+const isParent = (coll, o) => o.deep || (o.parents || PARENTS).includes(coll.id);
 
 /**
- * কালেকশন আর তার নিচের সবকিছু ঘুরে দেখা। onDocs(snaps) — ডেটাসহ ডক (একবারে কয়েকটা); onCollection(collRef)
- * listDocuments() "missing" ডকও দেয় (নিজের তথ্য নেই কিন্তু নিচে সাব-কালেকশন আছে) — তাদের নিচেও ঘোরা হয়।
+ * একটা কালেকশনের থাকা ডকগুলো, পাতায় পাতায়। o.documentId (FieldPath.documentId()) থাকলে id-র ক্রমে কোয়েরি
+ * (প্রতি ডকে ১ পড়া; idsOnly হলে select() — শুধু ঠিকানা); নইলে listDocuments + getAll।
+ */
+async function* pages(source, coll, o, idsOnly = false) {
+  if (o.documentId && typeof coll.orderBy === 'function') {
+    let q = coll.orderBy(o.documentId).limit(o.batch);
+    if (idsOnly) q = q.select();
+    let last = null;
+    for (;;) {
+      const s = await (last ? q.startAfter(last) : q).get();
+      if (s.docs.length) yield s.docs;
+      if (s.docs.length < o.batch) return;
+      last = s.docs[s.docs.length - 1];
+    }
+  }
+  const refs = await coll.listDocuments();
+  for (let i = 0; i < refs.length; i += o.batch) {
+    const snaps = await source.getAll(...refs.slice(i, i + o.batch));
+    const docs = snaps.filter((s) => s.exists);
+    if (docs.length) yield docs;
+  }
+}
+
+/**
+ * কালেকশন আর তার নিচের সবকিছু ঘুরে দেখা। onDocs(snaps) — ডেটাসহ ডক (একবারে কয়েকটা); onCollection(collRef)।
+ * সাব-কালেকশন খোঁজা হয় শুধু PARENTS-এর (বা --deep) ডকের নিচে: সেখানে listDocuments() "missing" ডকও দেয়
+ * (নিজের তথ্য নেই কিন্তু নিচে সাব-কালেকশন আছে) — তাদের নিচেও ঘোরা হয়।
  */
 async function walk(source, coll, opts, { onDocs, onCollection }) {
   if (onCollection) await onCollection(coll);
+  if (!isParent(coll, opts)) {
+    if (onDocs) for await (const docs of pages(source, coll, opts)) await onDocs(docs);
+    return;
+  }
   const refs = await coll.listDocuments();
   for (let i = 0; i < refs.length; i += opts.batch) {
     const part = refs.slice(i, i + opts.batch);
     if (onDocs) {
       const snaps = await source.getAll(...part);
-      await onDocs(snaps.filter((s) => s.exists));
+      const docs = snaps.filter((s) => s.exists);
+      if (docs.length) await onDocs(docs);
     }
     await pool(part, opts.concurrency, async (ref) => {
       const subs = await ref.listCollections();
@@ -93,8 +140,9 @@ async function topCollections(source, only) {
 
 /** কপি করা; ফেরত { [top-level কালেকশন]: ডকের সংখ্যা } */
 async function migrate({ source, pgPool, opts = {}, log = console.log }) {
-  const o = { batch: 400, concurrency: 8, only: null, ...opts };
+  const o = { batch: 400, concurrency: 8, only: null, parents: PARENTS, deep: false, ...opts };
   const counts = {};
+  const before = { ...textStats };
   for (const top of await topCollections(source, o.only)) {
     counts[top.id] = 0;
     await walk(source, top, o, {
@@ -107,6 +155,9 @@ async function migrate({ source, pgPool, opts = {}, log = console.log }) {
   }
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   log(`মোট\t${total}`);
+  const nul = textStats.nul - before.nul;
+  const sur = textStats.surrogate - before.surrogate;
+  if (nul || sur) log(`লেখা বদল: U+0000 escape ${nul}টা ঘরে (ফেরতযোগ্য), একা surrogate → U+FFFD ${sur}টা ঘরে`);
   return counts;
 }
 
@@ -119,37 +170,51 @@ function sameJson(a, b) {
   return ka.length === kb.length && ka.every((k) => Object.prototype.hasOwnProperty.call(b, k) && sameJson(a[k], b[k]));
 }
 
+/** a-তে আছে, b-তে নেই — সাজানো */
+const minus = (a, b) => [...a].filter((x) => !b.has(x)).sort();
+const preview = (list) => `${list.slice(0, 5).join(', ')}${list.length > 5 ? ', …' : ''}`;
+
 /**
- * মেলানো: প্রতিটা কালেকশনের (সাব-কালেকশনসহ) ডকের সংখ্যা Firestore-এর count() আর PostgreSQL-এর সাথে,
+ * মেলানো: প্রতিটা কালেকশনের (সাব-কালেকশনসহ) ডকের id-র পুরো তালিকা Firestore আর PostgreSQL-এ হুবহু,
  * আর প্রতিটা top-level কালেকশন থেকে PostgreSQL-এর কয়েকটা এলোমেলো ডক Firestore-এর ডকের সাথে হুবহু।
  * ফেরত { ok, problems: [...] }
  */
 async function verify({ source, pgPool, opts = {}, log = console.log }) {
-  const o = { batch: 400, concurrency: 8, only: null, sample: 20, ...opts };
+  const o = { batch: 400, concurrency: 8, only: null, sample: 20, parents: PARENTS, deep: false, ...opts };
   const problems = [];
   for (const top of await topCollections(source, o.only)) {
+    const startProblems = problems.length;
     const colls = [];
     await walk(source, top, o, { onCollection: async (c) => { colls.push(c); } });
     let fsTotal = 0;
     let pgTotal = 0;
-    const pgCounts = new Map((await pgPool.query(
-      'SELECT coll, count(*)::int AS n FROM docs WHERE coll = $1 OR (coll >= $2 AND coll < $3) GROUP BY coll',
+    // PostgreSQL-এ এই top-level-এর নিচের সব কালেকশন আর তাদের id
+    const pgIds = new Map();
+    for (const r of (await pgPool.query(
+      'SELECT coll, id FROM docs WHERE coll = $1 OR (coll >= $2 AND coll < $3)',
       [top.id, `${top.id}/`, `${top.id}0`],
-    )).rows.map((r) => [r.coll, r.n]));
+    )).rows) {
+      if (!pgIds.has(r.coll)) pgIds.set(r.coll, new Set());
+      pgIds.get(r.coll).add(r.id);
+    }
     const seen = new Set();
     for (const c of colls) {
       if (seen.has(c.path)) continue;
       seen.add(c.path);
-      const n = (await c.count().get()).data().count;
-      const m = pgCounts.get(c.path) || 0;
-      fsTotal += n;
-      pgTotal += m;
-      if (n !== m) problems.push(`count ${c.path}: firestore=${n} postgres=${m}`);
+      const fsSet = new Set();
+      for await (const docs of pages(source, c, o, true)) docs.forEach((d) => fsSet.add(d.ref.id));
+      const pgSet = pgIds.get(c.path) || new Set();
+      fsTotal += fsSet.size;
+      pgTotal += pgSet.size;
+      const missing = minus(fsSet, pgSet);
+      const extra = minus(pgSet, fsSet);
+      if (missing.length) problems.push(`missing ${c.path}: ${missing.length} not in postgres (${preview(missing)})`);
+      if (extra.length) problems.push(`extra ${c.path}: ${extra.length} not in firestore (${preview(extra)})`);
     }
-    for (const [cp, m] of pgCounts) {
+    for (const [cp, set] of pgIds) {
       if (!seen.has(cp)) {
-        pgTotal += m;
-        problems.push(`count ${cp}: firestore=0 postgres=${m}`);
+        pgTotal += set.size;
+        problems.push(`extra ${cp}: ${set.size} not in firestore (${preview([...set].sort())})`);
       }
     }
     const sample = o.sample ? (await pgPool.query(
@@ -163,7 +228,8 @@ async function verify({ source, pgPool, opts = {}, log = console.log }) {
         else if (!sameJson(JSON.parse(JSON.stringify(encode(s.data(), 'document'))), sample[i].data)) problems.push(`doc ${sample[i].path}: data differs`);
       });
     }
-    log(`${top.id}\tfirestore=${fsTotal}\tpostgres=${pgTotal}\tsample=${sample.length}${fsTotal === pgTotal ? '' : '\tMISMATCH'}`);
+    const bad = problems.length > startProblems;
+    log(`${top.id}\tfirestore=${fsTotal}\tpostgres=${pgTotal}\tsample=${sample.length}${bad ? '\tMISMATCH' : ''}`);
   }
   problems.forEach((p) => log(`  ✗ ${p}`));
   log(problems.length ? `মেলেনি: ${problems.length}টা` : 'সব মিলেছে');
@@ -179,6 +245,8 @@ async function main() {
   const sa = JSON.parse(raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'));
   admin.initializeApp({ credential: admin.credential.cert(sa) });
   const source = admin.firestore();
+  // documentId ধরে পাতায় পাতায় কোয়েরি (প্রতি ডকে ১ পড়া)
+  opts.documentId = admin.firestore.FieldPath.documentId();
   const store = new PG.PgFirestore({});
   await store.ensureSchema();
   try {
@@ -193,7 +261,7 @@ async function main() {
   }
 }
 
-module.exports = { migrate, verify, parseArgs };
+module.exports = { migrate, verify, parseArgs, PARENTS };
 
 if (require.main === module) {
   main().catch((e) => {

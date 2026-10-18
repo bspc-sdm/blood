@@ -4,7 +4,9 @@
 //  - এক টেবিল docs(path, coll, grp, id, data jsonb) — scripts/pg-schema.sql
 //  - where: ধরন মিলিয়ে তুলনা (সংখ্যা সংখ্যার সাথে, লেখা লেখার সাথে, বাইট ধরে); ঘর না থাকলে ডক বাদ
 //  - orderBy না দিলে id-র ক্রম; orderBy-র ঘর না থাকলে ডক বাদ; শেষে id দিয়ে টাই ভাঙা
-//  - transaction: আসল PostgreSQL transaction, পড়া ডকে লক (advisory + SELECT ... FOR UPDATE), deadlock হলে আবার চেষ্টা
+//  - transaction: আসল PostgreSQL transaction, পড়া ডকে লক (advisory + SELECT ... FOR UPDATE), deadlock হলে আবার চেষ্টা;
+//    কোয়েরিতে শুধু "নোঙর" ঘর-মানে লক (পুরো কালেকশনে নয় — _runQuery দেখুন); লেখার পর পড়া চলে না
+//  - লেখা: U+0000 ফেরতযোগ্য escape, অর্ধেক ইমোজি U+FFFD (encStr) — jsonb-র কারণে লেখা কখনো ভুল দেয় না
 //  - সব মান parameter হিসেবে যায়; ঘরের নাম শুধু [A-Za-z_][A-Za-z0-9_]* হলে SQL-এ সরাসরি বসে (index-এর জন্য), নইলে parameter
 const crypto = require('crypto');
 const fs = require('fs');
@@ -106,13 +108,33 @@ const isPlainObject = (v) => {
 // ---------------------------------------------------------------- jsonb-তে রূপ (encode / decode)
 
 const MARKERS = new Set(['$ts', '$geo', '$ref', '$bytes', '$num']);
-const escKey = (k) => (k.startsWith('$') ? `$${k}` : k);
-const unescKey = (k) => (k.startsWith('$$') ? k.slice(1) : k);
+
+// লেখা (মান আর চাবি) jsonb-তে রাখার আগে:
+//  - U+0000: jsonb রাখতে পারে না (22P05)। ফেরতযোগ্য escape: U+0000 → U+0001 U+0001, U+0001 → U+0001 U+0002।
+//    বাইটের ক্রম একই থাকে (U+0000 < U+0001 < বাকি সব), তাই ==, <, orderBy, cursor আগের মতোই মেলে; পড়লে আসলটা ফেরে।
+//  - একা surrogate (অর্ধেক ইমোজি): UTF-8-এ হয় না, PostgreSQL ফেরত দেয় (22P02) — U+FFFD বসে (Firestore-ও তাই করে)।
+// কতবার হলো — migration লগে দেখায়
+const textStats = { nul: 0, surrogate: 0 };
+const NEEDS_ESC = /[\u0000\u0001]/;
+function encStr(s) {
+  if (!s.isWellFormed()) { s = s.toWellFormed(); textStats.surrogate++; }
+  if (NEEDS_ESC.test(s)) {
+    if (s.includes('\u0000')) textStats.nul++;
+    s = s.replace(/[\u0000\u0001]/g, (c) => (c === '\u0000' ? '\u0001\u0001' : '\u0001\u0002'));
+  }
+  return s;
+}
+function decStr(s) {
+  return s.includes('\u0001') ? s.replace(/\u0001([\u0001\u0002])/g, (_, c) => (c === '\u0001' ? '\u0000' : '\u0001')) : s;
+}
+const escKey = (k) => { const s = encStr(k); return s.startsWith('$') ? `$${s}` : s; };
+const unescKey = (k) => decStr(k.startsWith('$$') ? k.slice(1) : k);
 
 /** লেখার মান → jsonb-তে রাখার রূপ (FieldValue এখানে আসার আগেই আলাদা করা হয়) */
 function encode(v, where = 'value') {
   if (v === null) return null;
-  if (typeof v === 'string' || typeof v === 'boolean') return v;
+  if (typeof v === 'string') return encStr(v);
+  if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return Number.isFinite(v) ? v : { $num: String(v) };
   if (typeof v === 'bigint') return Number(v);
   if (v instanceof Date) return encodeTs(Timestamp.fromDate(v));
@@ -140,6 +162,7 @@ function encodeTs(t) { return { $ts: { s: t.seconds, n: t.nanoseconds } }; }
 
 /** jsonb-র রূপ → কোডের মান (Timestamp, GeoPoint, DocumentReference, Buffer) */
 function decode(v, store) {
+  if (typeof v === 'string') return decStr(v);
   if (v === null || typeof v !== 'object') return v;
   if (Array.isArray(v)) return v.map((x) => decode(x, store));
   const keys = Object.keys(v);
@@ -190,6 +213,8 @@ function keyParam(e, kind) {
       const abs = neg ? -total : total;
       return `${neg ? '-' : ''}${abs / 1000000000n}.${String(abs % 1000000000n).padStart(9, '0')}`;
     }
+    // ±Infinity: PostgreSQL-এর numeric-এও আছে (fs_num একই মান দেয়); NaN কোনো range-এ পড়ে না
+    if (e && (e.$num === 'Infinity' || e.$num === '-Infinity')) return e.$num;
     return null; // NaN
   }
   if (kind === 'str') return typeof e === 'string' ? e : e.$ref;
@@ -211,6 +236,12 @@ const cloneJson = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringif
 
 /** 'a.b' বা FieldPath → escaped segments; documentId হলে null */
 function segsOf(field) {
+  const segs = rawSegsOf(field);
+  return segs && segs.map(escKey);
+}
+
+/** segsOf-এর মতো, কিন্তু কোডের নিজের নাম (escape ছাড়া) — লেখার data-র ভেতরে খোঁজার জন্য */
+function rawSegsOf(field) {
   let segs;
   if (typeof field === 'string') {
     if (field === '__name__') return null;
@@ -222,7 +253,7 @@ function segsOf(field) {
     throw new Error(`Invalid field path: ${field}`);
   }
   if (!segs.length || segs.some((s) => typeof s !== 'string' || !s)) throw new Error(`Invalid field path: ${field}`);
-  return segs.map(escKey);
+  return segs;
 }
 
 function getAt(obj, segs) {
@@ -379,14 +410,51 @@ function applyTransform(cur, fv, nowTs) {
   }
 }
 
+/**
+ * Firestore-এর precondition: { exists } বা { lastUpdateTime } (update()/delete()-এ)।
+ * ফেরত { exists?, updateUs? (BigInt, মাইক্রোসেকেন্ড — PostgreSQL-এর updated_at-এর মাপে) }। অন্য কিছু দিলে ভুল।
+ */
+function preconditionOf(pre, what) {
+  if (pre === undefined || pre === null) return {};
+  if (!isPlainObject(pre)) throw new Error(`Invalid precondition for ${what}()`);
+  const out = {};
+  for (const [k, v] of Object.entries(pre)) {
+    if (v === undefined) continue;
+    if (k === 'exists') {
+      if (typeof v !== 'boolean') throw new Error('Precondition "exists" must be a boolean');
+      out.exists = v;
+    } else if (k === 'lastUpdateTime') {
+      if (!isTimestampLike(v)) throw new Error('Precondition "lastUpdateTime" must be a Timestamp');
+      out.updateUs = BigInt(v.seconds) * 1000000n + BigInt(Math.floor(v.nanoseconds / 1000));
+    } else {
+      throw new Error(`Precondition "${k}" is not supported by pgstore (only exists, lastUpdateTime)`);
+    }
+  }
+  if (out.exists !== undefined && out.updateUs !== undefined) throw new Error('A precondition can have only one of exists / lastUpdateTime');
+  if (what === 'update' && out.exists === false) throw new Error('update() cannot use the precondition exists: false');
+  return out;
+}
+
+/** precondition যাচাই: cur = এখনকার data (না থাকলে undefined), curUs = এখনকার updated_at (মাইক্রোসেকেন্ড) */
+function checkPrecondition(cur, curUs, op) {
+  const pre = op.pre;
+  if (!pre) return;
+  if (pre.exists === true && cur === undefined) throw fsError(5, 'NOT_FOUND', `No document to ${op.type}: ${op.path}`);
+  if (pre.exists === false && cur !== undefined) throw fsError(6, 'ALREADY_EXISTS', `Document already exists: ${op.path}`);
+  if (pre.updateUs !== undefined && (cur === undefined || curUs !== pre.updateUs)) {
+    throw fsError(9, 'FAILED_PRECONDITION', `The document's update time does not match the precondition: ${op.path}`);
+  }
+}
+
 /** একটা লেখা প্রয়োগ: cur = এখনকার encoded data (না থাকলে undefined) → নতুন data (মুছলে undefined) */
-function applyOp(cur, op, nowTs) {
+function applyOp(cur, op, nowTs, curUs = null) {
   if (op.type === 'delete') {
-    if (op.mustExist && cur === undefined) throw fsError(5, 'NOT_FOUND', `No document to delete: ${op.path}`);
+    checkPrecondition(cur, curUs, op);
     return undefined;
   }
   if (op.type === 'create' && cur !== undefined) throw fsError(6, 'ALREADY_EXISTS', `Document already exists: ${op.path}`);
   if (op.type === 'update' && cur === undefined) throw fsError(5, 'NOT_FOUND', `No document to update: ${op.path}`);
+  checkPrecondition(cur, curUs, op);
 
   const transforms = [];
   let next;
@@ -406,7 +474,7 @@ function applyOp(cur, op, nowTs) {
     if (op.mergeFields) {
       for (const f of op.mergeFields) {
         const segs = segsOf(f);
-        const raw = getAt(op.data, segs.map(unescKey));
+        const raw = getAt(op.data, rawSegsOf(f));
         if (raw === undefined) continue;
         const s = sentinelOf(raw);
         if (s && s._op === 'delete') { mask.push({ segs, del: true }); continue; }
@@ -434,23 +502,42 @@ function applyOp(cur, op, nowTs) {
   return next;
 }
 
-function normalizeUpdateArgs(args) {
-  // update({ 'a.b': 1 }) বা update('a.b', 1, FieldPath, 2, ...)
-  if (args.length === 1 || (args.length === 2 && isPlainObject(args[0]) && args[1] && typeof args[1] === 'object' && 'exists' in args[1])) {
+/** update()-এর ops: update({ 'a.b': 1 }, pre?) বা update('a.b', 1, FieldPath, 2, ..., pre?) */
+function updateOp(ref, args) {
+  let fields;
+  let pre;
+  if (args.length === 1 || (args.length === 2 && isPlainObject(args[0]))) {
     const obj = args[0];
     if (!isPlainObject(obj)) throw new Error('update() needs an object');
-    const fields = Object.entries(obj).filter(([, v]) => v !== undefined).map(([k, v]) => [segsOf(k), v]);
-    if (!fields.length) throw new Error('update() needs at least one field');
+    pre = args[1];
+    fields = Object.entries(obj).filter(([, v]) => v !== undefined).map(([k, v]) => [segsOf(k), v]);
     if (fields.some(([s]) => s === null)) throw new Error('Cannot update document id');
-    return fields;
+  } else {
+    const list = args.slice();
+    if (list.length % 2) pre = list.pop();
+    fields = [];
+    for (let i = 0; i + 1 < list.length; i += 2) fields.push([segsOf(list[i]), list[i + 1]]);
   }
-  const fields = [];
-  for (let i = 0; i + 1 < args.length; i += 2) fields.push([segsOf(args[i]), args[i + 1]]);
   if (!fields.length) throw new Error('update() needs at least one field');
-  return fields;
+  return { type: 'update', path: ref.path, fields, pre: preconditionOf(pre, 'update') };
+}
+
+function deleteOp(ref, pre) {
+  return { type: 'delete', path: ref.path, pre: preconditionOf(pre, 'delete') };
 }
 
 // ---------------------------------------------------------------- Snapshot
+
+/** created_at / updated_at → মাইক্রোসেকেন্ড (bigint, লেখা হিসেবে আসে) */
+const TIME_COLS = '(extract(epoch FROM created_at) * 1000000)::bigint AS c_us, (extract(epoch FROM updated_at) * 1000000)::bigint AS u_us';
+
+function tsFromUs(us) {
+  const n = BigInt(us);
+  let s = n / 1000000n;
+  let r = n % 1000000n;
+  if (r < 0n) { r += 1000000n; s -= 1n; }
+  return new Timestamp(Number(s), Number(r) * 1000);
+}
 
 class DocumentSnapshot {
   constructor(store, ref, raw, row) {
@@ -460,8 +547,9 @@ class DocumentSnapshot {
     this.id = ref.id;
     this.exists = raw !== undefined;
     this.readTime = Timestamp.now();
-    this.createTime = row && row.created_at ? Timestamp.fromDate(row.created_at) : undefined;
-    this.updateTime = row && row.updated_at ? Timestamp.fromDate(row.updated_at) : undefined;
+    // মাইক্রোসেকেন্ড পর্যন্ত (PostgreSQL-এর মাপ) — তাই updateTime হুবহু lastUpdateTime precondition-এ দেওয়া যায়
+    this.createTime = row && row.c_us != null ? tsFromUs(row.c_us) : undefined;
+    this.updateTime = row && row.u_us != null ? tsFromUs(row.u_us) : undefined;
   }
   data() { return this._raw === undefined ? undefined : decode(this._raw, this._store); }
   get(field) {
@@ -544,15 +632,27 @@ class Query {
   }
 
   // -------- SQL তৈরি
-  /** সব সাজানোর ঘর: নিজের orderBy, তারপর বাকি অসমতা-ঘর (Firestore-এর নিয়মে), শেষে id */
+  /**
+   * সব সাজানোর ঘর: নিজের orderBy, তারপর বাকি অসমতা-ঘর (ঘরের নামের ক্রমে), শেষে id।
+   * বাড়তি ঘরগুলো আর id শেষ orderBy-র দিকে (না থাকলে asc) — firebase-admin-এর createImplicitOrderBy-র মতো।
+   */
   _orderKeys() {
     const o = this._o;
     const keys = o.orders.map((x) => ({ segs: x.segs, dir: x.dir }));
-    const has = (segs) => keys.some((k) => (k.segs === null ? segs === null : segs !== null && k.segs.join('\0') === segs.join('\0')));
-    const ineq = o.filters.filter((f) => RANGE_OPS.has(f.op) || f.op === '!=' || f.op === 'not-in');
+    const same = (a, b) => (a === null || b === null ? a === b : a.length === b.length && a.every((s, i) => s === b[i]));
+    const has = (segs) => keys.some((k) => same(k.segs, segs));
+    const dir = keys.length ? keys[keys.length - 1].dir : 'asc';
     const extra = [];
-    for (const f of ineq) if (!has(f.segs) && !extra.some((e) => (e === null ? f.segs === null : f.segs && e.join('\0') === f.segs.join('\0')))) extra.push(f.segs);
-    extra.filter(Boolean).sort((a, b) => (a.join('.') < b.join('.') ? -1 : 1)).forEach((segs) => keys.push({ segs, dir: 'asc' }));
+    for (const f of o.filters) {
+      if (!(RANGE_OPS.has(f.op) || f.op === '!=' || f.op === 'not-in') || f.segs === null) continue;
+      if (!has(f.segs) && !extra.some((e) => same(e, f.segs))) extra.push(f.segs);
+    }
+    // ঘরের নামের ক্রম: অংশ ধরে, প্রতিটা অংশ বাইট ধরে (Firestore-এর FieldPath তুলনা)
+    const cmpSeg = (a, b) => (a === b ? 0 : Buffer.compare(Buffer.from(a), Buffer.from(b)));
+    extra.sort((a, b) => {
+      for (let i = 0; i < Math.min(a.length, b.length); i++) { const c = cmpSeg(unescKey(a[i]), unescKey(b[i])); if (c) return c; }
+      return a.length - b.length;
+    }).forEach((segs) => keys.push({ segs, dir }));
     if (!has(null)) keys.push({ segs: null, dir: keys.length ? keys[keys.length - 1].dir : 'asc' });
     return keys;
   }
@@ -577,7 +677,7 @@ class Query {
     if (o.start) where.push(this._cursorSql(o.start, keys, true, p, nameCol, knownRank));
     if (o.end) where.push(this._cursorSql(o.end, keys, false, p, nameCol, knownRank));
 
-    const cols = mode === 'count' ? '1' : o.select && !o.select.length ? 'path, created_at, updated_at' : 'path, data, created_at, updated_at';
+    const cols = mode === 'count' ? '1' : o.select && !o.select.length ? `path, ${TIME_COLS}` : `path, data, ${TIME_COLS}`;
     let text = `SELECT ${cols} FROM docs WHERE ${where.join(' AND ')}`;
     const needOrder = mode !== 'count' || o.limit != null || o.offset;
     if (needOrder && mode !== 'count') {
@@ -653,6 +753,8 @@ class Query {
         return `${x} = ANY(${p.add(list)}::jsonb[])`;
       }
       case 'not-in': {
+        // তালিকায় null থাকলে Firestore কিছুই ফেরত দেয় না
+        if (f.value.some((v) => v === null)) return 'FALSE';
         const list = f.value.map((v) => JSON.stringify(encode(v, 'where()')));
         return `(${x} IS NOT NULL AND ${x} <> 'null'::jsonb AND NOT (${x} = ANY(${p.add(list)}::jsonb[])))`;
       }
@@ -791,9 +893,9 @@ class DocumentReference {
   collection(name) { return new CollectionReference(this._store, `${this.path}/${name}`); }
   async get() { return (await this._store._getDocs([this], null))[0]; }
   async set(data, opts) { return (await this._store._commit([setOp(this, data, opts)]))[0]; }
-  async update(...args) { return (await this._store._commit([{ type: 'update', path: this.path, fields: normalizeUpdateArgs(args) }]))[0]; }
+  async update(...args) { return (await this._store._commit([updateOp(this, args)]))[0]; }
   async create(data) { return (await this._store._commit([{ type: 'create', path: this.path, data: checkData(data) }]))[0]; }
-  async delete(pre) { return (await this._store._commit([{ type: 'delete', path: this.path, mustExist: !!(pre && pre.exists) }]))[0]; }
+  async delete(pre) { return (await this._store._commit([deleteOp(this, pre)]))[0]; }
   async listCollections() { return this._store._listCollections(this.path); }
   isEqual(o) { return isRefLike(o) && o.path === this.path; }
 }
@@ -815,9 +917,9 @@ class WriteBatch {
   constructor(store) { this._store = store; this._ops = []; this._done = false; }
   _add(op) { if (this._done) throw new Error('Batch already committed'); this._ops.push(op); return this; }
   set(ref, data, opts) { return this._add(setOp(ref, data, opts)); }
-  update(ref, ...args) { return this._add({ type: 'update', path: ref.path, fields: normalizeUpdateArgs(args) }); }
+  update(ref, ...args) { return this._add(updateOp(ref, args)); }
   create(ref, data) { return this._add({ type: 'create', path: ref.path, data: checkData(data) }); }
-  delete(ref, pre) { return this._add({ type: 'delete', path: ref.path, mustExist: !!(pre && pre.exists) }); }
+  delete(ref, pre) { return this._add(deleteOp(ref, pre)); }
   async commit() {
     this._done = true;
     return this._ops.length ? this._store._commit(this._ops) : [];
@@ -831,29 +933,65 @@ class Transaction {
     this._ops = [];
     bindMethods(this, ['get', 'getAll', 'set', 'update', 'create', 'delete']);
   }
+  // firebase-admin-এর মতো: লেখা জমা হওয়ার পর পড়া চলে না (নইলে নিজের লেখা না দেখা পুরোনো তথ্য ফেরত আসত)
+  _checkRead() {
+    if (this._ops.length) throw new Error('Firestore transactions require all reads to be executed before all writes.');
+  }
   async get(refOrQuery) {
+    this._checkRead();
     if (refOrQuery instanceof Query) return this._store._runQuery(refOrQuery, this._client);
     if (!isRefLike(refOrQuery)) throw new Error('Transaction.get() needs a DocumentReference or Query');
     return (await this._store._getDocs([refOrQuery], this._client))[0];
   }
   async getAll(...refs) {
+    this._checkRead();
     const list = refs.filter((r) => isRefLike(r));
     return this._store._getDocs(list, this._client);
   }
   set(ref, data, opts) { this._ops.push(setOp(ref, data, opts)); return this; }
-  update(ref, ...args) { this._ops.push({ type: 'update', path: ref.path, fields: normalizeUpdateArgs(args) }); return this; }
+  update(ref, ...args) { this._ops.push(updateOp(ref, args)); return this; }
   create(ref, data) { this._ops.push({ type: 'create', path: ref.path, data: checkData(data) }); return this; }
-  delete(ref, pre) { this._ops.push({ type: 'delete', path: ref.path, mustExist: !!(pre && pre.exists) }); return this; }
+  delete(ref, pre) { this._ops.push(deleteOp(ref, pre)); return this; }
 }
 
 // ---------------------------------------------------------------- ডাটাবেস
 
 const SCHEMA_FILE = path.join(__dirname, '..', 'scripts', 'pg-schema.sql');
-const LOCK_CLASS = 0x4c46; // advisory lock-এর শ্রেণি ('LF'); objid = hashtext(path)
+// advisory lock-এর শ্রেণি ('LF'):
+//  LOCK_CLASS     ডকের ঠিকানা (hashtext(path)) — transaction-এ পড়া আর সব লেখায় exclusive
+//  LOCK_CLASS + 1 কালেকশন 'c:<coll>' / 'g:<grp>' — পড়া/লেখায় shared, ছাঁকনিহীন কোয়েরিতে exclusive;
+//                 'b:<coll>' — অনেক ঘরের বড় লেখায় exclusive, ছাঁকনিওয়ালা কোয়েরিতে shared
+//  LOCK_CLASS + 2 শর্ত (কালেকশন, উপরের-স্তরের ঘর, মান) — == / in কোয়েরিতে exclusive (একটা ঘর), আর যে ডক লেখার পর
+//                 ওই ঘরে ওই মান রাখে তার লেখায় shared
+const LOCK_CLASS = 0x4c46;
+// এক লেখায় এক কালেকশনে এর বেশি শর্ত-লক লাগলে (বড় batch) তার বদলে একটা 'b:<coll>' লক (lock table ভরে না যায়)
+const PRED_PER_COLL = 64;
+const PRED_TOTAL = 256;
+
+const CONNECT_TIMEOUT = /timeout exceeded when trying to connect|Connection terminated due to connection timeout/i;
+const CONNECT_TRIES = 4;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** স্থির JSON (map-এর চাবি সাজিয়ে) — শর্ত-লকের চাবিতে একই মান সবসময় একই লেখা */
+function canon(e) {
+  if (e === null || typeof e !== 'object') return JSON.stringify(e);
+  if (Array.isArray(e)) return `[${e.map(canon).join(',')}]`;
+  return `{${Object.keys(e).sort().map((k) => `${JSON.stringify(k)}:${canon(e[k])}`).join(',')}}`;
+}
+
+/** শর্ত-লকের চাবি → advisory lock-এর int4 (sha1-এর প্রথম ৪ বাইট; লম্বা মানও ছোট সংখ্যা হয়ে যায়) */
+const predKey = (coll, field, valCanon) => crypto.createHash('sha1').update(JSON.stringify([coll, field, valCanon])).digest().readInt32BE(0);
+
+/** লেখার শর্ত-লক: ডকের উপরের-স্তরের প্রতিটা ঘর (map ছাড়া — map-এ == কোয়েরি শর্ত-লক পায় না) */
+function docPredKeys(coll, data) {
+  const out = [];
+  for (const [k, v] of Object.entries(data)) if (!isMap(v)) out.push(predKey(coll, k, canon(v)));
+  return out;
+}
 
 class PgFirestore {
   /**
-   * opts: { connectionString, schema, poolMax, autoSchema, pool }
+   * opts: { connectionString, schema, poolMax, autoSchema, pool, connectionTimeoutMillis }
    * schema: আলাদা PostgreSQL schema (টেস্টে প্রতি ফাইলে নতুন); না দিলে search_path যেমন আছে।
    */
   constructor(opts = {}) {
@@ -875,11 +1013,15 @@ class PgFirestore {
       }
       // অনেকক্ষণ লক না পেলে ভুল ফেরত (transaction তখন আবার চেষ্টা করে) — চিরকাল আটকে থাকে না
       options.push(`-c lock_timeout=${Number(process.env.PG_LOCK_TIMEOUT_MS) || 10000}`);
+      // খোলা transaction-এ কিছু না করে বসে থাকলে (কোডের ভুল, আটকে যাওয়া await) PostgreSQL সংযোগ কেটে লক ছেড়ে দেয়
+      options.push(`-c idle_in_transaction_session_timeout=${Number(process.env.PG_IDLE_TX_TIMEOUT_MS) || 30000}`);
+      // একটা কোয়েরি এর বেশি চললে বাতিল (schema বানানোয় নিজে বন্ধ করা হয়)
+      options.push(`-c statement_timeout=${Number(process.env.PG_STATEMENT_TIMEOUT_MS) || 60000}`);
       this._pool = new Pool({
         connectionString: cs,
         max: Number(this._opts.poolMax || process.env.PG_POOL_MAX) || 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000,
+        connectionTimeoutMillis: this._opts.connectionTimeoutMillis || 15000,
         allowExitOnIdle: true,
         options: options.join(' '),
       });
@@ -888,22 +1030,58 @@ class PgFirestore {
     return this._pool;
   }
 
-  /** scripts/pg-schema.sql চালানো (একবার; একসাথে কয়েকটা প্রসেস চালু হলেও advisory lock দিয়ে একটার পর একটা) */
+  /** pool থেকে সংযোগ; সংযোগের সময় পেরোলে (সব সংযোগ ব্যস্ত বা সার্ভার ধীর) কয়েকবার আবার চেষ্টা, ক্রমে বেশি অপেক্ষা করে */
+  async _connect() {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const client = await this.pool.connect();
+        // হাতে থাকা (pool-এ নয়) সংযোগ সার্ভার কেটে দিলে (idle_in_transaction_session_timeout, রিস্টার্ট) client 'error'
+        // ছোড়ে — শোনার কেউ না থাকলে পুরো প্রসেস পড়ে যেত। মনে রাখা হয়; ফেরত দেওয়ার সময় সংযোগটা ফেলে দেওয়া হয়।
+        if (!client._fsErrorHook) {
+          client._fsErrorHook = true;
+          client.on('error', (e) => { client._fsBroken = e; });
+        }
+        return client;
+      } catch (e) {
+        if (!CONNECT_TIMEOUT.test(e && e.message) || attempt >= CONNECT_TRIES) throw e;
+        await sleep(100 * 2 ** attempt * (0.5 + Math.random()));
+      }
+    }
+  }
+
+  async _schemaVersion(c) {
+    const reg = await c.query("SELECT to_regclass('fs_meta') IS NOT NULL AS ok");
+    if (!reg.rows[0].ok) return null;
+    const r = await c.query("SELECT value FROM fs_meta WHERE key = 'schema_version'");
+    return r.rows.length ? r.rows[0].value : null;
+  }
+
+  /**
+   * scripts/pg-schema.sql চালানো — শুধু যখন ডাটাবেসের schema_version ফাইলের সংস্করণের সাথে মেলে না।
+   * মিললে কোনো DDL নয় (CREATE INDEX IF NOT EXISTS-ও টেবিলে লক নেয় — প্রতি চালুতে লেখা আটকাত)।
+   * কয়েকটা প্রসেস একসাথে চালু হলেও advisory lock দিয়ে একটাই চালায়।
+   */
   ensureSchema() {
     if (!this._schemaReady) {
       this._schemaReady = (async () => {
         const sql = fs.readFileSync(SCHEMA_FILE, 'utf8');
-        const client = await this.pool.connect();
+        const m = /'schema_version',\s*'([^']+)'/.exec(sql);
+        if (!m) throw new Error('pg-schema.sql has no schema_version');
+        const want = m[1];
+        const client = await this._connect();
         try {
+          if ((await this._schemaVersion(client)) === want) return;
           await client.query('BEGIN');
+          await client.query('SET LOCAL statement_timeout = 0');
+          await client.query('SET LOCAL lock_timeout = 0');
           await client.query('SELECT pg_advisory_xact_lock($1, 0)', [LOCK_CLASS]);
-          await client.query(sql);
+          if ((await this._schemaVersion(client)) !== want) await client.query(sql);
           await client.query('COMMIT');
         } catch (e) {
           await client.query('ROLLBACK').catch(() => {});
           throw e;
         } finally {
-          client.release();
+          client.release(!!client._fsBroken);
         }
       })().catch((e) => { this._schemaReady = null; throw e; });
     }
@@ -917,7 +1095,16 @@ class PgFirestore {
 
   async _query(text, values, client) {
     await this._ready();
-    return (client || this.pool).query(text, values);
+    if (client) return client.query(text, values);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.pool.query(text, values);
+      } catch (e) {
+        // সংযোগই পাওয়া যায়নি — কোয়েরি যায়নি, তাই আবার পাঠানো নিরাপদ
+        if (!CONNECT_TIMEOUT.test(e && e.message) || attempt >= CONNECT_TRIES) throw e;
+        await sleep(100 * 2 ** attempt * (0.5 + Math.random()));
+      }
+    }
   }
 
   // -------- Firestore-এর মতো API
@@ -945,7 +1132,7 @@ class PgFirestore {
     const max = opts.maxAttempts || 5;
     for (let attempt = 1; ; attempt++) {
       await this._ready();
-      const client = await this.pool.connect();
+      const client = await this._connect();
       let broken = false;
       try {
         await client.query('BEGIN');
@@ -957,12 +1144,12 @@ class PgFirestore {
       } catch (e) {
         await client.query('ROLLBACK').catch(() => { broken = true; });
         if (RETRYABLE.has(e && e.code) && attempt < max) {
-          await new Promise((r) => setTimeout(r, Math.min(1000, 20 * 2 ** attempt) * (0.5 + Math.random())));
+          await sleep(Math.min(1000, 20 * 2 ** attempt) * (0.5 + Math.random()));
           continue;
         }
         throw e;
       } finally {
-        client.release(broken);
+        client.release(broken || !!client._fsBroken);
       }
     }
   }
@@ -982,11 +1169,28 @@ class PgFirestore {
     return [...ids].sort().map((id) => new CollectionReference(this, docPath ? `${docPath}/${id}` : id));
   }
 
+  /** ডকগুলোর কালেকশনে shared লক (ছাঁকনিহীন কোয়েরির exclusive লকের সাথে মেলে — _runQuery দেখুন) */
+  async _lockColls(client, paths) {
+    const keys = [...new Set(paths.flatMap((p) => { const d = docParts(p); return [`c:${d.coll}`, `g:${d.grp}`]; }))].sort();
+    if (!keys.length) return;
+    await client.query('SELECT pg_advisory_xact_lock_shared($1, hashtext(k)) FROM unnest($2::text[]) WITH ORDINALITY AS u(k, i) ORDER BY i', [LOCK_CLASS + 1, keys]);
+  }
+
   /** transaction-এ: পড়ার আগে লক (না থাকা ডকেও — advisory lock), তারপর নতুন snapshot-এ SELECT ... FOR UPDATE */
   async _lockPaths(client, paths) {
     const list = [...new Set(paths)].sort();
     if (!list.length) return;
     await client.query('SELECT pg_advisory_xact_lock($1, hashtext(p)) FROM unnest($2::text[]) WITH ORDINALITY AS u(p, i) ORDER BY i', [LOCK_CLASS, list]);
+  }
+
+  /** শর্ত-লক (সংখ্যার ক্রমে, একই চাবি একবার) */
+  async _lockPreds(client, keys, shared) {
+    if (!keys.length) return;
+    await client.query(
+      `SELECT ${shared ? 'pg_advisory_xact_lock_shared' : 'pg_advisory_xact_lock'}($1, h)
+       FROM (SELECT DISTINCT h FROM unnest($2::int4[]) AS u(h) ORDER BY 1) s`,
+      [LOCK_CLASS + 2, [...new Set(keys)]],
+    );
   }
 
   async _getDocs(refs, client) {
@@ -995,10 +1199,12 @@ class PgFirestore {
     paths.forEach((p) => docParts(p));
     let rows;
     if (client) {
+      // কালেকশনে shared লক পড়ার সময়েই (লেখার সময় নয়) — তাই ছাঁকনিহীন কোয়েরির লক আর এই ডকের লক সবসময় একই ক্রমে
+      await this._lockColls(client, paths);
       await this._lockPaths(client, paths);
-      rows = (await client.query('SELECT path, data, created_at, updated_at FROM docs WHERE path = ANY($1::text[]) ORDER BY path FOR UPDATE', [[...new Set(paths)]])).rows;
+      rows = (await client.query(`SELECT path, data, ${TIME_COLS} FROM docs WHERE path = ANY($1::text[]) ORDER BY path FOR UPDATE`, [[...new Set(paths)]])).rows;
     } else {
-      rows = (await this._query('SELECT path, data, created_at, updated_at FROM docs WHERE path = ANY($1::text[])', [[...new Set(paths)]])).rows;
+      rows = (await this._query(`SELECT path, data, ${TIME_COLS} FROM docs WHERE path = ANY($1::text[])`, [[...new Set(paths)]])).rows;
     }
     const byPath = new Map(rows.map((r) => [r.path, r]));
     return refs.map((r) => {
@@ -1007,12 +1213,40 @@ class PgFirestore {
     });
   }
 
+  /**
+   * transaction-এর কোয়েরির শর্ত-লক — "নোঙর": প্রথম উপরের-স্তরের ঘরের == ছাঁকনি (না থাকলে প্রথম in — তার সব মান)।
+   * কোডে সবচেয়ে বাছাইকারী ছাঁকনিটা আগে লিখুন (requesterUid == uid, তারপর status == 'open') — নোঙর যত কম ডকে মেলে,
+   * তত কম লেখা অপেক্ষা করে। নোঙর না পেলে null।
+   * নোঙর একটাই যথেষ্ট: কোয়েরিতে নতুন ঢোকা যেকোনো ডকের লেখার পরের রূপে নোঙর-ঘরে নোঙর-মান থাকেই, আর সেই লেখা
+   * ওই চাবিতে shared লক নেয়।
+   */
+  _predKeys(q) {
+    const o = q._o;
+    if (o.group) return null;
+    const usable = (f) => f.segs !== null && f.segs.length === 1;
+    const f = o.filters.find((x) => usable(x) && x.op === '==') || o.filters.find((x) => usable(x) && x.op === 'in');
+    if (!f) return null;
+    const vals = (f.op === 'in' ? f.value : [f.value]).map((v) => encode(v, 'where()'));
+    if (vals.some(isMap)) return null;
+    return vals.map((e) => predKey(o.coll, f.segs[0], canon(e)));
+  }
+
   async _runQuery(q, client) {
     if (client) {
-      // transaction-এ কোয়েরি: পুরো কালেকশনে exclusive লক — লেখার সময় সবাই shared লক নেয়, তাই পড়া থেকে commit
-      // পর্যন্ত এই কালেকশনে নতুন ডক ঢোকা/বদলানো আটকে থাকে (phantom নেই, Firestore-এর serializable-এর মতো)
-      const key = q._o.group ? `g:${q._o.group}` : `c:${q._o.coll}`;
-      await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [LOCK_CLASS + 1, key]);
+      // transaction-এ কোয়েরি — phantom নেই (Firestore-এর serializable-এর মতো), কিন্তু পুরো কালেকশন আটকে নয়:
+      //  - উপরের-স্তরের ঘরে == / in ছাঁকনি থাকলে (requestcreate: requesterUid == uid): সেই (কালেকশন, ঘর, মান)-এ
+      //    exclusive শর্ত-লক। যে লেখার পর কোনো ডকের ওই ঘরে ওই মান থাকে (নতুন ডক, বা বদলে কোয়েরিতে "ঢোকা")
+      //    সে ওই চাবিতে shared লক নেয় — তাই commit পর্যন্ত অপেক্ষা করে। আগে থেকেই মেলা ডকগুলো নিচের FOR UPDATE-এ
+      //    লক (বদলানো/মোছা অপেক্ষা করে)। অন্য মানের লেখা (অন্য ব্যবহারকারীর রিকোয়েস্ট) আটকায় না।
+      //  - নইলে (শুধু range/array-contains, ছাঁকনি নেই, collectionGroup): আগের মতো পুরো কালেকশনে exclusive লক।
+      const keys = this._predKeys(q);
+      if (keys) {
+        await client.query('SELECT pg_advisory_xact_lock_shared($1, hashtext($2))', [LOCK_CLASS + 1, `b:${q._o.coll}`]);
+        await this._lockPreds(client, keys, false);
+      } else {
+        const key = q._o.group ? `g:${q._o.group}` : `c:${q._o.coll}`;
+        await client.query('SELECT pg_advisory_xact_lock($1, hashtext($2))', [LOCK_CLASS + 1, key]);
+      }
     }
     const { text, values } = q._sql('rows', !!client);
     const r = client ? await client.query(text, values) : await this._query(text, values);
@@ -1045,7 +1279,7 @@ class PgFirestore {
     ops.forEach((op) => docParts(op.path));
     await this._ready();
     for (let attempt = 1; ; attempt++) {
-      const client = await this.pool.connect();
+      const client = await this._connect();
       let broken = false;
       try {
         await client.query('BEGIN');
@@ -1055,34 +1289,67 @@ class PgFirestore {
       } catch (e) {
         await client.query('ROLLBACK').catch(() => { broken = true; });
         if (RETRYABLE.has(e && e.code) && attempt < 5) {
-          await new Promise((r) => setTimeout(r, 10 * attempt * (0.5 + Math.random())));
+          await sleep(10 * attempt * (0.5 + Math.random()));
           continue;
         }
         throw e;
       } finally {
-        client.release(broken);
+        client.release(broken || !!client._fsBroken);
       }
     }
+  }
+
+  /** লেখার শর্ত-লক: লেখার পর থাকা প্রতিটা ডকের উপরের-স্তরের সব ঘর-মান (মোছায় নয় — আগে মেলা ডক FOR UPDATE-এ লক থাকে) */
+  _writePreds(paths, after) {
+    const byColl = new Map();
+    for (const p of paths) {
+      const next = after.get(p);
+      if (next === undefined) continue;
+      const coll = docParts(p).coll;
+      if (!byColl.has(coll)) byColl.set(coll, new Set());
+      const set = byColl.get(coll);
+      for (const k of docPredKeys(coll, next)) set.add(k);
+    }
+    const shared = [];
+    const bulk = [];
+    for (const [coll, set] of [...byColl].sort((a, b) => a[1].size - b[1].size)) {
+      if (set.size > PRED_PER_COLL || shared.length + set.size > PRED_TOTAL) bulk.push(`b:${coll}`);
+      else shared.push(...set);
+    }
+    return { shared, bulk: bulk.sort() };
   }
 
   /** client-এর চলমান transaction-এ ops প্রয়োগ: লক, এখনকার তথ্য পড়া, হিসাব, একবারে লেখা */
   async _applyOps(client, ops) {
     const paths = [...new Set(ops.map((o) => o.path))];
-    // কালেকশনে shared লক (transaction-এর কোয়েরির exclusive লকের সাথে মেলে — _runQuery দেখুন)
-    const groups = [...new Set(paths.flatMap((p) => { const d = docParts(p); return [`c:${d.coll}`, `g:${d.grp}`]; }))].sort();
-    await client.query('SELECT pg_advisory_xact_lock_shared($1, hashtext(k)) FROM unnest($2::text[]) WITH ORDINALITY AS u(k, i) ORDER BY i', [LOCK_CLASS + 1, groups]);
+    await this._lockColls(client, paths);
     await this._lockPaths(client, paths);
-    const needRead = new Set(ops.filter((o) => !(o.type === 'set' && !o.merge && !o.mergeFields) && !(o.type === 'delete' && !o.mustExist)).map((o) => o.path));
+    // এখনকার তথ্য পড়া শুধু যেখানে লাগে (পুরো set বা precondition-ছাড়া delete-এ নয়)
+    const needRead = [...new Set(ops.filter((o) => !(o.type === 'set' && !o.merge && !o.mergeFields)
+      && !(o.type === 'delete' && o.pre.exists === undefined && o.pre.updateUs === undefined)).map((o) => o.path))];
     const state = new Map();
-    if (needRead.size) {
-      const r = await client.query('SELECT path, data FROM docs WHERE path = ANY($1::text[]) ORDER BY path FOR UPDATE', [[...needRead]]);
-      r.rows.forEach((row) => state.set(row.path, row.data));
+    const beforeUs = new Map();
+    if (needRead.length) {
+      const cur = await client.query(
+        'SELECT path, data, (extract(epoch FROM updated_at) * 1000000)::bigint AS u_us FROM docs WHERE path = ANY($1::text[]) ORDER BY path FOR UPDATE',
+        [needRead],
+      );
+      cur.rows.forEach((row) => { state.set(row.path, row.data); beforeUs.set(row.path, BigInt(row.u_us)); });
     }
+    const touched = new Set();
     const nowTs = Timestamp.now();
     for (const op of ops) {
-      const cur = state.has(op.path) ? state.get(op.path) : undefined;
-      state.set(op.path, applyOp(cur, op, nowTs));
+      const c = state.has(op.path) ? state.get(op.path) : undefined;
+      // একই batch-এ একই ডকে দ্বিতীয় লেখার precondition: আগের লেখার পর সময় আর মেলে না
+      const us = touched.has(op.path) ? null : beforeUs.get(op.path) ?? null;
+      state.set(op.path, applyOp(c, op, nowTs, us));
+      touched.add(op.path);
     }
+    const preds = this._writePreds(paths, state);
+    if (preds.bulk.length) {
+      await client.query('SELECT pg_advisory_xact_lock($1, hashtext(k)) FROM unnest($2::text[]) WITH ORDINALITY AS u(k, i) ORDER BY i', [LOCK_CLASS + 1, preds.bulk]);
+    }
+    await this._lockPreds(client, preds.shared, true);
     const up = { path: [], coll: [], grp: [], id: [], data: [] };
     const del = [];
     for (const p of paths) {
@@ -1094,15 +1361,19 @@ class PgFirestore {
       }
     }
     if (del.length) await client.query('DELETE FROM docs WHERE path = ANY($1::text[])', [del]);
+    const written = new Map();
     if (up.path.length) {
-      await client.query(
+      const r = await client.query(
         `INSERT INTO docs (path, coll, grp, id, data)
          SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[]::jsonb[])
-         ON CONFLICT (path) DO UPDATE SET data = EXCLUDED.data, updated_at = clock_timestamp()`,
+         ON CONFLICT (path) DO UPDATE SET data = EXCLUDED.data, updated_at = clock_timestamp()
+         RETURNING path, (extract(epoch FROM updated_at) * 1000000)::bigint AS u_us`,
         [up.path, up.coll, up.grp, up.id, up.data],
       );
+      r.rows.forEach((row) => written.set(row.path, tsFromUs(row.u_us)));
     }
-    return ops.map(() => ({ writeTime: nowTs }));
+    // writeTime = ডকের নতুন updateTime (lastUpdateTime precondition-এ দেওয়া যায়); মোছায় এখনকার সময়
+    return ops.map((op) => ({ writeTime: written.get(op.path) || nowTs }));
   }
 }
 
@@ -1125,7 +1396,7 @@ module.exports = {
   Query,
   DocumentSnapshot,
   // migration আর টেস্টের জন্য
-  _internal: { encode, decode, docParts, encodeTs, applyOp },
+  _internal: { encode, decode, docParts, encodeTs, applyOp, textStats },
   /** DATABASE_URL থেকে বানানো ডাটাবেস (প্রথম ব্যবহারে pool খোলে) */
   get db() { return getDefault(); },
 };

@@ -4,6 +4,7 @@ const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 const { isAdmin, isOwner, adminEmails } = require('./admin');
+const { clip } = require('./text');
 
 const DAY = 24 * 3600 * 1000;
 const DHAKA = 6 * 3600 * 1000;
@@ -336,7 +337,7 @@ const actions = {
           await require('./apptcancel').cancelStale(uid, () => false, ['The chamber was removed', 'চেম্বারটা সরানো হয়েছে']);
           await require('./requestend').pushUsers([uid], (u, lang) => ({
             title: R.L(lang, 'Your chambers were removed by the Lifolo team', 'Lifolo টিম আপনার চেম্বার সরিয়ে দিয়েছে'),
-            body: String(req.body?.reason || '').trim().slice(0, 200),
+            body: clip(String(req.body?.reason || '').trim(), 200),
             data: { type: 'appointment', role: 'provider' },
           }));
         }
@@ -353,7 +354,7 @@ const actions = {
         if (op === 'disable') {
           await admin.auth().updateUser(uid, { disabled: true });
           // কারণ — লগইনের চেষ্টায় আর অ্যাপে ব্যবহারকারী দেখেন
-          await stateRef.set({ disabledReason: String(req.body?.reason || '').trim().slice(0, 200), disabledAt: Date.now() }, { merge: true });
+          await stateRef.set({ disabledReason: clip(String(req.body?.reason || '').trim(), 200), disabledAt: Date.now() }, { merge: true });
           // চালু লগইন বাতিল: নতুন টোকেন আর পাবে না, পুরোনোটা সর্বোচ্চ ১ ঘণ্টা
           await admin.auth().revokeRefreshTokens(uid);
           await db.doc(`users/${uid}`).set({ fcmToken: FieldValue.delete(), fcmTokens: FieldValue.delete() }, { merge: true }).catch(() => {});
@@ -402,7 +403,7 @@ const LOGGED = {
   admin_ambulance_resolve: (b) => ({ target: `ambulances/${b.id}`, detail: [b.status || (b.approve === true ? 'approved' : 'rejected'), b.reason].filter(Boolean).join(' · ') }),
   admin_hospital_resolve: (b) => ({ target: `hospitalRequests/${b.id}`, detail: b.op + (b.targetId ? ` → ${b.targetId}` : '') }),
   // অ্যাপ থেকে অ্যাডমিন অন্যের প্রশ্ন/উত্তর/টিপস মুছলে (কী মুছলেন তার শুরুটুকু)
-  admin_delete_post: (b) => ({ target: b.path, detail: `deleted: ${String(b.text || '').slice(0, 120)}` }),
+  admin_delete_post: (b) => ({ target: b.path, detail: `deleted: ${clip(b.text || '', 120)}` }),
   admin_report_resolve: (b) => ({ target: b.targetPath, detail: b.remove === true ? 'removed' : 'kept' }),
   admin_lab_resolve: (b) => ({ target: `labs/${b.id}`, detail: [b.status || (b.approve === true ? 'approved' : 'rejected'), b.reason].filter(Boolean).join(' · ') }),
   admin_catalog_set: (b) => ({ target: `config/catalog/${b.kind}/${b.type}`, detail: `${(b.items || []).length} items` }),
@@ -430,8 +431,8 @@ async function logAdmin(action, user, body) {
       by: (user.email || '').toLowerCase(),
       byUid: user.uid,
       via: user.webSession ? 'web' : 'app',
-      target: String(target || '').slice(0, 300),
-      detail: String(detail || '').slice(0, 300),
+      target: clip(target || '', 300),
+      detail: clip(detail || '', 300),
     });
   } catch (e) {
     console.error('admin log failed', e.message);

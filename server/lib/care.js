@@ -1,5 +1,6 @@
 // ডাক্তার/নার্সের চেম্বার আর বাসায় সেবার খাঁটি নিয়ম (ডাটাবেস ছাড়া, তাই টেস্ট করা যায়)।
 const R = require('./rules');
+const { clip } = require('./text');
 
 const DOCTOR_SPECIALTIES = [
   'medicine', 'pediatrics', 'gynecology', 'cardiology', 'orthopedics', 'ent', 'eye', 'dermatology',
@@ -25,7 +26,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VISIT_OPEN_MS = 24 * 60 * 60 * 1000; // আগের অনুরোধ-ব্যবস্থা (বন্ধ) — পুরোনো ডক পড়ার জন্য
 
 function str(v, max) {
-  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+  return typeof v === 'string' ? clip(v.trim(), max) : '';
 }
 
 function phone(v) {

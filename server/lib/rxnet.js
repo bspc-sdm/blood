@@ -17,7 +17,7 @@ const P = require('./prescriptions');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
 const notFound = (req) => err(req, 'Not found', 'পাওয়া যায়নি', 404);
-const str = (v, n) => (typeof v === 'string' ? v.replace(/\r\n/g, '\n').trim().slice(0, n) : '');
+const str = (v, n) => (typeof v === 'string' ? clip(v.replace(/\r\n/g, '\n').trim(), n) : '');
 const key = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** রোগী আর তাঁর কেয়ারগিভারদের */
@@ -25,6 +25,7 @@ const pushPatient = (...a) => require('./careaccess').pushPatient(...a);
 const LT = require('./labtests');
 // পরীক্ষার দাম আর বাসা থেকে নমুনা (labprices.js)
 const LP = require('./labprices');
+const { clip } = require('./text');
 
 /** body: লেখা, বা { en, bn } (যাঁকে পাঠানো হচ্ছে তাঁর ভাষায়) */
 async function push(uid, en, bn, body, data) {
@@ -1427,7 +1428,7 @@ const actions = {
     if (!comment) throw err(req, 'Write what the patient should know', 'রোগীকে কী জানাবেন লিখুন');
     const newRxId = R.isValidId(req.body?.newRxId) ? req.body.newRxId : null;
     await ref.update({ status: 'done', comment, newRxId, doneAt: Date.now(), updatedAt: Date.now() });
-    await pushPatient(s.get('patientUid'), 'The doctor checked your report', 'ডাক্তার আপনার রিপোর্ট দেখেছেন', comment.slice(0, 120), { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
+    await pushPatient(s.get('patientUid'), 'The doctor checked your report', 'ডাক্তার আপনার রিপোর্ট দেখেছেন', clip(comment, 120), { type: 'rx', id: s.get('rxId'), rxId: s.get('rxId') });
     return { ok: true };
   },
 };

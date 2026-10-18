@@ -12,6 +12,7 @@ const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 const { useQuota, userName } = require('./community-db');
+const { clip } = require('./text');
 
 const MAX_CARETAKERS = 2;
 const MAX_FAMILY = 6;
@@ -93,7 +94,7 @@ function cleanMember(req, m, i) {
   const phone = m.phone ? K.normalizeBd(m.phone) : null;
   if (m.phone && !phone) throw err(req, `${name}: check the mobile number`, `${name}: মোবাইল নম্বর দেখে নিন`);
   const id = typeof m.id === 'string' && /^m_[a-z0-9]{6,12}$/.test(m.id) ? m.id : `m_${require('crypto').randomBytes(5).toString('hex')}`;
-  return { id, name, relation: String(m.relation || '').trim().slice(0, 30), age, gender, phone: phone ? K.localBd(phone) : '' };
+  return { id, name, relation: clip(String(m.relation || '').trim(), 30), age, gender, phone: phone ? K.localBd(phone) : '' };
 }
 
 const actions = {
@@ -126,7 +127,7 @@ const actions = {
     await useQuota(req, user.uid, 'care');
     const [me, them] = await Promise.all([userName(user.uid), userName(target.uid)]);
     await ref.set({
-      patientUid: user.uid, caretakerUid: target.uid, patientName: me.slice(0, 80), caretakerName: (them || target.displayName || '').slice(0, 80),
+      patientUid: user.uid, caretakerUid: target.uid, patientName: clip(me, 80), caretakerName: clip(them || target.displayName || '', 80),
       caretakerEmail: email, status: 'invited', createdAt: Date.now(),
     });
     const u = await db.doc(`users/${target.uid}`).get();
@@ -145,7 +146,7 @@ const actions = {
     const s = await ref.get();
     if (!s.exists) throw err(req, 'Not found', 'পাওয়া যায়নি', 404);
     if (req.body?.accept === true) {
-      await ref.update({ status: 'active', acceptedAt: Date.now(), caretakerName: (await userName(user.uid)).slice(0, 80) });
+      await ref.update({ status: 'active', acceptedAt: Date.now(), caretakerName: clip(await userName(user.uid), 80) });
       const p = await db.doc(`users/${patientUid}`).get();
       if (p.exists) {
         await sendPush([{ uid: patientUid, tokens: tokensOf(p), title: R.L(p.get('lang'), `${s.get('caretakerName')} is now your caregiver`, `${s.get('caretakerName')} এখন আপনার কেয়ারগিভার`), body: '', data: { type: 'care' } }]).catch(() => {});

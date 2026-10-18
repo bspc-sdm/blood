@@ -13,6 +13,7 @@ const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 const { approvedBadge, useQuota } = require('./community-db');
+const { clip } = require('./text');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_ASSISTANTS = 5;
@@ -25,7 +26,7 @@ const DOSE_RE = /^(\d{1,2}(\.5)?|½)(\+(\d{1,2}(\.5)?|½)){1,3}$/;
 const TIMINGS = ['before', 'after', ''];
 
 const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
-const str = (v, n) => (typeof v === 'string' ? v.replace(/\r\n/g, '\n').trim().slice(0, n) : '');
+const str = (v, n) => (typeof v === 'string' ? clip(v.replace(/\r\n/g, '\n').trim(), n) : '');
 
 function secret() {
   return String(process.env.CRON_SECRET || process.env.FIREBASE_SERVICE_ACCOUNT || 'rx');

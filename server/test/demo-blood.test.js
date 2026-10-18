@@ -225,9 +225,13 @@ test('সাড়া → রক্তপ্রার্থী ডোনার �
   // রোগী নতুন রিকোয়েস্ট দেন (পরীক্ষার সময় বানানো — মুছলে যেতে হবে)
   const c = await call(P, 'request_create', {
     requesterName: 'ডেমো রোগী রহিম', requesterPhone: '01700001101', patientGroup: 'O+', bags: 1, hospital: 'ডেমো চরপাড়া জেনারেল হাসপাতাল',
-    placeName: DISTRICT, lat: 24.75, lng: 90.41, neededByMillis: R.todayDhakaUtcMidnight() + R.DAY_MS, note: 'ডেমো',
+    // নোট ৩০০ এককে কাটা হয় — ঠিক সীমায় একটা ইমোজি: অর্ধেকটা থাকলে PostgreSQL লেখা ফেরত দিত (22P02)
+    placeName: DISTRICT, lat: 24.75, lng: 90.41, neededByMillis: R.todayDhakaUtcMidnight() + R.DAY_MS, note: `ডেমো${'.'.repeat(295)}😀 শেষ`,
   });
   assert.strictEqual(c.status, 200, JSON.stringify(c.body));
+  const note = (await get(`requests/${c.body.id}`)).note;
+  assert.strictEqual(note, `ডেমো${'.'.repeat(295)}`, 'ইমোজি অর্ধেক না রেখে পুরো বাদ');
+  assert.ok(note.isWellFormed());
   assert.ok((await nearbyOpen(x('rafiq'), 10)).some((r) => r.id === c.body.id), 'নতুন রিকোয়েস্ট আশেপাশে দেখা যায়');
 });
 

@@ -20,6 +20,7 @@ const K = require('./care');
 const R = require('./rules');
 const LT = require('./labtests');
 const P = require('./prescriptions');
+const { clip } = require('./text');
 
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
@@ -30,7 +31,7 @@ const MAX_HOME_FEE = 5000;
 const SLOTS = { early: [7, 9], morning: [9, 12], afternoon: [15, 18] };
 
 const err = (req, en, bn, status = 400) => new HttpError(status, C.tr(req, en, bn));
-const str = (v, n) => (typeof v === 'string' ? v.replace(/\r\n/g, '\n').trim().slice(0, n) : '');
+const str = (v, n) => (typeof v === 'string' ? clip(v.replace(/\r\n/g, '\n').trim(), n) : '');
 const bn = (n) => R.bnDigits(n);
 
 /** সংখ্যা বা লেখা সংখ্যা (বাংলা অঙ্ক, কমা, ৳ চলে) → পূর্ণ সংখ্যা; খালি হলে null; ভুল হলে NaN */
@@ -303,7 +304,7 @@ function shortAddress(a) {
     if (out && (out + ' ' + w).length > 18) break;
     out = out ? `${out} ${w}` : w;
   }
-  return `${out.slice(0, 24)}…`;
+  return `${clip(out, 24)}…`;
 }
 
 /**
