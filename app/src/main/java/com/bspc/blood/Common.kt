@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -140,36 +142,113 @@ fun SplashScreen() {
 }
 
 /**
- * পুরো পর্দার ডায়ালগ (প্রেসক্রিপশনের বিস্তারিত, ফার্মেসি/প্যাথলজি বাছাই, রিপোর্ট…) — সবগুলো এটা দিয়েই।
- * অ্যাপ edge-to-edge (MainActivity-র enableEdgeToEdge): মূল পাতা safeDrawingPadding পায়, কিন্তু ডায়ালগ আলাদা জানালা —
- * Android 15-এ সেটা ফোনের নিচের বারের পেছনে আঁকা হত অথচ ভেতরে বারের মাপ ০ আসত, তাই শেষের বাটন বারের নিচে কাটা পড়ত।
- * এখানে decorFitsSystemWindows = false (মাপ ঠিক আসে) আর একবারই safeDrawingPadding (ওপরে স্ট্যাটাস বার, নিচে নেভিগেশন বার
- * ও কিবোর্ড) — ভেতরের Scaffold/TopAppBar আর দ্বিতীয়বার জায়গা নেয় না। নিচে আরও একটু ফাঁকা, শেষ বাটন বারের গায়ে লেগে না থাকে।
+ * অ্যাপের সব পুরো-পর্দার ডায়ালগ আর নিচ থেকে ওঠা বিস্তারিত শিট এই একটা জানালা দিয়েই (FullScreenDialog, DetailSheet)।
+ *
+ * কেন (২.২৬.১, Android 15-এ নিচের বারের নিচে বাটন চাপা পড়ার আসল কারণ): Compose 1.7-এর Dialog
+ * usePlatformDefaultWidth = false হলে জানালার মাপ নিজে বসায় — Configuration.screenHeightDp থেকে
+ * (window.setLayout(কনটেন্টের মাপ)), আর জানালাকে FLAG_LAYOUT_IN_SCREEN / fitInsetsTypes = 0 দেয় না। তাই
+ * decorFitsSystemWindows = false দিলেও জানালাটা আসলে পুরো পর্দার নয়: সিস্টেম সেটাকে স্ট্যাটাস বারের নিচ থেকে
+ * screenHeightDp-এর মাপে বসায়। targetSdk 35-এ (Android 15, edge-to-edge বাধ্যতামূলক) screenHeightDp আর পুরো
+ * নিচের বার বাদ দেয় না — জানালার নিচটা তিন-বাটনের বারের ভেতরে ঢুকে যায়, অথচ ভেতরে নিচের বারের মাপ ০ আসে
+ * (জানালা "ভাসমান", মাপ সিস্টেম আগেই খেয়ে ফেলে)। ফলে safeDrawingPadding / navigationBarsPadding কিছুই করে না,
+ * আর আগের জোড়াতালি (Activity-র মাপ ধার করা) কোনো রানে কাজ করে, কোনো রানে করে না।
+ *
+ * এখানে এক নিয়ম: জানালা সত্যিই পুরো পর্দার (MATCH_PARENT, FLAG_LAYOUT_IN_SCREEN, fitInsets = 0, কাটআউটেও) —
+ * Compose 1.8+ নিজেও decorFitsSystemWindows = false-এ এটাই করে। তখন সিস্টেম আসল মাপ পাঠায়, আর ভেতরের কনটেন্ট
+ * একবারই safeDrawing নেয় (ওপরে স্ট্যাটাস বার, নিচে নেভিগেশন বার ও কিবোর্ড)। ভেতরের Scaffold/TopAppBar নেওয়া
+ * মাপ আবার নেয় না।
+ * usePlatformDefaultWidth = true রাখা ইচ্ছে করে: তাহলে Compose জানালার মাপ বারবার বদলায় না, নিচের মাপটাই থাকে।
  */
 @Composable
-fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolean = true, content: @Composable () -> Unit) {
-    // E2E (Android 15 এমুলেটর, তিন বাটনের বার): ডায়ালগের ভেতরে নিচের বারের মাপ তবুও ০ আসে — শেষের বাটন বারের নিচে চলে যেত।
-    // মূল পাতার (Activity) মাপ ডায়ালগ খোলার আগে নিয়ে রাখা; ভেতরের মাপ কম হলে বাকিটুকু নিচে ফাঁকা।
-    val outerNav = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+fun EdgeToEdgeDialog(
+    onDismissRequest: () -> Unit,
+    dismissOnClickOutside: Boolean = true,
+    lightStatusBar: Boolean? = null,
+    content: @Composable () -> Unit,
+) {
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismissRequest,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = dismissOnClickOutside, decorFitsSystemWindows = false),
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = true, dismissOnClickOutside = dismissOnClickOutside, decorFitsSystemWindows = false),
     ) {
-        val bg = MaterialTheme.colorScheme.background
-        // ডায়ালগের জানালার ওপরের/নিচের বারের আইকন থিমের সাথে মিলিয়ে (নইলে হালকা থিমে সাদা আইকন সাদার ওপর)
         val view = androidx.compose.ui.platform.LocalView.current
-        val light = bg.luminance() >= 0.5f
+        val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        // নিচের বারের আইকন থিমের সাথে মিলিয়ে (নইলে হালকা থিমে সাদা আইকন সাদার ওপর)
+        val lightNav = MaterialTheme.colorScheme.background.luminance() >= 0.5f
+        androidx.compose.runtime.DisposableEffect(window) {
+            window?.let { fillScreenEdgeToEdge(it) }
+            onDispose {}
+        }
         androidx.compose.runtime.SideEffect {
-            (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+            window?.let { w ->
                 androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
-                    isAppearanceLightStatusBars = light
-                    isAppearanceLightNavigationBars = light
+                    isAppearanceLightNavigationBars = lightNav
+                    if (lightStatusBar != null) isAppearanceLightStatusBars = lightStatusBar
                 }
             }
         }
-        val innerNav = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp + maxOf(outerNav - innerNav, 0.dp))) { content() }
+        // TEMP-INSETS (শুধু debug বিল্ডে, E2E-র logcat-এ মাপ দেখার জন্য — প্রকাশের আগে মুছতে হবে)
+        val navB = WindowInsets.navigationBars.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+        val safeB = WindowInsets.safeDrawing.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+        androidx.compose.runtime.LaunchedEffect(navB, safeB) {
+            if ((view.context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                delay(600)
+                val loc = IntArray(2).also { view.getLocationOnScreen(it) }
+                val ri = androidx.core.view.ViewCompat.getRootWindowInsets(view)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+                android.util.Log.i("LifoloInsets", "dialog navB=$navB safeB=$safeB view=${view.width}x${view.height}@${loc[0]},${loc[1]} decor=${window?.decorView?.width}x${window?.decorView?.height} attrs.h=${window?.attributes?.height} flags=0x${Integer.toHexString(window?.attributes?.flags ?: 0)} rootNav=$ri screenHdp=${view.resources.configuration.screenHeightDp}")
+            }
+        }
+        content()
     }
+}
+
+/** ডায়ালগের জানালা পুরো পর্দায়, সিস্টেমের বারের পেছন পর্যন্ত; বারের মাপ কনটেন্ট নিজে নেয় (WindowInsets) */
+@Suppress("DEPRECATION")
+private fun fillScreenEdgeToEdge(w: android.view.Window) {
+    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+    w.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT, android.view.WindowManager.LayoutParams.MATCH_PARENT)
+    w.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR)
+    val a = w.attributes
+    if (android.os.Build.VERSION.SDK_INT >= 30) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+    else if (android.os.Build.VERSION.SDK_INT >= 28) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+    if (android.os.Build.VERSION.SDK_INT >= 30) {
+        a.fitInsetsTypes = 0
+        a.fitInsetsSides = 0
+    }
+    w.attributes = a
+    // কিবোর্ড এলে জানালা ছোট হয় না, কনটেন্ট safeDrawing (ime) দিয়ে ওপরে ওঠে; পুরোনো ফোনে (API ২৯-) আগের মতো resize
+    w.setSoftInputMode(
+        if (android.os.Build.VERSION.SDK_INT >= 30) android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        else android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
+    )
+}
+
+/**
+ * পুরো পর্দার ডায়ালগ (প্রেসক্রিপশনের বিস্তারিত, ফার্মেসি/প্যাথলজি বাছাই, রিপোর্ট, লগইন…) — সবগুলো এটা দিয়েই।
+ * জানালা EdgeToEdgeDialog-এর (পুরো পর্দা); এখানে একবারই safeDrawingPadding, নিচে আরও একটু ফাঁকা যাতে শেষ বাটন
+ * বারের গায়ে লেগে না থাকে।
+ */
+@Composable
+fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolean = true, content: @Composable () -> Unit) {
+    val bg = MaterialTheme.colorScheme.background
+    EdgeToEdgeDialog(onDismissRequest, dismissOnClickOutside, lightStatusBar = bg.luminance() >= 0.5f) {
+        Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp)) { content() }
+    }
+}
+
+/**
+ * নিচ থেকে ওঠা টানা যায় এমন প্যানেল (ফিল্টার, অ্যাডমিনের টিকিট/আবেদন) — সবগুলো এটা দিয়েই।
+ * Material3-এর ModalBottomSheet নিজেই পুরো পর্দার জানালা খোলে (MATCH_PARENT, decorFitsSystemWindows = false), তাই আসল
+ * মাপ আসে; নিচের বার আর কিবোর্ডের জায়গা এখানে একবারই নেওয়া হয় (contentWindowInsets)। ভেতরের কনটেন্টে আর
+ * navigationBarsPadding নয়।
+ */
+@Composable
+fun AppBottomSheet(onDismissRequest: () -> Unit, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        contentWindowInsets = { WindowInsets.safeDrawing.only(androidx.compose.foundation.layout.WindowInsetsSides.Bottom) },
+        content = content,
+    )
 }
 
 /** পেছনে যাওয়ার তীর সহ উপরের বার */
