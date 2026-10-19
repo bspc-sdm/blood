@@ -40,7 +40,9 @@ jobs:
 
       # Bangla texts must be byte-for-byte copies of the Node source ("য়" has two spellings)
       - name: Bangla text check
-        run: python3 scripts/check-bangla.py 2>&1 | tee "$RUNNER_TEMP/bangla.log"
+        run: |
+          set -o pipefail
+          python3 scripts/check-bangla.py 2>&1 | tee "$RUNNER_TEMP/bangla.log"
 
       - name: Build and test
         run: |
