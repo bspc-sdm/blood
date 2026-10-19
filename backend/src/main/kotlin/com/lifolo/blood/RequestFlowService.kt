@@ -301,7 +301,7 @@ class RequestFlowService(
             if (partial) {
                 jdbc.update(
                     "UPDATE blood_requests SET confirmed_count = ?, fulfilled = ?, bags_received = ?, updated_at = ? WHERE id = ?",
-                    confirmedCount, confirmedCount >= bags, maxOf(got!!, prevReceived), Sql.ts(now), requestId,
+                    confirmedCount, confirmedCount >= bags, maxOf(got, prevReceived), Sql.ts(now), requestId,
                 )
             } else {
                 jdbc.update(

@@ -166,6 +166,12 @@ here. Do not edit other packages' files.
 
 ## P1 — Blood donation (`blood`) — 34 actions + 6 HTTP endpoints
 
+> **Status: done (branch `spring-p1`).** All 34 actions, the 6 legacy endpoints, `/api/share` (+ `/r/{id}`, `/rx/{code}`,
+> `/shop/{code}`, `/.well-known/assetlinks.json`, QR SVGs via `io.nayuki:qrcodegen`), daily steps 1, 2, 4, `RequestEnd`
+> (stub replaced), `AccountDeletionStep` (order 100) and `DemoSeedPart` (step 1, demo/blood.js). Migration
+> `V100__p1_blood.sql`. Not ported: the `guestreq:` 60 s cell cache (the dispatcher's 60 s guest cache remains), the
+> correction request of `demo/health.js` (it belongs to that file's own extra user — P2/P6 port it with health.js).
+
 * **Node:** `requestcreate.js`, `myrequests.js`, `donors.js`, `donationdate.js`, `requestend.js`, `emergency.js` + `emergency-rules.js`,
   `bloodbank.js`, `guest.js`, `corrections.js`, blood parts of `clientdata.js`, `geo.js` (geohash bounds), `api/notify-request.js`,
   `api/respond.js`, `api/close-request.js`, `api/edit-request.js`, `api/admin/corrections.js`, `api/admin/resolve.js`, `api/share.js`.

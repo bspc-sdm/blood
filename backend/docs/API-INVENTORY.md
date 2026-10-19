@@ -133,95 +133,95 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
 
 ## Blood donation (package `blood`) — 23 actions
 
-- [ ] **`bloodbanks`** — Approved blood banks in district (open first, own upazila, govt first; open24 filter)
+- [x] **`bloodbanks`** — Approved blood banks in district (open first, own upazila, govt first; open24 filter)
   - src: `server/lib/bloodbank.js` → `actions.bloodbanks` · auth: guest · port: **P1**
   - request: `district`, `upazilaId`, `open24` · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: 400 · tests: demo-blood
-- [ ] **`bloodbank_mine`** — Own blood banks with docs status
+- [x] **`bloodbank_mine`** — Own blood banks with docs status
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_mine` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: — · tests: demo-blood
-- [ ] **`bloodbank_save`** — Add/edit blood bank (terms, docs); re-verify on key changes; sanctions; quota bloodbank=5/day
+- [x] **`bloodbank_save`** — Add/edit blood bank (terms, docs); re-verify on key changes; sanctions; quota bloodbank=5/day
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_save` · auth: user · quota: bloodbank (5/day) · port: **P1**
   - request: `termsAccepted`, `id`, `docs`, `name`, `kind`, `phone`, `district`, `upazilaId`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok,pending}` or `{ok,pending,id}`
   - collections: bloodBanks, sanctions, serverState · side effects: — · errors: 400, 404, 403 · tests: demo-blood
-- [ ] **`bloodbank_delete`** — Delete own blood bank (not suspended / open reports) + stats + verify docs
+- [x] **`bloodbank_delete`** — Delete own blood bank (not suspended / open reports) + stats + verify docs
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_delete` · auth: user (owner) · port: **P1**
   - request: `id` · response: `{ok}`
   - collections: bloodBankStats, bloodBanks, modReports, verifyDocs · side effects: — · errors: 403 · tests: — (none)
-- [ ] **`bloodbank_called`** — Record call (10-min dedupe) + bloodBankStats
+- [x] **`bloodbank_called`** — Record call (10-min dedupe) + bloodBankStats
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_called` · auth: user · port: **P1**
   - request: `id` · response: `{ok}`
   - collections: bloodBankCalls, bloodBanks · side effects: — · errors: — · tests: demo-blood
-- [ ] **`bloodbank_stats`** — Owner stats per bank: calls/day, reports
+- [x] **`bloodbank_stats`** — Owner stats per bank: calls/day, reports
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_stats` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: bloodBankStats, bloodBanks, modReports · side effects: — · errors: — · tests: — (none)
-- [ ] **`blood_request_get`** — One blood request (requestOut) or null
+- [x] **`blood_request_get`** — One blood request (requestOut) or null
   - src: `server/lib/clientdata.js` → `actions.blood_request_get` · auth: user (same world) · port: **P1**
   - request: `requestId` · response: `{request}`
   - collections: requests · side effects: — · errors: — · tests: clientdata
-- [ ] **`blood_requests_mine`** — Own requests, newest first
+- [x] **`blood_requests_mine`** — Own requests, newest first
   - src: `server/lib/clientdata.js` → `actions.blood_requests_mine` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: requests · side effects: — · errors: — · tests: clientdata
-- [ ] **`blood_requests_near`** — Open active requests within maxKm (geoOpen geohash bounds, fallback district list), group filter, same world, urgent first
+- [x] **`blood_requests_near`** — Open active requests within maxKm (geoOpen geohash bounds, fallback district list), group filter, same world, urgent first
   - src: `server/lib/clientdata.js` → `actions.blood_requests_near` · auth: user · port: **P1**
   - request: `lat`, `lng`, `maxKm`, `groups` · response: `{items}`
   - collections: requests · side effects: — · errors: 400 · tests: clientdata
-- [ ] **`blood_response_get`** — Own response to a request
+- [x] **`blood_response_get`** — Own response to a request
   - src: `server/lib/clientdata.js` → `actions.blood_response_get` · auth: user · port: **P1**
   - request: `requestId` · response: `{response}`
   - collections: requests/responses · side effects: — · errors: — · tests: clientdata
-- [ ] **`blood_responses_list`** — Accepted/donated responses with donor name/phone
+- [x] **`blood_responses_list`** — Accepted/donated responses with donor name/phone
   - src: `server/lib/clientdata.js` → `actions.blood_responses_list` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{items}`
   - collections: requests, …/responses · side effects: — · errors: 403 · tests: clientdata
-- [ ] **`blood_contact_get`** — Requester contact (requests/{id}/private/contact)
+- [x] **`blood_contact_get`** — Requester contact (requests/{id}/private/contact)
   - src: `server/lib/clientdata.js` → `actions.blood_contact_get` · auth: user (requester, or accepted/donated donor of open request) · port: **P1**
   - request: `requestId` · response: `{contact}`
   - collections: requests, …/private, …/responses · side effects: — · errors: 403 · tests: clientdata
-- [ ] **`report_request`** — Report a blood request once (reports/{requestId}_{uid}); 409 if repeated
+- [x] **`report_request`** — Report a blood request once (reports/{requestId}_{uid}); 409 if repeated
   - src: `server/lib/clientdata.js` → `actions.report_request` · auth: user · port: **P1**
   - request: `requestId` · response: `{ok}`
   - collections: reports · side effects: — · errors: 409 · tests: clientdata
-- [ ] **`donation_date_set`** — Change last donation date (backward needs confirmed:true → 409 confirm_needed); risk log; quota dateChange=3/day
+- [x] **`donation_date_set`** — Change last donation date (backward needs confirmed:true → 409 confirm_needed); risk log; quota dateChange=3/day
   - src: `server/lib/donationdate.js` → `actions.donation_date_set` · auth: user · quota: dateChange (3/day) · port: **P1**
   - request: `millis`, `confirmed` · response: `{ok,unchanged}` or `{ok,risk}`
   - collections: serverState, users · side effects: — · errors: 400, 404, 409:confirm_needed · tests: demo-blood
-- [ ] **`response_update`** — Donor cancel/donated or requester removes donor; recount bags, restore/notify standby donors
+- [x] **`response_update`** — Donor cancel/donated or requester removes donor; recount bags, restore/notify standby donors
   - src: `server/lib/donors.js` → `response_update` · auth: user (donor: cancel/donated; requester: remove) · port: **P1**
   - request: `requestId`, `op`, `donorUid` · response: `{ok,restored}` or `{ok}`
   - collections: inbox, requests, users, …/responses · side effects: FCM push + inbox · errors: 400, 404 · tests: demo-blood
-- [ ] **`confirm_donor`** — Requester confirms a donor; pushes donor
+- [x] **`confirm_donor`** — Requester confirms a donor; pushes donor
   - src: `server/lib/donors.js` → `confirm_donor` · auth: user (requester) · port: **P1**
   - request: `requestId`, `donorUid` · response: `{ok,already}` or `{ok}`
   - collections: inbox, requests, users, …/responses · side effects: FCM push + inbox · errors: 400, 404, 403 · tests: demo-blood
-- [ ] **`emergencies_active`** — Active emergency calls for my district or that notified me (+ my status, ask list); guest: district only, no demo
+- [x] **`emergencies_active`** — Active emergency calls for my district or that notified me (+ my status, ask list); guest: district only, no demo
   - src: `server/lib/emergency.js` → `actions.emergencies_active` · auth: guest · port: **P1**
   - request: `district` · response: `{items,ask}`
   - collections: emergencies, emergencies/donors, inbox, users · side effects: FCM push + inbox · errors: — · tests: demo-blood, guest
-- [ ] **`emergency_donated`** — Donor reports donated or not; sets lastDonation forward
+- [x] **`emergency_donated`** — Donor reports donated or not; sets lastDonation forward
   - src: `server/lib/emergency.js` → `actions.emergency_donated` · auth: user · port: **P1**
   - request: `id`, `donated` · response: `{ok}`
   - collections: emergencies, emergencies/donors, users · side effects: — · errors: 400 · tests: demo-blood
-- [ ] **`emergency_respond`** — Donor coming/cancel; group compatibility, per-group counts
+- [x] **`emergency_respond`** — Donor coming/cancel; group compatibility, per-group counts
   - src: `server/lib/emergency.js` → `actions.emergency_respond` · auth: user · port: **P1**
   - request: `id`, `op` · response: `{ok}`
   - collections: emergencies, users, …/donors · side effects: — · errors: 400, 403, 409 · tests: demo-blood
-- [ ] **`guest_requests`** — Guest home: open requests near lat,lng (BD bounds, maxKm 5–25), no name/phone/note/location (cached per 0.05° cell 1 min)
+- [x] **`guest_requests`** — Guest home: open requests near lat,lng (BD bounds, maxKm 5–25), no name/phone/note/location (cached per 0.05° cell 1 min)
   - src: `server/lib/guest.js` → `actions.guest_requests` · auth: guest · port: **P1**
   - request: `lat`, `lng`, `maxKm` · response: `{items}`
   - collections: requests · side effects: — · errors: 400 · tests: clientdata, demo-blood, guest
-- [ ] **`request_delete`** — Delete own blood request recursively; notify accepted donors
+- [x] **`request_delete`** — Delete own blood request recursively; notify accepted donors
   - src: `server/lib/myrequests.js` → `actions.request_delete` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{ok}` or `{ok,notified}`
   - collections: inbox, requests, requests/responses, users, …/responses · side effects: recursive delete, push (requestend), FCM push + inbox · errors: 400, 403 · tests: — (none)
-- [ ] **`request_create`** — Create blood request (validated; lat/lng rounded to 2 dp, geohash/geoOpen; private contact subdoc); limits MAX_REQUESTS_PER_DAY / open requests (serverState createDay)
+- [x] **`request_create`** — Create blood request (validated; lat/lng rounded to 2 dp, geohash/geoOpen; private contact subdoc); limits MAX_REQUESTS_PER_DAY / open requests (serverState createDay)
   - src: `server/lib/requestcreate.js` → `actions.request_create` · auth: user · port: **P1**
   - request: `lat`, `lng`, `patientGroup`, `bags`, `hospital`, `placeName`, `neededByMillis`, `neededAtMillis`, `requesterPhone`, `requesterName`, `note`, `geohash`, `urgent`, `travelFare` · response: `{ok,id}`
   - collections: requests, serverState, …/private · side effects: — · errors: 400, 429 · tests: demo-blood, demo-health, guest, labtests
-- [ ] **`request_reopen`** — Reopen within 1 h of closing (undo close marks from meta/close, restore donation dates); pushes donors
+- [x] **`request_reopen`** — Reopen within 1 h of closing (undo close marks from meta/close, restore donation dates); pushes donors
   - src: `server/lib/requestcreate.js` → `actions.request_reopen` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{ok}`
   - collections: inbox, requests, requests/responses, users, …/meta, …/responses · side effects: push (requestend), FCM push + inbox · errors: 400, 404, 403, 429 · tests: — (none)
@@ -831,27 +831,27 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/ambulance.js` → `actions.admin_ambulance_resolve` · auth: user admin web-panel · port: **P5**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: — · tests: demo-ambulance, demo-services
-- [ ] **`admin_bloodbanks`** — Blood banks by status
+- [x] **`admin_bloodbanks`** — Blood banks by status
   - src: `server/lib/bloodbank.js` → `actions.admin_bloodbanks` · auth: user admin web-panel · port: **P1**
   - request: `status` · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: — · tests: demo-blood
-- [ ] **`admin_bloodbank_resolve`** — resolveListing for blood banks
+- [x] **`admin_bloodbank_resolve`** — resolveListing for blood banks
   - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_resolve` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: — · tests: demo-blood
-- [ ] **`admin_districts`** — District names (bn) sorted, for panel forms
+- [x] **`admin_districts`** — District names (bn) sorted, for panel forms
   - src: `server/lib/bloodbank.js` → `actions.admin_districts` · auth: user admin web-panel · port: **P1**
   - request: — · response: `{items}`
   - collections: — · side effects: — · errors: — · tests: — (none)
-- [ ] **`admin_bloodbank_add`** — Admin adds an ownerless approved blood bank
+- [x] **`admin_bloodbank_add`** — Admin adds an ownerless approved blood bank
   - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_add` · auth: user admin web-panel · port: **P1**
   - request: `name`, `kind`, `phone`, `district`, `upazilaId`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok,id}`
   - collections: bloodBanks · side effects: admin_log row · errors: — · tests: — (none)
-- [ ] **`admin_bloodbank_edit`** — Admin edits any blood bank; pushes owner if any
+- [x] **`admin_bloodbank_edit`** — Admin edits any blood bank; pushes owner if any
   - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_edit` · auth: user admin web-panel · port: **P1**
   - request: `id`, `upazilaId`, `name`, `kind`, `phone`, `district`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok}`
   - collections: bloodBanks, inbox, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: — (none)
-- [ ] **`admin_bloodbank_delete`** — Admin deletes blood bank (+stats, docs, reports); pushes owner with reason
+- [x] **`admin_bloodbank_delete`** — Admin deletes blood bank (+stats, docs, reports); pushes owner with reason
   - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_delete` · auth: user admin web-panel · port: **P1**
   - request: `id`, `reason` · response: `{ok}`
   - collections: bloodBankStats, bloodBanks, inbox, modReports, users, verifyDocs · side effects: FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
@@ -863,23 +863,23 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/emergency.js` → `actions.admin_hospitals` · auth: user admin web-panel · port: **P2**
   - request: `district` · response: `{items:[{id,name,nameEn}]}`
   - collections: hospitals · side effects: — · errors: 400 · tests: — (none)
-- [ ] **`admin_emergency_create`** — Create emergency call (groups/need, radius, hours, hospital, contact) and send first wave of pushes
+- [x] **`admin_emergency_create`** — Create emergency call (groups/need, radius, hours, hospital, contact) and send first wave of pushes
   - src: `server/lib/emergency.js` → `actions.admin_emergency_create` · auth: user admin web-panel · port: **P1**
   - request: `confirmed`, `district`, `hospitalName`, `hospitalId`, `groups`, `radiusKm`, `hours`, `contactPhone`, `lat`, `lng`, `note` · response: `{ok,id,...}`
   - collections: emergencies, hospitals, inbox, users, …/donors · side effects: emergency push wave, FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
-- [ ] **`admin_emergency_more`** — Send next wave to not-yet-notified eligible donors
+- [x] **`admin_emergency_more`** — Send next wave to not-yet-notified eligible donors
   - src: `server/lib/emergency.js` → `actions.admin_emergency_more` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `{ok,...}`
   - collections: emergencies, inbox, users, …/donors · side effects: emergency push wave, FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
-- [ ] **`admin_emergency_group`** — Close/reopen one blood group
+- [x] **`admin_emergency_group`** — Close/reopen one blood group
   - src: `server/lib/emergency.js` → `actions.admin_emergency_group` · auth: user admin web-panel · port: **P1**
   - request: `id`, `group`, `closed` · response: `{ok}`
   - collections: emergencies · side effects: admin_log row · errors: 400, 404 · tests: — (none)
-- [ ] **`admin_emergency_close`** — End emergency; push coming donors
+- [x] **`admin_emergency_close`** — End emergency; push coming donors
   - src: `server/lib/emergency.js` → `actions.admin_emergency_close` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `{ok,unchanged}` or `{ok}`
   - collections: emergencies, emergencies/donors, inbox, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: — (none)
-- [ ] **`admin_emergencies`** — Recent 30 emergencies with counts
+- [x] **`admin_emergencies`** — Recent 30 emergencies with counts
   - src: `server/lib/emergency.js` → `actions.admin_emergencies` · auth: user admin web-panel · port: **P1**
   - request: — · response: `{items:[...]}`
   - collections: emergencies · side effects: — · errors: — · tests: demo-blood
@@ -993,27 +993,27 @@ All use the Node `handler` envelope (POST only → 405 `{error:"Method not allow
   `{active, roles[{key,name,role}]}` (demoRoles) · `{ok, token, restored, demo:true}` (demo) · emailCodes, serverState, Auth
   (getUserByEmail/createUser/updateUser/revokeRefreshTokens/createCustomToken), deletion cancel (ambulances, bloodBanks,
   pharmacies, labs, providers) · errors 400/403/404/429 · tests: demo, deletion, websession (unit).
-- [ ] **`POST /api/notify-request`** — `server/api/notify-request.js` · user (requester) · request `requestId`, `again` →
+- [x] **`POST /api/notify-request`** — `server/api/notify-request.js` · user (requester) · request `requestId`, `again` →
   `{ok, sent}` / `{ok, already, sent}` · requests, requests/{id}/meta/notified, responses, serverState (requestDay/Count,
   pushDay/Count), users (donorGeo/geohash range scans) · FCM push + inbox to matched donors (radius steps RADII_KM until
   ENOUGH_DONORS, per-donor daily push limit, same world) · lock `notifyingUntil` 60 s · again: ≤3 rounds, 6 h apart ·
   errors 400/403/404/409/429 · tests: — (none; covered by e2e).
-- [ ] **`POST /api/respond`** — `server/api/respond.js` · user (donor) · request `requestId` → `{ok}` / `{ok, already}` ·
+- [x] **`POST /api/respond`** — `server/api/respond.js` · user (donor) · request `requestId` → `{ok}` / `{ok, already}` ·
   requests (acceptedCount), responses, serverState (respondDay/Count, respondedTo), users (commitments, respondedTo) ·
   push to requester · checks: same world, profile complete, group compatible, eligible (18–60 y, ≥50 kg, 120 days) ·
   errors 400/403/404/429 · tests: demo-blood.
-- [ ] **`POST /api/close-request`** — `server/api/close-request.js` · user (requester) · request `requestId`, `donatedUids[]` (≤20),
+- [x] **`POST /api/close-request`** — `server/api/close-request.js` · user (requester) · request `requestId`, `donatedUids[]` (≤20),
   `bagsReceived` → `{ok, marked, closed, notNeeded}` / `{ok, already}` · requests, responses, users (lastDonationMillis),
   requests/{id}/meta/close (undo info for request_reopen) · pushes: ended notice to accepted donors, thanks to marked donors,
   releaseOthers · tests: demo-blood.
-- [ ] **`POST /api/edit-request`** — `server/api/edit-request.js` · user (requester) · request `requestId`, `bags`, `hospital`,
+- [x] **`POST /api/edit-request`** — `server/api/edit-request.js` · user (requester) · request `requestId`, `bags`, `hospital`,
   `neededByMillis`, `neededAtMillis`, `travelFare`, `urgent`, `contactPhone`, `note` → `{ok, notified}` · requests (editCount ≤10),
   requests/{id}/private/contact, responses · push to accepted donors · errors 400/403/404/429 · tests: demo-blood.
-- [ ] **`POST /api/admin/corrections`** — `server/api/admin/corrections.js` · admin (Bearer or web cookie) → `{ok, items}` ·
+- [x] **`POST /api/admin/corrections`** — `server/api/admin/corrections.js` · admin (Bearer or web cookie) → `{ok, items}` ·
   correctionRequests (pending) · tests: —.
-- [ ] **`POST /api/admin/resolve`** — `server/api/admin/resolve.js` · admin · request `id`, `approve` → `{ok, uid}` / `{ok, already, uid}` ·
+- [x] **`POST /api/admin/resolve`** — `server/api/admin/resolve.js` · admin · request `id`, `approve` → `{ok, uid}` / `{ok, already, uid}` ·
   correctionRequests, users (lastDonationMillis) · push to the user, adminLog `correction_resolve` · tests: —.
-- [ ] **`GET /api/share`** — `server/api/share.js` · guest · HTML/JSON/SVG, not the JSON envelope:
+- [x] **`GET /api/share`** — `server/api/share.js` · guest · HTML/JSON/SVG, not the JSON envelope:
   `?id=` request share page (no name/phone/note) · `?rx=CODE` prescription verify page (prescriptions.verify) ·
   `?shop=CODE` pharmacy page · `?rxqr=CODE` / `?shopqr=CODE` QR SVG (cached 1 day) · `?assetlinks=1` Android App Links JSON.
   Rewrites (vercel.json): **`/r/:id`**, **`/rx/:code`**, **`/shop/:code`**, **`/.well-known/assetlinks.json`** → nginx/Spring routes in phase 2.

@@ -18,7 +18,7 @@ class BloodBankIT : BloodTestBase() {
     ) + extra
 
     @Test
-    fun `owner adds, edits, sees documents; admin approves; listed by district; calls and statistics`() {
+    fun `owner adds, edits, sees documents, admin approves, listed by district, calls and statistics`() {
         admin()
         user("own", mapOf("name" to "মালিক"))
         user("p1", emptyMap())
@@ -119,7 +119,7 @@ class BloodBankIT : BloodTestBase() {
     }
 
     @Test
-    fun `admin adds, edits (owner told) and deletes (open reports dismissed, owner told with reason); districts`() {
+    fun `admin adds, edits (owner told) and deletes (open reports dismissed, owner told with reason), districts`() {
         admin()
         user("own", mapOf("name" to "মালিক"))
         user("p1", emptyMap())

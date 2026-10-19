@@ -116,7 +116,7 @@ class BloodDemoSeedIT : BloodTestBase() {
     }
 
     @Test
-    fun `donor - matching requests nearby, confirmed request with the number; appeal coming and the ended one`() {
+    fun `donor - matching requests nearby, confirmed request with the number, appeal coming and the ended one`() {
         seedWorld()
         val me = asDonor(D)
         val view = BloodRules.BLOOD_GROUPS.filter { BloodRules.canDonate("O+", it) }
@@ -149,7 +149,7 @@ class BloodDemoSeedIT : BloodTestBase() {
     }
 
     @Test
-    fun `respond, confirm, close; ineligible donors stopped; date change; new request found nearby`() {
+    fun `respond, confirm, close, ineligible donors stopped, date change, new request found nearby`() {
         seedWorld()
         assertEquals(400, http("/api/respond", D, mapOf("requestId" to "demo-rq-oneg")).status)
         val cgr = http("/api/respond", CG, mapOf("requestId" to "demo-rq-fare"))
@@ -202,7 +202,7 @@ class BloodDemoSeedIT : BloodTestBase() {
     }
 
     @Test
-    fun `blood bank owner, statistics, saving hours; admin approves the pending one; admin lists`() {
+    fun `blood bank owner, statistics, saving hours, admin approves the pending one, admin lists`() {
         seedWorld()
         val mine = call(BB, "bloodbank_mine")
         assertEquals(200, mine.status, mine.toString())

@@ -329,7 +329,7 @@ class EmergencyService(
             )
             if (uExists) {
                 // the donation day: the appeal's day (even if told later), not after today
-                val comingAt = (d!!["coming_at"] as? java.sql.Timestamp)?.time ?: 0L
+                val comingAt = (d["coming_at"] as? java.sql.Timestamp)?.time ?: 0L
                 val created = e?.createdAt ?: 0L
                 val base = maxOf(comingAt, created).takeIf { it != 0L } ?: now
                 val today = BloodRules.todayDhakaUtcMidnight(minOf(now, base))
@@ -380,7 +380,7 @@ class EmergencyService(
                 }
             } else {
                 if (cur != "coming") return@inTx
-                val x = (d!!["blood_group"] as String?)?.let { e.groups[it] }
+                val x = (d["blood_group"] as String?)?.let { e.groups[it] }
                 if (x != null) {
                     x.coming = maxOf(0, x.coming - 1)
                     if (x.adminClosed != true && x.coming < x.need) x.closed = false
@@ -423,8 +423,8 @@ class EmergencyService(
         val bLat = b.number("lat")
         val bLng = b.number("lng")
         val hasLoc = bLat != null && bLng != null && bLat > 20.3 && bLat < 26.8 && bLng > 87.9 && bLng < 92.8
-        val lat = if (hasLoc) bLat!! else dist.lat
-        val lng = if (hasLoc) bLng!! else dist.lng
+        val lat = if (hasLoc) bLat else dist.lat
+        val lng = if (hasLoc) bLng else dist.lng
         val districts = (listOf(dist.bn) + Places.DISTRICTS.filter { BloodRules.distanceKm(lat, lng, it.lat, it.lng) <= radiusKm + 25 }.map { it.bn })
             .distinct().take(30)
         val now = System.currentTimeMillis()

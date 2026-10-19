@@ -14,7 +14,7 @@ class ShareIT : BloodTestBase() {
     private fun text(r: org.springframework.mock.web.MockHttpServletResponse) = r.getContentAsString(Charsets.UTF_8)
 
     @Test
-    fun `request page - facts without name, phone or note; closed and missing requests`() {
+    fun `request page - facts without name, phone or note, closed and missing requests`() {
         user("req", emptyMap())
         request("r1", "req", group = "B+", bags = 3, urgent = true, hospital = "মমেক <b>")
         jdbc.update("UPDATE blood_requests SET confirmed_count = 1, accepted_count = 2 WHERE id = 'r1'")
@@ -71,7 +71,7 @@ class ShareIT : BloodTestBase() {
     }
 
     @Test
-    fun `daily - expired requests close and accepted donors are told; donors eligible again today are reminded`() {
+    fun `daily - expired requests close and accepted donors are told, donors eligible again today are reminded`() {
         user("req", emptyMap())
         donor("a", "O+")
         donor("again", "A+", extra = mapOf("last_donation_ms" to System.currentTimeMillis() - 120 * DAY - 3_600_000))
@@ -94,7 +94,7 @@ class ShareIT : BloodTestBase() {
     }
 
     @Test
-    fun `account deletion - banks hidden, then requests, responses and banks gone; counterparts told`() {
+    fun `account deletion - banks hidden, then requests, responses and banks gone, counterparts told`() {
         user("gone", mapOf("name" to "যাবেন"))
         user("req", mapOf("name" to "রোগী"))
         donor("a", "O+")

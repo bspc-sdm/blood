@@ -207,7 +207,7 @@ object BloodRules {
         now: Long = System.currentTimeMillis(),
     ): String? {
         if (patientGroup !is String || patientGroup !in BLOOD_GROUPS) return "রক্তের গ্রুপ ঠিক নেই"
-        val b = (bags as? Number)?.toLong()?.takeIf { (bags as Number).toDouble() == it.toDouble() }
+        val b = (bags as? Number)?.toLong()?.takeIf { bags.toDouble() == it.toDouble() }
         if (b == null || b < 1 || b > 10) return "ব্যাগের সংখ্যা ঠিক নেই"
         if (hospital !is String || hospital.trim().isEmpty() || hospital.length > 120) return "হাসপাতালের নাম ঠিক নেই"
         if (placeName !is String || !Places.isDistrict(placeName)) return "এলাকা ঠিক নেই"
