@@ -272,8 +272,9 @@ here. Do not edit other packages' files.
 > **Status (P4): all 45 actions, cron steps 5 (`medFindsDeleted`) and 14 (`privacy.rxOrderContactsPurged`) and the
 > `AccountDeletionStep` (order 400) are ported (`com.lifolo.pharmacy`, `com.lifolo.books`, migration `V400__p4_pharmacy_books.sql`),
 > with ITs from pharmacyrate, pharmacy24, pharmacylist-rx, pharmacyestimate, shopbooks, medfind, rxflow, worksegs, privacy-gaps.
-> The rx_pharmacy_* actions live in `com.lifolo.pharmacy` (not P3's `rx`). Demo seed part (demo/books.js + pharmacy parts of
-> services.js/rx.js) not ported yet. V400 re-points shop/stock/missed FKs to `accounts` and drops the `rx_orders`, `med_find_targets`,
+> The rx_pharmacy_* actions live in `com.lifolo.pharmacy` (not P3's `rx`). Demo: `books.DemoBooks` (step 3, demo/books.js, same
+> figures as Node) is ported; the pharmacy parts of demo/services.js (shops, stock, orders on demo-svc-rx-*, finds) and
+> demo/rx.js (orders on P3's demo prescriptions) are left for P6-rest, because they also write P3/P6 tables. V400 re-points shop/stock/missed FKs to `accounts` and drops the `rx_orders`, `med_find_targets`,
 > `pharmacy_calls` FKs to `pharmacies` (Node keeps those rows when a listing is removed); quantities are NUMERIC(…, 2).
 
 * **Node:** `pharmacy.js`, `medfind.js` (+ `data/drugs.json`), pharmacy parts of `rxnet.js` (`myPharmacy`, dispensing, online orders,
