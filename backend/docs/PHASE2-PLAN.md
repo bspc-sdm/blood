@@ -303,6 +303,12 @@ here. Do not edit other packages' files.
 
 ## P5 — Ambulance (`ambulance`) — 24 actions
 
+> **Status: done (`spring-p5`).** All 24 actions, daily steps 12/13, the lazy `advance()` state machine (+ a JobRunr
+> minute job `ambulance-timers`), list-read reminders, `AccountDeletionStep` (order 500) and `DemoSeedPart` (step 2)
+> in `com.lifolo.ambulance`; migration `V500__p5_ambulance.sql`; Node tests ported (`AmbFareIT`, `AmbulanceNearIT`,
+> `AmbPlaceIT`, `AmbReqIT`, `AmbulanceDemoIT`, `unit/AmbPlaceTest`). Left for P6-rest: the demo report on "মমতা"
+> (written by the moderation/`report` code).
+
 * **Node:** `ambulance.js`, `ambreq.js`, `ambplace.js` (+ `data/upazila-centers.json`, hospital directory), `ambfare.js`,
   ambulance parts of `sellerstats.js`.
 * **Actions:** `ambulances`, `ambulance_mine`, `ambulance_save`, `ambulance_available`, `ambulance_delete`, `ambulance_called`,

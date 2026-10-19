@@ -206,6 +206,7 @@ class AmbReqIT : AmbTestBase() {
         assertEquals("vehicle_problem", x["cancel_reason"])
         assertEquals(listOf(P), pushedTo())
         assertEquals(true, ambRow("a2")["available"])
+        person("d9")
         assertEquals(404, call("d9", "ambreq_accept", mapOf("id" to id)).status)
         assertEquals(404, call("d1", "ambreq_status", mapOf("id" to id)).status)
         // the owner's statistics: a finished trip counts as a call
