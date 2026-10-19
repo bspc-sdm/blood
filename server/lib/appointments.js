@@ -99,6 +99,7 @@ async function legacySave(req, user, badge) {
 module.exports = {
   /**
    * ডাক্তার/নার্সের তালিকা। ফিল্টার: district, upazilaId, unionId, hospitalId, specialty;
+   * ২.৩৩.০: day ('today' | 'tomorrow'), openNow, maxFee (টাকা পর্যন্ত), hospitalQ (হাসপাতালের নাম), gender — care.js chamberPasses;
    * homeVisit: true হলে শুধু বাসায় যান এমন মানুষ (আগের অ্যাপ; নতুন অ্যাপ home_providers ব্যবহার করে)।
    */
   async providers(req) {
@@ -113,6 +114,8 @@ module.exports = {
       unionId: Number.isInteger(b.unionId) ? b.unionId : null,
       hospitalId: R.isValidId(b.hospitalId) ? b.hospitalId : null,
       specialty: K.specialtiesFor(type).includes(b.specialty) ? b.specialty : null,
+      // ২.৩৩.০: আজ/আগামীকাল, এখন চেম্বারে, ফি, হাসপাতালের নাম, লিঙ্গ (পুরোনো অ্যাপ পাঠায় না — তখন আগের মতো)
+      ...K.pickListFilters(b),
     };
     // নতুন ধরনের ডক (listed) আর আগের ভার্সনের ডক (active) — দুটোই সমান-সমান খোঁজ।
     // পুরো তালিকা আর ব্যাজ ২ মিনিট মেমোরিতে (প্রতিবার খোলায় হাজারখানেক পড়া নয়)
@@ -136,19 +139,33 @@ module.exports = {
     const all = new Map(cachedList.map(({ id, x }) => [id, M.docLike(id, x)]));
     // আগের ভার্সনের অ্যাপ (homeVisit পাঠায় না) সবাইকে বুক করতে দেয়, তাই তাকে শুধু অ্যাপয়েন্টমেন্ট নেওয়া মানুষ দেখানো
     const oldClient = b.homeVisit === undefined;
-    const docs = [...all.values()].filter((d) => {
+    // ছাঁকা হয় মেমোরির পুরো তালিকা থেকে প্রতিবার (ফার্মেসির ২৪ ঘণ্টার মতো) — এক ছাঁকনির ফল ক্যাশে ঢোকে না, আর
+    // "আজ/এখন" প্রতিবার এই মুহূর্তের ঢাকার সময়ে। তালিকা অতিথি, ডেমো আর আসল সবাই একই দেখেন (আগের মতো); ডেমো ↔ আসল
+    // আলাদা থাকে কাজে — book() sameWorld দেখে।
+    const now = Date.now();
+    const areaOnly = { district: f.district, upazilaId: f.upazilaId, unionId: f.unionId, hospitalId: f.hospitalId };
+    const pool = [...all.values()].filter((d) => {
       const x = d.data();
-      if (x.adminSuspended === true || !K.isListed(x) || !K.matchesFilter(x, f)) return false;
+      if (x.adminSuspended === true || !K.isListed(x) || !K.matchesFilter(x, areaOnly, now)) return false;
       if (oldClient && !(K.takesAppointments(x) && K.chambersOf(x).some((c) => c.appointments))) return false;
       if (b.homeVisit === true && !(x.homeVisit && x.homeVisit.enabled && x.homeVisitBlocked !== true)) return false;
       // শুধু বাসায় সেবা দেন (চেম্বার নেই) — চেম্বারের তালিকায় নয়, "বাসায় সেবা"-তে দেখান
       if (b.homeVisit !== true && !K.chambersOf(x).length) return false;
       return true;
     });
+    // বিশেষজ্ঞতার চিপ: এই এলাকার তালিকায় সত্যিই যেগুলো আছে (বিশেষজ্ঞতা/দিন/ফি ছাঁকার আগে), বেশি আগে; লিঙ্গ লেখা থাকলে তবেই লিঙ্গের ছাঁকনি
+    const spCount = new Map();
+    pool.forEach((d) => (d.get('specialties') || []).forEach((code) => spCount.set(code, (spCount.get(code) || 0) + 1)));
+    const facets = {
+      specialties: [...spCount.entries()].sort((a, c) => c[1] - a[1] || a[0].localeCompare(c[0])).map(([code, n]) => ({ code, n })),
+      gender: pool.some((d) => ['male', 'female'].includes(d.get('gender'))),
+    };
+    const docs = pool.filter((d) => K.matchesFilter(d.data(), f, now));
     // ব্যাজ বাতিল হলে তালিকায় নেই (উপরের মেমোরির তালিকাতেই বাদ)
-    const items = docs.map(provider);
+    // matched: কোন চেম্বারগুলো ছাঁকনিতে মিলেছে (কার্ডে সেটাই আগে দেখায়)
+    const items = docs.map((d) => ({ ...provider(d), matched: K.matchedChambers(d.data(), f, now) }));
     items.sort((p, q) => q.ratingCount - p.ratingCount || String(p.name).localeCompare(String(q.name)));
-    return { items: items.slice(0, 150) };
+    return { items: items.slice(0, 150), facets };
   },
 
   /** নিজের চেম্বারের তথ্য (না থাকলে null) */

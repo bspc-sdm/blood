@@ -245,12 +245,103 @@ function chamberMatches(c, f) {
   return true;
 }
 
-/** খোঁজার ফিল্টার: অন্তত একটা চেম্বার মিললেই; বিশেষজ্ঞতা মিলতে হবে */
-function matchesFilter(doc, f) {
+// ---------------------------------------------------------------
+// ডাক্তারের তালিকার ছাঁকনি (২.৩৩.০, পারভেজ): আজ/আগামীকাল বসছেন, এখন চেম্বারে, ফি, হাসপাতালের নাম, লিঙ্গ।
+// সব হিসাব ঢাকার সময়ে — বুকিং (appointments.book) আর সারির (queue.js) নিয়মের মতো: আজকের ভাগ শেষ = শুরু < শেষ আর এখন ≥ শেষ;
+// রাত পেরোনো ভাগ (১৬:০০–০১:০০) কখনো "আজ শেষ" নয়, আর মাঝরাতের পরে আগের দিনের সেই ভাগ "এখন চেম্বারে"।
+// ---------------------------------------------------------------
+const DAY_MS = 24 * 60 * 60 * 1000;
+const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
+/** ফি-র তালিকা (টাকা পর্যন্ত) — অ্যাপ আর ওয়েবের চিপের সাথে মেলানো; অন্য মানও চলে (১–১,০০,০০০) */
+const FEE_STEPS = [300, 500, 1000];
+
+/** ফি-র লেখা থেকে টাকা: "৫০০ টাকা" → 500, "৳1,000" → 1000, "৩০০–৫০০" → 300 (কমটা); "ফি চাই না" → 0; বোঝা না গেলে null */
+function feeAmount(c) {
+  if (!c) return null;
+  if (c.noFee === true) return 0;
+  const t = String(c.fee || '').replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d))).replace(/(\d),(?=\d{3})/g, '$1');
+  const m = t.match(/\d+/);
+  return m ? Number(m[0]) : null;
+}
+
+/** আজকের এই ভাগ কি শেষ (রাত পেরোনো ভাগ কখনো নয়) — book()-এর over-এর মতো */
+const slotOver = (t, hhmm) => !!(t.start && t.end && t.start < t.end && hhmm >= t.end);
+
+/** এখন (ঢাকা) চেম্বারে বসে আছেন কি না: আজকের ভাগের ভেতরে, বা গতকালের রাত পেরোনো ভাগ এখনো চলছে */
+function chamberNowOpen(c, now = Date.now()) {
+  const today = R.todayDhakaUtcMidnight(now);
+  const t = dhakaHHMM(now);
+  const ok = (x) => TIME_RE.test(x.start || '') && TIME_RE.test(x.end || '');
+  for (const x of chamberTimesOn(c, today)) {
+    if (!ok(x)) continue;
+    if (x.start < x.end ? t >= x.start && t < x.end : t >= x.start) return true;
+  }
+  for (const x of chamberTimesOn(c, today - DAY_MS)) {
+    if (ok(x) && x.start >= x.end && t < x.end) return true;
+  }
+  return false;
+}
+
+/** আজ বসছেন: আজ চেম্বারের বার আর আজকের সব ভাগ এখনো শেষ নয় (তখনই আজকের সিরিয়াল নেওয়া যায়), অথবা এখন চেম্বারে */
+function chamberToday(c, now = Date.now()) {
+  const today = R.todayDhakaUtcMidnight(now);
+  if (chamberOpenOn(c, today)) {
+    const slots = chamberTimesOn(c, today);
+    const t = dhakaHHMM(now);
+    if (!slots.length || !slots.every((x) => slotOver(x, t))) return true;
+  }
+  return chamberNowOpen(c, now);
+}
+
+/** আগামীকাল (ঢাকার) চেম্বারের বার */
+function chamberTomorrow(c, now = Date.now()) {
+  return chamberOpenOn(c, R.todayDhakaUtcMidnight(now) + DAY_MS);
+}
+
+/** হাসপাতাল/চেম্বারের নাম মেলানোর জন্য: ছোট হাতের, বিরামচিহ্ন ছাড়া, এক ফাঁকা */
+// NFC: য়/ড়/ঢ় এক অক্ষরে বা দুই অক্ষরে (য + ়) লেখা — দুটোই একই রূপে
+const nameNorm = (v) => String(v || '').normalize('NFC').toLowerCase().replace(/[()[\]{},.;:'"\-–—/]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** চেম্বার-ভিত্তিক সব শর্ত একই চেম্বারে মিলতে হয় (যেমন "আজ" আর "৳৩০০ পর্যন্ত" — একই চেম্বারে আজ আর ফি ৩০০) */
+function chamberPasses(c, f, now = Date.now()) {
+  if (!chamberMatches(c, f)) return false;
+  if (f.hospitalQ && ![c.hospitalName, c.hospitalNameBn, c.address].some((n) => nameNorm(n).includes(f.hospitalQ))) return false;
+  if (f.day === 'today' && !chamberToday(c, now)) return false;
+  if (f.day === 'tomorrow' && !chamberTomorrow(c, now)) return false;
+  if (f.openNow && !chamberNowOpen(c, now)) return false;
+  if (f.maxFee != null) {
+    const a = feeAmount(c);
+    if (a == null || a > f.maxFee) return false;
+  }
+  return true;
+}
+
+/** কোন কোন চেম্বার সব শর্তে মেলে (ক্রম); চেম্বারের কোনো শর্ত না থাকলে সব */
+function matchedChambers(doc, f, now = Date.now()) {
+  return chambersOf(doc).map((c, i) => (chamberPasses(c, f, now) ? i : -1)).filter((i) => i >= 0);
+}
+
+/** খোঁজার ছাঁকনি থেকে চেম্বারের শর্ত আছে কি না (না থাকলে চেম্বার ছাড়া মানুষও মেলে — আগের মতো) */
+const hasChamberFilter = (f) => !!(f.hospitalId || f.district || f.upazilaId || f.unionId || f.hospitalQ || f.day || f.openNow || f.maxFee != null);
+
+/** খোঁজার ফিল্টার: বিশেষজ্ঞতা আর লিঙ্গ মানুষের; বাকি সব অন্তত একটা চেম্বারে একসাথে মিলতে হবে */
+function matchesFilter(doc, f, now = Date.now()) {
   if (f.specialty && !(doc.specialties || []).includes(f.specialty)) return false;
-  const any = f.hospitalId || f.district || f.upazilaId || f.unionId;
-  if (!any) return true;
-  return chambersOf(doc).some((c) => chamberMatches(c, f));
+  if (f.gender && doc.gender !== f.gender) return false;
+  if (!hasChamberFilter(f)) return true;
+  return matchedChambers(doc, f, now).length > 0;
+}
+
+/** অনুরোধের body থেকে নতুন ছাঁকনি (ভুল বা অজানা মান = নেই; পুরোনো অ্যাপ পাঠায় না) */
+function pickListFilters(b) {
+  const q = nameNorm(typeof b.hospitalQ === 'string' ? b.hospitalQ.slice(0, 60) : '');
+  return {
+    day: ['today', 'tomorrow'].includes(b.day) ? b.day : null,
+    openNow: b.openNow === true,
+    maxFee: Number.isInteger(b.maxFee) && b.maxFee > 0 && b.maxFee <= 100000 ? b.maxFee : null,
+    hospitalQ: q.length >= 2 ? q : null,
+    gender: ['male', 'female'].includes(b.gender) ? b.gender : null,
+  };
 }
 
 function homeServicesFor(type) {
@@ -523,6 +614,13 @@ module.exports = {
   scheduleText,
   takesAppointments,
   matchesFilter,
+  matchedChambers,
+  pickListFilters,
+  feeAmount,
+  chamberNowOpen,
+  chamberToday,
+  chamberTomorrow,
+  FEE_STEPS,
   parseHomeVisit,
   visitExpired,
 };
