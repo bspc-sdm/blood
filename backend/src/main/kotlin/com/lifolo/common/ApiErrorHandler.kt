@@ -37,7 +37,7 @@ class ApiErrorHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class, HttpMediaTypeNotSupportedException::class)
     fun badBody(req: HttpServletRequest): ResponseEntity<Map<String, Any?>> =
-        envelope(400, Lang.tr(Lang.of(req), "Invalid request", "অনুরোধ ঠিক নেই"), null, Lang.of(req))
+        envelope(400, Lang.tr(Lang.of(req), "Invalid request", "অনুরোধ ঠিক নেই"), null, Lang.of(req)) // bn-ok
 
     @ExceptionHandler(Exception::class)
     fun other(e: Exception, req: HttpServletRequest): ResponseEntity<Map<String, Any?>> {

@@ -1,9 +1,10 @@
 name: Backend (Spring Boot)
 
 # Kotlin + Spring Boot backend in backend/. Builds and runs all tests (Testcontainers: PostgreSQL 16, Redis 7).
+# Package branches (spring-p1 … spring-p6, see backend/docs/PHASE2-PLAN.md) run the same build; each publishes its own log branch.
 on:
   push:
-    branches: [spring]
+    branches: [spring, "spring-p*"]
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
@@ -37,6 +38,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Bangla texts must be byte-for-byte copies of the Node source ("য়" has two spellings)
+      - name: Bangla text check
+        run: python3 scripts/check-bangla.py 2>&1 | tee "$RUNNER_TEMP/bangla.log"
+
       - name: Build and test
         run: |
           set -o pipefail
@@ -64,17 +69,22 @@ jobs:
           head -1 "$RUNNER_TEMP/tests.txt" || true
           cat "$RUNNER_TEMP/tests.txt" >> "$GITHUB_STEP_SUMMARY" || true
 
-      # Build logs are also pushed to the spring-ci-log branch (readable without the Actions log download).
+      # Build logs are also pushed to a log branch (readable without the Actions log download):
+      #   spring → spring-ci-log, any other branch X (spring-p1 …) → ci-log-X
       - name: Publish build log
         if: always() && github.event_name != 'pull_request'
         working-directory: ${{ github.workspace }}
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
+          if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
           mkdir -p "$RUNNER_TEMP/out"
           cp "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/out/" 2>/dev/null || true
           cp "$RUNNER_TEMP/tests.txt" "$RUNNER_TEMP/out/" 2>/dev/null || true
-          echo "${GITHUB_SHA} ${{ job.status }}" > "$RUNNER_TEMP/out/status.txt"
+          cp "$RUNNER_TEMP/bangla.log" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          echo "${GITHUB_SHA} ${{ job.status }} ${BRANCH}" > "$RUNNER_TEMP/out/status.txt"
           cd "$RUNNER_TEMP/out"
           git init -q && git checkout -q -b out
           git config user.name ci && git config user.email ci@users.noreply.github.com
           git add -A && git commit -qm "backend CI ${GITHUB_SHA}"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:spring-ci-log
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:"$LOG_BRANCH"
