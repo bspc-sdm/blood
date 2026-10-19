@@ -13,7 +13,12 @@ BASE_URL বদলালেই নতুন সার্ভারে চলব�
 | ব্যাকগ্রাউন্ড কাজ | JobRunr (PostgreSQL-এ রাখে) |
 | ত্রুটি দেখা | Sentry (`SENTRY_DSN` না দিলে বন্ধ) |
 
-**অবস্থা (ধাপ ১ + P6-kernel):** ভিত্তি তৈরি — `/api/health`, `/api/auth/send-code`, `/api/auth/verify-code` (ডেমো লগইন আর ওয়েব প্যানেলের
+**অবস্থা (ধাপ ২ শেষ):** Node সার্ভারের সব ২২৫টা `/api/community` action, বাকি ১১টা HTTP endpoint, দৈনিক ক্রনের ১৫টার মধ্যে
+১২টা ধাপ (বাকি ৩টা ইচ্ছে করে বাদ — Firestore-এর একবারের রক্ষণাবেক্ষণ), অ্যাকাউন্ট মোছা আর পুরো ডেমো জগৎ Spring-এ চলে
+([docs/PHASE2-PLAN.md → Phase 2 complete](docs/PHASE2-PLAN.md#phase-2-complete), Node-এর সাথে ইচ্ছাকৃত পার্থক্যসহ)। পরের ধাপ: পুরোনো
+e2e টেস্ট Spring-এর বিপরীতে চালানো, তারপর VPS-এ বসানো।
+
+**আগের অবস্থা (ধাপ ১ + P6-kernel):** ভিত্তি তৈরি — `/api/health`, `/api/auth/send-code`, `/api/auth/verify-code` (ডেমো লগইন আর ওয়েব প্যানেলের
 কুকিসহ), `/api/community`-র dispatcher (অতিথি, ওয়েব প্যানেল, কেয়ারগিভার, অ্যাডমিন লগ — Node-এর মতো একই ক্রমে),
 `profile_get`, `profile_update`, `web_logout`, পুরো ডাটাবেস স্কিমা, আর সবার ব্যবহারের kernel ও contracts (§৮)। বাকি ২২২টা action ধাপ ২-এ —
 [docs/PHASE2-PLAN.md](docs/PHASE2-PLAN.md)।

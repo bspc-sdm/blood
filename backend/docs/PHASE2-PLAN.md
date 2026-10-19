@@ -1,4 +1,4 @@
-# Phase 2 plan — porting the remaining 222 actions
+# Phase 2 plan — porting the remaining 222 actions (done)
 
 Phase 1 (this branch) delivered the foundation: schema (V1–V7, all tables already exist), the `/api/community` dispatcher with
 the Node rules, auth endpoints, `profile_get`/`profile_update`/`web_logout`, and shared services. Phase 2 ports everything else
@@ -330,6 +330,20 @@ here. Do not edit other packages' files.
 
 ## P6 — Platform, trust & admin (`users`, `notify`, `admin`, `demo`, `jobs`) — 34 actions
 
+> **Status: done (`spring-p6` → `spring`).** All 34 actions: `users` (`AccountDeletion.kt`: the deletion orchestrator +
+> `PlatformDeletionStep` order 600, `PhoneActions.kt`), `notify` (`InboxActions.kt`: bell list + devices), `admin`
+> (`ModerationActions`, `VerifyActions`, `SupportActions`, `AdminWebActions`, `UserActivity`, `AdminPanelActions` incl.
+> `admin_overview`, `catalog_get`, `admin_catalog_set`), `demo` (`DemoSeeder` = `DemoSeedContext` + seed/wipe/status, and the
+> parts the packages left: `DemoServices` (step 2, before P5's ambulances: pharmacies "লাইফ ফার্মেসি" 24 h, stock, orders on
+> `demo-svc-rx-*`, finds, labs + prices, home care, the reports incl. "মমতা"), `DemoRx` (step 4: doctors, chambers until
+> 01:00, appointments, the queue, prescriptions, pharmacy/lab orders, reviews), `DemoHealth` (step 5: Q&A, tips, badges,
+> reports, caregivers, family, tickets, the correction request, the bell list)). Daily steps 6, 10, 11; the 15-step order is
+> complete (see API-INVENTORY.md). Migration `V601__p6_platform.sql` (`ticket_messages.by_email` + indexes). Additive kernel
+> changes: `DemoSeedPart.order`, `IdentityProvider.listUsers` + `AuthAccount.createdAtMs/lastSeenAtMs` (admin statistics).
+> Tests: `DeletionIT` (deletion + doctorpatients), `InboxDevicesIT`, `SupportIT`, `ModerationIT`, `AdminPanelIT`, `DemoIT`
+> (demo + demo-health incl. the caregiver journey), `DemoServicesIT` (demo-services, demo-pharmacy, demo-night's
+> time-independent part), `DemoRxIT` (demo-rx, demo-lab).
+
 * **Node:** `account.js` (schedule/runDue/deleteNow), `phone.js`, `inbox.js`, `devices.js`, `moderation.js`, `sanctions.js`,
   `verify.js`, `listingreview.js`, `sellerstats.js`, `support.js`, `adminweb.js`, `useractivity.js`, `catalog.js`
   (+ `data/catalog-defaults.json`), `demo/index.js`, `admin_*` parts of `api/community.js` (`admin_list/add/remove`, `admin_overview`).
@@ -355,6 +369,57 @@ here. Do not edit other packages' files.
   disabling an account = Firebase `updateUser(disabled)` + `revokeRefreshTokens` + `accounts.disabled_reason`.
 
 ---
+
+## Phase 2 complete
+
+All six packages are merged into `spring`: **225 / 225 `/api/community` actions, 11 / 11 other HTTP endpoints (+ share
+rewrites), the daily cron in the Node order (12 of 15 steps; 7, 15 and the backfill half of 14 dropped on purpose), the
+account-deletion steps of every package (orders 100–600) and the whole demo world** (blood → services → shop books →
+doctors & prescriptions → health, Gazipur). Migrations: V1–V7, V100, V200, V300, V400, V500, V600, V601 (a fresh database
+applies them in that order; nothing was ever deployed, so no `outOfOrder`).
+
+**Intentional differences from Node** (collected from the package status lines above; everything else is meant to be
+byte-for-byte the same — paths, actions, fields, status codes, Bangla/English texts):
+
+*Storage and caches*
+* Firestore → PostgreSQL (SCHEMA.md). Legacy collections nothing writes any more (`homeVisits`, `medOrders`,
+  `medOrderPhotos`, `serverState.homeVisitBanned`) are not mapped: account deletion skips them, `admin_user` shows
+  `homeVisitBanned: false`.
+* Per-instance memory caches are gone or moved: the guest answer cache (60 s) stays; the guest request cell cache
+  (`guestreq:`, P1), the queue's 15 s patient view (P2) and the lab list/price/test-catalogue caches (P3) are not ported
+  (always fresh); the catalog is a Spring Cache entry (5 min, evicted on save) instead of a reload before every request;
+  the admin statistics cache (30 min) lives in Redis instead of `serverState/_adminStats`.
+* Push tokens are rows of `device_tokens` (≤ 5 per account, newest kept, a phone moves to the account that registers it
+  last) instead of `users.fcmTokens/fcmToken` — the same behaviour.
+* Shop-books quantities are `NUMERIC(…, 2)`; P4 re-points shop/stock/missed FKs to `accounts` and keeps orders, finds and
+  calls when a pharmacy listing is removed (as Node does).
+
+*Behaviour*
+* Ambulance requests: the lazy `advance()` on every read is kept, plus a JobRunr minute job (`ambulance-timers`) that
+  advances open requests and runs the "still available?" search, so pushes go out on time even when nobody reads (P5).
+* Daily cron: the dropped steps' keys (`geo`, `stockPrices`, `privacy.rxOrderBackfill`, `privacy.salePatientNames`) are not
+  in the response; a failing step answers `null` instead of Node's default.
+* Account deletion runs per package (`AccountDeletionStep`, orders 100–600). A failing step is logged and the rest
+  continue; deleting the `accounts` row then cascades whatever remains (Node aborted on some failures and retried the next
+  day). The Firebase Auth user is deleted last, like Node.
+* Demo: a seeding step runs in one database transaction (a failure leaves no half-written rows; background people that
+  already got an Auth account are put on the wipe list). `admin_demo_status`/`admin_demo_seed` `docs` counts the demo rows
+  (every table with `is_demo` + tracked rows) instead of Firestore document paths. Background people's Auth accounts have
+  no email (as in Node).
+* `admin_user_section`: SQL needs no collection-group index, so `responsesNote`/`emergenciesNote`/`answersNote` are always
+  `""`. `admin_user_find` treats an invalid email like "not found".
+* `admin_ticket_reply` keeps the admin's email per message (`ticket_messages.by_email`) — not shown to anyone, like Node.
+
+*Not ported (by design)*: daily step 7 (geohash maintenance — SQL partial indexes and `donor_geo` on write replace it), the
+one-off backfills of steps 14/15, the `demo: true` marker on every seeded document (`is_demo` / the demo manifest instead).
+
+**Risks before cutover**
+* Only the Node unit/integration tests were ported; the e2e suites (`e2e/`, Maestro, web) have not run against Spring yet.
+* Firebase Admin calls that the fakes do not exercise for real: `listUsers` paging (admin statistics), user metadata
+  (`createdAt`/`lastSeenAt`), `revokeRefreshTokens`, custom tokens — check once with the real service account.
+* The SMS gateway (`SMS_URL_TEMPLATE`) is only tested switched off; R2 storage for photos is not used yet (base64 in
+  `verify_docs.data`, `lab_report_photos.data`, profile photos).
+* Admin overview / stats run many small queries; fine for today's data, worth an index review with production volumes.
 
 ## After phase 2
 
