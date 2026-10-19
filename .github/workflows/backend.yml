@@ -1,0 +1,43 @@
+name: Backend (Spring Boot)
+
+on:
+  push:
+    branches: [spring]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Latest versions on Maven Central
+        run: |
+          meta() { curl -fsSL "https://repo1.maven.org/maven2/$1/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -i 'rc\|m[0-9]\|alpha\|beta\|snapshot\|cr[0-9]' | tail -${2:-6} | tr '\n' ' '; echo; }
+          echo "boot 3.5: $(curl -fsSL https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/maven-metadata.xml | grep -o '<version>3\.5\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
+          for a in org/jetbrains/kotlin/kotlin-gradle-plugin org/jobrunr/jobrunr-spring-boot-3-starter com/bucket4j/bucket4j_jdk17-core com/bucket4j/bucket4j_jdk17-lettuce com/google/firebase/firebase-admin io/sentry/sentry-spring-boot-starter-jakarta software/amazon/awssdk/bom io/mockk/mockk com/ninja-squad/springmockk org/testcontainers/testcontainers; do echo "$a: $(meta $a)"; done
+          echo "springdoc 2.8: $(curl -fsSL https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-starter-webmvc-ui/maven-metadata.xml | grep -o '<version>2\.8\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
+          echo "gradle: $(curl -fsSL https://services.gradle.org/versions/current | grep -o '"version" : "[^"]*"')"
+      - name: Inspect APIs
+        run: |
+          set -x
+          V=$(curl -fsSL https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
+          curl -fsSLo b4l.jar https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/$V/bucket4j_jdk17-lettuce-$V.jar
+          unzip -l b4l.jar | grep class
+          for c in $(unzip -l b4l.jar | grep -o 'io/github/bucket4j/redis/lettuce/[A-Za-z/$]*\.class' | grep -v '\$' ); do javap -cp b4l.jar ${c%.class} | grep -i 'public static\|public .*builder\|withExpiration\|build(' ; done
+          V2=$(curl -fsSL https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-core/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
+          curl -fsSLo b4c.jar https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-core/$V2/bucket4j_jdk17-core-$V2.jar
+          javap -cp b4c.jar io.github.bucket4j.distributed.ExpirationAfterWriteStrategy | head -20
+          javap -cp b4c.jar io.github.bucket4j.distributed.proxy.ProxyManager | head -20
+          javap -cp b4c.jar io.github.bucket4j.distributed.proxy.RemoteBucketBuilder | head -20
+          javap -cp b4c.jar io.github.bucket4j.BucketConfiguration | head; javap -cp b4c.jar io.github.bucket4j.Bandwidth | head -30
+          javap -cp b4c.jar io.github.bucket4j.distributed.BucketProxy | head -10
+          J=$(curl -fsSL https://repo1.maven.org/maven2/org/jobrunr/jobrunr/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
+          curl -fsSLo jr.jar https://repo1.maven.org/maven2/org/jobrunr/jobrunr/$J/jobrunr-$J.jar
+          javap -cp jr.jar org.jobrunr.jobs.annotations.Recurring
+          javap -cp jr.jar org.jobrunr.scheduling.JobScheduler | grep -i 'enqueue\|schedule' | head
