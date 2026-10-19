@@ -1,6 +1,8 @@
 package com.lifolo.common
 
+import jakarta.validation.constraints.Min
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.validation.annotation.Validated
 
 /**
  * All app settings (application.yml → `lifolo.*`, filled from env vars).
@@ -8,6 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * SMS_URL_TEMPLATE, GMAIL_* (→ SES here).
  */
 @ConfigurationProperties(prefix = "lifolo")
+@Validated
 data class LifoloProperties(
     /** comma-separated owner emails; empty → DEFAULT_OWNERS (admin.js DEFAULT_ADMINS) */
     val adminEmails: String = "",
@@ -20,6 +23,7 @@ data class LifoloProperties(
     val smsUrlTemplate: String = "",
     /** public origin used in share links / QR codes */
     val publicBaseUrl: String = "https://blood-server-ashy.vercel.app",
+    @field:Min(1)
     val guestRatePerMinute: Long = 240,
     val firebase: Firebase = Firebase(),
     val ses: Ses = Ses(),
