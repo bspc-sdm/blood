@@ -198,6 +198,12 @@ here. Do not edit other packages' files.
 
 ## P2 — Doctors, community content & caregivers (`appointments`, `homecare`, `care`, `content`) — 42 actions
 
+* **Status: done (`spring-p2` → `spring`).** All 42 actions, cron step 3 (`care`, `AppointmentReminders`), the P2 contracts
+  (baselines replaced: `BadgeLookup`, `ProviderAssistantsStore`, `ChambersStore`, `HospitalDirectoryStore`, `ApptCancel`
+  = ProviderSuspension, `CommunityActions` = ContentModeration), `P2AccountDeletion` (AccountDeletionStep order 200),
+  migration `V200__p2_doctors_content.sql`. Not yet: the P2 `DemoSeedPart` (demo/rx.js appointments are referenced by
+  P3's demo prescriptions — to be done with P6-rest). The queue's 15 s patient-view memory cache is not ported (always fresh).
+
 * **Node:** `appointments.js`, `queue.js`, `apptcancel.js`, `reminders.js`, `homecare.js`, `care.js` (chamber/schedule/filter helpers),
   `careaccess.js`, `hospitals.js` + `hospital-match.js` + `hospital-dir.js` + `dghs.js`, badge + Q&A + tips parts of
   `api/community.js`, `community-db.js`.
