@@ -67,6 +67,8 @@ class FakeIdentityProvider : IdentityProvider {
         var disabled: Boolean = false,
         var revoked: Boolean = false,
         var displayName: String? = null,
+        var createdAt: Long = System.currentTimeMillis(),
+        var lastSeenAt: Long? = null,
     )
 
     val users = ConcurrentHashMap<String, User>()
@@ -101,7 +103,7 @@ class FakeIdentityProvider : IdentityProvider {
         return DecodedToken(u.uid, u.email, u.emailVerified)
     }
 
-    private fun User.account() = AuthAccount(uid, email, emailVerified, disabled)
+    private fun User.account() = AuthAccount(uid, email, emailVerified, disabled, createdAt, lastSeenAt)
 
     override fun getUser(uid: String): AuthAccount =
         users[uid]?.account() ?: throw IdentityException(IdentityException.Kind.USER_NOT_FOUND)
@@ -136,6 +138,9 @@ class FakeIdentityProvider : IdentityProvider {
     override fun deleteUser(uid: String) {
         users.remove(uid)
     }
+
+    override fun listUsers(pageToken: String?): com.lifolo.auth.AuthUserPage =
+        com.lifolo.auth.AuthUserPage(users.values.sortedBy { it.uid }.map { it.account() }, null)
 }
 
 class FakeMailSender : MailSender {

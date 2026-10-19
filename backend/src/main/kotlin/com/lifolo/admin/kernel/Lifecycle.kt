@@ -70,6 +70,9 @@ interface DemoSeedPart {
     val step: Int
     val label: String
 
+    /** within one [step]: lower runs first (demo/services.js order: shops and labs before the ambulances) */
+    val order: Int get() = 0
+
     fun seed(ctx: DemoSeedContext)
 }
 

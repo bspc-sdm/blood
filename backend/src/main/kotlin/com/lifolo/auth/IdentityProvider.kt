@@ -13,7 +13,14 @@ data class AuthAccount(
     val email: String?,
     val emailVerified: Boolean,
     val disabled: Boolean,
+    /** Auth metadata creationTime (ms), when known */
+    val createdAtMs: Long? = null,
+    /** max(lastRefreshTime, lastSignInTime) (ms), when known */
+    val lastSeenAtMs: Long? = null,
 )
+
+/** one page of [IdentityProvider.listUsers] */
+data class AuthUserPage(val users: List<AuthAccount>, val nextPageToken: String?)
 
 class IdentityException(val kind: Kind, message: String? = null, cause: Throwable? = null) :
     RuntimeException(message ?: kind.name, cause) {
@@ -34,4 +41,8 @@ interface IdentityProvider {
     fun revokeRefreshTokens(uid: String)
     fun createCustomToken(uid: String): String
     fun deleteUser(uid: String)
+
+    /** admin.auth().listUsers(1000, pageToken) — the admin panel's user statistics (adminweb.js authStats) */
+    fun listUsers(pageToken: String?): AuthUserPage =
+        throw IdentityException(IdentityException.Kind.OTHER, "listUsers is not supported")
 }

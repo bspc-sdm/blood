@@ -73,7 +73,12 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
         else -> IdentityException.Kind.OTHER
     }
 
-    private fun UserRecord.toAccount() = AuthAccount(uid, email, isEmailVerified, isDisabled)
+    private fun UserRecord.toAccount(): AuthAccount {
+        val m = userMetadata
+        val created = m?.creationTimestamp?.takeIf { it > 0 }
+        val seen = listOf(m?.lastRefreshTimestamp ?: 0L, m?.lastSignInTimestamp ?: 0L).max().takeIf { it > 0 }
+        return AuthAccount(uid, email, isEmailVerified, isDisabled, created, seen)
+    }
 
     override fun verifyIdToken(token: String, checkRevoked: Boolean): DecodedToken = call {
         val t = auth.verifyIdToken(token, checkRevoked)
@@ -107,6 +112,11 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
     override fun createCustomToken(uid: String): String = call { auth.createCustomToken(uid) }
 
     override fun deleteUser(uid: String) = call { auth.deleteUser(uid) }
+
+    override fun listUsers(pageToken: String?): AuthUserPage = call {
+        val page = auth.listUsers(pageToken, 1000)
+        AuthUserPage(page.values.map { it.toAccount() }, page.nextPageToken?.takeIf { it.isNotEmpty() && page.hasNextPage() })
+    }
 }
 
 /** Used when Firebase is not configured: every token is invalid, every admin call fails. */
