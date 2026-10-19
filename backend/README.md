@@ -13,9 +13,9 @@ BASE_URL বদলালেই নতুন সার্ভারে চলব�
 | ব্যাকগ্রাউন্ড কাজ | JobRunr (PostgreSQL-এ রাখে) |
 | ত্রুটি দেখা | Sentry (`SENTRY_DSN` না দিলে বন্ধ) |
 
-**অবস্থা (ধাপ ১):** ভিত্তি তৈরি — `/api/health`, `/api/auth/send-code`, `/api/auth/verify-code` (ডেমো লগইন আর ওয়েব প্যানেলের
+**অবস্থা (ধাপ ১ + P6-kernel):** ভিত্তি তৈরি — `/api/health`, `/api/auth/send-code`, `/api/auth/verify-code` (ডেমো লগইন আর ওয়েব প্যানেলের
 কুকিসহ), `/api/community`-র dispatcher (অতিথি, ওয়েব প্যানেল, কেয়ারগিভার, অ্যাডমিন লগ — Node-এর মতো একই ক্রমে),
-`profile_get`, `profile_update`, `web_logout`, পুরো ডাটাবেস স্কিমা। বাকি ২২২টা action ধাপ ২-এ —
+`profile_get`, `profile_update`, `web_logout`, পুরো ডাটাবেস স্কিমা, আর সবার ব্যবহারের kernel ও contracts (§৮)। বাকি ২২২টা action ধাপ ২-এ —
 [docs/PHASE2-PLAN.md](docs/PHASE2-PLAN.md)।
 
 দরকারি কাগজ: [docs/API-INVENTORY.md](docs/API-INVENTORY.md) (প্রতিটা endpoint আর action-এর তালিকা),
@@ -50,7 +50,8 @@ backend/
 │   ├── users/                  ← accounts, প্রোফাইল (UserProfile = Eloquent model-এর মতো JPA entity), মোছা বাতিল
 │   ├── notify/                 ← পুশ + inbox (PushService), ইমেইল (SES), SSE hub
 │   ├── care/                   ← কেয়ারগিভার (রোগীর হয়ে কাজ)
-│   ├── admin/                  ← অ্যাডমিন লগ
+│   ├── admin/                  ← অ্যাডমিন লগ; admin/kernel/: রিপোর্ট, নিষেধাজ্ঞা, কাগজ যাচাই, অনুমোদন, ফোনের হিসাব, তালিকা (সবার জন্য)
+│   ├── contracts/              ← এক প্যাকেজ আরেকটার যা ব্যবহার করে তার interface (+ অস্থায়ী class, TODO(Pn))
 │   ├── demo/                   ← ডেমো জগৎ (demo- uid), ডেমো লগইন
 │   ├── jobs/                   ← দৈনিক কাজ (app/Console/Kernel.php-এর schedule) — JobRunr + /api/cron/daily
 │   └── blood/ appointments/ rx/ pharmacy/ books/ lab/ ambulance/ homecare/ content/
@@ -171,8 +172,9 @@ curl localhost:8080/api/health
 * টেস্টে Firebase, SES আর FCM নকল (`src/test/kotlin/com/lifolo/support/TestInfra.kt`): টোকেন = uid (Node-এর fakefb.js-এর মতো),
   ইমেইলের কোড `mail.lastCode(email)` দিয়ে পড়া যায়।
 * প্রতিটা টেস্টের আগে সব টেবিল খালি আর Redis খালি হয়।
-* GitHub Actions: `.github/workflows/backend.yml` — `spring` branch-এ push করলে আর `backend/` বদলানো PR-এ
-  `./gradlew build` চলে। লগ আর টেস্টের সারাংশ `spring-ci-log` branch-এও যায় (`build.log`, `tests.txt`)।
+* GitHub Actions: `.github/workflows/backend.yml` — `spring` আর `spring-p*` branch-এ push করলে আর `backend/` বদলানো PR-এ
+  আগে "য়" পরীক্ষা (`scripts/check-bangla.py`), তারপর `./gradlew build` চলে। লগ আর টেস্টের সারাংশ আলাদা branch-এ যায়
+  (`status.txt`, `build.log`, `tests.txt`, `bangla.log`): `spring` → `spring-ci-log`, `spring-p3` → `ci-log-spring-p3` (নিচে §৮)।
 * API-র তালিকা (OpenAPI): `/api/docs` (JSON), `/api/docs/ui`। স্বাস্থ্য: `/api/health`, `/actuator/health`।
 
 ## ৬. Env vars
@@ -204,3 +206,30 @@ IP-সীমা এটা দেখেই হয়।
 * Node-এর মেমোরি cache (memcache) → এখানে Redis/Spring Cache, কারণ একাধিক সার্ভার চলতে পারে।
 * ডেমো (`demo-…` uid) আর আসল ব্যবহারকারী কখনো একে অপরকে দেখবেন না/নোটিফিকেশন পাবেন না।
 * `server/`, `app/`, `web/` এই branch-এ বদলানো হয় না; cutover পর্যন্ত Vercel-এর Node সার্ভারই চালু।
+
+## ৮. প্যাকেজ ভাগ করে একসাথে কাজ (ধাপ ২)
+
+ধাপ ২-এর কাজ ছয় ভাগে (P1 রক্ত, P2 ডাক্তার/কন্টেন্ট/কেয়ারগিভার, P3 প্রেসক্রিপশন/ল্যাব, P4 ফার্মেসি/হিসাবের খাতা, P5 অ্যাম্বুলেন্স,
+P6 প্ল্যাটফর্ম/অ্যাডমিন) — বিস্তারিত [docs/PHASE2-PLAN.md](docs/PHASE2-PLAN.md)। সবার লাগে এমন জিনিস (রিপোর্ট, নিষেধাজ্ঞা,
+কাগজ যাচাই, অ্যাডমিনের অনুমোদন, ফোনের হিসাব, বাছাইয়ের তালিকা) আগেই তৈরি — `com.lifolo.admin.kernel`। এক প্যাকেজ আরেক
+প্যাকেজের যা ব্যবহার করে তার interface `com.lifolo.contracts`-এ; পাশে একটা অস্থায়ী class (`TODO(Pn)`), যেটা মালিক প্যাকেজ
+নিজের class দিয়ে বদলাবে। তালিকা: PHASE2-PLAN.md-এর "Contracts ready for parallel work"।
+
+প্রতিটা প্যাকেজ নিজের branch-এ:
+
+1. `spring` থেকে নিজের branch: `git fetch origin && git checkout -b spring-p3 origin/spring` (P1 হলে `spring-p1` …)।
+2. শুধু নিজের প্যাকেজ, নিজের টেস্ট আর নিজের migration (`V300__p3_….sql` — P3 হলে ৩০০ থেকে) বদলান। অন্যের ফাইল নয়।
+3. push করার আগে: `python3 backend/scripts/check-bangla.py` (বাংলা লেখা Node-এর ফাইল থেকে হুবহু কপি কি না)।
+4. `git push origin spring-p3` — GitHub Actions নিজেই build আর সব টেস্ট চালায় (নিজের কম্পিউটারে Gradle/Docker লাগে না)।
+   ফল পড়ুন `ci-log-spring-p3` branch থেকে:
+   ```bash
+   git fetch -q origin ci-log-spring-p3 && git show FETCH_HEAD:status.txt   # "<commit> success|failure spring-p3"
+   git show FETCH_HEAD:tests.txt | head -40                                  # কতগুলো টেস্ট, কোনটা ভাঙল
+   ```
+   `status.txt`-এ নিজের শেষ commit না আসা পর্যন্ত অপেক্ষা করুন (`gh run list --branch spring-p3`)।
+5. সবুজ (success) হলে: `git fetch origin && git rebase origin/spring` → আবার push (`--force-with-lease`) → আবার সবুজ হলে
+   `git push origin spring-p3:spring` (শুধু fast-forward; আটকালে আবার rebase)। শেষে `spring-ci-log` সবুজ কি না দেখুন।
+6. অস্থায়ী class বদলানোর সময় একই commit-এ সেটা মুছে নিজেরটা বসান (একই interface-এর দুটো class থাকলে অ্যাপ চালু হয় না),
+   আর `ContractsIT`-এর টেস্টগুলো সবুজ রাখুন। interface-এ শুধু নতুন কিছু যোগ করা চলে; বদলাতে হলে যারা ব্যবহার করে তাদের সাথে
+   ঠিক করে PHASE2-PLAN.md-এ লিখুন।
+

@@ -154,7 +154,7 @@ class KernelIT : IntegrationTest() {
     }
 
     @Test
-    fun `approving needs the photos and every check; the approval stores verification and the snapshot`() {
+    fun `approving needs the photos and every check, the approval stores verification and the snapshot`() {
         user("own1", profile = mapOf("lang" to "en"))
         ambulance("amb1", "own1", "DHAKA METRO-CHA 11-2233", "pending", docs = listOf("reg", "front"))
         val checks = VerifySpec.checks("ambulance", null).map { it.id }
@@ -203,7 +203,7 @@ class KernelIT : IntegrationTest() {
     }
 
     @Test
-    fun `suspending bans vehicle and owner email; reinstating lifts it (sanctions)`() {
+    fun `suspending bans vehicle and owner email, reinstating lifts it (sanctions)`() {
         user("own2", profile = emptyMap(), email = "Driver@Example.com")
         ambulance("amb2", "own2", "ঢাকা মেট্রো-ছ ১১-২২৩৩", "approved")
         review.resolve(ctx(mapOf("status" to "suspended", "reason" to "ভুয়া")), "ambulance", "ambulances", "amb2")

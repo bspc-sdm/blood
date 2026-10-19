@@ -29,6 +29,9 @@ upazila centres), `Phones` (normalizeBd, contactPhone, normId, fixPhone), `Ids`,
 
 ## Shared contracts (owned by P6 — land them in P6's first PR, day 1)
 
+> **Done (P6-kernel step).** The sketch below was the plan; the real interfaces (same names, a few Node-faithful
+> parameter changes and extra methods) are listed in [Contracts ready for parallel work](#contracts-ready-for-parallel-work).
+
 Several packages need moderation, sanctions, verification documents, listing review and listing stats. P6 ports them first
 (from `moderation.js`, `sanctions.js`, `verify.js`, `listingreview.js`, `sellerstats.js`) behind these interfaces in
 `com.lifolo.admin.kernel`; the other packages code against the interfaces from day 1 and merge after P6's first PR:
@@ -74,6 +77,88 @@ interface DemoSeedPart {          // demo/blood.js, services.js, books.js, rx.js
 ```
 
 Merge order: **P6-kernel → (P1 … P5 in any order) → P6-rest** (the admin overview and demo seeding call into every package).
+
+## Contracts ready for parallel work
+
+The P6-kernel step is merged into `spring`: P1–P5 can now be built **at the same time**, each against the interfaces
+below, without waiting for each other. Every interface has a KDoc with the exact Node behaviour (source file named).
+
+**Kernel — `com.lifolo.admin.kernel` (implemented, tested; owner P6):**
+
+| Interface / object | Node | Used by |
+|---|---|---|
+| `Moderation` (`reportCount`, `assertNoOpenReports`, `reopenOnEdit`, `targetPath`) | moderation.js | P1 (blood banks), P2 (Q&A, tips, home-care stats), P4, P5 |
+| `Sanctions` (`checkListing`, `ban`, `unban`, `keepForEmail`, `forEmail`, `onStatusChange`, `listingKeys`, `emailKey`) | sanctions.js | P1, P2 (`forEmail(...)["homeCare"]` in `book`), P3, P4, P5 |
+| `VerifyDocs` (`validate`, `save`, `delete`, `deleteForOwner`, `ownerInfo`, `panelInfo`, `assertChecks`) + `VerifySpec` (DOCS/CHECKS, `cleanB64`) | verify.js | P1, P2 (badges), P3 (labs), P4, P5 |
+| `ListingReview` (`resolve`, `tellSuspendedByReport`, `possibleDuplicates`, `snapshot`, `changedFields`, `AMBULANCE_REMIND_AT_MS`) | listingreview.js | P1, P3, P4, P5 (`admin_*_resolve`, admin lists) |
+| `ListingRules` (`snapshot`, `changedFields`, `reviewNeeded`, `keepApproved`, `smallNameEdit`, `str`, `pickCodes`, `pickClosedDays`, `dhakaHHMM`, `openNow`) | listingreview.js, care.js | every listing save; `openNow` = care.js `pharmacyOpenNow` (P1 blood banks, P4) |
+| `ListingRows` + `ListingKind` (Node-shaped listing map from a row, data-field restore) | — | P1, P3, P4, P5 (pass `rows.load(kind, id)` to the services above) |
+| `ListingStats` (`bumpCall`, `addRecentRating`, `removeRecentRating`, `summary`, `recentComments`, `delete`) | sellerstats.js | P1 (`bloodbank`), P2 (`home`), P4 (`pharmacy`), P5 (`ambulance`) |
+| `Catalog` (`lists`, `codes`, `updatedAt`, `save`, `makeCode`) | catalog.js | P1 (`bloodBankService`), P2 (`specialty`, `homeService`), P5 (`ambulanceType`) |
+| `AccountDeletionStep` (`order`, `hide`, `deleteNow`) | account.js | every package adds one bean; P6-rest runs them |
+| `DemoSeedPart` / `DemoSeedContext` / `DemoSeed.near` | demo/index.js | every package adds its part; P6-rest implements the context |
+| `common.SqlSet` | (`ref.update({...})`) | anyone: dynamic `UPDATE … SET` with arrays/JSONB/`now()` |
+
+Differences from the sketch above: `ListingStats.bumpCall(kind, id, nowMs, newCaller)` (Node: the caller knows whether
+it is the first call, from its calls table); `VerifyDocs.validate` returns the clean photos; the pure helpers live in
+`ListingRules` (no Spring needed in unit tests). No catalog `ActionHook`: `Catalog.lists()` is a Spring Cache entry
+(`catalog`, 5 min, evicted by `save`) — the same freshness as Node's per-request reload, without a Redis read per request.
+`catalog_get` / `admin_catalog_set` and the moderation/verify **actions** stay with P6-rest.
+
+Migration `V600__p6_kernel.sql`: `mod_reports` statuses `open|dismissed|removed` (+ `reopened_at`, `reopen_reason`,
+`reported_role`, `reported_name`; the Node id is the key, the old UNIQUE was dropped), `suspended_at` on the four
+listing tables, `provider_assistants.position`, `providers.suspend_reason` also `'account'` (adminweb.js).
+
+**Cross-package contracts — `com.lifolo.contracts`:** the interface is the contract; the class next to it is a
+temporary implementation marked `TODO(Pn)`. *Baseline* = works on the phase-1 tables (tested in `ContractsIT`), so the
+consumers can test now; *stub* = throws `NotImplementedError` (nobody calls it before P6-rest).
+
+| Interface | Owner | Implementation now | Consumers |
+|---|---|---|---|
+| `Badges.approvedBadge(uid)` | P2 | baseline (`DoctorsBaseline.kt`) | P3, P6 |
+| `ProviderAssistants` (`emails`, `isAssistant`, `doctorsFor`, `set`) | P2 | baseline | P3 (`rx_team*`, acting for a doctor), P2 queue |
+| `Chambers` (`chambersOf`, `takesAppointments`, `chamberOpenOn`) + `Chamber`, `ChamberTime` | P2 | baseline | P3 (`rx_me`, follow-up booking, reviews), P6 |
+| `HospitalDirectory` (`findHospital`, `approvedIn`) + `Hospital` | P2 | baseline (bundled DGHS JSON + `hospitals`) | P1 (`admin_emergency_create`, `admin_hospitals`), P3 (`lab_save`), P5 |
+| `ProviderSuspension` (`suspendProvider`, `liftProvider`, `cancelStale`, `blockHomeCare`) | P2 | lift + blockHomeCare baseline; suspend/cancelStale **stub** | P6 (admin, moderation, deletion) |
+| `ContentModeration` (`removeQuestion`, `removeAnswer`, `removeTip`) | P2 | **stub** | P6 (`admin_report_resolve`) |
+| `Prescriptions` (`byCode`, `get`, `view`, `verify`, `setRefillAt`, `CODE_RE`, `normalizeCode`) + `Prescription`, `RxMedicine`, `RxDispensing` | P3 | baseline (`RxBaseline.kt`) | P4 (`rx_pharmacy_open`, `rx_dispense`, books), P1 (`/api/share?rx=`, `/rx/{code}`) |
+| `PatientHome.lastHome(uid)` | P3 | baseline | P4 (`pharmacies` with an rx) |
+| `RequestEnd` (`notifyEnded`, `donorLeft`, `releaseOthers`) | P1 | **stub** (`BloodStub.kt`) | P6 (account deletion) |
+
+Not contracts (checked against the Node `require`s): P1 `GeoQuery` (only blood uses geohash queries; P5 needs only
+`common.Geo.distanceKm`), P3 `LabCatalog` (only P3 reads lab-test templates), P4 (nothing of P4 is called by P1/P2/P3/P5;
+`pharmacyOpenNow` moved to `ListingRules.openNow`). P6-rest reads other packages' data through their
+`AccountDeletionStep`/`DemoSeedPart` beans and the contracts above; anything else it needs is added after P1–P5 merge.
+
+Table ownership across packages: prescriptions are written by P3 only, except dispensing — P4 inserts
+`prescription_dispensings` (+ items) and calls `Prescriptions.setRefillAt`; `provider_assistants` is written only through
+`ProviderAssistants.set` (P3's `rx_team_set`); `listing_stats*`, `verify_docs`, `sanctions` and `mod_reports` only through
+the kernel services.
+
+**Rules for the owners:** replace a baseline/stub by deleting its class **in the same commit** that adds your bean (two
+beans of one interface stop the app from starting); keep the `ContractsIT` cases green (move them to your tests if you
+reshape the data). Additive changes to an interface are fine; a breaking change needs the consumers' agreement — write it
+here. Do not edit other packages' files.
+
+## Branches and CI for parallel packages
+
+* Each package agent works on **its own branch `spring-pN` made from `spring`** (P6-rest uses `spring-p6`):
+  `git fetch origin && git checkout -b spring-p3 origin/spring` (worktree recommended).
+* Every push to `spring-p*` runs the same workflow as `spring` (Bangla text check + `./gradlew build` with Testcontainers).
+  Local Gradle/Docker are not needed. The result goes to the branch **`ci-log-spring-pN`**
+  (`spring` keeps `spring-ci-log`):
+  ```bash
+  git fetch -q origin ci-log-spring-p3 && git show FETCH_HEAD:status.txt   # "<sha> success|failure spring-p3"
+  git show FETCH_HEAD:tests.txt | head -40                                  # TOTAL … failed + failing tests with stack traces
+  git show FETCH_HEAD:build.log | grep -E '^e:|FAILED' | head               # compile errors
+  git show FETCH_HEAD:bangla.log                                            # "য়" check
+  ```
+  Wait until `status.txt` names your pushed commit (`gh run list --branch spring-p3` shows the run).
+* Before pushing, run `python3 backend/scripts/check-bangla.py` (no Gradle needed).
+* **Merging:** when your branch is green, `git fetch origin && git rebase origin/spring`, push (`--force-with-lease`), wait
+  for green again, then fast-forward `spring`: `git push origin spring-p3:spring`. If that push is rejected (another package
+  merged first), rebase again — `spring` only ever moves by fast-forward of a green branch. Then check `spring-ci-log`.
+* Migrations: `V{100·k + i}__p{k}_….sql` (P1 V100…, P2 V200…, …, P6 V600…); never edit a migration that is already on `spring`.
 
 ---
 
@@ -219,7 +304,7 @@ Merge order: **P6-kernel → (P1 … P5 in any order) → P6-rest** (the admin o
   `tickets_mine`, `ticket_reply`, `admin_tickets`, `admin_ticket`, `admin_ticket_reply`, `admin_stats`, `admin_user_find`,
   `admin_user`, `admin_user_action`, `admin_log`, `admin_user_section`, `admin_overview`, `admin_list`, `admin_add`, `admin_remove`,
   `catalog_get`, `admin_catalog_set`, `admin_demo_seed`, `admin_demo_wipe`, `admin_demo_status`.
-* **First PR (day 1):** the shared contracts above + implementations (Moderation, Sanctions, VerifyDocs, ListingReview,
+* **First PR (day 1) — done (P6-kernel step):** the shared contracts above + implementations (Moderation, Sanctions, VerifyDocs, ListingReview,
   ListingStats, AccountDeletionStep/DemoSeedPart interfaces) and the catalog `ActionHook` (Node loads the catalog before every
   request; cache 5 min in Spring Cache `catalog`).
 * **Cron:** step 6 (phone limits), 10 (scheduled account deletion — runs every package's `AccountDeletionStep`), 11 (inbox retention).
