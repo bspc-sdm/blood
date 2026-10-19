@@ -42,8 +42,8 @@ class CommunityDispatchIT : IntegrationTest() {
             assertEquals("লগইন দরকার", r.error)
         }
         assertEquals("Please log in", call(null, "ask", lang = "en").error)
-        // a public action passes the login check (not ported yet → unknown)
-        assertEquals(400, call(null, "catalog_get").status)
+        // a public action passes the login check
+        assertEquals(200, call(null, "catalog_get").status)
         assertTrue(ActionPolicy.isPublic("guest_requests"))
     }
 
@@ -53,7 +53,7 @@ class CommunityDispatchIT : IntegrationTest() {
         repeat(241) { last = call(null, "catalog_get", ip = "9.9.9.9") }
         assertEquals(429, last!!.status)
         assertEquals("অনেক বেশি অনুরোধ। এক মিনিট পর আবার চেষ্টা করুন।", last!!.error)
-        assertEquals(400, call(null, "catalog_get", ip = "8.8.8.8").status, "another IP is not limited")
+        assertEquals(200, call(null, "catalog_get", ip = "8.8.8.8").status, "another IP is not limited")
     }
 
     @Test

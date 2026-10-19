@@ -35,7 +35,8 @@ class AdminPanelIT : IntegrationTest() {
         // the new admin can use admin actions (the cache was cleared), but not the owner's
         ok("adm2", "admin_reports")
         assertEquals(403, call("adm2", "admin_list").status)
-        assertEquals("add second@example.com", row("SELECT detail FROM admin_log WHERE action = 'admin_add'")["detail"])
+        // the log keeps the request text as sent (adminweb.js LOGGED)
+        assertEquals("add  Second@Example.com ", row("SELECT detail FROM admin_log WHERE action = 'admin_add'")["detail"])
         ok(OWNER, "admin_remove", mapOf("email" to "second@example.com"))
         assertEquals(403, call("adm2", "admin_reports").status)
         for (i in 0 until 20) jdbc.update("INSERT INTO admin_emails (email) VALUES (?)", "a$i@example.com")
@@ -156,7 +157,7 @@ class AdminPanelIT : IntegrationTest() {
         assertEquals("ভুয়া ডাক্তার", row("SELECT disabled_reason FROM accounts WHERE uid = 'person1'")["disabled_reason"])
         assertTrue(identity.revokedCalls.contains("person1"))
         assertEquals("account", row("SELECT suspend_reason FROM providers WHERE uid = 'person1'")["suspend_reason"])
-        val blocked = call("person1", "me", lang = "en")
+        val blocked = call("person1", "me", lang = "en", token = identity.jwtFor("person1"))
         assertEquals(403, blocked.status)
         assertEquals("account_disabled", blocked.code)
         assertTrue(blocked.error!!.contains("Reason: ভুয়া ডাক্তার."))

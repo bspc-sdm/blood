@@ -157,8 +157,12 @@ class AuthIT : IntegrationTest() {
         val notPanel = post("/api/community", mapOf("action" to "profile_get", "lang" to "en"), h)
         assertEquals(403, notPanel.status)
         assertEquals("Not available on the web panel", notPanel.error)
-        // admin action not ported yet → passes the panel checks, then "unknown"
-        assertEquals(400, post("/api/community", mapOf("action" to "admin_overview", "lang" to "en"), h).status)
+        // an admin action passes the panel checks
+        val ov = post("/api/community", mapOf("action" to "admin_overview", "lang" to "en"), h)
+        assertEquals(200, ov.status, ov.toString())
+        assertTrue(ov.body["me"]["isOwner"].isBoolean)
+        // an unknown admin action → "unknown" after the panel checks
+        assertEquals(400, post("/api/community", mapOf("action" to "admin_nothing", "lang" to "en"), h).status)
         // without the CSRF header → session_expired
         val noCsrf = post("/api/community", mapOf("action" to "admin_overview"), mapOf("Cookie" to cookie))
         assertEquals(401, noCsrf.status)
