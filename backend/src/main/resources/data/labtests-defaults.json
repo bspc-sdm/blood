@@ -1,0 +1,237 @@
+[
+  {
+    "code": "cbc", "name": "CBC (Complete Blood Count)", "bn": "সিবিসি (রক্তের পূর্ণ পরীক্ষা)",
+    "aliases": ["cbc", "complete blood count", "cbc with esr", "cbc esr", "hb tc dc esr", "tc dc", "blood cp", "cp"],
+    "params": [
+      { "key": "hb", "name": "Haemoglobin", "unit": "g/dL", "m": [13, 17], "f": [12, 15] },
+      { "key": "esr", "name": "ESR", "unit": "mm/1st hr", "m": [0, 10], "f": [0, 20] },
+      { "key": "wbc", "name": "Total WBC count", "unit": "×10³/µL", "r": [4, 11] },
+      { "key": "neut", "name": "Neutrophils", "unit": "%", "r": [40, 75] },
+      { "key": "lymph", "name": "Lymphocytes", "unit": "%", "r": [20, 40] },
+      { "key": "mono", "name": "Monocytes", "unit": "%", "r": [2, 10] },
+      { "key": "eos", "name": "Eosinophils", "unit": "%", "r": [1, 6] },
+      { "key": "baso", "name": "Basophils", "unit": "%", "r": [0, 1] },
+      { "key": "rbc", "name": "RBC count", "unit": "×10⁶/µL", "m": [4.5, 5.5], "f": [3.8, 4.8] },
+      { "key": "hct", "name": "HCT / PCV", "unit": "%", "m": [40, 50], "f": [36, 46] },
+      { "key": "mcv", "name": "MCV", "unit": "fL", "r": [80, 100] },
+      { "key": "mch", "name": "MCH", "unit": "pg", "r": [27, 32] },
+      { "key": "mchc", "name": "MCHC", "unit": "g/dL", "r": [31.5, 34.5] },
+      { "key": "rdw", "name": "RDW-CV", "unit": "%", "r": [11.6, 14] },
+      { "key": "plt", "name": "Platelet count", "unit": "×10³/µL", "r": [150, 410] }
+    ]
+  },
+  {
+    "code": "esr", "name": "ESR", "bn": "ইএসআর",
+    "aliases": ["esr", "erythrocyte sedimentation rate"],
+    "params": [{ "key": "esr", "name": "ESR", "unit": "mm/1st hr", "m": [0, 10], "f": [0, 20] }]
+  },
+  {
+    "code": "hb", "name": "Haemoglobin (Hb%)", "bn": "হিমোগ্লোবিন",
+    "aliases": ["hb", "hb%", "haemoglobin", "hemoglobin"],
+    "params": [{ "key": "hb", "name": "Haemoglobin", "unit": "g/dL", "m": [13, 17], "f": [12, 15] }]
+  },
+  {
+    "code": "rbs", "name": "Random Blood Sugar (RBS)", "bn": "র‍্যান্ডম ব্লাড সুগার",
+    "aliases": ["rbs", "random blood sugar", "random blood glucose", "blood sugar random", "cbg"],
+    "params": [{ "key": "glu", "name": "Blood glucose (random)", "unit": "mmol/L", "r": [3.9, 7.8] }]
+  },
+  {
+    "code": "fbs", "name": "Fasting Blood Sugar (FBS)", "bn": "খালি পেটে সুগার",
+    "aliases": ["fbs", "fasting blood sugar", "fasting blood glucose", "fbg", "blood sugar fasting"],
+    "params": [{ "key": "glu_f", "name": "Blood glucose (fasting)", "unit": "mmol/L", "r": [3.9, 5.5] }]
+  },
+  {
+    "code": "2habf", "name": "2 Hours After Breakfast (2HABF)", "bn": "নাস্তার ২ ঘণ্টা পর সুগার",
+    "aliases": ["2habf", "2 habf", "2hrs abf", "2 hours after breakfast", "ppbs", "post prandial blood sugar", "2hpp"],
+    "params": [{ "key": "glu_2h", "name": "Blood glucose (2 hrs after breakfast)", "unit": "mmol/L", "r": [3.9, 7.8] }]
+  },
+  {
+    "code": "ogtt", "name": "OGTT (Oral Glucose Tolerance Test)", "bn": "ওজিটিটি",
+    "aliases": ["ogtt", "oral glucose tolerance test", "gtt"],
+    "params": [
+      { "key": "glu_f", "name": "Fasting glucose", "unit": "mmol/L", "r": [3.9, 5.5] },
+      { "key": "glu_ogtt2", "name": "2 hrs after 75 g glucose", "unit": "mmol/L", "r": [3.9, 7.7] }
+    ]
+  },
+  {
+    "code": "hba1c", "name": "HbA1c", "bn": "এইচবিএওয়ানসি (৩ মাসের গড় সুগার)",
+    "aliases": ["hba1c", "glycated haemoglobin", "glycated hemoglobin", "a1c"],
+    "params": [{ "key": "hba1c", "name": "HbA1c", "unit": "%", "r": [4, 5.6] }]
+  },
+  {
+    "code": "lipid", "name": "Lipid Profile", "bn": "লিপিড প্রোফাইল (চর্বি)",
+    "aliases": ["lipid profile", "lipid", "fasting lipid profile", "s lipid profile", "serum lipid profile", "flp"],
+    "params": [
+      { "key": "chol", "name": "Total cholesterol", "unit": "mg/dL", "r": [null, 200] },
+      { "key": "tg", "name": "Triglyceride", "unit": "mg/dL", "r": [null, 150] },
+      { "key": "hdl", "name": "HDL cholesterol", "unit": "mg/dL", "m": [40, null], "f": [50, null] },
+      { "key": "ldl", "name": "LDL cholesterol", "unit": "mg/dL", "r": [null, 100] }
+    ]
+  },
+  {
+    "code": "creat", "name": "Serum Creatinine", "bn": "ক্রিয়েটিনিন",
+    "aliases": ["s creatinine", "serum creatinine", "creatinine", "s cr", "s.creatinine"],
+    "params": [{ "key": "creat", "name": "Serum creatinine", "unit": "mg/dL", "m": [0.7, 1.3], "f": [0.6, 1.1] }]
+  },
+  {
+    "code": "urea", "name": "Blood Urea", "bn": "ইউরিয়া",
+    "aliases": ["blood urea", "s urea", "serum urea", "urea", "bun"],
+    "params": [{ "key": "urea", "name": "Blood urea", "unit": "mg/dL", "r": [15, 40] }]
+  },
+  {
+    "code": "electrolytes", "name": "Serum Electrolytes", "bn": "ইলেক্ট্রোলাইট",
+    "aliases": ["s electrolytes", "serum electrolytes", "electrolytes", "s electrolyte", "electrolyte"],
+    "params": [
+      { "key": "na", "name": "Sodium (Na⁺)", "unit": "mmol/L", "r": [135, 145] },
+      { "key": "k", "name": "Potassium (K⁺)", "unit": "mmol/L", "r": [3.5, 5.1] },
+      { "key": "cl", "name": "Chloride (Cl⁻)", "unit": "mmol/L", "r": [98, 107] },
+      { "key": "hco3", "name": "Bicarbonate (HCO₃⁻)", "unit": "mmol/L", "r": [22, 29] }
+    ]
+  },
+  {
+    "code": "lft", "name": "Liver Function Test (LFT)", "bn": "লিভার ফাংশন টেস্ট",
+    "aliases": ["lft", "liver function test", "liver function tests"],
+    "params": [
+      { "key": "bil", "name": "Total bilirubin", "unit": "mg/dL", "r": [0.3, 1.2] },
+      { "key": "bil_d", "name": "Direct bilirubin", "unit": "mg/dL", "r": [0, 0.3] },
+      { "key": "alt", "name": "SGPT (ALT)", "unit": "U/L", "m": [null, 41], "f": [null, 33] },
+      { "key": "ast", "name": "SGOT (AST)", "unit": "U/L", "m": [null, 40], "f": [null, 32] },
+      { "key": "alp", "name": "Alkaline phosphatase (ALP)", "unit": "U/L", "r": [40, 129] },
+      { "key": "prot", "name": "Total protein", "unit": "g/dL", "r": [6.4, 8.3] },
+      { "key": "alb", "name": "Albumin", "unit": "g/dL", "r": [3.5, 5.2] }
+    ]
+  },
+  {
+    "code": "alt", "name": "SGPT (ALT)", "bn": "এসজিপিটি",
+    "aliases": ["sgpt", "s sgpt", "alt", "serum sgpt"],
+    "params": [{ "key": "alt", "name": "SGPT (ALT)", "unit": "U/L", "m": [null, 41], "f": [null, 33] }]
+  },
+  {
+    "code": "bilirubin", "name": "Serum Bilirubin", "bn": "বিলিরুবিন",
+    "aliases": ["s bilirubin", "serum bilirubin", "bilirubin", "s bilirubin total"],
+    "params": [{ "key": "bil", "name": "Total bilirubin", "unit": "mg/dL", "r": [0.3, 1.2] }]
+  },
+  {
+    "code": "uric", "name": "Serum Uric Acid", "bn": "ইউরিক অ্যাসিড",
+    "aliases": ["s uric acid", "serum uric acid", "uric acid"],
+    "params": [{ "key": "uric", "name": "Uric acid", "unit": "mg/dL", "m": [3.4, 7], "f": [2.4, 6] }]
+  },
+  {
+    "code": "calcium", "name": "Serum Calcium", "bn": "ক্যালসিয়াম",
+    "aliases": ["s calcium", "serum calcium", "calcium", "s ca"],
+    "params": [{ "key": "ca", "name": "Calcium", "unit": "mg/dL", "r": [8.6, 10.2] }]
+  },
+  {
+    "code": "thyroid", "name": "Thyroid Profile (TSH, FT4, FT3)", "bn": "থাইরয়েড",
+    "aliases": ["thyroid profile", "thyroid function test", "tft", "tsh ft4", "tsh ft3 ft4", "ft3 ft4 tsh"],
+    "params": [
+      { "key": "tsh", "name": "TSH", "unit": "µIU/mL", "r": [0.27, 4.2] },
+      { "key": "ft4", "name": "Free T4", "unit": "ng/dL", "r": [0.93, 1.7] },
+      { "key": "ft3", "name": "Free T3", "unit": "pg/mL", "r": [2, 4.4] }
+    ]
+  },
+  {
+    "code": "tsh", "name": "TSH", "bn": "টিএসএইচ",
+    "aliases": ["tsh", "s tsh", "serum tsh"],
+    "params": [{ "key": "tsh", "name": "TSH", "unit": "µIU/mL", "r": [0.27, 4.2] }]
+  },
+  {
+    "code": "crp", "name": "CRP", "bn": "সিআরপি",
+    "aliases": ["crp", "c reactive protein", "s crp"],
+    "params": [{ "key": "crp", "name": "C-reactive protein", "unit": "mg/L", "r": [null, 5] }]
+  },
+  {
+    "code": "vitd", "name": "Vitamin D (25-OH)", "bn": "ভিটামিন ডি",
+    "aliases": ["vitamin d", "vit d", "25 oh vitamin d", "25 oh d", "s vitamin d"],
+    "params": [{ "key": "vitd", "name": "25-OH Vitamin D", "unit": "ng/mL", "r": [30, 100] }]
+  },
+  {
+    "code": "ferritin", "name": "Serum Ferritin", "bn": "ফেরিটিন",
+    "aliases": ["s ferritin", "serum ferritin", "ferritin"],
+    "params": [{ "key": "ferritin", "name": "Ferritin", "unit": "ng/mL", "m": [30, 400], "f": [13, 150] }]
+  },
+  {
+    "code": "urine_re", "name": "Urine R/E", "bn": "প্রস্রাব পরীক্ষা (R/E)",
+    "aliases": ["urine re", "urine r e", "urine r/e", "urine routine", "urine routine examination", "urine rme", "urine analysis", "urinalysis"],
+    "params": [
+      { "key": "u_colour", "name": "Colour", "text": "Pale yellow" },
+      { "key": "u_appear", "name": "Appearance", "text": "Clear", "options": ["Clear", "Slightly turbid", "Turbid"] },
+      { "key": "u_ph", "name": "pH", "unit": "", "r": [4.6, 8] },
+      { "key": "u_sg", "name": "Specific gravity", "unit": "", "r": [1.005, 1.03] },
+      { "key": "u_prot", "name": "Albumin / protein", "text": "Nil", "options": ["Nil", "Trace", "+", "++", "+++"] },
+      { "key": "u_sugar", "name": "Sugar", "text": "Nil", "options": ["Nil", "Trace", "+", "++", "+++"] },
+      { "key": "u_pus", "name": "Pus cells", "unit": "/HPF", "r": [0, 5] },
+      { "key": "u_rbc", "name": "RBC", "unit": "/HPF", "r": [0, 2] },
+      { "key": "u_epi", "name": "Epithelial cells", "unit": "/HPF", "text": "Few" },
+      { "key": "u_cast", "name": "Casts", "text": "Nil" },
+      { "key": "u_crys", "name": "Crystals", "text": "Nil" }
+    ]
+  },
+  {
+    "code": "stool_re", "name": "Stool R/E", "bn": "পায়খানা পরীক্ষা (R/E)",
+    "aliases": ["stool re", "stool r e", "stool r/e", "stool routine", "stool routine examination", "stool rme"],
+    "params": [
+      { "key": "s_colour", "name": "Colour", "text": "Brown" },
+      { "key": "s_consist", "name": "Consistency", "text": "Formed", "options": ["Formed", "Semi-formed", "Soft", "Liquid"] },
+      { "key": "s_mucus", "name": "Mucus", "text": "Absent", "options": ["Absent", "Present"] },
+      { "key": "s_ova", "name": "Ova of parasites", "text": "Not found", "options": ["Not found", "Found"] },
+      { "key": "s_cyst", "name": "Cyst of protozoa", "text": "Not found", "options": ["Not found", "Found"] },
+      { "key": "s_pus", "name": "Pus cells", "unit": "/HPF", "r": [0, 2] },
+      { "key": "s_rbc", "name": "RBC", "unit": "/HPF", "text": "Nil" },
+      { "key": "s_obt", "name": "Occult blood", "text": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
+    "code": "blood_group", "name": "Blood Grouping & Rh Typing", "bn": "রক্তের গ্রুপ",
+    "aliases": ["blood group", "blood grouping", "blood grouping and rh typing", "blood group rh", "abo rh"],
+    "params": [{ "key": "bg", "name": "Blood group", "options": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] }]
+  },
+  {
+    "code": "hbsag", "name": "HBsAg", "bn": "হেপাটাইটিস বি (HBsAg)",
+    "aliases": ["hbsag", "hbs ag", "hepatitis b surface antigen"],
+    "params": [{ "key": "hbsag", "name": "HBsAg", "text": "Negative", "options": ["Negative", "Positive"] }]
+  },
+  {
+    "code": "dengue_ns1", "name": "Dengue NS1 Antigen", "bn": "ডেঙ্গু NS1",
+    "aliases": ["dengue ns1", "ns1", "ns1 antigen", "dengue ns1 ag", "ns1 ag"],
+    "params": [{ "key": "ns1", "name": "Dengue NS1 Ag", "text": "Negative", "options": ["Negative", "Positive"] }]
+  },
+  {
+    "code": "dengue_ab", "name": "Dengue IgM / IgG", "bn": "ডেঙ্গু IgM / IgG",
+    "aliases": ["dengue igm igg", "dengue antibody", "dengue igg igm", "dengue igm"],
+    "params": [
+      { "key": "den_igm", "name": "Dengue IgM", "text": "Negative", "options": ["Negative", "Positive"] },
+      { "key": "den_igg", "name": "Dengue IgG", "text": "Negative", "options": ["Negative", "Positive"] }
+    ]
+  },
+  {
+    "code": "widal", "name": "Widal Test", "bn": "ভিডাল টেস্ট (টাইফয়েড)",
+    "aliases": ["widal", "widal test"],
+    "params": [
+      { "key": "w_to", "name": "S. Typhi O (TO)", "text": "< 1:80" },
+      { "key": "w_th", "name": "S. Typhi H (TH)", "text": "< 1:80" },
+      { "key": "w_ah", "name": "S. Paratyphi AH", "text": "< 1:80" },
+      { "key": "w_bh", "name": "S. Paratyphi BH", "text": "< 1:80" }
+    ]
+  },
+  {
+    "code": "urine_preg", "name": "Urine for Pregnancy Test", "bn": "প্রেগন্যান্সি টেস্ট",
+    "aliases": ["pregnancy test", "urine for pregnancy test", "upt", "urine pregnancy test", "urine hcg"],
+    "params": [{ "key": "upt", "name": "Pregnancy test (urine hCG)", "options": ["Negative", "Positive"] }]
+  },
+  {
+    "code": "ecg", "name": "ECG", "bn": "ইসিজি",
+    "aliases": ["ecg", "ekg", "electrocardiogram", "ecg 12 lead"],
+    "params": [{ "key": "ecg", "name": "Impression", "long": true }]
+  },
+  {
+    "code": "cxr", "name": "X-ray Chest P/A view", "bn": "বুকের এক্স-রে",
+    "aliases": ["x ray chest", "xray chest", "x-ray chest p/a", "x-ray chest p/a view", "cxr", "chest x ray", "x ray chest pa view", "x-ray chest pa"],
+    "params": [{ "key": "cxr", "name": "Findings & impression", "long": true }]
+  },
+  {
+    "code": "usg_abd", "name": "USG of Whole Abdomen", "bn": "পেটের আল্ট্রাসনোগ্রাম",
+    "aliases": ["usg of whole abdomen", "usg whole abdomen", "usg w/a", "usg abdomen", "ultrasonography of whole abdomen", "usg of w/a"],
+    "params": [{ "key": "usg_abd", "name": "Findings & impression", "long": true }]
+  }
+]

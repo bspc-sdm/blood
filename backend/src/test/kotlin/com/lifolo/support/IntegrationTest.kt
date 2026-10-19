@@ -114,12 +114,11 @@ abstract class IntegrationTest {
         jdbc.update("INSERT INTO accounts (uid, email) VALUES (?, ?) ON CONFLICT DO NOTHING", uid, email)
         if (profile != null) {
             jdbc.update("INSERT INTO user_profiles (uid) VALUES (?) ON CONFLICT DO NOTHING", uid)
-            for ((k, v) in profile) {
-                if (v is List<*>) {
-                    jdbc.update("UPDATE user_profiles SET $k = ?::text[] WHERE uid = ?", "{" + v.joinToString(",") { "\"$it\"" } + "}", uid)
-                } else {
-                    jdbc.update("UPDATE user_profiles SET $k = ? WHERE uid = ?", v, uid)
-                }
+            if (profile.isNotEmpty()) {
+                // one UPDATE so paired columns (lat/lng) satisfy their CHECK together
+                val sets = profile.entries.joinToString(", ") { (k, v) -> if (v is List<*>) "$k = ?::text[]" else "$k = ?" }
+                val args = profile.values.map { v -> if (v is List<*>) "{" + v.joinToString(",") { "\"$it\"" } + "}" else v }
+                jdbc.update("UPDATE user_profiles SET $sets WHERE uid = ?", *(args + uid).toTypedArray())
             }
         }
     }
