@@ -46,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -138,24 +139,37 @@ fun AppointmentTab(
 private fun ProviderList(type: String, profile: Profile) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
-    // শুরুতে নিজের জেলা
-    var filter by remember(type) { mutableStateOf(CareFilter(district = profile.placeName)) }
+    // শুরুতে নিজের জেলা; আজ/আগামীকাল, এখন চেম্বারে, বিশেষজ্ঞতা, ফি, হাসপাতালের নাম, লিঙ্গ — শেষবারেরটা (এই ফোনে, ধরনপ্রতি)
+    var filter by remember(type) { mutableStateOf(DoctorFilterPrefs.load(context, type, CareFilter(district = profile.placeName))) }
+    fun setFilter(f: CareFilter) {
+        filter = f
+        DoctorFilterPrefs.save(context, type, f)
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var list by remember { mutableStateOf<List<Provider>>(emptyList()) }
+    var facets by remember(type) { mutableStateOf<ProviderFacets?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var pickHospital by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Provider?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
+    // হাসপাতালের নাম লিখতে লিখতে প্রতিটা অক্ষরে সার্ভারে নয় — থামার পরে
+    var hqText by remember(type) { mutableStateOf(filter.hospitalQ) }
+    LaunchedEffect(hqText) {
+        if (hqText != filter.hospitalQ) {
+            kotlinx.coroutines.delay(400)
+            setFilter(filter.copy(hospitalQ = hqText))
+        }
+    }
 
     LaunchedEffect(type, filter, reload) {
         loading = true
         errorMsg = null
-        runCatching { Appointments.providers(type, filter) }
-            .onSuccess { list = it }
+        runCatching { Appointments.providersPage(type, filter) }
+            .onSuccess { list = it.items; if (it.facets != null) facets = it.facets }
             .onFailure { errorMsg = it.message }
         loading = false
     }
@@ -165,25 +179,65 @@ private fun ProviderList(type: String, profile: Profile) {
         .filter { it.uid != AuthRepository.currentUid }
         .filter { q.isEmpty() || it.name.contains(q, true) || it.degrees.contains(q, true) || it.chambers.any { c -> c.label.contains(q, true) } }
 
+    val feeLabel = { n: Int -> tr("Up to ৳" + String.format(java.util.Locale.US, "%,d", n), "৳" + num(String.format(java.util.Locale.US, "%,d", n)) + " পর্যন্ত") }
+    val dayLabel = { d: String -> if (d == "tomorrow") tr("Tomorrow", "আগামীকাল") else tr("Sitting today", "আজ বসছেন") }
+    val genderLabel = { g: String -> if (g == "female") tr("Female doctor", "নারী ডাক্তার") else tr("Male doctor", "পুরুষ ডাক্তার") }
+    val active = listOfNotNull(
+        filter.day?.let { d -> ActiveFilter(dayLabel(d)) { setFilter(filter.copy(day = null)) } },
+        if (filter.openNow) ActiveFilter(tr("In chamber now", "এখন চেম্বারে")) { setFilter(filter.copy(openNow = false)) } else null,
+        filter.specialty?.let { sp -> ActiveFilter(Specialties.label(sp)) { setFilter(filter.copy(specialty = null)) } },
+        filter.maxFee?.let { n -> ActiveFilter(feeLabel(n)) { setFilter(filter.copy(maxFee = null)) } },
+        filter.hospital?.let { h -> ActiveFilter(h.label) { setFilter(filter.copy(hospital = null)) } },
+        filter.hospitalQ.trim().takeIf { it.isNotEmpty() }?.let { t -> ActiveFilter(tr("Hospital: ", "হাসপাতাল: ") + t) { hqText = ""; setFilter(filter.copy(hospitalQ = "")) } },
+        filter.gender?.let { g -> ActiveFilter(genderLabel(g)) { setFilter(filter.copy(gender = null)) } },
+    )
+    // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
+    val quick: List<Pair<String, () -> Unit>> = buildList {
+        if (filter.day == null) {
+            add(dayLabel("today") to { setFilter(filter.copy(day = "today")) })
+            add(dayLabel("tomorrow") to { setFilter(filter.copy(day = "tomorrow")) })
+        }
+        if (!filter.openNow) add(tr("In chamber now", "এখন চেম্বারে") to { setFilter(filter.copy(openNow = true)) })
+        if (filter.maxFee == null) add(feeLabel(500) to { setFilter(filter.copy(maxFee = 500)) })
+        if (filter.specialty == null) facets?.specialties?.take(3)?.forEach { (code, _) -> add(Specialties.label(code) to { setFilter(filter.copy(specialty = code)) }) }
+    }
+    val clearAll = {
+        hqText = ""
+        setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null))
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            // এক সারি: এলাকা · ফিল্টার (হাসপাতাল, বিশেষজ্ঞতা) · নাম খোঁজা
-            FilterBar(
-                areaLabel = areaText(filter.district, filter.upazilaId, filter.unionId),
-                onAreaClick = { showArea = true },
-                filterCount = listOfNotNull(filter.hospital, filter.specialty).size,
-                onFilterClick = { showFilter = true },
-                search = query,
-                onSearch = { query = it },
-                active = listOfNotNull(
-                    filter.hospital?.let { h -> ActiveFilter(h.label) { filter = filter.copy(hospital = null) } },
-                    filter.specialty?.let { sp -> ActiveFilter(Specialties.label(sp)) { filter = filter.copy(specialty = null) } },
-                ),
-            )
+            // এক সারি: এলাকা · ফিল্টার · নাম খোঁজা; নিচে এক সারিতে চালু ছাঁকনি (✕) আর এক চাপের ছাঁকনি
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterBar(
+                    areaLabel = areaText(filter.district, filter.upazilaId, filter.unionId),
+                    onAreaClick = { showArea = true },
+                    filterCount = active.size,
+                    onFilterClick = { showFilter = true },
+                    search = query,
+                    onSearch = { query = it },
+                )
+                if (active.isNotEmpty() || quick.isNotEmpty()) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        active.forEach { f ->
+                            androidx.compose.material3.InputChip(
+                                selected = true,
+                                onClick = f.onRemove,
+                                label = { Text(f.label, maxLines = 1) },
+                                trailingIcon = { AppIcon(R.drawable.ic_close, tr("Remove", "সরান"), Modifier.size(16.dp)) },
+                            )
+                        }
+                        quick.forEach { (label, on) ->
+                            FilterChip(selected = false, onClick = on, label = { Text(label, maxLines = 1) })
+                        }
+                    }
+                }
+            }
         }
         item { InfoText(infoMsg) }
         when {
@@ -200,8 +254,10 @@ private fun ProviderList(type: String, profile: Profile) {
                         },
                         tr("Try a wider area or remove a filter.", "বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।"),
                     )
-                    if (filter != CareFilter()) {
-                        TextButton(onClick = { filter = CareFilter() }) { Text(tr("Search everywhere", "সব জায়গায় খুঁজুন")) }
+                    if (active.isNotEmpty()) {
+                        TextButton(onClick = clearAll) { Text(tr("Remove all filters", "সব ছাঁকনি সরান")) }
+                    } else if (filter != CareFilter()) {
+                        TextButton(onClick = { setFilter(CareFilter()) }) { Text(tr("Search everywhere", "সব জায়গায় খুঁজুন")) }
                     }
                 }
             }
@@ -213,23 +269,42 @@ private fun ProviderList(type: String, profile: Profile) {
         AreaSheet(
             filter.district, filter.upazilaId, filter.unionId,
             // এলাকা বদলালে আগের হাসপাতাল আর মেলে না
-            { d, u, n -> filter = filter.copy(district = d, upazilaId = u, unionId = n, hospital = null) },
+            { d, u, n -> setFilter(filter.copy(district = d, upazilaId = u, unionId = n, hospital = null)) },
             onDismiss = { showArea = false },
             allowAllDistricts = true,
             showUnion = true,
         )
     }
     if (showFilter) {
-        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { filter = filter.copy(hospital = null, specialty = null) }) {
-            Text(tr("Hospital", "হাসপাতাল"), style = MaterialTheme.typography.titleSmall)
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = if (active.isNotEmpty()) clearAll else null) {
+            FilterChoice(tr("Day", "দিন"), listOf("today", "tomorrow"), filter.day, dayLabel) { setFilter(filter.copy(day = it)) }
+            FilterSwitch(tr("In chamber now", "এখন চেম্বারে"), filter.openNow) { setFilter(filter.copy(openNow = it)) }
+            SpecialtyChoice(
+                options = facets?.specialties?.map { it.first } ?: Specialties.of(type),
+                count = { code -> facets?.specialties?.firstOrNull { it.first == code }?.second },
+                selected = filter.specialty,
+            ) { setFilter(filter.copy(specialty = it)) }
+            Text(tr("Hospital / chamber", "হাসপাতাল / চেম্বার"), style = MaterialTheme.typography.titleSmall)
+            OutlinedTextField(
+                value = hqText,
+                onValueChange = { hqText = it.take(60) },
+                placeholder = { Text(tr("Type a hospital name", "হাসপাতালের নাম লিখুন")) },
+                leadingIcon = { AppIcon(R.drawable.ic_search, null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = { pickHospital = true }) {
-                    ButtonContent(false, filter.hospital?.label ?: tr("Choose hospital", "হাসপাতাল বেছে নিন"), R.drawable.ic_local_hospital)
+                    ButtonContent(false, filter.hospital?.label ?: tr("Choose from list", "তালিকা থেকে বেছে নিন"), R.drawable.ic_local_hospital)
                 }
-                if (filter.hospital != null) TextButton(onClick = { filter = filter.copy(hospital = null) }) { Text(tr("Remove", "সরান")) }
+                if (filter.hospital != null) TextButton(onClick = { setFilter(filter.copy(hospital = null)) }) { Text(tr("Remove", "সরান")) }
             }
-            FilterChoice(tr("Specialty", "বিশেষজ্ঞতা"), Specialties.of(type), filter.specialty, { Specialties.label(it) }) {
-                filter = filter.copy(specialty = it)
+            FilterChoice(tr("Fee", "ফি"), DoctorFilterPrefs.FEE_STEPS.map { it.toString() }, filter.maxFee?.toString(), { feeLabel(it.toInt()) }) {
+                setFilter(filter.copy(maxFee = it?.toIntOrNull()))
+            }
+            // লিঙ্গ: তালিকায় লেখা থাকলে তবেই
+            if (facets?.gender == true || filter.gender != null) {
+                FilterChoice(tr("Doctor", "ডাক্তার"), listOf("female", "male"), filter.gender, genderLabel) { setFilter(filter.copy(gender = it)) }
             }
         }
     }
@@ -238,7 +313,7 @@ private fun ProviderList(type: String, profile: Profile) {
             initialDistrict = filter.district ?: profile.placeName,
             initialUpazilaId = filter.upazilaId,
             onPick = {
-                filter = filter.copy(hospital = it, district = it.district)
+                setFilter(filter.copy(hospital = it, district = it.district))
                 pickHospital = false
             },
             onDismiss = { pickHospital = false },
@@ -257,19 +332,58 @@ private fun ProviderList(type: String, profile: Profile) {
     }
 }
 
+/** বিশেষজ্ঞতা: তালিকায় যেগুলো আছে (সংখ্যাসহ), অনেক হলে খোঁজার ঘর */
+@Composable
+private fun SpecialtyChoice(options: List<String>, count: (String) -> Int?, selected: String?, onSelect: (String?) -> Unit) {
+    var q by remember { mutableStateOf("") }
+    val all = if (selected != null && selected !in options) listOf(selected) + options else options
+    val shown = all.filter { q.isBlank() || Specialties.label(it).contains(q.trim(), true) || it.contains(q.trim(), true) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(tr("Specialty", "বিশেষজ্ঞতা"), style = MaterialTheme.typography.titleSmall)
+        if (options.size > 8) {
+            OutlinedTextField(
+                value = q,
+                onValueChange = { q = it.take(40) },
+                placeholder = { Text(tr("Search specialty", "বিশেষজ্ঞতা খুঁজুন")) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            shown.forEach { o ->
+                val n = count(o)
+                FilterChip(
+                    selected = selected == o,
+                    onClick = { onSelect(if (selected == o) null else o) },
+                    label = { Text(Specialties.label(o) + if (n != null) " (" + num(n) + ")" else "") },
+                )
+            }
+        }
+        if (shown.isEmpty()) Text(tr("No match", "মেলেনি"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 @Composable
 internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
-    // ফিল্টারের সাথে মেলা চেম্বার আগে
-    val chamber = p.chambers.firstOrNull { c ->
+    // ছাঁকনিতে মেলা চেম্বার (সার্ভারের matched) আগে, নইলে এলাকার সাথে মেলা চেম্বার
+    val chamber = p.matched?.firstOrNull()?.let { p.chambers.getOrNull(it) } ?: p.chambers.firstOrNull { c ->
         (filter.hospital == null || c.hospitalId == filter.hospital.id) &&
             (filter.district == null || c.district == filter.district) &&
             (filter.upazilaId == null || c.upazilaId == filter.upazilaId)
     } ?: p.chambers.firstOrNull()
+    // তালিকার কার্ডে: এখন চেম্বারে / আজ ৪টা (সবুজ) — অন্য দিনে কিছু নয়
+    val st = chamber?.let { ChamberClock.state(it) }
     DirectoryCard(
         title = p.name,
         icon = Badges.icon(p.type),
         photo = p.photo,
         subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
+        status = when (st?.kind) {
+            ChamberStateKind.NOW -> CardStatus(tr("In chamber now", "এখন চেম্বারে"), true)
+            ChamberStateKind.TODAY -> CardStatus(tr("Today", "আজ") + if (st.start.isNotBlank()) " " + ChamberClock.shortTime(st.start) else "", true)
+            else -> null
+        },
         rating = p.rating,
         ratingCount = p.ratingCount,
         details = if (chamber == null) emptyList() else listOf(
@@ -319,7 +433,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     listOfNotNull(
                         // নিজের দেখা (preview): বাটন দেখায়, কাজ করে না
                         if (c.serialPhone.isNotBlank() && pinnedCall == null) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, c.serialPhone) } else null,
-                        if (i in bookable && bookable.size > 1) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { book(i) } else null,
+                        if (i in bookable && bookable.size > 1) CardAction(tr("Appointment at this chamber", "এই চেম্বারে অ্যাপয়েন্টমেন্ট"), R.drawable.ic_calendar_month) { book(i) } else null,
                     ),
                 ),
             )
@@ -376,6 +490,8 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
         // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
         onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
         onDismiss = onDismiss,
+        // ২.৩৩.০: নামের নিচেই চেম্বার বাছাই — চাপলে সেই চেম্বারেই অ্যাপয়েন্টমেন্ট ("কোন চেম্বারে?" ছাড়া)
+        header = { ChamberPicker(p, bookable, onBook = book, onCall = { ph -> if (!preview) callPhone(context, ph) }) },
         footer = {
             if (preview) SmallNote(tr("This is how patients see you. Save to update it.", "রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।"))
             if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
@@ -395,22 +511,44 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
     }
 
     if (choosing) {
+        // "কোন চেম্বারে?" (২.৩৩.০): প্রতিটা চেম্বার স্পষ্ট চাপযোগ্য কার্ড (চাপলে ঢেউ) — নাম · উপজেলা, পরের বসার দিন-সময়, ফি,
+        // ডানে "বেছে নিন ›"; সামনে বসার দিন না থাকলে ধূসর আর চাপা যায় না
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { choosing = false },
             title = { Text(tr("Which chamber?", "কোন চেম্বারে?")) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     bookable.forEach { i ->
                         val c = p.chambers[i]
-                        androidx.compose.material3.Surface(
+                        val st = remember(c) { ChamberClock.state(c) }
+                        val off = st.kind == ChamberStateKind.NONE || ChamberClock.firstBookableDay(c) == null
+                        val cs = MaterialTheme.colorScheme
+                        Surface(
                             onClick = { choosing = false; book(i) },
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !off,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                            color = cs.surfaceContainerHigh,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cs.outlineVariant),
+                            modifier = Modifier.fillMaxWidth().then(if (off) Modifier.alpha(0.5f) else Modifier),
                         ) {
-                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                if (c.timeText.isNotBlank()) Text(c.timeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                    Text(ChamberClock.place(c), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                                    Text(
+                                        if (off) tr("No upcoming days", "সামনে বসার দিন নেই")
+                                        else (if (st.kind == ChamberStateKind.NOW) "" else tr("Next: ", "পরের সময়: ")) + ChamberClock.nextSlotText(st),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (off) FontWeight.Normal else FontWeight.SemiBold,
+                                        color = if (!off && st.good) cs.tertiary else cs.onSurfaceVariant,
+                                    )
+                                    if (c.feeText.isNotBlank()) Text(c.feeText, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                                }
+                                if (!off) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(tr("Choose", "বেছে নিন"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = cs.primary)
+                                    AppIcon(R.drawable.ic_chevron_right, null, Modifier.size(20.dp), cs.primary)
+                                }
                             }
                         }
                     }
@@ -433,11 +571,74 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
     }
 }
 
+/**
+ * নামের নিচে চেম্বার বাছাই (২.৩৩.০, পারভেজ): প্রতিটা চেম্বার ছোট চাপযোগ্য কার্ড — ছোট নাম, আজকের অবস্থা
+ * ("আজ বসবেন ৪টা–৯টা" / "আজ বন্ধ · আগামীকাল ১০টা"), উপজেলা · ফি। অ্যাপয়েন্টমেন্ট নেন এমন চেম্বারে চাপলে সরাসরি বুকিং;
+ * না নিলে সিরিয়ালের ফোন (থাকলে)। নিচের বিস্তারিত ভাগগুলো তথ্যের জন্য থাকে।
+ */
+@Composable
+private fun ChamberPicker(p: Provider, bookable: List<Int>, onBook: (Int) -> Unit, onCall: (String) -> Unit) {
+    if (p.chambers.isEmpty()) return
+    val cs = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            if (bookable.isNotEmpty()) tr("Choose a chamber to book", "চেম্বার বেছে অ্যাপয়েন্টমেন্ট নিন") else tr("Chambers", "চেম্বার"),
+            style = MaterialTheme.typography.labelLarge,
+            color = cs.onSurfaceVariant,
+        )
+        p.chambers.forEachIndexed { i, c ->
+            val st = remember(c) { ChamberClock.state(c) }
+            val can = i in bookable && st.kind != ChamberStateKind.NONE
+            val tel = c.serialPhone.takeIf { i !in bookable && it.isNotBlank() }
+            val extra = when {
+                i in bookable -> null
+                tel != null -> tr("Serial by phone", "সিরিয়াল ফোনে")
+                else -> tr("No appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট নেই")
+            }
+            val content: @Composable () -> Unit = {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), color = cs.primaryContainer, modifier = Modifier.size(36.dp)) {
+                        Box(contentAlignment = Alignment.Center) { AppIcon(R.drawable.ic_local_hospital, null, Modifier.size(20.dp), cs.onPrimaryContainer) }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(ChamberClock.shortName(c), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        if (st.text.isNotBlank()) {
+                            Text(st.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = if (st.good) cs.tertiary else cs.onSurfaceVariant)
+                        }
+                        Text(
+                            listOfNotNull(ChamberClock.place(c).takeIf { it.isNotBlank() }, ChamberClock.feeShort(c).takeIf { it.isNotBlank() }, extra).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurfaceVariant,
+                        )
+                    }
+                    if (can || tel != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(shape = androidx.compose.foundation.shape.CircleShape, color = cs.primary, modifier = Modifier.size(36.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                AppIcon(if (can) R.drawable.ic_calendar_month else R.drawable.ic_call, null, Modifier.size(18.dp), cs.onPrimary)
+                            }
+                        }
+                    }
+                }
+            }
+            val shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+            val border = androidx.compose.foundation.BorderStroke(1.dp, cs.outlineVariant)
+            when {
+                can -> Surface(onClick = { onBook(i) }, shape = shape, color = cs.surfaceContainerLowest, border = border, modifier = Modifier.fillMaxWidth()) { content() }
+                tel != null -> Surface(onClick = { onCall(tel) }, shape = shape, color = cs.surfaceContainerLowest, border = border, modifier = Modifier.fillMaxWidth()) { content() }
+                else -> Surface(shape = shape, color = cs.surfaceContainerLowest, border = border, modifier = Modifier.fillMaxWidth()) { content() }
+            }
+        }
+    }
+}
+
 @Composable
 private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> Unit, onBooked: () -> Unit) {
     val scope = rememberCoroutineScope()
     val chamber = provider.chambers[chamberIndex]
-    var date by remember { mutableStateOf<Long?>(null) }
+    // চেম্বার বেছে এলে পরের বসার দিন আগে থেকে বাছা (বদলানো যায়) — এক চাপ কম
+    var date by remember { mutableStateOf<Long?>(ChamberClock.firstBookableDay(chamber)) }
     var note by remember { mutableStateOf("") }
     var showDate by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }

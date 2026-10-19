@@ -243,6 +243,8 @@ fun DetailSheet(
     tags: List<String> = emptyList(),
     /** নিচের বারে ফোনের পাশে মূল কাজ (ভরাট) — ছোট লেখা দিন */
     main: CardAction? = null,
+    /** নাম/বিশেষজ্ঞতার ঠিক নিচে, ভাগগুলোর আগে (ডাক্তারের চেম্বার বাছাই, ২.৩৩.০) */
+    header: @Composable () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
@@ -283,6 +285,7 @@ fun DetailSheet(
                         }
                     }
                 }
+                header()
                 sections.forEach { sec ->
                     val lines = sec.lines.filter { it.second.isNotBlank() }
                     if (lines.isEmpty() && sec.actions.isEmpty() && sec.rows.isEmpty() && sec.button == null) return@forEach

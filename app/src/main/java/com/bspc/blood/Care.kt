@@ -399,8 +399,120 @@ data class Provider(
     val ratingCount: Int,
     /** কার্ডের ছোট ছবি (base64) */
     val photo: String = "",
+    /** তালিকার ছাঁকনিতে কোন চেম্বারগুলো মিলেছে (সার্ভারের matched, ২.৩৩.০); null = জানা নেই */
+    val matched: List<Int>? = null,
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
+}
+
+// ------------------------------------------------------------
+// চেম্বারের আজকের অবস্থা (২.৩৩.০, পারভেজ) — ওয়েবের chamberState (model.ts) আর সার্ভারের care.js-এর একই নিয়ম, ঢাকার সময়ে:
+// আজকের ভাগ শেষ = শুরু < শেষ আর এখন ≥ শেষ; রাত পেরোনো ভাগ (১৬:০০–০১:০০) মাঝরাতের পরেও "এখন চেম্বারে"।
+// ------------------------------------------------------------
+
+enum class ChamberStateKind { NOW, TODAY, LATER, UNKNOWN, NONE }
+
+/** text: ছোট লেখা ("আজ বসবেন ৪টা–৯টা" / "আজ বন্ধ · আগামীকাল ১০টা"); date: পরের বসার দিন (UTC মধ্যরাত) */
+data class ChamberState(val kind: ChamberStateKind, val text: String, val date: Long?, val start: String, val end: String) {
+    val good: Boolean get() = kind == ChamberStateKind.NOW || kind == ChamberStateKind.TODAY
+}
+
+object ChamberClock {
+    private const val DAY = 24L * 60 * 60 * 1000
+    private val HM = Regex("^\\d{2}:\\d{2}$")
+
+    fun dhakaToday(now: Long): Long = Math.floorDiv(now + Rules.DHAKA_OFFSET_MS, DAY) * DAY
+    private fun hhmm(now: Long): String = Rules.dhakaHourMinute(now).let { (h, m) -> Weekdays.hhmm(h, m) }
+    /** ১৯৭০-০১-০১ বৃহস্পতিবার (৪) */
+    private fun weekday(date: Long): Int = Math.floorMod(Math.floorDiv(date, DAY) + 4, 7L).toInt()
+    private fun timed(t: ChamberTime) = HM.matches(t.start) && HM.matches(t.end)
+    private fun slotsOn(c: Chamber, date: Long) = c.slots.filter { it.days.isEmpty() || weekday(date) in it.days }.sortedBy { it.start }
+
+    /** "16:00" → "৪টা" / "4 PM"; "16:30" → "৪:৩০" / "4:30 PM" */
+    fun shortTime(hhmm: String): String {
+        val p = hhmm.split(":")
+        val h = p.getOrNull(0)?.toIntOrNull() ?: return hhmm
+        val m = p.getOrNull(1)?.toIntOrNull() ?: 0
+        val h12 = if (h % 12 == 0) 12 else h % 12
+        if (isBangla) return if (m != 0) num(h12) + ":" + num(m.toString().padStart(2, '0')) else num(h12) + "টা"
+        return h12.toString() + (if (m != 0) ":" + m.toString().padStart(2, '0') else "") + if (h < 12) " AM" else " PM"
+    }
+
+    private fun range(t: ChamberTime) = shortTime(t.start) + "–" + shortTime(t.end)
+
+    fun state(c: Chamber, now: Long = System.currentTimeMillis()): ChamberState {
+        val t0 = dhakaToday(now)
+        val t = hhmm(now)
+        val all = c.slots
+        if (all.none { timed(it) } && all.none { it.days.isNotEmpty() }) return ChamberState(ChamberStateKind.UNKNOWN, "", null, "", "")
+        // এখন বসছেন: আজকের ভাগ, বা গতকালের রাত পেরোনো ভাগ এখনো চলছে
+        val nowSlot = if (c.openOn(t0)) slotsOn(c, t0).firstOrNull { timed(it) && (if (it.start < it.end) t >= it.start && t < it.end else t >= it.start) } else null
+        val lastNight = if (c.openOn(t0 - DAY)) slotsOn(c, t0 - DAY).firstOrNull { timed(it) && it.start >= it.end && t < it.end } else null
+        val cur = nowSlot ?: lastNight
+        if (cur != null) {
+            return ChamberState(ChamberStateKind.NOW, tr("In chamber now · until ", "এখন চেম্বারে · ") + shortTime(cur.end) + tr("", " পর্যন্ত"), if (nowSlot != null) t0 else t0 - DAY, cur.start, cur.end)
+        }
+        val todayOpen = c.openOn(t0)
+        if (todayOpen) {
+            val next = slotsOn(c, t0).firstOrNull { !timed(it) || it.start > t }
+            if (next != null) {
+                return ChamberState(ChamberStateKind.TODAY, if (timed(next)) tr("Today ", "আজ বসবেন ") + range(next) else tr("Sits today", "আজ বসবেন"), t0, next.start, next.end)
+            }
+        }
+        for (i in 1..7) {
+            val d = t0 + i * DAY
+            if (!c.openOn(d)) continue
+            val first = slotsOn(c, d).firstOrNull()
+            val at = if (first != null && timed(first)) " " + shortTime(first.start) else ""
+            val whenText = (if (i == 1) tr("Tomorrow", "আগামীকাল") else Weekdays.short(weekday(d))) + at
+            val pre = if (todayOpen) tr("Done today", "আজ শেষ") else tr("Closed today", "আজ বন্ধ")
+            return ChamberState(ChamberStateKind.LATER, "$pre · $whenText", d, first?.start.orEmpty(), first?.end.orEmpty())
+        }
+        return ChamberState(ChamberStateKind.NONE, tr("No upcoming days", "সামনে বসার দিন নেই"), null, "", "")
+    }
+
+    /** "কোন চেম্বারে?"-এ পরের সময়: "আজ (১৯ অক্টোবর), বিকাল ৪:০০ – রাত ১:০০" */
+    fun nextSlotText(s: ChamberState, now: Long = System.currentTimeMillis()): String {
+        val d = s.date ?: return s.text
+        val t0 = dhakaToday(now)
+        val time = if (s.start.isNotBlank() && s.end.isNotBlank()) Weekdays.time(s.start) + " – " + Weekdays.time(s.end) else ""
+        if (s.kind == ChamberStateKind.NOW) return listOf(tr("In chamber now", "এখন চেম্বারে"), time).filter { it.isNotBlank() }.joinToString(" · ")
+        val day = when (d) {
+            t0 -> tr("Today", "আজ")
+            t0 + DAY -> tr("Tomorrow", "আগামীকাল")
+            else -> Weekdays.short(weekday(d))
+        }
+        val dm = Rules.formatDate(d).substringBeforeLast(' ')
+        return "$day ($dm)" + if (time.isNotBlank()) ", $time" else ""
+    }
+
+    /** বুকিংয়ে আগে থেকে বাছা দিন: আজ (আজকের সময় শেষ না হলে) বা পরের বসার দিন — ৬০ দিনের মধ্যে */
+    fun firstBookableDay(c: Chamber, now: Long = System.currentTimeMillis()): Long? {
+        val t0 = dhakaToday(now)
+        val t = hhmm(now)
+        for (i in 0..60) {
+            val d = t0 + i * DAY
+            if (!c.openOn(d)) continue
+            if (i == 0) {
+                val sl = slotsOn(c, d)
+                if (sl.isNotEmpty() && sl.all { timed(it) && it.start < it.end && t >= it.end }) continue
+            }
+            return d
+        }
+        return null
+    }
+
+    /** ছোট ফি: "৳৫০০" / "ফি নেই"; বোঝা না গেলে লেখাটাই */
+    fun feeShort(c: Chamber): String {
+        if (c.noFee) return tr("No fee", "ফি নেই")
+        val ascii = c.fee.map { ch -> if (ch in '০'..'৯') ('0' + (ch - '০')) else ch }.joinToString("").replace(Regex("(\\d),(?=\\d{3})"), "$1")
+        val n = Regex("\\d+").find(ascii)?.value?.toLongOrNull() ?: return c.fee
+        return "৳" + num(String.format(java.util.Locale.US, "%,d", n))
+    }
+
+    /** তালিকা/শিটের ছোট নাম (বন্ধনীর লেখা বাদ) আর উপজেলা (না থাকলে জেলা) */
+    fun shortName(c: Chamber): String = c.label.replace(Regex("\\s*\\([^)]*\\)\\s*"), " ").trim().ifBlank { c.label }
+    fun place(c: Chamber): String = Areas.upazila(c.upazilaId)?.label ?: Districts.label(c.district).ifBlank { c.address }
 }
 
 object Weekdays {
@@ -528,7 +640,43 @@ data class CareFilter(
     val unionId: Int? = null,
     val hospital: Hospital? = null,
     val specialty: String? = null,
+    // ২.৩৩.০: "today" / "tomorrow" / null, এখন চেম্বারে, ফি (টাকা পর্যন্ত), হাসপাতালের নাম, লিঙ্গ ("male"/"female")
+    val day: String? = null,
+    val openNow: Boolean = false,
+    val maxFee: Int? = null,
+    val hospitalQ: String = "",
+    val gender: String? = null,
 )
+
+/** তালিকার সাথে সার্ভারের বিশেষজ্ঞতার চিপ (এই এলাকায় যেগুলো আছে, সংখ্যাসহ) আর লিঙ্গ লেখা আছে কি না */
+data class ProviderFacets(val specialties: List<Pair<String, Int>>, val gender: Boolean)
+data class ProviderPage(val items: List<Provider>, val facets: ProviderFacets?)
+
+/** শেষবারের ছাঁকনি (ধরনপ্রতি, এই ফোনে) — এলাকা আর হাসপাতাল ছাড়া (এলাকা প্রোফাইল থেকে শুরু হয়, আগের মতো) */
+object DoctorFilterPrefs {
+    private const val FILE = "doctor_filters"
+    val FEE_STEPS = listOf(300, 500, 1000)
+
+    fun load(context: android.content.Context, type: String, base: CareFilter): CareFilter = runCatching {
+        val o = JSONObject(context.getSharedPreferences(FILE, android.content.Context.MODE_PRIVATE).getString(type, null) ?: return base)
+        base.copy(
+            specialty = o.optString("specialty").takeIf { it.isNotBlank() },
+            day = o.optString("day").takeIf { it == "today" || it == "tomorrow" },
+            openNow = o.optBoolean("openNow"),
+            maxFee = o.optInt("maxFee").takeIf { it in FEE_STEPS },
+            hospitalQ = o.optString("hospitalQ").take(60),
+            gender = o.optString("gender").takeIf { it == "male" || it == "female" },
+        )
+    }.getOrDefault(base)
+
+    fun save(context: android.content.Context, type: String, f: CareFilter) {
+        runCatching {
+            val o = JSONObject().put("specialty", f.specialty ?: "").put("day", f.day ?: "").put("openNow", f.openNow)
+                .put("maxFee", f.maxFee ?: 0).put("hospitalQ", f.hospitalQ).put("gender", f.gender ?: "")
+            context.getSharedPreferences(FILE, android.content.Context.MODE_PRIVATE).edit().putString(type, o.toString()).apply()
+        }
+    }
+}
 
 object Appointments {
     private fun provider(o: JSONObject): Provider {
@@ -539,10 +687,14 @@ object Appointments {
             (0 until ch.length()).map { Chamber.parse(ch.getJSONObject(it)) },
             HomeVisitSettings.parse(o.optJSONObject("homeVisit")), o.optDouble("rating", 0.0), o.optInt("ratingCount"),
             o.str("photo"),
+            o.optJSONArray("matched")?.ints(),
         )
     }
 
-    suspend fun providers(type: String, f: CareFilter, homeVisitOnly: Boolean = false): List<Provider> {
+    suspend fun providers(type: String, f: CareFilter, homeVisitOnly: Boolean = false): List<Provider> = providersPage(type, f, homeVisitOnly).items
+
+    /** তালিকা + বিশেষজ্ঞতার চিপ (২.৩৩.০) */
+    suspend fun providersPage(type: String, f: CareFilter, homeVisitOnly: Boolean = false): ProviderPage {
         val body = JSONObject().put("type", type).put("homeVisit", homeVisitOnly)
         if (f.hospital != null) {
             body.put("hospitalId", f.hospital.id)
@@ -552,8 +704,19 @@ object Appointments {
             f.unionId?.let { body.put("unionId", it) }
         }
         f.specialty?.let { body.put("specialty", it) }
-        val arr = careCall("providers", body).optJSONArray("items") ?: JSONArray()
-        return (0 until arr.length()).map { provider(arr.getJSONObject(it)) }
+        f.day?.let { body.put("day", it) }
+        if (f.openNow) body.put("openNow", true)
+        f.maxFee?.let { body.put("maxFee", it) }
+        f.hospitalQ.trim().takeIf { it.length >= 2 }?.let { body.put("hospitalQ", it) }
+        f.gender?.let { body.put("gender", it) }
+        val res = careCall("providers", body)
+        val arr = res.optJSONArray("items") ?: JSONArray()
+        val fo = res.optJSONObject("facets")
+        val facets = fo?.let { x ->
+            val sp = x.optJSONArray("specialties") ?: JSONArray()
+            ProviderFacets((0 until sp.length()).mapNotNull { sp.optJSONObject(it) }.map { it.str("code") to it.optInt("n") }.filter { it.first.isNotBlank() }, x.optBoolean("gender"))
+        }
+        return ProviderPage((0 until arr.length()).map { provider(arr.getJSONObject(it)) }, facets)
     }
 
     suspend fun mine(): Provider? = careCall("provider_me").optJSONObject("provider")?.let(::provider)
