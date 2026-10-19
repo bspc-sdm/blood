@@ -16,6 +16,11 @@ const router = useRouter();
 const care = useCareMode();
 const items = useNavItems();
 const pathname = computed(() => route.path);
+// React Router-এর NavLink: aria-current শুধু নিজের ঠিকানায় (বা তার ভেতরে) থাকলে — "/" শুধু হুবহু
+const navActive = (to: string) => {
+  const p = pathname.value.length > 1 ? pathname.value.replace(/\/+$/, '') : pathname.value;
+  return to === '/' ? p === '/' : p === to || p.startsWith(to + '/');
+};
 const scrolled = ref(false);
 const onScroll = () => (scrolled.value = window.scrollY > 4);
 onMounted(() => {
@@ -54,14 +59,14 @@ const photoSrc = computed(() => {
         <span class="logo-name">Lifolo</span>
       </RouterLink>
       <nav class="col gap-4">
-        <RouterLink v-for="it in items" :key="it.to" :to="it.to" class="nav-link" :aria-current="it.match(pathname) ? 'page' : undefined">
+        <RouterLink v-for="it in items" :key="it.to" :to="it.to" class="nav-link" :aria-current="navActive(it.to) ? 'page' : undefined">
           <span class="ico"><Icon :name="it.match(pathname) ? it.iconOn : it.icon" /></span>
           <span class="label">{{ it.label }}</span>
         </RouterLink>
       </nav>
       <div class="nav-bottom">
         <div class="nav-sep" />
-        <RouterLink v-for="e in extra" :key="e.to" :to="e.to" class="nav-link" :aria-current="pathname.startsWith(e.to) ? 'page' : undefined">
+        <RouterLink v-for="e in extra" :key="e.to" :to="e.to" class="nav-link" :aria-current="navActive(e.to) ? 'page' : undefined">
           <span class="ico"><Icon :name="e.icon" /></span>
           <span class="label">{{ e.label }}</span>
         </RouterLink>

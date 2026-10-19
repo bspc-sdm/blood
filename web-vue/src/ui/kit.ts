@@ -35,5 +35,5 @@ export { default as ConfirmDialog } from './ConfirmDialog.vue';
 export { default as ToastHost } from './ToastHost.vue';
 export { default as ListRow } from './ListRow.vue';
 export { toast } from './toast';
-export { cx, useNow, vFocus, inputValue, cardKey } from './composables';
+export { cx, useNow, vFocus, inputValue, cardKey, slotHasContent } from './composables';
 export type { PillTab, CardActionDef } from './types';

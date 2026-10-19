@@ -12,12 +12,12 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - **Blood section ported in full** (Home, Emergency, MyRequests, RequestDetail (guest and member), RequestForm (new and edit), all parts). Shots ≤0.4%.
 - **Services section ported in full** (Directory, ambulance request flow, MedFind, Nearest, pharmacy send, facility/location pickers, fare). Shots ≤0.6%.
 - **Account section ported in full** (Profile, EditProfile, Settings, Inbox, Help, Care, Login, dialogs). Shots 0% at mobile and desktop.
+- **Appointment section ported in full** (Doctors list/detail/booking, HomeCare, MyAppointments, live serial queue, pro workspace /work/pro with bookings, patients, chamber setup, home-care stats). Shots 0% at mobile and desktop. `/work/pro` is wired in WorkSection; the rest of /work is still TODO.
 - **Health section ported in full** (Discussion, Tips, Badge, Prescriptions, RxActivity, common, qr). Shots 0% except the QR code (it encodes `location.origin`, and the two shot servers use different ports).
 - `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
 - `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
 
 ## Remaining (React files not yet ported; these sections are TODO stubs)
-- appointment/: Doctors, HomeCare, MyAppointments, queue, shared, model, pro/index, pro/ChamberEdit (+ index)
 - work/: overview, add, ambulance, ambcalls, pharmacy, bloodbank, lab, shared (+ index)
 - rx/doctor/* (index, Write, Patients, Reviews, RxView, Team, Labs, model)
 - rx/partner/* (pharmacy, lab, labdetail, labprices, labranges, dispense, online, orders, stock, common, model, shoppanels, books/*)
@@ -29,11 +29,12 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - Pin `vue-tsc` to 3.2.4: 3.3.x wrongly reports `.value` errors for imported bindings used inside arrow functions in templates. The runtime code is fine.
 - The React test build for comparison is made from a copy of web/ (node_modules symlinked from the main checkout). The `react-web`, `compare.py` and `shots.sh` scripts live outside the repo in the session scratchpad.
 - `@fontsource/*` is pinned to 5.1.0 (React's lockfile). 5.3.0 changes glyph widths slightly, which moves line breaks.
+- Side nav: `aria-current` follows React Router NavLink (own path or below; `/` only exact), not the item's `match()`.
 - Dialog.vue: `role`/`aria-labelledby` are bound only when set. Binding them as undefined removed Reka's `role=dialog`.
 - React has no service worker and no FCM web push; only the manifest. Keep it that way for parity.
 - Templates: never put whitespace between an icon and its text (React JSX had none). Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
 
 ## Next steps
-1. Port the sections in order: appointment, work, rx/doctor, rx/partner. Then admin.
+1. Port the sections in order: work, rx/doctor, rx/partner. Then admin.
 2. Run the React-vs-Vue shots for every `test/pages/*.json` at 390px and fix the differences.
 3. Add the Bangla check script, Vitest, the Playwright e2e port, `.github/workflows/web-vue.yml` and README (bn).
