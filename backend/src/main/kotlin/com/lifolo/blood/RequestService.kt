@@ -32,6 +32,13 @@ class RequestService(
         return id!!
     }
 
+    /** myrequests.js / request_reopen: a bad id is 400 "Not found" there (clientdata.js answers 404) */
+    private fun ownRequestId(ctx: ActionContext): String {
+        val id = ctx.body.string("requestId")
+        if (!Rules.isValidId(id)) throw ctx.err(400, "Not found", "পাওয়া যায়নি")
+        return id!!
+    }
+
     // ---------------------------------------------------------------- create / reopen / delete
 
     fun create(ctx: ActionContext): Any {
@@ -96,7 +103,7 @@ class RequestService(
 
     /** opening again within 1 h of closing by mistake (requester, time not over) */
     fun reopen(ctx: ActionContext): Any {
-        val id = requestId(ctx).let { it }
+        val id = ownRequestId(ctx)
         val uid = ctx.user.id
         val now = System.currentTimeMillis()
         val r = store.inTx<BloodRequest?> {
@@ -153,7 +160,7 @@ class RequestService(
 
     /** the requester deletes their request completely (open or closed); accepted donors of an open one are told */
     fun delete(ctx: ActionContext): Any {
-        val id = requestId(ctx)
+        val id = ownRequestId(ctx)
         val r = store.request(id) ?: return linkedMapOf("ok" to true)
         if (r.requesterUid != ctx.user.id) throw ctx.err(403, "This is not your request", "এটা আপনার রিকোয়েস্ট না")
         val willing = if (r.status == "open") store.acceptedDonors(id, 50) else emptyList()
