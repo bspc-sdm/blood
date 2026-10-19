@@ -219,6 +219,8 @@ fun DetailSheet(
     onReport: (() -> Unit)?,
     onDismiss: () -> Unit,
     footer: @Composable () -> Unit = {},
+    /** অবস্থার পাশে ছোট ট্যাগ (ফার্মেসি: "২৪ ঘণ্টা") */
+    tags: List<String> = emptyList(),
 ) {
     val cs = MaterialTheme.colorScheme
     // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
@@ -249,8 +251,13 @@ fun DetailSheet(
                         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.primary)
                         metaLine(rating, ratingCount, meta)?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant) }
-                        if (status != null) {
-                            Tag(status.text, if (status.good) cs.tertiaryContainer else cs.surfaceVariant, if (status.good) cs.onTertiaryContainer else cs.onSurfaceVariant)
+                        if (status != null || tags.isNotEmpty()) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (status != null) {
+                                    Tag(status.text, if (status.good) cs.tertiaryContainer else cs.surfaceVariant, if (status.good) cs.onTertiaryContainer else cs.onSurfaceVariant)
+                                }
+                                tags.forEach { Tag(it, cs.primaryContainer, cs.onPrimaryContainer) }
+                            }
                         }
                     }
                 }

@@ -148,6 +148,7 @@ export function ServiceCard({
           <div className="row">
             <span className="t-title-m clamp2" style={{ minWidth: 0 }}>{e.title}</span>
             {e.status ? <Tag tone={e.status.good ? 'good' : undefined}>{e.status.text}</Tag> : null}
+            {e.tag ? <Tag tone="primary">{e.tag}</Tag> : null}
           </div>
           {e.subtitle ? <span className="t-body-m c-primary clamp2">{e.subtitle}</span> : null}
           {e.meta ? <span className="t-body-s muted">{e.meta}</span> : null}
@@ -206,7 +207,12 @@ export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entr
           <h2 className="t-title-l">{e.title}</h2>
           {e.subtitle ? <span className="t-body-m c-primary">{e.subtitle}</span> : null}
           {e.meta ? <span className="t-body-m muted">{e.meta}</span> : null}
-          {e.status ? <Tag tone={e.status.good ? 'good' : undefined}>{e.status.text}</Tag> : null}
+          {e.status || e.tag ? (
+            <div className="row gap-6">
+              {e.status ? <Tag tone={e.status.good ? 'good' : undefined}>{e.status.text}</Tag> : null}
+              {e.tag ? <Tag tone="primary">{e.tag}</Tag> : null}
+            </div>
+          ) : null}
         </div>
         {two ? <IconButton icon="close" label={tr('Close', 'বন্ধ')} onClick={() => nav(backTo)} /> : null}
       </div>

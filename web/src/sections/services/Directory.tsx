@@ -111,7 +111,8 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   // ফিল্টার URL-এ (বিস্তারিত খুলে ফিরে এলেও থাকে)
   const type = kind === 'ambulance' ? params.get('type') : null;
   const openNow = kind === 'pharmacy' && params.get('open') === '1';
-  const open24 = kind === 'bloodbank' && params.get('h24') === '1';
+  // ২৪ ঘণ্টা খোলা: ব্লাড ব্যাংক আর ফার্মেসি (রাতে ওষুধ দরকার হলে)
+  const open24 = (kind === 'bloodbank' || kind === 'pharmacy') && params.get('h24') === '1';
   const setParam = (k: string, v: string | null) => {
     const p = new URLSearchParams(params);
     if (v == null) p.delete(k);
@@ -127,7 +128,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
     if (kind === 'ambulance' && type) b.type = type;
     // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে) — শুধু আসল GPS হলে; "এলাকা ধরে" হলে কিছুই নয় (উপজেলা আগে)
     if (kind === 'ambulance' && origin && !origin.byArea) Object.assign(b, { lat: origin.lat, lng: origin.lng, gps: true });
-    if (kind === 'pharmacy') Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow });
+    if (kind === 'pharmacy') Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow, open24 });
     if (kind === 'bloodbank') b.open24 = open24;
     return b;
   }, [kind, area?.district, area?.upazilaId, type, openNow, open24, gps?.lat, gps?.lng, origin]);
@@ -301,7 +302,7 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
             </div>
           ) : null}
           {kind === 'pharmacy' ? <Switch label={tr('Open now only', 'শুধু এখন খোলা')} checked={openNow} onChange={(v) => setParam('open', v ? '1' : null)} /> : null}
-          {kind === 'bloodbank' ? <Switch label={tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')} checked={open24} onChange={(v) => setParam('h24', v ? '1' : null)} /> : null}
+          {kind === 'bloodbank' || kind === 'pharmacy' ? <Switch label={tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')} checked={open24} onChange={(v) => setParam('h24', v ? '1' : null)} /> : null}
         </FilterSheet>
       ) : null}
       {rating ? <RatingDialog kind={kind} id={rating.id} name={rating.name} aspects={rating.aspects} onClose={() => setRating(null)} /> : null}

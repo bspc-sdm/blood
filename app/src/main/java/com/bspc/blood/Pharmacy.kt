@@ -89,6 +89,10 @@ data class Pharmacy(
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
         else if (openAt.isNotBlank()) Weekdays.time(openAt) + " – " + Weekdays.time(closeAt) else ""
+
+    /** কার্ড আর বিস্তারিতে ছোট "২৪ ঘণ্টা" ট্যাগ */
+    val tags24: List<String>
+        get() = if (open24) listOf(tr("24 hours", "২৪ ঘণ্টা")) else emptyList()
 }
 
 object Pharmacies {
@@ -142,11 +146,12 @@ object Pharmacies {
             .put("closedDays", JSONArray(closedDays)).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)),
     ).optBoolean("pending")
 
-    suspend fun near(district: String, upazilaId: Int?, lat: Double?, lng: Double?, openNow: Boolean): List<Pharmacy> {
+    /** open24: শুধু "২৪ ঘণ্টা খোলা" দোকান (রাতে ওষুধ দরকার হলে) */
+    suspend fun near(district: String, upazilaId: Int?, lat: Double?, lng: Double?, openNow: Boolean, open24: Boolean = false): List<Pharmacy> {
         val a = call(
             "pharmacies",
             JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
-                .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL).put("openNow", openNow),
+                .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL).put("openNow", openNow).put("open24", open24),
         ).optJSONArray("items") ?: JSONArray()
         return (0 until a.length()).map { pharmacy(a.getJSONObject(it)) }
     }
@@ -360,6 +365,7 @@ private fun NearbyPharmacies(profile: Profile) {
     var district by remember { mutableStateOf(profile.placeName) }
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var openNow by remember { mutableStateOf(false) }
+    var open24 by remember { mutableStateOf(false) }
     var list by remember { mutableStateOf<List<Pharmacy>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -377,10 +383,10 @@ private fun NearbyPharmacies(profile: Profile) {
     var sendTo by remember { mutableStateOf<Pharmacy?>(null) }
     var sent by remember { mutableStateOf<RxSent?>(null) }
 
-    LaunchedEffect(district, upazilaId, openNow, reload) {
+    LaunchedEffect(district, upazilaId, openNow, open24, reload) {
         val d = district ?: return@LaunchedEffect
         loading = true
-        runCatching { Pharmacies.near(d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, openNow) }
+        runCatching { Pharmacies.near(d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, openNow, open24) }
             .onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loading = false
     }
@@ -390,9 +396,12 @@ private fun NearbyPharmacies(profile: Profile) {
             FilterBar(
                 areaLabel = areaText(district, upazilaId),
                 onAreaClick = { showArea = true },
-                filterCount = if (openNow) 1 else 0,
+                filterCount = (if (openNow) 1 else 0) + (if (open24) 1 else 0),
                 onFilterClick = { showFilter = true },
-                active = if (openNow) listOf(ActiveFilter(tr("Open now", "এখন খোলা")) { openNow = false }) else emptyList(),
+                active = listOfNotNull(
+                    if (openNow) ActiveFilter(tr("Open now", "এখন খোলা")) { openNow = false } else null,
+                    if (open24) ActiveFilter(tr("24 hours", "২৪ ঘণ্টা")) { open24 = false } else null,
+                ),
             )
             ErrorText(errorMsg)
             InfoText(infoMsg)
@@ -415,6 +424,7 @@ private fun NearbyPharmacies(profile: Profile) {
                     rating = p.rating,
                     ratingCount = p.ratingCount,
                     meta = p.km?.let { Rules.formatKm(it) },
+                    tags = p.tags24,
                     details = listOf(
                         R.drawable.ic_location_on to p.address,
                         R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত")
@@ -447,6 +457,7 @@ private fun NearbyPharmacies(profile: Profile) {
             if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
             { reporting = p },
             onDismiss = { openShop = null },
+            tags = p.tags24,
         )
     }
     // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
@@ -462,8 +473,9 @@ private fun NearbyPharmacies(profile: Profile) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
     }
     if (showFilter) {
-        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { openNow = false }) {
+        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { openNow = false; open24 = false }) {
             FilterSwitch(tr("Open now only", "শুধু এখন খোলা"), openNow) { openNow = it }
+            FilterSwitch(tr("Open 24 hours only", "শুধু ২৪ ঘণ্টা খোলা"), open24) { open24 = it }
         }
     }
     rating?.let { p ->

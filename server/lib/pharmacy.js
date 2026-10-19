@@ -337,6 +337,9 @@ const actions = {
     });
     if (upazilaId) items = items.filter((p) => p.upazilaId === upazilaId || (p.km != null && p.km <= K.MED_RADIUS_KM));
     if (b.openNow === true) items = items.filter((p) => p.openNow);
+    // "২৪ ঘণ্টা খোলা" (রাতে ওষুধ দরকার হলে): দোকানের নিজের ঘর open24 থেকে। মেমোরির তালিকা (areaPharmacies) ছাঁকার আগের
+    // পুরো জেলার — ছাঁকা এখানে হয়, তাই ক্যাশে এক ফিল্টারের ফল অন্য ফিল্টারে যায় না। পুরোনো দোকানে ঘর না থাকলে = ২৪ ঘণ্টা নয়
+    if (b.open24 === true) items = items.filter((p) => p.open24);
     // খোলা আগে, তারপর কাছেরটা। রেটিং ক্রমে নয় — নতুন দোকান পিছিয়ে পড়ে আর রেটিং সাজানো যায়; রেটিং কার্ডে দেখায়
     items.sort((a, c) => (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || a.name.localeCompare(c.name, 'bn'));
     items = items.slice(0, 100);

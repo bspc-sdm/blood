@@ -121,6 +121,8 @@ export interface Section { title: string; lines: Line[]; link?: { to: string; la
 export interface Entry {
   id: string; kind: Kind; title: string; icon: string; tint?: 'error'; subtitle?: string | null;
   status?: { text: string; good: boolean } | null; meta?: string | null; details: Line[]; note?: string | null;
+  /** অবস্থার পাশে ছোট ট্যাগ (ফার্মেসি: "২৪ ঘণ্টা") */
+  tag?: string | null;
   sections: Section[]; phone: string; canRate?: boolean; reportable: boolean;
   /** শুধু ফার্মেসি: রেটিংয়ের কোন দিকগুলো দেওয়া যায় */
   rateAspects?: RateAspect[];
@@ -168,6 +170,7 @@ export function pharmacyEntry(p: Pharmacy): Entry {
   return {
     id: p.id, kind: 'pharmacy', title: p.name, icon: 'storefront',
     status: p.openNow ? { text: tr('Open', 'খোলা'), good: true } : { text: tr('Closed', 'বন্ধ'), good: false },
+    tag: p.open24 ? tr('24 hours', '২৪ ঘণ্টা') : null,
     meta: metaLine(p.rating, p.ratingCount, p.km != null ? formatKm(p.km) : null),
     details: [['location_on', p.address], ['schedule', hours], ['payments', discount], ['local_shipping', delivery]],
     sections: [

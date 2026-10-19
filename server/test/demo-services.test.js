@@ -97,6 +97,10 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   const gOpen = await ok(null, 'pharmacies', { district: DISTRICT, openNow: true });
   assert.ok(!names(gOpen.items).includes('ডেমো সেবা ড্রাগ হাউস'), '"এখন খোলা" ফিল্টারে বন্ধ দোকান নেই');
   assert.ok(names(gOpen.items).includes('ডেমো ২৪ ঘণ্টা ফার্মেসি'));
+  // "২৪ ঘণ্টা খোলা" (S-04): ২৪ ঘণ্টা ফার্মেসি আর ডেমো লাইফ ফার্মেসি (রাতে ডেমো চালাতে ২৪ ঘণ্টা, ২.২৬.১) — বাকিরা নয়
+  const g24 = await ok(null, 'pharmacies', { district: DISTRICT, open24: true });
+  assert.deepStrictEqual(names(g24.items).sort(), ['ডেমো ২৪ ঘণ্টা ফার্মেসি', 'ডেমো লাইফ ফার্মেসি'].sort());
+  assert.ok(gPh.items.length > g24.items.length + 2, 'ছাঁকনিতে তালিকা চোখে পড়ার মতো ছোট হয়');
   const gMukta = await ok(null, 'pharmacies', { district: DISTRICT, upazilaId: 465 });
   assert.ok(names(gMukta.items).includes('ডেমো মুক্তাগাছা মেডিসিন কর্নার'));
   assert.ok(!names(gMukta.items).includes('ডেমো লাইফ ফার্মেসি'));
