@@ -1,0 +1,8 @@
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/AmbRequestScreensTest.kt:50:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+AmbRequestScreensTest > requestSheet360 STARTED
+AmbRequestScreensTest > requestSheet360 PASSED
+AmbRequestScreensTest > requestSheet412 STARTED
+AmbRequestScreensTest > requestSheet412 PASSED
+AmbRequestScreensTest > requestSheetErrors360 STARTED
+AmbRequestScreensTest > requestSheetErrors360 PASSED
