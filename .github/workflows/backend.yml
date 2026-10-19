@@ -12,19 +12,26 @@ on:
       - ".github/workflows/backend.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Latest versions on Maven Central
         run: |
+          exec > >(tee -a $RUNNER_TEMP/out.txt) 2>&1
           meta() { curl -fsSL "https://repo1.maven.org/maven2/$1/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -i 'rc\|m[0-9]\|alpha\|beta\|snapshot\|cr[0-9]' | tail -${2:-6} | tr '\n' ' '; echo; }
           echo "boot 3.5: $(curl -fsSL https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/maven-metadata.xml | grep -o '<version>3\.5\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
           for a in org/jetbrains/kotlin/kotlin-gradle-plugin org/jobrunr/jobrunr-spring-boot-3-starter com/bucket4j/bucket4j_jdk17-core com/bucket4j/bucket4j_jdk17-lettuce com/google/firebase/firebase-admin io/sentry/sentry-spring-boot-starter-jakarta software/amazon/awssdk/bom io/mockk/mockk com/ninja-squad/springmockk org/testcontainers/testcontainers; do echo "$a: $(meta $a)"; done
           echo "springdoc 2.8: $(curl -fsSL https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-starter-webmvc-ui/maven-metadata.xml | grep -o '<version>2\.8\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
           echo "gradle: $(curl -fsSL https://services.gradle.org/versions/current | grep -o '"version" : "[^"]*"')"
       - name: Inspect APIs
+        continue-on-error: true
         run: |
+          exec > >(tee -a $RUNNER_TEMP/out.txt) 2>&1
           set -x
           V=$(curl -fsSL https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
           curl -fsSLo b4l.jar https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/$V/bucket4j_jdk17-lettuce-$V.jar
@@ -41,3 +48,10 @@ jobs:
           curl -fsSLo jr.jar https://repo1.maven.org/maven2/org/jobrunr/jobrunr/$J/jobrunr-$J.jar
           javap -cp jr.jar org.jobrunr.jobs.annotations.Recurring
           javap -cp jr.jar org.jobrunr.scheduling.JobScheduler | grep -i 'enqueue\|schedule' | head
+      - name: Publish output
+        if: always()
+        run: |
+          git config user.name ci; git config user.email ci@example.com
+          git fetch origin spring-ci-log || true
+          git checkout --orphan out && git rm -rfq . && cp $RUNNER_TEMP/out.txt probe.txt
+          git add probe.txt && git commit -qm "probe ${GITHUB_RUN_ID}" && git push -f origin HEAD:spring-ci-log
