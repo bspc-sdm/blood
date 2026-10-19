@@ -1,0 +1,41 @@
+name: Compile check gzp (temp)
+permissions:
+  contents: write
+on:
+  push:
+    branches: [compile-check-gzp]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon 2>&1 | tee build.log
+      - if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: Screens (ambulance request sheet)
+        run: |
+          for t in requestSheet360 requestSheet412 requestSheetErrors360; do
+            gradle testDebugUnitTest --tests "com.bspc.blood.AmbRequestScreensTest.$t" 2>&1 | grep -E "AmbRequest|Exception|Caused by|at com\.bspc|FAILED|^e: " | head -30 | tee -a test.log || true
+          done
+          ls app/build/screens || true
+      - name: Save screens to branch
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cp app/build/screens/*.png test.log /tmp/out/ 2>/dev/null || true
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan screens-gzp
+          git rm -rf --quiet .
+          git clean -fdxq
+          cp /tmp/out/* . 2>/dev/null || true
+          git add -A && git commit -qm "screens" && git push -f origin screens-gzp
