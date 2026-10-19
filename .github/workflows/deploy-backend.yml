@@ -23,6 +23,11 @@ on:
         type: boolean
         required: false
         default: true
+      api_domain:
+        description: "আলাদা নাম (DNS-এ এই VPS-এ গেলে তবেই সার্টিফিকেট); খালি = শুধু sslip.io"
+        type: string
+        required: false
+        default: "api.lifolo.com"
   push:
     branches: [spring, "spring-p*"]
     paths:
@@ -193,7 +198,14 @@ jobs:
           OWNER_UID: ${{ steps.owner.outputs.uid }}
           OWNER: ${{ steps.provided.outputs.owner }}
           DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
+          API_DOMAIN: ${{ inputs.api_domain }}
         run: |
+          extra=()
+          api_domain="$(printf '%s' "$API_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          if [ -n "$api_domain" ]; then
+            [[ "$api_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::api_domain ঠিক নেই"; exit 1; }
+            extra=(--api-domain "$api_domain")
+          fi
           ssh vps 'install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/deploy-backend.sh' < deploy/deploy-backend.sh
           ssh vps 'umask 077 && cat > /root/lifolo-setup/provided.env' < "$RUNNER_TEMP/provided.env"
           rm -f "$RUNNER_TEMP/provided.env"
@@ -204,7 +216,7 @@ jobs:
           fi
           rc=0
           # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
-          ssh vps "bash /root/lifolo-setup/deploy-backend.sh --ci --domain '$DOMAIN' --jar /root/lifolo-setup/app.jar.new --sha256 '$SHA' --provided /root/lifolo-setup/provided.env ${demo[*]}" || rc=$?
+          ssh vps "bash /root/lifolo-setup/deploy-backend.sh --ci --domain '$DOMAIN' --jar /root/lifolo-setup/app.jar.new --sha256 '$SHA' --provided /root/lifolo-setup/provided.env ${extra[*]} ${demo[*]}" || rc=$?
           ssh vps 'cat /var/lib/lifolo/deploy-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-status.txt" || true
           cat "$RUNNER_TEMP/deploy-status.txt"
           sed 's/^/s_/' "$RUNNER_TEMP/deploy-status.txt" >> "$GITHUB_OUTPUT"
@@ -215,6 +227,8 @@ jobs:
         if: always() && steps.host.outputs.domain != ''
         env:
           DOMAIN: ${{ steps.host.outputs.domain }}
+          API_DOMAIN: ${{ inputs.api_domain }}
+          S_API_DOMAIN: ${{ steps.deploy.outputs.s_api_domain }}
         run: |
           api=no; healthz=no
           for _ in $(seq 1 10); do
@@ -223,6 +237,15 @@ jobs:
           done
           curl -fsS -m 10 "https://$DOMAIN/healthz" | grep -q '"ok":true' && healthz=yes
           echo "api=$api" >> "$GITHUB_OUTPUT"
+          if [ "$S_API_DOMAIN" = ok ]; then
+            d2=no
+            for _ in $(seq 1 5); do
+              if curl -fsS -m 10 "https://$API_DOMAIN/api/health" | grep -q '"ok":true'; then d2=yes; break; fi
+              sleep 6
+            done
+            echo "api2=$d2" >> "$GITHUB_OUTPUT"
+            echo "https://$API_DOMAIN/api/health: $d2"
+          fi
           echo "healthz=$healthz" >> "$GITHUB_OUTPUT"
           echo "https://$DOMAIN/api/health: $api   /healthz: $healthz"
           [ "$api" = yes ]
@@ -256,6 +279,10 @@ jobs:
           S_DEMO_WIPE: ${{ steps.deploy.outputs.s_demo_wipe }}
           S_FATAL: ${{ steps.deploy.outputs.s_fatal }}
           S_R2: ${{ steps.deploy.outputs.s_r2 }}
+          API_DOMAIN: ${{ inputs.api_domain }}
+          S_API_DOMAIN: ${{ steps.deploy.outputs.s_api_domain }}
+          S_API_DOMAIN_HEALTH: ${{ steps.deploy.outputs.s_api_domain_health }}
+          WEB_API2: ${{ steps.web.outputs.api2 }}
           S_SENTRY: ${{ steps.deploy.outputs.s_sentry }}
         run: |
           mark() { case "$1" in ok|yes|up|ok\ *) echo "✅" ;; skipped*|"") echo "⏭️" ;; *) echo "❌" ;; esac; }
@@ -274,6 +301,15 @@ jobs:
             row "nginx: /api/ /r/ /rx/ /shop/ /.well-known/ → অ্যাপ" "$S_NGINX" "${S_NGINX:-—}"
             row "https://$DOMAIN/api/health (VPS থেকে)" "$S_HEALTH_HTTPS" "${S_HEALTH_HTTPS:-—}"
             row "https://$DOMAIN/api/health (ইন্টারনেট থেকে)" "$WEB_API" "${WEB_API:-—}"
+            if [ -n "$API_DOMAIN" ]; then
+              case "$S_API_DOMAIN" in
+                ok) row "https://$API_DOMAIN — সার্টিফিকেট + nginx" ok
+                    row "https://$API_DOMAIN/api/health (VPS থেকে)" "$S_API_DOMAIN_HEALTH" "${S_API_DOMAIN_HEALTH:-—}"
+                    row "https://$API_DOMAIN/api/health (ইন্টারনেট থেকে)" "$WEB_API2" "${WEB_API2:-—}" ;;
+                dns_not_ready*) row "https://$API_DOMAIN" skipped "DNS এখনো এই VPS-এ যায় না (${S_API_DOMAIN#dns_not_ready }) — Cloudflare-এ A রেকর্ড (DNS only) দিয়ে আবার চালান" ;;
+                *) row "https://$API_DOMAIN" "${S_API_DOMAIN:-failed}" ;;
+              esac
+            fi
             row "/healthz আগের মতোই" "$S_HEALTHZ" "${S_HEALTHZ:-—}"
             row "/.well-known/assetlinks.json" "$S_ASSETLINKS" "${S_ASSETLINKS:-—}"
             row "/r/… শেয়ার পাতা অ্যাপ থেকে" "$S_SHARE" "${S_SHARE:-—}"

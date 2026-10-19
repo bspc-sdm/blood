@@ -3,7 +3,10 @@
 # (.github/workflows/deploy-backend.yml) চালায়; আগে "Setup VPS (base)" (setup-base.sh) হয়ে থাকতে হবে।
 #
 #   bash deploy-backend.sh --domain 169-58-58-176.sslip.io --jar /root/lifolo-setup/app.jar.new --sha256 <hash> \
-#        --provided /root/lifolo-setup/provided.env [--demo-smoke <owner-uid> <owner-email>] [--ci]
+#        --provided /root/lifolo-setup/provided.env [--api-domain api.lifolo.com] [--demo-smoke <owner-uid> <owner-email>] [--ci]
+#
+# --api-domain: আরেকটা নাম (যেমন api.lifolo.com) — DNS-এ এই VPS-এর IP-তে গেলে তবেই Let's Encrypt সার্টিফিকেট আর
+#   nginx-এর আলাদা সাইট (একই পথগুলো + /healthz); না গেলে কিছু বদলায় না (sslip.io-র ঠিকানা সবসময় চলে)।
 #
 # --provided: GitHub secret থেকে আসা মান (KEY=value, এক লাইনে একটা; FIREBASE_SERVICE_ACCOUNT base64-এ)।
 #   চেনা নাম: FIREBASE_SERVICE_ACCOUNT ADMIN_EMAILS SES_REGION SES_ACCESS_KEY_ID SES_SECRET_ACCESS_KEY SES_FROM
@@ -31,7 +34,7 @@ STATUS=/var/lib/lifolo/deploy-status
 SNIPPET=/etc/nginx/snippets/lifolo-api.conf
 DROPIN_DIR=/etc/systemd/system/lifolo-api.service.d
 
-DOMAIN="" JAR="" SHA="" PROVIDED="" OWNER_UID="" OWNER_EMAIL="" CI_MODE=no
+DOMAIN="" JAR="" SHA="" PROVIDED="" OWNER_UID="" OWNER_EMAIL="" CI_MODE=no API_DOMAIN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2 ;;
@@ -39,6 +42,7 @@ while [ $# -gt 0 ]; do
     --sha256) SHA="$2"; shift 2 ;;
     --provided) PROVIDED="$2"; shift 2 ;;
     --demo-smoke) OWNER_UID="$2"; OWNER_EMAIL="$3"; shift 3 ;;
+    --api-domain) API_DOMAIN="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --ci) CI_MODE=yes; shift ;;
     *) echo "অচেনা আর্গুমেন্ট: $1" >&2; exit 2 ;;
   esac
@@ -212,6 +216,71 @@ else
   st nginx failed
 fi
 
+# ---------------------------------------------------------------- 5b) আলাদা নাম (api.lifolo.com)
+API_SITE=/etc/nginx/sites-available/lifolo-api-domain
+if [ -n "$API_DOMAIN" ]; then
+  say "আলাদা নাম: $API_DOMAIN"
+  if ! [[ "$API_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
+    st api_domain "invalid name"
+  else
+    MY_IPS=" $(hostname -I 2>/dev/null || true) "
+    DNS_IPS="$(getent ahostsv4 "$API_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
+    matched=no
+    for ip in $DNS_IPS; do case "$MY_IPS" in *" $ip "*) matched=yes ;; esac; done
+    CERT="/etc/letsencrypt/live/$API_DOMAIN/fullchain.pem"
+    if [ "$matched" != yes ]; then
+      st api_domain "dns_not_ready (${DNS_IPS:-no A record})"
+    else
+      # port 80-এর default_server-এ acme-challenge আগে থেকেই আছে (setup-base.sh), তাই webroot-এ সরাসরি
+      if [ ! -f "$CERT" ]; then
+        certbot certonly --webroot -w /var/www/letsencrypt -d "$API_DOMAIN" --register-unsafely-without-email \
+          --agree-tos --non-interactive --keep-until-expiring --deploy-hook "systemctl reload nginx" >/dev/null 2>&1 || true
+      fi
+      if [ ! -f "$CERT" ]; then
+        st api_domain cert_failed
+      else
+        {
+          echo "# Lifolo — deploy-backend.sh লেখে: $API_DOMAIN → একই অ্যাপ (setup-base.sh এই ফাইল ছোঁয় না)"
+          echo "server {"
+          echo "    listen 80;"
+          echo "    listen [::]:80;"
+          echo "    server_name $API_DOMAIN;"
+          echo "    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }"
+          echo "    location / { return 301 https://$API_DOMAIN\$request_uri; }"
+          echo "}"
+          echo "server {"
+          echo "    listen 443 ssl http2;"
+          echo "    listen [::]:443 ssl http2;"
+          echo "    server_name $API_DOMAIN;"
+          echo "    ssl_certificate $CERT;"
+          echo "    ssl_certificate_key /etc/letsencrypt/live/$API_DOMAIN/privkey.pem;"
+          echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+          echo "    ssl_prefer_server_ciphers off;"
+          echo "    ssl_session_cache shared:lifolo_ssl:10m;"
+          echo "    ssl_session_timeout 1d;"
+          echo "    ssl_session_tickets off;"
+          echo "    add_header Strict-Transport-Security \"max-age=31536000\" always;"
+          echo "    include $SNIPPET;"
+          echo "    include /etc/nginx/snippets/lifolo-common.conf;"
+          echo "}"
+        } > "$API_SITE.new"
+        [ -e /proc/net/if_inet6 ] || sed -i '/listen \[::\]/d' "$API_SITE.new"
+        mv "$API_SITE.new" "$API_SITE"
+        chmod 0644 "$API_SITE"
+        ln -sf "$API_SITE" /etc/nginx/sites-enabled/lifolo-api-domain
+        if nginx -t 2>/dev/null; then
+          systemctl reload nginx
+          st api_domain ok
+        else
+          rm -f /etc/nginx/sites-enabled/lifolo-api-domain
+          systemctl reload nginx || true
+          st api_domain nginx_failed
+        fi
+      fi
+    fi
+  fi
+fi
+
 # ---------------------------------------------------------------- 6) পরীক্ষা
 say "পরীক্ষা (এই মেশিন থেকে, https দিয়ে)"
 H() { curl -sS -m 15 --resolve "$DOMAIN:443:127.0.0.1" "$@"; }
@@ -226,6 +295,9 @@ check share_route "! H '$B/r/deploy-smoke' | grep -q 'Lifolo — setting up'"
 check jobrunr_off "! ss -ltnH | awk '{print \$4}' | grep -qE ':8000\$' && ! H '$B/dashboard' | grep -qi jobrunr"
 # actuator বাইরে খোলা নয় (nginx শুধু অ্যাপের পথগুলো পাঠায়)
 check actuator_hidden "! H '$B/actuator/health' | grep -q '\"status\"'"
+if [ "$(env_get api_domain "$STATUS")" = ok ]; then
+  check api_domain_health "curl -sS -m 15 --resolve '$API_DOMAIN:443:127.0.0.1' 'https://$API_DOMAIN/api/health' | grep -q '\"ok\":true'"
+fi
 check api_guest "H -X POST -H 'content-type: application/json' --data '{\"action\":\"__nope__\",\"lang\":\"bn\"}' '$B/api/community' | grep -q 'error'"
 
 # ডেমো বানানো আর মোছা — API দিয়ে, মালিকের অ্যাডমিন-প্যানেল সেশন (কুকি) এখানেই WEB_SESSION_SECRET দিয়ে সই করে
