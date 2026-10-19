@@ -51,7 +51,7 @@ export async function run(J) {
 
   await J.sc('R-02', 'ডাক্তারের বিস্তারিত, ফিল্টার আর শুধু-ফোনের ডাক্তার', async () => {
     await tap(page, 'ডা. ডেমো হাসান');
-    await J.shot('হাসান — দুটো চেম্বার', 'মেডিকেল (বহির্বিভাগ ৩১২, প্রতিদিন, ফি ৫০০) আর মুক্তাগাছা (শুক্রবার, ফি ৪০০)।', { full: true });
+    await J.shot('হাসান — দুটো চেম্বার', 'মেডিকেল (বহির্বিভাগ ৩১২, প্রতিদিন, ফি ৫০০) আর কালিয়াকৈর (শুক্রবার, ফি ৪০০)।', { full: true });
     await go(page, '/appointment');
     await tap(page, 'ফিল্টার');
     const d = page.getByRole('dialog').last();
@@ -152,7 +152,7 @@ export async function run(J) {
       await fees.nth(1).fill('৪৫০ টাকা');
       await page.getByRole('button', { name: /সেভ/ }).last().click();
       await settle(page, 600);
-      await J.shot('মুক্তাগাছার ফি ৪৫০', 'সেভ হয়েছে; রোগীর তালিকায় ৪৫০ টাকা।');
+      await J.shot('কালিয়াকৈরের ফি ৪৫০', 'সেভ হয়েছে; রোগীর তালিকায় ৪৫০ টাকা।');
     }
   });
 

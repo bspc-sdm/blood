@@ -162,21 +162,21 @@ export async function run(J) {
     await openA222(page);
     await tap(page, 'পরীক্ষা করাতে পাঠান', { role: 'button' });
     await settle(page, 700);
-    await J.shot('রোগীর নতুন বাছাইয়ে নতুন দাম (S-65)', 'সিটি: ‘৩টার ৩টা পরীক্ষা · আনুমানিক ৳২,২৫০’; পপুলার, ত্রিশাল (‘এখানে হয় না: FBS, Lipid profile’), রয়েল (‘দাম জানা নেই’)।');
+    await J.shot('রোগীর নতুন বাছাইয়ে নতুন দাম (S-65)', 'সিটি: ‘৩টার ৩টা পরীক্ষা · আনুমানিক ৳২,২৫০’; পপুলার, শ্রীপুর (‘এখানে হয় না: FBS, Lipid profile’), রয়েল (‘দাম জানা নেই’)।');
     const d = page.getByRole('dialog').last();
     // শুধু HbA1c
     for (const t of ['FBS', 'Lipid profile']) await d.getByText(t, { exact: true }).first().click();
     await settle(page, 800);
-    await J.shot('শুধু HbA1c — সবচেয়ে কম দাম আগে', 'ত্রিশাল ৳৮৫৫ সবার আগে, তারপর সিটি, পপুলার।');
+    await J.shot('শুধু HbA1c — সবচেয়ে কম দাম আগে', 'শ্রীপুর ৳৮৫৫ সবার আগে, তারপর সিটি, পপুলার।');
     for (const t of ['FBS', 'Lipid profile']) await d.getByText(t, { exact: true }).first().click();
     await settle(page, 600);
-    // S-74: ত্রিশালে পাঠানো (সব পরীক্ষা হয় না)
-    await d.locator('article, .card').filter({ hasText: 'ডেমো ত্রিশাল ডায়াগনস্টিক' }).getByRole('button', { name: 'পরীক্ষা পাঠান' }).first().click();
+    // S-74: শ্রীপুরে পাঠানো (সব পরীক্ষা হয় না)
+    await d.locator('article, .card').filter({ hasText: 'ডেমো শ্রীপুর ডায়াগনস্টিক' }).getByRole('button', { name: 'পরীক্ষা পাঠান' }).first().click();
     const h = page.getByRole('dialog').last();
     const lab = h.getByText('প্যাথলজিতে গিয়ে দেব');
     if (await lab.count()) { await lab.click(); await h.getByRole('button', { name: 'পাঠান', exact: true }).click(); }
     await settle(page, 600);
-    await J.shot('ত্রিশালে পাঠানো (S-74)', 'ত্রিশালের সারিতে ‘আনুমানিক ৳৮৫৫ · FBS, Lipid profile দাম জানা নেই’।', { full: true });
+    await J.shot('শ্রীপুরে পাঠানো (S-74)', 'শ্রীপুরের সারিতে ‘আনুমানিক ৳৮৫৫ · FBS, Lipid profile দাম জানা নেই’।', { full: true });
     page = await J.as('lab');
     await labWork(page, 'পরীক্ষা ও দাম');
     await page.locator('tr').filter({ hasText: 'HbA1c' }).locator('input').first().fill(old || '1000');
@@ -282,7 +282,7 @@ export async function run(J) {
     await go(page, '/work');
     await tap(page, 'আমার চেম্বার');
     await tap(page, 'সেটআপ', { role: 'tab' });
-    await J.shot('গড় সময় ১৫ থাকে', 'মুক্তাগাছায় ‘রোগীপ্রতি গড় সময় (মিনিট)’ ১৫।', { full: true });
+    await J.shot('গড় সময় ১৫ থাকে', 'কালিয়াকৈরে ‘রোগীপ্রতি গড় সময় (মিনিট)’ ১৫।', { full: true });
   });
 
   await J.sc('R-32 R-33', 'ব্যাজ সংশোধন মঞ্জুর, আর ডাক্তারের ব্যাজ বাতিল/ফেরত', async () => {

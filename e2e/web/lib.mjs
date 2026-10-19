@@ -68,7 +68,7 @@ export class Journey {
     const ctx = await browser.newContext({
       viewport: isPhone ? PHONE : DESKTOP, deviceScaleFactor: 1, locale: 'bn-BD', timezoneId: 'Asia/Dhaka',
       isMobile: isPhone, hasTouch: isPhone,
-      geolocation: { latitude: 24.7539, longitude: 90.4073 }, permissions: ['geolocation', 'clipboard-read', 'clipboard-write'],
+      geolocation: { latitude: 23.999, longitude: 90.42 }, permissions: ['geolocation', 'clipboard-read', 'clipboard-write'],
     });
     const off = clockOff();
     if (off) await ctx.clock.install({ time: Date.now() + off });

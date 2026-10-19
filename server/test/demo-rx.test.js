@@ -11,7 +11,7 @@ const demo = require(path.join(SERVER, 'lib/demo'));
 const RXD = require(path.join(SERVER, 'lib/demo/rx'));
 const K = require(path.join(SERVER, 'lib/care'));
 const P = require(path.join(SERVER, 'lib/prescriptions'));
-const DIST = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DIST = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const { db } = F.firebase;
 // নকল Firebase-এ নেই এমন দুটো জিনিস (account.js-এর deleteNow লাগে): recursiveDelete আর ref.parent
 if (!db.recursiveDelete) {
@@ -190,9 +190,9 @@ test('rx ডেমো: ডাক্তার, সিরিয়াল, প্�
   const got = (await call(PT, 'rx_mine')).items.find((r) => r.id === made.id);
   assert.deepStrictEqual(got.tests, ['CBC', 'HbA1c']);
   // J: রোগী ডেমো ফার্মেসিতে অনলাইনে অর্ডার দেন (স্টকে আছে দেখায়) → ফার্মেসি নেয়, পাঠায়, ওষুধ লেখে
-  const onl = (await call(PT, 'rx_pharmacy_options', { rxId: made.id, district: DIST, upazilaId: 466, mode: 'online' })).items.find((o) => o.id === PH);
+  const onl = (await call(PT, 'rx_pharmacy_options', { rxId: made.id, district: DIST, upazilaId: 320, mode: 'online' })).items.find((o) => o.id === PH);
   assert.ok(onl && onl.online && onl.have === 2, JSON.stringify(onl));
-  const ord = await call(PT, 'rx_send_pharmacy', { rxId: made.id, pharmacyId: PH, mode: 'online', address: 'ডেমো বাসা ৫, চরপাড়া', phone: '01700000101' });
+  const ord = await call(PT, 'rx_send_pharmacy', { rxId: made.id, pharmacyId: PH, mode: 'online', address: 'ডেমো বাসা ৫, শিববাড়ি', phone: '01700000101' });
   await call(PH, 'rx_order_update', { id: ord.id, status: 'accepted', price: '৪২০ টাকা', eta: 'এক ঘণ্টায়' });
   await call(PH, 'rx_order_update', { id: ord.id, status: 'out' });
   await call(PH, 'rx_dispense', { code: made.code, items: [{ i: 0, qty: 60 }, { i: 1, qty: 9 }] });

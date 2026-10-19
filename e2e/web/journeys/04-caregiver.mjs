@@ -143,7 +143,7 @@ export async function run(J) {
     const h = page.getByRole('dialog').last();
     // বাসা থেকে নমুনা (S-69-এর মতো) — ফোন রোগীর আগের অনুরোধ থেকে বসানো থাকে, কেয়ারগিভারের নিজের নয়
     await h.getByText('বাসা থেকে নমুনা নিতে আসবে').click();
-    await h.getByLabel('বাসার ঠিকানা').fill('ডেমো বাসা ২, চরপাড়া');
+    await h.getByLabel('বাসার ঠিকানা').fill('ডেমো বাসা ২, শিববাড়ি');
     const ph = h.getByLabel('মোবাইল নম্বর');
     await J.shot('রহিমের হয়ে বাসা থেকে নমুনা (S-69)', 'আনুমানিক দাম; ঠিকানা আর ফোন রোগীর আগের অনুরোধ থেকে (কেয়ারগিভারের নিজের নম্বর নয়)।');
     if (!(await ph.inputValue())) await ph.fill('01700001101');

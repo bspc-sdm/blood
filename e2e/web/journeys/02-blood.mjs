@@ -6,21 +6,21 @@ import { adminLogin } from './00-seed.mjs';
 
 export const meta = { no: 2, slug: 'blood', titleBn: 'রক্তদান: রিকোয়েস্ট, ডোনার, ব্লাড ব্যাংক' };
 
-/** অতিথির এলাকা: জেলা ময়মনসিংহ */
-export async function pickDistrict(page, name = 'ময়মনসিংহ', J = null) {
+/** অতিথির এলাকা: জেলা গাজীপুর */
+export async function pickDistrict(page, name = 'গাজীপুর', J = null) {
   const dlg = page.getByRole('dialog').last();
   await dlg.waitFor();
   const search = dlg.getByRole('textbox').first();
   if (await search.count()) await search.fill(name);
   await settle(page, 200);
-  if (J) await J.shot('এলাকা খোঁজা — ‘ময়মনসিংহ’ লিখলে জেলা আসে', 'জেলা খোঁজার ঘরে ‘ময়মনসিংহ’ লিখলে তালিকায় ময়মনসিংহ।', { status: 'fixed', noteBn: 'আগে কিবোর্ডে ‘ময়মনসিংহ’ লিখলে (য় দুই রকম ইউনিকোডে লেখা যায়) জেলা খুঁজে পেত না — তালিকা খালি থাকত। এলাকা, হাসপাতাল আর উপজেলার খোঁজে এখন দুই রূপই মেলে।' });
+  if (J) await J.shot('এলাকা খোঁজা — ‘গাজীপুর’ লিখলে জেলা আসে', 'জেলা খোঁজার ঘরে ‘গাজীপুর’ লিখলে তালিকায় গাজীপুর।', { status: 'fixed', noteBn: 'আগে কিবোর্ডে ‘গাজীপুর’ লিখলে (য় দুই রকম ইউনিকোডে লেখা যায়) জেলা খুঁজে পেত না — তালিকা খালি থাকত। এলাকা, হাসপাতাল আর উপজেলার খোঁজে এখন দুই রূপই মেলে।' });
   // খোঁজার ফলের প্রথম সারি (তালিকার নাম অন্য ইউনিকোড রূপে থাকতে পারে, তাই লেখা মিলিয়ে নয়)
   await dlg.locator('[style*="overflow-y"] > *').first().click();
   await settle(page);
   // উপজেলা জিজ্ঞেস করলে "সব"/জেলা পর্যায়ে থাকা
   const d2 = page.getByRole('dialog');
   if (await d2.count()) {
-    const all = d2.last().getByText(/পুরো জেলা|সব উপজেলা|ময়মনসিংহ জেলা/).first();
+    const all = d2.last().getByText(/পুরো জেলা|সব উপজেলা|গাজীপুর জেলা/).first();
     if (await all.count()) await all.click().catch(() => {});
     await settle(page);
   }
@@ -43,7 +43,7 @@ async function donate(page) {
 }
 
 /** "আমার রিকোয়েস্ট" কার্ড (হোমের ওপরে) */
-const myCard = (page) => page.locator('section, .card').filter({ hasText: 'আমার রিকোয়েস্ট' }).filter({ hasText: 'ডেমো চরপাড়া জেনারেল হাসপাতাল' }).first();
+const myCard = (page) => page.locator('section, .card').filter({ hasText: 'আমার রিকোয়েস্ট' }).filter({ hasText: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল' }).first();
 
 export async function run(J) {
   let page;
@@ -55,14 +55,14 @@ export async function run(J) {
     const choose = page.getByRole('button', { name: /এলাকা বেছে নিন|এলাকা বদলান/ }).first();
     if (await choose.count()) {
       await choose.click();
-      await pickDistrict(page, 'ময়মনসিংহ', J);
+      await pickDistrict(page, 'গাজীপুর', J);
     }
-    await J.shot('অতিথি: আশেপাশের রিকোয়েস্ট (ময়মনসিংহ)', 'সবার ওপরে A+ ‘ডেমো মেডিকেল গেট জেনারেল হাসপাতাল’ (লাল ‘জরুরি’), তারপর গাঙ্গিনারপাড় (যাতায়াত খরচ), কাচিঝুলি (১ জন রাজি), থ্যালাসেমিয়া সেন্টার, চরপাড়া (O-, A+), নেত্রকোণা মোড় (ডোনার পাওয়া গেছে); ত্রিশাল নেই।', { full: true });
-    if (await page.getByText('ডেমো ত্রিশাল উপজেলা স্বাস্থ্য কমপ্লেক্স').count()) throw new Error('১০ কিমির বাইরের ত্রিশাল তালিকায় দেখা যাচ্ছে');
+    await J.shot('অতিথি: আশেপাশের রিকোয়েস্ট (গাজীপুর)', 'সবার ওপরে A+ ‘ডেমো শিববাড়ি জেনারেল হাসপাতাল’ (লাল ‘জরুরি’), তারপর জয়দেবপুর বাজার (যাতায়াত খরচ), ছায়াবীথি (১ জন রাজি), থ্যালাসেমিয়া সেন্টার, শিববাড়ি (O-, A+), রেলগেট (ডোনার পাওয়া গেছে); শ্রীপুর নেই।', { full: true });
+    if (await page.getByText('ডেমো শ্রীপুর উপজেলা স্বাস্থ্য কমপ্লেক্স').count()) throw new Error('১০ কিমির বাইরের শ্রীপুর তালিকায় দেখা যাচ্ছে');
   });
 
   await J.sc('B-02', 'অতিথি রক্তপ্রার্থীর নাম-ফোন দেখেন না, সাড়া দিতে লগইন লাগে', async () => {
-    await openReq(page, 'ডেমো মেডিকেল গেট জেনারেল হাসপাতাল');
+    await openReq(page, 'ডেমো শিববাড়ি জেনারেল হাসপাতাল');
     await J.shot('অতিথি: রিকোয়েস্টের পাতা', 'হাসপাতাল, এলাকা, কবে, ব্যাগ — রক্তপ্রার্থীর নাম বা ফোন নেই।', { full: true });
     const b = page.getByRole('button', { name: /রক্ত দেব|রক্ত দিতে চাই|লগইন/ }).first();
     await b.click();
@@ -73,7 +73,7 @@ export async function run(J) {
 
   await J.sc('B-03', 'ব্লাড ব্যাংকের তালিকা আর ডেমো আহ্বান লুকানো (অতিথি)', async () => {
     await go(page, '/');
-    await J.shot('অতিথি: হোমে ডেমো জরুরি আহ্বান নেই', '‘ডেমো মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)’-এর ডেমো আহ্বান অতিথি দেখেন না।');
+    await J.shot('অতিথি: হোমে ডেমো জরুরি আহ্বান নেই', '‘ডেমো তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)’-এর ডেমো আহ্বান অতিথি দেখেন না।');
     if (await page.getByText('ডেমো আহ্বান (আসল নয়)').count()) throw new Error('অতিথি ডেমো জরুরি আহ্বান দেখছেন');
     await go(page, '/services');
     await tap(page, 'ব্লাড ব্যাংক', { role: 'tab' }).catch(() => tap(page, 'ব্লাড ব্যাংক'));
@@ -96,18 +96,18 @@ export async function run(J) {
 
   await J.sc('B-05', 'হোমে নিজের ‘প্রসেসিং’ আর মানানসই রিকোয়েস্ট', async () => {
     await go(page, '/');
-    await J.shot('ডোনারের হোম', 'ওপরে কাউন্টডাউনসহ ‘ডেমো নেত্রকোণা মোড় ক্লিনিক’ (প্রসেসিং); তালিকায় A+, B+, O+, AB+ — O- নেই; জরুরি আগে।', { full: true });
+    await J.shot('ডোনারের হোম', 'ওপরে কাউন্টডাউনসহ ‘ডেমো রেলগেট ক্লিনিক, জয়দেবপুর’ (প্রসেসিং); তালিকায় A+, B+, O+, AB+ — O- নেই; জরুরি আগে।', { full: true });
   });
 
   await J.sc('B-06', 'রাজি হওয়া রিকোয়েস্টে রক্তপ্রার্থীর নম্বর দেখা যায়', async () => {
     await go(page, '/');
-    await page.locator('article, .card').filter({ hasText: 'ডেমো নেত্রকোণা মোড় ক্লিনিক' }).first().click();
+    await page.locator('article, .card').filter({ hasText: 'ডেমো রেলগেট ক্লিনিক, জয়দেবপুর' }).first().click();
     await settle(page);
     await J.shot('নিশ্চিত রিকোয়েস্ট — রক্তপ্রার্থীর নম্বর', '‘রক্তপ্রার্থী আপনাকে নিশ্চিত করেছেন।’; ‘ডেমো রক্তপ্রার্থী রেহানা’ ০১৭০০০০১২১৯; ‘রক্ত দিয়েছি’ আর ‘আর পারছি না, বাতিল করুন’।', { full: true });
   });
 
   await J.sc('B-07', 'রাজি হওয়ার আগে নম্বর গোপন, রাজি হলে দেখা যায়, বাতিল করলে আবার গোপন', async () => {
-    await openReq(page, 'ডেমো মেডিকেল গেট জেনারেল হাসপাতাল');
+    await openReq(page, 'ডেমো শিববাড়ি জেনারেল হাসপাতাল');
     await J.shot('রাজি হওয়ার আগে', 'শুধু নাম ‘ডেমো রক্তপ্রার্থী সেলিনা’, ফোন নেই; ‘রক্তপ্রার্থী আপনার নাম ও নম্বর দেখতে পাবেন।’', { full: true });
     const dlg = await donate(page);
     await J.shot('রক্ত দেওয়ার আগে — ৫টা টিক', 'পাঁচটা ঘরে টিক, ‘রক্ত দেব’ চালু।');
@@ -128,8 +128,8 @@ export async function run(J) {
     await grp.getByText('O-', { exact: true }).click();
     await settle(page, 500);
     await go(page, '/');
-    await J.shot('O- যোগ করার পর হোম', '‘ডেমো চরপাড়া জেনারেল হাসপাতাল’-এর O- রিকোয়েস্ট (নুরুল) তালিকায়।', { full: true });
-    await page.locator('article').filter({ hasText: 'O-' }).filter({ hasText: 'ডেমো চরপাড়া জেনারেল হাসপাতাল' }).first().click();
+    await J.shot('O- যোগ করার পর হোম', '‘ডেমো জয়দেবপুর জেনারেল হাসপাতাল’-এর O- রিকোয়েস্ট (নুরুল) তালিকায়।', { full: true });
+    await page.locator('article').filter({ hasText: 'O-' }).filter({ hasText: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল' }).first().click();
     await settle(page);
     await J.shot('O- রিকোয়েস্ট — রক্ত দেওয়া যায় না', '‘আপনার গ্রুপ (O+) থেকে O- রোগীকে রক্ত দেওয়া যায় না…’; ‘রক্ত দেব’ নেই।');
     await go(page, '/settings');
@@ -138,7 +138,7 @@ export async function run(J) {
     await dist.getByText(/^২৫/).first().click();
     await settle(page, 500);
     await go(page, '/');
-    await J.shot('২৫ কিমিতে ত্রিশাল দেখা যায়', '‘ডেমো ত্রিশাল উপজেলা স্বাস্থ্য কমপ্লেক্স’ (B+, ~১৬ কিমি)।', { full: true });
+    await J.shot('২৫ কিমিতে শ্রীপুর দেখা যায়', '‘ডেমো শ্রীপুর উপজেলা স্বাস্থ্য কমপ্লেক্স’ (B+, ~১৬ কিমি)।', { full: true });
     await go(page, '/settings');
     await page.locator('.field, section, div').filter({ hasText: 'রক্ত দিতে কতদূর যেতে পারবেন?' }).last().getByText(/^১০/).first().click();
     await settle(page, 400);
@@ -175,7 +175,7 @@ export async function run(J) {
     await J.shot('আসতে পারছি না', 'আবার O+ ‘১/৪ আসছেন’ আর ‘আসছি’।');
     const no = page.getByRole('button', { name: 'না, দিইনি' });
     if (await no.count()) {
-      await J.shot('শেষ হওয়া আহ্বান — রক্ত দিয়েছেন?', '‘ডেমো সদর হাসপাতাল, ময়মনসিংহ’ — ‘হ্যাঁ, দিয়েছি’ / ‘না, দিইনি’।');
+      await J.shot('শেষ হওয়া আহ্বান — রক্ত দিয়েছেন?', '‘ডেমো সদর হাসপাতাল, গাজীপুর’ — ‘হ্যাঁ, দিয়েছি’ / ‘না, দিইনি’।');
       await no.first().click();
       await see(page, 'জানানোর জন্য ধন্যবাদ');
       await J.shot('না, দিইনি — ধন্যবাদ', '‘জানানোর জন্য ধন্যবাদ।’; প্রশ্ন চলে যায়।');
@@ -187,13 +187,13 @@ export async function run(J) {
   await J.sc('B-11', 'রোগীর হোম: ‘আমার রিকোয়েস্ট’ আর কারা রাজি', async () => {
     page = await J.as('patient');
     await go(page, '/');
-    await J.shot('রোগীর হোম — আমার রিকোয়েস্ট', 'ওপরে ‘রক্ত দিতে চাই’; ‘আমার রিকোয়েস্ট’: A+ চরপাড়া, ‘৭ জন ডোনারকে জানানো হয়েছে’, ‘২ জন রাজি · ১ জন নিশ্চিত’; সাকিব (নিশ্চিত), নাদিয়া (নিশ্চিত করুন/বাদ দিন)।', { full: true });
+    await J.shot('রোগীর হোম — আমার রিকোয়েস্ট', 'ওপরে ‘রক্ত দিতে চাই’; ‘আমার রিকোয়েস্ট’: A+ শিববাড়ি, ‘৭ জন ডোনারকে জানানো হয়েছে’, ‘২ জন রাজি · ১ জন নিশ্চিত’; সাকিব (নিশ্চিত), নাদিয়া (নিশ্চিত করুন/বাদ দিন)।', { full: true });
   });
 
   await J.sc('B-12', 'আমার রিকোয়েস্টের ইতিহাস আর নোটিফিকেশন', async () => {
     await go(page, '/my-requests');
-    await J.shot('আমার রিকোয়েস্ট — ৩টা', 'খোলা ‘ডেমো চরপাড়া জেনারেল হাসপাতাল’; ‘বন্ধ’ মেডিকেল গেট (৪০ দিন আগে) আর কাচিঝুলি (১২ দিন আগে)।', { full: true });
-    await page.locator('article, [role=button]').filter({ hasText: 'ডেমো মেডিকেল গেট জেনারেল হাসপাতাল' }).first().click();
+    await J.shot('আমার রিকোয়েস্ট — ৩টা', 'খোলা ‘ডেমো জয়দেবপুর জেনারেল হাসপাতাল’; ‘বন্ধ’ তাজউদ্দীন মেডিকেল গেট (৪০ দিন আগে) আর ছায়াবীথি (১২ দিন আগে)।', { full: true });
+    await page.locator('article, [role=button]').filter({ hasText: 'ডেমো শিববাড়ি জেনারেল হাসপাতাল' }).first().click();
     await settle(page);
     await J.shot('বন্ধ পুরোনো রিকোয়েস্ট', 'ফারহানা আর জাহিদ — ‘রক্ত দিয়েছেন’; ‘নিশ্চিত করুন’/‘বাদ দিন’ নেই।', { full: true });
     await go(page, '/inbox');
@@ -202,7 +202,7 @@ export async function run(J) {
 
   await J.sc('B-13', 'রিকোয়েস্ট এডিট (গ্রুপ আর এলাকা বদলানো যায় না)', async () => {
     await go(page, '/my-requests');
-    await page.locator('article, [role=button]').filter({ hasText: 'ডেমো চরপাড়া জেনারেল হাসপাতাল' }).first().click();
+    await page.locator('article, [role=button]').filter({ hasText: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল' }).first().click();
     await settle(page);
     await page.getByRole('button', { name: 'এডিট' }).first().click();
     await settle(page);
@@ -219,20 +219,20 @@ export async function run(J) {
     await page.getByText('O+', { exact: true }).first().click();
     await page.getByLabel(/হাসপাতাল/).first().fill('ডেমো');
     await settle(page, 600);
-    await J.shot('হাসপাতালের পরামর্শ', '‘ডেমো’ লিখলে ‘ডেমো চরপাড়া জেনারেল হাসপাতাল’ পরামর্শ।');
-    await page.getByText('ডেমো চরপাড়া জেনারেল হাসপাতাল').first().click();
+    await J.shot('হাসপাতালের পরামর্শ', '‘ডেমো’ লিখলে ‘ডেমো জয়দেবপুর জেনারেল হাসপাতাল’ পরামর্শ।');
+    await page.getByText('ডেমো জয়দেবপুর জেনারেল হাসপাতাল').first().click();
     const area = page.getByRole('button', { name: /এলাকা বেছে নিন/ });
     if (await area.count()) { await area.first().click(); await pickDistrict(page); }
     await page.getByLabel('তারিখ').fill((await page.evaluate(() => new Date(Date.now() + 864e5 + 6 * 3600e3).toISOString().slice(0, 10))));
     await page.getByLabel('সময়', { exact: true }).fill('10:00');
     await page.getByLabel('অতিরিক্ত তথ্য (ঐচ্ছিক)').fill('ডেমো — আসল নয়');
-    await J.shot('নতুন রিকোয়েস্টের ঘর', 'O+, ১ ব্যাগ, ডেমো চরপাড়া জেনারেল হাসপাতাল, ময়মনসিংহ, কাল সকাল ১০টা, ‘ডেমো — আসল নয়’ (সময় না দিলে ‘সময় বেছে নিন’)।', { full: true });
+    await J.shot('নতুন রিকোয়েস্টের ঘর', 'O+, ১ ব্যাগ, ডেমো জয়দেবপুর জেনারেল হাসপাতাল, গাজীপুর, কাল সকাল ১০টা, ‘ডেমো — আসল নয়’ (সময় না দিলে ‘সময় বেছে নিন’)।', { full: true });
     await page.getByRole('button', { name: 'রিকোয়েস্ট দিন' }).last().click();
     await page.waitForURL(/my-requests\//, { timeout: 15000 });
     await settle(page);
     await go(page, '/my-requests');
     await J.shot('দুটো খোলা রিকোয়েস্ট — সীমা', '‘একসাথে সর্বোচ্চ ২টা খোলা রিকোয়েস্ট রাখা যায়।’; ‘রিকোয়েস্ট’ (+) নেই।', { full: true });
-    await page.locator('article, [role=button]').filter({ hasText: 'O+' }).filter({ hasText: 'ডেমো চরপাড়া জেনারেল হাসপাতাল' }).first().click();
+    await page.locator('article, [role=button]').filter({ hasText: 'O+' }).filter({ hasText: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল' }).first().click();
     await settle(page);
     await page.getByRole('button', { name: 'মুছে ফেলুন' }).first().click();
     const d = page.getByRole('dialog').last();
@@ -245,7 +245,7 @@ export async function run(J) {
 
   await J.sc('B-15', 'ডোনার রোগীর রিকোয়েস্টে রাজি হন, রোগী ডোনারের নাম-নম্বর দেখেন', async () => {
     page = await J.as('donor');
-    await openReq(page, 'ডেমো চরপাড়া জেনারেল হাসপাতাল');
+    await openReq(page, 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল');
     const dlg = await donate(page);
     await dlg.getByRole('button', { name: 'রক্ত দেব' }).click();
     await see(page, 'রক্তপ্রার্থী আপনাকে নিশ্চিত করার অপেক্ষায়');
@@ -278,7 +278,7 @@ export async function run(J) {
     await settle(page, 600);
     await J.shot('করিম নিশ্চিত — দুটো ব্যাগ পূরণ', '‘৩ জন রাজি · ২ জন নিশ্চিত’, দুটো ব্যাগ লাল; নাদিয়ার ‘নিশ্চিত করুন’ নেই।', { full: true });
     page = await J.as('donor');
-    await openReq(page, 'ডেমো চরপাড়া জেনারেল হাসপাতাল');
+    await openReq(page, 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল');
     await J.shot('ডোনার: নিশ্চিত করা হয়েছে', '‘রক্তপ্রার্থী আপনাকে নিশ্চিত করেছেন। সময়মতো হাসপাতালে যান।’');
     await go(page, '/inbox');
     await J.shot('ডোনারের ঘণ্টা', '‘আপনাকে নিশ্চিত করা হয়েছে, অনুগ্রহ করে আসুন’।');
@@ -304,13 +304,13 @@ export async function run(J) {
     await go(page, '/profile');
     await J.shot('ডোনার: এখন রক্ত দিতে পারবেন না', '‘এখন রক্ত দিতে পারবেন না’ — ১২০ দিন পরের তারিখ; শেষ রক্তদান আজ।', { full: true });
     await go(page, '/');
-    await J.shot('ডোনারের হোম — নেত্রকোণা কার্ড চলে গেছে', 'ওপরের ‘ডেমো নেত্রকোণা মোড় ক্লিনিক’ কার্ড নেই।', { full: true });
+    await J.shot('ডোনারের হোম — রেলগেট কার্ড চলে গেছে', 'ওপরের ‘ডেমো রেলগেট ক্লিনিক, জয়দেবপুর’ কার্ড নেই।', { full: true });
     await go(page, '/inbox');
     await J.shot('ডোনারের ঘণ্টা — ধন্যবাদ', '‘রক্ত দেওয়ার জন্য ধন্যবাদ!’');
   });
 
   await J.sc('B-19', 'সদ্য রক্ত দেওয়া ডোনার আর সাড়া দিতে পারেন না', async () => {
-    await openReq(page, 'ডেমো কাচিঝুলি মা ও শিশু ক্লিনিক');
+    await openReq(page, 'ডেমো ছায়াবীথি মা ও শিশু ক্লিনিক');
     await J.shot('রক্ত দেব-এর বদলে পরের তারিখ', '‘<তারিখ> থেকে আবার রক্ত দিতে পারবেন’।');
     await go(page, '/');
     await J.shot('জরুরি আহ্বানে আসছি নেই', '‘এখন আপনি রক্ত দিতে পারবেন না (শেষ রক্তদান, বয়স বা ওজন)।’');
@@ -334,15 +334,15 @@ export async function run(J) {
     await go(page, '/profile');
     await J.shot('প্রোফাইলে B+ — এখন রক্ত দিতে পারবেন', 'B+ আর ‘এখন রক্ত দিতে পারবেন’; ‘শেষ রক্তদান’ ‘কখনো দেননি’।', { full: true });
     await go(page, '/');
-    await J.shot('হোমে শুধু B+ আর AB+ রিকোয়েস্ট', '‘রক্ত দিতে চাই’ কার্ড নেই; গাঙ্গিনারপাড় (B+), থ্যালাসেমিয়া সেন্টার (AB+)।', { full: true });
+    await J.shot('হোমে শুধু B+ আর AB+ রিকোয়েস্ট', '‘রক্ত দিতে চাই’ কার্ড নেই; জয়দেবপুর বাজার (B+), থ্যালাসেমিয়া সেন্টার (AB+)।', { full: true });
   });
 
   await J.sc('B-21', 'সম্প্রতি রক্ত দেওয়া ডোনার: পরের তারিখ দেখায়', async () => {
     page = await J.as('caregiver');
     await go(page, '/profile');
     await J.shot('রুমার প্রোফাইল', 'B+, ‘এখন রক্ত দিতে পারবেন না’ — ~৩ মাস পরের তারিখ; শেষ রক্তদান ৩৫ দিন আগে; ৩৬ বছর · ৫৫ কেজি।', { full: true });
-    await openReq(page, 'ডেমো গাঙ্গিনারপাড় ক্লিনিক');
-    await J.shot('গাঙ্গিনারপাড় — রক্ত দেব নেই', '‘…থেকে আবার রক্ত দিতে পারবেন’।');
+    await openReq(page, 'ডেমো রাজবাড়ি রোড ক্লিনিক');
+    await J.shot('জয়দেবপুর বাজার — রক্ত দেব নেই', '‘…থেকে আবার রক্ত দিতে পারবেন’।');
   });
 
   await J.sc('B-22', 'শেষ রক্তদানের তারিখ পেছানো — ঝুঁকির সতর্কতা', async () => {
@@ -443,7 +443,7 @@ export async function run(J) {
   await J.sc('B-29', 'হাসপাতাল যোগের অনুরোধ (অ্যাডমিন)', async () => {
     await page.getByText('হাসপাতাল', { exact: true }).first().click();
     await settle(page);
-    await J.shot('অ্যাডমিন: হাসপাতাল যোগের অনুরোধ', '‘Demo Kachijhuli Mother and Child Clinic’ — ধরন ক্লিনিক, ময়মনসিংহ; ‘মেলান’, ‘অনুমোদন’, ‘বাতিল’।', { full: true });
+    await J.shot('অ্যাডমিন: হাসপাতাল যোগের অনুরোধ', '‘Demo Chayabithi Mother and Child Clinic’ — ধরন ক্লিনিক, গাজীপুর; ‘মেলান’, ‘অনুমোদন’, ‘বাতিল’।', { full: true });
     const row = page.locator('tr').filter({ hasText: /Kachijhuli/ }).first();
     await adminAct(page, row.getByRole('button', { name: 'বাতিল' }).first());
     await J.shot('অনুরোধ বাতিল', '‘অনুরোধ বাতিল করা হয়েছে’; তালিকা খালি।');
@@ -452,7 +452,7 @@ export async function run(J) {
   await J.sc('B-30', 'জরুরি আহ্বানের তালিকা আর শেষ করা (অ্যাডমিন)', async () => {
     await page.getByText('জরুরি আহ্বান', { exact: true }).first().click();
     await settle(page);
-    await J.shot('অ্যাডমিন: জরুরি আহ্বান', 'চালু ‘ডেমো মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)’ (O+ ৪, A+ ৩, B- ১) আর শেষ হওয়া ‘ডেমো সদর হাসপাতাল, ময়মনসিংহ’।', { full: true });
+    await J.shot('অ্যাডমিন: জরুরি আহ্বান', 'চালু ‘ডেমো তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)’ (O+ ৪, A+ ৩, B- ১) আর শেষ হওয়া ‘ডেমো সদর হাসপাতাল, গাজীপুর’।', { full: true });
     await adminAct(page, page.getByRole('button', { name: 'আহ্বান শেষ করুন' }).first());
     const c = page.locator('dialog, [role=dialog]');
     if (await c.count()) await c.last().getByRole('button', { name: /শেষ করুন|হ্যাঁ|নিশ্চিত/ }).last().click().catch(() => {});

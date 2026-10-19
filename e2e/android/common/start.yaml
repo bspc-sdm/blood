@@ -1,4 +1,4 @@
-# অ্যাপ নতুন করে খোলা (সব ডেটা মুছে) → এলাকা ময়মনসিংহ → লগইন → ডেমো রোল
+# অ্যাপ নতুন করে খোলা (সব ডেটা মুছে) → এলাকা গাজীপুর (ডেমো এখানে) → লগইন → ডেমো রোল
 # env: J (যাত্রার নাম, ছবির নামের শুরু), ROLE (ডেমো তালিকায় যে নামে চাপতে হবে)
 appId: com.bspc.blood
 ---
@@ -14,9 +14,9 @@ appId: com.bspc.blood
 - runFlow: dismiss.yaml
 - takeScreenshot: ${J}-00a-location
 - tapOn: ".*জেলা খুঁজুন.*"
-- inputText: "Mymensingh"
+- inputText: "Gazipur"
 - hideKeyboard
-- tapOn: "ম(?:য়|য়)মনসিংহ.*"
+- tapOn: "গাজীপুর.*"
 - extendedWaitUntil:
     visible: "লগইন"
     timeout: 40000

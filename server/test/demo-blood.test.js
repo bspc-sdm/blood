@@ -31,7 +31,7 @@ const demo = require(path.join(SERVER, 'lib/demo'));
 const R = require(path.join(SERVER, 'lib/rules'));
 const Geo = require(path.join(SERVER, 'lib/geo'));
 const V = require(path.join(SERVER, 'lib/verify'));
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 
 const OWNER = 'owner-demo-test';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
@@ -131,7 +131,7 @@ test('অতিথি: আশেপাশের রিকোয়েস্ট (
   assert.ok(!names.includes('demo-bb-pending'), 'অপেক্ষায় থাকা তালিকায় নয়');
 
   const h = await call(null, 'hospitals', { district: DISTRICT });
-  assert.ok(h.body.items.some((x) => x.id === 'demo-hosp-charpara'));
+  assert.ok(h.body.items.some((x) => x.id === 'demo-hosp-joydebpur'));
 });
 
 test('ডোনার: আশেপাশে মানানসই রিকোয়েস্ট, দূরত্বের সেটিংস, নিশ্চিত রিকোয়েস্টে নম্বর; রিকোয়েস্টে কারো ফোন নেই', async () => {
@@ -224,8 +224,8 @@ test('সাড়া → রক্তপ্রার্থী ডোনার �
 
   // রোগী নতুন রিকোয়েস্ট দেন (পরীক্ষার সময় বানানো — মুছলে যেতে হবে)
   const c = await call(P, 'request_create', {
-    requesterName: 'ডেমো রোগী রহিম', requesterPhone: '01700001101', patientGroup: 'O+', bags: 1, hospital: 'ডেমো চরপাড়া জেনারেল হাসপাতাল',
-    placeName: DISTRICT, lat: 24.75, lng: 90.41, neededByMillis: R.todayDhakaUtcMidnight() + R.DAY_MS, note: 'ডেমো',
+    requesterName: 'ডেমো রোগী রহিম', requesterPhone: '01700001101', patientGroup: 'O+', bags: 1, hospital: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল',
+    placeName: DISTRICT, lat: 24.00, lng: 90.43, neededByMillis: R.todayDhakaUtcMidnight() + R.DAY_MS, note: 'ডেমো',
   });
   assert.strictEqual(c.status, 200, JSON.stringify(c.body));
   assert.ok((await nearbyOpen(x('rafiq'), 10)).some((r) => r.id === c.body.id), 'নতুন রিকোয়েস্ট আশেপাশে দেখা যায়');
@@ -266,8 +266,8 @@ test('ব্লাড ব্যাংক: নিজের তালিকা, �
   const reps = await call(OWNER, 'admin_reports');
   assert.ok(reps.body.items.some((i) => i.targetPath === 'bloodBanks/demo-bb-govt'));
   const hr = await call(OWNER, 'admin_hospital_requests');
-  assert.ok(hr.body.items.some((i) => i.id === 'demo-hreq-kachijhuli'));
-  assert.strictEqual((await call(OWNER, 'admin_hospital_resolve', { id: 'demo-hreq-kachijhuli', op: 'reject' })).status, 200);
+  assert.ok(hr.body.items.some((i) => i.id === 'demo-hreq-chayabithi'));
+  assert.strictEqual((await call(OWNER, 'admin_hospital_resolve', { id: 'demo-hreq-chayabithi', op: 'reject' })).status, 200);
   const corr = await require(path.join(SERVER, 'lib/corrections')).pendingCorrections();
   assert.ok(corr.some((c) => c.id === 'demo-corr-farhana'));
   const ems = await call(OWNER, 'admin_emergencies');

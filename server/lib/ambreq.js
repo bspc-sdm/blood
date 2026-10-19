@@ -33,7 +33,7 @@ const R = require('./rules');
 const C = require('./community');
 const K = require('./care');
 const DISTRICTS = require('./districts');
-const { UPAZILA } = require('./hospital-match');
+const { UPAZILA, UNION } = require('./hospital-match');
 
 const SEC = 1000;
 const MIN = 60 * SEC;
@@ -75,10 +75,17 @@ function exactPoint(lat, lng) {
   return { lat: Math.round(lat * 1e5) / 1e5, lng: Math.round(lng * 1e5) / 1e5 };
 }
 
-/** গাড়ি এই অনুরোধে চলে কি না: ধরন দিলে সেই ধরন; না দিলে শুধু ফ্রিজার ভ্যান বাদ (মৃতদেহের গাড়ি রোগীর জন্য নয়) */
+/**
+ * গাড়ি এই অনুরোধে চলে কি না। ধরন (২.২৯.০, রোগী নিশ্চিত করার ঘরে বাছেন): null = "যেকোনো", ac = এসি,
+ * general = নন-এসি/সাধারণ, icu = আইসিইউ, freezer = ফ্রিজার (মরদেহ)।
+ * ফ্রিজার শুধু রোগী নিজে "ফ্রিজার" বাছলে: ফ্রিজার ভ্যান (অন্য ধরনও লেখা থাকলেও) রোগীর কোনো ডাকে যায় না —
+ * মৃতদেহের গাড়িতে জীবিত রোগী নয়।
+ */
 function typeOk(types, type) {
   const t = types || [];
-  return type ? t.includes(type) : t.some((x) => x !== 'freezer');
+  if (type === 'freezer') return t.includes('freezer');
+  if (t.includes('freezer')) return false;
+  return type ? t.includes(type) : t.length > 0;
 }
 
 /**
@@ -284,6 +291,8 @@ function patientView(id, x, now = Date.now()) {
     note: x.note || '',
     district: x.district,
     upazilaId: x.upazilaId || null,
+    unionId: x.unionId || null,
+    gps: x.gps === true,
     ...(accepted ? {
       ambulance: {
         id: x.ambulanceId, name: x.ambulanceName || '', phone: x.driverPhone || '', ...kmOf(x.km?.[x.acceptedBy || x.bookedOwner]),
@@ -318,6 +327,7 @@ function driverView(id, x, uid) {
     type: x.type || null,
     district: x.district,
     upazilaId: x.upazilaId || null,
+    unionId: x.unionId || null,
     pickup: x.pickup || '',
     note: x.note || '',
     ...(mine ? {
@@ -358,6 +368,8 @@ const actions = {
     const now = Date.now();
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 400, 'Choose a district', 'জেলা বেছে নিন');
     const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
+    // ইউনিয়ন/এলাকা (২.২৯.০): শুধু চালকের জানার জন্য (ঠিকানার সাথে) — বাছাই উপজেলা ধরে
+    const unionId = upazilaId && Number.isInteger(b.unionId) && UNION.get(b.unionId)?.upazilaId === upazilaId ? b.unionId : null;
     const type = require('./catalog').codes('ambulanceType').includes(b.type) ? b.type : null;
     const phone = K.normalizeBd(b.phone);
     if (!phone) throw err(req, 400, 'Enter a mobile number the driver can call', 'চালক ফোন করতে পারেন এমন মোবাইল নম্বর দিন');
@@ -410,7 +422,7 @@ const actions = {
         uid: user.uid,
         ...(require('./demo').isDemoUid(user.uid) ? { demo: true } : {}),
         status: 'open', active: true, wave: 1,
-        district: b.district, upazilaId, type,
+        district: b.district, upazilaId, unionId, type,
         gps: !!p, ...(p ? { lat: p.lat, lng: p.lng } : {}),
         pickup, note, phone: K.localBd(phone),
         patientName: String(prof.exists ? prof.get('name') || '' : '').slice(0, 80),

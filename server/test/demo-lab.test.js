@@ -8,7 +8,7 @@ const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
 const api = require(path.join(SERVER, 'api/community.js'));
 const verify = require(path.join(SERVER, 'lib/verify'));
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const { db } = F.firebase;
 const OWNER = 'owner-demo-test';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });

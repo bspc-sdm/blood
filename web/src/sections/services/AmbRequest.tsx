@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, ChoiceChips, Dialog, EmptyState, ErrorText, IconLine, Loading, TextArea, TextInput, useNow } from '@/ui/kit';
+import { LocationInput, locationError, type LocationValue } from './LocationInput';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
 import { call, errorText, ServerError } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
-import { areaLabel, currentPosition, districtAt } from '@/lib/geo';
+import { areaLabel } from '@/lib/geo';
 import { store } from '@/lib/store';
 import { useSession } from '@/lib/session';
 import { RatingDialog } from './ui';
@@ -26,6 +27,11 @@ export interface AmbReq {
   notified: number;
   pickup: string;
   note: string;
+  type: string | null;
+  district: string;
+  upazilaId: number | null;
+  unionId?: number | null;
+  gps?: boolean;
   ambulance?: AmbCar;
   cancelledBy: string | null;
   cancelReason: string | null;
@@ -36,6 +42,22 @@ export interface AmbReq {
 export const isActive = (r: AmbReq | null | undefined) => !!r && ['open', 'accepted', 'arrived'].includes(r.status);
 
 const LAST_PICKUP = 'lf.amb.pickup';
+/** শেষবারের এলাকা (একই জেলায় উপজেলা না বাছা থাকলে আগে থেকে) */
+const LAST_AREA = 'lf.amb.area';
+
+/**
+ * ডাকার সময় গাড়ির ধরন (২.২৯.০): "যেকোনো" (ফ্রিজার ছাড়া) আগে থেকে; সার্ভারের ধরনের চাবি (server/lib/ambulance.js TYPES)।
+ * নন-এসি = general। ফ্রিজার শুধু এখানে নিজে বাছলে।
+ */
+export const REQ_TYPES = () => [
+  { value: 'any', label: tr('Any', 'যেকোনো') },
+  { value: 'ac', label: tr('AC', 'এসি') },
+  { value: 'general', label: tr('Non-AC', 'নন-এসি') },
+  { value: 'icu', label: tr('ICU', 'আইসিইউ') },
+  { value: 'freezer', label: tr('Freezer (deceased)', 'ফ্রিজার (মরদেহ)') },
+];
+export const reqTypeLabel = (t: string | null | undefined) =>
+  t ? REQ_TYPES().find((x) => x.value === t)?.label ?? t : tr('Any (not freezer)', 'যেকোনো (ফ্রিজার ছাড়া)');
 /** অনুরোধ চলার সময় ফোন করা হয়েছে — পাতায় ফিরলে একবার জিজ্ঞেস (এই ব্রাউজারেই) */
 const ASK_KEY = 'lf.amb.askAfterCall';
 export const markCalled = (reqId: string | null | undefined) => reqId && store.set(ASK_KEY, reqId);
@@ -117,46 +139,50 @@ export function ActiveBanner({ r }: { r: AmbReq }) {
 }
 
 // ---------- নিশ্চিত করার ঘর ----------
-/** gps: আগে থেকে পাওয়া ব্রাউজারের লোকেশন (বেছে নেওয়া জেলার ভেতরে); target: বিস্তারিত থেকে একটা গাড়ি — সেটা আগে */
+/**
+ * উপরে গাড়ির ধরন (বাধ্যতামূলক, "যেকোনো" আগে থেকে; তালিকায় ছাঁকা ধরন থাকলে সেটা), তারপর এলাকা (LocationInput: জেলা › উপজেলা ›
+ * ইউনিয়ন + চেনা জায়গা + ঐচ্ছিক এখনকার জায়গা), নোট, মোবাইল।
+ * gps: আগে থেকে পাওয়া ব্রাউজারের লোকেশন (বেছে নেওয়া জেলার ভেতরে); target: বিস্তারিত থেকে একটা গাড়ি — সেটা আগে
+ */
 export function RequestDialog({
-  district, upazilaId, type, typeLabel, gps, target, onClose,
-}: { district: string; upazilaId: number | null; type: string | null; typeLabel: string | null; gps: { lat: number; lng: number } | null; target: { id: string; name: string } | null; onClose: () => void }) {
+  district, upazilaId, type, gps, target, onClose,
+}: { district: string; upazilaId: number | null; type: string | null; gps: { lat: number; lng: number } | null; target: { id: string; name: string } | null; onClose: () => void }) {
   const s = useSession();
   const nav = useNavigate();
   const qc = useQueryClient();
-  const [pickup, setPickup] = useState(() => store.get(LAST_PICKUP) ?? '');
+  const [kind, setKind] = useState<string>(type && REQ_TYPES().some((t) => t.value === type) ? type : 'any');
+  const [loc, setLoc] = useState<LocationValue>(() => {
+    const last = store.getJson<{ district: string; upazilaId: number | null; unionId: number | null }>(LAST_AREA);
+    const same = last && last.district === district && (upazilaId == null || last.upazilaId === upazilaId);
+    return {
+      district,
+      upazilaId: upazilaId ?? (same ? last!.upazilaId : null),
+      unionId: same ? last!.unionId ?? null : null,
+      landmark: store.get(LAST_PICKUP) ?? '',
+      point: gps,
+    };
+  });
   const [note, setNote] = useState('');
   const [phone, setPhone] = useState(s.profile?.phone ?? '');
-  const [point, setPoint] = useState(gps);
-  const [locBusy, setLocBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function locate() {
-    setLocBusy(true);
-    setErr(null);
-    try {
-      const p = await currentPosition();
-      if ((await districtAt(p.lat, p.lng)).bn === district) setPoint(p);
-      else setErr(tr('You are outside the chosen district — the area will be used.', 'আপনি বেছে নেওয়া জেলার বাইরে — এলাকা ধরে পাঠানো হবে।'));
-    } catch {
-      setErr(tr("Couldn't get your location — the area will be used.", 'লোকেশন পাওয়া যায়নি — এলাকা ধরে পাঠানো হবে।'));
-    } finally {
-      setLocBusy(false);
-    }
-  }
   async function send() {
-    const e = !pickup.trim() ? tr('Write where to pick up', 'কোথা থেকে নেবে লিখুন')
-      : !/^(\+?880|0)?1[3-9]\d{8}$/.test(phone.replace(/[\s-]/g, '')) ? tr('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন') : null;
+    setTried(true);
+    const e = locationError(loc)
+      ?? (!/^(\+?880|0)?1[3-9]\d{8}$/.test(phone.replace(/[\s-]/g, '')) ? tr('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন') : null);
     setErr(e);
     if (e) return;
     setBusy(true);
     try {
       const r = await call<{ id: string }>('ambreq_create', {
-        district, upazilaId, type, pickup: pickup.trim(), note: note.trim(), phone: phone.replace(/[\s-]/g, ''), ambulanceId: target?.id ?? null,
-        ...(point ? { lat: point.lat, lng: point.lng, gps: true } : {}),
+        district: loc.district, upazilaId: loc.upazilaId, unionId: loc.unionId, type: kind === 'any' ? null : kind,
+        pickup: loc.landmark.trim(), note: note.trim(), phone: phone.replace(/[\s-]/g, ''), ambulanceId: loc.district === district ? target?.id ?? null : null,
+        ...(loc.point ? { lat: loc.point.lat, lng: loc.point.lng, gps: true } : {}),
       });
-      store.set(LAST_PICKUP, pickup.trim());
+      store.set(LAST_PICKUP, loc.landmark.trim());
+      store.setJson(LAST_AREA, { district: loc.district, upazilaId: loc.upazilaId, unionId: loc.unionId });
       qc.invalidateQueries({ queryKey: ['ambreq_status'] });
       nav(`/services/ambulance/call/${r.id}`);
     } catch (x) {
@@ -180,21 +206,17 @@ export function RequestDialog({
         </>
       }
     >
+      <div className="col gap-6" data-testid="amb-type">
+        <span className="t-title-s">{tr('Ambulance type', 'গাড়ির ধরন')}</span>
+        <ChoiceChips options={REQ_TYPES()} value={kind} onChange={(v: string) => setKind(v)} />
+        {kind === 'freezer' ? <span className="t-body-s muted">{tr('Only freezer vans (for the deceased) get this request.', 'শুধু ফ্রিজার ভ্যান (মরদেহ নেওয়ার গাড়ি) এই অনুরোধ পাবে।')}</span> : null}
+      </div>
       <p className="t-body-m">
         {target
           ? tr(`Goes to ${target.name} first, and to the nearest free ambulances at the same time. The first driver to accept comes.`, `আগে ${target.name}-কে, সাথে কাছের খালি গাড়িগুলোকেও একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।`)
           : tr('Goes to the nearest free ambulances at once. The first driver to accept comes.', 'কাছের খালি গাড়িগুলোতে একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।')}
       </p>
-      <IconLine icon="ambulance">{tr('Type: ', 'ধরন: ') + (typeLabel ?? tr('Any (not freezer van)', 'যেকোনো (ফ্রিজার ভ্যান ছাড়া)'))}</IconLine>
-      <div className="row gap-8">
-        <span className="grow">
-          <IconLine icon="location_on">
-            {point ? tr('Your location (shared only with the driver who accepts)', 'আপনার লোকেশন (শুধু রাজি হওয়া চালক পাবেন)') : tr('By area: ', 'এলাকা ধরে: ') + areaLabel(district, upazilaId)}
-          </IconLine>
-        </span>
-        {!point ? <Button variant="text" small busy={locBusy} onClick={locate}>{tr('Use location', 'লোকেশন দিন')}</Button> : null}
-      </div>
-      <TextInput label={tr('Pick up from (address or landmark)', 'কোথা থেকে নেবে (ঠিকানা বা চেনা জায়গা)')} value={pickup} maxLength={160} onChange={(e) => setPickup(e.target.value)} data-testid="amb-pickup" />
+      <LocationInput value={loc} onChange={setLoc} showErrors={tried} />
       <TextArea label={tr('Note (optional) — e.g. oxygen needed', 'নোট (ঐচ্ছিক) — যেমন অক্সিজেন লাগবে')} rows={2} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
       <TextInput label={tr('Your mobile (for the driver)', 'আপনার মোবাইল (চালকের জন্য)')} inputMode="tel" value={phone} maxLength={15} onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))} />
       <ErrorText>{err}</ErrorText>
@@ -421,7 +443,9 @@ export function RequestPage({ id }: { id: string }) {
 
         {isActive(r) ? (
           <>
-            <div className="card col gap-6">
+            <div className="card col gap-6" data-testid="amb-req-info">
+              <IconLine icon="ambulance">{tr('Type: ', 'ধরন: ') + reqTypeLabel(r.type)}</IconLine>
+              <IconLine icon="map">{areaLabel(r.district, r.upazilaId, r.unionId) + (r.gps ? tr(' · current location given', ' · এখনকার জায়গা দেওয়া') : '')}</IconLine>
               <IconLine icon="location_on">{r.pickup}</IconLine>
               {r.note ? <IconLine icon="info">{r.note}</IconLine> : null}
             </div>

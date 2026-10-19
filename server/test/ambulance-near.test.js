@@ -271,8 +271,11 @@ test('ডেমো: ডেমো গাড়ির জায়গা আলা
   for (let step = 0; step !== null;) step = (await ok(OWNER, 'admin_demo_seed', { step })).next;
   F.pushes.length = 0;
   M.clear('');
-  // ডেমো রোগী, GPS-এ জেলার কেন্দ্রে
-  const r = await ok('demo-patient', 'ambulances', { district: DISTRICT, lat: MYM.lat, lng: MYM.lng, gps: true });
+  // ডেমো রোগী, GPS-এ গাজীপুর জেলার কেন্দ্রে (ডেমো এখন গাজীপুরে — পারভেজ, ১৯ অক্টোবর)
+  const GZ = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur');
+  const GZP = GZ.bn;
+  assert.strictEqual((await ok('demo-patient', 'ambulances', { district: DISTRICT, lat: MYM.lat, lng: MYM.lng, gps: true })).items.filter((a) => a.id.startsWith('demo-')).length, 0, 'ময়মনসিংহে ডেমো গাড়ি নেই');
+  const r = await ok('demo-patient', 'ambulances', { district: GZP, lat: GZ.lat, lng: GZ.lng, gps: true });
   await AMB.remindIdle();
   const km = r.items.filter((a) => a.available).map((a) => a.km);
   assert.ok(new Set(km).size >= 4, `আলাদা দূরত্ব: ${km}`);

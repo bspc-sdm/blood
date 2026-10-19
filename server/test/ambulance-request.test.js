@@ -472,7 +472,9 @@ test('ডেমো: রোগী ডাকেন → ডেমো অ্যা�
   const DP = 'demo-patient';
   const DA = 'demo-ambulance';
   const { lat, lng } = demo.CENTER;
-  const r = await call(DP, 'ambreq_create', { district: DISTRICT, upazilaId: SADAR, lat, lng, gps: true, pickup: 'ডেমো: চরপাড়া মোড়', phone: '01700000101' });
+  // ডেমো এখন গাজীপুরে (গাজীপুর সদর = ৩২০)
+  const GZP = DISTRICTS.find((d) => d.en === 'Gazipur').bn;
+  const r = await call(DP, 'ambreq_create', { district: GZP, upazilaId: 320, lat, lng, gps: true, pickup: 'ডেমো: শিববাড়ি মোড়, জয়দেবপুর', phone: '01700000101' });
   assert.strictEqual(r.status, 200, JSON.stringify(r.body));
   const x = await reqDoc(r.body.id);
   assert.ok(Object.keys(x.sentTo).includes(DA), 'ডেমো চালকের কাছে যায়');
@@ -508,4 +510,91 @@ test('রিভিউ: সময় পেরোনোর পরে "আসছ�
   await ok('d1', 'ambulance_available', { id: 'a1', available: false });
   await ok('d1', 'ambreq_step', { id, step: 'done' });
   assert.strictEqual((await db.doc('ambulances/a1').get()).get('available'), false);
+});
+
+// ---------------- ২.২৯.০: গাড়ির ধরন বাছাই আর শুধু এলাকা দিয়ে ডাকা (পারভেজ, ১৯ অক্টোবর) ----------------
+
+test('ধরন: এসি/নন-এসি/আইসিইউ শুধু সেই ধরনে; "যেকোনো" আর অন্য ধরনে ফ্রিজার কখনো নয় (অন্য ধরন লেখা থাকলেও); ফ্রিজার শুধু বাছলে', async () => {
+  await seed();
+  await amb('tAc', 'tdAc', { base: at(0.4, 0), types: ['ac'] });
+  await amb('tIcu', 'tdIcu', { base: at(0.6, 0), types: ['icu', 'ac'] });
+  // ফ্রিজার + সাধারণ লেখা গাড়ি (সবচেয়ে কাছে) — রোগীর ডাকে নয়
+  await amb('tMix', 'tdMix', { base: at(0.05, 0), types: ['freezer', 'general'] });
+  const sent = async (body) => {
+    await db.doc(`ambReqLimits/${P}`).delete(); // ঘণ্টায় ৫টার সীমা এখানে পরীক্ষা নয়
+    const r = await ask(P, body);
+    assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+    const x = await reqDoc(r.body.id);
+    await ok(P, 'ambreq_cancel', { id: r.body.id, reason: 'wrong' });
+    return { owners: Object.keys(x.sentTo), x, view: r.body.request };
+  };
+  const any = await sent({});
+  assert.ok(!any.owners.includes('dFreezer') && !any.owners.includes('tdMix'), `যেকোনো: ফ্রিজার নয় — ${any.owners}`);
+  assert.strictEqual(any.x.type, null);
+  const ac = await sent({ type: 'ac' });
+  assert.deepStrictEqual(ac.owners, ['tdAc', 'tdIcu'], 'এসি: শুধু এসি লেখা গাড়ি, কাছেরটা আগে');
+  assert.strictEqual(ac.view.type, 'ac', 'রোগীর অপেক্ষার পাতায় ধরন');
+  const nonAc = await sent({ type: 'general' });
+  assert.ok(!nonAc.owners.some((o) => ['tdAc', 'tdIcu', 'tdMix', 'dFreezer'].includes(o)), `নন-এসি: ${nonAc.owners}`);
+  assert.deepStrictEqual(nonAc.owners, ['d1', 'd2', 'd3', 'd4', 'd5']);
+  const icu = await sent({ type: 'icu' });
+  assert.deepStrictEqual(icu.owners, ['tdIcu']);
+  const fr = await sent({ type: 'freezer' });
+  assert.deepStrictEqual(fr.owners.sort(), ['dFreezer', 'tdMix'], 'ফ্রিজার বাছলে তবেই');
+  // অচেনা ধরন = যেকোনো
+  const odd = await sent({ type: 'boat' });
+  assert.strictEqual(odd.x.type, null);
+  // চালক তাঁর ডাকে ধরন দেখেন
+  await db.doc(`ambReqLimits/${P}`).delete();
+  const r = await ask(P, { type: 'ac' });
+  const d = (await driverList('tdAc')).find((i) => i.id === r.body.id);
+  assert.strictEqual(d.type, 'ac');
+  await ok(P, 'ambreq_cancel', { id: r.body.id, reason: 'wrong' });
+});
+
+test('শুধু এলাকা (GPS ছাড়া): নিজের উপজেলার খালি গাড়ি আগে, তারপর জেলার বাকিরা; দূরত্ব নেই; ইউনিয়ন চালকের জন্য; ভুল ইউনিয়ন বাদ', async () => {
+  await seed();
+  // সদরের ৮টা গাড়ির বাইরে: ত্রিশাল (৪৬৩) আর মুক্তাগাছা (৪৬৫) উপজেলার গাড়ি — জায়গা দেওয়া/না দেওয়া দুই রকম
+  await amb('uTri1', 'udTri1', { upazilaId: 463, base: at(3, -19) });
+  await amb('uTri2', 'udTri2', { upazilaId: 463 });
+  await amb('uMuk', 'udMuk', { upazilaId: 465, base: at(-14, 1) });
+  const TRI_UNION = require(path.join(SERVER, 'lib/hospital-match')).UNION;
+  const triUnion = [...TRI_UNION.values()].find((u) => u.upazilaId === 463).id;
+  const sadarUnion = [...TRI_UNION.values()].find((u) => u.upazilaId === SADAR).id;
+  // ত্রিশালের রোগী, GPS নেই (বা দেননি) — উপজেলা + ইউনিয়ন + চেনা জায়গা
+  const r = await call(P, 'ambreq_create', { district: DISTRICT, upazilaId: 463, unionId: triUnion, pickup: 'বাসস্ট্যান্ডের পাশে, কলেজ রোড', phone: '01811000000' });
+  assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  const x = await reqDoc(r.body.id);
+  assert.strictEqual(x.gps, false);
+  assert.strictEqual(x.lat, undefined, 'স্থানাঙ্ক নেই');
+  assert.strictEqual(x.unionId, triUnion);
+  const owners = Object.keys(x.sentTo);
+  assert.strictEqual(owners.length, 5);
+  assert.deepStrictEqual(owners.slice(0, 2).sort(), ['udTri1', 'udTri2'], `নিজের উপজেলা আগে: ${owners}`);
+  assert.ok(!owners.includes('dFreezer'));
+  assert.deepStrictEqual(Object.values(x.km).filter((k) => k != null), [], 'এলাকা ধরে — দূরত্ব নয়');
+  // চালক: দূরত্বের বদলে এলাকা, ইউনিয়ন, ঠিকানা; রাজির পর ঠিক জায়গা নেই (এলাকা দিয়ে ম্যাপে খোঁজা)
+  const dv = (await driverList('udTri1'))[0];
+  assert.strictEqual(dv.km, null);
+  assert.deepStrictEqual([dv.upazilaId, dv.unionId, dv.pickup], [463, triUnion, 'বাসস্ট্যান্ডের পাশে, কলেজ রোড']);
+  await ok('udTri1', 'ambreq_accept', { id: r.body.id });
+  const mine = (await driverList('udTri1'))[0];
+  assert.strictEqual(mine.lat, undefined);
+  const pv = (await ok(P, 'ambreq_status', { id: r.body.id })).request;
+  assert.deepStrictEqual([pv.gps, pv.upazilaId, pv.unionId], [false, 463, triUnion]);
+  await ok(P, 'ambreq_cancel', { id: r.body.id, reason: 'not_needed' });
+  // অন্য উপজেলার ইউনিয়ন দিলে বাদ (উপজেলা থাকে)
+  const r2 = await call(P, 'ambreq_create', { district: DISTRICT, upazilaId: 463, unionId: sadarUnion, pickup: 'কলেজ রোড', phone: '01811000000' });
+  assert.strictEqual(r2.status, 200, JSON.stringify(r2.body));
+  assert.deepStrictEqual([(await reqDoc(r2.body.id)).upazilaId, (await reqDoc(r2.body.id)).unionId], [463, null]);
+  await ok(P, 'ambreq_cancel', { id: r2.body.id, reason: 'wrong' });
+  // উপজেলাও না দিলে: জেলার খালি গাড়ি, রেটিং ধরে (তবুও যায়)
+  const r3 = await call(P, 'ambreq_create', { district: DISTRICT, pickup: 'কলেজ রোড', phone: '01811000000' });
+  assert.strictEqual(r3.status, 200, JSON.stringify(r3.body));
+  assert.strictEqual(Object.keys((await reqDoc(r3.body.id)).sentTo).length, 5);
+  await ok(P, 'ambreq_cancel', { id: r3.body.id, reason: 'wrong' });
+  // এখনকার জায়গা দিলে আগের মতো দূরত্ব ধরে (সদরের কাছেরগুলো)
+  const r4 = await ask(P);
+  assert.deepStrictEqual(Object.keys((await reqDoc(r4.body.id)).sentTo).slice(0, 4), ['d1', 'd2', 'd3', 'd4']);
+  await ok(P, 'ambreq_cancel', { id: r4.body.id, reason: 'wrong' });
 });

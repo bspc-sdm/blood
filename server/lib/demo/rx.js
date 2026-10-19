@@ -1,8 +1,8 @@
 // ডেমো ডেটা — ভাগ: rx (ডাক্তার, অ্যাপয়েন্টমেন্ট/সিরিয়াল, প্রেসক্রিপশন, সহকারী, ফার্মেসি/প্যাথলজির সাথে কাজ)। দেখুন index.js।
 //
 // কী বানায় (সব নাম "ডেমো" দিয়ে, সব তারিখ ctx.now ধরে):
-//  - ডেমো ডাক্তার (ctx.u.doctor): অনুমোদিত ডাক্তার ব্যাজ (ভুয়া রেজি. DEMO-A-12345), চেম্বার ২টা (ময়মনসিংহ মেডিকেল কলেজ
-//    হাসপাতাল শনি–বৃহস্পতি বিকাল, মুক্তাগাছা উপজেলা স্বাস্থ্য কমপ্লেক্স সোম/বুধ সকাল + শুক্র), সহকারী (ctx.u.assistant-এর ইমেইল),
+//  - ডেমো ডাক্তার (ctx.u.doctor): অনুমোদিত ডাক্তার ব্যাজ (ভুয়া রেজি. DEMO-A-12345), চেম্বার ২টা (শহীদ তাজউদ্দীন আহমদ মেডিকেল কলেজ
+//    হাসপাতাল, গাজীপুর — প্রতিদিন সকাল ও বিকাল-রাত ১টা; কালিয়াকৈর উপজেলা স্বাস্থ্য কমপ্লেক্স — শুক্র), সহকারী (ctx.u.assistant-এর ইমেইল),
 //    অনলাইনে রিপোর্ট দেখার ফি
 //  - আরও ৪ জন ডাক্তার (গাইনি, শিশু, হৃদরোগ, চর্ম) + ১ জন যাচাইয়ের অপেক্ষায় (হাড়) + ১ জনের ব্যাজ-সংশোধনের অনুরোধ
 //  - আজকের সিরিয়াল (নিশ্চিত ১–৪, অপেক্ষায়, বাতিল), সামনের আর আগের অ্যাপয়েন্টমেন্ট; ডেমো রোগীর সব অবস্থার অ্যাপয়েন্টমেন্ট
@@ -23,8 +23,8 @@ const LP = require('../labprices');
 
 const DAY = 24 * 60 * 60 * 1000;
 const MIN = 60 * 1000;
-const DIST = DISTRICTS.find((d) => d.en === 'Mymensingh').bn;
-const SADAR = 466;
+const DIST = DISTRICTS.find((d) => d.en === 'Gazipur').bn;
+const SADAR = 320; // গাজীপুর সদর
 
 // গাইডে লেখা স্থির কোড (প্রেসক্রিপশনের কোডের নিয়ম: I, O, 0, 1 ছাড়া ১০ অক্ষর)
 const CODES = { A: 'DEMXRXA222', B: 'DEMXRXB333', C: 'DEMXRXC444', K: 'DEMXRXK777', PAPER: 'DEMXPAPER6' };
@@ -137,7 +137,7 @@ module.exports = {
       const loc = ctx.near(0.4, 0.3);
       await set(`pharmacies/${shopU.uid}`, {
         name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', district: DIST, upazilaId: SADAR,
-        address: 'ডেমো ভবন, চরপাড়া মোড়, ময়মনসিংহ', lat: loc.lat, lng: loc.lng, open24: true, openAt: '', closeAt: '', closedDays: [],
+        address: 'ডেমো ভবন, শিববাড়ি মোড়, জয়দেবপুর, গাজীপুর', lat: loc.lat, lng: loc.lng, open24: true, openAt: '', closeAt: '', closedDays: [],
         delivery: true, deliveryNote: 'শহরের ভেতরে ৩০ টাকা', discount: 5, ownerUid: shopU.uid, status: 'approved', docsHave: {},
         createdAt: now - 90 * DAY, updatedAt: now - 90 * DAY, reviewedAt: now - 89 * DAY,
       });
@@ -154,7 +154,7 @@ module.exports = {
     const lab = labS.exists ? labS.data() : null;
     if (!lab) {
       await set(`labs/${labU.uid}`, {
-        name: 'ডেমো সিটি ডায়াগনস্টিক সেন্টার', facilityId: null, district: DIST, upazilaId: SADAR, address: 'ডেমো টাওয়ার, মেডিকেল গেট, ময়মনসিংহ',
+        name: 'ডেমো সিটি ডায়াগনস্টিক সেন্টার', facilityId: null, district: DIST, upazilaId: SADAR, address: 'ডেমো টাওয়ার, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর',
         licenseNo: 'DEMO-HSM-2201', phone: '01700000160', hours: 'সকাল ৮টা – রাত ১০টা', homeCollection: true, ownerUid: labU.uid,
         status: 'approved', docsHave: {}, createdAt: now - 90 * DAY, updatedAt: now - 90 * DAY, reviewedAt: now - 89 * DAY,
       });
@@ -174,12 +174,12 @@ module.exports = {
     // সময় শেষ" — ডেমো রোগী আজকের সিরিয়াল নিতে পারতেন না (রাতে পরীক্ষা করলে যাত্রা ভাঙত, queue.test-ও)। রাত পেরোনো ভাগ
     // কখনো "শেষ" ধরা হয় না; মাঝরাতের পরে নতুন দিনের সকালের ভাগ সামনে থাকে।
     const ALL_DAYS = [6, 0, 1, 2, 3, 4, 5];
-    const ch1 = chamber('dghs_392', {
+    const ch1 = chamber('dghs_22839', {
       room: 'ডেমো চেম্বার · বহির্বিভাগ ৩১২',
       times: [{ days: ALL_DAYS, start: '10:00', end: '13:00' }, { days: ALL_DAYS, start: '16:00', end: '01:00' }],
       fee: '৫০০ টাকা', serialPhone: '01700000202', schedule: 'ডেমো চেম্বার — প্রতিদিন খোলা',
     });
-    const ch2 = chamber('dghs_382', {
+    const ch2 = chamber('dghs_137', {
       room: 'ডেমো চেম্বার · রুম ৫', days: [5], start: '14:00', end: '15:30',
       fee: '৪০০ টাকা', schedule: 'শুক্রবার শুধু ফলো-আপ (ডেমো)',
     });
@@ -187,7 +187,7 @@ module.exports = {
     const verification = (t) => ({ by: 'demo-seed', byEmail: '', at: t, checks: ['bmdc_found', 'bmdc_name', 'bmdc_active', 'workplace'] });
 
     await set(`badges/${doc.uid}`, {
-      type: 'doctor', status: 'approved', regNo: DOC_REG, workplace: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল (ডেমো)', name: DOC_NAME,
+      type: 'doctor', status: 'approved', regNo: DOC_REG, workplace: 'শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল (ডেমো)', name: DOC_NAME,
       email: doc.email, docsHave: {}, createdAt: now - 120 * DAY, reviewedAt: now - 118 * DAY, reviewedBy: 'demo-seed', verification: verification(now - 118 * DAY),
     }, { merge: true });
     await set(`providers/${doc.uid}`, {
@@ -201,16 +201,16 @@ module.exports = {
     // অন্য ডাক্তাররা (ডিরেক্টরি ভরা থাকুক)
     const others = [
       { key: 'rx-doc-nasrin', name: 'ডা. ডেমো নাসরিন আক্তার', gender: 'female', sp: ['gynecology'], deg: 'MBBS, FCPS (Gynae & Obs)', phone: '01700000211',
-        ch: [chamber('dghs_392', { room: 'ডেমো চেম্বার · গাইনি বহির্বিভাগ', days: [6, 1, 3], start: '15:00', end: '17:00', fee: '৮০০ টাকা', serialPhone: '01700000211' })] },
+        ch: [chamber('dghs_22839', { room: 'ডেমো চেম্বার · গাইনি বহির্বিভাগ', days: [6, 1, 3], start: '15:00', end: '17:00', fee: '৮০০ টাকা', serialPhone: '01700000211' })] },
       { key: 'rx-doc-kamrul', name: 'ডা. ডেমো কামরুল ইসলাম', gender: 'male', sp: ['pediatrics'], deg: 'MBBS, DCH (Child Health)', phone: '01700000212',
-        ch: [chamber('dghs_392', { room: 'ডেমো চেম্বার · শিশু বহির্বিভাগ', days: [0, 2, 4], start: '15:00', end: '18:00', fee: '৬০০ টাকা' })],
-        change: { regNo: 'DEMO-A-55555', workplace: 'ডেমো শিশু চেম্বার, চরপাড়া (সংশোধন)' } },
+        ch: [chamber('dghs_22839', { room: 'ডেমো চেম্বার · শিশু বহির্বিভাগ', days: [0, 2, 4], start: '15:00', end: '18:00', fee: '৬০০ টাকা' })],
+        change: { regNo: 'DEMO-A-55555', workplace: 'ডেমো শিশু চেম্বার, শিববাড়ি (সংশোধন)' } },
       { key: 'rx-doc-mahbub', name: 'ডা. ডেমো মাহবুব আলম', gender: 'male', sp: ['cardiology', 'medicine'], deg: 'MBBS, MD (Cardiology)', phone: '01700000213',
-        ch: [chamber('dghs_404', { room: 'ডেমো চেম্বার · হৃদরোগ কক্ষ', days: [6, 0, 1, 2, 3], start: '16:00', end: '20:00', fee: '১০০০ টাকা', serialPhone: '01700000213' })] },
+        ch: [chamber('dghs_147', { room: 'ডেমো চেম্বার · হৃদরোগ কক্ষ', days: [6, 0, 1, 2, 3], start: '16:00', end: '20:00', fee: '১০০০ টাকা', serialPhone: '01700000213' })] },
       { key: 'rx-doc-farzana', name: 'ডা. ডেমো ফারজানা হক', gender: 'female', sp: ['dermatology'], deg: 'MBBS, DDV (Skin & VD)', phone: '01700000214', noAppt: true,
-        ch: [chamber('dghs_392', { room: 'ডেমো চেম্বার · চর্ম বহির্বিভাগ', days: [6, 0, 1, 2, 3, 4], start: '10:00', end: '12:00', fee: '৭০০ টাকা', serialPhone: '01700000214', appointments: false })] },
+        ch: [chamber('dghs_22839', { room: 'ডেমো চেম্বার · চর্ম বহির্বিভাগ', days: [6, 0, 1, 2, 3, 4], start: '10:00', end: '12:00', fee: '৭০০ টাকা', serialPhone: '01700000214', appointments: false })] },
       { key: 'rx-doc-tanvir', name: 'ডা. ডেমো তানভীর রহমান', gender: 'male', sp: ['orthopedics'], deg: 'MBBS, D-Ortho', phone: '01700000215', pending: true,
-        ch: [chamber('dghs_392', { room: 'ডেমো চেম্বার · হাড় ও জোড়া', days: [0, 2], start: '18:00', end: '21:00', fee: '৭০০ টাকা' })] },
+        ch: [chamber('dghs_22839', { room: 'ডেমো চেম্বার · হাড় ও জোড়া', days: [0, 2], start: '18:00', end: '21:00', fee: '৭০০ টাকা' })] },
     ];
     const docs = {};
     for (const o of others) {
@@ -477,7 +477,7 @@ module.exports = {
     await order('demo-rx-order-nasima', rxD, bp.nasima, { status: 'sent', createdAt: now - 40 * MIN, note: 'বাকিটা পরে নেব' });
     await order('demo-rx-order-karim-online', rxK, bp.karim, {
       status: 'sent', mode: 'online', createdAt: now - 20 * MIN, note: 'সন্ধ্যার পরে দিলে ভালো',
-      extra: { address: 'ডেমো বাসা ১২, রোড ৩, কাচিঝুলি, ময়মনসিংহ', phone: bp.karim.phone, deliveryFee },
+      extra: { address: 'ডেমো বাসা ১২, রোড ৩, ছায়াবীথি, জয়দেবপুর, গাজীপুর', phone: bp.karim.phone, deliveryFee },
     });
     await order('demo-rx-order-salma-back', rxS1, bp.salma, {
       status: 'withdrawn', createdAt: at(d7, '18:00'), extra: { withdrawReason: 'not_available', missed: ['Thyrox'], updatedAt: at(d7, '18:15') },
@@ -567,7 +567,7 @@ module.exports = {
     await labOrder('demo-rx-lab-fatema-home', rxF, bp.fatema, {
       tests: ['HbA1c', 'FBS', 'Lipid profile'], status: 'sent', createdAt: now - 15 * MIN,
       home: {
-        address: 'ডেমো বাসা ৫, স্কুল রোড, কাচিঝুলি, ময়মনসিংহ', phone: bp.fatema.phone, date: today + DAY, slot: 'early',
+        address: 'ডেমো বাসা ৫, স্কুল রোড, ছায়াবীথি, জয়দেবপুর, গাজীপুর', phone: bp.fatema.phone, date: today + DAY, slot: 'early',
         note: 'খালি পেটে থাকব', fee: priceX && Number.isInteger(priceX.homeFee) ? priceX.homeFee : null, status: 'requested', requestedAt: now - 15 * MIN,
       },
     });
