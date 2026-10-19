@@ -226,6 +226,12 @@ here. Do not edit other packages' files.
 
 ## P3 — Prescriptions & labs (`rx`, `lab`) — 43 actions
 
+> **Status: done** (branch `spring-p3`) — all 43 actions, cron steps 8 (`rxReminders`) and 9 (`refill`), `Prescriptions` +
+> `PatientHome` contracts (baselines removed), `AccountDeletionStep` (order 300), migration `V300__p3_rx_lab.sql`
+> (chamber address/phone, `refill_notified_at`, no cascades from doctor/lab owners, `abnormal` flag, long results).
+> Not ported: the demo seed part (needs P2's appointment ids and P6-rest's `DemoSeedContext`). Lab lists/prices and the
+> lab-test catalogue are read fresh (Node: 1–5 min per-instance memcache); guest answers still cached 1 min.
+
 * **Node:** `prescriptions.js`, lab + review parts of `rxnet.js` (`labSeg`, `labView`, lab orders, home collection, reports, reviews,
   `rx_activity`), `labprices.js`, `labtests.js`.
 * **Actions:** `rx_me`, `rx_team`, `rx_team_set`, `rx_assisting`, `rx_patients`, `rx_patient_history`, `rx_patient_add`,
