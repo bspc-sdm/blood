@@ -290,7 +290,7 @@ class AppointmentsIT : P2TestBase() {
     }
 
     @Test
-    fun `badge rejected - out of the lists, future appointments cancelled; approved again - back (admin_badge_resolve)`() {
+    fun `badge rejected - out of the lists, future appointments cancelled, approved again - back (admin_badge_resolve)`() {
         clock.fixedMs = dhaka("2026-10-19 10:00")
         ownerUser()
         doctor()
