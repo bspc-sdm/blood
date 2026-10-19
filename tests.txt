@@ -1,0 +1,15 @@
+TOTAL 115 tests, 0 failed, 0 skipped
+com.lifolo.admin.KernelIT: 8 tests, 0 failed
+com.lifolo.auth.AuthIT: 12 tests, 0 failed
+com.lifolo.common.CommunityDispatchIT: 11 tests, 0 failed
+com.lifolo.contracts.ContractsIT: 7 tests, 0 failed
+com.lifolo.lab.LabListingIT: 5 tests, 0 failed
+com.lifolo.lab.LabPricesIT: 2 tests, 0 failed
+com.lifolo.rx.RxFlowIT: 4 tests, 0 failed
+com.lifolo.unit.AuthServiceTest: 6 tests, 0 failed
+com.lifolo.unit.CommonUnitTest: 15 tests, 0 failed
+com.lifolo.unit.KernelRulesTest: 11 tests, 0 failed
+com.lifolo.unit.PlacesPhonesTest: 2 tests, 0 failed
+com.lifolo.unit.RxLabRulesTest: 19 tests, 0 failed
+com.lifolo.unit.WebSessionTest: 9 tests, 0 failed
+com.lifolo.users.ProfileIT: 4 tests, 0 failed
