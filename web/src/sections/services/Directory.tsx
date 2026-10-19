@@ -10,10 +10,11 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel, currentPosition, districtAt, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import {
-  ambulanceEntry, ambulanceKm, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, remember, useCatalog,
+  ambulanceEntry, ambulanceKm, ambulanceTypeLabel, ambulanceTypes, bloodBankEntry, kindIcon, kindLabel, labEntry, pharmacyEntry, recall, recordCall, remember, setAmbActive, useCatalog,
   type Ambulance, type BloodBank, type Entry, type Kind, type Lab, type ListResult, type Pharmacy, type RateAspect,
 } from './data';
-import { Emergency999, EntryDetail, FilterSheet, NearestCall, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
+import { Emergency999, EntryDetail, FilterSheet, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
+import { ActiveBanner, CallBar, RequestDialog, useActiveRequest, useBackFromCall } from './AmbRequest';
 import type { PublicPrices } from '@/lib/labprice';
 import { RxSendFromPlace } from '@/sections/health/RxActivity';
 
@@ -56,7 +57,7 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
  * অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি।
  * GPS-এর জন্য সর্বোচ্চ ২.৫ সেকেন্ড অপেক্ষা; তারপর একবার ঠিক হলে আর বদলায় না (বাটনের গাড়ি হঠাৎ বদলে যেন ভুল জায়গায় চাপ না পড়ে)।
  */
-function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin: Origin | null; ready: boolean } {
+function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin: Origin | null; ready: boolean; exact: { lat: number; lng: number } | null } {
   const s = useSession();
   const [gps, setGps] = useState<{ lat: number; lng: number; district: string } | null | undefined>(on ? undefined : null);
   const settled = useRef(false);
@@ -91,7 +92,14 @@ function useAmbulanceOrigin(district: string | undefined, on: boolean): { origin
     if (p?.source === 'gps' && p.placeName === district) return { lat: r2(p.lat), lng: r2(p.lng), byArea: false };
     return { lat: null, lng: null, byArea: true };
   }, [on, district, gps, s.place]);
-  return { origin, ready: !on || gps !== undefined };
+  // অ্যাম্বুলেন্স ডাকার জন্য কাটা নয় এমন জায়গা (শুধু রাজি হওয়া চালক পান — ম্যাপে খুলতে)
+  const exact = useMemo(() => {
+    if (!on || !district) return null;
+    if (gps && gps.district === district) return { lat: gps.lat, lng: gps.lng };
+    const p = s.place;
+    return p?.source === 'gps' && p.placeName === district ? { lat: p.lat, lng: p.lng } : null;
+  }, [on, district, gps, s.place]);
+  return { origin, ready: !on || gps !== undefined, exact };
 }
 
 export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
@@ -122,7 +130,18 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   const clearFilters = () => setParams(new URLSearchParams(), { replace: true });
 
   const gps = s.place?.source === 'gps' ? s.place : null;
-  const { origin, ready } = useAmbulanceOrigin(area?.district, kind === 'ambulance');
+  const { origin, ready, exact } = useAmbulanceOrigin(area?.district, kind === 'ambulance');
+  // অ্যাম্বুলেন্স ডাকুন (২.২৮.০): নিজের চালু অনুরোধ, নিশ্চিত করার ঘর (target = বিস্তারিত থেকে একটা গাড়ি)
+  const activeReq = useActiveRequest();
+  const [requesting, setRequesting] = useState<{ target: { id: string; name: string } | null } | null>(null);
+  useEffect(() => {
+    setAmbActive(activeReq?.id ?? null);
+  }, [activeReq?.id]);
+  useBackFromCall(kind === 'ambulance' ? activeReq : null);
+  const requestAmbulance = (target: { id: string; name: string } | null) => {
+    if (activeReq) return nav(`/services/ambulance/call/${activeReq.id}`);
+    s.requireLogin(tr('Log in to call an ambulance', 'অ্যাম্বুলেন্স ডাকতে লগইন করুন'), () => setRequesting({ target }));
+  };
   const body = useMemo(() => {
     const b: Record<string, unknown> = { district: area?.district, upazilaId: area?.upazilaId ?? null };
     if (kind === 'ambulance' && type) b.type = type;
@@ -217,7 +236,10 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       >
         <ActiveChips items={chips} />
       </FilterBar>
-      {kind === 'ambulance' ? <Nearest list={items as Ambulance[]} id={q.data?.nearestId} byArea={!!origin?.byArea} lists={lists} /> : null}
+      {kind === 'ambulance' && activeReq ? <ActiveBanner r={activeReq} /> : null}
+      {kind === 'ambulance' && area && !q.isLoading && (items as Ambulance[]).some((a) => a.available) ? (
+        <Nearest list={items as Ambulance[]} id={q.data?.nearestId} byArea={!!origin?.byArea} lists={lists} onRequest={() => requestAmbulance(null)} />
+      ) : null}
       {kind === 'ambulance' ? <Emergency999 /> : null}
       {kind === 'bloodbank' ? (
         <p className="t-body-s muted">{tr('Buying or selling blood is illegal; only processing costs apply.', 'রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।')}</p>
@@ -252,7 +274,15 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       detail = kind === 'lab'
         ? <LabEntryDetail key={raw.id} lab={raw as Lab} backTo={listPath} />
         : (
-          <EntryDetail key={raw.id} e={e} backTo={listPath} onRate={e.canRate ? rateGate(e) : undefined} onReport={e.reportable ? reportGate(e) : undefined}>
+          <EntryDetail
+            key={raw.id}
+            e={e}
+            backTo={listPath}
+            onRate={e.canRate ? rateGate(e) : undefined}
+            onReport={e.reportable ? reportGate(e) : undefined}
+            // অ্যাম্বুলেন্স: "অ্যাম্বুলেন্স ডাকুন" — এই গাড়ি আগে, সাথে কাছের অন্যরা (ট্রিপে থাকা গাড়িতে নয়)
+            main={kind === 'ambulance' && !((raw as Ambulance).busySince ?? 0) ? { label: tr('Call ambulance', 'অ্যাম্বুলেন্স ডাকুন'), icon: 'ambulance', onClick: () => requestAmbulance({ id: raw.id, name: (raw as Ambulance).name }) } : undefined}
+          >
             {/* ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো */}
             {kind === 'pharmacy' ? <RxSendFromPlace pharmacy={raw as Pharmacy} /> : null}
           </EntryDetail>
@@ -305,21 +335,33 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
           {kind === 'bloodbank' || kind === 'pharmacy' ? <Switch label={tr('Open 24 hours only', 'শুধু ২৪ ঘণ্টা খোলা')} checked={open24} onChange={(v) => setParam('h24', v ? '1' : null)} /> : null}
         </FilterSheet>
       ) : null}
+      {requesting && area ? (
+        <RequestDialog
+          district={area.district}
+          upazilaId={area.upazilaId ?? null}
+          type={type}
+          typeLabel={type ? ambulanceTypeLabel(lists, type) : null}
+          gps={exact}
+          target={requesting.target}
+          onClose={() => setRequesting(null)}
+        />
+      ) : null}
       {rating ? <RatingDialog kind={kind} id={rating.id} name={rating.name} aspects={rating.aspects} onClose={() => setRating(null)} /> : null}
       {reporting ? <ReportDialog kind={kind} id={reporting} onClose={() => setReporting(null)} /> : null}
     </>
   );
 }
 
-/** তালিকার উপরে বড় বাটন: সবচেয়ে কাছের খালি গাড়িতে এক চাপে ফোন — নিচের লাইনে নাম, দূরত্ব, ধরন */
-function Nearest({ list, id, byArea, lists }: { list: Ambulance[]; id?: string | null; byArea: boolean; lists: ReturnType<typeof useCatalog> }) {
+/**
+ * তালিকার উপরে: "অ্যাম্বুলেন্স ডাকুন" (কাছের খালি গাড়িগুলোতে একসাথে) আর পাশে "ফোন" — সবচেয়ে কাছের খালি গাড়িতে
+ * এক চাপে (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়); নিচে নাম, দূরত্ব, ধরন
+ */
+function Nearest({ list, id, byArea, lists, onRequest }: { list: Ambulance[]; id?: string | null; byArea: boolean; lists: ReturnType<typeof useCatalog>; onRequest: () => void }) {
+  const { guest } = useSession();
   const a = id ? list.find((x) => x.id === id) : undefined;
-  if (!a) return null;
   // এলাকা ধরে হলে দূরত্ব নয় (জানা নেই), শুধু "এলাকা ধরে"
-  const sub = [a.name, byArea ? tr('By area', 'এলাকা ধরে') : ambulanceKm(a), a.types.map((t) => ambulanceTypeLabel(lists, t)).join(', ')]
-    .filter(Boolean)
-    .join(' · ');
-  return <NearestCall id={a.id} phone={a.phone} sub={sub} />;
+  const sub = a ? [a.name, byArea ? tr('By area', 'এলাকা ধরে') : ambulanceKm(a), a.types.map((t) => ambulanceTypeLabel(lists, t)).join(', ')].filter(Boolean).join(' · ') : null;
+  return <CallBar onRequest={onRequest} nearest={a} nearestSub={sub} onCallNearest={a ? () => recordCall('ambulance', a.id, guest) : undefined} />;
 }
 
 /** ট্রিপে থাকা গাড়ি: আলাদা ভাঁজ করা অংশ; খালি গাড়ি না থাকলে নিজে থেকে খোলা */

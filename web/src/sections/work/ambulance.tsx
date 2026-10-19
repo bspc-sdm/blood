@@ -11,6 +11,7 @@ import { call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import { areaLabel, InaccuratePosition, precisePosition } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
+import { AmbulanceCalls } from './ambcalls';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_AMBULANCES, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck,
@@ -127,6 +128,8 @@ export function MyAmbulances() {
       actions={canAdd ? <Button icon="add" onClick={() => nav('/work/ambulance/new')}>{tr('Add ambulance', 'অ্যাম্বুলেন্স যোগ করুন')}</Button> : null}
     >
       <Flash msg={flash} error={err} />
+      {/* উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" */}
+      {live.length ? <AmbulanceCalls names={Object.fromEntries(list.map((a) => [a.id, a.name]))} onChanged={() => { after(); }} /> : null}
       {list.length ? (
         <div className="stats work-stats">
           <Stat icon="ambulance" value={num(list.length)} label={tr('Ambulances', 'অ্যাম্বুলেন্স')} />

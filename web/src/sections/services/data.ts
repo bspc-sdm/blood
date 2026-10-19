@@ -1,6 +1,7 @@
 // সেবার তালিকার ডেটা: অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি — সার্ভারের উত্তরের ধরন আর লেখা
 // (অ্যাপের Ambulance.kt / Pharmacy.kt / BloodBank.kt / RxNet.kt-এর মতো)
 import { call } from '@/lib/api';
+import { store } from '@/lib/store';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDate, formatKm, formatTimeHM, timeAgo } from '@/lib/format';
@@ -242,10 +243,17 @@ export function labEntry(l: Lab, full?: PublicPrices | null): Entry {
 // ---------- কাজ ----------
 const CALLED: Partial<Record<Kind, string>> = { ambulance: 'ambulance_called', pharmacy: 'pharmacy_called', bloodbank: 'bloodbank_called' };
 /** অ্যাপ থেকে ফোন করলে লিখে রাখা (মালিকের হিসাব; রেটিং/রিপোর্ট এর পরেই দেওয়া যায়) — অতিথি হলে বাদ */
+/** নিজের চালু "অ্যাম্বুলেন্স ডাকুন" অনুরোধ (Directory বসায়) — এর সময় ফোন করলে অনুরোধেও ওঠে, ফিরে এলে একবার জিজ্ঞেস */
+let ambActive: string | null = null;
+export const setAmbActive = (id: string | null) => {
+  ambActive = id;
+};
 export function recordCall(kind: Kind, id: string, guest: boolean) {
   const action = CALLED[kind];
   if (!action || guest) return;
-  call(action, { id }).catch(() => {});
+  const reqId = kind === 'ambulance' ? ambActive : null;
+  if (reqId) store.set('lf.amb.askAfterCall', reqId);
+  call(action, { id, ...(reqId ? { reqId } : {}) }).catch(() => {});
 }
 export const reportKind = (k: Kind) => (k === 'bloodbank' ? 'bloodbank' : k);
 

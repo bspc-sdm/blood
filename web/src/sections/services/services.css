@@ -97,3 +97,22 @@
 .services-prices li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--outline-variant); min-width: 0; }
 .services-prices li:last-child { border-bottom: 0; }
 .services-prices li .col { min-width: 0; }
+
+/* অ্যাম্বুলেন্স ডাকুন (২.২৮.০): বড় ভরাট "ডাকুন" + পাশে "ফোন" */
+.amb-callbar { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.amb-call-main { flex: 1; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.amb-call-phone { flex: none; min-height: 68px; border-radius: 16px; }
+.amb-banner {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 12px 14px; border: 0; border-radius: 16px;
+  background: var(--tertiary-container); color: var(--on-tertiary-container); font: inherit; text-align: left; cursor: pointer;
+}
+.amb-banner svg { width: 22px; height: 22px; flex: none; }
+.services-mainbar { display: flex; gap: 8px; min-width: 0; }
+.services-mainbar > * { flex: 1; min-width: 0; justify-content: center; }
+.amb-wait .spinner { flex: none; }
+.amb-head-ic { width: 36px; height: 36px; flex: none; color: var(--primary); }
+.amb-accepted { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 20px; background: var(--primary-container); color: var(--on-primary-container); }
+.amb-accepted-ic { width: 48px; height: 48px; flex: none; border-radius: 24px; display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); }
+.amb-accepted-ic svg { width: 26px; height: 26px; }
+.amb-fallback { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 14px; border-radius: 14px; background: var(--surface-low); }
+.amb-replace { padding: 14px; border-radius: 14px; background: var(--secondary-container); color: var(--on-secondary-container); }

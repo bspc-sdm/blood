@@ -195,7 +195,7 @@ export function ServiceCard({
 
 // ---------- বিস্তারিত ----------
 /** children: ভাগগুলোর পরে, নিচের ফোনের আগে (যেমন "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান") */
-export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode }) {
+export function EntryDetail({ e, backTo, onRate, onReport, children, main }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode; main?: { label: string; icon: string; onClick: () => void } }) {
   const nav = useNavigate();
   const two = useTwoPane();
   const { guest } = useSession();
@@ -255,7 +255,21 @@ export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entr
       })}
       {children}
       <div className="services-foot">
-        <PhoneLine big phone={e.phone} onCall={() => recordCall(e.kind, e.id, guest)} />
+        {main ? (
+          // অ্যাম্বুলেন্স (২.২৮.০): "অ্যাম্বুলেন্স ডাকুন" (ভরাট) আর পাশে "ফোন" (আউটলাইন), নিচে নম্বর
+          <>
+            <div className="services-mainbar">
+              <Button icon={main.icon} onClick={main.onClick} data-testid="amb-request-one">{main.label}</Button>
+              <a className="btn outline square has-icon" href={`tel:${e.phone}`} onClick={() => recordCall(e.kind, e.id, guest)}>
+                <Icon name="call" />
+                {tr('Call', 'ফোন')}
+              </a>
+            </div>
+            <span className="t-body-m muted num" style={{ userSelect: 'all' }}>{num(e.phone)}</span>
+          </>
+        ) : (
+          <PhoneLine big phone={e.phone} onCall={() => recordCall(e.kind, e.id, guest)} />
+        )}
         {onRate || (e.reportable && onReport) ? (
           <div className="row services-acts">
             {onRate ? <Button variant="text" icon="star" onClick={onRate}>{tr('Rate', 'রেটিং দিন')}</Button> : null}

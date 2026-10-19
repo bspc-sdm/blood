@@ -117,3 +117,8 @@
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 12px;
   background: var(--tertiary-container); color: var(--on-tertiary-container);
 }
+
+/* "ডাক" (২.২৮.০) */
+.amb-calls h2 svg { width: 20px; height: 20px; color: var(--primary); }
+.amb-call { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 16px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.amb-call.mine { background: var(--primary-container); color: var(--on-primary-container); }
