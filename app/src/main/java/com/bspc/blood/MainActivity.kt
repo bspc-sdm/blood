@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
             openExtra.value = rxExtras(intent)
             sharedRequestId(intent)?.let { openRequestId.value = it }
             if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
+            sharedPlace(intent)
         }
         setContent {
             GetBloodTheme {
@@ -101,8 +102,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Google Maps থেকে শেয়ার করা জায়গা (২.৩১.০, ShareActivity হয়ে): "অ্যাম্বুলেন্স ডাকুন"-এর শিট খোলা থাকলে সেটাই নেয়;
+     * না থাকলে অ্যাম্বুলেন্সের তালিকা খোলে, সেখান থেকে শিট খোলে (লগইন লাগে)।
+     */
+    private fun sharedPlace(intent: Intent?) {
+        val text = intent?.getStringExtra(ShareActivity.EXTRA_PLACE_TEXT)?.takeIf { it.isNotBlank() } ?: return
+        intent.removeExtra(ShareActivity.EXTRA_PLACE_TEXT)
+        SharedPlace.text.value = text
+        if (!SharedPlace.sheetOpen.value) openType.value = "amb_call"
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        sharedPlace(intent)
         intent.getStringExtra(Notifier.EXTRA_REQUEST_ID)?.let {
             openType.value = intent.getStringExtra(Notifier.EXTRA_TYPE)
             openRequestId.value = it
@@ -123,7 +136,7 @@ class MainActivity : ComponentActivity() {
 }
 
 /** নোটিফিকেশন চাপলে যে ধরনগুলো App-এর openFromData খোলে (amb_req_mine: রোগীর অ্যাম্বুলেন্স ডাকার পাতা, ২.২৮.০) */
-private val OPEN_TARGETS = setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care", "amb_req_mine")
+private val OPEN_TARGETS = setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care", "amb_req_mine", "amb_call")
 
 /** নোটিফিকেশনের rxId, asUid, reqId (যেগুলো আছে) */
 private fun rxExtras(intent: Intent?): Map<String, String> = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID, Notifier.EXTRA_REQ_ID)
@@ -363,6 +376,12 @@ fun App(
             }
             // নিজের ওষুধ খোঁজার উত্তর: সেবা › ফার্মেসি › "ওষুধ খুঁজুন"
             type == "med_find_mine" -> {
+                ServicesNav.target.value = type
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
+            // Google Maps থেকে জায়গা শেয়ার (২.৩১.০): সেবা › অ্যাম্বুলেন্স, সেখানে "অ্যাম্বুলেন্স ডাকুন"-এর শিট খোলে
+            type == "amb_call" -> {
                 ServicesNav.target.value = type
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
                 stack[0] = Screen.Main(Tabs.SERVICES)

@@ -7,6 +7,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -178,6 +183,8 @@ fun EdgeToEdgeDialog(
         }
         androidx.compose.runtime.SideEffect {
             window?.let { w ->
+                // কোনো কারণে (Compose-এর নিজের মাপ বসানো, কিছু ফোনের নিয়ম) জানালা আবার ছোট/সরানো হলে ফিরিয়ে আনা
+                if (w.attributes.width != android.view.WindowManager.LayoutParams.MATCH_PARENT || w.attributes.height != android.view.WindowManager.LayoutParams.MATCH_PARENT) fillScreenEdgeToEdge(w)
                 androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
                     isAppearanceLightNavigationBars = lightNav
                     if (lightStatusBar != null) isAppearanceLightStatusBars = lightStatusBar
@@ -203,7 +210,14 @@ private fun fillScreenEdgeToEdge(w: android.view.Window) {
         w.isStatusBarContrastEnforced = false
         w.isNavigationBarContrastEnforced = false
     }
+    // ২.৩১.০: থিমের পাশের ফাঁক/মার্জিন নয়, মাঝখানে — জানালা ঠিক পর্দার মাপে, বাঁয়ে-ডানে সমান
+    w.decorView.setPadding(0, 0, 0, 0)
+    w.setGravity(android.view.Gravity.CENTER)
     val a = w.attributes
+    a.horizontalMargin = 0f
+    a.verticalMargin = 0f
+    a.x = 0
+    a.y = 0
     if (android.os.Build.VERSION.SDK_INT >= 30) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     else if (android.os.Build.VERSION.SDK_INT >= 28) a.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     if (android.os.Build.VERSION.SDK_INT >= 30) {
@@ -228,6 +242,48 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, dismissOnClickOutside: Boolea
     val bg = MaterialTheme.colorScheme.background
     EdgeToEdgeDialog(onDismissRequest, dismissOnClickOutside, lightStatusBar = bg.luminance() >= 0.5f) {
         Box(Modifier.fillMaxSize().background(bg).safeDrawingPadding().padding(bottom = 8.dp)) { content() }
+    }
+}
+
+/**
+ * মাঝখানের কার্ড-ডায়ালগ (ফর্ম, খোঁজার তালিকা — FormDialog, SearchPickDialog, HospitalPickerDialog, হাসপাতাল/ক্লিনিক বাছা)।
+ *
+ * কেন (২.৩১.০, পারভেজ: "অ্যাম্বুলেন্স ডাকুন" পাতা মাঝখানে নেই, ডান কিনারা পর্দায় লেগে, লেখার ঘর ডানে কাটা): ২.২৬.১-এ এগুলো
+ * FullScreenDialog-এ গিয়েছিল — সেখানে কনটেন্ট পুরো পর্দার একটা Box-এ যার contentAlignment ডিফল্ট TopStart (আর পেছনে অস্বচ্ছ রং),
+ * আর কার্ডের চওড়া fillMaxWidth(0.92f)। তাই কার্ড এক কিনারায় লেগে থাকত, অন্য পাশে ফাঁকা, দুই পাশে সমান মার্জিন নয়; জানালা
+ * পর্দার চেয়ে একটু সরে/ছোট হলে ভেতরের ঘর এক পাশে কেটে যেত।
+ * এখন: জানালা EdgeToEdgeDialog-এর (পুরো পর্দা, মাঝখানে, পাশের ফাঁক ০), পেছনে জানালার নিজের আবছা (চাপলে বন্ধ), কার্ড
+ * Alignment.Center-এ — দুই পাশে সমান ১৬dp, সর্বোচ্চ ৫৬০dp চওড়া; ওপরে-নিচে সিস্টেম বার আর কিবোর্ড বাদ দিয়ে।
+ * fillHeight দিলে উচ্চতা জায়গার সেই ভাগ (তালিকার জন্য), নইলে কনটেন্টের মাপে, সর্বোচ্চ maxHeight।
+ */
+@Composable
+fun CardDialog(
+    onDismissRequest: () -> Unit,
+    dismissOnClickOutside: Boolean = true,
+    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    maxHeight: Dp = 640.dp,
+    fillHeight: Float? = null,
+    tag: String? = null,
+    content: @Composable () -> Unit,
+) {
+    EdgeToEdgeDialog(onDismissRequest, dismissOnClickOutside) {
+        Box(
+            Modifier.fillMaxSize()
+                .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
+                    if (dismissOnClickOutside) onDismissRequest()
+                }
+                .safeDrawingPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = color,
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth()
+                    .then(if (fillHeight != null) Modifier.fillMaxHeight(fillHeight) else Modifier.heightIn(max = maxHeight))
+                    .then(if (tag != null) Modifier.testTag(tag) else Modifier),
+            ) { content() }
+        }
     }
 }
 

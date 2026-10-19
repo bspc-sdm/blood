@@ -55,7 +55,7 @@ interface LabOption {
   suggested: boolean; priced: boolean; have: number | null; total: number; missing: string[]; items: { test: string; name: string; price: number; tat: string }[];
   subtotal: number | null; discountPct: number | null; estimate: number | null; homeFee: number | null; tat: string;
 }
-interface LastHome { address: string; phone: string }
+export interface LastHome { address: string; phone: string }
 /** সেবার তালিকার প্যাথলজি (services/data-র Lab) — পাতা থেকে পাঠানোর সময় */
 export interface PlaceLab {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; facilityId: string | null;
@@ -570,10 +570,11 @@ function PharmacyPickDialog({ rx, mode, onClose, onSent }: { rx: Rx; mode: 'shop
 }
 
 /** অনলাইন অর্ডার: কোথায় পৌঁছাবে আর ফোন (দাম পৌঁছালে, দোকানকে সরাসরি) */
-function OnlineOrderDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PharmOption; onClose: () => void; onSent: () => void }) {
+function OnlineOrderDialog({ rx, p, last, onClose, onSent }: { rx: Rx; p: PharmOption; last?: LastHome | null; onClose: () => void; onSent: () => void }) {
   const s = useSession();
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState(s.profile?.phone ?? '');
+  // আগের অনলাইন অর্ডার/বাসা থেকে নমুনার ঠিকানা-ফোন আগে থেকে (ফার্মেসির তালিকা থেকে এলে — সার্ভারের lastHome)
+  const [address, setAddress] = useState(last?.address ?? '');
+  const [phone, setPhone] = useState(last?.phone || s.profile?.phone || '');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1071,7 +1072,12 @@ function SendError({ children }: { children?: string | null }) {
  * সেবার বিস্তারিতের নিচের বারে ফোনের পাশে: "প্রেসক্রিপশন পাঠান" (২.২৭.০ — আগে বিস্তারিতের ভেতরে আলাদা ভাগে স্ক্রল করত)।
  * অতিথি হলে আগে লগইন; চালু প্রেসক্রিপশন একটাই হলে "কোনটা পাঠাবেন?" না দেখিয়ে সেটাই (এক চাপ কম); পাঠানোর পর RxSentDialog।
  */
-export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: PlacePharmacy }) {
+/**
+ * ফার্মেসির তালিকা থেকে (২.৩২.০): mode — উপরে বাছা "দোকানে গিয়ে কিনব" / "অনলাইনে অর্ডার", তাই আর জিজ্ঞেস নয়
+ * (দোকানে: এই দোকানের হিসাব দেখে "দোকানে পাঠান"; অনলাইনে: সোজা অর্ডারের ফর্ম, আগের ঠিকানা-ফোন বসানো — last);
+ * rx — তালিকার উপরে বাছা প্রেসক্রিপশন (থাকলে "কোনটা পাঠাবেন?" নয়); card — কার্ডের ভেতরের বাটন (চাপ কার্ডে যায় না)।
+ */
+export function RxSendFromPlace({ lab, pharmacy, mode, rx: preset, last, card }: { lab?: PlaceLab; pharmacy?: PlacePharmacy; mode?: 'shop' | 'online'; rx?: Rx | null; last?: LastHome | null; card?: boolean }) {
   const s = useSession();
   const qc = useQueryClient();
   const nav = useNavigate();
@@ -1093,14 +1099,48 @@ export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: 
     }
     close();
   };
-  return (
+  const start = () => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => {
+    // তালিকায় বাছা প্রেসক্রিপশন: সরাসরি সেটাই (পেছনে গেলে পুরোটা বন্ধ)
+    if (preset) {
+      setAuto(true);
+      setRx(preset);
+    }
+    setPicking(true);
+  });
+  const flow = (
     <>
-      <Button icon="send" className="detail-bar-main" onClick={() => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => setPicking(true))}>
-        {tr('Send prescription', 'প্রেসক্রিপশন পাঠান')}
-      </Button>
       {picking && !rx ? <RxPickDialog forLab={!!lab} onClose={close} onPick={setRx} onOnly={(r) => { setAuto(true); setRx(r); }} /> : null}
       {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={back} onSent={(name, home) => done(name, home ? 'lab_home' : 'lab')} /> : null}
-      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={back} onSent={(mode) => done(pharmacy.name, mode)} /> : null}
+      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} mode={mode} last={last} onClose={back} onSent={(m) => done(pharmacy.name, m)} /> : null}
+    </>
+  );
+  if (card) {
+    // কার্ডের ভেতরে: চাপ (আর ডায়ালগের ভেতরের চাপও — React-এ পোর্টাল থেকেও ওপরে যায়) কার্ডে গিয়ে বিস্তারিত খোলে না
+    return (
+      <span className="contents" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <Button icon="send" square className="ph-card-send" onClick={start} data-testid="ph-card-send">
+          {tr('Send prescription', 'প্রেসক্রিপশন পাঠান')}
+        </Button>
+        {flow}
+        {sent ? (
+          <RxSentDialog
+            s={sent}
+            onClose={() => setSent(null)}
+            onOpen={() => {
+              setSent(null);
+              nav(`/prescriptions/${sent.rxId}`);
+            }}
+          />
+        ) : null}
+      </span>
+    );
+  }
+  return (
+    <>
+      <Button icon="send" className="detail-bar-main" onClick={start}>
+        {tr('Send prescription', 'প্রেসক্রিপশন পাঠান')}
+      </Button>
+      {flow}
       {sent ? (
         <RxSentDialog
           s={sent}
@@ -1169,7 +1209,7 @@ function RxPickDialog({ forLab, onClose, onPick, onOnly }: { forLab: boolean; on
  * অথবা — দোকান অনলাইনে অর্ডার নিলে — অনলাইনে অর্ডার।
  * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
-function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharmacy; onClose: () => void; onSent: (mode: 'shop' | 'online') => void }) {
+function PharmacySendDialog({ rx, p, mode, last, onClose, onSent }: { rx: Rx; p: PlacePharmacy; mode?: 'shop' | 'online'; last?: LastHome | null; onClose: () => void; onSent: (mode: 'shop' | 'online') => void }) {
   const care = useCareMode();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1195,6 +1235,44 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
   }
   const here = q.data ?? null;
   const online = here?.online ? here : null;
+  const rxLine = <IconLine icon="medication" color="var(--on-surface)">{[rx.doctor?.name || tr('Doctor', 'ডাক্তার'), formatDate(rx.createdAt)].join(' · ')}</IconLine>;
+  // তালিকায় "অনলাইনে অর্ডার" বাছা: সোজা অর্ডারের ফর্ম (দোকান অনলাইনে না নিলে জানানো)
+  if (mode === 'online') {
+    if (online) return <OnlineOrderDialog rx={rx} p={online} last={last} onClose={onClose} onSent={() => onSent('online')} />;
+    return (
+      <Dialog onClose={onClose} size="small" title={p.name} actions={<Button variant="text" onClick={onClose}>{tr('Close', 'বন্ধ')}</Button>}>
+        {q.isPending ? <Loading /> : <SendError>{q.isError ? errorText(q.error) : tr("This pharmacy doesn't take online orders now", 'এই ফার্মেসি এখন অনলাইনে অর্ডার নেয় না')}</SendError>}
+      </Dialog>
+    );
+  }
+  // তালিকায় "দোকানে গিয়ে কিনব" বাছা: এই দোকানের হিসাব দেখে এক চাপে পাঠানো
+  if (mode === 'shop') {
+    return (
+      <Dialog
+        onClose={() => !busy && onClose()}
+        size="small"
+        title={p.name}
+        actions={
+          <>
+            <Button variant="text" disabled={busy} onClick={onClose}>{tr('Cancel', 'বাতিল')}</Button>
+            <Button icon="send" busy={busy} onClick={shop} data-testid="ph-send-shop">{tr('Send to the shop', 'দোকানে পাঠান')}</Button>
+          </>
+        }
+      >
+        <div className="col gap-4">
+          {rxLine}
+          {here ? (
+            <>
+              <IconLine icon={here.keepsStock ? 'check_circle' : 'info'}>{pharmHereText(here)}</IconLine>
+              <IconLine icon="payments">{pharmEstimateText(here.estimate)}</IconLine>
+            </>
+          ) : q.isPending ? <span className="t-body-s muted">{tr('Checking this shop…', 'এই দোকানের হিসাব দেখা হচ্ছে…')}</span> : null}
+          <IconLine icon="storefront" color="var(--on-surface)">{tr("You'll collect at the shop", 'দোকানে গিয়ে নেবেন')}</IconLine>
+        </div>
+        <SendError>{err}</SendError>
+      </Dialog>
+    );
+  }
   return (
     <Dialog onClose={() => !busy && onClose()} size="small" title={p.name}>
       {/* পাঠানোর আগে এই দোকানের হিসাব */}
@@ -1218,7 +1296,7 @@ function PharmacySendDialog({ rx, p, onClose, onSent }: { rx: Rx; p: PlacePharma
         ) : null}
       </div>
       <SendError>{err}</SendError>
-      {ordering ? <OnlineOrderDialog rx={rx} p={ordering} onClose={() => setOrdering(null)} onSent={() => onSent('online')} /> : null}
+      {ordering ? <OnlineOrderDialog rx={rx} p={ordering} last={last} onClose={() => setOrdering(null)} onSent={() => onSent('online')} /> : null}
     </Dialog>
   );
 }

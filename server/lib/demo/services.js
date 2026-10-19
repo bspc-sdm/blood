@@ -95,7 +95,10 @@ module.exports = {
       const data = {
         name: x.name, licenseNo: x.licenseNo, phone: x.phone, district: DISTRICT, upazilaId: x.upazilaId || SADAR, address: x.address,
         ...at3(x.loc), open24: !!x.open24, openAt: x.open24 ? '' : x.openAt, closeAt: x.open24 ? '' : x.closeAt, closedDays: x.closedDays || [],
-        delivery: !!x.delivery, deliveryNote: x.deliveryNote || '', discount: x.discount || 0, updatedAt: created,
+        delivery: !!x.delivery, deliveryNote: x.deliveryNote || '', discount: x.discount || 0,
+        // ছাড়ের শর্ত (১৯ অক্টোবর ২০২৬) — দোকানে দোকানে আলাদা, তালিকার কার্ডে দেখা যায়
+        discountMin: x.discountMin || 0, freeDeliveryOver: x.freeDeliveryOver || 0, discountNote: x.discountNote || '',
+        updatedAt: created,
       };
       await ctx.set(`pharmacies/${id}`, {
         ...data,
@@ -116,7 +119,21 @@ module.exports = {
       });
       if (x.stock) {
         const names = [...x.stock].sort((a, b) => a.localeCompare(b));
-        await ctx.set(`pharmacyStock/${id}`, { names, keys: names.map(nameKey), updatedAt: now - 3 * day });
+        // দামের তালিকা (হিসাব-খাতা চালানো দোকানের মতো): MRP হিসাব-খাতার ডেমোর একই, ছাড় দোকানের % — আনুমানিক দাম আর মোট ছাড়
+        const priceOf = x.pricePct == null ? null : Object.fromEntries(require('./books').ITEMS.map((it) => [nameKey(it[0]), it[5]]));
+        const prices = {};
+        const mrp = {};
+        if (priceOf) {
+          for (const n of names) {
+            const m = priceOf[nameKey(n)];
+            if (!m) continue;
+            prices[nameKey(n)] = Math.round(m * (100 - x.pricePct)) / 100;
+            if (x.pricePct > 0) mrp[nameKey(n)] = m;
+          }
+        }
+        await ctx.set(`pharmacyStock/${id}`, {
+          names, keys: names.map(nameKey), ...(priceOf ? { prices, mrp, pricesAll: true, mrpAll: true } : {}), updatedAt: now - 3 * day,
+        });
       }
       if (approved) {
         const c = dailyCalls(now, x.callsPerDay || 1, id.length);
@@ -132,6 +149,7 @@ module.exports = {
       name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', loc: phLoc,
       address: 'শিববাড়ি মোড়, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর', open24: true,
       delivery: true, deliveryNote: 'শিববাড়ি, জয়দেবপুর, চান্দনা চৌরাস্তা — ৩০ টাকা', discount: 10, status: 'approved',
+      freeDeliveryOver: 1000, discountNote: 'নগদ বা বিকাশে একই ছাড়',
       docTypes: ['license', 'front', 'pharmacist'], createdAt: now - 90 * day, ratingSum: 54, ratingCount: 12, callsPerDay: 3,
       aspects: { behaviour: { sum: 56, count: 12 }, price: { sum: 44, count: 10 }, delivery: { sum: 29, count: 7 } },
       online: { enabled: true, radiusKm: 10, fee: '৩০ টাকা', note: 'সকাল ৮টা – রাত ১১টা ডেলিভারি' }, shopCode: 'DEMQKP',
@@ -149,6 +167,7 @@ module.exports = {
     await pharmacy(ph24, {
       name: 'ডেমো ২৪ ঘণ্টা ফার্মেসি', licenseNo: 'DEMO-DL-1502', phone: '01700000151', loc: loc(0.8, -0.4),
       address: 'তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল গেট, জয়দেবপুর, গাজীপুর', open24: true, delivery: true, deliveryNote: 'রাতেও ডেলিভারি, ৫০ টাকা', discount: 5,
+      discountMin: 300, discountNote: 'রাত ১২টার পর ছাড় নেই', pricePct: 5,
       status: 'approved', ratingSum: 38, ratingCount: 9, callsPerDay: 4,
       aspects: { behaviour: { sum: 37, count: 9 }, price: { sum: 26, count: 6 }, delivery: { sum: 17, count: 4 } },
       online: { enabled: true, radiusKm: 5, fee: '৫০ টাকা', note: '২৪ ঘণ্টা' },
@@ -158,6 +177,7 @@ module.exports = {
     await pharmacy(phModel, {
       name: 'ডেমো নিউ মডেল ফার্মেসি', licenseNo: 'DEMO-DL-1503', phone: '01700000152', loc: loc(-0.6, 0.5),
       address: 'জয়দেবপুর বাজার, গাজীপুর', openAt: '09:00', closeAt: '22:00', closedDays: [5], discount: 12,
+      discountMin: 500, discountNote: 'শুধু নগদে', pricePct: 12,
       status: 'approved', ratingSum: 21, ratingCount: 6, callsPerDay: 2,
       aspects: { behaviour: { sum: 22, count: 6 }, price: { sum: 13, count: 4 } },
       stock: ['Napa', 'Seclo', 'Sergel', 'Alatrol', 'Monas', 'Calbo', 'Bislol', 'Amdocal', 'Rosuva'],
@@ -166,6 +186,7 @@ module.exports = {
     await pharmacy(phSeba, {
       name: 'ডেমো সেবা ড্রাগ হাউস', licenseNo: 'DEMO-DL-1504', phone: '01700000153', loc: loc(1.2, 0.9),
       address: 'ছায়াবীথি মোড়, জয়দেবপুর, গাজীপুর', openAt: '08:00', closeAt: '23:00', delivery: true, deliveryNote: 'কাছাকাছি ফ্রি',
+      discount: 3, freeDeliveryOver: 500,
       // সাময়িক বন্ধ (সংস্কার) — সারাক্ষণ "বন্ধ" দেখায়
       closedUntil: now + 5 * day, status: 'approved', ratingSum: 12, ratingCount: 3,
     });

@@ -53,6 +53,11 @@ fun ServicesTab(profile: Profile) {
     val target = ServicesNav.target.value
     LaunchedEffect(target) {
         if (target == "med_find_mine") tab = 1
+        // Google Maps থেকে শেয়ার করা জায়গা (২.৩১.০): অ্যাম্বুলেন্স — শিট AmbulanceContent খোলে
+        if (target == "amb_call") {
+            tab = 0
+            ServicesNav.target.value = null
+        }
     }
     Column(Modifier.fillMaxSize()) {
         PillTabs(

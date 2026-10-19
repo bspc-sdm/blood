@@ -30,7 +30,20 @@ export interface Pharmacy {
   rateAspects?: RateAspect[];
   /** দিকভিত্তিক গড় (যেগুলোতে অন্তত একটা রেটিং) */
   aspects?: Partial<Record<RateAspect, { rating: number; count: number }>>;
+  /** ছাড়ের শর্ত (২.৩২.০): কত টাকার বেশি কিনলে ছাড়, কত টাকার বেশিতে ডেলিভারি ফ্রি, ছোট নোট — ০/খালি = নেই */
+  discountMin?: number; freeDeliveryOver?: number; discountNote?: string;
+  /** অনলাইনে অর্ডার নেয় কি না, ডেলিভারি চার্জ (দোকানের লেখা) */
+  online?: boolean; deliveryFee?: string;
+  /** প্রেসক্রিপশন বাছা থাকলে (pharmacies-এ rxId): এই দোকানে কয়টা ওষুধ আছে, আনুমানিক দাম, মোট ছাড় */
+  rx?: PharmacyRx;
 }
+/** payable/mrp/discount: পুরো টাকা — দাম না জানলে null; belowMin: "৳৫০০-এর বেশি কিনলে" ছাড়, এই প্রেসক্রিপশনে কম — ছাড় ধরা নয় */
+export interface PharmacyRx {
+  keepsStock: boolean; have: number; total: number; missing: string[]; priced: number;
+  payable: number | null; mrp: number | null; discount: number | null; belowMin: boolean;
+}
+/** দোকানে গিয়ে কিনব / অনলাইনে অর্ডার (বাসায় ডেলিভারি) */
+export type BuyMode = 'shop' | 'online';
 /** ফার্মেসির রেটিং দোকানের সেবার — ওষুধ কেমন কাজ করল তার নয় */
 export type RateAspect = 'behaviour' | 'price' | 'delivery';
 export const RATE_ASPECTS: RateAspect[] = ['behaviour', 'price', 'delivery'];
@@ -164,16 +177,59 @@ export function ambulanceEntry(a: Ambulance, lists: Lists | null): Entry {
   };
 }
 
-export function pharmacyEntry(p: Pharmacy): Entry {
+// ---------- ফার্মেসির তালিকা (২.৩২.০): ছাড়ের শর্ত আর প্রেসক্রিপশনের হিসাব ----------
+const tk = (n: number) => taka(n);
+/** "MRP থেকে ৫% ছাড়" (দোকানের সাধারণ ছাড়) — না থাকলে খালি */
+export const flatDiscountText = (p: Pick<Pharmacy, 'discount'>) => (p.discount > 0 ? tr(`${p.discount}% off MRP`, `MRP থেকে ${num(p.discount)}% ছাড়`) : '');
+/** ছাড়ের শর্ত: "৳৫০০-এর বেশি কিনলে ছাড়", নোট ("শুধু নগদে") — এক লাইনে */
+export function discountTermsText(p: Pharmacy): string {
+  return join([
+    (p.discountMin ?? 0) > 0 ? tr(`discount on purchases over ${tk(p.discountMin!)}`, `${tk(p.discountMin!)}-এর বেশি কিনলে ছাড়`) : '',
+    p.discountNote ?? '',
+  ], ' · ');
+}
+/** অনলাইনে: "ডেলিভারি ৩০ টাকা, ৳১,০০০-এর বেশিতে ফ্রি"; শুধু দোকানের ডেলিভারি থাকলে আগের লেখা */
+export function deliveryText(p: Pharmacy, online = false): string {
+  const free = (p.freeDeliveryOver ?? 0) > 0 ? tr(`free over ${tk(p.freeDeliveryOver!)}`, `${tk(p.freeDeliveryOver!)}-এর বেশিতে ফ্রি`) : '';
+  if (online || (p.online && !p.delivery)) {
+    if (!p.online) return '';
+    return join([tr('Delivery', 'ডেলিভারি') + (p.deliveryFee ? ' ' + p.deliveryFee : ''), free], ', ');
+  }
+  if (!p.delivery) return '';
+  return join([tr('Home delivery', 'বাসায় ডেলিভারি') + (p.deliveryNote ? ' · ' + p.deliveryNote : ''), free], ', ');
+}
+/** "আপনার প্রেসক্রিপশনের ৮০% ওষুধ আছে (৪/৫)" / "স্টকের তালিকা নেই" / "সব ওষুধ কেনা হয়ে গেছে" */
+export function rxHaveText(r: PharmacyRx): string {
+  if (!r.total) return tr('All medicines on this prescription are bought', 'এই প্রেসক্রিপশনের সব ওষুধ কেনা হয়ে গেছে');
+  if (!r.keepsStock) return tr('No stock list', 'স্টকের তালিকা নেই');
+  const pct = Math.round((r.have / r.total) * 100);
+  return tr(`Has ${pct}% of your prescription's medicines (${r.have}/${r.total})`, `আপনার প্রেসক্রিপশনের ${num(pct)}% ওষুধ আছে (${num(r.have)}/${num(r.total)})`);
+}
+/** মোট ছাড়: "এই প্রেসক্রিপশনে মোট ছাড় ≈ ৳৬৫"; দাম/MRP না জানলে দোকানের "MRP থেকে ৫% ছাড়" */
+export function rxDiscountText(p: Pharmacy, r: PharmacyRx): string {
+  if (r.belowMin && (p.discountMin ?? 0) > 0) return tr(`No discount on this one — only over ${tk(p.discountMin!)}`, `এই প্রেসক্রিপশনে ছাড় নেই — ${tk(p.discountMin!)}-এর বেশি কিনলে`);
+  if (r.discount != null && r.discount > 0) return tr(`Total discount on this prescription ≈ ${tk(r.discount)}`, `এই প্রেসক্রিপশনে মোট ছাড় ≈ ${tk(r.discount)}`);
+  return flatDiscountText(p);
+}
+/** "আনুমানিক ৳৪৮০" (কয়টার দাম জানা) / "দাম দোকানে জেনে নিন" */
+export function rxPayableText(r: PharmacyRx): string {
+  if (r.payable == null) return r.total ? tr('Ask the shop for the price', 'দাম দোকানে জেনে নিন') : '';
+  const part = r.priced < r.total ? tr(` (price known for ${r.priced} of ${r.total})`, ` (${num(r.total)}টার মধ্যে ${num(r.priced)}টার দাম জানা)`) : '';
+  return tr(`About ${tk(r.payable)} to pay`, `আনুমানিক ${tk(r.payable)}`) + part;
+}
+
+export function pharmacyEntry(p: Pharmacy, mode: BuyMode | null = null): Entry {
   const hours = p.closedUntil > 0 ? closedUntilText(p.closedUntil) : join([hoursText(p), closedDaysText(p.closedDays)], ' · ');
-  const discount = p.discount > 0 ? tr(`${p.discount}% off MRP`, `MRP থেকে ${num(p.discount)}% ছাড়`) : '';
-  const delivery = p.delivery ? tr('Home delivery', 'বাসায় ডেলিভারি') + (p.deliveryNote ? ' · ' + p.deliveryNote : '') : '';
+  const discount = join([flatDiscountText(p), discountTermsText(p)], ' · ');
+  const delivery = deliveryText(p, mode === 'online');
+  // প্রেসক্রিপশন বাছা থাকলে ছাড় আর ডেলিভারি "প্রেসক্রিপশনের হিসাব"-এর ভাগে (PharmacyRxInfo) — কার্ডে দুবার নয়
+  const rx = !!p.rx;
   return {
     id: p.id, kind: 'pharmacy', title: p.name, icon: 'storefront',
     status: p.openNow ? { text: tr('Open', 'খোলা'), good: true } : { text: tr('Closed', 'বন্ধ'), good: false },
     tag: p.open24 ? tr('24 hours', '২৪ ঘণ্টা') : null,
     meta: metaLine(p.rating, p.ratingCount, p.km != null ? formatKm(p.km) : null),
-    details: [['location_on', p.address], ['schedule', hours], ['payments', discount], ['local_shipping', delivery]],
+    details: [['star', aspectsText(p.aspects)], ['location_on', p.address], ['schedule', hours], ['payments', rx ? '' : discount], ['local_shipping', rx ? '' : delivery]],
     sections: [
       { title: tr('Address', 'ঠিকানা'), lines: [['location_on', join([p.address, areaLabel(p.district, p.upazilaId)], ', ')]] },
       {

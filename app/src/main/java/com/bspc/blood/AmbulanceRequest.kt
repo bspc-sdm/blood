@@ -313,8 +313,10 @@ private fun saveLastFare(context: Context, dest: Dest, maxFare: Int?) {
 
 private fun saveLast(context: Context, l: AmbLocation) {
     runCatching {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pickup", l.landmark.trim())
-            .putString("area", "${l.district}|${l.upazilaId ?: ""}|${l.unionId ?: ""}").apply()
+        val e = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pickup", l.landmark.trim())
+        // জায়গা থেকে আপনা থেকে বসানো উপজেলা পরের বারের "নিজের এলাকা" নয়
+        if (!l.upazilaAuto) e.putString("area", "${l.district}|${l.upazilaId ?: ""}|${l.unionId ?: ""}")
+        e.apply()
     }
 }
 
@@ -426,7 +428,8 @@ fun ActiveRequestBanner(r: AmbReq, onOpen: () -> Unit) {
 
 /**
  * নিশ্চিত করার ঘর (২.২৯.০): উপরে গাড়ির ধরন (বাধ্যতামূলক, "যেকোনো" আগে থেকে; তালিকায় ছাঁকা ধরন থাকলে সেটা),
- * তারপর এলাকা (LocationInput: জেলা › উপজেলা › ইউনিয়ন + চেনা জায়গা + ঐচ্ছিক এখনকার জায়গা), নোট, মোবাইল, "পাঠান"।
+ * তারপর "কোথা থেকে নেবে" (LocationInput, ২.৩১.০: এখনকার জায়গা / Google ম্যাপ থেকে / লোকেশন লিখুন + এলাকা),
+ * "কোথায় যাবেন" (হাসপাতাল/ক্লিনিকের তালিকা — DestField), নোট, মোবাইল, "পাঠান"।
  * gps: আগে থেকে পাওয়া এখনকার জায়গা (বেছে নেওয়া জেলার ভেতরে) — থাকলে "নেওয়া হয়েছে ✓"।
  */
 @Composable
@@ -497,7 +500,8 @@ fun AmbulanceRequestDialog(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 LocationInput(loc, { loc = it; errorMsg = null }, showErrors = tried)
-                DestPicker(tr("Where to go", "কোথায় যাবেন"), loc.district, dest, { dest = it; errorMsg = null }, hospitals = count?.hospitals ?: emptyList(), showError = tried)
+                // ২.৩১.০: হাসপাতাল/ক্লিনিকের তালিকা থেকে (জেলারটা আগে, কাছেরটা আগে; দেশের বড়গুলো) বা "অন্য জায়গা লিখুন"
+                DestField(tr("Where to go", "কোথায় যাবেন"), loc.district, loc.point, dest, { dest = it; errorMsg = null }, showError = tried)
                 CheckLine(oxygen, tr("Oxygen needed", "অক্সিজেন লাগবে"), "amb_oxygen") { oxygen = it }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("amb_budget")) {
                     Text(tr("Fare up to", "ভাড়া সর্বোচ্চ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

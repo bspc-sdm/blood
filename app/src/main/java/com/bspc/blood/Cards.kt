@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -116,6 +117,13 @@ fun DirectoryCard(
     onClick: (() -> Unit)? = null,
     /** শিটের নিচে ফোনের পাশে মূল কাজ (DetailSheet-এর main) */
     main: CardAction? = null,
+    /**
+     * কার্ডের নিজের মূল কাজ (২.৩২.০, ফার্মেসি: "প্রেসক্রিপশন পাঠান") — ভরাট বড় বাটন, তখন ফোন (primary) ছোট আউটলাইন আইকন-বাটন
+     * (বিস্তারিতের নিচের বারের মতো)
+     */
+    cardMain: CardAction? = null,
+    /** তথ্যের লাইনের আগে আলাদা ঘর (ফার্মেসি: প্রেসক্রিপশনের হিসাব) */
+    info: (@Composable () -> Unit)? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     var sheet by remember { mutableStateOf(false) }
@@ -160,6 +168,10 @@ fun DirectoryCard(
                     }
                 }
             }
+            if (info != null) {
+                Spacer(Modifier.height(10.dp))
+                info()
+            }
             if (details.isNotEmpty() || tags.isNotEmpty() || !note.isNullOrBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -172,7 +184,25 @@ fun DirectoryCard(
                     if (!note.isNullOrBlank()) Text(note, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                 }
             }
-            if (primary != null || secondary != null) {
+            if (cardMain != null) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = cardMain.onClick, shape = RoundedCornerShape(12.dp), contentPadding = BAR_PADDING,
+                        modifier = Modifier.weight(1f, fill = false).heightIn(min = 44.dp).testTag("ph-card-send"),
+                    ) { BarButtonText(cardMain.label, cardMain.icon) }
+                    if (primary != null) {
+                        OutlinedButton(
+                            onClick = primary.onClick, shape = RoundedCornerShape(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            modifier = Modifier.size(44.dp).testTag("ph-card-call"),
+                        ) { AppIcon(primary.icon ?: R.drawable.ic_call, tr("Call", "ফোন"), Modifier.size(20.dp)) }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (secondary != null) {
+                        TextButton(onClick = secondary.onClick) { ButtonContent(false, secondary.label, secondary.icon) }
+                    }
+                }
+            } else if (primary != null || secondary != null) {
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (primary != null) {
@@ -243,7 +273,7 @@ fun DetailSheet(
     tags: List<String> = emptyList(),
     /** নিচের বারে ফোনের পাশে মূল কাজ (ভরাট) — ছোট লেখা দিন */
     main: CardAction? = null,
-    /** নাম/বিশেষজ্ঞতার ঠিক নিচে, ভাগগুলোর আগে (ডাক্তারের চেম্বার বাছাই, ২.৩৩.০) */
+    /** মাথার ঠিক নিচে, ভাগগুলোর আগে (২.৩২.০ ফার্মেসি: প্রেসক্রিপশনের হিসাব; ২.৩৩.০ ডাক্তারের চেম্বার বাছাই) */
     header: @Composable () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme

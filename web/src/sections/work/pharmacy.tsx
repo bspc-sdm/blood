@@ -150,6 +150,13 @@ export function MyPharmacy() {
           {place ? <span className="icon-line"><Icon name="location_on" /><span>{place}</span></span> : null}
           <span className="icon-line"><Icon name="badge" /><span>{tr('Drug licence number', 'ড্রাগ লাইসেন্স নম্বর')}: {ph.licenseNo}</span></span>
           {ph.discount > 0 ? <span className="icon-line"><Icon name="payments" /><span>{tr(`${ph.discount}% off MRP`, `MRP থেকে ${num(ph.discount)}% ছাড়`)}</span></span> : null}
+          {(ph.discountMin ?? 0) > 0 || ph.discountNote || (ph.freeDeliveryOver ?? 0) > 0 ? (
+            <span className="icon-line"><Icon name="info" /><span>{[
+              (ph.discountMin ?? 0) > 0 ? tr(`Discount over Tk ${ph.discountMin}`, `৳${num(ph.discountMin!)}-এর বেশি কিনলে ছাড়`) : '',
+              (ph.freeDeliveryOver ?? 0) > 0 ? tr(`free delivery over Tk ${ph.freeDeliveryOver}`, `৳${num(ph.freeDeliveryOver!)}-এর বেশিতে ডেলিভারি ফ্রি`) : '',
+              ph.discountNote ?? '',
+            ].filter(Boolean).join(' · ')}</span></span>
+          ) : null}
           <span className="icon-line"><Icon name="local_shipping" /><span>{ph.delivery ? tr('Home delivery', 'বাসায় ডেলিভারি') + (ph.deliveryNote ? ' · ' + ph.deliveryNote : '') : tr('No home delivery', 'বাসায় ডেলিভারি নেই')}</span></span>
           <hr className="divider" />
           {ph.status !== 'suspended' ? (
@@ -350,6 +357,9 @@ export function PharmacyForm() {
   );
 }
 
+/** টাকার ঘর: খালি বা ভুল হলে ০ (সর্বোচ্চ ১,০০,০০০) */
+const takaOf = (v: string) => Math.min(100000, parseInt(toAsciiDigits(v) || '0', 10) || 0);
+
 function PharmacyEditor({ existing, onDone }: { existing: Pharmacy | null; onDone: (flash: string) => void }) {
   const s = useSession();
   const nav = useNavigate();
@@ -370,6 +380,10 @@ function PharmacyEditor({ existing, onDone }: { existing: Pharmacy | null; onDon
   const [delivery, setDelivery] = useState(existing?.delivery ?? true);
   const [deliveryNote, setDeliveryNote] = useState(existing?.deliveryNote ?? '');
   const [discount, setDiscount] = useState(String(existing?.discount ?? 0));
+  // ছাড়ের শর্ত (২.৩২.০, ঐচ্ছিক): ফার্মেসির তালিকার কার্ডে দেখায়
+  const [discountMin, setDiscountMin] = useState(existing?.discountMin ? String(existing.discountMin) : '');
+  const [freeOver, setFreeOver] = useState(existing?.freeDeliveryOver ? String(existing.freeDeliveryOver) : '');
+  const [discountNote, setDiscountNote] = useState(existing?.discountNote ?? '');
   const [docs, setDocs] = useState<Record<string, string>>({});
   const [agreed, setAgreed] = useState(!!existing);
   const [busy, setBusy] = useState(false);
@@ -409,6 +423,7 @@ function PharmacyEditor({ existing, onDone }: { existing: Pharmacy | null; onDon
       const r = await call<{ pending?: boolean }>('pharmacy_save', {
         name: name.trim(), licenseNo: licenseNo.trim(), phone: mobile, district: place.district, upazilaId: place.upazilaId ?? null, address: address.trim(),
         lat: loc?.lat ?? null, lng: loc?.lng ?? null, open24, openAt, closeAt, delivery, deliveryNote: deliveryNote.trim(), discount: disc,
+        discountMin: takaOf(discountMin), freeDeliveryOver: takaOf(freeOver), discountNote: discountNote.trim(),
         closedDays: [...closedDays].sort((a, b) => a - b), termsAccepted: true, docs,
       });
       after();
@@ -451,6 +466,17 @@ function PharmacyEditor({ existing, onDone }: { existing: Pharmacy | null; onDon
       <Switch checked={delivery} onChange={setDelivery} label={tr('Home delivery', 'বাসায় ডেলিভারি দিই')} />
       {delivery ? <TextInput label={tr('Delivery area / charge (optional)', 'ডেলিভারির এলাকা / চার্জ (ঐচ্ছিক)')} value={deliveryNote} maxLength={120} onChange={(e) => setDeliveryNote(e.target.value)} /> : null}
       <TextInput label={tr('Usual discount on MRP (%)', 'সাধারণত MRP থেকে কত % ছাড়')} inputMode="numeric" value={discount} onChange={(e) => setDiscount(toAsciiDigits(e.target.value).replace(/\D/g, '').slice(0, 2))} />
+      <div className="work-two">
+        <TextInput label={tr('Discount only above (Tk, optional)', 'ছাড় কত টাকার বেশি কিনলে (৳, ঐচ্ছিক)')} inputMode="numeric" value={discountMin} placeholder="৫০০" onChange={(e) => setDiscountMin(toAsciiDigits(e.target.value).replace(/\D/g, '').slice(0, 6))} />
+        <TextInput label={tr('Free delivery above (Tk, optional)', 'কত টাকার বেশিতে ডেলিভারি ফ্রি (৳, ঐচ্ছিক)')} inputMode="numeric" value={freeOver} placeholder="১০০০" onChange={(e) => setFreeOver(toAsciiDigits(e.target.value).replace(/\D/g, '').slice(0, 6))} />
+      </div>
+      <TextInput
+        label={tr('Discount conditions (optional)', 'ছাড়ের শর্ত (ঐচ্ছিক)')}
+        hint={tr('e.g. cash only — shown on your card in the pharmacy list', 'যেমন: শুধু নগদে — ফার্মেসির তালিকায় আপনার কার্ডে দেখাবে')}
+        value={discountNote}
+        maxLength={80}
+        onChange={(e) => setDiscountNote(e.target.value)}
+      />
       <DocPhotosField specs={pharmacyDocs()} photos={docs} onChange={setDocs} note={existing ? PAPERS_CHANGED() : null} />
       <TermsCheck checked={agreed} onChange={setAgreed} />
       <ErrorText>{err}</ErrorText>

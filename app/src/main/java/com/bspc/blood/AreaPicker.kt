@@ -56,12 +56,9 @@ fun <T> SearchPickDialog(
     var query by remember { mutableStateOf("") }
     val q = query.trim()
     val shown = if (q.isEmpty()) items else items.filter { label(it).contains(q, true) || (subtitle?.invoke(it)?.contains(q, true) == true) }
-    FullScreenDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.8f),
-        ) {
+    // মাঝখানে, দুই পাশে সমান ফাঁক (CardDialog, ২.৩১.০)
+    CardDialog(onDismissRequest = onDismiss, color = MaterialTheme.colorScheme.surface, fillHeight = 0.85f) {
+        run {
             Column(Modifier.padding(vertical = 16.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
                 OutlinedTextField(
@@ -214,12 +211,8 @@ fun HospitalPickerDialog(
         }
     }
 
-    FullScreenDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.85f),
-        ) {
+    CardDialog(onDismissRequest = onDismiss, color = MaterialTheme.colorScheme.surface, fillHeight = 0.9f) {
+        run {
             Column(Modifier.padding(vertical = 16.dp)) {
                 Text(tr("Choose hospital", "হাসপাতাল বেছে নিন"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -490,12 +483,9 @@ fun FormDialog(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable () -> Unit,
 ) {
-    FullScreenDialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 640.dp),
-        ) {
+    // মাঝখানে, দুই পাশে সমান ১৬dp, সর্বোচ্চ ৫৬০dp চওড়া (CardDialog — ২.৩১.০-এর আগে পুরো পর্দার Box-এর কোণে বসত)
+    CardDialog(onDismissRequest = onDismiss, tag = "form_dialog") {
+        run {
             Column(Modifier.padding(top = 20.dp, bottom = 8.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 12.dp)) {
