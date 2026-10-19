@@ -141,7 +141,7 @@ class LabActions(
             val n = LabTests.name(clash)
             throw ctx.err(409, "This name is already used by \"$n\"", "এই নাম আগেই \"$n\"-এ আছে")
         }
-        val next = if (exists) list.map { if (LabTests.code(it) == LabTests.code(clean)) clean else it } else list + clean
+        val next = if (exists) list.map { if (LabTests.code(it) == LabTests.code(clean)) clean else it } else list + listOf(clean)
         catalog.save(next)
         return linkedMapOf("test" to clean, "tests" to next)
     }
