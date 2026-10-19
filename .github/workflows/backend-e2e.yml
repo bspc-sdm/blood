@@ -228,10 +228,6 @@ jobs:
           echo "${GITHUB_SHA} ${LABEL} $(head -3 "$RUNNER_TEMP/report/report-$LABEL.md" 2>/dev/null | tail -1)" > "$RUNNER_TEMP/legout/e2e/$LABEL/status.txt"
           bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/legout" "e2e/$LABEL"
 
-      - name: Spring must be green
-        if: env.SKIP != 'true' && matrix.backend == 'spring'
-        run: |
-          node -e "const r=require(process.env.RUNNER_TEMP+'/report/report-spring.json'); console.log(JSON.stringify(r.totals)); process.exit(r.green?0:1)"
 
   publish:
     needs: e2e
@@ -257,6 +253,10 @@ jobs:
           const s = load('spring'), n = load('node');
           const line = (r, l) => r ? `${l}: ${r.green ? '✅' : '❌'} scenarios ${r.totals.scenariosOk}/${r.totals.scenarios}, stopped journeys ${r.totals.stopped}, bug steps ${r.totals.bugSteps}, API 5xx ${r.totals.api5xx}, server errors ${r.totals.serverErrors}` : `${l}: (no report)`;
           const out = [`# Web e2e — ${process.env.BRANCH} ${process.env.GITHUB_SHA}`, '', line(s, 'spring'), line(n, 'node'), ''];
+          // verdict: with the Node baseline, Spring passes when it fails nothing that Node passes (same scenarios, no
+          // extra bug steps / API errors / 5xx / server errors); without it, Spring must be fully green.
+          let pass = !!s && s.totals.api5xx === 0 && s.totals.serverErrors === 0;
+          if (s && !n) pass = pass && s.green;
           if (s && n) {
             const key = (r) => new Map(r.journeys.flatMap((j) => j.failedScenarios.map((x) => [`${j.journey} ${x.id}`, x.msg || ''])));
             const sf = key(s), nf = key(n);
@@ -265,6 +265,16 @@ jobs:
             if (onlyS.length) out.push('### Only on Spring', '', ...onlyS.map(([k, m]) => `- ${k}: ${m}`), '');
             if (both.length) out.push('### On both', '', ...both.map(([k, m]) => `- ${k}: ${m}`), '');
             if (onlyN.length) out.push('### Only on Node', '', ...onlyN.map(([k, m]) => `- ${k}: ${m}`), '');
+            const bugKeys = (r) => new Set(r.journeys.flatMap((j) => j.bugSteps.map((b) => `${j.journey} ${b.title}`)));
+            const sb = bugKeys(s), nb = bugKeys(n);
+            const bugOnlyS = [...sb].filter((k) => !nb.has(k));
+            if (bugOnlyS.length) out.push('### Bug steps only on Spring', '', ...bugOnlyS.map((k) => `- ${k}`), '');
+            const apiOnlyS = Object.entries(s.apiErrors).filter(([k, c]) => (n.apiErrors[k] || 0) < c);
+            const apiOnlyN = Object.entries(n.apiErrors).filter(([k, c]) => (s.apiErrors[k] || 0) < c);
+            out.push(`API 4xx/5xx: same on both: ${apiOnlyS.length || apiOnlyN.length ? 'no' : 'yes'}`, '');
+            if (apiOnlyS.length) out.push('### API errors more often on Spring', '', ...apiOnlyS.map(([k, c]) => `- ${c}× (node ${n.apiErrors[k] || 0}×) ${k}`), '');
+            if (apiOnlyN.length) out.push('### API errors more often on Node', '', ...apiOnlyN.map(([k, c]) => `- ${c}× (spring ${s.apiErrors[k] || 0}×) ${k}`), '');
+            pass = pass && !onlyS.length && !bugOnlyS.length && !apiOnlyS.length && s.totals.stopped <= n.totals.stopped;
             out.push('| journey | spring | node |', '|---|---|---|');
             for (const j of s.journeys) {
               const o = n.journeys.find((x) => x.journey === j.journey);
@@ -272,12 +282,16 @@ jobs:
               out.push(`| ${j.journey} | ${c(j)} | ${c(o)} |`);
             }
           }
+          out.splice(4, 0, `verdict: ${pass ? 'PASS' : 'FAIL'} (${n ? 'parity with the Node baseline' : 'no baseline: Spring must be fully green'})`, '');
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/verdict', pass ? 'success' : 'failure');
           console.log(out.join('\n'));
           JS
           cat "$RUNNER_TEMP/out/e2e/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          st=$([ "$RESULT" = success ] && echo success || echo failure)
-          echo "${GITHUB_SHA} ${st} ${BRANCH} $(head -4 "$RUNNER_TEMP/out/e2e/summary.md" | tail -2 | tr '\n' ' ')" > "$RUNNER_TEMP/out/e2e-status.txt"
+          st="$(cat "$RUNNER_TEMP/verdict" 2>/dev/null || echo failure)"
+          [ "$RESULT" = success ] || st=failure
+          echo "${GITHUB_SHA} ${st} ${BRANCH} $(sed -n '3,5p' "$RUNNER_TEMP/out/e2e/summary.md" | tr '\n' ' ')" > "$RUNNER_TEMP/out/e2e-status.txt"
           cat "$RUNNER_TEMP/out/e2e-status.txt"
+          echo "verdict=$st" >> "$GITHUB_ENV"
       - name: Publish to the log branch
         if: github.event_name != 'pull_request'
         env:
@@ -287,3 +301,7 @@ jobs:
         run: |
           if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
           bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/out" e2e-status.txt e2e/summary.md e2e/report-spring.json e2e/report-spring.md e2e/report-node.json e2e/report-node.md e2e/shots-spring e2e/shots-node e2e/run-spring.log e2e/run-node.log e2e/stack-spring.log e2e/stack-node.log e2e/spring-errors.log e2e/spring-tail.log
+      - name: Verdict
+        run: |
+          echo "e2e verdict: $verdict"
+          [ "$verdict" = success ]

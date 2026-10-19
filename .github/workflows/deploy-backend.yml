@@ -274,6 +274,7 @@ jobs:
           S_SHARE: ${{ steps.deploy.outputs.s_share_route }}
           S_JOBRUNR: ${{ steps.deploy.outputs.s_jobrunr_off }}
           S_ACTUATOR: ${{ steps.deploy.outputs.s_actuator_hidden }}
+          S_APIDOCS: ${{ steps.deploy.outputs.s_apidocs_hidden }}
           S_GUEST: ${{ steps.deploy.outputs.s_api_guest }}
           S_DEMO_SEED: ${{ steps.deploy.outputs.s_demo_seed }}
           S_DEMO_WIPE: ${{ steps.deploy.outputs.s_demo_wipe }}
@@ -316,6 +317,7 @@ jobs:
             row "অতিথির API (/api/community)" "$S_GUEST" "${S_GUEST:-—}"
             row "JobRunr dashboard বাইরে বন্ধ" "$S_JOBRUNR" "${S_JOBRUNR:-—}"
             row "/actuator বাইরে বন্ধ" "$S_ACTUATOR" "${S_ACTUATOR:-—}"
+            row "/api/docs (OpenAPI) বাইরে বন্ধ" "$S_APIDOCS" "${S_APIDOCS:-—}"
             if [ "$FIREBASE" != on ]; then
               row "ডেমো বানানো → মোছা" "skipped" "Firebase নেই"
             elif [ "$DEMO_INPUT" != true ]; then

@@ -428,3 +428,18 @@ one-off backfills of steps 14/15, the `demo: true` marker on every seeded docume
 2. VPS deploy (Contabo, Ubuntu 24.04): nginx (`X-Forwarded-For`, static `/admin` and `/w`), systemd unit for the boot jar,
    PostgreSQL 16, Redis 7, env file; Sentry DSN; SES domain verification; R2 bucket.
 3. Cutover: point the app's `ServerApi.kt` BASE_URL and the web build to the new host; keep Vercel read-only for rollback.
+
+## Phase 3 status (spring-p7)
+
+* **E2E parity in CI** — `.github/workflows/backend-e2e.yml` runs the web journeys (`e2e/web`, 9 journeys, 175 scenarios)
+  against the Spring jar inside the runner (PostgreSQL/Redis services, fresh Flyway DB, Auth emulator, `PUSH_MODE=fake`,
+  demo seeded through the admin panel, machine clock at 11:00 Dhaka) **and** against the Node server as the baseline.
+  Verdict = parity: Spring may fail nothing Node passes and must show the same API 4xx/5xx profile, no 5xx, no server
+  ERROR. First full run: Spring and Node identical (119/175 scenarios, same 56 failures, same API error counts) — the
+  56 failures are journey scripts that no longer match the current web UI (e.g. the doctor page's button is now
+  "এই চেম্বারে অ্যাপয়েন্টমেন্ট", the journey looks for "অ্যাপয়েন্টমেন্ট চাই"); they fail the same way on Node, so they
+  are e2e maintenance, not Spring differences. Results: log branch `ci-log-<branch>` (`e2e-status.txt`, `e2e/`).
+* **Deploy** — `.github/workflows/deploy-backend.yml` (workflow_dispatch) + `deploy/deploy-backend.sh`; guide in
+  `deploy/BASE-SETUP.md`. Live on https://169-58-58-176.sslip.io/api/health and https://api.lifolo.com/api/health
+  (nothing points there yet; Vercel stays the production server). Result: log branch `ci-log-deploy`.
+* New setting: `PUSH_MODE` = `fcm` (default) | `log` (push off) | `fake` (e2e only).

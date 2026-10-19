@@ -104,6 +104,9 @@ tmp="$(mktemp /etc/lifolo/.app.env.XXXXXX)"
   echo "WEB_SESSION_SECRET=$WEB_SESSION_SECRET"
   echo "EMAIL_CODE_SECRET=$EMAIL_CODE_SECRET"
   echo "JOBRUNR_DASHBOARD_ENABLED=false"
+  # OpenAPI (/api/docs, /api/docs/ui) বাইরে খোলা নয়
+  echo "SPRINGDOC_API_DOCS_ENABLED=false"
+  echo "SPRINGDOC_SWAGGER_UI_ENABLED=false"
   echo "SENTRY_ENVIRONMENT=production"
   echo "PUBLIC_BASE_URL=$(p PUBLIC_BASE_URL | grep -E '^https?://[A-Za-z0-9.:/-]+$' || echo "https://$DOMAIN")"
   if [ -n "$FIREBASE_B64" ]; then
@@ -294,6 +297,7 @@ check share_route "! H '$B/r/deploy-smoke' | grep -q 'Lifolo — setting up'"
 # JobRunr dashboard: বন্ধ (কোনো পোর্টে শুনছে না) আর বাইরে থেকেও নেই
 check jobrunr_off "! ss -ltnH | awk '{print \$4}' | grep -qE ':8000\$' && ! H '$B/dashboard' | grep -qi jobrunr"
 # actuator বাইরে খোলা নয় (nginx শুধু অ্যাপের পথগুলো পাঠায়)
+check apidocs_hidden "! H '$B/api/docs' | grep -q openapi"
 check actuator_hidden "! H '$B/actuator/health' | grep -q '\"status\"'"
 if [ "$(env_get api_domain "$STATUS")" = ok ]; then
   check api_domain_health "curl -sS -m 15 --resolve '$API_DOMAIN:443:127.0.0.1' 'https://$API_DOMAIN/api/health' | grep -q '\"ok\":true'"

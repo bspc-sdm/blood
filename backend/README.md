@@ -202,6 +202,7 @@ curl localhost:8080/api/health
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_FROM` | Amazon SES (না দিলে ইমেইল যায় না, শুধু লগ — production-এ অবশ্যই দিন) | `GMAIL_USER`, `GMAIL_APP_PASSWORD` |
 | `R2_ACCOUNT_ID` বা `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Cloudflare R2 (ছবি/কাগজ, ধাপ ২) | — |
 | `SMS_URL_TEMPLATE` | SMS gateway-র GET লিংক (`{to}`, `{msg}`), খালি = ফোন যাচাই বন্ধ | একই |
+| `PUSH_MODE` | `fcm` (ডিফল্ট; service account না থাকলে `log`), `log` = পুশ বন্ধ (শুধু লগ, ঘণ্টার তালিকা লেখা হয়), `fake` = শুধু e2e (কিছু যায় না, সব "পৌঁছেছে") | — |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | ত্রুটি পাঠানো (খালি = বন্ধ) | — |
 | `PUBLIC_BASE_URL` | শেয়ার লিংক/QR-এর ঠিকানা | কোডে লেখা ছিল |
 | `PORT` (৮০৮০), `DB_POOL_SIZE` (২০), `GUEST_RATE_PER_MINUTE` (২৪০), `JOBRUNR_SERVER_ENABLED` (true) | সার্ভারের সেটিং | `PORT` |
