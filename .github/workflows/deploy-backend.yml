@@ -1,0 +1,323 @@
+name: Deploy backend
+
+# Kotlin/Spring API → VPS (Actions → "Deploy backend" → Run workflow; branch: spring)। বাংলা গাইড: deploy/BASE-SETUP.md
+# আগে একবার "Setup VPS (base)" সফল হতে হবে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি)।
+#
+# ধাপ: jar বানানো → VPS-এ পাঠানো → deploy/deploy-backend.sh (app.env, systemd restart → Flyway, nginx-এ /api /r /rx
+# /shop /.well-known, ভেতর থেকে পরীক্ষা, ডেমো বানানো+মোছা) → বাইরে থেকে https://<ঠিকানা>/api/health → বাংলা সারাংশ।
+# ফলাফল (গোপন কিছু ছাড়া) log branch `ci-log-deploy`-এও: deploy-status.txt, summary.md।
+#
+# সিক্রেট (Settings → Secrets and variables → Actions):
+#   VPS_HOST, VPS_ROOT_PASSWORD   — আবশ্যক (Setup VPS-এর একই দুটো)
+#   FIREBASE_SERVICE_ACCOUNT      — Firebase service account JSON (বা base64)। না থাকলে অ্যাপ চলে কিন্তু লগইন/পুশ বন্ধ
+#   ADMIN_EMAILS                  — ঐচ্ছিক (খালি = ekapkbd@gmail.com)
+#   SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, SES_FROM — ঐচ্ছিক; না থাকলে লগইন-কোডের ইমেইল যায় না
+#   R2_ACCOUNT_ID (বা R2_ENDPOINT), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET — ঐচ্ছিক
+#   SENTRY_DSN, SMS_URL_TEMPLATE, PUBLIC_BASE_URL — ঐচ্ছিক
+# push-এ (deploy/ বা এই ফাইল বদলালে) শুধু "check" চলে — VPS-এ কিছু যায় না। deploy শুধু হাতে চালালে।
+on:
+  workflow_dispatch:
+    inputs:
+      demo_smoke:
+        description: "ডেমো বানিয়ে আবার মুছে পরীক্ষা (Firebase লাগে)"
+        type: boolean
+        required: false
+        default: true
+  push:
+    branches: [spring, "spring-p*"]
+    paths:
+      - "deploy/**"
+      - ".github/workflows/deploy-backend.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Shell scripts
+        run: |
+          bash -n deploy/setup-base.sh deploy/deploy-backend.sh deploy/ci/vps-connect.sh
+          shellcheck -S warning deploy/setup-base.sh deploy/deploy-backend.sh deploy/ci/vps-connect.sh
+      - name: Key derivation test
+        run: node --test deploy/ci/test/
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        id: host
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          pw="${VPS_ROOT_PASSWORD%$'\n'}"; pw="${pw%$'\r'}"
+          if [ -n "$pw" ]; then echo "::add-mask::$pw"; fi
+          pw_trim="$(printf '%s' "$pw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -n "$pw_trim" ]; then echo "::add-mask::$pw_trim"; fi
+          host="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [ -z "$host" ] || [ -z "$pw_trim" ]; then
+            echo "::error::VPS_HOST / VPS_ROOT_PASSWORD সিক্রেট নেই — আগে deploy/BASE-SETUP.md-এর ধাপ ১।"
+            exit 1
+          fi
+          if [[ "$host" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            domain="${host//./-}.sslip.io"
+          else
+            domain="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+          fi
+          if ! [[ "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
+            echo "::error::VPS_HOST-এ শুধু IP দিন (যেমন 169.58.58.176)।"
+            exit 1
+          fi
+          echo "domain=$domain" >> "$GITHUB_OUTPUT"
+          echo "ঠিকানা: https://$domain"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the jar
+        id: jar
+        working-directory: backend
+        run: |
+          ./gradlew bootJar --no-daemon -q
+          for j in build/libs/*.jar; do case "$j" in *-plain.jar) ;; *) cp "$j" "$RUNNER_TEMP/app.jar" ;; esac; done
+          echo "sha=$(sha256sum "$RUNNER_TEMP/app.jar" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$RUNNER_TEMP/app.jar" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Settings for the app (from secrets)
+        id: provided
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          SES_REGION: ${{ secrets.SES_REGION }}
+          SES_ACCESS_KEY_ID: ${{ secrets.SES_ACCESS_KEY_ID }}
+          SES_SECRET_ACCESS_KEY: ${{ secrets.SES_SECRET_ACCESS_KEY }}
+          SES_FROM: ${{ secrets.SES_FROM }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SMS_URL_TEMPLATE: ${{ secrets.SMS_URL_TEMPLATE }}
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+        run: |
+          umask 077
+          f="$RUNNER_TEMP/provided.env"
+          : > "$f"
+          one() { printf '%s' "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          fb="$(one "$FIREBASE_SERVICE_ACCOUNT")"
+          if [ -n "$fb" ]; then
+            if [ "${fb:0:1}" = "{" ]; then fb="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | base64 -w0)"; else fb="$(printf '%s' "$fb" | tr -d '\n ')"; fi
+            echo "::add-mask::$fb"
+            if ! printf '%s' "$fb" | base64 -d 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('private_key') and d.get('client_email') and d.get('project_id')" 2>/dev/null; then
+              echo "::error::FIREBASE_SERVICE_ACCOUNT ঠিক নেই — Firebase console থেকে নামানো service account JSON পুরোটা (বা তার base64) দিন।"
+              exit 1
+            fi
+            printf 'FIREBASE_SERVICE_ACCOUNT=%s\n' "$fb" >> "$f"
+            echo "firebase=on" >> "$GITHUB_OUTPUT"
+            printf '%s' "$fb" > "$RUNNER_TEMP/fb.b64"
+          else
+            echo "firebase=off" >> "$GITHUB_OUTPUT"
+          fi
+          for k in ADMIN_EMAILS SES_REGION SES_ACCESS_KEY_ID SES_SECRET_ACCESS_KEY SES_FROM R2_ACCOUNT_ID R2_ENDPOINT \
+              R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET SENTRY_DSN SMS_URL_TEMPLATE PUBLIC_BASE_URL; do
+            v="$(one "${!k}")"
+            [ -n "$v" ] || continue
+            case "$v" in *$'\n'*) echo "::error::$k সিক্রেটে একাধিক লাইন — এক লাইনে দিন"; exit 1 ;; esac
+            printf '%s=%s\n' "$k" "$v" >> "$f"
+          done
+          owner="$(one "$ADMIN_EMAILS" | cut -d, -f1 | tr -d ' ' | tr '[:upper:]' '[:lower:]')"
+          echo "owner=${owner:-ekapkbd@gmail.com}" >> "$GITHUB_OUTPUT"
+          echo "ses=$([ -n "$SES_REGION" ] && [ -n "$SES_FROM" ] && echo on || echo off)" >> "$GITHUB_OUTPUT"
+
+      # ডেমো পরীক্ষার জন্য মালিকের Firebase uid (অ্যাডমিন প্যানেলের সেশন ওই uid-এ সই হয়)। Firebase-এ demo-patient আগে থেকেই
+      # থাকলে (যেমন Vercel-এর Node সার্ভারের ডেমো চালু) বানানো/মোছা হয় না — মুছলে সেই ডেমোর লগইন ভাঙত।
+      - uses: actions/setup-node@v5
+        if: steps.provided.outputs.firebase == 'on' && inputs.demo_smoke
+        with:
+          node-version: "22"
+      - name: Owner uid for the demo check
+        id: owner
+        if: steps.provided.outputs.firebase == 'on' && inputs.demo_smoke
+        env:
+          OWNER: ${{ steps.provided.outputs.owner }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/fa" && cd "$RUNNER_TEMP/fa"
+          npm init -y >/dev/null && npm i --no-audit --no-fund --silent firebase-admin@13.10.0 >/dev/null
+          node - <<'JS' >> "$GITHUB_OUTPUT" || echo "uid=" >> "$GITHUB_OUTPUT"
+          const admin = require(process.env.RUNNER_TEMP + '/fa/node_modules/firebase-admin');
+          const fs = require('fs');
+          const sa = JSON.parse(Buffer.from(fs.readFileSync(process.env.RUNNER_TEMP + '/fb.b64', 'utf8'), 'base64').toString('utf8'));
+          admin.initializeApp({ credential: admin.credential.cert(sa) });
+          (async () => {
+            const auth = admin.auth();
+            const u = await auth.getUserByEmail(process.env.OWNER).catch(() => null);
+            const demo = await auth.getUser('demo-patient').catch(() => null);
+            console.log(`uid=${u ? u.uid : ''}`);
+            console.log(`demo_exists=${demo ? 'yes' : 'no'}`);
+          })().catch((e) => { console.error(e.message); console.log('uid='); });
+          JS
+          rm -f "$RUNNER_TEMP/fb.b64"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Deploy on the VPS
+        id: deploy
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+          SHA: ${{ steps.jar.outputs.sha }}
+          OWNER_UID: ${{ steps.owner.outputs.uid }}
+          OWNER: ${{ steps.provided.outputs.owner }}
+          DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
+        run: |
+          ssh vps 'install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/deploy-backend.sh' < deploy/deploy-backend.sh
+          ssh vps 'umask 077 && cat > /root/lifolo-setup/provided.env' < "$RUNNER_TEMP/provided.env"
+          rm -f "$RUNNER_TEMP/provided.env"
+          ssh vps 'umask 077 && cat > /root/lifolo-setup/app.jar.new' < "$RUNNER_TEMP/app.jar"
+          demo=()
+          if [ -n "$OWNER_UID" ] && [ "$DEMO_EXISTS" != yes ] && [[ "$OWNER_UID" =~ ^[A-Za-z0-9_-]+$ ]] && [[ "$OWNER" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+$ ]]; then
+            demo=(--demo-smoke "$OWNER_UID" "$OWNER")
+          fi
+          rc=0
+          # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
+          ssh vps "bash /root/lifolo-setup/deploy-backend.sh --ci --domain '$DOMAIN' --jar /root/lifolo-setup/app.jar.new --sha256 '$SHA' --provided /root/lifolo-setup/provided.env ${demo[*]}" || rc=$?
+          ssh vps 'cat /var/lib/lifolo/deploy-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-status.txt" || true
+          cat "$RUNNER_TEMP/deploy-status.txt"
+          sed 's/^/s_/' "$RUNNER_TEMP/deploy-status.txt" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Check from the internet - https://<address>/api/health
+        id: web
+        if: always() && steps.host.outputs.domain != ''
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+        run: |
+          api=no; healthz=no
+          for _ in $(seq 1 10); do
+            if curl -fsS -m 10 "https://$DOMAIN/api/health" | grep -q '"ok":true'; then api=yes; break; fi
+            sleep 6
+          done
+          curl -fsS -m 10 "https://$DOMAIN/healthz" | grep -q '"ok":true' && healthz=yes
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "healthz=$healthz" >> "$GITHUB_OUTPUT"
+          echo "https://$DOMAIN/api/health: $api   /healthz: $healthz"
+          [ "$api" = yes ]
+
+      - name: Summary
+        if: always()
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+          JOB_OK: ${{ job.status }}
+          JAR_SHA: ${{ steps.jar.outputs.sha }}
+          JAR_SIZE: ${{ steps.jar.outputs.size }}
+          FIREBASE: ${{ steps.provided.outputs.firebase }}
+          SES: ${{ steps.provided.outputs.ses }}
+          OWNER_UID: ${{ steps.owner.outputs.uid }}
+          DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
+          DEMO_INPUT: ${{ inputs.demo_smoke }}
+          WEB_API: ${{ steps.web.outputs.api }}
+          WEB_HEALTHZ: ${{ steps.web.outputs.healthz }}
+          S_APP: ${{ steps.deploy.outputs.s_app }}
+          S_FLYWAY: ${{ steps.deploy.outputs.s_flyway }}
+          S_ROLLBACK: ${{ steps.deploy.outputs.s_rollback }}
+          S_NGINX: ${{ steps.deploy.outputs.s_nginx }}
+          S_HEALTH_HTTPS: ${{ steps.deploy.outputs.s_health_https }}
+          S_HEALTHZ: ${{ steps.deploy.outputs.s_healthz }}
+          S_ASSETLINKS: ${{ steps.deploy.outputs.s_assetlinks }}
+          S_SHARE: ${{ steps.deploy.outputs.s_share_route }}
+          S_JOBRUNR: ${{ steps.deploy.outputs.s_jobrunr_off }}
+          S_ACTUATOR: ${{ steps.deploy.outputs.s_actuator_hidden }}
+          S_GUEST: ${{ steps.deploy.outputs.s_api_guest }}
+          S_DEMO_SEED: ${{ steps.deploy.outputs.s_demo_seed }}
+          S_DEMO_WIPE: ${{ steps.deploy.outputs.s_demo_wipe }}
+          S_FATAL: ${{ steps.deploy.outputs.s_fatal }}
+          S_R2: ${{ steps.deploy.outputs.s_r2 }}
+          S_SENTRY: ${{ steps.deploy.outputs.s_sentry }}
+        run: |
+          mark() { case "$1" in ok|yes|up|ok\ *) echo "✅" ;; skipped*|"") echo "⏭️" ;; *) echo "❌" ;; esac; }
+          row() { echo "| $1 | $(mark "$2") | ${3:-$2} |"; }
+          {
+            if [ "$JOB_OK" = success ]; then echo "## ✅ ব্যাকএন্ড চালু হয়েছে"; else echo "## ❌ deploy পুরো হয়নি"; fi
+            echo
+            echo "ঠিকানা: **https://$DOMAIN/api/health** · jar \`${JAR_SHA:0:12}\` ($JAR_SIZE) · commit \`${GITHUB_SHA:0:7}\` (${GITHUB_REF_NAME})"
+            [ -z "$S_FATAL" ] || { echo; echo "> থেমেছে: $S_FATAL"; }
+            echo
+            echo "| পরীক্ষা | ফল | বিস্তারিত |"
+            echo "|---|---|---|"
+            row "অ্যাপ চালু (/api/health, VPS-এর ভেতরে)" "$S_APP" "${S_APP:-—}"
+            row "ডাটাবেস migration (Flyway)" "$([ -n "$S_FLYWAY" ] && echo ok)" "${S_FLYWAY:-—}"
+            [ -z "$S_ROLLBACK" ] || row "আগের jar-এ ফেরা" "$S_ROLLBACK"
+            row "nginx: /api/ /r/ /rx/ /shop/ /.well-known/ → অ্যাপ" "$S_NGINX" "${S_NGINX:-—}"
+            row "https://$DOMAIN/api/health (VPS থেকে)" "$S_HEALTH_HTTPS" "${S_HEALTH_HTTPS:-—}"
+            row "https://$DOMAIN/api/health (ইন্টারনেট থেকে)" "$WEB_API" "${WEB_API:-—}"
+            row "/healthz আগের মতোই" "$S_HEALTHZ" "${S_HEALTHZ:-—}"
+            row "/.well-known/assetlinks.json" "$S_ASSETLINKS" "${S_ASSETLINKS:-—}"
+            row "/r/… শেয়ার পাতা অ্যাপ থেকে" "$S_SHARE" "${S_SHARE:-—}"
+            row "অতিথির API (/api/community)" "$S_GUEST" "${S_GUEST:-—}"
+            row "JobRunr dashboard বাইরে বন্ধ" "$S_JOBRUNR" "${S_JOBRUNR:-—}"
+            row "/actuator বাইরে বন্ধ" "$S_ACTUATOR" "${S_ACTUATOR:-—}"
+            if [ "$FIREBASE" != on ]; then
+              row "ডেমো বানানো → মোছা" "skipped" "Firebase নেই"
+            elif [ "$DEMO_INPUT" != true ]; then
+              row "ডেমো বানানো → মোছা" "skipped" "চালানোর সময় বন্ধ রাখা হয়েছে"
+            elif [ "$DEMO_EXISTS" = yes ]; then
+              row "ডেমো বানানো → মোছা" "skipped" "Firebase-এ ডেমো অ্যাকাউন্ট আগে থেকেই আছে (Vercel-এর ডেমো চালু থাকতে পারে) — হাত দেওয়া হয়নি"
+            elif [ -z "$OWNER_UID" ]; then
+              row "ডেমো বানানো → মোছা" "failed" "মালিকের Firebase অ্যাকাউন্ট পাওয়া যায়নি"
+            else
+              row "ডেমো বানানো (API দিয়ে)" "$S_DEMO_SEED"
+              row "ডেমো মোছা (API দিয়ে)" "$S_DEMO_WIPE"
+            fi
+            echo
+            echo "**সেটিং:**"
+            if [ "$FIREBASE" = on ]; then
+              echo "- ✅ Firebase (লগইন আর পুশ) চালু।"
+            else
+              echo "- ⚠️ **FIREBASE_SERVICE_ACCOUNT সিক্রেট নেই — অ্যাপ চলছে, কিন্তু পুশ বন্ধ (PUSH_MODE=log) আর কেউ লগইন করতে পারবে না।** সিক্রেট যোগ করে আবার চালান।"
+            fi
+            if [ "$SES" = on ]; then echo "- ✅ ইমেইল (Amazon SES) চালু।"; else echo "- ⚠️ SES সিক্রেট নেই — লগইন-কোডের ইমেইল যায় না (কোড শুধু VPS-এর লগে)।"; fi
+            echo "- R2 (ছবি): $([ "$S_R2" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)') · Sentry: $([ "$S_SENTRY" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)')"
+            echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080-এ শোনে, বাইরে থেকে nginx দিয়েই।"
+            echo "- এখনকার অ্যাপ (Vercel) যেমন চলছিল তেমনই চলছে — এই সার্ভারে এখনো কেউ যায় না।"
+            if [ "$JOB_OK" != success ]; then
+              echo
+              echo "ব্যর্থ হলে: বাঁ দিকে **deploy** → লাল ✗ চিহ্নের ধাপ খুলে স্ক্রিনশট Claude-কে পাঠান (গোপন মান লগে \`***\`)।"
+            fi
+          } > "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-deploy)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: deploy ${{ github.sha }} ${{ job.status }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/log/summary.md" 2>/dev/null || true
+          { echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "job=${{ job.status }}"; echo "run=${GITHUB_RUN_ID}"; cat "$RUNNER_TEMP/deploy-status.txt" 2>/dev/null || true; } > "$RUNNER_TEMP/log/deploy-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-deploy "$RUNNER_TEMP/log" summary.md deploy-status.txt
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/provided.env" "$RUNNER_TEMP/fb.b64" "$RUNNER_TEMP/fa"
