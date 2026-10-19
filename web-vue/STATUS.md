@@ -11,6 +11,7 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - Account core: LoginFlow, ProfileForm, BloodGroupChips; demo login role list and the switch-role dialog.
 - **Blood section ported in full** (Home, Emergency, MyRequests, RequestDetail (guest and member), RequestForm (new and edit), all parts). Shots ≤0.4%.
 - **Services section ported in full** (Directory, ambulance request flow, MedFind, Nearest, pharmacy send, facility/location pickers, fare). Shots ≤0.6%.
+- **Account section ported in full** (Profile, EditProfile, Settings, Inbox, Help, Care, Login, dialogs). Shots 0% at mobile and desktop.
 - **Health section ported in full** (Discussion, Tips, Badge, Prescriptions, RxActivity, common, qr). Shots 0% except the QR code (it encodes `location.origin`, and the two shot servers use different ports).
 - `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
 - `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
@@ -18,7 +19,6 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 ## Remaining (React files not yet ported; these sections are TODO stubs)
 - appointment/: Doctors, HomeCare, MyAppointments, queue, shared, model, pro/index, pro/ChamberEdit (+ index)
 - work/: overview, add, ambulance, ambcalls, pharmacy, bloodbank, lab, shared (+ index)
-- account/: Profile, EditProfile, Settings, Inbox, Help, Care, Login, util, nav (+ index)
 - rx/doctor/* (index, Write, Patients, Reviews, RxView, Team, Labs, model)
 - rx/partner/* (pharmacy, lab, labdetail, labprices, labranges, dispense, online, orders, stock, common, model, shoppanels, books/*)
 - Admin panel (`server/public/admin/app.js`, 18 pages including "ডেমো (পরীক্ষা)"): not started. Plan: a second Vite entry `admin/index.html`, same hash routes.
@@ -34,6 +34,6 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - Templates: never put whitespace between an icon and its text (React JSX had none). Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
 
 ## Next steps
-1. Port the sections in order: account, appointment, work, rx/doctor, rx/partner. Then admin.
+1. Port the sections in order: appointment, work, rx/doctor, rx/partner. Then admin.
 2. Run the React-vs-Vue shots for every `test/pages/*.json` at 390px and fix the differences.
 3. Add the Bangla check script, Vitest, the Playwright e2e port, `.github/workflows/web-vue.yml` and README (bn).
