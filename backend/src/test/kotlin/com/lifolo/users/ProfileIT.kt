@@ -17,7 +17,7 @@ class ProfileIT : IntegrationTest() {
     private fun data(uid: String) = row("SELECT * FROM user_profiles WHERE uid = ?", uid)
 
     @Test
-    fun `profile - only your own; not for guests`() {
+    fun `profile - only your own, not for guests`() {
         user("pA", mapOf("phone" to "01711111111", "blood_group" to "O+", "photo" to "AAAA"))
         user("pB", mapOf("phone" to "01822222222"))
         val a = ok("pA", "profile_get")
