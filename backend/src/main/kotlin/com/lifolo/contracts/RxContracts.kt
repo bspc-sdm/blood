@@ -1,8 +1,8 @@
 package com.lifolo.contracts
 
 /*
- * Contracts owned by P3 (prescriptions & labs). Baselines in RxBaseline.kt read the phase-1 tables so P4 (pharmacy
- * dispensing, shop books) and P1 (/api/share?rx=, /rx/{code}) can build and test now. P3 replaces them.
+ * Contracts owned by P3 (prescriptions & labs). Implementations: [Prescriptions] = com.lifolo.rx.PrescriptionStore,
+ * [PatientHome] = com.lifolo.lab.LabService. Consumers: P4 (pharmacy dispensing, shop books), P1 (/api/share?rx=, /rx/{code}).
  */
 
 /** prescriptions.medicines[i] — [i] is the index used by dispensing and sales ("i" in Node) */
@@ -25,7 +25,7 @@ data class RxDispensing(val by: String, val name: String, val at: Long, val item
 /**
  * One prescription as the Node document (`prescriptions/{id}`). Times are epoch-ms; [followUpDate],
  * [followUpBookDate], [refillAt] are UTC-midnight ms of a Dhaka date (prescriptions.js dhakaToday) or null.
- * [doctor] = {name, degrees, specialties, regNo, chamber: {name} | null}; [patient] = {name, age, gender};
+ * [doctor] = {name, degrees, specialties, regNo, chamber: {name, address, phone} | null}; [patient] = {name, age, gender};
  * [findings] = {bp, pulse, temp, weight, spo2, other}.
  */
 data class Prescription(
@@ -82,7 +82,10 @@ interface Prescriptions {
      */
     fun verify(code: String?): Map<String, Any?>?
 
-    /** after a dispensing (P4): rxnet.js refillDate result → `refill_at` (null clears; the refill reminder is P3's cron) */
+    /**
+     * after a dispensing (P4): rxnet.js refillDate result → `refill_at` (null clears; the refill reminder is P3's cron).
+     * Also clears `refill_notified_at` (Node `refillNotifiedAt: FieldValue.delete()`).
+     */
     fun setRefillAt(rxId: String, refillAtUtcMidnightMs: Long?)
 
     companion object {
