@@ -38,7 +38,9 @@ object LoginCodeMail {
 class MailConfig {
     @Bean
     fun mailSender(props: LifoloProperties): MailSender =
-        if (props.ses.configured) SesMailSender(props.ses) else LoggingMailSender()
+        if (props.ses.configured) SesMailSender(props.ses) else LoggingMailSender().also {
+            LoggerFactory.getLogger(MailConfig::class.java).warn("Mail: logging only (SES_REGION / SES_FROM not set)")
+        }
 }
 
 class SesMailSender(private val cfg: LifoloProperties.Ses) : MailSender {
@@ -49,6 +51,18 @@ class SesMailSender(private val cfg: LifoloProperties.Ses) : MailSender {
             DefaultCredentialsProvider.builder().build()
         }
         SesV2Client.builder().region(Region.of(cfg.region)).credentialsProvider(creds).build()
+    }
+
+    init {
+        // build the client at start-up (no request is sent), so a bad region/credential setup shows in the log at once;
+        // the deploy smoke test looks for this line
+        val log = LoggerFactory.getLogger(SesMailSender::class.java)
+        try {
+            client.serviceName()
+            log.info("Mail: Amazon SES client ready (region {}, from {})", cfg.region, cfg.from)
+        } catch (e: Exception) {
+            log.error("Mail: Amazon SES client failed to initialise: {}", e.message)
+        }
     }
 
     override fun send(to: String, subject: String, text: String, html: String) {

@@ -159,6 +159,14 @@ wait_health() {
 # প্রথমবার Flyway সব migration চালায় — ৪ মিনিট পর্যন্ত অপেক্ষা
 if wait_health 120; then
   st app up
+  # ইমেইল: অ্যাপ চালুর সময় SES client বানায় (কিছু পাঠায় না) আর লগে লেখে — "Mail: Amazon SES client ready" / "logging only"
+  mail_line="$(journalctl -u lifolo-api.service --since "$started_at" --no-pager 2>/dev/null | grep -o 'Mail: .*' | tail -1 || true)"
+  case "$mail_line" in
+    *"SES client ready"*) st ses_client ok ;;
+    *"logging only"*) st ses_client off ;;
+    *"failed to initialise"*) st ses_client "failed: ${mail_line#*initialise: }" ;;
+    *) st ses_client "unknown" ;;
+  esac
   st flyway "$(sudo -u postgres psql -d lifolo -tAc "SELECT count(*) || ' migrations, latest V' || (SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1) FROM flyway_schema_history WHERE success" 2>/dev/null | head -1 || echo '?')"
 else
   st app down

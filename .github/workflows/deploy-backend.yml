@@ -184,6 +184,30 @@ jobs:
           JS
           rm -f "$RUNNER_TEMP/fb.b64"
 
+      # SES-এর চাবি ঠিক কি না — কোনো ইমেইল না পাঠিয়ে: GetAccount ডাকা। IAM-এ শুধু SendEmail থাকলে AccessDenied আসে, তাতেই
+      # বোঝা যায় চাবি আর সই ঠিক (ভুল চাবিতে InvalidClientTokenId / SignatureDoesNotMatch)। sandbox কি না জানা গেলে সেটাও।
+      - name: SES credentials (no mail sent)
+        id: ses
+        if: steps.provided.outputs.ses == 'on'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SES_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SES_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.SES_REGION }}
+        run: |
+          out="$(aws sesv2 get-account --output json 2>&1)" && rc=0 || rc=$?
+          if [ "$rc" = 0 ]; then
+            prod="$(printf '%s' "$out" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ProductionAccessEnabled'))" 2>/dev/null || echo '?')"
+            echo "auth=ok" >> "$GITHUB_OUTPUT"
+            echo "sandbox=$([ "$prod" = True ] && echo no || echo yes)" >> "$GITHUB_OUTPUT"
+          elif printf '%s' "$out" | grep -q 'AccessDenied'; then
+            echo "auth=ok" >> "$GITHUB_OUTPUT"
+            echo "sandbox=unknown" >> "$GITHUB_OUTPUT"
+          else
+            echo "auth=failed: $(printf '%s' "$out" | grep -oE '\(([A-Za-z]+)\)' | head -1)" >> "$GITHUB_OUTPUT"
+            echo "sandbox=unknown" >> "$GITHUB_OUTPUT"
+          fi
+          echo "SES: $(printf '%s' "$out" | grep -oE '\(([A-Za-z]+)\)' | head -1)"
+
       - name: Connect to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -280,6 +304,9 @@ jobs:
           S_DEMO_WIPE: ${{ steps.deploy.outputs.s_demo_wipe }}
           S_FATAL: ${{ steps.deploy.outputs.s_fatal }}
           S_R2: ${{ steps.deploy.outputs.s_r2 }}
+          S_SES_CLIENT: ${{ steps.deploy.outputs.s_ses_client }}
+          SES_AUTH: ${{ steps.ses.outputs.auth }}
+          SES_SANDBOX: ${{ steps.ses.outputs.sandbox }}
           API_DOMAIN: ${{ inputs.api_domain }}
           S_API_DOMAIN: ${{ steps.deploy.outputs.s_api_domain }}
           S_API_DOMAIN_HEALTH: ${{ steps.deploy.outputs.s_api_domain_health }}
@@ -318,6 +345,12 @@ jobs:
             row "JobRunr dashboard বাইরে বন্ধ" "$S_JOBRUNR" "${S_JOBRUNR:-—}"
             row "/actuator বাইরে বন্ধ" "$S_ACTUATOR" "${S_ACTUATOR:-—}"
             row "/api/docs (OpenAPI) বাইরে বন্ধ" "$S_APIDOCS" "${S_APIDOCS:-—}"
+            if [ "$SES" = on ]; then
+              row "SES-এর চাবি (ইমেইল না পাঠিয়ে)" "${SES_AUTH:-failed}" "${SES_AUTH:-—}"
+              row "অ্যাপে SES client চালু" "${S_SES_CLIENT:-failed}" "${S_SES_CLIENT:-—}"
+            else
+              row "ইমেইল (SES)" skipped "সিক্রেট নেই"
+            fi
             if [ "$FIREBASE" != on ]; then
               row "ডেমো বানানো → মোছা" "skipped" "Firebase নেই"
             elif [ "$DEMO_INPUT" != true ]; then
@@ -337,7 +370,12 @@ jobs:
             else
               echo "- ⚠️ **FIREBASE_SERVICE_ACCOUNT সিক্রেট নেই — অ্যাপ চলছে, কিন্তু পুশ বন্ধ (PUSH_MODE=log) আর কেউ লগইন করতে পারবে না।** সিক্রেট যোগ করে আবার চালান।"
             fi
-            if [ "$SES" = on ]; then echo "- ✅ ইমেইল (Amazon SES) চালু।"; else echo "- ⚠️ SES সিক্রেট নেই — লগইন-কোডের ইমেইল যায় না (কোড শুধু VPS-এর লগে)।"; fi
+            if [ "$SES" = on ]; then
+              echo "- ✅ ইমেইল (Amazon SES) চালু।"
+              if [ "$SES_SANDBOX" != no ]; then echo "- ⚠️ SES সম্ভবত এখনো sandbox-এ — শুধু যাচাই করা ঠিকানায় ইমেইল যায়। AWS-এ production access অনুমোদনের পর সবার কাছে যাবে।"; fi
+            else
+              echo "- ⚠️ SES সিক্রেট নেই — লগইন-কোডের ইমেইল যায় না (কোড শুধু VPS-এর লগে)।"
+            fi
             echo "- R2 (ছবি): $([ "$S_R2" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)') · Sentry: $([ "$S_SENTRY" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)')"
             echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080-এ শোনে, বাইরে থেকে nginx দিয়েই।"
             echo "- এখনকার অ্যাপ (Vercel) যেমন চলছিল তেমনই চলছে — এই সার্ভারে এখনো কেউ যায় না।"
