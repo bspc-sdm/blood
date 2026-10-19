@@ -19,6 +19,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * "অ্যাম্বুলেন্স ডাকুন"-এর নিশ্চিত করার ঘর (২.২৯.০): গাড়ির ধরনের চিপ, এলাকা (জেলা › উপজেলা › ইউনিয়ন), চেনা জায়গা,
  * "আমার এখনকার জায়গা" — ৩৬০dp আর ৪১২dp চওড়া ফোনে (app/build/screens-এ ছবি)।
+ * ২.৩১.০: "কোথা থেকে নেবে" (এখনকার জায়গা / Google ম্যাপ থেকে / লোকেশন লিখুন), "কোথায় যাবেন" (হাসপাতাল/ক্লিনিক);
+ * পাতা মাঝখানে — ৩৬০/৪১২/৪৮০dp-তে কার্ডের দুই পাশের ফাঁক সমান (form_dialog-এর সীমানা মেপে)।
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -57,8 +59,37 @@ class AmbRequestScreensTest {
         show { AmbulanceRequestDialog(profile, "গাজীপুর", 320, null, null, null, {}, {}) }
         rule.onNodeWithText("গাড়ির ধরন").assertExists()
         rule.onNodeWithText("ফ্রিজার (মরদেহ)").assertExists()
-        rule.onNodeWithText("আমার এখনকার জায়গা (ঐচ্ছিক)").assertExists()
+        rule.onNodeWithText("এখনকার জায়গা").assertExists()
+        rule.onNodeWithText("Google ম্যাপ থেকে জায়গা দিন").assertExists()
+        rule.onNodeWithText("হাসপাতাল বা ক্লিনিক বেছে নিন…").assertExists()
+        assertCentred()
         shot("amb_request_360_bn")
+    }
+
+    /** ৪৮০dp চওড়া (বড় ফোন): কার্ড মাঝখানে, দুই পাশে সমান */
+    @Test
+    @Config(qualifiers = "w480dp-h900dp-xxhdpi")
+    fun requestSheet480() {
+        show { AmbulanceRequestDialog(profile, "গাজীপুর", 320, null, null, null, {}, {}) }
+        assertCentred()
+        shot("amb_request_480_bn")
+    }
+
+    /** কার্ডের বাঁ আর ডানের ফাঁক সমান (১dp-এর মধ্যে), আর কার্ড পর্দার ভেতরে */
+    private fun assertCentred() {
+        rule.waitForIdle()
+        val node = rule.onNode(androidx.compose.ui.test.hasTestTag("form_dialog"), useUnmergedTree = true).fetchSemanticsNode()
+        val card = node.boundsInRoot
+        var root = node
+        while (root.parent != null) root = root.parent!!
+        // ডায়ালগের জানালা পুরো পর্দার — তার চওড়া পর্দার চওড়ার সমান হতে হবে
+        val w = root.boundsInRoot.width
+        val screen = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().resources.displayMetrics.widthPixels.toFloat()
+        org.junit.Assert.assertEquals("dialog window width $w vs screen $screen", screen, w, 2f)
+        val left = card.left
+        val right = w - card.right
+        org.junit.Assert.assertTrue("card inside screen: $card / $w", left >= 0f && right >= 0f)
+        org.junit.Assert.assertEquals("left $left vs right $right", left, right, 3f)
     }
 
     /** তালিকায় "এসি" ছাঁকা ছিল, এখনকার জায়গা নেওয়া হয়েছে */
@@ -66,6 +97,8 @@ class AmbRequestScreensTest {
     fun requestSheet412() {
         show { AmbulanceRequestDialog(profile, "গাজীপুর", 320, "ac", 23.999 to 90.42, null, {}, {}) }
         rule.onNodeWithText("এখনকার জায়গা নেওয়া হয়েছে ✓").assertExists()
+        rule.onNodeWithText("Google ম্যাপে দেখুন").assertExists()
+        assertCentred()
         shot("amb_request_412_bn")
     }
 

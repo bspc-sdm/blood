@@ -394,6 +394,16 @@ private fun AmbulanceFinder(profile: Profile) {
         }
     }
 
+    // Google Maps থেকে শেয়ার করা জায়গা (২.৩১.০): শিট খোলা না থাকলে খোলা (জায়গাটা শিটের LocationInput নেয়)
+    val shared = SharedPlace.text.value
+    LaunchedEffect(shared, district) {
+        if (shared != null && district != null && !requesting) {
+            // চালু অনুরোধ থাকলে নতুন জায়গা খাটে না — সেটার পাতা
+            if (activeReq != null) SharedPlace.text.value = null
+            requestAmbulance(null)
+        }
+    }
+
     run {
         LazyColumn(
             Modifier.fillMaxSize(),

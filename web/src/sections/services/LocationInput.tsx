@@ -1,91 +1,117 @@
-// অ্যাম্বুলেন্স ডাকার "কোথা থেকে নেবে" (২.২৯.০, পারভেজ, ১৯ অক্টোবর ২০২৬) — অ্যাপের LocationInput.kt-এর ওয়েব রূপ।
-// ম্যাপ নেই (খরচ/ঝুঁকি নয়): এলাকা (জেলা › উপজেলা › ইউনিয়ন, বাধ্যতামূলক উপজেলা পর্যন্ত) + "এলাকা / রাস্তা / চেনা জায়গা"
-// লেখা (আগের বারের লেখা আগে থেকে বসানো) + ঐচ্ছিক "আমার এখনকার জায়গা" (ব্রাউজারের এককালীন GPS — বিনামূল্যে, ম্যাপ লাগে না)।
-// GPS পেলে পাঠানো দূরত্ব ধরে (আগের মতো); না পেলে/না দিলে উপজেলা ধরে (নিজের উপজেলার গাড়ি আগে — server/lib/ambreq.js)।
-// ঠিক জায়গা শুধু রাজি হওয়া চালক পান, অনুরোধ বন্ধের ২৪ ঘণ্টা পর মোছে (সার্ভারের নিয়ম, বদলায়নি)।
+// অ্যাম্বুলেন্স ডাকার "কোথা থেকে নেবে" (২.৩১.০, পারভেজ, ১৯ অক্টোবর ২০২৬) — অ্যাপের LocationInput.kt-এর ওয়েব রূপ।
+// তিনভাবে, সবই বিনামূল্যে (অ্যাপ/সাইটের ভেতরে ম্যাপ নেই):
+//   ১) "এখনকার জায়গা" (প্রধান): ব্রাউজারের এককালীন GPS। নেওয়ার পর "Google ম্যাপে দেখুন" — নতুন ট্যাবে Google Maps-এ বিন্দুটা,
+//      শুধু মিলিয়ে দেখার জন্য (কিছু ফেরত আসে না, API key নয়)।
+//   ২) "Google ম্যাপ থেকে জায়গা দিন": Google Maps-এ জায়গা চেপে ধরে লিংক কপি → লেখার ঘরে পেস্ট। লম্বা লিংক এখানেই পড়া
+//      (place.ts), ছোট লিংক (maps.app.goo.gl) সার্ভারে খোলা (maps_link_resolve)।
+//   ৩) "লোকেশন লিখুন": এলাকা / রাস্তা / চেনা জায়গা (জায়গা না দিলে বাধ্যতামূলক)।
+// জায়গা (১ বা ২) থাকলে জেলা সেই জায়গার, উপজেলা আপনা থেকে (কাছের উপজেলা-কেন্দ্র); না পারলে উপজেলার ঘর থাকে।
+// ভবিষ্যতে অ্যাপের ভেতরে Google Maps SDK-র ম্যাপ বসানো যায় (Android-এ বিনামূল্যে), কিন্তু Google Cloud-এ বিলিং অ্যাকাউন্ট
+// (কার্ড) লাগে — এখন নেই। তখনও শুধু LocationValue.point ভরবে; ডাকার বাকি পথ (RequestDialog → ambreq_create) একই।
+// ঠিক জায়গা শুধু রাজি হওয়া চালক পান, অনুরোধ বন্ধের ২৪ ঘণ্টা পর মোছে (সার্ভারের নিয়ম)।
 import { useEffect, useState } from 'react';
 import { Button, ErrorText, IconLine, TextInput } from '@/ui/kit';
 import { AreaPicker } from '@/ui/AreaPicker';
+import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
-import { areaLabel, currentPosition, districtAt, ensureAreas } from '@/lib/geo';
-
-/**
- * ভবিষ্যতে ম্যাপ (বিনিয়োগ পেলে) — এখানে যোগ হবে।
- * true করলে LocationInput-এর ভেতরে একটা MapPicker বসবে (point বদলায়); ডাকার বাকি পথ (RequestDialog → ambreq_create)
- * একই থাকে — শুধু LocationValue.point ভরে। টাইলের খরচ/নিয়ম ঠিক না হওয়া পর্যন্ত false।
- */
-export const MAP_PICKER_ENABLED = false;
+import { areaLabel, currentPosition, districtAt, districtLabel, ensureAreas, upazila } from '@/lib/geo';
+import { MAPS_LINK_RE, googleMapsUrl, nearestUpazila, parseMapsText, type Point } from './place';
 
 export interface LocationValue {
   district: string;
   upazilaId: number | null;
   unionId: number | null;
-  /** এলাকা / রাস্তা / চেনা জায়গা (চালক পড়েন) */
+  /** লোকেশন লিখুন: এলাকা / রাস্তা / চেনা জায়গা (চালক পড়েন) */
   landmark: string;
-  /** "আমার এখনকার জায়গা" — না দিলে null (উপজেলা ধরে) */
-  point: { lat: number; lng: number } | null;
+  /** ঠিক জায়গা — এখনকার (gps) বা Google ম্যাপ থেকে (map); না দিলে null (উপজেলা ধরে) */
+  point: Point | null;
+  pointFrom?: 'gps' | 'map' | null;
+  /** উপজেলা জায়গা থেকে আপনা থেকে বসানো */
+  upazilaAuto?: boolean;
 }
 
-/** উপজেলা বাছা না থাকলে পাঠানো যায় না */
+/** জায়গা না থাকলে উপজেলা আর লেখা দুটোই লাগে; জায়গা থাকলে কিছুই বাধ্যতামূলক নয় */
 export const locationError = (v: LocationValue): string | null =>
-  v.upazilaId == null ? tr('Choose the upazila', 'উপজেলা বেছে নিন')
-    : !v.landmark.trim() ? tr('Write the area, road or a landmark', 'এলাকা / রাস্তা / চেনা জায়গা লিখুন') : null;
+  v.point ? null
+    : v.upazilaId == null ? tr('Choose the upazila, or give your current location', 'উপজেলা বেছে নিন, অথবা এখনকার জায়গা দিন')
+      : !v.landmark.trim() ? tr('Write the area, road or a landmark', 'এলাকা / রাস্তা / চেনা জায়গা লিখুন') : null;
+
+/** জায়গা থেকে জেলা আর উপজেলা (আপনা থেকে, না পারলে একই জেলায় আগেরটা) */
+async function withPoint(value: LocationValue, p: Point, from: 'gps' | 'map'): Promise<LocationValue> {
+  const d = (await districtAt(p.lat, p.lng)).bn;
+  const auto = await nearestUpazila(d, p);
+  const keep = d === value.district && !value.upazilaAuto ? value.upazilaId : null;
+  return {
+    ...value, district: d, point: p, pointFrom: from,
+    upazilaId: auto ?? keep, upazilaAuto: auto != null, unionId: auto == null && keep != null ? value.unionId : null,
+  };
+}
 
 export function LocationInput({ value, onChange, showErrors }: { value: LocationValue; onChange: (v: LocationValue) => void; showErrors?: boolean }) {
   const [picking, setPicking] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'gps' | 'map' | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  const [mapHelp, setMapHelp] = useState(false);
   useEffect(() => {
     ensureAreas().catch(() => {});
+  }, []);
+  // আগে থেকে পাওয়া জায়গা (তালিকার GPS) — উপজেলা আপনা থেকে
+  useEffect(() => {
+    if (value.point && value.upazilaId == null) withPoint(value, value.point, value.pointFrom ?? 'gps').then(onChange, () => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function locate() {
     setAsking(false);
-    setBusy(true);
+    setBusy('gps');
     setErr(null);
     try {
       const p = await currentPosition();
-      const d = await districtAt(p.lat, p.lng);
-      if (d.bn !== value.district) {
-        setErr(tr(`You are in ${d.en}, not the chosen district — change the area if needed. The area will be used.`, `আপনি এখন ${d.bn}-এ, বেছে নেওয়া জেলায় নন — দরকার হলে এলাকা বদলান। এলাকা ধরে পাঠানো হবে।`));
-      } else onChange({ ...value, point: p });
+      onChange(await withPoint(value, p, 'gps'));
     } catch {
-      setErr(tr("Couldn't get your location — the chosen area will be used.", 'এখনকার জায়গা পাওয়া যায়নি — বেছে নেওয়া এলাকা ধরে পাঠানো হবে।'));
+      setErr(tr("Couldn't get your location — choose the area, or give a place from Google Maps.", 'এখনকার জায়গা পাওয়া যায়নি — এলাকা বেছে নিন, অথবা Google ম্যাপ থেকে জায়গা দিন।'));
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  }
+
+  /** লেখার ঘরে Google ম্যাপের লিংক পেস্ট হলে: জায়গা নেওয়া, লিংকটা লেখা থেকে সরানো */
+  async function fromLink(text: string) {
+    const rest = text.replace(MAPS_LINK_RE, '').replace(/\s+/g, ' ').trim();
+    const parsed = parseMapsText(text);
+    setErr(null);
+    if (!parsed) {
+      setErr(tr("Couldn't find a place in this link — in Google Maps, press and hold the place, then Share.", 'এই লিংকে জায়গা পাওয়া যায়নি — Google ম্যাপে জায়গাটা চেপে ধরে "শেয়ার" চাপুন।'));
+      onChange({ ...value, landmark: rest });
+      return;
+    }
+    setBusy('map');
+    try {
+      const p = 'short' in parsed ? await call<Point>('maps_link_resolve', { url: parsed.short }) : parsed;
+      onChange(await withPoint({ ...value, landmark: rest }, p, 'map'));
+      setMapHelp(false);
+    } catch (x) {
+      setErr(errorText(x));
+      onChange({ ...value, landmark: rest });
+    } finally {
+      setBusy(null);
     }
   }
 
   const noUpazila = value.upazilaId == null;
+  const p = value.point;
+  const u = upazila(value.upazilaId);
   return (
     <div className="col gap-8 loc-input" data-testid="amb-location">
-      <span className="t-title-s">{tr('Area', 'এলাকা')}</span>
-      <button
-        type="button"
-        className={`loc-area${showErrors && noUpazila ? ' error' : ''}`}
-        onClick={() => setPicking(true)}
-        data-testid="amb-area"
-      >
-        <IconLine icon="location_on">
-          {areaLabel(value.district, value.upazilaId, value.unionId)}
-          {noUpazila ? <span className="loc-need"> · {tr('choose upazila', 'উপজেলা বেছে নিন')}</span> : null}
-        </IconLine>
-        <span className="t-label-l loc-change">{tr('Change', 'বদলান')}</span>
-      </button>
-      <TextInput
-        label={tr('Area / road / landmark', 'এলাকা / রাস্তা / চেনা জায়গা')}
-        hint={tr('e.g. house 12, near the school gate', 'যেমন: বাসা ১২, স্কুল গেটের পাশে')}
-        value={value.landmark}
-        maxLength={160}
-        onChange={(e) => onChange({ ...value, landmark: e.target.value })}
-        error={showErrors && !value.landmark.trim() ? tr('Required', 'লিখতে হবে') : null}
-        data-testid="amb-pickup"
-      />
-      {value.point ? (
-        <div className="loc-gps-ok row gap-8" data-testid="amb-gps-ok">
-          <span className="grow t-body-m">{tr('Current location taken ✓', 'এখনকার জায়গা নেওয়া হয়েছে ✓')}</span>
-          <Button variant="text" small onClick={() => onChange({ ...value, point: null })}>{tr('Remove', 'বাদ দিন')}</Button>
+      <span className="t-title-s">{tr('Pick-up from', 'কোথা থেকে নেবে')}</span>
+      {p ? (
+        <div className="loc-gps-ok row gap-8" data-testid={value.pointFrom === 'map' ? 'amb-map-ok' : 'amb-gps-ok'}>
+          <span className="grow col gap-2">
+            <span className="t-body-m">{value.pointFrom === 'map' ? tr('Place from the map taken ✓', 'ম্যাপের জায়গা নেওয়া হয়েছে ✓') : tr('Current location taken ✓', 'এখনকার জায়গা নেওয়া হয়েছে ✓')}</span>
+            <a className="t-label-l loc-maplink" href={googleMapsUrl(p)} target="_blank" rel="noopener noreferrer" data-testid="amb-gmaps">{tr('See on Google Maps', 'Google ম্যাপে দেখুন')}</a>
+          </span>
+          <Button variant="text" small onClick={() => onChange({ ...value, point: null, pointFrom: null, ...(value.upazilaAuto ? { upazilaId: null, upazilaAuto: false } : {}) })}>{tr('Remove', 'বাদ দিন')}</Button>
         </div>
       ) : asking ? (
         // অনুমতি চাওয়ার আগে কেন — ব্রাউজারের নিজের প্রশ্ন এরপর আসে
@@ -100,13 +126,51 @@ export function LocationInput({ value, onChange, showErrors }: { value: Location
           </div>
         </div>
       ) : (
-        <Button variant="outline" icon="location_on" busy={busy} onClick={() => setAsking(true)} data-testid="amb-gps">
-          {tr('My current location (optional)', 'আমার এখনকার জায়গা (ঐচ্ছিক)')}
+        <Button icon="location_on" block busy={busy === 'gps'} onClick={() => setAsking(true)} data-testid="amb-gps">
+          {tr('Current location', 'এখনকার জায়গা')}
         </Button>
       )}
-      {!value.point ? <span className="t-body-s muted">{tr('Without it, nearby ambulances of the chosen upazila get it first.', 'না দিলে বেছে নেওয়া উপজেলার গাড়ি আগে খবর পায়।')}</span> : null}
+      {!p ? (
+        <>
+          <Button variant="outline" icon="map" block busy={busy === 'map'} onClick={() => setMapHelp((v) => !v)} data-testid="amb-map">
+            {tr('Give a place from Google Maps', 'Google ম্যাপ থেকে জায়গা দিন')}
+          </Button>
+          {mapHelp ? (
+            <span className="t-body-s loc-why" data-testid="amb-map-help">
+              {tr('In Google Maps, press and hold the place → Share → Copy link, then paste it in the box below. ', 'Google ম্যাপে জায়গাটা চেপে ধরুন → শেয়ার → লিংক কপি করুন, তারপর নিচের ঘরে পেস্ট করুন। ')}
+              <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">{tr('Open Google Maps', 'Google ম্যাপ খুলুন')}</a>
+            </span>
+          ) : null}
+        </>
+      ) : null}
+      <TextInput
+        label={p ? tr('Write the location (optional)', 'লোকেশন লিখুন (ঐচ্ছিক)') : tr('Write the location', 'লোকেশন লিখুন')}
+        hint={tr('Area / road / landmark — e.g. house 12, near the school gate. A Google Maps link works too.', 'এলাকা / রাস্তা / চেনা জায়গা — যেমন: বাসা ১২, স্কুল গেটের পাশে। Google ম্যাপের লিংকও দেওয়া যায়।')}
+        value={value.landmark}
+        maxLength={400}
+        onChange={(e) => {
+          const t = e.target.value;
+          if (MAPS_LINK_RE.test(t)) fromLink(t);
+          else onChange({ ...value, landmark: t.slice(0, 160) });
+        }}
+        error={showErrors && !p && !value.landmark.trim() ? tr('Required', 'লিখতে হবে') : null}
+        data-testid="amb-pickup"
+      />
+      <button
+        type="button"
+        className={`loc-area${showErrors && !p && noUpazila ? ' error' : ''}`}
+        onClick={() => setPicking(true)}
+        data-testid="amb-area"
+      >
+        <IconLine icon="location_on">
+          {value.upazilaAuto && u
+            ? `${tr(u.en, u.bn)}, ${districtLabel(value.district)} ${tr('(from the location)', '(জায়গা থেকে)')}`
+            : areaLabel(value.district, value.upazilaId, value.unionId)}
+          {noUpazila && !p ? <span className="loc-need"> · {tr('choose upazila', 'উপজেলা বেছে নিন')}</span> : null}
+        </IconLine>
+        <span className="t-label-l loc-change">{tr('Change', 'বদলান')}</span>
+      </button>
       <ErrorText>{err}</ErrorText>
-      {/* MAP_PICKER_ENABLED হলে এখানে ম্যাপ — এখন নেই */}
       {picking ? (
         <AreaPicker
           title={tr('Where to pick up', 'কোথা থেকে নেবে')}
@@ -117,8 +181,9 @@ export function LocationInput({ value, onChange, showErrors }: { value: Location
           onPicked={(v) => {
             setPicking(false);
             if (v.upazilaId == null) return;
-            // জেলা বদলালে আগের GPS আর খাটে না
-            onChange({ ...value, district: v.district, upazilaId: v.upazilaId, unionId: v.unionId ?? null, point: v.district === value.district ? value.point : null });
+            // জেলা বদলালে আগের জায়গা আর খাটে না
+            const same = v.district === value.district;
+            onChange({ ...value, district: v.district, upazilaId: v.upazilaId, unionId: v.unionId ?? null, upazilaAuto: false, point: same ? value.point : null, pointFrom: same ? value.pointFrom : null });
           }}
         />
       ) : null}

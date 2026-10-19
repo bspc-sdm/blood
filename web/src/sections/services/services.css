@@ -127,6 +127,10 @@
 .loc-change { flex: none; color: var(--primary); }
 .loc-gps-ok { align-items: center; padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--primary-container); color: var(--on-primary-container); }
 .loc-why { padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+/* ২.৩১.০: "Google ম্যাপে দেখুন" লিংক; হাসপাতাল/ক্লিনিকের তালিকা */
+.loc-maplink { color: var(--primary); text-decoration: underline; width: fit-content; }
+.fac-list { max-height: 50dvh; overflow-y: auto; margin: 0 -8px; }
+.fac-head { padding: 8px 8px 2px; }
 /* অ্যাম্বুলেন্সের ভাড়া (২.৩০.০) */
 .amb-count { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
 .amb-count svg { width: 20px; height: 20px; flex: none; }
