@@ -1,9 +1,10 @@
-/* Tailwind (theme + utilities; preflight নেই — রিসেট আর সব নকশা React ওয়েবের একই CSS থেকে, হুবহু একই দেখাতে)।
+/* Tailwind (theme + utilities, tw: prefix; preflight নেই — রিসেট আর সব নকশা React ওয়েবের একই CSS থেকে, হুবহু একই দেখাতে)।
    পুরোনো CSS একটাই স্তরে (components) একই ক্রমে — নিজেদের মধ্যে আগের মতোই specificity/ক্রম মেনে চলে;
    Tailwind-এর utilities পরের স্তরে, তাই টেমপ্লেটে দেওয়া utility (React-এর inline style-এর জায়গায়) সবসময় জেতে। */
 @layer theme, components, utilities;
-@import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
+/* prefix(tw): পুরোনো ক্লাসের নামের সাথে (gap-8, block, outline, grow …) Tailwind-এর utility মিশে না যায় — utility লিখুন tw:mt-2 */
+@import 'tailwindcss/theme.css' layer(theme) prefix(tw);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(tw);
 
 @import './styles/tokens.css' layer(components);
 @import './styles/base.css' layer(components);
