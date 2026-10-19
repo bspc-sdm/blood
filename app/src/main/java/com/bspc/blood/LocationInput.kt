@@ -128,8 +128,8 @@ fun LocationInput(value: AmbLocation, onChange: (AmbLocation) -> Unit, showError
         val parsed = MapsLink.parse(text)
         errorMsg = null
         if (parsed == null) {
+            // লেখা যেমন আছে থাকে (মুছে দিলে বা ঠিক করলে আবার দেখা হয়)
             errorMsg = tr("Couldn't find a place in this link — in Google Maps, press and hold the place, then Share.", "এই লিংকে জায়গা পাওয়া যায়নি — Google ম্যাপে জায়গাটা চেপে ধরে \"শেয়ার\" চাপুন।")
-            change(current.copy(landmark = rest))
             return
         }
         scope.launch {
@@ -140,7 +140,7 @@ fun LocationInput(value: AmbLocation, onChange: (AmbLocation) -> Unit, showError
             }
             busy = null
             p.onSuccess { (lat, lng) -> change(current.copy(landmark = rest).withPoint(context, lat, lng, "map")) }
-                .onFailure { e -> errorMsg = e.message; change(current.copy(landmark = rest)) }
+                .onFailure { e -> errorMsg = e.message }
         }
     }
 
@@ -148,6 +148,14 @@ fun LocationInput(value: AmbLocation, onChange: (AmbLocation) -> Unit, showError
     DisposableEffect(Unit) {
         SharedPlace.sheetOpen.value = true
         onDispose { SharedPlace.sheetOpen.value = false }
+    }
+    // লেখার ঘরে লিংক: লেখা থামার ০.৭ সেকেন্ড পরে পড়া — অক্ষর ধরে লিখলে (বা কিবোর্ড ধাপে ধাপে বসালে) অর্ধেক লিংক
+    // ("…?q=24.08,90") থেকে ভুল জায়গা না নেয়; পেস্টও একই পথে
+    LaunchedEffect(value.landmark) {
+        if (MapsLink.LINK.containsMatchIn(value.landmark)) {
+            kotlinx.coroutines.delay(700)
+            fromLink(value.landmark, fromField = true)
+        }
     }
     val shared = SharedPlace.text.value
     LaunchedEffect(shared) {
@@ -211,8 +219,8 @@ fun LocationInput(value: AmbLocation, onChange: (AmbLocation) -> Unit, showError
         OutlinedTextField(
             value.landmark,
             { t ->
-                if (MapsLink.LINK.containsMatchIn(t)) fromLink(t, fromField = true)
-                else change(value.copy(landmark = t.take(160)))
+                errorMsg = null
+                change(value.copy(landmark = t.take(if (MapsLink.LINK.containsMatchIn(t)) 600 else 160)))
             },
             label = { Text(if (point != null) tr("Write the location (optional)", "লোকেশন লিখুন (ঐচ্ছিক)") else tr("Write the location", "লোকেশন লিখুন")) },
             placeholder = { Text(tr("Area / road / landmark — e.g. house 12, near the school gate", "এলাকা / রাস্তা / চেনা জায়গা — যেমন: বাসা ১২, স্কুল গেটের পাশে")) },

@@ -82,8 +82,8 @@ export function LocationInput({ value, onChange, showErrors }: { value: Location
     const parsed = parseMapsText(text);
     setErr(null);
     if (!parsed) {
+      // লেখা যেমন আছে থাকে (মুছে দিলে বা ঠিক করলে আবার দেখা হয়)
       setErr(tr("Couldn't find a place in this link — in Google Maps, press and hold the place, then Share.", 'এই লিংকে জায়গা পাওয়া যায়নি — Google ম্যাপে জায়গাটা চেপে ধরে "শেয়ার" চাপুন।'));
-      onChange({ ...value, landmark: rest });
       return;
     }
     setBusy('map');
@@ -93,11 +93,18 @@ export function LocationInput({ value, onChange, showErrors }: { value: Location
       setMapHelp(false);
     } catch (x) {
       setErr(errorText(x));
-      onChange({ ...value, landmark: rest });
     } finally {
       setBusy(null);
     }
   }
+
+  // লেখার ঘরে লিংক: লেখা থামার ০.৭ সেকেন্ড পরে পড়া — অক্ষর ধরে লিখলে অর্ধেক লিংক ("…?q=24.08,90") থেকে ভুল জায়গা নয়
+  useEffect(() => {
+    if (!MAPS_LINK_RE.test(value.landmark)) return;
+    const h = setTimeout(() => fromLink(value.landmark), 700);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.landmark]);
 
   const noUpazila = value.upazilaId == null;
   const p = value.point;
@@ -150,8 +157,8 @@ export function LocationInput({ value, onChange, showErrors }: { value: Location
         maxLength={400}
         onChange={(e) => {
           const t = e.target.value;
-          if (MAPS_LINK_RE.test(t)) fromLink(t);
-          else onChange({ ...value, landmark: t.slice(0, 160) });
+          setErr(null);
+          onChange({ ...value, landmark: t.slice(0, MAPS_LINK_RE.test(t) ? 600 : 160) });
         }}
         error={showErrors && !p && !value.landmark.trim() ? tr('Required', 'লিখতে হবে') : null}
         data-testid="amb-pickup"
