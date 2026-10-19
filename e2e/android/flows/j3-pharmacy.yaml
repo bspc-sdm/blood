@@ -123,3 +123,21 @@ env:
     timeout: 20000
     optional: true
 - takeScreenshot: j3-12-shop-bottom
+# ২.৩০.০: "দোকান"-এর ভেতরের ভাগ (বিক্রি/স্টক/এনালাইটিক্স — হালকা, "বিস্তারিত ওয়েবে দেখুন") আর আলাদা "ওষুধ খোঁজা" ট্যাব
+- scrollUntilVisible:
+    element: "এনালাইটিক্স"
+    direction: UP
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "এনালাইটিক্স"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j3-13-shop-analytics
+- tapOn:
+    text: "ওষুধ খোঁজা"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j3-14-medicine-search-tab
