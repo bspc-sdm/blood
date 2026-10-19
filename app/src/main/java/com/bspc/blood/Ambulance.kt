@@ -90,6 +90,8 @@ data class Ambulance(
     val availableUntil: Long = 0,
     /** নিজের: গাড়ির জায়গা (GPS) দেওয়া আছে */
     val hasBase: Boolean = false,
+    /** ভাড়ার তালিকা (২.৩০.০, AmbFare.kt) — প্রকাশ্য; আগের লেখা fare নোট হিসেবে থাকে */
+    val fareChart: FareChart? = null,
 )
 
 /** তালিকা: খালি/অজানা, ট্রিপে, আর "সবচেয়ে কাছের খালি" গাড়ির id (না থাকলে null) */
@@ -137,6 +139,7 @@ object Ambulances {
         kmApprox = o.optBoolean("kmApprox"),
         availableUntil = o.optLong("availableUntil"),
         hasBase = o.optBoolean("hasBase"),
+        fareChart = FareChart.parse(o.optJSONObject("fareChart")),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -167,12 +170,14 @@ object Ambulances {
     data class SaveResult(val pending: Boolean, val baseIgnored: Boolean)
 
     /** clearBase: "জায়গা মুছুন" — আগে দেওয়া গাড়ির জায়গা মোছে (জেলার কেন্দ্র ধরা হয়) */
-    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String, docs: Map<String, String> = emptyMap(), lat: Double? = null, lng: Double? = null, clearBase: Boolean = false): SaveResult {
+    suspend fun save(id: String?, name: String, phone: String, vehicleNo: String, types: List<String>, district: String, upazilaId: Int?, area: String, fare: String, docs: Map<String, String> = emptyMap(), lat: Double? = null, lng: Double? = null, clearBase: Boolean = false, fareChart: FareChart? = null): SaveResult {
         val o = call(
             "ambulance_save",
             JSONObject().put("id", id ?: JSONObject.NULL).put("name", name).put("phone", phone).put("vehicleNo", vehicleNo)
                 .put("types", JSONArray(types)).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
                 .put("area", area).put("fare", fare).put("termsAccepted", true).put("docs", VerifyDocs.json(docs))
+                // ভাড়ার তালিকা: খালি হলে null (সার্ভারে মোছে)
+                .put("fareChart", fareChart?.json() ?: JSONObject.NULL)
                 // গাড়ির জায়গা (ঐচ্ছিক) — না দিলে আগেরটা থাকে; সার্ভার ~১ কিমির ঘরে কেটে রাখে
                 .apply {
                     if (lat != null && lng != null) put("lat", lat).put("lng", lng)
@@ -195,8 +200,9 @@ object Ambulances {
         call("ambulance_called", JSONObject().put("id", id).apply { if (reqId != null) put("reqId", reqId) })
     }
 
-    suspend fun rate(id: String, rating: Int, comment: String) {
-        call("ambulance_rate", JSONObject().put("id", id).put("rating", rating).put("comment", comment))
+    /** overcharged: "বলা ভাড়ার চেয়ে বেশি নিয়েছে" (শুধু অ্যাপে ভাড়া ঠিক হওয়া ট্রিপে; null = পাঠানো নয়) */
+    suspend fun rate(id: String, rating: Int, comment: String, overcharged: Boolean? = null) {
+        call("ambulance_rate", JSONObject().put("id", id).put("rating", rating).put("comment", comment).apply { if (overcharged != null) put("overcharged", overcharged) })
     }
 
     /** নিজের অ্যাম্বুলেন্সে অ্যাপ থেকে কতবার ফোন, রেটিং, মন্তব্য */
@@ -533,7 +539,7 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
         meta = ambulanceKm(a),
         details = listOf(
             R.drawable.ic_location_on to listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "),
-            R.drawable.ic_payments to if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else "",
+            R.drawable.ic_payments to (a.fareChart?.summary()?.let { tr("Fare: ", "ভাড়া: ") + it } ?: if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else ""),
         ),
         note = when {
             a.busySince > 0 -> tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince)
@@ -552,7 +558,8 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
                 tr("Area and fare", "এলাকা ও ভাড়া"),
                 listOf(
                     R.drawable.ic_location_on to listOf(a.area, Areas.label(a.district, a.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
-                    R.drawable.ic_payments to if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else "",
+                    R.drawable.ic_payments to (a.fareChart?.summary()?.let { tr("Fare: ", "ভাড়া: ") + it } ?: ""),
+                    R.drawable.ic_edit_note to a.fare,
                 ),
             ),
             DetailSection(
@@ -572,7 +579,7 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
 
 /** তারা আর মন্তব্য দিয়ে রেটিং (অ্যাম্বুলেন্স, ফার্মেসি) */
 @Composable
-fun StarRatingDialog(title: String, onDismiss: () -> Unit, onSubmit: suspend (Int, String) -> Unit) {
+fun StarRatingDialog(title: String, onDismiss: () -> Unit, extra: (@Composable () -> Unit)? = null, onSubmit: suspend (Int, String) -> Unit) {
     val scope = rememberCoroutineScope()
     var stars by remember { mutableIntStateOf(0) }
     var comment by remember { mutableStateOf("") }
@@ -597,6 +604,7 @@ fun StarRatingDialog(title: String, onDismiss: () -> Unit, onSubmit: suspend (In
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                extra?.invoke()
                 ErrorText(errorMsg)
             }
         },
@@ -780,6 +788,7 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
     var upazilaId by remember { mutableStateOf(existing?.upazilaId) }
     var area by remember { mutableStateOf(existing?.area ?: "") }
     var fare by remember { mutableStateOf(existing?.fare ?: "") }
+    var chart by remember { mutableStateOf(ChartDraft.of(existing?.fareChart)) }
     // গাড়ি যেখানে অপেক্ষা করে (ঐচ্ছিক): "সবচেয়ে কাছের" খুঁজতে; না দিলে জেলার কেন্দ্র ধরা হয়। clearBase: "জায়গা মুছুন"
     var baseLat by remember { mutableStateOf<Double?>(null) }
     var baseLng by remember { mutableStateOf<Double?>(null) }
@@ -814,7 +823,8 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                     onClear = { baseLat = null; baseLng = null; clearBase = existing?.hasBase == true },
                 )
                 OutlinedTextField(area, { area = it.take(120) }, label = { Text(tr("Where you go (optional)", "কোন কোন এলাকায় যান (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(fare, { fare = it.take(120) }, label = { Text(tr("Fare (optional)", "ভাড়া (ঐচ্ছিক)")) }, placeholder = { Text(tr("e.g. Within city 800 Tk, per km 40 Tk", "যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা")) }, modifier = Modifier.fillMaxWidth())
+                FareChartEditor(district, upazilaId, chart) { chart = it }
+                OutlinedTextField(fare, { fare = it.take(120) }, label = { Text(tr("Fare note (optional)", "ভাড়া নিয়ে নোট (ঐচ্ছিক)")) }, placeholder = { Text(tr("e.g. Within city 800 Tk, per km 40 Tk", "যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা")) }, modifier = Modifier.fillMaxWidth())
                 // কাগজের ছবি: নতুন হলে দরকারি; বদলের সময় চাইলে নতুন ছবি
                 DocPhotosField(VerifyDocs.ambulance(), docs, { docs = it },
                     if (existing != null) tr("Add new photos only if the papers changed.", "কাগজ বদলালে তবেই নতুন ছবি দিন।") else null)
@@ -842,12 +852,13 @@ private fun AmbulanceEditDialog(existing: Ambulance?, profile: Profile, onDismis
                     d == null -> tr("Choose a district", "জেলা বেছে নিন")
                     existing == null && VerifyDocs.missing(VerifyDocs.ambulance(), docs) != null -> VerifyDocs.missing(VerifyDocs.ambulance(), docs)
                     !agreed -> tr("Please accept the terms", "শর্তে সম্মতি দিন")
-                    else -> null
+                    else -> chart.build().second
                 }
                 if (errorMsg != null || d == null) return@TextButton
+                val fc = chart.build().first
                 scope.launch {
                     busy = true
-                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim(), docs, baseLat, baseLng, clearBase) }
+                    runCatching { Ambulances.save(existing?.id, TitleCase.name(name), phone, vehicleNo.trim(), types.toList(), d, upazilaId, area.trim(), fare.trim(), docs, baseLat, baseLng, clearBase, fc) }
                         .onSuccess { onSaved(it) }
                         .onFailure { errorMsg = it.message }
                     busy = false

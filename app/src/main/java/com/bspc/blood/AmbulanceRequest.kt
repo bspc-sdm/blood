@@ -59,6 +59,8 @@ import org.json.JSONObject
  * আরও গাড়িকে জানানো হয় আর এখানেই কাছের ৩টায় ফোনের বাটন; ৩ মিনিটে সময় শেষ (বাটন থাকে)।
  * অপেক্ষার সময় ফোন করলে সেটা অনুরোধে ওঠে; অ্যাপে ফিরলে একবার "ফোনে কোনো গাড়ি পেয়েছেন?"
  * চালক: "আমার অ্যাম্বুলেন্স" পাতার উপরে "ডাক" অংশ — আসছি/পারব না, তারপর পৌঁছেছি/শেষ/বাতিল।
+ * ভাড়া (২.৩০.০, AmbFare.kt): ঘরে "কোথায় যাবেন" (বাধ্যতামূলক), অক্সিজেন, "ভাড়া সর্বোচ্চ ৳…" আর সাথে সাথে
+ * "এই ভাড়ার মধ্যে Nটা খালি গাড়ি আছে"; চালক "আসছি — ৳X" (প্রস্তাব), রোগী একটায় "রাজি" চাপলে তবেই নিশ্চিত।
  */
 
 /** তালিকার গাড়ি (ফোনের বাটন, রাজি হওয়া গাড়ি) */
@@ -89,9 +91,26 @@ data class AmbReq(
     val fallback: List<AmbCar>,
     val called: List<AmbCar>,
     val canRate: Boolean,
+    /** ভাড়ার অনুরোধ (২.৩০.০); পুরোনো অ্যাপে ডাকা হলে false */
+    val quote: Boolean = false,
+    val destLabel: String = "",
+    val maxFare: Int? = null,
+    val includeUnknown: Boolean = false,
+    val oxygen: Boolean = false,
+    val quotes: List<AmbQuote> = emptyList(),
+    val agreedFare: Int? = null,
+    /** কেউ না নিলে "৳X পর্যন্ত বাড়ান"; ভাড়া জানা নেই এমন খালি গাড়ি কয়টা */
+    val raiseTo: Int? = null,
+    val unknownFree: Int = 0,
 ) {
     val active: Boolean get() = status in listOf("open", "accepted", "arrived")
 }
+
+/** চালকের প্রস্তাব (রোগীর পাতায়): গাড়ির id দিয়ে "রাজি" */
+data class AmbQuote(val id: String, val name: String, val types: List<String>, val km: Int?, val kmApprox: Boolean, val fare: Int, val rating: Double, val ratingCount: Int, val expiresAt: Long)
+
+/** "এই ভাড়ার মধ্যে কয়টা" (ambreq_count) */
+data class FareCount(val count: Int, val unknown: Int, val raiseTo: Int?, val hospitals: List<String>, val night: Boolean)
 
 /** চালকের দিকের অনুরোধ — রাজির আগে ফোন, নাম, ঠিক জায়গা নেই */
 data class AmbDriverReq(
@@ -114,6 +133,16 @@ data class AmbDriverReq(
     val phone: String,
     val lat: Double?,
     val lng: Double?,
+    /** ভাড়ার অনুরোধ (২.৩০.০) */
+    val quote: Boolean = false,
+    val destLabel: String = "",
+    val maxFare: Int? = null,
+    val oxygen: Boolean = false,
+    val night: Boolean = false,
+    val suggestedFare: Int? = null,
+    /** নিজের দেওয়া ভাড়া (রোগীর উত্তরের অপেক্ষা) */
+    val myQuoteFare: Int? = null,
+    val agreedFare: Int? = null,
 )
 
 object AmbRequests {
@@ -133,6 +162,18 @@ object AmbRequests {
         o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.optBoolean("gps"), o.optJSONObject("ambulance")?.let { car(it) },
         o.str("cancelledBy").ifBlank { null }, o.str("cancelReason").ifBlank { null },
         cars(o.optJSONArray("fallback")), cars(o.optJSONArray("called")), o.optBoolean("canRate"),
+        quote = o.optBoolean("quote"), destLabel = o.str("destLabel"), maxFare = o.intOrNull("maxFare"),
+        includeUnknown = o.optBoolean("includeUnknown"), oxygen = o.optBoolean("oxygen"),
+        quotes = (o.optJSONArray("quotes") ?: JSONArray()).let { a ->
+            (0 until a.length()).map { i ->
+                val q = a.getJSONObject(i)
+                AmbQuote(
+                    q.str("id"), q.str("name"), q.optJSONArray("types").strings(), q.intOrNull("km"), q.optBoolean("kmApprox"),
+                    q.optInt("fare"), q.optDouble("rating", 0.0), q.optInt("ratingCount"), q.optLong("expiresAt"),
+                )
+            }
+        },
+        agreedFare = o.intOrNull("agreedFare"), raiseTo = o.intOrNull("raiseTo"), unknownFree = o.optInt("unknownFree"),
     )
 
     private fun parseDriver(o: JSONObject) = AmbDriverReq(
@@ -142,12 +183,43 @@ object AmbRequests {
         o.str("patientName"), o.str("phone"),
         if (o.has("lat") && !o.isNull("lat")) o.optDouble("lat") else null,
         if (o.has("lng") && !o.isNull("lng")) o.optDouble("lng") else null,
+        quote = o.optBoolean("quote"), destLabel = o.str("destLabel"), maxFare = o.intOrNull("maxFare"),
+        oxygen = o.optBoolean("oxygen"), night = o.optBoolean("night"), suggestedFare = o.intOrNull("suggestedFare"),
+        myQuoteFare = o.optJSONObject("myQuote")?.intOrNull("fare"), agreedFare = o.intOrNull("agreedFare"),
     )
 
+    /** ডাকা আর গোনার ভাড়ার ঘর: maxFare null = যেকোনো */
+    private fun JSONObject.fare(dest: Dest?, maxFare: Int?, includeUnknown: Boolean, oxygen: Boolean): JSONObject = apply {
+        if (dest != null) put("dest", dest.json()).put("maxFare", maxFare ?: JSONObject.NULL).put("includeUnknown", includeUnknown).put("oxygen", oxygen)
+    }
+
+    /** "এই ভাড়ার মধ্যে Nটা খালি গাড়ি আছে" — ডাকার মতো একই বাছাই, শুধু গোনা */
+    suspend fun count(district: String, upazilaId: Int?, lat: Double?, lng: Double?, type: String?, dest: Dest, maxFare: Int?, includeUnknown: Boolean, oxygen: Boolean): FareCount {
+        val b = JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("type", type ?: JSONObject.NULL)
+            .fare(dest, maxFare, includeUnknown, oxygen)
+        if (lat != null && lng != null) b.put("lat", lat).put("lng", lng).put("gps", true)
+        val o = call("ambreq_count", b)
+        return FareCount(o.optInt("count"), o.optInt("unknown"), o.intOrNull("raiseTo"), o.optJSONArray("hospitals").strings(), o.optBoolean("night"))
+    }
+
+    /** রোগী একটা প্রস্তাবে "রাজি" */
+    suspend fun agree(id: String, ambulanceId: String): AmbReq =
+        parse(call("ambreq_agree", JSONObject().put("id", id).put("ambulanceId", ambulanceId)).getJSONObject("request"))
+
+    /** অপেক্ষার সময় "ভাড়া বাড়ান" — ফেরত: কয়টা নতুন গাড়িকে জানানো হলো, নতুন অবস্থা */
+    suspend fun raise(id: String, maxFare: Int?, includeUnknown: Boolean): Pair<Int, AmbReq> {
+        val o = call("ambreq_budget", JSONObject().put("id", id).put("maxFare", maxFare ?: JSONObject.NULL).put("includeUnknown", includeUnknown))
+        return o.optInt("added") to parse(o.getJSONObject("request"))
+    }
+
     /** lat/lng: ফোনের আসল GPS (না থাকলে এলাকা ধরে); unionId: শুধু চালকের জানার জন্য; ambulanceId: শিট থেকে — সেই গাড়ি আগে */
-    suspend fun create(district: String, upazilaId: Int?, unionId: Int?, lat: Double?, lng: Double?, type: String?, pickup: String, note: String, phone: String, ambulanceId: String?): AmbReq {
+    suspend fun create(
+        district: String, upazilaId: Int?, unionId: Int?, lat: Double?, lng: Double?, type: String?, pickup: String, note: String, phone: String, ambulanceId: String?,
+        dest: Dest? = null, maxFare: Int? = null, includeUnknown: Boolean = false, oxygen: Boolean = false,
+    ): AmbReq {
         val b = JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("unionId", unionId ?: JSONObject.NULL).put("type", type ?: JSONObject.NULL)
             .put("pickup", pickup).put("note", note).put("phone", phone).put("ambulanceId", ambulanceId ?: JSONObject.NULL)
+            .fare(dest, maxFare, includeUnknown, oxygen)
         if (lat != null && lng != null) b.put("lat", lat).put("lng", lng).put("gps", true)
         return parse(call("ambreq_create", b).getJSONObject("request"))
     }
@@ -172,8 +244,9 @@ object AmbRequests {
         return (0 until a.length()).map { parseDriver(a.getJSONObject(it)) }
     }
 
-    suspend fun accept(id: String) {
-        call("ambreq_accept", JSONObject().put("id", id))
+    /** "আসছি" — ভাড়ার অনুরোধে fare সহ (প্রস্তাব) */
+    suspend fun accept(id: String, fare: Int? = null) {
+        call("ambreq_accept", JSONObject().put("id", id).apply { if (fare != null) put("fare", fare) })
     }
 
     suspend fun decline(id: String) {
@@ -222,6 +295,21 @@ private fun lastArea(context: Context): Triple<String, Int?, Int?>? = runCatchin
     val p = (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("area", null) ?: return null).split('|')
     Triple(p[0], p.getOrNull(1)?.toIntOrNull(), p.getOrNull(2)?.toIntOrNull())
 }.getOrNull()
+
+/** শেষবারের গন্তব্য (JSON) আর বাজেট ("any" বা টাকা) */
+private fun lastDest(context: Context): Dest? = runCatching {
+    Dest.parse(JSONObject(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("dest", null) ?: return null))
+}.getOrNull()
+
+private fun lastBudget(context: Context): String? =
+    runCatching { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("budget", null) }.getOrNull()
+
+private fun saveLastFare(context: Context, dest: Dest, maxFare: Int?) {
+    runCatching {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("dest", dest.json().toString())
+            .putString("budget", maxFare?.toString() ?: "any").apply()
+    }
+}
 
 private fun saveLast(context: Context, l: AmbLocation) {
     runCatching {
@@ -364,6 +452,34 @@ fun AmbulanceRequestDialog(
     var busy by remember { mutableStateOf(false) }
     var tried by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // ভাড়া: গন্তব্য (শেষবারেরটা), অক্সিজেন, বাজেট (চিপ / যেকোনো / নিজে লেখা), ভাড়া না জানা গাড়িও
+    var dest by remember { mutableStateOf(lastDest(context)) }
+    var oxygen by remember { mutableStateOf(false) }
+    var budget by remember {
+        val b = lastBudget(context)
+        mutableStateOf(if (b == null || b == "any") "any" else if (b.toIntOrNull() in FARE_LEVELS) b else "custom")
+    }
+    var custom by remember { mutableStateOf(lastBudget(context)?.takeIf { it != "any" && it.toIntOrNull() !in FARE_LEVELS } ?: "") }
+    var includeUnknown by remember { mutableStateOf(false) }
+    var count by remember { mutableStateOf<FareCount?>(null) }
+    var counting by remember { mutableStateOf(false) }
+    val customFare = parseTaka(custom)
+    val maxFare: Int? = when (budget) {
+        "any" -> null
+        "custom" -> customFare
+        else -> budget.toIntOrNull()
+    }
+    val budgetBad = budget == "custom" && (customFare == null || customFare < 100)
+    val carType = kind.takeIf { it != AmbReqTypes.ANY }
+    // সাথে সাথে গোনা (৩৫০ মি.সে. থেমে)
+    LaunchedEffect(loc.district, loc.upazilaId, loc.point, carType, dest, maxFare, includeUnknown, oxygen, budgetBad) {
+        val d = dest
+        if (d == null || budgetBad) { count = null; return@LaunchedEffect }
+        counting = true
+        delay(350)
+        count = runCatching { AmbRequests.count(loc.district, loc.upazilaId, loc.point?.first, loc.point?.second, carType, d, maxFare, includeUnknown, oxygen) }.getOrNull()
+        counting = false
+    }
 
     FormDialog(
         title = tr("Call an ambulance", "অ্যাম্বুলেন্স ডাকুন"),
@@ -376,14 +492,37 @@ fun AmbulanceRequestDialog(
                     if (kind == "freezer") SmallNote(tr("Only freezer vans (for the deceased) get this request.", "শুধু ফ্রিজার ভ্যান (মরদেহ নেওয়ার গাড়ি) এই অনুরোধ পাবে।"))
                 }
                 Text(
-                    if (target != null) tr("Goes to ${target.name} first, and to the nearest free ambulances at the same time. The first driver to accept comes.", "আগে ${target.name}-কে, সাথে কাছের খালি গাড়িগুলোকেও একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।")
-                    else tr("Goes to the nearest free ambulances at once. The first driver to accept comes.", "কাছের খালি গাড়িগুলোতে একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।"),
+                    if (target != null) tr("Goes to ${target.name} first, and to the nearest free ambulances within your fare. Drivers offer a fare — tap \"Agree\" on one.", "আগে ${target.name}-কে, সাথে আপনার ভাড়ার মধ্যে কাছের খালি গাড়িগুলোকে যাবে। চালকরা ভাড়া বলবেন — একটায় \"রাজি\" চাপুন।")
+                    else tr("Goes to the nearest free ambulances within your fare. Drivers offer a fare — tap \"Agree\" on one.", "আপনার ভাড়ার মধ্যে কাছের খালি গাড়িগুলোতে একসাথে যাবে। চালকরা ভাড়া বলবেন — একটায় \"রাজি\" চাপুন।"),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 LocationInput(loc, { loc = it; errorMsg = null }, showErrors = tried)
+                DestPicker(tr("Where to go", "কোথায় যাবেন"), loc.district, dest, { dest = it; errorMsg = null }, hospitals = count?.hospitals ?: emptyList(), showError = tried)
+                CheckLine(oxygen, tr("Oxygen needed", "অক্সিজেন লাগবে"), "amb_oxygen") { oxygen = it }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("amb_budget")) {
+                    Text(tr("Fare up to", "ভাড়া সর্বোচ্চ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    ChipRows(FARE_LEVELS.map { it.toString() } + listOf("any", "custom"), setOf(budget), label = {
+                        when (it) {
+                            "any" -> tr("Any", "যেকোনো")
+                            "custom" -> tr("Other…", "অন্য…")
+                            else -> taka(it.toInt())
+                        }
+                    }) { budget = it }
+                    if (budget == "custom") {
+                        OutlinedTextField(
+                            custom, { custom = it.take(7) }, label = { Text(tr("Fare up to (৳)", "সর্বোচ্চ ভাড়া (৳)")) },
+                            isError = custom.isNotBlank() && budgetBad,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    CheckLine(includeUnknown, tr("Also ambulances with unknown fare", "ভাড়া জানা নেই এমন গাড়িও"), "amb_unknown") { includeUnknown = it }
+                    FareCountLine(count, counting, dest != null, includeUnknown,
+                        onRaise = { to -> if (to in FARE_LEVELS) budget = to.toString() else { budget = "custom"; custom = to.toString() } },
+                        onUnknown = { includeUnknown = true })
+                }
                 OutlinedTextField(
                     note, { note = it.take(200) },
-                    label = { Text(tr("Note (optional) — e.g. oxygen needed", "নোট (ঐচ্ছিক) — যেমন অক্সিজেন লাগবে")) },
+                    label = { Text(tr("Note (optional) — e.g. the patient can't walk", "নোট (ঐচ্ছিক) — যেমন রোগী হাঁটতে পারেন না")) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -395,10 +534,14 @@ fun AmbulanceRequestDialog(
             }
         },
         confirmButton = {
-            Button(enabled = !busy, onClick = {
+            Button(enabled = !busy && count?.count != 0, onClick = {
                 tried = true
-                errorMsg = loc.error() ?: if (!Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone)) tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন") else null
+                errorMsg = loc.error()
+                    ?: (if (dest == null) tr("Choose where to go", "\"কোথায় যাবেন\" বেছে নিন") else null)
+                    ?: (if (budgetBad) tr("Write the fare limit in whole taka (৳100 or more)", "সর্বোচ্চ ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)") else null)
+                    ?: if (!Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone)) tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন") else null
                 if (errorMsg != null) return@Button
+                val d = dest ?: return@Button
                 scope.launch {
                     busy = true
                     val l = loc
@@ -406,9 +549,10 @@ fun AmbulanceRequestDialog(
                         AmbRequests.create(
                             l.district, l.upazilaId, l.unionId, l.point?.first, l.point?.second, kind.takeIf { it != AmbReqTypes.ANY },
                             l.landmark.trim(), note.trim(), phone, target?.id?.takeIf { l.district == district },
+                            d, maxFare, includeUnknown, oxygen,
                         )
                     }
-                        .onSuccess { saveLast(context, l); onSent(it) }
+                        .onSuccess { saveLast(context, l); saveLastFare(context, d, maxFare); onSent(it) }
                         .onFailure { e ->
                             // আগেই একটা চালু: সেটার পাতা
                             if (e is ServerError && e.code == "amb_req_active") {
@@ -421,6 +565,43 @@ fun AmbulanceRequestDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
+}
+
+/** টিক বাক্স + লেখা */
+@Composable
+private fun CheckLine(checked: Boolean, text: String, tag: String, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }.testTag(tag)) {
+        androidx.compose.material3.Checkbox(checked = checked, onCheckedChange = onChange)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** "এই ভাড়ার মধ্যে Nটা খালি গাড়ি আছে" / ০ হলে "৳X পর্যন্ত বাড়ান" আর "ভাড়া জানা নেই এমন গাড়িও" */
+@Composable
+private fun FareCountLine(count: FareCount?, counting: Boolean, hasDest: Boolean, includeUnknown: Boolean, onRaise: (Int) -> Unit, onUnknown: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    when {
+        !hasDest -> SmallNote(tr("Choose where to go to see how many are free.", "কয়টা খালি গাড়ি আছে দেখতে \"কোথায় যাবেন\" বেছে নিন।"))
+        count == null -> if (counting) SmallNote(tr("Counting…", "গোনা হচ্ছে…"))
+        count.count > 0 -> Surface(shape = RoundedCornerShape(12.dp), color = cs.secondaryContainer, modifier = Modifier.fillMaxWidth().testTag("amb_count")) {
+            Text(
+                tr("${count.count} free ambulance(s) within this fare", "এই ভাড়ার মধ্যে ${num(count.count)}টা খালি গাড়ি আছে") +
+                    if (count.night) tr(" (night fare included)", " (রাতের ভাড়াসহ)") else "",
+                style = MaterialTheme.typography.bodyMedium, color = cs.onSecondaryContainer, modifier = Modifier.padding(12.dp),
+            )
+        }
+        else -> Surface(shape = RoundedCornerShape(12.dp), color = cs.errorContainer, modifier = Modifier.fillMaxWidth().testTag("amb_count")) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(tr("No ambulance within this fare — raise the fare", "এই ভাড়ায় কোনো গাড়ি নেই — ভাড়া বাড়ান"), style = MaterialTheme.typography.bodyMedium, color = cs.onErrorContainer)
+                count.raiseTo?.let { to ->
+                    Button(onClick = { onRaise(to) }, modifier = Modifier.testTag("amb_raise")) { Text(tr("Raise to ${taka(to)}", "${taka(to)} পর্যন্ত বাড়ান")) }
+                }
+                if (!includeUnknown && count.unknown > 0) {
+                    OutlinedButton(onClick = onUnknown) { Text(tr("Include ${count.unknown} with unknown fare", "ভাড়া জানা নেই এমন ${num(count.unknown)}টাও নিন")) }
+                }
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------
@@ -518,7 +699,33 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
     var okayed by remember { mutableStateOf<String?>(null) }
     var rating by remember { mutableStateOf(false) }
     var rated by remember { mutableStateOf(false) }
+    var over by remember { mutableStateOf(false) }
+    var agreeing by remember { mutableStateOf<String?>(null) }
+    var raising by remember { mutableStateOf(false) }
+    var fareInfo by remember { mutableStateOf<String?>(null) }
     val (resumed, tick) = rememberResumeTick()
+    fun agree(q: AmbQuote) {
+        scope.launch {
+            agreeing = q.id
+            errorMsg = null
+            runCatching { AmbRequests.agree(id, q.id) }.onSuccess { req = it; reload++ }.onFailure { errorMsg = it.message; reload++ }
+            agreeing = null
+        }
+    }
+    fun raise(maxFare: Int?, unknown: Boolean) {
+        scope.launch {
+            raising = true
+            errorMsg = null
+            runCatching { AmbRequests.raise(id, maxFare, unknown || req?.includeUnknown == true) }
+                .onSuccess { (added, r) ->
+                    req = r
+                    fareInfo = if (added > 0) tr("Sent to $added more ambulance(s)", "আরও ${num(added)}টা গাড়িকে জানানো হয়েছে")
+                    else tr("No new ambulance within this fare — drivers already notified can now offer up to it", "এই ভাড়ায় নতুন কোনো গাড়ি নেই — আগে জানানো চালকরা এখন এই পর্যন্ত বলতে পারবেন")
+                }
+                .onFailure { errorMsg = it.message }
+            raising = false
+        }
+    }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // অবস্থা: অপেক্ষায় ৪ সেকেন্ড পরপর, রাজির পরে ১০ সেকেন্ড, বন্ধ হলে থামে; অ্যাপ পেছনে গেলে থামে
@@ -562,13 +769,19 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
             when (r.status) {
                 "open" -> {
                     val left = ((r.expiresAt - now) / 1000).coerceAtLeast(0)
+                    val quotes = r.quotes.filter { it.expiresAt > now }
+                    if (quotes.isNotEmpty()) QuoteList(quotes, now, agreeing) { agree(it) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(36.dp), strokeWidth = 3.dp)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(tr("Looking for an ambulance…", "অ্যাম্বুলেন্স খোঁজা হচ্ছে…"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (quotes.isNotEmpty()) tr("Waiting for more offers…", "আরও প্রস্তাবের অপেক্ষা…") else tr("Looking for an ambulance…", "অ্যাম্বুলেন্স খোঁজা হচ্ছে…"),
+                                style = if (quotes.isNotEmpty()) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                            )
                             Text(
                                 if (r.wave > 1) tr("Sent to ${r.notified} ambulances — more were added", "${num(r.notified)}টা অ্যাম্বুলেন্সকে জানানো হয়েছে — আরও গাড়ি যোগ হয়েছে")
+                                else if (r.quote) tr("Sent to ${r.notified} nearby ambulances within your fare. Offers will show here.", "আপনার ভাড়ার মধ্যে কাছের ${num(r.notified)}টা অ্যাম্বুলেন্সকে জানানো হয়েছে। প্রস্তাব এলে এখানে দেখাবে।")
                                 else tr("Sent to ${r.notified} nearby ambulances. We'll tell you as soon as one accepts.", "কাছের ${num(r.notified)}টা অ্যাম্বুলেন্সকে জানানো হয়েছে। কেউ রাজি হলেই জানাবো।"),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -594,6 +807,21 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                     cancelReasonText(r.cancelReason),
                 )
             }
+
+            // ৬০ সেকেন্ডে কেউ ভাড়া বলেননি: "ভাড়া বাড়ান" (ফোনের বাটনের পাশাপাশি)
+            if (r.status == "open" && r.quote && r.wave > 1 && r.quotes.none { it.expiresAt > now }) {
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth().testTag("amb_raise_box")) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(tr("Nobody has offered yet. Raise the fare to reach more ambulances:", "এখনো কেউ ভাড়া বলেননি। আরও গাড়ি পেতে ভাড়া বাড়ান:"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        r.raiseTo?.let { to -> Button(onClick = { raise(to, false) }, enabled = !raising, modifier = Modifier.testTag("amb_raise")) { ButtonContent(raising, tr("Raise to ${taka(to)}", "${taka(to)} পর্যন্ত বাড়ান")) } }
+                        if (r.maxFare != null) OutlinedButton(onClick = { raise(null, false) }, enabled = !raising) { Text(tr("Any fare", "যেকোনো ভাড়া")) }
+                        if (!r.includeUnknown && r.unknownFree > 0) {
+                            OutlinedButton(onClick = { raise(r.maxFare, true) }, enabled = !raising) { Text(tr("Include ${r.unknownFree} with unknown fare", "ভাড়া জানা নেই এমন ${num(r.unknownFree)}টাও")) }
+                        }
+                    }
+                }
+            }
+            InfoText(fareInfo)
 
             // ৬০ সেকেন্ড পরে / সময় শেষে / চালক বাতিল করলে: কাছের ৩টা গাড়িতে সরাসরি ফোন
             if (r.fallback.isNotEmpty() && r.status in listOf("open", "expired", "cancelled")) {
@@ -640,6 +868,8 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                         IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + AmbReqTypes.label(r.type))
                         IconLine(R.drawable.ic_map, Areas.label(r.district, r.upazilaId, r.unionId) + if (r.gps) tr(" · current location given", " · এখনকার জায়গা দেওয়া") else "")
                         IconLine(R.drawable.ic_location_on, r.pickup)
+                        if (r.quote && r.destLabel.isNotBlank()) IconLine(R.drawable.ic_local_hospital, tr("Going to: ", "যাবেন: ") + r.destLabel + if (r.oxygen) tr(" · oxygen", " · অক্সিজেন") else "")
+                        if (r.quote && r.status == "open") IconLine(R.drawable.ic_tune, tr("Fare up to: ", "ভাড়া সর্বোচ্চ: ") + (r.maxFare?.let { taka(it) } ?: tr("any", "যেকোনো")))
                         if (r.note.isNotBlank()) IconLine(R.drawable.ic_info, r.note)
                     }
                 }
@@ -685,12 +915,48 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
         StarRatingDialog(
             title = tr("Rate ", "রেটিং: ") + r.ambulance.name,
             onDismiss = { rating = false },
+            // অ্যাপে ভাড়া ঠিক হয়ে থাকলে: "বলা ভাড়ার চেয়ে বেশি নিয়েছে"
+            extra = r.agreedFare?.let { f -> @Composable { CheckLine(over, tr("Charged more than the agreed fare (${taka(f)})", "বলা ভাড়ার চেয়ে বেশি নিয়েছে (${taka(f)})"), "amb_overcharged") { over = it } } },
             onSubmit = { stars, comment ->
-                Ambulances.rate(r.ambulance.id, stars, comment)
+                Ambulances.rate(r.ambulance.id, stars, comment, if (r.agreedFare != null) over else null)
                 rating = false
                 rated = true
             },
         )
+    }
+}
+
+/** চালকদের প্রস্তাব: ভাড়া কম আগে (সার্ভার সাজায়), প্রতিটায় "রাজি" */
+@Composable
+private fun QuoteList(quotes: List<AmbQuote>, now: Long, agreeing: String?, onAgree: (AmbQuote) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("amb_quotes")) {
+        Text(tr("Fare offers — pick one", "ভাড়ার প্রস্তাব — একটা বেছে নিন"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        SmallNote(tr("Confirmed only when you tap \"Agree\". Each offer stays 2 minutes.", "\"রাজি\" চাপলে তবেই নিশ্চিত। প্রতিটা প্রস্তাব ২ মিনিট থাকে।"))
+        quotes.forEach { q ->
+            val secs = ((q.expiresAt - now) / 1000).coerceAtLeast(0)
+            Surface(shape = RoundedCornerShape(16.dp), color = cs.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(q.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            listOfNotNull(
+                                q.types.joinToString(", ") { AmbReqTypes.label(it) }.ifBlank { null }, kmText(q.km, q.kmApprox),
+                                if (q.ratingCount > 0) "★ ${num(q.rating.toString())} (${num(q.ratingCount)})" else null,
+                            ).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        )
+                        Text(tr("Expires in ", "থাকবে আর ") + num("${secs / 60}:${(secs % 60).toString().padStart(2, '0')}"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    }
+                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(taka(q.fare), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = cs.primary)
+                        Button(onClick = { onAgree(q) }, enabled = agreeing == null, modifier = Modifier.testTag("amb_agree")) {
+                            ButtonContent(agreeing == q.id, tr("Agree", "রাজি"), R.drawable.ic_check_circle)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -724,6 +990,16 @@ private fun AcceptedCard(r: AmbReq, a: AmbCar, scope: kotlinx.coroutines.Corouti
                     kmText(a.km, a.kmApprox)?.let { Text(it + tr(" away", " দূরে"), style = MaterialTheme.typography.bodyMedium, color = cs.onPrimaryContainer) }
                 }
             }
+            // ঠিক হওয়া ভাড়া — বড় করে
+            r.agreedFare?.let { f ->
+                Surface(shape = RoundedCornerShape(12.dp), color = cs.surface, modifier = Modifier.fillMaxWidth().testTag("amb_agreed_fare")) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                        Text(tr("Agreed fare", "ঠিক হওয়া ভাড়া"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+                        Text(taka(f), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
+                        if (r.destLabel.isNotBlank()) Text(tr("To ", "গন্তব্য: ") + r.destLabel, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    }
+                }
+            }
             if (a.phone.isNotBlank()) {
                 Button(onClick = { callDuringRequest(context, scope, a, id) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     ButtonContent(false, tr("Call driver ", "চালককে ফোন ") + num(a.phone), R.drawable.ic_call)
@@ -753,6 +1029,8 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
     var busy by remember { mutableStateOf<String?>(null) }
     var cancelling by remember { mutableStateOf<AmbDriverReq?>(null) }
     var reload by remember { mutableIntStateOf(0) }
+    // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
+    var fares by remember { mutableStateOf(mapOf<String, String>()) }
     val (resumed, _) = rememberResumeTick()
 
     LaunchedEffect(resumed, reload) {
@@ -801,8 +1079,14 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     IconLine(R.drawable.ic_map, where)
                     IconLine(R.drawable.ic_location_on, r.pickup)
                     if (r.note.isNotBlank()) IconLine(R.drawable.ic_info, r.note)
-                    IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + AmbReqTypes.label(r.type))
+                    IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + AmbReqTypes.label(r.type) + if (r.oxygen) tr(" · oxygen needed", " · অক্সিজেন লাগবে") else "")
+                    if (r.quote && r.destLabel.isNotBlank()) IconLine(R.drawable.ic_local_hospital, tr("Going to: ", "যাবেন: ") + r.destLabel)
                     names[r.ambulanceId]?.let { IconLine(R.drawable.ic_ambulance, tr("Your vehicle: ", "আপনার গাড়ি: ") + it) }
+                    if (mine && r.agreedFare != null) {
+                        Surface(shape = RoundedCornerShape(10.dp), color = cs.surface, modifier = Modifier.testTag("amb_driver_agreed")) {
+                            Text(tr("Agreed fare ", "ঠিক হওয়া ভাড়া ") + taka(r.agreedFare), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                        }
+                    }
                     if (mine) {
                         if (r.patientName.isNotBlank()) IconLine(R.drawable.ic_person_outline, r.patientName)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -821,6 +1105,35 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                             }
                             Spacer(Modifier.weight(1f))
                             TextButton(onClick = { cancelling = r }, enabled = busy == null) { Text(tr("Cancel", "বাতিল"), color = cs.error) }
+                        }
+                    } else if (r.quote && r.myQuoteFare != null) {
+                        Surface(shape = RoundedCornerShape(12.dp), color = cs.surface, modifier = Modifier.fillMaxWidth().testTag("amb_quote_wait")) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(tr("Waiting for the patient…", "রোগীর উত্তরের অপেক্ষা…"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(tr("Your fare ", "আপনার ভাড়া ") + taka(r.myQuoteFare) + tr(" — confirmed only when the patient agrees.", " — রোগী \"রাজি\" চাপলে তবেই নিশ্চিত।"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                            }
+                        }
+                    } else if (r.quote) {
+                        val text = fares[r.id] ?: r.suggestedFare?.toString() ?: ""
+                        val fare = parseTaka(text)
+                        val over = fare != null && fare > 0 && r.maxFare != null && fare > r.maxFare
+                        val okFare = fare != null && fare >= 100 && !over
+                        SmallNote(
+                            (r.suggestedFare?.let { tr("From your fare list: ", "আপনার ভাড়ার তালিকা থেকে: ") + taka(it) } ?: tr("Not in your fare list — write your fare.", "আপনার ভাড়ার তালিকায় নেই — ভাড়া লিখুন।")) +
+                                (r.maxFare?.let { tr(" · patient's limit ", " · রোগীর সর্বোচ্চ ") + taka(it) } ?: "") + if (r.night) tr(" · night", " · রাত") else "",
+                        )
+                        OutlinedTextField(
+                            text, { fares = fares + (r.id to it.take(7)) }, label = { Text(tr("Your fare (৳)", "আপনার ভাড়া (৳)")) },
+                            isError = over, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("amb_fare_input"),
+                        )
+                        if (over) ErrorText(tr("The patient's limit is ${taka(r.maxFare)} — you can't offer more.", "রোগীর সর্বোচ্চ ${taka(r.maxFare)} — এর বেশি দেওয়া যায় না।"))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = { act(r, changed = true) { AmbRequests.accept(r.id, fare) } },
+                                enabled = busy == null && okFare, modifier = Modifier.weight(1f).height(48.dp).testTag("amb_accept"),
+                            ) { ButtonContent(busy == r.id, tr("Coming", "আসছি") + if (okFare) " — " + taka(fare) else "", R.drawable.ic_check_circle) }
+                            OutlinedButton(onClick = { act(r) { AmbRequests.decline(r.id) } }, enabled = busy == null, modifier = Modifier.height(48.dp)) { Text(tr("Can't", "পারব না")) }
                         }
                     } else {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
