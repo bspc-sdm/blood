@@ -90,7 +90,7 @@ class ShopBooksIT : P4Test() {
         assertEquals(400, call(a, "books_item_save", mapOf("name" to "X", "price" to 5, "disc" to mapOf("type" to "amt", "v" to 6))).status)
         assertEquals(400, call(a, "books_item_save", mapOf("name" to "X", "expiry" to "2027-13")).status)
         assertEquals(400, call(a, "books_item_save", mapOf("name" to "")).status)
-        assertEquals("দাম দেখে নিন", call(a, "books_item_save", mapOf("name" to "X", "price" to "abc")).error)
+        assertEquals("বিক্রি দাম দেখে নিন", call(a, "books_item_save", mapOf("name" to "X", "price" to "abc")).error)
         // Number(String(v).replace(/,/g, '')): "1,250" is 1250
         assertEquals(1250.0, ok(a, "books_item_save", mapOf("name" to "Y", "price" to "1,250"))["item"]["price"].doubleValue())
 

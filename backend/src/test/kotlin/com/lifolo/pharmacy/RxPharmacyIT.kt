@@ -76,7 +76,7 @@ class RxPharmacyIT : P4Test() {
         assertNotNull(order1["closed_at"])
         assertNull(order1["purge_contact_at"], "a shop order has no contact to purge")
         assertEquals(listOf(listOf("Rosuva 10", "1")), ok(ph1, "rx_pharmacy_home")["missed"].map { listOf(it["name"].textValue(), it["count"].asText()) })
-        assertNotNull(row("SELECT refill_at FROM prescriptions WHERE id = ?", rxId)["refill_at"], "refill reminder date set")
+        assertNull(row("SELECT refill_at FROM prescriptions WHERE id = ?", rxId)["refill_at"], "the whole course of Comet was bought - no refill reminder")
 
         // send again and take back: still-to-buy medicines go to the missed list
         ok(p, "rx_send_pharmacy", mapOf("rxId" to rxId, "pharmacyId" to ph1, "mode" to "shop"))
@@ -218,6 +218,7 @@ class RxPharmacyIT : P4Test() {
         ok(s, "rx_order_update", mapOf("id" to "pgOrdCancel", "status" to "cancelled", "reason" to "স্টক নেই"))
         ok(pp, "rx_order_withdraw", mapOf("id" to "pgOrdWithdraw"))
         ok(s, "rx_dispense", mapOf("code" to "PGRXQQ2222", "items" to listOf(mapOf("i" to 0, "qty" to 10))))
+        assertNotNull(row("SELECT refill_at FROM prescriptions WHERE id = 'pgRx2'")["refill_at"], "10 of 60 bought - refill reminder date set")
         for ((id, st) in listOf("pgOrdCancel" to "cancelled", "pgOrdWithdraw" to "withdrawn", "pgOrdDone" to "done")) {
             val x = row("SELECT * FROM rx_orders WHERE id = ?", id)
             assertEquals(st, x["status"])

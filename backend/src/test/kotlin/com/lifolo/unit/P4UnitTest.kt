@@ -16,6 +16,10 @@ import java.time.OffsetDateTime
 
 /** pure P4 helpers (rxnet.js medicine arithmetic, pharmacyestimate.test.js, shopbooks.js numbers) */
 class P4UnitTest {
+    /** same entries, numbers compared by value */
+    private fun assertMap(expected: Map<String, Any?>, actual: Map<String, Any?>?) =
+        assertEquals(expected.mapValues { (it.value as? Number)?.toDouble() ?: it.value }, actual?.mapValues { (it.value as? Number)?.toDouble() ?: it.value })
+
     private fun med(name: String, form: String = "Tablet", dose: String = "", days: Int = 0) = RxMedicine(0, name, form, "", dose, "", days, "")
 
     @Test
@@ -52,13 +56,13 @@ class P4UnitTest {
         val keys = setOf("comet 500", "napa", "tusca", "seclo 20")
         val prices = mapOf("comet 500" to 7.2, "napa" to 1.2, "tusca" to 85.5)
         val wanted = listOf(w("Comet 500", 10), w("Napa", null), w("Tusca", null, false), w("Seclo 20", 14), w("Zimax", 3))
-        assertEquals(mapOf("total" to 158L, "priced" to 2, "of" to 5, "mrp" to null, "discount" to null), RxMath.pharmacyEstimate(wanted, keys, prices))
-        assertEquals(mapOf("total" to 107L, "priced" to 2, "of" to 2, "mrp" to null, "discount" to null), RxMath.pharmacyEstimate(listOf(w("Comet 500", 3), w("Tusca", null, false)), keys, prices))
-        assertEquals(
+        assertMap(mapOf("total" to 158L, "priced" to 2, "of" to 5, "mrp" to null, "discount" to null), RxMath.pharmacyEstimate(wanted, keys, prices))
+        assertMap(mapOf("total" to 107L, "priced" to 2, "of" to 2, "mrp" to null, "discount" to null), RxMath.pharmacyEstimate(listOf(w("Comet 500", 3), w("Tusca", null, false)), keys, prices))
+        assertMap(
             mapOf("total" to 107L, "priced" to 2, "of" to 2, "mrp" to 110L, "discount" to 3L),
             RxMath.pharmacyEstimate(listOf(w("Comet 500", 3), w("Tusca", null, false)), keys, prices, mapOf("comet 500" to 8.0)),
         )
-        assertEquals(mapOf("total" to 86L, "priced" to 1, "of" to 1, "mrp" to 86L, "discount" to 0L), RxMath.pharmacyEstimate(listOf(w("Tusca", null, false)), keys, prices, mapOf("tusca" to 50.0)))
+        assertMap(mapOf("total" to 86L, "priced" to 1, "of" to 1, "mrp" to 86L, "discount" to 0L), RxMath.pharmacyEstimate(listOf(w("Tusca", null, false)), keys, prices, mapOf("tusca" to 50.0)))
         assertNull(RxMath.pharmacyEstimate(listOf(w("Zimax", 3)), keys, mapOf("zimax" to 30.0)))
         assertNull(RxMath.pharmacyEstimate(wanted, keys, emptyMap()))
         assertNull(RxMath.pharmacyEstimate(wanted, keys, null))
