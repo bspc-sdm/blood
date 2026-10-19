@@ -93,6 +93,11 @@ env:
     timeout: 4000
 - takeScreenshot: j3-09-after-not-now
 # "দোকান" ট্যাব: তথ্য, QR, বন্ধ রাখা, বিক্রি ও স্টক, ওষুধ খোঁজার অনুরোধ, একদম নিচে মুছে ফেলা
+- hideKeyboard
+- back
+- extendedWaitUntil:
+    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+    timeout: 15000
 - tapOn:
     text: "দোকান"
     index: 0
