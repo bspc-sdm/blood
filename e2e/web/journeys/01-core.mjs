@@ -1,5 +1,5 @@
 // রোগীর পুরো যাত্রা (গাইড journey.json J-01…J-25): সিরিয়াল → সারি → প্রেসক্রিপশন → ফার্মেসি → ল্যাব → রিপোর্ট দেখানোর টাকা → ডাক্তার
-import { tap, has, see, go, settle, dhakaISO, bn } from '../lib.mjs';
+import { tap, has, see, go, settle, dhakaISO, bn, bookBtn, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
 
 export const meta = { no: 1, slug: 'core-journey', titleBn: 'রোগীর পুরো যাত্রা: সিরিয়াল থেকে রিপোর্ট' };
 
@@ -33,7 +33,7 @@ export async function run(J) {
     await tap(page, DOC);
     await J.shot('ডা. ডেমো হাসানের পাতা', 'চেম্বার ‘শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল’, রুম ‘ডেমো চেম্বার · বহির্বিভাগ ৩১২’, ফি ৫০০ টাকা, ‘অ্যাপয়েন্টমেন্ট চাই’ বোতাম।');
     // প্রথম চেম্বার = শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
+    await bookBtn(page).first().click();
     const dlg = page.getByRole('dialog');
     await dlg.waitFor();
     await dlg.locator('input[type=date]').fill(dhakaISO(0));
@@ -141,7 +141,7 @@ export async function run(J) {
     page = await J.as('pharmacy');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
     await J.shot('ফার্মেসি: অনলাইন অর্ডার — চালু', '‘ডেমো রোগী রহিম’ — ঠিকানা ‘ডেমো বাসা ৫, শিববাড়ি’, ফোন, ‘খুলে ওষুধ লিখুন’, ‘অর্ডার নিলাম’, ‘পাঠিয়ে দিয়েছি’, ‘পারব না’ — সব বোতাম পুরো দেখা যায়।', { status: 'fixed', noteBn: 'আগে ১৩৬৬ পিক্সেল চওড়া ল্যাপটপ পর্দায় অনলাইন অর্ডারের ছকের ডান দিক কেটে যেত — ‘অর্ডার নিলাম’, ‘পারব না’ বোতাম অর্ধেক দেখা যেত, পাশে টেনে দেখতে হতো। এখন বড় পর্দা (১৬০০+) ছাড়া কার্ডে দেখায়।' });
-    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, শিববাড়ি' }).first();
+    let row = await orderRow(page, 'ডেমো বাসা ৫, শিববাড়ি');
     await row.getByRole('button', { name: 'অর্ডার নিলাম' }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('মোট দাম (ঐচ্ছিক)').fill('৪২০ টাকা');
@@ -149,6 +149,7 @@ export async function run(J) {
     await J.shot('অর্ডার নিন — দাম আর সময়', 'মোট দাম ৪২০ টাকা, কখন পৌঁছাবে ‘এক ঘণ্টায়’।');
     await dlg.getByRole('button', { name: 'নিলাম' }).click();
     await see(page, 'রোগীকে জানানো হয়েছে');
+    row = await orderRow(page, 'ডেমো বাসা ৫, শিববাড়ি');
     await J.shot('অর্ডার নেওয়া হলো', '‘রোগীকে জানানো হয়েছে’; সারিতে ‘৪২০ টাকা · এক ঘণ্টায়’।');
     await row.getByRole('button', { name: 'পাঠিয়ে দিয়েছি' }).click();
     await settle(page, 500);
@@ -158,7 +159,7 @@ export async function run(J) {
   await J.sc('J-09', 'ফার্মেসি: কত ওষুধ দিলেন লেখা (অর্ডার সম্পন্ন)', async () => {
     page = await J.as('pharmacy');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
-    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, শিববাড়ি' }).first();
+    const row = await orderRow(page, 'ডেমো বাসা ৫, শিববাড়ি');
     await row.getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
     await settle(page);
     await J.shot('প্রেসক্রিপশন খোলা — কয়টা দিলেন', 'Comet (৬০টা বাকি) আর Napa (৯টা বাকি) — ‘কয়টা দিলেন’ ঘর আর ‘পুরো’ বোতাম; ওষুধের নিচে ‘খাবারের পরে’।', { status: 'fixed', noteBn: 'আগে ওষুধের নামের নিচে ইংরেজিতে ‘after’ দেখাত (খাওয়ার সময়ের কাঁচা মান)। এখন ‘খাবারের পরে’/‘খাবারের আগে’।' });
@@ -174,7 +175,7 @@ export async function run(J) {
     await see(page, 'লেখা হয়েছে');
     await J.shot('লেখা হয়েছে — দেওয়া শেষ', '‘লেখা হয়েছে’; দুটো ওষুধই ‘দেওয়া শেষ’।');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
-    await tap(page, 'আগের', { role: 'tab' }).catch(() => tap(page, 'আগের'));
+    await tap(page, /^শেষ/, { role: 'tab' });
     await J.shot('অর্ডার ‘আগের’ তালিকায়', 'রহিমের অর্ডার চালু তালিকা থেকে সরে ‘আগের’-এ, অবস্থা ‘দেওয়া হয়েছে’; ঠিকানা/ফোন আর দেখায় না।');
   });
 
@@ -477,20 +478,12 @@ async function pickAreaIfAsked(page) {
 
 /** আমার কাজ › প্যাথলজি › পরীক্ষা ও রিপোর্ট › পরীক্ষার অনুরোধ */
 async function labOrders(page) {
-  await go(page, '/work/lab');
-  await page.locator('.card, section, article').filter({ hasText: /পরীক্ষা ও রিপোর্ট|প্রেসক্রিপশন/ }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  const t = page.getByRole('tab', { name: /পরীক্ষার অনুরোধ/ });
-  if (await t.count()) await t.first().click();
-  await settle(page);
+  await labWorkTab(page);
 }
 
 /** আমার কাজ › ফার্মেসি › প্রেসক্রিপশন ও অর্ডার (খুলুন) › ট্যাব */
 async function pharmacyOrders(page, tab) {
-  await go(page, '/work/pharmacy');
-  await page.locator('.card, section, article').filter({ hasText: 'প্রেসক্রিপশন' }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await pharmacyWork(page, tab);
 }
 
 /** আমার কাজ › প্রেসক্রিপশন › খুলুন (রোগী ট্যাব) */

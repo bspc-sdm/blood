@@ -444,7 +444,7 @@ export async function run(J) {
     await page.getByText('হাসপাতাল', { exact: true }).first().click();
     await settle(page);
     await J.shot('অ্যাডমিন: হাসপাতাল যোগের অনুরোধ', '‘Demo Chayabithi Mother and Child Clinic’ — ধরন ক্লিনিক, গাজীপুর; ‘মেলান’, ‘অনুমোদন’, ‘বাতিল’।', { full: true });
-    const row = page.locator('tr').filter({ hasText: /Kachijhuli/ }).first();
+    const row = page.locator('tr').filter({ hasText: /Chayabithi/ }).first();
     await adminAct(page, row.getByRole('button', { name: 'বাতিল' }).first());
     await J.shot('অনুরোধ বাতিল', '‘অনুরোধ বাতিল করা হয়েছে’; তালিকা খালি।');
   });

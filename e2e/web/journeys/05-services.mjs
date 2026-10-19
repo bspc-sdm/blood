@@ -1,6 +1,6 @@
 // সেবা (গাইড services.json): অ্যাম্বুলেন্স/ফার্মেসি/প্যাথলজি/নার্সের তালিকা, ওষুধ খোঁজা, অনলাইন অর্ডার, দোকানের হিসাব-খাতা,
 // প্যাথলজির দাম আর বাসা থেকে নমুনা, রেটিং, রিপোর্ট, মালিকের অনুমোদন
-import { tap, see, go, settle, logout } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere } from '../lib.mjs';
 import { adminAct } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
@@ -36,16 +36,10 @@ const card = (page, name) => page.locator('article').filter({ hasText: name }).f
 
 /** আমার কাজ › ফার্মেসি › প্রেসক্রিপশন ও অর্ডার › ট্যাব */
 async function shop(page, tab) {
-  await go(page, '/work/pharmacy');
-  await page.locator('.card, section, article').filter({ hasText: 'প্রেসক্রিপশন' }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await pharmacyWork(page, tab);
 }
 async function labWork(page, tab) {
-  await go(page, '/work/lab');
-  await page.locator('.card, section, article').filter({ hasText: /পরীক্ষা ও রিপোর্ট|প্রেসক্রিপশন/ }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await labWorkTab(page, tab);
 }
 async function openRx(page, meds) {
   await go(page, '/prescriptions');
@@ -100,13 +94,13 @@ export async function run(J) {
     await clearFilters(page);
     await card(page, 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস').click();
     await settle(page);
-    await page.getByRole('button', { name: 'কপি' }).first().click();
-    await see(page, 'কপি হয়েছে');
-    await J.shot('আইসিইউ সার্ভিস — নম্বর কপি', 'বিস্তারিত; নম্বর ০১৭০০০০০১৭৪; ‘কপি হয়েছে’।');
+    const copied = await copyIfThere(page);
+    await J.shot(copied ? 'আইসিইউ সার্ভিস — নম্বর কপি' : 'আইসিইউ সার্ভিস — নম্বর', 'বিস্তারিত; নম্বর ০১৭০০০০০১৭৪; ‘কপি হয়েছে’।');
   });
 
   await J.sc('S-03', 'ফার্মেসির তালিকা', async () => {
     await go(page, '/services/pharmacy');
+    await inStore(page);
     await area(page);
     await J.shot('অতিথি: ফার্মেসির তালিকা', 'ডেমো লাইফ (খোলা, ১০% ছাড়, ডেলিভারি ৩০ টাকা), ডেমো ২৪ ঘণ্টা, নিউ মডেল, সেবা ড্রাগ হাউস (‘বন্ধ থাকবে … পর্যন্ত’), কালিয়াকৈর মেডিসিন কর্নার; আরোগ্য নেই।', { full: true });
     await card(page, 'ডেমো লাইফ ফার্মেসি').click();
@@ -116,6 +110,7 @@ export async function run(J) {
 
   await J.sc('S-04', '‘এখন খোলা’ আর ‘২৪ ঘণ্টা’ দিয়ে ছাঁকা', async () => {
     await go(page, '/services/pharmacy');
+    await inStore(page);
     await filter(page, 'শুধু এখন খোলা');
     await J.shot('শুধু এখন খোলা', '‘ডেমো সেবা ড্রাগ হাউস’ নেই।', { full: true });
     await clearFilters(page);
@@ -205,6 +200,7 @@ export async function run(J) {
 
   await J.sc('S-30', 'রোগীর রেটিং: ফার্মেসি (দোকানের সেবা)', async () => {
     await go(page, '/services/pharmacy');
+    await inStore(page);
     await card(page, 'ডেমো লাইফ ফার্মেসি').click();
     await settle(page);
     await J.shot('ডেমো লাইফ — সেবার রেটিং', '★ ৪.৫ (১২); ‘ব্যবহার ★৪.৭ · ঠিক ওষুধ ও দাম ★৪.৪ · ডেলিভারি ★৪.১’; ‘রেটিং দিন’ (অর্ডার পেয়েছেন বলে)।', { full: true });
@@ -224,6 +220,7 @@ export async function run(J) {
 
   await J.sc('S-24', 'তালিকার বিরুদ্ধে রিপোর্ট', async () => {
     await go(page, '/services/pharmacy');
+    await inStore(page);
     const c = card(page, 'ডেমো কালিয়াকৈর মেডিসিন কর্নার');
     await c.getByRole('button', { name: 'আরও' }).click();
     await tap(page, 'রিপোর্ট');
@@ -246,22 +243,23 @@ export async function run(J) {
   // ---------------- ফার্মেসি ----------------
   await J.sc('S-12', 'আমার ফার্মেসি: অবস্থা, QR কোড, ফোনের হিসাব', async () => {
     page = await J.as('pharmacy');
-    await go(page, '/work/pharmacy');
+    await pharmacyWork(page, 'দোকান');
     await J.shot('আমার ফার্মেসি', '‘ডেমো লাইফ ফার্মেসি’ — ‘তালিকায় আছে’, ফোন ০১৭০০০০০১৫০; অ্যাপ থেকে ফোন ৭/৩০/৯০ দিনে; ‘ওষুধ খোঁজার অনুরোধ’।', { full: true });
     await shop(page);
     await J.shot('প্রেসক্রিপশন ও অর্ডার — ওষুধ দিন', 'দোকানের QR আর কোড DEMQKP; ‘আপনার কাছে পাঠানো’, ‘চেয়েও পাননি এমন ওষুধ’।', { full: true });
   });
 
   await J.sc('S-13', 'নতুন অনলাইন অর্ডার নেওয়া ও পাঠানো', async () => {
-    await tap(page, 'অনলাইন অর্ডার', { role: 'tab' });
+    await shop(page);
     await J.shot('অনলাইন অর্ডার — চালু', 'রহিমের জ্বরের অর্ডার (বাসা ১২, রোড ৩, শিববাড়ি; ০১৭০০০০০১৫৯; ‘গেটের দারোয়ানের কাছে দিলেও চলবে’) আর S-11-এর নতুন অর্ডার।', { full: true });
-    const row = page.locator('tr, article').filter({ hasText: 'বাসা ১২' }).filter({ has: page.getByRole('button', { name: 'অর্ডার নিলাম' }) }).first();
+    let row = await orderRow(page, 'বাসা ১২', { button: 'অর্ডার নিলাম' });
     await row.getByRole('button', { name: 'অর্ডার নিলাম' }).click();
     const d = page.getByRole('dialog');
     await d.getByLabel('মোট দাম (ঐচ্ছিক)').fill('৩৫০ টাকা');
     await d.getByLabel('কখন পৌঁছাবে (ঐচ্ছিক)').fill('১ ঘণ্টার মধ্যে');
     await d.getByRole('button', { name: 'নিলাম' }).click();
     await see(page, 'রোগীকে জানানো হয়েছে');
+    row = await orderRow(page, '৩৫০ টাকা', { button: 'পাঠিয়ে দিয়েছি' });
     await row.getByRole('button', { name: 'পাঠিয়ে দিয়েছি' }).click();
     await settle(page, 600);
     await J.shot('অর্ডার নিলাম আর পাঠিয়ে দিলাম', 'অবস্থা ‘পথে আছে’, ৩৫০ টাকা · ১ ঘণ্টার মধ্যে।', { full: true });
@@ -269,7 +267,7 @@ export async function run(J) {
 
   await J.sc('S-14 S-48', 'পৌঁছে দেওয়া অর্ডার সম্পন্ন করা (কী দিলেন লেখা) + S-48 বিক্রির হিসাবে তোলা', async () => {
     // অ্যাজমার অর্ডার: ৪৮০ টাকা · আজ সন্ধ্যা ৭টার মধ্যে (পথে)
-    await page.locator('tr, article').filter({ hasText: '৪৮০' }).first().getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
+    await (await orderRow(page, '৪৮০', { button: 'খুলে ওষুধ লিখুন' })).getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
     await settle(page);
     await page.getByLabel('Montene: কয়টা দিলেন').fill('40');
     await page.getByRole('button', { name: 'যা দিলাম লিখে রাখুন' }).click();
@@ -289,7 +287,7 @@ export async function run(J) {
   });
 
   await J.sc('S-16', 'স্টকের তালিকা আর ‘চেয়েও পাননি’', async () => {
-    await shop(page);
+    await pharmacyWork(page, 'দোকান');
     const brought = page.locator('div, li').filter({ hasText: 'Mixtard 30' }).getByRole('button', { name: 'এনেছি' }).first();
     await J.shot('চেয়েও পাননি এমন ওষুধ', 'Mixtard 30 (৪ বার), Thyrox 50 (২ বার), Nexum 20 (১ বার)।', { full: true });
     await brought.click();
@@ -310,6 +308,7 @@ export async function run(J) {
   });
 
   await J.sc('S-18', 'ফার্মেসির তথ্য বদলানো আর কয়েক দিন বন্ধ রাখা', async () => {
+    await pharmacyWork(page, 'দোকান');
     await tap(page, 'তথ্য বদলান');
     await settle(page);
     await J.shot('ফার্মেসির তথ্য বদলান', 'সময়, ছাড়, ডেলিভারি, লাইসেন্স।', { full: true });
@@ -320,7 +319,7 @@ export async function run(J) {
     await page.getByRole('button', { name: 'সেভ করুন' }).click();
     await see(page, 'সেভ হয়েছে');
     await J.shot('সেভ হয়েছে — অনুমোদন লাগে না', '‘সেভ হয়েছে’ — তালিকায় থাকে।');
-    await go(page, '/work/pharmacy');
+    await pharmacyWork(page, 'দোকান');
     await tap(page, 'কয়েক দিন বন্ধ থাকবে');
     const d = page.getByRole('dialog').last();
     await d.getByText(/^৩ দিন/).first().click();
@@ -409,7 +408,7 @@ export async function run(J) {
   // ---------------- প্যাথলজি ----------------
   await J.sc('S-19', 'আমার প্যাথলজি', async () => {
     page = await J.as('lab');
-    await go(page, '/work/lab');
+    await labWorkTab(page, 'ল্যাবের তথ্য');
     await J.shot('আমার প্যাথলজি', '‘তালিকায় আছে’, ফোন ০১৭০০০০০১৬০; পরীক্ষা ও রিপোর্টের অংশ।', { full: true });
   });
 
@@ -465,7 +464,7 @@ export async function run(J) {
     const c = page.locator('article, .card').filter({ hasText: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)' }).first();
     await c.getByRole('link', { name: /বদলান/ }).or(c.getByRole('button', { name: /বদলান/ })).first().click();
     await settle(page);
-    const fare = page.getByLabel(/ভাড়া/).first();
+    const fare = page.getByLabel(/ভাড়া নিয়ে নোট/).first();
     await fare.fill('শহরের মধ্যে ৯০০ টাকা, ঢাকা ৫৫০০ টাকা');
     const terms = page.getByRole('checkbox').last();
     if (await terms.count()) await terms.check({ force: true }).catch(() => {});

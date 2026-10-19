@@ -342,3 +342,62 @@ export async function adminAct(page, loc) {
   if (await armed.count()) await armed.first().click();
   await settle(page, 700);
 }
+
+/** ডাক্তারের পাতায় চেম্বারের অ্যাপয়েন্টমেন্ট বোতাম (নামের নিচের চেম্বার-কার্ড, aria-label ‘অ্যাপয়েন্টমেন্ট: <চেম্বার>’; ২.৩৩.০-এর আগে ‘অ্যাপয়েন্টমেন্ট চাই’) */
+export const bookBtn = (page) => page.getByRole('button', { name: /^অ্যাপয়েন্টমেন্ট: |^অ্যাপয়েন্টমেন্ট চাই$/ });
+
+/**
+ * আমার কাজ › ফার্মেসি (তিন ট্যাব: অর্ডার · ওষুধ খোঁজা · দোকান › তথ্য/বিক্রি/স্টক/এনালাইটিক্স)। পুরোনো ট্যাবের নামও চলে
+ * (‘অনলাইন অর্ডার’ → অর্ডার, ‘পণ্য ও স্টক’ → দোকান › স্টক)।
+ */
+export async function pharmacyWork(page, tab) {
+  const to = {
+    'অনলাইন অর্ডার': 'orders', 'অর্ডার': 'orders', 'ওষুধ খোঁজা': 'finds', 'দোকান': 'shop', 'তথ্য': 'shop',
+    'বিক্রি': 'shop/sales', 'পণ্য ও স্টক': 'shop/stock', 'স্টক': 'shop/stock', 'এনালাইটিক্স': 'shop/analytics',
+  }[tab] || 'orders';
+  await go(page, `/work/pharmacy/${to}`);
+}
+
+/** আমার কাজ › প্যাথলজি (অনুরোধ · ল্যাব › ল্যাবের তথ্য/পরীক্ষা ও দাম/স্বাভাবিক মাত্রা); পুরোনো ‘পরীক্ষার অনুরোধ’ → অনুরোধ */
+export async function labWorkTab(page, tab) {
+  const to = { 'পরীক্ষা ও দাম': 'orders/prices', 'স্বাভাবিক মাত্রা': 'orders/ranges', 'ল্যাবের তথ্য': 'info', 'ল্যাব': 'info' }[tab] || 'orders';
+  await go(page, `/work/lab/${to}`);
+}
+
+/**
+ * ফার্মেসির/ল্যাবের অর্ডারের সারি — অবস্থা অনুযায়ী আলাদা ট্যাবে থাকে (নতুন · চলছে / তৈরি · শেষ; ল্যাবে নমুনা/চলছে ·
+ * রিপোর্ট দেওয়া), তাই যে ট্যাবে আছে সেটা খুলে সারি ফেরত
+ */
+export async function orderRow(page, text, opt = {}) {
+  const tabs = page.getByRole('tab', { name: /^(নতুন|চলছে|নমুনা|রিপোর্ট দেওয়া|শেষ)/ });
+  const n = await tabs.count();
+  const find = () => {
+    let l = page.locator('tr, article');
+    for (const t of [].concat(text)) l = l.filter({ hasText: t });
+    if (opt.button) l = l.filter({ has: page.getByRole('button', { name: opt.button }) });
+    return vis(l).first();
+  };
+  if (await find().count()) return find();
+  for (let i = 0; i < n; i++) {
+    await tabs.nth(i).click();
+    await settle(page);
+    if (await find().count()) return find();
+  }
+  throw new Error(`সারি পাওয়া যায়নি: ${[].concat(text).join(' + ')}`);
+}
+
+/** সেবা › ফার্মেসি: আগে ‘কীভাবে কিনবেন?’ — ‘দোকানে গিয়ে কিনব’ (কাছের সব ফার্মেসি) বাছা, না চাইলে কিছু না */
+export async function inStore(page) {
+  await settle(page);
+  const r = page.getByRole('radio', { name: /^দোকানে গিয়ে কিনব/ }).or(page.getByRole('button', { name: /^দোকানে গিয়ে কিনব/ }));
+  if (await r.count()) { await r.first().click(); await settle(page); }
+}
+
+/** বিস্তারিতে ‘কপি’ বোতাম থাকলে নম্বর কপি (২.৩x-এ সরানো — তখন কিছু করে না, false) */
+export async function copyIfThere(page) {
+  const copy = page.getByRole('button', { name: 'কপি' }).first();
+  if (!(await copy.count())) return false;
+  await copy.click();
+  await see(page, 'কপি হয়েছে');
+  return true;
+}
