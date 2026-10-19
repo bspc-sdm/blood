@@ -16,8 +16,7 @@ env:
 - tapOn:
     id: "amb_request"
 - extendedWaitUntil:
-    visible:
-      id: "amb_location"
+    visible: "কোথা থেকে নেবে"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
@@ -27,10 +26,8 @@ env:
 - inputText: "https://maps.google.com/?q=24.0849,90.4248"
 - hideKeyboard
 - extendedWaitUntil:
-    visible:
-      id: "amb_map_ok"
+    visible: "Google ম্যাপে দেখুন"
     timeout: 15000
-    optional: true
 - takeScreenshot: j2-01c-amb-map-link
 - scrollUntilVisible:
     element:
@@ -41,7 +38,7 @@ env:
     id: "amb_dest"
 - extendedWaitUntil:
     visible:
-      id: "fac_list"
+      id: "fac_search"
     timeout: 20000
 - extendedWaitUntil:
     visible: ".*মেডিকেল কলেজ.*"
