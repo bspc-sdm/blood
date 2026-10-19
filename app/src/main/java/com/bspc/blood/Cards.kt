@@ -114,11 +114,13 @@ fun DirectoryCard(
     /** দিলে কার্ড চাপলে এই ভাগগুলো নিয়ে বিস্তারিত শিট খোলে */
     sections: List<DetailSection>? = null,
     onClick: (() -> Unit)? = null,
+    /** শিটের নিচে ফোনের পাশে মূল কাজ (DetailSheet-এর main) */
+    main: CardAction? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     var sheet by remember { mutableStateOf(false) }
     if (sheet && sections != null) {
-        DetailSheet(title, icon, photo, iconTint, subtitle, status, rating, ratingCount, meta, sections, primary, secondary, onReport, onDismiss = { sheet = false })
+        DetailSheet(title, icon, photo, iconTint, subtitle, status, rating, ratingCount, meta, sections, primary, secondary, onReport, onDismiss = { sheet = false }, main = main)
     }
     val tap: (() -> Unit)? = onClick ?: if (sections != null) ({ sheet = true }) else null
     val content: @Composable () -> Unit = {
@@ -192,6 +194,18 @@ fun DirectoryCard(
     else Card(Modifier.fillMaxWidth(), colors = colors) { content() }
 }
 
+/** নিচের বারের পাশাপাশি দুই বাটন: কম প্যাডিং, এক লাইন */
+private val BAR_PADDING = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp)
+
+@Composable
+private fun BarButtonText(text: String, @DrawableRes icon: Int?) {
+    if (icon != null) {
+        AppIcon(icon, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+    }
+    Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+}
+
 private fun metaLine(rating: Double, ratingCount: Int, meta: String?): String? = listOfNotNull(
     if (ratingCount > 0) "★ " + num(String.format(java.util.Locale.US, "%.1f", rating)) + " (" + num(ratingCount) + ")" else null,
     meta?.takeIf { it.isNotBlank() },
@@ -199,7 +213,12 @@ private fun metaLine(rating: Double, ratingCount: Int, meta: String?): String? =
 
 /**
  * বিস্তারিত শিট — সব তালিকায় এক রকম: বড় ছবি, নাম, বিশেষজ্ঞতা, রেটিং · দূরত্ব,
- * তারপর ভাগে ভাগে পুরো তথ্য (কাটা পড়ে না), নিচে বড় ফোন বাটন, রেটিং আর রিপোর্ট।
+ * তারপর ভাগে ভাগে পুরো তথ্য (কাটা পড়ে না), নিচে আটকানো বার: ফোন (আর মূল কাজ), রেটিং আর রিপোর্ট।
+ *
+ * নিচের বার (২.২৭.০, পারভেজ): main থাকলে (ফার্মেসি/প্যাথলজি "প্রেসক্রিপশন পাঠান", ডাক্তারের "অ্যাপয়েন্টমেন্ট")
+ * সেটা ভরাট আর ফোন পাশে আউটলাইন — দুটো পাশাপাশি, প্রায় আধাআধি, ছোট লেখা যাতে ৩৬০dp-তেও এক লাইনে ধরে।
+ * main না থাকলে (অ্যাম্বুলেন্স — দ্রুততা আগে, ব্লাড ব্যাংক, বাসায় সেবা) ফোন আগের মতো একা, পুরো চওড়া, ভরাট।
+ * ভাগের ভেতরের বাটনও ভরাট — শুধু ফোনের বাটনগুলো (আইকন ic_call) আউটলাইন।
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -221,6 +240,8 @@ fun DetailSheet(
     footer: @Composable () -> Unit = {},
     /** অবস্থার পাশে ছোট ট্যাগ (ফার্মেসি: "২৪ ঘণ্টা") */
     tags: List<String> = emptyList(),
+    /** নিচের বারে ফোনের পাশে মূল কাজ (ভরাট) — ছোট লেখা দিন */
+    main: CardAction? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
@@ -288,7 +309,11 @@ fun DetailSheet(
                         if (sec.actions.isNotEmpty()) {
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 sec.actions.forEach { a ->
-                                    OutlinedButton(onClick = a.onClick, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, a.label, a.icon) }
+                                    if (a.icon == R.drawable.ic_call) {
+                                        OutlinedButton(onClick = a.onClick, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, a.label, a.icon) }
+                                    } else {
+                                        Button(onClick = a.onClick, shape = RoundedCornerShape(12.dp)) { ButtonContent(false, a.label, a.icon) }
+                                    }
                                 }
                             }
                         }
@@ -301,13 +326,24 @@ fun DetailSheet(
                 }
                 footer()
             }
-            // নিচে সব সময় দেখা যায়: ফোন, রেটিং, রিপোর্ট
-            if (primary != null || secondary != null || onReport != null) {
+            // নিচে সব সময় দেখা যায় (নেভিগেশন বারের ওপরে — ওপরের safeDrawing): ফোন আর মূল কাজ, রেটিং, রিপোর্ট
+            if (primary != null || secondary != null || onReport != null || main != null) {
                 HorizontalDivider(color = cs.outlineVariant, modifier = Modifier.padding(top = 12.dp))
                 Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (primary != null) {
-                        Button(onClick = primary.onClick, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                            ButtonContent(false, primary.label, primary.icon)
+                    if (main != null && primary != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            // পাশে থাকলে ফোন ছোট লেখায় ("ফোন"), আউটলাইন; মূল কাজ ভরাট
+                            OutlinedButton(onClick = primary.onClick, shape = RoundedCornerShape(12.dp), contentPadding = BAR_PADDING, modifier = Modifier.weight(1f).height(48.dp)) {
+                                BarButtonText(if (primary.icon == R.drawable.ic_call) tr("Call", "ফোন") else primary.label, primary.icon)
+                            }
+                            Button(onClick = main.onClick, shape = RoundedCornerShape(12.dp), contentPadding = BAR_PADDING, modifier = Modifier.weight(1f).height(48.dp)) {
+                                BarButtonText(main.label, main.icon)
+                            }
+                        }
+                    } else if (main != null || primary != null) {
+                        val a = main ?: primary!!
+                        Button(onClick = a.onClick, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                            ButtonContent(false, a.label, a.icon)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {

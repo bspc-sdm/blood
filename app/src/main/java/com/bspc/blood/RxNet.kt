@@ -107,6 +107,8 @@ data class LabOrder(
     val prices: PriceSnap? = null,
     /** বাসা থেকে নমুনা (চাইলে) */
     val home: LabHome? = null,
+    /** "আমার কাজ"-এর ভাগ (সার্ভারের lab_orders): new · active · reported · closed — না এলে WorkSegs.lab */
+    val seg: String = "",
 )
 data class RxReview(
     val id: String, val rxId: String, val labOrderId: String, val doctorUid: String, val doctorName: String, val patientName: String,
@@ -151,6 +153,8 @@ data class PharmOrder(
     val id: String, val code: String, val patientName: String, val note: String, val status: String, val createdAt: Long,
     val mode: String = "shop", val price: String = "", val eta: String = "", val deliveryFee: String = "", val address: String = "", val phone: String = "",
     val missed: List<String> = emptyList(),
+    /** "আমার কাজ"-এর ভাগ (সার্ভারের rx_orders_pharmacy): new · active · closed — না এলে WorkSegs.pharm */
+    val seg: String = "",
 )
 data class Lab(
     val id: String, val name: String, val phone: String, val address: String, val district: String, val upazilaId: Int?, val facilityId: String?,
@@ -182,6 +186,7 @@ object RxNet {
         o.optJSONObject("report")?.let { r -> reportOf(r) },
         prices = o.optJSONObject("prices")?.let(::snap),
         home = o.optJSONObject("home")?.let(::home),
+        seg = o.str("seg"),
     )
     private fun snap(p: JSONObject) = PriceSnap(
         p.optJSONArray("items").objs().map { SnapItem(it.str("test"), it.str("name"), it.optInt("price"), it.str("tat")) },
@@ -306,9 +311,15 @@ object RxNet {
                     .put("items", JSONArray(items.filter { it.value > 0 && it.key !in missing }.map { (i, q) -> JSONObject().put("i", i).put("qty", q) })),
             ).getJSONObject("item"),
         )
-    suspend fun pharmacyOrders(): List<PharmOrder> = call("rx_orders_pharmacy").optJSONArray("items").objs().map {
-        PharmOrder(it.str("id"), it.str("code"), it.str("patientName"), it.str("note"), it.str("status"), it.optLong("createdAt"),
-            it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.str("address"), it.str("phone"), it.optJSONArray("missed").strings())
+    /** ফার্মেসির অর্ডার আর ভাগের সংখ্যা (নতুন · চলছে · শেষ) */
+    suspend fun pharmacyOrders(): SegList<PharmOrder> {
+        val o = call("rx_orders_pharmacy")
+        val items = o.optJSONArray("items").objs().map {
+            PharmOrder(it.str("id"), it.str("code"), it.str("patientName"), it.str("note"), it.str("status"), it.optLong("createdAt"),
+                it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.str("address"), it.str("phone"), it.optJSONArray("missed").strings(),
+                seg = it.str("seg").ifBlank { WorkSegs.pharm(it.str("status")) })
+        }
+        return SegList(items, WorkSegs.counts(o.optJSONObject("counts"), WorkSegs.PHARM, items.map { it.seg }))
     }
     suspend fun orderUpdate(id: String, status: String, reason: String = "", price: String = "", eta: String = "") =
         call("rx_order_update", JSONObject().put("id", id).put("status", status).put("reason", reason).put("price", price).put("eta", eta))
@@ -330,7 +341,14 @@ object RxNet {
     suspend fun labSave(facilityId: String?, name: String, district: String, upazilaId: Int?, address: String, licenseNo: String, phone: String, hours: String, homeCollection: Boolean, docs: Map<String, String>) =
         call("lab_save", JSONObject().put("facilityId", facilityId ?: JSONObject.NULL).put("name", name).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
             .put("address", address).put("licenseNo", licenseNo).put("phone", phone).put("hours", hours).put("homeCollection", homeCollection).put("termsAccepted", true).put("docs", VerifyDocs.json(docs)))
-    suspend fun labOrders(): List<LabOrder> = call("lab_orders").optJSONArray("items").objs().map(::labOrder)
+    /** প্যাথলজির অনুরোধ আর ভাগের সংখ্যা (নতুন · চলছে · রিপোর্ট দেওয়া · শেষ) */
+    suspend fun labOrders(): SegList<LabOrder> {
+        val o = call("lab_orders")
+        val items = o.optJSONArray("items").objs().map(::labOrder).map { if (it.seg.isBlank()) it.copy(seg = WorkSegs.lab(it)) else it }
+        return SegList(items, WorkSegs.counts(o.optJSONObject("counts"), WorkSegs.LAB, items.map { it.seg }))
+    }
+    /** নিজের প্যাথলজি সরানো (বন্ধ করা থাকলে সার্ভার দেয় না) */
+    suspend fun labDelete() = call("lab_delete")
     suspend fun labOpenCode(code: String): LabOrder = labOrder(call("lab_open_code", JSONObject().put("code", code)).getJSONObject("item"))
     suspend fun labStatus(id: String, status: String) = call("lab_order_status", JSONObject().put("id", id).put("status", status))
     /** বাসা থেকে নমুনা: সময় নিশ্চিত (date: UTC মধ্যরাত, time "08:00") — রোগী জানেন */
@@ -1248,131 +1266,10 @@ private fun PayDialog(r: RxReview, onDismiss: () -> Unit, onDone: () -> Unit) {
 // ফার্মেসি (মালিক): প্রেসক্রিপশন থেকে ওষুধ দেওয়া, আসা প্রেসক্রিপশন, স্টক
 // ------------------------------------------------------------
 
-@Composable
-fun PharmacyRxSection() {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var code by remember { mutableStateOf("") }
-    var opened by remember { mutableStateOf<PharmRx?>(null) }
-    var orders by remember { mutableStateOf<List<PharmOrder>>(emptyList()) }
-    var home by remember { mutableStateOf<PharmacyHome?>(null) }
-    var reload by remember { mutableIntStateOf(0) }
-    var busy by remember { mutableStateOf(false) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
-    var stockOpen by remember { mutableStateOf(false) }
-    var onlineOpen by remember { mutableStateOf(false) }
-    var missedOpen by remember { mutableStateOf(false) }
-    var accepting by remember { mutableStateOf<PharmOrder?>(null) }
-    LaunchedEffect(reload) {
-        runCatching { RxNet.pharmacyOrders() }.onSuccess { orders = it }
-        runCatching { RxNet.pharmacyHome() }.onSuccess { home = it }
-    }
-    fun open(c: String) {
-        scope.launch {
-            busy = true
-            errorMsg = null
-            runCatching { RxNet.pharmacyOpen(c) }.onSuccess { opened = it }.onFailure { errorMsg = it.message }
-            busy = false
-        }
-    }
-    fun update(o: PharmOrder, status: String, reason: String = "", price: String = "", eta: String = "") {
-        scope.launch {
-            errorMsg = null
-            runCatching { RxNet.orderUpdate(o.id, status, reason, price, eta) }.onSuccess { infoMsg = tr("The patient was told", "রোগীকে জানানো হয়েছে") }.onFailure { errorMsg = it.message }
-            reload++
-        }
-    }
-    val cs = MaterialTheme.colorScheme
-    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(tr("Prescriptions", "প্রেসক্রিপশন"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            home?.let { h ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val qr = remember(h.shopCode) { Qr.bitmap(ShopQr.url(h.shopCode), 360)?.asImageBitmap() }
-                    // QR-এর নিচেই কোড (প্রেসক্রিপশনের QR-এর মতো) — QR না থাকলে পাশে বড় করে
-                    if (qr != null) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Image(qr, tr("Shop QR", "দোকানের QR"), Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)))
-                            QrCodeText(h.shopCode)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("Shop QR & code", "দোকানের QR ও কোড"), style = MaterialTheme.typography.labelLarge)
-                        if (qr == null) Text(h.shopCode, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = cs.primary)
-                    }
-                    Tag(
-                        if (h.online.enabled) tr("Selling online", "অনলাইনে বিক্রি চালু") else tr("In-shop only", "শুধু দোকানে"),
-                        if (h.online.enabled) cs.tertiaryContainer else cs.surfaceVariant,
-                        if (h.online.enabled) cs.onTertiaryContainer else cs.onSurfaceVariant,
-                    )
-                }
-                SmallNote(tr("Put the QR at the counter (print the poster from the web panel or open the link). Customers scan it, type your shop's name or this code to send you their prescription.", "QR কাউন্টারে লাগিয়ে রাখুন (ওয়েব প্যানেল বা নিচের লিংক থেকে পোস্টার ছাপুন)। ক্রেতা QR স্ক্যান করলে, দোকানের নাম বা এই কোড লিখলে প্রেসক্রিপশন আপনার কাছে চলে আসবে।"))
-                SmallAction(tr("Open poster to print", "ছাপার পোস্টার খুলুন"), R.drawable.ic_share, { openUrl(context, ShopQr.url(h.shopCode)) })
-            }
-            SmallNote(tr("Or enter the code under the QR. Note how many you give — the rest can be given by another pharmacy.", "অথবা QR-এর নিচের কোড দিন। কয়টা দিলেন লিখে রাখুন — বাকিটা অন্য ফার্মেসি দিতে পারবে।"))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Prescription code", "প্রেসক্রিপশনের কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = { open(code) }, enabled = !busy && code.length == 10, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy, tr("Open", "খুলুন")) }
-            }
-            ErrorText(errorMsg)
-            InfoText(infoMsg)
-            val pending = orders.filter { it.status in listOf("sent", "ready", "accepted", "out") }
-            if (pending.isNotEmpty()) {
-                Text(tr("Sent to you", "আপনার কাছে পাঠানো"), style = MaterialTheme.typography.labelLarge)
-                pending.forEach { o ->
-                    val online = o.mode == "online"
-                    Card(colors = CardDefaults.cardColors(containerColor = cs.surface)) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                Tag(if (online) tr("Online order", "অনলাইন অর্ডার") else tr("In the shop", "দোকানে এসেছেন"), if (online) cs.primaryContainer else cs.secondaryContainer, if (online) cs.onPrimaryContainer else cs.onSecondaryContainer)
-                            }
-                            Text(RxNetText.orderStatus(o.status) + " · " + timeAgo(o.createdAt), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                            if (online) {
-                                IconLine(R.drawable.ic_location_on, o.address)
-                                IconLine(R.drawable.ic_call, num(o.phone))
-                            }
-                            if (o.note.isNotBlank()) SmallNote(o.note)
-                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                SmallAction(if (online) tr("Open & note medicines", "খুলে ওষুধ লিখুন") else tr("Open", "খুলুন"), null, { code = o.code; open(o.code) }, primary = true)
-                                if (!online && o.status == "sent") SmallAction(tr("Ready", "তৈরি"), null, { update(o, "ready") })
-                                if (online && o.status == "sent") SmallAction(tr("Accept", "অর্ডার নিলাম"), null, { accepting = o })
-                                if (online && o.status in setOf("sent", "accepted")) SmallAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), null, { update(o, "out") })
-                                if (online) SmallAction(tr("Call", "ফোন"), R.drawable.ic_call, { callPhone(context, o.phone) })
-                                SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) })
-                            }
-                        }
-                    }
-                }
-            }
-            OutlinedButton(onClick = { onlineOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Selling online", "অনলাইনে বিক্রি"), R.drawable.ic_local_shipping) }
-            OutlinedButton(onClick = { missedOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                ButtonContent(false, tr("Asked for but not available", "চেয়েও পাননি এমন ওষুধ") + (home?.missed?.size?.takeIf { it > 0 }?.let { " (${num(it)})" } ?: ""), R.drawable.ic_list_alt)
-            }
-            OutlinedButton(onClick = { stockOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("My stock list", "আমার স্টকের তালিকা"), R.drawable.ic_list_alt) }
-            SmallNote(tr("Keep a stock list so patients can see which medicines you have.", "স্টকের তালিকা রাখলে রোগীরা দেখতে পাবেন আপনার কাছে কোন ওষুধ আছে।"))
-            PharmacyTodayCard() // আজকের হিসাব (পুরো হিসাব ওয়েবে) — PharmacyBooks.kt
-        }
-    }
-    opened?.let { rx -> DispenseDialog(rx, onDismiss = { opened = null; reload++ }) }
-    if (stockOpen) StockDialog { stockOpen = false }
-    home?.let { h ->
-        if (onlineOpen) OnlineSettingsDialog(h, onDismiss = { onlineOpen = false }) { onlineOpen = false; infoMsg = tr("Saved", "সেভ হয়েছে"); reload++ }
-        if (missedOpen) MissedDialog(h.missed, onDismiss = { missedOpen = false; reload++ })
-    }
-    accepting?.let { o ->
-        AcceptOrderDialog(o, onDismiss = { accepting = null }) { price, eta ->
-            accepting = null
-            update(o, "accepted", price = price, eta = eta)
-        }
-    }
-}
+// আসা অর্ডার আর দোকানের QR/সেটিং এখন দুই ট্যাবে — MyWorkTabs.kt (২.২৭.০)
 
 @Composable
-private fun AcceptOrderDialog(o: PharmOrder, onDismiss: () -> Unit, onAccept: (String, String) -> Unit) {
+internal fun AcceptOrderDialog(o: PharmOrder, onDismiss: () -> Unit, onAccept: (String, String) -> Unit) {
     var price by remember { mutableStateOf("") }
     var eta by remember { mutableStateOf("") }
     FormDialog(
@@ -1393,7 +1290,7 @@ private fun AcceptOrderDialog(o: PharmOrder, onDismiss: () -> Unit, onAccept: (S
 
 /** ফার্মেসি: অনলাইনে বিক্রি চালু/বন্ধ, ডেলিভারির দূরত্ব, চার্জ */
 @Composable
-private fun OnlineSettingsDialog(h: PharmacyHome, onDismiss: () -> Unit, onSaved: () -> Unit) {
+internal fun OnlineSettingsDialog(h: PharmacyHome, onDismiss: () -> Unit, onSaved: () -> Unit) {
     val scope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(h.online.enabled) }
     var radius by remember { mutableStateOf(h.online.radiusKm.toString()) }
@@ -1441,7 +1338,7 @@ private fun OnlineSettingsDialog(h: PharmacyHome, onDismiss: () -> Unit, onSaved
 
 /** ক্রেতা চেয়েও পাননি এমন ওষুধ (কতবার) — স্টকে আনলে "এনেছি" */
 @Composable
-private fun MissedDialog(start: List<Missed>, onDismiss: () -> Unit) {
+internal fun MissedDialog(start: List<Missed>, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val list = remember { mutableStateListOf(*start.toTypedArray()) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -1476,7 +1373,7 @@ private fun MissedDialog(start: List<Missed>, onDismiss: () -> Unit) {
 
 /** ফার্মেসি: প্রতিটা ওষুধে কয়টা দিলেন; না থাকলে "নেই" (রোগী জানেন, চাহিদার তালিকায় জমা) */
 @Composable
-private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
+internal fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var rx by remember { mutableStateOf(start) }
     val qty = remember { mutableStateMapOf<Int, String>() }
@@ -1558,7 +1455,7 @@ private fun DispenseDialog(start: PharmRx, onDismiss: () -> Unit) {
 
 /** ফার্মেসির স্টকের তালিকা: সরকারি তালিকা থেকে খুঁজে যোগ, সরানো */
 @Composable
-private fun StockDialog(onDismiss: () -> Unit) {
+internal fun StockDialog(onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<String>?>(null) }
     var q by remember { mutableStateOf("") }
@@ -1725,13 +1622,16 @@ fun rxSendGate(close: () -> Unit, then: () -> Unit) {
 @Composable
 fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit, onSent: (RxSent) -> Unit) {
     var rx by remember { mutableStateOf<Rx?>(null) }
+    // চালু প্রেসক্রিপশন একটাই হলে "কোনটা পাঠাবেন?" না দেখিয়ে সেটাই (২.২৭.০, এক চাপ কম) — তখন পেছনে গেলে পুরোটা বন্ধ
+    var auto by remember { mutableStateOf(false) }
+    val back: () -> Unit = { if (auto) onDismiss() else { rx = null } }
     val r = rx
     when {
-        r == null -> RxPickDialog(forLab = lab != null, onDismiss = onDismiss) { rx = it }
-        lab != null -> LabPickDialog(r, profile, onDismiss = { rx = null }, only = lab) { name, home ->
+        r == null -> RxPickDialog(forLab = lab != null, onDismiss = onDismiss, onOnly = { auto = true; rx = it }) { rx = it }
+        lab != null -> LabPickDialog(r, profile, onDismiss = back, only = lab) { name, home ->
             onSent(RxSent(r.id, r.doctorName, r.createdAt, name, if (home) "lab_home" else "lab"))
         }
-        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = { rx = null }) { mode ->
+        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = back) { mode ->
             onSent(RxSent(r.id, r.doctorName, r.createdAt, pharmacy.name, mode))
         }
     }
@@ -1739,13 +1639,14 @@ fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -
 
 /** রোগীর চালু প্রেসক্রিপশন — প্রতিটায় ডাক্তার, তারিখ, আর পরীক্ষা (forLab) বা ওষুধের নাম */
 @Composable
-private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onPick: (Rx) -> Unit) {
+private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onOnly: (Rx) -> Unit, onPick: (Rx) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var list by remember { mutableStateOf<List<Rx>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         runCatching { RxApi.mine() }.onSuccess { all ->
-            list = all.filter { !it.cancelled && if (forLab) it.tests.isNotEmpty() else it.medicines.isNotEmpty() }
+            val l = all.filter { !it.cancelled && if (forLab) it.tests.isNotEmpty() else it.medicines.isNotEmpty() }
+            if (l.size == 1) onOnly(l[0]) else list = l
         }.onFailure {
             if (it is kotlinx.coroutines.CancellationException) throw it
             errorMsg = it.message
@@ -1952,145 +1853,17 @@ private fun LabInfoSheet(lab: Lab, onSendRx: () -> Unit, onDismiss: () -> Unit) 
                 ) else listOf(R.drawable.ic_call to LabPriceText.noPrice()),
                 rows = list?.items?.map { DetailRow(it.name, LabPriceText.taka(it.price), if (it.tat.isNotBlank()) tr("Report: ", "রিপোর্ট: ") + it.tat else "") }.orEmpty(),
             ),
-            // প্রেসক্রিপশনের পরীক্ষা: এখান থেকেই পাঠানো (আগে শুধু লেখা ছিল "প্রেসক্রিপশন খুলে … চাপুন")
-            DetailSection(
-                tr("Tests from a prescription", "প্রেসক্রিপশনের পরীক্ষা"),
-                emptyList(),
-                button = CardAction(tr("Send a prescription to this lab", "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
-            ),
         ),
         CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) { callPhone(context, lab.phone) }, null, null, onDismiss = onDismiss,
+        // ২.২৭.০: প্রেসক্রিপশনের পরীক্ষা পাঠানো নিচের বারে ফোনের পাশে (আগে ভেতরে স্ক্রল করা আলাদা ভাগে ছিল)
+        main = CardAction(tr("Send prescription", "প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
     )
 }
 
-/** নিজের প্যাথলজি: না থাকলে নিবন্ধন, থাকলে অবস্থা, কাগজ, আসা পরীক্ষা আর রিপোর্ট দেওয়া */
-@Composable
-fun MyLabPanel(profile: Profile) {
-    val scope = rememberCoroutineScope()
-    var lab by remember { mutableStateOf<Lab?>(null) }
-    var loaded by remember { mutableStateOf(false) }
-    var reload by remember { mutableIntStateOf(0) }
-    var editing by remember { mutableStateOf(false) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var infoMsg by remember { mutableStateOf<String?>(null) }
-    var orders by remember { mutableStateOf<List<LabOrder>>(emptyList()) }
-    // অনুরোধ আসার আগে "এখনো কোনো অনুরোধ নেই" দেখাত (E2E-র ছবিতে ধরা পড়ে) — আসার পরেই শুধু
-    var ordersLoaded by remember { mutableStateOf(false) }
-    var code by remember { mutableStateOf("") }
-    var entering by remember { mutableStateOf<LabOrder?>(null) }
-    var viewing by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var confirming by remember { mutableStateOf<LabOrder?>(null) }
-    var declining by remember { mutableStateOf<LabOrder?>(null) }
-    val context = LocalContext.current
-    LaunchedEffect(reload) {
-        runCatching { RxNet.labMine() }.onSuccess { lab = it; errorMsg = null }.onFailure { errorMsg = it.message }
-        loaded = true
-        if (lab?.status == "approved") runCatching { RxNet.labOrders() }.onSuccess { orders = it; ordersLoaded = true }
-    }
-    if (editing) {
-        androidx.activity.compose.BackHandler { editing = false }
-        LabEditScreen(lab, profile, onBack = { editing = false }) { pending ->
-            editing = false
-            infoMsg = if (pending) tr("Sent for approval. An admin will check the licence.", "অনুমোদনের জন্য পাঠানো হয়েছে। অ্যাডমিন লাইসেন্স যাচাই করবেন।") else tr("Saved", "সেভ হয়েছে")
-            reload++
-        }
-        return
-    }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ErrorText(errorMsg)
-        InfoText(infoMsg)
-        val l = lab
-        val cs = MaterialTheme.colorScheme
-        when {
-            !loaded -> LoadingBox()
-            l == null && errorMsg == null -> {
-                EmptyState(R.drawable.ic_local_hospital, tr("Run a diagnostic centre?", "ডায়াগনস্টিক সেন্টার চালান?"),
-                    tr("Join so patients can send you tests from their prescriptions, and give reports in the app. Free.", "যোগ দিন — রোগীরা প্রেসক্রিপশন থেকে আপনার কাছে পরীক্ষা পাঠাবেন, রিপোর্ট অ্যাপেই দেবেন। বিনামূল্যে।"),
-                    Modifier.padding(top = 24.dp))
-                Button(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Add my lab", "আমার প্যাথলজি যোগ করুন"), R.drawable.ic_add) }
-            }
-            l != null -> {
-                Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(l.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(statusText(l.status), style = MaterialTheme.typography.labelLarge, color = cs.primary)
-                        StatusReasonLine(l.status, l.statusReason)
-                        DocsNeededNotice("lab", l.id, VerifyDocs.lab(), l.docsMissing, l.docsRequested, l.docsNote) { reload++ }
-                        IconLine(R.drawable.ic_call, num(l.phone))
-                        if (l.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
-                        OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
-                        if (l.status == "suspended" || l.status == "rejected") AppealButton("other")
-                    }
-                }
-                if (l.status == "approved") {
-                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(tr("Tests", "পরীক্ষা"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            // পরীক্ষা ও দাম বসানো ওয়েবে (বসে করার কাজ)
-                            SmallAction(tr("Set prices on the web", "দাম বসাতে ওয়েবে খুলুন"), R.drawable.ic_payments, { openUrl(context, ServerApi.BASE_URL + "/work/lab/orders/prices") })
-                            SmallNote(tr("Patient came with a paper prescription? Enter the code under the QR.", "রোগী কাগজের প্রেসক্রিপশন নিয়ে এলে QR-এর নিচের কোড দিন।"))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(code, { code = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(10) }, label = { Text(tr("Code", "কোড")) }, singleLine = true, modifier = Modifier.weight(1f))
-                                Spacer(Modifier.width(8.dp))
-                                Button(onClick = {
-                                    scope.launch {
-                                        busy = true
-                                        errorMsg = null
-                                        runCatching { RxNet.labOpenCode(code) }.onSuccess { code = ""; entering = it; reload++ }.onFailure { errorMsg = it.message }
-                                        busy = false
-                                    }
-                                }, enabled = !busy && code.length == 10, shape = RoundedCornerShape(12.dp)) { ButtonContent(busy, tr("Open", "খুলুন")) }
-                            }
-                            if (orders.isEmpty() && ordersLoaded) SmallNote(tr("No test requests yet", "এখনো কোনো পরীক্ষার অনুরোধ নেই"))
-                            orders.forEach { o ->
-                                HorizontalDivider()
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                                        Text(o.tests.joinToString(", "), style = MaterialTheme.typography.bodySmall)
-                                        Text(RxNetText.labStatus(o.status) + " · " + timeAgo(o.createdAt), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                                    }
-                                    when (o.status) {
-                                        "sent" -> SmallAction(tr("Sample taken", "নমুনা নিয়েছি"), null, { scope.launch { runCatching { RxNet.labStatus(o.id, "received") }.onFailure { errorMsg = it.message }; reload++ } })
-                                        "received" -> SmallAction(tr("Give report", "রিপোর্ট দিন"), null, { entering = o }, primary = true)
-                                        "reported" -> SmallAction(tr("View", "দেখুন"), null, { viewing = o.id })
-                                    }
-                                }
-                                // বাসা থেকে নমুনা: ঠিকানা, ফোন, চাওয়া/নিশ্চিত সময় — সময় নিশ্চিত, বা যেতে পারব না
-                                val h = o.home
-                                if (h != null && o.status in setOf("sent", "received")) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        IconLine(R.drawable.ic_home_health, LabPriceText.homeLineLab(h), when (h.status) { "requested" -> cs.primary; "expired" -> cs.error; else -> cs.onSurfaceVariant })
-                                        if (h.status != "declined") {
-                                            if (h.address.isNotBlank()) IconLine(R.drawable.ic_location_on, h.address)
-                                            if (h.phone.isNotBlank()) SmallAction(num(h.phone), R.drawable.ic_call, { callPhone(context, h.phone) })
-                                            if (h.note.isNotBlank()) SmallNote(h.note)
-                                        }
-                                        if (o.status == "sent" && h.status != "declined") {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                SmallAction(if (h.status == "confirmed") tr("Change time", "সময় বদলান") else tr("Confirm time", "সময় নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = o }, primary = h.status != "confirmed")
-                                                SmallAction(tr("Can't go", "যেতে পারব না"), R.drawable.ic_close, { declining = o })
-                                            }
-                                        }
-                                    }
-                                }
-                                if (o.prices != null && o.status in setOf("sent", "received")) SmallNote(LabPriceText.snapLine(o.prices, o.home))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    entering?.let { o -> LabReportEntryDialog(o, onDismiss = { entering = null }) { entering = null; infoMsg = tr("Report sent to the patient", "রোগীর কাছে রিপোর্ট গেছে"); reload++ } }
-    confirming?.let { o -> HomeConfirmDialog(o, onDismiss = { confirming = null }) { confirming = null; infoMsg = tr("The patient was told the time", "রোগীকে সময় জানানো হয়েছে"); reload++ } }
-    declining?.let { o -> HomeDeclineDialog(o, onDismiss = { declining = null }) { declining = null; infoMsg = tr("The patient was told", "রোগীকে জানানো হয়েছে"); reload++ } }
-    viewing?.let { id -> LabReportDialog(id) { viewing = null } }
-}
+// নিজের প্যাথলজি (MyLabPanel) — দুই ট্যাবে: MyWorkTabs.kt (২.২৭.০)
 
 @Composable
-private fun LabEditScreen(existing: Lab?, profile: Profile, onBack: () -> Unit, onSaved: (Boolean) -> Unit) {
+internal fun LabEditScreen(existing: Lab?, profile: Profile, onBack: () -> Unit, onSaved: (Boolean) -> Unit) {
     val scope = rememberCoroutineScope()
     var facilityId by remember { mutableStateOf(existing?.facilityId) }
     var name by remember { mutableStateOf(existing?.name.orEmpty()) }
@@ -2184,7 +1957,7 @@ private fun fmtNum(d: Double?): String = when {
  * বেশি/কম নিজে থেকে। মেশিনের মাত্রা আলাদা হলে বদলে "আমার ল্যাবের জন্য রাখুন"। ছক না থাকলে আগের মতো নিজে লেখা।
  */
 @Composable
-private fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent: () -> Unit) {
+internal fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent: () -> Unit) {
     val scope = rememberCoroutineScope()
     val rows = remember { mutableStateListOf<EntryRow>() }
     var loaded by remember { mutableStateOf(false) }

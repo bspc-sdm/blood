@@ -337,7 +337,11 @@ fun App(
             // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর অন্য খবর / নতুন আমন্ত্রণ
             type == "care" -> push(Screen.Care)
             // ফার্মেসি/প্যাথলজির মালিক (প্রেসক্রিপশন, পরীক্ষার অনুরোধ), দোকানের কাছে ওষুধ খোঁজা: নিজের পাতা ("আমার কাজ")
-            type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
+            // ২.২৭.০: নতুন অর্ডার/অনুরোধ → প্রথম ট্যাবের "নতুন" ভাগ; ওষুধ খোঁজার অনুরোধ → "দোকান" ট্যাব
+            type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> {
+                WorkNav.target.value = if (type == "med_find") "shop" else "orders"
+                push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
+            }
             // নিজের ওষুধ খোঁজার উত্তর: সেবা › ফার্মেসি › "ওষুধ খুঁজুন"
             type == "med_find_mine" -> {
                 ServicesNav.target.value = type
@@ -351,7 +355,10 @@ fun App(
                 homeRefresh++
             }
             // দোকানের মালিকের খবর: সরাসরি নিজের ফার্মেসির পাতা
-            type == "pharmacy_order" || type == "pharmacy_mine" -> push(Screen.MyBusiness("pharmacy"))
+            type == "pharmacy_order" || type == "pharmacy_mine" -> {
+                WorkNav.target.value = "orders"
+                push(Screen.MyBusiness("pharmacy"))
+            }
             // অনুমোদন/বাতিল/বন্ধের খবর (kind: কোন ব্যবসা) — নিজের সেই পাতা; kind না থাকলে "আমার কাজ"
             type == "services" -> {
                 val kind = data["kind"]
