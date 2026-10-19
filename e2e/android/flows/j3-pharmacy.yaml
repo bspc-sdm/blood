@@ -59,15 +59,8 @@ env:
 - takeScreenshot: j3-05c-code-dialog
 - tapOn: ".*প্রেসক্রিপশনের কোড.*"
 - inputText: "DEMXRXB333"
+# কিবোর্ডের "Go" (Enter) চাপলেই খোলে — আলাদা "খুলুন" লাগে না
 - pressKey: Enter
-- runFlow:
-    when:
-      visible: ".*প্রেসক্রিপশনের কোড.*"
-    commands:
-      - hideKeyboard
-      - tapOn:
-          text: "খুলুন"
-          index: 0
 - extendedWaitUntil:
     visible: ".*ওষুধ দিন.*"
     timeout: 30000
