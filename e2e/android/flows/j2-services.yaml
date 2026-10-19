@@ -21,8 +21,8 @@ env:
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: j2-01b-amb-sheet
-- tapOn:
-    id: "amb_pickup"
+# (ডায়ালগ আলাদা জানালা — সেখানে testTag id হিসেবে আসে না, তাই লেখা দিয়ে)
+- tapOn: "লোকেশন লিখুন"
 - inputText: "https://maps.google.com/?q=24.0849,90.4248"
 - hideKeyboard
 - extendedWaitUntil:
@@ -30,23 +30,19 @@ env:
     timeout: 15000
 - takeScreenshot: j2-01c-amb-map-link
 - scrollUntilVisible:
-    element:
-      id: "amb_dest"
+    element: "হাসপাতাল বা ক্লিনিক বেছে নিন.*"
     direction: DOWN
     timeout: 10000
-- tapOn:
-    id: "amb_dest"
+- tapOn: "হাসপাতাল বা ক্লিনিক বেছে নিন.*"
 - extendedWaitUntil:
-    visible:
-      id: "fac_search"
+    visible: "হাসপাতাল বা ক্লিনিক খুঁজুন"
     timeout: 20000
 - extendedWaitUntil:
     visible: ".*মেডিকেল কলেজ.*"
     timeout: 20000
     optional: true
 - takeScreenshot: j2-01d-amb-facilities
-- tapOn:
-    id: "fac_search"
+- tapOn: "হাসপাতাল বা ক্লিনিক খুঁজুন"
 - inputText: "Dhaka Medical"
 - hideKeyboard
 - extendedWaitUntil:
