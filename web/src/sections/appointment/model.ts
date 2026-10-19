@@ -532,3 +532,100 @@ export function homeDistance(km: number | null): string | null {
   return k <= 2 ? tr('Within 2 km', '২ কিমির মধ্যে') : tr(`About ${k} km away`, `প্রায় ${num(k)} কিমি দূরে`);
 }
 export const coverageText = (radiusKm: number, upazilaLabels: string[]) => [tr(`Within ${radiusKm} km`, `${num(radiusKm)} কিমির মধ্যে`), ...upazilaLabels].join(' · ');
+
+// ---------- চেম্বারের আজকের অবস্থা (২.৩৩.০, পারভেজ) ----------
+// সার্ভারের care.js chamberNowOpen/chamberToday-এর মতো, ঢাকার সময়ে: আজকের ভাগ শেষ = শুরু < শেষ আর এখন ≥ শেষ;
+// রাত পেরোনো ভাগ (১৬:০০–০১:০০) মাঝরাতের পরেও "এখন চেম্বারে"। অ্যাপের ChamberState (Care.kt) একই নিয়মে।
+const HM = /^\d{2}:\d{2}$/;
+/** কোন অবস্থা: এখন বসছেন / আজ পরে / পরের কোনো দিন / জানা নেই (সময় লেখা নেই) / সামনে নেই */
+export type ChamberStateKind = 'now' | 'today' | 'later' | 'unknown' | 'none';
+export interface ChamberState {
+  kind: ChamberStateKind;
+  /** ছোট লেখা: "আজ বসবেন ৪টা–৯টা" / "আজ বন্ধ · আগামীকাল ১০টা" */
+  text: string;
+  /** পরের বসার দিন (UTC মধ্যরাত) আর সময় — বুকিংয়ে আগে থেকে বাছা আর "কোন চেম্বারে?"-এ লম্বা লেখা */
+  date: number | null;
+  start: string;
+  end: string;
+}
+/** "16:00" → "৪টা" / "4 PM"; "16:30" → "৪:৩০" / "4:30 PM" */
+export function shortTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map((x) => parseInt(x, 10));
+  if (!Number.isFinite(h)) return hhmm;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  if (isBangla()) return m ? `${num(h12)}:${num(String(m).padStart(2, '0'))}` : `${num(h12)}টা`;
+  return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`;
+}
+const range = (t: ChamberTime) => `${shortTime(t.start)}–${shortTime(t.end)}`;
+const dhakaHHMM = (now: number) => {
+  const d = new Date(now + 6 * 3600 * 1000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+};
+const dhakaToday = (now: number) => Math.floor((now + 6 * 3600 * 1000) / DAY_MS) * DAY_MS;
+const slotsOn = (c: Chamber, date: number) => {
+  const wd = new Date(date).getUTCDay();
+  return slotsOf(c).filter((t) => !t.days.length || t.days.includes(wd)).slice().sort((a, b) => a.start.localeCompare(b.start));
+};
+export function chamberState(c: Chamber, now = Date.now()): ChamberState {
+  const t0 = dhakaToday(now);
+  const t = dhakaHHMM(now);
+  const timed = (x: ChamberTime) => HM.test(x.start) && HM.test(x.end);
+  const all = slotsOf(c);
+  if (!all.some(timed) && !all.some((x) => x.days.length)) return { kind: 'unknown', text: '', date: null, start: '', end: '' };
+  // এখন বসছেন (আজকের ভাগ, বা গতকালের রাত পেরোনো ভাগ এখনো চলছে)
+  const nowSlot = chamberOpenOn(c, t0) ? slotsOn(c, t0).find((x) => timed(x) && (x.start < x.end ? t >= x.start && t < x.end : t >= x.start)) : undefined;
+  const lastNight = chamberOpenOn(c, t0 - DAY_MS) ? slotsOn(c, t0 - DAY_MS).find((x) => timed(x) && x.start >= x.end && t < x.end) : undefined;
+  const cur = nowSlot ?? lastNight;
+  if (cur) return { kind: 'now', text: tr(`In chamber now · until ${shortTime(cur.end)}`, `এখন চেম্বারে · ${shortTime(cur.end)} পর্যন্ত`), date: nowSlot ? t0 : t0 - DAY_MS, start: cur.start, end: cur.end };
+  const todayOpen = chamberOpenOn(c, t0);
+  if (todayOpen) {
+    const next = slotsOn(c, t0).find((x) => !timed(x) || x.start > t);
+    if (next) return { kind: 'today', text: timed(next) ? tr(`Today ${range(next)}`, `আজ বসবেন ${range(next)}`) : tr('Sits today', 'আজ বসবেন'), date: t0, start: next.start, end: next.end };
+  }
+  for (let i = 1; i <= 7; i++) {
+    const d = t0 + i * DAY_MS;
+    if (!chamberOpenOn(c, d)) continue;
+    const first = slotsOn(c, d)[0];
+    const at = first && timed(first) ? ' ' + shortTime(first.start) : '';
+    const when = i === 1 ? tr('Tomorrow', 'আগামীকাল') + at : dayShort(new Date(d).getUTCDay()) + at;
+    const pre = todayOpen ? tr('Done today', 'আজ শেষ') : tr('Closed today', 'আজ বন্ধ');
+    return { kind: 'later', text: `${pre} · ${when}`, date: d, start: first?.start ?? '', end: first?.end ?? '' };
+  }
+  return { kind: 'none', text: tr('No upcoming days', 'সামনে বসার দিন নেই'), date: null, start: '', end: '' };
+}
+/** "কোন চেম্বারে?"-এ পরের সময়: "আজ, বিকাল ৪:০০ – রাত ১:০০" / "আগামীকাল (মঙ্গল, ২০ অক্টোবর), সকাল ১০:০০" */
+export function nextSlotText(s: ChamberState, now = Date.now()): string {
+  if (s.date == null) return s.text;
+  const t0 = dhakaToday(now);
+  const time = s.start && s.end ? `${hhmmText(s.start)} – ${hhmmText(s.end)}` : '';
+  if (s.kind === 'now') return [tr('In chamber now', 'এখন চেম্বারে'), time].filter(Boolean).join(' · ');
+  const day = s.date === t0 ? tr('Today', 'আজ') : s.date === t0 + DAY_MS ? tr('Tomorrow', 'আগামীকাল') : dayShort(new Date(s.date).getUTCDay());
+  const d = new Date(s.date);
+  const dm = isBangla() ? `${num(d.getUTCDate())} ${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][d.getUTCMonth()]}` : `${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]}`;
+  return `${day} (${dm})` + (time ? ', ' + time : '');
+}
+/** তালিকা/শিটের ছোট নাম: বন্ধনীর লেখা বাদ */
+export const chamberShort = (c: Pick<Chamber, 'hospitalName' | 'hospitalNameBn'>) => chamberLabel(c).replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim() || chamberLabel(c);
+/** উপজেলা (না থাকলে জেলা) */
+export const chamberPlace = (c: Chamber) => (c.upazilaId != null ? areaLabel(c.district, c.upazilaId).split(',')[0] : areaLabel(c.district)) || c.address;
+/** ছোট ফি: "৳৫০০" / "ফি নেই"; বোঝা না গেলে লেখাটাই */
+export function feeShort(c: Pick<Chamber, 'fee' | 'noFee'>): string {
+  if (c.noFee) return tr('No fee', 'ফি নেই');
+  const t = c.fee.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/(\d),(?=\d{3})/g, '$1');
+  const m = /\d+/.exec(t);
+  if (!m) return c.fee;
+  return '৳' + num(Number(m[0]).toLocaleString('en-IN'));
+}
+
+// ---------- ডাক্তারের তালিকার ছাঁকনি (২.৩৩.০) — শেষবারেরটা মনে থাকে (ব্রাউজারে, ধরনপ্রতি) ----------
+export interface DoctorFilters {
+  day: 'today' | 'tomorrow' | null;
+  openNow: boolean;
+  specialty: string | null;
+  maxFee: number | null;
+  hospitalQ: string;
+  gender: 'male' | 'female' | null;
+}
+export const NO_DOCTOR_FILTERS: DoctorFilters = { day: null, openNow: false, specialty: null, maxFee: null, hospitalQ: '', gender: null };
+export const FEE_STEPS = [300, 500, 1000];
+export interface SpecialtyFacet { code: string; n: number }

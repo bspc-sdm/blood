@@ -122,3 +122,42 @@
 .appt-qp-pick:disabled { cursor: default; }
 .appt-qp-name { min-width: 0; }
 .appt-qp-reply { margin-left: auto; }
+
+/* ২.৩৩.০ ডাক্তারের তালিকার ছাঁকনির চিপ (চালু = ভরাট ✕, পরামর্শ = আউটলাইন) */
+.appt-qchips { margin-right: -16px; padding-right: 16px; }
+.appt-qchips .chip { cursor: pointer; }
+.appt-qchips .chip:hover { background: var(--primary-a12); }
+.appt-qchips .chip.on:hover { filter: brightness(.97); }
+
+/* নামের নিচে চেম্বার বাছাই: ছোট চাপযোগ্য কার্ড */
+.appt-chpick-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 12px; border-radius: 14px;
+  border: 1px solid var(--outline-variant); background: var(--surface-lowest); color: inherit; text-align: left; text-decoration: none;
+  cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.appt-chpick-card:hover { background: var(--primary-a12); border-color: var(--primary); }
+.appt-chpick-card:active { background: var(--secondary-container); }
+.appt-chpick-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.appt-chpick-card.static { cursor: default; }
+.appt-chpick-card.static:hover { background: var(--surface-lowest); border-color: var(--outline-variant); }
+.appt-chpick-ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--primary-container); color: var(--on-primary-container); flex: none; }
+.appt-chpick-ic svg { width: 20px; height: 20px; }
+.appt-chpick-txt { min-width: 0; gap: 2px; }
+.appt-chpick-go { width: 36px; height: 36px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); flex: none; }
+.appt-chpick-go svg { width: 18px; height: 18px; }
+.appt-st { font-weight: 600; color: var(--on-surface-variant); }
+.appt-st.now, .appt-st.today { color: var(--tertiary); }
+.appt-st.none { color: var(--on-surface-variant); font-weight: 400; }
+
+/* "কোন চেম্বারে?": স্পষ্ট চাপযোগ্য কার্ড, ডানে "বেছে নিন ›"; সামনে দিন না থাকলে ধূসর */
+.appt-pick-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border-radius: 14px;
+  border: 1px solid var(--outline-variant); background: var(--surface-low); color: inherit; text-align: left; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.appt-pick-card:hover:not(:disabled) { background: var(--primary-a12); border-color: var(--primary); }
+.appt-pick-card:active:not(:disabled) { background: var(--secondary-container); }
+.appt-pick-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.appt-pick-card:disabled { opacity: .5; cursor: not-allowed; }
+.appt-pick-go { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); font-weight: 600; font-size: 14px; white-space: nowrap; flex: none; }
+.appt-pick-go svg { width: 18px; height: 18px; }

@@ -1,9 +1,9 @@
 // অ্যাপয়েন্টমেন্ট: ডাক্তার / পুষ্টিবিদ / ফিটনেস ট্রেইনারের তালিকা আর বিস্তারিত (অ্যাপের AppointmentTab, ProviderList,
 // ProviderCard, ProviderDetailDialog, BookDialog)। বাছা মানুষ URL-এ: /appointment/doctor/:id?t=doctor
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ActiveChips, Button, ListRow, cx, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorBox, FilterBar, IconButton, IconLine, InfoText, PhoneLine, PillTabs, SkeletonCards, Switch, TextArea, ErrorText, toast,
+  Button, cx, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorBox, FilterBar, IconButton, IconLine, InfoText, PhoneLine, PillTabs, SkeletonCards, Switch, TextArea, ErrorText, toast,
 } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { useFilterArea } from '@/ui/AreaPicker';
@@ -12,17 +12,51 @@ import { usePageTitle, useTwoPane } from '@/shell/chrome';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
+import { store } from '@/lib/store';
 import { formatDate, dateInputValue, dhakaHourMinute, fromDateInput } from '@/lib/format';
 import { isBangla, num, tr } from '@/lib/i18n';
 import { areaLabel, upazila } from '@/lib/geo';
 import {
-  CHAMBER_TYPES, DAY_MS, badgeIcon, dayShort, slotsOf, badgeLabel, canBook, chamberArea, chamberLabel, chamberOpenOn, chamberTimeText, coverageText, feeText, homeServiceLabel,
-  parseProvider, ratingLine, specialtiesOf, specialtyLabel, timesText, today, useCatalog, type Chamber, type FamilyMember, type Hospital, type Provider,
+  CHAMBER_TYPES, DAY_MS, FEE_STEPS, NO_DOCTOR_FILTERS, badgeIcon, dayShort, slotsOf, badgeLabel, canBook, chamberArea, chamberLabel, chamberOpenOn, chamberPlace, chamberShort, chamberState,
+  chamberTimeText, coverageText, feeShort, feeText, homeServiceLabel, nextSlotText, parseProvider, shortTime, ratingLine, specialtiesOf, specialtyLabel, timesText, today, useCatalog,
+  type Chamber, type DoctorFilters, type FamilyMember, type Hospital, type Provider, type SpecialtyFacet,
 } from './model';
-import { AreaSheet, DetailBlock, DetailHead, EmergencyNotice, FilterChoice, FilterSheet, HospitalPickerDialog, ReasonReportDialog, useAreasReady, type AreaSel } from './shared';
+import { AreaSheet, DetailBlock, DetailHead, EmergencyNotice, FilterSheet, HospitalPickerDialog, ReasonReportDialog, useAreasReady, type AreaSel } from './shared';
 
 const TAB_ICON: Record<string, string> = { doctor: 'stethoscope', nutritionist: 'restaurant', trainer: 'fitness_center' };
 const tabLabel = (t: string) => (t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : tr('Doctor', 'ডাক্তার'));
+
+/** শেষবারের ছাঁকনি (ধরনপ্রতি, এই ব্রাউজারে) — এলাকা useFilterArea-তে আলাদা, আগের মতো */
+interface SavedFilters extends DoctorFilters { hospital: Hospital | null; homeOnly: boolean }
+const NO_FILTERS: SavedFilters = { ...NO_DOCTOR_FILTERS, hospital: null, homeOnly: false };
+const filterKey = (t: string) => `lf.doctorFilters.${t}`;
+function loadFilters(t: string): SavedFilters {
+  const v = store.getJson<Partial<SavedFilters>>(filterKey(t));
+  if (!v || typeof v !== 'object') return NO_FILTERS;
+  return {
+    day: v.day === 'today' || v.day === 'tomorrow' ? v.day : null,
+    openNow: v.openNow === true,
+    specialty: typeof v.specialty === 'string' && v.specialty ? v.specialty : null,
+    maxFee: typeof v.maxFee === 'number' && FEE_STEPS.includes(v.maxFee) ? v.maxFee : null,
+    hospitalQ: typeof v.hospitalQ === 'string' ? v.hospitalQ.slice(0, 60) : '',
+    gender: v.gender === 'male' || v.gender === 'female' ? v.gender : null,
+    hospital: v.hospital && typeof v.hospital === 'object' && typeof v.hospital.id === 'string' ? v.hospital : null,
+    homeOnly: v.homeOnly === true && t === 'doctor',
+  };
+}
+const feeLabel = (n: number) => tr(`Up to ৳${n.toLocaleString('en-IN')}`, `৳${num(n.toLocaleString('en-IN'))} পর্যন্ত`);
+const genderLabel = (g: string) => (g === 'female' ? tr('Female doctor', 'নারী ডাক্তার') : tr('Male doctor', 'পুরুষ ডাক্তার'));
+const dayLabel = (d: string) => (d === 'tomorrow' ? tr('Tomorrow', 'আগামীকাল') : tr('Sitting today', 'আজ বসছেন'));
+
+/** লেখা থামার পরে (হাসপাতালের নাম লিখতে লিখতে প্রতিটা অক্ষরে সার্ভারে নয়) */
+function useDebounced<T>(v: T, ms: number): T {
+  const [d, setD] = useState(v);
+  useEffect(() => {
+    const t = setTimeout(() => setD(v), ms);
+    return () => clearTimeout(t);
+  }, [v, ms]);
+  return d;
+}
 
 export function DoctorsPage({ detailId }: { detailId: string | null }) {
   usePageTitle(tr('Appointment', 'অ্যাপয়েন্টমেন্ট'));
@@ -35,9 +69,17 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
   const [fa, setFa] = useFilterArea();
   const [area, setArea] = useState<AreaSel | null>(null);
   const cur: AreaSel = area ?? { district: fa?.district ?? null, upazilaId: fa?.upazilaId ?? null, unionId: fa?.unionId ?? null };
-  const [hospital, setHospital] = useState<Hospital | null>(null);
-  const [specialty, setSpecialty] = useState<string | null>(null);
-  const [homeOnly, setHomeOnly] = useState(false);
+  // ২.৩৩.০: আজ/আগামীকাল, এখন চেম্বারে, বিশেষজ্ঞতা, ফি, হাসপাতাল, লিঙ্গ — শেষবারেরটা মনে থাকে (অ্যাপেও)
+  const [saved, setSaved] = useState<Record<string, SavedFilters>>({});
+  const f = saved[type] ?? loadFilters(type);
+  const setF = (patch: Partial<SavedFilters>) => {
+    const n = { ...f, ...patch };
+    store.setJson(filterKey(type), n);
+    setSaved((m) => ({ ...m, [type]: n }));
+  };
+  const clearF = () => setF(NO_FILTERS);
+  const { hospital, specialty, homeOnly } = f;
+  const hq = useDebounced(f.hospitalQ.trim(), 400);
   const [query, setQuery] = useState('');
   const [showArea, setShowArea] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -52,23 +94,49 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
     if (cur.unionId != null) body.unionId = cur.unionId;
   }
   if (specialty) body.specialty = specialty;
-  const q = useCall<{ items: any[] }>('providers', body);
-  const list = useMemo(() => (q.data?.items ?? []).map(parseProvider), [q.data]);
+  if (f.day) body.day = f.day;
+  if (f.openNow) body.openNow = true;
+  if (f.maxFee) body.maxFee = f.maxFee;
+  if (hq.length >= 2) body.hospitalQ = hq;
+  if (f.gender) body.gender = f.gender;
+  const q = useCall<{ items: any[]; facets?: { specialties: SpecialtyFacet[]; gender: boolean } }>('providers', body);
+  const list = useMemo(() => (q.data?.items ?? []).map((o) => ({ p: parseProvider(o), matched: Array.isArray(o?.matched) ? (o.matched as number[]) : null })), [q.data]);
+  // বিশেষজ্ঞতার চিপ: সার্ভার যা বলে (এই এলাকায় যেগুলো আছে); নতুন তালিকা আসার সময় আগেরটা থাকে
+  const lastFacets = useRef<Record<string, { specialties: SpecialtyFacet[]; gender: boolean }>>({});
+  if (q.data?.facets) lastFacets.current[type] = q.data.facets;
+  const facets = q.data?.facets ?? lastFacets.current[type] ?? null;
   const t = query.trim().toLowerCase();
   const shown = list
-    .filter((p) => p.uid !== uid)
-    .filter((p) => !t || p.name.toLowerCase().includes(t) || p.degrees.toLowerCase().includes(t) || p.chambers.some((c) => chamberLabel(c).toLowerCase().includes(t)));
+    .filter(({ p }) => p.uid !== uid)
+    .filter(({ p }) => !t || p.name.toLowerCase().includes(t) || p.degrees.toLowerCase().includes(t) || p.chambers.some((c) => chamberLabel(c).toLowerCase().includes(t)));
 
   // সরাসরি খোলা লিংক: এখনকার তালিকায় না থাকলে পুরো দেশের তালিকা থেকে
-  const inList = detailId ? list.find((p) => p.uid === detailId) ?? null : null;
+  const inList = detailId ? list.find(({ p }) => p.uid === detailId)?.p ?? null : null;
   const fb = useCall<{ items: any[] }>('providers', { type, homeVisit: false }, { enabled: !!detailId && !inList && !q.isLoading });
   const selected = inList ?? (detailId ? (fb.data?.items ?? []).map(parseProvider).find((p) => p.uid === detailId) ?? null : null);
 
   const qs = sp.toString();
   const listPath = '/appointment' + (qs ? `?${qs}` : '');
   const open = (id: string) => nav(`/appointment/doctor/${id}${qs ? `?${qs}` : ''}`);
-  const filtersOn = !!(cur.district || cur.upazilaId || hospital || specialty || homeOnly);
-  const isEmptyFilter = !cur.district && !hospital && !specialty && !homeOnly;
+  const active = [
+    ...(f.day ? [{ label: dayLabel(f.day), onRemove: () => setF({ day: null }) }] : []),
+    ...(f.openNow ? [{ label: tr('In chamber now', 'এখন চেম্বারে'), onRemove: () => setF({ openNow: false }) }] : []),
+    ...(specialty ? [{ label: specialtyLabel(specialty), onRemove: () => setF({ specialty: null }) }] : []),
+    ...(f.maxFee ? [{ label: feeLabel(f.maxFee), onRemove: () => setF({ maxFee: null }) }] : []),
+    ...(hospital ? [{ label: chamberLabel({ hospitalName: hospital.nameEn, hospitalNameBn: hospital.nameBn }), onRemove: () => setF({ hospital: null }) }] : []),
+    ...(f.hospitalQ.trim() ? [{ label: tr('Hospital: ', 'হাসপাতাল: ') + f.hospitalQ.trim(), onRemove: () => setF({ hospitalQ: '' }) }] : []),
+    ...(f.gender ? [{ label: genderLabel(f.gender), onRemove: () => setF({ gender: null }) }] : []),
+    ...(homeOnly ? [{ label: tr('Home visit', 'বাসায় যান'), onRemove: () => setF({ homeOnly: false }) }] : []),
+  ];
+  // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
+  const quick = [
+    ...(!f.day ? [{ key: 'today', label: dayLabel('today'), on: () => setF({ day: 'today' }) }, { key: 'tomorrow', label: dayLabel('tomorrow'), on: () => setF({ day: 'tomorrow' }) }] : []),
+    ...(!f.openNow ? [{ key: 'now', label: tr('In chamber now', 'এখন চেম্বারে'), on: () => setF({ openNow: true }) }] : []),
+    ...(!f.maxFee ? [{ key: 'fee', label: feeLabel(500), on: () => setF({ maxFee: 500 }) }] : []),
+    ...(!specialty && facets ? facets.specialties.slice(0, 3).map((x) => ({ key: 'sp-' + x.code, label: specialtyLabel(x.code), on: () => setF({ specialty: x.code }) })) : []),
+  ];
+  const filterCount = active.length;
+  const isEmptyFilter = !cur.district && !active.length;
 
   const listPart = (
     <div className="list-inner appt-pre">
@@ -92,9 +160,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           tabs={CHAMBER_TYPES.map((k) => ({ key: k, label: tabLabel(k), icon: TAB_ICON[k] }))}
           value={type}
           onChange={(k) => {
-            setHospital(null);
-            setSpecialty(null);
-            setHomeOnly(false);
+            // ধরনপ্রতি নিজের শেষ ছাঁকনি (store-এ) — বদলালে সেটা ফিরে আসে
             setSp(k === 'doctor' ? {} : { t: k }, { replace: true });
             if (detailId) nav(k === 'doctor' ? '/appointment' : `/appointment?t=${k}`, { replace: true });
           }}
@@ -103,18 +169,26 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
       <FilterBar
         areaLabel={hospital ? areaLabel(hospital.district, hospital.upazilaId) : cur.district ? areaLabel(cur.district, cur.upazilaId, cur.unionId) : tr('All districts', 'সব জেলা')}
         onArea={() => setShowArea(true)}
-        filterCount={[hospital, specialty, homeOnly || null].filter(Boolean).length}
+        filterCount={filterCount}
         onFilter={() => setShowFilter(true)}
         search={query}
         onSearch={setQuery}
       >
-        <ActiveChips
-          items={[
-            ...(hospital ? [{ label: chamberLabel({ hospitalName: hospital.nameEn, hospitalNameBn: hospital.nameBn }), onRemove: () => setHospital(null) }] : []),
-            ...(specialty ? [{ label: specialtyLabel(specialty), onRemove: () => setSpecialty(null) }] : []),
-            ...(homeOnly ? [{ label: tr('Home visit', 'বাসায় যান'), onRemove: () => setHomeOnly(false) }] : []),
-          ]}
-        />
+        {active.length || quick.length ? (
+          <div className="chips scroll appt-qchips" role="group" aria-label={tr('Filters', 'ছাঁকনি')}>
+            {active.map((a) => (
+              <button key={'a-' + a.label} type="button" className="chip on" onClick={a.onRemove} aria-label={tr('Remove', 'সরান') + ': ' + a.label}>
+                {a.label}
+                <Icon name="close" />
+              </button>
+            ))}
+            {quick.map((x) => (
+              <button key={x.key} type="button" className="chip" onClick={x.on}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </FilterBar>
       <InfoText>{info}</InfoText>
       {q.isLoading ? (
@@ -127,14 +201,13 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           title={type === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : tr('No doctors found', 'কোনো ডাক্তার পাওয়া যায়নি')}
           text={tr('Try a wider area or remove a filter.', 'বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।')}
         >
-          {!isEmptyFilter ? (
+          {active.length ? <Button variant="text" onClick={clearF}>{tr('Remove all filters', 'সব ছাঁকনি সরান')}</Button> : null}
+          {!isEmptyFilter && !active.length ? (
             <Button
               variant="text"
               onClick={() => {
                 setArea({ district: null, upazilaId: null, unionId: null });
-                setHospital(null);
-                setSpecialty(null);
-                setHomeOnly(false);
+                clearF();
               }}
             >
               {tr('Search everywhere', 'সব জায়গায় খুঁজুন')}
@@ -142,7 +215,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           ) : null}
         </EmptyState>
       ) : (
-        shown.map((p) => <ProviderCard key={p.uid} p={p} area={cur} hospital={hospital} selected={p.uid === detailId} onClick={() => open(p.uid)} />)
+        shown.map(({ p, matched }) => <ProviderCard key={p.uid} p={p} matched={matched} area={cur} hospital={hospital} selected={p.uid === detailId} onClick={() => open(p.uid)} />)
       )}
     </div>
   );
@@ -159,6 +232,9 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
     )
   ) : null;
 
+  const spOptions = facets ? facets.specialties.map((x) => x.code) : specialtiesOf(type);
+  const spCount = (code: string) => facets?.specialties.find((x) => x.code === code)?.n;
+
   return (
     <>
       <ListDetail list={listPart} detail={detail} placeholder={<EmptyState icon={badgeIcon(type)} title={tabLabel(type)} />} />
@@ -169,7 +245,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           withUnions
           onPick={(v) => {
             // এলাকা বদলালে আগের হাসপাতাল আর মেলে না
-            setHospital(null);
+            setF({ hospital: null });
             setArea(v);
             if (v.district) setFa({ district: v.district, upazilaId: v.upazilaId, unionId: v.unionId });
             setShowArea(false);
@@ -178,22 +254,52 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
         />
       ) : null}
       {showFilter ? (
-        <FilterSheet
-          title={tr('Filter', 'ফিল্টার')}
-          onClose={() => setShowFilter(false)}
-          onClear={filtersOn ? () => { setHospital(null); setSpecialty(null); setHomeOnly(false); } : undefined}
-        >
+        <FilterSheet title={tr('Filter', 'ফিল্টার')} onClose={() => setShowFilter(false)} onClear={active.length ? clearF : undefined}>
           <div className="col gap-6">
-            <span className="t-title-s">{tr('Hospital', 'হাসপাতাল')}</span>
+            <span className="t-title-s">{tr('Day', 'দিন')}</span>
+            <ChoiceChips
+              options={[{ value: '', label: tr('Any day', 'যেকোনো দিন') }, { value: 'today', label: dayLabel('today') }, { value: 'tomorrow', label: dayLabel('tomorrow') }]}
+              value={f.day ?? ''}
+              onChange={(v: string) => setF({ day: v === 'today' || v === 'tomorrow' ? v : null })}
+            />
+          </div>
+          <Switch label={tr('In chamber now', 'এখন চেম্বারে')} sub={tr('Sitting at the chamber right now', 'এই মুহূর্তে চেম্বারে বসে আছেন')} checked={f.openNow} onChange={(v) => setF({ openNow: v })} />
+          <SpecialtyPicker options={spOptions} count={spCount} value={specialty} onChange={(v) => setF({ specialty: v })} />
+          <div className="col gap-6">
+            <span className="t-title-s">{tr('Hospital / chamber', 'হাসপাতাল / চেম্বার')}</span>
+            <input
+              className="input"
+              value={f.hospitalQ}
+              onChange={(e) => setF({ hospitalQ: e.target.value.slice(0, 60) })}
+              placeholder={tr('Type a hospital name', 'হাসপাতালের নাম লিখুন')}
+              aria-label={tr('Hospital name', 'হাসপাতালের নাম')}
+            />
             <div className="row wrap">
               <Button variant="outline" icon="local_hospital" onClick={() => setPickHospital(true)}>
-                {hospital ? chamberLabel({ hospitalName: hospital.nameEn, hospitalNameBn: hospital.nameBn }) : tr('Choose hospital', 'হাসপাতাল বেছে নিন')}
+                {hospital ? chamberLabel({ hospitalName: hospital.nameEn, hospitalNameBn: hospital.nameBn }) : tr('Choose from list', 'তালিকা থেকে বেছে নিন')}
               </Button>
-              {hospital ? <Button variant="text" onClick={() => setHospital(null)}>{tr('Remove', 'সরান')}</Button> : null}
+              {hospital ? <Button variant="text" onClick={() => setF({ hospital: null })}>{tr('Remove', 'সরান')}</Button> : null}
             </div>
           </div>
-          <FilterChoice title={tr('Specialty', 'বিশেষজ্ঞতা')} options={specialtiesOf(type)} value={specialty} label={specialtyLabel} onChange={setSpecialty} />
-          {type === 'doctor' ? <Switch label={tr('Home visit', 'বাসায় যান')} checked={homeOnly} onChange={setHomeOnly} /> : null}
+          <div className="col gap-6">
+            <span className="t-title-s">{tr('Fee', 'ফি')}</span>
+            <ChoiceChips
+              options={[{ value: 0, label: tr('Any', 'যেকোনো') }, ...FEE_STEPS.map((n) => ({ value: n, label: feeLabel(n) }))]}
+              value={f.maxFee ?? 0}
+              onChange={(v: number) => setF({ maxFee: v || null })}
+            />
+          </div>
+          {facets?.gender || f.gender ? (
+            <div className="col gap-6">
+              <span className="t-title-s">{tr('Doctor', 'ডাক্তার')}</span>
+              <ChoiceChips
+                options={[{ value: '', label: tr('Any', 'যেকোনো') }, { value: 'female', label: genderLabel('female') }, { value: 'male', label: genderLabel('male') }]}
+                value={f.gender ?? ''}
+                onChange={(v: string) => setF({ gender: v === 'male' || v === 'female' ? v : null })}
+              />
+            </div>
+          ) : null}
+          {type === 'doctor' ? <Switch label={tr('Home visit', 'বাসায় যান')} checked={homeOnly} onChange={(v) => setF({ homeOnly: v })} /> : null}
         </FilterSheet>
       ) : null}
       {pickHospital ? (
@@ -201,7 +307,7 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
           initialDistrict={cur.district}
           initialUpazilaId={cur.upazilaId}
           onPick={(h) => {
-            setHospital(h);
+            setF({ hospital: h });
             setArea({ district: h.district, upazilaId: null, unionId: null });
             setPickHospital(false);
           }}
@@ -212,15 +318,50 @@ export function DoctorsPage({ detailId }: { detailId: string | null }) {
   );
 }
 
-function ProviderCard({ p, area, hospital, selected, onClick }: { p: Provider; area: AreaSel; hospital: Hospital | null; selected: boolean; onClick: () => void }) {
-  // ফিল্টারের সাথে মেলা চেম্বার আগে
-  const ch = p.chambers.find((c) => (!hospital || c.hospitalId === hospital.id) && (!area.district || c.district === area.district) && (area.upazilaId == null || c.upazilaId === area.upazilaId)) ?? p.chambers[0];
+/** বিশেষজ্ঞতা: তালিকায় যেগুলো আছে (সংখ্যাসহ), বেশি হলে খোঁজার ঘর */
+function SpecialtyPicker({ options, count, value, onChange }: { options: string[]; count: (c: string) => number | undefined; value: string | null; onChange: (v: string | null) => void }) {
+  const [q, setQ] = useState('');
+  const t = q.trim().toLowerCase();
+  const list = (value && !options.includes(value) ? [value, ...options] : options).filter((c) => !t || specialtyLabel(c).toLowerCase().includes(t) || c.includes(t));
+  return (
+    <div className="col gap-6">
+      <span className="t-title-s">{tr('Specialty', 'বিশেষজ্ঞতা')}</span>
+      {options.length > 8 ? (
+        <input className="input" value={q} onChange={(e) => setQ(e.target.value.slice(0, 40))} placeholder={tr('Search specialty', 'বিশেষজ্ঞতা খুঁজুন')} aria-label={tr('Search specialty', 'বিশেষজ্ঞতা খুঁজুন')} />
+      ) : null}
+      {list.length ? (
+        <ChoiceChips
+          options={list.map((c) => ({ value: c, label: specialtyLabel(c) + (count(c) ? ` (${num(count(c)!)})` : '') }))}
+          value={value}
+          onChange={(v: string) => onChange(v === value ? null : v)}
+        />
+      ) : (
+        <span className="t-body-s muted">{tr('No match', 'মেলেনি')}</span>
+      )}
+    </div>
+  );
+}
+
+/** তালিকার কার্ডের অবস্থা: এখন চেম্বারে / আজ ৪টা (সবুজ) — অন্য দিনে কিছু নয় */
+function cardStatus(c: Chamber | undefined): { text: string; good: boolean } | null {
+  if (!c) return null;
+  const s = chamberState(c);
+  if (s.kind === 'now') return { text: tr('In chamber now', 'এখন চেম্বারে'), good: true };
+  if (s.kind === 'today') return { text: s.start ? tr('Today ', 'আজ ') + shortTime(s.start) : tr('Today', 'আজ'), good: true };
+  return null;
+}
+
+function ProviderCard({ p, matched, area, hospital, selected, onClick }: { p: Provider; matched: number[] | null; area: AreaSel; hospital: Hospital | null; selected: boolean; onClick: () => void }) {
+  // ছাঁকনিতে মেলা চেম্বার (সার্ভারের matched) আগে, নইলে এলাকার সাথে মেলা চেম্বার
+  const ch = (matched?.length ? p.chambers[matched[0]] : undefined)
+    ?? p.chambers.find((c) => (!hospital || c.hospitalId === hospital.id) && (!area.district || c.district === area.district) && (area.upazilaId == null || c.upazilaId === area.upazilaId)) ?? p.chambers[0];
   return (
     <DirectoryCard
       title={p.name}
       icon={badgeIcon(p.type)}
       photo={p.photo || null}
       subtitle={[p.degrees, p.specialties.map(specialtyLabel).join(', ')].filter(Boolean).join(' · ')}
+      status={cardStatus(ch)}
       meta={ratingLine(p.rating, p.ratingCount)}
       details={ch ? [['local_hospital', chamberLabel(ch)], ['schedule', chamberTimeText(ch)], ['payments', feeText(ch.noFee, ch.fee)]] : []}
       tags={[canBook(p) ? tr('Appointment in app', 'অ্যাপে অ্যাপয়েন্টমেন্ট') : null, p.homeVisit?.enabled ? tr('Home visit', 'বাসায় যান') : null].filter(Boolean) as string[]}
@@ -257,6 +398,8 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
         </div>
         {two && onClose && !preview ? <IconButton icon="close" label={tr('Close', 'বন্ধ')} onClick={onClose} /> : null}
       </div>
+      {/* ২.৩৩.০: নামের নিচেই চেম্বার বাছাই — চাপলে সেই চেম্বারেই অ্যাপয়েন্টমেন্ট ("কোন চেম্বারে?" ছাড়া) */}
+      <ChamberPicker p={p} bookable={bookable} onBook={book} preview={preview} />
       <InfoText>{done}</InfoText>
       {done ? <Link className="btn tonal small has-icon" to="/my-appointments" style={{ alignSelf: 'flex-start' }}><Icon name="event_outline" />{tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')}</Link> : null}
       {p.chambers.map((c, i) => (
@@ -273,7 +416,7 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
           >
             {bookable.length > 1 && bookable.includes(i) ? (
               <Button square icon="calendar_month" onClick={() => book(i)}>
-                {tr('Request appointment', 'অ্যাপয়েন্টমেন্ট চাই')}
+                {tr('Appointment at this chamber', 'এই চেম্বারে অ্যাপয়েন্টমেন্ট')}
               </Button>
             ) : null}
           </DetailBlock>
@@ -348,11 +491,7 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
       ) : null}
       {choosing ? (
         <Dialog onClose={() => setChoosing(false)} size="small" title={tr('Which chamber?', 'কোন চেম্বারে?')} actions={<Button variant="text" onClick={() => setChoosing(false)}>{tr('Cancel', 'বাতিল')}</Button>}>
-          <div className="col gap-4">
-            {bookable.map((i) => (
-              <ListRow key={i} icon="local_hospital" title={chamberLabel(p.chambers[i])} sub={chamberTimeText(p.chambers[i])} onClick={() => { setChoosing(false); book(i); }} />
-            ))}
-          </div>
+          <ChamberChoices p={p} bookable={bookable} onPick={(i) => { setChoosing(false); book(i); }} />
         </Dialog>
       ) : null}
 
@@ -384,6 +523,80 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
   );
 }
 
+/**
+ * নামের নিচে চেম্বার বাছাই (২.৩৩.০, পারভেজ): প্রতিটা চেম্বার ছোট চাপযোগ্য কার্ড — ছোট নাম · উপজেলা, আজকের অবস্থা
+ * ("আজ বসবেন ৪টা–৯টা" / "আজ বন্ধ · আগামীকাল ১০টা"), ফি। অ্যাপয়েন্টমেন্ট নেন এমন চেম্বারে চাপলে সরাসরি বুকিং;
+ * না নিলে সিরিয়ালের ফোন (থাকলে)। নিচের বিস্তারিত ভাগগুলো তথ্যের জন্য থাকে।
+ */
+function ChamberPicker({ p, bookable, onBook, preview }: { p: Provider; bookable: number[]; onBook: (i: number) => void; preview?: boolean }) {
+  if (!p.chambers.length) return null;
+  return (
+    <div className="col gap-6 appt-chpick">
+      <span className="t-label-l muted">{bookable.length ? tr('Choose a chamber to book', 'চেম্বার বেছে অ্যাপয়েন্টমেন্ট নিন') : tr('Chambers', 'চেম্বার')}</span>
+      {p.chambers.map((c, i) => {
+        const st = chamberState(c);
+        const can = bookable.includes(i) && st.kind !== 'none';
+        const tel = !bookable.includes(i) && c.serialPhone ? c.serialPhone : null;
+        const extra = bookable.includes(i) ? null : tel ? tr('Serial by phone', 'সিরিয়াল ফোনে') : tr('No appointment in app', 'অ্যাপে অ্যাপয়েন্টমেন্ট নেই');
+        const inner = (
+          <>
+            <span className="appt-chpick-ic"><Icon name="local_hospital" /></span>
+            <span className="col grow appt-chpick-txt">
+              <span className="t-title-s semi ellipsis">{chamberShort(c)}</span>
+              {st.text ? <span className={cx('t-body-s appt-st', st.kind)}>{st.text}</span> : null}
+              <span className="t-body-s muted">{[chamberPlace(c), feeShort(c), extra].filter(Boolean).join(' · ')}</span>
+            </span>
+            {can ? <span className="appt-chpick-go"><Icon name="calendar_month" /></span> : tel ? <span className="appt-chpick-go"><Icon name="call" /></span> : null}
+          </>
+        );
+        if (can) {
+          return (
+            <button key={i} type="button" className="appt-chpick-card" onClick={() => onBook(i)} aria-label={tr('Appointment at ', 'অ্যাপয়েন্টমেন্ট: ') + chamberLabel(c)}>
+              {inner}
+            </button>
+          );
+        }
+        if (tel && !preview) return <a key={i} className="appt-chpick-card" href={`tel:${tel}`}>{inner}</a>;
+        return <div key={i} className="appt-chpick-card static">{inner}</div>;
+      })}
+    </div>
+  );
+}
+
+/**
+ * "কোন চেম্বারে?" (২.৩৩.০): প্রতিটা চেম্বার স্পষ্ট চাপযোগ্য কার্ড — নাম · উপজেলা, পরের বসার দিন-সময়, ফি, ডানে "বেছে নিন ›";
+ * সামনে বসার দিন না থাকলে ধূসর আর চাপা যায় না।
+ */
+function ChamberChoices({ p, bookable, onPick }: { p: Provider; bookable: number[]; onPick: (i: number) => void }) {
+  return (
+    <div className="col gap-8">
+      {bookable.map((i) => {
+        const c = p.chambers[i];
+        const st = chamberState(c);
+        const off = st.kind === 'none' || !nextOpenDays(c, 1).length;
+        return (
+          <button key={i} type="button" className="appt-pick-card" disabled={off} onClick={() => onPick(i)}>
+            <span className="col grow appt-chpick-txt">
+              <span className="t-title-s semi">{chamberLabel(c)}</span>
+              <span className="t-body-s muted">{chamberPlace(c)}</span>
+              <span className={cx('t-body-m appt-st', off ? 'none' : st.kind)}>
+                {off ? tr('No upcoming days', 'সামনে বসার দিন নেই') : (st.kind === 'now' ? '' : tr('Next: ', 'পরের সময়: ')) + nextSlotText(st)}
+              </span>
+              {feeShort(c) ? <span className="t-body-s muted">{feeText(c.noFee, c.fee)}</span> : null}
+            </span>
+            {off ? null : (
+              <span className="appt-pick-go">
+                {tr('Choose', 'বেছে নিন')}
+                <Icon name="chevron_right" />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** সামনের যে দিনগুলোতে চেম্বার খোলা (আজ থেকে ৬০ দিন) */
 function nextOpenDays(c: Chamber, count: number): number[] {
   const out: number[] = [];
@@ -406,7 +619,8 @@ const dayChip = (d: number) => dayShort(new Date(d).getUTCDay()) + ', ' + format
 
 function BookDialog({ provider, index, onClose, onBooked }: { provider: Provider; index: number; onClose: () => void; onBooked: () => void }) {
   const ch = provider.chambers[index];
-  const [date, setDate] = useState<number | null>(null);
+  // চেম্বার বেছে এলে পরের বসার দিন আগে থেকে বাছা (বদলানো যায়) — এক চাপ কম
+  const [date, setDate] = useState<number | null>(() => nextOpenDays(ch, 1)[0] ?? null);
   const [note, setNote] = useState('');
   const [memberId, setMemberId] = useState('');
   const [busy, setBusy] = useState(false);
