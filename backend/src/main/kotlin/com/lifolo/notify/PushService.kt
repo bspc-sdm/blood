@@ -6,6 +6,7 @@ import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.lifolo.auth.FirebaseHolder
 import com.lifolo.common.Lang
+import com.lifolo.common.LifoloProperties
 import com.lifolo.common.Sql
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
@@ -41,7 +42,11 @@ fun interface PushTransport {
 @Configuration
 class PushConfig {
     @Bean
-    fun pushTransport(firebase: FirebaseHolder): PushTransport {
+    fun pushTransport(firebase: FirebaseHolder, props: LifoloProperties): PushTransport {
+        when (props.push.mode.trim().lowercase()) {
+            "log", "off", "disabled" -> return LoggingPushTransport()
+            "fake" -> return FakePushTransport()
+        }
         val messaging = firebase.messaging() ?: return LoggingPushTransport()
         return PushTransport { messages ->
             val batch = messaging.sendEach(
@@ -71,6 +76,16 @@ class LoggingPushTransport : PushTransport {
     override fun send(messages: List<DeviceMessage>): List<DeliveryResult> {
         if (messages.isNotEmpty()) log.info("FCM not configured — {} push message(s) not sent", messages.size)
         return messages.map { DeliveryResult.FAILED }
+    }
+}
+
+/** PUSH_MODE=fake (e2e only): nothing leaves the server, every message counts as delivered */
+class FakePushTransport : PushTransport {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    override fun send(messages: List<DeviceMessage>): List<DeliveryResult> {
+        if (messages.isNotEmpty()) log.info("PUSH_MODE=fake — {} push message(s) counted as delivered, not sent", messages.size)
+        return messages.map { DeliveryResult.OK }
     }
 }
 

@@ -1,0 +1,272 @@
+name: Backend e2e (web journeys vs Spring)
+
+# The web e2e journeys (e2e/web, Playwright) against the Kotlin/Spring backend started inside the runner —
+# no production access: PostgreSQL 16 + Redis 7 service containers, a fresh database (Flyway on start), the Firebase
+# Auth emulator (Spring reaches it through FIREBASE_AUTH_EMULATOR_HOST with a throw-away service account), push faked
+# (PUSH_MODE=fake), login codes read from Spring's log (SES off). Journey 00 seeds the demo through the admin panel.
+# The same journeys also run against the Node server (e2e/server/local.js) as the baseline, so a red result can be told
+# apart: "Spring differs from Node" vs "the journey/app is broken on both".
+# Whole machine clock → 11:00 Dhaka during the run (the journeys were written for that hour; Spring, PostgreSQL, the
+# emulator and Chrome must agree on the time), restored afterwards.
+# Result → log branch (like backend.yml): spring → spring-ci-log, X → ci-log-X: e2e-status.txt, e2e/summary.md,
+# e2e/report-*.json|md, e2e/shots-spring/ (screenshots of failed steps), e2e/spring-errors.log, e2e/stack-*.log.
+on:
+  push:
+    branches: [spring, "spring-p*"]
+    paths:
+      - "backend/**"
+      - "e2e/web/**"
+      - "e2e/server/**"
+      - "e2e/package*.json"
+      - "web/src/**"
+      - "web/package*.json"
+      - "server/public/admin/**"
+      - ".github/workflows/backend-e2e.yml"
+      - ".github/scripts/publish-log.sh"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Only these journeys (e.g. '00 02'); empty = all"
+        required: false
+        default: ""
+      clock:
+        description: "Dhaka time of day for the run (HH:MM) or 'real'"
+        required: false
+        default: "11:00"
+      node_baseline:
+        description: "Also run the journeys against the Node server"
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backend-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.backend }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [spring, node]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lifolo
+          POSTGRES_PASSWORD: lifolo
+          POSTGRES_DB: lifolo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lifolo" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      SKIP: ${{ matrix.backend == 'node' && github.event_name == 'workflow_dispatch' && !inputs.node_baseline }}
+      E2E_ONLY: ${{ inputs.only }}
+      E2E_WANT_CLOCK: ${{ inputs.clock || '11:00' }}
+      LABEL: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v5
+        if: env.SKIP != 'true'
+
+      - uses: actions/setup-java@v4
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+
+      - name: Build the boot jar
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+        working-directory: backend
+        run: |
+          ./gradlew bootJar --no-daemon -q
+          ls -l build/libs/
+          for j in build/libs/*.jar; do case "$j" in *-plain.jar) ;; *) cp "$j" "$RUNNER_TEMP/app.jar" ;; esac; done
+
+      - uses: actions/setup-node@v5
+        if: env.SKIP != 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            e2e/package-lock.json
+            web/package-lock.json
+            server/package-lock.json
+
+      - name: Install (e2e tools, web, Chromium)
+        if: env.SKIP != 'true'
+        run: |
+          (cd e2e && npm ci --no-audit --no-fund)
+          (cd web && npm ci --no-audit --no-fund)
+          if [ "$LABEL" = node ]; then (cd server && npm ci --no-audit --no-fund); fi
+          (cd e2e && npx playwright-core install --with-deps chromium)
+          echo "CHROME=$(cd e2e && node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: Build the web app (Auth emulator build)
+        if: env.SKIP != 'true'
+        run: |
+          node --input-type=module -e "const m = await import('./e2e/web/stack.mjs'); m.buildWeb({ force: true });"
+
+      - name: Throw-away service account for Spring (Auth emulator only)
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+        run: |
+          # A real-format key, so Firebase Admin initialises like in production; its token_uri is the e2e front
+          # (/__e2e/oauth-token answers "owner", the emulator's admin token). Nothing here reaches Google.
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/sa.pem" 2>/dev/null
+          python3 - "$RUNNER_TEMP/sa.pem" > "$RUNNER_TEMP/sa.json" <<'PY'
+          import json, sys
+          key = open(sys.argv[1]).read()
+          print(json.dumps({
+              "type": "service_account", "project_id": "blood-3eb28", "private_key_id": "e2e",
+              "private_key": key, "client_email": "e2e@blood-3eb28.iam.gserviceaccount.com", "client_id": "1",
+              "token_uri": "http://127.0.0.1:4600/__e2e/oauth-token",
+          }))
+          PY
+
+      - name: Clock → ${{ env.E2E_WANT_CLOCK }} Dhaka
+        if: env.SKIP != 'true' && env.E2E_WANT_CLOCK != 'real'
+        run: |
+          sudo timedatectl set-ntp false 2>/dev/null || true
+          for s in chrony chronyd systemd-timesyncd ntp ntpsec; do sudo systemctl stop "$s" 2>/dev/null || true; done
+          now=$(date +%s)
+          h=${E2E_WANT_CLOCK%%:*}; m=${E2E_WANT_CLOCK##*:}
+          day=$(( (now + 21600) / 86400 * 86400 - 21600 ))
+          target=$(( day + 10#$h * 3600 + 10#$m * 60 ))
+          shift=$(( target - now ))
+          sudo date -s "@$target" >/dev/null
+          echo "CLOCK_SHIFT=$shift" >> "$GITHUB_ENV"
+          echo "clock moved by ${shift}s → $(TZ=Asia/Dhaka date)"
+
+      - name: Start Spring
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+        run: |
+          FIREBASE_SERVICE_ACCOUNT="$(cat "$RUNNER_TEMP/sa.json")"
+          export FIREBASE_SERVICE_ACCOUNT
+          SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/lifolo \
+          SPRING_DATASOURCE_USERNAME=lifolo SPRING_DATASOURCE_PASSWORD=lifolo \
+          REDIS_URL=redis://127.0.0.1:6379 \
+          FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 \
+          ADMIN_EMAILS=ekapkbd@gmail.com \
+          CRON_SECRET=e2e-cron-secret-0123456789 \
+          WEB_SESSION_SECRET=e2e-web-session-secret-0123456789 \
+          EMAIL_CODE_SECRET=e2e-email-code-secret-0123456789 \
+          PUSH_MODE=fake SENTRY_DSN='' \
+          nohup java -Xmx1g -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -jar "$RUNNER_TEMP/app.jar" > "$RUNNER_TEMP/spring.log" 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS -m 3 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then echo "Spring up after ${i}x2s"; curl -sS http://127.0.0.1:8080/api/health; echo; exit 0; fi
+            sleep 2
+          done
+          tail -80 "$RUNNER_TEMP/spring.log"
+          exit 1
+
+      - name: Run the journeys
+        if: env.SKIP != 'true'
+        timeout-minutes: 55
+        run: |
+          if [ "$LABEL" = spring ]; then export E2E_BACKEND=http://127.0.0.1:8080 E2E_BACKEND_LOG="$RUNNER_TEMP/spring.log"; fi
+          # the machine clock is already at the wanted hour
+          export E2E_CLOCK=real E2E_TRACE=1
+          # shellcheck disable=SC2086
+          node e2e/web/run.mjs $E2E_ONLY 2>&1 | tee "$RUNNER_TEMP/run.log" || true
+
+      - name: Report
+        if: always() && env.SKIP != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/report"
+          node e2e/web/report.mjs "$LABEL" "$RUNNER_TEMP/report" "$RUNNER_TEMP/spring.log" || true
+          cp e2e/.build/stack.log "$RUNNER_TEMP/report/stack-$LABEL.log" 2>/dev/null || true
+          tail -c 400000 "$RUNNER_TEMP/run.log" > "$RUNNER_TEMP/report/run-$LABEL.log" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/spring.log" ]; then
+            grep -n -E 'ERROR|WARN|Exception|^\s+at com\.lifolo' "$RUNNER_TEMP/spring.log" | grep -v 'SES not configured' | head -3000 > "$RUNNER_TEMP/report/spring-errors.log" || true
+            tail -c 300000 "$RUNNER_TEMP/spring.log" | grep -v 'Subject: আপনার লগইন কোড' > "$RUNNER_TEMP/report/spring-tail.log" || true
+          fi
+          cat "$RUNNER_TEMP/report/report-$LABEL.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+      - name: Restore the clock
+        if: always() && env.CLOCK_SHIFT != ''
+        run: |
+          sudo date -s "@$(( $(date +%s) - CLOCK_SHIFT ))" >/dev/null
+          sudo timedatectl set-ntp true 2>/dev/null || true
+          for s in chrony systemd-timesyncd; do sudo systemctl start "$s" 2>/dev/null || true; done
+          date -u
+
+      - uses: actions/upload-artifact@v4
+        if: always() && env.SKIP != 'true'
+        with:
+          name: report-${{ matrix.backend }}
+          path: ${{ runner.temp }}/report
+          retention-days: 7
+
+      - name: Spring must be green
+        if: env.SKIP != 'true' && matrix.backend == 'spring'
+        run: |
+          node -e "const r=require(process.env.RUNNER_TEMP+'/report/report-spring.json'); console.log(JSON.stringify(r.totals)); process.exit(r.green?0:1)"
+
+  publish:
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/in
+      - name: Summary (Spring vs Node)
+        env:
+          BRANCH: ${{ github.ref_name }}
+          RESULT: ${{ needs.e2e.result }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out/e2e"
+          for d in "$RUNNER_TEMP"/in/report-*; do [ -d "$d" ] && cp -R "$d"/. "$RUNNER_TEMP/out/e2e/"; done
+          node - <<'JS' > "$RUNNER_TEMP/out/e2e/summary.md"
+          const fs = require('fs');
+          const dir = process.env.RUNNER_TEMP + '/out/e2e';
+          const load = (l) => { try { return JSON.parse(fs.readFileSync(`${dir}/report-${l}.json`, 'utf8')); } catch { return null; } };
+          const s = load('spring'), n = load('node');
+          const line = (r, l) => r ? `${l}: ${r.green ? '✅' : '❌'} scenarios ${r.totals.scenariosOk}/${r.totals.scenarios}, stopped journeys ${r.totals.stopped}, bug steps ${r.totals.bugSteps}, API 5xx ${r.totals.api5xx}, server errors ${r.totals.serverErrors}` : `${l}: (no report)`;
+          const out = [`# Web e2e — ${process.env.BRANCH} ${process.env.GITHUB_SHA}`, '', line(s, 'spring'), line(n, 'node'), ''];
+          if (s && n) {
+            const key = (r) => new Map(r.journeys.flatMap((j) => j.failedScenarios.map((x) => [`${j.journey} ${x.id}`, x.msg || ''])));
+            const sf = key(s), nf = key(n);
+            const onlyS = [...sf].filter(([k]) => !nf.has(k)), both = [...sf].filter(([k]) => nf.has(k)), onlyN = [...nf].filter(([k]) => !sf.has(k));
+            out.push('## Parity', '', `Failing only on Spring: ${onlyS.length} · on both: ${both.length} · only on Node: ${onlyN.length}`, '');
+            if (onlyS.length) out.push('### Only on Spring', '', ...onlyS.map(([k, m]) => `- ${k}: ${m}`), '');
+            if (both.length) out.push('### On both', '', ...both.map(([k, m]) => `- ${k}: ${m}`), '');
+            if (onlyN.length) out.push('### Only on Node', '', ...onlyN.map(([k, m]) => `- ${k}: ${m}`), '');
+            out.push('| journey | spring | node |', '|---|---|---|');
+            for (const j of s.journeys) {
+              const o = n.journeys.find((x) => x.journey === j.journey);
+              const c = (x) => x ? `${x.scenariosOk}/${x.scenarios}${x.stopped ? ' (stopped)' : ''}${x.bugSteps.length ? `, ${x.bugSteps.length} bug` : ''}` : '—';
+              out.push(`| ${j.journey} | ${c(j)} | ${c(o)} |`);
+            }
+          }
+          console.log(out.join('\n'));
+          JS
+          cat "$RUNNER_TEMP/out/e2e/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          st=$([ "$RESULT" = success ] && echo success || echo failure)
+          echo "${GITHUB_SHA} ${st} ${BRANCH} $(head -4 "$RUNNER_TEMP/out/e2e/summary.md" | tail -2 | tr '\n' ' ')" > "$RUNNER_TEMP/out/e2e-status.txt"
+          cat "$RUNNER_TEMP/out/e2e-status.txt"
+      - name: Publish to the log branch
+        if: github.event_name != 'pull_request'
+        env:
+          BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: backend e2e ${{ github.sha }}
+        run: |
+          if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/out" e2e-status.txt e2e

@@ -26,10 +26,18 @@ data class LifoloProperties(
     @field:Min(1)
     val guestRatePerMinute: Long = 240,
     val firebase: Firebase = Firebase(),
+    val push: Push = Push(),
     val ses: Ses = Ses(),
     val r2: R2 = R2(),
 ) {
     data class Firebase(val enabled: Boolean = true)
+
+    /**
+     * PUSH_MODE: `fcm` (default; falls back to `log` without a service account), `log` (push off: nothing is sent,
+     * only logged; the bell list is still written) or `fake` (e2e only: nothing is sent, every message counts as
+     * delivered — like the Node e2e stack's fake messaging).
+     */
+    data class Push(val mode: String = "fcm")
 
     data class Ses(
         val region: String = "",

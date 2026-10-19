@@ -78,6 +78,8 @@ lifolo:
   firebase-service-account: ${FIREBASE_SERVICE_ACCOUNT:}
   email-code-secret: ${EMAIL_CODE_SECRET:}
   sms-url-template: ${SMS_URL_TEMPLATE:}
+  push:
+    mode: ${PUSH_MODE:fcm}
   public-base-url: ${PUBLIC_BASE_URL:https://blood-server-ashy.vercel.app}
   guest-rate-per-minute: ${GUEST_RATE_PER_MINUTE:240}
   ses:

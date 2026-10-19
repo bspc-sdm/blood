@@ -1,5 +1,8 @@
 // লোকাল স্ট্যাক চালু করা: Firebase Auth emulator + ওয়েব বিল্ড (emulator-মুখী, e2e/.build/w) + লোকাল সার্ভার (e2e/server/local.js)।
 // সরাসরি চালালে (node e2e/web/stack.mjs) চালু থাকে, Ctrl+C-তে বন্ধ। run.mjs এটা import করে।
+// E2E_BACKEND=http://127.0.0.1:8080 দিলে সার্ভার = আগে থেকে চালু Spring (backend/), local.js-এর বদলে server/spring-front.js
+// (E2E_BACKEND_LOG = Spring-এর লগ ফাইল, লগইন কোড পড়ার জন্য)। Spring-এর ঘড়ি সরানো যায় না, তাই তখন E2E_CLOCK না দিলে আসল সময়;
+// CI (.github/workflows/backend-e2e.yml) পুরো মেশিনের ঘড়িই ১১:০০-তে নেয়।
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +21,7 @@ const EMU_PORT = 9099;
  */
 export function clockOffset() {
   if (process.env.E2E_TIME_OFFSET_MS) return Number(process.env.E2E_TIME_OFFSET_MS);
-  const want = process.env.E2E_CLOCK || '11:00';
+  const want = process.env.E2E_CLOCK || (process.env.E2E_BACKEND ? 'real' : '11:00');
   if (want === 'real') return 0;
   const [h, m] = want.split(':').map(Number);
   const now = Date.now();
@@ -86,7 +89,7 @@ export async function startStack({ log = path.join(E2E, '.build/stack.log') } = 
     await fetch(`http://127.0.0.1:${EMU_PORT}/emulator/v1/projects/blood-3eb28/accounts`, { method: 'DELETE' });
   }
   const build = buildWeb();
-  const srv = spawn(process.execPath, [path.join(E2E, 'server/local.js')], {
+  const srv = spawn(process.execPath, [path.join(E2E, process.env.E2E_BACKEND ? 'server/spring-front.js' : 'server/local.js')], {
     stdio: ['ignore', out, out], detached: true,
     env: { ...process.env, ...clockEnv, PORT: String(PORT), BUILD_DIR: build, FIREBASE_AUTH_EMULATOR_HOST: `127.0.0.1:${EMU_PORT}`, E2E_VERBOSE: '1' },
   });
