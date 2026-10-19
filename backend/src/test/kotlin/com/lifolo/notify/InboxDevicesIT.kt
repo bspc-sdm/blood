@@ -68,7 +68,7 @@ class InboxDevicesIT : IntegrationTest() {
     }
 
     @Test
-    fun `phone verification - off without an SMS gateway; codes expire, 5 tries`() {
+    fun `phone verification - off without an SMS gateway - codes expire, 5 tries`() {
         user("ph1", mapOf("phone" to "01711222333"))
         val off = call("ph1", "phone_send_code")
         assertEquals(400, off.status)

@@ -78,7 +78,7 @@ class DeletionIT : IntegrationTest() {
     }
 
     @Test
-    fun `after 30 days the daily job deletes; not before`() {
+    fun `after 30 days the daily job deletes - not before`() {
         val a = "gone0000001"
         val b = "wait0000001"
         for (u in listOf(a, b)) {

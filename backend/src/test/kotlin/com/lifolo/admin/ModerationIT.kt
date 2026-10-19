@@ -112,7 +112,7 @@ class ModerationIT : IntegrationTest() {
     }
 
     @Test
-    fun `professionals - chamber reports only in the panel; upheld chamber report suspends, home care report blocks`() {
+    fun `professionals - chamber reports only in the panel - upheld chamber report suspends, home care report blocks`() {
         setup()
         user("nurse1", mapOf("name" to "নার্স"))
         jdbc.update(
