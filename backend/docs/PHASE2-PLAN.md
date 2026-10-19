@@ -154,6 +154,8 @@ here. Do not edit other packages' files.
   git show FETCH_HEAD:bangla.log                                            # "য়" check
   ```
   Wait until `status.txt` names your pushed commit (`gh run list --branch spring-p3` shows the run).
+  A push without changes under `backend/` (e.g. a new branch that equals `spring`) starts no run; start one by hand with
+  `gh workflow run backend.yml --ref spring-p3`.
 * Before pushing, run `python3 backend/scripts/check-bangla.py` (no Gradle needed).
 * **Merging:** when your branch is green, `git fetch origin && git rebase origin/spring`, push (`--force-with-lease`), wait
   for green again, then fast-forward `spring`: `git push origin spring-p3:spring`. If that push is rejected (another package

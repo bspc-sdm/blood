@@ -227,6 +227,8 @@ P6 প্ল্যাটফর্ম/অ্যাডমিন) — বিস্�
    git show FETCH_HEAD:tests.txt | head -40                                  # কতগুলো টেস্ট, কোনটা ভাঙল
    ```
    `status.txt`-এ নিজের শেষ commit না আসা পর্যন্ত অপেক্ষা করুন (`gh run list --branch spring-p3`)।
+   `backend/`-এ কোনো বদল ছাড়া push করলে (যেমন নতুন branch যা `spring`-এর সমান) build চলে না — তখন হাতে চালান:
+   `gh workflow run backend.yml --ref spring-p3`।
 5. সবুজ (success) হলে: `git fetch origin && git rebase origin/spring` → আবার push (`--force-with-lease`) → আবার সবুজ হলে
    `git push origin spring-p3:spring` (শুধু fast-forward; আটকালে আবার rebase)। শেষে `spring-ci-log` সবুজ কি না দেখুন।
 6. অস্থায়ী class বদলানোর সময় একই commit-এ সেটা মুছে নিজেরটা বসান (একই interface-এর দুটো class থাকলে অ্যাপ চালু হয় না),
