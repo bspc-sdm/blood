@@ -121,7 +121,7 @@ class DemoSeeder(
         val key = com.fasterxml.jackson.databind.ObjectMapper().readTree(keyJson)
         val cols = key.fieldNames().asSequence().toList()
         require(cols.isNotEmpty() && cols.all { ident.matches(it) }) { "bad key $keyJson" }
-        val args = cols.map { c ->
+        val args: List<Any?> = cols.map { c ->
             val v = key[c]
             when {
                 v.isNull -> null
