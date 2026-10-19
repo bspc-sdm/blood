@@ -23,7 +23,12 @@ export function usePaged<T extends { id: string; createdAt: number }>(action: 'q
   const items = computed(() => {
     const seen = new Set<string>();
     const out: T[] = [];
-    for (const p of ((q.data as any)?.pages ?? []) as T[][]) for (const it of p) if (!seen.has(it.id)) (seen.add(it.id), out.push(it));
+    for (const p of ((q.data as any)?.pages ?? []) as T[][]) for (const it of p) {
+      if (!seen.has(it.id)) {
+        seen.add(it.id);
+        out.push(it);
+      }
+    }
     return out;
   });
   return reactive({ q, items }) as unknown as { q: any; items: T[] };

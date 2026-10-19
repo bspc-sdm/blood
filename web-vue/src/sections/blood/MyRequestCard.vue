@@ -33,7 +33,7 @@ const sorted = computed(() => [...w.value].sort((a, b) => Number(counts(b)) - Nu
       <IconButton icon="share" :label="tr('Share', 'শেয়ার')" class="c-primary" @click="emit('share')" />
     </div>
     <div class="col gap-6">
-      <Countdown :target="deadline(r)" :slot="BADGE_SLOT" />
+      <Countdown :target="deadline(r)" :slot-w="BADGE_SLOT" />
       <template v-if="r.notified">
         <SlotRow icon="notifications_active" muted>
           <span class="t-body-m muted">{{ tr(`${num(r.notifiedCount)} donors notified`, `${num(r.notifiedCount)} জন ডোনারকে জানানো হয়েছে`) }}</span>
@@ -43,7 +43,7 @@ const sorted = computed(() => [...w.value].sort((a, b) => Number(counts(b)) - Nu
       <SlotRow v-else>
         <Action icon="notifications" primary :busy="busy" :disabled="busyId != null && !busy" @click="emit('notify')">{{ tr('Notify nearby donors', 'আশেপাশের ডোনারদের জানান') }}</Action>
       </SlotRow>
-      <AgreedLine :list="list" :slot="BADGE_SLOT" />
+      <AgreedLine :list="list" :slot-w="BADGE_SLOT" />
     </div>
     <div :style="{ paddingLeft: BADGE_SLOT + 12 + 'px' }"><BagRow :r="r" :list="list" /></div>
     <template v-if="w.length">

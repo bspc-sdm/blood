@@ -23,7 +23,7 @@ import MyRequestSection from './MyRequestSection.vue';
 import RequestDetail from './RequestDetail.vue';
 import NeedNow from './NeedNow.vue';
 
-const props = defineProps<{ selectedId: string | null }>();
+defineProps<{ selectedId: string | null }>();
 const s = useSession();
 const nav = useNav();
 const invalidate = useInvalidate();

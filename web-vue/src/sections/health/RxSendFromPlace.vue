@@ -20,18 +20,18 @@ const props = defineProps<{ lab?: PlaceLab; pharmacy?: PlacePharmacy; mode?: 'sh
 const s = useSession();
 const nav = useNav();
 const picking = ref(false);
-const rx = ref<Rx | null>(null);
+const chosen = ref<Rx | null>(null);
 // একটাই প্রেসক্রিপশন বলে নিজে বাছা — তখন পরের ধাপ থেকে পেছনে গেলে পুরোটা বন্ধ (আবার নিজে বেছে ফেলত)
 const auto = ref(false);
 const sent = ref<RxSent | null>(null);
 const close = () => {
-  rx.value = null;
+  chosen.value = null;
   picking.value = false;
   auto.value = false;
 };
-const back = () => (auto.value ? close() : (rx.value = null));
+const back = () => (auto.value ? close() : (chosen.value = null));
 const done = (place: string, mode: SentMode) => {
-  const r = rx.value;
+  const r = chosen.value;
   if (r) {
     queryClient.invalidateQueries({ queryKey: ['rx_activity', r.id] });
     sent.value = { rxId: r.id, doctorName: r.doctor?.name ?? '', date: r.createdAt, place, mode };
@@ -43,13 +43,13 @@ const start = () =>
     // তালিকায় বাছা প্রেসক্রিপশন: সরাসরি সেটাই (পেছনে গেলে পুরোটা বন্ধ)
     if (props.rx) {
       auto.value = true;
-      rx.value = props.rx;
+      chosen.value = props.rx;
     }
     picking.value = true;
   });
 const onOnly = (r: Rx) => {
   auto.value = true;
-  rx.value = r;
+  chosen.value = r;
 };
 // প্রেসক্রিপশনের পাতা (Prescriptions-এর পথ) — দোকান/প্যাথলজির বিস্তারিত পথ বদলালেই বন্ধ; কেয়ারগিভার মোড এই পথে থাকে
 function openRx() {
@@ -65,8 +65,8 @@ function openRx() {
     <Button icon="send" square class="ph-card-send" data-testid="ph-card-send" @click="start">{{ tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
   </span>
   <Button v-else icon="send" class="detail-bar-main" @click="start">{{ tr('Send prescription', 'প্রেসক্রিপশন পাঠান') }}</Button>
-  <RxPickDialog v-if="picking && !rx" :for-lab="!!lab" :on-only="onOnly" @close="close" @pick="(r) => (rx = r)" />
-  <LabPickDialog v-if="rx && lab" :rx="rx" :only="lab" @close="back" @sent="(name, home) => done(name, home ? 'lab_home' : 'lab')" />
-  <PharmacySendDialog v-if="rx && pharmacy" :rx="rx" :p="pharmacy" :mode="mode" :last="last" @close="back" @sent="(m) => done(pharmacy!.name, m)" />
+  <RxPickDialog v-if="picking && !chosen" :for-lab="!!lab" :on-only="onOnly" @close="close" @pick="(r) => (chosen = r)" />
+  <LabPickDialog v-if="chosen && lab" :rx="chosen" :only="lab" @close="back" @sent="(name, home) => done(name, home ? 'lab_home' : 'lab')" />
+  <PharmacySendDialog v-if="chosen && pharmacy" :rx="chosen" :p="pharmacy" :mode="mode" :last="last" @close="back" @sent="(m) => done(pharmacy!.name, m)" />
   <RxSentDialog v-if="sent" :s="sent" @close="sent = null" @open="openRx" />
 </template>

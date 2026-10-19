@@ -5,7 +5,7 @@ import { Button, ErrorText, cx } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import { cleanCode, validCode } from './model';
 
-const props = defineProps<{ label: string; placeholder?: string; busy?: boolean; autoFocus?: boolean; error?: string | null }>();
+defineProps<{ label: string; placeholder?: string; busy?: boolean; autoFocus?: boolean; error?: string | null }>();
 const emit = defineEmits<{ open: [code: string] }>();
 const code = ref('');
 const err = ref<string | null>(null);

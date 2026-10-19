@@ -1,7 +1,6 @@
 // ছোট সাহায্যকারী আর লেবেল (অ্যাপের সাথে মিলিয়ে) — server/public/admin/app.js-এর মতো
 
 /** সার্ভারের উত্তর — আকার পাতাভেদে আলাদা, তাই খোলা রাখা */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type J = any;
 
 const BN = '০১২৩৪৫৬৭৮৯';
