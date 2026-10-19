@@ -14,7 +14,7 @@ class DemoServicesIT : DemoTestBase() {
     private fun names(items: com.fasterxml.jackson.databind.JsonNode) = items.map { it["name"].textValue() }
 
     @Test
-    fun `services demo - lists, orders, finds, approvals; the tester's steps; nothing left`() {
+    fun `services demo - lists, orders, finds, approvals - the tester's steps - nothing left`() {
         owner()
         seedAll()
         val p = U("patient")
@@ -209,7 +209,7 @@ class DemoServicesIT : DemoTestBase() {
     }
 
     @Test
-    fun `pharmacy demo - shop, patient, caregiver and owner; demo and real worlds apart`() {
+    fun `pharmacy demo - shop, patient, caregiver and owner - demo and real worlds apart`() {
         owner()
         seedSteps()
         val ph = U("pharmacy")
