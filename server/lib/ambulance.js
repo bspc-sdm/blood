@@ -391,7 +391,8 @@ const actions = {
     const on = available === true;
     const now = Date.now();
     await ref.update({
-      available: on, availableAt: now, busyAt: on ? FieldValue.delete() : now, updatedAt: now,
+      // reqBusy: "অ্যাম্বুলেন্স ডাকুন"-এর ট্রিপে ব্যস্ত (lib/ambreq.js) — চালক নিজে বদলালে তাঁর কথাই থাকে, ট্রিপ শেষে আর বদলানো হয় না
+      available: on, availableAt: now, busyAt: on ? FieldValue.delete() : now, updatedAt: now, reqBusy: FieldValue.delete(),
       // "এখনো খালি আছেন?" — শুধু অনুমোদিত খালি গাড়িতে, ১১ ঘণ্টা পর; বন্ধ/ট্রিপে গেলে মোছে
       remindAt: on && s.get('status') === 'approved' ? now + REMIND_AT_MS : FieldValue.delete(),
     });

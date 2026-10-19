@@ -214,7 +214,8 @@ async function advance(ref, now = Date.now()) {
       t.update(ref, closeFields(now, 'expired'));
       return true;
     });
-    if (done) {
+    // দৈনিক ক্রনে অনেক পরে বন্ধ হলে পুশ নয় (রোগী অনেক আগেই অন্যভাবে ব্যবস্থা করেছেন)
+    if (done && now - openedAt(x) < EXPIRE_MS + 10 * MIN) {
       await pushPatient(ref.id, x.uid, 'No ambulance accepted', 'কোনো অ্যাম্বুলেন্স রাজি হয়নি',
         'Please call one directly from the list.', 'তালিকা থেকে সরাসরি ফোন করুন।').catch(() => {});
     }
@@ -285,7 +286,7 @@ function patientView(id, x, now = Date.now()) {
     upazilaId: x.upazilaId || null,
     ...(accepted ? {
       ambulance: {
-        id: x.ambulanceId, name: x.ambulanceName || '', phone: x.driverPhone || '', ...kmOf(x.km?.[x.acceptedBy]),
+        id: x.ambulanceId, name: x.ambulanceName || '', phone: x.driverPhone || '', ...kmOf(x.km?.[x.acceptedBy || x.bookedOwner]),
       },
     } : {}),
     acceptedAt: x.acceptedAt || 0,
@@ -495,6 +496,8 @@ const actions = {
         throw err(req, 409, en, bn, 'taken');
       }
       if ((x.declined || []).includes(user.uid) || !(x.activeOwners || []).includes(user.uid)) throw err(req, 404, 'Not found', 'পাওয়া যায়নি');
+      // advance-এর পরে আর এই transaction-এর আগে সময় পেরোলে (রিভিউ): রাজি নয়
+      if (now - openedAt(x) >= EXPIRE_MS) throw err(req, 409, 'This request has expired', 'এই অনুরোধের সময় শেষ', 'taken');
       const ambulanceId = x.sentTo[user.uid];
       const ambRef = db.doc(`ambulances/${ambulanceId}`);
       const amb = await t.get(ambRef);

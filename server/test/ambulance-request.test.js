@@ -487,3 +487,25 @@ test('ডেমো: রোগী ডাকেন → ডেমো অ্যা�
   assert.strictEqual((await ok(DP, 'ambreq_status', { id: r.body.id })).request.canRate, true);
   await demo.wipe({ all: true });
 });
+
+test('রিভিউ: সময় পেরোনোর পরে "আসছি" নয়; ক্রনে অনেক পরে বন্ধ হলে রোগীকে পুশ নয়; চালক নিজে খালি/ব্যস্ত বদলালে ট্রিপ শেষে তা-ই থাকে', async () => {
+  await seed();
+  let id = (await ask(P)).body.id;
+  clock.advance(3 * 60 * SEC + SEC);
+  const late = await call('d1', 'ambreq_accept', { id });
+  assert.strictEqual(late.status, 409);
+  assert.strictEqual((await reqDoc(id)).status, 'expired');
+  clock.reset();
+  // ক্রন: এক দিন পরে বন্ধ — পুশ নয়
+  id = (await ask(P)).body.id;
+  F.pushes.length = 0;
+  await AR.dailyCleanup(Date.now() + 24 * HOUR);
+  assert.strictEqual((await reqDoc(id)).status, 'expired');
+  assert.deepStrictEqual(F.pushes, []);
+  // চালক ট্রিপের মাঝে নিজে "ব্যস্ত" রাখলেন → শেষেও ব্যস্ত
+  id = (await ask(P)).body.id;
+  await ok('d1', 'ambreq_accept', { id });
+  await ok('d1', 'ambulance_available', { id: 'a1', available: false });
+  await ok('d1', 'ambreq_step', { id, step: 'done' });
+  assert.strictEqual((await db.doc('ambulances/a1').get()).get('available'), false);
+});
