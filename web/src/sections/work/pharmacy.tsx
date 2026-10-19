@@ -1,6 +1,7 @@
-// /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, ওষুধ খোঁজার অনুরোধ, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen, PharmacyFindRequests)
+// /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen)
+// ২.৩০.০: "দোকান › তথ্য" (/work/pharmacy/shop) আর আলাদা ট্যাব "ওষুধ খোঁজা" (/work/pharmacy/finds — অ্যাপের PharmacyFindRequests)
 import { Suspense, lazy, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
@@ -103,11 +104,11 @@ export function MyPharmacy() {
      
       actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/pharmacy/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}
     >
-      <PharmacyTabs active="shop" />
+      <PharmacyTabs active="info" />
       <Flash msg={flash} error={err} />
       <DocsNeededNotice kind="pharmacy" id={ph.id} specs={pharmacyDocs()} item={ph} onDone={after} />
 
-      {/* ২.২৭.০ "দোকান" ট্যাব: পাশে তথ্য আর কয়েক দিন বন্ধ; মাঝে QR ও কোড, অনলাইনে বিক্রি, চেয়েও পাননি, ওষুধ খোঁজার অনুরোধ, ফোনের হিসাব; একদম নিচে মুছে ফেলা */}
+      {/* "দোকান › তথ্য": পাশে তথ্য আর কয়েক দিন বন্ধ; মাঝে QR ও কোড (পোস্টার), অনলাইনে বিক্রি, চেয়েও পাননি, ফোনের হিসাব; একদম নিচে (লাল) মুছে ফেলা */}
       <div className="ws-grid side">
         <div className="col gap-16">
           {approved ? (
@@ -115,7 +116,6 @@ export function MyPharmacy() {
               <ShopPanels />
             </Suspense>
           ) : null}
-          {approved ? <FindRequests /> : null}
           <section className="card col gap-8">
             <h3 className="t-title-m">{tr('Calls from the app', 'অ্যাপ থেকে ফোন')}</h3>
             <div className="stats work-stats">
@@ -210,6 +210,25 @@ export function PartnerCard({ icon, title, sub, to }: { icon: string; title: str
         <Icon name="chevron_right" />
       </Link>
     </section>
+  );
+}
+
+/** "ওষুধ খোঁজা" ট্যাব (২.৩০.০): রোগীদের ওষুধ খোঁজার অনুরোধ — উপরে চালু/বন্ধ, প্রতিটায় এক চাপে "আছে"/"নেই" */
+export function PharmacyFinds() {
+  const gate = useWorkGate();
+  const s = useSession();
+  const ph = s.work.pharmacy as Pharmacy | null;
+  const title = myBusinessTitle('pharmacy');
+  if (gate) return <BizPage title={title}>{gate}</BizPage>;
+  if (ph?.status !== 'approved') return <Navigate to="/work/pharmacy" replace />;
+  return (
+    <BizPage title={title}>
+      <PharmacyTabs active="finds" />
+      <p className="t-body-m muted">
+        {tr("People nearby ask whether you have a medicine they couldn't find. One tap answers — they call you if you have it. They don't see each other's names or numbers.", 'কাছের মানুষ খুঁজে না পাওয়া ওষুধ আপনার কাছে আছে কি না জানতে চান। এক চাপে উত্তর দিন — থাকলে তাঁরা ফোন করবেন। কারো নাম-নম্বর দেখানো হয় না।')}
+      </p>
+      <FindRequests />
+    </BizPage>
   );
 }
 

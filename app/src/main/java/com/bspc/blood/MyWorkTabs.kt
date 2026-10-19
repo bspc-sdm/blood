@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -53,9 +54,11 @@ import org.json.JSONObject
  * আগে সব এক লম্বা পাতায় ছিল, আর আসা অর্ডারগুলো দোকানে/অনলাইনে, নতুন/পুরোনো সব একসাথে মেশানো।
  *  ফার্মেসি: "অর্ডার" (শুরুতে) — উপরে "কোড দিয়ে প্রেসক্রিপশন খুলুন", তারপর নতুন · চলছে/তৈরি · শেষ (সংখ্যাসহ)
  *            "দোকান" — দোকানের তথ্য, QR ও কোড, কয়েক দিন বন্ধ, অনলাইনে বিক্রি, স্টক, চেয়েও পাননি, ওষুধ খোঁজার অনুরোধ, একদম নিচে মুছে ফেলা
+ *  ২.৩০.০ থেকে ফার্মেসিতে তিন ট্যাব: "অর্ডার", "ওষুধ খোঁজা" (রোগীদের ওষুধ খোঁজার অনুরোধ, চালু/বন্ধ, উত্তর না দেওয়ার সংখ্যা),
+ *            "দোকান" (ভেতরে তথ্য · বিক্রি · স্টক · এনালাইটিক্স — শেষ তিনটা হালকা, পুরোটা ওয়েবে; PharmacyShop.kt)
  *  প্যাথলজি: "অনুরোধ" — নতুন · নমুনা/চলছে · রিপোর্ট দেওয়া · শেষ; "ল্যাব" — তথ্য, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা, মুছে ফেলা
  * ভাগ সার্ভার ঠিক করে (server/lib/rxnet.js-এর pharmSeg/labSeg) — ওয়েবও একই ভাগ দেখায়।
- * নোটিফিকেশন: নতুন অর্ডার/অনুরোধ → প্রথম ট্যাবের "নতুন"; ওষুধ খোঁজার অনুরোধ → "দোকান" (WorkNav.target)।
+ * নোটিফিকেশন: নতুন অর্ডার/অনুরোধ → প্রথম ট্যাবের "নতুন"; ওষুধ খোঁজার অনুরোধ → "ওষুধ খোঁজা" (২.৩০.০; WorkNav.target "finds")।
  */
 
 /** তালিকা আর প্রতিটা ভাগে কয়টা (সার্ভারের counts — তালিকায় সব না এলেও পুরো সংখ্যা) */
@@ -367,17 +370,16 @@ fun PharmacyQrCard(h: PharmacyHome) {
     }
 }
 
-/** অনলাইনে বিক্রি, চেয়েও পাননি, স্টক, আজকের হিসাব */
+/** অনলাইনে বিক্রি আর চেয়েও পাননি ("দোকান › তথ্য"; স্টক আর হিসাব ২.৩০.০ থেকে নিজের ভাগে — PharmacyShop.kt) */
 @Composable
 fun PharmacyToolsCard(h: PharmacyHome, onChanged: (String?) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    var stockOpen by remember { mutableStateOf(false) }
     var onlineOpen by remember { mutableStateOf(false) }
     var missedOpen by remember { mutableStateOf(false) }
     Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("Selling & stock", "বিক্রি ও স্টক"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(tr("Selling online", "অনলাইনে বিক্রি"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Tag(
                     if (h.online.enabled) tr("Selling online", "অনলাইনে বিক্রি চালু") else tr("In-shop only", "শুধু দোকানে"),
                     if (h.online.enabled) cs.tertiaryContainer else cs.surfaceVariant,
@@ -385,15 +387,11 @@ fun PharmacyToolsCard(h: PharmacyHome, onChanged: (String?) -> Unit) {
                 )
             }
             OutlinedButton(onClick = { onlineOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Selling online", "অনলাইনে বিক্রি"), R.drawable.ic_local_shipping) }
-            OutlinedButton(onClick = { stockOpen = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("My stock list", "আমার স্টকের তালিকা"), R.drawable.ic_list_alt) }
             OutlinedButton(onClick = { missedOpen = true }, modifier = Modifier.fillMaxWidth()) {
                 ButtonContent(false, tr("Asked for but not available", "চেয়েও পাননি এমন ওষুধ") + (h.missed.size.takeIf { it > 0 }?.let { " (${num(it)})" } ?: ""), R.drawable.ic_list_alt)
             }
-            SmallNote(tr("Keep a stock list so patients can see which medicines you have.", "স্টকের তালিকা রাখলে রোগীরা দেখতে পাবেন আপনার কাছে কোন ওষুধ আছে।"))
-            PharmacyTodayCard() // আজকের হিসাব (পুরো হিসাব ওয়েবে) — PharmacyBooks.kt
         }
     }
-    if (stockOpen) StockDialog { stockOpen = false }
     if (onlineOpen) OnlineSettingsDialog(h, onDismiss = { onlineOpen = false }) { onlineOpen = false; onChanged(tr("Saved", "সেভ হয়েছে")) }
     if (missedOpen) MissedDialog(h.missed, onDismiss = { missedOpen = false; onChanged(null) })
 }
@@ -411,7 +409,11 @@ fun PharmacyFindCard() {
 fun DangerZone(text: String, enabled: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
-        TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        // লাল (error) রঙে — ২.২৭.০-এ অ্যাপে primary রঙে দেখাত (ফার্মেসি আর ল্যাব দুটোতেই ঠিক, ২.৩০.০)
+        TextButton(
+            onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().testTag("danger_zone"),
+            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        ) {
             ButtonContent(false, text, R.drawable.ic_delete)
         }
     }

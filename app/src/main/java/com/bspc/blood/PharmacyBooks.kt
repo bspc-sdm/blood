@@ -51,8 +51,8 @@ data class RxSalePreview(val code: String, val at: Long, val source: String, val
 }
 
 object PharmacyBooks {
-    /** ওয়েবের হিসাবের পাতা (web/src/sections/rx/partner/pharmacy.tsx-এর /books ট্যাব) */
-    const val WEB_PATH = "/work/pharmacy/orders/books"
+    /** ওয়েবের হিসাবের পাতা (ওয়েবের দোকান › এনালাইটিক্স, ২.৩০.০; পুরোনো /orders/books সেখানে যায়) */
+    const val WEB_PATH = "/work/pharmacy/shop/analytics"
 
     /** বিক্রি তোলা হলে বাড়ে — "আজকের হিসাব" কার্ড পর্দায় থাকলে নতুন করে আনে */
     val refresh = mutableIntStateOf(0)

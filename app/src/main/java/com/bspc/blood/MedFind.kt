@@ -321,7 +321,7 @@ private fun MyFindCard(f: MyFind, onCall: (FindShop) -> Unit, onReport: (FindSho
 
 /** দোকান: কাছের মানুষ কী খুঁজছেন — এক চাপে "আছে"/"নেই" */
 @Composable
-fun PharmacyFindRequests() {
+fun PharmacyFindRequests(onChanged: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<FindRequest>?>(null) }
     var off by remember { mutableStateOf(false) }
@@ -337,7 +337,7 @@ fun PharmacyFindRequests() {
                 Text(tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             }
             Switch(checked = !off, onCheckedChange = { on ->
-                scope.launch { runCatching { MedFind.setOff(!on) }.onSuccess { off = !on }.onFailure { errorMsg = it.message } }
+                scope.launch { runCatching { MedFind.setOff(!on) }.onSuccess { off = !on; onChanged() }.onFailure { errorMsg = it.message } }
             })
         }
         ErrorText(errorMsg)
@@ -356,7 +356,7 @@ fun PharmacyFindRequests() {
                             fun send(have: Boolean) {
                                 scope.launch {
                                     busyId = r.id
-                                    runCatching { MedFind.answer(r.id, have) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
+                                    runCatching { MedFind.answer(r.id, have) }.onSuccess { reload++; onChanged() }.onFailure { errorMsg = it.message }
                                     busyId = null
                                 }
                             }

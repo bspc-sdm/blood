@@ -298,7 +298,8 @@ export async function run(J) {
   });
 
   await J.sc('S-17', 'ওষুধ খোঁজার অনুরোধে উত্তর', async () => {
-    await go(page, '/work/pharmacy');
+    // ২.৩০.০: আলাদা ট্যাব "ওষুধ খোঁজা"
+    await go(page, '/work/pharmacy/finds');
     const sg = page.locator('tr, article, div').filter({ hasText: 'Sergel' }).filter({ has: page.getByRole('button', { name: 'আছে' }) }).last();
     await sg.getByRole('button', { name: 'আছে' }).click();
     await settle(page, 500);
@@ -333,7 +334,7 @@ export async function run(J) {
   });
 
   await J.sc('S-40', 'পণ্য ও স্টকের তালিকা (দাম, পরিমাণ, মেয়াদ)', async () => {
-    await shop(page, 'পণ্য ও স্টক');
+    await go(page, '/work/pharmacy/shop/stock');
     await J.shot('পণ্য ও স্টক', '‘২৬টা পণ্য’; পরিমাণ, কেনা দাম, বিক্রি দাম, ছাড় (Seclo: ৳৭, −১০% = ৳৬.৩), মেয়াদ, ‘স্টকে আছে’।', { full: true });
     await tap(page, 'কম স্টক');
     await J.shot('কম স্টক (৫)', 'Nexum 20, Thyrox 50, Cef-3 (৪), Rosuva (৬), Montene (৮)।', { full: true });
@@ -392,7 +393,7 @@ export async function run(J) {
   });
 
   await J.sc('S-50 S-51', 'হিসাব: আজ, ৭ দিন, ৩০ দিন', async () => {
-    await tap(page, 'হিসাব', { role: 'tab' });
+    await tap(page, 'এনালাইটিক্স', { role: 'tab' });
     await J.shot('হিসাব — ৭ দিন', 'বিক্রি, মোট লাভ, মার্জিন, নিট লাভ; দিনের বিক্রি ও লাভের চার্ট।', { full: true });
     await tap(page, '৩০ দিন');
     await J.shot('হিসাব — ৩০ দিন', 'বেশি বিক্রি (Comet, Rosuva, Calbo), কেনা দামের নিচে বিক্রি (Flagyl), স্টকের দাম, কম স্টক, মেয়াদ, ৩০ দিনে বিক্রি নেই।', { full: true });

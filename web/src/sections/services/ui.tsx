@@ -9,6 +9,7 @@ import { num, tr } from '@/lib/i18n';
 import { store } from '@/lib/store';
 import { useSession } from '@/lib/session';
 import { DetailPane } from '@/shell/templates';
+import { taka } from './fare';
 import { useTwoPane } from '@/shell/chrome';
 import { RATE_ASPECTS, aspectLabel, kindLabel, recordCall, reportKind, type Entry, type Kind, type RateAspect } from './data';
 
@@ -363,7 +364,7 @@ export function RatingDialog({ kind = 'ambulance', id, name, aspects, agreedFare
       )}
       {agreedFare != null ? (
         <Check checked={over} onChange={setOver}>
-          {tr(`Charged more than the agreed fare (৳${agreedFare})`, `বলা ভাড়ার চেয়ে বেশি নিয়েছে (৳${num(agreedFare)})`)}
+          {tr(`Charged more than the agreed fare (${taka(agreedFare)})`, `বলা ভাড়ার চেয়ে বেশি নিয়েছে (${taka(agreedFare)})`)}
         </Check>
       ) : null}
       <TextArea label={tr('Comment (optional)', 'মন্তব্য (ঐচ্ছিক)')} rows={2} maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} />

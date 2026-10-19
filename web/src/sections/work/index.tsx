@@ -8,7 +8,7 @@ import { NotFound } from '@/pages/NotFound';
 import { WorkOverview } from './overview';
 import { AddBusiness } from './add';
 import { AmbulanceForm, MyAmbulances } from './ambulance';
-import { MyPharmacy, PharmacyForm } from './pharmacy';
+import { MyPharmacy, PharmacyFinds, PharmacyForm } from './pharmacy';
 import { BloodBankForm, MyBloodBanks } from './bloodbank';
 import { LabForm, MyLab } from './lab';
 import './work.css';
@@ -34,6 +34,8 @@ export default function WorkSection() {
   const lazyPage = (el: JSX.Element) => <Suspense fallback={<Loading />}>{el}</Suspense>;
   if (matchPath({ path: '/work/rx/*', end: false }, pathname)) return lazyPage(<DoctorRx />);
   if (matchPath({ path: '/work/pharmacy/orders/*', end: false }, pathname)) return lazyPage(<PharmacyRx />);
+  // ২.৩০.০ "দোকান"-এর ভেতরের বিক্রি/স্টক/এনালাইটিক্স (হিসাব-খাতা) — কাউন্টারের সাথে একই ভাগে
+  if (matchPath({ path: '/work/pharmacy/shop/:sub', end: true }, pathname)) return lazyPage(<PharmacyRx />);
   if (matchPath({ path: '/work/lab/orders/*', end: false }, pathname)) return lazyPage(<LabOrders />);
   if (m('/work')) return <WorkOverview />;
   if (m('/work/add')) return <AddBusiness />;
@@ -43,8 +45,9 @@ export default function WorkSection() {
   const amb = m('/work/ambulance/:id');
   if (amb) return <AmbulanceForm key={amb.params.id} id={amb.params.id ?? null} />;
 
-  // ২.২৭.০: দুই ট্যাব — অনুমোদিত হলে /work/pharmacy (পুরোনো লিংক, নোটিফিকেশন) খোলে "অর্ডার"-এ; দোকানের পাতা /work/pharmacy/shop
+  // ২.২৭.০/২.৩০.০: অনুমোদিত হলে /work/pharmacy (পুরোনো লিংক, নোটিফিকেশন) খোলে "অর্ডার"-এ; "ওষুধ খোঁজা" /finds; দোকানের তথ্য /shop
   if (m('/work/pharmacy')) return <BizHome kind="pharmacy" />;
+  if (m('/work/pharmacy/finds')) return <PharmacyFinds />;
   if (m('/work/pharmacy/shop')) return <MyPharmacy />;
   if (m('/work/pharmacy/new') || m('/work/pharmacy/edit')) return <PharmacyForm />;
 

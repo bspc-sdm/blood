@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -235,10 +236,20 @@ internal fun MyPharmacyPanel(profile: Profile) {
     var pausing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    // ২.৩০.০: তিন ট্যাব — অর্ডার (০), ওষুধ খোঁজা (১), দোকান (২; ভেতরে তথ্য/বিক্রি/স্টক/এনালাইটিক্স)
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var shopSub by rememberSaveable { mutableIntStateOf(0) }
     var seg by rememberSaveable { mutableStateOf("new") }
+    var unanswered by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    ConsumeWorkTarget { t -> if (t == "shop") tab = 1 else { tab = 0; seg = "new" } }
+    // নোটিফিকেশন: ওষুধ খোঁজার অনুরোধ → "ওষুধ খোঁজা"; দোকান → "দোকান › তথ্য"; বাকি → "অর্ডার" › নতুন
+    ConsumeWorkTarget { t ->
+        when (t) {
+            "finds" -> tab = 1
+            "shop" -> { tab = 2; shopSub = 0 }
+            else -> { tab = 0; seg = "new" }
+        }
+    }
     fun act(done: String? = null, block: suspend () -> Unit) {
         scope.launch {
             busy = true
@@ -253,6 +264,8 @@ internal fun MyPharmacyPanel(profile: Profile) {
         if (shop?.status == "approved") {
             runCatching { RxNet.pharmacyOrders() }.onSuccess { orders = it; ordersErr = null }.onFailure { ordersErr = it.message }
             runCatching { RxNet.pharmacyHome() }.onSuccess { home = it }
+            // "ওষুধ খোঁজা" ট্যাবের সংখ্যা: উত্তর না দেওয়া খোলা অনুরোধ (বন্ধ থাকলে ০)
+            runCatching { MedFind.requests() }.onSuccess { (l, off) -> unanswered = if (off) 0 else l.count { it.answer == null } }
         }
         if (shop != null) runCatching { Pharmacies.stats() }.onSuccess { stats = it }
     }
@@ -340,24 +353,47 @@ internal fun MyPharmacyPanel(profile: Profile) {
             tab,
             listOf(
                 PillTab(tr("Orders", "অর্ডার"), R.drawable.ic_medication, count = orders?.counts?.get("new") ?: 0),
+                PillTab(tr("Medicine search", "ওষুধ খোঁজা"), R.drawable.ic_search, count = unanswered),
                 PillTab(tr("Shop", "দোকান"), R.drawable.ic_storefront),
             ),
             { tab = it },
         ) {
-            if (tab == 0) {
-                PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
-            } else {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            when (tab) {
+                0 -> PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
+                1 -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("pharm_finds")) {
+                    PharmacyFindRequests { reload++ }
+                }
+                else -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // দোকানের ভেতরের ভাগ: তথ্য · বিক্রি · স্টক · এনালাইটিক্স (রোজকার দ্রুত কাজ অ্যাপে, ভারী হিসাব ওয়েবে)
+                    PillTabs(
+                        shopSub,
+                        listOf(
+                            PillTab(tr("Info", "তথ্য"), R.drawable.ic_storefront),
+                            PillTab(tr("Sales", "বিক্রি"), R.drawable.ic_payments),
+                            PillTab(tr("Stock", "স্টক"), R.drawable.ic_list_alt),
+                            PillTab(tr("Analytics", "এনালাইটিক্স"), R.drawable.ic_history),
+                        ),
+                        { shopSub = it },
+                        secondary = true,
+                    )
                     ErrorText(errorMsg)
                     InfoText(infoMsg)
-                    ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
+                    when (shopSub) {
+                        1 -> PharmacySalesLite()
+                        2 -> PharmacyStockLite()
+                        3 -> PharmacyAnalyticsLite()
+                        else -> ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
+                    }
                 }
             }
         }
     }
 }
 
-/** "দোকান" ট্যাব: তথ্য → QR ও কোড → কয়েক দিন বন্ধ → বিক্রি ও স্টক → ওষুধ খোঁজার অনুরোধ → ফোনের হিসাব → (আলাদা করে) মুছে ফেলা */
+/**
+ * "দোকান › তথ্য": তথ্য → QR ও কোড, পোস্টার → কয়েক দিন বন্ধ → অনলাইনে বিক্রি, চেয়েও পাননি → ফোনের হিসাব →
+ * (আলাদা করে, লাল) মুছে ফেলা। স্টক/বিক্রি/হিসাব আলাদা ভাগে (PharmacyShop.kt), ওষুধ খোঁজা আলাদা ট্যাবে (২.৩০.০)।
+ */
 @Composable
 private fun ShopTab(
     s: Pharmacy,
@@ -402,7 +438,6 @@ private fun ShopTab(
     }
     if (s.status == "approved") {
         home?.let { PharmacyToolsCard(it, onChanged) }
-        PharmacyFindCard()
     }
     stats?.let { st ->
         Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {

@@ -358,7 +358,7 @@ fun App(
             // ফার্মেসি/প্যাথলজির মালিক (প্রেসক্রিপশন, পরীক্ষার অনুরোধ), দোকানের কাছে ওষুধ খোঁজা: নিজের পাতা ("আমার কাজ")
             // ২.২৭.০: নতুন অর্ডার/অনুরোধ → প্রথম ট্যাবের "নতুন" ভাগ; ওষুধ খোঁজার অনুরোধ → "দোকান" ট্যাব
             type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> {
-                WorkNav.target.value = if (type == "med_find") "shop" else "orders"
+                WorkNav.target.value = if (type == "med_find") "finds" else "orders"
                 push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
             }
             // নিজের ওষুধ খোঁজার উত্তর: সেবা › ফার্মেসি › "ওষুধ খুঁজুন"

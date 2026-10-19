@@ -555,10 +555,21 @@ export function WorkEmpty(props: { icon: string; title: string; text?: string; c
 }
 
 // ---------- ফার্মেসি আর প্যাথলজির দুই ট্যাব (২.২৭.০, অ্যাপের MyWorkTabs.kt) ----------
-// ফার্মেসি: "অর্ডার" (/work/pharmacy/orders — শুরুতে) · "দোকান" (/work/pharmacy/shop, আর ওয়েবের হিসাব-খাতা: স্টক, মাল কেনা, বিক্রি, হিসাব)
+// ফার্মেসি (২.৩০.০ থেকে তিন ট্যাব): "অর্ডার" (/work/pharmacy/orders — শুরুতে) · "ওষুধ খোঁজা" (/work/pharmacy/finds) ·
+//   "দোকান" — তথ্য (/work/pharmacy/shop) · বিক্রি (/shop/sales) · স্টক (/shop/stock, ?v=buy মাল কেনা) · এনালাইটিক্স (/shop/analytics)।
+//   পুরোনো হিসাব-খাতার লিংক (/work/pharmacy/orders/stock|buy|sales|books) নতুন জায়গায় চলে যায় (rx/partner/pharmacy.tsx)।
 // প্যাথলজি: "অনুরোধ" (/work/lab/orders) · "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা)
 // পুরোনো লিংক (/work/pharmacy, /work/lab, …/orders/online, নোটিফিকেশন) আগের মতোই খোলে — index.tsx।
-export type PharmTab = 'orders' | 'shop' | 'stock' | 'buy' | 'sales' | 'books';
+export type PharmTab = 'orders' | 'finds' | 'info' | 'sales' | 'stock' | 'analytics';
+export const PHARM_SHOP_TABS: PharmTab[] = ['info', 'sales', 'stock', 'analytics'];
+/** দোকানের ভেতরের ভাগের ঠিকানা */
+export const pharmTabPath = (k: PharmTab) => (k === 'orders' ? '/work/pharmacy/orders' : k === 'finds' ? '/work/pharmacy/finds' : k === 'info' ? '/work/pharmacy/shop' : `/work/pharmacy/shop/${k}`);
+
+/** "ওষুধ খোঁজা"-র সংখ্যা: উত্তর না দেওয়া খোলা অনুরোধ (চালু থাকলে) */
+export function useUnansweredFinds(enabled: boolean) {
+  const q = useCall<{ items: { answer: string | null }[]; findOff: boolean }>('med_find_requests', {}, { enabled, refetchInterval: 60_000 });
+  return q.data && !q.data.findOff ? q.data.items.filter((r) => !r.answer).length : 0;
+}
 export type LabTab = 'orders' | 'info' | 'prices' | 'ranges';
 
 /** "নতুন" কয়টা — সার্ভারের counts (তালিকার পাতার একই চাবি, আবার আনা হয় না) */
@@ -572,16 +583,18 @@ export function PharmacyTabs({ active }: { active: PharmTab }) {
   const s = useSession();
   const approved = (s.work.pharmacy as { status?: string } | null)?.status === 'approved';
   const fresh = useNewCount('rx_orders_pharmacy', approved);
+  const finds = useUnansweredFinds(approved);
   if (!approved) return null;
-  const top = active === 'orders' ? 'orders' : 'shop';
+  const top = active === 'orders' || active === 'finds' ? active : 'shop';
   return (
     <div className="col gap-8 work-tabs">
       <PillTabs
         label={myBusinessTitle('pharmacy')}
         value={top}
-        onChange={(k) => nav(k === 'orders' ? '/work/pharmacy/orders' : '/work/pharmacy/shop')}
+        onChange={(k) => nav(pharmTabPath(k === 'shop' ? 'info' : (k as PharmTab)))}
         tabs={[
           { key: 'orders', label: tr('Orders', 'অর্ডার'), icon: 'medication', count: fresh },
+          { key: 'finds', label: tr('Medicine search', 'ওষুধ খোঁজা'), icon: 'search', count: finds },
           { key: 'shop', label: tr('Shop', 'দোকান'), icon: 'storefront' },
         ]}
       />
@@ -590,13 +603,12 @@ export function PharmacyTabs({ active }: { active: PharmTab }) {
           secondary
           label={tr('Shop', 'দোকান')}
           value={active}
-          onChange={(k) => nav(k === 'shop' ? '/work/pharmacy/shop' : `/work/pharmacy/orders/${k}`)}
+          onChange={(k) => nav(pharmTabPath(k as PharmTab))}
           tabs={[
-            { key: 'shop', label: tr('Shop & settings', 'দোকান ও সেটিং'), icon: 'storefront' },
-            { key: 'stock', label: tr('Products & stock', 'পণ্য ও স্টক'), icon: 'list_alt' },
-            { key: 'buy', label: tr('Stock in', 'মাল কেনা'), icon: 'storefront' },
+            { key: 'info', label: tr('Info', 'তথ্য'), icon: 'storefront' },
             { key: 'sales', label: tr('Sales', 'বিক্রি'), icon: 'payments' },
-            { key: 'books', label: tr('Accounts', 'হিসাব'), icon: 'history' },
+            { key: 'stock', label: tr('Stock', 'স্টক'), icon: 'list_alt' },
+            { key: 'analytics', label: tr('Analytics', 'এনালাইটিক্স'), icon: 'history' },
           ]}
         />
       ) : null}
