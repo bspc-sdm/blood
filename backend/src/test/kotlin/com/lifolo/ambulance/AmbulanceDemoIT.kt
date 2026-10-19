@@ -33,7 +33,7 @@ class AmbulanceDemoIT : AmbTestBase() {
 
         override fun extraUser(key: String, profile: Map<String, Any?>): String {
             val uid = "demo-x-$key"
-            user(uid, profile, "$key@${DemoWorld.DOMAIN}")
+            this@AmbulanceDemoIT.user(uid, profile, "$key@${DemoWorld.DOMAIN}")
             return uid
         }
 
@@ -46,7 +46,7 @@ class AmbulanceDemoIT : AmbTestBase() {
         clearPushes()
     }
 
-    private fun all(uid: String?, body: Map<String, Any?>): List<com.fasterxml.jackson.databind.JsonNode> {
+    private fun listAll(uid: String?, body: Map<String, Any?>): List<com.fasterxml.jackson.databind.JsonNode> {
         val r = ok(uid, "ambulances", body)
         return r["items"].toList() + r["busy"].toList()
     }
@@ -54,29 +54,29 @@ class AmbulanceDemoIT : AmbTestBase() {
     @Test
     fun `ambulances - finding, calling, rating, the driver's work, a new car, approval - with the real actions`() {
         seed()
-        val all = all(null, mapOf("district" to GAZIPUR))
+        val all = listAll(null, mapOf("district" to GAZIPUR))
         assertTrue(all.any { it["name"].textValue().contains("ডেমো জীবন অ্যাম্বুলেন্স (এসি)") && it["available"].booleanValue() }, "AC available")
         assertTrue(all.any { it["name"].textValue().contains("নন-এসি") && it.has("busy") }, "non-AC on a trip")
         assertFalse(all.any { it["id"].textValue() == "demo-svc-amb-icu-new" }, "the pending ICU car is not listed")
         assertTrue(all.none { it["canRate"].booleanValue() }, "guests cannot rate")
-        val icu = all(null, mapOf("district" to GAZIPUR, "type" to "icu"))
+        val icu = listAll(null, mapOf("district" to GAZIPUR, "type" to "icu"))
         assertTrue(icu.isNotEmpty() && icu.all { t -> t["types"].any { it.textValue() == "icu" } })
 
-        val pl = all(P, mapOf("district" to GAZIPUR))
+        val pl = listAll(P, mapOf("district" to GAZIPUR))
         assertTrue(pl.filter { it["canRate"].booleanValue() }.any { it["id"].textValue() == "demo-svc-amb-icu" })
         val fresh = pl.first { !it["canRate"].booleanValue() && !it.has("busy") }
         ok(P, "ambulance_called", mapOf("id" to fresh["id"].textValue()))
         assertEquals(403, call(P, "ambulance_rate", mapOf("id" to fresh["id"].textValue(), "rating" to 5)).status, "not within 1 hour of the first call")
-        val before = all(P, mapOf("district" to GAZIPUR)).first { it["id"].textValue() == "demo-svc-amb-icu" }
+        val before = listAll(P, mapOf("district" to GAZIPUR)).first { it["id"].textValue() == "demo-svc-amb-icu" }
         ok(P, "ambulance_rate", mapOf("id" to "demo-svc-amb-icu", "rating" to 4, "comment" to "সময়মতো এসেছে"))
-        val after = all(P, mapOf("district" to GAZIPUR)).first { it["id"].textValue() == "demo-svc-amb-icu" }
+        val after = listAll(P, mapOf("district" to GAZIPUR)).first { it["id"].textValue() == "demo-svc-amb-icu" }
         assertEquals(before["ratingCount"].intValue() + 1, after["ratingCount"].intValue())
 
         val mine = ok(DA, "ambulance_mine")["items"].toList()
         assertTrue(mine.size >= 3)
         ok(DA, "ambulance_available", mapOf("id" to "demo-svc-amb-nonac", "available" to true))
         ok(DA, "ambulance_available", mapOf("id" to "demo-svc-amb-ac", "available" to false))
-        val l2 = all(null, mapOf("district" to GAZIPUR, "x" to 1))
+        val l2 = listAll(null, mapOf("district" to GAZIPUR, "x" to 1))
         assertTrue(l2.first { it["id"].textValue() == "demo-svc-amb-nonac" }["available"].booleanValue())
         assertTrue(l2.first { it["id"].textValue() == "demo-svc-amb-ac" }.has("busy"))
         val st = ok(DA, "ambulance_stats")["items"]
@@ -109,7 +109,7 @@ class AmbulanceDemoIT : AmbTestBase() {
         assertEquals(3, icuNew["verify"]["docs"].count { it["has"].booleanValue() })
         assertEquals(400, call(OWNER, "admin_ambulance_resolve", mapOf("id" to "demo-svc-amb-icu-new", "approve" to true)).status, "not without the ticks")
         ok(OWNER, "admin_ambulance_resolve", mapOf("id" to "demo-svc-amb-icu-new", "status" to "approved", "checks" to VerifySpec.checks("ambulance", null).map { it.id }))
-        assertTrue(all(P, mapOf("district" to GAZIPUR, "y" to 2)).any { it["id"].textValue() == "demo-svc-amb-icu-new" })
+        assertTrue(listAll(P, mapOf("district" to GAZIPUR, "y" to 2)).any { it["id"].textValue() == "demo-svc-amb-icu-new" })
         assertEquals(403, call(DA, "admin_ambulances").status, "admins only")
 
         // demo and real are separate
