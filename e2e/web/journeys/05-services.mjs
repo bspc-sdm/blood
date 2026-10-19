@@ -73,6 +73,8 @@ async function approveFirst(page, name) {
 }
 async function tickAll(page) {
   const boxes = page.locator('input[type=checkbox]:visible');
+  // যাচাইয়ের টিকের তালিকা আবেদন লোড হওয়ার পরে আসে — সার্ভার ধীর হলে (Spring-এর প্রথম ডাক) আগেই গুনলে ০টা
+  await boxes.first().waitFor({ timeout: 8000 }).catch(() => {});
   for (let i = 0; i < (await boxes.count()); i++) await boxes.nth(i).check({ force: true }).catch(() => {});
   await settle(page, 200);
 }
