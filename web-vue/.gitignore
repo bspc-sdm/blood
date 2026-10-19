@@ -1,0 +1,9 @@
+node_modules/
+test/.build/
+test/out/
+*.tsbuildinfo
+dist/
+test-results/
+playwright-report/
+e2e/shots/
+e2e/.build/

@@ -1,0 +1,458 @@
+[
+ {
+  "name": "patients",
+  "path": "/work/rx",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "patients-history",
+  "path": "/work/rx?patient=rxp1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "patients-search",
+  "path": "/work/rx",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "fill": [
+   [
+    "input[placeholder*='খুঁজুন']",
+    "রা"
+   ]
+  ]
+ },
+ {
+  "name": "patient-add",
+  "path": "/work/rx",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button:has-text('রোগী যোগ')"
+  ]
+ },
+ {
+  "name": "write",
+  "path": "/work/rx/write?patient=rxp1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "write-drug",
+  "path": "/work/rx/write?patient=rxp1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "fill": [
+   [
+    "[data-f='name']",
+    "Na"
+   ]
+  ],
+  "wait": 1200
+ },
+ {
+  "name": "write-confirm",
+  "path": "/work/rx/write?appointment=rxa1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button.chip:has-text('CBC')",
+   "button.chip:has-text('১৫ দিন পর')",
+   "button:has-text('প্রেসক্রিপশন দিন')"
+  ]
+ },
+ {
+  "name": "write-pick",
+  "path": "/work/rx/write",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "list",
+  "path": "/work/rx/list",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "view",
+  "path": "/work/rx/view/rxd1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "view-cancel",
+  "path": "/work/rx/view/rxd1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button:has-text('এই প্রেসক্রিপশন বাতিল করুন')"
+  ]
+ },
+ {
+  "name": "team",
+  "path": "/work/rx/team",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "reviews",
+  "path": "/work/rx/reviews",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "review-read",
+  "path": "/work/rx/reviews",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button:has-text('রিপোর্ট দেখে জানান')"
+  ],
+  "wait": 900
+ },
+ {
+  "name": "review-settings",
+  "path": "/work/rx/reviews",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "click": [
+   "button:has-text('সেটিং বদলান')"
+  ]
+ },
+ {
+  "name": "assistant",
+  "path": "/work/rx?doctor=doc1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  },
+  "full": true
+ },
+ {
+  "name": "assistant-payments",
+  "path": "/work/rx/reviews?doctor=doc1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "assistant-write",
+  "path": "/work/rx/write?doctor=doc1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "write-dark",
+  "path": "/work/rx/write?patient=rxp4",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "dark"
+  },
+  "full": true
+ },
+ {
+  "name": "patients-en",
+  "path": "/work/rx?patient=rxp4",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "en",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "guest",
+  "path": "/work/rx",
+  "test": {
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ }
+]

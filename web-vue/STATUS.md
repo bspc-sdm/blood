@@ -1,0 +1,37 @@
+# web-vue — port status (paused)
+
+Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of `web/` (React). `web/` is untouched.
+
+## Done
+- Project setup: package.json, vite.config.ts (base `/w/`, build to `dist/`), tsconfig, index.html, public/ (manifest, icon, geo data copied).
+- `src/lib`: copied unchanged (api, firebase, testmode, store, format, rules, labprice, geo, profile, districts-data, icons). Reactive ports: i18n (lang is a ref, so `tr()` updates templates), theme, care, query (`@tanstack/vue-query`, `useQ`/`useCall` return reactive objects), session (module singleton plus `initSession()`), nav.ts (React Router helpers: `useNav`, `useLoc`, `useSearchParams`, `matchPath`, `canGoBack`), uid.ts.
+- Styles: tokens/base/layout and all section CSS copied as-is into one `@layer components` (main.css). Tailwind utilities sit in a later layer; theme colours are mapped to the CSS tokens.
+- UI kit (`src/ui`): every component from `kit.tsx`, plus PlacePicker, AreaPicker and `useFilterArea`. Dialog uses Reka Dialog, PillTabs uses Reka Tabs.
+- Shell: AppShell, ErrorBoundary, ListDetail, DetailPane, SubPageBar, Workspace, FormPage, chrome.ts, NotFound, router.ts (same URLs as App.tsx).
+- Account core: LoginFlow, ProfileForm, BloodGroupChips; demo login role list and the switch-role dialog.
+- **Blood section ported in full** (Home, Emergency, MyRequests, RequestDetail (guest and member), RequestForm (new and edit), all parts).
+- `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
+- `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
+
+## Remaining (React files not yet ported; these sections are TODO stubs)
+- services/: Directory, AmbRequest, MedFind, FacilityPicker, LocationInput, fare, pharmacy, ui, data, place (+ index)
+- appointment/: Doctors, HomeCare, MyAppointments, queue, shared, model, pro/index, pro/ChamberEdit (+ index)
+- health/: Discussion, Tips, Badge, Prescriptions, RxActivity, common, qr (+ index)
+- work/: overview, add, ambulance, ambcalls, pharmacy, bloodbank, lab, shared (+ index)
+- account/: Profile, EditProfile, Settings, Inbox, Help, Care, Login, util, nav (+ index)
+- rx/doctor/* (index, Write, Patients, Reviews, RxView, Team, Labs, model)
+- rx/partner/* (pharmacy, lab, labdetail, labprices, labranges, dispense, online, orders, stock, common, model, shoppanels, books/*)
+- Admin panel (`server/public/admin/app.js`, 18 pages including "ডেমো (পরীক্ষা)"): not started. Plan: a second Vite entry `admin/index.html`, same hash routes.
+- Tests: Vitest unit tests, a Playwright port of `e2e/web/journeys`, the CI workflow `web-vue.yml`, the Bangla byte-check script (`scripts/check-bangla.py`, modelled on backend/scripts/check-bangla.py, using web/src as the corpus), and a Bangla README.
+- Screenshot comparison with React has not been run yet. The tooling is ready (see notes).
+
+## Notes / known issues
+- Pin `vue-tsc` to 3.2.4: 3.3.x wrongly reports `.value` errors for imported bindings used inside arrow functions in templates. The runtime code is fine.
+- The React test build for comparison is made from a copy of web/ (node_modules symlinked from the main checkout). The `react-web`, `compare.py` and `shots.sh` scripts live outside the repo in the session scratchpad.
+- React has no service worker and no FCM web push; only the manifest. Keep it that way for parity.
+- Templates: never put whitespace between an icon and its text (React JSX had none). Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
+
+## Next steps
+1. Port the sections in order: services, account, appointment, health, work, rx/doctor, rx/partner. Then admin.
+2. Run the React-vs-Vue shots for every `test/pages/*.json` at 390px and fix the differences.
+3. Add the Bangla check script, Vitest, the Playwright e2e port, `.github/workflows/web-vue.yml` and README (bn).
