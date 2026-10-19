@@ -1,6 +1,7 @@
 // এলাকা: জেলা, উপজেলা, ইউনিয়ন (public/data/geo.json — দরকার হলে একবার আনা), GPS থেকে জেলা, দূরত্ব।
 import { distanceBetween, geohashForLocation } from 'geofire-common';
 import { DISTRICTS, type District } from './districts-data';
+import { ref } from 'vue';
 import { isBangla } from './i18n';
 
 export { DISTRICTS, type District };
@@ -8,6 +9,8 @@ export { DISTRICTS, type District };
 export interface Upazila { id: number; district: string; bn: string; en: string }
 export interface Union { id: number; upazilaId: number; bn: string; en: string }
 
+/** তালিকা এলে বাড়ে — যেসব টেমপ্লেট উপজেলা/ইউনিয়নের নাম পড়ে সেগুলো নিজে থেকে আবার আঁকে (React-এ useAreasLoaded/bump) */
+export const areasTick = ref(0);
 let upazilas: Upazila[] = [];
 let unions: Union[] = [];
 let loading: Promise<void> | null = null;
@@ -21,6 +24,7 @@ export function ensureAreas(): Promise<void> {
       .then((o: { u: [number, string, string, string][]; n: [number, number, string, string][] }) => {
         upazilas = o.u.map(([id, district, bn, en]) => ({ id, district, bn, en }));
         unions = o.n.map(([id, upazilaId, bn, en]) => ({ id, upazilaId, bn, en }));
+        areasTick.value++;
       })
       .catch((e) => {
         loading = null;
@@ -29,7 +33,7 @@ export function ensureAreas(): Promise<void> {
   }
   return loading;
 }
-export const areasReady = () => upazilas.length > 0;
+export const areasReady = () => areasTick.value >= 0 && upazilas.length > 0;
 
 const byLabel = <T extends { bn: string; en: string }>(a: T, b: T) => (isBangla() ? a.bn.localeCompare(b.bn, 'bn') : a.en.localeCompare(b.en));
 
@@ -37,13 +41,15 @@ export function districtsSorted(): District[] {
   return [...DISTRICTS].sort(byLabel);
 }
 export function upazilasOf(district: string): Upazila[] {
+  void areasTick.value;
   return upazilas.filter((u) => u.district === district).sort(byLabel);
 }
 export function unionsOf(upazilaId: number): Union[] {
+  void areasTick.value;
   return unions.filter((n) => n.upazilaId === upazilaId).sort(byLabel);
 }
-export const upazila = (id?: number | null) => (id == null ? undefined : upazilas.find((u) => u.id === id));
-export const union = (id?: number | null) => (id == null ? undefined : unions.find((u) => u.id === id));
+export const upazila = (id?: number | null) => (id == null || areasTick.value < 0 ? undefined : upazilas.find((u) => u.id === id));
+export const union = (id?: number | null) => (id == null || areasTick.value < 0 ? undefined : unions.find((u) => u.id === id));
 export const district = (bn?: string | null) => (bn ? DISTRICTS.find((d) => d.bn === bn) : undefined);
 
 /** ডাটাবেসে জেলার নাম বাংলায়; ইংরেজিতে ইংরেজি নাম */
