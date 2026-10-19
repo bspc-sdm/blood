@@ -609,7 +609,7 @@ object CareRules {
         val gps = loc.locationSource == "gps" && loc.lat != null && loc.lng != null
         val ups = h.upazilaIds
         if (place.lat != null && place.lng != null) {
-            val km = if (gps) distanceKm(place.lat, place.lng, loc.lat!!, loc.lng!!) else null
+            val km = if (gps) distanceKm(place.lat, place.lng, loc.lat, loc.lng) else null
             if (km != null && km <= (if (h.radiusKm != 0) h.radiusKm else 5)) return HomeHit(km)
             if (place.upazilaId != null && place.upazilaId != 0 && place.upazilaId in ups) return HomeHit(km)
             if (!gps && !place.district.isNullOrEmpty() && ups.isNotEmpty()) {

@@ -188,8 +188,8 @@ object QueueRules {
     /** running average with a new gap (minutes) */
     fun addGap(st: Stats?, gapMin: Double, now: Long): Stats {
         val fresh = st == null || st.n <= 0 || now - st.at >= STATS_STALE
-        val n = if (fresh) 1 else minOf(st!!.n + 1, STATS_N)
-        val avg = if (fresh) gapMin else st!!.avg + (gapMin - st.avg) / n
+        val n = if (fresh) 1 else minOf(st.n + 1, STATS_N)
+        val avg = if (fresh) gapMin else st.avg + (gapMin - st.avg) / n
         return Stats(Math.floor(avg * 100 + 0.5) / 100, n, now)
     }
 

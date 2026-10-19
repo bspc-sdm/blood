@@ -174,7 +174,7 @@ class HospitalActions(
 
     private fun list(district: String, upazilaId: Long?): List<Hospital> {
         var list = directory.approvedIn(district)
-        if (upazilaId != null && upazilaId != 0L) list = list.filter { it.upazilaId == null || it.upazilaId!!.toLong() == upazilaId }
+        if (upazilaId != null && upazilaId != 0L) list = list.filter { it.upazilaId == null || it.upazilaId.toLong() == upazilaId }
         return list.sortedWith(Comparator { a, b -> P2Js.localeCompare(a.nameEn, b.nameEn) })
     }
 

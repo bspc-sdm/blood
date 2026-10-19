@@ -244,7 +244,7 @@ class AppointmentActions(
         val hvObj = hvNode as? ObjectNode
         val hvOn = hvObj?.get("enabled")?.let { it.isBoolean && it.booleanValue() } ?: false
         // apps up to 2.1 have no separate phone field — ask to update
-        if (hvOn && !hvObj!!.has("phone")) {
+        if (hvOn && hvObj?.has("phone") != true) {
             throw ctx.err(409, "Please update the app to turn on home care", "বাসায় সেবা চালু করতে অ্যাপ আপডেট করুন", "update_required")
         }
         // no home care for nutritionists / trainers

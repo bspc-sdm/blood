@@ -121,7 +121,7 @@ class P2RulesTest {
         assertEquals("ময়মনসিংহ", c0.district)
         assertEquals("01712345678", c0.serialPhone)
 
-        val doc = ProviderDoc(specialties = listOf("medicine"), chambers = ok.value!!)
+        val doc = ProviderDoc(specialties = listOf("medicine"), chambers = ok.value)
         val f = com.lifolo.appointments.ListFilter()
         assertTrue(CareRules.matchesFilter(doc, f.copy(district = "ময়মনসিংহ", upazilaId = 10), 0))
         assertTrue(CareRules.matchesFilter(doc, f.copy(hospitalId = "h1", specialty = "medicine"), 0))
@@ -140,7 +140,7 @@ class P2RulesTest {
         assertNotNull(chambers(listOf(place), emptyMap()).error)
         assertNull(ok.error)
         assertEquals(true, ok.value!![0].custom)
-        assertNull(ok.value!![0].hospitalId)
+        assertNull(ok.value[0].hospitalId)
         assertNotNull(chambers(listOf(place + mapOf("placeName" to "Gym", "district" to "নেই")), emptyMap(), true).error)
         assertNotNull(chambers(listOf(place + mapOf("address" to "")), emptyMap(), true).error)
     }
@@ -171,7 +171,7 @@ class P2RulesTest {
         val loc = HomeLoc(23.81, 90.41, "gps", "ঢাকা")
         // from the searcher's GPS: within the radius, with the distance
         val near = CareRules.homeMatch(p, loc, HomePlace(23.83, 90.42))
-        assertTrue(near != null && near.km!! > 2 && near.km!! < 3)
+        assertTrue(near != null && near.km!! > 2 && near.km < 3)
         assertNull(CareRules.homeMatch(p, loc, HomePlace(24.5, 90.4)))
         assertNotNull(CareRules.homeMatch(p, loc, HomePlace(24.5, 90.4, upazilaId = 1)))
         // a district-only location gives no distance
