@@ -38,6 +38,8 @@ export interface Ambulance extends DocFlags {
   available: boolean; availableAt: number; rating: number; ratingCount: number; vehicleNo: string; status: string; statusReason: string;
   /** খালি থাকলে কখন পর্যন্ত (১২ ঘণ্টা); গাড়ির জায়গা (GPS) দেওয়া আছে কি না */
   availableUntil?: number; hasBase?: boolean;
+  /** ভাড়ার তালিকা (২.৩০.০) */
+  fareChart?: import('../services/fare').FareChart | null;
 }
 export interface Pharmacy extends DocFlags {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; openAt: string; closeAt: string;

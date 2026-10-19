@@ -946,8 +946,9 @@
         { label: 'গাড়ির নম্বর', cell: (a) => a.vehicleNo || '—' },
         { label: 'ফোন', cell: (a) => bn(a.phone) },
         { label: 'এলাকা', cell: (a) => [a.areaLabel || a.district || '—', a.area ? h('div', { class: 'small', text: a.area }) : null] },
-        { label: 'ভাড়া', cell: (a) => a.fare || '—' },
-        { label: 'রেটিং', cell: (a) => (a.ratingCount ? `${bn(a.rating)} (${bn(a.ratingCount)})` : '—') },
+        { label: 'ভাড়া', cell: (a) => [a.fareText || '—', a.fare ? h('div', { class: 'small', text: a.fare }) : null] },
+        { label: 'রেটিং', cell: (a) => [a.ratingCount ? `${bn(a.rating)} (${bn(a.ratingCount)})` : '—',
+          a.overchargeCount ? h('div', { class: 'small', text: `বলা ভাড়ার চেয়ে বেশি নিয়েছে: ${bn(a.overchargeCount)} বার` }) : null] },
         { label: 'বদল / নোট', cell: (a) => reviewCell(a) },
       ],
       id: (a) => a.id,
@@ -1141,7 +1142,8 @@
     }
     if (list === 'ambulances') {
       return [['নাম', x.name], ['গাড়ির নম্বর', x.vehicleNo], ['ধরন', (x.types || []).map((t) => L.amb[t] || t).join(', ')],
-        ['ফোন', bn(x.phone)], ['এলাকা', area], ['ভাড়া', x.fare]];
+        ['ফোন', bn(x.phone)], ['এলাকা', area], ['ভাড়ার তালিকা', x.fareText], ['ভাড়া (নোট)', x.fare],
+        ['বেশি ভাড়ার অভিযোগ', x.overchargeCount ? `${bn(x.overchargeCount)} বার` : '']];
     }
     if (list === 'pharmacies') {
       return [['নাম', x.name], ['লাইসেন্স নম্বর', x.licenseNo], ['ফোন', bn(x.phone)], ['এলাকা ও ঠিকানা', area], ['সময়', hours]];

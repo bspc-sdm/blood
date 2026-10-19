@@ -12,6 +12,7 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel, InaccuratePosition, precisePosition } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
 import { AmbulanceCalls } from './ambcalls';
+import { FareChartEditor, chartDraft, chartFromDraft, chartSummary } from '../services/fare';
 import type { AreaValue } from '@/ui/AreaPicker';
 import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MAX_AMBULANCES, PAPERS_CHANGED, Stat, StatsDialog, StatusReason, StatusTag, TermsCheck,
@@ -206,7 +207,8 @@ export function MyAmbulances() {
               <StatusReason status={a.status} reason={a.statusReason} />
               <div className="row wrap gap-6">{a.types.map((t) => <Tag key={t} tone="primary">{cat.label(t)}</Tag>)}</div>
               {area(a) ? <span className="icon-line"><Icon name="location_on" /><span>{area(a)}</span></span> : null}
-              {a.fare ? <span className="icon-line"><Icon name="payments" /><span>{tr('Fare: ', 'ভাড়া: ') + a.fare}</span></span> : null}
+              {a.fareChart ? <span className="icon-line"><Icon name="payments" /><span>{tr('Fare: ', 'ভাড়া: ') + chartSummary(a.fareChart)}</span></span> : null}
+              {a.fare ? <span className="icon-line"><Icon name="edit_note" /><span>{a.fare}</span></span> : null}
               {a.status === 'approved' ? (
                 <div className="col gap-2">
                   {avail(a)}
@@ -289,6 +291,7 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
   const [place, setPlace] = useState<AreaValue | null>(existing ? { district: existing.district, upazilaId: existing.upazilaId } : p?.placeName ? { district: p.placeName, upazilaId: null } : null);
   const [area, setArea] = useState(existing?.area ?? '');
   const [fare, setFare] = useState(existing?.fare ?? '');
+  const [chart, setChart] = useState(() => chartDraft(existing?.fareChart));
   // গাড়ি যেখানে অপেক্ষা করে (ঐচ্ছিক): "সবচেয়ে কাছের" খুঁজতে; না দিলে জেলার কেন্দ্র ধরা হয়।
   // শুধু ঠিকঠাক GPS (২০০ মিটারের ভেতরে) নেওয়া হয়; ভুল হলে এই সারিতেই লেখা, ফর্ম সেভ আটকায় না। clearBase: "জায়গা মুছুন"
   const [base, setBase] = useState<{ lat: number; lng: number } | null>(null);
@@ -333,13 +336,15 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
             : !place ? tr('Choose a district', 'জেলা বেছে নিন')
               : !existing && missingDocs(specs, docs) ? missingDocs(specs, docs)
                 : !agreed ? tr('Please accept the terms', 'শর্তে সম্মতি দিন') : null;
-    setErr(e);
-    if (e || !place) return;
+    const fc = chartFromDraft(chart);
+    const e2 = e ?? ('error' in fc ? fc.error : null);
+    setErr(e2);
+    if (e2 || !place || 'error' in fc) return;
     setBusy(true);
     try {
       const r = await call<{ pending?: boolean; baseIgnored?: boolean }>('ambulance_save', {
         id: existing?.id ?? null, name: name.trim(), phone, vehicleNo: vehicleNo.trim(), types, district: place.district, upazilaId: place.upazilaId ?? null,
-        area: area.trim(), fare: fare.trim(), termsAccepted: true, docs, ...(base ? { lat: base.lat, lng: base.lng } : clearBase ? { clearBase: true } : {}),
+        area: area.trim(), fare: fare.trim(), fareChart: fc.chart, termsAccepted: true, docs, ...(base ? { lat: base.lat, lng: base.lng } : clearBase ? { clearBase: true } : {}),
       });
       after();
       // জায়গাটা জেলার বাইরে হলে সার্ভার শুধু জায়গাটা বাদ দেয়, বাকিটা সেভ হয়
@@ -404,7 +409,8 @@ function AmbulanceEditor({ existing, onDone }: { existing: Ambulance | null; onD
         </div>
       </Field>
       <TextInput label={tr('Where you go (optional)', 'কোন কোন এলাকায় যান (ঐচ্ছিক)')} value={area} maxLength={120} onChange={(e) => setArea(e.target.value)} />
-      <TextInput label={tr('Fare (optional)', 'ভাড়া (ঐচ্ছিক)')} placeholder={tr('e.g. Within city 800 Tk, per km 40 Tk', 'যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা')} value={fare} maxLength={120} onChange={(e) => setFare(e.target.value)} />
+      <FareChartEditor district={place?.district ?? null} upazilaId={place?.upazilaId ?? null} value={chart} onChange={setChart} />
+      <TextInput label={tr('Fare note (optional)', 'ভাড়া নিয়ে নোট (ঐচ্ছিক)')} placeholder={tr('e.g. Within city 800 Tk, per km 40 Tk', 'যেমন: শহরের মধ্যে ৮০০ টাকা, প্রতি কিমি ৪০ টাকা')} value={fare} maxLength={120} onChange={(e) => setFare(e.target.value)} />
       <DocPhotosField specs={ambulanceDocs()} photos={docs} onChange={setDocs} note={existing ? PAPERS_CHANGED() : null} />
       <TermsCheck checked={agreed} onChange={setAgreed} />
       <ErrorText>{err}</ErrorText>

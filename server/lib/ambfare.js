@@ -203,7 +203,19 @@ function raiseTo(ests, maxFare) {
   return level || Math.ceil(lo / 1000) * 1000;
 }
 
+/** অ্যাডমিনের প্যানেলে এক লাইনে: "নিজের উপজেলা ৳800; ঢাকা ৳5000; অক্সিজেন +৳300" */
+function chartText(chart) {
+  if (!chart) return '';
+  const bn = (n) => `৳${String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d])}`;
+  return [
+    ...(chart.local != null ? [`নিজের উপজেলা ${bn(chart.local)}`] : []),
+    ...(chart.rows || []).map((r) => `${destLabel(r, 'bn')} ${bn(r.amount)}`),
+    ...[['oxygen', 'অক্সিজেন'], ['icu', 'আইসিইউ যন্ত্র'], ['night', 'রাতে']].filter(([k]) => chart[k] != null).map(([k, l]) => `${l} +${bn(chart[k])}`),
+  ].join('; ');
+}
+
 module.exports = {
+  chartText,
   MIN_FARE, MAX_FARE, MAX_ROWS, LEVELS, EXTRAS,
   isNight, taka, hospMatch, destOf, destLabel, normalizeChart, baseFare, estimate, fits, budgetOf, raiseTo,
 };

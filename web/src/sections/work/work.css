@@ -127,3 +127,14 @@
 .amb-calls h2 svg { width: 20px; height: 20px; color: var(--primary); }
 .amb-call { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 16px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
 .amb-call.mine { background: var(--primary-container); color: var(--on-primary-container); }
+/* অ্যাম্বুলেন্সের ভাড়ার তালিকা (২.৩০.০) */
+.work-three { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 520px) { .work-three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fare-chart .fare-row { display: grid; gap: 8px; grid-template-columns: 1fr; padding: 12px; border: 1px solid var(--outline-variant); border-radius: 12px; }
+.fare-chart .fare-row-amt { align-items: flex-end; }
+.fare-chart .fare-row-amt > .field { flex: 1; }
+@media (min-width: 720px) { .fare-chart .fare-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; } }
+.amb-fare-agreed { align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: var(--surface); color: var(--on-surface); font-weight: 600; font-size: 18px; }
+.amb-quote-wait { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--on-surface); }
+.amb-fare-input { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.amb-fare-input .input { max-width: 180px; font-size: 18px; font-weight: 600; }

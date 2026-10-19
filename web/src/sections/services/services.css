@@ -127,3 +127,15 @@
 .loc-change { flex: none; color: var(--primary); }
 .loc-gps-ok { align-items: center; padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--primary-container); color: var(--on-primary-container); }
 .loc-why { padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+/* অ্যাম্বুলেন্সের ভাড়া (২.৩০.০) */
+.amb-count { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
+.amb-count svg { width: 20px; height: 20px; flex: none; }
+.amb-count.ok { background: var(--secondary-container); color: var(--on-secondary-container); }
+.amb-count.none { align-items: stretch; background: var(--error-container); color: var(--on-error-container); }
+.amb-quote { display: flex; gap: 12px; align-items: center; min-width: 0; padding: 12px 14px; border-radius: 16px; background: var(--surface-container-high, var(--surface)); border: 1px solid var(--outline-variant); }
+.amb-quote .grow { min-width: 0; }
+.amb-quote-act { align-items: flex-end; flex: none; }
+.amb-quote-fare { font-size: 22px; font-weight: 700; color: var(--primary); }
+.amb-agreed { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: var(--surface); color: var(--on-surface); }
+.amb-agreed-fare { font-size: 28px; line-height: 34px; font-weight: 700; color: var(--primary); }
+.amb-raise { padding: 12px 14px; border-radius: 16px; background: var(--tertiary-container); color: var(--on-tertiary-container); }

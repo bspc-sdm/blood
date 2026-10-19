@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Avatar, Button, Dialog, ErrorText, IconButton, IconLine, PhoneLine, PillTabs, Tag, TextArea, cx, toast } from '@/ui/kit';
+import { Avatar, Button, Check, Dialog, ErrorText, IconButton, IconLine, PhoneLine, PillTabs, Tag, TextArea, cx, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
@@ -305,7 +305,8 @@ function Stars({ value, onChange, label }: { value: number; onChange: (n: number
  * ফার্মেসিতে রেটিং দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) — দিকে দিকে তারা: ব্যবহার (সবসময়),
  * ঠিক ওষুধ ও ন্যায্য দাম (কিনলে), ডেলিভারির দ্রুততা (অনলাইন অর্ডার পৌঁছালে) — কোনগুলো তা সার্ভার বলে (aspects)
  */
-export function RatingDialog({ kind = 'ambulance', id, name, aspects, onClose }: { kind?: Kind; id: string; name: string; aspects?: RateAspect[]; onClose: () => void }) {
+/** agreedFare: অ্যাপে ঠিক হওয়া ভাড়া (২.৩০.০) — থাকলে "বলা ভাড়ার চেয়ে বেশি নিয়েছে" বাছা যায় */
+export function RatingDialog({ kind = 'ambulance', id, name, aspects, agreedFare, onClose }: { kind?: Kind; id: string; name: string; aspects?: RateAspect[]; agreedFare?: number | null; onClose: () => void }) {
   const qc = useQueryClient();
   const pharmacy = kind === 'pharmacy';
   // ব্যবহার সবসময় থাকে; বাকিগুলো সার্ভারের দেওয়া ক্রমে
@@ -313,6 +314,7 @@ export function RatingDialog({ kind = 'ambulance', id, name, aspects, onClose }:
   const [stars, setStars] = useState(0);
   const [by, setBy] = useState<Partial<Record<RateAspect, number>>>({});
   const [comment, setComment] = useState('');
+  const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const ready = pharmacy ? (by.behaviour ?? 0) > 0 : stars > 0;
@@ -322,7 +324,7 @@ export function RatingDialog({ kind = 'ambulance', id, name, aspects, onClose }:
     try {
       const [action, list] = RATE[kind] ?? RATE.ambulance!;
       const picked = Object.fromEntries(shown.filter((a) => (by[a] ?? 0) > 0).map((a) => [a, by[a]]));
-      await call(action, pharmacy ? { id, aspects: picked, comment: comment.trim() } : { id, rating: stars, comment: comment.trim() });
+      await call(action, pharmacy ? { id, aspects: picked, comment: comment.trim() } : { id, rating: stars, comment: comment.trim(), ...(agreedFare != null ? { overcharged: over } : {}) });
       toast(tr('Thanks for the rating!', 'রেটিং দেওয়ার জন্য ধন্যবাদ!'));
       // তালিকা নতুন করে: কার্ডে নতুন গড় (★ ৪.৭ (৩২))
       qc.invalidateQueries({ queryKey: [list] });
@@ -359,6 +361,11 @@ export function RatingDialog({ kind = 'ambulance', id, name, aspects, onClose }:
       ) : (
         <Stars value={stars} onChange={setStars} label={tr('Rating', 'রেটিং')} />
       )}
+      {agreedFare != null ? (
+        <Check checked={over} onChange={setOver}>
+          {tr(`Charged more than the agreed fare (৳${agreedFare})`, `বলা ভাড়ার চেয়ে বেশি নিয়েছে (৳${num(agreedFare)})`)}
+        </Check>
+      ) : null}
       <TextArea label={tr('Comment (optional)', 'মন্তব্য (ঐচ্ছিক)')} rows={2} maxLength={300} value={comment} onChange={(e) => setComment(e.target.value)} />
       <ErrorText>{err}</ErrorText>
     </Dialog>

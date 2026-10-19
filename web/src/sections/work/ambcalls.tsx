@@ -2,6 +2,8 @@
 // খোলা অনুরোধ (দূরত্ব, ঠিকানা, নোট, কতক্ষণ আগে) — "আসছি" / "পারব না"; নিজের নেওয়াটা — রোগীর নাম, ফোন,
 // "ম্যাপে খুলুন" (ফোনের/ব্রাউজারের নিজের ম্যাপ, আলাদা খরচ নেই), "পৌঁছেছি" / "শেষ" / "বাতিল"।
 // রাজির আগে রোগীর ফোন, নাম, ঠিক জায়গা আসেই না (সার্ভার দেয় না)।
+// ভাড়া (২.৩০.০): গন্তব্য, ধরন, আনুমানিক ভাড়া — "আসছি — ৳X" (X বদলানো যায়, রোগীর সর্বোচ্চের বেশি নয়) = প্রস্তাব;
+// তারপর "রোগীর উত্তরের অপেক্ষা…"; রোগী "রাজি" চাপলে তবেই "আপনি যাচ্ছেন" (ঠিক হওয়া ভাড়াসহ)।
 import { useState } from 'react';
 import { Button, ErrorText, IconLine, InfoText, Tag } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
@@ -11,6 +13,7 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
 import { DRIVER_REASONS, ReasonDialog, reqTypeLabel } from '@/sections/services/AmbRequest';
+import { parseTaka, taka, type Dest } from '@/sections/services/fare';
 
 interface DriverReq {
   id: string;
@@ -30,6 +33,16 @@ interface DriverReq {
   phone?: string;
   lat?: number;
   lng?: number;
+  /** ভাড়ার অনুরোধ (২.৩০.০) */
+  quote?: boolean;
+  dest?: Dest | null;
+  destLabel?: string;
+  maxFare?: number | null;
+  oxygen?: boolean;
+  night?: boolean;
+  suggestedFare?: number | null;
+  myQuote?: { fare: number; at: number; expiresAt: number } | null;
+  agreedFare?: number | null;
 }
 
 /** ম্যাপের লিংক: স্থানাঙ্ক থাকলে সেটা, নইলে "চেনা জায়গা, ইউনিয়ন, উপজেলা, জেলা, বাংলাদেশ" দিয়ে খোঁজা */
@@ -45,6 +58,8 @@ export function AmbulanceCalls({ names, onChanged }: { names: Record<string, str
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [cancel, setCancel] = useState<DriverReq | null>(null);
+  // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
+  const [fares, setFares] = useState<Record<string, string>>({});
   const items = q.data?.items ?? [];
 
   async function act(r: DriverReq, f: () => Promise<unknown>, changed = false, done?: string) {
@@ -86,7 +101,11 @@ export function AmbulanceCalls({ names, onChanged }: { names: Record<string, str
             <IconLine icon="map">{(km ? km + tr(' away', ' দূরে') + ' · ' : '') + areaLabel(r.district, r.upazilaId, r.unionId)}</IconLine>
             <IconLine icon="location_on">{r.pickup}</IconLine>
             {r.note ? <IconLine icon="info">{r.note}</IconLine> : null}
-            <IconLine icon="ambulance">{tr('Type: ', 'ধরন: ') + reqTypeLabel(r.type)}</IconLine>
+            <IconLine icon="ambulance">{tr('Type: ', 'ধরন: ') + reqTypeLabel(r.type) + (r.oxygen ? tr(' · oxygen needed', ' · অক্সিজেন লাগবে') : '')}</IconLine>
+            {r.quote && r.destLabel ? <IconLine icon="local_hospital">{tr('Going to: ', 'যাবেন: ') + r.destLabel}</IconLine> : null}
+            {r.quote && mine && r.agreedFare != null ? (
+              <div className="amb-fare-agreed" data-testid="amb-agreed-fare">{tr('Agreed fare ', 'ঠিক হওয়া ভাড়া ') + taka(r.agreedFare)}</div>
+            ) : null}
             {r.ambulanceId && names[r.ambulanceId] ? <IconLine icon="ambulance">{tr('Your vehicle: ', 'আপনার গাড়ি: ') + names[r.ambulanceId]}</IconLine> : null}
             {mine ? (
               <>
@@ -106,7 +125,37 @@ export function AmbulanceCalls({ names, onChanged }: { names: Record<string, str
                   <Button variant="danger-text" disabled={!!busy} onClick={() => setCancel(r)}>{tr('Cancel', 'বাতিল')}</Button>
                 </div>
               </>
-            ) : (
+            ) : r.quote && r.myQuote ? (
+              <div className="amb-quote-wait" data-testid="amb-quote-wait">
+                <span className="t-title-s">{tr('Waiting for the patient…', 'রোগীর উত্তরের অপেক্ষা…')}</span>
+                <span className="t-body-s muted">{tr('Your fare ', 'আপনার ভাড়া ') + taka(r.myQuote.fare) + tr(' — you are confirmed only when the patient agrees.', ' — রোগী "রাজি" চাপলে তবেই নিশ্চিত।')}</span>
+              </div>
+            ) : r.quote ? (() => {
+              const text = fares[r.id] ?? (r.suggestedFare != null ? String(r.suggestedFare) : '');
+              const fare = parseTaka(text);
+              const over = fare != null && !Number.isNaN(fare) && r.maxFare != null && fare > r.maxFare;
+              const okFare = fare != null && !Number.isNaN(fare) && fare >= 100 && !over;
+              return (
+                <div className="col gap-8">
+                  <div className="t-body-s muted">
+                    {r.suggestedFare != null ? tr('From your fare list: ', 'আপনার ভাড়ার তালিকা থেকে: ') + taka(r.suggestedFare) : tr('Not in your fare list — write your fare.', 'আপনার ভাড়ার তালিকায় নেই — ভাড়া লিখুন।')}
+                    {r.maxFare != null ? tr(' · patient\'s limit ', ' · রোগীর সর্বোচ্চ ') + taka(r.maxFare) : ''}
+                    {r.night ? tr(' · night', ' · রাত') : ''}
+                  </div>
+                  <label className="amb-fare-input">
+                    <span>{tr('Your fare (৳)', 'আপনার ভাড়া (৳)')}</span>
+                    <input className="input" inputMode="numeric" value={text} maxLength={7} data-testid="amb-fare-input" onChange={(e) => setFares({ ...fares, [r.id]: e.target.value })} />
+                  </label>
+                  {over ? <ErrorText>{tr(`The patient's limit is ${taka(r.maxFare)} — you can't offer more.`, `রোগীর সর্বোচ্চ ${taka(r.maxFare)} — এর বেশি দেওয়া যায় না।`)}</ErrorText> : null}
+                  <div className="row gap-8">
+                    <Button icon="check_circle" className="grow" busy={busy === r.id} disabled={!!busy || !okFare} onClick={() => act(r, () => call('ambreq_accept', { id: r.id, fare }), true)} data-testid="amb-accept">
+                      {tr('Coming', 'আসছি') + (okFare ? ` — ${taka(fare)}` : '')}
+                    </Button>
+                    <Button variant="outline" disabled={!!busy} onClick={() => act(r, () => call('ambreq_decline', { id: r.id }))}>{tr("Can't", 'পারব না')}</Button>
+                  </div>
+                </div>
+              );
+            })() : (
               <div className="row gap-8">
                 <Button icon="check_circle" className="grow" busy={busy === r.id} disabled={!!busy} onClick={() => act(r, () => call('ambreq_accept', { id: r.id }), true)} data-testid="amb-accept">{tr('Coming', 'আসছি')}</Button>
                 <Button variant="outline" disabled={!!busy} onClick={() => act(r, () => call('ambreq_decline', { id: r.id }))}>{tr("Can't", 'পারব না')}</Button>

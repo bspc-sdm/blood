@@ -490,6 +490,7 @@ const actions = {
         ownerUid: d.get('ownerUid') || null,
         // "বলা ভাড়ার চেয়ে বেশি নিয়েছে" — রোগীদের রেটিং থেকে (২.৩০.০)
         overchargeCount: d.get('overchargeCount') || 0,
+        fareText: require('./ambfare').chartText(d.get('fareChart')),
         createdAt: d.get('createdAt') || null,
         reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
         ...(await adminExtras('ambulances', d, status)),
