@@ -41,3 +41,12 @@ export const router = createRouter({
   ],
   // পাতা বদলালে উপরে যাওয়া AppShell নিজে করে (React-এর মতো)
 });
+
+// অন্য কেউ (ব্রাউজারের এক্সটেনশন, পরীক্ষার স্ক্রিপ্ট) history.pushState করলে history.state-এ Vue Router-এর নিজের
+// চাবি (current, position …) থাকে না — তখন পরের router.push ঠিকানা হারায়, কার্ড চাপলে কিছু হয় না।
+// React Router এমন অবস্থাতেও চলে; এখানে সেই এন্ট্রি ঠিক করে দেওয়া।
+router.afterEach((to) => {
+  const st = window.history.state as Record<string, unknown> | null;
+  if (st && typeof st === 'object' && typeof st.current === 'string' && typeof st.position === 'number') return;
+  window.history.replaceState({ ...(st || {}), back: null, current: to.fullPath, forward: null, position: Math.max(0, window.history.length - 1), replaced: true, scroll: null }, '');
+});

@@ -71,3 +71,14 @@ test('অ্যাম্বুলেন্স: "অ্যাম্বুলে�
   await dlg.getByTestId('amb-send').click();
   await expect(dlg.getByText('"কোথায় যাবেন" বেছে নিন').first()).toBeVisible();
 });
+
+test('বাইরের history.pushState-এর পরেও কার্ড চাপলে খোলে (কেয়ারগিভার মোডের "নরম" যাওয়া)', async ({ page }) => {
+  await open(page, def('appointment', 'my'));
+  await page.evaluate(() => {
+    history.pushState({}, '', '/my-appointments');
+    dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+  });
+  await page.waitForTimeout(300);
+  await page.locator('article[role=button]').first().click();
+  await expect(page).toHaveURL(/\/my-appointments\/[^/]+$/);
+});

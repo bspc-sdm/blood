@@ -15,7 +15,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WEBVUE = path.join(here, '..');
 const E2E = path.resolve(process.env.E2E_DIR || path.join(WEBVUE, '../e2e'));
-const ROOT = path.join(E2E, '..');
 const ADMIN = process.env.ADMIN || 'vue';
 const ADMIN_DIR = path.resolve(process.env.ADMIN_DIR || path.join(WEBVUE, 'dist-admin'));
 const filters = process.argv.slice(2);

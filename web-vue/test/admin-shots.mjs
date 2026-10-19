@@ -74,7 +74,7 @@ fs.mkdirSync(outDir, { recursive: true });
   await ctx.storageState({ path: stateFile });
   // পাতার তালিকার জন্য আইডি
   var ov = await api(page, 'admin_overview');
-  var found = await api(page, 'admin_user_find', { q: 'demo' });
+  var found = await api(page, 'admin_user_find', { q: 'doctor@lifolo-demo.test' });
   var tests = await api(page, 'labtests_get');
   await ctx.close();
 }
@@ -103,7 +103,7 @@ const PAGES = [
   ['reports', 'reports'],
   ['corrections', 'corrections'],
   ['users', 'users'],
-  ['users-find', 'users?q=demo'],
+  ['users-find', 'users?q=doctor%40lifolo-demo.test'],
   ...(user ? [['user', `user/${encodeURIComponent(user.uid)}`], ['user-community', `user/${encodeURIComponent(user.uid)}`, ['a[data-sec=community]']], ['user-timeline', `user/${encodeURIComponent(user.uid)}`, ['a[data-sec=timeline]']]] : []),
   ['catalog', 'catalog'],
   ['catalog-amb', 'catalog?l=ambulanceType.all'],
