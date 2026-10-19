@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.DoctorSheetScreensTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-19T04:55:12" hostname="runnervm8k3b6" time="16.25">
+  <properties/>
+  <testcase name="chamberStateAtDhakaTimes" classname="com.bspc.blood.DoctorSheetScreensTest" time="11.047"/>
+  <testcase name="sheet360" classname="com.bspc.blood.DoctorSheetScreensTest" time="3.536"/>
+  <testcase name="sheet412" classname="com.bspc.blood.DoctorSheetScreensTest" time="0.919"/>
+  <testcase name="singleChamber360" classname="com.bspc.blood.DoctorSheetScreensTest" time="0.491"/>
+  <testcase name="card360" classname="com.bspc.blood.DoctorSheetScreensTest" time="0.256"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,1 @@
+-rw-r--r-- 1 runner runner 15389216 Oct 19 04:54 app/build/outputs/apk/debug/app-debug.apk

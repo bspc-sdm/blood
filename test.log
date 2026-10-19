@@ -1,0 +1,20 @@
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+DoctorSheetScreensTest > chamberStateAtDhakaTimes STARTED
+DoctorSheetScreensTest > chamberStateAtDhakaTimes PASSED
+DoctorSheetScreensTest > sheet360 STARTED
+> Task :app:testDebugUnitTest
+DoctorSheetScreensTest > sheet360 PASSED
+DoctorSheetScreensTest > sheet412 STARTED
+> Task :app:testDebugUnitTest
+DoctorSheetScreensTest > sheet412 PASSED
+DoctorSheetScreensTest > singleChamber360 STARTED
+DoctorSheetScreensTest > singleChamber360 PASSED
+DoctorSheetScreensTest > card360 STARTED
+DoctorSheetScreensTest > card360 PASSED
