@@ -26,7 +26,7 @@ class AmbPlaceTest {
     }
 
     @Test
-    fun `maps links and text - real place first, q, search, @, geo, plain numbers; short links apart; never outside Bangladesh`() {
+    fun `maps links and text - real place first, q, search, @, geo, plain numbers, short links apart, never outside Bangladesh`() {
         assertEquals(
             pt(23.72564, 90.3977),
             p("https://www.google.com/maps/place/Dhaka+Medical+College+Hospital/@23.7261,90.3955,17z/data=!3m1!4b1!4m6!3m5!1s0x3755b8c1!8m2!3d23.725636!4d90.397697!16s%2Fm%2F0abc"),
@@ -49,7 +49,7 @@ class AmbPlaceTest {
     }
 
     @Test
-    fun `short links - redirects followed to a point; only Google addresses; page text searched; time limit; no fetch for other links`() {
+    fun `short links - redirects followed to a point, only Google addresses, page text searched, time limit, no fetch for other links`() {
         val short = "https://maps.app.goo.gl/AbC12xYz"
         val place = "https://www.google.com/maps/place/Trishal/@24.58,90.39,14z/data=!4m6!3m5!8m2!3d24.5637!4d90.4104"
         var calls = mutableListOf<String>()
@@ -99,7 +99,7 @@ class AmbPlaceTest {
     }
 
     @Test
-    fun `upazila from a point - nearest centre in the district; not in city thanas (no centre) or far away`() {
+    fun `upazila from a point - nearest centre in the district, not in city thanas (no centre) or far away`() {
         val mym = Places.DISTRICTS.first { it.en == "Mymensingh" }.bn
         val dhaka = Places.DISTRICTS.first { it.en == "Dhaka" }.bn
         val gazipur = Places.DISTRICTS.first { it.en == "Gazipur" }.bn

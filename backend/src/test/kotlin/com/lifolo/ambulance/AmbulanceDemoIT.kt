@@ -136,7 +136,7 @@ class AmbulanceDemoIT : AmbTestBase() {
     }
 
     @Test
-    fun `demo distances and the reminder - different distances, nearest first; the mini's driver is reminded; 30 minutes left`() {
+    fun `demo distances and the reminder - different distances, nearest first, the mini's driver is reminded, 30 minutes left`() {
         seed()
         val gz = com.lifolo.common.Places.DISTRICTS.first { it.en == "Gazipur" }
         redis.delete(AmbulanceService.REMIND_KEY)
@@ -157,7 +157,7 @@ class AmbulanceDemoIT : AmbTestBase() {
     }
 
     @Test
-    fun `demo fares - valid charts; the demo patient finds cars to Dhaka within 5000, the demo driver offers, agreed`() {
+    fun `demo fares - valid charts, the demo patient finds cars to Dhaka within 5000, the demo driver offers, agreed`() {
         AmbClock.setDhaka("2026-10-19 12:00")
         seed()
         val cars = repo.approvedIn(GAZIPUR) + repo.query("status = 'pending'")
@@ -214,7 +214,7 @@ class AmbulanceDemoIT : AmbTestBase() {
     }
 
     @Test
-    fun `account deletion step - hide suspends the cars and closes requests; deleteNow removes cars, calls and ratings`() {
+    fun `account deletion step - hide suspends the cars and closes requests, deleteNow removes cars, calls and ratings`() {
         seed()
         val step = deletionStep
         step.hide(DA)

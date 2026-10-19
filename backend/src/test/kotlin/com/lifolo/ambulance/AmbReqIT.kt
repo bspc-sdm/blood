@@ -46,7 +46,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `choice - the 5 nearest owners; busy, freezer, unapproved, other district, demo and own excluded; one car per owner`() {
+    fun `choice - the 5 nearest owners, busy, freezer, unapproved, other district, demo and own excluded, one car per owner`() {
         seed()
         val r = ask(P)
         assertEquals(200, r.status, r.toString())
@@ -86,7 +86,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `the first to accept gets it (even at the same time); the others lose it; the patient is told`() {
+    fun `the first to accept gets it (even at the same time), the others lose it, the patient is told`() {
         seed()
         val id = askId()
         clearPushes()
@@ -112,7 +112,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `nobody in 60 s - the circle widens once and 3 phone buttons; expired after 3 minutes`() {
+    fun `nobody in 60 s - the circle widens once and 3 phone buttons, expired after 3 minutes`() {
         seed()
         for (i in 9..11) amb("a$i", "d$i", base = at(i.toDouble(), 0.0))
         val id = askId()
@@ -148,7 +148,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `everyone declined - the circle widens before 60 s; a declining driver loses it`() {
+    fun `everyone declined - the circle widens before 60 s, a declining driver loses it`() {
         seed()
         val id = askId()
         ok("d1", "ambreq_decline", mapOf("id" to id))
@@ -160,7 +160,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `patient cancel (open or accepted) frees the car; driver arrived - done - rating at once; driver cancel`() {
+    fun `patient cancel (open or accepted) frees the car, driver arrived - done - rating at once, driver cancel`() {
         seed()
         var id = askId()
         ok(P, "ambreq_cancel", mapOf("id" to id, "reason" to "not_needed"))
@@ -214,7 +214,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `privacy - before accepting only distance, address and note; the accepted driver gets name, phone, exact place; purged 24 h after closing`() {
+    fun `privacy - before accepting only distance, address and note, the accepted driver gets name, phone, exact place, purged 24 h after closing`() {
         seed()
         val id = askId()
         val before = driverList("d2")[0]
@@ -246,7 +246,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `limits - one active at a time, 5 an hour; guests cannot call`() {
+    fun `limits - one active at a time, 5 an hour, guests cannot call`() {
         seed()
         val first = askId()
         val again = ask(P)
@@ -267,7 +267,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `an expired open request does not block a new one; guests cannot call; bad input`() {
+    fun `an expired open request does not block a new one, guests cannot call, bad input`() {
         seed()
         askId()
         AmbClock.advance(3 * MIN + SEC)
@@ -299,7 +299,7 @@ class AmbReqIT : AmbTestBase() {
     // ---------- phone and request together ----------
 
     @Test
-    fun `a call while waiting joins the request; the phoned driver sees it marked; widening skips phoned cars`() {
+    fun `a call while waiting joins the request, the phoned driver sees it marked, widening skips phoned cars`() {
         seed()
         for (i in 9..12) amb("a$i", "d$i", base = at(i.toDouble(), 0.0))
         val id = askId()
@@ -329,7 +329,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `got a car by phone - byPhone closes, the others are told; accepting afterwards gets a clear message`() {
+    fun `got a car by phone - byPhone closes, the others are told, accepting afterwards gets a clear message`() {
         seed()
         val id = askId()
         ok(P, "ambulance_called", mapOf("id" to "a6", "reqId" to id))
@@ -350,7 +350,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `replacing the accepted driver - byPhone or open again; one accepted car at a time`() {
+    fun `replacing the accepted driver - byPhone or open again, one accepted car at a time`() {
         seed()
         var id = askId()
         ok(P, "ambulance_called", mapOf("id" to "a7", "reqId" to id))
@@ -407,7 +407,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `review fixes - no accept after the time ran out; a much later daily close does not push; the driver's own busy stays`() {
+    fun `review fixes - no accept after the time ran out, a much later daily close does not push, the driver's own busy stays`() {
         seed()
         var id = askId()
         AmbClock.advance(3 * MIN + SEC)
@@ -442,7 +442,7 @@ class AmbReqIT : AmbTestBase() {
     // ---------------- 2.29.0: type choice and calling by area only ----------------
 
     @Test
-    fun `types - AC, non-AC, ICU only that type; any and other types never a freezer van; freezer only when chosen`() {
+    fun `types - AC, non-AC, ICU only that type, any and other types never a freezer van, freezer only when chosen`() {
         seed()
         amb("tAc", "tdAc", base = at(0.4, 0.0), types = listOf("ac"))
         amb("tIcu", "tdIcu", base = at(0.6, 0.0), types = listOf("icu", "ac"))
@@ -473,7 +473,7 @@ class AmbReqIT : AmbTestBase() {
     }
 
     @Test
-    fun `area only (no GPS) - own upazila first, no distance; union for the driver; a wrong union dropped`() {
+    fun `area only (no GPS) - own upazila first, no distance, union for the driver, a wrong union dropped`() {
         seed()
         amb("uTri1", "udTri1", upazilaId = TRISHAL, base = at(3.0, -19.0))
         amb("uTri2", "udTri2", upazilaId = TRISHAL)

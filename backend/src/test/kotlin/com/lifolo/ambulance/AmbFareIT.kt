@@ -41,7 +41,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `estimated fare - own upazila, other upazila, district, hospital name, unknown; extras and night`() {
+    fun `estimated fare - own upazila, other upazila, district, hospital name, unknown, extras and night`() {
         val veh = Veh(MYM, SADAR)
         val c = AmbFare.normalizeChart(
             json(
@@ -89,7 +89,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `fare chart validation and saving - whole taka, limits, 15 rows, no duplicates, own district; old apps keep the chart`() {
+    fun `fare chart validation and saving - whole taka, limits, 15 rows, no duplicates, own district, old apps keep the chart`() {
         val veh = Veh(MYM, SADAR)
         fun e(x: Any?) = AmbFare.normalizeChart(json(x), veh, places::facility).error?.second ?: ""
         fun row(kind: String, k: String, v: Any?, amount: Any? = 1000) = mapOf("kind" to kind, k to v, "amount" to amount)
@@ -133,7 +133,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `budget filter and count - chips, unknown fares, raise to; pushes only within the budget`() {
+    fun `budget filter and count - chips, unknown fares, raise to, pushes only within the budget`() {
         seed()
         var c = count(P)
         assertEquals(2, c["count"].intValue(), "800 and 1000")
@@ -189,7 +189,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `offers - estimate prefilled, not above the budget, unknown fare must be written; cheapest first; no phone or GPS before agreeing`() {
+    fun `offers - estimate prefilled, not above the budget, unknown fare must be written, cheapest first, no phone or GPS before agreeing`() {
         seed()
         val id = ask(P, mapOf("maxFare" to 2000, "includeUnknown" to true)).body["id"].textValue()
         assertEquals(listOf("d1", "d2", "d3", "d4", "d6"), sentTo(id).sorted())
@@ -230,7 +230,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `agree - only one of two concurrent agrees wins; the others are released; the agreed fare is kept and rated`() {
+    fun `agree - only one of two concurrent agrees wins, the others are released, the agreed fare is kept and rated`() {
         seed()
         val id = ask(P, mapOf("maxFare" to 2000)).body["id"].textValue()
         ok("d1", "ambreq_accept", mapOf("id" to id))
@@ -284,7 +284,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `offers last 2 minutes - the driver is released; a pending offer extends the 3 minutes; no new offers after 3 minutes`() {
+    fun `offers last 2 minutes - the driver is released, a pending offer extends the 3 minutes, no new offers after 3 minutes`() {
         seed()
         val id = ask(P, mapOf("maxFare" to 2000)).body["id"].textValue()
         AmbClock.advance(10 * SEC)
@@ -348,7 +348,7 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
-    fun `phone rules as before - a phoned car can offer, byPhone closes, replacing clears offers; one accepted car at a time`() {
+    fun `phone rules as before - a phoned car can offer, byPhone closes, replacing clears offers, one accepted car at a time`() {
         seed()
         var id = ask(P).body["id"].textValue()
         ok(P, "ambulance_called", mapOf("id" to "a5", "reqId" to id))

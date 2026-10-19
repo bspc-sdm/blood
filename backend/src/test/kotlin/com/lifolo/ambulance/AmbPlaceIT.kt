@@ -16,7 +16,7 @@ class AmbPlaceIT : AmbTestBase() {
     private fun dest(m: Map<String, Any?>) = AmbFare.destOf(json(m), places::facility)
 
     @Test
-    fun `maps_link_resolve - long links directly, short links through the fetch; Bangla error; login; 6 a minute`() {
+    fun `maps_link_resolve - long links directly, short links through the fetch, Bangla error, login, 6 a minute`() {
         val calls = mutableListOf<String>()
         val short = "https://maps.app.goo.gl/Zz99"
         val real = places.fetch
@@ -45,7 +45,7 @@ class AmbPlaceIT : AmbTestBase() {
     }
 
     @Test
-    fun `calling with a point - upazila found from it (also when counting), written place optional; no exact place before accepting`() {
+    fun `calling with a point - upazila found from it (also when counting), written place optional, no exact place before accepting`() {
         AmbClock.setDhaka("2026-10-19 12:00")
         val (tLat, tLng) = Places.UPAZILA_CENTER.getValue(TRISHAL)
         person("place-p")
@@ -77,7 +77,7 @@ class AmbPlaceIT : AmbTestBase() {
     }
 
     @Test
-    fun `destination hospitals and fares - list id first, then name, then the hospital's upazila or district; area from the list`() {
+    fun `destination hospitals and fares - list id first, then name, then the hospital's upazila or district, area from the list`() {
         val mmch = dest(mapOf("kind" to "hospital", "facilityId" to MMCH, "name" to "মমেক", "upazilaId" to TRISHAL, "district" to DHAKA))
         assertEquals(Dest("hospital", upazilaId = SADAR, district = MYM, facilityId = MMCH, name = "মমেক"), mmch)
         assertEquals("ঢাকা মেডিকেল কলেজ হাসপাতাল", dest(mapOf("kind" to "hospital", "facilityId" to DMCH))!!.name)
@@ -112,7 +112,7 @@ class AmbPlaceIT : AmbTestBase() {
     }
 
     @Test
-    fun `hospital list - the district's (no diagnostics, big ones first; nearest first with a point), the country's big ones, search in Bangla and English`() {
+    fun `hospital list - the district's (no diagnostics, big ones first, nearest first with a point), the country's big ones, search in Bangla and English`() {
         person("fac-user")
         val f = ok("fac-user", "amb_facilities", mapOf("district" to MYM))
         assertTrue(f["items"].size() > 100)

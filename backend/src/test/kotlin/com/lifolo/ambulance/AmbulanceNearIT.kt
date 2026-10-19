@@ -76,7 +76,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `without lat-lng (old app) - available first, rating; no km`() {
+    fun `without lat-lng (old app) - available first, rating, no km`() {
         seedNear()
         val r = list(REAL)
         // nF and the demo car tie (no rating): by id
@@ -111,7 +111,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `filtering by type gives the nearest of that type; freezer only when asked`() {
+    fun `filtering by type gives the nearest of that type, freezer only when asked`() {
         seedNear()
         val icu = list(REAL, gps(0.0, 0.0) + mapOf("type" to "icu"))
         assertEquals(listOf("nD"), ids(icu))
@@ -124,7 +124,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `demo and real - demo patients get demo cars, guests and real people not; own car not; calls counted per world`() {
+    fun `demo and real - demo patients get demo cars, guests and real people not, own car not, calls counted per world`() {
         seedNear()
         assertEquals("demo-svc-x-near", list(DEMO_P, gps(0.0, 0.0))["nearestId"].textValue())
         assertEquals("nB", list(null, gps(0.0, 0.0))["nearestId"].textValue(), "guest = real world")
@@ -179,7 +179,7 @@ class AmbulanceNearIT : AmbTestBase() {
     // ---------------- "still available?" ----------------
 
     @Test
-    fun `reminder - once in the last hour; not outside the window, on a trip, expired or unapproved`() {
+    fun `reminder - once in the last hour, not outside the window, on a trip, expired or unapproved`() {
         val now = now()
         car("rDue", "rOwn1", name = "জীবন মিনি", availableAt = now - 11 * HOUR - 30 * MIN)
         car("rEarly", "rOwn2", availableAt = now - 10 * HOUR)
@@ -203,7 +203,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `keep available again - a new 12 hours, reminded once more in its last hour; off removes the reminder`() {
+    fun `keep available again - a new 12 hours, reminded once more in its last hour, off removes the reminder`() {
         val now = now() - 1000
         car("rRenew", "rOwnR", name = "নবায়ন", availableAt = now - 11 * HOUR - 30 * MIN)
         clearPushes()
@@ -223,7 +223,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `reading the list looks for reminders - once per 10 minutes; demo cars only to demo drivers; guests too`() {
+    fun `reading the list looks for reminders - once per 10 minutes, demo cars only to demo drivers, guests too`() {
         val now = now()
         person(REAL)
         car("lDue", "lOwn", availableAt = now - 11 * HOUR - 12 * MIN)
@@ -248,7 +248,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `privacy - the driver's real GPS is not kept; probes inside one cell all get the same answer`() {
+    fun `privacy - the driver's real GPS is not kept, probes inside one cell all get the same answer`() {
         person(REAL)
         val d = "priv-driver"
         ownCar("pv", d, "গোপন জায়গা", "V-priv")
@@ -271,7 +271,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `clear base - removed even with new lat-lng, district centre then; within 130 km is fine`() {
+    fun `clear base - removed even with new lat-lng, district centre then, within 130 km is fine`() {
         person(REAL)
         val d = "clr-driver"
         ownCar("cl", d, "মুছুন টেস্ট", "V-clr")
@@ -291,7 +291,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `coordinates without gps are approximate - own upazila first, no km; real GPS - distance first`() {
+    fun `coordinates without gps are approximate - own upazila first, no km, real GPS - distance first`() {
         seedNear()
         val approx = list(REAL, pt(0.0, 0.0) + mapOf("upazilaId" to TRISHAL))
         assertEquals("nD", approx["items"][0]["id"].textValue())
@@ -305,7 +305,7 @@ class AmbulanceNearIT : AmbTestBase() {
     }
 
     @Test
-    fun `reminder paging - 230 due cars all once; approval and review rules for remindAt`() {
+    fun `reminder paging - 230 due cars all once, approval and review rules for remindAt`() {
         val now = now()
         person("pgOwn")
         for (i in 0 until 230) {
