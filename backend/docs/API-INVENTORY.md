@@ -1,8 +1,9 @@
 # API inventory — Node server → Spring Boot
 
-Generated for phase 1 from `server/` on branch `main` (commit 530ca2c) by static analysis of every
+Generated for phase 1 from `server/` on branch `main` (commit 6e16e79 (server/ unchanged at 530ca2c)) by static analysis of every
 `/api/community` action (AST walk of the handler and every helper it calls, across files) plus manual review.
 This is the checklist for phase 2: **tick an action when its Kotlin port passes the ported Node tests.**
+"port: P1…P6" = the work package in [PHASE2-PLAN.md](PHASE2-PLAN.md).
 
 * **225 `/api/community` actions** + **11 other HTTP endpoints** (+ 4 share rewrites) + **15 daily cron steps** + lazy/async behaviours.
 * Firestore collection names are used below (the table names are in [SCHEMA.md](SCHEMA.md#firestore--postgresql-mapping)).
@@ -36,945 +37,945 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
 ## Users & account (package `users`) — 5 actions
 
 - [ ] **`delete_account`** — Schedule deletion in 30 days: hide listings (status suspended + hiddenForDeletion), close ambulance requests, suspend provider + cancel appointments, drop FCM tokens, revoke refresh tokens → {ok, deleteAt}
-  - src: `server/lib/account.js` → `delete_account` · auth: user
+  - src: `server/lib/account.js` → `delete_account` · auth: user · port: **P6**
   - request: — · response: `…`
   - collections: ambReqLimits, ambulanceCalls, ambulanceRequests, ambulances, appointments, bloodBanks, inbox, labs, pharmacies, providers, serverState, users · side effects: revoke refresh tokens, FCM push + inbox, push to patient + caregivers · errors: — · tests: deletion, demo-health, labtests, rxflow
 - [x] **`profile_get`** — Own profile subset (profileOut) or null
-  - src: `server/lib/clientdata.js` → `actions.profile_get` · auth: user (not guest, not caregiver)
+  - src: `server/lib/clientdata.js` → `actions.profile_get` · auth: user (not guest, not caregiver) · port: **phase 1**
   - request: — · response: `{profile}`
   - collections: users · side effects: — · errors: — · tests: clientdata
 - [x] **`profile_update`** — Merge-update whitelisted fields (SELF_FIELDS), lat+lng together (→ geohash, donorGeo), lastDonation only forward, commitAdd/commitRemove
-  - src: `server/lib/clientdata.js` → `actions.profile_update` · auth: user (not guest, not caregiver)
+  - src: `server/lib/clientdata.js` → `actions.profile_update` · auth: user (not guest, not caregiver) · port: **phase 1**
   - request: `set`, `commitAdd`, `commitRemove` · response: `{ok,unchanged}` or `{ok}`
   - collections: users · side effects: — · errors: 400, 403 · tests: clientdata
 - [ ] **`phone_send_code`** — SMS code to profile phone (SMS_URL_TEMPLATE; disabled when unset → 400); per-number 3/day + 1/min (phoneLimits); quota phoneCode=5/day
-  - src: `server/lib/phone.js` → `actions.phone_send_code` · auth: user · quota: phoneCode (5/day)
+  - src: `server/lib/phone.js` → `actions.phone_send_code` · auth: user · quota: phoneCode (5/day) · port: **P6**
   - request: — · response: `{ok,to}`
   - collections: phoneLimits, serverState, users · side effects: outbound HTTP · errors: 400, 429, 502 · tests: — (none)
 - [ ] **`phone_verify_code`** — Verify 6-digit SMS code (5 tries, 10 min) → verifiedPhone
-  - src: `server/lib/phone.js` → `actions.phone_verify_code` · auth: user
+  - src: `server/lib/phone.js` → `actions.phone_verify_code` · auth: user · port: **P6**
   - request: `code` · response: `{ok}`
   - collections: serverState · side effects: — · errors: 400 · tests: — (none)
 
 ## Auth / web session (package `auth`) — 1 actions
 
 - [x] **`web_logout`** — Clears the admin web-session cookie
-  - src: `server/api/community.js` → `actions.web_logout` · auth: web session cookie (any) web-panel
+  - src: `server/api/community.js` → `actions.web_logout` · auth: web session cookie (any) web-panel · port: **phase 1**
   - request: — · response: `{ok}`
   - collections: — · side effects: — · errors: — · tests: — (none)
 
 ## Content: Q&A, tips, catalog, hospitals (package `content`) — 16 actions
 
 - [ ] **`me`** — Own badge (+ docs status), isAdmin, isOwner, phoneCheck enabled, phoneVerified, unread inbox count
-  - src: `server/api/community.js` → `actions.me` · auth: user
+  - src: `server/api/community.js` → `actions.me` · auth: user · port: **P2**
   - request: — · response: `{badge,isAdmin,isOwner,phoneCheck,phoneVerified,unread}`
   - collections: badges, config, inbox, serverState, users · side effects: — · errors: — · tests: demo-health, demo-rx, guest, rules
 - [ ] **`questions`** — Health Q&A list, 30/page, cursor `before` (createdAt ms); authorName hidden for anonymous or guests
-  - src: `server/api/community.js` → `actions.questions` · auth: guest
+  - src: `server/api/community.js` → `actions.questions` · auth: guest · port: **P2**
   - request: `before` · response: `{items:[...]}`
   - collections: questions · side effects: — · errors: — · tests: demo-health, guest
 - [ ] **`question`** — One question + up to 200 answers; answer author name/badge from live approved badge
-  - src: `server/api/community.js` → `actions.question` · auth: guest
+  - src: `server/api/community.js` → `actions.question` · auth: guest · port: **P2**
   - request: `id` · response: `{question:{id,text,authorName,mine,...,createdAt,editedAt,answerCount},answers:[{id,text,authorName,badge,mine,createdAt,editedAt}]}`
   - collections: badges, questions, …/answers · side effects: — · errors: 400, 404 · tests: demo-health
 - [ ] **`ask`** — Post question (≤1000 chars, optional anonymous); quota ask=5/day
-  - src: `server/api/community.js` → `actions.ask` · auth: user · quota: ask (5/day)
+  - src: `server/api/community.js` → `actions.ask` · auth: user · quota: ask (5/day) · port: **P2**
   - request: `text`, `anonymous` · response: `{id}`
   - collections: questions, serverState, users · side effects: — · errors: 400 · tests: demo-health, guest
 - [ ] **`answer`** — Verified professional answers; increments answerCount, records answer path for deletion, pushes asker
-  - src: `server/api/community.js` → `actions.answer` · auth: user role:badge · quota: answer (40/day)
+  - src: `server/api/community.js` → `actions.answer` · auth: user role:badge · quota: answer (40/day) · port: **P2**
   - request: `id`, `text` · response: `{ok}`
   - collections: badges, inbox, questions, serverState, users, …/answers · side effects: FCM push + inbox · errors: 400, 403, 404 · tests: demo-health
 - [ ] **`edit_question`** — Author edits text/anonymous flag; reopens moderation reports on text change
-  - src: `server/api/community.js` → `actions.edit_question` · auth: user (author)
+  - src: `server/api/community.js` → `actions.edit_question` · auth: user (author) · port: **P2**
   - request: `id`, `text`, `anonymous` · response: `{ok}`
   - collections: modReports, questions · side effects: — · errors: 400, 404, 403 · tests: — (none)
 - [ ] **`edit_answer`** — Author edits answer; reopens moderation reports
-  - src: `server/api/community.js` → `actions.edit_answer` · auth: user (author, badge still approved)
+  - src: `server/api/community.js` → `actions.edit_answer` · auth: user (author, badge still approved) · port: **P2**
   - request: `id`, `answerId`, `text` · response: `{ok}`
   - collections: badges, modReports, questions/answers · side effects: — · errors: 400, 404, 403 · tests: — (none)
 - [ ] **`delete_question`** — Recursive delete; admin deletion is logged (admin_delete_post)
-  - src: `server/api/community.js` → `actions.delete_question` · auth: user (author) or admin
+  - src: `server/api/community.js` → `actions.delete_question` · auth: user (author) or admin · port: **P2**
   - request: `id` · response: `{ok}`
   - collections: adminLog, config, questions · side effects: recursive delete, admin_log row · errors: 400, 403 · tests: — (none)
 - [ ] **`delete_answer`** — Delete answer, decrement answerCount; admin deletion logged
-  - src: `server/api/community.js` → `actions.delete_answer` · auth: user (author) or admin
+  - src: `server/api/community.js` → `actions.delete_answer` · auth: user (author) or admin · port: **P2**
   - request: `id`, `answerId` · response: `{ok}`
   - collections: adminLog, config, questions, questions/answers · side effects: admin_log row · errors: 400, 403 · tests: — (none)
 - [ ] **`tips`** — Health tips list, 30/page, cursor `before`; live badge name/type
-  - src: `server/api/community.js` → `actions.tips` · auth: guest
+  - src: `server/api/community.js` → `actions.tips` · auth: guest · port: **P2**
   - request: `before` · response: `{items:[{id,title,body,authorName,badge,mine,createdAt,editedAt}]}`
   - collections: badges, tips · side effects: — · errors: — · tests: demo-health
 - [ ] **`post_tip`** — Verified professional posts tip (title ≤120, body ≤3000); quota tip=5/day
-  - src: `server/api/community.js` → `actions.post_tip` · auth: user role:badge · quota: tip (5/day)
+  - src: `server/api/community.js` → `actions.post_tip` · auth: user role:badge · quota: tip (5/day) · port: **P2**
   - request: `title`, `body` · response: `{id}`
   - collections: badges, serverState, tips, users · side effects: — · errors: 403, 400 · tests: demo-health
 - [ ] **`edit_tip`** — Edit tip; reopens moderation reports
-  - src: `server/api/community.js` → `actions.edit_tip` · auth: user (author, badge approved)
+  - src: `server/api/community.js` → `actions.edit_tip` · auth: user (author, badge approved) · port: **P2**
   - request: `id`, `title`, `body` · response: `{ok}`
   - collections: badges, modReports, tips · side effects: — · errors: 400, 404, 403 · tests: — (none)
 - [ ] **`delete_tip`** — Delete tip; admin deletion logged
-  - src: `server/api/community.js` → `actions.delete_tip` · auth: user (author) or admin
+  - src: `server/api/community.js` → `actions.delete_tip` · auth: user (author) or admin · port: **P2**
   - request: `id` · response: `{ok}`
   - collections: adminLog, config, tips · side effects: admin_log row · errors: 400, 403 · tests: — (none)
 - [ ] **`catalog_get`** — All pick-lists (specialties, home services, ambulance types, blood bank services) merged with defaults; config/catalog cached 5 min (also loaded on every request)
-  - src: `server/lib/catalog.js` → `actions.catalog_get` · auth: guest web-panel
+  - src: `server/lib/catalog.js` → `actions.catalog_get` · auth: guest web-panel · port: **P6**
   - request: — · response: `{lists,updatedAt}`
   - collections: config · side effects: — · errors: — · tests: guest
 - [ ] **`hospitals`** — Approved hospitals of district (+upazila) — DGHS directory + approved user additions
-  - src: `server/lib/hospitals.js` → `actions.hospitals` · auth: guest
+  - src: `server/lib/hospitals.js` → `actions.hospitals` · auth: guest · port: **P2**
   - request: `district`, `upazilaId` · response: `{items}`
   - collections: hospitals · side effects: — · errors: 400 · tests: demo-blood
 - [ ] **`hospital_request`** — Request a new hospital (dedupe/merge with similar pending, duplicateOf existing); quota hospital=10/day
-  - src: `server/lib/hospitals.js` → `actions.hospital_request` · auth: user · quota: hospital (10/day)
+  - src: `server/lib/hospitals.js` → `actions.hospital_request` · auth: user · quota: hospital (10/day) · port: **P2**
   - request: `nameEn`, `nameBn`, `type`, `upazilaId`, `unionId`, `district`, `address`, `phone` · response: `{ok,duplicateOf}` or `{ok,merged}` or `{ok}`
   - collections: hospitalRequests, hospitals · side effects: — · errors: 400 · tests: — (none)
 
 ## Blood donation (package `blood`) — 23 actions
 
 - [ ] **`bloodbanks`** — Approved blood banks in district (open first, own upazila, govt first; open24 filter)
-  - src: `server/lib/bloodbank.js` → `actions.bloodbanks` · auth: guest
+  - src: `server/lib/bloodbank.js` → `actions.bloodbanks` · auth: guest · port: **P1**
   - request: `district`, `upazilaId`, `open24` · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: 400 · tests: demo-blood
 - [ ] **`bloodbank_mine`** — Own blood banks with docs status
-  - src: `server/lib/bloodbank.js` → `actions.bloodbank_mine` · auth: user
+  - src: `server/lib/bloodbank.js` → `actions.bloodbank_mine` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: — · tests: demo-blood
 - [ ] **`bloodbank_save`** — Add/edit blood bank (terms, docs); re-verify on key changes; sanctions; quota bloodbank=5/day
-  - src: `server/lib/bloodbank.js` → `actions.bloodbank_save` · auth: user · quota: bloodbank (5/day)
+  - src: `server/lib/bloodbank.js` → `actions.bloodbank_save` · auth: user · quota: bloodbank (5/day) · port: **P1**
   - request: `termsAccepted`, `id`, `docs`, `name`, `kind`, `phone`, `district`, `upazilaId`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok,pending}` or `{ok,pending,id}`
   - collections: bloodBanks, sanctions, serverState · side effects: — · errors: 400, 404, 403 · tests: demo-blood
 - [ ] **`bloodbank_delete`** — Delete own blood bank (not suspended / open reports) + stats + verify docs
-  - src: `server/lib/bloodbank.js` → `actions.bloodbank_delete` · auth: user (owner)
+  - src: `server/lib/bloodbank.js` → `actions.bloodbank_delete` · auth: user (owner) · port: **P1**
   - request: `id` · response: `{ok}`
   - collections: bloodBankStats, bloodBanks, modReports, verifyDocs · side effects: — · errors: 403 · tests: — (none)
 - [ ] **`bloodbank_called`** — Record call (10-min dedupe) + bloodBankStats
-  - src: `server/lib/bloodbank.js` → `actions.bloodbank_called` · auth: user
+  - src: `server/lib/bloodbank.js` → `actions.bloodbank_called` · auth: user · port: **P1**
   - request: `id` · response: `{ok}`
   - collections: bloodBankCalls, bloodBanks · side effects: — · errors: — · tests: demo-blood
 - [ ] **`bloodbank_stats`** — Owner stats per bank: calls/day, reports
-  - src: `server/lib/bloodbank.js` → `actions.bloodbank_stats` · auth: user
+  - src: `server/lib/bloodbank.js` → `actions.bloodbank_stats` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: bloodBankStats, bloodBanks, modReports · side effects: — · errors: — · tests: — (none)
 - [ ] **`blood_request_get`** — One blood request (requestOut) or null
-  - src: `server/lib/clientdata.js` → `actions.blood_request_get` · auth: user (same world)
+  - src: `server/lib/clientdata.js` → `actions.blood_request_get` · auth: user (same world) · port: **P1**
   - request: `requestId` · response: `{request}`
   - collections: requests · side effects: — · errors: — · tests: clientdata
 - [ ] **`blood_requests_mine`** — Own requests, newest first
-  - src: `server/lib/clientdata.js` → `actions.blood_requests_mine` · auth: user
+  - src: `server/lib/clientdata.js` → `actions.blood_requests_mine` · auth: user · port: **P1**
   - request: — · response: `{items}`
   - collections: requests · side effects: — · errors: — · tests: clientdata
 - [ ] **`blood_requests_near`** — Open active requests within maxKm (geoOpen geohash bounds, fallback district list), group filter, same world, urgent first
-  - src: `server/lib/clientdata.js` → `actions.blood_requests_near` · auth: user
+  - src: `server/lib/clientdata.js` → `actions.blood_requests_near` · auth: user · port: **P1**
   - request: `lat`, `lng`, `maxKm`, `groups` · response: `{items}`
   - collections: requests · side effects: — · errors: 400 · tests: clientdata
 - [ ] **`blood_response_get`** — Own response to a request
-  - src: `server/lib/clientdata.js` → `actions.blood_response_get` · auth: user
+  - src: `server/lib/clientdata.js` → `actions.blood_response_get` · auth: user · port: **P1**
   - request: `requestId` · response: `{response}`
   - collections: requests/responses · side effects: — · errors: — · tests: clientdata
 - [ ] **`blood_responses_list`** — Accepted/donated responses with donor name/phone
-  - src: `server/lib/clientdata.js` → `actions.blood_responses_list` · auth: user (requester)
+  - src: `server/lib/clientdata.js` → `actions.blood_responses_list` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{items}`
   - collections: requests, …/responses · side effects: — · errors: 403 · tests: clientdata
 - [ ] **`blood_contact_get`** — Requester contact (requests/{id}/private/contact)
-  - src: `server/lib/clientdata.js` → `actions.blood_contact_get` · auth: user (requester, or accepted/donated donor of open request)
+  - src: `server/lib/clientdata.js` → `actions.blood_contact_get` · auth: user (requester, or accepted/donated donor of open request) · port: **P1**
   - request: `requestId` · response: `{contact}`
   - collections: requests, …/private, …/responses · side effects: — · errors: 403 · tests: clientdata
 - [ ] **`report_request`** — Report a blood request once (reports/{requestId}_{uid}); 409 if repeated
-  - src: `server/lib/clientdata.js` → `actions.report_request` · auth: user
+  - src: `server/lib/clientdata.js` → `actions.report_request` · auth: user · port: **P1**
   - request: `requestId` · response: `{ok}`
   - collections: reports · side effects: — · errors: 409 · tests: clientdata
 - [ ] **`donation_date_set`** — Change last donation date (backward needs confirmed:true → 409 confirm_needed); risk log; quota dateChange=3/day
-  - src: `server/lib/donationdate.js` → `actions.donation_date_set` · auth: user · quota: dateChange (3/day)
+  - src: `server/lib/donationdate.js` → `actions.donation_date_set` · auth: user · quota: dateChange (3/day) · port: **P1**
   - request: `millis`, `confirmed` · response: `{ok,unchanged}` or `{ok,risk}`
   - collections: serverState, users · side effects: — · errors: 400, 404, 409:confirm_needed · tests: demo-blood
 - [ ] **`response_update`** — Donor cancel/donated or requester removes donor; recount bags, restore/notify standby donors
-  - src: `server/lib/donors.js` → `response_update` · auth: user (donor: cancel/donated; requester: remove)
+  - src: `server/lib/donors.js` → `response_update` · auth: user (donor: cancel/donated; requester: remove) · port: **P1**
   - request: `requestId`, `op`, `donorUid` · response: `{ok,restored}` or `{ok}`
   - collections: inbox, requests, users, …/responses · side effects: FCM push + inbox · errors: 400, 404 · tests: demo-blood
 - [ ] **`confirm_donor`** — Requester confirms a donor; pushes donor
-  - src: `server/lib/donors.js` → `confirm_donor` · auth: user (requester)
+  - src: `server/lib/donors.js` → `confirm_donor` · auth: user (requester) · port: **P1**
   - request: `requestId`, `donorUid` · response: `{ok,already}` or `{ok}`
   - collections: inbox, requests, users, …/responses · side effects: FCM push + inbox · errors: 400, 404, 403 · tests: demo-blood
 - [ ] **`emergencies_active`** — Active emergency calls for my district or that notified me (+ my status, ask list); guest: district only, no demo
-  - src: `server/lib/emergency.js` → `actions.emergencies_active` · auth: guest
+  - src: `server/lib/emergency.js` → `actions.emergencies_active` · auth: guest · port: **P1**
   - request: `district` · response: `{items,ask}`
   - collections: emergencies, emergencies/donors, inbox, users · side effects: FCM push + inbox · errors: — · tests: demo-blood, guest
 - [ ] **`emergency_donated`** — Donor reports donated or not; sets lastDonation forward
-  - src: `server/lib/emergency.js` → `actions.emergency_donated` · auth: user
+  - src: `server/lib/emergency.js` → `actions.emergency_donated` · auth: user · port: **P1**
   - request: `id`, `donated` · response: `{ok}`
   - collections: emergencies, emergencies/donors, users · side effects: — · errors: 400 · tests: demo-blood
 - [ ] **`emergency_respond`** — Donor coming/cancel; group compatibility, per-group counts
-  - src: `server/lib/emergency.js` → `actions.emergency_respond` · auth: user
+  - src: `server/lib/emergency.js` → `actions.emergency_respond` · auth: user · port: **P1**
   - request: `id`, `op` · response: `{ok}`
   - collections: emergencies, users, …/donors · side effects: — · errors: 400, 403, 409 · tests: demo-blood
 - [ ] **`guest_requests`** — Guest home: open requests near lat,lng (BD bounds, maxKm 5–25), no name/phone/note/location (cached per 0.05° cell 1 min)
-  - src: `server/lib/guest.js` → `actions.guest_requests` · auth: guest
+  - src: `server/lib/guest.js` → `actions.guest_requests` · auth: guest · port: **P1**
   - request: `lat`, `lng`, `maxKm` · response: `{items}`
   - collections: requests · side effects: — · errors: 400 · tests: clientdata, demo-blood, guest
 - [ ] **`request_delete`** — Delete own blood request recursively; notify accepted donors
-  - src: `server/lib/myrequests.js` → `actions.request_delete` · auth: user (requester)
+  - src: `server/lib/myrequests.js` → `actions.request_delete` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{ok}` or `{ok,notified}`
   - collections: inbox, requests, requests/responses, users, …/responses · side effects: recursive delete, push (requestend), FCM push + inbox · errors: 400, 403 · tests: — (none)
 - [ ] **`request_create`** — Create blood request (validated; lat/lng rounded to 2 dp, geohash/geoOpen; private contact subdoc); limits MAX_REQUESTS_PER_DAY / open requests (serverState createDay)
-  - src: `server/lib/requestcreate.js` → `actions.request_create` · auth: user
+  - src: `server/lib/requestcreate.js` → `actions.request_create` · auth: user · port: **P1**
   - request: `lat`, `lng`, `patientGroup`, `bags`, `hospital`, `placeName`, `neededByMillis`, `neededAtMillis`, `requesterPhone`, `requesterName`, `note`, `geohash`, `urgent`, `travelFare` · response: `{ok,id}`
   - collections: requests, serverState, …/private · side effects: — · errors: 400, 429 · tests: demo-blood, demo-health, guest, labtests
 - [ ] **`request_reopen`** — Reopen within 1 h of closing (undo close marks from meta/close, restore donation dates); pushes donors
-  - src: `server/lib/requestcreate.js` → `actions.request_reopen` · auth: user (requester)
+  - src: `server/lib/requestcreate.js` → `actions.request_reopen` · auth: user (requester) · port: **P1**
   - request: `requestId` · response: `{ok}`
   - collections: inbox, requests, requests/responses, users, …/meta, …/responses · side effects: push (requestend), FCM push + inbox · errors: 400, 404, 403, 429 · tests: — (none)
 
 ## Providers, appointments, queue (package `appointments`) — 11 actions
 
 - [ ] **`providers`** — Doctor/nurse chamber list with filters (district/upazila/union/hospital/specialty/day/openNow/maxFee/hospitalQ/gender) + facets; list cached 2 min
-  - src: `server/lib/appointments.js` → `providers` · auth: guest caregiver
+  - src: `server/lib/appointments.js` → `providers` · auth: guest caregiver · port: **P2**
   - request: `type`, `homeVisit`, `district`, `upazilaId`, `unionId`, `hospitalId`, `specialty` · response: `{items}` or `{items,facets}`
   - collections: badges, providers, users · side effects: — · errors: 400 · tests: demo-health, demo-night, demo-rx, demo-services, doctor-filters, queue
 - [ ] **`provider_me`** — Own provider (chambers) document
-  - src: `server/lib/appointments.js` → `provider_me` · auth: user
+  - src: `server/lib/appointments.js` → `provider_me` · auth: user · port: **P2**
   - request: — · response: `{provider}`
   - collections: providers · side effects: — · errors: — · tests: demo-services
 - [ ] **`provider_save`** — Save chambers (≤ MAX_CHAMBERS, days/times, fee, appointments), specialties, degrees, gender, homeVisit; legacy shape supported; cancels stale appointments when chambers change
-  - src: `server/lib/appointments.js` → `provider_save` · auth: user role:badge (doctor/nurse/nutritionist/trainer); phone-verified when enabled
+  - src: `server/lib/appointments.js` → `provider_save` · auth: user role:badge (doctor/nurse/nutritionist/trainer); phone-verified when enabled · port: **P2**
   - request: `chambers`, `specialties`, `homeVisit`, `gender`, `listed`, `appointments`, `degrees`, `chamber`, `schedule`, `district`, `active`, `specialty`, `fee` · response: `…` or `{ok,cancelled}`
   - collections: badges, providers, sanctions, serverState, users · side effects: — · errors: 403, 409:update_required, 400 · tests: — (none)
 - [ ] **`book`** — Patient books provider chamber date (≤60 days ahead, same world, listed+taking appointments, chamberKey check, member for family); quota book=5/day; pushes provider
-  - src: `server/lib/appointments.js` → `book` · auth: user role:badge caregiver · quota: book (5/day)
+  - src: `server/lib/appointments.js` → `book` · auth: user role:badge caregiver · quota: book (5/day) · port: **P2**
   - request: `providerUid`, `date`, `chamberIndex`, `note`, `chamberKey`, `memberId` · response: `{id}`
   - collections: appointments, badges, inbox, providers, serverState, users · side effects: FCM push + inbox · errors: 400, 404, 409 · tests: demo-health, demo-night, demo-rx, doctor-filters, e2efixes, guest, labtests, queue
 - [ ] **`my_appointments`** — Appointments as patient and as provider (active ≤300, history ≤30 per status); other party phone when confirmed
-  - src: `server/lib/appointments.js` → `my_appointments` · auth: user caregiver
+  - src: `server/lib/appointments.js` → `my_appointments` · auth: user caregiver · port: **P2**
   - request: — · response: `{items}`
   - collections: appointments, users · side effects: — · errors: — · tests: demo-health, demo-rx
 - [ ] **`appointment_update`** — confirm (assigns serial via serials counter, transaction) / decline / cancel; pushes other party
-  - src: `server/lib/appointments.js` → `appointment_update` · auth: user (provider: confirm/decline needs badge; patient or provider: cancel) caregiver
+  - src: `server/lib/appointments.js` → `appointment_update` · auth: user (provider: confirm/decline needs badge; patient or provider: cancel) caregiver · port: **P2**
   - request: `id`, `op`, `providerNote`, `serial` · response: `{ok}`
   - collections: appointments, badges, inbox, providers, serials, users · side effects: FCM push + inbox · errors: 400, 404, 403, 409 · tests: demo-health, demo-rx, e2efixes, queue
 - [ ] **`queue_today`** — Doctor/assistant: today’s chambers with confirmed serials, current position
-  - src: `server/lib/queue.js` → `actions.queue_today` · auth: user role:doctor(chamber)|assistant
+  - src: `server/lib/queue.js` → `actions.queue_today` · auth: user role:doctor(chamber)|assistant · port: **P2**
   - request: `doctorUid` · response: `{role,date,chambers}`
   - collections: appointments, badges, providers, queues, serials · side effects: — · errors: — · tests: queue
 - [ ] **`queue_control`** — start \| next \| set \| pause \| resume a chamber queue (expect for stale detection); pushes upcoming patients (near turn)
-  - src: `server/lib/queue.js` → `actions.queue_control` · auth: user role:doctor(chamber)|assistant
+  - src: `server/lib/queue.js` → `actions.queue_control` · auth: user role:doctor(chamber)|assistant · port: **P2**
   - request: `doctorUid`, `op`, `chamberKey`, `date`, `expect`, `appointmentId`, `serial` · response: `{chamber,...}`
   - collections: appointments, badges, providers, queues, serials · side effects: push to patient + caregivers · errors: 400, 404, 409 · tests: queue
 - [ ] **`appointment_queue`** — Live serial status, people ahead, ETA (queueStats average)
-  - src: `server/lib/queue.js` → `actions.appointment_queue` · auth: user (patient of appointment) caregiver
+  - src: `server/lib/queue.js` → `actions.appointment_queue` · auth: user (patient of appointment) caregiver · port: **P2**
   - request: `id` · response: `{live}` or `…`
   - collections: appointments, providers, queues, serials · side effects: — · errors: 404 · tests: queue
 - [ ] **`appointment_late`** — "I will be late" 10/20/30/60 min + note, once per day; pushes doctor/assistants
-  - src: `server/lib/queue.js` → `actions.appointment_late` · auth: user (patient of appointment) caregiver
+  - src: `server/lib/queue.js` → `actions.appointment_late` · auth: user (patient of appointment) caregiver · port: **P2**
   - request: `id`, `minutes`, `note` · response: `{ok}`
   - collections: appointments, providers, queues, serials, users · side effects: FCM push + inbox · errors: 404, 409, 400 · tests: queue
 - [ ] **`appointment_late_reply`** — Doctor/assistant replies ok / later (moves to end); pushes patient
-  - src: `server/lib/queue.js` → `actions.appointment_late_reply` · auth: user role:doctor(chamber)|assistant
+  - src: `server/lib/queue.js` → `actions.appointment_late_reply` · auth: user role:doctor(chamber)|assistant · port: **P2**
   - request: `id`, `op` · response: `{ok,chamber}`
   - collections: appointments, badges, providers, queues, serials · side effects: push to patient + caregivers · errors: 404, 400, 409 · tests: queue
 
 ## Prescriptions & pharmacy orders (package `rx`) — 25 actions
 
 - [ ] **`rx_me`** — Doctor: own name, degrees, chamber names
-  - src: `server/lib/prescriptions.js` → `actions.rx_me` · auth: user role:doctor
+  - src: `server/lib/prescriptions.js` → `actions.rx_me` · auth: user role:doctor · port: **P3**
   - request: — · response: `{name,degrees,chambers}`
   - collections: badges, providers · side effects: — · errors: — · tests: demo-rx
 - [ ] **`rx_team`** — Doctor: assistant emails
-  - src: `server/lib/prescriptions.js` → `actions.rx_team` · auth: user role:doctor
+  - src: `server/lib/prescriptions.js` → `actions.rx_team` · auth: user role:doctor · port: **P3**
   - request: — · response: `{emails}`
   - collections: badges, providers · side effects: — · errors: — · tests: — (none)
 - [ ] **`rx_team_set`** — Doctor: set assistant emails (≤ limit, not own)
-  - src: `server/lib/prescriptions.js` → `actions.rx_team_set` · auth: user role:doctor
+  - src: `server/lib/prescriptions.js` → `actions.rx_team_set` · auth: user role:doctor · port: **P3**
   - request: `emails` · response: `{emails}`
   - collections: badges, providers · side effects: — · errors: 400 · tests: demo-rx
 - [ ] **`rx_assisting`** — Assistant: doctors I assist
-  - src: `server/lib/prescriptions.js` → `actions.rx_assisting` · auth: user (verified email listed as assistant)
+  - src: `server/lib/prescriptions.js` → `actions.rx_assisting` · auth: user (verified email listed as assistant) · port: **P3**
   - request: — · response: `{items}`
   - collections: badges, providers · side effects: — · errors: — · tests: demo-rx
 - [ ] **`rx_patients`** — Doctor/assistant: entered patients + today’s app appointments
-  - src: `server/lib/prescriptions.js` → `actions.rx_patients` · auth: user role:doctor|assistant
+  - src: `server/lib/prescriptions.js` → `actions.rx_patients` · auth: user role:doctor|assistant · port: **P3**
   - request: `doctorUid` · response: `{role,patients,appointments,appPatients}`
   - collections: appointments, badges, providers, rxPatients · side effects: — · errors: — · tests: demo-lab, demo-rx
 - [ ] **`rx_patient_history`** — Doctor: earlier prescriptions of a patient (rxPatientId or appointmentId) + lab orders
-  - src: `server/lib/prescriptions.js` → `actions.rx_patient_history` · auth: user role:doctor
+  - src: `server/lib/prescriptions.js` → `actions.rx_patient_history` · auth: user role:doctor · port: **P3**
   - request: `rxPatientId`, `appointmentId` · response: `{items,labOrders}`
   - collections: appointments, badges, labOrders, prescriptions, rxPatients, rxReviews · side effects: — · errors: 404, 400 · tests: demo-rx, labhistory, labprices, rxflow
 - [ ] **`rx_patient_add`** — Doctor/assistant: add paper patient (name, age, gender, phone → phoneKey); dedupe; quota rxPatient=200/day
-  - src: `server/lib/prescriptions.js` → `actions.rx_patient_add` · auth: user role:doctor|assistant · quota: rxPatient (200/day)
+  - src: `server/lib/prescriptions.js` → `actions.rx_patient_add` · auth: user role:doctor|assistant · quota: rxPatient (200/day) · port: **P3**
   - request: `doctorUid`, `phone`, `name`, `age`, `gender` · response: `{patient,existed}`
   - collections: badges, providers, rxPatients, serverState · side effects: — · errors: 400 · tests: demo-rx, labhistory, labprices, rxflow
 - [ ] **`rx_create`** — Doctor writes prescription (medicines, tests, advice, follow-up, findings…) → code; links app patient or rxPatient; quota rx=300/day; pushes patient (+caregivers)
-  - src: `server/lib/prescriptions.js` → `actions.rx_create` · auth: user role:doctor · quota: rx (300/day)
+  - src: `server/lib/prescriptions.js` → `actions.rx_create` · auth: user role:doctor · quota: rx (300/day) · port: **P3**
   - request: `appointmentId`, `rxPatientId`, `patient`, `medicines`, `tests`, `advice`, `followUpDays`, `chamberIndex`, `complaints`, `findings`, `diagnosis`, `testPlace`, `testPlaceId`, `followUpNote`, `name`, `age`, `gender` · response: `{id,code}`
   - collections: appointments, badges, careLinks, inbox, prescriptions, providers, rxPatients, serverState, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 404, 400 · tests: demo-lab, demo-rx, labhistory, labprices, rxflow
 - [ ] **`rx_cancel`** — Cancel prescription
-  - src: `server/lib/prescriptions.js` → `actions.rx_cancel` · auth: user (writing doctor)
+  - src: `server/lib/prescriptions.js` → `actions.rx_cancel` · auth: user (writing doctor) · port: **P3**
   - request: `id` · response: `{ok}`
   - collections: prescriptions · side effects: — · errors: 404 · tests: rxflow
 - [ ] **`rx_doctor_list`** — Doctor: own recent 150 prescriptions
-  - src: `server/lib/prescriptions.js` → `actions.rx_doctor_list` · auth: user role:doctor
+  - src: `server/lib/prescriptions.js` → `actions.rx_doctor_list` · auth: user role:doctor · port: **P3**
   - request: — · response: `{items}`
   - collections: badges, prescriptions · side effects: — · errors: — · tests: demo-rx
 - [ ] **`rx_mine`** — Patient: my prescriptions
-  - src: `server/lib/prescriptions.js` → `actions.rx_mine` · auth: user caregiver
+  - src: `server/lib/prescriptions.js` → `actions.rx_mine` · auth: user caregiver · port: **P3**
   - request: — · response: `{items}`
   - collections: prescriptions · side effects: — · errors: — · tests: demo-health, demo-pharmacy, demo-rx, demo-services, labtests, rxflow
 - [ ] **`rx_claim`** — Patient claims paper prescription by code + phone (must match profile) → links all of that doctor’s prescriptions for the phone; quota rxClaim=10/day
-  - src: `server/lib/prescriptions.js` → `actions.rx_claim` · auth: user caregiver · quota: rxClaim (10/day)
+  - src: `server/lib/prescriptions.js` → `actions.rx_claim` · auth: user caregiver · quota: rxClaim (10/day) · port: **P3**
   - request: `code`, `phone` · response: `{ok,added}`
   - collections: prescriptions, rxPatients, serverState, users · side effects: — · errors: 400, 409 · tests: demo-rx, labhistory, labprices, rxflow
 - [ ] **`rx_get`** — One prescription + lab orders/reviews
-  - src: `server/lib/prescriptions.js` → `actions.rx_get` · auth: user (patient or doctor of rx) caregiver
+  - src: `server/lib/prescriptions.js` → `actions.rx_get` · auth: user (patient or doctor of rx) caregiver · port: **P3**
   - request: `id` · response: `{item,labOrders}` or `{item}`
   - collections: labOrders, prescriptions, rxReviews · side effects: — · errors: 404 · tests: demo-health, labhistory
 - [ ] **`rx_pharmacy_open`** — Pharmacy opens prescription by code (same world); quota rxPharm=300/day
-  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_open` · auth: user role:approved-pharmacy · quota: rxPharm (300/day)
+  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_open` · auth: user role:approved-pharmacy · quota: rxPharm (300/day) · port: **P4**
   - request: `code` · response: `{item}`
   - collections: pharmacies, prescriptions, serverState · side effects: — · errors: — · tests: demo-rx, demo-services
 - [ ] **`rx_dispense`** — Pharmacy records dispensed quantities (items [{i,qty}], missing) → prescriptions.dispensed[], completes rxOrder, pharmacyMissed; pushes patient
-  - src: `server/lib/rxnet.js` → `actions.rx_dispense` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_dispense` · auth: user role:approved-pharmacy · port: **P4**
   - request: `code`, `items`, `missing` · response: `{item}`
   - collections: careLinks, inbox, pharmacies, pharmacyMissed, prescriptions, rxOrders, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409, 400 · tests: demo-pharmacy, demo-rx, demo-services, privacy-gaps, rxflow, shopbooks
 - [ ] **`rx_pharmacy_options`** — Patient: nearby pharmacies for an rx (shop/online modes, stock match, estimate)
-  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_options` · auth: user caregiver
+  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_options` · auth: user caregiver · port: **P4**
   - request: `rxId`, `district`, `mode`, `q`, `upazilaId`, `lat`, `lng`, `placeId` · response: `{items}`
   - collections: pharmacies, pharmacyStock, prescriptions · side effects: — · errors: 400 · tests: demo-health, demo-pharmacy, demo-rx, demo-services, pharmacyestimate, rxflow
 - [ ] **`rx_shop_find`** — Patient: find shop by 6-char shop code; quota medTry=30/day
-  - src: `server/lib/rxnet.js` → `actions.rx_shop_find` · auth: user caregiver · quota: medTry (30/day)
+  - src: `server/lib/rxnet.js` → `actions.rx_shop_find` · auth: user caregiver · quota: medTry (30/day) · port: **P4**
   - request: `code` · response: `{item:{id,name,address,phone,online,deliveryFee}}`
   - collections: pharmacies, serverState · side effects: — · errors: 400, 404 · tests: demo-pharmacy, rxflow
 - [ ] **`rx_send_pharmacy`** — Patient sends rx to pharmacy (shop or online delivery with address/phone/note); quota rxSend=20/day; pushes shop
-  - src: `server/lib/rxnet.js` → `actions.rx_send_pharmacy` · auth: user caregiver · quota: rxSend (20/day)
+  - src: `server/lib/rxnet.js` → `actions.rx_send_pharmacy` · auth: user caregiver · quota: rxSend (20/day) · port: **P4**
   - request: `rxId`, `pharmacyId`, `mode`, `address`, `phone`, `note` · response: `{id}`
   - collections: inbox, pharmacies, prescriptions, rxOrders, serverState, users · side effects: FCM push + inbox · errors: 409, 404, 400 · tests: demo-health, demo-pharmacy, demo-rx, demo-services, labtests, pharmacylist-rx, rxflow
 - [ ] **`rx_order_withdraw`** — Withdraw order (reason not_available → pharmacyMissed)
-  - src: `server/lib/rxnet.js` → `actions.rx_order_withdraw` · auth: user (patient of order) caregiver
+  - src: `server/lib/rxnet.js` → `actions.rx_order_withdraw` · auth: user (patient of order) caregiver · port: **P4**
   - request: `id`, `reason` · response: `{ok}`
   - collections: inbox, pharmacyMissed, prescriptions, rxOrders, users · side effects: FCM push + inbox · errors: 409 · tests: demo-health, labtests, privacy-gaps, rxflow
 - [ ] **`rx_orders_pharmacy`** — Pharmacy: incoming orders (segments, counts)
-  - src: `server/lib/rxnet.js` → `actions.rx_orders_pharmacy` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_orders_pharmacy` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{items,counts}`
   - collections: pharmacies, rxOrders · side effects: — · errors: — · tests: demo-pharmacy, demo-rx, demo-services, rxflow, worksegs
 - [ ] **`rx_order_update`** — Pharmacy: ready/cancelled (shop) or accepted(price, eta)/out/cancelled (online); pushes patient
-  - src: `server/lib/rxnet.js` → `actions.rx_order_update` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_order_update` · auth: user role:approved-pharmacy · port: **P4**
   - request: `id`, `status`, `reason`, `missing`, `price`, `eta` · response: `{ok}`
   - collections: careLinks, inbox, pharmacies, pharmacyMissed, prescriptions, rxOrders, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409 · tests: demo-pharmacy, demo-rx, demo-services, privacy-gaps, rxflow, worksegs
 - [ ] **`rx_pharmacy_home`** — Pharmacy: shop code (generated once), online settings, missed list
-  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_home` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_home` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{shopCode,online,hasLocation,missed}`
   - collections: pharmacies, pharmacyMissed · side effects: — · errors: — · tests: demo-pharmacy, demo-rx, demo-services, rxflow
 - [ ] **`rx_pharmacy_online_set`** — Pharmacy: online selling enabled, radiusKm, fee, note
-  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_online_set` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_pharmacy_online_set` · auth: user role:approved-pharmacy · port: **P4**
   - request: `enabled`, `radiusKm`, `fee`, `note` · response: `{online}`
   - collections: pharmacies · side effects: — · errors: 400 · tests: rxflow
 - [ ] **`rx_missed_clear`** — Pharmacy: clear one (k) or all missed medicines
-  - src: `server/lib/rxnet.js` → `actions.rx_missed_clear` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.rx_missed_clear` · auth: user role:approved-pharmacy · port: **P4**
   - request: `k` · response: `{ok}`
   - collections: pharmacies, pharmacyMissed · side effects: — · errors: — · tests: — (none)
 - [ ] **`rx_activity`** — Patient: pharmacy/lab orders, reviews, dispensed for an rx
-  - src: `server/lib/rxnet.js` → `actions.rx_activity` · auth: user (patient of rx) caregiver
+  - src: `server/lib/rxnet.js` → `actions.rx_activity` · auth: user (patient of rx) caregiver · port: **P3**
   - request: `rxId` · response: `{medicines,dispensed,orders,labOrders:[...],reviews:[...],nextOpen}`
   - collections: labOrders, prescriptions, providers, rxOrders, rxReviews · side effects: — · errors: — · tests: demo-health, demo-lab, demo-pharmacy, demo-rx, demo-services, labprices, privacy-gaps, rxflow
 
 ## Pharmacy listing, stock, medicine finder (package `pharmacy`) — 17 actions
 
 - [ ] **`drug_search`** — Type-ahead drug search over bundled drugs.json
-  - src: `server/lib/medfind.js` → `actions.drug_search` · auth: guest
+  - src: `server/lib/medfind.js` → `actions.drug_search` · auth: guest · port: **P4**
   - request: `q` · response: `{items:[{i,name,generic,form,company}]}`
   - collections: — · side effects: — · errors: — · tests: demo-night, demo-pharmacy, demo-services, pharmacy24
 - [ ] **`med_find`** — "Which shop has it?": push ≤15 nearby open approved pharmacies (find setting on, ≤30/day/shop); quota medFind=5/day
-  - src: `server/lib/medfind.js` → `actions.med_find` · auth: user · quota: medFind (5/day)
+  - src: `server/lib/medfind.js` → `actions.med_find` · auth: user · quota: medFind (5/day) · port: **P4**
   - request: `i`, `district`, `upazilaId`, `lat`, `lng` · response: `{ok,noPharmacy}` or `{ok,noneOpen}` or `{ok,id,notified}`
   - collections: inbox, medFinds, pharmacies, serverState, users · side effects: FCM push + inbox · errors: 400 · tests: demo-health, demo-night, demo-pharmacy, demo-services, guest, pharmacy24
 - [ ] **`med_finds_mine`** — My last 10 finds with shops answering "have"
-  - src: `server/lib/medfind.js` → `actions.med_finds_mine` · auth: user
+  - src: `server/lib/medfind.js` → `actions.med_finds_mine` · auth: user · port: **P4**
   - request: — · response: `{items:[...]}`
   - collections: medFinds, pharmacies · side effects: — · errors: — · tests: demo-pharmacy, demo-services
 - [ ] **`med_find_close`** — Close my find
-  - src: `server/lib/medfind.js` → `actions.med_find_close` · auth: user (finder)
+  - src: `server/lib/medfind.js` → `actions.med_find_close` · auth: user (finder) · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: medFinds · side effects: — · errors: 400, 404 · tests: — (none)
 - [ ] **`med_find_requests`** — Shop: open finds sent to me
-  - src: `server/lib/medfind.js` → `actions.med_find_requests` · auth: user (approved pharmacy)
+  - src: `server/lib/medfind.js` → `actions.med_find_requests` · auth: user (approved pharmacy) · port: **P4**
   - request: — · response: `{items,findOff}`
   - collections: medFinds, pharmacies · side effects: — · errors: — · tests: demo-night, demo-pharmacy, demo-services
 - [ ] **`med_find_answer`** — Shop answers have/not; pushes finder on have
-  - src: `server/lib/medfind.js` → `actions.med_find_answer` · auth: user (approved pharmacy)
+  - src: `server/lib/medfind.js` → `actions.med_find_answer` · auth: user (approved pharmacy) · port: **P4**
   - request: `id`, `have` · response: `{ok}`
   - collections: inbox, medFinds, pharmacies, users · side effects: FCM push + inbox · errors: 400, 403, 404, 409 · tests: demo-pharmacy, demo-services
 - [ ] **`pharmacy_find_setting`** — Opt in/out of medicine find requests (findOff)
-  - src: `server/lib/medfind.js` → `actions.pharmacy_find_setting` · auth: user (pharmacy owner)
+  - src: `server/lib/medfind.js` → `actions.pharmacy_find_setting` · auth: user (pharmacy owner) · port: **P4**
   - request: `off` · response: `{ok}`
   - collections: pharmacies · side effects: — · errors: 404 · tests: — (none)
 - [ ] **`pharmacy_me`** — Own pharmacy (with docs status) or null
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_me` · auth: user
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_me` · auth: user · port: **P4**
   - request: — · response: `{pharmacy}`
   - collections: pharmacies · side effects: — · errors: — · tests: demo-night, demo-pharmacy, demo-services, pharmacylist-rx
 - [ ] **`pharmacy_save`** — Create/edit pharmacy (license, phone, address, hours, closedDays, discounts, delivery, docs); re-verify; sanctions; quota pharmacy=5/day
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_save` · auth: user · quota: pharmacy (5/day)
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_save` · auth: user · quota: pharmacy (5/day) · port: **P4**
   - request: `name`, `licenseNo`, `phone`, `district`, `upazilaId`, `address`, `lat`, `lng`, `open24`, `openAt`, `closeAt`, `discount`, `discountMin`, `freeDeliveryOver`, `discountNote`, `termsAccepted`, `closedDays`, `delivery`, `deliveryNote`, `docs` · response: `{ok,pending}`
   - collections: pharmacies, sanctions, serverState · side effects: — · errors: 400, 403 · tests: demo-services, pharmacylist-rx
 - [ ] **`pharmacy_pause`** — Temporarily closed until (≤60 days) or reopen
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_pause` · auth: user (pharmacy owner)
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_pause` · auth: user (pharmacy owner) · port: **P4**
   - request: `until` · response: `{ok}`
   - collections: pharmacies · side effects: — · errors: 404, 400 · tests: demo-pharmacy
 - [ ] **`pharmacy_delete`** — Remove own pharmacy (not suspended); deletes stats, ratings, docs, strips order contacts
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_delete` · auth: user (pharmacy owner)
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_delete` · auth: user (pharmacy owner) · port: **P4**
   - request: — · response: `{ok}`
   - collections: modReports, pharmacies, pharmacyRatings, pharmacyStats, rxOrders, verifyDocs · side effects: — · errors: 403 · tests: pharmacyrate, privacy-gaps
 - [ ] **`pharmacies`** — Approved pharmacies in district; modes shop/online, rxId → per-card stock match & estimate; openNow/open24; canRate; same world when mode/rxId
-  - src: `server/lib/pharmacy.js` → `actions.pharmacies` · auth: guest caregiver
+  - src: `server/lib/pharmacy.js` → `actions.pharmacies` · auth: guest caregiver · port: **P4**
   - request: `district`, `upazilaId`, `mode`, `rxId`, `lat`, `lng`, `openNow`, `open24` · response: `{items:[{...,canRate,rateAspects}],...}`
   - collections: pharmacies, pharmacyCalls, pharmacyStock, prescriptions, rxOrders, serverState · side effects: — · errors: 400 · tests: demo-ambulance, demo-pharmacy, demo-services, e2efixes, pharmacy24, pharmacylist-rx, pharmacyrate
 - [ ] **`pharmacy_called`** — Record call (10-min dedupe) + pharmacyStats
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_called` · auth: user
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_called` · auth: user · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: pharmacies, pharmacyCalls · side effects: — · errors: — · tests: demo-health, demo-services, pharmacyrate
 - [ ] **`pharmacy_rate`** — Aspect rating (behaviour/price/delivery) after call or purchase; one per user per shop, editable
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_rate` · auth: user
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_rate` · auth: user · port: **P4**
   - request: `aspects`, `rating`, `comment` · response: `{ok,rating}`
   - collections: pharmacies, pharmacyCalls, pharmacyRatings, prescriptions, rxOrders · side effects: — · errors: 400, 404, 403 · tests: demo-services, pharmacyrate
 - [ ] **`pharmacy_stats`** — Owner: calls, rating, aspects, recent comments, reports
-  - src: `server/lib/pharmacy.js` → `actions.pharmacy_stats` · auth: user
+  - src: `server/lib/pharmacy.js` → `actions.pharmacy_stats` · auth: user · port: **P4**
   - request: — · response: `{...,rating,ratingCount,aspects,comments:[...],reports}`
   - collections: modReports, pharmacies, pharmacyStats · side effects: — · errors: — · tests: demo-pharmacy, demo-services, pharmacyrate
 - [ ] **`stock_get`** — Pharmacy: in-stock names
-  - src: `server/lib/rxnet.js` → `actions.stock_get` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.stock_get` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{items,updatedAt}`
   - collections: pharmacies, pharmacyStock · side effects: — · errors: — · tests: demo-pharmacy, demo-services
 - [ ] **`stock_set`** — Pharmacy: add/remove stock names (≤3000)
-  - src: `server/lib/rxnet.js` → `actions.stock_set` · auth: user role:approved-pharmacy
+  - src: `server/lib/rxnet.js` → `actions.stock_set` · auth: user role:approved-pharmacy · port: **P4**
   - request: `add`, `remove` · response: `{items}`
   - collections: pharmacies, pharmacyStock · side effects: — · errors: 400 · tests: demo-pharmacy, demo-services, pharmacyestimate, pharmacylist-rx, rxflow, shopbooks
 
 ## Pharmacy shop books (package `books`) — 15 actions
 
 - [ ] **`books_items`** — Products with stock, price, cost, expiry, low flags
-  - src: `server/lib/shopbooks.js` → `actions.books_items` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_items` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{items,units}`
   - collections: pharmacies, pharmacyStock, shopItems/items · side effects: — · errors: — · tests: pharmacyestimate, shopbooks
 - [ ] **`books_item_save`** — Add/edit product; qty change recorded as count adjustment; syncs pharmacyStock
-  - src: `server/lib/shopbooks.js` → `actions.books_item_save` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_item_save` · auth: user role:approved-pharmacy · port: **P4**
   - request: `name`, `id`, `price`, `disc`, `generic`, `form`, `unit`, `cost`, `lowAt`, `expiry`, `qty` · response: `{item}`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopBooks/{}, shopItems/items · side effects: — · errors: 400, 409 · tests: pharmacyestimate, pharmacylist-rx, shopbooks
 - [ ] **`books_item_delete`** — Delete product (history kept); syncs stock list
-  - src: `server/lib/shopbooks.js` → `actions.books_item_delete` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_item_delete` · auth: user role:approved-pharmacy · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: pharmacies, pharmacyStock, shopItems/items · side effects: — · errors: — · tests: pharmacyestimate, shopbooks
 - [ ] **`books_item_stock`** — Manual in-stock on/off for non-quantity shops
-  - src: `server/lib/shopbooks.js` → `actions.books_item_stock` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_item_stock` · auth: user role:approved-pharmacy · port: **P4**
   - request: `id`, `on` · response: `…`
   - collections: pharmacies, pharmacyStock, shopItems/items · side effects: — · errors: — · tests: shopbooks
 - [ ] **`books_purchase_add`** — Purchase: qty up, average cost, nearest expiry, optional new MRP; new names create items; day aggregates
-  - src: `server/lib/shopbooks.js` → `actions.books_purchase_add` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_purchase_add` · auth: user role:approved-pharmacy · port: **P4**
   - request: `at`, `lines`, `supplier`, `note` · response: `{id,purchase:{id,...}}`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopBooks/{}, shopItems/items · side effects: — · errors: 400 · tests: pharmacyestimate, shopbooks
 - [ ] **`books_purchases`** — Purchases of last 90 days (≤200)
-  - src: `server/lib/shopbooks.js` → `actions.books_purchases` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_purchases` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{items:[...]}`
   - collections: pharmacies, shopBooks/{} · side effects: — · errors: — · tests: shopbooks
 - [ ] **`books_purchase_delete`** — Undo purchase (qty back; undo map); day aggregates
-  - src: `server/lib/shopbooks.js` → `actions.books_purchase_delete` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_purchase_delete` · auth: user role:approved-pharmacy · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopBooks/purchases, shopItems/items · side effects: — · errors: — · tests: pharmacyestimate, shopbooks
 - [ ] **`books_sale_add`** — Counter sale or rx sale (from dispensed lines, once per dispensing); line/bill discounts; profit; day aggregates
-  - src: `server/lib/shopbooks.js` → `actions.books_sale_add` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_sale_add` · auth: user role:approved-pharmacy · port: **P4**
   - request: `source`, `rx`, `billDisc`, `at`, `lines`, `customer` · response: `{id,sale:{id,...}}`
   - collections: pharmacies, pharmacyStock, prescriptions, rxOrders, shopBooks/days, shopBooks/sales, shopBooks/{}, shopItems/items · side effects: — · errors: 404, 400, 409 · tests: privacy-gaps, shopbooks
 - [ ] **`books_rx_preview`** — Preview rx dispensing as sale lines (matched items, prices, cost)
-  - src: `server/lib/shopbooks.js` → `actions.books_rx_preview` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_rx_preview` · auth: user role:approved-pharmacy · port: **P4**
   - request: `code`, `at` · response: `{code,at,source,recorded,lines}`
   - collections: pharmacies, pharmacyStock, prescriptions, rxOrders, shopBooks/sales, shopItems/items · side effects: — · errors: 404 · tests: privacy-gaps, shopbooks
 - [ ] **`books_sales`** — Sales by period (today/7d/30d/month, ≤300)
-  - src: `server/lib/shopbooks.js` → `actions.books_sales` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_sales` · auth: user role:approved-pharmacy · port: **P4**
   - request: `period` · response: `{items}`
   - collections: pharmacies, shopBooks/{} · side effects: — · errors: — · tests: privacy-gaps, shopbooks
 - [ ] **`books_sale_delete`** — Delete sale; qty and day aggregates reversed
-  - src: `server/lib/shopbooks.js` → `actions.books_sale_delete` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_sale_delete` · auth: user role:approved-pharmacy · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopBooks/sales, shopItems/items · side effects: — · errors: — · tests: shopbooks
 - [ ] **`books_adjust`** — Write-off (loss at cost) or stock count correction
-  - src: `server/lib/shopbooks.js` → `actions.books_adjust` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_adjust` · auth: user role:approved-pharmacy · port: **P4**
   - request: `kind`, `itemId`, `qty`, `reason` · response: `{id,adjust:{id,...}}`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopBooks/{}, shopItems/items · side effects: — · errors: 400 · tests: pharmacyestimate, shopbooks
 - [ ] **`books_adjusts`** — Adjustments of last 90 days
-  - src: `server/lib/shopbooks.js` → `actions.books_adjusts` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_adjusts` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{items:[...]}`
   - collections: pharmacies, shopBooks/{} · side effects: — · errors: — · tests: shopbooks
 - [ ] **`books_today`** — Today card: sales, net, profit, write-off, low stock, expiring in 60 days, priced flag
-  - src: `server/lib/shopbooks.js` → `actions.books_today` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_today` · auth: user role:approved-pharmacy · port: **P4**
   - request: — · response: `{sales,net,profit,writeOff,low,expiring,priced}`
   - collections: pharmacies, shopBooks/days, shopItems/items · side effects: — · errors: — · tests: shopbooks
 - [ ] **`books_report`** — P&L report for period from daily aggregates + stock valuation
-  - src: `server/lib/shopbooks.js` → `actions.books_report` · auth: user role:approved-pharmacy
+  - src: `server/lib/shopbooks.js` → `actions.books_report` · auth: user role:approved-pharmacy · port: **P4**
   - request: `period` · response: `…`
   - collections: pharmacies, pharmacyStock, shopBooks/days, shopItems/items · side effects: — · errors: — · tests: shopbooks
 
 ## Labs, lab orders, report reviews (package `lab`) — 26 actions
 
 - [ ] **`lab_prices_get`** — Lab owner: own test & price list with catalog
-  - src: `server/lib/labprices.js` → `actions.lab_prices_get` · auth: user role:approved-lab
+  - src: `server/lib/labprices.js` → `actions.lab_prices_get` · auth: user role:approved-lab · port: **P3**
   - request: — · response: `…`
   - collections: config, labPrices, labs · side effects: — · errors: — · tests: demo-lab, labprices
 - [ ] **`lab_prices_set`** — Save whole price list (codes or own names, price, tat, on), discountPct, homeFee; returns kept hidden-code names
-  - src: `server/lib/labprices.js` → `actions.lab_prices_set` · auth: user role:approved-lab
+  - src: `server/lib/labprices.js` → `actions.lab_prices_set` · auth: user role:approved-lab · port: **P3**
   - request: `items`, `discountPct`, `homeFee` · response: `{...,kept}`
   - collections: config, labPrices, labs · side effects: — · errors: 400 · tests: labprices, pharmacyestimate
 - [ ] **`lab_prices_public`** — Public price list of one approved lab (cached 1 min)
-  - src: `server/lib/labprices.js` → `actions.lab_prices_public` · auth: guest caregiver
+  - src: `server/lib/labprices.js` → `actions.lab_prices_public` · auth: guest caregiver · port: **P3**
   - request: `labId` · response: `{prices}`
   - collections: config, labPrices, labs · side effects: — · errors: 404 · tests: demo-lab, labprices
 - [ ] **`labtests_get`** — Lab test catalogue (config/labTests merged with defaults)
-  - src: `server/lib/labtests.js` → `actions.labtests_get` · auth: user (also web-panel, caregiver)
+  - src: `server/lib/labtests.js` → `actions.labtests_get` · auth: user (also web-panel, caregiver) · port: **P3**
   - request: — · response: `{tests}`
   - collections: config · side effects: — · errors: — · tests: demo-lab
 - [ ] **`lab_me`** — Own lab (with docs status) or null
-  - src: `server/lib/rxnet.js` → `actions.lab_me` · auth: user
+  - src: `server/lib/rxnet.js` → `actions.lab_me` · auth: user · port: **P3**
   - request: — · response: `{lab}` or `{lab:{...,...,docsRequestNote}}`
   - collections: labs · side effects: — · errors: — · tests: demo-lab, demo-services
 - [ ] **`lab_save`** — Register/edit lab (DGHS facilityId or own name, license, hours, homeCollection, docs); re-verify; quota lab=3/day
-  - src: `server/lib/rxnet.js` → `actions.lab_save` · auth: user · quota: lab (3/day)
+  - src: `server/lib/rxnet.js` → `actions.lab_save` · auth: user · quota: lab (3/day) · port: **P3**
   - request: `facilityId`, `name`, `district`, `upazilaId`, `address`, `licenseNo`, `phone`, `termsAccepted`, `hours`, `homeCollection`, `docs` · response: `{ok,pending}`
   - collections: hospitals, labs, serverState · side effects: — · errors: 400, 403 · tests: — (none)
 - [ ] **`lab_delete`** — Delete own lab (not suspended) + prices + docs; strips home addresses
-  - src: `server/lib/rxnet.js` → `actions.lab_delete` · auth: user (lab owner)
+  - src: `server/lib/rxnet.js` → `actions.lab_delete` · auth: user (lab owner) · port: **P3**
   - request: — · response: `{ok}`
   - collections: labOrders, labPrices, labs, verifyDocs · side effects: — · errors: 403 · tests: labprices
 - [ ] **`labs`** — Approved labs in district (price summary)
-  - src: `server/lib/rxnet.js` → `actions.labs` · auth: guest caregiver
+  - src: `server/lib/rxnet.js` → `actions.labs` · auth: guest caregiver · port: **P3**
   - request: `district`, `upazilaId`, `facilityId` · response: `{items}`
   - collections: config, labPrices, labs · side effects: — · errors: 400 · tests: demo-ambulance, demo-health, demo-lab, demo-rx, demo-services, guest, labprices
 - [ ] **`rx_lab_options`** — Patient: labs for rx tests (doctor’s place first, coverage, price, distance), lastHome
-  - src: `server/lib/rxnet.js` → `actions.rx_lab_options` · auth: user caregiver · quota: rxPharm (300/day)
+  - src: `server/lib/rxnet.js` → `actions.rx_lab_options` · auth: user caregiver · quota: rxPharm (300/day) · port: **P3**
   - request: `rxId`, `district`, `tests`, `upazilaId`, `lat`, `lng`, `placeId` · response: `{items,lastHome}`
   - collections: config, labPrices, labs, prescriptions, serverState · side effects: — · errors: 400 · tests: demo-lab, labprices, pharmacyestimate
 - [ ] **`rx_send_lab`** — Patient sends tests to lab (optional home collection: address, phone, day, slot, note); price snapshot; quota rxSend; pushes lab
-  - src: `server/lib/rxnet.js` → `actions.rx_send_lab` · auth: user caregiver · quota: rxSend (20/day)
+  - src: `server/lib/rxnet.js` → `actions.rx_send_lab` · auth: user caregiver · quota: rxSend (20/day) · port: **P3**
   - request: `rxId`, `labId`, `tests`, `home` · response: `{id}`
   - collections: config, inbox, labOrders, labPrices, labs, prescriptions, serverState, users · side effects: FCM push + inbox · errors: 409, 404, 400 · tests: demo-health, demo-lab, demo-rx, labhistory, labprices, rxflow
 - [ ] **`lab_orders`** — Lab: incoming orders (segments, counts)
-  - src: `server/lib/rxnet.js` → `actions.lab_orders` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_orders` · auth: user role:approved-lab · port: **P3**
   - request: — · response: `{items,counts}`
   - collections: labOrders, labs · side effects: — · errors: — · tests: demo-lab, demo-rx, demo-services, labhistory, labprices, privacy-gaps, rxflow, worksegs
 - [ ] **`lab_open_code`** — Lab opens rx by code → walk-in order; quota rxPharm
-  - src: `server/lib/rxnet.js` → `actions.lab_open_code` · auth: user role:approved-lab · quota: rxPharm (300/day)
+  - src: `server/lib/rxnet.js` → `actions.lab_open_code` · auth: user role:approved-lab · quota: rxPharm (300/day) · port: **P3**
   - request: `code` · response: `{item}`
   - collections: config, labOrders, labPrices, labs, prescriptions, serverState · side effects: — · errors: 409, 400 · tests: demo-lab, labprices
 - [ ] **`lab_order_status`** — Lab: received / cancelled; pushes patient
-  - src: `server/lib/rxnet.js` → `actions.lab_order_status` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_order_status` · auth: user role:approved-lab · port: **P3**
   - request: `id`, `status` · response: `{ok}`
   - collections: careLinks, inbox, labOrders, labs, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409 · tests: demo-lab, demo-rx, labhistory, labprices, rxflow
 - [ ] **`lab_home_confirm`** — Lab confirms home collection date/time; pushes patient
-  - src: `server/lib/rxnet.js` → `actions.lab_home_confirm` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_home_confirm` · auth: user role:approved-lab · port: **P3**
   - request: `id`, `date`, `time`, `note` · response: `{ok,at}`
   - collections: careLinks, inbox, labOrders, labs, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409 · tests: demo-lab, labprices
 - [ ] **`lab_home_decline`** — Lab declines home collection (order stays); pushes patient
-  - src: `server/lib/rxnet.js` → `actions.lab_home_decline` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_home_decline` · auth: user role:approved-lab · port: **P3**
   - request: `id`, `note` · response: `{ok}`
   - collections: careLinks, inbox, labOrders, labs, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409 · tests: demo-lab, labprices, privacy-gaps
 - [ ] **`lab_home_cancel`** — Patient cancels home collection before confirmation (removes address/phone); pushes lab
-  - src: `server/lib/rxnet.js` → `actions.lab_home_cancel` · auth: user (patient of order) caregiver
+  - src: `server/lib/rxnet.js` → `actions.lab_home_cancel` · auth: user (patient of order) caregiver · port: **P3**
   - request: `id` · response: `{ok}`
   - collections: inbox, labOrders, users · side effects: FCM push + inbox · errors: — · tests: labprices
 - [ ] **`lab_home_change`** — Patient changes home collection details; pushes lab
-  - src: `server/lib/rxnet.js` → `actions.lab_home_change` · auth: user (patient of order) caregiver
+  - src: `server/lib/rxnet.js` → `actions.lab_home_change` · auth: user (patient of order) caregiver · port: **P3**
   - request: `home`, `id` · response: `{ok}`
   - collections: inbox, labOrders, labs, serverState, users · side effects: FCM push + inbox · errors: 404, 400 · tests: labprices
 - [ ] **`lab_report`** — Lab submits results (items, note, ≤2 photos) → reported; creates doctor review request; pushes patient
-  - src: `server/lib/rxnet.js` → `actions.lab_report` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_report` · auth: user role:approved-lab · port: **P3**
   - request: `id`, `items`, `photos`, `note` · response: `{ok}`
   - collections: careLinks, inbox, labOrders, labs, providers, rxReviews, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 400 · tests: demo-lab, demo-rx, labhistory, labprices, rxflow
 - [ ] **`lab_order_get`** — Read one lab order/report + history
-  - src: `server/lib/rxnet.js` → `actions.lab_order_get` · auth: user (patient, lab, or doctor when paid/no fee → else 402) caregiver
+  - src: `server/lib/rxnet.js` → `actions.lab_order_get` · auth: user (patient, lab, or doctor when paid/no fee → else 402) caregiver · port: **P3**
   - request: `id` · response: `{item,history}`
   - collections: labOrders, rxReviews · side effects: — · errors: 402 · tests: demo-health, demo-lab, demo-rx, labhistory, labprices, privacy-gaps, rxflow
 - [ ] **`lab_form`** — Lab: report form templates for order tests (lab’s own ranges)
-  - src: `server/lib/rxnet.js` → `actions.lab_form` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_form` · auth: user role:approved-lab · port: **P3**
   - request: `id` · response: `{forms:[...]}`
   - collections: config, labOrders, labs · side effects: — · errors: — · tests: demo-lab, demo-rx, rxflow
 - [ ] **`lab_ranges_set`** — Lab: save own normal ranges
-  - src: `server/lib/rxnet.js` → `actions.lab_ranges_set` · auth: user role:approved-lab
+  - src: `server/lib/rxnet.js` → `actions.lab_ranges_set` · auth: user role:approved-lab · port: **P3**
   - request: `ranges` · response: `{ok,count}`
   - collections: labs · side effects: — · errors: 400 · tests: demo-lab, demo-services, rxflow
 - [ ] **`review_settings`** — Doctor report-review settings (enabled, fee/noFee, pay number, methods)
-  - src: `server/lib/rxnet.js` → `actions.review_settings` · auth: user role:doctor
+  - src: `server/lib/rxnet.js` → `actions.review_settings` · auth: user role:doctor · port: **P3**
   - request: `set`, `enabled`, `noFee`, `fee`, `payMethods`, `payNumber` · response: `…`
   - collections: badges, providers · side effects: — · errors: 403, 400 · tests: labhistory
 - [ ] **`review_pay`** — Patient submits TrxID/method; pushes doctor
-  - src: `server/lib/rxnet.js` → `actions.review_pay` · auth: user (patient of review) caregiver
+  - src: `server/lib/rxnet.js` → `actions.review_pay` · auth: user (patient of review) caregiver · port: **P3**
   - request: `id`, `trxId`, `method` · response: `{ok}`
   - collections: inbox, rxReviews, users · side effects: FCM push + inbox · errors: 409, 400 · tests: demo-lab, demo-rx, labhistory, labtests
 - [ ] **`reviews_doctor`** — Doctor/assistant: review requests with TrxIDs
-  - src: `server/lib/rxnet.js` → `actions.reviews_doctor` · auth: user role:doctor|assistant
+  - src: `server/lib/rxnet.js` → `actions.reviews_doctor` · auth: user role:doctor|assistant · port: **P3**
   - request: `doctorUid` · response: `{items}`
   - collections: badges, providers, rxReviews · side effects: — · errors: — · tests: demo-rx, labhistory
 - [ ] **`review_confirm`** — Doctor/assistant confirms payment ok/not; pushes patient
-  - src: `server/lib/rxnet.js` → `actions.review_confirm` · auth: user role:doctor|assistant
+  - src: `server/lib/rxnet.js` → `actions.review_confirm` · auth: user role:doctor|assistant · port: **P3**
   - request: `doctorUid`, `id`, `ok`, `note` · response: `{ok}`
   - collections: badges, careLinks, inbox, providers, rxReviews, users · side effects: push to patient + caregivers, FCM push + inbox · errors: — · tests: demo-lab, demo-rx, labhistory
 - [ ] **`review_done`** — Doctor comments on report (optional newRxId); pushes patient
-  - src: `server/lib/rxnet.js` → `actions.review_done` · auth: user role:doctor
+  - src: `server/lib/rxnet.js` → `actions.review_done` · auth: user role:doctor · port: **P3**
   - request: `id`, `comment`, `newRxId` · response: `{ok}`
   - collections: badges, careLinks, inbox, rxReviews, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 403, 400 · tests: demo-lab, demo-rx, labhistory
 
 ## Ambulance listing & "call an ambulance" (package `ambulance`) — 22 actions
 
 - [ ] **`amb_facilities`** — Destination hospital list for district (cached 10 min) or search q / nearest to lat,lng
-  - src: `server/lib/ambplace.js` → `actions.amb_facilities` · auth: user
+  - src: `server/lib/ambplace.js` → `actions.amb_facilities` · auth: user · port: **P5**
   - request: `district`, `lat`, `lng`, `q` · response: `…`
   - collections: — · side effects: — · errors: 400 · tests: ambulance-place
 - [ ] **`maps_link_resolve`** — Google Maps link/text → {lat,lng}; short links resolved by HTTP redirect (per-uid in-memory limit, 429)
-  - src: `server/lib/ambplace.js` → `actions.maps_link_resolve` · auth: user
+  - src: `server/lib/ambplace.js` → `actions.maps_link_resolve` · auth: user · port: **P5**
   - request: `url` · response: `{lat,lng}` or `…`
   - collections: — · side effects: — · errors: 400, 429 · tests: ambulance-place
 - [ ] **`ambreq_create`** — "Call an ambulance": pick candidates (≤130 km, available, type, fare filter), wave of 5, push drivers; one active request per patient; PER_HOUR=5 (ambReqLimits)
-  - src: `server/lib/ambreq.js` → `actions.ambreq_create` · auth: user
+  - src: `server/lib/ambreq.js` → `actions.ambreq_create` · auth: user · port: **P5**
   - request: `district`, `unionId`, `type`, `phone`, `pickup`, `note`, `ambulanceId`, `dest`, `maxFare`, `includeUnknown`, `oxygen` · response: `{id,notified,request}`
   - collections: ambReqLimits, ambulanceRequests, ambulances, users · side effects: FCM push + inbox · errors: 400, 409:no_fare_match, 409:no_ambulance, 409:amb_req_active, 429 · tests: ambulance-fare, ambulance-place, ambulance-request
 - [ ] **`ambreq_count`** — Preview count of matching free ambulances for the fare/type/destination (no writes; district list cached 10 s)
-  - src: `server/lib/ambreq.js` → `actions.ambreq_count` · auth: user
+  - src: `server/lib/ambreq.js` → `actions.ambreq_count` · auth: user · port: **P5**
   - request: `district`, `type`, `dest`, `maxFare`, `includeUnknown`, `oxygen` · response: `{count,total,unknown,levels:{},raiseTo,hospitals,night,...}` or `{count,total,unknown,levels,raiseTo,hospitals,night,...}`
   - collections: ambulances · side effects: — · errors: 400 · tests: ambulance-fare, ambulance-place
 - [ ] **`ambreq_status`** — Patient waiting page: request by id or own active (ambReqLimits.activeId); advances timeouts lazily
-  - src: `server/lib/ambreq.js` → `actions.ambreq_status` · auth: user (patient of request)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_status` · auth: user (patient of request) · port: **P5**
   - request: `id` · response: `{request}`
   - collections: ambReqLimits, ambulanceRequests, ambulances, users · side effects: push to patient + caregivers, FCM push + inbox · errors: — · tests: ambulance-fare, ambulance-request
 - [ ] **`ambreq_cancel`** — Patient cancels with reason; frees ambulance, pushes driver(s)
-  - src: `server/lib/ambreq.js` → `actions.ambreq_cancel` · auth: user (patient)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_cancel` · auth: user (patient) · port: **P5**
   - request: `id`, `reason` · response: `{ok}`
   - collections: ambulanceRequests, ambulances, users · side effects: FCM push + inbox · errors: — · tests: ambulance-fare, ambulance-request
 - [ ] **`ambreq_driver`** — Driver inbox: open requests sent to me + the one I accepted (advances lazily)
-  - src: `server/lib/ambreq.js` → `actions.ambreq_driver` · auth: user
+  - src: `server/lib/ambreq.js` → `actions.ambreq_driver` · auth: user · port: **P5**
   - request: — · response: `{items}`
   - collections: ambulanceRequests, ambulances, users · side effects: push to patient + caregivers, FCM push + inbox · errors: — · tests: ambulance-fare, ambulance-place, ambulance-request
 - [ ] **`ambreq_accept`** — "Coming": quote mode stores fare offer (≤ budget, 2 min validity) else first-come accept; marks ambulance busy
-  - src: `server/lib/ambreq.js` → `actions.ambreq_accept` · auth: user (driver the request was sent to)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_accept` · auth: user (driver the request was sent to) · port: **P5**
   - request: `id`, `fare` · response: `{ok,request}`
   - collections: ambulanceRequests, ambulances, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 409:taken, 404, 409, 409:busy, 400:fare_needed, 400, 409:over_budget · tests: ambulance-fare, ambulance-request
 - [ ] **`ambreq_agree`** — Patient accepts a quote → accepted, agreedFare; releases other quotes, pushes losers
-  - src: `server/lib/ambreq.js` → `actions.ambreq_agree` · auth: user (patient)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_agree` · auth: user (patient) · port: **P5**
   - request: `id`, `ambulanceId` · response: `{ok,request}`
   - collections: ambulanceRequests, ambulances, users · side effects: FCM push + inbox, push to patient + caregivers · errors: 400, 409:quote_gone, 409:state · tests: ambulance-fare
 - [ ] **`ambreq_budget`** — Raise max fare / includeUnknown; sends to ≤5 newly matching ambulances, resets 3-min expiry
-  - src: `server/lib/ambreq.js` → `actions.ambreq_budget` · auth: user (patient)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_budget` · auth: user (patient) · port: **P5**
   - request: `id`, `maxFare`, `includeUnknown` · response: `{ok,added,request}`
   - collections: ambulanceRequests, ambulances, users · side effects: FCM push + inbox, push to patient + caregivers · errors: 409:state, 400 · tests: ambulance-fare
 - [ ] **`ambreq_decline`** — Driver declines; widens early if everyone declined
-  - src: `server/lib/ambreq.js` → `actions.ambreq_decline` · auth: user (driver)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_decline` · auth: user (driver) · port: **P5**
   - request: `id` · response: `{ok}`
   - collections: ambulanceRequests, ambulances, users · side effects: push to patient + caregivers, FCM push + inbox · errors: — · tests: ambulance-request
 - [ ] **`ambreq_step`** — Driver: arrived / done / cancel(reason); records trip on ambulanceCalls (agreedFare) for rating
-  - src: `server/lib/ambreq.js` → `actions.ambreq_step` · auth: user (accepted driver)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_step` · auth: user (accepted driver) · port: **P5**
   - request: `id`, `step`, `reason` · response: `{ok}`
   - collections: ambulanceCalls, ambulanceRequests, ambulances, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 400, 409 · tests: ambulance-fare, ambulance-request
 - [ ] **`ambreq_byphone`** — Patient found a car by phone (one they called during this request) → close as byPhone, push others
-  - src: `server/lib/ambreq.js` → `actions.ambreq_byphone` · auth: user (patient)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_byphone` · auth: user (patient) · port: **P5**
   - request: `id`, `ambulanceId` · response: `…`
   - collections: ambulanceCalls, ambulanceRequests, ambulances, users · side effects: FCM push + inbox · errors: — · tests: ambulance-fare, ambulance-request
 - [ ] **`ambreq_replace`** — Drop accepted driver (patient_found_other); with ambulanceId → byPhone close, else reopen without that driver
-  - src: `server/lib/ambreq.js` → `actions.ambreq_replace` · auth: user (patient)
+  - src: `server/lib/ambreq.js` → `actions.ambreq_replace` · auth: user (patient) · port: **P5**
   - request: `id`, `ambulanceId` · response: `…` or `{ok,request}`
   - collections: ambulanceCalls, ambulanceRequests, ambulances, users · side effects: FCM push + inbox · errors: 409 · tests: ambulance-fare, ambulance-request
 - [ ] **`ambulances`** — Approved ambulances in district: available first, nearest (gps), own upazila, rating; canRate per caller; busyCount, nearestId; kicks background "still available?" reminders
-  - src: `server/lib/ambulance.js` → `actions.ambulances` · auth: guest
+  - src: `server/lib/ambulance.js` → `actions.ambulances` · auth: guest · port: **P5**
   - request: `district`, `upazilaId`, `type`, `lat`, `lng`, `gps` · response: `{items,busyCount,busy,nearestId}`
   - collections: ambulanceCalls, ambulances, users · side effects: FCM push + inbox · errors: 400 · tests: ambulance-fare, ambulance-near, ambulance-request, demo-ambulance, demo-services, guest
 - [ ] **`ambulance_mine`** — Own ambulances (≤ MAX_PER_OWNER) with docs status
-  - src: `server/lib/ambulance.js` → `actions.ambulance_mine` · auth: user
+  - src: `server/lib/ambulance.js` → `actions.ambulance_mine` · auth: user · port: **P5**
   - request: — · response: `{items}`
   - collections: ambulances · side effects: — · errors: — · tests: ambulance-fare, ambulance-near, demo-ambulance, demo-services
 - [ ] **`ambulance_save`** — Add/edit ambulance (name, phone, vehicleNo, types, area, fare chart, base lat/lng, docs); re-verification on key changes; sanctions check; quota ambulance=10/day
-  - src: `server/lib/ambulance.js` → `actions.ambulance_save` · auth: user · quota: ambulance (10/day)
+  - src: `server/lib/ambulance.js` → `actions.ambulance_save` · auth: user · quota: ambulance (10/day) · port: **P5**
   - request: `name`, `phone`, `vehicleNo`, `types`, `district`, `upazilaId`, `termsAccepted`, `clearBase`, `lat`, `lng`, `fareChart`, `area`, `fare`, `id`, `docs` · response: `{ok,pending,...}` or `{ok,pending,id,...}`
   - collections: ambulances, sanctions, serverState · side effects: — · errors: 400, 404, 403 · tests: ambulance-fare, ambulance-near, demo-ambulance
 - [ ] **`ambulance_available`** — Toggle available (sets availableAt, remindAt = +11 h)
-  - src: `server/lib/ambulance.js` → `actions.ambulance_available` · auth: user (owner)
+  - src: `server/lib/ambulance.js` → `actions.ambulance_available` · auth: user (owner) · port: **P5**
   - request: `id`, `available` · response: `{ok}`
   - collections: ambulances · side effects: — · errors: 400, 404 · tests: ambulance-near, ambulance-request, demo-ambulance, demo-services
 - [ ] **`ambulance_delete`** — Delete own ambulance (not when suspended or with open reports); deletes verify docs
-  - src: `server/lib/ambulance.js` → `actions.ambulance_delete` · auth: user (owner)
+  - src: `server/lib/ambulance.js` → `actions.ambulance_delete` · auth: user (owner) · port: **P5**
   - request: `id` · response: `{ok}`
   - collections: ambulances, modReports, verifyDocs · side effects: — · errors: 400, 403 · tests: — (none)
 - [ ] **`ambulance_called`** — Record a call (ambulanceCalls uid_id, 10-min dedupe), bump ambulanceStats; attach to active ambreq when reqId given; same world only
-  - src: `server/lib/ambulance.js` → `actions.ambulance_called` · auth: user
+  - src: `server/lib/ambulance.js` → `actions.ambulance_called` · auth: user · port: **P5**
   - request: `id`, `reqId` · response: `{ok}`
   - collections: ambulanceCalls, ambulanceRequests, ambulances, users · side effects: FCM push + inbox · errors: — · tests: ambulance-fare, ambulance-near, ambulance-request, demo-ambulance, demo-services, guest
 - [ ] **`ambulance_rate`** — 1–5 stars within 7 days of a call; overcharged flag only for in-app fare trips; updates ratingSum/Count + recent comments
-  - src: `server/lib/ambulance.js` → `actions.ambulance_rate` · auth: user
+  - src: `server/lib/ambulance.js` → `actions.ambulance_rate` · auth: user · port: **P5**
   - request: `id`, `rating`, `overcharged`, `comment` · response: `{ok}`
   - collections: ambulanceCalls, ambulances · side effects: — · errors: 400, 404, 403 · tests: ambulance-fare, ambulance-request, demo-ambulance, demo-services
 - [ ] **`ambulance_stats`** — Owner stats per ambulance: calls per day, rating, recent comments, open report count
-  - src: `server/lib/sellerstats.js` → `actions.ambulance_stats` · auth: user
+  - src: `server/lib/sellerstats.js` → `actions.ambulance_stats` · auth: user · port: **P5**
   - request: — · response: `{items}`
   - collections: ambulanceStats, ambulances, modReports · side effects: — · errors: — · tests: demo-ambulance, demo-services
 
 ## Home care (package `homecare`) — 4 actions
 
 - [ ] **`home_providers`** — Home-visit doctors/nurses near GPS or district/upazila; service/female filter; canRate (cached list)
-  - src: `server/lib/homecare.js` → `actions.home_providers` · auth: guest
+  - src: `server/lib/homecare.js` → `actions.home_providers` · auth: guest · port: **P2**
   - request: `type`, `lat`, `lng`, `district`, `upazilaId`, `service`, `female` · response: `{items}` or `{items:[{...,photo}]}`
   - collections: badges, homeCalls, providers, users · side effects: — · errors: 400 · tests: demo-services
 - [ ] **`home_called`** — Record call to home-care provider (+homeStats)
-  - src: `server/lib/homecare.js` → `actions.home_called` · auth: user
+  - src: `server/lib/homecare.js` → `actions.home_called` · auth: user · port: **P2**
   - request: `uid` · response: `{ok}`
   - collections: homeCalls, providers · side effects: — · errors: — · tests: demo-services
 - [ ] **`home_rate`** — Rate home-care provider within 30 days of call
-  - src: `server/lib/homecare.js` → `actions.home_rate` · auth: user
+  - src: `server/lib/homecare.js` → `actions.home_rate` · auth: user · port: **P2**
   - request: `uid`, `rating`, `comment` · response: `{ok}`
   - collections: homeCalls, providers · side effects: — · errors: 400, 404, 403 · tests: demo-services
 - [ ] **`home_stats`** — Provider own home-care stats (enabled/blocked, calls, rating, comments, reports)
-  - src: `server/lib/homecare.js` → `actions.home_stats` · auth: user
+  - src: `server/lib/homecare.js` → `actions.home_stats` · auth: user · port: **P2**
   - request: — · response: `{enabled,blocked,...,rating,ratingCount,comments:[...],reports}`
   - collections: homeStats, modReports, providers · side effects: — · errors: — · tests: demo-services
 
 ## Caregivers & family (package `care`) — 6 actions
 
 - [ ] **`care_list`** — My caregivers, people I care for, family members
-  - src: `server/lib/careaccess.js` → `actions.care_list` · auth: user
+  - src: `server/lib/careaccess.js` → `actions.care_list` · auth: user · port: **P2**
   - request: — · response: `{caretakers:[...],caringFor:[...],family}`
   - collections: careLinks, users · side effects: — · errors: — · tests: demo-health, rxflow
 - [ ] **`care_invite`** — Invite caregiver by Lifolo email (≤ MAX_CARETAKERS); quota care=10/day; pushes invitee
-  - src: `server/lib/careaccess.js` → `actions.care_invite` · auth: user · quota: care (10/day)
+  - src: `server/lib/careaccess.js` → `actions.care_invite` · auth: user · quota: care (10/day) · port: **P2**
   - request: `email` · response: `{ok}`
   - collections: careLinks, inbox, serverState, users · side effects: FCM push + inbox · errors: 400, 409, 404 · tests: demo-health, labtests, rxflow
 - [ ] **`care_respond`** — Caregiver accepts/declines invitation; pushes patient
-  - src: `server/lib/careaccess.js` → `actions.care_respond` · auth: user
+  - src: `server/lib/careaccess.js` → `actions.care_respond` · auth: user · port: **P2**
   - request: `patientUid`, `accept` · response: `{ok}`
   - collections: careLinks, inbox, users · side effects: FCM push + inbox · errors: 404 · tests: demo-health, rxflow
 - [ ] **`care_remove`** — Patient removes caregiver or caregiver leaves
-  - src: `server/lib/careaccess.js` → `actions.care_remove` · auth: user
+  - src: `server/lib/careaccess.js` → `actions.care_remove` · auth: user · port: **P2**
   - request: `patientUid`, `caretakerUid` · response: `{ok}`
   - collections: careLinks · side effects: — · errors: 404 · tests: demo-health, labtests, rxflow
 - [ ] **`family_get`** — Family members (no own account) stored on profile
-  - src: `server/lib/careaccess.js` → `actions.family_get` · auth: user caregiver
+  - src: `server/lib/careaccess.js` → `actions.family_get` · auth: user caregiver · port: **P2**
   - request: — · response: `{family}`
   - collections: users · side effects: — · errors: — · tests: demo-health
 - [ ] **`family_set`** — Replace family list (≤ MAX_FAMILY, validated members)
-  - src: `server/lib/careaccess.js` → `actions.family_set` · auth: user
+  - src: `server/lib/careaccess.js` → `actions.family_set` · auth: user · port: **P2**
   - request: `family` · response: `{family}`
   - collections: users · side effects: — · errors: 400 · tests: demo-health, labtests, rxflow
 
 ## Notifications: inbox & devices (package `notify`) — 4 actions
 
 - [ ] **`device_register`** — Attach FCM token to this account (≤5, removed from other accounts)
-  - src: `server/lib/devices.js` → `actions.device_register` · auth: user
+  - src: `server/lib/devices.js` → `actions.device_register` · auth: user · port: **P6**
   - request: `token` · response: `{ok}`
   - collections: users · side effects: — · errors: 400 · tests: — (none)
 - [ ] **`device_unregister`** — Remove this FCM token from account
-  - src: `server/lib/devices.js` → `actions.device_unregister` · auth: user
+  - src: `server/lib/devices.js` → `actions.device_unregister` · auth: user · port: **P6**
   - request: `token` · response: `{ok}`
   - collections: users · side effects: — · errors: — · tests: — (none)
 - [ ] **`inbox`** — Latest 50 inbox items (read flag from inboxSeenAt)
-  - src: `server/lib/inbox.js` → `actions.inbox` · auth: user
+  - src: `server/lib/inbox.js` → `actions.inbox` · auth: user · port: **P6**
   - request: — · response: `{items:[{id,title,body,data,read,createdAt}]}`
   - collections: inbox, serverState · side effects: — · errors: — · tests: demo-health, demo-services
 - [ ] **`inbox_read`** — Mark all read (inboxSeenAt = now)
-  - src: `server/lib/inbox.js` → `actions.inbox_read` · auth: user
+  - src: `server/lib/inbox.js` → `actions.inbox_read` · auth: user · port: **P6**
   - request: — · response: `{ok}`
   - collections: serverState · side effects: — · errors: — · tests: demo-health
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 
 - [ ] **`badge_apply`** — Apply for professional badge (doctor/nurse/nutritionist/trainer/expert) with regNo, workplace, doc photos; on approved badge → pendingChange correction; quota badge=3/day
-  - src: `server/api/community.js` → `actions.badge_apply` · auth: user · quota: badge (3/day)
+  - src: `server/api/community.js` → `actions.badge_apply` · auth: user · quota: badge (3/day) · port: **P2**
   - request: `type`, `regNo`, `workplace`, `docs` · response: `{ok,correction}` or `{ok}`
   - collections: badges, serverState, users · side effects: — · errors: 400, 409 · tests: demo-health
 - [ ] **`admin_badges`** — Badge applications by status (+ pending corrections and verify panel info when panel:true)
-  - src: `server/api/community.js` → `actions.admin_badges` · auth: user admin web-panel
+  - src: `server/api/community.js` → `actions.admin_badges` · auth: user admin web-panel · port: **P2**
   - request: `status`, `panel` · response: `{items}`
   - collections: badges · side effects: — · errors: 403 · tests: demo-health, demo-rx, demo-services
 - [ ] **`admin_badge_resolve`** — Approve/reject badge or correction (verify checks required); delists provider + cancels future appointments on reject; restores listing on re-approve; pushes user
-  - src: `server/api/community.js` → `actions.admin_badge_resolve` · auth: user admin web-panel
+  - src: `server/api/community.js` → `actions.admin_badge_resolve` · auth: user admin web-panel · port: **P2**
   - request: `uid`, `correction`, `approve`, `checks`, `reason` · response: `{ok,unchanged}` or `{ok}`
   - collections: appointments, badges, inbox, providers, users · side effects: FCM push + inbox, admin_log row · errors: 403, 400, 404 · tests: demo-health, demo-rx, demo-services
 - [ ] **`admin_list`** — List owners (env) and extra admins (config/admins)
-  - src: `server/api/community.js` → `actions.admin_list` · auth: owner (ADMIN_EMAILS, verified email) web-panel
+  - src: `server/api/community.js` → `actions.admin_list` · auth: owner (ADMIN_EMAILS, verified email) web-panel · port: **P6**
   - request: — · response: `{owners,items:[{email}]}`
   - collections: config · side effects: — · errors: 403 · tests: — (none)
 - [ ] **`admin_add`** — Add admin email (≤20); clears admin cache
-  - src: `server/api/community.js` → `actions.admin_add` · auth: owner web-panel
+  - src: `server/api/community.js` → `actions.admin_add` · auth: owner web-panel · port: **P6**
   - request: `email` · response: `{ok}`
   - collections: config · side effects: admin_log row · errors: 403, 400 · tests: — (none)
 - [ ] **`admin_remove`** — Remove admin email; clears admin cache
-  - src: `server/api/community.js` → `actions.admin_remove` · auth: owner web-panel
+  - src: `server/api/community.js` → `actions.admin_remove` · auth: owner web-panel · port: **P6**
   - request: `email` · response: `{ok}`
   - collections: config · side effects: admin_log row · errors: 403, 400 · tests: — (none)
 - [ ] **`admin_overview`** — Web panel landing: badges, pharmacies, ambulances, blood banks, labs, hospital requests, reports, corrections, open tickets, admins (each part fails independently)
-  - src: `server/api/community.js` → `actions.admin_overview` · auth: user admin web-panel
+  - src: `server/api/community.js` → `actions.admin_overview` · auth: user admin web-panel · port: **P6**
   - request: `status`, `panel` · response: `{me:{email,isOwner},badges,pharmacies,ambulances,bloodBanks,labs,hospitalRequests,reports,corrections,tickets,admins,at}`
   - collections: badges, correctionRequests · side effects: — · errors: 403 · tests: demo-health, demo-services, guest
 - [ ] **`admin_stats`** — Analytics (users, requests, listings…), cached 30 min in serverState/_adminStats; fresh:true recomputes (count() queries)
-  - src: `server/lib/adminweb.js` → `actions.admin_stats` · auth: user admin web-panel
+  - src: `server/lib/adminweb.js` → `actions.admin_stats` · auth: user admin web-panel · port: **P6**
   - request: `fresh` · response: `…`
   - collections: ambulances, badges, bloodBanks, pharmacies, providers, questions, requests, serverState, tickets, tips, users · side effects: — · errors: — · tests: — (none)
 - [ ] **`admin_user_find`** — Find users by email/phone/uid (Auth lookup + users/pharmacies/ambulances phone variants)
-  - src: `server/lib/adminweb.js` → `actions.admin_user_find` · auth: user admin web-panel
+  - src: `server/lib/adminweb.js` → `actions.admin_user_find` · auth: user admin web-panel · port: **P6**
   - request: `q` · response: `{items}`
   - collections: ambulances, pharmacies, users · side effects: — · errors: 400 · tests: — (none)
 - [ ] **`admin_user`** — Full user view: profile, auth, badge, listings, sanctions, counts
-  - src: `server/lib/adminweb.js` → `actions.admin_user` · auth: user admin web-panel
+  - src: `server/lib/adminweb.js` → `actions.admin_user` · auth: user admin web-panel · port: **P6**
   - request: `uid` · response: `{user}`
   - collections: ambulances, appointments, badges, bloodBanks, homeStats, modReports, pharmacies, providers, requests, serverState, tickets, users · side effects: — · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_user_action`** — Disable/enable account (Auth + revoke + disabledReason), lift/impose sanctions, home-care block; pushes user
-  - src: `server/lib/adminweb.js` → `actions.admin_user_action` · auth: admin (owner for actions on admins/owner) web-panel
+  - src: `server/lib/adminweb.js` → `actions.admin_user_action` · auth: admin (owner for actions on admins/owner) web-panel · port: **P6**
   - request: `uid`, `op`, `reason` · response: `{ok}`
   - collections: appointments, inbox, providers, sanctions, serverState, users · side effects: FCM push + inbox, Firebase Auth update, revoke refresh tokens, admin_log row · errors: 400, 403, 404 · tests: — (none)
 - [ ] **`admin_log`** — Admin action history, 100/page, cursor `before` (at ms)
-  - src: `server/lib/adminweb.js` → `actions.admin_log` · auth: user admin web-panel
+  - src: `server/lib/adminweb.js` → `actions.admin_log` · auth: user admin web-panel · port: **P6**
   - request: `before` · response: `{items:[{id,...}]}`
   - collections: adminLog · side effects: — · errors: — · tests: — (none)
 - [ ] **`admin_ambulances`** — Ambulances by status (pending default) with overchargeCount, docs
-  - src: `server/lib/ambulance.js` → `actions.admin_ambulances` · auth: user admin web-panel
+  - src: `server/lib/ambulance.js` → `actions.admin_ambulances` · auth: user admin web-panel · port: **P5**
   - request: `status` · response: `{items}`
   - collections: ambulances · side effects: — · errors: — · tests: ambulance-fare, demo-ambulance, demo-services
 - [ ] **`admin_ambulance_resolve`** — listingreview.resolveListing: approve/reject/suspend/reinstate with checks + reason; sanctions ban/unban; push owner
-  - src: `server/lib/ambulance.js` → `actions.admin_ambulance_resolve` · auth: user admin web-panel
+  - src: `server/lib/ambulance.js` → `actions.admin_ambulance_resolve` · auth: user admin web-panel · port: **P5**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: — · tests: demo-ambulance, demo-services
 - [ ] **`admin_bloodbanks`** — Blood banks by status
-  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbanks` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbanks` · auth: user admin web-panel · port: **P1**
   - request: `status` · response: `{items}`
   - collections: bloodBanks · side effects: — · errors: — · tests: demo-blood
 - [ ] **`admin_bloodbank_resolve`** — resolveListing for blood banks
-  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_resolve` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_resolve` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: — · tests: demo-blood
 - [ ] **`admin_districts`** — District names (bn) sorted, for panel forms
-  - src: `server/lib/bloodbank.js` → `actions.admin_districts` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_districts` · auth: user admin web-panel · port: **P1**
   - request: — · response: `{items}`
   - collections: — · side effects: — · errors: — · tests: — (none)
 - [ ] **`admin_bloodbank_add`** — Admin adds an ownerless approved blood bank
-  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_add` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_add` · auth: user admin web-panel · port: **P1**
   - request: `name`, `kind`, `phone`, `district`, `upazilaId`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok,id}`
   - collections: bloodBanks · side effects: admin_log row · errors: — · tests: — (none)
 - [ ] **`admin_bloodbank_edit`** — Admin edits any blood bank; pushes owner if any
-  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_edit` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_edit` · auth: user admin web-panel · port: **P1**
   - request: `id`, `upazilaId`, `name`, `kind`, `phone`, `district`, `address`, `licenseNo`, `open24`, `openAt`, `closeAt`, `services`, `closedDays` · response: `{ok}`
   - collections: bloodBanks, inbox, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_bloodbank_delete`** — Admin deletes blood bank (+stats, docs, reports); pushes owner with reason
-  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_delete` · auth: user admin web-panel
+  - src: `server/lib/bloodbank.js` → `actions.admin_bloodbank_delete` · auth: user admin web-panel · port: **P1**
   - request: `id`, `reason` · response: `{ok}`
   - collections: bloodBankStats, bloodBanks, inbox, modReports, users, verifyDocs · side effects: FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
 - [ ] **`admin_catalog_set`** — Save one pick-list (order, names, hidden, new codes ≤80)
-  - src: `server/lib/catalog.js` → `actions.admin_catalog_set` · auth: user admin web-panel
+  - src: `server/lib/catalog.js` → `actions.admin_catalog_set` · auth: user admin web-panel · port: **P6**
   - request: `kind`, `type`, `items` · response: `{items}`
   - collections: config · side effects: admin_log row · errors: — · tests: — (none)
 - [ ] **`admin_hospitals`** — Hospitals of district for emergency form
-  - src: `server/lib/emergency.js` → `actions.admin_hospitals` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_hospitals` · auth: user admin web-panel · port: **P2**
   - request: `district` · response: `{items:[{id,name,nameEn}]}`
   - collections: hospitals · side effects: — · errors: 400 · tests: — (none)
 - [ ] **`admin_emergency_create`** — Create emergency call (groups/need, radius, hours, hospital, contact) and send first wave of pushes
-  - src: `server/lib/emergency.js` → `actions.admin_emergency_create` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_emergency_create` · auth: user admin web-panel · port: **P1**
   - request: `confirmed`, `district`, `hospitalName`, `hospitalId`, `groups`, `radiusKm`, `hours`, `contactPhone`, `lat`, `lng`, `note` · response: `{ok,id,...}`
   - collections: emergencies, hospitals, inbox, users, …/donors · side effects: emergency push wave, FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
 - [ ] **`admin_emergency_more`** — Send next wave to not-yet-notified eligible donors
-  - src: `server/lib/emergency.js` → `actions.admin_emergency_more` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_emergency_more` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `{ok,...}`
   - collections: emergencies, inbox, users, …/donors · side effects: emergency push wave, FCM push + inbox, admin_log row · errors: 400 · tests: — (none)
 - [ ] **`admin_emergency_group`** — Close/reopen one blood group
-  - src: `server/lib/emergency.js` → `actions.admin_emergency_group` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_emergency_group` · auth: user admin web-panel · port: **P1**
   - request: `id`, `group`, `closed` · response: `{ok}`
   - collections: emergencies · side effects: admin_log row · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_emergency_close`** — End emergency; push coming donors
-  - src: `server/lib/emergency.js` → `actions.admin_emergency_close` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_emergency_close` · auth: user admin web-panel · port: **P1**
   - request: `id` · response: `{ok,unchanged}` or `{ok}`
   - collections: emergencies, emergencies/donors, inbox, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_emergencies`** — Recent 30 emergencies with counts
-  - src: `server/lib/emergency.js` → `actions.admin_emergencies` · auth: user admin web-panel
+  - src: `server/lib/emergency.js` → `actions.admin_emergencies` · auth: user admin web-panel · port: **P1**
   - request: — · response: `{items:[...]}`
   - collections: emergencies · side effects: — · errors: — · tests: demo-blood
 - [ ] **`admin_hospital_requests`** — Pending hospital requests with possible duplicates
-  - src: `server/lib/hospitals.js` → `actions.admin_hospital_requests` · auth: user admin web-panel
+  - src: `server/lib/hospitals.js` → `actions.admin_hospital_requests` · auth: user admin web-panel · port: **P2**
   - request: — · response: `{items}`
   - collections: hospitalRequests, hospitals · side effects: — · errors: — · tests: demo-blood
 - [ ] **`admin_hospital_resolve`** — approve / reject / merge into existing; pushes requesters
-  - src: `server/lib/hospitals.js` → `actions.admin_hospital_resolve` · auth: user admin web-panel
+  - src: `server/lib/hospitals.js` → `actions.admin_hospital_resolve` · auth: user admin web-panel · port: **P2**
   - request: `id`, `op`, `targetId` · response: `{ok,hospitalId}` or `{ok}`
   - collections: hospitalRequests, hospitals, inbox, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: demo-blood
 - [ ] **`admin_labtests_set`** — Add/edit one lab test template (hide, never delete)
-  - src: `server/lib/labtests.js` → `actions.admin_labtests_set` · auth: user admin web-panel
+  - src: `server/lib/labtests.js` → `actions.admin_labtests_set` · auth: user admin web-panel · port: **P3**
   - request: `test` · response: `{test,tests}`
   - collections: config · side effects: admin_log row · errors: 403, 400, 409 · tests: rxflow
 - [ ] **`report`** — Report content/listing (question, answer, tip, provider, homecare, ambulance, pharmacy, bloodbank …) once per target; quota report=20/day; may auto-suspend (tellSuspendedByReport)
-  - src: `server/lib/moderation.js` → `report` · auth: user · quota: report (20/day)
+  - src: `server/lib/moderation.js` → `report` · auth: user · quota: report (20/day) · port: **P6**
   - request: `kind`, `id`, `answerId`, `reason` · response: `{ok}`
   - collections: medFinds, modReports, serverState · side effects: — · errors: 400, 404, 403 · tests: demo-ambulance, demo-blood, demo-health, demo-services, guest
 - [ ] **`admin_reports`** — Open reports grouped by target (provider reports only with panel:true)
-  - src: `server/lib/moderation.js` → `admin_reports` · auth: user admin web-panel
+  - src: `server/lib/moderation.js` → `admin_reports` · auth: user admin web-panel · port: **P6**
   - request: `panel` · response: `{items}`
   - collections: modReports · side effects: — · errors: 403 · tests: demo-blood, demo-health, demo-services
 - [ ] **`admin_report_resolve`** — Dismiss or remove target (delete post / suspend listing / block home care) + sanctions; pushes owner
-  - src: `server/lib/moderation.js` → `admin_report_resolve` · auth: user admin web-panel
+  - src: `server/lib/moderation.js` → `admin_report_resolve` · auth: user admin web-panel · port: **P6**
   - request: `targetPath`, `reportedUid`, `kind`, `remove`, `reason` · response: `{ok}`
   - collections: appointments, inbox, modReports, providers, sanctions, users · side effects: recursive delete, FCM push + inbox, admin_log row · errors: 403, 400 · tests: demo-health, demo-services
 - [ ] **`admin_pharmacies`** — Pharmacies by status
-  - src: `server/lib/pharmacy.js` → `actions.admin_pharmacies` · auth: user admin web-panel
+  - src: `server/lib/pharmacy.js` → `actions.admin_pharmacies` · auth: user admin web-panel · port: **P4**
   - request: `status` · response: `{items}`
   - collections: pharmacies · side effects: — · errors: — · tests: demo-pharmacy, demo-services
 - [ ] **`admin_pharmacy_resolve`** — resolveListing for pharmacies
-  - src: `server/lib/pharmacy.js` → `actions.admin_pharmacy_resolve` · auth: user admin web-panel
+  - src: `server/lib/pharmacy.js` → `actions.admin_pharmacy_resolve` · auth: user admin web-panel · port: **P4**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: — · tests: demo-pharmacy, demo-services
 - [ ] **`admin_labs`** — Labs by status
-  - src: `server/lib/rxnet.js` → `actions.admin_labs` · auth: user admin web-panel
+  - src: `server/lib/rxnet.js` → `actions.admin_labs` · auth: user admin web-panel · port: **P3**
   - request: `status` · response: `{items}`
   - collections: labs · side effects: — · errors: 403 · tests: demo-lab, demo-services
 - [ ] **`admin_lab_resolve`** — resolveListing for labs
-  - src: `server/lib/rxnet.js` → `actions.admin_lab_resolve` · auth: user admin web-panel
+  - src: `server/lib/rxnet.js` → `actions.admin_lab_resolve` · auth: user admin web-panel · port: **P3**
   - request: `id` · response: `…`
   - collections: inbox, sanctions, users · side effects: FCM push + inbox, admin_log row · errors: 403 · tests: demo-lab, demo-services
 - [ ] **`ticket_create`** — Open support/appeal ticket (category, text); quota ticket=5/day
-  - src: `server/lib/support.js` → `actions.ticket_create` · auth: user · quota: ticket (5/day)
+  - src: `server/lib/support.js` → `actions.ticket_create` · auth: user · quota: ticket (5/day) · port: **P6**
   - request: `category`, `text` · response: `{ok,id}`
   - collections: serverState, tickets, users · side effects: — · errors: 400, 429 · tests: demo-health
 - [ ] **`tickets_mine`** — My last 20 tickets
-  - src: `server/lib/support.js` → `actions.tickets_mine` · auth: user
+  - src: `server/lib/support.js` → `actions.tickets_mine` · auth: user · port: **P6**
   - request: — · response: `{items}`
   - collections: tickets · side effects: — · errors: — · tests: demo-health
 - [ ] **`ticket_reply`** — Add message (reopens closed ticket)
-  - src: `server/lib/support.js` → `actions.ticket_reply` · auth: user (ticket owner)
+  - src: `server/lib/support.js` → `actions.ticket_reply` · auth: user (ticket owner) · port: **P6**
   - request: `id`, `text` · response: `{ok}`
   - collections: tickets · side effects: — · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_tickets`** — Tickets by status (open default)
-  - src: `server/lib/support.js` → `actions.admin_tickets` · auth: user admin web-panel
+  - src: `server/lib/support.js` → `actions.admin_tickets` · auth: user admin web-panel · port: **P6**
   - request: `status` · response: `{items}`
   - collections: tickets · side effects: — · errors: — · tests: demo-health
 - [ ] **`admin_ticket`** — One ticket with user info
-  - src: `server/lib/support.js` → `actions.admin_ticket` · auth: user admin web-panel
+  - src: `server/lib/support.js` → `actions.admin_ticket` · auth: user admin web-panel · port: **P6**
   - request: `id` · response: `{item:{...,uid,email,name,lastFrom}}`
   - collections: tickets · side effects: — · errors: 400, 404 · tests: — (none)
 - [ ] **`admin_ticket_reply`** — Reply and/or close; pushes user
-  - src: `server/lib/support.js` → `actions.admin_ticket_reply` · auth: user admin web-panel
+  - src: `server/lib/support.js` → `actions.admin_ticket_reply` · auth: user admin web-panel · port: **P6**
   - request: `id`, `close`, `text` · response: `{ok}`
   - collections: inbox, tickets, users · side effects: FCM push + inbox, admin_log row · errors: 400, 404 · tests: demo-health
 - [ ] **`admin_user_section`** — Read-only section of a user’s activity (blood, appointments, rx, orders, …)
-  - src: `server/lib/useractivity.js` → `actions.admin_user_section` · auth: user admin web-panel
+  - src: `server/lib/useractivity.js` → `actions.admin_user_section` · auth: user admin web-panel · port: **P6**
   - request: `uid`, `section` · response: `{section,...}`
   - collections: — · side effects: admin_log row · errors: 403, 400 · tests: demo-health
 - [ ] **`verify_docs_upload`** — Owner uploads requested document photos (base64) for badge/pharmacy/ambulance/bloodbank/lab; quota docs=10/day
-  - src: `server/lib/verify.js` → `actions.verify_docs_upload` · auth: user (listing owner) · quota: docs (10/day)
+  - src: `server/lib/verify.js` → `actions.verify_docs_upload` · auth: user (listing owner) · quota: docs (10/day) · port: **P6**
   - request: `kind`, `id`, `docs` · response: `{ok,saved,...}`
   - collections: serverState · side effects: — · errors: 404 · tests: — (none)
 - [ ] **`admin_verify_docs`** — Document photos for verification panel
-  - src: `server/lib/verify.js` → `actions.admin_verify_docs` · auth: user admin web-panel
+  - src: `server/lib/verify.js` → `actions.admin_verify_docs` · auth: user admin web-panel · port: **P6**
   - request: `kind`, `id` · response: `{...,photos:[{type,label,data,at}]}`
   - collections: — · side effects: admin_log row · errors: 403 · tests: demo-blood, demo-health, demo-services
 - [ ] **`admin_request_docs`** — Ask owner for document photos (note); pushes owner
-  - src: `server/lib/verify.js` → `actions.admin_request_docs` · auth: user admin web-panel
+  - src: `server/lib/verify.js` → `actions.admin_request_docs` · auth: user admin web-panel · port: **P6**
   - request: `kind`, `id`, `note` · response: `{ok}`
   - collections: inbox, users · side effects: FCM push + inbox, admin_log row · errors: 403, 400 · tests: — (none)
 
 ## Demo world (package `demo`) — 3 actions
 
 - [ ] **`admin_demo_seed`** — Seed demo world step by step (step 0 wipes + creates Auth accounts; steps 1..5 parts); returns {next,label,steps}
-  - src: `server/lib/demo/index.js` → `actions.admin_demo_seed` · auth: owner web-panel
+  - src: `server/lib/demo/index.js` → `actions.admin_demo_seed` · auth: owner web-panel · port: **P6**
   - request: `step` · response: `…` or `{...,steps}`
   - collections: labOrders, prescriptions, rxOrders, rxPatients, rxReviews, serverState · side effects: Firebase Auth create, Firebase Auth update, Firebase Auth delete, admin_log row · errors: 403, 400 · tests: ambulance-near, demo-ambulance, demo-blood, demo-health, demo-lab, demo-night, demo-pharmacy, demo-rx, demo-services, demo, doctor-filters, e2efixes, queue, shopbooks, worksegs
 - [ ] **`admin_demo_wipe`** — Wipe all demo accounts (real account-deletion path) and manifest docs; {more} when time budget exceeded
-  - src: `server/lib/demo/index.js` → `actions.admin_demo_wipe` · auth: owner web-panel
+  - src: `server/lib/demo/index.js` → `actions.admin_demo_wipe` · auth: owner web-panel · port: **P6**
   - request: — · response: `…`
   - collections: labOrders, prescriptions, rxOrders, rxPatients, rxReviews, serverState · side effects: Firebase Auth delete, admin_log row · errors: 403 · tests: ambulance-near, demo-ambulance, demo-blood, demo-health, demo-lab, demo-pharmacy, demo-rx, demo-services, demo, queue, shopbooks
 - [ ] **`admin_demo_status`** — Demo manifest status and role emails
-  - src: `server/lib/demo/index.js` → `actions.admin_demo_status` · auth: owner web-panel
+  - src: `server/lib/demo/index.js` → `actions.admin_demo_status` · auth: owner web-panel · port: **P6**
   - request: — · response: `{active,roles}` or `{active,partial,at,docs,roles}`
   - collections: serverState · side effects: — · errors: 403 · tests: demo
 
