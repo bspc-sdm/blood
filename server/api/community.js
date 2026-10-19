@@ -505,6 +505,8 @@ const actions = {
 };
 
 Object.assign(actions, appointments, moderation, account, donors, hospitals.actions, phone.actions, inbox.actions, ambulance.actions, pharmacy.actions, support.actions, adminweb.actions, myrequests.actions, sellerstats.actions, medfind.actions, homecare.actions, bloodbank.actions, emergency.actions, donationdate.actions, require('../lib/requestcreate').actions, require('../lib/devices').actions, require('../lib/verify').actions, require('../lib/useractivity').actions, require('../lib/prescriptions').actions, require('../lib/catalog').actions, require('../lib/rxnet').actions, require('../lib/labprices').actions, require('../lib/labtests').actions, require('../lib/careaccess').actions, require('../lib/queue').actions, guest.actions);
+// অ্যাম্বুলেন্স এক চাপে ডাকুন (২.২৮.০)
+Object.assign(actions, require('../lib/ambreq').actions);
 // অ্যাপ/ওয়েবের আগের সরাসরি Firestore পড়া-লেখা (প্রোফাইল, রক্তের রিকোয়েস্ট, সাড়া, রক্তপ্রার্থীর ফোন, রিপোর্ট)
 Object.assign(actions, require('../lib/clientdata').actions);
 // ফার্মেসির হিসাব-খাতা (পণ্য, কেনা, বিক্রি, লাভ-ক্ষতি)

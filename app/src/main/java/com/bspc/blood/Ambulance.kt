@@ -190,8 +190,9 @@ object Ambulances {
         call("ambulance_delete", JSONObject().put("id", id))
     }
 
-    suspend fun called(id: String) {
-        call("ambulance_called", JSONObject().put("id", id))
+    /** reqId: চালু "অ্যাম্বুলেন্স ডাকুন" অনুরোধের সময় ফোন — অনুরোধেও ওঠে (চালক "রোগী আপনাকে ফোন করেছেন" দেখেন) */
+    suspend fun called(id: String, reqId: String? = null) {
+        call("ambulance_called", JSONObject().put("id", id).apply { if (reqId != null) put("reqId", reqId) })
     }
 
     suspend fun rate(id: String, rating: Int, comment: String) {
@@ -300,6 +301,10 @@ private fun AmbulanceFinder(profile: Profile) {
     var busyOpen by remember { mutableStateOf(false) }
     val busyCount = busyList.size
     var nearestId by remember { mutableStateOf<String?>(null) }
+    // অ্যাম্বুলেন্স ডাকুন: নিশ্চিত করার ঘর (target = শিট থেকে একটা গাড়ি), নিজের চালু অনুরোধ
+    var requesting by remember { mutableStateOf(false) }
+    var requestTarget by remember { mutableStateOf<Ambulance?>(null) }
+    var activeReq by remember { mutableStateOf<AmbReq?>(null) }
 
     // দূরত্ব কোথা থেকে: লোকেশনের অনুমতি আগেই দেওয়া থাকলে এখনকার জায়গা (অনুমতি চেয়ে আটকানো হয় না — প্রতিটা সেকেন্ড দামি);
     // সর্বোচ্চ ২.৫ সেকেন্ড অপেক্ষা, তারপর একবার ঠিক হলে আর বদলায় না (বাটনের গাড়ি হঠাৎ বদলে যেন ভুল জায়গায় চাপ না পড়ে)
@@ -340,10 +345,47 @@ private fun AmbulanceFinder(profile: Profile) {
         loading = false
     }
 
+    // চালু অনুরোধ (অ্যাপ বন্ধ করে খুললেও): উপরে ব্যানার; ফোন করলে অনুরোধে ওঠে, ফিরে এলে অপেক্ষার পাতায় "ফোনে পেয়েছেন?"
+    @Suppress("DEPRECATION")
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    var resumeTick by remember { mutableIntStateOf(0) }
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) resumeTick++ }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(resumeTick, LoginGate.uid.value) {
+        if (LoginGate.isGuest) {
+            activeReq = null
+            return@LaunchedEffect
+        }
+        val r = runCatching { AmbRequests.status(null) }.getOrNull()
+        activeReq = r?.takeIf { it.active }
+        AmbReqNav.active.value = activeReq?.id
+        // অনুরোধ চলার সময় এখান থেকে ফোন করে ফিরলেন: অপেক্ষার পাতায় (সেখানে একবার জিজ্ঞেস)
+        val ask = AmbReqNav.askAfterCall.value
+        if (ask != null && ask == activeReq?.id) AmbReqNav.open.value = ask
+    }
+
     fun callAmbulance(a: Ambulance) {
         called = called + a.id
-        scope.launch { runCatching { Ambulances.called(a.id) } }
+        val reqId = activeReq?.id
+        if (reqId != null) AmbReqNav.askAfterCall.value = reqId
+        scope.launch { runCatching { Ambulances.called(a.id, reqId) } }
         callPhone(context, a.phone)
+    }
+
+    /** "অ্যাম্বুলেন্স ডাকুন": লগইন লাগে (ফোন অতিথিও পারেন); চালু অনুরোধ থাকলে সেটার পাতা */
+    fun requestAmbulance(target: Ambulance?) {
+        val running = activeReq
+        if (running != null) {
+            AmbReqNav.open.value = running.id
+            return
+        }
+        LoginGate.require(tr("Log in to call an ambulance", "অ্যাম্বুলেন্স ডাকতে লগইন করুন")) {
+            requestTarget = target
+            requesting = true
+        }
     }
 
     run {
@@ -361,9 +403,14 @@ private fun AmbulanceFinder(profile: Profile) {
                     active = listOfNotNull(type?.let { t -> ActiveFilter(AmbulanceTypes.label(t)) { type = null } }),
                 )
             }
-            // সবচেয়ে কাছের খালি গাড়ি: এক চাপে ফোন (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়)
-            if (!loading) list.firstOrNull { it.id == nearestId }?.let { a ->
-                item(key = "nearest") { NearestCallButton(a, byArea) { callAmbulance(a) } }
+            activeReq?.let { r -> item(key = "active_req") { ActiveRequestBanner(r) { AmbReqNav.open.value = r.id } } }
+            // "অ্যাম্বুলেন্স ডাকুন" (কাছের খালি গাড়িগুলোতে একসাথে) + পাশে "ফোন" — সবচেয়ে কাছের খালি গাড়িতে এক চাপে
+            // (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়)
+            if (!loading && district != null && list.any { it.available }) {
+                val near = list.firstOrNull { it.id == nearestId }
+                item(key = "nearest") {
+                    AmbulanceCallBar(near, near?.let { nearestSub(it, byArea) }, onRequest = { requestAmbulance(null) }, onCallNearest = near?.let { a -> { callAmbulance(a) } })
+                }
             }
             item { EmergencyCallCard() }
             item {
@@ -387,6 +434,7 @@ private fun AmbulanceFinder(profile: Profile) {
                         onCall = { callAmbulance(a) },
                         onRate = if (a.canRate) ({ rating = a }) else null,
                         onReport = { reporting = a },
+                        onRequest = { requestAmbulance(a) },
                     )
                 }
             }
@@ -418,6 +466,20 @@ private fun AmbulanceFinder(profile: Profile) {
         }
     }
 
+    if (requesting) {
+        district?.let { d ->
+            AmbulanceRequestDialog(
+                profile = profile, district = d, upazilaId = upazilaId, type = type, gps = origin(d), target = requestTarget,
+                onDismiss = { requesting = false },
+                onSent = { r ->
+                    requesting = false
+                    activeReq = r.takeIf { it.active }
+                    AmbReqNav.active.value = activeReq?.id
+                    AmbReqNav.open.value = r.id
+                },
+            )
+        }
+    }
     if (showArea) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
     }
@@ -449,31 +511,14 @@ private fun AmbulanceFinder(profile: Profile) {
     }
 }
 
-/** তালিকার উপরে বড় বাটন: সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে এক চাপে ফোন — নিচের লাইনে নাম, দূরত্ব, ধরন */
-@Composable
-private fun NearestCallButton(a: Ambulance, byArea: Boolean, onCall: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    // এলাকা ধরে হলে দূরত্ব নয় (জানা নেই), শুধু "এলাকা ধরে"
+/** "ফোন" বাটনের নিচের লাইন: সবচেয়ে কাছের খালি গাড়ির নাম, দূরত্ব (এলাকা ধরে হলে "এলাকা ধরে"), ধরন */
+private fun nearestSub(a: Ambulance, byArea: Boolean): String {
     val where = if (byArea) tr("By area", "এলাকা ধরে") else ambulanceKm(a)
-    val sub = listOfNotNull(a.name, where, a.types.joinToString(", ") { AmbulanceTypes.label(it) }.ifBlank { null }).joinToString(" · ")
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(cs.primary).clickable(onClick = onCall)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(cs.onPrimary), contentAlignment = Alignment.Center) {
-            AppIcon(R.drawable.ic_call, null, Modifier.size(24.dp), cs.primary)
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(tr("Call the nearest free ambulance", "সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = cs.onPrimary)
-            Text(sub, style = MaterialTheme.typography.bodySmall, color = cs.onPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-    }
+    return listOfNotNull(a.name, where, a.types.joinToString(", ") { AmbulanceTypes.label(it) }.ifBlank { null }).joinToString(" · ")
 }
 
 @Composable
-private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit) {
+private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit, onRequest: (() -> Unit)? = null) {
     DirectoryCard(
         title = a.name,
         icon = R.drawable.ic_ambulance,
@@ -498,6 +543,9 @@ private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)
         primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
         secondary = onRate?.let { CardAction(tr("Rate", "রেটিং দিন"), null, it) },
         onReport = onReport,
+        // শিটের নিচের বার: "অ্যাম্বুলেন্স ডাকুন" (ভরাট) — এই গাড়ি আগে, সাথে কাছের অন্যরা; পাশে "ফোন" (আউটলাইন)।
+        // ট্রিপে থাকা গাড়িতে নয় (শুধু ফোন)
+        main = if (onRequest != null && a.busySince == 0L) CardAction(tr("Call ambulance", "অ্যাম্বুলেন্স ডাকুন"), R.drawable.ic_ambulance, onRequest) else null,
         sections = listOf(
             DetailSection(tr("Vehicle", "গাড়ি"), a.types.map { R.drawable.ic_ambulance to AmbulanceTypes.label(it) }),
             DetailSection(
@@ -606,7 +654,7 @@ fun ReasonReportDialog(onDismiss: () -> Unit, onSubmit: suspend (String) -> Unit
 // ------------------------------------------------------------
 
 @Composable
-fun MyAmbulancesSection(profile: Profile) {
+fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
     val scope = rememberCoroutineScope()
     var list by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
@@ -618,7 +666,7 @@ fun MyAmbulancesSection(profile: Profile) {
     // মালিকের হিসাব: অ্যাপ থেকে কতবার ফোন, রেটিং, মন্তব্য, রিপোর্ট
     var stats by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
     var openStats by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(reload) {
+    LaunchedEffect(reload, refresh) {
         runCatching { Ambulances.mine() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
         runCatching { Ambulances.stats() }.onSuccess { o ->
             val a = o.optJSONArray("items") ?: org.json.JSONArray()

@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                             onAppointmentsOpened = { openType.value = null },
                             openHomeVisit = openType.value in HOME_CARE_TYPES,
                             onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") },
+                            openTarget = openType.value?.takeIf { it in OPEN_TARGETS },
                             openTargetKind = openKind.value,
                             openTargetExtra = openExtra.value,
                             onTargetOpened = { openType.value = null; openKind.value = null; openExtra.value = emptyMap() },
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
         }
         if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
         intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care") }?.let {
+        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in OPEN_TARGETS }?.let {
             openKind.value = intent.getStringExtra(Notifier.EXTRA_KIND)
             openExtra.value = rxExtras(intent)
             openType.value = it
@@ -122,8 +122,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** নোটিফিকেশনের rxId আর asUid (যেগুলো আছে) */
-private fun rxExtras(intent: Intent?): Map<String, String> = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID)
+/** নোটিফিকেশন চাপলে যে ধরনগুলো App-এর openFromData খোলে (amb_req_mine: রোগীর অ্যাম্বুলেন্স ডাকার পাতা, ২.২৮.০) */
+private val OPEN_TARGETS = setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care", "amb_req_mine")
+
+/** নোটিফিকেশনের rxId, asUid, reqId (যেগুলো আছে) */
+private fun rxExtras(intent: Intent?): Map<String, String> = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID, Notifier.EXTRA_REQ_ID)
     .mapNotNull { k -> intent?.getStringExtra(k)?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
 
 /** বাসায় সেবার নোটিফিকেশন (আগের হোম নার্সের "homevisit" সহ) */
@@ -170,6 +173,8 @@ sealed interface Screen {
     /** tab: ০ অর্ডার দিন, ১ আমার অর্ডার, ২ ফার্মেসি */
     /** সাহায্য ও আপিল; category খালি হলে শুধু তালিকা */
     data class Help(val category: String? = null) : Screen
+    /** রোগীর "অ্যাম্বুলেন্স ডাকুন"-এর অপেক্ষার পাতা (২.২৮.০) */
+    data class AmbulanceRequest(val id: String) : Screen
 }
 
 object Tabs {
@@ -279,6 +284,15 @@ fun App(
         stack.add(s)
     }
 
+    // অ্যাম্বুলেন্সের তালিকা থেকে "অ্যাম্বুলেন্স ডাকুন" পাঠানো হলে বা চালু অনুরোধের ব্যানারে চাপলে: অপেক্ষার পাতা
+    val openAmbReq = AmbReqNav.open.value
+    LaunchedEffect(openAmbReq) {
+        if (openAmbReq != null) {
+            AmbReqNav.open.value = null
+            if ((stack.lastOrNull() as? Screen.AmbulanceRequest)?.id != openAmbReq) push(Screen.AmbulanceRequest(openAmbReq))
+        }
+    }
+
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
         if (stack.size == 1) homeRefresh++
@@ -325,6 +339,11 @@ fun App(
                 stack[0] = Screen.Main(Tabs.APPOINTMENT)
             }
             type == "support" -> push(Screen.Help())
+            // রোগীর অ্যাম্বুলেন্স ডাকা: কেউ রাজি হলেন/পৌঁছালেন/বাতিল/সময় শেষ — সেই অপেক্ষার পাতা
+            type == "amb_req_mine" -> data["reqId"]?.let { push(Screen.AmbulanceRequest(it)) } ?: run {
+                while (stack.size > 1) stack.removeAt(stack.lastIndex)
+                stack[0] = Screen.Main(Tabs.SERVICES)
+            }
             // প্রেসক্রিপশন (নতুন, দোকান/প্যাথলজির খবর, রিপোর্ট, আবার দেখানোর দিন): সরাসরি সেই প্রেসক্রিপশন।
             // rxId না থাকলে (ওষুধের অ্যালার্ম) তালিকা; পুরোনো নোটিফিকেশনে শুধু id (সেটাও প্রেসক্রিপশনের id)
             type == "rx" -> {
@@ -791,6 +810,7 @@ fun App(
 
             Screen.Inbox -> InboxScreen(onBack = { back() }, onOpen = { data -> openFromData(data) })
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
+            is Screen.AmbulanceRequest -> AmbulanceRequestScreen(current.id, onBack = { back() })
 
             Screen.ChamberEdit -> profile?.let { pr ->
                 ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })

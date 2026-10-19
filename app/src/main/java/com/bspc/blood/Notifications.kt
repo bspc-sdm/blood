@@ -33,6 +33,8 @@ object Notifier {
     const val EXTRA_RX_ID = "rxId"
     /** কেয়ারগিভারকে এলে কোন রোগীর হয়ে */
     const val EXTRA_AS_UID = "asUid"
+    /** অ্যাম্বুলেন্স ডাকার অনুরোধ (রোগী: অপেক্ষার পাতা) */
+    const val EXTRA_REQ_ID = "reqId"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -69,7 +71,7 @@ object Notifier {
         )
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             // অ্যাম্বুলেন্সের খবরে অ্যাম্বুলেন্সের আইকন, বাকি সব অ্যাপের রক্তের ফোঁটা
-            .setSmallIcon(if (type == "services" && serviceKind(kind, title) == "ambulance") R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
+            .setSmallIcon(if ((type == "services" && serviceKind(kind, title) == "ambulance") || type == "amb_req_mine") R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -106,9 +108,9 @@ class BloodMessagingService : FirebaseMessagingService() {
         val body = message.notification?.body ?: message.data["body"] ?: ""
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
         val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
-            ?: message.data["findId"] ?: message.messageId
+            ?: message.data["findId"] ?: message.data["reqId"] ?: message.messageId
         // প্রেসক্রিপশনের খবরে কোন প্রেসক্রিপশন, কেয়ারগিভারকে এলে কোন রোগীর — চাপলে সরাসরি সেটা
-        val extras = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID).mapNotNull { k -> message.data[k]?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
+        val extras = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID, Notifier.EXTRA_REQ_ID).mapNotNull { k -> message.data[k]?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
         Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"], extras)
     }
 }

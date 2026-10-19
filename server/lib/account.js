@@ -190,6 +190,9 @@ async function deleteNow(uid, email) {
 
   for (const n of endedNotices) if (n.ids.length) await RE.notifyEnded(n.id, n.r, 'removed', n.ids);
 
+  // অ্যাম্বুলেন্স ডাকুন: চালু অনুরোধ বাতিল (অন্যজনকে জানিয়ে), রোগী হিসেবে নিজের সব অনুরোধ মোছা
+  await require('./ambreq').closeForUser(uid, { full: true }).catch((e) => console.error('amb req cleanup failed', e));
+
   // জরুরি আহ্বানে নিজের সাড়া (সাম্প্রতিকগুলোতে)
   const recentEmergencies = await db.collection('emergencies').orderBy('createdAt', 'desc').limit(200).get();
   await Promise.all(recentEmergencies.docs.map((d) => d.ref.collection('donors').doc(uid).delete().catch(() => {})));
@@ -285,6 +288,8 @@ async function schedule(uid) {
     if (st === 'suspended' || d.get('hiddenForDeletion')) continue;
     await d.ref.update({ hiddenForDeletion: st || 'pending', status: 'suspended' });
   }
+  // অ্যাম্বুলেন্স ডাকুন: চালু অনুরোধ বাতিল (রোগী বা চালক — অন্যজনকে জানিয়ে)
+  await require('./ambreq').closeForUser(uid).catch((e) => console.error('amb req close for deletion failed', e));
   // ডাক্তার/নার্স: তালিকা আর বাসায় সেবা বন্ধ, সামনের অ্যাপয়েন্টমেন্ট বাতিল করে রোগীদের জানানো
   await require('./apptcancel').suspendProvider(uid, 'deletion').catch((e) => console.error('suspend for deletion failed', e));
   await db.doc(`users/${uid}`).set({ fcmToken: FieldValue.delete(), fcmTokens: FieldValue.delete() }, { merge: true }).catch(() => {});

@@ -14,6 +14,15 @@ const MAX_PER_OWNER = 10;
 const RATE_WINDOW_MS = 7 * 24 * 3600 * 1000;
 // ফোন চেপে সাথে সাথে কেটে রেটিং দেওয়া যায় না: প্রথম ফোনের অন্তত ১ ঘণ্টা পর
 const RATE_AFTER_MS = 60 * 60 * 1000;
+/**
+ * রেটিং দেওয়া যায় কি না (ফোনের রেকর্ড c): ৭ দিনের মধ্যে, আর প্রথম ফোনের ১ ঘণ্টা পর —
+ * অথবা অ্যাপে ডাকা অ্যাম্বুলেন্সের ট্রিপ চালক "শেষ" করেছেন (tripAt; lib/ambreq.js) — তখন অপেক্ষা নেই।
+ */
+function rateable(c, now = Date.now()) {
+  if (now - (c.at || 0) > RATE_WINDOW_MS) return false;
+  if (c.tripAt && now - c.tripAt <= RATE_WINDOW_MS) return true;
+  return now - (c.firstAt || c.at || 0) >= RATE_AFTER_MS;
+}
 // "এখন খালি আছি" কতক্ষণ থাকে: চালক ভুলে গেলে বা কাজ ছেড়ে দিলে যেন তাঁর নম্বর সবার উপরে না থাকে
 const AVAILABLE_MS = 12 * 3600 * 1000;
 // "এখনো খালি আছেন?" — খালি থাকার মেয়াদ শেষ হওয়ার এই সময় আগে চালককে একবার মনে করানো
@@ -254,20 +263,19 @@ const actions = {
     // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং" বাটন থাকে)
     const calls = user && user.uid ? await db.collection('ambulanceCalls').where('uid', '==', user.uid).limit(200).get() : { docs: [] };
     const now = Date.now();
-    const rateable = new Set(calls.docs.filter((c) => now - (c.get('at') || 0) <= RATE_WINDOW_MS
-      && now - (c.get('firstAt') || c.get('at') || 0) >= RATE_AFTER_MS).map((c) => c.get('ambulanceId')));
+    const canRate = new Set(calls.docs.filter((c) => rateable(c.data(), now)).map((c) => c.get('ambulanceId')));
     let docs = snap.docs;
     if (require('./catalog').codes('ambulanceType').includes(b.type)) docs = docs.filter((d) => (d.get('types') || []).includes(b.type));
     // ট্রিপে থাকা গাড়ি তালিকায় নয় — শুধু কয়টা ট্রিপে আছে তা জানানো
     // ব্যস্ত গাড়ি আলাদা তালিকায় (অ্যাপে ভাঁজ করা অংশে) — দরকারে ফোন করে জানা যায় কবে ফিরবে
     const busy = docs.filter((d) => busyNow(d.data(), now))
-      .map((d) => ({ ...view(d), canRate: rateable.has(d.id), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
+      .map((d) => ({ ...view(d), canRate: canRate.has(d.id), busy: true, busySince: d.get('busyAt') || d.get('availableAt') || 0 }))
       .sort((a, c) => ((upazilaId && c.upazilaId === upazilaId) - (upazilaId && a.upazilaId === upazilaId)) || (a.busySince - c.busySince));
     const from = point(b.lat, b.lng);
     // আসল GPS না হলে (এলাকার কেন্দ্র ইত্যাদি) আনুমানিক — নিজের উপজেলা আগে, km নয়
     const exactFrom = !!from && b.gps === true;
     const rows = docs.filter((d) => !busyNow(d.data(), now)).map((d) => {
-      const v = { ...view(d), canRate: rateable.has(d.id) };
+      const v = { ...view(d), canRate: canRate.has(d.id) };
       const base = from ? baseOf(d.data()) : null;
       let dist = 9999;
       if (base) {
@@ -403,9 +411,15 @@ const actions = {
     return { ok: true };
   },
 
-  /** কেউ ফোন করলে লিখে রাখা — রেটিং/রিপোর্ট শুধু যারা ফোন করেছেন তারাই দিতে পারেন */
+  /**
+   * কেউ ফোন করলে লিখে রাখা — রেটিং/রিপোর্ট শুধু যারা ফোন করেছেন তারাই দিতে পারেন।
+   * reqId: চালু "অ্যাম্বুলেন্স ডাকুন" অনুরোধের অপেক্ষার সময় ফোন — অনুরোধেও তোলা (lib/ambreq.js attachCall)
+   */
   async ambulance_called(req, user) {
     const { id } = req.body || {};
+    if (R.isValidId(id) && req.body?.reqId != null) {
+      await require('./ambreq').attachCall(user.uid, req.body.reqId, id).catch((e) => console.error('amb req call attach', e.message));
+    }
     if (!R.isValidId(id)) return { ok: true };
     const a = await db.doc(`ambulances/${id}`).get();
     if (!a.exists || a.get('ownerUid') === user.uid) return { ok: true };
@@ -433,7 +447,7 @@ const actions = {
       if (!c.exists || Date.now() - (c.get('at') || 0) > RATE_WINDOW_MS) {
         throw new HttpError(403, C.tr(req, 'You can rate after calling this ambulance from the app', 'অ্যাপ থেকে ফোন করার পর রেটিং দিতে পারবেন'));
       }
-      if (Date.now() - (c.get('firstAt') || c.get('at') || 0) < RATE_AFTER_MS) {
+      if (!rateable(c.data())) {
         throw new HttpError(403, C.tr(req, 'You can rate 1 hour after your first call', 'প্রথম ফোনের ১ ঘণ্টা পর রেটিং দিতে পারবেন'));
       }
       const old = c.get('rating') || 0;
@@ -469,7 +483,7 @@ const actions = {
 };
 
 module.exports = {
-  actions, TYPES, AVAILABLE_MS, REMIND_AT_MS, BASE_MAX_KM, remindAvailable, point,
+  actions, TYPES, AVAILABLE_MS, REMIND_AT_MS, BASE_MAX_KM, remindAvailable, point, baseOf, availableNow, busyNow, rateable,
   // পরীক্ষায়: তালিকা পড়ার সাথে চলা পেছনের খোঁজ শেষ হওয়া পর্যন্ত অপেক্ষা
   remindIdle: () => lastRemind,
 };

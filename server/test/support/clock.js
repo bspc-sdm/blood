@@ -25,4 +25,8 @@ function setDhaka(s) {
 function reset() {
   off = 0;
 }
-module.exports = { setDhaka, reset, RealDate };
+/** ঘড়ি ms এগিয়ে দেওয়া (অ্যাম্বুলেন্স ডাকার ৬০ সেকেন্ড/৩ মিনিট) */
+function advance(ms) {
+  off += ms;
+}
+module.exports = { setDhaka, reset, advance, RealDate };

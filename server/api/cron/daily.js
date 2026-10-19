@@ -124,6 +124,14 @@ module.exports = handler(
       console.error('ambulance reminders failed', e);
     }
 
+    // অ্যাম্বুলেন্স ডাকুন: পড়ে থাকা চালু অনুরোধ বন্ধ, বন্ধের ২৪ ঘণ্টা পর রোগীর ঠিক জায়গা, ফোন, ঠিকানা, নোট, নাম মোছা
+    let ambulanceRequests = null;
+    try {
+      ambulanceRequests = await require('../../lib/ambreq').dailyCleanup(now);
+    } catch (e) {
+      console.error('ambulance request cleanup failed', e);
+    }
+
     // গোপনীয়তা (১৮ অক্টোবর ২০২৬): বন্ধ অনলাইন অর্ডারের ডেলিভারির ঠিকানা-ফোন ৭ দিন পর মোছা (purgeContactAt ধরে, সস্তা);
     // এই নিয়মের আগে বন্ধ হওয়াগুলোর একবারের পরিষ্কার; দোকানের হিসাব-খাতার পুরোনো বিক্রি থেকে রোগীর নাম (একবারের)
     const privacy = {};
@@ -147,7 +155,7 @@ module.exports = handler(
       console.error('stock prices backfill failed', e);
     }
 
-    return { ok: true, privacy, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders, stockPrices };
+    return { ok: true, privacy, closed: expired.length, eligibleReminders: sent, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo, phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders, ambulanceRequests, stockPrices };
   },
   { methods: ['GET'] },
 );
