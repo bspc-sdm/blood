@@ -144,6 +144,33 @@ class CommunityDispatchIT : IntegrationTest() {
     }
 
     @Test
+    fun `pushUsers in each user's language, pushPatient mirrors to caregivers`() {
+        user("en1", mapOf("lang" to "en", "name" to "Rahim"))
+        user("bn1", mapOf("lang" to "bn"))
+        user("noprofile")
+        val n = pushService.pushUsers(listOf("en1", "bn1", "noprofile", null, "en1")) { _, lang ->
+            com.lifolo.notify.PushText(Lang.pick(lang, "Hello", "হ্যালো"), "Room 12", mapOf("type" to "t"))
+        }
+        assertEquals(0, n, "no devices → nobody reached by FCM")
+        val titles = jdbc.queryForList("SELECT uid || ':' || title FROM inbox_items ORDER BY uid", String::class.java)
+        assertEquals(listOf("bn1:হ্যালো", "en1:Hello"), titles, "only users with a profile, once each")
+
+        jdbc.update("DELETE FROM inbox_items")
+        user("carer", mapOf("lang" to "bn"))
+        jdbc.update("INSERT INTO care_links (patient_uid, caretaker_uid, status) VALUES ('en1', 'carer', 'active')")
+        pushService.pushPatient("en1", "Report ready", "রিপোর্ট তৈরি", "Lab 2 at 10", mapOf("type" to "lab", "rxId" to "rx1"))
+        val rows = jdbc.queryForList("SELECT uid, title, body, data::text AS data FROM inbox_items ORDER BY uid")
+        assertEquals("carer", rows[0]["uid"])
+        assertEquals("Rahim: রিপোর্ট তৈরি", rows[0]["title"])
+        assertEquals("Lab ২ at ১০", rows[0]["body"])
+        assertTrue((rows[0]["data"] as String).contains("\"asUid\": \"en1\""), rows[0]["data"].toString())
+        assertTrue((rows[0]["data"] as String).contains("\"rxId\": \"rx1\""))
+        assertEquals("en1", rows[1]["uid"])
+        assertEquals("Report ready", rows[1]["title"])
+        assertEquals("Lab 2 at 10", rows[1]["body"])
+    }
+
+    @Test
     fun `daily quotas`() {
         user("q1")
         repeat(5) { quotas.use("en", "q1", "ask") }

@@ -25,6 +25,11 @@ object Lang {
 
     private val BN_DIGITS = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
 
+    private val NUMBER_RE = Regex("(^|[^A-Za-z0-9])(\\d+)(?![A-Za-z0-9])")
+
+    /** rules.js bnNumbers: standalone numbers → Bangla digits ("Room 12" → "Room ১২", "A1" unchanged) */
+    fun bnNumbers(t: String): String = NUMBER_RE.replace(t) { m -> m.groupValues[1] + bnDigits(m.groupValues[2]) }
+
     /** rules.js bnDigits */
     fun bnDigits(s: String): String = buildString(s.length) {
         for (c in s) append(if (c in '0'..'9') BN_DIGITS[c - '0'] else c)

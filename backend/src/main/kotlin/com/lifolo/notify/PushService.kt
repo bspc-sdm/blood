@@ -5,11 +5,13 @@ import com.google.firebase.messaging.AndroidConfig
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.lifolo.auth.FirebaseHolder
+import com.lifolo.common.Lang
 import com.lifolo.common.Sql
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Service
 import java.util.Random
 
@@ -21,6 +23,9 @@ data class PushItem(
     val data: Map<String, Any?> = emptyMap(),
     val tokens: List<String>? = null,
 )
+
+/** Title/body/data of a notification, built per recipient language */
+data class PushText(val title: String, val body: String = "", val data: Map<String, Any?> = emptyMap())
 
 /** One FCM message to one device */
 data class DeviceMessage(val token: String, val uid: String?, val data: Map<String, String>)
@@ -99,6 +104,58 @@ class PushService(
                 id, item.uid, item.title.take(200), item.body.take(300), mapper.writeValueAsString(item.data), Sql.ts(now),
             )
         }
+    }
+
+    /**
+     * requestend.js pushUsers: one notification per user, text built in the user's language (profile `lang`).
+     * Only users with a profile get it (Node: users/{uid} must exist). Never throws.
+     */
+    fun pushUsers(uids: Collection<String?>, make: (uid: String, lang: String?) -> PushText?): Int {
+        val ids = uids.filterNotNull().filter { it.isNotEmpty() }.distinct()
+        if (ids.isEmpty()) return 0
+        return try {
+            val langs = profileLangs(ids)
+            send(ids.filter { it in langs }.mapNotNull { uid -> make(uid, langs[uid])?.let { PushItem(uid, it.title, it.body, it.data) } })
+        } catch (e: Exception) {
+            log.error("push to users failed", e)
+            0
+        }
+    }
+
+    /**
+     * careaccess.js pushPatient: the patient and their active caregivers (caregiver title prefixed with the patient's
+     * name, data {type:"care", asUid, rxId?} so tapping opens it as the patient). [body] is English/ASCII; Bangla
+     * readers get its digits in Bangla (rules.js bnNumbers). Never throws.
+     */
+    fun pushPatient(uid: String?, en: String, bn: String, body: String = "", data: Map<String, Any?> = emptyMap()) {
+        if (uid == null) return
+        try {
+            val carers = jdbc.queryForList(
+                "SELECT caretaker_uid FROM care_links WHERE patient_uid = ? AND status = 'active' LIMIT 10", String::class.java, uid,
+            )
+            val langs = profileLangs(listOf(uid) + carers)
+            val name = jdbc.queryForList("SELECT name FROM user_profiles WHERE uid = ?", String::class.java, uid).firstOrNull() ?: ""
+            fun text(lang: String?) = Lang.pick(lang, body, Lang.bnNumbers(body))
+            val list = ArrayList<PushItem>()
+            if (uid in langs) list.add(PushItem(uid, Lang.pick(langs[uid], en, bn), text(langs[uid]), data))
+            for (c in carers) {
+                if (c !in langs) continue
+                val extra = if (data["rxId"] != null) mapOf("rxId" to data["rxId"]) else emptyMap()
+                list.add(PushItem(c, "$name: ${Lang.pick(langs[c], en, bn)}", text(langs[c]), mapOf("type" to "care", "asUid" to uid) + extra))
+            }
+            if (list.isNotEmpty()) send(list)
+        } catch (e: Exception) {
+            log.error("care push failed: {}", e.message)
+        }
+    }
+
+    /** uid → profile lang for users that have a profile */
+    private fun profileLangs(uids: List<String>): Map<String, String?> {
+        if (uids.isEmpty()) return emptyMap()
+        val out = HashMap<String, String?>()
+        val params = uids.joinToString(",") { "?" }
+        jdbc.query("SELECT uid, lang FROM user_profiles WHERE uid IN ($params)", RowCallbackHandler { rs -> out[rs.getString(1)] = rs.getString(2) }, *uids.toTypedArray())
+        return out
     }
 
     fun send(items: List<PushItem>): Int {
