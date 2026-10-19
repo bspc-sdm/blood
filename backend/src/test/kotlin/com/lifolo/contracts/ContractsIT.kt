@@ -117,7 +117,10 @@ class ContractsIT : IntegrationTest() {
         jdbc.update("UPDATE providers SET admin_suspended = TRUE, suspend_reason = 'account', listed = FALSE, listed_before_suspend = TRUE WHERE uid = 'd5'")
         assertTrue(suspension.liftProvider("d5"))
         assertEquals(true, row("SELECT listed FROM providers WHERE uid = 'd5'")["listed"])
-        assertThrows(NotImplementedError::class.java) { suspension.suspendProvider("d5", "admin") }
+        // P2 implemented suspend/cancelStale (more cases in appointments/ProviderSuspensionIT)
+        assertTrue(suspension.suspendProvider("d5", "admin"))
+        assertEquals(false, row("SELECT listed FROM providers WHERE uid = 'd5'")["listed"])
+        assertEquals(0, suspension.cancelStale("d5", "x", "y"))
         assertThrows(NotImplementedError::class.java) { requestEnd.donorLeft("r1", "d5") }
     }
 

@@ -2,9 +2,10 @@ package com.lifolo.contracts
 
 /*
  * Contracts owned by P2 (doctors, community content & caregivers: appointments, homecare, care, content).
- * Other packages code against these interfaces; the baseline implementations in DoctorsBaseline.kt work on the
- * phase-1 tables so the other packages can test now. P2 replaces them (delete DoctorsBaseline.kt and add its own
- * beans) — the interface is the contract; changing it needs the consumers' agreement (PHASE2-PLAN.md).
+ * Other packages code against these interfaces. Implementations (P2): Badges → appointments.BadgeLookup,
+ * ProviderAssistants → appointments.ProviderAssistantsStore, Chambers → appointments.ChambersStore, HospitalDirectory →
+ * content.HospitalDirectoryStore, ProviderSuspension → appointments.ApptCancel, ContentModeration →
+ * content.CommunityActions. The interface is the contract; changing it needs the consumers' agreement (PHASE2-PLAN.md).
  */
 
 /**
