@@ -121,7 +121,8 @@ class ContractsIT : IntegrationTest() {
         assertTrue(suspension.suspendProvider("d5", "admin"))
         assertEquals(false, row("SELECT listed FROM providers WHERE uid = 'd5'")["listed"])
         assertEquals(0, suspension.cancelStale("d5", "x", "y"))
-        assertThrows(NotImplementedError::class.java) { requestEnd.donorLeft("r1", "d5") }
+        // RequestEnd is implemented by P1 (blood.RequestEndService, tested in blood.BloodFlowIT): no response → nothing happens
+        requestEnd.donorLeft("r1", "d5")
     }
 
     @Test

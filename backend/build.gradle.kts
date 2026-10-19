@@ -73,6 +73,8 @@ dependencies {
     implementation("io.sentry:sentry-spring-boot-starter-jakarta:$sentryVersion")
     implementation("software.amazon.awssdk:sesv2")
     implementation("software.amazon.awssdk:s3")
+    // QR codes of the share pages (P1: /api/share?rxqr=, ?shopqr=, /shop/{code})
+    implementation("io.nayuki:qrcodegen:1.8.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
