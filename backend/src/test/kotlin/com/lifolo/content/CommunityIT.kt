@@ -97,9 +97,9 @@ class CommunityIT : P2TestBase() {
 
         // paging: 30 per page, cursor = createdAt
         for (i in 1..31) jdbc.update("INSERT INTO questions (id, uid, text, created_at) VALUES (?, 'pt', 'q', now() - (? || ' minutes')::interval)", "old$i", (i + 10).toString())
-        val page1 = ok(null, "questions")["items"]
+        val page1 = ok("doc", "questions")["items"] // guests get a 1-minute cached answer
         assertEquals(30, page1.size())
-        val page2 = ok(null, "questions", mapOf("before" to page1[29]["createdAt"].longValue()))["items"]
+        val page2 = ok("doc", "questions", mapOf("before" to page1[29]["createdAt"].longValue()))["items"]
         assertEquals(3, page2.size())
     }
 
@@ -161,12 +161,12 @@ class CommunityIT : P2TestBase() {
         assertEquals(listOf("doctor", "ডা. ডেমো হাসান", "false"), listOf(tip["badge"].textValue(), tip["authorName"].textValue(), tip["mine"].asText()))
         assertTrue(ok("doc", "tips")["items"][0]["mine"].booleanValue())
         ok("doc", "edit_tip", mapOf("id" to t, "title" to "হাত ধোয়া", "body" to "নতুন লেখা"))
-        assertTrue(ok(null, "tips")["items"][0]["editedAt"].longValue() > 0)
+        assertTrue(ok("pt", "tips")["items"][0]["editedAt"].longValue() > 0) // (guest answers are cached a minute)
         assertEquals(403, call("nurse", "edit_tip", mapOf("id" to t, "title" to "x", "body" to "y")).status)
         assertEquals(404, call("doc", "edit_tip", mapOf("id" to "nope", "title" to "x", "body" to "y")).status)
         assertEquals(403, call("pt", "delete_tip", mapOf("id" to t)).status)
         ok(owner, "delete_tip", mapOf("id" to t))
-        assertEquals(0, ok(null, "tips")["items"].size())
+        assertEquals(0, ok("pt", "tips")["items"].size())
         assertEquals("tips/$t", row("SELECT target FROM admin_log WHERE action = 'admin_delete_post'")["target"])
     }
 
