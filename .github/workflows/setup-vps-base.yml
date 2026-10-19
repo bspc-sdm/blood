@@ -1,0 +1,174 @@
+name: Setup VPS (base)
+
+# নতুন Contabo VPS (Ubuntu 24.04)-এর ভিত্তি এক বোতামে — Actions → "Setup VPS (base)" → Run workflow।
+# আবার চালালেও ক্ষতি নেই (idempotent)। বাংলা গাইড: deploy/BASE-SETUP.md
+#
+# সিক্রেট (Settings → Secrets and variables → Actions) — শুধু দুটো:
+#   VPS_HOST           VPS-এর IP (যেমন 169.58.58.176)
+#   VPS_ROOT_PASSWORD  Contabo-তে দেওয়া root পাসওয়ার্ড
+#
+# ধাপ: SSH (প্রথমবার root পাসওয়ার্ডে ঢুকে পাসওয়ার্ড থেকে বানানো চাবি আর পিন করা host key বসানো, তারপর SSH-এ
+# পাসওয়ার্ড লগইন বন্ধ; দেখুন deploy/ci/vps-connect.sh) → deploy/setup-base.sh → বাইরে থেকে /healthz পরীক্ষা → বাংলা সারাংশ।
+# setup-base.sh যা বসায়: Java 21, PostgreSQL 16, Redis, nginx + Let's Encrypt, ufw, fail2ban, swap, দৈনিক ব্যাকআপ,
+# lifolo-api.service (jar এলে চালু)। কোনো গোপন মান লগে আসে না।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        id: host
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          # পেস্টের সময় যোগ হওয়া ফাঁকা/লাইন-শেষ বাদ দেওয়া রূপটাও লগে লুকানো
+          pw="${VPS_ROOT_PASSWORD%$'\n'}"; pw="${pw%$'\r'}"
+          if [ -n "$pw" ]; then echo "::add-mask::$pw"; fi
+          pw_trim="$(printf '%s' "$pw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -n "$pw_trim" ]; then echo "::add-mask::$pw_trim"; fi
+          host="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [ -z "$host" ]; then
+            echo "::error::VPS_HOST সিক্রেট নেই। Settings → Secrets and variables → Actions → New repository secret → নাম VPS_HOST, মান VPS-এর IP।"
+            exit 1
+          fi
+          if [ -z "$pw_trim" ]; then
+            echo "::error::VPS_ROOT_PASSWORD সিক্রেট নেই। Settings → Secrets and variables → Actions → New repository secret → নাম VPS_ROOT_PASSWORD, মান Contabo-র root পাসওয়ার্ড।"
+            exit 1
+          fi
+          if [[ "$host" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            domain="${host//./-}.sslip.io"
+          else
+            domain="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+          fi
+          if ! [[ "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
+            echo "::error::VPS_HOST-এ শুধু IP দিন (যেমন 169.58.58.176)।"
+            exit 1
+          fi
+          echo "domain=$domain" >> "$GITHUB_OUTPUT"
+          echo "ঠিকানা হবে: https://$domain"
+
+      - name: Connect to VPS (first time - install GitHub's key, turn off password login)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+          BOOTSTRAP: "yes"
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Install base system on the VPS (5-15 minutes)
+        id: install
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+        run: |
+          # root-এর নিজের ফোল্ডারে স্ক্রিপ্টের কপি, সেখান থেকে চালানো
+          ssh vps 'install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/setup-base.sh' < deploy/setup-base.sh
+          # shellcheck disable=SC2029  # DOMAIN ইচ্ছা করেই এখানে বসানো (আগের ধাপে কড়া যাচাই করা)
+          ssh vps "bash /root/lifolo-setup/setup-base.sh --ci --domain '$DOMAIN'"
+          # ফলাফল (গোপন কিছু নয়) পরের ধাপের জন্য
+          ssh vps 'cat /var/lib/lifolo/setup-status' | tr -d '\r' | grep -E '^[a-z_]+=' >> "$GITHUB_OUTPUT"
+
+      - name: Check from the internet - https://<address>/healthz
+        id: web
+        continue-on-error: true
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+          CERT: ${{ steps.install.outputs.cert }}
+        run: |
+          http=no; https=no
+          for _ in $(seq 1 10); do
+            if curl -fsS -m 10 "http://$DOMAIN/healthz" | grep -q '"ok":true'; then http=yes; break; fi
+            sleep 6
+          done
+          for _ in $(seq 1 10); do
+            if curl -fsS -m 10 "https://$DOMAIN/healthz" | grep -q '"ok":true'; then https=yes; break; fi
+            sleep 6
+          done
+          echo "http=$http" >> "$GITHUB_OUTPUT"
+          echo "https=$https" >> "$GITHUB_OUTPUT"
+          echo "http://$DOMAIN/healthz: $http   https://$DOMAIN/healthz: $https"
+          if [ "$https" != yes ]; then
+            echo "::warning::https://$DOMAIN/healthz বাইরে থেকে কাজ করছে না (সার্টিফিকেট: $CERT)"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          DOMAIN: ${{ steps.host.outputs.domain }}
+          JOB_OK: ${{ job.status }}
+          CERT: ${{ steps.install.outputs.cert }}
+          BACKUP: ${{ steps.install.outputs.backup }}
+          JAVA_V: ${{ steps.install.outputs.java }}
+          PG_V: ${{ steps.install.outputs.postgres }}
+          REDIS_V: ${{ steps.install.outputs.redis }}
+          NGINX_V: ${{ steps.install.outputs.nginx }}
+          CERTBOT_V: ${{ steps.install.outputs.certbot }}
+          REBOOT: ${{ steps.install.outputs.reboot }}
+          WEB_HTTP: ${{ steps.web.outputs.http }}
+          WEB_HTTPS: ${{ steps.web.outputs.https }}
+        run: |
+          {
+            if [ "$JOB_OK" = success ] && [ "$WEB_HTTPS" = yes ]; then
+              echo "## ✅ VPS-এর ভিত্তি তৈরি"
+              echo
+              echo "পরীক্ষা করুন (খুললে \`{\"ok\":true,...}\` দেখাবে): **https://$DOMAIN/healthz**"
+            elif [ "$JOB_OK" = success ]; then
+              echo "## ⚠️ ভিত্তি তৈরি, কিন্তু HTTPS এখনো কাজ করছে না"
+              echo
+              if [ "$CERT" != ok ]; then
+                echo "- Let's Encrypt সার্টিফিকেট পাওয়া যায়নি। ১৫ মিনিট পর আবার **Run workflow** চাপুন — আগে যা হয়েছে তা নষ্ট হয় না।"
+              else
+                echo "- সার্টিফিকেট আছে, কিন্তু বাইরে থেকে https সাড়া দিচ্ছে না। কয়েক মিনিট পর আবার চালান।"
+              fi
+              if [ "$WEB_HTTP" = yes ]; then
+                echo "- http ঠিক আছে: http://$DOMAIN/healthz"
+              else
+                echo "- বাইরে থেকে পোর্ট 80-ও সাড়া দিচ্ছে না।"
+              fi
+              echo "- লক্ষ্য: **https://$DOMAIN/healthz**"
+              echo "- আবারও না হলে এই পাতার স্ক্রিনশট Claude-কে পাঠান।"
+            else
+              echo "## ❌ সেটআপ শেষ হয়নি"
+              echo
+              echo "বাঁ দিকে **setup**-এ চাপুন, লাল ✗ চিহ্নের ধাপটা খুলুন, সেই লেখার স্ক্রিনশট Claude-কে পাঠান (পাসওয়ার্ড নয়)।"
+              echo "ঠিক করার পর আবার **Run workflow** চাপলেই হবে — আগে যা হয়েছে তা নষ্ট হয় না।"
+              echo
+              echo "লক্ষ্য: https://$DOMAIN/healthz"
+            fi
+            if [ -n "$JAVA_V" ]; then
+              echo
+              echo "| কী | সংস্করণ / অবস্থা |"
+              echo "|---|---|"
+              echo "| Java | $JAVA_V |"
+              echo "| PostgreSQL | $PG_V (শুধু VPS-এর ভেতর থেকে) |"
+              echo "| Redis | $REDIS_V (শুধু VPS-এর ভেতর থেকে, পাসওয়ার্ডসহ) |"
+              echo "| nginx | $NGINX_V |"
+              echo "| certbot | $CERTBOT_V |"
+              echo "| HTTPS সার্টিফিকেট | $([ "$CERT" = ok ] && echo 'পাওয়া গেছে' || echo 'পাওয়া যায়নি') |"
+              echo "| ফায়ারওয়াল | শুধু 22, 80, 443 খোলা |"
+              echo "| দৈনিক ব্যাকআপ | $([ "$BACKUP" = ok ] && echo 'চালু (১৪ দিন রাখা)' || echo 'পরীক্ষা ব্যর্থ') |"
+              echo
+              echo "- গোপন মান (ডাটাবেস/Redis পাসওয়ার্ড) শুধু VPS-এর \`/etc/lifolo/env\`-এ, কোথাও ছাপা হয়নি।"
+              echo "- SSH-এ এখন পাসওয়ার্ড চলে না, শুধু GitHub-এর চাবি। জরুরি দরকারে Contabo প্যানেলের VNC কনসোল।"
+              echo "- **VPS_ROOT_PASSWORD সিক্রেট মুছবেন না বা বদলাবেন না** — GitHub এটা দিয়েই VPS-এ ঢোকে।"
+              if [ "$REBOOT" = yes ]; then
+                echo "- আপডেটের পর VPS একবার রিবুট দরকার — সুবিধামতো Contabo প্যানেল থেকে Restart করুন (জরুরি নয়)।"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up
+        if: always()
+        run: ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config
