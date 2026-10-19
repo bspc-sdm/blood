@@ -293,8 +293,13 @@ class BooksStore(private val jdbc: JdbcTemplate) {
 
     // ------------------------------------------------------------------ sales
 
+    /** sale.rx {rxId, code, at} — the demo sales have no prescription id ([rxId] empty) */
     data class RxInfo(val rxId: String, val code: String, val at: Long) {
-        fun toMap(): Map<String, Any?> = linkedMapOf("rxId" to rxId, "code" to code, "at" to at)
+        fun toMap(): Map<String, Any?> = linkedMapOf<String, Any?>().apply {
+            if (rxId.isNotEmpty()) put("rxId", rxId)
+            put("code", code)
+            put("at", at)
+        }
     }
 
     data class Sale(
@@ -331,7 +336,7 @@ class BooksStore(private val jdbc: JdbcTemplate) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             uid, s.id, Timestamp(s.at), Sql.date(BooksMath.dayOfKey(s.day)), s.source, s.customer, s.billDisc?.type, s.billDisc?.v.bd(),
-            s.rx?.code, s.rx?.at, s.rx?.rxId, t.gross.bd(), t.discount.bd(), t.billDiscount.bd(), t.net.bd(), t.cost.bd(), t.profit.bd(),
+            s.rx?.code, s.rx?.at, s.rx?.rxId?.ifEmpty { null }, t.gross.bd(), t.discount.bd(), t.billDiscount.bd(), t.net.bd(), t.cost.bd(), t.profit.bd(),
             t.netCosted.bd(), t.unpriced, Timestamp(s.createdAt),
         )
         jdbc.batchUpdate(
