@@ -92,3 +92,10 @@ const safeDecode = (v: string) => {
     return v;
   }
 };
+
+/** ইতিহাসের state থেকে শুধু নিজের অংশ (Vue Router-এর back/current/position… বাদ) — React-এর location.state */
+export function userState(st: any): Record<string, unknown> | null {
+  if (!st || typeof st !== 'object') return null;
+  const { back: _b, current: _c, forward: _f, position: _p, replaced: _r, scroll: _s, ...rest } = st;
+  return Object.keys(rest).length ? rest : null;
+}

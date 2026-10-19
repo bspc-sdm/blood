@@ -13,12 +13,12 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - **Services section ported in full** (Directory, ambulance request flow, MedFind, Nearest, pharmacy send, facility/location pickers, fare). Shots ≤0.6%.
 - **Account section ported in full** (Profile, EditProfile, Settings, Inbox, Help, Care, Login, dialogs). Shots 0% at mobile and desktop.
 - **Appointment section ported in full** (Doctors list/detail/booking, HomeCare, MyAppointments, live serial queue, pro workspace /work/pro with bookings, patients, chamber setup, home-care stats). Shots 0% at mobile and desktop. `/work/pro` is wired in WorkSection; the rest of /work is still TODO.
+- **Work section ported in full** (/work overview, add, ambulances + driver calls with fare offers, pharmacy info/finds/edit, blood banks, lab, BizHome redirects). Shots 0% except the pharmacy info page, which waits for rx/partner ShopPanels (stub for now). /work/rx, /work/pharmacy/orders, /work/pharmacy/shop/*, /work/lab/orders are stubs until rx is ported.
 - **Health section ported in full** (Discussion, Tips, Badge, Prescriptions, RxActivity, common, qr). Shots 0% except the QR code (it encodes `location.origin`, and the two shot servers use different ports).
 - `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
 - `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
 
 ## Remaining (React files not yet ported; these sections are TODO stubs)
-- work/: overview, add, ambulance, ambcalls, pharmacy, bloodbank, lab, shared (+ index)
 - rx/doctor/* (index, Write, Patients, Reviews, RxView, Team, Labs, model)
 - rx/partner/* (pharmacy, lab, labdetail, labprices, labranges, dispense, online, orders, stock, common, model, shoppanels, books/*)
 - Admin panel (`server/public/admin/app.js`, 18 pages including "ডেমো (পরীক্ষা)"): not started. Plan: a second Vite entry `admin/index.html`, same hash routes.
