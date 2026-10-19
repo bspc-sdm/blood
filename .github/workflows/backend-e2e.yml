@@ -9,7 +9,7 @@ name: Backend e2e (web journeys vs Spring)
 # Whole machine clock → 11:00 Dhaka during the run (the journeys were written for that hour; Spring, PostgreSQL, the
 # emulator and Chrome must agree on the time), restored afterwards.
 # Result → log branch (like backend.yml): spring → spring-ci-log, X → ci-log-X: e2e-status.txt, e2e/summary.md,
-# e2e/report-*.json|md, e2e/shots-spring/ (screenshots of failed steps), e2e/spring-errors.log, e2e/stack-*.log.
+# e2e/<spring|node>/ (report-*.json|md, shots-*/ = screenshots of failed steps, run/stack logs, spring-errors.log).
 on:
   push:
     branches: [spring, "spring-p*"]
@@ -112,8 +112,12 @@ jobs:
           (cd e2e && npm ci --no-audit --no-fund)
           (cd web && npm ci --no-audit --no-fund)
           if [ "$LABEL" = node ]; then (cd server && npm ci --no-audit --no-fund); fi
-          (cd e2e && npx playwright-core install --with-deps chromium)
-          echo "CHROME=$(cd e2e && node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
+          # Chromium 141 (Playwright 1.56's build, the one the journeys were written with; playwright-core 1.49 drives it).
+          # The 1.49 build (Chromium 131) did not keep the admin panel's __Host- cookie on http://localhost.
+          npx -y playwright@1.56.1 install --with-deps chromium
+          chrome="$(find "$HOME/.cache/ms-playwright" -path '*/chromium-*/chrome-linux*/chrome' -type f | sort -V | tail -1)"
+          "$chrome" --version
+          echo "CHROME=$chrome" >> "$GITHUB_ENV"
 
       - name: Build the web app (Auth emulator build)
         if: env.SKIP != 'true'
@@ -210,6 +214,20 @@ jobs:
           path: ${{ runner.temp }}/report
           retention-days: 7
 
+      # this leg's files → log branch right away (e2e/<backend>/), the publish job adds summary.md + e2e-status.txt
+      - name: Publish this leg to the log branch
+        if: always() && env.SKIP != 'true' && github.event_name != 'pull_request'
+        env:
+          BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: backend e2e ${{ matrix.backend }} ${{ github.sha }}
+        run: |
+          if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
+          mkdir -p "$RUNNER_TEMP/legout/e2e/$LABEL"
+          cp -R "$RUNNER_TEMP/report"/. "$RUNNER_TEMP/legout/e2e/$LABEL/" 2>/dev/null || true
+          echo "${GITHUB_SHA} ${LABEL} $(head -3 "$RUNNER_TEMP/report/report-$LABEL.md" 2>/dev/null | tail -1)" > "$RUNNER_TEMP/legout/e2e/$LABEL/status.txt"
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/legout" "e2e/$LABEL"
+
       - name: Spring must be green
         if: env.SKIP != 'true' && matrix.backend == 'spring'
         run: |
@@ -232,11 +250,10 @@ jobs:
           RESULT: ${{ needs.e2e.result }}
         run: |
           mkdir -p "$RUNNER_TEMP/out/e2e"
-          for d in "$RUNNER_TEMP"/in/report-*; do [ -d "$d" ] && cp -R "$d"/. "$RUNNER_TEMP/out/e2e/"; done
           node - <<'JS' > "$RUNNER_TEMP/out/e2e/summary.md"
           const fs = require('fs');
-          const dir = process.env.RUNNER_TEMP + '/out/e2e';
-          const load = (l) => { try { return JSON.parse(fs.readFileSync(`${dir}/report-${l}.json`, 'utf8')); } catch { return null; } };
+          const dir = process.env.RUNNER_TEMP + '/in';
+          const load = (l) => { try { return JSON.parse(fs.readFileSync(`${dir}/report-${l}/report-${l}.json`, 'utf8')); } catch { return null; } };
           const s = load('spring'), n = load('node');
           const line = (r, l) => r ? `${l}: ${r.green ? '✅' : '❌'} scenarios ${r.totals.scenariosOk}/${r.totals.scenarios}, stopped journeys ${r.totals.stopped}, bug steps ${r.totals.bugSteps}, API 5xx ${r.totals.api5xx}, server errors ${r.totals.serverErrors}` : `${l}: (no report)`;
           const out = [`# Web e2e — ${process.env.BRANCH} ${process.env.GITHUB_SHA}`, '', line(s, 'spring'), line(n, 'node'), ''];
@@ -269,4 +286,4 @@ jobs:
           LOG_MESSAGE: backend e2e ${{ github.sha }}
         run: |
           if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
-          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/out" e2e-status.txt e2e
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/out" e2e-status.txt e2e/summary.md e2e/report-spring.json e2e/report-spring.md e2e/report-node.json e2e/report-node.md e2e/shots-spring e2e/shots-node e2e/run-spring.log e2e/run-node.log e2e/stack-spring.log e2e/stack-node.log e2e/spring-errors.log e2e/spring-tail.log
