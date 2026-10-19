@@ -5,15 +5,21 @@
 //   { local: ৮০০,                           — "নিজের উপজেলার ভেতরে"
 //     rows: [{ kind: 'upazila', upazilaId, amount },  — একই জেলার অন্য উপজেলা
 //            { kind: 'district', district, amount },  — জেলা (যেমন ঢাকা; নিজের জেলা দিলে "জেলার ভেতরে যেকোনো জায়গা")
-//            { kind: 'hospital', name, amount }],     — হাসপাতালের নাম (লেখা)
+//            { kind: 'hospital', name, facilityId?, amount }],  — হাসপাতাল (তালিকা থেকে বাছা হলে facilityId, নইলে শুধু লেখা নাম)
 //     oxygen, icu, night }                   — বাড়তি (এককালীন টাকা), না থাকলে null
 // পুরো টাকা, যুক্তিসংগত সীমায়, সর্বোচ্চ ১৫টা গন্তব্য। আগের লেখা "ভাড়া" (fare) নোট হিসেবে থাকে।
 //
 // আনুমানিক ভাড়া = গন্তব্যের ভাড়া + (আইসিইউ ধরন বাছলে আইসিইউ যন্ত্র) + (অক্সিজেন চাইলে অক্সিজেন) + (রাত ১০টা–সকাল ৬টা হলে রাতের বাড়তি)।
 // গন্তব্যের ভাড়া: উপজেলা = নিজের উপজেলা হলে local, নইলে সেই উপজেলার ঘর, নইলে সেই উপজেলার জেলার ঘর;
-// জেলা = জেলার ঘর; হাসপাতাল = নাম মেলে এমন হাসপাতালের ঘর। না মিললে "জানা নেই" (null)।
+// জেলা = জেলার ঘর; হাসপাতাল = একই facilityId-র ঘর, নইলে নাম মেলে এমন হাসপাতালের ঘর, নইলে (তালিকা থেকে বাছা হলে)
+// হাসপাতালের উপজেলা/জেলা ধরে উপরের নিয়মে (২.৩১.০)। না মিললে "জানা নেই" (null)।
+//
+// রোগীর গন্তব্য (২.৩১.০): { kind: 'hospital', facilityId?, name, upazilaId?, district? } — হাসপাতাল/ক্লিনিকের তালিকা থেকে
+// (lib/ambplace.js; facilityId থাকলে উপজেলা/জেলা তালিকা থেকেই বসে) বা "অন্য জায়গা লিখুন" (শুধু name)। পুরোনো
+// অ্যাপের উপজেলা/জেলা গন্তব্য আগের মতোই চলে।
 const DISTRICTS = require('./districts');
 const { UPAZILA } = require('./hospital-match');
+const PLACE = () => require('./ambplace');
 
 const MIN_FARE = 100;
 const MAX_FARE = 100000;
@@ -62,8 +68,12 @@ function hospMatch(a, b) {
 function destKey(d) {
   if (d.kind === 'upazila') return `u:${d.upazilaId}`;
   if (d.kind === 'district') return `d:${d.district}`;
+  if (d.facilityId) return `f:${d.facilityId}`;
   return `h:${hospKey(d.name)}`;
 }
+
+/** তালিকার হাসপাতালের id: "dghs_123" / "x_…" (স্থির তালিকা) বা অ্যাপ থেকে যোগ হওয়া হাসপাতালের ডক id */
+const FACILITY_ID = /^(?:dghs_\d{1,7}|x_[a-z0-9_]{2,30}|[A-Za-z0-9]{15,40})$/;
 
 /**
  * রোগীর বা মালিকের দেওয়া গন্তব্য যাচাই: { kind: 'upazila', upazilaId } | { kind: 'district', district } | { kind: 'hospital', name }।
@@ -74,8 +84,22 @@ function destOf(v) {
   if (v.kind === 'upazila') return Number.isInteger(v.upazilaId) && UPAZILA.has(v.upazilaId) ? { kind: 'upazila', upazilaId: v.upazilaId } : null;
   if (v.kind === 'district') return DISTRICTS.some((d) => d.bn === v.district) ? { kind: 'district', district: v.district } : null;
   if (v.kind === 'hospital') {
-    const name = typeof v.name === 'string' ? v.name.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
-    return name.length >= 3 && hospKey(name) ? { kind: 'hospital', name } : null;
+    let name = typeof v.name === 'string' ? v.name.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+    const id = typeof v.facilityId === 'string' && FACILITY_ID.test(v.facilityId) ? v.facilityId : null;
+    // স্থির তালিকার হাসপাতাল: উপজেলা/জেলা তালিকা থেকে (রোগীর পাঠানোটা নয়); নাম না দিলে তালিকার নাম
+    const f = id ? PLACE().facility(id) : null;
+    if (f) {
+      if (name.length < 3) name = (f.nameBn || f.nameEn).slice(0, 80);
+      return { kind: 'hospital', facilityId: id, name, upazilaId: f.upazilaId || null, district: f.district };
+    }
+    if (name.length < 3 || !hospKey(name)) return null;
+    // অ্যাপ থেকে যোগ হওয়া হাসপাতাল (ডাটাবেসে): এলাকা যাচাই করে রাখা — শুধু ভাড়া মেলাতে
+    if (id && !id.startsWith('dghs_') && !id.startsWith('x_')) {
+      const district = DISTRICTS.some((d) => d.bn === v.district) ? v.district : null;
+      const upazilaId = district && Number.isInteger(v.upazilaId) && UPAZILA.get(v.upazilaId)?.district === district ? v.upazilaId : null;
+      return { kind: 'hospital', facilityId: id, name, upazilaId, district };
+    }
+    return { kind: 'hospital', name };
   }
   return null;
 }
@@ -159,8 +183,13 @@ function baseFare(chart, veh, dest) {
     const d = districtRow(dest.district);
     return d ? d.amount : null;
   }
-  const h = rows.find((x) => x.kind === 'hospital' && hospMatch(x.name, dest.name));
-  return h ? h.amount : null;
+  // হাসপাতাল: একই তালিকার id → নামের মিল → হাসপাতালের উপজেলা/জেলা (তালিকা থেকে বাছা হলে)
+  const h = (dest.facilityId && rows.find((x) => x.kind === 'hospital' && x.facilityId === dest.facilityId))
+    || rows.find((x) => x.kind === 'hospital' && hospMatch(x.name, dest.name));
+  if (h) return h.amount;
+  if (dest.upazilaId && UPAZILA.has(dest.upazilaId)) return baseFare(chart, veh, { kind: 'upazila', upazilaId: dest.upazilaId });
+  if (dest.district) return baseFare(chart, veh, { kind: 'district', district: dest.district });
+  return null;
 }
 
 /**

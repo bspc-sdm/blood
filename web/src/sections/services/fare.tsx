@@ -1,14 +1,18 @@
 // অ্যাম্বুলেন্সের ভাড়া (২.৩০.০): মালিকের ভাড়ার তালিকা (ঘর), রোগীর "কোথায় যাবেন", টাকার লেখা।
 // হিসাব সার্ভারে (server/lib/ambfare.js) — এখানে শুধু দেখানো আর বাছাই।
+// ২.৩১.০: রোগীর "কোথায় যাবেন" হাসপাতাল/ক্লিনিকের তালিকা থেকে (DestField → FacilityDialog) বা "অন্য জায়গা লিখুন";
+// মালিকের হাসপাতালের সারিও তালিকা থেকে বাছা যায় (facilityId — ভাড়া মেলায় id দিয়ে), লেখাও চলে।
 import { useEffect, useState } from 'react';
-import { Button, Field, IconButton, Select, TextInput } from '@/ui/kit';
+import { Button, Field, IconButton, IconLine, Select, TextInput } from '@/ui/kit';
+import { FacilityDialog, type Facility } from './FacilityPicker';
+import type { Point } from './place';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { districtLabel, districtsSorted, ensureAreas, areasReady, upazila, upazilasOf } from '@/lib/geo';
 
 export type Dest =
   | { kind: 'upazila'; upazilaId: number }
   | { kind: 'district'; district: string }
-  | { kind: 'hospital'; name: string };
+  | { kind: 'hospital'; name: string; facilityId?: string; upazilaId?: number | null; district?: string | null };
 export type FareRow = Dest & { amount: number };
 export interface FareChart { local: number | null; rows: FareRow[]; oxygen: number | null; icu: number | null; night: number | null }
 
@@ -47,7 +51,39 @@ export function destLabel(d: Dest | null | undefined): string {
   return d.name;
 }
 
-const keyOf = (d: Dest | null): string => (!d ? '' : d.kind === 'upazila' ? `u:${d.upazilaId}` : d.kind === 'district' ? `d:${d.district}` : 'h');
+const keyOf = (d: Dest | null): string => (!d ? '' : d.kind === 'upazila' ? `u:${d.upazilaId}` : d.kind === 'district' ? `d:${d.district}` : d.facilityId ? `f:${d.facilityId}` : 'h');
+const fromFacility = (f: Facility): Dest => ({ kind: 'hospital', name: f.name, facilityId: f.facilityId, upazilaId: f.upazilaId, district: f.district });
+
+/**
+ * রোগীর "কোথায় যাবেন" (২.৩১.০): বোতাম চাপলে হাসপাতাল/ক্লিনিকের তালিকা (জেলারটা আগে, কাছেরটা আগে; দেশের বড়গুলো;
+ * খোঁজা) আর "অন্য জায়গা লিখুন"। বাছা থাকলে নাম আর "বদলান"।
+ */
+export function DestField({ label, district, near, value, onChange, error }: {
+  label: string; district: string; near?: Point | null; value: Dest | null; onChange: (d: Dest | null) => void; error?: string | null;
+}) {
+  useAreasReady();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="col gap-6">
+      <span className="t-title-s">{label}</span>
+      <button type="button" className={`loc-area${error ? ' error' : ''}`} onClick={() => setOpen(true)} data-testid="amb-dest-pick">
+        <IconLine icon="local_hospital">{value ? destLabel(value) : <span className="muted">{tr('Choose a hospital or clinic…', 'হাসপাতাল বা ক্লিনিক বেছে নিন…')}</span>}</IconLine>
+        <span className="t-label-l loc-change">{value ? tr('Change', 'বদলান') : tr('Choose', 'বাছুন')}</span>
+      </button>
+      {error ? <span className="t-body-s loc-need">{error}</span> : null}
+      {open ? (
+        <FacilityDialog
+          title={label}
+          district={district}
+          near={near}
+          onClose={() => setOpen(false)}
+          onPick={(f) => { setOpen(false); onChange(fromFacility(f)); }}
+          onOther={(t) => { setOpen(false); onChange({ kind: 'hospital', name: t }); }}
+        />
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * গন্তব্য বাছাই: জেলার উপজেলা / অন্য জেলা / হাসপাতাল (লিখুন)।
@@ -69,15 +105,24 @@ export function DestPicker({
   }, [value?.kind === 'hospital' ? value.name : keyOf(value)]);
   const ups = upazilasOf(district).filter((u) => !exclude.includes(`u:${u.id}`));
   const dists = districtsSorted().filter((d) => !exclude.includes(`d:${d.bn}`));
+  const [listOpen, setListOpen] = useState(false);
+  const fac = value?.kind === 'hospital' && value.facilityId ? value : null;
   const options = [
+    ...(fac ? [{ value: keyOf(fac), label: `${fac.name} (${tr('hospital', 'হাসপাতাল')})` }] : []),
+    { value: 'f', label: tr('A hospital or clinic — from the list', 'হাসপাতাল বা ক্লিনিক — তালিকা থেকে') },
     ...ups.map((u) => ({ value: `u:${u.id}`, label: `${tr(u.en, u.bn)} (${tr('upazila', 'উপজেলা')})` })),
-    { value: 'h', label: tr('A hospital (type the name)', 'কোনো হাসপাতাল (নাম লিখুন)') },
+    { value: 'h', label: tr('Another hospital (type the name)', 'অন্য হাসপাতাল (নাম লিখুন)') },
     ...dists.map((d) => ({ value: `d:${d.bn}`, label: `${districtLabel(d.bn)} (${tr('district', 'জেলা')})` })),
   ];
   const listId = `hosp-${district}`;
   function pick(v: string) {
     setMode(v);
+    if (v === 'f') {
+      setListOpen(true);
+      return;
+    }
     if (!v) onChange(null);
+    else if (v.startsWith('f:')) return;
     else if (v === 'h') onChange(hospText.trim().length >= 3 ? { kind: 'hospital', name: hospText.trim() } : null);
     else if (v.startsWith('u:')) onChange({ kind: 'upazila', upazilaId: Number(v.slice(2)) });
     else onChange({ kind: 'district', district: v.slice(2) });
@@ -101,6 +146,18 @@ export function DestPicker({
           />
           {hospitals.length ? <datalist id={listId}>{hospitals.map((h) => <option key={h} value={h} />)}</datalist> : null}
         </>
+      ) : null}
+      {listOpen ? (
+        <FacilityDialog
+          title={tr('Choose hospital or clinic', 'হাসপাতাল বা ক্লিনিক বাছুন')}
+          district={district}
+          onClose={() => setListOpen(false)}
+          onPick={(f) => {
+            setListOpen(false);
+            if (exclude.includes(`f:${f.facilityId}`)) return;
+            onChange(fromFacility(f));
+          }}
+        />
       ) : null}
     </div>
   );

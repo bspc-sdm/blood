@@ -322,7 +322,8 @@ test('সীমা: একসাথে একটাই চালু, ঘণ্�
   assert.strictEqual((await call(null, 'ambulances', { district: DISTRICT })).status, 200);
   // ভুল তথ্য
   assert.strictEqual((await ask(P, { phone: '123' })).status, 400);
-  assert.strictEqual((await ask(P, { pickup: '  ' })).status, 400);
+  // জায়গা (GPS/ম্যাপ) না থাকলে লেখা লাগে (২.৩১.০: জায়গা থাকলে লেখা ঐচ্ছিক — নিচের "জায়গা" টেস্ট)
+  assert.strictEqual((await ask(P, { pickup: '  ', gps: false })).status, 400);
 });
 
 test('ডেমো আর আসল আলাদা: ডেমো রোগী শুধু ডেমো গাড়িতে, আসল রোগী ডেমোতে নয়', async () => {

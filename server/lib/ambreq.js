@@ -41,6 +41,11 @@
 //   - পুরোনো অ্যাপ (গন্তব্য ছাড়া ডাকা) আগের মতো: ভাড়ার ছাঁকনি নেই, প্রথম "আসছি" পায় (quote: false)।
 //   - গোপনীয়তা আগের মতো: রাজির আগে চালক দূরত্ব, গন্তব্য, ধরন, ঠিকানা/নোট দেখেন; ঠিক GPS আর ফোন শুধু রাজি চালক।
 //     গন্তব্যও ২৪ ঘণ্টা পর মোছে।
+//
+// জায়গা (২.৩১.০, পারভেজ, ১৯ অক্টোবর ২০২৬; lib/ambplace.js): "এখনকার জায়গা" (GPS) বা "Google ম্যাপ থেকে" (শেয়ার/লিংক) —
+//   দুটোই lat/lng + gps:true হয়ে আসে। জায়গা থাকলে উপজেলা না দিলেও চলে (সবচেয়ে কাছের উপজেলা-কেন্দ্র থেকে আপনা থেকে),
+//   আর "লোকেশন লিখুন" (pickup) ঐচ্ছিক; জায়গা না থাকলে আগের মতো উপজেলা আর লেখা দুটোই লাগে।
+//   গন্তব্য হাসপাতাল/ক্লিনিকের তালিকা থেকে (facilityId) বা লেখা — lib/ambfare.js।
 const { db, FieldValue, HttpError } = require('./firebase');
 const geo = require('./geo');
 const R = require('./rules');
@@ -86,6 +91,24 @@ const err = (req, status, en, bn, code) => new HttpError(status, C.tr(req, en, b
 const wholeKm = (km) => (km < 1 ? 0 : Math.round(km));
 
 /** রোগীর ঠিক জায়গা (বাংলাদেশের ভেতরে), ৫ দশমিকে (~১ মিটার) — শুধু রাজি হওয়া চালকের জন্য */
+/**
+ * ডাকা আর গোনার জায়গা: জেলা, উপজেলা (না দিলে জায়গা থেকে আপনা থেকে), ঠিক জায়গা (জেলা থেকে অনেক দূরে হলে বাদ)।
+ * upazilaAuto: উপজেলা জায়গা থেকে বের করা হয়েছে।
+ */
+function placeOf(b) {
+  let upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
+  let p = b.gps === true ? exactPoint(b.lat, b.lng) : null;
+  // বেছে নেওয়া জেলা থেকে অনেক দূরের GPS (ভুল জেলা) — এলাকা ধরে
+  const dc = DISTRICTS.find((d) => d.bn === b.district);
+  if (p && geo.distanceKm(p.lat, p.lng, dc.lat, dc.lng) > MAX_KM) p = null;
+  let upazilaAuto = false;
+  if (!upazilaId && p) {
+    upazilaId = require('./ambplace').nearestUpazila(b.district, p.lat, p.lng);
+    upazilaAuto = upazilaId != null;
+  }
+  return { upazilaId, p, upazilaAuto };
+}
+
 function exactPoint(lat, lng) {
   if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < 20.3 || lat > 26.8 || lng < 87.9 || lng > 92.8) return null;
@@ -503,19 +526,16 @@ const actions = {
     const b = req.body || {};
     const now = Date.now();
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 400, 'Choose a district', 'জেলা বেছে নিন');
-    const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
+    const { upazilaId, p, upazilaAuto } = placeOf(b);
     // ইউনিয়ন/এলাকা (২.২৯.০): শুধু চালকের জানার জন্য (ঠিকানার সাথে) — বাছাই উপজেলা ধরে
-    const unionId = upazilaId && Number.isInteger(b.unionId) && UNION.get(b.unionId)?.upazilaId === upazilaId ? b.unionId : null;
+    const unionId = upazilaId && !upazilaAuto && Number.isInteger(b.unionId) && UNION.get(b.unionId)?.upazilaId === upazilaId ? b.unionId : null;
     const type = require('./catalog').codes('ambulanceType').includes(b.type) ? b.type : null;
     const phone = K.normalizeBd(b.phone);
     if (!phone) throw err(req, 400, 'Enter a mobile number the driver can call', 'চালক ফোন করতে পারেন এমন মোবাইল নম্বর দিন');
+    // জায়গা (GPS/ম্যাপ) থাকলে লেখা ঐচ্ছিক (উপজেলা অ্যাপেই বাধ্যতামূলক — পুরোনো অ্যাপ জেলা দিয়েও ডাকে)
     const pickup = K.str(b.pickup, 160);
-    if (!pickup) throw err(req, 400, 'Write where to pick up (address or landmark)', 'কোথা থেকে নেবে লিখুন (ঠিকানা বা চেনা জায়গা)');
+    if (!pickup && !p) throw err(req, 400, 'Write where to pick up (address or landmark)', 'কোথা থেকে নেবে লিখুন (ঠিকানা বা চেনা জায়গা)');
     const note = K.str(b.note, 200);
-    let p = b.gps === true ? exactPoint(b.lat, b.lng) : null;
-    // বেছে নেওয়া জেলা থেকে অনেক দূরের GPS (ভুল জেলা) — এলাকা ধরে
-    const dc = DISTRICTS.find((d) => d.bn === b.district);
-    if (p && geo.distanceKm(p.lat, p.lng, dc.lat, dc.lng) > MAX_KM) p = null;
     const r = { uid: user.uid, gps: !!p, ...(p || {}), upazilaId, type, district: b.district, ...fareParams(req, b, now) };
 
     const all = candidates(await districtAmbulances(b.district), r, [], now);
@@ -562,7 +582,7 @@ const actions = {
         uid: user.uid,
         ...(require('./demo').isDemoUid(user.uid) ? { demo: true } : {}),
         status: 'open', active: true, wave: 1,
-        district: b.district, upazilaId, unionId, type,
+        district: b.district, upazilaId, unionId, type, ...(upazilaAuto ? { upazilaAuto: true } : {}),
         gps: !!p, ...(p ? { lat: p.lat, lng: p.lng } : {}),
         pickup, note, phone: K.localBd(phone),
         ...(r.quote ? { quote: true, dest: r.dest, maxFare: r.maxFare, includeUnknown: r.includeUnknown, oxygen: r.oxygen, night: r.night, est: w.est, quotes: {} } : {}),
@@ -588,16 +608,15 @@ const actions = {
     const b = req.body || {};
     const now = Date.now();
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 400, 'Choose a district', 'জেলা বেছে নিন');
-    const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
+    const { upazilaId, p, upazilaAuto } = placeOf(b);
     const type = require('./catalog').codes('ambulanceType').includes(b.type) ? b.type : null;
-    let p = b.gps === true ? exactPoint(b.lat, b.lng) : null;
-    const dc = DISTRICTS.find((d) => d.bn === b.district);
-    if (p && geo.distanceKm(p.lat, p.lng, dc.lat, dc.lng) > MAX_KM) p = null;
     const r = { uid: user.uid, gps: !!p, ...(p || {}), upazilaId, type, district: b.district, ...fareParams(req, b, now) };
     const docs = await require('./memcache').cached(`ambreq:district:${b.district}`, 10 * SEC, () => districtAmbulances(b.district));
     const all = candidates(docs, r, [], now);
     const count = affordable(all, r).length;
-    if (!r.quote) return { count, total: all.length, unknown: 0, levels: {}, raiseTo: null, hospitals: [], night: FARE.isNight(now) };
+    // জায়গা থেকে বের করা উপজেলা (শিটে "উপজেলা: … (জায়গা থেকে)")
+    const auto = upazilaAuto ? { upazilaId } : {};
+    if (!r.quote) return { count, total: all.length, unknown: 0, levels: {}, raiseTo: null, hospitals: [], night: FARE.isNight(now), ...auto };
     const levels = Object.fromEntries(FARE.LEVELS.map((l) => [l, all.filter((c) => FARE.fits(c.est, l, r.includeUnknown)).length]));
     // কাছের গাড়িগুলোর তালিকায় থাকা হাসপাতাল (নাম শুধু — কোন গাড়ির তা নয়)
     const ids = new Set(all.map((c) => c.id));
@@ -618,6 +637,7 @@ const actions = {
       raiseTo: count ? null : FARE.raiseTo(all.map((c) => c.est), r.maxFare),
       hospitals,
       night: r.night,
+      ...auto,
     };
   },
 

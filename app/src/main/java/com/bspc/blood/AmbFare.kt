@@ -43,21 +43,32 @@ import org.json.JSONObject
  * হিসাব সার্ভারে (server/lib/ambfare.js) — এখানে শুধু দেখানো আর বাছাই।
  */
 
-/** গন্তব্য: kind = upazila (upazilaId) / district (district) / hospital (name) */
-data class Dest(val kind: String, val upazilaId: Int? = null, val district: String? = null, val name: String? = null) {
+/**
+ * গন্তব্য: kind = upazila (upazilaId) / district (district) / hospital (name)।
+ * ২.৩১.০: হাসপাতাল/ক্লিনিকের তালিকা থেকে বাছা হলে facilityId (সাথে সেটার upazilaId/district — ভাড়ার তালিকায় id দিয়ে মেলে,
+ * নইলে হাসপাতালের উপজেলা/জেলা ধরে; সার্ভার তালিকা থেকেই বসায়), "অন্য জায়গা লিখুন" হলে শুধু name।
+ */
+data class Dest(val kind: String, val upazilaId: Int? = null, val district: String? = null, val name: String? = null, val facilityId: String? = null) {
     fun json(): JSONObject = JSONObject().put("kind", kind).apply {
         when (kind) {
             "upazila" -> put("upazilaId", upazilaId)
             "district" -> put("district", district)
-            else -> put("name", name)
+            else -> {
+                put("name", name)
+                if (facilityId != null) {
+                    put("facilityId", facilityId)
+                    if (upazilaId != null) put("upazilaId", upazilaId)
+                    if (district != null) put("district", district)
+                }
+            }
         }
     }
 
-    /** তালিকায় একই গন্তব্য দুবার নয় (হাসপাতাল বাদে — নাম মেলানো সার্ভারে) */
+    /** তালিকায় একই গন্তব্য দুবার নয় (লেখা হাসপাতাল বাদে — নাম মেলানো সার্ভারে) */
     val key: String get() = when (kind) {
         "upazila" -> "u:$upazilaId"
         "district" -> "d:$district"
-        else -> "h"
+        else -> if (facilityId != null) "f:$facilityId" else "h"
     }
 
     fun label(): String = when (kind) {
@@ -72,7 +83,9 @@ data class Dest(val kind: String, val upazilaId: Int? = null, val district: Stri
             return when (o.str("kind")) {
                 "upazila" -> o.intOrNull("upazilaId")?.let { Dest("upazila", upazilaId = it) }
                 "district" -> o.str("district").ifBlank { null }?.let { Dest("district", district = it) }
-                "hospital" -> o.str("name").ifBlank { null }?.let { Dest("hospital", name = it) }
+                "hospital" -> o.str("name").ifBlank { null }?.let {
+                    Dest("hospital", name = it, facilityId = o.str("facilityId").ifBlank { null }, upazilaId = o.intOrNull("upazilaId"), district = o.str("district").ifBlank { null })
+                }
                 else -> null
             }
         }
@@ -138,14 +151,16 @@ fun DestPicker(
     val context = LocalContext.current
     remember(context) { Areas.ensure(context); true }
     var open by remember { mutableStateOf(false) }
-    var hospMode by remember { mutableStateOf(value?.kind == "hospital") }
+    // ২.৩১.০: হাসপাতাল/ক্লিনিক তালিকা থেকে (facilityId) — লেখার ঘর লাগে না
+    var listOpen by remember { mutableStateOf(false) }
+    var hospMode by remember { mutableStateOf(value?.kind == "hospital" && value.facilityId == null) }
     var hospText by remember { mutableStateOf(value?.name ?: "") }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge)
         OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag(tag)) {
             Text(
                 when {
-                    hospMode -> tr("A hospital", "হাসপাতাল")
+                    hospMode -> tr("Another hospital", "অন্য হাসপাতাল")
                     value != null -> value.label()
                     else -> tr("Choose…", "বেছে নিন…")
                 },
@@ -178,6 +193,19 @@ fun DestPicker(
         }
         if (showError && value == null) ErrorText(tr("Choose where to go", "\"কোথায় যাবেন\" বেছে নিন"))
     }
+    if (listOpen) {
+        FacilityDialog(
+            title = tr("Choose hospital or clinic", "হাসপাতাল বা ক্লিনিক বাছুন"), district = district, near = null, allowOther = false,
+            onPick = { d ->
+                listOpen = false
+                if (d.key !in exclude) {
+                    hospMode = false
+                    onChange(d)
+                }
+            },
+            onDismiss = { listOpen = false },
+        )
+    }
     if (open) {
         var q by remember { mutableStateOf("") }
         val norm = Areas.bnNorm(q.trim())
@@ -185,8 +213,9 @@ fun DestPicker(
         val dists = Districts.ALL.sortedBy { if (isBangla) it.bn else it.en }.filter { "d:${it.bn}" !in exclude }
         fun hit(bn: String, en: String) = norm.isEmpty() || Areas.bnNorm(bn).contains(norm) || en.contains(q.trim(), true)
         val options: List<Pair<String, Dest?>> =
+            listOf(tr("A hospital or clinic — from the list", "হাসপাতাল বা ক্লিনিক — তালিকা থেকে") to Dest("pick")) +
             ups.filter { hit(it.bn, it.en) }.map { "${it.label} (${tr("upazila", "উপজেলা")})" to Dest("upazila", upazilaId = it.id) } +
-                listOf(tr("A hospital (type the name)", "কোনো হাসপাতাল (নাম লিখুন)") to null) +
+                listOf(tr("Another hospital (type the name)", "অন্য হাসপাতাল (নাম লিখুন)") to null) +
                 dists.filter { hit(it.bn, it.en) }.map { "${Districts.label(it.bn)} (${tr("district", "জেলা")})" to Dest("district", district = it.bn) }
         AlertDialog(
             onDismissRequest = { open = false },
@@ -199,10 +228,12 @@ fun DestPicker(
                             Text(
                                 text,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (d == null) FontWeight.SemiBold else FontWeight.Normal,
+                                fontWeight = if (d == null || d.kind == "pick") FontWeight.SemiBold else FontWeight.Normal,
                                 modifier = Modifier.fillMaxWidth().clickable {
                                     open = false
-                                    if (d == null) {
+                                    if (d?.kind == "pick") {
+                                        listOpen = true
+                                    } else if (d == null) {
                                         hospMode = true
                                         val t = hospText.trim()
                                         onChange(if (t.length >= 3) Dest("hospital", name = t) else null)

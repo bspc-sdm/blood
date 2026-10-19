@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Check, ChoiceChips, Dialog, EmptyState, ErrorText, IconLine, Loading, TextArea, TextInput, useNow } from '@/ui/kit';
-import { DestPicker, FARE_LEVELS, parseTaka, taka, type Dest } from './fare';
+import { DestField, FARE_LEVELS, parseTaka, taka, type Dest } from './fare';
 import { LocationInput, locationError, type LocationValue } from './LocationInput';
 import { Icon } from '@/ui/Icon';
 import { FormPage } from '@/shell/templates';
@@ -55,7 +55,7 @@ export interface AmbReq {
   unknownFree?: number;
 }
 export interface AmbQuote { id: string; name: string; types: string[]; km: number | null; kmApprox?: boolean; fare: number; rating: number; ratingCount: number; at: number; expiresAt: number }
-interface FareCount { count: number; total: number; unknown: number; levels: Record<string, number>; raiseTo: number | null; hospitals: string[]; night: boolean }
+interface FareCount { count: number; total: number; unknown: number; levels: Record<string, number>; raiseTo: number | null; hospitals: string[]; night: boolean; upazilaId?: number }
 export const isActive = (r: AmbReq | null | undefined) => !!r && ['open', 'accepted', 'arrived'].includes(r.status);
 
 const LAST_PICKUP = 'lf.amb.pickup';
@@ -190,8 +190,8 @@ function FareCountLine({ count, counting, dest, includeUnknown, onRaise, onUnkno
 
 // ---------- নিশ্চিত করার ঘর ----------
 /**
- * উপরে গাড়ির ধরন (বাধ্যতামূলক, "যেকোনো" আগে থেকে; তালিকায় ছাঁকা ধরন থাকলে সেটা), তারপর এলাকা (LocationInput: জেলা › উপজেলা ›
- * ইউনিয়ন + চেনা জায়গা + ঐচ্ছিক এখনকার জায়গা), নোট, মোবাইল।
+ * উপরে গাড়ির ধরন (বাধ্যতামূলক, "যেকোনো" আগে থেকে; তালিকায় ছাঁকা ধরন থাকলে সেটা), তারপর "কোথা থেকে নেবে" (LocationInput:
+ * এখনকার জায়গা / Google ম্যাপ থেকে / লোকেশন লিখুন + এলাকা), "কোথায় যাবেন" (হাসপাতাল/ক্লিনিকের তালিকা — DestField), নোট, মোবাইল।
  * gps: আগে থেকে পাওয়া ব্রাউজারের লোকেশন (বেছে নেওয়া জেলার ভেতরে); target: বিস্তারিত থেকে একটা গাড়ি — সেটা আগে
  */
 export function RequestDialog({
@@ -210,6 +210,7 @@ export function RequestDialog({
       unionId: same ? last!.unionId ?? null : null,
       landmark: store.get(LAST_PICKUP) ?? '',
       point: gps,
+      pointFrom: gps ? 'gps' : null,
     };
   });
   const [note, setNote] = useState('');
@@ -285,7 +286,7 @@ export function RequestDialog({
       store.set(LAST_PICKUP, loc.landmark.trim());
       store.setJson(LAST_DEST, dest);
       store.set(LAST_BUDGET, maxFare == null ? 'any' : String(maxFare));
-      store.setJson(LAST_AREA, { district: loc.district, upazilaId: loc.upazilaId, unionId: loc.unionId });
+      if (!loc.upazilaAuto) store.setJson(LAST_AREA, { district: loc.district, upazilaId: loc.upazilaId, unionId: loc.unionId });
       qc.invalidateQueries({ queryKey: ['ambreq_status'] });
       nav(`/services/ambulance/call/${r.id}`);
     } catch (x) {
@@ -321,11 +322,11 @@ export function RequestDialog({
       </p>
       <LocationInput value={loc} onChange={(v) => { setLoc(v); setErr(null); }} showErrors={tried} />
       <div className="col gap-6" data-testid="amb-dest">
-        <DestPicker
+        <DestField
           label={tr('Where to go', 'কোথায় যাবেন')}
           district={loc.district}
+          near={loc.point}
           value={dest}
-          hospitals={count?.hospitals ?? []}
           error={tried && !dest ? tr('Choose where to go', '"কোথায় যাবেন" বেছে নিন') : null}
           onChange={(d) => { setDest(d); setErr(null); }}
         />
