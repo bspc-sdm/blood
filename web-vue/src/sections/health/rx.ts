@@ -63,3 +63,6 @@ export interface PlaceLab {
 }
 /** সেবার তালিকার ফার্মেসি — যতটুকু লাগে */
 export interface PlacePharmacy { id: string; name: string; district: string }
+
+/** কোড চার অক্ষর করে ভাগ: "AB23CD45EF" → "AB23 CD45 EF" (দোকানে পড়ে লেখা সহজ) */
+export const groupCode = (code: string) => (code.match(/.{1,4}/g) ?? []).join(' ');

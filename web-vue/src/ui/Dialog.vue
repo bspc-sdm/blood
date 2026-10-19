@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // ডায়ালগ / মোবাইলে নিচের শিট — Reka UI-র Dialog (ফোকাস আটকে রাখা, Esc, বাইরে চাপলে বন্ধ, পেছনের পাতা স্ক্রল বন্ধ)।
 // দেখতে React-এর মতো: .overlay(.sheet) > .dialog; খোলার সময় আগে লেখার ঘর, না থাকলে প্রথম বাটনে ফোকাস।
-import { ref } from 'vue';
+import { computed, ref, useSlots } from 'vue';
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
 import { tr } from '@/lib/i18n';
 import IconButton from './IconButton.vue';
@@ -11,6 +11,7 @@ const props = withDefaults(defineProps<{ open?: boolean; title?: string | null; 
   sheet: true,
 });
 const emit = defineEmits<{ close: [] }>();
+const slots = useSlots();
 const box = ref<InstanceType<typeof DialogContent> | null>(null);
 
 function focusFirst(e: Event) {
@@ -22,10 +23,15 @@ function focusFirst(e: Event) {
     (f ?? el).focus();
   }, 30);
 }
+// Reka নিজে role="dialog" আর aria-labelledby (শিরোনাম) বসায় — undefined দিয়ে মুছে না ফেলে শুধু যেটা দরকার সেটাই
+const extra = computed(() => ({
+  ...(props.role ? { role: props.role } : {}),
+  ...(!props.title && !slots.title && props.labelledBy ? { 'aria-labelledby': props.labelledBy } : {}),
+  'aria-describedby': undefined,
+}));
 function onOpen(v: boolean) {
   if (!v) emit('close');
 }
-void props;
 </script>
 
 <template>
@@ -35,9 +41,7 @@ void props;
         <DialogContent
           ref="box"
           :class="['dialog', size]"
-          :role="role"
-          :aria-labelledby="title || $slots.title ? undefined : labelledBy"
-          :aria-describedby="undefined"
+          v-bind="extra"
           tabindex="-1"
           @open-auto-focus="focusFirst"
         >

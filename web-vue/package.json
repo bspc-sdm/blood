@@ -17,8 +17,8 @@
     "check:bangla": "python3 scripts/check-bangla.py"
   },
   "dependencies": {
-    "@fontsource/hind-siliguri": "^5.3.0",
-    "@fontsource/roboto": "^5.3.0",
+    "@fontsource/hind-siliguri": "5.1.0",
+    "@fontsource/roboto": "5.1.0",
     "@tanstack/vue-query": "^5.104.4",
     "firebase": "^11.10.0",
     "geofire-common": "^6.0.0",
