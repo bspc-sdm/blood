@@ -203,9 +203,11 @@ class DemoServicesIT : DemoTestBase() {
         // ---------- wipe ----------
         ok(OWNER, "admin_demo_wipe")
         assertEquals(emptyList<String>(), demoLeft())
-        for (t in listOf("pharmacies", "pharmacy_stock", "pharmacy_missed", "pharmacy_calls", "pharmacy_ratings", "med_finds", "rx_orders", "prescriptions", "labs", "lab_prices", "ambulances", "ambulance_calls", "providers", "badges", "home_calls", "mod_reports", "verify_docs", "user_profiles", "user_state", "inbox_items", "listing_stats")) {
+        for (t in listOf("pharmacies", "pharmacy_stock", "pharmacy_missed", "pharmacy_calls", "pharmacy_ratings", "med_finds", "rx_orders", "prescriptions", "labs", "lab_prices", "ambulances", "ambulance_calls", "providers", "badges", "home_calls", "mod_reports", "verify_docs", "user_state", "inbox_items", "listing_stats")) {
             assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM $t", Int::class.java), t)
         }
+        // only the (real) owner's profile is left
+        assertEquals(listOf(OWNER), jdbc.queryForList("SELECT uid FROM user_profiles", String::class.java))
     }
 
     @Test
