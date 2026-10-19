@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Check, ChoiceChips, Dialog, EmptyState, ErrorText, Field, Loading, Tag, cx } from '@/ui/kit';
+import { Button, Check, ChoiceChips, Dialog, EmptyState, ErrorText, Field, Loading, PillTabs, Tag, cx } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { AreaPicker, type AreaValue } from '@/ui/AreaPicker';
 import { call, errorText } from '@/lib/api';
@@ -549,5 +549,100 @@ export function WorkEmpty(props: { icon: string; title: string; text?: string; c
     <div className="work-empty">
       <EmptyState {...props} />
     </div>
+  );
+}
+
+// ---------- ফার্মেসি আর প্যাথলজির দুই ট্যাব (২.২৭.০, অ্যাপের MyWorkTabs.kt) ----------
+// ফার্মেসি: "অর্ডার" (/work/pharmacy/orders — শুরুতে) · "দোকান" (/work/pharmacy/shop, আর ওয়েবের হিসাব-খাতা: স্টক, মাল কেনা, বিক্রি, হিসাব)
+// প্যাথলজি: "অনুরোধ" (/work/lab/orders) · "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা)
+// পুরোনো লিংক (/work/pharmacy, /work/lab, …/orders/online, নোটিফিকেশন) আগের মতোই খোলে — index.tsx।
+export type PharmTab = 'orders' | 'shop' | 'stock' | 'buy' | 'sales' | 'books';
+export type LabTab = 'orders' | 'info' | 'prices' | 'ranges';
+
+/** "নতুন" কয়টা — সার্ভারের counts (তালিকার পাতার একই চাবি, আবার আনা হয় না) */
+function useNewCount(action: 'rx_orders_pharmacy' | 'lab_orders', enabled: boolean) {
+  const q = useCall<{ items: { status: string; seg?: string }[]; counts?: Record<string, number> }>(action, {}, { enabled, refetchInterval: 60_000 });
+  return q.data?.counts?.new ?? q.data?.items.filter((o) => (o.seg ? o.seg === 'new' : o.status === 'sent')).length ?? 0;
+}
+
+export function PharmacyTabs({ active }: { active: PharmTab }) {
+  const nav = useNavigate();
+  const s = useSession();
+  const approved = (s.work.pharmacy as { status?: string } | null)?.status === 'approved';
+  const fresh = useNewCount('rx_orders_pharmacy', approved);
+  if (!approved) return null;
+  const top = active === 'orders' ? 'orders' : 'shop';
+  return (
+    <div className="col gap-8 work-tabs">
+      <PillTabs
+        label={myBusinessTitle('pharmacy')}
+        value={top}
+        onChange={(k) => nav(k === 'orders' ? '/work/pharmacy/orders' : '/work/pharmacy/shop')}
+        tabs={[
+          { key: 'orders', label: tr('Orders', 'অর্ডার'), icon: 'medication', count: fresh },
+          { key: 'shop', label: tr('Shop', 'দোকান'), icon: 'storefront' },
+        ]}
+      />
+      {top === 'shop' ? (
+        <PillTabs
+          secondary
+          label={tr('Shop', 'দোকান')}
+          value={active}
+          onChange={(k) => nav(k === 'shop' ? '/work/pharmacy/shop' : `/work/pharmacy/orders/${k}`)}
+          tabs={[
+            { key: 'shop', label: tr('Shop & settings', 'দোকান ও সেটিং'), icon: 'storefront' },
+            { key: 'stock', label: tr('Products & stock', 'পণ্য ও স্টক'), icon: 'list_alt' },
+            { key: 'buy', label: tr('Stock in', 'মাল কেনা'), icon: 'storefront' },
+            { key: 'sales', label: tr('Sales', 'বিক্রি'), icon: 'payments' },
+            { key: 'books', label: tr('Accounts', 'হিসাব'), icon: 'history' },
+          ]}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function LabTabs({ active }: { active: LabTab }) {
+  const nav = useNavigate();
+  const s = useSession();
+  const approved = (s.work.lab as { status?: string } | null)?.status === 'approved';
+  const fresh = useNewCount('lab_orders', approved);
+  if (!approved) return null;
+  const top = active === 'orders' ? 'orders' : 'lab';
+  return (
+    <div className="col gap-8 work-tabs">
+      <PillTabs
+        label={myBusinessTitle('lab')}
+        value={top}
+        onChange={(k) => nav(k === 'orders' ? '/work/lab/orders' : '/work/lab/info')}
+        tabs={[
+          { key: 'orders', label: tr('Requests', 'অনুরোধ'), icon: 'list_alt', count: fresh },
+          { key: 'lab', label: tr('Lab', 'ল্যাব'), icon: 'local_hospital' },
+        ]}
+      />
+      {top === 'lab' ? (
+        <PillTabs
+          secondary
+          label={tr('Lab', 'ল্যাব')}
+          value={active}
+          onChange={(k) => nav(k === 'info' ? '/work/lab/info' : `/work/lab/orders/${k}`)}
+          tabs={[
+            { key: 'info', label: tr('Lab details', 'ল্যাবের তথ্য'), icon: 'local_hospital' },
+            { key: 'prices', label: tr('Tests & prices', 'পরীক্ষা ও দাম'), icon: 'payments' },
+            { key: 'ranges', label: tr('Normal ranges', 'স্বাভাবিক মাত্রা'), icon: 'tune' },
+          ]}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** একদম নিচে, আলাদা করে: মুছে ফেলা */
+export function DangerZone({ children }: { children: ReactNode }) {
+  return (
+    <section className="work-danger">
+      <hr className="divider" />
+      <div className="row wrap gap-8">{children}</div>
+    </section>
   );
 }

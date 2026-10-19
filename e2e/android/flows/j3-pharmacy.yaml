@@ -1,4 +1,4 @@
-# যাত্রা ৩ — ফার্মেসি: আমার কাজ, আসা প্রেসক্রিপশন, "তৈরি", ওষুধ দেওয়া, "বিক্রির হিসাবে তুলবেন?"
+# যাত্রা ৩ — ফার্মেসি: আমার কাজ, "অর্ডার" ট্যাব (নতুন · চলছে · শেষ), "তৈরি", কোড দিয়ে খুলে ওষুধ দেওয়া, "বিক্রির হিসাবে তুলবেন?", "দোকান" ট্যাব
 appId: com.bspc.blood
 env:
   J: j3
@@ -11,43 +11,63 @@ env:
     timeout: 30000
 - takeScreenshot: j3-01-my-work
 - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+# ২.২৭.০: দুই ট্যাব — শুরুতে "অর্ডার", "নতুন" ভাগ
 - extendedWaitUntil:
-    visible: ".*তথ্য বদলান.*"
+    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 30000
-- takeScreenshot: j3-02-my-pharmacy
-- scrollUntilVisible:
-    element: "আপনার কাছে পাঠানো"
-    direction: DOWN
-    timeout: 30000
-    optional: true
-- takeScreenshot: j3-03-incoming
-- scroll
-- takeScreenshot: j3-04-incoming-more
+- takeScreenshot: j3-02-orders-new
 - scrollUntilVisible:
     element: "দোকানে এসেছেন"
     direction: DOWN
     timeout: 20000
     centerElement: true
     optional: true
-- takeScreenshot: j3-04b-shop-order
+- takeScreenshot: j3-03-shop-order
 - tapOn:
     text: "তৈরি"
     below: "দোকানে এসেছেন"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
-- takeScreenshot: j3-05-marked-ready
-# প্রেসক্রিপশনের কোড দিয়ে খোলা (রহিমের DEMXRXB333) — ১টা Comet দেওয়া
+- takeScreenshot: j3-04-marked-ready
 - scrollUntilVisible:
-    element: ".*প্রেসক্রিপশনের কোড.*"
+    element: ".*চলছে / তৈরি.*"
     direction: UP
     timeout: 15000
+    optional: true
+- tapOn:
+    text: ".*চলছে / তৈরি.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j3-05-seg-active
+- tapOn:
+    text: "শেষ"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j3-05b-seg-closed
+# প্রেসক্রিপশনের কোড দিয়ে খোলা (রহিমের DEMXRXB333) — ১টা Comet দেওয়া
+- scrollUntilVisible:
+    element: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+    direction: UP
+    timeout: 15000
+- tapOn: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+- extendedWaitUntil:
+    visible: ".*প্রেসক্রিপশনের কোড.*"
+    timeout: 10000
+- takeScreenshot: j3-05c-code-dialog
 - tapOn: ".*প্রেসক্রিপশনের কোড.*"
 - inputText: "DEMXRXB333"
-- hideKeyboard
-- tapOn:
-    text: "খুলুন"
-    index: 0
+- pressKey: Enter
+- runFlow:
+    when:
+      visible: ".*প্রেসক্রিপশনের কোড.*"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          text: "খুলুন"
+          index: 0
 - extendedWaitUntil:
     visible: ".*ওষুধ দিন.*"
     timeout: 30000
@@ -79,3 +99,19 @@ env:
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j3-09-after-not-now
+# "দোকান" ট্যাব: তথ্য, QR, বন্ধ রাখা, বিক্রি ও স্টক, ওষুধ খোঁজার অনুরোধ, একদম নিচে মুছে ফেলা
+- tapOn:
+    text: "দোকান"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*তথ্য বদলান.*"
+    timeout: 20000
+- takeScreenshot: j3-10-shop-tab
+- scroll
+- takeScreenshot: j3-11-shop-more
+- scrollUntilVisible:
+    element: ".*ফার্মেসি মুছে ফেলুন.*"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+- takeScreenshot: j3-12-shop-bottom

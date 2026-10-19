@@ -1,8 +1,9 @@
 // "আমার কাজ" (/work/*) — নিজের অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি আর পেশাদারের চেম্বার (অ্যাপের Work.kt)
 import { lazy, Suspense } from 'react';
-import { matchPath, useLocation } from 'react-router-dom';
+import { Navigate, matchPath, useLocation } from 'react-router-dom';
 import { Loading } from '@/ui/kit';
 import { useLang } from '@/lib/i18n';
+import { useSession } from '@/lib/session';
 import { NotFound } from '@/pages/NotFound';
 import { WorkOverview } from './overview';
 import { AddBusiness } from './add';
@@ -42,7 +43,9 @@ export default function WorkSection() {
   const amb = m('/work/ambulance/:id');
   if (amb) return <AmbulanceForm key={amb.params.id} id={amb.params.id ?? null} />;
 
-  if (m('/work/pharmacy')) return <MyPharmacy />;
+  // ২.২৭.০: দুই ট্যাব — অনুমোদিত হলে /work/pharmacy (পুরোনো লিংক, নোটিফিকেশন) খোলে "অর্ডার"-এ; দোকানের পাতা /work/pharmacy/shop
+  if (m('/work/pharmacy')) return <BizHome kind="pharmacy" />;
+  if (m('/work/pharmacy/shop')) return <MyPharmacy />;
   if (m('/work/pharmacy/new') || m('/work/pharmacy/edit')) return <PharmacyForm />;
 
   if (m('/work/bloodbank')) return <MyBloodBanks />;
@@ -50,8 +53,18 @@ export default function WorkSection() {
   const bb = m('/work/bloodbank/:id');
   if (bb) return <BloodBankForm key={bb.params.id} id={bb.params.id ?? null} />;
 
-  if (m('/work/lab')) return <MyLab />;
+  if (m('/work/lab')) return <BizHome kind="lab" />;
+  if (m('/work/lab/info')) return <MyLab />;
   if (m('/work/lab/new') || m('/work/lab/edit')) return <LabForm />;
 
   return <NotFound />;
+}
+
+/** /work/pharmacy, /work/lab: অনুমোদিত হলে প্রথম ট্যাব (অর্ডার/অনুরোধ, "নতুন" ভাগ); নইলে (যোগ করা, যাচাই চলছে) নিজের পাতা */
+function BizHome({ kind }: { kind: 'pharmacy' | 'lab' }) {
+  const s = useSession();
+  const { search, state } = useLocation();
+  const biz = (kind === 'pharmacy' ? s.work.pharmacy : s.work.lab) as { status?: string } | null;
+  if (biz?.status === 'approved') return <Navigate to={`/work/${kind}/orders${search}`} replace state={state} />;
+  return kind === 'pharmacy' ? <MyPharmacy /> : <MyLab />;
 }

@@ -117,3 +117,8 @@
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 12px;
   background: var(--tertiary-container); color: var(--on-tertiary-container);
 }
+
+/* ফার্মেসি/প্যাথলজির দুই ট্যাব (২.২৭.০) — অর্ডার·দোকান, অনুরোধ·ল্যাব */
+.work-tabs { margin: -4px -16px 4px; min-width: 0; }
+/* একদম নিচে আলাদা করে মুছে ফেলা */
+.work-danger { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }

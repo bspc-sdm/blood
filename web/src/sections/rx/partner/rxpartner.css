@@ -171,3 +171,15 @@
 .lp-on input { width: 18px; height: 18px; accent-color: var(--primary); }
 .lp-home-tag { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; max-width: 100%; padding: 2px 10px; border-radius: 999px; background: var(--tertiary-container, var(--secondary-container)); color: var(--on-tertiary-container, var(--on-secondary-container)); font-size: 13px; font-weight: 600; line-height: 20px; }
 .lp-home-tag svg { width: 16px; height: 16px; flex: none; }
+
+/* ২.২৭.০ "অর্ডার" ট্যাব: উপরে কোড দিয়ে খোলা (চোখে পড়ার মতো), কার্ডে খোলা প্রেসক্রিপশনের দাগ */
+.rxp-open-code { border: 2px solid var(--primary); }
+.rxp-ocard.on { outline: 2px solid var(--primary); outline-offset: -2px; }
+.rxp-mode-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rxp-mode { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 2px 8px; border-radius: 8px; font-size: 12px; line-height: 18px; font-weight: 600; white-space: nowrap; }
+.rxp-mode svg { width: 14px; height: 14px; }
+.rxp-mode.remote { background: var(--primary-container); color: var(--on-primary-container); }
+.rxp-mode.local { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+/* চাপা যায় এমন কার্ডও (card click = display:block) ভেতরে কলাম — আগে পরীক্ষা আর ডাক্তারের নাম এক লাইনে জুড়ে যেত */
+.rxp-cards > .card.click.col { display: flex; flex-direction: column; }
+@media (max-width: 719px) { .rxp-search-sm { flex-basis: 100%; } }

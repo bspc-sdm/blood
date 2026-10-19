@@ -194,8 +194,12 @@ export function ServiceCard({
 }
 
 // ---------- বিস্তারিত ----------
-/** children: ভাগগুলোর পরে, নিচের ফোনের আগে (যেমন "এই প্যাথলজিতে প্রেসক্রিপশন পাঠান") */
-export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode }) {
+/**
+ * children: ভাগগুলোর পরে, নিচের বারের আগে।
+ * main (২.২৭.০): নিচের আটকানো বারে ফোনের পাশে মূল কাজ (ফার্মেসি/প্যাথলজি "প্রেসক্রিপশন পাঠান") — তখন দুটো পাশাপাশি আধাআধি,
+ * মূল কাজ ভরাট আর ফোন আউটলাইন ("ফোন")। main না থাকলে (অ্যাম্বুলেন্স, ব্লাড ব্যাংক, বাসায় সেবা) বড় ভরাট "ফোন করুন" আগের মতো।
+ */
+export function EntryDetail({ e, backTo, onRate, onReport, children, main }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode; main?: ReactNode }) {
   const nav = useNavigate();
   const two = useTwoPane();
   const { guest } = useSession();
@@ -255,11 +259,22 @@ export function EntryDetail({ e, backTo, onRate, onReport, children }: { e: Entr
       })}
       {children}
       <div className="services-foot">
-        <PhoneLine big phone={e.phone} onCall={() => recordCall(e.kind, e.id, guest)} />
-        {onRate || (e.reportable && onReport) ? (
+        {main ? (
+          <div className="detail-bar-row">
+            <a className="btn outline square has-icon" href={`tel:${e.phone}`} onClick={() => recordCall(e.kind, e.id, guest)}>
+              <Icon name="call" />
+              {tr('Call', 'ফোন')}
+            </a>
+            {main}
+          </div>
+        ) : (
+          <PhoneLine big phone={e.phone} onCall={() => recordCall(e.kind, e.id, guest)} />
+        )}
+        {onRate || (e.reportable && onReport) || main ? (
           <div className="row services-acts">
             {onRate ? <Button variant="text" icon="star" onClick={onRate}>{tr('Rate', 'রেটিং দিন')}</Button> : null}
             <span className="grow" />
+            {main ? <span className="t-body-m muted num services-foot-num">{num(e.phone)}</span> : null}
             {e.reportable && onReport ? (
               <Button variant="text" icon="flag" className="services-report" onClick={onReport}>{tr('Report', 'রিপোর্ট')}</Button>
             ) : null}

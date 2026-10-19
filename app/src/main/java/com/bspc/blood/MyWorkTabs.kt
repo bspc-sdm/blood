@@ -206,7 +206,7 @@ private fun MoreNote(total: Int, shown: Int) {
 @Composable
 private fun ModeTag(remote: Boolean, remoteText: String, localText: String) {
     val cs = MaterialTheme.colorScheme
-    Tag(if (remote) remoteText else localText, if (remote) cs.primaryContainer else cs.secondaryContainer, if (remote) cs.onPrimaryContainer else cs.onSecondaryContainer)
+    Tag(if (remote) remoteText else localText, if (remote) cs.primaryContainer else cs.tertiaryContainer, if (remote) cs.onPrimaryContainer else cs.onTertiaryContainer)
 }
 
 /** দুই ট্যাবের পাতার খোলস: উপরে ট্যাব, নিচে স্ক্রল করা অংশ */

@@ -1,4 +1,5 @@
-// /work/lab — নিজের প্যাথলজি: অবস্থা, কাগজ, বদল; পরীক্ষা আর রিপোর্ট পার্টনার প্যানেলে (অ্যাপের MyLabPanel, LabEditScreen)
+// /work/lab/info (অনুমোদনের আগে /work/lab) — নিজের প্যাথলজি: অবস্থা, কাগজ, বদল, একদম নিচে মুছে ফেলা। ২.২৭.০ থেকে "ল্যাব" ট্যাব;
+// পরীক্ষার অনুরোধ "অনুরোধ" ট্যাবে (/work/lab/orders) — অ্যাপের MyLabPanel (MyWorkTabs.kt), LabEditScreen
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, ErrorText, ListRow, Loading, Switch, TextInput } from '@/ui/kit';
@@ -15,9 +16,8 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, PAPERS_CHANGED, StatusReason, StatusTag, TermsCheck,
   labDocs, missingDocs, myBusinessTitle, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type Lab,
-  WorkEmpty,
+  WorkEmpty, LabTabs, DangerZone,
 } from './shared';
-import { PartnerCard } from './pharmacy';
 
 export function MyLab() {
   const s = useSession();
@@ -63,17 +63,20 @@ export function MyLab() {
   const place = [lab.address, areaLabel(lab.district, lab.upazilaId)].filter(Boolean).join(', ');
   return (
     <BizPage title={title} actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/lab/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}>
+      <LabTabs active="info" />
       <Flash msg={flash} />
       <DocsNeededNotice kind="lab" id={lab.id} specs={labDocs()} item={lab} onDone={after} />
       <div className="ws-grid side">
         <div className="col gap-16">
           {lab.status === 'approved' ? (
-            <PartnerCard
-              icon="list_alt"
-              title={tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট')}
-              sub={tr('Test requests from prescriptions, sample taken, give report', 'প্রেসক্রিপশন থেকে আসা পরীক্ষা, নমুনা নেওয়া, রিপোর্ট দেওয়া')}
-              to="/work/lab/orders"
-            />
+            <section className="card col gap-8">
+              <h3 className="t-title-m">{tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট')}</h3>
+              <p className="t-body-s muted">{tr("Set your test prices, and your machine's normal ranges for reports.", 'পরীক্ষার দাম আর রিপোর্টের জন্য আপনার মেশিনের স্বাভাবিক মাত্রা বসান।')}</p>
+              <div className="row wrap gap-8">
+                <Button variant="tonal" icon="payments" onClick={() => nav('/work/lab/orders/prices')}>{tr('Tests & prices', 'পরীক্ষা ও দাম')}</Button>
+                <Button variant="tonal" icon="tune" onClick={() => nav('/work/lab/orders/ranges')}>{tr('Normal ranges', 'স্বাভাবিক মাত্রা')}</Button>
+              </div>
+            </section>
           ) : (
             <section className="card work-partner">
               <span className="work-ic"><Icon name="schedule" /></span>
@@ -100,14 +103,13 @@ export function MyLab() {
           {lab.hours ? <span className="icon-line"><Icon name="schedule" /><span>{lab.hours}</span></span> : null}
           {lab.homeCollection ? <span className="icon-line"><Icon name="home_health" /><span>{tr('Collects samples from home', 'বাসা থেকে নমুনা নেয়')}</span></span> : null}
           <span className="icon-line"><Icon name="badge" /><span>{tr('DGHS licence number', 'স্বাস্থ্য অধিদপ্তরের লাইসেন্স নম্বর')}: {lab.licenseNo}</span></span>
-          {lab.status !== 'suspended' ? (
-            <>
-              <hr className="divider" />
-              <Button variant="danger-text" disabled={busy} onClick={() => { setDelErr(null); setDel(true); }}>{tr('Remove my lab', 'প্যাথলজি মুছে ফেলুন')}</Button>
-            </>
-          ) : null}
         </aside>
       </div>
+      {lab.status !== 'suspended' ? (
+        <DangerZone>
+          <Button variant="danger-text" icon="delete" disabled={busy} onClick={() => { setDelErr(null); setDel(true); }}>{tr('Remove my lab', 'প্যাথলজি মুছে ফেলুন')}</Button>
+        </DangerZone>
+      ) : null}
       {del ? (
         <ConfirmDialog
           title={tr('Remove your lab?', 'প্যাথলজি মুছে ফেলবেন?')}
@@ -131,8 +133,8 @@ export function LabForm() {
   const existing = s.work.lab as Lab | null;
   const title = existing ? tr('My lab', 'আমার প্যাথলজি') : tr('Add my lab', 'আমার প্যাথলজি যোগ করুন');
   return (
-    <FormPage title={title} backTo="/work/lab">
-      {gate ?? <LabEditor key={existing?.id ?? 'new'} existing={existing} onDone={(flash) => nav('/work/lab', { state: { flash } })} />}
+    <FormPage title={title} backTo={existing ? '/work/lab/info' : '/work/lab'}>
+      {gate ?? <LabEditor key={existing?.id ?? 'new'} existing={existing} onDone={(flash) => nav('/work/lab/info', { state: { flash } })} />}
     </FormPage>
   );
 }
@@ -211,7 +213,7 @@ function LabEditor({ existing, onDone }: { existing: Lab | null; onDone: (flash:
       <TermsCheck checked={agreed} onChange={setAgreed} />
       <ErrorText>{err}</ErrorText>
       <div className="form-actions">
-        <Button variant="text" disabled={busy} onClick={() => nav('/work/lab')}>{tr('Cancel', 'বাতিল')}</Button>
+        <Button variant="text" disabled={busy} onClick={() => nav(existing ? '/work/lab/info' : '/work/lab')}>{tr('Cancel', 'বাতিল')}</Button>
         <Button busy={busy} onClick={save}>{tr('Save', 'সেভ করুন')}</Button>
       </div>
       {pick ? (
