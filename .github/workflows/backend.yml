@@ -1,5 +1,6 @@
 name: Backend (Spring Boot)
 
+# Kotlin + Spring Boot backend in backend/. Builds and runs all tests (Testcontainers: PostgreSQL 16, Redis 7).
 on:
   push:
     branches: [spring]
@@ -15,43 +16,65 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - name: Latest versions on Maven Central
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
         run: |
-          exec > >(tee -a $RUNNER_TEMP/out.txt) 2>&1
-          meta() { curl -fsSL "https://repo1.maven.org/maven2/$1/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -i 'rc\|m[0-9]\|alpha\|beta\|snapshot\|cr[0-9]' | tail -${2:-6} | tr '\n' ' '; echo; }
-          echo "boot 3.5: $(curl -fsSL https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/maven-metadata.xml | grep -o '<version>3\.5\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
-          for a in org/jetbrains/kotlin/kotlin-gradle-plugin org/jobrunr/jobrunr-spring-boot-3-starter com/bucket4j/bucket4j_jdk17-core com/bucket4j/bucket4j_jdk17-lettuce com/google/firebase/firebase-admin io/sentry/sentry-spring-boot-starter-jakarta software/amazon/awssdk/bom io/mockk/mockk com/ninja-squad/springmockk org/testcontainers/testcontainers; do echo "$a: $(meta $a)"; done
-          echo "springdoc 2.8: $(curl -fsSL https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-starter-webmvc-ui/maven-metadata.xml | grep -o '<version>2\.8\.[0-9]*</version>' | sed 's/<[^>]*>//g' | tail -3 | tr '\n' ' ')"
-          echo "gradle: $(curl -fsSL https://services.gradle.org/versions/current | grep -o '"version" : "[^"]*"')"
-      - name: Inspect APIs
-        continue-on-error: true
-        run: |
-          exec > >(tee -a $RUNNER_TEMP/out.txt) 2>&1
-          set -x
-          V=$(curl -fsSL https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
-          curl -fsSLo b4l.jar https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-lettuce/$V/bucket4j_jdk17-lettuce-$V.jar
-          unzip -l b4l.jar | grep class
-          for c in $(unzip -l b4l.jar | grep -o 'io/github/bucket4j/redis/lettuce/[A-Za-z/$]*\.class' | grep -v '\$' ); do javap -cp b4l.jar ${c%.class} | grep -i 'public static\|public .*builder\|withExpiration\|build(' ; done
-          V2=$(curl -fsSL https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-core/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
-          curl -fsSLo b4c.jar https://repo1.maven.org/maven2/com/bucket4j/bucket4j_jdk17-core/$V2/bucket4j_jdk17-core-$V2.jar
-          javap -cp b4c.jar io.github.bucket4j.distributed.ExpirationAfterWriteStrategy | head -20
-          javap -cp b4c.jar io.github.bucket4j.distributed.proxy.ProxyManager | head -20
-          javap -cp b4c.jar io.github.bucket4j.distributed.proxy.RemoteBucketBuilder | head -20
-          javap -cp b4c.jar io.github.bucket4j.BucketConfiguration | head; javap -cp b4c.jar io.github.bucket4j.Bandwidth | head -30
-          javap -cp b4c.jar io.github.bucket4j.distributed.BucketProxy | head -10
-          J=$(curl -fsSL https://repo1.maven.org/maven2/org/jobrunr/jobrunr/maven-metadata.xml | grep -o '<release>[^<]*' | sed 's/<release>//')
-          curl -fsSLo jr.jar https://repo1.maven.org/maven2/org/jobrunr/jobrunr/$J/jobrunr-$J.jar
-          javap -cp jr.jar org.jobrunr.jobs.annotations.Recurring
-          javap -cp jr.jar org.jobrunr.scheduling.JobScheduler | grep -i 'enqueue\|schedule' | head
-      - name: Publish output
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Test summary
         if: always()
         run: |
-          git config user.name ci; git config user.email ci@example.com
-          git fetch origin spring-ci-log || true
-          git checkout --orphan out && git rm -rfq . && cp $RUNNER_TEMP/out.txt probe.txt
-          git add probe.txt && git commit -qm "probe ${GITHUB_RUN_ID}" && git push -f origin HEAD:spring-ci-log
+          python3 - <<'PY' > "$RUNNER_TEMP/tests.txt" || true
+          import glob, xml.etree.ElementTree as ET
+          total = fail = skip = 0
+          lines = []
+          for f in sorted(glob.glob('build/test-results/test/*.xml')):
+              r = ET.parse(f).getroot()
+              total += int(r.get('tests', 0)); skip += int(r.get('skipped', 0))
+              n = int(r.get('failures', 0)) + int(r.get('errors', 0)); fail += n
+              lines.append(f"{r.get('name')}: {r.get('tests')} tests, {n} failed")
+              for tc in r.iter('testcase'):
+                  for bad in list(tc.findall('failure')) + list(tc.findall('error')):
+                      lines.append(f"  FAIL {tc.get('name')}: {(bad.get('message') or '')[:600]}")
+                      lines.append('    ' + (bad.text or '')[:3000].replace('\n', '\n    '))
+          print(f"TOTAL {total} tests, {fail} failed, {skip} skipped")
+          print('\n'.join(lines))
+          PY
+          head -1 "$RUNNER_TEMP/tests.txt" || true
+          cat "$RUNNER_TEMP/tests.txt" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # Build logs are also pushed to the spring-ci-log branch (readable without the Actions log download).
+      - name: Publish build log
+        if: always() && github.event_name != 'pull_request'
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/tests.txt" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          echo "${GITHUB_SHA} ${{ job.status }}" > "$RUNNER_TEMP/out/status.txt"
+          cd "$RUNNER_TEMP/out"
+          git init -q && git checkout -q -b out
+          git config user.name ci && git config user.email ci@users.noreply.github.com
+          git add -A && git commit -qm "backend CI ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:spring-ci-log

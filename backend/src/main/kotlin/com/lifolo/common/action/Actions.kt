@@ -1,0 +1,104 @@
+package com.lifolo.common.action
+
+import com.lifolo.auth.AuthUser
+import com.lifolo.common.ApiException
+import com.lifolo.common.Body
+import com.lifolo.common.Lang
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.stereotype.Component
+
+/**
+ * One `/api/community` call. [user] is the actor (the patient when a caregiver acts for them),
+ * [caller] the authenticated person (caregiver / admin / web session) — Node passes the actor to actions and
+ * logs admin actions with the caller.
+ */
+class ActionContext(
+    val request: HttpServletRequest,
+    val response: HttpServletResponse,
+    val body: Body,
+    val user: AuthUser,
+    val caller: AuthUser,
+    val action: String,
+) {
+    val lang: String? get() = Lang.of(request) ?: body.lang
+
+    /** community.js tr: Bangla only for lang == "bn" */
+    fun tr(en: String, bn: String): String = Lang.tr(lang, en, bn)
+
+    /** HttpError with a bilingual message */
+    fun err(status: Int, en: String, bn: String, code: String? = null): ApiException = ApiException(status, tr(en, bn), code)
+
+    fun notFound(): ApiException = err(404, "Not found", "পাওয়া যায়নি")
+}
+
+/** An action implementation. Return a Map/data object (serialized as JSON) — null means `{ok: true}`. */
+fun interface ActionHandler {
+    fun handle(ctx: ActionContext): Any?
+}
+
+/**
+ * A module's actions. Each package (blood, rx, pharmacy, …) adds one @Component implementing this;
+ * the registry picks it up automatically.
+ */
+interface ActionModule {
+    fun actions(): Map<String, ActionHandler>
+}
+
+@Component
+class ActionRegistry(modules: List<ActionModule>) {
+    private val handlers: Map<String, ActionHandler>
+
+    init {
+        val map = LinkedHashMap<String, ActionHandler>()
+        for (m in modules) {
+            for ((name, h) in m.actions()) {
+                check(map.put(name, h) == null) { "action '$name' is registered twice (${m.javaClass.simpleName})" }
+            }
+        }
+        handlers = map
+    }
+
+    fun find(name: String): ActionHandler? = handlers[name]
+
+    fun names(): Set<String> = handlers.keys
+}
+
+/**
+ * Who may call what, kept in one place exactly like the Node lists:
+ *  - guest.js PUBLIC_ACTIONS (no token; read-only; IP rate limit; responses cached 1 min)
+ *  - careaccess.js CARE_ACTIONS (body.asUid = act for a patient)
+ *  - community.js webUser: the admin cookie session may only call admin_* + a few read lists
+ */
+object ActionPolicy {
+    val PUBLIC_ACTIONS: Set<String> = setOf(
+        "guest_requests",
+        "emergencies_active",
+        "questions", "question", "tips",
+        "providers", "home_providers", "hospitals",
+        "ambulances", "pharmacies", "bloodbanks", "labs",
+        "lab_prices_public",
+        "drug_search", "catalog_get",
+    )
+
+    val CARE_ACTIONS: Set<String> = setOf(
+        "rx_mine", "rx_get", "rx_claim", "rx_activity", "rx_pharmacy_options", "rx_send_pharmacy", "rx_order_withdraw", "rx_shop_find",
+        "rx_send_lab", "rx_lab_options", "labs", "lab_prices_public", "lab_order_get", "review_pay", "labtests_get",
+        "pharmacies",
+        "lab_home_change", "lab_home_cancel",
+        "my_appointments", "book", "appointment_update", "providers", "family_get",
+        "appointment_queue", "appointment_late",
+    )
+
+    /** besides admin_* (and web_logout) */
+    val WEB_PANEL_READS: Set<String> = setOf("catalog_get", "labtests_get")
+
+    fun isPublic(action: String): Boolean = action in PUBLIC_ACTIONS
+}
+
+/**
+ * Called around every action (Node: `catalog.load()` before each request; phase 2 adds the catalog cache refresh).
+ */
+interface ActionHook {
+    fun beforeAction(action: String) {}
+}
