@@ -386,12 +386,31 @@ module.exports = {
     // অ্যাম্বুলেন্স
     // =====================================================================
     const AMB_CHECKS = ['reg_no', 'reg_type', 'plate', 'fitness', 'phone', 'details'];
+    // ভাড়ার তালিকা (২.৩০.০): গাজীপুরের আসলের কাছাকাছি — নিজের উপজেলা ৮০০–১২০০, সদরের মেডিকেল ১৫০০, ঢাকা ৪০০০–৮০০০, আইসিইউ বেশি
+    const TAJ = 'শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল';
+    const DMC = 'ঢাকা মেডিকেল কলেজ হাসপাতাল';
+    const DHAKA = DISTRICTS.find((d) => d.en === 'Dhaka').bn;
+    const MYMENSINGH = DISTRICTS.find((d) => d.en === 'Mymensingh').bn;
+    const fc = (local, rows, extras = {}) => ({ local, rows, oxygen: null, icu: null, night: null, ...extras });
+    const up = (upazilaId, amount) => ({ kind: 'upazila', upazilaId, amount });
+    const dist = (district, amount) => ({ kind: 'district', district, amount });
+    const hosp = (name, amount) => ({ kind: 'hospital', name, amount });
+    const DEMO_FARES = {
+      'demo-svc-amb-ac': fc(1000, [up(KALIAKAIR, 1500), up(SREEPUR, 1800), hosp(TAJ, 1000), dist(DHAKA, 4500), hosp(DMC, 5000)], { oxygen: 500, night: 500 }),
+      'demo-svc-amb-nonac': fc(800, [up(KALIAKAIR, 1200), dist(DHAKA, 4000)], { oxygen: 400 }),
+      'demo-svc-amb-mini': fc(800, [up(KALIAKAIR, 1200), hosp(TAJ, 800), dist(DHAKA, 4000)], { night: 300 }),
+      'demo-svc-amb-icu-new': fc(2500, [dist(DHAKA, 7500)], { icu: 3500 }),
+      'demo-svc-amb-momota': fc(900, [up(SADAR, 1500), hosp(TAJ, 1500), dist(DHAKA, 5500), dist(MYMENSINGH, 4500)], { oxygen: 500, night: 400 }),
+      'demo-svc-amb-icu': fc(3000, [hosp(TAJ, 3000), dist(DHAKA, 8000), hosp(DMC, 8000)], { icu: 4000, night: 1000 }),
+      'demo-svc-amb-freezer': fc(1200, [up(KALIAKAIR, 2000), up(SREEPUR, 2000), dist(DHAKA, 6000)]),
+    };
     const ambulance = async (id, ownerUid, x) => {
       const created = x.createdAt || now - 60 * day;
       const have = await docs('ambulance', id, ownerUid, ['reg', 'fitness', 'front'], created);
       const data = {
         name: x.name, phone: x.phone, vehicleNo: x.vehicleNo, types: x.types, district: DISTRICT, upazilaId: x.upazilaId || SADAR,
         area: x.area || '', fare: x.fare || '', updatedAt: created,
+        ...(DEMO_FARES[id] ? { fareChart: DEMO_FARES[id] } : {}),
       };
       await ctx.set(`ambulances/${id}`, {
         ...data,

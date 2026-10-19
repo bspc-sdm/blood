@@ -480,3 +480,40 @@ test('ডেমো আলাদা: ডেমো রোগীর গোনা �
   assert.strictEqual((await call('d1', 'ambreq_accept', { id: r.body.id })).status, 404);
   clock.reset();
 });
+
+test('ডেমো (গাজীপুর): গাড়িগুলোর ভাড়ার তালিকা ঠিক, ডেমো রোগী ঢাকায় ৫০০০-এ গাড়ি পান → ডেমো চালকের দর → "রাজি" → ঠিক হওয়া ভাড়া', async () => {
+  clearAll();
+  clock.setDhaka('2026-10-19 12:00');
+  const demo = require(path.join(SERVER, 'lib/demo'));
+  await demo.seed();
+  const GZP = DISTRICTS.find((d) => d.en === 'Gazipur').bn;
+  const snap = await db.collection('ambulances').where('district', '==', GZP).get();
+  const charts = snap.docs.filter((d) => d.id.startsWith('demo-') && d.get('fareChart'));
+  assert.ok(charts.length >= 6, 'ডেমো গাড়িতে ভাড়ার তালিকা');
+  for (const d of charts) {
+    const n = FARE.normalizeChart(d.get('fareChart'), { district: GZP, upazilaId: d.get('upazilaId') });
+    assert.ok(!n.error, `${d.id}: ${n.error}`);
+    assert.deepStrictEqual(n.chart, d.get('fareChart'), `${d.id} যাচাইয়ের পরও একই`);
+  }
+  const DP = 'demo-patient';
+  const DA = 'demo-ambulance';
+  const { lat, lng } = demo.CENTER;
+  const body = { district: GZP, upazilaId: 320, lat, lng, gps: true, dest: { kind: 'district', district: DHAKA }, maxFare: 5000 };
+  M.clear('');
+  const c = await ok(DP, 'ambreq_count', body);
+  assert.ok(c.count >= 1, JSON.stringify(c));
+  assert.ok(c.hospitals.some((h) => /তাজ উদ্দীন/.test(h)));
+  const r = await ok(DP, 'ambreq_create', { ...body, pickup: 'ডেমো: শিববাড়ি মোড়', phone: '01700000101' });
+  const x = await reqDoc(r.id);
+  assert.ok(Object.keys(x.sentTo).every((u) => u.startsWith('demo-')));
+  const card = (await driverList(DA))[0];
+  assert.ok(card.suggestedFare >= 4000 && card.suggestedFare <= 5000, String(card.suggestedFare));
+  await ok(DA, 'ambreq_accept', { id: r.id, fare: card.suggestedFare });
+  const q = (await ok(DP, 'ambreq_status', { id: r.id })).request.quotes;
+  await ok(DP, 'ambreq_agree', { id: r.id, ambulanceId: q[0].id });
+  const v = (await ok(DP, 'ambreq_status', { id: r.id })).request;
+  assert.strictEqual(v.status, 'accepted');
+  assert.strictEqual(v.agreedFare, card.suggestedFare);
+  await demo.wipe({ all: true });
+  clock.reset();
+});
