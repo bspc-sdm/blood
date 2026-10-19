@@ -10,8 +10,8 @@ const { normalizeName } = require('../hospital-match');
 const { snapshot } = require('../listingreview');
 const sanctions = require('../sanctions');
 
-const DISTRICT = DISTRICTS.find((d) => d.en === 'Mymensingh').bn; // ডাটাবেসের বানান (য় একটা অক্ষর) হুবহু
-const SADAR = 466; // ময়মনসিংহ সদর উপজেলা (geo.json)
+const DISTRICT = DISTRICTS.find((d) => d.en === 'Gazipur').bn; // ডাটাবেসের বানান হুবহু
+const SADAR = 320; // গাজীপুর সদর উপজেলা (geo.json)
 const HOUR = 3600 * 1000;
 
 // ব্লাড ব্যাংকের সাইনবোর্ডের ডেমো ছবি (৩৬০×২০০ JPEG, "DEMO … TEST PHOTO - NOT REAL") — অ্যাডমিনের যাচাই পাতায় দেখায়
@@ -119,7 +119,7 @@ async function seed(ctx) {
   await person('kamal', 'ডেমো রক্তপ্রার্থী কামাল', { dx: -1.1, dy: -1.7 });
   await person('ayesha', 'ডেমো রক্তপ্রার্থী আয়েশা', { dx: -0.5, dy: 2.2 });
   await person('nurul', 'ডেমো রক্তপ্রার্থী নুরুল', { dx: 2.9, dy: 1.4 });
-  await person('polash', 'ডেমো রক্তপ্রার্থী পলাশ', { dx: -4, dy: -16 });
+  await person('polash', 'ডেমো রক্তপ্রার্থী পলাশ', { dx: 5.5, dy: 22 }); // শ্রীপুর
   await person('rehana', 'ডেমো রক্তপ্রার্থী রেহানা', { dx: 1.4, dy: 0.2 });
   await person('bbowner', 'ডেমো ব্লাড ব্যাংক ব্যবস্থাপক', { dx: 0.2, dy: -0.5 });
 
@@ -182,7 +182,7 @@ async function seed(ctx) {
 
   // রোগীর খোলা রিকোয়েস্ট: A+, ২ ব্যাগ — একজন নিশ্চিত, একজন রাজি (নিশ্চিত করার অপেক্ষায়); ডেমো ডোনার (O+) এটা দেখেন
   const pOpen = await request('demo-rq-patient-open', P, {
-    group: 'A+', bags: 2, hospital: 'ডেমো চরপাড়া জেনারেল হাসপাতাল', dx: 0.6, dy: -0.4,
+    group: 'A+', bags: 2, hospital: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল', dx: 0.6, dy: -0.4,
     neededBy: dayOf(ctx, 3), neededAt: dhakaAt(dayOf(ctx, 3), 11, 0), createdAt: now - 5 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — আমার বাবার পিত্তথলির অপারেশন, সকালে ভর্তি',
     acceptedCount: 2, confirmedCount: 1,
@@ -194,7 +194,7 @@ async function seed(ctx) {
 
   // রোগীর ইতিহাস: ৪০ দিন আগে পূরণ হয়ে বন্ধ (দুজন রক্ত দিয়েছেন — তাই তাঁরা এখন যোগ্য নন)
   const pDone = await request('demo-rq-patient-done', P, {
-    status: 'closed', group: 'A+', bags: 2, hospital: 'ডেমো মেডিকেল গেট জেনারেল হাসপাতাল', dx: -0.3, dy: 0.5,
+    status: 'closed', group: 'A+', bags: 2, hospital: 'ডেমো শিববাড়ি জেনারেল হাসপাতাল', dx: -0.3, dy: 0.5,
     neededBy: daysAgo(40), createdAt: daysAgo(41) + 10 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — মায়ের রক্তস্বল্পতা',
     acceptedCount: 2, confirmedCount: 2, fulfilled: true,
@@ -204,45 +204,45 @@ async function seed(ctx) {
   await respond(pDone, X.jahid, { status: 'donated', confirmed: true, at: daysAgo(41) + 12 * HOUR });
   // রোগীর আরেকটা: "আর লাগবে না" বলে বন্ধ (১২ দিন আগে)
   await request('demo-rq-patient-notneeded', P, {
-    status: 'closed', group: 'B+', bags: 1, hospital: 'ডেমো কাচিঝুলি মা ও শিশু ক্লিনিক', dx: 1.0, dy: 1.0,
+    status: 'closed', group: 'B+', bags: 1, hospital: 'ডেমো ছায়াবীথি মা ও শিশু ক্লিনিক', dx: 1.0, dy: 1.0,
     neededBy: daysAgo(12), createdAt: daysAgo(13) + 9 * HOUR, note: 'ডেমো রিকোয়েস্ট (আসল নয়)',
     extra: { closedAt: daysAgo(12) + 8 * HOUR, closedBy: 'not_needed', bagsReceivedBefore: 0, notifiedCount: 4, notifyRounds: 1, lastNotifiedAt: daysAgo(13) + 9 * HOUR },
   });
 
   // অন্যদের খোলা রিকোয়েস্ট (আশেপাশে, বিভিন্ন গ্রুপ)
   await request('demo-rq-urgent', X.selina, {
-    group: 'A+', bags: 1, urgent: true, hospital: 'ডেমো মেডিকেল গেট জেনারেল হাসপাতাল', dx: 0.9, dy: 1.4,
+    group: 'A+', bags: 1, urgent: true, hospital: 'ডেমো শিববাড়ি জেনারেল হাসপাতাল', dx: 0.9, dy: 1.4,
     neededBy: dayOf(ctx, 2), createdAt: now - 1 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — সিজারিয়ান অপারেশন, জরুরি',
   });
   await request('demo-rq-fare', X.mahmud, {
-    group: 'B+', bags: 2, travelFare: true, hospital: 'ডেমো গাঙ্গিনারপাড় ক্লিনিক', dx: 1.9, dy: -1.0,
+    group: 'B+', bags: 2, travelFare: true, hospital: 'ডেমো রাজবাড়ি রোড ক্লিনিক', dx: 1.9, dy: -1.0,
     neededBy: dayOf(ctx, 4), neededAt: dhakaAt(dayOf(ctx, 4), 10, 30), createdAt: now - 7 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — যাতায়াত ভাড়া আর নাস্তা দেওয়া হবে',
   });
   const rqO = await request('demo-rq-oplus', X.kamal, {
-    group: 'O+', bags: 1, hospital: 'ডেমো কাচিঝুলি মা ও শিশু ক্লিনিক', dx: -1.2, dy: -1.6,
+    group: 'O+', bags: 1, hospital: 'ডেমো ছায়াবীথি মা ও শিশু ক্লিনিক', dx: -1.2, dy: -1.6,
     neededBy: dayOf(ctx, 6), createdAt: now - 26 * HOUR, note: 'ডেমো রিকোয়েস্ট (আসল নয়) — ডেঙ্গু, প্লাটিলেট কম',
     acceptedCount: 1,
   });
   await respond(rqO, X.rafiq, { at: now - 20 * HOUR });
   await request('demo-rq-thal', X.ayesha, {
-    group: 'AB+', bags: 3, hospital: 'ডেমো থ্যালাসেমিয়া সেন্টার, চরপাড়া', dx: -0.6, dy: 2.3,
+    group: 'AB+', bags: 3, hospital: 'ডেমো থ্যালাসেমিয়া সেন্টার, শিববাড়ি', dx: -0.6, dy: 2.3,
     neededBy: dayOf(ctx, 3), createdAt: now - 30 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — থ্যালাসেমিয়া, প্রতি মাসে রক্ত লাগে',
     extra: { bagsReceived: 1 },
   });
   await request('demo-rq-oneg', X.nurul, {
-    group: 'O-', bags: 1, hospital: 'ডেমো চরপাড়া জেনারেল হাসপাতাল', dx: 2.8, dy: 1.3,
+    group: 'O-', bags: 1, hospital: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল', dx: 2.8, dy: 1.3,
     neededBy: dayOf(ctx, 2), createdAt: now - 3 * HOUR, note: 'ডেমো রিকোয়েস্ট (আসল নয়) — O- গ্রুপ দরকার',
   });
   await request('demo-rq-far', X.polash, {
-    group: 'B+', bags: 1, hospital: 'ডেমো ত্রিশাল উপজেলা স্বাস্থ্য কমপ্লেক্স', dx: -4, dy: -16,
+    group: 'B+', bags: 1, hospital: 'ডেমো শ্রীপুর উপজেলা স্বাস্থ্য কমপ্লেক্স', dx: 5.5, dy: 22,
     neededBy: dayOf(ctx, 5), createdAt: now - 9 * HOUR, note: 'ডেমো রিকোয়েস্ট (আসল নয়) — ১০ কিমির বেশি দূরে',
   });
   // ডেমো ডোনার আগেই রাজি হয়েছেন আর রক্তপ্রার্থী তাঁকে নিশ্চিত করেছেন (হোমে "প্রসেসিং", নম্বর দেখা যায়)
   const rqD = await request('demo-rq-donor-confirmed', X.rehana, {
-    group: 'A+', bags: 1, hospital: 'ডেমো নেত্রকোণা মোড় ক্লিনিক', dx: 1.4, dy: 0.2,
+    group: 'A+', bags: 1, hospital: 'ডেমো রেলগেট ক্লিনিক, জয়দেবপুর', dx: 1.4, dy: 0.2,
     neededBy: dayOf(ctx, 2), neededAt: dhakaAt(dayOf(ctx, 2), 16, 0), createdAt: now - 10 * HOUR,
     note: 'ডেমো রিকোয়েস্ট (আসল নয়) — হার্টের অপারেশন',
     acceptedCount: 1, confirmedCount: 1, fulfilled: true,
@@ -255,7 +255,7 @@ async function seed(ctx) {
   const districts = [...new Set([DISTRICT, ...DISTRICTS.filter((d) => R.distanceKm(eLoc.lat, eLoc.lng, d.lat, d.lng) <= radiusKm + 25).map((d) => d.bn)])].slice(0, 30);
   const E1 = 'demo-em-live';
   await ctx.set(`emergencies/${E1}`, {
-    hospitalId: null, hospitalName: 'ডেমো মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)', district: DISTRICT, districts,
+    hospitalId: null, hospitalName: 'ডেমো তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)', district: DISTRICT, districts,
     lat: eLoc.lat, lng: eLoc.lng, exactLocation: true, radiusKm,
     groups: {
       'O+': { need: 4, coming: 1, notified: 6, closed: false },
@@ -276,7 +276,7 @@ async function seed(ctx) {
   // শেষ হওয়া আহ্বান: ডেমো ডোনার "আসছি" বলেছিলেন — অ্যাপ জিজ্ঞেস করে "রক্ত দিয়েছেন?"
   const E2 = 'demo-em-ended';
   await ctx.set(`emergencies/${E2}`, {
-    hospitalId: null, hospitalName: 'ডেমো সদর হাসপাতাল, ময়মনসিংহ', district: DISTRICT, districts,
+    hospitalId: null, hospitalName: 'ডেমো সদর হাসপাতাল, গাজীপুর', district: DISTRICT, districts,
     lat: home.lat, lng: home.lng, exactLocation: false, radiusKm: 10,
     groups: { 'O+': { need: 2, coming: 2, notified: 6, closed: true } },
     contactPhone: '01700001311', note: 'ডেমো আহ্বান (আসল নয়) — শেষ হয়েছে',
@@ -318,11 +318,11 @@ async function seed(ctx) {
   const docTime = now - 3 * HOUR;
   await bank('demo-bb-mine', U.bloodbank.uid, {
     name: 'ডেমো জীবনধারা ব্লাড ব্যাংক', kind: 'private', phone: '01700001301', licenseNo: 'DEMO-BB-0001',
-    address: 'ডেমো ভবন, চরপাড়া মোড়', open24: true, services: allServices,
+    address: 'ডেমো ভবন, শিববাড়ি মোড়', open24: true, services: allServices,
   }, { status: 'approved', docs: { front: docTime, license: docTime }, calls: [3, 5, 2, 0, 4, 6, 1, 2, 0, 3, 2, 5, 1, 0, 2] });
   await bank('demo-bb-pending', U.bloodbank.uid, {
     name: 'ডেমো রক্তবন্ধু স্বেচ্ছাসেবী সংগঠন', kind: 'org', phone: '01700001302',
-    address: 'ডেমো অফিস, গাঙ্গিনারপাড়', openAt: '10:00', closeAt: '18:00', services: ['whole_blood', 'donate_here'],
+    address: 'ডেমো অফিস, জয়দেবপুর বাজার', openAt: '10:00', closeAt: '18:00', services: ['whole_blood', 'donate_here'],
   }, { status: 'pending', ageDays: 1, docs: { front: docTime } });
   await bank('demo-bb-govt', X.bbowner.uid, {
     name: 'ডেমো সদর হাসপাতাল ব্লাড ব্যাংক', kind: 'govt', phone: '01700001303',
@@ -330,7 +330,7 @@ async function seed(ctx) {
   }, { status: 'approved', calls: [1, 0, 2, 1] });
   await bank('demo-bb-club', null, {
     name: 'ডেমো আলোর পথ ব্লাড ডোনার ক্লাব', kind: 'org', phone: '01700001304',
-    address: 'ডেমো ক্লাবঘর, কাচিঝুলি', openAt: '09:00', closeAt: '17:00', services: ['whole_blood', 'platelets', 'donate_here'],
+    address: 'ডেমো ক্লাবঘর, ছায়াবীথি', openAt: '09:00', closeAt: '17:00', services: ['whole_blood', 'platelets', 'donate_here'],
   }, { status: 'approved', ageDays: 60, calls: [0, 1, 0, 0, 2] });
   // অ্যাডমিনের রিপোর্টের তালিকায়: সরকারি ব্লাড ব্যাংকে ফোন করে খারাপ অভিজ্ঞতা (রিপোর্ট শুধু ফোন করা মানুষই দিতে পারেন)
   await ctx.set(`bloodBankCalls/${X.mahmud.uid}_demo-bb-govt`, { uid: X.mahmud.uid, bankId: 'demo-bb-govt', at: now - 30 * HOUR });
@@ -340,16 +340,16 @@ async function seed(ctx) {
   });
 
   // ======================= ৬) হাসপাতাল: অ্যাপ থেকে যোগ হওয়া (অনুমোদিত) + যোগের অনুরোধ (অপেক্ষায়) =======================
-  const H1 = { nameEn: 'Demo Charpara General Hospital', nameBn: 'ডেমো চরপাড়া জেনারেল হাসপাতাল' };
-  await ctx.set('hospitals/demo-hosp-charpara', {
+  const H1 = { nameEn: 'Demo Joydebpur General Hospital', nameBn: 'ডেমো জয়দেবপুর জেনারেল হাসপাতাল' };
+  await ctx.set('hospitals/demo-hosp-joydebpur', {
     ...H1, type: 'private_hospital', district: DISTRICT, upazilaId: SADAR, unionId: null,
-    address: 'ডেমো রোড, চরপাড়া', phone: '01700001320', normKey: normalizeName(H1.nameEn),
+    address: 'ডেমো রোড, জয়দেবপুর', phone: '01700001320', normKey: normalizeName(H1.nameEn),
     source: 'user', status: 'approved', createdAt: now - 50 * R.DAY_MS,
   });
-  const H2 = { nameEn: 'Demo Kachijhuli Mother and Child Clinic', nameBn: 'ডেমো কাচিঝুলি মা ও শিশু ক্লিনিক' };
-  await ctx.set('hospitalRequests/demo-hreq-kachijhuli', {
+  const H2 = { nameEn: 'Demo Chayabithi Mother and Child Clinic', nameBn: 'ডেমো ছায়াবীথি মা ও শিশু ক্লিনিক' };
+  await ctx.set('hospitalRequests/demo-hreq-chayabithi', {
     ...H2, type: 'clinic', district: DISTRICT, upazilaId: SADAR, unionId: null,
-    address: 'ডেমো গলি, কাচিঝুলি', phone: '01700001321', normKey: normalizeName(H2.nameEn),
+    address: 'ডেমো গলি, ছায়াবীথি', phone: '01700001321', normKey: normalizeName(H2.nameEn),
     requesterUids: [P.uid, X.kamal.uid], count: 2, status: 'pending', createdAt: now - 20 * HOUR,
   });
 
@@ -368,7 +368,7 @@ async function seed(ctx) {
   await inbox(P.uid, now - 3 * HOUR, 'একজন ডোনার রাজি হয়েছেন', `${X.nadia.name} (A+) রক্ত দিতে রাজি। অ্যাপ খুলে নম্বর দেখুন।`, { requestId: pOpen.id, type: 'response' });
   await inbox(P.uid, now - 4 * HOUR - 1, 'একজন ডোনার রাজি হয়েছেন', `${X.sakib.name} (O+) রক্ত দিতে রাজি। অ্যাপ খুলে নম্বর দেখুন।`, { requestId: pOpen.id, type: 'response' });
   await inbox(D.uid, now - 7 * HOUR, 'আপনাকে নিশ্চিত করা হয়েছে, অনুগ্রহ করে আসুন', `${rqD.hospital} · ${R.formatTimeBn(rqD.neededAtMillis)}`, { requestId: rqD.id, type: 'request' });
-  await inbox(D.uid, now - 2 * HOUR - 7, 'জরুরি: O+ রক্ত দরকার', 'ডেমো মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ) · প্রায় ২ কিমি দূরে · Lifolo টিমের আহ্বান — খুলে "আসছি" চাপুন', { type: 'emergency', emergencyId: E1 });
+  await inbox(D.uid, now - 2 * HOUR - 7, 'জরুরি: O+ রক্ত দরকার', 'ডেমো তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ) · প্রায় ২ কিমি দূরে · Lifolo টিমের আহ্বান — খুলে "আসছি" চাপুন', { type: 'emergency', emergencyId: E1 });
 }
 
 module.exports = { seed };

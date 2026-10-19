@@ -3,8 +3,6 @@
 package com.bspc.blood
 
 import android.content.Context
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +76,13 @@ data class AmbReq(
     val notified: Int,
     val pickup: String,
     val note: String,
+    /** গাড়ির ধরন (null = যেকোনো) */
+    val type: String?,
+    val district: String,
+    val upazilaId: Int?,
+    val unionId: Int?,
+    /** রোগী এখনকার জায়গা দিয়েছেন */
+    val gps: Boolean,
     val ambulance: AmbCar?,
     val cancelledBy: String?,
     val cancelReason: String?,
@@ -100,6 +105,7 @@ data class AmbDriverReq(
     val type: String?,
     val district: String,
     val upazilaId: Int?,
+    val unionId: Int?,
     val pickup: String,
     val note: String,
     /** রোগী এই গাড়িতে ফোন করেছেন */
@@ -123,7 +129,8 @@ object AmbRequests {
 
     private fun parse(o: JSONObject) = AmbReq(
         o.str("id"), o.str("status"), o.optLong("createdAt"), o.optLong("widenAt"), o.optLong("expiresAt"), o.optInt("wave", 1),
-        o.optInt("notified"), o.str("pickup"), o.str("note"), o.optJSONObject("ambulance")?.let { car(it) },
+        o.optInt("notified"), o.str("pickup"), o.str("note"), o.str("type").ifBlank { null }, o.str("district"),
+        o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.optBoolean("gps"), o.optJSONObject("ambulance")?.let { car(it) },
         o.str("cancelledBy").ifBlank { null }, o.str("cancelReason").ifBlank { null },
         cars(o.optJSONArray("fallback")), cars(o.optJSONArray("called")), o.optBoolean("canRate"),
     )
@@ -131,15 +138,15 @@ object AmbRequests {
     private fun parseDriver(o: JSONObject) = AmbDriverReq(
         o.str("id"), o.str("status"), o.optLong("createdAt"), o.optLong("expiresAt"), o.str("ambulanceId"),
         if (o.has("km") && !o.isNull("km")) o.optInt("km") else null, o.optBoolean("kmApprox"), o.str("type").ifBlank { null },
-        o.str("district"), o.intOrNull("upazilaId"), o.str("pickup"), o.str("note"), o.optBoolean("called"),
+        o.str("district"), o.intOrNull("upazilaId"), o.intOrNull("unionId"), o.str("pickup"), o.str("note"), o.optBoolean("called"),
         o.str("patientName"), o.str("phone"),
         if (o.has("lat") && !o.isNull("lat")) o.optDouble("lat") else null,
         if (o.has("lng") && !o.isNull("lng")) o.optDouble("lng") else null,
     )
 
-    /** lat/lng: ফোনের আসল GPS (না থাকলে এলাকা ধরে); ambulanceId: শিট থেকে — সেই গাড়ি আগে */
-    suspend fun create(district: String, upazilaId: Int?, lat: Double?, lng: Double?, type: String?, pickup: String, note: String, phone: String, ambulanceId: String?): AmbReq {
-        val b = JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("type", type ?: JSONObject.NULL)
+    /** lat/lng: ফোনের আসল GPS (না থাকলে এলাকা ধরে); unionId: শুধু চালকের জানার জন্য; ambulanceId: শিট থেকে — সেই গাড়ি আগে */
+    suspend fun create(district: String, upazilaId: Int?, unionId: Int?, lat: Double?, lng: Double?, type: String?, pickup: String, note: String, phone: String, ambulanceId: String?): AmbReq {
+        val b = JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("unionId", unionId ?: JSONObject.NULL).put("type", type ?: JSONObject.NULL)
             .put("pickup", pickup).put("note", note).put("phone", phone).put("ambulanceId", ambulanceId ?: JSONObject.NULL)
         if (lat != null && lng != null) b.put("lat", lat).put("lng", lng).put("gps", true)
         return parse(call("ambreq_create", b).getJSONObject("request"))
@@ -210,9 +217,41 @@ private const val PREFS = "amb_req"
 private fun lastPickup(context: Context): String =
     runCatching { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("pickup", "") ?: "" }.getOrDefault("")
 
-private fun saveLastPickup(context: Context, v: String) {
-    runCatching { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pickup", v).apply() }
+/** শেষবারের এলাকা "জেলা|উপজেলা|ইউনিয়ন" — একই জেলায় উপজেলা না বাছা থাকলে আগে থেকে */
+private fun lastArea(context: Context): Triple<String, Int?, Int?>? = runCatching {
+    val p = (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("area", null) ?: return null).split('|')
+    Triple(p[0], p.getOrNull(1)?.toIntOrNull(), p.getOrNull(2)?.toIntOrNull())
+}.getOrNull()
+
+private fun saveLast(context: Context, l: AmbLocation) {
+    runCatching {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pickup", l.landmark.trim())
+            .putString("area", "${l.district}|${l.upazilaId ?: ""}|${l.unionId ?: ""}").apply()
+    }
 }
+
+/**
+ * ডাকার সময় গাড়ির ধরন (২.২৯.০) — সার্ভারের ধরনের চাবি (server/lib/ambulance.js TYPES); null = "যেকোনো" (ফ্রিজার ছাড়া),
+ * নন-এসি = general। ফ্রিজার শুধু নিজে বাছলে।
+ */
+object AmbReqTypes {
+    const val ANY = "any"
+    val ALL = listOf(ANY, "ac", "general", "icu", "freezer")
+    fun label(t: String?): String = when (t) {
+        null -> tr("Any (not freezer)", "যেকোনো (ফ্রিজার ছাড়া)")
+        ANY -> tr("Any", "যেকোনো")
+        "ac" -> tr("AC", "এসি")
+        "general" -> tr("Non-AC", "নন-এসি")
+        "icu" -> tr("ICU", "আইসিইউ")
+        "freezer" -> tr("Freezer (deceased)", "ফ্রিজার (মরদেহ)")
+        else -> AmbulanceTypes.label(t)
+    }
+}
+
+/** ম্যাপের লিংক (ফোনের নিজের ম্যাপ, খরচ নেই): স্থানাঙ্ক থাকলে সেটা, নইলে "চেনা জায়গা, এলাকা, বাংলাদেশ" দিয়ে খোঁজা */
+fun ambMapUri(lat: Double?, lng: Double?, pickup: String, district: String, upazilaId: Int?, unionId: Int?): String =
+    if (lat != null && lng != null) "geo:$lat,$lng?q=$lat,$lng"
+    else "geo:0,0?q=" + android.net.Uri.encode(listOf(pickup, Areas.label(district, upazilaId, unionId), "Bangladesh").filter { it.isNotBlank() }.joinToString(", "))
 
 /** অ্যাপ সামনে আছে কি না, আর প্রতিবার ফিরে আসার গোনা */
 @Composable
@@ -298,8 +337,9 @@ fun ActiveRequestBanner(r: AmbReq, onOpen: () -> Unit) {
 }
 
 /**
- * নিশ্চিত করার ঘর — যত কম চাপ: ঠিকানা (আগের বার থেকে), ঐচ্ছিক নোট, ফোন (প্রোফাইল থেকে), তারপর "পাঠান"।
- * GPS আগে থেকে পাওয়া থাকলে সেটা; না থাকলে এক চাপে "আমার লোকেশন দিন" (চালক ম্যাপে খুঁজে পান), নইলে এলাকা ধরে।
+ * নিশ্চিত করার ঘর (২.২৯.০): উপরে গাড়ির ধরন (বাধ্যতামূলক, "যেকোনো" আগে থেকে; তালিকায় ছাঁকা ধরন থাকলে সেটা),
+ * তারপর এলাকা (LocationInput: জেলা › উপজেলা › ইউনিয়ন + চেনা জায়গা + ঐচ্ছিক এখনকার জায়গা), নোট, মোবাইল, "পাঠান"।
+ * gps: আগে থেকে পাওয়া এখনকার জায়গা (বেছে নেওয়া জেলার ভেতরে) — থাকলে "নেওয়া হয়েছে ✓"।
  */
 @Composable
 fun AmbulanceRequestDialog(
@@ -314,58 +354,33 @@ fun AmbulanceRequestDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var pickup by remember { mutableStateOf(lastPickup(context)) }
+    var kind by remember { mutableStateOf(type?.takeIf { it in AmbReqTypes.ALL } ?: AmbReqTypes.ANY) }
+    var loc by remember {
+        val last = lastArea(context)?.takeIf { it.first == district && (upazilaId == null || it.second == upazilaId) }
+        mutableStateOf(AmbLocation(district, upazilaId ?: last?.second, last?.third, lastPickup(context), gps))
+    }
     var note by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf(profile.phone) }
-    var point by remember { mutableStateOf(gps) }
-    var locBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var tried by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-
-    fun locate() {
-        scope.launch {
-            locBusy = true
-            val loc = kotlinx.coroutines.withTimeoutOrNull(15_000) {
-                runCatching { LocationHelper.precise(context)?.let { it.first to it.second } ?: LocationHelper.current(context) }.getOrNull()
-            }
-            locBusy = false
-            if (loc != null && Districts.at(context, loc.first, loc.second).bn == district) point = loc
-            else errorMsg = if (loc == null) tr("Couldn't get your location — the area will be used.", "লোকেশন পাওয়া যায়নি — এলাকা ধরে পাঠানো হবে।")
-            else tr("You are outside the chosen district — the area will be used.", "আপনি বেছে নেওয়া জেলার বাইরে — এলাকা ধরে পাঠানো হবে।")
-        }
-    }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) locate()
-    }
 
     FormDialog(
         title = tr("Call an ambulance", "অ্যাম্বুলেন্স ডাকুন"),
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("amb_type")) {
+                    Text(tr("Ambulance type", "গাড়ির ধরন"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    ChipRows(AmbReqTypes.ALL, setOf(kind), label = { AmbReqTypes.label(it) }) { kind = it }
+                    if (kind == "freezer") SmallNote(tr("Only freezer vans (for the deceased) get this request.", "শুধু ফ্রিজার ভ্যান (মরদেহ নেওয়ার গাড়ি) এই অনুরোধ পাবে।"))
+                }
                 Text(
                     if (target != null) tr("Goes to ${target.name} first, and to the nearest free ambulances at the same time. The first driver to accept comes.", "আগে ${target.name}-কে, সাথে কাছের খালি গাড়িগুলোকেও একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।")
                     else tr("Goes to the nearest free ambulances at once. The first driver to accept comes.", "কাছের খালি গাড়িগুলোতে একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।"),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + (type?.let { AmbulanceTypes.label(it) } ?: tr("Any (not freezer van)", "যেকোনো (ফ্রিজার ভ্যান ছাড়া)")))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        IconLine(R.drawable.ic_location_on, if (point != null) tr("Your location (shared only with the driver who accepts)", "আপনার লোকেশন (শুধু রাজি হওয়া চালক পাবেন)") else tr("By area: ", "এলাকা ধরে: ") + Areas.label(district, upazilaId))
-                    }
-                    if (point == null) {
-                        TextButton(onClick = {
-                            errorMsg = null
-                            if (LocationHelper.hasPermission(context)) locate()
-                            else launcher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
-                        }, enabled = !locBusy) { ButtonContent(locBusy, tr("Use location", "লোকেশন দিন")) }
-                    }
-                }
-                OutlinedTextField(
-                    pickup, { pickup = it.take(160) },
-                    label = { Text(tr("Pick up from (address or landmark)", "কোথা থেকে নেবে (ঠিকানা বা চেনা জায়গা)")) },
-                    modifier = Modifier.fillMaxWidth().testTag("amb_pickup"),
-                )
+                LocationInput(loc, { loc = it; errorMsg = null }, showErrors = tried)
                 OutlinedTextField(
                     note, { note = it.take(200) },
                     label = { Text(tr("Note (optional) — e.g. oxygen needed", "নোট (ঐচ্ছিক) — যেমন অক্সিজেন লাগবে")) },
@@ -381,16 +396,19 @@ fun AmbulanceRequestDialog(
         },
         confirmButton = {
             Button(enabled = !busy, onClick = {
-                errorMsg = when {
-                    pickup.isBlank() -> tr("Write where to pick up", "কোথা থেকে নেবে লিখুন")
-                    !Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone) -> tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন")
-                    else -> null
-                }
+                tried = true
+                errorMsg = loc.error() ?: if (!Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone)) tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন") else null
                 if (errorMsg != null) return@Button
                 scope.launch {
                     busy = true
-                    runCatching { AmbRequests.create(district, upazilaId, point?.first, point?.second, type, pickup.trim(), note.trim(), phone, target?.id) }
-                        .onSuccess { saveLastPickup(context, pickup.trim()); onSent(it) }
+                    val l = loc
+                    runCatching {
+                        AmbRequests.create(
+                            l.district, l.upazilaId, l.unionId, l.point?.first, l.point?.second, kind.takeIf { it != AmbReqTypes.ANY },
+                            l.landmark.trim(), note.trim(), phone, target?.id?.takeIf { l.district == district },
+                        )
+                    }
+                        .onSuccess { saveLast(context, l); onSent(it) }
                         .onFailure { e ->
                             // আগেই একটা চালু: সেটার পাতা
                             if (e is ServerError && e.code == "amb_req_active") {
@@ -618,7 +636,9 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
 
             if (r.active) {
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(14.dp).testTag("amb_req_info"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + AmbReqTypes.label(r.type))
+                        IconLine(R.drawable.ic_map, Areas.label(r.district, r.upazilaId, r.unionId) + if (r.gps) tr(" · current location given", " · এখনকার জায়গা দেওয়া") else "")
                         IconLine(R.drawable.ic_location_on, r.pickup)
                         if (r.note.isNotBlank()) IconLine(R.drawable.ic_info, r.note)
                     }
@@ -769,7 +789,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
             val mine = r.status != "open"
             Surface(shape = RoundedCornerShape(16.dp), color = if (mine) cs.primaryContainer else cs.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val where = kmText(r.km, r.kmApprox)?.let { it + tr(" away", " দূরে") } ?: Areas.label(r.district, r.upazilaId)
+                    val where = (kmText(r.km, r.kmApprox)?.let { it + tr(" away", " দূরে") + " · " } ?: "") + Areas.label(r.district, r.upazilaId, r.unionId)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             if (mine) (if (r.status == "arrived") tr("You arrived", "আপনি পৌঁছেছেন") else tr("You're going", "আপনি যাচ্ছেন")) else tr("Ambulance needed", "অ্যাম্বুলেন্স দরকার"),
@@ -781,14 +801,15 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     IconLine(R.drawable.ic_map, where)
                     IconLine(R.drawable.ic_location_on, r.pickup)
                     if (r.note.isNotBlank()) IconLine(R.drawable.ic_info, r.note)
-                    names[r.ambulanceId]?.let { IconLine(R.drawable.ic_ambulance, tr("Your vehicle: ", "আপনার গাড়ি: ") + it + (r.type?.let { t -> " · " + AmbulanceTypes.label(t) } ?: "")) }
+                    IconLine(R.drawable.ic_ambulance, tr("Type: ", "ধরন: ") + AmbReqTypes.label(r.type))
+                    names[r.ambulanceId]?.let { IconLine(R.drawable.ic_ambulance, tr("Your vehicle: ", "আপনার গাড়ি: ") + it) }
                     if (mine) {
                         if (r.patientName.isNotBlank()) IconLine(R.drawable.ic_person_outline, r.patientName)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (r.phone.isNotBlank()) Button(onClick = { callPhone(context, r.phone) }) { ButtonContent(false, num(r.phone), R.drawable.ic_call) }
-                            if (r.lat != null && r.lng != null) {
-                                // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই
-                                OutlinedButton(onClick = { openUrl(context, "geo:${r.lat},${r.lng}?q=${r.lat},${r.lng}") }) { ButtonContent(false, tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map) }
+                            // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই; ঠিক জায়গা না থাকলে ঠিকানা আর এলাকা দিয়ে খোঁজা
+                            OutlinedButton(onClick = { openUrl(context, ambMapUri(r.lat, r.lng, r.pickup, r.district, r.upazilaId, r.unionId)) }) {
+                                ButtonContent(false, tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map)
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -10,7 +10,7 @@ import { call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
-import { DRIVER_REASONS, ReasonDialog } from '@/sections/services/AmbRequest';
+import { DRIVER_REASONS, ReasonDialog, reqTypeLabel } from '@/sections/services/AmbRequest';
 
 interface DriverReq {
   id: string;
@@ -22,6 +22,7 @@ interface DriverReq {
   type: string | null;
   district: string;
   upazilaId: number | null;
+  unionId?: number | null;
   pickup: string;
   note: string;
   called: boolean;
@@ -29,6 +30,12 @@ interface DriverReq {
   phone?: string;
   lat?: number;
   lng?: number;
+}
+
+/** ম্যাপের লিংক: স্থানাঙ্ক থাকলে সেটা, নইলে "চেনা জায়গা, ইউনিয়ন, উপজেলা, জেলা, বাংলাদেশ" দিয়ে খোঁজা */
+export function mapLink(r: Pick<DriverReq, 'lat' | 'lng' | 'pickup' | 'district' | 'upazilaId' | 'unionId'>): string {
+  const q = r.lat != null && r.lng != null ? `${r.lat},${r.lng}` : [r.pickup, areaLabel(r.district, r.upazilaId, r.unionId), 'Bangladesh'].filter(Boolean).join(', ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
 export function AmbulanceCalls({ names, onChanged }: { names: Record<string, string>; onChanged: () => void }) {
@@ -76,21 +83,21 @@ export function AmbulanceCalls({ names, onChanged }: { names: Record<string, str
               <span className="t-body-s muted">{timeAgo(r.createdAt)}</span>
             </div>
             {r.called ? <div><Tag tone="error">{tr('The patient called you', 'রোগী আপনাকে ফোন করেছেন')}</Tag></div> : null}
-            <IconLine icon="map">{km ? km + tr(' away', ' দূরে') : areaLabel(r.district, r.upazilaId)}</IconLine>
+            <IconLine icon="map">{(km ? km + tr(' away', ' দূরে') + ' · ' : '') + areaLabel(r.district, r.upazilaId, r.unionId)}</IconLine>
             <IconLine icon="location_on">{r.pickup}</IconLine>
             {r.note ? <IconLine icon="info">{r.note}</IconLine> : null}
+            <IconLine icon="ambulance">{tr('Type: ', 'ধরন: ') + reqTypeLabel(r.type)}</IconLine>
             {r.ambulanceId && names[r.ambulanceId] ? <IconLine icon="ambulance">{tr('Your vehicle: ', 'আপনার গাড়ি: ') + names[r.ambulanceId]}</IconLine> : null}
             {mine ? (
               <>
                 {r.patientName ? <IconLine icon="person_outline">{r.patientName}</IconLine> : null}
                 <div className="row wrap gap-8">
                   {r.phone ? <a className="btn square has-icon" href={`tel:${r.phone}`}><Icon name="call" />{num(r.phone)}</a> : null}
-                  {r.lat != null && r.lng != null ? (
-                    <a className="btn outline square has-icon" href={`https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer">
-                      <Icon name="map" />
-                      {tr('Open in map', 'ম্যাপে খুলুন')}
-                    </a>
-                  ) : null}
+                  {/* নিজের ম্যাপ (খরচ নেই): ঠিক জায়গা থাকলে সেটা, নইলে ঠিকানা আর এলাকার লেখা দিয়ে খোঁজা */}
+                  <a className="btn outline square has-icon" href={mapLink(r)} target="_blank" rel="noopener noreferrer" data-testid="amb-open-map">
+                    <Icon name="map" />
+                    {tr('Open in map', 'ম্যাপে খুলুন')}
+                  </a>
                 </div>
                 <div className="row wrap gap-8">
                   {r.status === 'accepted' ? <Button busy={busy === r.id} disabled={!!busy} onClick={() => act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))}>{tr('Arrived', 'পৌঁছেছি')}</Button> : null}

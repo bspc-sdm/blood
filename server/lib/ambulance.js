@@ -301,7 +301,7 @@ const actions = {
     const items = rows.map((r) => r.v);
     const uid = user && user.uid;
     // শুধু ফ্রিজার ভ্যান (মৃতদেহ নেওয়ার গাড়ি) রোগীর জরুরি ফোনে নয় — "ফ্রিজার" দিয়ে ছাঁকলে তবেই
-    const forPatient = (v) => b.type === 'freezer' || v.types.some((t) => t !== 'freezer');
+    const forPatient = (v) => b.type === 'freezer' || (v.types.length > 0 && !v.types.includes('freezer'));
     const nearest = rows.find((r) => r.v.available && forPatient(r.v) && r.owner !== uid && require('./demo').sameWorld(uid, r.owner));
     return { items, busyCount: busy.length, busy: busy.slice(0, 50), nearestId: nearest ? nearest.v.id : null };
   },

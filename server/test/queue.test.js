@@ -286,7 +286,9 @@ test('ডেমো: আজকের সিরিয়াল চলছে, এ�
   assert.deepStrictEqual([late.serial, late.late.min, late.late.status], [4, 20, 'asked']);
 
   // J-01..J-03: মালিক (ডেমো রোগী) আজ সিরিয়াল নেন, ডাক্তার নিশ্চিত করেন → ৫ নম্বর, আগে ৩ জন (২, ৩, ৪)
-  const prov = (await call(PT, 'providers', { type: 'doctor', district: DIST, homeVisit: false })).items.find((p) => p.uid === DD);
+  // ডেমো এখন গাজীপুরে
+  const GZP = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
+  const prov = (await call(PT, 'providers', { type: 'doctor', district: GZP, homeVisit: false })).items.find((p) => p.uid === DD);
   const ci = prov.chambers.findIndex((c) => (c.hospitalId || c.hospitalName) === ch.chamberKey);
   const { id } = await call(PT, 'book', { providerUid: DD, date: today, chamberIndex: ci, note: 'মাথা ঘোরে' });
   assert.strictEqual((await call(PT, 'appointment_queue', { id })).live, false, 'নিশ্চিত হওয়ার আগে নয়');

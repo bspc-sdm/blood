@@ -10,10 +10,10 @@ const R = require('../rules');
 const DISTRICTS = require('../districts');
 const DRUGS = require('../drugs.json');
 
-const DISTRICT = DISTRICTS.find((d) => d.en === 'Mymensingh').bn;
-const SADAR = 466;
-const MUKTAGACHA = 465;
-const TRISHAL = 463;
+const DISTRICT = DISTRICTS.find((d) => d.en === 'Gazipur').bn;
+const SADAR = 320; // গাজীপুর সদর
+const KALIAKAIR = 318; // কালিয়াকৈর
+const SREEPUR = 321; // শ্রীপুর
 const HOUR = 3600 * 1000;
 const MIN = 60 * 1000;
 
@@ -130,8 +130,8 @@ module.exports = {
     // তাই "২৪ ঘণ্টা খোলা" ছাঁকনিতে এটা আর "ডেমো ২৪ ঘণ্টা ফার্মেসি" — বাকি ডেমো দোকান ২৪ ঘণ্টা নয় (open24 দেবেন না)।
     await pharmacy(PH, {
       name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', loc: phLoc,
-      address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true,
-      delivery: true, deliveryNote: 'চরপাড়া, মেডিকেল গেট, গাঙ্গিনারপাড় — ৩০ টাকা', discount: 10, status: 'approved',
+      address: 'শিববাড়ি মোড়, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর', open24: true,
+      delivery: true, deliveryNote: 'শিববাড়ি, জয়দেবপুর, চান্দনা চৌরাস্তা — ৩০ টাকা', discount: 10, status: 'approved',
       docTypes: ['license', 'front', 'pharmacist'], createdAt: now - 90 * day, ratingSum: 54, ratingCount: 12, callsPerDay: 3,
       aspects: { behaviour: { sum: 56, count: 12 }, price: { sum: 44, count: 10 }, delivery: { sum: 29, count: 7 } },
       online: { enabled: true, radiusKm: 10, fee: '৩০ টাকা', note: 'সকাল ৮টা – রাত ১১টা ডেলিভারি' }, shopCode: 'DEMQKP',
@@ -148,7 +148,7 @@ module.exports = {
     const ph24 = await ctx.extraUser('svc-ph-24h', { name: 'ডেমো ২৪ ঘণ্টা ফার্মেসির মালিক', phone: '01700000151', placeName: DISTRICT });
     await pharmacy(ph24, {
       name: 'ডেমো ২৪ ঘণ্টা ফার্মেসি', licenseNo: 'DEMO-DL-1502', phone: '01700000151', loc: loc(0.8, -0.4),
-      address: 'মেডিকেল কলেজ গেট, ময়মনসিংহ', open24: true, delivery: true, deliveryNote: 'রাতেও ডেলিভারি, ৫০ টাকা', discount: 5,
+      address: 'তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল গেট, জয়দেবপুর, গাজীপুর', open24: true, delivery: true, deliveryNote: 'রাতেও ডেলিভারি, ৫০ টাকা', discount: 5,
       status: 'approved', ratingSum: 38, ratingCount: 9, callsPerDay: 4,
       aspects: { behaviour: { sum: 37, count: 9 }, price: { sum: 26, count: 6 }, delivery: { sum: 17, count: 4 } },
       online: { enabled: true, radiusKm: 5, fee: '৫০ টাকা', note: '২৪ ঘণ্টা' },
@@ -157,7 +157,7 @@ module.exports = {
     const phModel = await ctx.extraUser('svc-ph-model', { name: 'ডেমো নিউ মডেল ফার্মেসির মালিক', phone: '01700000152', placeName: DISTRICT });
     await pharmacy(phModel, {
       name: 'ডেমো নিউ মডেল ফার্মেসি', licenseNo: 'DEMO-DL-1503', phone: '01700000152', loc: loc(-0.6, 0.5),
-      address: 'গাঙ্গিনারপাড়, ময়মনসিংহ', openAt: '09:00', closeAt: '22:00', closedDays: [5], discount: 12,
+      address: 'জয়দেবপুর বাজার, গাজীপুর', openAt: '09:00', closeAt: '22:00', closedDays: [5], discount: 12,
       status: 'approved', ratingSum: 21, ratingCount: 6, callsPerDay: 2,
       aspects: { behaviour: { sum: 22, count: 6 }, price: { sum: 13, count: 4 } },
       stock: ['Napa', 'Seclo', 'Sergel', 'Alatrol', 'Monas', 'Calbo', 'Bislol', 'Amdocal', 'Rosuva'],
@@ -165,20 +165,20 @@ module.exports = {
     const phSeba = await ctx.extraUser('svc-ph-seba', { name: 'ডেমো সেবা ড্রাগ হাউসের মালিক', phone: '01700000153', placeName: DISTRICT });
     await pharmacy(phSeba, {
       name: 'ডেমো সেবা ড্রাগ হাউস', licenseNo: 'DEMO-DL-1504', phone: '01700000153', loc: loc(1.2, 0.9),
-      address: 'কাচিঝুলি মোড়, ময়মনসিংহ', openAt: '08:00', closeAt: '23:00', delivery: true, deliveryNote: 'কাছাকাছি ফ্রি',
+      address: 'ছায়াবীথি মোড়, জয়দেবপুর, গাজীপুর', openAt: '08:00', closeAt: '23:00', delivery: true, deliveryNote: 'কাছাকাছি ফ্রি',
       // সাময়িক বন্ধ (সংস্কার) — সারাক্ষণ "বন্ধ" দেখায়
       closedUntil: now + 5 * day, status: 'approved', ratingSum: 12, ratingCount: 3,
     });
-    const phMukta = await ctx.extraUser('svc-ph-mukta', { name: 'ডেমো মুক্তাগাছা ফার্মেসির মালিক', phone: '01700000154', placeName: DISTRICT });
-    await pharmacy(phMukta, {
-      name: 'ডেমো মুক্তাগাছা মেডিসিন কর্নার', licenseNo: 'DEMO-DL-1505', phone: '01700000154', loc: loc(-14, 1), upazilaId: MUKTAGACHA,
-      address: 'মুক্তাগাছা বাজার, ময়মনসিংহ', openAt: '08:00', closeAt: '21:00', status: 'approved', ratingSum: 0, ratingCount: 0,
+    const phKali = await ctx.extraUser('svc-ph-kaliakair', { name: 'ডেমো কালিয়াকৈর ফার্মেসির মালিক', phone: '01700000154', placeName: DISTRICT });
+    await pharmacy(phKali, {
+      name: 'ডেমো কালিয়াকৈর মেডিসিন কর্নার', licenseNo: 'DEMO-DL-1505', phone: '01700000154', loc: loc(-19.5, 8), upazilaId: KALIAKAIR,
+      address: 'কালিয়াকৈর বাজার, গাজীপুর', openAt: '08:00', closeAt: '21:00', status: 'approved', ratingSum: 0, ratingCount: 0,
     });
     // অনুমোদনের অপেক্ষায় (মালিক ওয়েব প্যানেলে কাগজ দেখে অনুমোদন দেবেন)
     const phNew = await ctx.extraUser('svc-ph-new', { name: 'ডেমো আরোগ্য ফার্মেসির মালিক', phone: '01700000155', placeName: DISTRICT });
     await pharmacy(phNew, {
       name: 'ডেমো আরোগ্য ফার্মেসি', licenseNo: 'DEMO-DL-1506', phone: '01700000155', loc: loc(0.2, -0.9),
-      address: 'নতুন বাজার, ময়মনসিংহ', openAt: '08:30', closeAt: '22:30', delivery: true, discount: 8,
+      address: 'জয়দেবপুর রেলগেট, গাজীপুর', openAt: '08:30', closeAt: '22:30', delivery: true, discount: 8,
       status: 'pending', docTypes: ['license', 'front'], createdAt: now - 1 * day,
     });
 
@@ -238,7 +238,7 @@ module.exports = {
     const order = async (id, x) => {
       await ctx.set(`rxOrders/${id}`, {
         rxId: x.rxId, code: x.code, pharmacyId: x.pharmacyId, pharmacyName: x.pharmacyName, patientUid: P, patientName: u.patient.name,
-        status: x.status, mode: 'online', address: 'বাসা ১২, রোড ৩, চরপাড়া, ময়মনসিংহ', phone: '01700000159', deliveryFee: x.deliveryFee || '৩০ টাকা',
+        status: x.status, mode: 'online', address: 'বাসা ১২, রোড ৩, শিববাড়ি, জয়দেবপুর, গাজীপুর', phone: '01700000159', deliveryFee: x.deliveryFee || '৩০ টাকা',
         note: x.note || '', createdAt: x.createdAt, ...(x.extra || {}),
       });
     };
@@ -301,25 +301,25 @@ module.exports = {
     const LAB = u.lab.uid;
     await profile('lab', '01700000160');
     await lab(LAB, {
-      name: 'ডেমো সিটি ডায়াগনস্টিক সেন্টার', address: 'হাসপাতাল রোড, চরপাড়া, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2201', phone: '01700000160',
+      name: 'ডেমো সিটি ডায়াগনস্টিক সেন্টার', address: 'হাসপাতাল রোড, শিববাড়ি, জয়দেবপুর, গাজীপুর', licenseNo: 'DEMO-HSM-2201', phone: '01700000160',
       hours: 'সকাল ৮টা – রাত ১০টা (শুক্রবার বিকাল ৩টা থেকে)', homeCollection: true, status: 'approved', createdAt: now - 80 * day,
       // নিজের মেশিনের স্বাভাবিক মাত্রা (রিপোর্টের ছকে আগে থেকে বসে)
       ranges: { 'cbc.hb': { low: 11.5, high: 16.5 }, 'rbs.glu': { low: 3.9, high: 7.8 } },
     });
     const labPop = await ctx.extraUser('svc-lab-popular', { name: 'ডেমো পপুলার প্যাথলজির মালিক', phone: '01700000161', placeName: DISTRICT });
     await lab(labPop, {
-      name: 'ডেমো পপুলার প্যাথলজি', address: 'স্টেশন রোড, গাঙ্গিনারপাড়, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2202', phone: '01700000161',
+      name: 'ডেমো পপুলার প্যাথলজি', address: 'স্টেশন রোড, জয়দেবপুর, গাজীপুর', licenseNo: 'DEMO-HSM-2202', phone: '01700000161',
       hours: 'সকাল ৭টা – রাত ৯টা', status: 'approved',
     });
-    const labTri = await ctx.extraUser('svc-lab-trishal', { name: 'ডেমো ত্রিশাল ডায়াগনস্টিকের মালিক', phone: '01700000162', placeName: DISTRICT });
+    const labTri = await ctx.extraUser('svc-lab-sreepur', { name: 'ডেমো শ্রীপুর ডায়াগনস্টিকের মালিক', phone: '01700000162', placeName: DISTRICT });
     await lab(labTri, {
-      name: 'ডেমো ত্রিশাল ডায়াগনস্টিক', address: 'ত্রিশাল বাসস্ট্যান্ড, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2203', phone: '01700000162',
-      hours: 'সকাল ৯টা – সন্ধ্যা ৭টা', homeCollection: true, upazilaId: TRISHAL, status: 'approved',
+      name: 'ডেমো শ্রীপুর ডায়াগনস্টিক', address: 'মাওনা চৌরাস্তা, শ্রীপুর, গাজীপুর', licenseNo: 'DEMO-HSM-2203', phone: '01700000162',
+      hours: 'সকাল ৯টা – সন্ধ্যা ৭টা', homeCollection: true, upazilaId: SREEPUR, status: 'approved',
     });
     // দামের তালিকা নেই — রোগী দেখেন "দাম জানা নেই — ফোনে জেনে নিন"
     const labRoyal = await ctx.extraUser('svc-lab-royal', { name: 'ডেমো রয়েল ল্যাবের মালিক', phone: '01700000164', placeName: DISTRICT });
     await lab(labRoyal, {
-      name: 'ডেমো রয়েল ল্যাব', address: 'নতুন বাজার, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2205', phone: '01700000164',
+      name: 'ডেমো রয়েল ল্যাব', address: 'রথখোলা, জয়দেবপুর, গাজীপুর', licenseNo: 'DEMO-HSM-2205', phone: '01700000164',
       hours: 'সকাল ৮টা – রাত ৯টা', status: 'approved', createdAt: now - 40 * day,
     });
 
@@ -378,7 +378,7 @@ module.exports = {
 
     const labNew = await ctx.extraUser('svc-lab-new', { name: 'ডেমো নিউ লাইফ ল্যাবের মালিক', phone: '01700000163', placeName: DISTRICT });
     await lab(labNew, {
-      name: 'ডেমো নিউ লাইফ ল্যাব', address: 'কাচিঝুলি, ময়মনসিংহ', licenseNo: 'DEMO-HSM-2204', phone: '01700000163',
+      name: 'ডেমো নিউ লাইফ ল্যাব', address: 'ছায়াবীথি, জয়দেবপুর, গাজীপুর', licenseNo: 'DEMO-HSM-2204', phone: '01700000163',
       hours: 'সকাল ৮টা – রাত ৮টা', status: 'pending', createdAt: now - 2 * day,
     });
 
@@ -421,8 +421,8 @@ module.exports = {
     await profile('ambulance', '01700000170');
     const AMB_AC = 'demo-svc-amb-ac';
     await ambulance(AMB_AC, AMB, {
-      name: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)', phone: '01700000170', vehicleNo: 'DEMO-MYM-CHA-11-0001', types: ['ac', 'general'],
-      area: 'মেডিকেল কলেজ গেট, চরপাড়া', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৫৫০০ টাকা', status: 'approved', at: at3(loc(0.8, 1.2)),
+      name: 'ডেমো জীবন অ্যাম্বুলেন্স (এসি)', phone: '01700000170', vehicleNo: 'DEMO-GAZ-CHA-11-0001', types: ['ac', 'general'],
+      area: 'তাজউদ্দীন মেডিকেল গেট, শিববাড়ি', fare: 'শহরের মধ্যে ৮০০ টাকা, ঢাকা ৩০০০ টাকা', status: 'approved', at: at3(loc(0.8, 1.2)),
       available: true, availableAt: now - 30 * MIN, ratingSum: 42, ratingCount: 9, callsPerDay: 2,
       recent: [
         { rating: 4, comment: 'ভাড়া একটু বেশি, তবে গাড়ি পরিষ্কার', at: now - 9 * day, who: 'demo0000000000a1' },
@@ -432,42 +432,42 @@ module.exports = {
     // রোগী আগে ফোন করে রেটিং দিয়েছেন
     await ctx.set(`ambulanceCalls/${P}_${AMB_AC}`, { uid: P, ambulanceId: AMB_AC, at: now - 4 * day, firstAt: now - 4 * day, rating: 5, comment: 'রাত ২টায় ফোন করেছিলাম, ২০ মিনিটে এসেছে। অনেক ধন্যবাদ।', ratedAt: now - 3 * day });
     await ambulance('demo-svc-amb-nonac', AMB, {
-      name: 'ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)', phone: '01700000171', vehicleNo: 'DEMO-MYM-CHA-11-0002', types: ['general'],
-      area: 'চরপাড়া, কাচিঝুলি', fare: 'শহরের মধ্যে ৫০০ টাকা', status: 'approved', at: at3(loc(1.5, 0.5)),
+      name: 'ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)', phone: '01700000171', vehicleNo: 'DEMO-GAZ-CHA-11-0002', types: ['general'],
+      area: 'শিববাড়ি, ছায়াবীথি', fare: 'শহরের মধ্যে ৫০০ টাকা', status: 'approved', at: at3(loc(1.5, 0.5)),
       // এখন ট্রিপে (চালক "ট্রিপে আছি" করেছেন)
       available: false, availableAt: now - 50 * MIN, busyAt: now - 50 * MIN, ratingSum: 8, ratingCount: 2,
     });
     // "এখনো খালি আছেন?": সাড়ে ১১ ঘণ্টা আগে "খালি" জানানো — চালকের কার্ডে "আর ৩০ মিনিট", তালিকা খুললেই চালকের কাছে পুশ
     // (ডেমো বানানোর আধা ঘণ্টা পর এটা "ফোনে জেনে নিন" হয়ে যায়, যদি না চালক "আবার চালু রাখুন" চাপেন)
     await ambulance('demo-svc-amb-mini', AMB, {
-      name: 'ডেমো জীবন মিনি অ্যাম্বুলেন্স', phone: '01700000176', vehicleNo: 'DEMO-MYM-CHA-11-0007', types: ['general'],
-      area: 'গাঙ্গিনারপাড়, পাটগুদাম', fare: 'শহরের মধ্যে ৪০০ টাকা', status: 'approved', at: at3(loc(-2.5, -1.5)),
+      name: 'ডেমো জীবন মিনি অ্যাম্বুলেন্স', phone: '01700000176', vehicleNo: 'DEMO-GAZ-CHA-11-0007', types: ['general'],
+      area: 'চান্দনা চৌরাস্তা, ভোগড়া', fare: 'শহরের মধ্যে ৪০০ টাকা', status: 'approved', at: at3(loc(-2.5, -1.5)),
       available: true, availableAt: now - 11.5 * HOUR, ratingSum: 9, ratingCount: 2,
     });
     // ডেমো চালকের নতুন আইসিইউ গাড়ি — অনুমোদনের অপেক্ষায়
     await ambulance('demo-svc-amb-icu-new', AMB, {
-      name: 'ডেমো জীবন আইসিইউ অ্যাম্বুলেন্স', phone: '01700000172', vehicleNo: 'DEMO-MYM-CHA-11-0003', types: ['icu', 'ac'],
-      area: 'ময়মনসিংহ থেকে ঢাকা', fare: 'ঢাকা ১২০০০ টাকা (অক্সিজেন সহ)', status: 'pending', createdAt: now - 6 * HOUR,
+      name: 'ডেমো জীবন আইসিইউ অ্যাম্বুলেন্স', phone: '01700000172', vehicleNo: 'DEMO-GAZ-CHA-11-0003', types: ['icu', 'ac'],
+      area: 'গাজীপুর থেকে ঢাকা', fare: 'ঢাকা ৮০০০ টাকা (অক্সিজেন সহ)', status: 'pending', createdAt: now - 6 * HOUR,
     });
     const ambMomota = await ctx.extraUser('svc-amb-momota', { name: 'ডেমো মমতা অ্যাম্বুলেন্সের মালিক', phone: '01700000173', placeName: DISTRICT });
     const AMB_MOMOTA = 'demo-svc-amb-momota';
     await ambulance(AMB_MOMOTA, ambMomota, {
-      name: 'ডেমো মমতা অ্যাম্বুলেন্স', phone: '01700000173', vehicleNo: 'DEMO-MYM-GA-12-0004', types: ['general'], upazilaId: TRISHAL,
-      area: 'ত্রিশাল বাসস্ট্যান্ড', fare: 'আলোচনা সাপেক্ষে', status: 'approved', at: at3(loc(2, -19)), available: true, availableAt: now - 3 * HOUR, ratingSum: 16, ratingCount: 5,
+      name: 'ডেমো মমতা অ্যাম্বুলেন্স', phone: '01700000173', vehicleNo: 'DEMO-GAZ-GA-12-0004', types: ['general'], upazilaId: SREEPUR,
+      area: 'মাওনা চৌরাস্তা, শ্রীপুর', fare: 'আলোচনা সাপেক্ষে', status: 'approved', at: at3(loc(5.5, 22)), available: true, availableAt: now - 3 * HOUR, ratingSum: 16, ratingCount: 5,
     });
     const ambIcu = await ctx.extraUser('svc-amb-icu', { name: 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিসের মালিক', phone: '01700000174', placeName: DISTRICT });
     const AMB_ICU = 'demo-svc-amb-icu';
     await ambulance(AMB_ICU, ambIcu, {
-      name: 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস', phone: '01700000174', vehicleNo: 'DEMO-MYM-CHA-13-0005', types: ['icu', 'ac'],
-      area: 'মেডিকেল কলেজ হাসপাতাল', fare: 'ঢাকা ১৫০০০ টাকা', status: 'approved', at: at3(loc(0.5, 0.9)),
+      name: 'ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস', phone: '01700000174', vehicleNo: 'DEMO-GAZ-CHA-13-0005', types: ['icu', 'ac'],
+      area: 'তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল', fare: 'ঢাকা ১০০০০ টাকা', status: 'approved', at: at3(loc(0.5, 0.9)),
       // ১২ ঘণ্টার বেশি আগে "খালি" জানিয়েছে → "ফোনে জেনে নিন"
       available: true, availableAt: now - 20 * HOUR, ratingSum: 23, ratingCount: 5,
     });
     const ambFreezer = await ctx.extraUser('svc-amb-freezer', { name: 'ডেমো ফ্রিজার ভ্যানের মালিক', phone: '01700000175', placeName: DISTRICT });
     await ambulance('demo-svc-amb-freezer', ambFreezer, {
-      name: 'ডেমো শেষ যাত্রা ফ্রিজার ভ্যান', phone: '01700000175', vehicleNo: 'DEMO-MYM-CHA-14-0006', types: ['freezer'],
+      name: 'ডেমো শেষ যাত্রা ফ্রিজার ভ্যান', phone: '01700000175', vehicleNo: 'DEMO-GAZ-CHA-14-0006', types: ['freezer'],
       // গাড়ির জায়গা দেওয়া নেই → জেলার কেন্দ্র ধরে "প্রায়" দূরত্ব
-      area: 'পুরো ময়মনসিংহ বিভাগ', fare: 'দূরত্ব অনুযায়ী', status: 'approved', available: true, availableAt: now - 2 * HOUR,
+      area: 'পুরো গাজীপুর জেলা ও ঢাকা', fare: 'দূরত্ব অনুযায়ী', status: 'approved', available: true, availableAt: now - 2 * HOUR,
     });
     // রোগী ৩ ঘণ্টা আগে আইসিইউ সার্ভিসে ফোন করেছিলেন → এখন রেটিং দিতে পারবেন
     await ctx.set(`ambulanceCalls/${P}_${AMB_ICU}`, { uid: P, ambulanceId: AMB_ICU, at: now - 3 * HOUR, firstAt: now - 3 * HOUR });
@@ -497,10 +497,10 @@ module.exports = {
       await ctx.set(`homeStats/${uid}`, { d: c.d, total: c.total + 10, callers: Math.round(c.total * 0.6), recent: x.recent || [] });
     };
     await homePro(NURSE, {
-      type: 'nurse', name: u.homecare.name, regNo: 'DEMO-BNMC-55001', workplace: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল (ডেমো)', email: u.homecare.email,
+      type: 'nurse', name: u.homecare.name, regNo: 'DEMO-BNMC-55001', workplace: 'শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল (ডেমো)', email: u.homecare.email,
       specialties: ['general_nursing', 'home_care'], degrees: 'ডিপ্লোমা ইন নার্সিং অ্যান্ড মিডওয়াইফারি', gender: 'female',
       homeVisit: {
-        enabled: true, radiusKm: 10, upazilaIds: [SADAR, MUKTAGACHA], services: ['injection', 'saline', 'cannula', 'dressing', 'bp_sugar', 'elderly_care', 'newborn_care'],
+        enabled: true, radiusKm: 10, upazilaIds: [SADAR, KALIAKAIR], services: ['injection', 'saline', 'cannula', 'dressing', 'bp_sugar', 'elderly_care', 'newborn_care'],
         phone: '01700000180', schedule: 'জরুরি হলে রাতেও আসি', times: [{ days: [0, 1, 2, 3, 4, 6], start: '09:00', end: '18:00' }], noFee: false, fee: '৩০০–৫০০ টাকা (সেবা অনুযায়ী)',
       },
       ratingSum: 27, ratingCount: 6, callsPerDay: 2,
@@ -521,9 +521,9 @@ module.exports = {
     });
     const nMousumi = await ctx.extraUser('svc-nurse-mousumi', { name: 'ডেমো নার্স মৌসুমী', phone: '01700000182', placeName: DISTRICT, locationSource: 'district', gender: 'female' });
     await homePro(nMousumi, {
-      type: 'nurse', name: 'ডেমো নার্স মৌসুমী', regNo: 'DEMO-BNMC-55003', workplace: 'ডেমো ত্রিশাল উপজেলা স্বাস্থ্য কমপ্লেক্স',
+      type: 'nurse', name: 'ডেমো নার্স মৌসুমী', regNo: 'DEMO-BNMC-55003', workplace: 'ডেমো শ্রীপুর উপজেলা স্বাস্থ্য কমপ্লেক্স',
       specialties: ['midwife', 'pediatric_nursing'], degrees: 'ডিপ্লোমা ইন মিডওয়াইফারি', gender: 'female',
-      homeVisit: { enabled: true, radiusKm: 5, upazilaIds: [TRISHAL, SADAR], services: ['newborn_care', 'bp_sugar', 'injection'], phone: '01700000182', schedule: 'আগে ফোন করে সময় ঠিক করে নিন', times: [], noFee: false, fee: '৩০০ টাকা' },
+      homeVisit: { enabled: true, radiusKm: 5, upazilaIds: [SREEPUR, SADAR], services: ['newborn_care', 'bp_sugar', 'injection'], phone: '01700000182', schedule: 'আগে ফোন করে সময় ঠিক করে নিন', times: [], noFee: false, fee: '৩০০ টাকা' },
     });
     const dRafiq = await ctx.extraUser('svc-doc-rafiq', { name: 'ডা. ডেমো রফিক', phone: '01700000183', placeName: DISTRICT, ...at3(loc(1, -1)), locationSource: 'gps', gender: 'male' });
     await homePro(dRafiq, {

@@ -93,8 +93,18 @@ env:
     timeout: 4000
 - takeScreenshot: j3-09-after-not-now
 # "দোকান" ট্যাব: তথ্য, QR, বন্ধ রাখা, বিক্রি ও স্টক, ওষুধ খোঁজার অনুরোধ, একদম নিচে মুছে ফেলা
-- hideKeyboard
+# "ওষুধ দিন" থেকে ফেরা (কিবোর্ড খোলা থাকলে প্রথম back সেটাই বন্ধ করে); বেশি ফিরে "আমার কাজ"-এ গেলে আবার ফার্মেসি
 - back
+- runFlow:
+    when:
+      visible: ".*যা দিলাম লিখে রাখুন.*"
+    commands:
+      - back
+- runFlow:
+    when:
+      visible: ".*আরেকটা ব্যবসা যোগ করুন.*"
+    commands:
+      - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
 - extendedWaitUntil:
     visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 15000

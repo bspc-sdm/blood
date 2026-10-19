@@ -114,3 +114,16 @@
 .amb-accepted-ic svg { width: 26px; height: 26px; }
 .amb-fallback { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 14px; border-radius: 14px; background: var(--surface-low); }
 .amb-replace { padding: 14px; border-radius: 14px; background: var(--secondary-container); color: var(--on-secondary-container); }
+
+/* অ্যাম্বুলেন্স ডাকার এলাকা (২.২৯.০): এলাকার বোতাম, এখনকার জায়গা নেওয়া হলে সবুজাভ সারি, অনুমতির আগে কারণ */
+.loc-area {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--outline); background: var(--surface-lowest); color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.loc-area .icon-line { flex: 1; min-width: 0; }
+.loc-area .icon-line span { overflow-wrap: anywhere; }
+.loc-area.error { border-color: var(--error); }
+.loc-need { color: var(--error); }
+.loc-change { flex: none; color: var(--primary); }
+.loc-gps-ok { align-items: center; padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--primary-container); color: var(--on-primary-container); }
+.loc-why { padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }

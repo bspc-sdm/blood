@@ -70,7 +70,7 @@ async function ok(uid, action, body) {
 
 const U = (k) => demo.uidOf(k);
 const X = (k) => demo.uidOf(`x-${k}`);
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const names = (items) => items.map((x) => x.name);
 
 test('সেবার ডেমো: তালিকা, অর্ডার, খোঁজ, অনুমোদন — সব আসল কাজে দেখা যায়, পরীক্ষার কাজ চলে, মোছার পর কিছু থাকে না', async () => {
@@ -101,8 +101,8 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   const g24 = await ok(null, 'pharmacies', { district: DISTRICT, open24: true });
   assert.deepStrictEqual(names(g24.items).sort(), ['ডেমো ২৪ ঘণ্টা ফার্মেসি', 'ডেমো লাইফ ফার্মেসি'].sort());
   assert.ok(gPh.items.length > g24.items.length + 2, 'ছাঁকনিতে তালিকা চোখে পড়ার মতো ছোট হয়');
-  const gMukta = await ok(null, 'pharmacies', { district: DISTRICT, upazilaId: 465 });
-  assert.ok(names(gMukta.items).includes('ডেমো মুক্তাগাছা মেডিসিন কর্নার'));
+  const gMukta = await ok(null, 'pharmacies', { district: DISTRICT, upazilaId: 318 });
+  assert.ok(names(gMukta.items).includes('ডেমো কালিয়াকৈর মেডিসিন কর্নার'));
   assert.ok(!names(gMukta.items).includes('ডেমো লাইফ ফার্মেসি'));
 
   const gLabs = await ok(null, 'labs', { district: DISTRICT });
@@ -148,7 +148,7 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   const byId = Object.fromEntries(orders.map((o) => [o.id, o]));
   assert.strictEqual(byId['demo-svc-ord-a'].status, 'sent');
   assert.strictEqual(byId['demo-svc-ord-a'].mode, 'online');
-  assert.ok(byId['demo-svc-ord-a'].address.includes('চরপাড়া'), 'চালু অনলাইন অর্ডারে ঠিকানা');
+  assert.ok(byId['demo-svc-ord-a'].address.includes('শিববাড়ি'), 'চালু অনলাইন অর্ডারে ঠিকানা');
   assert.strictEqual(byId['demo-svc-ord-b'].status, 'out');
   assert.strictEqual(byId['demo-svc-ord-c'].status, 'done');
   assert.strictEqual(byId['demo-svc-ord-c'].address, undefined, 'শেষ হওয়া অর্ডারে ঠিকানা লুকানো');
@@ -233,14 +233,14 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   await ok(PH, 'med_find_answer', { id: 'demo-svc-find-3', have: true });
   await ok(PH, 'stock_set', { add: ['Thyrox 50'] });
   await ok(PH, 'pharmacy_save', {
-    name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', district: DISTRICT, upazilaId: 466,
-    address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true, delivery: true, deliveryNote: 'ফ্রি', discount: 12, closedDays: [], termsAccepted: true,
+    name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-1501', phone: '01700000150', district: DISTRICT, upazilaId: 320,
+    address: 'শিববাড়ি মোড়, হাসপাতাল রোড, গাজীপুর', open24: true, delivery: true, deliveryNote: 'ফ্রি', discount: 12, closedDays: [], termsAccepted: true,
   });
   assert.strictEqual((await ok(PH, 'pharmacy_me')).pharmacy.status, 'approved', 'সময়/ছাড় বদলালে আবার যাচাই লাগে না');
   // লাইসেন্স বদল → যাচাই; মালিক বাতিল করলে আগের অনুমোদিত তথ্য ফেরে (গাইডে বলা আছে)
   await ok(PH, 'pharmacy_save', {
-    name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-9999', phone: '01700000150', district: DISTRICT, upazilaId: 466,
-    address: 'চরপাড়া মোড়, মেডিকেল কলেজ রোড, ময়মনসিংহ', open24: true, delivery: true, discount: 12, termsAccepted: true,
+    name: 'ডেমো লাইফ ফার্মেসি', licenseNo: 'DEMO-DL-9999', phone: '01700000150', district: DISTRICT, upazilaId: 320,
+    address: 'শিববাড়ি মোড়, হাসপাতাল রোড, গাজীপুর', open24: true, delivery: true, discount: 12, termsAccepted: true,
   });
   assert.strictEqual((await ok(PH, 'pharmacy_me')).pharmacy.status, 'pending');
   await ok(OWNER, 'admin_pharmacy_resolve', { id: PH, status: 'rejected', reason: 'ডেমো' });
@@ -248,10 +248,10 @@ test('সেবার ডেমো: তালিকা, অর্ডার, খ�
   assert.strictEqual(back.status, 'approved');
   assert.strictEqual(back.licenseNo, 'DEMO-DL-1501');
   // রোগী: নতুন অনলাইন অর্ডার, ওষুধ খোঁজা, রেটিং, রিপোর্ট, ফোন
-  const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, চরপাড়া', phone: '01700000159' });
+  const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, শিববাড়ি', phone: '01700000159' });
   assert.ok((await ok(PH, 'rx_orders_pharmacy')).items.some((o) => o.id === sent.id && o.status === 'sent'));
   const montene = (await ok(P, 'drug_search', { q: 'Montene' })).items[0];
-  const mf = await ok(P, 'med_find', { i: montene.i, district: DISTRICT, upazilaId: 466 });
+  const mf = await ok(P, 'med_find', { i: montene.i, district: DISTRICT, upazilaId: 320 });
   assert.ok(mf.ok && mf.notified >= 1, JSON.stringify(mf));
   await ok(P, 'ambulance_rate', { id: 'demo-svc-amb-icu', rating: 4, comment: 'ভালো সার্ভিস' });
   await ok(P, 'home_rate', { uid: NURSE, rating: 5, comment: 'খুব যত্নশীল' });

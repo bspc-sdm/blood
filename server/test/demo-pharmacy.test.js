@@ -10,7 +10,7 @@ const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
 const api = require(path.join(SERVER, 'api/community.js'));
 const verify = require(path.join(SERVER, 'lib/verify'));
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const { db } = F.firebase;
 const OWNER = 'owner-demo-test';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
@@ -68,7 +68,7 @@ test('ফার্মেসি: দোকান, রোগী, কেয়া�
   LOG('ডেমো ফার্মেসিতে আনুমানিক খরচ', JSON.stringify(est));
   assert.ok(est && est.total > 0 && est.priced > 0, 'ডেমো ফার্মেসিতে আনুমানিক খরচ দেখা যায় (হিসাব-খাতার দাম)');
   assert.ok(opts.every((o) => o.id.startsWith('demo-')), 'ডেমো রোগী শুধু ডেমো দোকান দেখেন? (না হলে আসল দোকানও আসে)');
-  const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, চরপাড়া', phone: '01700000159' });
+  const sent = await ok(P, 'rx_send_pharmacy', { rxId: 'demo-svc-rx-d', pharmacyId: PH, mode: 'online', address: 'বাসা ১২, শিববাড়ি', phone: '01700000159' });
   LOG('রোগী অনলাইন অর্ডার পাঠালেন');
   // দোকান: নেওয়া → পাঠানো → কত দিলেন
   let o = (await ok(PH, 'rx_orders_pharmacy')).items.find((x) => x.id === sent.id);
@@ -100,7 +100,7 @@ test('ফার্মেসি: দোকান, রোগী, কেয়া�
 
   // ---- ওষুধ খোঁজা: রোগী খোঁজেন → ডেমো দোকান উত্তর দেন ----
   const drugs = (await ok(P, 'drug_search', { q: 'Montene' })).items;
-  const mf = await ok(P, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 466 });
+  const mf = await ok(P, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 320 });
   assert.ok(mf.ok, JSON.stringify(mf));
   const reqs = (await ok(PH, 'med_find_requests')).items;
   const req = reqs.find((x) => x.id === mf.id);
@@ -139,7 +139,7 @@ test('ফার্মেসি: দোকান, রোগী, কেয়া�
   const REAL = 'real-user-0001';
   F.users.set(REAL, { uid: REAL, email: 'real@example.com' });
   await db.doc(`users/${REAL}`).set({ name: 'আসল', phone: '01811000000' });
-  const rf = await call(REAL, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 466 });
+  const rf = await call(REAL, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 320 });
   LOG('আসল মানুষের খোঁজ (শুধু ডেমো দোকান থাকায়):', rf.status, JSON.stringify(rf.body));
   if (rf.status === 200 && rf.body.id) {
     const n2 = (await db.doc(`medFinds/${rf.body.id}`).get()).get('notified') || [];

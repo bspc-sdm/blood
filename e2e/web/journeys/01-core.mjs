@@ -29,10 +29,10 @@ export async function run(J) {
     page = await J.as('patient');
     await J.shot('রোগী হিসেবে ঢোকা (লগইন পাতার ডেমো তালিকা থেকে)', 'হোম পাতায় আশেপাশের রক্তের রিকোয়েস্ট দেখা যায়।');
     await tap(page, 'অ্যাপয়েন্টমেন্ট', { role: 'link', exact: true });
-    await J.shot('অ্যাপয়েন্টমেন্ট › ডাক্তারের তালিকা', 'ময়মনসিংহের ডেমো ডাক্তারদের তালিকা, ‘ডা. ডেমো হাসান’ আছেন।');
+    await J.shot('অ্যাপয়েন্টমেন্ট › ডাক্তারের তালিকা', 'গাজীপুরের ডেমো ডাক্তারদের তালিকা, ‘ডা. ডেমো হাসান’ আছেন।');
     await tap(page, DOC);
-    await J.shot('ডা. ডেমো হাসানের পাতা', 'চেম্বার ‘ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল’, রুম ‘ডেমো চেম্বার · বহির্বিভাগ ৩১২’, ফি ৫০০ টাকা, ‘অ্যাপয়েন্টমেন্ট চাই’ বোতাম।');
-    // প্রথম চেম্বার = ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল
+    await J.shot('ডা. ডেমো হাসানের পাতা', 'চেম্বার ‘শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল’, রুম ‘ডেমো চেম্বার · বহির্বিভাগ ৩১২’, ফি ৫০০ টাকা, ‘অ্যাপয়েন্টমেন্ট চাই’ বোতাম।');
+    // প্রথম চেম্বার = শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল
     await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
     const dlg = page.getByRole('dialog');
     await dlg.waitFor();
@@ -86,7 +86,7 @@ export async function run(J) {
     await row.getByText('লিখুন').click();
     await settle(page);
     const chamber = page.getByLabel('চেম্বার');
-    if (await chamber.count()) await chamber.selectOption({ label: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল' }).catch(() => {});
+    if (await chamber.count()) await chamber.selectOption({ label: 'শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল' }).catch(() => {});
     await page.getByLabel('সমস্যা', { exact: true }).fill('সুগার বেশি, মাথা ঘোরে');
     await page.getByLabel('প্রেসার', { exact: true }).fill('140/90');
     await page.getByLabel('রোগনির্ণয়', { exact: true }).fill('Type 2 DM');
@@ -128,10 +128,10 @@ export async function run(J) {
     const card = page.getByRole('dialog').locator('article, .card').filter({ hasText: 'ডেমো লাইফ ফার্মেসি' }).first();
     await card.getByRole('button', { name: 'অর্ডার করুন' }).click();
     const dlg = page.getByRole('dialog').last();
-    await dlg.getByLabel('কোথায় পৌঁছাবে (ঠিকানা)').fill('ডেমো বাসা ৫, চরপাড়া');
+    await dlg.getByLabel('কোথায় পৌঁছাবে (ঠিকানা)').fill('ডেমো বাসা ৫, শিববাড়ি');
     const ph = dlg.getByLabel(/মোবাইল/);
     if (await ph.count()) await ph.first().fill('01700001101');
-    await J.shot('অর্ডারের ঠিকানা আর ফোন', 'ঠিকানা ‘ডেমো বাসা ৫, চরপাড়া’, মোবাইল 01700001101; আনুমানিক দাম আর ডেলিভারি চার্জ।');
+    await J.shot('অর্ডারের ঠিকানা আর ফোন', 'ঠিকানা ‘ডেমো বাসা ৫, শিববাড়ি’, মোবাইল 01700001101; আনুমানিক দাম আর ডেলিভারি চার্জ।');
     await dlg.getByRole('button', { name: 'অর্ডার দিন' }).click();
     await see(page, 'অর্ডার গেছে');
     await J.shot('অর্ডার গেছে', '‘ডেমো লাইফ ফার্মেসি-এ অর্ডার গেছে। ওষুধ পৌঁছালে দাম দেবেন।’; অবস্থা ‘পাঠানো হয়েছে — অপেক্ষায়’, পাশে ‘ফিরিয়ে নিন’।', { full: true });
@@ -140,8 +140,8 @@ export async function run(J) {
   await J.sc('J-08', 'ফার্মেসি: অর্ডার নেওয়া আর পাঠানো', async () => {
     page = await J.as('pharmacy');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
-    await J.shot('ফার্মেসি: অনলাইন অর্ডার — চালু', '‘ডেমো রোগী রহিম’ — ঠিকানা ‘ডেমো বাসা ৫, চরপাড়া’, ফোন, ‘খুলে ওষুধ লিখুন’, ‘অর্ডার নিলাম’, ‘পাঠিয়ে দিয়েছি’, ‘পারব না’ — সব বোতাম পুরো দেখা যায়।', { status: 'fixed', noteBn: 'আগে ১৩৬৬ পিক্সেল চওড়া ল্যাপটপ পর্দায় অনলাইন অর্ডারের ছকের ডান দিক কেটে যেত — ‘অর্ডার নিলাম’, ‘পারব না’ বোতাম অর্ধেক দেখা যেত, পাশে টেনে দেখতে হতো। এখন বড় পর্দা (১৬০০+) ছাড়া কার্ডে দেখায়।' });
-    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, চরপাড়া' }).first();
+    await J.shot('ফার্মেসি: অনলাইন অর্ডার — চালু', '‘ডেমো রোগী রহিম’ — ঠিকানা ‘ডেমো বাসা ৫, শিববাড়ি’, ফোন, ‘খুলে ওষুধ লিখুন’, ‘অর্ডার নিলাম’, ‘পাঠিয়ে দিয়েছি’, ‘পারব না’ — সব বোতাম পুরো দেখা যায়।', { status: 'fixed', noteBn: 'আগে ১৩৬৬ পিক্সেল চওড়া ল্যাপটপ পর্দায় অনলাইন অর্ডারের ছকের ডান দিক কেটে যেত — ‘অর্ডার নিলাম’, ‘পারব না’ বোতাম অর্ধেক দেখা যেত, পাশে টেনে দেখতে হতো। এখন বড় পর্দা (১৬০০+) ছাড়া কার্ডে দেখায়।' });
+    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, শিববাড়ি' }).first();
     await row.getByRole('button', { name: 'অর্ডার নিলাম' }).click();
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('মোট দাম (ঐচ্ছিক)').fill('৪২০ টাকা');
@@ -158,7 +158,7 @@ export async function run(J) {
   await J.sc('J-09', 'ফার্মেসি: কত ওষুধ দিলেন লেখা (অর্ডার সম্পন্ন)', async () => {
     page = await J.as('pharmacy');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
-    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, চরপাড়া' }).first();
+    const row = page.locator('tr, article').filter({ hasText: 'ডেমো বাসা ৫, শিববাড়ি' }).first();
     await row.getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
     await settle(page);
     await J.shot('প্রেসক্রিপশন খোলা — কয়টা দিলেন', 'Comet (৬০টা বাকি) আর Napa (৯টা বাকি) — ‘কয়টা দিলেন’ ঘর আর ‘পুরো’ বোতাম; ওষুধের নিচে ‘খাবারের পরে’।', { status: 'fixed', noteBn: 'আগে ওষুধের নামের নিচে ইংরেজিতে ‘after’ দেখাত (খাওয়ার সময়ের কাঁচা মান)। এখন ‘খাবারের পরে’/‘খাবারের আগে’।' });
@@ -195,12 +195,12 @@ export async function run(J) {
     await dlg.locator('article, .card').filter({ hasText: 'ডেমো সিটি ডায়াগনস্টিক সেন্টার' }).getByRole('button', { name: 'পরীক্ষা পাঠান' }).first().click();
     const h = page.getByRole('dialog').last();
     await h.getByText('বাসা থেকে নমুনা নিতে আসবে').click();
-    await h.getByLabel('বাসার ঠিকানা').fill('ডেমো বাসা ৫, চরপাড়া');
+    await h.getByLabel('বাসার ঠিকানা').fill('ডেমো বাসা ৫, শিববাড়ি');
     const ph = h.getByLabel('মোবাইল নম্বর');
     if (!(await ph.inputValue())) await ph.fill('01700001101');
     // কাল (আজ সময় না-ও থাকতে পারে)
     await h.locator('.chips, [role=radiogroup], .row').filter({ hasText: /কাল/ }).getByText(/^কাল$|আগামীকাল/).first().click().catch(() => {});
-    await J.shot('বাসা থেকে নমুনা — ঠিকানা, ফোন, দিন, সময়', '‘বাসা থেকে নমুনা নিতে আসবে’ বাছা, ঠিকানা ‘ডেমো বাসা ৫, চরপাড়া’, মোবাইল, কাল, একটা সময়।');
+    await J.shot('বাসা থেকে নমুনা — ঠিকানা, ফোন, দিন, সময়', '‘বাসা থেকে নমুনা নিতে আসবে’ বাছা, ঠিকানা ‘ডেমো বাসা ৫, শিববাড়ি’, মোবাইল, কাল, একটা সময়।');
     await h.getByRole('button', { name: 'পাঠান', exact: true }).click();
     await see(page, 'ডেমো সিটি ডায়াগনস্টিক সেন্টার-এ পাঠানো হয়েছে');
     await J.shot('ল্যাবে পাঠানো হলো', '‘ডেমো সিটি ডায়াগনস্টিক সেন্টার-এ পাঠানো হয়েছে’; অবস্থা ‘পাঠানো হয়েছে — অপেক্ষায়’।', { full: true });
@@ -463,14 +463,14 @@ export async function run(J) {
   });
 }
 
-/** এলাকা চাইলে ময়মনসিংহ › ময়মনসিংহ সদর */
+/** এলাকা চাইলে গাজীপুর › গাজীপুর সদর */
 async function pickAreaIfAsked(page) {
   await settle(page);
   const choose = page.getByRole('dialog').last().getByText('এলাকা বেছে নিন');
   if (await choose.count()) {
     await page.getByRole('dialog').last().getByRole('button', { name: /এলাকা/ }).first().click();
-    await tap(page, 'ময়মনসিংহ', { exact: true });
-    await tap(page, 'ময়মনসিংহ সদর', { exact: true }).catch(() => {});
+    await tap(page, 'গাজীপুর', { exact: true });
+    await tap(page, 'গাজীপুর সদর', { exact: true }).catch(() => {});
     await settle(page);
   }
 }

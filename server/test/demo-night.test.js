@@ -13,7 +13,7 @@ const api = require(path.join(SERVER, 'api/community.js'));
 const R = require(path.join(SERVER, 'lib/rules'));
 const K = require(path.join(SERVER, 'lib/care'));
 const demo = require(path.join(SERVER, 'lib/demo'));
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const OWNER = 'owner-demo-night';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
 
@@ -54,7 +54,7 @@ test('ডেমো ঢাকার রাতেও চলে: ডেমো র�
       const me = (await ok(PH, 'pharmacy_me')).pharmacy;
       assert.strictEqual(me.openNow, true, `${t}: ডেমো ফার্মেসি এখন খোলা`);
       const drugs = (await ok(PT, 'drug_search', { q: 'Montene' })).items;
-      const mf = await ok(PT, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 466 });
+      const mf = await ok(PT, 'med_find', { i: drugs[0].i, district: DISTRICT, upazilaId: 320 });
       assert.ok(mf.ok, `${t}: ${JSON.stringify(mf)}`);
       const reqs = (await ok(PH, 'med_find_requests')).items;
       assert.ok(reqs.some((x) => x.id === mf.id), `${t}: ডেমো দোকান খোঁজটা পেলেন`);

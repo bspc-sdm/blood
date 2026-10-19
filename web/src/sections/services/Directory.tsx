@@ -338,7 +338,6 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
           district={area.district}
           upazilaId={area.upazilaId ?? null}
           type={type}
-          typeLabel={type ? ambulanceTypeLabel(lists, type) : null}
           gps={exact}
           target={requesting.target}
           onClose={() => setRequesting(null)}

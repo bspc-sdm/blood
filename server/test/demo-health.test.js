@@ -227,7 +227,7 @@ test('কেয়ারগিভারের যাত্রা: রোগী�
   const CG = U('caregiver');
   const P = U('patient');
   const as = { asUid: P };
-  const DIST = require(path.join(SERVER, 'lib/districts.js')).find((d) => d.en === 'Mymensingh').bn;
+  const DIST = require(path.join(SERVER, 'lib/districts.js')).find((d) => d.en === 'Gazipur').bn;
 
   // চালু সংযোগ
   assert.strictEqual((await ok(CG, 'care_list')).caringFor.find((x) => x.patientUid === P).status, 'active');

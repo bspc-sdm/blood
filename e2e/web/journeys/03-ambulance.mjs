@@ -27,7 +27,7 @@ async function clearFilter(page) {
 export async function run(J) {
   let page;
 
-  await J.sc('J-81 S-80', 'রোগী ময়মনসিংহে অ্যাম্বুলেন্স খোঁজেন', async () => {
+  await J.sc('J-81 S-80', 'রোগী গাজীপুরে অ্যাম্বুলেন্স খোঁজেন', async () => {
     page = await J.as('patient');
     await ambList(page);
     await J.shot('সেবা › অ্যাম্বুলেন্স (রোগী)', 'ওপরে বড় বাটন ‘সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন’ (ডেমো জীবন অ্যাম্বুলেন্স (এসি) · এলাকা ধরে · এসি, সাধারণ), নিচে ‘জরুরি হলে ৯৯৯…’; তালিকায় খালিগুলো আগে।', { full: true });
@@ -52,7 +52,7 @@ export async function run(J) {
     await clearFilter(page);
     await page.locator('article').filter({ hasText: AC }).first().click();
     await settle(page);
-    await J.shot('ডেমো জীবন অ্যাম্বুলেন্স (এসি) — বিস্তারিত', '‘গাড়ি’, ‘এলাকা ও ভাড়া’ (মেডিকেল কলেজ গেট, চরপাড়া), ‘এখনকার অবস্থা’ — ‘খালি জানিয়েছেন … আগে’; রেটিং ৪.৭ (৯)।', { full: true });
+    await J.shot('ডেমো জীবন অ্যাম্বুলেন্স (এসি) — বিস্তারিত', '‘গাড়ি’, ‘এলাকা ও ভাড়া’ (তাজউদ্দীন মেডিকেল গেট, শিববাড়ি), ‘এখনকার অবস্থা’ — ‘খালি জানিয়েছেন … আগে’; রেটিং ৪.৭ (৯)।', { full: true });
   });
 
   await J.sc('J-83', 'নম্বর কপি / ফোন করা', async () => {

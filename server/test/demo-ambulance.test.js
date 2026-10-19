@@ -8,7 +8,7 @@ const F = require('./support/fakefb');
 require.cache[path.join(SERVER, 'lib/firebase.js')] = { id: 'fb', filename: 'fb', loaded: true, exports: F.firebase };
 const api = require(path.join(SERVER, 'api/community.js'));
 const verify = require(path.join(SERVER, 'lib/verify'));
-const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Mymensingh').bn;
+const DISTRICT = require(path.join(SERVER, 'lib/districts')).find((d) => d.en === 'Gazipur').bn;
 const { db } = F.firebase;
 const OWNER = 'owner-demo-test';
 F.users.set(OWNER, { uid: OWNER, email: 'ekapkbd@gmail.com' });
@@ -88,7 +88,7 @@ test('অ্যাম্বুলেন্স: খোঁজা, ফোন, র�
   LOG(`চালক ভাড়া বদলালেন → সরাসরি; ফোন বদলালেন → ${f2.pending ? 'আবার যাচাইয়ের অপেক্ষায়' : 'সরাসরি'}`);
 
   // ---- চালক নতুন গাড়ি যোগ → মালিকের অনুমোদন ----
-  const nw = await call(AMB, 'ambulance_save', { name: 'ডেমো জীবন ফ্রিজার ভ্যান', phone: '01700000189', vehicleNo: 'ময়মনসিংহ-ছ ১১-২২৩৩', types: ['freezer'], district: DISTRICT, upazilaId: 466, area: 'চরপাড়া', fare: 'ফোনে জেনে নিন', termsAccepted: true });
+  const nw = await call(AMB, 'ambulance_save', { name: 'ডেমো জীবন ফ্রিজার ভ্যান', phone: '01700000189', vehicleNo: 'গাজীপুর-ছ ১১-২২৩৩', types: ['freezer'], district: DISTRICT, upazilaId: 320, area: 'শিববাড়ি', fare: 'ফোনে জেনে নিন', termsAccepted: true });
   assert.strictEqual(nw.body.code, 'docs_required', 'কাগজের ছবি ছাড়া নতুন গাড়ি নয়');
   LOG('চালক কাগজের ছবি ছাড়া নতুন গাড়ি যোগ করতে চাইলে বলে:', nw.body.error);
   const pend = (await ok(OWNER, 'admin_ambulances', { status: 'pending' })).items;
@@ -122,4 +122,35 @@ test('অ্যাম্বুলেন্স: খোঁজা, ফোন, র�
   const left = [...F.store.entries()].filter(([k, v]) => (v && v.demo === true) || (/^ambulance/.test(k) && JSON.stringify(v).includes('demo-'))).map(([k]) => k);
   assert.deepStrictEqual(left, []);
   LOG('সব ডেমো মুছে গেল, অ্যাম্বুলেন্সের কিছু বাকি নেই');
+});
+
+test('ডেমো এখন গাজীপুরে (পারভেজ, ১৯ অক্টোবর): গাজীপুরে ডেমো অ্যাম্বুলেন্স, ফার্মেসি, প্যাথলজি আছে — ময়মনসিংহে নেই', async () => {
+  for (let step = 0; step !== null;) step = (await ok(OWNER, 'admin_demo_seed', { step })).next;
+  clearCache();
+  const D = require(path.join(SERVER, 'lib/districts'));
+  const GZP = D.find((d) => d.en === 'Gazipur').bn;
+  const MYM = D.find((d) => d.en === 'Mymensingh').bn;
+  const demo = require(path.join(SERVER, 'lib/demo'));
+  // কেন্দ্র জয়দেবপুরে (≈২৩.৯৯ উ, ৯০.৪২ পূ)
+  assert.ok(Math.abs(demo.CENTER.lat - 23.99) < 0.05 && Math.abs(demo.CENTER.lng - 90.42) < 0.05, JSON.stringify(demo.CENTER));
+  const gAmb = await ok(P, 'ambulances', { district: GZP });
+  assert.ok(gAmb.items.filter((a) => a.id.startsWith('demo-svc-amb')).length >= 4, 'গাজীপুরে ডেমো অ্যাম্বুলেন্স');
+  assert.ok(gAmb.items.filter((a) => a.upazilaId === 320).length >= 3, 'গাজীপুর সদরে');
+  assert.ok(gAmb.items.some((a) => a.upazilaId === 321), 'শ্রীপুরে একটা');
+  const mAmb = await ok(P, 'ambulances', { district: MYM });
+  assert.strictEqual([...mAmb.items, ...(mAmb.busy || [])].filter((a) => a.id.startsWith('demo-')).length, 0, 'ময়মনসিংহে ডেমো অ্যাম্বুলেন্স নেই');
+  const gPh = await ok(P, 'pharmacies', { district: GZP });
+  assert.ok(gPh.items.some((x) => x.name === 'ডেমো লাইফ ফার্মেসি' && x.open24), 'লাইফ ফার্মেসি ২৪ ঘণ্টা, গাজীপুরে');
+  assert.strictEqual((await ok(P, 'pharmacies', { district: MYM })).items.filter((x) => /ডেমো/.test(x.name)).length, 0);
+  const gLab = await ok(P, 'labs', { district: GZP });
+  assert.ok(gLab.items.some((x) => x.name === 'ডেমো সিটি ডায়াগনস্টিক সেন্টার' && x.homeCollection));
+  assert.strictEqual((await ok(P, 'labs', { district: MYM })).items.filter((x) => /ডেমো/.test(x.name)).length, 0);
+  // ডেমো ডাক্তারের চেম্বার গাজীপুরের হাসপাতালে
+  const prov = (await db.doc('providers/demo-doctor').get()).data();
+  assert.ok(prov.chambers.every((c) => c.district === GZP), JSON.stringify(prov.chambers.map((c) => c.district)));
+  assert.strictEqual(prov.chambers[0].hospitalId, 'dghs_22839', 'শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল');
+  // ডেমো রোগী আর রক্তের রিকোয়েস্ট গাজীপুরে
+  assert.strictEqual((await db.doc('users/demo-patient').get()).get('placeName'), GZP);
+  assert.strictEqual((await db.doc('requests/demo-rq-patient-open').get()).get('placeName'), GZP);
+  for (let i = 0; i < 5; i++) if (!(await ok(OWNER, 'admin_demo_wipe')).more) break;
 });
