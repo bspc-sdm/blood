@@ -363,4 +363,24 @@ class AmbulanceNearIT : AmbTestBase() {
         assertEquals(0, r.body["ambulanceRequests"]["advanced"].intValue())
         assertEquals(0, r.body["ambulanceRequests"]["purged"].intValue())
     }
+
+    @Test
+    fun `ambulance_delete - only the owner's, not while suspended or with an open report, the photos go too`() {
+        person("del-own")
+        person("del-other")
+        amb("dl1", "del-own")
+        jdbc.update("INSERT INTO verify_docs (kind, listing_id, type, owner_uid, data) VALUES ('ambulance', 'dl1', 'reg', 'del-own', 'x')")
+        assertEquals(400, call("del-own", "ambulance_delete", mapOf("id" to "../x")).status)
+        ok("del-other", "ambulance_delete", mapOf("id" to "dl1"))
+        assertTrue(ambRow("dl1").isNotEmpty(), "someone else's: nothing happens")
+        jdbc.update("INSERT INTO mod_reports (id, target_path, kind, reporter_uid, status) VALUES ('m1', 'ambulances/dl1', 'ambulance', 'del-other', 'open')")
+        assertEquals(409, call("del-own", "ambulance_delete", mapOf("id" to "dl1")).status)
+        jdbc.update("UPDATE mod_reports SET status = 'dismissed'")
+        jdbc.update("UPDATE ambulances SET status = 'suspended' WHERE id = 'dl1'")
+        assertEquals(403, call("del-own", "ambulance_delete", mapOf("id" to "dl1")).status)
+        jdbc.update("UPDATE ambulances SET status = 'approved' WHERE id = 'dl1'")
+        ok("del-own", "ambulance_delete", mapOf("id" to "dl1"))
+        assertTrue(ambRow("dl1").isEmpty())
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM verify_docs WHERE listing_id = 'dl1'", Int::class.java))
+    }
 }
