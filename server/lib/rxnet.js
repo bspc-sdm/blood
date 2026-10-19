@@ -365,6 +365,44 @@ async function labsForDoctor(doctorUid, rxIds) {
 
 /** চালু অর্ডার: পাঠানো, তৈরি (দোকানে), নেওয়া হয়েছে / পথে (অনলাইনে) */
 const OPEN_ORDER = ['sent', 'ready', 'accepted', 'out'];
+
+// ---------------------------------------------------------------------------
+// "আমার কাজ"-এর ভাগ (২.২৭.০, পারভেজ "দুটোই সাজাও", ১৯ অক্টোবর ২০২৬) — অ্যাপ আর ওয়েব একই ভাগ দেখায়:
+//  ফার্মেসি: new নতুন (sent — এখনই কিছু করতে হবে) · active চলছে/তৈরি (ready, accepted, out) · closed শেষ (done, cancelled, withdrawn)
+//  প্যাথলজি: new নতুন (sent; বাসার সময় নিশ্চিত হলে নয়) · active নমুনা/চলছে (received, বা sent + বাসায় যাওয়ার সময় নিশ্চিত)
+//           · reported রিপোর্ট দেওয়া · closed শেষ (cancelled)
+// তালিকার সীমা আগের মতোই (ফার্মেসি ৩০০ পড়ে ১০০, প্যাথলজি ৪০০ পড়ে ১৫০); গোনা হয় পড়া সবগুলো থেকে, আর
+// চালু অর্ডার আগে জায়গা পায় — পুরোনো শেষ হওয়া অর্ডারের ভিড়ে নতুন অর্ডার তালিকা থেকে বাদ পড়ে না।
+// ---------------------------------------------------------------------------
+const PHARM_SEGS = ['new', 'active', 'closed'];
+const LAB_SEGS = ['new', 'active', 'reported', 'closed'];
+
+function pharmSeg(status) {
+  if (status === 'sent') return 'new';
+  return OPEN_ORDER.includes(status) ? 'active' : 'closed';
+}
+
+function labSeg(x) {
+  if (x.status === 'sent') return x.home && x.home.status === 'confirmed' ? 'active' : 'new';
+  if (x.status === 'received') return 'active';
+  if (x.status === 'reported') return 'reported';
+  return 'closed';
+}
+
+/** ভাগ ধরে গোনা (সব ভাগ, শূন্য হলেও) */
+function segCounts(segs, list) {
+  const out = Object.fromEntries(segs.map((s) => [s, 0]));
+  for (const s of list) out[s] = (out[s] || 0) + 1;
+  return out;
+}
+
+/** নতুন আগে, সর্বোচ্চ max — চালু (isOpen) গুলো আগে জায়গা পায়, বাকি জায়গায় শেষ হওয়াগুলোর নতুনগুলো */
+function recentFirstOpen(list, isOpen, max) {
+  const sorted = [...list].sort((a, c) => (c.createdAt || 0) - (a.createdAt || 0));
+  const open = sorted.filter(isOpen).slice(0, max);
+  const rest = sorted.filter((x) => !isOpen(x)).slice(0, Math.max(0, max - open.length));
+  return [...open, ...rest].sort((a, c) => (c.createdAt || 0) - (a.createdAt || 0));
+}
 const SHOP_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SHOP_CODE_RE = /^[A-HJ-NP-Z2-9]{6}$/;
 
@@ -761,14 +799,17 @@ const actions = {
   async rx_orders_pharmacy(req, user) {
     await myPharmacy(req, user);
     const snap = await db.collection('rxOrders').where('pharmacyId', '==', user.uid).limit(300).get();
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, c) => c.createdAt - a.createdAt).slice(0, 100)
+    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const items = recentFirstOpen(all, (o) => OPEN_ORDER.includes(o.status), 100)
       .map((o) => ({
         id: o.id, rxId: o.rxId, code: o.code, patientName: o.patientName, note: o.note || '', status: o.status, createdAt: o.createdAt,
         mode: o.mode || 'shop', price: o.price || '', eta: o.eta || '', deliveryFee: o.deliveryFee || '', missed: o.missed || [],
         // ঠিকানা-ফোন শুধু চালু অনলাইন অর্ডারে
         ...(o.mode === 'online' && OPEN_ORDER.includes(o.status) ? { address: o.address || '', phone: o.phone || '' } : {}),
+        seg: pharmSeg(o.status),
       }));
-    return { items };
+    // ভাগের সংখ্যা: পড়া সবগুলো থেকে (তালিকায় ১০০-র বেশি না এলেও)
+    return { items, counts: segCounts(PHARM_SEGS, all.map((o) => pharmSeg(o.status))) };
   },
 
   /**
@@ -1085,7 +1126,10 @@ const actions = {
   async lab_orders(req, user) {
     await myLab(req, user);
     const snap = await db.collection('labOrders').where('labId', '==', user.uid).limit(400).get();
-    return { items: snap.docs.map((d) => labOrderView(d, false, 'lab')).sort((a, c) => c.createdAt - a.createdAt).slice(0, 150) };
+    const all = snap.docs.map((d) => ({ d, createdAt: d.get('createdAt') || 0, seg: labSeg(d.data()) }));
+    const items = recentFirstOpen(all, (x) => ['new', 'active'].includes(x.seg), 150).map((x) => ({ ...labOrderView(x.d, false, 'lab'), seg: x.seg }));
+    // ভাগের সংখ্যা: পড়া সবগুলো থেকে (তালিকায় ১৫০-র বেশি না এলেও)
+    return { items, counts: segCounts(LAB_SEGS, all.map((x) => x.seg)) };
   },
 
   /** প্যাথলজি: কোড দিয়ে খোলা (রোগী অ্যাপে না পাঠিয়ে কাগজ নিয়ে এলে) — নতুন অনুরোধ হিসেবে যোগ */
@@ -1448,4 +1492,4 @@ async function refillReminders(now = Date.now()) {
   return { sent };
 }
 
-module.exports = { actions, pharmacyEstimate, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };
+module.exports = { actions, pharmSeg, labSeg, recentFirstOpen, segCounts, pharmacyEstimate, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };

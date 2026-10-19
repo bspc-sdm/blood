@@ -70,6 +70,9 @@ object WorkNav {
     /** কোন ব্যবসা যোগ করবেন — বেছে নেওয়ার ডায়ালগ (MainActivity দেখায়) */
     val picker = mutableStateOf(false)
 
+    /** নোটিফিকেশন থেকে ফার্মেসি/প্যাথলজির কোন ট্যাব: "orders" (নতুন অর্ডার/অনুরোধ → "নতুন" ভাগ) | "shop" (ওষুধ খোঁজার অনুরোধ) — MyWorkTabs.kt */
+    val target = mutableStateOf<String?>(null)
+
     /** "ব্যবসা যোগ করুন": লগইন না থাকলে আগে লগইন আর নাম-মোবাইল (রক্তের তথ্য নয়), তারপর বেছে নেওয়া */
     fun startAdd() {
         LoginGate.require(tr("Log in to add your business", "আপনার ব্যবসা যোগ করতে লগইন করুন")) { picker.value = true }

@@ -11,27 +11,37 @@ env:
     timeout: 30000
 - takeScreenshot: j4-01-my-work
 - tapOn: ".*ডেমো সিটি ডা(?:য়|য়)াগনস্টিক সেন্টার.*"
+# ২.২৭.০: দুই ট্যাব — শুরুতে "অনুরোধ", "নতুন" ভাগ
 - extendedWaitUntil:
-    visible: ".*তথ্য বদলান.*"
+    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 30000
-- takeScreenshot: j4-02-my-lab
-- scrollUntilVisible:
-    element: ".*(নমুনা নি(?:য়|য়)েছি|রিপোর্ট দিন).*"
-    direction: DOWN
-    timeout: 30000
-    optional: true
-- takeScreenshot: j4-03-incoming
+- takeScreenshot: j4-02-requests-new
 - scroll
-- takeScreenshot: j4-04-incoming-more
-- scrollUntilVisible:
-    element: "দেখুন"
-    direction: DOWN
-    timeout: 20000
+- takeScreenshot: j4-03-requests-new-more
+- tapOn:
+    text: "নমুনা/চলছে"
     optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j4-04-seg-active
+- tapOn:
+    text: "রিপোর্ট দেওয়া"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j4-04b-seg-reported
 - tapOn:
     text: "দেখুন"
+    index: 0
     optional: true
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: j4-05-report-view
 - back
+- tapOn:
+    text: "ল্যাব"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*তথ্য বদলান.*"
+    timeout: 20000
+- takeScreenshot: j4-06-lab-tab

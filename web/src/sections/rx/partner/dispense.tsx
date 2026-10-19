@@ -1,52 +1,19 @@
-// ফার্মেসি — "ওষুধ দিন": কোড দিয়ে প্রেসক্রিপশন খোলা, কয়টা দিলেন (পুরো বা কিছু), "নেই" চিহ্ন;
-// পাশে দোকানে পাঠানো প্রেসক্রিপশন, "চেয়েও পাননি" তালিকা আর দোকানের QR কোড
+// ফার্মেসি — খোলা প্রেসক্রিপশনে কয়টা দিলেন (পুরো বা কিছু), "নেই" চিহ্ন ("অর্ডার" ট্যাব — orders.tsx);
+// "চেয়েও পাননি" তালিকা আর দোকানের QR কোড ("দোকান" ট্যাব — shoppanels.tsx)
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button, Check, ConfirmDialog, ErrorBox, ErrorText, InfoText, Loading, SkeletonCards, Tag, cx, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
-import { formatDayOf, timeAgo } from '@/lib/format';
-import { CodeBox, Panel, focusNext, useInvalidate, useWide } from './common';
-import { CancelOrderDialog, useOrderUpdate } from './online';
+import { formatDayOf } from '@/lib/format';
+import { Panel, focusNext, useInvalidate, useWide } from './common';
 import { RxSaleOffer } from './books/rxsale';
-import { ageText, boughtText, doseText, isOpenOrder, timingText, medTitle, orderStatusShop, orderTone, type PharmMed, type PharmOrder, type PharmRx, type PharmacyHome } from './model';
-
-const BASE = '/work/pharmacy/orders';
-
-export function DispenseTab({ code, orders }: { code: string | null; orders: UseQueryResult<{ items: PharmOrder[] }, Error> }) {
-  const nav = useNavigate();
-  const codeRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="rxp-grid">
-      <div className="col gap-16 rxp-main">
-        <section className="card rxp-panel">
-          <CodeBox
-            key={code ?? ''}
-            inputRef={codeRef}
-            autoFocus={!code}
-            label={tr('Prescription code', 'প্রেসক্রিপশনের কোড')}
-            onOpen={(c) => nav(`${BASE}/rx/${c}`)}
-          />
-          <p className="t-body-s muted">
-            {tr('Open with the code and note how many you gave. The patient can get the rest from another pharmacy.', 'কোড দিয়ে খুলে কয়টা দিলেন লিখুন। বাকিটা রোগী অন্য ফার্মেসি থেকে নিতে পারবেন।')}
-          </p>
-        </section>
-        {code ? <RxPanel key={code} code={code} onNext={() => nav(BASE)} /> : null}
-      </div>
-      <aside className="col gap-16 rxp-side">
-        <ShopOrders orders={orders} current={code} />
-        <MissedPanel />
-        <ShopCodePanel />
-      </aside>
-    </div>
-  );
-}
+import { ageText, boughtText, doseText, timingText, medTitle, type PharmMed, type PharmRx, type PharmacyHome } from './model';
 
 /** খোলা প্রেসক্রিপশন */
-function RxPanel({ code, onNext }: { code: string; onNext: () => void }) {
+export function RxPanel({ code, onNext }: { code: string; onNext: () => void }) {
   const q = useCall<{ item: PharmRx }>('rx_pharmacy_open', { code }, { staleTime: 60_000 });
   if (q.isLoading) return <SkeletonCards n={1} h={260} />;
   if (q.error || !q.data) return <section className="card"><ErrorBox error={q.error ? errorText(q.error) : tr('Not found', 'পাওয়া যায়নি')} onRetry={() => q.refetch()} /></section>;
@@ -253,43 +220,8 @@ function DispenseForm({ start, onNext }: { start: PharmRx; onNext: () => void })
   );
 }
 
-/** দোকানে এসে/QR স্ক্যান করে পাঠানো প্রেসক্রিপশন (চালু) */
-function ShopOrders({ orders, current }: { orders: UseQueryResult<{ items: PharmOrder[] }, Error>; current: string | null }) {
-  const nav = useNavigate();
-  const up = useOrderUpdate();
-  const [cancelling, setCancelling] = useState<PharmOrder | null>(null);
-  const list = (orders.data?.items ?? []).filter((o) => o.mode !== 'online' && isOpenOrder(o));
-  return (
-    <Panel title={tr('Sent to you', 'আপনার কাছে পাঠানো')} icon="storefront" count={list.length ? num(list.length) : undefined}>
-      {orders.isLoading ? <Loading /> : orders.error ? <ErrorText>{errorText(orders.error)}</ErrorText> : !list.length ? (
-        <p className="t-body-m muted">{tr('Nothing now', 'এখন কিছু নেই')}</p>
-      ) : (
-        <div className="col gap-8">
-          {list.map((o) => (
-            <div key={o.id} className={cx('rxp-order', current === o.code && 'on')}>
-              <div className="row">
-                <span className="semi grow ellipsis">{o.patientName || '—'}</span>
-                <Tag tone={orderTone(o.status)}>{orderStatusShop(o.status)}</Tag>
-              </div>
-              <span className="t-body-s muted">{timeAgo(o.createdAt)}</span>
-              {o.note ? <span className="t-body-s">{o.note}</span> : null}
-              <div className="row wrap gap-6">
-                <Button small onClick={() => nav(`${BASE}/rx/${o.code}`)}>{tr('Open', 'খুলুন')}</Button>
-                {o.status === 'sent' ? <Button small variant="tonal" busy={up.busyId === o.id} disabled={!!up.busyId} onClick={() => up.update(o, 'ready')}>{tr('Ready', 'তৈরি')}</Button> : null}
-                <Button small variant="danger-text" disabled={!!up.busyId} onClick={() => setCancelling(o)}>{tr("Can't", 'পারব না')}</Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <ErrorText>{up.err}</ErrorText>
-      {cancelling ? <CancelOrderDialog order={cancelling} onClose={() => setCancelling(null)} /> : null}
-    </Panel>
-  );
-}
-
 /** ক্রেতা চেয়েও পাননি এমন ওষুধ — স্টকে আনলে "এনেছি" */
-function MissedPanel() {
+export function MissedPanel() {
   const home = useCall<PharmacyHome>('rx_pharmacy_home', {});
   const qc = useQueryClient();
   const invalidate = useInvalidate();
@@ -380,7 +312,7 @@ function MissedPanel() {
 }
 
 /** কাউন্টারের QR আর দোকানের কোড — পোস্টার ছাপা (/shop/{কোড}) */
-function ShopCodePanel() {
+export function ShopCodePanel() {
   const home = useCall<PharmacyHome>('rx_pharmacy_home', {});
   const [qrOk, setQrOk] = useState(true);
   const h = home.data;
@@ -401,7 +333,7 @@ function ShopCodePanel() {
         </div>
       </div>
       <p className="t-body-s muted">
-        {tr('Put the poster at the counter. When a customer scans the QR in the app or types this code or your shop name, the prescription comes straight to "Sent to you".', 'পোস্টারটা কাউন্টারে লাগিয়ে রাখুন। ক্রেতা অ্যাপে QR স্ক্যান করলে বা কোড/দোকানের নাম লিখলে প্রেসক্রিপশন সাথে সাথে "আপনার কাছে পাঠানো" তালিকায় আসবে।')}
+        {tr('Put the poster at the counter. When a customer scans the QR in the app or types this code or your shop name, the prescription comes straight to "New" under Orders.', 'পোস্টারটা কাউন্টারে লাগিয়ে রাখুন। ক্রেতা অ্যাপে QR স্ক্যান করলে বা কোড/দোকানের নাম লিখলে প্রেসক্রিপশন সাথে সাথে "অর্ডার" ট্যাবের "নতুন"-এ আসবে।')}
       </p>
     </Panel>
   );

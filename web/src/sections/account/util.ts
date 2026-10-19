@@ -130,11 +130,13 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
       return data.asUid && data.rxId ? `/care?for=${encodeURIComponent(data.asUid)}&rx=${encodeURIComponent(data.rxId)}` : '/care';
     case 'badge':
       return '/health/badge';
+    // ২.২৭.০: /work/pharmacy অনুমোদিত দোকানে খোলে "অর্ডার" ট্যাবের "নতুন"-এ; ওষুধ খোঁজার অনুরোধ "দোকান" ট্যাবে
     case 'rx_pharmacy':
-    case 'med_find':
     case 'pharmacy_order':
     case 'pharmacy_mine':
       return '/work/pharmacy';
+    case 'med_find':
+      return '/work/pharmacy/shop';
     case 'rx_lab':
       return '/work/lab';
     case 'med_find_mine':

@@ -1067,18 +1067,25 @@ function SendError({ children }: { children?: string | null }) {
   );
 }
 
-/** বিস্তারিতের শেষ ভাগ: "এই প্যাথলজিতে/ফার্মেসিতে প্রেসক্রিপশন পাঠান" — অতিথি হলে আগে লগইন; পাঠানোর পর RxSentDialog */
+/**
+ * সেবার বিস্তারিতের নিচের বারে ফোনের পাশে: "প্রেসক্রিপশন পাঠান" (২.২৭.০ — আগে বিস্তারিতের ভেতরে আলাদা ভাগে স্ক্রল করত)।
+ * অতিথি হলে আগে লগইন; চালু প্রেসক্রিপশন একটাই হলে "কোনটা পাঠাবেন?" না দেখিয়ে সেটাই (এক চাপ কম); পাঠানোর পর RxSentDialog।
+ */
 export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: PlacePharmacy }) {
   const s = useSession();
   const qc = useQueryClient();
   const nav = useNavigate();
   const [picking, setPicking] = useState(false);
   const [rx, setRx] = useState<Rx | null>(null);
+  // একটাই প্রেসক্রিপশন বলে নিজে বাছা — তখন পরের ধাপ থেকে পেছনে গেলে পুরোটা বন্ধ (আবার নিজে বেছে ফেলত)
+  const [auto, setAuto] = useState(false);
   const [sent, setSent] = useState<RxSent | null>(null);
   const close = () => {
     setRx(null);
     setPicking(false);
+    setAuto(false);
   };
+  const back = () => (auto ? close() : setRx(null));
   const done = (place: string, mode: SentMode) => {
     if (rx) {
       qc.invalidateQueries({ queryKey: ['rx_activity', rx.id] });
@@ -1087,15 +1094,13 @@ export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: 
     close();
   };
   return (
-    <section className="services-sec">
-      <hr className="divider" />
-      <h3 className="t-title-s">{lab ? tr('Tests from a prescription', 'প্রেসক্রিপশনের পরীক্ষা') : tr('Prescription', 'প্রেসক্রিপশন')}</h3>
-      <Button icon="send" block onClick={() => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => setPicking(true))}>
-        {lab ? tr('Send a prescription to this lab', 'এই প্যাথলজিতে প্রেসক্রিপশন পাঠান') : tr('Send a prescription to this pharmacy', 'এই ফার্মেসিতে প্রেসক্রিপশন পাঠান')}
+    <>
+      <Button icon="send" className="detail-bar-main" onClick={() => s.requireLogin(tr('Log in to send a prescription', 'প্রেসক্রিপশন পাঠাতে লগইন করুন'), () => setPicking(true))}>
+        {tr('Send prescription', 'প্রেসক্রিপশন পাঠান')}
       </Button>
-      {picking && !rx ? <RxPickDialog forLab={!!lab} onClose={close} onPick={setRx} /> : null}
-      {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={() => setRx(null)} onSent={(name, home) => done(name, home ? 'lab_home' : 'lab')} /> : null}
-      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={() => setRx(null)} onSent={(mode) => done(pharmacy.name, mode)} /> : null}
+      {picking && !rx ? <RxPickDialog forLab={!!lab} onClose={close} onPick={setRx} onOnly={(r) => { setAuto(true); setRx(r); }} /> : null}
+      {rx && lab ? <LabPickDialog rx={rx} only={lab} onClose={back} onSent={(name, home) => done(name, home ? 'lab_home' : 'lab')} /> : null}
+      {rx && pharmacy ? <PharmacySendDialog rx={rx} p={pharmacy} onClose={back} onSent={(mode) => done(pharmacy.name, mode)} /> : null}
       {sent ? (
         <RxSentDialog
           s={sent}
@@ -1107,12 +1112,12 @@ export function RxSendFromPlace({ lab, pharmacy }: { lab?: PlaceLab; pharmacy?: 
           }}
         />
       ) : null}
-    </section>
+    </>
   );
 }
 
 /** রোগীর চালু প্রেসক্রিপশন — ডাক্তার, তারিখ, আর পরীক্ষা (forLab) বা ওষুধের নাম */
-function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: () => void; onPick: (rx: Rx) => void }) {
+function RxPickDialog({ forLab, onClose, onPick, onOnly }: { forLab: boolean; onClose: () => void; onPick: (rx: Rx) => void; onOnly?: (rx: Rx) => void }) {
   const lang = useLang();
   const care = useCareMode();
   const { uid } = useSession();
@@ -1122,6 +1127,12 @@ function RxPickDialog({ forLab, onClose, onPick }: { forLab: boolean; onClose: (
     queryFn: () => call<{ items?: Rx[] }>('rx_mine').then((r) => r.items ?? []),
   });
   const list = (q.data ?? []).filter((r) => r.status !== 'cancelled' && (forLab ? (r.tests ?? []).length > 0 : (r.medicines ?? []).length > 0));
+  const only = q.isSuccess && list.length === 1 ? list[0] : null;
+  useEffect(() => {
+    if (only && onOnly) onOnly(only);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [only?.id]);
+  if (only && onOnly) return null;
   return (
     <Dialog onClose={onClose} title={tr('Which prescription?', 'কোন প্রেসক্রিপশন পাঠাবেন?')}>
       {q.isPending ? (

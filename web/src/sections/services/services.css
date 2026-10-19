@@ -107,8 +107,6 @@
   background: var(--tertiary-container); color: var(--on-tertiary-container); font: inherit; text-align: left; cursor: pointer;
 }
 .amb-banner svg { width: 22px; height: 22px; flex: none; }
-.services-mainbar { display: flex; gap: 8px; min-width: 0; }
-.services-mainbar > * { flex: 1; min-width: 0; justify-content: center; }
 .amb-wait .spinner { flex: none; }
 .amb-head-ic { width: 36px; height: 36px; flex: none; color: var(--primary); }
 .amb-accepted { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 20px; background: var(--primary-container); color: var(--on-primary-container); }

@@ -264,3 +264,19 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .stat .v { font-size: 28px; line-height: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat .l { font-size: 13px; color: var(--on-surface-variant); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+/* সেবার বিস্তারিতের নিচের আটকানো বার (২.২৭.০): ফোন (আউটলাইন) + মূল কাজ (ভরাট), পাশাপাশি আধাআধি, এক লাইনে */
+.detail-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.detail-bar-row > .btn { width: 100%; min-height: 48px; border-radius: 12px; padding: 0 10px; gap: 6px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.detail-bar-row > .btn.has-icon { padding-left: 10px; }
+.detail-bar-row > .btn.solo { grid-column: 1 / -1; }
+/* ডাক্তারের বিস্তারিতের নিচের বার (সেবার .services-foot-এর মতো) */
+.detail-bar {
+  position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px;
+  margin: 8px -16px -32px; padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px));
+  background: var(--bg); border-top: 1px solid var(--outline-variant);
+}
+@media (min-width: 720px) { .detail-bar { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 960px) { .detail-bar { background: var(--surface-lowest); } }
+/* ডায়ালগের ভেতরে (নিজের দেখা পূর্বরূপ): আটকানো নয়, কিনারায় টানা নয় */
+.dialog .detail-bar { position: static; margin: 8px 0 0; padding: 12px 0 0; background: transparent; }

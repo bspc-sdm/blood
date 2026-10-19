@@ -21,6 +21,8 @@ export interface PharmRx {
 export interface PharmOrder {
   id: string; rxId: string; code: string; patientName: string; note: string; status: string; createdAt: number;
   mode: 'shop' | 'online'; price: string; eta: string; deliveryFee: string; missed: string[]; address?: string; phone?: string;
+  /** "আমার কাজ"-এর ভাগ (সার্ভারের pharmSeg) */
+  seg?: PharmSeg;
 }
 export interface OnlineSettings { enabled: boolean; radiusKm: number; fee: string; note: string }
 export interface Missed { k: string; name: string; count: number; lastAt: number }
@@ -97,6 +99,8 @@ export interface LabOrder {
   prices?: PriceSnap | null;
   /** বাসা থেকে নমুনা (চাইলে) */
   home?: LabHome | null;
+  /** "আমার কাজ"-এর ভাগ (সার্ভারের labSeg) */
+  seg?: LabSeg;
 }
 /** lab_prices_get — নিজের তালিকা (বন্ধগুলোসহ) */
 /** hidden: ছকে এখন লুকানো পরীক্ষা — রোগীরা দেখেন না; আবার সেভ করলে নাম দিয়ে নিজে লেখা হিসেবে থাকে */
@@ -161,3 +165,22 @@ export function parseNum(s: string): number | null {
   const v = Number(t);
   return Number.isFinite(v) ? v : NaN;
 }
+
+// ---------- "আমার কাজ"-এর ভাগ (২.২৭.০) — সার্ভারের pharmSeg/labSeg (server/lib/rxnet.js), অ্যাপের WorkSegs ----------
+export type PharmSeg = 'new' | 'active' | 'closed';
+export type LabSeg = 'new' | 'active' | 'reported' | 'closed';
+export const PHARM_SEGS: PharmSeg[] = ['new', 'active', 'closed'];
+export const LAB_SEGS: LabSeg[] = ['new', 'active', 'reported', 'closed'];
+/** rx_orders_pharmacy / lab_orders: তালিকা আর প্রতিটা ভাগে কয়টা (তালিকায় সব না এলেও পুরো সংখ্যা) */
+export interface PharmOrders { items: PharmOrder[]; counts?: Partial<Record<PharmSeg, number>> }
+export interface LabOrders { items: LabOrder[]; counts?: Partial<Record<LabSeg, number>> }
+
+export const pharmSegOf = (o: PharmOrder): PharmSeg => o.seg ?? (o.status === 'sent' ? 'new' : OPEN_ORDER.includes(o.status) ? 'active' : 'closed');
+export const labSegOf = (o: LabOrder): LabSeg =>
+  o.seg ?? (o.status === 'sent' ? (o.home?.status === 'confirmed' ? 'active' : 'new') : o.status === 'received' ? 'active' : o.status === 'reported' ? 'reported' : 'closed');
+export function segCounts<S extends string>(segs: S[], counts: Partial<Record<S, number>> | undefined, segOf: (x: never) => S, items: unknown[]): Record<S, number> {
+  return Object.fromEntries(segs.map((s) => [s, counts?.[s] ?? items.filter((x) => segOf(x as never) === s).length])) as Record<S, number>;
+}
+export const pharmSegLabel = (s: PharmSeg) => (s === 'new' ? tr('New', 'নতুন') : s === 'active' ? tr('In progress / ready', 'চলছে / তৈরি') : tr('Done', 'শেষ'));
+export const labSegLabel = (s: LabSeg) =>
+  s === 'new' ? tr('New', 'নতুন') : s === 'active' ? tr('Sample / in progress', 'নমুনা/চলছে') : s === 'reported' ? tr('Report given', 'রিপোর্ট দেওয়া') : tr('Done', 'শেষ');

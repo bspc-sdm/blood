@@ -1,5 +1,5 @@
 // /work/pharmacy — নিজের ফার্মেসি: অবস্থা, কয়েক দিন বন্ধ, হিসাব, ওষুধ খোঁজার অনুরোধ, বদল (অ্যাপের MyPharmacyPanel, ShopEditScreen, PharmacyFindRequests)
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Dialog, ErrorText, InfoText, Loading, Switch, TextInput } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
@@ -17,8 +17,11 @@ import {
   AppealButton, BizPage, AreaField, DocPhotosField, DocsNeededNotice, Flash, MiniBars, PAPERS_CHANGED, Stat, StatusReason, StatusTag, TermsCheck, TimeRange, WeekdayChips,
   closedDaysText, hoursText, missingDocs, myBusinessTitle, pharmacyDocs, sentForApproval, statusText, useAfterChange, useAreas, useFlash, useWorkGate,
   type CallSummary, type Pharmacy,
-  WorkEmpty,
+  WorkEmpty, PharmacyTabs, DangerZone,
 } from './shared';
+
+// দোকানের QR, অনলাইনে বিক্রি, চেয়েও পাননি — কাউন্টারের অংশের সাথে আলাদা ভাগে (rx/partner) আসে
+const ShopPanels = lazy(() => import('../rx/partner/shoppanels'));
 
 interface FindReq { id: string; drug: { name: string; generic?: string; form?: string; company?: string }; area: string; km: number | null; answer: 'yes' | 'no' | null; createdAt: number }
 
@@ -100,28 +103,27 @@ export function MyPharmacy() {
      
       actions={<Button variant="tonal" icon="edit" onClick={() => nav('/work/pharmacy/edit')}>{tr('Edit details', 'তথ্য বদলান')}</Button>}
     >
+      <PharmacyTabs active="shop" />
       <Flash msg={flash} error={err} />
       <DocsNeededNotice kind="pharmacy" id={ph.id} specs={pharmacyDocs()} item={ph} onDone={after} />
-      <div className="stats work-stats">
-        <Stat icon="call" value={st ? num(st.calls[7]) : '—'} label={tr('Calls from the app · 7 days', 'অ্যাপ থেকে ফোন · ৭ দিনে')} />
-        <Stat icon="call" value={st ? num(st.calls[30]) : '—'} label={tr('Calls from the app · 30 days', 'অ্যাপ থেকে ফোন · ৩০ দিনে')} />
-        <Stat icon="call" value={st ? num(st.calls[90]) : '—'} label={tr('Calls from the app · 90 days', 'অ্যাপ থেকে ফোন · ৯০ দিনে')} />
-        <Stat icon="group_round" value={st ? num(st.callers) : '—'} label={tr('Different callers', 'আলাদা মানুষ')} />
-      </div>
 
+      {/* ২.২৭.০ "দোকান" ট্যাব: পাশে তথ্য আর কয়েক দিন বন্ধ; মাঝে QR ও কোড, অনলাইনে বিক্রি, চেয়েও পাননি, ওষুধ খোঁজার অনুরোধ, ফোনের হিসাব; একদম নিচে মুছে ফেলা */}
       <div className="ws-grid side">
         <div className="col gap-16">
-          {approved ? <FindRequests /> : null}
           {approved ? (
-            <PartnerCard
-              icon="medication"
-              title={tr('Prescriptions & orders', 'প্রেসক্রিপশন ও অর্ডার')}
-              sub={tr('Give medicines from a prescription, online orders and stock', 'প্রেসক্রিপশন থেকে ওষুধ দেওয়া, অনলাইন অর্ডার ও স্টক')}
-              to="/work/pharmacy/orders"
-            />
+            <Suspense fallback={<Loading />}>
+              <ShopPanels />
+            </Suspense>
           ) : null}
+          {approved ? <FindRequests /> : null}
           <section className="card col gap-8">
             <h3 className="t-title-m">{tr('Calls from the app', 'অ্যাপ থেকে ফোন')}</h3>
+            <div className="stats work-stats">
+              <Stat icon="call" value={st ? num(st.calls[7]) : '—'} label={tr('Calls from the app · 7 days', 'অ্যাপ থেকে ফোন · ৭ দিনে')} />
+              <Stat icon="call" value={st ? num(st.calls[30]) : '—'} label={tr('Calls from the app · 30 days', 'অ্যাপ থেকে ফোন · ৩০ দিনে')} />
+              <Stat icon="call" value={st ? num(st.calls[90]) : '—'} label={tr('Calls from the app · 90 days', 'অ্যাপ থেকে ফোন · ৯০ দিনে')} />
+              <Stat icon="group_round" value={st ? num(st.callers) : '—'} label={tr('Different callers', 'আলাদা মানুষ')} />
+            </div>
             {st ? (
               <>
                 <p className="t-body-m">{tr(`${st.calls[7]} in 7 days · ${st.calls[30]} in 30 days`, `৭ দিনে ${num(st.calls[7])} · ৩০ দিনে ${num(st.calls[30])}`)}</p>
@@ -161,11 +163,13 @@ export function MyPharmacy() {
             )
           ) : null}
           {ph.status === 'suspended' || ph.status === 'rejected' ? <AppealButton category="pharmacy" /> : null}
-          {ph.status !== 'suspended' ? (
-            <Button variant="danger-text" disabled={busy} onClick={() => { setDelErr(null); setDel(true); }}>{tr('Remove my pharmacy', 'ফার্মেসি মুছে ফেলুন')}</Button>
-          ) : null}
         </aside>
       </div>
+      {ph.status !== 'suspended' ? (
+        <DangerZone>
+          <Button variant="danger-text" icon="delete" disabled={busy} onClick={() => { setDelErr(null); setDel(true); }}>{tr('Remove my pharmacy', 'ফার্মেসি মুছে ফেলুন')}</Button>
+        </DangerZone>
+      ) : null}
 
       {pausing ? (
         <Dialog onClose={() => setPausing(false)} title={tr('Closed for how long?', 'কত দিন বন্ধ থাকবে?')} size="small" actions={<Button variant="text" onClick={() => setPausing(false)}>{tr('Cancel', 'বাতিল')}</Button>}>
@@ -321,8 +325,8 @@ export function PharmacyForm() {
   const existing = s.work.pharmacy as Pharmacy | null;
   const title = existing ? tr('Edit pharmacy', 'ফার্মেসি বদলান') : tr('Open a pharmacy', 'ফার্মেসি খুলুন');
   return (
-    <FormPage title={title} backTo="/work/pharmacy">
-      {gate ?? <PharmacyEditor key={existing?.id ?? 'new'} existing={existing} onDone={(flash) => nav('/work/pharmacy', { state: { flash } })} />}
+    <FormPage title={title} backTo={existing ? '/work/pharmacy/shop' : '/work/pharmacy'}>
+      {gate ?? <PharmacyEditor key={existing?.id ?? 'new'} existing={existing} onDone={(flash) => nav('/work/pharmacy/shop', { state: { flash } })} />}
     </FormPage>
   );
 }
@@ -432,7 +436,7 @@ function PharmacyEditor({ existing, onDone }: { existing: Pharmacy | null; onDon
       <TermsCheck checked={agreed} onChange={setAgreed} />
       <ErrorText>{err}</ErrorText>
       <div className="form-actions">
-        <Button variant="text" disabled={busy} onClick={() => nav('/work/pharmacy')}>{tr('Cancel', 'বাতিল')}</Button>
+        <Button variant="text" disabled={busy} onClick={() => nav(existing ? '/work/pharmacy/shop' : '/work/pharmacy')}>{tr('Cancel', 'বাতিল')}</Button>
         <Button busy={busy} onClick={save}>{tr('Save', 'সেভ করুন')}</Button>
       </div>
     </>

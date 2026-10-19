@@ -118,6 +118,11 @@
   background: var(--tertiary-container); color: var(--on-tertiary-container);
 }
 
+/* ফার্মেসি/প্যাথলজির দুই ট্যাব (২.২৭.০) — অর্ডার·দোকান, অনুরোধ·ল্যাব */
+.work-tabs { margin: -4px -16px 4px; min-width: 0; }
+/* একদম নিচে আলাদা করে মুছে ফেলা */
+.work-danger { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+
 /* "ডাক" (২.২৮.০) */
 .amb-calls h2 svg { width: 20px; height: 20px; color: var(--primary); }
 .amb-call { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 16px; background: var(--tertiary-container); color: var(--on-tertiary-container); }

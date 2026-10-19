@@ -28,9 +28,7 @@ function LabEntryDetail({ lab, backTo }: { lab: Lab; backTo: string }) {
   const q = useCall<{ prices: PublicPrices | null }>('lab_prices_public', { labId: lab.id }, { enabled: !!lab.prices, staleTime: 60 * 1000 });
   const full = !lab.prices ? null : q.data ? q.data.prices : q.isError ? null : undefined;
   return (
-    <EntryDetail e={labEntry(lab, full)} backTo={backTo}>
-      <RxSendFromPlace lab={lab} />
-    </EntryDetail>
+    <EntryDetail e={labEntry(lab, full)} backTo={backTo} main={<RxSendFromPlace lab={lab} />} />
   );
 }
 
@@ -280,12 +278,12 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
             backTo={listPath}
             onRate={e.canRate ? rateGate(e) : undefined}
             onReport={e.reportable ? reportGate(e) : undefined}
-            // অ্যাম্বুলেন্স: "অ্যাম্বুলেন্স ডাকুন" — এই গাড়ি আগে, সাথে কাছের অন্যরা (ট্রিপে থাকা গাড়িতে নয়)
-            main={kind === 'ambulance' && !((raw as Ambulance).busySince ?? 0) ? { label: tr('Call ambulance', 'অ্যাম্বুলেন্স ডাকুন'), icon: 'ambulance', onClick: () => requestAmbulance({ id: raw.id, name: (raw as Ambulance).name }) } : undefined}
-          >
-            {/* ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো */}
-            {kind === 'pharmacy' ? <RxSendFromPlace pharmacy={raw as Pharmacy} /> : null}
-          </EntryDetail>
+            // অ্যাম্বুলেন্স (২.২৮.০): নিচের বারে "ফোন"-এর পাশে "অ্যাম্বুলেন্স ডাকুন" — এই গাড়ি আগে, সাথে কাছের অন্যরা (ট্রিপে থাকা গাড়িতে নয়);
+            // ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো — নিচের বারে ফোনের পাশে
+            main={kind === 'ambulance' && !((raw as Ambulance).busySince ?? 0)
+              ? <Button icon="ambulance" onClick={() => requestAmbulance({ id: raw.id, name: (raw as Ambulance).name })} data-testid="amb-request-one">{tr('Call ambulance', 'অ্যাম্বুলেন্স ডাকুন')}</Button>
+              : kind === 'pharmacy' ? <RxSendFromPlace pharmacy={raw as Pharmacy} /> : undefined}
+          />
         );
     } else if (area && (q.isLoading || q.isFetching)) {
       detail = (

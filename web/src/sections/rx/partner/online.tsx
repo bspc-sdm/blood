@@ -1,17 +1,13 @@
-// ফার্মেসি — অনলাইন অর্ডার (ক্যাশ অন ডেলিভারি): নেওয়া (দাম, কখন পৌঁছাবে), পথে, পারব না; অনলাইনে বিক্রির সেটিং
+// ফার্মেসি — অনলাইন অর্ডারের কাজ (ক্যাশ অন ডেলিভারি): নেওয়া (দাম, কখন পৌঁছাবে), পথে, পারব না (তালিকা orders.tsx-এ); অনলাইনে বিক্রির সেটিং
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import type { UseQueryResult } from '@tanstack/react-query';
-import { Button, Dialog, ErrorText, Loading, PillTabs, SkeletonCards, Switch, Tag, TextInput, cx, toast } from '@/ui/kit';
+import { Link } from 'react-router-dom';
+import { Button, Dialog, ErrorText, Loading, Switch, Tag, TextInput, toast } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
-import { formatDateTime, timeAgo } from '@/lib/format';
-import { Panel, useInvalidate, useWideWithSide } from './common';
-import { isOpenOrder, orderStatusShop, orderTone, type OnlineSettings, type PharmOrder, type PharmacyHome } from './model';
-
-const BASE = '/work/pharmacy/orders';
+import { Panel, useInvalidate } from './common';
+import { type OnlineSettings, type PharmOrder, type PharmacyHome } from './model';
 
 /** অর্ডারের অবস্থা বদল (rx_order_update) — রোগী নোটিফিকেশন পান */
 export function useOrderUpdate() {
@@ -62,7 +58,7 @@ export function CancelOrderDialog({ order, onClose }: { order: PharmOrder; onClo
 }
 
 /** অ্যাপের AcceptOrderDialog: মোট দাম আর কখন পৌঁছাবে (দুটোই ঐচ্ছিক) */
-function AcceptDialog({ order, onClose }: { order: PharmOrder; onClose: () => void }) {
+export function AcceptDialog({ order, onClose }: { order: PharmOrder; onClose: () => void }) {
   const up = useOrderUpdate();
   const [price, setPrice] = useState('');
   const [eta, setEta] = useState('');
@@ -102,130 +98,8 @@ function AcceptDialog({ order, onClose }: { order: PharmOrder; onClose: () => vo
   );
 }
 
-export function OnlineTab({ orders }: { orders: UseQueryResult<{ items: PharmOrder[] }, Error> }) {
-  const wide = useWideWithSide();
-  const nav = useNavigate();
-  const up = useOrderUpdate();
-  const [view, setView] = useState<'open' | 'past'>('open');
-  const [accepting, setAccepting] = useState<PharmOrder | null>(null);
-  const [cancelling, setCancelling] = useState<PharmOrder | null>(null);
-  const all = (orders.data?.items ?? []).filter((o) => o.mode === 'online');
-  const open = all.filter(isOpenOrder);
-  const past = all.filter((o) => !isOpenOrder(o));
-  const rows = view === 'open' ? open : past;
-
-  const statusCell = (o: PharmOrder) => (
-    <div className="col gap-4">
-      <Tag tone={orderTone(o.status)}>{orderStatusShop(o.status)}</Tag>
-      {o.price || o.eta ? <span className="t-body-s">{[o.price, o.eta].filter(Boolean).join(' · ')}</span> : null}
-      {o.missed.length ? <span className="t-body-s c-error">{tr('Not available: ', 'নেই: ')}{o.missed.join(', ')}</span> : null}
-    </div>
-  );
-  const addressCell = (o: PharmOrder) =>
-    o.address || o.phone ? (
-      <div className="col gap-2">
-        {o.address ? <span>{o.address}</span> : null}
-        {o.phone ? <a className="rxp-phone num" href={`tel:${o.phone}`}>{num(o.phone)}</a> : null}
-        {o.deliveryFee ? <span className="t-body-s muted">{tr('Delivery charge: ', 'ডেলিভারি চার্জ: ')}{o.deliveryFee}</span> : null}
-      </div>
-    ) : <span className="muted">—</span>;
-  const actions = (o: PharmOrder) =>
-    isOpenOrder(o) ? (
-      <div className="row wrap gap-6 rxp-row-actions">
-        <Button small onClick={() => nav(`${BASE}/rx/${o.code}`)}>{tr('Open & note medicines', 'খুলে ওষুধ লিখুন')}</Button>
-        {o.status === 'sent' ? <Button small variant="tonal" disabled={!!up.busyId} onClick={() => setAccepting(o)}>{tr('Accept', 'অর্ডার নিলাম')}</Button> : null}
-        {o.status === 'sent' || o.status === 'accepted' ? (
-          <Button small variant="outline" busy={up.busyId === o.id} disabled={!!up.busyId} onClick={() => up.update(o, 'out')}>{tr('Sent out', 'পাঠিয়ে দিয়েছি')}</Button>
-        ) : null}
-        <Button small variant="danger-text" disabled={!!up.busyId} onClick={() => setCancelling(o)}>{tr("Can't", 'পারব না')}</Button>
-      </div>
-    ) : null;
-
-  return (
-    <div className="rxp-grid">
-      <div className="col gap-12 rxp-main">
-        <div className="row wrap gap-8">
-          <div className="rxp-sub-pills">
-            <PillTabs
-              secondary
-              value={view}
-              onChange={(k) => setView(k as 'open' | 'past')}
-              label={tr('Online orders', 'অনলাইন অর্ডার')}
-              tabs={[
-                { key: 'open', label: tr('Active', 'চালু'), count: open.length },
-                { key: 'past', label: tr('Earlier', 'আগের') },
-              ]}
-            />
-          </div>
-          <span className="grow" />
-          <Button variant="text" small icon="refresh" busy={orders.isFetching && !orders.isLoading} onClick={() => orders.refetch()}>{tr('Refresh', 'নতুন করে দেখুন')}</Button>
-        </div>
-        {view === 'open' ? (
-          <p className="t-body-s muted">{tr('After giving the medicines, use "Open & note medicines" to write what you gave — the order is then complete.', 'ওষুধ দেওয়ার পর "খুলে ওষুধ লিখুন" থেকে যা দিলেন লিখুন — অর্ডার সম্পন্ন হবে।')}</p>
-        ) : null}
-        <ErrorText>{up.err}</ErrorText>
-        {orders.isLoading ? <SkeletonCards n={3} h={96} /> : orders.error ? <ErrorText>{errorText(orders.error)}</ErrorText> : !rows.length ? (
-          <div className="card rxp-empty-card">
-            <Icon name="local_shipping" />
-            <span>{view === 'open' ? tr('No online orders now', 'এখন কোনো অনলাইন অর্ডার নেই') : tr('Nothing yet', 'এখনো কিছু নেই')}</span>
-          </div>
-        ) : wide ? (
-          <div className="table-wrap">
-            <table className="table rxp-table">
-              <thead>
-                <tr>
-                  <th>{tr('Patient', 'রোগী')}</th>
-                  <th>{tr('Address & phone', 'ঠিকানা ও ফোন')}</th>
-                  <th>{tr('Status', 'অবস্থা')}</th>
-                  {view === 'open' ? <th><span className="sr-only">{tr('Actions', 'কাজ')}</span></th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((o) => (
-                  <tr key={o.id}>
-                    <td className="rxp-td-who">
-                      <div className="col gap-2">
-                        <span className="semi">{o.patientName || '—'}</span>
-                        <span className="t-body-s muted" title={formatDateTime(o.createdAt)}>{timeAgo(o.createdAt)}</span>
-                        {o.note ? <span className="t-body-s">{o.note}</span> : null}
-                      </div>
-                    </td>
-                    <td className="rxp-td-addr">{addressCell(o)}</td>
-                    <td>{statusCell(o)}</td>
-                    {view === 'open' ? <td className="rxp-td-actions">{actions(o)}</td> : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="rxp-cards">
-            {rows.map((o) => (
-              <article key={o.id} className={cx('card col gap-8')}>
-                <div className="row">
-                  <span className="t-title-s grow">{o.patientName || '—'}</span>
-                  <span className="t-body-s muted">{timeAgo(o.createdAt)}</span>
-                </div>
-                {addressCell(o)}
-                {o.note ? <span className="t-body-s">{o.note}</span> : null}
-                {statusCell(o)}
-                {actions(o)}
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-      <aside className="col gap-16 rxp-side">
-        <OnlineSettingsPanel />
-      </aside>
-      {accepting ? <AcceptDialog order={accepting} onClose={() => setAccepting(null)} /> : null}
-      {cancelling ? <CancelOrderDialog order={cancelling} onClose={() => setCancelling(null)} /> : null}
-    </div>
-  );
-}
-
 /** অ্যাপের OnlineSettingsDialog: চালু/বন্ধ, কত কিমি, ডেলিভারি চার্জ, নোট */
-function OnlineSettingsPanel() {
+export function OnlineSettingsPanel() {
   const home = useCall<PharmacyHome>('rx_pharmacy_home', {});
   const h = home.data;
   return (

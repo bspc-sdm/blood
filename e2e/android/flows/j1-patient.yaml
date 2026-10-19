@@ -66,7 +66,7 @@ env:
 - back
 - back
 - back
-# সেবা › ফার্মেসি › ডেমো লাইফ ফার্মেসি › এই ফার্মেসিতে প্রেসক্রিপশন পাঠান
+# সেবা › ফার্মেসি › ডেমো লাইফ ফার্মেসি › নিচের বারের "প্রেসক্রিপশন পাঠান"
 - tapOn: "সেবা"
 - tapOn:
     text: "ফার্মেসি"
@@ -83,11 +83,8 @@ env:
     visible: ".*ছা(?:ড়|ড়) ও ডেলিভারি.*"
     timeout: 10000
 - takeScreenshot: j1-09-pharmacy-sheet
-- scrollUntilVisible:
-    element: ".*এই ফার্মেসিতে প্রেসক্রিপশন পাঠান.*"
-    direction: DOWN
-    timeout: 15000
-- tapOn: ".*এই ফার্মেসিতে প্রেসক্রিপশন পাঠান.*"
+# ২.২৭.০: নিচের আটকানো বারে "ফোন"-এর পাশে
+- tapOn: "প্রেসক্রিপশন পাঠান"
 - extendedWaitUntil:
     visible: ".*Bislol.*"
     timeout: 30000

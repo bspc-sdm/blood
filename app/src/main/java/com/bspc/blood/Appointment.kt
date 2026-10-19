@@ -297,6 +297,13 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
 
     // একই বিস্তারিত শিট (Cards.kt): প্রতিটা চেম্বার আলাদা ভাগে, তারপর বাসায় সেবা, পরিচিতি
     val hv = p.homeVisit?.takeIf { it.enabled && it.phone.isNotBlank() }
+    // ২.২৭.০ নিচের বার: অ্যাপয়েন্টমেন্ট নেওয়া যায় এমন চেম্বার একটা হলে সেটাই সরাসরি (ভরাট), কয়েকটা হলে কোন চেম্বার জিজ্ঞেস করে;
+    // সিরিয়ালের ফোন সব চেম্বারে একই হলে পাশে "ফোন" — তখন ভাগের ভেতরে সেই বাটন আর আলাদা নেই
+    val bookable = if (p.appointments) p.chambers.indices.filter { p.chambers[it].appointments } else emptyList()
+    val serialPhones = p.chambers.map { it.serialPhone }.filter { it.isNotBlank() }.distinct()
+    val pinnedCall = serialPhones.singleOrNull()
+    var choosing by remember { mutableStateOf(false) }
+    val book: (Int) -> Unit = { i -> if (!preview) LoginGate.require(tr("Log in to request an appointment", "অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন")) { bookingIndex = i } }
     val sections = buildList {
         p.chambers.forEachIndexed { i, c ->
             add(
@@ -311,10 +318,8 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                     ),
                     listOfNotNull(
                         // নিজের দেখা (preview): বাটন দেখায়, কাজ করে না
-                        if (c.serialPhone.isNotBlank()) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, c.serialPhone) } else null,
-                        if (p.appointments && c.appointments) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) {
-                            if (!preview) LoginGate.require(tr("Log in to request an appointment", "অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন")) { bookingIndex = i }
-                        } else null,
+                        if (c.serialPhone.isNotBlank() && pinnedCall == null) CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, c.serialPhone) } else null,
+                        if (i in bookable && bookable.size > 1) CardAction(tr("Request appointment", "অ্যাপয়েন্টমেন্ট চাই"), R.drawable.ic_calendar_month) { book(i) } else null,
                     ),
                 ),
             )
@@ -361,8 +366,13 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
         ratingCount = p.ratingCount,
         meta = null,
         sections = sections,
-        primary = null,
+        primary = pinnedCall?.let { ph -> CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, ph) } },
         secondary = null,
+        main = when {
+            bookable.size == 1 -> CardAction(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_calendar_month) { book(bookable[0]) }
+            bookable.size > 1 -> CardAction(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_calendar_month) { if (!preview) choosing = true }
+            else -> null
+        },
         // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
         onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
         onDismiss = onDismiss,
@@ -384,6 +394,32 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
         )
     }
 
+    if (choosing) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { choosing = false },
+            title = { Text(tr("Which chamber?", "কোন চেম্বারে?")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    bookable.forEach { i ->
+                        val c = p.chambers[i]
+                        androidx.compose.material3.Surface(
+                            onClick = { choosing = false; book(i) },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                if (c.timeText.isNotBlank()) Text(c.timeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosing = false }) { Text(tr("Cancel", "বাতিল")) } },
+        )
+    }
     bookingIndex?.let { i ->
         BookDialog(
             provider = p,

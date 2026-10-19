@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ActiveChips, Button, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorBox, FilterBar, IconButton, IconLine, InfoText, PhoneLine, PillTabs, SkeletonCards, Switch, TextArea, ErrorText, toast,
+  ActiveChips, Button, ListRow, cx, ChoiceChips, Dialog, DirectoryCard, EmptyState, ErrorBox, FilterBar, IconButton, IconLine, InfoText, PhoneLine, PillTabs, SkeletonCards, Switch, TextArea, ErrorText, toast,
 } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { useFilterArea } from '@/ui/AreaPicker';
@@ -240,6 +240,13 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
   const [reported, setReported] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const hv = p.homeVisit && p.homeVisit.enabled && p.homeVisit.phone.trim() ? p.homeVisit : null;
+  // ২.২৭.০ নিচের আটকানো বার (অ্যাপের DetailSheet-এর মতো): অ্যাপয়েন্টমেন্ট নেওয়া যায় এমন চেম্বার একটা হলে সরাসরি, কয়েকটা হলে
+  // কোন চেম্বার জিজ্ঞেস করে; সিরিয়ালের ফোন সব চেম্বারে একই হলে পাশে "ফোন" — তখন চেম্বারের ভেতরে আর আলাদা নেই
+  const bookable = p.appointments ? p.chambers.map((c, i) => (c.appointments ? i : -1)).filter((i) => i >= 0) : [];
+  const serialPhones = [...new Set(p.chambers.map((c) => c.serialPhone).filter(Boolean))];
+  const pinnedCall = serialPhones.length === 1 ? serialPhones[0] : null;
+  const [choosing, setChoosing] = useState(false);
+  const book = (i: number) => !preview && requireLogin(tr('Log in to request an appointment', 'অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন'), () => setBooking(i));
   const ups = hv ? hv.upazilaIds.map((id) => upazila(id)).filter(Boolean).map((u) => (isBangla() ? u!.bn : u!.en)) : [];
 
   return (
@@ -264,17 +271,13 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
               ['payments', feeText(c.noFee, c.fee)],
             ]}
           >
-            {p.appointments && c.appointments ? (
-              <Button
-                square
-                icon="calendar_month"
-                onClick={() => !preview && requireLogin(tr('Log in to request an appointment', 'অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন'), () => setBooking(i))}
-              >
+            {bookable.length > 1 && bookable.includes(i) ? (
+              <Button square icon="calendar_month" onClick={() => book(i)}>
                 {tr('Request appointment', 'অ্যাপয়েন্টমেন্ট চাই')}
               </Button>
             ) : null}
           </DetailBlock>
-          {c.serialPhone ? (
+          {c.serialPhone && !pinnedCall ? (
             <div className="appt-phone">
               <span className="t-label-m muted">{tr('Call for serial', 'সিরিয়ালের জন্য ফোন')}</span>
               {preview ? <span className="t-title-m num">{num(c.serialPhone)}</span> : <PhoneLine phone={c.serialPhone} />}
@@ -309,11 +312,48 @@ export function ProviderDetail({ p, onClose, onBooked, preview }: { p: Provider;
       {preview ? <p className="t-body-s muted">{tr('This is how patients see you. Save to update it.', 'রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।')}</p> : null}
       {reported ? <InfoText>{tr('Reported. An admin will review it.', 'রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।')}</InfoText> : null}
       <EmergencyNotice k="doctor" />
-      {!preview && !guest && p.uid !== uid && !reported ? (
+      {!preview && !guest && p.uid !== uid && !reported && !(bookable.length || pinnedCall) ? (
         <div className="row">
           <span className="grow" />
           <Button variant="text" icon="flag" onClick={() => setReporting(true)}>{tr('Report', 'রিপোর্ট')}</Button>
         </div>
+      ) : null}
+      {bookable.length || pinnedCall ? (
+        <div className="detail-bar">
+          <div className="detail-bar-row">
+            {pinnedCall ? (
+              preview ? (
+                <span className={cx('btn outline square has-icon', !bookable.length && 'solo')}><Icon name="call" />{num(pinnedCall)}</span>
+              ) : (
+                <a className={cx('btn outline square has-icon', !bookable.length && 'solo')} href={`tel:${pinnedCall}`}>
+                  <Icon name="call" />
+                  {tr('Call for serial', 'সিরিয়ালের ফোন')}
+                </a>
+              )
+            ) : null}
+            {bookable.length ? (
+              <Button square icon="calendar_month" className={cx(!pinnedCall && 'solo')} onClick={() => (bookable.length === 1 ? book(bookable[0]) : !preview && setChoosing(true))}>
+                {tr('Appointment', 'অ্যাপয়েন্টমেন্ট')}
+              </Button>
+            ) : null}
+          </div>
+          {pinnedCall || (!preview && !guest && p.uid !== uid && !reported) ? (
+            <div className="row services-acts">
+              {pinnedCall ? <span className="t-body-m muted num">{num(pinnedCall)}</span> : null}
+              <span className="grow" />
+              {!preview && !guest && p.uid !== uid && !reported ? <Button variant="text" icon="flag" onClick={() => setReporting(true)}>{tr('Report', 'রিপোর্ট')}</Button> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {choosing ? (
+        <Dialog onClose={() => setChoosing(false)} size="small" title={tr('Which chamber?', 'কোন চেম্বারে?')} actions={<Button variant="text" onClick={() => setChoosing(false)}>{tr('Cancel', 'বাতিল')}</Button>}>
+          <div className="col gap-4">
+            {bookable.map((i) => (
+              <ListRow key={i} icon="local_hospital" title={chamberLabel(p.chambers[i])} sub={chamberTimeText(p.chambers[i])} onClick={() => { setChoosing(false); book(i); }} />
+            ))}
+          </div>
+        </Dialog>
       ) : null}
 
       {reporting ? (

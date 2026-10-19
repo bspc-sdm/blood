@@ -6,16 +6,17 @@ import { useMemo, useState } from 'react';
 import { matchPath, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Button, ErrorBox, PillTabs, SkeletonCards, Tag, cx } from '@/ui/kit';
+import { LabTabs, myBusinessTitle } from '../../work/shared';
 import { Icon } from '@/ui/Icon';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
-import { tr, useLang } from '@/lib/i18n';
+import { num, tr, useLang } from '@/lib/i18n';
 import { formatDateTime, timeAgo } from '@/lib/format';
-import { CodeBox, PartnerPage, useInvalidate, usePartnerGate, useWide } from './common';
+import { CodeBox, ModeTag, PartnerPage, useInvalidate, usePartnerGate, useWide } from './common';
 import { LabDetail } from './labdetail';
 import { LabRanges } from './labranges';
 import { LabPrices } from './labprices';
-import { ageText, genderText, labStatusText, labTone, type LabOrder } from './model';
+import { LAB_SEGS, ageText, genderText, labSegLabel, labSegOf, labStatusText, labTone, segCounts, type LabOrder, type LabOrders, type LabSeg } from './model';
 import { homeLabTag } from './labdetail';
 
 const BASE = '/work/lab/orders';
@@ -23,41 +24,30 @@ const BASE = '/work/lab/orders';
 export function LabOrdersWorkspace() {
   useLang();
   const { pathname } = useLocation();
-  const nav = useNavigate();
   const gate = usePartnerGate('lab');
-  const title = tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট');
-  const orders = useCall<{ items: LabOrder[] }>('lab_orders', {}, { enabled: !gate, refetchInterval: 60_000 });
-  if (gate) return <PartnerPage title={title} backTo="/work/lab">{gate}</PartnerPage>;
+  const title = myBusinessTitle('lab');
+  const orders = useCall<LabOrders>('lab_orders', {}, { enabled: !gate, refetchInterval: 60_000 });
+  if (gate) return <PartnerPage title={title} backTo="/work">{gate}</PartnerPage>;
 
   const m = (p: string) => matchPath({ path: BASE + p, end: true }, pathname);
   const ranges = !!m('/ranges');
   const prices = !!m('/prices');
   const detail = ranges || prices ? null : m('/:id');
-  const fresh = (orders.data?.items ?? []).filter((o) => o.status === 'sent').length;
 
+  // ২.২৭.০: দুই ট্যাব — "অনুরোধ" (তালিকা, একটা অনুরোধ) আর "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা)
   return (
-    <PartnerPage title={title} backTo="/work/lab">
-      <div className="rxp-tabs">
-        <PillTabs
-          label={title}
-          value={ranges ? 'ranges' : prices ? 'prices' : 'orders'}
-          onChange={(k) => nav(k === 'ranges' ? `${BASE}/ranges` : k === 'prices' ? `${BASE}/prices` : BASE)}
-          tabs={[
-            { key: 'orders', label: tr('Test requests', 'পরীক্ষার অনুরোধ'), icon: 'list_alt', count: fresh },
-            { key: 'prices', label: tr('Tests & prices', 'পরীক্ষা ও দাম'), icon: 'payments' },
-            { key: 'ranges', label: tr('Normal ranges', 'স্বাভাবিক মাত্রা'), icon: 'tune' },
-          ]}
-        />
-      </div>
+    <PartnerPage title={title} backTo="/work">
+      <LabTabs active={ranges ? 'ranges' : prices ? 'prices' : 'orders'} />
       {ranges ? <LabRanges /> : prices ? <LabPrices /> : detail?.params.id ? <LabDetail key={detail.params.id} id={detail.params.id} orders={orders.data?.items ?? null} ordersLoading={orders.isLoading} /> : <LabList orders={orders} />}
     </PartnerPage>
   );
 }
 export default LabOrdersWorkspace;
 
-type View = 'open' | 'reported' | 'cancelled' | 'all';
+/** পুরোনো লিংকের ?v= (চালু/রিপোর্ট/বাতিল/সব) → নতুন ভাগ */
+const LEGACY_VIEW: Record<string, LabSeg> = { open: 'new', reported: 'reported', cancelled: 'closed', all: 'new' };
 
-function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Error> }) {
+function LabList({ orders }: { orders: UseQueryResult<LabOrders, Error> }) {
   const nav = useNavigate();
   const wide = useWide();
   const invalidate = useInvalidate();
@@ -68,16 +58,12 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
   const [err, setErr] = useState<string | null>(null);
   const [openErr, setOpenErr] = useState<string | null>(null);
   const items = useMemo(() => orders.data?.items ?? [], [orders.data]);
-  const groups: Record<View, LabOrder[]> = {
-    open: items.filter((o) => o.status === 'sent' || o.status === 'received'),
-    reported: items.filter((o) => o.status === 'reported'),
-    cancelled: items.filter((o) => o.status === 'cancelled'),
-    all: items,
-  };
-  const asked = sp.get('v') as View | null;
-  const view: View = asked && asked in groups ? asked : 'open';
+  const counts = segCounts(LAB_SEGS, orders.data?.counts, labSegOf as (x: never) => LabSeg, items);
+  const asked = (sp.get('s') ?? LEGACY_VIEW[sp.get('v') ?? '']) as LabSeg | null;
+  const view: LabSeg = asked && LAB_SEGS.includes(asked) ? asked : 'new';
+  const inSeg = items.filter((o) => labSegOf(o) === view).sort((a, c) => c.createdAt - a.createdAt);
   const t = q.trim().toLowerCase();
-  const rows = t ? groups[view].filter((o) => o.patientName.toLowerCase().includes(t) || o.code.toLowerCase().includes(t) || o.tests.some((x) => x.toLowerCase().includes(t))) : groups[view];
+  const rows = t ? inSeg.filter((o) => o.patientName.toLowerCase().includes(t) || o.code.toLowerCase().includes(t) || o.tests.some((x) => x.toLowerCase().includes(t))) : inSeg;
 
   async function openCode(code: string) {
     setOpening(true);
@@ -113,13 +99,33 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
       {o.status === 'reported' ? <Button small variant="tonal" onClick={() => go(o)}>{tr('View', 'দেখুন')}</Button> : null}
     </div>
   );
+  // ল্যাবে আসবেন / বাসা থেকে নমুনা — বাসার ঠিকানা-ফোন-নোট (সার্ভার শুধু চালু অনুরোধে পাঠায়)
+  const fromHome = (o: LabOrder) => !!o.home && o.home.status !== 'declined';
+  const modeTag = (o: LabOrder) => (
+    <ModeTag remote={fromHome(o)} icon={fromHome(o) ? 'home_health' : 'local_hospital'}>{fromHome(o) ? tr('Sample from home', 'বাসা থেকে নমুনা') : tr('Will come to the lab', 'ল্যাবে আসবেন')}</ModeTag>
+  );
+  const homeContact = (o: LabOrder) => {
+    const h = o.home;
+    if (!h || !fromHome(o) || !['sent', 'received'].includes(o.status) || !(h.address || h.phone || h.note)) return null;
+    return (
+      <div className="col gap-2" onClick={(e) => e.stopPropagation()}>
+        {h.address ? <span className="icon-line"><Icon name="location_on" /><span>{h.address}</span></span> : null}
+        {h.phone ? <span className="icon-line"><Icon name="call" /><a className="rxp-phone num" href={`tel:${h.phone}`}>{num(h.phone)}</a></span> : null}
+        {h.note ? <span className="icon-line"><Icon name="edit_note" /><span>{h.note}</span></span> : null}
+      </div>
+    );
+  };
   const who = (o: LabOrder) => [ageText(o.patientAge), genderText(o.patientGender)].filter(Boolean).join(' · ');
 
   return (
     <div className="col gap-16">
-      <section className="card rxp-panel rxp-lab-code">
-        <CodeBox label={tr('Patient came with a paper prescription?', 'কাগজের প্রেসক্রিপশন নিয়ে এলে')} busy={opening} error={openErr} onOpen={openCode} />
-        <p className="t-body-s muted">{tr('Enter the code under the QR — the tests are added here.', 'QR-এর নিচের কোড দিন — পরীক্ষাগুলো এখানে যোগ হবে।')}</p>
+      <section className="card rxp-panel rxp-lab-code rxp-open-code">
+        <div className="row gap-8">
+          <span className="rxp-panel-ic"><Icon name="search" /></span>
+          <h2 className="t-title-m grow">{tr('Open a prescription by code', 'কোড দিয়ে প্রেসক্রিপশন খুলুন')}</h2>
+        </div>
+        <CodeBox label={tr('Patient came with a paper prescription? Code under the QR (or paste the link)', 'রোগী কাগজের প্রেসক্রিপশন নিয়ে এলে: QR-এর নিচের কোড (বা লিংক পেস্ট করুন)')} busy={opening} error={openErr} onOpen={openCode} />
+        <p className="t-body-s muted">{tr('The tests are added here and the report form opens.', 'পরীক্ষাগুলো এখানে যোগ হবে, রিপোর্টের পাতা খুলবে।')}</p>
       </section>
 
       <div className="row wrap gap-8">
@@ -128,13 +134,8 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
             secondary
             label={tr('Test requests', 'পরীক্ষার অনুরোধ')}
             value={view}
-            onChange={(k) => setSp(k === 'open' ? {} : { v: k }, { replace: true })}
-            tabs={[
-              { key: 'open', label: tr('Active', 'চালু'), count: groups.open.length },
-              { key: 'reported', label: tr('Report given', 'রিপোর্ট দেওয়া হয়েছে') },
-              { key: 'cancelled', label: tr('Cancelled', 'বাতিল') },
-              { key: 'all', label: tr('All', 'সব') },
-            ]}
+            onChange={(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })}
+            tabs={LAB_SEGS.map((s) => ({ key: s, label: labSegLabel(s), count: counts[s] }))}
           />
         </div>
         <span className="grow" />
@@ -148,7 +149,14 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
       {orders.isLoading ? <SkeletonCards n={4} h={72} /> : orders.error ? <ErrorBox error={errorText(orders.error)} onRetry={() => orders.refetch()} /> : !rows.length ? (
         <div className="card rxp-empty-card">
           <Icon name="list_alt" />
-          <span>{items.length ? tr('Nothing here', 'এখানে কিছু নেই') : tr('No test requests yet', 'এখনো কোনো পরীক্ষার অনুরোধ নেই')}</span>
+          <span className="t-title-s">
+            {t ? tr('Nothing matches', 'মেলে এমন কিছু নেই')
+              : view === 'new' ? tr('No new requests now', 'এখন নতুন কোনো অনুরোধ নেই')
+                : view === 'active' ? tr('No samples waiting', 'এখন কোনো নমুনা বা চলমান পরীক্ষা নেই')
+                  : view === 'reported' ? tr('No reports given yet', 'এখনো কোনো রিপোর্ট দেওয়া হয়নি') : tr('Nothing cancelled', 'বাতিল হওয়া কোনো অনুরোধ নেই')}
+          </span>
+          {!t && view === 'new' ? <span className="t-body-s">{tr('Tests patients send from their prescriptions come here.', 'রোগীরা প্রেসক্রিপশন থেকে পরীক্ষা পাঠালে এখানে আসবে।')}</span> : null}
+          {!t && view === 'active' ? <span className="t-body-s">{tr('After you take a sample (or confirm a home visit), it waits here for the report.', 'নমুনা নিলে (বা বাসায় যাওয়ার সময় নিশ্চিত করলে) রিপোর্ট দেওয়া পর্যন্ত এখানে থাকবে।')}</span> : null}
         </div>
       ) : wide ? (
         <div className="table-wrap">
@@ -183,7 +191,9 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
                   <td className="rxp-td-tests">
                     <div className="col gap-4">
                       <span>{o.tests.join(', ')}</span>
+                      {modeTag(o)}
                       {homeLabTag(o)}
+                      {homeContact(o)}
                     </div>
                   </td>
                   <td className="t-body-s">{o.doctorName || '—'}</td>
@@ -199,13 +209,17 @@ function LabList({ orders }: { orders: UseQueryResult<{ items: LabOrder[] }, Err
         <div className="rxp-cards">
           {rows.map((o) => (
             <article key={o.id} className={cx('card click col gap-6')} role="button" tabIndex={0} onClick={() => go(o)} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && go(o)}>
-              <div className="row">
+              <div className="row gap-8">
                 <span className="t-title-s grow">{o.patientName || '—'}</span>
-                <Tag tone={labTone(o.status)}>{labStatusText(o.status)}</Tag>
+                {modeTag(o)}
               </div>
-              <span className="t-body-s muted">{[who(o), timeAgo(o.createdAt)].filter(Boolean).join(' · ')}</span>
+              <div className="row wrap gap-6">
+                <Tag tone={labTone(o.status)}>{labStatusText(o.status)}</Tag>
+                <span className="t-body-s muted">{[who(o), timeAgo(o.createdAt)].filter(Boolean).join(' · ')}</span>
+              </div>
               <span className="t-body-m">{o.tests.join(', ')}</span>
               {homeLabTag(o)}
+              {homeContact(o)}
               {o.doctorName ? <span className="t-body-s muted">{o.doctorName}</span> : null}
               {actions(o)}
             </article>

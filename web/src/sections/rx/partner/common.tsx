@@ -157,3 +157,13 @@ export function SmallButtonLink({ to, icon, children }: { to: string; icon?: str
     </Link>
   );
 }
+
+/** দোকানে এসেছেন / অনলাইন অর্ডার; ল্যাবে আসবেন / বাসা থেকে নমুনা — আইকনসহ, দুই রঙে (২.২৭.০) */
+export function ModeTag({ remote, icon, children }: { remote: boolean; icon: string; children: ReactNode }) {
+  return (
+    <span className={cx('rxp-mode', remote ? 'remote' : 'local')}>
+      <Icon name={icon} />
+      {children}
+    </span>
+  );
+}

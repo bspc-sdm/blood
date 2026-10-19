@@ -215,7 +215,11 @@ fun PharmacyContent(profile: Profile) {
     }
 }
 
-/** নিজের ফার্মেসি: না থাকলে যোগ করার আমন্ত্রণ, থাকলে অবস্থা, বদলানো আর অ্যাপ থেকে কতবার ফোন এসেছে */
+/**
+ * নিজের ফার্মেসি: না থাকলে যোগ করার আমন্ত্রণ। অনুমোদিত হলে দুই ট্যাব (২.২৭.০ — MyWorkTabs.kt):
+ * "অর্ডার" (শুরুতে; কোড দিয়ে খোলা, নতুন · চলছে/তৈরি · শেষ) আর "দোকান" (তথ্য, QR, বন্ধ রাখা, বিক্রি ও স্টক,
+ * ওষুধ খোঁজার অনুরোধ, অ্যাপ থেকে ফোন, একদম নিচে মুছে ফেলা)। অনুমোদনের আগে শুধু দোকানের অংশ।
+ */
 @Composable
 internal fun MyPharmacyPanel(profile: Profile) {
     var shop by remember { mutableStateOf<Pharmacy?>(null) }
@@ -225,10 +229,16 @@ internal fun MyPharmacyPanel(profile: Profile) {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var stats by remember { mutableStateOf<JSONObject?>(null) }
+    var home by remember { mutableStateOf<PharmacyHome?>(null) }
+    var orders by remember { mutableStateOf<SegList<PharmOrder>?>(null) }
+    var ordersErr by remember { mutableStateOf<String?>(null) }
     var pausing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var seg by rememberSaveable { mutableStateOf("new") }
     val scope = rememberCoroutineScope()
+    ConsumeWorkTarget { t -> if (t == "shop") tab = 1 else { tab = 0; seg = "new" } }
     fun act(done: String? = null, block: suspend () -> Unit) {
         scope.launch {
             busy = true
@@ -240,6 +250,10 @@ internal fun MyPharmacyPanel(profile: Profile) {
     LaunchedEffect(reload) {
         runCatching { Pharmacies.mine() }.onSuccess { shop = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
+        if (shop?.status == "approved") {
+            runCatching { RxNet.pharmacyOrders() }.onSuccess { orders = it; ordersErr = null }.onFailure { ordersErr = it.message }
+            runCatching { RxNet.pharmacyHome() }.onSuccess { home = it }
+        }
         if (shop != null) runCatching { Pharmacies.stats() }.onSuccess { stats = it }
     }
     if (editing) {
@@ -284,22 +298,22 @@ internal fun MyPharmacyPanel(profile: Profile) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
-                    act(tr("Removed", "মুছে ফেলা হয়েছে")) { Pharmacies.delete() }
+                    act(tr("Removed", "মুছে ফেলা হয়েছে")) { Pharmacies.delete(); orders = null; home = null; tab = 0 }
                 }) { Text(tr("Remove", "মুছে ফেলুন"), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr("Cancel", "বাতিল")) } },
         )
     }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ErrorText(errorMsg)
-        InfoText(infoMsg)
-        val s = shop
-        when {
-            !loaded -> LoadingBox()
-            s == null && errorMsg == null -> {
+    val s = shop
+    when {
+        !loaded -> Column(Modifier.fillMaxSize().padding(16.dp)) { LoadingBox() }
+        s == null -> Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ErrorText(errorMsg)
+            InfoText(infoMsg)
+            if (errorMsg == null) {
                 EmptyState(
                     R.drawable.ic_storefront,
                     tr("Have a licensed pharmacy?", "লাইসেন্সধারী ফার্মেসি আছে?"),
@@ -313,49 +327,98 @@ internal fun MyPharmacyPanel(profile: Profile) {
                     ButtonContent(false, tr("Add my pharmacy", "আমার ফার্মেসি যোগ করুন"), R.drawable.ic_add)
                 }
             }
-            s != null -> {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(statusText(s.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        StatusReasonLine(s.status, s.statusReason)
-                        DocsNeededNotice("pharmacy", s.id, VerifyDocs.pharmacy(), s.docsMissing, s.docsRequested, s.docsNote) { reload++ }
-                        if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(s.hoursText, closedDaysText(s.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
-                        IconLine(R.drawable.ic_call, num(s.phone))
-                        if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
-                        OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
-                        // ঈদ/সংস্কারে কয়েক দিন বন্ধ: তালিকায় "বন্ধ" দেখাবে, তারিখ পার হলে নিজে খুলবে
-                        if (s.status != "suspended") {
-                            if (s.closedUntil > 0) {
-                                IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(s.closedUntil) + tr("", " পর্যন্ত"))
-                                SmallAction(tr("Open again", "আবার খুলুন"), R.drawable.ic_storefront, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, busy = busy)
-                            } else {
-                                SmallAction(tr("Closed for some days", "কয়েক দিন বন্ধ থাকবে"), R.drawable.ic_schedule, { pausing = true }, enabled = !busy)
-                            }
-                            TextButton(onClick = { confirmDelete = true }, enabled = !busy) {
-                                Text(tr("Remove my pharmacy", "ফার্মেসি মুছে ফেলুন"), color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                        if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
-                    }
-                }
-                if (s.status == "approved") {
-                    PharmacyRxSection()
-                    PharmacyFindRequests()
-                }
-                stats?.let { st ->
-                    val calls = st.optJSONObject("calls") ?: JSONObject()
-                    Text(tr("Calls from the app", "অ্যাপ থেকে ফোন"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        tr("${calls.optInt("7")} in 7 days · ${calls.optInt("30")} in 30 days", "৭ দিনে ${num(calls.optInt("7"))} · ৩০ দিনে ${num(calls.optInt("30"))}"),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    val d = st.optJSONArray("daily") ?: org.json.JSONArray()
-                    MiniBars((0 until d.length()).map { d.optInt(it) })
+        }
+        s.status != "approved" -> Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ErrorText(errorMsg)
+            InfoText(infoMsg)
+            ShopTab(s, null, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
+        }
+        else -> WorkTabsScaffold(
+            tab,
+            listOf(
+                PillTab(tr("Orders", "অর্ডার"), R.drawable.ic_medication, count = orders?.counts?.get("new") ?: 0),
+                PillTab(tr("Shop", "দোকান"), R.drawable.ic_storefront),
+            ),
+            { tab = it },
+        ) {
+            if (tab == 0) {
+                PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
+            } else {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ErrorText(errorMsg)
+                    InfoText(infoMsg)
+                    ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
                 }
             }
         }
     }
+}
+
+/** "দোকান" ট্যাব: তথ্য → QR ও কোড → কয়েক দিন বন্ধ → বিক্রি ও স্টক → ওষুধ খোঁজার অনুরোধ → ফোনের হিসাব → (আলাদা করে) মুছে ফেলা */
+@Composable
+private fun ShopTab(
+    s: Pharmacy,
+    home: PharmacyHome?,
+    stats: JSONObject?,
+    busy: Boolean,
+    onEdit: () -> Unit,
+    onPause: () -> Unit,
+    onReopen: () -> Unit,
+    onDelete: () -> Unit,
+    onDocs: () -> Unit,
+    onChanged: (String?) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(statusText(s.status), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+            StatusReasonLine(s.status, s.statusReason)
+            DocsNeededNotice("pharmacy", s.id, VerifyDocs.pharmacy(), s.docsMissing, s.docsRequested, s.docsNote, onDocs)
+            if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(s.hoursText, closedDaysText(s.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
+            IconLine(R.drawable.ic_call, num(s.phone))
+            if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
+            OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
+            if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
+        }
+    }
+    home?.let { PharmacyQrCard(it) }
+    // ঈদ/সংস্কারে কয়েক দিন বন্ধ: তালিকায় "বন্ধ" দেখাবে, তারিখ পার হলে নিজে খুলবে
+    if (s.status != "suspended") {
+        Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (s.closedUntil > 0) {
+                    IconLine(R.drawable.ic_info, tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(s.closedUntil) + tr("", " পর্যন্ত"))
+                    SmallAction(tr("Open again", "আবার খুলুন"), R.drawable.ic_storefront, onReopen, busy = busy)
+                } else {
+                    SmallAction(tr("Closed for some days", "কয়েক দিন বন্ধ থাকবে"), R.drawable.ic_schedule, onPause, enabled = !busy)
+                    SmallNote(tr("For Eid or repairs: the list shows \"closed\" until then, and it opens again by itself.", "ঈদ বা সংস্কারে: ততদিন তালিকায় \"বন্ধ\" দেখাবে, তারিখ পার হলে নিজে খুলবে।"))
+                }
+            }
+        }
+    }
+    if (s.status == "approved") {
+        home?.let { PharmacyToolsCard(it, onChanged) }
+        PharmacyFindCard()
+    }
+    stats?.let { st ->
+        Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val calls = st.optJSONObject("calls") ?: JSONObject()
+                Text(tr("Calls from the app", "অ্যাপ থেকে ফোন"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    tr("${calls.optInt("7")} in 7 days · ${calls.optInt("30")} in 30 days", "৭ দিনে ${num(calls.optInt("7"))} · ৩০ দিনে ${num(calls.optInt("30"))}"),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                val d = st.optJSONArray("daily") ?: org.json.JSONArray()
+                MiniBars((0 until d.length()).map { d.optInt(it) })
+            }
+        }
+    }
+    if (s.status != "suspended") DangerZone(tr("Remove my pharmacy", "ফার্মেসি মুছে ফেলুন"), !busy, onDelete)
 }
 
 @Composable
@@ -449,7 +512,7 @@ private fun NearbyPharmacies(profile: Profile) {
             p.name, R.drawable.ic_storefront, null, MaterialTheme.colorScheme.primary, null,
             if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
             p.rating, p.ratingCount, p.km?.let { Rules.formatKm(it) },
-            pharmacySections(p) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
+            pharmacySections(p),
             CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) {
                 scope.launch { runCatching { Pharmacies.called(p.id) } }
                 callPhone(context, p.phone)
@@ -458,6 +521,8 @@ private fun NearbyPharmacies(profile: Profile) {
             { reporting = p },
             onDismiss = { openShop = null },
             tags = p.tags24,
+            // ২.২৭.০: নিচের বারে ফোনের পাশে (আগে ভেতরে স্ক্রল করা আলাদা ভাগে ছিল)
+            main = CardAction(tr("Send prescription", "প্রেসক্রিপশন পাঠান"), R.drawable.ic_send) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
         )
     }
     // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে)
@@ -503,8 +568,8 @@ private fun NearbyPharmacies(profile: Profile) {
     }
 }
 
-/** ফার্মেসির বিস্তারিতের ভাগ: ঠিকানা, সময়, ছাড়-ডেলিভারি, রেটিং, আর "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান" */
-private fun pharmacySections(p: Pharmacy, onSendRx: () -> Unit): List<DetailSection> = listOf(
+/** ফার্মেসির বিস্তারিতের ভাগ: ঠিকানা, সময়, ছাড়-ডেলিভারি, রেটিং ("প্রেসক্রিপশন পাঠান" নিচের বারে — DetailSheet-এর main) */
+private fun pharmacySections(p: Pharmacy): List<DetailSection> = listOf(
     DetailSection(
         tr("Address", "ঠিকানা"),
         listOf(
@@ -527,11 +592,6 @@ private fun pharmacySections(p: Pharmacy, onSendRx: () -> Unit): List<DetailSect
     ),
     // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে লাইন খালি — ভাগটা দেখায় না)
     DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
-    DetailSection(
-        tr("Prescription", "প্রেসক্রিপশন"),
-        emptyList(),
-        button = CardAction(tr("Send a prescription to this pharmacy", "এই ফার্মেসিতে প্রেসক্রিপশন পাঠান"), R.drawable.ic_send, onSendRx),
-    ),
 )
 
 // ---------- রেটিং: দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) ----------
