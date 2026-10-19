@@ -1,0 +1,57 @@
+name: Compile check 17 (temp)
+on:
+  push:
+    branches: [compile-check-17]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build
+        run: |
+          set -o pipefail
+          gradle assembleDebug compileDebugUnitTestKotlin --no-daemon 2>&1 | tee build.log
+      - if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: APK size
+        run: |
+          mkdir -p out
+          ls -l app/build/outputs/apk/debug/*.apk | tee out/apk.txt
+      - name: Unit tests (parse + sheet centring at 360/412/480)
+        run: |
+          set +e
+          for t in MapsLinkTest AmbRequestScreensTest.requestSheet360 AmbRequestScreensTest.requestSheet412 AmbRequestScreensTest.requestSheet480 AmbRequestScreensTest.requestSheetErrors360; do
+            gradle testDebugUnitTest --tests "com.bspc.blood.$t" 2>&1 | grep -E "Test|Exception|Caused by|at com\.bspc|FAILED|expected|Assert" | head -30 | tee -a out/test.log
+          done
+          cp app/build/screens/*.png out/ 2>/dev/null
+          cp app/build/test-results/testDebugUnitTest/*.xml out/ 2>/dev/null
+          grep -l "<failure" out/*.xml && { grep -h -A5 "<failure" out/*.xml | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done; exit 1; }
+          exit 0
+      - name: Save to cc17-out branch
+        if: always()
+        run: |
+          set -e
+          ls out | head -50
+          for f in out/*.xml; do echo "::notice::$(basename $f) $(grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' $f | head -1)"; done || true
+          cp -r out /tmp/out
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan cc17-out
+          git rm -rf --quiet .
+          git clean -fdxq
+          cp -r /tmp/out/* .
+          mkdir -p server && echo '{"git":{"deploymentEnabled":false}}' > server/vercel.json
+          git add -A
+          git commit -qm "cc17 out ${{ github.run_id }}" || true
+          git push -f origin cc17-out
