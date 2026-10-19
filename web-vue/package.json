@@ -6,7 +6,7 @@
   "description": "Lifolo ওয়েব (Vue) — মোবাইল, ট্যাবলেট আর ডেস্কটপের জন্য (অ্যাপের একই সার্ভার আর অ্যাকাউন্ট)",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build && vite build -c vite.admin.config.ts",
     "build:test": "vite build --mode test --outDir test/.build/w --emptyOutDir",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
@@ -14,7 +14,11 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "shots": "node test/shots.mjs",
-    "check:bangla": "python3 scripts/check-bangla.py"
+    "check:bangla": "python3 scripts/check-bangla.py",
+    "build:admin": "vite build -c vite.admin.config.ts",
+    "dev:admin": "vite -c vite.admin.config.ts",
+    "shots:admin": "node test/admin-shots.mjs",
+    "smoke:admin": "node test/admin-smoke.mjs"
   },
   "dependencies": {
     "@fontsource/hind-siliguri": "5.1.0",

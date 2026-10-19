@@ -16,25 +16,26 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - **Work section ported in full** (/work overview, add, ambulances + driver calls with fare offers, pharmacy info/finds/edit, blood banks, lab, BizHome redirects). Shots 0% at mobile and desktop.
 - **rx/doctor ported in full** (/work/rx: patients + history, write with drug search and draft paper, list, view/print/cancel, report reviews and settings, team). Shots ≤0.06% desktop; mobile 1.27% on one page from pill-tab scroll position.
 - **rx/partner ported in full** (pharmacy counter: code open, dispense, missed, online orders, shop QR + online settings, shop books: stock/buy/sales/analytics; lab: list, detail, report entry, photos, home-sample confirm, prices editor, own normal ranges). Shots 0% mobile, ≤0.05% desktop (rxpartner, shopbooks, work incl. pharmacy info page). `StockTab` (stock.tsx) is dead code in React and was not ported.
+- **Admin panel ported in full** (`admin/`, build `npm run build:admin` → `dist-admin/`, base `/admin/`): all 18 nav pages plus verify, ticket and user detail, login with email code, idle logout warning, background count refresh, same hash routes (`#/pharmacies?s=approved`). Pages are TS render functions that mirror the old `h()` trees one to one, so the DOM and CSS (`admin/src/style.css`, copied) stay the same. The build has no inline script/style, so it works under the panel's strict CSP. Shots against the local stack (e2e/server/local.js + Auth emulator, demo seeded), original vs Vue under the same CSP: 0% on every page at 390px and 1440px except data drift (the admin log grows between runs). Write flows checked with `test/admin-smoke.mjs` (reject with reason, verify approve, ticket reply, catalog save, emergency create, refresh): all pass.
 - **Health section ported in full** (Discussion, Tips, Badge, Prescriptions, RxActivity, common, qr). Shots 0% except the QR code (it encodes `location.origin`, and the two shot servers use different ports).
 - `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
 - `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
 
 ## Remaining
-- Admin panel (`server/public/admin/app.js`, 18 pages including "ডেমো (পরীক্ষা)"): not started. Plan: a second Vite entry `admin/index.html`, same hash routes.
 - Tests: Vitest unit tests, a Playwright port of `e2e/web/journeys`, the CI workflow `web-vue.yml`, the Bangla byte-check script (`scripts/check-bangla.py`, modelled on backend/scripts/check-bangla.py, using web/src as the corpus), and a Bangla README.
 - Screenshot comparison: every section done at mobile; desktop still to run for blood, services, health. Pairs to copy into the scratchpad `shots/` folder.
 
 ## Notes / known issues
+- Admin: the old panel sets a few `style` attributes (catalog and lab-test editor widths, `flex-wrap:nowrap`). Production's CSP blocks them (`style-src 'self'`, console shows "Refused to apply inline style"), so they never took effect. The Vue port leaves them out to match what users see.
 - Pin `vue-tsc` to 3.2.4: 3.3.x wrongly reports `.value` errors for imported bindings used inside arrow functions in templates. The runtime code is fine.
 - The React test build for comparison is made from a copy of web/ (node_modules symlinked from the main checkout). The `react-web`, `compare.py` and `shots.sh` scripts live outside the repo in the session scratchpad.
 - `@fontsource/*` is pinned to 5.1.0 (React's lockfile). 5.3.0 changes glyph widths slightly, which moves line breaks.
 - Side nav: `aria-current` follows React Router NavLink (own path or below; `/` only exact), not the item's `match()`.
 - Dialog.vue: `role`/`aria-labelledby` are bound only when set. Binding them as undefined removed Reka's `role=dialog`.
 - React has no service worker and no FCM web push; only the manifest. Keep it that way for parity.
-- Templates: never put whitespace between an icon and its text (React JSX had none). A leading/trailing space inside an element before/after `{{ }}` is dropped by Vue's whitespace condense; write `{{ ' ' + x }}` instead. Never put whitespace between an icon and its text (React JSX had none). Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
+- Templates: never put whitespace between an icon and its text (React JSX had none). A leading/trailing space inside an element before/after `{{ }}` is dropped by Vue's whitespace condense; write `{{ ' ' + x }}` instead. Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
 
 ## Next steps
-1. Port the admin panel.
+1. Bangla byte-check script, tests, CI, README.
 2. Run the React-vs-Vue shots for every `test/pages/*.json` at 390px and fix the differences.
 3. Add the Bangla check script, Vitest, the Playwright e2e port, `.github/workflows/web-vue.yml` and README (bn).
