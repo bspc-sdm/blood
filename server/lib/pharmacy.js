@@ -137,6 +137,32 @@ async function rateableFor(uid, ids, now = Date.now()) {
   return out;
 }
 
+// প্রেসক্রিপশন বাছা থাকলে তালিকায় কয়টা দোকান (প্রতিটার স্টকের ডক পড়া হয়)
+const RX_LIST_MAX = 40;
+
+/**
+ * কার্ডের প্রেসক্রিপশনের হিসাব: কয়টা ওষুধ আছে (স্টকের তালিকা না রাখলে keepsStock false), আনুমানিক দাম, মোট ছাড়।
+ * ছাড় দোকানের দাম থেকে: MRP − বিক্রি দাম (দোকানের হিসাব-খাতা), বাকি পরিমাণ ধরে। দোকান "৳৫০০-এর বেশি কিনলে" ছাড় দিলে
+ * আর এই প্রেসক্রিপশনের MRP-র মোট তার কম হলে ছাড় ধরা হয় না (দাম = MRP-তে) — belowMin।
+ * দাম না জানলে payable/discount null — কার্ডে দোকানের সাধারণ "MRP থেকে ৫% ছাড়"।
+ */
+function rxCard(p, m) {
+  const e = m.estimate;
+  const out = { keepsStock: m.keepsStock, have: m.have, total: m.total, missing: m.missing, priced: e ? e.priced : 0, payable: null, mrp: null, discount: null, belowMin: false };
+  if (!e) return out;
+  out.payable = e.total;
+  if (e.mrp != null) {
+    out.mrp = e.mrp;
+    out.discount = e.discount;
+    if (p.discountMin > 0 && e.mrp < p.discountMin && e.discount > 0) {
+      out.belowMin = true;
+      out.payable = e.mrp;
+      out.discount = 0;
+    }
+  }
+  return out;
+}
+
 function pharmacyView(d, mine = false) {
   const x = d.data();
   const n = x.ratingCount || 0;
@@ -158,6 +184,13 @@ function pharmacyView(d, mine = false) {
     delivery: x.delivery === true,
     deliveryNote: x.deliveryNote || '',
     discount: x.discount || 0,
+    // ছাড়ের শর্ত (১৯ অক্টোবর ২০২৬, ঐচ্ছিক): কত টাকার বেশি কিনলে ছাড়, কত টাকার বেশিতে ডেলিভারি ফ্রি, ছোট নোট ("শুধু নগদে")
+    discountMin: Number.isInteger(x.discountMin) ? x.discountMin : 0,
+    freeDeliveryOver: Number.isInteger(x.freeDeliveryOver) ? x.freeDeliveryOver : 0,
+    discountNote: x.discountNote || '',
+    // অনলাইনে অর্ডার নেয় কি না আর ডেলিভারি চার্জ (rxnet.js-এর online সেটিং) — তালিকায় "অনলাইনে অর্ডার" বাছলে এগুলোই
+    online: !!(x.online && x.online.enabled === true),
+    deliveryFee: (x.online && x.online.fee) || '',
     rating: n ? Math.round((x.ratingSum / n) * 10) / 10 : 0,
     ratingCount: n,
     // দিকভিত্তিক গড় (বিস্তারিতে "ব্যবহার ★৪.৬ · ডেলিভারি ★৪.২")
@@ -249,6 +282,13 @@ const actions = {
       throw err('Set opening and closing time', 'খোলা আর বন্ধের সময় দিন');
     }
     const discount = Number.isInteger(b.discount) && b.discount >= 0 && b.discount <= 30 ? b.discount : 0;
+    // ছাড়ের শর্ত — পুরোনো অ্যাপ এই ঘরগুলো পাঠায় না, তখন আগের মান থাকে (closedDays-এর মতো)
+    const taka = (v) => (Number.isInteger(v) && v >= 0 && v <= 100000 ? v : 0);
+    const terms = {
+      ...('discountMin' in b ? { discountMin: taka(b.discountMin) } : {}),
+      ...('freeDeliveryOver' in b ? { freeDeliveryOver: taka(b.freeDeliveryOver) } : {}),
+      ...('discountNote' in b ? { discountNote: K.str(typeof b.discountNote === 'string' ? b.discountNote.replace(/\s+/g, ' ') : '', 80) } : {}),
+    };
     if (b.termsAccepted !== true) throw err('Please accept the terms', 'শর্তে সম্মতি দিন');
     const data = {
       name,
@@ -267,6 +307,7 @@ const actions = {
       delivery: b.delivery === true,
       deliveryNote: K.str(b.deliveryNote, 120),
       discount,
+      ...terms,
       updatedAt: Date.now(),
     };
     if (s.exists) {
@@ -323,29 +364,65 @@ const actions = {
     return { ok: true };
   },
 
-  /** এলাকার ফার্মেসির তালিকা (সরাসরি ফোনের জন্যও) */
+  /**
+   * এলাকার ফার্মেসির তালিকা (সরাসরি ফোনের জন্যও)।
+   * ১৯ অক্টোবর ২০২৬ (পারভেজ): আগে "দোকানে গিয়ে কিনব" / "অনলাইনে অর্ডার" বাছাই — mode:
+   *   'online' — শুধু অনলাইনে অর্ডার নেওয়া দোকান, যাদের ডেলিভারির দূরত্বে আছেন (rx_pharmacy_options-এর একই নিয়ম:
+   *              জায়গা জানা থাকলে দোকানের radiusKm-এর মধ্যে, না জানলে একই উপজেলা — উপজেলা না দিলে জেলার সব);
+   *   'shop'   — আগের মতো সব দোকান (এলাকা, এখন খোলা, ২৪ ঘণ্টা)।
+   * rxId (লগইন করা রোগীর নিজের চালু প্রেসক্রিপশন; কেয়ারগিভার মোডে রোগীর): প্রতিটা কার্ডে rx — কয়টা ওষুধ আছে, আনুমানিক দাম,
+   * মোট ছাড় — আর সাজানো: বেশি ওষুধ আছে আগে, তারপর কম দাম, তারপর খোলা/কাছে। এক ডাকেই (স্টকের ডক একসাথে পড়া)।
+   * প্রেসক্রিপশনের অংশ কখনো মেমোরিতে রাখা হয় না — মেমোরিতে শুধু জেলার দোকানের তালিকা (areaPharmacies), সবার একই।
+   * mode বা rxId দিলে (নতুন অ্যাপ) লগইন করা মানুষ নিজের জগতের দোকানই পান (ডেমো ↔ আসল) — পাঠানো তো সেখানেই যায়।
+   */
   async pharmacies(req, user) {
     const b = req.body || {};
     if (!DISTRICTS.some((d) => d.bn === b.district)) throw new HttpError(400, C.tr(req, 'Choose a district', 'জেলা বেছে নিন'));
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
+    const mode = ['shop', 'online'].includes(b.mode) ? b.mode : null;
+    const uid = (user && user.uid) || null;
+    const RX = require('./rxnet');
+    // প্রেসক্রিপশন আগে যাচাই (অন্যের বা অতিথি হলে ৪০৩ — তালিকার কিছুই যায় না)
+    const rx = b.rxId != null && b.rxId !== '' ? await RX.ownRx(req, user, b.rxId) : null;
     const docs = await areaPharmacies(b.district, upazilaId);
-    let items = docs.map((d) => {
+    const world = uid && (mode || rx) ? docs.filter((d) => require('./demo').sameWorld(uid, d.id)) : docs;
+    let items = world.map((d) => {
       const v = pharmacyView(d);
       const x = d.data();
       v.km = typeof b.lat === 'number' && typeof x.lat === 'number' ? Math.round(R.distanceKm(b.lat, b.lng, x.lat, x.lng) * 10) / 10 : null;
+      if (mode === 'online') v.radiusKm = RX.onlineOf(x).radiusKm;
       return v;
     });
-    if (upazilaId) items = items.filter((p) => p.upazilaId === upazilaId || (p.km != null && p.km <= K.MED_RADIUS_KM));
+    if (mode === 'online') {
+      items = items.filter((p) => p.online && (p.km != null ? p.km <= p.radiusKm : !upazilaId || p.upazilaId === upazilaId));
+      items.forEach((p) => delete p.radiusKm);
+    } else if (upazilaId) items = items.filter((p) => p.upazilaId === upazilaId || (p.km != null && p.km <= K.MED_RADIUS_KM));
     if (b.openNow === true) items = items.filter((p) => p.openNow);
     // "২৪ ঘণ্টা খোলা" (রাতে ওষুধ দরকার হলে): দোকানের নিজের ঘর open24 থেকে। মেমোরির তালিকা (areaPharmacies) ছাঁকার আগের
     // পুরো জেলার — ছাঁকা এখানে হয়, তাই ক্যাশে এক ফিল্টারের ফল অন্য ফিল্টারে যায় না। পুরোনো দোকানে ঘর না থাকলে = ২৪ ঘণ্টা নয়
     if (b.open24 === true) items = items.filter((p) => p.open24);
     // খোলা আগে, তারপর কাছেরটা। রেটিং ক্রমে নয় — নতুন দোকান পিছিয়ে পড়ে আর রেটিং সাজানো যায়; রেটিং কার্ডে দেখায়
     items.sort((a, c) => (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || a.name.localeCompare(c.name, 'bn'));
-    items = items.slice(0, 100);
+    // প্রেসক্রিপশন বাছা থাকলে প্রতিটা দোকানের স্টকের ডক পড়তে হয় — তাই rx_pharmacy_options-এর মতো কাছের ৪০টা
+    items = items.slice(0, rx ? RX_LIST_MAX : 100);
+    let lastHome;
+    if (rx) {
+      const wanted = RX.wantedOf(rx.data());
+      const stocks = items.length ? await db.getAll(...items.map((p) => db.doc(`pharmacyStock/${p.id}`))) : [];
+      items = items.map((p, i) => ({ ...p, rx: rxCard(p, RX.stockMatch(stocks[i], wanted)) }));
+      // বেশি ওষুধ আছে আগে (স্টকের তালিকা না রাখলে জানা নেই — শেষে), তারপর কম আনুমানিক দাম, তারপর খোলা, তারপর কাছে
+      const avail = (p) => (p.rx.keepsStock && p.rx.total ? p.rx.have / p.rx.total : -1);
+      items.sort((a, c) => (avail(c) - avail(a)) || ((a.rx.payable ?? Infinity) - (c.rx.payable ?? Infinity))
+        || (c.openNow - a.openNow) || ((a.km ?? 99) - (c.km ?? 99)) || a.name.localeCompare(c.name, 'bn'));
+      // অনলাইন অর্ডারের ফর্মে আগের ঠিকানা-ফোন (শুধু নিজের — রোগীর)
+      lastHome = await require('./labprices').lastHome(uid).catch(() => null);
+    }
     // কোনগুলোতে রেটিং দিতে পারি (অ্যাপ বন্ধ করে খুললেও "রেটিং দিন" বাটন থাকে) আর কোন দিকে — অতিথির জন্য নয়
-    const rateable = await rateableFor(user && user.uid, items.map((p) => p.id));
-    return { items: items.map((p) => ({ ...p, canRate: rateable.has(p.id), rateAspects: rateable.get(p.id) || [] })) };
+    const rateable = await rateableFor(uid, items.map((p) => p.id));
+    return {
+      items: items.map((p) => ({ ...p, canRate: rateable.has(p.id), rateAspects: rateable.get(p.id) || [] })),
+      ...(rx ? { rxId: rx.id, lastHome: lastHome || null } : {}),
+    };
   },
 
   /** কেউ অ্যাপ থেকে ফোন করলে — মালিকের হিসাবের জন্য (একই মানুষ ১০ মিনিটে একবার); রেটিং/রিপোর্ট এর পরেই */

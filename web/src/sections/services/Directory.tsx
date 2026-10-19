@@ -16,7 +16,9 @@ import {
 import { Emergency999, EntryDetail, FilterSheet, RatingDialog, ReportDialog, ServiceCard, ServiceTabs } from './ui';
 import { ActiveBanner, CallBar, RequestDialog, useActiveRequest, useBackFromCall } from './AmbRequest';
 import type { PublicPrices } from '@/lib/labprice';
-import { RxSendFromPlace } from '@/sections/health/RxActivity';
+import { RxSendFromPlace, type LastHome } from '@/sections/health/RxActivity';
+import { useCareMode } from '@/lib/care';
+import { BuyModePicker, PharmacyRxInfo, RxSelector, useBuyMode, useMyMedRx } from './pharmacy';
 
 const ACTION: Record<Kind, string> = { ambulance: 'ambulances', pharmacy: 'pharmacies', bloodbank: 'bloodbanks', lab: 'labs' };
 
@@ -125,7 +127,8 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
     else p.set(k, v);
     setParams(p, { replace: true });
   };
-  const clearFilters = () => setParams(new URLSearchParams(), { replace: true });
+  // ফিল্টার মোছায় বাছা প্রেসক্রিপশন (rx) থাকে
+  const clearFilters = () => setParams(new URLSearchParams(params.get('rx') ? { rx: params.get('rx')! } : {}), { replace: true });
 
   const gps = s.place?.source === 'gps' ? s.place : null;
   const { origin, ready, exact } = useAmbulanceOrigin(area?.district, kind === 'ambulance');
@@ -140,16 +143,28 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
     if (activeReq) return nav(`/services/ambulance/call/${activeReq.id}`);
     s.requireLogin(tr('Log in to call an ambulance', 'অ্যাম্বুলেন্স ডাকতে লগইন করুন'), () => setRequesting({ target }));
   };
+  // ফার্মেসি (২.৩২.০): আগে কীভাবে কিনবেন (মনে থাকে), আর প্রেসক্রিপশন — URL-এর rx (না থাকলে নতুনটা, "none" = ছাড়া)
+  const pharmacy = kind === 'pharmacy';
+  const [buyMode, setBuyMode] = useBuyMode();
+  const care = useCareMode();
+  const myRx = useMyMedRx();
+  const rxParam = pharmacy ? params.get('rx') : null;
+  const rx = !pharmacy || rxParam === 'none' ? null : myRx.list.find((r) => r.id === rxParam) ?? myRx.list[0] ?? null;
+  const rxReady = !pharmacy || s.guest || myRx.ready;
   const body = useMemo(() => {
     const b: Record<string, unknown> = { district: area?.district, upazilaId: area?.upazilaId ?? null };
     if (kind === 'ambulance' && type) b.type = type;
     // কাছের খালি গাড়ি আগে (সার্ভার দূরত্ব হিসাব করে) — শুধু আসল GPS হলে; "এলাকা ধরে" হলে কিছুই নয় (উপজেলা আগে)
     if (kind === 'ambulance' && origin && !origin.byArea) Object.assign(b, { lat: origin.lat, lng: origin.lng, gps: true });
-    if (kind === 'pharmacy') Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow, open24 });
+    if (kind === 'pharmacy') {
+      Object.assign(b, { lat: gps?.lat ?? null, lng: gps?.lng ?? null, openNow, open24, mode: buyMode });
+      // প্রেসক্রিপশনের হিসাব এক ডাকেই; কেয়ারগিভার মোডে রোগীর হয়ে (তালিকা নিজে সাধারণত নিজের হয়েই)
+      if (rx) Object.assign(b, { rxId: rx.id, ...(care ? { asUid: care.uid } : {}) });
+    }
     if (kind === 'bloodbank') b.open24 = open24;
     return b;
-  }, [kind, area?.district, area?.upazilaId, type, openNow, open24, gps?.lat, gps?.lng, origin]);
-  const q = useCall<ListResult<any>>(ACTION[kind], body, { enabled: !!area?.district && ready });
+  }, [kind, area?.district, area?.upazilaId, type, openNow, open24, gps?.lat, gps?.lng, origin, buyMode, rx?.id, care?.uid]);
+  const q = useCall<ListResult<any> & { lastHome?: LastHome | null }>(ACTION[kind], body, { enabled: !!area?.district && ready && rxReady && (!pharmacy || !!buyMode) });
   const items = q.data?.items ?? [];
   const busy = (q.data?.busy ?? []) as Ambulance[];
   useEffect(() => {
@@ -158,7 +173,13 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   }, [kind, q.data]);
 
   const toEntry = (x: any): Entry =>
-    kind === 'ambulance' ? ambulanceEntry(x as Ambulance, lists) : kind === 'pharmacy' ? pharmacyEntry(x as Pharmacy) : kind === 'bloodbank' ? bloodBankEntry(x as BloodBank, lists) : labEntry(x as Lab);
+    kind === 'ambulance' ? ambulanceEntry(x as Ambulance, lists) : kind === 'pharmacy' ? pharmacyEntry(x as Pharmacy, buyMode) : kind === 'bloodbank' ? bloodBankEntry(x as BloodBank, lists) : labEntry(x as Lab);
+  const byId = new Map<string, any>(items.map((x) => [x.id, x]));
+  const lastHome = q.data?.lastHome ?? null;
+  /** ফার্মেসির কার্ড/বিস্তারিতের "প্রেসক্রিপশন পাঠান" — উপরে বাছা উপায়ে আর প্রেসক্রিপশনে */
+  const sendBtn = (p: Pharmacy, card: boolean) => (
+    <RxSendFromPlace pharmacy={p} mode={buyMode ?? undefined} rx={rx} last={lastHome} card={card} />
+  );
   const entries = items.map(toEntry);
   const busyEntries = busy.map(toEntry);
 
@@ -167,16 +188,21 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
   const rateGate = (e: Entry) => () => s.requireLogin(tr('Log in to do this', 'এর জন্য লগইন করুন'), () => setRating({ id: e.id, name: e.title, aspects: e.rateAspects }));
   const reportGate = (e: Entry) => () => s.requireLogin(tr('Log in to report', 'রিপোর্ট করতে লগইন করুন'), () => setReporting(e.id));
 
-  const card = (e: Entry) => (
-    <ServiceCard
-      key={e.id}
-      e={e}
-      selected={e.id === id}
-      onOpen={() => open(e.id)}
-      onRate={e.canRate ? rateGate(e) : undefined}
-      onReport={e.reportable ? reportGate(e) : undefined}
-    />
-  );
+  const card = (e: Entry) => {
+    const p = pharmacy ? (byId.get(e.id) as Pharmacy | undefined) : undefined;
+    return (
+      <ServiceCard
+        key={e.id}
+        e={e}
+        selected={e.id === id}
+        onOpen={() => open(e.id)}
+        onRate={e.canRate ? rateGate(e) : undefined}
+        onReport={e.reportable ? reportGate(e) : undefined}
+        main={p ? sendBtn(p, true) : undefined}
+        info={p ? <PharmacyRxInfo p={p} mode={buyMode} /> : undefined}
+      />
+    );
+  };
 
   // ---------- ফিল্টার ----------
   const filterCount = (type ? 1 : 0) + (openNow ? 1 : 0) + (open24 ? 1 : 0);
@@ -199,6 +225,17 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
           text={tr('Know an ambulance service? They can join from "My work".', 'কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে "আমার কাজ" থেকে যোগ হতে বলুন।')}
         >
           {owner}
+        </EmptyState>
+      );
+    }
+    if (kind === 'pharmacy' && buyMode === 'online') {
+      return (
+        <EmptyState
+          icon="local_shipping"
+          title={tr('No pharmacy delivers to your area yet', 'আপনার এলাকায় এখনো কোনো ফার্মেসি অনলাইনে ডেলিভারি দেয় না')}
+          text={tr('Choose "I\'ll buy at the shop" to see all pharmacies nearby.', '"দোকানে গিয়ে কিনব" বাছলে কাছের সব ফার্মেসি দেখাবে।')}
+        >
+          <Button variant="tonal" icon="storefront" onClick={() => setBuyMode('shop')}>{tr("I'll buy at the shop", 'দোকানে গিয়ে কিনব')}</Button>
         </EmptyState>
       );
     }
@@ -242,11 +279,13 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
       {kind === 'bloodbank' ? (
         <p className="t-body-s muted">{tr('Buying or selling blood is illegal; only processing costs apply.', 'রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।')}</p>
       ) : null}
-      {!area ? (
+      {pharmacy ? <BuyModePicker value={buyMode} onChange={setBuyMode} /> : null}
+      {pharmacy && buyMode && myRx.list.length ? <RxSelector list={myRx.list} value={rx} onChange={(v) => setParam('rx', v)} /> : null}
+      {pharmacy && !buyMode ? null : !area ? (
         <EmptyState icon="location_on" title={tr('Choose area', 'এলাকা বেছে নিন')}>
           <Button onClick={() => setShowArea(true)}>{tr('Choose area', 'এলাকা বেছে নিন')}</Button>
         </EmptyState>
-      ) : q.isLoading ? (
+      ) : q.isLoading || !rxReady ? (
         <SkeletonCards n={4} h={150} />
       ) : q.isError ? (
         <ErrorBox error={q.error.message} onRetry={() => q.refetch()} />
@@ -282,7 +321,9 @@ export function Directory({ kind, id }: { kind: Kind; id: string | null }) {
             // ফার্মেসির পাতা থেকেই প্রেসক্রিপশন পাঠানো — নিচের বারে ফোনের পাশে
             main={kind === 'ambulance' && !((raw as Ambulance).busySince ?? 0)
               ? <Button icon="ambulance" onClick={() => requestAmbulance({ id: raw.id, name: (raw as Ambulance).name })} data-testid="amb-request-one">{tr('Call ambulance', 'অ্যাম্বুলেন্স ডাকুন')}</Button>
-              : kind === 'pharmacy' ? <RxSendFromPlace pharmacy={raw as Pharmacy} /> : undefined}
+              : kind === 'pharmacy' ? sendBtn(raw as Pharmacy, false) : undefined}
+            // ফার্মেসি: প্রেসক্রিপশনের হিসাব মাথার ঠিক নিচে (কার্ডের একই)
+            top={kind === 'pharmacy' ? <PharmacyRxInfo p={raw as Pharmacy} mode={buyMode} big /> : undefined}
           />
         );
     } else if (area && (q.isLoading || q.isFetching)) {

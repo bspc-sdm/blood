@@ -124,9 +124,13 @@ function MoreMenu({ onReport }: { onReport: () => void }) {
 }
 
 // ---------- কার্ড ----------
+/**
+ * main (২.৩২.০, ফার্মেসি): বড় ভরাট মূল কাজ ("প্রেসক্রিপশন পাঠান") — তখন ফোন ছোট আউটলাইন আইকন-বাটন (বিস্তারিতের নিচের বারের মতো);
+ * info: বিস্তারিত লাইনের আগে আলাদা ঘর (প্রেসক্রিপশনের হিসাব)
+ */
 export function ServiceCard({
-  e, selected, onOpen, onRate, onReport,
-}: { e: Entry; selected: boolean; onOpen: () => void; onRate?: () => void; onReport?: () => void }) {
+  e, selected, onOpen, onRate, onReport, main, info,
+}: { e: Entry; selected: boolean; onOpen: () => void; onRate?: () => void; onReport?: () => void; main?: ReactNode; info?: ReactNode }) {
   const { guest } = useSession();
   const details = e.details.filter((d) => d[1]);
   return (
@@ -156,6 +160,7 @@ export function ServiceCard({
         </div>
         {onReport && !guest ? <MoreMenu onReport={onReport} /> : null}
       </div>
+      {info}
       {details.length || e.note ? (
         <div className="col gap-6" style={{ marginTop: 10 }}>
           {details.map(([ic, text]) => (
@@ -165,17 +170,34 @@ export function ServiceCard({
         </div>
       ) : null}
       <div className="row" style={{ marginTop: 12 }}>
-        <a
-          className="btn square has-icon"
-          href={`tel:${e.phone}`}
-          onClick={(ev) => {
-            ev.stopPropagation();
-            recordCall(e.kind, e.id, guest);
-          }}
-        >
-          <Icon name="call" />
-          {tr('Call', 'ফোন করুন')}
-        </a>
+        {main}
+        {main ? (
+          <a
+            className="btn outline square ph-call"
+            href={`tel:${e.phone}`}
+            aria-label={tr('Call', 'ফোন')}
+            title={tr('Call', 'ফোন')}
+            data-testid="ph-card-call"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              recordCall(e.kind, e.id, guest);
+            }}
+          >
+            <Icon name="call" />
+          </a>
+        ) : (
+          <a
+            className="btn square has-icon"
+            href={`tel:${e.phone}`}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              recordCall(e.kind, e.id, guest);
+            }}
+          >
+            <Icon name="call" />
+            {tr('Call', 'ফোন করুন')}
+          </a>
+        )}
         <span className="services-card-phone t-body-m muted num">{num(e.phone)}</span>
         <span className="grow" />
         {onRate ? (
@@ -200,7 +222,8 @@ export function ServiceCard({
  * main (২.২৭.০): নিচের আটকানো বারে ফোনের পাশে মূল কাজ (ফার্মেসি/প্যাথলজি "প্রেসক্রিপশন পাঠান") — তখন দুটো পাশাপাশি আধাআধি,
  * মূল কাজ ভরাট আর ফোন আউটলাইন ("ফোন")। main না থাকলে (অ্যাম্বুলেন্স, ব্লাড ব্যাংক, বাসায় সেবা) বড় ভরাট "ফোন করুন" আগের মতো।
  */
-export function EntryDetail({ e, backTo, onRate, onReport, children, main }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode; main?: ReactNode }) {
+/** top (২.৩২.০): মাথার ঠিক নিচে, ভাগগুলোর আগে (ফার্মেসি: প্রেসক্রিপশনের হিসাব) */
+export function EntryDetail({ e, backTo, onRate, onReport, children, main, top }: { e: Entry; backTo: string; onRate?: () => void; onReport?: () => void; children?: ReactNode; main?: ReactNode; top?: ReactNode }) {
   const nav = useNavigate();
   const two = useTwoPane();
   const { guest } = useSession();
@@ -221,6 +244,7 @@ export function EntryDetail({ e, backTo, onRate, onReport, children, main }: { e
         </div>
         {two ? <IconButton icon="close" label={tr('Close', 'বন্ধ')} onClick={() => nav(backTo)} /> : null}
       </div>
+      {top}
       {e.sections.map((s) => {
         const lines = s.lines.filter((l) => l[1]);
         if (!lines.length && !s.link && !s.rows?.length) return null;

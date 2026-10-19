@@ -21,6 +21,8 @@ const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const CARE_ACTIONS = new Set([
   'rx_mine', 'rx_get', 'rx_claim', 'rx_activity', 'rx_pharmacy_options', 'rx_send_pharmacy', 'rx_order_withdraw', 'rx_shop_find',
   'rx_send_lab', 'rx_lab_options', 'labs', 'lab_prices_public', 'lab_order_get', 'review_pay', 'labtests_get',
+  // ফার্মেসির তালিকা রোগীর প্রেসক্রিপশন ধরে (rxId — কয়টা ওষুধ আছে, আনুমানিক দাম); অ্যাপ তখনই asUid পাঠায়
+  'pharmacies',
   // বাসা থেকে নমুনা: প্যাথলজি সময় জানানোর আগে রোগীর হয়ে বদল/বাতিল (rxnet.js)
   'lab_home_change', 'lab_home_cancel',
   'my_appointments', 'book', 'appointment_update', 'providers', 'family_get',

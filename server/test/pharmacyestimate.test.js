@@ -54,9 +54,13 @@ test('আনুমানিক খরচের হিসাব: ছাড়, �
   const prices = { 'comet 500': 7.2, napa: 1.2, tusca: 85.5 };
   // Comet ১০টা × ৭.২ = ৭২; Napa ট্যাবলেট কয়টা জানা নেই — দাম ধরা নয়; সিরাপ ১টা = ৮৫.৫; Seclo স্টকে আছে দাম নেই; Zimax স্টকে নেই
   const wanted = [W('Comet 500', 10), W('Napa', null), W('Tusca', null, false), W('Seclo 20', 14), W('Zimax', 3)];
-  assert.deepStrictEqual(RX.pharmacyEstimate(wanted, keys, prices), { total: 158, priced: 2, of: 5 }, '৭২ + ৮৫.৫ = ১৫৭.৫ → ১৫৮');
+  assert.deepStrictEqual(RX.pharmacyEstimate(wanted, keys, prices), { total: 158, priced: 2, of: 5, mrp: null, discount: null }, '৭২ + ৮৫.৫ = ১৫৭.৫ → ১৫৮');
   // সব দাম জানা
-  assert.deepStrictEqual(RX.pharmacyEstimate([W('Comet 500', 3), W('Tusca', null, false)], keys, prices), { total: 107, priced: 2, of: 2 }, '২১.৬ + ৮৫.৫ = ১০৭.১');
+  assert.deepStrictEqual(RX.pharmacyEstimate([W('Comet 500', 3), W('Tusca', null, false)], keys, prices), { total: 107, priced: 2, of: 2, mrp: null, discount: null }, '২১.৬ + ৮৫.৫ = ১০৭.১');
+  // MRP জানা (mrpAll): Comet-এ ছাড় (৮ → ৭.২), Tusca-য় ছাড় নেই (MRP = দাম) — ৩ × ৮ + ৮৫.৫ = ১০৯.৫ → ১১০, ছাড় ১১০ − ১০৭ = ৩
+  assert.deepStrictEqual(RX.pharmacyEstimate([W('Comet 500', 3), W('Tusca', null, false)], keys, prices, { 'comet 500': 8 }), { total: 107, priced: 2, of: 2, mrp: 110, discount: 3 });
+  // MRP দামের চেয়ে কম লেখা থাকলে (ভুল) MRP = দাম
+  assert.deepStrictEqual(RX.pharmacyEstimate([W('Tusca', null, false)], keys, prices, { tusca: 50 }), { total: 86, priced: 1, of: 1, mrp: 86, discount: 0 });
   // দাম স্টকে না থাকা ওষুধের হলে গোনা নয়
   assert.strictEqual(RX.pharmacyEstimate([W('Zimax', 3)], keys, { zimax: 30 }), null);
   assert.strictEqual(RX.pharmacyEstimate(wanted, keys, {}), null, 'কোনো দাম নেই');
@@ -144,12 +148,14 @@ test('পুরোনো দোকানে একবার দাম বসা�
   const st = await stock(O);
   assert.deepStrictEqual(st.prices, { ace: 1.5, fexo: 9 });
   assert.strictEqual(st.pricesAll, true);
+  // MRP-র ভাগ: শুধু ছাড়ের পণ্য (Fexo ১০ − ১০% = ৯), সাথে mrpAll
+  assert.deepStrictEqual([st.mrp, st.mrpAll], [{ fexo: 10 }, true]);
   assert.deepStrictEqual(st.names, ['Ace', 'Fexo'], 'নামের তালিকা যেমন ছিল');
   assert.deepStrictEqual(await B.backfillStockPrices(Date.now()), { done: true, filled: 0 });
   // পরের বদলেও pricesAll থাকে
   await ok(O, 'books_item_save', { id: B.idOf('Ace'), name: 'Ace', price: 2, unit: 'piece' });
   assert.deepStrictEqual([(await stock(O)).prices.ace, (await stock(O)).pricesAll], [2, true]);
-  F.store.delete('maintenance/stockPrices');
+  F.store.delete('maintenance/stockMrp');
 });
 
 test('রোগী: প্রতিটা দোকানে আনুমানিক খরচ; placeId-এ শুধু সেই দোকান; ডেমো আর আসল আলাদা', async () => {
@@ -182,7 +188,7 @@ test('রোগী: প্রতিটা দোকানে আনুমান�
   const body = { rxId: 'estRx1', district: DIST, upazilaId: 1, lat: 24.75, lng: 90.40, mode: 'shop' };
   const items = (await ok(P, 'rx_pharmacy_options', body)).items;
   const by = (id) => items.find((x) => x.id === id);
-  assert.deepStrictEqual(by(S1).estimate, { total: 158, priced: 2, of: 4 }, '১০ × ৭.২ + ৮৫.৫ = ১৫৭.৫ → ১৫৮');
+  assert.deepStrictEqual(by(S1).estimate, { total: 158, priced: 2, of: 4, mrp: 166, discount: 8 }, '১০ × ৭.২ + ৮৫.৫ = ১৫৭.৫ → ১৫৮');
   assert.deepStrictEqual([by(S1).have, by(S1).total, by(S1).missing], [3, 4, ['Zimax']]);
   assert.strictEqual(by(S2).estimate, null, 'দাম নেই');
   assert.strictEqual(by(S2).have, 2);
@@ -193,7 +199,7 @@ test('রোগী: প্রতিটা দোকানে আনুমান�
   // placeId: দূরের দোকানও আসে, শুধু সেটা
   let one = (await ok(P, 'rx_pharmacy_options', { ...body, placeId: FAR })).items;
   assert.deepStrictEqual(one.map((x) => x.id), [FAR]);
-  assert.deepStrictEqual(one[0].estimate, { total: 158, priced: 2, of: 4 });
+  assert.deepStrictEqual(one[0].estimate, { total: 158, priced: 2, of: 4, mrp: 166, discount: 8 });
   one = (await ok(P, 'rx_pharmacy_options', { ...body, mode: 'online', placeId: S2 })).items;
   assert.deepStrictEqual(one.map((x) => [x.id, x.estimate, x.keepsStock]), [[S2, null, true]], 'অনলাইন না নিলেও নিজের পাতা থেকে সংখ্যা দেখা যায়');
   assert.deepStrictEqual((await ok(P, 'rx_pharmacy_options', { ...body, placeId: ELSE })).items, [], 'অন্য জেলা নয়');
@@ -203,17 +209,17 @@ test('রোগী: প্রতিটা দোকানে আনুমান�
   // ডেমো রোগী: শুধু ডেমো দোকান (দামসহ), আসল দোকান placeId দিয়েও নয়
   const dem = (await ok(DP, 'rx_pharmacy_options', { ...body, rxId: 'demo-estRx1' })).items;
   assert.ok(dem.length && dem.every((x) => x.id.startsWith('demo-')));
-  assert.deepStrictEqual(dem.find((x) => x.id === DS).estimate, { total: 158, priced: 2, of: 4 });
+  assert.deepStrictEqual(dem.find((x) => x.id === DS).estimate, { total: 158, priced: 2, of: 4, mrp: 166, discount: 8 });
   assert.deepStrictEqual((await ok(DP, 'rx_pharmacy_options', { ...body, rxId: 'demo-estRx1', placeId: S1 })).items, []);
 
   // কিছু কেনা হলে বাকিটার দাম: Comet ৬টা দেওয়া → ৪ × ৭.২ = ২৮.৮ + ৮৫.৫ = ১১৪.৩ → ১১৪
   F.store.set('prescriptions/estRx1', { ...F.store.get('prescriptions/estRx1'), dispensed: [{ by: S2, at: 1, items: [{ i: 0, qty: 6 }] }] });
   one = (await ok(P, 'rx_pharmacy_options', { ...body, placeId: S1 })).items;
-  assert.deepStrictEqual(one[0].estimate, { total: 114, priced: 2, of: 4 });
+  assert.deepStrictEqual(one[0].estimate, { total: 114, priced: 2, of: 4, mrp: 118, discount: 4 });
   // দাম বদলালে পরের বার নতুন দাম (পুরোনো দাম থাকে না)
   await ok(S1, 'books_item_save', { id: B.idOf('Tusca'), name: 'Tusca', price: 100, unit: 'bottle' });
   one = (await ok(P, 'rx_pharmacy_options', { ...body, placeId: S1 })).items;
-  assert.deepStrictEqual(one[0].estimate, { total: 129, priced: 2, of: 4 });
+  assert.deepStrictEqual(one[0].estimate, { total: 129, priced: 2, of: 4, mrp: 132, discount: 3 });
 });
 
 test('প্যাথলজি: placeId-এ শুধু সেই প্যাথলজি (দাম সহ), অন্য জেলা/ডেমো নয়, জেলার তালিকা আগের মতো', async () => {

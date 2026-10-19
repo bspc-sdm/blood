@@ -84,21 +84,64 @@ function medStatus(rx) {
  * দোকানে আনুমানিক খরচ: স্টকে আছে আর দাম জানা ওষুধে দাম × বাকি পরিমাণ (দাম = দোকানের ছাড় বাদে বিক্রি দাম, প্রতি পিস/বোতল…)।
  * পরিমাণ না জানলে: সিরাপ/মলম/ড্রপ ইত্যাদি (গোনা যায় না) ১টা ধরা; ট্যাবলেট/ক্যাপসুলে কয়টা জানা নেই — দাম ধরা হয় না।
  * { total (পুরো টাকা), priced (কয়টার দাম জানা), of (কেনা বাকি কয়টা) } — একটারও দাম না জানলে null।
+ * mrps দিলে (দোকানের সব দামের পাশে MRP মেলানো — pharmacyStock.mrpAll; ১৯ অক্টোবর ২০২৬): mrp (একই ওষুধগুলোর MRP-তে মোট)
+ * আর discount (mrp − total) — ছাড় না থাকা ওষুধে MRP = দাম। না দিলে দুটোই null (ছাড় জানা নেই)।
  */
-function pharmacyEstimate(wanted, keys, prices) {
+function pharmacyEstimate(wanted, keys, prices, mrps = null) {
   if (!prices) return null;
   let sum = 0;
+  let mrpSum = 0;
   let priced = 0;
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   for (const w of wanted) {
     if (!keys.has(w.k)) continue;
-    const p = Object.prototype.hasOwnProperty.call(prices, w.k) ? prices[w.k] : null;
+    const p = own(prices, w.k) ? prices[w.k] : null;
     if (typeof p !== 'number' || !(p > 0)) continue;
     const q = w.left != null ? w.left : w.countable ? null : 1;
     if (!(q > 0)) continue;
     sum += p * q;
+    const m = mrps && own(mrps, w.k) && typeof mrps[w.k] === 'number' && mrps[w.k] > p ? mrps[w.k] : p;
+    mrpSum += m * q;
     priced++;
   }
-  return priced ? { total: Math.round(sum), priced, of: wanted.length } : null;
+  if (!priced) return null;
+  const total = Math.round(sum);
+  if (!mrps) return { total, priced, of: wanted.length, mrp: null, discount: null };
+  const mrp = Math.round(mrpSum);
+  return { total, priced, of: wanted.length, mrp, discount: Math.max(0, mrp - total) };
+}
+
+/** স্টকের ডক থেকে MRP-র ভাগ — সব দামের পাশে MRP মেলানো থাকলে (mrpAll), নইলে null (ছাড় জানা নেই) */
+function stockMrps(st) {
+  return st && st.exists && st.get('mrpAll') === true ? st.get('mrp') || {} : null;
+}
+
+/** কেনা বাকি ওষুধ: নাম, চাবি, কতটা বাকি, গোনা যায় কি না (আনুমানিক খরচ আর কোথায় কয়টা আছে) */
+function wantedOf(rx) {
+  return medStatus(rx).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name), left: m.left, countable: countable(m) }));
+}
+
+/** একটা দোকানের স্টকের ডক দিয়ে: স্টকের তালিকা রাখে কি না, কয়টা আছে, কোনগুলো নেই, আনুমানিক খরচ */
+function stockMatch(st, wanted) {
+  const keys = new Set(st && st.exists ? st.get('keys') || [] : []);
+  const prices = st && st.exists ? st.get('prices') || null : null;
+  return {
+    keepsStock: !!(st && st.exists) && keys.size > 0,
+    have: wanted.filter((w) => keys.has(w.k)).length,
+    total: wanted.length,
+    missing: wanted.filter((w) => !keys.has(w.k)).map((w) => w.name),
+    estimate: pharmacyEstimate(wanted, keys, prices, stockMrps(st)),
+  };
+}
+
+/**
+ * ফার্মেসির তালিকায় প্রেসক্রিপশন (pharmacies-এ rxId; ১৯ অক্টোবর ২০২৬): rx_pharmacy_options-এর একই মালিকানা —
+ * প্রেসক্রিপশন রোগীর নিজের (কেয়ারগিভার মোডে user.uid = রোগী)। না মিললে (নেই, অন্যের, অতিথি) 403 — আছে কি না বোঝা যায় না।
+ */
+async function ownRx(req, user, rxId) {
+  const s = R.isValidId(rxId) && user && user.uid ? await db.doc(`prescriptions/${rxId}`).get().catch(() => null) : null;
+  if (!s || !s.exists || s.get('patientUid') !== user.uid) throw err(req, "You can't use this prescription", 'এই প্রেসক্রিপশন ব্যবহার করা যাবে না', 403);
+  return s;
 }
 
 /** placeId-এর একটা দোকান/প্যাথলজি: অনুমোদিত আর এই জেলার হলে [ডক], নইলে [] */
@@ -665,7 +708,7 @@ const actions = {
     // দোকানের নাম দিয়ে খোঁজা (দোকানে দাঁড়িয়ে) — দূরত্বের সীমা ছাড়া পুরো জেলায়
     const q = typeof b.q === 'string' ? b.q.trim().toLowerCase().slice(0, 60) : '';
     // কেনা বাকি ওষুধ: কতটা বাকি (left), গোনা যায় কি না — আনুমানিক খরচের জন্য
-    const wanted = medStatus(s.data()).filter((m) => !m.done).map((m) => ({ name: m.name, k: key(m.name), left: m.left, countable: countable(m) }));
+    const wanted = wantedOf(s.data());
     const upazilaId = Number.isInteger(b.upazilaId) ? b.upazilaId : null;
     const hasLoc = typeof b.lat === 'number' && typeof b.lng === 'number';
     // placeId: দোকানের নিজের পাতা থেকে পাঠানো — শুধু সেই দোকান (দূরে বা অন্য উপজেলায় হলেও; একই জেলা আর একই ডেমো/আসল জগৎ)
@@ -688,9 +731,7 @@ const actions = {
     }).sort((a, c) => (a.km ?? 99) - (c.km ?? 99)).slice(0, 40);
     const stocks = near.length ? await db.getAll(...near.map((p) => db.doc(`pharmacyStock/${p.d.id}`))) : [];
     const items = near.map((p, i) => {
-      const keys = new Set(stocks[i].exists ? stocks[i].get('keys') || [] : []);
-      const has = wanted.filter((w) => keys.has(w.k));
-      const prices = stocks[i].exists ? stocks[i].get('prices') || null : null;
+      const m = stockMatch(stocks[i], wanted);
       return {
         id: p.d.id,
         name: p.x.name,
@@ -698,14 +739,14 @@ const actions = {
         address: p.x.address || '',
         km: p.km,
         openNow: !((p.x.closedUntil || 0) > Date.now()) && K.pharmacyOpenNow(p.x),
-        keepsStock: stocks[i].exists && keys.size > 0,
-        have: has.length,
-        total: wanted.length,
-        missing: wanted.filter((w) => !keys.has(w.k)).map((w) => w.name),
+        keepsStock: m.keepsStock,
+        have: m.have,
+        total: m.total,
+        missing: m.missing,
         online: p.on.enabled,
         deliveryFee: p.on.fee,
         onlineNote: p.on.note,
-        estimate: pharmacyEstimate(wanted, keys, prices),
+        estimate: m.estimate,
       };
     });
     if (mode === 'shop') items.sort((a, c) => (a.km ?? 99) - (c.km ?? 99));
@@ -760,6 +801,8 @@ const actions = {
       patientName: x.patient?.name || '', status: 'sent', mode, ...delivery, note: str(req.body?.note, 200), createdAt: Date.now(),
       ...(user.actingBy ? { byCaretaker: user.actingBy } : {}),
     });
+    // পরের অনলাইন অর্ডারে ঠিকানা-ফোন আগে থেকে বসে (বাসা থেকে নমুনার একই জায়গা — serverState, শুধু সার্ভার পড়ে)
+    if (mode === 'online') await LP.rememberHome(user.uid, delivery);
     await push(pharmacyId,
       mode === 'online' ? 'New online order' : 'A customer sent a prescription to your shop',
       mode === 'online' ? 'নতুন অনলাইন অর্ডার' : 'দোকানে একজন প্রেসক্রিপশন পাঠিয়েছেন',
@@ -930,7 +973,10 @@ const actions = {
       if (map.size > 3000) throw err(req, 'Up to 3000 medicines', 'সর্বোচ্চ ৩০০০টা ওষুধ');
       const list = [...map.values()].sort((a, b) => a.localeCompare(b));
       // হিসাব-খাতার পণ্যের দাম (shopbooks.js, রোগীর আনুমানিক খরচ) যেমন আছে তেমন থাকে
-      const keep = s.exists ? { ...(s.get('prices') ? { prices: s.get('prices') } : {}), ...(s.get('pricesAll') ? { pricesAll: true } : {}) } : {};
+      const keep = s.exists ? {
+        ...(s.get('prices') ? { prices: s.get('prices') } : {}), ...(s.get('pricesAll') ? { pricesAll: true } : {}),
+        ...(s.get('mrp') ? { mrp: s.get('mrp') } : {}), ...(s.get('mrpAll') ? { mrpAll: true } : {}),
+      } : {};
       t.set(ref, { names: list, keys: list.map(key), ...keep, updatedAt: Date.now() });
       return list;
     });
@@ -1492,4 +1538,4 @@ async function refillReminders(now = Date.now()) {
   return { sent };
 }
 
-module.exports = { actions, pharmSeg, labSeg, recentFirstOpen, segCounts, pharmacyEstimate, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };
+module.exports = { actions, onlineOf, ownRx, wantedOf, stockMatch, pharmSeg, labSeg, recentFirstOpen, segCounts, pharmacyEstimate, refillReminders, stripOrderContacts, purgeClosedContacts, backfillClosedContacts, CONTACT_KEEP_MS, perDay, needQty, medStatus, refillDate, countable, labView, labsForDoctor, DOCTOR_SEES };

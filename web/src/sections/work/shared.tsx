@@ -45,6 +45,8 @@ export interface Pharmacy extends DocFlags {
   id: string; name: string; phone: string; address: string; district: string; upazilaId: number | null; openAt: string; closeAt: string;
   open24: boolean; openNow: boolean; closedUntil: number; closedDays: number[]; delivery: boolean; deliveryNote: string; discount: number;
   rating: number; ratingCount: number; licenseNo: string; status: string; statusReason: string; hasLocation: boolean;
+  /** ছাড়ের শর্ত (২.৩২.০) — ০/খালি = নেই */
+  discountMin?: number; freeDeliveryOver?: number; discountNote?: string;
 }
 export interface BloodBank extends DocFlags {
   id: string; name: string; kind: string; phone: string; district: string; upazilaId: number | null; address: string; open24: boolean;

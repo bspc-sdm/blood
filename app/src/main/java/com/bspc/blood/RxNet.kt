@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -132,6 +133,8 @@ data class PharmOption(
 )
 /** total: পুরো টাকা; priced: কয়টা ওষুধের দাম জানা; of: কেনা বাকি কয়টা */
 data class PharmEstimate(val total: Int, val priced: Int, val of: Int)
+/** আগের অনলাইন অর্ডার/বাসা থেকে নমুনার ঠিকানা-ফোন (সার্ভারের lastHome) — অর্ডারের ফর্মে আগে থেকে বসে */
+data class LastHome(val address: String, val phone: String)
 
 /** ফার্মেসির আনুমানিক খরচের লেখা (বাছাইয়ের তালিকা আর দোকানের পাতা থেকে পাঠানো) */
 object PharmEstimateText {
@@ -910,10 +913,11 @@ private fun PharmacyPickDialog(rx: Rx, profile: Profile, mode: String, onDismiss
 
 /** অনলাইন অর্ডার: কোথায় পৌঁছাবে আর ফোন (দাম পৌঁছালে, দোকানকে সরাসরি) */
 @Composable
-private fun OnlineOrderDialog(rx: Rx, p: PharmOption, profile: Profile, onDismiss: () -> Unit, onSent: () -> Unit) {
+private fun OnlineOrderDialog(rx: Rx, p: PharmOption, profile: Profile, onDismiss: () -> Unit, last: LastHome? = null, onSent: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var address by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf(profile.phone) }
+    // ফার্মেসির তালিকা থেকে এলে আগের ঠিকানা-ফোন বসানো (২.৩২.০)
+    var address by remember { mutableStateOf(last?.address.orEmpty()) }
+    var phone by remember { mutableStateOf(last?.phone?.ifBlank { null } ?: profile.phone) }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -1618,12 +1622,20 @@ fun rxSendGate(close: () -> Unit, then: () -> Unit) {
     LoginGate.require(tr("Log in to send a prescription", "প্রেসক্রিপশন পাঠাতে লগইন করুন"), then = then)
 }
 
-/** lab বা pharmacy — যেটা দেওয়া। প্রেসক্রিপশন বাছাই → (পেছনে গেলে আবার বাছাই) → পাঠানো → onSent (কী কোথায় গেল) */
+/**
+ * lab বা pharmacy — যেটা দেওয়া। প্রেসক্রিপশন বাছাই → (পেছনে গেলে আবার বাছাই) → পাঠানো → onSent (কী কোথায় গেল)।
+ * ফার্মেসির তালিকা থেকে (২.৩২.০): mode — উপরে বাছা "shop"/"online" (আর জিজ্ঞেস নয়), presetRx — উপরে বাছা প্রেসক্রিপশন
+ * (তখন "কোনটা পাঠাবেন?" নয়), last — অনলাইন অর্ডারের ফর্মে আগের ঠিকানা-ফোন।
+ */
 @Composable
-fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit, onSent: (RxSent) -> Unit) {
-    var rx by remember { mutableStateOf<Rx?>(null) }
+fun RxSendFlow(
+    lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -> Unit,
+    mode: String? = null, presetRx: Rx? = null, last: LastHome? = null,
+    onSent: (RxSent) -> Unit,
+) {
+    var rx by remember { mutableStateOf(presetRx) }
     // চালু প্রেসক্রিপশন একটাই হলে "কোনটা পাঠাবেন?" না দেখিয়ে সেটাই (২.২৭.০, এক চাপ কম) — তখন পেছনে গেলে পুরোটা বন্ধ
-    var auto by remember { mutableStateOf(false) }
+    var auto by remember { mutableStateOf(presetRx != null) }
     val back: () -> Unit = { if (auto) onDismiss() else { rx = null } }
     val r = rx
     when {
@@ -1631,8 +1643,8 @@ fun RxSendFlow(lab: Lab?, pharmacy: Pharmacy?, profile: Profile, onDismiss: () -
         lab != null -> LabPickDialog(r, profile, onDismiss = back, only = lab) { name, home ->
             onSent(RxSent(r.id, r.doctorName, r.createdAt, name, if (home) "lab_home" else "lab"))
         }
-        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = back) { mode ->
-            onSent(RxSent(r.id, r.doctorName, r.createdAt, pharmacy.name, mode))
+        pharmacy != null -> PharmacySendDialog(r, pharmacy, profile, onDismiss = back, mode = mode, last = last) { m ->
+            onSent(RxSent(r.id, r.doctorName, r.createdAt, pharmacy.name, m))
         }
     }
 }
@@ -1691,7 +1703,7 @@ private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onOnly: (Rx) ->
  * rx_pharmacy_options-এ placeId: শুধু এই দোকান (দূরে হলেও) — অনলাইনে নেয় কিনা, ডেলিভারি চার্জ, স্টক আর দাম একসাথে আসে।
  */
 @Composable
-private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, onSent: (mode: String) -> Unit) {
+private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss: () -> Unit, mode: String? = null, last: LastHome? = null, onSent: (mode: String) -> Unit) {
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
     // null = খোঁজা চলছে; Result-এর ভেতরে null = দোকানের হিসাব পাওয়া যায়নি
@@ -1705,6 +1717,56 @@ private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss:
     }
     val here = online?.getOrNull()
     val opt = here?.takeIf { it.online }
+    val send: () -> Unit = {
+        scope.launch {
+            busy = true
+            errorMsg = null
+            runCatching { RxNet.sendPharmacy(rx.id, p.id, "shop") }.onSuccess { onSent("shop") }.onFailure { errorMsg = it.message }
+            busy = false
+        }
+    }
+    // তালিকায় "অনলাইনে অর্ডার" বাছা: সোজা অর্ডারের ফর্ম (দোকান অনলাইনে না নিলে জানানো)
+    if (mode == "online") {
+        if (opt != null) {
+            OnlineOrderDialog(rx, opt, profile, onDismiss = onDismiss, last = last) { onSent("online") }
+        } else {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(p.name) },
+                text = {
+                    if (online == null) LoadingBox()
+                    else SendErrorCard(online?.exceptionOrNull()?.message ?: tr("This pharmacy doesn't take online orders now", "এই ফার্মেসি এখন অনলাইনে অর্ডার নেয় না"))
+                },
+                confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Close", "বন্ধ")) } },
+            )
+        }
+        return
+    }
+    // তালিকায় "দোকানে গিয়ে কিনব" বাছা: এই দোকানের হিসাব দেখে এক চাপে পাঠানো
+    if (mode == "shop") {
+        AlertDialog(
+            onDismissRequest = { if (!busy) onDismiss() },
+            title = { Text(p.name) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IconLine(R.drawable.ic_medication, listOf(rx.doctorName.ifBlank { tr("Doctor", "ডাক্তার") }, Rules.formatDate(rx.createdAt)).joinToString(" · "), cs.onSurface)
+                    if (here != null) {
+                        IconLine(if (here.keepsStock) R.drawable.ic_check_circle else R.drawable.ic_info, PharmEstimateText.here(here))
+                        IconLine(R.drawable.ic_payments, PharmEstimateText.line(here.estimate))
+                    } else if (online == null) SmallNote(tr("Checking this shop…", "এই দোকানের হিসাব দেখা হচ্ছে…"))
+                    IconLine(R.drawable.ic_storefront, tr("You'll collect at the shop", "দোকানে গিয়ে নেবেন"), cs.onSurface)
+                    SendErrorCard(errorMsg)
+                }
+            },
+            confirmButton = {
+                Button(onClick = send, enabled = !busy, shape = RoundedCornerShape(12.dp), modifier = Modifier.testTag("ph-send-shop")) {
+                    ButtonContent(busy, tr("Send to the shop", "দোকানে পাঠান"), R.drawable.ic_send)
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+        )
+        return
+    }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(p.name) },
@@ -1746,7 +1808,7 @@ private fun PharmacySendDialog(rx: Rx, p: Pharmacy, profile: Profile, onDismiss:
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
     )
-    ordering?.let { o -> OnlineOrderDialog(rx, o, profile, onDismiss = { ordering = null }) { ordering = null; onSent("online") } }
+    ordering?.let { o -> OnlineOrderDialog(rx, o, profile, onDismiss = { ordering = null }, last = last) { ordering = null; onSent("online") } }
 }
 
 // ------------------------------------------------------------

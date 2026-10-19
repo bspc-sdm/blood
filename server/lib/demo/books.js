@@ -185,6 +185,8 @@ module.exports = {
 
     // ---------- রোগীর আনুমানিক খরচের দাম (আসল দোকানের মতো stockWrite যা রাখত) — সেবা ভাগের স্টকের নামের পাশে ----------
     const inStock = new Set(items.filter((it) => it.finalQty > 0).map((it) => B.key(it.name)));
-    await ctx.set(`pharmacyStock/${PH}`, { prices: B.pricesFromItems(items, inStock), pricesAll: true }, { merge: true });
+    // MRP-র ভাগও (ছাড়ের পণ্য) — ফার্মেসির তালিকায় "এই প্রেসক্রিপশনে মোট ছাড় ≈ ৳…"
+    const prices = B.pricesFromItems(items, inStock);
+    await ctx.set(`pharmacyStock/${PH}`, { prices, mrp: B.mrpsFromItems(items, prices), pricesAll: true, mrpAll: true }, { merge: true });
   },
 };

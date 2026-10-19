@@ -147,6 +147,16 @@ function patientPriceOf(x) {
   return v > 0 ? v : null;
 }
 
+/**
+ * পণ্যের MRP (প্রতি পিস/বোতল…) — শুধু যেখানে দোকান ছাড় দেয় (MRP > ছাড় বাদে দাম); ছাড় না থাকলে null (তখন MRP = দাম)।
+ * পারভেজ (১৯ অক্টোবর ২০২৬): ফার্মেসির তালিকায় "এই প্রেসক্রিপশনে মোট ছাড় ≈ ৳…" — pharmacyStock/{uid}.mrp-এ শুধু ছাড়ের পণ্য
+ * (ডক ছোট থাকে)। mrpAll: এই ডকের সব দামের পাশে MRP মেলানো আছে (নতুন দোকান, বা ক্রনের একবারের ভরাট) — না থাকলে ছাড় জানা নেই।
+ */
+function patientMrpOf(x) {
+  const sale = patientPriceOf(x);
+  return sale != null && x.price > sale ? r2(x.price) : null;
+}
+
 /** দামের ভাগ ছোট রাখা: Firestore-এর বিশেষ নাম বাদ; বেশি হলে স্টকে থাকাগুলো আগে (চাবির ক্রমে), সীমা পর্যন্ত */
 function capPrices(prices, inStock = new Set()) {
   const ents = Object.entries(prices || {}).filter(([k, v]) => k && !/^__.*__$/.test(k) && typeof v === 'number' && v > 0);
@@ -175,6 +185,23 @@ function pricesFromItems(list, inStock) {
   return capPrices(out, inStock);
 }
 
+/** MRP-র ভাগ শুধু দামের ভাগে থাকা চাবির (দামের সীমায় বাদ পড়লে MRP-ও বাদ) */
+function mrpsFor(mrps, prices) {
+  const out = Object.create(null);
+  for (const [k, v] of Object.entries(mrps || {})) if (Object.prototype.hasOwnProperty.call(prices, k) && typeof v === 'number' && v > prices[k]) out[k] = v;
+  return { ...out };
+}
+
+/** পণ্যের তালিকা থেকে MRP-র ভাগ (ছাড়ের পণ্যগুলো) — pricesFromItems-এর ফলের সাথে মিলিয়ে */
+function mrpsFromItems(list, prices) {
+  const out = Object.create(null);
+  for (const x of list) {
+    const m = patientMrpOf(x);
+    if (m != null) out[x.key || key(x.name)] = m;
+  }
+  return mrpsFor(out, prices);
+}
+
 /**
  * স্টকের নামের তালিকা বদলানো (rxnet.js-এর stock_set-এর একই আকার: names সাজানো, keys, updatedAt) —
  * পণ্যের হিসাবের একই transaction-এ, যাতে দুটো কখনো আলাদা না হয়। পড়া আগে (t.get), এটা লেখার সময়।
@@ -187,21 +214,30 @@ function stockWrite(t, uid, snap, add, remove, req, prices = null) {
   for (const n of add) if (!map.has(key(n))) { map.set(key(n), n); changed = true; }
   for (const n of remove) if (map.delete(key(n))) changed = true;
   const was = (snap.exists && snap.get('prices')) || {};
+  const wasMrp = (snap.exists && snap.get('mrp')) || {};
   // প্রোটোটাইপ ছাড়া (ওষুধের নাম "constructor" হলেও ভুল নয়)
   const nextPrices = Object.assign(Object.create(null), was);
+  const nextMrp = Object.assign(Object.create(null), wasMrp);
   let pChanged = false;
-  for (const [k, v] of prices || []) {
+  // মান: { sale, mrp } (priceChange) — পুরোনো ডাকে শুধু সংখ্যা (তখন MRP জানা নেই = ছাড় নেই ধরা)
+  for (const [k, v0] of prices || []) {
+    const v = v0 && typeof v0 === 'object' ? v0.sale : v0;
+    const m = v0 && typeof v0 === 'object' && v != null ? v0.mrp : null;
     if (v == null) { if (k in nextPrices) { delete nextPrices[k]; pChanged = true; } } else if (nextPrices[k] !== v) { nextPrices[k] = v; pChanged = true; }
+    if (m == null) { if (k in nextMrp) { delete nextMrp[k]; pChanged = true; } } else if (nextMrp[k] !== m) { nextMrp[k] = m; pChanged = true; }
   }
   if (!changed && !pChanged) return;
   const list = changed ? [...map.values()].sort((a, b) => a.localeCompare(b)) : cur;
   // সীমা পেরোলে চুপচাপ কোনো নাম বাদ নয় (stock_set-এর মতো জানানো) — শুধু নাম বাড়লে; সরানোয় কখনো আটকায় না
   if (list.length > MAX_ITEMS && list.length > cur.length) throw err(req, `Up to ${MAX_ITEMS} medicines`, `সর্বোচ্চ ${MAX_ITEMS}টা ওষুধ`);
   const keys = list.map(key);
+  const capped = capPrices(nextPrices, new Set(keys));
+  // MRP সব দামের সাথে মেলানো: আগেই ছিল, বা আগে কোনো দাম ছিল না (তখন থেকে প্রতিটা দামের সাথে MRP-ও লেখা হয়)
+  const mrpAll = snap.exists ? snap.get('mrpAll') === true || !Object.keys(was).length : true;
   // পুরো ডক লেখা (merge নয় — merge-এ সরানো দাম থেকে যেত); pricesAll (পুরোনো দোকানের একবারের ভরাট হয়েছে) রাখা
   t.set(stockRef(uid), {
-    names: list, keys, prices: capPrices(nextPrices, new Set(keys)),
-    ...(snap.exists && snap.get('pricesAll') ? { pricesAll: true } : {}), updatedAt: Date.now(),
+    names: list, keys, prices: capped, mrp: mrpsFor(nextMrp, capped),
+    ...(snap.exists && snap.get('pricesAll') ? { pricesAll: true } : {}), ...(mrpAll ? { mrpAll: true } : {}), updatedAt: Date.now(),
   });
 }
 
@@ -210,7 +246,7 @@ function priceChange(prices, before, after) {
   const kb = before ? before.key || key(before.name) : null;
   const ka = after ? after.key || key(after.name) : null;
   if (kb && kb !== ka) prices.set(kb, null);
-  if (ka) prices.set(ka, patientPriceOf(after));
+  if (ka) prices.set(ka, { sale: patientPriceOf(after), mrp: patientMrpOf(after) });
   return prices;
 }
 
@@ -1013,12 +1049,13 @@ async function stripSalePatientNames(now = Date.now(), maxPages = 20) {
 
 /**
  * একবারের ভরাট (১৮ অক্টোবর ২০২৬): দামের ভাগ আসার আগের দোকানে pharmacyStock/{uid}.prices পণ্য থেকে বসানো।
- * stripSalePatientNames-এর মতো: pharmacyStock পাতায় পাতায়, অগ্রগতি maintenance/stockPrices-এ, শেষ হলে done।
+ * ১৯ অক্টোবর ২০২৬: MRP-র ভাগও (mrp, mrpAll) — তাই নতুন অগ্রগতির ডক maintenance/stockMrp (আগের stockPrices শেষ হয়ে গেছে)।
+ * stripSalePatientNames-এর মতো: pharmacyStock পাতায় পাতায়, শেষ হলে done।
  * প্রতিটা দোকান নিজের transaction-এ (স্টকের ডক + পণ্য একসাথে পড়ে) — একই সময়ে দোকান দাম বদলালেও পুরোনো দাম বসে না;
- * pricesAll থাকলে আর ছোঁয়া হয় না (পরের সব বদল stockWrite নিজেই লেখে)।
+ * pricesAll আর mrpAll দুটোই থাকলে আর ছোঁয়া হয় না (পরের সব বদল stockWrite নিজেই লেখে)।
  */
 async function backfillStockPrices(now = Date.now(), maxPages = 4) {
-  const ref = db.doc('maintenance/stockPrices');
+  const ref = db.doc('maintenance/stockMrp');
   const st = await ref.get();
   if (st.exists && st.get('done')) return { done: true, filled: 0 };
   const PAGE = 50;
@@ -1032,12 +1069,13 @@ async function backfillStockPrices(now = Date.now(), maxPages = 4) {
   let filled = 0;
   let done = false;
   const fill = async (d) => {
-    if (d.get('pricesAll') || !R.isValidId(d.id)) return;
+    if ((d.get('pricesAll') && d.get('mrpAll')) || !R.isValidId(d.id)) return;
     await db.runTransaction(async (t) => {
       const s = await t.get(stockRef(d.id));
-      if (!s.exists || s.get('pricesAll')) return;
-      const items = await t.get(itemsCol(d.id).limit(MAX_ITEMS));
-      t.update(s.ref, { prices: pricesFromItems(items.docs.map((x) => x.data()), stockKeysOf(s)), pricesAll: true });
+      if (!s.exists || (s.get('pricesAll') && s.get('mrpAll'))) return;
+      const items = (await t.get(itemsCol(d.id).limit(MAX_ITEMS))).docs.map((x) => x.data());
+      const prices = pricesFromItems(items, stockKeysOf(s));
+      t.update(s.ref, { prices, mrp: mrpsFromItems(items, prices), pricesAll: true, mrpAll: true });
       filled++;
     }).catch((e) => console.error('stock prices backfill failed', d.id, e.message));
   };
@@ -1058,4 +1096,4 @@ async function deleteFor(uid) {
   await Promise.all([db.recursiveDelete(db.doc(`shopItems/${uid}`)), db.recursiveDelete(db.doc(`shopBooks/${uid}`))]);
 }
 
-module.exports = { actions, deleteFor, stripSalePatientNames, backfillStockPrices, pricesFromItems, patientPriceOf, capPrices, PRICE_BYTES, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };
+module.exports = { actions, deleteFor, stripSalePatientNames, backfillStockPrices, pricesFromItems, mrpsFromItems, patientPriceOf, patientMrpOf, capPrices, PRICE_BYTES, priceSale, saleDayDelta, report, periodOf, idOf, key, dayKey, dayStart, itemView, unitDiscOf, UNITS };
