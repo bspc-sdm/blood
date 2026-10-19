@@ -29,7 +29,7 @@ class DemoBooksIT : P4Test() {
     }
 
     @Test
-    fun `demo books - products, purchases, sales and the report; the 24 stock names as before`() {
+    fun `demo books - products, purchases, sales and the report - the 24 stock names as before`() {
         shop(ph, mapOf("name" to "ডেমো লাইফ ফার্মেসি", "district" to GAZIPUR, "upazila_id" to 320, "open24" to true))
         ok(ph, "stock_set", mapOf("add" to stockNames))
         assertEquals(3, part.step)
