@@ -216,7 +216,7 @@ export function RequestDialog({
           ? tr(`Goes to ${target.name} first, and to the nearest free ambulances at the same time. The first driver to accept comes.`, `আগে ${target.name}-কে, সাথে কাছের খালি গাড়িগুলোকেও একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।`)
           : tr('Goes to the nearest free ambulances at once. The first driver to accept comes.', 'কাছের খালি গাড়িগুলোতে একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।')}
       </p>
-      <LocationInput value={loc} onChange={setLoc} showErrors={tried} />
+      <LocationInput value={loc} onChange={(v) => { setLoc(v); setErr(null); }} showErrors={tried} />
       <TextArea label={tr('Note (optional) — e.g. oxygen needed', 'নোট (ঐচ্ছিক) — যেমন অক্সিজেন লাগবে')} rows={2} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
       <TextInput label={tr('Your mobile (for the driver)', 'আপনার মোবাইল (চালকের জন্য)')} inputMode="tel" value={phone} maxLength={15} onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))} />
       <ErrorText>{err}</ErrorText>

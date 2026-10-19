@@ -380,7 +380,7 @@ fun AmbulanceRequestDialog(
                     else tr("Goes to the nearest free ambulances at once. The first driver to accept comes.", "কাছের খালি গাড়িগুলোতে একসাথে যাবে। যিনি আগে রাজি হবেন তিনিই আসবেন।"),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                LocationInput(loc, { loc = it }, showErrors = tried)
+                LocationInput(loc, { loc = it; errorMsg = null }, showErrors = tried)
                 OutlinedTextField(
                     note, { note = it.take(200) },
                     label = { Text(tr("Note (optional) — e.g. oxygen needed", "নোট (ঐচ্ছিক) — যেমন অক্সিজেন লাগবে")) },
