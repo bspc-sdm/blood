@@ -21,14 +21,23 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - `npx vue-tsc --noEmit -p tsconfig.app.json` passes. `vite build --mode test` works.
 - `test/` holds the React fixtures, pages JSON, serve.mjs and shots.mjs, copied as-is.
 
-## Remaining
-- Tests: Vitest unit tests, a Playwright port of `e2e/web/journeys`, the CI workflow `web-vue.yml`, the Bangla byte-check script (`scripts/check-bangla.py`, modelled on backend/scripts/check-bangla.py, using web/src as the corpus), and a Bangla README.
-- Screenshot comparison: every section done at mobile; desktop still to run for blood, services, health. Pairs to copy into the scratchpad `shots/` folder.
+## Tests and checks (all green)
+- `npm run typecheck` (vue-tsc), `npm run lint` (ESLint flat config, Vue + TS), `npm run check:bangla` (every Bangla piece byte-for-byte from web/src or the old admin; reverse coverage 2510/2510 React pieces present in Vue), `npm run test:unit` (Vitest, 39 tests: i18n, nav/matchPath, rules/format, rx models, UI kit, admin helpers, admin action button).
+- Playwright with the mocked API (`test/serve.mjs` + `test/fixtures` + `test/fixtures-e2e`): 234 tests — every page in `test/pages/*.json` (219), recent UX (ambulance call dialog, sticky pharmacy send + call, doctor chamber filters, my prescriptions, pharmacy tabs, foreign history entries), admin (login, 18 menu items, every page under CSP at mobile and desktop, list search/tabs/armed reject with reason, verify gating, catalog save, user detail tabs, logout).
+- Real-stack journeys (`e2e/journeys.mjs`, unchanged `e2e/web/journeys`, local server + Auth emulator, demo seeded): Vue fails exactly the same scenarios as React (56 lines; the journeys predate recent React UI, e.g. "অ্যাপয়েন্টমেন্ট চাই" is now "এই চেম্বারে অ্যাপয়েন্টমেন্ট"). The two Vue-only failures (J-61/J-62, caregiver soft navigation) were fixed in `router.ts`.
+- CI: `.github/workflows/web-vue.yml` (typecheck, lint, Bangla, unit, build web + admin, Playwright mocked); the real-stack journeys run only on manual dispatch.
+- Screenshots React vs Vue (mobile + desktop): 518 pairs, 476 identical, 496 within 0.1%; the rest are the QR code, admin log data drift and capture timing. Pairs in the session scratchpad `vue-port/shots/`.
+
+## Remaining (not done)
+- Fix the stale `e2e/web/journeys` (they fail on React too) — outside web-vue, owner's call.
+- Cutover (copy `dist/` → `server/public/w`, `dist-admin/` → `server/public/admin`, adjust `web.yml`) — owner's decision; nothing deployed.
 
 ## Notes / known issues
 - Admin: the old panel sets a few `style` attributes (catalog and lab-test editor widths, `flex-wrap:nowrap`). Production's CSP blocks them (`style-src 'self'`, console shows "Refused to apply inline style"), so they never took effect. The Vue port leaves them out to match what users see.
 - Pin `vue-tsc` to 3.2.4: 3.3.x wrongly reports `.value` errors for imported bindings used inside arrow functions in templates. The runtime code is fine.
 - The React test build for comparison is made from a copy of web/ (node_modules symlinked from the main checkout). The `react-web`, `compare.py` and `shots.sh` scripts live outside the repo in the session scratchpad.
+- Router: `router.afterEach` repairs history entries pushed by someone else (no `current`/`position`), which otherwise broke the next `router.push`.
+- Dead React code not ported: `rx/partner/stock.tsx` (StockTab) and `services/ui.tsx` `NearestCall`.
 - `@fontsource/*` is pinned to 5.1.0 (React's lockfile). 5.3.0 changes glyph widths slightly, which moves line breaks.
 - Side nav: `aria-current` follows React Router NavLink (own path or below; `/` only exact), not the item's `match()`.
 - Dialog.vue: `role`/`aria-labelledby` are bound only when set. Binding them as undefined removed Reka's `role=dialog`.
@@ -36,6 +45,5 @@ Vue 3 + TypeScript + Vite + Tailwind CSS v4 (no preflight) + Reka UI rewrite of 
 - Templates: never put whitespace between an icon and its text (React JSX had none). A leading/trailing space inside an element before/after `{{ }}` is dropped by Vue's whitespace condense; write `{{ ' ' + x }}` instead. Numeric inline styles need `'px'`. Use `canGoBack()` (vue-router `history.state.back`) instead of React Router's `idx`.
 
 ## Next steps
-1. Bangla byte-check script, tests, CI, README.
-2. Run the React-vs-Vue shots for every `test/pages/*.json` at 390px and fix the differences.
-3. Add the Bangla check script, Vitest, the Playwright e2e port, `.github/workflows/web-vue.yml` and README (bn).
+1. Owner review on branch `vue-web` (never merged to main).
+2. If approved: cutover as described in README.md.
