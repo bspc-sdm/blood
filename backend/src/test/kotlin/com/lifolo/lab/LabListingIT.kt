@@ -57,7 +57,8 @@ class LabListingIT : RxLabTest() {
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM admin_log WHERE action = 'admin_lab_resolve'", Int::class.java))
         assertEquals("approved", ok("lab1", "lab_me")["lab"]["status"].asText())
         assertEquals(listOf("lab1"), ids(ok("adm", "admin_labs", mapOf("status" to "approved"))["items"]))
-        val listed = ok(null, "labs", mapOf("district" to dist))["items"]
+        // (a guest's identical request is answered from the 1-minute guest cache, like Node)
+        val listed = ok("adm", "labs", mapOf("district" to dist))["items"]
         assertEquals("সিটি ডায়াগনস্টিক", listed[0]["name"].asText())
         assertNull(listed[0]["licenseNo"])
 
