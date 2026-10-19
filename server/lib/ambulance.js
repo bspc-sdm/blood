@@ -111,6 +111,8 @@ function view(d, mine = false) {
     upazilaId: x.upazilaId || null,
     area: x.area || '',
     fare: x.fare || '',
+    // ভাড়ার তালিকা (২.৩০.০, lib/ambfare.js) — প্রকাশ্য, মালিক নিজে দেন; আগের লেখা fare নোট হিসেবে থাকে
+    fareChart: x.fareChart || null,
     available: availableNow(x),
     // ০ = এখন ট্রিপে; অন্যথায় শেষ জানানোর সময় (খালি না হলে "ফোনে জেনে নিন")
     availableAt: busyNow(x) ? 0 : x.availableAt || x.updatedAt || x.createdAt || 1,
@@ -331,6 +333,12 @@ const actions = {
     // জেলার বাইরে হলে জায়গাটা বাদ, বাকি সেভ হয় (ভুল জায়গার জন্য পুরো ফর্ম আটকায় না) — উত্তরে baseIgnored
     let base = b.clearBase === true ? null : point(b.lat, b.lng);
     const dc = DISTRICTS.find((d) => d.bn === b.district);
+    let fareChart;
+    if (b.fareChart !== undefined) {
+      const fc = require('./ambfare').normalizeChart(b.fareChart, { district: b.district, upazilaId });
+      if (fc.error) throw err(...fc.error);
+      fareChart = fc.chart;
+    }
     const baseIgnored = !!base && geo.distanceKm(base.lat, base.lng, dc.lat, dc.lng) > BASE_MAX_KM;
     if (baseIgnored) base = null;
     const data = {
@@ -343,6 +351,8 @@ const actions = {
       area: K.str(b.area, 120),
       fare: K.str(b.fare, 120),
       ...(base ? { lat: base.lat, lng: base.lng } : {}),
+      // ভাড়ার তালিকা: পুরোনো অ্যাপ পাঠায় না (undefined) — তখন আগেরটা থাকে
+      ...(fareChart !== undefined ? { fareChart } : {}),
       updatedAt: Date.now(),
     };
     if (b.id) {
@@ -436,6 +446,10 @@ const actions = {
     return { ok: true };
   },
 
+  /**
+   * রেটিং; overcharged: true = "বলা ভাড়ার চেয়ে বেশি নিয়েছে" (শুধু অ্যাপে ভাড়া ঠিক হওয়া ট্রিপে — ambulanceCalls-এ agreedFare)।
+   * গাড়িতে overchargeCount (অ্যাডমিনের তালিকায়); আবার রেটিং দিলে আগের উত্তর বদলায়, দুবার গোনা নয়।
+   */
   async ambulance_rate(req, user) {
     const { id } = req.body || {};
     const rating = Number.isInteger(req.body?.rating) ? req.body.rating : 0;
@@ -452,8 +466,13 @@ const actions = {
         throw new HttpError(403, C.tr(req, 'You can rate 1 hour after your first call', 'প্রথম ফোনের ১ ঘণ্টা পর রেটিং দিতে পারবেন'));
       }
       const old = c.get('rating') || 0;
-      t.update(ref, { ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1) });
-      t.update(callRef, { rating, comment: K.str(req.body?.comment, 300), ratedAt: Date.now() });
+      const wasOver = c.get('overcharged') === true;
+      const over = typeof c.get('agreedFare') === 'number' ? req.body?.overcharged === true : wasOver;
+      t.update(ref, {
+        ratingSum: FieldValue.increment(rating - old), ratingCount: FieldValue.increment(old ? 0 : 1),
+        ...(over !== wasOver ? { overchargeCount: FieldValue.increment(over ? 1 : -1) } : {}),
+      });
+      t.update(callRef, { rating, comment: K.str(req.body?.comment, 300), ratedAt: Date.now(), ...(over !== wasOver ? { overcharged: over } : {}) });
     });
     // মালিকের হিসাবে সাম্প্রতিক ১০টা রেটিং (কে দিয়েছেন তা ছাড়া)
     await require('./sellerstats').addRecentRating('ambulanceStats', id, rating, K.str(req.body?.comment, 300), user.uid);
@@ -469,6 +488,8 @@ const actions = {
       items: await Promise.all(snap.docs.map(async (d) => ({
         ...view(d, true),
         ownerUid: d.get('ownerUid') || null,
+        // "বলা ভাড়ার চেয়ে বেশি নিয়েছে" — রোগীদের রেটিং থেকে (২.৩০.০)
+        overchargeCount: d.get('overchargeCount') || 0,
         createdAt: d.get('createdAt') || null,
         reviewedAt: (status === 'suspended' && d.get('suspendedAt')) || d.get('reviewedAt') || null,
         ...(await adminExtras('ambulances', d, status)),

@@ -27,6 +27,20 @@
 //   ৫) একজন রাজি হলেন, কিন্তু রোগী ফোনে অন্য গাড়ি পেয়েছেন: "ফোনে অন্য গাড়ি পেয়েছি — এঁকে বাতিল" (ambreq_replace) —
 //      সেই চালক বাতিল (patient_found_other, ভদ্র পুশ), তারপর রোগী একটা গাড়ি বাছলে byPhone, নইলে অনুরোধ আবার খোলা।
 //   ৬) কঠিন নিয়ম: এক অনুরোধে এক সময়ে সর্বোচ্চ একটা গাড়ি রাজি — সব বদল transaction-এ, status দেখে।
+//
+// ভাড়া (২.৩০.০, পারভেজ, ১৯ অক্টোবর ২০২৬; হিসাব lib/ambfare.js):
+//   - রোগী "কোথায় যাবেন" (উপজেলা/জেলা/হাসপাতাল) আর "ভাড়া সর্বোচ্চ ৳…" দেন। প্রতিটা গাড়ির ভাড়ার তালিকা থেকে আনুমানিক
+//     ভাড়া (গন্তব্য + আইসিইউ/অক্সিজেন/রাতের বাড়তি); পুশ শুধু বাজেটের ভেতরের গাড়িতে। ভাড়া না জানা গাড়ি শুধু রোগী চাইলে।
+//     ambreq_count: একই বাছাইয়ে "এই ভাড়ার মধ্যে কয়টা খালি গাড়ি" (শিটে সাথে সাথে)।
+//   - "প্রথম আসছি পায়" নয়: চালক "আসছি — ৳X" চাপেন (X তালিকা থেকে আগে বসানো, বদলানো যায়, বাজেটের বেশি নয়) = দর (quote)।
+//     কয়েকজন দর দিতে পারেন; রোগী দর দেখে একটায় "রাজি" চাপলে (transaction) সেই চালক accepted, বাকিদের পুশ
+//     "রোগী অন্য গাড়ি নিয়েছেন"। দর ২ মিনিটে উত্তর না পেলে বাদ (চালককে পুশ); দর ঝুলে থাকলে ৩ মিনিটের মেয়াদ সেটা পর্যন্ত বাড়ে
+//     (নতুন দর শুধু ৩ মিনিটের মধ্যে — তাই সর্বোচ্চ ৫ মিনিট)। ঠিক হওয়া ভাড়া অনুরোধে (agreedFare) আর ট্রিপের রেকর্ডে (রেটিংয়ে
+//     "বলা ভাড়ার চেয়ে বেশি নিয়েছে")। ৬০ সেকেন্ডে কেউ না নিলে পরিধি বাড়ানোর সাথে "৳X পর্যন্ত বাড়ান" (raiseTo);
+//     ambreq_budget: বাজেট বাড়ালে নতুন করে মেলা গাড়িতে পাঠানো।
+//   - পুরোনো অ্যাপ (গন্তব্য ছাড়া ডাকা) আগের মতো: ভাড়ার ছাঁকনি নেই, প্রথম "আসছি" পায় (quote: false)।
+//   - গোপনীয়তা আগের মতো: রাজির আগে চালক দূরত্ব, গন্তব্য, ধরন, ঠিকানা/নোট দেখেন; ঠিক GPS আর ফোন শুধু রাজি চালক।
+//     গন্তব্যও ২৪ ঘণ্টা পর মোছে।
 const { db, FieldValue, HttpError } = require('./firebase');
 const geo = require('./geo');
 const R = require('./rules');
@@ -34,6 +48,7 @@ const C = require('./community');
 const K = require('./care');
 const DISTRICTS = require('./districts');
 const { UPAZILA } = require('./hospital-match');
+const FARE = require('./ambfare');
 
 const SEC = 1000;
 const MIN = 60 * SEC;
@@ -56,6 +71,8 @@ const PURGE_AFTER_MS = 24 * HOUR;
 const MAX_KM = 130;
 /** জায়গা না দেওয়া গাড়ি জেলার যেকোনো জায়গায় থাকতে পারে — সাজানোর সময় একটু পিছিয়ে (lib/ambulance.js-এর মতো) */
 const APPROX_EXTRA_KM = 5;
+/** চালকের দর রোগী এতক্ষণে "রাজি" না চাপলে বাদ (চালক ছাড়া পান) */
+const QUOTE_MS = 2 * MIN;
 
 const ACTIVE = ['open', 'accepted', 'arrived'];
 const PATIENT_CANCEL = ['wrong', 'found_other', 'not_needed', 'too_slow', 'other'];
@@ -85,7 +102,8 @@ function typeOk(types, type) {
  * কোন গাড়িগুলোতে পাঠানো যায়, কাছেরটা আগে: অনুমোদিত, ট্রিপে নয়, ধরন মেলে, নিজের নয়, একই জগৎ (ডেমো/আসল),
  * ১৩০ কিমির ভেতরে। খালি জানানোগুলো আগে, তারপর "জানা নেই" (১২ ঘণ্টা আগে খালি জানানো) — খালি শেষ হলে তবেই এরা।
  * GPS না থাকলে দূরত্ব নয়: নিজের উপজেলা আগে, তারপর রেটিং। একই মালিকের কয়েকটা গাড়ি থাকলে শুধু কাছেরটা।
- * docs: ambulances-এর snapshot; r: { uid, lat?, lng?, gps, upazilaId, type }; skipOwners: আগে পাঠানো মালিক
+ * docs: ambulances-এর snapshot; r: { uid, lat?, lng?, gps, upazilaId, type, dest?, oxygen?, night? }; skipOwners: আগে পাঠানো মালিক
+ * dest থাকলে প্রতিটায় est = আনুমানিক ভাড়া (না জানা = null) — বাজেটের ছাঁকনি affordable()-এ।
  */
 function candidates(docs, r, skipOwners = [], now = Date.now(), skipIds = []) {
   const from = r.gps && typeof r.lat === 'number' ? { lat: r.lat, lng: r.lng } : null;
@@ -115,12 +133,18 @@ function candidates(docs, r, skipOwners = [], now = Date.now(), skipIds = []) {
       id: d.id, owner, name: x.name, phone: K.fixPhone(x.phone), km, approx, dist,
       avail: A().availableNow(x, now), same: r.upazilaId && x.upazilaId === r.upazilaId ? 1 : 0,
       rating: n ? x.ratingSum / n : 0,
+      est: r.dest ? FARE.estimate(x.fareChart, { district: x.district, upazilaId: x.upazilaId }, r.dest, r) : null,
     });
   }
   rows.sort((a, b) => (b.avail - a.avail) || (a.dist != null && b.dist != null ? a.dist - b.dist : 0) || (b.same - a.same) || (b.rating - a.rating));
   // একই মালিক একবারই (কাছের গাড়িটা)
   const seen = new Set();
   return rows.filter((x) => (seen.has(x.owner) ? false : seen.add(x.owner)));
+}
+
+/** ভাড়ার অনুরোধে (quote) শুধু বাজেটের ভেতরের গাড়ি (ভাড়া না জানা গাড়ি শুধু includeUnknown হলে); পুরোনো অনুরোধে সব */
+function affordable(list, r) {
+  return r.quote ? list.filter((c) => FARE.fits(c.est, r.maxFare ?? null, r.includeUnknown)) : list;
 }
 
 /** জেলার অনুমোদিত গাড়ি (তালিকার মতো একই কোয়েরি) */
@@ -137,11 +161,13 @@ function fallbackOf(list) {
 function waveFields(list) {
   const sentTo = {};
   const km = {};
+  const est = {};
   list.forEach((x) => {
     sentTo[x.owner] = x.id;
     if (x.km != null) km[x.owner] = x.approx ? -1 - x.km : x.km; // ঋণাত্মক = "প্রায়" (জায়গা দেওয়া নেই)
+    if (x.est != null) est[x.owner] = x.est; // আনুমানিক ভাড়া (চালকের "আসছি — ৳X"-এ আগে বসানো)
   });
-  return { sentTo, km };
+  return { sentTo, km, est };
 }
 
 const kmOf = (v) => (typeof v !== 'number' ? { km: null } : v < 0 ? { km: -1 - v, kmApprox: true } : { km: v });
@@ -159,7 +185,9 @@ async function pushDrivers(id, x, owners) {
       uid: u.id,
       tokens: tokensOf(u),
       title: R.L(lang, `Ambulance needed — ${where}`, R.bnNumbers(`অ্যাম্বুলেন্স দরকার — ${where}`)),
-      body: R.L(lang, 'Open and tap "Coming" — the first to accept gets it.', 'খুলে "আসছি" চাপুন — আগে যিনি রাজি হবেন তিনিই পাবেন।'),
+      body: x.quote
+        ? R.L(lang, 'Open and tap "Coming" with your fare — confirmed when the patient agrees.', 'খুলে ভাড়াসহ "আসছি" চাপুন — রোগী রাজি হলে নিশ্চিত।')
+        : R.L(lang, 'Open and tap "Coming" — the first to accept gets it.', 'খুলে "আসছি" চাপুন — আগে যিনি রাজি হবেন তিনিই পাবেন।'),
       // পুরোনো অ্যাপও "আমার অ্যাম্বুলেন্স" পাতা খোলে (type: services, kind: ambulance)
       data: { type: 'services', kind: 'ambulance', sub: 'amb_req', reqId: id },
     };
@@ -196,6 +224,17 @@ function freeVehicle(t, ambRef, amb, now) {
   });
 }
 
+/** রোগীর উত্তর না পাওয়া (২ মিনিট পেরোনো) দরের চালক */
+function lapsedOwners(x, now) {
+  return Object.entries(x.quotes || {}).filter(([, q]) => now - q.at >= QUOTE_MS).map(([o]) => o);
+}
+
+/** খোলা অনুরোধের মেয়াদ: খোলার ৩ মিনিট পর, অথবা ঝুলে থাকা শেষ দরের মেয়াদ পর্যন্ত (যেটা পরে) */
+function deadlineOf(x) {
+  const q = Object.values(x.quotes || {}).map((v) => v.at + QUOTE_MS);
+  return Math.max(openedAt(x) + EXPIRE_MS, ...q);
+}
+
 /**
  * সময় ধরে এগোনো (রোগীর অবস্থা পড়া, চালকের তালিকা পড়া, দৈনিক ক্রন — যেকোনো জায়গা থেকে, বারবার ডাকলেও একবারই):
  *  - খোলা, ৩ মিনিট পেরিয়েছে → expired (রোগীকে পুশ)
@@ -206,17 +245,42 @@ function freeVehicle(t, ambRef, amb, now) {
 async function advance(ref, now = Date.now()) {
   const s = await ref.get();
   if (!s.exists) return null;
-  const x = s.data();
-  if (x.status === 'open' && now - openedAt(x) >= EXPIRE_MS) {
+  let x = s.data();
+  // দর ২ মিনিটে রোগীর উত্তর পায়নি → বাদ, চালক ছাড়া (তালিকা থেকে সরে, পুশ)
+  if (x.status === 'open' && lapsedOwners(x, now).length) {
+    const gone = await db.runTransaction(async (t) => {
+      const c = await t.get(ref);
+      const cx = c.data();
+      const list = cx.status === 'open' ? lapsedOwners(cx, now) : [];
+      if (!list.length) return [];
+      const quotes = { ...(cx.quotes || {}) };
+      list.forEach((o) => delete quotes[o]);
+      t.update(ref, {
+        quotes,
+        declined: [...new Set([...(cx.declined || []), ...list])],
+        lapsed: [...new Set([...(cx.lapsed || []), ...list])],
+        activeOwners: (cx.activeOwners || []).filter((o) => !list.includes(o)),
+      });
+      return list.filter((o) => now - x.quotes[o].at < QUOTE_MS + 10 * MIN);
+    });
+    for (const o of gone) {
+      await pushDriver(ref.id, o, 'The patient didn\'t answer your fare — you are free for other calls',
+        'রোগী আপনার ভাড়ায় উত্তর দেননি — আপনি অন্য ডাক নিতে পারেন').catch(() => {});
+    }
+    x = (await ref.get()).data();
+  }
+  // মেয়াদ: ৩ মিনিট, দর ঝুলে থাকলে সেটা শেষ হওয়া পর্যন্ত
+  if (x.status === 'open' && now >= deadlineOf(x)) {
     const done = await db.runTransaction(async (t) => {
       const c = await t.get(ref);
-      if (c.get('status') !== 'open') return false;
+      if (c.get('status') !== 'open' || now < deadlineOf(c.data())) return false;
       t.update(ref, closeFields(now, 'expired'));
       return true;
     });
     // দৈনিক ক্রনে অনেক পরে বন্ধ হলে পুশ নয় (রোগী অনেক আগেই অন্যভাবে ব্যবস্থা করেছেন)
-    if (done && now - openedAt(x) < EXPIRE_MS + 10 * MIN) {
-      await pushPatient(ref.id, x.uid, 'No ambulance accepted', 'কোনো অ্যাম্বুলেন্স রাজি হয়নি',
+    if (done && now - deadlineOf(x) < 10 * MIN) {
+      const offered = (x.lapsed || []).length > 0;
+      await pushPatient(ref.id, x.uid, offered ? 'The fare offers expired' : 'No ambulance accepted', offered ? 'ভাড়ার প্রস্তাবের সময় শেষ' : 'কোনো অ্যাম্বুলেন্স রাজি হয়নি',
         'Please call one directly from the list.', 'তালিকা থেকে সরাসরি ফোন করুন।').catch(() => {});
     }
     return (await ref.get()).data();
@@ -227,9 +291,16 @@ async function advance(ref, now = Date.now()) {
     if (now - openedAt(x) >= WIDEN_MS || allDeclined) {
       // কোয়েরি transaction-এর বাইরে; লেখা শুধু wave এখনো ১ থাকলে — তাই বারবার ডাকলেও একবারই
       // ফোন করা গাড়ি বাদ — তাদের কাছে অনুরোধ আগেই আছে (attachCall)
-      const list = candidates(await districtAmbulances(x.district), x, [], now);
+      const all = candidates(await districtAmbulances(x.district), x, [], now);
+      // ভাড়ার অনুরোধে শুধু বাজেটের ভেতরের গাড়ি; বাকিদের থেকে "৳X পর্যন্ত বাড়ান" (raiseTo)
+      const list = affordable(all, x);
       const called = x.calledIds || [];
       const next = list.filter((c) => !owners.includes(c.owner) && !called.includes(c.id)).slice(0, WAVE);
+      const left = all.filter((c) => !owners.includes(c.owner) && !called.includes(c.id) && !list.includes(c));
+      const raise = x.quote ? {
+        raiseTo: FARE.raiseTo(left.map((c) => c.est), x.maxFare ?? null),
+        unknownFree: x.includeUnknown ? 0 : left.filter((c) => c.est == null && c.avail).length,
+      } : {};
       const w = waveFields(next);
       const won = await db.runTransaction(async (t) => {
         const c = await t.get(ref);
@@ -244,12 +315,15 @@ async function advance(ref, now = Date.now()) {
           wave: 2, widenedAt: now,
           sentTo: { ...(c.get('sentTo') || {}), ...w.sentTo },
           km: { ...(c.get('km') || {}), ...w.km },
+          est: { ...(c.get('est') || {}), ...w.est },
           activeOwners: [...new Set([...(c.get('activeOwners') || []), ...next.map((n) => n.owner)])].filter((o) => !declined.includes(o)),
-          fallback: fallbackOf(list),
+          // ফোনের বাটন: বাজেটের ভেতরের গাড়ি আগে, তারপর বাকি কাছেরগুলো (ফোনে ভাড়া ঠিক করা যায়)
+          fallback: fallbackOf([...list, ...all.filter((a) => !list.includes(a))]),
+          ...raise,
         });
         return true;
       });
-      if (won) await pushDrivers(ref.id, { km: w.km }, next.map((n) => n.owner)).catch((e) => console.error('amb req widen push', e.message));
+      if (won) await pushDrivers(ref.id, { km: w.km, quote: x.quote }, next.map((n) => n.owner)).catch((e) => console.error('amb req widen push', e.message));
       return (await ref.get()).data();
     }
   }
@@ -267,8 +341,35 @@ async function advance(ref, now = Date.now()) {
   return x;
 }
 
+/** রোগীর ভাষা (দেখার লেখা — গন্তব্যের নাম) */
+const langOf = (req) => (req?.body?.lang === 'bn' ? 'bn' : 'en');
+
+/** ভাড়ার অনুরোধের সাধারণ ঘর (রোগী আর চালক দুজনেই দেখেন) */
+function fareCommon(x, lang) {
+  return {
+    quote: true,
+    dest: x.dest || null,
+    destLabel: FARE.destLabel(x.dest, lang),
+    maxFare: x.maxFare ?? null,
+    oxygen: !!x.oxygen,
+    night: !!x.night,
+    agreedFare: x.agreedFare ?? null,
+  };
+}
+
+/** রোগীর দেখা দরগুলো: কম ভাড়া আগে, তারপর কাছেরটা; চালকের uid নয় — গাড়ির id দিয়ে "রাজি" */
+function quotesOf(x, now) {
+  return Object.entries(x.quotes || {})
+    .filter(([, q]) => now - q.at < QUOTE_MS)
+    .map(([o, q]) => ({
+      id: q.ambulanceId, name: q.name || '', types: q.types || [], ...kmOf(x.km?.[o]), fare: q.fare,
+      rating: q.rating || 0, ratingCount: q.ratingCount || 0, at: q.at, expiresAt: q.at + QUOTE_MS,
+    }))
+    .sort((a, b) => a.fare - b.fare || (a.km ?? 9999) - (b.km ?? 9999) || a.at - b.at);
+}
+
 /** রোগীর দিকের দেখা */
-function patientView(id, x, now = Date.now()) {
+function patientView(id, x, now = Date.now(), lang = 'bn') {
   const accepted = ['accepted', 'arrived', 'done', 'byPhone'].includes(x.status) || (x.status === 'cancelled' && x.ambulanceId);
   const showFallback = (x.wave || 1) > 1 || ['expired', 'cancelled'].includes(x.status);
   return {
@@ -276,7 +377,8 @@ function patientView(id, x, now = Date.now()) {
     status: x.status,
     createdAt: x.createdAt,
     widenAt: openedAt(x) + WIDEN_MS,
-    expiresAt: openedAt(x) + EXPIRE_MS,
+    // দর ঝুলে থাকলে মেয়াদ বাড়ে (deadlineOf)
+    expiresAt: deadlineOf(x),
     wave: x.wave || 1,
     notified: Object.keys(x.sentTo || {}).length,
     type: x.type || null,
@@ -295,6 +397,14 @@ function patientView(id, x, now = Date.now()) {
     cancelledBy: x.cancelledBy || null,
     cancelReason: x.cancelReason || null,
     cancelText: x.cancelText || '',
+    // ভাড়া (২.৩০.০): গন্তব্য, বাজেট, দরগুলো (খোলা থাকলে), ঠিক হওয়া ভাড়া, "৳X পর্যন্ত বাড়ান"
+    ...(x.quote ? {
+      ...fareCommon(x, lang),
+      includeUnknown: !!x.includeUnknown,
+      quotes: x.status === 'open' ? quotesOf(x, now) : [],
+      raiseTo: x.raiseTo ?? null,
+      unknownFree: x.unknownFree || 0,
+    } : {}),
     fallback: showFallback ? x.fallback || [] : [],
     // অপেক্ষার সময় যেসব গাড়িতে ফোন করেছেন ("ফোনে কোনো গাড়ি পেয়েছেন?" — এখান থেকে বাছা)
     called: (x.calledIds || []).map((cid) => ({ id: cid, ...(x.calledInfo?.[cid] || { name: '', phone: '' }) })),
@@ -303,9 +413,10 @@ function patientView(id, x, now = Date.now()) {
   };
 }
 
-/** চালকের দিকের দেখা: রাজি হওয়ার আগে ঠিক জায়গা, ফোন, নাম নয় */
-function driverView(id, x, uid) {
+/** চালকের দিকের দেখা: রাজি হওয়ার আগে ঠিক জায়গা, ফোন, নাম নয় (গন্তব্য, ধরন, দূরত্ব, ঠিকানা/নোট হ্যাঁ) */
+function driverView(id, x, uid, lang = 'bn') {
   const mine = x.acceptedBy === uid;
+  const q = x.quotes?.[uid];
   return {
     id,
     status: mine ? x.status : 'open',
@@ -320,6 +431,12 @@ function driverView(id, x, uid) {
     upazilaId: x.upazilaId || null,
     pickup: x.pickup || '',
     note: x.note || '',
+    // ভাড়া (২.৩০.০): গন্তব্য, তালিকা থেকে আনুমানিক ভাড়া ("আসছি — ৳X"-এ আগে বসানো), বাজেট (এর বেশি দর নয়), নিজের দর
+    ...(x.quote ? {
+      ...fareCommon(x, lang),
+      suggestedFare: x.est?.[uid] ?? null,
+      myQuote: !mine && q ? { fare: q.fare, at: q.at, expiresAt: q.at + QUOTE_MS } : null,
+    } : {}),
     ...(mine ? {
       patientName: x.patientName || '',
       phone: x.phone || '',
@@ -331,10 +448,14 @@ function driverView(id, x, uid) {
 }
 
 /** রেটিংয়ের যোগ্যতা: শেষ হওয়া অনুরোধ = ফোনের মতোই ambulanceCalls-এ, trip সহ (১ ঘণ্টা অপেক্ষা লাগে না) */
-async function recordTrip(uid, ambulanceId, now) {
+async function recordTrip(uid, ambulanceId, now, agreedFare = null) {
   const callRef = db.doc(`ambulanceCalls/${uid}_${ambulanceId}`);
   const prev = await callRef.get();
-  await callRef.set({ uid, ambulanceId, at: now, tripAt: now, ...(prev.exists ? {} : { firstAt: now }) }, { merge: true });
+  // ঠিক হওয়া ভাড়া (২.৩০.০): রেটিংয়ে "বলা ভাড়ার চেয়ে বেশি নিয়েছে" শুধু এমন ট্রিপে
+  await callRef.set({
+    uid, ambulanceId, at: now, tripAt: now, ...(prev.exists ? {} : { firstAt: now }),
+    ...(typeof agreedFare === 'number' ? { agreedFare } : prev.exists && prev.get('agreedFare') != null ? { agreedFare: FieldValue.delete() } : {}),
+  }, { merge: true });
   if (!prev.exists || now - (prev.get('at') || 0) > 10 * MIN) await require('./sellerstats').bumpAmbulance(ambulanceId, now, !prev.exists).catch(() => {});
 }
 
@@ -348,10 +469,25 @@ async function loadMine(req, id, field, uid) {
   return { ref, s };
 }
 
+/**
+ * রোগীর ভাড়ার ঘর (ডাকা আর গোনা একই নিয়মে): dest না দিলে quote: false (পুরোনো অ্যাপ)।
+ * ভুল গন্তব্য বা বাজেট → 400।
+ */
+function fareParams(req, b, now) {
+  if (b.dest === undefined || b.dest === null) return { quote: false };
+  const dest = FARE.destOf(b.dest);
+  if (!dest) throw err(req, 400, 'Choose where to go', '"কোথায় যাবেন" বেছে নিন');
+  const maxFare = FARE.budgetOf(b.maxFare);
+  if (Number.isNaN(maxFare)) throw err(req, 400, 'Write the fare limit in whole taka (৳100 or more)', 'সর্বোচ্চ ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)');
+  return { quote: true, dest, maxFare, includeUnknown: b.includeUnknown === true, oxygen: b.oxygen === true, night: FARE.isNight(now) };
+}
+
 const actions = {
   /**
    * "অ্যাম্বুলেন্স ডাকুন"। body: district, upazilaId, lat/lng + gps:true (ফোনের আসল GPS, না থাকলে এলাকা ধরে),
-   * type (null = ফ্রিজার ছাড়া যেকোনো), pickup (ঠিকানা/চেনা জায়গা), note, phone, ambulanceId (শিট থেকে — সেটা আগে)
+   * type (null = ফ্রিজার ছাড়া যেকোনো), pickup (ঠিকানা/চেনা জায়গা), note, phone, ambulanceId (শিট থেকে — সেটা আগে)।
+   * ভাড়া (২.৩০.০): dest (কোথায় যাবেন — নতুন অ্যাপে বাধ্যতামূলক), maxFare (null = যেকোনো), includeUnknown, oxygen।
+   * dest না পাঠালে (পুরোনো অ্যাপ) আগের মতো: ছাঁকনি নেই, প্রথম "আসছি" পায়।
    */
   async ambreq_create(req, user) {
     const b = req.body || {};
@@ -368,20 +504,24 @@ const actions = {
     // বেছে নেওয়া জেলা থেকে অনেক দূরের GPS (ভুল জেলা) — এলাকা ধরে
     const dc = DISTRICTS.find((d) => d.bn === b.district);
     if (p && geo.distanceKm(p.lat, p.lng, dc.lat, dc.lng) > MAX_KM) p = null;
-    const r = { uid: user.uid, gps: !!p, ...(p || {}), upazilaId, type, district: b.district };
+    const r = { uid: user.uid, gps: !!p, ...(p || {}), upazilaId, type, district: b.district, ...fareParams(req, b, now) };
 
-    const list = candidates(await districtAmbulances(b.district), r, [], now);
+    const all = candidates(await districtAmbulances(b.district), r, [], now);
+    const list = affordable(all, r);
     // শিট থেকে একটা নির্দিষ্ট গাড়ি: সেটা আগে (খালি না জানালেও — রোগী নিজে বেছেছেন; ট্রিপে থাকলে নয়)
     let first = R.isValidId(b.ambulanceId) ? list.find((c) => c.id === b.ambulanceId) : null;
     if (!first && R.isValidId(b.ambulanceId)) {
       const a = await db.doc(`ambulances/${b.ambulanceId}`).get();
       if (a.exists && a.get('district') === b.district) {
-        const one = candidates([a], r, [], now);
+        const one = affordable(candidates([a], r, [], now), r);
         // একই মালিকের অন্য গাড়ি তালিকায় থাকলে সেটার জায়গায় এটা
         if (one.length) first = one[0];
       }
     }
     const wave1 = [...(first ? [first] : []), ...list.filter((c) => !first || c.owner !== first.owner)].slice(0, WAVE);
+    if (!wave1.length && r.quote && all.length) {
+      throw err(req, 409, 'No ambulance within this fare — raise the fare', 'এই ভাড়ায় কোনো গাড়ি নেই — ভাড়া বাড়ান', 'no_fare_match');
+    }
     if (!wave1.length) {
       throw err(req, 409, 'No free ambulance nearby right now — please call one from the list', 'এখন কাছে কোনো খালি অ্যাম্বুলেন্স নেই — তালিকা থেকে ফোন করুন', 'no_ambulance');
     }
@@ -413,6 +553,7 @@ const actions = {
         district: b.district, upazilaId, type,
         gps: !!p, ...(p ? { lat: p.lat, lng: p.lng } : {}),
         pickup, note, phone: K.localBd(phone),
+        ...(r.quote ? { quote: true, dest: r.dest, maxFare: r.maxFare, includeUnknown: r.includeUnknown, oxygen: r.oxygen, night: r.night, est: w.est, quotes: {} } : {}),
         patientName: String(prof.exists ? prof.get('name') || '' : '').slice(0, 80),
         sentTo: w.sentTo, km: w.km, activeOwners: wave1.map((c) => c.owner), declined: [],
         ...(first ? { chosenId: first.id } : {}),
@@ -420,8 +561,52 @@ const actions = {
       });
       t.set(limRef, { times: [...times, now], activeId: ref.id, at: now });
     });
-    await pushDrivers(ref.id, { km: w.km }, wave1.map((c) => c.owner)).catch((e) => console.error('amb req push', e.message));
-    return { id: ref.id, notified: wave1.length, request: patientView(ref.id, (await ref.get()).data(), now) };
+    await pushDrivers(ref.id, { km: w.km, quote: r.quote }, wave1.map((c) => c.owner)).catch((e) => console.error('amb req push', e.message));
+    return { id: ref.id, notified: wave1.length, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
+  },
+
+  /**
+   * শিটে সাথে সাথে "এই ভাড়ার মধ্যে Nটা খালি গাড়ি আছে": ডাকার মতো একই বাছাই (কাছের ১৩০ কিমি, খালি, ধরন, জেলা,
+   * নিজের নয়, একই জগৎ) আর একই ভাড়ার হিসাব — শুধু গোনা, কিছু লেখা বা পুশ নয়। জেলার গাড়ি ১০ সেকেন্ড মেমোরিতে
+   * (রোগী গন্তব্য/ধরন/বাজেট বদলাতে থাকলে বারবার ডাটাবেস পড়া নয়)। body: ambreq_create-এর মতো (ফোন/ঠিকানা লাগে না)।
+   * ফেরত: count (বাজেটে মেলা), unknown (ভাড়া জানা নেই এমন), levels (প্রতিটা চিপে কয়টা), raiseTo (০ হলে
+   * "৳X পর্যন্ত বাড়ান"), hospitals (কাছের গাড়ির তালিকার হাসপাতালের নাম — নাম মেলাতে), night (রাতের বাড়তি ধরা হয়েছে)।
+   */
+  async ambreq_count(req, user) {
+    const b = req.body || {};
+    const now = Date.now();
+    if (!DISTRICTS.some((d) => d.bn === b.district)) throw err(req, 400, 'Choose a district', 'জেলা বেছে নিন');
+    const upazilaId = Number.isInteger(b.upazilaId) && UPAZILA.get(b.upazilaId)?.district === b.district ? b.upazilaId : null;
+    const type = require('./catalog').codes('ambulanceType').includes(b.type) ? b.type : null;
+    let p = b.gps === true ? exactPoint(b.lat, b.lng) : null;
+    const dc = DISTRICTS.find((d) => d.bn === b.district);
+    if (p && geo.distanceKm(p.lat, p.lng, dc.lat, dc.lng) > MAX_KM) p = null;
+    const r = { uid: user.uid, gps: !!p, ...(p || {}), upazilaId, type, district: b.district, ...fareParams(req, b, now) };
+    const docs = await require('./memcache').cached(`ambreq:district:${b.district}`, 10 * SEC, () => districtAmbulances(b.district));
+    const all = candidates(docs, r, [], now);
+    const count = affordable(all, r).length;
+    if (!r.quote) return { count, total: all.length, unknown: 0, levels: {}, raiseTo: null, hospitals: [], night: FARE.isNight(now) };
+    const levels = Object.fromEntries(FARE.LEVELS.map((l) => [l, all.filter((c) => FARE.fits(c.est, l, r.includeUnknown)).length]));
+    // কাছের গাড়িগুলোর তালিকায় থাকা হাসপাতাল (নাম শুধু — কোন গাড়ির তা নয়)
+    const ids = new Set(all.map((c) => c.id));
+    const seen = new Set();
+    const hospitals = [];
+    for (const d of docs) {
+      if (!ids.has(d.id)) continue;
+      for (const row of d.get('fareChart')?.rows || []) {
+        const k = row.kind === 'hospital' ? row.name.toLowerCase() : null;
+        if (k && !seen.has(k) && hospitals.length < 30) { seen.add(k); hospitals.push(row.name); }
+      }
+    }
+    return {
+      count,
+      total: all.length,
+      unknown: all.filter((c) => c.est == null).length,
+      levels,
+      raiseTo: count ? null : FARE.raiseTo(all.map((c) => c.est), r.maxFare),
+      hospitals,
+      night: r.night,
+    };
   },
 
   /** রোগীর অপেক্ষার পাতা: id দিলে সেটা, না দিলে নিজের চালু অনুরোধ (অ্যাপ বন্ধ করে খুললেও ফিরে আসে) */
@@ -441,7 +626,7 @@ const actions = {
     if (!x || x.uid !== user.uid) return { request: null };
     // id ছাড়া: শুধু চালু (বা এইমাত্র বন্ধ — ১০ মিনিটের মধ্যে, যাতে "সময় শেষ"/"শেষ" দেখা যায়)
     if (id == null && !ACTIVE.includes(x.status) && now - (x.closedAt || 0) > 10 * MIN) return { request: null };
-    return { request: patientView(ref.id, x, now) };
+    return { request: patientView(ref.id, x, now, langOf(req)) };
   },
 
   /** রোগী বাতিল (খোলা বা রাজি হওয়ার পরে) — কারণ বেছে */
@@ -472,12 +657,17 @@ const actions = {
     const items = rows
       .filter(([, x]) => x && ACTIVE.includes(x.status) && (x.activeOwners || []).includes(user.uid) && !(x.declined || []).includes(user.uid)
         && (x.status === 'open' || x.acceptedBy === user.uid) && sameWorld(user.uid, x.uid))
-      .map(([id, x]) => driverView(id, x, user.uid))
+      .map(([id, x]) => driverView(id, x, user.uid, langOf(req)))
       .sort((a, b) => (a.status === 'open') - (b.status === 'open') || b.createdAt - a.createdAt);
     return { items };
   },
 
-  /** "আসছি" — আগে যিনি চাপেন তিনিই পান */
+  /**
+   * "আসছি"। ভাড়ার অনুরোধে (quote): body.fare = চালকের ভাড়া (পুরো টাকা, রোগীর বাজেটের বেশি নয়) → দর;
+   * রোগী "রাজি" চাপলে তবেই নিশ্চিত (ambreq_agree)। আবার চাপলে দর বদলায় (২ মিনিট নতুন করে)।
+   * fare না দিলে (পুরোনো অ্যাপ) তালিকার আনুমানিক ভাড়া; সেটাও না থাকলে ভাড়া লিখতে বলা।
+   * পুরোনো অনুরোধে (quote নয়) আগের মতো — আগে যিনি চাপেন তিনিই পান।
+   */
   async ambreq_accept(req, user) {
     const { ref } = await loadMine(req, req.body?.id, 'owner', user.uid);
     const now = Date.now();
@@ -504,6 +694,33 @@ const actions = {
       if (!amb.exists || amb.get('ownerUid') !== user.uid || amb.get('status') !== 'approved') {
         throw err(req, 409, 'This ambulance is not listed now', 'এই অ্যাম্বুলেন্স এখন তালিকায় নেই');
       }
+      if (x.quote) {
+        // অন্য রোগীর ট্রিপে থাকা গাড়ি দর দিতে পারে না
+        if (amb.get('reqBusy') && amb.get('reqBusy') !== ref.id) {
+          throw err(req, 409, 'Your ambulance is on another trip now', 'আপনার গাড়ি এখন অন্য ট্রিপে', 'busy');
+        }
+        let fare = FARE.taka(req.body?.fare);
+        if (fare == null) fare = x.est?.[user.uid] ?? null;
+        if (fare == null) throw err(req, 400, 'Write your fare', 'ভাড়া লিখুন', 'fare_needed');
+        if (Number.isNaN(fare) || fare < FARE.MIN_FARE || fare > FARE.MAX_FARE) {
+          throw err(req, 400, 'Write the fare in whole taka (৳100 or more)', 'ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)');
+        }
+        if (x.maxFare != null && fare > x.maxFare) {
+          throw err(req, 409, `The patient's limit is ৳${x.maxFare} — you can't offer more`,
+            `রোগীর সর্বোচ্চ ভাড়া ৳${R.bnNumbers(String(x.maxFare))} — এর বেশি দেওয়া যায় না`, 'over_budget');
+        }
+        const n = amb.get('ratingCount') || 0;
+        t.update(ref, {
+          quotes: {
+            ...(x.quotes || {}),
+            [user.uid]: {
+              ambulanceId, name: amb.get('name') || '', types: amb.get('types') || [], fare,
+              rating: n ? Math.round((amb.get('ratingSum') / n) * 10) / 10 : 0, ratingCount: n, at: now,
+            },
+          },
+        });
+        return { quoted: true, patient: x.uid, name: amb.get('name') || '', fare, first: !x.quotes?.[user.uid] };
+      }
       t.update(ref, {
         status: 'accepted', acceptedBy: user.uid, ambulanceId, ambulanceName: amb.get('name') || '', driverPhone: K.fixPhone(amb.get('phone')),
         acceptedAt: now, activeOwners: [user.uid],
@@ -512,11 +729,107 @@ const actions = {
       t.update(ambRef, { available: false, availableAt: now, busyAt: now, updatedAt: now, reqBusy: ref.id, remindAt: FieldValue.delete() });
       return { patient: x.uid, name: amb.get('name') || '' };
     });
-    if (res.patient) {
+    if (res.quoted) {
+      await pushPatient(ref.id, res.patient, `${res.name} can come for ৳${res.fare}`, R.bnNumbers(`${res.name} ৳${res.fare}-তে আসতে রাজি`),
+        'Open and tap "Agree" to confirm.', 'নিশ্চিত করতে খুলে "রাজি" চাপুন।').catch(() => {});
+    } else if (res.patient) {
       await pushPatient(ref.id, res.patient, `${res.name} is coming`, `${res.name} আসছে`,
         'Open to see the driver\'s phone.', 'চালকের ফোন নম্বর দেখতে খুলুন।').catch(() => {});
     }
-    return { ok: true, request: driverView(ref.id, (await ref.get()).data(), user.uid) };
+    return { ok: true, request: driverView(ref.id, (await ref.get()).data(), user.uid, langOf(req)) };
+  },
+
+  /**
+   * রোগী একটা দরে "রাজি" (body.ambulanceId): transaction-এ — খোলা আছে, দর ২ মিনিটের মধ্যে, চালক এখনো আছেন,
+   * গাড়ি অনুমোদিত আর অন্য ট্রিপে নয় — তবেই সেই চালক accepted, ঠিক হওয়া ভাড়া agreedFare।
+   * বাকি সব দর আর ডাক ছেড়ে দেওয়া (পুশ "রোগী অন্য গাড়ি নিয়েছেন"); চালকের অন্য অনুরোধের দরও তুলে নেওয়া।
+   */
+  async ambreq_agree(req, user) {
+    const { ref } = await loadMine(req, req.body?.id, 'uid', user.uid);
+    const target = req.body?.ambulanceId;
+    if (!R.isValidId(target)) throw err(req, 400, 'Choose an offer', 'একটা প্রস্তাব বেছে নিন');
+    const now = Date.now();
+    await advance(ref, now);
+    const gone = () => err(req, 409, 'This offer is no longer available — choose another', 'এই প্রস্তাব আর নেই — অন্যটা বেছে নিন', 'quote_gone');
+    const res = await db.runTransaction(async (t) => {
+      const c = await t.get(ref);
+      const x = c.data();
+      if (x.status !== 'open') {
+        if (['accepted', 'arrived'].includes(x.status) && x.ambulanceId === target) return { same: true };
+        throw err(req, 409, 'This request is no longer open', 'এই অনুরোধ আর খোলা নেই', 'state');
+      }
+      const entry = Object.entries(x.quotes || {}).find(([, q]) => q.ambulanceId === target);
+      if (!entry || now - entry[1].at >= QUOTE_MS) throw gone();
+      const [owner, q] = entry;
+      if (!(x.activeOwners || []).includes(owner) || (x.declined || []).includes(owner)) throw gone();
+      const ambRef = db.doc(`ambulances/${target}`);
+      const amb = await t.get(ambRef);
+      if (!amb.exists || amb.get('ownerUid') !== owner || amb.get('status') !== 'approved' || (amb.get('reqBusy') && amb.get('reqBusy') !== ref.id)) {
+        return { busy: owner };
+      }
+      t.update(ref, {
+        status: 'accepted', acceptedBy: owner, ambulanceId: target, ambulanceName: amb.get('name') || '', driverPhone: K.fixPhone(amb.get('phone')),
+        acceptedAt: now, activeOwners: [owner], agreedFare: q.fare,
+      });
+      t.update(ambRef, { available: false, availableAt: now, busyAt: now, updatedAt: now, reqBusy: ref.id, remindAt: FieldValue.delete() });
+      return { owner, fare: q.fare, others: (x.activeOwners || []).filter((o) => o !== owner) };
+    });
+    if (res.busy) {
+      // গাড়ি এর মাঝে অন্য ট্রিপে/তালিকার বাইরে — দরটা সরিয়ে রোগীকে অন্যটা বাছতে বলা
+      await ref.update({ [`quotes.${res.busy}`]: FieldValue.delete() }).catch(() => {});
+      throw gone();
+    }
+    if (!res.same) {
+      await pushDriver(ref.id, res.owner, `The patient agreed — ৳${res.fare}. Please go now.`, R.bnNumbers(`রোগী রাজি — ৳${res.fare}। এখনই রওনা দিন।`)).catch(() => {});
+      await pushReleased(ref.id, res.others);
+      await withdrawElsewhere(ref.id, res.owner);
+    }
+    return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
+  },
+
+  /**
+   * "ভাড়া বাড়ান" (অপেক্ষার সময়, বা ০টা মিললে): নতুন বাজেট (বেশি, বা null = যেকোনো) আর/অথবা includeUnknown।
+   * নতুন করে মেলা কাছের গাড়িতে (আগে পাঠানো বা ফোন করা নয়) সর্বোচ্চ ৫টায় পাঠানো; মেয়াদ নতুন করে ৩ মিনিট
+   * (আগে বাজেটের জন্য দর দিতে না পারা চালকরাও এখন পারেন)। কমানো যায় না।
+   */
+  async ambreq_budget(req, user) {
+    const { ref } = await loadMine(req, req.body?.id, 'uid', user.uid);
+    const now = Date.now();
+    const x0 = await advance(ref, now);
+    if (!x0.quote || x0.status !== 'open') throw err(req, 409, 'This request is no longer open', 'এই অনুরোধ আর খোলা নেই', 'state');
+    const maxFare = FARE.budgetOf(req.body?.maxFare);
+    if (Number.isNaN(maxFare)) throw err(req, 400, 'Write the fare limit in whole taka (৳100 or more)', 'সর্বোচ্চ ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)');
+    if (x0.maxFare == null ? maxFare != null : maxFare != null && maxFare < x0.maxFare) {
+      throw err(req, 400, 'The fare limit can only be raised', 'সর্বোচ্চ ভাড়া শুধু বাড়ানো যায়');
+    }
+    const includeUnknown = req.body?.includeUnknown === true || !!x0.includeUnknown;
+    const r = { ...x0, maxFare, includeUnknown };
+    const all = candidates(await districtAmbulances(x0.district), r, [], now);
+    const sent0 = Object.keys(x0.sentTo || {});
+    const notYet = (c) => !sent0.includes(c.owner) && !(x0.calledIds || []).includes(c.id);
+    const ok = affordable(all, r);
+    const next = ok.filter(notYet).slice(0, WAVE);
+    const left = all.filter((c) => notYet(c) && !ok.includes(c));
+    const out = await db.runTransaction(async (t) => {
+      const c = await t.get(ref);
+      const x = c.data();
+      if (x.status !== 'open') throw err(req, 409, 'This request is no longer open', 'এই অনুরোধ আর খোলা নেই', 'state');
+      const fresh = next.filter((n) => !(x.sentTo || {})[n.owner] && !(x.calledIds || []).includes(n.id));
+      const w = waveFields(fresh);
+      const declined = x.declined || [];
+      t.update(ref, {
+        maxFare, includeUnknown, openedAt: now, raisedAt: now,
+        raiseTo: FARE.raiseTo(left.map((l) => l.est), maxFare),
+        unknownFree: includeUnknown ? 0 : left.filter((l) => l.est == null && l.avail).length,
+        sentTo: { ...(x.sentTo || {}), ...w.sentTo },
+        km: { ...(x.km || {}), ...w.km },
+        est: { ...(x.est || {}), ...w.est },
+        activeOwners: [...new Set([...(x.activeOwners || []), ...fresh.map((n) => n.owner)])].filter((o) => !declined.includes(o)),
+      });
+      return { fresh, km: w.km };
+    });
+    await pushDrivers(ref.id, { km: out.km, quote: true }, out.fresh.map((n) => n.owner)).catch((e) => console.error('amb req raise push', e.message));
+    return { ok: true, added: out.fresh.length, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
   },
 
   /** "পারব না" — তাঁর তালিকা থেকে সরে; সবাই বললে আগেই পরিধি বাড়ে */
@@ -559,7 +872,7 @@ const actions = {
     });
     if (!out) return { ok: true };
     const { x } = out;
-    if (step === 'done') await recordTrip(x.uid, x.ambulanceId, now);
+    if (step === 'done') await recordTrip(x.uid, x.ambulanceId, now, x.agreedFare ?? null);
     const name = x.ambulanceName || '';
     if (step === 'arrived') await pushPatient(ref.id, x.uid, `${name} has arrived`, `${name} পৌঁছেছে`).catch(() => {});
     else if (step === 'done') await pushPatient(ref.id, x.uid, 'Trip finished — rate the ambulance', 'ট্রিপ শেষ — অ্যাম্বুলেন্সকে রেটিং দিন').catch(() => {});
@@ -600,13 +913,15 @@ const actions = {
         acceptedBy: FieldValue.delete(), ambulanceId: FieldValue.delete(), ambulanceName: FieldValue.delete(), driverPhone: FieldValue.delete(),
         acceptedAt: FieldValue.delete(), arrivedAt: FieldValue.delete(),
         replaced: FieldValue.arrayUnion({ uid: x.acceptedBy, ambulanceId: x.ambulanceId, at: now, reason: 'patient_found_other' }),
+        // ভাড়ার অনুরোধ: আগের দর আর ঠিক হওয়া ভাড়া বাদ — বাকি চালকরা আবার দর দেবেন
+        ...(x.quote ? { quotes: {}, agreedFare: FieldValue.delete() } : {}),
       });
       freeVehicle(t, ambRef, amb, now);
-      return { driver: x.acceptedBy, owners, km: x.km || {} };
+      return { driver: x.acceptedBy, owners, km: x.km || {}, quote: !!x.quote };
     });
     await politeCancel(ref.id, out.driver);
-    await pushDrivers(ref.id, { km: out.km }, out.owners).catch(() => {});
-    return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now) };
+    await pushDrivers(ref.id, { km: out.km, quote: out.quote }, out.owners).catch(() => {});
+    return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
   },
 };
 
@@ -656,12 +971,42 @@ async function byPhone(req, ref, uid, ambulanceId, replacing) {
     const others = (replacing ? [] : x.activeOwners || []).filter((o) => !a.exists || o !== a.get('ownerUid'));
     return { others, driver: replacing ? x.acceptedBy : null };
   });
-  if (out.same) return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now) };
+  if (out.same) return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
   // রেটিংয়ের যোগ্যতা: ফোনের রেকর্ড (ফোনের মতোই ১ ঘণ্টা পর), এই অনুরোধের সাথে যুক্ত
   await db.doc(`ambulanceCalls/${uid}_${ambulanceId}`).set({ uid, ambulanceId, at: now, byPhoneReq: ref.id }, { merge: true }).catch(() => {});
   if (out.driver) await politeCancel(ref.id, out.driver);
   await pushNoLonger(ref.id, out.others);
-  return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now) };
+  return { ok: true, request: patientView(ref.id, (await ref.get()).data(), now, langOf(req)) };
+}
+
+/** রোগী অন্য দরে রাজি হলেন: বাকি চালকদের (দর দেওয়া বা শুধু ডাক পাওয়া) "রোগী অন্য গাড়ি নিয়েছেন" */
+async function pushReleased(id, owners) {
+  if (!owners.length) return;
+  const { sendPush, tokensOf } = require('./firebase');
+  const users = (await db.getAll(...owners.map((u) => db.doc(`users/${u}`)))).filter((u) => u.exists);
+  await sendPush(users.map((u) => ({
+    uid: u.id, tokens: tokensOf(u),
+    title: R.L(u.get('lang'), 'The patient took another ambulance', 'রোগী অন্য গাড়ি নিয়েছেন'), body: '',
+    data: { type: 'services', kind: 'ambulance', sub: 'amb_req', reqId: id },
+  }))).catch(() => {});
+}
+
+/**
+ * চালক এক অনুরোধে নিশ্চিত হলেন: তাঁর অন্য খোলা অনুরোধের দর তুলে নেওয়া আর সেগুলোর তালিকা থেকে সরানো
+ * (গাড়ি এখন ট্রিপে — অন্য রোগী যেন সেই দরে "রাজি" চেপে আটকে না যান)। চেষ্টা মাত্র; না হলেও ambreq_agree গাড়ি ব্যস্ত দেখে আটকায়।
+ */
+async function withdrawElsewhere(id, owner) {
+  const snap = await db.collection('ambulanceRequests').where('activeOwners', 'array-contains', owner).limit(30).get().catch(() => ({ docs: [] }));
+  for (const d of snap.docs) {
+    if (d.id === id || d.get('status') !== 'open') continue;
+    await db.runTransaction(async (t) => {
+      const c = await t.get(d.ref);
+      if (c.get('status') !== 'open') return;
+      const quotes = { ...(c.get('quotes') || {}) };
+      delete quotes[owner];
+      t.update(d.ref, { quotes, activeOwners: (c.get('activeOwners') || []).filter((o) => o !== owner) });
+    }).catch(() => {});
+  }
 }
 
 /** বাকি চালকদের: "রোগী গাড়ি পেয়ে গেছেন — আর দরকার নেই" */
@@ -711,6 +1056,14 @@ async function attachCall(uid, reqId, ambulanceId) {
           km[owner] = base.exact ? wholeKm(real) : -1 - wholeKm(real);
         } else delete km[owner];
         Object.assign(upd, { sentTo, km });
+        // ভাড়ার অনুরোধ: ফোন করা গাড়ির আনুমানিক ভাড়া (দর দিতে; বাজেটের নিয়ম একই)
+        if (x.quote) {
+          const e = FARE.estimate(a.get('fareChart'), { district: a.get('district'), upazilaId: a.get('upazilaId') }, x.dest, x);
+          const est = { ...(x.est || {}) };
+          if (e != null) est[owner] = e;
+          else delete est[owner];
+          upd.est = est;
+        }
       }
       if (!(x.activeOwners || []).includes(owner) || (x.declined || []).includes(owner)) {
         upd.activeOwners = [...new Set([...(x.activeOwners || []), owner])];
@@ -741,7 +1094,7 @@ async function dailyCleanup(now = Date.now()) {
     const b = db.batch();
     s.docs.forEach((d) => b.update(d.ref, {
       lat: FieldValue.delete(), lng: FieldValue.delete(), phone: FieldValue.delete(), pickup: FieldValue.delete(),
-      note: FieldValue.delete(), patientName: FieldValue.delete(), purgeAt: FieldValue.delete(), purgedAt: now,
+      note: FieldValue.delete(), patientName: FieldValue.delete(), dest: FieldValue.delete(), purgeAt: FieldValue.delete(), purgedAt: now,
     }));
     await b.commit();
     purged += s.size;
@@ -770,7 +1123,7 @@ async function closeForUser(uid, { full = false } = {}) {
     if (d.get('acceptedBy') === uid) {
       await actions.ambreq_step({ body: { id: d.id, step: 'cancel', reason: 'other' } }, { uid }).catch(() => {});
     } else if (d.get('status') === 'open') {
-      await d.ref.update({ activeOwners: FieldValue.arrayRemove(uid) }).catch(() => {});
+      await d.ref.update({ activeOwners: FieldValue.arrayRemove(uid), ...(d.get('quotes')?.[uid] ? { [`quotes.${uid}`]: FieldValue.delete() } : {}) }).catch(() => {});
     }
   }
   if (full) await db.doc(`ambReqLimits/${uid}`).delete().catch(() => {});
@@ -779,5 +1132,5 @@ async function closeForUser(uid, { full = false } = {}) {
 
 module.exports = {
   actions, candidates, advance, dailyCleanup, closeForUser, patientView, driverView, attachCall,
-  WAVE, WIDEN_MS, EXPIRE_MS, PER_HOUR, PURGE_AFTER_MS, FALLBACK, PATIENT_CANCEL, DRIVER_CANCEL,
+  WAVE, WIDEN_MS, EXPIRE_MS, QUOTE_MS, PER_HOUR, PURGE_AFTER_MS, FALLBACK, PATIENT_CANCEL, DRIVER_CANCEL,
 };
