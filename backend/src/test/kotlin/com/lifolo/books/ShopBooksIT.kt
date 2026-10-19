@@ -116,7 +116,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `purchases - quantity up, average cost, nearest expiry, new names become products; deleting gives the quantity back`() {
+    fun `purchases - quantity up, average cost, nearest expiry, new names become products - deleting gives the quantity back`() {
         val a = "shopBuyA001"
         bookShop(a, listOf("Seclo"))
         ok(a, "books_items")
@@ -158,7 +158,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `counter sales - product discounts, bill discount, profit, below cost, unpriced; deleting reverses everything`() {
+    fun `counter sales - product discounts, bill discount, profit, below cost, unpriced - deleting reverses everything`() {
         val a = "shopSaleA01"
         bookShop(a)
         val comet = ok(a, "books_item_save", mapOf("name" to "Comet 500", "qty" to 10, "cost" to 5, "price" to 8, "disc" to mapOf("type" to "pct", "v" to 10)))["item"]["id"].textValue()
@@ -216,7 +216,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `prescription - rx_dispense as before; then into the books once, quantity from the dispensing; online order source`() {
+    fun `prescription - rx_dispense as before - then into the books once, quantity from the dispensing - online order source`() {
         val a = "shopRxA0001"
         bookShop(a)
         ok(a, "books_item_save", mapOf("name" to "Comet 500", "qty" to 4, "cost" to 5, "price" to 8, "disc" to mapOf("type" to "pct", "v" to 10)))
@@ -276,7 +276,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `write-off is a loss at cost; a stock count is not in the P&L`() {
+    fun `write-off is a loss at cost - a stock count is not in the P&L`() {
         val a = "shopAdjA001"
         bookShop(a)
         val s = ok(a, "books_item_save", mapOf("name" to "Seclo", "qty" to 30, "cost" to 4.5, "price" to 7))["item"]["id"].textValue()
@@ -354,7 +354,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `only the shop owner - not others, not guests, not without a pharmacy; other shops' rows are untouched`() {
+    fun `only the shop owner - not others, not guests, not without a pharmacy - other shops' rows are untouched`() {
         val a = "shopOwnA001"
         bookShop(a)
         val c = ok(a, "books_item_save", mapOf("name" to "Comet 500", "qty" to 10, "cost" to 5, "price" to 8))["item"]["id"].textValue()
@@ -470,7 +470,7 @@ class ShopBooksIT : P4Test() {
     }
 
     @Test
-    fun `bill discount cents never make a line negative; 100 percent makes every line 0`() {
+    fun `bill discount cents never make a line negative - 100 percent makes every line 0`() {
         val ps = BooksMath.priceSale(listOf(9.43, 8.73, 8.07, 0.13).mapIndexed { k, p -> BooksMath.LineIn(null, "i$k", "M$k", 1.0, p, 0.0, null) }, Disc("amt", 25.98))
         assertTrue(ps.lines.all { it.net >= 0 }, ps.lines.map { it.net }.toString())
         assertEquals(0.38, BooksMath.r2(ps.lines.sumOf { it.net }))

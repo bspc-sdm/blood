@@ -167,7 +167,7 @@ class RxPharmacyIT : P4Test() {
     }
 
     @Test
-    fun `segments - new, active, closed; counts from all, open orders keep their place`() {
+    fun `segments - new, active, closed - counts from all, open orders keep their place`() {
         assertEquals(
             listOf("new", "active", "active", "active", "closed", "closed", "closed"),
             listOf("sent", "ready", "accepted", "out", "done", "cancelled", "withdrawn").map { RxMath.pharmSeg(it) },

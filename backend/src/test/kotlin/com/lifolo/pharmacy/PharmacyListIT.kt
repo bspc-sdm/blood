@@ -168,7 +168,7 @@ class PharmacyListIT : P4Test() {
     }
 
     @Test
-    fun `online orders - only shops that deliver here; without a location the same upazila`() {
+    fun `online orders - only shops that deliver here - without a location the same upazila`() {
         seedRx()
         val online = ok(p, "pharmacies", here + mapOf("mode" to "online"))
         assertEquals(listOf(a, d), ids(online))
@@ -180,7 +180,7 @@ class PharmacyListIT : P4Test() {
     }
 
     @Test
-    fun `someone else's prescription, guest or bad id - 403; a caregiver may for the patient`() {
+    fun `someone else's prescription, guest or bad id - 403 - a caregiver may for the patient`() {
         seedRx()
         for ((uid, rxId) in listOf(q to "rxlRx1", null to "rxlRx1", p to "nope0000", p to "rxlRxQ", p to "../x")) {
             val r = call(uid, "pharmacies", here + mapOf("mode" to "shop", "rxId" to rxId))
@@ -207,7 +207,7 @@ class PharmacyListIT : P4Test() {
     }
 
     @Test
-    fun `demo and real - with a mode or prescription only the own world; guests and old apps as before`() {
+    fun `demo and real - with a mode or prescription only the own world - guests and old apps as before`() {
         seedRx()
         val dem = ok(dp, "pharmacies", here + mapOf("mode" to "shop", "rxId" to "demo-rxlRx1"))
         assertEquals(listOf(ds), ids(dem))
@@ -230,7 +230,7 @@ class PharmacyListIT : P4Test() {
     }
 
     @Test
-    fun `discount terms - saved, kept for old apps, limits; no new review`() {
+    fun `discount terms - saved, kept for old apps, limits - no new review`() {
         seedRx()
         val base = mapOf(
             "name" to "দোকান $a", "licenseNo" to "DL-1", "phone" to "01711111111", "district" to MYMENSINGH, "upazilaId" to 466,

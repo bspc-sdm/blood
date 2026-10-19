@@ -199,7 +199,7 @@ class PharmacyRateIT : P4Test() {
     }
 
     @Test
-    fun `account deletion - ratings leave the averages and the owner's comments; deleting the shop drops its ratings`() {
+    fun `account deletion - ratings leave the averages and the owner's comments - deleting the shop drops its ratings`() {
         val e = "phshopE0001"
         val u = "phleaver001"
         val k2 = "phstayer001"
