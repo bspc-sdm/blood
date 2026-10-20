@@ -22,3 +22,17 @@ web-vue/src/lib/sentry.ts, app/…/SentrySetup.kt — তিনটাতেই �
 সার্ভারের লগে `sentry initialised: enabled=true …` আর সার্ভারের নিজের SDK দিয়ে একটা ঘটনা, ওয়েবে Chromium দিয়ে
 `https://lifolo.com/#sentry-test` (console-এ `[sentry] initialised`, Sentry-তে POST 200)। ফল `ci-log-sentry` শাখায়।
 ফোনে: সেটিংস → "ভার্সন"-এ ৭ বার চাপুন → Toast-এ ঘটনার id। Sentry-র Issues-এ "test event" দেখা যাবে — দেখে মুছে (Resolve) দিন।
+
+## ২০ অক্টোবরের অবস্থা — সিক্রেটে DSN নেই
+
+**Sentry test** (২০ অক্টোবর ০৩:৩৭ UTC) দেখাল: তিনটা সিক্রেটেই (`SENTRY_DSN_BACKEND`, `SENTRY_DSN_WEB`, `SENTRY_DSN_ANDROID`)
+DSN নয়, Sentry-র **OTLP ঠিকানা** (`https://o4512282884505600.ingest.de.sentry.io/api/<…>/integration/otlp`) — এতে চাবি
+(`<key>@`) নেই, তাই Sentry এটা দিয়ে চলে না। এখন তিন জায়গাতেই Sentry **বন্ধ** (কিছু ভাঙেনি)।
+
+- ভুল ঠিকানাটা প্রথম deploy-এ (run 39363600746, ~০৩:২৫–০৩:৩৫ UTC) সার্ভার চালুই হতে দেয়নি — আগের jar-ও নয় (একই app.env)।
+  তারপর থেকে deploy আগে DSN-এর গঠন যাচাই করে (ভুল হলে Sentry বাদ দিয়ে সতর্কবার্তা), আর অ্যাপ না চললে Sentry ছাড়া আবার চালায়।
+- **ঠিক করা (মালিক):** sentry.io → Settings → Projects → **lifolo-server** → **Client Keys (DSN)** → "DSN" কপি
+  (দেখতে `https://<৩২ অক্ষর>@o4512282884505600.ingest.de.sentry.io/<সংখ্যা>`) → GitHub → Settings → Secrets and variables →
+  Actions → `SENTRY_DSN_BACKEND` → Update। একইভাবে **lifolo-web** → `SENTRY_DSN_WEB`, **lifolo-android** → `SENTRY_DSN_ANDROID`।
+- তারপর: Actions → **Deploy backend** → Run workflow (main) — সার্ভার আর ওয়েবে চালু; অ্যাপে পরের ভার্সনের Build APK-এ
+  (বা Build APK হাতে চালালে)। শেষে **Sentry test** — তিন সারিতেই `HTTP 200`, সার্ভারে `enabled=true`, ওয়েবে `ok (initialised, POST 200)`।

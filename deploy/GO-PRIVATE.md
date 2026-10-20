@@ -113,3 +113,7 @@ Backend e2e ২৯ (Spring + Node + publish) · E2E Android ১১ · E2E Androi
   সরাসরি VPS-এ যায়।
 - অ্যাপ (Android, নিজের নামে) আর ব্রাউজার সাধারণত আটকায় না। Download check-এর "আসল পথে" সারিতে `cf-cache` দেখায় —
   `version.json`-এ কখনো `HIT` হওয়া উচিত নয় (`no-store`)।
+- Cloudflare-এর **Browser Cache TTL** এখন `lifolo.apk`-এর `no-cache`-কে ব্রাউজারের জন্য `max-age=14400` (৪ ঘণ্টা) করে দেয় —
+  একই ফোনের ব্রাউজার ৪ ঘণ্টা পুরোনো APK দিতে পারে (অ্যাপের "আপডেট করুন" ভার্সনের নামের লিংক নেয়, তাতে সমস্যা নেই)।
+  ঠিক করতে: Cloudflare → Caching → Configuration → Browser Cache TTL → **Respect Existing Headers**।
+
