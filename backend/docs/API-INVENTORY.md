@@ -1026,6 +1026,11 @@ All use the Node `handler` envelope (POST only → 405 `{error:"Method not allow
   GET only · response `{ok, privacy, closed, eligibleReminders, care, accountsDeleted, inboxDeleted, emergenciesClosed, geo,
   phoneLimitsDeleted, medFindsDeleted, rxReminders, refill, ambulanceReminders, ambulanceRequests, stockPrices}`.
   Phase 1: endpoint + JobRunr recurring job (03:00 UTC) + `DailyTask` runner; the steps are ported in phase 2.
+- [x] **`GET /api/cron/storage`**, **`POST /api/cron/storage/migrate?limit=200`** — new (no Node equivalent) · Bearer
+  `$CRON_SECRET` (401 "অনুমতি নেই") · R2 status `{configured, remaining{profilePhoto, profileThumb, verifyDocs,
+  labReportPhotos}, stored, trash}`; migrate moves up to `limit` old base64 rows to R2 (+ `{ok, migrated, failed, changed}`;
+  400 without R2, 409 while running) — [deploy/R2.md](../../deploy/R2.md). The app/web API is unchanged: photos are still
+  sent and returned as the same base64 text.
 
 Static files served by Vercel today (phase 2: nginx): `/admin` → `server/public/admin/index.html` (admin panel, strict CSP),
 `/w/*` + SPA fallback → React web app, `/favicon.ico`.

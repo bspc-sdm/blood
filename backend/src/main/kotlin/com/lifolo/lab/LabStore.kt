@@ -2,6 +2,7 @@ package com.lifolo.lab
 
 import com.lifolo.common.Ids
 import com.lifolo.common.Phones
+import com.lifolo.common.StoredFiles
 import com.lifolo.common.intOrNull
 import com.lifolo.common.stringArray
 import com.lifolo.rx.P3Sql
@@ -105,7 +106,7 @@ data class Review(
  * `lab_prices` + `lab_price_items`, `lab_ranges`, `lab_orders` (+ price items, report items, photos), `rx_reviews`.
  */
 @Service
-class LabStore(private val jdbc: JdbcTemplate) {
+class LabStore(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
     // ------------------------------------------------------------------ price lists
 
     fun prices(labUid: String): PriceList? = pricesOf(listOf(labUid))[labUid]
@@ -247,8 +248,14 @@ class LabStore(private val jdbc: JdbcTemplate) {
         val photoList = HashMap<String, MutableList<String>>()
         val photoCount = HashMap<String, Int>()
         if (photos) {
-            jdbc.eachRow("SELECT order_id, data FROM lab_report_photos WHERE order_id = ANY(?::text[]) ORDER BY order_id, idx", arr) { rs ->
-                photoList.getOrPut(rs.getString("order_id")) { ArrayList() }.add(rs.getString("data") ?: "")
+            // base64 in `data`, or on R2 (`storage_key`, V602) — the same text either way; unreadable → "" like a missing one
+            val photoRows = ArrayList<Triple<String, String?, String?>>()
+            jdbc.eachRow("SELECT order_id, data, storage_key FROM lab_report_photos WHERE order_id = ANY(?::text[]) ORDER BY order_id, idx", arr) { rs ->
+                photoRows += Triple(rs.getString("order_id"), rs.getString("data"), rs.getString("storage_key"))
+            }
+            val texts = files.texts(photoRows.filter { it.second == null }.mapNotNull { it.third })
+            for ((orderId, data, key) in photoRows) {
+                photoList.getOrPut(orderId) { ArrayList() }.add(data ?: key?.let { texts[it] } ?: "")
             }
             photoList.forEach { (k, v) -> photoCount[k] = v.size }
         } else {
@@ -341,7 +348,11 @@ class LabStore(private val jdbc: JdbcTemplate) {
                 id, i, r.test, r.result, r.unit, r.range, r.flag, r.group, r.code, r.key, r.low, r.high, r.long,
             )
         }
-        photos.forEachIndexed { i, p -> jdbc.update("INSERT INTO lab_report_photos (order_id, idx, data) VALUES (?, ?, ?)", id, i, p) }
+        photos.forEachIndexed { i, p ->
+            // R2 configured (V602): the bytes there, the key here; the old photos' keys were queued for deletion above
+            val key = if (files.enabled && p.isNotEmpty()) files.put("lab-report", p) else null
+            jdbc.update("INSERT INTO lab_report_photos (order_id, idx, data, storage_key) VALUES (?, ?, ?, ?)", id, i, if (key == null) p else null, key)
+        }
     }
 
     /**

@@ -154,7 +154,7 @@ class BloodRequestService(private val jdbc: JdbcTemplate) {
 * কোন migration চলেছে: ডাটাবেসের `flyway_schema_history` টেবিল (Laravel-এর `migrations` টেবিলের মতো)।
 * `ddl-auto: none` — Hibernate নিজে কোনো টেবিল বানায়/বদলায় না; সব বদল migration দিয়েই।
 * **ক্রম (ধাপ ২-এর পর):** `V1`–`V7` (ভিত্তি), তারপর প্যাকেজের `V100` (P1), `V200` (P2), `V300` (P3), `V400` (P4), `V500` (P5),
-  `V600`–`V601` (P6)। প্যাকেজগুলো আলাদা branch-এ বানানো হলেও সংখ্যার ক্রমেই চলে — খালি ডাটাবেসে সব একবারে, পরপর
+  `V600`–`V601` (P6), `V602` (ছবি R2-এ — [../deploy/R2.md](../deploy/R2.md))। প্যাকেজগুলো আলাদা branch-এ বানানো হলেও সংখ্যার ক্রমেই চলে — খালি ডাটাবেসে সব একবারে, পরপর
   (CI-র প্রতিটা টেস্ট রান এটাই করে)। **এই ডাটাবেস এখনো কোথাও চালু (deploy) হয়নি**, তাই কোনো চালু ডাটাবেসে "পরের সংখ্যা আগে
   চলে গেছে" অবস্থা নেই — Flyway-এর `outOfOrder` লাগে না, বন্ধই থাকবে। প্রথম deploy-এর পর থেকে নতুন migration শুধু সবচেয়ে বড়
   সংখ্যার পরে (যেমন `V602`, `V700`) যোগ হবে।
@@ -200,7 +200,7 @@ curl localhost:8080/api/health
 | `WEB_SESSION_SECRET` | অ্যাডমিন প্যানেলের কুকি সই করার চাবি (খালি হলে service account থেকে) | একই |
 | `EMAIL_CODE_SECRET` | লগইন-কোডের HMAC চাবি (খালি হলে service account-এর private_key, Node-এর মতো) | নতুন |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_FROM` | Amazon SES (না দিলে ইমেইল যায় না, শুধু লগ — production-এ অবশ্যই দিন) | `GMAIL_USER`, `GMAIL_APP_PASSWORD` |
-| `R2_ACCOUNT_ID` বা `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Cloudflare R2 (ছবি/কাগজ, ধাপ ২) | — |
+| `R2_ACCOUNT_ID` বা `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (+ ঐচ্ছিক `R2_REGION`, `R2_CACHE_MB`) | Cloudflare R2: সব থাকলে ছবি/কাগজ R2-এ, ডাটাবেসে শুধু চাবি; না থাকলে আগের মতো base64 ডাটাবেসে — [../deploy/R2.md](../deploy/R2.md) | — |
 | `SMS_URL_TEMPLATE` | SMS gateway-র GET লিংক (`{to}`, `{msg}`), খালি = ফোন যাচাই বন্ধ | একই |
 | `PUSH_MODE` | `fcm` (ডিফল্ট; service account না থাকলে `log`), `log` = পুশ বন্ধ (শুধু লগ, ঘণ্টার তালিকা লেখা হয়), `fake` = শুধু e2e (কিছু যায় না, সব "পৌঁছেছে") | — |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | ত্রুটি পাঠানো (খালি = বন্ধ) | — |

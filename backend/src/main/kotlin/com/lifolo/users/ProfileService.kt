@@ -7,6 +7,7 @@ import com.lifolo.common.Js
 import com.lifolo.common.Lang
 import com.lifolo.common.Rules
 import com.lifolo.common.Sql
+import com.lifolo.common.StoredFiles
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import jakarta.persistence.PersistenceContext
@@ -21,7 +22,7 @@ import java.time.Instant
  * guarded by firestore.rules). Only the fields the app itself writes ([SELF_FIELDS]) can be changed.
  */
 @Service
-class ProfileService(private val jdbc: JdbcTemplate) {
+class ProfileService(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
     @PersistenceContext
     private lateinit var em: EntityManager
 
@@ -60,8 +61,8 @@ class ProfileService(private val jdbc: JdbcTemplate) {
         "notifyGroups" to x.notifyGroups?.toList(),
         "viewGroups" to x.viewGroups?.toList(),
         "commitments" to commitments,
-        "photo" to x.photo?.takeIf { it.isNotEmpty() },
-        "hasPhotoThumb" to !x.photoThumb.isNullOrEmpty(),
+        "photo" to files.text(x.photo, x.photoKey)?.takeIf { it.isNotEmpty() },
+        "hasPhotoThumb" to (!x.photoThumb.isNullOrEmpty() || x.photoThumbKey != null),
         "maxKm" to x.maxKm,
         "fareAfterKm" to x.fareAfterKm,
         "lang" to x.lang,
@@ -173,12 +174,27 @@ class ProfileService(private val jdbc: JdbcTemplate) {
             "maxKm" -> p.maxKm = (v as Long?)?.toInt()
             "fareAfterKm" -> p.fareAfterKm = (v as Long?)?.toInt()
             "lang" -> p.lang = v as String?
-            "photo" -> p.photo = v as String?
-            "photoThumb" -> p.photoThumb = v as String?
+            "photo" -> setPhoto(v as String?, "profile", { p.photo = it }, { p.photoKey = it })
+            "photoThumb" -> setPhoto(v as String?, "profile-thumb", { p.photoThumb = it }, { p.photoThumbKey = it })
             "lat" -> p.lat = v as Double?
             "lng" -> p.lng = v as Double?
             "placeName" -> p.placeName = v as String?
             "locationSource" -> p.locationSource = v as String?
+        }
+    }
+
+    /**
+     * R2 configured → the bytes go to R2 and the row keeps the key (the base64 column is cleared); otherwise the
+     * base64 text goes into the column like before. Either way the other column is cleared (the trigger queues a
+     * replaced key for deletion).
+     */
+    private fun setPhoto(v: String?, area: String, setData: (String?) -> Unit, setKey: (String?) -> Unit) {
+        if (v != null && v.isNotEmpty() && files.enabled) {
+            setKey(files.put(area, v))
+            setData(null)
+        } else {
+            setData(v)
+            setKey(null)
         }
     }
 

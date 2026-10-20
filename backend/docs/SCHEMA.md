@@ -12,6 +12,8 @@ The Firestore data of the Node server, normalized for PostgreSQL 16. Migrations:
 | `V5__rx_lab.sql` | doctor's patient register, prescriptions (+ medicines, dispensings), pharmacy orders, lab orders (+ price items, report items, photos), report reviews |
 | `V6__shop_books.sql` | shop items, purchases (+ lines, undo), sales (+ lines), adjustments, **daily aggregates** (days, sources, per-item) |
 | `V7__content_support.sql` | questions, answers, tips, moderation reports, tickets (+ messages) |
+| `V100`–`V601` | package additions (P1–P6) |
+| `V602__r2_files.sql` | photos on R2: `stored_objects` (key, size, content type, sha256), `stored_objects_trash` (keys to delete), `user_profiles.photo_key`/`photo_thumb_key`, release triggers on `user_profiles`, `verify_docs`, `lab_report_photos` |
 
 **104 tables, ~200 indexes.** Checked by applying all migrations to PostgreSQL 16.14, and by the Testcontainers tests (Flyway runs
 before every test context).
@@ -103,7 +105,7 @@ before every test context).
 | `bloodBankCalls/{uid_id}` | `blood_bank_calls` | |
 | `homeCalls/{uid_provider}` | `home_calls` | |
 | `ambulanceStats`, `pharmacyStats`, `bloodBankStats`, `homeStats` {total, callers, d{}, recent[]} | `listing_stats`, `listing_stats_daily`, `listing_recent_ratings` | `kind` column |
-| `verifyDocs/{kind_id_type}` | `verify_docs` | `data` base64 today, `storage_key` (R2) in phase 2 |
+| `verifyDocs/{kind_id_type}` | `verify_docs` | `data` base64, or `storage_key` (R2, V602) when R2 is configured |
 | `modReports/{id}` | `mod_reports` | UNIQUE (target_path, reporter_uid) |
 | `medFinds/{id}` (+ notified[], answers{}) | `med_finds`, `med_find_targets` | |
 | `pharmacyStock/{uid}` {names, keys, prices, mrp} | `pharmacy_stock`, `pharmacy_stock_items` | one row per product key |
@@ -180,6 +182,10 @@ patient/provider/status/date, inbox by uid + time, cron scans (`accounts_delete_
 
 * **Redis**: rate-limit buckets (`rl:*`, Bucket4j), guest response cache (`guest:*`), Spring caches (`admins`, `catalog`, …).
 * **JobRunr** creates its own `jobrunr_*` tables (recurring daily job, future delayed jobs).
-* **Cloudflare R2** (phase 2): photos and documents; the tables keep `storage_key`.
+* **Cloudflare R2** (V602, only when the `R2_*` env vars are set — [deploy/R2.md](../../deploy/R2.md)): profile photos/thumbs,
+  verification documents and lab report photos. The rows keep the key (`photo_key`, `photo_thumb_key`, `storage_key`) and
+  `stored_objects` the size, content type and sha256; the API still sends and receives the same base64 text. A key that leaves a
+  row (deleted, cascaded, replaced) goes to `stored_objects_trash` by trigger, and the `storage-trash` job deletes the object.
+  Old base64 rows move with `POST /api/cron/storage/migrate`.
 * **Bundled JSON** (unchanged from Node): districts/upazilas/unions (`geo.json`, `districts.js`), DGHS hospital directory
   (`hospital-dir.json`), drug list (`drugs.json`), catalog and lab-test defaults.

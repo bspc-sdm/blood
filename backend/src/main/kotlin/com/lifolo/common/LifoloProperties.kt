@@ -61,6 +61,10 @@ data class LifoloProperties(
         val accessKeyId: String = "",
         val secretAccessKey: String = "",
         val bucket: String = "",
+        /** R2_REGION: "auto" for R2 (default), us-east-1 for MinIO */
+        val region: String = "",
+        /** R2_CACHE_MB: in-memory cache of photos read from R2 (base64 text, per server process) */
+        val cacheMb: Int = 64,
     ) {
         val resolvedEndpoint: String
             get() = endpoint.ifBlank { if (accountId.isNotBlank()) "https://$accountId.r2.cloudflarestorage.com" else "" }

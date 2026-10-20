@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
@@ -15,8 +17,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.net.URI
 
 /**
- * File storage on Cloudflare R2 (S3 API). Phase 2 moves base64 photos (profile, licence documents,
- * lab report photos) here and keeps only keys in the database.
+ * File storage on Cloudflare R2 (S3 API), private bucket (no public URLs: the server reads the bytes and answers
+ * the API like before). Used through [StoredFiles], which keeps the reference rows; see V602__r2_files.sql.
+ * [configured] = all R2_* env vars are set; otherwise [UnconfiguredStorage] and every photo stays base64 in
+ * PostgreSQL (the behaviour before R2).
  */
 interface ObjectStorage {
     val configured: Boolean
@@ -38,10 +42,14 @@ class R2Storage(private val cfg: LifoloProperties.R2) : ObjectStorage {
     private val s3: S3Client by lazy {
         S3Client.builder()
             .endpointOverride(URI.create(cfg.resolvedEndpoint))
-            // R2 ignores the region but the SDK needs one
-            .region(Region.of("auto"))
+            // R2 ignores the region ("auto") but the SDK needs one; MinIO in the tests wants us-east-1
+            .region(Region.of(cfg.region.ifBlank { "auto" }))
             .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(cfg.accessKeyId, cfg.secretAccessKey)))
             .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+            // no default CRC trailers (aws-chunked): R2 and MinIO both accept plain uploads; integrity is checked
+            // with our own SHA-256 (StoredFiles / StorageMigrator)
+            .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+            .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
             .build()
     }
 

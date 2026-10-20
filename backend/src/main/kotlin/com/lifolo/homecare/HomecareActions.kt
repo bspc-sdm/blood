@@ -16,6 +16,7 @@ import com.lifolo.common.Phones
 import com.lifolo.common.Places
 import com.lifolo.common.Rules
 import com.lifolo.common.Sql
+import com.lifolo.common.StoredFiles
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
@@ -43,6 +44,7 @@ class HomecareActions(
     private val catalog: Catalog,
     private val stats: ListingStats,
     private val moderation: Moderation,
+    private val files: StoredFiles,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -121,16 +123,25 @@ class HomecareActions(
                 type, type,
             )
             val locs = HashMap<String, Pair<HomeLoc, String>>()
+            val thumbKeys = HashMap<String, String>()
             for (chunk in docs.map { it.uid }.chunked(1000)) {
                 jdbc.query(
-                    "SELECT uid, lat, lng, location_source, place_name, photo_thumb FROM user_profiles WHERE uid IN (${chunk.joinToString(",") { "?" }})",
+                    "SELECT uid, lat, lng, location_source, place_name, photo_thumb, photo_thumb_key FROM user_profiles WHERE uid IN (${chunk.joinToString(",") { "?" }})",
                     RowCallbackHandler { rs ->
                         val lat = rs.getDouble("lat").let { if (rs.wasNull()) null else it }
                         val lng = rs.getDouble("lng").let { if (rs.wasNull()) null else it }
-                        locs[rs.getString("uid")] = HomeLoc(lat, lng, rs.getString("location_source"), rs.getString("place_name")) to (rs.getString("photo_thumb") ?: "")
+                        val uid = rs.getString("uid")
+                        val thumb = rs.getString("photo_thumb")
+                        if (thumb == null) rs.getString("photo_thumb_key")?.let { thumbKeys[uid] = it }
+                        locs[uid] = HomeLoc(lat, lng, rs.getString("location_source"), rs.getString("place_name")) to (thumb ?: "")
                     },
                     *chunk.toTypedArray(),
                 )
+            }
+            // thumbs on R2 (V602); one that cannot be read shows like no photo
+            if (thumbKeys.isNotEmpty()) {
+                val texts = files.texts(thumbKeys.values)
+                for ((uid, key) in thumbKeys) locs[uid]?.let { (loc, _) -> locs[uid] = loc to (texts[key] ?: "") }
             }
             docs.map { d -> locs[d.uid].let { HomeEntry(d, it?.first ?: HomeLoc(), it?.second ?: "") } }
         }

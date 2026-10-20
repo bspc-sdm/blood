@@ -43,6 +43,11 @@ class UserProfile(
     var photo: String? = null,
     @Column(name = "photo_thumb")
     var photoThumb: String? = null,
+    /** R2 keys (V602): set instead of [photo]/[photoThumb] when R2 is configured — read through StoredFiles */
+    @Column(name = "photo_key")
+    var photoKey: String? = null,
+    @Column(name = "photo_thumb_key")
+    var photoThumbKey: String? = null,
     var lat: Double? = null,
     var lng: Double? = null,
     var geohash: String? = null,

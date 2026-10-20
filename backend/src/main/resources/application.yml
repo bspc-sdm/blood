@@ -100,3 +100,5 @@ lifolo:
     access-key-id: ${R2_ACCESS_KEY_ID:}
     secret-access-key: ${R2_SECRET_ACCESS_KEY:}
     bucket: ${R2_BUCKET:}
+    region: ${R2_REGION:}
+    cache-mb: ${R2_CACHE_MB:64}

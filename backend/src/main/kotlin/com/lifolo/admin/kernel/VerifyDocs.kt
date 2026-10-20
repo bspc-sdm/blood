@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.lifolo.auth.AuthUser
 import com.lifolo.common.ApiException
 import com.lifolo.common.Lang
+import com.lifolo.common.StoredFiles
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import java.sql.Timestamp
@@ -18,7 +19,7 @@ import java.util.Base64
  * `kind` (blood bank type: govt/private/org) and `type` (badge: doctor/nurse/…); `docsHave` (stored types, a
  * list or a map like Node), `docsRequestedAt`, `verification`.
  * `docs` is the request field `docs: {type: base64 JPEG/PNG}`; photos not sent stay as they were.
- * Rows: `verify_docs (kind, listing_id, type)` (base64 `data` today).
+ * Rows: `verify_docs (kind, listing_id, type)`: base64 `data`, or `storage_key` on R2 when it is configured (V602).
  * The actions `verify_docs_upload`, `admin_verify_docs`, `admin_request_docs` are P6 (later PR).
  */
 interface VerifyDocs {
@@ -227,7 +228,7 @@ object VerifySpec {
 }
 
 @Service
-class VerifyDocsService(private val jdbc: JdbcTemplate) : VerifyDocs {
+class VerifyDocsService(private val jdbc: JdbcTemplate, private val files: StoredFiles) : VerifyDocs {
     override fun validate(lang: String?, kind: String, listing: Map<String, Any?>, docs: JsonNode?, required: Boolean): Map<String, String> {
         val list = VerifySpec.docs(kind, listing)
         val given = docs?.takeIf { it.isObject }
@@ -273,13 +274,15 @@ class VerifyDocsService(private val jdbc: JdbcTemplate) : VerifyDocs {
         if (clean.isEmpty()) return null
         val now = Timestamp(System.currentTimeMillis())
         for ((type, data) in clean) {
+            // R2 configured: the bytes there, the key here (a replaced key is queued for deletion by a trigger)
+            val key = if (files.enabled) files.put("verify", data) else null
             jdbc.update(
                 """
-                INSERT INTO verify_docs (kind, listing_id, type, owner_uid, data, storage_key, size, at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)
+                INSERT INTO verify_docs (kind, listing_id, type, owner_uid, data, storage_key, size, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (kind, listing_id, type) DO UPDATE SET owner_uid = EXCLUDED.owner_uid, data = EXCLUDED.data,
-                  storage_key = NULL, size = EXCLUDED.size, at = EXCLUDED.at
+                  storage_key = EXCLUDED.storage_key, size = EXCLUDED.size, at = EXCLUDED.at
                 """.trimIndent(),
-                kind, listingId, type, ownerUid, data, data.length, now,
+                kind, listingId, type, ownerUid, if (key == null) data else null, key, data.length, now,
             )
         }
         val types = clean.keys.toList()

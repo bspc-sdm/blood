@@ -13,6 +13,7 @@ import com.lifolo.common.Places
 import com.lifolo.common.QuotaService
 import com.lifolo.common.Rules
 import com.lifolo.common.Sql
+import com.lifolo.common.StoredFiles
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
@@ -44,6 +45,7 @@ class AppointmentActions(
     private val hospitals: HospitalDirectory,
     private val sanctions: Sanctions,
     private val phone: PhoneCheck,
+    private val files: StoredFiles,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -117,12 +119,22 @@ class AppointmentActions(
 
     private fun thumbs(uids: List<String>): Map<String, String> {
         val out = HashMap<String, String>()
+        val keys = HashMap<String, String>()
         for (chunk in uids.chunked(1000)) {
             jdbc.query(
-                "SELECT uid, photo_thumb FROM user_profiles WHERE uid IN (${chunk.joinToString(",") { "?" }}) AND photo_thumb IS NOT NULL",
-                RowCallbackHandler { rs -> out[rs.getString(1)] = rs.getString(2) ?: "" },
+                "SELECT uid, photo_thumb, photo_thumb_key FROM user_profiles WHERE uid IN (${chunk.joinToString(",") { "?" }}) " +
+                    "AND (photo_thumb IS NOT NULL OR photo_thumb_key IS NOT NULL)",
+                RowCallbackHandler { rs ->
+                    val data = rs.getString(2)
+                    if (data != null) out[rs.getString(1)] = data else keys[rs.getString(1)] = rs.getString(3)
+                },
                 *chunk.toTypedArray(),
             )
+        }
+        // thumbs on R2 (V602); one that cannot be read shows like no photo
+        if (keys.isNotEmpty()) {
+            val texts = files.texts(keys.values)
+            for ((uid, key) in keys) out[uid] = texts[key] ?: ""
         }
         return out
     }

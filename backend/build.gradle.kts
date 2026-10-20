@@ -81,6 +81,8 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    // R2 tests: MinIO (S3 API) in Docker, like PostgreSQL and Redis
+    testImplementation("org.testcontainers:minio")
     testImplementation("io.mockk:mockk:$mockkVersion")
     testImplementation("com.ninja-squad:springmockk:$springmockkVersion")
 }

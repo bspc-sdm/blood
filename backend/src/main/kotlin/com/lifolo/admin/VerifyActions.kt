@@ -9,6 +9,7 @@ import com.lifolo.common.Lang
 import com.lifolo.common.QuotaService
 import com.lifolo.common.Rules
 import com.lifolo.common.Sql
+import com.lifolo.common.StoredFiles
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
@@ -31,6 +32,7 @@ class VerifyActions(
     private val rows: ListingRows,
     private val verify: VerifyDocs,
     private val push: PushService,
+    private val files: StoredFiles,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "verify_docs_upload" to ActionHandler { upload(it) },
@@ -80,11 +82,20 @@ class VerifyActions(
         val t = load(ctx)
         val list = VerifySpec.docs(t.kind.kind, t.x)
         val stored = HashMap<String, Pair<String?, Long>>()
+        val keys = HashMap<String, String>()
         jdbc.query(
-            "SELECT type, data, at FROM verify_docs WHERE kind = ? AND listing_id = ?",
-            RowCallbackHandler { rs -> stored[rs.getString(1)] = rs.getString(2) to rs.getTimestamp(3).time },
+            "SELECT type, data, at, storage_key FROM verify_docs WHERE kind = ? AND listing_id = ?",
+            RowCallbackHandler { rs ->
+                stored[rs.getString(1)] = rs.getString(2) to rs.getTimestamp(3).time
+                if (rs.getString(2) == null) rs.getString(4)?.let { keys[rs.getString(1)] = it }
+            },
             t.kind.kind, t.id,
         )
+        // photos on R2 (V602): the same base64 text as before
+        if (keys.isNotEmpty()) {
+            val texts = files.texts(keys.values)
+            for ((type, key) in keys) stored[type] = texts[key] to stored.getValue(type).second
+        }
         // the count comes from the real photos (correct even when the listing's docs_have is old)
         val x = LinkedHashMap(t.x)
         x["docsHave"] = list.filter { it.type in stored }.map { it.type }
