@@ -1,0 +1,87 @@
+// সরাসরি API (ব্রাউজার ছাড়া) — ডেমো রোলের লগইন টোকেন, /api/community-র action, মালিকের (অ্যাডমিন) টোকেন, ক্রন।
+// যাত্রার যে ধাপ ওয়েবে নেই (যেমন অ্যাপের পুশ টোকেন) বা যেখানে শুধু সার্ভারের ফল দেখা দরকার, সেখানে।
+import { execFileSync } from 'node:child_process';
+import { BASE } from './stack.mjs';
+
+export const OWNER = 'ekapkbd@gmail.com';
+const tokens = new Map();
+
+async function signIn(custom) {
+  const r = await fetch(`${BASE}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=e2e`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: custom, returnSecureToken: true }),
+  }).then((x) => x.json());
+  if (!r.idToken) throw new Error(`emulator sign-in failed: ${JSON.stringify(r).slice(0, 200)}`);
+  return r;
+}
+
+/** ডেমো রোলের ID token (লগইন পাতার "ডেমো" তালিকার মতোই: verify-code {demo}) — uid সহ */
+export async function demo(role) {
+  if (tokens.has(role)) return tokens.get(role);
+  const r = await fetch(`${BASE}/api/auth/verify-code`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ demo: role }) }).then((x) => x.json());
+  if (!r.token) throw new Error(`demo login ${role}: ${JSON.stringify(r).slice(0, 200)}`);
+  const s = await signIn(r.token);
+  const out = { token: s.idToken, uid: s.localId, role };
+  tokens.set(role, out);
+  return out;
+}
+
+/** মালিক (ADMIN_EMAILS) — emulator-এ সরাসরি custom token */
+export async function owner() {
+  if (tokens.has('owner')) return tokens.get('owner');
+  const v = await (await fetch(`${BASE}/__e2e/custom-token?email=${OWNER}`)).json();
+  const s = await signIn(v.token);
+  const out = { token: s.idToken, uid: s.localId, role: 'owner' };
+  tokens.set('owner', out);
+  return out;
+}
+
+export class ApiError extends Error {
+  constructor(status, body, action) {
+    super(`${action}: ${status} ${body?.error ?? JSON.stringify(body).slice(0, 200)}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/** /api/community — who: {token} (demo()/owner()) বা null (অতিথি) */
+export async function act(who, action, body = {}) {
+  const r = await fetch(`${BASE}/api/community`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(who ? { authorization: `Bearer ${who.token}` } : {}) },
+    body: JSON.stringify({ action, lang: 'bn', ...body }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, j, action);
+  return j;
+}
+
+/** অন্য HTTP পথ (যেমন /api/respond) */
+export async function post(who, path, body = {}) {
+  const r = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(who ? { authorization: `Bearer ${who.token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, j, path);
+  return j;
+}
+
+/** দৈনিক ক্রন (প্রোডাকশনে 03:00 UTC) — e2e/spring.sh-এর CRON_SECRET */
+export async function cronDaily() {
+  const r = await fetch(`${BASE}/api/cron/daily`, { headers: { authorization: 'Bearer e2e-cron-secret-0123456789' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, j, 'cron daily');
+  return j;
+}
+
+/**
+ * সার্ভারের ডাটাবেসে সরাসরি পড়া (শুধু যাচাইয়ের জন্য) — E2E_PG_URL (postgres://…) থাকলে psql দিয়ে; না থাকলে null।
+ * সারির JSON ফেরত (query নিজেই json দেয়: SELECT json_agg(…))।
+ */
+export function sql(query) {
+  const url = process.env.E2E_PG_URL;
+  if (!url) return null;
+  const out = execFileSync('psql', [url, '-AtXq', '-v', 'ON_ERROR_STOP=1', '-c', query], { encoding: 'utf8' }).trim();
+  return out ? JSON.parse(out) : null;
+}

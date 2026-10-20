@@ -60,7 +60,7 @@ for (const f of chosen) {
   await J.end();
   const mine = manifest.filter((m) => m.journey === J.id);
   // scenarios: J.sc(...) দৃশ্য — ভুল হলে স্ক্রিনশট রেখে পরেরটায় যায়, তাই যাত্রা না থামলেও এখানে ব্যর্থ দেখা যায়
-  summary.push({ journey: J.id, steps: mine.length, ok: mine.filter((m) => m.status === 'ok').length, failed: failed ? failed.message.split('\n')[0] : null, s: Math.round((Date.now() - t0) / 1000), scenarios: J.done.map((d) => ({ id: d.id, ok: d.ok, ...(d.msg ? { msg: d.msg } : {}) })) });
+  summary.push({ journey: J.id, steps: mine.length, ok: mine.filter((m) => m.status === 'ok').length, failed: failed ? failed.message.split('\n')[0] : null, s: Math.round((Date.now() - t0) / 1000), scenarios: J.done.map((d) => ({ id: d.id, ok: d.ok, ...(d.msg ? { msg: d.msg } : {}) })), known: J.known });
   console.log(`${J.id}: ${mine.length} ধাপ${failed ? ' (থেমেছে)' : ''} ${Math.round((Date.now() - t0) / 1000)}s`);
 }
 await close();

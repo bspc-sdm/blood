@@ -2,7 +2,7 @@ name: Web (Vue) check
 
 # Vue ওয়েব আর অ্যাডমিন (web-vue/) বদলালে: টাইপ চেক, লিন্ট, বাংলা লেখা হুবহু কি না, ছোট পরীক্ষা, বিল্ড,
 # তারপর Playwright — বানানো পাতা নকল API-র সাথে (test/serve.mjs + test/fixtures), অ্যাডমিন কড়া CSP সহ।
-# আসল সার্ভারের পুরো যাত্রা (e2e/web/journeys, Auth emulator) — শুধু হাতে চালালে (workflow_dispatch, journeys: true)।
+# আসল সার্ভারের (Spring) সাথে পুরো যাত্রা (e2e/web/journeys) এখন "Web e2e (Vue web + Spring)" — backend-e2e.yml।
 on:
   push:
     branches: [main, vue-web, cutover, spring]
@@ -14,11 +14,6 @@ on:
       - "web-vue/**"
       - ".github/workflows/web-vue.yml"
   workflow_dispatch:
-    inputs:
-      journeys:
-        description: "আসল সার্ভারের পুরো যাত্রাও (e2e/web/journeys) চালানো"
-        type: boolean
-        default: false
 
 # একই শাখায় নতুন push এলে আগেরটা বাতিল (হাতে চালানো journeys আলাদা দলে, বাতিল হয় না)
 concurrency:
@@ -64,36 +59,4 @@ jobs:
           path: |
             web-vue/playwright-report
             web-vue/test-results
-          retention-days: 7
-
-  journeys:
-    if: github.event_name == 'workflow_dispatch' && inputs.journeys
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: Install (server, e2e, web-vue)
-        run: |
-          (cd server && npm ci)
-          (cd e2e && npm ci)
-          (cd web-vue && npm ci)
-      - name: Playwright browser
-        working-directory: web-vue
-        run: npx playwright install --with-deps chromium
-      - name: Journeys on the Vue web + Vue admin (local server, Auth emulator)
-        working-directory: web-vue
-        run: CHROME="$(node -e "console.log(require('playwright-core').chromium.executablePath())")" node e2e/journeys.mjs
-      - name: Shots and summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: journeys
-          path: e2e/web/shots
           retention-days: 7

@@ -58,6 +58,7 @@ export class Journey {
     this.pages = {}; // viewport -> {ctx, page, role}
     this.errs = [];
     this.done = [];
+    this.known = [];
     this.scId = '';
     fs.mkdirSync(path.join(SHOTS, this.id), { recursive: true });
   }
@@ -183,16 +184,51 @@ export class Journey {
     this.scId = '';
   }
 
+  /**
+   * জানা ভুল (অ্যাপ/সার্ভারের — রিপোর্ট করা, এখনো ঠিক হয়নি; e2e নিজে ঠিক করে না): যাচাইটা চলে, ব্যর্থ হলে "known" হিসেবে
+   * রিপোর্টে আলাদা তালিকায় (রান লাল হয় না); পাস করলে রিপোর্টে "ঠিক হয়েছে? — xfail সরান"।
+   */
+  async xfail(bug, titleBn, fn) {
+    try {
+      await fn();
+      this.known.push({ bug, title: titleBn, passed: true });
+      console.error(`   ?? ${bug} ${titleBn}: passes now — remove the xfail`);
+    } catch (e) {
+      const msg = e.message.split('\n')[0].slice(0, 220);
+      this.known.push({ bug, title: titleBn, passed: false, msg });
+      if (process.env.E2E_TRACE) console.log(`   (known bug ${bug}) ${titleBn}: ${msg}`);
+    }
+  }
+
   async end() {
     for (const P of Object.values(this.pages)) await P.ctx.close().catch(() => {});
     this.pages = {};
   }
 }
 
+/**
+ * পাতার ভেতরের শর্ত সত্যি হওয়া পর্যন্ত (page.evaluate দিয়ে বারবার দেখা)। page.waitForFunction নয় — সেটা পাতায় স্ট্রিং
+ * eval করে, আর পাতাগুলো প্রোডাকশনের CSP-তে চলে (script-src 'self', unsafe-eval নেই), তাই সেখানে আটকে যায়।
+ */
+export async function until(page, fn, arg = null, timeout = 8000) {
+  const t0 = Date.now();
+  for (;;) {
+    let ok = false;
+    try {
+      ok = await page.evaluate(fn, arg);
+    } catch (e) {
+      if (!/Execution context was destroyed|navigat|Target closed|frame was detached/i.test(e.message)) throw e;
+    }
+    if (ok) return;
+    if (Date.now() - t0 > timeout) throw new Error(`timeout ${timeout}ms waiting for: ${String(fn).replace(/\s+/g, ' ').slice(0, 120)}`);
+    await page.waitForTimeout(100);
+  }
+}
+
 /** নেটওয়ার্ক থামা আর লোড চিহ্ন চলে যাওয়া পর্যন্ত */
 export async function settle(page, ms = 250) {
   await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
-  await page.waitForFunction(() => !document.querySelector('.loading, [aria-busy="true"], .skeleton'), null, { timeout: 4000 }).catch(() => {});
+  await until(page, () => !document.querySelector('.loading, [aria-busy="true"], .skeleton'), null, 4000).catch(() => {});
   await page.waitForTimeout(ms);
 }
 
@@ -270,7 +306,7 @@ export async function switchRole(page, role, current) {
     await dlg.getByText('ডেমো (পরীক্ষার জন্য)').waitFor();
     await dlg.getByText(ROLE_LABEL[role], { exact: false }).first().click();
   }
-  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), null, { timeout: 15000 });
+  await until(page, () => !document.querySelector('[role="dialog"]'), null, 15000);
   await settle(page);
 }
 

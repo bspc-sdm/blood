@@ -29,6 +29,7 @@ const journeys = summary.map((j) => {
     failedScenarios: sc.filter((s) => !s.ok),
     stopped: j.failed,
     seconds: j.s,
+    known: j.known || [],
   };
 });
 
@@ -73,6 +74,7 @@ const report = {
     autoIssues: issues.length,
     api5xx: Object.entries(apiErrors).filter(([k]) => k.startsWith('5')).reduce((a, [, n]) => a + n, 0),
     serverErrors: serverErrors.length,
+    knownBugs: journeys.reduce((a, j) => a + j.known.filter((k) => !k.passed).length, 0),
   },
   apiErrors,
   serverErrors,
@@ -97,7 +99,7 @@ const t = report.totals;
 const md = [];
 md.push(`# Web e2e — ${label} ${report.green ? '✅' : '❌'}`);
 md.push('');
-md.push(`যাত্রা ${t.journeys} (থেমেছে ${t.stopped}) · দৃশ্য ${t.scenariosOk}/${t.scenarios} পাস (${t.scenariosFailed} ব্যর্থ) · ধাপ ${t.steps} (ভুল ${t.bugSteps}) · API 5xx ${t.api5xx} · সার্ভার ERROR ${t.serverErrors} · নিজে ধরা সন্দেহ ${t.autoIssues}`);
+md.push(`যাত্রা ${t.journeys} (থেমেছে ${t.stopped}) · দৃশ্য ${t.scenariosOk}/${t.scenarios} পাস (${t.scenariosFailed} ব্যর্থ) · ধাপ ${t.steps} (ভুল ${t.bugSteps}) · API 5xx ${t.api5xx} · সার্ভার ERROR ${t.serverErrors} · নিজে ধরা সন্দেহ ${t.autoIssues} · জানা ভুল ${t.knownBugs}`);
 md.push('');
 md.push('| যাত্রা | দৃশ্য পাস | ধাপ | ভুল ধাপ | থেমেছে | সময় |');
 md.push('|---|---|---|---|---|---|');
@@ -106,6 +108,8 @@ const failed = journeys.flatMap((j) => j.failedScenarios.map((s) => `- **${j.jou
 if (failed.length) md.push('', '## ব্যর্থ দৃশ্য', '', ...failed);
 const bugs = journeys.flatMap((j) => j.bugSteps.map((b) => `- ${b.file} — ${b.title}${b.note ? ` — ${b.note}` : ''}`));
 if (bugs.length) md.push('', '## ভুল ধাপ (status: bug)', '', ...bugs);
+const known = journeys.flatMap((j) => j.known.map((k) => `- ${k.passed ? '✅ এখন পাস করে (xfail সরান)' : '⚠️'} **${k.bug}** (${j.journey}) ${k.title}${k.msg ? ` — ${k.msg}` : ''}`));
+if (known.length) md.push('', '## জানা ভুল (অ্যাপ/সার্ভারের, রিপোর্ট করা — রান লাল করে না)', '', ...known);
 const api = Object.entries(apiErrors).sort((a, b) => b[1] - a[1]);
 if (api.length) md.push('', '## API-র ৪xx/৫xx (সংখ্যা)', '', ...api.slice(0, 80).map(([k, n]) => `- ${n}× ${k}`));
 if (serverErrors.length) md.push('', '## সার্ভারের ERROR', '', ...serverErrors.slice(0, 40).map((e) => '```\n' + e + '\n```'));

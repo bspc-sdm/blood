@@ -16,6 +16,7 @@ const SERVER = path.join(__dirname, '../../server');
 const PORT = Number(process.env.PORT || 4600);
 const EMU = process.env.FIREBASE_AUTH_EMULATOR_HOST || (process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099');
 const BUILD = path.resolve(process.env.BUILD_DIR || path.join(__dirname, '../.build/w'));
+const ADMIN = path.resolve(process.env.ADMIN_DIR || path.join(__dirname, '../../server/public/admin'));
 const PROJECT = 'blood-3eb28';
 // email-code.js কোড হ্যাশের চাবি এখান থেকে নেয় (শুধু private_key); firebase.js-এর cert() চলে না, কারণ অ্যাপ আগেই চালু
 process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({ project_id: PROJECT, private_key: 'e2e-local-only' });
@@ -79,7 +80,7 @@ function staticFile(urlPath) {
   const rel = decodeURIComponent(urlPath);
   let base;
   let sub;
-  if (rel.startsWith('/w/')) { base = BUILD; sub = rel.slice(3); } else if (rel.startsWith('/admin')) { base = path.join(SERVER, 'public/admin'); sub = rel.slice(6).replace(/^\//, '') || 'index.html'; } else return null;
+  if (rel.startsWith('/w/')) { base = BUILD; sub = rel.slice(3); } else if (rel.startsWith('/admin')) { base = ADMIN; sub = rel.slice(6).replace(/^\//, '') || 'index.html'; } else return null;
   const f = path.resolve(base, sub);
   if (!f.startsWith(base)) return null;
   return fs.existsSync(f) && fs.statSync(f).isFile() ? f : null;
@@ -178,7 +179,7 @@ const server = http.createServer(async (req, res) => {
     const f = staticFile(target);
     if (f) return sendFile(res, f);
     if (target.startsWith('/w/assets/')) { res.writeHead(404); return res.end('NOT_FOUND'); }
-    if (target === '/admin' || target.startsWith('/admin/')) return sendFile(res, path.join(SERVER, 'public/admin/index.html'));
+    if (target === '/admin' || target.startsWith('/admin/')) return sendFile(res, path.join(ADMIN, 'index.html'));
     // বাকি সব (/, /services, /w/…) → SPA
     return sendFile(res, path.join(BUILD, 'index.html'));
   } catch (e) {

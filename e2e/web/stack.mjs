@@ -1,5 +1,9 @@
-// লোকাল স্ট্যাক চালু করা: Firebase Auth emulator + ওয়েব বিল্ড (emulator-মুখী, e2e/.build/w) + লোকাল সার্ভার (e2e/server/local.js)।
+// লোকাল স্ট্যাক চালু করা: Firebase Auth emulator + ওয়েব বিল্ড (emulator-মুখী, e2e/.build/w) + অ্যাডমিন বিল্ড (e2e/.build/admin)
+// + সার্ভার (Spring-এর সামনে server/spring-front.js, বা পুরোনো Node: e2e/server/local.js)।
 // সরাসরি চালালে (node e2e/web/stack.mjs) চালু থাকে, Ctrl+C-তে বন্ধ। run.mjs এটা import করে।
+// ওয়েব: E2E_WEB=vue (আগে থেকে — web-vue/, মানুষ যেটা ব্যবহার করেন: /w/ = Vue ওয়েব, /admin = Vue অ্যাডমিন) বা
+// E2E_WEB=react (অবসরে যাওয়া web/ আর server/public/admin — শুধু পুরোনো তুলনার জন্য)।
+// পোর্ট: E2E_PORT (সামনের সার্ভার, 4600), E2E_EMU_PORT (Auth emulator, 9099) — একই মেশিনে অন্য স্ট্যাক চললে বদলান।
 // E2E_BACKEND=http://127.0.0.1:8080 দিলে সার্ভার = আগে থেকে চালু Spring (backend/), local.js-এর বদলে server/spring-front.js
 // (E2E_BACKEND_LOG = Spring-এর লগ ফাইল, লগইন কোড পড়ার জন্য)। Spring-এর ঘড়ি সরানো যায় না, তাই তখন E2E_CLOCK না দিলে আসল সময়;
 // CI (.github/workflows/backend-e2e.yml) পুরো মেশিনের ঘড়িই ১১:০০-তে নেয়।
@@ -13,7 +17,8 @@ export const E2E = path.join(here, '..');
 export const ROOT = path.join(E2E, '..');
 export const PORT = Number(process.env.E2E_PORT || 4600);
 export const BASE = `http://localhost:${PORT}`;
-const EMU_PORT = 9099;
+export const EMU_PORT = Number(process.env.E2E_EMU_PORT || 9099);
+export const WEB = (process.env.E2E_WEB || 'vue').toLowerCase() === 'react' ? 'react' : 'vue';
 
 /**
  * পরীক্ষার ঘড়ি: E2E_CLOCK (ঢাকার সময় HH:MM, আগে থেকে 11:00) — আজকের সেই সময়ে সব চলে (সার্ভার, emulator, ব্রাউজার)।
@@ -44,17 +49,34 @@ async function waitFor(url, ms = 60000) {
   throw new Error(`not ready: ${url}`);
 }
 
+const newest = (d) => (fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).reduce((m, e) => (e.name === 'node_modules' || e.name.startsWith('dist') ? m : Math.max(m, e.isDirectory() ? newest(path.join(d, e.name)) : fs.statSync(path.join(d, e.name)).mtimeMs)), 0) : 0);
+const fresh = (out, srcs) => {
+  const idx = path.join(out, 'index.html');
+  return fs.existsSync(idx) && srcs.every((d) => fs.statSync(idx).mtimeMs > newest(d));
+};
+function vite(cwd, args, env = {}) {
+  const r = spawnSync('npx', ['vite', 'build', ...args], { cwd, stdio: 'inherit', env: { ...process.env, ...env } });
+  if (r.status !== 0) throw new Error(`build failed: ${cwd} ${args.join(' ')}`);
+}
+
+/** অ্যাডমিন প্যানেলের ফোল্ডার: Vue (বিল্ড করা) বা পুরোনো server/public/admin */
+export const ADMIN_DIR = WEB === 'vue' ? path.join(E2E, '.build/admin') : path.join(ROOT, 'server/public/admin');
+
+/** ওয়েব (emulator-মুখী, VITE_AUTH_EMULATOR=origin) আর অ্যাডমিন বিল্ড — উৎস বদলালে আবার; E2E_REBUILD=1 সবসময় */
 export function buildWeb({ force = false } = {}) {
   const out = path.join(E2E, '.build/w');
-  // web/src বিল্ডের পরে বদলালে আবার বানানো
-  const newest = (d) => fs.readdirSync(d, { withFileTypes: true }).reduce((m, e) => Math.max(m, e.isDirectory() ? newest(path.join(d, e.name)) : fs.statSync(path.join(d, e.name)).mtimeMs), 0);
-  const idx = path.join(out, 'index.html');
-  const fresh = fs.existsSync(idx) && fs.statSync(idx).mtimeMs > newest(path.join(ROOT, 'web/src'));
-  if (!force && fresh && !process.env.E2E_REBUILD) return out;
-  const r = spawnSync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir'], {
-    cwd: path.join(ROOT, 'web'), stdio: 'inherit', env: { ...process.env, VITE_AUTH_EMULATOR: 'origin' },
-  });
-  if (r.status !== 0) throw new Error('web build failed');
+  fs.mkdirSync(path.join(E2E, '.build'), { recursive: true });
+  const mark = path.join(E2E, '.build/web-kind');
+  const sameKind = fs.existsSync(mark) && fs.readFileSync(mark, 'utf8') === WEB;
+  const again = force || !!process.env.E2E_REBUILD || !sameKind;
+  if (WEB === 'react') {
+    if (again || !fresh(out, [path.join(ROOT, 'web/src')])) vite(path.join(ROOT, 'web'), ['--outDir', out, '--emptyOutDir'], { VITE_AUTH_EMULATOR: 'origin' });
+  } else {
+    const wv = path.join(ROOT, 'web-vue');
+    if (again || !fresh(out, [path.join(wv, 'src'), path.join(wv, 'public')])) vite(wv, ['--outDir', out, '--emptyOutDir'], { VITE_AUTH_EMULATOR: 'origin' });
+    if (again || !fresh(ADMIN_DIR, [path.join(wv, 'admin')])) vite(wv, ['-c', 'vite.admin.config.ts', '--outDir', ADMIN_DIR, '--emptyOutDir']);
+  }
+  fs.writeFileSync(mark, WEB);
   return out;
 }
 
@@ -81,7 +103,15 @@ export async function startStack({ log = path.join(E2E, '.build/stack.log') } = 
   let emuUp = false;
   try { emuUp = (await fetch(`http://127.0.0.1:${EMU_PORT}/`)).ok; } catch {}
   if (!emuUp) {
-    const emu = spawn(path.join(E2E, 'node_modules/.bin/firebase'), ['emulators:start', '--only', 'auth', '--project', 'blood-3eb28'], { cwd: E2E, stdio: ['ignore', out, out], detached: true, env: { ...process.env, ...clockEnv } });
+    const args = ['emulators:start', '--only', 'auth', '--project', 'blood-3eb28'];
+    if (EMU_PORT !== 9099) {
+      const cfg = path.join(E2E, '.build/firebase.json');
+      const base = JSON.parse(fs.readFileSync(path.join(E2E, 'firebase.json'), 'utf8'));
+      base.emulators.auth.port = EMU_PORT;
+      fs.writeFileSync(cfg, JSON.stringify(base));
+      args.push('--config', cfg);
+    }
+    const emu = spawn(path.join(E2E, 'node_modules/.bin/firebase'), args, { cwd: E2E, stdio: ['ignore', out, out], detached: true, env: { ...process.env, ...clockEnv } });
     procs.push(emu);
     await waitFor(`http://127.0.0.1:${EMU_PORT}/`);
   } else {
@@ -91,7 +121,7 @@ export async function startStack({ log = path.join(E2E, '.build/stack.log') } = 
   const build = buildWeb();
   const srv = spawn(process.execPath, [path.join(E2E, process.env.E2E_BACKEND ? 'server/spring-front.js' : 'server/local.js')], {
     stdio: ['ignore', out, out], detached: true,
-    env: { ...process.env, ...clockEnv, PORT: String(PORT), BUILD_DIR: build, FIREBASE_AUTH_EMULATOR_HOST: `127.0.0.1:${EMU_PORT}`, E2E_VERBOSE: '1' },
+    env: { ...process.env, ...clockEnv, PORT: String(PORT), BUILD_DIR: build, ADMIN_DIR, FIREBASE_AUTH_EMULATOR_HOST: `127.0.0.1:${EMU_PORT}`, E2E_VERBOSE: '1' },
   });
   procs.push(srv);
   await waitFor(`${BASE}/__e2e/log`);
@@ -106,7 +136,7 @@ export async function startStack({ log = path.join(E2E, '.build/stack.log') } = 
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const s = await startStack();
-  console.log(`stack ready: ${BASE}/  (admin: ${BASE}/admin)  E2E_TIME_OFFSET_MS=${process.env.E2E_TIME_OFFSET_MS}`);
+  console.log(`stack ready (${WEB} web): ${BASE}/  (admin: ${BASE}/admin)  E2E_TIME_OFFSET_MS=${process.env.E2E_TIME_OFFSET_MS}`);
   const bye = () => { s.stop(); process.exit(0); };
   process.on('SIGINT', bye);
   process.on('SIGTERM', bye);

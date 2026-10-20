@@ -3,7 +3,9 @@
 //   লগইন    — Firebase Auth emulator (Spring-ও FIREBASE_AUTH_EMULATOR_HOST দিয়ে সেখানেই যায়)
 //   ইমেইল   — Spring-এ SES নেই, তাই কোডটা তার লগে ("email to … not sent. Subject: … কোড: 123456"); /__e2e/mail সেখান থেকে পড়ে
 //   OAuth    — /__e2e/oauth-token: Spring-এর নকল service account-এর token_uri; emulator-এর অ্যাডমিন টোকেন "owner" দেয়
-//   ওয়েব     — /w/* = BUILD_DIR, /admin* = server/public/admin, বাকি সব SPA (local.js-এর মতোই)
+//   ওয়েব     — /w/* = BUILD_DIR, /admin* = ADMIN_DIR (Vue অ্যাডমিন বিল্ড; না দিলে পুরোনো server/public/admin), বাকি সব SPA
+//   হেডার    — প্রোডাকশনের nginx-এর CSP (deploy/deploy-web.sh): /admin… কড়া CSP, বাকি পাতা ওয়েবের CSP — যাতে CSP-তে আটকানো
+//              কিছু এখানেও ধরা পড়ে
 // চালানো: E2E_BACKEND=http://127.0.0.1:8080 E2E_BACKEND_LOG=spring.log PORT=4600 BUILD_DIR=e2e/.build/w node e2e/server/spring-front.js
 'use strict';
 const http = require('http');
@@ -14,6 +16,10 @@ const SERVER = path.join(__dirname, '../../server');
 const PORT = Number(process.env.PORT || 4600);
 const EMU = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
 const BUILD = path.resolve(process.env.BUILD_DIR || path.join(__dirname, '../.build/w'));
+const ADMIN = path.resolve(process.env.ADMIN_DIR || path.join(SERVER, 'public/admin'));
+// deploy/deploy-web.sh-এর CSP_WEB আর CSP_ADMIN (Sentry ছাড়া)
+const CSP_WEB = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+const CSP_ADMIN = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const BACKEND = new URL(process.env.E2E_BACKEND || 'http://127.0.0.1:8080');
 const BACKEND_LOG = process.env.E2E_BACKEND_LOG || '';
 const PROJECT = process.env.E2E_PROJECT || 'blood-3eb28';
@@ -21,7 +27,8 @@ const PROJECT = process.env.E2E_PROJECT || 'blood-3eb28';
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.txt': 'text/plain' };
 
 function sendFile(res, file) {
-  res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' });
+  const csp = file.startsWith(ADMIN + path.sep) ? CSP_ADMIN : CSP_WEB;
+  res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache', 'content-security-policy': csp });
   fs.createReadStream(file).pipe(res);
 }
 
@@ -29,7 +36,7 @@ function staticFile(urlPath) {
   const rel = decodeURIComponent(urlPath);
   let base;
   let sub;
-  if (rel.startsWith('/w/')) { base = BUILD; sub = rel.slice(3); } else if (rel.startsWith('/admin')) { base = path.join(SERVER, 'public/admin'); sub = rel.slice(6).replace(/^\//, '') || 'index.html'; } else return null;
+  if (rel.startsWith('/w/')) { base = BUILD; sub = rel.slice(3); } else if (rel.startsWith('/admin')) { base = ADMIN; sub = rel.slice(6).replace(/^\//, '') || 'index.html'; } else return null;
   const f = path.resolve(base, sub);
   if (!f.startsWith(base)) return null;
   return fs.existsSync(f) && fs.statSync(f).isFile() ? f : null;
@@ -157,7 +164,7 @@ const server = http.createServer(async (req, res) => {
     const f = staticFile(target);
     if (f) return sendFile(res, f);
     if (target.startsWith('/w/assets/')) { res.writeHead(404); return res.end('NOT_FOUND'); }
-    if (target === '/admin' || target.startsWith('/admin/')) return sendFile(res, path.join(SERVER, 'public/admin/index.html'));
+    if (target === '/admin' || target.startsWith('/admin/')) return sendFile(res, path.join(ADMIN, 'index.html'));
     return sendFile(res, path.join(BUILD, 'index.html'));
   } catch (e) {
     console.error('front error', p, e);
