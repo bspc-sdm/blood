@@ -153,7 +153,7 @@ jobs:
           bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           echo "build-tools: $bt"
           "$bt/apksigner" verify --print-certs "$APK" > "$RUNNER_TEMP/log/apk-signer.txt" 2>&1 || { cat "$RUNNER_TEMP/log/apk-signer.txt"; echo "::error::apksigner verify ব্যর্থ"; exit 1; }
-          got=$(grep -oP 'Signer #1 certificate SHA-256 digest: \K[0-9a-f]+' "$RUNNER_TEMP/log/apk-signer.txt" | head -1 | tr a-f A-F)
+          got=$(grep -oP 'certificate SHA-256 digest: \K[0-9a-f]+' "$RUNNER_TEMP/log/apk-signer.txt" | head -1 | tr a-f A-F)
           [ -n "$got" ] || { cat "$RUNNER_TEMP/log/apk-signer.txt"; echo "::error::APK-র সাইনের সার্টিফিকেট পড়া গেল না"; exit 1; }
           "$bt/aapt2" dump badging "$APK" > "$RUNNER_TEMP/log/apk-badging.txt" 2>&1 || echo "::warning::aapt2 dump badging: $(head -c 300 "$RUNNER_TEMP/log/apk-badging.txt")"
           target=$(grep -oP "targetSdkVersion:'\K[0-9]+" "$RUNNER_TEMP/log/apk-badging.txt" | head -1)
