@@ -520,6 +520,11 @@ EOF
 
 # /api → Spring Boot: jar থাকলে চালু, না হলে মন্তব্য করা (আবার চালালে jar দেখে চালু হয়)। SSE-র সেটিং পরে।
 write_api_snippet() {
+  # "Deploy backend" (deploy-backend.sh) নিজের পথগুলো (/api/, /r/, /rx/, /shop/, /.well-known/) লিখে থাকলে সেটাই থাকে
+  if grep -q 'managed by deploy-backend.sh' /etc/nginx/snippets/lifolo-api.conf 2>/dev/null; then
+    echo "nginx-এর API অংশ Deploy backend-এর — বদলানো হলো না"
+    return 0
+  fi
   local c=""
   [ -f "$API_JAR" ] || c="# "
   cat > /etc/nginx/snippets/lifolo-api.conf <<EOF

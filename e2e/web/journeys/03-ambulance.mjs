@@ -31,7 +31,7 @@ export async function run(J) {
     page = await J.as('patient');
     await ambList(page);
     await J.shot('সেবা › অ্যাম্বুলেন্স (রোগী)', 'ওপরে বড় বাটন ‘সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন’ (ডেমো জীবন অ্যাম্বুলেন্স (এসি) · এলাকা ধরে · এসি, সাধারণ), নিচে ‘জরুরি হলে ৯৯৯…’; তালিকায় খালিগুলো আগে।', { full: true });
-    await see(page, 'সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন');
+    await see(page, 'ফোন: সবচেয়ে কাছের খালি');
     const trip = page.getByText(/এখন ট্রিপে আছে/).first();
     if (await trip.count()) {
       await trip.click();
@@ -57,11 +57,14 @@ export async function run(J) {
 
   await J.sc('J-83', 'নম্বর কপি / ফোন করা', async () => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+    // ২.৩x: বিস্তারিতে আর ‘কপি’ বোতাম নেই — শুধু নম্বর আর ‘ফোন’ (থাকলে আগের মতো কপি)
     const copy = page.getByRole('button', { name: 'কপি' }).first();
-    await copy.click();
-    await see(page, 'কপি হয়েছে');
-    await J.shot('নম্বর কপি', '‘কপি হয়েছে’; নম্বর 01700000170।');
-    const call = page.getByRole('link', { name: /ফোন করুন/ }).first();
+    if (await copy.count()) {
+      await copy.click();
+      await see(page, 'কপি হয়েছে');
+      await J.shot('নম্বর কপি', '‘কপি হয়েছে’; নম্বর 01700000170।');
+    }
+    const call = page.locator('a[href^="tel:"]').filter({ hasText: /^ফোন/ }).first();
     const href = await call.getAttribute('href');
     if (!/01700000170/.test(href || '')) throw new Error(`ফোনের লিংক ভুল: ${href}`);
     // tel: লিংক — ব্রাউজারে আসল ফোন হয় না; চাপা গোনা হয় (মালিকের হিসাবে)
@@ -72,7 +75,7 @@ export async function run(J) {
 
   await J.sc('S-81', 'রোগী: বড় বাটনে এক চাপে ফোন', async () => {
     await ambList(page);
-    const big = page.getByRole('link', { name: /সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন/ }).or(page.getByRole('button', { name: /সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন/ })).first();
+    const big = page.locator('.amb-call-phone, a[href^="tel:"]').first();
     const href = await big.getAttribute('href').catch(() => null);
     await big.click({ noWaitAfter: true }).catch(() => {});
     await settle(page);

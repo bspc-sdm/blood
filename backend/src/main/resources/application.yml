@@ -1,0 +1,97 @@
+# Lifolo backend configuration. Every secret comes from the environment (see backend/README.md, "env vars").
+spring:
+  application:
+    name: lifolo-backend
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # DATABASE_URL (postgres://user:pass@host:5432/db) is also accepted — DatabaseUrlEnvironmentPostProcessor
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/lifolo}
+    username: ${SPRING_DATASOURCE_USERNAME:lifolo}
+    password: ${SPRING_DATASOURCE_PASSWORD:lifolo}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # JobRunr may create its own tables before Flyway runs on an empty database
+    baseline-on-migrate: true
+    baseline-version: 0
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+  jackson:
+    serialization:
+      write-dates-as-timestamps: true
+
+server:
+  port: ${PORT:8080}
+  # behind nginx; client IP comes from X-Forwarded-For (ClientIp)
+  forward-headers-strategy: none
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/docs
+  swagger-ui:
+    path: /api/docs/ui
+
+jobrunr:
+  background-job-server:
+    enabled: ${JOBRUNR_SERVER_ENABLED:true}
+  dashboard:
+    enabled: false
+
+sentry:
+  # empty DSN = Sentry disabled
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  traces-sample-rate: 0.0
+
+lifolo:
+  admin-emails: ${ADMIN_EMAILS:}
+  cron-secret: ${CRON_SECRET:}
+  web-session-secret: ${WEB_SESSION_SECRET:}
+  firebase-service-account: ${FIREBASE_SERVICE_ACCOUNT:}
+  email-code-secret: ${EMAIL_CODE_SECRET:}
+  sms-url-template: ${SMS_URL_TEMPLATE:}
+  push:
+    mode: ${PUSH_MODE:fcm}
+  public-base-url: ${PUBLIC_BASE_URL:https://blood-server-ashy.vercel.app}
+  guest-rate-per-minute: ${GUEST_RATE_PER_MINUTE:240}
+  demo:
+    keep-firebase-users: ${DEMO_KEEP_FIREBASE_USERS:false}
+  ses:
+    region: ${SES_REGION:}
+    access-key-id: ${SES_ACCESS_KEY_ID:}
+    secret-access-key: ${SES_SECRET_ACCESS_KEY:}
+    from: ${SES_FROM:}
+  r2:
+    endpoint: ${R2_ENDPOINT:}
+    account-id: ${R2_ACCOUNT_ID:}
+    access-key-id: ${R2_ACCESS_KEY_ID:}
+    secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+    bucket: ${R2_BUCKET:}

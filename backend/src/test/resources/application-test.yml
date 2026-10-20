@@ -1,0 +1,14 @@
+jobrunr:
+  background-job-server:
+    enabled: false
+lifolo:
+  firebase:
+    enabled: false
+  admin-emails: owner@example.com
+  cron-secret: test-cron-secret
+  web-session-secret: test-secret
+  email-code-secret: test-secret-key
+logging:
+  level:
+    root: WARN
+    com.lifolo: INFO

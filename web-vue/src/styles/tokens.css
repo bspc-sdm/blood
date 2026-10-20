@@ -1,0 +1,110 @@
+/* রং আর মাপ — অ্যাপের থিমের (Prefs.kt: LightColors / DarkColors) সাথে হুবহু মিলিয়ে।
+   অ্যাপের থিম বদলালে এখানেও বদলাবেন। */
+:root {
+  --primary: #1F6F78;
+  --on-primary: #FFFFFF;
+  --primary-container: #CFEDEF;
+  --on-primary-container: #00363C;
+  --secondary: #4F6366;
+  --secondary-container: #D9E7EA;
+  --on-secondary-container: #0B1F22;
+  --tertiary: #3B6939;
+  --tertiary-container: #D7EED3;
+  --on-tertiary-container: #0F2E0F;
+  --error: #B3261E;
+  --on-error: #FFFFFF;
+  --error-container: #FCE4E2;
+  --on-error-container: #7A2420;
+  --bg: #F7FAFA;
+  --surface: #F7FAFA;
+  --on-surface: #1D1B20;
+  --surface-variant: #DCE5E6;
+  --on-surface-variant: #3F4949;
+  --surface-lowest: #FFFFFF;
+  --surface-low: #F1F5F5;
+  --surface-mid: #EBF0F0;
+  --surface-high: #E5EBEB;
+  --surface-highest: #DFE6E6;
+  --outline: #79747E;
+  --outline-variant: #CAC4D0;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-high: 0 6px 24px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.1);
+  --primary-a12: rgba(31, 111, 120, 0.12);
+  --error-a12: rgba(179, 38, 30, 0.12);
+
+  --font: 'Roboto', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+  --r-card: 12px;
+  --r-small: 6px;
+  --r-field: 14px;
+  --nav-h: 60px;
+  --top-h: 56px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --primary: #8AD3DB;
+    --on-primary: #00363C;
+    --primary-container: #004F56;
+    --on-primary-container: #A6EFF7;
+    --secondary: #B4CACD;
+    --secondary-container: #354A4D;
+    --on-secondary-container: #D0E6E9;
+    --tertiary: #A1D39B;
+    --tertiary-container: #23501F;
+    --on-tertiary-container: #BCF0B5;
+    --error: #F2B8B5;
+    --on-error: #601410;
+    --error-container: #5C1F1B;
+    --on-error-container: #FFDAD6;
+    --bg: #0F1415;
+    --surface: #0F1415;
+    --on-surface: #E1E3E3;
+    --surface-variant: #3F484A;
+    --on-surface-variant: #BEC8C9;
+    --surface-lowest: #0A0F10;
+    --surface-low: #171D1E;
+    --surface-mid: #1B2122;
+    --surface-high: #252B2C;
+    --surface-highest: #303637;
+    --outline: #899294;
+    --outline-variant: #3F484A;
+    --scrim: rgba(0, 0, 0, 0.5);
+    --primary-a12: rgba(138, 211, 219, 0.14);
+    --error-a12: rgba(242, 184, 181, 0.14);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --primary: #8AD3DB;
+  --on-primary: #00363C;
+  --primary-container: #004F56;
+  --on-primary-container: #A6EFF7;
+  --secondary: #B4CACD;
+  --secondary-container: #354A4D;
+  --on-secondary-container: #D0E6E9;
+  --tertiary: #A1D39B;
+  --tertiary-container: #23501F;
+  --on-tertiary-container: #BCF0B5;
+  --error: #F2B8B5;
+  --on-error: #601410;
+  --error-container: #5C1F1B;
+  --on-error-container: #FFDAD6;
+  --bg: #0F1415;
+  --surface: #0F1415;
+  --on-surface: #E1E3E3;
+  --surface-variant: #3F484A;
+  --on-surface-variant: #BEC8C9;
+  --surface-lowest: #0A0F10;
+  --surface-low: #171D1E;
+  --surface-mid: #1B2122;
+  --surface-high: #252B2C;
+  --surface-highest: #303637;
+  --outline: #899294;
+  --outline-variant: #3F484A;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --primary-a12: rgba(138, 211, 219, 0.14);
+  --error-a12: rgba(242, 184, 181, 0.14);
+  color-scheme: dark;
+}

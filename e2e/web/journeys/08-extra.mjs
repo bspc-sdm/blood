@@ -1,22 +1,16 @@
 // বাকি দৃশ্যগুলো (আগের যাত্রার পরে যেগুলো করা যায়): দোকানের হিসাব-খাতা, প্যাথলজির দাম আর বাসা থেকে নমুনা,
 // অ্যাম্বুলেন্সের জায়গা আর মনে করানো, প্যাথলজির রিপোর্ট, ব্যাজ সংশোধন/বাতিল, চেম্বারের গড় সময়, আপিল
-import { tap, see, go, settle, logout } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin } from './00-seed.mjs';
 
 export const meta = { no: 8, slug: 'more', titleBn: 'আরও: দোকানের হিসাব, প্যাথলজির দাম, অ্যাম্বুলেন্স, ব্যাজ' };
 
 async function shop(page, tab) {
-  await go(page, '/work/pharmacy');
-  await page.locator('.card, section, article').filter({ hasText: 'প্রেসক্রিপশন' }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await pharmacyWork(page, tab);
 }
 async function labWork(page, tab) {
-  await go(page, '/work/lab');
-  await page.locator('.card, section, article').filter({ hasText: /পরীক্ষা ও রিপোর্ট|প্রেসক্রিপশন/ }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await labWorkTab(page, tab);
 }
 const itemRow = (page, name) => page.locator('tr').filter({ has: page.getByText(name, { exact: true }) }).first();
 async function pickProduct(page, name) {
@@ -115,7 +109,7 @@ export async function run(J) {
   });
 
   await J.sc('S-49', 'নষ্ট/মেয়াদ শেষ আর গণনা ঠিক করা', async () => {
-    await tap(page, 'পণ্য ও স্টক', { role: 'tab' });
+    await pharmacyWork(page, 'স্টক');
     await itemRow(page, 'Ceevit').getByRole('button', { name: 'নষ্ট/গণনা' }).click();
     let d = page.getByRole('dialog').last();
     await d.getByLabel('কয়টা').fill('10');
@@ -130,7 +124,7 @@ export async function run(J) {
     await d.getByRole('button', { name: 'সেভ' }).click();
     await settle(page, 500);
     await J.shot('Ceevit ১৪০, Maxpro ১৪৫', 'Ceevit ১৪০ পিস; Maxpro ১৫০ → ১৪৫।', { full: true });
-    await tap(page, 'হিসাব', { role: 'tab' });
+    await pharmacyWork(page, 'এনালাইটিক্স');
     await tap(page, 'আজ', { exact: true });
     await J.shot('হিসাব — আজ', '‘নষ্ট / মেয়াদ শেষে ক্ষতি ৳১২’, ‘নিট লাভ’ ১২ টাকা কম।', { full: true });
   });
@@ -155,7 +149,7 @@ export async function run(J) {
     await settle(page, 600);
     await J.shot('HbA1c ১২০০ সেভ', '‘সেভ হয়েছে — রোগীরা এখন এই দাম দেখবেন’।', { full: true });
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    await page.locator('tr').filter({ hasText: 'ডেমো রোগী ফাতেমা বেগম' }).first().getByText('ডেমো রোগী ফাতেমা বেগম').click();
+    await (await orderRow(page, 'ডেমো রোগী ফাতেমা বেগম')).getByText('ডেমো রোগী ফাতেমা বেগম').click();
     await settle(page);
     await J.shot('ফাতেমার অনুরোধে আগের দাম', '‘আনুমানিক ৳২,০৭০’ — পাঠানোর সময়ের হিসাব।', { full: true });
     page = await J.as('patient');
@@ -199,7 +193,7 @@ export async function run(J) {
   await J.sc('S-68 S-70', 'প্যাথলজি: বাসায় যেতে পারব না', async () => {
     page = await J.as('lab');
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    const row = page.locator('tr').filter({ hasText: 'ডেমো রোগী রহিম' }).filter({ hasText: 'FBS' }).first();
+    const row = await orderRow(page, ['ডেমো রোগী রহিম', 'FBS']);
     await row.getByText('ডেমো রোগী রহিম').click();
     await settle(page);
     await J.shot('রহিমের বাসা থেকে নমুনা — প্যাথলজির চোখে', 'ঠিকানা, ফোন, ‘চেয়েছেন: …’; ‘সময় নিশ্চিত করুন’ আর ‘বাসায় যেতে পারব না’।', { full: true });
@@ -250,7 +244,7 @@ export async function run(J) {
   await J.sc('R-28 R-30', 'রোগীর CBC রিপোর্ট লেখা আর আগের রিপোর্ট দেখা', async () => {
     page = await J.as('lab');
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    const row = page.locator('tr').filter({ hasText: 'DEMXRXB333' }).filter({ hasText: 'CBC' }).filter({ has: page.getByRole('button', { name: 'রিপোর্ট দিন' }) }).first();
+    const row = await orderRow(page, ['DEMXRXB333', 'CBC'], { button: 'রিপোর্ট দিন' });
     await row.getByRole('button', { name: 'রিপোর্ট দিন' }).click();
     await settle(page);
     await page.getByLabel(/^Haemoglobin.*: ফল$/).first().fill('12.1');
@@ -262,7 +256,7 @@ export async function run(J) {
     await page.getByRole('dialog').last().getByRole('button', { name: 'পাঠান', exact: true }).click();
     await see(page, 'রোগীর কাছে রিপোর্ট গেছে');
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    await page.getByRole('button', { name: /^রিপোর্ট দেওয়া হয়েছে/ }).or(page.getByRole('tab', { name: /^রিপোর্ট দেওয়া হয়েছে/ })).first().click();
+    await page.getByRole('button', { name: /^রিপোর্ট দেওয়া/ }).or(page.getByRole('tab', { name: /^রিপোর্ট দেওয়া/ })).first().click();
     await settle(page);
     const r = page.locator('tr').filter({ hasText: 'Lipid profile, S. Creatinine' }).first();
     await r.getByRole('button', { name: 'দেখুন' }).click();

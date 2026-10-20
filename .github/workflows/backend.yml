@@ -1,0 +1,92 @@
+name: Backend (Spring Boot)
+
+# Kotlin + Spring Boot backend in backend/. Builds and runs all tests (Testcontainers: PostgreSQL 16, Redis 7).
+# Package branches (spring-p1 … spring-p6, see backend/docs/PHASE2-PLAN.md) run the same build; each publishes its own log branch.
+on:
+  push:
+    branches: [spring, "spring-p*", cutover]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+      - ".github/scripts/publish-log.sh"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Bangla texts must be byte-for-byte copies of the Node source ("য়" has two spellings)
+      - name: Bangla text check
+        run: |
+          set -o pipefail
+          python3 scripts/check-bangla.py 2>&1 | tee "$RUNNER_TEMP/bangla.log"
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY' > "$RUNNER_TEMP/tests.txt" || true
+          import glob, xml.etree.ElementTree as ET
+          total = fail = skip = 0
+          lines = []
+          for f in sorted(glob.glob('build/test-results/test/*.xml')):
+              r = ET.parse(f).getroot()
+              total += int(r.get('tests', 0)); skip += int(r.get('skipped', 0))
+              n = int(r.get('failures', 0)) + int(r.get('errors', 0)); fail += n
+              lines.append(f"{r.get('name')}: {r.get('tests')} tests, {n} failed")
+              for tc in r.iter('testcase'):
+                  for bad in list(tc.findall('failure')) + list(tc.findall('error')):
+                      lines.append(f"  FAIL {tc.get('name')}: {(bad.get('message') or '')[:600]}")
+                      lines.append('    ' + (bad.text or '')[:3000].replace('\n', '\n    '))
+          print(f"TOTAL {total} tests, {fail} failed, {skip} skipped")
+          print('\n'.join(lines))
+          PY
+          head -1 "$RUNNER_TEMP/tests.txt" || true
+          cat "$RUNNER_TEMP/tests.txt" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # Build logs are also pushed to a log branch (readable without the Actions log download):
+      #   spring → spring-ci-log, any other branch X (spring-p1 …) → ci-log-X
+      # The same branch holds the e2e result of backend-e2e.yml (e2e-status.txt, e2e/); each workflow replaces only its own files.
+      - name: Publish build log
+        if: always() && github.event_name != 'pull_request'
+        working-directory: ${{ github.workspace }}
+        env:
+          BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: backend CI ${{ github.sha }}
+        run: |
+          if [ "$BRANCH" = "spring" ]; then LOG_BRANCH=spring-ci-log; else LOG_BRANCH="ci-log-${BRANCH//\//-}"; fi
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/tests.txt" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/bangla.log" "$RUNNER_TEMP/out/" 2>/dev/null || true
+          echo "${GITHUB_SHA} ${{ job.status }} ${BRANCH}" > "$RUNNER_TEMP/out/status.txt"
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/out" status.txt build.log tests.txt bangla.log

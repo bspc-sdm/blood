@@ -1,5 +1,5 @@
 // ডাক্তার ও প্রেসক্রিপশন (গাইড rx.json R-01…R-38): তালিকা, বুকিং, সেটআপ, রোগী-পাতা, সহকারী, রিপোর্ট দেখানো, ফার্মেসি/প্যাথলজির দিক, যাচাই
-import { tap, see, go, settle, dhakaISO, logout } from '../lib.mjs';
+import { tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -22,15 +22,10 @@ async function chamber(page, tab) {
   if (tab) await tap(page, tab, { role: 'tab' });
 }
 async function shop(page, tab) {
-  await go(page, '/work/pharmacy');
-  await page.locator('.card, section, article').filter({ hasText: 'প্রেসক্রিপশন' }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab' });
+  await pharmacyWork(page, tab);
 }
 async function labWork(page) {
-  await go(page, '/work/lab');
-  await page.locator('.card, section, article').filter({ hasText: /পরীক্ষা ও রিপোর্ট|প্রেসক্রিপশন/ }).getByRole('link', { name: 'খুলুন' }).first().click();
-  await settle(page);
+  await labWorkTab(page);
 }
 async function openCode(page, code) {
   const box = page.getByPlaceholder(/QR-এর নিচের কোড/).first();
@@ -53,15 +48,27 @@ export async function run(J) {
     await tap(page, 'ডা. ডেমো হাসান');
     await J.shot('হাসান — দুটো চেম্বার', 'মেডিকেল (বহির্বিভাগ ৩১২, প্রতিদিন, ফি ৫০০) আর কালিয়াকৈর (শুক্রবার, ফি ৪০০)।', { full: true });
     await go(page, '/appointment');
-    await tap(page, 'ফিল্টার');
-    const d = page.getByRole('dialog').last();
-    await d.getByText('হৃদরোগ', { exact: true }).first().click();
-    const show = d.getByRole('button', { name: 'দেখান' });
-    if (await show.count()) await show.click();
-    await settle(page);
+    // ২.৩৩.০: বিশেষজ্ঞতা তালিকার ওপরেই চিপ (আগে ফিল্টারের জানালায়)
+    const chip = page.getByRole('button', { name: 'হৃদরোগ', exact: true });
+    if (await chip.count()) {
+      await chip.first().click();
+      await settle(page);
+    } else {
+      await tap(page, 'ফিল্টার');
+      const d = page.getByRole('dialog').last();
+      await d.getByText('হৃদরোগ', { exact: true }).first().click();
+      const show = d.getByRole('button', { name: 'দেখান' });
+      if (await show.count()) await show.click();
+      await settle(page);
+    }
     await J.shot('ফিল্টার: হৃদরোগ', 'শুধু ‘ডা. ডেমো মাহবুব আলম’।', { full: true });
-    const x = page.getByRole('button', { name: /সরান/ });
-    if (await x.count()) await x.first().click();
+    if (await chip.count()) {
+      await chip.first().click();
+      await settle(page);
+    } else {
+      const x = page.getByRole('button', { name: /সরান/ });
+      if (await x.count()) await x.first().click();
+    }
     await tap(page, 'ডা. ডেমো ফারজানা হক');
     await J.shot('ফারজানা — শুধু ফোনে সিরিয়াল', '‘অ্যাপয়েন্টমেন্ট চাই’ নেই, শুধু ‘সিরিয়ালের জন্য ফোন’।', { full: true });
   });
@@ -69,7 +76,7 @@ export async function run(J) {
   await J.sc('R-03', 'লগইন ছাড়া অ্যাপয়েন্টমেন্ট চাওয়া যায় না', async () => {
     await go(page, '/appointment');
     await tap(page, 'ডা. ডেমো হাসান');
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
+    await bookBtn(page).first().click();
     await settle(page);
     await J.shot('অতিথি: অ্যাপয়েন্টমেন্ট চাই — লগইন', '‘অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন’ — লগইনের ঘর।');
     await see(page, 'অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন');
@@ -95,7 +102,7 @@ export async function run(J) {
   await J.sc('R-06', 'ভুল বুকিং আটকায়', async () => {
     await go(page, '/appointment');
     await tap(page, 'ডা. ডেমো হাসান');
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).nth(1).click();
+    await bookBtn(page).nth(1).click();
     let d = page.getByRole('dialog').last();
     // শুক্রবার নয় এমন দিন
     let day = 1;
@@ -113,7 +120,7 @@ export async function run(J) {
     await settle(page, 300);
     await J.shot('কী সমস্যা খালি', '‘কী সমস্যা, সংক্ষেপে লিখুন’।');
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
+    await bookBtn(page).first().click();
     d = page.getByRole('dialog').last();
     await d.locator('input[type=date]').fill(dhakaISO(0));
     await d.getByRole('textbox').last().fill('আবার');
@@ -313,7 +320,8 @@ export async function run(J) {
     if (await card.count()) {
       await card.getByRole('button', { name: 'তৈরি' }).click();
       await settle(page, 500);
-      await card.getByRole('button', { name: 'খুলুন' }).first().click();
+      // ‘তৈরি’ চাপলে সারি ‘চলছে / তৈরি’ ট্যাবে যায়
+      await (await orderRow(page, 'ডেমো রোগী রহিম', { button: 'খুলুন' })).getByRole('button', { name: 'খুলুন' }).first().click();
       await settle(page);
       await page.getByLabel('Comet: কয়টা দিলেন').fill('30').catch(() => {});
       await page.getByLabel('Bislol: কয়টা দিলেন').fill('30').catch(() => {});
@@ -330,7 +338,7 @@ export async function run(J) {
 
   await J.sc('R-24', 'ফার্মেসি: অনলাইন অর্ডার দিতে না পারা', async () => {
     await shop(page, 'অনলাইন অর্ডার');
-    const row = page.locator('tr, article').filter({ hasText: 'ডেমো রোগী আব্দুল করিম' }).first();
+    const row = await orderRow(page, 'ডেমো রোগী আব্দুল করিম', { button: 'পারব না' });
     await row.getByRole('button', { name: 'পারব না' }).click();
     const d = page.getByRole('dialog').last();
     await J.shot('ওষুধ দিতে পারবেন না?', 'কারণ ‘ওষুধ নেই’।');
@@ -355,12 +363,13 @@ export async function run(J) {
   await J.sc('R-27', 'প্যাথলজির অনুরোধের তালিকা', async () => {
     page = await J.as('lab');
     await labWork(page);
-    for (const f of ['চালু', 'রিপোর্ট দেওয়া হয়েছে', 'বাতিল', 'সব']) {
-      await page.getByRole('button', { name: new RegExp(`^${f}`) }).or(page.getByRole('tab', { name: new RegExp(`^${f}`) })).first().click();
+    // ২.৩x: ফিল্টারের বদলে ট্যাব — নতুন · নমুনা/চলছে · রিপোর্ট দেওয়া · শেষ (বাতিলও ‘শেষ’-এ)
+    for (const f of ['নতুন', 'নমুনা', 'রিপোর্ট দেওয়া', 'শেষ']) {
+      await page.getByRole('tab', { name: new RegExp(`^${f}`) }).first().click();
       await settle(page);
-      await J.shot(`ফিল্টার: ${f}`, f === 'বাতিল' ? 'নাসিমা বেগম (USG)।' : f === 'চালু' ? 'সালমা TSH (নতুন), ফাতেমা (বাসা থেকে), রহিম CBC (নমুনা নেওয়া)।' : 'রিপোর্ট দেওয়া: রহিম, সালমা, করিম — ‘দেখুন’।', { full: true });
+      await J.shot(`ট্যাব: ${f}`, f === 'শেষ' ? 'বাতিল: নাসিমা বেগম (USG)।' : f === 'নতুন' ? 'সালমা TSH, ফাতেমা (বাসা থেকে)।' : f === 'নমুনা' ? 'রহিম CBC (নমুনা নেওয়া)।' : 'রিপোর্ট দেওয়া: রহিম, সালমা, করিম — ‘দেখুন’।', { full: true });
     }
-    const row = page.locator('tr').filter({ hasText: 'ডেমো রোগী সালমা খাতুন' }).filter({ has: page.getByRole('button', { name: 'নমুনা নিয়েছি' }) }).first();
+    const row = await orderRow(page, 'ডেমো রোগী সালমা খাতুন', { button: 'নমুনা নিয়েছি' });
     await row.getByRole('button', { name: 'নমুনা নিয়েছি' }).click();
     await settle(page, 500);
     await J.shot('সালমার নমুনা নেওয়া', 'সারি এখন ‘রিপোর্ট দিন’।', { full: true });

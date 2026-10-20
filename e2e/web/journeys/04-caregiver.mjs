@@ -1,5 +1,5 @@
 // কেয়ারগিভার (গাইড journey-care.json J-60…J-69): রুমা রহিমের হয়ে — প্রেসক্রিপশন, সিরিয়াল, ফার্মেসি, প্যাথলজি, সীমা, সরিয়ে দেওয়া
-import { tap, see, go, settle, dhakaISO } from '../lib.mjs';
+import { tap, see, go, settle, dhakaISO, bookBtn, pharmacyWork, labWorkTab } from '../lib.mjs';
 
 export const meta = { no: 4, slug: 'caregiver', titleBn: 'কেয়ারগিভার: রোগীর হয়ে কাজ' };
 
@@ -57,7 +57,7 @@ export async function run(J) {
   await J.sc('J-63', 'রোগীর হয়ে ডাক্তারের তালিকা থেকে সিরিয়াল (ওয়েব)', async () => {
     await go(page, '/appointment', { soft: true });
     await tap(page, 'ডা. ডেমো হাসান');
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
+    await bookBtn(page).first().click();
     const d = page.getByRole('dialog').last();
     await J.shot('কার জন্য — রহিমের পরিবার', '‘কার জন্য’-তে ‘আমি’ (= রহিম), ‘ডেমো মা রাবেয়া বেগম’, ‘ডেমো ছেলে তামিম’ — রুমার নিজের নয়।');
     await d.locator('input[type=date]').fill(dhakaISO(2));
@@ -65,7 +65,7 @@ export async function run(J) {
     await d.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
     await see(page, 'অনুরোধ পাঠানো হয়েছে');
     await J.shot('রহিমের হয়ে অনুরোধ গেল', '‘অনুরোধ পাঠানো হয়েছে…’।');
-    await page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট চাই' }).first().click();
+    await bookBtn(page).first().click();
     const d2 = page.getByRole('dialog').last();
     await d2.getByText('ডেমো মা রাবেয়া বেগম').click();
     await d2.locator('input[type=date]').fill(dhakaISO(3));
@@ -119,9 +119,7 @@ export async function run(J) {
     await see(page, 'ডেমো লাইফ ফার্মেসি-এ পাঠানো হয়েছে');
     await J.shot('দোকানে পাঠানো হলো', '‘ডেমো লাইফ ফার্মেসি-এ পাঠানো হয়েছে’; ‘পাঠানো হয়েছে — অপেক্ষায়’।', { full: true });
     page = await J.as('pharmacy');
-    await go(page, '/work/pharmacy');
-    await page.locator('.card, section, article').filter({ hasText: 'প্রেসক্রিপশন' }).getByRole('link', { name: 'খুলুন' }).first().click();
-    await settle(page);
+    await pharmacyWork(page);
     await J.shot('ফার্মেসি: আপনার কাছে পাঠানো — রহিম', 'রোগীর নাম ‘ডেমো রোগী রহিম’।', { full: true });
     page = await J.as('caregiver');
     await actFor(page);
@@ -163,9 +161,7 @@ export async function run(J) {
     await J.shot('একই প্যাথলজিতে আবার — আটকায়', '‘এই প্যাথলজিতে আগেই পাঠানো আছে’।');
     await page.keyboard.press('Escape');
     page = await J.as('lab');
-    await go(page, '/work/lab');
-    await page.locator('.card, section, article').filter({ hasText: /পরীক্ষা ও রিপোর্ট|প্রেসক্রিপশন/ }).getByRole('link', { name: 'খুলুন' }).first().click();
-    await settle(page);
+    await labWorkTab(page);
     await J.shot('প্যাথলজি: রহিমের নতুন অনুরোধ', 'রোগী ‘ডেমো রোগী রহিম’-এর নামে নতুন অনুরোধ।', { full: true });
   });
 

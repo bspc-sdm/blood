@@ -1,0 +1,50 @@
+{
+  "name": "lifolo-web-vue",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Lifolo ওয়েব (Vue) — মোবাইল, ট্যাবলেট আর ডেস্কটপের জন্য (অ্যাপের একই সার্ভার আর অ্যাকাউন্ট)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build && vite build -c vite.admin.config.ts",
+    "build:test": "vite build --mode test --outDir test/.build/w --emptyOutDir",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
+    "lint": "eslint .",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "shots": "node test/shots.mjs",
+    "check:bangla": "python3 scripts/check-bangla.py",
+    "build:admin": "vite build -c vite.admin.config.ts",
+    "dev:admin": "vite -c vite.admin.config.ts",
+    "shots:admin": "node test/admin-shots.mjs",
+    "smoke:admin": "node test/admin-smoke.mjs"
+  },
+  "dependencies": {
+    "@fontsource/hind-siliguri": "5.1.0",
+    "@fontsource/roboto": "5.1.0",
+    "@tanstack/vue-query": "^5.104.4",
+    "firebase": "^11.10.0",
+    "geofire-common": "^6.0.0",
+    "reka-ui": "^2.11.0",
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.20.5",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.5.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-vue": "^10.11.1",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.8",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^7.3.7",
+    "vitest": "^3.2.7",
+    "vue-tsc": "3.2.4"
+  }
+}
