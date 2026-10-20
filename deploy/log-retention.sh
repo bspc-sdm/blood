@@ -6,8 +6,8 @@
 #   journald (অ্যাপের লগ — lifolo-api stdout, আর সব সার্ভিস): সর্বোচ্চ ২১ দিন (MaxRetentionSec=21day), ফাইল রোজ নতুন
 #     (MaxFileSec=1day — নইলে চালু ফাইলটা এক মাস পর্যন্ত থাকতে পারত), মোট ১ GB-এর বেশি নয় (SystemMaxUse=1G)
 #   nginx (access.log-এ দর্শকের IP): রোজ ঘোরে, ১৩টা পুরোনো ফাইল + আজকেরটা = ≤১৪ দিন, maxage 14
-#   syslog/auth.log (rsyslog — journald-এর কপি, তাই অ্যাপের লগও এখানে আসে), PostgreSQL, Redis, fail2ban:
-#     সাপ্তাহিক, ২টা পুরোনো ফাইল + চলতি = ≤২১ দিন, maxage 21
+#   syslog/auth.log (rsyslog — journald-এর কপি, তাই অ্যাপের লগও এখানে আসে), PostgreSQL, Redis, fail2ban, ufw,
+#     btmp/wtmp (মাসিক → সাপ্তাহিক): সাপ্তাহিক, ২টা পুরোনো ফাইল + চলতি = ≤২১ দিন, maxage 21
 #   এখনই: journal থেকে ২১ দিনের পুরোনো মোছা, ওই ফোল্ডারগুলোর ২১ দিনের পুরোনো ঘোরানো ফাইল মোছা।
 # প্যাকেজের /etc/logrotate.d ফাইলে শুধু rotate/maxage লাইন বদলায় (postrotate ইত্যাদি যেমন ছিল); unattended-upgrades
 # প্যাকেজ আপডেটে বদলানো conffile রেখে দেয় (--force-confold)। কিছু ভুল হলে আগের ফাইল ফেরত।
@@ -45,13 +45,14 @@ kv journald_usage "$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMG
 kv journald_oldest "$( (journalctl --no-pager -q -o short-iso 2>/dev/null || true) | awk 'NR==1{print $1; exit}')"
 
 # ---------------------------------------------------------------- logrotate
-# $1 = ফাইল, $2 = rotate সংখ্যা, $3 = maxage দিন
+# $1 = ফাইল, $2 = rotate সংখ্যা, $3 = maxage দিন, $4 = weekly দিলে monthly → weekly
 set_rotate() {
-  local f="/etc/logrotate.d/$1" n="$2" d="$3"
+  local f="/etc/logrotate.d/$1" n="$2" d="$3" freq="${4:-}"
   [ -f "$f" ] || { kv "logrotate_$1" "নেই"; return 0; }
   local bak
   bak="$(mktemp)"
   cp -p "$f" "$bak"
+  if [ "$freq" = weekly ]; then sed -i -E 's/^([[:space:]]*)monthly[[:space:]]*$/\1weekly/' "$f"; fi
   sed -i -E "s/^([[:space:]]*)rotate[[:space:]]+[0-9]+/\1rotate $n/" "$f"
   if grep -qE '^[[:space:]]*maxage[[:space:]]+[0-9]+' "$f"; then
     sed -i -E "s/^([[:space:]]*)maxage[[:space:]]+[0-9]+/\1maxage $d/" "$f"
@@ -73,7 +74,9 @@ set_rotate() {
 # nginx রোজ ঘোরে: আজকের + ১৩টা = ১৪ দিন
 set_rotate nginx $((WEB_DAYS - 1)) "$WEB_DAYS"
 # সাপ্তাহিক: চলতি + ২টা = ৩ সপ্তাহ (২১ দিন)
-for f in rsyslog postgresql-common redis-server fail2ban; do set_rotate "$f" 2 "$OTHER_DAYS"; done
+for f in rsyslog postgresql-common redis-server fail2ban ufw; do set_rotate "$f" 2 "$OTHER_DAYS"; done
+# btmp (ভুল SSH-লগইনের IP) আর wtmp: Ubuntu-তে মাসিক — সাপ্তাহিক করে একই সীমা
+for f in btmp wtmp; do set_rotate "$f" 2 "$OTHER_DAYS" weekly; done
 # সব ঠিক আছে কি না (পুরো কনফিগ)
 if logrotate -d /etc/logrotate.conf >/dev/null 2>&1; then kv logrotate_check ok; else kv logrotate_check "errors (logrotate -d /etc/logrotate.conf দেখুন)"; fi
 kv logrotate_timer "$(systemctl is-active logrotate.timer 2>/dev/null)/$(systemctl is-enabled logrotate.timer 2>/dev/null)"

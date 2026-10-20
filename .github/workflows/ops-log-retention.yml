@@ -60,6 +60,8 @@ jobs:
             echo "| PostgreSQL | $(g logrotate_postgresql-common) | ≤২১ দিন |"
             echo "| Redis | $(g logrotate_redis-server) | ≤২১ দিন |"
             echo "| fail2ban (IP) | $(g logrotate_fail2ban) | ≤২১ দিন |"
+            echo "| ufw (ফায়ারওয়ালের IP) | $(g logrotate_ufw) | ≤২১ দিন |"
+            echo "| btmp / wtmp (SSH লগইন) | $(g logrotate_btmp) / $(g logrotate_wtmp) | ≤২১ দিন |"
             echo
             echo "- অ্যাপের নিজের লগ ফাইল: $(g app_log_files)"
             echo "- logrotate: যাচাই $(g logrotate_check), timer $(g logrotate_timer) · এখনই মোছা পুরোনো ঘোরানো ফাইল: $(g old_rotated_removed)টা · journald বদলেছে: $(g journald_changed)"
