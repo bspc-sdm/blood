@@ -317,7 +317,7 @@ jobs:
           {
             echo "## APK $NAME ($CODE)"
             echo "- সাইন: ${SIGNED:-—} · APK-র সার্টিফিকেট SHA-256: ${APK_CERT:-—} · targetSdk ${TARGET:-—} · debuggable ${DEBUGGABLE:-—}"
-            echo "- Play-র AAB: ${AAB_CERT:+release key-এ সাইন ($AAB_CERT)}${AAB_CERT:-নেই (release key-এর সিক্রেট নেই)}"
+            if [ -n "$AAB_CERT" ]; then echo "- Play-র AAB: release key-এ সাইন ($AAB_CERT)"; else echo "- Play-র AAB: নেই (release key-এর সিক্রেট নেই)"; fi
             [ "$PUBLISH" = true ] || echo "- branch $GITHUB_REF_NAME: শুধু বিল্ড, কোথাও প্রকাশ হয়নি (ফাইল: Actions-এর artifact)"
             echo "- ডাউনলোড: **https://lifolo.com/download/lifolo.apk** · এই ভার্সন: ${URL:-—}"
             echo "- VPS-এ: ${FILES:-—}"
