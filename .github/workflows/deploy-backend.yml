@@ -32,6 +32,11 @@ on:
         type: string
         required: false
         default: "lifolo.com"
+      web_cert:
+        description: "ওয়েবসাইটের সার্টিফিকেট চাওয়া (না থাকলে); বন্ধ = শুধু ফাইল আর DNS-এর খবর"
+        type: boolean
+        required: false
+        default: true
       api_domain:
         description: "আলাদা নাম (DNS-এ এই VPS-এ গেলে তবেই সার্টিফিকেট); খালি = শুধু sslip.io"
         type: string
@@ -291,14 +296,17 @@ jobs:
         env:
           SHA: ${{ steps.site.outputs.sha }}
           WEB_DOMAIN: ${{ inputs.web_domain }}
+          WEB_CERT: ${{ inputs.web_cert }}
         run: |
+          nocert=""
+          [ "$WEB_CERT" != false ] || nocert="--no-cert"
           web_domain="$(printf '%s' "$WEB_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
           [[ "$web_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::web_domain ঠিক নেই"; exit 1; }
           ssh vps 'cat > /root/lifolo-setup/deploy-web.sh' < deploy/deploy-web.sh
           ssh vps 'umask 077 && cat > /root/lifolo-setup/site.tar.gz' < "$RUNNER_TEMP/site.tar.gz"
           rc=0
           # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
-          ssh vps "bash /root/lifolo-setup/deploy-web.sh --ci --site /root/lifolo-setup/site.tar.gz --sha256 '$SHA' --web-domain '$web_domain'" || rc=$?
+          ssh vps "bash /root/lifolo-setup/deploy-web.sh --ci --site /root/lifolo-setup/site.tar.gz --sha256 '$SHA' --web-domain '$web_domain' $nocert" || rc=$?
           ssh vps 'cat /var/lib/lifolo/deploy-web-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-web-status.txt" || true
           cat "$RUNNER_TEMP/deploy-web-status.txt"
           sed 's/^/w_/' "$RUNNER_TEMP/deploy-web-status.txt" >> "$GITHUB_OUTPUT"
@@ -395,6 +403,7 @@ jobs:
           W_PREV: ${{ steps.webdeploy.outputs.w_previous }}
           W_REALIP: ${{ steps.webdeploy.outputs.w_realip }}
           W_CERT_ERROR: ${{ steps.webdeploy.outputs.w_cert_error }}
+          W_DNS_DIAG: ${{ steps.webdeploy.outputs.w_dns_diag }}
           W_FAILS: ${{ steps.webdeploy.outputs.fails }}
           I_ROOT: ${{ steps.inet.outputs.web_root }}
           I_API: ${{ steps.inet.outputs.web_api }}
@@ -502,7 +511,8 @@ jobs:
                     echo
                     echo "> ⏭️ **$WEB_DOMAIN এখনো এই VPS-এ আসে না** — Cloudflare-এ A রেকর্ড \`@\` → VPS-এর IP আর CNAME \`www\` → \`$WEB_DOMAIN\` (দুটোই DNS only, ধূসর মেঘ) দিয়ে কয়েক মিনিট পর আবার চালান। ওয়েবের ফাইল VPS-এ রাখা আছে; কিছু ভাঙেনি।" ;;
                 "") row "https://$WEB_DOMAIN" "${WEB_OUTCOME:-skipped}" "বসানো হয়নি (আগের ধাপ ব্যর্থ?)" ;;
-                *) row "https://$WEB_DOMAIN" "$W_SITE" "$W_SITE${W_CERT_ERROR:+ — $W_CERT_ERROR}" ;;
+                *) row "https://$WEB_DOMAIN" "$W_SITE" "$W_SITE${W_CERT_ERROR:+ — $W_CERT_ERROR}"
+                   [ -z "$W_DNS_DIAG" ] || row "DNS (বাইরের resolver থেকে)" skipped "$W_DNS_DIAG" ;;
               esac
             fi
             echo

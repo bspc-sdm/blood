@@ -26,13 +26,14 @@ REALIP_CONF=/etc/nginx/conf.d/lifolo-cloudflare-realip.conf
 STATUS=/var/lib/lifolo/deploy-web-status
 ACME=/var/www/letsencrypt
 
-TARBALL="" SHA="" WEB_DOMAIN=""
+TARBALL="" SHA="" WEB_DOMAIN="" NO_CERT=no
 while [ $# -gt 0 ]; do
   case "$1" in
     --site) TARBALL="$2"; shift 2 ;;
     --sha256) SHA="$2"; shift 2 ;;
     --web-domain) WEB_DOMAIN="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --ci) shift ;;
+    --no-cert) NO_CERT=yes; shift ;;
     *) echo "অচেনা আর্গুমেন্ট: $1" >&2; exit 2 ;;
   esac
 done
@@ -227,9 +228,37 @@ else
     st cert_error "$*: $(grep -hE 'Detail:|Type:|Error:|error:|too many' /tmp/lifolo-certbot.log | sed 's/^[[:space:]]*//' | head -3 | tr '\n' ' ' | cut -c1-250)"
     return 1
   }
+  # DNS কেমন দেখায় বাইরের কয়েকটা resolver থেকে (Let's Encrypt-এর "DNS problem" বোঝার জন্য; DNSSEC ভুল হলে SERVFAIL)
+  dns_diag() {
+    command -v dig >/dev/null || { echo "dig নেই"; return 0; }
+    local r out
+    for r in 1.1.1.1 8.8.8.8 9.9.9.9; do
+      out="$(dig +time=3 +tries=1 A "$WEB_DOMAIN" @"$r" 2>&1 | grep -oE 'status: [A-Z]+' | head -1)"
+      printf '%s A %s %s; ' "$r" "${out#status: }" "$(dig +short +time=3 +tries=1 A "$WEB_DOMAIN" @"$r" 2>/dev/null | tr '\n' ',')"
+    done
+    printf 'DS: %s; ' "$(dig +short +time=3 +tries=1 DS "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | head -2 | cut -c1-40 | tr '\n' ',')"
+    printf 'NS: %s; ' "$(dig +short +time=3 +tries=1 NS "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
+    printf 'CAA: %s; ' "$(dig +short +time=3 +tries=1 CAA "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
+    printf 'AAAA: %s' "$(dig +short +time=3 +tries=1 AAAA "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
+  }
+  # Let's Encrypt: এক ঘণ্টায় একই নামে ৫টা ব্যর্থ চেষ্টার পর আটকায় — তাই এক ঘণ্টায় ৩টার বেশি চেষ্টা নয়
+  FAILS_FILE="/var/lib/lifolo/cert-fails-$WEB_DOMAIN"
+  recent_fails() { [ -f "$FAILS_FILE" ] && awk -v t="$(( $(date +%s) - 3600 ))" '$1 > t' "$FAILS_FILE" | wc -l || echo 0; }
   if [ "$need" = yes ]; then
-    # দুটো নাম একসাথে না হলে শুধু মূল নাম (www পরে আবার চালালে যোগ হয়)
-    get_cert "${names[@]}" || { [ "${#names[@]}" -gt 1 ] && get_cert "$WEB_DOMAIN"; } || true
+    st dns_diag "$(dns_diag)"
+    if [ "$NO_CERT" = yes ]; then
+      st cert_error "এবার সার্টিফিকেট চাওয়া হয়নি (--no-cert)"
+    elif [ "$(recent_fails)" -ge 3 ]; then
+      st cert_error "গত এক ঘণ্টায় ৩বার ব্যর্থ — Let's Encrypt-এর সীমা এড়াতে এবার চেষ্টা করা হলো না; এক ঘণ্টা পর আবার চালান"
+    else
+      # দুটো নাম একসাথে না হলে (শুধু www-এর সমস্যায়) মূল নাম একা
+      if ! get_cert "${names[@]}"; then
+        date +%s >> "$FAILS_FILE"
+        if [ "${#names[@]}" -gt 1 ] && ! grep -q "for $WEB_DOMAIN\b\|looking up [A-Z]* for $WEB_DOMAIN;" /tmp/lifolo-certbot.log; then
+          get_cert "$WEB_DOMAIN" || date +%s >> "$FAILS_FILE"
+        fi
+      fi
+    fi
   fi
   if ! cert_has "$WEB_DOMAIN"; then
     st site cert_failed
