@@ -251,11 +251,22 @@ fun SettingsScreen(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { sendEmail(context, SUPPORT_EMAIL) },
             )
+            // লুকানো: ৭ বার চাপলে Sentry-তে একটা পরীক্ষার ঘটনা (ভুলের খবর পৌঁছায় কি না দেখতে)
+            var versionTaps by remember { mutableStateOf(0) }
             ListItem(
                 headlineContent = { Text(tr("Version", "ভার্সন")) },
                 supportingContent = { Text(num(version)) },
                 leadingContent = { AppIcon(R.drawable.ic_info, null) },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable {
+                    versionTaps++
+                    if (versionTaps == 7) {
+                        scope.launch {
+                            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SentrySetup.sendTest() }
+                            android.widget.Toast.makeText(context, "Sentry: $r", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
             )
         }
     }

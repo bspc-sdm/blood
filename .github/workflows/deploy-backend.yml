@@ -153,7 +153,8 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          # Sentry (প্রকল্প lifolo-server): SENTRY_DSN_BACKEND, না থাকলে পুরোনো SENTRY_DSN
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_BACKEND || secrets.SENTRY_DSN }}
           SMS_URL_TEMPLATE: ${{ secrets.SMS_URL_TEMPLATE }}
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
         run: |
@@ -175,8 +176,10 @@ jobs:
           else
             echo "firebase=off" >> "$GITHUB_OUTPUT"
           fi
+          # Sentry-র release: lifolo-server@<অ্যাপের ভার্সন>+<commit> (ওয়েব আর অ্যাপের সাথে মেলে)
+          SENTRY_RELEASE="lifolo-server@$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)+${GITHUB_SHA::7}"
           for k in ADMIN_EMAILS SES_REGION SES_ACCESS_KEY_ID SES_SECRET_ACCESS_KEY SES_FROM R2_ACCOUNT_ID R2_ENDPOINT \
-              R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET SENTRY_DSN SMS_URL_TEMPLATE PUBLIC_BASE_URL; do
+              R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET SENTRY_DSN SENTRY_RELEASE SMS_URL_TEMPLATE PUBLIC_BASE_URL; do
             v="$(one "${!k}")"
             [ -n "$v" ] || continue
             case "$v" in *$'\n'*) echo "::error::$k সিক্রেটে একাধিক লাইন — এক লাইনে দিন"; exit 1 ;; esac
@@ -293,7 +296,20 @@ jobs:
       - name: Build the website (web-vue)
         id: site
         if: env.IN_WEB_DOMAIN != ''
+        env:
+          # Sentry (প্রকল্প lifolo-web): DSN বিল্ডে ঢোকে (ব্রাউজারে পাঠানোর ঠিকানা — গোপন নয়); খালি = বন্ধ
+          SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
         run: |
+          dsn="$(printf '%s' "$SENTRY_DSN_WEB" | tr -d '[:space:]')"
+          host=""
+          if [[ "$dsn" =~ ^https://[A-Za-z0-9]+@([a-z0-9.-]+\.sentry\.io)/[0-9]+$ ]]; then
+            host="${BASH_REMATCH[1]}"
+          elif [ -n "$dsn" ]; then
+            echo "::warning::SENTRY_DSN_WEB ঠিক নেই (https://<key>@<…>.sentry.io/<id>) — ওয়েবে Sentry বন্ধ"; dsn=""
+          fi
+          echo "sentry_host=$host" >> "$GITHUB_OUTPUT"
+          export VITE_SENTRY_DSN="$dsn"
+          export VITE_SENTRY_RELEASE="lifolo-web@$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)+${GITHUB_SHA::7}"
           (cd web-vue && npm ci --no-audit --no-fund && npm run build)
           site="$RUNNER_TEMP/site"
           rm -rf "$site" && mkdir -p "$site"
@@ -317,9 +333,11 @@ jobs:
           SHA: ${{ steps.site.outputs.sha }}
           WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
           WEB_CERT: ${{ env.IN_WEB_CERT }}
+          SENTRY_HOST: ${{ steps.site.outputs.sentry_host }}
         run: |
           nocert=""
           [ "$WEB_CERT" != false ] || nocert="--no-cert"
+          [ -z "$SENTRY_HOST" ] || nocert="$nocert --sentry-host $SENTRY_HOST"
           web_domain="$(printf '%s' "$WEB_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
           [[ "$web_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::web_domain ঠিক নেই"; exit 1; }
           ssh vps 'cat > /root/lifolo-setup/deploy-web.sh' < deploy/deploy-web.sh

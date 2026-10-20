@@ -76,6 +76,8 @@ jobs:
       - name: Build debug APK (next server)
         env:
           SERVER: ${{ steps.srv.outputs.server }}
+          # Sentry (প্রকল্প lifolo-android) — BuildConfig.SENTRY_DSN; খালি = বন্ধ
+          SENTRY_DSN_ANDROID: ${{ secrets.SENTRY_DSN_ANDROID }}
         run: |
           set -o pipefail
           gradle assembleDebug --no-daemon -PlifoloServer="$SERVER" -PlifoloVersionSuffix=-next 2>&1 | tee build.log

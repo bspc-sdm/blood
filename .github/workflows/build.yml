@@ -66,9 +66,14 @@ jobs:
 
       - name: Build debug APK
         if: steps.gate.outputs.build == 'true'
+        env:
+          # Sentry (প্রকল্প lifolo-android) — BuildConfig.SENTRY_DSN; খালি = বন্ধ
+          SENTRY_DSN_ANDROID: ${{ secrets.SENTRY_DSN_ANDROID }}
         run: |
           set -o pipefail
           gradle assembleDebug --no-daemon 2>&1 | tee build.log
+          f=app/build/generated/source/buildConfig/debug/com/bspc/blood/BuildConfig.java
+          if grep -q 'SENTRY_DSN = "https://' "$f"; then echo "Sentry: on (BuildConfig.SENTRY_DSN set)"; else echo "::warning::Sentry: off (SENTRY_DSN_ANDROID নেই বা ঠিক নেই)"; fi
       # বিল্ড ব্যর্থ হলে কম্পাইলের ভুলগুলো annotation হিসেবে দেখানো (API দিয়ে পড়া যায়)
       - name: Report compile errors
         if: failure()
