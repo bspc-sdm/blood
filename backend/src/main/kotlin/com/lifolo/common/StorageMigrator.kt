@@ -191,10 +191,7 @@ class StorageController(
     private val files: StoredFiles,
     private val props: LifoloProperties,
 ) {
-    private fun authorized(req: HttpServletRequest): Boolean {
-        val secret = props.cronSecret
-        return secret.isNotBlank() && req.getHeader("Authorization") == "Bearer $secret"
-    }
+    private fun authorized(req: HttpServletRequest): Boolean = CronAuth.authorized(req, props.cronSecret)
 
     @RequestMapping("/api/cron/storage")
     fun status(req: HttpServletRequest): ResponseEntity<Any> {

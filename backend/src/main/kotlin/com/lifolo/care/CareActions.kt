@@ -17,6 +17,7 @@ import com.lifolo.common.Sql
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
+import com.lifolo.demo.DemoWorld
 import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
 import com.lifolo.users.AccountService
@@ -128,6 +129,11 @@ class CareActions(
             null
         } ?: throw err(ctx, "No Lifolo account with this email. Ask them to install Lifolo and log in first.", "এই ইমেইলে কোনো Lifolo অ্যাকাউন্ট নেই। আগে তাঁকে Lifolo খুলে লগইন করতে বলুন।", 404)
         if (target.uid == uid) throw err(ctx, "You can't add yourself", "নিজেকে যোগ করা যায় না")
+        // demo and real accounts never link: a demo account is public (one-click login), so a real patient's caregiver
+        // must never be one — answered like an unknown address (no hint that the account exists)
+        if (!DemoWorld.sameWorld(uid, target.uid)) {
+            throw err(ctx, "No Lifolo account with this email. Ask them to install Lifolo and log in first.", "এই ইমেইলে কোনো Lifolo অ্যাকাউন্ট নেই। আগে তাঁকে Lifolo খুলে লগইন করতে বলুন।", 404)
+        }
         if (jdbc.queryForList("SELECT 1 FROM care_links WHERE patient_uid = ? AND caretaker_uid = ?", uid, target.uid).isNotEmpty()) {
             throw err(ctx, "Already added", "আগেই যোগ করা আছে", 409)
         }

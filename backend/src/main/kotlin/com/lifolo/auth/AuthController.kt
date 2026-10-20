@@ -6,6 +6,8 @@ import com.lifolo.common.Body
 import com.lifolo.common.ClientIp
 import com.lifolo.common.Js
 import com.lifolo.common.Lang
+import com.lifolo.common.LifoloProperties
+import com.lifolo.common.RateLimiter
 import com.lifolo.demo.DemoLoginService
 import com.lifolo.notify.LoginCodeMail
 import com.lifolo.notify.MailSender
@@ -18,6 +20,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Duration
 
 /**
  * Email-code login (api/auth/send-code.js, api/auth/verify-code.js). No token needed, so strict limits.
@@ -34,6 +37,8 @@ class AuthController(
     private val accounts: AccountService,
     private val deletion: DeletionService,
     private val demo: DemoLoginService,
+    private val rateLimiter: RateLimiter,
+    private val props: LifoloProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,7 +80,14 @@ class AuthController(
         val lang = Lang.of(req)
         // demo (testing): role list and one-click login
         if (b.isTrue("demoRoles")) return ResponseEntity.ok(demo.roles())
-        b.string("demo")?.let { return ResponseEntity.ok(demo.login(it)) }
+        b.string("demo")?.let {
+            // one-click demo login hands out a token to anyone: at most a few a minute from one address
+            val ip = ClientIp.key(ClientIp.of(req))
+            if (!rateLimiter.tryAcquire("demo-login:$ip", props.demoLoginRatePerMinute, Duration.ofMinutes(1))) {
+                throw ApiException(429, Lang.tr(lang, "Too many requests. Wait a minute and try again.", "অনেক বেশি অনুরোধ। এক মিনিট পর আবার চেষ্টা করুন।"))
+            }
+            return ResponseEntity.ok(demo.login(it))
+        }
 
         val email = EmailCodes.normalizeEmail(b.string("email") ?: Js.toStr(b["email"]))
         val code = Js.toStr(b["code"]).trim()

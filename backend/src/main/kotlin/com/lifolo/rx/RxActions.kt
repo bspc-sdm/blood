@@ -16,6 +16,7 @@ import com.lifolo.contracts.Chambers
 import com.lifolo.contracts.Prescription
 import com.lifolo.contracts.Prescriptions
 import com.lifolo.contracts.ProviderAssistants
+import com.lifolo.demo.DemoWorld
 import com.lifolo.lab.LabService
 import com.lifolo.lab.LabStore
 import com.lifolo.lab.LabViews
@@ -432,9 +433,12 @@ class RxActions(
         if (phone == null || phone !in allowed) {
             throw ctx.err(400, "Use the mobile number in your profile or a family member's number", "প্রোফাইলের বা পরিবারের সদস্যের মোবাইল নম্বরটাই দিন")
         }
-        val rx = jdbc.rows("SELECT id, patient_uid, rx_patient_id FROM prescriptions WHERE code = ?", code) { rs ->
-            Triple(rs.getString("id"), rs.getString("patient_uid"), rs.getString("rx_patient_id"))
+        val found = jdbc.rows("SELECT id, patient_uid, rx_patient_id, doctor_uid FROM prescriptions WHERE code = ?", code) { rs ->
+            Triple(rs.getString("id"), rs.getString("patient_uid"), rs.getString("rx_patient_id")) to rs.getString("doctor_uid")
         }.firstOrNull() ?: throw notMatch()
+        // demo and real worlds never mix: a demo account (public login) must not pull in a real prescription
+        if (!DemoWorld.sameWorld(uid, found.second)) throw notMatch()
+        val rx = found.first
         if (rx.second == uid) return linkedMapOf("ok" to true, "added" to 0)
         val pid = rx.third ?: throw notMatch()
         val p = rxPatientById(pid)

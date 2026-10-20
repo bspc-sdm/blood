@@ -100,8 +100,7 @@ class SentryTestController(private val props: LifoloProperties) {
     @RequestMapping("/api/cron/sentry-test")
     fun test(req: HttpServletRequest): ResponseEntity<Any> {
         if (req.method != "POST") return ResponseEntity.status(405).body(mapOf("error" to "Method not allowed"))
-        val secret = props.cronSecret
-        if (secret.isBlank() || req.getHeader("Authorization") != "Bearer $secret") throw ApiException(401, "অনুমতি নেই")
+        if (!CronAuth.authorized(req, props.cronSecret)) throw ApiException(401, "অনুমতি নেই")
         if (!Sentry.isEnabled()) return ResponseEntity.ok(mapOf("enabled" to false))
         val id = Sentry.captureMessage("lifolo-server: test event (deploy check)", SentryLevel.INFO)
         Sentry.flush(10_000)

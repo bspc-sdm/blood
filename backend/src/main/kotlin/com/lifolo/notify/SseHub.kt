@@ -69,9 +69,18 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
         return n
     }
 
-    fun subscribe(topic: String, timeoutMs: Long = 30 * 60 * 1000L): SseEmitter {
+    /**
+     * A new stream of [topic]. With [maxStreams], the oldest streams of the topic are closed first so that at most that
+     * many stay open (one account opening streams in a loop cannot pile up connections).
+     */
+    fun subscribe(topic: String, timeoutMs: Long = 30 * 60 * 1000L, maxStreams: Int = Int.MAX_VALUE): SseEmitter {
         val emitter = SseEmitter(timeoutMs)
         val set = topics.computeIfAbsent(topic) { CopyOnWriteArraySet() }
+        while (set.size >= maxStreams) {
+            val oldest = set.firstOrNull() ?: break
+            set.remove(oldest)
+            runCatching { oldest.complete() }
+        }
         set.add(emitter)
         val remove = Runnable {
             set.remove(emitter)
@@ -108,6 +117,11 @@ class SseController(private val hub: SseHub, private val auth: AuthService) {
     @GetMapping("/api/events", produces = ["text/event-stream"])
     fun events(req: HttpServletRequest): SseEmitter {
         val user = auth.decodeUser(req, Lang.resolve(null, req))
-        return hub.subscribe("user:${user.id}")
+        return hub.subscribe("user:${user.id}", maxStreams = MAX_STREAMS_PER_USER)
+    }
+
+    companion object {
+        /** a few phones/tabs of one account; the oldest stream closes when another one opens */
+        const val MAX_STREAMS_PER_USER = 5
     }
 }

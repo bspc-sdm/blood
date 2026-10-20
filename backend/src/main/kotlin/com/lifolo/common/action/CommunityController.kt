@@ -82,6 +82,7 @@ class ActionDispatcher(
                 user = AuthUser.GUEST
             }
         }
+        if (!user.guest) checkUserRate(req, user, lang)
         val handler = registry.find(action)
         hooks.orderedStream().forEach { it.beforeAction(action) }
         if (handler == null) throw ApiException(400, Lang.tr(lang, "Unknown request. Please update the app.", "অজানা অনুরোধ। অ্যাপ আপডেট করুন।"))
@@ -101,6 +102,18 @@ class ActionDispatcher(
     private fun checkGuestRate(req: HttpServletRequest, lang: String?) {
         val ip = ClientIp.key(ClientIp.of(req))
         if (!rateLimiter.tryAcquire("guest:$ip", props.guestRatePerMinute, Duration.ofMinutes(1))) {
+            throw ApiException(429, Lang.tr(lang, "Too many requests. Wait a minute and try again.", "অনেক বেশি অনুরোধ। এক মিনিট পর আবার চেষ্টা করুন।"))
+        }
+    }
+
+    /**
+     * Logged-in callers: [LifoloProperties.userRatePerMinute] calls per account and IP a minute (not in Node). Demo
+     * accounts are public (one-click login), so without this anyone could script the authenticated actions freely; the
+     * IP is part of the key so that people trying the demo at the same time do not share one budget.
+     */
+    private fun checkUserRate(req: HttpServletRequest, user: AuthUser, lang: String?) {
+        val ip = ClientIp.key(ClientIp.of(req))
+        if (!rateLimiter.tryAcquire("user:${user.uid}:$ip", props.userRatePerMinute, Duration.ofMinutes(1))) {
             throw ApiException(429, Lang.tr(lang, "Too many requests. Wait a minute and try again.", "অনেক বেশি অনুরোধ। এক মিনিট পর আবার চেষ্টা করুন।"))
         }
     }

@@ -278,6 +278,8 @@ cp -p "$SNIPPET" "$SNIPPET.bak" 2>/dev/null || true
   loc /api/events 1h "
     proxy_buffering off;
     proxy_cache off;"
+  # /api/cron/* (CRON_SECRET-এর পথ: দৈনিক কাজ, R2, Sentry পরীক্ষা) বাইরে থেকে নয় — VPS-এর ভেতর থেকে 127.0.0.1:$API_PORT দিয়েই চলে
+  echo "location /api/cron/ { return 404; }"
   loc /r/
   loc /rx/
   loc /shop/
@@ -373,6 +375,7 @@ check jobrunr_off "! ss -ltnH | awk '{print \$4}' | grep -qE ':8000\$' && ! H '$
 # actuator বাইরে খোলা নয় (nginx শুধু অ্যাপের পথগুলো পাঠায়)
 check apidocs_hidden "! H '$B/api/docs' | grep -q openapi"
 check actuator_hidden "! H '$B/actuator/health' | grep -q '\"status\"'"
+check cron_hidden "H -o /dev/null -w '%{http_code}' '$B/api/cron/daily' | grep -qx 404"
 if [ "$(env_get api_domain "$STATUS")" = ok ]; then
   check api_domain_health "curl -sS -m 15 --resolve '$API_DOMAIN:443:127.0.0.1' 'https://$API_DOMAIN/api/health' | grep -q '\"ok\":true'"
 fi

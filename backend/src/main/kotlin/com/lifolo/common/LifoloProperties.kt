@@ -25,6 +25,15 @@ data class LifoloProperties(
     val publicBaseUrl: String = "https://blood-server-ashy.vercel.app",
     @field:Min(1)
     val guestRatePerMinute: Long = 240,
+    /**
+     * logged-in calls of /api/community per account and IP address per minute (an app makes a few a minute; this only
+     * stops scripts — the demo accounts are public, so a token costs nothing)
+     */
+    @field:Min(1)
+    val userRatePerMinute: Long = 600,
+    /** one-click demo logins (`verify-code` with `demo`) per IP address per minute */
+    @field:Min(1)
+    val demoLoginRatePerMinute: Long = 30,
     val firebase: Firebase = Firebase(),
     val push: Push = Push(),
     val ses: Ses = Ses(),

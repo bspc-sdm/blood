@@ -22,6 +22,7 @@ import com.lifolo.common.Rules
 import com.lifolo.common.Sql
 import com.lifolo.common.SqlSet
 import com.lifolo.common.action.ActionContext
+import com.lifolo.demo.DemoWorld
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
 import org.slf4j.LoggerFactory
@@ -255,6 +256,8 @@ class BloodBankService(
         val owner = jdbc.queryForList("SELECT owner_uid FROM blood_banks WHERE id = ?", id).firstOrNull() ?: return linkedMapOf("ok" to true)
         val uid = ctx.user.id
         if (owner["owner_uid"] == uid) return linkedMapOf("ok" to true)
+        // demo: separate — calls across worlds are not counted (like pharmacy_called)
+        if (!DemoWorld.sameWorld(uid, owner["owner_uid"] as String?)) return linkedMapOf("ok" to true)
         val now = System.currentTimeMillis()
         val prev = jdbc.queryForList("SELECT at FROM blood_bank_calls WHERE uid = ? AND bank_id = ?", java.sql.Timestamp::class.java, uid, id).firstOrNull()
         jdbc.update(

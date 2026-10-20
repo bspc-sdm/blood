@@ -18,6 +18,7 @@ import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.ContentModeration
+import com.lifolo.demo.DemoWorld
 import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -209,6 +210,8 @@ class CommunityActions(
         val text = Rules.cleanText(ctx.body.string("text"), 2000)
             ?: throw ctx.err(400, "Write your answer (up to 2000 characters)", "উত্তর লিখুন (২০০০ অক্ষরের মধ্যে)")
         val asker = jdbc.queryForList("SELECT uid FROM questions WHERE id = ?", String::class.java, id).firstOrNull()
+            // a demo professional (public one-click login) never answers a real person's question as "verified"
+            ?.takeIf { !DemoWorld.isDemoUid(uid) || DemoWorld.isDemoUid(it) }
             ?: throw ctx.err(404, "Question not found", "প্রশ্নটা পাওয়া যায়নি")
         quotas.use(ctx.lang, uid, "answer")
         val name = users.name(uid).take(80)

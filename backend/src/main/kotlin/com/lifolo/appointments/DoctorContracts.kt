@@ -4,6 +4,7 @@ import com.lifolo.contracts.Badges
 import com.lifolo.contracts.Chamber
 import com.lifolo.contracts.Chambers
 import com.lifolo.contracts.ProviderAssistants
+import com.lifolo.demo.DemoWorld
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -36,8 +37,14 @@ class ProviderAssistantsStore(private val jdbc: JdbcTemplate) : ProviderAssistan
     override fun emails(doctorUid: String): List<String> =
         jdbc.queryForList("SELECT email FROM provider_assistants WHERE provider_uid = ? ORDER BY position, email", String::class.java, doctorUid)
 
+    /**
+     * Demo accounts (`…@lifolo-demo.test`, one-click public login) never assist a real doctor and real accounts never a
+     * demo one — otherwise a real doctor who typed a demo address would open their patient list to everyone.
+     */
+    private fun sameWorld(doctorUid: String, email: String): Boolean = DemoWorld.isDemoEmail(email) == DemoWorld.isDemoUid(doctorUid)
+
     override fun isAssistant(doctorUid: String, email: String): Boolean =
-        email.isNotEmpty() &&
+        email.isNotEmpty() && sameWorld(doctorUid, email) &&
             jdbc.queryForList("SELECT 1 FROM provider_assistants WHERE provider_uid = ? AND email = ?", doctorUid, email).isNotEmpty()
 
     override fun doctorsFor(email: String, limit: Int): List<String> =
@@ -46,7 +53,7 @@ class ProviderAssistantsStore(private val jdbc: JdbcTemplate) : ProviderAssistan
         } else {
             jdbc.queryForList(
                 "SELECT provider_uid FROM provider_assistants WHERE email = ? ORDER BY provider_uid LIMIT ?", String::class.java, email, limit,
-            )
+            ).filter { sameWorld(it, email) }
         }
 
     @Transactional

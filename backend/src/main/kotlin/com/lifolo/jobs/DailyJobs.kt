@@ -1,6 +1,7 @@
 package com.lifolo.jobs
 
 import com.lifolo.common.ApiException
+import com.lifolo.common.CronAuth
 import com.lifolo.common.LifoloProperties
 import jakarta.servlet.http.HttpServletRequest
 import org.jobrunr.jobs.annotations.Job
@@ -61,8 +62,7 @@ class CronController(private val runner: DailyJobRunner, private val props: Lifo
     @RequestMapping("/api/cron/daily")
     fun daily(req: HttpServletRequest): ResponseEntity<Any> {
         if (req.method != "GET") return ResponseEntity.status(405).body(mapOf("error" to "Method not allowed"))
-        val secret = props.cronSecret
-        if (secret.isBlank() || req.getHeader("Authorization") != "Bearer $secret") throw ApiException(401, "অনুমতি নেই")
+        if (!CronAuth.authorized(req, props.cronSecret)) throw ApiException(401, "অনুমতি নেই")
         return ResponseEntity.ok(runner.runAll(System.currentTimeMillis()))
     }
 }

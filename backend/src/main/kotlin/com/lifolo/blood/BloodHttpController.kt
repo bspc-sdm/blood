@@ -5,6 +5,8 @@ import com.lifolo.admin.AdminLog
 import com.lifolo.auth.AdminService
 import com.lifolo.auth.AuthService
 import com.lifolo.auth.AuthUser
+import com.lifolo.auth.IdentityException
+import com.lifolo.auth.IdentityProvider
 import com.lifolo.auth.WebSession
 import com.lifolo.common.ApiException
 import com.lifolo.common.Body
@@ -78,6 +80,7 @@ class CorrectionService(
     private val admins: AdminService,
     private val push: PushService,
     private val adminLog: AdminLog,
+    private val identity: IdentityProvider,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val jdbc get() = store.jdbc
@@ -96,7 +99,21 @@ class CorrectionService(
             }
         }
         if (!admins.isAdmin(user)) throw ApiException(403, "শুধু অ্যাডমিন এটা করতে পারবেন")
+        // the cookie lives up to 12 h: an admin account disabled (or deleted) meanwhile is out at once
+        if (user.webSession && disabled(user.id)) {
+            webSession.end(res)
+            throw ApiException(403, "শুধু অ্যাডমিন এটা করতে পারবেন")
+        }
         return user
+    }
+
+    /** like the /api/community web panel: disabled or deleted → out; Firebase unreachable → not held against the admin */
+    private fun disabled(uid: String): Boolean = try {
+        identity.getUser(uid).disabled
+    } catch (e: IdentityException) {
+        e.kind == IdentityException.Kind.USER_NOT_FOUND
+    } catch (e: Exception) {
+        false
     }
 
     /** corrections.js pendingCorrections: oldest first, at most 100 */

@@ -6,6 +6,7 @@ import com.lifolo.common.Body
 import com.lifolo.common.Lang
 import com.lifolo.common.Rules
 import com.lifolo.common.action.ActionPolicy
+import com.lifolo.demo.DemoWorld
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 
@@ -27,7 +28,8 @@ class CareAccess(private val jdbc: JdbcTemplate) {
             "SELECT 1 FROM care_links WHERE patient_uid = ? AND caretaker_uid = ? AND status = 'active'",
             asUid, user.uid,
         ).isNotEmpty()
-        if (!active) {
+        // a link across the demo/real worlds never counts (demo accounts are public)
+        if (!active || !DemoWorld.sameWorld(asUid, user.uid)) {
             throw ApiException(403, Lang.tr(lang, "You are no longer this person's caregiver", "আপনি আর এই মানুষের কেয়ারগিভার নন"), "care_revoked")
         }
         return AuthUser(uid = asUid, actingBy = user.uid, email = "", emailVerified = false)
