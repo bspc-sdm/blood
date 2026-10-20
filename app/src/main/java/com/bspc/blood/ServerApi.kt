@@ -14,8 +14,8 @@ import java.net.URL
  * প্রতিটা অনুরোধের সাথে Firebase লগইন টোকেন যায়, সার্ভার সেটা যাচাই করে।
  */
 object ServerApi {
-    /** Vercel-এ ডিপ্লয়ের পর পাওয়া ঠিকানা */
-    const val BASE_URL = "https://blood-server-ashy.vercel.app"
+    /** সার্ভারের ঠিকানা — বিল্ডের সময় ঠিক হয় (app/build.gradle.kts-এর lifoloServer; না দিলে Vercel) */
+    const val BASE_URL = BuildConfig.SERVER_URL
 
     /** নতুন রিকোয়েস্টে আশেপাশের ডোনারদের পুশ নোটিফিকেশন পাঠানো। কতজনকে পাঠানো হলো সেটা ফেরত দেয়। */
     /** again = আরও ডোনার লাগলে আবার জানানো (আগে জানানো মানুষ বাদ) */

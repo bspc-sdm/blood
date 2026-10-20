@@ -1,0 +1,117 @@
+name: Build APK (next)
+
+# নতুন সার্ভারের (Spring, VPS) পরীক্ষার APK — সাধারণ রিলিজ ("Build APK" → latest) ছোঁয় না।
+# একই applicationId আর একই সাইন (app/debug.keystore), তাই বর্তমান অ্যাপের ওপরেই ইনস্টল হয়;
+# latest-এর roktodan.apk আবার ইনস্টল করলে পুরোনো সার্ভারে ফেরা। ভার্সন (versionCode) একই — শুধু নামের শেষে "-next"।
+# ফল: prerelease "next", ফাইল lifolo-next.apk:
+#   https://github.com/bspc-sdm/blood/releases/download/next/lifolo-next.apk
+# চলে: হাতে (workflow_dispatch, cutover-android বা main থেকে), আর cutover-android-এ অ্যাপ বা এই ফাইল বদলালে।
+on:
+  push:
+    branches: [cutover-android]
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/build-apk-next.yml"
+  workflow_dispatch:
+    inputs:
+      server:
+        description: "সার্ভার: auto (lifolo.com চালু থাকলে সেটা, না হলে api.lifolo.com) অথবা পুরো https://… ঠিকানা"
+        required: false
+        default: "auto"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk-next
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      # অ্যাপ সব কাজে একটাই ঠিকানা ব্যবহার করে: /api/… + /r/ /rx/ /shop/ (শেয়ার, QR) + /admin /work/… (ওয়েবের পাতা)।
+      # তাই আসল ঠিকানা https://lifolo.com (ওয়েব আর /api একসাথে)। ওটা চালু না হওয়া পর্যন্ত https://api.lifolo.com
+      # (শুধু /api /r /rx /shop /.well-known — ওয়েবের পাতাগুলো ওখানে নেই)।
+      - name: Pick and check the server
+        id: srv
+        env:
+          WANT: ${{ inputs.server || 'auto' }}
+        run: |
+          set -u
+          # ডিপ্লয়ের সময় কয়েক সেকেন্ড বন্ধ থাকতে পারে — ৫ বার চেষ্টা
+          health() { for t in 1 2 3 4 5; do curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true' && return 0; sleep 15; done; return 1; }
+          if [ "$WANT" = auto ]; then
+            if health https://lifolo.com; then S=https://lifolo.com; else S=https://api.lifolo.com; fi
+          else
+            S="${WANT%/}"
+          fi
+          echo "server: $S"
+          if ! health "$S"; then echo "::error::$S/api/health did not answer ok:true"; exit 1; fi
+          H=$(curl -sS -m 20 "$S/api/health" | head -c 300)
+          D=$(curl -sS -m 20 -X POST "$S/api/auth/verify-code" -H 'Content-Type: application/json' -d '{"demoRoles":true}' \
+              | python3 -c 'import sys,json; d=json.load(sys.stdin); print("demo active, %d roles" % len(d.get("roles") or []) if d.get("active") else "demo off")' 2>/dev/null || echo "demo: no answer")
+          A=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$S/.well-known/assetlinks.json" || true)
+          W=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$S/admin" || true)
+          echo "health: $H"; echo "$D"; echo "assetlinks: $A"; echo "/admin: $W"
+          { echo "server=$S"; echo "health=$H"; echo "demo=$D"; echo "assetlinks=$A"; echo "admin=$W"; } >> "$GITHUB_OUTPUT"
+          echo "::notice::server=$S | $D | assetlinks $A | /admin $W"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      # "Build APK"-এর মতোই debug বিল্ড আর একই key (app/debug.keystore) — শুধু সার্ভারের ঠিকানা আর নামের শেষাংশ আলাদা
+      - name: Build debug APK (next server)
+        env:
+          SERVER: ${{ steps.srv.outputs.server }}
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon -PlifoloServer="$SERVER" -PlifoloVersionSuffix=-next 2>&1 | tee build.log
+          grep -q "\"$SERVER\"" app/build/generated/source/buildConfig/debug/com/bspc/blood/BuildConfig.java
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line//$'\r'/}"
+          done
+
+      # শুধু "next" রিলিজ — "latest" (আসল রিলিজ আর অ্যাপের আপডেটের খবর) ছোঁয়া হয় না
+      - name: Publish to "next" prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVER: ${{ steps.srv.outputs.server }}
+          DEMO: ${{ steps.srv.outputs.demo }}
+        run: |
+          set -e
+          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/debug/app-debug.apk lifolo-next.apk
+          sha256sum lifolo-next.apk
+          NOTES="নতুন সার্ভারের পরীক্ষার APK — সার্ভার: $SERVER ($DEMO)
+          ভার্সন ${NAME}-next ($CODE), commit ${{ github.sha }} (${{ github.ref_name }}), সময় $(date -u +%FT%TZ)
+
+          ইনস্টল: https://github.com/${{ github.repository }}/releases/download/next/lifolo-next.apk — বর্তমান অ্যাপের ওপরেই বসে (ডেটা থাকে)।
+          ফেরা: https://github.com/${{ github.repository }}/releases/download/latest/roktodan.apk আবার ইনস্টল করুন।"
+          if gh release view next > /dev/null 2>&1; then
+            gh release upload next lifolo-next.apk --clobber
+            git tag -f next "${{ github.sha }}"
+            git push -f origin refs/tags/next
+            gh release edit next --prerelease --latest=false --notes "$NOTES"
+          else
+            gh release create next lifolo-next.apk \
+              --target "${{ github.sha }}" \
+              --prerelease --latest=false \
+              --title "নতুন সার্ভারের পরীক্ষা (next)" \
+              --notes "$NOTES"
+          fi
