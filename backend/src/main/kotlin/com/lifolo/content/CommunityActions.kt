@@ -70,7 +70,8 @@ class CommunityActions(
 
     private fun notFound400(ctx: ActionContext) = ctx.err(400, "Not found", "পাওয়া যায়নি")
 
-    private fun cursor(ctx: ActionContext): Long? = ctx.body.int("before")?.takeIf { it > 0 }
+    /** a page cursor (createdAt ms); out of the timestamp range (e.g. 1e300) = no cursor instead of a database error */
+    private fun cursor(ctx: ActionContext): Long? = ctx.body.int("before")?.takeIf { it > 0 && it < Sql.MAX_MS }
 
     private fun logDelete(ctx: ActionContext, path: String, text: String?) {
         adminLog.log("admin_delete_post", ctx.user, Body.of(mapper.valueToTree(mapOf("path" to path, "text" to text))))

@@ -445,7 +445,7 @@ class AdminWebActions(
     /** which admin did what and when (newest first, 100 per page, cursor `before`) */
     fun adminLog(ctx: ActionContext): Any {
         requireAdmin(ctx)
-        val before = ctx.body.int("before")
+        val before = ctx.body.int("before")?.takeIf { it > 0 && it < Sql.MAX_MS }
         val rows = jdbc.queryForList(
             "SELECT * FROM admin_log" + (if (before != null) " WHERE at < ?" else "") + " ORDER BY at DESC LIMIT 100",
             *(if (before != null) arrayOf<Any?>(Sql.ts(before)) else emptyArray()),

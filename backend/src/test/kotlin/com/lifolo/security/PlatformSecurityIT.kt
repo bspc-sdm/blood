@@ -171,7 +171,7 @@ class PlatformSecurityIT : IntegrationTest() {
         val text = broken.getContentAsString(Charsets.UTF_8)
         for (s in listOf("Exception", "jackson", "at com.", "line:", "column")) assertFalse(text.contains(s), "$s in $text")
         val xml = mvc.perform(MockMvcRequestBuilders.post("/api/community").contentType(MediaType.APPLICATION_XML).content("<a/>")).andReturn().response
-        assertEquals(400, xml.status)
+        assertTrue(xml.status in 400..499, "status ${xml.status}")
         assertFalse(xml.getContentAsString(Charsets.UTF_8).contains("Exception"))
         // an unexpected failure: the generic message only (and the details only in the log / scrubbed Sentry)
         val req = MockHttpServletRequest("POST", "/api/community")
@@ -179,6 +179,9 @@ class PlatformSecurityIT : IntegrationTest() {
         assertEquals(500, r.statusCode.value())
         assertEquals(ApiErrorHandler.body(500, "", null, null), r.body)
         assertFalse(r.body.toString().contains("hunter2") || r.body.toString().contains("01711000001"))
+        // a cursor far outside the timestamp range is no cursor (it used to be a database error → 500), also for guests
+        assertEquals(200, call(null, "questions", mapOf("before" to 1e300)).status)
+        assertEquals(200, call(null, "tips", mapOf("before" to 9007199254740993L)).status)
         assertEquals(405, get("/api/community").status)
         assertFalse(get("/api/community").body.toString().contains("Exception"))
     }

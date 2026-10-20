@@ -7,6 +7,9 @@ import java.time.LocalDate
 
 /** Small JDBC helpers (timestamps as epoch-ms like the Node API, nullable getters). */
 object Sql {
+    /** 3000-01-01 UTC: epoch millis beyond this are not valid timestamps here (cursors, dates from the body) */
+    const val MAX_MS = 32_503_680_000_000L
+
     fun ts(ms: Long): Timestamp = Timestamp(ms)
 
     fun ts(i: Instant?): Timestamp? = i?.let { Timestamp.from(it) }

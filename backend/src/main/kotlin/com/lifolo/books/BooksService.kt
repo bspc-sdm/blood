@@ -97,6 +97,10 @@ class BooksService(
             }
         }
         if (!t.isFinite()) throw bad(ctx, "Check the date", "তারিখ দেখে নিন")
+        // far outside the window (e.g. 1e300): the same answer as below, without turning it into a calendar day
+        if (t > now + BooksMath.DAY_MS || t < now - 61 * BooksMath.DAY_MS) {
+            throw bad(ctx, "Date must be within the last 60 days", "তারিখ গত ৬০ দিনের মধ্যে হতে হবে")
+        }
         val tl = t.toLong()
         if (BooksMath.dayKey(tl) == BooksMath.dayKey(now)) return minOf(tl, now)
         if (t > now || t < now - 60 * BooksMath.DAY_MS) throw bad(ctx, "Date must be within the last 60 days", "তারিখ গত ৬০ দিনের মধ্যে হতে হবে")

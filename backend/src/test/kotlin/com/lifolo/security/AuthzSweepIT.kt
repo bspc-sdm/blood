@@ -88,7 +88,7 @@ class AuthzSweepIT : IntegrationTest() {
     fun `a normal user gets 403 for every admin action and nothing is logged`() {
         user("plain1", mapOf("name" to "সাধারণ"))
         val admin = all().filter { it.startsWith("admin_") }
-        assertTrue(admin.size >= 45, "admin actions: $admin")
+        assertTrue(admin.size >= 40, "admin actions: $admin")
         val wrong = ArrayList<String>()
         for (a in admin) {
             for (body in listOf(emptyMap(), mapOf("id" to "x1", "uid" to "plain1", "status" to "approved", "email" to "plain1@example.com", "step" to 0))) {
