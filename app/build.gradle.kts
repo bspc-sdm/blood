@@ -8,10 +8,10 @@ plugins {
 
 // সার্ভারের ঠিকানা বিল্ডের সময় বদলানো যায় (CI-এর "Build APK (next)" নতুন সার্ভারের APK বানায়):
 //   gradle assembleDebug -PlifoloServer=https://lifolo.com -PlifoloVersionSuffix=-next
-// না দিলে আগের মতোই Vercel — সাধারণ রিলিজ (Build APK) কিছুই দেয় না, তাই রিলিজ বদলায় না।
+// না দিলে https://lifolo.com (২.৩৪.০ থেকে নিজের সার্ভার; আগে ছিল https://blood-server-ashy.vercel.app)।
 // একই ঠিকানায় /api/… (অ্যাপের কাজ), /r/ /rx/ /shop/ (শেয়ার আর QR লিংক), /admin /work/… (ওয়েবের পাতা) — তাই একটাই ঠিকানা।
 val lifoloServer: String = (findProperty("lifoloServer") as String?)?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
-    ?: "https://blood-server-ashy.vercel.app"
+    ?: "https://lifolo.com"
 require(Regex("^https://[a-z0-9.-]+(:[0-9]+)?$").matches(lifoloServer)) { "lifoloServer must be https://host: $lifoloServer" }
 val lifoloLinkHost: String = lifoloServer.removePrefix("https://").substringBefore(':')
 val lifoloVersionSuffix: String = (findProperty("lifoloVersionSuffix") as String?)?.trim().orEmpty()
@@ -24,8 +24,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 119
-        versionName = "2.33.1"
+        versionCode = 120
+        versionName = "2.34.0"
         versionNameSuffix = lifoloVersionSuffix.ifEmpty { null }
         buildConfigField("String", "SERVER_URL", "\"$lifoloServer\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)
