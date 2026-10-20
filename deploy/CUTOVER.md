@@ -120,4 +120,13 @@ Android ছোট versionCode-এ নামতে দেয় না, তাই
 
 ## যাচাই (২০ অক্টোবর ২০২৬)
 
-(নিচে মেলানোর পরের ফল।)
+- **main = `761a230`** (fast-forward; আগে একই commit `cutover-main` শাখায় পরীক্ষা)।
+- আগে শাখায়: Backend (Spring Boot) ৩৫২/৩৫২ (নতুন SseKeepAliveIT ৪/৪), Backend e2e Spring ১৭৫/১৭৫ = Node ১৭৫/১৭৫,
+  Web (Vue) ✅, অ্যাপ কম্পাইল ✅ (Build APK (next) → `next` = 2.34.0-next, lifolo.com)।
+- main-এ: একই সব সবুজ (ফল `ci-log-main` শাখায়); **Build APK** ✅ → `latest` রিলিজ: `lifolo-2.34.0-120.apk`, `roktodan.apk`,
+  `version.json` (`versionCode 120`, `2.34.0`) — https://github.com/bspc-sdm/blood/releases/download/latest/lifolo-2.34.0-120.apk
+- **Deploy backend** main-এর push থেকে নিজেই চলেছে ✅ (check → deploy; Flyway V601, ডেমো keep, lifolo.com + www + api.lifolo.com
+  সব ✅, PUBLIC_BASE_URL `https://lifolo.com`; ফল `ci-log-deploy`-এ)।
+- **Uptime check** (main, নতুন ঠিকানা `https://lifolo.com/api/health`) ✅।
+- "Deploy server" (Vercel) — Actions-এ `disabled_manually`; Vercel প্রকল্প, Firestore, Firebase-এ কিছু বদলানো/মোছা হয়নি।
+- জানা ঝুঁকি: SES সম্ভবত এখনো sandbox-এ (লগইন-কোডের ইমেইল শুধু যাচাই করা ঠিকানায়); R2 (ছবি) আর Sentry বন্ধ।

@@ -376,5 +376,5 @@
 - [x] main-এ `backend/`, `web-vue/` বা `deploy/` বদলালে **Deploy backend** নিজেই VPS-এ বসায় (আগে শুধু হাতে, `spring` থেকে); Backend আর Backend e2e-ও main-এ চলে
 - [x] Uptime check এখন `https://lifolo.com/api/health` দেখে (প্রতি ১০ মিনিট)
 - [x] Vercel-এ ডেপ্লয় বন্ধ: "Deploy server" workflow-এর push বন্ধ আর Actions-এ Disabled (মোছা নয়); Vercel প্রকল্প আর `server/` কোড যেমন ছিল — পুরোনো অ্যাপ (২.৩৩.১ পর্যন্ত) এখনো Vercel-এই কথা বলে
-- [ ] CI সবুজ → main → Build APK → `latest` রিলিজ 2.34.0 (lifolo-2.34.0-120.apk); Deploy backend main থেকে; https://lifolo.com/api/health ঠিক
+- [x] CI সবুজ (শাখায় আর main-এ: Backend ৩৫২/৩৫২, e2e ১৭৫/১৭৫ Node-এর সমান, Vue, অ্যাপ) → main `761a230` → Build APK → `latest` রিলিজ 2.34.0 (lifolo-2.34.0-120.apk); Deploy backend main-এর push থেকে নিজেই ✅; https://lifolo.com/api/health ঠিক (Uptime check ✅)
 - [ ] মালিকের বাকি কাজ (deploy/CUTOVER.md): Cloudflare SSL/TLS "Full (strict)" → `@`, `www`, `api`-তে কমলা মেঘ; পরে (অনুমতি নিয়ে) Vercel আর Firestore বন্ধ
