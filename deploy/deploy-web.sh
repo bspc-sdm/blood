@@ -213,13 +213,23 @@ if [ "$apex_dns" != yes ]; then
 else
   need=no
   for n in "${names[@]}"; do cert_has "$n" || need=yes; done
+  get_cert() {
+    local dargs=() n
+    for n in "$@"; do dargs+=(-d "$n"); done
+    say "সার্টিফিকেট: $*"
+    if certbot certonly --webroot -w "$ACME" --cert-name "$WEB_DOMAIN" "${dargs[@]}" --expand \
+        --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring \
+        --deploy-hook "systemctl reload nginx" >/tmp/lifolo-certbot.log 2>&1; then
+      return 0
+    fi
+    tail -25 /tmp/lifolo-certbot.log
+    # কারণ সারাংশে (Let's Encrypt-এর লেখা; গোপন কিছু নয়)
+    st cert_error "$*: $(grep -hE 'Detail:|Type:|Error:|error:|too many' /tmp/lifolo-certbot.log | sed 's/^[[:space:]]*//' | head -3 | tr '\n' ' ' | cut -c1-250)"
+    return 1
+  }
   if [ "$need" = yes ]; then
-    say "সার্টিফিকেট: ${names[*]}"
-    dargs=()
-    for n in "${names[@]}"; do dargs+=(-d "$n"); done
-    certbot certonly --webroot -w "$ACME" --cert-name "$WEB_DOMAIN" "${dargs[@]}" --expand \
-      --register-unsafely-without-email --agree-tos --non-interactive --keep-until-expiring \
-      --deploy-hook "systemctl reload nginx" >/tmp/lifolo-certbot.log 2>&1 || { tail -15 /tmp/lifolo-certbot.log; true; }
+    # দুটো নাম একসাথে না হলে শুধু মূল নাম (www পরে আবার চালালে যোগ হয়)
+    get_cert "${names[@]}" || { [ "${#names[@]}" -gt 1 ] && get_cert "$WEB_DOMAIN"; } || true
   fi
   if ! cert_has "$WEB_DOMAIN"; then
     st site cert_failed

@@ -96,12 +96,15 @@ keep_or_make() {
   local v
   v="$(env_get "$1" "$APP_ENV")"
   [[ "$v" =~ ^[0-9a-f]{32,}$ ]] || v="$(openssl rand -hex 32)"
-  mask "$v"
   printf '%s' "$v"
 }
+# mask এখানে, $(…)-এর বাইরে — ভেতরে থাকলে "::add-mask::…" লেখাটাও মানের অংশ হয়ে যেত (প্রতি deploy-এ নতুন চাবি, অ্যাডমিন কুকি অচল)
 CRON_SECRET="$(keep_or_make CRON_SECRET)"
 WEB_SESSION_SECRET="$(keep_or_make WEB_SESSION_SECRET)"
 EMAIL_CODE_SECRET="$(keep_or_make EMAIL_CODE_SECRET)"
+mask "$CRON_SECRET"
+mask "$WEB_SESSION_SECRET"
+mask "$EMAIL_CODE_SECRET"
 p() { env_get "$1" "$PROVIDED"; }
 FIREBASE_B64="$(p FIREBASE_SERVICE_ACCOUNT)"
 # শেয়ার লিংক/QR-এর ঠিকানা: সিক্রেট PUBLIC_BASE_URL > ওয়েবসাইট (DNS এই VPS-এ এলে) > sslip.io

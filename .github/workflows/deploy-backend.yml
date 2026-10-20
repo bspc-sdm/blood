@@ -394,6 +394,7 @@ jobs:
           W_RELEASE: ${{ steps.webdeploy.outputs.w_release }}
           W_PREV: ${{ steps.webdeploy.outputs.w_previous }}
           W_REALIP: ${{ steps.webdeploy.outputs.w_realip }}
+          W_CERT_ERROR: ${{ steps.webdeploy.outputs.w_cert_error }}
           W_FAILS: ${{ steps.webdeploy.outputs.fails }}
           I_ROOT: ${{ steps.inet.outputs.web_root }}
           I_API: ${{ steps.inet.outputs.web_api }}
@@ -494,13 +495,14 @@ jobs:
                     row "ইন্টারনেট থেকে: /w/assets/ এক বছর cache" "$I_CACHE" "${I_CACHE:-—}"
                     row "ইন্টারনেট থেকে: /admin/ কড়া CSP" "$I_ADMIN" "${I_ADMIN:-—}"
                     [ -z "$I_WWW" ] || row "ইন্টারনেট থেকে: www → $WEB_DOMAIN" "$I_WWW"
-                    row "Cloudflare-এর আসল IP (পরে proxy চালু হলে)" "$W_REALIP" "${W_REALIP:-—}" ;;
+                    row "Cloudflare-এর আসল IP (পরে proxy চালু হলে)" "$W_REALIP" "${W_REALIP:-—}"
+                    [ -z "$W_CERT_ERROR" ] || row "সার্টিফিকেটের আগের চেষ্টা" skipped "$W_CERT_ERROR" ;;
                 dns_not_ready*)
                     row "https://$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ আসে না (${W_DNS_APEX:-?})"
                     echo
                     echo "> ⏭️ **$WEB_DOMAIN এখনো এই VPS-এ আসে না** — Cloudflare-এ A রেকর্ড \`@\` → VPS-এর IP আর CNAME \`www\` → \`$WEB_DOMAIN\` (দুটোই DNS only, ধূসর মেঘ) দিয়ে কয়েক মিনিট পর আবার চালান। ওয়েবের ফাইল VPS-এ রাখা আছে; কিছু ভাঙেনি।" ;;
                 "") row "https://$WEB_DOMAIN" "${WEB_OUTCOME:-skipped}" "বসানো হয়নি (আগের ধাপ ব্যর্থ?)" ;;
-                *) row "https://$WEB_DOMAIN" "$W_SITE" ;;
+                *) row "https://$WEB_DOMAIN" "$W_SITE" "$W_SITE${W_CERT_ERROR:+ — $W_CERT_ERROR}" ;;
               esac
             fi
             echo
