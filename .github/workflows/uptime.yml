@@ -1,21 +1,28 @@
 name: Uptime check
 
-# প্রতি ৩ ঘণ্টায় https://lifolo.com/api/health দেখা (অ্যাপ, ওয়েব আর /api — সবাই এখানে, ২.৩৪.০ থেকে)।
+# প্রতি ৩ ঘণ্টায় ১) https://lifolo.com/api/health দেখা (অ্যাপ, ওয়েব আর /api — সবাই এখানে, ২.৩৪.০ থেকে), আর
+# ২) VPS-এর স্বাস্থ্য (ssh দিয়ে, deploy/ops/vps-ops.sh health): ডিস্ক ≥ ৮০%, inode ≥ ৮০%, খালি RAM < ১৫%, swap > ৫১২ MB,
+#    কোনো সার্টিফিকেট < ২১ দিন বাকি, শেষ ব্যাকআপ বা অ্যাপের দৈনিক কাজ (daily-maintenance) > ২৬ ঘণ্টা পুরোনো,
+#    গত ৩ ঘণ্টায় lifolo-api নিজে restart (crash/OOM; deploy আর মহড়া বাদ) বা অপ্রত্যাশিত রিবুট।
+# কোনোটা হলে workflow ব্যর্থ হয় → GitHub রিপোর মালিককে ইমেইল পাঠায়। বাংলা সারাংশ workflow-এর পাতায় আর log branch
+# `ci-log-uptime`-এ (summary.md, health.md)।
 # আগে প্রতি ১০ মিনিটে ছিল — রিপো private হলে সেটা একাই মাসে ~৪,৩২০ মিনিট (প্রতিটা চালানো কমপক্ষে ১ মিনিট ধরা হয়),
 # Free প্ল্যানের ২,০০০-এর দ্বিগুণ। দ্রুত খবরের জন্য বাইরের বিনা পয়সার মনিটর (deploy/GO-PRIVATE.md) — এটা পেছনের পাহারা।
-# বন্ধ থাকলে workflow ব্যর্থ হয় → GitHub রিপোর মালিককে ইমেইল পাঠায়।
-# একই বিভ্রাটে বারবার ইমেইল নয়: প্রথমবার, তারপর বন্ধ থাকলে প্রতি ৩ ঘণ্টায় একবার।
 # ঠিকানা: HEALTH_URL (Settings → Secrets and variables → Actions → Variables) দিলে সেটা, না দিলে
 # https://lifolo.com/api/health (Spring অ্যাপের {"ok":true,...} — nginx আর অ্যাপ দুটোই দেখা হয়)।
-# উত্তরে "ok":true থাকতে হবে।
 # GitHub শুধু main শাখার schedule চালায়; ৬০ দিন রিপোতে কোনো কাজ না হলে schedule নিজে বন্ধ করে (তখন Actions-এ Enable চাপুন)।
 on:
   schedule:
     - cron: "23 */3 * * *"
   workflow_dispatch:
+    inputs:
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-uptime"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: uptime
@@ -24,19 +31,37 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            deploy
+            .github/scripts
+
       - name: Health URL
         id: url
         env:
           HEALTH_URL: ${{ vars.HEALTH_URL }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           url="$(printf '%s' "$HEALTH_URL" | tr -d '[:space:]')"
           url="${url:-https://lifolo.com/api/health}"
           echo "url=$url" >> "$GITHUB_OUTPUT"
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [ -n "$ip" ]; then echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"; fi
+          mkdir -p "$RUNNER_TEMP/out"
+
+      # VPS-এ ssh (Setup VPS / Deploy-এর একই চাবি) — স্বাস্থ্য দেখা আর Cloudflare আটকালে ভেতর থেকে /api/health
+      - name: Connect to VPS
+        id: ssh
+        continue-on-error: true
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
 
       - name: Previous state
-        if: steps.url.outputs.url != ''
         uses: actions/cache/restore@v4
         with:
           path: uptime-state
@@ -45,30 +70,32 @@ jobs:
 
       - name: Check
         id: check
-        if: steps.url.outputs.url != ''
         env:
           URL: ${{ steps.url.outputs.url }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+          SSH_OK: ${{ steps.ssh.outcome }}
         run: |
           mkdir -p uptime-state
-          ok=no
-          # Cloudflare-এর proxy GitHub-এর মেশিনকে কখনো challenge (403) দেয় — তখন সরাসরি VPS-এ (একই নাম আর সার্টিফিকেট)
-          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          ok=no via=""
           host="$(printf '%s' "$URL" | sed -E 's#^https://([^/:]+).*#\1#')"
           # একবার না পেলেই নয় — ১ মিনিটে ৩ বার চেষ্টা
           for i in 1 2 3; do
-            if body="$(curl -fsS -m 20 "$URL" 2>&1)" && [[ "$body" == *'"ok":true'* ]]; then ok=yes; break; fi
-            if [[ "$body" == *"error: 403"* || "$body" == *"error: 503"* || "$body" == *"error: 429"* ]] && [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] \
-               && o="$(curl -fsS -m 20 --resolve "$host:443:$ip" "$URL" 2>&1)" && [[ "$o" == *'"ok":true'* ]]; then
-              echo "::warning::Cloudflare আটকেছে ($body) — সরাসরি VPS-এ ঠিক আছে"; ok=yes; break
+            if body="$(curl -fsS -m 20 "$URL" 2>&1)" && [[ "$body" == *'"ok":true'* ]]; then ok=yes; via=cloudflare; break; fi
+            # Cloudflare-এর proxy GitHub-এর মেশিনকে কখনো challenge (403) দেয় — তখন VPS-এর ভেতর থেকে (একই নাম আর সার্টিফিকেট;
+            # origin শুধু Cloudflare-এর জন্য খোলা, তাই বাইরে থেকে সরাসরি নয়)
+            if [[ "$body" == *"error: 403"* || "$body" == *"error: 503"* || "$body" == *"error: 429"* ]] && [ "$SSH_OK" = success ] \
+               && [[ "$host" =~ ^[a-z0-9.-]+$ ]] \
+               && o="$(ssh vps "curl -fsS -m 20 --resolve '$host:443:127.0.0.1' '$URL'" 2>&1)" && [[ "$o" == *'"ok":true'* ]]; then
+              echo "::warning::Cloudflare আটকেছে ($body) — VPS-এর ভেতর থেকে ঠিক আছে"; ok=yes; via="vps (cloudflare challenge)"; break
             fi
             echo "attempt $i: $body"
             [ "$i" = 3 ] || sleep 25
           done
+          echo "via=$via" >> "$GITHUB_OUTPUT"
+          echo "up=$ok" >> "$GITHUB_OUTPUT"
           now=$(date +%s)
           last_alert=$(cat uptime-state/last_alert 2>/dev/null || echo 0)
           if [ "$ok" = yes ]; then
-            echo "up: $URL"
+            echo "up: $URL ($via)"
             rm -f uptime-state/last_alert
             echo "alert=no" >> "$GITHUB_OUTPUT"
           elif [ $((now - last_alert)) -ge 10800 ]; then
@@ -81,18 +108,87 @@ jobs:
           touch uptime-state/checked
 
       - name: Save state
-        if: steps.url.outputs.url != ''
         uses: actions/cache/save@v4
         with:
           path: uptime-state
           key: uptime-state-${{ github.run_id }}
 
-      - name: Alert
-        if: steps.check.outputs.alert == 'yes'
+      - name: VPS health
+        id: health
+        env:
+          SSH_OK: ${{ steps.ssh.outcome }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          if [ "$SSH_OK" != success ]; then
+            printf '| ❌ | VPS-এ ssh | ঢোকা গেল না | ঢুকতে না পারলে ❌ |\n\nHEALTH fail=1 warn=0\n' > "$out/health.md"
+          else
+            ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+            ssh vps "bash /root/lifolo-ops/vps-ops.sh health" > "$out/health.md" 2>&1 \
+              || printf '\n| ❌ | স্বাস্থ্য-পরীক্ষা | চলেনি | |\n\nHEALTH fail=1 warn=0\n' >> "$out/health.md"
+          fi
+          cat "$out/health.md"
+          line="$(grep -E '^HEALTH fail=[0-9]+ warn=[0-9]+$' "$out/health.md" | tail -1)"
+          fails="$(printf '%s' "$line" | sed -nE 's/^HEALTH fail=([0-9]+).*/\1/p')"
+          warns="$(printf '%s' "$line" | sed -nE 's/.* warn=([0-9]+)$/\1/p')"
+          echo "fails=${fails:-1}" >> "$GITHUB_OUTPUT"
+          echo "warns=${warns:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
         env:
           URL: ${{ steps.url.outputs.url }}
+          UP: ${{ steps.check.outputs.up }}
+          VIA: ${{ steps.check.outputs.via }}
+          FAILS: ${{ steps.health.outputs.fails }}
+          WARNS: ${{ steps.health.outputs.warns }}
         run: |
-          echo "## ❌ Lifolo (VPS) সাড়া দিচ্ছে না" >> "$GITHUB_STEP_SUMMARY"
-          echo "$URL — VPS চালু আছে কি না (Contabo প্যানেল) দেখুন, এই পাতার স্ক্রিনশট Claude-কে পাঠান।" >> "$GITHUB_STEP_SUMMARY"
-          echo "::error::সার্ভার বন্ধ: $URL"
+          out="$RUNNER_TEMP/out"
+          {
+            if [ "$UP" = yes ] && [ "${FAILS:-1}" = 0 ]; then
+              echo "## ✅ Lifolo চালু, VPS ঠিক আছে$([ "${WARNS:-0}" = 0 ] || echo " (${WARNS}টা নজরে রাখার মতো ⚠️)")"
+            else
+              echo "## ❌ Lifolo-তে সমস্যা"
+            fi
+            echo
+            echo "- $URL: $([ "$UP" = yes ] && echo "✅ সাড়া দিচ্ছে ($VIA)" || echo '❌ সাড়া দিচ্ছে না — VPS চালু আছে কি না (Contabo প্যানেল) দেখুন')"
+            echo "- VPS-এর স্বাস্থ্য: ${FAILS:-?}টা ❌, ${WARNS:-?}টা ⚠️"
+            echo
+            grep -v '^HEALTH ' "$out/health.md" 2>/dev/null
+            echo
+            if [ "${FAILS:-1}" != 0 ]; then
+              echo "কী করবেন: ডিস্ক/inode → Actions → **Ops: disk and RAM check** (কোথায় জায়গা গেল); সার্টিফিকেট → **Ops: SSL and Cloudflare check**;"
+              echo "ব্যাকআপ/দৈনিক কাজ → **Ops: timers and jobs check**; অপ্রত্যাশিত restart → অ্যাপের লগ (ওই disk check-এ ERROR-এর তালিকা)।"
+              echo "এই পাতার স্ক্রিনশট Claude-কে পাঠালেও হবে।"
+              echo
+            fi
+            echo "_$(date -u '+%Y-%m-%d %H:%M UTC') · run ${{ github.run_id }} · গাইড: deploy/OPS-DRILLS.md_"
+          } > "$out/summary.md"
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-uptime' }}
+          LOG_MESSAGE: uptime ${{ github.run_id }} ${{ job.status }}
+        run: |
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-uptime
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/uptime"
+          cp "$RUNNER_TEMP/out/summary.md" "$RUNNER_TEMP/out/health.md" "$src/uptime/" 2>/dev/null || true
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" uptime
+
+      - name: Alert
+        if: steps.check.outputs.alert == 'yes' || steps.health.outputs.fails != '0'
+        env:
+          URL: ${{ steps.url.outputs.url }}
+          ALERT: ${{ steps.check.outputs.alert }}
+          FAILS: ${{ steps.health.outputs.fails }}
+        run: |
+          [ "$ALERT" != yes ] || echo "::error::সার্ভার বন্ধ: $URL"
+          [ "${FAILS:-1}" = 0 ] || echo "::error::VPS-এর স্বাস্থ্যে ${FAILS:-?}টা সমস্যা — পাতার সারাংশ দেখুন"
           exit 1
+
+      - name: Clean up
+        if: always()
+        run: ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config

@@ -14,6 +14,7 @@
 #   ssl                    সার্টিফিকেট, certbot renew --dry-run, nginx কোন নামে কোন সার্টিফিকেট — Markdown
 #   cfports                Cloudflare-এর ঠিকানা থেকে খোলা সংযোগ: 443 না 80 (Flexible ধরা)
 #   timers                 systemd timer আর JobRunr-এর কাজ গত ২৪ ঘণ্টায় চলেছে কি না — Markdown
+#   health                 সতর্কতার সীমা (ডিস্ক/inode/RAM/swap/সার্টিফিকেট/ব্যাকআপ/দৈনিক কাজ/অপ্রত্যাশিত restart) — Uptime workflow
 #
 # কখনো আসল (non-demo) অ্যাকাউন্টের কিছু বদলায় না: সব লেখা `uid LIKE 'demo-%'` দিয়ে বাঁধা।
 # গোপন কিছু ছাপে না (পাসওয়ার্ড, চাবি, টোকেন)।
@@ -507,8 +508,93 @@ timers)
     echo '```'
   fi
   ;;
+# ------------------------------------------------------------------------------------------------ health
+# Uptime workflow (প্রতি ৩ ঘণ্টা): সীমা পেরোলে ❌ (workflow ব্যর্থ → মালিককে GitHub-এর ইমেইল), নজরে রাখার মতো হলে ⚠️।
+# Markdown সারণি, শেষ লাইনে HEALTH fail=N warn=M। মহড়ার (crash/restart drill) restart/রিবুট /var/lib/lifolo/ops-expected
+# দেখে বাদ (মহড়া সেখানে সময় লেখে)।
+health)
+  now=$(date +%s)
+  fails=0 warns=0
+  row() { # $1 ok|warn|fail  $2 কী  $3 এখন  $4 সীমা
+    local icon="✅"
+    case "$1" in fail) icon="❌"; fails=$((fails + 1)) ;; warn) icon="⚠️"; warns=$((warns + 1)) ;; esac
+    echo "| $icon | $2 | $3 | $4 |"
+  }
+  echo "| | কী | এখন | সীমা |"
+  echo "|---|---|---|---|"
+  d="$(df -P / | awk 'NR==2{gsub("%","",$5); print $5}')"
+  row "$([ "${d:-0}" -ge 80 ] && echo fail || echo ok)" "ডিস্ক (/)" "${d}% ($(df -Ph / | awk 'NR==2{print $3 " / " $2}'))" "≥ 80% হলে ❌"
+  i="$(df -Pi / | awk 'NR==2{gsub("%","",$5); print $5}')"
+  row "$([ "${i:-0}" -ge 80 ] && echo fail || echo ok)" "inode (/)" "${i}%" "≥ 80% হলে ❌"
+  read -r mt ma st_ sf < <(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} /^SwapTotal:/{s=$2} /^SwapFree:/{f=$2} END{print t, a, s, f}' /proc/meminfo)
+  mp=$(( ma * 100 / mt ))
+  row "$([ "$mp" -lt 15 ] && echo fail || echo ok)" "খালি RAM" "${mp}% ($(( ma / 1024 )) / $(( mt / 1024 )) MB)" "< 15% হলে ❌"
+  su=$(( (st_ - sf) / 1024 ))
+  row "$([ "$su" -gt 512 ] && echo fail || echo ok)" "swap ব্যবহার" "${su} MB" "> 512 MB হলে ❌"
+  # সার্টিফিকেট — সবচেয়ে কম দিন বাকি
+  minleft="" minname="" ncert=0
+  for f in /etc/letsencrypt/live/*/fullchain.pem; do
+    [ -f "$f" ] || continue
+    ncert=$((ncert + 1))
+    end="$(openssl x509 -enddate -noout -in "$f" 2>/dev/null | cut -d= -f2)"
+    left=$(( ( $(date -d "$end" +%s) - now ) / 86400 ))
+    if [ -z "$minleft" ] || [ "$left" -lt "$minleft" ]; then minleft=$left; minname="$(basename "$(dirname "$f")")"; fi
+  done
+  if [ "$ncert" = 0 ]; then
+    row fail "সার্টিফিকেট" "নেই" "< 21 দিন বাকি হলে ❌"
+  else
+    row "$([ "$minleft" -lt 21 ] && echo fail || echo ok)" "সার্টিফিকেট (${ncert}টা)" "সবচেয়ে কম: $minleft দিন ($minname)" "< 21 দিন বাকি হলে ❌"
+  fi
+  # ব্যাকআপ
+  newest="$(find /var/backups/lifolo -maxdepth 1 -name 'lifolo-*.dump' -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)"
+  bres="$(systemctl show lifolo-backup.service -p Result --value 2>/dev/null)"
+  if [ -z "$newest" ]; then
+    row fail "শেষ ব্যাকআপ" "নেই" "> 26 ঘণ্টা পুরোনো হলে ❌"
+  else
+    bh=$(( (now - newest) / 3600 ))
+    row "$({ [ "$bh" -gt 26 ] || { [ -n "$bres" ] && [ "$bres" != success ]; }; } && echo fail || echo ok)" "শেষ ব্যাকআপ" "$bh ঘণ্টা আগে (শেষ চালানো: ${bres:-?})" "> 26 ঘণ্টা পুরোনো হলে ❌"
+  fi
+  # অ্যাপের দৈনিক কাজ (JobRunr daily-maintenance, রোজ 03:00 UTC)
+  dj="$(psqlq -c "SELECT extract(epoch FROM max(updatedat))::bigint FROM jobrunr_jobs WHERE recurringjobid = 'daily-maintenance' AND state = 'SUCCEEDED'" 2>/dev/null || true)"
+  if ! [[ "$dj" =~ ^[0-9]+$ ]]; then
+    row warn "দৈনিক কাজ (daily-maintenance)" "সফল চালানো পাওয়া যায়নি" "> 26 ঘণ্টা পুরোনো হলে ❌"
+  else
+    dh=$(( (now - dj) / 3600 ))
+    row "$([ "$dh" -gt 26 ] && echo fail || echo ok)" "দৈনিক কাজ (daily-maintenance)" "$dh ঘণ্টা আগে সফল" "> 26 ঘণ্টা পুরোনো হলে ❌"
+  fi
+  # অপ্রত্যাশিত restart (systemd নিজে আবার চালিয়েছে: crash, OOM, kill) আর রিবুট — গত ৩ ঘণ্টা, মহড়া বাদ
+  expected="$(awk -v t=$((now - 4 * 3600)) '$1 ~ /^[0-9]+$/ && $1 > t {print $1}' /var/lib/lifolo/ops-expected 2>/dev/null | tr '\n' ' ')"
+  is_expected() { local e; for e in $expected; do [ "$1" -ge "$((e - 60))" ] && [ "$1" -le "$((e + 900))" ] && return 0; done; return 1; }
+  unexp=0 drill=0
+  while read -r ts; do
+    [ -n "$ts" ] || continue
+    if is_expected "${ts%%.*}"; then drill=$((drill + 1)); else unexp=$((unexp + 1)); fi
+  done < <(journalctl -u "$UNIT" --since '-3h' --no-pager -o short-unix 2>/dev/null | awk '/Scheduled restart job/{print $1}')
+  boot=$(( now - $(awk '{printf "%d", $1}' /proc/uptime) ))
+  reboot_note=""
+  if [ $((now - boot)) -lt 10800 ]; then
+    if is_expected "$boot"; then reboot_note=", রিবুট মহড়া"; else unexp=$((unexp + 1)); reboot_note=", অপ্রত্যাশিত রিবুট $(date -u -d "@$boot" '+%H:%M UTC')"; fi
+  fi
+  row "$([ "$unexp" -gt 0 ] && echo fail || echo ok)" "lifolo-api নিজে restart (৩ ঘণ্টা)" "$unexp অপ্রত্যাশিত$([ "$drill" = 0 ] || echo ", $drill মহড়া")$reboot_note" "> 0 হলে ❌ (deploy/মহড়া বাদ)"
+  h="$(curl -fsS -m 5 http://127.0.0.1:8080/api/health 2>/dev/null | grep -o '"ok":true' || true)"
+  row "$([ -n "$h" ] && echo ok || echo fail)" "অ্যাপ (ভেতর থেকে /api/health)" "$([ -n "$h" ] && echo চালু || echo বন্ধ)" "বন্ধ হলে ❌"
+  # origin-এর পাহারা (নজরে রাখার মতো — ব্যর্থ নয়)
+  if [ -x /usr/local/sbin/lifolo-tune ]; then
+    ts_="$(/usr/local/sbin/lifolo-tune status 2>/dev/null || true)"
+    g() { printf '%s\n' "$ts_" | sed -n "s/^$1=//p" | head -1; }
+    cf="$(g ufw_cloudflare_rules)"; op="$(g ufw_open_80_443)"; ci="$(g ufw_ci_holes)"
+    row "$([ "$(g ufw)" = active ] && [ "${cf:-0}" -ge 15 ] && [ "${op:-0}" = 0 ] && echo ok || echo warn)" "origin শুধু Cloudflare-এর জন্য" "ufw $(g ufw), Cloudflare-নিয়ম ${cf:-?}, সবার-জন্য-খোলা 80/443: ${op:-?}, CI-ছিদ্র: ${ci:-0}" "খোলা থাকলে ⚠️"
+  else
+    row warn "origin শুধু Cloudflare-এর জন্য" "lifolo-tune নেই (Deploy backend চালান)" "খোলা থাকলে ⚠️"
+  fi
+  tm=""
+  for t in lifolo-backup.timer certbot.timer lifolo-origin-guard.timer; do systemctl is-active --quiet "$t" || tm="$tm $t"; done
+  row "$([ -z "$tm" ] && echo ok || echo warn)" "timer (backup, certbot, guard)" "$([ -z "$tm" ] && echo 'সব চালু' || echo "বন্ধ:$tm")" "বন্ধ হলে ⚠️"
+  echo
+  echo "HEALTH fail=$fails warn=$warns"
+  ;;
 *)
-  echo "ব্যবহার: vps-ops.sh config|services|sample-start DIR SEC|sample-stop DIR|snapshot DIR|cleanup DIR|window DIR|disk|ssl|timers" >&2
+  echo "ব্যবহার: vps-ops.sh config|services|sample-start DIR SEC|sample-stop DIR|snapshot DIR|cleanup DIR|window DIR|disk|ssl|timers|health" >&2
   exit 2
   ;;
 esac

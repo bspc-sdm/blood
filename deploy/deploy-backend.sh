@@ -247,52 +247,120 @@ else
   else
     st rollback none
   fi
+  # আগের jar-ও না চললে: JVM-এর নতুন সেটিং (tune-vps.sh-এর drop-in) সরিয়ে setup-base.sh-এর ভিত্তিতে আরেকবার
+  TUNING_DROPIN="$DROPIN_DIR/20-tuning.conf"
+  if [ "$(env_get rollback "$STATUS")" != ok ] && [ -f "$TUNING_DROPIN" ]; then
+    say "অ্যাপ চালু হচ্ছে না — JVM-এর tuning drop-in ছাড়া আরেকবার"
+    mv "$TUNING_DROPIN" "$TUNING_DROPIN.disabled"
+    systemctl daemon-reload
+    systemctl restart lifolo-api.service
+    if wait_health 90; then st rollback "ok (without $TUNING_DROPIN — see $TUNING_DROPIN.disabled)"; fi
+  fi
   die "অ্যাপ চালু হয়নি (/api/health সাড়া দেয়নি)"
 fi
 
 # ---------------------------------------------------------------- 5) nginx
-say "nginx: /api/, /r/, /rx/, /shop/, /.well-known/ → 127.0.0.1:$API_PORT"
+say "nginx: /api/, /r/, /rx/, /shop/, /.well-known/ → upstream lifolo_api (127.0.0.1:$API_PORT, keepalive)"
+# http-স্তরের অংশ: upstream (অ্যাপের সাথে খোলা সংযোগ রেখে দেওয়া — প্রতি অনুরোধে নতুন TCP নয়) আর /api/-এ IP-প্রতি সীমা।
+# Tomcat ২০-৬০ s অলস সংযোগ বন্ধ করে, তাই nginx-এর দিকে 15 s (দুজন একসাথে বন্ধ করলে POST-এ 502 হতে পারত)।
+# সীমার IP = আসল দর্শক: Cloudflare-এর পেছনে CF-Connecting-IP (tune-vps.sh-এর realip); এই মেশিন (127.0.0.1) আর
+# CI-র সাময়িক ঠিকানা (lifolo-tune ci-open → limit-exempt.conf) সীমার বাইরে।
+UPSTREAM_CONF=/etc/nginx/conf.d/lifolo-api-upstream.conf
+EXEMPT=/etc/nginx/lifolo/limit-exempt.conf
+REALIP=/etc/nginx/conf.d/lifolo-cloudflare-realip.conf
+install -d -m 0755 "$(dirname "$EXEMPT")"
+[ -f "$EXEMPT" ] || { echo "# Lifolo — CI-র সাময়িক ঠিকানা (lifolo-tune ci-open লেখে, guard মোছে)। nginx-এর geo-তে include।" > "$EXEMPT"; chmod 0644 "$EXEMPT"; }
+# realip না থাকলে Cloudflare-এর অল্প কয়েকটা ঠিকানাই "দর্শক" — তখন IP-সীমা সবাইকে একসাথে আটকাত, তাই বন্ধ
+RATE_LIMIT=no
+grep -q '^real_ip_header CF-Connecting-IP;' "$REALIP" 2>/dev/null && RATE_LIMIT=yes
+cp -p "$UPSTREAM_CONF" "$UPSTREAM_CONF.bak" 2>/dev/null || true
+{
+  echo "# Lifolo — managed by deploy-backend.sh: অ্যাপের upstream আর /api/-এর IP-প্রতি সীমা (snippets/lifolo-api.conf ব্যবহার করে)"
+  echo "upstream lifolo_api {"
+  echo "    server 127.0.0.1:$API_PORT;"
+  echo "    keepalive 64;"
+  echo "    keepalive_requests 10000;"
+  echo "    keepalive_timeout 15s;"
+  echo "}"
+  echo "geo \$lifolo_limit_exempt {"
+  echo "    default 0;"
+  echo "    127.0.0.1/32 1;"
+  echo "    ::1/128 1;"
+  echo "    include $EXEMPT;"
+  echo "}"
+  echo "map \$lifolo_limit_exempt \$lifolo_limit_key {"
+  echo "    default \$binary_remote_addr;"
+  echo "    1 \"\";"
+  echo "}"
+  echo "# IP-প্রতি সেকেন্ডে ২০টা, একসাথে ৪০টা বাড়তি (অ্যাপ খোলার সময় কয়েকটা একসাথে যায়); বেশি হলে 429 + JSON"
+  echo "limit_req_zone \$lifolo_limit_key zone=lifolo_api:10m rate=20r/s;"
+} > "$UPSTREAM_CONF.new"
+chmod 0644 "$UPSTREAM_CONF.new"
+mv "$UPSTREAM_CONF.new" "$UPSTREAM_CONF"
+# অ্যাপ বন্ধ/চালু হওয়ার সময় (deploy, restart ~২০ s) nginx-এর নিজের 502/503/504 আর সীমার 429: HTML নয়, ছোট JSON —
+# অ্যাপ "error" লেখাটাই দেখায় (ServerApi.kt / web-vue api.ts)। অ্যাপের নিজের উত্তর (যেমন কোড-সীমার 429) যেমন আছে তেমনই যায়।
+MSG_DOWN='সার্ভার এই মুহূর্তে চালু হচ্ছে — কয়েক সেকেন্ড পর আবার চেষ্টা করুন। (Server is restarting — please try again in a few seconds.)'
+MSG_LIMIT='অনেক বেশি অনুরোধ — একটু থেমে আবার চেষ্টা করুন। (Too many requests — please wait a moment.)'
 loc() {
-  cat <<EOF
-location $1 {
-    proxy_pass http://127.0.0.1:$API_PORT;
-    proxy_http_version 1.1;
-    proxy_set_header Connection "";
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$remote_addr;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_connect_timeout 5s;
-    proxy_read_timeout ${2:-60s};
-    client_max_body_size 10m;${3:-}
+  echo "location $1 {"
+  echo "    proxy_pass http://lifolo_api;"
+  echo "    proxy_http_version 1.1;"
+  echo "    proxy_set_header Connection \"\";"
+  echo "    proxy_set_header Host \$host;"
+  echo "    proxy_set_header X-Real-IP \$remote_addr;"
+  echo "    proxy_set_header X-Forwarded-For \$remote_addr;"
+  echo "    proxy_set_header X-Forwarded-Proto \$scheme;"
+  echo "    proxy_connect_timeout 5s;"
+  echo "    proxy_read_timeout ${2:-60s};"
+  echo "    client_max_body_size 10m;"
+  [ -z "${3:-}" ] || printf '%s\n' "$3"
+  echo "}"
 }
-EOF
+API_EXTRA="    error_page 502 503 504 @lifolo_api_down;"
+if [ "$RATE_LIMIT" = yes ]; then
+  API_EXTRA="$API_EXTRA
+    limit_req zone=lifolo_api burst=40 nodelay;
+    limit_req_status 429;
+    error_page 429 @lifolo_api_limited;"
+fi
+json_loc() { # $1 নাম, $2 HTTP কোড, $3 Retry-After, $4 লেখা, $5 code
+  echo "location $1 {"
+  echo "    default_type \"application/json; charset=utf-8\";"
+  echo "    add_header Retry-After $3 always;"
+  echo "    add_header Cache-Control \"no-store\" always;"
+  echo "    return $2 '{\"error\":\"$4\",\"code\":\"$5\",\"retry\":true}\n';"
+  echo "}"
 }
 cp -p "$SNIPPET" "$SNIPPET.bak" 2>/dev/null || true
 {
   echo "# Lifolo — managed by deploy-backend.sh (Deploy backend workflow). setup-base.sh এই ফাইল আর বদলায় না।"
-  echo "# অ্যাপের পথগুলো → Spring Boot (127.0.0.1:$API_PORT); /healthz আর বাকি সব lifolo-common.conf-এ।"
+  echo "# অ্যাপের পথগুলো → Spring Boot (upstream lifolo_api: $UPSTREAM_CONF); /healthz আর বাকি সব lifolo-common.conf-এ।"
   echo "# X-Forwarded-For = শুধু আসল IP (অতিথি আর লগইন-কোডের সীমা এটা দেখে; বাইরের দেওয়া মান নেওয়া হয় না)।"
-  loc /api/
-  # SSE (নোটিফিকেশনের সরাসরি ধারা): buffering বন্ধ, লম্বা সময় খোলা
-  loc /api/events 1h "
-    proxy_buffering off;
-    proxy_cache off;"
+  loc /api/ 60s "$API_EXTRA"
+  # SSE (নোটিফিকেশনের সরাসরি ধারা): buffering বন্ধ, লম্বা সময় খোলা; সংযোগ একটাই, তাই সীমা নেই
+  loc /api/events 1h "    proxy_buffering off;
+    proxy_cache off;
+    error_page 502 503 504 @lifolo_api_down;"
   # /api/cron/* (CRON_SECRET-এর পথ: দৈনিক কাজ, R2, Sentry পরীক্ষা) বাইরে থেকে নয় — VPS-এর ভেতর থেকে 127.0.0.1:$API_PORT দিয়েই চলে
   echo "location /api/cron/ { return 404; }"
   loc /r/
   loc /rx/
   loc /shop/
   loc /.well-known/
+  json_loc @lifolo_api_down 503 15 "$MSG_DOWN" server_unavailable
+  json_loc @lifolo_api_limited 429 2 "$MSG_LIMIT" rate_limited
 } > "$SNIPPET.new"
 chmod 0644 "$SNIPPET.new"
 mv "$SNIPPET.new" "$SNIPPET"
 if nginx -t 2>/dev/null; then
   systemctl reload nginx
   st nginx ok
+  st rate_limit "$([ "$RATE_LIMIT" = yes ] && echo '20r/s burst 40 per client IP' || echo 'off (no Cloudflare realip yet)')"
 else
   nginx -t || true
-  [ -f "$SNIPPET.bak" ] && mv "$SNIPPET.bak" "$SNIPPET" && systemctl reload nginx || true
+  [ -f "$SNIPPET.bak" ] && mv "$SNIPPET.bak" "$SNIPPET"
+  if [ -f "$UPSTREAM_CONF.bak" ]; then mv "$UPSTREAM_CONF.bak" "$UPSTREAM_CONF"; else rm -f "$UPSTREAM_CONF"; fi
+  systemctl reload nginx || true
   st nginx failed
 fi
 
@@ -378,6 +446,23 @@ check actuator_hidden "! H '$B/actuator/health' | grep -q '\"status\"'"
 check cron_hidden "H -o /dev/null -w '%{http_code}' '$B/api/cron/daily' | grep -qx 404"
 if [ "$(env_get api_domain "$STATUS")" = ok ]; then
   check api_domain_health "curl -sS -m 15 --resolve '$API_DOMAIN:443:127.0.0.1' 'https://$API_DOMAIN/api/health' | grep -q '\"ok\":true'"
+fi
+check nginx_keepalive "nginx -T 2>/dev/null | grep 'proxy_pass http://lifolo_api;' >/dev/null && nginx -T 2>/dev/null | grep -E '^\s*keepalive 64;' >/dev/null"
+# IP-সীমা: এই মেশিনের নিজের সর্বজনীন ঠিকানা থেকে (127.0.0.1 সীমার বাইরে) একসাথে ৮০টা → কিছু 429 (JSON), বাকি 200
+if [ "$(env_get rate_limit "$STATUS" | cut -c1-2)" = 20 ]; then
+  MYIP="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
+  if [ -n "$MYIP" ]; then
+    probe="$(mktemp)"
+    seq 1 80 | xargs -P 40 -I{} curl -sS -m 10 -w '\n%{http_code}\n' --resolve "$DOMAIN:443:$MYIP" "$B/api/health" > "$probe" 2>/dev/null || true
+    n200="$(grep -cx 200 "$probe" || true)"; n429="$(grep -cx 429 "$probe" || true)"
+    st rate_limit_probe "200=$n200 429=$n429"
+    if [ "${n429:-0}" -gt 0 ] && [ "${n200:-0}" -ge 30 ] && grep -q '"code":"rate_limited"' "$probe"; then
+      st rate_limit_json ok; echo "ok   rate_limit_json (200=$n200 429=$n429)"
+    else
+      st rate_limit_json failed; echo "FAIL rate_limit_json (200=$n200 429=$n429)"
+    fi
+    rm -f "$probe"
+  fi
 fi
 check api_guest "H -X POST -H 'content-type: application/json' --data '{\"action\":\"__nope__\",\"lang\":\"bn\"}' '$B/api/community' | grep -q 'error'"
 

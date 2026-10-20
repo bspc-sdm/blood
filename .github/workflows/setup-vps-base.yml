@@ -8,7 +8,8 @@ name: Setup VPS (base)
 #   VPS_ROOT_PASSWORD  Contabo-তে দেওয়া root পাসওয়ার্ড
 #
 # ধাপ: SSH (প্রথমবার root পাসওয়ার্ডে ঢুকে পাসওয়ার্ড থেকে বানানো চাবি আর পিন করা host key বসানো, তারপর SSH-এ
-# পাসওয়ার্ড লগইন বন্ধ; দেখুন deploy/ci/vps-connect.sh) → deploy/setup-base.sh → বাইরে থেকে /healthz পরীক্ষা → বাংলা সারাংশ।
+# পাসওয়ার্ড লগইন বন্ধ; দেখুন deploy/ci/vps-connect.sh) → deploy/setup-base.sh → deploy/tune-vps.sh (JVM/PostgreSQL/Redis/
+# nginx-এর সেটিং; 80/443 শুধু Cloudflare-এর ঠিকানা থেকে) → SSH tunnel দিয়ে /healthz পরীক্ষা → বাংলা সারাংশ।
 # setup-base.sh যা বসায়: Java 21, PostgreSQL 16, Redis, nginx + Let's Encrypt, ufw, fail2ban, swap, দৈনিক ব্যাকআপ,
 # lifolo-api.service (jar এলে চালু)। কোনো গোপন মান লগে আসে না।
 on:
@@ -79,6 +80,23 @@ jobs:
           # ফলাফল (গোপন কিছু নয়) পরের ধাপের জন্য
           ssh vps 'cat /var/lib/lifolo/setup-status' | tr -d '\r' | grep -E '^[a-z_]+=' >> "$GITHUB_OUTPUT"
 
+      # ক্ষমতার সেটিং আর origin-এর পাহারা (Deploy backend-ও প্রতিবার চালায়): নতুন VPS-এও একই
+      - name: Tune the VPS (JVM, PostgreSQL, Redis, nginx, origin only for Cloudflare)
+        id: tune
+        run: |
+          ssh vps "cat > /root/lifolo-setup/.tune-vps.sh.\$\$ && mv /root/lifolo-setup/.tune-vps.sh.\$\$ /root/lifolo-setup/tune-vps.sh" < deploy/tune-vps.sh
+          ssh vps 'bash /root/lifolo-setup/tune-vps.sh apply'
+          ssh vps 'cat /var/lib/lifolo/tune-status' | tr -d '\r' | grep -E '^[a-z0-9_]+=' >> "$GITHUB_OUTPUT"
+
+      # 80/443 এখন শুধু Cloudflare-এর জন্য — GitHub-এর মেশিন থেকে SSH tunnel দিয়ে (আসল নাম আর সার্টিফিকেট দিয়েই)
+      - name: Origin via SSH tunnel
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          DOMAIN: ${{ steps.host.outputs.domain }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then bash deploy/ci/origin-access.sh tunnel "$ip" "$DOMAIN" || true; fi
+
       - name: Check from the internet - https://<address>/healthz
         id: web
         continue-on-error: true
@@ -118,6 +136,10 @@ jobs:
           REBOOT: ${{ steps.install.outputs.reboot }}
           WEB_HTTP: ${{ steps.web.outputs.http }}
           WEB_HTTPS: ${{ steps.web.outputs.https }}
+          FIREWALL: ${{ steps.tune.outputs.firewall }}
+          T_JVM: ${{ steps.tune.outputs.jvm }}
+          T_PG: ${{ steps.tune.outputs.pg_settings }}
+          T_REDIS: ${{ steps.tune.outputs.redis }}
         run: |
           {
             if [ "$JOB_OK" = success ] && [ "$WEB_HTTPS" = yes ]; then
@@ -157,7 +179,8 @@ jobs:
               echo "| nginx | $NGINX_V |"
               echo "| certbot | $CERTBOT_V |"
               echo "| HTTPS সার্টিফিকেট | $([ "$CERT" = ok ] && echo 'পাওয়া গেছে' || echo 'পাওয়া যায়নি') |"
-              echo "| ফায়ারওয়াল | শুধু 22, 80, 443 খোলা |"
+              echo "| ফায়ারওয়াল | 22 খোলা; 80/443 শুধু Cloudflare-এর ঠিকানা থেকে (${FIREWALL:-?}) |"
+              echo "| JVM / PostgreSQL / Redis | ${T_JVM:-?} · ${T_PG:-?} · ${T_REDIS:-?} |"
               echo "| দৈনিক ব্যাকআপ | $([ "$BACKUP" = ok ] && echo 'চালু (১৪ দিন রাখা)' || echo 'পরীক্ষা ব্যর্থ') |"
               echo
               echo "- গোপন মান (ডাটাবেস/Redis পাসওয়ার্ড) শুধু VPS-এর \`/etc/lifolo/env\`-এ, কোথাও ছাপা হয়নি।"

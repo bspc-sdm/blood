@@ -11,6 +11,10 @@ on:
         description: "সত্যিই রিবুট? REBOOT লিখুন"
         type: string
         default: ""
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-ops-drills"
 
 permissions:
   contents: write
@@ -47,10 +51,16 @@ jobs:
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: bash deploy/ci/vps-connect.sh
 
+      # origin শুধু Cloudflare-এর জন্য খোলা; রিবুটে ssh tunnel ছিঁড়ে যায়, তাই এই মেশিনের ঠিকানার জন্য সাময়িক ছিদ্র
+      # (ufw-এর নিয়ম রিবুটেও থাকে; ৪০ মিনিট পরে VPS নিজে বন্ধ করে, শেষ ধাপে এখনই বন্ধ)
+      - name: Origin - temporary hole for this runner
+        run: bash deploy/ci/origin-access.sh open 40
+
       - name: Before
         run: |
           ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$RUNNER_TEMP/out/before.txt"
+          ssh vps "/usr/local/sbin/lifolo-tune status 2>/dev/null || true" | tee "$RUNNER_TEMP/out/tune-before.txt"
           curl -fsS -m 15 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" | grep -q '"ok":true' \
             || { echo "::error::রিবুটের আগেই /api/health সবুজ নয় — মহড়া বাতিল"; exit 1; }
 
@@ -61,10 +71,12 @@ jobs:
           H() { curl -fsS -m 3 --connect-timeout 2 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
           echo "rebooted_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee "$out/drill.txt"
           t0=$(date +%s.%N)
+          # Uptime-এর সতর্কতা এই রিবুটকে "মহড়া" ধরে (অপ্রত্যাশিত নয়)
+          ssh vps 'install -d -m 0755 /var/lib/lifolo && date +%s >> /var/lib/lifolo/ops-expected'
           # ২ সেকেন্ড পরে রিবুট (ssh ঠিকভাবে ফেরে)
           ssh vps "systemd-run --on-active=2 --unit=lifolo-ops-reboot /bin/systemctl reboot" || true
           ssh -O exit vps 2>/dev/null || true
-          down="" ssh_gone="" ssh_up="" green="" pub=""
+          down="" ssh_gone="" ssh_up="" green="" pub="" down_body=""
           el() { awk -v a="$(date +%s.%N)" -v b="$t0" 'BEGIN{printf "%.1f", a-b}'; }
           for _ in $(seq 1 600); do
             if [ -z "$down" ]; then
@@ -77,6 +89,11 @@ jobs:
                 [ -n "$ssh_gone" ] || ssh_gone="$(el)"
               fi
               if H; then green="$(el)"; break; fi
+              # Spring চালু হওয়ার আগে nginx যা দেয়: JSON (অ্যাপ বার্তা দেখায়) না HTML
+              if [ -z "$down_body" ]; then
+                c="$(curl -s -m 3 --connect-timeout 2 -o "$out/probe.txt" -w '%{http_code}' --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null || true)"
+                if [[ "$c" =~ ^50[234]$ ]]; then down_body="$(grep -q '"code":"server_unavailable"' "$out/probe.txt" && echo "JSON ($c)" || echo "HTML/অন্য ($c)")"; fi
+              fi
             fi
             sleep 1
             # ১০ মিনিট পর হাল ছাড়া
@@ -96,6 +113,7 @@ jobs:
             echo "ssh_up_s=${ssh_up:-?}"
             echo "health_green_s=${green:-timeout}"
             echo "public_via_cloudflare=${pub:-not ok}"
+            echo "down_body=${down_body:-দেখা যায়নি}"
           } | tee -a "$out/drill.txt"
           [ -n "$green" ] || { echo "::error::১০ মিনিটেও /api/health সবুজ হয়নি"; exit 1; }
 
@@ -110,6 +128,8 @@ jobs:
           # timer আর JobRunr-এর প্রথম কাজ চলার সময় দেওয়া
           sleep 75
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$out/after.txt"
+          # নতুন সেটিং রিবুটের পরেও (JVM, PostgreSQL, Redis, nginx, ufw)
+          ssh vps "/usr/local/sbin/lifolo-tune status 2>/dev/null || true" | tee "$out/tune-after.txt"
           ssh vps "journalctl -b -u lifolo-api --no-pager -o short-iso | grep -E 'Started Lifolo|Started [A-Za-z]+ in|Main process exited|Failed' | head -6; \
                    echo; systemd-analyze blame --no-pager | head -8; echo; systemctl list-timers --no-pager | head -14" > "$out/boot.txt" 2>&1 || true
           cat "$out/boot.txt"
@@ -153,6 +173,7 @@ jobs:
           print(f"| SSH (পোর্ট 22) ফিরল | {t.get('ssh_up_s', '?')} s |")
           print(f"| **https /api/health সবুজ (সরাসরি VPS)** | **{green} s** |")
           print(f"| Cloudflare দিয়ে (lifolo.com/api/health) | {t.get('public_via_cloudflare', '?')} |")
+          print(f"| Spring চালুর আগে nginx-এর উত্তর | {t.get('down_body', '?')} |")
           print()
           print(f"বুট: {a.get('boot_time', '?')} · অ্যাপ: {a.get('api_spring_started', '?')} · health (ভেতর থেকে): {a.get('api_health_local', '?')}, "
                 f"PostgreSQL: {a.get('pg_ready', '?')}, Redis: {a.get('redis_ping', '?')}, swap: {a.get('swap_on', '?') or 'নেই'}, ফায়ারওয়াল: {a.get('ufw', '?')}")
@@ -169,6 +190,13 @@ jobs:
               print(f"cloud-init: `{a['cloud_init']}`")
           print(f"রিবুট দরকার (আপডেটের পর): {a.get('reboot_required', '?')} · unattended-upgrades নিজে রিবুট করে: {a.get('auto_reboot', '') or 'না (ডিফল্ট false)'}")
           print()
+          tb, ta = kv("tune-before.txt"), kv("tune-after.txt")
+          if ta:
+              print("| সেটিং | রিবুটের আগে | পরে |")
+              print("|---|---|---|")
+              for k in ["api_cmdline", "pg", "redis", "nginx_worker_connections", "nginx_nofile", "ufw", "ufw_cloudflare_rules", "ufw_open_80_443"]:
+                  print(f"| {k} | {tb.get(k, '?')} | {ta.get(k, '?')} |")
+              print()
           print(f"**ফল:** {'✅ সব সার্ভিস নিজে নিজে ফিরেছে' if ok_all and green != 'timeout' and not new_fail else '❌ কিছু ফেরেনি — ওপরের সারণি দেখুন'}")
           PY
           {
@@ -186,10 +214,15 @@ jobs:
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish to the log branch (ci-log-ops-drills)
+      - name: Close the temporary hole
+        if: always()
+        run: bash deploy/ci/origin-access.sh close || true
+
+      - name: Publish to the log branch
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-ops-drills' }}
           LOG_MESSAGE: ops restart drill ${{ github.run_id }} ${{ job.status }}
         run: |
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/restart"
@@ -198,7 +231,9 @@ jobs:
           cat "$out/drill.txt" "$out/after.txt" > "$src/restart/status.txt" 2>/dev/null || true
           cp "$out/before.txt" "$src/restart/before.txt" 2>/dev/null || true
           { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; } >> "$src/restart/status.txt"
-          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" restart
+          cp "$out/tune-after.txt" "$src/restart/tune-after.txt" 2>/dev/null || true
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-ops-drills
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" restart
 
       - name: Clean up
         if: always()

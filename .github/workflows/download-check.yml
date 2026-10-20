@@ -17,6 +17,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+      # origin শুধু Cloudflare-এর জন্য খোলা — সরাসরি-VPS যাচাই SSH tunnel দিয়ে (deploy/ci/origin-access.sh)
+      - name: Connect to VPS
+        continue-on-error: true
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          bash deploy/ci/vps-connect.sh
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          echo "::add-mask::$ip"
+          bash deploy/ci/origin-access.sh tunnel "$ip"
       - name: Check
         id: check
         env:
@@ -95,3 +106,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LOG_MESSAGE: download check ${{ job.status }}
         run: bash .github/scripts/publish-log.sh ci-log-download "$RUNNER_TEMP/log" summary.md download-status.txt
+
+      - name: Clean up
+        if: always()
+        run: ssh -O exit vps 2>/dev/null || true; rm -rf ~/.ssh/lifolo ~/.ssh/config

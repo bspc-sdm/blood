@@ -1,7 +1,8 @@
 name: "Ops: load test"
 
 # লোড টেস্ট — GitHub-এর মেশিন থেকে সরাসরি VPS-এ (api.lifolo.com → VPS-এর IP, Cloudflare-এর পাশ কাটিয়ে, যাতে
-# Cloudflare আটকায় বা cache না করে)। ধাপে ধাপে লগইন-করা অনুরোধ বাড়ানো হয় (5 → 10 → 20 … rps, প্রতি ধাপ ৬০ সেকেন্ড);
+# Cloudflare আটকায় বা cache না করে)। origin শুধু Cloudflare-এর জন্য খোলা, তাই চলার সময়টুকু এই মেশিনের ঠিকানার জন্য
+# সাময়িক ছিদ্র (ufw + nginx-এর IP-সীমার বাইরে; deploy/ci/origin-access.sh — ৬০ মিনিট পরে VPS নিজে বন্ধ করে)। ধাপে ধাপে লগইন-করা অনুরোধ বাড়ানো হয় (5 → 10 → 20 … rps, প্রতি ধাপ ৬০ সেকেন্ড);
 # p95 > 1 s বা ত্রুটি > 1% হলেই থামে। সাথে VPS-এ প্রতি ২ সেকেন্ডে CPU/RAM/Java/DB সংযোগ মাপা (ssh)।
 # শুধু ডেমো অ্যাকাউন্ট (demo-…); শেষে টেস্টের বানানো সব সারি মোছা আর ডেমোর কোটা আগের মতো (deploy/ops/vps-ops.sh cleanup)।
 # কোনো আসল ইমেইল যায় না (লগইন-কোডের পথ শুধু ভুল ইমেইল / না-চাওয়া কোড দিয়ে)।
@@ -33,6 +34,10 @@ on:
         description: "শুধু উদ্ধার: ডেমো রোলের আজকের রক্ত-অনুরোধের কোটা কত কমাবে (role:n,role:n — লগের WROTE blood লাইন গুনে)"
         type: string
         default: ""
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-ops-drills"
 
 permissions:
   contents: write
@@ -117,6 +122,7 @@ jobs:
           # snapshot ছাড়া টেস্ট নয় (পরে ডেমোর কোটা/অবস্থা ফেরত আনা যেত না)
           grep -q '^snapshot=ok$' "$RUNNER_TEMP/out/before.txt" || { echo "::error::snapshot হয়নি — টেস্ট চালানো হলো না"; exit 1; }
           ssh vps "bash /root/lifolo-ops/vps-ops.sh sample-start '$OPS' 2"
+          bash deploy/ci/origin-access.sh open 60
           echo "$ORIGIN_IP $API_DOMAIN # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
           curl -fsS -m 15 "https://$API_DOMAIN/api/health" | grep -q '"ok":true' || { echo "::error::সরাসরি VPS-এ /api/health সাড়া দিচ্ছে না"; exit 1; }
 
@@ -211,10 +217,15 @@ jobs:
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.full.md" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish to the log branch (ci-log-ops-drills)
+      - name: Close the temporary hole
+        if: always() && inputs.cleanup_since == ''
+        run: bash deploy/ci/origin-access.sh close || true
+
+      - name: Publish to the log branch
         if: always() && inputs.cleanup_since == ''
         env:
           GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-ops-drills' }}
           LOG_MESSAGE: ops load test ${{ github.run_id }} ${{ job.status }}
         run: |
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/load"
@@ -224,7 +235,8 @@ jobs:
           for f in "$out"/stage-*.log; do [ -f "$f" ] && grep -vE 'eyJ[A-Za-z0-9_-]{20,}' "$f" | tail -200 > "$src/load/$(basename "$f")"; done
           echo "run=${GITHUB_RUN_ID}" >> "$src/load/load-status.txt"
           echo "job=${{ job.status }}" >> "$src/load/load-status.txt"
-          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" load
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-ops-drills
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" load
 
       - name: Clean up
         if: always()

@@ -5,7 +5,8 @@ name: Deploy backend
 # বাংলা গাইড: deploy/BASE-SETUP.md, বদলের দিনের ধাপ: deploy/CUTOVER.md
 # আগে একবার "Setup VPS (base)" সফল হতে হবে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি)।
 #
-# ধাপ: jar বানানো → VPS-এ পাঠানো → deploy/deploy-backend.sh (app.env, systemd restart → Flyway, nginx-এ /api /r /rx
+# ধাপ: jar বানানো → VPS-এ পাঠানো → deploy/tune-vps.sh (JVM/PostgreSQL/Redis/nginx-এর সেটিং, origin শুধু Cloudflare-এর
+# জন্য — ufw) → deploy/deploy-backend.sh (app.env, systemd restart → Flyway, nginx-এ /api /r /rx
 # /shop /.well-known, ভেতর থেকে পরীক্ষা, ডেমো) → web-vue বিল্ড → deploy/deploy-web.sh (lifolo.com: /w/ /admin/ আর
 # Vercel-এর বাকি পথ, www → lifolo.com, সার্টিফিকেট শুধু DNS এলে) → বাইরে থেকে পরীক্ষা (api.lifolo.com দিয়ে ডেমো লগইন
 # আর কয়েকটা পড়া) → বাংলা সারাংশ।
@@ -69,10 +70,10 @@ jobs:
       - name: Shell scripts
         run: |
           rc=0
-          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh deploy/ci/publish-download.sh; do bash -n "$f" || rc=1; done
+          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/tune-vps.sh deploy/ops/vps-ops.sh deploy/ci/vps-connect.sh deploy/ci/origin-access.sh deploy/ci/publish-download.sh; do bash -n "$f" || rc=1; done
           shellcheck --version | sed -n 2p
           # findings as annotations (readable without the log download)
-          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh deploy/ci/publish-download.sh > "$RUNNER_TEMP/sc.txt" || rc=1
+          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/tune-vps.sh deploy/ops/vps-ops.sh deploy/ci/vps-connect.sh deploy/ci/origin-access.sh deploy/ci/publish-download.sh > "$RUNNER_TEMP/sc.txt" || rc=1
           sed -E 's/^([^:]+):([0-9]+):([0-9]+): (.*)$/::error file=\1,line=\2::\4/' "$RUNNER_TEMP/sc.txt"
           exit "$rc"
       - name: Key derivation test
@@ -255,6 +256,29 @@ jobs:
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: bash deploy/ci/vps-connect.sh
 
+      # ক্ষমতার সেটিং আর origin-এর পাহারা — বারবার চালালেও একই (যা বদলায়নি তা ছোঁয়া হয় না); অ্যাপ restart পরের ধাপে
+      - name: Tune the VPS (JVM, PostgreSQL, Redis, nginx, origin only for Cloudflare)
+        id: tune
+        run: |
+          ssh vps "install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/.tune-vps.sh.\$\$ && mv /root/lifolo-setup/.tune-vps.sh.\$\$ /root/lifolo-setup/tune-vps.sh" < deploy/tune-vps.sh
+          rc=0
+          ssh vps 'bash /root/lifolo-setup/tune-vps.sh apply --no-app-restart' || rc=$?
+          ssh vps 'cat /var/lib/lifolo/tune-status' | tr -d '\r' | grep -E '^[a-z0-9_]+=' > "$RUNNER_TEMP/tune-status.txt" || true
+          sed 's/^/t_/' "$RUNNER_TEMP/tune-status.txt" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      # origin শুধু Cloudflare-এর জন্য খোলা — এই মেশিন থেকে সরাসরি-VPS পরীক্ষা (/etc/hosts, --resolve) SSH tunnel দিয়ে
+      - name: Origin via SSH tunnel
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+            bash deploy/ci/origin-access.sh tunnel "$ip"
+          else
+            echo "::warning::VPS_HOST IP নয় — tunnel ছাড়া (বাইরের পরীক্ষা ব্যর্থ হতে পারে)"
+          fi
+
       - name: Deploy on the VPS
         id: deploy
         env:
@@ -360,10 +384,44 @@ jobs:
           [ "$rc" = 0 ] || exit "$rc"
           if grep -qE '^site=(nginx_failed|cert_failed)' "$RUNNER_TEMP/deploy-web-status.txt" || [ -n "$fails" ]; then exit 1; fi
 
+      # Cloudflare origin-এ পৌঁছায় কি না (ufw-এ শুধু Cloudflare খোলা): VPS থেকেই Cloudflare-এর ঠিকানা হয়ে নিজের কাছে।
+      # 521/522/523 = Cloudflare origin-এ ঢুকতে পারছে না → সাইট বন্ধ হওয়ার ঝুঁকি: তখন জরুরি দরজা খোলা (80/443 সবার জন্য,
+      # /etc/lifolo/origin-open) আর workflow ব্যর্থ (ইমেইল)। challenge (403/429/503) হলে শুধু জানানো।
+      - name: Cloudflare reaches the origin (checked from the VPS)
+        id: cforigin
+        if: always() && steps.tune.outcome != 'skipped' && env.IN_WEB_DOMAIN != ''
+        env:
+          WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
+        run: |
+          d="$(printf '%s' "$WEB_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          [[ "$d" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || exit 0
+          # shellcheck disable=SC2029  # নাম ওপরে যাচাই করা
+          if ! ssh vps "getent ahostsv4 '$d' | awk '{print \$1}' | sort -u | grep -qE '^(104\.(1[6-9]|2[0-9]|3[01])|172\.(6[4-9]|7[01])|188\.114|162\.15[89]|141\.101|108\.162|173\.245|190\.93|197\.234|198\.41|103\.2[12]|103\.31|131\.0)\.'"; then
+            echo "result=not_cloudflare" >> "$GITHUB_OUTPUT"; echo "$d Cloudflare-এর পেছনে নয় — পরীক্ষা নেই"; exit 0
+          fi
+          code=000
+          for _ in 1 2 3 4 5; do
+            code="$(ssh vps "curl -sS -m 20 -o /dev/null -w '%{http_code}' 'https://$d/api/health'" 2>/dev/null || echo 000)"
+            [ "$code" = 200 ] && break
+            sleep 5
+          done
+          echo "code=$code"
+          case "$code" in
+            200) echo "result=ok" >> "$GITHUB_OUTPUT" ;;
+            403|429|503) echo "result=challenge ($code)" >> "$GITHUB_OUTPUT"; echo "::warning::Cloudflare VPS-কে challenge দিল ($code) — origin-এর পথ নিশ্চিত হওয়া গেল না" ;;
+            52[0-6])
+              echo "result=failed ($code) — origin opened" >> "$GITHUB_OUTPUT"
+              ssh vps 'touch /etc/lifolo/origin-open && /usr/local/sbin/lifolo-tune firewall' || true
+              echo "::error::Cloudflare origin-এ ঢুকতে পারছে না (HTTP $code) — 80/443 সবার জন্য খুলে দেওয়া হলো (/etc/lifolo/origin-open). Cloudflare-এর ঠিকানার তালিকা দেখে ফাইলটা মুছে আবার deploy করুন।"
+              exit 1 ;;
+            *) echo "result=unknown ($code)" >> "$GITHUB_OUTPUT"; echo "::warning::Cloudflare দিয়ে HTTP $code" ;;
+          esac
+
       # ওয়েবসাইট আর ডেমো — ইন্টারনেট থেকে (সত্যিকারের DNS আর সার্টিফিকেট দিয়ে)
       # Cloudflare-এর proxy (কমলা মেঘ) চালু: GitHub-এর মেশিন ডেটাসেন্টারের ঠিকানা, Cloudflare কখনো কখনো এদের challenge/403 দেয়।
       # তাই ১) একবার আসল পথে (Cloudflare দিয়ে) — challenge হলে শুধু জানানো, ব্যর্থ নয়; ২) বাকি সব পরীক্ষা সরাসরি VPS-এ
-      # (/etc/hosts-এ নাম → VPS-এর IP, সত্যিকারের নাম আর সার্টিফিকেট দিয়েই — Cloudflare মাঝে নেই)।
+      # (/etc/hosts-এ নাম → VPS-এর IP, সত্যিকারের নাম আর সার্টিফিকেট দিয়েই — Cloudflare মাঝে নেই; origin শুধু Cloudflare-এর
+      # জন্য খোলা বলে VPS-এর IP-তে যাওয়া সংযোগ SSH tunnel দিয়ে যায় — আগের "Origin via SSH tunnel" ধাপ)।
       - name: Check the website and the demo from the internet
         id: inet
         if: always() && steps.deploy.outcome == 'success'
@@ -509,6 +567,20 @@ jobs:
           S_API_DOMAIN_HEALTH: ${{ steps.deploy.outputs.s_api_domain_health }}
           WEB_API2: ${{ steps.web.outputs.api2 }}
           S_SENTRY: ${{ steps.deploy.outputs.s_sentry }}
+          S_RATE_LIMIT: ${{ steps.deploy.outputs.s_rate_limit }}
+          S_RATE_JSON: ${{ steps.deploy.outputs.s_rate_limit_json }}
+          S_RATE_PROBE: ${{ steps.deploy.outputs.s_rate_limit_probe }}
+          S_KEEPALIVE: ${{ steps.deploy.outputs.s_nginx_keepalive }}
+          T_JVM: ${{ steps.tune.outputs.t_jvm }}
+          T_PG: ${{ steps.tune.outputs.t_pg_settings }}
+          T_PG_STATE: ${{ steps.tune.outputs.t_postgres }}
+          T_REDIS: ${{ steps.tune.outputs.t_redis }}
+          T_NGINX: ${{ steps.tune.outputs.t_nginx }}
+          T_FIREWALL: ${{ steps.tune.outputs.t_firewall }}
+          T_CF: ${{ steps.tune.outputs.t_cf_ranges }}
+          T_GUARD: ${{ steps.tune.outputs.t_guard_timer }}
+          T_DONE: ${{ steps.tune.outputs.t_finished }}
+          CF_ORIGIN: ${{ steps.cforigin.outputs.result }}
         run: |
           mark() { case "$1" in ok|yes|up|ok\ *|kept*) echo "✅" ;; skipped*|"") echo "⏭️" ;; *) echo "❌" ;; esac; }
           row() { echo "| $1 | $(mark "$2") | ${3:-$2} |"; }
@@ -536,6 +608,8 @@ jobs:
               esac
             fi
             row "/healthz আগের মতোই" "$S_HEALTHZ" "${S_HEALTHZ:-—}"
+            row "nginx → অ্যাপ: খোলা সংযোগ রাখা (upstream keepalive 64)" "$S_KEEPALIVE" "${S_KEEPALIVE:-—}"
+            row "/api/-এ IP-প্রতি সীমা (২০/সে, burst ৪০) → 429 JSON" "$([ "$S_RATE_JSON" = ok ] && echo ok || echo "${S_RATE_JSON:-${S_RATE_LIMIT:-—}}")" "${S_RATE_LIMIT:-—}${S_RATE_PROBE:+ · পরীক্ষা: $S_RATE_PROBE}"
             row "/.well-known/assetlinks.json" "$S_ASSETLINKS" "${S_ASSETLINKS:-—}"
             row "/r/… শেয়ার পাতা অ্যাপ থেকে" "$S_SHARE" "${S_SHARE:-—}"
             row "অতিথির API (/api/community)" "$S_GUEST" "${S_GUEST:-—}"
@@ -599,6 +673,17 @@ jobs:
               esac
             fi
             echo
+            echo "**VPS-এর সেটিং (tune-vps.sh):**"
+            echo
+            echo "| কী | ফল | বিস্তারিত |"
+            echo "|---|---|---|"
+            row "JVM (-Xms1g -Xmx3g, G1)" "$([ "$T_DONE" = yes ] && echo ok || echo "${T_JVM:-failed}")" "${T_JVM:-—}"
+            row "PostgreSQL" "$([ -n "$T_PG" ] && echo ok || echo "${T_PG_STATE:-failed}")" "${T_PG:-—} (${T_PG_STATE:-?})"
+            row "Redis" "$([[ "$T_REDIS" == 536870912\ volatile-lru ]] && echo ok || echo "${T_REDIS:-failed}")" "${T_REDIS:-—}"
+            row "nginx (worker_connections 4096, nofile 16384)" "$([[ "$T_NGINX" == ok* ]] && echo ok || echo "${T_NGINX:-failed}")" "${T_NGINX:-—}"
+            row "origin: 80/443 শুধু Cloudflare (ufw), 22 খোলা" "$([[ "$T_FIREWALL" == cloudflare-only* ]] && echo ok || echo "${T_FIREWALL:-failed}")" "${T_FIREWALL:-—} · তালিকা: ${T_CF:-—} · guard timer: ${T_GUARD:-—}"
+            [ -z "$CF_ORIGIN" ] || row "Cloudflare → origin (VPS থেকে যাচাই)" "$CF_ORIGIN" "$CF_ORIGIN"
+            echo
             echo "শেয়ার লিংক/QR-এর ঠিকানা (PUBLIC_BASE_URL): \`${S_BASE_URL:-—}\`"
             echo
             echo "**সেটিং:**"
@@ -633,7 +718,8 @@ jobs:
           cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/log/summary.md" 2>/dev/null || true
           { echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "job=${{ job.status }}"; echo "run=${GITHUB_RUN_ID}"; cat "$RUNNER_TEMP/deploy-status.txt" 2>/dev/null || true; } > "$RUNNER_TEMP/log/deploy-status.txt"
           cp "$RUNNER_TEMP/deploy-web-status.txt" "$RUNNER_TEMP/log/deploy-web-status.txt" 2>/dev/null || : > "$RUNNER_TEMP/log/deploy-web-status.txt"
-          bash .github/scripts/publish-log.sh ci-log-deploy "$RUNNER_TEMP/log" summary.md deploy-status.txt deploy-web-status.txt
+          cp "$RUNNER_TEMP/tune-status.txt" "$RUNNER_TEMP/log/tune-status.txt" 2>/dev/null || : > "$RUNNER_TEMP/log/tune-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-deploy "$RUNNER_TEMP/log" summary.md deploy-status.txt deploy-web-status.txt tune-status.txt
 
       - name: Clean up
         if: always()

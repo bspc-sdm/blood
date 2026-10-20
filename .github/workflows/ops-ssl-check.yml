@@ -7,6 +7,11 @@ name: "Ops: SSL and Cloudflare check"
 # বাংলা গাইড: deploy/OPS-DRILLS.md। ফল log branch `ci-log-ops-drills`-এ: ssl/summary.md।
 on:
   workflow_dispatch:
+    inputs:
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-ops-drills"
 
 permissions:
   contents: write
@@ -37,6 +42,14 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: bash deploy/ci/vps-connect.sh
+
+      # origin শুধু Cloudflare-এর জন্য: tunnel-এর আগে দেখা — এই মেশিন থেকে সরাসরি 443/80 খোলে কি না (খোলা উচিত নয়)
+      - name: Origin closed to the internet? Then SSH tunnel
+        run: |
+          d443="$(timeout 6 bash -c "</dev/tcp/$ORIGIN_IP/443" 2>/dev/null && echo open || echo closed)"
+          d80="$(timeout 6 bash -c "</dev/tcp/$ORIGIN_IP/80" 2>/dev/null && echo open || echo closed)"
+          { echo "direct_443=$d443"; echo "direct_80=$d80"; } | tee "$RUNNER_TEMP/out/direct.txt"
+          bash deploy/ci/origin-access.sh tunnel "$ORIGIN_IP"
 
       - name: Certificates and certbot (on the VPS)
         run: |
@@ -109,7 +122,13 @@ jobs:
               echo "- Cloudflare → origin কোন পথে, নিশ্চিত হওয়া গেল না ⚠️"
             fi
             echo "- Full (strict)-এর শর্ত: ওপরের \"nginx যা দেখায়\" সারণিতে lifolo.com, www, api-এর যাচাই \`0 ok\` হলে strict চালু থাকলেও চলে। ঠিক কোন মোড বাছা আছে তা শুধু Cloudflare ড্যাশবোর্ডে দেখা যায় (SSL/TLS → Overview) — এখানে কোনো Cloudflare API চাবি নেই।"
-            echo "- সরাসরি VPS (Cloudflare ছাড়া) বাইরে থেকে খোলা: $(curl -s -m 10 -o /dev/null -w '%{http_code}' --resolve "api.lifolo.com:443:$ORIGIN_IP" https://api.lifolo.com/api/health) (GitHub-এর মেশিন থেকে) — Cloudflare-এর WAF/সীমা এড়িয়ে যাওয়া যায়; পরামর্শ deploy/OPS-DRILLS.md-এ।"
+            d443="$(sed -n 's/^direct_443=//p' "$out/direct.txt" 2>/dev/null)"; d80="$(sed -n 's/^direct_80=//p' "$out/direct.txt" 2>/dev/null)"
+            if [ "$d443" = closed ] && [ "$d80" = closed ]; then
+              echo "- সরাসরি VPS (Cloudflare ছাড়া, GitHub-এর মেশিন থেকে): 443 আর 80 বন্ধ ✅ — origin শুধু Cloudflare-এর জন্য (ufw); ওপরের \"সরাসরি VPS\" সারি SSH tunnel দিয়ে"
+            else
+              echo "- ⚠️ সরাসরি VPS (Cloudflare ছাড়া) বাইরে থেকে খোলা: 443 $d443, 80 $d80 — Deploy backend (tune-vps.sh) চালান"
+            fi
+            echo "- origin-এর পাহারা (VPS-এ): $(ssh vps '/usr/local/sbin/lifolo-tune status 2>/dev/null' | grep -E '^(ufw|ufw_cloudflare_rules|ufw_open_80_443|ufw_ci_holes|cf_list_age_h)=' | tr '\n' ' ')"
             echo
             echo "_run ${{ github.run_id }} · গাইড: deploy/OPS-DRILLS.md_"
           } > "$out/summary.md"
@@ -117,16 +136,18 @@ jobs:
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish to the log branch (ci-log-ops-drills)
+      - name: Publish to the log branch
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-ops-drills' }}
           LOG_MESSAGE: ops ssl check ${{ github.run_id }} ${{ job.status }}
         run: |
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/ssl"
           cp "$RUNNER_TEMP/out/summary.md" "$src/ssl/summary.md" 2>/dev/null || true
           { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; cat "$RUNNER_TEMP/out/cfports.txt" 2>/dev/null || true; } > "$src/ssl/status.txt"
-          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" ssl
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-ops-drills
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" ssl
 
       - name: Clean up
         if: always()

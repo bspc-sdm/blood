@@ -85,20 +85,25 @@ if [ "$(printf '%s\n' "$cf_v4" | grep -c .)" -lt 5 ]; then
 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22"
   cf_v6="2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32"
 fi
-{
-  echo "# Lifolo — deploy-web.sh লেখে: Cloudflare-এর proxy চালু হলে \$remote_addr = আসল দর্শক (CF-Connecting-IP)।"
-  echo "# অন্য কোনো ঠিকানা থেকে এই হেডার এলে মানা হয় না। proxy বন্ধ থাকলে কোনো প্রভাব নেই।"
-  for n in $cf_v4 $cf_v6; do echo "set_real_ip_from $n;"; done
-  echo "real_ip_header CF-Connecting-IP;"
-} > "$REALIP_CONF.new"
-cp -p "$REALIP_CONF" "$REALIP_CONF.bak" 2>/dev/null || true
-mv "$REALIP_CONF.new" "$REALIP_CONF"
-chmod 0644 "$REALIP_CONF"
-if nginx -t 2>/dev/null; then
-  st realip ok
+if grep -q 'managed by tune-vps.sh' "$REALIP_CONF" 2>/dev/null; then
+  # tune-vps.sh (Deploy backend-এর আগের ধাপ) এই ফাইল আর ufw-এর Cloudflare-তালিকা একসাথে রাখে — এখানে আর লেখা নয়
+  st realip "ok (tune-vps.sh)"
 else
-  if [ -f "$REALIP_CONF.bak" ]; then mv "$REALIP_CONF.bak" "$REALIP_CONF"; else rm -f "$REALIP_CONF"; fi
-  st realip failed
+  {
+    echo "# Lifolo — deploy-web.sh লেখে: Cloudflare-এর proxy চালু হলে \$remote_addr = আসল দর্শক (CF-Connecting-IP)।"
+    echo "# অন্য কোনো ঠিকানা থেকে এই হেডার এলে মানা হয় না। proxy বন্ধ থাকলে কোনো প্রভাব নেই।"
+    for n in $cf_v4 $cf_v6; do echo "set_real_ip_from $n;"; done
+    echo "real_ip_header CF-Connecting-IP;"
+  } > "$REALIP_CONF.new"
+  cp -p "$REALIP_CONF" "$REALIP_CONF.bak" 2>/dev/null || true
+  mv "$REALIP_CONF.new" "$REALIP_CONF"
+  chmod 0644 "$REALIP_CONF"
+  if nginx -t 2>/dev/null; then
+    st realip ok
+  else
+    if [ -f "$REALIP_CONF.bak" ]; then mv "$REALIP_CONF.bak" "$REALIP_CONF"; else rm -f "$REALIP_CONF"; fi
+    st realip failed
+  fi
 fi
 
 # ---------------------------------------------------------------- 3) nginx: সাইটের পথ আর হেডার

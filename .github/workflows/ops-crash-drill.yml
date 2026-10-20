@@ -11,6 +11,10 @@ on:
         description: "সত্যিই অ্যাপ মারবেন? KILL লিখুন"
         type: string
         default: ""
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-ops-drills"
 
 permissions:
   contents: write
@@ -46,6 +50,10 @@ jobs:
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: bash deploy/ci/vps-connect.sh
 
+      # origin শুধু Cloudflare-এর জন্য খোলা — সরাসরি-VPS পরীক্ষা SSH tunnel দিয়ে (deploy/ci/origin-access.sh)
+      - name: Origin via SSH tunnel
+        run: bash deploy/ci/origin-access.sh tunnel "$ORIGIN_IP"
+
       - name: Kill -9 and measure
         run: |
           out="$RUNNER_TEMP/out"
@@ -58,6 +66,8 @@ jobs:
           echo "killed_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee "$out/drill.txt"
           echo "old_pid=$pid" >> "$out/drill.txt"
           echo "restarts_before=$n0" >> "$out/drill.txt"
+          # Uptime-এর সতর্কতা এই restart-কে "মহড়া" ধরে (অপ্রত্যাশিত নয়)
+          ssh vps 'install -d -m 0755 /var/lib/lifolo && date +%s >> /var/lib/lifolo/ops-expected'
           t0=$(date +%s.%N)
           el() { awk -v a="$(date +%s.%N)" -v b="$t0" 'BEGIN{printf "%.1f", a-b}'; }
           ssh vps "kill -9 $pid"
@@ -67,8 +77,12 @@ jobs:
               p="$(ssh vps 'systemctl show -p MainPID --value lifolo-api' 2>/dev/null || echo 0)"
               if [ -n "$p" ] && [ "$p" != 0 ] && [ "$p" != "$pid" ]; then newpid="$(el)"; fi
             fi
-            c="$(curl -s -m 3 -o /dev/null -w '%{http_code}' --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" || echo 000)"
+            c="$(curl -s -m 3 -o "$out/probe.txt" -w '%{http_code}' --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" || echo 000)"
             codes="$codes $c"
+            # অ্যাপ বন্ধের সময় nginx-এর উত্তর: JSON (অ্যাপ বার্তা দেখায়) না HTML
+            if [ -z "${down_body:-}" ] && [[ "$c" =~ ^50[234]$ ]]; then
+              down_body="$(grep -q '"code":"server_unavailable"' "$out/probe.txt" && echo "JSON ($c)" || echo "HTML/অন্য ($c)")"
+            fi
             if H; then green="$(el)"; break; fi
             fails=$((fails + 1))
             sleep 0.5
@@ -79,6 +93,7 @@ jobs:
             echo "health_green_s=${green:-timeout}"
             echo "failed_checks=$fails"
             echo "status_codes_seen=$(printf '%s\n' $codes | sort | uniq -c | awk '{printf "%s×%s ", $2, $1}')"
+            echo "down_body=${down_body:-দেখা যায়নি}"
           } | tee -a "$out/drill.txt"
           [ -n "$green" ] || { echo "::error::৫ মিনিটেও ফেরেনি"; exit 1; }
 
@@ -114,6 +129,7 @@ jobs:
             echo "| systemd নতুন প্রসেস চালাল | $(g new_process_s "$out/drill.txt") s |"
             echo "| **https /api/health সবুজ** | **${green:-?} s** |"
             echo "| মাঝের ব্যর্থ health (প্রতি ০.৫ s) | $(g failed_checks "$out/drill.txt")টা — HTTP: $(g status_codes_seen "$out/drill.txt") |"
+            echo "| বন্ধের সময় nginx-এর উত্তর | $(g down_body "$out/drill.txt") |"
             echo
             echo "এখন: অ্যাপ $(g api_health_local "$out/after.txt"), চালু $(g api_active_since "$out/after.txt") থেকে; $(g api_spring_started "$out/after.txt")"
             echo
@@ -134,10 +150,11 @@ jobs:
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish to the log branch (ci-log-ops-drills)
+      - name: Publish to the log branch
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-ops-drills' }}
           LOG_MESSAGE: ops crash drill ${{ github.run_id }} ${{ job.status }}
         run: |
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/crash"
@@ -145,7 +162,8 @@ jobs:
           cp "$out/summary.md" "$src/crash/summary.md" 2>/dev/null || true
           cat "$out/drill.txt" "$out/after.txt" > "$src/crash/status.txt" 2>/dev/null || true
           { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; } >> "$src/crash/status.txt"
-          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" crash
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-ops-drills
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" crash
 
       - name: Clean up
         if: always()

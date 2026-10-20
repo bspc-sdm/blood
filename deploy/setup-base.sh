@@ -7,7 +7,7 @@
 #   --ci     GitHub Actions-এর জন্য: গোপন মানগুলো ::add-mask:: দিয়ে লগে লুকানো
 #
 # যা বসায়/করে:
-#   apt update/upgrade, unattended-upgrades, fail2ban, ufw (শুধু 22/80/443), সময় UTC (hostname যেমন আছে),
+#   apt update/upgrade, unattended-upgrades, fail2ban, ufw (শুধু 22/80/443; tune-vps.sh পরে 80/443 শুধু Cloudflare), সময় UTC,
 #   2 GB swap, lifolo ব্যবহারকারী, JDK 21 (Eclipse Temurin; না হলে Ubuntu-র openjdk-21),
 #   PostgreSQL 16 (শুধু localhost; ডাটাবেস+ব্যবহারকারী lifolo), Redis (শুধু localhost, পাসওয়ার্ডসহ),
 #   গোপন মান /etc/lifolo/env (0600 root:lifolo), nginx + "setting up" পাতা + /healthz, Let's Encrypt (certbot),
@@ -165,14 +165,22 @@ main() {
   fi
   passwd -l "$APP_USER" >/dev/null
 
-  say "ফায়ারওয়াল (ufw): শুধু 22, 80, 443"
+  say "ফায়ারওয়াল (ufw): 22 সবার জন্য; 80/443 — নতুন VPS-এ সবার জন্য, tune-vps.sh-এর পরে শুধু Cloudflare"
   ufw default deny incoming >/dev/null
   ufw default allow outgoing >/dev/null
   # "limit" নয়: GitHub Actions অল্প সময়ে কয়েকবার ঢোকে। পাসওয়ার্ড লগইন বন্ধ আর fail2ban আছে।
   ufw delete limit 22/tcp >/dev/null 2>&1 || true
   ufw allow 22/tcp >/dev/null
-  ufw allow 80/tcp >/dev/null
-  ufw allow 443/tcp >/dev/null
+  # origin শুধু Cloudflare-এর জন্য (lifolo-tune firewall) বসানো থাকলে আবার সবার জন্য খোলা নয় — Setup আবার চালালেও।
+  # নতুন VPS-এ প্রথমবার খোলা (sslip.io-র সার্টিফিকেট); workflow-এর পরের ধাপ (tune-vps.sh) বন্ধ করে।
+  local ufw_added
+  ufw_added="$(ufw show added 2>/dev/null || true)"
+  if [ -x /usr/local/sbin/lifolo-tune ] && [[ "$ufw_added" == *"comment 'lifolo-cloudflare'"* ]]; then
+    echo "80/443: শুধু Cloudflare (lifolo-tune) — যেমন আছে"
+  else
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+  fi
   # SSH অন্য পোর্টে চললে সেটাও খোলা — নিজেকে আটকে না ফেলতে
   local p
   for p in $(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}' | sort -u); do
@@ -310,6 +318,7 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$API_DIR
 EnvironmentFile=$ENV_FILE
+# JVM-এর আসল সেটিং (-Xms1g -Xmx3g, G1 …) tune-vps.sh-এর drop-in-এ (lifolo-api.service.d/20-tuning.conf) — এটা তার আগের ভিত্তি
 ExecStart=/usr/bin/java -Xmx1g -XX:+ExitOnOutOfMemoryError -jar $API_JAR
 Restart=always
 RestartSec=5
@@ -437,9 +446,11 @@ EOF
     DNS_IPS="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
     for ip in $DNS_IPS; do case " $MY_IPS " in *" $ip "*) matched=yes ;; esac; done
     [ "$matched" = yes ] || warn "$DOMAIN এই VPS-এর IP-তে যায় না (DNS: ${DNS_IPS:-কিছু না}; এই VPS: $MY_IPS)"
-    local email_args=(--register-unsafely-without-email)
+    local email_args=(--register-unsafely-without-email) hook_args=()
     [ -z "$EMAIL" ] || email_args=(-m "$EMAIL" --no-eff-email)
-    if ! certbot certonly --webroot -w /var/www/letsencrypt -d "$DOMAIN" "${email_args[@]}" \
+    # origin শুধু Cloudflare-এর জন্য হলে Let's Encrypt-এর জন্য পোর্ট 80 সাময়িক খোলা (sslip.io Cloudflare-এর পেছনে নয়)
+    [ ! -x /usr/local/sbin/lifolo-tune ] || hook_args=(--pre-hook "/usr/local/sbin/lifolo-tune acme-open" --post-hook "/usr/local/sbin/lifolo-tune acme-close")
+    if ! certbot certonly --webroot -w /var/www/letsencrypt -d "$DOMAIN" "${email_args[@]}" "${hook_args[@]}" \
         --agree-tos --non-interactive --keep-until-expiring --deploy-hook "systemctl reload nginx"; then
       CERT_STATE=failed
       warn "সার্টিফিকেট পাওয়া যায়নি — সাইট আপাতত শুধু http-তে। পোর্ট 80 বাইরে থেকে খোলা কি না দেখে পরে আবার চালান।"
