@@ -6,6 +6,9 @@ import { BASE } from './stack.mjs';
 export const OWNER = 'ekapkbd@gmail.com';
 const tokens = new Map();
 
+/** ID token-এর ভেতরের uid (emulator localId সবসময় দেয় না) */
+export const uidOf = (idToken) => JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString()).user_id;
+
 async function signIn(custom) {
   const r = await fetch(`${BASE}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=e2e`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: custom, returnSecureToken: true }),
@@ -20,7 +23,7 @@ export async function demo(role) {
   const r = await fetch(`${BASE}/api/auth/verify-code`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ demo: role }) }).then((x) => x.json());
   if (!r.token) throw new Error(`demo login ${role}: ${JSON.stringify(r).slice(0, 200)}`);
   const s = await signIn(r.token);
-  const out = { token: s.idToken, uid: s.localId, role };
+  const out = { token: s.idToken, uid: uidOf(s.idToken), role };
   tokens.set(role, out);
   return out;
 }
@@ -30,7 +33,7 @@ export async function owner() {
   if (tokens.has('owner')) return tokens.get('owner');
   const v = await (await fetch(`${BASE}/__e2e/custom-token?email=${OWNER}`)).json();
   const s = await signIn(v.token);
-  const out = { token: s.idToken, uid: s.localId, role: 'owner' };
+  const out = { token: s.idToken, uid: uidOf(s.idToken), role: 'owner' };
   tokens.set('owner', out);
   return out;
 }

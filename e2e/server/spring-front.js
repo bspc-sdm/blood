@@ -89,13 +89,28 @@ async function customTokenFor(email) {
 
 /** Spring-এর লগে শেষ লগইন কোড (LoggingMailSender: "email to <to> not sent. Subject: আপনার লগইন কোড: 123456") */
 function lastCode(to) {
-  if (!BACKEND_LOG || !fs.existsSync(BACKEND_LOG)) return { code: null, subject: null };
+  if (!BACKEND_LOG || !fs.existsSync(BACKEND_LOG)) return { code: null, subject: null, at: null };
   const lines = fs.readFileSync(BACKEND_LOG, 'utf8').split('\n');
   for (let i = lines.length - 1; i >= 0; i--) {
     const m = /email to (\S+) not sent\. Subject: (.*)$/.exec(lines[i]);
-    if (m && (!to || m[1] === to)) return { code: (/(\d{6})/.exec(m[2]) || [])[1] || null, subject: m[2].trim() };
+    if (m && (!to || m[1] === to)) {
+      const t = Date.parse((/^(\S+T\S+?[+-]\d\d:\d\d|\S+Z)\s/.exec(lines[i]) || [])[1] || '');
+      return { code: (/(\d{6})/.exec(m[2]) || [])[1] || null, subject: m[2].trim(), at: Number.isNaN(t) ? null : t };
+    }
   }
-  return { code: null, subject: null };
+  return { code: null, subject: null, at: null };
+}
+
+/** PUSH_MODE=fake: Spring-এর লগে "PUSH_MODE=fake — N push message(s) counted as delivered" — FCM-এ যত বার্তা যেত তার যোগফল */
+function fakePushes() {
+  if (!BACKEND_LOG || !fs.existsSync(BACKEND_LOG)) return { sent: null, calls: 0 };
+  let sent = 0;
+  let calls = 0;
+  for (const m of fs.readFileSync(BACKEND_LOG, 'utf8').matchAll(/PUSH_MODE=fake — (\d+) push message\(s\)/g)) {
+    sent += Number(m[1]);
+    calls++;
+  }
+  return { sent, calls };
 }
 
 const log = [];
@@ -157,6 +172,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { access_token: 'owner', expires_in: 3600, token_type: 'Bearer' });
     }
     if (p === '/__e2e/log') return json(res, 200, log.splice(0));
+    if (p === '/__e2e/push') return json(res, 200, fakePushes());
     if (p === '/__e2e/doc' || p === '/__e2e/query') return json(res, 501, { error: 'not available with the Spring backend (no Firestore)' });
 
     if (/^\/(api|r|rx|shop|\.well-known)\//.test(p)) return proxyApi(req, res, url);

@@ -406,18 +406,29 @@ export async function labWorkTab(page, tab) {
  */
 export async function orderRow(page, text, opt = {}) {
   const tabs = page.getByRole('tab', { name: /^(নতুন|চলছে|নমুনা|রিপোর্ট দেওয়া|শেষ)/ });
-  const n = await tabs.count();
   const find = () => {
     let l = page.locator('tr, article');
     for (const t of [].concat(text)) l = l.filter({ hasText: t });
     if (opt.button) l = l.filter({ has: page.getByRole('button', { name: opt.button }) });
     return vis(l).first();
   };
+  // তালিকা আসা পর্যন্ত (দোকানের তথ্য আগে আসে, তারপর অর্ডারের তালিকা — মাঝে নেটওয়ার্ক এক মুহূর্ত থামতে পারে)
+  const t0 = Date.now();
+  while (Date.now() - t0 < 10000) {
+    if (await find().count()) return find();
+    if (await vis(tabs).count()) break;
+    await page.waitForTimeout(200);
+  }
   if (await find().count()) return find();
+  const n = await tabs.count();
   for (let i = 0; i < n; i++) {
+    if (!(await tabs.nth(i).isVisible())) continue;
     await tabs.nth(i).click();
     await settle(page);
-    if (await find().count()) return find();
+    for (let k = 0; k < 15; k++) {
+      if (await find().count()) return find();
+      await page.waitForTimeout(200);
+    }
   }
   throw new Error(`সারি পাওয়া যায়নি: ${[].concat(text).join(' + ')}`);
 }
