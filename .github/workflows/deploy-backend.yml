@@ -288,7 +288,7 @@ jobs:
           rc=0
           # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
           ssh vps "bash /root/lifolo-setup/deploy-backend.sh --ci --domain '$DOMAIN' --jar /root/lifolo-setup/app.jar.new --sha256 '$SHA' --provided /root/lifolo-setup/provided.env ${extra[*]} ${demo[*]}" || rc=$?
-          ssh vps 'cat /var/lib/lifolo/deploy-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-status.txt" || true
+          ssh vps 'cat /var/lib/lifolo/deploy-status' | tr -d '\r' | grep -E '^[a-z0-9_]+=' > "$RUNNER_TEMP/deploy-status.txt" || true
           cat "$RUNNER_TEMP/deploy-status.txt"
           sed 's/^/s_/' "$RUNNER_TEMP/deploy-status.txt" >> "$GITHUB_OUTPUT"
           exit "$rc"
@@ -352,7 +352,7 @@ jobs:
           rc=0
           # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
           ssh vps "bash /root/lifolo-setup/deploy-web.sh --ci --site /root/lifolo-setup/site.tar.gz --sha256 '$SHA' --web-domain '$web_domain' $nocert" || rc=$?
-          ssh vps 'cat /var/lib/lifolo/deploy-web-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-web-status.txt" || true
+          ssh vps 'cat /var/lib/lifolo/deploy-web-status' | tr -d '\r' | grep -E '^[a-z0-9_]+=' > "$RUNNER_TEMP/deploy-web-status.txt" || true
           cat "$RUNNER_TEMP/deploy-web-status.txt"
           sed 's/^/w_/' "$RUNNER_TEMP/deploy-web-status.txt" >> "$GITHUB_OUTPUT"
           fails="$(grep -E '^t_[a-z_]+=failed' "$RUNNER_TEMP/deploy-web-status.txt" | cut -d= -f1 | tr '\n' ' ' || true)"
