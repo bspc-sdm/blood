@@ -1,0 +1,2200 @@
+{
+ "routes": [
+  "Loading",
+  "Login",
+  "EditProfile",
+  "PickLocation",
+  "Main",
+  "NewRequest",
+  "RequestDetail",
+  "MyRequestDetail",
+  "MyRequests",
+  "Admin",
+  "Settings",
+  "QuestionDetail",
+  "AskQuestion",
+  "TipDetail",
+  "PostTip",
+  "MyAppointments",
+  "MyPrescriptions",
+  "Care",
+  "CareFor",
+  "RxAssist",
+  "RxReviews",
+  "ChamberEdit",
+  "MyBusiness",
+  "Inbox",
+  "Help",
+  "AmbulanceRequest"
+ ],
+ "composables": [
+  {
+   "file": "AdminMobile.kt",
+   "line": 172,
+   "name": "AdminScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "অ্যাডমিন",
+   "robo": true,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 263,
+   "name": "AdminOverviewTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "এখানেই করা যায়",
+   "robo": false,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 299,
+   "name": "AdminReportsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "দেখার মতো কোনো রিপোর্ট নেই",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 329,
+   "name": "AdminTicketsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "খোলা কোনো সাপোর্টের বার্তা নেই",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 356,
+   "name": "TicketSheet",
+   "kind": "sheet",
+   "calls": 1,
+   "title": "Lifolo টিম",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 405,
+   "name": "AdminCorrectionsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "অপেক্ষায় কোনো তারিখ সংশোধন নেই",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 426,
+   "name": "AdminEmergencyTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "নতুন জরুরি আবেদন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 497,
+   "name": "EmergencyCreateSheet",
+   "kind": "sheet",
+   "calls": 1,
+   "title": "জরুরি আবেদন",
+   "robo": false,
+   "maestro": [
+    "j7-blood",
+    "j2-services"
+   ]
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 590,
+   "name": "AdminUsersTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "ইমেইল বা ফোন নম্বর",
+   "robo": false,
+   "maestro": [
+    "j2-services"
+   ]
+  },
+  {
+   "file": "AmbFare.kt",
+   "line": 147,
+   "name": "DestPicker",
+   "kind": "picker",
+   "calls": 1,
+   "title": "অন্য হাসপাতাল",
+   "robo": false,
+   "maestro": [
+    "j2-services"
+   ]
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 592,
+   "name": "StarRatingDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "মন্তব্য (ঐচ্ছিক)",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 636,
+   "name": "ReasonReportDialog",
+   "kind": "dialog",
+   "calls": 6,
+   "title": "সমস্যা জানান",
+   "robo": false,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 675,
+   "name": "MyAmbulancesSection",
+   "kind": "section",
+   "calls": 2,
+   "title": "বদলান",
+   "robo": false,
+   "maestro": [
+    "j6-ambulance"
+   ]
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 791,
+   "name": "AmbulanceEditDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অ্যাম্বুলেন্স যোগ",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 373,
+   "name": "AmbulanceCallBar",
+   "kind": "bar",
+   "calls": 1,
+   "title": "অ্যাম্বুলেন্স ডাকুন",
+   "robo": false,
+   "maestro": [
+    "j2-services"
+   ]
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 408,
+   "name": "ActiveRequestBanner",
+   "kind": "banner",
+   "calls": 1,
+   "title": "আপনার অ্যাম্বুলেন্সের অনুরোধ চলছে",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 436,
+   "name": "AmbulanceRequestDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অ্যাম্বুলেন্স ডাকুন",
+   "robo": true,
+   "maestro": [
+    "j2-services"
+   ]
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 635,
+   "name": "ReasonDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "বাতিল করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 664,
+   "name": "PhoneBookingDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "হ্যাঁ — ",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 694,
+   "name": "AmbulanceRequestScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "আরও ${num(added)}টা গাড়িকে জানানো হয়েছে",
+   "robo": false,
+   "maestro": [
+    "j8-profile"
+   ]
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 1026,
+   "name": "AmbulanceCallsSection",
+   "kind": "section",
+   "calls": 1,
+   "title": "ডাক",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 73,
+   "name": "AppointmentTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "ফিরে যান",
+   "robo": true,
+   "maestro": [
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 405,
+   "name": "ProviderDetailDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "অ্যাপয়েন্টমেন্ট চাইতে লগইন করুন",
+   "robo": true,
+   "maestro": [
+    "j2-services",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 580,
+   "name": "ChamberPicker",
+   "kind": "picker",
+   "calls": 1,
+   "title": "চেম্বার বেছে অ্যাপয়েন্টমেন্ট নিন",
+   "robo": false,
+   "maestro": [
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 637,
+   "name": "BookDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "কার জন্য",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 726,
+   "name": "MyAppointmentsScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "আমার অ্যাপয়েন্টমেন্ট",
+   "robo": false,
+   "maestro": [
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 909,
+   "name": "ChamberHubScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "আমার চেম্বার",
+   "robo": true,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 986,
+   "name": "ChamberEditScreen",
+   "kind": "screen",
+   "calls": 2,
+   "title": "আমার বাসায় সেবা ও প্রোফাইল",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 179,
+   "name": "HospitalPickerDialog",
+   "kind": "dialog",
+   "calls": 4,
+   "title": "হাসপাতাল বেছে নিন",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 280,
+   "name": "AddHospitalDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "হাসপাতাল যোগের অনুরোধ",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 479,
+   "name": "FormDialog",
+   "kind": "dialog",
+   "calls": 34,
+   "title": "",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "BloodBank.kt",
+   "line": 258,
+   "name": "MyBloodBanksSection",
+   "kind": "section",
+   "calls": 1,
+   "title": "বদলান",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "BloodBank.kt",
+   "line": 323,
+   "name": "BloodBankEditDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ব্লাড ব্যাংক যোগ",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Cards.kt",
+   "line": 256,
+   "name": "DetailSheet",
+   "kind": "sheet",
+   "calls": 4,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 115,
+   "name": "CareScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "কেয়ারগিভার ও পরিবার",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 293,
+   "name": "InviteDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "কেয়ারগিভার যোগ করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 330,
+   "name": "MemberDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "পরিবারের সদস্য",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 377,
+   "name": "CareModeScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "রোগী",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "Common.kt",
+   "line": 124,
+   "name": "SplashScreen",
+   "kind": "screen",
+   "calls": 2,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Common.kt",
+   "line": 166,
+   "name": "EdgeToEdgeDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Common.kt",
+   "line": 241,
+   "name": "FullScreenDialog",
+   "kind": "dialog",
+   "calls": 15,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Common.kt",
+   "line": 260,
+   "name": "CardDialog",
+   "kind": "dialog",
+   "calls": 4,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Common.kt",
+   "line": 297,
+   "name": "AppBottomSheet",
+   "kind": "sheet",
+   "calls": 3,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Common.kt",
+   "line": 308,
+   "name": "BackTopBar",
+   "kind": "bar",
+   "calls": 40,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 336,
+   "name": "HealthDiscussionTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "স্বাস্থ্য আলোচনা",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 430,
+   "name": "AskQuestionScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "প্রশ্ন করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 484,
+   "name": "QuestionDetailScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "প্রশ্ন",
+   "robo": false,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "Community.kt",
+   "line": 711,
+   "name": "HealthTipsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "হেলথ টিপস",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 808,
+   "name": "TipDetailScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "হেলথ টিপস",
+   "robo": false,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "Community.kt",
+   "line": 897,
+   "name": "PostTipScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "টিপস দিন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 952,
+   "name": "BadgeApplyDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ব্যাজের তথ্য সংশোধন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 1067,
+   "name": "ReportDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "রিপোর্ট করবেন?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Community.kt",
+   "line": 1084,
+   "name": "EditTextDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "শিরোনাম",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Corrections.kt",
+   "line": 60,
+   "name": "DonationDateDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "শেষ রক্তদানের তারিখ",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "DemoLogin.kt",
+   "line": 122,
+   "name": "DemoSwitchDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "রোল বদলান",
+   "robo": false,
+   "maestro": [
+    "j8-profile"
+   ]
+  },
+  {
+   "file": "Emergency.kt",
+   "line": 99,
+   "name": "EmergencyBanner",
+   "kind": "banner",
+   "calls": 1,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "FacilityPicker.kt",
+   "line": 109,
+   "name": "FacilityDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "হাসপাতাল, ক্লিনিক বা জায়গার নাম",
+   "robo": false,
+   "maestro": [
+    "j8-profile",
+    "j2-services"
+   ]
+  },
+  {
+   "file": "FilterBar.kt",
+   "line": 65,
+   "name": "FilterBar",
+   "kind": "bar",
+   "calls": 8,
+   "title": "এলাকা বদলান",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "FilterBar.kt",
+   "line": 145,
+   "name": "FilterSheet",
+   "kind": "sheet",
+   "calls": 5,
+   "title": "সব মুছুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "FilterBar.kt",
+   "line": 185,
+   "name": "AreaSheet",
+   "kind": "sheet",
+   "calls": 8,
+   "title": "ফিরে যান",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "HomeCare.kt",
+   "line": 46,
+   "name": "HomeCareTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "বাসায় ডাক্তার",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Inbox.kt",
+   "line": 101,
+   "name": "InboxScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "নোটিফিকেশন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 165,
+   "name": "LabSendDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "$title — সময় বদলান",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 230,
+   "name": "HomeConfirmDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "সময় নিশ্চিত করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 278,
+   "name": "HomeDeclineDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "বাসায় যেতে পারবেন না?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 309,
+   "name": "HomeCancelDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "বাসা থেকে নমুনা লাগবে না?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "LocationPicker.kt",
+   "line": 39,
+   "name": "LocationPicker",
+   "kind": "picker",
+   "calls": 2,
+   "title": "লোকেশন পাওয়া যায়নি। GPS চালু করুন বা জেলা বেছে নিন।",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "MainScreen.kt",
+   "line": 59,
+   "name": "MainScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "MainScreen.kt",
+   "line": 197,
+   "name": "HomeTab",
+   "kind": "tab",
+   "calls": 2,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "MainScreen.kt",
+   "line": 348,
+   "name": "MyRequestsScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "লোড হয়নি",
+   "robo": false,
+   "maestro": [
+    "j7-blood",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "MainScreen.kt",
+   "line": 407,
+   "name": "ModernNavBar",
+   "kind": "bar",
+   "calls": 1,
+   "title": "",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "MedAlarms.kt",
+   "line": 216,
+   "name": "MedAlarmDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ওষুধের অ্যালার্ম",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "MedFind.kt",
+   "line": 137,
+   "name": "MedFindPanel",
+   "kind": "panel",
+   "calls": 1,
+   "title": "ওষুধের নাম",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "MyRequestUi.kt",
+   "line": 245,
+   "name": "CloseRequestDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "রক্ত আর লাগবে না?",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "MyRequestUi.kt",
+   "line": 327,
+   "name": "MyRequestSection",
+   "kind": "section",
+   "calls": 1,
+   "title": "আমার রিকোয়েস্ট",
+   "robo": false,
+   "maestro": [
+    "j7-blood",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 160,
+   "name": "RxCodeDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "প্রেসক্রিপশন খুলুন",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 241,
+   "name": "PharmacyOrdersTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "রোগীকে জানানো হয়েছে",
+   "robo": false,
+   "maestro": [
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 428,
+   "name": "MyLabPanel",
+   "kind": "panel",
+   "calls": 1,
+   "title": "অনুমোদনের জন্য পাঠানো হয়েছে। অ্যাডমিন লাইসেন্স যাচাই করবেন।",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 517,
+   "name": "LabInfoTab",
+   "kind": "tab",
+   "calls": 2,
+   "title": "বাসা থেকে নমুনা নেয়",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 553,
+   "name": "LabRequestsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "রোগী কাগজের প্রেসক্রিপশন নিয়ে এলে কোড দিয়ে খুলুন — পরীক্ষাগুলো এখানে যোগ হবে।",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 275,
+   "name": "MyPharmacyPanel",
+   "kind": "panel",
+   "calls": 1,
+   "title": "অনুমোদনের জন্য পাঠানো হয়েছে। অ্যাডমিন লাইসেন্স যাচাই করবেন।",
+   "robo": false,
+   "maestro": [
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 448,
+   "name": "ShopTab",
+   "kind": "tab",
+   "calls": 2,
+   "title": "অনুমোদনের পর তালিকায় দেখাবে।",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 586,
+   "name": "BuyModePicker",
+   "kind": "picker",
+   "calls": 1,
+   "title": "কীভাবে কিনবেন?",
+   "robo": false,
+   "maestro": [
+    "j2-services",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 907,
+   "name": "PharmacyRatingDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "দোকানের সেবা নিয়ে — ওষুধ কেমন কাজ করল তা নয়",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 969,
+   "name": "ShopEditScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "ফার্মেসি খুলুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "PillTabs.kt",
+   "line": 58,
+   "name": "PillTabs",
+   "kind": "tab",
+   "calls": 15,
+   "title": "",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 387,
+   "name": "RxDetailDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 520,
+   "name": "MyPrescriptionsScreen",
+   "kind": "screen",
+   "calls": 2,
+   "title": "প্রেসক্রিপশনটা খোলা যাচ্ছে না — হয়তো মুছে ফেলা হয়েছে",
+   "robo": false,
+   "maestro": [
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 598,
+   "name": "RxClaimDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "প্রেসক্রিপশন যোগ করুন",
+   "robo": false,
+   "maestro": [
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 766,
+   "name": "DoctorPatientsTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 788,
+   "name": "PatientHistoryDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "রোগী",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 826,
+   "name": "RxPatientAddDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "নতুন রোগী",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 882,
+   "name": "RxDoctorTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "প্রেসক্রিপশন",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 940,
+   "name": "RxTeamDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "সহকারী",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1004,
+   "name": "RxEditorDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "প্রেসক্রিপশন",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1167,
+   "name": "MedEditDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ওষুধ যোগ করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1254,
+   "name": "RxAssistScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "ডাক্তারের সহকারী",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Profile.kt",
+   "line": 50,
+   "name": "ProfileTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "ছবি আপলোড হয়নি",
+   "robo": false,
+   "maestro": [
+    "j8-profile",
+    "j3-pharmacy",
+    "j7-blood",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "Queue.kt",
+   "line": 242,
+   "name": "LateDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "দেরি হবে",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Queue.kt",
+   "line": 298,
+   "name": "QueuePanel",
+   "kind": "panel",
+   "calls": 2,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 58,
+   "name": "BagsPicker",
+   "kind": "picker",
+   "calls": 2,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 119,
+   "name": "NewRequestScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "রোগী কোথায় আছেন?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 285,
+   "name": "RequestDetailScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "লোড হয়নি",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j8-profile"
+   ]
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 641,
+   "name": "MyRequestDetailScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 854,
+   "name": "DonationChecklistDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "আজ সুস্থ বোধ করছি, ভালো ঘুম ও খাওয়া হয়েছে",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 892,
+   "name": "EditRequestScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "রিকোয়েস্ট এডিট",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 517,
+   "name": "RxActivitySection",
+   "kind": "section",
+   "calls": 1,
+   "title": "ফার্মেসিতে পাঠান",
+   "robo": false,
+   "maestro": [
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 775,
+   "name": "PharmacyPickDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অনলাইনে অর্ডার",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 916,
+   "name": "OnlineOrderDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "ডেলিভারি: ",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 961,
+   "name": "WithdrawDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "${o.pharmacyName} থেকে ফিরিয়ে নেবেন?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1000,
+   "name": "LabPickDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "প্যাথলজি বাছুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1104,
+   "name": "LabReportDialog",
+   "kind": "dialog",
+   "calls": 3,
+   "title": "পরীক্ষার রিপোর্ট",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1237,
+   "name": "PayDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "রিপোর্ট দেখানোর টাকা",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1276,
+   "name": "AcceptOrderDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অর্ডার নিন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1297,
+   "name": "OnlineSettingsDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অনলাইনে বিক্রি",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1345,
+   "name": "MissedDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "চেয়েও পাননি এমন ওষুধ",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1380,
+   "name": "DispenseDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ওষুধ দিন",
+   "robo": false,
+   "maestro": [
+    "j3-pharmacy"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1462,
+   "name": "StockDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "স্টকের তালিকা",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1561,
+   "name": "RxSentDialog",
+   "kind": "dialog",
+   "calls": 2,
+   "title": "প্রেসক্রিপশন পাঠানো হয়েছে",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j8-profile",
+    "j3-pharmacy",
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1610,
+   "name": "SendErrorBar",
+   "kind": "bar",
+   "calls": 2,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1654,
+   "name": "RxPickDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "কোন প্রেসক্রিপশন পাঠাবেন?",
+   "robo": false,
+   "maestro": [
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1706,
+   "name": "PharmacySendDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "এই ফার্মেসি এখন অনলাইনে অর্ডার নেয় না",
+   "robo": false,
+   "maestro": [
+    "j1-patient",
+    "j5-doctor"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1891,
+   "name": "LabInfoSheet",
+   "kind": "sheet",
+   "calls": 1,
+   "title": "বাসা থেকে নমুনা নেয়",
+   "robo": false,
+   "maestro": [
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1928,
+   "name": "LabEditScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "আমার প্যাথলজি যোগ করুন",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2022,
+   "name": "LabReportEntryDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "রিপোর্টের ছবি ১",
+   "robo": false,
+   "maestro": [
+    "j4-lab",
+    "j1-patient"
+   ]
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2220,
+   "name": "ReviewReadDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "রোগীকে কী জানাবেন?",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2253,
+   "name": "ReviewSettingsDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "অনলাইনে রিপোর্ট দেখা",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2301,
+   "name": "RxReviewsScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "রিপোর্ট",
+   "robo": false,
+   "maestro": [
+    "j4-lab"
+   ]
+  },
+  {
+   "file": "Screens.kt",
+   "line": 61,
+   "name": "LoginScreen",
+   "kind": "screen",
+   "calls": 2,
+   "title": "সঠিক ইমেইল দিন",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Screens.kt",
+   "line": 199,
+   "name": "ProfileEditScreen",
+   "kind": "screen",
+   "calls": 3,
+   "title": "আপনার প্রোফাইল",
+   "robo": true,
+   "maestro": [
+    "j8-profile"
+   ]
+  },
+  {
+   "file": "Services.kt",
+   "line": 20,
+   "name": "HealthTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "আলোচনা",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Services.kt",
+   "line": 49,
+   "name": "ServicesTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "অ্যাম্বুলেন্স",
+   "robo": true,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j2-services",
+    "j1-patient",
+    "j6-ambulance"
+   ]
+  },
+  {
+   "file": "Settings.kt",
+   "line": 44,
+   "name": "SettingsScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "সেভ হয়নি, ইন্টারনেট দেখুন।",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Support.kt",
+   "line": 114,
+   "name": "HelpScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "সাহায্য ও আপিল",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Updates.kt",
+   "line": 84,
+   "name": "UpdateBanner",
+   "kind": "banner",
+   "calls": 1,
+   "title": "নতুন ভার্সন এসেছে",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Updates.kt",
+   "line": 146,
+   "name": "PhoneVerifyDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "ফোন নম্বর যাচাই",
+   "robo": true,
+   "maestro": []
+  },
+  {
+   "file": "Work.kt",
+   "line": 190,
+   "name": "WorkTab",
+   "kind": "tab",
+   "calls": 1,
+   "title": "আমার কাজ",
+   "robo": true,
+   "maestro": [
+    "j4-lab",
+    "j3-pharmacy",
+    "j5-doctor",
+    "j6-ambulance"
+   ]
+  },
+  {
+   "file": "Work.kt",
+   "line": 272,
+   "name": "MyBusinessScreen",
+   "kind": "screen",
+   "calls": 1,
+   "title": "",
+   "robo": false,
+   "maestro": []
+  },
+  {
+   "file": "Work.kt",
+   "line": 295,
+   "name": "AddBusinessDialog",
+   "kind": "dialog",
+   "calls": 1,
+   "title": "আপনার কোন ব্যবসা?",
+   "robo": true,
+   "maestro": []
+  }
+ ],
+ "inline_dialogs": [
+  {
+   "file": "AdminMobile.kt",
+   "line": 359,
+   "wrapper": "AppBottomSheet",
+   "inside": "TicketSheet",
+   "title": ""
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 510,
+   "wrapper": "AppBottomSheet",
+   "inside": "EmergencyCreateSheet",
+   "title": "জরুরি আবেদন"
+  },
+  {
+   "file": "AdminMobile.kt",
+   "line": 688,
+   "wrapper": "AlertDialog",
+   "inside": "open",
+   "title": "চেম্বার আর বাসায় সেবা তালিকা থেকে সরবে, সামনের অ্যাপয়েন্টমেন্ট বাতিল হবে।"
+  },
+  {
+   "file": "AmbFare.kt",
+   "line": 220,
+   "wrapper": "AlertDialog",
+   "inside": "hit",
+   "title": "খুঁজুন"
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 598,
+   "wrapper": "FormDialog",
+   "inside": "StarRatingDialog",
+   "title": ""
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 641,
+   "wrapper": "FormDialog",
+   "inside": "ReasonReportDialog",
+   "title": "সমস্যা জানান"
+  },
+  {
+   "file": "Ambulance.kt",
+   "line": 811,
+   "wrapper": "FormDialog",
+   "inside": "AmbulanceEditDialog",
+   "title": "অ্যাম্বুলেন্স যোগ"
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 487,
+   "wrapper": "FormDialog",
+   "inside": "AmbulanceRequestDialog",
+   "title": "অ্যাম্বুলেন্স ডাকুন"
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 640,
+   "wrapper": "FormDialog",
+   "inside": "ReasonDialog",
+   "title": ""
+  },
+  {
+   "file": "AmbulanceRequest.kt",
+   "line": 675,
+   "wrapper": "FormDialog",
+   "inside": "go",
+   "title": "হ্যাঁ — "
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 472,
+   "wrapper": "DetailSheet",
+   "inside": "ProviderDetailDialog",
+   "title": ""
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 516,
+   "wrapper": "AlertDialog",
+   "inside": "ProviderDetailDialog",
+   "title": "কোন চেম্বারে?"
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 651,
+   "wrapper": "FormDialog",
+   "inside": "BookDialog",
+   "title": ""
+  },
+  {
+   "file": "Appointment.kt",
+   "line": 865,
+   "wrapper": "FormDialog",
+   "inside": "act",
+   "title": "অ্যাপয়েন্টমেন্ট নিশ্চিত"
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 60,
+   "wrapper": "CardDialog",
+   "inside": null,
+   "title": "খুঁজুন"
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 214,
+   "wrapper": "CardDialog",
+   "inside": "HospitalPickerDialog",
+   "title": "হাসপাতাল বেছে নিন"
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 311,
+   "wrapper": "FormDialog",
+   "inside": "AddHospitalDialog",
+   "title": "হাসপাতাল যোগের অনুরোধ"
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 419,
+   "wrapper": "AlertDialog",
+   "inside": "AddHospitalDialog",
+   "title": "তালিকায় আগে থেকেই আছে"
+  },
+  {
+   "file": "AreaPicker.kt",
+   "line": 487,
+   "wrapper": "CardDialog",
+   "inside": "FormDialog",
+   "title": ""
+  },
+  {
+   "file": "BloodBank.kt",
+   "line": 343,
+   "wrapper": "FormDialog",
+   "inside": "BloodBankEditDialog",
+   "title": "ব্লাড ব্যাংক যোগ"
+  },
+  {
+   "file": "Cards.kt",
+   "line": 131,
+   "wrapper": "DetailSheet",
+   "inside": "DirectoryCard",
+   "title": ""
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 282,
+   "wrapper": "FormDialog",
+   "inside": "act",
+   "title": "নিশ্চিত?"
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 298,
+   "wrapper": "FormDialog",
+   "inside": "InviteDialog",
+   "title": "কেয়ারগিভার যোগ করুন"
+  },
+  {
+   "file": "CareAccess.kt",
+   "line": 336,
+   "wrapper": "FormDialog",
+   "inside": "MemberDialog",
+   "title": "পরিবারের সদস্য"
+  },
+  {
+   "file": "Common.kt",
+   "line": 298,
+   "wrapper": "ModalBottomSheet",
+   "inside": "AppBottomSheet",
+   "title": ""
+  },
+  {
+   "file": "Community.kt",
+   "line": 669,
+   "wrapper": "AlertDialog",
+   "inside": "QuestionDetailScreen",
+   "title": "উত্তরটা মুছবেন?"
+  },
+  {
+   "file": "Community.kt",
+   "line": 688,
+   "wrapper": "AlertDialog",
+   "inside": "QuestionDetailScreen",
+   "title": "প্রশ্নটা মুছবেন?"
+  },
+  {
+   "file": "Community.kt",
+   "line": 878,
+   "wrapper": "AlertDialog",
+   "inside": "TipDetailScreen",
+   "title": "টিপসটা মুছবেন?"
+  },
+  {
+   "file": "Community.kt",
+   "line": 963,
+   "wrapper": "FormDialog",
+   "inside": "BadgeApplyDialog",
+   "title": "ব্যাজের তথ্য সংশোধন"
+  },
+  {
+   "file": "Community.kt",
+   "line": 1068,
+   "wrapper": "AlertDialog",
+   "inside": "ReportDialog",
+   "title": "রিপোর্ট করবেন?"
+  },
+  {
+   "file": "Community.kt",
+   "line": 1097,
+   "wrapper": "FormDialog",
+   "inside": "EditTextDialog",
+   "title": "শিরোনাম"
+  },
+  {
+   "file": "Corrections.kt",
+   "line": 73,
+   "wrapper": "FormDialog",
+   "inside": "DonationDateDialog",
+   "title": "শেষ রক্তদানের তারিখ"
+  },
+  {
+   "file": "DemoLogin.kt",
+   "line": 124,
+   "wrapper": "AlertDialog",
+   "inside": "DemoSwitchDialog",
+   "title": "রোল বদলান"
+  },
+  {
+   "file": "FacilityPicker.kt",
+   "line": 148,
+   "wrapper": "CardDialog",
+   "inside": "hit",
+   "title": "হাসপাতাল, ক্লিনিক বা জায়গার নাম"
+  },
+  {
+   "file": "FilterBar.kt",
+   "line": 146,
+   "wrapper": "AppBottomSheet",
+   "inside": "FilterSheet",
+   "title": ""
+  },
+  {
+   "file": "FilterBar.kt",
+   "line": 207,
+   "wrapper": "FullScreenDialog",
+   "inside": "pick",
+   "title": "ফিরে যান"
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 182,
+   "wrapper": "FormDialog",
+   "inside": "LabSendDialog",
+   "title": "$title — সময় বদলান"
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 243,
+   "wrapper": "FormDialog",
+   "inside": "HomeConfirmDialog",
+   "title": "সময় নিশ্চিত করুন"
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 283,
+   "wrapper": "FormDialog",
+   "inside": "HomeDeclineDialog",
+   "title": "বাসায় যেতে পারবেন না?"
+  },
+  {
+   "file": "LabPrice.kt",
+   "line": 313,
+   "wrapper": "FormDialog",
+   "inside": "HomeCancelDialog",
+   "title": "বাসা থেকে নমুনা লাগবে না?"
+  },
+  {
+   "file": "LocationInput.kt",
+   "line": 247,
+   "wrapper": "AlertDialog",
+   "inside": "fromLink",
+   "title": "এখনকার জায়গা দেবেন?"
+  },
+  {
+   "file": "MainActivity.kt",
+   "line": 870,
+   "wrapper": "FullScreenDialog",
+   "inside": "saveProfile",
+   "title": ""
+  },
+  {
+   "file": "MedAlarms.kt",
+   "line": 221,
+   "wrapper": "FormDialog",
+   "inside": "MedAlarmDialog",
+   "title": "ওষুধের অ্যালার্ম"
+  },
+  {
+   "file": "MyRequestUi.kt",
+   "line": 199,
+   "wrapper": "AlertDialog",
+   "inside": "DonorRow",
+   "title": "${d.donorName}-কে বাদ দেবেন?"
+  },
+  {
+   "file": "MyRequestUi.kt",
+   "line": 263,
+   "wrapper": "AlertDialog",
+   "inside": "setReceived",
+   "title": "রক্ত আর লাগবে না?"
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 164,
+   "wrapper": "AlertDialog",
+   "inside": "RxCodeDialog",
+   "title": "প্রেসক্রিপশন খুলুন"
+  },
+  {
+   "file": "MyWorkTabs.kt",
+   "line": 458,
+   "wrapper": "AlertDialog",
+   "inside": "MyLabPanel",
+   "title": "প্যাথলজি মুছে ফেলবেন?"
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 337,
+   "wrapper": "AlertDialog",
+   "inside": "act",
+   "title": "কত দিন বন্ধ থাকবে?"
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 357,
+   "wrapper": "AlertDialog",
+   "inside": "act",
+   "title": "ফার্মেসি মুছে ফেলবেন?"
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 640,
+   "wrapper": "AlertDialog",
+   "inside": "RxSelector",
+   "title": "কোন প্রেসক্রিপশন?"
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 794,
+   "wrapper": "DetailSheet",
+   "inside": "NearbyPharmacies",
+   "title": "খোলা"
+  },
+  {
+   "file": "Pharmacy.kt",
+   "line": 915,
+   "wrapper": "FormDialog",
+   "inside": "PharmacyRatingDialog",
+   "title": "দোকানের সেবা নিয়ে — ওষুধ কেমন কাজ করল তা নয়"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 401,
+   "wrapper": "FullScreenDialog",
+   "inside": "info",
+   "title": "প্রেসক্রিপশন"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 481,
+   "wrapper": "AlertDialog",
+   "inside": "info",
+   "title": "প্রেসক্রিপশনটা বাতিল করবেন?"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 604,
+   "wrapper": "FormDialog",
+   "inside": "RxClaimDialog",
+   "title": "প্রেসক্রিপশন যোগ করুন"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 795,
+   "wrapper": "FullScreenDialog",
+   "inside": "PatientHistoryDialog",
+   "title": "রোগী"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 834,
+   "wrapper": "FormDialog",
+   "inside": "RxPatientAddDialog",
+   "title": "নতুন রোগী"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 919,
+   "wrapper": "FullScreenDialog",
+   "inside": "RxDoctorTab",
+   "title": "রোগী বাছুন"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 951,
+   "wrapper": "FormDialog",
+   "inside": "RxTeamDialog",
+   "title": "সহকারী"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1055,
+   "wrapper": "FullScreenDialog",
+   "inside": "issue",
+   "title": "প্রেসক্রিপশন"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1155,
+   "wrapper": "AlertDialog",
+   "inside": "issue",
+   "title": "প্রেসক্রিপশনটা দেবেন?"
+  },
+  {
+   "file": "Prescriptions.kt",
+   "line": 1187,
+   "wrapper": "FormDialog",
+   "inside": "MedEditDialog",
+   "title": "ওষুধ যোগ করুন"
+  },
+  {
+   "file": "Profile.kt",
+   "line": 344,
+   "wrapper": "AlertDialog",
+   "inside": "pickPhoto",
+   "title": "প্রোফাইলের ছবি"
+  },
+  {
+   "file": "Profile.kt",
+   "line": 368,
+   "wrapper": "AlertDialog",
+   "inside": "pickPhoto",
+   "title": "অ্যাকাউন্ট মুছবেন?"
+  },
+  {
+   "file": "Queue.kt",
+   "line": 249,
+   "wrapper": "FormDialog",
+   "inside": "LateDialog",
+   "title": "দেরি হবে"
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 611,
+   "wrapper": "AlertDialog",
+   "inside": "act",
+   "title": "রিপোর্ট করবেন?"
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 802,
+   "wrapper": "AlertDialog",
+   "inside": "act",
+   "title": "রিকোয়েস্টটা মুছে ফেলবেন?"
+  },
+  {
+   "file": "RequestScreens.kt",
+   "line": 863,
+   "wrapper": "AlertDialog",
+   "inside": "DonationChecklistDialog",
+   "title": "রক্ত দেওয়ার আগে"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 667,
+   "wrapper": "AlertDialog",
+   "inside": "info",
+   "title": "ফার্মেসিতে পাঠান"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 832,
+   "wrapper": "FullScreenDialog",
+   "inside": "send",
+   "title": "অনলাইনে অর্ডার"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 924,
+   "wrapper": "FormDialog",
+   "inside": "OnlineOrderDialog",
+   "title": "ডেলিভারি: "
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 966,
+   "wrapper": "FormDialog",
+   "inside": "WithdrawDialog",
+   "title": "${o.pharmacyName} থেকে ফিরিয়ে নেবেন?"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1035,
+   "wrapper": "FullScreenDialog",
+   "inside": "send",
+   "title": "প্যাথলজি বাছুন"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1108,
+   "wrapper": "FullScreenDialog",
+   "inside": "LabReportDialog",
+   "title": "পরীক্ষার রিপোর্ট"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1243,
+   "wrapper": "FormDialog",
+   "inside": "PayDialog",
+   "title": "রিপোর্ট দেখানোর টাকা"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1279,
+   "wrapper": "FormDialog",
+   "inside": "AcceptOrderDialog",
+   "title": "অর্ডার নিন"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1305,
+   "wrapper": "FormDialog",
+   "inside": "OnlineSettingsDialog",
+   "title": "অনলাইনে বিক্রি"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1349,
+   "wrapper": "FullScreenDialog",
+   "inside": "MissedDialog",
+   "title": "চেয়েও পাননি এমন ওষুধ"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1389,
+   "wrapper": "FullScreenDialog",
+   "inside": "DispenseDialog",
+   "title": "ওষুধ দিন"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1478,
+   "wrapper": "FullScreenDialog",
+   "inside": "change",
+   "title": "স্টকের তালিকা"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1563,
+   "wrapper": "AlertDialog",
+   "inside": "RxSentDialog",
+   "title": "প্রেসক্রিপশন পাঠানো হয়েছে"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1668,
+   "wrapper": "FullScreenDialog",
+   "inside": "RxPickDialog",
+   "title": "কোন প্রেসক্রিপশন পাঠাবেন?"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1733,
+   "wrapper": "AlertDialog",
+   "inside": "PharmacySendDialog",
+   "title": "এই ফার্মেসি এখন অনলাইনে অর্ডার নেয় না"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1747,
+   "wrapper": "AlertDialog",
+   "inside": "PharmacySendDialog",
+   "title": "ডাক্তার"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1770,
+   "wrapper": "AlertDialog",
+   "inside": "PharmacySendDialog",
+   "title": ""
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 1901,
+   "wrapper": "DetailSheet",
+   "inside": "LabInfoSheet",
+   "title": "বাসা থেকে নমুনা নেয়"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2058,
+   "wrapper": "FullScreenDialog",
+   "inside": "flagOf",
+   "title": "রিপোর্ট"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2227,
+   "wrapper": "FullScreenDialog",
+   "inside": "ReviewReadDialog",
+   "title": "রোগীকে কী জানাবেন?"
+  },
+  {
+   "file": "RxNet.kt",
+   "line": 2259,
+   "wrapper": "FormDialog",
+   "inside": "ReviewSettingsDialog",
+   "title": "অনলাইনে রিপোর্ট দেখা"
+  },
+  {
+   "file": "Screens.kt",
+   "line": 479,
+   "wrapper": "DatePickerDialog",
+   "inside": "isSelectableDate",
+   "title": "ঠিক আছে"
+  },
+  {
+   "file": "Updates.kt",
+   "line": 162,
+   "wrapper": "FormDialog",
+   "inside": "send",
+   "title": "ফোন নম্বর যাচাই"
+  },
+  {
+   "file": "Work.kt",
+   "line": 296,
+   "wrapper": "AlertDialog",
+   "inside": "AddBusinessDialog",
+   "title": "আপনার কোন ব্যবসা?"
+  }
+ ]
+}
