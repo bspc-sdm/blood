@@ -62,7 +62,8 @@ set_rotate() {
   if ! grep -qE "^[[:space:]]*rotate $n\$" "$f"; then
     cp -p "$bak" "$f"; rm -f "$bak"; kv "logrotate_$1" "failed: rotate লাইন নেই"; return 0
   fi
-  if ! logrotate -d "$f" >/dev/null 2>&1; then
+  # পুরো কনফিগ দিয়ে যাচাই (কিছু ফাইল একা পড়লে ব্যর্থ হয় — যেমন rsyslog-এর su/create — তাই একা নয়)
+  if ! logrotate -d /etc/logrotate.conf >/dev/null 2>&1; then
     cp -p "$bak" "$f"; rm -f "$bak"; kv "logrotate_$1" "failed: logrotate -d, আগের ফাইল ফেরত"; return 0
   fi
   if cmp -s "$bak" "$f"; then ch=no; else ch=yes; fi
