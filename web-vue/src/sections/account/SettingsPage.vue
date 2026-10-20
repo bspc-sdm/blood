@@ -180,6 +180,8 @@ async function picked(pl: Place) {
             <section class="acct-scard">
               <LinkRow icon="privacy_tip" :title="tr('Privacy policy', 'প্রাইভেসি পলিসি')" :href="PRIVACY_URL" />
               <LinkRow icon="list_alt" :title="tr('Terms of use', 'ব্যবহারের শর্ত')" :href="TERMS_URL" />
+              <!-- অ্যাকাউন্ট মোছার পাবলিক পাতা (/delete-account): কী মোছে, কবে; লগইন থাকলে সেখান থেকেই মোছা -->
+              <ListRow icon="delete" :title="tr('Delete account', 'অ্যাকাউন্ট মুছুন')" :on-click="() => nav('/delete-account')" />
               <ListRow icon="mail" :title="tr('Contact support', 'সাপোর্টে যোগাযোগ')" :sub="SUPPORT_EMAIL" :href="`mailto:${SUPPORT_EMAIL}`"><template #trailing><span /></template></ListRow>
               <div class="acct-srow static">
                 <Icon name="info" :size="24" />

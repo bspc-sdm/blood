@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // প্রোফাইল — লগইন করা
 import { computed, onMounted, ref } from 'vue';
-import { BloodGroupBadge, Button, ConfirmDialog, Icon, IconLine, ListRow, toast } from '@/ui/kit';
-import { call, errorText } from '@/lib/api';
+import { BloodGroupBadge, Button, Icon, IconLine, ListRow, toast } from '@/ui/kit';
 import { num, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import { districtLabel } from '@/lib/geo';
@@ -22,6 +21,7 @@ import PhotoMenuDialog from './PhotoMenuDialog.vue';
 import AcctMenu from './AcctMenu';
 import InfoLine from './InfoLine.vue';
 import BecomeDonorCard from './BecomeDonorCard.vue';
+import DeleteAccountDialog from './DeleteAccountDialog.vue';
 import { SUPPORT_EMAIL, badgeLabel, hasBusiness, useAccountState } from './util';
 
 const props = defineProps<{ profile: Profile }>();
@@ -34,8 +34,6 @@ const demoSwitch = ref(false); // ডেমো
 const dateDialog = ref(false);
 const phoneDialog = ref(false);
 const confirmDelete = ref(false);
-const deleting = ref(false);
-const deleteError = ref<string | null>(null);
 const retrying = ref(false);
 const bizKey = `lf.businessNo.${s.uid ?? ''}`;
 const businessNo = ref(store.get(bizKey) === '1');
@@ -82,19 +80,9 @@ const photoSrc = computed(() => {
   return p ? (p.startsWith('data:') ? p : `data:image/jpeg;base64,${p}`) : null;
 });
 
-async function deleteAccount() {
-  deleting.value = true;
-  deleteError.value = null;
-  try {
-    await call('delete_account');
-    confirmDelete.value = false;
-    await s.signOut();
-    nav('/', { replace: true });
-  } catch (e) {
-    deleteError.value = errorText(e);
-  } finally {
-    deleting.value = false;
-  }
+function deleted() {
+  confirmDelete.value = false;
+  nav('/', { replace: true });
 }
 
 async function logout() {
@@ -120,7 +108,6 @@ function phoneVerified() {
   s.reloadMe();
 }
 function askDelete() {
-  deleteError.value = null;
   confirmDelete.value = true;
 }
 </script>
@@ -265,19 +252,6 @@ function askDelete() {
     <PhotoMenuDialog v-if="photoMenu" @close="photoMenu = false" @change="photo.pick()" @remove="photo.remove()" />
     <DonationDateDialog v-if="dateDialog" :profile="profile" @close="dateDialog = false" @saved="dateSaved" />
     <PhoneVerifyDialog v-if="phoneDialog" @close="phoneDialog = false" @verified="phoneVerified" />
-    <ConfirmDialog
-      v-if="confirmDelete"
-      :title="tr('Delete your account?', 'অ্যাকাউন্ট মুছবেন?')"
-      :text="tr(
-        'Your account will be deleted permanently after 30 days: profile, photo, phone number, requests, questions, answers, tips, appointments, badge and your businesses. Until then your listings and notifications are off and you are logged out everywhere. Log in again within 30 days to cancel and get everything back.',
-        '৩০ দিন পর আপনার অ্যাকাউন্ট চিরতরে মুছে যাবে: প্রোফাইল, ছবি, ফোন নম্বর, রিকোয়েস্ট, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, ব্যাজ আর আপনার ব্যবসা। এর মধ্যে আপনার তালিকা আর নোটিফিকেশন বন্ধ থাকবে, সব ফোন থেকে লগআউট হবে। ৩০ দিনের মধ্যে আবার লগইন করলে মোছা বাতিল হবে, সব আগের মতো ফিরবে।',
-      )"
-      :confirm="tr('Delete account', 'অ্যাকাউন্ট মুছুন')"
-      danger
-      :busy="deleting"
-      :error="deleteError"
-      @confirm="deleteAccount"
-      @close="() => !deleting && (confirmDelete = false)"
-    />
+    <DeleteAccountDialog v-if="confirmDelete" @close="confirmDelete = false" @deleted="deleted" />
   </div>
 </template>
