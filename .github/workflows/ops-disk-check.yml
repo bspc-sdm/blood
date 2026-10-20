@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ops-checks
+  group: ops-disk
   cancel-in-progress: false
 
 jobs:
@@ -83,7 +83,7 @@ jobs:
         run: |
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/disk"
           cp "$RUNNER_TEMP/out/summary.md" "$src/disk/summary.md" 2>/dev/null || true
-          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; cat "$RUNNER_TEMP/out/status.txt" 2>/dev/null; } > "$src/disk/status.txt"
+          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; cat "$RUNNER_TEMP/out/status.txt" 2>/dev/null || true; } > "$src/disk/status.txt"
           bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" disk
 
       - name: Clean up

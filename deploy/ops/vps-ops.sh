@@ -16,7 +16,8 @@
 #
 # কখনো আসল (non-demo) অ্যাকাউন্টের কিছু বদলায় না: সব লেখা `uid LIKE 'demo-%'` দিয়ে বাঁধা।
 # গোপন কিছু ছাপে না (পাসওয়ার্ড, চাবি, টোকেন)।
-set -euo pipefail
+# রিপোর্টের কাজগুলো একটা লাইন ব্যর্থ হলেও বাকিটা দেখায় (set -e নেই); snapshot/cleanup নিজে ভুল ধরে থামে।
+set -u
 
 CMD="${1:-}"
 shift || true
@@ -139,10 +140,11 @@ sample-stop)
 snapshot)
   dir="$1"
   install -d -m 0755 "$dir"
-  psqlq -c "SELECT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')" > "$dir/t0"
-  psqlq -c "COPY (SELECT uid, kind, day, count FROM user_quotas WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/quotas.csv"
-  psqlq -c "COPY (SELECT uid, inbox_seen_at FROM user_state WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/user_state.csv"
-  psqlq -c "COPY (SELECT uid, active_request_id, at FROM ambreq_patient_state WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/ambstate.csv"
+  fail() { kv snapshot "failed: $1"; exit 1; }
+  psqlq -c "SELECT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')" > "$dir/t0" || fail t0
+  psqlq -c "COPY (SELECT uid, kind, day, count FROM user_quotas WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/quotas.csv" || fail quotas
+  psqlq -c "COPY (SELECT uid, inbox_seen_at FROM user_state WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/user_state.csv" || fail user_state
+  psqlq -c "COPY (SELECT uid, active_request_id, at FROM ambreq_patient_state WHERE uid LIKE 'demo-%') TO STDOUT WITH CSV" > "$dir/ambstate.csv" || fail ambstate
   chmod 0644 "$dir"/*.csv "$dir/t0"
   wc -l < /var/log/nginx/access.log > "$dir/access.lines" 2>/dev/null || echo 0 > "$dir/access.lines"
   wc -l < /var/log/nginx/error.log > "$dir/error.lines" 2>/dev/null || echo 0 > "$dir/error.lines"
@@ -152,6 +154,7 @@ snapshot)
   kv api_restarts "$(systemctl show -p NRestarts --value "$UNIT")"
   kv demo_active "$(psqlq -c "SELECT count(*) FROM demo_accounts" 2>/dev/null || echo '?')"
   kv quotas_rows "$(wc -l < "$dir/quotas.csv")"
+  kv snapshot ok
   ;;
 cleanup)
   dir="$1"
