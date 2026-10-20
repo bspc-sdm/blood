@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="68.864" timestamp="2026-10-20T00:49:55">
+    <testcase id="j7-blood" name="j7-blood" classname="j7-blood" file="/home/runner/work/blood/blood/e2e/android/flows/j7-blood.yaml" time="68.829" timestamp="2026-10-20T00:49:55" status="ERROR">
+      <failure>Assertion is false: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

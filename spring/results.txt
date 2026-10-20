@@ -1,0 +1,8 @@
+j3-pharmacy rc=0 147s
+j1-patient rc=1 107s
+j2-services rc=1 130s
+j4-lab rc=0 59s
+j5-doctor rc=0 79s
+j6-ambulance rc=0 62s
+j7-blood rc=1 79s
+j8-profile rc=0 80s

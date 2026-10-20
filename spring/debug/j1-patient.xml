@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="98.206" timestamp="2026-10-20T00:43:14">
+    <testcase id="j1-patient" name="j1-patient" classname="j1-patient" file="/home/runner/work/blood/blood/e2e/android/flows/j1-patient.yaml" time="98.163" timestamp="2026-10-20T00:43:14" status="ERROR">
+      <failure>Assertion is false: "ডেমো .*ফার্মেসি" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

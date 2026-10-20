@@ -1,0 +1,800 @@
+10-20 00:46:52.762  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:52.784  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:52.784  6439  6606 D Maestro : View hierarchy received in 22 ms
+10-20 00:46:52.873  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:52.873  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:52.874  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:52.896  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:52.896  6439  6606 D Maestro : View hierarchy received in 23 ms
+10-20 00:46:52.984  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:52.984  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:52.985  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:52.999  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.000  6439  6606 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:53.089  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.089  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.089  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.104  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.104  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:53.192  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.192  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.192  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.221  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.221  6439  6606 D Maestro : View hierarchy received in 29 ms
+10-20 00:46:53.270  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.271  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.271  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.291  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.291  6439  6606 D Maestro : View hierarchy received in 21 ms
+10-20 00:46:53.380  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.381  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.381  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.398  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.399  6439  6606 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:53.488  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.488  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.488  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.507  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.507  6439  6606 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:53.595  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.596  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.596  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.614  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.614  6439  6606 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:53.704  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.704  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.705  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.719  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.720  6439  6606 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:53.808  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.808  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.809  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.825  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.825  6439  6606 D Maestro : View hierarchy received in 17 ms
+10-20 00:46:53.917  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:53.918  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.918  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:53.940  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:53.940  6439  6606 D Maestro : View hierarchy received in 23 ms
+10-20 00:46:54.032  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.033  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.033  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.050  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.050  6439  6606 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:54.140  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.141  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.141  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.159  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.160  6439  6606 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:54.247  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.248  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.248  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.262  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.262  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:54.351  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.351  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.351  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.371  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.371  6439  6606 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:54.461  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.461  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.461  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.476  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.476  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:54.608  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.608  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.609  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.623  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.623  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:54.712  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:54.712  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.713  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:54.730  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.730  6439  6606 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:54.820  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:54.820  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:54.821  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:54.835  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.835  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:54.923  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:54.923  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:54.923  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:54.941  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:54.941  6439  6492 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:55.032  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.033  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.033  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.052  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.052  6439  6492 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:55.140  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.141  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.141  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.155  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.155  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:55.244  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.244  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.244  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.262  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.262  6439  6492 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:55.352  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.352  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.353  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.371  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.371  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:55.460  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.460  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.461  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.478  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.479  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:55.566  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.567  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.567  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.580  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.581  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:55.671  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.672  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.672  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.690  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.690  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:55.780  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.780  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.781  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.795  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.795  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:55.884  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.885  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.885  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.900  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:55.900  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:55.988  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:55.989  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:55.989  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.006  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.007  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:56.097  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.097  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.097  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.110  1958  1958 I netd    : tetherGetStats() -> {[]} <0.46ms>
+10-20 00:46:56.111  1958  1958 I netd    : bandwidthSetGlobalAlert(2097152) <0.06ms>
+10-20 00:46:56.113  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.113  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:56.203  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.204  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.204  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.224  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.224  6439  6492 D Maestro : View hierarchy received in 21 ms
+10-20 00:46:56.312  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.313  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.313  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.327  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.327  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:56.414  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.415  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.415  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.448  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.448  6439  6492 D Maestro : View hierarchy received in 34 ms
+10-20 00:46:56.536  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.536  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.536  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.554  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.555  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:56.644  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.644  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.644  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.664  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.665  6439  6492 D Maestro : View hierarchy received in 21 ms
+10-20 00:46:56.754  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.755  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.755  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.771  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.772  6439  6492 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:56.860  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:56.860  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.860  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:56.873  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.873  6439  6492 D Maestro : View hierarchy received in 13 ms
+10-20 00:46:56.965  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:56.965  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:56.965  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:56.980  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:56.980  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:57.068  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:57.069  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.069  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.083  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.083  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:57.212  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:57.213  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.213  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.232  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.233  6439  6606 D Maestro : View hierarchy received in 21 ms
+10-20 00:46:57.323  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:57.324  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.324  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:57.341  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.341  6439  6606 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:57.432  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.433  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.433  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.447  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.447  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:57.536  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.536  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.536  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.551  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.551  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:57.640  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.641  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.641  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.655  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.655  6439  6492 D Maestro : View hierarchy received in 15 ms
+10-20 00:46:57.743  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.744  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.744  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.759  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.759  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:57.848  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.850  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.850  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.867  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.867  6439  6492 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:57.915  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:57.915  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.915  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:57.937  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:57.937  6439  6492 D Maestro : View hierarchy received in 22 ms
+10-20 00:46:58.029  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.029  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.029  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.044  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.045  6439  6492 D Maestro : View hierarchy received in 17 ms
+10-20 00:46:58.135  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.136  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.136  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.154  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.154  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:58.244  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.244  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.245  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.270  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.270  6439  6492 D Maestro : View hierarchy received in 26 ms
+10-20 00:46:58.360  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.360  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.361  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.378  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.378  6439  6492 D Maestro : View hierarchy received in 18 ms
+10-20 00:46:58.469  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.470  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.470  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.488  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.489  6439  6492 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:58.579  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.580  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.580  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.597  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.598  6439  6492 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:58.688  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:58.688  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.689  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:58.704  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.704  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:58.792  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:58.793  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:58.793  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:58.815  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.815  6439  6606 D Maestro : View hierarchy received in 23 ms
+10-20 00:46:58.904  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:58.905  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:58.905  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:58.920  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:58.920  6439  6606 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:59.012  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.013  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.013  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.031  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.031  6439  6606 D Maestro : View hierarchy received in 19 ms
+10-20 00:46:59.165  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.165  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.165  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.186  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.187  6439  6606 D Maestro : View hierarchy received in 22 ms
+10-20 00:46:59.276  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:59.276  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.276  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.292  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.292  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:59.384  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:59.384  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.385  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.399  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.400  6439  6492 D Maestro : View hierarchy received in 16 ms
+10-20 00:46:59.486  6439  6492 D Maestro : Requesting view hierarchy
+10-20 00:46:59.487  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.487  6439  6492 W QueryController: Could not detect idle state.
+10-20 00:46:59.507  6439  6492 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.507  6439  6492 D Maestro : View hierarchy received in 21 ms
+10-20 00:46:59.596  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.597  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.597  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.616  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.616  6439  6606 D Maestro : View hierarchy received in 20 ms
+10-20 00:46:59.705  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.706  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.706  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.731  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.732  6439  6606 D Maestro : View hierarchy received in 27 ms
+10-20 00:46:59.766  1958  1958 I netd    : tetherGetStats() -> {[]} <0.30ms>
+10-20 00:46:59.767  1958  1958 I netd    : bandwidthSetGlobalAlert(2097152) <0.07ms>
+10-20 00:46:59.835  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.835  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.835  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.841  2016  2027 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+10-20 00:46:59.841  2016  2027 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+10-20 00:46:59.841  2016  2027 I BpBinder: onLastStrongRef automatically unlinking death recipients: 
+10-20 00:46:59.848  2016  2028 W system_server: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/PrebuiltGmsCore/PrebuiltGmsCore.apk' with 1 weak references
+10-20 00:46:59.877  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.877  6439  6606 D Maestro : View hierarchy received in 43 ms
+10-20 00:46:59.929  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:46:59.930  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.930  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:46:59.947  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:46:59.948  6439  6606 D Maestro : View hierarchy received in 19 ms
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: EchoTargets: 
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Filtered by AiAi flag check: 
+10-20 00:47:00.019  2799  3000 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: EchoTargets: 
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Filtered by AiAi flag check: 
+10-20 00:47:00.019  2799  3000 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:00.019  2799  3000 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-20 00:47:00.019  2799  3000 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-20 00:47:00.020  2799  3000 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-20 00:47:00.024  2249  2346 D EGL_emulation: app_time_stats: avg=16273.52ms min=14.83ms max=32532.21ms count=2
+10-20 00:47:00.032  2249  2249 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-20 00:47:00.602  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.603  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:47:00.603  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.603  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.630  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:47:00.630  6439  6606 D Maestro : View hierarchy received in 27 ms
+10-20 00:47:00.682  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:47:00.682  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.683  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.705  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:47:00.705  6439  6606 D Maestro : View hierarchy received in 23 ms
+10-20 00:47:00.796  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:47:00.797  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.797  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.814  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:47:00.814  6439  6606 D Maestro : View hierarchy received in 18 ms
+10-20 00:47:00.906  6439  6606 D Maestro : Requesting view hierarchy
+10-20 00:47:00.906  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.906  6439  6606 W QueryController: Could not detect idle state.
+10-20 00:47:00.921  6439  6606 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@18012b; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-20 00:47:00.921  6439  6606 D Maestro : View hierarchy received in 15 ms
+10-20 00:47:01.008  2016  2538 D WindowManager: captureDisplay
+10-20 00:47:01.741     0     0 I logd    : logdr: UID=0 GID=0 PID=6793 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 00:47:01.776     0     0 I logd    : logdr: UID=0 GID=0 PID=6796 n tail=2000 logMask=10 pid=0 start=0ns deadline=0ns
+10-20 00:47:01.789     0     0 I logd    : logdr: UID=0 GID=0 PID=6799 n tail=0 logMask=1 pid=0 start=0ns deadline=0ns
+10-20 00:47:01.838  2016  2069 I AppsFilter: interaction: PackageSetting{c5f8c35 com.android.microdroid.empty_payload/10205} -> PackageSetting{12c6543 dev.mobile.maestro/10214} BLOCKED
+10-20 00:47:01.838  2016  2069 I AppsFilter: interaction: PackageSetting{b6a3ddf com.bspc.blood/10209} -> PackageSetting{12c6543 dev.mobile.maestro/10214} BLOCKED
+10-20 00:47:01.838  2016  2045 I ActivityManager: Force stopping dev.mobile.maestro appid=10214 user=-1: deletePackageX
+10-20 00:47:01.839  2016  2036 D DisplayManagerService: Drop pending events for gone uid 10214
+10-20 00:47:01.840  2016  2045 I ActivityManager: Killing 6439:dev.mobile.maestro/u0a214 (adj 0): stop dev.mobile.maestro due to deletePackageX
+10-20 00:47:01.847  2016  2045 W ActivityManager: Crash of app dev.mobile.maestro running instrumentation ComponentInfo{dev.mobile.maestro.test/androidx.test.runner.AndroidJUnitRunner}
+10-20 00:47:01.848  2016  2045 I ActivityManager: Force stopping dev.mobile.maestro appid=10214 user=0: finished inst
+10-20 00:47:01.848  2016  2045 D OomAdjuster: Not killing cached processes
+10-20 00:47:01.849  6428  6428 I app_process: System.exit called, status: 0
+10-20 00:47:01.849  6428  6428 I AndroidRuntime: VM exiting with result code 0.
+10-20 00:47:01.855  1958  1958 I netd    : tetherGetStats() -> {[]} <0.40ms>
+10-20 00:47:01.855   174   183 I keystore2: system/security/keystore2/src/maintenance.rs:341 - clearNamespace(r#APP, nspace=10214)
+10-20 00:47:02.047     0     0 I init    : Untracked pid 6428 exited with status 0
+10-20 00:47:02.050     0     0 I init    : Untracked pid 6428 did not have an associated service entry and will not be reaped
+10-20 00:47:01.862  2016  3234 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.889  1436  1436 I adbd    : Remote process closed the socket (on MSG_PEEK)
+10-20 00:47:01.890  1952  1952 I Zygote  : Process 6439 exited due to signal 9 (Killed)
+10-20 00:47:01.890  2016  2047 I libprocessgroup: Removed cgroup /sys/fs/cgroup/uid_10214/pid_6439
+10-20 00:47:02.076     0     0 I binder  : undelivered transaction 660842, process died.
+10-20 00:47:01.905  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/YouTube/YouTube.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationCorner/DisplayCutoutEmulationCornerOverlay.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.extservices/priv-app/GoogleExtServices@350820300/GoogleExtServices.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationDouble/DisplayCutoutEmulationDoubleOverlay.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/TelephonyProvider/TelephonyProvider.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/TelephonyProvider__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DynamicSystemInstallationService/DynamicSystemInstallationService.apk' with 1 weak references
+10-20 00:47:01.906  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/Velvet/Velvet.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/CalendarProvider/CalendarProvider.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/GoogleOneTimeInitializer/GoogleOneTimeInitializer.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/GoogleExtShared/GoogleExtShared.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/ExternalStorageProvider/ExternalStorageProvider.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/HTMLViewer/HTMLViewer.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/CompanionDeviceManager/CompanionDeviceManager.apk' with 1 weak references
+10-20 00:47:01.909  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DownloadProvider/DownloadProvider.apk' with 1 weak references
+10-20 00:47:01.910  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/PrebuiltBugle/PrebuiltBugle.apk' with 1 weak references
+10-20 00:47:01.910  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/SoundPickerPrebuilt/SoundPickerPrebuilt.apk' with 1 weak references
+10-20 00:47:01.910  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.mediaprovider/priv-app/MediaProviderGoogle@350820300/MediaProviderGoogle.apk' with 1 weak references
+10-20 00:47:01.913  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/SafetyHubPrebuilt/SafetyHubPrebuilt.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DownloadProviderUi/DownloadProviderUi.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.wifi/app/OsuLoginGoogle@350820300/OsuLoginGoogle.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/PacProcessor/PacProcessor.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/SimAppDialog/SimAppDialog.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SimAppDialog__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.adservices/priv-app/AdServicesApkGoogle@350820260/AdServicesApkGoogle.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationHole/DisplayCutoutEmulationHoleOverlay.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationTall/DisplayCutoutEmulationTallOverlay.apk' with 1 weak references
+10-20 00:47:01.914  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/CertInstaller/CertInstaller.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/talkback/talkback.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/vendor/overlay/EmulatorTalkBackOverlay/EmulatorTalkBackOverlay.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Camera2/Camera2.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/EasterEgg/EasterEgg.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/MtpService/MtpService.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.nfcservices/priv-app/NfcNciApexGoogle@AE3A.240806.043/NfcNciApexGoogle.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/Stk/Stk.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltDeskClockGoogle/PrebuiltDeskClockGoogle.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/NavigationBarMode2Button/NavigationBarMode2ButtonOverlay.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/DevicePersonalizationPrebuiltPixel2021-aiai_20240329.00_RC16/DevicePersonalizationPrebuiltPixel2021-aiai_20240329.00_RC16.apk' with 1 weak references
+10-20 00:47:01.915  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltGmail/PrebuiltGmail.apk' with 1 weak references
+10-20 00:47:01.916  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.permission/priv-app/GooglePermissionController@350820360/GooglePermissionController.apk' with 1 weak references
+10-20 00:47:01.918  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/GooglePermissionControllerOverlay.apk' with 1 weak references
+10-20 00:47:01.918  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.btservices/app/BluetoothGoogle@342010060/BluetoothGoogle.apk' with 1 weak references
+10-20 00:47:01.918  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/SettingsProvider/SettingsProvider.apk' with 1 weak references
+10-20 00:47:01.919  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/LargeScreenSettingsProviderOverlay.apk' with 1 weak references
+10-20 00:47:01.919  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SettingsProvider__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.919  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/PrintSpooler/PrintSpooler.apk' with 1 weak references
+10-20 00:47:01.919  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/BasicDreams/BasicDreams.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/DeviceIntelligenceNetworkPrebuilt-astrea_20240329.00_RC02/DeviceIntelligenceNetworkPrebuilt-astrea_20240329.00_RC02.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/InputDevices/InputDevices.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.devicelock/priv-app/DeviceLockControllerGoogle@AE3A.240806.043/DeviceLockControllerGoogle.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/GoogleDialer/GoogleDialer.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/BuiltInPrintService/BuiltInPrintService.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/BuiltInPrintService__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/CaptivePortalLoginGoogle/CaptivePortalLoginGoogle.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/MusicFX/MusicFX.apk' with 1 weak references
+10-20 00:47:01.920  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Drive/Drive.apk' with 1 weak references
+10-20 00:47:01.921  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Maps/Maps.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/ModuleMetadataGoogle/ModuleMetadataGoogle.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationEmu01/DisplayCutoutEmulationEmu01Overlay.apk' with 1 weak references
+10-20 00:47:02.112     0     0 I logd    : start watching /data/system/packages.list ...
+10-20 00:47:02.114     0     0 I logd    : ReadPackageList, total packages: 218
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/AvatarPickerGoogle/AvatarPickerGoogle.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/MarkupGoogle_v2/MarkupGoogle_v2.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/NetworkStackGoogle/NetworkStackGoogle.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.rkpd/priv-app/rkpdapp.google@350820300/rkpdapp.google.apk' with 1 weak references
+10-20 00:47:01.925  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/GoogleContacts/GoogleContacts.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/Telecom/Telecom.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/Telecom__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/KeyChain/KeyChain.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~EIvd07zGDZE-tzDppJQ1xQ==/com.android.chrome-NhKI6I8BvRTT9M2_fZxWTg==/Chrome.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~ypMmQS6H-x5097xaA0jXPw==/com.google.android.trichromelibrary_636771938-5avZl5GUqCNuQft19d45eg==/TrichromeLibrary.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/GooglePackageInstaller/GooglePackageInstaller.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PixelThemesStub/PixelThemesStub.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/GoogleServicesFramework/GoogleServicesFramework.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/TagGoogle/TagGoogle.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/GoogleTTS/GoogleTTS.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/CallLogBackup/CallLogBackup.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/PartnerSetupPrebuilt/PartnerSetupPrebuilt.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/CameraExtensionsProxy/CameraExtensionsProxy.apk' with 1 weak references
+10-20 00:47:01.926  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/NexusWallpapersStubPrebuilt2018/NexusWallpapersStubPrebuilt2018.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/NexusLauncherRelease/NexusLauncherRelease.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/CarrierDefaultApp/CarrierDefaultApp.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/CredentialManager/CredentialManager.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/FontNotoSerifSource/FontNotoSerifSourceOverlay.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DeviceAsWebcam/DeviceAsWebcam.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/ProxyHandler/ProxyHandler.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.permission/priv-app/GoogleSafetyCenterResources@350820360/GoogleSafetyCenterResources.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/DisplayCutoutEmulationWaterfall/DisplayCutoutEmulationWaterfallOverlay.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/IntentResolver/IntentResolver.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/E2eeContactKeysProvider/E2eeContactKeysProvider.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.tethering/priv-app/ServiceConnectivityResourcesGoogle@350820300/ServiceConnectivityResourcesGoogle.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/vendor/overlay/goldfish_overlay_connectivity_google.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/GoogleFeedback/GoogleFeedback.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/GooglePrintRecommendationService/GooglePrintRecommendationService.apk' with 1 weak references
+10-20 00:47:01.927  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/Photos/Photos.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/CalendarGooglePrebuilt/CalendarGooglePrebuilt.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/ManagedProvisioning/ManagedProvisioning.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/SoundPicker/SoundPicker.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~cKBY7TyxxioKCgcEvkuIPA==/com.bspc.blood-FqBrPxpQ6TCxn3dmSfxdjQ==/base.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DocumentsUIGoogle/DocumentsUIGoogle.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltGoogleTelemetryTvp/PrebuiltGoogleTelemetryTvp.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/MultiDisplayProvider/MultiDisplayProvider.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/DeviceDiagnostics/DeviceDiagnostics.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/DeviceDiagnostics__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/NotesRoleEnabled/NotesRoleEnabledOverlay.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/LiveWallpapersPicker/LiveWallpapersPicker.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/PrebuiltGoogleAdservicesTvp/PrebuiltGoogleAdservicesTvp.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.healthfitness/priv-app/HealthConnectControllerGoogle@350820300/HealthConnectControllerGoogle.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/KidsSupervisionStub/KidsSupervisionStub.apk' with 1 weak references
+10-20 00:47:01.928  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/StorageManager/StorageManager.apk' with 1 weak references
+10-20 00:47:01.929  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/StorageManager__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.929  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/BookmarkProvider/BookmarkProvider.apk' with 1 weak references
+10-20 00:47:01.929  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/SettingsGoogle/SettingsGoogle.apk' with 1 weak references
+10-20 00:47:01.929  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SettingsGoogle__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.929  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/SettingsIntelligenceGooglePrebuilt/SettingsIntelligenceGooglePrebuilt.apk' with 1 weak references
+10-20 00:47:01.930  2016  3234 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-20 00:47:01.930  2016  3234 V UiAutomationManager: UiAutomation service owner died
+10-20 00:47:01.931  2016  3214 V ActivityManager: Got obituary of 6439:dev.mobile.maestro
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.931  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.932  2016  2016 D BatterySaverPolicy: accessibility changed to false, updating policy.
+10-20 00:47:01.936  2016  2069 D PackageManager: Instant App installer not found with android.intent.action.INSTALL_INSTANT_APP_PACKAGE
+10-20 00:47:01.936  2016  2069 D PackageManager: Clear ephemeral installer activity
+10-20 00:47:01.937  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.uwb/priv-app/ServiceUwbResourcesGoogle@350820300/ServiceUwbResourcesGoogle.apk' with 1 weak references
+10-20 00:47:01.937  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.wifi/priv-app/ServiceWifiResourcesGoogle@350820300/ServiceWifiResourcesGoogle.apk' with 1 weak references
+10-20 00:47:01.938  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/ThemePicker/ThemePicker.apk' with 1 weak references
+10-20 00:47:01.939  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/WallpaperPickerGoogleRelease/WallpaperPickerGoogleRelease.apk' with 1 weak references
+10-20 00:47:01.940  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/OdadPrebuilt/OdadPrebuilt.apk' with 1 weak references
+10-20 00:47:02.122     0     0 I binder  : 2045:2016 cannot find target node
+10-20 00:47:02.134     0     0 I binder  : 2016:2045 transaction async to 0:0 failed 660868/29189/-22, size 88-0 line 3344
+10-20 00:47:01.940  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/TeleService/TeleService.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/vendor/overlay/TeleService__sdk_gphone64_x86_64__auto_generated_rro_vendor.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/TeleService__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/Shell/Shell.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/BlockedNumberProvider/BlockedNumberProvider.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/UserDictionaryProvider/UserDictionaryProvider.apk' with 1 weak references
+10-20 00:47:01.941  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/app/EmergencyInfoGoogleNoUi/EmergencyInfoGoogleNoUi.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/FusedLocation/FusedLocation.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/SystemUIGoogle/SystemUIGoogle.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/vendor/overlay/SystemUIGoogle__sdk_gphone64_x86_64__auto_generated_rro_vendor.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SystemUIGoogle__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SystemUIEmulationPixel6/SystemUIEmulationPixel6Overlay.apk' with 1 weak references
+10-20 00:47:01.942  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/YouTubeMusicPrebuilt/YouTubeMusicPrebuilt.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/BluetoothMidiService/BluetoothMidiService.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/Traceur/Traceur.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.cellbroadcast/priv-app/GoogleCellBroadcastApp@350820300/GoogleCellBroadcastApp.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/ContactsProvider/ContactsProvider.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/ContactsProvider__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/LatinIMEGooglePrebuilt/LatinIMEGooglePrebuilt.apk' with 1 weak references
+10-20 00:47:01.943  2777  2786 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/GoogleRestorePrebuilt-v526684/GoogleRestorePrebuilt-v526684.apk' with 1 weak references
+10-20 00:47:01.945  2016  2045 E IPCThreadState: Binder transaction failure. id: 660868, BR_*: 29189, error: -22 (Invalid argument)
+10-20 00:47:01.945  2016  2045 W ActivityManager: pid 2016 system sent binder code 18 with flags 1 to frozen apps and got error -32
+10-20 00:47:01.945  2016  2045 W ActivityManager: Error shutting down UiAutomationConnection
+10-20 00:47:01.955  2799  4833 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-20 00:47:01.958  2016  3801 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-20 00:47:01.958  2799  3000 I AiAiEcho: EchoTargets: 
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Filtered by AiAi flag check: 
+10-20 00:47:01.958  2799  3000 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.958  2799  3000 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-20 00:47:01.958  2799  3000 I AiAiEcho: EchoTargets: 
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Filtered by AiAi flag check: 
+10-20 00:47:01.958  2799  3000 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.958  2799  3000 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.959  2799  3000 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-20 00:47:01.959  2799  3000 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-20 00:47:01.959  2799  3000 I AiAiEcho: EchoTargets: 
+10-20 00:47:01.959  2799  3000 I AiAiEcho: Filtered by AiAi flag check: 
+10-20 00:47:01.959  2799  3000 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.959  2799  3000 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-20 00:47:01.959  2799  3000 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-20 00:47:01.959  2799  3000 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface media_data_manager with targets# 0 (types=[])
+10-20 00:47:01.959  2016  2069 I ActivityManager: Force stopping dev.mobile.maestro appid=10214 user=0: pkg removed
+10-20 00:47:01.959  2799  3000 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-20 00:47:01.959  2799  3000 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-20 00:47:01.960  2249  2249 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-20 00:47:01.960  2249  2249 D SsMediaDataProvider: Forwarding Smartspace updates []
+10-20 00:47:01.961  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.961  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.961  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.961  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.961  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.962  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.963  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.963  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.963  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.963  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.963  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.964  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:01.967  2016  2127 V StorageManagerService: Package dev.mobile.maestro does not have legacy storage
+10-20 00:47:01.969  2016  2195 I AppWidgetServiceImpl: Received broadcast: android.intent.action.PACKAGE_REMOVED on user 0
+10-20 00:47:01.969  2016  2195 I AppWidgetServiceImpl: calling removeHostsAndProvidersForPackageLocked() because package removed permanently. extras=Bundle[{android.intent.extra.REMOVED_FOR_ALL_USERS=true, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10214, android.intent.extra.SYSTEM_UPDATE_UNINSTALL=false, android.intent.extra.USER_INITIATED=true, android.intent.extra.DATA_REMOVED=true, android.intent.extra.user_handle=0}] isReplacing=false isArchival=false
+10-20 00:47:01.969  2016  2195 I AppWidgetServiceImpl: removeHostsAndProvidersForPackageLocked() pkg=dev.mobile.maestro userId=0
+10-20 00:47:01.971  2016  2175 E AppOps  : attributionTag VCN not declared in manifest of android
+10-20 00:47:01.972  2016  2162 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro
+10-20 00:47:01.973  2016  2162 D WifiService: Remove settings for package:dev.mobile.maestro
+10-20 00:47:01.973  2016  2162 D WifiConfigManager: Remove all networks for app ApplicationInfo{7f8b021 dev.mobile.maestro}
+10-20 00:47:01.976  2016  2123 I InputMethodManagerService: Input method uninstalled, disabling: ComponentInfo{dev.mobile.maestro/dev.mobile.maestro.input.MaestroInputMethodService}
+10-20 00:47:01.985  2380  2380 D CarrierSvcBindHelper: onPackageRemoved: dev.mobile.maestro
+10-20 00:47:01.986  2380  2380 D CarrierSvcBindHelper: No carrier app for: 0
+10-20 00:47:01.986  2016  2162 I PasspointManager: No app ops listener found for dev.mobile.maestro
+10-20 00:47:01.987  2016  2016 D ActivityManager: sync unfroze 3037 com.android.keychain for 10
+10-20 00:47:01.987  2016  2016 D ActivityManager: sync unfroze 2393 com.android.settings for 10
+10-20 00:47:01.987  2016  2016 D ActivityManager: sync unfroze 3921 com.android.dynsystem:dynsystem for 10
+10-20 00:47:01.987  2016  2016 D ActivityManager: sync unfroze 3898 com.android.dynsystem for 10
+10-20 00:47:01.988  2016  2016 D ActivityManager: sync unfroze 3195 com.android.localtransport for 10
+10-20 00:47:01.996  2016  2106 I RoleService: Granting default roles...
+10-20 00:47:02.002  2016  2016 I Telecom : CarModeTracker: Package dev.mobile.maestro is not tracked.: SSH.oR@AQM🔒
+10-20 00:47:02.002  2016  2016 I Telecom : InCallController: updateCarModeForConnections: car mode apps: : SSH.oR@AQM🔒
+10-20 00:47:02.002  2016  2016 I Telecom : InCallController: update carmode current:UserHandle{0} parent:null: SSH.oR@AQM🔒
+10-20 00:47:02.008  2016  2210 D ShortcutService: received package broadcast intent: Intent { act=android.intent.action.PACKAGE_REMOVED dat=package: flg=0x4000010 (has extras) }
+10-20 00:47:02.008  2016  2210 D ShortcutService: removing package: dev.mobile.maestro userId0
+10-20 00:47:02.008  2016  2210 D ShortcutService: handlePackageRemoved: dev.mobile.maestro user=০
+10-20 00:47:02.015  2016  2069 I AppsFilter: interaction: PackageSetting{c5f8c35 com.android.microdroid.empty_payload/10205} -> PackageSetting{7dcdf3e dev.mobile.maestro.test/10215} BLOCKED
+10-20 00:47:02.017  2016  2069 I AppsFilter: interaction: PackageSetting{b6a3ddf com.bspc.blood/10209} -> PackageSetting{7dcdf3e dev.mobile.maestro.test/10215} BLOCKED
+10-20 00:47:02.018  2016  2016 I ConditionProviders: Disallowing condition provider dev.mobile.maestro (userSet: true)
+10-20 00:47:02.019  2016  2098 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=dev.mobile.maestro
+10-20 00:47:02.022   174   183 I keystore2: system/security/keystore2/src/maintenance.rs:341 - clearNamespace(r#APP, nspace=10215)
+10-20 00:47:02.040  2016  2162 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro
+10-20 00:47:02.040  2016  2162 D WifiService: Remove settings for package:dev.mobile.maestro
+10-20 00:47:02.040  2016  2162 D WifiConfigManager: Remove all networks for app ApplicationInfo{e92a3db dev.mobile.maestro}
+10-20 00:47:02.040  2016  2162 I PasspointManager: No app ops listener found for dev.mobile.maestro
+10-20 00:47:02.042  2801  2801 W MediaProvider: WorkProfileOwnerApps cache is empty
+10-20 00:47:02.042  2801  2801 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.042  2801  2801 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Locked by thread main]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.042  2801  2801 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.042  2016  2045 D ActivityManager: sync unfroze 3692 com.android.chrome for 3
+10-20 00:47:02.043  2016  2338 W Role    : Default holder doesn't have required signing certificate: com.google.android.retaildemo:6547c73dee150c103980bfdffe55cc9a011d785dd694a5f99afd8205bcaf1f80
+10-20 00:47:02.043  2016  2338 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms.supervision, role: android.app.role.SYSTEM_SUPERVISION
+10-20 00:47:02.044  2016  2338 W Role    : Default holder doesn't have required signing certificate: com.google.android.apps.work.clouddpc:23962F4B43B9857638EA66F4D419518EAE282491ACDA4B94707BD59003C45E58
+10-20 00:47:02.045  2016  3234 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-20 00:47:02.229     0     0 I logd    : start watching /data/system/packages.list ...
+10-20 00:47:02.232     0     0 I logd    : ReadPackageList, total packages: 217
+10-20 00:47:02.048  2016  2045 I ActivityManager: Force stopping dev.mobile.maestro.test appid=10215 user=-1: deletePackageX
+10-20 00:47:02.053  2380  2380 E SmsApplication: com.google.android.apps.messaging lost android:read_cell_broadcasts:  (fixing)
+10-20 00:47:02.056  2016  2069 D PackageManager: Instant App installer not found with android.intent.action.INSTALL_INSTANT_APP_PACKAGE
+10-20 00:47:02.056  2016  2069 D PackageManager: Clear ephemeral installer activity
+10-20 00:47:02.056  2016  2538 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 10134, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.057  2016  3801 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+10-20 00:47:02.062  2380  2380 E CellBroadcastUtils: getDefaultCellBroadcastReceiverPackageName: no package found
+10-20 00:47:02.063  2016  2538 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.063  2016  2538 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.063  2016  3214 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.063  2016  3214 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.063  2016  2538 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.071  2016  2069 I ActivityManager: Force stopping dev.mobile.maestro.test appid=10215 user=0: pkg removed
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.074  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.075  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.075  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.075  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.075  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.076  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.076  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.076  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.076  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.077  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.077  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.077  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.078  2016  2069 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.089  2016  2045 D ActivityManager: sync unfroze 3729 com.google.android.documentsui for 3
+10-20 00:47:02.090  2249  2249 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+10-20 00:47:02.092  2380  2380 D CarrierSvcBindHelper: onPackageRemoved: dev.mobile.maestro.test
+10-20 00:47:02.093  2380  2380 D CarrierSvcBindHelper: No carrier app for: 0
+10-20 00:47:02.098  2016  2538 D ActivityManager: sync unfroze 2876 com.google.android.gms for 6
+10-20 00:47:02.101  2380  2380 E SmsApplication: com.google.android.apps.messaging lost android:read_cell_broadcasts:  (fixing)
+10-20 00:47:02.101  2016  3214 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 10134, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.107  2016  2338 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms, role: android.app.role.WALLET
+10-20 00:47:02.109  2016  2127 V StorageManagerService: Package dev.mobile.maestro.test does not have legacy storage
+10-20 00:47:02.114  2016  2045 D ActivityManager: sync unfroze 2576 com.google.android.permissioncontroller for 3
+10-20 00:47:02.131  2016  2338 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.devicelockcontroller, role: android.app.role.SYSTEM_FINANCED_DEVICE_CONTROLLER
+10-20 00:47:02.137  2801  3147 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 00:47:02.137  2801  3147 D MediaProvider: Deleted 0 Android/media items belonging to dev.mobile.maestro on /data/user/0/com.google.android.providers.media.module/databases/external.db
+10-20 00:47:02.144  2016  2195 I AppWidgetServiceImpl: Received broadcast: android.intent.action.PACKAGE_REMOVED on user 0
+10-20 00:47:02.144  2016  2195 I AppWidgetServiceImpl: calling removeHostsAndProvidersForPackageLocked() because package removed permanently. extras=Bundle[{android.intent.extra.REMOVED_FOR_ALL_USERS=true, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10215, android.intent.extra.SYSTEM_UPDATE_UNINSTALL=false, android.intent.extra.USER_INITIATED=true, android.intent.extra.DATA_REMOVED=true, android.intent.extra.user_handle=0}] isReplacing=false isArchival=false
+10-20 00:47:02.144  2016  2195 I AppWidgetServiceImpl: removeHostsAndProvidersForPackageLocked() pkg=dev.mobile.maestro.test userId=0
+10-20 00:47:02.144  2016  2162 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro.test
+10-20 00:47:02.144  2016  2162 D WifiService: Remove settings for package:dev.mobile.maestro.test
+10-20 00:47:02.144  2016  2162 D WifiConfigManager: Remove all networks for app ApplicationInfo{6b9c85f dev.mobile.maestro.test}
+10-20 00:47:02.144  2016  2162 I PasspointManager: No app ops listener found for dev.mobile.maestro.test
+10-20 00:47:02.146  2016  2175 E AppOps  : attributionTag VCN not declared in manifest of android
+10-20 00:47:02.148  2380  2380 E CellBroadcastUtils: getDefaultCellBroadcastReceiverPackageName: no package found
+10-20 00:47:02.148  2016  3234 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.149  2016  2031 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.149  2016  2031 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.149  2016  2409 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.149  2016  2409 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-20 00:47:02.150  2016  2045 D ActivityManager: sync unfroze 3213 android.process.media for 3
+10-20 00:47:02.156  2016  2016 I Telecom : CarModeTracker: Package dev.mobile.maestro.test is not tracked.: SSH.oR@AQY🔒
+10-20 00:47:02.156  2016  2016 I Telecom : InCallController: updateCarModeForConnections: car mode apps: : SSH.oR@AQY🔒
+10-20 00:47:02.159  2016  2016 I Telecom : InCallController: update carmode current:UserHandle{0} parent:null: SSH.oR@AQY🔒
+10-20 00:47:02.180  2016  2098 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=dev.mobile.maestro.test
+10-20 00:47:02.186  2016  2016 I ConditionProviders: Disallowing condition provider dev.mobile.maestro.test (userSet: true)
+10-20 00:47:02.187  1958  1958 I netd    : tetherGetStats() -> {[]} <0.41ms>
+10-20 00:47:02.190  2016  2162 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro.test
+10-20 00:47:02.190  2016  2162 D WifiService: Remove settings for package:dev.mobile.maestro.test
+10-20 00:47:02.190  2016  2162 D WifiConfigManager: Remove all networks for app ApplicationInfo{7494d1 dev.mobile.maestro.test}
+10-20 00:47:02.190  2016  2162 I PasspointManager: No app ops listener found for dev.mobile.maestro.test
+10-20 00:47:02.190  2801  2801 W MediaProvider: WorkProfileOwnerApps cache is empty
+10-20 00:47:02.192  2801  2801 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.192  2801  2801 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Locked by thread main]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.192  2801  2801 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@ef983fe[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-20 00:47:02.192  2016  2031 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-20 00:47:02.192  2801  3147 D MediaGrants: Removed 0 media_grants for 0 user for [dev.mobile.maestro]. Reason: Package orphaned
+10-20 00:47:02.193  2801  3147 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 00:47:02.193  2801  3147 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 00:47:02.193  2801  3147 D MediaProvider: Deleted 0 Android/media items belonging to dev.mobile.maestro.test on /data/user/0/com.google.android.providers.media.module/databases/external.db
+10-20 00:47:02.193  2801  3147 D MediaGrants: Removed 0 media_grants for 0 user for [dev.mobile.maestro.test]. Reason: Package orphaned
+10-20 00:47:02.196  2016  2044 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-20 00:47:02.196  2016  2044 I CredentialManager: updateProvidersWhenPackageRemoved
+10-20 00:47:02.206  2801  3147 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 00:47:02.206  2016  2210 D ShortcutService: Saving package item com.google.android.as to /data/system_ce/0/shortcut_service/launchers/com.google.android.as0.xml
+10-20 00:47:02.207  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.207  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.207  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.209  2016  2016 W IPCThreadState: Sending oneway calls to frozen process.
+10-20 00:47:02.210  2249  2249 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+10-20 00:47:02.211  2016  2026 W system_server: Suspending all threads took: 6.618ms
+10-20 00:47:02.396     0     0 I logd    : logdr: UID=0 GID=0 PID=6851 n tail=0 logMask=10 pid=0 start=0ns deadline=0ns
