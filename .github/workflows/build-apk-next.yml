@@ -44,7 +44,8 @@ jobs:
           WANT: ${{ inputs.server || 'auto' }}
         run: |
           set -u
-          health() { curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true'; }
+          # ডিপ্লয়ের সময় কয়েক সেকেন্ড বন্ধ থাকতে পারে — ৫ বার চেষ্টা
+          health() { for t in 1 2 3 4 5; do curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true' && return 0; sleep 15; done; return 1; }
           if [ "$WANT" = auto ]; then
             if health https://lifolo.com; then S=https://lifolo.com; else S=https://api.lifolo.com; fi
           else

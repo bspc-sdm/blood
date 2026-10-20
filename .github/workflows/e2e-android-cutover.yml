@@ -3,11 +3,8 @@ name: E2E Android cutover (Node vs Spring)
 # একই Maestro যাত্রা (e2e/android) দুবার: বর্তমান সার্ভার (Node, Vercel) আর নতুন সার্ভার (Spring, VPS) —
 # দুটো APK শুধু সার্ভারের ঠিকানায় আলাদা (-PlifoloServer)। শুধু ডেমো অ্যাকাউন্ট (দুই সার্ভারের ডেমো)।
 # ফল: শাখা ci-log-cutover-android — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
+# Only by hand (Run workflow / REST dispatch with ref=cutover-android).
 on:
-  push:
-    branches: [cutover-android]
-    paths:
-      - ".github/workflows/e2e-android-cutover.yml"
   workflow_dispatch:
     inputs:
       only:
@@ -44,7 +41,8 @@ jobs:
         run: |
           set -u
           mkdir -p e2e-out
-          health() { curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true'; }
+          # ডিপ্লয়ের সময় কয়েক সেকেন্ড বন্ধ থাকতে পারে — ৫ বার চেষ্টা
+          health() { for t in 1 2 3 4 5; do curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true' && return 0; sleep 15; done; return 1; }
           if [ "$WANT" = auto ]; then
             if health https://lifolo.com; then S=https://lifolo.com; else S=https://api.lifolo.com; fi
           else S="${WANT%/}"; fi
