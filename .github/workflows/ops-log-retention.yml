@@ -1,0 +1,88 @@
+name: "Ops: log retention"
+
+# সার্ভারের লগ কতদিন থাকে — গোপনীয়তা নীতির "কয়েক সপ্তাহ পরে নিজে মুছে যায়" সত্যি রাখা (deploy/log-retention.sh):
+# journald (অ্যাপের লগ) ≤২১ দিন আর ≤১ GB, nginx ≤১৪ দিন, syslog/auth/PostgreSQL/Redis/fail2ban ≤২১ দিন। বারবার চালালেও একই ফল।
+# নতুন VPS বা "Setup VPS (base)" আবার চালানোর পরে একবার চালান। বাংলা গাইড: deploy/OPS-DRILLS.md।
+# ফল log branch `ci-log-ops-drills`-এ: retention/summary.md।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ops-retention
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::VPS_HOST-এ IP নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "ORIGIN_IP=$ip" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/out"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Apply retention
+        run: |
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.log-retention.sh.\$\$ && mv /root/lifolo-ops/.log-retention.sh.\$\$ /root/lifolo-ops/log-retention.sh" < deploy/log-retention.sh
+          ssh vps "bash /root/lifolo-ops/log-retention.sh" | tee "$RUNNER_TEMP/out/status.txt"
+          grep -q '^finished=yes$' "$RUNNER_TEMP/out/status.txt"
+          ! grep -qE '^logrotate_[a-z_-]+=failed' "$RUNNER_TEMP/out/status.txt"
+
+      - name: Summary
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          g() { sed -nE "s/^$1=(.*)$/\1/p" "$out/status.txt" 2>/dev/null | tail -1; }
+          {
+            echo "## সার্ভারের লগ কতদিন থাকে"
+            echo
+            echo "| লগ | নিয়ম এখন | সীমা |"
+            echo "|---|---|---|"
+            echo "| journald (অ্যাপ lifolo-api আর সব সার্ভিস) | \`$(g journald_settings)\` · ব্যবহার $(g journald_usage), সবচেয়ে পুরোনো $(g journald_oldest) | ≤২১ দিন, ≤১ GB |"
+            echo "| nginx (access/error, দর্শকের IP) | $(g logrotate_nginx) | ≤১৪ দিন |"
+            echo "| syslog, auth.log … (rsyslog; journald-এর কপি) | $(g logrotate_rsyslog) | ≤২১ দিন |"
+            echo "| PostgreSQL | $(g logrotate_postgresql-common) | ≤২১ দিন |"
+            echo "| Redis | $(g logrotate_redis-server) | ≤২১ দিন |"
+            echo "| fail2ban (IP) | $(g logrotate_fail2ban) | ≤২১ দিন |"
+            echo
+            echo "- অ্যাপের নিজের লগ ফাইল: $(g app_log_files)"
+            echo "- logrotate: যাচাই $(g logrotate_check), timer $(g logrotate_timer) · এখনই মোছা পুরোনো ঘোরানো ফাইল: $(g old_rotated_removed)টা · journald বদলেছে: $(g journald_changed)"
+            echo
+            echo "_run ${{ github.run_id }} · গাইড: deploy/OPS-DRILLS.md_"
+          } > "$out/summary.md"
+          ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
+          for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-ops-drills)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: ops log retention ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/retention"
+          cp "$RUNNER_TEMP/out/summary.md" "$src/retention/summary.md" 2>/dev/null || true
+          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; cat "$RUNNER_TEMP/out/status.txt" 2>/dev/null || true; } > "$src/retention/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" retention
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
