@@ -102,6 +102,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Firebase Auth-এর OAuth/ফোন-লগইনের পাতা (exported) — Lifolo শুধু ইমেইল-কোড (custom token) দিয়ে লগইন করে, তাই সরানো -->
+        <activity android:name="com.google.firebase.auth.internal.GenericIdpActivity" tools:node="remove" />
+        <activity android:name="com.google.firebase.auth.internal.RecaptchaActivity" tools:node="remove" />
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="blood_requests" />
