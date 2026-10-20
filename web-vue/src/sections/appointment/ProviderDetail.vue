@@ -120,7 +120,7 @@ function homeCalled() {
     <div class="detail-bar-row call-compact">
       <template v-if="pinnedCall">
         <span v-if="preview" :class="cx('btn outline square has-icon call', !bookable.length && 'solo')"><Icon name="call" />{{ num(pinnedCall) }}</span>
-        <a v-else :class="cx('btn outline square has-icon call', !bookable.length && 'solo')" :href="`tel:${pinnedCall}`"><Icon name="call" /><span :class="bookable.length && 'call-long'">{{ tr('Call for serial', 'সিরিয়ালের ফোন') }}</span><span v-if="bookable.length" class="call-short">{{ tr('Call', 'ফোন') }}</span></a>
+        <a v-else :class="cx('btn outline square has-icon call', !bookable.length && 'solo')" :href="`tel:${pinnedCall}`"><Icon name="call" /><span :class="bookable.length ? 'call-long' : undefined">{{ tr('Call for serial', 'সিরিয়ালের ফোন') }}</span><span v-if="bookable.length" class="call-short">{{ tr('Call', 'ফোন') }}</span></a>
       </template>
       <Button v-if="bookable.length" square icon="calendar_month" :class="cx(!pinnedCall && 'solo')" @click="mainBook">
         {{ tr('Appointment', 'অ্যাপয়েন্টমেন্ট') }}
