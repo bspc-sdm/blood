@@ -1,0 +1,8 @@
+Starting: Intent { flg=0x14000000 cmp=com.bspc.blood/.MainActivity (has extras) }
+Warning: Activity not started, its current task has been brought to the front
+Status: ok
+LaunchState: HOT
+Activity: com.bspc.blood/.MainActivity
+TotalTime: 93
+WaitTime: 105
+Complete

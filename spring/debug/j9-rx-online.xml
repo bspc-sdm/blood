@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="0" time="117.598" timestamp="2026-10-20T11:52:42">
+    <testcase id="j9-rx-online" name="j9-rx-online" classname="j9-rx-online" file="/home/runner/work/blood/blood/e2e/android/flows/j9-rx-online.yaml" time="117.56" timestamp="2026-10-20T11:52:42" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

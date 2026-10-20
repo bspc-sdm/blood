@@ -1,0 +1,8 @@
+Starting: Intent { flg=0x14000000 cmp=com.bspc.blood/.MainActivity (has extras) }
+Warning: Activity not started, intent has been delivered to currently running top-most instance.
+Status: ok
+LaunchState: UNKNOWN (0)
+Activity: com.bspc.blood/.MainActivity
+TotalTime: 0
+WaitTime: 22
+Complete
