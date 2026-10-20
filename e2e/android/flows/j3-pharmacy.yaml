@@ -13,7 +13,7 @@ env:
 - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
 # ২.২৭.০: দুই ট্যাব — শুরুতে "অর্ডার", "নতুন" ভাগ
 - extendedWaitUntil:
-    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 30000
 - takeScreenshot: j3-02-orders-new
 - scrollUntilVisible:
@@ -49,10 +49,10 @@ env:
 - takeScreenshot: j3-05b-seg-closed
 # প্রেসক্রিপশনের কোড দিয়ে খোলা (রহিমের DEMXRXB333) — ১টা Comet দেওয়া
 - scrollUntilVisible:
-    element: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+    element: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     direction: UP
     timeout: 15000
-- tapOn: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+- tapOn: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
 - extendedWaitUntil:
     visible: ".*প্রেসক্রিপশনের কোড.*"
     timeout: 10000
@@ -106,7 +106,7 @@ env:
     commands:
       - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
 - extendedWaitUntil:
-    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
+    visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 15000
 - tapOn:
     text: "দোকান"

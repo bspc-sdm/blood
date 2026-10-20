@@ -1,0 +1,19 @@
+# নোটিফিকেশন চাপার পরের অবস্থা (adb am start-এর পরে, অ্যাপ নতুন করে খোলা হয় না): WANT দেখা যায় (আর WANT2 থাকলে সেটাও), ছবি SHOT
+appId: com.bspc.blood
+env:
+  WANT2: ""
+---
+- runFlow: ../common/dismiss.yaml
+- extendedWaitUntil:
+    visible: "${WANT}"
+    timeout: 40000
+- runFlow:
+    when:
+      true: ${WANT2 != ''}
+    commands:
+      - extendedWaitUntil:
+          visible: "${WANT2}"
+          timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: ${SHOT}

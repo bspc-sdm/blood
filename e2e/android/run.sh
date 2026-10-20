@@ -26,7 +26,7 @@ adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
 # ক্রম: আগে ফার্মেসি (আগের যাত্রায় রোগীর পাঠানো খোলা প্রেসক্রিপশন বন্ধ করে), তারপর রোগী আবার পাঠায় — বারবার চালানো যায়
-ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile"
+ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments"
 cd "$OUT/shots"
 for f in $ORDER; do
   if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " ${f%%-*} "; then continue; fi
@@ -39,6 +39,13 @@ for f in $ORDER; do
   adb logcat -d -b crash > "$OUT/debug/crash-$f.txt" 2>/dev/null || true
   adb logcat -d -t 3000 > "$OUT/debug/logcat-$f.txt" 2>/dev/null || true
 done
+# নোটিফিকেশন চাপলে ঠিক পাতা (notify.sh) — "n" (বা সব)
+if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " n "; then
+  start=$(date +%s)
+  OUT="$OUT" bash "$W/e2e/android/notify.sh"
+  echo "n-notify $(( $(date +%s) - start ))s" | tee -a "$OUT/results.txt"
+  cd "$OUT/shots"
+fi
 # কোথাও অন্য ফোল্ডারে ছবি পড়ে থাকলে
 find "$OUT/debug" "$W/e2e" "$HOME/.maestro" -name 'j[0-9]-*.png' -newer "$W/e2e/android/run.sh" -exec cp -n {} "$OUT/shots/" \; 2>/dev/null || true
 ls "$OUT/shots" | wc -l

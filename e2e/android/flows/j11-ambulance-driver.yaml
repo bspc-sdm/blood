@@ -1,0 +1,66 @@
+# যাত্রা ১১ — অ্যাম্বুলেন্স চালক: "ডাক" অংশ (রোগীর ডাক এলে এখানে), গাড়ির তথ্য বদলানোর ঘর (খুলে দেখা, সেভ নয়);
+# তারপর রোগী: আগে ফোন করা গাড়িতে রেটিংয়ের ঘর ("পরে" — রেটিং দেওয়া নয়)।
+appId: com.bspc.blood
+env:
+  J: j11
+  ROLE: ডেমো অ্যাম্বুলেন্স চালক
+---
+- runFlow: ../common/start.yaml
+- tapOn: "আমার কাজ"
+- extendedWaitUntil:
+    visible: "অ্যাম্বুলেন্স.*"
+    timeout: 30000
+- tapOn: "অ্যাম্বুলেন্স.*"
+- extendedWaitUntil:
+    visible: "আমার অ্যাম্বুলেন্স"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*ডাক.*"
+    timeout: 30000
+- takeScreenshot: j11-01-calls
+- scrollUntilVisible:
+    element: "বদলান"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "বদলান"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*অ্যাম্বুলেন্স বদলান.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*গাড়ির রেজিস্ট্রেশন নম্বর.*"
+    timeout: 10000
+- takeScreenshot: j11-02-edit
+- back
+- runFlow:
+    when:
+      visible: ".*অ্যাম্বুলেন্স বদলান.*"
+    commands:
+      - back
+# রোগী: রেটিংয়ের ঘর
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j11p
+      ROLE: ডেমো রোগী রহিম
+- tapOn: "সেবা"
+- tapOn:
+    text: "অ্যাম্বুলেন্স"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*ডেমো .*অ্যাম্বুলেন্স.*"
+    timeout: 30000
+- takeScreenshot: j11-03-list
+- runFlow:
+    when:
+      visible: "রেটিং দিন"
+    commands:
+      - tapOn:
+          text: "রেটিং দিন"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*মন্তব্য \\(ঐচ্ছিক\\).*"
+          timeout: 15000
+      - takeScreenshot: j11-04-rating
+      - tapOn: "পরে"

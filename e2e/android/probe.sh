@@ -11,8 +11,11 @@ tok() {
 call() { # role action extra
   local t; t=$(tok "$1")
   echo "### $1 $2 $3"
-  curl -s -X POST "$S/api/community" -H 'Content-Type: application/json' -H "Authorization: Bearer $t" -d "{\"action\":\"$2\"${3:+,$3}}" | head -c 3000; echo
+  local out; out=$(curl -s -w '\n[http %{http_code}, %{time_total}s]' -X POST "$S/api/community" -H 'Content-Type: application/json' -H "Authorization: Bearer $t" -d "{\"action\":\"$2\"${3:+,$3}}")
+  echo "${out:0:2500}"; echo "$out" | tail -1
 }
-call pharmacy books_today ""
-call pharmacy books_rx_preview '"code":"DEMXRXB333"'
-call pharmacy books_items ""
+# হোমের "আশেপাশের রিকোয়েস্ট" (অ্যাপে মাঝে মাঝে "রিকোয়েস্ট লোড হয়নি") — ডেমো এলাকার মাঝখান, অ্যাপের মতোই body
+for i in 1 2 3; do
+  call donor blood_requests_near '"lat":23.999,"lng":90.42,"maxKm":50,"groups":null'
+  call patient blood_requests_near '"lat":23.999,"lng":90.42,"maxKm":50,"groups":null'
+done

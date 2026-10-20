@@ -1,0 +1,103 @@
+# যাত্রা ১০ — রক্ত: নতুন রিকোয়েস্টের ফর্ম (গ্রুপ, ব্যাগ, না ভরলে আটকায়), নিজের রিকোয়েস্টের পাতা আর "এডিট" (রাজি ডোনারের তালিকা,
+# রিকোয়েস্ট এডিট), ডোনারের দিক: অন্যের রিকোয়েস্টে "রক্ত দিতে চাই" → দানের আগের টিক-তালিকা (রক্ত দেওয়া নয় — বাতিল)।
+# প্রোডাকশনের ডেমোতে কিছু লেখা হয় না (সব "বাতিল"/ফিরে আসা)।
+appId: com.bspc.blood
+env:
+  J: j10
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+# নতুন রিকোয়েস্টের ফর্ম — হোমের কোণের ছোট বাটন "রিকোয়েস্ট" (স্ক্রল করলে শুধু "+" আইকন, একই নাম)
+- tapOn: "রিকো(?:য়|য়)েস্ট"
+- extendedWaitUntil:
+    visible: ".*রোগীর রক্তের গ্রুপ.*"
+    timeout: 20000
+- takeScreenshot: j10-01-new-request
+- tapOn: "B+"
+- takeScreenshot: j10-02-group-picked
+- scrollUntilVisible:
+    element: ".*অতিরিক্ত তথ্য \\(ঐচ্ছিক\\).*"
+    direction: DOWN
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: ".*রিকো(?:য়|য়)েস্ট দিন.*"
+      index: 1
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: ".*রিকো(?:য়|য়)েস্ট দিন.*"
+    index: 1
+- extendedWaitUntil:
+    visible: ".*হাসপাতালের নাম লিখুন.*"
+    timeout: 10000
+- takeScreenshot: j10-03-needs-hospital
+- back
+# নিজের রিকোয়েস্ট
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+- extendedWaitUntil:
+    visible: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+    timeout: 30000
+- tapOn: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+- extendedWaitUntil:
+    visible: "আমার রিকো(?:য়|য়)েস্ট"
+    timeout: 30000
+- takeScreenshot: j10-04-my-request
+- tapOn: "এডিট"
+- extendedWaitUntil:
+    visible: ".*রিকো(?:য়|য়)েস্ট এডিট.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*গ্রুপ আর এলাকা বদলানো যা(?:য়|য়) না.*"
+    timeout: 10000
+- takeScreenshot: j10-05-edit-request
+- back
+- back
+- back
+# ডোনারের দিক
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j10d
+      ROLE: ডেমো ডোনার করিম
+- scrollUntilVisible:
+    element: ".*আশেপাশের রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+# অ্যাপের জানা ভুল: হোমে মাঝে মাঝে "রিকোয়েস্ট লোড হয়নি" (সার্ভার তখনো 200 দেয় — probe.sh) — ছবি রেখে ব্যবহারকারীর মতো "আবার চেষ্টা করুন"
+- scrollUntilVisible:
+    element: ".*(ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল|রিকো(?:য়|য়)েস্ট লোড হ(?:য়|য়)নি).*"
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "রিকো(?:য়|য়)েস্ট লোড হ(?:য়|য়)নি"
+    commands:
+      - takeScreenshot: j10d-bug-home-load-error
+      - tapOn: "আবার চেষ্টা করুন"
+- scrollUntilVisible:
+    element: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+- extendedWaitUntil:
+    visible: ".*রক্তের রিকো(?:য়|য়)েস্ট.*"
+    timeout: 30000
+- takeScreenshot: j10-06-request-donor
+- runFlow:
+    when:
+      visible: "রক্ত দিতে চাই"
+    commands:
+      - tapOn: "রক্ত দিতে চাই"
+      - extendedWaitUntil:
+          visible: "রক্ত দেওয়ার আগে"
+          timeout: 15000
+      - takeScreenshot: j10-07-checklist
+      - tapOn: "বাতিল"

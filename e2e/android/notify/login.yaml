@@ -1,0 +1,5 @@
+# নোটিফিকেশনের যাত্রা: একটা ডেমো রোলে লগইন (common/start.yaml — অ্যাপ নতুন করে, এলাকা গাজীপুর, ডেমো তালিকা)
+# env: J (ছবির নামের শুরু), ROLE (ডেমো তালিকার নাম)
+appId: com.bspc.blood
+---
+- runFlow: ../common/start.yaml

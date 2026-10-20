@@ -1,0 +1,115 @@
+# যাত্রা ৯ — রোগী: প্রেসক্রিপশন অনলাইনে অর্ডার (PharmacySendDialog → PharmacyPickDialog → OnlineOrderDialog → RxSentDialog),
+# অর্ডারের অবস্থা, তারপর ফিরিয়ে নেওয়া (WithdrawDialog) — পরের বার আবার চালানো যায়। প্যাথলজিতে পাঠানোর ঘর (LabPickDialog) দেখা।
+# প্রেসক্রিপশন: ডেমো রহিমের "টাইপ-২ ডায়াবেটিস, ডিসলিপিডেমিয়া" (Comet, Rosuva, Ecosprin — demo-svc-rx-d, ডেমোতে এর কোনো অর্ডার নেই;
+# demo-svc-rx-b-র লাইফ ফার্মেসির অর্ডার "পথে আছে" — ফিরিয়ে নেওয়া যায় না, তাই আবার পাঠানোও যায় না), দোকান: ডেমো লাইফ ফার্মেসি (অনলাইনে বিক্রি করে)
+appId: com.bspc.blood
+env:
+  J: j9
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার প্রেসক্রিপশন.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার প্রেসক্রিপশন.*"
+- scrollUntilVisible:
+    element: ".*Ecosprin.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*Ecosprin.*"
+- extendedWaitUntil:
+    visible: ".*ফার্মেসিতে পাঠান.*"
+    timeout: 30000
+- takeScreenshot: j9-01-rx
+# আগের চালানোর অর্ডার থেকে গেলে আগে ফিরিয়ে নেওয়া ("ওষুধ কেনা" অংশে, পাতার নিচে)
+- scrollUntilVisible:
+    element: ".*ফিরি(?:য়|য়)ে নিন.*"
+    direction: DOWN
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      visible: ".*ফিরি(?:য়|য়)ে নিন.*"
+    commands:
+      - tapOn: ".*ফিরি(?:য়|য়)ে নিন.*"
+      - tapOn: "অন্য কারণ"
+      - tapOn:
+          text: ".*ফিরি(?:য়|য়)ে নিন.*"
+          below: "অন্য কারণ"
+      - waitForAnimationToEnd:
+          timeout: 4000
+- scrollUntilVisible:
+    element: ".*ফার্মেসিতে পাঠান.*"
+    direction: UP
+    timeout: 10000
+- tapOn:
+    text: ".*ফার্মেসিতে পাঠান.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*অনলাইনে অর্ডার — বাসা(?:য়|য়) ডেলিভারি.*"
+    timeout: 15000
+- takeScreenshot: j9-02-send-choice
+- tapOn: ".*অনলাইনে অর্ডার — বাসা(?:য়|য়) ডেলিভারি.*"
+- extendedWaitUntil:
+    visible: "অনলাইনে অর্ডার"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- takeScreenshot: j9-03-online-pick
+- tapOn:
+    text: "অর্ডার করুন"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*কোথা(?:য়|য়) পৌঁছাবে \\(ঠিকানা\\).*"
+    timeout: 20000
+- tapOn: ".*কোথা(?:য়|য়) পৌঁছাবে \\(ঠিকানা\\).*"
+- inputText: "Demo house 9, Shibbari"
+- hideKeyboard
+- runFlow:
+    when:
+      notVisible: ".*01[0-9]{9}.*"
+    commands:
+      - tapOn: ".*মোবাইল নম্বর.*"
+      - inputText: "01200001101"
+      - hideKeyboard
+- takeScreenshot: j9-04-online-form
+- tapOn: "অর্ডার দিন"
+# প্রেসক্রিপশনের পাতা থেকে পাঠালে "পাঠানো হয়েছে" ডায়ালগ নয় — একই পাতায় খবর আর "ওষুধ কেনা" অংশে নতুন অর্ডার
+- scrollUntilVisible:
+    element: ".*ডেমো লাইফ ফার্মেসি — পাঠানো হ(?:য়|য়)েছে — অপেক্ষা(?:য়|য়).*"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: j9-05-sent
+- scrollUntilVisible:
+    element: ".*ফিরি(?:য়|য়)ে নিন.*"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: j9-06-order-status
+# ফিরিয়ে নেওয়া — কারণসহ
+- tapOn: ".*ফিরি(?:য়|য়)ে নিন.*"
+- extendedWaitUntil:
+    visible: ".*থেকে ফিরি(?:য়|য়)ে নেবেন\\?.*"
+    timeout: 10000
+- tapOn: "অন্য কারণ"
+- takeScreenshot: j9-07-withdraw
+- tapOn:
+    text: ".*ফিরি(?:য়|য়)ে নিন.*"
+    below: "অন্য কারণ"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible: ".*থেকে ফিরি(?:য়|য়)ে নেবেন\\?.*"
+    timeout: 15000
+- takeScreenshot: j9-08-withdrawn
+# প্যাথলজিতে পাঠানোর ঘর (পাঠানো নয়)
+- tapOn:
+    text: ".*প্যাথলজিতে পাঠান.*"
+    optional: true
+- extendedWaitUntil:
+    visible: ".*(প্যাথলজি বাছুন|পরীক্ষা লেখা কোনো প্রেসক্রিপশন নেই|কোন পরীক্ষা পাঠাবেন).*"
+    timeout: 15000
+    optional: true
+- takeScreenshot: j9-09-lab-pick
