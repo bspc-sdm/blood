@@ -42,7 +42,7 @@ for (const k of kinds) {
 const scenarios = {
   auth: {
     executor: 'constant-arrival-rate', exec: 'auth', rate: RATE, timeUnit: '1s', duration: DUR,
-    preAllocatedVUs: Math.max(10, RATE * 2), maxVUs: Math.max(60, RATE * 12), gracefulStop: '10s',
+    preAllocatedVUs: Math.min(800, Math.max(10, RATE)), maxVUs: Math.min(3000, Math.max(60, RATE * 5)), gracefulStop: '10s',
   },
   guest: {
     executor: 'constant-arrival-rate', exec: 'guest', rate: GUEST_RATE, timeUnit: '1s', duration: DUR,

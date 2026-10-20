@@ -39,7 +39,7 @@ jobs:
 
       - name: Timers, backups, JobRunr
         run: |
-          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "bash /root/lifolo-ops/vps-ops.sh timers" | tee "$RUNNER_TEMP/out/timers.md"
 
       - name: GitHub schedules (uptime, weekly backup check)

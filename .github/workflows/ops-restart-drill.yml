@@ -49,7 +49,7 @@ jobs:
 
       - name: Before
         run: |
-          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$RUNNER_TEMP/out/before.txt"
           curl -fsS -m 15 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" | grep -q '"ok":true' \
             || { echo "::error::রিবুটের আগেই /api/health সবুজ নয় — মহড়া বাতিল"; exit 1; }

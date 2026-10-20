@@ -40,7 +40,7 @@ jobs:
 
       - name: Certificates and certbot (on the VPS)
         run: |
-          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "SSLIP='${ORIGIN_IP//./-}.sslip.io' bash /root/lifolo-ops/vps-ops.sh ssl" | tee "$RUNNER_TEMP/out/vps.md"
 
       - name: Cloudflare and headers (from the internet)

@@ -8,6 +8,7 @@
 #   sample-stop DIR        মাপা বন্ধ
 #   snapshot DIR           লোড টেস্টের আগে: ডেমো অ্যাকাউন্টের কোটা/অবস্থা (পরে ফেরত আনতে) আর t0
 #   cleanup DIR            লোড টেস্টের পরে: টেস্টের বানানো সারি মোছা, কোটা/অবস্থা আগের মতো — শুধু demo-… uid
+#   cleanup-since T0 R:N,… snapshot হারালে: T0-র পরের LOADTEST সারি মোছা, ডেমো রোলের আজকের কোটা N কমানো
 #   window DIR             লোড টেস্টের সময়ের nginx/অ্যাপের ত্রুটি গোনা (snapshot-এর পর থেকে)
 #   disk                   ডিস্ক, RAM, লগ ঘোরানো (journald, nginx, অ্যাপ) — Markdown
 #   ssl                    সার্টিফিকেট, certbot renew --dry-run, nginx কোন নামে কোন সার্টিফিকেট — Markdown
@@ -156,11 +157,19 @@ snapshot)
   kv quotas_rows "$(wc -l < "$dir/quotas.csv")"
   kv snapshot ok
   ;;
-cleanup)
-  dir="$1"
-  [ -s "$dir/t0" ] || { kv cleanup "no snapshot"; exit 1; }
-  t0="$(cat "$dir/t0")"
-  [[ "$t0" =~ ^[0-9T:.Z-]+$ ]] || { kv cleanup "bad t0"; exit 1; }
+cleanup|cleanup-since)
+  # cleanup DIR — snapshot থেকে ফেরত আনা (স্বাভাবিক পথ)
+  # cleanup-since T0 ROLE:N,… — snapshot হারালে: T0-র পরের LOADTEST সারি মোছা, আর ডেমো রোলের আজকের রক্ত-অনুরোধের কোটা N কমানো
+  if [ "$CMD" = cleanup ]; then
+    dir="$1"
+    [ -s "$dir/t0" ] || { kv cleanup "no snapshot"; exit 1; }
+    t0="$(cat "$dir/t0")"
+    fix=""
+  else
+    t0="$1"; fix="${2:-}"; dir=""
+    [[ "$fix" =~ ^([a-z]+:[0-9]+,?)*$ ]] || { kv cleanup "bad role list"; exit 1; }
+  fi
+  [[ "$t0" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$ ]] || { kv cleanup "bad t0"; exit 1; }
   sql="$(mktemp)"
   cat > "$sql" <<EOF
 \set ON_ERROR_STOP on
@@ -168,6 +177,9 @@ BEGIN;
 CREATE TEMP TABLE ops_amb AS
   SELECT id FROM ambulance_requests WHERE uid LIKE 'demo-%' AND created_at >= '$t0' AND note LIKE 'LOADTEST%';
 CREATE TEMP TABLE ops_counts (what text, n bigint);
+WITH u AS (UPDATE ambreq_patient_state SET active_request_id = NULL
+             WHERE uid LIKE 'demo-%' AND active_request_id IN (SELECT id FROM ops_amb) RETURNING 1)
+  INSERT INTO ops_counts SELECT 'ambreq_state_cleared', count(*) FROM u;
 WITH d AS (DELETE FROM inbox_items WHERE uid LIKE 'demo-%' AND created_at >= '$t0'
              AND (data->>'reqId' IN (SELECT id FROM ops_amb) OR data->>'requestId' IN (SELECT id FROM ops_amb)) RETURNING 1)
   INSERT INTO ops_counts SELECT 'inbox_items', count(*) FROM d;
@@ -177,7 +189,17 @@ WITH d AS (DELETE FROM ambreq_create_log WHERE uid LIKE 'demo-%' AND created_at 
   INSERT INTO ops_counts SELECT 'ambreq_create_log', count(*) FROM d;
 WITH d AS (DELETE FROM blood_requests WHERE requester_uid LIKE 'demo-%' AND created_at >= '$t0' AND hospital LIKE 'LOADTEST%' RETURNING 1)
   INSERT INTO ops_counts SELECT 'blood_requests', count(*) FROM d;
-
+EOF
+  if [ "$CMD" = cleanup-since ]; then
+    for rc in ${fix//,/ }; do
+      cat >> "$sql" <<EOF
+WITH u AS (UPDATE user_quotas SET count = greatest(count - ${rc#*:}, 0)
+             WHERE uid = 'demo-${rc%%:*}' AND kind = 'create' AND day = (now() AT TIME ZONE 'Asia/Dhaka')::date RETURNING 1)
+  INSERT INTO ops_counts SELECT 'quota_${rc%%:*}', count(*) FROM u;
+EOF
+    done
+  else
+    cat >> "$sql" <<EOF
 CREATE TEMP TABLE snap_q (uid text, kind text, day date, count int);
 \copy snap_q FROM '$dir/quotas.csv' WITH CSV
 WITH d AS (DELETE FROM user_quotas q WHERE q.uid LIKE 'demo-%'
@@ -205,6 +227,9 @@ WITH u AS (UPDATE ambreq_patient_state t SET active_request_id = s.active_reques
 WITH d AS (DELETE FROM ambreq_patient_state t WHERE t.uid LIKE 'demo-%' AND t.at >= '$t0'
              AND NOT EXISTS (SELECT 1 FROM snap_a s WHERE s.uid = t.uid) RETURNING 1)
   INSERT INTO ops_counts SELECT 'ambreq_state_removed', count(*) FROM d;
+EOF
+  fi
+  cat >> "$sql" <<'EOF'
 SELECT what || '=' || n FROM ops_counts;
 COMMIT;
 EOF

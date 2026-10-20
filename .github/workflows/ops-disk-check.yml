@@ -39,7 +39,7 @@ jobs:
       - name: Disk, RAM, log rotation
         run: |
           out="$RUNNER_TEMP/out"
-          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "bash /root/lifolo-ops/vps-ops.sh disk" > "$out/disk.md"
           ssh vps "df -P / | awk 'NR==2{print \"disk_used_pct=\" \$5+0}'; df -Pi / | awk 'NR==2{print \"inode_used_pct=\" \$5+0}'; \
                    awk '/MemTotal/{t=\$2}/MemAvailable/{a=\$2}/SwapTotal/{st=\$2}/SwapFree/{sf=\$2}END{printf \"mem_avail_pct=%d\nswap_used_mb=%d\n\", 100*a/t, (st-sf)/1024}' /proc/meminfo; \

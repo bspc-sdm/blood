@@ -49,7 +49,7 @@ jobs:
       - name: Kill -9 and measure
         run: |
           out="$RUNNER_TEMP/out"
-          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" > "$out/before.txt"
           H() { curl -fsS -m 3 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
           H || { echo "::error::আগেই /api/health সবুজ নয় — মহড়া বাতিল"; exit 1; }
