@@ -587,6 +587,7 @@ health)
     if is_expected "$boot"; then reboot_note=", রিবুট মহড়া"; else unexp=$((unexp + 1)); reboot_note=", অপ্রত্যাশিত রিবুট $(date -u -d "@$boot" '+%H:%M UTC')"; fi
   fi
   when="$(printf '%s\n' $when | sort -u | head -4 | tr '\n' ' ')"
+  when="${when%% }"; [ -n "${when// /}" ] || when=""
   row "$([ "$unexp" -gt 0 ] && echo fail || echo ok)" "lifolo-api নিজে restart (৩ ঘণ্টা)" "$unexp অপ্রত্যাশিত${when:+ (UTC $when)}$([ "$drill" = 0 ] || echo ", $drill deploy/মহড়ার")$reboot_note" "> 0 হলে ❌ (deploy/মহড়া বাদ)"
   h="$(curl -fsS -m 5 http://127.0.0.1:8080/api/health 2>/dev/null | grep -o '"ok":true' || true)"
   row "$([ -n "$h" ] && echo ok || echo fail)" "অ্যাপ (ভেতর থেকে /api/health)" "$([ -n "$h" ] && echo চালু || echo বন্ধ)" "বন্ধ হলে ❌"

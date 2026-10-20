@@ -11,6 +11,7 @@ name: Backup check
 # ঐচ্ছিক বাইরের কপি (Cloudflare R2): R2_ACCOUNT_ID (বা R2_ENDPOINT), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 # (আর চাইলে আলাদা বাকেট R2_BACKUP_BUCKET) সব থাকলে তবেই — টাটকা dump GitHub-এর মেশিনে এনে VPS_ROOT_PASSWORD থেকে বানানো
 # চাবিতে এনক্রিপ্ট (gpg AES-256, deploy/ci/backup-key.js) করে db-backups/-এ তোলা। না থাকলে এই ধাপ চুপচাপ বাদ।
+# তোলা সফল হলে db-backups/-এর ৯০ দিনের পুরোনো কপি মোছা (সবচেয়ে নতুন ৪টা সবসময় থাকে) — গোপনীয়তা নীতির "সর্বোচ্চ ৯০ দিন"।
 #
 # ফলাফল (গোপন কিছু বা কোনো সারির তথ্য ছাড়া) log branch `ci-log-backup-check`-এ: backup-status.txt, summary.md।
 # push-এ (এই ফাইল বা স্ক্রিপ্ট বদলালে) শুধু "lint" চলে — VPS-এ কিছু যায় না।
@@ -141,6 +142,74 @@ jobs:
           { echo "offsite=ok"; echo "object=$object"; echo "size=$(numfmt --to=iec --suffix=B "$size")"; } >> "$GITHUB_OUTPUT"
           echo "R2: $object ($size bytes)"
 
+      # বাইরের কপি কতদিন: গোপনীয়তা নীতিতে "সর্বোচ্চ ৯০ দিন" — R2-র lifecycle rule ছাড়াই এখানে মোছা।
+      # শুধু db-backups/lifolo-<তারিখ>-<সময়>[-check].dump.gpg নামের ফাইল; ৯০ দিনের পুরোনো হলে মোছা, তবে সবচেয়ে নতুন ৪টা
+      # কখনো নয় (বয়স যা-ই হোক)। লগে শুধু সংখ্যা (কোনো নাম নয়)। এ সপ্তাহের কপি ঠিকভাবে উঠলে তবেই চলে।
+      - name: Off-site retention (R2, older than 90 days, keep newest 4)
+        id: retention
+        if: always() && steps.offsite.outputs.offsite == 'ok'
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+        run: |
+          echo "retention=failed" >> "$GITHUB_OUTPUT"
+          if [ -n "$R2_ENDPOINT" ]; then endpoint="$R2_ENDPOINT"; else
+            endpoint="https://$(printf '%s' "$R2_ACCOUNT_ID" | tr -d '[:space:]').r2.cloudflarestorage.com"
+          fi
+          bucket="$(printf '%s' "${R2_BACKUP_BUCKET:-$R2_BUCKET}" | tr -d '[:space:]')"
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
+          export AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+          umask 077
+          list="$RUNNER_TEMP/r2-list.json"
+          # সব পাতা (aws cli নিজে পাতা ঘোরায়)
+          aws s3api list-objects-v2 --endpoint-url "$endpoint" --bucket "$bucket" --prefix db-backups/ \
+            --query 'Contents[].{k: Key, t: LastModified}' --output json > "$list"
+          python3 - "$list" "$RUNNER_TEMP/r2-delete.txt" > "$RUNNER_TEMP/r2-counts.txt" <<'PY'
+          import datetime as dt, json, re, sys
+          items = json.load(open(sys.argv[1])) or []
+          pat = re.compile(r"^db-backups/lifolo-\d{8}-\d{6}(-check)?\.dump\.gpg$")
+          ours = [i for i in items if pat.match(i["k"])]
+          when = lambda i: dt.datetime.fromisoformat(i["t"].replace("Z", "+00:00"))
+          ours.sort(key=when, reverse=True)
+          cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=90)
+          keep_newest = ours[:4]
+          candidates = [i for i in ours[4:] if when(i) < cutoff]
+          with open(sys.argv[2], "w") as f:
+              for i in candidates:
+                  f.write(i["k"] + "\n")
+          oldest = min((when(i) for i in ours), default=None)
+          print(f"total={len(items)}")
+          print(f"backups={len(ours)}")
+          print(f"other={len(items) - len(ours)}")
+          print(f"to_delete={len(candidates)}")
+          print(f"oldest_age_days={(dt.datetime.now(dt.timezone.utc) - oldest).days if oldest else ''}")
+          PY
+          cat "$RUNNER_TEMP/r2-counts.txt"
+          deleted=0 failed=0
+          while read -r key; do
+            [[ "$key" =~ ^db-backups/lifolo-[0-9]{8}-[0-9]{6}(-check)?\.dump\.gpg$ ]] || continue
+            if aws s3api delete-object --endpoint-url "$endpoint" --bucket "$bucket" --key "$key" >/dev/null 2>&1; then
+              deleted=$((deleted + 1))
+            else
+              failed=$((failed + 1))
+            fi
+          done < "$RUNNER_TEMP/r2-delete.txt"
+          rm -f "$list" "$RUNNER_TEMP/r2-delete.txt"
+          left=$(( $(sed -n 's/^backups=//p' "$RUNNER_TEMP/r2-counts.txt") - deleted ))
+          echo "deleted=$deleted failed=$failed left=$left"
+          {
+            sed 's/^/r_/' "$RUNNER_TEMP/r2-counts.txt"
+            echo "r_deleted=$deleted"
+            echo "r_failed=$failed"
+            echo "r_left=$left"
+          } >> "$GITHUB_OUTPUT"
+          [ "$failed" = 0 ] || { echo "::error::R2-তে $failed টা পুরোনো কপি মোছা যায়নি"; exit 1; }
+          echo "retention=ok" >> "$GITHUB_OUTPUT"
+
       - name: Summary
         if: always()
         env:
@@ -150,6 +219,11 @@ jobs:
           OFFSITE_MISSING: ${{ steps.offsite.outputs.missing }}
           OFFSITE_OBJECT: ${{ steps.offsite.outputs.object }}
           OFFSITE_SIZE: ${{ steps.offsite.outputs.size }}
+          RET: ${{ steps.retention.outputs.retention }}
+          RET_BACKUPS: ${{ steps.retention.outputs.r_backups }}
+          RET_DELETED: ${{ steps.retention.outputs.r_deleted }}
+          RET_LEFT: ${{ steps.retention.outputs.r_left }}
+          RET_OLDEST: ${{ steps.retention.outputs.r_oldest_age_days }}
         run: |
           S="$RUNNER_TEMP/backup-status.txt"
           touch "$S"
@@ -158,7 +232,7 @@ jobs:
           eq() { if [ -n "$1" ] && [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
           overall="$(g overall)"
           good=no
-          if [ "$overall" = ok ] && [ "$RC" = 0 ] && [ "$OFFSITE" != failed ]; then good=yes; fi
+          if [ "$overall" = ok ] && [ "$RC" = 0 ] && [ "$OFFSITE" != failed ] && [ "$RET" != failed ]; then good=yes; fi
           {
             if [ "$good" = yes ]; then
               echo "## ✅ ব্যাকআপ ঠিক আছে — ফেরত আনার পরীক্ষা সফল"
@@ -196,6 +270,10 @@ jobs:
                 failed) echo "| বাইরের কপি (R2) | ❌ | তোলা যায়নি — **Off-site copy** ধাপ দেখুন |" ;;
                 *) echo "| বাইরের কপি (R2) | ⏸️ | চলেনি (টাটকা dump নেই) |" ;;
               esac
+              case "$RET" in
+                ok) echo "| বাইরের কপি ৯০ দিন (R2) | ✅ | মোছা হলো $RET_DELETED টা · থাকল $RET_LEFT টা (সবচেয়ে নতুন ৪টা সবসময় থাকে) · আগে সবচেয়ে পুরোনো ${RET_OLDEST:-?} দিনের |" ;;
+                failed) echo "| বাইরের কপি ৯০ দিন (R2) | ❌ | পুরোনো কপি মোছা যায়নি — **Off-site retention** ধাপ দেখুন |" ;;
+              esac
               n="$(g fails)"
               if [ -n "$n" ] && [ "$n" != 0 ]; then
                 echo
@@ -217,6 +295,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LOG_MESSAGE: backup-check ${{ github.sha }} ${{ job.status }}
           OFFSITE: ${{ steps.offsite.outputs.offsite }}
+          RET: ${{ steps.retention.outputs.retention }}
+          RET_BACKUPS: ${{ steps.retention.outputs.r_backups }}
+          RET_DELETED: ${{ steps.retention.outputs.r_deleted }}
+          RET_LEFT: ${{ steps.retention.outputs.r_left }}
         run: |
           mkdir -p "$RUNNER_TEMP/log"
           cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/log/summary.md" 2>/dev/null || true
@@ -224,6 +306,7 @@ jobs:
             echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "event=${GITHUB_EVENT_NAME}"; echo "run=${GITHUB_RUN_ID}"
             cat "$RUNNER_TEMP/verdict" 2>/dev/null || echo "good=no"
             echo "offsite=${OFFSITE:-}"
+            echo "retention=${RET:-} backups=${RET_BACKUPS:-} deleted=${RET_DELETED:-} left=${RET_LEFT:-}"
             cat "$RUNNER_TEMP/backup-status.txt" 2>/dev/null || true
           } > "$RUNNER_TEMP/log/backup-status.txt"
           bash .github/scripts/publish-log.sh ci-log-backup-check "$RUNNER_TEMP/log" summary.md backup-status.txt
