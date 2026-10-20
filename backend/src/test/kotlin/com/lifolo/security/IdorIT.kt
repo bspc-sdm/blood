@@ -171,7 +171,7 @@ class IdorIT : RxLabTest() {
     }
 
     @Test
-    fun `appointments - only its patient and doctor; phones only once confirmed`() {
+    fun `appointments - only its patient and doctor, phones only once confirmed`() {
         seed()
         appointment("apA", patA, docA, "confirmed", 1)
         appointment("apB", patB, docA, "pending")

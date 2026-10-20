@@ -244,7 +244,7 @@ class PlatformSecurityIT : IntegrationTest() {
         assertEquals("Robert'); DROP TABLE accounts;--", call("injUser", "profile_get").body["profile"]["name"].asText())
         // sizes
         assertEquals(400, call("injUser", "profile_update", mapOf("set" to mapOf("photo" to "A".repeat(600 * 1024 + 4)))).status)
-        assertEquals(400, call("injUser", "profile_update", mapOf("set" to mapOf("photo" to "<svg onload=alert(1)>")))).status)
+        assertEquals(400, call("injUser", "profile_update", mapOf("set" to mapOf("photo" to "<svg onload=alert(1)>"))).status)
         assertEquals(400, call("injUser", "profile_update", mapOf("set" to mapOf("name" to "x".repeat(101)))).status)
         assertEquals(400, call("injUser", "ask", mapOf("text" to "x".repeat(1001))).status)
         assertEquals(400, call("injUser", "ticket_create", mapOf("category" to "other", "text" to "x".repeat(5000))).status)
