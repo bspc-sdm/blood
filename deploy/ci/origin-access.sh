@@ -18,6 +18,7 @@ set -euo pipefail
 
 die() { echo "::error::$*" >&2; exit 1; }
 STATE="${RUNNER_TEMP:-/tmp}/lifolo-origin-ip"
+TUNE="$(cd "$(dirname "$0")/.." && pwd)/tune-vps.sh"
 
 case "${1:-}" in
 tunnel)
@@ -52,13 +53,18 @@ open)
   echo "::add-mask::$me"
   printf '%s\n' "$me" > "$STATE"
   # shellcheck disable=SC2029  # মানগুলো ওপরে যাচাই করা
-  ssh vps "if [ -x /usr/local/sbin/lifolo-tune ]; then /usr/local/sbin/lifolo-tune ci-open '$me' '$min' $mode; else echo 'lifolo-tune নেই — origin এখনো সবার জন্য খোলা'; fi"
+  # এই রিপোর tune-vps.sh-ই চালানো (VPS-এ বসানোটা পুরোনো হতে পারে); lifolo-tune না থাকলে origin এখনো খোলা — কিছু লাগে না
+  if ssh vps '[ -x /usr/local/sbin/lifolo-tune ]'; then
+    ssh vps "bash -s -- ci-open '$me' '$min' $mode" < "$TUNE"
+  else
+    echo "lifolo-tune নেই — origin এখনো সবার জন্য খোলা"
+  fi
   ;;
 close)
   [ -f "$STATE" ] || { echo "খোলা ছিদ্র নেই"; exit 0; }
   me="$(cat "$STATE")"
   # shellcheck disable=SC2029
-  ssh vps "[ ! -x /usr/local/sbin/lifolo-tune ] || /usr/local/sbin/lifolo-tune ci-close '$me'" || echo "::warning::ছিদ্র বন্ধ করা গেল না — VPS নিজে মেয়াদ শেষে বন্ধ করবে"
+  ssh vps "bash -s -- ci-close '$me'" < "$TUNE" || echo "::warning::ছিদ্র বন্ধ করা গেল না — VPS নিজে মেয়াদ শেষে বন্ধ করবে"
   rm -f "$STATE"
   ;;
 *)
