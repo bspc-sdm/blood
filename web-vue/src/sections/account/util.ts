@@ -144,6 +144,9 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
       return '/work/lab';
     case 'med_find_mine':
       return '/services/pharmacy/medicine';
+    // রোগীর অ্যাম্বুলেন্স ডাকার খবর (গাড়ি রাজি, ভাড়া বলল…): সেই অনুরোধের অপেক্ষার পাতা (অ্যাপের AmbulanceRequest(reqId))
+    case 'amb_req_mine':
+      return data.reqId ? `/services/ambulance/call/${encodeURIComponent(data.reqId)}` : '/services/ambulance';
     case 'services':
       if (data.kind && (BUSINESS_KINDS as readonly string[]).includes(data.kind)) return `/work/${data.kind}`;
       return workHas(work) ? '/work' : '/';

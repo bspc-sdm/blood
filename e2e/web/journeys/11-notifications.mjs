@@ -478,11 +478,7 @@ export async function run(J) {
       m.webOpened = at;
       const ok = wants.some((w) => (w === '/' ? at === '/' : at === w || at.startsWith(`${w}/`) || at.startsWith(w)));
       if (ok) continue;
-      if (m.type === 'amb_req_mine') {
-        await J.xfail('BUG-WEB-AMB-INBOX', 'ওয়েব: অ্যাম্বুলেন্সের নোটিফিকেশন (amb_req_mine) চাপলে অনুরোধের পাতা নয়, হোম খোলে (Android সেই অনুরোধের পাতা খোলে)', async () => {
-          throw new Error(`"${m.title}": খুলল ${at} (আশা: ${wants.join(' বা ')})`);
-        });
-      } else throw new Error(`${m.type} "${m.title}": খুলল ${at} (আশা: ${wants.join(' বা ')})`);
+      throw new Error(`${m.type} "${m.title}": খুলল ${at} (আশা: ${wants.join(' বা ')})`);
     }
   }
   for (const role of ['patient', 'donor', 'doctor', 'pharmacy', 'lab', 'ambulance', 'caregiver']) {
