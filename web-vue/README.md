@@ -73,11 +73,12 @@ WEB_BUILD=/path/to/react-build ADMIN=orig node e2e/journeys.mjs   # একই �
 - অ্যাডমিন প্যানেলের পাতাগুলো TypeScript-এর render ফাংশন (`admin/src/h.ts`-এর `h()`), পুরোনো `app.js`-এর গঠন হুবহু — তাই DOM আর CSS একই। ব্যবহারকারীর লেখা সবসময় লেখা হিসেবে বসে, কখনো HTML নয়।
 - অ্যাডমিনের CSP কড়া (`script-src 'self'; style-src 'self'`): বিল্ডে শুধু বাইরের `.js/.css`, `style` অ্যাট্রিবিউট নয় (স্টাইল দরকার হলে Vue-র object style — CSSOM দিয়ে বসে, CSP আটকায় না)।
 
-## বদলের দিন (cutover) — মালিক ঠিক করবেন
+## কোথায় চলে
 
-1. `npm run build` → `dist/`-এর সব `server/public/w/`-এ, `dist-admin/`-এর সব `server/public/admin/`-এ (`style.css`, `app.js`, `icons.js` আর লাগবে না)।
-2. `vercel.json` বদলাতে হয় না (একই ঠিকানা, একই CSP)। `/r/`, `/rx/`, `/shop/` সার্ভারই বানায় — ওয়েব শুধু একই লিংক দেয়।
-3. `web.yml`-এর "Committed build is up to date" ধাপ তখন `web-vue`-এর বিল্ডের সাথে মেলাতে হবে।
+- **নতুন সার্ভার (VPS) — `https://lifolo.com`:** "Deploy backend" workflow নিজেই `npm run build` করে `dist/` → `/w/`,
+  `dist-admin/` → `/admin/` বসায় (`deploy/deploy-web.sh`; Vercel-এর পথ আর হেডার হুবহু, `/api` একই ঠিকানায়)।
+  `server/public`-এ কপি করতে হয় না। বদলের দিনের ধাপ: `deploy/CUTOVER.md`।
+- **Vercel** এখনো React ওয়েব আর পুরোনো অ্যাডমিন (`server/public/`) চালায় — বদলের দিন পর্যন্ত ওগুলোই।
 
 ## জানা পার্থক্য
 
