@@ -76,9 +76,10 @@ interface Prescriptions {
     fun view(rx: Prescription): Map<String, Any?>
 
     /**
-     * prescriptions.js verify (the /rx/{code} check for pharmacies): {status, createdAt, doctor {name, degrees,
-     * regNo, chamber}, patient {name, age}, medicines [{name, strength, form, dose, days}], tests} — no phone, no
-     * diagnosis. null for a bad/unknown code.
+     * the public /rx/{code} check (no login): {status, createdAt, doctor {name, degrees, regNo, chamber}} — whether
+     * it is genuine/cancelled, the date and who wrote it. Nothing about the patient (name, age, phone) and no
+     * medicines, tests or diagnosis (owner decision 2026-10; Node also showed the patient and medicines). The patient
+     * and pharmacies see the full prescription in the app (rx_get, rx_pharmacy_open). null for a bad/unknown code.
      */
     fun verify(code: String?): Map<String, Any?>?
 

@@ -8,6 +8,16 @@ export type Lang = 'bn' | 'en';
 const KEY = 'lf.lang';
 const lang: Ref<Lang> = ref((store.get(KEY) as Lang) === 'en' ? 'en' : 'bn');
 
+// সার্ভারের পাতাগুলো (যেমন /rx/{code} — প্রেসক্রিপশন যাচাই) localStorage পড়তে পারে না, তাই ভাষাটা কুকিতেও রাখা
+function langCookie(l: Lang) {
+  try {
+    document.cookie = `lf_lang=${l}; path=/; max-age=31536000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+  } catch {
+    /* কুকি বন্ধ থাকলে সার্ভারের পাতা বাংলায় দেখায় */
+  }
+}
+langCookie(lang.value);
+
 export function getLang(): Lang {
   return lang.value;
 }
@@ -17,6 +27,7 @@ export function setLang(l: Lang) {
   if (l === lang.value) return;
   lang.value = l;
   store.set(KEY, l);
+  langCookie(l);
   document.documentElement.lang = l;
 }
 

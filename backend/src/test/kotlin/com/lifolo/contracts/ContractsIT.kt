@@ -162,8 +162,7 @@ class ContractsIT : IntegrationTest() {
         assertEquals(0, view["chamberIndex"])
         val v = prescriptions.verify("abcdefgh23")!!
         assertEquals(mapOf("name" to "ডা. রহিম", "degrees" to "MBBS", "regNo" to "A-1", "chamber" to "সিটি হাসপাতাল"), v["doctor"])
-        assertEquals(mapOf("name" to "করিম", "age" to 40), v["patient"])
-        assertFalse(v.containsKey("diagnosis"))
+        assertEquals(setOf("status", "createdAt", "doctor"), v.keys)
         assertNull(prescriptions.verify("nope"))
 
         prescriptions.setRefillAt("rx1", Instant.parse("2026-10-28T00:00:00Z").toEpochMilli())

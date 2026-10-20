@@ -7,6 +7,7 @@ import io.nayuki.qrcodegen.QrCode
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.web.bind.annotation.CookieValue
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -16,7 +17,8 @@ import java.time.ZoneOffset
 
 /**
  * api/share.js — shared links: `/r/{id}` (a blood request page without name/phone/note; Android App Links open the
- * app), `/rx/{code}` (prescription check for pharmacies), `/shop/{code}` (pharmacy counter poster), the QR SVGs
+ * app), `/rx/{code}` (is this prescription genuine — status, date, doctor; in one language: `?lang=` or the web's
+ * `lf_lang` cookie, Bangla by default), `/shop/{code}` (pharmacy counter poster), the QR SVGs
  * (`?rxqr=`, `?shopqr=`) and `/.well-known/assetlinks.json`. Same HTML as Node (the Vercel rewrites are routes here).
  */
 @RestController
@@ -36,12 +38,14 @@ class ShareController(
         @RequestParam(name = "rxqr", required = false) rxqr: String?,
         @RequestParam(name = "shopqr", required = false) shopqr: String?,
         @RequestParam(name = "assetlinks", required = false) assetlinks: String?,
+        @RequestParam(name = "lang", required = false) lang: String?,
+        @CookieValue(name = LANG_COOKIE, required = false) langCookie: String?,
     ): ResponseEntity<String> {
         if (!assetlinks.isNullOrEmpty()) return assetLinks()
         if (!rxqr.isNullOrEmpty()) return qrSvg(rxqr.uppercase(), RX_CODE_RE, "rx")
         if (!shopqr.isNullOrEmpty()) return qrSvg(shopqr.uppercase(), SHOP_CODE_RE, "shop")
         if (!shop.isNullOrEmpty()) return shopPage(shop)
-        if (!rx.isNullOrEmpty()) return rxPage(rx)
+        if (!rx.isNullOrEmpty()) return rxPage(rx, pageLang(lang, langCookie))
         return requestPage(id ?: "")
     }
 
@@ -49,7 +53,11 @@ class ShareController(
     fun requestLink(@PathVariable("id") id: String) = requestPage(id)
 
     @RequestMapping("/rx/{code}")
-    fun rxLink(@PathVariable("code") code: String) = rxPage(code)
+    fun rxLink(
+        @PathVariable("code") code: String,
+        @RequestParam(name = "lang", required = false) lang: String?,
+        @CookieValue(name = LANG_COOKIE, required = false) langCookie: String?,
+    ) = rxPage(code, pageLang(lang, langCookie))
 
     @RequestMapping("/shop/{code}")
     fun shopLink(@PathVariable("code") code: String) = shopPage(code)
@@ -111,10 +119,19 @@ class ShareController(
         )
     }
 
-    /** prescription check (/rx/{code}): a pharmacy scans the QR to see whether it is genuine */
-    private fun rxPage(code: String): ResponseEntity<String> {
+    /**
+     * prescription check (/rx/{code}, no login): a pharmacy scans the QR to see whether it is genuine — the status, the
+     * date and the doctor (name, degrees, BMDC, chamber). Nothing about the patient and no medicines/tests (owner
+     * decision 2026-10): the patient and pharmacy accounts see the whole prescription in the app. One language per
+     * page (Bangla unless English was chosen), with a link to the other.
+     */
+    private fun rxPage(code: String, lang: String): ResponseEntity<String> {
         val robots = "X-Robots-Tag" to "noindex, nofollow"
         val noStore = "Cache-Control" to "no-store"
+        val bn = lang == "bn"
+        fun t(en: String, bnText: String) = if (bn) bnText else en
+        val other = if (bn) "<a href=\"?lang=en\" lang=\"en\">English</a>" else "<a href=\"?lang=bn\" lang=\"bn\">বাংলা</a>" // bn-ok
+        val switch = "<p class=\"muted\" style=\"text-align:right;margin:0 0 12px\">$other</p>"
         val x = try {
             prescriptions.verify(code)
         } catch (e: Exception) {
@@ -122,41 +139,38 @@ class ShareController(
             null
         }
         if (x == null) {
-            return html(404, page("Lifolo", "<div class=\"card\"><h1>পাওয়া যায়নি</h1><p class=\"muted\">এই কোডের কোনো প্রেসক্রিপশন Lifolo-তে নেই। / No prescription with this code.</p></div>"), robots, noStore)
+            val nf = t("Not found", "পাওয়া যায়নি")
+            val none = t("No prescription with this code.", "এই কোডের কোনো প্রেসক্রিপশন Lifolo-তে নেই।") // bn-ok
+            return html(404, page("Lifolo", "$switch<div class=\"card\"><h1>$nf</h1><p class=\"muted\">$none</p></div>", lang), robots, noStore)
         }
         val created = (x["createdAt"] as? Number)?.toLong() ?: 0L
         val d = Instant.ofEpochMilli(created + 6 * 3600 * 1000).atZone(ZoneOffset.UTC)
-        val date = "${d.dayOfMonth}/${d.monthValue}/${d.year}"
+        val dateEn = "${d.dayOfMonth}/${d.monthValue}/${d.year}"
+        val date = if (bn) bnDigits(dateEn) else dateEn
         val doctor = x["doctor"] as? Map<*, *> ?: emptyMap<String, Any?>()
-        val patient = x["patient"] as? Map<*, *> ?: emptyMap<String, Any?>()
-        val medicines = (x["medicines"] as? List<*>).orEmpty().filterIsInstance<Map<*, *>>()
-        val tests = (x["tests"] as? List<*>).orEmpty()
-        val meds = medicines.joinToString("") { m ->
-            val title = listOf(m["form"], m["name"], m["strength"]).filter { truthy(it) }.joinToString(" ") { jsStr(it) }
-            "<li>${esc(title)}${if (truthy(m["dose"])) " — ${esc(m["dose"])}" else ""}${if (truthy(m["days"])) " · ${esc(m["days"])} দিন" else ""}</li>"
-        }
         val tag = if (x["status"] == "cancelled") {
-            "<span class=\"tag\" style=\"background:#777;color:#fff\">বাতিল · Cancelled</span>"
+            "<span class=\"tag\" style=\"background:#777;color:#fff\">${t("Cancelled", "বাতিল")}</span>"
         } else {
-            "<span class=\"tag\" style=\"background:#CFEDEF;color:#00363C\">আসল · Genuine</span>"
+            "<span class=\"tag\" style=\"background:#CFEDEF;color:#00363C\">${t("Genuine", "আসল")}</span>"
         }
-        val regNo = if (truthy(doctor["regNo"])) " · BMDC ${esc(doctor["regNo"])}" else ""
-        val chamber = if (truthy(doctor["chamber"])) " · ${esc(doctor["chamber"])}" else ""
-        val age = if (patient["age"] != null) ", ${esc(patient["age"])} বছর" else ""
-        val medsBlock = if (meds.isNotEmpty()) "<dt>ওষুধ · Medicines</dt><dd><ol style=\"margin:4px 0 0;padding-left:20px\">$meds</ol></dd>" else ""
-        val testsBlock = if (tests.isNotEmpty()) "<dt>পরীক্ষা · Tests</dt><dd>${tests.joinToString(", ") { esc(it) }}</dd>" else ""
-        val body = """<div class="card">
+        val bmdc = t("BMDC", "বিএমডিসি") // bn-ok
+        val regNo = if (truthy(doctor["regNo"])) " · $bmdc ${esc(doctor["regNo"])}" else ""
+        val chamberBlock = if (truthy(doctor["chamber"])) "<dt>${t("Chamber", "চেম্বার")}</dt><dd>${esc(doctor["chamber"])}</dd>" else "" // bn-ok
+        val issued = t("Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.", "Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।")
+        val hidden = t(
+            "The patient's details and the medicines are not shown on this page. Pharmacies open the code in the Lifolo app to see and dispense the prescription.",
+            "এই পাতায় রোগীর তথ্য আর ওষুধের তালিকা দেখানো হয় না। ফার্মেসি Lifolo অ্যাপে কোডটা খুলে প্রেসক্রিপশন দেখে ওষুধ দেবে।", // bn-ok
+        )
+        val body = """$switch<div class="card">
 $tag
 <h1 style="margin-top:10px">${esc(doctor["name"])}</h1>
-<div class="muted">${esc(doctor["degrees"])}$regNo$chamber</div>
+<div class="muted">${esc(doctor["degrees"])}$regNo</div>
 <dl>
-<dt>রোগী · Patient</dt><dd>${esc(patient["name"])}$age</dd>
-<dt>তারিখ · Date</dt><dd>${esc(date)}</dd>
-$medsBlock
-$testsBlock
+<dt>${t("Date", "তারিখ")}</dt><dd>${esc(date)}</dd>
+$chamberBlock
 </dl></div>
-<p class="muted" style="margin-top:16px">Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।<br>Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.</p>"""
-        return html(200, page("প্রেসক্রিপশন যাচাই · Lifolo", body), robots, noStore)
+<p class="muted" style="margin-top:16px">$issued<br>$hidden</p>"""
+        return html(200, page(t("Prescription check · Lifolo", "প্রেসক্রিপশন যাচাই · Lifolo"), body, lang), robots, noStore) // bn-ok
     }
 
     /** a shared blood request: short facts and buttons, no name/phone/note */
@@ -219,6 +233,20 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
         const val APK_URL = "https://lifolo.com/download/lifolo.apk"
         private val RX_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{10}$")
         private val SHOP_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{6}$")
+
+        /** the web (web-vue lib/i18n.ts) keeps the chosen language in this cookie too, for server pages like /rx/{code} */
+        const val LANG_COOKIE = "lf_lang"
+
+        /** ?lang= first, then the web's cookie; Bangla otherwise (like the app and the web) */
+        fun pageLang(param: String?, cookie: String?): String = when {
+            param == "en" || param == "bn" -> param
+            cookie == "en" -> "en"
+            else -> "bn"
+        }
+
+        private val BN_DIGITS = "০১২৩৪৫৬৭৮৯" // bn-ok
+
+        fun bnDigits(s: String): String = s.map { if (it in '0'..'9') BN_DIGITS[it - '0'] else it }.joinToString("")
 
         private fun truthy(v: Any?): Boolean = com.lifolo.admin.kernel.ListingRules.jsTruthy(v)
 
@@ -292,7 +320,7 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
 
         private fun Js5(v: Double): String = com.lifolo.common.Js.numberToString(v)
 
-        fun page(title: String, body: String): String = """<!doctype html><html lang="bn"><head><meta charset="utf-8">
+        fun page(title: String, body: String, lang: String = "bn"): String = """<!doctype html><html lang="${if (lang == "en") "en" else "bn"}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
 <meta property="og:title" content="${esc(title)}">

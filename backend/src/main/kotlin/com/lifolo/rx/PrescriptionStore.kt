@@ -148,7 +148,7 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
         "name" to m.name, "form" to m.form, "strength" to m.strength, "dose" to m.dose, "timing" to m.timing, "days" to m.days, "note" to m.note,
     )
 
-    /** prescriptions.js verify (/rx/{code}): no phone, no diagnosis */
+    /** the public /rx/{code} check: status, date, the doctor — nothing about the patient, no medicines/tests */
     override fun verify(code: String?): Map<String, Any?>? {
         val c = (code ?: "").trim().uppercase()
         if (!Prescriptions.CODE_RE.matches(c)) return null
@@ -162,11 +162,6 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
                 "name" to (rx.doctor["name"] ?: ""), "degrees" to (rx.doctor["degrees"] ?: ""),
                 "regNo" to (rx.doctor["regNo"] ?: ""), "chamber" to chamber,
             ),
-            "patient" to linkedMapOf("name" to (rx.patient["name"] ?: ""), "age" to rx.patient["age"]),
-            "medicines" to rx.medicines.map {
-                linkedMapOf("name" to it.name, "strength" to it.strength, "form" to it.form, "dose" to it.dose, "days" to it.days)
-            },
-            "tests" to rx.tests,
         )
     }
 

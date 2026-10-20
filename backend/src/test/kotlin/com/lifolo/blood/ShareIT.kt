@@ -67,7 +67,43 @@ class ShareIT : BloodTestBase() {
         assertTrue(text(ok).contains("<svg"))
         val rx = page("/rx/ABCDEFGH23")
         assertEquals(404, rx.status)
-        assertTrue(text(rx).contains("No prescription with this code."))
+        assertTrue(text(rx).contains("এই কোডের কোনো প্রেসক্রিপশন Lifolo-তে নেই।"))
+        assertFalse(text(rx).contains("No prescription with this code."))
+        assertTrue(text(page("/rx/ABCDEFGH23?lang=en")).contains("No prescription with this code."))
+    }
+
+    @Test
+    fun `prescription page - one language at a time (Bangla unless English is chosen), only status, date and doctor`() {
+        user("lgDoc", mapOf("name" to "ডা. ভাষা"))
+        jdbc.update(
+            """
+            INSERT INTO prescriptions (id, code, doctor_uid, status, patient_name, patient_age, doctor_name, doctor_degrees, doctor_reg_no, doctor_chamber, created_at)
+            VALUES ('lgRx', 'LANGRX2345', 'lgDoc', 'active', 'ভাষা রোগী', 33, 'ডা. ভাষা', 'MBBS', 'A-77', 'সিটি হাসপাতাল', '2026-10-20 06:00:00+00')
+            """.trimIndent(),
+        )
+        val bn = text(page("/rx/LANGRX2345"))
+        assertTrue(bn.contains("<html lang=\"bn\">"))
+        for (s in listOf("আসল", "তারিখ", "চেম্বার", "সিটি হাসপাতাল", "ডা. ভাষা", "MBBS", "A-77", "২০/১০/২০২৬", "Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন", ">English</a>")) {
+            assertTrue(bn.contains(s), s)
+        }
+        // no English sentence or label in Bangla mode, and nothing about the patient
+        for (s in listOf("Genuine", "Date", "Issued on Lifolo", "Don't dispense", "Patient", "Medicines", "ভাষা রোগী")) assertFalse(bn.contains(s), s)
+        val en = text(page("/rx/langrx2345?lang=en"))
+        assertTrue(en.contains("<html lang=\"en\">"))
+        for (s in listOf("Genuine", "Date", "Chamber", "20/10/2026", "Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.", ">বাংলা</a>")) {
+            assertTrue(en.contains(s), s)
+        }
+        for (s in listOf("আসল", "তারিখ", "চেম্বার", "ওষুধ দেবেন না", "ভাষা রোগী")) assertFalse(en.contains(s), s)
+        // the web's language cookie; ?lang= wins over it
+        val cookie = jakarta.servlet.http.Cookie("lf_lang", "en")
+        val viaCookie = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/rx/LANGRX2345").cookie(cookie)).andReturn().response
+        assertTrue(text(viaCookie).contains("Genuine"))
+        val forced = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/rx/LANGRX2345?lang=bn").cookie(cookie)).andReturn().response
+        assertTrue(text(forced).contains("আসল") && !text(forced).contains("Genuine"))
+        assertTrue(text(page("/api/share?rx=LANGRX2345&lang=en")).contains("Genuine"))
+        jdbc.update("UPDATE prescriptions SET status = 'cancelled' WHERE id = 'lgRx'")
+        assertTrue(text(page("/rx/LANGRX2345")).contains("বাতিল"))
+        assertTrue(text(page("/rx/LANGRX2345?lang=en")).contains("Cancelled"))
     }
 
     @Test

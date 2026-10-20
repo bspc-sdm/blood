@@ -108,11 +108,14 @@ class PlatformSecurityIT : IntegrationTest() {
             """.trimIndent(),
             Timestamp(System.currentTimeMillis()),
         )
+        jdbc.update("UPDATE prescriptions SET tests = '{গোপন পরীক্ষা}' WHERE id = 'shRx'")
+        jdbc.update("INSERT INTO prescription_medicines (rx_id, idx, name, form, dose, days) VALUES ('shRx', 0, 'গোপনওষুধ 500', 'Tablet', '1+0+1', 7)")
         val rx = mvc.perform(MockMvcRequestBuilders.get("/rx/ABCDEFGH23")).andReturn().response
         assertEquals(200, rx.status)
         val html = rx.getContentAsString(Charsets.UTF_8)
-        assertTrue(html.contains("&lt;b&gt;শেয়ার রোগী&lt;/b&gt;"), "the name is shown, escaped")
-        for (s in listOf("01711000061", "01711000062", "গোপন", "shPat", "shDoc", "<b>")) assertFalse(html.contains(s), s)
+        // genuine/cancelled, the date and the doctor — nothing about the patient, no medicines or tests (no login here)
+        assertTrue(html.contains("আসল") && html.contains("ডা. শেয়ার") && html.contains("সিটি হাসপাতাল"), html)
+        for (s in listOf("শেয়ার রোগী", "বছর", "01711000061", "01711000062", "গোপন", "Tablet", "1+0+1", "shPat", "shDoc", "<b>")) assertFalse(html.contains(s), s)
         assertEquals("no-store", rx.getHeader("Cache-Control"))
         assertEquals("noindex, nofollow", rx.getHeader("X-Robots-Tag"))
         assertEquals(404, mvc.perform(MockMvcRequestBuilders.get("/rx/ABCDEFGH24")).andReturn().response.status)
