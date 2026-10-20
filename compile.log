@@ -1,0 +1,41 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:processDebugGoogleServices
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+/home/runner/work/blood/blood/app/src/main/AndroidManifest.xml:15:5-99 Warning:
+	uses-permission#com.google.android.gms.permission.AD_ID was tagged at AndroidManifest.xml:15 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebug
+> Task :app:processDebugResources
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Prescriptions.kt:427:32 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Rules.kt:141:63 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToCompileJar
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/AmbRequestScreensTest.kt:52:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/DoctorSheetScreensTest.kt:65:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ScreensTest.kt:192:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792493828428.json
+
+BUILD SUCCESSFUL in 1m 52s
+20 actionable tasks: 20 executed
