@@ -28,6 +28,14 @@ UNIT=lifolo-api.service
 psqlq() { sudo -u postgres psql -X -q -At -d "$DB" "$@"; }
 kv() { printf '%s=%s\n' "$1" "$(printf '%s' "$2" | tr -d '\n\r' | cut -c1-300)"; }
 api_pid() { systemctl show -p MainPID --value "$UNIT" 2>/dev/null || echo 0; }
+# ঘড়ি: NTP মেলানো কি না, আর Google-এর HTTP Date থেকে কত সেকেন্ড আলাদা (Firebase টোকেনের iat/exp এই ঘড়িতে যাচাই হয়)
+clock_kv() {
+  kv clock_ntp_synced "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)"
+  kv clock_ntp_service "$(systemctl is-active systemd-timesyncd chrony 2>/dev/null | tr '\n' ' ')"
+  local gd
+  gd="$(curl -sI -m 10 https://www.google.com 2>/dev/null | tr -d '\r' | sed -n 's/^[Dd]ate: //p' | head -1)"
+  [ -n "$gd" ] && kv clock_offset_s "$(( $(date +%s) - $(date -d "$gd" +%s) ))"
+}
 
 case "$CMD" in
 # ------------------------------------------------------------------------------------------------ config
@@ -92,6 +100,7 @@ services)
   kv swap_on "$(swapon --show --noheadings | awk '{print $1}' | tr '\n' ' ')"
   kv ufw "$(ufw status 2>/dev/null | head -1)"
   kv reboot_required "$([ -f /var/run/reboot-required ] && echo yes || echo no)"
+  clock_kv
   kv auto_reboot "$(apt-config dump 2>/dev/null | sed -nE 's/^Unattended-Upgrade::Automatic-Reboot "([^"]*)";/\1/p' | tail -1)"
   ;;
 
@@ -430,6 +439,10 @@ PY
 
 # ------------------------------------------------------------------------------------------------ timers
 timers)
+  echo "### ঘড়ি"
+  echo '```'
+  clock_kv
+  echo '```'
   echo "### systemd timer"
   echo '```'
   systemctl list-timers --all --no-pager 2>/dev/null | sed -E 's/ +/ /g' | head -30
