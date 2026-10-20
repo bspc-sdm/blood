@@ -66,8 +66,17 @@ data class LifoloProperties(
         /** R2_CACHE_MB: in-memory cache of photos read from R2 (base64 text, per server process) */
         val cacheMb: Int = 64,
     ) {
+        /**
+         * R2_ENDPOINT (preferred) or the account's default endpoint. The Cloudflare dashboard shows the S3 URL with the
+         * bucket at the end (`https://<id>.r2.cloudflarestorage.com/<bucket>`); that path is dropped (requests are
+         * path-style and add the bucket themselves).
+         */
         val resolvedEndpoint: String
-            get() = endpoint.ifBlank { if (accountId.isNotBlank()) "https://$accountId.r2.cloudflarestorage.com" else "" }
+            get() {
+                val e = endpoint.trim().trimEnd('/')
+                if (e.isEmpty()) return if (accountId.isNotBlank()) "https://${accountId.trim()}.r2.cloudflarestorage.com" else ""
+                return if (bucket.isNotBlank() && e.endsWith("/${bucket.trim()}")) e.removeSuffix("/${bucket.trim()}") else e
+            }
         val configured: Boolean
             get() = resolvedEndpoint.isNotBlank() && accessKeyId.isNotBlank() && secretAccessKey.isNotBlank() && bucket.isNotBlank()
     }

@@ -42,6 +42,18 @@ class StoredFilesTest {
     }
 
     @Test
+    fun `R2 endpoint - R2_ENDPOINT first, the dashboard URL with the bucket works too, all four needed`() {
+        val base = LifoloProperties.R2(accessKeyId = "k", secretAccessKey = "s", bucket = "lifolo-files")
+        assertEquals("https://abc.r2.cloudflarestorage.com", base.copy(endpoint = "https://abc.r2.cloudflarestorage.com/lifolo-files").resolvedEndpoint)
+        assertEquals("https://abc.r2.cloudflarestorage.com", base.copy(endpoint = "https://abc.r2.cloudflarestorage.com/", accountId = "zzz").resolvedEndpoint)
+        assertEquals("https://zzz.r2.cloudflarestorage.com", base.copy(accountId = "zzz").resolvedEndpoint)
+        assertTrue(base.copy(endpoint = "https://abc.r2.cloudflarestorage.com").configured)
+        assertEquals(false, base.configured)
+        assertEquals(false, base.copy(endpoint = "https://x", bucket = "").configured)
+        assertEquals(false, LifoloProperties().r2.configured)
+    }
+
+    @Test
     fun `the cache is an LRU bounded by size`() {
         val c = TextCache(100)
         c.put("a", "x".repeat(20))
