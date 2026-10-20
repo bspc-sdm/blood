@@ -4,7 +4,7 @@ name: Backend (Spring Boot)
 # Package branches (spring-p1 … spring-p6, see backend/docs/PHASE2-PLAN.md) run the same build; each publishes its own log branch.
 on:
   push:
-    branches: [spring, "spring-p*", cutover]
+    branches: [main, spring, "spring-p*", cutover]
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
@@ -73,7 +73,7 @@ jobs:
           cat "$RUNNER_TEMP/tests.txt" >> "$GITHUB_STEP_SUMMARY" || true
 
       # Build logs are also pushed to a log branch (readable without the Actions log download):
-      #   spring → spring-ci-log, any other branch X (spring-p1 …) → ci-log-X
+      #   spring → spring-ci-log, any other branch X (main, spring-p1 …) → ci-log-X
       # The same branch holds the e2e result of backend-e2e.yml (e2e-status.txt, e2e/); each workflow replaces only its own files.
       - name: Publish build log
         if: always() && github.event_name != 'pull_request'

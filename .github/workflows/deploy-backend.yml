@@ -1,6 +1,7 @@
 name: Deploy backend
 
-# Kotlin/Spring API + ওয়েবসাইট (Vue) → VPS (Actions → "Deploy backend" → Run workflow; branch: spring)।
+# Kotlin/Spring API + ওয়েবসাইট (Vue) → VPS। ২.৩৪.০ থেকে main-এ push হলে নিজেই চলে (backend/, web-vue/, deploy/ বা এই
+# ফাইল বদলালে — ডেমো keep, lifolo.com, api.lifolo.com); হাতে: Actions → "Deploy backend" → Run workflow → branch main।
 # বাংলা গাইড: deploy/BASE-SETUP.md, বদলের দিনের ধাপ: deploy/CUTOVER.md
 # আগে একবার "Setup VPS (base)" সফল হতে হবে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি)।
 #
@@ -17,7 +18,7 @@ name: Deploy backend
 #   SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, SES_FROM — ঐচ্ছিক; না থাকলে লগইন-কোডের ইমেইল যায় না
 #   R2_ACCOUNT_ID (বা R2_ENDPOINT), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET — ঐচ্ছিক
 #   SENTRY_DSN, SMS_URL_TEMPLATE, PUBLIC_BASE_URL — ঐচ্ছিক
-# push-এ (deploy/ বা এই ফাইল বদলালে) শুধু "check" চলে — VPS-এ কিছু যায় না। deploy শুধু হাতে চালালে।
+# push-এ আগে "check" (shellcheck + চাবির টেস্ট); main-এ push হলে check পাস করার পর deploy-ও। অন্য শাখার push-এ শুধু check।
 on:
   workflow_dispatch:
     inputs:
@@ -43,8 +44,10 @@ on:
         required: false
         default: "api.lifolo.com"
   push:
-    branches: [spring, "spring-p*", cutover]
+    branches: [main, spring, "spring-p*", cutover]
     paths:
+      - "backend/**"
+      - "web-vue/**"
       - "deploy/**"
       - ".github/workflows/deploy-backend.yml"
 
@@ -74,9 +77,21 @@ jobs:
         run: node --test deploy/ci/test/derive-keys.test.js
 
   deploy:
-    if: github.event_name == 'workflow_dispatch'
+    needs: check
+    # হাতে চালালে check বাদ (skipped); main-এ push হলে check পাস করলে তবেই
+    if: >-
+      always() && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.result == 'success')
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    # push-এ inputs খালি — তখন হাতে চালানোর ডিফল্টগুলোই (ডেমো keep, lifolo.com, সার্টিফিকেট চাওয়া, api.lifolo.com)
+    env:
+      IN_DEMO: ${{ github.event_name == 'push' && 'keep' || inputs.demo }}
+      IN_WEB_DOMAIN: ${{ github.event_name == 'push' && 'lifolo.com' || inputs.web_domain }}
+      IN_WEB_CERT: ${{ github.event_name == 'push' || inputs.web_cert }}
+      IN_API_DOMAIN: ${{ github.event_name == 'push' && 'api.lifolo.com' || inputs.api_domain }}
     steps:
       - uses: actions/checkout@v5
 
@@ -172,12 +187,12 @@ jobs:
       # ডেমোর জন্য মালিকের Firebase uid (অ্যাডমিন প্যানেলের সেশন ওই uid-এ সই হয়)। Firebase-এর ডেমো অ্যাকাউন্ট (Vercel-এর
       # Node ডেমোরও) আগে থেকে থাকলে সেগুলোই নেওয়া হয় — DEMO_KEEP_FIREBASE_USERS=true, তাই এই সার্ভার ওগুলো মোছে/বদলায় না।
       - uses: actions/setup-node@v5
-        if: steps.provided.outputs.firebase == 'on' && inputs.demo != 'off'
+        if: steps.provided.outputs.firebase == 'on' && env.IN_DEMO != 'off'
         with:
           node-version: "22"
       - name: Owner uid for the demo check
         id: owner
-        if: steps.provided.outputs.firebase == 'on' && inputs.demo != 'off'
+        if: steps.provided.outputs.firebase == 'on' && env.IN_DEMO != 'off'
         env:
           OWNER: ${{ steps.provided.outputs.owner }}
         run: |
@@ -235,9 +250,9 @@ jobs:
           SHA: ${{ steps.jar.outputs.sha }}
           OWNER_UID: ${{ steps.owner.outputs.uid }}
           OWNER: ${{ steps.provided.outputs.owner }}
-          DEMO_MODE: ${{ inputs.demo }}
-          WEB_DOMAIN: ${{ inputs.web_domain }}
-          API_DOMAIN: ${{ inputs.api_domain }}
+          DEMO_MODE: ${{ env.IN_DEMO }}
+          WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
+          API_DOMAIN: ${{ env.IN_API_DOMAIN }}
         run: |
           extra=()
           api_domain="$(printf '%s' "$API_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
@@ -268,14 +283,14 @@ jobs:
 
       # ওয়েবসাইট: Vue ওয়েব (dist → /w/) + Vue অ্যাডমিন (dist-admin → /admin/) + server/public-এর বাকি ফাইল (থাকলে)
       - uses: actions/setup-node@v5
-        if: inputs.web_domain != ''
+        if: env.IN_WEB_DOMAIN != ''
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: web-vue/package-lock.json
       - name: Build the website (web-vue)
         id: site
-        if: inputs.web_domain != ''
+        if: env.IN_WEB_DOMAIN != ''
         run: |
           (cd web-vue && npm ci --no-audit --no-fund && npm run build)
           site="$RUNNER_TEMP/site"
@@ -295,8 +310,8 @@ jobs:
         if: steps.site.outcome == 'success' && steps.deploy.outcome == 'success'
         env:
           SHA: ${{ steps.site.outputs.sha }}
-          WEB_DOMAIN: ${{ inputs.web_domain }}
-          WEB_CERT: ${{ inputs.web_cert }}
+          WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
+          WEB_CERT: ${{ env.IN_WEB_CERT }}
         run: |
           nocert=""
           [ "$WEB_CERT" != false ] || nocert="--no-cert"
@@ -320,12 +335,12 @@ jobs:
         id: inet
         if: always() && steps.deploy.outcome == 'success'
         env:
-          WEB_DOMAIN: ${{ inputs.web_domain }}
-          API_DOMAIN: ${{ inputs.api_domain }}
+          WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
+          API_DOMAIN: ${{ env.IN_API_DOMAIN }}
           SITE_OK: ${{ steps.webdeploy.outputs.w_site }}
           WWW_OK: ${{ steps.webdeploy.outputs.w_www }}
           ASSET: ${{ steps.site.outputs.asset }}
-          DEMO_MODE: ${{ inputs.demo }}
+          DEMO_MODE: ${{ env.IN_DEMO }}
         run: |
           rc=0
           res() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "$1=$2"; }
@@ -353,7 +368,7 @@ jobs:
         if: always() && steps.host.outputs.domain != ''
         env:
           DOMAIN: ${{ steps.host.outputs.domain }}
-          API_DOMAIN: ${{ inputs.api_domain }}
+          API_DOMAIN: ${{ env.IN_API_DOMAIN }}
           S_API_DOMAIN: ${{ steps.deploy.outputs.s_api_domain }}
         run: |
           api=no; healthz=no
@@ -387,11 +402,11 @@ jobs:
           SES: ${{ steps.provided.outputs.ses }}
           OWNER_UID: ${{ steps.owner.outputs.uid }}
           DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
-          DEMO_INPUT: ${{ inputs.demo }}
+          DEMO_INPUT: ${{ env.IN_DEMO }}
           DEMO_API: ${{ steps.inet.outputs.demo_api }}
           S_KEEP_FB: ${{ steps.deploy.outputs.s_demo_keep_firebase_users }}
           S_BASE_URL: ${{ steps.deploy.outputs.s_public_base_url }}
-          WEB_DOMAIN: ${{ inputs.web_domain }}
+          WEB_DOMAIN: ${{ env.IN_WEB_DOMAIN }}
           SITE_OUTCOME: ${{ steps.site.outcome }}
           SITE_SIZE: ${{ steps.site.outputs.size }}
           WEB_OUTCOME: ${{ steps.webdeploy.outcome }}
@@ -431,7 +446,7 @@ jobs:
           S_SES_CLIENT: ${{ steps.deploy.outputs.s_ses_client }}
           SES_AUTH: ${{ steps.ses.outputs.auth }}
           SES_SANDBOX: ${{ steps.ses.outputs.sandbox }}
-          API_DOMAIN: ${{ inputs.api_domain }}
+          API_DOMAIN: ${{ env.IN_API_DOMAIN }}
           S_API_DOMAIN: ${{ steps.deploy.outputs.s_api_domain }}
           S_API_DOMAIN_HEALTH: ${{ steps.deploy.outputs.s_api_domain_health }}
           WEB_API2: ${{ steps.web.outputs.api2 }}
@@ -532,7 +547,7 @@ jobs:
             fi
             echo "- R2 (ছবি): $([ "$S_R2" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)') · Sentry: $([ "$S_SENTRY" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)')"
             echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080-এ শোনে, বাইরে থেকে nginx দিয়েই।"
-            echo "- এখনকার অ্যাপ (Vercel) যেমন চলছিল তেমনই চলছে — প্রকাশিত ফোনের অ্যাপ এখনো Vercel-এ যায়। বদলের দিনের ধাপ: deploy/CUTOVER.md"
+            echo "- ২.৩৪.০ থেকে ফোনের অ্যাপ এই সার্ভারে (https://lifolo.com)। পুরোনো সংস্করণের অ্যাপ এখনো Vercel-এ যায় (Vercel চালু রাখা) — বাকি ধাপ: deploy/CUTOVER.md"
             if [ "$JOB_OK" != success ]; then
               echo
               echo "ব্যর্থ হলে: বাঁ দিকে **deploy** → লাল ✗ চিহ্নের ধাপ খুলে স্ক্রিনশট Claude-কে পাঠান (গোপন মান লগে \`***\`)।"

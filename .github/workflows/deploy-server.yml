@@ -1,14 +1,15 @@
 name: Deploy server
 
+# বন্ধ (২.৩৪.০, ২০ অক্টোবর ২০২৬): সার্ভার এখন নিজের VPS-এ (lifolo.com) — main থেকে "Deploy backend" বসায়।
+# main-এ push আর Vercel-এ যায় না; ফাইলটা রাখা হয়েছে শুধু ফেরার রাস্তা হিসেবে (Actions-এও Disabled)।
+# পুরোনো Vercel প্রকল্প যেমন ছিল তেমনই চালু (পুরোনো অ্যাপের জন্য), এখান থেকে কেউ তাতে হাত দেয় না।
+#
+# আগের লেখা:
 # Vercel নিজে আর কোনো push-এ ডেপ্লয় করে না (server/vercel.json: git.deploymentEnabled = false) —
 # Vercel বাতিল করা (Ignored Build Step) ডেপ্লয়ও দিনের ১০০টার হিসাবে ধরে, তাই অ্যাপ বা লেখা বদলালেও সীমা খরচ হতো।
 # এখন শুধু main-এ server/ ফোল্ডারে বদল হলে এখান থেকে একবার ডেপ্লয় হয় (Vercel Deploy Hook দিয়ে)।
 # অল্প সময়ে কয়েকটা push হলে আগেরটা বাতিল হয়ে শুধু শেষটা যায়, আর ১০ মিনিট অপেক্ষা করে — একসাথে অনেক বদল এক ডেপ্লয়ে।
 on:
-  push:
-    branches: [main]
-    paths:
-      - "server/**"
   workflow_dispatch:
 
 concurrency:
@@ -20,9 +21,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Wait for more pushes (batch)
-        if: github.event_name == 'push'
-        run: sleep 600
       - name: Trigger Vercel deploy hook
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
