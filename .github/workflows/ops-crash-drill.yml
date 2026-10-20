@@ -90,7 +90,7 @@ jobs:
           sleep 90
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$out/after.txt"
           ssh vps "journalctl -u lifolo-api --since '-6min' --no-pager -o short-iso | grep -E 'code=killed|status=9|Scheduled restart|Started Lifolo|Started [A-Za-z]+ in|Stopped|Failed' | cut -c1-200" > "$out/journal.txt" 2>&1 || true
-          ssh vps "sudo -u postgres psql -X -At -d lifolo -c \"SELECT recurringjobid || '=' || to_char(max(updatedat), 'HH24:MI:SS') FROM jobrunr_jobs WHERE state = 'SUCCEEDED' AND recurringjobid IN ('storage-trash','ambulance-timers') GROUP BY 1\"; \
+          ssh vps "sudo -u postgres psql -X -At -d lifolo -c \"SELECT recurringjobid || '_last_ok=' || to_char(max(updatedat), 'HH24:MI:SS') FROM jobrunr_jobs WHERE state = 'SUCCEEDED' AND recurringjobid IN ('storage-trash','ambulance-timers') GROUP BY recurringjobid\"; \
                    sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'processing_now=' || count(*) FROM jobrunr_jobs WHERE state = 'PROCESSING'\"; \
                    sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'now_utc=' || to_char(now() AT TIME ZONE 'UTC', 'HH24:MI:SS')\"" > "$out/jobrunr.txt" 2>&1 || true
           cat "$out/journal.txt" "$out/jobrunr.txt"
