@@ -160,6 +160,16 @@ object Rules {
     fun formatKm(km: Double): String =
         if (km < 1) tr("< 1 km", "১ কিমির কম") else num(Math.round(km)) + tr(" km", " কিমি")
 
+    /**
+     * ডেমোর নম্বর (0120000xxxx — কোনো অপারেটর দেয় না, তাই আসল মানুষের নম্বর নয়; সার্ভারের Phones.normalizeBd মানে)।
+     * অ্যাপে শুধু ডেমো অ্যাকাউন্টে চলে — আসল ব্যবহারকারীর জন্য আগের মতো 01[3-9]…।
+     */
+    val DEMO_MOBILE = Regex("^(\\+?88)?0120000\\d{4}$")
+
+    /** মোবাইল নম্বর (+88/88 সহ বা ছাড়া): 01[3-9]XXXXXXXX; ডেমো অ্যাকাউন্টে ডেমোর 0120000XXXX-ও */
+    fun isMobile(raw: String, demo: Boolean = DemoLogin.isDemo(AuthRepository.currentUid)): Boolean =
+        Regex("^(\\+?88)?01[3-9]\\d{8}$").matches(raw) || (demo && DEMO_MOBILE.matches(raw))
+
     /** বাংলাদেশি মোবাইল নম্বর: 01XXXXXXXXX (১১ সংখ্যা)। +88 বা 88 থাকলে বাদ দেওয়া হয়। */
     fun normalizePhone(input: String): String? {
         var digits = input.filter { it.isDigit() }

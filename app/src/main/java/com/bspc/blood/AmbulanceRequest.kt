@@ -543,7 +543,7 @@ fun AmbulanceRequestDialog(
                 errorMsg = loc.error()
                     ?: (if (dest == null) tr("Choose where to go", "\"কোথায় যাবেন\" বেছে নিন") else null)
                     ?: (if (budgetBad) tr("Write the fare limit in whole taka (৳100 or more)", "সর্বোচ্চ ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)") else null)
-                    ?: if (!Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone)) tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন") else null
+                    ?: if (!Regex("^(\\+?880|0)?1[3-9]\\d{8}$").matches(phone) && !(DemoLogin.isDemo(AuthRepository.currentUid) && Rules.DEMO_MOBILE.matches(phone))) tr("Enter a valid mobile number", "সঠিক মোবাইল নম্বর দিন") else null
                 if (errorMsg != null) return@Button
                 val d = dest ?: return@Button
                 scope.launch {

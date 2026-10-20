@@ -35,14 +35,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    /** নোটিফিকেশনে চাপ দিলে কোন রিকোয়েস্ট খুলতে হবে */
-    private val openRequestId = mutableStateOf<String?>(null)
-    private val openType = mutableStateOf<String?>(null)
-    /** "services" নোটিফিকেশনে কোন ব্যবসা (ambulance, pharmacy, bloodbank, lab) */
-    private val openKind = mutableStateOf<String?>(null)
-    private val openQuestionId = mutableStateOf<String?>(null)
-    /** প্রেসক্রিপশনের নোটিফিকেশন: কোন প্রেসক্রিপশন (rxId), কেয়ারগিভারকে এলে কোন রোগীর (asUid) */
-    private val openExtra = mutableStateOf<Map<String, String>>(emptyMap())
+    /**
+     * নোটিফিকেশন চাপলে (বা শেয়ার করা লিংক / Google Maps-এর জায়গা থেকে) কোন পাতা খুলতে হবে: নোটিফিকেশনের পুরো data
+     * (type, requestId, role, rxId …) — App-এর openFromData খোলে, ঠান্ডা অবস্থা (onCreate), পেছনে থাকা বা খোলা অ্যাপ
+     * (onNewIntent) — তিন পথেই একই। আগে প্রতিটা ধরনের আলাদা অবস্থা ছিল, আর onNewIntent কয়েকটা ধরন (badge, eligible,
+     * correction, hospital, request_removed) চিনত না — খোলা অ্যাপে চাপলে কিছুই হত না।
+     */
+    private val openData = mutableStateOf<Map<String, String>?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,17 +54,8 @@ class MainActivity : ComponentActivity() {
         Notifier.ensureChannel(this)
         // অ্যাক্টিভিটি নতুন করে তৈরি হলে (যেমন লেখার আকার বদলালে) আগের পাতার অপেক্ষার কাজ আর চলে না — বাতিল
         if (savedInstanceState != null) LoginGate.pending.value = null
-        // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের রিকোয়েস্ট পড়া হয়
-        if (savedInstanceState == null) {
-            openRequestId.value = intent?.getStringExtra(Notifier.EXTRA_REQUEST_ID)
-            openType.value = intent?.getStringExtra(Notifier.EXTRA_TYPE)
-            openKind.value = intent?.getStringExtra(Notifier.EXTRA_KIND)
-            openQuestionId.value = intent?.getStringExtra(Notifier.EXTRA_QUESTION_ID)
-            openExtra.value = rxExtras(intent)
-            sharedRequestId(intent)?.let { openRequestId.value = it }
-            if (openType.value in HOME_CARE_TYPES) CareNav.openHomeCare.value = true
-            sharedPlace(intent)
-        }
+        // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের data পড়া হয় (নতুন করে তৈরি হলে আবার খুলবে না)
+        if (savedInstanceState == null) readIntent(intent)
         setContent {
             GetBloodTheme {
                 // স্ট্যাটাস বার আর নিচের বার অ্যাপের থিমের (লাইট/ডার্ক) সাথে মিলিয়ে
@@ -81,25 +71,22 @@ class MainActivity : ComponentActivity() {
                 // testTagsAsResourceId: স্বয়ংক্রিয় টেস্ট (Maestro) যেন কয়েকটা testTag দিয়ে বাটন খুঁজে পায় — দেখতে কিছু বদলায় না
                 Surface(modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
                     Box(modifier = Modifier.safeDrawingPadding()) {
-                        App(
-                            openRequestId = openRequestId.value,
-                            openAsRequester = openType.value == "response",
-                            onRequestOpened = { openRequestId.value = null },
-                            openQuestionId = openQuestionId.value,
-                            onQuestionOpened = { openQuestionId.value = null },
-                            openAppointments = openType.value == "appointment",
-                            onAppointmentsOpened = { openType.value = null },
-                            openHomeVisit = openType.value in HOME_CARE_TYPES,
-                            onHomeVisitOpened = { openType.value = null },
-                            openTarget = openType.value?.takeIf { it in OPEN_TARGETS },
-                            openTargetKind = openKind.value,
-                            openTargetExtra = openExtra.value,
-                            onTargetOpened = { openType.value = null; openKind.value = null; openExtra.value = emptyMap() },
-                        )
+                        App(openData = openData.value, onDataOpened = { openData.value = null })
                     }
                 }
             }
         }
+    }
+
+    /** intent থেকে কী খুলতে হবে: Google Maps-এর জায়গা, শেয়ার করা রিকোয়েস্টের লিংক, বা নোটিফিকেশনের data */
+    private fun readIntent(intent: Intent?) {
+        sharedPlace(intent)
+        val shared = sharedRequestId(intent)
+        if (shared != null) {
+            openData.value = mapOf(Notifier.EXTRA_REQUEST_ID to shared, SHARED_LINK to "1")
+            return
+        }
+        Notifier.dataFrom(intent)?.let { openData.value = it }
     }
 
     /**
@@ -110,40 +97,18 @@ class MainActivity : ComponentActivity() {
         val text = intent?.getStringExtra(ShareActivity.EXTRA_PLACE_TEXT)?.takeIf { it.isNotBlank() } ?: return
         intent.removeExtra(ShareActivity.EXTRA_PLACE_TEXT)
         SharedPlace.text.value = text
-        if (!SharedPlace.sheetOpen.value) openType.value = "amb_call"
+        if (!SharedPlace.sheetOpen.value) openData.value = mapOf(Notifier.EXTRA_TYPE to "amb_call")
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        sharedPlace(intent)
-        intent.getStringExtra(Notifier.EXTRA_REQUEST_ID)?.let {
-            openType.value = intent.getStringExtra(Notifier.EXTRA_TYPE)
-            openRequestId.value = it
-        }
-        intent.getStringExtra(Notifier.EXTRA_QUESTION_ID)?.let { openQuestionId.value = it }
-        sharedRequestId(intent)?.let {
-            openType.value = null
-            openRequestId.value = it
-        }
-        if (intent.getStringExtra(Notifier.EXTRA_TYPE) == "appointment") openType.value = "appointment"
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in HOME_CARE_TYPES }?.let { openType.value = it }
-        intent.getStringExtra(Notifier.EXTRA_TYPE)?.takeIf { it in OPEN_TARGETS }?.let {
-            openKind.value = intent.getStringExtra(Notifier.EXTRA_KIND)
-            openExtra.value = rxExtras(intent)
-            openType.value = it
-        }
+        // অ্যাপ খোলা বা পেছনে থাকা অবস্থায় নোটিফিকেশন চাপলে (singleTop): ঠান্ডা অবস্থার মতোই
+        readIntent(intent)
     }
 }
 
-/** নোটিফিকেশন চাপলে যে ধরনগুলো App-এর openFromData খোলে (amb_req_mine: রোগীর অ্যাম্বুলেন্স ডাকার পাতা, ২.২৮.০) */
-private val OPEN_TARGETS = setOf("pharmacy_order", "pharmacy_mine", "services", "support", "med_find", "med_find_mine", "emergency", "rx", "rx_pharmacy", "rx_lab", "rx_review", "care", "amb_req_mine", "amb_call")
-
-/** নোটিফিকেশনের rxId, asUid, reqId (যেগুলো আছে) */
-private fun rxExtras(intent: Intent?): Map<String, String> = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID, Notifier.EXTRA_REQ_ID)
-    .mapNotNull { k -> intent?.getStringExtra(k)?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
-
-/** বাসায় সেবার নোটিফিকেশন (আগের হোম নার্সের "homevisit" সহ) */
-private val HOME_CARE_TYPES = setOf("homevisit", "homecare")
+/** openData-তে: শেয়ার করা লিংক থেকে (নোটিফিকেশন নয়) — লগইন ছাড়া খুললে আগে লগইন */
+internal const val SHARED_LINK = "sharedLink"
 
 /** শেয়ার করা লিংক থেকে রিকোয়েস্টের id: https://…/r/{id} বা getblood://r/{id} */
 private fun sharedRequestId(intent: Intent?): String? {
@@ -205,19 +170,9 @@ object Tabs {
 
 @Composable
 fun App(
-    openRequestId: String?,
-    openAsRequester: Boolean,
-    onRequestOpened: () -> Unit,
-    openQuestionId: String?,
-    onQuestionOpened: () -> Unit,
-    openAppointments: Boolean,
-    onAppointmentsOpened: () -> Unit,
-    openHomeVisit: Boolean,
-    onHomeVisitOpened: () -> Unit,
-    openTarget: String? = null,
-    openTargetKind: String? = null,
-    openTargetExtra: Map<String, String> = emptyMap(),
-    onTargetOpened: () -> Unit = {},
+    /** নোটিফিকেশন/লিংকের data (MainActivity.openData); খোলা হলে onDataOpened */
+    openData: Map<String, String>? = null,
+    onDataOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -333,83 +288,23 @@ fun App(
         }
     }
 
-    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই) */
+    /** নোটিফিকেশনের data অনুযায়ী পাতা খোলা (নোটিফিকেশনের তালিকা আর পুশ — দুই জায়গা থেকেই; গন্তব্যের হিসাব notifyRoute) */
     fun openFromData(data: Map<String, String>) {
-        val type = data["type"]
-        val requestId = data["requestId"]
-        val questionId = data["questionId"]
-        when {
-            requestId != null -> push(if (type == "response") Screen.MyRequestDetail(requestId) else Screen.RequestDetail(requestId))
-            questionId != null -> push(Screen.QuestionDetail(questionId))
-            // চেম্বারে আসা বুকিং → "আমার চেম্বার"; নিজের নেওয়া অ্যাপয়েন্টমেন্ট → "আমার অ্যাপয়েন্টমেন্ট"
-            type == "appointment" -> push(
-                if (data["role"] == "provider" || (data["role"] == null && community?.approvedBadge in CHAMBER_TYPES)) Screen.ChamberEdit
-                else Screen.MyAppointments,
-            )
-            type in HOME_CARE_TYPES -> {
-                CareNav.openHomeCare.value = true
+        when (val r = notifyRoute(data, community?.approvedBadge, MyWork.has)) {
+            is NotifyRoute.Open -> {
+                r.workTarget?.let { WorkNav.target.value = it }
+                // একই পাতা উপরে খোলাই থাকলে আবার নয়
+                if (stack.last() != r.screen) push(r.screen)
+            }
+            is NotifyRoute.Tab -> {
+                r.servicesTarget?.let { ServicesNav.target.value = it }
+                if (r.homeCare) CareNav.openHomeCare.value = true
                 while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.APPOINTMENT)
+                stack[0] = Screen.Main(r.tab)
+                if (r.tab == Tabs.HOME) homeRefresh++
             }
-            type == "support" -> push(Screen.Help())
-            // রোগীর অ্যাম্বুলেন্স ডাকা: কেউ রাজি হলেন/পৌঁছালেন/বাতিল/সময় শেষ — সেই অপেক্ষার পাতা
-            type == "amb_req_mine" -> data["reqId"]?.let { push(Screen.AmbulanceRequest(it)) } ?: run {
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.SERVICES)
-            }
-            // প্রেসক্রিপশন (নতুন, দোকান/প্যাথলজির খবর, রিপোর্ট, আবার দেখানোর দিন): সরাসরি সেই প্রেসক্রিপশন।
-            // rxId না থাকলে (ওষুধের অ্যালার্ম) তালিকা; পুরোনো নোটিফিকেশনে শুধু id (সেটাও প্রেসক্রিপশনের id)
-            type == "rx" -> {
-                val id = data["rxId"] ?: data["id"]
-                if (id != null) RxNav.openRx(id, own = true) else push(Screen.MyPrescriptions)
-            }
-            type == "rx_review" -> push(Screen.RxReviews)
-            // কেয়ারগিভারকে রোগীর প্রেসক্রিপশনের খবর: রোগীর হয়ে (কেয়ারগিভার মোডে) সেই প্রেসক্রিপশন
-            type == "care" && data["asUid"] != null && data["rxId"] != null -> openCareRx(data["asUid"]!!, data["rxId"]!!)
-            // কেয়ারগিভারকে: যাঁর দেখাশোনা করেন তাঁর অন্য খবর / নতুন আমন্ত্রণ
-            type == "care" -> push(Screen.Care)
-            // ফার্মেসি/প্যাথলজির মালিক (প্রেসক্রিপশন, পরীক্ষার অনুরোধ), দোকানের কাছে ওষুধ খোঁজা: নিজের পাতা ("আমার কাজ")
-            // ২.২৭.০: নতুন অর্ডার/অনুরোধ → প্রথম ট্যাবের "নতুন" ভাগ; ওষুধ খোঁজার অনুরোধ → "দোকান" ট্যাব
-            type == "rx_pharmacy" || type == "rx_lab" || type == "med_find" -> {
-                WorkNav.target.value = if (type == "med_find") "finds" else "orders"
-                push(Screen.MyBusiness(if (type == "rx_lab") "lab" else "pharmacy"))
-            }
-            // নিজের ওষুধ খোঁজার উত্তর: সেবা › ফার্মেসি › "ওষুধ খুঁজুন"
-            type == "med_find_mine" -> {
-                ServicesNav.target.value = type
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.SERVICES)
-            }
-            // Google Maps থেকে জায়গা শেয়ার (২.৩১.০): সেবা › অ্যাম্বুলেন্স, সেখানে "অ্যাম্বুলেন্স ডাকুন"-এর শিট খোলে
-            type == "amb_call" -> {
-                ServicesNav.target.value = type
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.SERVICES)
-            }
-            // জরুরি আহ্বান: হোমের উপরের ব্যানার
-            type == "emergency" -> {
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.HOME)
-                homeRefresh++
-            }
-            // দোকানের মালিকের খবর: সরাসরি নিজের ফার্মেসির পাতা
-            type == "pharmacy_order" || type == "pharmacy_mine" -> {
-                WorkNav.target.value = "orders"
-                push(Screen.MyBusiness("pharmacy"))
-            }
-            // অনুমোদন/বাতিল/বন্ধের খবর (kind: কোন ব্যবসা) — নিজের সেই পাতা; kind না থাকলে "আমার কাজ"
-            type == "services" -> {
-                val kind = data["kind"]
-                if (kind in BUSINESS_KINDS) push(Screen.MyBusiness(kind!!))
-                else {
-                    while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                    stack[0] = Screen.Main(if (MyWork.has) Tabs.WORK else Tabs.HOME)
-                }
-            }
-            else -> {
-                while (stack.size > 1) stack.removeAt(stack.lastIndex)
-                stack[0] = Screen.Main(Tabs.HOME)
-            }
+            is NotifyRoute.Rx -> RxNav.openRx(r.id, own = true)
+            is NotifyRoute.CareRx -> openCareRx(r.asUid, r.rxId)
         }
     }
 
@@ -467,12 +362,6 @@ fun App(
     LaunchedEffect(ready) {
         if (ready) runCatching { Catalog.refresh(appContext) }
     }
-    LaunchedEffect(openAppointments, ready) {
-        if (openAppointments && ready) {
-            push(if (community?.approvedBadge in CHAMBER_TYPES) Screen.ChamberEdit else Screen.MyAppointments)
-            onAppointmentsOpened()
-        }
-    }
     // প্রোফাইলের "আমার প্রেসক্রিপশন" / "ডাক্তারের সহকারী"
     val rxOpen = RxNav.open.value
     LaunchedEffect(rxOpen) {
@@ -491,35 +380,23 @@ fun App(
             HelpNav.open.value = null
         }
     }
-    // ফার্মেসি আর "সেবা"-র নোটিফিকেশন
-    LaunchedEffect(openTarget, ready) {
-        if (openTarget != null && ready) {
-            openFromData(listOfNotNull("type" to openTarget, openTargetKind?.let { "kind" to it }).toMap() + openTargetExtra)
-            onTargetOpened()
-        }
-    }
-    // বাসায় সেবার নোটিফিকেশন (আগের "homevisit"-ও): অ্যাপয়েন্টমেন্ট ট্যাবের "বাসায় সেবা" অংশ
-    LaunchedEffect(openHomeVisit, ready) {
-        if (openHomeVisit && ready) {
-            CareNav.openHomeCare.value = true
-            while (stack.size > 1) stack.removeAt(stack.lastIndex)
-            stack[0] = Screen.Main(Tabs.APPOINTMENT)
-            onHomeVisitOpened()
-        }
-    }
-    LaunchedEffect(openQuestionId, ready) {
-        if (openQuestionId != null && ready) {
-            push(Screen.QuestionDetail(openQuestionId))
-            onQuestionOpened()
-        }
-    }
-    LaunchedEffect(openRequestId, ready) {
-        if (openRequestId != null && ready) {
-            val target = if (openAsRequester) Screen.MyRequestDetail(openRequestId) else Screen.RequestDetail(openRequestId)
-            // শেয়ার করা লিংক লগইন ছাড়া খুললে: আগে লগইন (রিকোয়েস্টের বিস্তারিত লগইন করা মানুষই দেখেন)
-            if (LoginGate.isGuest) LoginGate.require(tr("Log in to see and respond to this request", "রিকোয়েস্টটা দেখতে ও সাড়া দিতে লগইন করুন")) { push(target) }
-            else push(target)
-            onRequestOpened()
+    // নোটিফিকেশন চাপলে / শেয়ার করা লিংক: মূল স্ক্রিন তৈরি হওয়ার পর সেই পাতা (ঠান্ডা অবস্থা, পেছনে থাকা, খোলা অ্যাপ — সব একই পথে)
+    LaunchedEffect(openData, ready) {
+        val data = openData ?: return@LaunchedEffect
+        if (!ready) return@LaunchedEffect
+        onDataOpened()
+        // onDataOpened-এ openData বদলায়, তাই এই effect বাতিল হবে — বাকিটা পাতার নিজের scope-এ
+        scope.launch {
+            // role ছাড়া পুরোনো অ্যাপয়েন্টমেন্টের খবর: ডাক্তার কি না জানতে নিজের ব্যাজ (ঠান্ডা অবস্থায় এখনো আসেনি হয়তো)
+            if (data["type"] == "appointment" && data["role"] == null && community == null && !LoginGate.isGuest) {
+                runCatching { Community.me() }.onSuccess { community = it }
+            }
+            if (data[SHARED_LINK] != null && LoginGate.isGuest) {
+                // শেয়ার করা লিংক লগইন ছাড়া খুললে: আগে লগইন (রিকোয়েস্টের বিস্তারিত লগইন করা মানুষই দেখেন)
+                LoginGate.require(tr("Log in to see and respond to this request", "রিকোয়েস্টটা দেখতে ও সাড়া দিতে লগইন করুন")) { openFromData(data) }
+            } else {
+                openFromData(data)
+            }
         }
     }
 

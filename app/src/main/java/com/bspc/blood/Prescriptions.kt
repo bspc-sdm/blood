@@ -790,7 +790,7 @@ private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: ()
     var labs by remember { mutableStateOf<List<DoctorLab>>(emptyList()) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(t) {
-        runCatching { RxApi.patientHistory(t) }.onSuccess { list = it.items; labs = it.labs }.onFailure { errorMsg = it.message; list = emptyList() }
+        runCatching { RxApi.patientHistory(t) }.onSuccess { list = it.items; labs = it.labs; errorMsg = null }.onFailure { errorMsg = it.message; list = emptyList() }
     }
     FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(t.name.ifBlank { tr("Patient", "রোগী") }, onDismiss) }) { padding ->

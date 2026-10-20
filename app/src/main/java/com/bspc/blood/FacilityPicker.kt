@@ -115,7 +115,7 @@ fun FacilityDialog(title: String, district: String, near: Pair<Double, Double>?,
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var other by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(district, near) {
-        runCatching { AmbPlaces.facilities(district, near = near) }.onSuccess { base = it }.onFailure { errorMsg = it.message }
+        runCatching { AmbPlaces.facilities(district, near = near) }.onSuccess { base = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
     val q = query.trim()
     // খোঁজা: আগে জেলার তালিকায় সাথে সাথে, তারপর সার্ভারে সারা দেশে (৩০০ মি.সে. থেমে)

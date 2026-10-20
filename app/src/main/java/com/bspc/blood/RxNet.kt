@@ -1104,7 +1104,7 @@ private fun LabPickDialog(rx: Rx, profile: Profile, onDismiss: () -> Unit, only:
 fun LabReportDialog(orderId: String, self: Boolean = false, onDismiss: () -> Unit) {
     var order by remember { mutableStateOf<LabOrder?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(orderId) { runCatching { RxNet.labOrder(orderId, self) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
+    LaunchedEffect(orderId) { runCatching { RxNet.labOrder(orderId, self) }.onSuccess { order = it; errorMsg = null }.onFailure { errorMsg = it.message } }
     FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(topBar = { BackTopBar(tr("Test report", "পরীক্ষার রিপোর্ট"), onDismiss) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2223,7 +2223,7 @@ private fun ReviewReadDialog(r: RxReview, onDismiss: () -> Unit, onDone: () -> U
     var comment by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(r.id) { runCatching { RxNet.labOrder(r.labOrderId, self = true) }.onSuccess { order = it }.onFailure { errorMsg = it.message } }
+    LaunchedEffect(r.id) { runCatching { RxNet.labOrder(r.labOrderId, self = true) }.onSuccess { order = it; errorMsg = null }.onFailure { errorMsg = it.message } }
     FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }) {
         Scaffold(topBar = { BackTopBar(r.patientName, { if (!busy) onDismiss() }) }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

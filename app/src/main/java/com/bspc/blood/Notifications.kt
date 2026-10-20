@@ -52,19 +52,38 @@ object Notifier {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
+    /**
+     * নোটিফিকেশন চাপলে কোন পাতা — সার্ভারের data-র এই চাবিগুলো intent-এ যায় (App-এর openFromData পড়ে)।
+     * আগে শুধু কয়েকটা যেত (role যেত না — ডাক্তারের অ্যাপয়েন্টমেন্টের খবর রোগীর পাতা খুলত)।
+     */
+    val DATA_KEYS = listOf(
+        EXTRA_TYPE, EXTRA_REQUEST_ID, EXTRA_QUESTION_ID, EXTRA_KIND, EXTRA_RX_ID, EXTRA_AS_UID, EXTRA_REQ_ID,
+        "role", "sub", "ticketId", "emergencyId", "id", "labOrderId", "orderId", "findId", "visitId",
+    )
+
+    /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */
+    fun extrasOf(data: Map<String, String?>): Map<String, String> =
+        DATA_KEYS.mapNotNull { k -> data[k]?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
+
+    /** intent-এ নোটিফিকেশনের data থাকলে সেটা (type, requestId বা questionId না থাকলে null — সাধারণ খোলা) */
+    fun dataFrom(intent: Intent?): Map<String, String>? {
+        if (intent == null) return null
+        val m = DATA_KEYS.mapNotNull { k -> intent.getStringExtra(k)?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
+        return m.takeIf { EXTRA_TYPE in it || EXTRA_REQUEST_ID in it || EXTRA_QUESTION_ID in it }
+    }
+
     /** অ্যাপ খোলা থাকা অবস্থায় পুশ এলে নিজে দেখানো হয় (বন্ধ থাকলে ফোন নিজেই দেখায়) */
     @SuppressLint("MissingPermission")
-    fun show(context: Context, title: String, body: String, requestId: String?, type: String?, questionId: String? = null, tag: String? = null, kind: String? = null, extras: Map<String, String> = emptyMap()) {
+    fun show(context: Context, title: String, body: String, data: Map<String, String>, tag: String? = null) {
         if (!canNotify(context)) return
+        val extras = extrasOf(data)
+        val type = extras[EXTRA_TYPE]
+        val kind = extras[EXTRA_KIND]
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            if (requestId != null) putExtra(EXTRA_REQUEST_ID, requestId)
-            if (type != null) putExtra(EXTRA_TYPE, type)
-            if (questionId != null) putExtra(EXTRA_QUESTION_ID, questionId)
-            if (kind != null) putExtra(EXTRA_KIND, kind)
             extras.forEach { (k, v) -> putExtra(k, v) }
         }
-        val id = (requestId ?: questionId ?: tag ?: type ?: "app").hashCode()
+        val id = (extras[EXTRA_REQUEST_ID] ?: extras[EXTRA_QUESTION_ID] ?: tag ?: type ?: "app").hashCode()
         val pending = PendingIntent.getActivity(
             context, id, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -109,8 +128,7 @@ class BloodMessagingService : FirebaseMessagingService() {
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
         val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
             ?: message.data["findId"] ?: message.data["reqId"] ?: message.messageId
-        // প্রেসক্রিপশনের খবরে কোন প্রেসক্রিপশন, কেয়ারগিভারকে এলে কোন রোগীর — চাপলে সরাসরি সেটা
-        val extras = listOf(Notifier.EXTRA_RX_ID, Notifier.EXTRA_AS_UID, Notifier.EXTRA_REQ_ID).mapNotNull { k -> message.data[k]?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
-        Notifier.show(this, title, body, message.data["requestId"], message.data["type"], message.data["questionId"], tag, message.data["kind"], extras)
+        // চাপলে যে পাতা খোলে তার সব তথ্য (type, requestId, role, rxId, asUid, reqId …) intent-এ যায়
+        Notifier.show(this, title, body, message.data, tag)
     }
 }

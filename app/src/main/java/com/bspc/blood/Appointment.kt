@@ -1205,7 +1205,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                         home.enabled && ChamberTimes.clashSlots(home.times) -> tr("Two home-visit times overlap on the same day", "বাসায় যাওয়ার দুটো সময় একই বারে মিলে যাচ্ছে")
                         home.enabled && home.fee.isBlank() && !home.noFee ->
                             tr("Enter the home care fee, or tick \"No fee\"", "বাসায় সেবার ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
-                        home.enabled && !Regex("^(\\+?88)?01[3-9]\\d{8}$").matches(home.phone) ->
+                        // ডেমোর নার্সের নম্বর 0120000xxxx শুধু ডেমো অ্যাকাউন্টে চলে
+                        home.enabled && !Rules.isMobile(home.phone) ->
                             tr("Enter a valid mobile number for home care", "বাসায় সেবার জন্য সঠিক মোবাইল নম্বর দিন")
                         home.enabled && !homeAgreed -> tr("Please accept the home care terms", "বাসায় সেবার শর্তে সম্মতি দিন")
                         home.enabled && gpsPlace == null && home.upazilaIds.isEmpty() ->

@@ -266,7 +266,7 @@ internal fun MyBloodBanksSection(profile: Profile) {
     var openStats by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(reload) {
-        runCatching { BloodBanks.mine() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+        runCatching { BloodBanks.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
         runCatching { BloodBanks.stats() }.onSuccess { o ->
             val a = o.optJSONArray("items") ?: JSONArray()
             stats = (0 until a.length()).associate { a.getJSONObject(it).let { x -> x.optString("id") to x } }

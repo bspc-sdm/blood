@@ -136,7 +136,7 @@ fun PharmacySalesLite() {
     var errorMsg by remember { mutableStateOf<String?>(null) }
     val bump = PharmacyBooks.refresh.intValue
     LaunchedEffect(bump) {
-        runCatching { PharmacyBooks.today() }.onSuccess { today = it }.onFailure { errorMsg = it.message }
+        runCatching { PharmacyBooks.today() }.onSuccess { today = it; errorMsg = null }.onFailure { errorMsg = it.message }
         runCatching { ShopBooksLite.week() }.onSuccess { week = it }
         runCatching { ShopBooksLite.recentSales() }.onSuccess { rows = it }.onFailure { errorMsg = it.message; rows = emptyList() }
     }
@@ -194,7 +194,7 @@ fun PharmacyAnalyticsLite() {
     var week by remember { mutableStateOf<WeekReport?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     val bump = PharmacyBooks.refresh.intValue
-    LaunchedEffect(bump) { runCatching { ShopBooksLite.week() }.onSuccess { week = it }.onFailure { errorMsg = it.message } }
+    LaunchedEffect(bump) { runCatching { ShopBooksLite.week() }.onSuccess { week = it; errorMsg = null }.onFailure { errorMsg = it.message } }
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.testTag("pharm_analytics")) {
         ErrorText(errorMsg)

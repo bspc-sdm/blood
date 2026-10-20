@@ -227,7 +227,9 @@ internal fun StatusReasonLine(status: String, reason: String) {
 fun isContactPhone(raw: String): Boolean {
     val d = raw.filter { it.isDigit() }
     val local = if (d.startsWith("880")) "0" + d.drop(3) else d
-    return Regex("^0?1[3-9]\\d{8}$").matches(local) || Regex("^1\\d{4}$").matches(d) || Regex("^0[2-9]\\d{7,9}$").matches(local)
+    return Regex("^0?1[3-9]\\d{8}$").matches(local) || Regex("^1\\d{4}$").matches(d) || Regex("^0[2-9]\\d{7,9}$").matches(local) ||
+        // ডেমোর নম্বর (0120000xxxx) শুধু ডেমো অ্যাকাউন্টে
+        (DemoLogin.isDemo(AuthRepository.currentUid) && Rules.DEMO_MOBILE.matches(local))
 }
 
 /** সাপ্তাহিক বন্ধের দিন, যেমন "প্রতি শুক্র বন্ধ" */
@@ -685,7 +687,7 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
     var stats by remember { mutableStateOf<Map<String, org.json.JSONObject>>(emptyMap()) }
     var openStats by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload, refresh) {
-        runCatching { Ambulances.mine() }.onSuccess { list = it }.onFailure { errorMsg = it.message }
+        runCatching { Ambulances.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
         runCatching { Ambulances.stats() }.onSuccess { o ->
             val a = o.optJSONArray("items") ?: org.json.JSONArray()
             stats = (0 until a.length()).associate { a.getJSONObject(it).let { x -> x.optString("id") to x } }

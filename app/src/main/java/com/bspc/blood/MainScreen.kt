@@ -228,7 +228,8 @@ fun HomeTab(
             if (guest) GuestApi.nearbyRequests(lat, lng, profile.maxKm)
             else RequestRepository.nearbyOpen(lat, lng, groups.toSet(), AuthRepository.currentUid, profile.maxKm)
         }
-            .onSuccess { list = it }
+            // সফল লোড আগের ভুলের লেখা মুছে দেয় (runCatching এখন বাতিলকে ভুল ধরে না — Cancellation.kt)
+            .onSuccess { list = it; errorMsg = null }
             .onFailure { errorMsg = tr("Couldn't load requests", "রিকোয়েস্ট লোড হয়নি") }
         loading = false
     }

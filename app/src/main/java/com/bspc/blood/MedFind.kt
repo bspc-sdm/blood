@@ -329,7 +329,7 @@ fun PharmacyFindRequests(onChanged: () -> Unit = {}) {
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
-        runCatching { MedFind.requests() }.onSuccess { (l, o) -> items = l; off = o }.onFailure { errorMsg = it.message; if (items == null) items = emptyList() }
+        runCatching { MedFind.requests() }.onSuccess { (l, o) -> items = l; off = o; errorMsg = null }.onFailure { errorMsg = it.message; if (items == null) items = emptyList() }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
