@@ -3,7 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
 }
 
 // সার্ভারের ঠিকানা বিল্ডের সময় বদলানো যায় (CI-এর "Build APK (next)" নতুন সার্ভারের APK বানায়):
@@ -122,10 +121,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
-    // Firebase
+    // Firebase — শুধু লগইন (Auth) আর পুশ (Messaging); ক্র্যাশ রিপোর্ট Sentry-তে (Crashlytics ২০ অক্টোবর ২০২৬-এ সরানো)
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-crashlytics")
     // Sentry — শুধু ভুল আর ANR (NDK অংশ নয়)
     implementation("io.sentry:sentry-android-core:8.60.0")
     implementation("com.google.firebase:firebase-messaging")
