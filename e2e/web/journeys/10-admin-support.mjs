@@ -125,7 +125,7 @@ export async function run(J) {
     await settle(a.page, 600);
     await a.page.getByText('আপিল ও সমস্যা').first().waitFor({ timeout: 15000 });
     await J.shot('নতুন অ্যাডমিন প্যানেলে', 'নতুন অ্যাডমিন নিজের ইমেইলের কোডে ঢুকে বাম মেনু দেখেন (‘অ্যাডমিন’ মেনু নেই — ওটা শুধু মালিকের)।', { page: a.page });
-    if (await a.page.locator('nav, aside').getByText('অ্যাডমিন', { exact: true }).count()) throw new Error('নতুন অ্যাডমিন "অ্যাডমিন" মেনু দেখছেন (শুধু মালিকের হওয়ার কথা)');
+    if (await a.page.locator('nav a[href="#/admins"]').count()) throw new Error('নতুন অ্যাডমিন "অ্যাডমিন" মেনু দেখছেন (শুধু মালিকের হওয়ার কথা)');
     // মালিক বাদ দেন
     page = await owner(J, '#/admins');
     const row = page.locator('tr').filter({ hasText: NEW_ADMIN }).first();
@@ -150,7 +150,7 @@ export async function run(J) {
     await row.waitFor({ timeout: 15000 });
     await row.click();
     await settle(page, 600);
-    await page.getByRole('textbox', { name: 'কারণ' }).first().fill('ডেমো: ভুয়া রিকোয়েস্ট (পরীক্ষা)');
+    await page.locator('input.reason').first().fill('ডেমো: ভুয়া রিকোয়েস্ট (পরীক্ষা)');
     await J.shot('অ্যাডমিন: ব্যবহারকারী — অ্যাকাউন্ট চালু', '‘অ্যাকাউন্ট — চালু’, কারণের ঘর ভরা, ‘অ্যাকাউন্ট বন্ধ করুন’।');
     await adminDo(page, page, 'অ্যাকাউন্ট বন্ধ করুন', 'অ্যাকাউন্ট বন্ধ করা হয়েছে');
     await page.getByRole('button', { name: 'অ্যাকাউন্ট খুলে দিন' }).waitFor({ timeout: 10000 });
@@ -269,7 +269,8 @@ export async function run(J) {
     await page.waitForTimeout(200);
     const armed = page.getByRole('button', { name: 'নিশ্চিত? আবার চাপুন' });
     if (await armed.count()) await armed.first().click();
-    await page.getByText(/জনকে জানানো হয়েছে|নতুন কেউ নেই|আর কাউকে/).first().waitFor({ timeout: 15000 });
+    // নতুন যোগ্য ডোনার থাকলে "N জনকে জানানো হয়েছে", না থাকলে "নতুন করে জানানোর মতো আর কেউ নেই …" — দুটোই সঠিক উত্তর
+    await page.getByText(/জনকে জানানো হয়েছে|জানানোর মতো আর কেউ নেই/).first().waitFor({ timeout: 15000 });
     await J.shot('আরও ডোনার জানানো', 'পরের ঢেউ (admin_emergency_more) — কতজনকে জানানো হলো তার বার্তা।');
     card = page.locator('.card').filter({ hasText: HOSPITAL }).first();
     await adminDo(page, card, 'আহ্বান শেষ করুন', 'আহ্বান শেষ, যাঁরা আসছিলেন তাঁদের জানানো হয়েছে');
