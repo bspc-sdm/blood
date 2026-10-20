@@ -40,8 +40,12 @@ class FirebaseConfig(private val props: LifoloProperties) {
     }
 
     @Bean
-    fun identityProvider(holder: FirebaseHolder): IdentityProvider =
-        holder.app?.let { FirebaseIdentityProvider(FirebaseAuth.getInstance(it)) } ?: UnconfiguredIdentityProvider()
+    fun identityProvider(holder: FirebaseHolder): IdentityProvider {
+        val base = holder.app?.let { FirebaseIdentityProvider(FirebaseAuth.getInstance(it)) } ?: UnconfiguredIdentityProvider()
+        if (!props.demo.keepFirebaseUsers) return base
+        log.info("DEMO_KEEP_FIREBASE_USERS=true — demo Firebase accounts are never deleted, changed or signed out here")
+        return DemoSafeIdentityProvider(base)
+    }
 
     companion object {
         fun serviceAccountJson(raw: String): String =

@@ -4,7 +4,7 @@ name: Backend (Spring Boot)
 # Package branches (spring-p1 … spring-p6, see backend/docs/PHASE2-PLAN.md) run the same build; each publishes its own log branch.
 on:
   push:
-    branches: [spring, "spring-p*"]
+    branches: [spring, "spring-p*", cutover]
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"

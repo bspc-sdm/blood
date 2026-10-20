@@ -82,6 +82,8 @@ lifolo:
     mode: ${PUSH_MODE:fcm}
   public-base-url: ${PUBLIC_BASE_URL:https://blood-server-ashy.vercel.app}
   guest-rate-per-minute: ${GUEST_RATE_PER_MINUTE:240}
+  demo:
+    keep-firebase-users: ${DEMO_KEEP_FIREBASE_USERS:false}
   ses:
     region: ${SES_REGION:}
     access-key-id: ${SES_ACCESS_KEY_ID:}

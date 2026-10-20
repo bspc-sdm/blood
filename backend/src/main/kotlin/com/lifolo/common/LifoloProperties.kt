@@ -29,7 +29,14 @@ data class LifoloProperties(
     val push: Push = Push(),
     val ses: Ses = Ses(),
     val r2: R2 = R2(),
+    val demo: Demo = Demo(),
 ) {
+    /**
+     * DEMO_KEEP_FIREBASE_USERS: while another server (Vercel/Node) shares the Firebase project and its demo, the demo
+     * Firebase accounts (`demo-…`) are left alone (see [com.lifolo.auth.DemoSafeIdentityProvider]).
+     */
+    data class Demo(val keepFirebaseUsers: Boolean = false)
+
     data class Firebase(val enabled: Boolean = true)
 
     /**

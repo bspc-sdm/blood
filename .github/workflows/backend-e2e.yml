@@ -12,7 +12,7 @@ name: Backend e2e (web journeys vs Spring)
 # e2e/<spring|node>/ (report-*.json|md, shots-*/ = screenshots of failed steps, run/stack logs, spring-errors.log).
 on:
   push:
-    branches: [spring, "spring-p*"]
+    branches: [spring, "spring-p*", cutover]
     paths:
       - "backend/**"
       - "e2e/web/**"
