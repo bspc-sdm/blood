@@ -288,7 +288,11 @@ window)
   kv app_oom "$(grep -c 'OutOfMemoryError' "$dir/app.window" || true)"
   # সবচেয়ে বেশি আসা ত্রুটির লাইন (ইমেইল/টোকেন ঢাকা)
   grep -E '\b(ERROR|WARN)\b' "$dir/app.window" | sed -E 's/^[0-9T:. -]+//; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-f]{20,}/<id>/g' \
-    | cut -c1-160 | sort | uniq -c | sort -rn | head -8 > "$dir/app.top" || true
+    | sed -E 's/^.*\] [A-Za-z0-9_.$]+ +: //' | cut -c1-160 | sort | uniq -c | sort -rn | head -8 > "$dir/app.top" || true
+  # ত্রুটির কারণ (Exception-এর শ্রেণি আর বার্তা, "Caused by" সহ) — ERROR লাইনের পরের লাইনে থাকে
+  grep -E '^(Caused by: )?[a-z][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)+(Exception|Error)\b' "$dir/app.window" \
+    | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-f-]{20,}/<id>/g' \
+    | cut -c1-200 | sort | uniq -c | sort -rn | head -8 >> "$dir/app.top" || true
   kv api_pid "$(api_pid)"
   kv api_restarts "$(systemctl show -p NRestarts --value "$UNIT")"
   ;;
@@ -347,6 +351,11 @@ disk)
   journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null | grep -E '\bERROR\b' \
     | sed -E 's/^[0-9T:. +-]+//; s/\[[^]]*\]//g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-fA-F-]{20,}/<id>/g; s/[0-9]+/N/g' \
     | cut -c1-150 | sort | uniq -c | sort -rn | head -6 | sed 's/^/  /'
+  echo "গত ২৪ ঘণ্টায় ত্রুটির কারণ (Exception, Caused by):"
+  journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null \
+    | grep -E '^(Caused by: )?[a-z][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)+(Exception|Error)\b' \
+    | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-f-]{20,}/<id>/g' \
+    | cut -c1-200 | sort | uniq -c | sort -rn | head -8 | sed 's/^/  /'
   echo "nginx access.log: $(du -h /var/log/nginx/access.log 2>/dev/null | cut -f1), ঘোরানো ফাইল: $(find /var/log/nginx -name 'access.log.*' 2>/dev/null | wc -l)টা"
   echo "postgres লগ: $(du -sh /var/log/postgresql 2>/dev/null | cut -f1)"
   echo "বড় ফাইল (>100 MB, /var /opt /root /home):"
