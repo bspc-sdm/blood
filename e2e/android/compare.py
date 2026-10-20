@@ -73,12 +73,15 @@ def main():
         if worse:
             verdict_ok = False
         diff = []
-        n = max(len(da), len(db))
-        for i in range(n):
-            x = da[i] if i < len(da) else ("-", "-")
-            y = db[i] if i < len(db) else ("-", "-")
+        for i in range(min(len(da), len(db))):
+            x, y = da[i], db[i]
             if x[1] != y[1]:
                 diff.append(f"  - #{i} node `{x[1]}` {x[0]} | spring `{y[1]}` {y[0]}")
+        # একদিক আগে থেমে গেলে বাকি ধাপগুলো এক লাইনে
+        if len(da) != len(db):
+            longer, label = (da, "spring") if len(da) > len(db) else (db, "node")
+            done = Counter(s[1] for s in longer[min(len(da), len(db)):])
+            diff.append(f"  - {abs(len(da) - len(db))} later step(s) not reached on {label} (other side: {dict(done)})")
         par = "same" if same_rc and not diff else ("SPRING WORSE" if worse else ("rc differs" if not same_rc else f"{len(diff)} step(s) differ"))
         lines.append(f"| {f} | {a[0]} ({a[1]}) | {b[0]} ({b[1]}) | {fmt(ca)} | {fmt(cb)} | {par} |")
         if diff:
