@@ -149,7 +149,8 @@ export async function run(J) {
     await J.shot('অর্ডার নিন — দাম আর সময়', 'মোট দাম ৪২০ টাকা, কখন পৌঁছাবে ‘এক ঘণ্টায়’।');
     await dlg.getByRole('button', { name: 'নিলাম' }).click();
     await see(page, 'রোগীকে জানানো হয়েছে');
-    row = await orderRow(page, 'ডেমো বাসা ৫, শিববাড়ি');
+    // নেওয়া অর্ডার "চলছে"-তে যায় — তালিকা নতুন করে আসার পরের সারি (দাম লেখা), আগের "নতুন"-এর সারি নয়
+    row = await orderRow(page, ['ডেমো বাসা ৫, শিববাড়ি', '৪২০ টাকা'], { button: 'পাঠিয়ে দিয়েছি' });
     await J.shot('অর্ডার নেওয়া হলো', '‘রোগীকে জানানো হয়েছে’; সারিতে ‘৪২০ টাকা · এক ঘণ্টায়’।');
     await row.getByRole('button', { name: 'পাঠিয়ে দিয়েছি' }).click();
     await settle(page, 500);
