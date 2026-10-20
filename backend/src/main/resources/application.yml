@@ -66,10 +66,15 @@ jobrunr:
     enabled: false
 
 sentry:
-  # empty DSN = Sentry disabled
+  # empty DSN = Sentry disabled (project lifolo-server; deploy passes SENTRY_DSN_BACKEND as SENTRY_DSN)
+  # errors only: no tracing (traces-sample-rate unset), no profiling, no PII; SentryScrubber removes emails/phones/tokens
   dsn: ${SENTRY_DSN:}
   environment: ${SENTRY_ENVIRONMENT:production}
-  traces-sample-rate: 0.0
+  release: ${SENTRY_RELEASE:}
+  sample-rate: 1.0
+  send-default-pii: false
+  max-request-body-size: none
+  in-app-includes: com.lifolo
 
 lifolo:
   admin-emails: ${ADMIN_EMAILS:}

@@ -23,6 +23,7 @@
   "dependencies": {
     "@fontsource/hind-siliguri": "5.1.0",
     "@fontsource/roboto": "5.1.0",
+    "@sentry/vue": "11.4.0",
     "@tanstack/vue-query": "^5.104.4",
     "firebase": "^11.10.0",
     "geofire-common": "^6.0.0",

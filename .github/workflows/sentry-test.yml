@@ -1,0 +1,102 @@
+name: Sentry test
+
+# তিনটা Sentry প্রকল্পে (lifolo-server, lifolo-web, lifolo-android) একটা করে পরীক্ষার ঘটনা — শুধু হাতে চালানো।
+#   ১) প্রতিটা DSN-এ সরাসরি একটা envelope POST (DSN আর প্রকল্প ঠিক কি না; HTTP 200 = Sentry নিয়েছে)
+#   ২) সার্ভার: VPS-এ লগে "sentry initialised: enabled=true …" আর /api/cron/sentry-test (অ্যাপের নিজের SDK দিয়ে ঘটনা)
+#   ৩) ওয়েব: Chromium-এ https://lifolo.com/#sentry-test (সরাসরি VPS-এ) — console-এ "[sentry] initialised", Sentry-তে POST 200
+#   ৪) Android: শুধু ১) — অ্যাপে: সেটিংস → "ভার্সন"-এ ৭ বার চাপুন (লুকানো পরীক্ষা), Toast-এ ঘটনার id
+# ফল: Summary আর log branch `ci-log-sentry` (summary.md)। Sentry-র পাতায় Issues-এ "test event" খুঁজে দেখুন।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Envelope POST to each project
+        id: envl
+        env:
+          DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
+          DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+          DSN_ANDROID: ${{ secrets.SENTRY_DSN_ANDROID }}
+        run: |
+          post() { # $1 = নাম, $2 = DSN
+            local dsn key host pid id now
+            dsn="$(printf '%s' "$2" | tr -d '[:space:]')"
+            if ! [[ "$dsn" =~ ^https://([A-Za-z0-9]+)@([a-z0-9.-]+\.sentry\.io)/([0-9]+)$ ]]; then echo "$1=no DSN"; return; fi
+            key="${BASH_REMATCH[1]}"; host="${BASH_REMATCH[2]}"; pid="${BASH_REMATCH[3]}"
+            id="$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"; now="$(date -u +%FT%TZ)"
+            code="$(printf '{"event_id":"%s","sent_at":"%s"}\n{"type":"event"}\n{"event_id":"%s","timestamp":"%s","level":"info","platform":"other","environment":"production","message":{"formatted":"%s: test event (CI envelope)"},"tags":{"source":"sentry-test-workflow"}}\n' \
+                "$id" "$now" "$id" "$now" "$1" \
+              | curl -sS -m 20 -o /dev/null -w '%{http_code}' -X POST "https://$host/api/$pid/envelope/" \
+                  -H 'content-type: application/x-sentry-envelope' \
+                  -H "X-Sentry-Auth: Sentry sentry_version=7, sentry_key=$key, sentry_client=lifolo-ci/1.0" --data-binary @- || echo 000)"
+            echo "$1=HTTP $code"
+          }
+          {
+            post lifolo-server "$DSN_BACKEND"
+            post lifolo-web "$DSN_WEB"
+            post lifolo-android "$DSN_ANDROID"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Server (VPS) — SDK log line and a test event from the app
+        id: srv
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          bash deploy/ci/vps-connect.sh >/dev/null
+          line="$(ssh vps "journalctl -u lifolo-api.service --since '-30 days' --no-pager 2>/dev/null | grep -o 'sentry initialised:.*' | tail -1" || true)"
+          echo "log=${line:-not found}" | tee -a "$GITHUB_OUTPUT"
+          # shellcheck disable=SC2016  # VPS-এ খোলে
+          out="$(ssh vps 'curl -sS -m 30 -X POST -H "Authorization: Bearer $(sed -n "s/^CRON_SECRET=//p" /etc/lifolo/app.env)" http://127.0.0.1:8080/api/cron/sentry-test' || true)"
+          echo "event=${out:0:200}" | tee -a "$GITHUB_OUTPUT"
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web-vue/package-lock.json
+      - name: Web — Chromium on https://lifolo.com/#sentry-test
+        id: web
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          (cd web-vue && npm ci --no-audit --no-fund >/dev/null && npx playwright install --with-deps chromium >/dev/null)
+          out="$(node deploy/ci/sentry-web-test.mjs "$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')" 2>&1 || true)"
+          echo "$out"
+          echo "result=$(printf '%s' "$out" | tail -1)" >> "$GITHUB_OUTPUT"
+          echo "console=$(printf '%s' "$out" | grep '^console=' | cut -c9-300)" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
+        env:
+          E_SRV: ${{ steps.envl.outputs.lifolo-server }}
+          E_WEB: ${{ steps.envl.outputs.lifolo-web }}
+          E_AND: ${{ steps.envl.outputs.lifolo-android }}
+          S_LOG: ${{ steps.srv.outputs.log }}
+          S_EVENT: ${{ steps.srv.outputs.event }}
+          W_RES: ${{ steps.web.outputs.result }}
+          W_CON: ${{ steps.web.outputs.console }}
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: sentry test ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          {
+            echo "## Sentry পরীক্ষা — $(date -u +%FT%TZ)"
+            echo
+            echo "| প্রকল্প | DSN-এ সরাসরি envelope | SDK |"
+            echo "|---|---|---|"
+            echo "| lifolo-server | ${E_SRV:-—} | লগ: \`${S_LOG:-—}\` · অ্যাপ থেকে ঘটনা: \`${S_EVENT:-—}\` |"
+            echo "| lifolo-web | ${E_WEB:-—} | ${W_RES:-—} · console: \`${W_CON:-—}\` |"
+            echo "| lifolo-android | ${E_AND:-—} | ফোনে: সেটিংস → ভার্সন ৭ বার (Toast-এ id) |"
+          } | tee -a "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/log/summary.md"
+          bash .github/scripts/publish-log.sh ci-log-sentry "$RUNNER_TEMP/log" summary.md || true

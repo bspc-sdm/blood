@@ -17,6 +17,7 @@ import { initSession } from './lib/session';
 import { applyTheme } from './lib/theme';
 import { getLang } from './lib/i18n';
 import { vFocus } from './ui/composables';
+import { initSentry } from './lib/sentry';
 
 applyTheme();
 // নতুন ডিপ্লয়ের পর পুরোনো ট্যাবে কোনো অংশের ফাইল না পেলে একবার নিজে থেকে আবার লোড
@@ -35,4 +36,7 @@ window.addEventListener('vite:preloadError', (e) => {
 document.documentElement.lang = getLang();
 initSession();
 
-createApp(App).use(VueQueryPlugin, { queryClient }).use(router).directive('focus', vFocus).mount('#root');
+const app = createApp(App).use(VueQueryPlugin, { queryClient }).use(router).directive('focus', vFocus);
+app.mount('#root');
+// ভুলের খবর (Sentry) — DSN থাকলে তবেই, আলাদা অংশে লোড
+void initSentry(app);

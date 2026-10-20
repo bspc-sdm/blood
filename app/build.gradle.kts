@@ -15,6 +15,9 @@ val lifoloServer: String = (findProperty("lifoloServer") as String?)?.trim()?.tr
 require(Regex("^https://[a-z0-9.-]+(:[0-9]+)?$").matches(lifoloServer)) { "lifoloServer must be https://host: $lifoloServer" }
 val lifoloLinkHost: String = lifoloServer.removePrefix("https://").substringBefore(':')
 val lifoloVersionSuffix: String = (findProperty("lifoloVersionSuffix") as String?)?.trim().orEmpty()
+// Sentry (প্রকল্প lifolo-android): CI-র SENTRY_DSN_ANDROID সিক্রেট (বা -PsentryDsn=…); খালি/ভুল = Sentry বন্ধ
+val sentryDsn: String = ((findProperty("sentryDsn") as String?) ?: System.getenv("SENTRY_DSN_ANDROID") ?: "").trim()
+    .takeIf { Regex("^https://[A-Za-z0-9]+@[a-z0-9.-]+\\.sentry\\.io/[0-9]+$").matches(it) }.orEmpty()
 
 android {
     namespace = "com.bspc.blood"
@@ -28,6 +31,7 @@ android {
         versionName = "2.34.1"
         versionNameSuffix = lifoloVersionSuffix.ifEmpty { null }
         buildConfigField("String", "SERVER_URL", "\"$lifoloServer\"")
+        buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)
         manifestPlaceholders["linkHost"] = lifoloLinkHost
     }
@@ -96,6 +100,8 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-crashlytics")
+    // Sentry — শুধু ভুল আর ANR (NDK অংশ নয়)
+    implementation("io.sentry:sentry-android-core:8.60.0")
     implementation("com.google.firebase:firebase-messaging")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 

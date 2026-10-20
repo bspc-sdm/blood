@@ -27,7 +27,7 @@ STATUS=/var/lib/lifolo/deploy-web-status
 ACME=/var/www/letsencrypt
 DL_DIR=/var/www/lifolo-dl
 
-TARBALL="" SHA="" WEB_DOMAIN="" NO_CERT=no
+TARBALL="" SHA="" WEB_DOMAIN="" NO_CERT=no SENTRY_HOST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --site) TARBALL="$2"; shift 2 ;;
@@ -35,6 +35,7 @@ while [ $# -gt 0 ]; do
     --web-domain) WEB_DOMAIN="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --ci) shift ;;
     --no-cert) NO_CERT=yes; shift ;;
+    --sentry-host) SENTRY_HOST="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     *) echo "অচেনা আর্গুমেন্ট: $1" >&2; exit 2 ;;
   esac
 done
@@ -48,6 +49,8 @@ die() { printf 'XX %s\n' "$*" >&2; st fatal "$*"; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "root হিসেবে চালান"
 [[ "$WEB_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "ডোমেইন ঠিক নেই: $WEB_DOMAIN"
+# Sentry (ওয়েবের ভুলের খবর): শুধু ওয়েব অ্যাপের CSP-তে ওই একটা ঠিকানা (অ্যাডমিন পাঠায় না, তার CSP বদলায় না)
+[ -z "$SENTRY_HOST" ] || [[ "$SENTRY_HOST" =~ ^[a-z0-9.-]+\.sentry\.io$ ]] || die "Sentry-র ঠিকানা ঠিক নেই: $SENTRY_HOST"
 [ -f "$TARBALL" ] || die "ওয়েবের ফাইল পৌঁছায়নি ($TARBALL)"
 grep -q 'managed by deploy-backend.sh' "$SNIPPET_API" 2>/dev/null || die "$SNIPPET_API নেই — আগে Deploy backend-এর অ্যাপ অংশ সফল হতে হবে"
 WWW="www.$WEB_DOMAIN"
@@ -102,7 +105,7 @@ fi
 say "nginx: $WEB_DOMAIN-এর পথ (Vercel-এর vercel.json-এর মতো)"
 HSTS='add_header Strict-Transport-Security "max-age=31536000" always;'
 # vercel.json-এর হেডার — হুবহু
-CSP_WEB="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+CSP_WEB="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com${SENTRY_HOST:+ https://$SENTRY_HOST}; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 CSP_ADMIN="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 web_headers() { # $1 = Cache-Control
   cat <<EOF
