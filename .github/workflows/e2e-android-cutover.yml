@@ -2,7 +2,7 @@ name: E2E Android cutover (Node vs Spring)
 
 # একই Maestro যাত্রা (e2e/android) দুবার: বর্তমান সার্ভার (Node, Vercel) আর নতুন সার্ভার (Spring, VPS) —
 # দুটো APK শুধু সার্ভারের ঠিকানায় আলাদা (-PlifoloServer)। শুধু ডেমো অ্যাকাউন্ট (দুই সার্ভারের ডেমো)।
-# ফল: শাখা ci-log-cutover-android — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
+# ফল: শাখা ci-log-<চালানো শাখা> (cutover-android → ci-log-cutover-android) — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
 # Only by hand (Run workflow / REST dispatch with ref=cutover-android).
 on:
   workflow_dispatch:
@@ -121,9 +121,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: arts
-      - name: Compare and publish to ci-log-cutover-android
+      - name: Compare and publish to ci-log-<branch>
         env:
           GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ci-log-${{ github.ref_name }}
         run: |
           set -e
           mkdir -p log/node log/spring log/server
@@ -140,5 +141,5 @@ jobs:
           git config user.email ci@users.noreply.github.com
           git add -A
           git commit -qm "E2E Android cutover ${{ github.sha }} run ${{ github.run_id }}"
-          git push -q -f "$remote" HEAD:refs/heads/ci-log-cutover-android
-          echo "log → ci-log-cutover-android"
+          git push -q -f "$remote" "HEAD:refs/heads/$LOG_BRANCH"
+          echo "log → $LOG_BRANCH"

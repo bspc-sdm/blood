@@ -71,6 +71,21 @@ env:
 - tapOn:
     text: "ফার্মেসি"
     index: 0
+# ২.৩২.০: তালিকার আগে "কীভাবে কিনবেন?" — দোকানে গিয়ে কিনব (বাছা থাকলেও ঘর দুটো থাকে, আবার চাপলে ক্ষতি নেই)
+- extendedWaitUntil:
+    visible: ".*দোকানে গি(?:য়|য়)ে কিনব.*"
+    timeout: 30000
+- tapOn: ".*দোকানে গি(?:য়|য়)ে কিনব.*"
+- extendedWaitUntil:
+    visible: "ডেমো .*ফার্মেসি"
+    timeout: 30000
+# ২.৩২.০: প্রেসক্রিপশন তালিকার ওপরেই বাছা হয় (নতুনটা আগে থেকে বাছা) — Bislol-এরটা বাছা
+- tapOn: "প্রেসক্রিপশন: .*"
+- extendedWaitUntil:
+    visible: ".*Bislol.*"
+    timeout: 15000
+- takeScreenshot: j1-10-which-rx
+- tapOn: ".*Bislol.*"
 - extendedWaitUntil:
     visible: "ডেমো .*ফার্মেসি"
     timeout: 30000
@@ -85,18 +100,14 @@ env:
 - takeScreenshot: j1-09-pharmacy-sheet
 # ২.২৭.০: নিচের আটকানো বারে "ফোন"-এর পাশে
 - tapOn: "প্রেসক্রিপশন পাঠান"
+# ২.৩২.০: উপায় আর প্রেসক্রিপশন তালিকায় বাছা — আর জিজ্ঞেস নয়; এই দোকানের হিসাব আর "দোকানে পাঠান"
 - extendedWaitUntil:
-    visible: ".*Bislol.*"
-    timeout: 30000
-- takeScreenshot: j1-10-which-rx
-- tapOn: ".*Bislol.*"
-- extendedWaitUntil:
-    visible: ".*দোকানে গি(?:য়|য়)ে নেব.*"
+    visible: "দোকানে পাঠান"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: j1-11-send-dialog
-- tapOn: ".*দোকানে গি(?:য়|য়)ে নেব.*"
+- tapOn: "দোকানে পাঠান"
 - extendedWaitUntil:
     visible: ".*প্রেসক্রিপশন পাঠানো হ(?:য়|য়)েছে.*"
     timeout: 30000
