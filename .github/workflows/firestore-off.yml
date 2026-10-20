@@ -1,0 +1,381 @@
+name: Firestore off (one-off)
+
+# Firestore বন্ধ করার এককালীন কাজ (মালিকের অনুমোদনে, অক্টোবর ২০২৬) — Actions → "Firestore off (one-off)" → Run workflow →
+# confirm = LOCK। অ্যাপ (২.৩৪.০+) আর ওয়েব (lifolo.com) শুধু VPS-এর Spring সার্ভারে (PostgreSQL) কথা বলে; Firestore আর লাগে না।
+# বাংলা গাইড: deploy/CUTOVER.md ("Firestore বন্ধ")।
+#
+# ধাপ:
+#   ১) firebase-admin দিয়ে (default) ডাটাবেসের পুরো export — সব collection আর subcollection (পুনরাবৃত্তিভাবে), নথি JSON-এ
+#      (Timestamp/GeoPoint/reference/bytes আলাদা চিহ্নে), gzip → সরাসরি VPS-এ /var/backups/lifolo/firestore-final-<UTC তারিখ>.json.gz
+#      (root, 600)। GitHub-এর artifact-এ নয়। VPS-এ খুলে নথির সংখ্যা (প্রতিটা collection-এ) আর sha256 মেলানো।
+#   ২) ১ মিললে তবেই: এখনকার Firestore rules-এর লেখা VPS-এ (firestore-rules-before-<তারিখ>.rules, ফেরত আনার জন্য), তারপর
+#      rules = সব পথে deny-all (securityRules.releaseFirestoreRulesetFromSource), আবার পড়ে মেলানো। অনুমতি না থাকলে থামে আর
+#      কোন IAM role লাগবে তা লেখে — অন্য কোনো পথ চেষ্টা করে না।
+#   ৩) Storage-এ হাত নয় — ডিফল্ট বাকেটে ফাইল আছে কি না আর rules আছে কি না শুধু দেখা।
+# কোনো নথি বা ডাটাবেস মোছা হয় না। Firebase Auth, Cloud Messaging, অ্যাপের নিবন্ধন, authorized domains, service account — অছোঁয়া।
+#
+# ফল log branch `ci-log-firestore-off`-এ (summary.md, status.txt) — শুধু collection-এর নাম আর নথির সংখ্যা; কোনো তথ্য, ID বা ইমেইল নয়
+# (রিপো public)। push-এ (এই ফাইল বা স্ক্রিপ্ট বদলালে) শুধু "test" চলে: Firestore emulator-এ export আর যাচাইয়ের পরীক্ষা।
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "নিশ্চিত করতে LOCK লিখুন (export → VPS, তারপর Firestore rules = deny-all)"
+        type: string
+        required: true
+  push:
+    branches: [firestore-off]
+    paths:
+      - ".github/workflows/firestore-off.yml"
+      - ".github/scripts/firestore-off.js"
+      - ".github/scripts/firestore-verify.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Export + verify against the Firestore emulator
+        run: |
+          node --check .github/scripts/firestore-off.js
+          python3 -m py_compile .github/scripts/firestore-verify.py
+          t="$RUNNER_TEMP/t" && mkdir -p "$t/fa" && cd "$t/fa"
+          npm init -y >/dev/null && npm i --no-audit --no-fund --silent firebase-admin@13.10.0 firebase-tools@13.29.1 >/dev/null
+          cd "$t"
+          openssl genrsa 2048 2>/dev/null > k.pem
+          python3 -c "import json;print(json.dumps({'type':'service_account','project_id':'demo-lifolo','private_key':open('k.pem').read(),'client_email':'t@demo-lifolo.iam.gserviceaccount.com','client_id':'1','token_uri':'https://oauth2.googleapis.com/token'}))" > sa.json
+          echo 'rules_version = "2"; service cloud.firestore { match /databases/{d}/documents { match /{x=**} { allow read, write: if false; } } }' > t.rules
+          echo '{"firestore":{"rules":"t.rules"},"emulators":{"firestore":{"port":8085},"ui":{"enabled":false}}}' > firebase.json
+          cat > seed-and-export.sh <<'SH'
+          set -euo pipefail
+          node - <<'JS'
+          const admin = require('firebase-admin');
+          const { getFirestore, Timestamp, GeoPoint } = require('firebase-admin/firestore');
+          admin.initializeApp({ projectId: 'demo-lifolo' });
+          const db = getFirestore();
+          (async () => {
+            await db.doc('users/u1').set({ name: 'a', at: Timestamp.now(), loc: new GeoPoint(23.7, 90.4), ref: db.doc('requests/r1'), b: Buffer.from('x'), big: 9007199254740993n });
+            await db.doc('users/u2').set({ n: 1, arr: [1, { m: null }] });
+            await db.doc('requests/r1').set({ open: true });
+            await db.doc('requests/r1/private/p').set({ phone: 'x' });
+            await db.doc('requests/r1/private/p/deep/d1').set({ z: 1 });
+            await db.doc('ghost/g1/sub/s1').set({ only: 'child' });
+          })().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+          JS
+          SA_FILE="$PWD/sa.json" node "$GITHUB_WORKSPACE/.github/scripts/firestore-off.js" export "$PWD/out.json.gz" "$PWD/manifest.json"
+          SH
+          export NODE_PATH="$t/fa/node_modules"
+          "$t/fa/node_modules/.bin/firebase" emulators:exec --only firestore --project demo-lifolo "bash seed-and-export.sh"
+          python3 - "$t/out.json.gz" < "$GITHUB_WORKSPACE/.github/scripts/firestore-verify.py" > verify.json
+          cat manifest.json verify.json
+          python3 - <<'PY'
+          import json, gzip
+          m = json.load(open('manifest.json')); v = json.load(open('verify.json'))
+          exp = {'users': 2, 'requests': 1, 'requests/*/private': 1, 'requests/*/private/*/deep': 1, 'ghost/*/sub': 1}
+          mg = {k: n for k, n in m['groups'].items() if n}
+          assert m['total'] == 6 == v['total'], (m['total'], v['total'])
+          assert mg == v['groups'] == exp, (mg, v['groups'])
+          assert m['sha256'] == v['sha256'] and m['bytes'] == v['bytes']
+          assert m['missingParents'] == 1 and m['topLevel'] == ['ghost', 'requests', 'users'], m
+          d = json.load(gzip.open('out.json.gz', 'rt'))
+          u1 = next(x for x in d['documents'] if x['path'] == 'users/u1')['data']
+          assert u1['at']['__type'] == 'timestamp' and u1['loc'] == {'__type': 'geopoint', 'latitude': 23.7, 'longitude': 90.4}
+          assert u1['ref'] == {'__type': 'reference', 'path': 'requests/r1'} and u1['b'] == {'__type': 'bytes', 'base64': 'eA=='}
+          assert u1['big'] == {'__type': 'int64', 'value': '9007199254740993'}, u1['big']
+          print('emulator export test: ok')
+          PY
+
+  run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Confirm
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != LOCK ]; then
+            echo "::error::confirm-এ ঠিক LOCK লিখতে হবে — কিছু করা হয়নি।"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: firebase-admin + service account
+        id: sa
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/fa" "$RUNNER_TEMP/out"
+          (cd "$RUNNER_TEMP/fa" && npm init -y >/dev/null && npm i --no-audit --no-fund --silent firebase-admin@13.10.0 >/dev/null)
+          fb="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          [ -n "$fb" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT সিক্রেট নেই"; exit 1; }
+          if [ "${fb:0:1}" = "{" ]; then printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          else printf '%s' "$fb" | tr -d '\n ' | base64 -d > "$RUNNER_TEMP/sa.json"; fi
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d.get('private_key') and d.get('client_email') and d.get('project_id'); print('project='+d['project_id'])" "$RUNNER_TEMP/sa.json" >> "$GITHUB_OUTPUT" \
+            || { echo "::error::FIREBASE_SERVICE_ACCOUNT ঠিক নেই (service account JSON বা তার base64)"; exit 1; }
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          pw="${VPS_ROOT_PASSWORD%$'\n'}"; pw="${pw%$'\r'}"
+          if [ -n "$pw" ]; then echo "::add-mask::$pw"; fi
+          bash deploy/ci/vps-connect.sh
+
+      # ---------------------------------------------------------------- ১) export
+      - name: 1. Export Firestore (all collections + subcollections)
+        id: export
+        env:
+          NODE_PATH: ${{ runner.temp }}/fa/node_modules
+          SA_FILE: ${{ runner.temp }}/sa.json
+          DAY: ${{ steps.sa.outputs.date }}
+        run: |
+          umask 077
+          f="$RUNNER_TEMP/out/firestore-final-$DAY.json.gz"
+          node .github/scripts/firestore-off.js export "$f" "$RUNNER_TEMP/out/manifest.json"
+          python3 - "$RUNNER_TEMP/out/manifest.json" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          m = json.load(open(sys.argv[1]))
+          print('total=%d' % m['total'])
+          print('collections=%d' % len(m['topLevel']))
+          print('bytes=%d' % m['bytes'])
+          print('sha=%s' % m['sha256'])
+          dbs = m['databases']
+          print('databases=%s' % (','.join(dbs['names']) if 'names' in dbs else 'unknown (' + dbs.get('error', '') + ')'))
+          PY
+
+      - name: 1. Copy to the VPS and verify there
+        id: vps
+        env:
+          DAY: ${{ steps.sa.outputs.date }}
+        run: |
+          src="$RUNNER_TEMP/out/firestore-final-$DAY.json.gz"
+          [[ "$DAY" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || exit 1
+          dir=/var/backups/lifolo
+          name="firestore-final-$DAY.json.gz"
+          # একই দিনে আবার চালালে আগেরটা মোছা নয় — নতুনটার নামে সময় যোগ
+          # shellcheck disable=SC2029
+          if ssh vps "test -e '$dir/$name'"; then name="firestore-final-$DAY-$(date -u +%H%M%S).json.gz"; fi
+          # shellcheck disable=SC2029
+          ssh vps "test -d '$dir' || install -d -o root -g root -m 0700 '$dir'; umask 077; cat > '$dir/.$name.part'" < "$src"
+          # shellcheck disable=SC2029
+          ssh vps "python3 - '$dir/.$name.part'" < .github/scripts/firestore-verify.py > "$RUNNER_TEMP/out/verify.json"
+          python3 - "$RUNNER_TEMP/out/manifest.json" "$RUNNER_TEMP/out/verify.json" <<'PY'
+          import json, sys
+          m = json.load(open(sys.argv[1])); v = json.load(open(sys.argv[2]))
+          mg = {k: n for k, n in m['groups'].items() if n}
+          checks = {'total': m['total'] == v['total'], 'groups': mg == v['groups'], 'sha256': m['sha256'] == v['sha256'], 'bytes': m['bytes'] == v['bytes']}
+          print('VPS verify:', checks)
+          sys.exit(0 if all(checks.values()) else 1)
+          PY
+          # shellcheck disable=SC2029
+          ssh vps "mv '$dir/.$name.part' '$dir/$name' && chown root:root '$dir/$name' && chmod 600 '$dir/$name' && stat -c '%U:%G %a %s' '$dir/$name'" > "$RUNNER_TEMP/out/stat.txt"
+          read -r owner mode size < "$RUNNER_TEMP/out/stat.txt"
+          [ "$owner" = root:root ] && [ "$mode" = 600 ] || { echo "::error::ফাইলের মালিক/অনুমতি ঠিক নয়: $owner $mode"; exit 1; }
+          echo "file=$dir/$name" >> "$GITHUB_OUTPUT"
+          echo "size=$size" >> "$GITHUB_OUTPUT"
+          echo "verified=yes" >> "$GITHUB_OUTPUT"
+          echo "VPS: $dir/$name ($owner $mode, $size bytes) — verified"
+          rm -f "$src"
+
+      # ---------------------------------------------------------------- ২) rules
+      - name: 2. Save the current Firestore rules to the VPS
+        id: rulesget
+        if: steps.vps.outputs.verified == 'yes'
+        env:
+          NODE_PATH: ${{ runner.temp }}/fa/node_modules
+          SA_FILE: ${{ runner.temp }}/sa.json
+          DAY: ${{ steps.sa.outputs.date }}
+        run: |
+          umask 077
+          rc=0
+          node .github/scripts/firestore-off.js rules-get "$RUNNER_TEMP/out/prev.rules" "$RUNNER_TEMP/out/rules-get.json" || rc=$?
+          python3 - "$RUNNER_TEMP/out/rules-get.json" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          i = json.load(open(sys.argv[1]))
+          for k in ('ok', 'none', 'permission', 'missing', 'role', 'error', 'ruleset', 'createTime', 'sha256', 'denyAlready'):
+              if k in i: print('%s=%s' % (k, str(i[k]).replace('\n', ' ')))
+          PY
+          [ "$rc" = 0 ] || exit "$rc"
+          sha="$(sha256sum "$RUNNER_TEMP/out/prev.rules" | awk '{print $1}')"
+          repo="$(sha256sum firestore.rules | awk '{print $1}')"
+          echo "same_as_repo=$([ "$sha" = "$repo" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          dir=/var/backups/lifolo
+          name="firestore-rules-before-$DAY.rules"
+          # shellcheck disable=SC2029
+          if ssh vps "test -e '$dir/$name'"; then name="firestore-rules-before-$DAY-$(date -u +%H%M%S).rules"; fi
+          # shellcheck disable=SC2029
+          ssh vps "umask 077; cat > '$dir/$name' && chown root:root '$dir/$name' && chmod 600 '$dir/$name' && sha256sum '$dir/$name'" < "$RUNNER_TEMP/out/prev.rules" > "$RUNNER_TEMP/out/rules-vps.txt"
+          [ "$(awk '{print $1}' "$RUNNER_TEMP/out/rules-vps.txt")" = "$sha" ] || { echo "::error::VPS-এ rules-এর কপি মেলেনি"; exit 1; }
+          echo "file=$dir/$name" >> "$GITHUB_OUTPUT"
+          echo "saved=yes" >> "$GITHUB_OUTPUT"
+          echo "previous rules → VPS $dir/$name (sha256 ${sha:0:12}, same as repo firestore.rules: $([ "$sha" = "$repo" ] && echo yes || echo no))"
+
+      - name: 2. Lock Firestore rules (deny-all)
+        id: lock
+        if: steps.rulesget.outputs.saved == 'yes'
+        env:
+          NODE_PATH: ${{ runner.temp }}/fa/node_modules
+          SA_FILE: ${{ runner.temp }}/sa.json
+        run: |
+          rc=0
+          node .github/scripts/firestore-off.js rules-lock "$RUNNER_TEMP/out/rules-lock.json" || rc=$?
+          python3 - "$RUNNER_TEMP/out/rules-lock.json" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          i = json.load(open(sys.argv[1]))
+          for k in ('ok', 'permission', 'missing', 'role', 'error', 'ruleset', 'createTime', 'verified'):
+              if k in i: print('%s=%s' % (k, str(i[k]).replace('\n', ' ')))
+          PY
+          exit "$rc"
+
+      # ---------------------------------------------------------------- ৩) storage (শুধু দেখা)
+      - name: 3. Firebase Storage (look only)
+        id: storage
+        if: always() && steps.sa.outcome == 'success'
+        continue-on-error: true
+        env:
+          NODE_PATH: ${{ runner.temp }}/fa/node_modules
+          SA_FILE: ${{ runner.temp }}/sa.json
+        run: |
+          node .github/scripts/firestore-off.js storage "$RUNNER_TEMP/out/storage.json"
+          python3 - "$RUNNER_TEMP/out/storage.json" > "$RUNNER_TEMP/out/storage.md" <<'PY'
+          import json, sys
+          for name, b in json.load(open(sys.argv[1]))['buckets'].items():
+              if b.get('error'): state = 'দেখা যায়নি (%s)' % b['error'][:120]
+              elif not b.get('exists'): state = 'বাকেট নেই'
+              else: state = '%d ফাইল (%d bytes)' % (b.get('objects', 0), b.get('bytes', 0))
+              rules = {True: 'আছে', False: 'নেই'}.get(b.get('rules'), str(b.get('rules')))
+              print('| `%s` | %s | %s |' % (name, state, rules))
+          PY
+
+      - name: Summary
+        if: always()
+        env:
+          JOB_OK: ${{ job.status }}
+          PROJECT: ${{ steps.sa.outputs.project }}
+          DAY: ${{ steps.sa.outputs.date }}
+          E_OUT: ${{ steps.export.outcome }}
+          E_TOTAL: ${{ steps.export.outputs.total }}
+          E_COLS: ${{ steps.export.outputs.collections }}
+          E_BYTES: ${{ steps.export.outputs.bytes }}
+          E_SHA: ${{ steps.export.outputs.sha }}
+          E_DBS: ${{ steps.export.outputs.databases }}
+          V_OUT: ${{ steps.vps.outcome }}
+          V_FILE: ${{ steps.vps.outputs.file }}
+          V_OK: ${{ steps.vps.outputs.verified }}
+          RG_OUT: ${{ steps.rulesget.outcome }}
+          RG_FILE: ${{ steps.rulesget.outputs.file }}
+          RG_SHA: ${{ steps.rulesget.outputs.sha256 }}
+          RG_SAME: ${{ steps.rulesget.outputs.same_as_repo }}
+          RG_PERM: ${{ steps.rulesget.outputs.permission }}
+          RG_MISSING: ${{ steps.rulesget.outputs.missing }}
+          RG_ROLE: ${{ steps.rulesget.outputs.role }}
+          RG_ERR: ${{ steps.rulesget.outputs.error }}
+          RG_NONE: ${{ steps.rulesget.outputs.none }}
+          RG_ALREADY: ${{ steps.rulesget.outputs.denyAlready }}
+          L_OUT: ${{ steps.lock.outcome }}
+          L_OK: ${{ steps.lock.outputs.verified }}
+          L_RULESET: ${{ steps.lock.outputs.ruleset }}
+          L_TIME: ${{ steps.lock.outputs.createTime }}
+          L_PERM: ${{ steps.lock.outputs.permission }}
+          L_MISSING: ${{ steps.lock.outputs.missing }}
+          L_ROLE: ${{ steps.lock.outputs.role }}
+          L_ERR: ${{ steps.lock.outputs.error }}
+          S_OUT: ${{ steps.storage.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          {
+            if [ "$V_OK" = yes ] && [ "$L_OK" = True ]; then echo "## ✅ Firestore বন্ধ (deny-all), export VPS-এ যাচাই করা"
+            elif [ "$V_OK" = yes ]; then echo "## ⚠️ export VPS-এ যাচাই করা, কিন্তু rules বন্ধ হয়নি"
+            else echo "## ❌ export যাচাই হয়নি — rules-এ হাত দেওয়া হয়নি"; fi
+            echo
+            echo "প্রকল্প \`${PROJECT:-?}\` · তারিখ (UTC) $DAY · commit \`${GITHUB_SHA:0:7}\` (${GITHUB_REF_NAME})"
+            echo
+            echo "### ১) export"
+            echo
+            echo "| কী | ফল |"
+            echo "|---|---|"
+            echo "| export (firebase-admin) | ${E_OUT:-—} — মোট **${E_TOTAL:-?}** নথি, ${E_COLS:-?}টা top-level collection, ${E_BYTES:-?} bytes gz |"
+            echo "| VPS-এ কপি + খুলে মেলানো (সংখ্যা, sha256) | ${V_OUT:-—}${V_OK:+ ✅} |"
+            echo "| ফাইল | \`${V_FILE:-—}\` (root, 600) · sha256 \`${E_SHA:0:16}…\` |"
+            echo "| ডাটাবেস (প্রকল্পে) | ${E_DBS:-?} — export শুধু (default) |"
+            if [ -f "$RUNNER_TEMP/out/verify.json" ]; then
+              echo
+              echo "| collection (subcollection: \`বাবা/*/নাম\`) | নথি (VPS-এ গোনা) |"
+              echo "|---|---|"
+              python3 -c "
+          import json,sys
+          for k,n in sorted(json.load(open(sys.argv[1]))['groups'].items()): print('| \`%s\` | %d |' % (k,n))" "$RUNNER_TEMP/out/verify.json"
+            fi
+            echo
+            echo "### ২) Firestore rules"
+            echo
+            echo "| কী | ফল |"
+            echo "|---|---|"
+            if [ "$RG_OUT" = skipped ] || [ -z "$RG_OUT" ]; then echo "| আগের rules পড়া | ⏭️ export যাচাই হয়নি, তাই হাত দেওয়া হয়নি |"
+            elif [ "$RG_PERM" = True ]; then echo "| আগের rules পড়া | ❌ অনুমতি নেই — লাগবে **${RG_ROLE}** (permission: \`${RG_MISSING}\`) |"
+            elif [ "$RG_NONE" = True ]; then echo "| আগের rules পড়া | ❌ প্রকাশিত কোনো rules পাওয়া যায়নি — থামানো হয়েছে |"
+            elif [ "$RG_OUT" != success ]; then echo "| আগের rules পড়া | ❌ ${RG_ERR:-$RG_OUT} |"
+            else echo "| আগের rules → VPS | ✅ \`${RG_FILE}\` (sha256 \`${RG_SHA:0:12}\`; রিপোর \`firestore.rules\`-এর সাথে হুবহু এক: ${RG_SAME}${RG_ALREADY:+; আগেই deny-all: $RG_ALREADY}) |"; fi
+            if [ "$L_OUT" = success ]; then echo "| deny-all প্রকাশ + আবার পড়ে মেলানো | ✅ \`${L_RULESET##*/}\` ($L_TIME) |"
+            elif [ "$L_PERM" = True ]; then echo "| deny-all প্রকাশ | ❌ অনুমতি নেই — লাগবে **${L_ROLE}** (permission: \`${L_MISSING}\`) |"
+            elif [ -n "$L_OUT" ] && [ "$L_OUT" != skipped ]; then echo "| deny-all প্রকাশ | ❌ ${L_ERR:-$L_OUT} |"
+            else echo "| deny-all প্রকাশ | ⏭️ হয়নি |"; fi
+            echo
+            echo "### ৩) Firebase Storage (শুধু দেখা, কিছু বদলানো হয়নি)"
+            echo
+            if [ -s "$RUNNER_TEMP/out/storage.md" ]; then
+              echo "| বাকেট | ফাইল | Storage rules |"
+              echo "|---|---|---|"
+              cat "$RUNNER_TEMP/out/storage.md"
+            else echo "দেখা যায়নি (${S_OUT:-—})"; fi
+            echo
+            echo "কোনো নথি বা ডাটাবেস মোছা হয়নি। Firebase Auth, Cloud Messaging, অ্যাপের নিবন্ধন, authorized domains, service account — অছোঁয়া।"
+            echo "ফেরত আনা ও পরের ধাপ: deploy/CUTOVER.md (\"Firestore বন্ধ\")।"
+          } > "$RUNNER_TEMP/log/summary.md"
+          cat "$RUNNER_TEMP/log/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "commit=$GITHUB_SHA"; echo "run=$GITHUB_RUN_ID"; echo "job=$JOB_OK"; echo "date=$DAY"
+            echo "export=$E_OUT"; echo "total=$E_TOTAL"; echo "collections=$E_COLS"; echo "databases=$E_DBS"
+            echo "vps_verified=${V_OK:-no}"; echo "vps_file=$V_FILE"
+            echo "rules_saved=$RG_OUT"; echo "rules_file=$RG_FILE"; echo "rules_same_as_repo=$RG_SAME"
+            echo "rules_get_permission=$RG_PERM"; echo "rules_get_role=$RG_ROLE"
+            echo "rules_locked=${L_OK:-no}"; echo "rules_lock_outcome=$L_OUT"; echo "rules_lock_role=$L_ROLE"; echo "rules_lock_missing=$L_MISSING"
+            echo "storage=$S_OUT"
+          } > "$RUNNER_TEMP/log/status.txt"
+
+      - name: Publish to the log branch (ci-log-firestore-off)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: firestore-off ${{ github.sha }} ${{ job.status }}
+        run: bash .github/scripts/publish-log.sh ci-log-firestore-off "$RUNNER_TEMP/log" summary.md status.txt
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/out" "$RUNNER_TEMP/fa"
