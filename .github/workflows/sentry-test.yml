@@ -32,7 +32,7 @@ jobs:
             if [ -z "$dsn" ]; then echo "$1=no DSN (secret empty or not visible)"; return; fi
             if ! [[ "$dsn" =~ ^https://([A-Za-z0-9]+)@([a-z0-9.-]+\.sentry\.io)/([0-9]+)$ ]]; then
               # কী রকম দেখতে (চাবি না দেখিয়ে): https://<চাবির দৈর্ঘ্য>@<ঠিকানা>/<বাকি>
-              echo "$1=unexpected DSN shape: $(D="$dsn" python3 -c 'import os,re; d=os.environ["D"]; m=re.match(r"^(\w+://)([^@]*)@([^/]*)(.*)$", d); print(f"{m[1]}<key {len(m[2])} chars>@{m[3]}{m[4]}" if m else f"no @ (length {len(d)}, starts {d[:8]!r})")')"
+              echo "$1=unexpected DSN shape: $(D="$dsn" python3 -c 'import os,re; d=os.environ["D"]; m=re.match(r"^(\w+://)([^@]*)@([^/]*)(.*)$", d); import urllib.parse as u; p=u.urlsplit(d); mask=lambda x: re.sub(r"[0-9a-fA-F]{12,}", lambda z: f"<hex {len(z[0])}>", x); print(f"{m[1]}<key {len(m[2])} chars>@{m[3]}{mask(m[4])}" if m else f"no @: scheme={p.scheme!r} host={p.hostname!r} path={mask(p.path)!r} length={len(d)}")')"
               return
             fi
             key="${BASH_REMATCH[1]}"; host="${BASH_REMATCH[2]}"; pid="${BASH_REMATCH[3]}"
