@@ -77,8 +77,8 @@
 
 ## কেয়ারগিভার
 
-- রোগী নিজে সর্বোচ্চ ২ জন কেয়ারগিভার বেছে নেন (তাঁদের Lifolo অ্যাকাউন্টের ইমেইল দিয়ে); কেয়ারগিভার রাজি হলে তবেই চালু হয়।
-- কেয়ারগিভার রোগীর হয়ে প্রেসক্রিপশন দেখা, ফার্মেসি/প্যাথলজিতে পাঠানো, রিপোর্টের টাকা দেওয়া, সিরিয়াল নেওয়া — এসব করতে পারেন; প্রোফাইল বদল, অ্যাকাউন্ট মোছা বা রক্তের রিকোয়েস্ট পারেন না। শুধু রোগীর ভালোর জন্য আর রোগীর ইচ্ছামতো কাজ করবেন, রোগীর তথ্য অন্য কাউকে দেবেন না।
+- রোগী নিজে সর্বোচ্চ ২ জন কেয়ারগিভার বেছে নেন (তাঁদের ইমেইল দিয়ে; Lifolo অ্যাকাউন্ট না থাকলে ওই ইমেইলে লগইন করার পর আমন্ত্রণ দেখেন); কেয়ারগিভার রাজি হলে তবেই চালু হয়।
+- কেয়ারগিভার রোগীর হয়ে প্রেসক্রিপশন দেখা, ফার্মেসি/প্যাথলজিতে পাঠানো, রিপোর্টের টাকা দেওয়া, সিরিয়াল নেওয়া — এসব করতে পারেন; প্রোফাইল বদল, অ্যাকাউন্ট মোছা বা রক্তের রিকোয়েস্ট পারেন না। শুধু রোগীর দিকের কাজ: রোগী নিজে ডাক্তার বা অন্য পেশাদার হলে তাঁর রোগীদের অ্যাপয়েন্টমেন্ট, প্রেসক্রিপশন বা কাজের কিছু কেয়ারগিভার দেখেন না বা করেন না। শুধু রোগীর ভালোর জন্য আর রোগীর ইচ্ছামতো কাজ করবেন, রোগীর তথ্য অন্য কাউকে দেবেন না।
 - রোগী বা কেয়ারগিভার যেকোনো সময় সংযোগ সরাতে পারেন; সরালে সাথে সাথে আর কিছু দেখা বা করা যায় না।
 
 ## জরুরি রক্তের আহ্বান
@@ -150,7 +150,7 @@ The app lists approved labs with their test prices and phone numbers; it does no
 
 ## Caregivers
 
-A patient chooses up to 2 caregivers by their Lifolo email; the link is active once they accept. A caregiver can act for the patient on prescriptions, pharmacy and lab requests, report payments and appointments, but cannot change the profile, delete the account or make blood requests, and must act only in the patient's interest and keep their information private. Either side can remove the link at any time.
+A patient chooses up to 2 caregivers by email (without a Lifolo account yet, they see the invitation after logging in with that email); the link is active once they accept. A caregiver can act for the patient on prescriptions, pharmacy and lab requests, report payments and appointments — only on the patient side: if the patient is a doctor or another professional, the caregiver never sees or handles their patients' appointments, prescriptions or work — but cannot change the profile, delete the account or make blood requests, and must act only in the patient's interest and keep their information private. Either side can remove the link at any time.
 
 ## Emergency appeals and blood banks
 
