@@ -1,0 +1,239 @@
+name: Backup check
+
+# ডাটাবেস-ব্যাকআপ সত্যিই ফেরত আনা যায় কি না — সপ্তাহে একবার নিজে, বা Actions → "Backup check" → Run workflow।
+# বাংলা গাইড: deploy/BACKUP.md
+#
+# VPS-এ (deploy/backup-check.sh): চালু ডাটাবেস থেকে টাটকা pg_dump (দৈনিকেরটা ছাড়াও) → সবচেয়ে নতুন dump একটা অস্থায়ী
+# ডাটাবেসে (lifolo_restore_test) ফেরত আনা → Flyway-এর ইতিহাস, টেবিল/index-এর সংখ্যা আর প্রতিটা টেবিলের সারি চালু ডাটাবেসের
+# সাথে মেলানো → অস্থায়ী ডাটাবেস মোছা → দৈনিক ব্যাকআপ ফাইল, timer আর ডিস্কের জায়গা দেখা।
+# চালু ডাটাবেসে শুধু পড়া হয় (READ ONLY + pg_dump) — কিছু লেখা বা মোছা হয় না।
+#
+# ঐচ্ছিক বাইরের কপি (Cloudflare R2): R2_ACCOUNT_ID (বা R2_ENDPOINT), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+# (আর চাইলে আলাদা বাকেট R2_BACKUP_BUCKET) সব থাকলে তবেই — টাটকা dump GitHub-এর মেশিনে এনে VPS_ROOT_PASSWORD থেকে বানানো
+# চাবিতে এনক্রিপ্ট (gpg AES-256, deploy/ci/backup-key.js) করে db-backups/-এ তোলা। না থাকলে এই ধাপ চুপচাপ বাদ।
+#
+# ফলাফল (গোপন কিছু বা কোনো সারির তথ্য ছাড়া) log branch `ci-log-backup-check`-এ: backup-status.txt, summary.md।
+# push-এ (এই ফাইল বা স্ক্রিপ্ট বদলালে) শুধু "lint" চলে — VPS-এ কিছু যায় না।
+on:
+  workflow_dispatch:
+  schedule:
+    # প্রতি সোমবার 23:17 UTC (মঙ্গলবার ভোর 05:17 ঢাকা) — দৈনিক ব্যাকআপের (21:30 UTC) পরে। schedule শুধু default branch থেকে চলে।
+    - cron: "17 23 * * 1"
+  push:
+    branches: [backup-check, spring]
+    paths:
+      - ".github/workflows/backup-check.yml"
+      - "deploy/backup-check.sh"
+      - "deploy/ci/backup-key.js"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Shell + node
+        run: |
+          bash -n deploy/backup-check.sh
+          shellcheck -S warning -f gcc deploy/backup-check.sh | sed -E 's/^([^:]+):([0-9]+):([0-9]+): (.*)$/::error file=\1,line=\2::\4/'
+          shellcheck -S warning deploy/backup-check.sh
+          node --check deploy/ci/backup-key.js
+          LIFOLO_MASTER=x node deploy/ci/backup-key.js "$RUNNER_TEMP/k" && [ "$(wc -c < "$RUNNER_TEMP/k")" -eq 65 ]
+
+  check:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          pw="${VPS_ROOT_PASSWORD%$'\n'}"; pw="${pw%$'\r'}"
+          if [ -n "$pw" ]; then echo "::add-mask::$pw"; fi
+          pw_trim="$(printf '%s' "$pw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -n "$pw_trim" ]; then echo "::add-mask::$pw_trim"; fi
+          if [ -z "$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')" ] || [ -z "$pw_trim" ]; then
+            echo "::error::VPS_HOST / VPS_ROOT_PASSWORD সিক্রেট নেই — আগে deploy/BASE-SETUP.md-এর ধাপ ১।"
+            exit 1
+          fi
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Backup check on the VPS (fresh dump, restore test, compare, drop)
+        id: vps
+        run: |
+          ssh vps 'install -d -m 700 /root/lifolo-setup && cat > /root/lifolo-setup/backup-check.sh' < deploy/backup-check.sh
+          set +e
+          ssh vps 'bash /root/lifolo-setup/backup-check.sh' < /dev/null
+          rc=$?
+          set -e
+          ssh vps 'cat /var/lib/lifolo/backup-check-status 2>/dev/null' | tr -d '\r' | grep -E '^[a-z0-9_]+=' > "$RUNNER_TEMP/backup-status.txt" || true
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          sed -n -E 's/^(overall|fresh_dump|fresh_dump_sha256|fresh_dump_bytes)=/\1=/p' "$RUNNER_TEMP/backup-status.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Off-site copy to R2 (only if R2 secrets exist)
+        id: offsite
+        if: always() && steps.vps.outputs.fresh_dump != '' && steps.vps.outputs.fresh_dump != 'none'
+        env:
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+          FRESH: ${{ steps.vps.outputs.fresh_dump }}
+          FRESH_SHA: ${{ steps.vps.outputs.fresh_dump_sha256 }}
+        run: |
+          missing=""
+          [ -n "$R2_ACCOUNT_ID$R2_ENDPOINT" ] || missing+="R2_ACCOUNT_ID "
+          for v in R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do [ -n "${!v}" ] || missing+="$v "; done
+          if [ -n "$missing" ]; then
+            echo "R2 সিক্রেট নেই (${missing% }) — বাইরের কপি বাদ"
+            { echo "offsite=off"; echo "missing=${missing% }"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "offsite=failed" >> "$GITHUB_OUTPUT"
+          [[ "$FRESH" =~ ^lifolo-[0-9]{8}-[0-9]{6}-check\.dump$ ]] || { echo "::error::অপ্রত্যাশিত dump নাম"; exit 1; }
+          [[ "$FRESH_SHA" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::dump-এর sha256 নেই"; exit 1; }
+          if [ -n "$R2_ENDPOINT" ]; then endpoint="$R2_ENDPOINT"; else
+            acct="$(printf '%s' "$R2_ACCOUNT_ID" | tr -d '[:space:]')"
+            [[ "$acct" =~ ^[0-9a-fA-F]{32}$ ]] || { echo "::error::R2_ACCOUNT_ID ৩২ অক্ষরের hex হওয়ার কথা"; exit 1; }
+            endpoint="https://$acct.r2.cloudflarestorage.com"
+          fi
+          bucket="$(printf '%s' "${R2_BACKUP_BUCKET:-$R2_BUCKET}" | tr -d '[:space:]')"
+          object="db-backups/$FRESH.gpg"
+          umask 077
+          # ১) VPS থেকে আনা, sha256 মেলানো
+          ssh vps "cat /var/backups/lifolo/$FRESH" > "$RUNNER_TEMP/db.dump"
+          [ "$(sha256sum "$RUNNER_TEMP/db.dump" | awk '{print $1}')" = "$FRESH_SHA" ] || { echo "::error::আনা dump-এর sha256 মেলেনি"; exit 1; }
+          # ২) চাবি (VPS_ROOT_PASSWORD থেকে) → gpg AES-256; ডিক্রিপ্ট করে আবার মিলিয়ে দেখা
+          LIFOLO_MASTER="$VPS_ROOT_PASSWORD" node deploy/ci/backup-key.js "$RUNNER_TEMP/bk.key"
+          echo "::add-mask::$(head -1 "$RUNNER_TEMP/bk.key")"
+          gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/bk.key" \
+            --symmetric --cipher-algo AES256 --compress-algo none -o "$RUNNER_TEMP/db.dump.gpg" "$RUNNER_TEMP/db.dump"
+          rm -f "$RUNNER_TEMP/db.dump"
+          dec_sha="$(gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/bk.key" --decrypt "$RUNNER_TEMP/db.dump.gpg" | sha256sum | awk '{print $1}')"
+          [ "$dec_sha" = "$FRESH_SHA" ] || { echo "::error::এনক্রিপ্ট করা কপি ডিক্রিপ্ট করে মেলেনি"; exit 1; }
+          size="$(stat -c %s "$RUNNER_TEMP/db.dump.gpg")"
+          # ৩) R2-তে তোলা আর আকার মিলিয়ে দেখা
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
+          export AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+          aws s3 cp --only-show-errors --endpoint-url "$endpoint" "$RUNNER_TEMP/db.dump.gpg" "s3://$bucket/$object" \
+            --metadata "sha256-plain=$FRESH_SHA"
+          remote_size="$(aws s3api head-object --endpoint-url "$endpoint" --bucket "$bucket" --key "$object" --query ContentLength --output text)"
+          [ "$remote_size" = "$size" ] || { echo "::error::R2-তে আকার মেলেনি ($remote_size ≠ $size)"; exit 1; }
+          { echo "offsite=ok"; echo "object=$object"; echo "size=$(numfmt --to=iec --suffix=B "$size")"; } >> "$GITHUB_OUTPUT"
+          echo "R2: $object ($size bytes)"
+
+      - name: Summary
+        if: always()
+        env:
+          JOB_OK: ${{ job.status }}
+          RC: ${{ steps.vps.outputs.rc }}
+          OFFSITE: ${{ steps.offsite.outputs.offsite }}
+          OFFSITE_MISSING: ${{ steps.offsite.outputs.missing }}
+          OFFSITE_OBJECT: ${{ steps.offsite.outputs.object }}
+          OFFSITE_SIZE: ${{ steps.offsite.outputs.size }}
+        run: |
+          S="$RUNNER_TEMP/backup-status.txt"
+          touch "$S"
+          g() { sed -n "s/^$1=//p" "$S" | tail -1; }
+          ok() { if [ "$1" = yes ]; then echo "✅"; else echo "❌"; fi; }
+          eq() { if [ -n "$1" ] && [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+          overall="$(g overall)"
+          good=no
+          if [ "$overall" = ok ] && [ "$RC" = 0 ] && [ "$OFFSITE" != failed ]; then good=yes; fi
+          {
+            if [ "$good" = yes ]; then
+              echo "## ✅ ব্যাকআপ ঠিক আছে — ফেরত আনার পরীক্ষা সফল"
+            elif [ -z "$overall" ]; then
+              echo "## ❌ ব্যাকআপ যাচাই শেষ হয়নি"
+              echo
+              echo "VPS-এ পৌঁছানো বা স্ক্রিপ্ট চালানো যায়নি। বাঁ দিকে **check** → লাল ✗ চিহ্নের ধাপের স্ক্রিনশট Claude-কে পাঠান।"
+            else
+              echo "## ❌ ব্যাকআপে সমস্যা"
+            fi
+            if [ -n "$overall" ]; then
+              echo
+              echo "| যাচাই | ফল | বিস্তারিত |"
+              echo "|---|---|---|"
+              fresh="$(g fresh_dump)"
+              echo "| টাটকা ব্যাকআপ (pg_dump) | $(ok "$([ -n "$fresh" ] && [ "$fresh" != none ] && echo yes)") | \`$fresh\` · $(g fresh_dump_size) · $(g dump_seconds) সেকেন্ড |"
+              echo "| অস্থায়ী ডাটাবেসে ফেরত আনা | $(ok "$(eq "$(g restore)" ok)") | \`$(g restore_dump)\` → lifolo_restore_test · $(g restore_seconds) সেকেন্ড |"
+              echo "| Flyway-এর ইতিহাস | $(ok "$(eq "$(g flyway_live)" "$(g flyway_restored)")") | চালু $(g flyway_live) · ফেরত $(g flyway_restored) (শেষ V$(g flyway_latest)) |"
+              echo "| টেবিলের সংখ্যা | $(ok "$(eq "$(g tables_live)" "$(g tables_restored)")") | চালু $(g tables_live) · ফেরত $(g tables_restored) |"
+              echo "| index-এর সংখ্যা | $(ok "$(eq "$(g indexes_live)" "$(g indexes_restored)")") | চালু $(g indexes_live) · ফেরত $(g indexes_restored) |"
+              echo "| প্রতিটা টেবিলের সারির সংখ্যা | $(ok "$(eq "$(g rows_mismatch)" none)") | $(g rows_compared)টা টেবিল মেলানো$([ "$(g rows_mismatch)" = none ] || echo " · মেলেনি: $(g rows_mismatch)") |"
+              for t in accounts user_profiles blood_requests blood_responses flyway_schema_history; do
+                echo "| \`$t\` | $(ok "$(eq "$(g "key_$t")" match)") | $(case "$(g "key_$t")" in match) echo মিলেছে ;; missing) echo 'টেবিল নেই' ;; *) echo মেলেনি ;; esac) |"
+              done
+              echo "| অস্থায়ী ডাটাবেস মোছা | $(ok "$(g test_db_dropped)") | lifolo_restore_test |"
+              age="$(g daily_newest_age_h)"
+              echo "| দৈনিক ব্যাকআপ (শেষটা) | $(ok "$([ -n "$age" ] && [ "$age" -le 26 ] && echo yes)") | $(g daily_newest) ($age ঘণ্টা আগে) · মোট $(g daily_count)টা, প্রথম $(g daily_oldest) |"
+              echo "| গত দিনগুলোর ব্যাকআপ | $(ok "$([ -z "$(g daily_days_missing)" ] && [ -n "$age" ] && echo yes)") | $(g daily_days_checked) দিন দেখা$([ -z "$(g daily_days_missing)" ] || echo " · নেই: $(g daily_days_missing)") |"
+              echo "| সব dump পড়া যায় | $(ok "$(eq "$(g dumps_unreadable)" 0)") | $(g dumps_total)টা ফাইল · /var/backups/lifolo ($(g backup_dir_size)) |"
+              echo "| দৈনিক timer | $(ok "$(eq "$(g timer)" active)") | শেষবার: $(g timer_last_result) · পরের বার: $(g timer_next) |"
+              echo "| ডিস্কে খালি জায়গা | $(ok "$(eq "$(g disk)" ok)") | $(g disk_free) খালি / $(g disk_size) ($(g disk_free_pct)%) · ডাটাবেস $(g db_size) |"
+              case "$OFFSITE" in
+                ok) echo "| বাইরের কপি (R2) | ✅ | \`$OFFSITE_OBJECT\` ($OFFSITE_SIZE, এনক্রিপ্ট করা) |" ;;
+                off) echo "| বাইরের কপি (R2) | ⏸️ | বন্ধ — সিক্রেট নেই: $OFFSITE_MISSING (deploy/BACKUP.md দেখুন) |" ;;
+                failed) echo "| বাইরের কপি (R2) | ❌ | তোলা যায়নি — **Off-site copy** ধাপ দেখুন |" ;;
+                *) echo "| বাইরের কপি (R2) | ⏸️ | চলেনি (টাটকা dump নেই) |" ;;
+              esac
+              n="$(g fails)"
+              if [ -n "$n" ] && [ "$n" != 0 ]; then
+                echo
+                echo "**সমস্যা:**"
+                for i in $(seq 1 "$n"); do echo "- ❌ $(g "fail_$i")"; done
+              fi
+              echo
+              echo "- চালু ডাটাবেসে শুধু পড়া হয়েছে; ফেরত আনা হয়েছে আলাদা অস্থায়ী ডাটাবেসে, পরে সেটা মুছে ফেলা হয়েছে।"
+              echo "- টাটকা dump \`/var/backups/lifolo\`-এ থাকল (দৈনিকগুলোর মতোই ১৪ দিন পর নিজে মুছে যায়)।"
+              echo "- ফেরত আনার নিয়ম: deploy/BACKUP.md"
+            fi
+          } > "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "good=$good" > "$RUNNER_TEMP/verdict"
+
+      - name: Publish to the log branch (ci-log-backup-check)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: backup-check ${{ github.sha }} ${{ job.status }}
+          OFFSITE: ${{ steps.offsite.outputs.offsite }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/log/summary.md" 2>/dev/null || true
+          {
+            echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "event=${GITHUB_EVENT_NAME}"; echo "run=${GITHUB_RUN_ID}"
+            cat "$RUNNER_TEMP/verdict" 2>/dev/null || echo "good=no"
+            echo "offsite=${OFFSITE:-}"
+            cat "$RUNNER_TEMP/backup-status.txt" 2>/dev/null || true
+          } > "$RUNNER_TEMP/log/backup-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-backup-check "$RUNNER_TEMP/log" summary.md backup-status.txt
+
+      - name: Verdict
+        if: always()
+        run: grep -qx 'good=yes' "$RUNNER_TEMP/verdict" || { echo "::error::ব্যাকআপ যাচাই ব্যর্থ — Summary দেখুন"; exit 1; }
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/db.dump" "$RUNNER_TEMP/db.dump.gpg" "$RUNNER_TEMP/bk.key"
