@@ -16,6 +16,7 @@ import { isDemoUid } from '@/demo/demo'; // ডেমো
 import { usePhotoPicker } from './dialogs';
 import DocsNeededCard from './DocsNeededCard.vue';
 import DonationDateDialog from './DonationDateDialog.vue';
+import CorrectionDialog from './CorrectionDialog.vue';
 import PhoneVerifyDialog from './PhoneVerifyDialog.vue';
 import PhotoMenuDialog from './PhotoMenuDialog.vue';
 import AcctMenu from './AcctMenu';
@@ -32,6 +33,13 @@ const photo = usePhotoPicker();
 const photoMenu = ref(false);
 const demoSwitch = ref(false); // ডেমো
 const dateDialog = ref(false);
+const correctionDialog = ref(false);
+function correctionSent() {
+  correctionDialog.value = false;
+  toast(tr('Request sent. An admin will check it.', 'অনুরোধ পাঠানো হয়েছে। অ্যাডমিন দেখে ঠিক করে দেবেন।')); // bn-ok
+}
+const correctionTitle = () => tr('Ask to correct the date', 'তথ্য সংশোধনের অনুরোধ'); // bn-ok
+const correctionSub = () => tr('An admin checks and fixes your last donation date', 'অ্যাডমিন দেখে শেষ রক্তদানের তারিখ ঠিক করে দেবেন'); // bn-ok
 const phoneDialog = ref(false);
 const confirmDelete = ref(false);
 const retrying = ref(false);
@@ -214,6 +222,12 @@ function askDelete() {
               :sub="profile.lastDonationMillis != null ? formatDate(profile.lastDonationMillis) : tr('Never donated', 'কখনো দেননি')"
               :on-click="() => (dateDialog = true)"
             />
+            <ListRow
+              icon="edit"
+              :title="correctionTitle()"
+              :sub="correctionSub()"
+              :on-click="() => (correctionDialog = true)"
+            />
             <ListRow icon="edit" :title="tr('Edit profile', 'প্রোফাইল এডিট')" :on-click="() => nav('/profile/edit')" />
             <ListRow
               v-if="workLoaded && !owns && businessNo"
@@ -251,6 +265,7 @@ function askDelete() {
     <DemoSwitchDialog v-if="demoSwitch" @close="demoSwitch = false" @done="() => { demoSwitch = false; nav('/', { replace: true }); }" />
     <PhotoMenuDialog v-if="photoMenu" @close="photoMenu = false" @change="photo.pick()" @remove="photo.remove()" />
     <DonationDateDialog v-if="dateDialog" :profile="profile" @close="dateDialog = false" @saved="dateSaved" />
+    <CorrectionDialog v-if="correctionDialog" :profile="profile" @close="correctionDialog = false" @sent="correctionSent" />
     <PhoneVerifyDialog v-if="phoneDialog" @close="phoneDialog = false" @verified="phoneVerified" />
     <DeleteAccountDialog v-if="confirmDelete" @close="confirmDelete = false" @deleted="deleted" />
   </div>

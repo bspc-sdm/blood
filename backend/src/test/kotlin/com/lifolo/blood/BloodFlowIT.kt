@@ -414,4 +414,51 @@ class BloodFlowIT : BloodTestBase() {
         assertEquals(true, http("/api/admin/resolve", ADMIN, mapOf("id" to "c1")).body["already"].booleanValue())
         assertEquals(0, http("/api/admin/corrections", ADMIN, emptyMap()).body["items"].size())
     }
+    @Test
+    fun `date corrections - the person sends one (checked, one waiting at a time, 3 a day), the admin approves`() {
+        admin()
+        user("u2", mapOf("name" to "দুই", "last_donation_ms" to today() - 40 * DAY))
+        user("noprof")
+        jdbc.update("DELETE FROM user_profiles WHERE uid = 'noprof'")
+        assertTrue(call("u2", "correction_mine").body["item"].isNull)
+        val good = mapOf("requestedMillis" to today() - 200 * DAY, "reason" to "  ভুল করে আজকের তারিখ দিয়েছিলাম  ")
+        // checks
+        assertEquals(400, call("u2", "correction_create", mapOf("reason" to "x")).status, "the date must be sent (a number or null)")
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to "kal", "reason" to "x")).status)
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to today() + DAY, "reason" to "x")).status, "not in the future")
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to 0, "reason" to "x")).status, "not before 1990")
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to null, "reason" to "   ")).status, "a reason")
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to null, "reason" to "x".repeat(301))).status)
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to null, "reason" to mapOf("a" to 1))).status)
+        assertEquals(400, call("u2", "correction_create", mapOf("requestedMillis" to today() - 40 * DAY, "reason" to "x")).status, "already the date")
+        assertEquals(404, call("noprof", "correction_create", good).status)
+        assertEquals(401, call(null, "correction_create", good).status)
+        // sent
+        val id = call("u2", "correction_create", good).also { assertEquals(200, it.status, it.toString()) }.body["id"].textValue()
+        val c = row("SELECT * FROM correction_requests WHERE id = ?", id)
+        assertEquals(listOf("u2", "দুই", "ভুল করে আজকের তারিখ দিয়েছিলাম", today() - 40 * DAY, today() - 200 * DAY, "pending"), listOf(c["uid"], c["name"], c["reason"], c["current_ms"], c["requested_ms"], c["status"]))
+        val mine = call("u2", "correction_mine").body["item"]
+        assertEquals(listOf(id, "pending"), listOf(mine["id"].textValue(), mine["status"].textValue()))
+        assertEquals(today() - 200 * DAY, mine["requestedMillis"].longValue())
+        // one waiting at a time (also two at once)
+        assertEquals(409, call("u2", "correction_create", mapOf("requestedMillis" to null, "reason" to "আবার")).status)
+        jdbc.update("UPDATE correction_requests SET status = 'rejected' WHERE id = ?", id)
+        val both = listOf(1, 2).parallelStream().map { call("u2", "correction_create", mapOf("requestedMillis" to null, "reason" to "দুবার $it")).status }.toList()
+        assertEquals(listOf(200, 409), both.sorted())
+        assertEquals(1L, row("SELECT count(*) AS n FROM correction_requests WHERE uid = 'u2' AND status = 'pending'")["n"])
+        // the admin sees it and approves: "never donated"
+        val pending = http("/api/admin/corrections", ADMIN, emptyMap()).body["items"].single()
+        assertTrue(pending["requestedMillis"].isNull)
+        assertEquals(200, http("/api/admin/resolve", ADMIN, mapOf("id" to pending["id"].textValue(), "approve" to true)).status)
+        assertEquals(null, lastDonation("u2"))
+        assertEquals("approved", call("u2", "correction_mine").body["item"]["status"].textValue())
+        // 3 a day
+        jdbc.update("UPDATE user_quotas SET count = 3 WHERE uid = 'u2' AND kind = 'correction'")
+        val r = call("u2", "correction_create", mapOf("requestedMillis" to today() - 300 * DAY, "reason" to "আবার"))
+        assertEquals(429, r.status, r.toString())
+        // a caregiver cannot send one for the patient
+        user("cgx")
+        jdbc.update("INSERT INTO care_links (patient_uid, caretaker_uid, status) VALUES ('u2', 'cgx', 'active')")
+        assertEquals(403, call("cgx", "correction_create", good + mapOf("asUid" to "u2")).status)
+    }
 }

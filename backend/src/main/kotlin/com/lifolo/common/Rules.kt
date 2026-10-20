@@ -24,7 +24,7 @@ object Rules {
         "ask" to 5, "answer" to 40, "tip" to 5, "badge" to 3, "book" to 5, "report" to 20, "hospital" to 10,
         "phoneCode" to 5, "ambulance" to 10, "pharmacy" to 5, "medTry" to 30, "ticket" to 5, "medFind" to 5,
         "bloodbank" to 5, "dateChange" to 3, "docs" to 10, "rx" to 300, "rxPatient" to 200, "rxClaim" to 20,
-        "rxPharm" to 300, "rxSend" to 20, "lab" to 3, "care" to 10,
+        "rxPharm" to 300, "rxSend" to 20, "lab" to 3, "care" to 10, "correction" to 3,
     )
 
     /** community.js PAGE */

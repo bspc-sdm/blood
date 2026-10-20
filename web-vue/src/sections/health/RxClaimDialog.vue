@@ -7,6 +7,8 @@ import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 
 const emit = defineEmits<{ close: []; added: [n: number] }>();
+// প্রতিটা কাগজের প্রেসক্রিপশন নিজের কোডে (২০২৬-১০: আর একসাথে সব আসে না)
+const oneByOne = () => tr('Each paper prescription is added with its own code.', 'প্রতিটা কাগজের প্রেসক্রিপশন তার নিজের কোড দিয়ে আলাদা করে যোগ করুন।'); // bn-ok
 const s = useSession();
 const code = ref('');
 const phone = ref(s.profile?.phone ?? '');
@@ -29,9 +31,10 @@ async function add() {
   <Dialog :title="tr('Add a prescription', 'প্রেসক্রিপশন যোগ করুন')" @close="!busy && emit('close')">
     <p class="t-body-m">
       {{ tr(
-        'Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member\'s (add them in Profile → Caregivers & family). Each paper prescription is added with its own code.',
-        'QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)। প্রতিটা কাগজের প্রেসক্রিপশন তার নিজের কোড দিয়ে আলাদা করে যোগ করুন।',
+        'Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member\'s (add them in Profile → Caregivers & family).',
+        'QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)।',
       ) }}
+      {{ oneByOne() }}
     </p>
     <TextInput
       :label="tr('Code', 'কোড')"

@@ -136,7 +136,7 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - request: `nameEn`, `nameBn`, `type`, `upazilaId`, `unionId`, `district`, `address`, `phone` · response: `{ok,duplicateOf}` or `{ok,merged}` or `{ok}`
   - collections: hospitalRequests, hospitals · side effects: — · errors: 400 · tests: — (none)
 
-## Blood donation (package `blood`) — 23 actions
+## Blood donation (package `blood`) — 25 actions
 
 - [x] **`bloodbanks`** — Approved blood banks in district (open first, own upazila, govt first; open24 filter)
   - src: `server/lib/bloodbank.js` → `actions.bloodbanks` · auth: guest · port: **P1**
@@ -194,6 +194,14 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/donationdate.js` → `actions.donation_date_set` · auth: user · quota: dateChange (3/day) · port: **P1**
   - request: `millis`, `confirmed` · response: `{ok,unchanged}` or `{ok,risk}`
   - collections: serverState, users · side effects: — · errors: 400, 404, 409:confirm_needed · tests: demo-blood
+- [x] **`correction_create`** — *Spring only (Oct 2026), no Node action:* the person asks an admin to correct their last donation date ("তথ্য সংশোধনের অনুরোধ"). Node had only the Firestore client write (`correctionRequests`, now closed); the admin side is unchanged (`/api/admin/corrections`, `/api/admin/resolve` → approve sets the date, push type `correction`)
+  - src: `blood/CorrectionActions.kt` · auth: user (not a caregiver, not the web panel) · quota: correction (3/day) · port: **P10**
+  - request: `requestedMillis` (required key: a Dhaka-day UTC-midnight ms from 1990-01-01 up to today, or `null` = "never donated"), `reason` (string, 1–300 letters after trim) · response: `{ok, id}`
+  - errors: 400 (date missing/invalid/future, reason empty/too long, same as the current date), 404 (no profile), 409 (a request is already waiting — one pending per person, unique index V606), 429 (3 a day)
+  - table: correction_requests (name and current date copied from the profile)
+- [x] **`correction_mine`** — *Spring only:* my latest correction request (for the profile card: waiting / approved / rejected)
+  - src: `blood/CorrectionActions.kt` · auth: user · port: **P10**
+  - request: — · response: `{item: {id, status: "pending"|"approved"|"rejected", currentMillis, requestedMillis, reason, createdAtMillis, resolvedAtMillis} | null}`
 - [x] **`response_update`** — Donor cancel/donated or requester removes donor; recount bags, restore/notify standby donors
   - src: `server/lib/donors.js` → `response_update` · auth: user (donor: cancel/donated; requester: remove) · port: **P1**
   - request: `requestId`, `op`, `donorUid` · response: `{ok,restored}` or `{ok}`
@@ -249,7 +257,7 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/appointments.js` → `book` · auth: user role:badge caregiver · quota: book (5/day) · port: **P2**
   - request: `providerUid`, `date`, `chamberIndex`, `note`, `chamberKey`, `memberId` · response: `{id}`
   - collections: appointments, badges, inbox, providers, serverState, users · side effects: FCM push + inbox · errors: 400, 404, 409 · tests: demo-health, demo-night, demo-rx, doctor-filters, e2efixes, guest, labtests, queue
-- [x] **`my_appointments`** — Appointments as patient and as provider (active ≤300, history ≤30 per status); other party phone when confirmed
+- [x] **`my_appointments`** — Appointments as patient and as provider (active ≤300, history ≤30 per status); other party phone when confirmed. A caregiver (`asUid`) gets the patient side only
   - src: `server/lib/appointments.js` → `my_appointments` · auth: user caregiver · port: **P2**
   - request: — · response: `{items}`
   - collections: appointments, users · side effects: — · errors: — · tests: demo-health, demo-rx
@@ -324,7 +332,7 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/prescriptions.js` → `actions.rx_mine` · auth: user caregiver · port: **P3**
   - request: — · response: `{items}`
   - collections: prescriptions · side effects: — · errors: — · tests: demo-health, demo-pharmacy, demo-rx, demo-services, labtests, rxflow
-- [x] **`rx_claim`** — Patient claims paper prescription by code + phone (must match profile) → links all of that doctor’s prescriptions for the phone; quota rxClaim=10/day
+- [x] **`rx_claim`** — Patient adds ONE paper prescription by its code + phone (profile's or a family member's) → only that prescription comes to the account (409 if another account has it); later/earlier ones are added one by one with their own codes, nothing is auto-linked (Oct 2026; Node linked all of the doctor's prescriptions for the phone). quota rxClaim=20/day
   - src: `server/lib/prescriptions.js` → `actions.rx_claim` · auth: user caregiver · quota: rxClaim (10/day) · port: **P3**
   - request: `code`, `phone` · response: `{ok,added}`
   - collections: prescriptions, rxPatients, serverState, users · side effects: — · errors: 400, 409 · tests: demo-rx, labhistory, labprices, rxflow
@@ -738,10 +746,10 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/careaccess.js` → `actions.care_list` · auth: user · port: **P2**
   - request: — · response: `{caretakers:[...],caringFor:[...],family}`
   - collections: careLinks, users · side effects: — · errors: — · tests: demo-health, rxflow
-- [x] **`care_invite`** — Invite caregiver by Lifolo email (≤ MAX_CARETAKERS); quota care=10/day; pushes invitee
+- [x] **`care_invite`** — Invite caregiver by email (≤ MAX_CARETAKERS); quota care=10/day; pushes invitee. Oct 2026: the same `{ok}` whether or not the email has an account (no enumeration) — an address without one waits in `care_email_invites` and becomes an invitation when that email signs in (verified); `care_list.caretakers` shows not-yet-accepted invitations without a name and with an opaque `caretakerUid` "ci_…" (pass it to `care_remove`)
   - src: `server/lib/careaccess.js` → `actions.care_invite` · auth: user · quota: care (10/day) · port: **P2**
   - request: `email` · response: `{ok}`
-  - collections: careLinks, inbox, serverState, users · side effects: FCM push + inbox · errors: 400, 409, 404 · tests: demo-health, labtests, rxflow
+  - collections: careLinks, inbox, serverState, users · side effects: FCM push + inbox · errors: 400, 409 (no more 404) · tests: demo-health, labtests, rxflow
 - [x] **`care_respond`** — Caregiver accepts/declines invitation; pushes patient
   - src: `server/lib/careaccess.js` → `actions.care_respond` · auth: user · port: **P2**
   - request: `patientUid`, `accept` · response: `{ok}`
