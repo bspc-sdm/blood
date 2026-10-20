@@ -330,30 +330,31 @@ fi
 # ---------------------------------------------------------------- 5) পরীক্ষা (এই মেশিন থেকে, https দিয়ে)
 if [ "$(sed -n 's/^site=//p' "$STATUS")" = ok ]; then
   say "পরীক্ষা"
+  # grep ছাড়া -q: পুরো লেখা পড়ে (pipefail-এ -q আগেভাগে থামলে curl SIGPIPE পেয়ে "ব্যর্থ" দেখাত)
   H() { curl -sS -m 15 --resolve "$WEB_DOMAIN:443:127.0.0.1" --resolve "$WWW:443:127.0.0.1" "$@"; }
   B="https://$WEB_DOMAIN"
   check() { if eval "$2"; then st "$1" ok; echo "ok   $1"; else st "$1" failed; echo "FAIL $1"; fi; }
   hdr() { H -o /dev/null -D - "$@" | tr -d '\r'; }
   asset="$(grep -oE '/w/assets/[A-Za-z0-9._-]+\.js' "$rel/w/index.html" | head -1)"
   admin_asset="$(grep -oE '/admin/assets/[A-Za-z0-9._-]+\.js' "$rel/admin/index.html" | head -1)"
-  check t_root "H '$B/' | grep -q '/w/assets/'"
-  check t_spa_route "H '$B/services/pharmacy' | grep -q '/w/assets/'"
-  check t_root_csp "hdr '$B/' | grep -qi \"^content-security-policy: default-src 'self'\""
-  check t_root_nocache "hdr '$B/' | grep -qi '^cache-control: no-cache'"
-  check t_asset_cache "[ -n '$asset' ] && hdr '$B$asset' | grep -qi '^cache-control: public, max-age=31536000, immutable'"
-  check t_w_missing_404 "[ \"\$(H -o /dev/null -w '%{http_code}' '$B/w/nope-404.js')\" = 404 ]"
-  check t_admin "H '$B/admin' | grep -q '/admin/assets/' && H '$B/admin/' | grep -q '/admin/assets/'"
-  check t_admin_csp "hdr '$B/admin/' | grep -qi \"^content-security-policy: default-src 'none'\" && hdr '$B/admin/' | grep -qi '^x-robots-tag: noindex'"
+  check t_root "H '$B/' | grep '/w/assets/' >/dev/null"
+  check t_spa_route "H '$B/services/pharmacy' | grep '/w/assets/' >/dev/null"
+  check t_root_csp "hdr '$B/' | grep -i \"^content-security-policy: default-src 'self'\" >/dev/null"
+  check t_root_nocache "hdr '$B/' | grep -i '^cache-control: no-cache' >/dev/null"
+  check t_asset_cache "[ -n '$asset' ] && hdr '$B$asset' | grep -i '^cache-control: public, max-age=31536000, immutable' >/dev/null"
+  check t_w_missing "[ \"\$(H -o /dev/null -w '%{http_code}' '$B/w/nope-404.js')\" = 404 ]"
+  check t_admin "H '$B/admin' | grep '/admin/assets/' >/dev/null && H '$B/admin/' | grep '/admin/assets/' >/dev/null"
+  check t_admin_csp "hdr '$B/admin/' | grep -i \"^content-security-policy: default-src 'none'\" >/dev/null && hdr '$B/admin/' | grep -i '^x-robots-tag: noindex' >/dev/null"
   check t_admin_asset "[ -n '$admin_asset' ] && [ \"\$(H -o /dev/null -w '%{http_code}' '$B$admin_asset')\" = 200 ]"
-  check t_favicon "hdr '$B/favicon.ico' | grep -qi '^content-type: image/svg+xml'"
-  check t_api "H '$B/api/health' | grep -q '\"ok\":true'"
-  check t_assetlinks "H -o /dev/null -w '%{http_code} %{content_type}' '$B/.well-known/assetlinks.json' | grep -q '^200 application/json'"
-  check t_share "! H '$B/r/deploy-smoke' | grep -q '/w/assets/'"
-  check t_hsts "hdr '$B/' | grep -qi '^strict-transport-security'"
-  check t_gzip "[ -n '$asset' ] && H -H 'Accept-Encoding: gzip' -o /dev/null -D - '$B$asset' | tr -d '\r' | grep -qi '^content-encoding: gzip'"
-  check t_http_redirect "curl -sS -m 10 --resolve '$WEB_DOMAIN:80:127.0.0.1' -o /dev/null -w '%{http_code} %{redirect_url}' 'http://$WEB_DOMAIN/x?y=1' | grep -q '^301 https://$WEB_DOMAIN/x?y=1'"
+  check t_favicon "hdr '$B/favicon.ico' | grep -i '^content-type: image/svg+xml' >/dev/null"
+  check t_api "H '$B/api/health' | grep '\"ok\":true' >/dev/null"
+  check t_assetlinks "H -o /dev/null -w '%{http_code} %{content_type}' '$B/.well-known/assetlinks.json' | grep '^200 application/json' >/dev/null"
+  check t_share "! H '$B/r/deploy-smoke' | grep '/w/assets/' >/dev/null"
+  check t_hsts "hdr '$B/' | grep -i '^strict-transport-security' >/dev/null"
+  check t_gzip "[ -n '$asset' ] && H -H 'Accept-Encoding: gzip' -o /dev/null -D - '$B$asset' | tr -d '\r' | grep -i '^content-encoding: gzip' >/dev/null"
+  check t_http_redirect "curl -sS -m 10 --resolve '$WEB_DOMAIN:80:127.0.0.1' -o /dev/null -w '%{http_code} %{redirect_url}' 'http://$WEB_DOMAIN/x?y=1' | grep '^301 https://$WEB_DOMAIN/x?y=1' >/dev/null"
   if [ "$(sed -n 's/^www=//p' "$STATUS")" = ok ]; then
-    check t_www_redirect "H -o /dev/null -w '%{http_code} %{redirect_url}' 'https://$WWW/services?a=1' | grep -q '^301 https://$WEB_DOMAIN/services?a=1'"
+    check t_www_redirect "H -o /dev/null -w '%{http_code} %{redirect_url}' 'https://$WWW/services?a=1' | grep '^301 https://$WEB_DOMAIN/services?a=1' >/dev/null"
   fi
 fi
 st finished yes
