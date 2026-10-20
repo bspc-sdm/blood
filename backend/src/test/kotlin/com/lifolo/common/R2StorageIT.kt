@@ -265,6 +265,22 @@ class R2StorageIT : RxLabTest() {
 
         assertEquals(401, get("/api/cron/storage").status)
         assertEquals(401, post("/api/cron/storage/migrate", null).status)
+        assertEquals(401, get("/api/cron/storage/probe").status)
+        // probe: one row per source that still has base64, and the SHA-256 of what the API returns for it
+        val sample = get("/api/cron/storage/probe", mapOf("Authorization" to CRON))
+        assertEquals(200, sample.status, sample.toString())
+        assertEquals(listOf("old1"), sample.body["profilePhoto"]["pk"].map { it.textValue() })
+        assertEquals(B64Blob.sha256(v["p1"]!!.toByteArray()), sample.body["profilePhoto"]["sha256"].textValue())
+        fun probeUrl(source: String) = "/api/cron/storage/probe?source=$source" +
+            sample.body[source]["pk"].joinToString("") { "&pk=" + java.net.URLEncoder.encode(it.textValue(), Charsets.UTF_8) }
+        val sources = listOf("profilePhoto", "profileThumb", "verifyDocs", "labReportPhotos")
+        for (s in sources) {
+            val p = get(probeUrl(s), mapOf("Authorization" to CRON))
+            assertEquals("db", p.body["from"].textValue(), s)
+            assertEquals(sample.body[s]["sha256"].textValue(), p.body["sha256"].textValue(), s)
+        }
+        assertEquals(400, get("/api/cron/storage/probe?source=nope", mapOf("Authorization" to CRON)).status)
+        assertEquals(404, get("/api/cron/storage/probe?source=profilePhoto&pk=nobody", mapOf("Authorization" to CRON)).status)
         val st = get("/api/cron/storage", mapOf("Authorization" to CRON))
         assertEquals(200, st.status, st.toString())
         assertEquals(true, st.body["configured"].booleanValue())
@@ -302,6 +318,12 @@ class R2StorageIT : RxLabTest() {
 
         listOf("old1", "old2").forEach { u -> jdbc.queryForList("SELECT photo_key FROM user_profiles WHERE uid = ?", String::class.java, u).forEach { files.forget(it) } }
         assertEquals(before, readAll(), "all moved: the answers are the same")
+        for (s in sources) {
+            val p = get(probeUrl(s), mapOf("Authorization" to CRON))
+            assertEquals(200, p.status, "$s $p")
+            assertEquals("r2", p.body["from"].textValue(), s)
+            assertEquals(sample.body[s]["sha256"].textValue(), p.body["sha256"].textValue(), s)
+        }
     }
 
     @Test

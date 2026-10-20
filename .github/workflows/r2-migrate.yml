@@ -1,0 +1,75 @@
+name: R2 migrate
+
+# পুরোনো base64 ছবি (প্রোফাইল, যাচাইয়ের কাগজ, ল্যাব রিপোর্ট) PostgreSQL থেকে Cloudflare R2-এ — একবারের কাজ, শুধু হাতে চালানো।
+# আগে R2_* secret দিয়ে "Deploy backend" সফল হতে হবে (সারাংশে R2 চালু)। বারবার চালানো নিরাপদ (যা সরেছে তা আর সরে না)।
+# VPS-এ deploy/ci/r2-migrate.py চলে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি), localhost-এ
+# /api/cron/storage, …/migrate?limit=200 (বাকি ০ পর্যন্ত) আর …/probe (প্রতি ধরনের একটা সারি আগে-পরে sha256 মেলানো)।
+# ফল: শুধু সংখ্যা — Summary আর log branch `ci-log-r2-migrate` (summary.md, status.txt)। গাইড: deploy/R2.md ধাপ ৩।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Migrate on the VPS
+        id: run
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          bash deploy/ci/vps-connect.sh >/dev/null
+          rc=0
+          ssh vps python3 - < deploy/ci/r2-migrate.py > "$RUNNER_TEMP/status.txt" || rc=$?
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
+          # শুধু key=সংখ্যা/লেখা লাইন রাখা
+          grep -E '^[a-zA-Z0-9_]+=' "$RUNNER_TEMP/status.txt" > "$RUNNER_TEMP/st.txt" || true
+          cat "$RUNNER_TEMP/st.txt"
+          echo "rc=$rc" >> "$RUNNER_TEMP/st.txt"
+          exit "$rc"
+
+      - name: Summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: r2 migrate ${{ github.sha }}
+        run: |
+          f="$RUNNER_TEMP/st.txt"; [ -f "$f" ] || : > "$f"
+          g() { sed -n "s/^$1=//p" "$f" | tail -1; }
+          name() { case "$1" in profilePhoto) echo "প্রোফাইলের ছবি";; profileThumb) echo "প্রোফাইলের ছোট ছবি";; verifyDocs) echo "যাচাইয়ের কাগজ";; labReportPhotos) echo "ল্যাব রিপোর্টের ছবি";; esac; }
+          mkdir -p "$RUNNER_TEMP/log"
+          {
+            echo "## R2-এ পুরোনো ছবি সরানো — $(date -u +%FT%TZ)"
+            echo
+            if [ -n "$(g error)" ]; then echo "**সমস্যা:** $(g error)"; echo; fi
+            echo "- R2 চালু: $( [ "$(g configured)" = true ] && echo হ্যাঁ || echo "না/অজানা") · দফা: $(g rounds) (প্রতি দফায় ≤ ২০০)"
+            echo "- সরেছে: **$(g migrated)** · ব্যর্থ: **$(g failed)** · মাঝে বদলেছে (পরে আবার): $(g changed)"
+            echo "- R2-এ মোট ফাইল: আগে $(g before_stored) → পরে $(g after_stored) · মোছার অপেক্ষায়: $(g after_trash)"
+            echo
+            echo "| ধরন | আগে বাকি | পরে বাকি | আগে-পরে মিলিয়ে দেখা (API যা ফেরত দেয়, sha256) |"
+            echo "|---|---|---|---|"
+            for s in profilePhoto profileThumb verifyDocs labReportPhotos; do
+              c="$(g "check_$s")"
+              case "$c" in
+                ok*) c="মিলেছে (আগে ডাটাবেস, এখন R2 — হুবহু একই)";;
+                "no sample"*) c="নমুনা নেই (এ ধরনের base64 সারি ছিল না)";;
+                "") c="—";;
+              esac
+              echo "| $(name "$s") | $(g "before_$s") | $(g "after_$s") | $c |"
+            done
+            echo
+            echo "কোনো ছবি, id বা ইমেইল এখানে নেই — শুধু সংখ্যা। গাইড: deploy/R2.md ধাপ ৩।"
+          } | tee -a "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/log/summary.md"
+          cp "$f" "$RUNNER_TEMP/log/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-r2-migrate "$RUNNER_TEMP/log" summary.md status.txt || true

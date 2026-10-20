@@ -1029,7 +1029,9 @@ All use the Node `handler` envelope (POST only → 405 `{error:"Method not allow
 - [x] **`GET /api/cron/storage`**, **`POST /api/cron/storage/migrate?limit=200`** — new (no Node equivalent) · Bearer
   `$CRON_SECRET` (401 "অনুমতি নেই") · R2 status `{configured, remaining{profilePhoto, profileThumb, verifyDocs,
   labReportPhotos}, stored, trash}`; migrate moves up to `limit` old base64 rows to R2 (+ `{ok, migrated, failed, changed}`;
-  400 without R2, 409 while running) — [deploy/R2.md](../../deploy/R2.md). The app/web API is unchanged: photos are still
+  400 without R2, 409 while running); `GET /api/cron/storage/probe` → one row per source that still has base64 `{pk, sha256}`,
+  with `?source=…&pk=…` that row read like the API reads it `{from: db|r2|none, sha256}` (400 unknown source, 404 no row)
+  — [deploy/R2.md](../../deploy/R2.md). The app/web API is unchanged: photos are still
   sent and returned as the same base64 text.
 
 Static files served by Vercel today (phase 2: nginx): `/admin` → `server/public/admin/index.html` (admin panel, strict CSP),

@@ -48,6 +48,40 @@ class StorageMigrator(
         s.name to (jdbc.queryForObject("SELECT count(*) FROM ${s.table} WHERE ${s.data} IS NOT NULL AND ${s.data} <> ''", Long::class.java) ?: 0L)
     }
 
+    /**
+     * For checking the migration on a live server: per source the first row that still has base64, with its primary
+     * key and the SHA-256 of the text the API returns for it. Call [probe] with the same key after the migration.
+     */
+    fun probeSample(): Map<String, Any?> = SOURCES.associate { s ->
+        val cols = s.pk.joinToString(", ")
+        val row = jdbc.queryForList(
+            "SELECT $cols FROM ${s.table} WHERE ${s.data} IS NOT NULL AND ${s.data} <> '' ORDER BY $cols LIMIT 1",
+        ).firstOrNull()
+        s.name to row?.let { r ->
+            val pk = s.pk.map { r[it]?.toString() }
+            linkedMapOf("pk" to pk, "sha256" to probe(s, pk)?.get("sha256"))
+        }
+    }
+
+    /**
+     * One row read like the API reads it (the base64 column, else the object of the key through [StoredFiles], memory
+     * cache skipped): where it came from (db / r2 / none) and the SHA-256 of the text. null when there is no such row.
+     */
+    fun probe(s: Source, pk: List<String?>): Map<String, Any?>? {
+        if (pk.size != s.pk.size || pk.any { it == null }) return null
+        val where = s.pk.joinToString(" AND ") { "$it::text = ?" }
+        val r = jdbc.queryForList("SELECT ${s.data} AS data, ${s.key} AS key FROM ${s.table} WHERE $where", *pk.toTypedArray())
+            .firstOrNull() ?: return null
+        val data = (r["data"] as String?)?.takeIf { it.isNotEmpty() }
+        val key = r["key"] as String?
+        if (data == null && key != null) files.forget(key)
+        val text = files.text(data, key)
+        return linkedMapOf(
+            "from" to (if (data != null) "db" else if (key != null) "r2" else "none"),
+            "sha256" to text?.let { B64Blob.sha256(it.toByteArray(Charsets.UTF_8)) },
+        )
+    }
+
     /** moves up to [limit] rows (all sources, in order); null when R2 is not configured */
     fun migrate(limit: Int): MigrateResult? {
         if (!files.enabled) return null
@@ -148,6 +182,8 @@ class StorageMigrator(
  *  - GET  /api/cron/storage → {configured, remaining: {profilePhoto, profileThumb, verifyDocs, labReportPhotos}, stored, trash}
  *  - POST /api/cron/storage/migrate?limit=200 → moves up to `limit` (1–2000) rows to R2, then the same status plus
  *    {migrated, failed, changed}; 409 while another call runs, 400 when R2 is not configured.
+ *  - GET  /api/cron/storage/probe → per source one row that still has base64 {pk, sha256}; with `?source=…&pk=…&pk=…`
+ *    that row read like the API reads it → {from: db|r2|none, sha256} (checks the migration without showing any data).
  */
 @RestController
 class StorageController(
@@ -179,6 +215,18 @@ class StorageController(
         out.putAll(migrator.status())
         files.sweep()
         return ResponseEntity.ok(out)
+    }
+
+    @RequestMapping("/api/cron/storage/probe")
+    fun probe(req: HttpServletRequest): ResponseEntity<Any> {
+        if (req.method != "GET") return ResponseEntity.status(405).body(mapOf("error" to "Method not allowed"))
+        if (!authorized(req)) throw ApiException(401, "অনুমতি নেই")
+        val name = req.getParameter("source") ?: return ResponseEntity.ok(migrator.probeSample())
+        val s = StorageMigrator.SOURCES.firstOrNull { it.name == name }
+            ?: return ResponseEntity.status(400).body(mapOf("error" to "Unknown source"))
+        val r = migrator.probe(s, req.getParameterValues("pk")?.toList().orEmpty())
+            ?: return ResponseEntity.status(404).body(mapOf("error" to "Not found"))
+        return ResponseEntity.ok(r)
     }
 }
 
