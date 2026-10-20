@@ -217,6 +217,7 @@ class LabPricesIT : RxLabTest() {
 
         // ---------- 8. the caregiver asks for a home visit for the patient; the lab can't come ----------
         val rx2 = ok(d, "rx_create", mapOf("rxPatientId" to pt, "tests" to listOf("CBC")))
+        ok(p, "rx_claim", mapOf("code" to rx2["code"].asText(), "phone" to "01711000401"))
         val s3 = ok(cg, "rx_send_lab", mapOf("asUid" to p, "rxId" to rx2["id"].asText(), "labId" to l1, "home" to h + mapOf("slot" to "afternoon", "day" to 2)))["id"].asText()
         val o3doc = row("SELECT patient_uid, by_caretaker, home_date, price_estimate FROM lab_orders WHERE id = ?", s3)
         assertEquals(listOf(p, cg, "450"), listOf(o3doc["patient_uid"], o3doc["by_caretaker"], o3doc["price_estimate"].toString()))
@@ -233,6 +234,7 @@ class LabPricesIT : RxLabTest() {
         fails(l1, "lab_home_decline", mapOf("id" to s3), 409)
         ok(l1, "lab_order_status", mapOf("id" to s3, "status" to "received"))
         val rx3 = ok(d, "rx_create", mapOf("rxPatientId" to pt, "tests" to listOf("Thyroid profile")))
+        ok(p, "rx_claim", mapOf("code" to rx3["code"].asText(), "phone" to "01711000401"))
         val s4 = ok(p, "rx_send_lab", mapOf("rxId" to rx3["id"].asText(), "labId" to l3))["id"].asText()
         val o4 = ok(l3, "lab_orders")["items"].first { it["id"].asText() == s4 }
         assertTrue(o4["home"].isNull && o4["prices"].isNull)

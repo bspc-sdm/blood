@@ -29,8 +29,8 @@ async function add() {
   <Dialog :title="tr('Add a prescription', 'প্রেসক্রিপশন যোগ করুন')" @close="!busy && emit('close')">
     <p class="t-body-m">
       {{ tr(
-        'Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member\'s (add them in Profile → Caregivers & family).',
-        'QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)।',
+        'Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member\'s (add them in Profile → Caregivers & family). Each paper prescription is added with its own code.',
+        'QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)। প্রতিটা কাগজের প্রেসক্রিপশন তার নিজের কোড দিয়ে আলাদা করে যোগ করুন।',
       ) }}
     </p>
     <TextInput

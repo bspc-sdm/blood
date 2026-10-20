@@ -132,10 +132,21 @@ class IdorIT : RxLabTest() {
         assertEquals(listOf(seen["id"].asText()), ok(patB, "rx_mine")["items"].map { it["id"].asText() })
         assertEquals(null, row("SELECT patient_uid FROM prescriptions WHERE id = ?", older)["patient_uid"], "the earlier one stays with the doctor")
         fails(patB, "rx_get", mapOf("id" to older), 404)
-        // the real patient: their own code still works for a prescription nobody claimed... except that the paper patient
-        // is now linked to the other account (owner decision: future prescriptions follow the link until SMS verification is on)
+        // the real patient: their own code still works for a prescription nobody claimed (the paper patient is never linked)
         val code = row("SELECT code FROM prescriptions WHERE id = ?", older)["code"] as String
-        fails(patA, "rx_claim", mapOf("code" to code, "phone" to phoneA), 409)
+        assertEquals(1, ok(patA, "rx_claim", mapOf("code" to code, "phone" to phoneA))["added"].intValue())
+        // a later prescription for the same paper patient goes to nobody's account until someone adds it by its code
+        val later = ok(docA, "rx_create", mapOf("rxPatientId" to p, "diagnosis" to "নতুন গোপন", "advice" to "y"))
+        assertEquals(null, row("SELECT patient_uid FROM prescriptions WHERE id = ?", later["id"].asText())["patient_uid"])
+        assertFalse(hasId(ok(patB, "rx_mine")["items"], later["id"].asText()))
+        assertFalse(hasId(ok(patA, "rx_mine")["items"], later["id"].asText()))
+        fails(patB, "rx_get", mapOf("id" to later["id"].asText()), 404)
+        assertEquals(1, ok(patA, "rx_claim", mapOf("code" to later["code"].asText(), "phone" to phoneA))["added"].intValue())
+        fails(patB, "rx_claim", mapOf("code" to later["code"].asText(), "phone" to phoneA), 409)
+        // a link left from before the change (V604 clears them; a stray one is ignored): the next one still stays with the doctor
+        jdbc.update("UPDATE rx_patients SET linked_uid = ? WHERE id = ?", patA, p)
+        val afterOld = ok(docA, "rx_create", mapOf("rxPatientId" to p, "advice" to "z"))["id"].asText()
+        assertEquals(null, row("SELECT patient_uid FROM prescriptions WHERE id = ?", afterOld)["patient_uid"])
     }
 
     // ------------------------------------------------------------------ lab orders and reports

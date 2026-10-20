@@ -9,7 +9,6 @@ import com.lifolo.common.Rules
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
-import com.lifolo.appointments.PhoneCheck
 import com.lifolo.common.intOrNull
 import com.lifolo.common.stringArray
 import com.lifolo.contracts.Badges
@@ -43,7 +42,6 @@ class RxActions(
     private val labs: LabService,
     private val labStore: LabStore,
     private val props: LifoloProperties,
-    private val phoneCheck: PhoneCheck,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "rx_me" to ActionHandler(::rxMe),
@@ -113,23 +111,29 @@ class RxActions(
         val gender: String,
         val phone: String,
         val phoneKey: String,
-        val linkedUid: String?,
+        val inApp: Boolean,
         val createdAt: Long,
         val lastRxAt: Long,
     ) {
         fun view(): LinkedHashMap<String, Any?> = linkedMapOf(
-            "id" to id, "name" to name, "age" to age, "gender" to gender, "phone" to phone, "linked" to (linkedUid != null),
+            "id" to id, "name" to name, "age" to age, "gender" to gender, "phone" to phone, "linked" to inApp,
             "createdAt" to createdAt, "lastRxAt" to lastRxAt,
         )
     }
 
     private fun rxPatient(rs: ResultSet) = RxPatient(
         rs.getString("id"), rs.getString("doctor_uid"), rs.getString("name") ?: "", rs.intOrNull("age"), rs.getString("gender") ?: "",
-        rs.getString("phone") ?: "", rs.getString("phone_key") ?: "", rs.getString("linked_uid"),
+        rs.getString("phone") ?: "", rs.getString("phone_key") ?: "", rs.getBoolean("in_app"),
         rs.getTimestamp("created_at")?.time ?: 0L, rs.getTimestamp("last_rx_at")?.time ?: 0L,
     )
 
-    private fun rxPatientById(id: String): RxPatient? = jdbc.rows("SELECT * FROM rx_patients WHERE id = ?", id) { rxPatient(it) }.firstOrNull()
+    /**
+     * rx_patients rows + in_app: at least one of this paper patient's prescriptions was added to an app account by its
+     * code (the doctor's "in app" tag). Paper patients are never linked to an account any more — see [rxClaim].
+     */
+    private val RXP_SQL = "SELECT r.*, EXISTS (SELECT 1 FROM prescriptions x WHERE x.rx_patient_id = r.id AND x.patient_uid IS NOT NULL) AS in_app FROM rx_patients r"
+
+    private fun rxPatientById(id: String): RxPatient? = jdbc.rows("$RXP_SQL WHERE r.id = ?", id) { rxPatient(it) }.firstOrNull()
 
     private data class Appt(
         val id: String,
@@ -213,7 +217,7 @@ class RxActions(
     fun rxPatients(ctx: ActionContext): Any {
         val (doctorUid, role) = actingFor(ctx, ctx.body.string("doctorUid"))
         val today = RxRules.dhakaToday()
-        val ps = jdbc.rows("SELECT * FROM rx_patients WHERE doctor_uid = ? ORDER BY id COLLATE \"C\" LIMIT 1000", doctorUid) { rxPatient(it) }
+        val ps = jdbc.rows("$RXP_SQL WHERE r.doctor_uid = ? ORDER BY r.id COLLATE \"C\" LIMIT 1000", doctorUid) { rxPatient(it) }
         val patients = ps.sortedByDescending { if (it.lastRxAt != 0L) it.lastRxAt else it.createdAt }.take(300).map { it.view() }
         val appts = jdbc.rows("$APPT_SQL WHERE a.provider_uid = ? ORDER BY a.id COLLATE \"C\"", doctorUid) { appt(it) }
         val appointments = appts
@@ -273,7 +277,7 @@ class RxActions(
         val p = RxRules.parsePatient(ctx.lang, ctx.body.node)
         val phone = Phones.normalizeBd(Js.toStr(ctx.body["phone"])) ?: throw ctx.err(400, "Enter the patient's mobile number", "রোগীর মোবাইল নম্বর দিন")
         val key = phoneKey(phone)!!
-        val same = jdbc.rows("SELECT * FROM rx_patients WHERE doctor_uid = ? AND phone_key = ? ORDER BY id COLLATE \"C\"", doctorUid, key) { rxPatient(it) }
+        val same = jdbc.rows("$RXP_SQL WHERE r.doctor_uid = ? AND r.phone_key = ? ORDER BY r.id COLLATE \"C\"", doctorUid, key) { rxPatient(it) }
             .firstOrNull { it.name.lowercase() == p.name.lowercase() }
         if (same != null) {
             if (p.age != null || p.gender.isNotEmpty()) {
@@ -321,7 +325,8 @@ class RxActions(
             val p = rxPatientById(pid!!)
             if (p == null || p.doctorUid != uid) throw ctx.err(404, "Patient not found", "রোগী পাওয়া যায়নি")
             rxPatientId = p.id
-            patientUid = p.linkedUid
+            // a paper patient: the prescription stays with the doctor until the patient adds it by its own code
+            // (owner decision 2026-10: claiming one paper prescription never links the next ones to the account)
             base["name"] = p.name
             base["age"] = p.age
             base["gender"] = p.gender
@@ -419,8 +424,10 @@ class RxActions(
         linkedMapOf("items" to views(store.load("patient_uid = ? ORDER BY created_at DESC LIMIT 300", ctx.user.id)))
 
     /**
-     * the patient adds a paper/shared prescription by code + the phone number given to the assistant (also the profile's
-     * or a family member's number): all of that doctor's prescriptions for this phone come to the account.
+     * the patient adds one paper/shared prescription by its code + the phone number given to the assistant (the
+     * profile's or a family member's number). Only that prescription comes to the account: earlier and later
+     * prescriptions of the same paper patient are added one by one with their own codes (owner decision 2026-10 —
+     * before, a claim linked the paper patient and every later prescription followed automatically).
      */
     fun rxClaim(ctx: ActionContext): Any {
         val uid = ctx.user.id
@@ -445,20 +452,12 @@ class RxActions(
         val pid = rx.third ?: throw notMatch()
         val p = rxPatientById(pid)
         if (p == null || p.phoneKey != phoneKey(phone)) throw notMatch()
-        if (p.linkedUid != null && p.linkedUid != uid) {
+        if (rx.second != null) {
             throw ctx.err(409, "This prescription is already added to another account", "এই প্রেসক্রিপশন আরেকটা অ্যাকাউন্টে যোগ করা আছে")
         }
-        jdbc.update("UPDATE rx_patients SET linked_uid = ? WHERE id = ?", uid, pid)
-        // The code proves this one prescription. The patient's earlier ones from this doctor come along only when the
-        // phone is really verified (SMS on and the profile's own number verified) — a phone number typed into a profile
-        // is not proof, so code + someone's number must not open their whole history. (Before: always all of them.)
-        val proven = phoneCheck.enabled() && phoneCheck.isVerified(uid) &&
-            Phones.normalizeBd(jdbc.queryForList("SELECT phone FROM user_profiles WHERE uid = ?", String::class.java, uid).firstOrNull()) == phone
-        val added = if (proven) {
-            jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE rx_patient_id = ?", uid, pid)
-        } else {
-            jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE id = ?", uid, rx.first)
-        }
+        // only if still unclaimed (two accounts at the same moment: the first wins, the second gets 409)
+        val added = jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE id = ? AND patient_uid IS NULL", uid, rx.first)
+        if (added == 0) throw ctx.err(409, "This prescription is already added to another account", "এই প্রেসক্রিপশন আরেকটা অ্যাকাউন্টে যোগ করা আছে")
         return linkedMapOf("ok" to true, "added" to added)
     }
 

@@ -73,6 +73,9 @@ class RxFlowIT : RxLabTest() {
         assertEquals(0, ok(pat, "rx_claim", mapOf("code" to code, "phone" to "01711000001"))["added"].intValue())
         val mine = ok(pat, "rx_mine")["items"]
         assertEquals(1, mine.size())
+        // the doctor's list: "in app" once one of the patient's prescriptions is in an app; the paper patient is not linked
+        assertEquals(true, ok(doc, "rx_patients")["patients"].first { it["id"].asText() == p1["id"].asText() }["linked"].booleanValue())
+        assertNull(row("SELECT linked_uid FROM rx_patients WHERE id = ?", p1["id"].asText())["linked_uid"])
         assertEquals(listOf("Comet 500", "Rosuva 10", "Napa 500"), mine[0]["medicines"].map { it["name"].asText() })
         assertEquals(true, mine[0]["linked"].booleanValue())
         assertEquals("A-12345", mine[0]["doctor"]["regNo"].asText())
@@ -121,6 +124,11 @@ class RxFlowIT : RxLabTest() {
 
         // a second report later — the earlier result next to it
         val rx2 = ok(doc, "rx_create", mapOf("rxPatientId" to p1["id"].asText(), "medicines" to listOf(mapOf("name" to "Comet 500", "form" to "Tablet", "dose" to "1+0+1", "days" to 30)), "tests" to listOf("HbA1c")))
+        // a paper patient is never linked: the next prescription comes to the app only with its own code (no push either)
+        assertNull(row("SELECT patient_uid FROM prescriptions WHERE id = ?", rx2["id"].asText())["patient_uid"])
+        assertEquals(1, ok(pat, "rx_mine")["items"].size())
+        fails(pat, "rx_send_lab", mapOf("rxId" to rx2["id"].asText(), "labId" to labU), 404)
+        assertEquals(1, ok(pat, "rx_claim", mapOf("code" to rx2["code"].asText(), "phone" to "01711000001"))["added"].intValue())
         ok(pat, "rx_send_lab", mapOf("rxId" to rx2["id"].asText(), "labId" to labU))
         val lo2 = ok(labU, "lab_orders")["items"].first { it["rxId"].asText() == rx2["id"].asText() }
         val f3 = ok(labU, "lab_form", mapOf("id" to lo2["id"].asText()))["forms"][0]
@@ -159,6 +167,7 @@ class RxFlowIT : RxLabTest() {
         fails(admin, "admin_labtests_set", mapOf("test" to mapOf("name" to "Sugar test", "aliases" to listOf("rbs"), "params" to listOf(mapOf("name" to "x")))), 409)
         assertTrue(ok(pat, "labtests_get")["tests"].any { it["code"].asText() == "serum_magnesium" })
         val rx4 = ok(doc, "rx_create", mapOf("rxPatientId" to p1["id"].asText(), "tests" to listOf("S. Magnesium")))
+        ok(pat, "rx_claim", mapOf("code" to rx4["code"].asText(), "phone" to "01711000001"))
         ok(pat, "rx_send_lab", mapOf("rxId" to rx4["id"].asText(), "labId" to labU))
         val lo4 = ok(labU, "lab_orders")["items"].first { it["rxId"].asText() == rx4["id"].asText() }
         val f4 = ok(labU, "lab_form", mapOf("id" to lo4["id"].asText()))["forms"][0]
@@ -269,6 +278,8 @@ class RxFlowIT : RxLabTest() {
 
     private fun rxWithLab(doctor: String, rxPatientId: String, tests: List<String>): Sent {
         val rx = ok(doctor, "rx_create", mapOf("rxPatientId" to rxPatientId, "tests" to tests, "advice" to "রিপোর্ট নিয়ে আসবেন"))
+        // each paper prescription is added to the app by its own code
+        ok(lp, "rx_claim", mapOf("code" to rx["code"].asText(), "phone" to "01711000301"))
         ok(lp, "rx_send_lab", mapOf("rxId" to rx["id"].asText(), "labId" to ll))
         val lo = ok(ll, "lab_orders")["items"].first { it["rxId"].asText() == rx["id"].asText() }
         return Sent(rx["id"].asText(), lo["id"].asText())
