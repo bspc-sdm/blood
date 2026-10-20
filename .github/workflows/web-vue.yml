@@ -5,7 +5,7 @@ name: Web (Vue) check
 # আসল সার্ভারের পুরো যাত্রা (e2e/web/journeys, Auth emulator) — শুধু হাতে চালালে (workflow_dispatch, journeys: true)।
 on:
   push:
-    branches: [main, vue-web]
+    branches: [main, vue-web, cutover, spring]
     paths:
       - "web-vue/**"
       - ".github/workflows/web-vue.yml"

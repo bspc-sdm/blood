@@ -270,6 +270,14 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .detail-bar-row > .btn { width: 100%; min-height: 48px; border-radius: 12px; padding: 0 10px; gap: 6px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .detail-bar-row > .btn.has-icon { padding-left: 10px; }
 .detail-bar-row > .btn.solo { grid-column: 1 / -1; }
+/* ফোন + আরেকটা কাজ পাশাপাশি (মালিকের অনুরোধ, অ্যাম্বুলেন্স বাদে — সেখানে ফোনই মূল): ফোন লেখার মাপে ছোট, মূল কাজ বাকি জায়গা জুড়ে */
+.detail-bar-row.call-compact { grid-template-columns: auto minmax(0, 1fr); }
+.detail-bar-row.call-compact > .btn.call:not(.solo) { padding: 0 14px; }
+.detail-bar-row .call-short { display: none; }
+@media (max-width: 719px) {
+  .detail-bar-row.call-compact .call-long { display: none; }
+  .detail-bar-row.call-compact .call-short { display: inline; }
+}
 /* ডাক্তারের বিস্তারিতের নিচের বার (সেবার .services-foot-এর মতো) */
 .detail-bar {
   position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px;

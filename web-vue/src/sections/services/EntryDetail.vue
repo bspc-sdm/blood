@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // বিস্তারিত: default slot — ভাগগুলোর পরে, নিচের বারের আগে।
-// main slot (২.২৭.০): নিচের আটকানো বারে ফোনের পাশে মূল কাজ — তখন দুটো পাশাপাশি আধাআধি, মূল কাজ ভরাট আর ফোন আউটলাইন ("ফোন");
+// main slot (২.২৭.০): নিচের আটকানো বারে ফোনের পাশে মূল কাজ — মূল কাজ ভরাট আর চওড়া, ফোন আউটলাইন আর ছোট ("ফোন", call-compact);
+// শুধু অ্যাম্বুলেন্সে দুটো আধাআধি (সেখানে ফোন করাই মূল কাজ);
 // main না থাকলে বড় ভরাট "ফোন করুন" আগের মতো। top slot (২.৩২.০): মাথার ঠিক নিচে, ভাগগুলোর আগে।
 import { computed, useSlots } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -64,8 +65,8 @@ const call = () => recordCall(props.e.kind, props.e.id, s.guest);
     </section>
     <slot />
     <div class="services-foot">
-      <div v-if="hasMain" class="detail-bar-row">
-        <a class="btn outline square has-icon" :href="`tel:${e.phone}`" @click="call"><Icon name="call" />{{ tr('Call', 'ফোন') }}</a>
+      <div v-if="hasMain" :class="['detail-bar-row', e.kind !== 'ambulance' && 'call-compact']">
+        <a class="btn outline square has-icon call" :href="`tel:${e.phone}`" @click="call"><Icon name="call" />{{ tr('Call', 'ফোন') }}</a>
         <slot name="main" />
       </div>
       <PhoneLine v-else big :phone="e.phone" :on-call="call" />

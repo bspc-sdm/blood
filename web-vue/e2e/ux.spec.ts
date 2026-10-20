@@ -36,11 +36,36 @@ test('ফার্মেসির খুঁটিনাটি: নিচে আ�
   await expect(send).toBeVisible();
   const call = foot.locator('.detail-bar-row a[href^="tel:"]', { hasText: 'ফোন' });
   await expect(call).toBeVisible();
-  // একই সারিতে, ফোন আগে আর মূল বোতামের চেয়ে বড় নয় (React-এ ফোনের মাপে দুটো সমান, চওড়া পর্দায় ফোন ছোট)
+  // একই সারিতে, ফোন আগে; মালিকের অনুরোধ: ফোনের মাপে "ফোন" ছোট (লেখার মাপে), "প্রেসক্রিপশন পাঠান" চওড়া
   const [sw, cw] = [(await send.boundingBox())!, (await call.boundingBox())!];
   expect(Math.abs(sw.y - cw.y)).toBeLessThan(2);
   expect(cw.x).toBeLessThan(sw.x);
-  expect(cw.width).toBeLessThanOrEqual(sw.width);
+  expect(cw.width).toBeLessThan(sw.width * 0.6);
+  // "প্রেসক্রিপশন পাঠান" এক লাইনে, কাটা নয়
+  expect(await send.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+});
+
+test('ফোন + আরেকটা কাজ পাশাপাশি: প্যাথলজি আর ডাক্তারেও ফোন ছোট; অ্যাম্বুলেন্সে দুটো সমান (ফোনই মূল)', async ({ page }) => {
+  const widths = async () => {
+    const row = page.locator('.detail-bar-row').first();
+    await expect(row).toBeVisible();
+    const call = row.locator('a[href^="tel:"]').first();
+    const other = row.locator('button').first();
+    await expect(call).toBeVisible();
+    await expect(other).toBeVisible();
+    return [(await call.boundingBox())!.width, (await other.boundingBox())!.width];
+  };
+  await open(page, def('services', 'lab-detail'));
+  const [lc, lo] = await widths();
+  expect(lc).toBeLessThan(lo * 0.6);
+  // ডাক্তার: ফোনের মাপে "সিরিয়ালের ফোন" ছোট হয়ে "ফোন"
+  await open(page, def('appointment', 'detail'));
+  const [dc, dO] = await widths();
+  expect(dc).toBeLessThan(dO * 0.6);
+  expect((await page.locator('.detail-bar-row a[href^="tel:"]').first().innerText()).trim()).toBe('ফোন');
+  await open(page, def('services', 'amb-user-detail'));
+  const [ac, ao] = await widths();
+  expect(Math.abs(ac - ao)).toBeLessThan(2);
 });
 
 test('ফার্মেসির ট্যাব: অর্ডার / ওষুধ খোঁজা / দোকান (তথ্য · বিক্রি · স্টক · এনালাইটিক্স)', async ({ page }) => {
