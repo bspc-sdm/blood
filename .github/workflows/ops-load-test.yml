@@ -1,0 +1,189 @@
+name: "Ops: load test"
+
+# লোড টেস্ট — GitHub-এর মেশিন থেকে সরাসরি VPS-এ (api.lifolo.com → VPS-এর IP, Cloudflare-এর পাশ কাটিয়ে, যাতে
+# Cloudflare আটকায় বা cache না করে)। ধাপে ধাপে লগইন-করা অনুরোধ বাড়ানো হয় (5 → 10 → 20 … rps, প্রতি ধাপ ৬০ সেকেন্ড);
+# p95 > 1 s বা ত্রুটি > 1% হলেই থামে। সাথে VPS-এ প্রতি ২ সেকেন্ডে CPU/RAM/Java/DB সংযোগ মাপা (ssh)।
+# শুধু ডেমো অ্যাকাউন্ট (demo-…); শেষে টেস্টের বানানো সব সারি মোছা আর ডেমোর কোটা আগের মতো (deploy/ops/vps-ops.sh cleanup)।
+# কোনো আসল ইমেইল যায় না (লগইন-কোডের পথ শুধু ভুল ইমেইল / না-চাওয়া কোড দিয়ে)।
+# বাংলা গাইড: deploy/OPS-DRILLS.md। ফল log branch `ci-log-ops-drills`-এ: load/summary.md, load/load-status.txt।
+on:
+  workflow_dispatch:
+    inputs:
+      rates:
+        description: "ধাপগুলো (লগইন-করা অনুরোধ/সেকেন্ড, ফাঁকা দিয়ে আলাদা)"
+        type: string
+        default: "5 10 20 40 60 80 120 160 200 250 300"
+      stage_seconds:
+        description: "প্রতি ধাপ কত সেকেন্ড"
+        type: string
+        default: "60"
+      amb_cycles:
+        description: "অ্যাম্বুলেন্স ডাকা → বাতিল কতবার (০-৩; ডেমো চালকদের কাছে নোটিফিকেশন যায়)"
+        type: string
+        default: "2"
+      limiter_check:
+        description: "শেষে অতিথির সীমা (মিনিটে ২৪০/IP) পরীক্ষা"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# deploy-এর সাথে একসাথে নয় (deploy অ্যাপ restart করে — মাপ নষ্ট হবে)
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      API_DOMAIN: api.lifolo.com
+      OPS: /root/lifolo-ops/load
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::VPS_HOST-এ IP নেই"; exit 1; }
+          [ -n "$VPS_ROOT_PASSWORD" ] || { echo "::error::VPS_ROOT_PASSWORD নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "ORIGIN_IP=$ip" >> "$GITHUB_ENV"
+
+      - name: Install k6
+        run: |
+          curl -fsSL https://github.com/grafana/k6/releases/download/v1.0.0/k6-v1.0.0-linux-amd64.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          sudo install -m 0755 "$RUNNER_TEMP/k6-v1.0.0-linux-amd64/k6" /usr/local/bin/k6
+          k6 version
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Before - settings, snapshot, start sampling
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          ssh vps "install -d -m 0700 /root/lifolo-ops && rm -rf '$OPS' && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh config" | tee "$RUNNER_TEMP/out/config.txt"
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh snapshot '$OPS'" | tee "$RUNNER_TEMP/out/before.txt"
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh sample-start '$OPS' 2"
+          echo "$ORIGIN_IP $API_DOMAIN # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
+          curl -fsS -m 15 "https://$API_DOMAIN/api/health" | grep -q '"ok":true' || { echo "::error::সরাসরি VPS-এ /api/health সাড়া দিচ্ছে না"; exit 1; }
+
+      - name: Demo tokens
+        run: |
+          API="https://$API_DOMAIN" KEY="$(python3 -c "import json;print(json.load(open('app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")" \
+            python3 deploy/ops/demo-tokens.py "$RUNNER_TEMP/tokens.json"
+          echo "TOKENS_AT=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Ramp
+        env:
+          RATES: ${{ inputs.rates }}
+          STAGE_SECONDS: ${{ inputs.stage_seconds }}
+          AMB_CYCLES: ${{ inputs.amb_cycles }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          dur="$(printf '%s' "${STAGE_SECONDS:-60}" | tr -cd '0-9')"; dur="${dur:-60}"
+          amb="$(printf '%s' "${AMB_CYCLES:-2}" | tr -cd '0-9')"; amb="${amb:-0}"; [ "$amb" -le 3 ] || amb=3
+          : > "$out/stages.tsv"
+          i=0
+          for r in ${RATES:-5 10 20 40}; do
+            r="$(printf '%s' "$r" | tr -cd '0-9')"; [ -n "$r" ] || continue
+            # টোকেন ১ ঘণ্টা চলে — ৪০ মিনিট পার হলে নতুন
+            if [ $(( $(date +%s) - TOKENS_AT )) -gt 2400 ]; then
+              API="https://$API_DOMAIN" KEY="$(python3 -c "import json;print(json.load(open('app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")" \
+                python3 deploy/ops/demo-tokens.py "$RUNNER_TEMP/tokens.json"
+              TOKENS_AT=$(date +%s)
+            fi
+            # অ্যাম্বুলেন্স: ধাপ ১, ৩, ৫-এ (amb_cycles পর্যন্ত)
+            a=0; if [ $((i % 2)) = 1 ] && [ $(( (i + 1) / 2 )) -le "$amb" ]; then a=1; fi
+            echo "==> ধাপ $i: $r rps × ${dur}s (অ্যাম্বুলেন্স: $a)"
+            start=$(date +%s)
+            k6 run --quiet --no-color -e API="https://$API_DOMAIN" -e ORIGIN_IP="$ORIGIN_IP" -e TOKENS_FILE="$RUNNER_TEMP/tokens.json" \
+              -e RATE="$r" -e DURATION="${dur}s" -e STAGE="$i" -e GUEST_RATE=2 -e WRITER=1 -e AMB="$a" \
+              -e SUMMARY_FILE="$out/stage-$i.json" deploy/ops/k6-lifolo.js > "$out/stage-$i.log" 2>&1 || true
+            end=$(date +%s)
+            printf '%s\t%s\t%s\t%s\t%s\n' "$i" "$r" "$start" "$end" "$dur" >> "$out/stages.tsv"
+            grep -E '^stage ' "$out/stage-$i.log" || tail -5 "$out/stage-$i.log"
+            if [ ! -s "$out/stage-$i.json" ]; then echo "::warning::ধাপ $i-এর ফল নেই — থামা"; break; fi
+            if python3 - "$out/stage-$i.json" <<'PY'
+          import json, sys
+          m = json.load(open(sys.argv[1]))["metrics"]
+          p95 = m.get("lf_latency", {}).get("values", {}).get("p(95)", 0)
+          er = m.get("lf_errors", {}).get("values", {}).get("rate", 0)
+          sys.exit(0 if (p95 > 1000 or er > 0.01) else 1)
+          PY
+            then
+              echo "==> সীমা পেরোল (p95 > 1 s বা ত্রুটি > 1%) — ভাঙনের বিন্দু পাওয়া গেছে, থামা"
+              break
+            fi
+            i=$((i + 1))
+            sleep 15
+          done
+
+      - name: Guest limit check
+        if: inputs.limiter_check
+        run: |
+          sleep 61   # আগের অতিথি-অনুরোধের মিনিট শেষ হোক
+          seq 1 300 | xargs -P 30 -I{} curl -s -o /dev/null -m 20 -w '%{http_code}\n' -X POST -H 'content-type: application/json' \
+            -A 'lifolo-ops-loadtest/1.0' --data '{"action":"tips","lang":"bn"}' "https://$API_DOMAIN/api/community" > "$RUNNER_TEMP/lim.txt" || true
+          {
+            echo "sent=$(wc -l < "$RUNNER_TEMP/lim.txt")"
+            echo "ok=$(grep -c '^200$' "$RUNNER_TEMP/lim.txt" || true)"
+            echo "limited=$(grep -c '^429$' "$RUNNER_TEMP/lim.txt" || true)"
+            echo "other=$(grep -vcE '^(200|429)$' "$RUNNER_TEMP/lim.txt" || true)"
+          } | tee "$RUNNER_TEMP/out/limiter.txt"
+
+      - name: After - stop sampling, server-side counts, clean up
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"; mkdir -p "$out"
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh sample-stop '$OPS'" || true
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh window '$OPS'" | tee "$out/window.txt" || true
+          ssh vps "cat '$OPS/metrics.csv'" > "$out/metrics.csv" || true
+          ssh vps "cat '$OPS/app.top'" > "$out/app.top" 2>/dev/null || true
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh cleanup '$OPS'" | tee "$out/cleanup.txt" || true
+          ssh vps "rm -f '$OPS/access.window' '$OPS/error.window' '$OPS/app.window'" || true
+
+      - name: Report
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          python3 deploy/ops/load-report.py "$out" > /dev/null || echo "## লোড টেস্ট: সারাংশ বানানো যায়নি" > "$out/summary.md"
+          {
+            cat "$out/summary.md"
+            echo
+            echo "_run ${{ github.run_id }} · $(date -u '+%Y-%m-%d %H:%M UTC') · গাইড: deploy/OPS-DRILLS.md_"
+          } > "$out/summary.full.md"
+          ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
+          for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
+          cat "$out/summary.full.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-ops-drills)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: ops load test ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/load"
+          out="$RUNNER_TEMP/out"
+          cp "$out/summary.full.md" "$src/load/summary.md" 2>/dev/null || true
+          for f in load-status.txt stages.tsv metrics.csv config.txt before.txt window.txt cleanup.txt limiter.txt; do cp "$out/$f" "$src/load/" 2>/dev/null || true; done
+          for f in "$out"/stage-*.log; do [ -f "$f" ] && grep -vE 'eyJ[A-Za-z0-9_-]{20,}' "$f" | tail -200 > "$src/load/$(basename "$f")"; done
+          echo "run=${GITHUB_RUN_ID}" >> "$src/load/load-status.txt"
+          echo "job=${{ job.status }}" >> "$src/load/load-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" load
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          sudo sed -i '/# lifolo-origin$/d' /etc/hosts || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/tokens.json"

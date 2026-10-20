@@ -1,0 +1,130 @@
+name: "Ops: SSL and Cloudflare check"
+
+# সার্টিফিকেট আর Cloudflare — কিছু বদলায় না (শুধু certbot-এর --dry-run, যেটা Let's Encrypt-এর staging-এ চলে):
+#   VPS-এর Let's Encrypt সার্টিফিকেটের মেয়াদ, nginx প্রতিটা নামে কোনটা দেখায় আর তা যাচাই হয় কি না (Full (strict)-এর শর্ত),
+#   certbot renew --dry-run (Cloudflare-এর পেছনে HTTP-01), Cloudflare দিয়ে সাইট চলে কি না আর Cloudflare origin-এ 443-এ আসে কি না
+#   (Flexible হলে 80-এ আসত), HSTS আর অন্য নিরাপত্তা-হেডার (Cloudflare দিয়ে আর সরাসরি)।
+# বাংলা গাইড: deploy/OPS-DRILLS.md। ফল log branch `ci-log-ops-drills`-এ: ssl/summary.md।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ops-checks
+  cancel-in-progress: false
+
+jobs:
+  ssl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::VPS_HOST-এ IP নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "ORIGIN_IP=$ip" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/out"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Certificates and certbot (on the VPS)
+        run: |
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "SSLIP='${ORIGIN_IP//./-}.sslip.io' bash /root/lifolo-ops/vps-ops.sh ssl" | tee "$RUNNER_TEMP/out/vps.md"
+
+      - name: Cloudflare and headers (from the internet)
+        run: |
+          out="$RUNNER_TEMP/out"
+          hdr() { # $1 = cf|origin, $2 = url → headers file
+            local host; host="$(printf '%s' "$2" | sed -E 's#^https?://([^/]+).*#\1#')"
+            if [ "$1" = origin ]; then
+              curl -sS -m 20 -o /dev/null -D - --resolve "$host:443:$ORIGIN_IP" "$2" 2>/dev/null | tr -d '\r'
+            else
+              curl -sS -m 20 -o /dev/null -D - -A 'Mozilla/5.0 (lifolo-ops-check)' "$2" 2>/dev/null | tr -d '\r'
+            fi
+          }
+          has() { grep -qi "^$1:" "$2" && echo "✅" || echo "❌"; }
+          {
+            echo "### নিরাপত্তা-হেডার"
+            echo "| পথ | কোথা দিয়ে | HTTP | HSTS | nosniff | X-Frame / frame-ancestors | Referrer-Policy | CSP | cf-ray |"
+            echo "|---|---|---|---|---|---|---|---|---|"
+            for u in https://lifolo.com/ https://lifolo.com/admin/ https://lifolo.com/api/health https://api.lifolo.com/api/health https://lifolo.com/privacy; do
+              for via in cf origin; do
+                f="$out/h.txt"; hdr "$via" "$u" > "$f"
+                code="$(head -1 "$f" | awk '{print $2}')"
+                xf="$(grep -qiE '^x-frame-options:|^content-security-policy:.*frame-ancestors' "$f" && echo ✅ || echo ❌)"
+                echo "| ${u#https://} | $([ "$via" = cf ] && echo Cloudflare || echo 'সরাসরি VPS') | ${code:-—} | $(has strict-transport-security "$f") | $(has x-content-type-options "$f") | $xf | $(has referrer-policy "$f") | $(has content-security-policy "$f") | $(has cf-ray "$f") |"
+              done
+            done
+            echo
+            hsts="$(hdr cf https://lifolo.com/ | grep -i '^strict-transport-security:' | head -1 | cut -d' ' -f2-)"
+            echo "HSTS (Cloudflare দিয়ে lifolo.com): \`${hsts:-নেই}\`"
+            echo
+            echo "### Cloudflare"
+            r="$(curl -sS -m 20 -o /dev/null -w '%{http_code} %{redirect_url}' -A 'Mozilla/5.0 (lifolo-ops-check)' http://lifolo.com/x 2>/dev/null || echo 000)"
+            echo "- http://lifolo.com → $r (301/308 → https হওয়া উচিত)"
+            r="$(curl -sS -m 20 -o /dev/null -w '%{http_code} %{redirect_url}' -A 'Mozilla/5.0 (lifolo-ops-check)' https://www.lifolo.com/x 2>/dev/null || echo 000)"
+            echo "- https://www.lifolo.com/x → $r"
+            edge="$(echo | timeout 15 openssl s_client -connect lifolo.com:443 -servername lifolo.com 2>/dev/null | openssl x509 -noout -issuer -enddate 2>/dev/null | tr '\n' ' ')"
+            echo "- Cloudflare-এর (ব্রাউজার যা দেখে) সার্টিফিকেট: ${edge:-পাওয়া যায়নি}"
+            pub="$(curl -sS -m 20 -A 'Mozilla/5.0 (lifolo-ops-check)' -w ' HTTP %{http_code}' https://lifolo.com/api/health 2>/dev/null | tail -c 120)"
+            echo "- Cloudflare দিয়ে lifolo.com/api/health: \`$pub\`"
+            pub2="$(curl -sS -m 20 -A 'Mozilla/5.0 (lifolo-ops-check)' -w ' HTTP %{http_code}' https://api.lifolo.com/api/health 2>/dev/null | tail -c 120)"
+            echo "- Cloudflare দিয়ে api.lifolo.com/api/health: \`$pub2\`"
+            dns="$(getent ahostsv4 lifolo.com | awk '{print $1}' | sort -u | tr '\n' ' ')"
+            echo "- lifolo.com-এর DNS: $dns ($(printf '%s' "$dns" | grep -qE '^(104\.|172\.6[4-9]|172\.7|188\.114|162\.15[89])' && echo 'Cloudflare-এর ঠিকানা — proxy চালু' || echo 'Cloudflare নয়?'))"
+          } > "$out/edge.md"
+          # Cloudflare origin-এ কোন পোর্টে আসে: কয়েকটা অনুরোধ Cloudflare দিয়ে, তারপর VPS-এ Cloudflare-এর ঠিকানা থেকে খোলা সংযোগ গোনা
+          for _ in $(seq 1 12); do curl -s -m 10 -o /dev/null -A 'Mozilla/5.0 (lifolo-ops-check)' "https://lifolo.com/api/health?x=$RANDOM" || true; done
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh cfports" | tee "$out/cfports.txt"
+
+      - name: Summary
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          g() { sed -nE "s/^$1=(.*)$/\1/p" "$out/cfports.txt" 2>/dev/null | tail -1; }
+          c443="$(g cf_conns_443)"; c80="$(g cf_conns_80)"
+          {
+            echo "## SSL / Cloudflare পরীক্ষা"
+            echo
+            cat "$out/vps.md" 2>/dev/null
+            echo
+            cat "$out/edge.md" 2>/dev/null
+            echo "- VPS-এ Cloudflare-এর ঠিকানা থেকে খোলা সংযোগ: 443-এ ${c443:-?}টা, 80-এ ${c80:-?}টা →" \
+              "$( [ "${c443:-0}" -gt 0 ] 2>/dev/null && [ "${c80:-0}" = 0 ] && echo 'Cloudflare origin-এ HTTPS-এ আসে (Full বা Full (strict); Flexible নয়)' || echo 'নিশ্চিত হওয়া গেল না')"
+            echo "- Full (strict)-এর শর্ত: ওপরের \"nginx যা দেখায়\" সারণিতে lifolo.com, www, api-এর যাচাই \`0 ok\` হলে strict চালু থাকলেও চলে। ঠিক কোন মোড বাছা আছে তা শুধু Cloudflare ড্যাশবোর্ডে দেখা যায় (SSL/TLS → Overview) — এখানে কোনো Cloudflare API চাবি নেই।"
+            echo "- সরাসরি VPS (Cloudflare ছাড়া) বাইরে থেকে খোলা: $(curl -s -m 10 -o /dev/null -w '%{http_code}' --resolve "api.lifolo.com:443:$ORIGIN_IP" https://api.lifolo.com/api/health) (GitHub-এর মেশিন থেকে) — Cloudflare-এর WAF/সীমা এড়িয়ে যাওয়া যায়; পরামর্শ deploy/OPS-DRILLS.md-এ।"
+            echo
+            echo "_run ${{ github.run_id }} · গাইড: deploy/OPS-DRILLS.md_"
+          } > "$out/summary.md"
+          ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
+          for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-ops-drills)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: ops ssl check ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/ssl"
+          cp "$RUNNER_TEMP/out/summary.md" "$src/ssl/summary.md" 2>/dev/null || true
+          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; cat "$RUNNER_TEMP/out/cfports.txt" 2>/dev/null; } > "$src/ssl/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" ssl
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config

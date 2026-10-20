@@ -1,0 +1,154 @@
+name: "Ops: crash drill"
+
+# প্রসেস-ক্র্যাশ মহড়া — অ্যাপের Java প্রসেসকে kill -9 (হঠাৎ মরে যাওয়ার মতো); systemd (Restart=always, RestartSec=5)
+# নিজে আবার চালায় কি না, আর কত সেকেন্ডে https-এর /api/health সবুজ। ৩০-৬০ সেকেন্ড API বন্ধ থাকে।
+# হাতে চালানো: Actions → "Ops: crash drill" → Run workflow → "KILL" লিখে। বাংলা গাইড: deploy/OPS-DRILLS.md।
+# ফল log branch `ci-log-ops-drills`-এ: crash/summary.md, crash/status.txt।
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "সত্যিই অ্যাপ মারবেন? KILL লিখুন"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vps-admin
+  cancel-in-progress: false
+
+jobs:
+  crash:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      API_DOMAIN: api.lifolo.com
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check input and secrets
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          [ "$CONFIRM" = KILL ] || { echo "::error::confirm-এ KILL লিখে চালান"; exit 1; }
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::VPS_HOST-এ IP নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "ORIGIN_IP=$ip" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/out"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Kill -9 and measure
+        run: |
+          out="$RUNNER_TEMP/out"
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh services" > "$out/before.txt"
+          H() { curl -fsS -m 3 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
+          H || { echo "::error::আগেই /api/health সবুজ নয় — মহড়া বাতিল"; exit 1; }
+          pid="$(ssh vps 'systemctl show -p MainPID --value lifolo-api')"
+          n0="$(ssh vps 'systemctl show -p NRestarts --value lifolo-api')"
+          echo "killed_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee "$out/drill.txt"
+          echo "old_pid=$pid" >> "$out/drill.txt"
+          echo "restarts_before=$n0" >> "$out/drill.txt"
+          t0=$(date +%s.%N)
+          el() { awk -v a="$(date +%s.%N)" -v b="$t0" 'BEGIN{printf "%.1f", a-b}'; }
+          ssh vps "kill -9 $pid"
+          newpid="" green="" fails=0 codes=""
+          for _ in $(seq 1 360); do
+            if [ -z "$newpid" ]; then
+              p="$(ssh vps 'systemctl show -p MainPID --value lifolo-api' 2>/dev/null || echo 0)"
+              if [ -n "$p" ] && [ "$p" != 0 ] && [ "$p" != "$pid" ]; then newpid="$(el)"; fi
+            fi
+            c="$(curl -s -m 3 -o /dev/null -w '%{http_code}' --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" || echo 000)"
+            codes="$codes $c"
+            if H; then green="$(el)"; break; fi
+            fails=$((fails + 1))
+            sleep 0.5
+            [ "$(awk -v a="$(date +%s.%N)" -v b="$t0" 'BEGIN{print (a-b > 300)}')" = 1 ] && break
+          done
+          {
+            echo "new_process_s=${newpid:-?}"
+            echo "health_green_s=${green:-timeout}"
+            echo "failed_checks=$fails"
+            echo "status_codes_seen=$(printf '%s\n' $codes | sort | uniq -c | awk '{printf "%s×%s ", $2, $1}')"
+          } | tee -a "$out/drill.txt"
+          [ -n "$green" ] || { echo "::error::৫ মিনিটেও ফেরেনি"; exit 1; }
+
+      - name: After - systemd and JobRunr
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          # JobRunr-এর প্রতি-মিনিটের কাজ (storage-trash, ambulance-timers) আবার চলছে কি না দেখার জন্য একটু অপেক্ষা
+          sleep 90
+          ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$out/after.txt"
+          ssh vps "journalctl -u lifolo-api --since '-6min' --no-pager -o short-iso | grep -E 'code=killed|status=9|Scheduled restart|Started Lifolo|Started [A-Za-z]+ in|Stopped|Failed' | cut -c1-200" > "$out/journal.txt" 2>&1 || true
+          ssh vps "sudo -u postgres psql -X -At -d lifolo -c \"SELECT recurringjobid || '=' || to_char(max(updatedat), 'HH24:MI:SS') FROM jobrunr_jobs WHERE state = 'SUCCEEDED' AND recurringjobid IN ('storage-trash','ambulance-timers') GROUP BY 1\"; \
+                   sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'processing_now=' || count(*) FROM jobrunr_jobs WHERE state = 'PROCESSING'\"; \
+                   sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'now_utc=' || to_char(now() AT TIME ZONE 'UTC', 'HH24:MI:SS')\"" > "$out/jobrunr.txt" 2>&1 || true
+          cat "$out/journal.txt" "$out/jobrunr.txt"
+
+      - name: Summary
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          g() { sed -nE "s/^$1=(.*)$/\1/p" "$2" 2>/dev/null | tail -1; }
+          n0="$(g restarts_before "$out/drill.txt")"; n1="$(g api_restarts "$out/after.txt")"
+          green="$(g health_green_s "$out/drill.txt")"
+          ok=no
+          if [ -n "$green" ] && [ "$green" != timeout ] && [ "$(g api_health_local "$out/after.txt")" = ok ] && [ "${n1:-0}" -gt "${n0:-0}" ] 2>/dev/null; then ok=yes; fi
+          {
+            echo "## প্রসেস-ক্র্যাশ মহড়া (kill -9 lifolo-api)"
+            echo
+            echo "**মারা হলো:** $(g killed_at "$out/drill.txt") · systemd-এর restart গোনা: ${n0:-?} → ${n1:-?}"
+            echo
+            echo "| মাপ | সময় (kill থেকে) |"
+            echo "|---|---|"
+            echo "| systemd নতুন প্রসেস চালাল | $(g new_process_s "$out/drill.txt") s |"
+            echo "| **https /api/health সবুজ** | **${green:-?} s** |"
+            echo "| মাঝের ব্যর্থ health (প্রতি ০.৫ s) | $(g failed_checks "$out/drill.txt")টা — HTTP: $(g status_codes_seen "$out/drill.txt") |"
+            echo
+            echo "এখন: অ্যাপ $(g api_health_local "$out/after.txt"), চালু $(g api_active_since "$out/after.txt") থেকে; $(g api_spring_started "$out/after.txt")"
+            echo
+            echo "JobRunr (প্রতি-মিনিটের কাজ restart-এর পরে চলেছে কি না):"
+            echo '```'
+            cat "$out/jobrunr.txt" 2>/dev/null
+            echo '```'
+            echo "systemd-এর লগ:"
+            echo '```'
+            cat "$out/journal.txt" 2>/dev/null
+            echo '```'
+            echo
+            if [ "$ok" = yes ]; then echo "**ফল:** ✅ systemd নিজে অ্যাপ আবার চালিয়েছে, health সবুজ।"; else echo "**ফল:** ❌ পুরো ফেরেনি — ওপরের লেখা দেখুন।"; fi
+            echo
+            echo "_run ${{ github.run_id }} · গাইড: deploy/OPS-DRILLS.md_"
+          } > "$out/summary.md"
+          ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
+          for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-ops-drills)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: ops crash drill ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/crash"
+          out="$RUNNER_TEMP/out"
+          cp "$out/summary.md" "$src/crash/summary.md" 2>/dev/null || true
+          cat "$out/drill.txt" "$out/after.txt" > "$src/crash/status.txt" 2>/dev/null || true
+          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; } >> "$src/crash/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" crash
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
