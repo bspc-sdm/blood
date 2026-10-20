@@ -256,7 +256,7 @@ export function useAfterChange() {
 }
 
 // ---------- শর্ত ----------
-export const TERMS_URL = 'https://github.com/bspc-sdm/blood/blob/main/TERMS.md';
+export const TERMS_URL = 'https://lifolo.com/terms';
 
 // ---------- ব্লাড ব্যাংকের ধরন ----------
 export const BB_KINDS = ['govt', 'private', 'org'];

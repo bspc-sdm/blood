@@ -33,12 +33,19 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * নতুন ভার্সন এসেছে কি না: GitHub-এর "latest" রিলিজে APK-র পাশে version.json থাকে (CI লেখে)।
+ * নতুন ভার্সন এসেছে কি না: https://lifolo.com/download/-এ APK-র পাশে version.json থাকে (CI "Build APK" লেখে)।
  * অ্যাপ Play Store-এ নেই, তাই এভাবেই ব্যবহারকারী জানতে পারেন।
+ * ২.৩৪.১ থেকে নিজের সার্ভারে (আগে GitHub-এর "latest" রিলিজে — রিপো private হলে ওটা বন্ধ)।
  */
 object Updates {
-    const val APK_URL = "https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk"
-    private const val VERSION_URL = "https://github.com/bspc-sdm/blood/releases/download/latest/version.json"
+    const val APK_URL = "https://lifolo.com/download/lifolo.apk"
+    private const val VERSION_URL = "https://lifolo.com/download/version.json"
+
+    /** version.json-এর url শুধু এই জায়গাগুলোর হলে মানা হয় (GitHub-এরটা আপাতত থাকছে, পুরোনো version.json-এর জন্য) */
+    private val TRUSTED_APK_PREFIXES = listOf(
+        "https://lifolo.com/download/",
+        "https://github.com/bspc-sdm/blood/releases/download/",
+    )
 
     /** url: এই ভার্সনের নিজের নামের APK (version.json-এ থাকলে), না থাকলে স্থায়ী লিংক */
     data class Latest(val code: Long, val name: String, val url: String = APK_URL)
@@ -62,7 +69,7 @@ object Updates {
                 try {
                     if (conn.responseCode !in 200..299) return@runCatching null
                     val o = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                    val url = o.optString("url").takeIf { it.startsWith("https://github.com/bspc-sdm/blood/releases/download/") } ?: APK_URL
+                    val url = o.optString("url").takeIf { u -> TRUSTED_APK_PREFIXES.any { u.startsWith(it) } } ?: APK_URL
                     Latest(o.optLong("versionCode"), o.optString("versionName"), url)
                 } finally {
                     conn.disconnect()

@@ -19,6 +19,8 @@ KEY = os.environ["KEY"]
 def post(url, body, token=None):
     req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST")
     req.add_header("content-type", "application/json")
+    # Cloudflare-এর proxy "Python-urllib" নামের ব্রাউজারকে ৪০৩ দেয় (Browser Integrity Check) — নিজের নাম দেওয়া
+    req.add_header("user-agent", "lifolo-ci-demo-smoke/1.0 (+https://lifolo.com)")
     if token:
         req.add_header("authorization", "Bearer " + token)
     try:

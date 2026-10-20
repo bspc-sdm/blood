@@ -15,6 +15,10 @@ on:
       - "server/public/w/**"
   workflow_dispatch:
 
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04

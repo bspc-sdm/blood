@@ -212,7 +212,7 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
 
         // the app's signing certificate SHA-256 (app/debug.keystore); add the Play Store key here if it differs
         val CERT_SHA256 = listOf("FC:BE:F9:19:39:40:5B:C2:32:72:18:DB:DA:CD:DD:BE:86:47:F6:4B:F9:0A:06:F7:37:AC:42:99:D2:F0:F8:39")
-        const val APK_URL = "https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk"
+        const val APK_URL = "https://lifolo.com/download/lifolo.apk"
         private val RX_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{10}$")
         private val SHOP_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{6}$")
 

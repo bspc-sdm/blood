@@ -49,6 +49,8 @@ on:
       - "backend/**"
       - "web-vue/**"
       - "deploy/**"
+      - "PRIVACY.md"
+      - "TERMS.md"
       - ".github/workflows/deploy-backend.yml"
 
 permissions:
@@ -67,10 +69,10 @@ jobs:
       - name: Shell scripts
         run: |
           rc=0
-          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh; do bash -n "$f" || rc=1; done
+          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh deploy/ci/publish-download.sh; do bash -n "$f" || rc=1; done
           shellcheck --version | sed -n 2p
           # findings as annotations (readable without the log download)
-          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh > "$RUNNER_TEMP/sc.txt" || rc=1
+          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh deploy/ci/publish-download.sh > "$RUNNER_TEMP/sc.txt" || rc=1
           sed -E 's/^([^:]+):([0-9]+):([0-9]+): (.*)$/::error file=\1,line=\2::\4/' "$RUNNER_TEMP/sc.txt"
           exit "$rc"
       - name: Key derivation test
@@ -300,6 +302,9 @@ jobs:
           for f in server/public/*; do
             case "$(basename "$f")" in w|admin) ;; *) cp -R "$f" "$site/" ;; esac
           done
+          # /privacy আর /terms — PRIVACY.md / TERMS.md থেকে (GitHub-এর blob লিংকের বদলে; রিপো private হলেও খোলে)
+          python3 deploy/ci/render-legal.py PRIVACY.md "$site/privacy/index.html" --kind privacy
+          python3 deploy/ci/render-legal.py TERMS.md "$site/terms/index.html" --kind terms
           tar -czf "$RUNNER_TEMP/site.tar.gz" -C "$site" .
           echo "sha=$(sha256sum "$RUNNER_TEMP/site.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
           echo "size=$(du -h "$RUNNER_TEMP/site.tar.gz" | cut -f1)" >> "$GITHUB_OUTPUT"
@@ -331,6 +336,9 @@ jobs:
           if grep -qE '^site=(nginx_failed|cert_failed)' "$RUNNER_TEMP/deploy-web-status.txt" || [ -n "$fails" ]; then exit 1; fi
 
       # ওয়েবসাইট আর ডেমো — ইন্টারনেট থেকে (সত্যিকারের DNS আর সার্টিফিকেট দিয়ে)
+      # Cloudflare-এর proxy (কমলা মেঘ) চালু: GitHub-এর মেশিন ডেটাসেন্টারের ঠিকানা, Cloudflare কখনো কখনো এদের challenge/403 দেয়।
+      # তাই ১) একবার আসল পথে (Cloudflare দিয়ে) — challenge হলে শুধু জানানো, ব্যর্থ নয়; ২) বাকি সব পরীক্ষা সরাসরি VPS-এ
+      # (/etc/hosts-এ নাম → VPS-এর IP, সত্যিকারের নাম আর সার্টিফিকেট দিয়েই — Cloudflare মাঝে নেই)।
       - name: Check the website and the demo from the internet
         id: inet
         if: always() && steps.deploy.outcome == 'success'
@@ -341,15 +349,35 @@ jobs:
           WWW_OK: ${{ steps.webdeploy.outputs.w_www }}
           ASSET: ${{ steps.site.outputs.asset }}
           DEMO_MODE: ${{ env.IN_DEMO }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           rc=0
           res() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "$1=$2"; }
+          # ১) আসল পথে একবার (ব্যবহারকারীরা যেভাবে আসে)
+          if [ -n "$WEB_DOMAIN" ]; then
+            code="$(curl -sS -m 20 -o "$RUNNER_TEMP/pub.txt" -D "$RUNNER_TEMP/pub.hdr" -w '%{http_code}' "https://$WEB_DOMAIN/api/health" 2>/dev/null || echo 000)"
+            via="$(tr -d '\r' < "$RUNNER_TEMP/pub.hdr" 2>/dev/null | grep -qi '^cf-ray:' && echo cloudflare || echo direct)"
+            if [ "$code" = 200 ] && grep -q '"ok":true' "$RUNNER_TEMP/pub.txt"; then
+              res public "ok ($via)"
+            elif [ "$via" = cloudflare ] && { [ "$code" = 403 ] || [ "$code" = 503 ] || [ "$code" = 429 ]; }; then
+              res public "cloudflare_challenge (HTTP $code$(tr -d '\r' < "$RUNNER_TEMP/pub.hdr" | grep -i '^cf-mitigated:' | sed 's/^/, /'))"
+              echo "::warning::Cloudflare GitHub-এর মেশিনকে আটকেছে (HTTP $code) — সাইট চালু; বাকি পরীক্ষা সরাসরি VPS-এ"
+            else
+              res public "failed (HTTP $code, $via)"; rc=1
+            fi
+          fi
+          # ২) বাকি সব সরাসরি VPS-এ
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+            echo "$ip $WEB_DOMAIN www.$WEB_DOMAIN $API_DOMAIN # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
+          fi
           if [ "$SITE_OK" = ok ]; then
             B="https://$WEB_DOMAIN"
             curl -fsS -m 15 "$B/" | grep -q '/w/assets/' && res web_root ok || { res web_root failed; rc=1; }
             curl -fsS -m 15 "$B/api/health" | grep -q '"ok":true' && res web_api ok || { res web_api failed; rc=1; }
             curl -fsS -m 15 -o /dev/null -D - "$B$ASSET" | tr -d '\r' | grep -qi '^cache-control: public, max-age=31536000, immutable' && res web_cache ok || { res web_cache failed; rc=1; }
             curl -fsS -m 15 -o /dev/null -D - "$B/admin/" | tr -d '\r' | grep -qi "^content-security-policy: default-src 'none'" && res web_admin ok || { res web_admin failed; rc=1; }
+            curl -fsS -m 15 "$B/privacy" | grep -q 'Privacy Policy' && curl -fsS -m 15 "$B/terms" | grep -q 'Terms of Use' && res web_legal ok || { res web_legal failed; rc=1; }
             if [ "$WWW_OK" = ok ]; then
               curl -sS -m 15 -o /dev/null -w '%{http_code} %{redirect_url}' "https://www.$WEB_DOMAIN/x" | grep -q "^301 https://$WEB_DOMAIN/x" && res web_www ok || { res web_www failed; rc=1; }
             fi
@@ -417,6 +445,9 @@ jobs:
           W_RELEASE: ${{ steps.webdeploy.outputs.w_release }}
           W_PREV: ${{ steps.webdeploy.outputs.w_previous }}
           W_REALIP: ${{ steps.webdeploy.outputs.w_realip }}
+          W_DNS_APEX_V: ${{ steps.webdeploy.outputs.w_dns_apex }}
+          W_ACME_CF: ${{ steps.webdeploy.outputs.w_acme_via_cloudflare }}
+          W_CERT_EXP: ${{ steps.webdeploy.outputs.w_cert_expires }}
           W_CERT_ERROR: ${{ steps.webdeploy.outputs.w_cert_error }}
           W_DNS_DIAG: ${{ steps.webdeploy.outputs.w_dns_diag }}
           W_FAILS: ${{ steps.webdeploy.outputs.fails }}
@@ -425,6 +456,8 @@ jobs:
           I_CACHE: ${{ steps.inet.outputs.web_cache }}
           I_ADMIN: ${{ steps.inet.outputs.web_admin }}
           I_WWW: ${{ steps.inet.outputs.web_www }}
+          I_LEGAL: ${{ steps.inet.outputs.web_legal }}
+          I_PUBLIC: ${{ steps.inet.outputs.public }}
           WEB_API: ${{ steps.web.outputs.api }}
           WEB_HEALTHZ: ${{ steps.web.outputs.healthz }}
           S_APP: ${{ steps.deploy.outputs.s_app }}
@@ -473,7 +506,7 @@ jobs:
                 ok) row "https://$API_DOMAIN — সার্টিফিকেট + nginx" ok
                     row "https://$API_DOMAIN/api/health (VPS থেকে)" "$S_API_DOMAIN_HEALTH" "${S_API_DOMAIN_HEALTH:-—}"
                     row "https://$API_DOMAIN/api/health (ইন্টারনেট থেকে)" "$WEB_API2" "${WEB_API2:-—}" ;;
-                dns_not_ready*) row "https://$API_DOMAIN" skipped "DNS এখনো এই VPS-এ যায় না (${S_API_DOMAIN#dns_not_ready }) — Cloudflare-এ A রেকর্ড (DNS only) দিয়ে আবার চালান" ;;
+                dns_not_ready*) row "https://$API_DOMAIN" skipped "DNS এখনো এই VPS-এ (বা Cloudflare-এ) যায় না (${S_API_DOMAIN#dns_not_ready }) — Cloudflare-এ A রেকর্ড দিয়ে আবার চালান" ;;
                 *) row "https://$API_DOMAIN" "${S_API_DOMAIN:-failed}" ;;
               esac
             fi
@@ -512,19 +545,29 @@ jobs:
               case "$W_SITE" in
                 ok) row "https://$WEB_DOMAIN — সার্টিফিকেট + nginx" ok "রিলিজ ${W_RELEASE:-?}${W_PREV:+ (আগেরটা $W_PREV)}"
                     if [ "$W_WWW" = ok ]; then row "https://www.$WEB_DOMAIN → https://$WEB_DOMAIN" ok
-                    else row "www.$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ আসে না (${W_DNS_WWW:-?}) — Cloudflare-এ CNAME www → $WEB_DOMAIN (DNS only) দিয়ে আবার চালান"; fi
-                    row "VPS-এর ভেতরের ১৭টা পথ/হেডার পরীক্ষা" "$([ -z "$W_FAILS" ] && [ "$WEB_OUTCOME" = success ] && echo ok || echo "failed: $W_FAILS")"
-                    row "ইন্টারনেট থেকে: পাতা (/)" "$I_ROOT" "${I_ROOT:-—}"
+                    else row "www.$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ (বা Cloudflare-এ) আসে না (${W_DNS_WWW:-?}) — Cloudflare-এ CNAME www → $WEB_DOMAIN দিয়ে আবার চালান"; fi
+                    row "VPS-এর ভেতরের পথ/হেডার পরীক্ষা (ডাউনলোড, /privacy, /terms সহ)" "$([ -z "$W_FAILS" ] && [ "$WEB_OUTCOME" = success ] && echo ok || echo "failed: $W_FAILS")"
+                    row "সরাসরি VPS-এ (আসল নাম + সার্টিফিকেট): পাতা (/)" "$I_ROOT" "${I_ROOT:-—}"
                     row "ইন্টারনেট থেকে: /api/health একই ঠিকানায়" "$I_API" "${I_API:-—}"
                     row "ইন্টারনেট থেকে: /w/assets/ এক বছর cache" "$I_CACHE" "${I_CACHE:-—}"
                     row "ইন্টারনেট থেকে: /admin/ কড়া CSP" "$I_ADMIN" "${I_ADMIN:-—}"
+                    row "ইন্টারনেট থেকে: /privacy আর /terms" "$I_LEGAL" "${I_LEGAL:-—}"
+                    case "$I_PUBLIC" in
+                      ok*) row "আসল পথে (Cloudflare দিয়ে) /api/health" ok "$I_PUBLIC" ;;
+                      cloudflare_challenge*) row "আসল পথে (Cloudflare দিয়ে) /api/health" skipped "$I_PUBLIC — GitHub-এর মেশিনকে Cloudflare আটকায়; সাইট চালু (সরাসরি VPS-এ সব ঠিক)" ;;
+                      *) row "আসল পথে (Cloudflare দিয়ে) /api/health" "${I_PUBLIC:-failed}" ;;
+                    esac
                     [ -z "$I_WWW" ] || row "ইন্টারনেট থেকে: www → $WEB_DOMAIN" "$I_WWW"
-                    row "Cloudflare-এর আসল IP (পরে proxy চালু হলে)" "$W_REALIP" "${W_REALIP:-—}"
+                    row "Cloudflare-এর আসল IP (CF-Connecting-IP)" "$W_REALIP" "${W_REALIP:-—}"
+                    if [ "$W_DNS_APEX_V" = cloudflare ]; then
+                      row "Cloudflare-এর proxy চালু (কমলা মেঘ)" ok "সার্টিফিকেট (VPS) মেয়াদ: ${W_CERT_EXP:-?}"
+                      row "Let's Encrypt-এর নবায়নের পথ (Cloudflare দিয়ে /.well-known/acme-challenge/)" "$W_ACME_CF" "${W_ACME_CF:-—}"
+                    fi
                     [ -z "$W_CERT_ERROR" ] || row "সার্টিফিকেটের আগের চেষ্টা" skipped "$W_CERT_ERROR" ;;
                 dns_not_ready*)
                     row "https://$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ আসে না (${W_DNS_APEX:-?})"
                     echo
-                    echo "> ⏭️ **$WEB_DOMAIN এখনো এই VPS-এ আসে না** — Cloudflare-এ A রেকর্ড \`@\` → VPS-এর IP আর CNAME \`www\` → \`$WEB_DOMAIN\` (দুটোই DNS only, ধূসর মেঘ) দিয়ে কয়েক মিনিট পর আবার চালান। ওয়েবের ফাইল VPS-এ রাখা আছে; কিছু ভাঙেনি।" ;;
+                    echo "> ⏭️ **$WEB_DOMAIN এখনো এই VPS-এ আসে না** — Cloudflare-এ A রেকর্ড \`@\` → VPS-এর IP আর CNAME \`www\` → \`$WEB_DOMAIN\` (ধূসর বা কমলা মেঘ — দুটোই চলে) দিয়ে কয়েক মিনিট পর আবার চালান। ওয়েবের ফাইল VPS-এ রাখা আছে; কিছু ভাঙেনি।" ;;
                 "") row "https://$WEB_DOMAIN" "${WEB_OUTCOME:-skipped}" "বসানো হয়নি (আগের ধাপ ব্যর্থ?)" ;;
                 *) row "https://$WEB_DOMAIN" "$W_SITE" "$W_SITE${W_CERT_ERROR:+ — $W_CERT_ERROR}"
                    [ -z "$W_DNS_DIAG" ] || row "DNS (বাইরের resolver থেকে)" skipped "$W_DNS_DIAG" ;;
@@ -571,4 +614,5 @@ jobs:
         if: always()
         run: |
           ssh -O exit vps 2>/dev/null || true
+          sudo sed -i '/# lifolo-origin$/d' /etc/hosts || true
           rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/provided.env" "$RUNNER_TEMP/fb.b64" "$RUNNER_TEMP/fa" "$RUNNER_TEMP/site" "$RUNNER_TEMP/site.tar.gz"

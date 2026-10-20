@@ -24,8 +24,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 35
-        versionCode = 120
-        versionName = "2.34.0"
+        versionCode = 121
+        versionName = "2.34.1"
         versionNameSuffix = lifoloVersionSuffix.ifEmpty { null }
         buildConfigField("String", "SERVER_URL", "\"$lifoloServer\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)

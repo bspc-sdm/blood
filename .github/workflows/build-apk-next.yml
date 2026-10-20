@@ -2,9 +2,9 @@ name: Build APK (next)
 
 # নতুন সার্ভারের (Spring, VPS) পরীক্ষার APK — সাধারণ রিলিজ ("Build APK" → latest) ছোঁয় না।
 # একই applicationId আর একই সাইন (app/debug.keystore), তাই বর্তমান অ্যাপের ওপরেই ইনস্টল হয়;
-# latest-এর roktodan.apk আবার ইনস্টল করলে পুরোনো সার্ভারে ফেরা। ভার্সন (versionCode) একই — শুধু নামের শেষে "-next"।
-# ফল: prerelease "next", ফাইল lifolo-next.apk:
-#   https://github.com/bspc-sdm/blood/releases/download/next/lifolo-next.apk
+# lifolo.com/download/lifolo.apk আবার ইনস্টল করলে সাধারণ রিলিজে ফেরা। ভার্সন (versionCode) একই — শুধু নামের শেষে "-next"।
+# ফল: https://lifolo.com/download/lifolo-next.apk (VPS; রিপো private হলেও চলে) আর prerelease "next"-এ lifolo-next.apk
+#   (https://github.com/bspc-sdm/blood/releases/download/next/lifolo-next.apk — রিপো public থাকা পর্যন্ত)।
 # চলে: হাতে (workflow_dispatch, cutover-android বা main থেকে), আর cutover-android-এ অ্যাপ বা এই ফাইল বদলালে।
 on:
   push:
@@ -15,6 +15,7 @@ on:
       - "settings.gradle.kts"
       - "gradle.properties"
       - ".github/workflows/build-apk-next.yml"
+      - "deploy/ci/publish-download.sh"
   workflow_dispatch:
     inputs:
       server:
@@ -86,6 +87,18 @@ jobs:
             echo "::error::${line//$'\r'/}"
           done
 
+      # VPS: https://lifolo.com/download/lifolo-next.apk (version.json ছোঁয়া হয় না)
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+      - name: Publish to lifolo.com/download
+        run: |
+          bash deploy/ci/publish-download.sh next app/build/outputs/apk/debug/app-debug.apk
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
+
       # শুধু "next" রিলিজ — "latest" (আসল রিলিজ আর অ্যাপের আপডেটের খবর) ছোঁয়া হয় না
       - name: Publish to "next" prerelease
         env:
@@ -101,8 +114,8 @@ jobs:
           NOTES="নতুন সার্ভারের পরীক্ষার APK — সার্ভার: $SERVER ($DEMO)
           ভার্সন ${NAME}-next ($CODE), commit ${{ github.sha }} (${{ github.ref_name }}), সময় $(date -u +%FT%TZ)
 
-          ইনস্টল: https://github.com/${{ github.repository }}/releases/download/next/lifolo-next.apk — বর্তমান অ্যাপের ওপরেই বসে (ডেটা থাকে)।
-          ফেরা: https://github.com/${{ github.repository }}/releases/download/latest/roktodan.apk আবার ইনস্টল করুন।"
+          ইনস্টল: https://lifolo.com/download/lifolo-next.apk — বর্তমান অ্যাপের ওপরেই বসে (ডেটা থাকে)।
+          ফেরা: https://lifolo.com/download/lifolo.apk আবার ইনস্টল করুন।"
           if gh release view next > /dev/null 2>&1; then
             gh release upload next lifolo-next.apk --clobber
             git tag -f next "${{ github.sha }}"

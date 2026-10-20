@@ -29,7 +29,7 @@ class ShareIT : BloodTestBase() {
         assertTrue(html.contains("জরুরি · Urgent"))
         assertTrue(html.contains("2 জন রাজি · 2 agreed"))
         assertTrue(html.contains("$DIST · Mymensingh"))
-        assertTrue(html.contains("intent://r/r1#Intent;scheme=getblood;package=com.bspc.blood;S.browser_fallback_url=https%3A%2F%2Fgithub.com%2Fbspc-sdm%2Fblood%2Freleases%2Fdownload%2Flatest%2Froktodan.apk;end"))
+        assertTrue(html.contains("intent://r/r1#Intent;scheme=getblood;package=com.bspc.blood;S.browser_fallback_url=https%3A%2F%2Flifolo.com%2Fdownload%2Flifolo.apk;end"))
         assertFalse(html.contains("secret note"))
         assertFalse(html.contains("Requester req"))
         assertEquals(200, page("/api/share?id=r1").status)

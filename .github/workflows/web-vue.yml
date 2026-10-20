@@ -20,6 +20,11 @@ on:
         type: boolean
         default: false
 
+# একই শাখায় নতুন push এলে আগেরটা বাতিল (হাতে চালানো journeys আলাদা দলে, বাতিল হয় না)
+concurrency:
+  group: web-vue-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
   check:
     runs-on: ubuntu-24.04

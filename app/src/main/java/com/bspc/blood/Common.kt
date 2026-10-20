@@ -64,8 +64,8 @@ import kotlinx.coroutines.delay
 /** অ্যাপের নাম (আপাতত; চূড়ান্ত হলে শুধু এখানে আর strings.xml-এ বদলাতে হবে) */
 const val APP_NAME = "Lifolo"
 
-const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
-const val TERMS_URL = "https://github.com/bspc-sdm/blood/blob/main/TERMS.md"
+const val PRIVACY_URL = "https://lifolo.com/privacy"
+const val TERMS_URL = "https://lifolo.com/terms"
 const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
 /** শেয়ার করা রিকোয়েস্টের লিংক (সার্ভারের /r/{id} পাতা; অ্যাপ থাকলে সরাসরি অ্যাপে খোলে) */
 const val SHARE_BASE = ServerApi.BASE_URL + "/r/"

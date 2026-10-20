@@ -1,15 +1,18 @@
 name: Build APK
 
+# অ্যাপের নতুন ভার্সন (app/build.gradle.kts-এ versionCode বদলালে) → APK দুই জায়গায়:
+#   ১) VPS: https://lifolo.com/download/ — lifolo-<ভার্সন>-<কোড>.apk, lifolo.apk (সর্বশেষ), version.json
+#      (২.৩৪.১ থেকে অ্যাপ এখান থেকেই আপডেটের খবর নেয়; রিপো private হলেও চলে)
+#   ২) GitHub-এর "latest" রিলিজ (আগের মতো; ২.৩৪.০ পর্যন্ত অ্যাপ ওখান থেকে খবর নেয় — রিপো public থাকা পর্যন্ত)
+# Actions-এর মিনিট বাঁচাতে: push-এ শুধু ভার্সন বদলালে বিল্ড (অ্যাপের অন্য বদল পরের ভার্সনের সাথে যায়);
+# হাতে (Run workflow) চালালে সবসময় বিল্ড।
 on:
   push:
     branches: [main]
-    # শুধু অ্যাপের কোড বদলালে নতুন APK (সার্ভার বা লেখা বদলালে রিলিজে হাত দেওয়া হয় না)
     paths:
-      - "app/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle.properties"
+      - "app/build.gradle.kts"
       - ".github/workflows/build.yml"
+      - "deploy/ci/publish-download.sh"
   workflow_dispatch:
 
 # "latest" রিলিজে APK রাখার জন্য লেখার অনুমতি
@@ -24,19 +27,45 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
+      # push-এ: আগের commit-এর versionCode-এর সাথে মেলানো — একই হলে বাকি সব ধাপ বাদ (কয়েক সেকেন্ডে শেষ)
+      - name: Version changed?
+        id: gate
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          code=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          build=true
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            if git fetch -q --no-tags --depth=1 origin "$BEFORE" 2>/dev/null; then
+              old=$(git show "$BEFORE:app/build.gradle.kts" 2>/dev/null | grep -oP 'versionCode = \K[0-9]+' || true)
+              if [ "$old" = "$code" ]; then build=false; fi
+              echo "versionCode: $old → $code"
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          [ "$build" = true ] || echo "::notice::versionCode বদলায়নি ($code) — APK বানানো হলো না"
+
       - uses: actions/setup-java@v5
+        if: steps.gate.outputs.build == 'true'
         with:
           distribution: temurin
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.gate.outputs.build == 'true'
         with:
           gradle-version: "8.11.1"
 
       - name: Build debug APK
+        if: steps.gate.outputs.build == 'true'
         run: |
           set -o pipefail
           gradle assembleDebug --no-daemon 2>&1 | tee build.log
@@ -48,30 +77,41 @@ jobs:
             echo "::error::${line//$'\r'/}"
           done
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: blood-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+      # VPS: https://lifolo.com/download/ (ক্রম: ভার্সনের APK → lifolo.apk → version.json)
+      - name: Connect to VPS
+        if: steps.gate.outputs.build == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+      - name: Publish APK to lifolo.com/download
+        id: vps
+        if: steps.gate.outputs.build == 'true'
+        run: |
+          bash deploy/ci/publish-download.sh release app/build/outputs/apk/debug/app-debug.apk \
+            "${{ steps.gate.outputs.name }}" "${{ steps.gate.outputs.code }}" | tee -a "$GITHUB_OUTPUT"
 
       # সরাসরি ডাউনলোডের স্থায়ী লিংক (zip ছাড়া):
       # https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk
       # রিলিজ আর মোছা হয় না (মোছা আর নতুন বানানোর মাঝে লিংক ৪০৪ দিত)। ক্রম:
       # ১) ভার্সনের নামে নতুন APK, ২) পুরোনো অ্যাপের জন্য roktodan.apk, ৩) সবশেষে version.json —
       # তাই অ্যাপ নতুন ভার্সনের খবর পায় APK তৈরি থাকার পরেই।
+      # এখানকার version.json-এর url GitHub-এরই (২.৩৪.০ পর্যন্ত অ্যাপ শুধু GitHub-এর লিংক মানে)।
       - name: Publish APK to "latest" release
+        if: steps.gate.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          CODE: ${{ steps.gate.outputs.code }}
+          NAME: ${{ steps.gate.outputs.name }}
         run: |
           set -e
-          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
-          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           VAPK="lifolo-${NAME}-${CODE}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$VAPK"
           cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
           URL="https://github.com/${{ github.repository }}/releases/download/latest/$VAPK"
           echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\", \"url\": \"$URL\"}" > version.json
           cat version.json
-          NOTES="স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড করে ইনস্টল করুন।"
+          NOTES="স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড: https://lifolo.com/download/lifolo.apk"
           if gh release view latest > /dev/null 2>&1; then
             gh release upload latest "$VAPK" --clobber
             gh release upload latest roktodan.apk --clobber
@@ -90,3 +130,72 @@ jobs:
               --title "সর্বশেষ টেস্ট ভার্সন" \
               --notes "$NOTES"
           fi
+
+      # বাইরে থেকে (ইন্টারনেট দিয়ে) lifolo.com/download দেখা — nginx-এর /download/ অংশ Deploy backend বসায়;
+      # একই push-এ দুটো চললে deploy শেষ হওয়ার আগে এটা ⚠️ দেখাতে পারে (তখন Actions → "Download check" হাতে)।
+      # সরাসরি VPS-এ (--resolve: আসল নাম আর সার্টিফিকেট, Cloudflare মাঝে নেই — Cloudflare GitHub-এর মেশিনকে কখনো আটকায়);
+      # আসল পথে (Cloudflare দিয়ে) version.json একবার — challenge হলে শুধু জানানো।
+      - name: Check lifolo.com/download from the internet
+        id: inet
+        if: steps.gate.outputs.build == 'true'
+        env:
+          CODE: ${{ steps.gate.outputs.code }}
+          SHA: ${{ steps.vps.outputs.dl_sha256 }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          pin=()
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && pin=(--resolve "lifolo.com:443:$ip")
+          curl() { command curl "${pin[@]}" "$@"; }
+          ok=no
+          for i in 1 2 3 4 5 6; do
+            v="$(curl -fsS -m 20 https://lifolo.com/download/version.json 2>/dev/null || true)"
+            if printf '%s' "$v" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d['versionCode']==int('$CODE') and d['url'].startswith('https://lifolo.com/download/') else 1)" 2>/dev/null; then
+              got="$(curl -fsS -m 120 https://lifolo.com/download/lifolo.apk | sha256sum | awk '{print $1}')"
+              ctype="$(curl -fsS -m 20 -o /dev/null -w '%{content_type}' https://lifolo.com/download/lifolo.apk || true)"
+              if [ "$got" = "$SHA" ] && [ "$ctype" = application/vnd.android.package-archive ]; then ok=yes; break; fi
+              echo "apk: sha ${got:0:12} vs ${SHA:0:12}, type $ctype"
+            else
+              echo "version.json: ${v:0:200}"
+            fi
+            [ "$i" = 6 ] || sleep 30
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          pub="$(command curl -sS -m 20 -o /dev/null -w '%{http_code} cf-cache:%header{cf-cache-status} cache-control:%header{cache-control}' https://lifolo.com/download/version.json 2>/dev/null || echo failed)"
+          echo "public: $pub"
+          echo "public=$pub" >> "$GITHUB_OUTPUT"
+          [ "$ok" = yes ] || echo "::warning::https://lifolo.com/download/ এখনো নতুন ভার্সন দেখায় না — Deploy backend শেষ হলে Actions → Download check চালান"
+
+      - name: Summary
+        if: always() && steps.gate.outputs.build == 'true'
+        env:
+          CODE: ${{ steps.gate.outputs.code }}
+          NAME: ${{ steps.gate.outputs.name }}
+          URL: ${{ steps.vps.outputs.dl_url }}
+          FILES: ${{ steps.vps.outputs.dl_files }}
+          INET: ${{ steps.inet.outputs.ok }}
+          PUBLIC: ${{ steps.inet.outputs.public }}
+        run: |
+          {
+            echo "## APK $NAME ($CODE)"
+            echo "- ডাউনলোড: **https://lifolo.com/download/lifolo.apk** · এই ভার্সন: ${URL:-—}"
+            echo "- VPS-এ: ${FILES:-—}"
+            echo "- সরাসরি VPS-এ যাচাই (version.json + APK-এর sha256): ${INET:-—}"
+            echo "- আসল পথে (Cloudflare দিয়ে) version.json: ${PUBLIC:-—} (403 = Cloudflare GitHub-এর মেশিনকে আটকেছে, ফোনে নয়)"
+            echo "- GitHub রিলিজ: latest (পুরোনো অ্যাপের জন্য; রিপো private হলে বন্ধ)"
+          } | tee -a "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/apk-summary.md"
+          mkdir -p "$RUNNER_TEMP/log"
+          cp "$RUNNER_TEMP/apk-summary.md" "$RUNNER_TEMP/log/apk-summary.md"
+          { echo "commit=$GITHUB_SHA"; echo "version=$NAME"; echo "code=$CODE"; echo "job=${{ job.status }}"; echo "dl_url=$URL"; echo "inet=$INET"; echo "public=$PUBLIC"; } > "$RUNNER_TEMP/log/apk-status.txt"
+      - name: Publish to the log branch (ci-log-apk)
+        if: always() && steps.gate.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: apk ${{ steps.gate.outputs.name }} ${{ job.status }}
+        run: bash .github/scripts/publish-log.sh ci-log-apk "$RUNNER_TEMP/log" apk-summary.md apk-status.txt || true
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config
