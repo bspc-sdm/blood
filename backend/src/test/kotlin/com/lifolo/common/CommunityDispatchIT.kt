@@ -56,6 +56,60 @@ class CommunityDispatchIT : IntegrationTest() {
         assertEquals(200, call(null, "catalog_get", ip = "8.8.8.8").status, "another IP is not limited")
     }
 
+    @Autowired
+    lateinit var limiter: RateLimiter
+
+    private fun guestFrom(peer: String, xff: String?, cf: String? = null): Int {
+        val req = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/community")
+            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+            .content("""{"action":"tips","lang":"bn"}""")
+            .with(org.springframework.test.web.servlet.request.RequestPostProcessor { it.remoteAddr = peer; it })
+        if (xff != null) req.header("X-Forwarded-For", xff)
+        if (cf != null) req.header("CF-Connecting-IP", cf)
+        return mvc.perform(req).andReturn().response.status
+    }
+
+    @Test
+    fun `guests - 300 at once from one address - exactly 240 pass, 60 get 429 (the load test's check)`() {
+        val failedBefore = limiter.failOpen.get()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(30)
+        try {
+            val codes = (1..300).map { pool.submit<Int> { call(null, "tips", ip = "198.51.100.7").status } }.map { it.get() }
+            assertEquals(mapOf(200 to 240, 429 to 60), codes.groupingBy { it }.eachCount())
+        } finally {
+            pool.shutdown()
+        }
+        assertEquals(failedBefore, limiter.failOpen.get(), "no request may slip through because the limiter failed")
+        assertEquals(200, call(null, "tips", ip = "198.51.100.8").status, "another address is not limited")
+    }
+
+    @Test
+    fun `guests - the limit keys on the address nginx saw, not on what the client wrote`() {
+        // nginx appending to a client-written X-Forwarded-For: only the last entry (added by nginx) counts
+        repeat(240) { i -> assertEquals(200, guestFrom("127.0.0.1", "10.0.${i / 200}.${i % 200}, 192.0.2.44"), "request $i") }
+        assertEquals(429, guestFrom("127.0.0.1", "203.0.113.99, 192.0.2.44"))
+        assertEquals(429, guestFrom("127.0.0.1", " 192.0.2.44 "))
+        // not from a trusted proxy (the app reached directly): X-Forwarded-For is ignored, the peer address counts
+        repeat(240) { i -> assertEquals(200, guestFrom("192.0.2.200", "10.1.${i / 200}.${i % 200}")) }
+        assertEquals(429, guestFrom("192.0.2.200", "10.2.0.1"))
+        assertEquals(429, guestFrom("192.0.2.200", null))
+        // CF-Connecting-IP straight to the app means nothing (nginx's realip turns Cloudflare's into X-Forwarded-For)
+        assertEquals(429, guestFrom("192.0.2.200", null, cf = "10.3.0.1"))
+        assertEquals(429, guestFrom("127.0.0.1", "192.0.2.44", cf = "10.3.0.2"))
+        assertEquals(200, guestFrom("127.0.0.1", "192.0.2.45"))
+    }
+
+    @Test
+    fun `rate limiter - a window starts with its first hit and ends on time`() {
+        assertTrue(limiter.tryAcquire("t:win", 2, java.time.Duration.ofMillis(700)))
+        assertTrue(limiter.tryAcquire("t:win", 2, java.time.Duration.ofMillis(700)))
+        assertEquals(false, limiter.tryAcquire("t:win", 2, java.time.Duration.ofMillis(700)))
+        Thread.sleep(900)
+        assertTrue(limiter.tryAcquire("t:win", 2, java.time.Duration.ofMillis(700)))
+        val ttl = redis.getExpire("rl:t:win", java.util.concurrent.TimeUnit.MILLISECONDS)
+        assertTrue(ttl in 1..700, "ttl $ttl")
+    }
+
     @Test
     fun `token problems`() {
         // unknown/expired token

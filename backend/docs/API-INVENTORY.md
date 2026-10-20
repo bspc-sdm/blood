@@ -1096,7 +1096,7 @@ Firestore maintenance with no PostgreSQL counterpart; those keys are absent from
   (`labs:`), area pharmacies 60 s (`pharm:`), ambulance destinations 10 min (`ambfac:`), ambreq district cars 10 s
   (`ambreq:district:`), catalog 5 min (loaded on every request), lab tests catalogue TTL, admin list 10 min (phase 1 done:
   cache `admins`), admin stats 30 min (serverState/_adminStats), disabled-account check 1 min (phase 1 done).
-- **In-memory rate limits** → Redis (Bucket4j): guest 240/min/IP (phase 1 done), `maps_link_resolve` per uid per minute (`ambplace.checkLimit`).
+- **In-memory rate limits** → Redis (atomic Lua INCR + PEXPIRE; Bucket4j until Oct 2026): guest 240/min/IP (phase 1 done), `maps_link_resolve` per uid per minute (`ambplace.checkLimit`).
 - **Outbound HTTP**: SMS gateway (`SMS_URL_TEMPLATE`, phone.js), Google Maps short-link resolution (ambplace.js resolveShort, with timeout).
 
 ## Environment variables read by the Node server

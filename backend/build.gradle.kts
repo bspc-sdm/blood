@@ -36,7 +36,6 @@ repositories {
 
 val kotlinVersion = "2.3.21"
 val jobrunrVersion = "8.8.2"
-val bucket4jVersion = "8.17.0"
 val springdocVersion = "2.8.17"
 val firebaseAdminVersion = "9.10.0"
 val sentryVersion = "8.60.0"
@@ -66,8 +65,6 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     implementation("org.jobrunr:jobrunr-spring-boot-3-starter:$jobrunrVersion")
-    implementation("com.bucket4j:bucket4j_jdk17-core:$bucket4jVersion")
-    implementation("com.bucket4j:bucket4j_jdk17-lettuce:$bucket4jVersion")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
     implementation("com.google.firebase:firebase-admin:$firebaseAdminVersion")
     implementation("io.sentry:sentry-spring-boot-starter-jakarta:$sentryVersion")

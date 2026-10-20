@@ -180,7 +180,7 @@ patient/provider/status/date, inbox by uid + time, cron scans (`accounts_delete_
 
 ## Not in PostgreSQL
 
-* **Redis**: rate-limit buckets (`rl:*`, Bucket4j), guest response cache (`guest:*`), Spring caches (`admins`, `catalog`, …).
+* **Redis**: rate-limit counters (`rl:*`, Lua INCR), guest response cache (`guest:*`), Spring caches (`admins`, `catalog`, …).
 * **JobRunr** creates its own `jobrunr_*` tables (recurring daily job, future delayed jobs).
 * **Cloudflare R2** (V602, only when the `R2_*` env vars are set — [deploy/R2.md](../../deploy/R2.md)): profile photos/thumbs,
   verification documents and lab report photos. The rows keep the key (`photo_key`, `photo_thumb_key`, `storage_key`) and

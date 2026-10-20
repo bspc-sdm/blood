@@ -1,72 +1,50 @@
 package com.lifolo.common
 
-import io.github.bucket4j.Bandwidth
-import io.github.bucket4j.BucketConfiguration
-import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy
-import io.github.bucket4j.distributed.proxy.ProxyManager
-import io.github.bucket4j.redis.lettuce.Bucket4jLettuce
-import io.lettuce.core.RedisClient
-import io.lettuce.core.RedisURI
-import io.lettuce.core.api.StatefulRedisConnection
-import io.lettuce.core.codec.ByteArrayCodec
-import io.lettuce.core.codec.RedisCodec
-import io.lettuce.core.codec.StringCodec
-import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.data.redis.RedisConnectionDetails
+import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Fixed-window rate limits shared by all app instances (Bucket4j on Redis).
- * Node kept these counters in process memory (guest.js checkRate: 240 requests / minute / IP).
- * If Redis is unreachable the limiter fails open (logs a warning) rather than blocking users.
+ * Rate limits shared by all app instances: one Redis counter per key and window, counted by an atomic Lua script
+ * (INCR, and on the first hit PEXPIRE = the window starts with the first request). Node kept these counters in
+ * process memory (guest.js checkRate: 240 requests / minute / IP).
+ *
+ * Before (Oct 2026) this was Bucket4j's compare-and-swap proxy on Lettuce: many requests at once on the same key (a
+ * burst from one address — exactly what the limit is for) made the CAS retry over and over; slow or failed attempts
+ * ended in the fail-open path, so the load test's 300 fast guest requests from one IP all passed (earlier 240/60).
+ * One INCR per request never retries and stays exact under any concurrency.
+ *
+ * If Redis is unreachable the limiter fails open (logs a warning, counted in [failOpen]) rather than blocking users.
  */
 @Component
-class RateLimiter(private val redis: RedisConnectionDetails) {
+class RateLimiter(private val redis: StringRedisTemplate) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private var client: RedisClient? = null
-    private var connection: StatefulRedisConnection<String, ByteArray>? = null
+    /** requests let through because Redis failed (since start) */
+    val failOpen = AtomicLong()
 
-    @Volatile
-    private var proxyManager: ProxyManager<String>? = null
+    private val script = DefaultRedisScript(
+        """
+        local n = redis.call('INCR', KEYS[1])
+        if n == 1 or redis.call('PTTL', KEYS[1]) < 0 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+        return n
+        """.trimIndent(),
+        Long::class.javaObjectType,
+    )
 
-    @Synchronized
-    private fun manager(): ProxyManager<String> {
-        proxyManager?.let { return it }
-        val s = redis.standalone
-        val uri = RedisURI.Builder.redis(s.host, s.port).withDatabase(s.database)
-        val password = redis.password
-        if (!password.isNullOrEmpty()) {
-            val username = redis.username
-            if (username.isNullOrEmpty()) uri.withPassword(password.toCharArray()) else uri.withAuthentication(username, password.toCharArray())
-        }
-        val c = RedisClient.create(uri.build())
-        client = c
-        val conn = c.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
-        connection = conn
-        val pm = Bucket4jLettuce.casBasedBuilder(conn)
-            .expirationAfterWrite(ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(2)))
-            .build()
-        proxyManager = pm
-        return pm
-    }
+    /** the hits counted so far for [key] in its current window (after this one) */
+    fun hit(key: String, window: Duration): Long =
+        redis.execute(script, listOf("rl:$key"), window.toMillis().toString()) ?: 0L
 
     /** true when the request is allowed: at most [limit] hits per [window] for [key] */
     fun tryAcquire(key: String, limit: Long, window: Duration): Boolean = try {
-        val config = BucketConfiguration.builder()
-            .addLimit(Bandwidth.builder().capacity(limit).refillIntervally(limit, window).build())
-            .build()
-        manager().builder().build("rl:$key") { config }.tryConsume(1)
+        hit(key, window) <= limit
     } catch (e: Exception) {
+        failOpen.incrementAndGet()
         log.warn("rate limiter unavailable ({}), allowing request", e.message)
         true
-    }
-
-    @PreDestroy
-    fun close() {
-        runCatching { connection?.close() }
-        runCatching { client?.shutdown() }
     }
 }

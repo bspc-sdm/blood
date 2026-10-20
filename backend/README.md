@@ -48,7 +48,7 @@ backend/
 │   │   ├── Lang.kt, I18n.kt    ← বাংলা/ইংরেজি বার্তা (lang/ ফোল্ডারের কাজ)
 │   │   ├── Body.kt             ← $request->input()-এর মতো, কিন্তু JavaScript-এর নিয়মে (typeof, Number.isInteger)
 │   │   ├── QuotaService.kt     ← দিনে কয়বার করা যায় (RateLimiter::attempt-এর মতো, কিন্তু DB-তে)
-│   │   ├── RateLimiter.kt      ← Bucket4j + Redis (অতিথির IP-প্রতি সীমা)
+│   │   ├── RateLimiter.kt      ← Redis-এ Lua INCR (অতিথির IP-প্রতি সীমা)
 │   │   ├── Places.kt, Geo.kt, DhakaTime.kt, Ids.kt, Sql.kt, …
 │   │   └── HealthController.kt
 │   ├── auth/                   ← Firebase টোকেন যাচাই (Spring Security filter), ইমেইল-কোড লগইন, ওয়েব সেশন, অ্যাডমিন
