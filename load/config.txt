@@ -1,0 +1,30 @@
+execstart=/usr/bin/java -Xms1g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Xlog:gc*:file=/var/log/lifolo/gc.log:time,uptime,level,tags:filecount=5,filesize=10m -jar <jar> 
+java_version=openjdk version "21.0.12.1" 2026-08-18 LTS
+api_cmdline=/usr/bin/java -Xms1g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Xlog:gc*:file=/var/log/lifolo/gc.log:time,uptime,level,tags:filecount=5,filesize=10m -jar <jar> 
+api_rss_mb=1125
+api_threads=66
+api_nofile_limit=65536
+api_started=Tue 2026-10-20 07:19:16 UTC
+api_restarts=0
+db_pool_size=20 (ডিফল্ট, application.yml)
+virtual_threads=true (application.yml)
+guest_rate_per_minute=
+pg_max_connections=100
+pg_shared_buffers=2GB
+pg_effective_cache_size=6GB
+pg_work_mem=8MB
+pg_maintenance_work_mem=64MB
+pg_max_wal_size=1GB
+pg_random_page_cost=4
+pg_version=16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+pg_db_size=18 MB
+nginx_worker_processes=auto
+nginx_worker_connections=4096
+nginx_upstream_keepalive=1
+nginx_limit_req=2
+nginx_nofile=16384
+redis_maxmemory=536870912
+cpus=6
+mem_total_mb=11960
+swap_total_mb=2047
+somaxconn=4096

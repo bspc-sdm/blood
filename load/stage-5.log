@@ -1,0 +1,3 @@
+time="2026-10-20T07:47:50Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-20T07:48:00Z" level=info msg="WROTE blood bloodbank F1i9Au10U7wWLofvvu2y" source=console
+stage 5 rate 1200: 1091.7 req/s, p95 429 ms, errors 0.00%

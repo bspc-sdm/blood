@@ -1,0 +1,17 @@
+stages_run=6
+safe_rps=1194.8
+safe_target=1200
+safe_p95_ms=429
+knee_target=not reached
+knee_p95_ms=—
+knee_err=—
+cleanup=ok
+api_restarted=no
+stage_0=target 300 rps 303.6 p95 179 err 0.00% cpu_max 74 pg_active_max 2
+stage_1=target 500 rps 503.6 p95 208 err 0.00% cpu_max 55 pg_active_max 2
+stage_2=target 650 rps 653.6 p95 245 err 0.00% cpu_max 65 pg_active_max 1
+stage_3=target 800 rps 803.6 p95 370 err 0.00% cpu_max 74 pg_active_max 3
+stage_4=target 1000 rps 999.8 p95 403 err 0.00% cpu_max 76 pg_active_max 2
+stage_5=target 1200 rps 1194.8 p95 429 err 0.00% cpu_max 82 pg_active_max 3
+run=39388094733
+job=success

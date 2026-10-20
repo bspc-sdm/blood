@@ -1,0 +1,4 @@
+time="2026-10-20T07:42:28Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-20T07:42:39Z" level=info msg="WROTE blood homecare 3EofKIXNZCFzn8T0yBUL" source=console
+time="2026-10-20T07:42:49Z" level=info msg="WROTE amb cOvi0ZSTkRb6rTTTlBZO notified=3" source=console
+stage 1 rate 500: 467.2 req/s, p95 208 ms, errors 0.00%

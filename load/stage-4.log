@@ -1,0 +1,3 @@
+time="2026-10-20T07:46:28Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-20T07:46:39Z" level=info msg="WROTE blood lab nZzHxM7oblcBHFASEVTL" source=console
+stage 4 rate 1000: 927.7 req/s, p95 403 ms, errors 0.00%

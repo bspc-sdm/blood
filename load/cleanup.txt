@@ -1,0 +1,14 @@
+clean_ambreq_state_cleared=1
+clean_inbox_items=6
+clean_ambulance_requests=2
+clean_ambreq_create_log=2
+clean_blood_requests=0
+clean_user_quotas_removed=0
+clean_user_quotas_restored=6
+clean_user_state_restored=2
+clean_user_state_cleared=0
+clean_ambreq_state_restored=1
+clean_ambreq_state_removed=0
+cleanup=ok
+left_blood=0
+left_amb=0

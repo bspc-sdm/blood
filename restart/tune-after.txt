@@ -1,0 +1,12 @@
+jvm_dropin=yes
+api_cmdline=/usr/bin/java -Xms1g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Xlog:gc*:file=/var/log/lifolo/gc.log:time,uptime,level,tags:filecount=5,filesize=10m -jar <jar> 
+pg=effective_cache_size=6GB max_connections=100 shared_buffers=2GB work_mem=8MB
+redis=536870912 volatile-lru
+nginx_worker_connections=4096
+nginx_nofile=16384
+ufw=active
+ufw_cloudflare_rules=22
+ufw_open_80_443=0
+ufw_ci_holes=1
+origin_open_flag=no
+cf_list_age_h=2

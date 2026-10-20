@@ -1,0 +1,4 @@
+time="2026-10-20T07:45:08Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-20T07:45:18Z" level=info msg="WROTE blood donor YNBJ5namBrQYyEV0PTGr" source=console
+time="2026-10-20T07:45:29Z" level=info msg="WROTE amb yPaW7tGSkevHItncme8K notified=3" source=console
+stage 3 rate 800: 746.2 req/s, p95 370 ms, errors 0.00%

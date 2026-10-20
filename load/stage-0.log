@@ -1,0 +1,3 @@
+time="2026-10-20T07:41:09Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-20T07:41:20Z" level=info msg="WROTE blood caregiver cS4IbgOmLzEeFybCl0L0" source=console
+stage 0 rate 300: 280.7 req/s, p95 179 ms, errors 0.00%

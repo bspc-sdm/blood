@@ -1,0 +1,6 @@
+t0=2026-10-20T07:40:56.333684Z
+api_pid=20994
+api_restarts=0
+demo_active=69
+quotas_rows=13
+snapshot=ok
