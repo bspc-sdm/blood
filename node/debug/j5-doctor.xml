@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="84.678" timestamp="2026-10-20T02:41:05">
+    <testcase id="j5-doctor" name="j5-doctor" classname="j5-doctor" file="/home/runner/work/blood/blood/e2e/android/flows/j5-doctor.yaml" time="84.645" timestamp="2026-10-20T02:41:05" status="ERROR">
+      <failure>No visible element found: ".*ডা. ডেমো হাসান.*"</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

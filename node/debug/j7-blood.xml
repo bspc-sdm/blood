@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="83.693" timestamp="2026-10-20T02:44:12">
+    <testcase id="j7-blood" name="j7-blood" classname="j7-blood" file="/home/runner/work/blood/blood/e2e/android/flows/j7-blood.yaml" time="83.663" timestamp="2026-10-20T02:44:12" status="ERROR">
+      <failure>No visible element found: ".*ডেমো রোগী রহিম.*"</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

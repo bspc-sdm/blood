@@ -1,0 +1,6 @@
+
+Waiting for flows to complete...
+[Failed] j3-pharmacy (1m 50s) (Assertion is false: ".*ওষুধ দিন.*" is visible)
+
+1/1 Flow Failed
+

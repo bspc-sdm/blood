@@ -1,0 +1,170 @@
+02:44:06.197 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /home/runner/work/blood/blood/e2e-out/debug/j7-blood/.maestro/tests/2026-10-20_024406
+02:44:06.200 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+02:44:06.201 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.11.0
+02:44:06.203 [ INFO] MAESTRO.logSystemInfo: CI: github
+02:44:06.203 [ INFO] MAESTRO.logSystemInfo: OS Name: Linux
+02:44:06.203 [ INFO] MAESTRO.logSystemInfo: OS Version: 7.0.0-1017-azure
+02:44:06.203 [ INFO] MAESTRO.logSystemInfo: Architecture: amd64
+02:44:06.206 [ INFO] MAESTRO.logSystemInfo: Java Version: 17
+02:44:06.209 [ INFO] MAESTRO.logSystemInfo: Xcode Version: null
+02:44:06.212 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+02:44:06.215 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+02:44:06.215 [ INFO] MAESTRO.logSystemInfo: ---------------------
+02:44:07.131 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+02:44:09.552 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device emulator-5554 using port 34031 with execution plan ExecutionPlan(flowsToRun=[/home/runner/work/blood/blood/e2e/android/flows/j7-blood.yaml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+02:44:12.445 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow j7-blood
+02:44:12.461 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+02:44:12.607 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=ANDROID, widthPixels=1080, heightPixels=2400, widthGrid=1080, heightGrid=2400)
+02:44:12.773 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+02:44:12.776 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+02:44:12.777 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+02:44:12.777 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+02:44:12.777 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+02:44:12.778 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+02:44:12.778 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run ../common/start.yaml RUNNING
+02:44:12.779 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+02:44:12.779 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+02:44:12.780 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.bspc.blood" with clear state RUNNING
+02:44:12.781 [ INFO] maestro.Maestro.clearAppState$lambda$8: Clearing app state com.bspc.blood
+02:44:14.062 [ INFO] maestro.Maestro.launchApp$lambda$5: Launching app com.bspc.blood
+02:44:14.062 [ INFO] maestro.Maestro.launchApp$lambda$5: Stopping com.bspc.blood app during launch
+02:44:14.140 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.bspc.blood" with clear state COMPLETED
+02:44:14.141 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+02:44:14.143 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+02:44:14.143 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+02:44:14.144 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+02:44:21.315 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+02:44:21.316 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+02:44:21.316 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+02:44:21.316 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*জেলা খুঁজুন.*" is visible RUNNING
+02:44:21.435 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*জেলা খুঁজুন.*" is visible COMPLETED
+02:44:21.436 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+02:44:21.436 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+02:44:21.436 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+02:44:21.436 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+02:44:21.630 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+02:44:21.630 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+02:44:21.631 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+02:44:21.631 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot ${J}-00a-location RUNNING
+02:44:22.376 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+02:44:22.384 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+02:44:22.723 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot ${J}-00a-location COMPLETED
+02:44:22.724 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*জেলা খুঁজুন.*" RUNNING
+02:44:22.855 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=জেলা খুঁজুন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,579][255,643], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=579, width=171, height=64))
+02:44:24.069 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+02:44:24.074 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (169, 611) using hierarchy based logic for wait
+02:44:26.079 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+02:44:26.080 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*জেলা খুঁজুন.*" COMPLETED
+02:44:26.080 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text Gazipur RUNNING
+02:44:26.081 [ INFO] maestro.Maestro.inputText: Inputting text: Gazipur
+02:44:28.138 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text Gazipur COMPLETED
+02:44:28.139 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Hide Keyboard RUNNING
+02:44:28.140 [ INFO] maestro.Maestro.hideKeyboard$lambda$12: Hiding Keyboard
+02:44:29.228 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Hide Keyboard COMPLETED
+02:44:29.228 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "গাজীপুর.*" RUNNING
+02:44:29.253 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=গাজীপুর, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,750][201,814], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=750, width=117, height=64))
+02:44:30.486 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+02:44:30.487 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (142, 782) using hierarchy based logic for wait
+02:44:31.412 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+02:44:31.413 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "গাজীপুর.*" COMPLETED
+02:44:31.413 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "লগইন" is visible RUNNING
+02:44:31.481 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "লগইন" is visible COMPLETED
+02:44:31.481 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "লগইন" RUNNING
+02:44:31.585 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=লগইন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[921,162][1006,222], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=921, y=162, width=85, height=60))
+02:44:32.812 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+02:44:32.813 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (963, 192) using hierarchy based logic for wait
+02:44:34.806 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+02:44:34.806 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "লগইন" COMPLETED
+02:44:34.807 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled RUNNING
+02:44:35.442 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:35.447 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:36.865 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:36.911 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:38.351 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:38.393 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:39.731 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:39.774 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:41.216 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:41.258 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:42.643 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:42.686 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:44.070 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:44.112 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:45.514 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:45.556 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:46.846 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:46.889 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:48.290 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:48.332 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:49.678 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:49.721 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:51.154 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:51.196 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:52.590 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:52.633 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:54.306 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:54.349 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:55.734 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:55.776 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:57.182 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:57.225 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:44:58.622 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:44:58.665 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:00.062 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:00.067 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:01.538 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:01.580 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:03.006 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:03.049 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:04.410 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:04.452 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:05.822 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:05.866 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:07.281 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:07.285 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:08.690 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:08.693 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:10.102 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:10.106 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:11.498 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:11.501 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:12.901 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:12.906 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:14.270 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:14.273 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:15.686 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:15.690 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:17.106 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:17.149 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:18.630 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:18.671 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:20.030 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:20.073 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:21.437 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:21.441 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:22.833 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:22.837 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:24.365 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:24.370 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:25.774 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:25.778 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:27.156 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:27.160 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:28.573 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:28.577 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:29.969 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:29.973 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:31.365 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:31.369 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:32.765 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:32.768 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:34.193 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: .*ডেমো রোগী রহিম.*
+02:45:34.236 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+02:45:35.197 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+02:45:35.198 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+02:45:35.371 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled FAILED
+02:45:35.372 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: No visible element found: ".*ডেমো রোগী রহিম.*"
+02:45:35.372 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+02:45:35.372 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+02:45:35.520 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run ../common/start.yaml FAILED
+02:45:36.119 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /home/runner/work/blood/blood/e2e-out/debug/j7-blood/.maestro/tests

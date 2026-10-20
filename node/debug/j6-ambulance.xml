@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="85.014" timestamp="2026-10-20T02:42:39">
+    <testcase id="j6-ambulance" name="j6-ambulance" classname="j6-ambulance" file="/home/runner/work/blood/blood/e2e/android/flows/j6-ambulance.yaml" time="84.98" timestamp="2026-10-20T02:42:39" status="ERROR">
+      <failure>No visible element found: ".*ডেমো অ্যাম্বুলেন্স চালক.*"</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
