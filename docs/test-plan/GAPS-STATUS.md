@@ -1,4 +1,4 @@
-# Test gaps: status (branch `test-gaps`, paused 2026-10-20)
+# Test gaps: status (branch `test-gaps`, 2026-10-20)
 
 ## Done
 - Web journeys now run against the **Vue web and admin plus in-CI Spring** (Postgres, Redis, Auth emulator, `PUSH_MODE=fake`) in `backend-e2e.yml`, which is now the default web e2e. React is still selectable (`web: react`). The old Node runner in `web-vue/e2e/journeys.mjs` is removed.
@@ -13,19 +13,16 @@
 - Android (runs against production demo):
   - `e2e/android/notify.sh` replays each push's intent extras and checks the screen it opens: 23/23 pass.
   - New flows `j9-rx-online`, `j11-ambulance-driver` and `j12-appointments` pass.
-  - `j10-blood` passed once. Its fix for the intermittent home load error is in the CI run listed below.
+  - Full run 39389313698: all 12 flows plus notify 23/23 green. `j10` hit the home load error again; it was captured as `j10d-bug-home-load-error.png` and then retried.
   - Regexes now match both Unicode forms of য়.
 
-## In progress
-- Full Android run 39389313698 on `test-gaps-android` (commit `f879f4a`): results in `ci-log-test-gaps-android`.
-
 ## Remaining / next steps
-- Remove `.github/workflows/tmp-jar.yml` (temporary jar builder) before merging.
+- Re-run Android after `app-fixes` (home load-error fix) lands on main.
 - When web CI and Android are green on the same commit: rebase on `origin/main` and fast-forward `main`.
 - Optional: an Android inbox screen check, and more of the 76 untested Android screens (admin tabs, health tabs, shop/lab edit).
 
 ## Known breakage / app bugs found (not fixed, tests record them)
-1. **Web `amb_req_mine` deep link.** In `web-vue/src/sections/account/util.ts`, `inboxTarget` has no case for `amb_req_mine`. The inbox item "…৳N-তে আসতে রাজি" opens `/` instead of `/services/ambulance/call/<reqId>`. Recorded as xfail `BUG-WEB-AMB-INBOX` in journey 11.
+1. **FIXED on this branch: web `amb_req_mine` deep link.** In `web-vue/src/sections/account/util.ts`, `inboxTarget` has no case for `amb_req_mine`. The inbox item "…৳N-তে আসতে রাজি" opens `/` instead of `/services/ambulance/call/<reqId>`. `inboxTarget` now routes it to the request page, with a unit test; journey 11 checks it strictly.
 2. **Android home sometimes shows "রিকোয়েস্ট লোড হয়নি".** The server returns 200 at the same moment (probe.sh). Likely cause: in `MainScreen.kt:226`, `runCatching` swallows the `CancellationException` from a cancelled `LaunchedEffect`, sets `errorMsg`, and the newer successful load never clears it. `j10` takes a screenshot (`j10d-bug-home-load-error`) and then taps retry.
 3. **Android badge doc request.** Tapping the "please send your badge document photos" notification opens Home. The web opens `/health/badge`.
 4. **Android notification `appointment`.** On a notification tap the app ignores `data.role`, unlike the in-app inbox.
