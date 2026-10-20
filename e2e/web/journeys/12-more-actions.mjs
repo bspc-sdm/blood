@@ -2,7 +2,7 @@
 // (ব্রাউজারে বোতাম থাকলে সেটা আগের যাত্রায়)। প্রতিটা দৃশ্যে শুধু "সফল" নয় — ফলটা আবার পড়ে মেলানো (তালিকায় এল/গেল, অবস্থা বদলাল)।
 // নতুন দোকান/প্যাথলজি/ব্লাড ব্যাংক/অ্যাম্বুলেন্স: একজন নতুন (আসল) ব্যবহারকারী বানিয়ে মুছে ফেলেন — ডেমো অক্ষত থাকে।
 // শেষ দৃশ্যে ডেমো মোছা (admin_demo_wipe — রিলিজের আগে যেটা করতে হবে, আসল অ্যাকাউন্ট-মোছার পথ) — তাই এই যাত্রা সবার শেষে।
-import { act, demo, owner, post, sql, uidOf, ApiError } from '../api.mjs';
+import { act, demo, owner, post, sql, uidOf, ApiError, bookAppt } from '../api.mjs';
 import { BASE } from '../stack.mjs';
 import { go, see, settle, logout } from '../lib.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -199,9 +199,7 @@ export async function run(J) {
   await J.sc('MORE-lab', 'প্যাথলজি: নিজের স্বাভাবিক মাত্রা; রোগী বাসা থেকে নমুনার অনুরোধ নিশ্চিতের আগে বাতিল (ঠিকানা মোছে)', async () => {
     await act(LAB, 'lab_ranges_set', { ranges: [{ code: 'hba1c', key: 'hba1c', low: 4.2, high: 5.8 }] });
     // রোগীর এমন প্রেসক্রিপশন যাতে পরীক্ষা আছে আর এই ল্যাবে এখনো পাঠানো হয়নি — নতুন একটা লিখিয়ে নেওয়া
-    const pats = await act(DOC, 'rx_patients');
-    const me = (pats.patients || pats.items || []).find((x) => x.linked && /ডেমো রোগী রহিম/.test(x.name));
-    const rx = await act(DOC, 'rx_create', { rxPatientId: me.id, diagnosis: 'ই২ই', tests: ['HbA1c'] });
+    const rx = await act(DOC, 'rx_create', { appointmentId: await bookAppt(P, DOC, 31), diagnosis: 'ই২ই', tests: ['HbA1c'] });
     const lab = (await act(LAB, 'lab_me')).lab;
     await act(P, 'rx_send_lab', { rxId: rx.id, labId: lab.id || LAB.uid, home: { address: 'ই২ই বাতিলের বাসা', phone: '01200001101', day: 1, slot: 'morning', note: '' } });
     const order = (await act(P, 'rx_activity', { rxId: rx.id }).catch(() => null)) && (await act(LAB, 'lab_orders')).items.find((x) => x.rxId === rx.id);

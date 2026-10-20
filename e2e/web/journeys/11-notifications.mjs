@@ -10,7 +10,7 @@
 // রানের সব পুশ (E2E_PG_URL থাকলে ডাটাবেস থেকে) একই নিয়মে যাচাই। ফল: shots/push-matrix.json (Android Maestro-র যাত্রাও এটা পড়ে)।
 import fs from 'node:fs';
 import path from 'node:path';
-import { act, demo, owner, post, sql, cronDaily, uidOf } from '../api.mjs';
+import { act, demo, owner, post, sql, cronDaily, uidOf, bookAppt } from '../api.mjs';
 import { BASE } from '../stack.mjs';
 import { SHOTS, settle, go, vis } from '../lib.mjs';
 
@@ -287,13 +287,12 @@ export async function run(J) {
   // ---------- প্রেসক্রিপশন → ফার্মেসি, প্যাথলজি, রিপোর্ট, ডাক্তারের দেখা ----------
   let rxId;
   await J.sc('PUSH-rx', 'rx — ডাক্তার নতুন প্রেসক্রিপশন দিলে রোগীকে; care (helper) — কেয়ারগিভারকে রোগীর নামে, asUid+rxId', async () => {
-    const pats = await act(DOC, 'rx_patients');
-    const me = (pats.patients || pats.items || []).find((x) => x.linked && (x.uid === P.uid || x.patientUid === P.uid || /ডেমো রোগী রহিম/.test(x.name)));
-    if (!me) throw new Error('ডাক্তারের রোগীর তালিকায় অ্যাপের রোগী রহিম নেই');
+    // অ্যাপের রোগীর কাছে প্রেসক্রিপশন সরাসরি যায় শুধু অ্যাপয়েন্টমেন্ট থেকে (কাগজের রোগীর বেলায় রোগী কোড দিয়ে যোগ করেন)
+    const appointmentId = await bookAppt(P, DOC, 10);
     const careBefore = await inboxIds(CG);
     await expectPush({ id: 'PUSH-rx', to: P, type: 'rx', title: /^ডা\. ডেমো হাসান নতুন প্রেসক্রিপশন দিয়েছেন$/, data: (c) => ({ rxId: c.id }) }, async () => {
       const r = await act(DOC, 'rx_create', {
-        rxPatientId: me.id, complaints: 'ই২ই', diagnosis: 'ই২ই পরীক্ষা', medicines: [{ name: 'Napa 500', form: 'Tablet', dose: '1+1+1', days: 3, timing: 'after' }], tests: ['CBC'],
+        appointmentId, complaints: 'ই২ই', diagnosis: 'ই২ই পরীক্ষা', medicines: [{ name: 'Napa 500', form: 'Tablet', dose: '1+1+1', days: 3, timing: 'after' }], tests: ['CBC'],
       });
       rxId = r.id;
       return { id: r.id };

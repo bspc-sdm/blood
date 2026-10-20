@@ -88,3 +88,21 @@ export function sql(query) {
   const out = execFileSync('psql', [url, '-AtXq', '-v', 'ON_ERROR_STOP=1', '-c', query], { encoding: 'utf8' }).trim();
   return out ? JSON.parse(out) : null;
 }
+
+/**
+ * রোগীর (who) একটা অ্যাপয়েন্টমেন্টের অনুরোধ ডাক্তারের (doctor) কাছে — ঢাকার আজকের পরের firstDay..firstDay+20 দিনের যেটায় হয়।
+ * অ্যাপের রোগীকে প্রেসক্রিপশন এখন শুধু অ্যাপয়েন্টমেন্ট থেকেই সরাসরি যায় (কাগজের রোগীর প্রেসক্রিপশন রোগী নিজে কোড দিয়ে যোগ করেন)।
+ */
+export async function bookAppt(who, doctor, firstDay, note = 'ই২ই প্রেসক্রিপশনের জন্য') {
+  const DAY = 86400000;
+  const dhakaToday = Math.floor((Date.now() + 6 * 3600000) / DAY) * DAY;
+  let last;
+  for (let i = firstDay; i < firstDay + 20; i++) {
+    try {
+      return (await act(who, 'book', { providerUid: doctor.uid, date: dhakaToday + i * DAY, chamberIndex: 0, note })).id;
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
