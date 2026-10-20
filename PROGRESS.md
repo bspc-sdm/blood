@@ -367,3 +367,14 @@
 ## 2.33.1 (119): অ্যাম্বুলেন্স ডাকা — লেখার ঘরে Google ম্যাপের লিংক ঠিকমতো (পারভেজ, ১৯ অক্টোবর ১১:২০)
 - [x] লেখার ঘরের লিংক লেখা থামার ০.৭ সেকেন্ড পরে পড়া (অ্যাপ ও ওয়েব) — অক্ষর ধরে লিখলে অর্ধেক লিংক থেকে ভুল জায়গা নিত/লিংক মুছে যেত (২.৩১.০-এর পর এমুলেটরের E2E-তে ধরা); না মিললে লেখা যেমন ছিল থাকে
 - [x] E2E (যাত্রা ২): শিট খোলা, লিংক লেখা → "ম্যাপের জায়গা নেওয়া হয়েছে ✓" + উপজেলা আপনা থেকে, হাসপাতালের তালিকা/খোঁজা/বাছা, ভাড়ার গোনা — পাশ; ওয়েব Playwright-এ অক্ষর ধরে লেখা লিংকও
+
+## 2.34.0 (120): নিজের সার্ভারে — অ্যাপ, ওয়েব আর অ্যাডমিন এখন https://lifolo.com (VPS, Spring + PostgreSQL); Vercel থেকে সরানো (পারভেজের অনুমোদন, ২০ অক্টোবর ২০২৬)
+- [x] main-এ মেলানো: `spring` (Spring সার্ভার, Vue ওয়েব/অ্যাডমিন, VPS-এ বসানোর workflow) আর `cutover-android` (সার্ভারের ঠিকানা বিল্ডের সুইচ, Build APK (next), Node বনাম Spring-এর Android e2e)
+- [x] অ্যাপের ঠিকানা এক লাইনে: `app/build.gradle.kts` → `https://lifolo.com` (সব `/api`, শেয়ার লিংক `/r/`, QR `/rx/` `/shop/`, ওয়েবের পাতা); পুরোনো শেয়ার লিংক (`blood-server-ashy.vercel.app/r/…`) এখনো অ্যাপে খোলে (AndroidManifest-এ আলাদা intent-filter)
+- [x] তথ্য সরানো হয়নি (মালিকের সিদ্ধান্ত — এখন ব্যবহারকারী শুধু মালিক): নতুন সার্ভারে শুধু ডেমো (গাজীপুর); Firestore-এর পুরোনো তথ্য যেমন ছিল তেমনই আছে, মোছা হয়নি
+- [x] সার্ভার: `/api/events` (SSE) প্রতি ২৫ সেকেন্ডে একটা খালি মন্তব্য (": ping") পাঠায় — Cloudflare-এর proxy ১০০ সেকেন্ড চুপ থাকলে সংযোগ কাটে; পরীক্ষা SseKeepAliveIT
+- [x] main-এ `backend/`, `web-vue/` বা `deploy/` বদলালে **Deploy backend** নিজেই VPS-এ বসায় (আগে শুধু হাতে, `spring` থেকে); Backend আর Backend e2e-ও main-এ চলে
+- [x] Uptime check এখন `https://lifolo.com/api/health` দেখে (প্রতি ১০ মিনিট)
+- [x] Vercel-এ ডেপ্লয় বন্ধ: "Deploy server" workflow-এর push বন্ধ আর Actions-এ Disabled (মোছা নয়); Vercel প্রকল্প আর `server/` কোড যেমন ছিল — পুরোনো অ্যাপ (২.৩৩.১ পর্যন্ত) এখনো Vercel-এই কথা বলে
+- [ ] CI সবুজ → main → Build APK → `latest` রিলিজ 2.34.0 (lifolo-2.34.0-120.apk); Deploy backend main থেকে; https://lifolo.com/api/health ঠিক
+- [ ] মালিকের বাকি কাজ (deploy/CUTOVER.md): Cloudflare SSL/TLS "Full (strict)" → `@`, `www`, `api`-তে কমলা মেঘ; পরে (অনুমতি নিয়ে) Vercel আর Firestore বন্ধ
