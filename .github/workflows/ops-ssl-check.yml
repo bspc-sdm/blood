@@ -101,8 +101,13 @@ jobs:
             cat "$out/vps.md" 2>/dev/null
             echo
             cat "$out/edge.md" 2>/dev/null
-            echo "- VPS-এ Cloudflare-এর ঠিকানা থেকে খোলা সংযোগ: 443-এ ${c443:-?}টা, 80-এ ${c80:-?}টা →" \
-              "$( [ "${c443:-0}" -gt 0 ] 2>/dev/null && [ "${c80:-0}" = 0 ] && echo 'Cloudflare origin-এ HTTPS-এ আসে (Full বা Full (strict); Flexible নয়)' || echo 'নিশ্চিত হওয়া গেল না')"
+            h80a="$(g http80_api)"; h80w="$(g http80_web)"
+            echo "- origin-এর পোর্ট 80 (/api/health): api.lifolo.com → ${h80a:-?}, lifolo.com → ${h80w:-?}; VPS-এ Cloudflare-এর ঠিকানা থেকে খোলা সংযোগ: 443-এ ${c443:-?}টা, 80-এ ${c80:-?}টা (80-এরগুলো http:// দর্শক আর Let's Encrypt-এর যাচাই)"
+            if [ "${c443:-0}" -gt 0 ] 2>/dev/null && [[ "$h80a" =~ ^30[178]$ ]] && grep -q 'Cloudflare দিয়ে api.lifolo.com/api/health: `{"ok":true' "$out/edge.md"; then
+              echo "- **Cloudflare → origin HTTPS-এ আসে** (80 শুধু https-এ পাঠায়, তবু Cloudflare দিয়ে JSON 200) → মোড Full বা Full (strict), Flexible নয় ✅"
+            else
+              echo "- Cloudflare → origin কোন পথে, নিশ্চিত হওয়া গেল না ⚠️"
+            fi
             echo "- Full (strict)-এর শর্ত: ওপরের \"nginx যা দেখায়\" সারণিতে lifolo.com, www, api-এর যাচাই \`0 ok\` হলে strict চালু থাকলেও চলে। ঠিক কোন মোড বাছা আছে তা শুধু Cloudflare ড্যাশবোর্ডে দেখা যায় (SSL/TLS → Overview) — এখানে কোনো Cloudflare API চাবি নেই।"
             echo "- সরাসরি VPS (Cloudflare ছাড়া) বাইরে থেকে খোলা: $(curl -s -m 10 -o /dev/null -w '%{http_code}' --resolve "api.lifolo.com:443:$ORIGIN_IP" https://api.lifolo.com/api/health) (GitHub-এর মেশিন থেকে) — Cloudflare-এর WAF/সীমা এড়িয়ে যাওয়া যায়; পরামর্শ deploy/OPS-DRILLS.md-এ।"
             echo

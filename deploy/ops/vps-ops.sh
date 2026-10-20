@@ -335,7 +335,12 @@ ssl)
     echo "| $n | ${end:+$(date -u -d "$end" '+%Y-%m-%d')} | ${vr:-সংযোগ হয়নি} |"
   done
   echo
-  echo "অচেনা নাম (SNI ছাড়া / ভুল নাম): $(echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername unknown.invalid 2>&1 | grep -qiE 'alert|handshake failure|no peer certificate' && echo 'handshake বাতিল (ssl_reject_handshake — ভালো)' || echo 'সার্টিফিকেট দেখায়!')"
+  for sni in unknown.invalid ""; do
+    if [ -n "$sni" ]; then o="$(echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$sni" 2>&1)"; else o="$(echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -noservername 2>&1)"; fi
+    subj="$(printf '%s' "$o" | openssl x509 -noout -subject 2>/dev/null | sed 's/^subject=//')"
+    echo "$([ -n "$sni" ] && echo 'ভুল নাম (SNI unknown.invalid)' || echo 'SNI ছাড়া (IP দিয়ে স্ক্যান)'): $([ -n "$subj" ] && echo "সার্টিফিকেট দেখায় — $subj ⚠️ (IP থেকে নাম চেনা যায়)" || echo 'handshake বাতিল (ভালো)')"
+  done
+  echo "default_server (443): $(nginx -T 2>/dev/null | grep -cE 'listen\s+(\[::\]:)?443\s.*default_server') · ssl_reject_handshake: $(nginx -T 2>/dev/null | grep -cE '^\s*ssl_reject_handshake\s+on')"
   echo "TLS 1.1: $(echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername api.lifolo.com -tls1_1 2>&1 | grep -qE '^\s*Protocol\s*:\s*TLSv1\.1' && echo 'চলে (বন্ধ করা উচিত)' || echo 'চলে না (ভালো)') · TLS 1.3: $(echo | timeout 10 openssl s_client -connect 127.0.0.1:443 -servername api.lifolo.com -tls1_3 2>&1 | grep -qE 'TLSv1\.3' && echo চলে || echo 'চলে না')"
   echo
   echo "### certbot"
@@ -383,6 +388,9 @@ for line in out.splitlines():
 print("cf_conns_443=%d" % c["443"])
 print("cf_conns_80=%d" % c["80"])
 PY
+  # origin-এর 80: শুধু https-এ পাঠায় (301) হলে Flexible-এ Cloudflare দিয়ে 200 আসা সম্ভব নয় → 200 মানে Full/Full (strict)
+  kv http80_api "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -H 'Host: api.lifolo.com' http://127.0.0.1/api/health)"
+  kv http80_web "$(curl -s -m 5 -o /dev/null -w '%{http_code}' -H 'Host: lifolo.com' http://127.0.0.1/api/health)"
   ;;
 
 # ------------------------------------------------------------------------------------------------ timers
@@ -402,9 +410,10 @@ timers)
     code="$(systemctl show "$s.service" -p ExecMainStatus --value 2>/dev/null)"
     if [ -z "$last" ] || [ "$last" = n/a ]; then
       # এই boot-এ চলেনি — journal থেকে শেষবার
-      last="$(journalctl -u "$s.service" --no-pager -o short-iso -n 1 --grep 'Finished|Deactivated|Succeeded' 2>/dev/null | awk '{print $1}' | tail -1)"
+      last="$(journalctl -u "$s.service" --no-pager -o short-iso -n 1 --grep 'Finished|Deactivated|Succeeded' 2>/dev/null | awk '/^[0-9]{4}-/{print $1}' | tail -1)"
     fi
     ok="?"
+    [[ "$last" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]] || last=""
     if [ -n "$last" ] && t=$(date -d "$last" +%s 2>/dev/null); then ok=$([ $((now - t)) -le 90000 ] && echo হ্যাঁ || echo "না ($(( (now - t) / 3600 )) ঘণ্টা আগে)"); fi
     echo "| $s | ${last:-চলেনি} | $res (exit ${code:-?}) | $ok |"
   done
@@ -428,16 +437,17 @@ timers)
   if [ -z "$tables" ]; then
     echo "JobRunr-এর টেবিল নেই"
   else
-    echo '| recurring কাজ | cron | শেষ সফল (UTC) | গত ২৪ ঘণ্টায় সফল | গত ২৪ ঘণ্টায় ব্যর্থ |'
-    echo '|---|---|---|---|---|'
-    psqlq -F '|' -c "
-      SELECT r.id,
+    echo '| recurring কাজ | cron | প্রথম সফল (UTC, যা আছে) | শেষ সফল (UTC) | গত ২৪ ঘণ্টায় সফল | গত ২৪ ঘণ্টায় ব্যর্থ |'
+    echo '|---|---|---|---|---|---|'
+    psqlq -F ' | ' -c "
+      SELECT '| ' || r.id,
              coalesce(substring(r.jobasjson from '\"scheduleExpression\":\"([^\"]+)\"'), '?'),
+             coalesce(to_char(min(j.updatedat) FILTER (WHERE j.state = 'SUCCEEDED'), 'YYYY-MM-DD HH24:MI'), '—'),
              coalesce(to_char(max(j.updatedat) FILTER (WHERE j.state = 'SUCCEEDED'), 'YYYY-MM-DD HH24:MI'), '—'),
              count(*) FILTER (WHERE j.state = 'SUCCEEDED' AND j.updatedat > (now() AT TIME ZONE 'UTC') - interval '24 hours'),
-             count(*) FILTER (WHERE j.state = 'FAILED' AND j.updatedat > (now() AT TIME ZONE 'UTC') - interval '24 hours')
+             count(*) FILTER (WHERE j.state = 'FAILED' AND j.updatedat > (now() AT TIME ZONE 'UTC') - interval '24 hours') || ' |'
       FROM jobrunr_recurring_jobs r LEFT JOIN jobrunr_jobs j ON j.recurringjobid = r.id
-      GROUP BY r.id, r.jobasjson ORDER BY r.id" 2>/dev/null | sed -E 's/^/| /; s/$/ |/; s/\|/ | /g; s/ +\| +/ | /g'
+      GROUP BY r.id, r.jobasjson ORDER BY r.id" 2>&1
     echo
     echo "সব কাজের অবস্থা (গত ২৪ ঘণ্টা): $(psqlq -c "SELECT string_agg(state || '=' || n, ', ') FROM (SELECT state, count(*) n FROM jobrunr_jobs WHERE updatedat > (now() AT TIME ZONE 'UTC') - interval '24 hours' GROUP BY state ORDER BY state) x" 2>/dev/null)"
     echo "চালু JobRunr সার্ভার: $(psqlq -c "SELECT count(*) || ' (শেষ সাড়া ' || to_char(max(lastheartbeat), 'HH24:MI:SS') || ' UTC)' FROM jobrunr_backgroundjobservers" 2>/dev/null)"
