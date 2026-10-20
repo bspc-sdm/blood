@@ -200,7 +200,8 @@ class DemoIT : DemoTestBase() {
             assertEquals(403, req(U("caregiver"), a, mapOf("asUid" to U("patient"), "text" to "x")).status, "$a not for the patient")
         }
         ok(U("caregiver"), "care_respond", mapOf("patientUid" to X("h-mother"), "accept" to true))
-        assertEquals(404, req(U("patient"), "care_invite", mapOf("email" to "nobody@lifolo-demo.test")).status)
+        // no hint whether an address has an account; a demo patient's invitations to unknown addresses are not kept
+        assertEquals(200, req(U("patient"), "care_invite", mapOf("email" to "nobody@lifolo-demo.test")).status)
         ok(U("patient"), "care_invite", mapOf("email" to DemoWorld.demoEmail("donor")))
         assertEquals("invited", ok(U("donor"), "care_list")["caringFor"][0]["status"].textValue())
         assertEquals(409, req(U("patient"), "care_invite", mapOf("email" to DemoWorld.demoEmail("lab"))).status, "at most 2")

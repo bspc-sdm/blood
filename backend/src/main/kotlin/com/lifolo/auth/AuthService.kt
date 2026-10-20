@@ -59,7 +59,7 @@ class AuthService(
             }
         }
         if (decoded != null) {
-            accounts.ensure(decoded.uid, decoded.email)
+            accounts.ensure(decoded.uid, decoded.email, decoded.emailVerified)
             return AuthUser(uid = decoded.uid, email = decoded.email ?: "", emailVerified = decoded.emailVerified)
         }
         val kind = failure?.kind

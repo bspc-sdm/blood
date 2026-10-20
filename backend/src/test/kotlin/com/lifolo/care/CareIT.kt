@@ -18,14 +18,25 @@ class CareIT : P2TestBase() {
         person("third", "তৃতীয়", "third@example.com")
         assertEquals("তাঁর ইমেইল দিন", call("pat", "care_invite", mapOf("email" to "not-an-email")).error)
         assertEquals("নিজেকে যোগ করা যায় না", call("pat", "care_invite", mapOf("email" to "PAT@example.com")).error)
+        // an address without an account: the same answer as for an account (no enumeration); the invitation waits
         val none = call("pat", "care_invite", mapOf("email" to "nobody@example.com"))
-        assertEquals(404, none.status)
-        assertEquals("এই ইমেইলে কোনো Lifolo অ্যাকাউন্ট নেই। আগে তাঁকে Lifolo খুলে লগইন করতে বলুন।", none.error)
+        assertEquals(200, none.status, none.toString())
+        assertEquals("আগেই যোগ করা আছে", call("pat", "care_invite", mapOf("email" to "Nobody@example.com")).error)
+        val waiting = ok("pat", "care_list")["caretakers"].single()
+        assertEquals(listOf("", "nobody@example.com", "invited"), listOf("caretakerName", "caretakerEmail", "status").map { waiting[it].textValue() })
+        assertTrue(waiting["caretakerUid"].textValue().startsWith("ci_"))
+        ok("pat", "care_remove", mapOf("caretakerUid" to waiting["caretakerUid"].textValue()))
+        assertEquals(0, ok("pat", "care_list")["caretakers"].size())
         // an Auth account that never used the server is fine too
         identity.add("fresh", "fresh@example.com")
         ok("pat", "care_invite", mapOf("email" to " CG@example.com "))
         assertEquals(1, pushesTo("cg", "রহিম আপনাকে কেয়ারগিভার করতে চান").size)
         assertEquals("আগেই যোগ করা আছে", call("pat", "care_invite", mapOf("email" to "cg@example.com")).error)
+        // the patient's list: an invitation to an account looks exactly like one to an address without an account
+        val mineInvited = ok("pat", "care_list")["caretakers"].single()
+        assertEquals("", mineInvited["caretakerName"].textValue())
+        assertTrue(mineInvited["caretakerUid"].textValue().startsWith("ci_"))
+        assertEquals(waiting.fieldNames().asSequence().toList(), mineInvited.fieldNames().asSequence().toList())
         val invited = ok("cg", "care_list")["caringFor"][0]
         assertEquals(listOf("pat", "cg", "রহিম", "রুমা", "cg@example.com", "invited"), listOf("patientUid", "caretakerUid", "patientName", "caretakerName", "caretakerEmail", "status").map { invited[it].textValue() })
         // not yet accepted: no acting for the patient
@@ -63,6 +74,40 @@ class CareIT : P2TestBase() {
         ok("pat", "care_invite", mapOf("email" to "cg@example.com"))
         ok("cg", "care_remove", mapOf("patientUid" to "pat"))
         assertEquals(0, ok("pat", "care_list")["caretakers"].size())
+    }
+
+    @Test
+    fun `caregiver invitation to an address without an account - waits, counts, becomes a link when they sign in`() {
+        person("pat", "রহিম", "pat@example.com")
+        person("cg", "রুমা", "cg@example.com")
+        ok("pat", "care_invite", mapOf("email" to "later@example.com"))
+        ok("pat", "care_invite", mapOf("email" to "cg@example.com"))
+        // both count towards the two caregivers
+        assertEquals(409, call("pat", "care_invite", mapOf("email" to "third@example.com")).status)
+        // the daily limit counts invitations to addresses without an account too
+        jdbc.update("DELETE FROM care_links")
+        jdbc.update("DELETE FROM care_email_invites")
+        for (i in 3..10) {
+            ok("pat", "care_invite", mapOf("email" to "x$i@example.com"))
+            jdbc.update("DELETE FROM care_email_invites")
+        }
+        assertEquals(429, call("pat", "care_invite", mapOf("email" to "x11@example.com")).status)
+        jdbc.update("DELETE FROM user_quotas")
+        ok("pat", "care_invite", mapOf("email" to "later@example.com"))
+        // they create an account with that email (verified login): an ordinary invitation to accept
+        identity.add("later", "later@example.com")
+        val caring = ok("later", "care_list")["caringFor"].single()
+        assertEquals(listOf("pat", "later", "invited"), listOf("patientUid", "caretakerUid", "status").map { caring[it].textValue() })
+        assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM care_email_invites", Long::class.java))
+        assertEquals("care_revoked", call("later", "my_appointments", mapOf("asUid" to "pat")).code)
+        ok("later", "care_respond", mapOf("patientUid" to "pat", "accept" to true))
+        ok("later", "my_appointments", mapOf("asUid" to "pat"))
+        assertEquals("active", ok("pat", "care_list")["caretakers"].single()["status"].textValue())
+        // an unverified address never takes up an invitation
+        ok("pat", "care_invite", mapOf("email" to "unverified@example.com"))
+        identity.add("unv", "unverified@example.com", emailVerified = false)
+        assertEquals(0, ok("unv", "care_list")["caringFor"].size())
+        assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM care_email_invites", Long::class.java))
     }
 
     @Test

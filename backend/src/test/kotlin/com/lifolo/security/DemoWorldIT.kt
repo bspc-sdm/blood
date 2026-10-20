@@ -22,13 +22,18 @@ class DemoWorldIT : RxLabTest() {
         person("realcg", "আসল কেয়ারগিভার", email = "realcg@example.com")
         demo("caregiver")
         demo("patient")
-        // a real patient adding the demo caregiver's address: answered like an unknown address, nothing stored
+        // a real patient adding the demo caregiver's address: answered like any address, never a link
         val r = call("realPat", "care_invite", mapOf("email" to "caregiver@lifolo-demo.test"))
-        assertEquals(404, r.status, r.toString())
-        // a demo account inviting a real one (spam with a made-up name)
-        assertEquals(404, call("demo-patient", "care_invite", mapOf("email" to "realcg@example.com")).status)
+        assertEquals(200, r.status, r.toString())
+        // a demo account inviting a real one (spam with a made-up name): the same answer, nothing stored, no push
+        assertEquals(200, call("demo-patient", "care_invite", mapOf("email" to "realcg@example.com")).status)
         assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM care_links", Long::class.java))
+        assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM care_email_invites WHERE patient_uid = 'demo-patient'", Long::class.java))
         assertTrue(pushesTo("realcg").isEmpty())
+        // the demo caregiver signing in never takes up the real patient's invitation
+        accounts.forgetAll()
+        assertEquals(0, ok("demo-caregiver", "care_list")["caringFor"].size())
+        ok("realPat", "care_remove", mapOf("caretakerUid" to ok("realPat", "care_list")["caretakers"][0]["caretakerUid"].textValue()))
         // real ↔ real still works
         assertEquals(200, call("realPat", "care_invite", mapOf("email" to "realcg@example.com")).status)
         // a cross-world link that exists anyway (older data) gives no access

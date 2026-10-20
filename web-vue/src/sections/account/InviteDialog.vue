@@ -25,7 +25,7 @@ async function send() {
 
 <template>
   <Dialog size="small" :title="tr('Add a caregiver', 'কেয়ারগিভার যোগ করুন')" @close="() => !busy && emit('close')">
-    <p class="t-body-m">{{ tr("Their Lifolo account's email. They need to have logged in to Lifolo once.", 'তাঁর Lifolo অ্যাকাউন্টের ইমেইল। তাঁকে অন্তত একবার Lifolo-তে লগইন করে থাকতে হবে।') }}</p>
+    <p class="t-body-m">{{ tr("The email they use (or will use) for Lifolo. If they haven't joined yet, the invitation waits until they log in with this email.", 'যে ইমেইলে তিনি Lifolo-তে লগইন করেন (বা করবেন)। এখনো Lifolo ব্যবহার না করলে, এই ইমেইলে লগইন করলেই আমন্ত্রণটা পাবেন।') }}</p>
     <TextInput
       :label="tr('Email', 'ইমেইল')"
       type="email"

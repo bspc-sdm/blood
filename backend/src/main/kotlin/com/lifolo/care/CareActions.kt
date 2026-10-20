@@ -100,24 +100,66 @@ class CareActions(
         uid,
     )
 
+    /**
+     * the patient's side of an invitation that is not accepted yet looks the same whether or not the address has a
+     * Lifolo account: no name, and an opaque id ("ci_…", for care_remove) instead of the account's uid
+     */
+    private fun inviteKey(patientUid: String, email: String) = "ci_" + Ids.sha256Hex("care:$patientUid:${email.lowercase()}").take(24)
+
+    private fun caretakersOf(uid: String): List<Map<String, Any?>> {
+        val linked = links("patient_uid", uid, 10).map { l ->
+            if (l["status"] == "active") {
+                l
+            } else {
+                LinkedHashMap(l).apply {
+                    this["caretakerUid"] = inviteKey(uid, l["caretakerEmail"] as String)
+                    this["caretakerName"] = ""
+                }
+            }
+        }
+        val byEmail = jdbc.query(
+            "SELECT email, patient_name, created_at FROM care_email_invites WHERE patient_uid = ? ORDER BY created_at, email LIMIT 10",
+            { rs, _ ->
+                linkedMapOf<String, Any?>(
+                    "patientUid" to uid,
+                    "caretakerUid" to inviteKey(uid, rs.getString("email")),
+                    "patientName" to (rs.getString("patient_name") ?: ""),
+                    "caretakerName" to "",
+                    "caretakerEmail" to rs.getString("email"),
+                    "status" to "invited",
+                    "createdAt" to (rs.getTimestamp("created_at")?.time ?: 0L),
+                    "acceptedAt" to 0L,
+                )
+            },
+            uid,
+        )
+        return (linked + byEmail).sortedBy { it["createdAt"] as Long }
+    }
+
     /** my caregivers, the people I care for, and family members */
     fun careList(ctx: ActionContext): Any {
         val uid = ctx.user.id
         return linkedMapOf(
-            "caretakers" to links("patient_uid", uid, 10),
+            "caretakers" to caretakersOf(uid),
             "caringFor" to links("caretaker_uid", uid, 30),
             "family" to family(uid),
         )
     }
 
-    /** patient: add a caregiver (their Lifolo account email) — active once they accept */
+    /**
+     * patient: add a caregiver by email — active once they accept. The answer is the same whether or not the address
+     * has a Lifolo account (no account enumeration — a health app's membership is private): for an address without
+     * one the invitation waits (care_email_invites) and becomes a normal one when they sign in with that email. The
+     * daily limit counts every invitation.
+     */
     fun careInvite(ctx: ActionContext): Any {
         val user = ctx.user
         val uid = user.id
         val email = Js.toStr(ctx.body["email"]).trim().lowercase()
         if (!EMAIL_RE.matches(email)) throw err(ctx, "Enter their email", "তাঁর ইমেইল দিন")
         if (email == user.email.lowercase()) throw err(ctx, "You can't add yourself", "নিজেকে যোগ করা যায় না")
-        val mine = jdbc.queryForObject("SELECT count(*) FROM care_links WHERE patient_uid = ?", Int::class.java, uid) ?: 0
+        val mine = (jdbc.queryForObject("SELECT count(*) FROM care_links WHERE patient_uid = ?", Int::class.java, uid) ?: 0) +
+            (jdbc.queryForObject("SELECT count(*) FROM care_email_invites WHERE patient_uid = ?", Int::class.java, uid) ?: 0)
         if (minOf(mine, 10) >= MAX_CARETAKERS) {
             throw err(ctx, "Up to $MAX_CARETAKERS caregivers. Remove one first.", "সর্বোচ্চ ${MAX_CARETAKERS} জন কেয়ারগিভার। আগে একজনকে সরান।", 409)
         }
@@ -127,18 +169,27 @@ class CareActions(
             null
         } catch (e: Exception) {
             null
-        } ?: throw err(ctx, "No Lifolo account with this email. Ask them to install Lifolo and log in first.", "এই ইমেইলে কোনো Lifolo অ্যাকাউন্ট নেই। আগে তাঁকে Lifolo খুলে লগইন করতে বলুন।", 404)
-        if (target.uid == uid) throw err(ctx, "You can't add yourself", "নিজেকে যোগ করা যায় না")
-        // demo and real accounts never link: a demo account is public (one-click login), so a real patient's caregiver
-        // must never be one — answered like an unknown address (no hint that the account exists)
-        if (!DemoWorld.sameWorld(uid, target.uid)) {
-            throw err(ctx, "No Lifolo account with this email. Ask them to install Lifolo and log in first.", "এই ইমেইলে কোনো Lifolo অ্যাকাউন্ট নেই। আগে তাঁকে Lifolo খুলে লগইন করতে বলুন।", 404)
         }
-        if (jdbc.queryForList("SELECT 1 FROM care_links WHERE patient_uid = ? AND caretaker_uid = ?", uid, target.uid).isNotEmpty()) {
-            throw err(ctx, "Already added", "আগেই যোগ করা আছে", 409)
-        }
+        if (target != null && target.uid == uid) throw err(ctx, "You can't add yourself", "নিজেকে যোগ করা যায় না")
+        // the same address again (with or without an account): the patient's own list already shows it
+        val already = jdbc.queryForList(
+            "SELECT 1 FROM care_links WHERE patient_uid = ? AND (caretaker_uid = ? OR lower(caretaker_email) = ?) UNION ALL SELECT 1 FROM care_email_invites WHERE patient_uid = ? AND email = ?",
+            uid, target?.uid ?: "", email, uid, email,
+        ).isNotEmpty()
+        if (already) throw err(ctx, "Already added", "আগেই যোগ করা আছে", 409)
         quotas.use(ctx.lang, uid, "care")
         val me = users.name(uid)
+        // demo and real accounts never link: a demo account is public (one-click login). Real patient → demo address:
+        // kept like an address without an account (it never turns into a link). A demo patient: nothing is stored.
+        if (target == null || !DemoWorld.sameWorld(uid, target.uid)) {
+            if (!DemoWorld.isDemoUid(uid)) {
+                jdbc.update(
+                    "INSERT INTO care_email_invites (patient_uid, email, patient_name, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                    uid, email, me.take(80), Sql.ts(clock.now()),
+                )
+            }
+            return mapOf("ok" to true)
+        }
         val them = users.name(target.uid)
         // the caregiver may never have used the server (FK target)
         accounts.ensure(target.uid, target.email)
@@ -181,8 +232,9 @@ class CareActions(
                 "UPDATE care_links SET status = 'active', accepted_at = ?, caretaker_name = ? WHERE patient_uid = ? AND caretaker_uid = ?",
                 Sql.ts(clock.now()), users.name(uid).take(80), patientUid, uid,
             )
-            // the notice uses the name stored at invitation time (Node reads the link before the update)
-            val name = (link["caretaker_name"] as? String) ?: ""
+            // the notice uses the name stored at invitation time (Node reads the link before the update); an invitation
+            // made before the account existed has none
+            val name = ((link["caretaker_name"] as? String) ?: "").ifEmpty { users.name(uid) }
             val p = users.profiles(listOf(patientUid))[patientUid!!]
             if (p != null) {
                 try {
@@ -212,6 +264,15 @@ class CareActions(
         val caretakerUid = ctx.body.string("caretakerUid")
         val patientUid = ctx.body.string("patientUid")
         when {
+            // an invitation not accepted yet (the opaque id from care_list): with or without an account
+            caretakerUid != null && caretakerUid.startsWith("ci_") -> {
+                val emails = jdbc.queryForList("SELECT caretaker_email FROM care_links WHERE patient_uid = ? AND status <> 'active'", String::class.java, uid)
+                    .filter { inviteKey(uid, it) == caretakerUid }
+                for (e in emails) jdbc.update("DELETE FROM care_links WHERE patient_uid = ? AND status <> 'active' AND caretaker_email = ?", uid, e)
+                val waiting = jdbc.queryForList("SELECT email FROM care_email_invites WHERE patient_uid = ?", String::class.java, uid)
+                    .filter { inviteKey(uid, it) == caretakerUid }
+                for (e in waiting) jdbc.update("DELETE FROM care_email_invites WHERE patient_uid = ? AND email = ?", uid, e)
+            }
             Rules.isValidId(caretakerUid) -> jdbc.update("DELETE FROM care_links WHERE patient_uid = ? AND caretaker_uid = ?", uid, caretakerUid)
             Rules.isValidId(patientUid) -> jdbc.update("DELETE FROM care_links WHERE patient_uid = ? AND caretaker_uid = ?", patientUid, uid)
             else -> throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
@@ -267,5 +328,6 @@ class CareActions(
     /** account deletion: the links in both directions */
     fun deleteFor(uid: String) {
         jdbc.update("DELETE FROM care_links WHERE patient_uid = ? OR caretaker_uid = ?", uid, uid)
+        jdbc.update("DELETE FROM care_email_invites WHERE patient_uid = ?", uid)
     }
 }

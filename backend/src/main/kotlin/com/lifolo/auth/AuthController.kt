@@ -115,7 +115,7 @@ class AuthController(
 
         val user = getOrCreateUser(email)
         if (user.disabled) throw auth.accountDisabledError(lang, user.uid)
-        accounts.ensure(user.uid, email)
+        accounts.ensure(user.uid, email, emailVerified = true)
         val restored = keepAccount(user.uid)
         val token = identity.createCustomToken(user.uid)
         return ResponseEntity.ok(linkedMapOf("ok" to true, "token" to token, "restored" to restored))
