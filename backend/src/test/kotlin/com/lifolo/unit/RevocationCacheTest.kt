@@ -51,7 +51,7 @@ class RevocationCacheTest {
     private fun kind(block: () -> Unit): IdentityException.Kind = assertThrows(IdentityException::class.java) { block() }.kind
 
     @Test
-    fun `one Firebase account lookup per uid per TTL; tokens are still checked locally every time`() {
+    fun `one Firebase account lookup per uid per TTL, tokens still checked locally every time`() {
         val f = Stub().apply { accounts["u1"] = AuthAccount("u1", "u1@x.com", true, false) }
         val p = RevocationCachingIdentityProvider(f, ttlMs = 90_000, clock = { now })
         repeat(500) { assertEquals("u1", p.verifyIdToken("u1@${now / 1000}", true).uid) }
