@@ -6,7 +6,65 @@ Redis একই মেশিনে; সামনে Cloudflare) কতটা চ
 ফল প্রতিবার: workflow-এর পাতায় বাংলা সারাংশ, আর log branch **`ci-log-ops-drills`**-এ (`load/`, `restart/`, `crash/`,
 `disk/`, `ssl/`, `timers/`, `retention/` — প্রতিটা ফোল্ডারে `summary.md`)। VPS-এর IP কোথাও লেখা হয় না (`<vps-ip>`)।
 
-## ফলাফল — ২০ অক্টোবর ২০২৬ (প্রথম চালানো)
+## টিউনিং — ২০ অক্টোবর ২০২৬ (প্রয়োগ করা; ফল log branch `ci-log-ops-tuning`)
+
+সব সেটিং সাধারণ deploy/setup-এর অংশ — **Deploy backend** প্রতিবার `deploy/tune-vps.sh` চালায় (deploy-backend.sh-এর আগে),
+**Setup VPS (base)** setup-base.sh-এর পরে; বারবার চালালেও একই (যা বদলায়নি তা ছোঁয়া হয় না)। তাই নতুন VPS (যেমন সিঙ্গাপুরে
+সরানো) Setup + Deploy-এই সব পায় — আলাদা কিছু চালাতে হয় না (লগ কতদিন থাকে — **Ops: log retention** — আগের মতোই একবার)।
+
+| কী | আগে | এখন | কোথায় |
+|---|---|---|---|
+| JVM | `-Xmx1g` | `-Xms1g -Xmx3g`, G1 (`MaxGCPauseMillis=200`, `ParallelRefProcEnabled`, `UseStringDeduplication`), `ExitOnOutOfMemoryError`, GC লগ `/var/log/lifolo/gc.log` (৫ × ১০ MB), `LimitNOFILE=65536` | `lifolo-api.service.d/20-tuning.conf` (tune-vps.sh) |
+| PostgreSQL | shared_buffers 128MB, effective_cache_size 4GB, work_mem 4MB | 2GB, 6GB, 8MB; max_connections 100 (যেমন ছিল) | `conf.d/lifolo-tuning.conf` |
+| Redis | maxmemory 0 | `512mb`, `volatile-lru` (চালু অবস্থায় CONFIG SET, restart নয়) | `/etc/redis/lifolo-tuning.conf` |
+| nginx | worker_connections 768, open files 1024, প্রতি অনুরোধে অ্যাপে নতুন TCP | 4096, `worker_rlimit_nofile 16384` + systemd `LimitNOFILE=16384`; `upstream lifolo_api` keepalive 64 (১৫ s — Tomcat-এর চেয়ে কম) | nginx.conf, `conf.d/lifolo-api-upstream.conf` (deploy-backend.sh) |
+| `/api/`-এর IP-সীমা | নেই | আসল দর্শকের IP-প্রতি ২০/সে, burst ৪০ → 429 + JSON; এই মেশিন আর CI-র সাময়িক ঠিকানা বাদ | deploy-backend.sh |
+| অ্যাপ বন্ধের সময় (deploy/restart) | nginx-এর HTML 502 | ছোট JSON (কোড একই 502/503/504): `{"error":"সার্ভার এই মুহূর্তে চালু হচ্ছে — … (Server is restarting — …)","code":"server_unavailable","retry":true}` + `Retry-After: 15`; সীমায় 429 `rate_limited` | deploy-backend.sh |
+| origin | 80/443 সবার জন্য খোলা | **80/443 শুধু Cloudflare-এর ঠিকানা থেকে** (ufw, v4+v6; তালিকা প্রতি deploy-এ cloudflare.com থেকে, না পেলে লেখা তালিকা; সপ্তাহে একবার timer-ও), 22 সবার জন্য। আসল দর্শকের IP: `CF-Connecting-IP` (শুধু Cloudflare থেকে এলে) | tune-vps.sh, `lifolo-origin-guard.timer` |
+
+- **সার্টিফিকেট নবায়ন**: lifolo.com/api.lifolo.com-এর HTTP-01 Cloudflare দিয়ে আসে (Cloudflare-এর ঠিকানা খোলা); sslip.io-র নাম
+  Cloudflare-এর পেছনে নয় — তাই certbot-এর pre/post hook (`/etc/letsencrypt/renewal-hooks/`) নবায়নের সময়টুকু পোর্ট 80 সবার
+  জন্য খোলে, পরে বন্ধ করে (post-hook না চললে guard ২ ঘণ্টা পরে বন্ধ করে)। `certbot renew --dry-run`: তিনটাই সফল।
+- **CI**: সরাসরি-VPS পরীক্ষা (deploy, download, ssl, crash drill, Build APK-এর ডাউনলোড-যাচাই, Setup) SSH tunnel দিয়ে
+  (`deploy/ci/origin-access.sh tunnel` — GitHub-এর মেশিনে iptables DNAT, পুরোনো `--resolve`/`/etc/hosts` যেমন ছিল)। load test আর
+  restart drill: সেই মেশিনের ঠিকানার জন্য সাময়িক ছিদ্র (৬০/৪০ মিনিটে নিজে বন্ধ)। Uptime-এর Cloudflare-challenge fallback VPS-এর
+  ভেতর থেকে। Deploy backend VPS থেকে Cloudflare হয়ে নিজের কাছে যাচাই করে — 521/522/523 হলে (Cloudflare ঢুকতে পারছে না)
+  জরুরি দরজা খোলে (`/etc/lifolo/origin-open`, 80/443 সবার জন্য) আর ব্যর্থ হয় (ইমেইল)।
+- **সতর্কতা (Uptime, প্রতি ৩ ঘণ্টা)**: `/api/health`-এর সাথে ssh দিয়ে `vps-ops.sh health` — ❌ (workflow ব্যর্থ → GitHub মালিককে ইমেইল):
+  ডিস্ক ≥ ৮০%, inode ≥ ৮০%, খালি RAM < ১৫%, swap > ৫১২ MB, কোনো সার্টিফিকেট < ২১ দিন, শেষ ব্যাকআপ বা `daily-maintenance` > ২৬ ঘণ্টা,
+  গত ৩ ঘণ্টায় lifolo-api নিজে restart (crash/OOM) বা অপ্রত্যাশিত রিবুট, অ্যাপ ভেতর থেকে বন্ধ। ⚠️ (শুধু সারাংশে): origin খোলা,
+  Redis ≥ ৮০% বা সীমা fail-open, timer বন্ধ। deploy আর মহড়া নিজের সময় `/var/lib/lifolo/ops-expected`-এ লেখে — সেই ১৫ মিনিটের
+  restart/রিবুট "অপ্রত্যাশিত" নয়। (অন্য branch-এর পুরোনো deploy-backend.sh এটা লেখে না — rebase না হওয়া পর্যন্ত সেগুলোর
+  ভাঙা jar-এর crash-loop সতর্কতা দেবে।) বাংলা সারাংশ workflow-এর পাতায় আর `ci-log-uptime`-এ।
+
+### লোড টেস্ট — টিউনিং আর backend-এর `6ce3da9`-এর পরে
+
+লগইন-করা অনুরোধে প্রতি k6 VU আলাদা "দর্শক" (`CF-Connecting-IP` 100.64.x.y, শুধু টেস্টের সময় GitHub-এর মেশিন থেকে মানা) —
+নতুন অ্যাপ-সীমা (অ্যাকাউন্ট+IP-প্রতি মিনিটে ৬০০) সব এক IP থেকে এলে ১০টা ডেমো অ্যাকাউন্টে ~১০০ rps-এই আটকায়।
+
+| লক্ষ্য (লগইন-করা rps) | পাওয়া rps | p95 সব | p95 পড়া | ত্রুটি | VPS CPU গড়/সর্বোচ্চ | Java RSS | DB active/পুল | আগে (একই লক্ষ্যে) |
+|---|---|---|---|---|---|---|---|---|
+| 300 | 303.6 | 179 ms | 215 ms | 0% | 38% / 74% | 1,230 MB | 2/20 | p95 602 ms |
+| 500 | 503.6 | 208 ms | 268 ms | 0% | 45% / 55% | 1,275 MB | 2/20 | 704 ms |
+| **650** | 653.6 | **245 ms** | 268 ms | **0%** | 53% / 65% | 1,286 MB | 1/20 | 581 ms |
+| 800 | 803.6 | 370 ms | 380 ms | 0% | 59% / 74% | 1,302 MB | 3/20 | ❌ 2,241 ms, 28% ত্রুটি |
+| 1000 | 999.8 | 403 ms | 407 ms | 0% | 62% / 76% | 1,315 MB | 2/20 | — |
+| **1200** | 1194.8 | **429 ms** | 437 ms | **0%** | 68% / 82% | 1,363 MB | 3/20 | — |
+
+- **নিরাপদ ক্ষমতা: অন্তত ~১,২০০ লগইন-করা অনুরোধ/সেকেন্ড** (p95 < 0.45 s, ত্রুটি 0%) — দেওয়া সর্বোচ্চ ধাপেও ভাঙেনি; আগে ~৬৫০,
+  ভাঙন ~৮০০। ১,০০০-এর ওপরে k6 কিছু অনুরোধ সময়মতো পাঠাতে পারেনি (dropped 227/525 — GitHub-এর একটা মেশিনের সীমা), তাই
+  আসল সীমা আরও ওপরে; পরের বার `rates` `1200 1500 1800`। CPU ≤ ৮২%, RAM ৯.৮ GB খালি, DB-তে ≤ ৩টা কাজ — বোতলের গলা এখনো নেই।
+- nginx-এ ২,৬৮,১৪৯ অনুরোধে 5xx ০, 429 ০, error.log নতুন ০; অ্যাপে ERROR ০; লেখা (রক্তের অনুরোধ ৬, অ্যাম্বুলেন্স ২) সব পরিষ্কার।
+- নেটওয়ার্কের ভিত্তি এবার ~৯৫ ms (আগে ৯৩–১৫৫ ms) — তুলনা মোটামুটি সমান।
+- ⚠️ শিক্ষা (backend-এর জন্য): এক অ্যাকাউন্ট+IP থেকে একসাথে অনেক অনুরোধ এলে (সীমা তুলে দিয়ে চালানো একটা চেষ্টায়) Bucket4j-এর
+  Redis CAS-সীমা একই key-তে বারবার ব্যর্থ-আবার-চেষ্টা করে অ্যাপ ~১২০ rps-এ আটকে গিয়েছিল (DB অলস, অনুরোধ ৩০ s)। আসল
+  ব্যবহারকারীর key আলাদা, তাই সাধারণত সমস্যা নয় — কিন্তু একই NAT-এর পেছনের অনেক অতিথি (`guest:<ip>`) একসাথে এলে একই রকম
+  হতে পারে। শেষ টেস্টে অতিথির সীমা-পরীক্ষায় ৩০০-র সব 200 এসেছে (আগের চালানোয় একই অ্যাপে 240/60) — সীমার মিনিট-সীমানায়
+  পড়ে থাকতে পারে, আবার দেখার মতো।
+
+রিবুট মহড়া (নতুন সেটিং-এ) এখনো চালানো হয়নি — `deploy/OPS-TUNING-STATUS.md` দেখুন।
+
+## ফলাফল — ২০ অক্টোবর ২০২৬ (প্রথম চালানো, টিউনিংয়ের আগে)
 
 ### ১. লোড টেস্ট (Ops: load test)
 
