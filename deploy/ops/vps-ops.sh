@@ -78,6 +78,9 @@ services)
     kv "unit_${u//[^a-z0-9]/_}" "$a/$e"
   done
   kv failed_units "$(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | tr '\n' ' ')"
+  if systemctl is-failed --quiet cloud-init.service 2>/dev/null; then
+    kv cloud_init "$(cloud-init status --long 2>/dev/null | grep -E '^(status|extended_status|errors|recoverable_errors):|^\s+- ' | head -4 | tr -s ' \n' ' ')"
+  fi
   kv api_pid "$(api_pid)"
   kv api_restarts "$(systemctl show -p NRestarts --value "$UNIT")"
   kv api_active_since "$(systemctl show -p ActiveEnterTimestamp --value "$UNIT")"

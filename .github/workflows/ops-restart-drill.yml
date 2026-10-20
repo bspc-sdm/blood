@@ -64,13 +64,18 @@ jobs:
           # ২ সেকেন্ড পরে রিবুট (ssh ঠিকভাবে ফেরে)
           ssh vps "systemd-run --on-active=2 --unit=lifolo-ops-reboot /bin/systemctl reboot" || true
           ssh -O exit vps 2>/dev/null || true
-          down="" ssh_up="" green="" pub=""
+          down="" ssh_gone="" ssh_up="" green="" pub=""
           el() { awk -v a="$(date +%s.%N)" -v b="$t0" 'BEGIN{printf "%.1f", a-b}'; }
           for _ in $(seq 1 600); do
             if [ -z "$down" ]; then
               H || down="$(el)"
             else
-              if [ -z "$ssh_up" ] && timeout 3 bash -c "</dev/tcp/$ORIGIN_IP/22" 2>/dev/null; then ssh_up="$(el)"; fi
+              # পোর্ট 22: আগে বন্ধ হওয়া দেখা, তারপর আবার খোলা (বন্ধ হওয়ার আগের খোলা গোনা নয়)
+              if timeout 3 bash -c "</dev/tcp/$ORIGIN_IP/22" 2>/dev/null; then
+                [ -z "$ssh_gone" ] || [ -n "$ssh_up" ] || ssh_up="$(el)"
+              else
+                [ -n "$ssh_gone" ] || ssh_gone="$(el)"
+              fi
               if H; then green="$(el)"; break; fi
             fi
             sleep 1
@@ -157,9 +162,14 @@ jobs:
           print("\n".join(rows))
           print()
           fu = a.get("failed_units", "").strip()
-          print(f"ব্যর্থ unit: {fu or 'নেই'} · রিবুট দরকার (আপডেটের পর): {a.get('reboot_required', '?')} · unattended-upgrades নিজে রিবুট করে: {a.get('auto_reboot', '') or 'না (ডিফল্ট false)'}")
+          fb = set(b.get("failed_units", "").split())
+          new_fail = [u for u in fu.split() if u not in fb]
+          print(f"ব্যর্থ unit (রিবুটের পরে): {fu or 'নেই'}" + (f" — নতুন: {' '.join(new_fail)} ⚠️" if new_fail else (" (আগেও ব্যর্থ ছিল, Lifolo-র অংশ নয়)" if fu else "")))
+          if a.get("cloud_init"):
+              print(f"cloud-init: `{a['cloud_init']}`")
+          print(f"রিবুট দরকার (আপডেটের পর): {a.get('reboot_required', '?')} · unattended-upgrades নিজে রিবুট করে: {a.get('auto_reboot', '') or 'না (ডিফল্ট false)'}")
           print()
-          print(f"**ফল:** {'✅ সব সার্ভিস নিজে নিজে ফিরেছে' if ok_all and green != 'timeout' and not fu else '❌ কিছু ফেরেনি — ওপরের সারণি দেখুন'}")
+          print(f"**ফল:** {'✅ সব সার্ভিস নিজে নিজে ফিরেছে' if ok_all and green != 'timeout' and not new_fail else '❌ কিছু ফেরেনি — ওপরের সারণি দেখুন'}")
           PY
           {
             echo
