@@ -66,13 +66,46 @@ Amazon SES production access অনুমোদিত না হলে লগই
    (Settings → General) — মোছা নয়, ফেরার রাস্তা; (গ) কিছুদিন পর ইচ্ছে হলে মোছা। `vercel.json`-এর দৈনিক cron
    (`/api/cron/daily`)-এর কাজ নতুন সার্ভারে JobRunr নিজেই করে।
    চাইলে Vercel-এ শুধু একটা পাতা রাখা যায় "নতুন সংস্করণ নামান"।
-2. **Firestore:** প্রথমে শুধু-পড়া (Firestore rules-এ লেখা বন্ধ), তারপর একটা পুরো export (Google Cloud → Firestore →
-   Import/Export → Cloud Storage), তারপর ইচ্ছে হলে মোছা। **export ছাড়া কখনো মুছবেন না।** Firebase Authentication (লগইন) আর
-   Cloud Messaging (পুশ) নতুন সার্ভারও ব্যবহার করে — Firebase প্রকল্প **বন্ধ করা যাবে না**, শুধু Firestore ডাটাবেস।
+2. **Firestore:** ✅ export আর তালা দেওয়া হয়ে গেছে (২০ অক্টোবর ২০২৬) — নিচে "Firestore বন্ধ" দেখুন। বাকি শুধু ডাটাবেস মোছা
+   (ইচ্ছে হলে, মালিকের অনুমতিতে, হাতে)। Firebase Authentication (লগইন) আর Cloud Messaging (পুশ) নতুন সার্ভারও ব্যবহার করে —
+   Firebase প্রকল্প **বন্ধ করা যাবে না**, শুধু Firestore ডাটাবেস।
 3. **`DEMO_KEEP_FIREBASE_USERS`:** Vercel-এর ডেমো আর না থাকলে GitHub secret `DEMO_KEEP_FIREBASE_USERS` = `false` দিয়ে
    Deploy backend আবার চালান — তখন "ডেমো মুছুন" Firebase-এর ডেমো অ্যাকাউন্টও মোছে।
 4. Vercel বন্ধের পর: `server/` (Node), `web/` (React), "Deploy server" আর "Web build check" workflow রিপো থেকে সরানো যায়
    (আলাদা কাজ, অনুমতি নিয়ে)।
+
+## Firestore বন্ধ (২০ অক্টোবর ২০২৬)
+
+মালিকের অনুমোদনে **Firestore-এ তালা দেওয়া হয়েছে** — ২০ অক্টোবর ২০২৬, ০২:৫১ UTC। workflow: **Firestore off (one-off)**
+(`.github/workflows/firestore-off.yml`, চালাতে `confirm` = `LOCK`); ফল `ci-log-firestore-off` শাখার `summary.md`-এ।
+অ্যাপ (২.৩৪.০+) আর ওয়েব (lifolo.com) Firestore ব্যবহার করে না (শুধু VPS-এর Spring সার্ভার + PostgreSQL); Vercel paused।
+
+1. **পুরো export** (firebase-admin দিয়ে — (default) ডাটাবেসের সব collection আর subcollection, নথি JSON-এ; Timestamp, GeoPoint,
+   reference, bytes আলাদা `__type` চিহ্নে) → gzip → সরাসরি VPS-এ (GitHub-এ কোনো কপি নেই):
+   **`/var/backups/lifolo/firestore-final-2026-10-20.json.gz`** (root, `600`)। VPS-এ খুলে প্রতিটা collection-এর নথির সংখ্যা আর
+   sha256 মেলানো হয়েছে ✅ — মোট ১৫৫২ নথি, ৪৭টা top-level collection (প্রকল্পে ডাটাবেস শুধু `(default)`)।
+   ফাইলের গঠন: `{"format":"lifolo-firestore-export/1","project":…,"exportedAt":…,"documents":[{"path","createTime","updateTime","data"}…]}`।
+   এই ফোল্ডারের দৈনিক ব্যাকআপ-পরিষ্কার শুধু `lifolo-*.dump` মোছে — এই ফাইল থেকে যায়।
+2. **আগের rules** একই ফোল্ডারে: **`/var/backups/lifolo/firestore-rules-before-2026-10-20.rules`** (root, `600`)। এটা রিপোর
+   `firestore.rules`-এর সাথে হুবহু এক **নয়** — ফেরত আনতে এই ফাইল (বা কনসোলের ইতিহাস) ব্যবহার করুন, রিপোরটা নয়।
+3. **এখনকার rules: সব পথে deny-all** (`match /{document=**} { allow read, write: if false; }`) — প্রকাশের পর আবার পড়ে মেলানো ✅।
+   ফোনের/ব্রাউজারের Firebase SDK দিয়ে কেউ আর কিছু পড়তে-লিখতে পারে না। (firebase-admin rules মানে না, কিন্তু এখন কোনো
+   সার্ভার Firestore ব্যবহার করে না।)
+4. **Firebase Storage:** ডিফল্ট বাকেট (`blood-3eb28.firebasestorage.app`, পুরোনো `blood-3eb28.appspot.com`) নেই, Storage rules-ও
+   নেই — কিছু করার ছিল না, হাত দেওয়া হয়নি।
+5. **কোনো নথি বা ডাটাবেস মোছা হয়নি।** Firebase Authentication, Cloud Messaging, Android/ওয়েব অ্যাপের নিবন্ধন, authorized
+   domains আর service account — কিছুতেই হাত দেওয়া হয়নি।
+
+**আগের rules ফেরত আনা** (দরকার হলে, যেমন পুরোনো Vercel আবার চালু করলে):
+- সহজ পথ: Firebase কনসোল → Firestore Database → **Rules** → বাঁ দিকের ইতিহাস (history) থেকে ২০ অক্টোবর ০২:৫১ UTC-র **আগের**
+  সংস্করণ খুলে লেখাটা কপি → এডিটরে পেস্ট → **Publish**।
+- অথবা VPS-এর কপি: Contabo-র VNC কনসোলে root হিসেবে `cat /var/backups/lifolo/firestore-rules-before-2026-10-20.rules` → লেখাটা
+  কনসোলের Rules এডিটরে পেস্ট → **Publish**।
+
+**ডাটাবেস মোছা (পরে, ইচ্ছে হলে):** এটা **হাতে, Firebase/Google Cloud কনসোল থেকে**, আর **শুধু মালিকের অনুমতিতে** — কোনো workflow
+বা স্ক্রিপ্ট এটা করে না। আগে নিশ্চিত হোন ওপরের export ফাইলটা VPS-এ আছে (চাইলে আরেকটা কপি নিজের কাছে)। মুছলে শুধু **Firestore
+ডাটাবেস** — Firebase প্রকল্প নয়: **Firebase Authentication (লগইন) আর Cloud Messaging (পুশ) থাকতেই হবে**, নতুন সার্ভার এগুলো
+ব্যবহার করে (firebase-admin দিয়ে লগইন যাচাই, ব্যবহারকারী আর পুশ)।
 
 ## ফেরা (rollback)
 
