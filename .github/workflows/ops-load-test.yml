@@ -26,7 +26,7 @@ on:
         type: boolean
         default: true
       cleanup_since:
-        description: "শুধু উদ্ধার: আগের কোনো চালানোর snapshot হারালে — সেই চালানোর শুরুর সময় (UTC, যেমন 2026-10-20T04:56:00Z); দিলে টেস্ট চলে না, শুধু পরিষ্কার"
+        description: "শুধু উদ্ধার (দিলে টেস্ট চলে না): snapshot = শেষ চালানোর snapshot দিয়ে আবার পরিষ্কার; অথবা snapshot হারালে সেই চালানোর শুরুর সময় (UTC, যেমন 2026-10-20T04:56:00Z)"
         type: string
         default: ""
       quota_fix:
@@ -81,16 +81,21 @@ jobs:
           SINCE: ${{ inputs.cleanup_since }}
           FIX: ${{ inputs.quota_fix }}
         run: |
-          [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$ ]] || { echo "::error::cleanup_since ঠিক নেই"; exit 1; }
-          [[ "$FIX" =~ ^([a-z]+:[0-9]+,?)*$ ]] || { echo "::error::quota_fix ঠিক নেই"; exit 1; }
           ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.vps-ops.sh.\$\$ && mv /root/lifolo-ops/.vps-ops.sh.\$\$ /root/lifolo-ops/vps-ops.sh" < deploy/ops/vps-ops.sh
-          out="$(ssh vps "bash /root/lifolo-ops/vps-ops.sh cleanup-since '$SINCE' '$FIX'")"
+          if [ "$SINCE" = snapshot ]; then
+            # শেষ চালানোর snapshot এখনো VPS-এ আছে (পরের চালানো শুরু হলে মোছে) — সেটা দিয়েই আবার পরিষ্কার
+            out="$(ssh vps "bash /root/lifolo-ops/vps-ops.sh cleanup '$OPS'")"
+          else
+            [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$ ]] || { echo "::error::cleanup_since ঠিক নেই"; exit 1; }
+            [[ "$FIX" =~ ^([a-z]+:[0-9]+,?)*$ ]] || { echo "::error::quota_fix ঠিক নেই"; exit 1; }
+            out="$(ssh vps "bash /root/lifolo-ops/vps-ops.sh cleanup-since '$SINCE' '$FIX'")"
+          fi
           echo "$out"
           mkdir -p "$RUNNER_TEMP/log/load-recovery"
           {
             echo "## লোড টেস্ট — উদ্ধার-পরিষ্কার"
             echo
-            echo "$SINCE-এর পরের LOADTEST সারি মোছা; কোটা কমানো: ${FIX:-কিছু না}"
+            if [ "$SINCE" = snapshot ]; then echo "শেষ চালানোর snapshot দিয়ে পরিষ্কার"; else echo "$SINCE-এর পরের LOADTEST সারি মোছা; কোটা কমানো: ${FIX:-কিছু না}"; fi
             echo
             echo '```'
             echo "$out"

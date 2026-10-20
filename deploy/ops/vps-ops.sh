@@ -171,6 +171,9 @@ cleanup|cleanup-since)
   fi
   [[ "$t0" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$ ]] || { kv cleanup "bad t0"; exit 1; }
   sql="$(mktemp)"
+  # psql \copy postgres হিসেবে পড়ে — snapshot-এর ফোল্ডার root-এর 0700, তাই পড়ার মতো একটা অস্থায়ী কপি
+  csv="$(mktemp -d)"; chmod 0755 "$csv"
+  if [ -n "$dir" ]; then for f in quotas user_state ambstate; do install -m 0644 "$dir/$f.csv" "$csv/$f.csv"; done; fi
   cat > "$sql" <<EOF
 \set ON_ERROR_STOP on
 BEGIN;
@@ -201,7 +204,7 @@ EOF
   else
     cat >> "$sql" <<EOF
 CREATE TEMP TABLE snap_q (uid text, kind text, day date, count int);
-\copy snap_q FROM '$dir/quotas.csv' WITH CSV
+\copy snap_q FROM '$csv/quotas.csv' WITH CSV
 WITH d AS (DELETE FROM user_quotas q WHERE q.uid LIKE 'demo-%'
              AND NOT EXISTS (SELECT 1 FROM snap_q s WHERE s.uid = q.uid AND s.kind = q.kind) RETURNING 1)
   INSERT INTO ops_counts SELECT 'user_quotas_removed', count(*) FROM d;
@@ -210,7 +213,7 @@ WITH u AS (UPDATE user_quotas q SET day = s.day, count = s.count FROM snap_q s
   INSERT INTO ops_counts SELECT 'user_quotas_restored', count(*) FROM u;
 
 CREATE TEMP TABLE snap_s (uid text, inbox_seen_at timestamptz);
-\copy snap_s FROM '$dir/user_state.csv' WITH CSV
+\copy snap_s FROM '$csv/user_state.csv' WITH CSV
 WITH u AS (UPDATE user_state t SET inbox_seen_at = s.inbox_seen_at FROM snap_s s
              WHERE t.uid = s.uid AND t.inbox_seen_at IS DISTINCT FROM s.inbox_seen_at RETURNING 1)
   INSERT INTO ops_counts SELECT 'user_state_restored', count(*) FROM u;
@@ -220,7 +223,7 @@ WITH u AS (UPDATE user_state t SET inbox_seen_at = NULL
   INSERT INTO ops_counts SELECT 'user_state_cleared', count(*) FROM u;
 
 CREATE TEMP TABLE snap_a (uid text, active_request_id text, at timestamptz);
-\copy snap_a FROM '$dir/ambstate.csv' WITH CSV
+\copy snap_a FROM '$csv/ambstate.csv' WITH CSV
 WITH u AS (UPDATE ambreq_patient_state t SET active_request_id = s.active_request_id, at = s.at FROM snap_a s
              WHERE t.uid = s.uid AND (t.active_request_id, t.at) IS DISTINCT FROM (s.active_request_id, s.at) RETURNING 1)
   INSERT INTO ops_counts SELECT 'ambreq_state_restored', count(*) FROM u;
@@ -240,7 +243,7 @@ EOF
   else
     kv cleanup "failed: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
   fi
-  rm -f "$sql"
+  rm -rf "$sql" "$csv"
   # যা থেকে গেল (০ হওয়া উচিত)
   kv left_blood "$(psqlq -c "SELECT count(*) FROM blood_requests WHERE hospital LIKE 'LOADTEST%'")"
   kv left_amb "$(psqlq -c "SELECT count(*) FROM ambulance_requests WHERE note LIKE 'LOADTEST%'")"
@@ -327,6 +330,10 @@ disk)
   if [ "${pid:-0}" != 0 ]; then files="$(find "/proc/$pid/fd" -maxdepth 1 -type l -printf '%l\n' 2>/dev/null | grep -E '\.log' | sort -u | tr '\n' ' ')"; fi
   echo "অ্যাপের লগ: stdout → journald (lifolo-api.service)। খোলা .log ফাইল: ${files:-নেই}"
   echo "অ্যাপের লগ, আজ: $(journalctl -u "$UNIT" --since today --no-pager -o cat 2>/dev/null | wc -l) লাইন; গত ২৪ ঘণ্টায় ERROR: $(journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null | grep -cE '\bERROR\b' || true)"
+  echo "গত ২৪ ঘণ্টায় সবচেয়ে বেশি আসা ERROR (ইমেইল/টোকেন/id ঢাকা):"
+  journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null | grep -E '\bERROR\b' \
+    | sed -E 's/^[0-9T:. +-]+//; s/\[[^]]*\]//g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-fA-F-]{20,}/<id>/g; s/[0-9]+/N/g' \
+    | cut -c1-150 | sort | uniq -c | sort -rn | head -6 | sed 's/^/  /'
   echo "nginx access.log: $(du -h /var/log/nginx/access.log 2>/dev/null | cut -f1), ঘোরানো ফাইল: $(find /var/log/nginx -name 'access.log.*' 2>/dev/null | wc -l)টা"
   echo "postgres লগ: $(du -sh /var/log/postgresql 2>/dev/null | cut -f1)"
   echo "বড় ফাইল (>100 MB, /var /opt /root /home):"
