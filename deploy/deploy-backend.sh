@@ -107,14 +107,29 @@ mask "$WEB_SESSION_SECRET"
 mask "$EMAIL_CODE_SECRET"
 p() { env_get "$1" "$PROVIDED"; }
 FIREBASE_B64="$(p FIREBASE_SERVICE_ACCOUNT)"
-# শেয়ার লিংক/QR-এর ঠিকানা: সিক্রেট PUBLIC_BASE_URL > ওয়েবসাইট (DNS এই VPS-এ এলে) > sslip.io
-dns_here() {
+# DNS: নামটা এই VPS-এ আসে কি না। "yes" = সরাসরি (ধূসর মেঘ), "cloudflare" = সব ঠিকানা Cloudflare-এর (কমলা মেঘ, proxy —
+# Cloudflare আমাদের এখানেই পাঠায়), নইলে "no (<ঠিকানা>)"। Cloudflare-এর ঠিকানার তালিকা deploy-web.sh-এর realip ফাইল থেকে
+# (না থাকলে জানা তালিকা)।
+CF_REALIP=/etc/nginx/conf.d/lifolo-cloudflare-realip.conf
+cf_nets() {
+  local n
+  n="$(sed -n 's/^set_real_ip_from \([0-9.]*\/[0-9]*\);$/\1/p' "$CF_REALIP" 2>/dev/null || true)"
+  [ "$(printf '%s\n' "$n" | grep -c .)" -ge 5 ] || n="173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22"
+  printf '%s\n' $n
+}
+dns_state() {
   local ip ips my
   my=" $(hostname -I 2>/dev/null || true) "
   ips="$(getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
-  for ip in $ips; do case "$my" in *" $ip "*) return 0 ;; esac; done
-  return 1
+  for ip in $ips; do case "$my" in *" $ip "*) echo yes; return 0 ;; esac; done
+  # shellcheck disable=SC2086  # ঠিকানাগুলো আলাদা আর্গুমেন্ট হিসেবে
+  if [ -n "$ips" ] && python3 -c 'import ipaddress,sys; nets=[ipaddress.ip_network(n) for n in sys.stdin.read().split()]; sys.exit(0 if all(any(ipaddress.ip_address(a) in n for n in nets) for a in sys.argv[1:]) else 1)' $ips <<<"$(cf_nets)"; then
+    echo cloudflare; return 0
+  fi
+  echo "no (${ips:-no A record})"
 }
+dns_here() { case "$(dns_state "$1")" in yes|cloudflare) return 0 ;; *) return 1 ;; esac; }
+# শেয়ার লিংক/QR-এর ঠিকানা: সিক্রেট PUBLIC_BASE_URL > ওয়েবসাইট (DNS এই VPS-এ বা Cloudflare-এ এলে) > sslip.io
 BASE_URL="$(p PUBLIC_BASE_URL | grep -E '^https?://[A-Za-z0-9.:/-]+$' || true)"
 if [ -z "$BASE_URL" ]; then
   if [ -n "$WEB_DOMAIN" ] && [[ "$WEB_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] && dns_here "$WEB_DOMAIN"; then
@@ -267,15 +282,14 @@ if [ -n "$API_DOMAIN" ]; then
   if ! [[ "$API_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
     st api_domain "invalid name"
   else
-    MY_IPS=" $(hostname -I 2>/dev/null || true) "
-    DNS_IPS="$(getent ahostsv4 "$API_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
-    matched=no
-    for ip in $DNS_IPS; do case "$MY_IPS" in *" $ip "*) matched=yes ;; esac; done
+    api_dns="$(dns_state "$API_DOMAIN")"
+    st api_dns "$api_dns"
     CERT="/etc/letsencrypt/live/$API_DOMAIN/fullchain.pem"
-    if [ "$matched" != yes ]; then
-      st api_domain "dns_not_ready (${DNS_IPS:-no A record})"
+    if ! dns_here "$API_DOMAIN"; then
+      st api_domain "dns_not_ready (${api_dns#no })"
     else
-      # port 80-এর default_server-এ acme-challenge আগে থেকেই আছে (setup-base.sh), তাই webroot-এ সরাসরি
+      # port 80-এর default_server-এ acme-challenge আগে থেকেই আছে (setup-base.sh), তাই webroot-এ সরাসরি।
+      # Cloudflare-এর proxy চালু থাকলেও HTTP-01 চলে (Cloudflare /.well-known/acme-challenge/ এখানে পাঠায়); থাকা সার্টিফিকেট রাখা হয়।
       if [ ! -f "$CERT" ]; then
         certbot certonly --webroot -w /var/www/letsencrypt -d "$API_DOMAIN" --register-unsafely-without-email \
           --agree-tos --non-interactive --keep-until-expiring --deploy-hook "systemctl reload nginx" >/dev/null 2>&1 || true

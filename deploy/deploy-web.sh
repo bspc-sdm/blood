@@ -25,6 +25,7 @@ SITE_CONF=/etc/nginx/sites-available/lifolo-web
 REALIP_CONF=/etc/nginx/conf.d/lifolo-cloudflare-realip.conf
 STATUS=/var/lib/lifolo/deploy-web-status
 ACME=/var/www/letsencrypt
+DL_DIR=/var/www/lifolo-dl
 
 TARBALL="" SHA="" WEB_DOMAIN="" NO_CERT=no
 while [ $# -gt 0 ]; do
@@ -127,6 +128,13 @@ admin_headers() { # $1 = Cache-Control
     add_header X-Robots-Tag "noindex, nofollow" always;
 EOF
 }
+dl_headers() { # $1 = Cache-Control, $2 = attachment (APK) বা খালি
+  echo "        $HSTS"
+  echo "        add_header X-Content-Type-Options \"nosniff\" always;"
+  echo "        add_header Cache-Control \"$1\" always;"
+  [ "${2:-}" != attachment ] || echo "        add_header Content-Disposition \"attachment\" always;"
+}
+install -d -m 0755 "$DL_DIR" "$DL_DIR/download"
 {
   echo "# Lifolo — deploy-web.sh লেখে (Deploy backend workflow)। হাতে বদলালে পরের deploy-এ মুছে যাবে।"
   echo "# server/vercel.json-এর পথ আর হেডার হুবহু; /api /r /rx /shop /.well-known → $SNIPPET_API (Spring)।"
@@ -178,6 +186,34 @@ EOF
   admin_headers "no-cache"
   echo "    try_files \$uri \$uri/index.html =404;"
   echo "}"
+  echo "# প্রাইভেসি পলিসি আর ব্যবহারের শর্ত: PRIVACY.md / TERMS.md থেকে বিল্ডের সময় বানানো পাতা (deploy/ci/render-legal.py)"
+  echo "location ~ ^/(privacy|terms)/?\$ {"
+  web_headers "no-cache"
+  echo "    try_files /\$1/index.html =404;"
+  echo "}"
+  echo "# অ্যাপের ডাউনলোড: Build APK workflow $DL_DIR/download/-এ রাখে (ওয়েবের রিলিজ বদলালেও থাকে)।"
+  echo "# version.json কখনো cache নয় (Cloudflare/ফোন সবসময় নতুনটা); lifolo.apk / lifolo-next.apk-এর নাম একই থাকে → no-cache;"
+  echo "# lifolo-<ভার্সন>-<কোড>.apk কখনো বদলায় না → এক বছর।"
+  echo "location ^~ /download/ {"
+  echo "    root $DL_DIR;"
+  echo "    types { application/vnd.android.package-archive apk; application/json json; }"
+  echo "    default_type application/octet-stream;"
+  echo "    autoindex off;"
+  echo "    location = /download/version.json {"
+  dl_headers "no-store, max-age=0"
+  echo "        try_files \$uri =404;"
+  echo "    }"
+  echo "    location ~ ^/download/lifolo-[0-9][A-Za-z0-9._-]*\\.apk\$ {"
+  dl_headers "public, max-age=31536000, immutable" attachment
+  echo "        try_files \$uri =404;"
+  echo "    }"
+  echo "    location ~ \\.apk\$ {"
+  dl_headers "no-cache" attachment
+  echo "        try_files \$uri =404;"
+  echo "    }"
+  dl_headers "no-cache"
+  echo "    try_files \$uri =404;"
+  echo "}"
   echo "location = /favicon.ico {"
   web_headers "no-cache"
   echo "    try_files /w/icon.svg =404;"
@@ -194,22 +230,40 @@ mv "$SNIPPET_WEB.new" "$SNIPPET_WEB"
 
 # ---------------------------------------------------------------- 4) DNS → সার্টিফিকেট → সাইট
 MY_IPS=" $(hostname -I 2>/dev/null || true) "
+# "yes" = সরাসরি এই VPS (ধূসর মেঘ), "cloudflare" = সব ঠিকানা Cloudflare-এর (কমলা মেঘ — proxy এখানেই পাঠায়), নইলে "no (…)"
+cf_nets() { printf '%s\n' $cf_v4; }
 dns_here() {
   local ip ips
   ips="$(getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
   for ip in $ips; do case "$MY_IPS" in *" $ip "*) echo yes; return 0 ;; esac; done
+  # shellcheck disable=SC2086  # ঠিকানাগুলো আলাদা আর্গুমেন্ট হিসেবে
+  if [ -n "$ips" ] && python3 -c 'import ipaddress,sys; nets=[ipaddress.ip_network(n) for n in sys.stdin.read().split()]; sys.exit(0 if all(any(ipaddress.ip_address(a) in n for n in nets) for a in sys.argv[1:]) else 1)' $ips <<<"$(cf_nets)"; then
+    echo cloudflare; return 0
+  fi
   echo "no (${ips:-no A record})"
 }
+ok_dns() { case "$1" in yes|cloudflare) return 0 ;; *) return 1 ;; esac; }
 apex_dns="$(dns_here "$WEB_DOMAIN")"
 www_dns="$(dns_here "$WWW")"
 st dns_apex "$apex_dns"
 st dns_www "$www_dns"
 CERT="/etc/letsencrypt/live/$WEB_DOMAIN/fullchain.pem"
 names=()
-[ "$apex_dns" = yes ] && names+=("$WEB_DOMAIN")
-[ "$www_dns" = yes ] && names+=("$WWW")
+ok_dns "$apex_dns" && names+=("$WEB_DOMAIN")
+ok_dns "$www_dns" && names+=("$WWW")
 cert_has() { [ -f "$CERT" ] && openssl x509 -in "$CERT" -noout -ext subjectAltName 2>/dev/null | grep -q "DNS:$1\(,\|$\)"; }
-if [ "$apex_dns" != yes ]; then
+# Cloudflare-এর পেছনে: Let's Encrypt-এর HTTP-01 (নবায়নও) Cloudflare দিয়েই আসে — এই VPS থেকে Cloudflare হয়ে
+# /.well-known/acme-challenge/-এ একটা ফাইল পড়া যায় কি না (সার্টিফিকেট নবায়ন চলবে কি না তার ইঙ্গিত)
+if [ "$apex_dns" = cloudflare ]; then
+  tok="lifolo-probe-$(date +%s)-$$"
+  install -d -m 0755 "$ACME/.well-known/acme-challenge"
+  echo "$tok" > "$ACME/.well-known/acme-challenge/$tok"
+  got="$(curl -sSL -m 20 "http://$WEB_DOMAIN/.well-known/acme-challenge/$tok" 2>/dev/null | head -c 200 || true)"
+  rm -f "$ACME/.well-known/acme-challenge/$tok"
+  if [ "$got" = "$tok" ]; then st acme_via_cloudflare ok; else st acme_via_cloudflare "failed (${got:0:60})"; fi
+  [ ! -f "$CERT" ] || st cert_expires "$(openssl x509 -in "$CERT" -noout -enddate 2>/dev/null | cut -d= -f2)"
+fi
+if ! ok_dns "$apex_dns"; then
   st site "dns_not_ready ($apex_dns)"
 else
   need=no
@@ -352,6 +406,15 @@ if [ "$(sed -n 's/^site=//p' "$STATUS")" = ok ]; then
   check t_share "! H '$B/r/deploy-smoke' | grep '/w/assets/' >/dev/null"
   check t_hsts "hdr '$B/' | grep -i '^strict-transport-security' >/dev/null"
   check t_gzip "[ -n '$asset' ] && H -H 'Accept-Encoding: gzip' -o /dev/null -D - '$B$asset' | tr -d '\r' | grep -i '^content-encoding: gzip' >/dev/null"
+  check t_privacy "H '$B/privacy' | grep 'Privacy Policy' >/dev/null && hdr '$B/privacy' | grep -i '^content-type: text/html' >/dev/null"
+  check t_terms "H '$B/terms/' | grep 'Terms of Use' >/dev/null"
+  if [ -f "$DL_DIR/download/version.json" ]; then
+    check t_dl_version "hdr '$B/download/version.json' | grep -i '^cache-control: no-store' >/dev/null && H '$B/download/version.json' | grep '\"versionCode\"' >/dev/null"
+  fi
+  if [ -f "$DL_DIR/download/lifolo.apk" ]; then
+    check t_dl_apk "hdr '$B/download/lifolo.apk' | grep -i '^content-type: application/vnd.android.package-archive' >/dev/null"
+  fi
+  check t_dl_missing "[ \"\$(H -o /dev/null -w '%{http_code}' '$B/download/nope.apk')\" = 404 ]"
   check t_http_redirect "curl -sS -m 10 --resolve '$WEB_DOMAIN:80:127.0.0.1' -o /dev/null -w '%{http_code} %{redirect_url}' 'http://$WEB_DOMAIN/x?y=1' | grep '^301 https://$WEB_DOMAIN/x?y=1' >/dev/null"
   if [ "$(sed -n 's/^www=//p' "$STATUS")" = ok ]; then
     check t_www_redirect "H -o /dev/null -w '%{http_code} %{redirect_url}' 'https://$WWW/services?a=1' | grep '^301 https://$WEB_DOMAIN/services?a=1' >/dev/null"

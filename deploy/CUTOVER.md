@@ -102,13 +102,13 @@ Amazon SES production access অনুমোদিত না হলে লগই
 VPS আর Vercel)। QR (`/rx/`, `/shop/`) পড়া যেকোনো নামেই চলে।
 
 ### সাধারণ রিলিজ (latest)
-main-এ `app/` বদলালে **Build APK** → `latest` রিলিজে `lifolo-<ভার্সন>-<কোড>.apk`, `roktodan.apk` আর `version.json` →
-অ্যাপের ভেতরের "আপডেট আছে" সবাইকে নতুন APK দেয়। সরাসরি লিংক:
-**https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk**
+main-এ versionCode বদলালে **Build APK** → VPS-এ **https://lifolo.com/download/** (`lifolo-<ভার্সন>-<কোড>.apk`, `lifolo.apk`,
+`version.json`; ২.৩৪.১ থেকে অ্যাপের "আপডেট আছে" এখান থেকে) আর আগের মতো GitHub-এর `latest` রিলিজেও (২.৩৪.০ পর্যন্ত অ্যাপের জন্য,
+রিপো public থাকা পর্যন্ত)। সরাসরি লিংক: **https://lifolo.com/download/lifolo.apk** — রিপো private করা: `deploy/GO-PRIVATE.md`
 
 ### পরীক্ষার APK (next)
 **Build APK (next)** (`cutover-android` শাখায় অ্যাপ বদলালে নিজেই, বা Run workflow; `server` = auto / পুরো ঠিকানা) একই key-তে
-`next` প্রি-রিলিজে `lifolo-next.apk` বানায় (ভার্সনের শেষে `-next`): **https://github.com/bspc-sdm/blood/releases/download/next/lifolo-next.apk**।
+`lifolo-next.apk` বানায় (ভার্সনের শেষে `-next`): **https://lifolo.com/download/lifolo-next.apk** (GitHub-এর `next` প্রি-রিলিজেও)।
 এখন main নিজেই lifolo.com-এ, তাই next শুধু অন্য কোনো ঠিকানা পরীক্ষার জন্য।
 যন্ত্রে পরীক্ষা: **E2E Android cutover (Node vs Spring)** একই ৮টা যাত্রা দুই সার্ভারে চালায়; ফল `ci-log-cutover-android`
 শাখার `summary.md`-এ (২০ অক্টোবর: সমান — Spring-এ এমন কিছু ব্যর্থ হয়নি যা Node-এ পাস করে)।

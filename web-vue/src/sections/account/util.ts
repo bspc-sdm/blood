@@ -18,8 +18,8 @@ export function badgeLabel(type: string): string {
 export const BUSINESS_KINDS = ['ambulance', 'pharmacy', 'bloodbank', 'lab'] as const;
 export const CHAMBER_TYPES = ['doctor', 'nutritionist', 'trainer'];
 export const SUPPORT_EMAIL = 'ekapkbd@gmail.com';
-export const PRIVACY_URL = 'https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md';
-export const TERMS_URL = 'https://github.com/bspc-sdm/blood/blob/main/TERMS.md';
+export const PRIVACY_URL = 'https://lifolo.com/privacy';
+export const TERMS_URL = 'https://lifolo.com/terms';
 
 /** অ্যাপের MyWork.hasBusiness: চার রকম ব্যবসার কোনোটা (পেশাদার ব্যাজ বাদে) */
 export const hasBusiness = (w: WorkSummary) => w.ambulances.length > 0 || !!w.pharmacy || w.bloodBanks.length > 0 || !!w.lab;

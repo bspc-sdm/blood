@@ -1,7 +1,7 @@
 // চেম্বার সেটআপের হিসাব: খালি চেম্বার/বাসায় সেবা, সার্ভারে পাঠানোর রূপ
 import type { Chamber, ChamberTime, HomeVisit } from '../model';
 
-export const TERMS_URL = 'https://github.com/bspc-sdm/blood/blob/main/TERMS.md';
+export const TERMS_URL = 'https://lifolo.com/terms';
 export const emptyHome = (): HomeVisit => ({ enabled: false, radiusKm: 5, upazilaIds: [], services: [], schedule: '', fee: '', phone: '', noFee: false, times: [] });
 export const newSlot = (): ChamberTime => ({ days: [], start: '', end: '' });
 export type Ed = Chamber & { key: number };

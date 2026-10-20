@@ -10,19 +10,12 @@ name: Backend e2e (web journeys vs Spring)
 # emulator and Chrome must agree on the time), restored afterwards.
 # Result → log branch (like backend.yml): spring → spring-ci-log, X → ci-log-X: e2e-status.txt, e2e/summary.md,
 # e2e/<spring|node>/ (report-*.json|md, shots-*/ = screenshots of failed steps, run/stack logs, spring-errors.log).
+# চলে (Actions-এর মিনিট বাঁচাতে push-এ আর নয়): হাতে (Run workflow), আর সপ্তাহে একবার (শনিবার ২১:৪৭ UTC = রবিবার ভোর
+# ৩:৪৭ ঢাকা, main) — শুধু যদি গত ৭ দিনে backend/ বা e2e/ বদলেছে। ২০ অক্টোবর ২০২৬ থেকে Vercel/Node বন্ধ, Firestore
+# তালাবন্ধ — তাই সাধারণত শুধু Spring; Node-এর তুলনা চাইলে হাতে চালানোর সময় node_baseline চালু।
 on:
-  push:
-    branches: [main, spring, "spring-p*", cutover]
-    paths:
-      - "backend/**"
-      - "e2e/web/**"
-      - "e2e/server/**"
-      - "e2e/package*.json"
-      - "web/src/**"
-      - "web/package*.json"
-      - "server/public/admin/**"
-      - ".github/workflows/backend-e2e.yml"
-      - ".github/scripts/publish-log.sh"
+  schedule:
+    - cron: "47 21 * * 6"
   workflow_dispatch:
     inputs:
       only:
@@ -34,10 +27,10 @@ on:
         required: false
         default: "11:00"
       node_baseline:
-        description: "Also run the journeys against the Node server"
+        description: "Also run the journeys against the Node server (off by default: Vercel/Firestore are being retired)"
         type: boolean
         required: false
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -47,14 +40,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # সপ্তাহের চালানো: গত ৭ দিনে কিছু না বদলালে বাকিটা বাদ (কয়েক সেকেন্ড)
+  changed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: c
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != schedule ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          n=$(git log --since='7 days ago' --format=%H -- backend e2e web/src server/public/admin .github/workflows/backend-e2e.yml | wc -l)
+          echo "commits in 7 days: $n"
+          echo "run=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   e2e:
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     name: e2e (${{ matrix.backend }})
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        backend: [spring, node]
+        backend: ${{ fromJSON(inputs.node_baseline && '["spring","node"]' || '["spring"]') }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -230,8 +245,8 @@ jobs:
 
 
   publish:
-    needs: e2e
-    if: always()
+    needs: [changed, e2e]
+    if: always() && needs.changed.outputs.run == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

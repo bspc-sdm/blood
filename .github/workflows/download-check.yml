@@ -1,0 +1,97 @@
+name: Download check
+
+# ইন্টারনেট থেকে (GitHub-এর মেশিন) দেখা — সরাসরি VPS-এ (আসল নাম/সার্টিফিকেট) আর আসল পথে (Cloudflare দিয়ে): https://lifolo.com/download/ (version.json, lifolo.apk, ভার্সনের APK,
+# lifolo-next.apk), /privacy, /terms, /api/health — হেডার (MIME, Cache-Control) আর বিষয়বস্তু; সাথে GitHub-এর পুরোনো
+# রিলিজ-লিংক এখনো খোলে কি না (রিপো private হলে ৪০৪ — সেটাই প্রত্যাশিত)।
+# শুধু হাতে: Actions → "Download check" → Run workflow। ফল: পাতার Summary আর log branch `ci-log-download` (summary.md)।
+# রিপো private করার পর একবার চালান (deploy/GO-PRIVATE.md)।
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check
+        id: check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          B=https://lifolo.com
+          # Cloudflare-এর proxy GitHub-এর মেশিনকে কখনো আটকায় — তাই যাচাই সরাসরি VPS-এ (--resolve: আসল নাম + সার্টিফিকেট),
+          # আর আসল পথে (Cloudflare দিয়ে) একবার আলাদা সারিতে (403 হলে শুধু জানানো)
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          pin=()
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && pin=(--resolve "lifolo.com:443:$ip")
+          curl() { command curl "${pin[@]}" "$@"; }
+          out="$RUNNER_TEMP/log"; mkdir -p "$out"
+          rc=0
+          rows=()
+          row() { rows+=("| $1 | $2 | $3 |"); [ "$2" = "✅" ] || [ "$2" = "ℹ️" ] || rc=1; }
+          hdr() { curl -sS -m 30 -o /dev/null -D - "$1" | tr -d '\r' || true; }
+          h() { printf '%s\n' "$1" | grep -i "^$2:" | head -1 | cut -d' ' -f2- ; }
+
+          v="$(curl -fsS -m 20 "$B/download/version.json" || true)"
+          vh="$(hdr "$B/download/version.json")"
+          code="$(printf '%s' "$v" | python3 -c 'import json,sys; print(json.load(sys.stdin)["versionCode"])' 2>/dev/null || true)"
+          name="$(printf '%s' "$v" | python3 -c 'import json,sys; print(json.load(sys.stdin)["versionName"])' 2>/dev/null || true)"
+          url="$(printf '%s' "$v" | python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])' 2>/dev/null || true)"
+          if [ -n "$code" ] && [[ "$url" == https://lifolo.com/download/* ]]; then row "version.json" "✅" "$name ($code) → $url"; else row "version.json" "❌" "${v:0:150}"; fi
+          cc="$(h "$vh" cache-control)"; ct="$(h "$vh" content-type)"
+          if [[ "$cc" == no-store* ]] && [[ "$ct" == application/json* ]]; then row "version.json হেডার" "✅" "$ct · $cc · cf-cache: $(h "$vh" cf-cache-status)"; else row "version.json হেডার" "❌" "$ct · $cc"; fi
+
+          apk_sha=""
+          for f in lifolo.apk "${url##*/}" lifolo-next.apk; do
+            [ -n "$f" ] || continue
+            ah="$(hdr "$B/download/$f")"
+            st="$(printf '%s\n' "$ah" | head -1 | cut -d' ' -f2)"
+            if [ "$f" = lifolo-next.apk ] && [ "$st" = 404 ]; then row "$f" "ℹ️" "নেই (Build APK (next) এখনো চালানো হয়নি)"; continue; fi
+            sha="$(curl -fsS -m 180 "$B/download/$f" | sha256sum | awk '{print $1}' || true)"
+            size="$(h "$ah" content-length)"
+            magic="$(curl -fsS -m 30 -r 0-1 "$B/download/$f" | head -c 2 || true)"
+            [ "$f" = lifolo.apk ] && apk_sha="$sha"
+            same=""
+            [ "$f" = "${url##*/}" ] && { [ "$sha" = "$apk_sha" ] && same=" · lifolo.apk-এর সমান" || same=" · ⚠️ lifolo.apk থেকে আলাদা"; }
+            if [ "$st" = 200 ] && [ "$(h "$ah" content-type)" = application/vnd.android.package-archive ] && [ "$magic" = PK ]; then
+              row "$f" "✅" "$size bytes · ${sha:0:12} · $(h "$ah" cache-control) · cf-cache: $(h "$ah" cf-cache-status)$same"
+            else
+              row "$f" "❌" "HTTP $st · $(h "$ah" content-type) · magic '$magic'"
+            fi
+          done
+
+          for p in privacy:Privacy\ Policy terms:Terms\ of\ Use; do
+            path="${p%%:*}"; want="${p#*:}"
+            if curl -fsS -m 20 "$B/$path" | grep -q "$want"; then row "/$path" "✅" "$want"; else row "/$path" "❌" "পাতা খোলেনি"; fi
+          done
+          if curl -fsS -m 20 "$B/api/health" | grep -q '"ok":true'; then row "/api/health" "✅" "ok"; else row "/api/health" "❌" "সাড়া নেই"; fi
+
+          for p in download/version.json download/lifolo.apk api/health; do
+            pub="$(command curl -sS -m 60 -o /dev/null -w '%{http_code} · cf-cache: %header{cf-cache-status} · %header{content-type} · %header{cache-control}' "$B/$p" 2>/dev/null || echo failed)"
+            case "$pub" in 200*) row "আসল পথে (Cloudflare দিয়ে) /$p" "✅" "$pub" ;; *) row "আসল পথে (Cloudflare দিয়ে) /$p" "ℹ️" "$pub (403 = Cloudflare GitHub-এর মেশিনকে আটকেছে)" ;; esac
+          done
+
+          gst="$(command curl -sS -m 20 -o /dev/null -w '%{http_code}' -L "https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/version.json" || true)"
+          row "GitHub রিলিজের version.json (পুরোনো অ্যাপ)" "ℹ️" "HTTP $gst (public = 200, private = 404)"
+
+          {
+            echo "## lifolo.com/download যাচাই — $(date -u +%FT%TZ)"
+            echo
+            echo "| কী | ফল | বিস্তারিত |"
+            echo "|---|---|---|"
+            printf '%s\n' "${rows[@]}"
+          } > "$out/summary.md"
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$out/summary.md"
+          { echo "commit=$GITHUB_SHA"; echo "ok=$([ "$rc" = 0 ] && echo yes || echo no)"; echo "version=$name"; echo "code=$code"; } > "$out/download-status.txt"
+          exit "$rc"
+      - name: Publish to the log branch (ci-log-download)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: download check ${{ job.status }}
+        run: bash .github/scripts/publish-log.sh ci-log-download "$RUNNER_TEMP/log" summary.md download-status.txt

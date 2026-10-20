@@ -7,7 +7,7 @@ const R = require('../lib/rules');
 const PACKAGE = 'com.bspc.blood';
 // অ্যাপ সাইন করার চাবির SHA-256 (app/debug.keystore)। Play Store-এর আলাদা চাবি হলে এখানে যোগ করতে হবে।
 const CERT_SHA256 = ['FC:BE:F9:19:39:40:5B:C2:32:72:18:DB:DA:CD:DD:BE:86:47:F6:4B:F9:0A:06:F7:37:AC:42:99:D2:F0:F8:39'];
-const APK_URL = 'https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk';
+const APK_URL = 'https://lifolo.com/download/lifolo.apk';
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

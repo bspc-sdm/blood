@@ -2,11 +2,21 @@ name: E2E Android cutover (Node vs Spring)
 
 # একই Maestro যাত্রা (e2e/android) দুবার: বর্তমান সার্ভার (Node, Vercel) আর নতুন সার্ভার (Spring, VPS) —
 # দুটো APK শুধু সার্ভারের ঠিকানায় আলাদা (-PlifoloServer)। শুধু ডেমো অ্যাকাউন্ট (দুই সার্ভারের ডেমো)।
-# ফল: শাখা ci-log-<চালানো শাখা> (cutover-android → ci-log-cutover-android) — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
-# Only by hand (Run workflow / REST dispatch with ref=cutover-android).
+# ফল: শাখা ci-log-<চালানো শাখা> (cutover-android → ci-log-cutover-android; main → ci-log-e2e-android) — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
+# ২০ অক্টোবর ২০২৬ থেকে Vercel/Node বন্ধ আর Firestore তালাবন্ধ — তাই সাধারণত শুধু Spring (lifolo.com); Node-এর দিক চাইলে
+# হাতে চালানোর সময় "node" চালু করুন (তুলনা আগের মতো)।
+# চলে: হাতে (Run workflow / REST dispatch), আর সপ্তাহে একবার (রবিবার ২২:১৭ UTC = সোমবার ভোর ৪:১৭ ঢাকা, main) —
+# শুধু যদি গত ৭ দিনে app/ বা e2e/android/ বদলেছে (না বদলালে কয়েক সেকেন্ডে শেষ; Actions-এর মিনিট বাঁচাতে)।
 on:
+  schedule:
+    - cron: "17 22 * * 0"
   workflow_dispatch:
     inputs:
+      node:
+        description: "Node (Vercel)-এর দিকেও চালানো — Vercel বন্ধ থাকলে ব্যর্থ হবে"
+        type: boolean
+        required: false
+        default: false
       only:
         description: "শুধু এই যাত্রাগুলো (যেমন: j1 j3) — খালি রাখলে সব"
         required: false
@@ -24,14 +34,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # সপ্তাহের চালানো: গত ৭ দিনে অ্যাপ বা যাত্রা না বদলালে বাকিটা বাদ
+  changed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - id: c
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != schedule ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          n=$(git log --since='7 days ago' --format=%H -- app e2e/android .github/workflows/e2e-android-cutover.yml | wc -l)
+          echo "commits in 7 days: $n"
+          echo "run=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   e2e:
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     name: e2e (${{ matrix.target }})
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
-        target: [node, spring]
+        target: ${{ fromJSON(inputs.node && '["node","spring"]' || '["spring"]') }}
     steps:
       - uses: actions/checkout@v5
       - name: Pick and check the server
@@ -113,8 +145,8 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: e2e
-    if: always()
+    needs: [changed, e2e]
+    if: always() && needs.changed.outputs.run == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -124,11 +156,12 @@ jobs:
       - name: Compare and publish to ci-log-<branch>
         env:
           GH_TOKEN: ${{ github.token }}
-          LOG_BRANCH: ci-log-${{ github.ref_name }}
+          # main-এ (সপ্তাহের চালানোসহ) ci-log-e2e-android — ci-log-main-এ Backend-এর লগ থাকে, ওটা মোছা নয়
+          LOG_BRANCH: ${{ github.ref_name == 'main' && 'ci-log-e2e-android' || format('ci-log-{0}', github.ref_name) }}
         run: |
           set -e
           mkdir -p log/node log/spring log/server
-          cp -R arts/e2e-node/. log/node/ 2>/dev/null || echo "no node results" > log/node/missing.txt
+          cp -R arts/e2e-node/. log/node/ 2>/dev/null || echo "no node results (Node leg off — Spring only)" > log/node/missing.txt
           cp -R arts/e2e-spring/. log/spring/ 2>/dev/null || echo "no spring results" > log/spring/missing.txt
           python3 -I e2e/android/compare.py log/node log/spring log/summary.md || echo "compare failed" > log/summary.md
           { echo "run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo "commit: ${{ github.sha }}"; echo "e2e job result: ${{ needs.e2e.result }}"; date -u +%FT%TZ; } > log/run.txt
