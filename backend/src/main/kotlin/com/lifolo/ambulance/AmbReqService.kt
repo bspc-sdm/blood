@@ -149,6 +149,12 @@ class AmbReqService(
         /** requests per hour */
         const val PER_HOUR = 5
 
+        /** requests per account in 24 hours (fake calls from one account; not in Node) */
+        const val PER_DAY = 12
+
+        /** requests per contact number per hour, over all accounts (one prankster, many new accounts; not in Node) */
+        const val PER_PHONE_HOUR = 5
+
         /** exact place, phone, address, note, name removed this long after closing */
         const val PURGE_AFTER_MS = 24 * HOUR
 
@@ -790,6 +796,9 @@ class AmbReqService(
             val times = jdbc.queryForObject(
                 "SELECT count(*) FROM ambreq_create_log WHERE uid = ? AND created_at > ?", Int::class.java, uid, Sql.ts(now - HOUR),
             ) ?: 0
+            val today = jdbc.queryForObject(
+                "SELECT count(*) FROM ambreq_create_log WHERE uid = ? AND created_at > ?", Int::class.java, uid, Sql.ts(now - 24 * HOUR),
+            ) ?: 0
             if (activeId != null) {
                 val a = jdbc.query(
                     "SELECT status, coalesce(opened_at, created_at) AS opened FROM ambulance_requests WHERE id = ?",
@@ -803,6 +812,16 @@ class AmbReqService(
             }
             if (times >= PER_HOUR) {
                 throw err(lang, 429, "Up to 5 ambulance requests an hour. Please call from the list.", "ঘণ্টায় সর্বোচ্চ ৫ বার ডাকা যায়। তালিকা থেকে ফোন করুন।")
+            }
+            if (today >= PER_DAY) {
+                throw err(lang, 429, "Too many ambulance requests today. Please call from the list.", "আজ অনেকবার অ্যাম্বুলেন্স ডাকা হয়েছে। তালিকা থেকে ফোন করুন।") // bn-ok
+            }
+            // the same contact number from many accounts
+            val byPhone = jdbc.queryForObject(
+                "SELECT count(*) FROM ambulance_requests WHERE phone = ? AND created_at > ?", Int::class.java, Phones.localBd(phone), Sql.ts(now - HOUR),
+            ) ?: 0
+            if (byPhone >= PER_PHONE_HOUR) {
+                throw err(lang, 429, "Too many requests with this phone number. Please call from the list.", "এই নম্বর দিয়ে অনেকবার ডাকা হয়েছে। তালিকা থেকে ফোন করুন।") // bn-ok
             }
             val dest = fp.dest
             jdbc.update(
@@ -819,7 +838,7 @@ class AmbReqService(
             )
             wave1.forEach { insertTarget(id, it, 1, now) }
             jdbc.update("UPDATE ambreq_patient_state SET active_request_id = ?, at = ? WHERE uid = ?", id, Sql.ts(now), uid)
-            jdbc.update("DELETE FROM ambreq_create_log WHERE uid = ? AND created_at <= ?", uid, Sql.ts(now - HOUR))
+            jdbc.update("DELETE FROM ambreq_create_log WHERE uid = ? AND created_at <= ?", uid, Sql.ts(now - 24 * HOUR))
             jdbc.update("INSERT INTO ambreq_create_log (uid, created_at) VALUES (?, ?) ON CONFLICT DO NOTHING", uid, Sql.ts(now))
         }
         pushDrivers(id, wave1.associate { it.owner to kmCode(it) }, r.quote, wave1.map { it.owner })

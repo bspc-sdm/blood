@@ -17,6 +17,7 @@ import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.Chambers
 import com.lifolo.contracts.ContentModeration
 import com.lifolo.contracts.ProviderSuspension
+import com.lifolo.demo.DemoWorld
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 
@@ -63,17 +64,17 @@ class ModerationActions(
         fun one(sql: String, vararg args: Any?): Map<String, Any?>? = jdbc.queryForList(sql, *args).firstOrNull()
         return when (p[0]) {
             "questions" -> if (p.size == 4) {
-                one("SELECT text, author_name AS \"authorName\", edited_at FROM answers WHERE id = ? AND question_id = ?", p[3], p[1])
+                one("SELECT text, author_name AS \"authorName\", edited_at, uid AS \"ownerUid\" FROM answers WHERE id = ? AND question_id = ?", p[3], p[1])
             } else {
-                one("SELECT text, anonymous, author_name AS \"authorName\", edited_at FROM questions WHERE id = ?", p[1])
+                one("SELECT text, anonymous, author_name AS \"authorName\", edited_at, uid AS \"ownerUid\" FROM questions WHERE id = ?", p[1])
             }
-            "tips" -> one("SELECT title, body, author_name AS \"authorName\", edited_at FROM tips WHERE id = ?", p[1])
+            "tips" -> one("SELECT title, body, author_name AS \"authorName\", edited_at, uid AS \"ownerUid\" FROM tips WHERE id = ?", p[1])
             "providers" -> one(
-                "SELECT uid, name, type, home_phone AS \"homePhone\", home_visit_enabled AS \"homeEnabled\" FROM providers WHERE uid = ?", p[1],
+                "SELECT uid, uid AS \"ownerUid\", name, type, home_phone AS \"homePhone\", home_visit_enabled AS \"homeEnabled\" FROM providers WHERE uid = ?", p[1],
             )
-            "ambulances" -> one("SELECT name, phone, district, status FROM ambulances WHERE id = ?", p[1])
-            "pharmacies" -> one("SELECT name, phone, district, status FROM pharmacies WHERE uid = ?", p[1])
-            "bloodBanks" -> one("SELECT name, phone, district, status FROM blood_banks WHERE id = ?", p[1])
+            "ambulances" -> one("SELECT name, phone, district, status, owner_uid AS \"ownerUid\" FROM ambulances WHERE id = ?", p[1])
+            "pharmacies" -> one("SELECT name, phone, district, status, uid AS \"ownerUid\" FROM pharmacies WHERE uid = ?", p[1])
+            "bloodBanks" -> one("SELECT name, phone, district, status, owner_uid AS \"ownerUid\" FROM blood_banks WHERE id = ?", p[1])
             else -> null
         }
     }
@@ -99,6 +100,8 @@ class ModerationActions(
         }
         val path = Moderation.targetPath(kind, id!!, answerId)
         val t = target(path) ?: throw ctx.err(404, "Not found", "পাওয়া যায়নি")
+        // a demo account (public one-click login) never files reports on real people's content or listings
+        if (DemoWorld.isDemoUid(uid) && !DemoWorld.isDemoUid(t["ownerUid"] as String?)) throw ctx.err(404, "Not found", "পাওয়া যায়নি")
         var reason = ""
         if (kind == "homecare" && (id == uid || t["homeEnabled"] != true)) throw ctx.err(404, "Not found", "পাওয়া যায়নি")
         if (kind == "provider" && id == uid) throw ctx.err(404, "Not found", "পাওয়া যায়নি")

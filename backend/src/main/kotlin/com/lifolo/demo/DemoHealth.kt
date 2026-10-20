@@ -39,13 +39,13 @@ class DemoHealth(private val sql: DemoSql, private val mapper: ObjectMapper) : D
         // ---------- background people (no login) ----------
         fun bg(key: String, name: String, phone: String, extra: Map<String, Any?> = emptyMap()): String =
             ctx.extraUser(key, linkedMapOf<String, Any?>("name" to name, "phone" to phone, "place_name" to dist, "lang" to "bn").apply { putAll(extra) })
-        val nutri = bg("h-nutri", "ডেমো পুষ্টিবিদ ফারহানা", "01700000401")
-        val trainer = bg("h-trainer", "ডেমো ফিটনেস ট্রেইনার মিঠু", "01700000402")
-        val expert = bg("h-expert", "ডেমো স্বাস্থ্য বিশেষজ্ঞ জামাল", "01700000403")
-        val mother = bg("h-mother", "ডেমো রোগী আমেনা খাতুন", "01700000404")
-        val asker = bg("h-asker", "ডেমো প্রশ্নকারী সাকিব", "01700000405")
-        val spam = bg("h-spam", "ডেমো হারবাল সেন্টার", "01700000406")
-        val oldDonor = bg("h-olddonor", "ডেমো ডোনার মাসুদ", "01700000407", mapOf("last_donation_ms" to today - 40 * day))
+        val nutri = bg("h-nutri", "ডেমো পুষ্টিবিদ ফারহানা", "01200000401")
+        val trainer = bg("h-trainer", "ডেমো ফিটনেস ট্রেইনার মিঠু", "01200000402")
+        val expert = bg("h-expert", "ডেমো স্বাস্থ্য বিশেষজ্ঞ জামাল", "01200000403")
+        val mother = bg("h-mother", "ডেমো রোগী আমেনা খাতুন", "01200000404")
+        val asker = bg("h-asker", "ডেমো প্রশ্নকারী সাকিব", "01200000405")
+        val spam = bg("h-spam", "ডেমো হারবাল সেন্টার", "01200000406")
+        val oldDonor = bg("h-olddonor", "ডেমো ডোনার মাসুদ", "01200000407", mapOf("last_donation_ms" to today - 40 * day))
 
         // ---------- professional badges ----------
         fun approved(type: String, checks: List<String>, at: Long) = linkedMapOf<String, Any?>(
@@ -147,7 +147,7 @@ class DemoHealth(private val sql: DemoSql, private val mapper: ObjectMapper) : D
         q("demo-q-knee", Who(mother, "ডেমো রোগী আমেনা খাতুন"), "বয়স ৬২, দুই হাঁটুতে ব্যথা, সিঁড়ি দিয়ে উঠতে কষ্ট হয়। বাসায় কোন ব্যায়াম করা যায়? কোন খাবার এড়িয়ে চলব?", now - 26 * hr)
         q("demo-q-bedsore", Who(ctx.user("caregiver").uid, nameOf("caregiver")), "আমার শাশুড়ি প্রায় সবসময় শুয়ে থাকেন। পিঠে লাল দাগ হচ্ছে — বেড সোর যেন না হয় সেজন্য কী করব?", now - 6 * hr)
         // an advertisement — two people reported it
-        q("demo-q-ad", Who(spam, "ডেমো হারবাল সেন্টার"), "গ্যারান্টি সহকারে ৭ দিনে ডায়াবেটিস চিরতরে ভালো করুন! ইনসুলিন লাগবে না। আমাদের হারবাল ওষুধ নিতে এখনই ফোন করুন ০১৭০০০০০৪০৬ — ডেমো হারবাল সেন্টার", now - 10 * hr)
+        q("demo-q-ad", Who(spam, "ডেমো হারবাল সেন্টার"), "গ্যারান্টি সহকারে ৭ দিনে ডায়াবেটিস চিরতরে ভালো করুন! ইনসুলিন লাগবে না। আমাদের হারবাল ওষুধ নিতে এখনই ফোন করুন ০১২০০০০০৪০৬ — ডেমো হারবাল সেন্টার", now - 10 * hr) // bn-ok (demo number moved to the 012 range nobody is issued)
 
         // ---------- health tips ----------
         fun tip(id: String, who: Who, title: String, body: String, at: Long) {
@@ -173,7 +173,7 @@ class DemoHealth(private val sql: DemoSql, private val mapper: ObjectMapper) : D
                 ),
             )
         }
-        val adText = "গ্যারান্টি সহকারে ৭ দিনে ডায়াবেটিস চিরতরে ভালো করুন! ইনসুলিন লাগবে না। আমাদের হারবাল ওষুধ নিতে এখনই ফোন করুন ০১৭০০০০০৪০৬ — ডেমো হারবাল সেন্টার"
+        val adText = "গ্যারান্টি সহকারে ৭ দিনে ডায়াবেটিস চিরতরে ভালো করুন! ইনসুলিন লাগবে না। আমাদের হারবাল ওষুধ নিতে এখনই ফোন করুন ০১২০০০০০৪০৬ — ডেমো হারবাল সেন্টার" // bn-ok (demo number moved to the 012 range nobody is issued)
         report("questions/demo-q-ad", "question", ctx.user("patient").uid, adText, now - 8 * hr)
         report("questions/demo-q-ad", "question", ctx.user("donor").uid, adText, now - 7 * hr)
         report("questions/demo-q-fever/answers/demo-a-fever-exp", "answer", ctx.user("patient").uid, "জ্বর ৩ দিন থাকলে দোকান থেকে একটা অ্যান্টিবায়োটিক কিনে খাওয়ালেই সেরে যাবে, ডাক্তার দেখানোর দরকার নেই।", now - 15 * hr)
@@ -201,7 +201,7 @@ class DemoHealth(private val sql: DemoSql, private val mapper: ObjectMapper) : D
         if (jdbc.queryForList("SELECT 1 FROM user_family_members WHERE uid = ? LIMIT 1", pu).isEmpty()) {
             sql.insert(
                 "user_family_members",
-                linkedMapOf("uid" to pu, "member_id" to "m_demo01a", "position" to 0, "name" to "ডেমো মা রাবেয়া বেগম", "relation" to "মা", "age" to 68, "gender" to "female", "phone" to "01700000408"),
+                linkedMapOf("uid" to pu, "member_id" to "m_demo01a", "position" to 0, "name" to "ডেমো মা রাবেয়া বেগম", "relation" to "মা", "age" to 68, "gender" to "female", "phone" to "01200000408"),
             )
             sql.insert(
                 "user_family_members",

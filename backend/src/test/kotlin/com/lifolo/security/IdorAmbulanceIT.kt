@@ -66,6 +66,33 @@ class IdorAmbulanceIT : AmbTestBase() {
     }
 
     @Test
+    fun `fake calls - at most 5 an hour per contact number over all accounts, 12 a day per account`() {
+        amb("lim1", "lim-d1", base = at(1.0, 0.0))
+        val p = at(0.0, 0.0)
+        fun create(uid: String, phone: String) = call(
+            uid, "ambreq_create",
+            mapOf("district" to MYM, "upazilaId" to SADAR, "lat" to p.first, "lng" to p.second, "gps" to true, "pickup" to "মোড়", "phone" to phone),
+        )
+        for (i in 1..5) {
+            person("lim-p$i")
+            val r = create("lim-p$i", "01811000099")
+            assertEquals(200, r.status, r.toString())
+            ok("lim-p$i", "ambreq_cancel", mapOf("id" to r.body["id"].textValue()))
+        }
+        person("lim-p6")
+        val sixth = create("lim-p6", "01811000099")
+        assertEquals(429, sixth.status, sixth.toString())
+        assertEquals(200, create("lim-p6", "01811000098").status, "another number is fine")
+        // a day: 12 per account (the hourly 5 still applies within an hour)
+        person("lim-day")
+        for (h in 2..13) jdbc.update("INSERT INTO ambreq_create_log (uid, created_at) VALUES ('lim-day', ?)", com.lifolo.common.Sql.ts(now() - h * HOUR))
+        val day = create("lim-day", "01811000097")
+        assertEquals(429, day.status, day.toString())
+        jdbc.update("DELETE FROM ambreq_create_log WHERE uid = 'lim-day' AND created_at < ?", com.lifolo.common.Sql.ts(now() - 12 * HOUR))
+        assertEquals(200, create("lim-day", "01811000097").status)
+    }
+
+    @Test
     fun `an ambulance listing is changed by its owner only`() {
         amb("own1", "ar-owner")
         person("ar-other")

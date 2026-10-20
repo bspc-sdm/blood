@@ -119,6 +119,25 @@ class IdorIT : RxLabTest() {
         fails(phB, "rx_dispense", mapOf("code" to code, "items" to listOf(mapOf("i" to 0, "qty" to 1))), 403)
     }
 
+    @Test
+    fun `claiming by code + phone brings that one prescription, not the patient's history with the doctor`() {
+        seed()
+        val p = ok(docA, "rx_patient_add", mapOf("name" to "রোগী এ", "phone" to phoneA))["patient"]["id"].asText()
+        val older = ok(docA, "rx_create", mapOf("rxPatientId" to p, "diagnosis" to "পুরোনো গোপন", "advice" to "x"))["id"].asText()
+        val seen = ok(docA, "rx_create", mapOf("rxPatientId" to p, "advice" to "এই কাগজটা"))
+        // someone who saw this paper and knows the phone number (typed into their own profile / family list)
+        ok(patB, "family_set", mapOf("family" to listOf(mapOf("name" to "রোগী এ", "phone" to phoneA))))
+        val r = ok(patB, "rx_claim", mapOf("code" to seen["code"].asText(), "phone" to phoneA))
+        assertEquals(1, r["added"].intValue())
+        assertEquals(listOf(seen["id"].asText()), ok(patB, "rx_mine")["items"].map { it["id"].asText() })
+        assertEquals(null, row("SELECT patient_uid FROM prescriptions WHERE id = ?", older)["patient_uid"], "the earlier one stays with the doctor")
+        fails(patB, "rx_get", mapOf("id" to older), 404)
+        // the real patient: their own code still works for a prescription nobody claimed... except that the paper patient
+        // is now linked to the other account (owner decision: future prescriptions follow the link until SMS verification is on)
+        val code = row("SELECT code FROM prescriptions WHERE id = ?", older)["code"] as String
+        fails(patA, "rx_claim", mapOf("code" to code, "phone" to phoneA), 409)
+    }
+
     // ------------------------------------------------------------------ lab orders and reports
 
     @Test

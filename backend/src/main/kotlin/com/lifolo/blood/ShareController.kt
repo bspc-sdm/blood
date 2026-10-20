@@ -210,8 +210,12 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
     companion object {
         const val PACKAGE = "com.bspc.blood"
 
-        // the app's signing certificate SHA-256 (app/debug.keystore); add the Play Store key here if it differs
-        val CERT_SHA256 = listOf("FC:BE:F9:19:39:40:5B:C2:32:72:18:DB:DA:CD:DD:BE:86:47:F6:4B:F9:0A:06:F7:37:AC:42:99:D2:F0:F8:39")
+        // the app's signing certificates SHA-256: the old debug key (app/debug.keystore, sideloaded APKs) and the release
+        // upload key "lifolo" (Oct 2026). Add Play App Signing's key here too once the app is on Play.
+        val CERT_SHA256 = listOf(
+            "FC:BE:F9:19:39:40:5B:C2:32:72:18:DB:DA:CD:DD:BE:86:47:F6:4B:F9:0A:06:F7:37:AC:42:99:D2:F0:F8:39",
+            "07:6E:13:D0:F9:0A:22:81:86:AE:53:15:54:55:FD:C6:A0:48:72:9B:75:8E:DA:AF:52:32:A3:F9:2C:19:69:43",
+        )
         const val APK_URL = "https://lifolo.com/download/lifolo.apk"
         private val RX_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{10}$")
         private val SHOP_CODE_RE = Regex("^[A-HJ-NP-Z2-9]{6}$")

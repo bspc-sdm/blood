@@ -56,7 +56,7 @@ class DemoRxIT : DemoTestBase() {
         val st = patAppts.map { it["status"].textValue() }.toSet()
         for (x in listOf("confirmed", "pending", "completed", "expired", "declined", "cancelled")) assertTrue(st.contains(x), x)
         assertTrue(patAppts.none { it["date"].longValue() == today }, "nothing today — the tester books")
-        assertTrue(patAppts.any { it["status"].textValue() == "confirmed" && it["serial"]?.intValue() == 2 && it["otherPhone"]?.textValue() == "01700000213" })
+        assertTrue(patAppts.any { it["status"].textValue() == "confirmed" && it["serial"]?.intValue() == 2 && it["otherPhone"]?.textValue() == "01200000213" })
 
         // ---------- the assistant ----------
         assertEquals(listOf(doc), ok(asst, "rx_assisting")["items"].map { it["doctorUid"].textValue() })
@@ -153,7 +153,7 @@ class DemoRxIT : DemoTestBase() {
         assertEquals(listOf("CBC", "HbA1c"), ok(pt, "rx_mine")["items"].first { it["id"].textValue() == madeId }["tests"].map { it.textValue() })
         val onl = ok(pt, "rx_pharmacy_options", mapOf("rxId" to madeId, "district" to GZP, "upazilaId" to 320, "mode" to "online"))["items"].first { it["id"].textValue() == ph }
         assertTrue(onl["online"].booleanValue() && onl["have"].intValue() == 2, onl.toString())
-        val ord = ok(pt, "rx_send_pharmacy", mapOf("rxId" to madeId, "pharmacyId" to ph, "mode" to "online", "address" to "ডেমো বাসা ৫, শিববাড়ি", "phone" to "01700000101"))
+        val ord = ok(pt, "rx_send_pharmacy", mapOf("rxId" to madeId, "pharmacyId" to ph, "mode" to "online", "address" to "ডেমো বাসা ৫, শিববাড়ি", "phone" to "01200000101"))
         ok(ph, "rx_order_update", mapOf("id" to ord["id"].textValue(), "status" to "accepted", "price" to "৪২০ টাকা", "eta" to "এক ঘণ্টায়"))
         ok(ph, "rx_order_update", mapOf("id" to ord["id"].textValue(), "status" to "out"))
         ok(ph, "rx_dispense", mapOf("code" to made["code"].textValue(), "items" to listOf(mapOf("i" to 0, "qty" to 60), mapOf("i" to 1, "qty" to 9))))
@@ -220,7 +220,7 @@ class DemoRxIT : DemoTestBase() {
         assertEquals(400, req(pt, "rx_claim", mapOf("code" to codes["PAPER"], "phone" to "01799999999")).status)
         assertEquals(1, ok(pt, "rx_claim", mapOf("code" to codes["PAPER"], "phone" to phone))["added"].intValue())
         assertTrue(ok(pt, "rx_mine")["items"].any { it["code"].textValue() == codes["PAPER"] })
-        ok(asst, "rx_patient_add", mapOf("doctorUid" to doc, "name" to "ডেমো নতুন রোগী", "age" to 30, "gender" to "male", "phone" to "01700000399"))
+        ok(asst, "rx_patient_add", mapOf("doctorUid" to doc, "name" to "ডেমো নতুন রোগী", "age" to 30, "gender" to "male", "phone" to "01200000399"))
         ok(doc, "rx_team_set", mapOf("emails" to emptyList<String>()))
         assertEquals(0, ok(asst, "rx_assisting")["items"].size())
         assertEquals(403, req(asst, "rx_patients", mapOf("doctorUid" to doc)).status)

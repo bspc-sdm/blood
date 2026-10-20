@@ -144,7 +144,7 @@ export async function run(J) {
     await h.getByLabel('বাসার ঠিকানা').fill('ডেমো বাসা ২, শিববাড়ি');
     const ph = h.getByLabel('মোবাইল নম্বর');
     await J.shot('রহিমের হয়ে বাসা থেকে নমুনা (S-69)', 'আনুমানিক দাম; ঠিকানা আর ফোন রোগীর আগের অনুরোধ থেকে (কেয়ারগিভারের নিজের নম্বর নয়)।');
-    if (!(await ph.inputValue())) await ph.fill('01700001101');
+    if (!(await ph.inputValue())) await ph.fill('01200001101');
     await h.getByText('পরশু').first().click().catch(() => {});
     await h.getByRole('button', { name: 'পাঠান', exact: true }).click();
     await see(page, 'পাঠানো হয়েছে');

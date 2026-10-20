@@ -33,7 +33,7 @@ class DemoServicesIT : DemoTestBase() {
         assertTrue(seba["closedUntil"].longValue() > System.currentTimeMillis(), "closed for a while")
         assertTrue(gPh.first { it["name"].textValue() == "ডেমো ২৪ ঘণ্টা ফার্মেসি" }["open24"].booleanValue())
         val life = gPh.first { it["id"].textValue() == ph }
-        assertEquals("01700000150", life["phone"].textValue())
+        assertEquals("01200000150", life["phone"].textValue())
         assertTrue(life["delivery"].booleanValue())
         assertEquals(10, life["discount"].intValue())
         val gOpen = ok(null, "pharmacies", mapOf("district" to GZP, "openNow" to true))["items"]
@@ -129,7 +129,7 @@ class DemoServicesIT : DemoTestBase() {
         assertTrue(hs["enabled"].booleanValue())
         assertEquals(2, hs["comments"].size())
         assertEquals(6, hs["ratingCount"].intValue())
-        assertEquals("01700000180", ok(nurse, "provider_me")["provider"]["homeVisit"]["phone"].textValue())
+        assertEquals("01200000180", ok(nurse, "provider_me")["provider"]["homeVisit"]["phone"].textValue())
 
         // ---------- the owner (admin) ----------
         val pend = ok(OWNER, "admin_pharmacies")["items"].first { it["name"].textValue() == "ডেমো আরোগ্য ফার্মেসি" }
@@ -156,7 +156,7 @@ class DemoServicesIT : DemoTestBase() {
         ok(ph, "med_find_answer", mapOf("id" to "demo-svc-find-3", "have" to true))
         ok(ph, "stock_set", mapOf("add" to listOf("Thyrox 50")))
         val save = mapOf(
-            "name" to "ডেমো লাইফ ফার্মেসি", "licenseNo" to "DEMO-DL-1501", "phone" to "01700000150", "district" to GZP, "upazilaId" to 320,
+            "name" to "ডেমো লাইফ ফার্মেসি", "licenseNo" to "DEMO-DL-1501", "phone" to "01200000150", "district" to GZP, "upazilaId" to 320,
             "address" to "শিববাড়ি মোড়, হাসপাতাল রোড, গাজীপুর", "open24" to true, "delivery" to true, "deliveryNote" to "ফ্রি", "discount" to 12,
             "closedDays" to emptyList<Int>(), "termsAccepted" to true,
         )
@@ -168,7 +168,7 @@ class DemoServicesIT : DemoTestBase() {
         val back = ok(ph, "pharmacy_me")["pharmacy"]
         assertEquals("approved", back["status"].textValue())
         assertEquals("DEMO-DL-1501", back["licenseNo"].textValue())
-        val sent = ok(p, "rx_send_pharmacy", mapOf("rxId" to "demo-svc-rx-d", "pharmacyId" to ph, "mode" to "online", "address" to "বাসা ১২, শিববাড়ি", "phone" to "01700000159"))
+        val sent = ok(p, "rx_send_pharmacy", mapOf("rxId" to "demo-svc-rx-d", "pharmacyId" to ph, "mode" to "online", "address" to "বাসা ১২, শিববাড়ি", "phone" to "01200000159"))
         assertTrue(ok(ph, "rx_orders_pharmacy")["items"].any { it["id"].textValue() == sent["id"].textValue() && it["status"].textValue() == "sent" })
         val montene = ok(p, "drug_search", mapOf("q" to "Montene"))["items"][0]
         val mf = ok(p, "med_find", mapOf("i" to montene["i"].intValue(), "district" to GZP, "upazilaId" to 320))
@@ -226,7 +226,7 @@ class DemoServicesIT : DemoTestBase() {
         val est = opts.first { it["id"].textValue() == ph }["estimate"]
         assertTrue(est != null && !est.isNull && est["total"].doubleValue() > 0 && est["priced"].intValue() > 0, "an estimate from the books prices")
         assertTrue(opts.all { it["id"].textValue().startsWith("demo-") }, "the demo patient sees only demo shops")
-        val sent = ok(p, "rx_send_pharmacy", mapOf("rxId" to "demo-svc-rx-d", "pharmacyId" to ph, "mode" to "online", "address" to "বাসা ১২, শিববাড়ি", "phone" to "01700000159"))
+        val sent = ok(p, "rx_send_pharmacy", mapOf("rxId" to "demo-svc-rx-d", "pharmacyId" to ph, "mode" to "online", "address" to "বাসা ১২, শিববাড়ি", "phone" to "01200000159"))
         ok(ph, "rx_order_update", mapOf("id" to sent["id"].textValue(), "status" to "accepted", "price" to "৩৫০ টাকা", "eta" to "১ ঘণ্টা"))
         ok(ph, "rx_order_update", mapOf("id" to sent["id"].textValue(), "status" to "out"))
         ok(ph, "rx_dispense", mapOf("code" to "DEMSVCRXD5", "items" to listOf(mapOf("i" to 0, "qty" to 10))))

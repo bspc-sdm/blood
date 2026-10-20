@@ -204,7 +204,7 @@ export async function run(J) {
   await J.sc('R-17', 'অনলাইনে রিপোর্ট দেখার সেটিং', async () => {
     await tap(page, 'সেটিং বদলান');
     const d = page.getByRole('dialog').last();
-    await J.shot('অনলাইনে রিপোর্ট দেখা — সেটিং', 'চালু, ফি ৩০০ টাকা, নম্বর ০১৭০০০০০২০২, bKash/Nagad।');
+    await J.shot('অনলাইনে রিপোর্ট দেখা — সেটিং', 'চালু, ফি ৩০০ টাকা, নম্বর ০১২০০০০০২০২, bKash/Nagad।');
     const num = d.getByLabel('যে নম্বরে টাকা নেবেন');
     const old = await num.inputValue();
     await num.fill('');
@@ -234,8 +234,8 @@ export async function run(J) {
     await d.getByLabel('নাম').fill('ডেমো রোগী নতুন');
     await d.getByLabel('বয়স (বছর)').fill('30');
     await d.getByText('পুরুষ', { exact: true }).click();
-    await d.getByLabel('মোবাইল নম্বর').fill('01700000399');
-    await J.shot('নতুন রোগী এন্ট্রি', 'নাম ‘ডেমো রোগী নতুন’, ৩০, পুরুষ, ০১৭০০০০০৩৯৯।');
+    await d.getByLabel('মোবাইল নম্বর').fill('01200000399');
+    await J.shot('নতুন রোগী এন্ট্রি', 'নাম ‘ডেমো রোগী নতুন’, ৩০, পুরুষ, ০১২০০০০০৩৯৯।');
     await d.getByRole('button', { name: 'সেভ' }).click();
     await see(page, 'রোগী যোগ হয়েছে');
     await J.shot('রোগী যোগ হলো', '‘রোগী যোগ হয়েছে’; ‘এন্ট্রি করা রোগী’-তে নতুন নাম।', { full: true });
@@ -243,7 +243,7 @@ export async function run(J) {
     const d2 = page.getByRole('dialog').last();
     await d2.getByLabel('নাম').fill('ডেমো রোগী নতুন');
     await d2.getByLabel('বয়স (বছর)').fill('30');
-    await d2.getByLabel('মোবাইল নম্বর').fill('01700000399');
+    await d2.getByLabel('মোবাইল নম্বর').fill('01200000399');
     await d2.getByRole('button', { name: 'সেভ' }).click();
     await settle(page, 400);
     await J.shot('একই রোগী আবার', '‘এই রোগী আগে থেকেই ছিলেন’।');
@@ -278,7 +278,7 @@ export async function run(J) {
     await d.getByRole('button', { name: 'যোগ করুন' }).click();
     await settle(page, 400);
     await J.shot('ভুল নম্বরে আটকায়', '‘প্রোফাইলের বা পরিবারের সদস্যের মোবাইল নম্বরটাই দিন’।');
-    await inputs.nth(1).fill('01700001101');
+    await inputs.nth(1).fill('01200001101');
     await d.getByRole('button', { name: 'যোগ করুন' }).click();
     await settle(page, 600);
     await J.shot('কাগজের প্রেসক্রিপশন যোগ হলো', '‘১টা প্রেসক্রিপশন যোগ হয়েছে’ — Acute URTI (Fexo, Napa; RBS)।', { full: true });

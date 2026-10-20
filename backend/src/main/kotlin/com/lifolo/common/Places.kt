@@ -49,7 +49,11 @@ object Places {
 
 /** Bangladeshi phone numbers (server/lib/care.js normalizeBd, localBd, fixPhone, contactPhone, normId). */
 object Phones {
-    private val MOBILE = Regex("^01[3-9]\\d{8}$")
+    /**
+     * operator numbers 013–019, plus 0120000xxxx: the demo world's numbers — no operator issues 012, so a demo listing's
+     * phone can never ring a real person (security audit, Oct 2026)
+     */
+    private val MOBILE = Regex("^01[3-9]\\d{8}$|^0120000\\d{4}$")
 
     /** any mobile format → "8801XXXXXXXXX", else null */
     fun normalizeBd(raw: String?): String? {

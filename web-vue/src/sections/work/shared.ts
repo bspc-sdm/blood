@@ -94,7 +94,7 @@ export function hoursText(x: { open24: boolean; openAt: string; closeAt: string 
 export function isContactPhone(raw: string): boolean {
   const d = raw.replace(/[০-৯]/g, (c) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/\D/g, '');
   const local = d.startsWith('880') ? '0' + d.slice(3) : d;
-  return /^0?1[3-9]\d{8}$/.test(local) || /^1\d{4}$/.test(d) || /^0[2-9]\d{7,9}$/.test(local);
+  return /^0?(1[3-9]\d{8}|120000\d{4})$/.test(local) || /^1\d{4}$/.test(d) || /^0[2-9]\d{7,9}$/.test(local);
 }
 export const phoneInput = (v: string) => v.replace(/[০-৯]/g, (c) => String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/[^\d+]/g, '').slice(0, 15);
 

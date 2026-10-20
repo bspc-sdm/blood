@@ -103,7 +103,7 @@ function validate(): string | null {
     if (homeTimes.some((t) => !t.start || !t.end || t.start === t.end)) return tr('Set the start and end time for home visits', 'বাসায় যাওয়ার শুরু আর শেষের সময় দিন');
     if (clash([{ slots: homeTimes }])) return tr('Two home-visit times overlap on the same day', 'বাসায় যাওয়ার দুটো সময় একই বারে মিলে যাচ্ছে');
     if (!h.fee.trim() && !h.noFee) return tr('Enter the home care fee, or tick "No fee"', 'বাসায় সেবার ফি দিন, অথবা "ফি চাই না" টিক দিন');
-    if (!/^(\+?88)?01[3-9]\d{8}$/.test(h.phone)) return tr('Enter a valid mobile number for home care', 'বাসায় সেবার জন্য সঠিক মোবাইল নম্বর দিন');
+    if (!/^(\+?88)?0(1[3-9]\d{8}|120000\d{4})$/.test(h.phone)) return tr('Enter a valid mobile number for home care', 'বাসায় সেবার জন্য সঠিক মোবাইল নম্বর দিন');
     if (!homeAgreed.value) return tr('Please accept the home care terms', 'বাসায় সেবার শর্তে সম্মতি দিন');
     if (!gpsPlace.value && !h.upazilaIds.length) return tr('Set your current location or choose upazilas for home care', 'বাসায় সেবার জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন');
   }

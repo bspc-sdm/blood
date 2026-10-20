@@ -151,10 +151,10 @@ class DemoRx(
             )
             return jdbc.queryForList("SELECT name, phone FROM user_profiles WHERE uid = ?", uid).first()
         }
-        val patProfile = profile(pat.uid, pat.name, "01700000101")
-        profile(doc.uid, doc.name, "01700000201")
-        profile(asst.uid, asst.name, "01700000203")
-        val patPhone = Phones.localBd(Phones.normalizeBd(patProfile["phone"] as? String) ?: "8801700000101")
+        val patProfile = profile(pat.uid, pat.name, "01200000101")
+        profile(doc.uid, doc.name, "01200000201")
+        profile(asst.uid, asst.name, "01200000203")
+        val patPhone = Phones.localBd(Phones.normalizeBd(patProfile["phone"] as? String) ?: "8801200000101")
 
         // pharmacy: when missing an approved listing; else only what prescriptions need (shop code, online sales)
         val shop = jdbc.queryForList("SELECT name, shop_code, online_enabled, online_fee, status FROM pharmacies WHERE uid = ?", shopU.uid).firstOrNull()
@@ -163,7 +163,7 @@ class DemoRx(
             sql.insert(
                 "pharmacies",
                 linkedMapOf(
-                    "uid" to shopU.uid, "name" to "ডেমো লাইফ ফার্মেসি", "license_no" to "DEMO-DL-1501", "phone" to "01700000150", "district" to gzp,
+                    "uid" to shopU.uid, "name" to "ডেমো লাইফ ফার্মেসি", "license_no" to "DEMO-DL-1501", "phone" to "01200000150", "district" to gzp,
                     "upazila_id" to SADAR, "address" to "ডেমো ভবন, শিববাড়ি মোড়, জয়দেবপুর, গাজীপুর", "lat" to loc.lat, "lng" to loc.lng, "open24" to true,
                     "open_at" to "", "close_at" to "", "closed_days" to sql.ints(emptyList(), "smallint"), "delivery" to true,
                     "delivery_note" to "শহরের ভেতরে ৩০ টাকা", "discount" to 5, "status" to "approved", "created_at" to sql.ts(now - 90 * DAY),
@@ -190,7 +190,7 @@ class DemoRx(
                 "labs",
                 linkedMapOf(
                     "uid" to labU.uid, "name" to "ডেমো সিটি ডায়াগনস্টিক সেন্টার", "facility_id" to null, "district" to gzp, "upazila_id" to SADAR,
-                    "address" to "ডেমো টাওয়ার, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর", "license_no" to "DEMO-HSM-2201", "phone" to "01700000160",
+                    "address" to "ডেমো টাওয়ার, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর", "license_no" to "DEMO-HSM-2201", "phone" to "01200000160",
                     "hours" to "সকাল ৮টা – রাত ১০টা", "home_collection" to true, "status" to "approved", "created_at" to sql.ts(now - 90 * DAY),
                     "updated_at" to sql.ts(now - 90 * DAY), "reviewed_at" to sql.ts(now - 89 * DAY),
                 ),
@@ -210,7 +210,7 @@ class DemoRx(
         val ch1 = chamber(
             "dghs_22839", room = "ডেমো চেম্বার · বহির্বিভাগ ৩১২",
             times = listOf(Slot(ALL_DAYS, "10:00", "13:00"), Slot(ALL_DAYS, "16:00", "01:00")),
-            fee = "৫০০ টাকা", serialPhone = "01700000202", schedule = "ডেমো চেম্বার — প্রতিদিন খোলা",
+            fee = "৫০০ টাকা", serialPhone = "01200000202", schedule = "ডেমো চেম্বার — প্রতিদিন খোলা",
         )
         val ch2 = chamber("dghs_137", room = "ডেমো চেম্বার · রুম ৫", times = one(listOf(5), "14:00", "15:30"), fee = "৪০০ টাকা", schedule = "শুক্রবার শুধু ফলো-আপ (ডেমো)")
         val docChambers = listOf(ch1, ch2)
@@ -232,7 +232,7 @@ class DemoRx(
             linkedMapOf(
                 "uid" to doc.uid, "type" to "doctor", "name" to docName, "listed" to true, "appointments" to true, "active" to true,
                 "specialties" to sql.texts(listOf("medicine", "endocrinology")), "degrees" to docDegrees, "gender" to "male", "legacy_chamber" to false,
-                "review_enabled" to true, "review_no_fee" to false, "review_fee" to "৩০০ টাকা", "review_pay_number" to "01700000202",
+                "review_enabled" to true, "review_no_fee" to false, "review_fee" to "৩০০ টাকা", "review_pay_number" to "01200000202",
                 "review_pay_methods" to sql.texts(listOf("bkash", "nagad")), "updated_at" to sql.ts(now - 30 * DAY),
             ),
         )
@@ -246,35 +246,35 @@ class DemoRx(
         )
         val others = listOf(
             Other(
-                "rx-doc-nasrin", "ডা. ডেমো নাসরিন আক্তার", "female", listOf("gynecology"), "MBBS, FCPS (Gynae & Obs)", "01700000211",
-                listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · গাইনি বহির্বিভাগ", times = one(listOf(6, 1, 3), "15:00", "17:00"), fee = "৮০০ টাকা", serialPhone = "01700000211")),
+                "rx-doc-nasrin", "ডা. ডেমো নাসরিন আক্তার", "female", listOf("gynecology"), "MBBS, FCPS (Gynae & Obs)", "01200000211",
+                listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · গাইনি বহির্বিভাগ", times = one(listOf(6, 1, 3), "15:00", "17:00"), fee = "৮০০ টাকা", serialPhone = "01200000211")),
             ),
             Other(
-                "rx-doc-kamrul", "ডা. ডেমো কামরুল ইসলাম", "male", listOf("pediatrics"), "MBBS, DCH (Child Health)", "01700000212",
+                "rx-doc-kamrul", "ডা. ডেমো কামরুল ইসলাম", "male", listOf("pediatrics"), "MBBS, DCH (Child Health)", "01200000212",
                 listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · শিশু বহির্বিভাগ", times = one(listOf(0, 2, 4), "15:00", "18:00"), fee = "৬০০ টাকা")),
                 change = "DEMO-A-55555" to "ডেমো শিশু চেম্বার, শিববাড়ি (সংশোধন)",
             ),
             Other(
-                "rx-doc-mahbub", "ডা. ডেমো মাহবুব আলম", "male", listOf("cardiology", "medicine"), "MBBS, MD (Cardiology)", "01700000213",
-                listOf(chamber("dghs_147", room = "ডেমো চেম্বার · হৃদরোগ কক্ষ", times = one(listOf(6, 0, 1, 2, 3), "16:00", "20:00"), fee = "১০০০ টাকা", serialPhone = "01700000213")),
+                "rx-doc-mahbub", "ডা. ডেমো মাহবুব আলম", "male", listOf("cardiology", "medicine"), "MBBS, MD (Cardiology)", "01200000213",
+                listOf(chamber("dghs_147", room = "ডেমো চেম্বার · হৃদরোগ কক্ষ", times = one(listOf(6, 0, 1, 2, 3), "16:00", "20:00"), fee = "১০০০ টাকা", serialPhone = "01200000213")),
             ),
             Other(
-                "rx-doc-farzana", "ডা. ডেমো ফারজানা হক", "female", listOf("dermatology"), "MBBS, DDV (Skin & VD)", "01700000214",
-                listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · চর্ম বহির্বিভাগ", times = one(listOf(6, 0, 1, 2, 3, 4), "10:00", "12:00"), fee = "৭০০ টাকা", serialPhone = "01700000214", appointments = false)),
+                "rx-doc-farzana", "ডা. ডেমো ফারজানা হক", "female", listOf("dermatology"), "MBBS, DDV (Skin & VD)", "01200000214",
+                listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · চর্ম বহির্বিভাগ", times = one(listOf(6, 0, 1, 2, 3, 4), "10:00", "12:00"), fee = "৭০০ টাকা", serialPhone = "01200000214", appointments = false)),
                 noAppt = true,
             ),
             Other(
-                "rx-doc-tanvir", "ডা. ডেমো তানভীর রহমান", "male", listOf("orthopedics"), "MBBS, D-Ortho", "01700000215",
+                "rx-doc-tanvir", "ডা. ডেমো তানভীর রহমান", "male", listOf("orthopedics"), "MBBS, D-Ortho", "01200000215",
                 listOf(chamber("dghs_22839", room = "ডেমো চেম্বার · হাড় ও জোড়া", times = one(listOf(0, 2), "18:00", "21:00"), fee = "৭০০ টাকা")),
                 pending = true,
             ),
             // 2.33.0 (doctor list filters): the emergency duty doctor — sits in Dr Hasan's gaps (01–10, 13–16), so at any
             // Dhaka hour someone is "in the chamber now"; fee 300 ("up to ৳300"), Kaliakair, female
             Other(
-                "rx-doc-rubina", "ডা. ডেমো রুবিনা ইয়াসমিন", "female", listOf("general"), "MBBS (জরুরি বিভাগ)", "01700000216",
+                "rx-doc-rubina", "ডা. ডেমো রুবিনা ইয়াসমিন", "female", listOf("general"), "MBBS (জরুরি বিভাগ)", "01200000216",
                 listOf(
                     chamber(
-                        "dghs_137", room = "ডেমো চেম্বার · জরুরি বিভাগ", fee = "৩০০ টাকা", serialPhone = "01700000216", schedule = "জরুরি বিভাগের ডিউটি (ডেমো)",
+                        "dghs_137", room = "ডেমো চেম্বার · জরুরি বিভাগ", fee = "৩০০ টাকা", serialPhone = "01200000216", schedule = "জরুরি বিভাগের ডিউটি (ডেমো)",
                         times = listOf(Slot(ALL_DAYS, "01:00", "10:00"), Slot(ALL_DAYS, "13:00", "16:00")),
                     ),
                 ),
@@ -321,15 +321,15 @@ class DemoRx(
         // patients (background, no login)
         // ---------------------------------------------------------------
         val pats = linkedMapOf(
-            "salma" to listOf("ডেমো রোগী সালমা খাতুন", 38, "female", "01700000311"),
-            "karim" to listOf("ডেমো রোগী আব্দুল করিম", 58, "male", "01700000312"),
-            "nasima" to listOf("ডেমো রোগী নাসিমা বেগম", 45, "female", "01700000313"),
-            "habib" to listOf("ডেমো রোগী হাবিবুর রহমান", 33, "male", "01700000314"),
-            "shirin" to listOf("ডেমো রোগী শিরিন আক্তার", 29, "female", "01700000315"),
-            "fatema" to listOf("ডেমো রোগী ফাতেমা বেগম", 61, "female", "01700000316"),
-            "moriom" to listOf("ডেমো রোগী মরিয়ম নেসা", 52, "female", "01700000317"),
-            "rashed" to listOf("ডেমো রোগী রাশেদুল ইসলাম", 49, "male", "01700000319"),
-            "kamal" to listOf("ডেমো রোগী কামাল হোসেন", 40, "male", "01700000318"),
+            "salma" to listOf("ডেমো রোগী সালমা খাতুন", 38, "female", "01200000311"),
+            "karim" to listOf("ডেমো রোগী আব্দুল করিম", 58, "male", "01200000312"),
+            "nasima" to listOf("ডেমো রোগী নাসিমা বেগম", 45, "female", "01200000313"),
+            "habib" to listOf("ডেমো রোগী হাবিবুর রহমান", 33, "male", "01200000314"),
+            "shirin" to listOf("ডেমো রোগী শিরিন আক্তার", 29, "female", "01200000315"),
+            "fatema" to listOf("ডেমো রোগী ফাতেমা বেগম", 61, "female", "01200000316"),
+            "moriom" to listOf("ডেমো রোগী মরিয়ম নেসা", 52, "female", "01200000317"),
+            "rashed" to listOf("ডেমো রোগী রাশেদুল ইসলাম", 49, "male", "01200000319"),
+            "kamal" to listOf("ডেমো রোগী কামাল হোসেন", 40, "male", "01200000318"),
         )
         val bp = HashMap<String, Person>()
         for ((k, v) in pats) {
@@ -464,8 +464,8 @@ class DemoRx(
             )
             return id
         }
-        val p1 = rxPat("demo-rx-pat-jamila", "ডেমো রোগী জমিলা খাতুন", 62, "female", "01700000321", now - 12 * DAY, now - 10 * DAY)
-        rxPat("demo-rx-pat-malek", "ডেমো রোগী আব্দুল মালেক", 70, "male", "01700000322", now - 3 * 3600 * 1000, 0)
+        val p1 = rxPat("demo-rx-pat-jamila", "ডেমো রোগী জমিলা খাতুন", 62, "female", "01200000321", now - 12 * DAY, now - 10 * DAY)
+        rxPat("demo-rx-pat-malek", "ডেমো রোগী আব্দুল মালেক", 70, "male", "01200000322", now - 3 * 3600 * 1000, 0)
         val p3 = rxPat("demo-rx-pat-paper", me.name, me.age, me.gender, me.phone, now - 31 * DAY, now - 30 * DAY)
 
         // ---------------------------------------------------------------
@@ -734,7 +734,7 @@ class DemoRx(
             val row = linkedMapOf<String, Any?>(
                 "lab_order_id" to labOrderId, "rx_id" to r.id, "doctor_uid" to doc.uid, "doctor_name" to docName, "patient_uid" to p.uid,
                 "patient_name" to r.patient.name, "lab_name" to labName, "tests" to sql.texts(tests), "status" to status, "fee" to "৩০০ টাকা",
-                "no_fee" to false, "pay_number" to "01700000202", "pay_methods" to sql.texts(listOf("bkash", "nagad")),
+                "no_fee" to false, "pay_number" to "01200000202", "pay_methods" to sql.texts(listOf("bkash", "nagad")),
                 "created_at" to sql.ts(createdAt), "updated_at" to sql.ts(updatedAt ?: createdAt),
             )
             row.putAll(extra)

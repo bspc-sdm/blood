@@ -82,9 +82,9 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         // everyone in the district centre, source "district" (opening the app does not move them by GPS)
         val home = Places.district(DISTRICT)!!.let { d -> round2(d.lat).let { la -> round2(d.lng).let { lo -> Spot(la, lo, Geo.hash(la, lo)!!) } } }
         val phones = linkedMapOf(
-            "patient" to "01700001101", "donor" to "01700001102", "doctor" to "01700001103", "assistant" to "01700001104",
-            "pharmacy" to "01700001105", "lab" to "01700001106", "ambulance" to "01700001107", "bloodbank" to "01700001108",
-            "homecare" to "01700001109", "caregiver" to "01700001110",
+            "patient" to "01200001101", "donor" to "01200001102", "doctor" to "01200001103", "assistant" to "01200001104",
+            "pharmacy" to "01200001105", "lab" to "01200001106", "ambulance" to "01200001107", "bloodbank" to "01200001108",
+            "homecare" to "01200001109", "caregiver" to "01200001110",
         )
         val settings = linkedMapOf<String, Any?>("notify" to true, "max_push_per_day" to Rules.MAX_PUSH_PER_DAY, "notify_groups" to null, "view_groups" to null, "max_km" to 10)
         for ((key, phone) in phones) {
@@ -129,7 +129,7 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
             maxKm: Int? = null,
             fareAfterKm: Int? = null,
         ): Person {
-            val phone = "017000012${(phoneNo++).toString().padStart(2, '0')}"
+            val phone = "012000012${(phoneNo++).toString().padStart(2, '0')}"
             val loc = spot(ctx, dx, dy)
             val profile = linkedMapOf<String, Any?>("name" to name, "phone" to phone, "lang" to "bn", "updated_at" to Timestamp(now))
             profile.putAll(locationFields(now, loc, group))
@@ -360,7 +360,7 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         emergency(
             e1, "ডেমো তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল (জরুরি বিভাগ)", eLoc.lat, eLoc.lng, true, radiusKm,
             listOf(listOf("O+", 4, 1, 6, false), listOf("A+", 3, 0, 4, false), listOf("B-", 1, 1, 3, true)),
-            "01700001310", "ডেমো আহ্বান (আসল নয়) — বাস দুর্ঘটনা, জরুরি বিভাগের ব্লাড ব্যাংকে আসুন", "active",
+            "01200001310", "ডেমো আহ্বান (আসল নয়) — বাস দুর্ঘটনা, জরুরি বিভাগের ব্লাড ব্যাংকে আসুন", "active",
             now - 2 * HOUR, now + 46 * HOUR, null, 1, now - 2 * HOUR,
         )
         emDonor(e1, by("rafiq").uid, by("rafiq").group, "coming", now - 2 * HOUR)
@@ -371,7 +371,7 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         val e2 = "demo-em-ended"
         emergency(
             e2, "ডেমো সদর হাসপাতাল, গাজীপুর", home.lat, home.lng, false, 10, listOf(listOf("O+", 2, 2, 6, true)),
-            "01700001311", "ডেমো আহ্বান (আসল নয়) — শেষ হয়েছে", "closed",
+            "01200001311", "ডেমো আহ্বান (আসল নয়) — শেষ হয়েছে", "closed",
             now - 2 * day - 12 * HOUR, now - 2 * day, now - 2 * day, 2, now - 2 * day - 10 * HOUR,
         )
         emDonor(e2, donorUid, "O+", "coming", now - 2 * day - 11 * HOUR)
@@ -442,21 +442,21 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         val docTime = now - 3 * HOUR
         val bbUid = ctx.user("bloodbank").uid
         bank(
-            "demo-bb-mine", bbUid, "ডেমো জীবনধারা ব্লাড ব্যাংক", "private", "01700001301", "ডেমো ভবন, শিববাড়ি মোড়", allServices, "approved",
+            "demo-bb-mine", bbUid, "ডেমো জীবনধারা ব্লাড ব্যাংক", "private", "01200001301", "ডেমো ভবন, শিববাড়ি মোড়", allServices, "approved",
             licenseNo = "DEMO-BB-0001", open24 = true, docs = linkedMapOf("front" to docTime, "license" to docTime),
             calls = listOf(3, 5, 2, 0, 4, 6, 1, 2, 0, 3, 2, 5, 1, 0, 2),
         )
         bank(
-            "demo-bb-pending", bbUid, "ডেমো রক্তবন্ধু স্বেচ্ছাসেবী সংগঠন", "org", "01700001302", "ডেমো অফিস, জয়দেবপুর বাজার",
+            "demo-bb-pending", bbUid, "ডেমো রক্তবন্ধু স্বেচ্ছাসেবী সংগঠন", "org", "01200001302", "ডেমো অফিস, জয়দেবপুর বাজার",
             listOf("whole_blood", "donate_here"), "pending", openAt = "10:00", closeAt = "18:00", ageDays = 1, docs = linkedMapOf("front" to docTime),
         )
         bank(
-            "demo-bb-govt", by("bbowner").uid, "ডেমো সদর হাসপাতাল ব্লাড ব্যাংক", "govt", "01700001303", "ডেমো সদর হাসপাতাল, ২য় তলা, হাসপাতাল রোড",
+            "demo-bb-govt", by("bbowner").uid, "ডেমো সদর হাসপাতাল ব্লাড ব্যাংক", "govt", "01200001303", "ডেমো সদর হাসপাতাল, ২য় তলা, হাসপাতাল রোড",
             listOf("whole_blood", "screening", "donate_here"), "approved", openAt = "08:00", closeAt = "20:00", closedDays = listOf(5),
             calls = listOf(1, 0, 2, 1),
         )
         bank(
-            "demo-bb-club", null, "ডেমো আলোর পথ ব্লাড ডোনার ক্লাব", "org", "01700001304", "ডেমো ক্লাবঘর, ছায়াবীথি",
+            "demo-bb-club", null, "ডেমো আলোর পথ ব্লাড ডোনার ক্লাব", "org", "01200001304", "ডেমো ক্লাবঘর, ছায়াবীথি",
             listOf("whole_blood", "platelets", "donate_here"), "approved", openAt = "09:00", closeAt = "17:00", ageDays = 60, calls = listOf(0, 1, 0, 0, 2),
         )
         // for the admin's report list: a bad experience after calling the government blood bank
@@ -471,7 +471,7 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         jdbc.update(
             """
             INSERT INTO hospitals (id, name_en, name_bn, type, district, upazila_id, union_id, address, phone, norm_key, source, status, created_at)
-            VALUES ('demo-hosp-joydebpur', ?, ?, 'private_hospital', ?, ?, NULL, ?, '01700001320', ?, 'user', 'approved', ?)
+            VALUES ('demo-hosp-joydebpur', ?, ?, 'private_hospital', ?, ?, NULL, ?, '01200001320', ?, 'user', 'approved', ?)
             """.trimIndent(),
             "Demo Joydebpur General Hospital", "ডেমো জয়দেবপুর জেনারেল হাসপাতাল", DISTRICT, SADAR, "ডেমো রোড, জয়দেবপুর",
             normalizeName("Demo Joydebpur General Hospital"), Timestamp(now - 50 * day),
@@ -480,7 +480,7 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
         jdbc.update(
             """
             INSERT INTO hospital_requests (id, name_en, name_bn, type, district, upazila_id, union_id, address, phone, norm_key, count, status, created_at)
-            VALUES ('demo-hreq-chayabithi', ?, ?, 'clinic', ?, ?, NULL, ?, '01700001321', ?, 2, 'pending', ?)
+            VALUES ('demo-hreq-chayabithi', ?, ?, 'clinic', ?, ?, NULL, ?, '01200001321', ?, 2, 'pending', ?)
             """.trimIndent(),
             "Demo Chayabithi Mother and Child Clinic", "ডেমো ছায়াবীথি মা ও শিশু ক্লিনিক", DISTRICT, SADAR, "ডেমো গলি, ছায়াবীথি",
             normalizeName("Demo Chayabithi Mother and Child Clinic"), Timestamp(now - 20 * HOUR),

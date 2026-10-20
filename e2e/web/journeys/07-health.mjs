@@ -137,7 +137,7 @@ export async function run(J) {
   await J.sc('H-22', 'পরিবারের সদস্য (নিজের অ্যাকাউন্ট নেই)', async () => {
     page = await J.as('patient');
     await go(page, '/care');
-    await J.shot('কেয়ারগিভার ও পরিবার (রহিম)', 'পরিবার: ‘ডেমো মা রাবেয়া বেগম’ (মা · ৬৮ · ০১৭০০০০০৪০৮), ‘ডেমো ছেলে তামিম’ (ছেলে · ৯)।', { full: true });
+    await J.shot('কেয়ারগিভার ও পরিবার (রহিম)', 'পরিবার: ‘ডেমো মা রাবেয়া বেগম’ (মা · ৬৮ · ০১২০০০০০৪০৮), ‘ডেমো ছেলে তামিম’ (ছেলে · ৯)।', { full: true });
     await tap(page, 'পরিবারের সদস্য যোগ করুন');
     const d = page.getByRole('dialog').last();
     await d.getByLabel('নাম').fill('ডেমো বাবা জব্বার');

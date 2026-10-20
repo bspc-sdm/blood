@@ -9,6 +9,7 @@ import com.lifolo.common.Rules
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
+import com.lifolo.appointments.PhoneCheck
 import com.lifolo.common.intOrNull
 import com.lifolo.common.stringArray
 import com.lifolo.contracts.Badges
@@ -42,6 +43,7 @@ class RxActions(
     private val labs: LabService,
     private val labStore: LabStore,
     private val props: LifoloProperties,
+    private val phoneCheck: PhoneCheck,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "rx_me" to ActionHandler(::rxMe),
@@ -447,7 +449,16 @@ class RxActions(
             throw ctx.err(409, "This prescription is already added to another account", "এই প্রেসক্রিপশন আরেকটা অ্যাকাউন্টে যোগ করা আছে")
         }
         jdbc.update("UPDATE rx_patients SET linked_uid = ? WHERE id = ?", uid, pid)
-        val added = jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE rx_patient_id = ?", uid, pid)
+        // The code proves this one prescription. The patient's earlier ones from this doctor come along only when the
+        // phone is really verified (SMS on and the profile's own number verified) — a phone number typed into a profile
+        // is not proof, so code + someone's number must not open their whole history. (Before: always all of them.)
+        val proven = phoneCheck.enabled() && phoneCheck.isVerified(uid) &&
+            Phones.normalizeBd(jdbc.queryForList("SELECT phone FROM user_profiles WHERE uid = ?", String::class.java, uid).firstOrNull()) == phone
+        val added = if (proven) {
+            jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE rx_patient_id = ?", uid, pid)
+        } else {
+            jdbc.update("UPDATE prescriptions SET patient_uid = ? WHERE id = ?", uid, rx.first)
+        }
         return linkedMapOf("ok" to true, "added" to added)
     }
 

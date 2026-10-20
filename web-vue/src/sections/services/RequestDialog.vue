@@ -100,7 +100,7 @@ async function send() {
     ?? (!dest.value ? tr('Choose where to go', '"কোথায় যাবেন" বেছে নিন') : null)
     ?? (budgetBad.value ? tr('Write the fare limit in whole taka (৳100 or more)', 'সর্বোচ্চ ভাড়া পুরো টাকায় লিখুন (৳১০০ বা বেশি)') : null)
     ?? (count.value && count.value.count === 0 ? tr('No ambulance within this fare — raise the fare', 'এই ভাড়ায় কোনো গাড়ি নেই — ভাড়া বাড়ান') : null)
-    ?? (!/^(\+?880|0)?1[3-9]\d{8}$/.test(phone.value.replace(/[\s-]/g, '')) ? tr('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন') : null);
+    ?? (!/^(\+?880|0)?(1[3-9]\d{8}|120000\d{4})$/.test(phone.value.replace(/[\s-]/g, '')) ? tr('Enter a valid mobile number', 'সঠিক মোবাইল নম্বর দিন') : null);
   err.value = e;
   if (e) return;
   busy.value = true;

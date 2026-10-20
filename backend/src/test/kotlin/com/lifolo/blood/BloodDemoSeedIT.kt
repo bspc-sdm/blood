@@ -159,9 +159,9 @@ class BloodDemoSeedIT : BloodTestBase() {
 
         val ok = http("/api/respond", D, mapOf("requestId" to "demo-rq-patient-open"))
         assertEquals(200, ok.status, ok.toString())
-        assertEquals("01700001102", row("SELECT donor_phone FROM blood_responses WHERE request_id = 'demo-rq-patient-open' AND donor_uid = ?", D)["donor_phone"])
+        assertEquals("01200001102", row("SELECT donor_phone FROM blood_responses WHERE request_id = 'demo-rq-patient-open' AND donor_uid = ?", D)["donor_phone"])
         assertEquals(3, row("SELECT accepted_count FROM blood_requests WHERE id = 'demo-rq-patient-open'")["accepted_count"])
-        assertEquals("01700001101", row("SELECT phone FROM blood_request_contacts WHERE request_id = 'demo-rq-patient-open'")["phone"])
+        assertEquals("01200001101", row("SELECT phone FROM blood_request_contacts WHERE request_id = 'demo-rq-patient-open'")["phone"])
         assertTrue(inbox(P).any { it.contains("রাজি") })
 
         assertEquals(200, http("/api/respond", D, mapOf("requestId" to "demo-rq-fare")).status)
@@ -190,7 +190,7 @@ class BloodDemoSeedIT : BloodTestBase() {
         val c = call(
             P, "request_create",
             mapOf(
-                "requesterName" to "ডেমো রোগী রহিম", "requesterPhone" to "01700001101", "patientGroup" to "O+", "bags" to 1,
+                "requesterName" to "ডেমো রোগী রহিম", "requesterPhone" to "01200001101", "patientGroup" to "O+", "bags" to 1,
                 "hospital" to "ডেমো জয়দেবপুর জেনারেল হাসপাতাল", "placeName" to district, "lat" to 24.00, "lng" to 90.43,
                 "neededByMillis" to today() + DAY, "note" to "ডেমো",
             ),

@@ -62,15 +62,15 @@ export async function run(J) {
     if (await copy.count()) {
       await copy.click();
       await see(page, 'কপি হয়েছে');
-      await J.shot('নম্বর কপি', '‘কপি হয়েছে’; নম্বর 01700000170।');
+      await J.shot('নম্বর কপি', '‘কপি হয়েছে’; নম্বর 01200000170।');
     }
     const call = page.locator('a[href^="tel:"]').filter({ hasText: /^ফোন/ }).first();
     const href = await call.getAttribute('href');
-    if (!/01700000170/.test(href || '')) throw new Error(`ফোনের লিংক ভুল: ${href}`);
+    if (!/01200000170/.test(href || '')) throw new Error(`ফোনের লিংক ভুল: ${href}`);
     // tel: লিংক — ব্রাউজারে আসল ফোন হয় না; চাপা গোনা হয় (মালিকের হিসাবে)
     await call.click({ noWaitAfter: true }).catch(() => {});
     await settle(page);
-    await J.shot('ফোন করুন চাপা (tel:01700000170)', 'ফোনের লিংক ০১৭০০০০০১৭০; অ্যাপ থেকে ফোন হিসেবে গোনা হয়।');
+    await J.shot('ফোন করুন চাপা (tel:01200000170)', 'ফোনের লিংক ০১২০০০০০১৭০; অ্যাপ থেকে ফোন হিসেবে গোনা হয়।');
   });
 
   await J.sc('S-81', 'রোগী: বড় বাটনে এক চাপে ফোন', async () => {
@@ -79,7 +79,7 @@ export async function run(J) {
     const href = await big.getAttribute('href').catch(() => null);
     await big.click({ noWaitAfter: true }).catch(() => {});
     await settle(page);
-    await J.shot('বড় বাটনে এক চাপ', `এক চাপেই ডায়ালার — নম্বর ০১৭০০০০০১৭০${href ? ` (লিংক ${href})` : ''}।`);
+    await J.shot('বড় বাটনে এক চাপ', `এক চাপেই ডায়ালার — নম্বর ০১২০০০০০১৭০${href ? ` (লিংক ${href})` : ''}।`);
   });
 
   await J.sc('J-84', 'চালকের দিক: ফোনের হিসাব, রেটিং, খালি/ট্রিপে', async () => {

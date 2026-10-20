@@ -41,7 +41,7 @@ class AmbulanceDemoIT : AmbTestBase() {
     }
 
     private fun seed() {
-        person(P, name = "ডেমো রোগী রহিম", phone = "01700000101")
+        person(P, name = "ডেমো রোগী রহিম", phone = "01200000101")
         demo.seed(Ctx(now()))
         clearPushes()
     }
@@ -93,12 +93,12 @@ class AmbulanceDemoIT : AmbTestBase() {
             "area" to ac["area"].textValue(), "termsAccepted" to true,
         )
         assertFalse(ok(DA, "ambulance_save", base + mapOf("fare" to "ঢাকা ৭০০০ টাকা"))["pending"].booleanValue(), "a fare change needs no review")
-        assertTrue(ok(DA, "ambulance_save", base + mapOf("phone" to "01700000188"))["pending"].booleanValue())
+        assertTrue(ok(DA, "ambulance_save", base + mapOf("phone" to "01200000188"))["pending"].booleanValue())
 
         val nw = call(
             DA, "ambulance_save",
             mapOf(
-                "name" to "ডেমো জীবন ফ্রিজার ভ্যান", "phone" to "01700000189", "vehicleNo" to "গাজীপুর-ছ ১১-২২৩৩", "types" to listOf("freezer"),
+                "name" to "ডেমো জীবন ফ্রিজার ভ্যান", "phone" to "01200000189", "vehicleNo" to "গাজীপুর-ছ ১১-২২৩৩", "types" to listOf("freezer"),
                 "district" to GAZIPUR, "upazilaId" to 320, "area" to "শিববাড়ি", "fare" to "ফোনে জেনে নিন", "termsAccepted" to true,
             ),
         )
@@ -176,7 +176,7 @@ class AmbulanceDemoIT : AmbTestBase() {
         val c = ok(P, "ambreq_count", body)
         assertTrue(c["count"].intValue() >= 1, c.toString())
         assertTrue(c["hospitals"].any { it.textValue().contains("তাজ উদ্দীন") })
-        val r = ok(P, "ambreq_create", body + mapOf("pickup" to "ডেমো: শিববাড়ি মোড়", "phone" to "01700000101"))
+        val r = ok(P, "ambreq_create", body + mapOf("pickup" to "ডেমো: শিববাড়ি মোড়", "phone" to "01200000101"))
         val id = r["id"].textValue()
         assertTrue(sentTo(id).all { it.startsWith("demo-") })
         val card = driverList(DA).first { it["id"].textValue() == id }
@@ -198,7 +198,7 @@ class AmbulanceDemoIT : AmbTestBase() {
             P, "ambreq_create",
             mapOf(
                 "district" to GAZIPUR, "upazilaId" to 320, "lat" to c0.CENTER_LAT, "lng" to c0.CENTER_LNG, "gps" to true,
-                "pickup" to "ডেমো: শিববাড়ি মোড়, জয়দেবপুর", "phone" to "01700000101",
+                "pickup" to "ডেমো: শিববাড়ি মোড়, জয়দেবপুর", "phone" to "01200000101",
             ),
         )
         val id = r["id"].textValue()

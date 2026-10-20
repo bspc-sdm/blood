@@ -167,12 +167,12 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         // =====================================================================
         val pharmacyUser = ctx.user("pharmacy")
         val ph = pharmacyUser.uid
-        sql.profileDefaults(ph, pharmacyUser.name, "01700000150", gzp)
+        sql.profileDefaults(ph, pharmacyUser.name, "01200000150", gzp)
         // the demo pharmacy (login) — approved, online sales, stock; open 24 h like the rx part (night tests of the guide)
         pharmacy(
             ctx, ph,
             Shop(
-                "ডেমো লাইফ ফার্মেসি", "DEMO-DL-1501", "01700000150", loc(0.3, 0.2), "শিববাড়ি মোড়, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর", "approved",
+                "ডেমো লাইফ ফার্মেসি", "DEMO-DL-1501", "01200000150", loc(0.3, 0.2), "শিববাড়ি মোড়, হাসপাতাল রোড, জয়দেবপুর, গাজীপুর", "approved",
                 open24 = true, delivery = true, deliveryNote = "শিববাড়ি, জয়দেবপুর, চান্দনা চৌরাস্তা — ৩০ টাকা", discount = 10,
                 freeDeliveryOver = 1000, discountNote = "নগদ বা বিকাশে একই ছাড়",
                 docTypes = listOf("license", "front", "pharmacist"), createdAt = now - 90 * DAY, ratingSum = 54, ratingCount = 12, callsPerDay = 3,
@@ -186,11 +186,11 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         }
 
         // other pharmacies (owners without login)
-        val ph24 = ctx.extraUser("svc-ph-24h", mapOf("name" to "ডেমো ২৪ ঘণ্টা ফার্মেসির মালিক", "phone" to "01700000151", "place_name" to gzp))
+        val ph24 = ctx.extraUser("svc-ph-24h", mapOf("name" to "ডেমো ২৪ ঘণ্টা ফার্মেসির মালিক", "phone" to "01200000151", "place_name" to gzp))
         pharmacy(
             ctx, ph24,
             Shop(
-                "ডেমো ২৪ ঘণ্টা ফার্মেসি", "DEMO-DL-1502", "01700000151", loc(0.8, -0.4), "তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল গেট, জয়দেবপুর, গাজীপুর", "approved",
+                "ডেমো ২৪ ঘণ্টা ফার্মেসি", "DEMO-DL-1502", "01200000151", loc(0.8, -0.4), "তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল গেট, জয়দেবপুর, গাজীপুর", "approved",
                 open24 = true, delivery = true, deliveryNote = "রাতেও ডেলিভারি, ৫০ টাকা", discount = 5,
                 discountMin = 300, discountNote = "রাত ১২টার পর ছাড় নেই", pricePct = 5,
                 ratingSum = 38, ratingCount = 9, callsPerDay = 4,
@@ -199,11 +199,11 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
                 stock = listOf("Napa", "Ace", "Seclo", "Maxpro", "Fexo", "Alatrol", "Montene", "Ceevit", "Comet", "Ecosprin", "Orsaline-N", "Flagyl"),
             ),
         )
-        val phModel = ctx.extraUser("svc-ph-model", mapOf("name" to "ডেমো নিউ মডেল ফার্মেসির মালিক", "phone" to "01700000152", "place_name" to gzp))
+        val phModel = ctx.extraUser("svc-ph-model", mapOf("name" to "ডেমো নিউ মডেল ফার্মেসির মালিক", "phone" to "01200000152", "place_name" to gzp))
         pharmacy(
             ctx, phModel,
             Shop(
-                "ডেমো নিউ মডেল ফার্মেসি", "DEMO-DL-1503", "01700000152", loc(-0.6, 0.5), "জয়দেবপুর বাজার, গাজীপুর", "approved",
+                "ডেমো নিউ মডেল ফার্মেসি", "DEMO-DL-1503", "01200000152", loc(-0.6, 0.5), "জয়দেবপুর বাজার, গাজীপুর", "approved",
                 openAt = "09:00", closeAt = "22:00", closedDays = listOf(5), discount = 12,
                 discountMin = 500, discountNote = "শুধু নগদে", pricePct = 12,
                 ratingSum = 21, ratingCount = 6, callsPerDay = 2,
@@ -211,30 +211,30 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
                 stock = listOf("Napa", "Seclo", "Sergel", "Alatrol", "Monas", "Calbo", "Bislol", "Amdocal", "Rosuva"),
             ),
         )
-        val phSeba = ctx.extraUser("svc-ph-seba", mapOf("name" to "ডেমো সেবা ড্রাগ হাউসের মালিক", "phone" to "01700000153", "place_name" to gzp))
+        val phSeba = ctx.extraUser("svc-ph-seba", mapOf("name" to "ডেমো সেবা ড্রাগ হাউসের মালিক", "phone" to "01200000153", "place_name" to gzp))
         pharmacy(
             ctx, phSeba,
             Shop(
-                "ডেমো সেবা ড্রাগ হাউস", "DEMO-DL-1504", "01700000153", loc(1.2, 0.9), "ছায়াবীথি মোড়, জয়দেবপুর, গাজীপুর", "approved",
+                "ডেমো সেবা ড্রাগ হাউস", "DEMO-DL-1504", "01200000153", loc(1.2, 0.9), "ছায়াবীথি মোড়, জয়দেবপুর, গাজীপুর", "approved",
                 openAt = "08:00", closeAt = "23:00", delivery = true, deliveryNote = "কাছাকাছি ফ্রি", discount = 3, freeDeliveryOver = 500,
                 // closed for a while (renovation) — always "closed"
                 closedUntil = now + 5 * DAY, ratingSum = 12, ratingCount = 3,
             ),
         )
-        val phKali = ctx.extraUser("svc-ph-kaliakair", mapOf("name" to "ডেমো কালিয়াকৈর ফার্মেসির মালিক", "phone" to "01700000154", "place_name" to gzp))
+        val phKali = ctx.extraUser("svc-ph-kaliakair", mapOf("name" to "ডেমো কালিয়াকৈর ফার্মেসির মালিক", "phone" to "01200000154", "place_name" to gzp))
         pharmacy(
             ctx, phKali,
             Shop(
-                "ডেমো কালিয়াকৈর মেডিসিন কর্নার", "DEMO-DL-1505", "01700000154", loc(-19.5, 8.0), "কালিয়াকৈর বাজার, গাজীপুর", "approved",
+                "ডেমো কালিয়াকৈর মেডিসিন কর্নার", "DEMO-DL-1505", "01200000154", loc(-19.5, 8.0), "কালিয়াকৈর বাজার, গাজীপুর", "approved",
                 upazilaId = KALIAKAIR, openAt = "08:00", closeAt = "21:00",
             ),
         )
         // waiting for approval (the owner looks at the papers in the web panel)
-        val phNew = ctx.extraUser("svc-ph-new", mapOf("name" to "ডেমো আরোগ্য ফার্মেসির মালিক", "phone" to "01700000155", "place_name" to gzp))
+        val phNew = ctx.extraUser("svc-ph-new", mapOf("name" to "ডেমো আরোগ্য ফার্মেসির মালিক", "phone" to "01200000155", "place_name" to gzp))
         pharmacy(
             ctx, phNew,
             Shop(
-                "ডেমো আরোগ্য ফার্মেসি", "DEMO-DL-1506", "01700000155", loc(0.2, -0.9), "জয়দেবপুর রেলগেট, গাজীপুর", "pending",
+                "ডেমো আরোগ্য ফার্মেসি", "DEMO-DL-1506", "01200000155", loc(0.2, -0.9), "জয়দেবপুর রেলগেট, গাজীপুর", "pending",
                 openAt = "08:30", closeAt = "22:30", delivery = true, discount = 8, createdAt = now - 1 * DAY,
             ),
         )
@@ -302,7 +302,7 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
             val row = linkedMapOf<String, Any?>(
                 "id" to id, "rx_id" to rxId, "code" to code, "pharmacy_uid" to pharmacyId, "pharmacy_name" to pharmacyName, "patient_uid" to p,
                 "patient_name" to patientName, "status" to status, "mode" to "online", "address" to "বাসা ১২, রোড ৩, শিববাড়ি, জয়দেবপুর, গাজীপুর",
-                "phone" to "01700000159", "delivery_fee" to deliveryFee, "note" to note, "created_at" to sql.ts(createdAt),
+                "phone" to "01200000159", "delivery_fee" to deliveryFee, "note" to note, "created_at" to sql.ts(createdAt),
             )
             row.putAll(extra)
             sql.insert("rx_orders", row)
@@ -326,7 +326,7 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         )
 
         // ---------- find a medicine ----------
-        val buyer = ctx.extraUser("svc-buyer", mapOf("name" to "ডেমো ক্রেতা সালমা", "phone" to "01700000158", "place_name" to gzp))
+        val buyer = ctx.extraUser("svc-buyer", mapOf("name" to "ডেমো ক্রেতা সালমা", "phone" to "01200000158", "place_name" to gzp))
         val centre = r2(com.lifolo.admin.kernel.DemoSeed.CENTER_LAT) to r2(com.lifolo.admin.kernel.DemoSeed.CENTER_LNG)
         fun find(id: String, uid: String, d: Map<String, String>, at: Pair<Double, Double>, status: String, created: Long, expires: Long, closedAt: Long?, targets: List<Pair<String, Pair<Boolean, Long>?>>) {
             sql.insert(
@@ -383,24 +383,24 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         }
         val labUser = ctx.user("lab")
         val labId = labUser.uid
-        sql.profileDefaults(labId, labUser.name, "01700000160", gzp)
+        sql.profileDefaults(labId, labUser.name, "01200000160", gzp)
         lab(
-            labId, "ডেমো সিটি ডায়াগনস্টিক সেন্টার", "হাসপাতাল রোড, শিববাড়ি, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2201", "01700000160",
+            labId, "ডেমো সিটি ডায়াগনস্টিক সেন্টার", "হাসপাতাল রোড, শিববাড়ি, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2201", "01200000160",
             "সকাল ৮টা – রাত ১০টা (শুক্রবার বিকাল ৩টা থেকে)", "approved", homeCollection = true, createdAt = now - 80 * DAY,
         )
         // the lab's own machine ranges (pre-filled in the report form)
         sql.insert("lab_ranges", linkedMapOf("lab_uid" to labId, "test_key" to "cbc.hb", "low" to 11.5, "high" to 16.5))
         sql.insert("lab_ranges", linkedMapOf("lab_uid" to labId, "test_key" to "rbs.glu", "low" to 3.9, "high" to 7.8))
-        val labPop = ctx.extraUser("svc-lab-popular", mapOf("name" to "ডেমো পপুলার প্যাথলজির মালিক", "phone" to "01700000161", "place_name" to gzp))
-        lab(labPop, "ডেমো পপুলার প্যাথলজি", "স্টেশন রোড, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2202", "01700000161", "সকাল ৭টা – রাত ৯টা", "approved")
-        val labTri = ctx.extraUser("svc-lab-sreepur", mapOf("name" to "ডেমো শ্রীপুর ডায়াগনস্টিকের মালিক", "phone" to "01700000162", "place_name" to gzp))
+        val labPop = ctx.extraUser("svc-lab-popular", mapOf("name" to "ডেমো পপুলার প্যাথলজির মালিক", "phone" to "01200000161", "place_name" to gzp))
+        lab(labPop, "ডেমো পপুলার প্যাথলজি", "স্টেশন রোড, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2202", "01200000161", "সকাল ৭টা – রাত ৯টা", "approved")
+        val labTri = ctx.extraUser("svc-lab-sreepur", mapOf("name" to "ডেমো শ্রীপুর ডায়াগনস্টিকের মালিক", "phone" to "01200000162", "place_name" to gzp))
         lab(
-            labTri, "ডেমো শ্রীপুর ডায়াগনস্টিক", "মাওনা চৌরাস্তা, শ্রীপুর, গাজীপুর", "DEMO-HSM-2203", "01700000162", "সকাল ৯টা – সন্ধ্যা ৭টা", "approved",
+            labTri, "ডেমো শ্রীপুর ডায়াগনস্টিক", "মাওনা চৌরাস্তা, শ্রীপুর, গাজীপুর", "DEMO-HSM-2203", "01200000162", "সকাল ৯টা – সন্ধ্যা ৭টা", "approved",
             homeCollection = true, upazilaId = SREEPUR,
         )
         // no price list — patients see "price not known — ask on the phone"
-        val labRoyal = ctx.extraUser("svc-lab-royal", mapOf("name" to "ডেমো রয়েল ল্যাবের মালিক", "phone" to "01700000164", "place_name" to gzp))
-        lab(labRoyal, "ডেমো রয়েল ল্যাব", "রথখোলা, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2205", "01700000164", "সকাল ৮টা – রাত ৯টা", "approved", createdAt = now - 40 * DAY)
+        val labRoyal = ctx.extraUser("svc-lab-royal", mapOf("name" to "ডেমো রয়েল ল্যাবের মালিক", "phone" to "01200000164", "place_name" to gzp))
+        lab(labRoyal, "ডেমো রয়েল ল্যাব", "রথখোলা, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2205", "01200000164", "সকাল ৮টা – রাত ৯টা", "approved", createdAt = now - 40 * DAY)
 
         // tests and prices (labprices.js) — the demo lab's full list, 10 % off, home collection 150 taka;
         // the others half a list with other prices (the royal lab has none)
@@ -463,15 +463,15 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
                 pr("urine_re", "Urine R/E", 120, "একই দিন"),
             ),
         )
-        val labNew = ctx.extraUser("svc-lab-new", mapOf("name" to "ডেমো নিউ লাইফ ল্যাবের মালিক", "phone" to "01700000163", "place_name" to gzp))
-        lab(labNew, "ডেমো নিউ লাইফ ল্যাব", "ছায়াবীথি, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2204", "01700000163", "সকাল ৮টা – রাত ৮টা", "pending", createdAt = now - 2 * DAY)
+        val labNew = ctx.extraUser("svc-lab-new", mapOf("name" to "ডেমো নিউ লাইফ ল্যাবের মালিক", "phone" to "01200000163", "place_name" to gzp))
+        lab(labNew, "ডেমো নিউ লাইফ ল্যাব", "ছায়াবীথি, জয়দেবপুর, গাজীপুর", "DEMO-HSM-2204", "01200000163", "সকাল ৮টা – রাত ৮টা", "pending", createdAt = now - 2 * DAY)
 
         // =====================================================================
         // home care (nurses / a doctor)
         // =====================================================================
         val nurseUser = ctx.user("homecare")
         val nurse = nurseUser.uid
-        sql.profileDefaults(nurse, nurseUser.name, "01700000180", gzp)
+        sql.profileDefaults(nurse, nurseUser.name, "01200000180", gzp)
         jdbc.update("UPDATE user_profiles SET gender = 'female' WHERE uid = ?", nurse)
         // with phone verification on, the nurse may change her settings (the profile number counts as verified)
         val nPhone = Phones.normalizeBd(jdbc.queryForList("SELECT phone FROM user_profiles WHERE uid = ?", String::class.java, nurse).firstOrNull())
@@ -511,7 +511,7 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
             home = HomeVisit(
                 enabled = true, radiusKm = 10, upazilaIds = listOf(SADAR, KALIAKAIR),
                 services = listOf("injection", "saline", "cannula", "dressing", "bp_sugar", "elderly_care", "newborn_care"),
-                phone = "01700000180", schedule = "জরুরি হলে রাতেও আসি", times = listOf(Slot(listOf(0, 1, 2, 3, 4, 6), "09:00", "18:00")),
+                phone = "01200000180", schedule = "জরুরি হলে রাতেও আসি", times = listOf(Slot(listOf(0, 1, 2, 3, 4, 6), "09:00", "18:00")),
                 noFee = false, fee = "৩০০–৫০০ টাকা (সেবা অনুযায়ী)",
             ),
             ratingSum = 27, ratingCount = 6, callsPerDay = 2,
@@ -526,46 +526,46 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         val sh = loc(-1.0, 1.0)
         val nShahin = ctx.extraUser(
             "svc-nurse-shahin",
-            mapOf("name" to "ডেমো নার্স শাহীন", "phone" to "01700000181", "place_name" to gzp, "lat" to sh.first, "lng" to sh.second, "location_source" to "gps", "gender" to "male"),
+            mapOf("name" to "ডেমো নার্স শাহীন", "phone" to "01200000181", "place_name" to gzp, "lat" to sh.first, "lng" to sh.second, "location_source" to "gps", "gender" to "male"),
         )
         homePro(
             nShahin, "nurse", "ডেমো নার্স শাহীন", "DEMO-BNMC-55002", "ডেমো কমিউনিটি হাসপাতাল",
             specialties = listOf("general_nursing", "icu"), degrees = "বিএসসি ইন নার্সিং", gender = "male",
             home = HomeVisit(
                 enabled = true, radiusKm = 5, upazilaIds = emptyList(), services = listOf("injection", "saline", "catheter", "post_op", "dressing"),
-                phone = "01700000181", schedule = "", times = listOf(Slot(listOf(5, 6), "08:00", "20:00"), Slot(listOf(0, 1, 2, 3, 4), "17:00", "22:00")),
+                phone = "01200000181", schedule = "", times = listOf(Slot(listOf(5, 6), "08:00", "20:00"), Slot(listOf(0, 1, 2, 3, 4), "17:00", "22:00")),
                 noFee = false, fee = "৪০০ টাকা",
             ),
             ratingSum = 7, ratingCount = 2,
         )
         val nMousumi = ctx.extraUser(
             "svc-nurse-mousumi",
-            mapOf("name" to "ডেমো নার্স মৌসুমী", "phone" to "01700000182", "place_name" to gzp, "location_source" to "district", "gender" to "female"),
+            mapOf("name" to "ডেমো নার্স মৌসুমী", "phone" to "01200000182", "place_name" to gzp, "location_source" to "district", "gender" to "female"),
         )
         homePro(
             nMousumi, "nurse", "ডেমো নার্স মৌসুমী", "DEMO-BNMC-55003", "ডেমো শ্রীপুর উপজেলা স্বাস্থ্য কমপ্লেক্স",
             specialties = listOf("midwife", "pediatric_nursing"), degrees = "ডিপ্লোমা ইন মিডওয়াইফারি", gender = "female",
             home = HomeVisit(
                 enabled = true, radiusKm = 5, upazilaIds = listOf(SREEPUR, SADAR), services = listOf("newborn_care", "bp_sugar", "injection"),
-                phone = "01700000182", schedule = "আগে ফোন করে সময় ঠিক করে নিন", times = emptyList(), noFee = false, fee = "৩০০ টাকা",
+                phone = "01200000182", schedule = "আগে ফোন করে সময় ঠিক করে নিন", times = emptyList(), noFee = false, fee = "৩০০ টাকা",
             ),
         )
         val rf = loc(1.0, -1.0)
         val dRafiq = ctx.extraUser(
             "svc-doc-rafiq",
-            mapOf("name" to "ডা. ডেমো রফিক", "phone" to "01700000183", "place_name" to gzp, "lat" to rf.first, "lng" to rf.second, "location_source" to "gps", "gender" to "male"),
+            mapOf("name" to "ডা. ডেমো রফিক", "phone" to "01200000183", "place_name" to gzp, "lat" to rf.first, "lng" to rf.second, "location_source" to "gps", "gender" to "male"),
         )
         homePro(
             dRafiq, "doctor", "ডা. ডেমো রফিক", "DEMO-A-10002", "ডেমো জেনারেল হাসপাতাল",
             specialties = listOf("medicine", "general"), degrees = "এমবিবিএস (ডেমো)", gender = "male",
             home = HomeVisit(
                 enabled = true, radiusKm = 10, upazilaIds = emptyList(), services = listOf("checkup", "elderly_care", "bedridden", "follow_up"),
-                phone = "01700000183", schedule = "সন্ধ্যার পর", times = listOf(Slot(listOf(0, 1, 2, 3, 4, 6), "18:00", "22:00")), noFee = false, fee = "১০০০ টাকা",
+                phone = "01200000183", schedule = "সন্ধ্যার পর", times = listOf(Slot(listOf(0, 1, 2, 3, 4, 6), "18:00", "22:00")), noFee = false, fee = "১০০০ টাকা",
             ),
             ratingSum = 9, ratingCount = 2,
         )
         // a nurse's badge waiting for approval (after approval she switches home care on herself)
-        val nTania = ctx.extraUser("svc-nurse-tania", mapOf("name" to "ডেমো নার্স তানিয়া", "phone" to "01700000184", "place_name" to gzp, "gender" to "female"))
+        val nTania = ctx.extraUser("svc-nurse-tania", mapOf("name" to "ডেমো নার্স তানিয়া", "phone" to "01200000184", "place_name" to gzp, "gender" to "female"))
         homePro(
             nTania, "nurse", "ডেমো নার্স তানিয়া", "DEMO-BNMC-55004", "ডেমো সূর্যের হাসি ক্লিনিক", badgeStatus = "pending",
             email = "nurse-tania@lifolo-demo.test",

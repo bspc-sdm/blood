@@ -107,11 +107,16 @@ class DemoWorldIT : RxLabTest() {
         assertEquals(404, r.status, r.toString())
         assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM answers WHERE question_id = ?", Long::class.java, q))
         assertTrue(pushesTo("realPat").isEmpty())
+        // nor report it (or a real listing); real people can
+        assertEquals(404, call("demo-doctor", "report", mapOf("kind" to "question", "id" to q)).status)
+        assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM mod_reports", Long::class.java))
+        ok("realDoc", "report", mapOf("kind" to "question", "id" to q))
         // a real doctor can; a demo doctor still answers demo questions
         ok("realDoc", "answer", mapOf("id" to q, "text" to "ডাক্তার দেখান"))
         demo("patient")
         val dq = ok("demo-patient", "ask", mapOf("text" to "ডেমো প্রশ্ন"))["id"].asText()
         ok("demo-doctor", "answer", mapOf("id" to dq, "text" to "ডেমো উত্তর"))
+        ok("demo-doctor", "report", mapOf("kind" to "question", "id" to dq))
     }
 
     @Test

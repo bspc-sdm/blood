@@ -113,7 +113,7 @@ class AmbulanceDemo(
         fun loc(dx: Double, dy: Double) = ctx.near(dx, dy).let { at3(it.lat to it.lng) }
 
         val amb = ctx.user("ambulance")
-        profile(amb.uid, amb.name, "01700000170", gzp)
+        profile(amb.uid, amb.name, "01200000170", gzp)
 
         fun car(id: String, owner: String, x: Car) {
             val created = x.createdAt ?: (now - 60 * day)
@@ -158,7 +158,7 @@ class AmbulanceDemo(
         car(
             acId, amb.uid,
             Car(
-                "ডেমো জীবন অ্যাম্বুলেন্স (এসি)", "01700000170", "DEMO-GAZ-CHA-11-0001", listOf("ac", "general"),
+                "ডেমো জীবন অ্যাম্বুলেন্স (এসি)", "01200000170", "DEMO-GAZ-CHA-11-0001", listOf("ac", "general"),
                 "তাজউদ্দীন মেডিকেল গেট, শিববাড়ি", "শহরের মধ্যে ৮০০ টাকা, ঢাকা ৩০০০ টাকা", "approved", at = loc(0.8, 1.2),
                 available = true, availableAt = now - 30 * MIN, ratingSum = 42, ratingCount = 9, callsPerDay = 2,
                 recent = listOf(
@@ -176,7 +176,7 @@ class AmbulanceDemo(
         car(
             "demo-svc-amb-nonac", amb.uid,
             Car(
-                "ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)", "01700000171", "DEMO-GAZ-CHA-11-0002", listOf("general"), "শিববাড়ি, ছায়াবীথি",
+                "ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)", "01200000171", "DEMO-GAZ-CHA-11-0002", listOf("general"), "শিববাড়ি, ছায়াবীথি",
                 "শহরের মধ্যে ৫০০ টাকা", "approved", at = loc(1.5, 0.5), available = false, availableAt = now - 50 * MIN, busyAt = now - 50 * MIN,
                 ratingSum = 8, ratingCount = 2,
             ),
@@ -185,7 +185,7 @@ class AmbulanceDemo(
         car(
             "demo-svc-amb-mini", amb.uid,
             Car(
-                "ডেমো জীবন মিনি অ্যাম্বুলেন্স", "01700000176", "DEMO-GAZ-CHA-11-0007", listOf("general"), "চান্দনা চৌরাস্তা, ভোগড়া",
+                "ডেমো জীবন মিনি অ্যাম্বুলেন্স", "01200000176", "DEMO-GAZ-CHA-11-0007", listOf("general"), "চান্দনা চৌরাস্তা, ভোগড়া",
                 "শহরের মধ্যে ৪০০ টাকা", "approved", at = loc(-2.5, -1.5), available = true, availableAt = now - 11 * HOUR - 30 * MIN,
                 ratingSum = 9, ratingCount = 2,
             ),
@@ -194,35 +194,35 @@ class AmbulanceDemo(
         car(
             "demo-svc-amb-icu-new", amb.uid,
             Car(
-                "ডেমো জীবন আইসিইউ অ্যাম্বুলেন্স", "01700000172", "DEMO-GAZ-CHA-11-0003", listOf("icu", "ac"), "গাজীপুর থেকে ঢাকা",
+                "ডেমো জীবন আইসিইউ অ্যাম্বুলেন্স", "01200000172", "DEMO-GAZ-CHA-11-0003", listOf("icu", "ac"), "গাজীপুর থেকে ঢাকা",
                 "ঢাকা ৮০০০ টাকা (অক্সিজেন সহ)", "pending", createdAt = now - 6 * HOUR,
             ),
         )
-        val momota = ctx.extraUser("svc-amb-momota", mapOf("name" to "ডেমো মমতা অ্যাম্বুলেন্সের মালিক", "phone" to "01700000173", "place_name" to gzp))
+        val momota = ctx.extraUser("svc-amb-momota", mapOf("name" to "ডেমো মমতা অ্যাম্বুলেন্সের মালিক", "phone" to "01200000173", "place_name" to gzp))
         val momotaId = "demo-svc-amb-momota"
         car(
             momotaId, momota,
             Car(
-                "ডেমো মমতা অ্যাম্বুলেন্স", "01700000173", "DEMO-GAZ-GA-12-0004", listOf("general"), "মাওনা চৌরাস্তা, শ্রীপুর", "আলোচনা সাপেক্ষে",
+                "ডেমো মমতা অ্যাম্বুলেন্স", "01200000173", "DEMO-GAZ-GA-12-0004", listOf("general"), "মাওনা চৌরাস্তা, শ্রীপুর", "আলোচনা সাপেক্ষে",
                 "approved", upazilaId = SREEPUR, at = loc(5.5, 22.0), available = true, availableAt = now - 3 * HOUR, ratingSum = 16, ratingCount = 5,
             ),
         )
-        val icuOwner = ctx.extraUser("svc-amb-icu", mapOf("name" to "ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিসের মালিক", "phone" to "01700000174", "place_name" to gzp))
+        val icuOwner = ctx.extraUser("svc-amb-icu", mapOf("name" to "ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিসের মালিক", "phone" to "01200000174", "place_name" to gzp))
         val icuId = "demo-svc-amb-icu"
         car(
             icuId, icuOwner,
             Car(
-                "ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস", "01700000174", "DEMO-GAZ-CHA-13-0005", listOf("icu", "ac"), "তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল",
+                "ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস", "01200000174", "DEMO-GAZ-CHA-13-0005", listOf("icu", "ac"), "তাজউদ্দীন মেডিকেল কলেজ হাসপাতাল",
                 // "available" more than 12 hours ago → "call to ask"
                 "ঢাকা ১০০০০ টাকা", "approved", at = loc(0.5, 0.9), available = true, availableAt = now - 20 * HOUR, ratingSum = 23, ratingCount = 5,
             ),
         )
-        val freezerOwner = ctx.extraUser("svc-amb-freezer", mapOf("name" to "ডেমো ফ্রিজার ভ্যানের মালিক", "phone" to "01700000175", "place_name" to gzp))
+        val freezerOwner = ctx.extraUser("svc-amb-freezer", mapOf("name" to "ডেমো ফ্রিজার ভ্যানের মালিক", "phone" to "01200000175", "place_name" to gzp))
         // no base location → "about" distances from the district centre
         car(
             "demo-svc-amb-freezer", freezerOwner,
             Car(
-                "ডেমো শেষ যাত্রা ফ্রিজার ভ্যান", "01700000175", "DEMO-GAZ-CHA-14-0006", listOf("freezer"), "পুরো গাজীপুর জেলা ও ঢাকা",
+                "ডেমো শেষ যাত্রা ফ্রিজার ভ্যান", "01200000175", "DEMO-GAZ-CHA-14-0006", listOf("freezer"), "পুরো গাজীপুর জেলা ও ঢাকা",
                 "দূরত্ব অনুযায়ী", "approved", available = true, availableAt = now - 2 * HOUR,
             ),
         )
@@ -232,7 +232,7 @@ class AmbulanceDemo(
             p, icuId, Sql.ts(now - 3 * HOUR), Sql.ts(now - 3 * HOUR),
         )
         // a buyer called "মমতা" (the call that allows their report)
-        val buyer = ctx.extraUser("svc-buyer", mapOf("name" to "ডেমো ক্রেতা সালমা", "phone" to "01700000158", "place_name" to gzp))
+        val buyer = ctx.extraUser("svc-buyer", mapOf("name" to "ডেমো ক্রেতা সালমা", "phone" to "01200000158", "place_name" to gzp))
         jdbc.update(
             "INSERT INTO ambulance_calls (uid, ambulance_id, at, first_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
             buyer, momotaId, Sql.ts(now - 3 * day), Sql.ts(now - 3 * day),

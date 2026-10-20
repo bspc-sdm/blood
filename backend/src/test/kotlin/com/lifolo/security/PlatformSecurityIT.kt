@@ -136,6 +136,18 @@ class PlatformSecurityIT : IntegrationTest() {
         assertEquals(404, mvc.perform(MockMvcRequestBuilders.get("/shop/ABCDEF")).andReturn().response.status)
     }
 
+    @Test
+    fun `app links - the debug and the release signing keys`() {
+        val a = get("/.well-known/assetlinks.json").body[0]["target"]["sha256_cert_fingerprints"].map { it.asText() }
+        assertEquals(
+            listOf(
+                "FC:BE:F9:19:39:40:5B:C2:32:72:18:DB:DA:CD:DD:BE:86:47:F6:4B:F9:0A:06:F7:37:AC:42:99:D2:F0:F8:39",
+                "07:6E:13:D0:F9:0A:22:81:86:AE:53:15:54:55:FD:C6:A0:48:72:9B:75:8E:DA:AF:52:32:A3:F9:2C:19:69:43",
+            ),
+            a,
+        )
+    }
+
     // ------------------------------------------------------------------ headers, CORS, errors
 
     @Test
