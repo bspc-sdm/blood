@@ -313,6 +313,36 @@ class AmbFareIT : AmbTestBase() {
     }
 
     @Test
+    fun `the patient cancels while fares wait - every driver with a live fare is told (push + bell), the others not`() {
+        seed()
+        val id = ask(P, mapOf("maxFare" to 2000)).body["id"].textValue()
+        ok("d1", "ambreq_accept", mapOf("id" to id))
+        AmbClock.advance(2 * MIN + SEC)
+        status(id) // the sweep: d1's fare lapsed, d1 already told "you are free"
+        ok("d2", "ambreq_accept", mapOf("id" to id, "fare" to 900))
+        ok("d3", "ambreq_accept", mapOf("id" to id))
+        clearPushes()
+        ok(P, "ambreq_cancel", mapOf("id" to id, "reason" to "other"))
+        val title = "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন — আপনি অন্য ডাক নিতে পারেন"
+        assertEquals(listOf("d2", "d3"), pushes().filter { it["title"] == title }.map { it["uid"] as String }.sorted())
+        assertTrue(pushes().none { it["uid"] in setOf("d1", "d4", "d6", P) }, pushes().toString())
+        for (d in listOf("d2", "d3")) {
+            val bell = jdbc.queryForList("SELECT title, data::text AS data FROM inbox_items WHERE uid = ? ORDER BY created_at DESC LIMIT 1", d).single()
+            assertEquals(title, bell["title"])
+            assertTrue((bell["data"] as String).contains(id))
+            assertEquals(emptyList<Any>(), driverList(d), "$d: off the list")
+        }
+        assertEquals("cancelled", reqRow(id)["status"])
+        // after agreeing: only the accepted driver's usual notice
+        val id2 = ask(P, mapOf("maxFare" to 2000)).body["id"].textValue()
+        ok("d2", "ambreq_accept", mapOf("id" to id2, "fare" to 900))
+        ok(P, "ambreq_agree", mapOf("id" to id2, "ambulanceId" to "a2"))
+        clearPushes()
+        ok(P, "ambreq_cancel", mapOf("id" to id2))
+        assertEquals(listOf("d2" to "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন"), pushes().map { it["uid"] to it["title"] })
+    }
+
+    @Test
     fun `raising the budget - raise-to after 60 s, new matching cars asked, never lower, unknown fares too`() {
         seed()
         val id = ask(P).body["id"].textValue()

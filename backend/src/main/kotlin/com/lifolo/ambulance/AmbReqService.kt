@@ -918,22 +918,33 @@ class AmbReqService(
         return linkedMapOf("request" to patientView(x, now, langOf(b)))
     }
 
-    /** cancel by the patient (open or after accepting); returns the accepted driver to tell */
-    private fun cancelByPatient(id: String, reason: String, now: Long): String? = tx {
+    /** who to tell after the patient cancels: the accepted driver, and drivers whose fare is still waiting for an answer */
+    private class Cancelled(val accepted: String?, val quoted: List<String>)
+
+    /** cancel by the patient (open or after accepting) */
+    private fun cancelByPatient(id: String, reason: String, now: Long): Cancelled? = tx {
         val c = load(id, true) ?: return@tx null
         if (c.status !in ACTIVE) return@tx null
         val amb = c.ambulanceId?.let { repo.get(it, lock = true) }
         updateReq(id, closeSet(now, "cancelled").value("cancelled_by", "patient").value("cancel_reason", reason))
         deactivateAll(id)
         repo.freeVehicle(amb, now)
-        c.acceptedBy
+        // a quote past its 2 minutes was already released ("you are free") by the sweep
+        Cancelled(c.acceptedBy, c.quotes.filter { now - it.at < QUOTE_MS && it.owner != c.acceptedBy }.map { it.owner }.distinct())
     }
 
     fun cancel(lang: String?, b: Body, uid: String): Map<String, Any?> {
         val x = loadMine(lang, b.string("id"), false, uid)
         val reason = b.string("reason")?.takeIf { it in PATIENT_CANCEL } ?: "other"
-        val driver = cancelByPatient(x.id, reason, AmbClock.now())
+        val done = cancelByPatient(x.id, reason, AmbClock.now())
+        val driver = done?.accepted
         if (driver != null) pushDriver(x.id, driver, "The patient cancelled the ambulance request", "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন")
+        // drivers who sent a fare and were waiting for the patient's answer: free for other calls now (push + bell)
+        pushOwners(
+            x.id, done?.quoted.orEmpty(),
+            "The patient cancelled the ambulance request — you are free for other calls",
+            "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন — আপনি অন্য ডাক নিতে পারেন", // bn-ok
+        )
         return linkedMapOf("ok" to true)
     }
 
