@@ -437,7 +437,7 @@ jobs:
           WEB_API2: ${{ steps.web.outputs.api2 }}
           S_SENTRY: ${{ steps.deploy.outputs.s_sentry }}
         run: |
-          mark() { case "$1" in ok|yes|up|ok\ *) echo "✅" ;; skipped*|"") echo "⏭️" ;; *) echo "❌" ;; esac; }
+          mark() { case "$1" in ok|yes|up|ok\ *|kept*) echo "✅" ;; skipped*|"") echo "⏭️" ;; *) echo "❌" ;; esac; }
           row() { echo "| $1 | $(mark "$2") | ${3:-$2} |"; }
           {
             if [ "$JOB_OK" = success ]; then echo "## ✅ ব্যাকএন্ড চালু হয়েছে"; else echo "## ❌ deploy পুরো হয়নি"; fi

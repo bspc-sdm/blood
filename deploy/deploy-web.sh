@@ -42,7 +42,7 @@ say() { printf '\n==> %s\n' "$*"; }
 install -d -m 0755 /var/lib/lifolo
 : > "$STATUS"
 chmod 0644 "$STATUS"
-st() { printf '%s=%s\n' "$1" "$(printf '%s' "$2" | tr -d '\n\r' | cut -c1-300)" >> "$STATUS"; }
+st() { printf '%s=%s\n' "$1" "$(printf '%s' "$2" | tr -d '\n\r' | cut -c1-500)" >> "$STATUS"; }
 die() { printf 'XX %s\n' "$*" >&2; st fatal "$*"; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "root হিসেবে চালান"
@@ -238,6 +238,8 @@ else
     done
     printf 'DS: %s; ' "$(dig +short +time=3 +tries=1 DS "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | head -2 | cut -c1-40 | tr '\n' ',')"
     printf 'NS: %s; ' "$(dig +short +time=3 +tries=1 NS "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
+    # .com-এর সার্ভার কোন NS দেখায় (রেজিস্ট্রারে পুরোনো NS থেকে গেলে Let's Encrypt-এর কিছু জায়গা থেকে খোঁজা ব্যর্থ হয়)
+    printf 'parent NS: %s; ' "$(dig +norec +time=3 +tries=1 NS "$WEB_DOMAIN" @a.gtld-servers.net 2>/dev/null | awk '$4=="NS"{print $5}' | sort -u | tr '\n' ',')"
     printf 'CAA: %s; ' "$(dig +short +time=3 +tries=1 CAA "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
     printf 'AAAA: %s' "$(dig +short +time=3 +tries=1 AAAA "$WEB_DOMAIN" @1.1.1.1 2>/dev/null | tr '\n' ',')"
   }
