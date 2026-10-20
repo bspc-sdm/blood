@@ -13,7 +13,7 @@
    keystore ফাইল আর পাসওয়ার্ড password manager-এ আর একটা অফলাইন জায়গায় (পেনড্রাইভ) রাখুন।
    চারটের মধ্যে কয়েকটা দিলে বিল্ড থেমে যাবে (ইচ্ছে করে — যাতে ভুল key-এ চুপচাপ বিল্ড না হয়)।
 2. **backend টিম:** `/.well-known/assetlinks.json`-এ নতুন key-এর SHA-256 যোগ (নিচে §২)। না হলে শেয়ার করা `/r/…` লিংক অ্যাপে না খুলে ব্রাউজারে খুলবে।
-3. **ওয়েব টিম:** অ্যাকাউন্ট মোছার পাবলিক পাতা `https://lifolo.com/delete-account` (নিচে §৮) আর প্রাইভেসি পলিসির হালনাগাদ (§৬-এর "খোলা বিষয়")।
+3. ~~ওয়েব টিম: অ্যাকাউন্ট মোছার পাবলিক পাতা আর প্রাইভেসি পলিসির হালনাগাদ~~ — **হয়েছে** (২০ অক্টোবর ২০২৬): `https://lifolo.com/delete-account` (§৮), `PRIVACY.md`/`TERMS.md` নতুন করে লেখা (§৬)।
 4. **ভার্সন বাড়িয়ে** (`app/build.gradle.kts`-এর versionCode/versionName) main-এ push → "Build APK" release key দিয়ে APK + AAB বানাবে।
    নিজের ফোনে **একবার আনইনস্টল করে নতুনটা ইনস্টল** (§৩)।
 5. **Play Console:** অ্যাকাউন্ট (§৭) → অ্যাপ তৈরি → App signing (§২) → AAB Internal testing-এ → App content-এর ফর্মগুলো (§৯–§১৩) → স্টোর লিস্টিং (§১৪)।
@@ -155,8 +155,8 @@ foreground service (তাই foreground service type ঘোষণা লাগ�
 | লোকেশন | শুধু অ্যাপ খোলা অবস্থায়, প্রসঙ্গে চাওয়া (ঠিক আছে) |
 | ছবি | photo picker (ঠিক আছে — Photo & video permissions ঘোষণা লাগে না) |
 | Sentry | শুধু ক্র্যাশ/ANR; ইমেইল, ফোন, টোকেন মুছে পাঠায়; screenshot/view hierarchy/session নয় (ঠিক আছে) |
-| **Firebase Crashlytics** | **খোলা (মালিকের সিদ্ধান্ত):** Sentry-র পাশাপাশি Crashlytics-ও চালু (`firebase-crashlytics`, কোনো ছাঁকনি ছাড়া; ক্র্যাশের তথ্য + Crashlytics installation ID যায়)। সুপারিশ: Crashlytics সরানো — Sentry একই কাজ করে আর ব্যক্তিগত তথ্য ছাঁকে; তাতে Data safety-তে একটা প্রক্রিয়াকারী কম। ব্যবহারকারী কোনো পার্থক্য দেখবেন না, কিন্তু এটা আপনার ক্র্যাশ দেখার জায়গা বদলায়, তাই এখানে করা হয়নি |
-| **প্রাইভেসি পলিসি (`PRIVACY.md`)** | **খোলা (ওয়েব/মালিক):** "তথ্য কোথায় থাকে" এখনো বলে Firebase (মুম্বাই) আর Vercel — এখন সার্ভার নিজের VPS (lifolo.com), ছবি Cloudflare R2। প্রক্রিয়াকারীদের নাম নেই: Sentry, Firebase (লগইন, FCM, Crashlytics), Cloudflare, SMS গেটওয়ে, ইমেইল পাঠানোর সেবা। "কোনো তৃতীয় পক্ষের সাথে শেয়ার করা হয় না" ঠিক আছে, কিন্তু "এই সেবাদাতারা আমাদের হয়ে তথ্য প্রক্রিয়া করে" লাইনটা লাগবে। অ্যাকাউন্ট মোছার ওয়েব লিংকও (§৮) পলিসিতে দিন। Play রিভিউ পলিসি আর Data safety মেলায় |
+| Firebase Crashlytics | **সরানো হয়েছে** (২০ অক্টোবর ২০২৬, মালিকের সিদ্ধান্ত): গ্রেডল প্লাগইন আর `firebase-crashlytics` বাদ; ক্র্যাশ শুধু Sentry-তে (ছাঁকা)। Firebase-এর বাকি শুধু Auth আর Messaging (`google-services.json` ওদের জন্যই থাকে)। Data safety-তে Firebase installation ID/Crashlytics আর নেই (§৯) |
+| প্রাইভেসি পলিসি (`PRIVACY.md`) | **ঠিক করা হয়েছে** (২০ অক্টোবর ২০২৬): তথ্য থাকে নিজের সার্ভারে (Contabo, এখন ইউরোপ), ছবি Cloudflare R2; প্রক্রিয়াকারীর নাম ও কাজ (Cloudflare, Firebase Auth + FCM, Amazon SES, Sentry, SMS গেটওয়ে চালু হলে); "কী নেওয়া হয়" টেবিল §৯-এর Data safety-র হুবহু; কতদিন রাখা হয়; অ্যাকাউন্ট মোছা (অ্যাপ, `/delete-account`, ইমেইল) কোডের ৩০ দিনের নিয়মে। `TERMS.md`-ও (তালিকা/যোগাযোগের মাধ্যম, চিকিৎসাসেবা নয়; ৯৯৯; রক্তদান স্বেচ্ছায়)। **Data safety বা প্রক্রিয়াকারী বদলালে দুটো ফাইল একসাথে বদলান** |
 | **App Links** | **খোলা (backend):** assetlinks-এ নতুন SHA-256 (§২) |
 | minify (R8) বন্ধ | চলবে; APK বড়। পরে চালু করলে mapping ফাইল Play-তে দিতে হবে — এখন নয় |
 | "Build APK (next)" debug key | **খোলা (মালিক):** §৩ |
@@ -178,13 +178,13 @@ foreground service (তাই foreground service type ঘোষণা লাগ�
 Play চায়: অ্যাপের ভেতরে মোছার পথ **আর** একটা ওয়েব লিংক, যেখানে অ্যাপ ইনস্টল ছাড়াই মোছার অনুরোধ করা যায়।
 
 - অ্যাপে: Profile → "অ্যাকাউন্ট মুছুন" (`delete_account`) — **আছে**।
-- ওয়েবে (lifolo.com, Vue): লগইনের পর প্রোফাইলে "অ্যাকাউন্ট মুছুন" — **আছে**, কিন্তু লগইনের পেছনে, আলাদা কোনো ঠিকানা নেই।
+- ওয়েবে (lifolo.com, Vue): লগইনের পর প্রোফাইলে "অ্যাকাউন্ট মুছুন" — **আছে**; আর পাবলিক পাতা **`https://lifolo.com/delete-account` — আছে** (২০ অক্টোবর ২০২৬, নিচে)।
   প্রাইভেসি পলিসিতে ইমেইলে (ekapkbd@gmail.com) মোছার অনুরোধের কথা আছে।
-  web-vue-এর router-এ `/delete-account` বা এরকম কোনো পাবলিক পাতা **নেই** (এই sandbox থেকে lifolo.com সরাসরি খোলা যায়নি; কোড দেখে বলা)।
+  পাতা: `web-vue/src/pages/DeleteAccountPage.vue` (route `/delete-account`; nginx-এর `location /` → `/w/index.html`, তাই deploy-এ কিছু বদলাতে হয়নি); টেস্ট `web-vue/e2e/delete-account.spec.ts`। ওয়েবের সেটিংস আর প্রাইভেসি পলিসি থেকে লিংক।
 - **সিদ্ধান্ত: ওয়েব টিম একটা পাবলিক পাতা বানাবে — `https://lifolo.com/delete-account`** — আর Play Console-এ সেটাই দেবেন।
   (বাদ: `https://lifolo.com/privacy` দেওয়া — Play-র রিভিউয়ার আলাদা, সহজে খুঁজে পাওয়া পাতা চায়, পলিসির লম্বা লেখার ভেতরে ধাপ দেখলে প্রায়ই প্রত্যাখ্যান করে।)
 
-**পাতার স্পেক (ওয়েব টিমের জন্য; এখানে বানানো হয়নি):**
+**পাতার স্পেক (বানানো হয়েছে; লগইন করে মুছলে প্রোফাইলে না গিয়ে এই পাতাতেই একই নিশ্চিতকরণ ডায়ালগ খোলে):**
 1. লগইন ছাড়াই খোলে; শিরোনাম "Lifolo অ্যাকাউন্ট মুছুন / Delete your Lifolo account"; অ্যাপ আর ডেভেলপারের নাম (Play Console-এ যে নাম) স্পষ্ট।
 2. ধাপ: (ক) অ্যাপে Profile → অ্যাকাউন্ট মুছুন; (খ) এই সাইটে "লগইন করে মুছুন" বাটন → ইমেইল-কোডে লগইন → সোজা প্রোফাইলের মোছার নিশ্চিতকরণে
    (`/login` → `/profile`, মোছার ডায়ালগ খোলা); (গ) অ্যাকাউন্টে ঢুকতে না পারলে ekapkbd@gmail.com-এ অ্যাকাউন্টের ইমেইল থেকে মেইল — ৩০ দিনের মধ্যে মোছা।
@@ -208,7 +208,7 @@ Play চায়: অ্যাপের ভেতরে মোছার পথ 
 | Delete account URL | `https://lifolo.com/delete-account` (§৮) |
 | Independent security review | No |
 
-**"Shared" = No সব জায়গায় — কেন:** Play-র সংজ্ঞায় (১) আমাদের হয়ে কাজ করা সেবাদাতা (Sentry, Firebase, Cloudflare, SMS/ইমেইল গেটওয়ে) "sharing" নয়,
+**"Shared" = No সব জায়গায় — কেন:** Play-র সংজ্ঞায় (১) আমাদের হয়ে কাজ করা সেবাদাতা (Sentry, Firebase, Cloudflare, Amazon SES, SMS গেটওয়ে) "sharing" নয়,
 (২) ব্যবহারকারী নিজে বেছে যাকে পাঠান (ডাক্তার, ফার্মেসি, প্যাথলজি, কেয়ারগিভার, সাড়া দেওয়া রক্তদাতা/রক্তপ্রার্থী) — user-initiated transfer, সেটাও "sharing" নয়।
 তথ্য বিক্রি হয় না, বিজ্ঞাপন নেই।
 "Ephemeral" কোনোটাই নয় (সব সার্ভারে রাখা হয়)।
@@ -220,23 +220,24 @@ Play চায়: অ্যাপের ভেতরে মোছার পথ 
 | Personal info → **Name** | প্রোফাইলের নাম; পরিবারের সদস্য/রোগীর নাম | Required | App functionality, Account management |
 | Personal info → **Email address** | লগইনের ইমেইল; কেয়ারগিভার/সহকারীর ইমেইল | Required | App functionality, Account management |
 | Personal info → **User IDs** | অ্যাকাউন্টের uid | Required | App functionality, Account management |
-| Personal info → **Address** | বাসা থেকে নমুনা, ফার্মেসির ডেলিভারি, ব্যবসার ঠিকানা | Optional | App functionality |
+| Personal info → **Address** | বাসা থেকে নমুনা, ফার্মেসির ডেলিভারি, অ্যাম্বুলেন্স ডাকার জায়গা, ব্যবসার ঠিকানা | Optional | App functionality |
 | Personal info → **Phone number** | মোবাইল নম্বর (যোগাযোগ, যাচাই) | Optional | App functionality, Fraud prevention, security, and compliance |
 | Personal info → **Other info** | জন্ম তারিখ, লিঙ্গ (ঐচ্ছিক), পেশার রেজিস্ট্রেশন/লাইসেন্স নম্বর | Optional | App functionality, Fraud prevention, security, and compliance |
 | Financial info → **Other financial info** | রিপোর্ট দেখানোর ফি-র TrxID, ডাক্তারের bKash/Nagad/Rocket নম্বর (Lifolo টাকা ধরে না) | Optional | App functionality |
-| Health and fitness → **Health info** | রক্তের গ্রুপ, শেষ রক্তদান, ওজন, প্রেসক্রিপশন, ওষুধ, পরীক্ষা ও রিপোর্ট, অ্যাপয়েন্টমেন্টে সমস্যার বিবরণ, ওষুধের অ্যালার্ম | Optional | App functionality |
+| Health and fitness → **Health info** | রক্তের গ্রুপ, শেষ রক্তদান, ওজন, প্রেসক্রিপশন, ওষুধ, পরীক্ষা ও রিপোর্ট, অ্যাপয়েন্টমেন্টে সমস্যার বিবরণ (ওষুধের অ্যালার্ম শুধু ফোনে থাকে, সার্ভারে যায় না — তাই collected নয়) | Optional | App functionality |
 | Location → **Approximate location** | এলাকা (~১ কিমি ঘরে) আর জেলা/উপজেলা | Optional | App functionality |
-| Location → **Precise location** | অ্যাম্বুলেন্সের "আমার এখনকার জায়গা", ফার্মেসির দোকানের পিন (সার্ভারে ব্যবহারকারীর জায়গা ~১ কিমিতে কাটা) | Optional | App functionality |
+| Location → **Precise location** | অ্যাম্বুলেন্সের "আমার এখনকার জায়গা" আর অপেক্ষার জায়গা, ফার্মেসির দোকানের পিন (সার্ভারে ব্যবহারকারীর জায়গা ~১ কিমিতে কাটা) | Optional | App functionality |
 | Photos and videos → **Photos** | প্রোফাইলের ছবি, রিপোর্টের ছবি, লাইসেন্স/সনদ/পরিচয়পত্রের ছবি (যাচাই) | Optional | App functionality, Fraud prevention, security, and compliance |
-| App activity → **App interactions** | অ্যাপ থেকে অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংকে ফোন বাটন চাপা (কে, কোনটায়, কখন) | Optional | App functionality, Analytics |
+| App activity → **App interactions** | অ্যাপ থেকে অ্যাম্বুলেন্স/ফার্মেসি/ব্লাড ব্যাংক/বাসায় সেবায় ফোন বাটন চাপা (কে, কোনটায়, কখন) | Optional | App functionality, Analytics |
 | App activity → **In-app search history** | "ওষুধ খুঁজুন" (ওষুধের নাম + এলাকা) | Optional | App functionality |
-| App activity → **Other user-generated content** | Health Discussion-এর প্রশ্ন/উত্তর, টিপস, রেটিং ও মন্তব্য, রক্তের রিকোয়েস্ট | Optional | App functionality |
-| App info and performance → **Crash logs** | Sentry (ছাঁকা) আর Firebase Crashlytics | Required (বন্ধ করার উপায় নেই) | Analytics |
+| App activity → **Other user-generated content** | Health Discussion-এর প্রশ্ন/উত্তর, টিপস, রেটিং ও মন্তব্য, রক্তের রিকোয়েস্ট, সাহায্য/আপিলের বার্তা | Optional | App functionality |
+| App info and performance → **Crash logs** | Sentry (ছাঁকা; অ্যাপ, ওয়েব, সার্ভার) | Required (বন্ধ করার উপায় নেই) | Analytics |
 | App info and performance → **Diagnostics** | ANR, ফোনের মডেল/Android ভার্সন, অ্যাপের ভার্সন | Required | Analytics |
-| Device or other IDs → **Device or other IDs** | FCM টোকেন (নোটিফিকেশন), Firebase installation ID (Crashlytics) | Required | App functionality, Analytics |
+| Device or other IDs → **Device or other IDs** | FCM টোকেন (নোটিফিকেশন) | Required | App functionality |
 
 **Collected নয়:** Web browsing, Contacts, Calendar, Messages (SMS/ইমেইল পড়া হয় না), Audio, Files and docs (কাগজ শুধু ছবি হিসেবে), Fitness info, Purchase history, Credit/debit card, Race/ethnicity, Political/religious beliefs, Sexual orientation, Installed apps, Advertising ID।
-Crashlytics সরালে (§৬) "Crash logs" থাকে (Sentry), শুধু Device IDs-এর "Firebase installation ID" অংশ বাদ যায়।
+Crashlytics সরানো হয়েছে (§৬): "Crash logs" শুধু Sentry, Device IDs-এ শুধু FCM টোকেন (purpose শুধু App functionality)।
+`PRIVACY.md`-এর "কী তথ্য নেওয়া হয়" / "What we collect" টেবিল এই তালিকার হুবহু — একটা বদলালে অন্যটাও।
 
 ---
 
@@ -285,7 +286,7 @@ Health Connect ব্যবহার হয় না।
 
 | অংশ | উত্তর |
 |---|---|
-| Privacy policy | `https://lifolo.com/privacy` (জমা দেওয়ার আগে §৬-এর হালনাগাদ) |
+| Privacy policy | `https://lifolo.com/privacy` (২০ অক্টোবর ২০২৬-এ হালনাগাদ, §৬) |
 | Ads | **No ads** |
 | Advertising ID | **No** (AD_ID অনুমতি সরানো) |
 | App access | **All or some functionality is restricted** → নির্দেশনা: লগইন পাতায় নিচে "ডেমো" অংশ থেকে যেকোনো ভূমিকা (রোগী, ডাক্তার, ফার্মেসি …) চাপলে ইমেইল/কোড ছাড়াই ঢোকা যায়। শর্ত: রিভিউ চলাকালীন সার্ভারে ডেমো চালু থাকতে হবে (Deploy backend → demo = keep)। *(বাদ: রিভিউয়ারের জন্য স্থায়ী কোডওয়ালা আলাদা ইমেইল — সার্ভারে নতুন লগইন-ফাঁক তৈরি করে আর ব্যাকএন্ডের কাজ লাগে।)* |

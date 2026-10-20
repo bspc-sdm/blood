@@ -1,12 +1,50 @@
-# Lifolo (আগের নাম Get Blood) — প্রাইভেসি পলিসি / Privacy Policy
+# Lifolo — প্রাইভেসি পলিসি / Privacy Policy
 
-সর্বশেষ আপডেট: ২০ অক্টোবর ২০২৬
+সর্বশেষ আপডেট / Last updated: ২০ অক্টোবর ২০২৬ / 20 October 2026
 
-Lifolo অ্যাপ রক্তপ্রার্থী আর আশেপাশের রক্তদাতাদের মধ্যে যোগাযোগ করিয়ে দেয়। পাশাপাশি স্বাস্থ্য বিষয়ে প্রশ্ন করা, পেশাজীবীদের টিপস পড়া, ডাক্তারের অ্যাপয়েন্টমেন্ট (সিরিয়াল) নেওয়া আর চেম্বারে এখন কত নম্বর চলছে দেখা, বাসায় যান এমন ডাক্তার ও নার্সকে খুঁজে সরাসরি ফোন করা (বাসায় সেবা), ডাক্তারের দেওয়া ডিজিটাল প্রেসক্রিপশন পাওয়া, প্রেসক্রিপশন ফার্মেসিতে (দোকানে গিয়ে বা অনলাইনে ডেলিভারি) আর প্যাথলজিতে (বাসা থেকে নমুনাসহ) পাঠানো, পরীক্ষার রিপোর্ট পাওয়া, আর পরিবারের কাউকে কেয়ারগিভার করার সুযোগ দেয়। অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক ও প্যাথলজির তালিকা আছে। একই অ্যাকাউন্টে Android অ্যাপ আর ওয়েব অ্যাপ (ব্রাউজারে) দুটোই চলে। এই কাজগুলোর জন্য যতটুকু তথ্য দরকার, শুধু ততটুকুই নেওয়া হয়।
+এই পলিসি Lifolo-র Android অ্যাপ আর ওয়েবসাইট (https://lifolo.com) — দুটোর জন্যই; একই অ্যাকাউন্ট দুই জায়গায় চলে। অ্যাপের আগের নাম ছিল Get Blood। ইংরেজি সংস্করণ নিচে (English version below)।
 
-লগইন ছাড়াও অ্যাপ দেখা যায়: তালিকা (ডাক্তার, বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি), প্রশ্নোত্তর, টিপস, জরুরি আহ্বান আর আশেপাশের রক্তের রিকোয়েস্ট (রক্তপ্রার্থীর নাম, ফোন বা নোট ছাড়া)। নিচের টেবিলে "সবাই" মানে লগইন ছাড়াও যে কেউ। লগইন ছাড়া ব্যবহারের সময় বেছে নেওয়া এলাকা শুধু আপনার ফোনে বা ব্রাউজারে থাকে।
+## সংক্ষেপে
+
+- Lifolo রক্তপ্রার্থীর সাথে রক্তদাতার, আর রোগীর সাথে ডাক্তার, নার্স, ফার্মেসি, প্যাথলজি, ব্লাড ব্যাংক ও অ্যাম্বুলেন্সের যোগাযোগ করিয়ে দেয়। এই কাজগুলোর জন্য যতটুকু তথ্য লাগে, শুধু ততটুকুই নেওয়া হয়।
+- আপনার তথ্য থাকে আমাদের নিজের সার্ভারে (Contabo থেকে ভাড়া করা, এখন ইউরোপে; পরে সিঙ্গাপুরে সরানো হতে পারে)। ছবি থাকে Cloudflare R2-তে।
+- কোনো বিজ্ঞাপন নেই, বিজ্ঞাপনের ID নেওয়া হয় না, তথ্য কখনো বিক্রি করা হয় না।
+- কয়েকটা সেবাদাতা শুধু আমাদের হয়ে নির্দিষ্ট কাজ করে — লগইন ও নোটিফিকেশন (Firebase), ইমেইল (Amazon SES), ক্র্যাশ রিপোর্ট (Sentry), নেটওয়ার্ক ও ছবি রাখা (Cloudflare)। নিচে বিস্তারিত।
+- অ্যাকাউন্ট যেকোনো সময় মুছতে পারবেন: অ্যাপে, https://lifolo.com/delete-account পাতায়, বা ইমেইলে।
+
+লগইন ছাড়াও অ্যাপ দেখা যায়: তালিকা (ডাক্তার, বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি), প্রশ্নোত্তর, টিপস, জরুরি আহ্বান আর আশেপাশের রক্তের রিকোয়েস্ট (রক্তপ্রার্থীর নাম, ফোন বা নোট ছাড়া)। লগইন ছাড়া ব্যবহারের সময় বেছে নেওয়া এলাকা শুধু আপনার ফোনে বা ব্রাউজারে থাকে।
 
 ## কী তথ্য নেওয়া হয়
+
+Google Play-র Data safety ফর্মে আমরা ঠিক এই উত্তরগুলোই দিই। "দিতেই হবে" মানে অ্যাকাউন্ট বা অ্যাপ চালাতে লাগে; বাকিগুলো আপনি কোনো কাজ ব্যবহার করলে তবেই দেন।
+
+| ধরন | Lifolo-তে কী | দিতেই হবে? | কেন |
+|---|---|---|---|
+| নাম | প্রোফাইলের নাম; পরিবারের সদস্য বা রোগীর নাম | হ্যাঁ | অ্যাপের কাজ, অ্যাকাউন্ট চালানো |
+| ইমেইল ঠিকানা | লগইনের ইমেইল; কেয়ারগিভার বা ডাক্তারের সহকারীর ইমেইল | হ্যাঁ | অ্যাপের কাজ, অ্যাকাউন্ট চালানো |
+| ইউজার ID | অ্যাকাউন্টের নম্বর (uid) | হ্যাঁ | অ্যাপের কাজ, অ্যাকাউন্ট চালানো |
+| ঠিকানা | বাসা থেকে নমুনা, ফার্মেসির ডেলিভারি, অ্যাম্বুলেন্স ডাকার জায়গা, ব্যবসার ঠিকানা | না | অ্যাপের কাজ |
+| ফোন নম্বর | মোবাইল নম্বর (যোগাযোগ, যাচাই) | না | অ্যাপের কাজ, প্রতারণা ঠেকানো ও নিরাপত্তা |
+| অন্যান্য ব্যক্তিগত তথ্য | জন্ম তারিখ, লিঙ্গ (ঐচ্ছিক), পেশার রেজিস্ট্রেশন/লাইসেন্স নম্বর | না | অ্যাপের কাজ, প্রতারণা ঠেকানো ও নিরাপত্তা |
+| অন্যান্য আর্থিক তথ্য | রিপোর্ট দেখার ফি-র TrxID, ডাক্তারের bKash/Nagad/Rocket নম্বর (Lifolo টাকা ধরে না) | না | অ্যাপের কাজ |
+| স্বাস্থ্য তথ্য | রক্তের গ্রুপ, শেষ রক্তদান, ওজন, প্রেসক্রিপশন, ওষুধ, পরীক্ষা ও রিপোর্ট, অ্যাপয়েন্টমেন্টে সমস্যার বিবরণ | না | অ্যাপের কাজ |
+| আনুমানিক লোকেশন | এলাকা (প্রায় ১ কিমি পর্যন্ত গোল করা) আর জেলা/উপজেলা | না | অ্যাপের কাজ |
+| সঠিক লোকেশন | অ্যাম্বুলেন্স ডাকার সময় "আমার এখনকার জায়গা", অ্যাম্বুলেন্সের অপেক্ষার জায়গা আর ফার্মেসির দোকানের পিন (ব্যবহারকারীর জায়গা সার্ভারে প্রায় ১ কিমিতে কেটে রাখা) | না | অ্যাপের কাজ |
+| ছবি | প্রোফাইলের ছবি, রিপোর্টের ছবি, লাইসেন্স/সনদ/পরিচয়পত্রের ছবি (যাচাইয়ের জন্য) | না | অ্যাপের কাজ, প্রতারণা ঠেকানো ও নিরাপত্তা |
+| অ্যাপে কাজ | অ্যাপ থেকে অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা বাসায় সেবায় ফোন বাটন চাপা (কে, কোনটায়, কখন) | না | অ্যাপের কাজ (রেটিংয়ের যোগ্যতা), হিসাব (মালিক শুধু মোট সংখ্যা দেখেন) |
+| অ্যাপের ভেতরে খোঁজা | "ওষুধ খুঁজুন" (ওষুধের নাম + এলাকা) | না | অ্যাপের কাজ |
+| নিজের লেখা অন্যান্য | স্বাস্থ্য আলোচনার প্রশ্ন/উত্তর, টিপস, রেটিং ও মন্তব্য, রক্তের রিকোয়েস্ট, সাহায্য/আপিলের বার্তা | না | অ্যাপের কাজ |
+| ক্র্যাশ লগ | অ্যাপ, ওয়েব আর সার্ভারের ভুলের রিপোর্ট (Sentry; নাম, ইমেইল, ফোন নম্বর আর টোকেন মুছে) | হ্যাঁ (বন্ধ করার উপায় নেই) | সমস্যা খোঁজা ও ঠিক করা |
+| ডায়াগনস্টিক | অ্যাপ আটকে যাওয়া (ANR), ফোনের মডেল, Android ভার্সন, অ্যাপের ভার্সন | হ্যাঁ | সমস্যা খোঁজা ও ঠিক করা |
+| ডিভাইস ID | নোটিফিকেশনের টোকেন (Firebase Cloud Messaging) | হ্যাঁ (লগইন করলে) | অ্যাপের কাজ (নোটিফিকেশন পাঠানো) |
+
+**যা নেওয়া হয় না:** ব্রাউজিংয়ের ইতিহাস, কন্টাক্ট লিস্ট, ক্যালেন্ডার, SMS বা ইমেইল পড়া, অডিও, ফাইল (কাগজ শুধু ছবি হিসেবে), ফিটনেসের তথ্য, কেনাকাটার ইতিহাস, কার্ডের নম্বর, জাতি, রাজনৈতিক বা ধর্মীয় বিশ্বাস, যৌন অভিমুখিতা, ফোনে কী কী অ্যাপ আছে, বিজ্ঞাপনের ID। পটভূমিতে (অ্যাপ বন্ধ থাকলে) লোকেশন নেওয়া হয় না।
+
+**ফোনে যা থাকে, সার্ভারে যায় না:** ওষুধ খাওয়ার অ্যালার্ম, ভাষা আর থিমের পছন্দ, সাম্প্রতিক এলাকা। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলোও কোথাও রাখা হয় না।
+
+## কে কী দেখতে পায়
+
+নিচের টেবিলে প্রতিটা কাজে কী তথ্য লাগে আর কে তা দেখেন। "সবাই" মানে লগইন ছাড়াও যে কেউ।
 
 | তথ্য | কেন | কে দেখতে পায় |
 |---|---|---|
@@ -53,7 +91,7 @@ Lifolo অ্যাপ রক্তপ্রার্থী আর আশেপ�
 | অ্যাপের ভাষা | নোটিফিকেশন আপনার ভাষায় পাঠানোর জন্য | শুধু সার্ভার |
 | কতদূর যেতে রাজি আর যাতায়াত খরচের পছন্দ | শুধু মানানসই রিকোয়েস্টে নোটিফিকেশন পাঠানোর জন্য | শুধু সার্ভার; সাড়া দিলে রক্তপ্রার্থী দেখেন আপনি কত দূরে আর খরচ লাগবে কি না |
 | শেয়ার করা রিকোয়েস্টের লিংক | পরিচিতদের কাছে রিকোয়েস্ট পাঠানোর জন্য | লিংক যার কাছে আছে সে-ই দেখতে পায়: রোগীর গ্রুপ, ব্যাগ, হাসপাতাল, জেলা, সময় আর যাতায়াত খরচ — রক্তপ্রার্থীর নাম, ফোন বা নোট নয় |
-| অ্যাপ, ওয়েব ও সার্ভারের ক্র্যাশ/ভুলের প্রযুক্তিগত তথ্য (ফোন/ব্রাউজারের ধরন, ভার্সন, কোথায় ভুল হলো — নাম, ইমেইল, ফোন নম্বর বা টোকেন মুছে) | সমস্যা ঠিক করার জন্য (Firebase Crashlytics, Sentry) | শুধু অ্যাপের ডেভেলপার |
+| অ্যাপ, ওয়েব ও সার্ভারের ক্র্যাশ/ভুলের প্রযুক্তিগত তথ্য (ফোন/ব্রাউজারের ধরন, ভার্সন, কোথায় ভুল হলো — নাম, ইমেইল, ফোন নম্বর বা টোকেন মুছে) | সমস্যা ঠিক করার জন্য (Sentry) | শুধু অ্যাপের ডেভেলপার |
 
 **কাগজের ছবি:** অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি বা পেশাদার ব্যাজের জন্য যে কাগজের ছবি (রেজিস্ট্রেশন, ফিটনেস, লাইসেন্স, সনদ, পরিচয়পত্র) দেন, তা শুধু Lifolo টিম যাচাইয়ের জন্য দেখে; অ্যাপে আর কেউ দেখেন না। তালিকা বা অ্যাকাউন্ট মুছলে ছবিগুলোও মুছে যায়।
 
@@ -67,9 +105,64 @@ Lifolo অ্যাপ রক্তপ্রার্থী আর আশেপ�
 
 বাসায় সেবায় (ডাক্তার/নার্স) ঠিকানা অ্যাপে দেওয়া হয় না, ফোনে বলেন; শুধু প্যাথলজির "বাসা থেকে নমুনা" আর ফার্মেসির অনলাইন অর্ডারে ঠিকানা দিতে হয় (নিয়ম ওপরের টেবিলে)। "রক্ত দেব" চাপার আগে স্বাস্থ্য-সংক্রান্ত যে প্রশ্নগুলোতে টিক দেন, সেগুলো কোথাও সংরক্ষণ করা হয় না।
 
-লগইনের কোড ডাটাবেসে সরাসরি রাখা হয় না, শুধু তার এনক্রিপ্ট করা রূপ (হ্যাশ) থাকে, আর ১০ মিনিট পর বাতিল হয়ে যায়।
+## তথ্য কোথায় থাকে আর কারা প্রক্রিয়া করে
 
-প্রেসক্রিপশন, ফার্মেসি ও প্যাথলজির অনুরোধ, রিপোর্ট আর রিপোর্ট দেখানোর টাকার রেকর্ড নিজে থেকে মোছে না — চিকিৎসার ইতিহাস হিসেবে থাকে, অ্যাকাউন্ট মুছলে মোছে (নিচে দেখুন)।
+- **আমাদের সার্ভার:** সব তথ্য (অ্যাকাউন্ট, প্রোফাইল, রিকোয়েস্ট, প্রেসক্রিপশন, রিপোর্ট, তালিকা …) আমাদের নিজের সার্ভারের ডাটাবেসে থাকে। সার্ভারটা Contabo নামের প্রতিষ্ঠান থেকে ভাড়া করা, এখন ইউরোপে; পরে সিঙ্গাপুরে সরানো হতে পারে — সরালে এই পাতা হালনাগাদ হবে। মানে আপনার তথ্য বাংলাদেশের বাইরে রাখা হয়।
+- **Cloudflare R2:** ছবি (প্রোফাইলের ছবি, রিপোর্টের ছবি, যাচাইয়ের কাগজের ছবি)। ডাটাবেসের ব্যাকআপের বাইরের কপি চালু থাকলে সেটাও এখানে, পাসওয়ার্ড দিয়ে এনক্রিপ্ট করা — Cloudflare তা খুলতে পারে না।
+- **Cloudflare (নেটওয়ার্ক):** lifolo.com-এর সব যোগাযোগ Cloudflare-এর নেটওয়ার্ক হয়ে আসে — পাতা দ্রুত খোলা আর আক্রমণ ঠেকানোর জন্য। তাই Cloudflare আপনার IP ঠিকানা আর অনুরোধ প্রক্রিয়া করে।
+- **Firebase (Google):** লগইন (Firebase Authentication — আপনার ইমেইল আর অ্যাকাউন্টের ID) আর পুশ নোটিফিকেশন (Firebase Cloud Messaging — ফোনের নোটিফিকেশন টোকেন আর নোটিফিকেশনের লেখা)। এর বাইরে কোনো তথ্য Firebase-এ রাখা হয় না।
+- **Amazon SES (Amazon Web Services):** লগইনের ৬ সংখ্যার কোড ইমেইলে পাঠানো — শুধু আপনার ইমেইল ঠিকানা আর কোড।
+- **Sentry:** অ্যাপ, ওয়েব আর সার্ভারের ক্র্যাশ ও ভুলের রিপোর্ট। পাঠানোর আগে নাম, ইমেইল, ফোন নম্বর আর টোকেন মুছে ফেলা হয়; স্ক্রিনশট, পর্দার গঠন বা আপনি কী চাপছেন তার রেকর্ড পাঠানো হয় না।
+- **SMS পাঠানোর সেবা (চালু হলে):** ফোন নম্বর যাচাইয়ের কোড SMS-এ পাঠাতে — শুধু নম্বর আর কোড।
+- **Google Maps:** শুধু আপনি নিজে Google Maps-এর লিংক দিলে বা "Google ম্যাপে দেখুন" চাপলে (নিয়ম ওপরে "অ্যাম্বুলেন্স ডাকুন"-এ)।
+
+এই সেবাদাতারা শুধু আমাদের হয়ে ওপরের কাজগুলো করে। এর বাইরে তথ্য কারো সাথে শেয়ার করা হয় না, বিক্রি করা হয় না, বিজ্ঞাপনে ব্যবহার হয় না। আপনি নিজে যাঁদের বেছে নেন — ডাক্তার, ফার্মেসি, প্যাথলজি, কেয়ারগিভার, সাড়া দেওয়া রক্তদাতা বা রক্তপ্রার্থী, রাজি হওয়া অ্যাম্বুলেন্স চালক — তাঁরা শুধু ওপরের টেবিলে লেখা তথ্যটুকু পান। আইনে বাধ্য হলে (আদালত বা সরকারি কর্তৃপক্ষের বৈধ আদেশ) যতটুকু চাওয়া হয় শুধু ততটুকু দিতে হতে পারে।
+
+**নিরাপত্তা:** অ্যাপ, ওয়েব আর সার্ভারের সব যোগাযোগ এনক্রিপ্ট করা (HTTPS)। লগইনে পাসওয়ার্ড নেই; লগইনের কোড ডাটাবেসে সরাসরি রাখা হয় না, শুধু তার এনক্রিপ্ট করা রূপ (hash), আর ১০ মিনিট পর বাতিল। আপনার এলাকা প্রায় ১ কিমিতে কেটে রাখা হয়। ব্যাকআপের বাইরের কপি এনক্রিপ্ট করা। সার্ভারে শুধু Lifolo টিম ঢুকতে পারে।
+
+## কতদিন রাখা হয়
+
+| তথ্য | কতদিন |
+|---|---|
+| অ্যাকাউন্ট, প্রোফাইল, রিকোয়েস্ট, প্রশ্নোত্তর, টিপস, তালিকা | অ্যাকাউন্ট থাকা পর্যন্ত (মুছলে নিচের নিয়মে) |
+| প্রেসক্রিপশন, ফার্মেসি ও প্যাথলজির অনুরোধ, রিপোর্ট, রিপোর্টের টাকার রেকর্ড | চিকিৎসার ইতিহাস হিসেবে অ্যাকাউন্ট মোছা পর্যন্ত (নিজে থেকে মোছে না) |
+| লগইনের কোড, ফোন যাচাইয়ের কোড | ১০ মিনিট (এনক্রিপ্ট করা রূপে) |
+| অ্যাপের ভেতরের নোটিফিকেশনের তালিকা | ২১ দিন |
+| ওষুধ খোঁজা | ৬ ঘণ্টা খোলা থাকে, তার ২ দিন পর মোছে |
+| অ্যাম্বুলেন্স ডাকার সঠিক লোকেশন, মোবাইল, ঠিকানা, নোট, নাম, গন্তব্য | অনুরোধ শেষ, বাতিল বা সময় পেরোনোর ২৪ ঘণ্টা পর মোছে |
+| ফার্মেসির অনলাইন অর্ডারের ঠিকানা-ফোন | অর্ডার শেষ বা বাতিলের ৭ দিন পর অর্ডার থেকে মোছে |
+| ক্র্যাশ রিপোর্ট (Sentry, নাম-ইমেইল-ফোন ছাড়া) | সর্বোচ্চ ৯০ দিন |
+| সার্ভারের সাধারণ লগ (IP ঠিকানা, সময়, কোন পাতা) | কয়েক সপ্তাহ, তারপর নিজে থেকে মোছে |
+| ডাটাবেসের ব্যাকআপ | সার্ভারে ১৪ দিন; বাইরের এনক্রিপ্ট করা কপি (চালু থাকলে) সর্বোচ্চ ৯০ দিন |
+| নিষেধাজ্ঞার একমুখী hash (নিচে দেখুন) | স্থায়ী |
+
+## অ্যাকাউন্ট মোছা
+
+তিনভাবে মুছতে পারেন:
+
+- **অ্যাপে:** প্রোফাইল → "অ্যাকাউন্ট মুছুন"।
+- **ওয়েবে:** https://lifolo.com/delete-account — লগইন করে সেখান থেকেই; অ্যাপ লাগবে না।
+- **ইমেইলে:** অ্যাপে বা ওয়েবে ঢুকতে না পারলে অ্যাকাউন্টের ইমেইল থেকে **ekapkbd@gmail.com**-এ লিখুন; ৩০ দিনের মধ্যে মুছে ফেলা হবে।
+
+**কী হয়:**
+
+- **সাথে সাথে:** মোছার তারিখ ঠিক হয় ৩০ দিন পরে (আগেই অনুরোধ করা থাকলে আগের তারিখই থাকে)। আপনার অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি, চেম্বার আর বাসায় সেবা তালিকা থেকে লুকানো হয়, সব ফোনের নোটিফিকেশন বন্ধ হয়, সব ফোন আর ব্রাউজার থেকে লগআউট হয়।
+- **৩০ দিনের মধ্যে:** আবার লগইন করলে (অ্যাপে বা ওয়েবে) মোছা বাতিল হয়ে সব আগের মতো ফেরে।
+- **৩০ দিন পূর্ণ হলে** পরের দৈনিক কাজে (সাধারণত এক দিনের মধ্যে) চিরতরে মোছে: আপনার প্রোফাইল, ছবি, ফোন নম্বর, পরিবারের সদস্য, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, চেম্বারের তথ্য, ব্যাজ, যাচাইয়ের কাগজের ছবি, নোটিফিকেশনের তালিকা, সাহায্যের বার্তা আর রক্তের রিকোয়েস্টে দেওয়া সাড়া; বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি আর ব্লাড ব্যাংকে ফোন আর রেটিংয়ের হিসাব (আপনার রেটিং গড় থেকেও বাদ যায়); আগের হোম নার্সের অনুরোধ থেকে নাম, ঠিকানা, লোকেশন ও নোট। চলমান রিকোয়েস্ট/ভিজিট বন্ধ হয়; যাঁরা রক্ত দিতে রাজি ছিলেন তাঁদের জানানো হয় যে আর যেতে হবে না। শেষে লগইনের অ্যাকাউন্টও (Firebase) মোছে।
+  - **প্রেসক্রিপশন ও পরীক্ষা:** আপনার প্রেসক্রিপশন আপনার অ্যাকাউন্ট থেকে খুলে দেওয়া হয় (ডাক্তারের লেখা রেকর্ড ডাক্তারের কাছে থাকে, কারো অ্যাকাউন্টে নয়), ডাক্তারের রোগী এন্ট্রির সাথে আপনার সংযোগ মোছে; ফার্মেসি আর প্যাথলজিতে পাঠানো অনুরোধ (অনলাইন অর্ডার আর বাসা থেকে নমুনার ঠিকানা-ফোনসহ), পরীক্ষার রিপোর্ট, রিপোর্ট দেখানোর টাকার রেকর্ড (TrxID), শেষ বাসার ঠিকানা, ফার্মেসিতে দেওয়া রেটিং আর দুই দিকের কেয়ারগিভার সংযোগ মুছে যায়।
+  - **ব্যবসা থাকলে:** আপনার প্যাথলজি ও পরীক্ষার দামের তালিকা, ফার্মেসি, স্টক, "ছিল না" তালিকা, দোকানের হিসাব-খাতা, দোকানে পাওয়া রেটিং, সহকারীর তালিকা, রিপোর্ট দেখানোর সেটিং আর চেম্বারের সিরিয়ালের সারি মুছে যায়; আপনার প্যাথলজিতে আসা সব অর্ডার থেকে রোগীর বাসার ঠিকানা-ফোন মুছে যায় (অর্ডার রোগীর কাছে থাকে)। ডাক্তার অ্যাকাউন্ট মুছলে তাঁর নিজে লেখা রোগীর তালিকা (নাম, বয়স, ফোন) মুছে যায়, কিন্তু তাঁর লেখা প্রেসক্রিপশন রোগীদের কাছে থাকে, কারণ ওগুলো রোগীরও কাগজ। কোনো ফার্মেসি নিজের হিসাব-খাতায় যে বিক্রি তুলেছে (রোগীর নাম ছাড়া), তা সেই দোকানের অ্যাকাউন্ট মোছা পর্যন্ত থাকে।
+- **যা থাকে:** Lifolo টিম কোনো অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা বাসায় সেবা বন্ধ করে থাকলে, অ্যাকাউন্ট মুছলেও সেই নিষেধাজ্ঞা থাকে — এজন্য ইমেইল, গাড়ির নম্বর, লাইসেন্স বা ফোন নম্বর সরাসরি নয়, শুধু একমুখী সংকেত (hash) আকারে রাখা হয়, যাতে আসল তথ্য লেখা থাকে না।
+- **ব্যাকআপ:** মোছা তথ্য সার্ভারের ব্যাকআপে ১৪ দিন আর বাইরের এনক্রিপ্ট করা কপিতে সর্বোচ্চ ৯০ দিন থাকতে পারে, তারপর নিজে থেকে মুছে যায়। ব্যাকআপ শুধু সার্ভার নষ্ট হলে তথ্য ফেরত আনতে ব্যবহার হয়।
+
+## আপনার অধিকার ও পছন্দ
+
+- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
+- আমাদের কাছে আপনার কী তথ্য আছে জানতে, ভুল ঠিক করাতে বা কোনো প্রশ্ন থাকলে **ekapkbd@gmail.com**-এ লিখুন।
+- অ্যাকাউন্ট মোছা: ওপরে দেখুন, বা https://lifolo.com/delete-account।
+
+## বয়স
+
+Lifolo ১৮ বছর বা তার বেশি বয়সীদের জন্য। পরিবারের ছোটদের সেবা (সিরিয়াল, প্রেসক্রিপশন) অভিভাবক নিজের অ্যাকাউন্ট থেকে "পরিবারের সদস্য" হিসেবে নেন। ১৮-র কম বয়সী কারো অ্যাকাউন্ট আছে জানলে আমরা তা মুছে দিতে পারি।
 
 ## স্বাস্থ্য-পরামর্শ সম্পর্কে
 
@@ -81,33 +174,79 @@ Health Discussion আর Health Tips-এর লেখা সাধারণ প�
 
 আগের ছবি-ভিত্তিক ওষুধের অর্ডার ১৫ অক্টোবর ২০২৬ থেকে বন্ধ, আর তার প্রেসক্রিপশনের ছবি মুছে ফেলা হয়েছে। এখন শুধু ডাক্তারের দেওয়া ডিজিটাল প্রেসক্রিপশন ফার্মেসিতে পাঠানো যায় (ওপরের টেবিল)।
 
-## তথ্য কোথায় থাকে
-
-সব তথ্য Google Firebase-এ (মুম্বাই সার্ভার) সংরক্ষিত থাকে। নোটিফিকেশন, প্রশ্নোত্তর, অ্যাপয়েন্টমেন্ট ও সিরিয়াল, প্রেসক্রিপশন, ফার্মেসি ও প্যাথলজির কাজ, ওয়েব অ্যাপ আর লগইন কোডের কাজ Vercel-এর সার্ভারে হয়; সার্ভার নিজে কোনো তথ্য জমিয়ে রাখে না। তথ্য বিক্রি করা হয় না, বিজ্ঞাপনে ব্যবহার করা হয় না, আর কোনো তৃতীয় পক্ষের সাথে শেয়ার করা হয় না — আপনি নিজে যে ডাক্তার, ফার্মেসি, প্যাথলজি বা কেয়ারগিভারকে বেছে নেন, তাঁরা শুধু ওপরের টেবিলে লেখা তথ্যটুকু পান।
-
-## আপনার অধিকার
-
-- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
-- **অ্যাকাউন্ট মোছা:** অ্যাপের Profile → "অ্যাকাউন্ট মুছুন" চাপলে ৩০ দিন অপেক্ষা: এর মধ্যে আপনার অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি আর চেম্বার তালিকা থেকে লুকানো থাকে, নোটিফিকেশন বন্ধ থাকে, সব ফোন থেকে লগআউট হয়। ৩০ দিনের মধ্যে আবার লগইন করলে (অ্যাপে বা ওয়েবে) মোছা বাতিল হয়ে সব আগের মতো ফেরে; না করলে ৩০ দিন পর আপনার প্রোফাইল, ছবি, ফোন নম্বর, পরিবারের সদস্য, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, চেম্বারের তথ্য, ব্যাজ আর রক্তের রিকোয়েস্টে দেওয়া সাড়া মুছে যায়, বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি আর ব্লাড ব্যাংকে ফোন আর রেটিংয়ের হিসাব (আপনার রেটিং গড় থেকেও বাদ যায়) আর আগের হোম নার্সের অনুরোধ থেকে নাম, ঠিকানা, লোকেশন ও নোট মুছে যায়, আর চলমান রিকোয়েস্ট/ভিজিট বন্ধ হয়ে যায়। যাঁরা রক্ত দিতে রাজি ছিলেন তাঁদের জানানো হয় যে আর যেতে হবে না।
-  - **প্রেসক্রিপশন ও পরীক্ষা:** আপনার প্রেসক্রিপশন আপনার অ্যাকাউন্ট থেকে খুলে দেওয়া হয় (ডাক্তারের লেখা রেকর্ড ডাক্তারের কাছে থাকে, কারো অ্যাকাউন্টে নয়), ডাক্তারের রোগী এন্ট্রির সাথে আপনার সংযোগ মোছে; ফার্মেসি আর প্যাথলজিতে পাঠানো অনুরোধ (অনলাইন অর্ডার আর বাসা থেকে নমুনার ঠিকানা-ফোনসহ), পরীক্ষার রিপোর্ট, রিপোর্ট দেখানোর টাকার রেকর্ড (TrxID), শেষ বাসার ঠিকানা, ফার্মেসিতে দেওয়া রেটিং আর দুই দিকের কেয়ারগিভার সংযোগ মুছে যায়।
-  - **ব্যবসা থাকলে:** আপনার প্যাথলজি ও পরীক্ষার দামের তালিকা, ফার্মেসি, স্টক, "ছিল না" তালিকা, দোকানের হিসাব-খাতা, দোকানে পাওয়া রেটিং, সহকারীর তালিকা, রিপোর্ট দেখানোর সেটিং আর চেম্বারের সিরিয়ালের সারি মুছে যায়; আপনার প্যাথলজিতে আসা সব অর্ডার থেকে রোগীর বাসার ঠিকানা-ফোন মুছে যায় (অর্ডার রোগীর কাছে থাকে)। ডাক্তার অ্যাকাউন্ট মুছলে তাঁর নিজে লেখা রোগীর তালিকা (নাম, বয়স, ফোন) মুছে যায়, কিন্তু তাঁর লেখা প্রেসক্রিপশন রোগীদের কাছে থাকে, কারণ ওগুলো রোগীরও কাগজ। কোনো ফার্মেসি নিজের হিসাব-খাতায় যে বিক্রি তুলেছে (রোগীর নাম ছাড়া), তা সেই দোকানের অ্যাকাউন্ট মোছা পর্যন্ত থাকে।
-  - Lifolo টিম কোনো অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা বাসায় সেবা বন্ধ করে থাকলে, অ্যাকাউন্ট মুছলেও সেই নিষেধাজ্ঞা থাকে — এজন্য ইমেইল, গাড়ির নম্বর, লাইসেন্স বা ফোন নম্বর সরাসরি নয়, শুধু একমুখী সংকেত (hash) আকারে রাখা হয়, যাতে আসল তথ্য সরাসরি লেখা থাকে না। অ্যাপ ছাড়াই মুছতে চাইলে **ekapkbd@gmail.com**-এ ইমেইল করুন; ৩০ দিনের মধ্যে মুছে ফেলা হবে।
-
 ## গুরুত্বপূর্ণ
 
-অ্যাপ শুধু সম্ভাব্য রক্তদাতা খুঁজে দেয়। রক্ত দেওয়া যাবে কি না, সেই সিদ্ধান্ত ব্লাড ব্যাংক বা চিকিৎসক ক্রসম্যাচ করে নেবেন।
+অ্যাপ শুধু সম্ভাব্য রক্তদাতা আর সেবাদাতা খুঁজে দেয়। রক্ত দেওয়া যাবে কি না, সেই সিদ্ধান্ত ব্লাড ব্যাংক বা চিকিৎসক ক্রসম্যাচ করে নেবেন। ব্যবহারের নিয়ম: [ব্যবহারের শর্ত](/terms)।
+
+## এই পলিসির বদল
+
+বদলালে এই পাতার ওপরের তারিখ বদলানো হবে; বড় বদল হলে অ্যাপেও জানানো হবে।
 
 ## যোগাযোগ
 
-ekapkbd@gmail.com
+Lifolo — **ekapkbd@gmail.com** · https://lifolo.com
 
 ---
 
-## English summary
+# English
 
-Lifolo connects blood requesters with nearby donors, and offers health Q&A, tips from verified professionals, doctor appointments with a live serial queue, a home-care directory of doctors and nurses, digital prescriptions from verified doctors, sending a prescription to a pharmacy or a pathology lab, lab reports and caregivers. Ambulances, pharmacies, blood banks and labs are listed too. The same account works in the Android app and the web app (browser). Without logging in, anyone can see the directories, Q&A and tips (askers' names hidden), emergency appeals and nearby blood requests (without the requester's name, phone or note); the area you pick is kept only on your phone or browser.
+Last updated: 20 October 2026. This policy covers the Lifolo Android app and the website https://lifolo.com; the same account works in both. The app used to be called Get Blood.
 
-We collect only what these features need (plus how far you're willing to travel and your travel-cost preference, used only to decide which requests notify you): email (login), birth date and weight (only if you want to donate), name, optional profile photo, mobile number (shared only between a donor and requester after "I'll donate", or between patient and provider after an appointment is confirmed), blood group, last donation date, approximate area (~1 km), request details, discussion posts and tips, badge applications (seen by the admin), professional profiles (specialty, degrees, optional gender, up to 3 chambers, home-care services, area, hours, fee and the phone number patients should call, ratings), hospital add requests (seen by the admin), appointment requests, app language and crash/error data (Firebase Crashlytics and Sentry, with names, emails, phone numbers and tokens removed). Home care is a directory of doctors and nurses who visit homes: their own location is never shown, only a rounded distance (whole kilometres, at least 2 km); tapping Call is counted so they can see how many calls came from the app (not who called) and so you can rate them. Home Nurse requests (before 2.2) are closed.
+## In short
+
+- Lifolo connects blood requesters with donors, and patients with doctors, nurses, pharmacies, labs, blood banks and ambulances. We collect only what these features need.
+- Your data is stored on our own server (rented from Contabo, currently in Europe; it may move to Singapore). Photos are stored in Cloudflare R2.
+- No ads, no advertising ID, and we never sell your data.
+- A few service providers do specific jobs for us — login and notifications (Firebase), email (Amazon SES), crash reports (Sentry), network and photo storage (Cloudflare). Details below.
+- You can delete your account at any time: in the app, at https://lifolo.com/delete-account, or by email.
+
+Without logging in, anyone can see the directories (doctors, home care, ambulances, pharmacies, blood banks, labs), Q&A and tips (askers' names hidden), emergency appeals and nearby blood requests (without the requester's name, phone or note). The area you pick as a guest is kept only on your phone or browser.
+
+## What we collect
+
+These are exactly the answers we give in Google Play's Data safety form. "Required" means it is needed for the account or the app to work; everything else you give only when you use that feature.
+
+| Type | What it is in Lifolo | Required? | Why |
+|---|---|---|---|
+| Name | Your profile name; a family member's or patient's name | Yes | App functionality, account management |
+| Email address | Your login email; a caregiver's or doctor's assistant's email | Yes | App functionality, account management |
+| User IDs | Your account ID (uid) | Yes | App functionality, account management |
+| Address | Home sample collection, pharmacy delivery, ambulance pickup place, business address | No | App functionality |
+| Phone number | Your mobile number (contact, verification) | No | App functionality, fraud prevention and security |
+| Other personal info | Date of birth, gender (optional), professional registration/licence number | No | App functionality, fraud prevention and security |
+| Other financial info | TrxID of a report-review fee, a doctor's bKash/Nagad/Rocket number (Lifolo holds no money) | No | App functionality |
+| Health info | Blood group, last donation, weight, prescriptions, medicines, tests and reports, the problem described in an appointment | No | App functionality |
+| Approximate location | Your area (rounded to about 1 km) and district/upazila | No | App functionality |
+| Precise location | "Use my location" when calling an ambulance, an ambulance's waiting place, a pharmacy's shop pin (a user's own location is coarsened to about 1 km on the server) | No | App functionality |
+| Photos | Profile photo, report photos, licence/certificate/ID photos (for verification) | No | App functionality, fraud prevention and security |
+| App interactions | Tapping Call for an ambulance, pharmacy, blood bank or home-care professional in the app (who, which, when) | No | App functionality (rating eligibility), analytics (owners see only totals) |
+| In-app search history | "Find a medicine" (medicine name + area) | No | App functionality |
+| Other user-generated content | Health discussion questions/answers, tips, ratings and comments, blood requests, help/appeal messages | No | App functionality |
+| Crash logs | Error reports from the app, web and server (Sentry; names, emails, phone numbers and tokens removed) | Yes (cannot be turned off) | Finding and fixing problems |
+| Diagnostics | App freezes (ANR), phone model, Android version, app version | Yes | Finding and fixing problems |
+| Device or other IDs | Notification token (Firebase Cloud Messaging) | Yes (when logged in) | App functionality (sending notifications) |
+
+**Not collected:** web browsing history, contacts, calendar, SMS or email contents, audio, files (documents only as photos), fitness data, purchase history, card numbers, race or ethnicity, political or religious beliefs, sexual orientation, installed apps, advertising ID. Location is never collected in the background.
+
+**Kept only on your phone:** medicine alarms, language and theme, recent areas. The health questions you tick before tapping "I'll donate" are not stored anywhere.
+
+## Who sees what
+
+- **Email:** only you; the admin if you apply for a badge; whoever adds you as a caregiver or doctor's assistant.
+- **Birth date and weight:** only you (asked only if you want to donate, to check age 18–60 and weight over 50 kg).
+- **Name:** logged-in users on requests, responses, questions, answers, tips, appointments and prescriptions; answer and tip authors' names are public; askers can hide their name.
+- **Profile photo:** only you (stored as 256×256).
+- **Mobile number:** shared only between a donor and a requester after "I'll donate", or between a patient and a provider after an appointment is confirmed.
+- **Blood group and last donation:** your profile only you; a requester sees your group when you respond.
+- **Area:** only you; a request's area is seen by logged-in users, guests see only the district and approximate distance. Your exact address or GPS position is never stored or shown for blood donation.
+- **Professional profiles** (specialty, degrees, optional gender, up to 3 chambers, home-care services, area, hours, fee, the phone number patients should call, ratings): public when listed. A professional's own location is never shown, only a rounded distance (whole kilometres, at least 2 km).
+- **Badge applications and hospital add requests:** the admin.
+- **Emergency appeals:** users and the admin see only counts, never names.
+- **Shared request link:** anyone with it sees the blood group, bags, hospital, district, time and travel cost — never the requester's name, phone or note.
+- **Calls from the app:** owners of ambulances, pharmacies, blood banks and home-care professionals see only how many calls came, not who called.
+- **Document photos** for an ambulance, pharmacy, blood bank, lab or badge (registration, fitness, licence, certificate, ID): only the Lifolo team, for verification; deleted with the listing or account.
+- **"Find a medicine":** up to 15 nearby pharmacies see only the medicine name, your area and approximate distance — not your name or phone. A search closes after 6 hours and is deleted 2 days later.
+- **Phone verification** (when turned on): a 6-digit code is sent by SMS to your profile number before a doctor or nurse turns on home care; only a hashed code is kept for 10 minutes.
 
 **Live serial:** patients (and their caregivers) see only numbers — the serial now being seen, how many are ahead and an estimated time — never other patients' names. A "running late" request (10/20/30/60 minutes plus a short note) is seen by the doctor and their assistants.
 
@@ -123,6 +262,77 @@ We collect only what these features need (plus how far you're willing to travel 
 
 **Call an ambulance:** when you tap "Call an ambulance" (login needed), the pickup address or landmark, note, mobile number, name and — if you allow it — your phone or browser location go to our server, and a few nearby free ambulance owners/drivers get a notification. Before accepting, drivers see only the distance (whole kilometres), the pickup text and note — not your name, phone or exact location. Only the driver who accepts, and only for that request, gets your name, mobile and exact location (to open in a map app); you see the vehicle name and the driver's phone (not the vehicle number). Calls you make while waiting are linked to the request. 24 hours after the request is finished, cancelled or expired, the exact location, mobile, address, note and name are deleted; only which vehicle, when and the outcome remain (for rating eligibility). Deleting your account deletes all your requests.
 
-Owners of ambulances, pharmacies and blood banks see only how many calls came from the app, not who called. "Find a medicine" sends only the medicine name, your area and approximate distance (not your name or phone) to up to 15 nearby pharmacies; you see who says they have it and call them. The earlier photo-based medicine ordering was closed on 15 Oct 2026 and its prescription photos were deleted. Medicine alarms stay on your phone only; the web app keeps your login, area, language and theme in your browser. In-app notifications are kept for 21 days. Prescriptions, pharmacy and lab requests, reports and payment records are kept as your health history until you delete your account. The hospital, clinic and diagnostic centre list comes from the public DGHS Facility Registry (hris.mohfw.gov.bd). District boundaries used to place your GPS location: OCHA/HDX Bangladesh COD-AB (CC BY-IGO). When phone verification is turned on, a 6-digit code is sent by SMS to the number in your profile before a doctor or nurse turns on home care; only a hashed code is kept for 10 minutes. See also the Terms of Use (TERMS.md). A shared request link shows anyone who has it the blood group, bags, hospital, district, time and travel cost — never the requester's name, phone or note. Data is stored in Google Firebase (Mumbai) and processed by our server on Vercel. Document photos you add for an ambulance, pharmacy, blood bank, lab or professional badge (registration, fitness, licence, certificate, ID) are seen only by the Lifolo team for verification and are deleted with the listing or account. We never sell data or use it for ads; the doctors, pharmacies, labs and caregivers you choose get only the data described above. Health posts are general guidance, not a diagnosis — in an emergency call 999.
+**Money:** no money goes through the app. Doctor and nurse fees, medicine and test prices are paid directly (in the shop, cash on delivery or to the provider). Report-review fees go straight to the doctor's own bKash/Nagad/Rocket number; we keep only the TrxID you enter.
 
-**Delete your account** anytime in the app: Profile → "Delete account". Deletion happens after 30 days: until then your ambulances, pharmacy, blood banks, lab and chamber are hidden, notifications stop and you are logged out on every device; logging in again (app or web) within 30 days cancels it and restores everything. After 30 days this removes your profile, photo, phone number, family members, questions, answers, tips, appointments, chamber details, badge and your responses to blood requests, deletes your call and rating records for home care, ambulances, pharmacies and blood banks (your ratings are taken out of their averages), strips your name, address, location and notes from old Home Nurse requests, and closes anything still active. Donors who had agreed to your open requests are told they don't need to come. Your prescriptions are detached from your account (the doctor's written record stays with the doctor, linked to no account) and your link to the doctor's patient entry is removed; your pharmacy and lab requests (with delivery and home-sample addresses), lab reports, report-review payment records (TrxID), saved home address and caregiver links (both ways) are deleted. If you run a business, your lab and its price list, pharmacy, stock list, "not in stock" list, shop books, ratings received, assistant list, report-review settings and chamber serial queues are deleted, and patients' home addresses and phones are removed from every order sent to your lab (the orders stay with the patients). If a doctor deletes their account, the patient list they entered themselves (name, age, phone) is deleted, but the prescriptions they wrote stay with their patients, since those are the patients' records too; sales a pharmacy recorded in its own books (without the patient's name) stay until that shop's account is deleted. If the Lifolo team suspended an ambulance, pharmacy, blood bank or home care, that suspension stays after deletion: we keep only a one-way hash of the email, vehicle, licence or phone number (not the value itself) so it can't be re-listed. You can also email **ekapkbd@gmail.com**; we delete within 30 days.
+**Location:** for ambulance, pharmacy and lab sorting, your phone's location is used only to measure distance for that search and is not stored (for ambulances it is first rounded to about 1 km). The Android app normally asks only for approximate location; precise location is asked only when an ambulance driver sets the waiting place or you tap "Use location" while calling an ambulance. No camera permission is needed to scan a shop's QR code.
+
+## Where data is stored and who processes it
+
+- **Our server:** all data (accounts, profiles, requests, prescriptions, reports, listings …) is kept in the database on our own server, rented from Contabo and currently located in Europe. We may move it to Singapore; this page will be updated if we do. This means your data is stored outside Bangladesh.
+- **Cloudflare R2:** photos (profile photos, report photos, verification document photos). When off-site backups are turned on, database backups are kept here too, encrypted with a password — Cloudflare cannot open them.
+- **Cloudflare (network):** all traffic to lifolo.com passes through Cloudflare's network for speed and protection against attacks, so Cloudflare processes your IP address and requests.
+- **Firebase (Google):** login (Firebase Authentication — your email and account ID) and push notifications (Firebase Cloud Messaging — your device's notification token and the notification text). Nothing else is stored in Firebase.
+- **Amazon SES (Amazon Web Services):** sends the 6-digit login code by email — only your email address and the code.
+- **Sentry:** crash and error reports from the app, web and server. Names, emails, phone numbers and tokens are removed before sending; no screenshots, screen layouts or records of what you tap.
+- **SMS provider (when turned on):** sends phone verification codes — only the number and the code.
+- **Google Maps:** only when you share a Google Maps link or tap "View on Google Maps" (see "Call an ambulance" above).
+
+These providers only do these jobs for us. We do not share your data with anyone else, never sell it and never use it for ads. The people you choose — doctors, pharmacies, labs, caregivers, donors or requesters who respond, the ambulance driver who accepts — get only the data described above. We may have to disclose data if the law requires it (a valid order from a court or authority), and then only what is asked for.
+
+**Security:** all traffic between the app, the website and the server is encrypted (HTTPS). There are no passwords; login codes are stored only as a hash and expire after 10 minutes. Your area is coarsened to about 1 km. Off-site backups are encrypted. Only the Lifolo team can access the server.
+
+## How long we keep data
+
+| Data | How long |
+|---|---|
+| Account, profile, requests, Q&A, tips, listings | While your account exists (then as described below) |
+| Prescriptions, pharmacy and lab requests, reports, report-payment records | Kept as your health history until you delete your account |
+| Login codes, phone verification codes | 10 minutes (hashed) |
+| In-app notification list | 21 days |
+| "Find a medicine" | Open for 6 hours, deleted 2 days later |
+| Ambulance call: exact location, mobile, address, note, name, destination | Deleted 24 hours after the request is finished, cancelled or expired |
+| Pharmacy online order: delivery address and phone | Removed from the order 7 days after it is completed or cancelled |
+| Crash reports (Sentry, without names, emails or phones) | Up to 90 days |
+| Server logs (IP address, time, page) | A few weeks, then deleted automatically |
+| Database backups | 14 days on the server; off-site encrypted copies (when on) up to 90 days |
+| One-way hash for a suspension (see below) | Permanently |
+
+## Deleting your account
+
+You can delete your account in three ways:
+
+- **In the app:** Profile → "Delete account".
+- **On the web:** https://lifolo.com/delete-account — log in and delete it there; no app needed.
+- **By email:** if you can't log in, write from your account's email address to **ekapkbd@gmail.com**; we delete it within 30 days.
+
+**What happens:**
+
+- **Right away:** the deletion date is set 30 days ahead (if you already asked earlier, the earlier date stays). Your ambulances, pharmacy, blood banks, lab, chamber and home care are hidden, notifications stop on every phone, and you are logged out on every phone and browser.
+- **Within 30 days:** logging in again (app or web) cancels the deletion and restores everything.
+- **After 30 days**, at the next daily run (usually within a day), everything is deleted for good: your profile, photo, phone number, family members, questions, answers, tips, appointments, chamber details, badge, verification document photos, notification list, help messages and your responses to blood requests; your call and rating records for home care, ambulances, pharmacies and blood banks (your ratings are taken out of their averages); and your name, address, location and notes on old Home Nurse requests. Anything still active is closed, and donors who had agreed to your open requests are told they don't need to come. Finally your login account (Firebase) is deleted.
+  - **Prescriptions and tests:** your prescriptions are detached from your account (the doctor's written record stays with the doctor, linked to no account) and your link to the doctor's patient entry is removed; your pharmacy and lab requests (with delivery and home-sample addresses), lab reports, report-payment records (TrxID), saved home address, pharmacy ratings and caregiver links (both ways) are deleted.
+  - **If you run a business:** your lab and its price list, pharmacy, stock list, "not in stock" list, shop books, ratings received, assistant list, report-review settings and chamber serial queues are deleted, and patients' home addresses and phones are removed from every order sent to your lab (the orders stay with the patients). If a doctor deletes their account, the patient list they entered (name, age, phone) is deleted, but the prescriptions they wrote stay with their patients, since those are the patients' records too. Sales a pharmacy recorded in its own books (without the patient's name) stay until that shop's account is deleted.
+- **What is kept:** if the Lifolo team suspended an ambulance, pharmacy, blood bank or home care, the suspension stays after deletion: we keep only a one-way hash of the email, vehicle number, licence or phone number (not the value itself) so it can't be listed again.
+- **Backups:** deleted data can remain in server backups for 14 days and in off-site encrypted copies for up to 90 days, and is then removed automatically. Backups are used only to restore the server after a failure.
+
+## Your rights and choices
+
+- Change your details and turn notifications off at any time in Profile and Settings. You can turn location permission off in your phone's settings (then pick your area by hand). Remove caregivers and family members at any time.
+- To find out what data we hold about you, to correct it, or with any question, write to **ekapkbd@gmail.com**.
+- Delete your account: see above, or https://lifolo.com/delete-account.
+
+## Age
+
+Lifolo is for people aged 18 or over. Parents use services for children (serials, prescriptions) from their own account as a "family member". If we learn that someone under 18 has an account, we may delete it.
+
+## Health information and sources
+
+Health posts and tips are general guidance, not a diagnosis or treatment. A prescription is the responsibility of the doctor who wrote it, and test results of the lab. In an emergency call 999. Wrong or harmful posts can be reported and are removed by the admin. The hospital, clinic and diagnostic centre list comes from the public DGHS Facility Registry (hris.mohfw.gov.bd); district/upazila/union names from github.com/nuhil/bangladesh-geocode (MIT License); district boundaries used to place your GPS location: OCHA/HDX Bangladesh COD-AB (CC BY-IGO). The earlier photo-based medicine ordering was closed on 15 October 2026 and its prescription photos were deleted. See also the [Terms of Use](/terms).
+
+## Changes to this policy
+
+When we change it, we update the date at the top; for big changes we also tell you in the app.
+
+## Contact
+
+Lifolo — **ekapkbd@gmail.com** · https://lifolo.com

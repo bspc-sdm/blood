@@ -1,16 +1,29 @@
-# Lifolo (আগের নাম Get Blood) — ব্যবহারের শর্ত / Terms of Use
+# Lifolo — ব্যবহারের শর্ত / Terms of Use
 
-সর্বশেষ আপডেট: ১৮ অক্টোবর ২০২৬ (ডিজিটাল প্রেসক্রিপশন, ফার্মেসিতে পাঠানো, প্যাথলজি, কেয়ারগিভার)
+সর্বশেষ আপডেট / Last updated: ২০ অক্টোবর ২০২৬ / 20 October 2026
 
-Lifolo একটা যোগাযোগের মাধ্যম: রক্তপ্রার্থীর সাথে রক্তদাতার, আর রোগীর সাথে ডাক্তার, নার্স, স্বাস্থ্য পেশাজীবী, ফার্মেসি ও প্যাথলজির যোগাযোগ করিয়ে দেয়। অ্যাপ নিজে কোনো চিকিৎসা, রক্ত, ওষুধ, পরীক্ষা বা সেবা দেয় না, আর কোনো টাকার লেনদেন করে না — সব টাকা সরাসরি রোগী আর সেবাদাতার মধ্যে। একই নিয়ম Android অ্যাপ আর ওয়েব অ্যাপ দুটোতেই।
+এই শর্ত Lifolo-র Android অ্যাপ আর ওয়েবসাইট (https://lifolo.com) — দুটোর জন্যই। Lifolo ব্যবহার করলে আপনি এই শর্তে রাজি। অ্যাপের আগের নাম ছিল Get Blood। ইংরেজি সংস্করণ নিচে (English version below)।
+
+## Lifolo কী, আর কী নয়
+
+- **Lifolo একটা তালিকা আর যোগাযোগের মাধ্যম।** রক্তপ্রার্থীর সাথে রক্তদাতার, আর রোগীর সাথে ডাক্তার, নার্স, স্বাস্থ্য পেশাজীবী, ফার্মেসি, প্যাথলজি, ব্লাড ব্যাংক ও অ্যাম্বুলেন্সের যোগাযোগ করিয়ে দেয়।
+- **Lifolo কোনো চিকিৎসা প্রতিষ্ঠান বা চিকিৎসাসেবা দানকারী নয়।** নিজে কোনো চিকিৎসা, রোগনির্ণয়, রক্ত, ওষুধ, পরীক্ষা বা অ্যাম্বুলেন্স সেবা দেয় না, আর কোনো টাকার লেনদেন করে না — সব টাকা সরাসরি রোগী আর সেবাদাতার মধ্যে।
+- **তালিকার সেবাদাতারা নিজের সেবার জন্য নিজেরাই দায়ী।** ডাক্তার, নার্স, ফার্মেসি, প্যাথলজি, ব্লাড ব্যাংক বা অ্যাম্বুলেন্স যে সেবা দেন, তার মান, দাম, সময়, নিরাপত্তা আর ফলাফলের দায় তাঁদের। Lifolo কাগজপত্র দেখে যাচাই করে, কিন্তু কারো সেবার নিশ্চয়তা দেয় না, আর কারো নিয়োগকর্তা নয়।
+- **জরুরি অবস্থায় আগে ৯৯৯-এ ফোন করুন** বা নিকটস্থ হাসপাতালে যান। অ্যাপের ওপর নির্ভর করে চিকিৎসা দেরি করবেন না।
+- **রক্তদান স্বেচ্ছায়।** কেউ রক্ত দিতে বাধ্য নন, আর রক্তের জন্য টাকা চাওয়া বা দেওয়া যাবে না — রক্ত কেনাবেচা আইনত নিষিদ্ধ। শুধু যাতায়াত খরচের কথা বলা যায়। রক্ত দেওয়া যাবে কি না, ব্লাড ব্যাংক বা চিকিৎসক ক্রসম্যাচ করে ঠিক করবেন।
+- স্বাস্থ্য আলোচনা আর টিপসের লেখা সাধারণ তথ্য — রোগনির্ণয় বা প্রেসক্রিপশন নয়।
+
+## অ্যাকাউন্ট
+
+- Lifolo ১৮ বছর বা তার বেশি বয়সীদের জন্য। ছোটদের সেবা অভিভাবক নিজের অ্যাকাউন্ট থেকে "পরিবারের সদস্য" হিসেবে নেন।
+- লগইন ইমেইলের কোড দিয়ে; নিজের ইমেইল আর ফোন অন্যকে ব্যবহার করতে দেবেন না। নিজের অ্যাকাউন্টে যা হয়, তার দায় আপনার।
+- অ্যাকাউন্ট যেকোনো সময় মুছতে পারবেন — অ্যাপে, https://lifolo.com/delete-account পাতায়, বা ইমেইলে ([প্রাইভেসি পলিসি](/privacy) দেখুন)।
 
 ## সবার জন্য
 
 - নিজের সম্পর্কে সঠিক তথ্য দেবেন (নাম, ফোন নম্বর, রক্তের গ্রুপ, এলাকা)।
-- রক্ত কেনাবেচা আইনত নিষিদ্ধ। অ্যাপে রক্তের জন্য টাকা চাওয়া বা দেওয়া যাবে না; শুধু যাতায়াত খরচের কথা বলা যায়।
-- কাউকে হয়রানি, ভুয়া অনুরোধ, অপমানজনক বা ক্ষতিকর লেখা নিষিদ্ধ। রিপোর্ট পেলে অ্যাডমিন অ্যাকাউন্টের সুবিধা বন্ধ করতে পারেন।
-- জরুরি অবস্থায় আগে **৯৯৯**-এ ফোন করুন বা নিকটস্থ হাসপাতালে যান। অ্যাপের ওপর নির্ভর করে চিকিৎসা দেরি করবেন না।
-- Health Discussion আর Health Tips-এর লেখা সাধারণ তথ্য, রোগ নির্ণয় বা প্রেসক্রিপশন নয়।
+- কাউকে হয়রানি, ভুয়া অনুরোধ, অন্যের পরিচয়ে অ্যাকাউন্ট, অপমানজনক বা ক্ষতিকর লেখা নিষিদ্ধ। অন্যের ফোন নম্বর বা স্বাস্থ্যের তথ্য অ্যাপের কাজের বাইরে ব্যবহার বা প্রকাশ করবেন না।
+- রিপোর্ট পেলে বা শর্ত ভাঙলে অ্যাডমিন লেখা মুছতে, তালিকা বন্ধ করতে বা অ্যাকাউন্টের সুবিধা বন্ধ করতে পারেন। আপত্তি থাকলে অ্যাপের "সাহায্য ও আপিল" থেকে জানান।
 
 ## ডাক্তার ও নার্স (ব্যাজধারী)
 
@@ -42,11 +55,11 @@ Lifolo একটা যোগাযোগের মাধ্যম: রক্ত
 
 ## অ্যাম্বুলেন্স
 
-- অ্যাপ শুধু অ্যাম্বুলেন্সের তালিকা আর ফোন নম্বর দেখায়; অ্যাম্বুলেন্স পাঠায় না, ভাড়ার দায়ও নেয় না। জরুরি অবস্থায় আগে **৯৯৯**-এ ফোন করুন।
+- অ্যাপ অ্যাম্বুলেন্সের তালিকা আর ফোন নম্বর দেখায়, আর "অ্যাম্বুলেন্স ডাকুন" চাপলে আপনার অনুরোধ কাছের খালি গাড়ির চালকদের কাছে পৌঁছে দেয়। Lifolo নিজে অ্যাম্বুলেন্স চালায় বা পাঠায় না, কোনো চালক রাজি হবেন বা সময়মতো আসবেন — এমন নিশ্চয়তা দেয় না, ভাড়ার দায়ও নেয় না; ভাড়া চালক আর আপনার মধ্যে ঠিক হয়। জরুরি অবস্থায় আগে **৯৯৯**-এ ফোন করুন।
 - অ্যাম্বুলেন্সের মালিক/চালক: গাড়ির বৈধ রেজিস্ট্রেশন আর চালকের লাইসেন্স থাকতে হবে; তালিকায় লেখা ভাড়ার চেয়ে বেশি চাওয়া, ফোন ধরে না আসা বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন।
 - ব্যস্ত থাকলে "এখন খালি আছি" বন্ধ রাখুন, যাতে মানুষ ভুল করে সময় নষ্ট না করেন। "খালি আছি" ১২ ঘণ্টা পর নিজে থেকে শেষ হয়; শেষ ঘণ্টায় "এখনো খালি আছেন?" নোটিফিকেশন আসে।
 - "গাড়ি যেখানে অপেক্ষা করে" (ঐচ্ছিক) দিলে সেটা স্ট্যান্ড বা হাসপাতালের গেটের মতো জায়গা দেবেন, নিজের বাসা নয়; জায়গা বদলালে আবার দিন বা মুছে দিন। রোগী দেখেন শুধু আনুমানিক দূরত্ব।
-- "সবচেয়ে কাছের খালি অ্যাম্বুলেন্সে ফোন" দূরত্ব আর চালকের জানানো "খালি আছি" দেখে বাছা হয় — গাড়ি সত্যি খালি বা কাছে কি না ফোনে নিশ্চিত হয়ে নিন।
+- দূরত্ব আর "খালি আছি" চালকের নিজের জানানো তথ্য থেকে — গাড়ি সত্যি খালি বা কাছে কি না ফোনে নিশ্চিত হয়ে নিন। "অ্যাম্বুলেন্স ডাকুন"-এ রাজি হলে বলা ভাড়ার বেশি চাইবেন না, আর রোগীর নাম, ফোন ও লোকেশন শুধু সেই যাত্রার জন্য ব্যবহার করবেন।
 
 ## ফার্মেসি
 
@@ -80,24 +93,73 @@ Lifolo একটা যোগাযোগের মাধ্যম: রক্ত
 - রক্ত কেনা-বেচা আইনত নিষিদ্ধ। ব্লাড ব্যাংক শুধু নির্ধারিত পরীক্ষা ও প্রসেসিং খরচ নিতে পারে।
 - ব্লাড ব্যাংক: বেসরকারি হলে সরকারি লাইসেন্স থাকতে হবে; নিরাপদ রক্ত সঞ্চালন আইন ও বিধি মানবেন; খোলার সময় আর ফোন নম্বর সঠিক রাখবেন। রক্ত বিক্রি, ভুল তথ্য বা খারাপ আচরণ রিপোর্ট হলে অ্যাডমিন তালিকা থেকে বন্ধ করবেন। অ্যাডমিন নিজেও চেনা ব্লাড ব্যাংক তালিকায় যোগ করতে পারেন।
 
+## দায়ের সীমা
+
+Lifolo যেমন আছে তেমনভাবে দেওয়া হয়। আমরা অ্যাপ চালু আর তথ্য ঠিক রাখার চেষ্টা করি, কিন্তু অ্যাপ সবসময় চলবে, কোনো রক্তদাতা বা সেবাদাতা পাওয়া যাবে, বা তালিকার তথ্য (সময়, দাম, স্টক) সবসময় ঠিক থাকবে — এমন নিশ্চয়তা দিই না। সেবাদাতার সেবা, ব্যবহারকারীদের নিজেদের মধ্যে যোগাযোগ আর লেনদেনের ফলে কোনো ক্ষতির দায় Lifolo নেয় না, যতটুকু আইন অনুমতি দেয়।
+
 ## পরিবর্তন ও যোগাযোগ
 
-শর্ত বদলালে এই পাতায় তারিখ সহ জানানো হবে। প্রশ্ন বা অভিযোগ: **ekapkbd@gmail.com**
+শর্ত বদলালে এই পাতার ওপরের তারিখ বদলানো হবে; বড় বদল হলে অ্যাপেও জানানো হবে। বদলের পরে ব্যবহার করলে নতুন শর্তে রাজি বলে ধরা হবে। এই শর্তে বাংলাদেশের আইন প্রযোজ্য। প্রশ্ন বা অভিযোগ: **ekapkbd@gmail.com**
 
 ---
 
-## English summary
+# English
 
-Lifolo only connects people: blood requesters with donors, and patients with doctors, nurses, health professionals, pharmacies and pathology labs. The app does not provide treatment, blood, medicine, tests or services and handles no money — all payments go directly between the patient and the provider. The same terms apply to the Android app and the web app. Give accurate information; buying or selling blood is illegal; harassment and fake requests are not allowed and can lead to removal. In an emergency call 999. Health posts are general information, not a diagnosis.
+Last updated: 20 October 2026. These terms cover the Lifolo Android app and the website https://lifolo.com. By using Lifolo you agree to them. The app used to be called Get Blood.
 
-Doctors and nurses must keep a valid BMDC/BNMC registration, work within their training and the law, and are responsible for the care they give. Digital prescriptions are written only by verified doctors, who are responsible for them; once issued they can't be edited, only cancelled and re-issued (pharmacies won't dispense a cancelled one). Assistants a doctor adds see patients' names, ages and phone numbers and act under the doctor's responsibility. The live serial's estimated time is only an estimate. Report-review fees are paid by the patient straight to the doctor's own bKash/Nagad/Rocket number; the doctor confirms only after matching the TrxID; Lifolo holds no money and is not responsible for refunds or disputes.
+## What Lifolo is, and is not
 
-**Home care (doctors and nurses who visit homes):** the app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or cannula require a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or cannula without a prescription; everyone should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any service; responsibility for each visit lies with the professional and the patient/family. Admins may remove anyone from the service after reports.
+- **Lifolo is a directory and a way to connect.** It connects blood requesters with donors, and patients with doctors, nurses, health professionals, pharmacies, pathology labs, blood banks and ambulances.
+- **Lifolo is not a medical provider.** It does not give treatment, diagnosis, blood, medicine, tests or ambulance service itself, and it handles no money — all payments go directly between the patient and the provider.
+- **Listed providers are responsible for their own services.** Doctors, nurses, pharmacies, labs, blood banks and ambulances are responsible for the quality, price, timing, safety and outcome of what they provide. Lifolo checks documents, but does not guarantee anyone's service and is nobody's employer.
+- **In an emergency, call 999 first** or go to the nearest hospital. Don't delay care because of the app.
+- **Blood donation is voluntary.** No one has to donate, and no one may ask for or pay money for blood — buying or selling blood is illegal. Only travel costs may be discussed. Whether blood can be given is decided by the blood bank or doctor after cross-matching.
+- Health posts and tips are general information, not a diagnosis or prescription.
 
-**Ambulance & pharmacy:** the app lists ambulances and licensed pharmacies with their phone numbers; it sends no ambulance, sells no medicine and handles no money. In an emergency call 999. Ambulance owners need valid vehicle registration and driving licence; overcharging or not coming leads to removal. "Available" switches off by itself after 12 hours (with a "still available?" reminder in the last hour); an optional waiting place must be a stand or hospital gate, not a home; the "call the nearest free ambulance" button relies on the driver's own availability — confirm on the phone. A patient (or caregiver) can send a digital prescription to a pharmacy, in the shop or as an online delivery order to a shop that offers it within its delivery range, paying in the shop or cash on delivery; the sale is between the patient and the pharmacy, and Lifolo is not responsible for price, quality or delivery. Pharmacies need a valid drug licence, must not give prescription medicines without a prescription, must not dispense a cancelled prescription, must give what is written and record what they gave correctly, must not charge above MRP, must deliver online orders as agreed or cancel with a reason, must use delivery addresses only for that order and keep them confidential, are responsible for their own stock and books, and must keep their hours and phone correct. Pharmacy ratings are about the shop's service, not how a medicine worked.
+## Your account
 
-**Pathology labs:** the app lists approved labs with their test prices and phone numbers; shown prices are estimates — confirm with the lab. Patients (or caregivers) can send a prescription's tests to a lab, optionally asking for a home sample collection; they can change or cancel the home visit until the lab confirms a time. Labs need a valid DGHS licence, must keep prices, report times and home-collection fees correct, must come at the confirmed time or decline in advance, must use patients' addresses and phones only for the collection and keep them confidential, and are responsible for the accuracy of their results.
+- Lifolo is for people aged 18 or over. Parents use services for children from their own account as a "family member".
+- You log in with a code sent to your email; don't let others use your email or phone. You are responsible for what happens in your account.
+- You can delete your account at any time — in the app, at https://lifolo.com/delete-account, or by email (see the [Privacy Policy](/privacy)).
 
-**Caregivers:** a patient chooses up to 2 caregivers by their Lifolo email, active once they accept. A caregiver can act for the patient on prescriptions, pharmacy and lab requests, report payments and appointments, but not change the profile, delete the account or make blood requests, and must act only in the patient's interest and keep their information private. Either side can remove the link at any time. In a major emergency the Lifolo team may send an appeal after confirming with the hospital blood bank; nearby eligible donors are notified in waves (the daily notification limit doesn't apply, but turned-off notifications are respected). Tap "I'm coming" only if you can go now; groups close once enough donors are coming. Blood banks (government hospital, licensed private and volunteer organisations) are listed the same way — call to check availability; buying or selling blood is illegal and only processing costs may be charged. With "Find a medicine" you can ask nearby pharmacies whether they have a medicine from the list; they answer yes/no and you call them — confirm by phone.
+## Rules for everyone
 
-Contact: ekapkbd@gmail.com
+- Give accurate information (name, phone, blood group, area).
+- No harassment, fake requests, impersonation, abusive or harmful posts. Don't use or publish other people's phone numbers or health information outside what the app is for.
+- After reports or rule-breaking, the admin may remove posts, turn off listings or limit an account. If you disagree, use "Help & appeals" in the app.
+
+## Doctors and nurses
+
+Doctors and nurses must keep a valid BMDC/BNMC registration, work within their training and the law, and are responsible for the care they give. Keep chamber times, fees and addresses correct. The live serial's estimated time is only an estimate; answer "running late" requests in time. Digital prescriptions are written only by verified doctors, who are responsible for them; once issued they can't be edited, only cancelled and re-issued (pharmacies won't dispense a cancelled one). Assistants a doctor adds see patients' names, ages and phone numbers, act under the doctor's responsibility and must keep patient information confidential. Report-review fees are paid by the patient straight to the doctor's own bKash/Nagad/Rocket number; the doctor confirms only after matching the TrxID; Lifolo holds no money and is not responsible for refunds or disputes.
+
+## Home care
+
+The app only lists verified doctors and nurses who visit patients at home, with their services, area, hours, fee and phone; there are no in-app requests, bookings or payments — patients call directly and agree on the time and fee. Professionals agree that the phone number they enter is shown to everyone in the list. Injections, saline or a cannula need a registered doctor's prescription and the prescribed medicine ready; an adult should be present; the fee is paid directly. Nurses must not give injections, saline or a cannula without a prescription; professionals should refer serious cases to a hospital, must not charge more than agreed, must keep patient details confidential, and may leave and report if they feel unsafe. Lifolo is not the employer of any professional and does not guarantee the quality or outcome of any visit; responsibility lies with the professional and the patient/family. Admins may remove anyone after reports.
+
+## Ambulances
+
+The app lists ambulances with their phone numbers, and "Call an ambulance" passes your request to nearby free drivers. Lifolo does not run or send ambulances, does not guarantee that a driver will accept or arrive in time, and is not responsible for the fare, which is agreed between you and the driver. In an emergency call 999 first. Owners need a valid vehicle registration and driving licence; overcharging, not coming or bad behaviour leads to removal. "Available" switches off by itself after 12 hours (with a "still available?" reminder in the last hour). An optional waiting place must be a stand or hospital gate, not a home. Distance and availability come from the driver — confirm on the phone. A driver who accepts a request must not charge more than the fare they quoted, and may use the patient's name, phone and location only for that trip.
+
+## Pharmacies
+
+The app lists licensed pharmacies with their hours and phone numbers. It sells no medicine, takes no money and is not responsible for price, quality or delivery; the sale is between you and the shop. A patient (or caregiver) can send a digital prescription to a pharmacy, in the shop or as an online delivery order to a shop that offers it within its delivery range, paying in the shop or cash on delivery; check medicines and prices before buying. With "Find a medicine" nearby pharmacies answer whether they have a medicine — confirm by phone. Pharmacies need a valid drug licence; must not give prescription medicines without a prescription or dispense a cancelled prescription; must give what is written and record what they gave correctly; must not charge above MRP; must deliver online orders as agreed or cancel with a reason; must use delivery addresses and phones only for that order and keep them confidential; are responsible for their own stock and books; and must keep their hours and phone correct. Pharmacy ratings are about the shop's service, not how a medicine worked — rate only from real experience.
+
+## Pathology labs
+
+The app lists approved labs with their test prices and phone numbers; it does no tests, takes no money and is not responsible for results. Shown prices are estimates — confirm with the lab. Patients (or caregivers) can send a prescription's tests to a lab, optionally asking for a home sample collection, and can change or cancel the home visit until the lab confirms a time. Labs need a valid DGHS licence, must keep prices, report times and home-collection fees correct, must come at the confirmed time or decline in advance, must use patients' addresses and phones only for the collection and keep them confidential, must enter results exactly as found, and are responsible for their accuracy.
+
+## Caregivers
+
+A patient chooses up to 2 caregivers by their Lifolo email; the link is active once they accept. A caregiver can act for the patient on prescriptions, pharmacy and lab requests, report payments and appointments, but cannot change the profile, delete the account or make blood requests, and must act only in the patient's interest and keep their information private. Either side can remove the link at any time.
+
+## Emergency appeals and blood banks
+
+In a major emergency the Lifolo team may send an appeal after talking to the hospital blood bank; nearby eligible donors are notified in waves (the daily notification limit doesn't apply, but turned-off notifications are respected). Tap "I'm coming" only if you can go now, otherwise "Can't come"; groups close once enough donors are coming. Follow the hospital's instructions — the hospital checks before collecting blood. Blood banks are listed with their hours and phone numbers; Lifolo supplies no blood and does not guarantee stock — call to check. Blood banks may charge only the set testing and processing costs; private blood banks need a government licence and must follow the Safe Blood Transfusion Act and rules. Selling blood, wrong information or bad behaviour leads to removal.
+
+## Limitation of liability
+
+Lifolo is provided as it is. We try to keep the app running and the information correct, but we don't guarantee that the app will always work, that a donor or provider will be found, or that listed details (hours, prices, stock) are always right. To the extent the law allows, Lifolo is not liable for loss caused by a provider's service or by contact and dealings between users.
+
+## Changes and contact
+
+When we change these terms we update the date at the top; for big changes we also tell you in the app. Using Lifolo after a change means you accept the new terms. These terms are governed by the laws of Bangladesh. Questions or complaints: **ekapkbd@gmail.com**
