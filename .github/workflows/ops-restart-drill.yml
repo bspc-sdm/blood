@@ -58,7 +58,7 @@ jobs:
         id: drill
         run: |
           out="$RUNNER_TEMP/out"
-          H() { curl -fsS -m 5 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
+          H() { curl -fsS -m 3 --connect-timeout 2 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
           echo "rebooted_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee "$out/drill.txt"
           t0=$(date +%s.%N)
           # ২ সেকেন্ড পরে রিবুট (ssh ঠিকভাবে ফেরে)
@@ -71,7 +71,7 @@ jobs:
               H || down="$(el)"
             else
               # পোর্ট 22: আগে বন্ধ হওয়া দেখা, তারপর আবার খোলা (বন্ধ হওয়ার আগের খোলা গোনা নয়)
-              if timeout 3 bash -c "</dev/tcp/$ORIGIN_IP/22" 2>/dev/null; then
+              if timeout 1 bash -c "</dev/tcp/$ORIGIN_IP/22" 2>/dev/null; then
                 [ -z "$ssh_gone" ] || [ -n "$ssh_up" ] || ssh_up="$(el)"
               else
                 [ -n "$ssh_gone" ] || ssh_gone="$(el)"
