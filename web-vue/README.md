@@ -18,7 +18,7 @@
 | `admin/` | অ্যাডমিন প্যানেল — আলাদা বিল্ড, ঠিকানা `/admin/` (১৮টা পাতা, যাচাই, আপিল, ব্যবহারকারী, ডেমো) |
 | `test/` | স্ক্রিনশট (`shots.mjs`), নকল সার্ভার (`serve.mjs` + `fixtures/`), পাতার তালিকা (`pages/*.json`), অ্যাডমিনের তুলনা |
 | `tests/unit/` | ছোট পরীক্ষা (Vitest) |
-| `e2e/` | Playwright: নকল API-র সাথে (`*.spec.ts`), আর আসল সার্ভারের পুরো যাত্রা (`journeys.mjs`) |
+| `e2e/` | Playwright: নকল API-র সাথে (`*.spec.ts`); আসল সার্ভারের পুরো যাত্রা রিপোর `e2e/web` |
 | `scripts/check-bangla.py` | বাংলা লেখা হুবহু কি না |
 
 ## চালানো
@@ -47,15 +47,17 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test   # নকল API-
 
 ### আসল সার্ভারের পুরো যাত্রা
 
-`e2e/web/journeys` (React-এর জন্য লেখা, বদল ছাড়া) Vue ওয়েব আর Vue অ্যাডমিনের ওপর — `e2e/server/local.js` (সার্ভারের আসল কোড, মেমোরির ডাটাবেস), Firebase Auth emulator, পরীক্ষার ঘড়ি (ঢাকা ১১:০০):
+`e2e/web/journeys` (রিপোর `e2e/`) এখন এই Vue ওয়েব আর Vue অ্যাডমিনের ওপর, আসল Spring সার্ভার (PostgreSQL + Redis), Firebase Auth emulator,
+প্রোডাকশনের CSP — CI-তে "Web e2e (Vue web + Spring)" (`.github/workflows/backend-e2e.yml`), main-এ push হলেও চলে। লোকালে:
 
 ```bash
-(cd ../server && npm ci) && (cd ../e2e && npm ci)
-node e2e/journeys.mjs            # সব যাত্রা; বা যেমন: node e2e/journeys.mjs 03 05
-WEB_BUILD=/path/to/react-build ADMIN=orig node e2e/journeys.mjs   # একই যাত্রা React-এ (তুলনার জন্য)
+(cd ../e2e && npm ci)
+# PostgreSQL আর Redis চালু, backend/-এর boot jar বানানো থাকলে:
+bash ../e2e/spring.sh ../backend/build/libs/app.jar /tmp/spring.log
+E2E_BACKEND=http://127.0.0.1:8080 E2E_BACKEND_LOG=/tmp/spring.log node ../e2e/web/run.mjs        # সব যাত্রা; বা যেমন: … run.mjs 09 11
 ```
 
-ফল `e2e/web/shots`-এ (`summary.json`, প্রতিটা ধাপের ছবি)।
+ফল `e2e/web/shots`-এ (`summary.json`, প্রতিটা ধাপের ছবি, `actions.json`, `push-matrix.json`)। অবসরে যাওয়া React ওয়েবে চালাতে `E2E_WEB=react`।
 
 ### React বনাম Vue স্ক্রিনশট
 

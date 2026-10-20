@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 // e2e (CI): বানানো পাতা (npm run build:test) আর অ্যাডমিন (npm run build:admin) — test/serve.mjs দেয়,
-// /api/* এর উত্তর test/fixtures থেকে (আসল সার্ভার ছাড়া)। আসল সার্ভারের পুরো যাত্রা: e2e/journeys.mjs।
+// /api/* এর উত্তর test/fixtures থেকে (আসল সার্ভার ছাড়া)। আসল সার্ভারের পুরো যাত্রা: রিপোর e2e/web (backend-e2e.yml)।
 const PORT = Number(process.env.E2E_MOCK_PORT || 4179);
 export default defineConfig({
   testDir: 'e2e',
