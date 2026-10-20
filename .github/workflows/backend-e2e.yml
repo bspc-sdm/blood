@@ -178,7 +178,8 @@ jobs:
         if: env.SKIP != 'true'
         timeout-minutes: 55
         run: |
-          if [ "$LABEL" = spring ]; then export E2E_BACKEND=http://127.0.0.1:8080 E2E_BACKEND_LOG="$RUNNER_TEMP/spring.log"; fi
+          # E2E_PG_URL: যাচাইয়ের জন্য ডাটাবেস সরাসরি পড়া (পুশের পুরো তালিকা, ফোনের টোকেন, ডেমো মোছার পরে কিছু বাকি কি না)
+          if [ "$LABEL" = spring ]; then export E2E_BACKEND=http://127.0.0.1:8080 E2E_BACKEND_LOG="$RUNNER_TEMP/spring.log" E2E_PG_URL=postgres://lifolo:lifolo@127.0.0.1:5432/lifolo; fi
           # the machine clock is already at the wanted hour
           export E2E_CLOCK=real E2E_TRACE=1
           # shellcheck disable=SC2086

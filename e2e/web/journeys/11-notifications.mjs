@@ -321,8 +321,12 @@ export async function run(J) {
     if (!labOrder) throw new Error('lab_orders-এ নতুন অর্ডার নেই');
   });
   await J.sc('PUSH-rx-report', 'rx (রিপোর্ট) — রোগীকে; rx_review — ডাক্তারকে রিপোর্ট দেখার অনুরোধ', async () => {
-    await act(LAB, 'lab_home_confirm', { id: labOrder.id, day: 1, slot: 'morning' }).catch(() => {});
-    await act(LAB, 'lab_order_status', { id: labOrder.id, status: 'received' }).catch(() => {});
+    // প্যাথলজি বাসা থেকে নমুনার সময় নিশ্চিত করে (রোগীকে rx_lab-এর উত্তর), নমুনা নেয়, তারপর রিপোর্ট
+    const dhakaToday = Math.floor((Date.now() + 6 * 3600000) / DAY) * DAY;
+    await expectPush({ id: 'PUSH-rx-home-confirm', to: P, type: 'rx', title: /^ডেমো সিটি ডা.{1,3}গনস্টিক সেন্টার .+ আসবে$/, data: { rxId } }, async () => {
+      await act(LAB, 'lab_home_confirm', { id: labOrder.id, date: dhakaToday + DAY, time: '08:00' });
+    });
+    await act(LAB, 'lab_order_status', { id: labOrder.id, status: 'received' });
     const docBefore = await inboxIds(DOC);
     await expectPush({ id: 'PUSH-rx-report', to: P, type: 'rx', title: 'আপনার পরীক্ষার রিপোর্ট এসেছে', data: { rxId } }, async () => {
       const f = (await act(LAB, 'lab_form', { id: labOrder.id })).forms[0];
