@@ -2,7 +2,7 @@ name: tmp jar (test-gaps dev only)
 on:
   push:
     branches: [test-gaps]
-    paths: [".github/workflows/tmp-jar.yml"]
+    paths: [".github/workflows/tmp-jar.yml", "backend/src/main/**"]
 permissions:
   contents: write
 jobs:
@@ -23,3 +23,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LOG_MESSAGE: jar ${{ github.sha }}
         run: bash .github/scripts/publish-log.sh ci-log-test-gaps-jar "$RUNNER_TEMP/out" jar
+# rebuild 1792476630
