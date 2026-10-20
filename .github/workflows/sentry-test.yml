@@ -29,7 +29,12 @@ jobs:
           post() { # $1 = নাম, $2 = DSN
             local dsn key host pid id now
             dsn="$(printf '%s' "$2" | tr -d '[:space:]')"
-            if ! [[ "$dsn" =~ ^https://([A-Za-z0-9]+)@([a-z0-9.-]+\.sentry\.io)/([0-9]+)$ ]]; then echo "$1=no DSN"; return; fi
+            if [ -z "$dsn" ]; then echo "$1=no DSN (secret empty or not visible)"; return; fi
+            if ! [[ "$dsn" =~ ^https://([A-Za-z0-9]+)@([a-z0-9.-]+\.sentry\.io)/([0-9]+)$ ]]; then
+              # কী রকম দেখতে (চাবি না দেখিয়ে): https://<চাবির দৈর্ঘ্য>@<ঠিকানা>/<বাকি>
+              echo "$1=unexpected DSN shape: $(D="$dsn" python3 -c 'import os,re; d=os.environ["D"]; m=re.match(r"^(\w+://)([^@]*)@([^/]*)(.*)$", d); print(f"{m[1]}<key {len(m[2])} chars>@{m[3]}{m[4]}" if m else f"no @ (length {len(d)}, starts {d[:8]!r})")')"
+              return
+            fi
             key="${BASH_REMATCH[1]}"; host="${BASH_REMATCH[2]}"; pid="${BASH_REMATCH[3]}"
             id="$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"; now="$(date -u +%FT%TZ)"
             code="$(printf '{"event_id":"%s","sent_at":"%s"}\n{"type":"event"}\n{"event_id":"%s","timestamp":"%s","level":"info","platform":"other","environment":"production","message":{"formatted":"%s: test event (CI envelope)"},"tags":{"source":"sentry-test-workflow"}}\n' \
