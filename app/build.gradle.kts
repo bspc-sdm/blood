@@ -38,8 +38,8 @@ android {
         applicationId = "com.bspc.blood"
         minSdk = 24
         targetSdk = 36
-        versionCode = 121
-        versionName = "2.34.1"
+        versionCode = 122
+        versionName = "2.35.0"
         versionNameSuffix = lifoloVersionSuffix.ifEmpty { null }
         buildConfigField("String", "SERVER_URL", "\"$lifoloServer\"")
         buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
