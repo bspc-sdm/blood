@@ -3,7 +3,13 @@
 # (.github/workflows/deploy-backend.yml) চালায়; আগে "Setup VPS (base)" (setup-base.sh) হয়ে থাকতে হবে।
 #
 #   bash deploy-backend.sh --domain 169-58-58-176.sslip.io --jar /root/lifolo-setup/app.jar.new --sha256 <hash> \
-#        --provided /root/lifolo-setup/provided.env [--api-domain api.lifolo.com] [--demo-smoke <owner-uid> <owner-email>] [--ci]
+#        --provided /root/lifolo-setup/provided.env [--api-domain api.lifolo.com] [--web-domain lifolo.com]
+#        [--demo keep|smoke <owner-uid> <owner-email>] [--ci]
+#
+# --web-domain: ওয়েবসাইটের নাম (deploy-web.sh বসায়) — DNS-এ এই VPS-এ গেলে PUBLIC_BASE_URL (শেয়ার লিংক, QR) = https://<নাম>।
+# --demo keep: ডেমো না থাকলে বানানো আর রেখে দেওয়া (থাকলে হাত দেওয়া হয় না); smoke: বানানো → মোছা (পুরোনো পরীক্ষা)।
+#   DEMO_KEEP_FIREBASE_USERS (ডিফল্ট true, provided-এ false দিলে বন্ধ): Vercel চালু থাকা পর্যন্ত Firebase-এর ডেমো অ্যাকাউন্ট
+#   (Node-এর ডেমোও এগুলো দিয়েই লগইন করে) এই অ্যাপ কখনো মোছে/বদলায় না — "ডেমো মুছুন" শুধু এখানকার ডাটাবেস মোছে।
 #
 # --api-domain: আরেকটা নাম (যেমন api.lifolo.com) — DNS-এ এই VPS-এর IP-তে গেলে তবেই Let's Encrypt সার্টিফিকেট আর
 #   nginx-এর আলাদা সাইট (একই পথগুলো + /healthz); না গেলে কিছু বদলায় না (sslip.io-র ঠিকানা সবসময় চলে)।
@@ -34,14 +40,16 @@ STATUS=/var/lib/lifolo/deploy-status
 SNIPPET=/etc/nginx/snippets/lifolo-api.conf
 DROPIN_DIR=/etc/systemd/system/lifolo-api.service.d
 
-DOMAIN="" JAR="" SHA="" PROVIDED="" OWNER_UID="" OWNER_EMAIL="" CI_MODE=no API_DOMAIN=""
+DOMAIN="" JAR="" SHA="" PROVIDED="" OWNER_UID="" OWNER_EMAIL="" CI_MODE=no API_DOMAIN="" WEB_DOMAIN="" DEMO_MODE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --domain) DOMAIN="$2"; shift 2 ;;
     --jar) JAR="$2"; shift 2 ;;
     --sha256) SHA="$2"; shift 2 ;;
     --provided) PROVIDED="$2"; shift 2 ;;
-    --demo-smoke) OWNER_UID="$2"; OWNER_EMAIL="$3"; shift 3 ;;
+    --demo-smoke) DEMO_MODE=smoke; OWNER_UID="$2"; OWNER_EMAIL="$3"; shift 3 ;;
+    --demo) DEMO_MODE="$2"; OWNER_UID="$3"; OWNER_EMAIL="$4"; shift 4 ;;
+    --web-domain) WEB_DOMAIN="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --api-domain) API_DOMAIN="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --ci) CI_MODE=yes; shift ;;
     *) echo "অচেনা আর্গুমেন্ট: $1" >&2; exit 2 ;;
@@ -96,6 +104,24 @@ WEB_SESSION_SECRET="$(keep_or_make WEB_SESSION_SECRET)"
 EMAIL_CODE_SECRET="$(keep_or_make EMAIL_CODE_SECRET)"
 p() { env_get "$1" "$PROVIDED"; }
 FIREBASE_B64="$(p FIREBASE_SERVICE_ACCOUNT)"
+# শেয়ার লিংক/QR-এর ঠিকানা: সিক্রেট PUBLIC_BASE_URL > ওয়েবসাইট (DNS এই VPS-এ এলে) > sslip.io
+dns_here() {
+  local ip ips my
+  my=" $(hostname -I 2>/dev/null || true) "
+  ips="$(getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)"
+  for ip in $ips; do case "$my" in *" $ip "*) return 0 ;; esac; done
+  return 1
+}
+BASE_URL="$(p PUBLIC_BASE_URL | grep -E '^https?://[A-Za-z0-9.:/-]+$' || true)"
+if [ -z "$BASE_URL" ]; then
+  if [ -n "$WEB_DOMAIN" ] && [[ "$WEB_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] && dns_here "$WEB_DOMAIN"; then
+    BASE_URL="https://$WEB_DOMAIN"
+  else
+    BASE_URL="https://$DOMAIN"
+  fi
+fi
+KEEP_DEMO_USERS="$(p DEMO_KEEP_FIREBASE_USERS | tr '[:upper:]' '[:lower:]')"
+[ "$KEEP_DEMO_USERS" = false ] || KEEP_DEMO_USERS=true
 tmp="$(mktemp /etc/lifolo/.app.env.XXXXXX)"
 {
   echo "# Lifolo API — deploy-backend.sh লেখে (প্রতি deploy-এ আবার)। স্থায়ী চাবিগুলো থেকে যায়। হাতে বদলাবেন না।"
@@ -108,7 +134,9 @@ tmp="$(mktemp /etc/lifolo/.app.env.XXXXXX)"
   echo "SPRINGDOC_API_DOCS_ENABLED=false"
   echo "SPRINGDOC_SWAGGER_UI_ENABLED=false"
   echo "SENTRY_ENVIRONMENT=production"
-  echo "PUBLIC_BASE_URL=$(p PUBLIC_BASE_URL | grep -E '^https?://[A-Za-z0-9.:/-]+$' || echo "https://$DOMAIN")"
+  echo "PUBLIC_BASE_URL=$BASE_URL"
+  # Vercel (Node) চালু থাকা পর্যন্ত: Firebase-এর ডেমো অ্যাকাউন্ট দুই সার্ভারের — এখানে কখনো মোছা/বদলানো নয়
+  echo "DEMO_KEEP_FIREBASE_USERS=$KEEP_DEMO_USERS"
   if [ -n "$FIREBASE_B64" ]; then
     echo "FIREBASE_SERVICE_ACCOUNT=$FIREBASE_B64"
     echo "PUSH_MODE=fcm"
@@ -130,6 +158,8 @@ st firebase "$([ -n "$(env_get FIREBASE_SERVICE_ACCOUNT "$APP_ENV")" ] && echo o
 st ses "$([ -n "$(env_get SES_REGION "$APP_ENV")" ] && [ -n "$(env_get SES_FROM "$APP_ENV")" ] && echo on || echo off)"
 st r2 "$([ -n "$(env_get R2_BUCKET "$APP_ENV")" ] && echo on || echo off)"
 st sentry "$([ -n "$(env_get SENTRY_DSN "$APP_ENV")" ] && echo on || echo off)"
+st public_base_url "$BASE_URL"
+st demo_keep_firebase_users "$KEEP_DEMO_USERS"
 
 # ---------------------------------------------------------------- 3) systemd
 say "systemd: lifolo-api (app.env-ও পড়ে) — restart"
@@ -313,8 +343,8 @@ fi
 check api_guest "H -X POST -H 'content-type: application/json' --data '{\"action\":\"__nope__\",\"lang\":\"bn\"}' '$B/api/community' | grep -q 'error'"
 
 # ডেমো বানানো আর মোছা — API দিয়ে, মালিকের অ্যাডমিন-প্যানেল সেশন (কুকি) এখানেই WEB_SESSION_SECRET দিয়ে সই করে
-if [ -n "$OWNER_UID" ]; then
-  say "ডেমো: বানানো → চালু কি না → মোছা"
+if [ -n "$OWNER_UID" ] && [ -n "$DEMO_MODE" ]; then
+  say "ডেমো ($DEMO_MODE): বানানো → চালু কি না$([ "$DEMO_MODE" = smoke ] && echo ' → মোছা')"
   COOKIE="$(WSS="$WEB_SESSION_SECRET" UID_="$OWNER_UID" EMAIL_="$OWNER_EMAIL" python3 - <<'PY'
 import base64, hashlib, hmac, json, os, time
 key = hashlib.sha256(("lifolo-admin-web-v1\n" + os.environ["WSS"]).encode()).digest()
@@ -332,8 +362,8 @@ PY
   A() { H -X POST -H 'content-type: application/json' -H 'x-lifolo-admin: 1' -H "@$HDR" --data "$1" "$B/api/community"; }
   jget() { python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('$1'); print('' if v is None else (str(v).lower() if isinstance(v,bool) else v))" 2>/dev/null; }
   before="$(A '{"action":"admin_demo_status","lang":"bn"}')"
-  if [ "$(printf '%s' "$before" | jget active)" = true ]; then
-    st demo_seed skipped_active
+  if [ "$(printf '%s' "$before" | jget active)" = true ] && [ "$(printf '%s' "$before" | jget partial)" != true ]; then
+    st demo_seed "kept (আগে থেকেই চালু)"
     st demo_wipe skipped_active
     echo "ডেমো আগে থেকেই চালু — বানানো/মোছা হলো না"
   elif [ -n "$(printf '%s' "$before" | jget error)" ]; then
@@ -355,6 +385,7 @@ PY
     else
       st demo_seed "failed: ${seed_err:-step=$step roles=$roles login=$([ -n "$login" ] && echo yes || echo no)}"
     fi
+    if [ "$DEMO_MODE" = smoke ]; then
     wipe_err="" n=0
     while [ "$n" -lt 40 ]; do
       r="$(A '{"action":"admin_demo_wipe","lang":"bn"}')"
@@ -365,6 +396,9 @@ PY
     done
     after="$(A '{"action":"admin_demo_status","lang":"bn"}' | jget active)"
     if [ -z "$wipe_err" ] && [ "$after" = false ]; then st demo_wipe ok; else st demo_wipe "failed: ${wipe_err:-still active}"; fi
+    else
+      st demo_wipe "skipped (keep)"
+    fi
   fi
   rm -f "$HDR"
   unset COOKIE

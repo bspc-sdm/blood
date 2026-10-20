@@ -1,10 +1,13 @@
 name: Deploy backend
 
-# Kotlin/Spring API → VPS (Actions → "Deploy backend" → Run workflow; branch: spring)। বাংলা গাইড: deploy/BASE-SETUP.md
+# Kotlin/Spring API + ওয়েবসাইট (Vue) → VPS (Actions → "Deploy backend" → Run workflow; branch: spring)।
+# বাংলা গাইড: deploy/BASE-SETUP.md, বদলের দিনের ধাপ: deploy/CUTOVER.md
 # আগে একবার "Setup VPS (base)" সফল হতে হবে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি)।
 #
 # ধাপ: jar বানানো → VPS-এ পাঠানো → deploy/deploy-backend.sh (app.env, systemd restart → Flyway, nginx-এ /api /r /rx
-# /shop /.well-known, ভেতর থেকে পরীক্ষা, ডেমো বানানো+মোছা) → বাইরে থেকে https://<ঠিকানা>/api/health → বাংলা সারাংশ।
+# /shop /.well-known, ভেতর থেকে পরীক্ষা, ডেমো) → web-vue বিল্ড → deploy/deploy-web.sh (lifolo.com: /w/ /admin/ আর
+# Vercel-এর বাকি পথ, www → lifolo.com, সার্টিফিকেট শুধু DNS এলে) → বাইরে থেকে পরীক্ষা (api.lifolo.com দিয়ে ডেমো লগইন
+# আর কয়েকটা পড়া) → বাংলা সারাংশ।
 # ফলাফল (গোপন কিছু ছাড়া) log branch `ci-log-deploy`-এও: deploy-status.txt, summary.md।
 #
 # সিক্রেট (Settings → Secrets and variables → Actions):
@@ -18,18 +21,24 @@ name: Deploy backend
 on:
   workflow_dispatch:
     inputs:
-      demo_smoke:
-        description: "ডেমো বানিয়ে আবার মুছে পরীক্ষা (Firebase লাগে)"
-        type: boolean
+      demo:
+        description: "ডেমো (গাজীপুর): keep = না থাকলে বানিয়ে রাখা · smoke = বানিয়ে আবার মোছা · off = হাত নয়"
+        type: choice
+        options: [keep, smoke, "off"]
         required: false
-        default: true
+        default: keep
+      web_domain:
+        description: "ওয়েবসাইটের নাম (www.<নাম> → <নাম>); DNS এই VPS-এ গেলে তবেই সার্টিফিকেট; খালি = ওয়েব বসানো হয় না"
+        type: string
+        required: false
+        default: "lifolo.com"
       api_domain:
         description: "আলাদা নাম (DNS-এ এই VPS-এ গেলে তবেই সার্টিফিকেট); খালি = শুধু sslip.io"
         type: string
         required: false
         default: "api.lifolo.com"
   push:
-    branches: [spring, "spring-p*"]
+    branches: [spring, "spring-p*", cutover]
     paths:
       - "deploy/**"
       - ".github/workflows/deploy-backend.yml"
@@ -50,10 +59,10 @@ jobs:
       - name: Shell scripts
         run: |
           rc=0
-          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/ci/vps-connect.sh; do bash -n "$f" || rc=1; done
+          for f in deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh; do bash -n "$f" || rc=1; done
           shellcheck --version | sed -n 2p
           # findings as annotations (readable without the log download)
-          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/ci/vps-connect.sh > "$RUNNER_TEMP/sc.txt" || rc=1
+          shellcheck -S warning -f gcc deploy/setup-base.sh deploy/deploy-backend.sh deploy/deploy-web.sh deploy/ci/vps-connect.sh > "$RUNNER_TEMP/sc.txt" || rc=1
           sed -E 's/^([^:]+):([0-9]+):([0-9]+): (.*)$/::error file=\1,line=\2::\4/' "$RUNNER_TEMP/sc.txt"
           exit "$rc"
       - name: Key derivation test
@@ -155,15 +164,15 @@ jobs:
           echo "owner=${owner:-ekapkbd@gmail.com}" >> "$GITHUB_OUTPUT"
           echo "ses=$([ -n "$SES_REGION" ] && [ -n "$SES_FROM" ] && echo on || echo off)" >> "$GITHUB_OUTPUT"
 
-      # ডেমো পরীক্ষার জন্য মালিকের Firebase uid (অ্যাডমিন প্যানেলের সেশন ওই uid-এ সই হয়)। Firebase-এ demo-patient আগে থেকেই
-      # থাকলে (যেমন Vercel-এর Node সার্ভারের ডেমো চালু) বানানো/মোছা হয় না — মুছলে সেই ডেমোর লগইন ভাঙত।
+      # ডেমোর জন্য মালিকের Firebase uid (অ্যাডমিন প্যানেলের সেশন ওই uid-এ সই হয়)। Firebase-এর ডেমো অ্যাকাউন্ট (Vercel-এর
+      # Node ডেমোরও) আগে থেকে থাকলে সেগুলোই নেওয়া হয় — DEMO_KEEP_FIREBASE_USERS=true, তাই এই সার্ভার ওগুলো মোছে/বদলায় না।
       - uses: actions/setup-node@v5
-        if: steps.provided.outputs.firebase == 'on' && inputs.demo_smoke
+        if: steps.provided.outputs.firebase == 'on' && inputs.demo != 'off'
         with:
           node-version: "22"
       - name: Owner uid for the demo check
         id: owner
-        if: steps.provided.outputs.firebase == 'on' && inputs.demo_smoke
+        if: steps.provided.outputs.firebase == 'on' && inputs.demo != 'off'
         env:
           OWNER: ${{ steps.provided.outputs.owner }}
         run: |
@@ -221,7 +230,8 @@ jobs:
           SHA: ${{ steps.jar.outputs.sha }}
           OWNER_UID: ${{ steps.owner.outputs.uid }}
           OWNER: ${{ steps.provided.outputs.owner }}
-          DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
+          DEMO_MODE: ${{ inputs.demo }}
+          WEB_DOMAIN: ${{ inputs.web_domain }}
           API_DOMAIN: ${{ inputs.api_domain }}
         run: |
           extra=()
@@ -235,8 +245,13 @@ jobs:
           rm -f "$RUNNER_TEMP/provided.env"
           ssh vps 'umask 077 && cat > /root/lifolo-setup/app.jar.new' < "$RUNNER_TEMP/app.jar"
           demo=()
-          if [ -n "$OWNER_UID" ] && [ "$DEMO_EXISTS" != yes ] && [[ "$OWNER_UID" =~ ^[A-Za-z0-9_-]+$ ]] && [[ "$OWNER" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+$ ]]; then
-            demo=(--demo-smoke "$OWNER_UID" "$OWNER")
+          if [ -n "$OWNER_UID" ] && [[ "$DEMO_MODE" =~ ^(keep|smoke)$ ]] && [[ "$OWNER_UID" =~ ^[A-Za-z0-9_-]+$ ]] && [[ "$OWNER" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+$ ]]; then
+            demo=(--demo "$DEMO_MODE" "$OWNER_UID" "$OWNER")
+          fi
+          web_domain="$(printf '%s' "$WEB_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          if [ -n "$web_domain" ]; then
+            [[ "$web_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::web_domain ঠিক নেই"; exit 1; }
+            extra+=(--web-domain "$web_domain")
           fi
           rc=0
           # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
@@ -244,6 +259,85 @@ jobs:
           ssh vps 'cat /var/lib/lifolo/deploy-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-status.txt" || true
           cat "$RUNNER_TEMP/deploy-status.txt"
           sed 's/^/s_/' "$RUNNER_TEMP/deploy-status.txt" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      # ওয়েবসাইট: Vue ওয়েব (dist → /w/) + Vue অ্যাডমিন (dist-admin → /admin/) + server/public-এর বাকি ফাইল (থাকলে)
+      - uses: actions/setup-node@v5
+        if: inputs.web_domain != ''
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web-vue/package-lock.json
+      - name: Build the website (web-vue)
+        id: site
+        if: inputs.web_domain != ''
+        run: |
+          (cd web-vue && npm ci --no-audit --no-fund && npm run build)
+          site="$RUNNER_TEMP/site"
+          rm -rf "$site" && mkdir -p "$site"
+          cp -R web-vue/dist "$site/w"
+          cp -R web-vue/dist-admin "$site/admin"
+          for f in server/public/*; do
+            case "$(basename "$f")" in w|admin) ;; *) cp -R "$f" "$site/" ;; esac
+          done
+          tar -czf "$RUNNER_TEMP/site.tar.gz" -C "$site" .
+          echo "sha=$(sha256sum "$RUNNER_TEMP/site.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$RUNNER_TEMP/site.tar.gz" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "asset=$(grep -oE '/w/assets/[A-Za-z0-9._-]+[.]js' "$site/w/index.html" | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Website on the VPS (deploy-web.sh)
+        id: webdeploy
+        if: steps.site.outcome == 'success' && steps.deploy.outcome == 'success'
+        env:
+          SHA: ${{ steps.site.outputs.sha }}
+          WEB_DOMAIN: ${{ inputs.web_domain }}
+        run: |
+          web_domain="$(printf '%s' "$WEB_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          [[ "$web_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::web_domain ঠিক নেই"; exit 1; }
+          ssh vps 'cat > /root/lifolo-setup/deploy-web.sh' < deploy/deploy-web.sh
+          ssh vps 'umask 077 && cat > /root/lifolo-setup/site.tar.gz' < "$RUNNER_TEMP/site.tar.gz"
+          rc=0
+          # shellcheck disable=SC2029  # মানগুলো ওপরে কড়া যাচাই করা
+          ssh vps "bash /root/lifolo-setup/deploy-web.sh --ci --site /root/lifolo-setup/site.tar.gz --sha256 '$SHA' --web-domain '$web_domain'" || rc=$?
+          ssh vps 'cat /var/lib/lifolo/deploy-web-status' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/deploy-web-status.txt" || true
+          cat "$RUNNER_TEMP/deploy-web-status.txt"
+          sed 's/^/w_/' "$RUNNER_TEMP/deploy-web-status.txt" >> "$GITHUB_OUTPUT"
+          fails="$(grep -E '^t_[a-z_]+=failed' "$RUNNER_TEMP/deploy-web-status.txt" | cut -d= -f1 | tr '\n' ' ' || true)"
+          echo "fails=$fails" >> "$GITHUB_OUTPUT"
+          [ "$rc" = 0 ] || exit "$rc"
+          if grep -qE '^site=(nginx_failed|cert_failed)' "$RUNNER_TEMP/deploy-web-status.txt" || [ -n "$fails" ]; then exit 1; fi
+
+      # ওয়েবসাইট আর ডেমো — ইন্টারনেট থেকে (সত্যিকারের DNS আর সার্টিফিকেট দিয়ে)
+      - name: Check the website and the demo from the internet
+        id: inet
+        if: always() && steps.deploy.outcome == 'success'
+        env:
+          WEB_DOMAIN: ${{ inputs.web_domain }}
+          API_DOMAIN: ${{ inputs.api_domain }}
+          SITE_OK: ${{ steps.webdeploy.outputs.w_site }}
+          WWW_OK: ${{ steps.webdeploy.outputs.w_www }}
+          ASSET: ${{ steps.site.outputs.asset }}
+          DEMO_MODE: ${{ inputs.demo }}
+        run: |
+          rc=0
+          res() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "$1=$2"; }
+          if [ "$SITE_OK" = ok ]; then
+            B="https://$WEB_DOMAIN"
+            curl -fsS -m 15 "$B/" | grep -q '/w/assets/' && res web_root ok || { res web_root failed; rc=1; }
+            curl -fsS -m 15 "$B/api/health" | grep -q '"ok":true' && res web_api ok || { res web_api failed; rc=1; }
+            curl -fsS -m 15 -o /dev/null -D - "$B$ASSET" | tr -d '\r' | grep -qi '^cache-control: public, max-age=31536000, immutable' && res web_cache ok || { res web_cache failed; rc=1; }
+            curl -fsS -m 15 -o /dev/null -D - "$B/admin/" | tr -d '\r' | grep -qi "^content-security-policy: default-src 'none'" && res web_admin ok || { res web_admin failed; rc=1; }
+            if [ "$WWW_OK" = ok ]; then
+              curl -sS -m 15 -o /dev/null -w '%{http_code} %{redirect_url}' "https://www.$WEB_DOMAIN/x" | grep -q "^301 https://$WEB_DOMAIN/x" && res web_www ok || { res web_www failed; rc=1; }
+            fi
+          fi
+          # ডেমো: api.lifolo.com দিয়ে লগইন (রোগী, ফার্মেসি) আর কয়েকটা পড়া
+          if [ "$DEMO_MODE" = keep ] && [ -n "$API_DOMAIN" ]; then
+            out="$(API="https://$API_DOMAIN" KEY="$(python3 -c "import json;print(json.load(open('app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")" python3 deploy/ci/demo-smoke.py 2>&1)" && drc=0 || drc=$?
+            echo "$out"
+            res demo_api "$(printf '%s' "$out" | tail -1)"
+            [ "$drc" = 0 ] || rc=1
+          fi
           exit "$rc"
 
       - name: Check from the internet - https://<address>/api/health
@@ -285,7 +379,27 @@ jobs:
           SES: ${{ steps.provided.outputs.ses }}
           OWNER_UID: ${{ steps.owner.outputs.uid }}
           DEMO_EXISTS: ${{ steps.owner.outputs.demo_exists }}
-          DEMO_INPUT: ${{ inputs.demo_smoke }}
+          DEMO_INPUT: ${{ inputs.demo }}
+          DEMO_API: ${{ steps.inet.outputs.demo_api }}
+          S_KEEP_FB: ${{ steps.deploy.outputs.s_demo_keep_firebase_users }}
+          S_BASE_URL: ${{ steps.deploy.outputs.s_public_base_url }}
+          WEB_DOMAIN: ${{ inputs.web_domain }}
+          SITE_OUTCOME: ${{ steps.site.outcome }}
+          SITE_SIZE: ${{ steps.site.outputs.size }}
+          WEB_OUTCOME: ${{ steps.webdeploy.outcome }}
+          W_SITE: ${{ steps.webdeploy.outputs.w_site }}
+          W_WWW: ${{ steps.webdeploy.outputs.w_www }}
+          W_DNS_APEX: ${{ steps.webdeploy.outputs.w_dns_apex }}
+          W_DNS_WWW: ${{ steps.webdeploy.outputs.w_dns_www }}
+          W_RELEASE: ${{ steps.webdeploy.outputs.w_release }}
+          W_PREV: ${{ steps.webdeploy.outputs.w_previous }}
+          W_REALIP: ${{ steps.webdeploy.outputs.w_realip }}
+          W_FAILS: ${{ steps.webdeploy.outputs.fails }}
+          I_ROOT: ${{ steps.inet.outputs.web_root }}
+          I_API: ${{ steps.inet.outputs.web_api }}
+          I_CACHE: ${{ steps.inet.outputs.web_cache }}
+          I_ADMIN: ${{ steps.inet.outputs.web_admin }}
+          I_WWW: ${{ steps.inet.outputs.web_www }}
           WEB_API: ${{ steps.web.outputs.api }}
           WEB_HEALTHZ: ${{ steps.web.outputs.healthz }}
           S_APP: ${{ steps.deploy.outputs.s_app }}
@@ -353,16 +467,44 @@ jobs:
             fi
             if [ "$FIREBASE" != on ]; then
               row "ডেমো বানানো → মোছা" "skipped" "Firebase নেই"
-            elif [ "$DEMO_INPUT" != true ]; then
-              row "ডেমো বানানো → মোছা" "skipped" "চালানোর সময় বন্ধ রাখা হয়েছে"
-            elif [ "$DEMO_EXISTS" = yes ]; then
-              row "ডেমো বানানো → মোছা" "skipped" "Firebase-এ ডেমো অ্যাকাউন্ট আগে থেকেই আছে (Vercel-এর ডেমো চালু থাকতে পারে) — হাত দেওয়া হয়নি"
+            elif [ "$DEMO_INPUT" = off ]; then
+              row "ডেমো" "skipped" "চালানোর সময় বন্ধ রাখা হয়েছে"
             elif [ -z "$OWNER_UID" ]; then
-              row "ডেমো বানানো → মোছা" "failed" "মালিকের Firebase অ্যাকাউন্ট পাওয়া যায়নি"
+              row "ডেমো" "failed" "মালিকের Firebase অ্যাকাউন্ট পাওয়া যায়নি"
             else
-              row "ডেমো বানানো (API দিয়ে)" "$S_DEMO_SEED"
-              row "ডেমো মোছা (API দিয়ে)" "$S_DEMO_WIPE"
+              row "ডেমো বানানো (গাজীপুর, API দিয়ে)" "$S_DEMO_SEED"
+              if [ "$DEMO_INPUT" = smoke ]; then row "ডেমো মোছা (API দিয়ে)" "$S_DEMO_WIPE"; fi
+              [ -z "$DEMO_API" ] || row "ডেমো লগইন + পড়া (https://$API_DOMAIN, ইন্টারনেট থেকে)" "$DEMO_API"
+              row "Firebase-এর ডেমো অ্যাকাউন্ট রাখা (Vercel-এর ডেমোর জন্য)" "$([ "$S_KEEP_FB" = true ] && echo ok || echo "${S_KEEP_FB:-—}")" "DEMO_KEEP_FIREBASE_USERS=${S_KEEP_FB:-?}"
             fi
+            if [ -n "$WEB_DOMAIN" ]; then
+              echo
+              echo "**ওয়েবসাইট — https://$WEB_DOMAIN** (Vue ওয়েব /w/, অ্যাডমিন /admin/, /api → এই সার্ভার)"
+              echo
+              echo "| পরীক্ষা | ফল | বিস্তারিত |"
+              echo "|---|---|---|"
+              row "ওয়েব বিল্ড (web-vue)" "$([ "$SITE_OUTCOME" = success ] && echo ok || echo "${SITE_OUTCOME:-skipped}")" "${SITE_SIZE:-—}"
+              case "$W_SITE" in
+                ok) row "https://$WEB_DOMAIN — সার্টিফিকেট + nginx" ok "রিলিজ ${W_RELEASE:-?}${W_PREV:+ (আগেরটা $W_PREV)}"
+                    if [ "$W_WWW" = ok ]; then row "https://www.$WEB_DOMAIN → https://$WEB_DOMAIN" ok
+                    else row "www.$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ আসে না (${W_DNS_WWW:-?}) — Cloudflare-এ CNAME www → $WEB_DOMAIN (DNS only) দিয়ে আবার চালান"; fi
+                    row "VPS-এর ভেতরের ১৭টা পথ/হেডার পরীক্ষা" "$([ -z "$W_FAILS" ] && [ "$WEB_OUTCOME" = success ] && echo ok || echo "failed: $W_FAILS")"
+                    row "ইন্টারনেট থেকে: পাতা (/)" "$I_ROOT" "${I_ROOT:-—}"
+                    row "ইন্টারনেট থেকে: /api/health একই ঠিকানায়" "$I_API" "${I_API:-—}"
+                    row "ইন্টারনেট থেকে: /w/assets/ এক বছর cache" "$I_CACHE" "${I_CACHE:-—}"
+                    row "ইন্টারনেট থেকে: /admin/ কড়া CSP" "$I_ADMIN" "${I_ADMIN:-—}"
+                    [ -z "$I_WWW" ] || row "ইন্টারনেট থেকে: www → $WEB_DOMAIN" "$I_WWW"
+                    row "Cloudflare-এর আসল IP (পরে proxy চালু হলে)" "$W_REALIP" "${W_REALIP:-—}" ;;
+                dns_not_ready*)
+                    row "https://$WEB_DOMAIN" skipped "DNS এখনো এই VPS-এ আসে না (${W_DNS_APEX:-?})"
+                    echo
+                    echo "> ⏭️ **$WEB_DOMAIN এখনো এই VPS-এ আসে না** — Cloudflare-এ A রেকর্ড \`@\` → VPS-এর IP আর CNAME \`www\` → \`$WEB_DOMAIN\` (দুটোই DNS only, ধূসর মেঘ) দিয়ে কয়েক মিনিট পর আবার চালান। ওয়েবের ফাইল VPS-এ রাখা আছে; কিছু ভাঙেনি।" ;;
+                "") row "https://$WEB_DOMAIN" "${WEB_OUTCOME:-skipped}" "বসানো হয়নি (আগের ধাপ ব্যর্থ?)" ;;
+                *) row "https://$WEB_DOMAIN" "$W_SITE" ;;
+              esac
+            fi
+            echo
+            echo "শেয়ার লিংক/QR-এর ঠিকানা (PUBLIC_BASE_URL): \`${S_BASE_URL:-—}\`"
             echo
             echo "**সেটিং:**"
             if [ "$FIREBASE" = on ]; then
@@ -378,7 +520,7 @@ jobs:
             fi
             echo "- R2 (ছবি): $([ "$S_R2" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)') · Sentry: $([ "$S_SENTRY" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)')"
             echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080-এ শোনে, বাইরে থেকে nginx দিয়েই।"
-            echo "- এখনকার অ্যাপ (Vercel) যেমন চলছিল তেমনই চলছে — এই সার্ভারে এখনো কেউ যায় না।"
+            echo "- এখনকার অ্যাপ (Vercel) যেমন চলছিল তেমনই চলছে — প্রকাশিত ফোনের অ্যাপ এখনো Vercel-এ যায়। বদলের দিনের ধাপ: deploy/CUTOVER.md"
             if [ "$JOB_OK" != success ]; then
               echo
               echo "ব্যর্থ হলে: বাঁ দিকে **deploy** → লাল ✗ চিহ্নের ধাপ খুলে স্ক্রিনশট Claude-কে পাঠান (গোপন মান লগে \`***\`)।"
@@ -395,10 +537,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/log"
           cp "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/log/summary.md" 2>/dev/null || true
           { echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "job=${{ job.status }}"; echo "run=${GITHUB_RUN_ID}"; cat "$RUNNER_TEMP/deploy-status.txt" 2>/dev/null || true; } > "$RUNNER_TEMP/log/deploy-status.txt"
-          bash .github/scripts/publish-log.sh ci-log-deploy "$RUNNER_TEMP/log" summary.md deploy-status.txt
+          cp "$RUNNER_TEMP/deploy-web-status.txt" "$RUNNER_TEMP/log/deploy-web-status.txt" 2>/dev/null || : > "$RUNNER_TEMP/log/deploy-web-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-deploy "$RUNNER_TEMP/log" summary.md deploy-status.txt deploy-web-status.txt
 
       - name: Clean up
         if: always()
         run: |
           ssh -O exit vps 2>/dev/null || true
-          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/provided.env" "$RUNNER_TEMP/fb.b64" "$RUNNER_TEMP/fa"
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/provided.env" "$RUNNER_TEMP/fb.b64" "$RUNNER_TEMP/fa" "$RUNNER_TEMP/site" "$RUNNER_TEMP/site.tar.gz"
