@@ -1,0 +1,946 @@
+{
+ "admin_overview": {
+  "ok": 105,
+  "err": 12
+ },
+ "/api/auth/send-code": {
+  "ok": 12,
+  "err": 0
+ },
+ "/api/auth/verify-code": {
+  "ok": 180,
+  "err": 2
+ },
+ "admin_log": {
+  "ok": 20,
+  "err": 0
+ },
+ "admin_stats": {
+  "ok": 19,
+  "err": 0
+ },
+ "admin_demo_status": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_demo_seed": {
+  "ok": 6,
+  "err": 0
+ },
+ "profile_get": {
+  "ok": 400,
+  "err": 0
+ },
+ "pharmacy_me": {
+  "ok": 515,
+  "err": 0
+ },
+ "ambulance_mine": {
+  "ok": 512,
+  "err": 0
+ },
+ "rx_assisting": {
+  "ok": 673,
+  "err": 0
+ },
+ "bloodbank_mine": {
+  "ok": 512,
+  "err": 0
+ },
+ "lab_me": {
+  "ok": 514,
+  "err": 0
+ },
+ "me": {
+  "ok": 531,
+  "err": 0
+ },
+ "profile_update": {
+  "ok": 412,
+  "err": 0
+ },
+ "catalog_get": {
+  "ok": 90,
+  "err": 0
+ },
+ "providers": {
+  "ok": 10,
+  "err": 0
+ },
+ "family_get": {
+  "ok": 3,
+  "err": 0
+ },
+ "book": {
+  "ok": 5,
+  "err": 2
+ },
+ "my_appointments": {
+  "ok": 37,
+  "err": 0
+ },
+ "provider_me": {
+  "ok": 17,
+  "err": 0
+ },
+ "queue_today": {
+  "ok": 30,
+  "err": 0
+ },
+ "appointment_update": {
+  "ok": 5,
+  "err": 0
+ },
+ "appointment_queue": {
+  "ok": 15,
+  "err": 0
+ },
+ "blood_requests_mine": {
+  "ok": 104,
+  "err": 0
+ },
+ "blood_requests_near": {
+  "ok": 102,
+  "err": 0
+ },
+ "emergencies_active": {
+  "ok": 112,
+  "err": 0
+ },
+ "rx_patients": {
+  "ok": 20,
+  "err": 0
+ },
+ "rx_me": {
+  "ok": 9,
+  "err": 0
+ },
+ "labtests_get": {
+  "ok": 6,
+  "err": 0
+ },
+ "drug_search": {
+  "ok": 7,
+  "err": 0
+ },
+ "rx_create": {
+  "ok": 3,
+  "err": 0
+ },
+ "rx_get": {
+  "ok": 4,
+  "err": 0
+ },
+ "rx_mine": {
+  "ok": 44,
+  "err": 0
+ },
+ "rx_activity": {
+  "ok": 37,
+  "err": 0
+ },
+ "rx_pharmacy_options": {
+  "ok": 5,
+  "err": 0
+ },
+ "rx_send_pharmacy": {
+  "ok": 5,
+  "err": 0
+ },
+ "rx_orders_pharmacy": {
+  "ok": 29,
+  "err": 0
+ },
+ "med_find_requests": {
+  "ok": 28,
+  "err": 0
+ },
+ "rx_order_update": {
+  "ok": 6,
+  "err": 0
+ },
+ "rx_pharmacy_open": {
+  "ok": 6,
+  "err": 0
+ },
+ "rx_dispense": {
+  "ok": 3,
+  "err": 0
+ },
+ "books_rx_preview": {
+  "ok": 3,
+  "err": 0
+ },
+ "rx_lab_options": {
+  "ok": 5,
+  "err": 0
+ },
+ "rx_send_lab": {
+  "ok": 5,
+  "err": 1
+ },
+ "lab_orders": {
+  "ok": 26,
+  "err": 0
+ },
+ "lab_form": {
+  "ok": 7,
+  "err": 0
+ },
+ "lab_home_confirm": {
+  "ok": 3,
+  "err": 0
+ },
+ "lab_order_status": {
+  "ok": 3,
+  "err": 0
+ },
+ "lab_report": {
+  "ok": 3,
+  "err": 0
+ },
+ "lab_order_get": {
+  "ok": 8,
+  "err": 0
+ },
+ "review_pay": {
+  "ok": 2,
+  "err": 0
+ },
+ "review_settings": {
+  "ok": 5,
+  "err": 1
+ },
+ "reviews_doctor": {
+  "ok": 9,
+  "err": 0
+ },
+ "review_confirm": {
+  "ok": 2,
+  "err": 0
+ },
+ "review_done": {
+  "ok": 2,
+  "err": 0
+ },
+ "rx_patient_history": {
+  "ok": 3,
+  "err": 0
+ },
+ "queue_control": {
+  "ok": 8,
+  "err": 0
+ },
+ "inbox": {
+  "ok": 105,
+  "err": 0
+ },
+ "inbox_read": {
+  "ok": 20,
+  "err": 0
+ },
+ "appointment_late": {
+  "ok": 1,
+  "err": 0
+ },
+ "appointment_late_reply": {
+  "ok": 2,
+  "err": 0
+ },
+ "guest_requests": {
+  "ok": 3,
+  "err": 0
+ },
+ "ambulances": {
+  "ok": 22,
+  "err": 0
+ },
+ "bloodbanks": {
+  "ok": 5,
+  "err": 0
+ },
+ "blood_request_get": {
+  "ok": 40,
+  "err": 0
+ },
+ "blood_response_get": {
+  "ok": 29,
+  "err": 0
+ },
+ "blood_contact_get": {
+  "ok": 5,
+  "err": 0
+ },
+ "/api/respond": {
+  "ok": 3,
+  "err": 0
+ },
+ "response_update": {
+  "ok": 3,
+  "err": 0
+ },
+ "emergency_respond": {
+  "ok": 3,
+  "err": 0
+ },
+ "emergency_donated": {
+  "ok": 2,
+  "err": 0
+ },
+ "blood_responses_list": {
+  "ok": 16,
+  "err": 2
+ },
+ "hospitals": {
+  "ok": 2,
+  "err": 0
+ },
+ "/api/edit-request": {
+  "ok": 1,
+  "err": 0
+ },
+ "request_create": {
+  "ok": 3,
+  "err": 0
+ },
+ "/api/notify-request": {
+  "ok": 2,
+  "err": 0
+ },
+ "request_delete": {
+  "ok": 3,
+  "err": 0
+ },
+ "confirm_donor": {
+  "ok": 2,
+  "err": 0
+ },
+ "/api/close-request": {
+  "ok": 2,
+  "err": 0
+ },
+ "donation_date_set": {
+  "ok": 2,
+  "err": 0
+ },
+ "bloodbank_stats": {
+  "ok": 2,
+  "err": 0
+ },
+ "bloodbank_save": {
+  "ok": 2,
+  "err": 0
+ },
+ "ambreq_status": {
+  "ok": 65,
+  "err": 0
+ },
+ "admin_districts": {
+  "ok": 9,
+  "err": 0
+ },
+ "admin_verify_docs": {
+  "ok": 8,
+  "err": 0
+ },
+ "admin_bloodbank_resolve": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_report_resolve": {
+  "ok": 3,
+  "err": 0
+ },
+ "admin_hospital_resolve": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_emergencies": {
+  "ok": 7,
+  "err": 0
+ },
+ "admin_emergency_close": {
+  "ok": 3,
+  "err": 0
+ },
+ "ambulance_called": {
+  "ok": 3,
+  "err": 0
+ },
+ "ambulance_stats": {
+  "ok": 27,
+  "err": 0
+ },
+ "ambreq_driver": {
+  "ok": 46,
+  "err": 0
+ },
+ "ambulance_available": {
+  "ok": 2,
+  "err": 0
+ },
+ "ambulance_rate": {
+  "ok": 2,
+  "err": 0
+ },
+ "care_list": {
+  "ok": 18,
+  "err": 0
+ },
+ "rx_order_withdraw": {
+  "ok": 1,
+  "err": 0
+ },
+ "med_finds_mine": {
+  "ok": 4,
+  "err": 0
+ },
+ "care_remove": {
+  "ok": 2,
+  "err": 0
+ },
+ "care_invite": {
+  "ok": 2,
+  "err": 0
+ },
+ "care_respond": {
+  "ok": 2,
+  "err": 0
+ },
+ "pharmacies": {
+  "ok": 9,
+  "err": 0
+ },
+ "labs": {
+  "ok": 2,
+  "err": 0
+ },
+ "lab_prices_public": {
+  "ok": 1,
+  "err": 0
+ },
+ "home_providers": {
+  "ok": 4,
+  "err": 0
+ },
+ "med_find": {
+  "ok": 2,
+  "err": 0
+ },
+ "pharmacy_rate": {
+  "ok": 1,
+  "err": 0
+ },
+ "report": {
+  "ok": 1,
+  "err": 0
+ },
+ "pharmacy_stats": {
+  "ok": 7,
+  "err": 0
+ },
+ "rx_pharmacy_home": {
+  "ok": 5,
+  "err": 0
+ },
+ "/api/share": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_sale_add": {
+  "ok": 3,
+  "err": 0
+ },
+ "rx_missed_clear": {
+  "ok": 1,
+  "err": 0
+ },
+ "stock_set": {
+  "ok": 1,
+  "err": 0
+ },
+ "med_find_answer": {
+  "ok": 3,
+  "err": 0
+ },
+ "pharmacy_save": {
+  "ok": 2,
+  "err": 0
+ },
+ "pharmacy_pause": {
+  "ok": 2,
+  "err": 0
+ },
+ "books_items": {
+  "ok": 15,
+  "err": 0
+ },
+ "books_item_save": {
+  "ok": 5,
+  "err": 0
+ },
+ "books_sales": {
+  "ok": 6,
+  "err": 0
+ },
+ "books_report": {
+  "ok": 4,
+  "err": 0
+ },
+ "lab_prices_get": {
+  "ok": 5,
+  "err": 0
+ },
+ "ambulance_save": {
+  "ok": 2,
+  "err": 0
+ },
+ "home_stats": {
+  "ok": 4,
+  "err": 0
+ },
+ "admin_pharmacies": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_labs": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_ambulances": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_pharmacy_resolve": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_lab_resolve": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_ambulance_resolve": {
+  "ok": 1,
+  "err": 0
+ },
+ "provider_save": {
+  "ok": 2,
+  "err": 0
+ },
+ "rx_doctor_list": {
+  "ok": 1,
+  "err": 0
+ },
+ "rx_cancel": {
+  "ok": 1,
+  "err": 0
+ },
+ "rx_team": {
+  "ok": 3,
+  "err": 0
+ },
+ "rx_team_set": {
+  "ok": 2,
+  "err": 1
+ },
+ "rx_patient_add": {
+  "ok": 2,
+  "err": 0
+ },
+ "rx_claim": {
+  "ok": 1,
+  "err": 1
+ },
+ "/rx/{id}": {
+  "ok": 2,
+  "err": 1
+ },
+ "lab_open_code": {
+  "ok": 1,
+  "err": 1
+ },
+ "admin_badge_resolve": {
+  "ok": 7,
+  "err": 0
+ },
+ "tickets_mine": {
+  "ok": 9,
+  "err": 0
+ },
+ "questions": {
+  "ok": 13,
+  "err": 0
+ },
+ "question": {
+  "ok": 9,
+  "err": 1
+ },
+ "ask": {
+  "ok": 4,
+  "err": 0
+ },
+ "edit_question": {
+  "ok": 1,
+  "err": 0
+ },
+ "answer": {
+  "ok": 4,
+  "err": 0
+ },
+ "tips": {
+  "ok": 7,
+  "err": 0
+ },
+ "post_tip": {
+  "ok": 2,
+  "err": 0
+ },
+ "family_set": {
+  "ok": 2,
+  "err": 0
+ },
+ "badge_apply": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_ticket": {
+  "ok": 5,
+  "err": 0
+ },
+ "admin_ticket_reply": {
+  "ok": 3,
+  "err": 0
+ },
+ "/api/admin/resolve": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_user_find": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_user": {
+  "ok": 5,
+  "err": 0
+ },
+ "admin_user_section": {
+  "ok": 5,
+  "err": 0
+ },
+ "delete_account": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_purchases": {
+  "ok": 3,
+  "err": 0
+ },
+ "books_purchase_add": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_purchase_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_sale_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_adjust": {
+  "ok": 2,
+  "err": 0
+ },
+ "lab_prices_set": {
+  "ok": 2,
+  "err": 0
+ },
+ "lab_home_change": {
+  "ok": 1,
+  "err": 0
+ },
+ "lab_home_decline": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_badges": {
+  "ok": 4,
+  "err": 0
+ },
+ "amb_facilities": {
+  "ok": 6,
+  "err": 0
+ },
+ "ambreq_count": {
+  "ok": 8,
+  "err": 0
+ },
+ "ambreq_create": {
+  "ok": 7,
+  "err": 0
+ },
+ "ambreq_accept": {
+  "ok": 4,
+  "err": 0
+ },
+ "ambreq_agree": {
+  "ok": 4,
+  "err": 0
+ },
+ "ambreq_step": {
+  "ok": 3,
+  "err": 0
+ },
+ "ambreq_cancel": {
+  "ok": 3,
+  "err": 0
+ },
+ "ambreq_decline": {
+  "ok": 1,
+  "err": 0
+ },
+ "ambreq_budget": {
+  "ok": 1,
+  "err": 0
+ },
+ "ambreq_byphone": {
+  "ok": 1,
+  "err": 0
+ },
+ "ambreq_replace": {
+  "ok": 1,
+  "err": 0
+ },
+ "ticket_create": {
+  "ok": 2,
+  "err": 0
+ },
+ "ticket_reply": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_add": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_remove": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_user_action": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_hospitals": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_emergency_create": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_emergency_group": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_emergency_more": {
+  "ok": 1,
+  "err": 0
+ },
+ "device_register": {
+  "ok": 13,
+  "err": 1
+ },
+ "hospital_request": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_hospital_requests": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_request_docs": {
+  "ok": 3,
+  "err": 0
+ },
+ "med_find_close": {
+  "ok": 1,
+  "err": 0
+ },
+ "/api/admin/corrections": {
+  "ok": 1,
+  "err": 0
+ },
+ "/api/cron/daily": {
+  "ok": 1,
+  "err": 0
+ },
+ "device_unregister": {
+  "ok": 2,
+  "err": 0
+ },
+ "admin_list": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_reports": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_tickets": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_catalog_set": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_labtests_set": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_bloodbank_add": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_bloodbank_edit": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_bloodbanks": {
+  "ok": 1,
+  "err": 0
+ },
+ "bloodbank_called": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_bloodbank_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "verify_docs_upload": {
+  "ok": 1,
+  "err": 0
+ },
+ "pharmacy_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "lab_save": {
+  "ok": 1,
+  "err": 0
+ },
+ "lab_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "bloodbank_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "ambulance_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_today": {
+  "ok": 1,
+  "err": 0
+ },
+ "stock_get": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_adjusts": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_item_stock": {
+  "ok": 1,
+  "err": 0
+ },
+ "books_item_delete": {
+  "ok": 1,
+  "err": 0
+ },
+ "rx_pharmacy_online_set": {
+  "ok": 1,
+  "err": 0
+ },
+ "pharmacy_find_setting": {
+  "ok": 2,
+  "err": 0
+ },
+ "rx_shop_find": {
+  "ok": 1,
+  "err": 0
+ },
+ "pharmacy_called": {
+  "ok": 1,
+  "err": 0
+ },
+ "edit_answer": {
+  "ok": 1,
+  "err": 0
+ },
+ "delete_answer": {
+  "ok": 1,
+  "err": 0
+ },
+ "delete_question": {
+  "ok": 1,
+  "err": 0
+ },
+ "edit_tip": {
+  "ok": 1,
+  "err": 0
+ },
+ "delete_tip": {
+  "ok": 1,
+  "err": 0
+ },
+ "report_request": {
+  "ok": 1,
+  "err": 1
+ },
+ "request_reopen": {
+  "ok": 1,
+  "err": 0
+ },
+ "lab_ranges_set": {
+  "ok": 1,
+  "err": 0
+ },
+ "lab_home_cancel": {
+  "ok": 1,
+  "err": 0
+ },
+ "home_called": {
+  "ok": 1,
+  "err": 0
+ },
+ "home_rate": {
+  "ok": 1,
+  "err": 0
+ },
+ "phone_send_code": {
+  "ok": 0,
+  "err": 1
+ },
+ "phone_verify_code": {
+  "ok": 0,
+  "err": 1
+ },
+ "maps_link_resolve": {
+  "ok": 1,
+  "err": 0
+ },
+ "web_logout": {
+  "ok": 1,
+  "err": 0
+ },
+ "admin_demo_wipe": {
+  "ok": 1,
+  "err": 0
+ }
+}

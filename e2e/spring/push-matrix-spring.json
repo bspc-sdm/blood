@@ -1,0 +1,446 @@
+[
+ {
+  "check": "PUSH-request",
+  "type": "request",
+  "to": "e2e-push-donor",
+  "title": "B- রক্ত দরকার",
+  "body": "1 ব্যাগ · শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল, গাজীপুর · ১ কিমির কম দূরে",
+  "data": {
+   "type": "request",
+   "requestId": "wgVDXHLEL5xeP59SP9Q8"
+  },
+  "android": "RequestDetail(wgVDXHLEL5xeP59SP9Q8)",
+  "web": "/request/wgVDXHLEL5xeP59SP9Q8",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526645606_05tdv",
+  "webOpened": "/request/wgVDXHLEL5xeP59SP9Q8"
+ },
+ {
+  "check": "PUSH-response",
+  "type": "response",
+  "to": "e2e-push-patient",
+  "title": "একজন ডোনার রাজি হয়েছেন",
+  "body": "ই২ই ডোনার দীপা (B-) রক্ত দিতে রাজি। অ্যাপ খুলে নম্বর দেখুন।",
+  "data": {
+   "type": "response",
+   "requestId": "wgVDXHLEL5xeP59SP9Q8"
+  },
+  "android": "MyRequestDetail(wgVDXHLEL5xeP59SP9Q8)",
+  "web": "/my-requests/wgVDXHLEL5xeP59SP9Q8",
+  "id": "cM8QSfWrtArVvL3pGYDUswcx40Df_8207526645581_0o90j",
+  "webOpened": "/my-requests/wgVDXHLEL5xeP59SP9Q8"
+ },
+ {
+  "check": "PUSH-request-confirm",
+  "type": "request",
+  "to": "e2e-push-donor",
+  "title": "আপনাকে নিশ্চিত করা হয়েছে, অনুগ্রহ করে আসুন",
+  "body": "শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল",
+  "data": {
+   "type": "request",
+   "requestId": "wgVDXHLEL5xeP59SP9Q8"
+  },
+  "android": "RequestDetail(wgVDXHLEL5xeP59SP9Q8)",
+  "web": "/request/wgVDXHLEL5xeP59SP9Q8",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526645560_0x3t5",
+  "webOpened": "/request/wgVDXHLEL5xeP59SP9Q8"
+ },
+ {
+  "check": "PUSH-request_removed",
+  "type": "request_removed",
+  "to": "e2e-push-donor",
+  "title": "রক্তের রিকোয়েস্ট তুলে নেওয়া হয়েছে",
+  "body": "শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল-এর B- রিকোয়েস্টটা তুলে নেওয়া হয়েছে। আপনার যাওয়ার দরকার নেই। ধন্যবাদ!",
+  "data": {
+   "type": "request_removed"
+  },
+  "android": "Main(HOME)",
+  "web": "/",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526645536_0gp8o",
+  "webOpened": "/"
+ },
+ {
+  "check": "PUSH-emergency",
+  "type": "emergency",
+  "to": "e2e-push-donor",
+  "title": "জরুরি: B- রক্ত দরকার",
+  "body": "ই২ই পুশ হাসপাতাল · ১ কিমির কম দূরে · Lifolo টিমের আহ্বান — খুলে \"আসছি\" চাপুন",
+  "data": {
+   "type": "emergency",
+   "emergencyId": "Yvx6cfAemJvOWozeihPZ"
+  },
+  "android": "Main(HOME) + emergency banner",
+  "web": "/",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526645499_0pjks",
+  "webOpened": "/"
+ },
+ {
+  "check": "PUSH-care-invite",
+  "type": "care",
+  "to": "e2e-push-donor",
+  "title": "ই২ই রোগী রুবেল আপনাকে কেয়ারগিভার করতে চান",
+  "body": "Lifolo → প্রোফাইল → কেয়ারগিভার থেকে রাজি হন",
+  "data": {
+   "type": "care"
+  },
+  "android": "Care",
+  "web": "/care",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526645458_0pazi",
+  "webOpened": "/care"
+ },
+ {
+  "check": "PUSH-care-accepted",
+  "type": "care",
+  "to": "e2e-push-patient",
+  "title": "ই২ই ডোনার দীপা এখন আপনার কেয়ারগিভার",
+  "body": "",
+  "data": {
+   "type": "care"
+  },
+  "android": "Care",
+  "web": "/care",
+  "id": "cM8QSfWrtArVvL3pGYDUswcx40Df_8207526645437_01uwu",
+  "webOpened": "/care"
+ },
+ {
+  "check": "PUSH-support",
+  "type": "support",
+  "to": "e2e-push-patient",
+  "title": "Lifolo টিমের উত্তর এসেছে",
+  "body": "\"সাহায্য ও আপিল\" খুলে দেখুন",
+  "data": {
+   "type": "support",
+   "ticketId": "tzppo1ScBZTzi1PJlho0"
+  },
+  "android": "Help",
+  "web": "/help/tzppo1ScBZTzi1PJlho0",
+  "id": "cM8QSfWrtArVvL3pGYDUswcx40Df_8207526645400_0g88e",
+  "webOpened": "/help/tzppo1ScBZTzi1PJlho0"
+ },
+ {
+  "check": "PUSH-hospital",
+  "type": "hospital",
+  "to": "e2e-push-patient",
+  "title": "আপনার চাওয়া হাসপাতাল তালিকায় যোগ হয়েছে",
+  "body": "E2E Push Clinic rpvyyx",
+  "data": {
+   "type": "hospital"
+  },
+  "android": "Main(HOME)",
+  "web": "/",
+  "id": "cM8QSfWrtArVvL3pGYDUswcx40Df_8207526645299_04m9f",
+  "webOpened": "/"
+ },
+ {
+  "check": "PUSH-badge",
+  "type": "badge",
+  "to": "e2e-push-patient",
+  "title": "আপনার ব্যাজ-এর কাগজের ছবি দিন",
+  "body": "ই২ই রোগী রুবেল · ই২ই: সনদের ছবি দিন",
+  "data": {
+   "type": "badge"
+  },
+  "android": "Main(HOME)",
+  "web": "/health/badge",
+  "id": "cM8QSfWrtArVvL3pGYDUswcx40Df_8207526645265_0rdhq",
+  "webOpened": "/health/badge"
+ },
+ {
+  "check": "PUSH-services-listing",
+  "type": "services",
+  "to": "ambulance",
+  "title": "আপনার অ্যাম্বুলেন্স-এর কাগজের ছবি দিন",
+  "body": "ডেমো জীবন আইসিইউ অ্যাম্বুলেন্স · ই২ই: ফিটনেসের ছবি",
+  "data": {
+   "kind": "ambulance",
+   "type": "services"
+  },
+  "android": "MyBusiness(ambulance)",
+  "web": "/work/ambulance",
+  "id": "demo-ambulance_8207526645236_0x5vp",
+  "webOpened": "/work/ambulance"
+ },
+ {
+  "check": "PUSH-services-amb",
+  "type": "services",
+  "to": "ambulance",
+  "title": "অ্যাম্বুলেন্স দরকার — প্রায় ২ কিমি দূরে",
+  "body": "খুলে ভাড়াসহ \"আসছি\" চাপুন — রোগী রাজি হলে নিশ্চিত।",
+  "data": {
+   "sub": "amb_req",
+   "kind": "ambulance",
+   "type": "services",
+   "reqId": "alizr8bweXUWYnG8Ar8p"
+  },
+  "android": "MyBusiness(ambulance)",
+  "web": "/work/ambulance",
+  "id": "demo-ambulance_8207526645210_0u559",
+  "webOpened": "/work/ambulance"
+ },
+ {
+  "check": "PUSH-amb_req_mine",
+  "type": "amb_req_mine",
+  "to": "caregiver",
+  "title": "ডেমো জীবন অ্যাম্বুলেন্স (এসি) ৳১১০০-তে আসতে রাজি",
+  "body": "নিশ্চিত করতে খুলে \"রাজি\" চাপুন।",
+  "data": {
+   "type": "amb_req_mine",
+   "reqId": "alizr8bweXUWYnG8Ar8p"
+  },
+  "android": "AmbulanceRequest(alizr8bweXUWYnG8Ar8p)",
+  "web": "/services/ambulance/call/alizr8bweXUWYnG8Ar8p",
+  "id": "demo-caregiver_8207526645181_0wyr4",
+  "webOpened": "/services/ambulance/call/alizr8bweXUWYnG8Ar8p"
+ },
+ {
+  "check": "PUSH-services-amb-agreed",
+  "type": "services",
+  "to": "ambulance",
+  "title": "রোগী রাজি — ৳১১০০। এখনই রওনা দিন।",
+  "body": "",
+  "data": {
+   "sub": "amb_req",
+   "kind": "ambulance",
+   "type": "services",
+   "reqId": "alizr8bweXUWYnG8Ar8p"
+  },
+  "android": "MyBusiness(ambulance)",
+  "web": "/work/ambulance",
+  "id": "demo-ambulance_8207526645138_0wn75",
+  "webOpened": "/work/ambulance"
+ },
+ {
+  "check": "PUSH-services-amb-cancel",
+  "type": "services",
+  "to": "ambulance",
+  "title": "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন",
+  "body": "",
+  "data": {
+   "sub": "amb_req",
+   "kind": "ambulance",
+   "type": "services",
+   "reqId": "alizr8bweXUWYnG8Ar8p"
+  },
+  "android": "MyBusiness(ambulance)",
+  "web": "/work/ambulance",
+  "id": "demo-ambulance_8207526645107_0jwdx",
+  "webOpened": "/work/ambulance"
+ },
+ {
+  "check": "PUSH-answer",
+  "type": "answer",
+  "to": "patient",
+  "title": "আপনার প্রশ্নের উত্তর এসেছে",
+  "body": "ই২ই উত্তর: CBC আর ডেঙ্গু NS1 করান।",
+  "data": {
+   "type": "answer",
+   "questionId": "pV2Bh8QiGjY4e9Qu5hG4"
+  },
+  "android": "QuestionDetail(pV2Bh8QiGjY4e9Qu5hG4)",
+  "web": "/health/question/pV2Bh8QiGjY4e9Qu5hG4",
+  "id": "demo-patient_8207526645072_02ora",
+  "webOpened": "/health/question/pV2Bh8QiGjY4e9Qu5hG4"
+ },
+ {
+  "check": "PUSH-appointment-provider",
+  "type": "appointment",
+  "to": "doctor",
+  "title": "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ",
+  "body": "ডেমো ডোনার করিম · ২১/১০/২০২৬",
+  "data": {
+   "role": "provider",
+   "type": "appointment"
+  },
+  "android": "ChamberEdit",
+  "web": "/work/pro",
+  "id": "demo-doctor_8207526645042_06qvd",
+  "webOpened": "/work/pro"
+ },
+ {
+  "check": "PUSH-appointment-patient",
+  "type": "appointment",
+  "to": "donor",
+  "title": "অ্যাপয়েন্টমেন্ট নেওয়া হয়নি",
+  "body": "ডা. ডেমো হাসান · ২১/১০/২০২৬",
+  "data": {
+   "role": "patient",
+   "type": "appointment"
+  },
+  "android": "MyAppointments",
+  "web": "/my-appointments",
+  "id": "demo-donor_8207526645017_09hwx",
+  "webOpened": "/my-appointments"
+ },
+ {
+  "check": "PUSH-rx",
+  "type": "rx",
+  "to": "patient",
+  "title": "ডা. ডেমো হাসান নতুন প্রেসক্রিপশন দিয়েছেন",
+  "body": "",
+  "data": {
+   "id": "ecLNmMB8aGBPkJEuTIaL",
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx"
+  },
+  "android": "Rx(ecLNmMB8aGBPkJEuTIaL)",
+  "web": "/prescriptions/ecLNmMB8aGBPkJEuTIaL",
+  "id": "demo-patient_8207526644970_06h0z",
+  "webOpened": "/prescriptions/ecLNmMB8aGBPkJEuTIaL"
+ },
+ {
+  "check": "PUSH-care-helper",
+  "type": "care",
+  "to": "caregiver",
+  "title": "ডেমো রোগী রহিম: ডা. ডেমো হাসান নতুন প্রেসক্রিপশন দিয়েছেন",
+  "body": "",
+  "data": {
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "care",
+   "asUid": "demo-patient"
+  },
+  "android": "CareFor(demo-patient) › Rx(ecLNmMB8aGBPkJEuTIaL)",
+  "web": [
+   "/care",
+   "/prescriptions/ecLNmMB8aGBPkJEuTIaL"
+  ],
+  "id": "demo-caregiver_8207526644970_1qqub",
+  "webOpened": "/prescriptions/ecLNmMB8aGBPkJEuTIaL"
+ },
+ {
+  "check": "PUSH-rx_pharmacy",
+  "type": "rx_pharmacy",
+  "to": "pharmacy",
+  "title": "নতুন অনলাইন অর্ডার",
+  "body": "ডেমো রোগী রহিম",
+  "data": {
+   "id": "cElI0deZos2UoUlUiPXl",
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx_pharmacy"
+  },
+  "android": "MyBusiness(pharmacy) › orders",
+  "web": "/work/pharmacy",
+  "id": "demo-pharmacy_8207526644926_0zj3v",
+  "webOpened": "/work/pharmacy/orders"
+ },
+ {
+  "check": "PUSH-rx_lab",
+  "type": "rx_lab",
+  "to": "lab",
+  "title": "নতুন পরীক্ষা — বাসা থেকে নমুনা",
+  "body": "বাসা থেকে নমুনা · কাল সকাল ৯–১২ · শিববাড়ি… · ডেমো রোগী রহিম · CBC",
+  "data": {
+   "id": "csaPaQUuT9vwYhevnQuu",
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx_lab"
+  },
+  "android": "MyBusiness(lab) › orders",
+  "web": "/work/lab",
+  "id": "demo-lab_8207526644889_0l2jt",
+  "webOpened": "/work/lab/orders"
+ },
+ {
+  "check": "PUSH-rx-home-confirm",
+  "type": "rx",
+  "to": "patient",
+  "title": "ডেমো সিটি ডায়াগনস্টিক সেন্টার কাল সকাল ৮টায় আসবে",
+  "body": "",
+  "data": {
+   "id": "ecLNmMB8aGBPkJEuTIaL",
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx"
+  },
+  "android": "Rx(ecLNmMB8aGBPkJEuTIaL)",
+  "web": "/prescriptions/ecLNmMB8aGBPkJEuTIaL",
+  "id": "demo-patient_8207526644850_0h9a3",
+  "webOpened": "/prescriptions/ecLNmMB8aGBPkJEuTIaL"
+ },
+ {
+  "check": "PUSH-rx-report",
+  "type": "rx",
+  "to": "patient",
+  "title": "আপনার পরীক্ষার রিপোর্ট এসেছে",
+  "body": "ডেমো সিটি ডায়াগনস্টিক সেন্টার",
+  "data": {
+   "id": "ecLNmMB8aGBPkJEuTIaL",
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx",
+   "labOrderId": "csaPaQUuT9vwYhevnQuu"
+  },
+  "android": "Rx(ecLNmMB8aGBPkJEuTIaL)",
+  "web": "/prescriptions/ecLNmMB8aGBPkJEuTIaL",
+  "id": "demo-patient_8207526644792_0nlgw",
+  "webOpened": "/prescriptions/ecLNmMB8aGBPkJEuTIaL"
+ },
+ {
+  "check": "PUSH-rx_review",
+  "type": "rx_review",
+  "to": "doctor",
+  "title": "রিপোর্ট দেখার টাকা মিলিয়ে নিন",
+  "body": "ডেমো রোগী রহিম · bkash · E2E12345678",
+  "data": {
+   "rxId": "ecLNmMB8aGBPkJEuTIaL",
+   "type": "rx_review",
+   "labOrderId": "csaPaQUuT9vwYhevnQuu"
+  },
+  "android": "RxReviews",
+  "web": "/work/pro",
+  "id": "demo-doctor_8207526642716_0wa1h",
+  "webOpened": "/work/pro"
+ },
+ {
+  "check": "PUSH-med_find",
+  "type": "med_find",
+  "to": "pharmacy",
+  "title": "কাছে একজন ওষুধ খুঁজছেন",
+  "body": "Napa — আপনার কাছে আছে?",
+  "data": {
+   "type": "med_find",
+   "findId": "nSeXCzvtFaxvPDAuaSCu"
+  },
+  "android": "MyBusiness(pharmacy) › finds",
+  "web": "/work/pharmacy/finds",
+  "id": "demo-pharmacy_8207526642658_0lqo3",
+  "webOpened": "/work/pharmacy/finds"
+ },
+ {
+  "check": "PUSH-med_find_mine",
+  "type": "med_find_mine",
+  "to": "patient",
+  "title": "ডেমো লাইফ ফার্মেসি-এ আছে",
+  "body": "Napa — ফোন করে নিশ্চিত হয়ে নিন",
+  "data": {
+   "type": "med_find_mine",
+   "findId": "nSeXCzvtFaxvPDAuaSCu"
+  },
+  "android": "Main(SERVICES) › pharmacy › medicine finder",
+  "web": "/services/pharmacy/medicine",
+  "id": "demo-patient_8207526642606_0s6nm",
+  "webOpened": "/services/pharmacy/medicine"
+ },
+ {
+  "check": "PUSH-correction",
+  "type": "correction",
+  "to": "demo-x-farhana",
+  "title": "তারিখ সংশোধনের অনুরোধ বাতিল হয়েছে",
+  "body": "অ্যাপের প্রোফাইল পাতায় বিস্তারিত দেখুন।",
+  "data": {
+   "type": "correction"
+  },
+  "android": "Main(HOME)",
+  "web": "/",
+  "id": "demo-x-farhana_8207526642526_0rovf"
+ },
+ {
+  "check": "PUSH-eligible",
+  "type": "eligible",
+  "to": "e2e-push-donor",
+  "title": "আপনি আবার রক্ত দিতে পারবেন",
+  "body": "অ্যাপ খুলে দেখুন আপনার আশেপাশে কারো রক্ত লাগবে কি না।",
+  "data": {
+   "type": "eligible"
+  },
+  "android": "Main(HOME)",
+  "web": "/",
+  "id": "D5nisp8AZt4oB0IKjSUs0WmwVgbH_8207526642445_0939f",
+  "webOpened": "/"
+ }
+]
