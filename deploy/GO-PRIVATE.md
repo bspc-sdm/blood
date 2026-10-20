@@ -47,6 +47,7 @@ Backend e2e ২৯ (Spring + Node + publish) · E2E Android ১১ · E2E Androi
 | Backend (Spring Boot) | ~৩৬০ (দিনে ~৩) | ~৩৬০ | আগে থেকেই path ছাঁকনি + cancel-in-progress |
 | Deploy backend | ~২২০ (দিনে ~২) | ~২২০ | চলমান deploy বাতিল করা হয় না (ইচ্ছা করে) |
 | Web (Vue) check | ~১৫০ (দিনে ~১) | ~১৫০ | cancel-in-progress যোগ |
+| Backup check (নতুন, সপ্তাহে একবার) | — | ~১০ | টাটকা dump → ফেরত আনার পরীক্ষা → এনক্রিপ্ট করে R2-তে |
 | Web build check (পুরোনো React) | ~০–১৬০ | ~০–১৬০ | cancel-in-progress যোগ; `web/`-এ কাজ প্রায় নেই |
 | **মোট** | **~৭,৯০০** | **~১,৩৫০** | |
 
