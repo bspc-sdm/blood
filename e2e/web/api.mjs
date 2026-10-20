@@ -106,3 +106,13 @@ export async function bookAppt(who, doctor, firstDay, note = 'ই২ই প্�
   }
   throw last;
 }
+
+/**
+ * ডাক্তারের "অ্যাপ থেকে আসা রোগী" (rx_patients.appPatients: নিশ্চিত/শেষ হওয়া অ্যাপয়েন্টমেন্ট) থেকে এই নামের রোগীর শেষ অ্যাপয়েন্টমেন্ট —
+ * ডাক্তার এখান থেকেই প্রেসক্রিপশন লেখেন; না থাকলে নতুন অনুরোধ (bookAppt)।
+ */
+export async function apptForRx(doctor, patient, name, firstDay) {
+  const r = await act(doctor, 'rx_patients');
+  const g = (r.appPatients || []).find((x) => x.name === name);
+  return g ? g.appointmentId : bookAppt(patient, doctor, firstDay);
+}

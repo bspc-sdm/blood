@@ -10,7 +10,7 @@
 // রানের সব পুশ (E2E_PG_URL থাকলে ডাটাবেস থেকে) একই নিয়মে যাচাই। ফল: shots/push-matrix.json (Android Maestro-র যাত্রাও এটা পড়ে)।
 import fs from 'node:fs';
 import path from 'node:path';
-import { act, demo, owner, post, sql, cronDaily, uidOf, bookAppt } from '../api.mjs';
+import { act, demo, owner, post, sql, cronDaily, uidOf, apptForRx } from '../api.mjs';
 import { BASE } from '../stack.mjs';
 import { SHOTS, settle, go, vis } from '../lib.mjs';
 
@@ -288,7 +288,7 @@ export async function run(J) {
   let rxId;
   await J.sc('PUSH-rx', 'rx — ডাক্তার নতুন প্রেসক্রিপশন দিলে রোগীকে; care (helper) — কেয়ারগিভারকে রোগীর নামে, asUid+rxId', async () => {
     // অ্যাপের রোগীর কাছে প্রেসক্রিপশন সরাসরি যায় শুধু অ্যাপয়েন্টমেন্ট থেকে (কাগজের রোগীর বেলায় রোগী কোড দিয়ে যোগ করেন)
-    const appointmentId = await bookAppt(P, DOC, 10);
+    const appointmentId = await apptForRx(DOC, P, 'ডেমো রোগী রহিম', 10);
     const careBefore = await inboxIds(CG);
     await expectPush({ id: 'PUSH-rx', to: P, type: 'rx', title: /^ডা\. ডেমো হাসান নতুন প্রেসক্রিপশন দিয়েছেন$/, data: (c) => ({ rxId: c.id }) }, async () => {
       const r = await act(DOC, 'rx_create', {

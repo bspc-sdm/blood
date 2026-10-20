@@ -23,11 +23,11 @@
 
 ## Known breakage / app bugs found (not fixed, tests record them)
 1. **FIXED on this branch: web `amb_req_mine` deep link.** In `web-vue/src/sections/account/util.ts`, `inboxTarget` has no case for `amb_req_mine`. The inbox item "…৳N-তে আসতে রাজি" opens `/` instead of `/services/ambulance/call/<reqId>`. `inboxTarget` now routes it to the request page, with a unit test; journey 11 checks it strictly.
-2. **Android home sometimes shows "রিকোয়েস্ট লোড হয়নি".** The server returns 200 at the same moment (probe.sh). Likely cause: in `MainScreen.kt:226`, `runCatching` swallows the `CancellationException` from a cancelled `LaunchedEffect`, sets `errorMsg`, and the newer successful load never clears it. `j10` takes a screenshot (`j10d-bug-home-load-error`) and then taps retry.
+2. **Being fixed on `app-fixes`: Android home sometimes shows "রিকোয়েস্ট লোড হয়নি".** The server returns 200 at the same moment (probe.sh). Likely cause: in `MainScreen.kt:226`, `runCatching` swallows the `CancellationException` from a cancelled `LaunchedEffect`, sets `errorMsg`, and the newer successful load never clears it. `j10` takes a screenshot (`j10d-bug-home-load-error`) and then taps retry.
 3. **Android badge doc request.** Tapping the "please send your badge document photos" notification opens Home. The web opens `/health/badge`.
 4. **Android notification `appointment`.** On a notification tap the app ignores `data.role`, unlike the in-app inbox.
 5. **Android types `badge`, `eligible`, `correction`, `hospital`, `request_removed`.** A tap on a running app (`onNewIntent`) does nothing.
-6. **Patient cancels after a driver quoted.** The quoting driver gets no push; only an accepted driver is notified.
-7. **Correction requests.** No client or endpoint can create a new one; only seeded rows exist.
-8. **Untranslated text in Bangla mode.** `/rx/{code}` shows the English line "Issued on Lifolo by a verified doctor…", and two admin pages show English seed text.
+6. **FIXED on main (7867a61): patient cancels after a driver quoted.** The quoting driver gets no push; only an accepted driver is notified.
+7. **FIXED on main (04efb33): correction requests.** No client or endpoint can create a new one; only seeded rows exist.
+8. **Untranslated text in Bangla mode.** `/rx/{code}` (fixed on main in c4e71840) shows the English line "Issued on Lifolo by a verified doctor…", and two admin pages show English seed text.
 9. **Seeded demo order.** `demo-svc-rx-b` has an "on the way" order, so the patient can neither withdraw it nor re-send that prescription. Expected, but it is a dead end in the demo.
