@@ -1,0 +1,13 @@
+commit=e8f0cf18bc48ef4f1d06f5cd039320bf0ed699ff
+branch=privacy-fixes
+version=2.34.1
+code=121
+job=success
+signed=debug
+apk_cert=FCBEF91939405BC2327218DBDACDDDBE8647F64BF90A06F737AC4299D2F0F839
+aab_cert=
+target=36
+debuggable=yes
+dl_url=
+inet=
+public=

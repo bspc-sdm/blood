@@ -1,0 +1,7 @@
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Rules.kt:141:63 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+--
+BUILD SUCCESSFUL in 2m 16s
+38 actionable tasks: 38 executed
