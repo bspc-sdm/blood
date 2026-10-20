@@ -1,0 +1,25 @@
+name: tmp jar (test-gaps dev only)
+on:
+  push:
+    branches: [test-gaps]
+    paths: [".github/workflows/tmp-jar.yml"]
+permissions:
+  contents: write
+jobs:
+  jar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - working-directory: backend
+        run: |
+          ./gradlew bootJar --no-daemon -q
+          mkdir -p "$RUNNER_TEMP/out/jar"
+          for j in build/libs/*.jar; do case "$j" in *-plain.jar) ;; *) split -b 40m "$j" "$RUNNER_TEMP/out/jar/app.jar.part-" ;; esac; done
+          ls -l "$RUNNER_TEMP/out/jar"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: jar ${{ github.sha }}
+        run: bash .github/scripts/publish-log.sh ci-log-test-gaps-jar "$RUNNER_TEMP/out" jar
