@@ -37,18 +37,18 @@ class AuthServiceTest {
     @Test
     fun `valid token registers the account and returns the user`() {
         every { identity.verifyIdToken("t1", true) } returns DecodedToken("u1", "A@B.com", true)
-        justRun { accounts.ensure("u1", "A@B.com") }
+        justRun { accounts.ensure("u1", "A@B.com", true) }
         val u = auth.decodeUser(req("t1"), "bn")
         assertEquals("u1", u.uid)
         assertEquals("A@B.com", u.email)
-        verify(exactly = 1) { accounts.ensure("u1", "A@B.com") }
+        verify(exactly = 1) { accounts.ensure("u1", "A@B.com", true) }
     }
 
     @Test
     fun `the filter's result is reused (no second Firebase call)`() {
         val r = req("t2")
         r.setAttribute(FirebaseTokenFilter.ATTR_TOKEN, DecodedToken("u2", null, false))
-        justRun { accounts.ensure("u2", null) }
+        justRun { accounts.ensure("u2", null, false) }
         assertEquals("u2", auth.decodeUser(r, null).uid)
         verify(exactly = 0) { identity.verifyIdToken(any(), any()) }
     }
