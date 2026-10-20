@@ -192,6 +192,8 @@ chmod 0644 "$DROPIN_DIR/10-deploy.conf"
 systemctl daemon-reload
 systemctl enable lifolo-api.service >/dev/null 2>&1
 started_at="$(date '+%Y-%m-%d %H:%M:%S')"
+# Uptime-এর সতর্কতা: এই deploy-এর ১৫ মিনিটের restart (ভাঙা jar-এর crash-loop আর ফেরা সহ) "অপ্রত্যাশিত" নয় — deploy নিজেই জানায়
+{ tail -n 49 /var/lib/lifolo/ops-expected 2>/dev/null || true; date +%s; } > /var/lib/lifolo/ops-expected.new && mv /var/lib/lifolo/ops-expected.new /var/lib/lifolo/ops-expected
 systemctl restart lifolo-api.service
 
 health_ok() { curl -fsS -m 4 "http://127.0.0.1:$API_PORT/api/health" 2>/dev/null | grep -q '"ok":true'; }

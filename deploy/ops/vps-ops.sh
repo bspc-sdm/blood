@@ -565,17 +565,18 @@ health)
   # অপ্রত্যাশিত restart (systemd নিজে আবার চালিয়েছে: crash, OOM, kill) আর রিবুট — গত ৩ ঘণ্টা, মহড়া বাদ
   expected="$(awk -v t=$((now - 4 * 3600)) '$1 ~ /^[0-9]+$/ && $1 > t {print $1}' /var/lib/lifolo/ops-expected 2>/dev/null | tr '\n' ' ')"
   is_expected() { local e; for e in $expected; do [ "$1" -ge "$((e - 60))" ] && [ "$1" -le "$((e + 900))" ] && return 0; done; return 1; }
-  unexp=0 drill=0
+  unexp=0 drill=0 when=""
   while read -r ts; do
     [ -n "$ts" ] || continue
-    if is_expected "${ts%%.*}"; then drill=$((drill + 1)); else unexp=$((unexp + 1)); fi
+    if is_expected "${ts%%.*}"; then drill=$((drill + 1)); else unexp=$((unexp + 1)); when="$when $(date -u -d "@${ts%%.*}" '+%H:%M')"; fi
   done < <(journalctl -u "$UNIT" --since '-3h' --no-pager -o short-unix 2>/dev/null | awk '/Scheduled restart job/{print $1}')
   boot=$(( now - $(awk '{printf "%d", $1}' /proc/uptime) ))
   reboot_note=""
   if [ $((now - boot)) -lt 10800 ]; then
     if is_expected "$boot"; then reboot_note=", রিবুট মহড়া"; else unexp=$((unexp + 1)); reboot_note=", অপ্রত্যাশিত রিবুট $(date -u -d "@$boot" '+%H:%M UTC')"; fi
   fi
-  row "$([ "$unexp" -gt 0 ] && echo fail || echo ok)" "lifolo-api নিজে restart (৩ ঘণ্টা)" "$unexp অপ্রত্যাশিত$([ "$drill" = 0 ] || echo ", $drill মহড়া")$reboot_note" "> 0 হলে ❌ (deploy/মহড়া বাদ)"
+  when="$(printf '%s\n' $when | sort -u | head -4 | tr '\n' ' ')"
+  row "$([ "$unexp" -gt 0 ] && echo fail || echo ok)" "lifolo-api নিজে restart (৩ ঘণ্টা)" "$unexp অপ্রত্যাশিত${when:+ (UTC $when)}$([ "$drill" = 0 ] || echo ", $drill deploy/মহড়ার")$reboot_note" "> 0 হলে ❌ (deploy/মহড়া বাদ)"
   h="$(curl -fsS -m 5 http://127.0.0.1:8080/api/health 2>/dev/null | grep -o '"ok":true' || true)"
   row "$([ -n "$h" ] && echo ok || echo fail)" "অ্যাপ (ভেতর থেকে /api/health)" "$([ -n "$h" ] && echo চালু || echo বন্ধ)" "বন্ধ হলে ❌"
   # origin-এর পাহারা (নজরে রাখার মতো — ব্যর্থ নয়)
