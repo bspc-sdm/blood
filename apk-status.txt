@@ -1,0 +1,13 @@
+commit=9d022758ec2f2be55e7a700a43ae6a6945e6232a
+branch=play-ready
+version=2.34.1
+code=121
+job=success
+signed=debug
+apk_cert=FCBEF91939405BC2327218DBDACDDDBE8647F64BF90A06F737AC4299D2F0F839
+aab_cert=
+target=36
+debuggable=yes
+dl_url=
+inet=
+public=
