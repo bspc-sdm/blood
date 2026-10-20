@@ -1,0 +1,149 @@
+{
+ "label": "spring",
+ "journeys": [
+  {
+   "journey": "00-demo-seed",
+   "steps": 4,
+   "bugSteps": [],
+   "scenarios": 0,
+   "scenariosOk": 0,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 8
+  },
+  {
+   "journey": "01-core-journey",
+   "steps": 84,
+   "bugSteps": [],
+   "scenarios": 29,
+   "scenariosOk": 29,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 123
+  },
+  {
+   "journey": "02-blood",
+   "steps": 77,
+   "bugSteps": [],
+   "scenarios": 30,
+   "scenariosOk": 30,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 121
+  },
+  {
+   "journey": "03-ambulance",
+   "steps": 17,
+   "bugSteps": [],
+   "scenarios": 7,
+   "scenariosOk": 7,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 38
+  },
+  {
+   "journey": "04-caregiver",
+   "steps": 34,
+   "bugSteps": [],
+   "scenarios": 10,
+   "scenariosOk": 10,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 48
+  },
+  {
+   "journey": "05-services",
+   "steps": 75,
+   "bugSteps": [],
+   "scenarios": 35,
+   "scenariosOk": 35,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 115
+  },
+  {
+   "journey": "06-prescription",
+   "steps": 60,
+   "bugSteps": [],
+   "scenarios": 26,
+   "scenariosOk": 26,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 87
+  },
+  {
+   "journey": "07-health-profile",
+   "steps": 52,
+   "bugSteps": [],
+   "scenarios": 22,
+   "scenariosOk": 22,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 104
+  },
+  {
+   "journey": "08-more",
+   "steps": 39,
+   "bugSteps": [],
+   "scenarios": 16,
+   "scenariosOk": 16,
+   "failedScenarios": [],
+   "stopped": null,
+   "seconds": 79
+  }
+ ],
+ "totals": {
+  "journeys": 9,
+  "stopped": 0,
+  "scenarios": 175,
+  "scenariosOk": 175,
+  "scenariosFailed": 0,
+  "steps": 442,
+  "bugSteps": 0,
+  "autoIssues": 4,
+  "api5xx": 0,
+  "serverErrors": 0
+ },
+ "apiErrors": {
+  "401 /api/community admin_overview লগইন দরকার": 7,
+  "403 /api/community blood_responses_list এটা আপনার রিকোয়েস্ট না": 1,
+  "409 /api/community book সেদিন এই ডাক্তারের কাছে আপনার অনুরোধ আগে থেকেই আছে": 2,
+  "409 /api/community rx_send_lab এই প্যাথলজিতে আগেই পাঠানো আছে": 1,
+  "400 /api/community review_settings টাকা পাঠানোর মোবাইল নম্বর দিন": 1,
+  "400 /api/community rx_team_set নিজেকে সহকারী হিসেবে যোগ করা যায় না": 1,
+  "400 /api/community rx_claim প্রোফাইলের বা পরিবারের সদস্যের মোবাইল নম্বরটাই দিন": 1,
+  "409 /api/community lab_open_code এই প্রেসক্রিপশন বাতিল": 1
+ },
+ "serverErrors": [],
+ "issues": [
+  {
+   "file": "02-blood/72-step.png",
+   "titleBn": "অ্যাডমিন: হাসপাতাল যোগের অনুরোধ",
+   "found": [
+    "english text: Demo Chayabithi Mother and Child Clinic"
+   ]
+  },
+  {
+   "file": "06-prescription/38-step.png",
+   "titleBn": "যাচাই: /rx/DEMXRXB333",
+   "found": [
+    "english text: Issued on Lifolo by a verified doctor. Don't dispense if it "
+   ]
+  },
+  {
+   "file": "06-prescription/39-step.png",
+   "titleBn": "যাচাই: /rx/DEMXRXC444",
+   "found": [
+    "english text: Issued on Lifolo by a verified doctor. Don't dispense if it "
+   ]
+  },
+  {
+   "file": "08-more/26-step.png",
+   "titleBn": "অ্যাডমিন: রিপোর্টের ছক",
+   "found": [
+    "english text: cbc, complete blood count, cbc with esr, cbc esr / blood group, blood grouping, blood grouping and rh typing, b / Urine for Pregnancy Test / pregnancy test, urine for pregnancy test, upt, urine pregnan"
+   ]
+  }
+ ],
+ "green": true
+}
