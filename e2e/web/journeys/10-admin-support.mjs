@@ -280,9 +280,17 @@ export async function run(J) {
     await settle(p, 600);
     await see(p, 'জরুরি আহ্বান শেষ');
     await J.shot('ডোনারের ঘণ্টা: আহ্বান শেষ', '‘জরুরি আহ্বান শেষ’ — যিনি আসছিলেন তিনি জানলেন।', { page: p });
+    // হোমে আর আহ্বান নেই — শুধু "রক্ত দিয়েছেন?" (যিনি "আসছি" বলেছিলেন): "হ্যাঁ, দিয়েছি" → শেষ রক্তদান আজ (emergency_donated)
     await p.goto(`${BASE}/`);
     await settle(p, 600);
-    if (await p.getByText(HOSPITAL).count()) throw new Error('শেষ হওয়া আহ্বান এখনো হোমে');
+    if (await p.getByText('জরুরি আহ্বান · Lifolo টিম').count()) throw new Error('শেষ হওয়া আহ্বান এখনো হোমে');
+    await see(p, `${HOSPITAL}-এর জরুরি আহ্বানে আপনি "আসছি" বলেছিলেন।`);
+    await J.shot('আহ্বান শেষে: রক্ত দিয়েছেন?', `‘রক্ত দিয়েছেন? ${HOSPITAL}-এর জরুরি আহ্বানে আপনি "আসছি" বলেছিলেন।’ — ‘হ্যাঁ, দিয়েছি’ / ‘না, দিইনি’।`, { page: p });
+    await p.getByRole('button', { name: 'হ্যাঁ, দিয়েছি' }).click();
+    await settle(p, 800);
+    if (await p.getByText('রক্ত দিয়েছেন?').count()) throw new Error('"হ্যাঁ, দিয়েছি"-র পরেও প্রশ্নটা থেকে গেল');
+    await go(p, '/profile');
+    await J.shot('রক্ত দিয়েছি — প্রোফাইলে শেষ রক্তদান আজ', 'প্রোফাইলে শেষ রক্তদান আজকের তারিখ; এখন রক্ত দিতে পারবেন না।', { page: p, full: true });
     await J.newUser.ctx.close();
   });
 }

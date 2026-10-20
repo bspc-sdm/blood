@@ -64,6 +64,20 @@ for (const f of chosen) {
   console.log(`${J.id}: ${mine.length} ধাপ${failed ? ' (থেমেছে)' : ''} ${Math.round((Date.now() - t0) / 1000)}s`);
 }
 await close();
+// কোন API কতবার ডাকা হলো (সামনের সার্ভারের লগ — ব্রাউজার আর api.mjs দুটোরই): action → {ok, err}; কভারেজের হিসাবের জন্য
+try {
+  const calls = await (await fetch(`${BASE}/__e2e/log`)).json();
+  const acts = {};
+  for (const c of calls) {
+    const k = c.path === '/api/community' ? c.action || '?' : c.path.replace(/\/(r|rx|shop)\/[^/]+$/, '/$1/{id}');
+    const a = (acts[k] ||= { ok: 0, err: 0 });
+    if (c.status < 400) a.ok++;
+    else a.err++;
+  }
+  fs.writeFileSync(path.join(SHOTS, 'actions.json'), JSON.stringify(acts, null, 1));
+} catch (e) {
+  console.error('actions log:', e.message);
+}
 const ran = new Set(manifest.map((m) => m.journey));
 const merged = [...old.filter((m) => !ran.has(m.journey) && fs.existsSync(path.join(SHOTS, m.file))), ...manifest].sort((a, b) => (a.journey < b.journey ? -1 : a.journey > b.journey ? 1 : a.step - b.step));
 manifest.splice(0, manifest.length, ...merged);

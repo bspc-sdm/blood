@@ -16,6 +16,8 @@ const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } 
 const summary = read(path.join(SHOTS, 'summary.json'), []);
 const manifest = read(path.join(SHOTS, 'manifest.json'), []);
 const issues = read(path.join(SHOTS, 'issues.json'), []);
+const actions = read(path.join(SHOTS, 'actions.json'), {});
+const pushMatrix = read(path.join(SHOTS, 'push-matrix.json'), []);
 
 const journeys = summary.map((j) => {
   const steps = manifest.filter((m) => m.journey === j.journey);
@@ -75,13 +77,21 @@ const report = {
     api5xx: Object.entries(apiErrors).filter(([k]) => k.startsWith('5')).reduce((a, [, n]) => a + n, 0),
     serverErrors: serverErrors.length,
     knownBugs: journeys.reduce((a, j) => a + j.known.filter((k) => !k.passed).length, 0),
+    actionsCalled: Object.keys(actions).length,
+    actionsOk: Object.values(actions).filter((a) => a.ok > 0).length,
+    pushChecks: pushMatrix.length,
+    pushTypes: new Set(pushMatrix.map((m) => m.type)).size,
   },
+  actions,
+  pushMatrix,
   apiErrors,
   serverErrors,
   issues: issues.slice(0, 60),
 };
 report.green = report.totals.journeys > 0 && !report.totals.stopped && !report.totals.scenariosFailed && !report.totals.bugSteps && !report.totals.api5xx;
 fs.writeFileSync(path.join(outDir, `report-${label}.json`), JSON.stringify(report, null, 1));
+fs.writeFileSync(path.join(outDir, `actions-${label}.json`), JSON.stringify(actions, null, 1));
+if (pushMatrix.length) fs.writeFileSync(path.join(outDir, `push-matrix-${label}.json`), JSON.stringify(pushMatrix, null, 1));
 
 // ভুল ধাপের ছবি
 const shotDir = path.join(outDir, `shots-${label}`);
@@ -99,7 +109,7 @@ const t = report.totals;
 const md = [];
 md.push(`# Web e2e — ${label} ${report.green ? '✅' : '❌'}`);
 md.push('');
-md.push(`যাত্রা ${t.journeys} (থেমেছে ${t.stopped}) · দৃশ্য ${t.scenariosOk}/${t.scenarios} পাস (${t.scenariosFailed} ব্যর্থ) · ধাপ ${t.steps} (ভুল ${t.bugSteps}) · API 5xx ${t.api5xx} · সার্ভার ERROR ${t.serverErrors} · নিজে ধরা সন্দেহ ${t.autoIssues} · জানা ভুল ${t.knownBugs}`);
+md.push(`যাত্রা ${t.journeys} (থেমেছে ${t.stopped}) · দৃশ্য ${t.scenariosOk}/${t.scenarios} পাস (${t.scenariosFailed} ব্যর্থ) · ধাপ ${t.steps} (ভুল ${t.bugSteps}) · API 5xx ${t.api5xx} · সার্ভার ERROR ${t.serverErrors} · নিজে ধরা সন্দেহ ${t.autoIssues} · জানা ভুল ${t.knownBugs} · API action ডাকা ${t.actionsCalled} (সফল ${t.actionsOk}) · পুশ যাচাই ${t.pushChecks} (${t.pushTypes} ধরন)`);
 md.push('');
 md.push('| যাত্রা | দৃশ্য পাস | ধাপ | ভুল ধাপ | থেমেছে | সময় |');
 md.push('|---|---|---|---|---|---|');
@@ -108,6 +118,10 @@ const failed = journeys.flatMap((j) => j.failedScenarios.map((s) => `- **${j.jou
 if (failed.length) md.push('', '## ব্যর্থ দৃশ্য', '', ...failed);
 const bugs = journeys.flatMap((j) => j.bugSteps.map((b) => `- ${b.file} — ${b.title}${b.note ? ` — ${b.note}` : ''}`));
 if (bugs.length) md.push('', '## ভুল ধাপ (status: bug)', '', ...bugs);
+if (pushMatrix.length) {
+  md.push('', '## নোটিফিকেশন — ধরন, শিরোনাম, চাপলে কোথায় (Android / ওয়েব)', '', '| যাচাই | ধরন | কার কাছে | শিরোনাম | Android | ওয়েবে খুলল |', '|---|---|---|---|---|---|');
+  for (const m of pushMatrix) md.push(`| ${m.check} | ${m.type} | ${m.to} | ${String(m.title).replace(/\|/g, '/')} | ${m.android} | ${m.webOpened || '—'} |`);
+}
 const known = journeys.flatMap((j) => j.known.map((k) => `- ${k.passed ? '✅ এখন পাস করে (xfail সরান)' : '⚠️'} **${k.bug}** (${j.journey}) ${k.title}${k.msg ? ` — ${k.msg}` : ''}`));
 if (known.length) md.push('', '## জানা ভুল (অ্যাপ/সার্ভারের, রিপোর্ট করা — রান লাল করে না)', '', ...known);
 const api = Object.entries(apiErrors).sort((a, b) => b[1] - a[1]);
