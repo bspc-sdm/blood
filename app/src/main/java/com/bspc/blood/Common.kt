@@ -68,7 +68,7 @@ const val PRIVACY_URL = "https://github.com/bspc-sdm/blood/blob/main/PRIVACY.md"
 const val TERMS_URL = "https://github.com/bspc-sdm/blood/blob/main/TERMS.md"
 const val SUPPORT_EMAIL = "ekapkbd@gmail.com"
 /** শেয়ার করা রিকোয়েস্টের লিংক (সার্ভারের /r/{id} পাতা; অ্যাপ থাকলে সরাসরি অ্যাপে খোলে) */
-const val SHARE_BASE = "https://blood-server-ashy.vercel.app/r/"
+const val SHARE_BASE = ServerApi.BASE_URL + "/r/"
 
 /** রিকোয়েস্ট WhatsApp/Messenger/SMS-এ পরিচিতদের পাঠানো */
 fun shareRequest(context: Context, r: BloodRequest) {

@@ -1,0 +1,146 @@
+name: E2E Android cutover (Node vs Spring)
+
+# একই Maestro যাত্রা (e2e/android) দুবার: বর্তমান সার্ভার (Node, Vercel) আর নতুন সার্ভার (Spring, VPS) —
+# দুটো APK শুধু সার্ভারের ঠিকানায় আলাদা (-PlifoloServer)। শুধু ডেমো অ্যাকাউন্ট (দুই সার্ভারের ডেমো)।
+# ফল: শাখা ci-log-cutover-android — summary.md (পাশাপাশি তুলনা), node/ আর spring/ (results, ধাপের অবস্থা, ছবি, লগ)।
+on:
+  push:
+    branches: [cutover-android]
+    paths:
+      - ".github/workflows/e2e-android-cutover.yml"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "শুধু এই যাত্রাগুলো (যেমন: j1 j3) — খালি রাখলে সব"
+        required: false
+        default: ""
+      spring:
+        description: "Spring-এর ঠিকানা: auto (lifolo.com চালু থাকলে সেটা, না হলে api.lifolo.com) অথবা https://…"
+        required: false
+        default: "auto"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e2e-android-cutover
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.target }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [node, spring]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pick and check the server
+        id: srv
+        env:
+          WANT: ${{ matrix.target == 'node' && 'https://blood-server-ashy.vercel.app' || inputs.spring || 'auto' }}
+        run: |
+          set -u
+          mkdir -p e2e-out
+          health() { curl -sS -m 20 "$1/api/health" 2>/dev/null | grep -q '"ok":true'; }
+          if [ "$WANT" = auto ]; then
+            if health https://lifolo.com; then S=https://lifolo.com; else S=https://api.lifolo.com; fi
+          else S="${WANT%/}"; fi
+          H=$(curl -sS -m 20 "$S/api/health" 2>&1 | head -c 200)
+          D=$(curl -sS -m 20 -X POST "$S/api/auth/verify-code" -H 'Content-Type: application/json' -d '{"demoRoles":true}' 2>&1 | head -c 1500)
+          { echo "server: $S"; echo "health: $H"; echo "demoRoles: $D"; } | tee e2e-out/server.txt
+          echo "server=$S" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build debug APK
+        env:
+          SERVER: ${{ steps.srv.outputs.server }}
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon -PlifoloServer="$SERVER" 2>&1 | tee build.log
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+      - name: Probe as demo roles (read only)
+        continue-on-error: true
+        env:
+          E2E_SERVER: ${{ steps.srv.outputs.server }}
+        run: bash e2e/android/probe.sh 2>&1 | tee e2e-out/probe.txt
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          E2E_ONLY: ${{ inputs.only }}
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disk-size: 6000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: bash e2e/android/run.sh
+      - name: Trim logs
+        if: always()
+        run: |
+          cat e2e-out/results.txt || true
+          # পুরো logcat বড় — শেষ ৮০০ লাইন রাখা
+          for f in e2e-out/debug/logcat-*.txt; do [ -f "$f" ] && { tail -800 "$f" > "$f.t"; mv "$f.t" "$f"; }; done || true
+          find e2e-out/debug -name device-logcat.txt -delete || true
+          du -sh e2e-out || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.target }}
+          path: e2e-out
+          include-hidden-files: true
+          retention-days: 7
+
+  publish:
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: arts
+      - name: Compare and publish to ci-log-cutover-android
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          mkdir -p log/node log/spring log/server
+          cp -R arts/e2e-node/. log/node/ 2>/dev/null || echo "no node results" > log/node/missing.txt
+          cp -R arts/e2e-spring/. log/spring/ 2>/dev/null || echo "no spring results" > log/spring/missing.txt
+          python3 -I e2e/android/compare.py log/node log/spring log/summary.md || echo "compare failed" > log/summary.md
+          { echo "run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo "commit: ${{ github.sha }}"; echo "e2e job result: ${{ needs.e2e.result }}"; date -u +%FT%TZ; } > log/run.txt
+          echo '{"git":{"deploymentEnabled":false}}' > log/server/vercel.json
+          cat log/summary.md >> "$GITHUB_STEP_SUMMARY"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          cd log
+          git init -q
+          git config user.name ci
+          git config user.email ci@users.noreply.github.com
+          git add -A
+          git commit -qm "E2E Android cutover ${{ github.sha }} run ${{ github.run_id }}"
+          git push -q -f "$remote" HEAD:refs/heads/ci-log-cutover-android
+          echo "log → ci-log-cutover-android"
