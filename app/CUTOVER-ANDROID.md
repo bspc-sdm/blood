@@ -16,7 +16,11 @@
    (বানায় GitHub Actions-এর **Build APK (next)** — Run workflow; `cutover-android` শাখায় অ্যাপ বদলালে নিজেই চলে।)
 2. বর্তমান Lifolo-র ওপরেই বসে (একই অ্যাপ, একই সাইন) — আনইনস্টল লাগে না, লগইন থাকে।
 3. সেটিংসে ভার্সন দেখাবে **২.৩৩.১-next** — বুঝবেন নতুন সার্ভারে আছেন। কোন সার্ভার, তা রিলিজের নোটে লেখা থাকে।
+   এখনকারটা **https://api.lifolo.com**-এ (lifolo.com-এর সার্টিফিকেট এখনো হয়নি)। lifolo.com চালু হলে
+   Build APK (next) আবার চালালেই (server = auto) নিজে lifolo.com নেবে।
 4. ডেমো অ্যাকাউন্টে বা নিজের অ্যাকাউন্টে স্বাভাবিকভাবে ব্যবহার করে দেখুন।
+5. যন্ত্রে পরীক্ষা: **E2E Android cutover (Node vs Spring)** একই ৮টা যাত্রা দুই সার্ভারে চালায়; ফল
+   `ci-log-cutover-android` শাখার `summary.md`-এ (২০ অক্টোবর: সমান — Spring-এ এমন কিছু ব্যর্থ হয়নি যা Node-এ পাস করে)।
 
 ### আগের অবস্থায় ফেরা
 - **https://github.com/bspc-sdm/blood/releases/download/latest/roktodan.apk** ডাউনলোড করে আবার ইনস্টল করুন —
