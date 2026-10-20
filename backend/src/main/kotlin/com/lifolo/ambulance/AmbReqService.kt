@@ -936,16 +936,20 @@ class AmbReqService(
     fun cancel(lang: String?, b: Body, uid: String): Map<String, Any?> {
         val x = loadMine(lang, b.string("id"), false, uid)
         val reason = b.string("reason")?.takeIf { it in PATIENT_CANCEL } ?: "other"
-        val done = cancelByPatient(x.id, reason, AmbClock.now())
-        val driver = done?.accepted
-        if (driver != null) pushDriver(x.id, driver, "The patient cancelled the ambulance request", "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন")
+        tellCancelled(x.id, cancelByPatient(x.id, reason, AmbClock.now()))
+        return linkedMapOf("ok" to true)
+    }
+
+    private fun tellCancelled(id: String, done: Cancelled?) {
+        if (done == null) return
+        val driver = done.accepted
+        if (driver != null) pushDriver(id, driver, "The patient cancelled the ambulance request", "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন")
         // drivers who sent a fare and were waiting for the patient's answer: free for other calls now (push + bell)
         pushOwners(
-            x.id, done?.quoted.orEmpty(),
+            id, done.quoted,
             "The patient cancelled the ambulance request — you are free for other calls",
             "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন — আপনি অন্য ডাক নিতে পারেন", // bn-ok
         )
-        return linkedMapOf("ok" to true)
     }
 
     /** ambreq_driver — the driver's calls: open requests sent to me and the one I took */
@@ -1492,8 +1496,7 @@ class AmbReqService(
         for ((id, status) in mine) {
             if (status in ACTIVE) {
                 try {
-                    val driver = cancelByPatient(id, "other", now)
-                    if (driver != null) pushDriver(id, driver, "The patient cancelled the ambulance request", "রোগী অ্যাম্বুলেন্সের অনুরোধ বাতিল করেছেন")
+                    tellCancelled(id, cancelByPatient(id, "other", now))
                 } catch (e: Exception) {
                     log.warn("amb req cancel for deletion failed: {}", e.message)
                 }

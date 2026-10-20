@@ -239,7 +239,8 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
 
         /** ?lang= first, then the web's cookie; Bangla otherwise (like the app and the web) */
         fun pageLang(param: String?, cookie: String?): String = when {
-            param == "en" || param == "bn" -> param
+            param == "en" -> "en"
+            param == "bn" -> "bn"
             cookie == "en" -> "en"
             else -> "bn"
         }
