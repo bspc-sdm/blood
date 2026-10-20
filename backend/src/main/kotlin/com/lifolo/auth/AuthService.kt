@@ -55,7 +55,7 @@ class AuthService(
             } catch (e: IdentityException) {
                 failure = AuthFailure(e.kind)
             } catch (e: Exception) {
-                failure = AuthFailure(IdentityException.Kind.OTHER)
+                failure = AuthFailure(IdentityException.Kind.UNAVAILABLE)
             }
         }
         if (decoded != null) {
@@ -63,6 +63,14 @@ class AuthService(
             return AuthUser(uid = decoded.uid, email = decoded.email ?: "", emailVerified = decoded.emailVerified)
         }
         val kind = failure?.kind
+        // Firebase could not check the login (outage, throttling): retryable, the session itself is fine
+        if (kind == IdentityException.Kind.UNAVAILABLE) {
+            throw ApiException(
+                503,
+                if (lang == "en") "Couldn't check your login right now. Please try again in a moment." else "এখন লগইন যাচাই করা যাচ্ছে না। একটু পরে আবার চেষ্টা করুন।", // bn-ok
+                "auth_unavailable",
+            )
+        }
         if (kind == IdentityException.Kind.USER_DISABLED || kind == IdentityException.Kind.TOKEN_REVOKED) {
             val uid = uidFromToken(token)
             val u = uid?.let { runCatching { identity.getUser(it) }.getOrNull() }

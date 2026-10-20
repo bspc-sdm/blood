@@ -198,6 +198,22 @@ class PlatformSecurityIT : IntegrationTest() {
         assertFalse(get("/api/community").body.toString().contains("Exception"))
     }
 
+    @Test
+    fun `Firebase down - logged-in calls get 503 (retry), not 401 (log in again)`() {
+        user("fbDown")
+        identity.unavailable = true
+        val r = call("fbDown", "me", lang = "en")
+        assertEquals(503, r.status, r.toString())
+        assertEquals("auth_unavailable", r.code)
+        assertEquals(503, post("/api/respond", mapOf("requestId" to "x"), mapOf("Authorization" to "Bearer fbDown")).status)
+        // guests and public actions are not affected
+        assertEquals(200, call(null, "catalog_get").status)
+        identity.unavailable = false
+        assertEquals(200, call("fbDown", "me").status)
+        // a bad token is still 401
+        assertEquals(401, call("fbDown", "me", token = "nobody").status)
+    }
+
     // ------------------------------------------------------------------ rate limits
 
     @Test

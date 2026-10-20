@@ -74,8 +74,13 @@ class FakeIdentityProvider : IdentityProvider {
     val users = ConcurrentHashMap<String, User>()
     private val ids = AtomicInteger()
 
+    /** Firebase down / throttling: every token check fails with UNAVAILABLE */
+    @Volatile
+    var unavailable = false
+
     fun reset() {
         users.clear()
+        unavailable = false
     }
 
     fun add(uid: String, email: String? = "$uid@example.com", emailVerified: Boolean = true): User =
@@ -97,6 +102,7 @@ class FakeIdentityProvider : IdentityProvider {
     }
 
     override fun verifyIdToken(token: String, checkRevoked: Boolean): DecodedToken {
+        if (unavailable) throw IdentityException(IdentityException.Kind.UNAVAILABLE, "firebase down")
         val u = users[uidOf(token)] ?: throw IdentityException(IdentityException.Kind.INVALID_TOKEN, "bad token")
         if (u.disabled) throw IdentityException(IdentityException.Kind.USER_DISABLED)
         if (checkRevoked && u.revoked) throw IdentityException(IdentityException.Kind.TOKEN_REVOKED)

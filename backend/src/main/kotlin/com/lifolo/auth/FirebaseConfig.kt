@@ -1,6 +1,7 @@
 package com.lifolo.auth
 
 import com.google.auth.oauth2.GoogleCredentials
+import com.google.firebase.ErrorCode
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.AuthErrorCode
@@ -41,7 +42,10 @@ class FirebaseConfig(private val props: LifoloProperties) {
 
     @Bean
     fun identityProvider(holder: FirebaseHolder): IdentityProvider {
-        val base = holder.app?.let { FirebaseIdentityProvider(FirebaseAuth.getInstance(it)) } ?: UnconfiguredIdentityProvider()
+        val firebase = holder.app?.let { FirebaseIdentityProvider(FirebaseAuth.getInstance(it)) } ?: UnconfiguredIdentityProvider()
+        // tokens are checked locally on every request; the account state (disabled / revoked) comes from Firebase at most
+        // once per uid every REVOCATION_TTL_MS — and immediately again after this server disables or signs someone out
+        val base = RevocationCachingIdentityProvider(firebase)
         if (!props.demo.keepFirebaseUsers) return base
         log.info("DEMO_KEEP_FIREBASE_USERS=true — demo Firebase accounts are never deleted, changed or signed out here")
         return DemoSafeIdentityProvider(base)
@@ -62,9 +66,16 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
     private fun <T> call(block: () -> T): T = try {
         block()
     } catch (e: FirebaseAuthException) {
-        throw IdentityException(map(e.authErrorCode), e.message, e)
+        throw IdentityException(map(e), e.message, e)
     } catch (e: IllegalArgumentException) {
         throw IdentityException(IdentityException.Kind.INVALID_TOKEN, e.message, e)
+    }
+
+    /** Firebase's own trouble (keys not fetched, network, timeout, throttling) is UNAVAILABLE, never "bad token" */
+    private fun map(e: FirebaseAuthException): IdentityException.Kind {
+        if (e.authErrorCode == AuthErrorCode.CERTIFICATE_FETCH_FAILED) return IdentityException.Kind.UNAVAILABLE
+        if (e.authErrorCode == null && e.errorCode in TRANSIENT) return IdentityException.Kind.UNAVAILABLE
+        return map(e.authErrorCode)
     }
 
     private fun map(code: AuthErrorCode?): IdentityException.Kind = when (code) {
@@ -81,12 +92,12 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
         val m = userMetadata
         val created = m?.creationTimestamp?.takeIf { it > 0 }
         val seen = listOf(m?.lastRefreshTimestamp ?: 0L, m?.lastSignInTimestamp ?: 0L).max().takeIf { it > 0 }
-        return AuthAccount(uid, email, isEmailVerified, isDisabled, created, seen)
+        return AuthAccount(uid, email, isEmailVerified, isDisabled, created, seen, tokensValidAfterTimestamp.takeIf { it > 0 })
     }
 
     override fun verifyIdToken(token: String, checkRevoked: Boolean): DecodedToken = call {
         val t = auth.verifyIdToken(token, checkRevoked)
-        DecodedToken(t.uid, t.email, t.isEmailVerified)
+        DecodedToken(t.uid, t.email, t.isEmailVerified, (t.claims["iat"] as? Number)?.toLong())
     }
 
     override fun getUser(uid: String): AuthAccount = call { auth.getUser(uid).toAccount() }
@@ -122,6 +133,11 @@ class FirebaseIdentityProvider(private val auth: FirebaseAuth) : IdentityProvide
         AuthUserPage(page.values.map { it.toAccount() }, page.nextPageToken?.takeIf { it.isNotEmpty() && page.hasNextPage() })
     }
 }
+
+private val TRANSIENT = setOf(
+    ErrorCode.UNAVAILABLE, ErrorCode.DEADLINE_EXCEEDED, ErrorCode.INTERNAL, ErrorCode.UNKNOWN, ErrorCode.RESOURCE_EXHAUSTED,
+    ErrorCode.ABORTED, ErrorCode.CANCELLED,
+)
 
 /** Used when Firebase is not configured: every token is invalid, every admin call fails. */
 class UnconfiguredIdentityProvider : IdentityProvider {

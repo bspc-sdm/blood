@@ -5,6 +5,8 @@ data class DecodedToken(
     val uid: String,
     val email: String?,
     val emailVerified: Boolean,
+    /** the token's `iat` (seconds), for the revocation check against [AuthAccount.tokensValidAfterMs] */
+    val issuedAtSec: Long? = null,
 )
 
 /** A Firebase Auth user record. */
@@ -17,6 +19,8 @@ data class AuthAccount(
     val createdAtMs: Long? = null,
     /** max(lastRefreshTime, lastSignInTime) (ms), when known */
     val lastSeenAtMs: Long? = null,
+    /** tokens issued before this (ms) are revoked (revokeRefreshTokens); null = unknown / never revoked */
+    val tokensValidAfterMs: Long? = null,
 )
 
 /** one page of [IdentityProvider.listUsers] */
@@ -24,7 +28,8 @@ data class AuthUserPage(val users: List<AuthAccount>, val nextPageToken: String?
 
 class IdentityException(val kind: Kind, message: String? = null, cause: Throwable? = null) :
     RuntimeException(message ?: kind.name, cause) {
-    enum class Kind { USER_NOT_FOUND, USER_DISABLED, TOKEN_REVOKED, EMAIL_EXISTS, UID_EXISTS, INVALID_TOKEN, OTHER }
+    /** UNAVAILABLE: Firebase itself failed (network, timeout, throttling) — not the caller's fault, retry later */
+    enum class Kind { USER_NOT_FOUND, USER_DISABLED, TOKEN_REVOKED, EMAIL_EXISTS, UID_EXISTS, INVALID_TOKEN, UNAVAILABLE, OTHER }
 }
 
 /**
