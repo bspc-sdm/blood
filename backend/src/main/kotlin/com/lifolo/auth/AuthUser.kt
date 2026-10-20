@@ -17,6 +17,12 @@ data class AuthUser(
     /** uid for handlers that never run for guests */
     val id: String get() = uid ?: error("guest has no uid")
 
+    /**
+     * a caregiver acting for the patient [uid]: only the patient's side of things — never what [uid] sees as a doctor,
+     * lab or pharmacy (their appointments with patients, patients' phones/notes, prescriptions they wrote, lab work)
+     */
+    val patientSideOnly: Boolean get() = actingBy != null
+
     companion object {
         val GUEST = AuthUser(uid = null, guest = true)
     }

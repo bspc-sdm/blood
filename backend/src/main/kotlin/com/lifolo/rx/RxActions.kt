@@ -468,6 +468,8 @@ class RxActions(
         if (!Rules.isValidId(id)) throw notFound(ctx)
         val s = store.get(id!!)
         if (s == null || (s.patientUid != uid && s.doctorUid != uid)) throw notFound(ctx)
+        // a caregiver: the patient's own prescriptions only, never ones the patient wrote as a doctor
+        if (ctx.user.patientSideOnly && s.patientUid != uid) throw notFound(ctx)
         if (s.doctorUid == uid && s.patientUid != uid) {
             return linkedMapOf("item" to store.view(s), "labOrders" to labs.labsForDoctor(uid, listOf(s.id)))
         }
@@ -481,6 +483,7 @@ class RxActions(
         if (!Rules.isValidId(rxId)) throw notFound(ctx)
         val s = store.get(rxId!!)
         if (s == null || (s.patientUid != uid && s.doctorUid != uid)) throw notFound(ctx)
+        if (ctx.user.patientSideOnly && s.patientUid != uid) throw notFound(ctx)
         val isPatient = s.patientUid == uid
         val orders = jdbc.rows(
             "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",

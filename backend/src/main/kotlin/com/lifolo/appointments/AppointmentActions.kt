@@ -463,7 +463,8 @@ class AppointmentActions(
             return out
         }
         val mine = byStatus("patient_uid")
-        val toMe = byStatus("provider_uid")
+        // a caregiver acts on the patient side only: a doctor's appointments with their patients (phones, notes) never
+        val toMe = if (ctx.user.patientSideOnly) emptyList() else byStatus("provider_uid")
         // confirmed: the other party's phone
         val need = LinkedHashSet<String>()
         mine.forEach { if (it.status == "confirmed") need.add(it.providerUid) }
@@ -506,6 +507,8 @@ class AppointmentActions(
         if (!Rules.isValidId(id)) throw ctx.err(400, "Not found", "পাওয়া যায়নি")
         val a = appts.get(id!!) ?: throw ctx.err(404, "Not found", "পাওয়া যায়নি")
         val op = b.string("op")
+        // a caregiver acts on the patient side only: never confirms/declines/cancels the doctor's own appointments
+        if (ctx.user.patientSideOnly && a.patientUid != uid) throw ctx.err(404, "Not found", "পাওয়া যায়নি")
         val isProvider = a.providerUid == uid
         if (isProvider && (op == "confirm" || op == "decline") && badges.approvedBadge(uid) !in PROVIDER_TYPES) {
             throw ctx.err(403, "Your professional badge is not active", "আপনার পেশাদার ব্যাজ এখন চালু নেই")

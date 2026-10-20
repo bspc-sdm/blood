@@ -232,6 +232,61 @@ class IdorIT : RxLabTest() {
         assertEquals("pending", row("SELECT status FROM appointments WHERE id = 'apB'")["status"])
     }
 
+    @Test
+    fun `caregiver of a doctor or lab - the patient side only, never the professional side`() {
+        seed()
+        val cgD = "idCareDoc"
+        val cgL = "idCareLab"
+        person(cgD, "ডাক্তারের কেয়ারগিভার")
+        person(cgL, "ল্যাবের কেয়ারগিভার")
+        careLink(docA, cgD)
+        careLink(labA, cgL)
+        // docA as a doctor: patA confirmed (phone visible to docA), patB pending; docA as a patient of docB
+        appointment("apP1", patA, docA, "confirmed", 1)
+        appointment("apP2", patB, docA, "pending")
+        appointment("apSelf", docA, docB, "confirmed", 3)
+        val asDoc = mapOf("asUid" to docA)
+        // the doctor still sees both sides
+        assertTrue(listOf("apP1", "apP2", "apSelf").all { id -> hasId(ok(docA, "my_appointments")["items"], id) })
+        // the caregiver: only docA's own appointment as a patient — no patients, phones or their notes
+        val items = ok(cgD, "my_appointments", asDoc)["items"]
+        assertEquals(listOf("apSelf"), items.map { it["id"].asText() })
+        assertTrue(items.all { it["role"].asText() == "patient" })
+        assertFalse(leaks(items, phoneA) || leaks(items, phoneB), items.toString())
+        // cannot confirm, decline or cancel the doctor's appointments (nothing changes, no push to the patients)
+        val before = push.messages.size
+        for ((id, op) in listOf("apP2" to "confirm", "apP2" to "decline", "apP2" to "cancel", "apP1" to "cancel")) {
+            fails(cgD, "appointment_update", asDoc + mapOf("id" to id, "op" to op), 404)
+        }
+        assertEquals("confirmed", row("SELECT status FROM appointments WHERE id = 'apP1'")["status"])
+        assertEquals("pending", row("SELECT status FROM appointments WHERE id = 'apP2'")["status"])
+        assertFalse(push.messages.drop(before).any { it.uid == patA || it.uid == patB })
+        fails(cgD, "appointment_queue", asDoc + mapOf("id" to "apP1"), 404)
+        fails(cgD, "appointment_late", asDoc + mapOf("id" to "apP1", "minutes" to 10), 404)
+        // the doctor's queue and work lists are not caregiver actions at all
+        fails(cgD, "queue_today", asDoc, 403)
+        fails(cgD, "appointment_late_reply", asDoc + mapOf("id" to "apP1", "op" to "ok"), 403)
+        fails(cgD, "rx_patients", asDoc, 403)
+        // prescriptions docA wrote for patients: never; docA's own prescription as a patient: yes
+        val (rxId, _) = rxForA()
+        fails(cgD, "rx_get", asDoc + mapOf("id" to rxId), 404)
+        fails(cgD, "rx_activity", asDoc + mapOf("rxId" to rxId), 404)
+        assertFalse(hasId(ok(cgD, "rx_mine", asDoc)["items"], rxId))
+        val own = ok(docB, "rx_create", mapOf("appointmentId" to "apSelf", "advice" to "নিজের প্রেসক্রিপশন"))["id"].asText()
+        ok(cgD, "rx_get", asDoc + mapOf("id" to own))
+        ok(cgD, "rx_activity", asDoc + mapOf("rxId" to own))
+        // lab work: the lab's caregiver never sees the lab's orders; the doctor's caregiver never sees reports as the doctor
+        ok(patA, "rx_send_lab", mapOf("rxId" to rxId, "labId" to labA))
+        val orderId = ok(labA, "lab_orders")["items"][0]["id"].asText()
+        ok(labA, "lab_report", mapOf("id" to orderId, "items" to listOf(mapOf("test" to "CBC", "result" to "Hb 9.1 গোপন"))))
+        fails(cgL, "lab_order_get", mapOf("asUid" to labA, "id" to orderId), 404)
+        fails(cgD, "lab_order_get", asDoc + mapOf("id" to orderId), 404)
+        assertTrue(leaks(ok(cgA, "lab_order_get", mapOf("asUid" to patA, "id" to orderId)), "গোপন"))
+        // the patient side still works for the caregiver: cancel docA's own appointment
+        ok(cgD, "appointment_update", asDoc + mapOf("id" to "apSelf", "op" to "cancel"))
+        assertEquals("cancelled", row("SELECT status FROM appointments WHERE id = 'apSelf'")["status"])
+    }
+
     // ------------------------------------------------------------------ pharmacy orders and shop books
 
     @Test

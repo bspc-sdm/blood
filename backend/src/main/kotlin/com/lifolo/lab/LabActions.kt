@@ -631,6 +631,8 @@ class LabActions(
         val id = id(ctx)
         val uid = ctx.user.id
         val o = store.order(id, photos = true) ?: throw notFound(ctx)
+        // a caregiver: the patient's own orders only — not the patient's lab work as a lab, or reports as a doctor
+        if (ctx.user.patientSideOnly && o.patientUid != uid) throw notFound(ctx)
         var allowed = o.patientUid == uid || o.labId == uid
         if (!allowed && o.doctorUid == uid) {
             val r = store.review(id)
