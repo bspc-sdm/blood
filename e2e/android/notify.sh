@@ -36,6 +36,18 @@ case_() {
   adb shell am start -W -n "$PKG/.MainActivity" > /dev/null 2>&1
 }
 
+# হোমে যাওয়ার কথা এমন ধরনের আগে অন্য পাতায় সরে যাওয়া (সাহায্য ও আপিল), যাতে "কিছুই হল না" আর "হোম খুলল" আলাদা হয়
+away() {
+  adb shell am start -W -n "$PKG/.MainActivity" -f 0x14000000 --es type support > /dev/null 2>&1
+  sleep 4
+}
+# পেছনে থাকা অ্যাপ (হোম বাটন চাপা) — নোটিফিকেশন চাপলে onNewIntent
+bg() {
+  adb shell input keyevent KEYCODE_HOME
+  sleep 2
+}
+PROFILE="সেটিংস" # প্রোফাইল পাতার মাথা (ব্যাজের সারি, কাগজ চাওয়া আর শেষ রক্তদানের তারিখ সেখানে)
+
 cd "$OUT/shots"
 
 # ---- রোগী (ডেমো রোগী রহিম) ----
@@ -50,11 +62,30 @@ case_ n-rx ".*Dyslipidaemia.*" "" --es type rx --es rxId demo-rx-b
 case_ n-rx-list "আমার প্রেসক্রিপশন" "" --es type rx
 case_ n-med_find_mine ".*ওষুধের নাম.*" "" --es type med_find_mine
 case_ n-emergency ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type emergency
+# অ্যাপ খোলা অবস্থায় আগে যে ধরনগুলো কিছুই খুলত না (badge, eligible, correction, hospital, request_removed)
+case_ n-badge "$PROFILE" ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" --es type badge
+case_ n-correction "$PROFILE" ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" --es type correction
+away; case_ n-eligible ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type eligible
+away; case_ n-hospital ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type hospital
+away; case_ n-request_removed ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type request_removed
+# পেছনে থাকা অ্যাপ
+bg; case_ n-badge-bg "$PROFILE" ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" --es type badge
+bg; away; bg; case_ n-eligible-bg ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type eligible
+bg; case_ n-appointment-bg ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" "" --es type appointment --es role patient
+bg; case_ n-rx-bg ".*Dyslipidaemia.*" "" --es type rx --es rxId demo-rx-b
 # ঠান্ডা অবস্থা: অ্যাপ বন্ধ, নোটিফিকেশন চাপলে নতুন করে খোলে (onCreate-এর পথ)
 adb shell am force-stop "$PKG"
 case_ n-rx-cold ".*Dyslipidaemia.*" "" --es type rx --es rxId demo-rx-b
 adb shell am force-stop "$PKG"
 case_ n-response-cold ".*আমার রিকো${Y}েস্ট.*" ".*জ${Y}দেবপুর জেনারেল হাসপাতাল.*" --es type response --es requestId demo-rq-patient-open
+adb shell am force-stop "$PKG"
+case_ n-badge-cold "$PROFILE" ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" --es type badge
+adb shell am force-stop "$PKG"
+case_ n-correction-cold "$PROFILE" ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" --es type correction
+adb shell am force-stop "$PKG"
+case_ n-eligible-cold ".*আশেপাশের রিকো${Y}েস্ট.*" "" --es type eligible
+adb shell am force-stop "$PKG"
+case_ n-appointment-cold ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" "" --es type appointment --es role patient
 
 # ---- ডোনার ----
 login "ডেমো ডোনার করিম" donor
@@ -64,6 +95,11 @@ case_ n-request ".*রক্তের রিকো${Y}েস্ট.*" ".*জ${Y}
 login "ডা. ডেমো হাসান" doctor
 case_ n-appointment-provider "আমার চেম্বার" ".*বুকিং.*" --es type appointment --es role provider
 case_ n-rx_review "রিপোর্ট" "" --es type rx_review
+# ডাক্তার নিজে রোগী হিসেবে নেওয়া অ্যাপয়েন্টমেন্টের খবর (role=patient): চেম্বার নয়, "আমার অ্যাপয়েন্টমেন্ট"
+case_ n-appointment-doctor-as-patient ".*আমার অ্যাপ${Y}েন্টমেন্ট.*" "" --es type appointment --es role patient
+bg; case_ n-appointment-provider-bg "আমার চেম্বার" ".*বুকিং.*" --es type appointment --es role provider
+adb shell am force-stop "$PKG"
+case_ n-appointment-provider-cold "আমার চেম্বার" ".*বুকিং.*" --es type appointment --es role provider
 
 # ---- ফার্মেসি ----
 login "ডেমো ফার্মেসির মালিক" pharmacy
