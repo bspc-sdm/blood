@@ -24,10 +24,10 @@ env:
     timeout: 20000
 - tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
 - extendedWaitUntil:
-    visible: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
+    visible: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
     timeout: 30000
 - takeScreenshot: j7-03-my-requests
-- tapOn: ".*ডেমো চরপা(?:ড়|ড়)া জেনারেল হাসপাতাল.*"
+- tapOn: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
 - extendedWaitUntil:
     visible: ".*রাজি হ(?:য়|য়)েছেন.*"
     timeout: 30000
