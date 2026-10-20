@@ -34,7 +34,8 @@ import java.net.URL
 
 /**
  * নতুন ভার্সন এসেছে কি না: https://lifolo.com/download/-এ APK-র পাশে version.json থাকে (CI "Build APK" লেখে)।
- * অ্যাপ Play Store-এ নেই, তাই এভাবেই ব্যবহারকারী জানতে পারেন।
+ * lifolo.com-এর APK-তে এভাবেই ব্যবহারকারী জানতে পারেন। Play Store-এর বিল্ডে (BuildConfig.STORE = "play") এটা বন্ধ —
+ * Play-র নীতিতে অ্যাপ নিজে নিজেকে আপডেট করতে পারে না, আপডেট Play দেয়।
  * ২.৩৪.১ থেকে নিজের সার্ভারে (আগে GitHub-এর "latest" রিলিজে — রিপো private হলে ওটা বন্ধ)।
  */
 object Updates {
@@ -51,6 +52,39 @@ object Updates {
     data class Latest(val code: Long, val name: String, val url: String = APK_URL)
 
     private var cached: Latest? = null
+
+    /** Play Store থেকে আসা বিল্ডে নিজের আপডেটের কার্ড দেখানো হয় না */
+    val enabled: Boolean get() = BuildConfig.STORE != "play"
+
+    /**
+     * এই অ্যাপ release key দিয়ে সাইন করা কি না। না হলে (debug key-এর পুরোনো APK) release key-এর নতুন APK
+     * এর উপরে ইনস্টল হয় না ("App not installed") — একবার আনইনস্টল করে ইনস্টল করতে হয়।
+     * বুঝতে না পারলে true (কিছু বাড়তি দেখানো হয় না)।
+     */
+    fun signedWithReleaseKey(context: Context): Boolean = runCatching {
+        val pm = context.packageManager
+        val certs: List<ByteArray> = if (Build.VERSION.SDK_INT >= 28) {
+            val info = pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES).signingInfo
+                ?: return@runCatching true
+            (if (info.hasMultipleSigners()) info.apkContentsSigners else info.signingCertificateHistory).map { it.toByteArray() }
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures.orEmpty().map { it.toByteArray() }
+        }
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        certs.any { c -> md.digest(c).joinToString("") { "%02X".format(it) } == BuildConfig.RELEASE_CERT_SHA256 }
+    }.getOrDefault(true)
+
+    /** আনইনস্টলের জন্য অ্যাপের তথ্যের পাতা (সেখানে "Uninstall") */
+    fun openAppSettings(context: Context) {
+        runCatching {
+            context.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
 
     fun currentCode(context: Context): Long {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -85,7 +119,9 @@ fun UpdateBanner() {
     val context = LocalContext.current
     var latest by remember { mutableStateOf<Updates.Latest?>(null) }
     var hidden by remember { mutableStateOf(UpdateState.dismissed) }
+    val reinstall = remember { !Updates.signedWithReleaseKey(context) }
     LaunchedEffect(Unit) {
+        if (!Updates.enabled) return@LaunchedEffect
         val l = Updates.latest()
         if (l != null && l.code > Updates.currentCode(context)) latest = l
     }
@@ -114,8 +150,26 @@ fun UpdateBanner() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
+            // একবারের কাজ: এই অ্যাপ পুরোনো (debug) সাইনের, নতুনটা release key-এর — উপরে ইনস্টল হয় না
+            if (reinstall) {
+                Text(
+                    tr(
+                        "One-time step: if the phone says \"App not installed\", uninstall this app first (Remove old app → Uninstall), " +
+                            "then install the downloaded file and log in again with your email. Your account and everything saved on the server stay; " +
+                            "turn medicine alarms on again from your prescription.",
+                        "একবারের কাজ: ফোন \"App not installed\" দেখালে আগে এই অ্যাপটা আনইনস্টল করুন (পুরোনোটা সরান → Uninstall), " +
+                            "তারপর ডাউনলোড করা ফাইলটা ইনস্টল করে ইমেইল দিয়ে আবার লগইন করুন। অ্যাকাউন্ট আর সার্ভারে রাখা সব তথ্য থাকবে; " +
+                            "ওষুধের অ্যালার্ম প্রেসক্রিপশন থেকে আবার চালু করুন।",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { openUrl(context, l.url) }) { Text(tr("Update", "আপডেট করুন")) }
+                if (reinstall) {
+                    TextButton(onClick = { Updates.openAppSettings(context) }) { Text(tr("Remove old app", "পুরোনোটা সরান")) }
+                }
                 TextButton(onClick = {
                     UpdateState.dismissed = true
                     hidden = true

@@ -6,9 +6,15 @@ name: Build APK
 #   ২) GitHub-এর "latest" রিলিজ (আগের মতো; ২.৩৪.০ পর্যন্ত অ্যাপ ওখান থেকে খবর নেয় — রিপো public থাকা পর্যন্ত)
 # Actions-এর মিনিট বাঁচাতে: push-এ শুধু ভার্সন বদলালে বিল্ড (অ্যাপের অন্য বদল পরের ভার্সনের সাথে যায়);
 # হাতে (Run workflow) চালালে সবসময় বিল্ড।
+# main ছাড়া অন্য branch (play-ready, বা হাতে অন্য branch থেকে): শুধু বিল্ড আর যাচাই — কোথাও প্রকাশ হয় না,
+#   ফল Actions-এর artifact আর ci-log-<branch> branch-এ।
+#
+# সাইন (app/PLAY-STORE.md): GitHub Secrets-এ RELEASE_KEYSTORE_B64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS,
+# RELEASE_KEY_PASSWORD থাকলে release বিল্ড, release key দিয়ে সাইন: APK (lifolo.com-এর জন্য) + AAB (Play Store-এর
+# upload — -PlifoloStore=play, তাতে অ্যাপের নিজের আপডেট-কার্ড বন্ধ)। না থাকলে আগের মতো debug APK (debug key), AAB নয়।
 on:
   push:
-    branches: [main]
+    branches: [main, play-ready]
     paths:
       - "app/build.gradle.kts"
       - ".github/workflows/build.yml"
@@ -21,7 +27,7 @@ permissions:
 
 # একসাথে দুটো বিল্ড যেন একই রিলিজ নিয়ে টানাটানি না করে
 concurrency:
-  group: build-apk
+  group: build-apk-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -37,13 +43,16 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
           EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
           code=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
           name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           build=true
-          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+          # প্রকাশ (VPS, GitHub রিলিজ) শুধু main থেকে
+          if [ "$REF" = refs/heads/main ]; then echo "publish=true" >> "$GITHUB_OUTPUT"; else echo "publish=false" >> "$GITHUB_OUTPUT"; fi
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
             if git fetch -q --no-tags --depth=1 origin "$BEFORE" 2>/dev/null; then
               old=$(git show "$BEFORE:app/build.gradle.kts" 2>/dev/null | grep -oP 'versionCode = \K[0-9]+' || true)
               if [ "$old" = "$code" ]; then build=false; fi
@@ -64,16 +73,117 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Build debug APK
+      # release key: চারটে সিক্রেটই থাকলে release; একটাও না থাকলে debug; আধাআধি থাকলে ভুল (চুপচাপ debug নয়)
+      - name: Release key
+        id: key
+        if: steps.gate.outputs.build == 'true'
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          n=0
+          for v in "$RELEASE_KEYSTORE_B64" "$RELEASE_KEYSTORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD"; do if [ -n "$v" ]; then n=$((n+1)); fi; done
+          if [ "$n" = 0 ]; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::release key-এর সিক্রেট নেই — debug key দিয়ে APK (Play-র AAB হবে না; app/PLAY-STORE.md দেখুন)"
+            exit 0
+          fi
+          [ "$n" = 4 ] || { echo "::error::release key-এর ৪টা সিক্রেটের মধ্যে $n টা আছে — সবগুলো দিন (RELEASE_KEYSTORE_B64, RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD)"; exit 1; }
+          ks="$RUNNER_TEMP/lifolo-release.p12"
+          printf '%s' "$RELEASE_KEYSTORE_B64" | tr -d '[:space:]' | base64 -d > "$ks"
+          chmod 600 "$ks"
+          # পাসওয়ার্ড আর alias মেলে কি না; সার্টিফিকেটের SHA-256 (গোপন নয়) পরে APK-র সাথে মেলানো হয়
+          sha=$(keytool -list -v -keystore "$ks" -storepass "$RELEASE_KEYSTORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" 2>/dev/null \
+            | grep -oP 'SHA256: \K[0-9A-F:]+' | head -1 | tr -d ':' || true)
+          [ -n "$sha" ] || { echo "::error::keystore খোলা গেল না (পাসওয়ার্ড বা alias ভুল?)"; exit 1; }
+          want=$(grep -oP 'releaseCertSha256 = "\K[0-9A-F]+' app/build.gradle.kts)
+          [ "$sha" = "$want" ] || echo "::warning::keystore-এর সার্টিফিকেট ($sha) app/build.gradle.kts-এর releaseCertSha256 ($want) নয় — অ্যাপ ভুল করে \"একবার আনইনস্টল\" দেখাবে"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "file=$ks" >> "$GITHUB_OUTPUT"
+          echo "cert=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK (+ AAB with the release key)
+        id: apk
         if: steps.gate.outputs.build == 'true'
         env:
           # Sentry (প্রকল্প lifolo-android) — BuildConfig.SENTRY_DSN; খালি = বন্ধ
           SENTRY_DSN_ANDROID: ${{ secrets.SENTRY_DSN_ANDROID }}
+          RELEASE: ${{ steps.key.outputs.release }}
+          RELEASE_KEYSTORE_FILE: ${{ steps.key.outputs.file }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon 2>&1 | tee build.log
-          f=app/build/generated/source/buildConfig/debug/com/bspc/blood/BuildConfig.java
+          if [ "$RELEASE" = true ]; then
+            # ১) lifolo.com-এর APK (store=web: আপডেট-কার্ড চালু)  ২) Play-র AAB (store=play: কার্ড বন্ধ)
+            gradle assembleRelease --no-daemon 2>&1 | tee build.log
+            f=app/build/generated/source/buildConfig/release/com/bspc/blood/BuildConfig.java
+            apk=app/build/outputs/apk/release/app-release.apk
+            grep -q 'STORE = "web"' "$f" || { echo "::error::APK-র BuildConfig.STORE web নয়"; exit 1; }
+            gradle bundleRelease --no-daemon -PlifoloStore=play 2>&1 | tee -a build.log
+            grep -q 'STORE = "play"' "$f" || { echo "::error::AAB-র BuildConfig.STORE play নয়"; exit 1; }
+            aab=app/build/outputs/bundle/release/app-release.aab
+            [ -f "$aab" ] || { echo "::error::AAB তৈরি হয়নি"; exit 1; }
+            echo "aab=$aab" >> "$GITHUB_OUTPUT"
+          else
+            gradle assembleDebug --no-daemon 2>&1 | tee build.log
+            f=app/build/generated/source/buildConfig/debug/com/bspc/blood/BuildConfig.java
+            apk=app/build/outputs/apk/debug/app-debug.apk
+          fi
+          [ -f "$apk" ] || { echo "::error::APK তৈরি হয়নি"; exit 1; }
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
           if grep -q 'SENTRY_DSN = "https://' "$f"; then echo "Sentry: on (BuildConfig.SENTRY_DSN set)"; else echo "::warning::Sentry: off (SENTRY_DSN_ANDROID নেই বা ঠিক নেই)"; fi
+
+      # সাইন আর manifest যাচাই: কোন key, debuggable কি না, targetSdk; AAB-র সাইন (jarsigner)
+      - name: Verify signature
+        id: verify
+        if: steps.gate.outputs.build == 'true'
+        env:
+          RELEASE: ${{ steps.key.outputs.release }}
+          CERT: ${{ steps.key.outputs.cert }}
+          APK: ${{ steps.apk.outputs.apk }}
+          AAB: ${{ steps.apk.outputs.aab }}
+        run: |
+          set -euo pipefail
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          got=$("$bt/apksigner" verify --print-certs "$APK" | grep -oP 'Signer #1 certificate SHA-256 digest: \K[0-9a-f]+' | tr a-f A-F)
+          badging=$("$bt/aapt2" dump badging "$APK")
+          target=$(grep -oP "targetSdkVersion:'\K[0-9]+" <<<"$badging" || true)
+          debuggable=no; if grep -q application-debuggable <<<"$badging"; then debuggable=yes; fi
+          echo "APK signer SHA-256: $got · targetSdk $target · debuggable $debuggable"
+          echo "apk_cert=$got" >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "debuggable=$debuggable" >> "$GITHUB_OUTPUT"
+          if [ "$RELEASE" = true ]; then
+            [ "$got" = "$CERT" ] || { echo "::error::APK release key দিয়ে সাইন হয়নি ($got)"; exit 1; }
+            [ "$debuggable" = no ] || { echo "::error::release APK debuggable"; exit 1; }
+            jarsigner -verify -verbose:summary -certs "$AAB" > aab-verify.txt 2>&1 || { cat aab-verify.txt; echo "::error::AAB-র সাইন ঠিক নেই"; exit 1; }
+            grep -q "jar verified" aab-verify.txt || { cat aab-verify.txt; echo "::error::AAB verified নয়"; exit 1; }
+            aab_cert=$(keytool -printcert -jarfile "$AAB" 2>/dev/null | grep -oP 'SHA256: \K[0-9A-F:]+' | head -1 | tr -d ':' || true)
+            [ "$aab_cert" = "$CERT" ] || { echo "::error::AAB release key দিয়ে সাইন হয়নি ($aab_cert)"; exit 1; }
+            echo "AAB signer SHA-256: $aab_cert"
+            echo "aab_cert=$aab_cert" >> "$GITHUB_OUTPUT"
+            echo "signed=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=debug" >> "$GITHUB_OUTPUT"
+          fi
+
+      # main ছাড়া branch-এ (আর main-এও) ফাইলগুলো Actions-এর artifact হিসেবে (১৪ দিন)
+      - name: Upload build artifacts
+        if: steps.gate.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifolo-${{ steps.gate.outputs.name }}-${{ steps.gate.outputs.code }}-${{ steps.verify.outputs.signed }}
+          path: |
+            ${{ steps.apk.outputs.apk }}
+            ${{ steps.apk.outputs.aab }}
+          retention-days: 14
+          if-no-files-found: error
+
       # বিল্ড ব্যর্থ হলে কম্পাইলের ভুলগুলো annotation হিসেবে দেখানো (API দিয়ে পড়া যায়)
       - name: Report compile errors
         if: failure()
@@ -84,16 +194,16 @@ jobs:
 
       # VPS: https://lifolo.com/download/ (ক্রম: ভার্সনের APK → lifolo.apk → version.json)
       - name: Connect to VPS
-        if: steps.gate.outputs.build == 'true'
+        if: steps.gate.outputs.build == 'true' && steps.gate.outputs.publish == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: bash deploy/ci/vps-connect.sh
       - name: Publish APK to lifolo.com/download
         id: vps
-        if: steps.gate.outputs.build == 'true'
+        if: steps.gate.outputs.build == 'true' && steps.gate.outputs.publish == 'true'
         run: |
-          bash deploy/ci/publish-download.sh release app/build/outputs/apk/debug/app-debug.apk \
+          bash deploy/ci/publish-download.sh release "${{ steps.apk.outputs.apk }}" \
             "${{ steps.gate.outputs.name }}" "${{ steps.gate.outputs.code }}" | tee -a "$GITHUB_OUTPUT"
 
       # সরাসরি ডাউনলোডের স্থায়ী লিংক (zip ছাড়া):
@@ -102,23 +212,29 @@ jobs:
       # ১) ভার্সনের নামে নতুন APK, ২) পুরোনো অ্যাপের জন্য roktodan.apk, ৩) সবশেষে version.json —
       # তাই অ্যাপ নতুন ভার্সনের খবর পায় APK তৈরি থাকার পরেই।
       # এখানকার version.json-এর url GitHub-এরই (২.৩৪.০ পর্যন্ত অ্যাপ শুধু GitHub-এর লিংক মানে)।
+      # Play-র AAB (release key থাকলে): lifolo-<ভার্সন>-<কোড>.aab — Play Console-এ হাতে upload
       - name: Publish APK to "latest" release
-        if: steps.gate.outputs.build == 'true'
+        if: steps.gate.outputs.build == 'true' && steps.gate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           CODE: ${{ steps.gate.outputs.code }}
           NAME: ${{ steps.gate.outputs.name }}
+          APK: ${{ steps.apk.outputs.apk }}
+          AAB: ${{ steps.apk.outputs.aab }}
         run: |
           set -e
           VAPK="lifolo-${NAME}-${CODE}.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$VAPK"
-          cp app/build/outputs/apk/debug/app-debug.apk roktodan.apk
+          cp "$APK" "$VAPK"
+          cp "$APK" roktodan.apk
+          VAAB=""
+          if [ -n "$AAB" ]; then VAAB="lifolo-${NAME}-${CODE}.aab"; cp "$AAB" "$VAAB"; fi
           URL="https://github.com/${{ github.repository }}/releases/download/latest/$VAPK"
           echo "{\"versionCode\": $CODE, \"versionName\": \"$NAME\", \"url\": \"$URL\"}" > version.json
           cat version.json
           NOTES="স্বয়ংক্রিয়ভাবে তৈরি টেস্ট APK (commit ${{ github.sha }}). ফোনে সরাসরি ডাউনলোড: https://lifolo.com/download/lifolo.apk"
           if gh release view latest > /dev/null 2>&1; then
             gh release upload latest "$VAPK" --clobber
+            [ -z "$VAAB" ] || gh release upload latest "$VAAB" --clobber
             gh release upload latest roktodan.apk --clobber
             gh release upload latest version.json --clobber
             git tag -f latest "${{ github.sha }}"
@@ -128,8 +244,11 @@ jobs:
             gh release view latest --json assets --jq '.assets[].name' | grep -E '^(lifolo|dorkar)-.*\.apk$' | sort -t- -k3,3n | head -n -3 | while read -r old; do
               gh release delete-asset latest "$old" --yes
             done
+            gh release view latest --json assets --jq '.assets[].name' | grep -E '^lifolo-.*\.aab$' | sort -t- -k3,3n | head -n -3 | while read -r old; do
+              gh release delete-asset latest "$old" --yes
+            done
           else
-            gh release create latest "$VAPK" roktodan.apk version.json \
+            gh release create latest "$VAPK" $VAAB roktodan.apk version.json \
               --target "${{ github.sha }}" \
               --prerelease \
               --title "সর্বশেষ টেস্ট ভার্সন" \
@@ -142,7 +261,7 @@ jobs:
       # আসল পথে (Cloudflare দিয়ে) version.json একবার — challenge হলে শুধু জানানো।
       - name: Check lifolo.com/download from the internet
         id: inet
-        if: steps.gate.outputs.build == 'true'
+        if: steps.gate.outputs.build == 'true' && steps.gate.outputs.publish == 'true'
         env:
           CODE: ${{ steps.gate.outputs.code }}
           SHA: ${{ steps.vps.outputs.dl_sha256 }}
@@ -180,9 +299,18 @@ jobs:
           FILES: ${{ steps.vps.outputs.dl_files }}
           INET: ${{ steps.inet.outputs.ok }}
           PUBLIC: ${{ steps.inet.outputs.public }}
+          PUBLISH: ${{ steps.gate.outputs.publish }}
+          SIGNED: ${{ steps.verify.outputs.signed }}
+          APK_CERT: ${{ steps.verify.outputs.apk_cert }}
+          AAB_CERT: ${{ steps.verify.outputs.aab_cert }}
+          TARGET: ${{ steps.verify.outputs.target }}
+          DEBUGGABLE: ${{ steps.verify.outputs.debuggable }}
         run: |
           {
             echo "## APK $NAME ($CODE)"
+            echo "- সাইন: ${SIGNED:-—} · APK-র সার্টিফিকেট SHA-256: ${APK_CERT:-—} · targetSdk ${TARGET:-—} · debuggable ${DEBUGGABLE:-—}"
+            echo "- Play-র AAB: ${AAB_CERT:+release key-এ সাইন ($AAB_CERT)}${AAB_CERT:-নেই (release key-এর সিক্রেট নেই)}"
+            [ "$PUBLISH" = true ] || echo "- branch $GITHUB_REF_NAME: শুধু বিল্ড, কোথাও প্রকাশ হয়নি (ফাইল: Actions-এর artifact)"
             echo "- ডাউনলোড: **https://lifolo.com/download/lifolo.apk** · এই ভার্সন: ${URL:-—}"
             echo "- VPS-এ: ${FILES:-—}"
             echo "- সরাসরি VPS-এ যাচাই (version.json + APK-এর sha256): ${INET:-—}"
@@ -191,16 +319,19 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/apk-summary.md"
           mkdir -p "$RUNNER_TEMP/log"
           cp "$RUNNER_TEMP/apk-summary.md" "$RUNNER_TEMP/log/apk-summary.md"
-          { echo "commit=$GITHUB_SHA"; echo "version=$NAME"; echo "code=$CODE"; echo "job=${{ job.status }}"; echo "dl_url=$URL"; echo "inet=$INET"; echo "public=$PUBLIC"; } > "$RUNNER_TEMP/log/apk-status.txt"
-      - name: Publish to the log branch (ci-log-apk)
+          { echo "commit=$GITHUB_SHA"; echo "branch=$GITHUB_REF_NAME"; echo "version=$NAME"; echo "code=$CODE"; echo "job=${{ job.status }}"; echo "signed=$SIGNED"; echo "apk_cert=$APK_CERT"; echo "aab_cert=$AAB_CERT"; echo "target=$TARGET"; echo "debuggable=$DEBUGGABLE"; echo "dl_url=$URL"; echo "inet=$INET"; echo "public=$PUBLIC"; } > "$RUNNER_TEMP/log/apk-status.txt"
+          [ ! -f build.log ] || grep -E "^e: |^w: .*deprecat|error:|What went wrong|BUILD (SUCCESSFUL|FAILED)" -A2 build.log | head -80 > "$RUNNER_TEMP/log/apk-build-tail.txt" || true
+      # main → ci-log-apk; অন্য branch → ci-log-<branch>
+      - name: Publish to the log branch (ci-log-apk / ci-log-<branch>)
         if: always() && steps.gate.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           LOG_MESSAGE: apk ${{ steps.gate.outputs.name }} ${{ job.status }}
-        run: bash .github/scripts/publish-log.sh ci-log-apk "$RUNNER_TEMP/log" apk-summary.md apk-status.txt || true
+          LOG_BRANCH: ${{ steps.gate.outputs.publish == 'true' && 'ci-log-apk' || format('ci-log-{0}', github.ref_name) }}
+        run: bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$RUNNER_TEMP/log" apk-summary.md apk-status.txt apk-build-tail.txt || true
 
       - name: Clean up
         if: always()
         run: |
           ssh -O exit vps 2>/dev/null || true
-          rm -rf ~/.ssh/lifolo ~/.ssh/config
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/lifolo-release.p12"

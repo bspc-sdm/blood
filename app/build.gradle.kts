@@ -18,27 +18,40 @@ val lifoloVersionSuffix: String = (findProperty("lifoloVersionSuffix") as String
 // Sentry (প্রকল্প lifolo-android): CI-র SENTRY_DSN_ANDROID সিক্রেট (বা -PsentryDsn=…); খালি/ভুল = Sentry বন্ধ
 val sentryDsn: String = ((findProperty("sentryDsn") as String?) ?: System.getenv("SENTRY_DSN_ANDROID") ?: "").trim()
     .takeIf { Regex("^https://[A-Za-z0-9]+@[a-z0-9.-]+\\.sentry\\.io/[0-9]+$").matches(it) }.orEmpty()
+// কোথায় বিতরণ: web (lifolo.com/download-এর APK, অ্যাপের ভেতরে "নতুন ভার্সন" কার্ড) | play (Play Store-এর AAB —
+// Play-র নীতি: অ্যাপ নিজে নিজেকে আপডেট করতে পারবে না, তাই কার্ড বন্ধ; আপডেট Play নিজে দেয়)। -PlifoloStore=play
+val lifoloStore: String = ((findProperty("lifoloStore") as String?)?.trim()?.ifEmpty { null } ?: "web")
+require(lifoloStore == "web" || lifoloStore == "play") { "lifoloStore must be web or play: $lifoloStore" }
+// Release/upload key (Play App Signing-এ এটাই upload key): CI-তে GitHub Secrets থেকে (RELEASE_KEYSTORE_B64 → ফাইল),
+// লোকালি -PreleaseStoreFile=… ইত্যাদি। না থাকলে release বিল্ড unsigned থাকে (CI তখন আগের মতো debug APK বানায়)।
+fun releaseProp(prop: String, env: String): String? =
+    ((findProperty(prop) as String?) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
+val releaseStoreFile: String? = releaseProp("releaseStoreFile", "RELEASE_KEYSTORE_FILE")
+// release key-এর সার্টিফিকেটের SHA-256 (গোপন নয় — যেকোনো APK থেকে পড়া যায়)। অ্যাপ নিজের সাইন এর সাথে মেলায়:
+// না মিললে (debug key-এর পুরোনো অ্যাপ) আপডেটের কার্ডে "একবার আনইনস্টল করে ইনস্টল" বলে (Updates.kt)।
+val releaseCertSha256 = "076E13D0F90A228186AE53155455FDC6A048729B758EDAAF5232A3F92C196943"
 
 android {
     namespace = "com.bspc.blood"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.bspc.blood"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 121
         versionName = "2.34.1"
         versionNameSuffix = lifoloVersionSuffix.ifEmpty { null }
         buildConfigField("String", "SERVER_URL", "\"$lifoloServer\"")
         buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
+        buildConfigField("String", "STORE", "\"$lifoloStore\"")
+        buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCertSha256\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)
         manifestPlaceholders["linkHost"] = lifoloLinkHost
     }
 
     signingConfigs {
-        // স্থায়ী ডিবাগ key: প্রতিটা বিল্ডে একই SHA-1 থাকবে, তাই Google লগইন কাজ করবে।
-        // Play Store-এর জন্য আলাদা গোপন release key লাগবে (GitHub Secrets-এ)।
+        // স্থায়ী ডিবাগ key (রিপোতে, গোপন নয়): release key-এর সিক্রেট না থাকলে CI এটা দিয়েই APK সাইন করে।
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
@@ -50,11 +63,24 @@ android {
             enableV2Signing = true
             enableV3Signing = true
         }
+        // release/upload key (app/PLAY-STORE.md) — ফাইল থাকলে তবেই
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseProp("releaseStorePassword", "RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = releaseProp("releaseKeyAlias", "RELEASE_KEY_ALIAS")
+                keyPassword = releaseProp("releaseKeyPassword", "RELEASE_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = if (releaseStoreFile != null) signingConfigs.getByName("release") else null
         }
     }
 

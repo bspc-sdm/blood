@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 বা আগের ব্যাকআপ — data_extraction_rules.xml-এর একই তালিকা (লগইন, টোকেন, ক্যাশ বাদ) -->
+<full-backup-content>
+    <include domain="sharedpref" path="app_prefs.xml" />
+    <include domain="sharedpref" path="dismissed_notes.xml" />
+    <include domain="sharedpref" path="recent_areas.xml" />
+    <include domain="sharedpref" path="guest_area.xml" />
+    <include domain="sharedpref" path="doctor_filters.xml" />
+    <include domain="sharedpref" path="pharmacy_prefs.xml" />
+    <include domain="sharedpref" path="amb_req.xml" />
+    <include domain="sharedpref" path="med_alarms.xml" />
+</full-backup-content>

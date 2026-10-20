@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ এর ব্যাকআপ (Google Drive) আর নতুন ফোনে তথ্য সরানো: শুধু নিচের পছন্দগুলো যায়।
+  লগইন (Firebase), নোটিফিকেশনের টোকেন, সার্ভারের উত্তরের ক্যাশ (প্রোফাইল, রিকোয়েস্ট), Sentry/Crashlytics-এর ফাইল — কিছুই না;
+  নতুন ফোনে ইমেইলের কোড দিয়ে আবার লগইন। <include> থাকলে বাকি সব বাদ (নতুন prefs ফাইল নিজে থেকে যায় না)।
+  Android 11 বা আগের জন্য একই তালিকা: backup_rules.xml
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="app_prefs.xml" />
+        <include domain="sharedpref" path="dismissed_notes.xml" />
+        <include domain="sharedpref" path="recent_areas.xml" />
+        <include domain="sharedpref" path="guest_area.xml" />
+        <include domain="sharedpref" path="doctor_filters.xml" />
+        <include domain="sharedpref" path="pharmacy_prefs.xml" />
+        <include domain="sharedpref" path="amb_req.xml" />
+        <include domain="sharedpref" path="med_alarms.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="app_prefs.xml" />
+        <include domain="sharedpref" path="dismissed_notes.xml" />
+        <include domain="sharedpref" path="recent_areas.xml" />
+        <include domain="sharedpref" path="guest_area.xml" />
+        <include domain="sharedpref" path="doctor_filters.xml" />
+        <include domain="sharedpref" path="pharmacy_prefs.xml" />
+        <include domain="sharedpref" path="amb_req.xml" />
+        <include domain="sharedpref" path="med_alarms.xml" />
+    </device-transfer>
+</data-extraction-rules>

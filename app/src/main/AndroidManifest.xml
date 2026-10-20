@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- আনুমানিক লোকেশন (≈১-৩ কিমি) সব জায়গায় যথেষ্ট -->
@@ -10,10 +11,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- ওষুধ খাওয়ার অ্যালার্ম: ফোন চালু হলে আবার সেট করা -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- বিজ্ঞাপনের ID লাগে না (কোনো লাইব্রেরি যেন যোগ না করে — Play Console-এ "Advertising ID: না") -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
     <application
         android:name=".LifoloApp"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:usesCleartextTraffic="false"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher"
         android:label="@string/app_name"
