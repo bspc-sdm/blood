@@ -587,7 +587,7 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     if (claiming) {
         RxClaimDialog(profile, onDismiss = { claiming = false }) { n ->
             claiming = false
-            infoMsg = tr("Added $n prescription(s)", "${num(n)}টা প্রেসক্রিপশন যোগ হয়েছে")
+            infoMsg = if (n <= 1) tr("Prescription added", "প্রেসক্রিপশন যোগ হয়েছে") else tr("Added $n prescriptions", "${num(n)}টা প্রেসক্রিপশন যোগ হয়েছে")
             reload++
         }
     }
@@ -608,8 +608,9 @@ private fun RxClaimDialog(profile: Profile, onDismiss: () -> Unit, onAdded: (Int
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     tr(
-                        "Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member's (add them in Profile → Caregivers & family).",
-                        "QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)।",
+                        // প্রতিটা কাগজের প্রেসক্রিপশন নিজের কোডে (২০২৬-১০ থেকে সার্ভার আর একই নম্বরের অন্যগুলো একসাথে আনে না)
+                        "Write the code printed under the QR, and the mobile number given at the chamber — yours, or a family member's (add them in Profile → Caregivers & family). Each paper prescription is added with its own code.",
+                        "QR-এর নিচে লেখা কোড আর চেম্বারে যে মোবাইল নম্বর দেওয়া হয়েছিল — আপনার, অথবা পরিবারের সদস্যের (প্রোফাইল → কেয়ারগিভার ও পরিবার-এ যোগ করে রাখুন)। প্রতিটা কাগজের প্রেসক্রিপশন তার নিজের কোড দিয়ে আলাদা করে যোগ করুন।",
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                 )

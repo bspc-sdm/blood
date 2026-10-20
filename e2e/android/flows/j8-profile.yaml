@@ -61,3 +61,17 @@ env:
     timeout: 15000
 - takeScreenshot: j8-08-donor-edit-fields
 - back
+# তথ্য সংশোধনের অনুরোধ (correction_mine/correction_create): প্রোফাইলের সারি থেকে খোলে, এখনকার তারিখ আর ফর্ম বা অপেক্ষার অবস্থা — পাঠানো হয় না
+- scrollUntilVisible:
+    element: "তথ্য সংশোধনের অনুরোধ"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "তথ্য সংশোধনের অনুরোধ"
+- extendedWaitUntil:
+    visible: "এখন শেষ রক্তদানের তারিখ: .*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*(কী ভুল হয়েছিল|অ্যাডমিনের কাছে আছে|শেষ অনুরোধটি).*"
+    timeout: 20000
+- takeScreenshot: j8-09-correction-request
+- tapOn: "(বাতিল|বন্ধ করুন)"

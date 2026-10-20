@@ -69,6 +69,7 @@ fun ProfileTab(
     var demoSwitch by remember { mutableStateOf(false) } // ডেমো
     var showBadgeDialog by remember { mutableStateOf(false) }
     var showDateDialog by remember { mutableStateOf(false) }
+    var showCorrection by remember { mutableStateOf(false) }
     // "আপনার কি কোনো ব্যবসা আছে?" — যাঁর এখনো নেই; "না" বললে কার্ডের বদলে নিচে সাধারণ এক লাইন (২.২০.০)
     val businessKey = "business_q_" + AuthRepository.currentUid.orEmpty()
     var businessNo by remember { mutableStateOf(Dismissed.isOn(context, businessKey)) }
@@ -271,6 +272,14 @@ fun ProfileTab(
                 { showDateDialog = true },
             )
             HorizontalDivider()
+            // তথ্য সংশোধনের অনুরোধ — অ্যাডমিন দেখে তারিখ ঠিক করেন (ওয়েবের প্রোফাইলের একই সারি)
+            ActionRow(
+                R.drawable.ic_edit,
+                tr("Ask to correct the date", "তথ্য সংশোধনের অনুরোধ"),
+                tr("An admin checks and fixes your last donation date", "অ্যাডমিন দেখে শেষ রক্তদানের তারিখ ঠিক করে দেবেন"),
+                { showCorrection = true },
+            )
+            HorizontalDivider()
             ActionRow(R.drawable.ic_edit, tr("Edit profile", "প্রোফাইল এডিট"), null, onEditProfile)
             HorizontalDivider()
             if (MyWork.loaded.value && !hasBusiness && businessNo) {
@@ -407,6 +416,12 @@ fun ProfileTab(
         DonationDateDialog(profile, onDismiss = { showDateDialog = false }) { d ->
             showDateDialog = false
             onProfileChanged(profile.copy(lastDonationMillis = d))
+        }
+    }
+    if (showCorrection) {
+        CorrectionRequestDialog(profile, onDismiss = { showCorrection = false }) {
+            showCorrection = false
+            android.widget.Toast.makeText(context, tr("Request sent. An admin will check it.", "অনুরোধ পাঠানো হয়েছে। অ্যাডমিন দেখে ঠিক করে দেবেন।"), android.widget.Toast.LENGTH_LONG).show()
         }
     }
     if (showBadgeDialog) {
