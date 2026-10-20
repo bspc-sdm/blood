@@ -204,8 +204,26 @@ wait_health() {
   done
   return 1
 }
+# অ্যাপ না চললে লগের প্রথম কারণ (Exception-এর লাইন; @-যুক্ত অংশ ঢাকা) — status-এ, যাতে লগ না খুলেই বোঝা যায়
+app_error() {
+  journalctl -u lifolo-api.service --since "$started_at" --no-pager -o cat 2>/dev/null \
+    | grep -E '(Exception|Error)(:| )' | grep -vE '^\s+at ' | head -3 \
+    | sed -E 's#[A-Za-z0-9._%+:/-]+@[A-Za-z0-9._:/-]+#<…@…>#g' | tr '\n' ' ' | cut -c1-400
+}
 # প্রথমবার Flyway সব migration চালায় — ৪ মিনিট পর্যন্ত অপেক্ষা
+app_ok=no
 if wait_health 120; then
+  app_ok=yes
+elif [ -n "$(env_get SENTRY_DSN "$APP_ENV")" ]; then
+  # Sentry-র DSN-এ সমস্যা হলে অ্যাপ চালুই হয় না — Sentry ছাড়া আরেকবার (সাইট চালু থাকা আগে)
+  st app_error "$(app_error)"
+  say "অ্যাপ চালু হয়নি — Sentry ছাড়া আবার চেষ্টা"
+  sed -i '/^SENTRY_DSN=/d' "$APP_ENV"
+  started_at="$(date '+%Y-%m-%d %H:%M:%S')"
+  systemctl restart lifolo-api.service
+  if wait_health 120; then app_ok=yes; st sentry "off: the app did not start with SENTRY_DSN (see app_error)"; fi
+fi
+if [ "$app_ok" = yes ]; then
   st app up
   # ইমেইল: অ্যাপ চালুর সময় SES client বানায় (কিছু পাঠায় না) আর লগে লেখে — "Mail: Amazon SES client ready" / "logging only"
   mail_line="$(journalctl -u lifolo-api.service --since "$started_at" --no-pager 2>/dev/null | grep -o 'Mail: .*' | tail -1 || true)"
@@ -218,6 +236,7 @@ if wait_health 120; then
   st flyway "$(sudo -u postgres psql -d lifolo -tAc "SELECT count(*) || ' migrations, latest V' || (SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1) FROM flyway_schema_history WHERE success" 2>/dev/null | head -1 || echo '?')"
 else
   st app down
+  [ -n "$(env_get app_error "$STATUS")" ] || st app_error "$(app_error)"
   echo "---- lifolo-api log (শেষ ৮০ লাইন) ----"
   journalctl -u lifolo-api.service --since "$started_at" --no-pager 2>/dev/null | grep -v 'Subject:' | tail -80 || true
   if [ "$had_prev" = yes ]; then
