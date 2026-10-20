@@ -109,7 +109,8 @@ Backend e2e ২৯ (Spring + Node + publish) · E2E Android ১১ · E2E Androi
   প্রতিটা deploy VPS থেকে Cloudflare হয়ে `/.well-known/acme-challenge/`-এ একটা ফাইল পড়ে দেখে (সারাংশে "Let's Encrypt-এর নবায়নের
   পথ")। ❌ হলে: Cloudflare → Security → WAF → Custom rule: URI Path starts with `/.well-known/acme-challenge/` → Skip (সব)।
 - পরীক্ষা: Deploy backend, Build APK, Download check, Uptime — আসল পথে (Cloudflare দিয়ে) একবার, Cloudflare GitHub-এর মেশিনকে
-  challenge/403 দিলে শুধু ⏭️/ℹ️; বাকি সব সরাসরি VPS-এ (আসল নাম আর সার্টিফিকেট, `--resolve` / `/etc/hosts`)।
+  challenge/403 দিলে শুধু ⏭️/ℹ️; বাকি সব সরাসরি VPS-এ (আসল নাম আর সার্টিফিকেট, `--resolve` / `/etc/hosts`) — origin শুধু
+  Cloudflare-এর জন্য খোলা (ufw, `deploy/tune-vps.sh`), তাই এগুলো SSH tunnel দিয়ে যায় (`deploy/ci/origin-access.sh`)।
 - ডেমো লগইনের পরীক্ষা ৪০৩ পেয়েছিল Cloudflare-এর Browser Integrity Check-এ ("Python-urllib" নাম) — এখন নিজের নাম পাঠায় আর
   সরাসরি VPS-এ যায়।
 - অ্যাপ (Android, নিজের নামে) আর ব্রাউজার সাধারণত আটকায় না। Download check-এর "আসল পথে" সারিতে `cf-cache` দেখায় —

@@ -34,6 +34,10 @@ on:
         description: "শুধু উদ্ধার: ডেমো রোলের আজকের রক্ত-অনুরোধের কোটা কত কমাবে (role:n,role:n — লগের WROTE blood লাইন গুনে)"
         type: string
         default: ""
+      lift_user_limit:
+        description: "টেস্টের সময়টুকু অ্যাপের অ্যাকাউন্ট+IP-প্রতি সীমা (মিনিটে ৬০০) তুলে রাখা — নইলে একটা মেশিন থেকে ~১০০ rps-এর বেশি মাপা যায় না (অ্যাপ ২বার restart)"
+        type: boolean
+        default: false
       log_branch:
         description: "ফল কোন log branch-এ"
         type: string
@@ -121,6 +125,21 @@ jobs:
           ssh vps "bash /root/lifolo-ops/vps-ops.sh snapshot '$OPS'" | tee "$RUNNER_TEMP/out/before.txt"
           # snapshot ছাড়া টেস্ট নয় (পরে ডেমোর কোটা/অবস্থা ফেরত আনা যেত না)
           grep -q '^snapshot=ok$' "$RUNNER_TEMP/out/before.txt" || { echo "::error::snapshot হয়নি — টেস্ট চালানো হলো না"; exit 1; }
+          if [ "${{ inputs.lift_user_limit }}" = true ]; then
+            # অ্যাপের সীমা: অ্যাকাউন্ট+IP-প্রতি মিনিটে ৬০০ (ডেমো অ্যাকাউন্ট সবার জন্য খোলা বলে) — সব ডেমো এক মেশিন থেকে, তাই
+            # টেস্টের সময়টুকু systemd drop-in দিয়ে তোলা; শেষ ধাপে মোছা (না হলে পরের deploy বা ২ ঘণ্টা পরে lifolo-tune guard মোছে)
+            ssh vps bash -s <<'SH'
+          set -e
+          d=/etc/systemd/system/lifolo-api.service.d
+          printf '# Lifolo load test (ops-load-test.yml) — সাময়িক\n[Service]\nEnvironment=USER_RATE_PER_MINUTE=1000000\n' > "$d/95-loadtest.conf"
+          systemctl daemon-reload
+          date +%s >> /var/lib/lifolo/ops-expected
+          systemctl restart lifolo-api
+          for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && exit 0; sleep 2; done
+          exit 1
+          SH
+            echo "user_limit=lifted for the test" | tee -a "$RUNNER_TEMP/out/config.txt"
+          fi
           ssh vps "bash /root/lifolo-ops/vps-ops.sh sample-start '$OPS' 2"
           bash deploy/ci/origin-access.sh open 60
           echo "$ORIGIN_IP $API_DOMAIN # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
@@ -216,6 +235,20 @@ jobs:
           ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.full.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore the app's per-account limit
+        if: always() && inputs.lift_user_limit && inputs.cleanup_since == ''
+        run: |
+          ssh vps bash -s <<'SH'
+          f=/etc/systemd/system/lifolo-api.service.d/95-loadtest.conf
+          [ -f "$f" ] || exit 0
+          rm -f "$f"
+          systemctl daemon-reload
+          date +%s >> /var/lib/lifolo/ops-expected
+          systemctl restart lifolo-api
+          for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && exit 0; sleep 2; done
+          exit 1
+          SH
 
       - name: Close the temporary hole
         if: always() && inputs.cleanup_since == ''

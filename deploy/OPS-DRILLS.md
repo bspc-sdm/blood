@@ -92,9 +92,12 @@ Redis একই মেশিনে; সামনে Cloudflare) কতটা চ
   সফল (ব্যর্থ ০); JobRunr সার্ভার ১টা, সাড়া দিচ্ছে। ঘড়ি NTP-তে মেলানো, Google-এর সাথে পার্থক্য ০ s।
 - GitHub: uptime (প্রতি ৩ ঘণ্টা) সফল; backup-check (সাপ্তাহিক, সোমবার 23:17 UTC) এখনো schedule-এ চলেনি — নতুন।
 
-## পরামর্শ (প্রয়োগ করা হয়নি — শুধু তালিকা)
+## পরামর্শ (প্রথম চালানোর পরে) — ১-৭ প্রয়োগ করা হয়েছে
 
-গুরুত্ব অনুযায়ী:
+১: backend-এ (`6ce3da9`, টোকেন স্থানীয়ভাবে যাচাই, অ্যাকাউন্টের অবস্থা uid ধরে ৯০ s cache, Firebase-এর সমস্যায় 503)। ২-৭: `deploy/tune-vps.sh`,
+`deploy/deploy-backend.sh` আর Uptime workflow-এ — ওপরে "টিউনিং" অংশ। ৮ এখনো বাকি।
+
+গুরুত্ব অনুযায়ী (তখনকার লেখা):
 
 1. **Firebase-এর revocation-কল কমানো (backend)** — ক্ষমতার আসল সীমা এটাই। প্রতি অনুরোধে `checkRevoked = true`-র বদলে
    টোকেন স্থানীয়ভাবে যাচাই (Google-এর public key, cache হয়) আর revocation-এর ফল uid ধরে ৬০–১২০ সেকেন্ড Redis/মেমরিতে রাখা
@@ -134,12 +137,17 @@ Redis একই মেশিনে; সামনে Cloudflare) কতটা চ
   `stage_seconds` (ডিফল্ট ৬০), `amb_cycles` (অ্যাম্বুলেন্স ডাকা → বাতিল কতবার, ০-৩; ডেমো চালকদের ফোনে নোটিফিকেশন যায়),
   `limiter_check` (শেষে অতিথির সীমা পরীক্ষা)। উদ্ধার: `cleanup_since` = `snapshot` দিলে শেষ চালানোর snapshot দিয়ে আবার
   পরিষ্কার; snapshot হারালে সেই চালানোর শুরুর সময় (UTC) আর `quota_fix` (`role:n,…`, লগের `WROTE blood` গুনে) — তখন টেস্ট চলে না।
-- load test-এর ধাপ বাড়ানোর সময় সাবধান: ~৮০০ rps-এ Firebase-এর revocation-কল ব্যর্থ হয় আর তা কয়েক মিনিট থাকে — একই Firebase
-  প্রকল্পের আসল ব্যবহারকারীরাও তখন 401 পায়। পরামর্শ ১ ঠিক না হওয়া পর্যন্ত ৬৫০-এর ওপরে যাবেন না।
+- load test origin-এ সরাসরি যায়, অথচ origin শুধু Cloudflare-এর জন্য খোলা — তাই চলার সময়টুকু GitHub-এর মেশিনের ঠিকানার জন্য
+  সাময়িক ছিদ্র (`deploy/ci/origin-access.sh open 60`: ufw + nginx-এর IP-সীমার বাইরে; শেষ ধাপে বন্ধ, না হলে ৬০ মিনিট পরে VPS
+  নিজে বন্ধ করে)। restart drill-ও তাই (রিবুটে ssh tunnel ছিঁড়ে যায়)। বাকি সব সরাসরি-VPS পরীক্ষা SSH tunnel দিয়ে।
+- ধাপ বাড়ানোর সময় সাবধান: আগে ~৮০০ rps-এ Firebase-এর revocation-কল ব্যর্থ হতো (আসল ব্যবহারকারীরাও 401 পেত); backend-এর
+  `6ce3da9`-এর পরে প্রতি অনুরোধে Google-এ যাওয়া নেই — নতুন সীমা ওপরের "টিউনিং" অংশে।
+- `log_branch` ইনপুট (load test, restart, crash, ssl, uptime): ফল অন্য log branch-এ (যেমন `ci-log-ops-tuning`)।
 - load test, restart আর crash `vps-admin` concurrency group-এ — Deploy backend চলার সময় অপেক্ষা করে (deploy অ্যাপ restart
   করে, মাপ নষ্ট হতো)। একই group-এ দুটো অপেক্ষায় থাকলে GitHub আগেরটা বাতিল করে — তাই deploy-এর ঠিক আগে-পরে চালাবেন না।
 - কখন: load test আর drill-গুলো বড় বদলের পরে (নতুন JVM/পুল/nginx সেটিং, বড় feature) আর মাসে একবার; disk/ssl/timers যেকোনো সময়।
-- হাতে VPS-এ: `bash /root/lifolo-ops/vps-ops.sh disk|ssl|timers|services|config` (workflow প্রতিবার ফাইলটা নতুন করে পাঠায়)।
+- হাতে VPS-এ: `bash /root/lifolo-ops/vps-ops.sh disk|ssl|timers|services|config|health` (workflow প্রতিবার ফাইলটা নতুন করে পাঠায়);
+  `lifolo-tune status` (সেটিং আর ফায়ারওয়ালের অবস্থা)।
 
 ### load test কী পাঠায় (শুধু ডেমো)
 
@@ -166,3 +174,6 @@ Redis একই মেশিনে; সামনে Cloudflare) কতটা চ
 | `deploy/ops/demo-tokens.py` | ডেমো রোলগুলোর Firebase ID token |
 | `deploy/ops/load-report.py` | ধাপের ফল + VPS-এর মাপ → বাংলা সারাংশ |
 | `deploy/log-retention.sh` | লগ কতদিন থাকে (journald, logrotate) — VPS-এ, idempotent |
+| `deploy/tune-vps.sh` | ক্ষমতার সেটিং (JVM, PostgreSQL, Redis, nginx) আর origin-এর পাহারা (Cloudflare-এর ঠিকানা → realip + ufw, certbot hook, guard timer) — Setup VPS আর প্রতিটা Deploy backend চালায়; VPS-এ `/usr/local/sbin/lifolo-tune` |
+| `deploy/ci/origin-access.sh` | GitHub-এর মেশিন থেকে origin: SSH tunnel (iptables DNAT) বা সাময়িক ছিদ্র (load test, restart drill) |
+| `.github/workflows/uptime.yml` | প্রতি ৩ ঘণ্টা: /api/health + `vps-ops.sh health` (সতর্কতার সীমা) → ব্যর্থ হলে মালিককে ইমেইল |

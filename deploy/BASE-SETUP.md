@@ -144,4 +144,7 @@ Vercel-এর বাকি পথ আর হেডার হুবহু, `/api`
 - অ্যাপের সেটিং VPS-এর `/etc/lifolo/app.env`-এ (শুধু root পড়তে পারে); ডাটাবেস/Redis-এর পাসওয়ার্ড `/etc/lifolo/env`-এ।
   `CRON_SECRET`, `WEB_SESSION_SECRET`, `EMAIL_CODE_SECRET` প্রথমবার VPS নিজে বানায়, পরে একই থাকে।
 - অ্যাপ শুধু VPS-এর ভেতরে (`127.0.0.1:8080`) শোনে; বাইরে থেকে শুধু nginx-এর https দিয়ে `/api/`, `/r/`, `/rx/`, `/shop/`, `/.well-known/`।
+- Setup আর প্রতিটা Deploy `deploy/tune-vps.sh` চালায়: JVM (-Xms1g -Xmx3g), PostgreSQL/Redis/nginx-এর সেটিং, আর ফায়ারওয়ালে
+  80/443 **শুধু Cloudflare-এর ঠিকানা থেকে** (22 সবার জন্য)। নতুন VPS-এও তাই নিজে থেকে হয় — বিস্তারিত `deploy/OPS-DRILLS.md`।
+  Cloudflare ছাড়া চালাতে হলে (জরুরি): VPS-এ `touch /etc/lifolo/origin-open && lifolo-tune firewall`।
 - ফল (গোপন কিছু ছাড়া) `ci-log-deploy` branch-এও থাকে (`summary.md`, `deploy-status.txt`)।

@@ -233,6 +233,15 @@ do_guard() {
   [ "$reload" = no ] || nginx_reload >/dev/null || true
   # certbot-এর সাময়িক 80 দুই ঘণ্টার বেশি খোলা থাকলে (post-hook চলেনি) বন্ধ
   if [ -f "$ACME_MARK" ] && [ $(( now - $(stat -c %Y "$ACME_MARK") )) -gt 7200 ]; then do_acme_close; fi
+  # load test-এর সাময়িক drop-in (অ্যাপের অ্যাকাউন্ট-সীমা তোলা) ২ ঘণ্টার বেশি থাকলে মোছা আর অ্যাপ restart
+  local lt=/etc/systemd/system/lifolo-api.service.d/95-loadtest.conf
+  if [ -f "$lt" ] && [ $(( now - $(stat -c %Y "$lt") )) -gt 7200 ]; then
+    rm -f "$lt"
+    systemctl daemon-reload
+    date +%s >> /var/lib/lifolo/ops-expected
+    systemctl restart "$API_UNIT" || true
+    echo "removed stale $lt"
+  fi
   # Cloudflare-এর তালিকা সপ্তাহে একবার নতুন করে
   if [ ! -f "$CF_LIST" ] || [ $(( now - $(stat -c %Y "$CF_LIST") )) -gt 604800 ]; then : > "$STATUS.guard"; STATUS="$STATUS.guard" do_firewall; fi
 }
