@@ -67,6 +67,8 @@ config)
   kv nginx_upstream_keepalive "$(nginx -T 2>/dev/null | grep -cE '^\s*keepalive\s+[0-9]+;' || true)"
   kv nginx_limit_req "$(nginx -T 2>/dev/null | grep -cE '^\s*limit_req(_zone)?\s' || true)"
   kv nginx_nofile "$(awk '/Max open files/{print $4}' "/proc/$(pgrep -o nginx)/limits" 2>/dev/null || echo '?')"
+  kv redis_used_memory "$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 info memory 2>/dev/null | tr -d '\r' | sed -n 's/^used_memory_human://p')"
+  kv app_limiter_fail_open_1h "$(journalctl -u "$UNIT" --since '-1h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
   kv redis_maxmemory "$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 config get maxmemory 2>/dev/null | tail -1)"
   kv cpus "$(nproc)"
   kv mem_total_mb "$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
@@ -596,6 +598,17 @@ health)
     row "$([ "$(g ufw)" = active ] && [ "${cf:-0}" -ge 15 ] && [ "${op:-0}" = 0 ] && echo ok || echo warn)" "origin শুধু Cloudflare-এর জন্য" "ufw $(g ufw), Cloudflare-নিয়ম ${cf:-?}, সবার-জন্য-খোলা 80/443: ${op:-?}, CI-ছিদ্র: ${ci:-0}" "খোলা থাকলে ⚠️"
   else
     row warn "origin শুধু Cloudflare-এর জন্য" "lifolo-tune নেই (Deploy backend চালান)" "খোলা থাকলে ⚠️"
+  fi
+  # Redis (Bucket4j-এর সীমা, cache): maxmemory-র ৮০%-এর বেশি বা OOM-এ লেখা ব্যর্থ হলে সীমা "খোলা" থাকে (fail open)
+  rinfo="$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 info 2>/dev/null | tr -d '\r')"
+  rg() { printf '%s\n' "$rinfo" | sed -n "s/^$1://p" | head -1; }
+  rused="$(rg used_memory)"; rmax="$(rg maxmemory)"; rev="$(rg evicted_keys)"; rkeys="$(printf '%s\n' "$rinfo" | sed -nE 's/^db0:keys=([0-9]+).*/\1/p')"
+  lw="$(journalctl -u "$UNIT" --since '-3h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
+  if [ -z "$rused" ]; then
+    row warn "Redis" "সাড়া নেই" "বন্ধ হলে ⚠️"
+  else
+    rpct=$([ "${rmax:-0}" -gt 0 ] && echo $(( rused * 100 / rmax )) || echo 0)
+    row "$({ [ "$rpct" -ge 80 ] || [ "${lw:-0}" -gt 0 ]; } && echo warn || echo ok)" "Redis (সীমা আর cache)" "$(( rused / 1048576 )) MB / $(( ${rmax:-0} / 1048576 )) MB, key ${rkeys:-0}, evicted ${rev:-0}; সীমা fail-open (৩ ঘণ্টা): ${lw:-0}" "≥ 80% বা fail-open হলে ⚠️"
   fi
   tm=""
   for t in lifolo-backup.timer certbot.timer lifolo-origin-guard.timer; do systemctl is-active --quiet "$t" || tm="$tm $t"; done
