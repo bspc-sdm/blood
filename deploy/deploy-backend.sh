@@ -182,8 +182,6 @@ st demo_keep_firebase_users "$KEEP_DEMO_USERS"
 # ---------------------------------------------------------------- 3) systemd
 say "systemd: lifolo-api (app.env-ও পড়ে) — restart"
 install -d -m 0755 "$DROPIN_DIR"
-# load test-এর সাময়িক drop-in (অ্যাপের অ্যাকাউন্ট-সীমা তোলা) কোনো কারণে থেকে গেলে deploy মোছে
-rm -f "$DROPIN_DIR/95-loadtest.conf"
 cat > "$DROPIN_DIR/10-deploy.conf" <<EOF
 # Lifolo — deploy-backend.sh লেখে। setup-base.sh-এর /etc/lifolo/env-এর পরে অ্যাপের নিজের সেটিং।
 [Service]

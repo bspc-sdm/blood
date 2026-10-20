@@ -6,10 +6,12 @@
 #       SSH tunnel: এই মেশিন থেকে <ip>:443 আর <ip>:80-এ যাওয়া সব সংযোগ ssh দিয়ে VPS-এর 127.0.0.1:443/80-এ (iptables DNAT) —
 #       --resolve, /etc/hosts, k6 যেমন ছিল তেমনই চলে, সত্যিকারের নাম আর সার্টিফিকেট দিয়েই। VPS-এর nginx দেখে 127.0.0.1
 #       (IP-সীমার বাইরে)। <নাম> (ডিফল্ট <ip-ড্যাশ>.sslip.io) দিয়ে /healthz খুলে যাচাই।
-#   origin-access.sh open <মিনিট>
+#   origin-access.sh open <মিনিট> [realip]
 #       সাময়িক ছিদ্র: এই মেশিনের ঠিকানা → VPS-এর ufw-এ 80/443 খোলা আর nginx-এর IP-সীমার বাইরে (lifolo-tune ci-open);
 #       <মিনিট> পরে VPS নিজেই বন্ধ করে (lifolo-origin-guard.timer) — workflow মাঝপথে মরলেও। শুধু যেখানে tunnel চলে না:
-#       লোড টেস্ট (ssh-ই বোতলের গলা হয়ে মাপ নষ্ট করত) আর রিবুট মহড়া (রিবুটে ssh ছিঁড়ে যায়)।
+#       লোড টেস্ট (ssh-ই বোতলের গলা হয়ে মাপ নষ্ট করত) আর রিবুট মহড়া (রিবুটে ssh ছিঁড়ে যায়)। realip: এই মেশিনের পাঠানো
+#       CF-Connecting-IP-ও মানা — লোড টেস্ট প্রতি k6 VU-কে আলাদা "দর্শক" সাজায় (অ্যাপের অ্যাকাউন্ট+IP-প্রতি সীমা আর nginx-এর
+#       IP-প্রতি সীমা আসল ব্যবহারকারীর মতো কাজ করে; সব এক IP থেকে হলে ১০টা ডেমো অ্যাকাউন্টে ~১০০ rps-এই আটকাত)।
 #   origin-access.sh close
 #       ছিদ্র এখনই বন্ধ (workflow-এর always() ধাপে)।
 set -euo pipefail
@@ -40,7 +42,8 @@ tunnel)
   die "origin tunnel: https://<vps>/healthz সাড়া দিচ্ছে না"
   ;;
 open)
-  min="${2:-60}"
+  min="${2:-60}"; mode="${3:-}"
+  [ -z "$mode" ] || [ "$mode" = realip ] || die "open: তৃতীয়টা শুধু realip"
   [[ "$min" =~ ^[0-9]+$ ]] || die "open: মিনিট সংখ্যায়"
   # VPS যে ঠিকানা থেকে এই ssh দেখে = এই মেশিনের বাইরের ঠিকানা
   # shellcheck disable=SC2016  # $SSH_CONNECTION VPS-এ খোলে
@@ -49,7 +52,7 @@ open)
   echo "::add-mask::$me"
   printf '%s\n' "$me" > "$STATE"
   # shellcheck disable=SC2029  # মানগুলো ওপরে যাচাই করা
-  ssh vps "if [ -x /usr/local/sbin/lifolo-tune ]; then /usr/local/sbin/lifolo-tune ci-open '$me' '$min'; else echo 'lifolo-tune নেই — origin এখনো সবার জন্য খোলা'; fi"
+  ssh vps "if [ -x /usr/local/sbin/lifolo-tune ]; then /usr/local/sbin/lifolo-tune ci-open '$me' '$min' $mode; else echo 'lifolo-tune নেই — origin এখনো সবার জন্য খোলা'; fi"
   ;;
 close)
   [ -f "$STATE" ] || { echo "খোলা ছিদ্র নেই"; exit 0; }

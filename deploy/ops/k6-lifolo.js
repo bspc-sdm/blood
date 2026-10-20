@@ -10,7 +10,7 @@
 //   guest  লগইন ছাড়া হোম-এর তালিকা (প্রতি IP-তে মিনিটে ২৪০-এর সীমা — তাই ধীর, স্থির)
 //   login  লগইন-কোডের পথ, কোনো ইমেইল না পাঠিয়ে (ভুল ইমেইল → 400, না-চাওয়া কোড যাচাই → 400)
 //   health GET /api/health (নেটওয়ার্ক + nginx-এর ভিত্তি)
-// env: API, ORIGIN_IP, TOKENS_FILE, RATE, DURATION, STAGE, GUEST_RATE, WRITER (1/0), AMB (1/0), SUMMARY_FILE
+// env: API, ORIGIN_IP, TOKENS_FILE, RATE, DURATION, STAGE, GUEST_RATE, WRITER (1/0), AMB (1/0), SPREAD_IPS (1/0), SUMMARY_FILE
 import http from 'k6/http';
 import { Rate, Trend, Counter } from 'k6/metrics';
 
@@ -84,9 +84,13 @@ function note(kind, action, res, why) {
   console.warn(`ERRSAMPLE ${JSON.stringify({ k: kind, a: action, s: res.status, e: e || res.error || '', w: why })}`);
 }
 
+// SPREAD_IPS=1: লগইন-করা অনুরোধে প্রতি VU আলাদা "দর্শক" (CF-Connecting-IP 100.64.x.y) — VPS এই মেশিনের ঠিকানা থেকে
+// হেডারটা মানে শুধু লোড টেস্টের সময় (lifolo-tune ci-open … realip)। অতিথি/লগইন-কোড/health এই মেশিনের নিজের ঠিকানায়।
+const SPREAD = __ENV.SPREAD_IPS === '1';
 function post(path, body, token, kind, action, expect) {
   const headers = { 'content-type': 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
+  if (SPREAD && (kind === 'read' || kind === 'write')) headers['cf-connecting-ip'] = `100.64.${(__VU >> 8) & 255}.${__VU & 255}`;
   const want = expect || [200];
   const res = http.post(`${API}${path}`, JSON.stringify(body), {
     headers, timeout: '30s', tags: { kind, action },

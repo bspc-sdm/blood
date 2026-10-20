@@ -8,7 +8,8 @@
 #   tune-vps.sh [apply] [--no-app-restart]   নিচের ১-৫ সব
 #   lifolo-tune firewall          Cloudflare-এর ঠিকানা আনা → nginx realip (আসল দর্শকের IP) + ufw: 80/443 শুধু Cloudflare থেকে
 #   lifolo-tune guard             (timer, ১৫ মিনিট পরপর) মেয়াদ-পেরোনো CI-ছিদ্র বন্ধ; Cloudflare-এর তালিকা ৭ দিনের পুরোনো হলে firewall
-#   lifolo-tune ci-open IP MIN    CI-র সাময়িক ছিদ্র: IP → 80/443 আর nginx-এর IP-সীমার বাইরে; MIN মিনিট পরে guard নিজে বন্ধ করে
+#   lifolo-tune ci-open IP MIN [realip]   CI-র সাময়িক ছিদ্র: IP → 80/443 আর nginx-এর IP-সীমার বাইরে; MIN মিনিট পরে guard
+#                                 নিজে বন্ধ করে। realip: ওই IP-র পাঠানো CF-Connecting-IP-ও মানা (লোড টেস্ট অনেক "দর্শক" সাজায়)
 #   lifolo-tune ci-close IP       সেই ছিদ্র এখনই বন্ধ
 #   lifolo-tune acme-open|acme-close   certbot-এর pre/post hook: নবায়নের সময়টুকু পোর্ট 80 সবার জন্য খোলা
 #                                 (sslip.io-র নাম Cloudflare-এর পেছনে নয় — Let's Encrypt সরাসরি আসে)
@@ -38,6 +39,7 @@ NGINX_CONF=/etc/nginx/nginx.conf
 NGINX_DROPIN=/etc/systemd/system/nginx.service.d/lifolo-limits.conf
 REALIP_CONF=/etc/nginx/conf.d/lifolo-cloudflare-realip.conf
 EXEMPT=/etc/nginx/lifolo/limit-exempt.conf
+CI_REALIP=/etc/nginx/conf.d/lifolo-ci-realip.conf
 CF_LIST=/etc/lifolo/cloudflare-ips.txt
 OPEN_FLAG=/etc/lifolo/origin-open
 ACME_MARK=/var/lib/lifolo/acme-open
@@ -184,7 +186,7 @@ exempt_init() {
 valid_ip() { python3 -c 'import ipaddress,sys; a=ipaddress.ip_address(sys.argv[1]); sys.exit(0 if a.is_global else 1)' "$1" 2>/dev/null; }
 
 do_ci_open() {
-  local ip="${1:-}" min="${2:-60}" until
+  local ip="${1:-}" min="${2:-60}" realip="${3:-}" until
   valid_ip "$ip" || die "ঠিকানা ঠিক নেই: $ip"
   [[ "$min" =~ ^[0-9]+$ ]] && [ "$min" -ge 1 ] && [ "$min" -le 240 ] || die "মিনিট 1-240"
   until=$(( $(date +%s) + min * 60 ))
@@ -194,6 +196,9 @@ do_ci_open() {
   fi
   exempt_init
   printf '%s 1; # lifolo-ci-until-%s\n' "$ip" "$until" >> "$EXEMPT"
+  if [ "$realip" = realip ]; then
+    printf '# Lifolo — lifolo-tune ci-open (লোড টেস্ট): এই ঠিকানার CF-Connecting-IP মানা; guard মোছে\nset_real_ip_from %s; # lifolo-ci-until-%s\n' "$ip" "$until" > "$CI_REALIP"
+  fi
   nginx_reload >/dev/null || true
   echo "ci_open=ok until $(date -u -d "@$until" '+%H:%M UTC')"
 }
@@ -204,10 +209,13 @@ do_ci_close() {
   if has_rule -E "^allow from ${ip//./\\.} to any port 80,443 proto tcp comment 'lifolo-ci-until-"; then
     ufw delete allow proto tcp from "$ip" to any port 80,443 >/dev/null || true
   fi
+  local reload=no
   if [ -f "$EXEMPT" ] && grep -qE "^${ip//./\\.} 1;" "$EXEMPT"; then
     sed -i -E "/^${ip//./\\.} 1;/d" "$EXEMPT"
-    nginx_reload >/dev/null || true
+    reload=yes
   fi
+  if [ -f "$CI_REALIP" ] && grep -qE "^set_real_ip_from ${ip//./\\.};" "$CI_REALIP"; then rm -f "$CI_REALIP"; reload=yes; fi
+  [ "$reload" = no ] || nginx_reload >/dev/null || true
   [ -n "$quiet" ] || echo "ci_close=ok"
 }
 
@@ -230,18 +238,13 @@ do_guard() {
       echo "expired exempt: $ip"
     done < <(sed -nE 's/^([0-9a-f.:]+) 1; # lifolo-ci-until-([0-9]+)$/\1 \2/p' "$EXEMPT")
   fi
+  if [ -f "$CI_REALIP" ]; then
+    until="$(sed -nE 's/.*lifolo-ci-until-([0-9]+)$/\1/p' "$CI_REALIP" | head -1)"
+    if [ -z "$until" ] || [ "$until" -le "$now" ]; then rm -f "$CI_REALIP"; reload=yes; echo "expired ci realip"; fi
+  fi
   [ "$reload" = no ] || nginx_reload >/dev/null || true
   # certbot-এর সাময়িক 80 দুই ঘণ্টার বেশি খোলা থাকলে (post-hook চলেনি) বন্ধ
   if [ -f "$ACME_MARK" ] && [ $(( now - $(stat -c %Y "$ACME_MARK") )) -gt 7200 ]; then do_acme_close; fi
-  # load test-এর সাময়িক drop-in (অ্যাপের অ্যাকাউন্ট-সীমা তোলা) ২ ঘণ্টার বেশি থাকলে মোছা আর অ্যাপ restart
-  local lt=/etc/systemd/system/lifolo-api.service.d/95-loadtest.conf
-  if [ -f "$lt" ] && [ $(( now - $(stat -c %Y "$lt") )) -gt 7200 ]; then
-    rm -f "$lt"
-    systemctl daemon-reload
-    date +%s >> /var/lib/lifolo/ops-expected
-    systemctl restart "$API_UNIT" || true
-    echo "removed stale $lt"
-  fi
   # Cloudflare-এর তালিকা সপ্তাহে একবার নতুন করে
   if [ ! -f "$CF_LIST" ] || [ $(( now - $(stat -c %Y "$CF_LIST") )) -gt 604800 ]; then : > "$STATUS.guard"; STATUS="$STATUS.guard" do_firewall; fi
 }
@@ -429,7 +432,7 @@ case "$CMD" in
   --no-app-restart|--ci) do_apply "$@" ;;
   firewall) : > "$STATUS.firewall"; STATUS="$STATUS.firewall" do_firewall ;;
   guard) do_guard ;;
-  ci-open) do_ci_open "${2:-}" "${3:-60}" ;;
+  ci-open) do_ci_open "${2:-}" "${3:-60}" "${4:-}" ;;
   ci-close) do_ci_close "${2:-}" ;;
   acme-open) do_acme_open ;;
   acme-close) do_acme_close ;;

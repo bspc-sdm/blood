@@ -2,7 +2,8 @@ name: "Ops: load test"
 
 # লোড টেস্ট — GitHub-এর মেশিন থেকে সরাসরি VPS-এ (api.lifolo.com → VPS-এর IP, Cloudflare-এর পাশ কাটিয়ে, যাতে
 # Cloudflare আটকায় বা cache না করে)। origin শুধু Cloudflare-এর জন্য খোলা, তাই চলার সময়টুকু এই মেশিনের ঠিকানার জন্য
-# সাময়িক ছিদ্র (ufw + nginx-এর IP-সীমার বাইরে; deploy/ci/origin-access.sh — ৬০ মিনিট পরে VPS নিজে বন্ধ করে)। ধাপে ধাপে লগইন-করা অনুরোধ বাড়ানো হয় (5 → 10 → 20 … rps, প্রতি ধাপ ৬০ সেকেন্ড);
+# সাময়িক ছিদ্র (ufw + nginx-এর IP-সীমার বাইরে; deploy/ci/origin-access.sh — ৬০ মিনিট পরে VPS নিজে বন্ধ করে)। লগইন-করা
+# অনুরোধে প্রতি k6 VU আলাদা ঠিকানা সাজায় (CF-Connecting-IP), যেন অনেক ব্যবহারকারী — এক IP-তে সব হলে অ্যাপের সীমায় আটকাত। ধাপে ধাপে লগইন-করা অনুরোধ বাড়ানো হয় (5 → 10 → 20 … rps, প্রতি ধাপ ৬০ সেকেন্ড);
 # p95 > 1 s বা ত্রুটি > 1% হলেই থামে। সাথে VPS-এ প্রতি ২ সেকেন্ডে CPU/RAM/Java/DB সংযোগ মাপা (ssh)।
 # শুধু ডেমো অ্যাকাউন্ট (demo-…); শেষে টেস্টের বানানো সব সারি মোছা আর ডেমোর কোটা আগের মতো (deploy/ops/vps-ops.sh cleanup)।
 # কোনো আসল ইমেইল যায় না (লগইন-কোডের পথ শুধু ভুল ইমেইল / না-চাওয়া কোড দিয়ে)।
@@ -34,10 +35,6 @@ on:
         description: "শুধু উদ্ধার: ডেমো রোলের আজকের রক্ত-অনুরোধের কোটা কত কমাবে (role:n,role:n — লগের WROTE blood লাইন গুনে)"
         type: string
         default: ""
-      lift_user_limit:
-        description: "টেস্টের সময়টুকু অ্যাপের অ্যাকাউন্ট+IP-প্রতি সীমা (মিনিটে ৬০০) তুলে রাখা — নইলে একটা মেশিন থেকে ~১০০ rps-এর বেশি মাপা যায় না (অ্যাপ ২বার restart)"
-        type: boolean
-        default: false
       log_branch:
         description: "ফল কোন log branch-এ"
         type: string
@@ -125,23 +122,10 @@ jobs:
           ssh vps "bash /root/lifolo-ops/vps-ops.sh snapshot '$OPS'" | tee "$RUNNER_TEMP/out/before.txt"
           # snapshot ছাড়া টেস্ট নয় (পরে ডেমোর কোটা/অবস্থা ফেরত আনা যেত না)
           grep -q '^snapshot=ok$' "$RUNNER_TEMP/out/before.txt" || { echo "::error::snapshot হয়নি — টেস্ট চালানো হলো না"; exit 1; }
-          if [ "${{ inputs.lift_user_limit }}" = true ]; then
-            # অ্যাপের সীমা: অ্যাকাউন্ট+IP-প্রতি মিনিটে ৬০০ (ডেমো অ্যাকাউন্ট সবার জন্য খোলা বলে) — সব ডেমো এক মেশিন থেকে, তাই
-            # টেস্টের সময়টুকু systemd drop-in দিয়ে তোলা; শেষ ধাপে মোছা (না হলে পরের deploy বা ২ ঘণ্টা পরে lifolo-tune guard মোছে)
-            ssh vps bash -s <<'SH'
-          set -e
-          d=/etc/systemd/system/lifolo-api.service.d
-          printf '# Lifolo load test (ops-load-test.yml) — সাময়িক\n[Service]\nEnvironment=USER_RATE_PER_MINUTE=1000000\n' > "$d/95-loadtest.conf"
-          systemctl daemon-reload
-          date +%s >> /var/lib/lifolo/ops-expected
-          systemctl restart lifolo-api
-          for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && exit 0; sleep 2; done
-          exit 1
-          SH
-            echo "user_limit=lifted for the test" | tee -a "$RUNNER_TEMP/out/config.txt"
-          fi
           ssh vps "bash /root/lifolo-ops/vps-ops.sh sample-start '$OPS' 2"
-          bash deploy/ci/origin-access.sh open 60
+          # realip: প্রতি k6 VU আলাদা "দর্শক" (CF-Connecting-IP 100.64.x.y) — আসল ব্যবহারকারীর মতো, অ্যাপের অ্যাকাউন্ট+IP-প্রতি
+          # সীমা (মিনিটে ৬০০) আর nginx-এর IP-প্রতি সীমা প্রতি VU-তে আলাদা
+          bash deploy/ci/origin-access.sh open 60 realip
           echo "$ORIGIN_IP $API_DOMAIN # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
           curl -fsS -m 15 "https://$API_DOMAIN/api/health" | grep -q '"ok":true' || { echo "::error::সরাসরি VPS-এ /api/health সাড়া দিচ্ছে না"; exit 1; }
 
@@ -177,7 +161,7 @@ jobs:
             echo "==> ধাপ $i: $r rps × ${dur}s (অ্যাম্বুলেন্স: $a)"
             start=$(date +%s)
             k6 run --quiet --no-color -e API="https://$API_DOMAIN" -e ORIGIN_IP="$ORIGIN_IP" -e TOKENS_FILE="$RUNNER_TEMP/tokens.json" \
-              -e RATE="$r" -e DURATION="${dur}s" -e STAGE="$i" -e GUEST_RATE=2 -e WRITER=1 -e AMB="$a" \
+              -e SPREAD_IPS=1 -e RATE="$r" -e DURATION="${dur}s" -e STAGE="$i" -e GUEST_RATE=2 -e WRITER=1 -e AMB="$a" \
               -e SUMMARY_FILE="$out/stage-$i.json" deploy/ops/k6-lifolo.js > "$out/stage-$i.log" 2>&1 || true
             end=$(date +%s)
             printf '%s\t%s\t%s\t%s\t%s\n' "$i" "$r" "$start" "$end" "$dur" >> "$out/stages.tsv"
@@ -235,20 +219,6 @@ jobs:
           ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
           for f in "$out"/*; do [ -f "$f" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$f"; done
           cat "$out/summary.full.md" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Restore the app's per-account limit
-        if: always() && inputs.lift_user_limit && inputs.cleanup_since == ''
-        run: |
-          ssh vps bash -s <<'SH'
-          f=/etc/systemd/system/lifolo-api.service.d/95-loadtest.conf
-          [ -f "$f" ] || exit 0
-          rm -f "$f"
-          systemctl daemon-reload
-          date +%s >> /var/lib/lifolo/ops-expected
-          systemctl restart lifolo-api
-          for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && exit 0; sleep 2; done
-          exit 1
-          SH
 
       - name: Close the temporary hole
         if: always() && inputs.cleanup_since == ''
