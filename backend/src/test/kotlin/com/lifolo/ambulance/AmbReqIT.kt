@@ -448,9 +448,11 @@ class AmbReqIT : AmbTestBase() {
         amb("tAc", "tdAc", base = at(0.4, 0.0), types = listOf("ac"))
         amb("tIcu", "tdIcu", base = at(0.6, 0.0), types = listOf("icu", "ac"))
         amb("tMix", "tdMix", base = at(0.05, 0.0), types = listOf("freezer", "general"))
+        var n = 0
         fun sent(body: Map<String, Any?>): Pair<List<String>, Map<String, Any?>> {
+            // past the hourly limits on purpose: the account's log is cleared and each call uses another contact number
             jdbc.update("DELETE FROM ambreq_create_log WHERE uid = ?", P)
-            val r = ask(P, body)
+            val r = ask(P, mapOf("phone" to "0181100010${n++}") + body)
             assertEquals(200, r.status, r.toString())
             val id = r.body["id"].textValue()
             val owners = sentTo(id)

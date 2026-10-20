@@ -82,7 +82,7 @@ class BloodDemoSeedIT : BloodTestBase() {
         assertTrue((patient["blood_group"] as String?).isNullOrEmpty())
         for (k in listOf("doctor", "assistant", "pharmacy", "lab", "ambulance", "bloodbank", "homecare", "caregiver")) {
             val u = profile(DemoWorld.uidOf(k))
-            assertTrue(Regex("^01[3-9]\\d{8}$").matches(u["phone"] as String) && u["lat"] is Double, k)
+            assertTrue(Regex("^0120000\\d{4}$").matches(u["phone"] as String) && u["lat"] is Double, k)
         }
         val bg = jdbc.queryForList("SELECT uid FROM user_profiles WHERE uid LIKE 'demo-x-%' AND blood_group IS NOT NULL", String::class.java).map { asDonor(it) }
         assertTrue(bg.size in 8..15, "${bg.size}")
@@ -107,7 +107,7 @@ class BloodDemoSeedIT : BloodTestBase() {
         assertFalse("demo-rq-far" in ids)
         assertFalse("demo-rq-patient-done" in ids)
         assertEquals("demo-rq-urgent", ids[0])
-        assertTrue(g.body["items"].all { !it.has("requesterName") && !it.toString().contains("0170000") })
+        assertTrue(g.body["items"].all { !it.has("requesterName") && !it.toString().contains("0120000") })
         assertTrue(g.body["items"].first { it["id"].textValue() == "demo-rq-fare" }["travelFare"].booleanValue())
         assertEquals(0, call(null, "emergencies_active", mapOf("district" to district), ip = "9.1.1.1").body["items"].size())
         val banks = call(null, "bloodbanks", mapOf("district" to district), ip = "9.1.1.1").body["items"].map { it["id"].textValue() }
@@ -131,7 +131,7 @@ class BloodDemoSeedIT : BloodTestBase() {
         assertEquals("accepted", resp["status"].textValue())
         assertEquals(true, resp["confirmed"].booleanValue())
         val contact = call(D, "blood_contact_get", mapOf("requestId" to "demo-rq-donor-confirmed")).body["contact"]
-        assertTrue(Regex("^01700001\\d{3}$").matches(contact["phone"].textValue()) && contact["name"].textValue().contains("ডেমো"))
+        assertTrue(Regex("^01200001\\d{3}$").matches(contact["phone"].textValue()) && contact["name"].textValue().contains("ডেমো"))
         assertTrue(call(D, "blood_response_get", mapOf("requestId" to "demo-rq-patient-open")).body["response"].isNull)
 
         val r = call(D, "emergencies_active")
