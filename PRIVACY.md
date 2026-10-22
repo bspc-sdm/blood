@@ -1,6 +1,6 @@
 # Lifolo — প্রাইভেসি পলিসি / Privacy Policy
 
-সর্বশেষ আপডেট / Last updated: ২০ অক্টোবর ২০২৬ / 20 October 2026
+সর্বশেষ আপডেট / Last updated: ২২ অক্টোবর ২০২৬ / 22 October 2026
 
 এই পলিসি Lifolo-র Android অ্যাপ আর ওয়েবসাইট (https://lifolo.com) — দুটোর জন্যই; একই অ্যাকাউন্ট দুই জায়গায় চলে। অ্যাপের আগের নাম ছিল Get Blood। ইংরেজি সংস্করণ নিচে (English version below)।
 
@@ -157,7 +157,7 @@ Google Play-র Data safety ফর্মে আমরা ঠিক এই উত
 
 ## আপনার অধিকার ও পছন্দ
 
-- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
+- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। নোটিফিকেশন সব একসাথে বা ধরন অনুযায়ী বন্ধ করা যায় (আশেপাশে রক্ত লাগলে, জরুরি রক্তের আহ্বান, আমার রক্তের অনুরোধ, অ্যাপয়েন্টমেন্ট আর সিরিয়াল, প্রেসক্রিপশন-ওষুধ-ল্যাব, অ্যাম্বুলেন্স, প্রশ্নোত্তর আর টিপস, আমার ব্যবসা)। বন্ধ করা ধরনের নোটিফিকেশন ফোনে আসে না, তবে অ্যাপের নোটিফিকেশনের তালিকায় থাকে (২১ দিন); অ্যাকাউন্ট আর নিরাপত্তার খবর (অ্যাকাউন্ট মোছা, Lifolo টিমের বার্তা, কেয়ারগিভারের আমন্ত্রণ) সবসময় আসে। আমরা শুধু এই চালু/বন্ধ পছন্দগুলো আপনার অ্যাকাউন্টের সাথে রাখি; অ্যাকাউন্ট মুছলে মুছে যায়। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
 - আমাদের কাছে আপনার কী তথ্য আছে জানতে, ভুল ঠিক করাতে বা কোনো প্রশ্ন থাকলে **ekapkbd@gmail.com**-এ লিখুন।
 - অ্যাকাউন্ট মোছা: ওপরে দেখুন, বা https://lifolo.com/delete-account।
 
@@ -191,7 +191,7 @@ Lifolo — **ekapkbd@gmail.com** · https://lifolo.com
 
 # English
 
-Last updated: 20 October 2026. This policy covers the Lifolo Android app and the website https://lifolo.com; the same account works in both. The app used to be called Get Blood.
+Last updated: 22 October 2026. This policy covers the Lifolo Android app and the website https://lifolo.com; the same account works in both. The app used to be called Get Blood.
 
 ## In short
 
@@ -320,7 +320,7 @@ You can delete your account in three ways:
 
 ## Your rights and choices
 
-- Change your details and turn notifications off at any time in Profile and Settings. You can turn location permission off in your phone's settings (then pick your area by hand). Remove caregivers and family members at any time.
+- Change your details and turn notifications off at any time in Profile and Settings — all at once or by kind (nearby blood requests, emergency appeals, your own blood requests, appointments, prescriptions/medicines/lab, ambulance, questions and tips, your business). Turned-off kinds are not sent to your phone but still appear in the in-app notification list (kept 21 days); account and security notices (account deletion, messages from the Lifolo team, caregiver invitations) are always sent. We store only these on/off choices with your account; they are deleted with it. You can turn location permission off in your phone's settings (then pick your area by hand). Remove caregivers and family members at any time.
 - To find out what data we hold about you, to correct it, or with any question, write to **ekapkbd@gmail.com**.
 - Delete your account: see above, or https://lifolo.com/delete-account.
 

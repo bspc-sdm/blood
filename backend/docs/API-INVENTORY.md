@@ -767,7 +767,7 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - request: `family` · response: `{family}`
   - collections: users · side effects: — · errors: 400 · tests: demo-health, labtests, rxflow
 
-## Notifications: inbox & devices (package `notify`) — 4 actions
+## Notifications: inbox, devices, settings (package `notify`) — 6 actions
 
 - [x] **`device_register`** — Attach FCM token to this account (≤5, removed from other accounts)
   - src: `server/lib/devices.js` → `actions.device_register` · auth: user · port: **P6**
@@ -785,6 +785,61 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
   - src: `server/lib/inbox.js` → `actions.inbox_read` · auth: user · port: **P6**
   - request: — · response: `{ok}`
   - collections: serverState · side effects: — · errors: — · tests: demo-health
+- [x] **`notify_prefs_get`** — *Spring only (Oct 2026), no Node action:* my notification settings per category
+  - src: `notify/NotifyPrefs.kt` · auth: user, own settings only (a caregiver's `asUid` → 403)
+  - request: — · response: `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance, community, business}}` (all Boolean; no row = all `true`)
+  - tables: notify_prefs, user_profiles (`blood_nearby` **is** `user_profiles.notify`) · errors: 401, 403 · tests: NotifyPrefsIT
+- [x] **`notify_prefs_set`** — *Spring only (Oct 2026):* change them; merges (only the given values change), answers like `notify_prefs_get`
+  - request: `all?: Boolean`, `cats?: {<id>: Boolean}` (only the 8 ids above; `account` or anything else, or a non-Boolean → 400)
+  - `cats.blood_nearby` writes `user_profiles.notify` (the same value `profile_update {notify}` writes — one source, nothing to sync;
+    `maxPushPerDay`, `notifyGroups`, `maxKm` stay in the profile as before)
+  - tables: notify_prefs, user_profiles · errors: 400, 401, 403 · tests: NotifyPrefsIT
+
+### Notification categories (enforced in `PushService.send`, the single choke point of every push)
+
+Every push gets one category (`notify/NotifyCats.kt`; NotifyCatsTest fails when a `"type" to "…"` in the server code has
+none). The category is added to the push data as **`cat`** — in the FCM data payload (the apps use it for per-category
+Android channels) and in the bell-list item. If the person's `all` is off, or the category is off, **no FCM message is sent;
+the inbox item is always written**. `account` is always sent (also with `all` off). Unknown types count as `account`.
+Donor picking also skips switched-off donors (`GeoQuery.DONOR_SELECT`): nearby requests need `notify` **and** `all`;
+emergency waves need `blood_emergency` **and** `all` (no longer the nearby switch — V607 sets `blood_emergency` off for
+everyone who had `notify` off, so nobody starts getting appeals they had silenced).
+
+| push `type` (data) | sent to / when | category |
+|---|---|---|
+| `request` + `cat=blood_nearby` | nearby matching donors: new request, "notify again" (RequestFlowService) | `blood_nearby` |
+| `eligible` | "you can donate again" (daily; already only with `notify` on) | `blood_nearby` |
+| `emergency` | Lifolo team appeal (waves) and "appeal ended" to donors who said coming | `blood_emergency` |
+| `response` | requester: a donor accepted / a confirmed donor cancelled / left; request edits relevant to the requester | `my_request` |
+| `request` (no `cat`) | donor of a request they answered: confirmed, removed, restored, "enough donors", "may be needed again", request edited / closed / reopened / no longer needed | `my_request` |
+| `request_removed` | donor: the request they answered was deleted | `my_request` |
+| `appointment` | patient: confirmed/declined/cancelled, "2 before you", late reply, no reply, appointment today; doctor: patient cancelled, "will be late", today's count; either side: cancelled because the other account was deleted | `appointments` |
+| `appointment` + `cat=business` | doctor: new appointment request, "requests waiting" reminder, chambers removed by the team | `business` |
+| `rx` | patient: new prescription, refill reminder (2 days), follow-up, pharmacy order status, lab order status / home visit / report, doctor checked the report | `rx` |
+| `med_find_mine` | finder: a shop has the medicine | `rx` |
+| `amb_req_mine` | patient: fare offer, accepted / coming, arrived, done, cancelled, timed out | `ambulance` |
+| `services` + `sub=amb_req` | driver: later updates on a call (patient took another car, cancelled, got a car, quote accepted) | `ambulance` |
+| `services` + `sub=amb_req` + `cat=business` | driver: a new ambulance call (the wave) | `business` |
+| `services` | owner: listing approved / rejected / suspended / docs requested (ambulance, pharmacy, blood bank, lab), "still available?" | `business` |
+| `badge` | professional badge approved / rejected / docs requested | `business` |
+| `rx_pharmacy`, `rx_lab`, `med_find` | shop / lab: new order, order changed or withdrawn, medicine-finder request | `business` |
+| `rx_review` | doctor: a report waits for review, report-review payment to check | `business` |
+| `answer` | asker: a verified professional answered | `community` |
+| `care` (no `asUid`) | caregiver invitation, invitation accepted | `account` |
+| `care` + `asUid` | caregiver's copy of the patient's news (`pushPatient`) | the category of the patient's news (`cat` set by PushService) — follows the **caregiver's** own settings |
+| `support` | Lifolo team reply | `account` |
+| `correction` | last-donation-date correction result | `account` |
+| `hospital` | the hospital I asked for was added | `account` |
+
+Decision (owner's question): donor-side updates on a request the donor already answered ("you are confirmed", "no longer
+needed", …) are `my_request`, not `blood_nearby`. `blood_nearby` = the old switch, which only ever stopped *new* nearby
+requests; folding commitments into it would silently cut confirmed donors off. `my_request` therefore means "requests I'm
+part of" — mine as requester, or ones I agreed to donate for.
+
+Bug check ("turning notifications off doesn't stop them"): the server path was right — `profile.notify = false` removes the
+donor from `pickDonors` (and from emergency waves), so no nearby-request push went out (BloodFlowIT, NotifyPrefsIT). The
+complaint came from everything else: that switch only ever covered nearby requests, while responses, emergencies'
+"ended", appointments, prescriptions, ambulance, business etc. always pushed. Those are now covered by the categories.
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 
