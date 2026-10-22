@@ -2,7 +2,6 @@ package com.lifolo.demo
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.lifolo.ambulance.AmbClock
-import com.lifolo.appointments.P2Clock
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,14 +17,11 @@ import java.sql.Timestamp
 class DemoRefreshIT : DemoTestBase() {
     @Autowired lateinit var refresh: DemoRefresh
 
-    @Autowired lateinit var p2clock: P2Clock
-
     private val HOUR = 3_600_000L
 
     @AfterEach
-    fun resetClocks() {
+    fun resetClock() {
         AmbClock.reset()
-        p2clock.fixedMs = null
     }
 
     private fun cars(): List<JsonNode> {
@@ -65,9 +61,9 @@ class DemoRefreshIT : DemoTestBase() {
         owner()
         seedAll()
         assertTrue(queueToday().size() > 0, "the seed day has serials")
-        p2clock.fixedMs = System.currentTimeMillis() + 2 * DAY
-        assertEquals(0, queueToday().size(), "two days later the demo doctor has no serial today without the refresh")
-        p2clock.fixedMs = null
+        // what an old seed looks like today: no serial of the demo doctor on today's date
+        jdbc.update("DELETE FROM appointments WHERE provider_uid = ? AND visit_date >= current_date - 1", U("doctor"))
+        assertEquals(0, queueToday().size(), "no serial today")
 
         val seededAt = row("SELECT at FROM demo_state")["at"] as Timestamp
         assertEquals("clock", refresh.refresh(System.currentTimeMillis())["done"], "same day: no new build")
