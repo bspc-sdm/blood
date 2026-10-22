@@ -24,9 +24,11 @@ async function deactivate() {
   busy.value = true;
   error.value = null;
   try {
+    // সার্ভার এই ফোনসহ সব লগইন বাতিল করে ({ok, account, token} — token দিয়ে আবার ঢোকা যায়, কিন্তু এখানে লগআউটই চাই)।
+    // ভুল হলে (যেমন 409 deletion_pending) সার্ভারের বার্তা দেখায়।
     await call('account_deactivate');
-    await s.signOut();
     done.value = true;
+    await s.signOut().catch(() => {});
     window.scrollTo(0, 0);
   } catch (e) {
     error.value = errorText(e);

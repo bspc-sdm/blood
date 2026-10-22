@@ -56,6 +56,20 @@ test('সাময়িক বন্ধের পাতা: কী হয় �
   expect(errs).toEqual([]);
 });
 
+test('সাময়িক বন্ধের পাতা: মোছার অপেক্ষায় থাকলে (409 deletion_pending) সার্ভারের বার্তা, লগইন থাকে', async ({ page }) => {
+  const msg = 'আপনার অ্যাকাউন্ট মোছার অপেক্ষায় আছে, তাই সাময়িক বন্ধ করা যাবে না। আগে আবার লগইন করে মোছা বাতিল করুন।';
+  await page.route('**/api/community', async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === 'account_deactivate') return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: msg, code: 'deletion_pending' }) });
+    return route.continue();
+  });
+  await open(page, member());
+  await page.getByTestId('pause-confirm').click();
+  await expect(page.getByRole('alert')).toHaveText(msg);
+  await expect(page.getByTestId('pause-done')).toHaveCount(0);
+  await expect(page.getByText('arif.demo@example.com')).toBeVisible();
+});
+
 test('সাময়িক বন্ধের পাতা: অতিথি "লগইন করে বন্ধ করুন" চাপলে লগইন খোলে', async ({ page }) => {
   await open(page, { name: 'pause-guest', path: '/deactivate-account', test: { lang: 'bn', theme: 'light' } });
   await page.getByRole('button', { name: 'লগইন করে বন্ধ করুন' }).click();
