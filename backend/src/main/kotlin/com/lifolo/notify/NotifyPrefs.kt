@@ -89,7 +89,7 @@ class NotifyPrefsService(private val jdbc: JdbcTemplate) {
 
 /**
  * `notify_prefs_get` → `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance,
- * community, business}}`; `notify_prefs_set {all?, cats?: {<id>: Boolean}}` merges and answers the same.
+ * community, business, calls}}`; `notify_prefs_set {all?, cats?: {<id>: Boolean}}` merges and answers the same.
  * Logged in only, own settings only (a caregiver acting for a patient is refused — not in CARE_ACTIONS, checked again here).
  */
 @Component

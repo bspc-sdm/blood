@@ -203,6 +203,7 @@ curl localhost:8080/api/health
 | `R2_ACCOUNT_ID` বা `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (+ ঐচ্ছিক `R2_REGION`, `R2_CACHE_MB`) | Cloudflare R2: সব থাকলে ছবি/কাগজ R2-এ, ডাটাবেসে শুধু চাবি; না থাকলে আগের মতো base64 ডাটাবেসে — [../deploy/R2.md](../deploy/R2.md) | — |
 | `SMS_URL_TEMPLATE` | SMS gateway-র GET লিংক (`{to}`, `{msg}`), খালি = ফোন যাচাই বন্ধ | একই |
 | `PUSH_MODE` | `fcm` (ডিফল্ট; service account না থাকলে `log`), `log` = পুশ বন্ধ (শুধু লগ, ঘণ্টার তালিকা লেখা হয়), `fake` = শুধু e2e (কিছু যায় না, সব "পৌঁছেছে") | — |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | অ্যাপে অডিও/ভিডিও কল ([docs/CALLS.md](docs/CALLS.md)): `LIVEKIT_URL` অ্যাপকে হুবহু ফেরত দেওয়া হয় (যেমন `wss://…`); একটাও খালি থাকলে কল বন্ধ (`calls_unavailable`) | — |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | ত্রুটি পাঠানো (খালি = বন্ধ) | — |
 | `PUBLIC_BASE_URL` | শেয়ার লিংক/QR-এর ঠিকানা | কোডে লেখা ছিল |
 | `PORT` (৮০৮০), `DB_POOL_SIZE` (২০), `GUEST_RATE_PER_MINUTE` (২৪০), `JOBRUNR_SERVER_ENABLED` (true) | সার্ভারের সেটিং | `PORT` |

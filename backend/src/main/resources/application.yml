@@ -97,6 +97,10 @@ lifolo:
     access-key-id: ${SES_ACCESS_KEY_ID:}
     secret-access-key: ${SES_SECRET_ACCESS_KEY:}
     from: ${SES_FROM:}
+  livekit:
+    url: ${LIVEKIT_URL:}
+    api-key: ${LIVEKIT_API_KEY:}
+    api-secret: ${LIVEKIT_API_SECRET:}
   r2:
     endpoint: ${R2_ENDPOINT:}
     account-id: ${R2_ACCOUNT_ID:}

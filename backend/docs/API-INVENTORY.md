@@ -862,10 +862,10 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - collections: serverState · side effects: — · errors: — · tests: demo-health
 - [x] **`notify_prefs_get`** — *Spring only (Oct 2026), no Node action:* my notification settings per category
   - src: `notify/NotifyPrefs.kt` · auth: user, own settings only (a caregiver's `asUid` → 403)
-  - request: — · response: `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance, community, business}}` (all Boolean; no row = all `true`)
+  - request: — · response: `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance, community, business, calls}}` (all Boolean; no row = all `true`; `calls` = in-app calls, Oct 2026)
   - tables: notify_prefs, user_profiles (`blood_nearby` **is** `user_profiles.notify`) · errors: 401, 403 · tests: NotifyPrefsIT
 - [x] **`notify_prefs_set`** — *Spring only (Oct 2026):* change them; merges (only the given values change), answers like `notify_prefs_get`
-  - request: `all?: Boolean`, `cats?: {<id>: Boolean}` (only the 8 ids above; `account` or anything else, or a non-Boolean → 400)
+  - request: `all?: Boolean`, `cats?: {<id>: Boolean}` (only the 9 ids above; `account` or anything else, or a non-Boolean → 400)
   - `cats.blood_nearby` writes `user_profiles.notify` (the same value `profile_update {notify}` writes — one source, nothing to sync;
     `maxPushPerDay`, `notifyGroups`, `maxKm` stay in the profile as before)
   - tables: notify_prefs, user_profiles · errors: 400, 401, 403 · tests: NotifyPrefsIT
@@ -916,6 +916,18 @@ Bug check ("turning notifications off doesn't stop them"): the server path was r
 donor from `pickDonors` (and from emergency waves), so no nearby-request push went out (BloodFlowIT, NotifyPrefsIT). The
 complaint came from everything else: that switch only ever covered nearby requests, while responses, emergencies'
 "ended", appointments, prescriptions, ambulance, business etc. always pushed. Those are now covered by the categories.
+
+## In-app calls (package `calls`, Spring only, Oct 2026) — 9 actions
+
+Full contract: [CALLS.md](CALLS.md). Logged in, own account only (no caregiver `asUid`). LiveKit env missing → 503 `calls_unavailable`.
+- [x] **`call_config`** — `{ok, enabled, url?}` (feature flag + LIVEKIT_URL)
+- [x] **`call_start`** — `{ctx, refId, peerUid?, video?}` → `{ok, callId, room, url, token, video, peer}`; relation per ctx (403 `call_not_allowed`), 409 `call_off` / `call_busy`, 429 `call_rate` (10 / 10 min); push `call_incoming` (TTL 45 s, no inbox) + SSE
+- [x] **`call_accept`** — `{callId}` → `{ok, callId, room, url, token, video, peer}`; 409 `call_gone`
+- [x] **`call_decline`**, **`call_cancel`**, **`call_end`** — `{callId}` → `{ok, state}`; push/SSE `call_state` to both sides
+- [x] **`call_status`** — `{callId}` → `{ok, callId, state, ctx, refId, dir, video, peer, startedAt, answeredAt?, endedAt?, durationSec}`
+- [x] **`call_history`** — `{before?}` → `{ok, items:[{callId, ctx, refId, dir, peer, video, state, startedAt, answeredAt?, durationSec}], next?}`
+- [x] **`appt_join`** — `{appointmentId}` → `{ok, callId, room, url, token, video:true}`; online + confirmed, slot −15 min … +3 h (409 `appt_join_window`); doctor/assistant joining pushes `appt_call_ready` to the patient
+  - tables: call_sessions (V609), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + `call_missed` push/inbox; accepted > 2 h → ended), daily step 15 `callsDeleted` (180 days) · tests: CallsIT
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 
@@ -1200,7 +1212,7 @@ Static files served by Vercel today (phase 2: nginx): `/admin` → `server/publi
 
 Spring status (phase 2): steps 1, 2, 4 (`blood`), 3 (`appointments.AppointmentReminders`), 5 and 14 (`pharmacy`, `privacy`
 holds only `rxOrderContactsPurged`), 6, 10 and 11 (`users.PhoneLimitsTask`, `users.AccountsDeletedTask`, `notify.InboxCleanupTask`),
-8 and 9 (`rx`), 12 and 13 (`ambulance`) are `jobs.DailyTask` beans run in this order by `DailyJobRunner` (JobRunr 03:00 UTC and
+8 and 9 (`rx`), 12 and 13 (`ambulance`), and the Spring-only step 15 `callsDeleted` (`calls`, call metadata after 180 days — not the Node step 15) are `jobs.DailyTask` beans run in this order by `DailyJobRunner` (JobRunr 03:00 UTC and
 `GET /api/cron/daily`). Dropped: 7 (`geo`), the backfill half of 14 and 15 (`stockPrices`, `privacy.salePatientNames`) — one-off
 Firestore maintenance with no PostgreSQL counterpart; those keys are absent from the response. A failing step answers `null`
 (Node: its default `0`/`null`/`{}`) and the others still run.

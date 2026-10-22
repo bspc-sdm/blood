@@ -39,7 +39,16 @@ data class LifoloProperties(
     val ses: Ses = Ses(),
     val r2: R2 = R2(),
     val demo: Demo = Demo(),
+    val livekit: LiveKit = LiveKit(),
 ) {
+    /**
+     * In-app calls (backend/docs/CALLS.md): LIVEKIT_URL (returned to the apps as is, e.g. wss://…), LIVEKIT_API_KEY,
+     * LIVEKIT_API_SECRET. Any of them empty = calls unavailable (503 `calls_unavailable`, call_config enabled=false).
+     */
+    data class LiveKit(val url: String = "", val apiKey: String = "", val apiSecret: String = "") {
+        val configured: Boolean get() = url.isNotBlank() && apiKey.isNotBlank() && apiSecret.isNotBlank()
+    }
+
     /**
      * DEMO_KEEP_FIREBASE_USERS: while another server (Vercel/Node) shares the Firebase project and its demo, the demo
      * Firebase accounts (`demo-…`) are left alone (see [com.lifolo.auth.DemoSafeIdentityProvider]).

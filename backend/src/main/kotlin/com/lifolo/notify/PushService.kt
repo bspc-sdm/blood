@@ -23,13 +23,17 @@ data class PushItem(
     val body: String = "",
     val data: Map<String, Any?> = emptyMap(),
     val tokens: List<String>? = null,
+    /** false = phone push only, no bell-list entry (ringing / call state changes) */
+    val inbox: Boolean = true,
+    /** FCM time to live (seconds); null = the FCM default */
+    val ttlSeconds: Long? = null,
 )
 
 /** Title/body/data of a notification, built per recipient language */
 data class PushText(val title: String, val body: String = "", val data: Map<String, Any?> = emptyMap())
 
 /** One FCM message to one device */
-data class DeviceMessage(val token: String, val uid: String?, val data: Map<String, String>)
+data class DeviceMessage(val token: String, val uid: String?, val data: Map<String, String>, val ttlSeconds: Long? = null)
 
 /** Result per message: delivered, or the token is dead (uninstalled app) and should be removed */
 enum class DeliveryResult { OK, DEAD_TOKEN, FAILED }
@@ -54,7 +58,10 @@ class PushConfig {
                     Message.builder()
                         .setToken(it.token)
                         .putAllData(it.data)
-                        .setAndroidConfig(AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
+                        .setAndroidConfig(
+                            AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH)
+                                .apply { it.ttlSeconds?.let { s -> setTtl(s * 1000) } }.build(),
+                        )
                         .build()
                 },
             )
@@ -205,7 +212,7 @@ class PushService(
     fun send(items: List<PushItem>): Int {
         val withCat = items.map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
         try {
-            addInbox(withCat)
+            addInbox(withCat.filter { it.inbox })
         } catch (e: Exception) {
             log.error("inbox write failed", e)
         }
@@ -241,7 +248,7 @@ class PushService(
                 data["body"] = item.body.take(1000)
                 val uid = item.uid
                 if (uid != null) data["forUid"] = uid
-                DeviceMessage(token, uid, data)
+                DeviceMessage(token, uid, data, item.ttlSeconds)
             }
             val results = try {
                 transport.send(messages)
