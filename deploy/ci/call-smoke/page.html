@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lifolo call smoke</title>
+<script>
+// smoke.mjs চালায়। window.__mode: "direct" (যা পাওয়া যায়), "relay-udp" (শুধু TURN/UDP), "relay-tls" (শুধু TURN/TLS)।
+// LiveKit সার্ভার join-এর উত্তরে নিজের TURN ঠিকানা দেয়; এখানে RTCPeerConnection-এর config-এ শুধু ওই ধরনটা রেখে
+// iceTransportPolicy=relay — তাহলে মিডিয়া TURN দিয়েই যেতে বাধ্য।
+(function () {
+  const Orig = window.RTCPeerConnection;
+  window.__mode = 'direct';
+  window.__pcs = [];
+  window.__ice = [];
+  const want = {
+    'relay-udp': (u) => u.startsWith('turn:') && /transport=udp/.test(u),
+    'relay-tls': (u) => u.startsWith('turns:'),
+  };
+  // livekit-client আগে ICE ছাড়া PeerConnection বানায়, join-এর উত্তর এলে setConfiguration দিয়ে সার্ভারের TURN বসায় —
+  // দুই জায়গাতেই ছাঁকা
+  const fix = (cfg) => {
+    const c = Object.assign({}, cfg || {});
+    const f = want[window.__mode];
+    if (f) {
+      c.iceTransportPolicy = 'relay';
+      c.iceServers = (c.iceServers || [])
+        .map((s) => Object.assign({}, s, { urls: [].concat(s.urls).filter(f) }))
+        .filter((s) => s.urls.length);
+    }
+    const all = ((cfg && cfg.iceServers) || []).flatMap((s) => [].concat(s.urls));
+    if (all.length) window.__ice.push(all);
+    return c;
+  };
+  class Patched extends Orig {
+    constructor(cfg, ...rest) {
+      super(fix(cfg), ...rest);
+      window.__pcs.push(this);
+    }
+    setConfiguration(cfg) {
+      return super.setConfiguration(fix(cfg));
+    }
+  }
+  window.RTCPeerConnection = Patched;
+})();
+</script>
+<script src="/livekit-client.umd.js"></script>
+<script>
+window.join = async (url, token, publish) => {
+  const { Room, RoomEvent, createLocalTracks } = window.LivekitClient;
+  const room = new Room({ adaptiveStream: false, dynacast: false });
+  window.__room = room;
+  window.__subs = 0;
+  room.on(RoomEvent.TrackSubscribed, () => { window.__subs += 1; });
+  await room.connect(url, token, { autoSubscribe: true });
+  if (publish) {
+    const tracks = await createLocalTracks({ audio: true, video: { resolution: { width: 320, height: 240, frameRate: 15 } } });
+    for (const t of tracks) await room.localParticipant.publishTrack(t);
+  }
+  return room.state;
+};
+window.probe = async () => {
+  const room = window.__room;
+  const inbound = { audio: 0, video: 0 };
+  const pairs = [];
+  for (const pc of window.__pcs) {
+    if (pc.connectionState === 'closed') continue;
+    const st = await pc.getStats();
+    st.forEach((r) => {
+      if (r.type === 'inbound-rtp' && (r.kind === 'audio' || r.kind === 'video')) inbound[r.kind] += r.bytesReceived || 0;
+      if (r.type === 'transport' && r.selectedCandidatePairId) {
+        const p = st.get(r.selectedCandidatePairId);
+        const l = p && st.get(p.localCandidateId);
+        const rc = p && st.get(p.remoteCandidateId);
+        if (l) pairs.push({ local: l.candidateType, protocol: l.protocol, relayProtocol: l.relayProtocol || null, remote: rc ? rc.candidateType : null, remoteProtocol: rc ? rc.protocol : null, state: p.state });
+      }
+    });
+  }
+  // ঠিকানা লগে না দেখানো
+  const ice = window.__ice.map((list) => list.map((u) => u.replace(/^(turns?:|stun:)(\[[^\]]+\]|[^:?]+)/, '$1<host>')));
+  return { state: room ? room.state : 'none', remotes: room ? room.remoteParticipants.size : 0, subs: window.__subs || 0, inbound, pairs, ice };
+};
+window.leave = async () => { if (window.__room) await window.__room.disconnect(); };
+</script>
+</head>
+<body>smoke</body>
+</html>
