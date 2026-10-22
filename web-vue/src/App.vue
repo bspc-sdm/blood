@@ -6,6 +6,7 @@ import AccountPaused from './shell/AccountPaused.vue';
 import ErrorBoundary from './shell/ErrorBoundary.vue';
 import { Loading, ToastHost } from './ui/kit';
 import { useSession } from './lib/session';
+import CallLayer from './calls/CallLayer.vue';
 
 const route = useRoute();
 const s = useSession();
@@ -23,5 +24,7 @@ const s = useSession();
       </RouterView>
     </ErrorBoundary>
   </AppShell>
+  <!-- অ্যাপে কল: আসা কলের ব্যানার আর কলের পর্দা (লগইন থাকলে) -->
+  <CallLayer v-if="!s.deactivated" />
   <ToastHost />
 </template>

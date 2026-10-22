@@ -27,6 +27,10 @@ export const router = createRouter({
     // অ্যাপয়েন্টমেন্ট: ডাক্তার, বাসায় সেবা, আমার অ্যাপয়েন্টমেন্ট
     { path: rest('/appointment'), component: Appointment },
     { path: rest('/my-appointments'), component: Appointment },
+    // অনলাইন (ভিডিও) অ্যাপয়েন্টমেন্টের কলে ঢোকা (?role=provider&name=…) — calls/
+    { path: '/appointments/:id/call', component: () => import('./calls/ApptCallPage.vue') },
+    // অ্যাপে কলের তালিকা
+    { path: '/calls', component: () => import('./calls/CallHistoryPage.vue') },
     // স্বাস্থ্য: আলোচনা, টিপস, প্রেসক্রিপশন
     { path: rest('/health'), component: Health },
     { path: rest('/prescriptions'), component: Health },
