@@ -31,3 +31,20 @@
 7. **FIXED on main (04efb33): correction requests.** No client or endpoint can create a new one; only seeded rows exist.
 8. **Untranslated text in Bangla mode.** `/rx/{code}` (fixed on main in c4e71840) shows the English line "Issued on Lifolo by a verified doctor…", and two admin pages show English seed text.
 9. **Seeded demo order.** `demo-svc-rx-b` has an "on the way" order, so the patient can neither withdraw it nor re-send that prescription. Expected, but it is a dead end in the demo.
+
+## In-app calls + online video chambers (new feature, 2026-10-23, branch `docs-calls`)
+Manual tests: [manual/17-calls.md](manual/17-calls.md). There are 88 tests: `M-CAL-01…65` for calls and `M-ONC-01…23` for online chambers. Of these, 21 are marked "(২টা আসল ফোন)". The total is about 8 h.
+Security and abuse review: [CALLS-SECURITY-REVIEW.md](CALLS-SECURITY-REVIEW.md). It lists 14 items: 6 High, 6 Medium and 2 Low.
+This section belongs in the `04-manual-tests.md` index, which is on branch `test-plan` and not yet on main. Add this row there: `manual/17-calls.md | অ্যাপে অডিও/ভিডিও কল, অনলাইন ভিডিও চেম্বার, bKash ফি | M-CAL, M-ONC | ৮ ঘণ্টা`.
+
+| Feature area | Manual | Automated today | Gap / to automate |
+|---|---|---|---|
+| Who may call (relations, windows, demo↔real, deactivated) | M-CAL-06, 10, 13, 15–22 | none (backend in progress, spring-p14) | `CallsAuthzIT` + `CallsRelationIT` matrix (review R1, R5) |
+| Call lifecycle (accept, decline, cancel, 45 s missed, busy, call_off, rate) | M-CAL-32–42 | none | Spring IT per state; the push matrix should add `call_incoming`, `call_state`, `call_missed`, `appt_call_ready` |
+| Incoming call: app closed, locked, DND, silent, Doze | M-CAL-23–31 | none (only possible on real phones) | Android: `notify.sh` replay of `call_incoming` extras; stays manual for lock, DND and Doze |
+| In-call media: network handover, poor network, BT, proximity, camera, mute | M-CAL-43–52 | `deploy/ci/call-smoke` (2 headless participants, ops-calls) | stays manual |
+| Battery, heat, data use | M-CAL-54–56 | none | stays manual (record the numbers) |
+| Web ↔ app | M-CAL-57–61 | none | Vue Playwright journey with a fake LiveKit; SSE `call_incoming` and `call_state` |
+| Call history, privacy (no numbers, no recording, lock screen) | M-CAL-53, 62–65 | none | IT: no phone fields in any call payload; token grant unit test (R4) |
+| Online chamber setup, booking, bKash claim/confirm | M-ONC-01–12 | none (spring-p15) | `OnlineChamberIT`: `providers` never has `bkashNumber`, pay transitions, duplicate TrxID (R6–R8) |
+| Join window, waiting room, doctor-joined push, serial, prescription | M-ONC-13–23 | none | IT for the `appt_join` window; a web journey for doctor-on-web ↔ patient |
