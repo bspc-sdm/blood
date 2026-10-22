@@ -27,6 +27,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -111,6 +112,7 @@ fun NotifySettingsSection(
         checked = master,
         enabled = p != null,
         onChange = { change(all = it) },
+        tag = "all",
     )
     when {
         p == null && loadError != null -> Column(
@@ -137,6 +139,7 @@ fun NotifySettingsSection(
                     onChange = { v ->
                         if (!v && cat in NotifyCats.CONFIRM_OFF) confirmOff = cat else change(cat = cat, on = v)
                     },
+                    tag = cat,
                 )
                 if (cat == NotifyCats.BLOOD_NEARBY && on && master) nearbyExtras()
             }
@@ -148,6 +151,7 @@ fun NotifySettingsSection(
                 onChange = {},
                 // বদলানো যায় না, তবে চালু — ঝাপসা নয়
                 dim = false,
+                tag = NotifyCats.ACCOUNT,
             )
         }
     }
@@ -187,6 +191,8 @@ private fun SwitchRow(
     onChange: (Boolean) -> Unit,
     icon: Int? = null,
     dim: Boolean = !enabled,
+    /** Maestro-র জন্য: সারির id "notify_<tag>_on" / "notify_<tag>_off" (লেখার ঘরগুলো আলাদা, অবস্থা সারির) */
+    tag: String? = null,
 ) {
     val lead: (@Composable () -> Unit)? = icon?.let { i -> @Composable { AppIcon(i, null) } }
     ListItem(
@@ -197,6 +203,7 @@ private fun SwitchRow(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-            .alpha(if (dim) 0.6f else 1f),
+            .alpha(if (dim) 0.6f else 1f)
+            .then(if (tag != null) Modifier.testTag("notify_${tag}_" + if (checked) "on" else "off") else Modifier),
     )
 }
