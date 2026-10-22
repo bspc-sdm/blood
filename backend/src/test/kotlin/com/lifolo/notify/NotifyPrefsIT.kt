@@ -99,7 +99,7 @@ class NotifyPrefsIT : BloodTestBase() {
     }
 
     @Test
-    fun `master switch off - only account pushes reach the phone, others only the bell; others in the batch unaffected`() {
+    fun `master switch off - only account pushes reach the phone, others only the bell, others in the batch unaffected`() {
         withToken("m1")
         withToken("m2")
         ok("m1", "notify_prefs_set", mapOf("all" to false))
@@ -116,7 +116,7 @@ class NotifyPrefsIT : BloodTestBase() {
     }
 
     @Test
-    fun `caregiver - can't change the patient's settings; their copy of patient news follows their own settings`() {
+    fun `caregiver - can't change the patient's settings, their copy of patient news follows their own settings`() {
         withToken("pat")
         withToken("cg")
         jdbc.update("INSERT INTO care_links (patient_uid, caretaker_uid, status) VALUES ('pat', 'cg', 'active')")
