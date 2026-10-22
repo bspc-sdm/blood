@@ -129,7 +129,9 @@ fun NotifySettingsSection(
             if (saveError != null) Column(Modifier.padding(horizontal = 16.dp)) { ErrorText(saveError) }
             HorizontalDivider()
             val showBusiness = MyWork.has
-            NotifyCats.SETTABLE.filter { it != NotifyCats.BUSINESS || showBusiness }.forEach { cat ->
+            // অ্যাপে কল সার্ভারে বন্ধ থাকলে তার সুইচও নয়
+            val showCalls = CallAvailability.enabled.value != false
+            NotifyCats.SETTABLE.filter { (it != NotifyCats.BUSINESS || showBusiness) && (it != NotifyCats.CALLS || showCalls) }.forEach { cat ->
                 val on = p.isOn(cat)
                 SwitchRow(
                     title = NotifyCats.label(cat),
@@ -142,6 +144,8 @@ fun NotifySettingsSection(
                     tag = cat,
                 )
                 if (cat == NotifyCats.BLOOD_NEARBY && on && master) nearbyExtras()
+                // Android ১৪+: লক স্ক্রিনে কল দেখানোর অনুমতি না থাকলে সেটিংসে যাওয়ার সারি
+                if (cat == NotifyCats.CALLS && on && master) CallsFullScreenRow()
             }
             SwitchRow(
                 title = NotifyCats.label(NotifyCats.ACCOUNT),

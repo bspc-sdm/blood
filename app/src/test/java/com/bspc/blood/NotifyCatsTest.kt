@@ -65,23 +65,26 @@ class NotifyCatsTest {
         // অ্যাকাউন্ট (সবসময় চালু); কেয়ারগিভারের কাছে রোগীর খবরে নতুন সার্ভার নিজেই cat দেয়
         assertEquals(NotifyCats.RX, c("type" to "care", "asUid" to "p1", "rxId" to "x1", "cat" to "rx"))
         listOf("care", "correction", "support", "hospital").forEach { assertEquals(it, NotifyCats.ACCOUNT, c("type" to it)) }
+        // অ্যাপে কল: আসা কল/মিসড কল/কলের অবস্থা — calls; "ডাক্তার ভিডিও কলে আছেন" — অ্যাপয়েন্টমেন্ট
+        listOf("call_incoming", "call_missed", "call_state").forEach { assertEquals(it, NotifyCats.CALLS, c("type" to it, "callId" to "c1")) }
+        assertEquals(NotifyCats.APPOINTMENTS, c("type" to "appt_call_ready", "appointmentId" to "a1"))
     }
 
     @Test
     fun channelPerCategory() {
-        assertEquals(9, NotifyCats.ALL.size)
+        assertEquals(10, NotifyCats.ALL.size)
         assertEquals(NotifyCats.ALL.size, NotifyCats.ALL.map(NotifyCats::channelId).toSet().size)
         assertEquals(
             listOf(
                 "cat_blood_nearby", "cat_blood_emergency", "cat_my_request", "cat_appointments", "cat_rx",
-                "cat_ambulance", "cat_community", "cat_business", "cat_account",
+                "cat_ambulance", "cat_community", "cat_business", "cat_calls", "cat_account",
             ),
             NotifyCats.ALL.map(NotifyCats::channelId),
         )
         // আগের একমাত্র চ্যানেলের নাম নতুন কোনোটার সাথে মেলে না (মুছে ফেলা হয়)
         assertFalse(NotifyCats.OLD_CHANNEL_ID in NotifyCats.ALL.map(NotifyCats::channelId))
         // জরুরি, অ্যাম্বুলেন্স, অ্যাপয়েন্টমেন্ট জোরালো; প্রশ্নোত্তর/ব্যবসা/অ্যাকাউন্ট সাধারণ
-        listOf(NotifyCats.BLOOD_EMERGENCY, NotifyCats.AMBULANCE, NotifyCats.APPOINTMENTS).forEach { assertTrue(it, it in NotifyCats.HIGH) }
+        listOf(NotifyCats.BLOOD_EMERGENCY, NotifyCats.AMBULANCE, NotifyCats.APPOINTMENTS, NotifyCats.CALLS).forEach { assertTrue(it, it in NotifyCats.HIGH) }
         listOf(NotifyCats.COMMUNITY, NotifyCats.BUSINESS, NotifyCats.ACCOUNT, NotifyCats.RX).forEach { assertFalse(it, it in NotifyCats.HIGH) }
         // account সেটিংসে বদলানো যায় না; জরুরি দুটো বন্ধের আগে নিশ্চিত করা
         assertFalse(NotifyCats.ACCOUNT in NotifyCats.SETTABLE)

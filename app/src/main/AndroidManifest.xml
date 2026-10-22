@@ -11,6 +11,25 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- ওষুধ খাওয়ার অ্যালার্ম: ফোন চালু হলে আবার সেট করা -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- অ্যাপে অডিও/ভিডিও কল: মাইক আর ক্যামেরা চাওয়া হয় কল করার/ধরার মুহূর্তে (বাংলায় কারণসহ); ব্লুটুথ শুধু ব্লুটুথ হেডসেট লাগানো থাকলে -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- কল চলার সময় (অ্যাপ পেছনে গেলেও) মাইক/ক্যামেরা চালু রাখার foreground service; কল আসলে লক স্ক্রিনে পুরো পর্দা -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- অডিও কলে কানের কাছে ফোন নিলে পর্দা বন্ধ (proximity) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- LiveKit-এর স্ক্রিন শেয়ার Lifolo ব্যবহার করে না -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
+    <!-- ক্যামেরা/মাইক ছাড়া ফোনেও অ্যাপ ইনস্টল হবে (শুধু কল চলবে না) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- বিজ্ঞাপনের ID লাগে না (কোনো লাইব্রেরি যেন যোগ না করে — Play Console-এ "Advertising ID: না") -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
@@ -90,6 +109,24 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- অ্যাপে কল (Calls*.kt): আসা কলের পুরো পর্দা (লক স্ক্রিনেও) আর কল চলার পর্দা — আলাদা task, যাতে অ্যাপে ফিরলেও কল চলে -->
+        <activity
+            android:name=".CallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.bspc.blood.call"
+            android:excludeFromRecents="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:label="@string/app_name"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density" />
+        <service
+            android:name=".CallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera" />
+        <receiver android:name=".CallActionReceiver" android:exported="false" />
+        <service android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService" tools:node="remove" />
 
         <receiver android:name=".MedAlarmReceiver" android:exported="false" />
         <receiver android:name=".MedAlarmBootReceiver" android:exported="false">

@@ -601,6 +601,8 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                         if (o.status in setOf("sent", "ready", "accepted")) SmallAction(tr("Take back", "ফিরিয়ে নিন"), R.drawable.ic_close, { withdrawing = o })
                         // অনলাইন অর্ডার পৌঁছালে দোকানের রসিদ (Receipts.kt)
                         ReceiptLink(o.invoiceId)
+                        // চালু অর্ডারে দোকানের সাথে অ্যাপে কল
+                        if (o.open) AppCallButtons(CallCtx.ORDER, o.id, peerName = o.pharmacyName, emphasis = CallEmphasis.SECONDARY)
                     }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
@@ -631,6 +633,8 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                             Tag(RxNetText.labStatus(o.status), if (o.status == "reported") cs.tertiaryContainer else cs.surfaceVariant, if (o.status == "reported") cs.onTertiaryContainer else cs.onSurfaceVariant)
                         }
                         SmallNote(o.tests.joinToString(", "))
+                        // চালু ল্যাব অর্ডারে প্যাথলজির সাথে অ্যাপে কল
+                        if (o.status in setOf("sent", "received")) AppCallButtons(CallCtx.ORDER, o.id, peerName = o.labName, emphasis = CallEmphasis.SECONDARY)
                         // পাঠানোর সময়ের আনুমানিক দাম, বাসা থেকে নমুনার অবস্থা
                         if (o.prices != null && o.status != "cancelled") Text(LabPriceText.snapLine(o.prices, o.home), style = MaterialTheme.typography.bodySmall)
                         if (o.home != null && o.status in setOf("sent", "received")) {

@@ -518,6 +518,11 @@ fun RequestDetailScreen(
                                         Button(onClick = { callPhone(context, c.second) }) {
                                             ButtonContent(false, tr("Call", "কল করুন"), R.drawable.ic_call)
                                         }
+                                        // অ্যাপে কল (রিকোয়েস্ট খোলা থাকা পর্যন্ত); জরুরি রিকোয়েস্টে ফোনই বড়
+                                        if (r.isActive) AppCallButtons(
+                                            CallCtx.BLOOD, r.id, r.requesterUid.ifBlank { null }, c.first, c.second,
+                                            if (r.urgent) CallEmphasis.SECONDARY else CallEmphasis.EQUAL,
+                                        )
                                     } else {
                                         Text(tr("Couldn't load the number. Open this page again.", "নম্বর লোড হয়নি, পাতাটা আবার খুলুন।"))
                                     }
@@ -773,6 +778,8 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                                     onConfirm = { act { ServerApi.confirmDonor(r.id, d.donorUid) } },
                                     onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = d } },
                                     canConfirm = r.confirmedCount < r.bags,
+                                    requestId = r.id,
+                                    urgent = r.urgent,
                                 )
                             }
                         }

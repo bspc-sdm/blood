@@ -10,7 +10,7 @@ import android.content.Intent
  */
 fun openAppointmentCall(context: Context, appointmentId: String) {
     if (appointmentId.isBlank()) return
-    val i = Intent().setClassName(context, "com.bspc.blood.CallActivity")
+    val i = Intent(context, CallActivity::class.java)
         .setAction(CallIntents.ACTION_APPT_JOIN)
         .putExtra(CallIntents.EXTRA_APPOINTMENT_ID, appointmentId)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -38,4 +38,9 @@ object CallIntents {
     const val EXTRA_PEER_PHOTO = "peerPhoto"
     const val EXTRA_CTX = "ctx"
     const val EXTRA_REF_ID = "refId"
+}
+
+/** প্রোফাইলের "কল" → কলের তালিকা (App খোলে) */
+object CallNav {
+    val history = androidx.compose.runtime.mutableStateOf(false)
 }

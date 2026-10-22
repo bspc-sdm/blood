@@ -1,0 +1,114 @@
+# যাত্রা ১৬ — অ্যাপে কল (সার্ভার: call_config, notify_prefs calls): রোগী রহিমের চালু অনলাইন অর্ডারে (demo-svc-rx-b, Montene —
+# ডেমো লাইফ ফার্মেসির "পথে আছে") "অ্যাপে কল" আর "ভিডিও কল" দেখা যায়; চাপলে আগে বাংলায় অনুমতির কারণ (অনুমতি দেওয়া হয় না —
+# এমুলেটরে আসল কল/মিডিয়া চালানো হয় না); প্রোফাইল → "কল" (কলের তালিকা); নোটিফিকেশনের সেটিংসে "অ্যাপে কল" বন্ধ → আবার খুলে
+# বন্ধই আছে → আবার চালু (পরের চালানোর জন্য)।
+appId: com.bspc.blood
+env:
+  J: j16
+  ROLE: ডেমো রোগী রহিম
+  CAT: ".*অ্যাপে কল.*"
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার প্রেসক্রিপশন.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার প্রেসক্রিপশন.*"
+- scrollUntilVisible:
+    element: ".*Montene.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*Montene.*"
+- extendedWaitUntil:
+    visible: ".*ফার্মেসিতে পাঠান.*"
+    timeout: 30000
+# চালু অর্ডারের নিচে অ্যাপে কলের বাটন (CallButtons.kt-এর testTag)
+- scrollUntilVisible:
+    element:
+      id: "app_call_audio"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: "app_call_video"
+- takeScreenshot: j16-01-order-call-buttons
+# চাপলে: অনুমতির আগে কারণ (মাইক্রোফোন …) — "বাতিল"
+- tapOn:
+    id: "app_call_audio"
+- extendedWaitUntil:
+    visible: ".*অ্যাপে কলের জন্য অনুমতি দিন.*"
+    timeout: 10000
+- assertVisible: ".*মাইক্রোফোন.*"
+- takeScreenshot: j16-02-permission-reason
+- tapOn: "বাতিল"
+- assertNotVisible: ".*অ্যাপে কলের জন্য অনুমতি দিন.*"
+# ভিডিও কলে ক্যামেরার কারণও
+- tapOn:
+    id: "app_call_video"
+- extendedWaitUntil:
+    visible: ".*ভিডিও কলের জন্য অনুমতি দিন.*"
+    timeout: 10000
+- assertVisible: ".*ক্যামেরা.*"
+- tapOn: "বাতিল"
+- back
+- back
+# প্রোফাইল → কল (কলের তালিকা)
+- scrollUntilVisible:
+    element: "কল"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "কল"
+- extendedWaitUntil:
+    visible:
+      id: "call_history"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: ".*লোড হ.*"
+    timeout: 20000
+- takeScreenshot: j16-03-call-history
+- back
+# নোটিফিকেশনের সেটিংস: "অ্যাপে কল" (notify_calls_on / notify_calls_off)
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "notify_calls_off"
+    commands:
+      - tapOn: ${CAT}
+      - extendedWaitUntil:
+          visible:
+            id: "notify_calls_on"
+          timeout: 10000
+- takeScreenshot: j16-04-calls-switch
+- tapOn: ${CAT}
+- assertVisible:
+    id: "notify_calls_off"
+- assertNotVisible: "সেভ হ.*নি.*"
+- back
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: "notify_calls_off"
+- takeScreenshot: j16-05-calls-off-after-reopen
+- tapOn: ${CAT}
+- assertVisible:
+    id: "notify_calls_on"
+- back
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: "notify_calls_on"

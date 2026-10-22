@@ -260,6 +260,11 @@ fun ProfileTab(
                 ActionRow(R.drawable.ic_payments, tr("My receipts & expenses", "আমার রসিদ ও খরচ"), null, { InvoiceNav.list.value = 0 })
                 HorizontalDivider()
             }
+            // অ্যাপে কলের তালিকা — অ্যাপে কল চালু থাকলে
+            if (CallsEntryVisible()) {
+                ActionRow(R.drawable.ic_phone_in_talk, tr("Calls", "কল"), null, { CallNav.history.value = true })
+                HorizontalDivider()
+            }
             // কেয়ারগিভার (জরুরি যোগাযোগ, আমার হয়ে কাজ করতে পারেন), যাঁদের দেখাশোনা করি, পরিবারের সদস্য
             ActionRow(R.drawable.ic_health_and_safety_filled, tr("Caregivers & family", "কেয়ারগিভার ও পরিবার"), tr("People who can help you in the app", "যাঁরা অ্যাপে আপনার হয়ে কাজ করতে পারেন"), { RxNav.open.value = "care" })
             HorizontalDivider()

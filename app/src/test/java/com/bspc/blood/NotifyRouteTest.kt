@@ -69,6 +69,10 @@ class NotifyRouteTest {
         assertEquals(tab(Tabs.SERVICES, "amb_call"), r("type" to "amb_call"))
         // শেয়ার করা লিংক
         assertEquals(open(Screen.RequestDetail("r9")), r("requestId" to "r9", SHARED_LINK to "1"))
+        // অ্যাপে কল: মিসড কল → কলের তালিকা; ডাক্তার ভিডিও কলে আছেন → যুক্ত হওয়ার পর্দা (id না থাকলে আমার অ্যাপয়েন্টমেন্ট)
+        assertEquals(open(Screen.CallHistory), r("type" to "call_missed", "callId" to "c1"))
+        assertEquals(NotifyRoute.ApptCall("a1"), r("type" to "appt_call_ready", "appointmentId" to "a1"))
+        assertEquals(open(Screen.MyAppointments), r("type" to "appt_call_ready"))
     }
 
     @Test
@@ -80,6 +84,10 @@ class NotifyRouteTest {
         assertEquals(mapOf("type" to "appointment", "role" to "provider", "ticketId" to "t1"), Notifier.extrasOf(data))
         val amb = mapOf("type" to "services", "kind" to "ambulance", "sub" to "amb_req", "reqId" to "a1")
         assertEquals(amb, Notifier.extrasOf(amb))
+        // অ্যাপে কলের পুশ: চাপলে কোন অ্যাপয়েন্টমেন্ট/কল
+        val ready = mapOf("type" to "appt_call_ready", "appointmentId" to "a1", "cat" to "appointments")
+        assertEquals(mapOf("type" to "appt_call_ready", "appointmentId" to "a1"), Notifier.extrasOf(ready))
+        assertEquals(mapOf("type" to "call_missed", "callId" to "c1"), Notifier.extrasOf(mapOf("type" to "call_missed", "callId" to "c1", "title" to "x")))
     }
 
     @Test

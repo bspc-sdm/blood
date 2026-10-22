@@ -172,6 +172,8 @@ sealed interface Screen {
     data object DeactivateAccount : Screen
     /** "আমার রসিদ ও খরচ" (Receipts.kt); tab ০ রসিদ, ১ খরচ */
     data class MyReceipts(val tab: Int = 0) : Screen
+    /** অ্যাপে কলের তালিকা (CallHistory.kt) */
+    data object CallHistory : Screen
 }
 
 object Tabs {
@@ -353,6 +355,7 @@ fun App(
                 if (r.manage || InvoiceFeatures.patient()) InvoiceNav.openId(r.id, r.asUid, r.manage)
                 else android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
             is NotifyRoute.VerifyInvoice -> InvoiceNav.verify.value = r.code
+            is NotifyRoute.ApptCall -> openAppointmentCall(context, r.appointmentId)
         }
     }
 
@@ -400,6 +403,12 @@ fun App(
         if (ready && !LoginGate.isGuest) runCatching { Community.me() }.onSuccess { community = it }
         if (LoginGate.isGuest) community = null
     }
+    // অ্যাপে কল চালু কি না (call_config, ১০ মিনিটে একবার); অ্যাকাউন্ট বদলালে আগের "না" মুছে নতুন করে
+    val callUid = LoginGate.uid.value
+    LaunchedEffect(callUid) { CallAvailability.clear() }
+    LaunchedEffect(ready, callUid, stack.last()) {
+        if (ready && callUid != null) CallAvailability.refresh()
+    }
     // "আমার কাজ" (নিজের ব্যবসা, চেম্বার): মূল পাতায় ফিরলে, লগইন বদলালে বা ব্যাজ বদলালে নতুন করে
     val workBadge = community?.approvedBadge
     LaunchedEffect(ready, stack.size == 1, homeRefresh, LoginGate.uid.value, workBadge) {
@@ -432,6 +441,14 @@ fun App(
         if (receiptsOpen != null) {
             if (stack.last() !is Screen.MyReceipts) push(Screen.MyReceipts(receiptsOpen))
             InvoiceNav.list.value = null
+        }
+    }
+    // প্রোফাইলের "কল" (অ্যাপে কলের তালিকা)
+    val callsOpen = CallNav.history.value
+    LaunchedEffect(callsOpen) {
+        if (callsOpen) {
+            CallNav.history.value = false
+            if (stack.last() != Screen.CallHistory) push(Screen.CallHistory)
         }
     }
     // অন্য পাতার "আপিল করুন" / প্রোফাইলের "সাহায্য ও আপিল"
@@ -783,6 +800,7 @@ fun App(
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
             is Screen.AmbulanceRequest -> AmbulanceRequestScreen(current.id, onBack = { back() })
             is Screen.MyReceipts -> MyReceiptsScreen(null, "", current.tab, onBack = { back() })
+            Screen.CallHistory -> CallHistoryScreen(onBack = { back() })
 
             // মোছা / সাময়িক বন্ধ: পাতা নিজেই এই ফোন থেকে লগআউট করে (সার্ভার সব লগইন বাতিল করেছে), শেষে অতিথি হিসেবে হোম
             Screen.DeleteAccount -> DeleteAccountScreen(

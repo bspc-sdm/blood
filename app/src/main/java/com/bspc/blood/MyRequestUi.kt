@@ -159,9 +159,14 @@ fun DonorRow(
     onRemove: () -> Unit,
     /** ব্যাগ পূরণ হলে আর নিশ্চিত করা যায় না */
     canConfirm: Boolean = true,
+    /** অ্যাপে কলের জন্য (রিকোয়েস্ট খোলা আর ডোনার রাজি থাকলে); জরুরি হলে ফোনই বড়, অ্যাপে কল নিচে ছোট করে */
+    requestId: String = "",
+    urgent: Boolean = false,
 ) {
     val context = LocalContext.current
     var askRemove by remember { mutableStateOf(false) }
+    // অ্যাপে কল: খোলা রিকোয়েস্টে রাজি থাকা ডোনার (সার্ভার শেষ কথা বলে)
+    val canAppCall = active && requestId.isNotBlank() && d.status == "accepted" && d.donorUid.isNotBlank()
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BloodGroupBadge(d.donorGroup, 36.dp)
@@ -185,6 +190,10 @@ fun DonorRow(
             IconButton(onClick = { callPhone(context, d.donorPhone) }) {
                 AppIcon(R.drawable.ic_call, tr("Call", "কল করুন"), tint = MaterialTheme.colorScheme.primary)
             }
+            if (canAppCall && !urgent) AppCallButtons(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, CallEmphasis.ICONS)
+        }
+        if (canAppCall && urgent) {
+            AppCallButtons(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, CallEmphasis.SECONDARY, Modifier.padding(start = 46.dp))
         }
         if (active && d.status == "accepted") {
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে
@@ -521,6 +530,8 @@ internal fun MyRequestCard(
                         onConfirm = { onConfirm(d) },
                         onRemove = { onRemove(d) },
                         canConfirm = r.confirmedCount < r.bags,
+                        requestId = r.id,
+                        urgent = r.urgent,
                     )
                 }
                 if (willing.size > 3) {

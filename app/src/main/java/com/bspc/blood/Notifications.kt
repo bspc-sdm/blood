@@ -45,7 +45,8 @@ object Notifier {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannels(
             NotifyCats.ALL.map { cat ->
-                NotificationChannel(
+                // অ্যাপে কল: রিংটোনসহ আলাদা চ্যানেল (CallService.kt)
+                if (cat == NotifyCats.CALLS) CallNotifications.callsChannel(context)!! else NotificationChannel(
                     NotifyCats.channelId(cat),
                     NotifyCats.label(cat),
                     if (cat in NotifyCats.HIGH) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT,
@@ -98,6 +99,8 @@ object Notifier {
         "role", "sub", "ticketId", "emergencyId", "id", "labOrderId", "orderId", "findId", "visitId",
         // নতুন রসিদ (invoice_new) — সরাসরি সেই রসিদ খোলে
         "invoiceId",
+        // অ্যাপে কল: মিসড কল, "ডাক্তার ভিডিও কলে আছেন"
+        "callId", "appointmentId",
     )
 
     /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */
@@ -142,6 +145,8 @@ object Notifier {
             .setPriority(if (cat in NotifyCats.HIGH) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pending)
+            // কলের চ্যানেলে রিংটোন — মিসড কলের খবরে বাজে না
+            .setSilent(cat == NotifyCats.CALLS)
             .build()
         NotificationManagerCompat.from(context).notify(id, n)
     }
@@ -174,6 +179,8 @@ class BloodMessagingService : FirebaseMessagingService() {
         val me = AuthRepository.currentUid ?: return
         val to = message.data["forUid"]
         if (!to.isNullOrBlank() && to != me) return
+        // অ্যাপে কল: আসা কল (পুরো পর্দা), কলকারী কেটে দিলেন — নিজের নোটিফিকেশন (CallService.kt)
+        if (CallPush.handle(this, message.data)) return
         val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়

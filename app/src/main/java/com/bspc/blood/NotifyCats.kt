@@ -17,10 +17,12 @@ object NotifyCats {
     const val AMBULANCE = "ambulance"
     const val COMMUNITY = "community"
     const val BUSINESS = "business"
+    /** অ্যাপে অডিও/ভিডিও কল (আসা কল, মিসড কল) — বন্ধ থাকলে সার্ভার কল করতে দেয় না (409 call_off) */
+    const val CALLS = "calls"
     const val ACCOUNT = "account"
 
     /** সেটিংসে চালু/বন্ধ করা যায় এমন ধরন — সেটিংসের ক্রমে */
-    val SETTABLE = listOf(BLOOD_NEARBY, BLOOD_EMERGENCY, MY_REQUEST, APPOINTMENTS, RX, AMBULANCE, COMMUNITY, BUSINESS)
+    val SETTABLE = listOf(BLOOD_NEARBY, BLOOD_EMERGENCY, MY_REQUEST, APPOINTMENTS, RX, AMBULANCE, COMMUNITY, BUSINESS, CALLS)
 
     /** সব ধরন (চ্যানেল প্রতিটার একটা) */
     val ALL = SETTABLE + ACCOUNT
@@ -32,7 +34,7 @@ object NotifyCats {
      * জোরালো চ্যানেল (শব্দ + উপরে ভেসে ওঠা): জরুরি আহ্বান, অ্যাম্বুলেন্স, অ্যাপয়েন্টমেন্ট/সিরিয়াল; আর আশেপাশের রক্তের
      * রিকোয়েস্ট ও নিজের রিকোয়েস্টে সাড়া — এ দুটো আগের একমাত্র চ্যানেলেও জোরালো ছিল (রক্ত লাগা সময়ের ব্যাপার)।
      */
-    val HIGH = setOf(BLOOD_EMERGENCY, AMBULANCE, APPOINTMENTS, BLOOD_NEARBY, MY_REQUEST)
+    val HIGH = setOf(BLOOD_EMERGENCY, AMBULANCE, APPOINTMENTS, BLOOD_NEARBY, MY_REQUEST, CALLS)
 
     /** আগের একমাত্র চ্যানেল (২.৩৫ পর্যন্ত) — নতুন চ্যানেল বানানোর সময় মুছে ফেলা হয় */
     const val OLD_CHANNEL_ID = "blood_requests"
@@ -62,6 +64,8 @@ object NotifyCats {
             "invoice_new" -> MY_REQUEST
             "invoice_summary", "invoice_void", "invoice_day_end" -> BUSINESS
             "appointment", "homecare", "homevisit" -> APPOINTMENTS
+            "appointment", "homecare", "homevisit", "appt_call_ready" -> APPOINTMENTS
+            "call_incoming", "call_missed", "call_state", "call_cancelled" -> CALLS
             "rx", "med_find_mine" -> RX
             "amb_req_mine", "amb_call" -> AMBULANCE
             "answer" -> COMMUNITY
@@ -81,6 +85,7 @@ object NotifyCats {
         AMBULANCE -> tr("Ambulance", "অ্যাম্বুলেন্স")
         COMMUNITY -> tr("Questions and tips", "প্রশ্নোত্তর আর টিপস")
         BUSINESS -> tr("My business", "আমার ব্যবসা")
+        CALLS -> tr("App calls", "অ্যাপে কল")
         else -> tr("Account and security (always on)", "অ্যাকাউন্ট আর নিরাপত্তা (সবসময় চালু)")
     }
 
@@ -93,6 +98,7 @@ object NotifyCats {
         AMBULANCE -> tr("Updates on the ambulance you called", "আপনার ডাকা অ্যাম্বুলেন্সের খবর")
         COMMUNITY -> tr("Answers to your questions and health tips", "আপনার প্রশ্নের উত্তর আর স্বাস্থ্য টিপস")
         BUSINESS -> tr("Orders, bookings and approvals for your business or chamber", "আপনার ব্যবসা বা চেম্বারের অর্ডার, বুকিং আর অনুমোদন")
+        CALLS -> tr("Audio and video calls in the app. Off: people call your phone instead.", "অ্যাপের ভেতরে অডিও আর ভিডিও কল। বন্ধ থাকলে সবাই ফোনে কল করবেন।")
         else -> tr(
             "Login, caregivers, corrections and support replies. These can't be turned off.",
             "লগইন, কেয়ারগিভার, তথ্য সংশোধন আর সাপোর্টের উত্তর — এগুলো বন্ধ করা যায় না।",

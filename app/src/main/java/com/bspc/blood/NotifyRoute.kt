@@ -23,6 +23,8 @@ sealed interface NotifyRoute {
 
     /** রসিদের QR / lifolo.com/v/<কোড> — যাচাইয়ের ছোট পাতা (লগইন লাগে না) */
     data class VerifyInvoice(val code: String) : NotifyRoute
+    /** অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও কলে যুক্ত হওয়ার পর্দা (route "appt_call/{appointmentId}", CallsNav.kt) */
+    data class ApptCall(val appointmentId: String) : NotifyRoute
 }
 
 /**
@@ -49,6 +51,10 @@ fun notifyRoute(data: Map<String, String>, approvedBadge: String? = null, hasWor
         // বাসায় সেবা (আগের হোম নার্সের "homevisit" সহ): অ্যাপয়েন্টমেন্ট ট্যাবের "বাসায় সেবা" অংশ
         type == "homevisit" || type == "homecare" -> NotifyRoute.Tab(Tabs.APPOINTMENT, homeCare = true)
         type == "support" -> NotifyRoute.Open(Screen.Help())
+        // অ্যাপে কল: মিসড কল → কলের তালিকা; "ডাক্তার ভিডিও কলে আছেন" → যুক্ত হওয়ার পর্দা (id না থাকলে আমার অ্যাপয়েন্টমেন্ট)
+        type == "call_missed" || type == "call_incoming" -> NotifyRoute.Open(Screen.CallHistory)
+        type == "appt_call_ready" -> data["appointmentId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.ApptCall(it) }
+            ?: NotifyRoute.Open(Screen.MyAppointments)
         // রোগীর অ্যাম্বুলেন্স ডাকা: কেউ রাজি হলেন/পৌঁছালেন/বাতিল/সময় শেষ — সেই অপেক্ষার পাতা
         type == "amb_req_mine" -> data["reqId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.Open(Screen.AmbulanceRequest(it)) }
             ?: NotifyRoute.Tab(Tabs.SERVICES)

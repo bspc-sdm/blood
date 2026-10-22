@@ -872,6 +872,10 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                         ButtonContent(false, num(a.otherPhone), R.drawable.ic_call)
                                     }
                                 }
+                                // অ্যাপে কল: নিশ্চিত অ্যাপয়েন্টমেন্টে, সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত (CallButtons.kt)
+                                if (CallWindows.canCall(a.status, a.date, a.start)) {
+                                    AppCallButtons(CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null })
+                                }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (a.role == "provider" && a.status == "pending") {
                                         Button(onClick = { confirming = a }, enabled = busyId == null) {

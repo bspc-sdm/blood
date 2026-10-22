@@ -47,6 +47,8 @@ android {
         buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCertSha256\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)
         manifestPlaceholders["linkHost"] = lifoloLinkHost
+        // অ্যাপে কলের (LiveKit/WebRTC) নেটিভ লাইব্রেরি: শুধু এখনকার ফোনের ARM দুটো আর এমুলেটরের x86_64 — পুরোনো ৩২-বিট x86 বাদ (APK ছোট)
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
     }
 
     signingConfigs {
@@ -136,6 +138,9 @@ dependencies {
     implementation("com.firebase:geofire-android-common:3.2.0")
     // প্রেসক্রিপশনের যাচাইয়ের QR
     implementation("com.google.zxing:core:3.5.3")
+
+    // অ্যাপে অডিও/ভিডিও কল (নিজের LiveKit সার্ভার; ঠিকানা সার্ভার দেয়) — সংস্করণ বেঁধে রাখা
+    implementation("io.livekit:livekit-android:2.28.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

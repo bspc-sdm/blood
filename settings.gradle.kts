@@ -11,6 +11,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // LiveKit-এর অডিও রাউটিং লাইব্রেরি (audioswitch) শুধু JitPack-এ — শুধু সেই group এখান থেকে
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.davidliu") }
+        }
     }
 }
 

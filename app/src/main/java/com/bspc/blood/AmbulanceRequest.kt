@@ -1015,6 +1015,8 @@ private fun AcceptedCard(r: AmbReq, a: AmbCar, scope: kotlinx.coroutines.Corouti
                     ButtonContent(false, tr("Call driver ", "চালককে ফোন ") + num(a.phone), R.drawable.ic_call)
                 }
             }
+            // অ্যাপে কল — জরুরি, তাই ফোনের বড় বাটনই আগে; এগুলো ছোট
+            AppCallButtons(CallCtx.AMBULANCE, r.id, peerName = a.name, phone = a.phone.ifBlank { null }, emphasis = CallEmphasis.SECONDARY)
         }
     }
 }
@@ -1107,6 +1109,10 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                             OutlinedButton(onClick = { openUrl(context, ambMapUri(r.lat, r.lng, r.pickup, r.district, r.upazilaId, r.unionId)) }) {
                                 ButtonContent(false, tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map)
                             }
+                        }
+                        // অ্যাপে কল (রোগীর সাথে) — ফোনের বাটনই বড়, এগুলো ছোট
+                        if (r.status == "accepted" || r.status == "arrived") {
+                            AppCallButtons(CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, emphasis = CallEmphasis.SECONDARY)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (r.status == "accepted") {
