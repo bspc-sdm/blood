@@ -32,7 +32,8 @@ import java.security.SecureRandom
  * demo/rx.js — doctors, appointments/serials, the live queue, prescriptions, the assistant, the pharmacy and lab work:
  *  - the demo doctor: approved badge (DEMO-A-10001), two chambers (Shaheed Tajuddin Ahmad Medical College Hospital,
  *    every day 10–13 and 16–01 — the evening session runs past midnight, so "today" can be booked at night too;
- *    Kaliakair UHC on Fridays), the assistant's email, paid report reviews;
+ *    Kaliakair UHC on Fridays) and an online (video) chamber every day 13–16 (Fridays 13–14) with a bKash number, the
+ *    assistant's email, paid report reviews; online appointments in each fee state (unpaid, claimed, paid);
  *  - six more doctors (one awaiting verification, one with a badge-correction request, one emergency-duty doctor so
  *    someone is "in the chamber now" at any Dhaka hour);
  *  - today's serials (confirmed 1–4, pending, cancelled), the queue at number 2, patient 4 asked for 20 minutes;
@@ -213,7 +214,14 @@ class DemoRx(
             fee = "৫০০ টাকা", serialPhone = "01200000202", schedule = "ডেমো চেম্বার — প্রতিদিন খোলা",
         )
         val ch2 = chamber("dghs_137", room = "ডেমো চেম্বার · রুম ৫", times = one(listOf(5), "14:00", "15:30"), fee = "৪০০ টাকা", schedule = "শুক্রবার শুধু ফলো-আপ (ডেমো)")
-        val docChambers = listOf(ch1, ch2)
+        // the online (video) chamber in the gap between the morning and evening sessions (Friday: before Kaliakair)
+        val chOnline = Ch(
+            hospitalName = Ch.ONLINE_NAME, hospitalNameBn = Ch.ONLINE_NAME_BN, days = ALL_DAYS.sorted(), start = "13:00", end = "16:00",
+            times = listOf(Slot(ALL_DAYS.filter { it != 5 }, "13:00", "16:00"), Slot(listOf(5), "13:00", "14:00")),
+            schedule = "ভিডিও কলে পরামর্শ (ডেমো)", noFee = false, fee = "৪০০ টাকা", appointments = true, patientMin = 10,
+            mode = Ch.ONLINE, bkashNumber = "01200000204", note = "বুকিংয়ের পর ফি বিকাশে পাঠিয়ে \"টাকা পাঠিয়েছি\" চাপুন। রিপোর্টের ছবি তৈরি রাখুন। (ডেমো)",
+        )
+        val docChambers = listOf(ch1, ch2, chOnline)
         fun verification(t: Long) = linkedMapOf<String, Any?>(
             "verified_by" to "demo-seed", "verified_by_email" to "", "verified_at" to sql.ts(t),
             "verification_checks" to sql.texts(listOf("bmdc_found", "bmdc_name", "bmdc_active", "workplace")),
@@ -350,7 +358,7 @@ class DemoRx(
         )
         fun appt(p: Person, prov: Doc, ch: Ch, day: Long, o: A): String {
             val id = "demo-rx-appt-${(++apptN).toString().padStart(2, '0')}"
-            val chamberKey = ch.hospitalId ?: ch.hospitalName
+            val chamberKey = ch.key
             if (o.serial != null) {
                 val sk = Triple(prov.uid, day, QueueRules.keyOf(chamberKey))
                 serialMax[sk] = maxOf(serialMax[sk] ?: 0, o.serial)
@@ -362,6 +370,13 @@ class DemoRx(
                 "status" to o.status, "provider_note" to o.providerNote, "serial" to o.serial, "cancelled_by" to o.cancelledBy,
                 "created_at" to sql.ts(o.createdAt),
             )
+            if (ch.online) {
+                row["online"] = true
+                row["pay_state"] = "unpaid"
+                row["bkash_number"] = ch.bkashNumber
+                row["fee"] = ch.fee
+                row["online_note"] = ch.note
+            }
             row.putAll(o.extra)
             if (o.status != "pending") row["updated_at"] = sql.ts(o.updatedAt ?: (o.createdAt + 2 * 3600 * 1000))
             sql.insert("appointments", row)
@@ -421,6 +436,20 @@ class DemoRx(
         // a few bookings with other doctors (their lists are not empty)
         appt(bp["shirin"]!!, nas, nas.ch[0], nextOpen(nas.ch[0], today + DAY), A("confirmed", "গর্ভকালীন চেকআপ", now - 8 * 3600 * 1000, serial = 1))
         appt(bp["habib"]!!, mah, mah.ch[0], prevOpen(mah.ch[0], today - 9 * DAY), A("completed", "বুকে ব্যথা", now - 12 * DAY, serial = 2))
+
+        // online (video) chamber: the doctor's paid patient today (serial 1); the demo patient's unpaid and claimed ones
+        // later (not today — the tester books today himself)
+        appt(
+            bp["kamal"]!!, d, chOnline, today,
+            A("confirmed", "ডায়াবেটিসের রিপোর্ট দেখাতে চাই (ভিডিও কলে)", now - DAY, serial = 1, extra = mapOf("pay_state" to "paid", "pay_ref" to "DEMO4K7Q2M", "pay_claimed_at" to sql.ts(now - DAY + 600_000), "pay_paid_at" to sql.ts(now - DAY + 3_600_000), "pay_paid_by" to doc.uid)),
+        )
+        val onUnpaid = nextOpen(chOnline, today + 2 * DAY)
+        appt(me, d, chOnline, onUnpaid, A("confirmed", "সুগারের ওষুধ ঠিক করতে চাই (অনলাইনে)", now - 4 * 3600 * 1000, serial = 1))
+        val onClaimed = nextOpen(chOnline, onUnpaid + 2 * DAY)
+        appt(
+            me, d, chOnline, onClaimed,
+            A("confirmed", "প্রেসারের ফলো-আপ (অনলাইনে)", now - 3 * 3600 * 1000, serial = 1, extra = mapOf("pay_state" to "claimed", "pay_ref" to "DEMO8X2K4P", "pay_claimed_at" to sql.ts(now - 2 * 3600 * 1000))),
+        )
 
         for ((k, n) in serialMax) {
             sql.insert(

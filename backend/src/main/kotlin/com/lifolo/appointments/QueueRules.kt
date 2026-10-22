@@ -30,6 +30,15 @@ data class Appt(
     val lateCount: Int = 0,
     val nearPushAt: Long? = null,
     val createdAt: Long = 0,
+    /** an online (video) chamber appointment (V620) and its fee: pay state null = nothing to pay */
+    val online: Boolean = false,
+    val payState: String? = null,
+    val payRef: String? = null,
+    val payNote: String? = null,
+    val bkashNumber: String = "",
+    val fee: String = "",
+    val noFee: Boolean = false,
+    val onlineNote: String = "",
 ) {
     /** queue.js apptKey: chamberKey || chamber || '' */
     val key: String get() = chamberKey.ifEmpty { chamber }
@@ -61,6 +70,14 @@ data class Appt(
             lateCount = rs.getInt("late_count"),
             nearPushAt = rs.getTimestamp("near_push_at")?.time,
             createdAt = rs.getTimestamp("created_at")?.time ?: 0,
+            online = rs.getBoolean("online"),
+            payState = rs.getString("pay_state"),
+            payRef = rs.getString("pay_ref"),
+            payNote = rs.getString("pay_note"),
+            bkashNumber = rs.getString("bkash_number") ?: "",
+            fee = rs.getString("fee") ?: "",
+            noFee = rs.getBoolean("no_fee"),
+            onlineNote = rs.getString("online_note") ?: "",
         )
     }
 }

@@ -112,6 +112,9 @@ class ProviderStore(private val jdbc: JdbcTemplate) {
                                 appointments = rs.getBoolean("appointments"),
                                 serialPhone = rs.getString("serial_phone") ?: "",
                                 patientMin = rs.getInt("patient_min").let { if (rs.wasNull()) null else it },
+                                mode = rs.getString("mode") ?: Ch.IN_PERSON,
+                                bkashNumber = rs.getString("bkash_number") ?: "",
+                                note = rs.getString("note") ?: "",
                             ),
                         ),
                     )
@@ -155,13 +158,16 @@ class ProviderStore(private val jdbc: JdbcTemplate) {
             jdbc.update(
                 """
                 INSERT INTO provider_chambers (provider_uid, idx, hospital_id, hospital_name, hospital_name_bn, district, upazila_id, union_id,
-                  custom, address, room, days, start_time, end_time, schedule, no_fee, fee, appointments, serial_phone, patient_min)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::smallint[], ?, ?, ?, ?, ?, ?, ?, ?)
+                  custom, address, room, days, start_time, end_time, schedule, no_fee, fee, appointments, serial_phone, patient_min,
+                  mode, bkash_number, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::smallint[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
-                uid, i, c.hospitalId, c.hospitalName, c.hospitalNameBn, c.district, c.upazilaId, c.unionId,
-                c.custom, if (c.custom) c.address else null, c.room, P2Js.pgInts(c.days ?: emptyList()),
+                uid, i, if (c.online) null else c.hospitalId, c.hospitalName, c.hospitalNameBn, if (c.online) null else c.district,
+                if (c.online) null else c.upazilaId, if (c.online) null else c.unionId,
+                c.custom && !c.online, if (c.custom && !c.online) c.address else null, c.room, P2Js.pgInts(c.days ?: emptyList()),
                 c.start?.takeIf { it.isNotEmpty() }, c.end?.takeIf { it.isNotEmpty() }, c.schedule, c.noFee ?: false, c.fee,
                 c.appointments, c.serialPhone, c.patientMin,
+                c.mode, if (c.online) c.bkashNumber.ifEmpty { null } else null, if (c.online) c.note.ifEmpty { null } else null,
             )
             c.times?.forEachIndexed { j, t ->
                 jdbc.update(

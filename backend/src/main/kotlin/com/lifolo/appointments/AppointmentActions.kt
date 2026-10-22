@@ -71,8 +71,11 @@ class AppointmentActions(
         val HOME_TYPES = listOf("doctor", "nurse")
         const val DAY_MS = 24L * 60 * 60 * 1000
 
-        /** appointments.js provider(d): what the app shows of a provider */
-        fun providerOut(p: ProviderDoc): LinkedHashMap<String, Any?> {
+        /**
+         * appointments.js provider(d): what the app shows of a provider. [own] = provider_me (the doctor's own document:
+         * an online chamber's bKash number too — the public list never shows it).
+         */
+        fun providerOut(p: ProviderDoc, own: Boolean = false): LinkedHashMap<String, Any?> {
             val first = p.chambers.firstOrNull()
             val count = p.ratingCount
             val m = LinkedHashMap<String, Any?>()
@@ -85,7 +88,7 @@ class AppointmentActions(
             m["gender"] = p.gender
             m["listed"] = CareRules.isListed(p)
             m["appointments"] = CareRules.takesAppointments(p)
-            m["chambers"] = p.chambers.map { it.toMap() }
+            m["chambers"] = p.chambers.map { it.toMap(withPrivate = own) }
             // the own setting is needed even when off; the phone only while on (then it is public in the list anyway)
             m["homeVisit"] = p.homeVisit?.let { hv ->
                 hv.toMap().apply { put("phone", if (hv.enabled && !p.homeVisitBlocked) Phones.fixPhone(hv.phone) else "") }
@@ -158,12 +161,15 @@ class AppointmentActions(
             hospitalId = b.string("hospitalId")?.takeIf { Rules.isValidId(it) },
             specialty = b.string("specialty")?.takeIf { it in CareRules.specialtiesFor(type, catalog) },
         )
-        val f = CareRules.pickListFilters(b.node, base)
+        // online:true = doctors with an online (video) chamber, wherever they are — the area filters do not apply
+        val f = CareRules.pickListFilters(b.node, base).let {
+            if (it.online == true) it.copy(district = null, upazilaId = null, unionId = null, hospitalId = null) else it
+        }
         val all = providerList(type)
         // old apps (no homeVisit field) book anyone, so they only see people who take appointments
         val oldClient = !b.has("homeVisit")
         val now = clock.now()
-        val areaOnly = ListFilter(district = f.district, upazilaId = f.upazilaId, unionId = f.unionId, hospitalId = f.hospitalId)
+        val areaOnly = ListFilter(district = f.district, upazilaId = f.upazilaId, unionId = f.unionId, hospitalId = f.hospitalId, online = f.online)
         val pool = all.filter { x ->
             when {
                 x.adminSuspended || !CareRules.isListed(x) || !CareRules.matchesFilter(x, areaOnly, now) -> false
@@ -190,7 +196,7 @@ class AppointmentActions(
     }
 
     /** own provider document (null when none) */
-    fun providerMe(ctx: ActionContext): Any = mapOf("provider" to store.load(ctx.user.id)?.let { providerOut(it) })
+    fun providerMe(ctx: ActionContext): Any = mapOf("provider" to store.load(ctx.user.id)?.let { providerOut(it, own = true) })
 
     // ------------------------------------------------------------------ provider_save
 
@@ -272,7 +278,7 @@ class AppointmentActions(
         val parsed: List<Ch> = if (nurse || (chNode.size() == 0 && homeVisit.enabled)) {
             emptyList()
         } else {
-            val r = CareRules.parseChambers(chNode, hosp, badge != "doctor")
+            val r = CareRules.parseChambers(chNode, hosp, badge != "doctor", allowOnline = badge == "doctor")
             if (r.error != null) throw err400(ctx, r.error)
             r.value!!
         }
@@ -344,6 +350,13 @@ class AppointmentActions(
             )
             store.saveChambers(uid, saved)
             if (!keepHome) store.saveHome(uid, homeVisit, if (homeVisit.enabled) now else null)
+            // open online appointments show the doctor's current bKash number and note (the fee stays as booked)
+            saved.firstOrNull { it.online }?.let { oc ->
+                jdbc.update(
+                    "UPDATE appointments SET bkash_number = ?, online_note = ? WHERE provider_uid = ? AND online AND status IN ('pending', 'confirmed')",
+                    oc.bkashNumber.ifEmpty { null }, oc.note.ifEmpty { null }, uid,
+                )
+            }
         }
         // a chamber removed, days changed, list or appointments off: cancel what no longer holds and tell the patients
         val chambers = saved
@@ -430,17 +443,30 @@ class AppointmentActions(
         quotas.use(ctx.lang, uid, "book")
         val name = ((member?.get("name") as? String) ?: users.name(uid)).take(80)
         val id = Ids.newId()
+        // online chamber: the fee to send by bKash (no fee / 0 taka → nothing to pay)
+        val online = ch.online
+        val noFee = online && (ch.noFee == true || CareRules.feeAmount(ch) == 0.0)
+        val payState = if (online && !noFee) "unpaid" else null
         jdbc.update(
             """
             INSERT INTO appointments (id, patient_uid, provider_uid, patient_name, provider_name, member_id, patient_age, patient_gender,
-              by_caretaker, type, chamber, chamber_bn, chamber_key, start_time, room, schedule, visit_date, note, status, provider_note, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '', ?)
+              by_caretaker, type, chamber, chamber_bn, chamber_key, start_time, room, schedule, visit_date, note, status, provider_note, created_at,
+              online, pay_state, bkash_number, fee, no_fee, online_note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', '', ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             id, uid, providerUid, name, ps.name, member?.get("member_id"), (member?.get("age") as? Number)?.toInt(),
             (member?.get("gender") as? String) ?: "", user.actingBy, ps.type, ch.hospitalName, ch.hospitalNameBn, ch.key, slotStart,
             ch.room, ch.schedule, Sql.date(DhakaTime.fromUtcMidnightMs(date)), note, Sql.ts(now),
+            online, payState, if (online) ch.bkashNumber.ifEmpty { null } else null, if (online) (if (noFee) "" else ch.fee) else null,
+            noFee, if (online) ch.note.ifEmpty { null } else null,
         )
-        users.push(providerUid, "New appointment request", "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ", "$name · ${ApptRepo.dateLabel(date)}", mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS))
+        users.push(
+            providerUid,
+            if (online) "New online appointment request" else "New appointment request",
+            if (online) "নতুন অনলাইন অ্যাপয়েন্টমেন্টের অনুরোধ" else "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ",
+            "$name · ${ApptRepo.dateLabel(date)}",
+            mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS),
+        )
         return mapOf("id" to id)
     }
 
@@ -492,9 +518,27 @@ class AppointmentActions(
                 // a doctor sees their patients together (not the real uid, a short key)
                 "otherKey" to (if (role == "provider") Ids.sha256Hex("pat:$uid:$other").take(12) else ""),
                 "createdAt" to a.createdAt,
-            )
+            ).apply { putAll(onlineFields(a, role == "patient")) }
         }
         return mapOf("items" to mine.map { item(it, "patient") } + toMe.map { item(it, "provider") })
+    }
+
+    /**
+     * my_appointments: the online-chamber fields (V620). `payState` null = nothing to pay (in person, or no fee);
+     * the doctor's bKash number only to the patient side.
+     */
+    private fun onlineFields(a: Appt, patientSide: Boolean): Map<String, Any?> {
+        val m = linkedMapOf<String, Any?>(
+            "online" to a.online,
+            "payState" to (if (a.online) a.payState else null),
+            "payRef" to (if (a.online) a.payRef else null),
+            "payNote" to (if (a.online) a.payNote else null),
+            "fee" to (if (a.online) a.fee else null),
+            "noFee" to (if (a.online) a.noFee else null),
+            "onlineNote" to (if (a.online) a.onlineNote else null),
+        )
+        if (patientSide) m["bkashNumber"] = if (a.online && a.payState != null) a.bkashNumber.ifEmpty { null } else null
+        return m
     }
 
     // ------------------------------------------------------------------ appointment_update
@@ -564,7 +608,7 @@ class AppointmentActions(
         }
         val to = if (isProvider) a.patientUid else a.providerUid
         val texts = when (next) {
-            "confirmed" -> "Appointment confirmed" to "অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে"
+            "confirmed" -> if (a.online) "Online appointment confirmed" to "অনলাইন অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" else "Appointment confirmed" to "অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে"
             "declined" -> "Appointment not accepted" to "অ্যাপয়েন্টমেন্ট নেওয়া হয়নি"
             else -> "Appointment cancelled" to "অ্যাপয়েন্টমেন্ট বাতিল হয়েছে"
         }

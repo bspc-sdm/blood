@@ -88,6 +88,8 @@ object ActionPolicy {
         "lab_home_change", "lab_home_cancel",
         "my_appointments", "book", "appointment_update", "providers", "family_get",
         "appointment_queue", "appointment_late",
+        // online chamber fee: the caregiver may say "টাকা পাঠিয়েছি" for the patient
+        "appt_pay_claim",
     )
 
     /**

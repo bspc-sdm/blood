@@ -40,9 +40,43 @@ data class Ch(
     val serialPhone: String = "",
     val patientMin: Int? = null,
     val legacy: Boolean = false,
+    /** "in_person" | "online" (V620) */
+    val mode: String = IN_PERSON,
+    /** online: the doctor's bKash number (01XXXXXXXXX; '' = no fee) — shown only to the owner and a booked patient */
+    val bkashNumber: String = "",
+    /** online: the doctor's short note for patients */
+    val note: String = "",
 ) {
-    fun toMap(): Map<String, Any?> {
+    /** an online (video) chamber: no hospital, no address */
+    val online: Boolean get() = mode == ONLINE
+
+    /** [withPrivate] = the doctor's own view (provider_me): the bKash number too */
+    fun toMap(withPrivate: Boolean = false): Map<String, Any?> {
         val m = LinkedHashMap<String, Any?>()
+        if (online) {
+            m["mode"] = ONLINE
+            m["hospitalId"] = null
+            m["hospitalName"] = ONLINE_NAME
+            m["hospitalNameBn"] = ONLINE_NAME_BN
+            m["district"] = null
+            m["upazilaId"] = null
+            m["unionId"] = null
+            m["room"] = ""
+            m["days"] = days ?: emptyList<Int>()
+            m["start"] = start ?: ""
+            m["end"] = end ?: ""
+            if (times != null) m["times"] = times.map { it.toMap() }
+            m["schedule"] = schedule
+            m["noFee"] = noFee ?: false
+            m["fee"] = fee
+            m["appointments"] = appointments
+            m["serialPhone"] = serialPhone
+            if (patientMin != null) m["patientMin"] = patientMin
+            m["note"] = note
+            if (withPrivate) m["bkashNumber"] = bkashNumber
+            return m
+        }
+        m["mode"] = IN_PERSON
         m["hospitalId"] = hospitalId
         m["hospitalName"] = hospitalName
         m["hospitalNameBn"] = hospitalNameBn
@@ -78,8 +112,15 @@ data class Ch(
         return m
     }
 
-    /** chamberKey of an appointment (`hospitalId || hospitalName`) */
-    val key: String get() = hospitalId?.takeIf { it.isNotEmpty() } ?: hospitalName
+    /** chamberKey of an appointment (`hospitalId || hospitalName`; an online chamber: `online`) */
+    val key: String get() = if (online) ONLINE else hospitalId?.takeIf { it.isNotEmpty() } ?: hospitalName
+
+    companion object {
+        const val IN_PERSON = "in_person"
+        const val ONLINE = "online"
+        const val ONLINE_NAME = "Online video consultation"
+        const val ONLINE_NAME_BN = "অনলাইন ভিডিও পরামর্শ"
+    }
 }
 
 /** providers.homeVisit — [full] false = only `{enabled}` (created by suspend/block on a provider without home care) */
@@ -174,6 +215,8 @@ data class ListFilter(
     val maxFee: Long? = null,
     val hospitalQ: String? = null,
     val gender: String? = null,
+    /** true = online chambers only (the area filters do not apply), false = chambers at a place only, null = both */
+    val online: Boolean? = null,
 )
 
 /** where a patient looks for home care: GPS and/or a chosen district/upazila */
@@ -322,13 +365,28 @@ object CareRules {
         )
     }
 
-    /** care.js parseChambers: the chambers the app sent, checked; [hospitals] = id → hospital (read before) */
-    fun parseChambers(list: JsonNode?, hospitals: Map<String, Place>, allowCustom: Boolean = false): Parsed<List<Ch>> {
+    /** `mode` of a sent chamber: "online" or (anything else / missing) "in_person" */
+    fun isOnlineInput(c: JsonNode?): Boolean = Js.string((c as? ObjectNode)?.get("mode")) == Ch.ONLINE
+
+    /**
+     * care.js parseChambers: the chambers the app sent, checked; [hospitals] = id → hospital (read before).
+     * [allowOnline]: doctors may add one online (video) chamber besides up to 3 at a place (V620).
+     */
+    fun parseChambers(list: JsonNode?, hospitals: Map<String, Place>, allowCustom: Boolean = false, allowOnline: Boolean = false): Parsed<List<Ch>> {
         if (list == null || !list.isArray || list.size() == 0) return Parsed.fail("Add at least one chamber", "অন্তত একটা চেম্বার যোগ করুন")
-        if (list.size() > MAX_CHAMBERS) return Parsed.fail("Up to 3 chambers", "সর্বোচ্চ ৩টা চেম্বার")
+        val onlineCount = list.count { isOnlineInput(it) }
+        if (onlineCount > 0 && !allowOnline) return Parsed.fail("Online chambers are for doctors only", "অনলাইন চেম্বার শুধু ডাক্তারদের জন্য")
+        if (onlineCount > 1) return Parsed.fail("Only one online chamber", "অনলাইন চেম্বার একটাই রাখা যায়")
+        if (list.size() - onlineCount > MAX_CHAMBERS) return Parsed.fail("Up to 3 chambers", "সর্বোচ্চ ৩টা চেম্বার")
         val out = ArrayList<Ch>()
         for (c in list) {
             val co = c as? ObjectNode
+            if (isOnlineInput(c)) {
+                val r = parseOnline(co)
+                if (r.error != null) return Parsed.fail(r.error)
+                out.add(r.value!!)
+                continue
+            }
             val truthy = Js.truthy(c)
             var h: Place? = if (truthy) Js.string(co?.get("hospitalId"))?.let { hospitals[it] } else null
             if (h == null && truthy && !Js.truthy(co?.get("hospitalId")) && allowCustom) {
@@ -394,6 +452,74 @@ object CareRules {
         return Parsed.ok(out)
     }
 
+    private val TRX_RE = Regex("^[A-Z0-9]{6,30}$")
+
+    /** a bKash TrxID as typed (spaces/dashes dropped, upper case); null = none given; [Err] = clearly not a TrxID */
+    fun payRef(raw: String?): Parsed<String?> {
+        val t = (raw ?: "").replace(Regex("[\\s\\-]"), "").uppercase()
+        if (t.isEmpty()) return Parsed.ok(null)
+        if (!TRX_RE.matches(t)) {
+            return Parsed.fail(
+                "Write the bKash TrxID (letters and numbers, as in the bKash message)",
+                "বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)",
+            )
+        }
+        return Parsed.ok(t)
+    }
+
+    /** one online chamber: times, fee (a number of taka, or no fee), the doctor's bKash number (unless no fee), a note */
+    private fun parseOnline(co: ObjectNode?): Parsed<Ch> {
+        val timesNode = co?.get("times")
+        val raw = if (timesNode != null && timesNode.isArray && timesNode.size() > 0) {
+            slotInputs(timesNode)
+        } else {
+            listOf(SlotInput(co?.get("days"), co?.get("start"), co?.get("end")))
+        }
+        val parsedTimes = parseSlots(
+            raw,
+            Err("Choose the days of the online chamber", "অনলাইন চেম্বারে কোন কোন বার বসেন বেছে নিন"),
+            Err("Set the start and end time of the online chamber", "অনলাইন চেম্বারের শুরু আর শেষের সময় দিন"),
+        )
+        if (parsedTimes.error != null) return Parsed.fail(parsedTimes.error)
+        val times = parsedTimes.value!!
+        var noFee = co?.get("noFee")?.let { it.isBoolean && it.booleanValue() } ?: false
+        var fee = if (noFee) "" else str(co?.get("fee"), 40)
+        if (!noFee) {
+            val amount = feeAmount(Ch(fee = fee, noFee = false))
+                ?: return Parsed.fail("Write the fee of the online chamber in taka", "অনলাইন চেম্বারের ফি লিখুন (টাকা)")
+            if (amount <= 0.0) {
+                noFee = true
+                fee = ""
+            }
+        }
+        val bkashRaw = Js.toStr(co?.get("bkashNumber")).trim()
+        val norm = Phones.normalizeBd(bkashRaw)
+        if (norm == null && (!noFee || bkashRaw.isNotEmpty())) {
+            return Parsed.fail("Enter your bKash number (01XXXXXXXXX)", "আপনার বিকাশ নম্বর দিন (01XXXXXXXXX)")
+        }
+        val days = times.flatMap { it.days }.distinct().sorted()
+        return Parsed.ok(
+            Ch(
+                hospitalId = null,
+                hospitalName = Ch.ONLINE_NAME,
+                hospitalNameBn = Ch.ONLINE_NAME_BN,
+                days = days,
+                start = times[0].start,
+                end = times[0].end,
+                times = if (times.size > 1) times else null,
+                schedule = str(co?.get("schedule"), 120),
+                noFee = noFee,
+                fee = fee,
+                appointments = co?.get("appointments")?.let { it.isBoolean && it.booleanValue() } ?: false,
+                serialPhone = phone(co?.get("serialPhone")),
+                patientMin = Js.integer(co?.get("patientMin"))?.takeIf { it in 1..120 }?.toInt(),
+                mode = Ch.ONLINE,
+                bkashNumber = if (norm != null) Phones.localBd(norm) else "",
+                note = str(co?.get("note"), 200),
+            ),
+        )
+    }
+
     /** care.js chamberTimes: the sessions (`times[]`, else one from days/start/end) */
     fun chamberTimes(c: Ch?): List<Slot> {
         if (c == null) return emptyList()
@@ -435,6 +561,9 @@ object CareRules {
     // ------------------------------------------------------------------ list filters (2.33.0)
 
     private fun chamberMatches(c: Ch, f: ListFilter): Boolean {
+        if (f.online != null && c.online != f.online) return false
+        // an online chamber is not at a place: area filters only pick chambers at a place (unless online:true asked)
+        if (f.online == true) return true
         if (!f.hospitalId.isNullOrEmpty()) return c.hospitalId == f.hospitalId
         if (!f.district.isNullOrEmpty() && c.district != f.district) return false
         if (f.upazilaId != null && f.upazilaId != 0L && c.upazilaId?.toLong() != f.upazilaId) return false
@@ -517,7 +646,7 @@ object CareRules {
 
     private fun hasChamberFilter(f: ListFilter): Boolean =
         !f.hospitalId.isNullOrEmpty() || !f.district.isNullOrEmpty() || (f.upazilaId ?: 0L) != 0L || (f.unionId ?: 0L) != 0L ||
-            !f.hospitalQ.isNullOrEmpty() || !f.day.isNullOrEmpty() || f.openNow || f.maxFee != null
+            !f.hospitalQ.isNullOrEmpty() || !f.day.isNullOrEmpty() || f.openNow || f.maxFee != null || f.online != null
 
     fun matchesFilter(p: ProviderDoc, f: ListFilter, now: Long): Boolean {
         if (!f.specialty.isNullOrEmpty() && f.specialty !in p.specialties) return false
@@ -533,7 +662,9 @@ object CareRules {
         val day = Js.string(b.get("day"))?.takeIf { it == "today" || it == "tomorrow" }
         val maxFee = Js.integer(b.get("maxFee"))?.takeIf { it in 1..100000 }
         val gender = Js.string(b.get("gender"))?.takeIf { it == "male" || it == "female" }
+        val online = b.get("online")?.takeIf { it.isBoolean }?.booleanValue()
         return base.copy(
+            online = online,
             day = day,
             openNow = b.get("openNow")?.let { it.isBoolean && it.booleanValue() } ?: false,
             maxFee = maxFee,

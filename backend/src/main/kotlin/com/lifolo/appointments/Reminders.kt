@@ -73,7 +73,9 @@ class AppointmentReminders(
         for (d in confirmed) {
             val serial = if ((d.serial ?: 0) != 0) " · #${d.serial}" else ""
             msg(
-                d.patientUid, "Appointment today", "আজ অ্যাপয়েন্টমেন্ট আছে",
+                d.patientUid,
+                if (d.online) "Online appointment today" else "Appointment today",
+                if (d.online) "আজ অনলাইন অ্যাপয়েন্টমেন্ট আছে" else "আজ অ্যাপয়েন্টমেন্ট আছে",
                 "${d.providerName} · ${d.chamber}$serial",
                 "${d.providerName} · ${d.chamberBn.ifEmpty { d.chamber }}${Lang.bnNumbers(serial)}", "patient",
             )

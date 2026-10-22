@@ -274,8 +274,12 @@ class QueueActions(
             sent++
             push.pushPatient(
                 a.patientUid,
-                "$ahead before you — please come to the chamber",
-                "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — চেম্বারে চলে আসুন",
+                if (a.online) "$ahead before you — get ready for the video call" else "$ahead before you — please come to the chamber",
+                if (a.online) {
+                    "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — অনলাইন ভিডিও কলের জন্য তৈরি থাকুন"
+                } else {
+                    "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — চেম্বারে চলে আসুন"
+                },
                 "${a.providerName} · ${a.chamberBn.ifEmpty { a.chamber }} · #${a.serial}",
                 mapOf("type" to "appointment", "role" to "patient", "id" to a.id),
             )

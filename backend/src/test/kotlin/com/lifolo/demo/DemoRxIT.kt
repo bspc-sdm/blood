@@ -29,7 +29,9 @@ class DemoRxIT : DemoTestBase() {
         for (n in listOf("ডা. ডেমো হাসান", "ডা. ডেমো নাসরিন আক্তার", "ডা. ডেমো কামরুল ইসলাম", "ডা. ডেমো মাহবুব আলম", "ডা. ডেমো ফারজানা হক")) assertTrue(names.contains(n), n)
         assertFalse(names.contains("ডা. ডেমো তানভীর রহমান"), "a doctor waiting for verification is not listed")
         val hasan = list.first { it["uid"].textValue() == doc }
-        assertEquals(2, hasan["chambers"].size())
+        assertEquals(3, hasan["chambers"].size(), "two at a place + the online (video) chamber")
+        assertEquals(listOf("in_person", "in_person", "online"), hasan["chambers"].map { it["mode"].textValue() })
+        assertTrue(hasan["chambers"].none { it.has("bkashNumber") }, "the bKash number is not in the public list")
         assertTrue(hasan["appointments"].booleanValue() && hasan["chambers"].all { it["appointments"].booleanValue() })
         assertFalse(list.first { it["name"].textValue() == "ডা. ডেমো ফারজানা হক" }["appointments"].booleanValue())
         val cardio = ok(null, "providers", mapOf("type" to "doctor", "district" to GZP, "specialty" to "cardiology", "homeVisit" to false))["items"]
@@ -40,9 +42,12 @@ class DemoRxIT : DemoTestBase() {
         assertEquals("doctor", me["badge"]["type"].textValue())
         assertEquals("approved", me["badge"]["status"].textValue())
         assertTrue(me["badge"]["regNo"].textValue().startsWith("DEMO-"))
-        assertEquals(2, ok(doc, "rx_me")["chambers"].size())
+        assertEquals(3, ok(doc, "rx_me")["chambers"].size())
         val docAppts = ok(doc, "my_appointments")["items"].filter { it["role"].textValue() == "provider" }
-        val todays = docAppts.filter { it["date"].longValue() == today }
+        val todays = docAppts.filter { it["date"].longValue() == today && !it["online"].booleanValue() }
+        // online (video) chamber: one paid today; the demo patient's unpaid and claimed ones later
+        assertEquals(listOf("paid"), docAppts.filter { it["date"].longValue() == today && it["online"].booleanValue() }.map { it["payState"].textValue() })
+        assertEquals(setOf("unpaid", "claimed", "paid"), docAppts.filter { it["online"].booleanValue() }.map { it["payState"].textValue() }.toSet())
         assertEquals(listOf(1, 2, 3, 4), todays.filter { it["status"].textValue() == "confirmed" }.map { it["serial"].intValue() }.sorted())
         assertEquals(1, todays.count { it["status"].textValue() == "pending" })
         assertEquals(1, todays.count { it["status"].textValue() == "cancelled" })
@@ -56,6 +61,10 @@ class DemoRxIT : DemoTestBase() {
         val st = patAppts.map { it["status"].textValue() }.toSet()
         for (x in listOf("confirmed", "pending", "completed", "expired", "declined", "cancelled")) assertTrue(st.contains(x), x)
         assertTrue(patAppts.none { it["date"].longValue() == today }, "nothing today — the tester books")
+        val myOnline = patAppts.filter { it["online"].booleanValue() }
+        assertEquals(setOf("unpaid", "claimed"), myOnline.map { it["payState"].textValue() }.toSet())
+        assertTrue(myOnline.all { it["bkashNumber"].textValue() == "01200000204" && it["fee"].textValue() == "৪০০ টাকা" && it["start"].textValue() == "13:00" })
+        assertEquals("DEMO8X2K4P", myOnline.first { it["payState"].textValue() == "claimed" }["payRef"].textValue())
         assertTrue(patAppts.any { it["status"].textValue() == "confirmed" && it["serial"]?.intValue() == 2 && it["otherPhone"]?.textValue() == "01200000213" })
 
         // ---------- the assistant ----------

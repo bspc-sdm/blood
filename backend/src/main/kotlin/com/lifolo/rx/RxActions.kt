@@ -148,11 +148,15 @@ class RxActions(
         val chamberBn: String,
         val memberAge: Int?,
         val memberGender: String?,
+        val online: Boolean = false,
+        val payState: String? = null,
+        val payRef: String? = null,
+        val start: String = "",
     )
 
     private val APPT_SQL = """
         SELECT a.id, a.provider_uid, a.patient_uid, a.member_id, a.patient_name, a.visit_date, a.serial, a.status, a.chamber, a.chamber_bn,
-          m.age AS member_age, m.gender AS member_gender
+          a.online, a.pay_state, a.pay_ref, a.start_time, m.age AS member_age, m.gender AS member_gender
         FROM appointments a LEFT JOIN user_family_members m ON m.uid = a.patient_uid AND m.member_id = a.member_id
     """.trimIndent()
 
@@ -160,6 +164,7 @@ class RxActions(
         rs.getString("id"), rs.getString("provider_uid"), rs.getString("patient_uid"), rs.getString("member_id"),
         rs.getString("patient_name") ?: "", P3Sql.dayMs(rs, "visit_date") ?: 0L, rs.intOrNull("serial"), rs.getString("status"),
         rs.getString("chamber") ?: "", rs.getString("chamber_bn") ?: "", rs.intOrNull("member_age"), rs.getString("member_gender"),
+        rs.getBoolean("online"), rs.getString("pay_state"), rs.getString("pay_ref"), rs.getString("start_time") ?: "",
     )
 
     private fun views(list: List<Prescription>) = list.sortedByDescending { it.createdAt }.map { store.view(it) }
@@ -227,6 +232,7 @@ class RxActions(
                 linkedMapOf(
                     "id" to it.id, "name" to it.patientName, "date" to it.date, "serial" to it.serial?.takeIf { s -> s != 0 }, "status" to it.status,
                     "chamber" to it.chamberBn.ifEmpty { it.chamber },
+                    "online" to it.online, "payState" to it.payState, "payRef" to it.payRef, "start" to it.start,
                 )
             }
         // patients who came through the app (confirmed/completed): one row per patient, the last appointment to write with
