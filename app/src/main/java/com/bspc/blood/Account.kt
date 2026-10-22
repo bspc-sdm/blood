@@ -36,11 +36,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -513,6 +516,7 @@ fun DeactivateAccountScreen(
  * অ্যাকাউন্ট সাময়িক বন্ধ (profile/লগইনের account.state = "deactivated", বা কোনো কাজে 423 `account_deactivated`):
  * পুরো অ্যাপের বদলে এই পর্দা — "আবার চালু করুন" (account_reactivate, তারপর হোম নতুন করে) আর "লগআউট"।
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AccountPausedScreen(
     email: String?,
@@ -528,7 +532,11 @@ fun AccountPausedScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val since = account?.deactivatedAt?.let { AccountState.formatDay(it) }
 
-    Surface(Modifier.fillMaxSize().testTag("account_paused"), color = MaterialTheme.colorScheme.background) {
+    // আলাদা জানালায় (FullScreenDialog) — মূল পাতার testTagsAsResourceId এখানে পৌঁছায় না, তাই Maestro-র জন্য আবার
+    Surface(
+        Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }.testTag("account_paused"),
+        color = MaterialTheme.colorScheme.background,
+    ) {
         Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), contentAlignment = Alignment.Center) {
             Column(
                 Modifier.widthIn(max = 460.dp).fillMaxWidth(),
