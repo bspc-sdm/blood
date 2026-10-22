@@ -29,7 +29,10 @@ This is the checklist for phase 2: **tick an action when its Kotlin port passes 
    240 req/min per IP (429), answers cached 60 s per identical body. Anything else → 401 "Please log in".
 4. Unknown action → 400 "Unknown request. Please update the app." (after the login check).
 5. `body.asUid` → caregiver acts for the patient: only the 25 CARE actions (marked **caregiver** below) and an active
-   `careLinks/{patient}_{caretaker}` (else 403, or 403 `care_revoked`).
+   `careLinks/{patient}_{caretaker}` (else 403, or 403 `care_revoked`; Oct 2026: 403 `care_paused` while the patient's
+   account is deactivated).
+   *Spring, Oct 2026:* before this step a deactivated caller gets 423 `account_deactivated` for everything except
+   `profile_get`, `account_reactivate`, `delete_account`, `notify_prefs_get`, `web_logout` (see "Users & account").
 6. `admin_*` results are logged to `adminLog` unless the result has `unchanged: true` (only actions in adminweb.js LOGGED).
 7. Errors: `{error, code?}`; `body.lang`: `tr(en,bn)` gives Bangla only for `"bn"`; legacy Bangla messages are translated
    to English only for `"en"` (i18n.js). 500 → generic message.
@@ -39,15 +42,66 @@ Auth legend: **guest** = works without login · **user** = Firebase login · **a
 approved-pharmacy/approved-lab = own listing approved; doctor|assistant = doctor or an assistant email of that doctor;
 ambreq-party = patient or driver of that request) · **caregiver** = allowed with `asUid` · **web-panel** = callable with the admin cookie.
 
-## Users & account (package `users`) — 5 actions
+## Users & account (package `users`) — 7 actions
+
+### Account state, deactivation and account emails (Spring only, Oct 2026 — `users/AccountDeactivation.kt`, `notify/AccountMail.kt`)
+
+**`account` object** — in `profile_get` and in the `/api/auth/verify-code` answer (also the demo login), so the apps can show
+the right screen:
+
+```
+account: { state: "active" | "deactivated" | "deleting",
+           deactivatedAt?: ms,                       // state = deactivated
+           deletionRequestedAt?: ms, deletesAt?: ms } // state = deleting (deletesAt = the date the daily job deletes it)
+```
+
+A login cancels a pending deletion before the answer is built, so verify-code answers `active` (or `deactivated`) — never
+`deleting`. Deletion and deactivation never coexist (see below).
+
+**While deactivated** (`accounts.deactivated_at` set — V608):
+
+| | |
+|---|---|
+| allowed actions | **only** `profile_get`, `account_reactivate`, `delete_account`, `notify_prefs_get`, `web_logout` (`ActionPolicy.WHILE_DEACTIVATED`) |
+| every other action (also public ones called with a token, and the legacy `/api/respond`, `/api/notify-request`, `/api/close-request`, `/api/edit-request`) | **423** `{error: "আপনার অ্যাকাউন্ট সাময়িক বন্ধ আছে। চালু করতে \"আবার চালু করুন\" চাপুন।", code: "account_deactivated"}` (English when `lang: "en"`). Checked on the authenticated caller, after the login check and the unknown-action 400 |
+| profile | hidden from everyone else: not a donor for nearby requests or emergency waves (`GeoQuery.nearDonors`); questions/answers/tips stay but the author is shown as **"নিষ্ক্রিয় ব্যবহারকারী"** ("Deactivated user" for `lang: "en"`) with no badge. Blood responses already given keep the name/phone that donor shared with that requester (not re-hidden) |
+| listings | pharmacy, lab, ambulances, blood banks: `status = 'suspended'`, previous status in `hidden_for_deactivation`; doctor/nurse profile + every chamber (no new bookings) and home care: `listed/active/home_visit_enabled = false`, previous values in `providers.deact_listed/deact_active/deact_home`. Provider + guest caches cleared |
+| appointments | already booked ones stay — as patient and as the doctor (they can be cancelled by the other side as usual) |
+| notifications | phone pushes only for category `account` (`PushService.send`); the bell list still records the rest. All device tokens are dropped at deactivation |
+| caregivers | links paused both ways: a caregiver acting for a deactivated patient → 403 `care_paused`; a deactivated caregiver → 423; no caregiver copies of the patient's news (`pushPatient`) |
+| own blood requests / ambulance calls | unchanged (not closed) |
+| expiry | none — the daily job never deletes a deactivated account (only `delete_at` does) |
+
+- [x] **`account_deactivate`** — *Spring only:* switch the own account off temporarily
+  - src: `users/AccountDeactivation.kt` · auth: user, own account only (not a caregiver `asUid` → 403, not the web panel)
+  - request: — · response: `{ok, account, token}` (`unchanged: true` when already off — but see the 423 rule: a deactivated caller gets 423)
+  - effect: sets `deactivated_at`, hides as in the table above, drops every device token and revokes every login
+    (`revokeRefreshTokens` — Firebase revokes per account, so **this device's ID token is revoked too**: `token` is a fresh
+    custom token, as in verify-code, to sign this device in again without a code; a client that ignores it just logs in
+    again and lands on the "turn on again" screen). Email (`account`): "অ্যাকাউন্ট সাময়িক বন্ধ করা হয়েছে — আবার লগইন করে চালু করতে পারবেন"
+  - errors: 409 `deletion_pending` "আপনার অ্যাকাউন্ট মোছার অপেক্ষায় আছে, তাই সাময়িক বন্ধ করা যাবে না। আগে আবার লগইন করে মোছা বাতিল করুন।" (deletion supersedes) · tests: DeactivationIT
+- [x] **`account_reactivate`** — *Spring only:* switch it back on: everything restored (an admin change made meanwhile wins: a listing
+  no longer `suspended` keeps the admin's status, a provider suspended meanwhile stays suspended — lifting it lists it again —,
+  a home-care block keeps home care off)
+  - src: `users/AccountDeactivation.kt` · auth: user, own account · request: — · response: `{ok, account}` (`unchanged: true` when it was not off)
+  - email (`account`): "অ্যাকাউন্ট আবার চালু হয়েছে". The app should call `device_register` again afterwards · tests: DeactivationIT
+
+**Account emails** (SES, `account` category, Bangla + one English line + https://lifolo.com; sent in the background after the
+change is saved — a failure is only logged and never fails the action; none for demo accounts): deletion requested (date =
+`deleteAt` as an Asia/Dhaka date, what will be deleted, "৩০ দিনের মধ্যে লগইন করলে মোছা বাতিল হবে"; only for the first request —
+a repeated request keeps the first date and sends nothing), deletion cancelled by a login (app or web panel) ("মোছা বাতিল হয়েছে"),
+deactivated, reactivated.
 
 - [x] **`delete_account`** — Schedule deletion in 30 days: hide listings (status suspended + hiddenForDeletion), close ambulance requests, suspend provider + cancel appointments, drop FCM tokens, revoke refresh tokens → {ok, deleteAt}
   - src: `server/lib/account.js` → `delete_account` · auth: user · port: **P6**
-  - request: — · response: `…`
+  - Oct 2026: optional `{ack: true}` (the app's "I understand" tick) — accepted and not required, so older apps without it
+    still work. Allowed while deactivated: the deactivation is lifted first (listings restored, no reactivation email), then
+    the deletion hides them as usual. The first request emails the deletion date (see above).
+  - request: `ack?` · response: `{ok, deleteAt}`
   - collections: ambReqLimits, ambulanceCalls, ambulanceRequests, ambulances, appointments, bloodBanks, inbox, labs, pharmacies, providers, serverState, users · side effects: revoke refresh tokens, FCM push + inbox, push to patient + caregivers · errors: — · tests: deletion, demo-health, labtests, rxflow
-- [x] **`profile_get`** — Own profile subset (profileOut) or null
+- [x] **`profile_get`** — Own profile subset (profileOut) or null, plus the account state (Oct 2026)
   - src: `server/lib/clientdata.js` → `actions.profile_get` · auth: user (not guest, not caregiver) · port: **phase 1**
-  - request: — · response: `{profile}`
+  - request: — · response: `{profile, account}` (`account` — see above; also while deactivated)
   - collections: users · side effects: — · errors: — · tests: clientdata
 - [x] **`profile_update`** — Merge-update whitelisted fields (SELF_FIELDS), lat+lng together (→ geohash, donorGeo), lastDonation only forward, commitAdd/commitRemove
   - src: `server/lib/clientdata.js` → `actions.profile_update` · auth: user (not guest, not caregiver) · port: **phase 1**
@@ -800,7 +854,8 @@ ambreq-party = patient or driver of that request) · **caregiver** = allowed wit
 Every push gets one category (`notify/NotifyCats.kt`; NotifyCatsTest fails when a `"type" to "…"` in the server code has
 none). The category is added to the push data as **`cat`** — in the FCM data payload (the apps use it for per-category
 Android channels) and in the bell-list item. If the person's `all` is off, or the category is off, **no FCM message is sent;
-the inbox item is always written**. `account` is always sent (also with `all` off). Unknown types count as `account`.
+the inbox item is always written**. `account` is always sent (also with `all` off) — and it is the **only** category sent to a deactivated account
+(`account_deactivate`, Oct 2026). Unknown types count as `account`.
 Donor picking also skips switched-off donors (`GeoQuery.DONOR_SELECT`): nearby requests need `notify` **and** `all`;
 emergency waves need `blood_emergency` **and** `all` (no longer the nearby switch — V607 sets `blood_emergency` off for
 everyone who had `notify` off, so nobody starts getting appeals they had silenced).
@@ -1057,10 +1112,12 @@ All use the Node `handler` envelope (POST only → 405 `{error:"Method not allow
   emailCodes, serverState (`ip_*`, `_emailGlobalExisting|New`) · email (Gmail → SES) · errors 400/429/503/502 ·
   caps: 50/IP/day, 300 existing + 120 new emails/day globally, 15/email/day, 1/min, ≤3 live codes, 10 min TTL · tests: email (unit).
 - [x] **`POST /api/auth/verify-code`** — `server/api/auth/verify-code.js` · guest · request `email`, `code`, `rids[]` (≤5 × 32-hex), `web`,
-  `demoRoles`, `demo` → `{ok, token, restored}` (app) · `{ok}` + `Set-Cookie: __Host-lf_admin` (web, admins only) ·
-  `{active, roles[{key,name,role}]}` (demoRoles) · `{ok, token, restored, demo:true}` (demo) · emailCodes, serverState, Auth
+  `demoRoles`, `demo` → `{ok, token, restored, account}` (app) · `{ok}` + `Set-Cookie: __Host-lf_admin` (web, admins only) ·
+  `{active, roles[{key,name,role}]}` (demoRoles) · `{ok, token, restored, demo:true, account}` (demo) · emailCodes, serverState, Auth
   (getUserByEmail/createUser/updateUser/revokeRefreshTokens/createCustomToken), deletion cancel (ambulances, bloodBanks,
-  pharmacies, labs, providers) · errors 400/403/404/429 · tests: demo, deletion, websession (unit).
+  pharmacies, labs, providers) — Oct 2026: a cancelled deletion is emailed ("মোছা বাতিল হয়েছে"), and `account` is the state
+  object of "Users & account" (`active` or `deactivated`; logging in does **not** reactivate — the app shows "turn on again")
+  · errors 400/403/404/429 · tests: demo, deletion, websession (unit), DeactivationIT.
 - [x] **`POST /api/notify-request`** — `server/api/notify-request.js` · user (requester) · request `requestId`, `again` →
   `{ok, sent}` / `{ok, already, sent}` · requests, requests/{id}/meta/notified, responses, serverState (requestDay/Count,
   pushDay/Count), users (donorGeo/geohash range scans) · FCM push + inbox to matched donors (radius steps RADII_KM until
@@ -1113,7 +1170,7 @@ Static files served by Vercel today (phase 2: nginx): `/admin` → `server/publi
 | 7 | geohash maintenance (`geo`) | geo.js maintain | users geohash/donorGeo backfill; requests geoOpen add/remove | — | **drop** (SQL partial index replaces geoOpen; donor_geo maintained on write) |
 | 8 | follow-up reminders (`rxReminders`) | prescriptions.js followUpReminders | prescriptions followUpDate in 2 days / tomorrow | push to patient + caregivers | rx |
 | 9 | refill reminders (`refill`) | rxnet.js refillReminders | prescriptions/rxOrders refill date in 2 days | push to patient + caregivers | rx |
-| 10 | scheduled account deletion (`accountsDeleted`) | account.js deletion.runDue | serverState.deleteAt ≤ now (5 per run) → deleteNow (everything, then Auth user) | pushes to affected counterparties | users |
+| 10 | scheduled account deletion (`accountsDeleted`) | account.js deletion.runDue | serverState.deleteAt ≤ now (5 per run) → deleteNow (everything, then Auth user). Deactivated accounts (`deactivated_at`, Oct 2026) are **never** picked: deactivation has no expiry | pushes to affected counterparties | users |
 | 11 | inbox retention (`inboxDeleted`) | inbox.js cleanupInbox | inbox createdAt < now − 21 days (≤4000) | — | notify |
 | 12 | "still available?" ambulance reminders (`ambulanceReminders`) | ambulance.js remindAvailable(backfill) | ambulances remindAt ≤ now (available 11 h) | push to owner | ambulance |
 | 13 | ambulance-request cleanup (`ambulanceRequests`) | ambreq.js dailyCleanup | advance stale active requests; purge exact location/phone/address/note/name 24 h after close (purgeAt) | pushes from advance() | ambulance |

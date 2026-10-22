@@ -1,6 +1,6 @@
 # Lifolo — প্রাইভেসি পলিসি / Privacy Policy
 
-সর্বশেষ আপডেট / Last updated: ২২ অক্টোবর ২০২৬ / 22 October 2026
+সর্বশেষ আপডেট / Last updated: ২৩ অক্টোবর ২০২৬ / 23 October 2026
 
 এই পলিসি Lifolo-র Android অ্যাপ আর ওয়েবসাইট (https://lifolo.com) — দুটোর জন্যই; একই অ্যাকাউন্ট দুই জায়গায় চলে। অ্যাপের আগের নাম ছিল Get Blood। ইংরেজি সংস্করণ নিচে (English version below)।
 
@@ -10,7 +10,7 @@
 - আপনার তথ্য থাকে আমাদের নিজের সার্ভারে (Contabo থেকে ভাড়া করা, এখন ইউরোপে; পরে সিঙ্গাপুরে সরানো হতে পারে)। ছবি থাকে Cloudflare R2-তে।
 - কোনো বিজ্ঞাপন নেই, বিজ্ঞাপনের ID নেওয়া হয় না, তথ্য কখনো বিক্রি করা হয় না।
 - কয়েকটা সেবাদাতা শুধু আমাদের হয়ে নির্দিষ্ট কাজ করে — লগইন ও নোটিফিকেশন (Firebase), ইমেইল (Amazon SES), ক্র্যাশ রিপোর্ট (Sentry), নেটওয়ার্ক ও ছবি রাখা (Cloudflare)। নিচে বিস্তারিত।
-- অ্যাকাউন্ট যেকোনো সময় মুছতে পারবেন: অ্যাপে, https://lifolo.com/delete-account পাতায়, বা ইমেইলে।
+- অ্যাকাউন্ট যেকোনো সময় মুছতে পারবেন: অ্যাপে, https://lifolo.com/delete-account পাতায়, বা ইমেইলে। না মুছে কিছুদিনের জন্য সাময়িক বন্ধও রাখতে পারবেন।
 
 লগইন ছাড়াও অ্যাপ দেখা যায়: তালিকা (ডাক্তার, বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি), প্রশ্নোত্তর, টিপস, জরুরি আহ্বান আর আশেপাশের রক্তের রিকোয়েস্ট (রক্তপ্রার্থীর নাম, ফোন বা নোট ছাড়া)। লগইন ছাড়া ব্যবহারের সময় বেছে নেওয়া এলাকা শুধু আপনার ফোনে বা ব্রাউজারে থাকে।
 
@@ -112,7 +112,7 @@ Google Play-র Data safety ফর্মে আমরা ঠিক এই উত
 - **Cloudflare R2:** ছবি (প্রোফাইলের ছবি, রিপোর্টের ছবি, যাচাইয়ের কাগজের ছবি)। ডাটাবেসের ব্যাকআপের বাইরের কপি চালু থাকলে সেটাও এখানে, পাসওয়ার্ড দিয়ে এনক্রিপ্ট করা — Cloudflare তা খুলতে পারে না।
 - **Cloudflare (নেটওয়ার্ক):** lifolo.com-এর সব যোগাযোগ Cloudflare-এর নেটওয়ার্ক হয়ে আসে — পাতা দ্রুত খোলা আর আক্রমণ ঠেকানোর জন্য। তাই Cloudflare আপনার IP ঠিকানা আর অনুরোধ প্রক্রিয়া করে।
 - **Firebase (Google):** লগইন (Firebase Authentication — আপনার ইমেইল আর অ্যাকাউন্টের ID) আর পুশ নোটিফিকেশন (Firebase Cloud Messaging — ফোনের নোটিফিকেশন টোকেন আর নোটিফিকেশনের লেখা)। এর বাইরে কোনো তথ্য Firebase-এ রাখা হয় না।
-- **Amazon SES (Amazon Web Services):** লগইনের ৬ সংখ্যার কোড ইমেইলে পাঠানো — শুধু আপনার ইমেইল ঠিকানা আর কোড।
+- **Amazon SES (Amazon Web Services):** লগইনের ৬ সংখ্যার কোড আর অ্যাকাউন্টের খবর (মোছার অনুরোধ ও মোছার তারিখ, মোছা বাতিল, সাময়িক বন্ধ, আবার চালু) ইমেইলে পাঠানো — শুধু আপনার ইমেইল ঠিকানা আর সেই বার্তা।
 - **Sentry:** অ্যাপ, ওয়েব আর সার্ভারের ক্র্যাশ ও ভুলের রিপোর্ট। পাঠানোর আগে নাম, ইমেইল, ফোন নম্বর আর টোকেন মুছে ফেলা হয়; স্ক্রিনশট, পর্দার গঠন বা আপনি কী চাপছেন তার রেকর্ড পাঠানো হয় না।
 - **SMS পাঠানোর সেবা (চালু হলে):** ফোন নম্বর যাচাইয়ের কোড SMS-এ পাঠাতে — শুধু নম্বর আর কোড।
 - **Google Maps:** শুধু আপনি নিজে Google Maps-এর লিংক দিলে বা "Google ম্যাপে দেখুন" চাপলে (নিয়ম ওপরে "অ্যাম্বুলেন্স ডাকুন"-এ)।
@@ -147,17 +147,26 @@ Google Play-র Data safety ফর্মে আমরা ঠিক এই উত
 
 **কী হয়:**
 
-- **সাথে সাথে:** মোছার তারিখ ঠিক হয় ৩০ দিন পরে (আগেই অনুরোধ করা থাকলে আগের তারিখই থাকে)। আপনার অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি, চেম্বার আর বাসায় সেবা তালিকা থেকে লুকানো হয়, সব ফোনের নোটিফিকেশন বন্ধ হয়, সব ফোন আর ব্রাউজার থেকে লগআউট হয়।
-- **৩০ দিনের মধ্যে:** আবার লগইন করলে (অ্যাপে বা ওয়েবে) মোছা বাতিল হয়ে সব আগের মতো ফেরে।
+- **সাথে সাথে:** মোছার তারিখ ঠিক হয় ৩০ দিন পরে (আগেই অনুরোধ করা থাকলে আগের তারিখই থাকে)। আপনার অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক, প্যাথলজি, চেম্বার আর বাসায় সেবা তালিকা থেকে লুকানো হয়, সব ফোনের নোটিফিকেশন বন্ধ হয়, সব ফোন আর ব্রাউজার থেকে লগআউট হয়। আপনার ইমেইলে একটা চিঠি যায়: কোন তারিখে (বাংলাদেশ সময়) মুছবে, কী কী মুছবে, আর কীভাবে বাতিল করবেন।
+- **৩০ দিনের মধ্যে:** আবার লগইন করলে (অ্যাপে বা ওয়েবে) মোছা বাতিল হয়ে সব আগের মতো ফেরে, আর ইমেইলে জানানো হয় যে মোছা বাতিল হয়েছে (আপনি নিজে লগইন না করে থাকলে যাতে সাথে সাথে বুঝতে পারেন)।
 - **৩০ দিন পূর্ণ হলে** পরের দৈনিক কাজে (সাধারণত এক দিনের মধ্যে) চিরতরে মোছে: আপনার প্রোফাইল, ছবি, ফোন নম্বর, পরিবারের সদস্য, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, চেম্বারের তথ্য, ব্যাজ, যাচাইয়ের কাগজের ছবি, নোটিফিকেশনের তালিকা, সাহায্যের বার্তা আর রক্তের রিকোয়েস্টে দেওয়া সাড়া; বাসায় সেবা, অ্যাম্বুলেন্স, ফার্মেসি আর ব্লাড ব্যাংকে ফোন আর রেটিংয়ের হিসাব (আপনার রেটিং গড় থেকেও বাদ যায়); আগের হোম নার্সের অনুরোধ থেকে নাম, ঠিকানা, লোকেশন ও নোট। চলমান রিকোয়েস্ট/ভিজিট বন্ধ হয়; যাঁরা রক্ত দিতে রাজি ছিলেন তাঁদের জানানো হয় যে আর যেতে হবে না। শেষে লগইনের অ্যাকাউন্টও (Firebase) মোছে।
   - **প্রেসক্রিপশন ও পরীক্ষা:** আপনার প্রেসক্রিপশন আপনার অ্যাকাউন্ট থেকে খুলে দেওয়া হয় (ডাক্তারের লেখা রেকর্ড ডাক্তারের কাছে থাকে, কারো অ্যাকাউন্টে নয়); ফার্মেসি আর প্যাথলজিতে পাঠানো অনুরোধ (অনলাইন অর্ডার আর বাসা থেকে নমুনার ঠিকানা-ফোনসহ), পরীক্ষার রিপোর্ট, রিপোর্ট দেখানোর টাকার রেকর্ড (TrxID), শেষ বাসার ঠিকানা, ফার্মেসিতে দেওয়া রেটিং আর দুই দিকের কেয়ারগিভার সংযোগ মুছে যায়।
   - **ব্যবসা থাকলে:** আপনার প্যাথলজি ও পরীক্ষার দামের তালিকা, ফার্মেসি, স্টক, "ছিল না" তালিকা, দোকানের হিসাব-খাতা, দোকানে পাওয়া রেটিং, সহকারীর তালিকা, রিপোর্ট দেখানোর সেটিং আর চেম্বারের সিরিয়ালের সারি মুছে যায়; আপনার প্যাথলজিতে আসা সব অর্ডার থেকে রোগীর বাসার ঠিকানা-ফোন মুছে যায় (অর্ডার রোগীর কাছে থাকে)। ডাক্তার অ্যাকাউন্ট মুছলে তাঁর নিজে লেখা রোগীর তালিকা (নাম, বয়স, ফোন) মুছে যায়, কিন্তু তাঁর লেখা প্রেসক্রিপশন রোগীদের কাছে থাকে, কারণ ওগুলো রোগীরও কাগজ। কোনো ফার্মেসি নিজের হিসাব-খাতায় যে বিক্রি তুলেছে (রোগীর নাম ছাড়া), তা সেই দোকানের অ্যাকাউন্ট মোছা পর্যন্ত থাকে।
 - **যা থাকে:** Lifolo টিম কোনো অ্যাম্বুলেন্স, ফার্মেসি, ব্লাড ব্যাংক বা বাসায় সেবা বন্ধ করে থাকলে, অ্যাকাউন্ট মুছলেও সেই নিষেধাজ্ঞা থাকে — এজন্য ইমেইল, গাড়ির নম্বর, লাইসেন্স বা ফোন নম্বর সরাসরি নয়, শুধু একমুখী সংকেত (hash) আকারে রাখা হয়, যাতে আসল তথ্য লেখা থাকে না।
 - **ব্যাকআপ:** মোছা তথ্য সার্ভারের ব্যাকআপে ১৪ দিন আর বাইরের এনক্রিপ্ট করা কপিতে সর্বোচ্চ ৯০ দিন থাকতে পারে, তারপর নিজে থেকে মুছে যায়। ব্যাকআপ শুধু সার্ভার নষ্ট হলে তথ্য ফেরত আনতে ব্যবহার হয়।
 
+## অ্যাকাউন্ট সাময়িক বন্ধ রাখা
+
+মুছতে না চাইলে কিছুদিনের জন্য অ্যাকাউন্ট সাময়িক বন্ধ রাখতে পারেন (অ্যাপে বা ওয়েবে, নিজের অ্যাকাউন্টের জন্য; কেয়ারগিভার রোগীর হয়ে এটা করতে পারেন না)। কিছুই মোছে না, আর কোনো মেয়াদ নেই — যতদিন বন্ধ থাকুক, নিজে থেকে মুছে যায় না।
+
+- **বন্ধ থাকার সময়:** আপনার প্রোফাইল অন্য কেউ দেখে না; রক্তদাতা খোঁজায় আর জরুরি আহ্বানে আপনি আসেন না; আপনার ফার্মেসি, প্যাথলজি, অ্যাম্বুলেন্স, ব্লাড ব্যাংক, ডাক্তারের প্রোফাইল ও চেম্বার আর বাসায় সেবা তালিকা ও খোঁজ থেকে লুকানো থাকে (চেম্বারে নতুন অ্যাপয়েন্টমেন্ট নেওয়া যায় না)। আগে নেওয়া অ্যাপয়েন্টমেন্ট থাকে। আপনার প্রশ্ন, উত্তর আর টিপস থাকে, তবে নামের জায়গায় দেখায় "নিষ্ক্রিয় ব্যবহারকারী"। অ্যাকাউন্টের খবর ছাড়া কোনো নোটিফিকেশন ফোনে আসে না। কেয়ারগিভার সংযোগ দুই দিকেই থেমে থাকে। অন্য সব ফোন আর ব্রাউজার থেকে লগআউট হয়। এ সময় অ্যাপে শুধু প্রোফাইল দেখা, আবার চালু করা আর অ্যাকাউন্ট মোছা যায়।
+- **আবার চালু:** লগইন করে "আবার চালু করুন" চাপলে সব আগের মতো ফেরে।
+- **ইমেইল:** বন্ধ করলে আর আবার চালু করলে আপনার ইমেইলে জানানো হয়।
+- **মোছা আগে:** মোছার অনুরোধ থাকা অবস্থায় সাময়িক বন্ধ করা যায় না (আগে লগইন করে মোছা বাতিল করতে হয়)। বন্ধ থাকা অবস্থায় মোছার অনুরোধ দিলে বন্ধ থাকা শেষ হয়, আর ওপরের "অ্যাকাউন্ট মোছা"-র নিয়ম চলে।
+
 ## আপনার অধিকার ও পছন্দ
 
-- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। নোটিফিকেশন সব একসাথে বা ধরন অনুযায়ী বন্ধ করা যায় (আশেপাশে রক্ত লাগলে, জরুরি রক্তের আহ্বান, আমার রক্তের অনুরোধ, অ্যাপয়েন্টমেন্ট আর সিরিয়াল, প্রেসক্রিপশন-ওষুধ-ল্যাব, অ্যাম্বুলেন্স, প্রশ্নোত্তর আর টিপস, আমার ব্যবসা)। বন্ধ করা ধরনের নোটিফিকেশন ফোনে আসে না, তবে অ্যাপের নোটিফিকেশনের তালিকায় থাকে (২১ দিন); অ্যাকাউন্ট আর নিরাপত্তার খবর (অ্যাকাউন্ট মোছা, Lifolo টিমের বার্তা, কেয়ারগিভারের আমন্ত্রণ) সবসময় আসে। আমরা শুধু এই চালু/বন্ধ পছন্দগুলো আপনার অ্যাকাউন্টের সাথে রাখি; অ্যাকাউন্ট মুছলে মুছে যায়। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
+- প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। নোটিফিকেশন সব একসাথে বা ধরন অনুযায়ী বন্ধ করা যায় (আশেপাশে রক্ত লাগলে, জরুরি রক্তের আহ্বান, আমার রক্তের অনুরোধ, অ্যাপয়েন্টমেন্ট আর সিরিয়াল, প্রেসক্রিপশন-ওষুধ-ল্যাব, অ্যাম্বুলেন্স, প্রশ্নোত্তর আর টিপস, আমার ব্যবসা)। বন্ধ করা ধরনের নোটিফিকেশন ফোনে আসে না, তবে অ্যাপের নোটিফিকেশনের তালিকায় থাকে (২১ দিন); অ্যাকাউন্ট আর নিরাপত্তার খবর (অ্যাকাউন্ট মোছা, Lifolo টিমের বার্তা, কেয়ারগিভারের আমন্ত্রণ) সবসময় আসে — আর অ্যাকাউন্ট সাময়িক বন্ধ থাকলে শুধু এগুলোই আসে। আমরা শুধু এই চালু/বন্ধ পছন্দগুলো আপনার অ্যাকাউন্টের সাথে রাখি; অ্যাকাউন্ট মুছলে মুছে যায়। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
 - আমাদের কাছে আপনার কী তথ্য আছে জানতে, ভুল ঠিক করাতে বা কোনো প্রশ্ন থাকলে **ekapkbd@gmail.com**-এ লিখুন।
 - অ্যাকাউন্ট মোছা: ওপরে দেখুন, বা https://lifolo.com/delete-account।
 
@@ -199,7 +208,7 @@ Last updated: 22 October 2026. This policy covers the Lifolo Android app and the
 - Your data is stored on our own server (rented from Contabo, currently in Europe; it may move to Singapore). Photos are stored in Cloudflare R2.
 - No ads, no advertising ID, and we never sell your data.
 - A few service providers do specific jobs for us — login and notifications (Firebase), email (Amazon SES), crash reports (Sentry), network and photo storage (Cloudflare). Details below.
-- You can delete your account at any time: in the app, at https://lifolo.com/delete-account, or by email.
+- You can delete your account at any time: in the app, at https://lifolo.com/delete-account, or by email. You can also switch it off for a while without deleting anything.
 
 Without logging in, anyone can see the directories (doctors, home care, ambulances, pharmacies, blood banks, labs), Q&A and tips (askers' names hidden), emergency appeals and nearby blood requests (without the requester's name, phone or note). The area you pick as a guest is kept only on your phone or browser.
 
@@ -275,7 +284,7 @@ These are exactly the answers we give in Google Play's Data safety form. "Requir
 - **Cloudflare R2:** photos (profile photos, report photos, verification document photos). When off-site backups are turned on, database backups are kept here too, encrypted with a password — Cloudflare cannot open them.
 - **Cloudflare (network):** all traffic to lifolo.com passes through Cloudflare's network for speed and protection against attacks, so Cloudflare processes your IP address and requests.
 - **Firebase (Google):** login (Firebase Authentication — your email and account ID) and push notifications (Firebase Cloud Messaging — your device's notification token and the notification text). Nothing else is stored in Firebase.
-- **Amazon SES (Amazon Web Services):** sends the 6-digit login code by email — only your email address and the code.
+- **Amazon SES (Amazon Web Services):** sends the 6-digit login code and account notices (deletion requested and its date, deletion cancelled, account deactivated, account turned back on) by email — only your email address and that message.
 - **Sentry:** crash and error reports from the app, web and server. Names, emails, phone numbers and tokens are removed before sending; no screenshots, screen layouts or records of what you tap.
 - **SMS provider (when turned on):** sends phone verification codes — only the number and the code.
 - **Google Maps:** only when you share a Google Maps link or tap "View on Google Maps" (see "Call an ambulance" above).
@@ -310,17 +319,26 @@ You can delete your account in three ways:
 
 **What happens:**
 
-- **Right away:** the deletion date is set 30 days ahead (if you already asked earlier, the earlier date stays). Your ambulances, pharmacy, blood banks, lab, chamber and home care are hidden, notifications stop on every phone, and you are logged out on every phone and browser.
-- **Within 30 days:** logging in again (app or web) cancels the deletion and restores everything.
+- **Right away:** the deletion date is set 30 days ahead (if you already asked earlier, the earlier date stays). Your ambulances, pharmacy, blood banks, lab, chamber and home care are hidden, notifications stop on every phone, and you are logged out on every phone and browser. We email you the date it will be deleted (Bangladesh time), what will be deleted, and how to cancel.
+- **Within 30 days:** logging in again (app or web) cancels the deletion and restores everything, and we email you that the deletion was cancelled (so you notice at once if it wasn't you).
 - **After 30 days**, at the next daily run (usually within a day), everything is deleted for good: your profile, photo, phone number, family members, questions, answers, tips, appointments, chamber details, badge, verification document photos, notification list, help messages and your responses to blood requests; your call and rating records for home care, ambulances, pharmacies and blood banks (your ratings are taken out of their averages); and your name, address, location and notes on old Home Nurse requests. Anything still active is closed, and donors who had agreed to your open requests are told they don't need to come. Finally your login account (Firebase) is deleted.
   - **Prescriptions and tests:** your prescriptions are detached from your account (the doctor's written record stays with the doctor, linked to no account); your pharmacy and lab requests (with delivery and home-sample addresses), lab reports, report-payment records (TrxID), saved home address, pharmacy ratings and caregiver links (both ways) are deleted.
   - **If you run a business:** your lab and its price list, pharmacy, stock list, "not in stock" list, shop books, ratings received, assistant list, report-review settings and chamber serial queues are deleted, and patients' home addresses and phones are removed from every order sent to your lab (the orders stay with the patients). If a doctor deletes their account, the patient list they entered (name, age, phone) is deleted, but the prescriptions they wrote stay with their patients, since those are the patients' records too. Sales a pharmacy recorded in its own books (without the patient's name) stay until that shop's account is deleted.
 - **What is kept:** if the Lifolo team suspended an ambulance, pharmacy, blood bank or home care, the suspension stays after deletion: we keep only a one-way hash of the email, vehicle number, licence or phone number (not the value itself) so it can't be listed again.
 - **Backups:** deleted data can remain in server backups for 14 days and in off-site encrypted copies for up to 90 days, and is then removed automatically. Backups are used only to restore the server after a failure.
 
+## Switching your account off for a while
+
+If you don't want to delete it, you can deactivate your account temporarily (in the app or on the web, for your own account; a caregiver cannot do this for the patient). Nothing is deleted and there is no time limit — however long it stays off, it is never deleted automatically.
+
+- **While it is off:** nobody else sees your profile; you are not picked as a donor for nearby requests or emergency appeals; your pharmacy, lab, ambulances, blood banks, doctor profile and chambers, and home care are hidden from lists and search (no new appointments at your chambers). Appointments already booked stay. Your questions, answers and tips stay, but the author is shown as "Deactivated user". No notifications reach your phone except account notices. Caregiver links are paused both ways. You are logged out on every other phone and browser. Meanwhile the app only lets you see your profile, turn the account back on, or delete it.
+- **Turning it back on:** log in and tap "Turn on again"; everything comes back as it was.
+- **Email:** we email you when it is switched off and when it is turned back on.
+- **Deletion comes first:** you cannot deactivate while a deletion is pending (log in to cancel the deletion first). Asking to delete a deactivated account ends the deactivation, and the "Deleting your account" rules above apply.
+
 ## Your rights and choices
 
-- Change your details and turn notifications off at any time in Profile and Settings — all at once or by kind (nearby blood requests, emergency appeals, your own blood requests, appointments, prescriptions/medicines/lab, ambulance, questions and tips, your business). Turned-off kinds are not sent to your phone but still appear in the in-app notification list (kept 21 days); account and security notices (account deletion, messages from the Lifolo team, caregiver invitations) are always sent. We store only these on/off choices with your account; they are deleted with it. You can turn location permission off in your phone's settings (then pick your area by hand). Remove caregivers and family members at any time.
+- Change your details and turn notifications off at any time in Profile and Settings — all at once or by kind (nearby blood requests, emergency appeals, your own blood requests, appointments, prescriptions/medicines/lab, ambulance, questions and tips, your business). Turned-off kinds are not sent to your phone but still appear in the in-app notification list (kept 21 days); account and security notices (account deletion, messages from the Lifolo team, caregiver invitations) are always sent — and while your account is deactivated, they are the only ones sent. We store only these on/off choices with your account; they are deleted with it. You can turn location permission off in your phone's settings (then pick your area by hand). Remove caregivers and family members at any time.
 - To find out what data we hold about you, to correct it, or with any question, write to **ekapkbd@gmail.com**.
 - Delete your account: see above, or https://lifolo.com/delete-account.
 
