@@ -4,6 +4,9 @@ name: Uptime check
 # ২) VPS-এর স্বাস্থ্য (ssh দিয়ে, deploy/ops/vps-ops.sh health): ডিস্ক ≥ ৮০%, inode ≥ ৮০%, খালি RAM < ১৫%, swap > ৫১২ MB,
 #    কোনো সার্টিফিকেট < ২১ দিন বাকি, শেষ ব্যাকআপ বা অ্যাপের দৈনিক কাজ (daily-maintenance) > ২৬ ঘণ্টা পুরোনো,
 #    গত ৩ ঘণ্টায় lifolo-api নিজে restart (crash/OOM; deploy আর মহড়া বাদ) বা অপ্রত্যাশিত রিবুট।
+# ৩) অ্যাপের কল (LiveKit; deploy/CALLS-SERVER.md) — বসানো থাকলেই: wss://lifolo.com/rtc টোকেন দিয়ে ("success"), বাইরে থেকে
+#    TURN/UDP 3478 আর ICE-TCP 7881; সিক্রেট CALL_VPS_HOST থাকলে (পরের আলাদা কল-VPS) call.lifolo.com-এর /healthz,
+#    সার্টিফিকেট (call আর turn.lifolo.com, < ২১ দিন বাকি হলে ❌), DNS ওই IP-তে কি না।
 # কোনোটা হলে workflow ব্যর্থ হয় → GitHub রিপোর মালিককে ইমেইল পাঠায়। বাংলা সারাংশ workflow-এর পাতায় আর log branch
 # `ci-log-uptime`-এ (summary.md, health.md)।
 # আগে প্রতি ১০ মিনিটে ছিল — রিপো private হলে সেটা একাই মাসে ~৪,৩২০ মিনিট (প্রতিটা চালানো কমপক্ষে ১ মিনিট ধরা হয়),
@@ -133,6 +136,72 @@ jobs:
           echo "fails=${fails:-1}" >> "$GITHUB_OUTPUT"
           echo "warns=${warns:-0}" >> "$GITHUB_OUTPUT"
 
+      # অ্যাপের কল (LiveKit) — বসানো না থাকলে কিছু নয়। চাবি root পাসওয়ার্ড থেকে (deploy/ci/livekit-keys.js), টোকেন ২ মিনিটের।
+      - name: Calls (LiveKit)
+        id: calls
+        env:
+          SSH_OK: ${{ steps.ssh.outcome }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+          CALL_VPS_HOST: ${{ secrets.CALL_VPS_HOST }}
+          CALL_VPS_ROOT_PASSWORD: ${{ secrets.CALL_VPS_ROOT_PASSWORD }}
+        run: |
+          out="$RUNNER_TEMP/out"; f="$out/calls.md"; : > "$f"
+          fails=0
+          row() { echo "| $1 | $2 | $3 |" >> "$f"; [ "$1" != "❌" ] || fails=$((fails + 1)); }
+          validate() { # $1 নাম, $2 টোকেন-ফাইল → "success" হলে 0; Cloudflare আটকালে VPS-এর ভেতর থেকে
+            local b
+            b="$(curl -sS -m 20 -A 'Mozilla/5.0 (lifolo-uptime)' "https://$1/rtc/validate?access_token=$(cat "$2")" 2>&1 || true)"
+            [ "$b" = success ] && { echo "success"; return 0; }
+            if [ "$1" = lifolo.com ] && [ "$SSH_OK" = success ]; then
+              b="$(ssh vps "curl -sS -m 20 --resolve 'lifolo.com:443:127.0.0.1' 'https://lifolo.com/rtc/validate?access_token=$(cat "$2")'" 2>&1 || true)"
+              [ "$b" = success ] && { echo "success (VPS-এর ভেতর থেকে; Cloudflare আটকেছে)"; return 0; }
+            fi
+            echo "$b" | tr -d '\n|' | cut -c1-80; return 1
+          }
+          cert_days() { # $1 নাম → দিন বাকি
+            local end
+            end="$(echo | timeout 15 openssl s_client -connect "$1:443" -servername "$1" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
+            [ -n "$end" ] && echo $(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
+          }
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          main=absent
+          if [ "$SSH_OK" = success ]; then
+            main="$(ssh vps 'if [ -f /etc/systemd/system/livekit-server.service ]; then systemctl is-active livekit-server || true; else echo absent; fi' 2>/dev/null | tail -1)"
+          fi
+          if [ "$main" != absent ] && [ -n "$main" ]; then
+            [ "$main" = active ] && row ✅ "LiveKit (মূল VPS)" "চালু" || row ❌ "LiveKit (মূল VPS)" "$main — Actions → Setup calls (LiveKit)"
+            LIFOLO_MASTER="$VPS_ROOT_PASSWORD" node deploy/ci/livekit-keys.js --token "$RUNNER_TEMP/lk-main" >/dev/null 2>&1 || true
+            if r="$(validate lifolo.com "$RUNNER_TEMP/lk-main")"; then row ✅ "wss://lifolo.com/rtc" "$r"; else row ❌ "wss://lifolo.com/rtc" "$r"; fi
+            r="$(python3 deploy/ci/stun-check.py "$ip" 3478 2>&1 || true)"
+            [[ "$r" == ok* ]] && row ✅ "TURN/UDP 3478 (বাইরে থেকে)" "সাড়া দেয়" || row ❌ "TURN/UDP 3478 (বাইরে থেকে)" "${r//$ip/<ip>}"
+            timeout 6 bash -c "</dev/tcp/$ip/7881" 2>/dev/null && row ✅ "ICE-TCP 7881" "খোলা" || row ❌ "ICE-TCP 7881" "বন্ধ"
+          fi
+          cip="$(printf '%s' "$CALL_VPS_HOST" | tr -d '[:space:]')"
+          if [[ "$cip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+            echo "::add-mask::$cip"
+            h="$(curl -fsS -m 15 https://call.lifolo.com/healthz 2>&1 || true)"
+            [ "$h" = OK ] && row ✅ "call.lifolo.com/healthz" "OK" || row ❌ "call.lifolo.com/healthz" "$(printf '%s' "$h" | cut -c1-80)"
+            LIFOLO_MASTER="$CALL_VPS_ROOT_PASSWORD" node deploy/ci/livekit-keys.js --token "$RUNNER_TEMP/lk-call" >/dev/null 2>&1 || true
+            if r="$(validate call.lifolo.com "$RUNNER_TEMP/lk-call")"; then row ✅ "wss://call.lifolo.com/rtc" "$r"; else row ❌ "wss://call.lifolo.com/rtc" "$r"; fi
+            for n in call.lifolo.com turn.lifolo.com; do
+              got="$(getent ahostsv4 "$n" | awk '{print $1}' | sort -u | tr '\n' ' ')"
+              [[ " $got " == *" $cip "* ]] && row ✅ "DNS $n" "কল-VPS-এ (ধূসর মেঘ)" || row ❌ "DNS $n" "কল-VPS-এ নয় — Cloudflare-এ A রেকর্ড, DNS only"
+              d="$(cert_days "$n" || true)"
+              if [ -z "$d" ]; then row ❌ "সার্টিফিকেট $n" "পড়া গেল না"
+              elif [ "$d" -lt 21 ]; then row ❌ "সার্টিফিকেট $n" "$d দিন বাকি — Setup calls (dedicated) আবার চালান"
+              else row ✅ "সার্টিফিকেট $n" "$d দিন বাকি"; fi
+            done
+            r="$(python3 deploy/ci/stun-check.py "$cip" 3478 2>&1 || true)"
+            [[ "$r" == ok* ]] && row ✅ "TURN/UDP 3478 (কল-VPS)" "সাড়া দেয়" || row ❌ "TURN/UDP 3478 (কল-VPS)" "${r//$cip/<ip>}"
+          fi
+          rm -f "$RUNNER_TEMP/lk-main" "$RUNNER_TEMP/lk-call"
+          if [ -s "$f" ]; then
+            { echo "### অ্যাপের কল (LiveKit)"; echo; echo "| | কী | অবস্থা |"; echo "|---|---|---|"; cat "$f"; } > "$f.new" && mv "$f.new" "$f"
+          fi
+          cat "$f"
+          echo "fails=$fails" >> "$GITHUB_OUTPUT"
+
       - name: Summary
         if: always()
         env:
@@ -141,10 +210,11 @@ jobs:
           VIA: ${{ steps.check.outputs.via }}
           FAILS: ${{ steps.health.outputs.fails }}
           WARNS: ${{ steps.health.outputs.warns }}
+          CALL_FAILS: ${{ steps.calls.outputs.fails }}
         run: |
           out="$RUNNER_TEMP/out"
           {
-            if [ "$UP" = yes ] && [ "${FAILS:-1}" = 0 ]; then
+            if [ "$UP" = yes ] && [ "${FAILS:-1}" = 0 ] && [ "${CALL_FAILS:-0}" = 0 ]; then
               echo "## ✅ Lifolo চালু, VPS ঠিক আছে$([ "${WARNS:-0}" = 0 ] || echo " (${WARNS}টা নজরে রাখার মতো ⚠️)")"
             else
               echo "## ❌ Lifolo-তে সমস্যা"
@@ -155,6 +225,8 @@ jobs:
             echo
             grep -v '^HEALTH ' "$out/health.md" 2>/dev/null
             echo
+            if [ -s "$out/calls.md" ]; then cat "$out/calls.md"; echo; fi
+            [ "${CALL_FAILS:-0}" = 0 ] || { echo "কল: Actions → **Setup calls (LiveKit)** → Run workflow (শুধু পরীক্ষা: check_only) — কোথায় আটকাচ্ছে দেখায়।"; echo; }
             if [ "${FAILS:-1}" != 0 ]; then
               echo "কী করবেন: ডিস্ক/inode → Actions → **Ops: disk and RAM check** (কোথায় জায়গা গেল); সার্টিফিকেট → **Ops: SSL and Cloudflare check**;"
               echo "ব্যাকআপ/দৈনিক কাজ → **Ops: timers and jobs check**; অপ্রত্যাশিত restart → অ্যাপের লগ (ওই disk check-এ ERROR-এর তালিকা)।"
@@ -176,17 +248,20 @@ jobs:
           [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-uptime
           src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/uptime"
           cp "$RUNNER_TEMP/out/summary.md" "$RUNNER_TEMP/out/health.md" "$src/uptime/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/out/calls.md" "$src/uptime/" 2>/dev/null || true
           bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" uptime
 
       - name: Alert
-        if: steps.check.outputs.alert == 'yes' || steps.health.outputs.fails != '0'
+        if: steps.check.outputs.alert == 'yes' || steps.health.outputs.fails != '0' || (steps.calls.outputs.fails != '' && steps.calls.outputs.fails != '0')
         env:
           URL: ${{ steps.url.outputs.url }}
           ALERT: ${{ steps.check.outputs.alert }}
           FAILS: ${{ steps.health.outputs.fails }}
+          CALL_FAILS: ${{ steps.calls.outputs.fails }}
         run: |
           [ "$ALERT" != yes ] || echo "::error::সার্ভার বন্ধ: $URL"
           [ "${FAILS:-1}" = 0 ] || echo "::error::VPS-এর স্বাস্থ্যে ${FAILS:-?}টা সমস্যা — পাতার সারাংশ দেখুন"
+          [ "${CALL_FAILS:-0}" = 0 ] || echo "::error::অ্যাপের কলে (LiveKit) ${CALL_FAILS}টা সমস্যা — পাতার সারাংশ দেখুন"
           exit 1
 
       - name: Clean up

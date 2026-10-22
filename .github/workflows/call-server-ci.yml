@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: call-server-ci-${{ github.ref }}
@@ -180,14 +180,35 @@ jobs:
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium-headless-shell >/dev/null
           if [ "${{ matrix.mode }}" = main ]; then url=wss://lifolo.test; modes=direct,relay-udp; else url=wss://call.lifolo.test; modes=direct,relay-udp,relay-tls; fi
-          LIVEKIT_URL="$url" LIFOLO_MASTER=ci-test-master SMOKE_MODES="$modes" SMOKE_MD="$RUNNER_TEMP/smoke.md" SMOKE_OUT="$RUNNER_TEMP/smoke.json" node smoke.mjs
+          rc=0
+          SMOKE_INSECURE=1 LIVEKIT_URL="$url" LIFOLO_MASTER=ci-test-master SMOKE_MODES="$modes" SMOKE_MD="$RUNNER_TEMP/smoke.md" SMOKE_OUT="$RUNNER_TEMP/smoke.json" \
+            node smoke.mjs > "$RUNNER_TEMP/smoke.log" 2>&1 || rc=$?
+          tail -150 "$RUNNER_TEMP/smoke.log"
+          exit "$rc"
 
       - name: Logs on failure
         if: failure()
         run: |
-          sudo journalctl -u livekit-server -n 120 --no-pager || true
-          sudo nginx -T 2>/dev/null | grep -v -E 'ssl_certificate_key' | tail -150 || true
-          sudo ufw status verbose || true
+          {
+            sudo journalctl -u livekit-server -n 200 --no-pager || true
+            sudo nginx -T 2>/dev/null | grep -v -E 'ssl_certificate_key' | tail -150 || true
+            sudo ufw status verbose || true
+            sudo tail -50 /var/log/nginx/error.log || true
+          } > "$RUNNER_TEMP/server.log" 2>&1
+          tail -120 "$RUNNER_TEMP/server.log"
+
+      # Actions-এর লগ sandbox থেকে পড়া যায় না — তাই ফল log branch-এ (ci-log-calls-ci/<mode>/)
+      - name: Publish to the log branch
+        if: always() && github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: calls ci ${{ matrix.mode }} ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/${{ matrix.mode }}"
+          for f in smoke.md smoke.json smoke.log status.txt server.log; do cp "$RUNNER_TEMP/$f" "$src/${{ matrix.mode }}/" 2>/dev/null || true; done
+          echo "run=${GITHUB_RUN_ID} sha=${GITHUB_SHA} job=${{ job.status }}" > "$src/${{ matrix.mode }}/run.txt"
+          bash .github/scripts/publish-log.sh ci-log-calls-ci "$src" "${{ matrix.mode }}"
 
       - name: Summary
         if: always()
