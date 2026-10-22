@@ -1,4 +1,5 @@
 # অতিথির হোম থেকে "লগইন" → ডেমো রোল (ROLE) — শেষে অপেক্ষা যাত্রার নিজের (সাময়িক বন্ধ হলে আটকানো পর্দা আসে, হোম নয়)
+# ডেমোর তালিকা লগইন পাতা খোলার সময় একবারই আসে; না এলে (সার্ভারের ক্ষণিক ভুল) পাতা বন্ধ করে আবার খোলা — দুবার পর্যন্ত
 appId: com.bspc.blood
 ---
 - runFlow: dismiss.yaml
@@ -9,8 +10,38 @@ appId: com.bspc.blood
 - scrollUntilVisible:
     element: ".*${ROLE}.*"
     direction: DOWN
-    timeout: 60000
+    timeout: 30000
     centerElement: true
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*${ROLE}.*"
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible: "লগইন"
+          timeout: 20000
+      - tapOn: "লগইন"
+      - scrollUntilVisible:
+          element: ".*${ROLE}.*"
+          direction: DOWN
+          timeout: 30000
+          centerElement: true
+          optional: true
+- runFlow:
+    when:
+      notVisible: ".*${ROLE}.*"
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible: "লগইন"
+          timeout: 20000
+      - tapOn: "লগইন"
+      - scrollUntilVisible:
+          element: ".*${ROLE}.*"
+          direction: DOWN
+          timeout: 60000
+          centerElement: true
 - tapOn: ".*${ROLE}.*"
 - extendedWaitUntil:
     visible: ".*(সেটিংস ও প্রোফাইল|আবার চালু করুন).*"
