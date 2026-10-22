@@ -110,7 +110,7 @@ object AccountState {
 
     /** তারিখ (ঢাকার দিন): "২২ নভেম্বর ২০২৬" / "22 Nov 2026" */
     fun formatDay(millis: Long, bangla: Boolean = isBangla): String {
-        val f = if (bangla) SimpleDateFormat("d MMMM yyyy", Locale("bn", "BD")) else SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
+        val f = if (bangla) SimpleDateFormat("d MMMM yyyy", Locale.forLanguageTag("bn-BD")) else SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
         f.timeZone = TimeZone.getTimeZone("Asia/Dhaka")
         return f.format(Date(millis))
     }

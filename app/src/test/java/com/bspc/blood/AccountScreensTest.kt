@@ -47,6 +47,7 @@ class AccountScreensTest {
         rule.setContent { GetBloodTheme { Surface { content() } } }
     }
 
+    @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     private fun shot(name: String) {
         captureScreenRoboImage("build/screens/account_$name.png")
     }
@@ -113,7 +114,8 @@ class AccountScreensTest {
             )
         }
         rule.onNodeWithTag("delete_ack_off").performScrollTo().performClick()
-        rule.onNodeWithTag("delete_confirm").performClick()
+        // বোতাম পর্দার বাইরে থাকলে চাপ লাগে না — আগে সেখানে
+        rule.onNodeWithTag("delete_confirm").performScrollTo().performClick()
         rule.waitForIdle()
         rule.onNodeWithText("সার্ভারে সমস্যা").assertExists()
         assertEquals(0, signedOut)
