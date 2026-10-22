@@ -125,6 +125,10 @@ No phone numbers in any call payload. `callerPhoto` is NOT in the push (FCM 4 KB
 blood_emergency, my_request, appointments, rx, ambulance, community, business, calls}}`; `notify_prefs_set {cats:{calls:false}}`.
 
 ## Online chambers
+> **Owned by the spring-p15 backend agent** (chamber mode/bkashNumber/note, appointment `online`/`payState`/`payRef`,
+> `appt_pay_claim` / `appt_pay_confirm`, my_appointments / rx_patients fields). The text below is the agreed shape; spring-p15
+> may refine it here. spring-p14 (calls) implements only `appt_join` + `appt_call_ready`, reading `appointments.online`.
+
 * Chamber JSON (`provider_save` in, `provider_me` / `providers` out): `mode: "in_person" | "online"` (missing =
   `in_person`). An online chamber: `{mode:"online", days/start/end or times[], fee/noFee, appointments, patientMin?,
   bkashNumber, note?}` — no `hospitalId`, no address, at most **one** online chamber, doctors only.
