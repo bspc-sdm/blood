@@ -499,7 +499,7 @@ class AppointmentActions(
         val phones = users.profiles(need).mapValues { it.value.phone }
         fun item(a: Appt, role: String): Map<String, Any?> {
             val other = if (role == "patient") a.providerUid else a.patientUid
-            return linkedMapOf(
+            return linkedMapOf<String, Any?>(
                 "id" to a.id,
                 "role" to role,
                 "otherName" to (if (role == "patient") a.providerName else a.patientName),
