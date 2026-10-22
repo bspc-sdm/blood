@@ -46,25 +46,26 @@ object NotifyCats {
     fun catOf(data: Map<String, String?>): String {
         val cat = data["cat"]?.trim()
         if (!cat.isNullOrEmpty() && cat in ALL) return cat
-        return fromType(data["type"], data["kind"], data["sub"])
+        return fromType(data["type"], data["sub"])
     }
 
-    /** পুরোনো সার্ভারের পুশ (cat ছাড়া): type (আর kind/sub) থেকে ধরন */
-    fun fromType(type: String?, kind: String? = null, sub: String? = null): String =
+    /** পুরোনো সার্ভারের পুশ (cat ছাড়া): type (আর sub) থেকে ধরন — সার্ভারের NotifyCats (backend/…/notify) মতোই */
+    fun fromType(type: String?, sub: String? = null): String =
         when (type) {
-            // ডোনারকে: কাছের রিকোয়েস্ট, রাজি হওয়া রিকোয়েস্টের খবর, আবার রক্ত দিতে পারবেন
-            "request", "request_removed", "eligible" -> BLOOD_NEARBY
+            // পুরোনো সার্ভারে "request" বেশিরভাগই কাছের ডোনারকে নতুন রিকোয়েস্ট; আবার রক্ত দিতে পারবেন
+            // (নতুন সার্ভার নিজেই cat দেয়: রাজি হওয়া রিকোয়েস্টের পরের খবর my_request)
+            "request", "eligible" -> BLOOD_NEARBY
             "emergency" -> BLOOD_EMERGENCY
-            // রক্তপ্রার্থীকে: কেউ রাজি হলেন/সরে গেলেন
-            "response" -> MY_REQUEST
+            // রক্তপ্রার্থীকে: কেউ রাজি হলেন/সরে গেলেন; ডোনারকে: রাজি হওয়া রিকোয়েস্ট মুছে ফেলা হয়েছে
+            "response", "request_removed" -> MY_REQUEST
             "appointment", "homecare", "homevisit" -> APPOINTMENTS
-            "rx", "rx_review", "care", "med_find_mine" -> RX
+            "rx", "med_find_mine" -> RX
             "amb_req_mine", "amb_call" -> AMBULANCE
             "answer" -> COMMUNITY
-            "rx_pharmacy", "rx_lab", "med_find", "pharmacy_order", "pharmacy_mine" -> BUSINESS
-            // চালককে অ্যাম্বুলেন্স ডাকা জরুরি; বাকি ব্যবসার খবর (অনুমোদন, কাগজ চাওয়া)
-            "services" -> if (kind == "ambulance" && sub == "amb_req") AMBULANCE else BUSINESS
-            // badge, correction, support, hospital আর অচেনা — অ্যাকাউন্ট (সবসময় চালু)
+            "rx_pharmacy", "rx_lab", "rx_review", "med_find", "pharmacy_order", "pharmacy_mine", "badge" -> BUSINESS
+            // চালককে অ্যাম্বুলেন্স ডাকার খবর জরুরি; বাকি ব্যবসার খবর (অনুমোদন, কাগজ চাওয়া)
+            "services" -> if (sub == "amb_req") AMBULANCE else BUSINESS
+            // care (কেয়ারগিভারের আমন্ত্রণ), correction, support, hospital আর অচেনা — অ্যাকাউন্ট (সবসময় চালু)
             else -> ACCOUNT
         }
 
@@ -85,13 +86,13 @@ object NotifyCats {
         BLOOD_EMERGENCY -> tr("Urgent calls for blood in your area", "এলাকায় জরুরি রক্তের ডাক")
         MY_REQUEST -> tr("When donors respond to your request", "আপনার রিকোয়েস্টে কেউ রাজি হলে বা সরে গেলে")
         APPOINTMENTS -> tr("Bookings, reminders and your turn in the queue", "বুকিং, রিমাইন্ডার আর সিরিয়াল এগোলে")
-        RX -> tr("New prescriptions, pharmacy, lab reports, caregivers", "নতুন প্রেসক্রিপশন, ফার্মেসি, ল্যাব রিপোর্ট, কেয়ারগিভার")
+        RX -> tr("New prescriptions, medicine orders and lab reports", "নতুন প্রেসক্রিপশন, ওষুধের অর্ডার আর ল্যাব রিপোর্ট")
         AMBULANCE -> tr("Updates on the ambulance you called", "আপনার ডাকা অ্যাম্বুলেন্সের খবর")
         COMMUNITY -> tr("Answers to your questions and health tips", "আপনার প্রশ্নের উত্তর আর স্বাস্থ্য টিপস")
-        BUSINESS -> tr("Orders, requests and approvals for your business", "আপনার ব্যবসার অর্ডার, অনুরোধ আর অনুমোদন")
+        BUSINESS -> tr("Orders, bookings and approvals for your business or chamber", "আপনার ব্যবসা বা চেম্বারের অর্ডার, বুকিং আর অনুমোদন")
         else -> tr(
-            "Login, badge, corrections and support replies. These can't be turned off.",
-            "লগইন, ব্যাজ, তথ্য সংশোধন আর সাপোর্টের উত্তর — এগুলো বন্ধ করা যায় না।",
+            "Login, caregivers, corrections and support replies. These can't be turned off.",
+            "লগইন, কেয়ারগিভার, তথ্য সংশোধন আর সাপোর্টের উত্তর — এগুলো বন্ধ করা যায় না।",
         )
     }
 }

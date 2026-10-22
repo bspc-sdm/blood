@@ -33,10 +33,10 @@ class NotifyCatsTest {
     fun everyOldServerPushTypeHasACategory() {
         // রক্ত
         assertEquals(NotifyCats.BLOOD_NEARBY, c("type" to "request", "requestId" to "r1"))
-        assertEquals(NotifyCats.BLOOD_NEARBY, c("type" to "request_removed"))
         assertEquals(NotifyCats.BLOOD_NEARBY, c("type" to "eligible"))
         assertEquals(NotifyCats.BLOOD_EMERGENCY, c("type" to "emergency", "emergencyId" to "e1"))
         assertEquals(NotifyCats.MY_REQUEST, c("type" to "response", "requestId" to "r1"))
+        assertEquals(NotifyCats.MY_REQUEST, c("type" to "request_removed"))
         // অ্যাপয়েন্টমেন্ট, বাসায় সেবা
         assertEquals(NotifyCats.APPOINTMENTS, c("type" to "appointment", "role" to "patient"))
         assertEquals(NotifyCats.APPOINTMENTS, c("type" to "appointment", "role" to "provider"))
@@ -44,8 +44,6 @@ class NotifyCatsTest {
         assertEquals(NotifyCats.APPOINTMENTS, c("type" to "homevisit"))
         // প্রেসক্রিপশন, ওষুধ, ল্যাব, কেয়ারগিভার
         assertEquals(NotifyCats.RX, c("type" to "rx", "rxId" to "x1"))
-        assertEquals(NotifyCats.RX, c("type" to "rx_review"))
-        assertEquals(NotifyCats.RX, c("type" to "care", "asUid" to "p1", "rxId" to "x1"))
         assertEquals(NotifyCats.RX, c("type" to "med_find_mine"))
         // অ্যাম্বুলেন্স: রোগীর ডাকা, আর চালককে ডাক
         assertEquals(NotifyCats.AMBULANCE, c("type" to "amb_req_mine", "reqId" to "a1"))
@@ -62,8 +60,11 @@ class NotifyCatsTest {
         assertEquals(NotifyCats.BUSINESS, c("type" to "med_find"))
         assertEquals(NotifyCats.BUSINESS, c("type" to "pharmacy_order"))
         assertEquals(NotifyCats.BUSINESS, c("type" to "pharmacy_mine"))
-        // অ্যাকাউন্ট (সবসময় চালু)
-        listOf("badge", "correction", "support", "hospital").forEach { assertEquals(it, NotifyCats.ACCOUNT, c("type" to it)) }
+        assertEquals(NotifyCats.BUSINESS, c("type" to "rx_review"))
+        assertEquals(NotifyCats.BUSINESS, c("type" to "badge"))
+        // অ্যাকাউন্ট (সবসময় চালু); কেয়ারগিভারের কাছে রোগীর খবরে নতুন সার্ভার নিজেই cat দেয়
+        assertEquals(NotifyCats.RX, c("type" to "care", "asUid" to "p1", "rxId" to "x1", "cat" to "rx"))
+        listOf("care", "correction", "support", "hospital").forEach { assertEquals(it, NotifyCats.ACCOUNT, c("type" to it)) }
     }
 
     @Test
