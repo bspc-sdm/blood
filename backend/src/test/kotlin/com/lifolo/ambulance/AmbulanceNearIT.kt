@@ -191,7 +191,8 @@ class AmbulanceNearIT : AmbTestBase() {
         val p = pushes().single()
         assertEquals("rOwn1", p["uid"])
         assertEquals("জীবন মিনি — এখনো খালি আছেন?", p["title"])
-        assertEquals(json(mapOf("type" to "services", "kind" to "ambulance", "ambulanceId" to "rDue")), mapper.readTree(p["data"] as String))
+        // every push carries its notification category (NotifyCats): the driver's "still available?" is "business"
+        assertEquals(json(mapOf("type" to "services", "kind" to "ambulance", "ambulanceId" to "rDue", "cat" to "business")), mapper.readTree(p["data"] as String))
         assertEquals(now, (ambRow("rDue")["reminder_sent_at"] as java.sql.Timestamp).time)
         for (id in listOf("rDue", "rGone", "rBusy", "rPend")) assertNull(ambRow(id)["remind_at"], id)
         assertEquals(now - 10 * HOUR + 11 * HOUR, (ambRow("rEarly")["remind_at"] as java.sql.Timestamp).time)

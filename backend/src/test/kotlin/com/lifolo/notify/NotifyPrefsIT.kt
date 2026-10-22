@@ -104,14 +104,15 @@ class NotifyPrefsIT : BloodTestBase() {
         withToken("m2")
         ok("m1", "notify_prefs_set", mapOf("all" to false))
         push.messages.clear()
-        pushService.send(samples.values.flatMap { d -> listOf(PushItem("m1", "x", "", d), PushItem("m2", "x", "", d)) })
+        // distinct titles: the same text to the same phone goes once (PushService dedupe)
+        pushService.send(samples.entries.flatMap { (c, d) -> listOf(PushItem("m1", "x-$c", "", d), PushItem("m2", "x-$c", "", d)) })
         assertEquals(listOf("account"), push.messages.filter { it.uid == "m1" }.map { it.data["cat"] })
         assertEquals(samples.size, push.messages.count { it.uid == "m2" })
         assertEquals(samples.size, inboxCount("m1"))
         // account always, even with the category list all off
         ok("m1", "notify_prefs_set", mapOf("all" to true, "cats" to NotifyCats.SETTABLE.associateWith { false }))
         push.messages.clear()
-        pushService.send(samples.values.map { d -> PushItem("m1", "y", "", d) })
+        pushService.send(samples.entries.map { (c, d) -> PushItem("m1", "y-$c", "", d) })
         assertEquals(listOf("account"), push.messages.map { it.data["cat"] })
     }
 
