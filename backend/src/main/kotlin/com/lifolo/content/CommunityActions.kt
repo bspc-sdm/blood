@@ -21,6 +21,7 @@ import com.lifolo.contracts.ContentModeration
 import com.lifolo.demo.DemoWorld
 import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
+import com.lifolo.users.AccountService
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -47,6 +48,7 @@ class CommunityActions(
     private val push: PushService,
     private val clock: P2Clock,
     private val mapper: ObjectMapper,
+    private val accounts: AccountService,
     txm: PlatformTransactionManager,
 ) : ActionModule, ContentModeration {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -130,6 +132,12 @@ class CommunityActions(
 
     // ------------------------------------------------------------------ Health Discussion
 
+    /** the author of a post while their account is deactivated (account_deactivate): the post stays, the name does not */
+    private fun deactivatedName(ctx: ActionContext): String = ctx.tr("Deactivated user", "নিষ্ক্রিয় ব্যবহারকারী") // bn-ok
+
+    private fun shownName(ctx: ActionContext, authorUid: Any?, name: Any?, off: Set<String>): Any? =
+        if (authorUid is String && authorUid in off) deactivatedName(ctx) else name
+
     fun questions(ctx: ActionContext): Any {
         val uid = ctx.user.uid
         val before = cursor(ctx)
@@ -137,13 +145,14 @@ class CommunityActions(
             "SELECT * FROM questions" + (if (before != null) " WHERE created_at < ?" else "") + " ORDER BY created_at DESC, id LIMIT ?",
             *(if (before != null) arrayOf<Any?>(Sql.ts(before), Rules.PAGE) else arrayOf<Any?>(Rules.PAGE)),
         )
+        val off = accounts.deactivatedAmong(rows.map { it["uid"] as? String })
         return mapOf(
             "items" to rows.map { x ->
                 linkedMapOf(
                     "id" to x["id"],
                     "text" to x["text"],
                     // no name for guests — nobody can collect real names next to health questions
-                    "authorName" to (if (x["anonymous"] == true || uid == null) null else x["author_name"]),
+                    "authorName" to (if (x["anonymous"] == true || uid == null) null else shownName(ctx, x["uid"], x["author_name"], off)),
                     "mine" to (x["uid"] == uid),
                     "createdAt" to (x["created_at"] as java.sql.Timestamp).time,
                     "answerCount" to x["answer_count"],
@@ -160,11 +169,12 @@ class CommunityActions(
             ?: throw ctx.err(404, "Question not found", "প্রশ্নটা পাওয়া যায়নি")
         val answers = jdbc.queryForList("SELECT * FROM answers WHERE question_id = ? ORDER BY created_at, id LIMIT 200", id)
         val live = badges.live(answers.map { it["uid"] as String })
+        val off = accounts.deactivatedAmong(answers.map { it["uid"] as? String } + (x["uid"] as? String))
         val mine = x["uid"] == uid
         val q = linkedMapOf<String, Any?>(
             "id" to x["id"],
             "text" to x["text"],
-            "authorName" to (if (x["anonymous"] == true || uid == null) null else x["author_name"]),
+            "authorName" to (if (x["anonymous"] == true || uid == null) null else shownName(ctx, x["uid"], x["author_name"], off)),
             "mine" to mine,
         )
         // own question: is the name hidden (can be changed later)
@@ -175,11 +185,12 @@ class CommunityActions(
         return linkedMapOf(
             "question" to q,
             "answers" to answers.map { d ->
-                val l = live[d["uid"] as String]
+                val gone = off.contains(d["uid"] as? String ?: "")
+                val l = if (gone) null else live[d["uid"] as String]
                 linkedMapOf(
                     "id" to d["id"],
                     "text" to d["text"],
-                    "authorName" to (l?.second?.takeIf { it.isNotEmpty() } ?: d["author_name"]),
+                    "authorName" to (if (gone) deactivatedName(ctx) else (l?.second?.takeIf { it.isNotEmpty() } ?: d["author_name"])),
                     "badge" to l?.first,
                     "mine" to (d["uid"] == uid),
                     "createdAt" to (d["created_at"] as java.sql.Timestamp).time,
@@ -324,14 +335,16 @@ class CommunityActions(
             *(if (before != null) arrayOf<Any?>(Sql.ts(before), Rules.PAGE) else arrayOf<Any?>(Rules.PAGE)),
         )
         val live = badges.live(rows.map { it["uid"] as String })
+        val off = accounts.deactivatedAmong(rows.map { it["uid"] as? String })
         return mapOf(
             "items" to rows.map { d ->
-                val l = live[d["uid"] as String]
+                val gone = off.contains(d["uid"] as? String ?: "")
+                val l = if (gone) null else live[d["uid"] as String]
                 linkedMapOf(
                     "id" to d["id"],
                     "title" to d["title"],
                     "body" to d["body"],
-                    "authorName" to (l?.second?.takeIf { it.isNotEmpty() } ?: d["author_name"]),
+                    "authorName" to (if (gone) deactivatedName(ctx) else (l?.second?.takeIf { it.isNotEmpty() } ?: d["author_name"])),
                     "badge" to l?.first,
                     "mine" to (d["uid"] == uid),
                     "createdAt" to (d["created_at"] as java.sql.Timestamp).time,

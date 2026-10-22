@@ -38,7 +38,10 @@ class AuthService(
     fun verifyUser(req: HttpServletRequest, lang: String?): AuthUser {
         val token = bearer(req)
         if (token.isNullOrEmpty()) throw ApiException(401, "লগইন দরকার")
-        return decodeToken(req, token, lang)
+        val user = decodeToken(req, token, lang)
+        // the legacy blood endpoints (respond, notify, close, edit) are actions too: not while deactivated
+        if (accounts.isDeactivated(user.id)) throw AccountService.deactivatedError(lang)
+        return user
     }
 
     /**

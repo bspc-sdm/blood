@@ -322,15 +322,15 @@ class AuthzSweepIT : IntegrationTest() {
     @Test
     fun `robustness - malformed bodies never give 5xx (plain user)`() {
         user("fz-user", mapOf("name" to "ফাজ", "lang" to "en"))
-        // delete_account would end the session for the rest of the run
-        val actions = all().filter { !it.startsWith("admin_") && it != "delete_account" }
+        // delete_account would end the session and account_deactivate would answer 423 for the rest of the run
+        val actions = all().filter { !it.startsWith("admin_") && it != "delete_account" && it != "account_deactivate" }
         assertEquals(emptyList<String>(), fuzz("fz-user", actions, 0))
     }
 
     @Test
     fun `robustness - malformed bodies never give 5xx (doctor + pharmacy + lab owner)`() {
         seedProfessional("fz-pro")
-        val actions = all().filter { !it.startsWith("admin_") && it != "delete_account" }
+        val actions = all().filter { !it.startsWith("admin_") && it != "delete_account" && it != "account_deactivate" }
         assertEquals(emptyList<String>(), fuzz("fz-pro", actions, 300))
     }
 

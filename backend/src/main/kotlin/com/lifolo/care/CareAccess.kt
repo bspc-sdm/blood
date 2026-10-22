@@ -32,6 +32,15 @@ class CareAccess(private val jdbc: JdbcTemplate) {
         if (!active || !DemoWorld.sameWorld(asUid, user.uid)) {
             throw ApiException(403, Lang.tr(lang, "You are no longer this person's caregiver", "আপনি আর এই মানুষের কেয়ারগিভার নন"), "care_revoked")
         }
+        // the patient switched the account off (account_deactivate): the link is paused until they turn it on again
+        val paused = jdbc.queryForList("SELECT 1 FROM accounts WHERE uid = ? AND deactivated_at IS NOT NULL", asUid).isNotEmpty()
+        if (paused) {
+            throw ApiException(
+                403,
+                Lang.pick(lang, "This person's account is temporarily deactivated", "এই মানুষের অ্যাকাউন্ট এখন সাময়িক বন্ধ আছে"), // bn-ok
+                "care_paused",
+            )
+        }
         return AuthUser(uid = asUid, actingBy = user.uid, email = "", emailVerified = false)
     }
 }

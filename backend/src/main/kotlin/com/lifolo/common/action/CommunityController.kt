@@ -15,6 +15,7 @@ import com.lifolo.common.ClientIp
 import com.lifolo.common.Lang
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.RateLimiter
+import com.lifolo.users.AccountService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.ObjectProvider
@@ -67,6 +68,7 @@ class ActionDispatcher(
     private val adminLog: AdminLog,
     private val props: LifoloProperties,
     private val hooks: ObjectProvider<ActionHook>,
+    private val accounts: AccountService,
 ) {
     private val disabledCache = ConcurrentHashMap<String, Pair<Long, Boolean>>()
 
@@ -86,6 +88,10 @@ class ActionDispatcher(
         val handler = registry.find(action)
         hooks.orderedStream().forEach { it.beforeAction(action) }
         if (handler == null) throw ApiException(400, Lang.tr(lang, "Unknown request. Please update the app.", "অজানা অনুরোধ। অ্যাপ আপডেট করুন।"))
+        // a deactivated account may only look at itself, reactivate or delete (the caller, also when acting as a caregiver)
+        if (!user.guest && action !in ActionPolicy.WHILE_DEACTIVATED && user.uid?.let { accounts.isDeactivated(it) } == true) {
+            throw AccountService.deactivatedError(lang)
+        }
         val actor = if (user.guest) user else care.actAs(body, user, lang)
         val ctx = ActionContext(req, res, body, actor, user, action)
         val result = if (user.guest) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)

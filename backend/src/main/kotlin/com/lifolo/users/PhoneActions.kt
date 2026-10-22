@@ -12,6 +12,7 @@ import com.lifolo.common.action.ActionModule
 import com.lifolo.common.localDate
 import com.lifolo.common.toHex
 import com.lifolo.jobs.DailyTask
+import com.lifolo.notify.AccountMail
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
@@ -164,12 +165,32 @@ class PhoneService(
 
 /** `delete_account`, `phone_send_code`, `phone_verify_code` */
 @Component
-class UsersActions(private val deletion: AccountDeletionService, private val phone: PhoneService) : ActionModule {
+class UsersActions(
+    private val deletion: AccountDeletionService,
+    private val phone: PhoneService,
+    private val deactivation: AccountDeactivationService,
+    private val accounts: AccountService,
+    private val mail: AccountMail,
+) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
-        "delete_account" to ActionHandler { ctx -> deletion.schedule(ctx.user.id) },
+        "delete_account" to ActionHandler(::deleteAccount),
         "phone_send_code" to ActionHandler { ctx -> phone.sendCode(ctx) },
         "phone_verify_code" to ActionHandler { ctx -> phone.verifyCode(ctx) },
     )
+
+    /**
+     * {ok, deleteAt}. The apps now send `{ack: true}` (the person ticked "I understand"); older apps send nothing — both
+     * work, the flag is not required. A deactivated account is reactivated first (deletion supersedes). The first
+     * request emails the deletion date; a repeated request keeps the first date and sends nothing.
+     */
+    fun deleteAccount(ctx: ActionContext): Any {
+        val uid = ctx.user.id
+        val alreadyPending = accounts.deleteAt(uid) != null
+        deactivation.clearForDeletion(uid)
+        val r = deletion.schedule(uid)
+        if (!alreadyPending) (r["deleteAt"] as? Long)?.let { mail.deletionRequested(uid, ctx.user.email, it) }
+        return r
+    }
 }
 
 /** daily step 6 (`phoneLimitsDeleted`) */

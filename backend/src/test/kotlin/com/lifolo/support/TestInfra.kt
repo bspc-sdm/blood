@@ -164,7 +164,7 @@ class FakeMailSender : MailSender {
 
     /** the 6-digit code of the last mail to [to] */
     fun lastCode(to: String): String =
-        Regex("(\\d{6})").find(sent.last { it.to == to }.subject)!!.groupValues[1]
+        Regex("(\\d{6})").find(sent.last { it.to == to && Regex("\\d{6}").containsMatchIn(it.subject) }.subject)!!.groupValues[1]
 }
 
 class RecordingPushTransport : PushTransport {

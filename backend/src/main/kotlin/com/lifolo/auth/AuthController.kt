@@ -9,6 +9,7 @@ import com.lifolo.common.Lang
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.RateLimiter
 import com.lifolo.demo.DemoLoginService
+import com.lifolo.notify.AccountMail
 import com.lifolo.notify.LoginCodeMail
 import com.lifolo.notify.MailSender
 import com.lifolo.users.AccountService
@@ -39,6 +40,7 @@ class AuthController(
     private val demo: DemoLoginService,
     private val rateLimiter: RateLimiter,
     private val props: LifoloProperties,
+    private val accountMail: AccountMail,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -108,7 +110,7 @@ class AuthController(
             val user = getOrCreateUser(email)
             if (user.disabled) throw ApiException(403, "এই অ্যাকাউন্ট বন্ধ করা আছে")
             accounts.ensure(user.uid, email)
-            keepAccount(user.uid)
+            if (keepAccount(user.uid)) accountMail.deletionCancelled(user.uid, email)
             webSession.start(res, user.uid, email)
             return ResponseEntity.ok(linkedMapOf("ok" to true))
         }
@@ -117,8 +119,10 @@ class AuthController(
         if (user.disabled) throw auth.accountDisabledError(lang, user.uid)
         accounts.ensure(user.uid, email, emailVerified = true)
         val restored = keepAccount(user.uid)
+        if (restored) accountMail.deletionCancelled(user.uid, email)
         val token = identity.createCustomToken(user.uid)
-        return ResponseEntity.ok(linkedMapOf("ok" to true, "token" to token, "restored" to restored))
+        // account: active / deactivated (the app shows "turn on again") — a pending deletion was just cancelled above
+        return ResponseEntity.ok(linkedMapOf("ok" to true, "token" to token, "restored" to restored, "account" to accountState(user.uid)))
     }
 
     private fun accountExists(email: String): Boolean = try {
@@ -126,6 +130,13 @@ class AuthController(
         true
     } catch (e: IdentityException) {
         if (e.kind == IdentityException.Kind.USER_NOT_FOUND) false else throw e
+    }
+
+    private fun accountState(uid: String): Map<String, Any?> = try {
+        accounts.state(uid)
+    } catch (e: Exception) {
+        log.error("account state failed", e)
+        linkedMapOf("state" to "active")
     }
 
     /** a pending (30-day) deletion is cancelled by logging in again */

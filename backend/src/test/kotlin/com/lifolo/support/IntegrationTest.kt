@@ -2,6 +2,7 @@ package com.lifolo.support
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.lifolo.notify.AccountMail
 import com.lifolo.users.AccountService
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,6 +51,9 @@ abstract class IntegrationTest {
     @Autowired
     lateinit var redis: StringRedisTemplate
 
+    @Autowired
+    lateinit var accountMail: AccountMail
+
     @BeforeEach
     fun cleanState() {
         val tables = jdbc.queryForList(
@@ -61,6 +65,8 @@ abstract class IntegrationTest {
         identity.reset()
         mail.sent.clear()
         mail.fail = false
+        // account emails on the calling thread: there when the action returns, none leaking into the next test
+        accountMail.async = false
         push.messages.clear()
         push.dead.clear()
         accounts.forgetAll()

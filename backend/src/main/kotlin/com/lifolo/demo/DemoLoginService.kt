@@ -53,6 +53,9 @@ class DemoLoginService(
             log.error("demo cancel deletion failed", e)
             false
         }
-        return linkedMapOf("ok" to true, "token" to identity.createCustomToken(uid), "restored" to restored, "demo" to true)
+        return linkedMapOf(
+            "ok" to true, "token" to identity.createCustomToken(uid), "restored" to restored, "demo" to true,
+            "account" to runCatching { accounts.state(uid) }.getOrElse { linkedMapOf("state" to "active") },
+        )
     }
 }

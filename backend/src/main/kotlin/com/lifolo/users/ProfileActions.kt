@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 
 /** profile_get / profile_update (clientdata.js). Not for guests (not public) nor caregivers (not in CARE_ACTIONS). */
 @Component
-class ProfileActions(private val profiles: ProfileService) : ActionModule {
+class ProfileActions(private val profiles: ProfileService, private val accounts: AccountService) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "profile_get" to ActionHandler(::profileGet),
         "profile_update" to ActionHandler(::profileUpdate),
@@ -19,7 +19,8 @@ class ProfileActions(private val profiles: ProfileService) : ActionModule {
 
     fun profileGet(ctx: ActionContext): Any {
         needLogin(ctx)
-        return mapOf("profile" to profiles.get(ctx.user.id))
+        // account: active / deactivated / deleting, so the apps can show the right screen
+        return linkedMapOf("profile" to profiles.get(ctx.user.id), "account" to accounts.state(ctx.user.id))
     }
 
     fun profileUpdate(ctx: ActionContext): Any {

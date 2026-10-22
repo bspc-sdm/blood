@@ -148,7 +148,7 @@ class GeoQuery(private val jdbc: JdbcTemplate) {
         for (g in list) {
             for ((start, end) in bounds) {
                 val rows = jdbc.query(
-                    "$DONOR_SELECT WHERE p.donor_geo ~>=~ ? AND p.donor_geo ~<=~ ? ORDER BY p.donor_geo USING ~<~ LIMIT ?",
+                    "$DONOR_SELECT WHERE p.donor_geo ~>=~ ? AND p.donor_geo ~<=~ ? AND $NOT_DEACTIVATED ORDER BY p.donor_geo USING ~<~ LIMIT ?",
                     { rs, _ -> donor(rs) },
                     "$g|$start", "$g|$end", limitPerBound,
                 )
@@ -177,6 +177,9 @@ class GeoQuery(private val jdbc: JdbcTemplate) {
                    p.birth_date_ms, p.weight_kg, p.last_donation_ms, p.max_km, p.fare_after_km, p.lang, p.place_name,
                    EXISTS (SELECT 1 FROM device_tokens t WHERE t.uid = p.uid) AS has_tokens
             FROM user_profiles p LEFT JOIN notify_prefs np ON np.uid = p.uid"""
+
+        /** a deactivated account (account_deactivate) is nobody's donor: no nearby request, no emergency wave */
+        const val NOT_DEACTIVATED = "NOT EXISTS (SELECT 1 FROM accounts a WHERE a.uid = p.uid AND a.deactivated_at IS NOT NULL)"
 
         fun donor(rs: ResultSet): Donor = Donor(
             uid = rs.getString("uid"),

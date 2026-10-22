@@ -90,6 +90,12 @@ object ActionPolicy {
         "appointment_queue", "appointment_late",
     )
 
+    /**
+     * The only actions a deactivated account (account_deactivate) may call; everything else → 423 `account_deactivated`
+     * (ActionDispatcher, checked on the authenticated caller).
+     */
+    val WHILE_DEACTIVATED: Set<String> = setOf("profile_get", "account_reactivate", "delete_account", "notify_prefs_get", "web_logout")
+
     /** besides admin_* (and web_logout) */
     val WEB_PANEL_READS: Set<String> = setOf("catalog_get", "labtests_get")
 

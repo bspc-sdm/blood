@@ -146,8 +146,14 @@ class PushService(
     fun pushPatient(uid: String?, en: String, bn: String, body: String = "", data: Map<String, Any?> = emptyMap()) {
         if (uid == null) return
         try {
+            // a deactivated patient's caregiver links are paused: no copies to the caregivers
             val carers = jdbc.queryForList(
-                "SELECT caretaker_uid FROM care_links WHERE patient_uid = ? AND status = 'active' LIMIT 10", String::class.java, uid,
+                """
+                SELECT caretaker_uid FROM care_links WHERE patient_uid = ? AND status = 'active'
+                  AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.uid = care_links.patient_uid AND a.deactivated_at IS NOT NULL)
+                LIMIT 10
+                """.trimIndent(),
+                String::class.java, uid,
             )
             val langs = profileLangs(listOf(uid) + carers)
             val name = jdbc.queryForList("SELECT name FROM user_profiles WHERE uid = ?", String::class.java, uid).firstOrNull() ?: ""
@@ -167,6 +173,20 @@ class PushService(
         }
     }
 
+    /** which of [uids] are deactivated (account_deactivate) */
+    private fun deactivatedAmong(uids: List<String>): Set<String> {
+        val ids = uids.distinct()
+        if (ids.isEmpty()) return emptySet()
+        val out = HashSet<String>()
+        for (chunk in ids.chunked(1000)) {
+            out += jdbc.queryForList(
+                "SELECT uid FROM accounts WHERE deactivated_at IS NOT NULL AND uid IN (${chunk.joinToString(",") { "?" }})",
+                String::class.java, *chunk.toTypedArray(),
+            )
+        }
+        return out
+    }
+
     /** uid → profile lang for users that have a profile */
     private fun profileLangs(uids: List<String>): Map<String, String?> {
         if (uids.isEmpty()) return emptyMap()
@@ -179,7 +199,8 @@ class PushService(
     /**
      * The single choke point of every push: each item gets its category (`cat` in the data, NotifyCats), the bell list
      * gets every item, and the phone push goes only when the person's settings allow that category (`all` and the
-     * category on; [NotifyCats.ACCOUNT] always). Items without a uid (anonymous tokens) always go.
+     * category on; [NotifyCats.ACCOUNT] always). A deactivated account gets only [NotifyCats.ACCOUNT] pushes (the bell
+     * list still records the rest). Items without a uid (anonymous tokens) always go.
      */
     fun send(items: List<PushItem>): Int {
         val withCat = items.map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
@@ -189,10 +210,14 @@ class PushService(
             log.error("inbox write failed", e)
         }
         val allowed = try {
-            val settings = prefs.of(withCat.mapNotNull { it.uid })
+            val uids = withCat.mapNotNull { it.uid }
+            val settings = prefs.of(uids)
+            val off = deactivatedAmong(uids)
             withCat.filter { item ->
                 val uid = item.uid
-                uid == null || (settings[uid] ?: NotifyPrefs.DEFAULT).allows(item.data["cat"].toString())
+                val cat = item.data["cat"].toString()
+                // a deactivated account (account_deactivate) gets only account news on the phone
+                uid == null || ((settings[uid] ?: NotifyPrefs.DEFAULT).allows(cat) && (uid !in off || cat == NotifyCats.ACCOUNT))
             }
         } catch (e: Exception) {
             // settings unreadable: better a push too many than a lost emergency
