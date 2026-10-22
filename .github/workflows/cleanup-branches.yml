@@ -1,0 +1,28 @@
+name: Cleanup branches
+# হাতে চালানো: অস্থায়ী শাখা মোছা (স্যান্ডবক্স থেকে শাখা মোছা যায় না)। main আর রিলিজের শাখা কখনো মোছে না।
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: "মোছার শাখা, স্পেস দিয়ে আলাদা"
+        required: true
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCHES: ${{ inputs.branches }}
+        run: |
+          set -u
+          for b in $BRANCHES; do
+            case "$b" in main|master|gh-pages) echo "skip $b"; continue;; esac
+            if gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$b" >/dev/null 2>&1; then
+              echo "✅ মোছা হয়েছে: $b" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "❌ মোছা যায়নি (নেই বা আটকানো): $b" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          done
