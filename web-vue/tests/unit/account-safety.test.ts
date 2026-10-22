@@ -18,6 +18,8 @@ const session = {
   reactivate: vi.fn(async () => {}),
 };
 vi.mock('@/lib/session', () => ({ useSession: () => session }));
+const nav = vi.fn();
+vi.mock('@/lib/nav', () => ({ useNav: () => nav }));
 
 import { DELETE_GRACE_DAYS, deleteDateFrom, parseAccount } from '@/lib/account';
 import { onAccountDeactivated, onAccountDisabled, postPublic } from '@/lib/api';
@@ -117,6 +119,15 @@ describe('AccountPaused', () => {
     await w.findAll('button')[1].trigger('click');
     await flushPromises();
     expect(session.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('"অ্যাকাউন্ট মুছুন" লিংক মোছার পাতায় (বন্ধ অবস্থাতেও মোছা চলে)', async () => {
+    nav.mockClear();
+    const w = mount(AccountPaused);
+    const a = w.get('a[href="/delete-account"]');
+    expect(a.text()).toBe('অ্যাকাউন্ট মুছুন');
+    await a.trigger('click');
+    expect(nav).toHaveBeenCalledWith('/delete-account');
   });
 });
 

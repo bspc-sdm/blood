@@ -13,7 +13,8 @@ const s = useSession();
 
 <template>
   <!-- অ্যাকাউন্ট সাময়িক বন্ধ: পুরো ওয়েবের বদলে "আবার চালু করুন" -->
-  <AccountPaused v-if="s.deactivated" />
+  <!-- (মোছার পাতা খোলা যায় — বন্ধ অবস্থাতেও মোছা চলে) -->
+  <AccountPaused v-if="s.deactivated && route.path !== '/delete-account'" />
   <AppShell v-else>
     <ErrorBoundary :reset-key="route.path">
       <RouterView v-slot="{ Component }">

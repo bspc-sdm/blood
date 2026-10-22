@@ -110,7 +110,7 @@ test('লগইন করা: টিক না দিলে লাল বোত�
   await expect(done).toContainText(`${bnDatePlus30()} তারিখে মুছে যাবে`);
   await expect(done).toContainText('এরপর কী হবে');
   await expect(done).toContainText('আবার লগইন করলেই (অ্যাপে বা ওয়েবে) মোছা বাতিল');
-  await expect(page.getByTestId('delete-email')).toHaveText('নিশ্চিত করে arif.demo@example.com ঠিকানায় একটা ইমেইল পাঠানো হয়েছে।');
+  await expect(page.getByTestId('delete-email')).toHaveText('arif.demo@example.com ঠিকানায় একটা ইমেইল পাঠানো হয়েছে: কোন তারিখে মুছবে, কী কী মুছবে আর কীভাবে বাতিল করবেন।');
   const del = actions.filter((a) => a.action === 'delete_account');
   expect(del).toHaveLength(1);
   expect(del[0].body.ack).toBe(true);

@@ -172,17 +172,20 @@ async function sendCode(email: string) {
 
 async function signIn(email: string, code: string) {
   const list = rids.email === email ? rids.list : [];
-  const r = await postPublic<{ token?: string; restored?: boolean }>('/api/auth/verify-code', { email, code, ...(list.length ? { rids: list } : {}) });
+  const r = await postPublic<{ token?: string; restored?: boolean; account?: unknown }>('/api/auth/verify-code', { email, code, ...(list.length ? { rids: list } : {}) });
   if (!r.token) throw new Error(tr('Login failed, try again', 'লগইন হয়নি, আবার চেষ্টা করুন'));
+  // লগইনের উত্তরেই অ্যাকাউন্টের অবস্থা: সাময়িক বন্ধ হলে প্রোফাইল আসার আগেই "আবার চালু করুন" পর্দা
+  S.account = parseAccount(r.account) ?? S.account;
   await signInWithCustomToken(auth, r.token);
   queryClient.invalidateQueries();
   return { restored: !!r.restored };
 }
 
 async function reactivate() {
-  await call('account_reactivate');
+  const r = await call<{ ok?: boolean; account?: unknown }>('account_reactivate');
   reactivatedAt = Date.now();
-  S.account = { state: 'active' };
+  const a = parseAccount(r?.account);
+  S.account = a && a.state !== 'deactivated' ? a : { state: 'active' };
   queryClient.invalidateQueries();
   await reloadProfile();
   refreshWork();

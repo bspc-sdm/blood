@@ -54,12 +54,13 @@ async function deactivate() {
         <section class="card col gap-8">
           <h2 class="t-title-m bold">{{ trPlain('While it is paused', 'বন্ধ থাকলে') }}<!-- bn-ok --></h2>
           <ul class="pause-list t-body-m" data-testid="pause-what">
-            <li>{{ trPlain('Nobody sees your profile, and you are not shown as a donor.', 'আপনার প্রোফাইল কেউ দেখবে না, রক্তদাতার তালিকাতেও থাকবেন না।') }}<!-- bn-ok --></li>
-            <li>{{ trPlain('Your shop, lab, ambulance, blood bank and chamber listings are hidden.', 'আপনার দোকান, ল্যাব, অ্যাম্বুলেন্স, ব্লাড ব্যাংক আর চেম্বারের তালিকা লুকানো থাকবে।') }}<!-- bn-ok --></li>
-            <li>{{ trPlain('You get no notifications.', 'কোনো নোটিফিকেশন আসবে না।') }}<!-- bn-ok --></li>
+            <li>{{ trPlain('Nobody sees your profile, and you are not picked as a donor.', 'আপনার প্রোফাইল কেউ দেখবে না, রক্তদাতার তালিকাতেও থাকবেন না।') }}<!-- bn-ok --></li>
+            <li>{{ trPlain('Your shop, lab, ambulance, blood bank, chamber and home care listings are hidden (no new appointments). Appointments already booked stay.', 'আপনার দোকান, ল্যাব, অ্যাম্বুলেন্স, ব্লাড ব্যাংক, চেম্বার আর বাসায় সেবার তালিকা লুকানো থাকবে (নতুন অ্যাপয়েন্টমেন্ট নয়)। আগে নেওয়া অ্যাপয়েন্টমেন্ট থাকবে।') }}<!-- bn-ok --></li>
+            <li>{{ trPlain('Your questions, answers and tips stay, shown as "Deactivated user".', 'আপনার প্রশ্ন, উত্তর আর টিপস থাকবে, নামের জায়গায় দেখাবে "নিষ্ক্রিয় ব্যবহারকারী"।') }}<!-- bn-ok --></li>
+            <li>{{ trPlain('No notifications reach your phone except account notices. Caregiver links are paused.', 'অ্যাকাউন্টের খবর ছাড়া কোনো নোটিফিকেশন আসবে না। কেয়ারগিভার সংযোগ থেমে থাকবে।') }}<!-- bn-ok --></li>
             <li>{{ trPlain('Nothing is deleted — all your data stays as it is.', 'কিছুই মুছবে না — সব তথ্য যেমন আছে তেমনই থাকবে।') }}<!-- bn-ok --></li>
             <li>{{ trPlain('There is no time limit — keep it paused as long as you like.', 'সময়ের কোনো সীমা নেই — যতদিন খুশি বন্ধ রাখুন।') }}<!-- bn-ok --></li>
-            <li>{{ trPlain('To turn it back on, just log in again and tap "Turn back on".', 'আবার চালু করতে শুধু লগইন করে "আবার চালু করুন" চাপুন।') }}<!-- bn-ok --></li>
+            <li>{{ trPlain('To turn it back on, just log in again and tap "Turn on again". We email you both times.', 'আবার চালু করতে শুধু লগইন করে "আবার চালু করুন" চাপুন। বন্ধ আর চালু — দুবারই ইমেইলে জানানো হবে।') }}<!-- bn-ok --></li>
           </ul>
         </section>
 
@@ -71,7 +72,7 @@ async function deactivate() {
           </template>
           <template v-else>
             <p class="t-body-m">{{ trPlain('Logged in as', 'লগইন করা আছে:') }}<!-- bn-ok --> <strong>{{ s.email }}</strong></p>
-            <p class="t-body-s muted">{{ trPlain('You will be logged out after pausing.', 'বন্ধ করলে লগআউট হয়ে যাবে।') }}<!-- bn-ok --></p>
+            <p class="t-body-s muted">{{ trPlain('You will be logged out here and on every other phone and browser.', 'বন্ধ করলে এখানে আর সব ফোন ও ব্রাউজার থেকে লগআউট হয়ে যাবে।') }}<!-- bn-ok --></p>
             <ErrorText :text="error" />
             <div><Button icon="schedule" :busy="busy" data-testid="pause-confirm" @click="deactivate">{{ trPlain('Pause account', 'সাময়িক বন্ধ করুন') }}<!-- bn-ok --></Button></div>
           </template>

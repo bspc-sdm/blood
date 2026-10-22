@@ -76,8 +76,8 @@ const mailto = computed(
           <li>{{ trPlain(`After ${doneDay}: deleted for good — it cannot be brought back.`, `${doneDay}-এর পর: চিরতরে মুছে যাবে — আর ফেরানো যাবে না।`) }}<!-- bn-ok --></li>
         </ul>
         <p class="t-body-m" data-testid="delete-email">
-          <template v-if="done.email">{{ trPlain(`We sent a confirmation email to ${done.email}.`, `নিশ্চিত করে ${done.email} ঠিকানায় একটা ইমেইল পাঠানো হয়েছে।`) }}<!-- bn-ok --></template>
-          <template v-else>{{ trPlain('We sent a confirmation email to your account email.', 'নিশ্চিত করে আপনার অ্যাকাউন্টের ইমেইলে একটা ইমেইল পাঠানো হয়েছে।') }}<!-- bn-ok --></template>
+          <template v-if="done.email">{{ trPlain(`We sent an email to ${done.email}: the date, what will be deleted and how to cancel.`, `${done.email} ঠিকানায় একটা ইমেইল পাঠানো হয়েছে: কোন তারিখে মুছবে, কী কী মুছবে আর কীভাবে বাতিল করবেন।`) }}<!-- bn-ok --></template>
+          <template v-else>{{ trPlain('We sent an email to your account email: the date, what will be deleted and how to cancel.', 'আপনার অ্যাকাউন্টের ইমেইলে একটা ইমেইল পাঠানো হয়েছে: কোন তারিখে মুছবে, কী কী মুছবে আর কীভাবে বাতিল করবেন।') }}<!-- bn-ok --></template>
         </p>
         <p class="t-body-m">{{ trPlain('You have been logged out on every device. Log in again before then if you change your mind — that cancels the deletion.', 'সব ফোন আর ব্রাউজার থেকে লগআউট হয়েছে। মত বদলালে এর আগে আবার লগইন করুন — তাতে মোছা বাতিল হবে।') }}<!-- bn-ok --></p>
         <div><Button variant="tonal" icon="nav_home" @click="nav('/', { replace: true })">{{ trPlain('Go to home', 'হোমে যান') }}<!-- bn-ok --></Button></div>
@@ -85,7 +85,7 @@ const mailto = computed(
 
       <template v-else>
         <!-- বিকল্প: না মুছে সাময়িক বন্ধ -->
-        <section class="card del-alt col gap-8" data-testid="pause-instead">
+        <section v-if="!s.deactivated" class="card del-alt col gap-8" data-testid="pause-instead">
           <h2 class="t-title-m bold">{{ trPlain('Just need a break?', 'শুধু কিছুদিনের বিরতি চান?') }}<!-- bn-ok --></h2>
           <p class="t-body-m">{{ trPlain('Pause your account instead: your profile, donor details and listings are hidden and notifications stop — but nothing is deleted, and there is no time limit. Log in and turn it back on whenever you like.', 'মুছে না ফেলে সাময়িক বন্ধ রাখুন: প্রোফাইল, রক্তদাতার তথ্য আর আপনার তালিকা লুকানো থাকবে, নোটিফিকেশন আসবে না — কিন্তু কিছুই মুছবে না, সময়ের সীমাও নেই। যখন খুশি লগইন করে আবার চালু করুন।') }}<!-- bn-ok --></p>
           <div><Button variant="filled" icon="schedule" @click="nav('/deactivate-account')">{{ trPlain('Pause instead of deleting', 'মুছে না ফেলে সাময়িক বন্ধ রাখুন') }}<!-- bn-ok --></Button></div>

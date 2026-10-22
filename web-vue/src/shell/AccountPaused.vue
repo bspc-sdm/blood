@@ -8,9 +8,11 @@ import { errorText } from '@/lib/api';
 import { formatDayOf } from '@/lib/format';
 import { trPlain } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
+import { useNav } from '@/lib/nav';
 import { usePageTitle } from './chrome';
 
 const s = useSession();
+const nav = useNav();
 usePageTitle(() => trPlain('Account paused', 'অ্যাকাউন্ট সাময়িক বন্ধ')); // bn-ok
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -44,9 +46,13 @@ async function logout() {
       <p v-if="s.email" class="t-body-s muted">{{ s.email }}</p>
       <ErrorText :text="error" />
       <div class="paused-actions">
-        <Button icon="refresh" :busy="busy" @click="reactivate">{{ trPlain('Turn back on', 'আবার চালু করুন') }}<!-- bn-ok --></Button>
+        <Button icon="refresh" :busy="busy" @click="reactivate">{{ trPlain('Turn on again', 'আবার চালু করুন') }}<!-- bn-ok --></Button>
         <Button variant="text" icon="logout" :disabled="busy" @click="logout">{{ trPlain('Log out', 'লগআউট') }}</Button>
       </div>
+      <p class="t-body-s muted">
+        {{ trPlain('Want it gone for good instead?', 'চিরতরে মুছতে চান?') }}<!-- bn-ok -->
+        <a href="/delete-account" @click.prevent="nav('/delete-account')">{{ trPlain('Delete account', 'অ্যাকাউন্ট মুছুন') }}</a>
+      </p>
     </div>
   </main>
 </template>
@@ -55,5 +61,6 @@ async function logout() {
 .paused { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg); }
 .paused-card { width: 100%; max-width: 460px; text-align: center; align-items: center; padding: 28px 20px; }
 .paused-mark { display: inline-flex; width: 64px; height: 64px; border-radius: 50%; align-items: center; justify-content: center; background: var(--secondary-container); color: var(--on-secondary-container); }
+.paused-card a { color: var(--primary); }
 .paused-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
 </style>

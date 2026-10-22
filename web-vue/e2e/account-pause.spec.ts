@@ -41,7 +41,7 @@ test('সাময়িক বন্ধের পাতা: কী হয় �
   await open(page, member());
   await expect(page.getByRole('heading', { name: 'অ্যাকাউন্ট সাময়িক বন্ধ রাখুন' })).toBeVisible();
   const what = page.getByTestId('pause-what');
-  for (const t of ['রক্তদাতার তালিকাতেও থাকবেন না', 'চেম্বারের তালিকা লুকানো থাকবে', 'কোনো নোটিফিকেশন আসবে না।', 'কিছুই মুছবে না', 'সময়ের কোনো সীমা নেই', 'লগইন করে "আবার চালু করুন" চাপুন']) {
+  for (const t of ['রক্তদাতার তালিকাতেও থাকবেন না', 'বাসায় সেবার তালিকা লুকানো থাকবে', 'আগে নেওয়া অ্যাপয়েন্টমেন্ট থাকবে', '"নিষ্ক্রিয় ব্যবহারকারী"', 'অ্যাকাউন্টের খবর ছাড়া কোনো নোটিফিকেশন আসবে না।', 'কিছুই মুছবে না', 'সময়ের কোনো সীমা নেই', 'লগইন করে "আবার চালু করুন" চাপুন']) {
     await expect(what).toContainText(t);
   }
   await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
@@ -88,6 +88,31 @@ test('বন্ধ অ্যাকাউন্টে লগইন: পুরো 
   await expect(page.locator('.main-bar')).toBeVisible();
   expect(st.calls).toContain('account_reactivate');
   expect(errs).toEqual([]);
+});
+
+test('বন্ধ অ্যাকাউন্ট: "অ্যাকাউন্ট মুছুন" মোছার পাতা খোলে (সাময়িক বন্ধের বিকল্প নেই), মুছলে লগআউট', async ({ page }) => {
+  const st: Server = { deactivated: true, calls: [] };
+  await fakeAccount(page, st);
+  await page.route('**/api/community', async (route) => {
+    const body = route.request().postDataJSON() || {};
+    // সার্ভারের নিয়ম: বন্ধ অবস্থাতেও delete_account চলে (আগে বন্ধ থাকা শেষ হয়)
+    if (body.action === 'delete_account') {
+      st.calls.push('delete_account');
+      st.deactivated = false;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, deleteAt: Date.now() + 30 * 86400_000 }) });
+    }
+    return route.fallback();
+  });
+  await open(page, member({ account: { state: 'deactivated' } }, '/'));
+  await paused(page).getByRole('link', { name: 'অ্যাকাউন্ট মুছুন' }).click();
+  await page.waitForURL(/\/delete-account$/);
+  await expect(paused(page)).toHaveCount(0);
+  await expect(page.getByTestId('pause-instead')).toHaveCount(0);
+  await page.getByTestId('delete-ack').locator('input').check();
+  await page.getByTestId('delete-confirm').getByRole('button', { name: 'অ্যাকাউন্ট মুছুন' }).click();
+  await expect(page.getByTestId('delete-done')).toBeVisible();
+  expect(st.calls).toContain('delete_account');
+  await expect(page.locator('.main-bar').getByRole('button', { name: 'লগইন' })).toBeVisible();
 });
 
 test('বন্ধ অ্যাকাউন্ট: আবার চালু না হলে ভুল দেখায়, পর্দা থাকে; "লগআউট" অতিথির ওয়েবে নেয়', async ({ page }) => {
