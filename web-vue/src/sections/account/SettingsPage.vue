@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // অ্যাপ সেটিংস (অ্যাপের Settings.kt): ভাষা, থিম, নোটিফিকেশন, দূরত্ব, যাতায়াত খরচ, তালিকার গ্রুপ, এলাকা, অ্যাপ সম্পর্কে।
 // প্রতিটা বদল সাথে সাথে সেভ হয়। অতিথি: শুধু ভাষা, থিম, এলাকা, ব্যবসা যোগ আর অ্যাপ সম্পর্কে।
+// নোটিফিকেশন: NotifySettings.vue (সব + প্রতিটা ধরন); "আশেপাশে রক্ত লাগলে" = প্রোফাইলের notify, তার নিচে আগের মতো দিনে সর্বোচ্চ আর গ্রুপ।
 import { computed, ref } from 'vue';
-import { ChoiceChips, ErrorText, Icon, ListRow, Loading, Segmented, Switch } from '@/ui/kit';
+import { ChoiceChips, ErrorText, Icon, ListRow, Loading, Segmented } from '@/ui/kit';
 import PlacePicker from '@/ui/PlacePicker.vue';
 import SubPageBar from '@/shell/SubPageBar.vue';
 import { usePageTitle } from '@/shell/chrome';
@@ -12,11 +13,12 @@ import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { districtLabel } from '@/lib/geo';
 import { BLOOD_GROUPS, FARE_AFTER_CHOICES, PUSH_PER_DAY_CHOICES, RADIUS_CHOICES } from '@/lib/rules';
 import { compatibleGroups, effectiveNotifyGroups, effectiveViewGroups, saveSettings, type Profile } from '@/lib/profile';
-import { useSession, type Place } from '@/lib/session';
+import { useSession, workHas, type Place } from '@/lib/session';
 import { useNav } from '@/lib/nav';
-import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from './util';
+import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL, useAccountState } from './util';
 import { useBack } from './nav';
 import LinkRow from './LinkRow.vue';
+import NotifySettings from './NotifySettings.vue';
 import SLabel from './SLabel.vue';
 
 /** সব মানানসই গ্রুপ বাছা থাকলে null — রক্তের গ্রুপ বদলালে নিজে থেকে মিলে যায় */
@@ -48,6 +50,16 @@ function save(updated: Profile) {
   );
 }
 const upd = (patch: Partial<Profile>) => s.profile && save({ ...s.profile, ...patch });
+
+// ---------- নোটিফিকেশন (NotifySettings.vue) ----------
+/** "আমার ব্যবসা" শুধু যাদের "আমার কাজ" আছে (অ্যাপের MyWork.has) */
+const acct = useAccountState();
+const showBusiness = computed(() => workHas(acct.value.work));
+/** blood_nearby আর প্রোফাইলের notify একই — নিচের দিনে সর্বোচ্চ/গ্রুপের সেভ যেন পুরোনো মান না পাঠায় */
+function nearbyChanged(on: boolean) {
+  const p = s.profile;
+  if (p && p.notify !== on) s.setProfile({ ...p, notify: on });
+}
 
 async function picked(pl: Place) {
   areaBusy.value = true;
@@ -93,19 +105,8 @@ async function picked(pl: Place) {
               </div>
             </section>
             <template v-if="!s.guest && s.profile">
-              <section class="acct-scard">
-                <div class="acct-srow">
-                  <Icon name="notifications" :size="24" />
-                  <div class="grow">
-                    <Switch
-                      :model-value="s.profile.notify"
-                      :label="tr('Notifications', 'নোটিফিকেশন')"
-                      :sub="tr('When someone nearby needs blood', 'আশেপাশে কারো রক্ত লাগলে')"
-                      @update:model-value="(v) => upd({ notify: v })"
-                    />
-                  </div>
-                </div>
-                <div v-if="s.profile.notify" class="acct-sbody">
+              <NotifySettings :show-business="showBusiness" @nearby="nearbyChanged">
+                <template #nearby>
                   <span class="t-label-l">{{ tr('Maximum per day', 'দিনে সর্বোচ্চ') }}</span>
                   <ChoiceChips
                     :options="PUSH_PER_DAY_CHOICES.map((n) => ({ value: n, label: num(n) }))"
@@ -123,8 +124,8 @@ async function picked(pl: Place) {
                     />
                     <p class="t-body-s muted">{{ tr(`Only groups you (${s.profile.bloodGroup}) can donate to.`, `শুধু যাদের আপনি (${s.profile.bloodGroup}) রক্ত দিতে পারেন।`) }}</p>
                   </template>
-                </div>
-              </section>
+                </template>
+              </NotifySettings>
               <section class="acct-scard">
                 <SLabel icon="location_on">{{ tr('How far can you go to donate?', 'রক্ত দিতে কতদূর যেতে পারবেন?') }}</SLabel>
                 <div class="acct-sbody">

@@ -51,9 +51,15 @@ let family = [
   { id: 'm_e5f6a7b8', name: 'সামির', relation: 'ছেলে', age: 9, gender: 'male', phone: '' },
 ];
 
+const NOTIFY_CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'community', 'business'];
+const notifyPrefs = (b = {}) => ({ ok: true, all: b.all ?? true, cats: Object.fromEntries(NOTIFY_CATS.map((c) => [c, b.cats?.[c] ?? true])) });
+
 export default {
   inbox: () => inbox(),
   inbox_read: () => ({ ok: true }),
+  // নোটিফিকেশনের ধরন: সব চালু; সেভ করলে যা পাঠানো হলো তা (অবস্থা রাখে না — e2e/notify-settings.spec.ts নিজে রাখে)
+  notify_prefs_get: () => notifyPrefs(),
+  notify_prefs_set: (b) => notifyPrefs(b),
 
   tickets_mine: () => tickets(),
   ticket_create: () => ({ ok: true, id: 't9' }),
