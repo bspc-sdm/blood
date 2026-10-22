@@ -463,7 +463,7 @@ class AppointmentActions(
         users.push(
             providerUid,
             if (online) "New online appointment request" else "New appointment request",
-            if (online) "নতুন অনলাইন অ্যাপয়েন্টমেন্টের অনুরোধ" else "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ",
+            if (online) "নতুন অনলাইন অ্যাপয়েন্টমেন্টের অনুরোধ" else "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ", // bn-ok
             "$name · ${ApptRepo.dateLabel(date)}",
             mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS),
         )
@@ -608,7 +608,7 @@ class AppointmentActions(
         }
         val to = if (isProvider) a.patientUid else a.providerUid
         val texts = when (next) {
-            "confirmed" -> if (a.online) "Online appointment confirmed" to "অনলাইন অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" else "Appointment confirmed" to "অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে"
+            "confirmed" -> if (a.online) "Online appointment confirmed" to "অনলাইন অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" else "Appointment confirmed" to "অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" // bn-ok
             "declined" -> "Appointment not accepted" to "অ্যাপয়েন্টমেন্ট নেওয়া হয়নি"
             else -> "Appointment cancelled" to "অ্যাপয়েন্টমেন্ট বাতিল হয়েছে"
         }

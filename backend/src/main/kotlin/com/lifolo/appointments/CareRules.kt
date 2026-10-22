@@ -119,7 +119,7 @@ data class Ch(
         const val IN_PERSON = "in_person"
         const val ONLINE = "online"
         const val ONLINE_NAME = "Online video consultation"
-        const val ONLINE_NAME_BN = "অনলাইন ভিডিও পরামর্শ"
+        const val ONLINE_NAME_BN = "অনলাইন ভিডিও পরামর্শ" // bn-ok
     }
 }
 
@@ -375,8 +375,8 @@ object CareRules {
     fun parseChambers(list: JsonNode?, hospitals: Map<String, Place>, allowCustom: Boolean = false, allowOnline: Boolean = false): Parsed<List<Ch>> {
         if (list == null || !list.isArray || list.size() == 0) return Parsed.fail("Add at least one chamber", "অন্তত একটা চেম্বার যোগ করুন")
         val onlineCount = list.count { isOnlineInput(it) }
-        if (onlineCount > 0 && !allowOnline) return Parsed.fail("Online chambers are for doctors only", "অনলাইন চেম্বার শুধু ডাক্তারদের জন্য")
-        if (onlineCount > 1) return Parsed.fail("Only one online chamber", "অনলাইন চেম্বার একটাই রাখা যায়")
+        if (onlineCount > 0 && !allowOnline) return Parsed.fail("Online chambers are for doctors only", "অনলাইন চেম্বার শুধু ডাক্তারদের জন্য") // bn-ok
+        if (onlineCount > 1) return Parsed.fail("Only one online chamber", "অনলাইন চেম্বার একটাই রাখা যায়") // bn-ok
         if (list.size() - onlineCount > MAX_CHAMBERS) return Parsed.fail("Up to 3 chambers", "সর্বোচ্চ ৩টা চেম্বার")
         val out = ArrayList<Ch>()
         for (c in list) {
@@ -461,7 +461,7 @@ object CareRules {
         if (!TRX_RE.matches(t)) {
             return Parsed.fail(
                 "Write the bKash TrxID (letters and numbers, as in the bKash message)",
-                "বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)",
+                "বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)", // bn-ok
             )
         }
         return Parsed.ok(t)
@@ -477,8 +477,8 @@ object CareRules {
         }
         val parsedTimes = parseSlots(
             raw,
-            Err("Choose the days of the online chamber", "অনলাইন চেম্বারে কোন কোন বার বসেন বেছে নিন"),
-            Err("Set the start and end time of the online chamber", "অনলাইন চেম্বারের শুরু আর শেষের সময় দিন"),
+            Err("Choose the days of the online chamber", "অনলাইন চেম্বারে কোন কোন বার বসেন বেছে নিন"), // bn-ok
+            Err("Set the start and end time of the online chamber", "অনলাইন চেম্বারের শুরু আর শেষের সময় দিন"), // bn-ok
         )
         if (parsedTimes.error != null) return Parsed.fail(parsedTimes.error)
         val times = parsedTimes.value!!
@@ -486,7 +486,7 @@ object CareRules {
         var fee = if (noFee) "" else str(co?.get("fee"), 40)
         if (!noFee) {
             val amount = feeAmount(Ch(fee = fee, noFee = false))
-                ?: return Parsed.fail("Write the fee of the online chamber in taka", "অনলাইন চেম্বারের ফি লিখুন (টাকা)")
+                ?: return Parsed.fail("Write the fee of the online chamber in taka", "অনলাইন চেম্বারের ফি লিখুন (টাকা)") // bn-ok
             if (amount <= 0.0) {
                 noFee = true
                 fee = ""
@@ -495,7 +495,7 @@ object CareRules {
         val bkashRaw = Js.toStr(co?.get("bkashNumber")).trim()
         val norm = Phones.normalizeBd(bkashRaw)
         if (norm == null && (!noFee || bkashRaw.isNotEmpty())) {
-            return Parsed.fail("Enter your bKash number (01XXXXXXXXX)", "আপনার বিকাশ নম্বর দিন (01XXXXXXXXX)")
+            return Parsed.fail("Enter your bKash number (01XXXXXXXXX)", "আপনার বিকাশ নম্বর দিন (01XXXXXXXXX)") // bn-ok
         }
         val days = times.flatMap { it.days }.distinct().sorted()
         return Parsed.ok(

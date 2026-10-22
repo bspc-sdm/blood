@@ -55,8 +55,8 @@ class OnlinePay(
 
     /** online, and a fee to pay */
     private fun requirePayable(ctx: ActionContext, a: Appt) {
-        if (!a.online) throw ctx.err(409, "This is not an online appointment", "এটা অনলাইন অ্যাপয়েন্টমেন্ট নয়", "not_online")
-        if (a.payState == null) throw ctx.err(409, "No fee for this appointment", "এই অ্যাপয়েন্টমেন্টে ফি লাগে না", "no_fee")
+        if (!a.online) throw ctx.err(409, "This is not an online appointment", "এটা অনলাইন অ্যাপয়েন্টমেন্ট নয়", "not_online") // bn-ok
+        if (a.payState == null) throw ctx.err(409, "No fee for this appointment", "এই অ্যাপয়েন্টমেন্টে ফি লাগে না", "no_fee") // bn-ok
     }
 
     private fun stateErr(ctx: ActionContext) = ctx.err(409, "This can't be changed now", "এখন এটা বদলানো যায় না", "state")
@@ -101,7 +101,7 @@ class OnlinePay(
         tx.executeWithoutResult {
             val (status, pay) = lockState(a.id) ?: throw notFound(ctx)
             if (status != "pending" && status != "confirmed") throw stateErr(ctx)
-            if (pay == "paid") throw ctx.err(409, "The doctor already marked the fee as received", "ডাক্তার আগেই ফি পেয়েছেন বলে জানিয়েছেন", "state")
+            if (pay == "paid") throw ctx.err(409, "The doctor already marked the fee as received", "ডাক্তার আগেই ফি পেয়েছেন বলে জানিয়েছেন", "state") // bn-ok
             if (pay != "unpaid" && pay != "claimed") throw stateErr(ctx)
             // a second claim without a TrxID keeps the earlier one
             payRef = ref.value ?: if (pay == "claimed") a.payRef else null
@@ -115,7 +115,7 @@ class OnlinePay(
             val body = "${a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (payRef != null) " · TrxID $payRef" else ""}"
             val data = mapOf("type" to "appointment", "role" to "provider", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS)
             for (to in listOf(a.providerUid) + assistantUids(a.providerUid)) {
-                users.push(to, "Patient sent the fee — please check", "রোগী ফি পাঠিয়েছেন — যাচাই করুন", body, data)
+                users.push(to, "Patient sent the fee — please check", "রোগী ফি পাঠিয়েছেন — যাচাই করুন", body, data) // bn-ok
             }
         }
         return linkedMapOf("ok" to true, "payState" to "claimed", "payRef" to payRef)
@@ -141,7 +141,7 @@ class OnlinePay(
         }
         if (changed) {
             push.pushPatient(
-                a.patientUid, "The doctor received the fee", "ডাক্তার ফি পেয়েছেন",
+                a.patientUid, "The doctor received the fee", "ডাক্তার ফি পেয়েছেন", // bn-ok
                 "${a.providerName} · ${ApptRepo.dateLabel(a.date)}",
                 mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
             )
@@ -164,7 +164,7 @@ class OnlinePay(
             )
         }
         push.pushPatient(
-            a.patientUid, "The doctor has not received the fee yet", "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন",
+            a.patientUid, "The doctor has not received the fee yet", "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন", // bn-ok
             "${a.providerName} · ${ApptRepo.dateLabel(a.date)}${if (reason != null) " · $reason" else ""}",
             mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
         )

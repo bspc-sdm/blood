@@ -276,7 +276,7 @@ class QueueActions(
                 a.patientUid,
                 if (a.online) "$ahead before you — get ready for the video call" else "$ahead before you — please come to the chamber",
                 if (a.online) {
-                    "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — অনলাইন ভিডিও কলের জন্য তৈরি থাকুন"
+                    "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — অনলাইন ভিডিও কলের জন্য তৈরি থাকুন" // bn-ok
                 } else {
                     "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — চেম্বারে চলে আসুন"
                 },
