@@ -19,6 +19,7 @@ import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.HospitalDirectory
 import com.lifolo.demo.DemoWorld
+import com.lifolo.notify.NotifyCats
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Component
@@ -439,7 +440,7 @@ class AppointmentActions(
             (member?.get("gender") as? String) ?: "", user.actingBy, ps.type, ch.hospitalName, ch.hospitalNameBn, ch.key, slotStart,
             ch.room, ch.schedule, Sql.date(DhakaTime.fromUtcMidnightMs(date)), note, Sql.ts(now),
         )
-        users.push(providerUid, "New appointment request", "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ", "$name · ${ApptRepo.dateLabel(date)}", mapOf("type" to "appointment", "role" to "provider"))
+        users.push(providerUid, "New appointment request", "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ", "$name · ${ApptRepo.dateLabel(date)}", mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS))
         return mapOf("id" to id)
     }
 

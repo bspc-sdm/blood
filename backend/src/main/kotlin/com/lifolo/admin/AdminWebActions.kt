@@ -19,6 +19,7 @@ import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.Chambers
 import com.lifolo.contracts.ProviderSuspension
+import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
 import org.slf4j.LoggerFactory
@@ -406,7 +407,8 @@ class AdminWebActions(
                         PushText(
                             Lang.pick(lang, "Your chambers were removed by the Lifolo team", "Lifolo টিম আপনার চেম্বার সরিয়ে দিয়েছে"),
                             reason,
-                            mapOf("type" to "appointment", "role" to "provider"),
+                            // a listing change by the team: the "business" category (like listing approved/suspended)
+                            mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS),
                         )
                     }
                 }

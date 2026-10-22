@@ -101,6 +101,7 @@ class PushService(
     private val jdbc: JdbcTemplate,
     private val transport: PushTransport,
     private val mapper: ObjectMapper,
+    private val prefs: NotifyPrefsService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val random = Random()
@@ -153,10 +154,12 @@ class PushService(
             fun text(lang: String?) = Lang.pick(lang, body, Lang.bnNumbers(body))
             val list = ArrayList<PushItem>()
             if (uid in langs) list.add(PushItem(uid, Lang.pick(langs[uid], en, bn), text(langs[uid]), data))
+            // the caregiver's copy belongs to the category of the patient's news (rx, appointments …), not "care"
+            val cat = NotifyCats.of(data)
             for (c in carers) {
                 if (c !in langs) continue
                 val extra = if (data["rxId"] != null) mapOf("rxId" to data["rxId"]) else emptyMap()
-                list.add(PushItem(c, "$name: ${Lang.pick(langs[c], en, bn)}", text(langs[c]), mapOf("type" to "care", "asUid" to uid) + extra))
+                list.add(PushItem(c, "$name: ${Lang.pick(langs[c], en, bn)}", text(langs[c]), mapOf("type" to "care", "asUid" to uid) + extra + ("cat" to cat)))
             }
             if (list.isNotEmpty()) send(list)
         } catch (e: Exception) {
@@ -173,13 +176,30 @@ class PushService(
         return out
     }
 
+    /**
+     * The single choke point of every push: each item gets its category (`cat` in the data, NotifyCats), the bell list
+     * gets every item, and the phone push goes only when the person's settings allow that category (`all` and the
+     * category on; [NotifyCats.ACCOUNT] always). Items without a uid (anonymous tokens) always go.
+     */
     fun send(items: List<PushItem>): Int {
+        val withCat = items.map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
         try {
-            addInbox(items)
+            addInbox(withCat)
         } catch (e: Exception) {
             log.error("inbox write failed", e)
         }
-        val flat = items.flatMap { item ->
+        val allowed = try {
+            val settings = prefs.of(withCat.mapNotNull { it.uid })
+            withCat.filter { item ->
+                val uid = item.uid
+                uid == null || (settings[uid] ?: NotifyPrefs.DEFAULT).allows(item.data["cat"].toString())
+            }
+        } catch (e: Exception) {
+            // settings unreadable: better a push too many than a lost emergency
+            log.error("notify prefs read failed", e)
+            withCat
+        }
+        val flat = allowed.flatMap { item ->
             val toks = item.tokens ?: item.uid?.let { uid -> tokensOf(uid) } ?: emptyList()
             toks.distinct().map { t -> item to t }
         }

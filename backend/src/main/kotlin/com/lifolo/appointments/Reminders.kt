@@ -4,6 +4,7 @@ import com.lifolo.common.DhakaTime
 import com.lifolo.common.Lang
 import com.lifolo.common.Sql
 import com.lifolo.jobs.DailyTask
+import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
 import org.springframework.jdbc.core.JdbcTemplate
@@ -55,10 +56,10 @@ class AppointmentReminders(
             confirmed.flatMap { listOf(it.patientUid, it.providerUid) } + waiting.map { it.providerUid } + stale.map { it.patientUid },
         )
         val out = ArrayList<PushItem>()
-        fun msg(uid: String, en: String, bn: String, bodyEn: String, bodyBn: String, role: String) {
+        fun msg(uid: String, en: String, bn: String, bodyEn: String, bodyBn: String, role: String, cat: String? = null) {
             // without a profile nothing; without tokens it still goes to the bell list
             val p = u[uid] ?: return
-            out.add(PushItem(uid, Lang.pick(p.lang, en, bn), Lang.pick(p.lang, bodyEn, bodyBn), mapOf("type" to "appointment", "role" to role)))
+            out.add(PushItem(uid, Lang.pick(p.lang, en, bn), Lang.pick(p.lang, bodyEn, bodyBn), mapOf("type" to "appointment", "role" to role) + (if (cat != null) mapOf("cat" to cat) else emptyMap())))
         }
         // patient: the doctor did not answer
         for (d in stale) {
@@ -90,6 +91,8 @@ class AppointmentReminders(
             msg(
                 uid, "Appointment requests waiting", "অ্যাপয়েন্টমেন্টের অনুরোধ অপেক্ষায়",
                 "$n patient(s) are waiting for your reply", "${Lang.bnDigits(n.toString())} জন রোগী উত্তরের অপেক্ষায়", "provider",
+                // unanswered booking requests: the doctor's "business" category, like the new request itself
+                NotifyCats.BUSINESS,
             )
         }
         val sent = if (out.isNotEmpty()) push.send(out) else 0

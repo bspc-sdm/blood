@@ -246,7 +246,9 @@ class BloodRulesTest {
         val users = listOf(
             u("a1", "A+", 23.81), u("a2", "A+", 23.9), u("a3", "A+", 23.85),
             u("far", "A+", 25.0),
-            u("off", "A+", 23.8) { it.copy(notify = false) },
+            // emergency appeals have their own switch (notify_prefs blood_emergency); the nearby switch does not matter
+            u("off", "A+", 23.8) { it.copy(notifyEmergency = false) },
+            u("nearbyoff", "A+", 23.82) { it.copy(notify = false) },
             u("recent", "A+", 23.8) { it.copy(lastDonationMillis = NOW - 10 * 86400000L) },
             u("notoken", "A+", 23.8) { it.copy(hasTokens = false) },
             u("b1", "B+", 23.8),
@@ -255,7 +257,7 @@ class BloodRulesTest {
         val groups = EmergencyRules.parseGroups(ObjectMapper().readTree("""{"A+": 1, "B+": 1, "O+": 1}"""))
         groups["O+"]!!.closed = true
         val wave = EmergencyRules.pickWave(users, 23.8, 90.4, groups, 25, setOf("a3"), NOW)
-        assertEquals(listOf("a1", "a2"), wave.filter { it.group == "A+" }.map { it.uid })
+        assertEquals(listOf("a1", "nearbyoff", "a2"), wave.filter { it.group == "A+" }.map { it.uid })
         assertEquals(listOf("b1"), wave.filter { it.group == "B+" }.map { it.uid })
         assertFalse(wave.any { it.group == "O+" })
         groups["A+"]!!.coming = 1

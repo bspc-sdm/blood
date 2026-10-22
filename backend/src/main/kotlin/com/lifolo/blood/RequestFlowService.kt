@@ -9,6 +9,7 @@ import com.lifolo.common.Phones
 import com.lifolo.common.Rules
 import com.lifolo.common.Sql
 import com.lifolo.demo.DemoWorld
+import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
@@ -125,7 +126,8 @@ class RequestFlowService(
                         ),
                         "${Lang.pick(lang, "${request.bags} bag(s)", "${request.bags} ব্যাগ")} · ${request.hospital}, " +
                             "${BloodRules.districtLabel(request.placeName, lang)} · ${BloodRules.formatKm(p.km, lang)}",
-                        mapOf("requestId" to requestId, "type" to "request"),
+                        // a new request near the donor: the "nearby" category (= profile notify), not "my request"
+                        mapOf("requestId" to requestId, "type" to "request", "cat" to NotifyCats.BLOOD_NEARBY),
                     )
                 },
             )

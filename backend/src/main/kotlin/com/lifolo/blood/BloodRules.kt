@@ -21,7 +21,10 @@ data class Donor(
     val bloodGroup: String?,
     val lat: Double?,
     val lng: Double?,
+    /** nearby requests (profile notify, and the master switch of notify_prefs) */
     val notify: Boolean = true,
+    /** emergency appeals (notify_prefs blood_emergency, and the master switch) */
+    val notifyEmergency: Boolean = true,
     val maxPushPerDay: Int? = null,
     val notifyGroups: List<String>? = null,
     val birthDateMillis: Long? = null,
@@ -316,7 +319,7 @@ object EmergencyRules {
             if (x.closed || x.coming >= x.need) continue
             out += users
                 .filter { u ->
-                    u.bloodGroup == g && u.hasTokens && u.notify && u.uid !in already && u.lat != null && u.lng != null &&
+                    u.bloodGroup == g && u.hasTokens && u.notifyEmergency && u.uid !in already && u.lat != null && u.lng != null &&
                         BloodRules.isEligibleDonor(u, now)
                 }
                 .map { WaveDonor(it.uid, g, BloodRules.distanceKm(centerLat, centerLng, it.lat!!, it.lng!!), it.lang) }

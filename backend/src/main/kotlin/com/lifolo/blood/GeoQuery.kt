@@ -165,12 +165,18 @@ class GeoQuery(private val jdbc: JdbcTemplate) {
     }
 
     companion object {
-        /** the donor fields of a profile (+ whether any device token exists) */
+        /**
+         * the donor fields of a profile (+ whether any device token exists). `notify` (nearby requests) and
+         * `notify_emergency` (emergency appeals) already include the master switch of notify_prefs, so donors who turned
+         * them off are not picked at all (no wave place, no daily push count spent on a push that would not go).
+         */
         const val DONOR_SELECT = """
-            SELECT p.uid, p.name, p.phone, p.blood_group, p.lat, p.lng, p.notify, p.max_push_per_day, p.notify_groups,
+            SELECT p.uid, p.name, p.phone, p.blood_group, p.lat, p.lng, p.max_push_per_day, p.notify_groups,
+                   (p.notify AND COALESCE(np.all_on, TRUE)) AS notify,
+                   (COALESCE(np.all_on, TRUE) AND COALESCE(np.blood_emergency, TRUE)) AS notify_emergency,
                    p.birth_date_ms, p.weight_kg, p.last_donation_ms, p.max_km, p.fare_after_km, p.lang, p.place_name,
                    EXISTS (SELECT 1 FROM device_tokens t WHERE t.uid = p.uid) AS has_tokens
-            FROM user_profiles p"""
+            FROM user_profiles p LEFT JOIN notify_prefs np ON np.uid = p.uid"""
 
         fun donor(rs: ResultSet): Donor = Donor(
             uid = rs.getString("uid"),
@@ -178,6 +184,7 @@ class GeoQuery(private val jdbc: JdbcTemplate) {
             lat = rs.doubleOrNull("lat"),
             lng = rs.doubleOrNull("lng"),
             notify = rs.boolOrNull("notify") ?: true,
+            notifyEmergency = rs.boolOrNull("notify_emergency") ?: true,
             maxPushPerDay = rs.intOrNull("max_push_per_day"),
             notifyGroups = rs.stringArray("notify_groups"),
             birthDateMillis = rs.longOrNull("birth_date_ms"),

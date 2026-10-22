@@ -17,6 +17,7 @@ import com.lifolo.common.intOrNull
 import com.lifolo.common.ms
 import com.lifolo.common.stringArray
 import com.lifolo.demo.DemoWorld
+import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushItem
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -401,7 +402,8 @@ class AmbReqService(
                 } else {
                     Lang.pick(lang, "Open and tap \"Coming\" — the first to accept gets it.", "খুলে \"আসছি\" চাপুন — আগে যিনি রাজি হবেন তিনিই পাবেন।")
                 },
-                linkedMapOf("type" to "services", "kind" to "ambulance", "sub" to "amb_req", "reqId" to id),
+                // a new call for the driver is their business; later updates on it are "ambulance" (NotifyCats)
+                linkedMapOf("type" to "services", "kind" to "ambulance", "sub" to "amb_req", "reqId" to id, "cat" to NotifyCats.BUSINESS),
             )
         }
     }

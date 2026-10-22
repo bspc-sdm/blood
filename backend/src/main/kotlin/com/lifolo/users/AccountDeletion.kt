@@ -129,6 +129,7 @@ class PlatformDeletionStep(private val jdbc: JdbcTemplate, private val verify: V
         runCatching { verify.deleteForOwner(uid) }
         jdbc.update("DELETE FROM user_quotas WHERE uid = ?", uid)
         jdbc.update("DELETE FROM user_state WHERE uid = ?", uid)
+        jdbc.update("DELETE FROM notify_prefs WHERE uid = ?", uid)
         jdbc.update("DELETE FROM user_commitments WHERE uid = ?", uid)
         jdbc.update("DELETE FROM user_family_members WHERE uid = ?", uid)
         jdbc.update("DELETE FROM donation_date_log WHERE uid = ?", uid)
