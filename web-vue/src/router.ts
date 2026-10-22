@@ -9,6 +9,7 @@ const Health = () => import('./sections/health/HealthSection.vue');
 const Work = () => import('./sections/work/WorkSection.vue');
 const Account = () => import('./sections/account/AccountSection.vue');
 const DeleteAccount = () => import('./pages/DeleteAccountPage.vue');
+const DeactivateAccount = () => import('./pages/DeactivateAccountPage.vue');
 
 const rest = (p: string) => `${p}/:rest(.*)*`;
 
@@ -40,6 +41,8 @@ export const router = createRouter({
     { path: '/login', component: Account },
     // অ্যাকাউন্ট মোছার পাবলিক পাতা (Google Play-র Delete account URL) — লগইন ছাড়াই খোলে
     { path: '/delete-account', component: DeleteAccount },
+    // অ্যাকাউন্ট সাময়িক বন্ধ (মোছার বদলে)
+    { path: '/deactivate-account', component: DeactivateAccount },
     { path: '/:pathMatch(.*)*', component: NotFound },
   ],
   // পাতা বদলালে উপরে যাওয়া AppShell নিজে করে (React-এর মতো)

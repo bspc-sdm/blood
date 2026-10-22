@@ -33,7 +33,19 @@ export function onAccountDisabled(f: Listener) {
   };
 }
 
+type DeactivatedListener = (startedAt: number) => void;
+const deactivatedListeners = new Set<DeactivatedListener>();
+/** অ্যাকাউন্ট সাময়িক বন্ধ (423 `account_deactivated`): সেশন পুরো ওয়েব আটকে "আবার চালু করুন" দেখায়।
+ *  startedAt — অনুরোধ কখন গিয়েছিল (আবার চালুর আগের পুরোনো উত্তর বাদ দিতে) */
+export function onAccountDeactivated(f: DeactivatedListener) {
+  deactivatedListeners.add(f);
+  return () => {
+    deactivatedListeners.delete(f);
+  };
+}
+
 async function request(path: string, body: Record<string, unknown>, token: string | null): Promise<any> {
+  const startedAt = Date.now();
   const payload = { lang: getLang(), ...body };
   let res: Response;
   try {
@@ -54,6 +66,7 @@ async function request(path: string, body: Record<string, unknown>, token: strin
   }
   if (!res.ok) {
     if (json.code === 'account_disabled') disabledListeners.forEach((f) => f(json.error || ''));
+    if (json.code === 'account_deactivated') deactivatedListeners.forEach((f) => f(startedAt));
     // রোগী কেয়ারগিভার থেকে সরিয়ে দিয়েছেন: মোড বন্ধ, যাতে বাকি সব আবার নিজের হয়ে চলে
     if (json.code === 'care_revoked') setCareMode(null);
     throw new ServerError(json.error || tr(`Server error (${res.status})`, `সার্ভারে সমস্যা (${res.status})`), res.status, json.code);

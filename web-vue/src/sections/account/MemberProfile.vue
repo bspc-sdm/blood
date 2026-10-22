@@ -22,7 +22,6 @@ import PhotoMenuDialog from './PhotoMenuDialog.vue';
 import AcctMenu from './AcctMenu';
 import InfoLine from './InfoLine.vue';
 import BecomeDonorCard from './BecomeDonorCard.vue';
-import DeleteAccountDialog from './DeleteAccountDialog.vue';
 import { SUPPORT_EMAIL, badgeLabel, hasBusiness, useAccountState } from './util';
 
 const props = defineProps<{ profile: Profile }>();
@@ -41,7 +40,6 @@ function correctionSent() {
 const correctionTitle = () => tr('Ask to correct the date', 'তথ্য সংশোধনের অনুরোধ'); // bn-ok
 const correctionSub = () => tr('An admin checks and fixes your last donation date', 'অ্যাডমিন দেখে শেষ রক্তদানের তারিখ ঠিক করে দেবেন'); // bn-ok
 const phoneDialog = ref(false);
-const confirmDelete = ref(false);
 const retrying = ref(false);
 const bizKey = `lf.businessNo.${s.uid ?? ''}`;
 const businessNo = ref(store.get(bizKey) === '1');
@@ -88,11 +86,6 @@ const photoSrc = computed(() => {
   return p ? (p.startsWith('data:') ? p : `data:image/jpeg;base64,${p}`) : null;
 });
 
-function deleted() {
-  confirmDelete.value = false;
-  nav('/', { replace: true });
-}
-
 async function logout() {
   await s.signOut();
   nav('/', { replace: true });
@@ -114,9 +107,6 @@ function dateSaved(d: number | null) {
 function phoneVerified() {
   phoneDialog.value = false;
   s.reloadMe();
-}
-function askDelete() {
-  confirmDelete.value = true;
 }
 </script>
 
@@ -255,7 +245,9 @@ function askDelete() {
             <!-- ডেমো -->
             <ListRow v-if="isDemoUid(s.uid)" icon="sync" :title="tr('Switch role', 'রোল বদলান')" :sub="tr('Demo', 'ডেমো')" :on-click="() => (demoSwitch = true)" />
             <ListRow icon="logout" :title="tr('Log out', 'লগআউট')" :on-click="logout"><template #trailing><span /></template></ListRow>
-            <ListRow icon="delete" :title="tr('Delete account', 'অ্যাকাউন্ট মুছুন')" danger :on-click="askDelete"><template #trailing><span /></template></ListRow>
+            <!-- সাময়িক বন্ধ আর মোছা — দুটোই পুরো পাতা (/deactivate-account, /delete-account) -->
+            <ListRow icon="schedule" :title="tr('Pause account', 'অ্যাকাউন্ট সাময়িক বন্ধ')" :on-click="() => nav('/deactivate-account')" /><!-- bn-ok -->
+            <ListRow icon="delete" :title="tr('Delete account', 'অ্যাকাউন্ট মুছুন')" danger :on-click="() => nav('/delete-account')" />
           </AcctMenu>
         </div>
       </div>
@@ -267,6 +259,5 @@ function askDelete() {
     <DonationDateDialog v-if="dateDialog" :profile="profile" @close="dateDialog = false" @saved="dateSaved" />
     <CorrectionDialog v-if="correctionDialog" :profile="profile" @close="correctionDialog = false" @sent="correctionSent" />
     <PhoneVerifyDialog v-if="phoneDialog" @close="phoneDialog = false" @verified="phoneVerified" />
-    <DeleteAccountDialog v-if="confirmDelete" @close="confirmDelete = false" @deleted="deleted" />
   </div>
 </template>

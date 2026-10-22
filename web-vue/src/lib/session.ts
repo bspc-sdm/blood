@@ -4,8 +4,9 @@
 import { markRaw, reactive, watch } from 'vue';
 import { onAuthStateChanged, signInWithCustomToken, signOut as fbSignOut, type User } from 'firebase/auth';
 import { auth } from './firebase';
-import { call, onAccountDisabled, postPublic } from './api';
-import { emptyProfile, hasLocation, isComplete, isDonor, loadProfile, saveLang, saveLocation, type Profile } from './profile';
+import { call, onAccountDeactivated, onAccountDisabled, postPublic } from './api';
+import { parseAccount, type AccountInfo } from './account';
+import { emptyProfile, hasLocation, isComplete, isDonor, loadProfileAndAccount, saveLang, saveLocation, type Profile } from './profile';
 import { store } from './store';
 import { getLang, tr, useLang } from './i18n';
 import { setCareMode } from './care';
@@ -70,12 +71,20 @@ export interface Session {
   finishPending: (ok: boolean) => void;
   disabledMessage: string | null;
   clearDisabled: () => void;
+  /** অ্যাকাউন্টের অবস্থা (profile_get-এর `account`); null = জানা নেই (চালু ধরে নেওয়া) */
+  account: AccountInfo | null;
+  /** লগইন করা আর অ্যাকাউন্ট সাময়িক বন্ধ — পুরো ওয়েব আটকে "আবার চালু করুন" */
+  readonly deactivated: boolean;
+  /** account_reactivate, তারপর সব তথ্য নতুন করে */
+  reactivate: () => Promise<void>;
 }
 
 const GUEST_AREA = 'lf.guestArea';
 
 let rids: { email: string; list: string[] } = { email: '', list: [] };
 let uidNow: string | null = null;
+/** শেষ কবে আবার চালু হলো — এর আগে পাঠানো অনুরোধের পুরোনো 423 উত্তর আর আটকায় না */
+let reactivatedAt = 0;
 let guestPlace: Place | null = store.getJson<Place>(GUEST_AREA);
 
 function setUser(u: User | null) {
@@ -89,8 +98,9 @@ async function reloadProfile(): Promise<Profile | null> {
   const u = auth.currentUser;
   if (!u) return null;
   try {
-    const p = await loadProfile(u.uid);
+    const { profile: p, account } = await loadProfileAndAccount(u.uid);
     if (uidNow !== u.uid) return null;
+    S.account = account;
     S.profile = p ?? emptyProfile();
     S.profileLoaded = true;
     return p ?? emptyProfile();
@@ -169,8 +179,34 @@ async function signIn(email: string, code: string) {
   return { restored: !!r.restored };
 }
 
+async function reactivate() {
+  await call('account_reactivate');
+  reactivatedAt = Date.now();
+  S.account = { state: 'active' };
+  queryClient.invalidateQueries();
+  await reloadProfile();
+  refreshWork();
+}
+
+function clearUser() {
+  S.account = null;
+  S.profile = null;
+  S.profileLoaded = false;
+  S.me = null;
+  S.work = emptyWork();
+  S.workLoaded = false;
+}
+
 async function signOut() {
   setCareMode(null);
+  // পরীক্ষার বিল্ড: নকল লগইনও ছাড়া (মোছা/সাময়িক বন্ধের পর লগআউট দেখা যায়)
+  if (TEST_MODE && window.__lfTest?.user) {
+    delete window.__lfTest.user;
+    setUser(null);
+    clearUser();
+    queryClient.clear();
+    return;
+  }
   await fbSignOut(auth);
   queryClient.clear();
 }
@@ -247,6 +283,11 @@ const S = reactive({
   clearDisabled: () => {
     S.disabledMessage = null;
   },
+  account: null as AccountInfo | null,
+  get deactivated(): boolean {
+    return !!this.user && this.account?.state === 'deactivated';
+  },
+  reactivate,
 });
 
 export function useSession(): Session {
@@ -264,6 +305,7 @@ export function initSession() {
     setUser(tu as unknown as User);
     S.profile = { ...emptyProfile(), ...(window.__lfTest?.profile ?? {}) } as Profile;
     S.profileLoaded = true;
+    S.account = parseAccount(window.__lfTest?.account);
     S.ready = true;
     refreshWork();
   } else {
@@ -271,11 +313,7 @@ export function initSession() {
       setUser(u);
       setCareMode(null);
       if (!u) {
-        S.profile = null;
-        S.profileLoaded = false;
-        S.me = null;
-        S.work = emptyWork();
-        S.workLoaded = false;
+        clearUser();
         S.ready = true;
         return;
       }
@@ -301,6 +339,18 @@ export function initSession() {
     if (auth.currentUser) saveLang(auth.currentUser.uid, lang).catch(() => {});
     queryClient.invalidateQueries();
   });
+
+  // সাময়িক বন্ধ অ্যাকাউন্টে যেকোনো কাজ 423 দিলে: পুরো ওয়েব আটকে "আবার চালু করুন" (লগইনের ধাপ খোলা থাকলে বন্ধ)
+  onAccountDeactivated((startedAt) => {
+    if (!S.user || startedAt < reactivatedAt) return;
+    S.account = { ...(S.account ?? {}), state: 'deactivated' };
+  });
+  watch(
+    () => S.deactivated,
+    (d) => {
+      if (d && S.pending) S.pending = null;
+    },
+  );
 
   onAccountDisabled((msg) => {
     S.disabledMessage = msg || tr('This account is turned off', 'এই অ্যাকাউন্ট বন্ধ করা আছে');

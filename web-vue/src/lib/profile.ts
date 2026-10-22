@@ -3,6 +3,7 @@
 // uid প্যারামিটার আগের মতো থাকে (ডাকার জায়গা বদলায়নি); সার্ভার লগইন করা মানুষের প্রোফাইলই নেয়।
 import { call } from './api';
 import { roundCoord } from './geo';
+import { parseAccount, type AccountInfo } from './account';
 import { BLOOD_GROUPS, DEFAULT_PUSH_PER_DAY, DEFAULT_RADIUS_KM, MAX_PUSH_PER_DAY_LIMIT, RADIUS_CHOICES, patientsFor } from './rules';
 
 export interface Profile {
@@ -35,9 +36,17 @@ export const emptyProfile = (): Profile => ({
 const groupList = (raw: unknown) => (Array.isArray(raw) ? raw.filter((g): g is string => typeof g === 'string' && BLOOD_GROUPS.includes(g)) : null);
 const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-export async function loadProfile(_uid: string): Promise<Profile | null> {
-  const { profile: x } = await call<{ profile: Record<string, any> | null }>('profile_get');
-  if (!x) return null;
+export async function loadProfile(uid: string): Promise<Profile | null> {
+  return (await loadProfileAndAccount(uid)).profile;
+}
+
+/** profile_get: প্রোফাইল আর অ্যাকাউন্টের অবস্থা (চালু / সাময়িক বন্ধ / মোছার অপেক্ষায়) একসাথে */
+export async function loadProfileAndAccount(_uid: string): Promise<{ profile: Profile | null; account: AccountInfo | null }> {
+  const r = await call<{ profile: Record<string, any> | null; account?: unknown }>('profile_get');
+  return { profile: r.profile ? toProfile(r.profile) : null, account: parseAccount(r.account ?? r.profile?.account) };
+}
+
+function toProfile(x: Record<string, any>): Profile {
   const maxKm = numOrNull(x.maxKm);
   return {
     name: x.name ?? '',

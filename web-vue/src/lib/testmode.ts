@@ -5,7 +5,7 @@ export const TEST_MODE = import.meta.env.MODE === 'test';
 declare global {
   interface Window {
     /** Playwright বসায়: { user?: {uid,email}, profile?: {...}, docs?: { 'requests/abc': {...} }, queries?: { 'requests?requesterUid=u1': [...] } } */
-    __lfTest?: { user?: { uid: string; email: string }; profile?: Record<string, unknown>; docs?: Record<string, any>; queries?: Record<string, any[]> };
+    __lfTest?: { user?: { uid: string; email: string }; profile?: Record<string, unknown>; account?: Record<string, unknown>; docs?: Record<string, any>; queries?: Record<string, any[]> };
   }
 }
 
