@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         Catalog.init(this)
         // জেলা-উপজেলা-ইউনিয়নের তালিকা আগেভাগে পড়ে রাখা
         Thread { runCatching { Areas.ensure(this) } }.start()
-        Notifier.ensureChannel(this)
+        Notifier.ensureChannels(this)
         // অ্যাক্টিভিটি নতুন করে তৈরি হলে (যেমন লেখার আকার বদলালে) আগের পাতার অপেক্ষার কাজ আর চলে না — বাতিল
         if (savedInstanceState != null) LoginGate.pending.value = null
         // শুধু প্রথমবার খোলার সময় নোটিফিকেশনের data পড়া হয় (নতুন করে তৈরি হলে আবার খুলবে না)

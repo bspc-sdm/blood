@@ -86,7 +86,7 @@ fun SettingsScreen(
                 listOf(Lang.EN to "English", Lang.BN to "বাংলা").forEachIndexed { i, (l, label) ->
                     SegmentedButton(
                         selected = AppPrefs.lang.value == l,
-                        onClick = { AppPrefs.setLang(context, l) },
+                        onClick = { AppPrefs.setLang(context, l); Notifier.ensureChannels(context) },
                         shape = SegmentedButtonDefaults.itemShape(i, 2),
                     ) { Text(label) }
                 }
@@ -112,16 +112,8 @@ fun SettingsScreen(
         if (!guest) {
             // ---- নোটিফিকেশন ----
             SettingsCard {
-                ListItem(
-                    headlineContent = { Text(tr("Notifications", "নোটিফিকেশন")) },
-                    supportingContent = { Text(tr("When someone nearby needs blood", "আশেপাশে কারো রক্ত লাগলে")) },
-                    leadingContent = { AppIcon(R.drawable.ic_notifications, null) },
-                    trailingContent = {
-                        Switch(checked = profile.notify, onCheckedChange = { save(profile.copy(notify = it)) })
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                )
-                if (profile.notify) {
+                // সব নোটিফিকেশন + প্রতিটা ধরন (NotifyCats); "আশেপাশে রক্ত লাগলে"-র নিচে তার আগের পছন্দগুলো
+                NotifySettingsSection(profile, onProfileChanged) {
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(tr("Maximum per day", "দিনে সর্বোচ্চ"), style = MaterialTheme.typography.labelLarge)
                         ChipRows(Rules.PUSH_PER_DAY_CHOICES.map { it.toString() }, setOf(profile.maxPushPerDay.toString()), perRow = 5, label = { num(it) }) {

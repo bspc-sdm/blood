@@ -22,7 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 object Notifier {
-    const val CHANNEL_ID = "blood_requests"
     const val EXTRA_REQUEST_ID = "requestId"
     /** "request" (ডোনারের জন্য), "response" (রক্তপ্রার্থীর জন্য), "eligible" */
     const val EXTRA_TYPE = "type"
@@ -36,15 +35,53 @@ object Notifier {
     /** অ্যাম্বুলেন্স ডাকার অনুরোধ (রোগী: অপেক্ষার পাতা) */
     const val EXTRA_REQ_ID = "reqId"
 
-    fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                tr("Blood requests", "রক্তের রিকোয়েস্ট"),
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = tr("Nearby blood requests and replies", "আশেপাশের রক্তের রিকোয়েস্ট আর সাড়া") }
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    /**
+     * প্রতিটা নোটিফিকেশনের ধরনের (NotifyCats) আলাদা চ্যানেল — ফোনের সেটিংসেও আলাদা করে বন্ধ/শব্দ বদলানো যায়।
+     * আবার ডাকলে শুধু নাম/বিবরণ বদলায় (ভাষা বদলালে); ব্যবহারকারীর বদলানো শব্দ/গুরুত্ব থাকে। আগের একমাত্র চ্যানেল
+     * ("blood_requests") মুছে ফেলা হয়।
+     */
+    fun ensureChannels(context: Context) {
+        if (Build.VERSION.SDK_INT < 26) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        nm.createNotificationChannels(
+            NotifyCats.ALL.map { cat ->
+                NotificationChannel(
+                    NotifyCats.channelId(cat),
+                    NotifyCats.label(cat),
+                    if (cat in NotifyCats.HIGH) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = NotifyCats.description(cat) }
+            },
+        )
+        if (nm.getNotificationChannel(NotifyCats.OLD_CHANNEL_ID) != null) nm.deleteNotificationChannel(NotifyCats.OLD_CHANNEL_ID)
+    }
+
+    /** পুশ এলে তার চ্যানেল না থাকলে (অ্যাপ হালনাগাদের পর এখনো খোলা হয়নি) বানানো — ভাষা এই ফোনের পছন্দমতো */
+    private fun ensureChannelFor(context: Context, channelId: String) {
+        if (Build.VERSION.SDK_INT < 26) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        if (nm.getNotificationChannel(channelId) == null) {
+            AppPrefs.init(context)
+            ensureChannels(context)
         }
+    }
+
+    /** ফোনের সেটিংসে এই অ্যাপের নোটিফিকেশনের পাতা (চ্যানেলগুলো); পুরোনো ফোনে অ্যাপের তথ্যের পাতা */
+    fun openSystemSettings(context: Context) {
+        val intent = if (Build.VERSION.SDK_INT >= 26) {
+            Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
+        }
+        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure {
+                runCatching {
+                    context.startActivity(
+                        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
     }
 
     private fun canNotify(context: Context): Boolean =
@@ -79,6 +116,10 @@ object Notifier {
         val extras = extrasOf(data)
         val type = extras[EXTRA_TYPE]
         val kind = extras[EXTRA_KIND]
+        // কোন ধরনের খবর (সার্ভারের `cat`; পুরোনো সার্ভারে type থেকে) → সেই ধরনের চ্যানেল
+        val cat = NotifyCats.catOf(data)
+        val channelId = NotifyCats.channelId(cat)
+        ensureChannelFor(context, channelId)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             extras.forEach { (k, v) -> putExtra(k, v) }
@@ -88,13 +129,15 @@ object Notifier {
             context, id, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val ambulanceIcon = cat == NotifyCats.AMBULANCE || (type == "services" && serviceKind(kind, title) == "ambulance") || type == "amb_req_mine"
+        val n = NotificationCompat.Builder(context, channelId)
             // অ্যাম্বুলেন্সের খবরে অ্যাম্বুলেন্সের আইকন, বাকি সব অ্যাপের রক্তের ফোঁটা
-            .setSmallIcon(if ((type == "services" && serviceKind(kind, title) == "ambulance") || type == "amb_req_mine") R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
+            .setSmallIcon(if (ambulanceIcon) R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // Android ৭ ও আগের ফোনে চ্যানেল নেই — গুরুত্ব এখানে
+            .setPriority(if (cat in NotifyCats.HIGH) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()

@@ -1,0 +1,94 @@
+# যাত্রা ১৩ — নোটিফিকেশনের ধরন (সার্ভার: notify_prefs_get / notify_prefs_set): অ্যাপ সেটিংসে "প্রশ্নোত্তর আর টিপস" বন্ধ →
+# পাতা বন্ধ করে আবার খুললে (সার্ভার থেকে আবার পড়া) বন্ধই আছে → আবার চালু, আবার খুলে চালু (পরের চালানোর জন্য আগের অবস্থা)।
+# আর "জরুরি রক্তের আহ্বান" বন্ধ করতে চাইলে নিশ্চিত করার প্রশ্ন — "বাতিল" চাপলে চালুই থাকে।
+appId: com.bspc.blood
+env:
+  J: j13
+  ROLE: ডেমো ডোনার করিম
+  CAT: ".*প্রশ্নোত্তর আর টিপস.*"
+---
+- runFlow: ../common/start.yaml
+- runFlow: ../common/notify-settings.yaml
+- takeScreenshot: j13-01-notify-settings
+# আগের কোনো চালানো মাঝপথে থেমে বন্ধ রেখে গেলে আগে চালু করে নেওয়া
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        text: ${CAT}
+        checked: false
+    commands:
+      - tapOn: ${CAT}
+      - extendedWaitUntil:
+          visible:
+            text: ${CAT}
+            checked: true
+          timeout: 10000
+# বন্ধ
+- tapOn: ${CAT}
+- assertVisible:
+    text: ${CAT}
+    checked: false
+- assertNotVisible: "সেভ হয়নি.*"
+- takeScreenshot: j13-02-category-off
+# পাতা বন্ধ করে আবার খোলা — সার্ভার থেকে আবার পড়া হয়
+- back
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    text: ${CAT}
+    checked: false
+- takeScreenshot: j13-03-still-off-after-reopen
+# আবার চালু, আবার খুলে দেখা
+- tapOn: ${CAT}
+- assertVisible:
+    text: ${CAT}
+    checked: true
+- back
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element: ${CAT}
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    text: ${CAT}
+    checked: true
+# জরুরি আহ্বান বন্ধের আগে নিশ্চিত করা: "বাতিল" → চালুই থাকে (সার্ভারে কিছু যায় না)
+- scrollUntilVisible:
+    element: ".*জরুরি রক্তের আহ্বান.*"
+    direction: UP
+    timeout: 20000
+    centerElement: true
+- tapOn: ".*জরুরি রক্তের আহ্বান.*"
+- extendedWaitUntil:
+    visible: "জরুরি খবর পাবেন না — নিশ্চিত?"
+    timeout: 10000
+- takeScreenshot: j13-04-confirm-emergency-off
+- tapOn: "বাতিল"
+- assertVisible:
+    text: ".*জরুরি রক্তের আহ্বান.*"
+    checked: true
+# অ্যাকাউন্টের সারি: সবসময় চালু, বদলানো যায় না
+- scrollUntilVisible:
+    element: ".*অ্যাকাউন্ট আর নিরাপত্তা.*"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    text: ".*অ্যাকাউন্ট আর নিরাপত্তা.*"
+    checked: true
+    enabled: false
+- scrollUntilVisible:
+    element: ".*ফোনের সেটিংসে নোটিফিকেশন.*"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: j13-05-account-and-phone-settings

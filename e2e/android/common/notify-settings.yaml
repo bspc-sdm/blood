@@ -1,0 +1,17 @@
+# সেটিংস ও প্রোফাইল → অ্যাপ সেটিংস, নোটিফিকেশনের ধরনগুলো সার্ভার থেকে আসা পর্যন্ত অপেক্ষা (লগইন করা অবস্থায়, যেকোনো পাতা থেকে)
+appId: com.bspc.blood
+---
+- runFlow: dismiss.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "অ্যাপ সেটিংস"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "অ্যাপ সেটিংস"
+- extendedWaitUntil:
+    visible: ".*সব নোটিফিকেশন.*"
+    timeout: 20000
+# ধরনগুলো (notify_prefs_get) এলে প্রথমটা দেখা যায়; না এলে "আবার চেষ্টা করুন"
+- extendedWaitUntil:
+    visible: ".*আশেপাশে রক্ত লাগলে.*"
+    timeout: 30000
