@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // অ্যাকাউন্ট মোছার শেষ ধাপ (delete_account {ack:true}) — /delete-account পাতার ভেতরে, ছোট ডায়ালগ নয়।
-// "আমি বুঝেছি …" টিক না দিলে লাল বোতাম চাপা যায় না। সফল হলে লগআউট করে deleted(deleteAt, email) পাঠায়।
+// "আমি বুঝেছি …" টিক না দিলে লাল বোতাম চাপা যায় না। সফল হলে deleted(deleteAt, email) পাঠিয়ে লগআউট করে।
 // নতুন লেখা, তাই বাংলা লাইনে bn-ok।
 import { ref } from 'vue';
 import { Button, Check, ErrorText } from '@/ui/kit';
@@ -21,8 +21,9 @@ async function deleteAccount() {
   const email = s.email;
   try {
     const r = await call<{ ok?: boolean; deleteAt?: number }>('delete_account', { ack: true });
-    await s.signOut();
+    // আগে জানানো, তারপর লগআউট (লগআউটে এই অংশ সরে যায়, তখন আর emit যায় না)
     emit('deleted', typeof r?.deleteAt === 'number' ? r.deleteAt : null, email);
+    await s.signOut().catch(() => {});
   } catch (e) {
     deleteError.value = errorText(e);
   } finally {
