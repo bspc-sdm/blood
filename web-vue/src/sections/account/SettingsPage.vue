@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // অ্যাপ সেটিংস (অ্যাপের Settings.kt): ভাষা, থিম, নোটিফিকেশন, দূরত্ব, যাতায়াত খরচ, তালিকার গ্রুপ, এলাকা, অ্যাপ সম্পর্কে।
 // প্রতিটা বদল সাথে সাথে সেভ হয়। অতিথি: শুধু ভাষা, থিম, এলাকা, ব্যবসা যোগ আর অ্যাপ সম্পর্কে।
-import { computed, ref } from 'vue';
-import { ChoiceChips, ErrorText, Icon, ListRow, Loading, Segmented, Switch } from '@/ui/kit';
+// নোটিফিকেশন: "সব নোটিফিকেশন" আর প্রতিটা ধরন আলাদা (notify_prefs_*); "আশেপাশে রক্ত লাগলে" = প্রোফাইলের notify,
+// তার নিচে আগের মতো দিনে সর্বোচ্চ আর গ্রুপ। জরুরি ধরন (বা সব) বন্ধ করার আগে পাতার ভেতরেই "নিশ্চিত?"।
+import { computed, ref, watch } from 'vue';
+import { ChoiceChips, ConfirmDialog, ErrorText, Icon, ListRow, Loading, Segmented, Switch } from '@/ui/kit';
 import PlacePicker from '@/ui/PlacePicker.vue';
 import SubPageBar from '@/shell/SubPageBar.vue';
 import { usePageTitle } from '@/shell/chrome';
@@ -13,8 +15,12 @@ import { districtLabel } from '@/lib/geo';
 import { BLOOD_GROUPS, FARE_AFTER_CHOICES, PUSH_PER_DAY_CHOICES, RADIUS_CHOICES } from '@/lib/rules';
 import { compatibleGroups, effectiveNotifyGroups, effectiveViewGroups, saveSettings, type Profile } from '@/lib/profile';
 import { useSession, type Place } from '@/lib/session';
+import {
+  NOTIFY_CATS, URGENT_CATS, BUSINESS_CAT, allLabel, allSub, catLabel, catSub, loadNotifyPrefs, offConfirm, offText, offTitle, saveNotifyPrefs,
+  type NotifyCat, type NotifyPrefs,
+} from '@/lib/notifyPrefs';
 import { useNav } from '@/lib/nav';
-import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from './util';
+import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL, hasBusiness, useAccountState } from './util';
 import { useBack } from './nav';
 import LinkRow from './LinkRow.vue';
 import SLabel from './SLabel.vue';
@@ -48,6 +54,69 @@ function save(updated: Profile) {
   );
 }
 const upd = (patch: Partial<Profile>) => s.profile && save({ ...s.profile, ...patch });
+
+// ---------- নোটিফিকেশনের ধরন ----------
+const prefs = ref<NotifyPrefs | null>(null);
+const prefsError = ref<string | null>(null);
+/** বন্ধ করার আগে নিশ্চিত চাওয়া হচ্ছে যেটার জন্য */
+const confirmOff = ref<'all' | NotifyCat | null>(null);
+/** "নিশ্চিত?"-তে বাতিল করলে সুইচটা আবার আঁকা (চেকবক্স নিজে থেকেই বন্ধ দেখাচ্ছিল) */
+const rev = ref(0);
+/** "আমার ব্যবসা" শুধু ব্যবসা বা পেশাদার ব্যাজ (আবেদন সহ) থাকলে */
+const acct = useAccountState();
+const showBusiness = computed(() => hasBusiness(acct.value.work) || !!acct.value.work.professional || !!acct.value.me?.badge);
+const cats = computed(() => NOTIFY_CATS.filter((c) => c !== BUSINESS_CAT || showBusiness.value));
+
+async function loadPrefs() {
+  if (s.guest || !s.uid) return;
+  try {
+    prefs.value = await loadNotifyPrefs();
+    prefsError.value = null;
+    syncProfile();
+  } catch (e) {
+    prefsError.value = errorText(e);
+  }
+}
+watch(() => s.uid, loadPrefs, { immediate: true });
+
+/** blood_nearby আর প্রোফাইলের notify একই — নিচের দিনে সর্বোচ্চ/গ্রুপের সেভ যেন পুরোনো মান না পাঠায় */
+function syncProfile() {
+  const p = s.profile;
+  const v = prefs.value?.cats.blood_nearby;
+  if (p && v != null && p.notify !== v) s.setProfile({ ...p, notify: v });
+}
+
+async function applyPrefs(change: { all?: boolean; cats?: Partial<Record<NotifyCat, boolean>> }) {
+  const before = prefs.value;
+  if (!before) return;
+  prefs.value = { all: change.all ?? before.all, cats: { ...before.cats, ...change.cats } };
+  syncProfile();
+  try {
+    prefs.value = await saveNotifyPrefs(change);
+    prefsError.value = null;
+  } catch {
+    prefs.value = before;
+    prefsError.value = tr("Couldn't save. Check your internet.", 'সেভ হয়নি, ইন্টারনেট দেখুন।');
+  }
+  syncProfile();
+}
+
+function toggle(target: 'all' | NotifyCat, on: boolean) {
+  if (!on && (target === 'all' || URGENT_CATS.includes(target))) {
+    confirmOff.value = target;
+    return;
+  }
+  void applyPrefs(target === 'all' ? { all: on } : { cats: { [target]: on } });
+}
+function confirmTurnOff() {
+  const t = confirmOff.value;
+  confirmOff.value = null;
+  if (t) void applyPrefs(t === 'all' ? { all: false } : { cats: { [t]: false } });
+}
+function cancelTurnOff() {
+  confirmOff.value = null;
+  rev.value++;
+}
 
 async function picked(pl: Place) {
   areaBusy.value = true;
@@ -93,37 +162,49 @@ async function picked(pl: Place) {
               </div>
             </section>
             <template v-if="!s.guest && s.profile">
-              <section class="acct-scard">
-                <div class="acct-srow">
-                  <Icon name="notifications" :size="24" />
-                  <div class="grow">
-                    <Switch
-                      :model-value="s.profile.notify"
-                      :label="tr('Notifications', 'নোটিফিকেশন')"
-                      :sub="tr('When someone nearby needs blood', 'আশেপাশে কারো রক্ত লাগলে')"
-                      @update:model-value="(v) => upd({ notify: v })"
-                    />
+              <section class="acct-scard" data-testid="notify-settings">
+                <SLabel icon="notifications">{{ tr('Notifications', 'নোটিফিকেশন') }}</SLabel>
+                <div v-if="prefsError" class="acct-sbody"><ErrorText :text="prefsError" /></div>
+                <div v-if="!prefs && !prefsError" class="acct-sbody"><Loading inline /></div>
+                <template v-if="prefs">
+                  <div :key="`all-${rev}`" class="acct-srow">
+                    <div class="grow">
+                      <Switch :model-value="prefs.all" :label="allLabel()" :sub="allSub()" @update:model-value="(v) => toggle('all', v)" />
+                    </div>
                   </div>
-                </div>
-                <div v-if="s.profile.notify" class="acct-sbody">
-                  <span class="t-label-l">{{ tr('Maximum per day', 'দিনে সর্বোচ্চ') }}</span>
-                  <ChoiceChips
-                    :options="PUSH_PER_DAY_CHOICES.map((n) => ({ value: n, label: num(n) }))"
-                    :model-value="s.profile.maxPushPerDay"
-                    @update:model-value="(n: number) => upd({ maxPushPerDay: n })"
-                  />
-                  <p v-if="compatible.length === 0" class="t-body-s muted">{{ tr('Add your blood group in your profile to get donation requests.', 'রক্তদানের নোটিফিকেশন পেতে প্রোফাইলে রক্তের গ্রুপ দিন।') }}</p>
-                  <template v-else>
-                    <span class="t-label-l">{{ tr('For patient blood groups', 'রোগীর যে গ্রুপগুলোর জন্য') }}</span>
-                    <ChoiceChips
-                      multi
-                      :options="compatible.map((g) => ({ value: g, label: g }))"
-                      :model-value="effectiveNotifyGroups(s.profile)"
-                      @update:model-value="(next: string[]) => next.length && upd({ notifyGroups: normalize(next, compatible) })"
-                    />
-                    <p class="t-body-s muted">{{ tr(`Only groups you (${s.profile.bloodGroup}) can donate to.`, `শুধু যাদের আপনি (${s.profile.bloodGroup}) রক্ত দিতে পারেন।`) }}</p>
+                  <hr class="divider" />
+                  <template v-for="c in cats" :key="`${c}-${rev}`">
+                    <div class="acct-srow" :data-cat="c">
+                      <div class="grow">
+                        <Switch :model-value="prefs.cats[c]" :disabled="!prefs.all" :label="catLabel(c)" :sub="catSub(c)" @update:model-value="(v) => toggle(c, v)" />
+                      </div>
+                    </div>
+                    <div v-if="c === 'blood_nearby' && prefs.all && prefs.cats.blood_nearby" class="acct-sbody">
+                      <span class="t-label-l">{{ tr('Maximum per day', 'দিনে সর্বোচ্চ') }}</span>
+                      <ChoiceChips
+                        :options="PUSH_PER_DAY_CHOICES.map((n) => ({ value: n, label: num(n) }))"
+                        :model-value="s.profile.maxPushPerDay"
+                        @update:model-value="(n: number) => upd({ maxPushPerDay: n })"
+                      />
+                      <p v-if="compatible.length === 0" class="t-body-s muted">{{ tr('Add your blood group in your profile to get donation requests.', 'রক্তদানের নোটিফিকেশন পেতে প্রোফাইলে রক্তের গ্রুপ দিন।') }}</p>
+                      <template v-else>
+                        <span class="t-label-l">{{ tr('For patient blood groups', 'রোগীর যে গ্রুপগুলোর জন্য') }}</span>
+                        <ChoiceChips
+                          multi
+                          :options="compatible.map((g) => ({ value: g, label: g }))"
+                          :model-value="effectiveNotifyGroups(s.profile)"
+                          @update:model-value="(next: string[]) => next.length && upd({ notifyGroups: normalize(next, compatible) })"
+                        />
+                        <p class="t-body-s muted">{{ tr(`Only groups you (${s.profile.bloodGroup}) can donate to.`, `শুধু যাদের আপনি (${s.profile.bloodGroup}) রক্ত দিতে পারেন।`) }}</p>
+                      </template>
+                    </div>
                   </template>
-                </div>
+                  <div class="acct-srow" data-cat="account">
+                    <div class="grow">
+                      <Switch :model-value="true" disabled :label="catLabel('account')" :sub="catSub('account')" />
+                    </div>
+                  </div>
+                </template>
               </section>
               <section class="acct-scard">
                 <SLabel icon="location_on">{{ tr('How far can you go to donate?', 'রক্ত দিতে কতদূর যেতে পারবেন?') }}</SLabel>
@@ -195,6 +276,15 @@ async function picked(pl: Place) {
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      v-if="confirmOff"
+      :title="offTitle()"
+      :text="offText(confirmOff)"
+      :confirm="offConfirm()"
+      danger
+      @confirm="confirmTurnOff"
+      @close="cancelTurnOff"
+    />
     <PlacePicker v-if="areaOpen" :busy="areaBusy" :error="areaError" @close="areaOpen = false" @picked="picked" />
   </template>
 </template>
