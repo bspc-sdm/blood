@@ -299,7 +299,15 @@ data class Chamber(
     val times: List<ChamberTime> = emptyList(),
     /** রোগীপ্রতি গড় সময় (মিনিট) — সিরিয়ালের আনুমানিক সময়ে; null = ঠিক করা নেই (১০ ধরা হয়) */
     val patientMin: Int? = null,
+    /** "in_person" (চেম্বারে) বা "online" (ভিডিও) — অনলাইনে হাসপাতাল/ঠিকানা নেই (OnlineChamber.kt) */
+    val mode: String = "in_person",
+    /** অনলাইন: ফি পাঠানোর bKash নম্বর (শুধু নিজের provider_me-তে আসে; রোগী বুকিংয়ের পরে দেখেন) */
+    val bkashNumber: String = "",
+    /** অনলাইন: রোগীদের জন্য নোট (≤ ২০০) */
+    val note: String = "",
 ) {
+    val online: Boolean get() = mode == "online"
+
     /** সব সময়ের ভাগ — এডিটর আর দেখানো এটাই ব্যবহার করে */
     val slots: List<ChamberTime> get() = times.ifEmpty { listOf(ChamberTime(days, start, end)) }
 
@@ -312,7 +320,7 @@ data class Chamber(
     /** তালিকায় দেখানোর লেখা: "ফি: ৫০০ টাকা" / "ফি নেই"; কিছু না দিলে (আগের ভার্সন) ফাঁকা */
     val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
-    val area: String get() = listOf(address, Areas.label(district, upazilaId, unionId)).filter { it.isNotBlank() }.joinToString(", ")
+    val area: String get() = if (online) "" else listOf(address, Areas.label(district, upazilaId, unionId)).filter { it.isNotBlank() }.joinToString(", ")
 
     /** "শনি, রবি, সোম · বিকাল ৫:০০ – রাত ৯:০০" — প্রতিটা ভাগ আলাদা লাইনে (+ নোট) */
     val timeText: String
@@ -333,6 +341,7 @@ data class Chamber(
         .put("days", JSONArray(days)).put("start", start).put("end", end)
         .apply { if (times.size > 1) put("times", JSONArray(times.map { it.toJson() })) }
         .put("patientMin", patientMin ?: JSONObject.NULL)
+        .apply { if (online) put("mode", "online").put("hospitalId", JSONObject.NULL).put("bkashNumber", bkashNumber).put("note", note) }
 
     companion object {
         fun parse(o: JSONObject) = Chamber(
@@ -343,10 +352,14 @@ data class Chamber(
             o.optBoolean("custom"), o.str("address"),
             parseTimes(o.optJSONArray("times")).takeIf { it.size > 1 }.orEmpty(),
             o.intOrNull("patientMin"),
+            if (o.str("mode") == "online") "online" else "in_person", o.str("bkashNumber"), o.str("note"),
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */
         fun customNew(district: String) = Chamber(null, "", "", district, null, null, "", "", "", true, "", custom = true)
+
+        /** ডাক্তারের নতুন অনলাইন (ভিডিও) চেম্বার — হাসপাতাল/ঠিকানা নেই */
+        fun onlineNew() = Chamber(null, OnlineChambers.NAME_EN, OnlineChambers.NAME_BN, "", null, null, "", "", "", true, "", mode = "online")
 
         fun from(h: Hospital) = Chamber(h.id, h.nameEn, h.nameBn, h.district, h.upazilaId, h.unionId, "", "", "", true, "")
     }
@@ -450,7 +463,7 @@ object ChamberClock {
         val lastNight = if (c.openOn(t0 - DAY)) slotsOn(c, t0 - DAY).firstOrNull { timed(it) && it.start >= it.end && t < it.end } else null
         val cur = nowSlot ?: lastNight
         if (cur != null) {
-            return ChamberState(ChamberStateKind.NOW, tr("In chamber now · until ", "এখন চেম্বারে · ") + shortTime(cur.end) + tr("", " পর্যন্ত"), if (nowSlot != null) t0 else t0 - DAY, cur.start, cur.end)
+            return ChamberState(ChamberStateKind.NOW, (if (c.online) tr("Online now · until ", "এখন অনলাইনে · ") else tr("In chamber now · until ", "এখন চেম্বারে · ")) + shortTime(cur.end) + tr("", " পর্যন্ত"), if (nowSlot != null) t0 else t0 - DAY, cur.start, cur.end)
         }
         val todayOpen = c.openOn(t0)
         if (todayOpen) {
@@ -512,7 +525,7 @@ object ChamberClock {
 
     /** তালিকা/শিটের ছোট নাম (বন্ধনীর লেখা বাদ) আর উপজেলা (না থাকলে জেলা) */
     fun shortName(c: Chamber): String = c.label.replace(Regex("\\s*\\([^)]*\\)\\s*"), " ").trim().ifBlank { c.label }
-    fun place(c: Chamber): String = Areas.upazila(c.upazilaId)?.label ?: Districts.label(c.district).ifBlank { c.address }
+    fun place(c: Chamber): String = if (c.online) tr("Online (video)", "অনলাইন (ভিডিও)") else Areas.upazila(c.upazilaId)?.label ?: Districts.label(c.district).ifBlank { c.address }
 }
 
 object Weekdays {
@@ -629,6 +642,9 @@ data class Appointment(
     val createdAt: Long,
     /** একই রোগী চেনার জন্য (সার্ভারের সংকেত; নাম নয়) */
     val otherKey: String = "",
+    /** অনলাইন (ভিডিও) চেম্বারের অ্যাপয়েন্টমেন্ট আর তার ফি — OnlineChamber.kt */
+    val online: Boolean = false,
+    val pay: OnlinePay = OnlinePay(),
 ) {
     val chamberLabel: String get() = if (isBangla && chamberBn.isNotBlank()) chamberBn else chamber
 }
@@ -646,6 +662,8 @@ data class CareFilter(
     val maxFee: Int? = null,
     val hospitalQ: String = "",
     val gender: String? = null,
+    /** শুধু অনলাইনে (ভিডিও) দেখেন এমন ডাক্তার */
+    val online: Boolean = false,
 )
 
 /** তালিকার সাথে সার্ভারের বিশেষজ্ঞতার চিপ (এই এলাকায় যেগুলো আছে, সংখ্যাসহ) আর লিঙ্গ লেখা আছে কি না */
@@ -666,13 +684,14 @@ object DoctorFilterPrefs {
             maxFee = o.optInt("maxFee").takeIf { it in FEE_STEPS },
             hospitalQ = o.optString("hospitalQ").take(60),
             gender = o.optString("gender").takeIf { it == "male" || it == "female" },
+            online = o.optBoolean("online"),
         )
     }.getOrDefault(base)
 
     fun save(context: android.content.Context, type: String, f: CareFilter) {
         runCatching {
             val o = JSONObject().put("specialty", f.specialty ?: "").put("day", f.day ?: "").put("openNow", f.openNow)
-                .put("maxFee", f.maxFee ?: 0).put("hospitalQ", f.hospitalQ).put("gender", f.gender ?: "")
+                .put("maxFee", f.maxFee ?: 0).put("hospitalQ", f.hospitalQ).put("gender", f.gender ?: "").put("online", f.online)
             context.getSharedPreferences(FILE, android.content.Context.MODE_PRIVATE).edit().putString(type, o.toString()).apply()
         }
     }
@@ -709,6 +728,7 @@ object Appointments {
         f.maxFee?.let { body.put("maxFee", it) }
         f.hospitalQ.trim().takeIf { it.length >= 2 }?.let { body.put("hospitalQ", it) }
         f.gender?.let { body.put("gender", it) }
+        if (f.online) body.put("online", true)
         val res = careCall("providers", body)
         val arr = res.optJSONArray("items") ?: JSONArray()
         val fo = res.optJSONObject("facets")
@@ -757,6 +777,7 @@ object Appointments {
                 o.str("id"), o.str("role"), o.str("otherName"), o.str("type"), o.str("chamber"), o.str("chamberBn"),
                 o.str("room"), o.str("start"), o.optInt("serial"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
                 o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"), o.str("otherKey"),
+                o.optBoolean("online"), OnlinePay.parse(o),
             )
         }
     }

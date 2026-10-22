@@ -160,7 +160,11 @@ data class Rx(
 }
 
 data class RxPatient(val id: String, val name: String, val age: Int?, val gender: String, val phone: String, val linked: Boolean)
-data class RxAppt(val id: String, val name: String, val date: Long, val serial: Int?, val chamber: String)
+data class RxAppt(
+    val id: String, val name: String, val date: Long, val serial: Int?, val chamber: String,
+    /** অনলাইন (ভিডিও) চেম্বারের হলে: ফির অবস্থা, যুক্ত হওয়ার সময় (start "HH:MM"), status (জানা না থাকলে confirmed) */
+    val online: Boolean = false, val pay: OnlinePay = OnlinePay(), val start: String = "", val status: String = "confirmed",
+)
 /** অ্যাপে আগে আসা রোগী (শেষ অ্যাপয়েন্টমেন্ট ধরে) */
 data class RxAppPatient(val appointmentId: String, val name: String, val count: Int, val last: Long)
 data class RxPatientsData(val patients: List<RxPatient>, val appts: List<RxAppt>, val appPatients: List<RxAppPatient>)
@@ -239,7 +243,12 @@ object RxApi {
         val o = call("rx_patients", JSONObject().apply { if (doctorUid != null) put("doctorUid", doctorUid) })
         return RxPatientsData(
             o.optJSONArray("patients").objs().map(::patient),
-            o.optJSONArray("appointments").objs().map { RxAppt(it.str("id"), it.str("name"), it.optLong("date"), it.optInt("serial").takeIf { s -> s > 0 }, it.str("chamber")) },
+            o.optJSONArray("appointments").objs().map {
+                RxAppt(
+                    it.str("id"), it.str("name"), it.optLong("date"), it.optInt("serial").takeIf { s -> s > 0 }, it.str("chamber"),
+                    it.optBoolean("online"), OnlinePay.parse(it), it.str("start"), it.str("status").ifBlank { "confirmed" },
+                )
+            },
             o.optJSONArray("appPatients").objs().map { RxAppPatient(it.str("appointmentId"), it.str("name"), it.optInt("count"), it.optLong("last")) },
         )
     }
@@ -717,12 +726,16 @@ fun RxPatientsPane(doctorUid: String?, onWrite: ((RxTarget) -> Unit)?, onOpen: (
                 item { SectionTitle(tr("Appointments (today & tomorrow)", "অ্যাপের অ্যাপয়েন্টমেন্ট (আজ–কাল)")) }
                 items(appts, key = { "a" + it.id }) { a ->
                     val t = RxTarget(appointmentId = a.id, name = a.name)
-                    PatientRow(
-                        a.name.ifBlank { "-" },
-                        listOf(Rules.formatDate(a.date), a.chamber).filter { it.isNotBlank() }.joinToString(" · "),
-                        a.serial?.let { tr("Serial $it", "সিরিয়াল ${num(it)}") },
-                        click(t), write(t),
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        PatientRow(
+                            a.name.ifBlank { "-" },
+                            listOf(Rules.formatDate(a.date), a.chamber).filter { it.isNotBlank() }.joinToString(" · "),
+                            a.serial?.let { tr("Serial $it", "সিরিয়াল ${num(it)}") },
+                            click(t), write(t),
+                        )
+                        // অনলাইন (ভিডিও): ফি মেলানো আর ভিডিও কলে যুক্ত হওয়া — ডাক্তার আর সহকারী দুজনেই (OnlineChamber.kt)
+                        if (a.online) StaffOnlinePanel(a.id, a.status, a.date, a.start, a.pay, onChanged = { reload++ })
+                    }
                 }
             }
             val shown = d.patients.filter { hit(it.name, it.phone) }

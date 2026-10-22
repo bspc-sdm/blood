@@ -190,6 +190,7 @@ private fun ProviderList(type: String, profile: Profile) {
         filter.hospital?.let { h -> ActiveFilter(h.label) { setFilter(filter.copy(hospital = null)) } },
         filter.hospitalQ.trim().takeIf { it.isNotEmpty() }?.let { t -> ActiveFilter(tr("Hospital: ", "হাসপাতাল: ") + t) { hqText = ""; setFilter(filter.copy(hospitalQ = "")) } },
         filter.gender?.let { g -> ActiveFilter(genderLabel(g)) { setFilter(filter.copy(gender = null)) } },
+        if (filter.online) ActiveFilter(tr("Online (video)", "অনলাইন (ভিডিও)")) { setFilter(filter.copy(online = false)) } else null,
     )
     // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
     val quick: List<Pair<String, () -> Unit>> = buildList {
@@ -198,12 +199,13 @@ private fun ProviderList(type: String, profile: Profile) {
             add(dayLabel("tomorrow") to { setFilter(filter.copy(day = "tomorrow")) })
         }
         if (!filter.openNow) add(tr("In chamber now", "এখন চেম্বারে") to { setFilter(filter.copy(openNow = true)) })
+        if (!filter.online && type == "doctor") add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
         if (filter.maxFee == null) add(feeLabel(500) to { setFilter(filter.copy(maxFee = 500)) })
         if (filter.specialty == null) facets?.specialties?.take(3)?.forEach { (code, _) -> add(Specialties.label(code) to { setFilter(filter.copy(specialty = code)) }) }
     }
     val clearAll = {
         hqText = ""
-        setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null))
+        setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null, online = false))
     }
 
     LazyColumn(
@@ -279,6 +281,7 @@ private fun ProviderList(type: String, profile: Profile) {
         FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = if (active.isNotEmpty()) clearAll else null) {
             FilterChoice(tr("Day", "দিন"), listOf("today", "tomorrow"), filter.day, dayLabel) { setFilter(filter.copy(day = it)) }
             FilterSwitch(tr("In chamber now", "এখন চেম্বারে"), filter.openNow) { setFilter(filter.copy(openNow = it)) }
+            if (type == "doctor") FilterSwitch(tr("Online (video) only", "শুধু অনলাইন (ভিডিও)"), filter.online) { setFilter(filter.copy(online = it)) }
             SpecialtyChoice(
                 options = facets?.specialties?.map { it.first } ?: Specialties.of(type),
                 count = { code -> facets?.specialties?.firstOrNull { it.first == code }?.second },
@@ -367,7 +370,7 @@ private fun SpecialtyChoice(options: List<String>, count: (String) -> Int?, sele
 @Composable
 internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
     // ছাঁকনিতে মেলা চেম্বার (সার্ভারের matched) আগে, নইলে এলাকার সাথে মেলা চেম্বার
-    val chamber = p.matched?.firstOrNull()?.let { p.chambers.getOrNull(it) } ?: p.chambers.firstOrNull { c ->
+    val chamber = (if (filter.online) p.chambers.firstOrNull { it.online } else null) ?: p.matched?.firstOrNull()?.let { p.chambers.getOrNull(it) } ?: p.chambers.firstOrNull { c ->
         (filter.hospital == null || c.hospitalId == filter.hospital.id) &&
             (filter.district == null || c.district == filter.district) &&
             (filter.upazilaId == null || c.upazilaId == filter.upazilaId)
@@ -387,11 +390,13 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
         rating = p.rating,
         ratingCount = p.ratingCount,
         details = if (chamber == null) emptyList() else listOf(
-            R.drawable.ic_local_hospital to chamber.label,
+            (if (chamber.online) R.drawable.ic_online_video else R.drawable.ic_local_hospital) to chamber.label,
             R.drawable.ic_schedule to chamber.timeText,
             R.drawable.ic_payments to chamber.feeText,
         ),
         tags = listOfNotNull(
+            // অনলাইন (ভিডিও) চেম্বার থাকলে "অনলাইন" ব্যাজ
+            if (p.chambers.any { it.online }) tr("Online", "অনলাইন") else null,
             if (p.canBook) tr("Appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট") else null,
             if (p.homeVisit?.enabled == true) tr("Home visit", "বাসায় যান") else null,
         ),
@@ -423,7 +428,13 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
             add(
                 DetailSection(
                     c.label,
-                    listOf(
+                    if (c.online) listOf(
+                        // অনলাইন: ঠিকানা নেই — ভিডিও কলে; ফির bKash নম্বর বুকিংয়ের পরে
+                        R.drawable.ic_online_video to tr("Video call in the app — no need to travel", "অ্যাপে ভিডিও কলে — কোথাও যেতে হবে না"),
+                        R.drawable.ic_schedule to c.timeText,
+                        R.drawable.ic_payments to if (c.noFee) c.feeText else listOf(c.feeText, tr("by bKash after booking", "বুকিংয়ের পরে bKash-এ")).filter { it.isNotBlank() }.joinToString(" · "),
+                        R.drawable.ic_info to c.note,
+                    ) else listOf(
                         R.drawable.ic_location_on to c.area,
                         R.drawable.ic_info to if (c.room.isNotBlank()) tr("Room: ", "রুম: ") + c.room else "",
                         R.drawable.ic_schedule to c.timeText,
@@ -598,7 +609,7 @@ private fun ChamberPicker(p: Provider, bookable: List<Int>, onBook: (Int) -> Uni
             val content: @Composable () -> Unit = {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), color = cs.primaryContainer, modifier = Modifier.size(36.dp)) {
-                        Box(contentAlignment = Alignment.Center) { AppIcon(R.drawable.ic_local_hospital, null, Modifier.size(20.dp), cs.onPrimaryContainer) }
+                        Box(contentAlignment = Alignment.Center) { AppIcon(if (c.online) R.drawable.ic_online_video else R.drawable.ic_local_hospital, null, Modifier.size(20.dp), cs.onPrimaryContainer) }
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -653,8 +664,21 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
         onDismiss = { if (!busy) onDismiss() },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                IconLine(R.drawable.ic_local_hospital, chamber.label)
+                if (chamber.online) {
+                    // অনলাইন: জায়গা নেই — ভিডিও কলে; ফি পরে bKash-এ
+                    IconLine(R.drawable.ic_online_video, tr("Online (video) — no address needed", "অনলাইন (ভিডিও) — ঠিকানা লাগবে না"))
+                } else {
+                    IconLine(R.drawable.ic_local_hospital, chamber.label)
+                }
                 IconLine(R.drawable.ic_schedule, chamber.timeText)
+                if (chamber.online) {
+                    SmallNote(
+                        tr(
+                            "Once confirmed you'll see the doctor's bKash number to send the fee. At the time, join the video call from the app.",
+                            "নিশ্চিত হলে ফি পাঠানোর জন্য ডাক্তারের bKash নম্বর দেখবেন। সময় হলে অ্যাপ থেকেই ভিডিও কলে যুক্ত হবেন।",
+                        ),
+                    )
+                }
                 if (family.isNotEmpty()) {
                     Text(tr("For whom", "কার জন্য"), style = MaterialTheme.typography.labelLarge)
                     ChipRows(listOf("") + family.map { it.id }, setOf(memberId), label = { id ->
@@ -690,7 +714,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                     if (errorMsg == null && d != null) {
                         scope.launch {
                             busy = true
-                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName, memberId.ifBlank { null }) }
+                            runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), if (chamber.online) "online" else chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName, memberId.ifBlank { null }) }
                                 .onSuccess { onBooked() }
                                 .onFailure { errorMsg = it.message }
                             busy = false
@@ -811,6 +835,10 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                         else if (active) MaterialTheme.colorScheme.onPrimaryContainer
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (a.online) {
+                                        Spacer(Modifier.width(6.dp))
+                                        OnlineTag()
+                                    }
                                 }
                                 IconLine(
                                     R.drawable.ic_calendar_month,
@@ -849,6 +877,11 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                             Text(tr("Cancel appointment", "অ্যাপয়েন্টমেন্ট বাতিল"))
                                         }
                                     }
+                                }
+                                // অনলাইন (ভিডিও): ফি (রোগী পাঠান, ডাক্তার মেলান) আর "ভিডিও কলে যুক্ত হোন" — OnlineChamber.kt
+                                if (a.online) {
+                                    if (a.role == "patient") PatientOnlinePanel(a.id, a.status, a.date, a.start, a.pay, onChanged = { reload++ })
+                                    else StaffOnlinePanel(a.id, a.status, a.date, a.start, a.pay, onChanged = { reload++ })
                                 }
                             }
                         }
@@ -1005,6 +1038,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     // হোম ভিজিটের দূরত্ব হিসাবের জন্য GPS লোকেশন লাগে (শুধু জেলা বেছে নিলে জেলার মাঝখান ধরা হয়)
     var gpsPlace by remember { mutableStateOf(if (profile.locationSource == "gps") profile.placeName else null) }
     var preview by remember { mutableStateOf(false) }
+    // ডাক্তার: নতুন চেম্বারের ধরন (চেম্বারে / অনলাইন)
+    var choosingType by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
@@ -1016,8 +1051,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                     degrees = p.degrees
                     gender = p.gender
                     // আগের ভার্সনের লেখা চেম্বার (হাসপাতালের সাথে যুক্ত নয়) আবার বেছে নিতে হবে
-                    chambers.addAll(p.chambers.filter { it.hospitalId != null })
-                    p.chambers.firstOrNull { it.hospitalId == null }?.let { old ->
+                    chambers.addAll(p.chambers.filter { it.hospitalId != null || it.online })
+                    p.chambers.firstOrNull { it.hospitalId == null && !it.online }?.let { old ->
                         oldChamber = old.hospitalName
                     }
                     p.homeVisit?.let {
@@ -1090,11 +1125,14 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                     onChange = { chambers[i] = it },
                     onChangeHospital = { pickFor = i },
                     onRemove = { chambers.removeAt(i) },
+                    // ডাক্তার: "চেম্বারে" / "অনলাইন (ভিডিও)"; চেম্বারে ফিরলে হাসপাতাল বেছে নিতে হয়
+                    onMode = if (type == "doctor") ({ on -> if (on) chambers[i] = OnlineChambers.toOnline(c) else pickFor = i }) else null,
+                    onlineAllowed = chambers.none { it.online && it !== c },
                 )
             }
             if (chambers.size < 3) {
                 // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে (হাসপাতালে বসেন না)
-                OutlinedButton(onClick = { if (type == "doctor") pickFor = -1 else chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { if (type == "doctor") choosingType = true else chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }
@@ -1189,6 +1227,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                             tr("Add a chamber, or turn on home care", "অন্তত একটা চেম্বার যোগ করুন, অথবা বাসায় সেবা চালু করুন")
                         chambers.any { it.custom && (it.hospitalName.trim().length < 3 || it.district.isBlank() || it.address.trim().length < 5) } ->
                             tr("Write the place name, district and address", "জায়গার নাম, জেলা আর ঠিকানা লিখুন")
+                        chambers.count { it.online } > 1 -> tr("Keep only one online chamber", "অনলাইন চেম্বার একটাই রাখা যায়")
                         chambers.any { ch -> ch.slots.any { it.days.isEmpty() } } -> tr("Choose the days for each chamber", "প্রতিটা চেম্বারে কোন কোন বার বসেন বেছে নিন")
                         chambers.any { ch -> ch.slots.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } } ->
                             tr("Set the start and end time for each chamber", "প্রতিটা চেম্বারে শুরু আর শেষের সময় দিন")
@@ -1198,6 +1237,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                         }
                         chambers.any { it.fee.isBlank() && !it.noFee } ->
                             tr("Enter the fee for each chamber, or tick \"No fee\"", "প্রতিটা চেম্বারে ফি দিন, অথবা \"ফি চাই না\" টিক দিন")
+                        chambers.any { OnlineChambers.problem(it) != null } -> chambers.firstNotNullOf { OnlineChambers.problem(it) }
                         home.enabled && home.services.isEmpty() -> tr("Choose the services you provide at home", "বাসায় কোন কোন সেবা দেন বেছে নিন")
                         home.enabled && home.times.ifEmpty { listOf(ChamberTime()) }.any { it.days.isEmpty() } -> tr("Choose the days you visit homes", "কোন কোন বার বাসায় যান বেছে নিন")
                         home.enabled && home.times.any { it.start.isBlank() || it.end.isBlank() || it.end == it.start } ->
@@ -1274,7 +1314,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
             onPick = { h ->
                 val fresh = Chamber.from(h)
                 if (idx >= 0 && cur != null) {
-                    chambers[idx] = cur.copy(
+                    // অনলাইন থেকে চেম্বারে ফিরলে bKash/নোট বাদ
+                    chambers[idx] = OnlineChambers.toInPerson(cur).copy(
                         hospitalId = fresh.hospitalId, hospitalName = fresh.hospitalName, hospitalNameBn = fresh.hospitalNameBn,
                         district = fresh.district, upazilaId = fresh.upazilaId, unionId = fresh.unionId,
                     )
@@ -1284,6 +1325,14 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                 pickFor = null
             },
             onDismiss = { pickFor = null },
+        )
+    }
+    if (choosingType) {
+        ChamberTypeDialog(
+            onlineAllowed = chambers.none { it.online },
+            onInPerson = { choosingType = false; pickFor = -1 },
+            onOnline = { choosingType = false; chambers.add(Chamber.onlineNew().copy(appointments = true)) },
+            onDismiss = { choosingType = false },
         )
     }
     if (pickUpazila) {
@@ -1317,11 +1366,23 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 }
 
 @Composable
-internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHospital: () -> Unit, onRemove: () -> Unit) {
+internal fun ChamberEditor(
+    c: Chamber,
+    onChange: (Chamber) -> Unit,
+    onChangeHospital: () -> Unit,
+    onRemove: () -> Unit,
+    /** ডাক্তার: চেম্বারের ধরন বদল (true = অনলাইন); null = ধরন বাছাই নেই (পুষ্টিবিদ/ট্রেইনার) */
+    onMode: ((Boolean) -> Unit)? = null,
+    onlineAllowed: Boolean = true,
+) {
 
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (c.custom) {
+            if (onMode != null) ChamberModeChips(c.online, onlineAllowed, onMode)
+            if (c.online) {
+                // অনলাইন (ভিডিও): হাসপাতাল, ঠিকানা, রুম, সিরিয়ালের ফোন নেই
+                OnlineChamberHeader(onRemove)
+            } else if (c.custom) {
                 // নিজের জায়গা: নাম, জেলা, ঠিকানা (অনুমোদন লাগে না; সমস্যা হলে অ্যাডমিন সরান)
                 var pickDistrict by remember { mutableStateOf(false) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1365,7 +1426,8 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                 }
             }
             TimeSlotsEditor(c.slots) { onChange(c.withSlots(it)) }
-            OutlinedTextField(
+            // অনলাইনে নোট আলাদা (রোগীদের জন্য নোট, OnlineChamberFields)
+            if (!c.online) OutlinedTextField(
                 value = c.schedule,
                 onValueChange = { onChange(c.copy(schedule = it.take(120))) },
                 label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) },
@@ -1373,6 +1435,10 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (c.online) {
+                // ফি, bKash নম্বর, নোট (OnlineChamber.kt)
+                OnlineChamberFields(c, onChange)
+            } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = c.room,
@@ -1404,6 +1470,7 @@ internal fun ChamberEditor(c: Chamber, onChange: (Chamber) -> Unit, onChangeHosp
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("Appointments in app at this chamber", "এই চেম্বারে অ্যাপে অ্যাপয়েন্টমেন্ট"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Switch(checked = c.appointments, onCheckedChange = { onChange(c.copy(appointments = it)) })
+            }
             }
             // রোগীপ্রতি গড় সময় — সিরিয়ালের আনুমানিক সময়ে (আগের হিসাব কম থাকলে); খালি = ১০ মিনিট
             if (c.appointments) {

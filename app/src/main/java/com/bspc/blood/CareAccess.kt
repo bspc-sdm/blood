@@ -63,6 +63,8 @@ object CareMode {
         "my_appointments", "book", "appointment_update", "providers", "family_get",
         // সিরিয়াল কত চলছে, দেরি হবে (Queue.kt)
         "appointment_queue", "appointment_late",
+        // অনলাইন চেম্বারে "টাকা পাঠিয়েছি" (OnlineChamber.kt)
+        "appt_pay_claim",
     )
 
     fun attach(path: String, body: JSONObject) {
