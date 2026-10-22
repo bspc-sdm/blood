@@ -1,0 +1,19 @@
+# অতিথির হোম থেকে "লগইন" → ডেমো রোল (ROLE) — শেষে অপেক্ষা যাত্রার নিজের (সাময়িক বন্ধ হলে আটকানো পর্দা আসে, হোম নয়)
+appId: com.bspc.blood
+---
+- runFlow: dismiss.yaml
+- extendedWaitUntil:
+    visible: "লগইন"
+    timeout: 40000
+- tapOn: "লগইন"
+- scrollUntilVisible:
+    element: ".*${ROLE}.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn: ".*${ROLE}.*"
+- extendedWaitUntil:
+    visible: ".*(সেটিংস ও প্রোফাইল|আবার চালু করুন).*"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000

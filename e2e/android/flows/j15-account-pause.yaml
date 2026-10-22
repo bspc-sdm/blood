@@ -1,0 +1,124 @@
+# যাত্রা ১৫ — অ্যাকাউন্ট সাময়িক বন্ধ আর আবার চালু (সার্ভার: account_deactivate / account_reactivate; ডেমো সহকারী — অন্য যাত্রা
+# এটা ব্যবহার করে না): প্রোফাইলের "অ্যাকাউন্ট সাময়িক বন্ধ রাখুন" → কী হয় → "সাময়িক বন্ধ করুন" → লগআউট (অতিথি) →
+# আবার লগইন → আটকানো পর্দা "আপনার অ্যাকাউন্ট সাময়িক বন্ধ আছে" → "লগআউট" → আবার লগইন → "আবার চালু করুন" → হোম।
+# শেষে অ্যাকাউন্ট আবার চালু (আগের অবস্থা)। আগের কোনো চালানো মাঝপথে থেমে বন্ধ রেখে গেলে শুরুতেই চালু করে নেয়।
+appId: com.bspc.blood
+env:
+  J: j15
+  ROLE: ডেমো সহকারী সুমন
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+      notifications: allow
+- runFlow: ../common/dismiss.yaml
+- extendedWaitUntil:
+    visible: ".*জেলা খুঁজুন.*"
+    timeout: 60000
+- runFlow: ../common/dismiss.yaml
+- tapOn: ".*জেলা খুঁজুন.*"
+- inputText: "Gazipur"
+- hideKeyboard
+- tapOn: "গাজীপুর.*"
+- runFlow: ../common/pause-login.yaml
+# আগের চালানো বন্ধ রেখে গেলে: আগে চালু
+- runFlow:
+    when:
+      visible:
+        id: "account_paused"
+    commands:
+      - tapOn:
+          id: "reactivate"
+      - extendedWaitUntil:
+          notVisible:
+            id: "account_paused"
+          timeout: 30000
+- extendedWaitUntil:
+    visible: "সেটিংস ও প্রোফাইল"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+# প্রোফাইল → সাময়িক বন্ধ রাখুন
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element:
+      id: "profile_pause_account"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: "profile_pause_account"
+- extendedWaitUntil:
+    visible:
+      id: "pause_what"
+    timeout: 15000
+- assertVisible: ".*কিছুই মুছবে না.*"
+- assertVisible: ".*যতদিন খুশি বন্ধ রাখুন.*"
+- takeScreenshot: j15-01-pause-page
+- scrollUntilVisible:
+    element:
+      id: "pause_confirm"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: "pause_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "pause_done"
+    timeout: 30000
+- assertVisible: ".*কিছুই মোছা হয়নি.*"
+- takeScreenshot: j15-02-paused-logged-out
+- tapOn:
+    id: "pause_home"
+# লগআউট হয়েছে: অতিথির হোম
+- extendedWaitUntil:
+    visible: "লগইন"
+    timeout: 30000
+- takeScreenshot: j15-03-guest-home
+# আবার লগইন → আটকানো পর্দা
+- runFlow: ../common/pause-login.yaml
+- extendedWaitUntil:
+    visible:
+      id: "account_paused"
+    timeout: 60000
+- assertVisible:
+    id: "reactivate"
+- assertVisible:
+    id: "paused_logout"
+- takeScreenshot: j15-04-blocked-screen
+# "লগআউট" → অতিথি
+- tapOn:
+    id: "paused_logout"
+- extendedWaitUntil:
+    visible: "লগইন"
+    timeout: 30000
+- assertNotVisible:
+    id: "account_paused"
+# আবার লগইন → "আবার চালু করুন" → হোম
+- runFlow: ../common/pause-login.yaml
+- extendedWaitUntil:
+    visible:
+      id: "account_paused"
+    timeout: 60000
+- tapOn:
+    id: "reactivate"
+- extendedWaitUntil:
+    notVisible:
+      id: "account_paused"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "সেটিংস ও প্রোফাইল"
+    timeout: 60000
+- takeScreenshot: j15-05-reactivated-home
+# চালু আছে: প্রোফাইল খোলে, আটকানো পর্দা আর আসে না
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element:
+      id: "profile_pause_account"
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible:
+    id: "account_paused"
+- takeScreenshot: j15-06-profile-after-reactivate

@@ -39,6 +39,7 @@ object AuthRepository {
             kotlinx.coroutines.withTimeoutOrNull(4000) { job.await() }
         }
         auth.signOut()
+        AccountState.clear()
         // ফোনে রাখা সার্ভারের উত্তর (প্রোফাইল, রিকোয়েস্ট) — পরের মানুষ যেন না দেখেন
         OfflineCache.clear()
         // পুরোনো টোকেন বাতিল (পেছনে; ইন্টারনেট না থাকলে পরে)
@@ -47,10 +48,11 @@ object AuthRepository {
         }
     }
 
-    /** অ্যাকাউন্ট মোছার পর: ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া */
+    /** অ্যাকাউন্ট মোছা / সাময়িক বন্ধের পর: ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া */
     suspend fun signOutLocal() {
         runCatching { FirebaseMessaging.getInstance().deleteToken().await() }
         auth.signOut()
+        AccountState.clear()
         OfflineCache.clear()
     }
 }
@@ -123,7 +125,10 @@ object ProfileRepository {
     /** uid আগের মতো (ডাকার জায়গা বদলায়নি); সার্ভার লগইন করা মানুষের প্রোফাইলই দেয় */
     @Suppress("UNUSED_PARAMETER")
     suspend fun load(uid: String): Profile? {
-        val x = OfflineCache.read("profile", org.json.JSONObject().put("action", "profile_get")).optJSONObject("profile") ?: return null
+        val r = OfflineCache.read("profile", org.json.JSONObject().put("action", "profile_get"))
+        // অ্যাকাউন্টের অবস্থা (চালু / সাময়িক বন্ধ / মোছার অপেক্ষায়)
+        AccountState.fromServer(r.optJSONObject("account"))
+        val x = r.optJSONObject("profile") ?: return null
         // আগের ছবির ছোট সংস্করণ একবার বানিয়ে রাখা (তালিকার কার্ডের জন্য)
         val photo = x.strN("photo")
         if (!photo.isNullOrBlank() && !x.optBoolean("hasPhotoThumb")) {

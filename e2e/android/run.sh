@@ -26,7 +26,7 @@ adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
 # ক্রম: আগে ফার্মেসি (আগের যাত্রায় রোগীর পাঠানো খোলা প্রেসক্রিপশন বন্ধ করে), তারপর রোগী আবার পাঠায় — বারবার চালানো যায়
-ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings"
+ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause"
 cd "$OUT/shots"
 for f in $ORDER; do
   if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " ${f%%-*} "; then continue; fi

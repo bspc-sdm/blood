@@ -78,6 +78,8 @@ object DemoLogin {
         if (AuthRepository.currentUid != null) AuthRepository.signOut(context)
         FirebaseAuth.getInstance().signInWithCustomToken(token).await()
         if (r.optBoolean("restored")) SessionEvents.restored.value = true
+        // সাময়িক বন্ধ ডেমো অ্যাকাউন্ট: লগইনেই "আবার চালু করুন" পর্দা
+        AccountState.fromServer(r.optJSONObject("account"))
     }
 }
 

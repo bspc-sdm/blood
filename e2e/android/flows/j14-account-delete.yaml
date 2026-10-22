@@ -1,0 +1,106 @@
+# যাত্রা ১৪ — অ্যাকাউন্ট মোছার পুরো পাতা (Account.kt): প্রোফাইলের "অ্যাকাউন্ট মুছুন" → ওপরে বিকল্প "মুছে না ফেলে সাময়িক বন্ধ রাখুন",
+# কী মুছবে, ৩০ দিনে ফেরানো আর আসল তারিখ; "আমি বুঝেছি" টিক না দিলে লাল বোতাম বন্ধ (চাপলেও কিছু হয় না), টিক দিলে চালু,
+# টিক তুললে আবার বন্ধ — তারপর না মুছে ফিরে আসা। বিকল্পের বোতাম সাময়িক বন্ধের পাতা খোলে (সেখানেও কিছু না করে ফেরা)।
+# সার্ভারে কিছু বদলায় না।
+appId: com.bspc.blood
+env:
+  J: j14
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element:
+      id: "profile_delete_account"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- takeScreenshot: j14-01-profile-rows
+- tapOn:
+    id: "profile_delete_account"
+# ওপরে বিকল্প
+- extendedWaitUntil:
+    visible:
+      id: "pause_instead"
+    timeout: 15000
+- assertVisible: ".*কিছুদিনের বিরতি চান.*"
+- assertVisible:
+    id: "pause_instead_button"
+- takeScreenshot: j14-02-delete-top
+# কী মুছবে, ৩০ দিনে ফেরানো, আসল তারিখ
+- scrollUntilVisible:
+    element:
+      id: "delete_date"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible: ".*৩০ দিনের মধ্যে আবার লগইন করলে মোছা বাতিল হবে.*"
+- assertVisible: "আজ মুছলে .* পর্যন্ত ফেরানো যাবে, তারপর চিরতরে মুছে যাবে।"
+- takeScreenshot: j14-03-delete-recovery
+# টিক ছাড়া লাল বোতাম বন্ধ
+- scrollUntilVisible:
+    element:
+      id: "delete_confirm"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible:
+    id: "delete_ack_off"
+- assertVisible:
+    id: "delete_confirm"
+    enabled: false
+- tapOn:
+    id: "delete_confirm"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible:
+    id: "delete_done"
+- assertVisible:
+    id: "delete_confirm"
+- takeScreenshot: j14-04-confirm-disabled
+# টিক → চালু (চাপা হয় না)
+- tapOn:
+    id: "delete_ack_off"
+- assertVisible:
+    id: "delete_ack_on"
+- assertVisible:
+    id: "delete_confirm"
+    enabled: true
+- takeScreenshot: j14-05-confirm-enabled
+# টিক তুললে আবার বন্ধ
+- tapOn:
+    id: "delete_ack_on"
+- assertVisible:
+    id: "delete_ack_off"
+- assertVisible:
+    id: "delete_confirm"
+    enabled: false
+# না মুছে ফেরা: প্রোফাইল, এখনো লগইন করা
+- back
+- extendedWaitUntil:
+    visible:
+      id: "profile_delete_account"
+    timeout: 10000
+- assertNotVisible:
+    id: "delete_confirm"
+- takeScreenshot: j14-06-back-without-deleting
+# বিকল্প: "মুছে না ফেলে সাময়িক বন্ধ রাখুন" → সাময়িক বন্ধের পাতা (কিছু না করে ফেরা)
+- tapOn:
+    id: "profile_delete_account"
+- extendedWaitUntil:
+    visible:
+      id: "pause_instead_button"
+    timeout: 15000
+- tapOn:
+    id: "pause_instead_button"
+- extendedWaitUntil:
+    visible:
+      id: "pause_what"
+    timeout: 10000
+- assertVisible: ".*কিছুই মুছবে না.*"
+- takeScreenshot: j14-07-pause-instead
+- back
+- extendedWaitUntil:
+    visible:
+      id: "profile_delete_account"
+    timeout: 10000

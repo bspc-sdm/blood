@@ -80,7 +80,6 @@ fun MainScreen(
     onPostTip: () -> Unit,
     onOpenMyAppointments: () -> Unit,
     onEditChamber: () -> Unit,
-    onAccountDeleted: () -> Unit,
     onOpenBusiness: (String) -> Unit = {},
     onOpenInbox: () -> Unit = {},
     onLogin: () -> Unit = {},
@@ -182,7 +181,6 @@ fun MainScreen(
                     onProfileChanged = onProfileChanged,
                     onLogout = onLogout,
                     onOpenAdmin = onOpenAdmin,
-                    onAccountDeleted = onAccountDeleted,
                 )
             }
         }

@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,7 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.graphics.luminance
@@ -153,6 +156,10 @@ sealed interface Screen {
     data class Help(val category: String? = null) : Screen
     /** রোগীর "অ্যাম্বুলেন্স ডাকুন"-এর অপেক্ষার পাতা (২.২৮.০) */
     data class AmbulanceRequest(val id: String) : Screen
+    /** "অ্যাকাউন্ট মুছুন" — পুরো পাতা (Account.kt) */
+    data object DeleteAccount : Screen
+    /** "অ্যাকাউন্ট সাময়িক বন্ধ রাখুন" (Account.kt) */
+    data object DeactivateAccount : Screen
 }
 
 object Tabs {
@@ -223,12 +230,19 @@ fun App(
         SessionEvents.disabled.value = null
     }
 
-    // মোছার অপেক্ষায় থাকা অ্যাকাউন্টে আবার লগইন করলে সার্ভার মোছা বাতিল করে — জানানো
+    // মোছার অপেক্ষায় থাকা অ্যাকাউন্টে আবার লগইন করলে সার্ভার মোছা বাতিল করে (`restored`) — একবারের ব্যানার
+    var showRestored by remember { mutableStateOf(false) }
     val restored = SessionEvents.restored.value
     LaunchedEffect(restored) {
         if (restored) {
-            android.widget.Toast.makeText(context, tr("Account deletion cancelled. Everything is back as before.", "অ্যাকাউন্ট মোছা বাতিল হয়েছে। সব আগের মতো আছে।"), android.widget.Toast.LENGTH_LONG).show()
+            showRestored = true
             SessionEvents.restored.value = false
+        }
+    }
+    LaunchedEffect(showRestored) {
+        if (showRestored) {
+            delay(20_000)
+            showRestored = false
         }
     }
 
@@ -264,6 +278,16 @@ fun App(
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
         if (stack.size == 1) homeRefresh++
+    }
+
+    // প্রোফাইলের "অ্যাকাউন্ট মুছুন" / "সাময়িক বন্ধ রাখুন" (আটকানো পর্দার "অ্যাকাউন্ট মুছুন"-ও)
+    val accountOpen = AccountNav.open.value
+    LaunchedEffect(accountOpen) {
+        if (accountOpen != null) {
+            AccountNav.open.value = null
+            val next = if (accountOpen == AccountNav.DEACTIVATE) Screen.DeactivateAccount else Screen.DeleteAccount
+            if (stack.last() != next) push(next)
+        }
     }
 
     /**
@@ -431,6 +455,22 @@ fun App(
         if (gatePending != null) nextGateStep()
     }
 
+    /** অ্যাকাউন্ট মোছা/সাময়িক বন্ধের পর (পাতা আগেই লগআউট করেছে): অতিথি হিসেবে হোম, আগের মানুষের তথ্য থাকে না */
+    fun afterAccountGone() {
+        scope.launch {
+            errorMsg = null
+            session++
+            community = null
+            runCatching { route() }
+        }
+    }
+
+    // অ্যাকাউন্ট সাময়িক বন্ধ (লগইন/প্রোফাইলের account.state, বা কোনো কাজে 423): পুরো অ্যাপ আটকে "আবার চালু করুন"।
+    // মোছার পাতা খোলা থাকলে (আটকানো পর্দার "অ্যাকাউন্ট মুছুন") সেটাই দেখায়। খোলা লগইনের ধাপ বন্ধ।
+    val account = AccountState.info.value
+    val blocked = AccountState.blocked(LoginGate.uid.value != null, account) && stack.last() != Screen.DeleteAccount
+    LaunchedEffect(blocked) { if (blocked) cancelGate() }
+
     /**
      * প্রোফাইল সেভ (প্রোফাইল এডিট, নাম-মোবাইল, ডোনারের তথ্য — তিন জায়গা থেকেই); সেভ হলে after।
      * নাম-মোবাইলের ধাপে শুধু নাম-মোবাইল, ডোনারের ধাপে শুধু ডোনারের তথ্য লেখা হয় — অন্য তথ্য (আগের ডোনারের তথ্য,
@@ -519,16 +559,6 @@ fun App(
                         errorMsg = null
                         session++
                         runCatching { route() }
-                    }
-                },
-                onAccountDeleted = {
-                    scope.launch {
-                        // ডাটাবেসে কিছু না লিখে শুধু এই ফোন থেকে বের হওয়া (নইলে খালি প্রোফাইল আবার তৈরি হতো)
-                        AuthRepository.signOutLocal()
-                        errorMsg = null
-                        session++
-                        runCatching { route() }
-                        android.widget.Toast.makeText(context, tr("Your account will be deleted in 30 days. Log in again before then to cancel.", "৩০ দিন পর আপনার অ্যাকাউন্ট মুছে যাবে। এর মধ্যে আবার লগইন করলে মোছা বাতিল হবে।"), android.widget.Toast.LENGTH_LONG).show()
                     }
                 },
                 onLogin = { LoginGate.login() },
@@ -715,6 +745,21 @@ fun App(
             is Screen.Help -> HelpScreen(current.category, onBack = { back() })
             is Screen.AmbulanceRequest -> AmbulanceRequestScreen(current.id, onBack = { back() })
 
+            // মোছা / সাময়িক বন্ধ: পাতা নিজেই এই ফোন থেকে লগআউট করে (সার্ভার সব লগইন বাতিল করেছে), শেষে অতিথি হিসেবে হোম
+            Screen.DeleteAccount -> DeleteAccountScreen(
+                email = AuthRepository.currentEmail,
+                onBack = { back() },
+                onPauseInstead = { stack[stack.lastIndex] = Screen.DeactivateAccount },
+                onFinished = { afterAccountGone() },
+                paused = AccountState.info.value?.deactivated == true,
+            )
+            Screen.DeactivateAccount -> DeactivateAccountScreen(
+                email = AuthRepository.currentEmail,
+                onBack = { back() },
+                onDeleteInstead = { stack[stack.lastIndex] = Screen.DeleteAccount },
+                onFinished = { afterAccountGone() },
+            )
+
             Screen.ChamberEdit -> profile?.let { pr ->
                 ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
             }
@@ -737,6 +782,12 @@ fun App(
                     push(Screen.MyBusiness(k))
                 },
                 onDismiss = { WorkNav.picker.value = false },
+            )
+        }
+        if (showRestored && !blocked) {
+            DeletionCancelledBanner(
+                onClose = { showRestored = false },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = 88.dp),
             )
         }
         // লগইন/নাম-মোবাইল/ডোনারের তথ্য: নিচের পাতার উপরে (নিচের পাতা হারায় না, লগইনের পর সেখানেই ফেরা যায়)
@@ -800,6 +851,35 @@ fun App(
                     }
                 }
             }
+            }
+        }
+        // অ্যাকাউন্ট সাময়িক বন্ধ: সবার উপরে (খোলা শিট/ডায়ালগেরও), পেছনে ফেরা যায় না
+        if (blocked) {
+            FullScreenDialog(onDismissRequest = {}, dismissOnClickOutside = false) {
+                AccountPausedScreen(
+                    email = AuthRepository.currentEmail,
+                    account = account,
+                    onReactivated = {
+                        // সব নতুন করে: হোম, প্রোফাইল, ব্যাজ; মূল পাতা নতুন করে তৈরি হলে এই ফোন আবার নোটিফিকেশনের জন্য যুক্ত হয় (device_register)
+                        scope.launch {
+                            session++
+                            homeRefresh++
+                            runCatching { route() }
+                            runCatching { Community.me() }.onSuccess { community = it }
+                        }
+                    },
+                    onLogout = {
+                        scope.launch {
+                            // সার্ভারে এই ফোনের টোকেন আগেই সরানো (বন্ধের সময়) — শুধু এখান থেকে বের হওয়া
+                            AuthRepository.signOutLocal()
+                            errorMsg = null
+                            session++
+                            community = null
+                            runCatching { route() }
+                        }
+                    },
+                    onDelete = { AccountNav.open.value = AccountNav.DELETE },
+                )
             }
         }
     }

@@ -113,6 +113,8 @@ object ServerApi {
         val r = request("/api/auth/verify-code", body, null)
         val token = r.optString("token").ifBlank { throw IllegalStateException(tr("Login failed, try again", "লগইন হয়নি, আবার চেষ্টা করুন")) }
         if (r.optBoolean("restored")) SessionEvents.restored.value = true
+        // অ্যাকাউন্টের অবস্থা লগইনের উত্তরেই: সাময়িক বন্ধ হলে প্রোফাইল আসার আগেই "আবার চালু করুন" পর্দা
+        AccountState.fromServer(r.optJSONObject("account"))
         return token
     }
 
@@ -131,6 +133,8 @@ object ServerApi {
     }
 
     private suspend fun request(path: String, body: JSONObject, token: String?): JSONObject {
+        // অনুরোধ কখন গেল — আবার চালুর আগের পুরোনো 423 উত্তর বাদ দিতে
+        val startedAt = System.currentTimeMillis()
         return withContext(Dispatchers.IO) {
             val conn = URL(BASE_URL + path).openConnection() as HttpURLConnection
             try {
@@ -150,10 +154,13 @@ object ServerApi {
                 val json = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
                 if (code !in 200..299) {
                     // অ্যাকাউন্ট বন্ধ করা হয়েছে: অ্যাপ লগআউট করে কারণ দেখায়
-                    if (json.optString("code") == "account_disabled") SessionEvents.disabled.value = json.optString("error")
+                    val errCode = json.optString("code")
+                    if (errCode == "account_disabled") SessionEvents.disabled.value = json.optString("error")
+                    // অ্যাকাউন্ট সাময়িক বন্ধ (423): পুরো অ্যাপ আটকে "আবার চালু করুন"
+                    if (errCode == "account_deactivated" && token != null) AccountState.onDeactivatedError(startedAt)
                     throw ServerError(
-                        json.optString("error").ifBlank { tr("Server error ($code)", "সার্ভারে সমস্যা ($code)") },
-                        json.optString("code").ifBlank { null },
+                        errorMessage(errCode, json.optString("error"), code),
+                        errCode.ifBlank { null },
                     )
                 }
                 json
@@ -164,6 +171,18 @@ object ServerApi {
             }
         }
     }
+}
+
+/**
+ * সার্ভারের ভুলের বার্তা। কেয়ারগিভার হিসেবে কাজ করার সময় রোগীর অ্যাকাউন্ট সাময়িক বন্ধ (403 `care_paused`):
+ * কী হয়েছে আর কবে আবার পারবেন — পুরো কথা।
+ */
+internal fun errorMessage(errCode: String?, serverText: String?, httpCode: Int): String = when (errCode) {
+    "care_paused" -> tr(
+        "This person has paused their account for now, so you can't act for them. You can again once they turn it back on.",
+        "এই মানুষ এখন তাঁর অ্যাকাউন্ট সাময়িক বন্ধ রেখেছেন, তাই তাঁর হয়ে কাজ করা যাচ্ছে না। তিনি আবার চালু করলে আবার পারবেন।",
+    )
+    else -> serverText?.takeIf { it.isNotBlank() } ?: tr("Server error ($httpCode)", "সার্ভারে সমস্যা ($httpCode)")
 }
 
 /** লগইন ছাড়া এমন কাজ চাওয়া হয়েছে যাতে অ্যাকাউন্ট লাগে */

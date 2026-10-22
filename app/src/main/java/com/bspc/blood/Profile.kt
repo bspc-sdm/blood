@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -58,7 +59,6 @@ fun ProfileTab(
     onProfileChanged: (Profile) -> Unit,
     onLogout: () -> Unit,
     onOpenAdmin: () -> Unit,
-    onAccountDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -79,8 +79,6 @@ fun ProfileTab(
     var assisting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { assisting = runCatching { RxApi.assisting().isNotEmpty() }.getOrDefault(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    var deleting by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val uid = AuthRepository.currentUid
@@ -338,12 +336,22 @@ fun ProfileTab(
             }
             ActionRow(R.drawable.ic_logout, tr("Log out", "লগআউট"), null, onLogout)
             HorizontalDivider()
+            // অ্যাকাউন্ট সাময়িক বন্ধ (কিছু মোছে না) আর মোছা — দুটোই পুরো পাতা (AccountNav → MainActivity)
+            ActionRow(
+                R.drawable.ic_schedule,
+                tr("Pause account", "অ্যাকাউন্ট সাময়িক বন্ধ রাখুন"),
+                tr("Nothing is deleted; turn it back on any time", "কিছু মুছবে না, যখন খুশি আবার চালু"),
+                { AccountNav.open.value = AccountNav.DEACTIVATE },
+                tag = "profile_pause_account",
+            )
+            HorizontalDivider()
             ActionRow(
                 R.drawable.ic_delete,
                 tr("Delete account", "অ্যাকাউন্ট মুছুন"),
                 null,
-                { confirmDelete = true },
+                { AccountNav.open.value = AccountNav.DELETE },
                 MaterialTheme.colorScheme.error,
+                tag = "profile_delete_account",
             )
         }
     }
@@ -370,45 +378,6 @@ fun ProfileTab(
                     }
                 }) { Text(tr("Remove", "মুছুন")) }
             },
-        )
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { if (!deleting) confirmDelete = false },
-            title = { Text(tr("Delete your account?", "অ্যাকাউন্ট মুছবেন?")) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        tr(
-                            "Your account will be deleted permanently after 30 days: profile, photo, phone number, requests, questions, answers, tips, appointments, badge and your businesses. Until then your listings and notifications are off and you are logged out everywhere. Log in again within 30 days to cancel and get everything back.",
-                            "৩০ দিন পর আপনার অ্যাকাউন্ট চিরতরে মুছে যাবে: প্রোফাইল, ছবি, ফোন নম্বর, রিকোয়েস্ট, প্রশ্ন, উত্তর, টিপস, অ্যাপয়েন্টমেন্ট, ব্যাজ আর আপনার ব্যবসা। এর মধ্যে আপনার তালিকা আর নোটিফিকেশন বন্ধ থাকবে, সব ফোন থেকে লগআউট হবে। ৩০ দিনের মধ্যে আবার লগইন করলে মোছা বাতিল হবে, সব আগের মতো ফিরবে।",
-                        )
-                    )
-                    if (deleting) CircularProgressIndicator(Modifier.size(24.dp))
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            deleting = true
-                            runCatching { Moderation.deleteAccount() }
-                                .onSuccess {
-                                    confirmDelete = false
-                                    onAccountDeleted()
-                                }
-                                .onFailure {
-                                    errorMsg = it.message
-                                    confirmDelete = false
-                                }
-                            deleting = false
-                        }
-                    },
-                    enabled = !deleting,
-                ) { Text(tr("Delete account", "অ্যাকাউন্ট মুছুন"), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }, enabled = !deleting) { Text(tr("Cancel", "বাতিল")) } },
         )
     }
 
@@ -448,6 +417,7 @@ private fun ActionRow(
     subtitle: String?,
     onClick: (() -> Unit)?,
     color: Color = Color.Unspecified,
+    tag: String? = null,
 ) {
     ListItem(
         headlineContent = { Text(title, color = color) },
@@ -455,6 +425,7 @@ private fun ActionRow(
         leadingContent = { AppIcon(icon, null, tint = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else color) },
         trailingContent = if (onClick != null) ({ AppIcon(R.drawable.ic_chevron_right, null) }) else null,
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        modifier = (if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier),
     )
 }
