@@ -6,7 +6,9 @@ env:
   J: j13
   ROLE: ডেমো ডোনার করিম
   CAT: ".*প্রশ্নোত্তর আর টিপস.*"
+  CATTXT: "প্রশ্নোত্তর আর টিপস"
 ---
+# সুইচের অবস্থা (checked) পুরো সারির — লেখাগুলো তার ভেতরের আলাদা ঘর, তাই "containsChild: <শিরোনাম>" দিয়ে সারিটা ধরা
 - runFlow: ../common/start.yaml
 - runFlow: ../common/notify-settings.yaml
 - takeScreenshot: j13-01-notify-settings
@@ -19,21 +21,21 @@ env:
 - runFlow:
     when:
       visible:
-        text: ${CAT}
+        containsChild: ${CATTXT}
         checked: false
     commands:
       - tapOn: ${CAT}
       - extendedWaitUntil:
           visible:
-            text: ${CAT}
+            containsChild: ${CATTXT}
             checked: true
           timeout: 10000
 # বন্ধ
 - tapOn: ${CAT}
 - assertVisible:
-    text: ${CAT}
+    containsChild: ${CATTXT}
     checked: false
-- assertNotVisible: "সেভ হয়নি.*"
+- assertNotVisible: "সেভ হ.*নি.*"
 - takeScreenshot: j13-02-category-off
 # পাতা বন্ধ করে আবার খোলা — সার্ভার থেকে আবার পড়া হয়
 - back
@@ -44,13 +46,13 @@ env:
     timeout: 20000
     centerElement: true
 - assertVisible:
-    text: ${CAT}
+    containsChild: ${CATTXT}
     checked: false
 - takeScreenshot: j13-03-still-off-after-reopen
 # আবার চালু, আবার খুলে দেখা
 - tapOn: ${CAT}
 - assertVisible:
-    text: ${CAT}
+    containsChild: ${CATTXT}
     checked: true
 - back
 - runFlow: ../common/notify-settings.yaml
@@ -60,7 +62,7 @@ env:
     timeout: 20000
     centerElement: true
 - assertVisible:
-    text: ${CAT}
+    containsChild: ${CATTXT}
     checked: true
 # জরুরি আহ্বান বন্ধের আগে নিশ্চিত করা: "বাতিল" → চালুই থাকে (সার্ভারে কিছু যায় না)
 - scrollUntilVisible:
@@ -70,12 +72,12 @@ env:
     centerElement: true
 - tapOn: ".*জরুরি রক্তের আহ্বান.*"
 - extendedWaitUntil:
-    visible: "জরুরি খবর পাবেন না — নিশ্চিত?"
+    visible: ".*জরুরি খবর পাবেন না.*"
     timeout: 10000
 - takeScreenshot: j13-04-confirm-emergency-off
 - tapOn: "বাতিল"
 - assertVisible:
-    text: ".*জরুরি রক্তের আহ্বান.*"
+    containsChild: "জরুরি রক্তের আহ্বান"
     checked: true
 # অ্যাকাউন্টের সারি: সবসময় চালু, বদলানো যায় না
 - scrollUntilVisible:
@@ -84,7 +86,7 @@ env:
     timeout: 20000
     centerElement: true
 - assertVisible:
-    text: ".*অ্যাকাউন্ট আর নিরাপত্তা.*"
+    containsChild: "অ্যাকাউন্ট আর নিরাপত্তা.*"
     checked: true
     enabled: false
 - scrollUntilVisible:
