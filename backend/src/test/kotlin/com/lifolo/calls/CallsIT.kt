@@ -290,7 +290,7 @@ class CallsIT : IntegrationTest() {
     }
 
     @Test
-    fun `never demo with real, deactivated, deleting or disabled; bad input 400; caregiver refused`() {
+    fun `never demo with real, deactivated, deleting or disabled, bad input 400, caregiver refused`() {
         person("req")
         person("demo-d1")
         person("don")
@@ -444,7 +444,7 @@ class CallsIT : IntegrationTest() {
     }
 
     @Test
-    fun `busy - callee ringing or in a call, 409 call_busy; free again after the end`() {
+    fun `busy - callee ringing or in a call, 409 call_busy, free again after the end`() {
         for (u in listOf("a", "b", "c")) person(u)
         bloodRequest("r1", "a", mapOf("b" to "accepted"))
         bloodRequest("r2", "c", mapOf("b" to "accepted"))
