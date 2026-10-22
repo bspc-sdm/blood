@@ -1,0 +1,214 @@
+name: Calls server CI
+
+# অ্যাপের ভেতরের কলের সার্ভার (LiveKit) — VPS ছোঁয়ার আগে GitHub-এর মেশিনেই পুরো পরীক্ষা:
+#   lint (shellcheck, চাবির test) → deploy/setup-call-server.sh এই মেশিনেই চালানো (দুবার — আবার চালালে ক্ষতি নেই কি না),
+#   দুই রকমেই: main (মূল VPS-এর মতো: nginx-এর lifolo.com-এ /rtc, 80/443 আগের মতো) আর dedicated (পরের আলাদা কল-সার্ভার:
+#   নিজের nginx, TURN/TLS 443-এ SNI দিয়ে) — নিজে-সই করা সার্টিফিকেট আর /etc/hosts-এ নকল নাম দিয়ে।
+#   তারপর দুটো headless Chromium আসল কল করে: সরাসরি, শুধু TURN/UDP (relay), dedicated-এ শুধু TURN/TLS; ঘরে ৩য় জন ঢোকে না।
+# আসল VPS-এ বসানো: Actions → "Setup calls (LiveKit)"। বাংলা গাইড: deploy/CALLS-SERVER.md
+on:
+  push:
+    paths:
+      - deploy/setup-call-server.sh
+      - deploy/ci/livekit-keys.js
+      - deploy/ci/stun-check.py
+      - deploy/ci/call-smoke/**
+      - deploy/ci/test/livekit-keys.test.js
+      - .github/workflows/call-server-ci.yml
+      - .github/workflows/setup-call-server.yml
+  pull_request:
+    paths:
+      - deploy/setup-call-server.sh
+      - deploy/ci/livekit-keys.js
+      - deploy/ci/stun-check.py
+      - deploy/ci/call-smoke/**
+      - deploy/ci/test/livekit-keys.test.js
+      - .github/workflows/call-server-ci.yml
+      - .github/workflows/setup-call-server.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: call-server-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Shell, Python, key tests
+        run: |
+          bash -n deploy/setup-call-server.sh
+          shellcheck -S warning deploy/setup-call-server.sh
+          python3 -m py_compile deploy/ci/stun-check.py
+          node --check deploy/ci/livekit-keys.js
+          node --test deploy/ci/test/livekit-keys.test.js deploy/ci/test/derive-keys.test.js
+      - name: Workflow syntax (actionlint)
+        run: |
+          curl -fsSL -o /tmp/al.tgz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          tar -xzf /tmp/al.tgz -C /tmp actionlint
+          /tmp/actionlint -shellcheck= .github/workflows/call-server-ci.yml .github/workflows/setup-call-server.yml .github/workflows/uptime.yml
+
+  runner:
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [main, dedicated]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Fake names, test certificate, keys
+        run: |
+          ip="$(ip -4 route get 1.1.1.1 | sed -nE 's/.* src ([0-9.]+).*/\1/p')"
+          echo "NODE_IP=$ip" >> "$GITHUB_ENV"
+          d="$RUNNER_TEMP/ci"; mkdir -p "$d"; cd "$d"
+          if [ "${{ matrix.mode }}" = main ]; then names="lifolo.test"; else names="call.lifolo.test turn.lifolo.test"; fi
+          for n in $names; do echo "$ip $n" | sudo tee -a /etc/hosts >/dev/null; done
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=Lifolo CI CA" -keyout ca.key -out ca.pem 2>/dev/null
+          san="$(for n in $names; do printf 'DNS:%s,' "$n"; done)"; san="${san%,}"
+          openssl req -newkey rsa:2048 -nodes -subj "/CN=${names%% *}" -keyout privkey.pem -out leaf.csr 2>/dev/null
+          printf 'subjectAltName=%s\nextendedKeyUsage=serverAuth\n' "$san" > ext.cnf
+          openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 2 -extfile ext.cnf -out leaf.pem 2>/dev/null
+          cat leaf.pem ca.pem > fullchain.pem
+          # ব্রাউজার আর সিস্টেম দুটোই এই CA মানুক (TURN/TLS-এর জন্যও)
+          sudo cp ca.pem /usr/local/share/ca-certificates/lifolo-ci.crt && sudo update-ca-certificates >/dev/null
+          sudo apt-get install -y -q libnss3-tools >/dev/null
+          mkdir -p "$HOME/.pki/nssdb"
+          certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password 2>/dev/null || true
+          certutil -d "sql:$HOME/.pki/nssdb" -A -n lifolo-ci -t "C,," -i ca.pem
+          LIFOLO_MASTER=ci-test-master node "$GITHUB_WORKSPACE/deploy/ci/livekit-keys.js" --keyfile keys.yaml
+
+      # মূল VPS যেমন: nginx-এ lifolo.com (এখানে lifolo.test) → snippets/lifolo-api.conf; ufw চালু, 22 খোলা
+      - name: Pretend main VPS (nginx site + api snippet, ufw)
+        if: matrix.mode == 'main'
+        run: |
+          sudo apt-get install -y -q nginx >/dev/null
+          d="$RUNNER_TEMP/ci"
+          sudo install -d /etc/nginx/snippets
+          printf 'location /api/ { default_type text/plain; return 200 "api\\n"; }\n' | sudo tee /etc/nginx/snippets/lifolo-api.conf >/dev/null
+          sudo tee /etc/nginx/sites-available/lifolo-web >/dev/null <<EOF
+          server {
+              listen 443 ssl;
+              server_name lifolo.test;
+              ssl_certificate $d/fullchain.pem;
+              ssl_certificate_key $d/privkey.pem;
+              location = /healthz { return 200 'ok'; }
+              include /etc/nginx/snippets/lifolo-api.conf;
+              location / { return 200 'spa'; }
+          }
+          EOF
+          sudo ln -sf /etc/nginx/sites-available/lifolo-web /etc/nginx/sites-enabled/lifolo-web
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t && sudo systemctl restart nginx
+          sudo ufw allow 22/tcp >/dev/null
+          sudo ufw allow 443/tcp >/dev/null
+          sudo ufw --force enable
+
+      - name: Run setup-call-server.sh (twice)
+        id: setup
+        run: |
+          d="$RUNNER_TEMP/ci"
+          if [ "${{ matrix.mode }}" = main ]; then
+            args=(--mode main --public-url wss://lifolo.test)
+          else
+            args=(--mode dedicated --domain call.lifolo.test --turn-domain turn.lifolo.test --test-cert "$d" --skip-upgrade)
+          fi
+          sudo bash deploy/setup-call-server.sh --ci --keys "$d/keys.yaml" --node-ip "$NODE_IP" "${args[@]}"
+          echo "---- আবার (idempotent) ----"
+          sudo bash deploy/setup-call-server.sh --ci --keys "$d/keys.yaml" --node-ip "$NODE_IP" "${args[@]}"
+          sudo cat /var/lib/lifolo/call-status | tee "$RUNNER_TEMP/status.txt"
+
+      - name: Checks (status, firewall, limits, nginx, TURN/UDP)
+        run: |
+          set -x
+          s="$RUNNER_TEMP/status.txt"
+          g() { sed -nE "s/^$1=(.*)$/\1/p" "$s"; }
+          [ "$(g service)" = active ]
+          [ "$(g local_http)" = yes ]
+          [ "$(g signal_nginx)" = ok ]
+          [ "$(g turn_udp)" = listening ]
+          [ "$(g rtc_tcp)" = listening ]
+          [ "$(g warnings)" = 0 ]
+          sudo ufw status | grep -E '^7881/tcp +ALLOW +Anywhere'
+          sudo ufw status | grep -E '^3478/udp +ALLOW +Anywhere'
+          sudo ufw status | grep -E '^50000:60000/udp +ALLOW +Anywhere'
+          python3 deploy/ci/stun-check.py "$NODE_IP" 3478
+          tok="$RUNNER_TEMP/tok"; LIFOLO_MASTER=ci-test-master node deploy/ci/livekit-keys.js --token "$tok"
+          if [ "${{ matrix.mode }}" = main ]; then
+            host=lifolo.test
+            [ "$(sudo stat -c '%a %U' /etc/livekit/backend.env)" = "600 root" ]
+            sudo grep -qx 'LIVEKIT_URL=wss://lifolo.test' /etc/livekit/backend.env
+            k="$(LIFOLO_MASTER=ci-test-master node -e "console.log(require('./deploy/ci/livekit-keys.js').livekitKeys(process.env.LIFOLO_MASTER).apiKey)")"
+            sudo grep -qx "LIVEKIT_API_KEY=$k" /etc/livekit/backend.env
+            grep -q 'include /etc/nginx/snippets/lifolo-calls\*.conf;' /etc/nginx/snippets/lifolo-api.conf
+            [ "$(grep -c lifolo-calls /etc/nginx/snippets/lifolo-api.conf)" -le 2 ]
+            q="$(systemctl show livekit-server -p CPUQuotaPerSecUSec --value)"; m="$(systemctl show livekit-server -p MemoryMax --value)"
+            echo "CPUQuota=$q MemoryMax=$m"
+            [ "$q" != infinity ] && [ "$m" = 536870912 ]
+            # আগের সাইট ঠিক আছে
+            [ "$(curl -fsS https://lifolo.test/api/x)" = api ]
+            [ "$(curl -fsS https://lifolo.test/)" = spa ]
+          else
+            host=call.lifolo.test
+            [ "$(g turn_tls | cut -d' ' -f1)" = on ]
+            [ "$(curl -fsS https://call.lifolo.test/healthz)" = OK ]
+            echo | openssl s_client -connect turn.lifolo.test:443 -servername turn.lifolo.test -verify_return_error 2>&1 | grep -q 'Verify return code: 0'
+            sudo ufw status | grep -E '^443/tcp +ALLOW +Anywhere'
+          fi
+          [ "$(curl -fsS "https://$host/rtc/validate?access_token=$(cat "$tok")")" = success ]
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "https://$host/rtc/validate")" = 401 ]
+          # টোকেন লগে নয়
+          if sudo grep -rqs 'access_token=' /var/log/nginx/; then echo "::error::nginx-এর লগে টোকেন"; exit 1; fi
+
+      - name: Smoke test - two headless participants
+        id: smoke
+        working-directory: deploy/ci/call-smoke
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium-headless-shell >/dev/null
+          if [ "${{ matrix.mode }}" = main ]; then url=wss://lifolo.test; modes=direct,relay-udp; else url=wss://call.lifolo.test; modes=direct,relay-udp,relay-tls; fi
+          LIVEKIT_URL="$url" LIFOLO_MASTER=ci-test-master SMOKE_MODES="$modes" SMOKE_MD="$RUNNER_TEMP/smoke.md" SMOKE_OUT="$RUNNER_TEMP/smoke.json" node smoke.mjs
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          sudo journalctl -u livekit-server -n 120 --no-pager || true
+          sudo nginx -T 2>/dev/null | grep -v -E 'ssl_certificate_key' | tail -150 || true
+          sudo ufw status verbose || true
+
+      - name: Summary
+        if: always()
+        env:
+          JOB_OK: ${{ job.status }}
+        run: |
+          {
+            if [ "$JOB_OK" = success ]; then echo "## ✅ কল-সার্ভার (${{ matrix.mode }}) — এই মেশিনে বসানো আর আসল কল পরীক্ষা পাস"; else echo "## ❌ কল-সার্ভার (${{ matrix.mode }}) — পরীক্ষা ব্যর্থ"; fi
+            echo
+            if [ "${{ matrix.mode }}" = main ]; then
+              echo "মোড **main** — এখনকার মূল VPS-এর মতো: signaling \`wss://lifolo.test/rtc\` (nginx-এর আগের সাইট), মিডিয়া সরাসরি; LiveKit-এ CPU/RAM-সীমা।"
+            else
+              echo "মোড **dedicated** — পরের আলাদা কল-সার্ভারের মতো: \`wss://call.lifolo.test\`, TURN/TLS \`turn.lifolo.test:443\` (SNI)।"
+            fi
+            echo
+            cat "$RUNNER_TEMP/smoke.md" 2>/dev/null || echo "(smoke test চলেনি)"
+            echo
+            echo "<details><summary>সার্ভারের অবস্থা (call-status)</summary>"
+            echo
+            echo '```'
+            sed -E 's/^(node_ip[^=]*)=.*/\1=<ip>/' "$RUNNER_TEMP/status.txt" 2>/dev/null
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"

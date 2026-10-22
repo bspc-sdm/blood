@@ -7,6 +7,7 @@
 //   LIFOLO_MASTER='<CALL_VPS_ROOT_PASSWORD>' node deploy/ci/livekit-keys.js --env <ফাইল>      # LIVEKIT_URL/KEY/SECRET যোগ করে
 //   LIFOLO_MASTER='<CALL_VPS_ROOT_PASSWORD>' node deploy/ci/livekit-keys.js --keyfile <ফাইল>  # LiveKit-এর key_file ("KEY: SECRET")
 //   … --mask   (GitHub Actions-এ key আর secret লগে লুকানো: ::add-mask::)
+//   … --token <ফাইল>  স্বাস্থ্য-পরীক্ষার টোকেন (২ মিনিট, ঘর "lifolo-health", publish/subscribe নয়) — <URL>/rtc/validate-এ "success"
 //
 // CALL_DOMAIN (না দিলে call.lifolo.com) থেকে LIVEKIT_URL=wss://<CALL_DOMAIN>। ফাইল 0600; stdout-এ চাবি ছাপা হয় না।
 // scrypt (N=2^16), লেবেল "livekit-api" — SSH/ব্যাকআপের লেবেল আলাদা, তাই একটা থেকে অন্যটা বের করা যায় না।
@@ -75,7 +76,7 @@ module.exports = { livekitKeys, accessToken, callUrl, base62 };
 if (require.main === module) {
   const args = process.argv.slice(2);
   const usage = () => {
-    console.error('usage: LIFOLO_MASTER=... [CALL_DOMAIN=call.lifolo.com] node livekit-keys.js [--env FILE] [--keyfile FILE] [--mask]');
+    console.error('usage: LIFOLO_MASTER=... [CALL_DOMAIN=call.lifolo.com] node livekit-keys.js [--env FILE] [--keyfile FILE] [--token FILE] [--mask]');
     process.exit(2);
   };
   if (!args.length) usage();
@@ -93,6 +94,11 @@ if (require.main === module) {
     } else if (a === '--env' && args[i + 1]) {
       const f = args[++i];
       fs.appendFileSync(f, `LIVEKIT_URL=${callUrl()}\nLIVEKIT_API_KEY=${k.apiKey}\nLIVEKIT_API_SECRET=${k.apiSecret}\n`, { mode: 0o600 });
+      fs.chmodSync(f, 0o600);
+    } else if (a === '--token' && args[i + 1]) {
+      const f = args[++i];
+      const t = accessToken({ ...k, room: 'lifolo-health', identity: 'health-check', ttlSec: 120, canPublish: false, canSubscribe: false });
+      fs.writeFileSync(f, `${t}\n`, { mode: 0o600 });
       fs.chmodSync(f, 0o600);
     } else if (a === '--keyfile' && args[i + 1]) {
       const f = args[++i];

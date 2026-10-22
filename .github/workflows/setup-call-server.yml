@@ -1,0 +1,244 @@
+name: Setup calls (LiveKit)
+
+# অ্যাপের ভেতরের কল (LiveKit) এক বোতামে — Actions → "Setup calls (LiveKit)" → Run workflow। আবার চালালেও ক্ষতি নেই।
+# বাংলা গাইড: deploy/CALLS-SERVER.md
+#
+# target = main (এখন, পরীক্ষার পর্ব): মূল VPS-এই — নতুন কোনো সিক্রেট বা DNS লাগে না (VPS_HOST, VPS_ROOT_PASSWORD যা আছে)।
+#   signaling wss://lifolo.com/rtc (Cloudflare → nginx → LiveKit), মিডিয়া সরাসরি VPS-এর IP-তে (7881/tcp, 3478/udp, 50000-60000/udp)।
+#   LiveKit-এর key/secret VPS_ROOT_PASSWORD থেকে বানানো (deploy/ci/livekit-keys.js); অ্যাপের জন্য VPS-এর /etc/livekit/backend.env,
+#   পরের "Deploy backend" সেখান থেকে app.env-এ LIVEKIT_URL/LIVEKIT_API_KEY/LIVEKIT_API_SECRET নেয়।
+# target = dedicated (পরে, Singapore-এ সরার সময়): আলাদা কল-VPS — সিক্রেট CALL_VPS_HOST, CALL_VPS_ROOT_PASSWORD আর
+#   Cloudflare-এ call.lifolo.com ও turn.lifolo.com → ওই IP (ধূসর মেঘ, DNS only)। প্রথম সংযোগে root পাসওয়ার্ড, তারপর চাবি,
+#   পাসওয়ার্ড লগইন বন্ধ (setup-vps-base-এর মতোই)।
+# দুটোতেই শেষে আসল কলের পরীক্ষা: দুটো headless Chromium (সরাসরি + শুধু TURN/UDP relay; dedicated-এ TURN/TLS-ও), বাংলা সারাংশ।
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "কোথায়: main = এখনকার মূল VPS (পরীক্ষার পর্ব); dedicated = আলাদা কল-VPS (পরে)"
+        type: choice
+        options: [main, dedicated]
+        default: main
+      check_only:
+        description: "শুধু পরীক্ষা (কিছু বসানো/বদলানো নয়)"
+        type: boolean
+        default: false
+      log_branch:
+        description: "ফল কোন log branch-এ"
+        type: string
+        default: "ci-log-calls"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ inputs.target == 'dedicated' && 'call-vps-admin' || 'vps-admin' }}
+  cancel-in-progress: false
+
+jobs:
+  calls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Check secrets and names
+        id: cfg
+        env:
+          VPS_HOST: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_HOST || secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_ROOT_PASSWORD || secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          pw="${VPS_ROOT_PASSWORD%$'\n'}"; pw="${pw%$'\r'}"
+          if [ -n "$pw" ]; then echo "::add-mask::$pw"; fi
+          pw_trim="$(printf '%s' "$pw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -n "$pw_trim" ]; then echo "::add-mask::$pw_trim"; fi
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          if [ "$TARGET" = dedicated ]; then sec=CALL_VPS_HOST; psec=CALL_VPS_ROOT_PASSWORD; else sec=VPS_HOST; psec=VPS_ROOT_PASSWORD; fi
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::$sec সিক্রেটে VPS-এর IP নেই (Settings → Secrets and variables → Actions)"; exit 1; }
+          [ -n "$pw_trim" ] || { echo "::error::$psec সিক্রেট নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "NODE_IP=$ip" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/out" "$RUNNER_TEMP/lk"
+          if [ "$TARGET" = dedicated ]; then
+            echo "SIGNAL_HOST=call.lifolo.com" >> "$GITHUB_ENV"
+            echo "LIVEKIT_URL=wss://call.lifolo.com" >> "$GITHUB_ENV"
+            # DNS: দুটো নামই এই IP-তে, Cloudflare-এর proxy ছাড়া (WebRTC Cloudflare দিয়ে যায় না)
+            dns=ok
+            for n in call.lifolo.com turn.lifolo.com; do
+              got="$(getent ahostsv4 "$n" | awk '{print $1}' | sort -u | tr '\n' ' ')"
+              if [[ " $got " == *" $ip "* ]]; then echo "$n: ✅"; else echo "::warning::$n → '${got:-কিছু না}' (হওয়ার কথা কল-VPS-এর IP, ধূসর মেঘ)"; dns="no ($n)"; fi
+            done
+            echo "dns=$dns" >> "$GITHUB_OUTPUT"
+          else
+            echo "SIGNAL_HOST=lifolo.com" >> "$GITHUB_ENV"
+            echo "LIVEKIT_URL=wss://lifolo.com" >> "$GITHUB_ENV"
+            echo "dns=n/a" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: LiveKit keys (derived from the root password)
+        env:
+          LIFOLO_MASTER: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_ROOT_PASSWORD || secrets.VPS_ROOT_PASSWORD }}
+        run: |
+          node deploy/ci/livekit-keys.js --mask --keyfile "$RUNNER_TEMP/lk/keys.yaml" --token "$RUNNER_TEMP/lk/health-token"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_HOST || secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_ROOT_PASSWORD || secrets.VPS_ROOT_PASSWORD }}
+          # আলাদা কল-VPS-এ প্রথমবার: পাসওয়ার্ডে ঢুকে চাবি বসানো, তারপর পাসওয়ার্ড লগইন বন্ধ। মূল VPS-এ আগেই হয়ে আছে।
+          BOOTSTRAP: ${{ inputs.target == 'dedicated' && 'yes' || 'no' }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Install LiveKit on the VPS
+        id: install
+        if: ${{ !inputs.check_only }}
+        run: |
+          ssh vps 'install -d -m 700 /root/lifolo-calls && cat > /root/lifolo-calls/setup-call-server.sh' < deploy/setup-call-server.sh
+          ssh vps 'umask 077 && cat > /root/lifolo-calls/keys.yaml' < "$RUNNER_TEMP/lk/keys.yaml"
+          if [ "$TARGET" = dedicated ]; then
+            args="--mode dedicated --domain call.lifolo.com --turn-domain turn.lifolo.com"
+          else
+            args="--mode main --public-url wss://lifolo.com"
+          fi
+          rc=0
+          # shellcheck disable=SC2029  # মানগুলো ওপরে যাচাই করা
+          ssh vps "bash /root/lifolo-calls/setup-call-server.sh --ci $args --keys /root/lifolo-calls/keys.yaml --node-ip '$NODE_IP'" || rc=$?
+          ssh vps 'shred -u /root/lifolo-calls/keys.yaml 2>/dev/null || rm -f /root/lifolo-calls/keys.yaml'
+          exit "$rc"
+
+      - name: Server status
+        id: status
+        if: always() && steps.cfg.outcome == 'success'
+        run: |
+          ssh vps 'cat /var/lib/lifolo/call-status 2>/dev/null' | tr -d '\r' | grep -E '^[a-z_]+=' > "$RUNNER_TEMP/out/status.txt" || true
+          cat "$RUNNER_TEMP/out/status.txt"
+          ssh vps 'systemctl is-active livekit-server' > "$RUNNER_TEMP/out/active.txt" 2>/dev/null || true
+
+      # বাইরে থেকে: TURN/UDP (STUN উত্তর), ICE-TCP 7881, আর signaling — টোকেন দিয়ে /rtc/validate → "success" (চাবিও মেলে)
+      - name: Check from the internet
+        id: net
+        if: always() && steps.cfg.outcome == 'success'
+        run: |
+          out="$RUNNER_TEMP/out"
+          stun="$(python3 deploy/ci/stun-check.py "$NODE_IP" 3478 2>&1 | sed "s/$NODE_IP/<ip>/g" || true)"
+          tcp="$(timeout 6 bash -c "</dev/tcp/$NODE_IP/7881" 2>/dev/null && echo open || echo closed)"
+          tok="$(cat "$RUNNER_TEMP/lk/health-token")"
+          sig="$(curl -sS -m 20 -A 'Mozilla/5.0 (lifolo-calls-check)' -w ' HTTP %{http_code}' "https://$SIGNAL_HOST/rtc/validate?access_token=$tok" 2>&1 | tail -c 200 || true)"
+          via=direct
+          if [[ "$sig" != success* ]] && [ "$TARGET" = main ]; then
+            # Cloudflare কখনো GitHub-এর মেশিনকে challenge দেয় — তখন SSH tunnel দিয়ে origin-এ (একই নাম আর সার্টিফিকেট)
+            echo "::warning::Cloudflare দিয়ে /rtc: $sig — SSH tunnel দিয়ে আবার"
+            bash deploy/ci/origin-access.sh tunnel "$NODE_IP" || true
+            sig="$(curl -sS -m 20 --resolve "$SIGNAL_HOST:443:$NODE_IP" -w ' HTTP %{http_code}' "https://$SIGNAL_HOST/rtc/validate?access_token=$tok" 2>&1 | tail -c 200 || true)"
+            via=tunnel
+          fi
+          sig_ok=no; [[ "$sig" == success* ]] && sig_ok=yes
+          {
+            echo "stun=$stun"
+            echo "tcp7881=$tcp"
+            echo "signal=$sig_ok"
+            echo "signal_raw=$(printf '%s' "$sig" | tr -d '\n' | cut -c1-120)"
+            echo "via=$via"
+          } | tee "$out/net.txt" >> "$GITHUB_OUTPUT"
+          [[ "$stun" == ok* ]] && [ "$tcp" = open ] && [ "$sig_ok" = yes ]
+
+      - name: Smoke test - two headless participants make a call
+        id: smoke
+        if: always() && steps.net.outcome != 'skipped' && steps.net.outputs.signal == 'yes'
+        working-directory: deploy/ci/call-smoke
+        env:
+          LIFOLO_MASTER: ${{ inputs.target == 'dedicated' && secrets.CALL_VPS_ROOT_PASSWORD || secrets.VPS_ROOT_PASSWORD }}
+          VIA: ${{ steps.net.outputs.via }}
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium-headless-shell >/dev/null
+          modes=direct,relay-udp
+          [ "$TARGET" != dedicated ] || modes=direct,relay-udp,relay-tls
+          resolve=""
+          [ "$VIA" != tunnel ] || resolve="$SIGNAL_HOST=$NODE_IP"
+          SMOKE_MODES="$modes" SMOKE_RESOLVE="$resolve" SMOKE_MD="$RUNNER_TEMP/out/smoke.md" SMOKE_OUT="$RUNNER_TEMP/out/smoke.json" node smoke.mjs > "$RUNNER_TEMP/out/smoke.log" 2>&1 \
+            || { sed "s/$NODE_IP/<ip>/g" "$RUNNER_TEMP/out/smoke.log" | tail -80; exit 1; }
+          sed "s/$NODE_IP/<ip>/g" "$RUNNER_TEMP/out/smoke.log" | tail -20
+
+      - name: Summary
+        if: always()
+        env:
+          JOB_OK: ${{ job.status }}
+          CHECK_ONLY: ${{ inputs.check_only }}
+          DNS: ${{ steps.cfg.outputs.dns }}
+          STUN: ${{ steps.net.outputs.stun }}
+          TCP: ${{ steps.net.outputs.tcp7881 }}
+          SIG: ${{ steps.net.outputs.signal }}
+          SIG_RAW: ${{ steps.net.outputs.signal_raw }}
+          VIA: ${{ steps.net.outputs.via }}
+          SMOKE: ${{ steps.smoke.outcome }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          g() { sed -nE "s/^$1=(.*)$/\1/p" "$out/status.txt" 2>/dev/null | tail -1; }
+          yn() { [ "$1" = yes ] || [ "$1" = ok ] || [ "$1" = success ] || [ "$1" = open ] || [[ "$1" == ok* ]] && echo "✅" || echo "❌"; }
+          {
+            if [ "$JOB_OK" = success ]; then
+              echo "## ✅ অ্যাপের কল চালু ($([ "$TARGET" = main ] && echo 'মূল VPS-এ, পরীক্ষার পর্ব' || echo 'আলাদা কল-VPS'))"
+            else
+              echo "## ❌ কল-সার্ভারে সমস্যা"
+              echo
+              echo "বাঁ দিকে **calls**-এ চাপুন, লাল ✗ ধাপটা খুলে স্ক্রিনশট Claude-কে পাঠান (পাসওয়ার্ড নয়)। ঠিক করে আবার **Run workflow** — আগে যা হয়েছে তা নষ্ট হয় না।"
+            fi
+            echo
+            [ "$CHECK_ONLY" != true ] || echo "_শুধু পরীক্ষা — কিছু বসানো/বদলানো হয়নি।_"
+            echo
+            echo "| কী | অবস্থা |"
+            echo "|---|---|"
+            echo "| LiveKit | $(g livekit) · সার্ভিস $(g service) |"
+            echo "| signaling | \`$LIVEKIT_URL/rtc\` → $(yn "$SIG") ${VIA:+($([ "$VIA" = tunnel ] && echo 'Cloudflare আটকেছে, SSH tunnel দিয়ে যাচাই' || echo 'বাইরে থেকে'))} ${SIG_RAW:+· \`$(printf '%s' "$SIG_RAW" | cut -c1-60)\`} |"
+            echo "| TURN/UDP 3478 (বাইরে থেকে STUN) | $(yn "$STUN") ${STUN} |"
+            echo "| ICE-TCP 7881 (বাইরে থেকে) | $(yn "$TCP") ${TCP} |"
+            echo "| মিডিয়া UDP 50000-60000 | ফায়ারওয়ালে খোলা ($(g firewall)) — নিচের কল-পরীক্ষাই প্রমাণ |"
+            if [ "$TARGET" = main ]; then
+              echo "| TURN/TLS | নেই (মূল VPS-এ আলাদা DNS-only নাম নেই) — খুব কড়া নেটওয়ার্কে কল না-ও লাগতে পারে |"
+              echo "| সীমা | CPU $(g cpu_quota), RAM $(g memory_max); ঘরে সর্বোচ্চ ২ জন |"
+              echo "| অ্যাপের সেটিং | LIVEKIT_URL=\`$LIVEKIT_URL\` + key/secret (VPS_ROOT_PASSWORD থেকে) — VPS-এর \`/etc/livekit/backend.env\`; app.env: $(g backend_env) |"
+            else
+              echo "| DNS (call/turn.lifolo.com, ধূসর মেঘ) | ${DNS:-?} |"
+              echo "| সার্টিফিকেট | $(g cert) $(g cert_days | sed 's/^/· /;s/$/ দিন বাকি/') |"
+              echo "| TURN/TLS (turn.lifolo.com:443) | $(g turn_tls) |"
+            fi
+            echo
+            echo "### আসল কলের পরীক্ষা (দুটো headless Chromium, নকল ক্যামেরা/মাইক)"
+            echo
+            if [ -f "$out/smoke.md" ]; then cat "$out/smoke.md"; else echo "চলেনি (${SMOKE:-skipped}) — signaling ঠিক না হলে চলে না।"; fi
+            echo
+            if [ "$TARGET" = main ] && [ "$JOB_OK" = success ] && [ "$(g backend_env)" != "in app.env" ]; then
+              echo "**পরের ধাপ:** Actions → **Deploy backend** একবার চালান — তখন অ্যাপ LIVEKIT_* পায় (কলের বোতাম কাজ করবে)।"
+              echo
+            fi
+            if [ "$(g reboot)" = yes ]; then echo "- আপডেটের পর VPS একবার রিবুট দরকার — সুবিধামতো (জরুরি নয়)।"; fi
+            echo "_run ${{ github.run_id }} · গাইড: deploy/CALLS-SERVER.md_"
+          } > "$out/summary.md"
+          sed -i -e "s/${NODE_IP//./\\.}/<ip>/g" "$out/summary.md" 2>/dev/null || true
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_BRANCH: ${{ inputs.log_branch || 'ci-log-calls' }}
+          LOG_MESSAGE: calls ${{ inputs.target }} ${{ github.run_id }} ${{ job.status }}
+        run: |
+          [[ "$LOG_BRANCH" =~ ^ci-log-[a-z0-9-]+$ ]] || LOG_BRANCH=ci-log-calls
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/calls-$TARGET"
+          cp "$RUNNER_TEMP/out/summary.md" "$src/calls-$TARGET/summary.md" 2>/dev/null || true
+          { echo "run=${GITHUB_RUN_ID}"; echo "job=${{ job.status }}"; sed -E 's/^(node_ip[^=]*)=.*/\1=<ip>/' "$RUNNER_TEMP/out/status.txt" 2>/dev/null; } > "$src/calls-$TARGET/status.txt"
+          bash .github/scripts/publish-log.sh "$LOG_BRANCH" "$src" "calls-$TARGET"
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config "$RUNNER_TEMP/lk"

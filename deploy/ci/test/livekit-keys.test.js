@@ -65,6 +65,11 @@ test('CLI: --env আর --keyfile (0600), stdout-এ চাবি নেই; CAL
   assert.strictEqual(fs.readFileSync(kf, 'utf8'), `${k.apiKey}: ${k.apiSecret}\n`);
   assert.strictEqual(fs.statSync(kf).mode & 0o777, 0o600);
   assert.strictEqual(fs.statSync(env).mode & 0o777, 0o600);
+  const tf = path.join(dir, 'token');
+  execFileSync('node', [script, '--token', tf], { env: { ...process.env, LIFOLO_MASTER: 'Call-Pass-1' } });
+  const tb = JSON.parse(Buffer.from(fs.readFileSync(tf, 'utf8').trim().split('.')[1], 'base64url'));
+  assert.deepStrictEqual([tb.iss, tb.video.room, tb.video.canPublish, tb.video.canSubscribe], [k.apiKey, 'lifolo-health', false, false]);
+  assert.strictEqual(fs.statSync(tf).mode & 0o777, 0o600);
   const mask = execFileSync('node', [script, '--mask'], { env: { ...process.env, LIFOLO_MASTER: 'Call-Pass-1' } }).toString();
   assert.strictEqual(mask, `::add-mask::${k.apiKey}\n::add-mask::${k.apiSecret}\n`);
   assert.throws(() => execFileSync('node', [script, '--env', env], { env: { ...process.env, LIFOLO_MASTER: '' }, stdio: 'ignore' }));
