@@ -1,0 +1,100 @@
+name: TMP RC4 flow check (rc4-flows-check only, never merged)
+# Maestro journeys + notification suite against production with the releaseSmoke APK (demo accounts only),
+# same as the RC4 release check's e2e job. Journeys to run: .github/tmp-rc4f/only.txt ("all" = j1–j28 + n).
+# Publishes nothing. Logs → ci-log-rc4-flows-check (e2e/).
+on:
+  push:
+    branches: [rc4-flows-check]
+    paths: [".github/workflows/tmp-rc4-flows.yml", ".github/tmp-rc4f/**"]
+permissions:
+  contents: write
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 170
+    concurrency:
+      group: e2e-android
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build releaseSmoke APK
+        run: |
+          set -o pipefail
+          mkdir -p e2e-out
+          gradle assembleReleaseSmoke --no-daemon 2>&1 | tee e2e-out/build.log
+          echo "E2E_APK=$(ls $GITHUB_WORKSPACE/app/build/outputs/apk/releaseSmoke/*.apk | head -1)" >> "$GITHUB_ENV"
+          ls -l app/build/outputs/apk/*/ | tee e2e-out/apk.txt
+      - name: Probe production switches as demo roles (read only) + consent for demo roles
+        id: probe
+        continue-on-error: true
+        env:
+          E2E_SERVER: https://lifolo.com
+        run: python3 .github/tmp-rc4f/probe.py 2>&1 | tee e2e-out/probe.txt
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Screen text on every failed journey, j28 in the order (workspace copy of run.sh only)
+        run: |
+          sed -i 's|^  rc=\$?$|  rc=$?; [ $rc = 0 ] \|\| adb exec-out uiautomator dump /dev/tty > "$OUT/debug/ui-$f.xml" 2>/dev/null \|\| true|' e2e/android/run.sh
+          sed -i 's/^ORDER="j3-pharmacy /ORDER="j28-consent j3-pharmacy /' e2e/android/run.sh
+          grep -n 'uiautomator\|^ORDER=' e2e/android/run.sh
+          only=$(tr -s ' \n' ' ' < .github/tmp-rc4f/only.txt | sed 's/^ *//; s/ *$//')
+          if [ "$only" = all ]; then only="j1 j2 j3 j4 j5 j6 j7 j8 j9 j10 j11 j12 j13 j14 j15 j16 j17 j18 j19 j20 j21 j22 j23 j24 j25 j26 j27 j28 n"; fi
+          echo "E2E_ONLY=$only" >> "$GITHUB_ENV"
+          echo "gated ON per probe: ${{ steps.probe.outputs.extra }} / skipped: ${{ steps.probe.outputs.skipped }}"
+      - name: Run flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disk-size: 6000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: bash e2e/android/run.sh
+      - name: Collect
+        if: always()
+        run: |
+          d=log/e2e; mkdir -p $d
+          cp e2e-out/results.txt e2e-out/apk.txt e2e-out/probe.txt $d/ 2>/dev/null || true
+          cp e2e-out/notify.txt $d/ 2>/dev/null || true
+          echo "E2E_ONLY=$E2E_ONLY" > $d/only.txt
+          grep -E "^e: |What went wrong|R8|Missing class" -A3 e2e-out/build.log | head -60 > $d/build-errors.txt || true
+          for f in e2e-out/debug/crash-*.txt; do [ -s "$f" ] && cp "$f" $d/; done || true
+          for f in e2e-out/debug/*.log; do b=$(basename "$f" .log); tail -60 "$f" > "$d/$b.tail.txt"; done 2>/dev/null || true
+          for j in $(grep -E "rc=[1-9]" e2e-out/results.txt | awk '{print $1}'); do
+            f=$d/fail-$j; mkdir -p $f
+            grep -E "AndroidRuntime|FATAL|Exception|Error|com\.bspc\.blood" e2e-out/debug/logcat-$j.txt 2>/dev/null | grep -v -E "chatty|GnssHAL|bluetooth" | tail -200 > $f/logcat-errors.txt || true
+            ls -t $(find e2e-out/debug/$j -name "*.png" 2>/dev/null) 2>/dev/null | head -4 | while read p; do cp "$p" $f/; done
+            [ -f e2e-out/debug/ui-$j.xml ] && cp e2e-out/debug/ui-$j.xml $f/ui.xml
+            [ -f e2e-out/debug/ui-$j.xml ] && python3 -c "import re,sys,html; s=open(sys.argv[1],encoding='utf-8',errors='replace').read(); print('\n'.join(html.unescape(t) for t in re.findall(r' (?:text|content-desc)=\"([^\"]+)\"', s)))" e2e-out/debug/ui-$j.xml > $f/screen-text.txt || true
+          done
+          for n in $(grep -E "^FAIL" e2e-out/notify.txt 2>/dev/null | awk '{print $2}'); do
+            mkdir -p $d/fail-$n; ls -t $(find e2e-out/debug/$n -name "*.png" 2>/dev/null) 2>/dev/null | head -2 | while read p; do cp "$p" $d/fail-$n/; done
+          done
+          # screenshots of the five fixed journeys (evidence: shop tab scroll, pay confirm sheet, upazila, message)
+          mkdir -p $d/shots
+          find e2e-out -name '*.png' \( -name 'j1-0[5-8]*' -o -name 'j3-1[0-2]*' -o -name 'j16-0[5-9]*' -o -name 'j16-1*' -o -name 'j18-0[5-6]*' -o -name 'j21-0*' \) -exec cp -n {} $d/shots/ \; 2>/dev/null || true
+          ls $d/shots | head -60
+          echo "sha=$GITHUB_SHA" >> $d/results.txt
+      - name: Publish log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: rc4 flows e2e releaseSmoke ${{ github.sha }}
+        run: bash .github/scripts/publish-log.sh ci-log-rc4-flows-check log e2e

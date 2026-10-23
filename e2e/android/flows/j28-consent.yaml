@@ -1,0 +1,66 @@
+# TMP (release-check only): স্বাস্থ্য তথ্যের সম্মতি (health_consent চালু) — অ্যাপ সেটিংস › গোপনীয়তা: দেওয়া আছে → তুলে নিন
+# (নিশ্চিত করার ডায়ালগ) → "তুলে নিয়েছেন" → "সম্মতি দিন" → সার্ভারের লেখার ডায়ালগ → "রাজি আছি" → আবার "দেওয়া আছে"।
+# রোগী রহিমের সম্মতি চালানোর শুরুতে দেওয়া থাকে (probe.py), শেষেও দেওয়া থাকে।
+appId: com.bspc.blood
+env:
+  J: j28
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "অ্যাপ সেটিংস"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "অ্যাপ সেটিংস"
+- scrollUntilVisible:
+    element: ".*স্বাস্থ্য তথ্যের সম্মতি.*"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: ".*(সম্মতি তুলে নিন|সম্মতি দিন).*"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+# শুরুতে দেওয়া না থাকলে (probe-এর আগেই কেউ তুলে নিয়ে থাকলে) আগে দেওয়া
+- runFlow:
+    when:
+      visible: "সম্মতি দিন"
+    commands:
+      - tapOn: "সম্মতি দিন"
+      - scrollUntilVisible:
+          element: "রাজি আছি"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "রাজি আছি"
+      - extendedWaitUntil:
+          visible: "সম্মতি তুলে নিন"
+          timeout: 20000
+- assertVisible: ".*আছে · .*"
+- takeScreenshot: j28-01-given
+- tapOn: "সম্মতি তুলে নিন"
+- extendedWaitUntil:
+    visible: "সম্মতি তুলে নেবেন\\?"
+    timeout: 10000
+- takeScreenshot: j28-02-withdraw-confirm
+- tapOn:
+    text: "সম্মতি তুলে নিন"
+    below: "সম্মতি তুলে নেবেন\\?"
+- extendedWaitUntil:
+    visible: ".*তুলে নি.*ছেন · .*"
+    timeout: 20000
+- takeScreenshot: j28-03-withdrawn
+- tapOn: "সম্মতি দিন"
+- extendedWaitUntil:
+    visible: "স্বাস্থ্য তথ্য রাখার আগে আপনার সম্মতি"
+    timeout: 20000
+- takeScreenshot: j28-04-consent-dialog
+- scrollUntilVisible:
+    element: "রাজি আছি"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "রাজি আছি"
+- extendedWaitUntil:
+    visible: ".*আছে · .*"
+    timeout: 20000
+- takeScreenshot: j28-05-given-again
