@@ -7,19 +7,25 @@ import { actionBtn, definePage, table, toolbar, userLink } from '../kit';
 import { act, route, setTitle } from '../state';
 import { bn, fmtDT, fmtDate, type J } from '../util';
 
-// ---------- ফিচার সুইচ: online_chamber কারো জন্য চালু (পাইলট বা সবার) হলে মেনুতে; জানা না গেলে বন্ধ ----------
+// ---------- ফিচার সুইচ: online_chamber বা calls_audio কারো জন্য চালু (পাইলট বা সবার) হলে মেনুতে; জানা না গেলে বন্ধ ----------
 // (প্যানেলের কুকি সেশনে `features` চলে না — শুধু admin_*; তাই admin_features_get-এর mode)
-const chamberMode = ref<string | null>(null);
+const modes = ref<Record<string, string> | null>(null);
 let asked = false;
+const live = (key: string) => !!modes.value && (modes.value[key] === 'pilot' || modes.value[key] === 'on');
 export function apptReportsOn(): boolean {
   if (!asked) {
     asked = true;
     act('admin_features_get')
-      .then((r: J) => (chamberMode.value = ((r && r.items) || []).find((x: J) => x.key === 'online_chamber')?.mode || 'off'))
-      .catch(() => (chamberMode.value = 'off'));
+      .then((r: J) => (modes.value = Object.fromEntries(((r && r.items) || []).map((x: J) => [x.key, x.mode]))))
+      .catch(() => (modes.value = {}));
   }
-  return chamberMode.value === 'pilot' || chamberMode.value === 'on';
+  return live('online_chamber') || live('calls_audio');
 }
+
+/** রিপোর্টের ধরন: অনলাইন অ্যাপয়েন্টমেন্ট / কল (মেসেজ — chat_report এলে) */
+const kindTabs = (cur: 'appt' | 'call') => h('div', { class: 'seg', role: 'tablist', 'aria-label': 'রিপোর্টের ধরন' }, // bn-ok
+  ([['apptreports', 'appt', 'অনলাইন অ্যাপয়েন্টমেন্ট'], ['callreports', 'call', 'কল']] as const).map(([path, k, label]) => // bn-ok
+    h('a', { href: `#/${path}?s=open`, class: k === cur ? 'on' : null, role: 'tab', 'aria-selected': k === cur ? 'true' : 'false', text: label })));
 
 const STATUS: Record<string, string> = { open: 'খোলা', resolved: 'সমাধান হয়েছে', dismissed: 'বাদ দেওয়া' }; // bn-ok
 const ROLE: Record<string, string> = { patient: 'রোগী', doctor: 'ডাক্তার', provider: 'ডাক্তার', assistant: 'সহকারী', system: 'অ্যাপ নিজে' }; // bn-ok
@@ -35,6 +41,7 @@ export const ApptReports = definePage('PageApptReports', async (r, { alive }) =>
   const set = (id: string, status: string) => () => act('admin_appt_report_set', { id, status });
   const after = () => route(false, true);
   return () => [
+    kindTabs('appt'),
     toolbar({ tabs: Object.entries(STATUS) as [string, string][], current: st, base: 'apptreports', count: items.value.length }),
     h('p', { class: 'note', text: 'Lifolo টাকা রাখে না, ফেরতও দেয় না — ফি রোগী সরাসরি ডাক্তারের bKash-এ পাঠান। এখানে দেখে ডাক্তার/রোগীর সাথে যোগাযোগ বা তালিকা বন্ধের ব্যবস্থা নিন।' }), // bn-ok
     table(items.value, [
@@ -60,6 +67,46 @@ export const ApptReports = definePage('PageApptReports', async (r, { alive }) =>
       { label: 'bKash নম্বর বদল', cell: (x) => ((x.bkashChanges || []).length // bn-ok
         ? (x.bkashChanges as J[]).map((b) => h('div', { class: 'small', text: `${fmtDT(b.at)} · …${bn(b.oldLast3 || '—')} → …${bn(b.newLast3 || '—')}` }))
         : '—') },
+    ], (x) => (x.status === 'open'
+      ? [
+        actionBtn('সমাধান হয়েছে', 'primary', set(x.id, 'resolved'), 'রিপোর্ট সমাধান হয়েছে', after), // bn-ok
+        actionBtn('বাদ দিন', 'quiet', set(x.id, 'dismissed'), 'রিপোর্ট বাদ দেওয়া হয়েছে', after), // bn-ok
+      ]
+      : [actionBtn('আবার খুলুন', 'quiet', set(x.id, 'open'), 'রিপোর্ট আবার খোলা হয়েছে', after)])), // bn-ok
+  ];
+});
+
+// ---------- কলের রিপোর্ট (#/callreports?s=open) — admin_call_reports / admin_call_report_set ----------
+const CALL_REASON: Record<string, string> = { harassment: 'হয়রানি', spam: 'স্প্যাম', fake: 'ভুয়া', other: 'অন্য কারণ' }; // bn-ok
+const person = (p: J) => [p?.name || '—', p?.email ? h('div', { class: 'small', text: p.email }) : null, p?.uid ? h('div', { class: 'small' }, userLink(p.uid)) : null];
+
+export const CallReports = definePage('PageCallReports', async (r, { alive }) => {
+  const st = ['open', 'resolved', 'dismissed'].includes(r.params.get('s') || '') ? (r.params.get('s') as string) : 'open';
+  const res = await act('admin_call_reports', { status: st });
+  if (!alive()) return;
+  const items = ref<J[]>(res.items || []);
+  setTitle('কলের রিপোর্ট', `${bn(items.value.length)}টা ${STATUS[st]}`); // bn-ok
+  const set = (id: string, status: string) => () => act('admin_call_report_set', { id, status });
+  const after = () => route(false, true);
+  return () => [
+    kindTabs('call'),
+    toolbar({ tabs: Object.entries(STATUS) as [string, string][], current: st, base: 'callreports', count: items.value.length }),
+    h('p', { class: 'note', text: 'যাঁর নামে রিপোর্ট, তাঁর পাতা খুলে অ্যাকাউন্ট বা তালিকার ব্যবস্থা নিন। কলের কথা রেকর্ড হয় না — শুধু কখন, কতক্ষণ, কোন প্রসঙ্গে।' }), // bn-ok
+    table(items.value, [
+      { label: 'কেন', main: true, cell: (x) => [ // bn-ok
+        h('div', { class: 'chips' }, h('span', { class: 'chip bad', text: CALL_REASON[x.reason] || x.reason || '—' })),
+        x.note ? h('div', { class: 'body', text: x.note }) : null,
+        h('div', { class: 'small', text: fmtDT(x.createdAt) }),
+      ] },
+      { label: 'যাঁর নামে', cell: (x) => [ // bn-ok
+        person(x.reported),
+        h('div', { class: 'small', text: `খোলা রিপোর্ট ${bn(x.reported?.openReports || 0)}টা · ${bn(x.reported?.blockedBy || 0)} জন কল বন্ধ করেছেন` }), // bn-ok
+      ] },
+      { label: 'কে করেছেন', cell: (x) => person(x.reporter) }, // bn-ok
+      { label: 'কল', cell: (x) => { // bn-ok
+        const c = x.call || {};
+        return h('div', { class: 'small', text: [c.video ? 'ভিডিও' : 'অডিও', c.ctx || null, c.durationSec != null ? `${bn(c.durationSec)} সেকেন্ড` : null, c.startedAt ? fmtDT(c.startedAt) : null].filter(Boolean).join(' · ') }); // bn-ok
+      } },
     ], (x) => (x.status === 'open'
       ? [
         actionBtn('সমাধান হয়েছে', 'primary', set(x.id, 'resolved'), 'রিপোর্ট সমাধান হয়েছে', after), // bn-ok

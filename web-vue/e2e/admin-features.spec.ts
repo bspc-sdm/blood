@@ -141,3 +141,37 @@ test('সার্ভারের ভুল কার্ডেই দেখা�
   await expect(chat.getByRole('alert')).toHaveText('এমন ব্যবহারকারী নেই: x');
   await expect(chat.locator('.chip.bad')).toHaveText('বন্ধ');
 });
+
+test('কলের রিপোর্ট: মেনু (calls_audio পাইলট), তালিকা, সমাধান', async ({ page }) => {
+  const sets: any[] = [];
+  await page.route('**/api/community', async (route) => {
+    const body = JSON.parse(route.request().postData() || '{}');
+    const json = (x: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(x) });
+    if (body.action === 'admin_features_get') return json({ items: [{ key: 'calls_audio', mode: 'pilot', pilotUids: [], pilots: [], demo: true, needs: [], twoParty: true }], history: [], v: 1 });
+    if (body.action === 'admin_call_reports') {
+      return json({ items: body.status === 'open' ? [{
+        id: 'c1', callId: 'call1', reason: 'harassment', note: 'রাতে বারবার কল', status: 'open', createdAt: Date.now(),
+        reporter: { uid: 'u1', name: 'রহিম', email: 'r@example.com' },
+        reported: { uid: 'u2', name: 'করিম', email: 'k@example.com', openReports: 3, blockedBy: 2 },
+        call: { ctx: 'blood', video: false, durationSec: 42 },
+      }] : [] });
+    }
+    if (body.action === 'admin_call_report_set') {
+      sets.push(body);
+      return json({ ok: true });
+    }
+    return route.fallback();
+  });
+  await login(page);
+  await expect(page.locator('nav.nav a', { hasText: 'অনলাইন ও কলের রিপোর্ট' })).toBeVisible();
+  await page.goto('/admin#/callreports');
+  await expect(page.locator('.topbar h1')).toContainText('কলের রিপোর্ট');
+  const main = page.locator('main.page');
+  await expect(main).toContainText('হয়রানি');
+  await expect(main).toContainText('রাতে বারবার কল');
+  await expect(main).toContainText('খোলা রিপোর্ট ৩টা');
+  await expect(main).toContainText('৪২ সেকেন্ড');
+  await expect(main.getByRole('tab', { name: 'কল' })).toHaveAttribute('aria-selected', 'true');
+  await main.getByRole('button', { name: 'সমাধান হয়েছে' }).click();
+  await expect.poll(() => sets[0]).toMatchObject({ id: 'c1', status: 'resolved' });
+});

@@ -382,6 +382,8 @@ test('অ্যাডমিন: "অনলাইন অ্যাপয়েন�
       };
     }
     if (action === 'admin_appt_report_set') return { ok: true };
+    // মেনু: ফিচার সুইচের পাতার অবস্থা (প্যানেলে `features` চলে না)
+    if (action === 'admin_features_get') return { items: [{ key: 'online_chamber', mode: 'on', pilotUids: [], pilots: [], demo: false, needs: [], twoParty: false }], history: [], v: 1 };
     return undefined;
   });
   await page.goto('/admin');
@@ -390,7 +392,7 @@ test('অ্যাডমিন: "অনলাইন অ্যাপয়েন�
   await page.locator('input[autocomplete=one-time-code]').fill('১২৩৪৫৬');
   await page.getByRole('button', { name: 'লগইন করুন' }).click();
   await expect(page.locator('.shell')).toBeVisible();
-  const link = page.locator('nav.nav a', { hasText: 'অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট' });
+  const link = page.locator('nav.nav a', { hasText: 'অনলাইন ও কলের রিপোর্ট' });
   await expect(link).toBeVisible();
   await page.goto('/admin#/apptreports');
   await expect(page.locator('.topbar h1')).toContainText('অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট');

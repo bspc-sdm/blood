@@ -84,6 +84,7 @@ class AdminLog(private val jdbc: JdbcTemplate) {
             "admin_user_action" to { b: Body ->
                 "users/${t(b, "uid")}" to listOf(b["op"], b["reason"]).filter { Js.truthy(it) }.joinToString(" · ") { Js.toStr(it) }
             },
+            "admin_call_report_set" to { b: Body -> "callReports/${t(b, "id")}" to t(b, "status") },
             "admin_feature_set" to { b: Body ->
                 val pilots = b["pilotUids"]?.takeIf { it.isArray }?.size()
                 "features/${t(b, "key")}" to listOfNotNull(
