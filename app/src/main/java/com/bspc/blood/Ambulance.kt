@@ -248,6 +248,22 @@ fun statusText(s: String): String = when (s) {
     else -> s
 }
 
+/** অ্যাম্বুলেন্সের তালিকায় এক লাইন: বাঁয়ে সবচেয়ে কাছের খালি গাড়ি (বা "জরুরি হলে ৯৯৯"), ডানে "৯৯৯" — ৯৯৯ একবারই */
+@Composable
+fun Emergency999Line(nearestSub: String?) {
+    val context = LocalContext.current
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().testTag("amb_999")) {
+        Text(
+            if (nearestSub != null) tr("Call: nearest free — ", "ফোন: সবচেয়ে কাছের খালি — ") + nearestSub else tr("Emergency? 999 is free, 24 hours", "জরুরি হলে ৯৯৯ — বিনামূল্যে, ২৪ ঘণ্টা"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+        )
+        SmallAction(num("999"), R.drawable.ic_call, { callPhone(context, "999") })
+    }
+}
+
 /** ৯৯৯ কার্ড: সবচেয়ে উপরে */
 @Composable
 fun EmergencyCallCard(key: String = "ambulance") {
@@ -447,11 +463,13 @@ private fun AmbulanceFinder(profile: Profile) {
                 val near = list.firstOrNull { it.id == nearestId }
                 item(key = "nearest") {
                     Column(Modifier.padding(horizontal = LISTING_GUTTER)) {
-                        AmbulanceCallBar(near, near?.let { nearestSub(it, byArea) }, onRequest = { requestAmbulance(null) }, onCallNearest = near?.let { a -> { callAmbulance(a) } })
+                        AmbulanceCallBar(near, null, onRequest = { requestAmbulance(null) }, onCallNearest = near?.let { a -> { callAmbulance(a) } })
                     }
                 }
             }
-            item(key = "999") { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { EmergencyCallCard() } }
+            // এক লাইনে: "ফোন: সবচেয়ে কাছের খালি — …" (থাকলে) আর ৯৯৯ (একবারই, ছোট চিপ)
+            val nearSub = list.firstOrNull { it.id == nearestId }?.takeIf { !loading && it.available }?.let { nearestSub(it, byArea) }
+            item(key = "999") { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { Emergency999Line(nearSub) } }
         },
         messages = {
             InfoText(infoMsg)

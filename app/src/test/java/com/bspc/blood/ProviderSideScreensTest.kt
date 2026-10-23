@@ -88,7 +88,7 @@ class ProviderSideScreensTest {
         rule.onNodeWithText("রোগীরা আপনাকে যেভাবে দেখেন").assertExists()
         // সবার তালিকার একই কার্ড আর একই মূল লাইন
         rule.onNodeWithTag("listing_card").assertExists()
-        rule.onNodeWithText("খোলা · ডেলিভারি আছে").assertExists()
+        rule.onNodeWithText(Listing.keyLine("খোলা", "ডেলিভারি আছে")).assertExists()
         rule.onNodeWithTag("sw_open").assertExists()
         rule.onNodeWithTag("sw_delivery").assertExists()
         rule.onNodeWithText("নতুন").assertExists()
@@ -118,7 +118,7 @@ class ProviderSideScreensTest {
             LabProviderTop(lab) {}
             WorkSegTabs("active", mapOf("new" to 0, "active" to 3, "done" to 9), {})
         }
-        rule.onNodeWithText("বন্ধ · বাসা থেকে নমুনা").assertExists()
+        rule.onNodeWithText(Listing.keyLine("বন্ধ", "বাসা থেকে নমুনা")).assertExists()
         rule.onNodeWithTag("sw_home").assertExists()
         shot("lab-bn")
     }

@@ -38,6 +38,9 @@ class ListingsTest {
 
     private val now = System.currentTimeMillis()
 
+    /** মূল লাইনের ভেতরের ফাঁক ভাঙে না (U+00A0) — তুলনায় সাধারণ ফাঁক */
+    private fun kl(s: String) = s.replace('\u00A0', ' ')
+
     // ---------------- পড়া ----------------
 
     @Test
@@ -139,7 +142,7 @@ class ListingsTest {
         assertEquals("৩ কিমি", Listing.km(2.6))
         assertEquals("১ কিমির কম", Listing.km(0.4))
         assertNull(Listing.km(null))
-        assertEquals("খোলা · ২ কিমি · ডেলিভারি আছে", Listing.keyLine("খোলা", null, "", "২ কিমি", " ডেলিভারি আছে "))
+        assertEquals("খোলা · ২ কিমি · ডেলিভারি আছে", Listing.keyLine("খোলা", null, "", "২ কিমি", " ডেলিভারি আছে ").replace('\u00A0', ' '))
     }
 
     @Test
@@ -196,7 +199,7 @@ class ListingsTest {
     fun pharmacyCardKeyLine() {
         var sent = false
         val c = pharmacyCard(pharmacy, {}, { sent = true }, {}, null)
-        assertEquals("খোলা · ২ কিমি · ডেলিভারি আছে", c.keyLine)
+        assertEquals("খোলা · ২ কিমি · ডেলিভারি আছে", kl(c.keyLine))
         assertEquals("★৪.৫ (১২)", c.ratingText)
         assertEquals(listOf("২৪ ঘণ্টা", "১০% ছাড়"), c.badges.map { it.text })
         assertEquals("প্রেসক্রিপশন পাঠান", c.primary!!.label)
@@ -209,14 +212,14 @@ class ListingsTest {
         val closed = pharmacy.copy(extras = ListingExtras(openNow = false, delivery = false, distanceKm = 0.4))
         val cc = pharmacyCard(closed, {}, {}, {}, null)
         assertNull(cc.primary)
-        assertEquals("বন্ধ · ১ কিমির কম · ডেলিভারি নেই", cc.keyLine)
+        assertEquals("বন্ধ · ১ কিমির কম · ডেলিভারি নেই", kl(cc.keyLine))
     }
 
     @Test
     fun ambulanceCardKeyLine() {
         val a = Ambulance("a1", "জননী অ্যাম্বুলেন্স", "01700000002", listOf("ac", "icu"), "ময়মনসিংহ", null, "চরপাড়া", "", true, 4.6, 23, km = 0.0)
         val c = ambulanceCard(a, {}, {}, null)
-        assertEquals("এসি/আইসিইউ · ১ কিমির কম · ★৪.৬ (২৩)", c.keyLine)
+        assertEquals("এসি/আইসিইউ · ১ কিমির কম · ★৪.৬ (২৩)", kl(c.keyLine))
         assertEquals(listOf("খালি আছে"), c.badges.map { it.text })
         assertEquals("ফোন করুন", c.primary!!.label)
         // ফোনই মূল কাজ — পাশে আবার ফোনের আইকন নয়
@@ -239,7 +242,7 @@ class ListingsTest {
             extras = ListingExtras(stock = mapOf("A+" to "have", "O-" to "none"), stockUpdatedAt = now - 50 * 3_600_000L, distanceKm = 3.2, distanceApprox = true),
         )
         val c = bloodBankCard(b, {}, {}, null)
-        assertEquals("প্রায় ৩ কিমি · খোলা", c.keyLine)
+        assertEquals("প্রায় ৩ কিমি · খোলা", kl(c.keyLine))
         assertEquals(mapOf("A+" to "have", "O-" to "none"), c.stock)
         assertTrue(c.stockNote!!.text.startsWith("পুরনো তথ্য · "))
         assertEquals(BadgeTone.WARN, c.stockNote!!.tone)
@@ -255,10 +258,10 @@ class ListingsTest {
         val l = Lab("l1", "পপুলার ডায়াগনস্টিক", "01700000004", "চরপাড়া", "ময়মনসিংহ", null, null, true, "সকাল ৮টা – রাত ১০টা")
         val c = labCard(l, {}, {}, null, null)
         // খোলা/বন্ধ জানা নেই (পুরোনো সার্ভার) — বাদ
-        assertEquals("বাসা থেকে নমুনা", c.keyLine)
+        assertEquals("বাসা থেকে নমুনা", kl(c.keyLine))
         assertEquals("পরীক্ষা পাঠান", c.primary!!.label)
         val c2 = labCard(l.copy(homeCollection = false, extras = ListingExtras(openNow = true, distanceKm = 4.0)), {}, {}, null, null)
-        assertEquals("খোলা · ৪ কিমি", c2.keyLine)
+        assertEquals("খোলা · ৪ কিমি", kl(c2.keyLine))
     }
 
     private val chamber = Chamber(
@@ -271,13 +274,13 @@ class ListingsTest {
     @Test
     fun doctorCardKeyLine() {
         val c = providerCard(doctor, CareFilter(), {}, {})
-        assertEquals(Specialties.label("medicine") + " · হোমিওপ্যাথি · ফি ৳৪০০", c.keyLine)
+        assertEquals(Specialties.label("medicine") + " · হোমিওপ্যাথি · ফি ৳৪০০", kl(c.keyLine))
         assertEquals("সিরিয়াল নিন", c.primary!!.label)
         assertEquals("01700000202", c.contact!!.phone)
         // সার্ভারের ঘর আগে: feeAmount, specialtyLabel, nextSlot
         val withNew = doctor.copy(extras = ListingExtras(feeAmount = 700, specialtyLabel = "মেডিসিন বিশেষজ্ঞ", nextSlot = NextSlot("", "আজ", true, 0)))
         val c2 = providerCard(withNew, CareFilter(), {}, {})
-        assertEquals("মেডিসিন বিশেষজ্ঞ · হোমিওপ্যাথি · ফি ৳৭০০", c2.keyLine)
+        assertEquals("মেডিসিন বিশেষজ্ঞ · হোমিওপ্যাথি · ফি ৳৭০০", kl(c2.keyLine))
         assertEquals("আজ সিরিয়াল আছে", c2.badges.first().text)
         // অ্যাপে অ্যাপয়েন্টমেন্ট নেন না: "সিরিয়াল নিন" নেই
         assertNull(providerCard(doctor.copy(appointments = false), CareFilter(), {}, {}).primary)

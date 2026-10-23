@@ -179,13 +179,16 @@ class ListingsScreensTest {
     private fun ambulanceList(en: Boolean) {
         lang(en)
         list(ListingType.AMBULANCE, ambulances.map { ambulanceCard(it, {}, {}, {}) }, header = {
-            item { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { AmbulanceCallBar(ambulances[0], ambulances[0].name, {}, {}) } }
-            item { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { EmergencyCallCard("test_${sfx(en)}") } }
+            item { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { AmbulanceCallBar(ambulances[0], null, {}, {}) } }
+            item { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { Emergency999Line(ambulances[0].name + " · ১ কিমির কম") } }
         })
+        shot("ambulance-list-${sfx(en)}")
         firstChipNotCut()
+        // ৯৯৯ একবারই
+        assertEquals(1, rule.onAllNodesWithText(num("999")).fetchSemanticsNodes().size)
+        assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 2)
         // জরুরি আগে: "অ্যাম্বুলেন্স ডাকুন" ওপরে, ৯৯৯ একবারই
         assertEquals(1, rule.onAllNodesWithText(if (en) "Call an Ambulance" else "অ্যাম্বুলেন্স ডাকুন").fetchSemanticsNodes().size)
-        shot("ambulance-list-${sfx(en)}")
     }
 
     @Test fun ambulanceListBn() = ambulanceList(false)
@@ -199,14 +202,14 @@ class ListingsScreensTest {
                 Practice.SYSTEM_LIST.map { ListingChip(Practice.systemLabel(it), false, {}) } +
                 listOf(ListingChip(tr("Sitting today", "আজ বসছেন"), true, {})),
         )
+        shot("doctor-list-${sfx(en)}")
         firstChipNotCut()
         assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 3)
         // বাংলা অঙ্ক: "ফি ৳৫০০", কোথাও "300" নয়
         if (!en) {
-            assertTrue(rule.onAllNodesWithText("ফি ৳৫০০", substring = true).fetchSemanticsNodes().isNotEmpty())
+            assertTrue(rule.onAllNodesWithText("ফি\u00A0৳৫০০", substring = true).fetchSemanticsNodes().isNotEmpty())
             assertTrue(rule.onAllNodesWithText("300", substring = true).fetchSemanticsNodes().isEmpty())
         }
-        shot("doctor-list-${sfx(en)}")
     }
 
     @Test fun doctorListBn() = doctorList(false)
@@ -221,9 +224,9 @@ class ListingsScreensTest {
                 ListingChip(tr("Open now", "এখন খোলা"), false, {}), ListingChip(ListingText.hours24(), false, {}),
             ),
         )
+        shot("pharmacy-list-${sfx(en)}")
         firstChipNotCut()
         assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 3)
-        shot("pharmacy-list-${sfx(en)}")
     }
 
     @Test fun pharmacyListBn() = pharmacyList(false)
@@ -232,10 +235,10 @@ class ListingsScreensTest {
     private fun bloodBankList(en: Boolean) {
         lang(en)
         list(ListingType.BLOODBANK, banks.map { bloodBankCard(it, {}, {}, {}) }, chips = listOf(ListingChip(tr("Open now", "এখন খোলা"), false, {}), ListingChip(ListingText.hours24(), false, {})))
+        shot("bloodbank-list-${sfx(en)}")
         firstChipNotCut()
         assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 3)
         rule.onNodeWithText(if (en) "Old Info" else "পুরনো তথ্য", substring = true).assertExists()
-        shot("bloodbank-list-${sfx(en)}")
     }
 
     @Test fun bloodBankListBn() = bloodBankList(false)
@@ -244,9 +247,9 @@ class ListingsScreensTest {
     private fun labList(en: Boolean) {
         lang(en)
         list(ListingType.LAB, labs.map { labCard(it, {}, {}, null, null) }, chips = listOf(ListingChip(tr("Open now", "এখন খোলা"), false, {}), ListingChip(ListingText.homeSample(), true, {})))
+        shot("lab-list-${sfx(en)}")
         firstChipNotCut()
         assertTrue("cards above the fold: ${cardsAboveFold()}", cardsAboveFold() >= 3)
-        shot("lab-list-${sfx(en)}")
     }
 
     @Test fun labListBn() = labList(false)

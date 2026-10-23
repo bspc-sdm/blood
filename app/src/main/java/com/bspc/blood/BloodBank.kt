@@ -219,8 +219,8 @@ private fun BloodBankFinder(profile: Profile) {
             if (filtered) ListingEmpty(ListingText.noMatch(), ListingText.clear(), clear)
             else ListingEmpty(ListingText.emptyLine(ListingType.BLOODBANK), ListingText.changeArea(), { showArea = true }, R.drawable.ic_bloodtype)
         },
+        // "রক্ত কেনা-বেচা অবৈধ…" এখন বিস্তারিতের মূল তথ্যে (তালিকার ওপরের জায়গা কার্ডের জন্য)
         messages = {
-            SmallNote(tr("Buying or selling blood is illegal; only processing costs apply.", "রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।"))
             ErrorText(errorMsg)
             InfoText(infoMsg)
         },

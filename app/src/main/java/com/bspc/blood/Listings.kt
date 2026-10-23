@@ -295,8 +295,9 @@ object Listing {
         return tr("Fee ", "ফি ") + "৳" + num(String.format(java.util.Locale.US, "%,d", n))
     }
 
-    /** মূল লাইন: খালি অংশ বাদ, "·" দিয়ে */
-    fun keyLine(vararg parts: String?): String = parts.mapNotNull { it?.trim()?.takeIf { s -> s.isNotEmpty() } }.joinToString(" · ")
+    /** মূল লাইন: খালি অংশ বাদ, "·" দিয়ে — একটা তথ্যের ভেতরে লাইন ভাঙে না ("ফি ৳৫০০", "★৪.৬ (৩১)") */
+    fun keyLine(vararg parts: String?): String =
+        parts.mapNotNull { it?.trim()?.takeIf { s -> s.isNotEmpty() }?.replace(' ', '\u00A0') }.joinToString(" · ")
 
     fun slotBadge(s: NextSlot?): String? {
         if (s == null || s.label.isBlank()) return null
@@ -687,7 +688,7 @@ fun ListingSkeleton(modifier: Modifier = Modifier) {
 
 private val CARD_PAD = 12.dp
 private val AVATAR = 44.dp
-private val BUTTON_H = 40.dp
+private val BUTTON_H = 36.dp
 
 @Composable
 private fun toneColors(t: BadgeTone): Pair<Color, Color> {
@@ -704,6 +705,34 @@ private fun toneColors(t: BadgeTone): Pair<Color, Color> {
 fun ListingBadgeTag(b: ListingBadge) {
     val (bg, fg) = toneColors(b.tone)
     Tag(b.text, bg, fg)
+}
+
+/**
+ * কার্ডের ছোট স্টক: অবস্থা ধরে তিনটা চিপ — "আছে A+ O+ AB+" (সবুজ) · "কম B+" (লালচে) · "নেই A- B-" (ধূসর), পাশে হালনাগাদ/পুরনো তথ্য।
+ * আট গ্রুপ আলাদা চিপে দুই সারি নিত (৩৬০dp-তে প্রথম পর্দায় ৩টা কার্ড আসত না); পুরো ঘর বিস্তারিতে (StockGrid)।
+ */
+@Composable
+fun StockSummary(stock: Map<String, String>, note: ListingBadge?) {
+    val cs = MaterialTheme.colorScheme
+    FlowRow(Modifier.testTag("stock_chips"), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ListingExtras.STOCK_STATES.forEach { st ->
+            val gs = ListingExtras.GROUPS.filter { stock[it] == st }
+            if (gs.isEmpty()) return@forEach
+            val (bg, fg) = when (st) {
+                "have" -> cs.tertiaryContainer to cs.onTertiaryContainer
+                "low" -> cs.errorContainer to cs.onErrorContainer
+                else -> cs.surfaceVariant to cs.onSurfaceVariant
+            }
+            Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(6.dp)) {
+                Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(ListingText.stock(st), style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.width(4.dp))
+                    Text(gs.joinToString(" "), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        note?.let { n -> Text(n.text, style = MaterialTheme.typography.labelSmall, color = if (n.tone == BadgeTone.WARN) cs.error else cs.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp)) }
+    }
 }
 
 /** রক্তের গ্রুপের স্টক: "A+ আছে" (সবুজ) / "B+ কম" (লালচে) / "O- নেই" (ধূসর) */
@@ -779,14 +808,13 @@ fun ListingCard(c: ListingCardData, modifier: Modifier = Modifier) {
                     RatingBadgesRow(c.ratingText, c.badges)
                     if (c.stock != null) {
                         if (c.stock.isEmpty()) Text(ListingText.noStock(), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                        else StockChips(c.stock)
-                        c.stockNote?.let { n -> Text(n.text, style = MaterialTheme.typography.labelSmall, color = if (n.tone == BadgeTone.WARN) cs.error else cs.onSurfaceVariant) }
+                        else StockSummary(c.stock, c.stockNote)
                     }
                 }
                 ListingMenu(c.onOpen, c.onReport)
             }
             if (c.primary != null || c.contact != null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (c.primary != null) {
                         Button(
