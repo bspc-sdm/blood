@@ -523,6 +523,50 @@ class InvoicesIT : P4Test() {
         assertNull(creators.onlineFeePaid("bn", AuthUser("invNobody"), "ap3"), "only the doctor's side")
     }
 
+    @Test
+    fun `chamber desk - check-in by the doctor or assistant, day summary for the owner, books_sales shows the receipt`() {
+        doctor(DOC, assistantEmail = "asst@example.com")
+        user(ASST, mapOf("name" to "সহকারী", "lang" to "bn"), email = "asst@example.com")
+        person(PAT)
+        appt("ap1", PAT, DOC)
+        appt("ap2", PAT, DOC, status = "cancelled")
+        val c = ok(ASST, "chamber_checkin", mapOf("appointmentId" to "ap1", "doctorUid" to DOC))
+        val at = c["arrivedAt"].longValue()
+        assertEquals(at, ok(DOC, "chamber_checkin", mapOf("appointmentId" to "ap1"))["arrivedAt"].longValue(), "the first time stays")
+        assertEquals(at, ok(DOC, "my_appointments")["items"].first { it["id"].textValue() == "ap1" }["arrivedAt"].longValue())
+        assertTrue(ok(PAT, "my_appointments")["items"].first { it["id"].textValue() == "ap1" }["arrivedAt"].isNull)
+        fails(DOC, "chamber_checkin", mapOf("appointmentId" to "ap2"), 409, "state")
+        fails(PAT, "chamber_checkin", mapOf("appointmentId" to "ap1", "doctorUid" to DOC), 403, "not_issuer")
+        fails(DOC, "chamber_checkin", mapOf("appointmentId" to "nope"), 404)
+        // the day: per issuer, voids with reasons, big discounts
+        ok(DOC, "chamber_fee_collect", mapOf("appointmentId" to "ap1", "visitType" to "new", "amount" to 800))
+        val w = ok(ASST, "chamber_fee_collect", mapOf("doctorUid" to DOC, "walkIn" to mapOf("name" to "ক", "chamberKey" to "h1"), "visitType" to "report", "amount" to 300))["invoice"]
+        ok(ASST, "invoice_void", mapOf("id" to w["id"].textValue(), "reason" to "duplicate"))
+        invoices.issue("bn", AuthUser(DOC), IssueCmd("chamber", DOC, listOf(LineIn("ফি", BigDecimal.ONE, BigDecimal(1000), BigDecimal(500)))))
+        val d = ok(DOC, "invoice_day_summary", mapOf("kind" to "chamber", "bizId" to DOC))
+        assertEquals(2, d["receipts"].intValue())
+        assertEquals(1300.0, num(d["total"]))
+        assertEquals(setOf(DOC, ASST), d["byIssuer"].map { it["uid"].textValue() }.toSet())
+        assertEquals(1, d["byIssuer"].first { it["uid"].textValue() == ASST }["voids"].intValue())
+        assertEquals("duplicate", d["voids"][0]["reason"].textValue())
+        assertEquals(50, d["bigDiscounts"][0]["pct"].intValue())
+        assertTrue(d["writeOffs"].isNull)
+        fails(ASST, "invoice_day_summary", mapOf("kind" to "chamber", "bizId" to DOC), 403, "owner_only")
+        fails(DOC, "invoice_day_summary", mapOf("kind" to "chamber", "bizId" to DOC, "day" to "x"), 400)
+        assertEquals(0, ok(DOC, "invoice_day_summary", mapOf("kind" to "chamber", "bizId" to DOC, "day" to "2026-01-01"))["receipts"].intValue())
+        // pharmacy: below the product's price, write-offs; books_sales carries the receipt id
+        shop(PH)
+        val item = ok(PH, "books_item_save", mapOf("name" to "Napa", "qty" to 10, "price" to 10, "cost" to 5))["item"]["id"].textValue()
+        val sale = ok(PH, "books_sale_add", mapOf("lines" to listOf(mapOf("itemId" to item, "qty" to 1, "unitPrice" to 8))))
+        ok(PH, "books_adjust", mapOf("kind" to "writeoff", "itemId" to item, "qty" to 2))
+        val pd = ok(PH, "invoice_day_summary", mapOf("kind" to "pharmacy", "bizId" to PH))
+        assertEquals(8.0, num(pd["belowPrice"][0]["price"]))
+        assertEquals(10.0, num(pd["belowPrice"][0]["itemPrice"]))
+        assertEquals(1, pd["writeOffs"]["count"].intValue())
+        assertEquals(10.0, num(pd["writeOffs"]["loss"]))
+        assertEquals(sale["invoice"]["id"].textValue(), ok(PH, "books_sales")["items"][0]["invoiceId"].textValue())
+    }
+
     // ------------------------------------------------------------------ online prescription order
 
     @Test

@@ -549,6 +549,16 @@ class AppointmentActions(
         toMe.forEach { if (it.status == "confirmed") need.add(it.patientUid) }
         val phones = users.profiles(need).mapValues { it.value.phone }
         val receipts = com.lifolo.invoices.InvoiceLinks.live(jdbc, "appointment", (mine + toMe).map { it.id })
+        val arrived = HashMap<String, Long>()
+        if (toMe.isNotEmpty()) {
+            for (chunk in toMe.map { it.id }.chunked(500)) {
+                jdbc.query(
+                    "SELECT id, arrived_at FROM appointments WHERE arrived_at IS NOT NULL AND id IN (${chunk.joinToString(",") { "?" }})",
+                    org.springframework.jdbc.core.RowCallbackHandler { rs -> arrived[rs.getString(1)] = rs.getTimestamp(2).time },
+                    *chunk.toTypedArray(),
+                )
+            }
+        }
         fun item(a: Appt, role: String): Map<String, Any?> {
             val other = if (role == "patient") a.providerUid else a.patientUid
             return linkedMapOf<String, Any?>(
@@ -571,6 +581,8 @@ class AppointmentActions(
                 "otherKey" to (if (role == "provider") Ids.sha256Hex("pat:$uid:$other").take(12) else ""),
                 "createdAt" to a.createdAt,
                 "invoiceId" to receipts[a.id],
+                // the chamber desk (chamber_checkin): the doctor's side only
+                "arrivedAt" to (if (role == "provider") arrived[a.id] else null),
             ).apply { putAll(onlineFields(a, role == "patient")) }
         }
         return mapOf("items" to mine.map { item(it, "patient") } + toMe.map { item(it, "provider") })

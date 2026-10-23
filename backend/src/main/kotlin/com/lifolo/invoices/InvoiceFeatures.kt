@@ -9,16 +9,19 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * The receipt feature switches (scratchpad flags CONTRACT / docs/FEATURES.md): `inv_pharmacy`, `inv_lab`, `inv_chamber`,
  * `inv_ambulance` (one per issuer kind) and `my_expenses` (my_invoices / my_expenses / the patient's receipt push).
- * Everything is OFF unless switched on. A shim until `Features.isOn/require` (spring-p19) is on main: every key follows
- * `lifolo.features-shim-on` (false = off in production, true in the test profile); [forced] overrides a key (tests).
+ * Everything is OFF unless switched on. A shim until `Features.isOn/require` (spring-p19) is on main, the same as the
+ * calls' one: a key is on when listed in `lifolo.feature-shim.keys` (comma list, `*` = all; empty in production, `*` in
+ * the test profile); [forced] overrides a key (tests).
  * When p19 lands, [isOn] delegates to `Features.isOn(uid, key)`.
  */
 @Component
-class InvoiceFeatures(@Value("\${lifolo.features-shim-on:false}") private val allOn: Boolean) {
+class InvoiceFeatures(@Value("\${lifolo.feature-shim.keys:}") configured: String) {
+    private val keys: Set<String> = configured.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
     /** key → on/off for everyone (tests switch single keys off) */
     val forced: MutableMap<String, Boolean> = ConcurrentHashMap()
 
-    fun isOn(uid: String?, key: String): Boolean = forced[key] ?: allOn
+    fun isOn(uid: String?, key: String): Boolean = forced[key] ?: ("*" in keys || key in keys)
 
     fun kindOn(uid: String?, kind: String): Boolean = isOn(uid, keyOf(kind))
 

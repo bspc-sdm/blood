@@ -576,7 +576,9 @@ class BooksService(
         val items = store.sales(uid, start, 300).sortedWith(
             compareByDescending<BooksStore.Sale> { it.at }.thenByDescending { it.createdAt }.thenComparator { a, c -> a.id.compareTo(c.id) },
         )
-        return mapOf("items" to items.map { it.toMap() })
+        // the sale's receipt (docs/INVOICES.md): a sale with one can't be deleted, only its receipt voided
+        val receipts = com.lifolo.invoices.InvoiceLinks.live(jdbc, "book_sale", items.map { it.id })
+        return mapOf("items" to items.map { s -> LinkedHashMap(s.toMap()).apply { put("invoiceId", receipts[s.id]) } })
     }
 
     private val SALE_ID = Regex("^[A-Za-z0-9_-]{1,120}$")

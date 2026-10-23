@@ -219,3 +219,16 @@ name, nameBn, fee, noFee}]}` — the in-person chambers, for walk-in fees on a d
 - `invoice_verify` is always public.
 Until `Features` (spring-p19) is on main, `invoices/InvoiceFeatures` is a shim: `lifolo.features-shim-on` (off in
 production, on in the test profile).
+
+**For the web chamber desk and books (web-invoices).**
+- `chamber_checkin {appointmentId, doctorUid?}` (doctor or assistant, `inv_chamber`) → `{ok, appointmentId, arrivedAt}`:
+  marks the patient arrived (pending/confirmed, not a later day; the first time stays). `my_appointments` provider items
+  carry `arrivedAt`. There was no arrival action before.
+- `invoice_day_summary {kind, bizId, day?: "YYYY-MM-DD"}` (owner only) → `{day, kind, bizId, receipts, total, byIssuer:
+  [{uid, name, receipts, total, paid, voids}], voids: [{id, no, total, reason, note, at, issuedAt, by, byName}],
+  bigDiscounts: [{id, no, total, discount, pct}], belowPrice: [{id, no, name, qty, price, itemPrice}] (pharmacy),
+  writeOffs: {count, loss, items: [{name, qty, loss, reason}]} | null (pharmacy only)}` — the end-of-day push in detail.
+- `books_sales` items carry `invoiceId` (null when the sale has no live receipt — only then show "delete").
+- `invoice_export_csv` → `{filename, mime, count, csv}` (UTF-8 with BOM).
+- Void reason codes: `wrong_item`, `returned`, `wrong_price`, `duplicate`, `other` (`other` needs `note`). The web's four
+  are all accepted.

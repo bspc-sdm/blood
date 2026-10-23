@@ -190,6 +190,10 @@ ALTER TABLE ambulance_requests ADD COLUMN snap_oxygen INTEGER;
 ALTER TABLE ambulance_requests ADD COLUMN snap_icu INTEGER;
 ALTER TABLE ambulance_requests ADD COLUMN snap_night INTEGER;
 
+-- the chamber desk (chamber_checkin): the patient has arrived at the chamber — by the doctor or an assistant
+ALTER TABLE appointments ADD COLUMN arrived_at TIMESTAMPTZ;
+ALTER TABLE appointments ADD COLUMN arrived_by TEXT;
+
 -- online prescription orders: the pharmacy's priced lines (rx_order_update accepted + lines) and the new `delivered`
 ALTER TABLE rx_orders ADD COLUMN invoice_lines JSONB;
 ALTER TABLE rx_orders DROP CONSTRAINT IF EXISTS rx_orders_status_check;

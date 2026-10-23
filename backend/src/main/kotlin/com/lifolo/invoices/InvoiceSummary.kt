@@ -65,6 +65,97 @@ class InvoiceSummary(private val jdbc: JdbcTemplate, private val push: PushServi
         return out
     }
 
+    /**
+     * invoice_day_summary: one business's day in detail — what the end-of-day push counts, item by item: receipts and
+     * totals per issuer (the doctor and each assistant), voids with reasons, receipts with discounts above 10 %, pharmacy
+     * sales below the product's price, stock write-offs.
+     */
+    fun detail(b: Biz, day: LocalDate): Map<String, Any?> {
+        val from = Sql.ts(day.atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli())
+        val to = Sql.ts(day.plusDays(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli())
+        val byIssuer = jdbc.queryForList(
+            """
+            SELECT i.issued_by, coalesce(p.name, '') AS name, count(*) FILTER (WHERE i.status = 'issued') AS n,
+              coalesce(sum(i.total) FILTER (WHERE i.status = 'issued'), 0) AS total, coalesce(sum(i.paid) FILTER (WHERE i.status = 'issued'), 0) AS paid,
+              count(*) FILTER (WHERE i.status = 'void') AS voids
+            FROM invoices i LEFT JOIN user_profiles p ON p.uid = i.issued_by
+            WHERE i.kind = ? AND i.biz_id = ? AND i.issued_at >= ? AND i.issued_at < ? GROUP BY i.issued_by, p.name ORDER BY 3 DESC
+            """.trimIndent(),
+            b.kind, b.id, from, to,
+        ).map {
+            linkedMapOf(
+                "uid" to it["issued_by"], "name" to it["name"], "receipts" to (it["n"] as Number).toInt(),
+                "total" to InvoiceMath.num(it["total"] as BigDecimal), "paid" to InvoiceMath.num(it["paid"] as BigDecimal), "voids" to (it["voids"] as Number).toInt(),
+            )
+        }
+        val voids = jdbc.queryForList(
+            """
+            SELECT i.id, i.no, i.total, i.void_reason, i.void_note, i.voided_at, i.issued_at, i.voided_by, coalesce(p.name, '') AS by_name
+            FROM invoices i LEFT JOIN user_profiles p ON p.uid = i.voided_by
+            WHERE i.kind = ? AND i.biz_id = ? AND i.voided_at >= ? AND i.voided_at < ? ORDER BY i.voided_at
+            """.trimIndent(),
+            b.kind, b.id, from, to,
+        ).map {
+            linkedMapOf(
+                "id" to it["id"], "no" to it["no"], "total" to InvoiceMath.num(it["total"] as BigDecimal), "reason" to it["void_reason"],
+                "note" to it["void_note"], "at" to (it["voided_at"] as java.sql.Timestamp).time, "issuedAt" to (it["issued_at"] as java.sql.Timestamp).time,
+                "by" to it["voided_by"], "byName" to it["by_name"],
+            )
+        }
+        val bigDisc = jdbc.queryForList(
+            """
+            SELECT id, no, total, gross, d FROM (
+              SELECT id, no, total,
+                (SELECT coalesce(sum((l->>'qty')::numeric * (l->>'price')::numeric), 0) FROM jsonb_array_elements(lines) l) AS gross,
+                disc + (SELECT coalesce(sum((l->>'disc')::numeric), 0) FROM jsonb_array_elements(lines) l) AS d
+              FROM invoices WHERE kind = ? AND biz_id = ? AND issued_at >= ? AND issued_at < ? AND status = 'issued') x
+            WHERE d > 0.1 * gross ORDER BY no
+            """.trimIndent(),
+            b.kind, b.id, from, to,
+        ).map {
+            val gross = it["gross"] as BigDecimal
+            val d = it["d"] as BigDecimal
+            linkedMapOf(
+                "id" to it["id"], "no" to it["no"], "total" to InvoiceMath.num(it["total"] as BigDecimal), "discount" to InvoiceMath.num(InvoiceMath.m2(d)),
+                "pct" to if (gross.signum() > 0) d.multiply(BigDecimal(100)).divide(gross, 0, java.math.RoundingMode.HALF_UP).toInt() else 100,
+            )
+        }
+        var belowPrice: List<Map<String, Any?>> = emptyList()
+        var writeOffs: Map<String, Any?>? = null
+        if (b.kind == "pharmacy") {
+            belowPrice = jdbc.queryForList(
+                """
+                SELECT i.id, i.no, l.name, l.qty, l.unit_price, si.price AS item_price
+                FROM invoices i JOIN shop_sale_lines l ON l.shop_uid = i.biz_id AND l.sale_id = i.ref_id
+                JOIN shop_items si ON si.shop_uid = l.shop_uid AND si.id = l.item_id
+                WHERE i.kind = 'pharmacy' AND i.biz_id = ? AND i.ref_type = 'book_sale' AND i.issued_at >= ? AND i.issued_at < ?
+                  AND l.unit_price IS NOT NULL AND si.price IS NOT NULL AND l.unit_price < si.price ORDER BY i.no, l.idx
+                """.trimIndent(),
+                b.id, from, to,
+            ).map {
+                linkedMapOf(
+                    "id" to it["id"], "no" to it["no"], "name" to it["name"], "qty" to it["qty"],
+                    "price" to InvoiceMath.num(it["unit_price"] as BigDecimal), "itemPrice" to InvoiceMath.num(it["item_price"] as BigDecimal),
+                )
+            }
+            val items = jdbc.queryForList(
+                "SELECT name, -delta AS qty, loss, reason FROM shop_adjustments WHERE shop_uid = ? AND kind = 'writeoff' AND day = ? ORDER BY at",
+                b.id, java.sql.Date.valueOf(day),
+            ).map {
+                linkedMapOf("name" to it["name"], "qty" to it["qty"], "loss" to InvoiceMath.num(InvoiceMath.m2(it["loss"] as BigDecimal)), "reason" to it["reason"])
+            }
+            writeOffs = linkedMapOf(
+                "count" to items.size, "loss" to InvoiceMath.num(items.fold(BigDecimal.ZERO) { a, x -> a + BigDecimal(x["loss"].toString()) }), "items" to items,
+            )
+        }
+        val issued = byIssuer.sumOf { it["receipts"] as Int }
+        val total = byIssuer.fold(BigDecimal.ZERO) { a, x -> a + BigDecimal(x["total"].toString()) }
+        return linkedMapOf(
+            "day" to day.toString(), "kind" to b.kind, "bizId" to b.id, "receipts" to issued, "total" to InvoiceMath.num(total),
+            "byIssuer" to byIssuer, "voids" to voids, "bigDiscounts" to bigDisc, "belowPrice" to belowPrice, "writeOffs" to writeOffs,
+        )
+    }
+
     /** sends the day's summaries once (a second run the same day sends nothing); returns how many owners it was for */
     fun run(nowMs: Long): Int {
         val day: LocalDate = DhakaTime.day(nowMs)

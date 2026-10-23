@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class InvoiceActions(
+    private val summary: InvoiceSummary,
     private val invoices: InvoiceService,
     private val creators: InvoiceCreators,
     private val features: InvoiceFeatures,
@@ -44,6 +45,8 @@ class InvoiceActions(
         "chamber_fee_collect" to ActionHandler { ctx -> creators.chamberFee(ctx.lang, ctx.user, ctx.body) },
         "ambreq_finish" to ActionHandler { ctx -> creators.ambreqFinish(ctx) },
         "assistant_chambers" to ActionHandler(::chambers),
+        "chamber_checkin" to ActionHandler(::checkin),
+        "invoice_day_summary" to ActionHandler(::daySummary),
     )
 
     private fun id(ctx: ActionContext): String {
@@ -74,6 +77,43 @@ class InvoiceActions(
                 )
             }.filter { (it["chamberKey"] as String).isNotEmpty() },
         )
+    }
+
+    /**
+     * chamber_checkin {appointmentId, doctorUid?}: the chamber desk marks the patient arrived (doctor or assistant). Today's
+     * (or an earlier day's still open) appointment of that doctor; pressed twice = the first time stays.
+     */
+    private fun checkin(ctx: ActionContext): Any {
+        val doctor = ctx.body.string("doctorUid")?.takeIf { it.isNotEmpty() } ?: ctx.user.uid
+        val b = invoices.requireIssuer(ctx.lang, ctx.user, "chamber", doctor)
+        features.requireKind(ctx.lang, b.ownerUid, "chamber")
+        val id = ctx.body.string("appointmentId")
+        if (!Rules.isValidId(id)) throw InvoiceService.notFound(ctx.lang)
+        val a = jdbc.queryForList("SELECT status, visit_date, arrived_at FROM appointments WHERE id = ? AND provider_uid = ?", id, b.id).firstOrNull()
+            ?: throw InvoiceService.notFound(ctx.lang)
+        if (a["status"] !in listOf("pending", "confirmed")) {
+            throw InvoiceService.err(ctx.lang, 409, "This appointment is not open", "এই অ্যাপয়েন্টমেন্ট এখন খোলা নেই", "state") // bn-ok
+        }
+        if ((a["visit_date"] as java.sql.Date).toLocalDate() > com.lifolo.common.DhakaTime.day()) {
+            throw InvoiceService.err(ctx.lang, 409, "This appointment is on a later day", "এই অ্যাপয়েন্টমেন্ট পরের কোনো দিনের", "not_today") // bn-ok
+        }
+        jdbc.update("UPDATE appointments SET arrived_at = coalesce(arrived_at, now()), arrived_by = coalesce(arrived_by, ?) WHERE id = ?", ctx.user.id, id)
+        val at = jdbc.queryForObject("SELECT arrived_at FROM appointments WHERE id = ?", java.sql.Timestamp::class.java, id)!!
+        return linkedMapOf("ok" to true, "appointmentId" to id, "arrivedAt" to at.time)
+    }
+
+    /** invoice_day_summary {kind, bizId, day?: "YYYY-MM-DD"} — the owner (not an assistant): [InvoiceSummary.detail] */
+    private fun daySummary(ctx: ActionContext): Any {
+        val b = invoices.requireOwner(ctx.lang, ctx.user, ctx.body.string("kind"), ctx.body.string("bizId"))
+        features.requireKind(ctx.lang, b.ownerUid, b.kind)
+        val d = ctx.body.string("day")
+        val day = if (d.isNullOrEmpty()) {
+            com.lifolo.common.DhakaTime.day()
+        } else {
+            runCatching { java.time.LocalDate.parse(d) }.getOrNull()?.takeIf { it.year in 2020..2100 }
+                ?: throw InvoiceMath.bad(ctx.lang, "Check the date", "তারিখ দেখে নিন")
+        }
+        return summary.detail(b, day)
     }
 
     private fun pay(ctx: ActionContext): Any {
