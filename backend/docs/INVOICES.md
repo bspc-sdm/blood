@@ -318,7 +318,7 @@ returned to the device that sent them). `at` = epoch ms when the desk recorded i
 | `lab_bill` | lab | `lab_bill_create` body | `InvoiceCreators.labBill` | `id, no, deviceNo?, invoice` |
 | `fee` | chamber | `chamber_fee_collect` body (`doctorUid` = the device's doctor) | `InvoiceCreators.chamberFee` | `id, no, deviceNo?, invoice` |
 | `pay` | all | `{invoice:{id?, localId?, opId?, no?}, amount, method, ref?}` | `InvoiceService.pay` (time = op `at`) | `id, no, invoice` |
-| `void` | all | `{invoice:{…}, reason}` | `InvoiceService.void` (pharmacy: stock back) | `id, no, invoice` |
+| `void` | all | `{invoice:{…}, reason, note?}` — `reason` a code of the void list (`wrong_item`, `returned`, `wrong_price`, `duplicate`, `other`); free text counts as `other` with that text as the note | `InvoiceService.void` (pharmacy: stock back; an assistant only their own receipts within 2 h) | `id, no, invoice` |
 | `checkin` | chamber | `{appointmentId, serial?}` | `appointment_update` confirm as the doctor: a pending appointment gets the next serial (or the given register number); a confirmed one keeps it | `id, serial, status` |
 | `walkin` | chamber | `{name, phone?, chamberKey, date:"YYYY-MM-DD", serial?}` | new `chamber_walkins` row; serial from the same counter as confirmed appointments (`SerialCounters`) | `id, serial, date` |
 

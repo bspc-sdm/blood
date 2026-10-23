@@ -554,7 +554,7 @@ class OfflineSync(
     }
 
     /**
-     * pay {invoice:{id?, localId?, opId?, no?}, amount, method, ref?} / void {invoice:{…}, reason}: a receipt of this
+     * pay {invoice:{id?, localId?, opId?, no?}, amount, method, ref?} / void {invoice:{…}, reason, note?}: a receipt of this
      * business — by server id; by the desk's localId / opId of the op that made it (this device only); or by number
      * (this business; the desk's own number too when the server renumbered it).
      */
@@ -592,7 +592,10 @@ class OfflineSync(
         val out = if (type == "pay") {
             invoices.pay(ctx.lang, ctx.user, found.id, InvoiceMath.payment(ctx.lang, data), stamp)
         } else {
-            invoices.void(ctx.lang, ctx.user, found.id, Js.string(data.get("reason")) ?: "", stamp)
+            // a reason code of InvoiceMath.VOID_REASONS (+ note); an older desk's free text counts as "other" with that note
+            val given = Js.string(data.get("reason"))?.trim().orEmpty()
+            val (reason, note) = if (given in InvoiceMath.VOID_REASONS) given to Js.string(data.get("note")) else "other" to (Js.string(data.get("note")) ?: given)
+            invoices.void(ctx.lang, ctx.user, found.id, reason, note, stamp)
         }
         return linkedMapOf("id" to out.id, "no" to out.no, "invoice" to out.toMap())
     }
