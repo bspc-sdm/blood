@@ -27,7 +27,7 @@ const props = defineProps<{ orders: { data?: LabOrders; isLoading: boolean; erro
 const nav = useNav();
 const two = useTwoPane();
 const invalidate = useInvalidate();
-const [sp, setSp] = useSearchParams();
+const [sp] = useSearchParams();
 const q = ref('');
 const busyId = ref<string | null>(null);
 const opening = ref(false);
@@ -99,7 +99,7 @@ const onKey = (e: KeyboardEvent, o: LabOrder) => {
           :label="tr('Test requests', 'পরীক্ষার অনুরোধ')"
           :value="view"
           :counts="{ new: counts.new, active: counts.active }"
-          @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
+          @change="(k) => nav(BASE + (k === 'new' ? '' : `?s=${k}`), { replace: true })"
         />
         <div class="rxp-search rxp-search-sm grow">
           <Icon name="search" />

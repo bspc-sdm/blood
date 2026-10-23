@@ -313,7 +313,7 @@ export async function run(J) {
     driver = await J.as('ambulance', 'desktop');
     card = await driverCall(driver, 'ডেমো চালক-বাতিলের ঠিকানা');
     await card.getByText('আপনি যাচ্ছেন').waitFor({ timeout: 15000 });
-    await card.getByRole('button', { name: 'বাতিল', exact: true }).click();
+    await rowAct(driver, card, 'বাতিল');
     const r = driver.getByRole('dialog').last();
     await r.getByRole('button', { name: 'গাড়িতে সমস্যা', exact: true }).click();
     await J.shot('চালক: বাতিলের কারণ', '‘কেন বাতিল করছেন?’ — ‘গাড়িতে সমস্যা’ বাছা।');

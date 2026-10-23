@@ -1,6 +1,6 @@
 // সেবা (গাইড services.json): অ্যাম্বুলেন্স/ফার্মেসি/প্যাথলজি/নার্সের তালিকা, ওষুধ খোঁজা, অনলাইন অর্ডার, দোকানের হিসাব-খাতা,
 // প্যাথলজির দাম আর বাসা থেকে নমুনা, রেটিং, রিপোর্ট, মালিকের অনুমোদন
-import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere, rxListAll } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere, rxListAll, rowAct } from '../lib.mjs';
 import { adminAct, posPicker, posNoPrint, posSave } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
@@ -299,7 +299,7 @@ export async function run(J) {
 
   await J.sc('S-14 S-48', 'পৌঁছে দেওয়া অর্ডার সম্পন্ন করা (কী দিলেন লেখা) + S-48 বিক্রির হিসাবে তোলা', async () => {
     // অ্যাজমার অর্ডার: ৪৮০ টাকা · আজ সন্ধ্যা ৭টার মধ্যে (পথে)
-    await (await orderRow(page, '৪৮০', { button: 'খুলে ওষুধ লিখুন' })).getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
+    await rowAct(page, await orderRow(page, '৪৮০', { button: 'খুলে ওষুধ লিখুন' }), 'খুলে ওষুধ লিখুন');
     await settle(page);
     await page.getByLabel('Montene: কয়টা দিলেন').fill('40');
     await page.getByRole('button', { name: 'যা দিলাম লিখে রাখুন' }).click();
@@ -471,7 +471,7 @@ export async function run(J) {
 
   await J.sc('S-67', 'প্যাথলজি: বাসা থেকে নমুনা — সময় নিশ্চিত (ফাতেমা)', async () => {
     await labWork(page, 'পরীক্ষার অনুরোধ');
-    await page.locator('tr, article').filter({ hasText: 'ডেমো রোগী ফাতেমা বেগম' }).first().getByText('ডেমো রোগী ফাতেমা বেগম').click();
+    await page.locator('tr, article, [data-testid=q-item]').filter({ hasText: 'ডেমো রোগী ফাতেমা বেগম' }).first().getByText('ডেমো রোগী ফাতেমা বেগম').click();
     await settle(page);
     await J.shot('ফাতেমার অনুরোধ — বাসা থেকে নমুনা', 'ঠিকানা ‘ডেমো বাসা ৫, স্কুল রোড, ছায়াবীথি’, ফোন, ‘চেয়েছেন: কাল · সকাল ৭–৯’, ‘খালি পেটে থাকব’।', { full: true });
     await page.getByRole('button', { name: 'সময় নিশ্চিত করুন' }).first().click();

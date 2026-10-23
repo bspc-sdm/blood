@@ -275,8 +275,10 @@ export async function run(J) {
     // সেবার "আমার কাজ"-এর এক ছাঁচ: রিপোর্ট দেওয়া অনুরোধ "শেষ" ভাগে
     await page.getByRole('tab', { name: /^শেষ/ }).first().click();
     await settle(page);
-    const r = page.locator('tr').filter({ hasText: 'Lipid profile, S. Creatinine' }).first();
-    await r.getByRole('button', { name: 'দেখুন' }).click();
+    // ফোনে কার্ডের ‘দেখুন’, কম্পিউটারে বাঁয়ের সারি চাপলে ডানে রিপোর্ট (আমার কাজ CONTRACT §২)
+    const r = page.locator('tr, article, [data-testid=q-item]').filter({ hasText: 'Lipid profile, S. Creatinine' }).first();
+    if (await r.getByRole('button', { name: 'দেখুন' }).count()) await r.getByRole('button', { name: 'দেখুন' }).click();
+    else await r.click();
     await settle(page);
     await J.shot('আগের রিপোর্ট (R-30)', 'ফল, স্বাভাবিক মাত্রা, বেশি/কম, ‘আগে’ ঘরে আড়াই মাস আগের মান (Cholesterol ২৩৬ → ১৯৮)।', { full: true });
   });

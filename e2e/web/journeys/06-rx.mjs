@@ -24,6 +24,23 @@ async function chamber(page, tab) {
   await go(page, '/work/pro');
   if (tab) await tap(page, tab, { role: 'tab', exact: true });
 }
+/** দোকানে আসা [name]-এর অর্ডার যেটায় ‘তৈরি’ চাপা যায় (ফোনে কার্ড, কম্পিউটারে বাঁয়ের সারি বেছে ডানের কার্ড); না থাকলে null */
+async function shopReadyCard(page, name) {
+  await settle(page);
+  const items = page.getByTestId('q-item').filter({ hasText: name }).filter({ hasText: 'দোকানে এসেছেন' });
+  if (await items.count()) {
+    await items.first().click();
+    await settle(page, 200);
+  }
+  const card = page.locator('article').filter({ hasText: name }).filter({ hasText: 'দোকানে এসেছেন' }).first();
+  if (!(await card.count())) return null;
+  const more = card.getByRole('button', { name: 'আরও' });
+  if (!(await more.count())) return null;
+  await more.first().click();
+  const ok = await page.getByRole('menuitem', { name: 'তৈরি', exact: true }).count();
+  await page.keyboard.press('Escape');
+  return ok ? card : null;
+}
 async function shop(page, tab) {
   await pharmacyWork(page, tab);
 }
@@ -341,7 +358,7 @@ export async function run(J) {
     await shop(page);
     await J.shot('আপনার কাছে পাঠানো', '‘ডেমো রোগী রহিম’ (দোকানে এসেছেন), নাসিমা বেগম ইত্যাদি — মূল বোতাম ‘খুলুন’, ‘আরও’-তে ‘তৈরি’ আর ‘পারব না’।', { full: true });
     // দোকানে আসা: মূল বোতাম ‘খুলুন’, ‘তৈরি’ আর ‘পারব না’ "আরও"-তে (আমার কাজ CONTRACT §২)
-    const card = await orderRow(page, ['ডেমো রোগী রহিম', 'দোকানে এসেছেন'], { button: 'খুলুন' }).catch(() => null);
+    const card = await shopReadyCard(page, 'ডেমো রোগী রহিম');
     if (card) {
       await rowAct(page, card, 'তৈরি');
       await settle(page, 500);
