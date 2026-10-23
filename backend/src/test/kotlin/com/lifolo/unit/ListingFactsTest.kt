@@ -146,7 +146,7 @@ class ListingFactsTest {
         val fullToday = { _: String, d: Long -> if (d == today) 4 else 0 }
         assertEquals(NextSlots.Slot(today + day, 0, true), NextSlots.nextSlot(doc(every), mon18, all, fullToday))
         // every day full → the first day, not available
-        assertEquals(NextSlots.Slot(today, 0, false), NextSlots.nextSlot(doc(every), mon18, all) { _, _ -> 9 })
+        assertEquals(NextSlots.Slot(today, 0, false), NextSlots.nextSlot(doc(every), mon18, all, { _, _ -> 9 }))
 
         assertEquals("আজ", NextSlots.label(today, today, "bn"))
         assertEquals("কাল", NextSlots.label(today + day, today, "bn"))
