@@ -188,10 +188,11 @@ fun RxCodeDialog(note: String, busy: Boolean, error: String?, onOpen: (String) -
     )
 }
 
-/** ভাগে কিছু নেই */
+/** ভাগে কিছু নেই — এক লাইন (চুক্তি: খালি ভাগে এক লাইনের লেখা, বড় ছবি নয়) */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 private fun SegEmpty(icon: Int, title: String, sub: String?) {
-    EmptyState(icon, title, sub, Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp))
+    OneLineEmpty(title)
 }
 
 /** তালিকায় সব আসেনি (সার্ভার শুধু সাম্প্রতিকগুলো পাঠায়) */
@@ -211,7 +212,8 @@ private fun ModeTag(remote: Boolean, remoteText: String, localText: String) {
 @Composable
 fun WorkTabsScaffold(tab: Int, tabs: List<PillTab>, onTab: (Int) -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        PillTabs(tab, tabs, onTab)
+        // স্থির ট্যাব (সর্বোচ্চ ৪টা, লেখা কাটে না — WorkQueues.kt)
+        FixedTabs(tab, tabs, onTab)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), content = content)
     }
 }
@@ -293,36 +295,62 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                 list.sortedByDescending { it.createdAt }.forEach { o ->
                     val online = o.mode == "online"
                     val open = o.status in setOf("sent", "ready", "accepted", "out")
-                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow), modifier = Modifier.testTag("order_card")) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                 ModeTag(online, tr("Online order", "অনলাইন অর্ডার"), tr("In the shop", "দোকানে এসেছেন"))
                             }
-                            Text(WorkSegs.pharmStatus(o.status) + " · " + timeAgo(o.createdAt), style = MaterialTheme.typography.bodySmall, color = if (o.status == "sent") cs.primary else cs.onSurfaceVariant)
+                            // "নতুন" ভাগের ভেতরে আবার "নতুন" লেখা নয় — শুধু কতক্ষণ আগে; অন্য অবস্থায় অবস্থার নাম
+                            Text(
+                                if (o.status == "sent") timeAgo(o.createdAt) else WorkSegs.pharmStatus(o.status) + " · " + timeAgo(o.createdAt),
+                                style = MaterialTheme.typography.bodySmall, color = if (o.status == "sent") cs.primary else cs.onSurfaceVariant,
+                            )
                             if (online && (o.price.isNotBlank() || o.eta.isNotBlank())) IconLine(R.drawable.ic_payments, listOf(o.price, o.eta).filter { it.isNotBlank() }.joinToString(" · "))
                             if (online && o.address.isNotBlank()) IconLine(R.drawable.ic_location_on, o.address)
-                            if (online && o.phone.isNotBlank()) IconLine(R.drawable.ic_call, num(o.phone))
+                            // ফোন নম্বর ইংরেজি অঙ্কে (চুক্তি)
+                            if (online && o.phone.isNotBlank()) IconLine(R.drawable.ic_call, phoneText(o.phone))
                             if (online && open && o.deliveryFee.isNotBlank()) IconLine(R.drawable.ic_local_shipping, tr("Delivery charge: ", "ডেলিভারি চার্জ: ") + o.deliveryFee)
                             if (o.note.isNotBlank()) IconLine(R.drawable.ic_edit_note, o.note)
                             if (o.missed.isNotEmpty()) Text(tr("Not available: ", "নেই: ") + o.missed.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = cs.error)
                             if (open) {
                                 val busy = busyId == o.id
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    SmallAction(if (online) tr("Open & note medicines", "খুলে ওষুধ লিখুন") else tr("Open", "খুলুন"), null, { open(o.code, false) }, primary = true, enabled = !opening)
-                                    if (!online && o.status == "sent") SmallAction(tr("Ready", "তৈরি"), null, { update(o, "ready") }, busy = busy, enabled = busyId == null)
-                                    if (online && o.status == "sent") SmallAction(tr("Accept", "অর্ডার নিলাম"), null, { accepting = o }, enabled = busyId == null)
-                                    if (online && o.status in setOf("sent", "accepted")) SmallAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), null, { update(o, "out") }, enabled = busyId == null)
-                                    // পৌঁছে দিলে লাইনসহ রসিদ (InvoiceForms.kt; inv_pharmacy)
-                                    if (invPharmacy && online && o.status in setOf("accepted", "out")) SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = busyId == null)
-                                    if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
-                                    // হোম ডেলিভারির দাম আগে (লাইফলো পে, pay_delivery)
-                                    if (online && o.status in setOf("accepted", "out")) PayAskAction("rx_order", o.id, PayRules.DELIVERY)
-                                    // কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
-                                    ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS,
-                                        onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
-                                    SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) }, enabled = busyId == null)
+                                val free = busyId == null
+                                val openLabel = if (online) tr("Open & note medicines", "খুলে ওষুধ লিখুন") else tr("Open", "খুলুন")
+                                val deliver = invPharmacy && online && o.status in setOf("accepted", "out")
+                                // একটাই মূল কাজ (পরের ধাপ), বাকিটা "আরও"-তে
+                                val primary: String = when {
+                                    !online -> "open"
+                                    o.status == "sent" -> "accept"
+                                    o.status == "accepted" -> "out"
+                                    deliver -> "delivered"
+                                    else -> "open"
                                 }
+                                ActionRow(
+                                    key = o.id,
+                                    primary = {
+                                        when (primary) {
+                                            "accept" -> PrimaryAction(tr("Accept", "অর্ডার নিলাম"), R.drawable.ic_check_circle, { accepting = o }, enabled = free)
+                                            "out" -> PrimaryAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), R.drawable.ic_local_shipping, { update(o, "out") }, busy = busy, enabled = free)
+                                            "delivered" -> PrimaryAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = free)
+                                            else -> PrimaryAction(openLabel, R.drawable.ic_medication, { open(o.code, false) }, enabled = !opening)
+                                        }
+                                    },
+                                    more = {
+                                        if (primary != "open") SmallAction(openLabel, R.drawable.ic_medication, { open(o.code, false) }, enabled = !opening)
+                                        if (!online && o.status == "sent") SmallAction(tr("Ready", "তৈরি"), R.drawable.ic_check_circle, { update(o, "ready") }, busy = busy, enabled = free)
+                                        if (online && o.status == "sent") SmallAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), R.drawable.ic_local_shipping, { update(o, "out") }, enabled = free)
+                                        // পৌঁছে দিলে লাইনসহ রসিদ (InvoiceForms.kt; inv_pharmacy)
+                                        if (deliver && primary != "delivered") SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = free)
+                                        if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
+                                        // হোম ডেলিভারির দাম আগে (লাইফলো পে, pay_delivery)
+                                        if (online && o.status in setOf("accepted", "out")) PayAskAction("rx_order", o.id, PayRules.DELIVERY)
+                                        // কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
+                                        ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS,
+                                            onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
+                                        SmallAction(tr("Can't", "পারব না"), R.drawable.ic_close, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) }, enabled = free)
+                                    },
+                                )
                             }
                         }
                     }
@@ -511,11 +539,12 @@ fun MyLabPanel(profile: Profile) {
             { tab = it },
         ) {
             if (tab == 0) {
-                LabProviderTop(l) { reload++ }
+                // কাজের তালিকা একদম ওপরে; খোলা/বন্ধ আর বাসা থেকে নমুনার সুইচ "ল্যাব" ট্যাবে (আজকের অবস্থা "আমার কাজ"-এর প্রথম পাতায়)
                 LabRequestsTab(orders, ordersErr, seg, { seg = it }) { reload++ }
             } else if (tab == 2 && invLab) {
                 LabBillsTab(l.id)
             } else {
+                LabProviderTop(l) { reload++ }
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ErrorText(errorMsg)
                     InfoText(infoMsg)
@@ -602,53 +631,83 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                     val h = o.home
                     val fromHome = h != null && h.status != "declined"
                     val open = o.status in setOf("sent", "received")
-                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow), modifier = Modifier.testTag("lab_card")) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(o.patientName.ifBlank { "-" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                 ModeTag(fromHome, tr("Sample from home", "বাসা থেকে নমুনা"), tr("Will come to the lab", "ল্যাবে আসবেন"))
                             }
                             Text(o.tests.joinToString(", "), style = MaterialTheme.typography.bodyMedium)
-                            Text(WorkSegs.labStatus(o.status) + " · " + timeAgo(o.createdAt), style = MaterialTheme.typography.bodySmall, color = if (o.status == "sent") cs.primary else cs.onSurfaceVariant)
+                            // "নতুন" ভাগে আবার "নতুন" নয় — শুধু কতক্ষণ আগে
+                            Text(
+                                if (o.status == "sent") timeAgo(o.createdAt) else WorkSegs.labStatus(o.status) + " · " + timeAgo(o.createdAt),
+                                style = MaterialTheme.typography.bodySmall, color = if (o.status == "sent") cs.primary else cs.onSurfaceVariant,
+                            )
                             // বাসা থেকে নমুনা: দিন-সময়, ঠিকানা, ফোন (চালু থাকা পর্যন্ত — সার্ভার তারপর আর পাঠায় না)
                             if (h != null && open) {
-                                IconLine(R.drawable.ic_home_health, LabPriceText.homeLineLab(h), when (h.status) { "requested" -> cs.primary; "expired" -> cs.error; else -> cs.onSurfaceVariant })
+                                // সময় পেরিয়ে গেলে লাল (সবুজ/মূল রঙে নয়), সাথে লেখাও "সময় পেরিয়ে গেছে"
+                                val expired = LabSlot.expired(h)
+                                IconLine(
+                                    R.drawable.ic_home_health,
+                                    if (expired && h.status == "requested") LabPriceText.homeLineLab(h.copy(status = "expired")) else LabPriceText.homeLineLab(h),
+                                    when {
+                                        expired -> cs.error
+                                        h.status == "requested" -> cs.primary
+                                        else -> cs.onSurfaceVariant
+                                    },
+                                )
                                 if (h.status != "declined") {
                                     if (h.address.isNotBlank()) IconLine(R.drawable.ic_location_on, h.address)
-                                    if (h.phone.isNotBlank()) IconLine(R.drawable.ic_call, num(h.phone))
+                                    if (h.phone.isNotBlank()) IconLine(R.drawable.ic_call, phoneText(h.phone))
                                     if (h.note.isNotBlank()) IconLine(R.drawable.ic_edit_note, h.note)
                                 }
                             }
                             if (o.prices != null && open) SmallNote(LabPriceText.snapLine(o.prices, o.home))
                             val busy = busyId == o.id
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                when (o.status) {
-                                    "sent" -> SmallAction(tr("Sample taken", "নমুনা নিয়েছি"), null, {
-                                        scope.launch {
-                                            busyId = o.id
-                                            errorMsg = null
-                                            runCatching { RxNet.labStatus(o.id, "received") }.onSuccess { infoMsg = tr("Moved to \"Sample / in progress\"", "\"নমুনা/চলছে\"-তে গেল") }.onFailure { errorMsg = it.message }
-                                            busyId = null
-                                            onChanged()
-                                        }
-                                    }, primary = h == null || h.status == "declined", busy = busy, enabled = busyId == null)
-                                    "received" -> SmallAction(tr("Give report", "রিপোর্ট দিন"), null, { entering = o }, primary = true)
-                                    "reported" -> SmallAction(tr("View", "দেখুন"), null, { viewing = o.id })
+                            val homeAsk = o.status == "sent" && h != null && h.status != "declined"
+                            fun sampleTaken() {
+                                scope.launch {
+                                    busyId = o.id
+                                    errorMsg = null
+                                    runCatching { RxNet.labStatus(o.id, "received") }.onSuccess { infoMsg = tr("Moved to \"In progress\"", "\"চলছে\"-তে গেল") }.onFailure { errorMsg = it.message }
+                                    busyId = null
+                                    onChanged()
                                 }
-                                if (o.status == "sent" && h != null && h.status != "declined") {
-                                    SmallAction(if (h.status == "confirmed") tr("Change time", "সময় বদলান") else tr("Confirm time", "সময় নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = o }, primary = h.status != "confirmed")
-                                    SmallAction(tr("Can't go", "যেতে পারব না"), R.drawable.ic_close, { declining = o })
-                                }
-                                // বিল ও রসিদ (InvoiceForms.kt; inv_lab): রসিদ থাকলে সেটা, নইলে "বিল"
-                                if (invLab && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
-                                else if (invLab && o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
-                                // পরীক্ষার টাকা আগে (লাইফলো পে, pay_lab)
-                                if (o.status in setOf("sent", "received") && o.home?.status == "confirmed") PayAskAction("lab_order", o.id, PayRules.LAB)
-                                val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
-                                // কল (ফোন কল — বাসা থেকে নমুনা · অ্যাপ কল · ভিডিও কল) · মেসেজ
-                                ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open,
-                                    onMessage = { openChat(CallCtx.LAB_ORDER, o.id) })
                             }
+                            // একটাই মূল কাজ: সময় নিশ্চিত করুন (বাসা থেকে, এখনো জানানো হয়নি) → নমুনা নিয়েছি → রিপোর্ট দিন → দেখুন
+                            val primary = when {
+                                homeAsk && h?.status != "confirmed" -> "confirm"
+                                o.status == "sent" -> "sample"
+                                o.status == "received" -> "report"
+                                o.status == "reported" -> "view"
+                                else -> ""
+                            }
+                            val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
+                            ActionRow(
+                                key = o.id,
+                                showPrimary = primary.isNotEmpty(),
+                                primary = {
+                                    when (primary) {
+                                        "confirm" -> PrimaryAction(tr("Confirm time", "সময় নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = o })
+                                        "sample" -> PrimaryAction(tr("Sample taken", "নমুনা নিয়েছি"), R.drawable.ic_check_circle, { sampleTaken() }, busy = busy, enabled = busyId == null)
+                                        "report" -> PrimaryAction(tr("Give report", "রিপোর্ট দিন"), R.drawable.ic_edit_note, { entering = o })
+                                        "view" -> PrimaryAction(tr("View", "দেখুন"), R.drawable.ic_list_alt, { viewing = o.id })
+                                    }
+                                },
+                                more = {
+                                    if (o.status == "sent" && primary != "sample") SmallAction(tr("Sample taken", "নমুনা নিয়েছি"), R.drawable.ic_check_circle, { sampleTaken() }, busy = busy, enabled = busyId == null)
+                                    if (homeAsk && h?.status == "confirmed") SmallAction(tr("Change time", "সময় বদলান"), R.drawable.ic_schedule, { confirming = o })
+                                    if (homeAsk) SmallAction(tr("Can't go", "যেতে পারব না"), R.drawable.ic_close, { declining = o })
+                                    // বিল ও রসিদ (InvoiceForms.kt; inv_lab): রসিদ থাকলে সেটা, নইলে "বিল"
+                                    if (invLab && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
+                                    else if (invLab && o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
+                                    // পরীক্ষার টাকা আগে (লাইফলো পে, pay_lab)
+                                    if (o.status in setOf("sent", "received") && o.home?.status == "confirmed") PayAskAction("lab_order", o.id, PayRules.LAB)
+                                    // কল (ফোন কল — বাসা থেকে নমুনা · অ্যাপ কল · ভিডিও কল) · মেসেজ
+                                    ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open,
+                                        onMessage = { openChat(CallCtx.LAB_ORDER, o.id) })
+                                },
+                            )
                         }
                     }
                 }

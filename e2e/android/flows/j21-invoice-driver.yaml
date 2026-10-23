@@ -102,10 +102,22 @@ env:
       ROLE: ডেমো অ্যাম্বুলেন্স চালক
 - tapOn: "আমার কাজ"
 - tapOn: "অ্যাম্বুলেন্স.*"
+# ২৪ অক্টোবর ২০২৬: সারিতে একটাই মূল বাটন — "পৌঁছেছি"; "যাত্রা শেষ" তখন "আরও"-র ভেতরে
+- extendedWaitUntil:
+    visible: "আপনি যাচ্ছেন|আপনি পৌঁছেছেন"
+    timeout: 60000
+- runFlow:
+    when:
+      notVisible:
+        id: "amb_finish"
+    commands:
+      - tapOn:
+          text: "আরও"
+          below: "আপনি যাচ্ছেন|আপনি পৌঁছেছেন"
 - extendedWaitUntil:
     visible:
       id: "amb_finish"
-    timeout: 60000
+    timeout: 15000
 - tapOn:
     id: "amb_finish"
     index: 0

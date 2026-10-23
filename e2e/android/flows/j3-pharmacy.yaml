@@ -23,9 +23,14 @@ env:
     centerElement: true
     optional: true
 - takeScreenshot: j3-03-shop-order
+# ২৪ অক্টোবর ২০২৬ (আমার কাজের নতুন সাজ): সারিতে একটাই মূল বাটন ("খুলুন"); "তৈরি" "আরও"-র ভেতরে
+- tapOn:
+    text: "আরও"
+    below: "দোকানে এসেছেন"
+    optional: true
+- takeScreenshot: j3-03b-row-more
 - tapOn:
     text: "তৈরি"
-    below: "দোকানে এসেছেন"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
@@ -123,21 +128,39 @@ env:
     timeout: 20000
     optional: true
 - takeScreenshot: j3-12-shop-bottom
-# ২.৩০.০: "দোকান"-এর ভেতরের ভাগ (বিক্রি/স্টক/এনালাইটিক্স — হালকা, "বিস্তারিত ওয়েবে দেখুন") আর আলাদা "ওষুধ খোঁজা" ট্যাব
+# ২৪ অক্টোবর ২০২৬: ওপরের ট্যাব অর্ডার · বিক্রি · দোকান (তৃতীয় স্তর নেই) — "বিক্রি"-তে কাউন্টারের নতুন বিক্রি,
+# আজ/সপ্তাহের বিক্রি, "দোকানের হিসাব" (পুরো পর্দা); ওষুধ খোঁজার অনুরোধ "অর্ডার"-এর ওপরে এক লাইনে
+- tapOn:
+    text: "বিক্রি"
+    index: 0
+- extendedWaitUntil:
+    visible: "নতুন বিক্রি"
+    timeout: 20000
+- takeScreenshot: j3-13-sales-tab
 - scrollUntilVisible:
-    element: "এনালাইটিক্স"
-    direction: UP
+    element: "দোকানের হিসাব"
+    direction: DOWN
     timeout: 20000
     optional: true
+- takeScreenshot: j3-13b-sales-bottom
 - tapOn:
-    text: "এনালাইটিক্স"
+    text: "দোকানের হিসাব"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
-- takeScreenshot: j3-13-shop-analytics
+- takeScreenshot: j3-13c-shop-accounts
+- runFlow:
+    when:
+      visible: "গত ৭ দিন"
+    commands:
+      - back
 - tapOn:
-    text: "ওষুধ খোঁজা"
-    optional: true
+    text: "অর্ডার.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*ওষুধ খোঁজার অনুরোধ.*"
+    timeout: 20000
+- tapOn: ".*ওষুধ খোঁজার অনুরোধ.*"
 - waitForAnimationToEnd:
     timeout: 4000
-- takeScreenshot: j3-14-medicine-search-tab
+- takeScreenshot: j3-14-medicine-requests

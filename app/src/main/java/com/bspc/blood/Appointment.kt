@@ -833,29 +833,25 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // রোগীরা যেভাবে দেখেন আর চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (ProviderSide.kt)
                 if (top != null) item(key = "provider_top") { top() }
-                // ডাক্তার: আজকের সিরিয়াল চালানো — শুরু, পরের রোগী, বিরতি, দেরির উত্তর (Queue.kt; আজ সিরিয়াল না থাকলে কিছু নয়)
-                if (role == "provider") item { QueuePanel(null, refreshKey = reload) }
-                // ফি নেওয়া আর রসিদ (InvoiceForms.kt)
-                if (role == "provider") item { ChamberFeesButton() }
-                if (role == "provider") item { BizPaymentsButton("chamber", null) }
+                // ডাক্তার: আজকের সারি, ফি আর পেমেন্ট এখন "আজ" ট্যাবে (TodayQueue.kt) — এখানে শুধু বুকিং: নতুন · চলছে · শেষ
                 if (role == "provider") item { WorkSegTabs(curSeg, counts, { seg = it }) }
                 item { ErrorText(errorMsg) }
                 when {
                     loading && list.isEmpty() -> item { LoadingBox() }
+                    // ডাক্তারের ভাগ খালি: এক লাইন (চুক্তি); রোগীর নিজের তালিকা আগের মতো
+                    shown.isEmpty() && role == "provider" -> item {
+                        OneLineEmpty(
+                            when (curSeg) {
+                                "new" -> tr("No new bookings", "নতুন কোনো বুকিং নেই")
+                                "active" -> tr("No confirmed bookings", "নিশ্চিত কোনো বুকিং নেই")
+                                else -> tr("Nothing finished yet", "এখনো শেষ হওয়া কোনো বুকিং নেই")
+                            },
+                        )
+                    }
                     shown.isEmpty() -> item {
                         Box(Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            EmptyState(
-                                R.drawable.ic_calendar_month,
-                                if (role != "provider") tr("No appointments", "কোনো অ্যাপয়েন্টমেন্ট নেই")
-                                else when (curSeg) {
-                                    "new" -> tr("No new bookings", "নতুন কোনো বুকিং নেই")
-                                    "active" -> tr("No confirmed bookings", "নিশ্চিত কোনো বুকিং নেই")
-                                    else -> tr("Nothing finished yet", "এখনো শেষ হওয়া কোনো বুকিং নেই")
-                                },
-                                null,
-                            )
+                            EmptyState(R.drawable.ic_calendar_month, tr("No appointments", "কোনো অ্যাপয়েন্টমেন্ট নেই"), null)
                         }
                     }
                     else -> items(shown, key = { it.id }) { a ->
@@ -1086,7 +1082,11 @@ internal fun PsychShareRow(onChanged: () -> Unit = {}, initial: List<CareLink>? 
 // ------------------------------------------------------------
 
 /**
- * "আমার চেম্বার": বুকিং · রোগী · সেটআপ (ডাক্তার, পুষ্টিবিদ, ফিটনেস ট্রেইনার)।
+ * "আমার চেম্বার" (mywork-review/CONTRACT.md §২, ২৪ অক্টোবর ২০২৬): চারটা স্থির ট্যাব — আজ · বুকিং · রোগী · সেটআপ।
+ *  • আজ: "আজকের রোগী" — আগের "আজকের সিরিয়াল" আর ডেস্কের "এসেছেন / ফি নিন" এক সারিতে (TodayQueue.kt)
+ *  • বুকিং: নতুন · চলছে · শেষ (সংখ্যার টাইল আর আলাদা সারি ছাড়া)
+ *  • রোগী: একটাই তালিকা; লেখা সব প্রেসক্রিপশন/রিপোর্ট/সহকারী ওপরের বাটনে (আগের আলাদা "প্রেসক্রিপশন" ট্যাব)
+ *  • সেটআপ: চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" আর চেম্বার-প্রোফাইল
  * নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবার সেটআপ।
  */
 @Composable
@@ -1097,35 +1097,33 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
     }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var pending by remember { mutableIntStateOf(0) }
+    var waiting by remember { mutableIntStateOf(0) }
+    val writes = Practice.writesRx(type)
+    // বুকিং ট্যাবের সংখ্যা শুরুতেই (ট্যাব না খুলেও)
+    LaunchedEffect(Unit) {
+        runCatching { Appointments.list() }.onSuccess { l -> pending = l.count { it.role == "provider" && it.status == "pending" } }
+    }
     Scaffold(topBar = { BackTopBar(tr("My chamber", "আমার চেম্বার"), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PillTabs(
+            FixedTabs(
                 tab,
                 listOf(
+                    PillTab(TodayText.tab(), R.drawable.ic_schedule, count = waiting),
                     PillTab(tr("Bookings", "বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled, count = pending),
                     PillTab(tr("Patients", "রোগী"), R.drawable.ic_person_outline),
-                ) + (if (Practice.writesRx(type)) listOf(PillTab(rxTabLabel(type), R.drawable.ic_medication)) else emptyList()) +
                     PillTab(tr("Setup", "সেটআপ"), R.drawable.ic_settings_outline),
+                ),
                 { tab = it },
             )
-            // ডাক্তারের ট্যাব: বুকিং, রোগী, প্রেসক্রিপশন, সেটআপ; পুষ্টিবিদ/ট্রেইনারের প্রেসক্রিপশন নেই
-            // ফিজিও ("পরামর্শ ও ব্যায়াম") আর সাইকোলজিস্টও ("সেশনের নোট") একই পথে — Practice.RxMode
-            val rxTab = if (Practice.writesRx(type)) 2 else -1
             when (tab) {
-                0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it }, top = { DoctorProviderTop() })
+                0 -> TodayPatientsTab(null, canWrite = writes, writeLabel = TodayText.write(type), onCount = { waiting = it })
+                1 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
                 // ডাক্তার: সব রোগী এক জায়গায়, নামের পাশে প্রেসক্রিপশন লেখা; অন্যদের আগের মতো
-                1 -> if (Practice.writesRx(type)) DoctorPatientsTab() else PatientsList()
-                rxTab -> RxDoctorTab()
-                else -> ChamberEditScreen(type, profile, onBack, embedded = true)
+                2 -> if (writes) DoctorPatientsTab() else PatientsList()
+                else -> ChamberEditScreen(type, profile, onBack, embedded = true, header = { DoctorProviderTop(showPreview = false) })
             }
         }
     }
-}
-
-private fun rxTabLabel(type: String): String = when (type) {
-    Practice.PHYSIO_TYPE -> tr("Advice", "পরামর্শ")
-    Practice.PSYCH_TYPE -> tr("Notes", "নোট")
-    else -> tr("Prescriptions", "প্রেসক্রিপশন")
 }
 
 /** নিজের চেম্বারে আসা রোগীরা (একজন একবার): কতবার এসেছেন, শেষ কবে, নিশ্চিত থাকলে ফোন */
@@ -1163,9 +1161,8 @@ private fun PatientsList() {
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        if (p.phone.isNotBlank()) {
-                            IconButton(onClick = { callPhone(context, p.phone) }) { AppIcon(R.drawable.ic_call, tr("Call", "ফোন")) }
-                        }
+                        // আইকনের পাশে লেখা (চুক্তি: লেখা ছাড়া আইকন-বাটন নয়)
+                        if (p.phone.isNotBlank()) SmallAction(tr("Call", "ফোন"), R.drawable.ic_call, { callPhone(context, p.phone) })
                     }
                 }
             }
@@ -1174,7 +1171,7 @@ private fun PatientsList() {
 }
 
 @Composable
-fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedded: Boolean = false) {
+fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedded: Boolean = false, header: @Composable () -> Unit = {}) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
     val scope = rememberCoroutineScope()
@@ -1273,6 +1270,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // সেটআপ ট্যাবের ওপরে: চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (ChamberHubScreen)
+            header()
             if (loading) {
                 LoadingBox()
                 return@Column
@@ -1599,7 +1598,8 @@ internal fun ChamberEditor(
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
+                    // আইকনের পাশে লেখা (চুক্তি: লেখা ছাড়া আইকন-বাটন নয়)
+                    TextButton(onClick = onRemove) { ButtonContent(false, tr("Remove", "সরান"), R.drawable.ic_delete) }
                 }
                 OutlinedButton(onClick = { pickDistrict = true }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, if (c.district.isBlank()) tr("Choose district", "জেলা বেছে নিন") else Districts.label(c.district), R.drawable.ic_location_on)
@@ -1626,8 +1626,11 @@ internal fun ChamberEditor(
                         Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         if (c.area.isNotBlank()) SmallNote(c.area)
                     }
-                    IconButton(onClick = onChangeHospital) { AppIcon(R.drawable.ic_edit, tr("Change hospital", "হাসপাতাল বদলান")) }
-                    IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান")) }
+                }
+                // আইকনের পাশে লেখা — আগে শুধু কলম আর ময়লার ঝুড়ি
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onChangeHospital) { ButtonContent(false, tr("Change hospital", "হাসপাতাল বদলান"), R.drawable.ic_edit) }
+                    TextButton(onClick = onRemove) { ButtonContent(false, tr("Remove", "সরান"), R.drawable.ic_delete) }
                 }
             }
             TimeSlotsEditor(c.slots) { onChange(c.withSlots(it)) }
@@ -1737,8 +1740,8 @@ internal fun TimeSlotsEditor(slots: List<ChamberTime>, onChange: (List<ChamberTi
                 modifier = Modifier.weight(1f),
             )
             if (slots.size > 1) {
-                IconButton(onClick = { onChange(slots.filterIndexed { j, _ -> j != i }) }, modifier = Modifier.size(32.dp)) {
-                    AppIcon(R.drawable.ic_close, tr("Remove this time", "এই সময় সরান"), Modifier.size(18.dp))
+                TextButton(onClick = { onChange(slots.filterIndexed { j, _ -> j != i }) }) {
+                    ButtonContent(false, tr("Remove", "সরান"), R.drawable.ic_close)
                 }
             }
         }

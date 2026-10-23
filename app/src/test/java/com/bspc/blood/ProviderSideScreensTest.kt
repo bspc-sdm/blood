@@ -19,7 +19,6 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.google.firebase.FirebaseApp
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -86,28 +85,28 @@ class ProviderSideScreensTest {
             WorkSegTabs("new", WorkQueue.counts(mapOf("new" to 2, "active" to 1, "closed" to 14)), {})
         }
         rule.onNodeWithText("রোগীরা আপনাকে যেভাবে দেখেন").assertExists()
-        // সবার তালিকার একই কার্ড আর একই মূল লাইন
-        rule.onNodeWithTag("listing_card").assertExists()
-        rule.onNodeWithText(Listing.keyLine("খোলা", "ডেলিভারি আছে")).assertExists()
+        // এক লাইনে নাম আর সবার তালিকার একই মূল লাইন; পুরো কার্ড শুধু "দেখুন" চাপলে (চুক্তি §১.৬)
+        rule.onNodeWithText(Listing.keyLine("খোলা", "ডেলিভারি আছে"), substring = true).assertExists()
+        assertEquals(0, rule.onAllNodesWithTag("listing_card").fetchSemanticsNodes().size)
         rule.onNodeWithTag("sw_open").assertExists()
         rule.onNodeWithTag("sw_delivery").assertExists()
-        rule.onNodeWithText("নতুন").assertExists()
-        rule.onNodeWithText("চলছে").assertExists()
+        // সংখ্যা লেখার সাথেই ("নতুন ২")
+        rule.onNodeWithText("নতুন ২").assertExists()
+        rule.onNodeWithText("চলছে ১").assertExists()
         rule.onNodeWithText("শেষ").assertExists()
         shot("pharmacy-bn")
     }
 
     @Test
-    fun previewCollapsesAndIsRemembered() {
-        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+    fun previewIsOneLineAndOpensTheCard() {
         show { PharmacyProviderTop(pharmacy) {} }
-        rule.onNodeWithTag("patient_preview_toggle").performClick()
-        rule.waitForIdle()
+        // এক লাইন — তালিকার কার্ড নেই যতক্ষণ না "দেখুন"
         assertEquals(0, rule.onAllNodesWithTag("listing_card").fetchSemanticsNodes().size)
-        assertTrue(PreviewPrefs.collapsed(ctx, ListingType.PHARMACY))
-        // অন্য ধরনে আলাদা
-        assertFalse(PreviewPrefs.collapsed(ctx, ListingType.LAB))
-        shot("pharmacy-collapsed-bn")
+        shot("pharmacy-preview-line-bn")
+        rule.onNodeWithTag("patient_preview").performClick()
+        rule.waitForIdle()
+        assertTrue(rule.onAllNodesWithTag("listing_card").fetchSemanticsNodes().isNotEmpty())
+        shot("pharmacy-preview-open-bn")
     }
 
     @Test
@@ -118,7 +117,7 @@ class ProviderSideScreensTest {
             LabProviderTop(lab) {}
             WorkSegTabs("active", mapOf("new" to 0, "active" to 3, "done" to 9), {})
         }
-        rule.onNodeWithText(Listing.keyLine("বন্ধ", "বাসা থেকে নমুনা")).assertExists()
+        rule.onNodeWithText(Listing.keyLine("বন্ধ", "বাসা থেকে নমুনা"), substring = true).assertExists()
         rule.onNodeWithTag("sw_home").assertExists()
         shot("lab-bn")
     }
@@ -155,7 +154,7 @@ class ProviderSideScreensTest {
             }
             WorkSegTabs("new", mapOf("new" to 1, "active" to 0), {})
         }
-        rule.onNodeWithText("খালি আছে").assertExists()
+        rule.onNodeWithText("খালি আছে", substring = true).assertExists()
         shot("ambulance-bn")
     }
 

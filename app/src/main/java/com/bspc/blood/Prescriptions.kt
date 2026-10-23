@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -953,7 +954,27 @@ fun DoctorPatientsTab() {
     var history by remember { mutableStateOf<RxTarget?>(null) }
     var open by remember { mutableStateOf<Rx?>(null) }
     var reload by remember { mutableIntStateOf(0) }
-    key(reload) { RxPatientsPane(null, onWrite = { writingFor = it }, onOpen = { history = it }) }
+    var allRx by remember { mutableStateOf(false) }
+    // একটাই "রোগী" তালিকা (চুক্তি §২); লেখা সব প্রেসক্রিপশন, রিপোর্ট দেখা আর সহকারী — ওপরের এক বাটনে, পুরো পর্দায়
+    key(reload) {
+        RxPatientsPane(null, onWrite = { writingFor = it }, onOpen = { history = it }) {
+            OutlinedButton(onClick = { allRx = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("all_rx")) {
+                ButtonContent(false, when (mode) {
+                    Practice.RxMode.PHYSIO -> tr("All advice, reports & assistants", "সব পরামর্শ, রিপোর্ট ও সহকারী")
+                    Practice.RxMode.PSYCH -> tr("All notes, reports & assistants", "সব নোট, রিপোর্ট ও সহকারী")
+                    else -> tr("All prescriptions, reports & assistants", "সব প্রেসক্রিপশন, রিপোর্ট ও সহকারী")
+                }, R.drawable.ic_medication)
+            }
+        }
+    }
+    if (allRx) {
+        FullScreenDialog(onDismissRequest = { allRx = false; reload++ }) {
+            Column(Modifier.fillMaxSize()) {
+                BackTopBar(tr("Prescriptions", "প্রেসক্রিপশন"), { allRx = false; reload++ })
+                RxDoctorTab()
+            }
+        }
+    }
     history?.let { t -> PatientHistoryDialog(t, onDismiss = { history = null }, onWrite = { writingFor = t }, onOpen = { open = it }) }
     writingFor?.let { t ->
         RxEditorDialog(t, chambers, onDismiss = { writingFor = null }, rules = rules) { rx ->
@@ -1003,6 +1024,36 @@ private fun PatientHistoryDialog(t: RxTarget, onDismiss: () -> Unit, onWrite: ()
             }
         }
     }
+}
+
+/**
+ * "আজকের রোগী"-র সারি থেকে লেখা (TodayQueue.kt): লেখার নিয়ম আর চেম্বার এনে RxEditorDialog, লেখা হলে প্রেসক্রিপশনটা দেখায়।
+ */
+@Composable
+fun RxWriteFor(t: RxTarget, onClose: () -> Unit) {
+    var chambers by remember { mutableStateOf<List<String>>(emptyList()) }
+    var rules by remember { mutableStateOf<Practice.RxRules?>(null) }
+    var issued by remember { mutableStateOf<Rx?>(null) }
+    LaunchedEffect(Unit) {
+        val me = runCatching { Appointments.mine() }.getOrNull()
+        chambers = me?.chambers?.map { it.label }.orEmpty()
+        rules = runCatching { RxApi.myRules() }.getOrNull()
+            ?: me?.let { Practice.RxRules.of(Practice.rxMode(it.type.ifBlank { "doctor" }, it.system)) } ?: Practice.RxRules()
+    }
+    val r = rules ?: return
+    val done = issued
+    if (done != null) RxDetailDialog(done, asDoctor = true, onDismiss = onClose)
+    else RxEditorDialog(t, chambers, onDismiss = onClose, rules = r) { rx -> issued = rx }
+}
+
+/** একজন রোগীর আগের প্রেসক্রিপশন ("আজকের রোগী"-র "আরও" থেকে); canWrite = ডাক্তার (সহকারী নন) */
+@Composable
+fun PatientHistoryFor(t: RxTarget, canWrite: Boolean, onClose: () -> Unit) {
+    var writing by remember { mutableStateOf(false) }
+    var open by remember { mutableStateOf<Rx?>(null) }
+    PatientHistoryDialog(t, onDismiss = onClose, onWrite = { if (canWrite) writing = true }, onOpen = { open = it })
+    if (writing) RxWriteFor(t) { writing = false; onClose() }
+    open?.let { rx -> RxDetailDialog(rx, asDoctor = true, onDismiss = { open = null }) }
 }
 
 @Composable
@@ -1558,20 +1609,26 @@ fun RxAssistScreen(onBack: () -> Unit) {
                 else -> {
                     if (d.size > 1) PillTabs(tab, d.map { PillTab(it.name) }, { tab = it })
                     val doc = d[tab.coerceIn(0, d.lastIndex)]
-                    // "ফি ও রসিদ" (inv_chamber) — বন্ধ থাকলে দুই ভাগ আগের মতো
-                    val invChamber = invOn(InvoiceFeatures.key("chamber"))
-                    PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো"))) + (if (invChamber) listOf(PillTab(tr("Fees & receipts", "ফি ও রসিদ"))) else emptyList()), { sub = it }, secondary = true)
-                    if (sub == 2 && invChamber) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { ChamberFeePanel(doc.uid) }
-                    else if (sub == 1) RxReviewsPane(doc.uid, asDoctor = false)
-                    else RxPatientsPane(doc.uid, onWrite = null) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // ডাক্তারের মতোই "আজ" (একই সারি, শুধু প্রেসক্রিপশন লেখা নেই; এসেছেন/ফি নিন সারিতেই) · রোগী · টাকা মেলানো
+                    // (আগের আলাদা "ফি ও রসিদ" ভাগ "আজ"-এর ভেতরে — সারি আর সরাসরি আসা রোগীর ফি/রসিদ)
+                    var waiting by remember(doc.uid) { mutableIntStateOf(0) }
+                    FixedTabs(
+                        sub,
+                        listOf(
+                            PillTab(TodayText.tab(), R.drawable.ic_schedule, count = waiting),
+                            PillTab(tr("Patients", "রোগী"), R.drawable.ic_person_outline),
+                            PillTab(tr("Payments", "টাকা মেলানো"), R.drawable.ic_wallet),
+                        ),
+                        { sub = it },
+                        secondary = d.size > 1,
+                    )
+                    when (sub) {
+                        1 -> RxPatientsPane(doc.uid, onWrite = null)
+                        2 -> RxReviewsPane(doc.uid, asDoctor = false)
+                        else -> TodayPatientsTab(doc.uid, canWrite = false, writeLabel = "", onCount = { waiting = it }) {
                             if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            // ডাক্তার যেভাবে তালিকায় দেখান + চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (সহকারীর অনুমতি সার্ভার দেখে; না থাকলে সুইচ সরে যায়)
+                            // ডাক্তার যেভাবে তালিকায় দেখান (এক লাইন) + চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (অনুমতি না থাকলে সুইচ সরে যায়)
                             DoctorProviderTop(doc.uid)
-                            // সহকারী আজকের সিরিয়াল চালান (Queue.kt)
-                            QueuePanel(doc.uid)
-                            // সহকারী চেম্বারের পেমেন্ট যাচাই/নিশ্চিত করতে পারেন (লাইফলো পে)
-                            BizPaymentsButton("chamber", doc.uid, assistant = true)
                         }
                     }
                 }

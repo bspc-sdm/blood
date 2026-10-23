@@ -64,7 +64,7 @@ env:
     visible: ".*বুকিং.*"
     timeout: 30000
 - extendedWaitUntil:
-    visible: ".*আজকের সিরিয়াল.*"
+    visible: ".*আজকের রোগী.*|.*আজ কোনো সিরিয়াল নেই.*"
     timeout: 30000
 - takeScreenshot: j12-05-queue
 - tapOn: "রোগী"

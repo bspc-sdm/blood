@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -297,21 +298,24 @@ internal fun MyPharmacyPanel(profile: Profile) {
     var pausing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    // ২.৩০.০: তিন ট্যাব — অর্ডার (০), ওষুধ খোঁজা (১), দোকান (২; ভেতরে তথ্য/বিক্রি/স্টক/এনালাইটিক্স)
+    // তিন ট্যাব (mywork-review/CONTRACT.md §২, ২৪ অক্টোবর ২০২৬): অর্ডার (০) · বিক্রি (১) · দোকান (২) — তৃতীয় স্তর নেই।
+    // ওষুধ খোঁজার অনুরোধ "অর্ডার"-এর ওপরে এক লাইনে (চাপলে পুরো তালিকা); রসিদ আর হিসাব "বিক্রি"-র ভেতরে বাটন; স্টক "দোকান"-এ।
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var shopSub by rememberSaveable { mutableIntStateOf(0) }
     var seg by rememberSaveable { mutableStateOf("new") }
     var unanswered by remember { mutableIntStateOf(0) }
-    // রসিদ (inv_pharmacy) — বন্ধ থাকলে "দোকান"-এর ভাগ আগের মতো চারটা
+    var findsOpen by remember { mutableStateOf(false) }
+    var receiptsOpen by remember { mutableStateOf(false) }
+    // রসিদ (inv_pharmacy) — বন্ধ থাকলে "বিক্রি"-তে রসিদের বাটন নেই
     val invPharmacy = invOn(InvoiceFeatures.key("pharmacy"))
     val scope = rememberCoroutineScope()
-    // নোটিফিকেশন: ওষুধ খোঁজার অনুরোধ → "ওষুধ খোঁজা"; দোকান → "দোকান › তথ্য"; বাকি → "অর্ডার" › নতুন
+    // নোটিফিকেশন / "আমার কাজ": ওষুধ খোঁজার অনুরোধ → অর্ডার + অনুরোধের তালিকা; দোকান → দোকান; রসিদ → বিক্রি › রসিদ;
+    // "sales" ("আমার কাজ"-এর এক চাপে বিক্রি) → বিক্রি; বাকি → অর্ডার › নতুন
     ConsumeWorkTarget { t ->
         when (t) {
-            "finds" -> tab = 1
-            "shop" -> { tab = 2; shopSub = 0 }
-            // "দিনের শেষ" রসিদের খবর → দোকান › রসিদ
-            "receipts" -> if (Features.on(InvoiceFeatures.key("pharmacy"))) { tab = 2; shopSub = 4 } else { tab = 2; shopSub = 0 }
+            "finds" -> { tab = 0; findsOpen = true }
+            "shop" -> tab = 2
+            "sales" -> tab = 1
+            "receipts" -> { tab = 1; receiptsOpen = Features.on(InvoiceFeatures.key("pharmacy")) }
             else -> { tab = 0; seg = "new" }
         }
     }
@@ -418,44 +422,75 @@ internal fun MyPharmacyPanel(profile: Profile) {
             tab,
             listOf(
                 PillTab(tr("Orders", "অর্ডার"), R.drawable.ic_medication, count = orders?.counts?.get("new") ?: 0),
-                PillTab(tr("Medicine search", "ওষুধ খোঁজা"), R.drawable.ic_search, count = unanswered),
+                PillTab(tr("Sales", "বিক্রি"), R.drawable.ic_payments),
                 PillTab(tr("Shop", "দোকান"), R.drawable.ic_storefront),
             ),
             { tab = it },
         ) {
             when (tab) {
                 0 -> {
-                    // রোগীরা যেভাবে দেখেন + এক চাপের সুইচ (খোলা/বন্ধ এখন, ডেলিভারি), তারপর অর্ডার
-                    PharmacyProviderTop(s) { reload++ }
+                    // ওষুধ খোঁজার অনুরোধ — এক লাইন (উত্তর না দেওয়ার সংখ্যাসহ), চাপলে পুরো তালিকা
+                    PharmacyFindsRow(unanswered) { findsOpen = true }
                     PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
                 }
-                1 -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("pharm_finds")) {
-                    PharmacyFindRequests { reload++ }
+                1 -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PharmacySalesTab(invPharmacy, onReceipts = { receiptsOpen = true })
                 }
-                else -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // দোকানের ভেতরের ভাগ: তথ্য · বিক্রি · স্টক · এনালাইটিক্স (রোজকার দ্রুত কাজ অ্যাপে, ভারী হিসাব ওয়েবে)
-                    PillTabs(
-                        shopSub,
-                        listOf(
-                            PillTab(tr("Info", "তথ্য"), R.drawable.ic_storefront),
-                            PillTab(tr("Sales", "বিক্রি"), R.drawable.ic_payments),
-                            PillTab(tr("Stock", "স্টক"), R.drawable.ic_list_alt),
-                            PillTab(tr("Analytics", "এনালাইটিক্স"), R.drawable.ic_history),
-                        ) + (if (invPharmacy) listOf(PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt)) else emptyList()),
-                        { shopSub = it },
-                        secondary = true,
-                    )
-                    ErrorText(errorMsg)
-                    InfoText(infoMsg)
-                    when (shopSub) {
-                        1 -> PharmacySalesLite()
-                        2 -> PharmacyStockLite()
-                        3 -> PharmacyAnalyticsLite()
-                        4 -> if (invPharmacy) BizInvoicesPanel("pharmacy", s.id) else ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
-                        else -> ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
+                else -> {
+                    // রোগীরা যেভাবে দেখেন (এক লাইন) + এখন খোলা/বন্ধ, ডেলিভারি — দোকানের সেটিং; আজকের অবস্থা "আমার কাজ"-এর প্রথম পাতায়
+                    PharmacyProviderTop(s) { reload++ }
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ErrorText(errorMsg)
+                        InfoText(infoMsg)
+                        ShopTab(
+                            s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ },
+                            stock = { PharmacyStockLite() },
+                        ) { m -> infoMsg = m; reload++ }
                     }
                 }
             }
+        }
+    }
+    if (findsOpen) {
+        FullScreenDialog(onDismissRequest = { findsOpen = false; reload++ }) {
+            Column(Modifier.fillMaxSize()) {
+                BackTopBar(tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ"), { findsOpen = false; reload++ })
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag("pharm_finds")) {
+                    PharmacyFindRequests { reload++ }
+                }
+            }
+        }
+    }
+    if (receiptsOpen && invPharmacy) {
+        shop?.let { sh ->
+            FullScreenDialog(onDismissRequest = { receiptsOpen = false }) {
+                Column(Modifier.fillMaxSize()) {
+                    BackTopBar(tr("Receipts", "রসিদ"), { receiptsOpen = false })
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { BizInvoicesPanel("pharmacy", sh.id) }
+                }
+            }
+        }
+    }
+}
+
+/** "অর্ডার"-এর ওপরে: ওষুধ খোঁজার অনুরোধ — এক লাইন, উত্তর না দেওয়ার সংখ্যা, "দেখুন" */
+@Composable
+private fun PharmacyFindsRow(unanswered: Int, onOpen: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        onClick = onOpen,
+        shape = RoundedCornerShape(14.dp),
+        color = if (unanswered > 0) cs.secondaryContainer else cs.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).heightIn(min = 48.dp).testTag("finds_row"),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(R.drawable.ic_search, null, Modifier.size(18.dp), cs.primary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ") + if (unanswered > 0) " · " + tr("$unanswered to answer", "উত্তর বাকি ${num(unanswered)}") else "",
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+            )
+            Text(tr("See", "দেখুন"), style = MaterialTheme.typography.labelLarge, color = cs.primary)
         }
     }
 }
@@ -475,6 +510,7 @@ private fun ShopTab(
     onReopen: () -> Unit,
     onDelete: () -> Unit,
     onDocs: () -> Unit,
+    stock: @Composable () -> Unit = {},
     onChanged: (String?) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -485,7 +521,7 @@ private fun ShopTab(
             StatusReasonLine(s.status, s.statusReason)
             DocsNeededNotice("pharmacy", s.id, VerifyDocs.pharmacy(), s.docsMissing, s.docsRequested, s.docsNote, onDocs)
             if (s.hoursText.isNotBlank()) IconLine(R.drawable.ic_schedule, listOf(s.hoursText, closedDaysText(s.closedDays)).filter { it.isNotBlank() }.joinToString(" · "))
-            IconLine(R.drawable.ic_call, num(s.phone))
+            IconLine(R.drawable.ic_call, phoneText(s.phone))
             if (s.status == "pending") SmallNote(tr("You'll appear in the list after approval.", "অনুমোদনের পর তালিকায় দেখাবে।"))
             OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Edit details", "তথ্য বদলান"), R.drawable.ic_edit) }
             if (s.status == "suspended" || s.status == "rejected") AppealButton("pharmacy")
@@ -508,6 +544,8 @@ private fun ShopTab(
     }
     if (s.status == "approved") {
         home?.let { PharmacyToolsCard(it, onChanged) }
+        // স্টক (কম স্টক, মেয়াদ শেষের পথে, স্টকের তালিকা, সাম্প্রতিক মাল কেনা) — আগে "দোকান"-এর ভেতরের আলাদা ভাগ
+        stock()
     }
     stats?.let { st ->
         Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {

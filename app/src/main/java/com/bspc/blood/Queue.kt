@@ -134,7 +134,7 @@ object QueueApi {
 
 /** অ্যাপ সামনে আছে কি না (পেছনে গেলে বারবার আনা বন্ধ) */
 @Composable
-private fun rememberResumed(): Boolean {
+internal fun rememberResumed(): Boolean {
     @Suppress("DEPRECATION")
     val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     var resumed by remember { mutableStateOf(owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) }

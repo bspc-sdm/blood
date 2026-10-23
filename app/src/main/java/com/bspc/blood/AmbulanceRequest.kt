@@ -1076,8 +1076,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text(tr("Calls", "ডাক"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        // অ্যাম্বুলেন্সের পেমেন্ট গাড়িপ্রতি (bizId = গাড়ির id)
-        names.forEach { (ambId, ambName) -> BizPaymentsButton("ambulance", ambId, label = if (names.size > 1) ambName else "") }
+        // অ্যাম্বুলেন্সের পেমেন্ট গাড়িপ্রতি — এখন গাড়ির কার্ডে (MyAmbulancesSection), ডাকের তালিকা ওপরে থাকে
         ErrorText(errorMsg)
         InfoText(infoMsg)
         // নতুন (খোলা ডাক) / চলছে (আপনি যাচ্ছেন, পৌঁছেছেন) / শেষ — সব সেবাদাতার একই ভাগ (ProviderSide.kt)
@@ -1086,14 +1085,17 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
         val curSeg = callSeg ?: if ((counts["new"] ?: 0) == 0 && (counts["active"] ?: 0) > 0) "active" else "new"
         WorkSegTabs(curSeg, counts, { callSeg = it })
         val segItems = items.filter { segOf(it) == curSeg }
+        // খালি ভাগে এক লাইন (আগে শুধু শিরোনাম, নিচে কিছু না — চুক্তি §২)
         if (loaded && segItems.isEmpty()) {
-            SmallNote(
+            OneLineEmpty(
                 when (curSeg) {
-                    "new" -> tr("When a patient nearby calls an ambulance, it shows here. Keep \"Available now\" on.", "কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। \"এখন খালি আছি\" চালু রাখুন।")
+                    "new" -> tr("No calls right now", "এখন কোনো ডাক নেই")
                     "active" -> tr("No trip in progress", "এখন চলমান কোনো ট্রিপ নেই")
                     else -> tr("Finished trips are in your receipts.", "শেষ হওয়া ট্রিপ রসিদের তালিকায় আছে।")
                 },
             )
+        } else if (!loaded && errorMsg == null) {
+            LoadingBox()
         }
         segItems.forEach { r ->
             val mine = r.status != "open"
@@ -1121,35 +1123,41 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     }
                     if (mine) {
                         if (r.patientName.isNotBlank()) IconLine(R.drawable.ic_person_outline, r.patientName)
-                        // রোগীর নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
-                        ContactActions(
-                            CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
-                            showNumber = true, appAllowed = r.status == "accepted" || r.status == "arrived",
-                            onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই; ঠিক জায়গা না থাকলে ঠিকানা আর এলাকা দিয়ে খোঁজা
-                            OutlinedButton(onClick = { openUrl(context, ambMapUri(r.lat, r.lng, r.pickup, r.district, r.upazilaId, r.unionId)) }) {
-                                ButtonContent(false, tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map)
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (r.status == "accepted") {
-                                Button(onClick = { act(r) { AmbRequests.step(r.id, "arrived") } }, enabled = busy == null) { ButtonContent(busy == r.id, tr("Arrived", "পৌঁছেছি")) }
-                            }
+                        // রোগীর নম্বর চোখের সামনে (ইংরেজি অঙ্কে); ফোন/অ্যাপ কল/মেসেজ "আরও"-তে
+                        if (r.phone.isNotBlank()) IconLine(R.drawable.ic_call, phoneText(r.phone))
+                        // একটাই মূল কাজ: পৌঁছেছি → যাত্রা শেষ; বাকিটা (ম্যাপ, কল, বাতিল) "আরও"-তে
+                        val finish: @Composable () -> Unit = {
                             // "যাত্রা শেষ": ভাড়া + অতিরিক্ত + কীভাবে পেলেন → রসিদ (ambreq_finish, InvoiceForms.kt; inv_ambulance) — বন্ধ থাকলে আগের "শেষ"
                             if (invAmb) {
-                                Button(onClick = { finishing = r }, enabled = busy == null, modifier = Modifier.testTag("amb_finish")) {
-                                    ButtonContent(busy == r.id, tr("Finish trip", "যাত্রা শেষ"))
+                                Button(onClick = { finishing = r }, enabled = busy == null, modifier = Modifier.heightIn(min = 48.dp).testTag("amb_finish")) {
+                                    ButtonContent(busy == r.id && r.status == "arrived", tr("Finish trip", "যাত্রা শেষ"))
                                 }
                             } else {
-                                Button(onClick = { act(r, changed = true) { AmbRequests.step(r.id, "done"); infoMsg = tr("Trip finished. You're available again.", "ট্রিপ শেষ। আপনি আবার খালি।") } }, enabled = busy == null) {
-                                    ButtonContent(busy == r.id, tr("Finish", "শেষ"))
+                                Button(onClick = { act(r, changed = true) { AmbRequests.step(r.id, "done"); infoMsg = tr("Trip finished. You're available again.", "ট্রিপ শেষ। আপনি আবার খালি।") } }, enabled = busy == null, modifier = Modifier.heightIn(min = 48.dp)) {
+                                    ButtonContent(busy == r.id && r.status == "arrived", tr("Finish", "শেষ"))
                                 }
                             }
-                            Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { cancelling = r }, enabled = busy == null) { Text(tr("Cancel", "বাতিল"), color = cs.error) }
                         }
+                        ActionRow(
+                            key = r.id,
+                            primary = {
+                                if (r.status == "accepted") {
+                                    PrimaryAction(tr("Arrived", "পৌঁছেছি"), R.drawable.ic_check_circle, { act(r) { AmbRequests.step(r.id, "arrived") } }, busy = busy == r.id, enabled = busy == null)
+                                } else finish()
+                            },
+                            more = {
+                                if (r.status == "accepted") finish()
+                                // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই; ঠিক জায়গা না থাকলে ঠিকানা আর এলাকা দিয়ে খোঁজা
+                                SmallAction(tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map, { openUrl(context, ambMapUri(r.lat, r.lng, r.pickup, r.district, r.upazilaId, r.unionId)) })
+                                // রোগীর নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ (CallButtons.kt)
+                                ContactActions(
+                                    CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, style = ContactStyle.CHIPS,
+                                    appAllowed = r.status == "accepted" || r.status == "arrived",
+                                    onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
+                                )
+                                SmallAction(tr("Cancel", "বাতিল"), R.drawable.ic_close, { cancelling = r }, enabled = busy == null)
+                            },
+                        )
                     } else if (r.quote && r.myQuoteFare != null) {
                         Surface(shape = RoundedCornerShape(12.dp), color = cs.surface, modifier = Modifier.fillMaxWidth().testTag("amb_quote_wait")) {
                             Column(Modifier.padding(12.dp)) {
@@ -1172,21 +1180,27 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                             modifier = Modifier.fillMaxWidth().testTag("amb_fare_input"),
                         )
                         if (over) ErrorText(tr("The patient's limit is ${taka(r.maxFare)} — you can't offer more.", "রোগীর সর্বোচ্চ ${taka(r.maxFare)} — এর বেশি দেওয়া যায় না।"))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(
-                                onClick = { act(r, changed = true) { AmbRequests.accept(r.id, fare) } },
-                                enabled = busy == null && okFare, modifier = Modifier.weight(1f).height(48.dp).testTag("amb_accept"),
-                            ) { ButtonContent(busy == r.id, tr("Coming", "আসছি") + if (okFare) " — " + taka(fare) else "", R.drawable.ic_check_circle) }
-                            OutlinedButton(onClick = { act(r) { AmbRequests.decline(r.id) } }, enabled = busy == null, modifier = Modifier.height(48.dp)) { Text(tr("Can't", "পারব না")) }
-                        }
+                        ActionRow(
+                            key = r.id,
+                            primary = {
+                                Button(
+                                    onClick = { act(r, changed = true) { AmbRequests.accept(r.id, fare) } },
+                                    enabled = busy == null && okFare, modifier = Modifier.heightIn(min = 48.dp).testTag("amb_accept"),
+                                ) { ButtonContent(busy == r.id, tr("Coming", "আসছি") + if (okFare) " — " + taka(fare) else "", R.drawable.ic_check_circle) }
+                            },
+                            more = { SmallAction(tr("Can't", "পারব না"), R.drawable.ic_close, { act(r) { AmbRequests.decline(r.id) } }, enabled = busy == null) },
+                        )
                     } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(
-                                onClick = { act(r, changed = true) { AmbRequests.accept(r.id) } },
-                                enabled = busy == null, modifier = Modifier.weight(1f).height(48.dp).testTag("amb_accept"),
-                            ) { ButtonContent(busy == r.id, tr("Coming", "আসছি"), R.drawable.ic_check_circle) }
-                            OutlinedButton(onClick = { act(r) { AmbRequests.decline(r.id) } }, enabled = busy == null, modifier = Modifier.height(48.dp)) { Text(tr("Can't", "পারব না")) }
-                        }
+                        ActionRow(
+                            key = r.id,
+                            primary = {
+                                Button(
+                                    onClick = { act(r, changed = true) { AmbRequests.accept(r.id) } },
+                                    enabled = busy == null, modifier = Modifier.heightIn(min = 48.dp).testTag("amb_accept"),
+                                ) { ButtonContent(busy == r.id, tr("Coming", "আসছি"), R.drawable.ic_check_circle) }
+                            },
+                            more = { SmallAction(tr("Can't", "পারব না"), R.drawable.ic_close, { act(r) { AmbRequests.decline(r.id) } }, enabled = busy == null) },
+                        )
                     }
                 }
             }

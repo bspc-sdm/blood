@@ -13,21 +13,14 @@ env:
     timeout: 30000
 - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
 - extendedWaitUntil:
-    visible: "দোকান"
+    visible: "বিক্রি"
     timeout: 30000
-- tapOn: "দোকান"
-# দোকানের ভাগগুলো (তথ্য · বিক্রি · স্টক · এনালাইটিক্স · রসিদ) পাশে সরে — ছোট পর্দায় "রসিদ" ডানে লুকানো থাকে
-- extendedWaitUntil:
-    visible: "এনালাইটিক্স"
+# ২৪ অক্টোবর ২০২৬: রসিদ "বিক্রি" ট্যাবের বাটনে (আগে দোকান › রসিদ)
+- tapOn: "বিক্রি"
+- scrollUntilVisible:
+    element: "রসিদ"
+    direction: DOWN
     timeout: 20000
-- runFlow:
-    when:
-      notVisible: "রসিদ"
-    commands:
-      - swipe:
-          from:
-            text: "এনালাইটিক্স"
-          direction: LEFT
 - tapOn: "রসিদ"
 - extendedWaitUntil:
     visible:

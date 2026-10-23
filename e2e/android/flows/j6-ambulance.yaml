@@ -15,15 +15,14 @@ env:
     visible: ".*ডেমো জীবন.*"
     timeout: 30000
 - takeScreenshot: j6-02-my-ambulances
-- scrollUntilVisible:
-    element:
-      id: "amb_available"
-    direction: DOWN
-    timeout: 15000
-    centerElement: true
+# ২৪ অক্টোবর ২০২৬: খালি আছি / ট্রিপে আছি একবারই, পাতার ওপরে ("এখন অবস্থা") — গাড়ির কার্ডে আর সুইচ নেই
+- extendedWaitUntil:
+    visible:
+      id: "amb_set_trip"
+    timeout: 20000
 - takeScreenshot: j6-03-switch-before
 - tapOn:
-    id: "amb_available"
+    id: "amb_set_trip"
     index: 0
 - extendedWaitUntil:
     visible: "ZZZ-never-shown"
@@ -31,7 +30,7 @@ env:
     optional: true
 - takeScreenshot: j6-04-switch-toggled
 - tapOn:
-    id: "amb_available"
+    id: "amb_set_free"
     index: 0
 - extendedWaitUntil:
     visible: "ZZZ-never-shown"

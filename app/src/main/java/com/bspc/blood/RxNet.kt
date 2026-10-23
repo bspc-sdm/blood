@@ -2053,7 +2053,41 @@ internal fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent
     }
     fun flagOf(e: EntryRow): String = if (e.numeric) RxNetText.autoFlag(e.r.result, e.r.low, e.r.high) ?: e.r.flag else e.r.flag
     FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }, dismissOnClickOutside = false) {
-        Scaffold(topBar = { BackTopBar(tr("Report", "রিপোর্ট") + " · " + order.patientName, { if (!busy) onDismiss() }) }) { padding ->
+        // "রিপোর্ট পাঠান" নিচে আটকানো (চুক্তি §২) — লম্বা ফর্মের একদম শেষে খুঁজতে হয় না
+        Scaffold(
+            topBar = { BackTopBar(tr("Report", "রিপোর্ট") + " · " + order.patientName, { if (!busy) onDismiss() }) },
+            bottomBar = {
+                if (loaded) {
+                    androidx.compose.material3.Surface(tonalElevation = 3.dp, shadowElevation = 6.dp) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ErrorText(errorMsg)
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        busy = true
+                                        errorMsg = null
+                                        runCatching {
+                                            if (keepRanges) {
+                                                val changed = rows.filter { it.fixed && it.numeric && (it.r.low != it.base.first || it.r.high != it.base.second) }.map { it.r }
+                                                if (changed.isNotEmpty()) RxNet.labRanges(changed)
+                                            }
+                                            val items = rows.filter { it.r.test.isNotBlank() && it.r.result.isNotBlank() }.map { e ->
+                                                e.r.copy(result = e.r.result.trim(), flag = flagOf(e), range = if (e.numeric) RxNetText.range(e.r.low, e.r.high) else e.r.range)
+                                            }
+                                            RxNet.labReport(order.id, items, note.trim(), photos.values.filter { it.isNotBlank() })
+                                        }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
+                                        busy = false
+                                    }
+                                },
+                                enabled = !busy && (rows.any { it.r.test.isNotBlank() && it.r.result.isNotBlank() } || photos.isNotEmpty()),
+                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("lab_report_send"),
+                                shape = RoundedCornerShape(12.dp),
+                            ) { ButtonContent(busy, tr("Send report", "রিপোর্ট পাঠান"), R.drawable.ic_send) }
+                        }
+                    }
+                }
+            },
+        ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val cs = MaterialTheme.colorScheme
                 Text(
@@ -2130,29 +2164,6 @@ internal fun LabReportEntryDialog(order: LabOrder, onDismiss: () -> Unit, onSent
                 }
                 OutlinedTextField(note, { note = it.take(500) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, modifier = Modifier.fillMaxWidth())
                 DocPhotosField(photoSpecs, photos, { photos = it }, tr("Photos of the printed report, if you like.", "চাইলে ছাপানো রিপোর্টের ছবি দিন।"))
-                ErrorText(errorMsg)
-                Button(
-                    onClick = {
-                        scope.launch {
-                            busy = true
-                            errorMsg = null
-                            runCatching {
-                                if (keepRanges) {
-                                    val changed = rows.filter { it.fixed && it.numeric && (it.r.low != it.base.first || it.r.high != it.base.second) }.map { it.r }
-                                    if (changed.isNotEmpty()) RxNet.labRanges(changed)
-                                }
-                                val items = rows.filter { it.r.test.isNotBlank() && it.r.result.isNotBlank() }.map { e ->
-                                    e.r.copy(result = e.r.result.trim(), flag = flagOf(e), range = if (e.numeric) RxNetText.range(e.r.low, e.r.high) else e.r.range)
-                                }
-                                RxNet.labReport(order.id, items, note.trim(), photos.values.filter { it.isNotBlank() })
-                            }.onSuccess { onSent() }.onFailure { errorMsg = it.message }
-                            busy = false
-                        }
-                    },
-                    enabled = !busy && (rows.any { it.r.test.isNotBlank() && it.r.result.isNotBlank() } || photos.isNotEmpty()),
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                ) { ButtonContent(busy, tr("Send report", "রিপোর্ট পাঠান"), R.drawable.ic_send) }
             }
         }
     }

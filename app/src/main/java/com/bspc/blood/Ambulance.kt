@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -642,9 +643,96 @@ fun ReasonReportDialog(onDismiss: () -> Unit, onSubmit: suspend (String) -> Unit
 // "সেবা" ট্যাব: নিজের অ্যাম্বুলেন্স
 // ------------------------------------------------------------
 
+/**
+ * "আমার কাজ › অ্যাম্বুলেন্স" (চালক/মালিক): ওপরে একবারই "এখন অবস্থা" (খালি আছি / ট্রিপে আছি — গাড়িপ্রতি এক সারি),
+ * তারপর "ডাক" (নতুন · চলছে · শেষ), তারপর গাড়ির তালিকা। আগে প্রতিটা গাড়ির কার্ডে আলাদা সুইচ ছিল, আর রোগীরা যেভাবে
+ * দেখেন-এর কার্ডেও — একই কাজ দুই জায়গায় (mywork-review/CONTRACT.md §২)।
+ */
 @Composable
-fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
+fun MyAmbulancePage(profile: Profile) {
+    var refresh by remember { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AmbulanceAvailabilityBlock(refresh) { refresh++ }
+        // "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" — আসছি/পারব না, তারপর পৌঁছেছি/শেষ/বাতিল
+        AmbulanceCallsSection(MyWork.summary.value.ambulances.associate { it.id to it.name }) { refresh++ }
+        androidx.compose.material3.HorizontalDivider()
+        MyAmbulancesSection(profile, refresh) { refresh++ }
+    }
+}
+
+object AmbText {
+    fun state(): String = tr("Right now", "এখন অবস্থা")
+    fun free(): String = tr("I am free", "খালি আছি")
+    fun trip(): String = tr("On a trip", "ট্রিপে আছি")
+    fun note(): String = tr("Calls from nearby patients come only while you're free.", "\"খালি আছি\" থাকলে তবেই কাছের রোগীর ডাক আসবে।")
+}
+
+/**
+ * খালি আছি / ট্রিপে আছি — অনুমোদিত প্রতিটা গাড়ির এক সারি, দুইটা বাটন (বেছে নেওয়াটা ভরাট, লেখা বদলায় না)।
+ * "খালি আছি"-র মেয়াদের শেষ ঘণ্টায় "আবার চালু রাখুন"। এই একটা জায়গাতেই (গাড়ির কার্ডে আর নয়)।
+ */
+@Composable
+fun AmbulanceAvailabilityBlock(refresh: Int = 0, onChanged: () -> Unit = {}) {
+    var list by remember { mutableStateOf<List<Ambulance>?>(null) }
+    LaunchedEffect(refresh) { runCatching { Ambulances.mine() }.onSuccess { list = it } }
+    AmbulanceAvailabilityContent(list.orEmpty(), onChanged)
+}
+
+@Composable
+fun AmbulanceAvailabilityContent(all: List<Ambulance>, onChanged: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
+    val live = all.filter { it.status == "approved" }
+    if (live.isEmpty()) return
+    var cur by remember(all) { mutableStateOf(live.associate { it.id to it.available }) }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    fun set(a: Ambulance, on: Boolean) {
+        if (busy != null || cur[a.id] == on) return
+        val prev = cur
+        cur = cur + (a.id to on)
+        busy = a.id
+        errorMsg = null
+        scope.launch {
+            runCatching { Ambulances.setAvailable(a.id, on) }
+                .onSuccess { onChanged() }
+                .onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e; cur = prev; errorMsg = e.message }
+            busy = null
+        }
+    }
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow), modifier = Modifier.testTag("amb_availability")) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(AmbText.state(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            live.forEach { a ->
+                val on = cur[a.id] ?: a.available
+                if (live.size > 1) Text(a.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StateButton(AmbText.free(), on, busy == a.id && !on, Modifier.weight(1f).testTag("amb_set_free")) { set(a, true) }
+                    StateButton(AmbText.trip(), !on, busy == a.id && on, Modifier.weight(1f).testTag("amb_set_trip")) { set(a, false) }
+                }
+                // মেয়াদের শেষ ঘণ্টায় "আবার চালু রাখুন" (আরও ১২ ঘণ্টা)
+                StillAvailableRow(a.copy(available = on)) {
+                    scope.launch { runCatching { Ambulances.setAvailable(a.id, true) }.onSuccess { onChanged() }.onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e; errorMsg = e.message } }
+                }
+            }
+            if (live.none { cur[it.id] ?: it.available }) SmallNote(AmbText.note())
+            ErrorText(errorMsg)
+        }
+    }
+}
+
+/** দুইটার একটা: বেছে নেওয়া = ভরাট রঙ আর ✓ (রঙ একা নয়) */
+@Composable
+private fun StateButton(text: String, selected: Boolean, busy: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    if (selected) {
+        Button(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) { ButtonContent(busy, text, R.drawable.ic_check_circle) }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) { ButtonContent(busy, text) }
+    }
+}
+
+@Composable
+fun MyAmbulancesSection(profile: Profile, refresh: Int = 0, onChanged: () -> Unit = {}) {
     var list by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
     var reload by remember { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<Ambulance?>(null) }
@@ -664,6 +752,7 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(tr("My vehicles", "আমার গাড়ি"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         InfoText(infoMsg)
         ErrorText(errorMsg)
         list.forEach { a ->
@@ -672,10 +761,12 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(a.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            SmallNote(a.vehicleNo + " · " + statusText(a.status))
+                            // গাড়ির নম্বর ইংরেজি অঙ্কেই (চুক্তি: কোড/আইডি ল্যাটিন)
+                            SmallNote(a.vehicleNo + " · " + statusText(a.status) + if (a.status == "approved") " · " + (if (a.available) AmbText.free() else AmbText.trip()) else "")
                             StatusReasonLine(a.status, a.statusReason)
                         }
-                        IconButton(onClick = { editing = a }) { AppIcon(R.drawable.ic_edit, tr("Edit", "বদলান")) }
+                        // আইকনের পাশে লেখা (চুক্তি: লেখা ছাড়া আইকন-বাটন নয়)
+                        TextButton(onClick = { editing = a }, modifier = Modifier.heightIn(min = 48.dp)) { ButtonContent(false, tr("Edit", "বদলান"), R.drawable.ic_edit) }
                     }
                     DocsNeededNotice("ambulance", a.id, VerifyDocs.ambulance(), a.docsMissing, a.docsRequested, a.docsNote) { reload++ }
                     if (a.status == "suspended" || a.status == "rejected") {
@@ -683,28 +774,12 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
                     }
                     stats[a.id]?.let { st -> CallStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
                     if (a.status == "approved") {
-                        // রোগীরা যেভাবে দেখেন (তালিকার একই কার্ড) — "খালি আছি / ট্রিপে আছি" বদলালেই সাথে সাথে
-                        var cur by remember(a) { mutableStateOf(a) }
+                        // রোগীরা যেভাবে দেখেন — এক লাইন, চাপলে তালিকার একই কার্ড (খালি/ট্রিপ বদলানো ওপরের "এখন অবস্থা"-য়)
                         var detail by remember { mutableStateOf(false) }
-                        PatientViewPreview(ambulanceCard(cur, { detail = true }, {}, null))
-                        if (detail) ListingDetail(ambulanceDetail(cur, {}, null, null, null), { detail = false })
-                        QuickSwitch(
-                            if (cur.available) ProviderText.available() else ProviderText.onTrip(),
-                            tr("Turn off when you go on a trip.", "ট্রিপে গেলে বন্ধ করুন।"),
-                            cur.available,
-                            { on ->
-                                cur = cur.copy(available = on, availableAt = if (on) System.currentTimeMillis() else 0L)
-                                scope.launch {
-                                    runCatching { Ambulances.setAvailable(a.id, on) }.onSuccess { reload++ }.onFailure { cur = a; errorMsg = it.message }
-                                }
-                            },
-                            tag = "amb_available",
-                        )
-                        StillAvailableRow(a) {
-                            scope.launch {
-                                runCatching { Ambulances.setAvailable(a.id, true) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
-                            }
-                        }
+                        PatientViewPreview(ambulanceCard(a, { detail = true }, {}, null))
+                        if (detail) ListingDetail(ambulanceDetail(a, {}, null, null, null), { detail = false })
+                        // অ্যাম্বুলেন্সের পেমেন্ট গাড়িপ্রতি (bizId = গাড়ির id) — আগে "ডাক"-এর ওপরে ছিল
+                        BizPaymentsButton("ambulance", a.id, label = if (list.size > 1) a.name else "")
                     }
                 }
             }
@@ -726,10 +801,12 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
                     // জায়গা জেলার বাইরে হলে সার্ভার শুধু জায়গাটা বাদ দেয়, বাকিটা সেভ হয়
                     (if (r.baseIgnored) tr(" — vehicle location was outside the district, not saved", " — গাড়ির জায়গা জেলার বাইরে, তাই নেওয়া হয়নি") else "")
                 reload++
+                onChanged()
             },
             onDeleted = {
                 editing = null
                 reload++
+                onChanged()
             },
         )
     }

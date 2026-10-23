@@ -11,13 +11,29 @@ env:
     timeout: 30000
 - takeScreenshot: j5-01-my-work
 - tapOn: ".*আমার চেম্বার.*"
+# ২৪ অক্টোবর ২০২৬: আজ · বুকিং · রোগী · সেটআপ — শুরুতে "আজকের রোগী" (আগের আজকের সিরিয়াল আর ডেস্ক এক সারিতে)
 - extendedWaitUntil:
     visible: ".*বুকিং.*"
     timeout: 30000
+- extendedWaitUntil:
+    visible: ".*আজকের রোগী.*|.*আজ কোনো সিরিয়াল নেই.*"
+    timeout: 30000
+    optional: true
 - waitForAnimationToEnd:
     timeout: 5000
-- takeScreenshot: j5-02-queue
+- takeScreenshot: j5-02-today
+- tapOn:
+    text: "আরও"
+    index: 0
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: j5-02b-today-more
 - scroll
+- takeScreenshot: j5-02c-today-more-rows
+- tapOn: "বুকিং.*"
+- waitForAnimationToEnd:
+    timeout: 5000
 - takeScreenshot: j5-03-bookings
 - scroll
 - takeScreenshot: j5-04-bookings-more
@@ -29,3 +45,21 @@ env:
 - takeScreenshot: j5-05-patients
 - scroll
 - takeScreenshot: j5-06-patients-more
+- scrollUntilVisible:
+    element: ".*সব প্রেসক্রিপশন.*"
+    direction: UP
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: ".*সব প্রেসক্রিপশন.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j5-07-all-prescriptions
+- back
+- tapOn:
+    text: "সেটআপ"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: j5-08-setup

@@ -3,13 +3,13 @@
 package com.bspc.blood
 
 import android.content.Context
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,10 +28,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -48,6 +48,7 @@ import org.json.JSONObject
 
 object ProviderText {
     fun preview(): String = tr("How patients see you", "রোগীরা আপনাকে যেভাবে দেখেন")
+    fun see(): String = tr("See", "দেখুন")
     fun switches(): String = tr("Quick switches", "এক চাপে বদলান")
     fun openNow(): String = tr("Open now", "এখন খোলা")
     fun closedNow(): String = tr("Closed now", "এখন বন্ধ")
@@ -90,11 +91,15 @@ object WorkQueue {
     }
 }
 
+/**
+ * নতুন · চলছে · শেষ — স্থির তিন ভাগ (FixedTabs; ছোট ফোনেও কাটা যায় না)। "শেষ"-এর পাশে সংখ্যা নয়
+ * (জমতেই থাকে, কাজের কিছু নয় — চুক্তির উদাহরণ "নতুন ৫ · চলছে ২ · শেষ")।
+ */
 @Composable
 fun WorkSegTabs(selected: String, counts: Map<String, Int>, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val i = WorkQueue.SEGS.indexOf(selected).coerceAtLeast(0)
     Column(modifier.testTag("work_segs")) {
-        PillTabs(i, WorkQueue.SEGS.map { PillTab(WorkQueue.label(it), count = counts[it] ?: 0) }, { onSelect(WorkQueue.SEGS[it]) }, secondary = true)
+        FixedTabs(i, WorkQueue.SEGS.map { PillTab(WorkQueue.label(it), count = if (it == "done") 0 else counts[it] ?: 0) }, { onSelect(WorkQueue.SEGS[it]) }, secondary = true)
     }
 }
 
@@ -109,23 +114,45 @@ object PreviewPrefs {
     }
 }
 
-/** "রোগীরা আপনাকে যেভাবে দেখেন" — সবার তালিকার একই কার্ড; চাপলে রোগীদের বিস্তারিত (card.onOpen) */
+/**
+ * "রোগীরা আপনাকে যেভাবে দেখেন" — এক লাইনের কার্ড (নাম আর তালিকার মূল লাইন) আর "দেখুন"; চাপলে সবার তালিকার একই
+ * কার্ড একটা ডায়ালগে (কার্ড চাপলে রোগীদের বিস্তারিত — card.onOpen)। আগে পুরো কার্ড কাজের তালিকার ওপরে বসে তালিকা
+ * নিচে ঠেলে দিত (mywork-review/CONTRACT.md §১.৬)।
+ */
 @Composable
 fun PatientViewPreview(card: ListingCardData, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var collapsed by remember(card.type) { mutableStateOf(PreviewPrefs.collapsed(context, card.type)) }
+    var open by remember(card.type) { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().testTag("patient_preview"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            Modifier.fillMaxWidth().clickable { collapsed = !collapsed; PreviewPrefs.set(context, card.type, collapsed) }.padding(vertical = 4.dp).testTag("patient_preview_toggle"),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Surface(
+        onClick = { open = true },
+        shape = RoundedCornerShape(14.dp),
+        color = cs.surfaceContainerLow,
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("patient_preview"),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AppIcon(R.drawable.ic_person_outline, null, Modifier.size(18.dp), cs.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(ProviderText.preview(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOf(card.name, card.keyLine).filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(Modifier.width(8.dp))
-            Text(ProviderText.preview(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            AppIcon(R.drawable.ic_expand_more_round, if (collapsed) tr("Show", "দেখুন") else tr("Hide", "লুকান"), Modifier.size(20.dp).rotate(if (collapsed) 0f else 180f), cs.onSurfaceVariant)
+            Text(ProviderText.see(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = cs.primary, modifier = Modifier.testTag("patient_preview_toggle"))
         }
-        if (!collapsed) ListingCard(card)
+    }
+    if (open) {
+        CardDialog(onDismissRequest = { open = false }, tag = "patient_preview_dialog") {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(ProviderText.preview(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                ListingCard(card)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { open = false }) { Text(tr("Close", "বন্ধ করুন")) }
+                }
+            }
+        }
     }
 }
 
@@ -322,7 +349,7 @@ fun LabProviderTop(l: Lab, onChanged: () -> Unit) {
  * (আজ যে চেম্বারে বসার কথা, বা আজ বন্ধ দেওয়া আছে)। বন্ধ দিলে তালিকার "পরের সিরিয়াল" আজকে বাদ দেয় (nextSlot)।
  */
 @Composable
-fun DoctorProviderTop(doctorUid: String? = null) {
+fun DoctorProviderTop(doctorUid: String? = null, showPreview: Boolean = true) {
     var me by remember { mutableStateOf<Provider?>(null) }
     var reload by remember { mutableStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(reload) {
@@ -332,11 +359,11 @@ fun DoctorProviderTop(doctorUid: String? = null) {
         if (p != null) me = p
     }
     val p = me ?: return
-    DoctorProviderTopContent(p, doctorUid) { reload++ }
+    DoctorProviderTopContent(p, doctorUid, showPreview) { reload++ }
 }
 
 @Composable
-fun DoctorProviderTopContent(p: Provider, doctorUid: String? = null, onChanged: () -> Unit) {
+fun DoctorProviderTopContent(p: Provider, doctorUid: String? = null, showPreview: Boolean = true, onChanged: () -> Unit) {
     val scope = rememberCoroutineScope()
     var closed by remember(p) { mutableStateOf(p.chambers.map { it.closedToday }) }
     var busy by remember { mutableStateOf<Int?>(null) }
@@ -345,7 +372,7 @@ fun DoctorProviderTopContent(p: Provider, doctorUid: String? = null, onChanged: 
     var detail by remember { mutableStateOf(false) }
     val cur = p.copy(chambers = p.chambers.mapIndexed { i, c -> c.copy(closedToday = closed.getOrElse(i) { false }) }, extras = p.extras.copy(nextSlot = null).let { x -> if (closed == p.chambers.map { it.closedToday }) p.extras else x })
     Column(Modifier.fillMaxWidth().testTag("provider_top"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        PatientViewPreview(providerCard(cur, CareFilter(), onOpen = { detail = true }, onBook = {}))
+        if (showPreview) PatientViewPreview(providerCard(cur, CareFilter(), onOpen = { detail = true }, onBook = {}))
         if (!hidden) {
             p.chambers.forEachIndexed { i, c ->
                 val st = remember(c) { ChamberClock.state(c) }

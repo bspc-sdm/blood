@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -326,7 +327,7 @@ private data class FeeTarget(val appointmentId: String?, val name: String, val c
  * doctorUid: সহকারী কার হয়ে (ডাক্তার নিজে হলে null)।
  */
 @Composable
-fun ChamberFeePanel(doctorUid: String?) {
+fun ChamberFeePanel(doctorUid: String?, withQueue: Boolean = true) {
     val scope = rememberCoroutineScope()
     var queues by remember(doctorUid) { mutableStateOf<List<QueueChamber>?>(null) }
     var places by remember(doctorUid) { mutableStateOf<List<FeeChamber>>(emptyList()) }
@@ -336,7 +337,8 @@ fun ChamberFeePanel(doctorUid: String?) {
     val bump = InvoiceNav.changed.intValue
     LaunchedEffect(doctorUid, bump) {
         runCatching { InvoiceApi.chambers(doctorUid) }.onSuccess { places = it }
-        runCatching { QueueApi.today(doctorUid) }.onSuccess { queues = it; errorMsg = null }.onFailure { errorMsg = it.message; queues = emptyList() }
+        // "আজ" ট্যাবের সারিতেই এসেছেন/ফি নিন (TodayQueue.kt) — সেখান থেকে খুললে সারি আবার নয়
+        if (withQueue) runCatching { QueueApi.today(doctorUid) }.onSuccess { queues = it; errorMsg = null }.onFailure { errorMsg = it.message; queues = emptyList() }
     }
     val cs = MaterialTheme.colorScheme
     val bizId = doctorUid ?: AuthRepository.currentUid.orEmpty()
@@ -353,6 +355,7 @@ fun ChamberFeePanel(doctorUid: String?) {
         }
         val list = queues
         when {
+            !withQueue -> {}
             list == null -> LoadingBox()
             list.isEmpty() -> SmallNote(tr("No serials today.", "আজ কোনো সিরিয়াল নেই।"))
             else -> list.forEach { c ->
@@ -386,21 +389,23 @@ fun ChamberFeePanel(doctorUid: String?) {
 
 /** ডাক্তারের "বুকিং"-এর উপরে: "আজকের ফি ও রসিদ" — পুরো পর্দায় ChamberFeePanel */
 @Composable
-fun ChamberFeesButton(doctorUid: String? = null) {
+fun ChamberFeesButton(doctorUid: String? = null, withQueue: Boolean = true) {
     // inv_chamber বন্ধ: কিছুই নয় (পাতা আগের মতো)
     if (!invOn(InvoiceFeatures.key("chamber"))) return
     var open by remember { mutableStateOf(false) }
     // "দিনের শেষ" নোটিফিকেশন থেকে এলে সরাসরি খোলা
     val want = InvoiceNav.openFees.value
     LaunchedEffect(want) { if (want) { open = true; InvoiceNav.openFees.value = false } }
-    OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("chamber_fees")) {
-        ButtonContent(false, tr("Fees & receipts", "ফি ও রসিদ"), R.drawable.ic_payments)
+    // সারি ছাড়া খুললে: সরাসরি আসা রোগীর ফি আর আজকের রসিদ
+    val label = if (withQueue) tr("Fees & receipts", "ফি ও রসিদ") else tr("Walk-in fee & receipts", "সরাসরি আসা রোগীর ফি ও রসিদ")
+    OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("chamber_fees")) {
+        ButtonContent(false, label, R.drawable.ic_payments)
     }
     if (open) {
         FullScreenDialog(onDismissRequest = { open = false }) {
             Column(Modifier.fillMaxSize()) {
-                BackTopBar(tr("Fees & receipts", "ফি ও রসিদ"), { open = false })
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { ChamberFeePanel(doctorUid) }
+                BackTopBar(label, { open = false })
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { ChamberFeePanel(doctorUid, withQueue) }
             }
         }
     }

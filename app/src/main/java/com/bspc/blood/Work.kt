@@ -290,13 +290,8 @@ fun MyBusinessScreen(kind: String, profile: Profile, onBack: () -> Unit) {
     Scaffold(topBar = { BackTopBar(myBusinessTitle(kind), onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             when (kind) {
-                "ambulance" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" — আসছি/পারব না, তারপর পৌঁছেছি/শেষ/বাতিল
-                    var refresh by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                    AmbulanceCallsSection(MyWork.summary.value.ambulances.associate { it.id to it.name }) { refresh++ }
-                    androidx.compose.material3.HorizontalDivider()
-                    MyAmbulancesSection(profile, refresh)
-                }
+                // এখন অবস্থা (খালি/ট্রিপে — একবারই), ডাক, গাড়ি (Ambulance.kt)
+                "ambulance" -> MyAmbulancePage(profile)
                 "pharmacy" -> MyPharmacyPanel(profile)
                 "bloodbank" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     MyBloodBanksSection(profile)
