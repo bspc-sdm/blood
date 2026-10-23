@@ -207,9 +207,10 @@ probe_start() {
   (
     end=$((SECONDS + 900))
     while [ ! -f "$PROBE_DIR/stop" ] && [ "$SECONDS" -lt "$end" ]; do
-      curl -sk -o /dev/null -m 15 -w '%{http_code}\n' --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" >> "$PROBE_DIR/codes" 2>/dev/null
+      # সংযোগ না হলে curl ব্যর্থ ফেরে কিন্তু -w তবুও "000" লেখে — set -e-তে লুপ যেন না থামে
+      curl -sk -o /dev/null -m 15 -w '%{http_code}\n' --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" >> "$PROBE_DIR/codes" 2>/dev/null || true
       curl -sk -o /dev/null -m 15 -w '%{http_code}\n' --resolve "$DOMAIN:443:127.0.0.1" -X POST -H 'content-type: application/json' \
-        --data '{"action":"features","lang":"bn"}' "https://$DOMAIN/api/community" >> "$PROBE_DIR/codes" 2>/dev/null
+        --data '{"action":"features","lang":"bn"}' "https://$DOMAIN/api/community" >> "$PROBE_DIR/codes" 2>/dev/null || true
       sleep 0.4
     done
   ) &
@@ -740,10 +741,13 @@ if [ -f "$LEGACY_FILE" ]; then
   st legacy_unit "moved to /etc/lifolo/legacy/"
 fi
 # পুরোনো release-গুলো: শেষ ৫টা (আর যেগুলো কোনো instance-এর symlink) রাখা — হাতে ফেরার জন্য
-keep="$(for p in 8080 8081; do readlink "$API_DIR/app-$p.jar" 2>/dev/null | xargs -r basename; done)"
+keep=" "
+for p in 8080 8081; do
+  if [ -L "$API_DIR/app-$p.jar" ]; then keep="$keep$(basename "$(readlink "$API_DIR/app-$p.jar")") "; fi
+done
 # shellcheck disable=SC2012  # নাম আমাদের বানানো (app-<hex>.jar)
 ls -1t "$RELEASES"/app-*.jar 2>/dev/null | tail -n +6 | while read -r f; do
-  printf '%s\n' "$keep" | grep -qx "$(basename "$f")" || rm -f "$f"
+  case "$keep" in *" $(basename "$f") "*) ;; *) rm -f "$f" ;; esac
 done
 st releases "$(ls -1 "$RELEASES" 2>/dev/null | wc -l) kept in $RELEASES"
 # LiveKit (এই VPS-এ, main mode): webhook আগে 127.0.0.1:8080-এ যেত — এখন স্থির ঠিকানা 127.0.0.1:$LOCAL_PORT (nginx → যেটা চালু)
