@@ -190,7 +190,7 @@ class ChatIT : IntegrationTest() {
     }
 
     @Test
-    fun `appointment - patient and doctor around the slot; later the thread is read-only`() {
+    fun `appointment - patient and doctor around the slot, later the thread is read-only`() {
         for (u in listOf("pat", "doc", "other")) person(u)
         appointment("ap1", "pat", "doc", slotOffsetMin = -10)
         appointment("ap2", "pat", "doc", slotOffsetMin = 300)
@@ -408,7 +408,7 @@ class ChatIT : IntegrationTest() {
     // ------------------------------------------------------------------ unsend, report
 
     @Test
-    fun `unsend - own message within 10 minutes, content erased; report copies the content`() {
+    fun `unsend - own message within 10 minutes, content erased, report copies the content`() {
         val t = pair()
         val m = ok("a", "chat_send", mapOf("threadId" to t, "clientId" to "u1", "text" to "ভুল মেসেজ"))["message"]
         val id = m["id"].textValue()
@@ -446,7 +446,7 @@ class ChatIT : IntegrationTest() {
     // ------------------------------------------------------------------ read-only, retention, account deletion
 
     @Test
-    fun `relation ends - read-only (409 chat_closed); daily job closes untouched threads and deletes them 90 days later`() {
+    fun `relation ends - read-only (409 chat_closed), daily job closes untouched threads and deletes them 90 days later`() {
         val t = pair()
         val t2 = pair("a", "c")
         ok("a", "chat_send", mapOf("threadId" to t, "clientId" to "1", "text" to "এক"))
@@ -530,7 +530,7 @@ class ChatIT : IntegrationTest() {
     // ------------------------------------------------------------------ push / SSE / category
 
     @Test
-    fun `push - generic lock-screen text with the first name only, collapsed per thread, never the content; category off = no push`() {
+    fun `push - generic lock-screen text with the first name only, collapsed per thread, never the content, category off = no push`() {
         val t = pair(aName = "আলী হাসান")
         ok("a", "chat_send", mapOf("threadId" to t, "clientId" to "1", "text" to "আমার রক্তের গ্রুপ A+, ঠিকানা ১২ নম্বর বাড়ি"))
         val p = pushes("b", "chat_message").single()
