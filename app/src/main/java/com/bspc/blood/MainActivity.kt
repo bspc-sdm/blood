@@ -951,6 +951,8 @@ fun App(
             }
             }
         }
+        // স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md): 428-এর পর বা স্বাস্থ্যের পাতা খোলায়
+        if (!blocked) HealthConsentHost()
         // অ্যাকাউন্ট সাময়িক বন্ধ: সবার উপরে (খোলা শিট/ডায়ালগেরও), পেছনে ফেরা যায় না
         if (blocked) {
             FullScreenDialog(onDismissRequest = {}, dismissOnClickOutside = false) {

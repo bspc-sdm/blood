@@ -595,6 +595,8 @@ private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
+    // স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার (backend/docs/CONSENT.md)
+    HealthConsentPrompt()
     var list by remember { mutableStateOf<List<Rx>?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }

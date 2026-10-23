@@ -220,6 +220,11 @@ fun SettingsScreen(
             }
         }
 
+        // ---- গোপনীয়তা: স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md) ----
+        if (!guest && featureOn(Features.HEALTH_CONSENT)) {
+            SettingsCard { HealthConsentSettings() }
+        }
+
         // ---- অ্যাপ সম্পর্কে ----
         SettingsCard {
             ListItem(
