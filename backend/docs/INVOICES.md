@@ -91,7 +91,7 @@ No receipts for blood donors (donation is voluntary). Blood banks come later.
 
 ## Backend notes (owned by the backend-invoices agent, branch `spring-p16`)
 
-This section is the source of truth for the backend. Package `com.lifolo.invoices`, migrations `V630`–`V649`.
+This section is the source of truth for the backend. Package `com.lifolo.invoices`, migration `V661__invoices.sql` (renumbered above chat V660 — Flyway runs only above the highest applied).
 
 ### Service methods for the offline sync agent (spring-p17)
 

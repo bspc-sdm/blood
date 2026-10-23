@@ -1,4 +1,4 @@
--- Invoices (রসিদ) — spring-p16, 23 Oct 2026, docs/INVOICES.md.
+-- Invoices (রসিদ) — spring-p16, 23 Oct 2026 (V661: above V660 chat), docs/INVOICES.md.
 --
 -- One receipt per sale / lab bill / chamber fee / ambulance trip. Immutable after issue (trigger below): only payments
 -- are added (invoice_payments, append-only) and the status may go issued → void (with a reason). No delete through the
