@@ -1,0 +1,93 @@
+name: "TMP title_guard app compile + tests (title-guard-app-ci only, never merged)"
+
+# Temporary: proves the Android app compiles and runs the title_guard / practice Robolectric tests on the title-guard
+# work. No APK is built or published. Lives only on branch title-guard-app-ci.
+on:
+  push:
+    branches: [title-guard-ci3]
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    if: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile app + unit tests
+        run: |
+          set -o pipefail
+          gradle :app:compileDebugKotlin :app:compileDebugUnitTestKotlin --stacktrace 2>&1 | tee "$RUNNER_TEMP/compile.log" | tail -20
+      - name: Tests (TitleGuardTest, PracticeScreensTest, FeaturesTest, ScreensTest)
+        if: success()
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --tests "com.bspc.blood.TitleGuardTest" --tests "com.bspc.blood.PracticeScreensTest" --tests "com.bspc.blood.FeaturesTest" --tests "com.bspc.blood.ScreensTest" 2>&1 | tee "$RUNNER_TEMP/test.log" | tail -30
+      - name: Publish log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: app CI ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          grep -E "^e: |^w: .*TitleGuard|BUILD|FAILED" "$RUNNER_TEMP/compile.log" > "$RUNNER_TEMP/out/compile.txt" 2>/dev/null || true
+          tail -200 "$RUNNER_TEMP/compile.log" > "$RUNNER_TEMP/out/compile-tail.txt" 2>/dev/null || true
+          grep -E "Test|FAILED|PASSED|Exception|expected|BUILD|tests completed" "$RUNNER_TEMP/test.log" | head -300 > "$RUNNER_TEMP/out/test.txt" 2>/dev/null || true
+          python3 - <<'PY' > "$RUNNER_TEMP/out/tests-summary.txt" || true
+          import glob, xml.etree.ElementTree as ET
+          total = fail = 0
+          for f in sorted(glob.glob('app/build/test-results/testDebugUnitTest/*.xml')):
+              r = ET.parse(f).getroot()
+              total += int(r.get('tests', 0)); n = int(r.get('failures', 0)) + int(r.get('errors', 0)); fail += n
+              print(f"{r.get('name')}: {r.get('tests')} tests, {n} failed")
+              for tc in r.iter('testcase'):
+                  for bad in list(tc.findall('failure')) + list(tc.findall('error')):
+                      print(f"  FAIL {tc.get('name')}: {(bad.get('message') or '')[:800]}")
+                      print('    ' + (bad.text or '')[:2500].replace('\n', '\n    '))
+          print(f"TOTAL {total} tests, {fail} failed")
+          PY
+          echo "${GITHUB_SHA} ${{ job.status }}" > "$RUNNER_TEMP/out/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-title-guard-ci3 "$RUNNER_TEMP/out" status.txt compile.txt compile-tail.txt test.txt tests-summary.txt
+
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: web-vue
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - name: Unit + build:test
+        run: |
+          set -o pipefail
+          npm run test:unit 2>&1 | tail -40 > "$RUNNER_TEMP/unit.txt"
+          (npm run build && npm run build:test) 2>&1 | tail -20 > "$RUNNER_TEMP/buildtest.txt"
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright (mocked API)
+        run: |
+          set -o pipefail
+          npx playwright test --reporter=list 2>&1 | sed -e "s/\x1b\[[0-9;]*[A-Za-z]//g" > "$RUNNER_TEMP/e2e.txt"
+      - name: Publish log
+        if: always()
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: web CI ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/wout"
+          cp "$RUNNER_TEMP"/unit.txt "$RUNNER_TEMP"/buildtest.txt "$RUNNER_TEMP"/e2e.txt "$RUNNER_TEMP/wout/" 2>/dev/null || true
+          echo "${GITHUB_SHA} ${{ job.status }}" > "$RUNNER_TEMP/wout/web-status.txt"
+          bash .github/scripts/publish-log.sh ci-log-title-guard-ci3-web "$RUNNER_TEMP/wout" web-status.txt unit.txt buildtest.txt e2e.txt
