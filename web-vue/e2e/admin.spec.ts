@@ -1,4 +1,4 @@
-// অ্যাডমিন প্যানেল (Vue, /admin) — নকল সার্ভার, সার্ভারের মতো কড়া CSP। লেখা ঘরের মান রাখা, লগইন, ১৯টা মেনু, পাতা, কাজের বোতাম।
+// অ্যাডমিন প্যানেল (Vue, /admin) — নকল সার্ভার, সার্ভারের মতো কড়া CSP। লেখা ঘরের মান রাখা, লগইন, ২০টা মেনু, পাতা, কাজের বোতাম।
 import { expect, test, type Page } from '@playwright/test';
 import { watchErrors, noSideScroll } from './helpers';
 
@@ -13,15 +13,15 @@ async function login(page: Page) {
 }
 
 const NAV = ['ড্যাশবোর্ড', 'অ্যানালিটিক্স', 'জরুরি আহ্বান', 'ব্যাজ', 'ফার্মেসি', 'অ্যাম্বুলেন্স', 'ব্লাড ব্যাংক', 'প্যাথলজি', 'হাসপাতাল',
-  'আপিল ও সমস্যা', 'রিপোর্ট', 'তারিখ সংশোধন', 'ব্যবহারকারী', 'বাছাইয়ের তালিকা', 'রিপোর্টের ছক', 'ফিচার সুইচ', 'কাজের ইতিহাস', 'অ্যাডমিন', 'ডেমো (পরীক্ষা)'];
+  'আপিল ও সমস্যা', 'রিপোর্ট', 'তারিখ সংশোধন', 'ব্যবহারকারী', 'বাছাইয়ের তালিকা', 'রিপোর্টের ছক', 'ফিচার সুইচ', '‘ডা.’ লেখা নাম', 'কাজের ইতিহাস', 'অ্যাডমিন', 'ডেমো (পরীক্ষা)'];
 const TITLES: [string, RegExp][] = [
   ['', /ড্যাশবোর্ড/], ['analytics', /অ্যানালিটিক্স/], ['emergency', /জরুরি আহ্বান/], ['badges', /ব্যাজ/], ['pharmacies', /ফার্মেসি/],
   ['ambulances', /অ্যাম্বুলেন্স/], ['bloodBanks', /ব্লাড ব্যাংক/], ['labs', /প্যাথলজি/], ['hospitals', /হাসপাতাল যোগের অনুরোধ/],
   ['tickets', /আপিল ও সমস্যা/], ['reports', /রিপোর্ট/], ['corrections', /রক্তদানের তারিখ সংশোধন/], ['users', /ব্যবহারকারী/],
-  ['catalog', /বাছাইয়ের তালিকা/], ['labtests', /রিপোর্টের ছক/], ['features', /ফিচার সুইচ/], ['log', /কাজের ইতিহাস/], ['admins', /অ্যাডমিন/], ['demo', /ডেমো \(পরীক্ষা\)/],
+  ['catalog', /বাছাইয়ের তালিকা/], ['labtests', /রিপোর্টের ছক/], ['features', /ফিচার সুইচ/], ['titlenames', /‘ডা.’ লেখা নাম/], ['log', /কাজের ইতিহাস/], ['admins', /অ্যাডমিন/], ['demo', /ডেমো \(পরীক্ষা\)/],
 ];
 
-test('লগইন: ভুল ইমেইল, ইমেইলে কোড, বাংলা অঙ্কের কোড, ১৯টা মেনু', async ({ page }) => {
+test('লগইন: ভুল ইমেইল, ইমেইলে কোড, বাংলা অঙ্কের কোড, ২০টা মেনু', async ({ page }) => {
   const errs = watchErrors(page);
   await page.goto('/admin');
   await page.locator('input[type=email]').fill('not-an-email');
@@ -149,4 +149,20 @@ test('লগআউট', async ({ page }) => {
   await page.getByRole('button', { name: 'লগআউট' }).click();
   await expect(page.getByText('লগআউট হয়েছে।')).toBeVisible();
   await expect(page.locator('input[type=email]')).toBeVisible();
+});
+
+// "ডা." পদবির নিয়ম (title_guard): MBBS/BDS নন অথচ নামে "ডা." — নাম যেমন জমা, কী দেখাবে, কোথায়, ডেমো আলাদা
+test('‘ডা.’ লেখা নাম: জমা নাম, দেখাবে, কোথায়, ডেমো', async ({ page }) => {
+  const errs = watchErrors(page);
+  await login(page);
+  await page.goto('/admin#/titlenames');
+  await expect(page.locator('.topbar h1')).toHaveText(/‘ডা.’ লেখা নাম/);
+  // (মোবাইলে শিরোনামের নিচের ছোট লেখা লুকানো থাকে)
+  await expect(page.locator('.topbar h1')).toContainText('১ জন (ডেমো বাদে) · মোট ২');
+  const row = page.locator('tr', { hasText: 'ডা. টেস্ট হোমিও' });
+  await expect(row).toContainText('দেখাবে: টেস্ট হোমিও');
+  await expect(row).toContainText('হোমিওপ্যাথিক চিকিৎসক');
+  await expect(row).toContainText('তালিকা');
+  await expect(page.locator('tr', { hasText: 'Dr. Demo Nurse' })).toContainText('ডেমো');
+  expect(errs).toEqual([]);
 });

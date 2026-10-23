@@ -50,6 +50,8 @@ object Features {
     const val PRACTICE_SYSTEMS = "practice_systems"
     const val PRO_PHYSIO = "pro_physio"
     const val PRO_PSYCHOLOGIST = "pro_psychologist"
+    /** "ডা." পদবির নিয়ম (TitleGuard.kt) */
+    const val TITLE_GUARD = "title_guard"
 
     /** স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md) */
     const val HEALTH_CONSENT = "health_consent"
@@ -60,6 +62,7 @@ object Features {
         PAY_MANUAL, PAY_CHAMBER_ADVANCE, PAY_DELIVERY, PAY_LAB, PAY_AMBULANCE, PAY_DUE, PAY_BKASH_PGW,
         PRACTICE_SYSTEMS, PRO_PHYSIO, PRO_PSYCHOLOGIST,
         HEALTH_CONSENT,
+        TITLE_GUARD,
     )
 
     /** সার্ভারের বন্ধ-সুবিধার ভুল (404) */

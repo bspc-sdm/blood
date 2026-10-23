@@ -3,6 +3,9 @@ package com.lifolo.blood
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.Rules
 import com.lifolo.contracts.Prescriptions
+import com.lifolo.practice.Practice
+import com.lifolo.practice.TitleGuard
+import com.lifolo.practice.TitleRules
 import io.nayuki.qrcodegen.QrCode
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -26,6 +29,7 @@ class ShareController(
     private val store: BloodStore,
     private val prescriptions: Prescriptions,
     private val props: LifoloProperties,
+    private val titles: TitleGuard,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val jdbc: JdbcTemplate get() = store.jdbc
@@ -132,8 +136,10 @@ class ShareController(
         fun t(en: String, bnText: String) = if (bn) bnText else en
         val other = if (bn) "<a href=\"?lang=en\" lang=\"en\">English</a>" else "<a href=\"?lang=bn\" lang=\"bn\">বাংলা</a>" // bn-ok
         val switch = "<p class=\"muted\" style=\"text-align:right;margin:0 0 12px\">$other</p>"
+        // title_guard (practice/TitleGuard): a public page — only when the rule is on for everyone
+        val titled = titles.on(null)
         val x = try {
-            prescriptions.verify(code)
+            TitleGuard.rendering(titled) { prescriptions.verify(code) }
         } catch (e: Exception) {
             log.error("rx verify failed", e)
             null
@@ -147,7 +153,8 @@ class ShareController(
         val d = Instant.ofEpochMilli(created + 6 * 3600 * 1000).atZone(ZoneOffset.UTC)
         val dateEn = "${d.dayOfMonth}/${d.monthValue}/${d.year}"
         val date = if (bn) bnDigits(dateEn) else dateEn
-        val doctor = x["doctor"] as? Map<*, *> ?: emptyMap<String, Any?>()
+        val doctor0 = x["doctor"] as? Map<*, *> ?: emptyMap<String, Any?>()
+        val doctor = if (titled) doctor0 + ("name" to titles.name(doctor0["name"] as? String ?: "", null)) else doctor0
         val tag = if (x["status"] == "cancelled") {
             "<span class=\"tag\" style=\"background:#777;color:#fff\">${t("Cancelled", "বাতিল")}</span>"
         } else {
@@ -159,7 +166,11 @@ class ShareController(
         val label = when {
             info != null -> t(info.labelEn, info.labelBn)
             else -> (doctor["typeLabel"] as? String)?.let { bnLabel ->
-                t(com.lifolo.practice.Practice.TYPE_LABELS_EN.entries.firstOrNull { com.lifolo.practice.Practice.TYPE_LABELS[it.key] == bnLabel }?.value ?: bnLabel, bnLabel)
+                t(
+                    doctor["typeLabelEn"] as? String
+                        ?: Practice.TYPE_LABELS_EN.entries.firstOrNull { Practice.TYPE_LABELS[it.key] == bnLabel }?.value ?: bnLabel,
+                    bnLabel,
+                )
             }
         }
         val bmdc = when {
@@ -170,7 +181,14 @@ class ShareController(
         val regNo = if (truthy(doctor["regNo"])) " · $bmdc ${esc(doctor["regNo"])}" else ""
         val labelTag = if (label != null) " <span class=\"tag\" style=\"background:#EEE;color:#333;font-size:14px\">${esc(label)}</span>" else ""
         val chamberBlock = if (truthy(doctor["chamber"])) "<dt>${t("Chamber", "চেম্বার")}</dt><dd>${esc(doctor["chamber"])}</dd>" else "" // bn-ok
-        val issued = t("Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.", "Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।")
+        // title_guard: a writer who is not an MBBS/BDS doctor is not called "ডাক্তার" here either
+        val doctorWriter = (system == null || system == Practice.ALLOPATHY) &&
+            (doctor["typeLabel"] == null || doctor["typeLabel"] == Practice.TYPE_LABELS[Practice.DOCTOR])
+        val issued = if (titled && !doctorWriter) {
+            t(TitleRules.VERIFY_ISSUED_EN, TitleRules.VERIFY_ISSUED_BN)
+        } else {
+            t("Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.", "Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।")
+        }
         val hidden = t(
             "The patient's details and the medicines are not shown on this page. Pharmacies open the code in the Lifolo app to see and dispense the prescription.",
             "এই পাতায় রোগীর তথ্য আর ওষুধের তালিকা দেখানো হয় না। ফার্মেসি Lifolo অ্যাপে কোডটা খুলে প্রেসক্রিপশন দেখে ওষুধ দেবে।", // bn-ok

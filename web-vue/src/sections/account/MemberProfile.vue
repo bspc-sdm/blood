@@ -25,6 +25,7 @@ import { featureOn } from '@/lib/features';
 import InfoLine from './InfoLine.vue';
 import BecomeDonorCard from './BecomeDonorCard.vue';
 import { SUPPORT_EMAIL, badgeLabel, hasBusiness, useAccountState } from './util';
+import { practitionerLabel } from '@/lib/titleGuard';
 import { invFeature } from '../invoices/features';
 
 const props = defineProps<{ profile: Profile }>();
@@ -68,7 +69,7 @@ const badgeSub = computed(() => {
   const b = badge.value;
   switch (b?.status) {
     case 'approved':
-      return badgeLabel(b.type) + (b.changePending ? tr(' · correction under review', ' · সংশোধন যাচাই চলছে') : tr(' · tap to correct details', ' · তথ্য ঠিক করতে চাপুন'));
+      return (practitionerLabel(b) ?? badgeLabel(b.type)) + (b.changePending ? tr(' · correction under review', ' · সংশোধন যাচাই চলছে') : tr(' · tap to correct details', ' · তথ্য ঠিক করতে চাপুন'));
     case 'pending':
       return tr('Under review', 'যাচাই চলছে');
     case 'rejected':
@@ -138,7 +139,7 @@ function phoneVerified() {
             </button>
           </div>
           <h2 class="t-title-l acct-name">{{ profile.name || '—' }}</h2>
-          <span v-if="approved" class="tag good acct-badge"><Icon name="verified" :size="14" />{{ badgeLabel(approved) }}</span>
+          <span v-if="approved" class="tag good acct-badge"><Icon name="verified" :size="14" />{{ practitionerLabel(badge) ?? badgeLabel(approved) }}</span>
           <span v-if="s.email" class="t-body-s muted acct-email">{{ s.email }}</span>
           <p v-if="photo.error.value" class="err-text" role="alert">{{ photo.error.value }}</p>
         </section>

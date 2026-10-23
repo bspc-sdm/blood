@@ -2,6 +2,7 @@
 import { tr } from '@/lib/i18n';
 import { badgeLabel } from './common';
 import { practiceDocs, systemTag } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 
 export interface DocSpec { type: string; label: string; hint: string; required: boolean }
 
@@ -25,7 +26,7 @@ export function missingDocs(specs: DocSpec[], photos: Record<string, string>): s
 }
 
 export function statusLine(b: { status: string; type: string; changePending?: boolean; system?: unknown }): { text: string; tone?: 'good' | 'error' | 'info' } {
-  if (b.status === 'approved') return { text: badgeLabel(b.type) + (systemTag(b.type, b.system) ? ' · ' + systemTag(b.type, b.system) : '') + (b.changePending ? tr(' · correction under review', ' · সংশোধন যাচাই চলছে') : ''), tone: 'good' };
+  if (b.status === 'approved') return { text: (practitionerLabel(b) ?? badgeLabel(b.type)) + (systemTag(b.type, b.system) ? ' · ' + systemTag(b.type, b.system) : '') + (b.changePending ? tr(' · correction under review', ' · সংশোধন যাচাই চলছে') : ''), tone: 'good' };
   if (b.status === 'pending') return { text: tr('Under review', 'যাচাই চলছে'), tone: 'info' };
   if (b.status === 'rejected') return { text: tr('Not approved. Tap to apply again.', 'অনুমোদন হয়নি। আবার আবেদন করুন।'), tone: 'error' };
   return { text: b.status };

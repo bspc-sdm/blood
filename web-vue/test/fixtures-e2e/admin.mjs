@@ -45,6 +45,14 @@ export const admin = {
   // প্যানেলের কুকি সেশনে `features` চলে না (সার্ভারের মতো: শুধু admin_* আর কয়েকটা পড়া)
   features: () => ({ __status: 403, body: { error: 'ওয়েব প্যানেলে এটা চলে না' } }),
   // ফিচার সুইচ: সব বন্ধ (বদলের আসল পরীক্ষা e2e/admin-features.spec.ts-এ, পাতার নিজের নকল উত্তরে)
+  // ‘ডা.’ লেখা নাম (title_guard, backend/docs/PRACTICE.md §৬): নাম যেমন জমা
+  admin_title_names: need(() => ({
+    title: '‘ডা.’ লেখা নাম', count: 2, real: 1,
+    items: [
+      { uid: 'u_homeo', name: 'ডা. টেস্ট হোমিও', stripped: 'টেস্ট হোমিও', where: ['listing', 'badge', 'profile'], type: 'doctor', system: 'homeopathy', typeLabel: 'হোমিওপ্যাথিক চিকিৎসক', email: 'homeo@example.com', phone: '01711000001', listed: true, badgeStatus: 'approved', demo: false },
+      { uid: 'demo-x-n', name: 'Dr. Demo Nurse', stripped: 'Demo Nurse', where: ['profile'], type: 'nurse', system: null, typeLabel: 'নার্স', email: '', phone: '', listed: false, badgeStatus: 'approved', demo: true },
+    ],
+  })),
   admin_features_get: need(() => ({
     items: ['calls_audio', 'calls_video', 'appt_video', 'chat', 'chat_media', 'online_chamber', 'inv_pharmacy', 'inv_lab', 'inv_chamber', 'inv_ambulance', 'my_expenses', 'desktop']
       .map((key) => ({ key, mode: 'off', pilotUids: [], pilots: [], demo: false, needs: [], twoParty: false, last: null })),

@@ -203,8 +203,14 @@ fun ProfileEditScreen(
     onSave: (Profile) -> Unit,
     onCancel: (() -> Unit)?,
     mode: ProfileMode = ProfileMode.FULL,
+    /** নিজের পেশাদার ব্যাজ — "ডা." পদবির নিয়মের জন্য (TitleGuard.kt); null = পেশাজীবী নন */
+    pro: BadgeState? = null,
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
+    // "ডা." পদবির নিয়ম (title_guard): MBBS/BDS ছাড়া পেশাজীবীর নামে নয় — সার্ভারও একই কথা বলে (title_not_allowed)
+    val guardOn = TitleGuard.rememberOn()
+    val nameErr = TitleGuard.nameError(name, pro?.type, pro?.system, guardOn)
+    val nameHint = TitleGuard.nameHint(pro?.type, pro?.system, guardOn)
     var phone by remember { mutableStateOf(existing?.phone ?: "") }
     var bloodGroup by remember { mutableStateOf(existing?.bloodGroup?.takeUnless { mode == ProfileMode.DONOR && it == Rules.UNKNOWN_GROUP } ?: "") }
     var birthDate by remember { mutableStateOf(existing?.birthDateMillis) }
@@ -255,6 +261,8 @@ fun ProfileEditScreen(
                     onValueChange = { name = it.take(80) },
                     label = { Text(tr("Name", "নাম")) },
                     leadingIcon = { AppIcon(R.drawable.ic_person_outline, null) },
+                    isError = nameErr != null,
+                    supportingText = (nameErr ?: nameHint)?.let { t -> { Text(t) } },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -353,6 +361,7 @@ fun ProfileEditScreen(
                         (mode == ProfileMode.FULL && (bloodGroup.isNotEmpty() || birthDate != null || weight.isNotBlank() || lastDonation != null || savedDonation != null))
                     formError = when {
                         showContact && name.isBlank() -> tr("Enter your name", "নাম লিখুন")
+                        showContact && nameErr != null -> nameErr
                         showContact && cleanPhone == null -> tr("Enter a valid mobile number (01…, 11 digits)", "সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)")
                         !donorTouched -> null
                         bloodGroup.isEmpty() -> tr("Choose your blood group", "রক্তের গ্রুপ বেছে নিন")

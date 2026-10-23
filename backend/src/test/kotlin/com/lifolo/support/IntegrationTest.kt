@@ -3,6 +3,7 @@ package com.lifolo.support
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.lifolo.notify.AccountMail
+import com.lifolo.practice.TitleGuard
 import com.lifolo.users.AccountService
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
@@ -54,6 +55,9 @@ abstract class IntegrationTest {
     @Autowired
     lateinit var accountMail: AccountMail
 
+    @Autowired
+    lateinit var titleGuard: TitleGuard
+
     @BeforeEach
     fun cleanState() {
         val tables = jdbc.queryForList(
@@ -70,6 +74,9 @@ abstract class IntegrationTest {
         push.messages.clear()
         push.dead.clear()
         accounts.forgetAll()
+        // title_guard: the names to strip are read again for every answer (no cache across or inside tests)
+        titleGuard.ttlMs = 0
+        titleGuard.clearCache()
     }
 
     class Res(val status: Int, val body: JsonNode, val response: MockHttpServletResponse) {

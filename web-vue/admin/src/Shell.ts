@@ -40,6 +40,7 @@ const NAV: { group: string | null; items: NavItem[] }[] = [
     { path: 'catalog', label: 'বাছাইয়ের তালিকা', icon: 'menu' },
     { path: 'labtests', label: 'রিপোর্টের ছক', icon: 'hospital' },
     { path: 'features', label: 'ফিচার সুইচ', icon: 'check' }, // bn-ok
+    { path: 'titlenames', label: '‘ডা.’ লেখা নাম', icon: 'person' }, // bn-ok
     { path: 'log', label: 'কাজের ইতিহাস', icon: 'history' },
     { path: 'admins', label: 'অ্যাডমিন', icon: 'admin', owner: true },
     { path: 'demo', label: 'ডেমো (পরীক্ষা)', icon: 'person', owner: true }, // ডেমো — মুছলে এই লাইন, PAGES.demo আর pages/Demo.ts মুছবেন

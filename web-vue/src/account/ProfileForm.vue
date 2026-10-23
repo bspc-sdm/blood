@@ -6,6 +6,8 @@ import { formatDate, fromDateInput, dateInputValue, normalizePhone, todayUtcMidn
 import { toAsciiDigits, tr } from '@/lib/i18n';
 import { UNKNOWN_GROUP, ageYears } from '@/lib/rules';
 import type { Profile } from '@/lib/profile';
+import { useSession } from '@/lib/session';
+import { titleError, titleHint } from '@/lib/titleGuard';
 import { nameCase, type ProfileMode } from './nameCase';
 import BloodGroupChips from './BloodGroupChips.vue';
 
@@ -24,6 +26,11 @@ const formError = ref<string | null>(null);
 const showContact = computed(() => props.mode !== 'donor');
 const showDonor = computed(() => props.mode !== 'basic');
 const today = dateInputValue(todayUtcMidnight());
+// "ডা." পদবির নিয়ম (title_guard, lib/titleGuard.ts): পেশাজীবীর (ব্যাজ) নামে — সার্ভারও একই কথা বলে (title_not_allowed)
+const session = useSession();
+const pro = computed(() => session.me?.badge ?? null);
+const nameError = computed(() => titleError(name.value, pro.value?.type, pro.value?.system));
+const nameHint = computed(() => titleHint(pro.value?.type, pro.value?.system));
 
 function submit() {
   const cleanPhone = normalizePhone(phone.value);
@@ -32,6 +39,11 @@ function submit() {
   const mode = props.mode;
   const donorTouched = mode === 'donor' || (mode === 'full' && (!!group.value || birth.value != null || !!weight.value.trim() || last.value != null || saved != null));
   let err: string | null = null;
+  // "ডা." পদবি: নামের ঘর নিজেই বার্তা দেখায় — সেভ হয় না
+  if (showContact.value && name.value.trim() && nameError.value) {
+    formError.value = null;
+    return;
+  }
   if (showContact.value && !name.value.trim()) err = tr('Enter your name', 'নাম লিখুন');
   else if (showContact.value && !cleanPhone) err = tr('Enter a valid mobile number (01…, 11 digits)', 'সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)');
   else if (donorTouched) {
@@ -68,7 +80,7 @@ function onNever(v: boolean) {
       ) }}
     </p>
     <template v-if="showContact">
-      <TextInput v-model="name" :label="tr('Name', 'নাম')" maxlength="80" autocomplete="name" />
+      <TextInput v-model="name" :label="tr('Name', 'নাম')" maxlength="80" autocomplete="name" :hint="nameHint" :error="nameError" data-testid="profile-name" />
       <TextInput
         v-model="phone"
         :label="tr('Mobile number', 'মোবাইল নম্বর')"

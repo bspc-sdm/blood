@@ -10,6 +10,7 @@ import com.lifolo.common.ApiException
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
+import com.lifolo.practice.TitleRules
 import com.lifolo.users.AccountDeletionService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -203,8 +204,38 @@ class DemoSeeder(
             throw ApiException(400, "ডেমো বানানো \"$name\" ধাপে থেমেছে: ${(e.message ?: e.toString()).take(300)}")
         }
         val last = step == steps.size
+        if (last) noDemoTitles()
         jdbc.update("UPDATE demo_state SET at = now(), partial = ?", !last)
         return if (last) linkedMapOf("next" to null) else linkedMapOf("next" to step + 1, "label" to steps[step].first().label)
+    }
+
+    /**
+     * backend/docs/PRACTICE.md §6 (title_guard): no demo provider who is not an MBBS/BDS doctor carries "ডা."/"Dr." —
+     * whatever a seed part wrote, the demo world's names of non-allopathic doctors, nurses, physios, psychologists … are
+     * written without it (demo rows only; real names are never changed). Returns how many names it fixed.
+     */
+    fun noDemoTitles(): Int {
+        val pros = HashMap<String, Pair<String?, String?>>()
+        jdbc.query(
+            """
+            SELECT coalesce(b.uid, p.uid), coalesce(b.type, p.type), CASE WHEN b.uid IS NOT NULL THEN b.system ELSE p.system END
+            FROM providers p FULL JOIN badges b ON b.uid = p.uid WHERE coalesce(b.uid, p.uid) LIKE 'demo-%'
+            """.trimIndent(),
+            RowCallbackHandler { rs -> pros[rs.getString(1)] = rs.getString(2) to rs.getString(3) },
+        )
+        val bad = pros.filter { (_, v) -> !TitleRules.eligible(v.first, v.second) }.keys
+        if (bad.isEmpty()) return 0
+        var n = 0
+        for ((table, uidCol, nameCol) in DEMO_NAME_COLUMNS) {
+            for (uid in bad) {
+                val names = jdbc.queryForList("SELECT DISTINCT $nameCol FROM $table WHERE $uidCol = ? AND $nameCol IS NOT NULL", String::class.java, uid)
+                for (name in names.filter { TitleRules.hasTitle(it) }) {
+                    n += jdbc.update("UPDATE $table SET $nameCol = ? WHERE $uidCol = ? AND $nameCol = ?", TitleRules.strip(name), uid, name)
+                }
+            }
+        }
+        if (n > 0) log.warn("demo: {} names of non-MBBS demo providers were seeded with a title — written without it", n)
+        return n
     }
 
     /** the old call without a step (tests): every step at once */
@@ -314,3 +345,12 @@ class DemoActions(private val seeder: DemoSeeder, private val admins: AdminServi
         if (!admins.isOwner(ctx.user)) throw ApiException(403, "শুধু মালিক")
     }
 }
+
+/** (table, uid column, name column) of the demo names checked by [DemoSeeder.noDemoTitles] */
+private val DEMO_NAME_COLUMNS = listOf(
+    Triple("providers", "uid", "name"),
+    Triple("badges", "uid", "name"),
+    Triple("user_profiles", "uid", "name"),
+    Triple("appointments", "provider_uid", "provider_name"),
+    Triple("prescriptions", "doctor_uid", "doctor_name"),
+)

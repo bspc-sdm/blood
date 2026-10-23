@@ -121,6 +121,8 @@ class BadgeActions(
             if (curType0 == "doctor" && sentSystem != null && sentSystem != curSystem) {
                 return reverify(ctx, cur, sentSystem, regNo, workplace)
             }
+            // title_guard: the corrected name is the profile name — no "ডা." for anyone but an MBBS/BDS doctor
+            gate.requireName(ctx, users.name(uid), curType0, cur["system"] as String?)
             quotas.use(ctx.lang, uid, "badge")
             // the profession cannot change (lists and services depend on it); only number, workplace and name
             val curType = cur["type"] as String
@@ -135,6 +137,7 @@ class BadgeActions(
                 .nul("docs_request_note")
             if (sent != null) set.ms("docs_sent_at", now)
             set.update(jdbc, "badges", "uid = ?", uid)
+            gate.namesChanged()
             return linkedMapOf("ok" to true, "correction" to true)
         }
         // a doctor: allopathy unless another system is chosen (non-allopathic only while practice_systems is on)
@@ -144,6 +147,8 @@ class BadgeActions(
         // certificate photos (required for nurses and others; a doctor's number is checked on the BMDC site) — checked
         // before the quota is used
         verify.validate(ctx.lang, "badge", listing, b["docs"], true)
+        // title_guard: the badge takes the profile name — no "ডা." for anyone but an MBBS/BDS doctor
+        gate.requireName(ctx, users.name(uid), type, system)
         quotas.use(ctx.lang, uid, "badge")
         val docsHave = verify.save(ctx.lang, "badge", uid, uid, listing, b["docs"], true) ?: emptyList()
         // set() without merge: a new application replaces everything of the earlier one
@@ -161,6 +166,7 @@ class BadgeActions(
             """.trimIndent(),
             uid, P2Js.pgTexts(docsHave), type, system, regNo, workplace, users.name(uid).take(80), user.email, Sql.ts(now),
         )
+        gate.namesChanged()
         return mapOf("ok" to true)
     }
 
@@ -175,6 +181,8 @@ class BadgeActions(
         gate.requireSystem(ctx, system)
         val listing = mapOf("type" to "doctor", "system" to system)
         verify.validate(ctx.lang, "badge", listing, ctx.body["docs"], true)
+        // title_guard: an MBBS doctor turning homeopath (…) cannot keep "ডা." in the name
+        gate.requireName(ctx, users.name(uid), "doctor", system)
         quotas.use(ctx.lang, uid, "badge")
         val sent = verify.save(ctx.lang, "badge", uid, uid, listing, ctx.body["docs"], false)
         val now = clock.now()
@@ -193,6 +201,7 @@ class BadgeActions(
         if (sent != null) set.ms("docs_sent_at", now)
         set.update(jdbc, "badges", "uid = ?", uid)
         cache.clearProviders()
+        gate.namesChanged()
         return linkedMapOf("ok" to true, "reverify" to true)
     }
 
@@ -295,6 +304,7 @@ class BadgeActions(
                     } catch (e: Exception) {
                         // Node ignores a failed update here
                     }
+                    gate.namesChanged()
                     if (typeChanged) cancel.cancelStale(uid, { false }, "The doctor/nurse is no longer listed", "ডাক্তার/নার্স এখন তালিকায় নেই")
                 }
             } else {

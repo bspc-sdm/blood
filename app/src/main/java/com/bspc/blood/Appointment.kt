@@ -125,11 +125,13 @@ fun AppointmentTab(
         // ফিজিওথেরাপিস্ট, সাইকোলজিস্ট: ফিচার সুইচ pro_physio / pro_psychologist চালু থাকলে (Practice.kt)
         val physioOn = Practice.rememberOn(Practice.PHYSIO)
         val psychOn = Practice.rememberOn(Practice.PSYCH)
+        // title_guard + চিকিৎসা পদ্ধতি: "ডাক্তার" ট্যাবে হোমিও/ইউনানি/আয়ুর্বেদ চিকিৎসকও — তাই "ডাক্তার ও চিকিৎসক"
+        val allSystemsTab = TitleGuard.rememberOn() && Practice.rememberOn(Practice.SYSTEMS)
         val types = CHAMBER_TYPES + listOfNotNull(if (physioOn) Practice.PHYSIO_TYPE else null, if (psychOn) Practice.PSYCH_TYPE else null)
         PillTabs(
             tab.coerceIn(0, types.lastIndex),
             listOf(
-                PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
+                PillTab(if (allSystemsTab) TitleGuard.tabAll() else tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
                 PillTab(tr("Nutritionist", "পুষ্টিবিদ"), R.drawable.ic_restaurant),
                 PillTab(tr("Fitness trainer", "ফিটনেস ট্রেইনার"), R.drawable.ic_fitness_center),
             ) + types.drop(CHAMBER_TYPES.size).map { PillTab(Practice.proTab(it), Badges.icon(it)) },
@@ -188,7 +190,14 @@ private fun ProviderList(type: String, profile: Profile) {
 
     val feeLabel = { n: Int -> tr("Up to ৳" + String.format(java.util.Locale.US, "%,d", n), "৳" + num(String.format(java.util.Locale.US, "%,d", n)) + " পর্যন্ত") }
     val dayLabel = { d: String -> if (d == "tomorrow") tr("Tomorrow", "আগামীকাল") else tr("Sitting today", "আজ বসছেন") }
-    val genderLabel = { g: String -> if (g == "female") tr("Female doctor", "নারী ডাক্তার") else tr("Male doctor", "পুরুষ ডাক্তার") }
+    // title_guard: হোমিও/ইউনানি/আয়ুর্বেদ বাছাই করা থাকলে "ডাক্তার" নয় — "হোমিওপ্যাথিক চিকিৎসক" …
+    val guardOn = TitleGuard.rememberOn()
+    val practWord = if (type == "doctor" && guardOn && filter.system != null && filter.system != Practice.ALLOPATHY) TitleGuard.practitionerName(filter.system) else null
+    val genderLabel = { g: String ->
+        if (practWord != null) {
+            if (g == "female") tr("Female", "নারী") else tr("Male", "পুরুষ")
+        } else if (g == "female") tr("Female doctor", "নারী ডাক্তার") else tr("Male doctor", "পুরুষ ডাক্তার")
+    }
     // অনলাইন (ভিডিও) চেম্বার: ফিচার সুইচ online_chamber (বন্ধ থাকলে ছাঁকনি আর ব্যাজ নেই, আগের মতো)
     val onlineOn = OnlineGate.chamber()
     val active = listOfNotNull(
@@ -264,7 +273,7 @@ private fun ProviderList(type: String, profile: Profile) {
                             "trainer" -> tr("No fitness trainers found", "কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি")
                             Practice.PHYSIO_TYPE -> tr("No physiotherapists found", "কোনো ফিজিওথেরাপিস্ট পাওয়া যায়নি")
                             Practice.PSYCH_TYPE -> tr("No psychologists found", "কোনো সাইকোলজিস্ট পাওয়া যায়নি")
-                            else -> tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি")
+                            else -> practWord?.let { tr("No $it found", "কোনো $it পাওয়া যায়নি") } ?: tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি")
                         },
                         tr("Try a wider area or remove a filter.", "বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।"),
                     )
@@ -319,7 +328,7 @@ private fun ProviderList(type: String, profile: Profile) {
             }
             // লিঙ্গ: তালিকায় লেখা থাকলে তবেই
             if (facets?.gender == true || filter.gender != null) {
-                FilterChoice(tr("Doctor", "ডাক্তার"), listOf("female", "male"), filter.gender, genderLabel) { setFilter(filter.copy(gender = it)) }
+                FilterChoice(practWord ?: tr("Doctor", "ডাক্তার"), listOf("female", "male"), filter.gender, genderLabel) { setFilter(filter.copy(gender = it)) }
             }
         }
     }
@@ -528,7 +537,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                 tr("About", "পরিচিতি"),
                 listOf(
                     R.drawable.ic_school to p.degrees,
-                    R.drawable.ic_badge to Badges.label(p.type),
+                    R.drawable.ic_badge to TitleGuard.professionLabel(p.type, p.system, p.typeLabel, p.typeLabelEn),
                     // পদ্ধতি আর নিবন্ধনকারী প্রতিষ্ঠান (practice_systems)
                     R.drawable.ic_verified to (Practice.nameTag(p.type, p.system)?.let { it + " · " + Practice.body(Practice.system(p.system)) } ?: ""),
                 ),
@@ -1549,7 +1558,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     }
     badgeEdit?.let { bd ->
         // ব্যাজের তথ্য সংশোধন — পদ্ধতি বদলালে সেই বোর্ডের সনদ, তারপর ব্যাজ আবার যাচাই (যাচাই পর্যন্ত তালিকায় থাকেন না)
-        BadgeApplyDialog(onDismiss = { badgeEdit = null }, onApplied = { badgeEdit = null; onBack() }, current = bd)
+        BadgeApplyDialog(onDismiss = { badgeEdit = null }, onApplied = { badgeEdit = null; onBack() }, current = bd, profileName = profile.name)
     }
     if (choosingType) {
         ChamberTypeDialog(

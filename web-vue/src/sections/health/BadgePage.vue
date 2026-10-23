@@ -12,6 +12,7 @@ import { SYSTEMS, T as PT, isSystem, regBody, regPlaceholder, systemLabel, syste
 import { badgeDocs, missingDocs, statusLine } from './badge';
 import DocPhotosField from './DocPhotosField.vue';
 import DocsNeeded from './DocsNeeded.vue';
+import { TG, titleError, titleHint } from '@/lib/titleGuard';
 
 const nav = useNav();
 const s = useSession();
@@ -44,7 +45,17 @@ const reason = computed(() => (cur.value && ['rejected', 'suspended'].includes(c
 const docsMissing = computed(() => !!cur.value?.docsMissing && cur.value?.status === 'pending');
 const docsRequested = computed(() => !!cur.value?.docsRequested);
 
+// "ডা." পদবির নিয়ম (title_guard): ব্যাজ প্রোফাইলের নাম নেয় — MBBS/BDS ছাড়া নামের আগে "ডা." থাকলে আগে প্রোফাইলে ঠিক করা
+const badgeSys = computed(() => (t.value === 'doctor' ? (showSys.value ? sys.value : (cur.value?.system ?? 'allopathy')) : null));
+const profName = computed(() => s.profile?.name ?? '');
+const nameErr = computed(() => titleError(profName.value, t.value, badgeSys.value));
+const nameHint = computed(() => titleHint(t.value, badgeSys.value));
+
 async function submit() {
+  if (nameErr.value) {
+    err.value = nameErr.value;
+    return;
+  }
   if (!correction.value || sysChanged.value) {
     const m = missingDocs(docSpecs.value, docs.value);
     if (m) {
@@ -115,6 +126,10 @@ async function submit() {
         <span class="t-body-s muted">{{ PT.bodyHint(sys) }}</span>
         <InfoText v-if="sysChanged" :text="PT.reverify()" />
       </div>
+      <template v-if="nameHint">
+        <TextInput :label="tr('Name', 'নাম')" :model-value="profName" disabled :hint="nameHint" :error="nameErr" data-testid="badge-name" />
+        <div v-if="nameErr" class="row"><Button variant="text" icon="edit" @click="nav('/profile/edit')">{{ TG.fixInProfile() }}</Button></div>
+      </template>
       <TextInput
         :label="showSys && sys !== 'allopathy' ? PT.regNoFor(sys) : tr('Registration / licence no.', 'রেজিস্ট্রেশন / লাইসেন্স নম্বর')"
         :model-value="reg"

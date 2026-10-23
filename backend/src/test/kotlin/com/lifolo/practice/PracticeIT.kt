@@ -120,7 +120,9 @@ class PracticeIT : P2TestBase() {
         assertEquals(setOf("allo", "homeo", "unani"), uids(all["items"]))
         val byUid = all["items"].associateBy { it["uid"].textValue() }
         assertEquals("এলোপ্যাথি", byUid["allo"]!!["systemLabel"].textValue())
-        assertEquals(listOf("homeopathy", "হোমিওপ্যাথি", "ডাক্তার"), listOf("system", "systemLabel", "typeLabel").map { byUid["homeo"]!![it].textValue() })
+        // the test profile has every switch on — title_guard too: a homeopath is not called "ডাক্তার" (TitleGuardIT)
+        assertEquals(listOf("homeopathy", "হোমিওপ্যাথি", "হোমিওপ্যাথিক চিকিৎসক"), listOf("system", "systemLabel", "typeLabel").map { byUid["homeo"]!![it].textValue() })
+        assertEquals("ডাক্তার", byUid["allo"]!!["typeLabel"].textValue())
         assertEquals("ইউনানি", byUid["unani"]!!["systemLabel"].textValue())
         val chips = all["facets"]["systems"].associate { it["code"].textValue() to it["n"].intValue() }
         assertEquals(mapOf("allopathy" to 1, "homeopathy" to 1, "unani" to 1, "ayurveda" to 0), chips)
@@ -177,6 +179,9 @@ class PracticeIT : P2TestBase() {
         assertEquals("bad_system", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "magic", "regNo" to "H-1", "workplace" to "X")).code)
         // the homeopathic board's certificate is required (no online register to check)
         assertEquals("docs_required", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "X")).code)
+        // title_guard (on in the test profile, TitleGuardIT): a homeopath cannot keep "ডা." — the name is fixed first
+        assertEquals("title_not_allowed", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "হোমিও চেম্বার", "docs" to mapOf("cert" to jpeg))).code)
+        ok("d1", "profile_update", mapOf("set" to mapOf("name" to "রহিম")))
         val r = ok("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "হোমিও চেম্বার", "docs" to mapOf("cert" to jpeg)))
         assertEquals(true, r["reverify"].booleanValue())
         val b = row("SELECT status, system, reverify_from, reg_no, verified_at FROM badges WHERE uid = 'd1'")

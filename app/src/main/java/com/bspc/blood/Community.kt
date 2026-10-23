@@ -77,6 +77,8 @@ data class Answer(
     val mine: Boolean,
     val createdAt: Long,
     val edited: Boolean = false,
+    /** title_guard: অ-এলোপ্যাথিক চিকিৎসকের ব্যাজ ("হোমিওপ্যাথিক চিকিৎসক" …) — সার্ভার পাঠালে */
+    val badgeLabel: String = "",
 )
 
 data class Tip(
@@ -88,6 +90,7 @@ data class Tip(
     val mine: Boolean,
     val createdAt: Long,
     val edited: Boolean = false,
+    val badgeLabel: String = "",
 )
 
 /** নিজের ব্যাজ: type ("doctor" …), status ("pending" / "approved" / "rejected") */
@@ -139,6 +142,12 @@ object Community {
         anonymous = o.optBoolean("anonymous"),
     )
 
+    /** title_guard: সার্ভারের ব্যাজের নাম (অ-এলোপ্যাথিক চিকিৎসক) — না থাকলে খালি */
+    private fun badgeLabelOf(o: JSONObject): String {
+        val bn = o.str("badgeLabel").orEmpty()
+        return if (bn.isBlank()) "" else tr(o.str("badgeLabelEn").orEmpty().ifBlank { bn }, bn)
+    }
+
     suspend fun me(): CommunityMe {
         val o = call("me")
         val b = o.optJSONObject("badge")
@@ -164,6 +173,7 @@ object Community {
             Answer(
                 it.optString("id"), it.optString("text"), it.optString("authorName"),
                 it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"), it.optLong("editedAt") > 0,
+                badgeLabelOf(it),
             )
         }
         return question(o.getJSONObject("question")) to answers
@@ -190,6 +200,7 @@ object Community {
                 Tip(
                     it.optString("id"), it.optString("title"), it.optString("body"), it.optString("authorName"),
                     it.optString("badge"), it.optBoolean("mine"), it.optLong("createdAt"), it.optLong("editedAt") > 0,
+                    badgeLabelOf(it),
                 )
             }
 
@@ -292,7 +303,7 @@ object Badges {
 
 /** নামের পাশে ব্যাজ */
 @Composable
-fun BadgeChip(type: String) {
+fun BadgeChip(type: String, label: String = "") {
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -301,7 +312,7 @@ fun BadgeChip(type: String) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             AppIcon(R.drawable.ic_verified, null, Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
-            Text(Badges.label(type), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text(label.ifBlank { Badges.label(type) }, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -320,7 +331,7 @@ fun timeAgo(millis: Long): String {
 }
 
 @Composable
-private fun AuthorLine(name: String?, badge: String?, createdAt: Long) {
+private fun AuthorLine(name: String?, badge: String?, createdAt: Long, badgeLabel: String = "") {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             name ?: tr("Anonymous", "নাম প্রকাশে অনিচ্ছুক"),
@@ -332,7 +343,7 @@ private fun AuthorLine(name: String?, badge: String?, createdAt: Long) {
         )
         if (badge != null) {
             Spacer(Modifier.width(6.dp))
-            BadgeChip(badge)
+            BadgeChip(badge, badgeLabel)
         }
         Spacer(Modifier.width(8.dp))
         Text(timeAgo(createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -577,7 +588,7 @@ fun QuestionDetailScreen(id: String, me: CommunityMe?, onChanged: () -> Unit, on
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AuthorLine(a.authorName, a.badge, a.createdAt)
+                                AuthorLine(a.authorName, a.badge, a.createdAt, a.badgeLabel)
                                 Text(a.text, style = MaterialTheme.typography.bodyLarge)
                                 if (a.edited) EditedNote()
                                 Row {
@@ -774,7 +785,7 @@ fun HealthTipsTab(refreshKey: Int, me: CommunityMe?, onOpenTip: (Tip) -> Unit, o
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AuthorLine(t.authorName, t.badge, t.createdAt)
+                                AuthorLine(t.authorName, t.badge, t.createdAt, t.badgeLabel)
                                 Text(t.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     t.body,
@@ -846,7 +857,7 @@ fun TipDetailScreen(tip0: Tip, me: CommunityMe?, onChanged: () -> Unit, onBack: 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(tip.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            AuthorLine(tip.authorName, tip.badge, tip.createdAt)
+            AuthorLine(tip.authorName, tip.badge, tip.createdAt, tip.badgeLabel)
             Spacer(Modifier.height(4.dp))
             Text(tip.body, style = MaterialTheme.typography.bodyLarge)
             if (tip.edited) EditedNote()
@@ -960,7 +971,7 @@ fun PostTipScreen(onPosted: () -> Unit, onBack: () -> Unit) {
 // ------------------------------------------------------------
 
 @Composable
-fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current: BadgeState? = null) {
+fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current: BadgeState? = null, profileName: String = "") {
     val scope = rememberCoroutineScope()
     // current = অনুমোদিত ব্যাজ: তথ্য সংশোধনের অনুরোধ (ব্যাজ আর তালিকা আগের মতো থাকে)
     val correction = current?.status == "approved"
@@ -975,6 +986,11 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
     var regNo by remember { mutableStateOf(current?.regNo ?: "") }
     var workplace by remember { mutableStateOf(current?.workplace ?: "") }
     var docs by remember { mutableStateOf(mapOf<String, String>()) }
+    // "ডা." পদবির নিয়ম (title_guard): ব্যাজ প্রোফাইলের নাম নেয় — MBBS/BDS ছাড়া নামের আগে "ডা." থাকলে আগে প্রোফাইলে ঠিক করা
+    val guardOn = TitleGuard.rememberOn()
+    val badgeSystem = if (type == "doctor") (if (withSystem) system else current?.system.orEmpty()) else null
+    val nameErr = TitleGuard.nameError(profileName, type, badgeSystem, guardOn)
+    val nameHint = TitleGuard.nameHint(type, badgeSystem, guardOn)
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     // পদ্ধতি বদলের পর: আবার যাচাই হবে — কী হবে তা জানিয়ে তারপর বন্ধ
@@ -1030,6 +1046,18 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                     // ফিজিও/সাইকোলজিস্ট: ডিগ্রি আর সংগঠনের সদস্যপদ
                     Practice.regHint(type, system)?.let { SmallNote(it) }
                 }
+                if (nameHint != null) {
+                    OutlinedTextField(
+                        value = profileName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(tr("Name", "নাম")) },
+                        isError = nameErr != null,
+                        supportingText = { Text(nameErr?.let { it + " · " + TitleGuard.fixInProfile() } ?: nameHint) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 OutlinedTextField(
                     value = regNo,
                     onValueChange = { regNo = it.take(60) },
@@ -1059,6 +1087,7 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
             TextButton(
                 onClick = {
                     val sys = if (withSystem && (!correction || systemTouched)) system else null
+                    nameErr?.let { errorMsg = it; return@TextButton }
                     // নতুন আবেদন, বা পদ্ধতি বদলানো সংশোধন: সেই বোর্ডের সনদের ছবি লাগে
                     if (!correction || (sys != null && sys != oldSystem)) VerifyDocs.missing(VerifyDocs.badge(type, sys), docs)?.let { errorMsg = it; return@TextButton }
                     scope.launch {

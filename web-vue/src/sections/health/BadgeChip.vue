@@ -3,9 +3,9 @@
 import { Icon } from '@/ui/kit';
 import { badgeLabel } from './common';
 
-defineProps<{ type: string }>();
+defineProps<{ type: string; label?: string | null }>();
 </script>
 
 <template>
-  <span class="health-badge"><Icon name="verified" />{{ badgeLabel(type) }}</span>
+  <span class="health-badge"><Icon name="verified" />{{ label || badgeLabel(type) }}</span>
 </template>

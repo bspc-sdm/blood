@@ -47,6 +47,8 @@ export const FEATURE_KEYS = [
   'pro_psychologist',
   // স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md)
   'health_consent',
+  // "ডা." পদবির নিয়ম (lib/titleGuard.ts)
+  'title_guard',
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

@@ -294,7 +294,10 @@ object Practice {
     )
 
     /** কাগজ/PDF-এর মাথায় পদ্ধতি বা পেশা: "হোমিওপ্যাথি", "ফিজিওথেরাপিস্ট" (সুইচ বন্ধ থাকলে এলোপ্যাথির লেবেল নেই) */
-    fun rxHeaderTag(rx: Rx): String? = proLabel(rx.doctorType) ?: nameTag("doctor", rx.system)
+    fun rxHeaderTag(rx: Rx): String? =
+        // title_guard: অ-এলোপ্যাথিক চিকিৎসকের পেশা ("হোমিওপ্যাথিক চিকিৎসক" …) — পর্দা আর PDF একই
+        TitleGuard.practitionerLabel(rx.doctorType.ifBlank { "doctor" }, rx.system, rx.typeLabel, rx.typeLabelEn)
+            ?: proLabel(rx.doctorType) ?: nameTag("doctor", rx.system)
 
     // ---------- সাইকোলজিস্টের গোপনীয়তা ----------
     // সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট আর নোট কেয়ারগিভার দেখেন না, যদি না রোগী সেই কেয়ারগিভারকে শেয়ার করেন (শুরুতে বন্ধ)।
@@ -304,6 +307,9 @@ object Practice {
 /** সার্ভারের ঘরের নাম (backend/docs/PRACTICE.md) — এক জায়গায় */
 object PracticeWire {
     const val SYSTEM = "system"
+    /** সার্ভারের পেশার নাম (title_guard চালু হলে অ-এলোপ্যাথি "হোমিওপ্যাথিক চিকিৎসক" …) — TitleGuard.kt */
+    const val TYPE_LABEL = "typeLabel"
+    const val TYPE_LABEL_EN = "typeLabelEn"
     /** প্রেসক্রিপশনের doctor-এর ভেতরে পেশা ("doctor" / "physio" / "psychologist") */
     const val DOCTOR_TYPE = "type"
     /** প্রেসক্রিপশন: লেখকের পেশা, হাতে লেখা লাইন, ফার্মেসিতে পাঠানো যায় কি না (rx view-এর উপরের ঘর) */

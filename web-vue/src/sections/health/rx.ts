@@ -9,6 +9,8 @@ export interface Rx {
     name?: string; degrees?: string; regNo?: string; specialties?: string[]; chamber?: { name?: string; address?: string; phone?: string } | null;
     /** practice: চিকিৎসা পদ্ধতি আর পেশা (physio/psychologist) — পুরোনো সার্ভারে নেই */
     system?: string; type?: string;
+    /** title_guard: সার্ভারের পেশার নাম ("হোমিওপ্যাথিক চিকিৎসক" …) */
+    typeLabel?: string; typeLabelEn?: string;
   };
   /** practice: লেখকের পেশা আর প্রেসক্রিপশনের নিয়ম (সার্ভারের Practice.rxRules) — পুরোনো সার্ভারে নেই */
   doctorType?: string; rxRules?: RxRules | null;

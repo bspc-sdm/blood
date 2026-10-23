@@ -150,7 +150,7 @@ fun ProfileTab(
             Text(profile.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             community?.approvedBadge?.let {
                 Spacer(Modifier.height(6.dp))
-                BadgeChip(it)
+                BadgeChip(it, community?.badge?.let { b -> TitleGuard.practitionerLabel(b.type, b.system) }.orEmpty())
             }
             AuthRepository.currentEmail?.let {
                 Spacer(Modifier.height(4.dp))
@@ -426,6 +426,7 @@ fun ProfileTab(
                 )
             },
             current = cur,
+            profileName = profile.name,
         )
     }
 }
@@ -452,4 +453,5 @@ private fun ActionRow(
 
 /** "ডাক্তার (হোমিওপ্যাথি)" — পদ্ধতির সুইচ বন্ধ থাকলে শুধু পেশা */
 private fun badgeName(b: BadgeState): String =
-    Badges.label(b.type) + (Practice.nameTag(b.type, b.system)?.let { " ($it)" } ?: "")
+    // title_guard: অ-এলোপ্যাথিক চিকিৎসক "ডাক্তার" নন — "হোমিওপ্যাথিক চিকিৎসক (হোমিওপ্যাথি)"
+    TitleGuard.professionLabel(b.type, b.system) + (Practice.nameTag(b.type, b.system)?.let { " ($it)" } ?: "")

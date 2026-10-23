@@ -3,6 +3,7 @@ package com.lifolo.notify
 import com.lifolo.common.DhakaTime
 import com.lifolo.common.LifoloProperties
 import com.lifolo.demo.DemoWorld
+import com.lifolo.practice.TitleGuard
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit
 class AccountMail(
     private val mail: MailSender,
     private val jdbc: JdbcTemplate,
+    private val titles: TitleGuard,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -52,8 +54,14 @@ class AccountMail(
         }.getOrNull()?.trim()?.takeIf { it.contains('@') }
     }
 
-    private fun send(uid: String, email: String?, letter: Letter) {
+    private fun send(uid: String, email: String?, letter0: Letter) {
         if (DemoWorld.isDemoUid(uid)) return
+        // title_guard (practice/TitleGuard): a stored "ডা. …" name of someone who may not carry it, shown without it
+        val letter = try {
+            Letter(titles.text(letter0.subject, uid), letter0.lines.map { titles.text(it, uid) })
+        } catch (e: Exception) {
+            letter0
+        }
         val to = try {
             address(uid, email)
         } catch (e: Exception) {

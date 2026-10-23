@@ -17,7 +17,7 @@ The owner approved this on 2026-10-23. The backend agent owns `backend/docs/PRAC
 - Changing `system` after approval sends the badge back to re-verification.
 - Display: the system label always appears next to the name in every list, profile, appointment and prescription header: "এলোপ্যাথি", "হোমিওপ্যাথি", "ইউনানি", "আয়ুর্বেদ".
   - Never auto-prefix "ডা." for non-allopathic systems. Show the name plus the degree text the provider entered.
-  - (The owner has a legal check pending on title use.)
+  - (The owner has a legal check pending on title use.) → §6, the `title_guard` switch.
 - Specialties: the catalog is per system. Homeopathy, unani and ayurveda get a short generic list plus "সাধারণ".
 - Search: `providers {system?}` filter. With no filter, all systems are shown, each clearly labelled. Patients get a filter chip row: সব / এলোপ্যাথি / হোমিওপ্যাথি / ইউনানি / আয়ুর্বেদ.
 - Prescriptions:
@@ -179,3 +179,92 @@ the registering body instead of "BMDC"), `me.badge`, `admin_badges` items. The s
 - `PracticeIT` (migration default, filter + labels, re-verification, prescription rules, physio/psychologist, privacy +
   generic pushes, switches off/on), `DemoPracticeIT` (demo seeds, demo/real separation, wipe).
 - Manual: `docs/test-plan/manual/20-practice.md`.
+
+---
+
+## 6. The "ডা." / "Dr." title rule (`title_guard`, owner approval 2026-10-23)
+
+Legal background (lawyer still reviewing the exact wording): Bangladesh High Court rulings (2020/2021, reaffirmed March
+2025) — only MBBS/BDS holders may use "Dr." / "ডা."; homeopathy, unani and ayurveda practitioners may use terms like
+"Complementary/Integrated Medicine Practitioner"; BMDC Act 2010 s.29(2) sets penalties of up to 3 years.
+
+### Who may carry the title
+Only provider type `doctor` with system `allopathy` (dentists are allopathy; an old doctor row without a system counts as
+allopathy). Everyone else may not: homeopathy, unani, ayurveda, nurse, nutritionist, trainer, physio, psychologist,
+expert … A user's profession is their badge (`badges.type/system`, any status), else their listing (`providers`).
+
+Title variants, at the start of the name, any case, an optional dot / colon / visarga, with or without a space after:
+"ডা.", "ডাঃ", "ডা ", "ডা:", "ডাক্তার ", "Dr.", "Dr ", "Dr:", "DR.", "Doctor " (`TitleRules.TITLE`). "ডালিয়া", "Drabir",
+"Doctorate" are names. Several titles in a row are all removed ("ডা. ডা. করিম" → "করিম").
+
+### Feature switch
+`title_guard` — "‘ডা.’ পদবির নিয়ম", default off, off / pilot / on like every key (FEATURES.md). Off: nothing changes.
+- **Saving a name** follows the **caller** (the provider saving).
+- **Showing names and labels** follows the **viewer**: the caller of an action, the recipient of a push, a bell entry, an
+  SSE event or an account email. Guests and the public pages (`/rx/{code}`, `invoice_verify`) change only when the switch
+  is "on" for everyone. Pilot: the owner puts his own test accounts (to see) and some providers (to be checked when
+  saving) in the pilot list; `demo: true` covers the demo accounts.
+
+### Server (the source of truth)
+- **Saving — 400 `title_not_allowed`** "MBBS/BDS ছাড়া নামের আগে ‘ডা.’ বা ‘Dr.’ লেখা যাবে না" ("Only MBBS/BDS doctors may
+  write ‘Dr.’ before the name"):
+  - `profile_update {set: {name}}` by a non-eligible provider (the name in the request; an unchanged legacy name sent
+    back with the form is refused too, so the provider removes the title the next time they edit their profile);
+  - `badge_apply` — a new application, a correction of an approved badge and a system change (re-verification): the
+    badge takes the profile name, so the profile name is checked against the profession/system applied for (after the
+    document check, before the quota);
+  - `provider_save` (and the old-app save) only when it **creates** the listing (no listing name yet). An existing
+    listing keeps working — its name is stripped where it is shown until the badge name is corrected.
+- **Showing — strip at render, never in the database.** `TitleGuard.apply` rewrites every `/api/community` answer
+  (ActionDispatcher) for a viewer with the switch on: a string field that is exactly a stored titled name of a
+  non-eligible provider gets the name without the title; notification texts (`title`, `body` of bell entries) get it
+  where the name stands as a whole name ("ডা. করিম · ১২ নভেম্বর"). The names come from every stored spelling — the
+  listing, the badge (and a pending correction), the profile (chat and call names), and the copies on appointments,
+  prescriptions, lab orders, report reviews, chamber receipts, health answers and tips (`TitleGuard.NAMES_SQL`, kept
+  30 s in memory, cleared on a name change). A name that an eligible doctor also has is never stripped. The same filter
+  runs on every push and bell entry (PushService, per recipient), SSE events (`user:<uid>` topics), account emails
+  (AccountMail), the LiveKit participant name and the lock-screen first names of calls and messages
+  (`CallService.firstNameFor`), and the public prescription check page. Answers shown as stored: `admin_title_names`
+  and one's own `profile_get` (so the edit form shows the title and the provider removes it). Switching off shows the
+  stored names again.
+  - That covers lists (`providers`, `home_providers`, search), profile (`provider_me`), appointments, the prescription
+    header (`rx_get`, `rx_mine`, `rx_doctor_list`, `rx_patient_history` — the apps draw the PDF from it), receipts
+    (`invoice_get`, `my_invoices`, `invoice_verify`), the verify page, chat and call names, pushes and emails.
+- **Profession label.** `typeLabel` (and new `typeLabelEn`) on every provider, appointment, prescription `doctor`,
+  `rx_me`, `me.badge` and `admin_badges` item (Practice.labels): for a viewer with the switch on a non-allopathic doctor
+  is "হোমিওপ্যাথিক চিকিৎসক" / "ইউনানি চিকিৎসক" / "আয়ুর্বেদিক চিকিৎসক" ("Homeopathic / Unani / Ayurvedic
+  practitioner") instead of "ডাক্তার" — whatever `practice_systems` says. Allopathy stays "ডাক্তার"; physio and
+  psychologist labels are unchanged. Health answers and tips of such a doctor carry `badgeLabel` / `badgeLabelEn`
+  for the badge chip. The public check page says "Lifolo-তে যাচাই করা পেশাজীবীর দেওয়া" instead of "… ডাক্তারের দেওয়া".
+- **Admin list "‘ডা.’ লেখা নাম"** — `admin_title_names` (admins) → `{title, items: [{uid, name, stripped, where:
+  [listing|badge|correction|profile], names, type, system, typeLabel, email, phone, listed, badgeStatus, demo}], count,
+  real, message, hint}`: every non-eligible provider whose current name starts with a title, whether the switch is on or
+  not, names as stored. Admin page: `web-vue/admin` → "‘ডা.’ লেখা নাম" (`#/titlenames`). The provider fixes it by
+  editing the profile name and sending a badge correction; the admin approves it as usual.
+- **Demo.** No demo provider who is not an MBBS/BDS doctor is seeded with a title (the seeds never had one);
+  `DemoSeeder.noDemoTitles()` runs after the last seed step and writes any such demo name without it (demo rows only).
+
+### Strings — one place each (the lawyer may change the wording)
+- Server: `backend/src/main/kotlin/com/lifolo/practice/TitleRules.kt` (error, hint, practitioner labels, admin title,
+  verify-page line, the title pattern).
+- Web / desktop: `web-vue/src/lib/titleGuard.ts`. Admin page: `web-vue/admin/src/pages/TitleNames.ts`.
+- Android: `app/src/main/java/com/bspc/blood/TitleGuard.kt`.
+
+### Clients
+- Web and Android mirror the rule only: the profile name field (profile edit) of a non-eligible provider shows the hint
+  "নামের আগে ‘ডা.’ লিখবেন না — পেশা নিজে থেকেই দেখানো হবে" and, with a title, the error inline (save blocked); the
+  badge form shows the profile name with the same hint/error for the chosen profession/system and a link to edit the
+  profile. The server's `title_not_allowed` message is shown as is.
+- Profession labels come from the server's `typeLabel` (fallback: the system when the switch is on): provider detail,
+  appointment detail, the provider's own workspace and badge line, the prescription header (screen, print and PDF), the
+  badge chip on answers and tips. Search: with the switch and `practice_systems` on, the "ডাক্তার" tab reads
+  "ডাক্তার ও চিকিৎসক"; with a homeopathy/unani/ayurveda chip selected the empty text and the gender filter use the
+  practitioner label ("কোনো হোমিওপ্যাথিক চিকিৎসক পাওয়া যায়নি").
+
+### Tests
+- `TitleGuardIT` (rules and every variant, saving: profile / badge / correction / re-verification / new listing,
+  eligible vs non-eligible, strip at render in lists, profile, appointments, the prescription header the PDF uses, the
+  check page, receipts, pushes; stored names unchanged; switch off; admin list; pilot), `DemoTitleIT`.
+- Web: `tests/unit/title-guard.test.ts`, `e2e/title-guard.spec.ts`. Android: `TitleGuardTest`.
+- Manual: `docs/test-plan/manual/22-title-guard.md` (release phase 19).
+

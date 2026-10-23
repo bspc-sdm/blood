@@ -171,6 +171,7 @@ class CommunityActions(
             ?: throw ctx.err(404, "Question not found", "প্রশ্নটা পাওয়া যায়নি")
         val answers = jdbc.queryForList("SELECT * FROM answers WHERE question_id = ? ORDER BY created_at, id LIMIT 200", id)
         val live = badges.live(answers.map { it["uid"] as String })
+        val practitioner = practitionerLabels(live)
         val off = accounts.deactivatedAmong(answers.map { it["uid"] as? String } + (x["uid"] as? String))
         val mine = x["uid"] == uid
         val q = linkedMapOf<String, Any?>(
@@ -197,7 +198,7 @@ class CommunityActions(
                     "mine" to (d["uid"] == uid),
                     "createdAt" to (d["created_at"] as java.sql.Timestamp).time,
                     "editedAt" to ((d["edited_at"] as? java.sql.Timestamp)?.time ?: 0L),
-                )
+                ).apply { practitioner[d["uid"]]?.let { put("badgeLabel", it.first); put("badgeLabelEn", it.second) } }
             },
         )
     }
@@ -327,6 +328,30 @@ class CommunityActions(
         return mapOf("ok" to true)
     }
 
+    /**
+     * title_guard (backend/docs/PRACTICE.md §6): the badge chip of a homeopathic / unani / ayurvedic doctor reads
+     * "হোমিওপ্যাথিক চিকিৎসক" … instead of "ডাক্তার" (`badgeLabel`, `badgeLabelEn`) for a viewer with the rule on.
+     */
+    private fun practitionerLabels(live: Map<String, Pair<String, String>>): Map<Any?, Pair<String, String>> {
+        if (!com.lifolo.practice.TitleGuard.renderOn()) return emptyMap()
+        val doctors = live.filterValues { it.first == "doctor" }.keys.toList()
+        if (doctors.isEmpty()) return emptyMap()
+        val out = HashMap<Any?, Pair<String, String>>()
+        for (chunk in doctors.chunked(500)) {
+            jdbc.query(
+                "SELECT uid, system FROM badges WHERE system IS NOT NULL AND system <> 'allopathy' AND uid IN (${chunk.joinToString(",") { "?" }})",
+                org.springframework.jdbc.core.RowCallbackHandler { rs ->
+                    val sys = rs.getString(2)
+                    val bn = com.lifolo.practice.TitleRules.PRACTITIONER_BN[sys]
+                    val en = com.lifolo.practice.TitleRules.PRACTITIONER_EN[sys]
+                    if (bn != null && en != null) out[rs.getString(1)] = bn to en
+                },
+                *chunk.toTypedArray(),
+            )
+        }
+        return out
+    }
+
     // ------------------------------------------------------------------ Health Tips
 
     fun tips(ctx: ActionContext): Any {
@@ -337,6 +362,7 @@ class CommunityActions(
             *(if (before != null) arrayOf<Any?>(Sql.ts(before), Rules.PAGE) else arrayOf<Any?>(Rules.PAGE)),
         )
         val live = badges.live(rows.map { it["uid"] as String })
+        val practitioner = practitionerLabels(live)
         val off = accounts.deactivatedAmong(rows.map { it["uid"] as? String })
         return mapOf(
             "items" to rows.map { d ->
@@ -351,7 +377,7 @@ class CommunityActions(
                     "mine" to (d["uid"] == uid),
                     "createdAt" to (d["created_at"] as java.sql.Timestamp).time,
                     "editedAt" to ((d["edited_at"] as? java.sql.Timestamp)?.time ?: 0L),
-                )
+                ).apply { practitioner[d["uid"]]?.let { put("badgeLabel", it.first); put("badgeLabelEn", it.second) } }
             },
         )
     }

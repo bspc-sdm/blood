@@ -425,6 +425,9 @@ data class Provider(
     val matched: List<Int>? = null,
     /** চিকিৎসা পদ্ধতি (ডাক্তার; Practice.kt) — খালি = এলোপ্যাথি */
     val system: String = "",
+    /** সার্ভারের পেশার নাম (title_guard: অ-এলোপ্যাথি "হোমিওপ্যাথিক চিকিৎসক" …) — TitleGuard.kt */
+    val typeLabel: String = "",
+    val typeLabelEn: String = "",
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
 }
@@ -663,6 +666,9 @@ data class Appointment(
     val system: String = "",
     /** সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট (গোপন: কেয়ারগিভার শুধু রোগী শেয়ার করলে দেখেন) */
     val privateType: Boolean = false,
+    /** সার্ভারের পেশার নাম (title_guard) — TitleGuard.kt */
+    val typeLabel: String = "",
+    val typeLabelEn: String = "",
 ) {
     val chamberLabel: String get() = if (isBangla && chamberBn.isNotBlank()) chamberBn else chamber
 }
@@ -735,6 +741,7 @@ object Appointments {
             o.str("photo"),
             o.optJSONArray("matched")?.ints(),
             o.str(PracticeWire.SYSTEM),
+            typeLabel = o.str(PracticeWire.TYPE_LABEL), typeLabelEn = o.str(PracticeWire.TYPE_LABEL_EN),
         )
     }
 
@@ -814,6 +821,7 @@ object Appointments {
                 o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"), o.str("otherKey"),
                 o.optBoolean("online"), OnlinePay.parse(o), invoiceId = o.str("invoiceId"),
                 system = o.str(PracticeWire.SYSTEM), privateType = o.optBoolean(PracticeWire.PRIVATE),
+                typeLabel = o.str(PracticeWire.TYPE_LABEL), typeLabelEn = o.str(PracticeWire.TYPE_LABEL_EN),
             )
         }
     }
@@ -890,6 +898,9 @@ data class HomePro(
     val times: List<ChamberTime> = emptyList(),
     /** ডাক্তারের চিকিৎসা পদ্ধতি (Practice.kt) */
     val system: String = "",
+    /** সার্ভারের পেশার নাম (title_guard) — TitleGuard.kt */
+    val typeLabel: String = "",
+    val typeLabelEn: String = "",
 ) {
     /** বার আর সময় (প্রতিটা ভাগ আলাদা লাইনে), তারপর নোট */
     val timeText: String get() = (times.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
@@ -912,6 +923,7 @@ object HomeCare {
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
         o.optBoolean("canRate"), o.optBoolean("noFee"), o.str("photo"), parseTimes(o.optJSONArray("times")),
         o.str(PracticeWire.SYSTEM),
+        typeLabel = o.str(PracticeWire.TYPE_LABEL), typeLabelEn = o.str(PracticeWire.TYPE_LABEL_EN),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */

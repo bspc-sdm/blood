@@ -19,7 +19,7 @@ export interface Actor {
 export const forDoctor = (a: Actor): Record<string, unknown> => (a.role === 'assistant' && a.doctorUid ? { doctorUid: a.doctorUid } : {});
 
 /** system/type: চিকিৎসা পদ্ধতি আর পেশা (practice; পুরোনো সার্ভারে নেই) */
-export interface RxMe { name: string; degrees: string; chambers: string[]; system?: string | null; type?: string; rxRules?: RxRules | null }
+export interface RxMe { name: string; degrees: string; chambers: string[]; system?: string | null; type?: string; rxRules?: RxRules | null; typeLabel?: string; typeLabelEn?: string }
 export interface RxPatient { id: string; name: string; age: number | null; gender: string; phone: string; linked: boolean; createdAt: number; lastRxAt: number }
 /** অনলাইন (ভিডিও) অ্যাপয়েন্টমেন্ট: online, payState, payRef, start (spring-p15) — না থাকলে চেম্বারের মতো */
 export interface RxAppt { id: string; name: string; date: number; serial: number | null; status: string; chamber: string; online?: boolean; payState?: string; payRef?: string; start?: string | number }

@@ -9,6 +9,7 @@ import com.lifolo.common.Lang
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.Sql
 import com.lifolo.practice.Practice
+import com.lifolo.practice.TitleGuard
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -121,9 +122,25 @@ class PushService(
     private val transport: PushTransport,
     private val mapper: ObjectMapper,
     private val prefs: NotifyPrefsService,
+    private val titles: TitleGuard,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val random = Random()
+
+    /**
+     * title_guard (practice/TitleGuard): a stored "ডা. …" name of someone who may not carry the title is shown without
+     * it to a recipient with the rule on — in the bell entry and on the phone. Never throws.
+     */
+    private fun titled(items: List<PushItem>): List<PushItem> = items.map { item ->
+        try {
+            if (!titles.on(item.uid)) return@map item
+            val data = item.data.mapValues { (_, v) -> if (v is String) titles.text(v, item.uid) else v }
+            item.copy(title = titles.text(item.title, item.uid), body = titles.text(item.body, item.uid), data = data)
+        } catch (e: Exception) {
+            log.warn("title strip failed: {}", e.message)
+            item
+        }
+    }
 
     /** a user's device tokens, newest 5 */
     fun tokensOf(uid: String): List<String> =
@@ -275,7 +292,7 @@ class PushService(
      * list still records the rest). Items without a uid (anonymous tokens) always go.
      */
     fun send(items: List<PushItem>): Int {
-        val withCat = masked(items).map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
+        val withCat = titled(masked(items)).map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
         try {
             addInbox(withCat.filter { it.inbox })
         } catch (e: Exception) {

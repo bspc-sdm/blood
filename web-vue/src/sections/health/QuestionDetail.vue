@@ -122,7 +122,7 @@ async function delQ() {
       </div>
       <div class="section-label health-section">{{ answers.length ? `${tr('Answers', 'উত্তর')} (${num(answers.length)})` : tr('No answers yet', 'এখনো উত্তর নেই') }}</div>
       <div v-for="a in answers" :key="a.id" class="card col">
-        <AuthorLine :name="a.authorName" :badge="a.badge" :created-at="a.createdAt" />
+        <AuthorLine :name="a.authorName" :badge="a.badge" :label="a.badgeLabel ? tr(a.badgeLabelEn || a.badgeLabel, a.badgeLabel) : null" :created-at="a.createdAt" />
         <p class="t-body-l pre">{{ a.text }}</p>
         <EditedNote v-if="a.editedAt" />
         <div class="row health-text-actions">
