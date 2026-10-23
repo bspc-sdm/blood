@@ -3,7 +3,7 @@ import pluginVue from 'eslint-plugin-vue';
 import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
 
 export default defineConfigWithVueTs(
-  { ignores: ['dist/**', 'dist-admin/**', 'test/.build/**', 'test/out/**', 'test/admin-out/**', 'e2e/.build/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'] },
+  { ignores: ['dist/**', 'dist-admin/**', 'test/.build/**', 'test/out/**', 'test/admin-out/**', 'e2e/.build/**', 'node_modules/**', 'playwright-report/**', 'playwright-report-livekit/**', 'test-results/**'] },
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
   {

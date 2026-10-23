@@ -5,6 +5,7 @@ test/out/
 dist/
 test-results/
 playwright-report/
+playwright-report-livekit/
 e2e/shots/
 e2e/.build/
 dist-admin/
