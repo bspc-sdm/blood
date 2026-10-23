@@ -325,7 +325,7 @@ class WorkTodayIT : P2TestBase() {
     }
 
     @Test
-    fun `no role - nothing; a pending pharmacy - setup only, no queue numbers`() {
+    fun `no role - nothing, a pending pharmacy - setup only, no queue numbers`() {
         at("2026-10-20 10:00")
         person("wtNobody")
         val w = work("wtNobody")
