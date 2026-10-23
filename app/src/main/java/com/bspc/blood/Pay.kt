@@ -634,11 +634,11 @@ object PayApi {
             refundableUntil = InvoiceApi.time(o, "refundableUntil"), demo = o.optBoolean("demo") || o.optBoolean("isDemo"),
             refundDue = o.optJSONObject("refundDue")?.let { PayRefundDue(InvoiceApi.time(it, "at"), it.str("why")) },
         )
+    }
 
     /** pay_request_get-এর উত্তর: {request, side, policy, demoNote} */
     internal fun withPolicy(o: JSONObject): PayRequest =
         parse(pick(o)).copy(policy = o.str("policy"), demoNote = o.str("demoNote"))
-    }
 
     internal fun page(o: JSONObject): PayPage {
         val arr = o.optJSONArray("items") ?: o.optJSONArray("payments") ?: o.optJSONArray("requests")
