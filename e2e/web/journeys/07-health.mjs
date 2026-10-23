@@ -329,11 +329,14 @@ export async function run(J) {
     page = await J.as('caregiver');
     await go(page, '/profile');
     await tap(page, 'অ্যাকাউন্ট মুছুন', { exact: true });
-    const d = page.getByRole('dialog').last();
-    await J.shot('অ্যাকাউন্ট মুছবেন?', '‘৩০ দিন পর আপনার অ্যাকাউন্ট চিরতরে মুছে যাবে… ৩০ দিনের মধ্যে আবার লগইন করলে মোছা বাতিল হবে…’।');
-    await d.getByRole('button', { name: 'অ্যাকাউন্ট মুছুন' }).click();
+    // মোছা এখন পুরো পাতা (কী মুছবে/কী থাকে, ৩০ দিনের তারিখ, টিক দিলে তবেই লাল বোতাম — ack:true), আগের ডায়ালগ নয়
+    await page.getByTestId('delete-ack').waitFor();
+    await J.shot('অ্যাকাউন্ট মুছবেন?', 'মোছার পাতা: কী মুছবে আর কী থাকে, ৩০ দিন পরের তারিখ; ‘আমি বুঝেছি…’ টিক না দিলে লাল বোতাম বন্ধ।', { full: true });
+    await page.getByTestId('delete-ack').locator('input[type="checkbox"]').check();
+    await page.getByTestId('delete-confirm').getByRole('button', { name: 'অ্যাকাউন্ট মুছুন' }).click();
+    await page.getByTestId('delete-done').waitFor();
     await settle(page, 800);
-    await J.shot('মোছার অনুরোধ — লগআউট', '‘৩০ দিন পর আপনার অ্যাকাউন্ট মুছে যাবে…’; অতিথি অবস্থা।', { full: true });
+    await J.shot('মোছার অনুরোধ — লগআউট', '‘মোছার অনুরোধ নেওয়া হয়েছে’, কোন তারিখে মুছবে, আবার লগইন করলেই বাতিল; অতিথি অবস্থা।', { full: true });
     const P = Object.values(J.pages).find((x) => x.page === page);
     P.role = 'guest';
     page = await J.as('caregiver');
