@@ -1,0 +1,10 @@
+jvm=same
+postgres=ok
+pg_settings=effective_cache_size=6GB max_connections=100 shared_buffers=2GB work_mem=8MB
+redis=536870912 volatile-lru
+nginx=ok (conf=no unit=no)
+cf_ranges=fetched (22 nets)
+realip=ok
+firewall=cloudflare-only (22 rules, v6=yes; changed=no)
+guard_timer=active
+finished=yes
