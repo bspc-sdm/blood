@@ -71,7 +71,9 @@ class DoctorListingFactsIT : P2TestBase() {
         // the old `fee` text stays
         assertEquals("৫০০ টাকা", a["fee"].textValue())
         // distance: to the chamber's upazila centre (approximate)
-        val near = list(mapOf("upazilaId" to 320))
+        // (upazilaId is an area filter in this list — the viewer's point comes as lat/lng)
+        val at320 = com.lifolo.common.Places.UPAZILA_CENTER.getValue(320).let { mapOf("lat" to it.first, "lng" to it.second) }
+        val near = list(at320)
         assertEquals(0.0, item(near, "lfA")["distanceKm"].doubleValue())
         assertTrue(item(near, "lfA")["distanceApprox"].booleanValue())
         assertTrue(item(near, "lfB")["distanceKm"].doubleValue() > 0)
@@ -81,7 +83,7 @@ class DoctorListingFactsIT : P2TestBase() {
         fun ids(extra: Map<String, Any?>) = list(extra)["items"].map { it["uid"].textValue() }
         assertEquals(listOf("lfC", "lfB", "lfA"), ids(mapOf("sort" to "rating")))
         assertEquals(listOf("lfA", "lfB", "lfC"), ids(mapOf("sort" to "open")))
-        assertEquals("lfB", ids(mapOf("sort" to "near", "upazilaId" to 320)).last())
+        assertEquals("lfB", ids(mapOf("sort" to "near") + at320).last())
         // q: name, specialty label, chamber
         assertEquals(listOf("lfB"), ids(mapOf("q" to "বিথি")))
         assertEquals(listOf("lfC"), ids(mapOf("q" to "child")))

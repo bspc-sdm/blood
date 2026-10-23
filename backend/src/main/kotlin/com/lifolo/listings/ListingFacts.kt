@@ -177,8 +177,10 @@ object ListingFacts {
             val h = m.groupValues[1].toInt() % 12 + if (m.groupValues[3].lowercase().startsWith("p")) 12 else 0
             found.add(m.range.first to hhmm(h, m.groupValues[2].ifEmpty { "0" }.toInt()))
         }
+        // a plain "HH:MM" that is part of a Bangla/am-pm time found above ("সকাল ৯:৩০") is not a second time
+        val worded = found.map { it.first }
         CLOCK.findAll(t).forEach { m ->
-            if (found.none { m.range.first in (it.first - 12)..(it.first + 12) }) found.add(m.range.first to hhmm(m.groupValues[1].toInt(), m.groupValues[2].toInt()))
+            if (worded.none { m.range.first in it..(it + 12) }) found.add(m.range.first to hhmm(m.groupValues[1].toInt(), m.groupValues[2].toInt()))
         }
         val two = found.sortedBy { it.first }.distinctBy { it.first }.take(2)
         if (two.size < 2 || two[0].second == two[1].second) return null
