@@ -192,11 +192,49 @@ describe('ডাক্তার/সহকারী', () => {
     expect(w.get('[data-testid="pay-ref"]').text()).toContain('TRX42');
     await w.get('[data-testid="pay-got"]').trigger('click');
     expect(call).not.toHaveBeenCalled();
-    expect(w.get('[data-test="confirm"]').text()).toContain('TRX42');
-    await w.get('[data-test="yes"]').trigger('click');
+    expect(w.get('[data-testid="confirm-legacy"]').text()).toContain('TRX42');
+    // আগের পথেও তিনটা টিক — না দিলে বোতাম বন্ধ (সার্ভার: checks_required)
+    expect(w.get('[data-testid="confirm-go"]').attributes('disabled')).toBeDefined();
+    await w.get('[data-testid="check-trx"] input').setValue(true);
+    await w.get('[data-testid="check-amount"] input').setValue(true);
+    expect(w.get('[data-testid="confirm-go"]').attributes('disabled')).toBeDefined();
+    await w.get('[data-testid="check-last4"] input').setValue(true);
+    await w.get('[data-testid="confirm-go"]').trigger('click');
     await flushPromises();
-    expect(call).toHaveBeenCalledWith('appt_pay_confirm', { appointmentId: 'a9', doctorUid: 'd1' });
+    expect(call).toHaveBeenCalledWith('appt_pay_confirm', { appointmentId: 'a9', checks: { trxId: true, amount: true, last4: true }, doctorUid: 'd1' });
     expect(w.emitted('changed')).toHaveLength(1);
+  });
+
+  it('checks_required (400) বাংলায়', async () => {
+    call.mockRejectedValueOnce(Object.assign(new Error('server'), { code: 'checks_required' }));
+    const w = mount(OnlinePayPro, { props: { a: appt({ payState: 'claimed', payRef: 'TRX42' }) }, global: { stubs } });
+    await w.get('[data-testid="pay-got"]').trigger('click');
+    for (const k of ['trx', 'amount', 'last4']) await w.get(`[data-testid="check-${k}"] input`).setValue(true);
+    await w.get('[data-testid="confirm-go"]').trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('ওয়ালেটে মিলিয়ে তিনটাতেই টিক দিন');
+  });
+
+  it('তালিকার payRequestId/payStatus: অবস্থা সরাসরি (আলাদা খোঁজ নেই); "ফি পেয়েছি" খুললে অনুরোধ এনে pay_confirm + checks', async () => {
+    call.mockImplementation(async (action: string) =>
+      action === 'pay_request_get'
+        ? { id: 'prq1', kind: 'chamber', bizId: 'd1', bizName: 'ডা. রুবিনা', payerUid: 'u1', refType: 'appointment', refId: 'a9', purpose: 'chamber_fee', amount: 500, methods: [], status: 'claimed', claim: { method: 'bkash', trxId: 'TRX42ABCDE', senderLast4: '4321', at: Date.now() }, createdAt: 1 }
+        : { ok: true },
+    );
+    const w = mount(OnlinePayPro, { props: { a: appt({ payState: 'claimed', payRef: 'TRX42ABCDE', payRequestId: 'prq1', payStatus: 'claimed' }) }, global: { stubs } });
+    await flushPromises();
+    expect(w.get('[data-testid="pay-state"]').text()).toBe('রোগী ফি পাঠিয়েছেন');
+    expect(w.get('[data-testid="pay-ref"]').text()).toContain('TRX42ABCDE');
+    expect(call).not.toHaveBeenCalled();
+    await w.get('[data-testid="pay-got"]').trigger('click');
+    await flushPromises();
+    expect(call).toHaveBeenCalledWith('pay_request_get', { id: 'prq1' });
+    expect(w.get('[data-testid="confirm-claim"]').text()).toContain('TRX42ABCDE');
+    for (const k of ['trx', 'amount', 'last4']) await w.get(`[data-testid="check-${k}"] input`).setValue(true);
+    await w.get('[data-testid="confirm-go"]').trigger('click');
+    await flushPromises();
+    expect(call).toHaveBeenCalledWith('pay_confirm', { id: 'prq1', checks: { trxId: true, amount: true, last4: true } });
+    expect(call).not.toHaveBeenCalledWith('appt_pay_confirm', expect.anything());
   });
 
   it('"পাইনি": কারণসহ appt_pay_reject; পরিশোধিত হলে বোতাম নেই', async () => {

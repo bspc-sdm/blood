@@ -288,6 +288,13 @@ class OnlineChamberScreensTest {
         rule.onNodeWithText("ফি পেয়েছি").performClick()
         rule.onNodeWithText("ফি পেয়েছেন?").assertExists()
         rule.onNodeWithText("হ্যাঁ, পেয়েছি").assertExists()
+        // আগের পথেও (appt_pay_confirm) তিনটা মিলের টিক — সবগুলো না দিলে বোতাম বন্ধ (সার্ভার: checks_required)
+        rule.onNodeWithTag("appt_confirm_yes").assertIsNotEnabled()
+        rule.onNodeWithTag("appt_check_trxId").performClick()
+        rule.onNodeWithTag("appt_check_amount").performClick()
+        rule.onNodeWithTag("appt_confirm_yes").assertIsNotEnabled()
+        rule.onNodeWithTag("appt_check_last4").performClick()
+        rule.onNodeWithTag("appt_confirm_yes").assertIsEnabled()
         shot("online_staff_confirm_360_bn")
         rule.onNodeWithText("বাতিল").performClick()
         rule.onNodeWithText("পাইনি").performClick()
@@ -306,6 +313,57 @@ class OnlineChamberScreensTest {
         rule.onNodeWithText("ফি পাঠানো হয়নি").assertExists()
         rule.onNodeWithText("পাইনি").assertDoesNotExist()
         rule.onNodeWithText("ফি পেয়েছি").assertExists()
+    }
+
+    @Test
+    fun staffConfirmWithRequest() {
+        // অনুরোধ আছে, যাচাই বাকি → ব্যবসার নিশ্চিতকরণ (pay_confirm), শেষ ৪ সংখ্যা দাবিতে না থাকলেও তিনটা টিক
+        show { StaffOnlinePanel("a1", "confirmed", date, "17:00", unpaid.copy(state = "claimed", ref = "8N7A6B5C4D", requestId = "pr1", payStatus = "claimed"), onChanged = {}, now = slot) }
+        rule.onNodeWithText("ফি পেয়েছি").performClick()
+        rule.onNodeWithText("টাকা পেয়েছেন?").assertExists()
+        rule.onNodeWithTag("pay_check_trxId").assertExists()
+        rule.onNodeWithTag("pay_check_amount").assertExists()
+        rule.onNodeWithTag("pay_check_last4").assertExists()
+        rule.onNodeWithTag("pay_confirm_yes").assertIsNotEnabled()
+        rule.onNodeWithTag("pay_check_trxId").performClick()
+        rule.onNodeWithTag("pay_check_amount").performClick()
+        rule.onNodeWithTag("pay_confirm_yes").assertIsNotEnabled()
+        rule.onNodeWithTag("pay_check_last4").performClick()
+        rule.onNodeWithTag("pay_confirm_yes").assertIsEnabled()
+    }
+
+    @Test
+    fun staffConfirmUnpaidWithRequest() {
+        // অনুরোধ আছে কিন্তু পাঠানো হয়নি (হাতে পেলে) → আগের পথ, তবে টিকসহ
+        show { StaffOnlinePanel("a1", "confirmed", date, "17:00", unpaid.copy(requestId = "pr1", payStatus = "open"), onChanged = {}, now = slot) }
+        rule.onNodeWithText("ফি পেয়েছি").performClick()
+        rule.onNodeWithText("ফি পেয়েছেন?").assertExists()
+        rule.onNodeWithTag("appt_check_last4").assertExists()
+        rule.onNodeWithTag("appt_confirm_yes").assertIsNotEnabled()
+    }
+
+    @Test
+    fun confirmChecksBodyAndError() {
+        val b = OnlineApi.confirmBody("a1", setOf("trxId", "amount", "last4"))
+        assertEquals("a1", b.getString("appointmentId"))
+        val c = b.getJSONObject("checks")
+        assertTrue(c.getBoolean("trxId") && c.getBoolean("amount") && c.getBoolean("last4"))
+        assertFalse(OnlineApi.confirmBody("a1", setOf("trxId")).getJSONObject("checks").getBoolean("last4"))
+        assertEquals("আগে তিনটাতেই টিক দিন: TrxID, টাকার অঙ্ক আর শেষ ৪ সংখ্যা মিলিয়ে।", OnlineText.error(ServerError("x", "checks_required")))
+    }
+
+    @Test
+    fun advanceDueFromList() {
+        val o = JSONObject().put("online", true).put("payState", "unpaid").put("fee", "500").put("payRequestId", "pr1").put("payStatus", "open")
+        val p = OnlinePay.parse(o)
+        assertEquals("pr1", p.requestId)
+        assertEquals("open", p.payStatus)
+        assertTrue(p.advanceDue)
+        assertTrue(OnlinePay.parse(o.put("payStatus", "rejected")).advanceDue)
+        assertFalse(OnlinePay.parse(o.put("payStatus", "claimed")).advanceDue)
+        assertFalse(OnlinePay.parse(JSONObject().put("payState", "unpaid").put("payRequestId", JSONObject.NULL).put("payStatus", JSONObject.NULL)).advanceDue)
+        show { AdvanceDueTag(p) }
+        rule.onNodeWithText("অগ্রিম বাকি").assertExists()
     }
 
     // ---------------- ভিডিও কলের সময় ----------------

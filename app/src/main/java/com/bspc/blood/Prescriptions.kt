@@ -733,6 +733,8 @@ fun RxPatientsPane(doctorUid: String?, onWrite: ((RxTarget) -> Unit)?, onOpen: (
                             a.serial?.let { tr("Serial $it", "সিরিয়াল ${num(it)}") },
                             click(t), write(t),
                         )
+                        // লাইফলো পে: অগ্রিম/ফি পাঠানো হয়নি (payStatus)
+                        if (a.pay.advanceDue) AdvanceDueTag(a.pay)
                         // অনলাইন (ভিডিও): ফি মেলানো আর ভিডিও কলে যুক্ত হওয়া — ডাক্তার আর সহকারী দুজনেই (OnlineChamber.kt)
                         if (a.online) StaffOnlinePanel(a.id, a.status, a.date, a.start, a.pay, onChanged = { reload++ })
                     }

@@ -456,6 +456,7 @@ test.describe('অনলাইন চেম্বারের ফি → রস�
     await open(page, def('appointment', 'pro-bookings'));
     const pro = page.getByTestId('online-pay-pro');
     await pro.getByTestId('pay-got').click();
+    for (const k of ['trx', 'amount', 'last4']) await page.getByRole('dialog').getByTestId(`check-${k}`).click();
     await page.getByRole('dialog').getByRole('button', { name: 'ফি পেয়েছি' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByTestId('receipt')).toContainText('অনলাইন ভিজিট ফি');

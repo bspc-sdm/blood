@@ -233,13 +233,70 @@ for (const size of ['mobile', 'desktop @desktop']) {
     await expect(dlg).toContainText('ফি পেয়েছেন?');
     await expect(dlg).toContainText('TRX42AB');
     expect(seen.some((c) => c.action === 'appt_pay_confirm')).toBe(false);
+    // তিনটা টিক না দিলে বোতাম বন্ধ (সার্ভার: checks_required)
+    await expect(dlg.getByTestId('confirm-go')).toBeDisabled();
+    await dlg.getByTestId('check-trx').click();
+    await dlg.getByTestId('check-amount').click();
+    await expect(dlg.getByTestId('confirm-go')).toBeDisabled();
+    await dlg.getByTestId('check-last4').click();
     await dlg.getByRole('button', { name: 'ফি পেয়েছি' }).click();
-    await expect.poll(() => seen.find((c) => c.action === 'appt_pay_confirm')?.body).toMatchObject({ action: 'appt_pay_confirm', appointmentId: 'onp1' });
+    await expect.poll(() => seen.find((c) => c.action === 'appt_pay_confirm')?.body).toMatchObject({ action: 'appt_pay_confirm', appointmentId: 'onp1', checks: { trxId: true, amount: true, last4: true } });
     await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
     await expect(pro.getByTestId('pay-got')).toHaveCount(0);
     expect(errs).toEqual([]);
   });
 }
+
+test('ডাক্তার: তালিকার payRequestId/payStatus — অবস্থা সরাসরি, "ফি পেয়েছি" খুললে অনুরোধ এনে pay_confirm তিন টিকসহ', async ({ page }) => {
+  const errs = watchErrors(page);
+  let st = 'claimed';
+  const seen = await mock(page, async (action, body, route) => {
+    if (action === 'pay_request_get') {
+      return { id: 'prq9', kind: 'chamber', bizId: 'u-doc', bizName: 'ডা. আরিফুল হক', payerUid: 'u1', refType: 'appointment', refId: 'onp9', purpose: 'chamber_fee', amount: 500, methods: [{ method: 'bkash', number: '01711000222', type: 'personal' }], status: st, claim: { method: 'bkash', trxId: 'TRX42ABCDE', senderLast4: '4321', at: Date.now() - H }, expiresAt: Date.now() + DAY, createdAt: Date.now() - 2 * H };
+    }
+    if (action === 'pay_confirm') {
+      st = 'confirmed';
+      return { ok: true, request: { id: 'prq9', status: 'confirmed' } };
+    }
+    if (action !== 'my_appointments') return undefined;
+    const j = await base(route);
+    j.items.push({
+      id: 'onp9', role: 'provider', type: 'doctor', otherName: 'মো. জসিম উদ্দিন', chamber: '', chamberBn: '', start: nowHM(), serial: 5, date: today(),
+      note: '', status: 'confirmed', providerNote: '', otherPhone: '', otherKey: 'kx9', createdAt: Date.now(), online: true, fee: '৫০০ টাকা', noFee: false,
+      payState: st === 'confirmed' ? 'paid' : 'claimed', payRef: 'TRX42ABCDE', payRequestId: 'prq9', payStatus: st,
+    });
+    return j;
+  });
+  await open(page, def('appointment', 'pro-bookings'));
+  const pro = page.getByTestId('online-pay-pro');
+  await expect(pro.getByTestId('pay-state')).toHaveText('রোগী ফি পাঠিয়েছেন');
+  await expect(pro.getByTestId('pay-ref')).toContainText('TRX42ABCDE');
+  expect(seen.some((c) => c.action === 'pay_request_get')).toBe(false);
+  await pro.getByTestId('pay-got').click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByTestId('confirm-claim')).toContainText('TRX42ABCDE');
+  await expect(dlg.getByTestId('confirm-go')).toBeDisabled();
+  for (const k of ['trx', 'amount', 'last4']) await dlg.getByTestId(`check-${k}`).click();
+  await dlg.getByTestId('confirm-go').click();
+  await expect.poll(() => seen.find((c) => c.action === 'pay_confirm')?.body).toMatchObject({ action: 'pay_confirm', id: 'prq9', checks: { trxId: true, amount: true, last4: true } });
+  expect(seen.some((c) => c.action === 'appt_pay_confirm')).toBe(false);
+  await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
+  expect(errs).toEqual([]);
+});
+
+test('ডাক্তার: চেম্বারের বুকিংয়ে "অগ্রিম বাকি" (payStatus open)', async ({ page }) => {
+  await mock(page, async (action, body, route) => {
+    if (action !== 'my_appointments') return undefined;
+    const j = await base(route);
+    j.items.push({
+      id: 'adv1', role: 'provider', type: 'doctor', otherName: 'রহিমা খাতুন', chamber: 'Popular', chamberBn: 'পপুলার', start: '23:30', serial: 2, date: today(),
+      note: '', status: 'confirmed', providerNote: '', otherPhone: '', otherKey: 'ka', createdAt: Date.now(), online: false, payRequestId: 'prqA', payStatus: 'open',
+    });
+    return j;
+  }, { ...ALL_ON, pay_manual: true, pay_chamber_advance: true });
+  await open(page, def('appointment', 'pro-bookings'));
+  await expect(page.getByTestId('advance-due').first()).toHaveText('অগ্রিম বাকি');
+});
 
 test('ডাক্তার: "পাইনি" — কারণসহ appt_pay_reject', async ({ page }) => {
   const seen = await proBookings(page, 'claimed');
@@ -272,8 +329,9 @@ test('সহকারী: রোগীর তালিকায় অনলা�
   await expect(pro.getByTestId('pay-ref')).toContainText('ASST77');
   await expect(pro.getByTestId('join-call')).toHaveAttribute('href', /\/appointments\/ona1\/call\?role=provider/);
   await pro.getByTestId('pay-got').click();
+  for (const k of ['trx', 'amount', 'last4']) await page.getByRole('dialog').getByTestId(`check-${k}`).click();
   await page.getByRole('dialog').getByRole('button', { name: 'ফি পেয়েছি' }).click();
-  await expect.poll(() => seen.find((c) => c.action === 'appt_pay_confirm')?.body).toMatchObject({ action: 'appt_pay_confirm', appointmentId: 'ona1', doctorUid: 'doc1' });
+  await expect.poll(() => seen.find((c) => c.action === 'appt_pay_confirm')?.body).toMatchObject({ action: 'appt_pay_confirm', appointmentId: 'ona1', doctorUid: 'doc1', checks: { trxId: true, amount: true, last4: true } });
   await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
   expect(errs).toEqual([]);
 });

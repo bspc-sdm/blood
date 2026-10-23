@@ -2,9 +2,10 @@
 // ব্যবসা: "পেয়েছি" আর "পাইনি" (কারণ: টাকা আসেনি / পরিমাণ মেলেনি / অন্য নম্বরে / অন্য — pay_reject)।
 // "পেয়েছি" (pay_confirm, রসিদ তৈরি হয়): বড় করে টাকা, TrxID, মাধ্যম, শেষ ৪ অঙ্ক আর সময়, তিনটা টিক (TrxID পেয়েছি, টাকা মিলেছে,
 // শেষ ৪ মিলেছে) — তিনটাই না দিলে বোতাম বন্ধ; টিকগুলো `checks` হয়ে সার্ভারে যায় (নিরাপত্তা পর্যালোচনা P1)।
-// অনলাইন চেম্বারের আগের পথ (TrxID ঐচ্ছিক, শেষ ৪ নেই): claim ছাড়া — আগের মতো একটা "নিশ্চিত?" ধাপ, "পাইনি"-তে নিজের লেখা কারণ।
+// অনলাইন চেম্বারের আগের পথ (appt_pay_confirm, claim ছাড়া): সেখানেও তিনটা টিক — অনুরোধ থাকলে সার্ভার তা ছাড়া নেয় না
+// (400 checks_required); "পাইনি"-তে নিজের লেখা কারণ।
 import { computed, ref } from 'vue';
-import { Button, Check, ChoiceChips, ConfirmDialog, Dialog, ErrorText, TextInput } from '@/ui/kit';
+import { Button, Check, ChoiceChips, Dialog, ErrorText, TextInput } from '@/ui/kit';
 import { errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
@@ -21,7 +22,7 @@ const props = defineProps<{
   amountText?: string;
   /** আগের পথ: "পাইনি"-তে কোড নয়, নিজের লেখা কারণ (ঐচ্ছিক) */
   freeReason?: boolean;
-  onConfirm: (checks: ConfirmChecks | null) => Promise<void>;
+  onConfirm: (checks: ConfirmChecks) => Promise<void>;
   onReject: (reason: RejectReason, note: string) => Promise<void>;
 }>();
 const emit = defineEmits<{ close: []; done: [] }>();
@@ -39,14 +40,14 @@ async function run(f: () => Promise<void>) {
     await f();
     emit('done');
   } catch (e) {
-    err.value = errorText(e);
+    err.value = (e as { code?: string } | null)?.code === 'checks_required' ? T.checksNeeded() : errorText(e);
   } finally {
     busy.value = false;
   }
 }
 function confirm() {
-  if (props.claim && !allChecked.value) return void (err.value = T.checksNeeded());
-  void run(() => props.onConfirm(props.claim ? { ...checks.value } : null));
+  if (!allChecked.value) return void (err.value = T.checksNeeded());
+  void run(() => props.onConfirm({ ...checks.value }));
 }
 function reject() {
   if (needNote.value) return void (err.value = T.rejectNeedNote());
@@ -76,17 +77,21 @@ function reject() {
       <Button icon="check_circle" :busy="busy" :disabled="!allChecked" data-testid="confirm-go" @click="confirm">{{ texts.confirmLabel }}</Button>
     </template>
   </Dialog>
-  <!-- আগের পথ: একটা "নিশ্চিত?" -->
-  <ConfirmDialog
-    v-else-if="mode === 'confirm'"
-    :title="texts.confirmTitle"
-    :text="texts.confirmText"
-    :confirm="texts.confirmLabel"
-    :busy="busy"
-    :error="err"
-    @confirm="confirm"
-    @close="() => !busy && emit('close')"
-  />
+  <!-- আগের পথ (appt_pay_confirm): দাবির বিস্তারিত নেই, তবুও তিন টিক -->
+  <Dialog v-else-if="mode === 'confirm'" size="small" :title="texts.confirmTitle" @close="() => !busy && emit('close')">
+    <p class="t-body-m" data-testid="confirm-legacy">{{ texts.confirmText }}</p>
+    <p class="t-body-m muted">{{ T.checkInApp() }}</p>
+    <div class="pay-checks">
+      <Check v-model="checks.trxId" data-testid="check-trx">{{ T.checkTrx() }}</Check>
+      <Check v-model="checks.amount" data-testid="check-amount">{{ amountText ? T.checkAmount(amountText) : T.checkAmountAny() }}</Check>
+      <Check v-model="checks.last4" data-testid="check-last4">{{ T.checkLast4Any() }}</Check>
+    </div>
+    <ErrorText :text="err" />
+    <template #actions>
+      <Button variant="text" :disabled="busy" @click="emit('close')">{{ tr('Cancel', 'বাতিল') }}</Button>
+      <Button icon="check_circle" :busy="busy" :disabled="!allChecked" data-testid="confirm-go" @click="confirm">{{ texts.confirmLabel }}</Button>
+    </template>
+  </Dialog>
   <Dialog v-else size="small" :title="texts.rejectTitle" @close="() => !busy && emit('close')">
     <p class="t-body-m muted">{{ texts.rejectText }}</p>
     <p v-if="texts.trx" class="t-body-m">TrxID: <span class="pay-trx">{{ texts.trx }}</span></p>

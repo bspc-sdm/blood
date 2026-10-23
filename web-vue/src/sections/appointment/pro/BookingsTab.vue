@@ -17,11 +17,16 @@ import { T as OT } from '../online';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
 import { apptCallOpen } from '@/calls/window';
+import { payOn } from '../../pay/features';
+import { linkDue } from '../../pay/model';
+import { T as PT } from '../../pay/text';
 import { useNow } from '@/ui/composables';
 
 type View = 'today' | 'upcoming' | 'waiting' | 'past';
 const props = defineProps<{ list: Appointment[]; loading: boolean; error: string | null; reload: () => void; hasChamber: boolean; onSetup: () => void }>();
 const wide = useMedia('(min-width: 1100px)');
+/** চেম্বারের অগ্রিম বাকি: তালিকার payRequestId/payStatus (open/rejected) থেকেই, আলাদা খোঁজ নয় */
+const advanceDue = (a: Appointment) => !a.online && isActive(a.status) && payOn('pay_chamber_advance') && linkDue(a.payLink);
 const [sp, setSp] = useSearchParams();
 const chamber = ref('');
 const busyId = ref<string | null>(null);
@@ -181,7 +186,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
             <td class="appt-nowrap">{{ a.date === t0 ? tr('Today', 'আজ') : formatDate(a.date) }}</td>
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
             <td v-if="manyCh">{{ apptChamber(a) }}</td>
-            <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag></td>
+            <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag> <Tag v-if="advanceDue(a)" tone="error" data-testid="advance-due">{{ PT.advanceDue() }}</Tag></td>
             <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span><ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" /></td>
             <td>
               <div class="row wrap appt-acts">
@@ -203,6 +208,8 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
           <span class="t-title-m grow clamp2">{{ name(a) }}</span>
           <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
         </div>
+        <!-- চেম্বারের অগ্রিম বাকি (তালিকার payRequestId/payStatus; PAYMENTS.md) — অনলাইনের ফি নিচের OnlinePayPro-তে -->
+        <div v-if="advanceDue(a)" class="row"><Tag tone="error" data-testid="advance-due">{{ PT.advanceDue() }}</Tag></div>
         <IconLine icon="calendar_month">{{ whenLine(a) }}</IconLine>
         <IconLine v-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
         <p v-if="a.note" class="t-body-m">{{ a.note }}</p>

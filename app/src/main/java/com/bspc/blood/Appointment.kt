@@ -850,6 +850,10 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                         Spacer(Modifier.width(6.dp))
                                         OnlineTag()
                                     }
+                                    if (a.pay.advanceDue) {
+                                        Spacer(Modifier.width(6.dp))
+                                        AdvanceDueTag(a.pay)
+                                    }
                                 }
                                 IconLine(
                                     R.drawable.ic_calendar_month,

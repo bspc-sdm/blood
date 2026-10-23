@@ -225,8 +225,11 @@ class PayTest {
         assertEquals(listOf("trxId", "amount", "last4"), PayRules.confirmChecks(claimed))
         assertFalse(PayRules.confirmReady(claimed, setOf("trxId", "amount")))
         assertTrue(PayRules.confirmReady(claimed, setOf("trxId", "amount", "last4")))
-        // পুরোনো দাবি (শেষ ৪ সংখ্যা নেই): দুটো
-        assertTrue(PayRules.confirmReady(claimed.copy(claim = claimed.claim!!.copy(senderLast4 = "")), setOf("trxId", "amount")))
+        // পুরোনো দাবি (শেষ ৪ সংখ্যা নেই): তবুও তিনটাই — সার্ভার তিনটাই true চায় (checks_required)
+        val old = claimed.copy(claim = claimed.claim!!.copy(senderLast4 = ""))
+        assertEquals(listOf("trxId", "amount", "last4"), PayRules.confirmChecks(old))
+        assertFalse(PayRules.confirmReady(old, setOf("trxId", "amount")))
+        assertTrue(PayRules.confirmReady(old, setOf("trxId", "amount", "last4")))
     }
 
     @Test

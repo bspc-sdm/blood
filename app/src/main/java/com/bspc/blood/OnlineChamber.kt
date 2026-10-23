@@ -142,7 +142,12 @@ data class OnlinePay(
      * (নম্বর বাছাই, TrxID + শেষ ৪ সংখ্যা), ডাক্তার pay_confirm/pay_reject; না থাকলে আগের মতো appt_pay_*।
      */
     val requestId: String = "",
+    /** সেই অনুরোধের অবস্থা (my_appointments / rx_patients-এর payStatus): open/claimed/confirmed/rejected/... */
+    val payStatus: String = "",
 ) {
+    /** তালিকার কার্ডে "অগ্রিম বাকি": অনুরোধ আছে, এখনো পাঠানো হয়নি বা "পাননি" (PAYMENTS.md) */
+    val advanceDue: Boolean get() = requestId.isNotBlank() && payStatus in setOf("open", "rejected")
+
     val view: PayView
         get() = when {
             noFee || state == "none" -> PayView.NO_FEE
@@ -181,6 +186,7 @@ data class OnlinePay(
                 if (o.isNull("payState") || !o.has("payState")) "none" else o.str("payState").ifBlank { "none" }, o.str("payRef"), o.str("bkashNumber"), o.str("fee"), o.optBoolean("noFee"),
                 o.str("onlineNote"), reason, o.optBoolean("payRejected") || reason.isNotBlank(),
                 requestId = o.str("payRequestId").ifBlank { o.str("payId") }.ifBlank { o.optJSONObject("payRequest")?.str("id").orEmpty() },
+                payStatus = o.str("payStatus").ifBlank { o.optJSONObject("payRequest")?.str("status").orEmpty() },
             )
         }
     }
@@ -214,6 +220,7 @@ object OnlineText {
             code == "pay_claim_rate" -> tr("Too many tries — try again in an hour.", "অনেকবার চেষ্টা হয়েছে — এক ঘণ্টা পরে আবার চেষ্টা করুন।")
             code == "not_online" -> tr("This is not an online appointment.", "এটা অনলাইন অ্যাপয়েন্টমেন্ট নয়।")
             code == "no_fee" -> tr("There is no fee for this appointment.", "এই অ্যাপয়েন্টমেন্টে ফি নেই।")
+            code == "checks_required" -> tr("Tick all three first: TrxID, amount and last 4 digits.", "আগে তিনটাতেই টিক দিন: TrxID, টাকার অঙ্ক আর শেষ ৪ সংখ্যা মিলিয়ে।")
             code == "state" -> tr("Can't be done in this state — refresh the list.", "এই অবস্থায় করা যায় না — তালিকা রিফ্রেশ করে দেখুন।")
             else -> e.message ?: tr("Something went wrong", "সমস্যা হয়েছে")
         }
@@ -229,9 +236,13 @@ object OnlineApi {
         call("appt_pay_claim", JSONObject().put("appointmentId", appointmentId).apply { if (payRef.isNotBlank()) put("payRef", payRef.trim().take(10)) })
     }
 
-    /** ডাক্তার/সহকারী: "ফি পেয়েছি" → paid */
-    suspend fun confirm(appointmentId: String) {
-        call("appt_pay_confirm", JSONObject().put("appointmentId", appointmentId))
+    /** appt_pay_confirm-এর দেহ: অনুরোধ থাকলে সার্ভার তিনটা মিলের টিক চায় (checks:{trxId, amount, last4}, নইলে 400 checks_required) */
+    internal fun confirmBody(appointmentId: String, checks: Set<String>): JSONObject =
+        JSONObject().put("appointmentId", appointmentId).put("checks", JSONObject().apply { PayRules.CONFIRM_CHECKS.forEach { put(it, it in checks) } })
+
+    /** ডাক্তার/সহকারী: "ফি পেয়েছি" → paid (তিনটা মিলের টিকসহ) */
+    suspend fun confirm(appointmentId: String, checks: Set<String>) {
+        call("appt_pay_confirm", confirmBody(appointmentId, checks))
     }
 
     /** রোগী: ফি দিয়েছেন কিন্তু ডাক্তার কলে আসেননি — অ্যাডমিন দেখবেন */
@@ -262,6 +273,13 @@ fun PayStateTag(pay: OnlinePay, staff: Boolean = false) {
         PayView.UNPAID -> cs.surfaceVariant to cs.onSurfaceVariant
     }
     Tag(OnlineText.payLabel(pay.view, staff), bg, fg)
+}
+
+/** তালিকার কার্ডে "অগ্রিম বাকি" (payStatus open/rejected) — বুকিং বাতিল হয় না */
+@Composable
+fun AdvanceDueTag(pay: OnlinePay) {
+    if (!pay.advanceDue) return
+    Tag(tr("Advance due", "অগ্রিম বাকি"), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
 }
 
 // ------------------------------------------------------------
@@ -513,6 +531,13 @@ private fun rememberFeeRequestId(appointmentId: String, pay: OnlinePay): String 
 }
 
 object OnlineAppts {
+    /**
+     * "ফি পেয়েছি": অনুরোধ আছে আর যাচাই বাকি (claimed) → ব্যবসার নিশ্চিতকরণ (pay_confirm, তিনটা টিক);
+     * নইলে (পাঠানো হয়নি/পাননি) আগের appt_pay_confirm — সেটাতেও তিনটা টিক যায়।
+     */
+    fun useBizConfirm(pay: OnlinePay, req: PayRequest): Boolean =
+        pay.requestId.isNotBlank() && req.id == pay.requestId && req.status == "claimed"
+
     /** "রিপোর্ট করুন": নিশ্চিত/সম্পন্ন অ্যাপয়েন্টমেন্ট, সময় শুরু হয়ে গেছে (শুরু না থাকলে সেই দিন থেকে), ৭ দিনের মধ্যে */
     fun canReport(status: String, date: Long, start: String, now: Long): Boolean {
         if (status != "confirmed" && status != "completed") return false
@@ -618,7 +643,13 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
     var asking by remember { mutableStateOf<Boolean?>(null) } // true = পেয়েছি, false = পাইনি
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var ticked by remember { mutableStateOf(setOf<String>()) }
     val v = pay.view
+    // লাইফলো পে-র অনুরোধ (TrxID, শেষ ৪ সংখ্যা, টাকা) — সার্ভার থেকে; আসার আগে অ্যাপয়েন্টমেন্টের তথ্য থেকে
+    var req by remember(pay.requestId, pay.state) { mutableStateOf(PayStore.byId(pay.requestId) ?: pay.asRequest(appointmentId)) }
+    LaunchedEffect(pay.requestId, pay.state) {
+        if (pay.requestId.isNotBlank()) runCatching { PayApi.get(pay.requestId) }.onSuccess { req = it; PayStore.put(it) }
+    }
     Surface(color = cs.surfaceContainerHigh, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().testTag("online_staff_panel")) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -652,28 +683,42 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
     }
     when (asking) {
         // লাইফলো পে-র দাবি: তিনটা মিলের টিকসহ (pay_confirm + checks)
-        true -> if (pay.requestId.isNotBlank() && v == PayView.CLAIMED) PayConfirmDialog(pay.asRequest(appointmentId), onDismiss = { asking = null }) { asking = null; PayNav.bump(); onChanged() }
-        else androidx.compose.material3.AlertDialog(
-            onDismissRequest = { if (!busy) asking = null },
-            title = { Text(tr("Got the fee?", "ফি পেয়েছেন?")) },
-            text = {
-                Text(
-                    (if (pay.ref.isNotBlank()) "TrxID: ${pay.ref}\n" else "") +
-                        tr("The patient will see \"Fee paid\". Confirm only after checking bKash.", "রোগী দেখবেন \"ফি পরিশোধিত\"। bKash মিলিয়ে তবেই নিশ্চিত করুন।"),
-                )
+        true -> if (OnlineAppts.useBizConfirm(pay, req)) PayConfirmDialog(req, onDismiss = { asking = null }) { asking = null; PayNav.bump(); onChanged() }
+        // আগের পথ (appt_pay_confirm): এখানেও তিনটা মিলের টিক — অনুরোধ থাকলে সার্ভার তা ছাড়া নেয় না (checks_required)
+        else FormDialog(
+            title = tr("Got the fee?", "ফি পেয়েছেন?"),
+            onDismiss = { if (!busy) { asking = null; ticked = emptySet() } },
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (pay.ref.isNotBlank()) Text("TrxID: ${pay.ref}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        tr("The patient will see \"Fee paid\". Open your bKash and tick each one:", "রোগী দেখবেন \"ফি পরিশোধিত\"। নিজের bKash খুলে প্রতিটা মিলিয়ে টিক দিন:"),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    PayRules.CONFIRM_CHECKS.forEach { k ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            androidx.compose.material3.Checkbox(
+                                checked = k in ticked, onCheckedChange = { on -> ticked = if (on) ticked + k else ticked - k },
+                                modifier = Modifier.testTag("appt_check_$k"),
+                            )
+                            Text(PayBiz.checkLabel(k), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    ErrorText(errorMsg)
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { OnlineApi.confirm(appointmentId) }
-                            .onSuccess { asking = null; onChanged() }.onFailure { errorMsg = OnlineText.error(it); asking = null }
+                        runCatching { OnlineApi.confirm(appointmentId, ticked) }
+                            .onSuccess { asking = null; ticked = emptySet(); PayNav.bump(); onChanged() }.onFailure { errorMsg = OnlineText.error(it) }
                         busy = false
                     }
-                }, enabled = !busy) { ButtonContent(busy, tr("Yes, received", "হ্যাঁ, পেয়েছি")) }
+                }, enabled = !busy && PayRules.CONFIRM_CHECKS.all { it in ticked }, modifier = Modifier.testTag("appt_confirm_yes")) { ButtonContent(busy, tr("Yes, received", "হ্যাঁ, পেয়েছি")) }
             },
-            dismissButton = { TextButton(onClick = { asking = null }, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+            dismissButton = { TextButton(onClick = { asking = null; ticked = emptySet() }, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
         )
         // লাইফলো পে-র অনুরোধ: কারণ বাছাইসহ (pay_reject)
         false -> if (pay.requestId.isNotBlank()) PayRejectDialog(pay.asRequest(appointmentId), onDismiss = { asking = null }) { asking = null; PayNav.bump(); onChanged() } else {

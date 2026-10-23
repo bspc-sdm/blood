@@ -242,7 +242,9 @@ object PayRules {
 
     /** ব্যবসা নিশ্চিত করার আগে তিনটা মিল (পর্যালোচনা P1): TrxID, টাকা, শেষ ৪ সংখ্যা — শেষ ৪ না থাকলে (পুরোনো দাবি) দুটো */
     val CONFIRM_CHECKS = listOf("trxId", "amount", "last4")
-    fun confirmChecks(r: PayRequest): List<String> = if (r.claim?.senderLast4.isNullOrBlank()) CONFIRM_CHECKS - "last4" else CONFIRM_CHECKS
+    /** সবসময় তিনটাই — সার্ভার trxId, amount, last4 তিনটাই true চায় (নইলে 400 checks_required), শেষ ৪ সংখ্যা দাবিতে না থাকলেও */
+    @Suppress("UNUSED_PARAMETER")
+    fun confirmChecks(r: PayRequest): List<String> = CONFIRM_CHECKS
     fun confirmReady(r: PayRequest, ticked: Set<String>): Boolean = confirmChecks(r).all { it in ticked }
 
     /** ব্যবসা: যাচাই বাকি থাকলে নিশ্চিত/বাতিল */
