@@ -332,6 +332,7 @@ export function payErrText(code: string | undefined, method: PayMethodKind, fall
     case 'no_methods':
     case 'pay_no_methods': return T.noMethods();
     case 'trx_format': return T.errTrx(method);
+    case 'sender_digits':
     case 'last4': return T.errLast4();
     case 'pay_claim_limit': return T.oneOpenClaim();
     case 'expired': return T.expiredErr();

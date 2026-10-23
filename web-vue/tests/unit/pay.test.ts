@@ -138,6 +138,7 @@ describe('নিয়ম', () => {
     expect(payErrText('pay_ref_rejected', 'bkash', 'x')).toContain('দোকান বাতিল করেছে');
     expect(payErrText('no_methods', 'bkash', 'x')).toContain('নগদে দিন');
     expect(payErrText('trx_format', 'nagad', 'x')).toContain('৬ থেকে ২০');
+    expect(payErrText('sender_digits', 'bkash', 'x')).toContain('শেষ ৪ অঙ্ক');
     expect(payErrText('nope', 'bkash', 'fallback')).toBe('fallback');
   });
 });
