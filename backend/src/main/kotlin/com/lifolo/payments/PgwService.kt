@@ -245,7 +245,8 @@ class PayHttpController(private val pgw: PgwService, private val guard: PayMetho
 
     private fun page(title: String, body: String): ResponseEntity<Any> = ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(
         "<!doctype html><html lang=\"bn\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
-            "<title>$title</title></head><body style=\"font-family:sans-serif;max-width:32rem;margin:2rem auto;padding:0 1rem\">$body</body></html>",
+            "<title>$title</title><style>${com.lifolo.common.WebFont.FACES}</style></head>" +
+            "<body style=\"font-family:${com.lifolo.common.WebFont.STACK};max-width:32rem;margin:2rem auto;padding:0 1rem\">$body</body></html>",
     )
 
     private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")

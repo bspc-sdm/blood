@@ -152,7 +152,9 @@ class AccountMail(
 
         private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-        fun html(l: Letter): String = l.lines.joinToString("") { line ->
+        fun html(l: Letter): String = com.lifolo.common.WebFont.mail(html0(l))
+
+        private fun html0(l: Letter): String = l.lines.joinToString("") { line ->
             when {
                 line == SITE -> "<p><a href=\"$SITE\">lifolo.com</a></p>"
                 line.startsWith("https://") && !line.contains(' ') -> "<p><a href=\"${esc(line)}\">আমি করিনি — নম্বর বন্ধ করুন</a></p>" // bn-ok

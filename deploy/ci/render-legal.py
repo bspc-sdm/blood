@@ -149,11 +149,16 @@ def render(md: str):
     return title, "\n".join(body)
 
 
+# Anek Bangla — ওয়েবের একই ফন্ট, web-vue/public/fonts থেকে (/w/fonts/…, CSP font-src 'self')
 CSS = """
+@font-face{font-family:'Anek Bangla';font-style:normal;font-weight:400;font-display:swap;src:url(/w/fonts/anek-bangla-bengali-400-normal.woff2) format('woff2');unicode-range:U+0951-0952,U+0964-0965,U+0980-09FE,U+1CD0-1CF9,U+200C-200D,U+20B9,U+25CC,U+A8F1}
+@font-face{font-family:'Anek Bangla';font-style:normal;font-weight:400;font-display:swap;src:url(/w/fonts/anek-bangla-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Anek Bangla';font-style:normal;font-weight:700;font-display:swap;src:url(/w/fonts/anek-bangla-bengali-700-normal.woff2) format('woff2');unicode-range:U+0951-0952,U+0964-0965,U+0980-09FE,U+1CD0-1CF9,U+200C-200D,U+20B9,U+25CC,U+A8F1}
+@font-face{font-family:'Anek Bangla';font-style:normal;font-weight:700;font-display:swap;src:url(/w/fonts/anek-bangla-latin-700-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{color-scheme:light dark;--bg:#fff;--fg:#1d1b20;--muted:#5f5b66;--line:#e3dfe8;--head:#f6f3f9;--link:#b3261e}
 @media (prefers-color-scheme:dark){:root{--bg:#141218;--fg:#e8e4ec;--muted:#aaa5b1;--line:#36323c;--head:#1f1c24;--link:#ffb4ab}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 "Hind Siliguri","Noto Sans Bengali","Noto Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 "Anek Bangla","Noto Sans Bengali","Nirmala UI","Noto Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header,main,footer{max-width:820px;margin:0 auto;padding:0 16px}
 header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 header a.brand{font-weight:700;font-size:20px;color:var(--fg);text-decoration:none}

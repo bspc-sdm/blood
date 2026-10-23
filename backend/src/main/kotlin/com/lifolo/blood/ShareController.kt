@@ -342,7 +342,8 @@ ${if (active) "<a class=\"btn secondary\" href=\"/request/${encodeURIComponent(i
 <style>
 :root{--red:#1F6F78;--bg:#F7FAFA;--card:#EBF0F0;--text:#161D1E;--muted:#3F4949}
 @media (prefers-color-scheme:dark){:root{--red:#8AD3DB;--bg:#0F1415;--card:#1B2122;--text:#DEE4E4;--muted:#BEC8C9}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+${com.lifolo.common.WebFont.FACES}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:${com.lifolo.common.WebFont.STACK}}
 main{max-width:480px;margin:0 auto;padding:24px 16px}
 .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;color:var(--red);margin-bottom:24px}
 .dot{width:36px;height:36px;border-radius:50%;background:#1F6F78;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}

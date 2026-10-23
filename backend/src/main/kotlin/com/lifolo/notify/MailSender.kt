@@ -29,9 +29,10 @@ object LoginCodeMail {
         "Lifolo অ্যাপে লগইনের কোড: $code\n\n" +
             "কোডটা ১০ মিনিট চলবে। আপনি কোড না চেয়ে থাকলে এই ইমেইল উপেক্ষা করুন, কাউকে কোডটা দেবেন না।"
 
-    fun html(code: String) =
+    fun html(code: String) = com.lifolo.common.WebFont.mail(
         "<p>Lifolo অ্যাপে লগইনের কোড:</p><p style=\"font-size:28px;font-weight:bold;letter-spacing:6px\">$code</p>" +
-            "<p>কোডটা ১০ মিনিট চলবে। আপনি কোড না চেয়ে থাকলে এই ইমেইল উপেক্ষা করুন, কাউকে কোডটা দেবেন না।</p>"
+            "<p>কোডটা ১০ মিনিট চলবে। আপনি কোড না চেয়ে থাকলে এই ইমেইল উপেক্ষা করুন, কাউকে কোডটা দেবেন না।</p>",
+    )
 }
 
 @Configuration
