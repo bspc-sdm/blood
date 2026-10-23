@@ -420,7 +420,7 @@ class RxPharmacyService(
         val b = ctx.body
         val id = b.string("id")
         val status = b.string("status")
-        if (!Rules.isValidId(id) || status !in listOf("ready", "accepted", "out", "cancelled")) throw notFound(ctx)
+        if (!Rules.isValidId(id) || status !in listOf("ready", "accepted", "out", "delivered", "cancelled")) throw notFound(ctx)
         val s = loadOrders("id = ? FOR UPDATE", id).firstOrNull()
         if (s == null || s.pharmacyUid != ctx.user.id) throw notFound(ctx)
         val mode = s.mode
@@ -429,6 +429,7 @@ class RxPharmacyService(
             "ready" -> mode == "shop" && cur == "sent"
             "accepted" -> mode == "online" && cur == "sent"
             "out" -> mode == "online" && (cur == "sent" || cur == "accepted")
+            "delivered" -> mode == "online" && (cur == "accepted" || cur == "out")
             else -> cur in RxMath.OPEN_ORDER
         }
         if (!allowed) throw ctx.err(409, "This can't be changed now", "এখন এটা বদলানো যায় না")
@@ -442,10 +443,14 @@ class RxPharmacyService(
             set.value("reason", reason)
             contacts.closeMarks(s, now).forEach { (c, v) -> set.value(c, v) }
         }
+        // the medicines reached the patient (the receipt is issued with it — InvoiceCreators.rxOrderUpdate)
+        if (status == "delivered") contacts.closeMarks(s, now).forEach { (c, v) -> set.value(c, v) }
         if (status == "accepted") {
             price = str(b.string("price"), 40)
             eta = str(b.string("eta"), 60)
             set.value("price", price).value("eta", eta)
+            // the priced lines of the receipt (docs/INVOICES.md)
+            com.lifolo.invoices.InvoiceMath.lines(ctx.lang, b["lines"])?.let { set.json("invoice_lines", com.lifolo.invoices.InvoiceMath.linesJson(it)) }
         }
         val added = missedNames.filter { it !in s.missed }
         if (added.isNotEmpty()) set.textArray("missed", (s.missed + added).take(30))
@@ -456,6 +461,7 @@ class RxPharmacyService(
             "ready" -> "$shop: your medicines are ready" to "$shop: আপনার ওষুধ তৈরি"
             "accepted" -> "$shop accepted your order" to "$shop অর্ডার নিয়েছে"
             "out" -> "$shop: your medicines are on the way" to "$shop: ওষুধ পথে আছে"
+            "delivered" -> "$shop: your medicines were delivered" to "$shop: ওষুধ পৌঁছে দেওয়া হয়েছে" // bn-ok
             else -> "$shop can't provide your medicines" to "$shop ওষুধ দিতে পারবে না"
         }
         val body = when (status) {

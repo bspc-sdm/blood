@@ -1142,6 +1142,18 @@ Full contract: [CHAT.md](CHAT.md). Logged in, own account only (no caregiver `as
   - request: `kind`, `id`, `note` · response: `{ok}`
   - collections: inbox, users · side effects: FCM push + inbox, admin_log row · errors: 403, 400 · tests: — (none)
 
+## Receipts / invoices (package `invoices`) — 10 actions (Spring only, Oct 2026 — [INVOICES.md](INVOICES.md))
+
+- [x] **`invoice_get`** `{id}` → `{invoice}` — the issuer (business owner; a doctor's assistant), the linked patient or their caregiver (`asUid`)
+- [x] **`invoice_verify`** `{code}` → `{invoice: {bizName, kind, no, date, total, paid, due, status: valid|void}}` — public (guest), 30/min/IP; no personal data
+- [x] **`invoice_list_biz`** `{kind, bizId, period, q?, cursor?}` → `{items, cursor, sum}` — the issuer; customer phone masked after 30 days
+- [x] **`invoice_pay`** `{id, amount, method, ref?}` / **`invoice_void`** `{id, reason}` → `{invoice}` — the issuer; void of a pharmacy sale reverses its stock
+- [x] **`my_invoices`** `{asUid?, cursor?}` / **`my_expenses`** `{asUid?, month}` — the patient or a caregiver
+- [x] **`lab_bill_create`**, **`chamber_fee_collect`**, **`ambreq_finish`** → `{invoice}` (+ `overFare`, `chartFare` for the trip)
+- changed: `books_sale_add` (+ `customer {name?, phone?}`, `payments?` → `invoice`), `books_sale_delete` (voids a sale's receipt),
+  `rx_order_update` (`accepted` + `lines`; new status `delivered`; `out`/`delivered` → `invoice`), `appt_pay_confirm` (issues the fee receipt)
+- push `invoice_new` (`cat: my_request`, `invoiceId`); daily step `invoicesPurged` (6 years after an account deletion)
+
 ## Demo world (package `demo`) — 3 actions
 
 - [x] **`admin_demo_seed`** — Seed demo world step by step (step 0 wipes + creates Auth accounts; steps 1..5 parts); returns {next,label,steps}

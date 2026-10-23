@@ -20,16 +20,31 @@ class ActionContext(
     val user: AuthUser,
     val caller: AuthUser,
     val action: String,
-) {
-    val lang: String? get() = Lang.of(request) ?: body.lang
+) : CallCtx {
+    override val lang: String? get() = Lang.of(request) ?: body.lang
 
     /** community.js tr: Bangla only for lang == "bn" */
     fun tr(en: String, bn: String): String = Lang.tr(lang, en, bn)
 
     /** HttpError with a bilingual message */
-    fun err(status: Int, en: String, bn: String, code: String? = null): ApiException = ApiException(status, tr(en, bn), code)
+    override fun err(status: Int, en: String, bn: String, code: String?): ApiException = ApiException(status, tr(en, bn), code)
 
     fun notFound(): ApiException = err(404, "Not found", "পাওয়া যায়নি")
+}
+
+/**
+ * The language + bilingual errors of a call — what services need when the same code runs for an HTTP action and for
+ * something else (the desktop sync replaying an action body): [ActionContext], or [LangCtx].
+ */
+interface CallCtx {
+    val lang: String?
+
+    fun err(status: Int, en: String, bn: String, code: String? = null): ApiException
+}
+
+/** a [CallCtx] outside an HTTP action */
+class LangCtx(override val lang: String?) : CallCtx {
+    override fun err(status: Int, en: String, bn: String, code: String?): ApiException = ApiException(status, Lang.tr(lang, en, bn), code)
 }
 
 /** An action implementation. Return a Map/data object (serialized as JSON) — null means `{ok: true}`. */
@@ -79,6 +94,8 @@ object ActionPolicy {
         "ambulances", "pharmacies", "bloodbanks", "labs",
         "lab_prices_public",
         "drug_search", "catalog_get",
+        // the public receipt check (lifolo.com/v/<code>): business, no, date, total, paid/due, valid/void — no personal data
+        "invoice_verify",
     )
 
     val CARE_ACTIONS: Set<String> = setOf(
@@ -90,6 +107,8 @@ object ActionPolicy {
         "appointment_queue", "appointment_late",
         // online chamber fee: the caregiver may say "টাকা পাঠিয়েছি" for the patient
         "appt_pay_claim", "appt_report",
+        // receipts (docs/INVOICES.md): the patient's side only
+        "invoice_get", "my_invoices", "my_expenses",
     )
 
     /**

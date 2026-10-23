@@ -7,7 +7,10 @@ import com.lifolo.books.BooksMath.r2
 import com.lifolo.common.Ids
 import com.lifolo.common.Js
 import com.lifolo.common.Rules
+import com.lifolo.auth.AuthUser
+import com.lifolo.common.Body
 import com.lifolo.common.action.ActionContext
+import com.lifolo.common.action.CallCtx
 import com.lifolo.contracts.Prescription
 import com.lifolo.contracts.Prescriptions
 import com.lifolo.contracts.RxDispensing
@@ -34,14 +37,16 @@ class BooksService(
     private val prescriptions: Prescriptions,
     private val clock: P4Clock,
 ) {
-    private fun notFound(ctx: ActionContext) = ctx.err(404, "Not found", "পাওয়া যায়নি")
+    private fun notFound(ctx: CallCtx) = ctx.err(404, "Not found", "পাওয়া যায়নি")
 
-    private fun bad(ctx: ActionContext, en: String, bn: String) = ctx.err(400, en, bn)
+    private fun bad(ctx: CallCtx, en: String, bn: String) = ctx.err(400, en, bn)
+
+    private fun myShop(ctx: ActionContext, lock: Boolean): String = myShopOf(ctx, ctx.user, lock)
 
     /** shopbooks.js myShop (+ the shop lock for writes) */
-    private fun myShop(ctx: ActionContext, lock: Boolean): String {
-        val uid = ctx.user.uid
-        if (ctx.user.guest || !Rules.isValidId(uid)) throw ctx.err(401, "Please log in", "লগইন করুন")
+    fun myShopOf(ctx: CallCtx, user: AuthUser, lock: Boolean): String {
+        val uid = user.uid
+        if (user.guest || !Rules.isValidId(uid)) throw ctx.err(401, "Please log in", "লগইন করুন")
         val exists = if (lock) stock.lockShop(uid!!) else jdbc.queryForList("SELECT 1 FROM pharmacies WHERE uid = ?", uid).isNotEmpty()
         if (!exists) throw ctx.err(403, "Add your pharmacy first", "আগে আপনার ফার্মেসি যোগ করুন")
         return uid!!
@@ -50,22 +55,22 @@ class BooksService(
     // ------------------------------------------------------------------ input checks
 
     /** shopbooks.js numOf: money/quantity — empty = null; negative or too big → 400 */
-    private fun numOf(ctx: ActionContext, v: JsonNode?, en: String, bn: String, max: Double = 1e7): Double? {
+    private fun numOf(ctx: CallCtx, v: JsonNode?, en: String, bn: String, max: Double = 1e7): Double? {
         if (v == null || v.isNull || (v.isTextual && v.textValue() == "")) return null
         val n = if (v.isNumber) v.doubleValue() else RxMath.jsNumber(Js.template(v).replace(",", ""))
         if (!n.isFinite() || n < 0 || n > max) throw bad(ctx, "Check the $en", "$bn দেখে নিন")
         return r2(n)
     }
 
-    private fun qtyOf(ctx: ActionContext, v: JsonNode?) = numOf(ctx, v, "quantity", "পরিমাণ", 100000.0)
+    private fun qtyOf(ctx: CallCtx, v: JsonNode?) = numOf(ctx, v, "quantity", "পরিমাণ", 100000.0)
 
-    private fun moneyOf(ctx: ActionContext, v: JsonNode?, en: String = "price", bn: String = "দাম") = numOf(ctx, v, en, bn)
+    private fun moneyOf(ctx: CallCtx, v: JsonNode?, en: String = "price", bn: String = "দাম") = numOf(ctx, v, en, bn)
 
     /** `Number(v)` of any JSON value */
     private fun jsNum(v: JsonNode): Double = if (v.isBoolean) (if (v.booleanValue()) 1.0 else 0.0) else RxMath.jsNumber(Js.template(v))
 
     /** shopbooks.js discOf: {type: 'pct'|'amt', v} or null */
-    private fun discOf(ctx: ActionContext, d: JsonNode?): Disc? {
+    private fun discOf(ctx: CallCtx, d: JsonNode?): Disc? {
         if (d == null || d.isNull || (d.isTextual && d.textValue() == "")) return null
         if (d.isContainerNode) {
             val v = d.get("v")
@@ -79,14 +84,14 @@ class BooksService(
 
     private val EXPIRY = Regex("^20\\d\\d-(0[1-9]|1[0-2])$")
 
-    private fun expiryOf(ctx: ActionContext, v: JsonNode?): String? {
+    private fun expiryOf(ctx: CallCtx, v: JsonNode?): String? {
         if (v == null || v.isNull || (v.isTextual && v.textValue() == "")) return null
         if (!v.isTextual || !EXPIRY.matches(v.textValue())) throw bad(ctx, "Check the expiry (month/year)", "মেয়াদ (মাস/বছর) দেখে নিন")
         return v.textValue()
     }
 
     /** shopbooks.js atOf: now when not given; within the last 60 days (a date → noon that day) */
-    private fun atOf(ctx: ActionContext, v: JsonNode?, now: Long): Long {
+    private fun atOf(ctx: CallCtx, v: JsonNode?, now: Long): Long {
         if (v == null || v.isNull || (v.isTextual && v.textValue() == "")) return now
         var t: Double = if (v.isNumber) v.doubleValue() else Double.NaN
         if (v.isTextual && Regex("^\\d{4}-\\d\\d-\\d\\d$").matches(v.textValue())) {
@@ -411,10 +416,19 @@ class BooksService(
         return if (near.size == 1) near[0] else null
     }
 
+    /** a recorded sale; [short] = products that had less stock than sold (the stock stopped at 0) */
+    class SaleOut(val sale: BooksStore.Sale, val short: List<String>)
+
     @Transactional
     fun saleAdd(ctx: ActionContext): Any {
-        val uid = myShop(ctx, lock = true)
-        val b = ctx.body
+        val out = saleCore(ctx, ctx.user, ctx.body)
+        return linkedMapOf("id" to out.sale.id, "sale" to out.sale.toMap())
+    }
+
+    /** books_sale_add for the HTTP action and for the receipts (InvoiceCreators.pharmacySale) */
+    @Transactional
+    fun saleCore(ctx: CallCtx, user: AuthUser, b: Body): SaleOut {
+        val uid = myShopOf(ctx, user, lock = true)
         val now = clock.now()
         val rxNode = b["rx"]
         val isRx = b.string("source") == "rx" || b.string("source") == "online" || (rxNode != null && rxNode.isObject)
@@ -512,6 +526,7 @@ class BooksService(
             BooksMath.stockChange(x.name, before, nq, add, remove)
             store.saveItem(uid, x.copy(qty = nq, lastSaleAt = maxOf(x.lastSaleAt ?: 0L, at), updatedAt = now))
         }
+        val decOf0 = HashMap(decOf)
         for (l in priced.lines) {
             val left = decOf[l.itemId] ?: 0.0
             l.dec = r2(minOf(l.qty, left))
@@ -520,11 +535,12 @@ class BooksService(
         stock.stockWrite(ctx.lang, uid, st, add, remove)
         val sale = BooksStore.Sale(
             id, at, BooksMath.dayKey(at), source, priced.lines, priced.totals, billDisc, rxInfo,
-            BooksMath.str(b.string("customer"), 60), now,
+            BooksMath.str(b.string("customer") ?: Js.string(b["customer"]?.get("name")), 60), now,
         )
         store.insertSale(uid, sale)
         store.dayAdd(uid, sale.day, BooksMath.saleDayDelta(sale.source, sale.totals, sale.lines))
-        return linkedMapOf("id" to id, "sale" to sale.toMap())
+        val short = sold.filter { (itemId, q) -> cur[itemId]?.qty != null && (decOf0[itemId] ?: q) < q }.keys.toList()
+        return SaleOut(sale, short)
     }
 
     @Transactional
@@ -570,7 +586,17 @@ class BooksService(
         val uid = myShop(ctx, lock = true)
         val id = ctx.body.string("id")
         if (id == null || !SALE_ID.matches(id)) throw notFound(ctx)
-        val sale = store.sale(uid, id) ?: throw notFound(ctx)
+        if (!reverseSale(uid, id)) throw notFound(ctx)
+        return mapOf("ok" to true)
+    }
+
+    /**
+     * books_sale_delete without the checks: the stock the sale took goes back, the sale and its day totals go. Also what
+     * voiding a pharmacy receipt does (BooksInvoiceHook). false = no such sale. The caller holds the shop lock.
+     */
+    @Transactional
+    fun reverseSale(uid: String, id: String): Boolean {
+        val sale = store.sale(uid, id) ?: return false
         val ids = sale.lines.filter { !it.noItem }.map { it.itemId }.distinct()
         val items = store.itemsById(uid, ids)
         val st = stock.load(uid)
@@ -587,11 +613,14 @@ class BooksService(
             BooksMath.stockChange(x.name, x.qty, nq, add, remove)
             store.saveItem(uid, x.copy(qty = nq, updatedAt = now))
         }
-        stock.stockWrite(ctx.lang, uid, st, add, remove)
+        stock.stockWrite(null, uid, st, add, remove)
         store.deleteSale(uid, id)
         store.dayAdd(uid, sale.day, BooksMath.saleDayDelta(sale.source, sale.totals, sale.lines, -1))
-        return mapOf("ok" to true)
+        return true
     }
+
+    /** the shop row lock (writes to the books) */
+    fun lockShop(uid: String): Boolean = stock.lockShop(uid)
 
     // ------------------------------------------------------------------ write-off / count
 

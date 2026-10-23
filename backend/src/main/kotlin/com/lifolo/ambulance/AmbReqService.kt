@@ -1240,6 +1240,9 @@ class AmbReqService(
         }
     }
 
+    /** ambreq_finish (InvoiceCreators): the driver closes the trip they took, like step "done" */
+    fun finishTrip(lang: String?, id: String, uid: String) = driverStep(lang, id, uid, "done", "other", AmbClock.now())
+
     /** ambreq_step — body.step arrived | done | cancel (+ reason) */
     fun step(lang: String?, b: Body, uid: String): Map<String, Any?> {
         val x = loadMine(lang, b.string("id"), true, uid)

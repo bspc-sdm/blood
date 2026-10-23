@@ -18,6 +18,7 @@ class PharmacyModule(
     private val pharmacy: PharmacyService,
     private val medFind: MedFindService,
     private val rx: RxPharmacyService,
+    private val invoices: com.lifolo.invoices.InvoiceCreators,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         // pharmacy.js
@@ -47,7 +48,8 @@ class PharmacyModule(
         "rx_send_pharmacy" to ActionHandler { rx.send(it) },
         "rx_order_withdraw" to ActionHandler { rx.withdraw(it) },
         "rx_orders_pharmacy" to ActionHandler { rx.ordersForPharmacy(it) },
-        "rx_order_update" to ActionHandler { rx.orderUpdate(it) },
+        // + the receipt at out/delivered (docs/INVOICES.md)
+        "rx_order_update" to ActionHandler { invoices.rxOrderUpdate(it) },
         "rx_pharmacy_home" to ActionHandler { rx.home(it) },
         "rx_pharmacy_online_set" to ActionHandler { rx.onlineSet(it) },
         "rx_missed_clear" to ActionHandler { rx.missedClear(it) },
