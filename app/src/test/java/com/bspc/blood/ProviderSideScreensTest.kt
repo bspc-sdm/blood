@@ -154,8 +154,12 @@ class ProviderSideScreensTest {
             }
             WorkSegTabs("new", mapOf("new" to 1, "active" to 0), {})
         }
-        rule.onNodeWithText("খালি আছে", substring = true).assertExists()
         shot("ambulance-bn")
+        // পুরো কার্ড "দেখুন" চাপলে (এক লাইনের সারি থেকে)
+        rule.onNodeWithTag("patient_preview").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("খালি আছে", substring = true).assertExists()
+        shot("ambulance-open-bn")
     }
 
     @Test
@@ -172,7 +176,10 @@ class ProviderSideScreensTest {
         }
         rule.onNodeWithText("আজ সিরিয়াল চলছে").assertExists()
         rule.onNodeWithText("আজ বন্ধ").assertExists()
-        rule.onNodeWithText("আজ সিরিয়াল আছে").assertExists()
         shot("doctor-bn")
+        rule.onNodeWithTag("patient_preview").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("আজ সিরিয়াল আছে", substring = true).assertExists()
+        shot("doctor-open-bn")
     }
 }

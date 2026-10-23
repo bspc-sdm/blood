@@ -89,7 +89,7 @@ class MyWorkQueuesScreensTest {
             val out = mutableListOf<TextLayoutResult>()
             n.config[SemanticsActions.GetTextLayoutResult].action?.invoke(out)
             val r = out.first()
-            assertFalse("\"$text\" is cut", r.hasVisualOverflow)
+            assertFalse("\"$text\" is cut (w ${r.didOverflowWidth}, h ${r.didOverflowHeight}, lines ${r.lineCount}, size ${r.size})", r.hasVisualOverflow)
             assertTrue("\"$text\" takes ${r.lineCount} lines", r.lineCount <= 2)
         }
     }
@@ -282,7 +282,8 @@ class MyWorkQueuesScreensTest {
         assertEquals(listOf("Seclo 20"), CounterSale.match(items, "২০").map { it.name })
         assertEquals(listOf("Napa 500mg"), CounterSale.match(items, "NAPA").map { it.name })
         assertTrue(CounterSale.match(items, " ").isEmpty())
-        assertEquals(17.5, CounterSale.total(listOf(items[0] to 2.0, items[1] to 2.0)), 0.001)
+        // Seclo ৭ × ২ + Napa ১.৫ × ২ = ১৭
+        assertEquals(17.0, CounterSale.total(listOf(items[0] to 2.0, items[1] to 2.0)), 0.001)
     }
 
     // ---------------- অ্যাম্বুলেন্স ----------------
@@ -296,6 +297,7 @@ class MyWorkQueuesScreensTest {
         // অনুমোদিত দুইটা গাড়ি — প্রতিটায় একবার খালি আছি / ট্রিপে আছি
         assertEquals(2, rule.onAllNodesWithTag("amb_set_free").fetchSemanticsNodes().size)
         assertEquals(2, rule.onAllNodesWithTag("amb_set_trip").fetchSemanticsNodes().size)
+        shot("ambulance-availability")
         assertNotCut("খালি আছি")
         assertNotCut("ট্রিপে আছি")
         shot("ambulance-availability")
