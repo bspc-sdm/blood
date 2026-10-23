@@ -184,6 +184,15 @@ Google Play-র Data safety ফর্মে আমরা ঠিক এই উত
 - **ইমেইল:** বন্ধ করলে আর আবার চালু করলে আপনার ইমেইলে জানানো হয়।
 - **মোছা আগে:** মোছার অনুরোধ থাকা অবস্থায় সাময়িক বন্ধ করা যায় না (আগে লগইন করে মোছা বাতিল করতে হয়)। বন্ধ থাকা অবস্থায় মোছার অনুরোধ দিলে বন্ধ থাকা শেষ হয়, আর ওপরের "অ্যাকাউন্ট মোছা"-র নিয়ম চলে।
 
+## স্বাস্থ্য তথ্যের সম্মতি
+
+বাংলাদেশের ব্যক্তিগত তথ্য সুরক্ষার আইনে স্বাস্থ্য তথ্য সংবেদনশীল তথ্য। তাই আপনি নিজে নতুন স্বাস্থ্য তথ্য দেওয়ার আগে — প্রেসক্রিপশন বা রিপোর্ট যোগ, রক্তের গ্রুপ, ওজন বা শেষ রক্তদানের তারিখ দেওয়া বা বদলানো, সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট, কেয়ারগিভারকে দেখানো, প্রেসক্রিপশনসহ অনলাইন অর্ডার, বাসা থেকে নমুনা — অ্যাপ বা ওয়েব একবার আপনার স্পষ্ট সম্মতি চায়। সম্মতি দুটো, আলাদা: (১) আপনার স্বাস্থ্য তথ্য Lifolo-তে রাখা, আর (২) তা বাংলাদেশের বাইরের সার্ভারে রাখা (এখন ইউরোপে; ওপরে "তথ্য কোথায় থাকে")। পর্দায় লেখা থাকে কী তথ্য, কেন, কোথায়, আর কে দেখে, কতদিন থাকে আর কীভাবে তুলে নেবেন। "রাজি আছি" চাপলে দুটোই দেন; আমরা প্রতিটা আলাদা করে লিখে রাখি — কোনটা, কোন লেখার ভার্সনে, কবে, আর অ্যাপ, ওয়েব না ডেস্কটপ থেকে। সম্মতির লেখা বদলালে আবার জিজ্ঞেস করা হয়।
+
+- **জরুরি সেবা সম্মতি ছাড়াও চলে:** রক্তের অনুরোধ ও সাড়া, অ্যাম্বুলেন্স ডাকা, জরুরি কল আর তালিকা দেখা কখনো সম্মতির জন্য আটকায় না।
+- **ডাক্তার বা প্যাথলজির রেকর্ড:** ডাক্তার যে প্রেসক্রিপশন লেখেন বা প্যাথলজি যে রিপোর্ট দেয়, তা তাঁদের রেকর্ড রাখার দায়িত্বের জন্য জমা হয়; পরের বার স্বাস্থ্যের পাতা খুললে আপনার সম্মতি চাওয়া হয়।
+- **কেয়ারগিভার** আপনার হয়ে সম্মতি দিতে বা তুলে নিতে পারেন না — আপনাকে নিজে একবার দিতে হয়।
+- **তুলে নেওয়া:** যেকোনো সময়, সেটিংস › গোপনীয়তা › "সম্মতি তুলে নিন"। তারপর নতুন স্বাস্থ্য তথ্য দেওয়া বন্ধ হয়। যা আগে থেকে আছে তা নিজে থেকে মোছে না — আপনি নিজে মুছতে পারেন, বা পুরো অ্যাকাউন্ট মুছতে পারেন (ওপরে "অ্যাকাউন্ট মোছা")। সম্মতির রেকর্ড অ্যাকাউন্টের সাথে মুছে যায়।
+
 ## আপনার অধিকার ও পছন্দ
 
 - প্রোফাইল ও সেটিংস থেকে যেকোনো সময় তথ্য বদলাতে আর নোটিফিকেশন বন্ধ করতে পারবেন। নোটিফিকেশন সব একসাথে বা ধরন অনুযায়ী বন্ধ করা যায় (আশেপাশে রক্ত লাগলে, জরুরি রক্তের আহ্বান, আমার রক্তের অনুরোধ, অ্যাপয়েন্টমেন্ট আর সিরিয়াল, প্রেসক্রিপশন-ওষুধ-ল্যাব, অ্যাম্বুলেন্স, প্রশ্নোত্তর আর টিপস, আমার ব্যবসা, অ্যাপে কল)। "অ্যাপে কল" বা সব নোটিফিকেশন বন্ধ থাকলে কেউ আপনাকে অ্যাপে কল করতে পারেন না (ফোনে পারেন)। বন্ধ করা ধরনের নোটিফিকেশন ফোনে আসে না, তবে অ্যাপের নোটিফিকেশনের তালিকায় থাকে (২১ দিন); অ্যাকাউন্ট আর নিরাপত্তার খবর (অ্যাকাউন্ট মোছা, Lifolo টিমের বার্তা, কেয়ারগিভারের আমন্ত্রণ) সবসময় আসে — আর অ্যাকাউন্ট সাময়িক বন্ধ থাকলে শুধু এগুলোই আসে। আমরা শুধু এই চালু/বন্ধ পছন্দগুলো আপনার অ্যাকাউন্টের সাথে রাখি; অ্যাকাউন্ট মুছলে মুছে যায়। লোকেশনের অনুমতি ফোনের সেটিংসে যেকোনো সময় বন্ধ করা যায় (তখন এলাকা হাতে বেছে নিন)। কেয়ারগিভার আর পরিবারের সদস্য যেকোনো সময় সরাতে পারবেন।
@@ -220,7 +229,7 @@ Lifolo — **ekapkbd@gmail.com** · https://lifolo.com
 
 # English
 
-Last updated: 22 October 2026. This policy covers the Lifolo Android app and the website https://lifolo.com; the same account works in both. The app used to be called Get Blood.
+Last updated: 23 October 2026. This policy covers the Lifolo Android app and the website https://lifolo.com; the same account works in both. The app used to be called Get Blood.
 
 ## In short
 
@@ -375,6 +384,15 @@ If you don't want to delete it, you can deactivate your account temporarily (in 
 - **Turning it back on:** log in and tap "Turn on again"; everything comes back as it was.
 - **Email:** we email you when it is switched off and when it is turned back on.
 - **Deletion comes first:** you cannot deactivate while a deletion is pending (log in to cancel the deletion first). Asking to delete a deactivated account ends the deactivation, and the "Deleting your account" rules above apply.
+
+## Consent for health data
+
+Bangladesh's personal data protection law treats health data as sensitive. So before you yourself add new health information — adding a prescription or report, giving or changing your blood group, weight or last donation date, a psychologist appointment, sharing with a caregiver, an online order with a prescription, home sample collection — the app or website asks once for your explicit consent. There are two separate consents: (1) keeping your health information in Lifolo, and (2) keeping it on servers outside Bangladesh (now in Europe; see "Where data is stored" above). The screen says what data, why, where, who else sees it, how long it is kept and how to withdraw. "I agree" gives both; we record each one separately — which one, for which version of the text, when, and whether from the app, the website or the desktop app. When the consent text changes, you are asked again.
+
+- **Emergency features work without consent:** blood requests and responses, calling an ambulance, emergency calls and browsing the listings are never blocked for consent.
+- **Records made by your doctor or lab:** prescriptions a doctor writes and reports a lab gives are saved because they must keep records; you are asked for consent the next time you open your health sections.
+- **A caregiver** cannot give or withdraw consent for you — you have to give it yourself once.
+- **Withdrawing:** at any time, Settings › Privacy › "Withdraw consent". After that you can't add new health information. What is already there is not deleted automatically — you can delete it yourself, or delete your whole account (see "Deleting your account" above). The consent records are deleted with your account.
 
 ## Your rights and choices
 
