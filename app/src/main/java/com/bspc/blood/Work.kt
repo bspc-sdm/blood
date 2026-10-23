@@ -87,6 +87,10 @@ data class WorkSummary(
     val lab: Lab? = null,
     /** অনুমোদিত পেশাদার ব্যাজ (ডাক্তার, নার্স, পুষ্টিবিদ, ট্রেইনার) — চেম্বার বা বাসায় সেবা এখানেই */
     val professional: String? = null,
+    /** সেই ব্যাজের চিকিৎসা পদ্ধতি আর সার্ভারের পেশার নাম (title_guard: "হোমিওপ্যাথিক চিকিৎসক" …) — professionalLine */
+    val proSystem: String = "",
+    val proTypeLabel: String = "",
+    val proTypeLabelEn: String = "",
 ) {
     fun owns(kind: String): Boolean = when (kind) {
         "ambulance" -> ambulances.isNotEmpty()
@@ -127,7 +131,7 @@ object MyWork {
     }
 
     /** কোনো একটা আনতে না পারলে (ইন্টারনেট) সেটার আগের হিসাবই থাকে — ট্যাব হঠাৎ হারিয়ে যায় না */
-    suspend fun refresh(badge: String?) {
+    suspend fun refresh(badge: BadgeState?) {
         if (LoginGate.isGuest) {
             clear()
             return
@@ -149,7 +153,10 @@ object MyWork {
                 pharmacy = if (p.isSuccess) p.getOrNull() else old.pharmacy,
                 bloodBanks = b.getOrElse { old.bloodBanks },
                 lab = if (l.isSuccess) l.getOrNull() else old.lab,
-                professional = badge?.takeIf { it in Practice.providerTypes() },
+                professional = badge?.type?.takeIf { it in Practice.providerTypes() },
+                proSystem = badge?.system.orEmpty(),
+                proTypeLabel = badge?.typeLabel.orEmpty(),
+                proTypeLabelEn = badge?.typeLabelEn.orEmpty(),
             )
             val failed = listOf("ambulance" to a, "pharmacy" to p, "bloodbank" to b, "lab" to l).filter { it.second.isFailure }
             // বাতিল (পাতা বদলানো) ভুল নয়
@@ -182,6 +189,16 @@ private fun statusCounts(statuses: List<String>): List<String> = listOf("pending
     }
 }
 
+/**
+ * পেশাদারের সারির নিচের লেখা: "ডাক্তার · বুকিং, রোগী, সেটআপ", নার্স "নার্স"। title_guard চালু হলে অ-এলোপ্যাথিক চিকিৎসক
+ * "হোমিওপ্যাথিক চিকিৎসক · …" (সার্ভারের typeLabel, না থাকলে পদ্ধতি — ওয়েবের WorkOverview-এর মতো); বন্ধে আগের মতো।
+ */
+internal fun professionalLine(s: WorkSummary): String? {
+    val type = s.professional ?: return null
+    if (type == "nurse") return Badges.label(type)
+    return TitleGuard.professionLabel(type, s.proSystem, s.proTypeLabel, s.proTypeLabelEn) + tr(" · bookings, patients, setup", " · বুকিং, রোগী, সেটআপ")
+}
+
 // ------------------------------------------------------------
 // "আমার কাজ" ট্যাব
 // ------------------------------------------------------------
@@ -203,7 +220,7 @@ fun WorkTab(onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
                 WorkRow(
                     Badges.icon(type),
                     if (type == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
-                    if (type == "nurse") Badges.label(type) else Badges.label(type) + tr(" · bookings, patients, setup", " · বুকিং, রোগী, সেটআপ"),
+                    professionalLine(s).orEmpty(),
                     onOpenChamber,
                 )
             }

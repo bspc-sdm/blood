@@ -256,7 +256,7 @@ Title variants, at the start of the name, any case, an optional dot / colon / vi
   badge form shows the profile name with the same hint/error for the chosen profession/system and a link to edit the
   profile. The server's `title_not_allowed` message is shown as is.
 - Profession labels come from the server's `typeLabel` (fallback: the system when the switch is on): provider detail,
-  appointment detail, the provider's own workspace and badge line, the prescription header (screen, print and PDF), the
+  appointment detail, the provider's own workspace and badge line, the "আমার কাজ" chamber row (from `me.badge`), the prescription header (screen, print and PDF), the
   badge chip on answers and tips. Search: with the switch and `practice_systems` on, the "ডাক্তার" tab reads
   "ডাক্তার ও চিকিৎসক"; with a homeopathy/unani/ayurveda chip selected the empty text and the gender filter use the
   practitioner label ("কোনো হোমিওপ্যাথিক চিকিৎসক পাওয়া যায়নি").

@@ -428,7 +428,7 @@ fun App(
         if (ready && callUid != null) CallAvailability.refresh()
     }
     // "আমার কাজ" (নিজের ব্যবসা, চেম্বার): মূল পাতায় ফিরলে, লগইন বদলালে বা ব্যাজ বদলালে নতুন করে
-    val workBadge = community?.approvedBadge
+    val workBadge = community?.approved
     LaunchedEffect(ready, stack.size == 1, homeRefresh, LoginGate.uid.value, workBadge) {
         if (ready && stack.size == 1) MyWork.refresh(workBadge)
     }

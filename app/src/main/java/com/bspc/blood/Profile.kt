@@ -75,7 +75,7 @@ fun ProfileTab(
     var businessNo by remember { mutableStateOf(Dismissed.isOn(context, businessKey)) }
     val hasBusiness = MyWork.summary.value.hasBusiness
     // প্রোফাইল খুললে নিজের ব্যবসার হিসাব নতুন করে (আগে আনতে ব্যর্থ হয়ে থাকলে)
-    LaunchedEffect(Unit) { if (!MyWork.loaded.value) MyWork.refresh(community?.approvedBadge) }
+    LaunchedEffect(Unit) { if (!MyWork.loaded.value) MyWork.refresh(community?.approved) }
     var assisting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { assisting = runCatching { RxApi.assisting().isNotEmpty() }.getOrDefault(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -150,7 +150,7 @@ fun ProfileTab(
             Text(profile.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             community?.approvedBadge?.let {
                 Spacer(Modifier.height(6.dp))
-                BadgeChip(it, community?.badge?.let { b -> TitleGuard.practitionerLabel(b.type, b.system) }.orEmpty())
+                BadgeChip(it, community?.badge?.let { b -> TitleGuard.practitionerLabel(b.type, b.system, b.typeLabel, b.typeLabelEn) }.orEmpty())
             }
             AuthRepository.currentEmail?.let {
                 Spacer(Modifier.height(4.dp))
@@ -203,7 +203,7 @@ fun ProfileTab(
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
                     Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                    TextButton(onClick = { scope.launch { MyWork.refresh(community?.approvedBadge) } }) {
+                    TextButton(onClick = { scope.launch { MyWork.refresh(community?.approved) } }) {
                         Text(tr("Try again", "আবার চেষ্টা করুন"))
                     }
                 }

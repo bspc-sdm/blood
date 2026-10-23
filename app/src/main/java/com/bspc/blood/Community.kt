@@ -108,6 +108,9 @@ data class BadgeState(
     val docsNote: String = "",
     /** ডাক্তারের চিকিৎসা পদ্ধতি (Practice.kt) — খালি = এলোপ্যাথি */
     val system: String = "",
+    /** সার্ভারের পেশার নাম (title_guard চালু: "হোমিওপ্যাথিক চিকিৎসক" …, নইলে "ডাক্তার"); পুরোনো সার্ভারে খালি */
+    val typeLabel: String = "",
+    val typeLabelEn: String = "",
 )
 
 data class CommunityMe(
@@ -121,7 +124,10 @@ data class CommunityMe(
     val unread: Int = 0,
 ) {
     /** অনুমোদিত ব্যাজ থাকলে তার ধরন */
-    val approvedBadge: String? get() = badge?.takeIf { it.status == "approved" }?.type
+    val approvedBadge: String? get() = approved?.type
+
+    /** অনুমোদিত ব্যাজ পুরোটা (পদ্ধতি আর সার্ভারের পেশার নাম সহ — "আমার কাজ") */
+    val approved: BadgeState? get() = badge?.takeIf { it.status == "approved" }
 }
 
 object Community {
@@ -156,7 +162,7 @@ object Community {
                 BadgeState(
                     it.optString("type"), it.optString("status"), it.optString("regNo"), it.optString("workplace"), it.optBoolean("changePending"),
                     it.optString("statusReason"), it.optBoolean("docsMissing"), it.optBoolean("docsRequested"), it.optString("docsRequestNote"),
-                    it.optString(PracticeWire.SYSTEM),
+                    it.optString(PracticeWire.SYSTEM), it.str("typeLabel").orEmpty(), it.str("typeLabelEn").orEmpty(),
                 )
             }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
             o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true), o.optInt("unread"),

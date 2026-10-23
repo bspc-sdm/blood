@@ -422,6 +422,25 @@ class PracticeScreensTest {
         assertEquals("care_share_psych", PracticeWire.SHARE_ACTION)
     }
 
+    /** title_guard চালু: "আমার কাজ"-এ হোমিওপ্যাথের চেম্বারের সারি "হোমিওপ্যাথিক চিকিৎসক · …", "ডাক্তার" নয়; বন্ধে আগের মতো */
+    @Test
+    fun workTabHomeopathTitleGuard() {
+        val homeo = WorkSummary(professional = "doctor", proSystem = "homeopathy", proTypeLabel = "হোমিওপ্যাথিক চিকিৎসক", proTypeLabelEn = "Homeopathic practitioner")
+        Practice.testKeys = allOn + (TitleGuard.KEY to true)
+        MyWork.summary.value = homeo
+        rule.setContent { GetBloodTheme { Surface { WorkTab({}, {}) } } }
+        rule.waitForIdle()
+        rule.onNodeWithText("হোমিওপ্যাথিক চিকিৎসক · বুকিং, রোগী, সেটআপ").assertExists()
+        rule.onAllNodesWithText("ডাক্তার · বুকিং, রোগী, সেটআপ").assertCountEquals(0)
+        shot("work_tab_homeopath_title_guard_bn")
+        // সুইচ বন্ধ: সার্ভার "ডাক্তার" পাঠায়
+        Practice.testKeys = allOn + (TitleGuard.KEY to false)
+        rule.runOnIdle { MyWork.summary.value = homeo.copy(proTypeLabel = "ডাক্তার", proTypeLabelEn = "Doctor") }
+        rule.waitForIdle()
+        rule.onNodeWithText("ডাক্তার · বুকিং, রোগী, সেটআপ").assertExists()
+        MyWork.clear()
+    }
+
     // ---------------- সহায়ক ----------------
 
     private fun provider(system: String) = Provider(

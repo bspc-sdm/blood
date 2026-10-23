@@ -108,6 +108,25 @@ class TitleGuardTest {
         assertEquals("ইউনানি চিকিৎসক", TitleGuard.professionLabel("doctor", "", "ইউনানি চিকিৎসক", "Unani practitioner"))
     }
 
+    /** "আমার কাজ"-এর চেম্বারের সারি (Work.kt professionalLine) — ওয়েবের WorkOverview-এর মতো সার্ভারের typeLabel আগে */
+    @Test
+    fun myWorkChamberLineUsesThePractitionerLabel() {
+        val homeo = WorkSummary(professional = "doctor", proSystem = "homeopathy", proTypeLabel = "হোমিওপ্যাথিক চিকিৎসক", proTypeLabelEn = "Homeopathic practitioner")
+        assertEquals("হোমিওপ্যাথিক চিকিৎসক · বুকিং, রোগী, সেটআপ", professionalLine(homeo))
+        // পুরোনো সার্ভার (typeLabel নেই): সুইচ চালু হলে পদ্ধতি থেকে
+        assertEquals("ইউনানি চিকিৎসক · বুকিং, রোগী, সেটআপ", professionalLine(WorkSummary(professional = "doctor", proSystem = "unani")))
+        assertEquals("ডাক্তার · বুকিং, রোগী, সেটআপ", professionalLine(WorkSummary(professional = "doctor", proSystem = "allopathy", proTypeLabel = "ডাক্তার")))
+        assertEquals("নার্স", professionalLine(WorkSummary(professional = "nurse")))
+        assertNull(professionalLine(WorkSummary()))
+        AppPrefs.lang.value = Lang.EN
+        assertTrue(professionalLine(homeo).orEmpty().lowercase().startsWith("homeopathic practitioner · "))
+        AppPrefs.lang.value = Lang.BN
+        // সুইচ বন্ধ: সার্ভার "ডাক্তার" পাঠায় (বা কিছুই না) — আগের মতো
+        Practice.testKeys = mapOf(TitleGuard.KEY to false, Practice.SYSTEMS to true)
+        assertEquals("ডাক্তার · বুকিং, রোগী, সেটআপ", professionalLine(homeo.copy(proTypeLabel = "ডাক্তার", proTypeLabelEn = "Doctor")))
+        assertEquals("ডাক্তার · বুকিং, রোগী, সেটআপ", professionalLine(WorkSummary(professional = "doctor", proSystem = "homeopathy")))
+    }
+
     @Test
     fun prescriptionHeaderAndPdfUseThePractitionerLabel() {
         val json = JSONObject()
