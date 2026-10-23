@@ -1,4 +1,4 @@
--- In-app messages (Oct 2026, backend/docs/CHAT.md). Who may write to whom is the calls' ContactPolicy (V609 call_blocks).
+-- In-app messages (Oct 2026, backend/docs/CHAT.md). Who may write to whom is the calls' ContactPolicy (V622 call_blocks).
 -- Messages are stored here (photos on R2 via stored_objects), not end-to-end encrypted. A thread becomes read-only when
 -- its relation ends (closed_at) and is deleted 90 days later with everything in it (daily step chatDeleted); it is
 -- deleted at once with either person's account (FK cascade + ChatDeletionStep).
