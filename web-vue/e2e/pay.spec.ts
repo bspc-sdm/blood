@@ -39,6 +39,8 @@ const owner = (path: string, extra: Record<string, unknown> = {}) => {
   return { ...d, path, test: { ...d.test, ...extra } };
 };
 const notFound = () => ({ __status: 404, body: { error: 'Not found', code: 'not_found' } });
+// পরীক্ষা শেষে ঝুলে থাকা route.fetch (SSE/রিফ্রেশের পর আবার আনা) ভুল হিসেবে না ধরা
+test.afterEach(async ({ page }) => page.unrouteAll({ behavior: 'ignoreErrors' }));
 
 const REQ = (o: Record<string, unknown> = {}) => ({
   id: 'prq_ph1', kind: 'pharmacy', bizId: 'u-work', bizName: 'নিউ লাইফ ফার্মেসি', payerUid: 'u1', refType: 'rx_order', refId: 'o9', purpose: 'delivery', amount: 450,
@@ -272,6 +274,10 @@ test.describe('প্রবেশপথ', () => {
     await expect(pay.getByTestId('pay-refund-policy')).toContainText('ডাক্তার বাতিল করলে পুরো টাকা ফেরত');
     await page.goto('/my-appointments', { waitUntil: 'networkidle' });
     await expect(page.getByTestId('advance-due').first()).toHaveText('অগ্রিম বাকি');
+    // অ্যাপয়েন্টমেন্টের ভেতরে (তালিকায় পেমেন্ট না থাকলেও খুঁজে): "অগ্রিম বাকি" আর "অগ্রিম দিন"
+    await page.goto('/my-appointments/a1', { waitUntil: 'networkidle' });
+    await expect(page.getByTestId('pay-entry-state')).toHaveText('অগ্রিম বাকি');
+    await expect(page.getByTestId('pay-open')).toHaveText('অগ্রিম দিন');
   });
 
   test('অনলাইন চেম্বারের ফি নতুন পথে: অ্যাপয়েন্টমেন্টে পেমেন্ট থাকলে একই শিট (TrxID + শেষ ৪)', async ({ page }) => {

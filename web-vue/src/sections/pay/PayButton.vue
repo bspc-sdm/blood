@@ -4,23 +4,26 @@
 import { computed, ref } from 'vue';
 import { Button, Tag } from '@/ui/kit';
 import type { PayLink, PayRequest } from './model';
-import { T, statusText, statusTone } from './text';
+import { T, statusShort, statusTone } from './text';
 import PayDialog from './PayDialog.vue';
 
 const props = withDefaults(
-  defineProps<{ link: PayLink | null; start?: (() => Promise<PayRequest | null>) | null; label?: string; note?: string | null; small?: boolean }>(),
-  { start: null, label: undefined, note: null, small: true },
+  defineProps<{ link: PayLink | null; start?: (() => Promise<PayRequest | null>) | null; label?: string; note?: string | null; small?: boolean; purpose?: string }>(),
+  { start: null, label: undefined, note: null, small: true, purpose: undefined },
 );
 const emit = defineEmits<{ changed: [req: PayRequest | null] }>();
 const open = ref(false);
 const st = computed(() => props.link?.request?.status ?? props.link?.status ?? null);
 const done = computed(() => st.value === 'confirmed' || st.value === 'refunded' || st.value === 'expired' || st.value === 'cancelled');
 const show = computed(() => !!props.link || !!props.start);
+const purpose = computed(() => props.link?.request?.purpose ?? props.purpose);
+// চেম্বারের খোলা অগ্রিমে "অগ্রিম বাকি" (নিরাপত্তা পর্যালোচনার তালিকা); অন্য খোলা পেমেন্টে শুধু বোতাম
+const showTag = computed(() => !!st.value && (st.value !== 'open' || purpose.value === 'booking_advance'));
 </script>
 
 <template>
   <div v-if="show" class="row wrap gap-6 pay-entry" data-testid="pay-entry" :data-status="st ?? 'none'">
-    <Tag v-if="st && st !== 'open'" :tone="statusTone(st)" data-testid="pay-entry-state">{{ statusText(st) }}</Tag>
+    <Tag v-if="showTag && st" :tone="purpose === 'booking_advance' && (st === 'open' || st === 'rejected') ? 'error' : statusTone(st)" data-testid="pay-entry-state">{{ statusShort(st, purpose, link?.request?.refundDue) }}</Tag>
     <Button :small="small" :variant="done || st === 'claimed' ? 'text' : 'tonal'" icon="payments" data-testid="pay-open" @click="open = true">
       {{ done || st === 'claimed' ? T.seePayment() : label ?? T.payNow() }}
     </Button>

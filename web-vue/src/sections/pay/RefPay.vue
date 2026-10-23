@@ -34,5 +34,5 @@ const link = computed<PayLink | null>(() => props.link ?? (q.data ? { id: q.data
 </script>
 
 <template>
-  <PayButton v-if="link || start" :key="link?.id ?? 'start'" :link="link" :start="start" :label="label" :note="note" @changed="() => q.refetch()" />
+  <PayButton v-if="link || start" :key="link?.id ?? 'start'" :link="link" :start="start" :label="label" :note="note" :purpose="purpose" @changed="() => q.refetch()" />
 </template>
