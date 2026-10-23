@@ -8,8 +8,12 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.security.SecureRandom
 
-/** a receipt the desktop numbered itself: [no] = "<series>-<seq 6 digits>" in the device's own series (D1, D2 …) */
-data class DeviceStamp(val deviceId: String, val no: String, val at: Long)
+/**
+ * A receipt the desktop numbered itself: [no] = "<series>-<seq 6 digits>" in the device's own series (D1, D2 …).
+ * [verifyCode]: the code the device printed in the QR (used as is; 400 `bad_verify` / 409 `verify_collision`).
+ * [deviceNo]: the number the device printed when the sync renumbered it to [no] (kept as `device_no`).
+ */
+data class DeviceStamp(val deviceId: String, val no: String, val at: Long, val verifyCode: String? = null, val deviceNo: String? = null)
 
 /** one line as given (money already parsed); the amount is computed */
 data class LineIn(
@@ -99,6 +103,7 @@ data class Invoice(
     val issuedAt: Long,
     val issuedBy: String?,
     val deviceId: String?,
+    val deviceNo: String?,
     val offline: Boolean,
     val verifyCode: String,
     val overFare: Boolean?,
@@ -132,6 +137,7 @@ data class Invoice(
         m["issuedAt"] = issuedAt
         m["issuedBy"] = issuedBy
         if (deviceId != null) m["deviceId"] = deviceId
+        if (deviceNo != null) m["deviceNo"] = deviceNo
         m["offline"] = offline
         m["verifyCode"] = verifyCode
         m["verifyUrl"] = verifyUrl
@@ -160,6 +166,9 @@ object InvoiceMath {
     const val MAX_PAYMENTS = 5
     val MAX_MONEY: BigDecimal = BigDecimal("10000000")
     val MAX_QTY: BigDecimal = BigDecimal("100000")
+
+    /** one receipt at most ৳100 crore (the columns hold 10^10) */
+    val MAX_TOTAL: BigDecimal = BigDecimal("1000000000")
     val SERIES_RE = Regex("^(W|D[1-9][0-9]{0,2})$")
     val NO_RE = Regex("^(W|D[1-9][0-9]{0,2})-([0-9]{6,9})$")
     private const val CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
@@ -193,6 +202,7 @@ object InvoiceMath {
         if (bd > subtotal) throw bad(lang, "Discount is more than the price", "ছাড় দামের চেয়ে বেশি")
         val fs = fees.map { Fee(it.label, m2(it.amount)) }
         val total = m2(subtotal - bd + fs.fold(BigDecimal.ZERO) { a, f -> a + f.amount })
+        if (subtotal > MAX_TOTAL || total > MAX_TOTAL) throw bad(lang, "Check the amount", "টাকার পরিমাণ দেখে নিন") // bn-ok
         return Totals(out, subtotal, bd, fs, total)
     }
 

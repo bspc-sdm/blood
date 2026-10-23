@@ -67,6 +67,7 @@ class InvoiceService(
         const val PAGE = 30
         const val BIZ_PAGE = 50
         const val MASK_AFTER_MS = 30L * 24 * 3600 * 1000
+        val PERIODS = listOf("today", "7d", "30d", "month", "365d")
 
         /** issues per business a minute (online; the desktop sync is not limited here) */
         const val ISSUE_PER_MINUTE = 60L
@@ -181,21 +182,21 @@ class InvoiceService(
         val now = System.currentTimeMillis()
         val at = stamp?.at ?: now
         val (series, seq) = number(lang, b, stamp)
-        var code = InvoiceMath.verifyCode()
-        while (jdbc.queryForList("SELECT 1 FROM invoices WHERE verify_code = ?", code).isNotEmpty()) code = InvoiceMath.verifyCode()
+        val code = verifyCodeFor(lang, stamp)
+        val deviceNo = stamp?.deviceNo?.takeIf { it != stamp.no }?.take(30)
         val id = Ids.newId()
         val no = InvoiceMath.no(series, seq)
         jdbc.update(
             """
             INSERT INTO invoices (id, kind, biz_id, owner_uid, no, series, seq, biz_name, biz_phone, biz_address, patient_uid, customer_name,
-              customer_phone, ref_type, ref_id, lines, subtotal, disc, fees, total, paid, due, status, issued_at, issued_by, device_id, offline,
-              verify_code, over_fare, chart_fare, is_demo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?, ?)
+              customer_phone, ref_type, ref_id, lines, subtotal, disc, fees, total, paid, due, status, issued_at, issued_by, device_id, device_no,
+              offline, verify_code, over_fare, chart_fare, is_demo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             id, b.kind, b.id, owner, no, series, seq, b.name.take(100), b.phone, (cmd.bizAddress ?: b.address)?.take(200), patient,
             cmd.customer.name, cmd.customer.phone, cmd.refType, cmd.refId, mapper.writeValueAsString(t.lines.map { it.toMap() }),
             t.subtotal, t.disc, mapper.writeValueAsString(t.fees.map { it.toMap() }), t.total, paid, t.total - paid, Sql.ts(at), actor.id,
-            stamp?.deviceId, stamp != null, code, if (b.kind == "ambulance") (cmd.overFare ?: false) else null, cmd.chartFare,
+            stamp?.deviceId, deviceNo, stamp != null, code, if (b.kind == "ambulance") (cmd.overFare ?: false) else null, cmd.chartFare,
             DemoWorld.isDemoUid(owner),
         )
         for (p in pays) insertPayment(id, at, p, actor.id, stamp?.deviceId)
@@ -203,6 +204,21 @@ class InvoiceService(
         val inv = load(id)!!
         if (patient != null) afterCommit { notifyPatient(inv) }
         return inv
+    }
+
+    /** a new random code, or the one the device printed (format + not used yet) */
+    private fun verifyCodeFor(lang: String?, stamp: DeviceStamp?): String {
+        val given = stamp?.verifyCode
+        if (given != null) {
+            if (!Regex("^[A-Za-z0-9]{10}$").matches(given)) throw InvoiceMath.bad(lang, "Check the verify code", "যাচাই কোড দেখে নিন", "bad_verify") // bn-ok
+            if (jdbc.queryForList("SELECT 1 FROM invoices WHERE verify_code = ?", given).isNotEmpty()) {
+                throw err(lang, 409, "This verify code is already used", "এই যাচাই কোড আগেই ব্যবহার হয়েছে", "verify_collision") // bn-ok
+            }
+            return given
+        }
+        var code = InvoiceMath.verifyCode()
+        while (jdbc.queryForList("SELECT 1 FROM invoices WHERE verify_code = ?", code).isNotEmpty()) code = InvoiceMath.verifyCode()
+        return code
     }
 
     /** the next number: W from the counter (row lock), or the device's own number (accepted as is when free) */
@@ -295,7 +311,7 @@ class InvoiceService(
             subtotal = rs.getBigDecimal("subtotal"), disc = rs.getBigDecimal("disc"), fees = fees, total = rs.getBigDecimal("total"),
             paid = rs.getBigDecimal("paid"), due = rs.getBigDecimal("due"), payments = payments, status = rs.getString("status"),
             voidReason = rs.getString("void_reason"), issuedAt = rs.ms("issued_at")!!, issuedBy = rs.getString("issued_by"),
-            deviceId = rs.getString("device_id"), offline = rs.getBoolean("offline"), verifyCode = rs.getString("verify_code"),
+            deviceId = rs.getString("device_id"), deviceNo = rs.getString("device_no"), offline = rs.getBoolean("offline"), verifyCode = rs.getString("verify_code"),
             overFare = rs.getObject("over_fare") as Boolean?, chartFare = rs.getObject("chart_fare") as Int?, isDemo = rs.getBoolean("is_demo"),
         )
     }
@@ -326,7 +342,9 @@ class InvoiceService(
         return query("id = ?${if (lock) " FOR UPDATE" else ""}", id).firstOrNull()
     }
 
-    fun findByNo(kind: String, bizId: String, no: String): Invoice? = query("kind = ? AND biz_id = ? AND no = ?", kind, bizId, no).firstOrNull()
+    /** by number: the server number first, else the number the device printed (renumbered receipts) */
+    fun findByNo(kind: String, bizId: String, no: String): Invoice? =
+        query("kind = ? AND biz_id = ? AND (no = ? OR device_no = ?) ORDER BY (no = ?) DESC LIMIT 1", kind, bizId, no, no, no).firstOrNull()
 
     /** the live (not void) invoice of a source, e.g. a lab order */
     fun liveFor(refType: String, refId: String): Invoice? = query("ref_type = ? AND ref_id = ? AND status = 'issued'", refType, refId).firstOrNull()
@@ -395,6 +413,7 @@ class InvoiceService(
             "today" -> today
             "30d" -> today.minusDays(29)
             "month" -> today.withDayOfMonth(1)
+            "365d" -> today.minusDays(364)
             else -> today.minusDays(6)
         }
         return start.atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
@@ -411,7 +430,7 @@ class InvoiceService(
     fun listBiz(lang: String?, actor: AuthUser, kind: String?, bizId: String?, period: String?, q: String?, cursor: String?): Map<String, Any?> {
         val b = requireIssuer(lang, actor, kind, bizId)
         val now = System.currentTimeMillis()
-        val p = period?.takeIf { it in listOf("today", "7d", "30d", "month") } ?: "7d"
+        val p = period?.takeIf { it in PERIODS } ?: "7d"
         val where = StringBuilder("kind = ? AND biz_id = ? AND issued_at >= ?")
         val args = arrayListOf<Any?>(b.kind, b.id, Sql.ts(periodStart(p, now)))
         val text = q?.trim()?.take(40)?.takeIf { it.isNotEmpty() }

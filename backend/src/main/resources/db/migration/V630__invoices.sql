@@ -40,6 +40,8 @@ CREATE TABLE invoices (
     issued_at      TIMESTAMPTZ NOT NULL,
     issued_by      TEXT,
     device_id      TEXT,
+    -- the number the desktop printed when the sync gave the receipt another one (spring-p17 renumbering)
+    device_no      TEXT CHECK (length(device_no) <= 30),
     offline        BOOLEAN NOT NULL DEFAULT FALSE,
     verify_code    TEXT NOT NULL UNIQUE CHECK (verify_code ~ '^[A-Za-z0-9]{10}$'),
     -- ambulance: the fare is above the owner's fare chart (null = no chart estimate)
@@ -57,6 +59,7 @@ CREATE TABLE invoices (
 CREATE INDEX invoices_biz_idx ON invoices (kind, biz_id, issued_at DESC, id DESC);
 CREATE INDEX invoices_patient_idx ON invoices (patient_uid, issued_at DESC, id DESC) WHERE patient_uid IS NOT NULL;
 CREATE INDEX invoices_owner_idx ON invoices (owner_uid) WHERE owner_uid IS NOT NULL;
+CREATE INDEX invoices_device_no_idx ON invoices (kind, biz_id, device_no) WHERE device_no IS NOT NULL;
 CREATE INDEX invoices_purge_idx ON invoices (purge_after) WHERE purge_after IS NOT NULL;
 -- one live receipt per source (a lab order, an appointment, a sale …); a voided one may be issued again
 CREATE UNIQUE INDEX invoices_ref_live_idx ON invoices (ref_type, ref_id) WHERE status = 'issued' AND ref_id IS NOT NULL;
@@ -107,6 +110,7 @@ BEGIN
         OR NEW.lines IS DISTINCT FROM OLD.lines OR NEW.subtotal IS DISTINCT FROM OLD.subtotal OR NEW.disc IS DISTINCT FROM OLD.disc
         OR NEW.fees IS DISTINCT FROM OLD.fees OR NEW.total IS DISTINCT FROM OLD.total
         OR NEW.issued_at IS DISTINCT FROM OLD.issued_at OR NEW.device_id IS DISTINCT FROM OLD.device_id
+        OR NEW.device_no IS DISTINCT FROM OLD.device_no
         OR NEW.offline IS DISTINCT FROM OLD.offline OR NEW.verify_code IS DISTINCT FROM OLD.verify_code
         OR NEW.over_fare IS DISTINCT FROM OLD.over_fare OR NEW.chart_fare IS DISTINCT FROM OLD.chart_fare
         OR NEW.is_demo IS DISTINCT FROM OLD.is_demo OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN

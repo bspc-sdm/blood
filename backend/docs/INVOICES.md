@@ -103,7 +103,13 @@ The desktop op `data` is **the same JSON body as the online action** (`books_sal
 package com.lifolo.invoices
 
 /** a receipt the desktop numbered itself: `no` = "<series>-<seq 6 digits>" in the device's own series (D1, D2 …) */
-data class DeviceStamp(val deviceId: String, val no: String, val at: Long /* epoch ms, when the device recorded it */)
+data class DeviceStamp(
+    val deviceId: String,
+    val no: String,                    // the number the server stores (p17 renumbers before calling issue)
+    val at: Long,                      // epoch ms, when the device recorded it
+    val verifyCode: String? = null,    // the code the device printed: ^[A-Za-z0-9]{10}$ else 400 bad_verify; used → 409 verify_collision
+    val deviceNo: String? = null,      // the number the device printed, when it differs from `no` → invoices.device_no, JSON `deviceNo`
+)
 
 class InvoiceCreators {
     // books_sale_add: sale + stock + invoice. Returns {id, sale, invoice} (+ warn:"stock_short", stockShort:[itemId] when an
@@ -122,7 +128,8 @@ class InvoiceService {
     // invoice_pay / invoice_void (issuer only). With a stamp the payment/void time is stamp.at (stamp.no is ignored).
     fun pay(lang: String?, actor: AuthUser, invoiceId: String, payment: PaymentIn, stamp: DeviceStamp? = null): Invoice
     fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, stamp: DeviceStamp? = null): Invoice
-    // an invoice by its number (offline ops that pay/void an invoice made offline refer to it by `no`)
+    // an invoice by its number — `no`, else the `device_no` the desktop printed (offline ops that pay/void an invoice
+    // made offline refer to it by its number)
     fun findByNo(kind: String, bizId: String, no: String): Invoice?
 }
 // Invoice.toMap() is the "Invoice object" JSON above.
