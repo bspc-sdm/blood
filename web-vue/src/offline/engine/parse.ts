@@ -3,7 +3,7 @@
 //   pharmacy: items[{id,name,code|barcode,generic,strength,form,unit,price|salePrice|mrp,cost,stock|qty,expiry}], removedItems[id]
 //   lab: prices|labPrices|tests[{id,name,price,code,category}], fees[{label,amount}]
 //   chamber: appointments[{id,date,chamberKey,serial,name,time,status,visitType}], fees{new,followup,report} | feeByVisit
-import type { ChamberAppt, InvoiceFee, LabPrice, OfflineItem, VisitType } from '../types';
+import type { ChamberAppt, DeskChamberInfo, InvoiceFee, LabPrice, OfflineItem, VisitType } from '../types';
 
 type O = Record<string, any>;
 const str = (v: unknown) => (v == null ? undefined : String(v));
@@ -72,6 +72,7 @@ export function parseAppt(x: O): ChamberAppt | null {
   if (x.time) a.time = String(x.time);
   if (VISIT.includes(x.visitType)) a.visitType = x.visitType;
   if (x.feeNo) a.feeNo = String(x.feeNo);
+  if (x.checkedIn === true || x.arrivedAt) a.checkedIn = true;
   return a;
 }
 
@@ -95,6 +96,17 @@ export interface Snapshot {
   appts: ChamberAppt[] | null;
   removedAppts: string[];
   visitFees: Partial<Record<VisitType, number>> | null;
+  chambers: DeskChamberInfo[] | null;
+}
+
+export function parseChamber(x: O): DeskChamberInfo | null {
+  const key = str(x?.chamberKey ?? x?.key ?? x?.id);
+  if (!key) return null;
+  const c: DeskChamberInfo = { chamberKey: key, name: str(x.name)?.trim() || key };
+  if (x.nameBn) c.nameBn = String(x.nameBn);
+  const f = parseVisitFees(x.fees ?? x.feeByVisit);
+  if (Object.keys(f).length) c.fees = f;
+  return c;
 }
 
 const list = (v: unknown) => (Array.isArray(v) ? v : null);
@@ -122,5 +134,6 @@ export function parseSnapshot(raw: unknown, series = ''): Snapshot {
     appts: appts ? (appts.map(parseAppt).filter(Boolean) as ChamberAppt[]) : null,
     removedAppts: (list(s.removedAppointments) ?? []).map(String),
     visitFees: vf ? parseVisitFees(vf) : null,
+    chambers: list(s.chambers) ? (list(s.chambers)!.map(parseChamber).filter(Boolean) as DeskChamberInfo[]) : null,
   };
 }

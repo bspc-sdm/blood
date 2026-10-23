@@ -204,6 +204,22 @@ describe('record + sync', () => {
   });
 });
 
+describe('রসিদের তালিকা (অফলাইনেও)', () => {
+  test('সময় আর খোঁজা: নম্বর, গ্রাহক, জিনিস', async () => {
+    const h = await harness();
+    await h.engine.ready('pharmacy', 'b1');
+    await h.engine.record(sale());
+    h.state.now -= 3 * 86_400_000;
+    await h.engine.record(sale({ customer: { name: 'Salma' }, lines: [{ itemId: 'i2', name: 'Seclo 20', qty: 1, price: 7 }] }));
+    h.state.now += 3 * 86_400_000;
+    expect((await h.engine.invoices({ period: 'today' })).map((i) => i.no)).toEqual(['D1-000001']);
+    expect((await h.engine.invoices({ period: '7d' })).map((i) => i.no)).toEqual(['D1-000001', 'D1-000002']);
+    expect((await h.engine.invoices({ q: 'salma' })).map((i) => i.no)).toEqual(['D1-000002']);
+    expect((await h.engine.invoices({ q: 'napa' })).map((i) => i.no)).toEqual(['D1-000001']);
+    expect((await h.engine.invoices({ q: 'd1-000002' })).map((i) => i.no)).toEqual(['D1-000002']);
+  });
+});
+
 describe('pay / void', () => {
   test('বাকি আদায়, বাকির বেশি নয়; বাতিলে স্টক ফেরত; বাতিলের পর আর নয়', async () => {
     const h = await harness();
@@ -278,6 +294,7 @@ describe('চেম্বার আর ল্যাব', () => {
     server.bootstrapExtra = {
       appointments: [{ id: 'a1', date: '2026-10-23', chamberKey: 'c0', serial: 1, name: 'Rahim', phone: '01799999999', status: 'booked' }],
       fees: { new: 500, followup: 300 },
+      chambers: [{ chamberKey: 'c0', name: 'Popular Diagnostic', nameBn: 'পপুলার ডায়াগনস্টিক' }],
     };
     const h = await harness({ server });
     await h.engine.ready('chamber', 'doc1');
@@ -287,8 +304,10 @@ describe('চেম্বার আর ল্যাব', () => {
     expect(f.invoice).toMatchObject({ kind: 'chamber', total: 500, customer: { name: 'Rahim' }, refType: 'appointment', refId: 'a1' });
     const day = await h.engine.chamberDay('2026-10-23');
     expect(day.fees).toEqual({ new: 500, followup: 300 });
+    expect(day.chambers).toEqual([{ chamberKey: 'c0', name: 'Popular Diagnostic', nameBn: 'পপুলার ডায়াগনস্টিক' }]);
+    expect(day.appointments[0].checkedIn).toBe(true);
     expect(day.appointments.map((a) => [a.name, a.serial, a.status, a.feeNo ?? ''])).toEqual([
-      ['Rahim', 1, 'checked_in', f.no],
+      ['Rahim', 1, 'arrived', f.no],
       ['Salma', 2, 'waiting', ''],
     ]);
     expect(day.appointments[0]).not.toHaveProperty('phone');
@@ -296,7 +315,7 @@ describe('চেম্বার আর ল্যাব', () => {
     h.state.role = 'counter';
     expect(await code(h.engine.record({ type: 'fee', data: { appointmentId: 'a1', visitType: 'new', amount: 400, method: 'cash' } }))).toBe('owner_only');
     await h.engine.syncNow();
-    expect((await h.engine.chamberDay('2026-10-23')).appointments.map((a) => a.status)).toEqual(['checked_in', 'waiting']);
+    expect((await h.engine.chamberDay('2026-10-23')).appointments.map((a) => a.status)).toEqual(['arrived', 'waiting']);
   });
 
   test('ল্যাব বিল: তালিকার দাম, ফি, বিলের ছাড়', async () => {

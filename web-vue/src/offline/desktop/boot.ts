@@ -94,6 +94,7 @@ const store: OfflineStore = {
   items: (q) => engine.items(q),
   labPrices: () => engine.labPrices(),
   chamberDay: (d) => engine.chamberDay(d),
+  invoices: (q) => engine.invoices(q),
   record: (op) => engine.record(op),
   pending: () => engine.pending(),
   syncNow: () => engine.syncNow(),

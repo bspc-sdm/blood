@@ -15,6 +15,7 @@ import type {
   ChamberDay,
   DeskRole,
   Invoice,
+  InvoiceQuery,
   LabPrices,
   OfflineItem,
   OfflineOp,
@@ -150,6 +151,7 @@ export class OfflineEngine implements OfflineStore {
   private nextSeq = 1;
   private visitFees: ChamberDay['fees'] = {};
   private labFees: LabPrices['fees'] = [];
+  private chambers: ChamberDay['chambers'] = [];
   private status: OfflineStatus = { online: false, syncing: false, pending: 0, rejected: 0, lastSyncAt: 0, revoked: false };
   private listeners = new Set<(s: OfflineStatus) => void>();
   private lock: Promise<unknown> = Promise.resolve();
@@ -237,7 +239,10 @@ export class OfflineEngine implements OfflineStore {
     }
     for (const op of this.pendingOps) applyApptEffects(map, op.effects, date);
     const list = [...map.values()].sort((a, b) => (a.serial ?? 1e9) - (b.serial ?? 1e9) || a.name.localeCompare(b.name));
-    return { date, appointments: list, fees: { ...this.visitFees } };
+    // চেম্বারের তালিকায় নেই এমন সারির চেম্বারও (নাম = key)
+    const chambers = this.chambers.map((c) => ({ ...c }));
+    for (const a of list) if (a.chamberKey && !chambers.some((c) => c.chamberKey === a.chamberKey)) chambers.push({ chamberKey: a.chamberKey, name: a.chamberKey });
+    return { date, chambers, appointments: list, fees: { ...this.visitFees } };
   }
 
   async record(op: OfflineOp): Promise<RecordResult> {
@@ -260,6 +265,27 @@ export class OfflineEngine implements OfflineStore {
       `SELECT opId, type, no, result, at FROM ops WHERE state = 'rejected' ORDER BY seq DESC LIMIT 100`,
     );
     return rows.map((r) => ({ opId: r.opId, type: r.type, no: r.no, at: r.at, error: safeJson(r.result)?.error ?? '' }));
+  }
+
+  /** রসিদের তালিকা (অফলাইনেও): সময় (ঢাকার দিন ধরে) আর খোঁজা — নম্বর, ছাপা নম্বর, গ্রাহকের নাম, জিনিসের নাম */
+  async invoices(query: InvoiceQuery = {}): Promise<Invoice[]> {
+    const db = this.db;
+    if (!db) return [];
+    const since = periodStart(query.period, this.d.now());
+    const rows = await db.select<{ json: string }>(`SELECT json FROM invoices WHERE issuedAt >= ? ORDER BY issuedAt DESC LIMIT 2000`, [since]);
+    const q = (query.q ?? '').trim().toLowerCase();
+    const out: Invoice[] = [];
+    for (const r of rows) {
+      const inv = await this.open_<Invoice>(r.json);
+      if (inv.bizId && this.scope && inv.bizId !== this.scope.bizId) continue;
+      if (q) {
+        const hay = [inv.no, inv.deviceNo, inv.customer?.name, ...inv.lines.map((l) => l.name)].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      out.push(inv);
+      if (out.length >= (query.limit ?? 500)) break;
+    }
+    return out;
   }
 
   /** এই কম্পিউটারে রাখা রসিদ (নতুন আগে) */
@@ -331,6 +357,7 @@ export class OfflineEngine implements OfflineStore {
     this.seqFloor = Number(st.seqFloor) || 0;
     this.visitFees = st.visitFees ?? {};
     this.labFees = st.labFees ?? [];
+    this.chambers = st.chambers ?? [];
 
     await this.loadPending();
     await this.repair();
@@ -384,11 +411,20 @@ export class OfflineEngine implements OfflineStore {
     this.seqFloor = Math.max(this.seqFloor, snap.seqFloor);
     if (snap.visitFees) this.visitFees = snap.visitFees;
     if (snap.labFees) this.labFees = snap.labFees;
+    if (snap.chambers) this.chambers = snap.chambers;
     this.nextSeq = Math.max(this.nextSeq, this.seqFloor + 1);
     await setMeta(
       this.need(),
       'state',
-      JSON.stringify({ biz: this.biz, demo: this.demo, asOf: this.asOf, seqFloor: this.seqFloor, visitFees: this.visitFees, labFees: this.labFees }),
+      JSON.stringify({
+        biz: this.biz,
+        demo: this.demo,
+        asOf: this.asOf,
+        seqFloor: this.seqFloor,
+        visitFees: this.visitFees,
+        labFees: this.labFees,
+        chambers: this.chambers,
+      }),
     );
   }
 
@@ -572,7 +608,7 @@ export class OfflineEngine implements OfflineStore {
       }
       case 'checkin': {
         if (!op.data?.appointmentId) throw err('invalid');
-        effects = [{ t: 'appt_set', id: op.data.appointmentId, patch: { status: 'checked_in' } }];
+        effects = [{ t: 'appt_set', id: op.data.appointmentId, patch: { status: 'arrived', checkedIn: true } }];
         break;
       }
       case 'pay':
@@ -974,6 +1010,18 @@ function scrubPhone(d: Record<string, any>): Record<string, any> {
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** ঢাকার (UTC+6) দিনের শুরু ধরে: আজ, ৭ দিন, ৩০ দিন, এই মাস; না দিলে সব */
+export function periodStart(period: InvoiceQuery['period'], now: number): number {
+  if (!period) return 0;
+  const off = 6 * 3600_000;
+  const d = new Date(now + off);
+  const today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - off;
+  if (period === 'today') return today;
+  if (period === '7d') return today - 6 * DAY;
+  if (period === '30d') return today - 29 * DAY;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - off;
+}
 const likeEsc = (s: string) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 const safeJson = (s: string | null | undefined): any => {
   try {

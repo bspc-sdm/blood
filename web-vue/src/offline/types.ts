@@ -116,13 +116,32 @@ export interface ChamberAppt {
   visitType?: VisitType;
   /** ফি নেওয়া হয়েছে (রসিদ নম্বর) */
   feeNo?: string;
+  /** চেম্বারে এসেছেন (checkin) */
+  checkedIn?: boolean;
   /** অফলাইনে আসা নতুন রোগী, এখনো সিঙ্ক হয়নি */
   local?: boolean;
 }
+export interface DeskChamberInfo {
+  chamberKey: string;
+  name: string;
+  nameBn?: string;
+  /** এই চেম্বারের ফি (না থাকলে ChamberDay.fees) */
+  fees?: Partial<Record<VisitType, number>>;
+}
 export interface ChamberDay {
   date: string;
+  /** ডাক্তারের চেম্বারগুলো (নাম) — offline_bootstrap-এর chambers */
+  chambers: DeskChamberInfo[];
   appointments: ChamberAppt[];
   fees: Partial<Record<VisitType, number>>;
+}
+
+/** এই কম্পিউটারে রাখা রসিদের তালিকা (অফলাইনেও) — invoice_list_biz-এর মতো সময় */
+export interface InvoiceQuery {
+  period?: 'today' | '7d' | '30d' | 'month';
+  /** রসিদ নম্বর, গ্রাহকের নাম বা জিনিসের নাম */
+  q?: string;
+  limit?: number;
 }
 
 /** কে চালাচ্ছেন (I7): মালিকের পিন বা কাউন্টারের পিন দিয়ে খোলা; ওয়েবে null (কোনো সীমা নেই) */
@@ -202,6 +221,8 @@ export interface PayData {
 export interface VoidData {
   invoice: InvoiceRef;
   reason: string;
+  /** বাড়তি কথা (কারণের তালিকার বাইরে) */
+  note?: string;
 }
 export interface CheckinData {
   appointmentId: string;
@@ -262,6 +283,8 @@ export interface OfflineStore {
   items(q?: string): Promise<OfflineItem[]>;
   labPrices(): Promise<LabPrices>;
   chamberDay(date: string): Promise<ChamberDay>;
+  /** এই কম্পিউটারের রসিদ (নতুন আগে) — ওয়েবে [] */
+  invoices(query?: InvoiceQuery): Promise<Invoice[]>;
   record(op: OfflineOp): Promise<RecordResult>;
   pending(): number;
   syncNow(): Promise<void>;
