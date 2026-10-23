@@ -166,6 +166,15 @@ tmp="$(mktemp /etc/lifolo/.app.env.XXXXXX)"
     v="$(p "$k")"
     [ -n "$v" ] && printf '%s=%s\n' "$k" "$v"
   done
+  # অ্যাপের কল (LiveKit, deploy/CALLS-SERVER.md): workflow দিলে (আলাদা কল-সার্ভার), নইলে এই VPS-এ বসানো থাকলে তার backend.env
+  LK_SRC="$PROVIDED"
+  [ -n "$(p LIVEKIT_URL)" ] || LK_SRC=/etc/livekit/backend.env
+  if [ -f "$LK_SRC" ]; then
+    for k in LIVEKIT_URL LIVEKIT_API_KEY LIVEKIT_API_SECRET; do
+      v="$(env_get "$k" "$LK_SRC")"
+      [ -n "$v" ] && printf '%s=%s\n' "$k" "$v"
+    done
+  fi
 } > "$tmp"
 chown root:"$APP_USER" "$tmp"
 chmod 0640 "$tmp"
@@ -176,6 +185,7 @@ st firebase "$([ -n "$(env_get FIREBASE_SERVICE_ACCOUNT "$APP_ENV")" ] && echo o
 st ses "$([ -n "$(env_get SES_REGION "$APP_ENV")" ] && [ -n "$(env_get SES_FROM "$APP_ENV")" ] && echo on || echo off)"
 st r2 "$([ -n "$(env_get R2_BUCKET "$APP_ENV")" ] && echo on || echo off)"
 st sentry "$([ -n "$(env_get SENTRY_DSN "$APP_ENV")" ] && echo on || echo off)"
+st livekit "$(env_get LIVEKIT_URL "$APP_ENV" || true)"
 st public_base_url "$BASE_URL"
 st demo_keep_firebase_users "$KEEP_DEMO_USERS"
 
@@ -345,6 +355,8 @@ cp -p "$SNIPPET" "$SNIPPET.bak" 2>/dev/null || true
     error_page 502 503 504 @lifolo_api_down;"
   # /api/cron/* (CRON_SECRET-এর পথ: দৈনিক কাজ, R2, Sentry পরীক্ষা) বাইরে থেকে নয় — VPS-এর ভেতর থেকে 127.0.0.1:$API_PORT দিয়েই চলে
   echo "location /api/cron/ { return 404; }"
+  # অ্যাপের কল: setup-call-server.sh-এর /rtc (LiveKit) — ফাইল না থাকলে কিছু হয় না (glob)
+  echo "include /etc/nginx/snippets/lifolo-calls*.conf;"
   loc /r/
   loc /rx/
   loc /shop/

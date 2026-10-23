@@ -158,6 +158,8 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_BACKEND || secrets.SENTRY_DSN }}
           SMS_URL_TEMPLATE: ${{ secrets.SMS_URL_TEMPLATE }}
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          # আলাদা কল-সার্ভার (deploy/CALLS-SERVER.md) থাকলেই; না থাকলে মূল VPS-এর /etc/livekit/backend.env (deploy-backend.sh)
+          CALL_VPS_ROOT_PASSWORD: ${{ secrets.CALL_VPS_ROOT_PASSWORD }}
         run: |
           umask 077
           f="$RUNNER_TEMP/provided.env"
@@ -193,6 +195,9 @@ jobs:
             case "$v" in *$'\n'*) echo "::error::$k সিক্রেটে একাধিক লাইন — এক লাইনে দিন"; exit 1 ;; esac
             printf '%s=%s\n' "$k" "$v" >> "$f"
           done
+          if [ -n "$(one "$CALL_VPS_ROOT_PASSWORD")" ]; then
+            CALL_DOMAIN=call.lifolo.com LIFOLO_MASTER="$CALL_VPS_ROOT_PASSWORD" node deploy/ci/livekit-keys.js --mask --env "$f"
+          fi
           owner="$(one "$ADMIN_EMAILS" | cut -d, -f1 | tr -d ' ' | tr '[:upper:]' '[:lower:]')"
           echo "owner=${owner:-ekapkbd@gmail.com}" >> "$GITHUB_OUTPUT"
           echo "ses=$([ -n "$SES_REGION" ] && [ -n "$SES_FROM" ] && echo on || echo off)" >> "$GITHUB_OUTPUT"
