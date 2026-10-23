@@ -103,9 +103,21 @@ object Notifier {
         "callId", "appointmentId",
         // অ্যাপে মেসেজ
         "threadId",
-        // লাইফলো পে (pay_*) — সেই পেমেন্ট / ব্যবসার "পেমেন্ট"
-        "payId", "bizId",
+        // লাইফলো পে (pay_*) — সেই পেমেন্ট / ব্যবসার "পেমেন্ট"। সার্ভারের পুশে {type, payRequestId, purpose, cat}
+        // (PAYMENTS.md): payRequestId না গেলে চাপলে শুধু তালিকা খুলত, purpose না গেলে ব্যবসার পুশ কোন ধরনের ব্যবসা বোঝা যেত না
+        "payId", "bizId", "payRequestId", "purpose",
     )
+
+    /**
+     * লক স্ক্রিনে কী দেখায় (null = পুরো লেখাই): মিসড কল আর "ভিডিও কলে যুক্ত হোন" — কে, কোন ডাক্তার নয় (CALLS.md R9);
+     * নতুন রসিদ (invoice_new) — টাকা, রসিদ নম্বর আর দোকানের নাম নয় (লাইফলো পে-র লক স্ক্রিনের নিয়মের মতো, PAYMENTS.md);
+     * খোলার পরে পুরো লেখা (বেশি ভাড়ার সতর্কতাসহ, INVOICES-SECURITY-REVIEW I8)। পেমেন্টের খবরের লেখা নিজেই সাধারণ (PayPush.text)।
+     */
+    fun lockScreenText(type: String?): Pair<String, String>? = when (type) {
+        "call_missed", "appt_call_ready" -> APP_NAME to tr("New notification", "নতুন নোটিফিকেশন")
+        "invoice_new" -> tr("New receipt — Lifolo", "নতুন রসিদ — লাইফলো") to PayText.PUSH_BODY
+        else -> null
+    }
 
     /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */
     fun extrasOf(data: Map<String, String?>): Map<String, String> =
@@ -153,15 +165,15 @@ object Notifier {
             .setContentIntent(pending)
             // কলের চ্যানেলে রিংটোন — মিসড কলের খবরে বাজে না
             .setSilent(cat == NotifyCats.CALLS)
-            // মিসড কল আর "ভিডিও কলে যুক্ত হোন": লক স্ক্রিনে শুধু সাধারণ লেখা (কে, কোন ডাক্তার — খোলার পরে)
+            // মিসড কল, "ভিডিও কলে যুক্ত হোন", নতুন রসিদ: লক স্ক্রিনে শুধু সাধারণ লেখা (বাকিটা খোলার পরে)
             .apply {
-                if (type == "call_missed" || type == "appt_call_ready") {
+                lockScreenText(type)?.let { (lockTitle, lockBody) ->
                     setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                     setPublicVersion(
                         NotificationCompat.Builder(context, channelId)
                             .setSmallIcon(R.drawable.ic_stat_blood)
-                            .setContentTitle(APP_NAME)
-                            .setContentText(tr("New notification", "নতুন নোটিফিকেশন"))
+                            .setContentTitle(lockTitle)
+                            .setContentText(lockBody)
                             .build(),
                     )
                 }

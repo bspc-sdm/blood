@@ -316,6 +316,12 @@ class PayTest {
         // পেমেন্টের খবরে requestId থাকলেও রক্তের পাতায় নয়
         assertEquals(NotifyRoute.Pay("p3", null), notifyRoute(mapOf("type" to "pay_rejected", "payId" to "p3", "requestId" to "r1")))
         assertTrue("payId" in Notifier.DATA_KEYS && "bizId" in Notifier.DATA_KEYS)
+        // ফোনের নোটিফিকেশন চাপলে intent-এর extras দিয়েই পাতা (সার্ভারের পুশ {type, payRequestId, purpose, cat}) — id আর ধরন হারায় না
+        assertEquals(NotifyRoute.Pay("p11", null), notifyRoute(Notifier.extrasOf(mapOf("type" to "pay_requested", "payRequestId" to "p11", "purpose" to "booking_advance", "cat" to "appointments"))))
+        assertEquals(
+            NotifyRoute.PayBiz("pharmacy", null, reqId = "p12"),
+            notifyRoute(Notifier.extrasOf(mapOf("type" to "pay_claimed", "payRequestId" to "p12", "purpose" to "delivery", "cat" to "business")), hasWork = true),
+        )
         // লক-স্ক্রিনে টাকা/নম্বর নয়
         assertEquals("পেমেন্ট আপডেট — লাইফলো" to "অ্যাপ খুলে দেখুন", PayPush.text("pay_confirmed", "৳৫০০ পেয়েছে", "01711223344"))
         assertEquals("শিরোনাম" to "লেখা", PayPush.text("invoice_new", "শিরোনাম", "লেখা"))

@@ -182,6 +182,12 @@ class InvoicesTest {
         assertEquals(NotifyRoute.Open(Screen.MyReceipts()), notifyRoute(mapOf("type" to "invoice_new")))
         assertEquals(NotifyRoute.VerifyInvoice("Ab12Cd34Ef"), notifyRoute(mapOf("type" to "invoice_verify", "code" to "Ab12Cd34Ef")))
         assertEquals(NotifyCats.MY_REQUEST, NotifyCats.fromType("invoice_new"))
+        // লক স্ক্রিনে টাকা, রসিদ নম্বর বা দোকানের নাম নয় — খোলার পরে পুরো লেখা
+        val lock = Notifier.lockScreenText("invoice_new")!!
+        assertTrue(lock.first.isNotBlank() && lock.second.isNotBlank())
+        assertFalse(Regex("[0-9০-৯৳]").containsMatchIn(lock.first + lock.second))
+        assertNull(Notifier.lockScreenText("rx"))
+        assertEquals(NotifyRoute.Invoice("inv2"), notifyRoute(Notifier.extrasOf(mapOf("type" to "invoice_new", "invoiceId" to "inv2", "cat" to "my_request"))))
         assertTrue("invoiceId" in Notifier.DATA_KEYS)
         assertTrue("invoice_verify" in GuestApi.PUBLIC_ACTIONS)
     }
