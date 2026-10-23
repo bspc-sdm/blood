@@ -1566,6 +1566,8 @@ fun RxAssistScreen(onBack: () -> Unit) {
                     else RxPatientsPane(doc.uid, onWrite = null) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            // ডাক্তার যেভাবে তালিকায় দেখান + চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (সহকারীর অনুমতি সার্ভার দেখে; না থাকলে সুইচ সরে যায়)
+                            DoctorProviderTop(doc.uid)
                             // সহকারী আজকের সিরিয়াল চালান (Queue.kt)
                             QueuePanel(doc.uid)
                             // সহকারী চেম্বারের পেমেন্ট যাচাই/নিশ্চিত করতে পারেন (লাইফলো পে)

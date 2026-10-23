@@ -328,7 +328,7 @@ fun DoctorProviderTop(doctorUid: String? = null) {
     androidx.compose.runtime.LaunchedEffect(reload) {
         // নতুন সার্ভার: chamber_days (কার্ড + আজ বন্ধ); পুরোনো সার্ভারে provider_me (তখন সুইচ চাপলে সরে যায়)
         val p = runCatching { ProviderSwitches.chamberDays(doctorUid) }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
-            ?: runCatching { Appointments.mine() }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
+            ?: if (doctorUid == null) runCatching { Appointments.mine() }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null } else null
         if (p != null) me = p
     }
     val p = me ?: return
