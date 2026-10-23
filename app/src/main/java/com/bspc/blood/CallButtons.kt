@@ -179,6 +179,8 @@ fun ContactActions(
                 }
                 .onFailure { e ->
                     val f = CallErrors.of(e)
+                    // ফিচার সুইচ বন্ধ হয়ে গেছে: এখনই নতুন করে আনা (বাটন সরে যায়)
+                    if (Features.isFeatureOff(e)) Features.onPush()
                     CallAvailability.onFailure(f, ctx, refId)
                     if (f == CallFailure.NOT_ALLOWED || f == CallFailure.BLOCKED) ContactCan.invalidateAll()
                     failure = f to CallErrors.message(f, e.message)

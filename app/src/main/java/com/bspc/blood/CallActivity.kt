@@ -77,6 +77,8 @@ class CallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppPrefs.init(this)
         CallManager.init(this)
+        // অ্যাপ বন্ধ থেকে পুশে খুললে: ফোনে রাখা ফিচার সুইচ
+        Features.ensureInit(this)
         showOnLockScreen()
         if (savedInstanceState == null) handle(intent)
         setContent {
@@ -192,7 +194,7 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
 
     val videoFeature = rememberFeatureOn(CallFeatures.VIDEO)
     var comingSoon by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { runCatching { Features.refresh() } }
+    LaunchedEffect(Unit) { Features.refreshSoon() }
 
     fun perform(op: CallOp) {
         val mic = CallPermissions.granted(context, Manifest.permission.RECORD_AUDIO)
@@ -224,7 +226,7 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
         onPendingDone()
         // অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও (appt_video) বন্ধ: "এই সুবিধা শিগগির আসছে"
         if (op is CallOp.Join) {
-            runCatching { Features.refresh() }
+            if (!Features.on(CallFeatures.APPT)) runCatching { Features.refresh(force = false) }
             if (!Features.on(CallFeatures.APPT)) { comingSoon = true; return@LaunchedEffect }
         }
         request(op)

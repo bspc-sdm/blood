@@ -170,8 +170,8 @@ object CallAvailability {
     /** দরকার হলে সার্ভারকে জিজ্ঞেস (১০ মিনিটে একবার); ইন্টারনেট না থাকলে আগের অবস্থা থাকে */
     suspend fun refresh(force: Boolean = false, now: Long = System.currentTimeMillis()) {
         if (LoginGate.isGuest) return
-        // ফিচার সুইচ (মিনিটে একবার)
-        runCatching { Features.refresh() }
+        // ফিচার সুইচ (মিনিটে একবারের বেশি নয়)
+        Features.refreshSoon()
         if (!force && enabled.value != null && now - checkedAt < TTL_MS) return
         checkedAt = now
         runCatching { CallsApi.config() }

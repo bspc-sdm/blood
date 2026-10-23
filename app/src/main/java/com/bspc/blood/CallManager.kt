@@ -118,7 +118,8 @@ object CallManager {
         if (s.live) return false
         dispatch(CallEvent.Ringing(callId, video, peerName, peerPhoto, ctx, refId, peerUid))
         // "ভিডিওতে ধরুন" দেখানো ফিচার সুইচ দেখে (অ্যাপ বন্ধ ছিল — সুইচ আবার আনা)
-        scope.launch { runCatching { Features.refresh() } }
+        Features.ensureInit(context)
+        Features.refreshSoon()
         // পুশে শুধু প্রথম নাম (কোন সূত্রে, ছবি নেই) — পুরো তথ্য call_status থেকে; লক স্ক্রিনে পর্দা তবুও শুধু প্রথম নাম দেখায়
         scope.launch {
             runCatching { CallsApi.status(callId) }.onSuccess { st -> if (_state.value.callId == callId) dispatch(CallEvent.Details(st.ctx, st.refId, st.peer)) }
