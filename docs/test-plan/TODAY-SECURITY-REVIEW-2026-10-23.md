@@ -47,8 +47,11 @@ No Critical item. Each area below lists what was checked and found sound.
 * **C1 is the open item that matters most here:** with `health_consent` on, every tester who has not consented and
   answers a blood request for the first time (no stored blood group) sees the consent screen first.
 * **`FEATURES_ALL_ON` does not turn on `health_consent`.** `Features.OUTSIDE_ALL_ON` exempts it, because it adds a
-  precondition instead of unlocking a feature. If "all on" is done with the environment variable and not on the admin
-  page "ফিচার সুইচ", the consent gate stays **off**. Set `health_consent` to "on" there explicitly.
+  precondition instead of unlocking a feature. Use the "Ops: feature switches" `all_on` action (merged later today,
+  `557d9f62`) or the admin page. Those set every key, `health_consent` included, in the database. The environment
+  variable alone leaves the consent gate **off**. The ops endpoint `/api/cron/features` needs `CRON_SECRET`, compared
+  in constant time, refuses everyone when the secret is empty, and is not routed by nginx from outside, so it fails
+  closed.
 
 ### Switch-off paths fail closed (checked)
 
@@ -268,8 +271,36 @@ defaults to true, and every caller passes the number only on pages that showed i
 
 ## Later merges
 
-_Filled in at the end of the review (see below)._
+Reviewed as they reached `main` (until about 23:00).
+
+* **Prescription phase rules + `rx_mark_done`** (`6233c40e`, V683): sound. `rx_mark_done` loads the row by id and
+  requires `patient_uid == ctx.user.id` (404 otherwise, also for the writing doctor). It is in `CARE_ACTIONS`, so a
+  caregiver acts as the patient, and `privacy.hidden` keeps psychologists' prescriptions away from caregivers. The
+  "superseded" lookup (`RxStateLoader.facts`) only considers prescriptions on the **same account** (`patient_uid = ANY`)
+  from the **same doctor**, so `supersededBy {id}` never points to another patient's prescription. A newer psychologist
+  prescription can only supersede an older one from the same psychologist, which the caregiver cannot see either.
+  Account deletion clears the two new columns.
+* **Prescription cancel reason** (`bc81940b`, V684): sound. Only the writing doctor (`doctor_uid == ctx.user.id`;
+  `rx_cancel` is not a caregiver action) can cancel. The reason must be one of five keys. The note is 3–200
+  characters for "other" and ≤ 200 otherwise, and is stored as data. `cancel_reason` / `cancel_note` are read **only** by
+  `RxStateLoader`, so they reach the patient's `rx_mine` / `rx_get` state and timeline and the caregiver's (minus
+  psychologists). They never reach the doctor-side, pharmacy or lab views, `/rx/{code}` or any push. The first
+  cancellation wins (`AND status <> 'cancelled'`).
+* **Ops: feature switches** (`557d9f62`, `a93c8647`, `a44e913d`): `/api/cron/features` is behind `CronAuth`. See
+  [With every feature switch on](#with-every-feature-switch-on-owner-direction-only-testers-use-the-site-treat-every-switch-as-on).
+* **Medicine finder quantity** (`med_find` qty/unit, the shop's answer): **not on `main` yet**. The `medfind-qty` branch
+  was still marked WIP at 21:26. A pre-read of that branch found nothing blocking:
+  * the shop's push carries the medicine and the amount, never the buyer's name or phone;
+  * the buyer's push keeps the old generic text with no stock number;
+  * `dismiss` writes only the caller's own target row.
+  * Note: its design differs from the brief: the shop answers `haveQty`, and there is no "none". It needs its own
+    review when it merges. Its migration must be numbered above V684.
 
 ## CI
 
-_Filled in at the end of the review._
+* `sec-review` (before merge): Backend (Spring Boot) ✅ (651 tests). The first run found two demo tests that relied on
+  the title of a pending new MBBS applicant ("ডা. ডেমো তানভীর রহমান"), which led to the T2 refinement. Desktop app ✅.
+* `sec-review-ci` (temporary, app only, no APK): compile + `InvoicesTest`, `PayTest`, `TitleGuardTest`: 37 tests ✅.
+* `main` at `9dd9acda` (fast-forward, together with `6233c40e`): Backend ✅, Desktop app ✅, **Deploy backend ✅**. Web
+  e2e was cancelled by the next push (`concurrency`). It was already failing on `main` before this review (`9111042c`,
+  `8b344049`), and no web source file changed here.
