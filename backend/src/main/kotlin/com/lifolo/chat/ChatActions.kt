@@ -129,7 +129,7 @@ class ChatCleanupTask(private val chat: ChatService) : DailyTask {
  */
 @Component
 class ChatDeletionStep(private val chat: ChatService) : AccountDeletionStep {
-    override val order = 660
+    override val order = 560
 
     override fun deleteNow(uid: String, email: String?) {
         chat.deleteAllOf(uid)
