@@ -31,7 +31,7 @@
         "default-src": "'self'",
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'",
-        "font-src": "'self' data:",
+        "font-src": "'self'",
         "img-src": "'self' data: blob: https://lifolo.com",
         "media-src": "'self' blob: mediastream:",
         "connect-src": "'self' ipc: http://ipc.localhost https://lifolo.com wss://lifolo.com https://call.lifolo.com wss://call.lifolo.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
