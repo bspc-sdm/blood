@@ -1,5 +1,5 @@
 # যাত্রা ১৬ — অ্যাপে কল (সার্ভার: call_config, notify_prefs calls): রোগী রহিমের চালু অনলাইন অর্ডারে (demo-svc-rx-b, Montene —
-# ডেমো লাইফ ফার্মেসির "পথে আছে") "অ্যাপে কল" দেখা যায় (অর্ডারে ভিডিও দিয়ে শুরু নয় — কলের ভেতরে "ভিডিও চালু করতে অনুরোধ");
+# ডেমো লাইফ ফার্মেসির "পথে আছে") "অডিও কল" আর "ভিডিও কল" দেখা যায় (ContactActions: ফোন · অডিও কল · ভিডিও কল · মেসেজ);
 # চাপলে আগে বাংলায় অনুমতির কারণ (অনুমতি দেওয়া হয় না —
 # এমুলেটরে আসল কল/মিডিয়া চালানো হয় না); প্রোফাইল → "কল" (কলের তালিকা); নোটিফিকেশনের সেটিংসে "অ্যাপে কল" বন্ধ → আবার খুলে
 # বন্ধই আছে → আবার চালু (পরের চালানোর জন্য)।
@@ -31,19 +31,27 @@ env:
     direction: DOWN
     timeout: 20000
     centerElement: true
-- assertNotVisible:
+- assertVisible:
     id: "app_call_video"
 - takeScreenshot: j16-01-order-call-buttons
 # চাপলে: অনুমতির আগে কারণ (মাইক্রোফোন …) — "বাতিল"
 - tapOn:
     id: "app_call_audio"
 - extendedWaitUntil:
-    visible: ".*অ্যাপে কলের জন্য অনুমতি দিন.*"
+    visible: ".*অডিও কলের জন্য অনুমতি দিন.*"
     timeout: 10000
 - assertVisible: ".*মাইক্রোফোন.*"
 - takeScreenshot: j16-02-permission-reason
 - tapOn: "বাতিল"
-- assertNotVisible: ".*অ্যাপে কলের জন্য অনুমতি দিন.*"
+- assertNotVisible: ".*অডিও কলের জন্য অনুমতি দিন.*"
+# ভিডিও কলে ক্যামেরার কারণও
+- tapOn:
+    id: "app_call_video"
+- extendedWaitUntil:
+    visible: ".*ভিডিও কলের জন্য অনুমতি দিন.*"
+    timeout: 10000
+- assertVisible: ".*ক্যামেরা.*"
+- tapOn: "বাতিল"
 - back
 - back
 # প্রোফাইল → কল (কলের তালিকা)
@@ -88,10 +96,10 @@ env:
 - tapOn:
     id: "calls_blocked_list"
 - extendedWaitUntil:
-    visible: ".*কলে ব্লক করা মানুষ.*"
+    visible: ".*যোগাযোগ বন্ধ করা মানুষ.*"
     timeout: 10000
 - extendedWaitUntil:
-    visible: ".*(কাউকে ব্লক করা নেই|আনব্লক).*"
+    visible: ".*(কেউ নেই|আবার চালু করুন).*"
     timeout: 20000
 - takeScreenshot: j16-04b-blocked-list
 - tapOn: "বন্ধ"

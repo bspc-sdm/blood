@@ -15,7 +15,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -106,25 +110,35 @@ fun showCallScreen(context: Context) {
 }
 
 /**
- * ফোনের বাটনের পাশে "অ্যাপে কল" আর "ভিডিও কল"। সার্ভার অ্যাপে কল বন্ধ রাখলে বা এই সূত্রে কল না দিলে (call_not_allowed)
- * কিছুই দেখায় না। চাপলে: অনুমতি (কারণসহ) → call_start → কলের পর্দা। উনি অ্যাপে কল বন্ধ রাখলে (call_off) বার্তা আর ফোন নম্বরে কল।
+ * যোগাযোগের এক সারি — সব জায়গায় একই (মালিকের সিদ্ধান্ত): ফোন · অডিও কল · ভিডিও কল · মেসেজ।
+ * - ফোন: সাধারণ ফোনের ডায়াল (আগের মতো); জরুরিতে (অ্যাম্বুলেন্স, জরুরি রক্ত) PRIMARY_PHONE — ফোনই বড়।
+ * - অডিও/ভিডিও কল: অ্যাপে কল। সার্ভার কল বন্ধ রাখলে (call_config) বা এই সূত্রে কল না দিলে (call_not_allowed, call_blocked)
+ *   দেখায় না। চাপলে: অনুমতি (বাংলায় কারণ) → call_start → কলের পর্দা। উনি অ্যাপে কল বন্ধ রাখলে (call_off) বার্তা আর ফোনে কল।
+ * - মেসেজ: onMessage দিলে তবেই (অ্যাপের মেসেজ — chat এজেন্ট openChat(ctx, refId, peerUid) দেয়)।
  *
  * @param refId রক্তের রিকোয়েস্ট / অ্যাপয়েন্টমেন্ট / অ্যাম্বুলেন্স ডাকা / অর্ডারের id
- * @param peerUid কাকে (একাধিক মানুষ থাকলে, যেমন রক্তপ্রার্থী → এক ডোনার); null হলে সার্ভার ঠিক করে
- * @param phone call_off-এর পর ফোনে কল করার নম্বর (জানা থাকলে)
+ * @param peerUid কার সাথে (একাধিক মানুষ থাকলে, যেমন রক্তপ্রার্থী → এক ডোনার); null হলে সার্ভার ঠিক করে
+ * @param phone ফোনের নম্বর (খালি/null = ফোনের বাটন নেই; call_off-এর পর এটাই প্রস্তাব)
+ * @param onPhone ফোনের বাটনের নিজের কাজ (যেমন অ্যাম্বুলেন্সে ফোন গোনা); null = সাধারণ ডায়াল
+ * @param appAllowed অ্যাপে যোগাযোগের সম্পর্ক হয়েছে কি না (যেমন ডোনার → রক্তপ্রার্থী: নিশ্চিত হলে) — না হলে শুধু ফোন
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun AppCallButtons(
+fun ContactActions(
     ctx: String,
     refId: String,
     peerUid: String? = null,
     peerName: String = "",
     phone: String? = null,
-    emphasis: CallEmphasis = CallEmphasis.EQUAL,
+    style: ContactStyle = ContactStyle.ROW,
     modifier: Modifier = Modifier,
+    onPhone: (() -> Unit)? = null,
+    phoneLabel: String? = null,
+    onMessage: (() -> Unit)? = null,
+    appAllowed: Boolean = true,
+    showPhone: Boolean = true,
 ) {
     LaunchedEffect(Unit) { CallAvailability.refresh() }
-    if (!CallAvailability.shows(ctx, refId)) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf<Boolean?>(null) }
@@ -132,6 +146,12 @@ fun AppCallButtons(
     var asking by remember { mutableStateOf<Pair<Boolean, List<String>>?>(null) }
     var denied by remember { mutableStateOf(false) }
     var pendingVideo by remember { mutableStateOf(false) }
+
+    val callsOn = appAllowed && CallAvailability.shows(ctx, refId)
+    val msgOn = appAllowed && onMessage != null && refId.isNotBlank() && !CallAvailability.isBlocked(ctx, refId)
+    val tel = phone?.takeIf { it.isNotBlank() }
+    val phoneOn = showPhone && (tel != null || onPhone != null)
+    val dial: () -> Unit = { if (onPhone != null) onPhone() else if (tel != null) callPhone(context, tel) }
 
     fun start(video: Boolean) {
         if (busy != null) return
@@ -141,7 +161,7 @@ fun AppCallButtons(
         scope.launch {
             runCatching { CallsApi.start(ctx, refId, peerUid, video) }
                 .onSuccess { j ->
-                    CallManager.startOutgoing(context, j, ctx, refId, video, peerName)
+                    CallManager.startOutgoing(context, j, ctx, refId, j.video ?: video, peerName)
                     showCallScreen(context)
                 }
                 .onFailure { e ->
@@ -163,31 +183,59 @@ fun AppCallButtons(
         if (need.isEmpty()) start(video) else asking = video to need
     }
 
-    val audioLabel = tr("App call", "অ্যাপে কল")
+    if (!phoneOn && !callsOn && !msgOn) return
+    val audioLabel = tr("Audio call", "অডিও কল")
     val videoLabel = tr("Video call", "ভিডিও কল")
-    // ভিডিও দিয়ে শুরু শুধু অ্যাপয়েন্টমেন্টে; বাকি কল অডিওতে শুরু হয়, কলের ভেতরে "ভিডিও চালু করতে অনুরোধ"
-    val withVideo = CallCtx.videoFirst(ctx)
-    when (emphasis) {
-        CallEmphasis.ICONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
-                if (busy == false) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                else AppIcon(R.drawable.ic_phone_in_talk, audioLabel, tint = MaterialTheme.colorScheme.primary)
+    val msgLabel = tr("Message", "মেসেজ")
+    val telLabel = phoneLabel ?: tr("Call", "ফোন")
+    val cs = MaterialTheme.colorScheme
+    when (style) {
+        ContactStyle.ICONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            if (phoneOn) IconButton(onClick = dial, modifier = Modifier.testTag("contact_phone")) { AppIcon(R.drawable.ic_call, telLabel, tint = cs.primary) }
+            if (callsOn) {
+                IconButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
+                    if (busy == false) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else AppIcon(R.drawable.ic_phone_in_talk, audioLabel, tint = cs.primary)
+                }
+                IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+                    if (busy == true) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else AppIcon(R.drawable.ic_videocam, videoLabel, tint = cs.primary)
+                }
             }
-            if (withVideo) IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
-                if (busy == true) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                else AppIcon(R.drawable.ic_videocam, videoLabel, tint = MaterialTheme.colorScheme.primary)
+            if (msgOn) IconButton(onClick = { onMessage?.invoke() }, modifier = Modifier.testTag("contact_message")) { AppIcon(R.drawable.ic_chat, msgLabel, tint = cs.primary) }
+        }
+        ContactStyle.CHIPS -> FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (phoneOn) SmallAction(telLabel, R.drawable.ic_call, dial, Modifier.testTag("contact_phone"))
+            if (callsOn) {
+                SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
+                SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
+            }
+            if (msgOn) SmallAction(msgLabel, R.drawable.ic_chat, { onMessage?.invoke() }, Modifier.testTag("contact_message"))
+        }
+        // জরুরি: ফোনের বড় বাটন আগে, অ্যাপের যোগাযোগ নিচে ছোট
+        ContactStyle.PRIMARY_PHONE -> Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (phoneOn) Button(onClick = dial, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("contact_phone")) { ButtonContent(false, telLabel, R.drawable.ic_call) }
+            if (callsOn || msgOn) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (callsOn) {
+                    SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
+                    SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
+                }
+                if (msgOn) SmallAction(msgLabel, R.drawable.ic_chat, { onMessage?.invoke() }, Modifier.testTag("contact_message"))
             }
         }
-        CallEmphasis.SECONDARY -> Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
-            if (withVideo) SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
-        }
-        CallEmphasis.EQUAL -> Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
-                ButtonContent(busy == false, audioLabel, R.drawable.ic_phone_in_talk)
+        // সব সমান
+        ContactStyle.ROW -> FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (phoneOn) Button(onClick = dial, modifier = Modifier.testTag("contact_phone")) { ButtonContent(false, telLabel, R.drawable.ic_call) }
+            if (callsOn) {
+                OutlinedButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
+                    ButtonContent(busy == false, audioLabel, R.drawable.ic_phone_in_talk)
+                }
+                OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+                    ButtonContent(busy == true, videoLabel, R.drawable.ic_videocam)
+                }
             }
-            if (withVideo) OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
-                ButtonContent(busy == true, videoLabel, R.drawable.ic_videocam)
+            if (msgOn) OutlinedButton(onClick = { onMessage?.invoke() }, modifier = Modifier.testTag("contact_message")) {
+                ButtonContent(false, msgLabel, R.drawable.ic_chat)
             }
         }
     }
@@ -195,7 +243,7 @@ fun AppCallButtons(
     asking?.let { (video, need) ->
         AlertDialog(
             onDismissRequest = { asking = null },
-            title = { Text(if (video) tr("Allow for the video call", "ভিডিও কলের জন্য অনুমতি দিন") else tr("Allow for the app call", "অ্যাপে কলের জন্য অনুমতি দিন")) },
+            title = { Text(if (video) tr("Allow for the video call", "ভিডিও কলের জন্য অনুমতি দিন") else tr("Allow for the audio call", "অডিও কলের জন্য অনুমতি দিন")) },
             text = { Text(CallPermissions.rationale(need)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -220,30 +268,59 @@ fun AppCallButtons(
             confirmButton = { TextButton(onClick = { denied = false; CallPermissions.openAppSettings(context) }) { Text(tr("Open settings", "সেটিংস খুলুন")) } },
             dismissButton = {
                 Row {
-                    if (!phone.isNullOrBlank()) TextButton(onClick = { denied = false; callPhone(context, phone) }) { Text(tr("Call phone", "ফোনে কল")) }
+                    if (tel != null) TextButton(onClick = { denied = false; callPhone(context, tel) }) { Text(tr("Call phone", "ফোনে কল")) }
                     TextButton(onClick = { denied = false }) { Text(tr("Close", "বন্ধ")) }
                 }
             },
         )
     }
     failure?.let { (f, msg) ->
+        val offer = tel != null && CallErrors.offersPhone(f)
         AlertDialog(
             onDismissRequest = { failure = null },
             title = { Text(if (f == CallFailure.OFF) tr("App calls are off", "অ্যাপে কল বন্ধ") else if (f == CallFailure.RATE_LIMIT) tr("Too many calls", "অনেক বেশি কল") else tr("Call not placed", "কল হয়নি")) },
             text = { Text(msg) },
             confirmButton = {
-                if (!phone.isNullOrBlank() && CallErrors.offersPhone(f)) {
-                    TextButton(onClick = { failure = null; callPhone(context, phone) }, modifier = Modifier.testTag("app_call_phone_fallback")) {
-                        ButtonContent(false, tr("Call ", "ফোনে কল: ") + num(phone), R.drawable.ic_call)
+                if (offer && tel != null) {
+                    TextButton(onClick = { failure = null; callPhone(context, tel) }, modifier = Modifier.testTag("app_call_phone_fallback")) {
+                        ButtonContent(false, tr("Call ", "ফোনে কল: ") + num(tel), R.drawable.ic_call)
                     }
                 } else {
                     TextButton(onClick = { failure = null }) { Text(tr("OK", "ঠিক আছে")) }
                 }
             },
-            dismissButton = if (!phone.isNullOrBlank() && CallErrors.offersPhone(f)) ({ TextButton(onClick = { failure = null }) { Text(tr("Close", "বন্ধ")) } }) else null,
+            dismissButton = if (offer) ({ TextButton(onClick = { failure = null }) { Text(tr("Close", "বন্ধ")) } }) else null,
         )
     }
 }
+
+/** যোগাযোগের সারির রূপ */
+enum class ContactStyle {
+    /** সব সমান: ফোন (ভরাট) · অডিও কল · ভিডিও কল · মেসেজ */
+    ROW,
+    /** জরুরি (অ্যাম্বুলেন্স, জরুরি রক্ত): ফোনের বড় পুরো-চওড়া বাটন, নিচে ছোট অ্যাপের যোগাযোগ */
+    PRIMARY_PHONE,
+    /** ছোট চিপ (কাজের তালিকা, অর্ডারের সারি) */
+    CHIPS,
+    /** শুধু আইকন (নামের সারির ডানে) */
+    ICONS,
+}
+
+/** শুধু অ্যাপে কল (ফোন নম্বর ছাড়া — যেমন কলের তালিকা থেকে ফিরতি কল) */
+@Composable
+fun AppCallButtons(
+    ctx: String,
+    refId: String,
+    peerUid: String? = null,
+    peerName: String = "",
+    phone: String? = null,
+    emphasis: CallEmphasis = CallEmphasis.EQUAL,
+    modifier: Modifier = Modifier,
+) = ContactActions(
+    ctx, refId, peerUid, peerName, phone,
+    when (emphasis) { CallEmphasis.EQUAL -> ContactStyle.ROW; CallEmphasis.SECONDARY -> ContactStyle.CHIPS; CallEmphasis.ICONS -> ContactStyle.ICONS },
+    modifier, showPhone = false,
+)
 
 /** আগে একবার অনুমতি চাওয়া হয়েছে কি না (না চাইলে shouldShowRationale false আসে — তখন সেটিংসে পাঠানো ভুল); CallActivity-ও */
 internal fun wasAsked(context: Context) = context.getSharedPreferences("calls", Context.MODE_PRIVATE).getBoolean("asked_mic", false)

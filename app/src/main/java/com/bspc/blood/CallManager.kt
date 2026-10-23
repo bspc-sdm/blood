@@ -124,19 +124,25 @@ object CallManager {
         return true
     }
 
-    /** ধরা (মাইকের অনুমতি আগেই নেওয়া); withCamera = ভিডিও কলে ক্যামেরা চালু করে ধরা */
-    fun accept(withCamera: Boolean) {
+    /**
+     * ধরা (মাইকের অনুমতি আগেই নেওয়া)। video = "ভিডিওতে ধরুন" (false = "অডিওতে ধরুন": ভিডিও কলও অডিওতে, পরে সম্মতিতে ভিডিও);
+     * withCamera = ক্যামেরার অনুমতি আছে
+     */
+    fun accept(video: Boolean, withCamera: Boolean) {
         val s = _state.value
         if (s.phase != CallPhase.INCOMING) return
         val callId = s.callId
+        val asVideo = video && s.video
         dispatch(CallEvent.Accepting)
-        if (!withCamera && s.camOn) dispatch(CallEvent.Camera(false))
+        if (!asVideo) dispatch(CallEvent.Downgraded)
+        if ((!withCamera || !asVideo) && _state.value.camOn) dispatch(CallEvent.Camera(false))
         scope.launch {
-            runCatching { CallsApi.accept(callId) }
+            runCatching { CallsApi.accept(callId, asVideo) }
                 .onSuccess { j ->
                     if (_state.value.callId != callId || _state.value.phase != CallPhase.CONNECTING) return@onSuccess
                     dispatch(CallEvent.Joined(j))
-                    connect(j, withCamera)
+                    if (j.video == false) dispatch(CallEvent.Downgraded)
+                    connect(j, asVideo && withCamera && j.video != false)
                 }
                 .onFailure { e -> fail(e, ended = true) }
         }
@@ -355,6 +361,13 @@ object CallManager {
 
     private fun refreshRemoteVideo(r: Room) {
         val pub = r.remoteParticipants.values.firstNotNullOfOrNull { it.getTrackPublication(Track.Source.CAMERA) }
+        // অডিও কলে (অডিওতে ধরা, বা ভিডিও চালু হয়নি) অন্যজনের ভিডিও নেওয়াই হয় না — ডেটা বাঁচে, সম্মতি ছাড়া দেখা নয়
+        if (!_state.value.video) {
+            (pub as? io.livekit.android.room.track.RemoteTrackPublication)?.let { p -> runCatching { p.setSubscribed(false) } }
+            remoteVideo.value = null
+            dispatch(CallEvent.RemoteVideo(false))
+            return
+        }
         val track = pub?.takeIf { !it.muted }?.track as? VideoTrack
         remoteVideo.value = track
         dispatch(CallEvent.RemoteVideo(track != null))
@@ -405,7 +418,12 @@ object CallManager {
                     else dispatch(CallEvent.Server("missed"))
                     break
                 }
-                runCatching { CallsApi.status(id) }.onSuccess { st -> if (_state.value.callId == id) dispatch(CallEvent.Server(st.state)) }
+                runCatching { CallsApi.status(id) }.onSuccess { st ->
+                    if (_state.value.callId == id) {
+                        dispatch(CallEvent.Server(st.state))
+                        applyVideoFlag(st)
+                    }
+                }
             }
         }
     }
@@ -456,6 +474,7 @@ object CallManager {
                 if (_state.value.callId != id) break
                 dispatch(CallEvent.Server(st.state))
                 st.peer?.let { dispatch(CallEvent.PeerInfo(it)) }
+                applyVideoFlag(st)
                 val after = _state.value
                 if (after.live && !after.video && st.video) st.join(id)?.let { applyUpgrade(it, after.upgradePending && has(Manifest.permission.CAMERA)) }
             }
@@ -517,6 +536,18 @@ object CallManager {
     }
 
     fun dismissUpgradeNote() = dispatch(CallEvent.UpgradeDismissed)
+
+    /** ধরা কলে সার্ভার বলছে ভিডিও নয় (অন্যজন অডিওতে ধরেছেন): নিজের ক্যামেরা বন্ধ, অন্যজনের ভিডিও আর নেওয়া হয় না */
+    private fun applyVideoFlag(st: CallStatus) {
+        val s = _state.value
+        if (st.state == "accepted" && s.video && !st.video && !s.isAppointment) {
+            dispatch(CallEvent.Downgraded)
+            room?.let { r -> scope.launch { runCatching { r.localParticipant.setCameraEnabled(false) }; localVideo.value = null } }
+            remoteVideo.value = null
+            // নতুন (অডিওর) টোকেন থাকলে সেটাতে আবার — অন্যজনের ভিডিও আর আসে না
+            st.join(s.callId)?.let { connect(it, false, rejoin = true) }
+        }
+    }
 
     private fun applyUpgrade(j: CallJoin, camera: Boolean) {
         dispatch(CallEvent.Upgraded(camera))

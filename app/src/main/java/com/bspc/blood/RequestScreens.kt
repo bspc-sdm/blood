@@ -515,14 +515,13 @@ fun RequestDetailScreen(
                                     if (c != null) {
                                         Text(c.first)
                                         Text(num(c.second), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                        Button(onClick = { callPhone(context, c.second) }) {
-                                            ButtonContent(false, tr("Call", "কল করুন"), R.drawable.ic_call)
-                                        }
-                                        // অ্যাপে কল (রিকোয়েস্ট খোলা থাকা পর্যন্ত); জরুরি রিকোয়েস্টে ফোনই বড়
-                                        // ডোনার → রক্তপ্রার্থী: শুধু নিশ্চিত হলে (রক্তপ্রার্থী আগে কল করলে কলের তালিকা থেকে ফিরতি কল)
-                                        if (r.isActive && resp.confirmed) AppCallButtons(
+                                        // ফোন · অডিও কল · ভিডিও কল · মেসেজ — ডোনার → রক্তপ্রার্থী অ্যাপে শুধু নিশ্চিত হলে
+                                        // (রক্তপ্রার্থী আগে কল করলে কলের তালিকা থেকে ফিরতি কল); জরুরি রিকোয়েস্টে ফোনই বড়
+                                        ContactActions(
                                             CallCtx.BLOOD, r.id, r.requesterUid.ifBlank { null }, c.first, c.second,
-                                            if (r.urgent) CallEmphasis.SECONDARY else CallEmphasis.EQUAL,
+                                            if (r.urgent) ContactStyle.PRIMARY_PHONE else ContactStyle.ROW,
+                                            phoneLabel = tr("Call", "কল করুন"),
+                                            appAllowed = r.isActive && resp.confirmed,
                                         )
                                     } else {
                                         Text(tr("Couldn't load the number. Open this page again.", "নম্বর লোড হয়নি, পাতাটা আবার খুলুন।"))

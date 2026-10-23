@@ -194,7 +194,7 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
         val mic = CallPermissions.granted(context, Manifest.permission.RECORD_AUDIO)
         val cam = CallPermissions.granted(context, Manifest.permission.CAMERA)
         when (op) {
-            is CallOp.Accept -> if (mic) CallManager.accept(op.video && cam) else deniedOp = op
+            is CallOp.Accept -> if (mic) CallManager.accept(op.video, cam) else deniedOp = op
             is CallOp.Join -> if (mic) CallManager.joinAppointment(context, op.appointmentId, cam) else deniedOp = op
             CallOp.Camera -> if (cam) CallManager.setCamera(true) else deniedOp = op
             CallOp.Upgrade -> if (cam) CallManager.requestUpgrade() else deniedOp = op
@@ -383,10 +383,15 @@ private fun IncomingCall(s: CallState, locked: Boolean, onAccept: () -> Unit, on
             locked = locked,
         )
         Spacer(Modifier.weight(1f))
+        // ভিডিও কল: "অডিওতে ধরুন" (দুজনেই ভিডিও ছাড়া) বা "ভিডিওতে ধরুন"
         Row(Modifier.fillMaxWidth().padding(bottom = 56.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             RoundButton(R.drawable.ic_call_end, tr("Decline", "কাটুন"), CallColors.red, onDecline, "call_decline", big = true)
-            if (s.video) RoundButton(R.drawable.ic_phone_in_talk, tr("Audio only", "শুধু অডিও"), CallColors.panel, onAcceptAudio, "call_accept_audio", big = true)
-            RoundButton(if (s.video) R.drawable.ic_videocam else R.drawable.ic_call, tr("Answer", "ধরুন"), CallColors.green, onAccept, "call_accept", big = true)
+            if (s.video) {
+                RoundButton(R.drawable.ic_phone_in_talk, tr("Answer with audio", "অডিওতে ধরুন"), CallColors.green, onAcceptAudio, "call_accept_audio", big = true)
+                RoundButton(R.drawable.ic_videocam, tr("Answer with video", "ভিডিওতে ধরুন"), CallColors.green, onAccept, "call_accept", big = true)
+            } else {
+                RoundButton(R.drawable.ic_call, tr("Answer", "ধরুন"), CallColors.green, onAccept, "call_accept", big = true)
+            }
         }
     }
 }
@@ -412,7 +417,7 @@ private fun EndedCall(s: CallState, locked: Boolean, onStay: () -> Unit, onClose
         // কলকারী/কল ধরা মানুষ পরিচিত (ভুল মানুষ, হয়রানি): ব্লক/রিপোর্ট — লক স্ক্রিনে নয়
         if (!locked && s.callId.isNotBlank() && done == null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                RoundButton(R.drawable.ic_close, tr("Block", "ব্লক করুন"), CallColors.panel, { onStay(); blocking = true }, "call_block")
+                RoundButton(R.drawable.ic_close, tr("Stop contact", "যোগাযোগ বন্ধ করুন"), CallColors.panel, { onStay(); blocking = true }, "call_block")
                 RoundButton(R.drawable.ic_flag, tr("Report", "রিপোর্ট করুন"), CallColors.panel, { onStay(); reporting = true }, "call_report")
                 RoundButton(R.drawable.ic_check_circle, tr("Close", "বন্ধ"), CallColors.panel, onClose, "call_close")
             }
@@ -423,7 +428,7 @@ private fun EndedCall(s: CallState, locked: Boolean, onStay: () -> Unit, onClose
     }
     if (blocking) CallBlockDialog(s.peerUid, s.peerName, s.callId, onDismiss = { blocking = false }) {
         blocking = false
-        done = tr("Blocked. They can't call you in the app.", "ব্লক করা হয়েছে। উনি আর অ্যাপে কল করতে পারবেন না।")
+        done = tr("Contact stopped. No more app calls or messages between you.", "যোগাযোগ বন্ধ করা হয়েছে। অ্যাপে আর কল বা মেসেজ হবে না।")
     }
     if (reporting) CallReportDialog(s.callId, onDismiss = { reporting = false }) {
         reporting = false

@@ -187,13 +187,14 @@ fun DonorRow(
                 d.status == "donated" -> Tag(tr("Donated", "রক্ত দিয়েছেন"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
                 d.confirmed -> Tag(tr("Confirmed", "নিশ্চিত"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
             }
-            IconButton(onClick = { callPhone(context, d.donorPhone) }) {
-                AppIcon(R.drawable.ic_call, tr("Call", "কল করুন"), tint = MaterialTheme.colorScheme.primary)
-            }
-            if (canAppCall && !urgent) AppCallButtons(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, CallEmphasis.ICONS)
+            // ফোন · অডিও কল · ভিডিও কল · মেসেজ (জরুরি রিকোয়েস্টে ফোনই সারিতে, অ্যাপের যোগাযোগ নিচে ছোট করে)
+            ContactActions(
+                CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.ICONS,
+                phoneLabel = tr("Call", "ফোন"), appAllowed = canAppCall && !urgent,
+            )
         }
         if (canAppCall && urgent) {
-            AppCallButtons(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, CallEmphasis.SECONDARY, Modifier.padding(start = 46.dp))
+            ContactActions(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.CHIPS, Modifier.padding(start = 46.dp), showPhone = false)
         }
         if (active && d.status == "accepted") {
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে

@@ -33,9 +33,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 // ------------------------------------------------------------
-// কলে ব্লক আর রিপোর্ট (call_block / call_unblock / call_blocks / call_report):
-// কল শেষের পর্দা আর কলের তালিকা থেকে; ব্লক করা মানুষের তালিকা নোটিফিকেশনের সেটিংসে ("অ্যাপে কল"-এর নিচে)।
-// ব্লক শুধু অ্যাপে কলের — রিকোয়েস্ট/অ্যাপয়েন্টমেন্ট/ফোন নম্বর আগের মতো।
+// "যোগাযোগ বন্ধ করুন" (call_block / call_unblock / call_blocks) আর রিপোর্ট (call_report):
+// কল শেষের পর্দা আর কলের তালিকা থেকে; বন্ধ করা মানুষের তালিকা নোটিফিকেশনের সেটিংসে ("অ্যাপে কল"-এর নিচে)।
+// বন্ধ হয় অ্যাপে কল আর মেসেজ দুটোই — রিকোয়েস্ট/অ্যাপয়েন্টমেন্ট/ফোন নম্বর আগের মতো।
 // ------------------------------------------------------------
 
 /** "ব্লক করবেন?" — হ্যাঁ হলে সার্ভারে, তারপর onDone */
@@ -46,10 +46,10 @@ fun CallBlockDialog(peerUid: String, peerName: String, callId: String?, onDismis
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(tr("Block ${peerName.ifBlank { "this person" }}?", "${peerName.ifBlank { "এই মানুষকে" }} ব্লক করবেন?")) },
+        title = { Text(tr("Stop contact with ${peerName.ifBlank { "this person" }}?", (if (peerName.isBlank()) "এই মানুষের" else "$peerName-এর") + " সাথে যোগাযোগ বন্ধ করবেন?")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(tr("They won't be able to call you in the app, and you can't call them. Phone numbers stay as they are. You can unblock in settings.", "উনি আপনাকে অ্যাপে কল করতে পারবেন না, আপনিও পারবেন না। ফোন নম্বর আগের মতোই থাকবে। সেটিংস থেকে আনব্লক করা যায়।"))
+                Text(tr("Neither of you will be able to call or message the other in the app. Phone numbers stay as they are. You can undo this in settings.", "অ্যাপে আপনারা কেউ কাউকে কল বা মেসেজ করতে পারবেন না। ফোন নম্বর আগের মতোই থাকবে। সেটিংস থেকে আবার চালু করা যায়।"))
                 ErrorText(error)
             }
         },
@@ -64,7 +64,7 @@ fun CallBlockDialog(peerUid: String, peerName: String, callId: String?, onDismis
                     busy = false
                 }
             }, enabled = !busy && (peerUid.isNotBlank() || !callId.isNullOrBlank()), modifier = Modifier.testTag("call_block_confirm")) {
-                ButtonContent(busy, tr("Block", "ব্লক করুন"))
+                ButtonContent(busy, tr("Stop contact", "যোগাযোগ বন্ধ করুন"))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
@@ -124,7 +124,8 @@ fun CallReportDialog(callId: String, onDismiss: () -> Unit, onDone: () -> Unit) 
 fun CallBlocksRow() {
     var open by remember { mutableStateOf(false) }
     ListItem(
-        headlineContent = { Text(tr("Blocked from calling", "কলে ব্লক করা মানুষ")) },
+        headlineContent = { Text(tr("Contact stopped", "যোগাযোগ বন্ধ করা মানুষ")) },
+        supportingContent = { Text(tr("No app calls or messages with them", "এঁদের সাথে অ্যাপে কল বা মেসেজ হয় না")) },
         leadingContent = { AppIcon(R.drawable.ic_close, null) },
         trailingContent = { AppIcon(R.drawable.ic_chevron_right, null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -144,14 +145,14 @@ private fun CallBlocksDialog(onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Blocked from calling", "কলে ব্লক করা মানুষ")) },
+        title = { Text(tr("Contact stopped", "যোগাযোগ বন্ধ করা মানুষ")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ErrorText(error)
                 val l = items
                 when {
                     l == null && error == null -> LoadingBox()
-                    l != null && l.isEmpty() -> Text(tr("No one is blocked", "কাউকে ব্লক করা নেই"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    l != null && l.isEmpty() -> Text(tr("No one", "কেউ নেই"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     l != null -> l.forEach { b ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -166,7 +167,7 @@ private fun CallBlocksDialog(onDismiss: () -> Unit) {
                                         .onFailure { error = it.message }
                                     busy = null
                                 }
-                            }, enabled = busy == null) { ButtonContent(busy == b.uid, tr("Unblock", "আনব্লক")) }
+                            }, enabled = busy == null) { ButtonContent(busy == b.uid, tr("Allow again", "আবার চালু করুন")) }
                         }
                     }
                 }

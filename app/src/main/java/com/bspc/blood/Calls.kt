@@ -42,7 +42,15 @@ object CallCtx {
 data class CallPeer(val uid: String, val name: String, val photoThumb: String = "")
 
 /** call_start / call_accept / appt_join-এর উত্তর: কোন ঘরে, কোন সার্ভারে (url সবসময় সার্ভার যা দেয়), কোন টোকেনে */
-data class CallJoin(val callId: String, val room: String, val url: String, val token: String, val peer: CallPeer? = null)
+data class CallJoin(
+    val callId: String,
+    val room: String,
+    val url: String,
+    val token: String,
+    val peer: CallPeer? = null,
+    /** সার্ভার বলেছে ভিডিও কি না (অডিওতে ধরলে false) — না বললে null */
+    val video: Boolean? = null,
+)
 
 /** call_status: চলমান কলে নতুন টোকেন (১০ মিনিটের) আর ভিডিও চালু হয়েছে কি না */
 data class CallStatus(
@@ -54,7 +62,7 @@ data class CallStatus(
     val token: String = "",
     val peer: CallPeer? = null,
 ) {
-    fun join(callId: String): CallJoin? = if (url.isNotBlank() && token.isNotBlank()) CallJoin(callId, "", url, token, peer) else null
+    fun join(callId: String): CallJoin? = if (url.isNotBlank() && token.isNotBlank()) CallJoin(callId, "", url, token, peer, video) else null
 }
 
 /** কলে ব্লক করা একজন (call_blocks) */
@@ -119,7 +127,7 @@ object CallErrors {
         CallFailure.BUSY -> tr("They are on another call. Try again a little later.", "উনি এখন অন্য কলে আছেন। একটু পরে আবার চেষ্টা করুন।")
         CallFailure.NOT_ALLOWED -> tr("An app call isn't possible here now. Call their phone instead.", "এখন এখানে অ্যাপে কল করা যাচ্ছে না। ফোনে কল করুন।")
         // কে কাকে ব্লক করেছেন বলা হয় না
-        CallFailure.BLOCKED -> tr("You can't make app calls with this person.", "এই মানুষের সাথে অ্যাপে কল করা যাবে না।")
+        CallFailure.BLOCKED -> tr("App contact with this person is stopped.", "এই মানুষের সাথে অ্যাপে যোগাযোগ বন্ধ আছে।")
         CallFailure.GONE -> tr("This call has already ended.", "কলটা আর নেই — শেষ হয়ে গেছে।")
         CallFailure.UNAVAILABLE -> tr("App calls aren't available right now. Call their phone.", "অ্যাপে কল এখন চালু নেই। ফোনে কল করুন।")
         CallFailure.RATE_LIMIT -> tr("Too many calls in a short time. Wait about 10 minutes and try again.", "অল্প সময়ে অনেক বেশি কল হয়েছে। ১০ মিনিট মতো পরে আবার চেষ্টা করুন।")
@@ -188,7 +196,8 @@ object CallsApi {
     suspend fun start(ctx: String, refId: String, peerUid: String?, video: Boolean): CallJoin =
         parseJoin(call("call_start", JSONObject().put("ctx", ctx).put("refId", refId).put("video", video).apply { if (!peerUid.isNullOrBlank()) put("peerUid", peerUid) }))
 
-    suspend fun accept(callId: String): CallJoin = parseJoin(call("call_accept", JSONObject().put("callId", callId)), callId)
+    /** ধরা — video=false: ভিডিও কলও অডিওতে ধরা (দুজনেই ভিডিও ছাড়া, পরে সম্মতিতে ভিডিও) */
+    suspend fun accept(callId: String, video: Boolean): CallJoin = parseJoin(call("call_accept", JSONObject().put("callId", callId).put("video", video)), callId)
     suspend fun decline(callId: String) { call("call_decline", JSONObject().put("callId", callId)) }
     suspend fun cancel(callId: String) { call("call_cancel", JSONObject().put("callId", callId)) }
     suspend fun end(callId: String) { call("call_end", JSONObject().put("callId", callId)) }
@@ -228,7 +237,10 @@ object CallsApi {
     internal fun parsePeer(o: JSONObject?): CallPeer? = o?.let { CallPeer(it.str("uid"), it.str("name"), it.str("photoThumb")) }
 
     internal fun parseJoin(o: JSONObject, fallbackCallId: String = ""): CallJoin {
-        val join = CallJoin(o.str("callId").ifBlank { fallbackCallId }, o.str("room"), o.str("url"), o.str("token"), parsePeer(o.optJSONObject("peer")))
+        val join = CallJoin(
+            o.str("callId").ifBlank { fallbackCallId }, o.str("room"), o.str("url"), o.str("token"), parsePeer(o.optJSONObject("peer")),
+            if (o.has("video") && !o.isNull("video")) o.optBoolean("video") else null,
+        )
         if (join.url.isBlank() || join.token.isBlank()) throw ServerError(tr("The call couldn't be made", "কল করা গেল না"), "calls_unavailable")
         return join
     }
@@ -388,6 +400,8 @@ sealed interface CallEvent {
     data object UpgradeDismissed : CallEvent
     /** ভিডিও চালু (নতুন টোকেনে ঘরে আবার যুক্ত) — camera: নিজের ক্যামেরা চালু */
     data class Upgraded(val camera: Boolean) : CallEvent
+    /** ভিডিও কল অডিওতে ধরা হলো — দুজনেরই ক্যামেরা/ভিডিও বন্ধ (পরে সম্মতিতে আবার) */
+    data object Downgraded : CallEvent
     /** ছবি (call_status-এর peer.photoThumb — পুশে ছবি থাকে না) */
     data class PeerInfo(val peer: CallPeer) : CallEvent
     /** শেষের পর্দা সরানো */
@@ -466,6 +480,7 @@ object CallMachine {
             CallEvent.UpgradeDeclined -> s.copy(upgradePending = false, upgradeDeclined = s.upgradePending)
             CallEvent.UpgradeDismissed -> s.copy(upgradeAsked = false, upgradeDeclined = false)
             is CallEvent.Upgraded -> if (s.live) s.copy(video = true, camOn = e.camera, speakerOn = true, upgradePending = false, upgradeAsked = false, upgradeDeclined = false, audioFallback = false) else s
+            CallEvent.Downgraded -> if (s.live && s.video) s.copy(video = false, camOn = false, remoteVideoOn = false, speakerOn = false) else s
             is CallEvent.PeerInfo -> s.copy(
                 peerName = s.peerName.ifBlank { e.peer.name },
                 peerPhoto = s.peerPhoto.ifBlank { e.peer.photoThumb },

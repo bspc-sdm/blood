@@ -1010,13 +1010,12 @@ private fun AcceptedCard(r: AmbReq, a: AmbCar, scope: kotlinx.coroutines.Corouti
                     }
                 }
             }
-            if (a.phone.isNotBlank()) {
-                Button(onClick = { callDuringRequest(context, scope, a, id) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                    ButtonContent(false, tr("Call driver ", "চালককে ফোন ") + num(a.phone), R.drawable.ic_call)
-                }
-            }
-            // অ্যাপে কল — জরুরি, তাই ফোনের বড় বাটনই আগে; এগুলো ছোট
-            AppCallButtons(CallCtx.AMBULANCE, r.id, peerName = a.name, phone = a.phone.ifBlank { null }, emphasis = CallEmphasis.SECONDARY)
+            // ফোন · অডিও কল · ভিডিও কল · মেসেজ — জরুরি, তাই ফোনের বড় বাটনই আগে, অ্যাপের যোগাযোগ নিচে ছোট
+            ContactActions(
+                CallCtx.AMBULANCE, r.id, peerName = a.name, phone = a.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
+                onPhone = if (a.phone.isNotBlank()) ({ callDuringRequest(context, scope, a, id) }) else null,
+                phoneLabel = tr("Call driver ", "চালককে ফোন ") + num(a.phone),
+            )
         }
     }
 }
@@ -1103,16 +1102,16 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     }
                     if (mine) {
                         if (r.patientName.isNotBlank()) IconLine(R.drawable.ic_person_outline, r.patientName)
+                        // রোগীর সাথে: ফোন (বড়) · অডিও কল · ভিডিও কল · মেসেজ
+                        ContactActions(
+                            CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
+                            phoneLabel = num(r.phone), appAllowed = r.status == "accepted" || r.status == "arrived",
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (r.phone.isNotBlank()) Button(onClick = { callPhone(context, r.phone) }) { ButtonContent(false, num(r.phone), R.drawable.ic_call) }
                             // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই; ঠিক জায়গা না থাকলে ঠিকানা আর এলাকা দিয়ে খোঁজা
                             OutlinedButton(onClick = { openUrl(context, ambMapUri(r.lat, r.lng, r.pickup, r.district, r.upazilaId, r.unionId)) }) {
                                 ButtonContent(false, tr("Open in map", "ম্যাপে খুলুন"), R.drawable.ic_map)
                             }
-                        }
-                        // অ্যাপে কল (রোগীর সাথে) — ফোনের বাটনই বড়, এগুলো ছোট
-                        if (r.status == "accepted" || r.status == "arrived") {
-                            AppCallButtons(CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, emphasis = CallEmphasis.SECONDARY)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (r.status == "accepted") {

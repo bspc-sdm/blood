@@ -148,7 +148,7 @@ private fun CallRow(c: CallHistoryItem) {
                 Box {
                     IconButton(onClick = { menu = true }, modifier = Modifier.testTag("call_row_menu")) { AppIcon(R.drawable.ic_more_vert, tr("More", "আরও")) }
                     androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Block", "ব্লক করুন")) }, onClick = { menu = false; blocking = true })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Stop contact", "যোগাযোগ বন্ধ করুন")) }, onClick = { menu = false; blocking = true })
                         androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Report", "রিপোর্ট করুন")) }, onClick = { menu = false; reporting = true })
                     }
                 }
@@ -161,7 +161,7 @@ private fun CallRow(c: CallHistoryItem) {
     }
     if (blocking) CallBlockDialog(c.peer.uid, c.peer.name, c.callId, onDismiss = { blocking = false }) {
         blocking = false
-        note = tr("Blocked", "ব্লক করা হয়েছে")
+        note = tr("Contact stopped", "যোগাযোগ বন্ধ করা হয়েছে")
     }
     if (reporting) CallReportDialog(c.callId, onDismiss = { reporting = false }) {
         reporting = false

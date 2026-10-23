@@ -181,7 +181,12 @@ class CallsTest {
         val asked = CallMachine.reduce(s.copy(upgradePending = false), CallEvent.UpgradeAsked, t0)
         assertTrue(asked.upgradeAsked)
         assertFalse(CallMachine.reduce(asked, CallEvent.UpgradeDismissed, t0).upgradeAsked)
-        // শুধু অ্যাপয়েন্টমেন্ট ভিডিও দিয়ে শুরু
+        // ভিডিও কল অডিওতে ধরা: দুজনেরই ভিডিও বন্ধ, পরে সম্মতিতে
+        val videoCall = run(CallEvent.Ringing("v1", true, "x", "", CallCtx.BLOOD, "r1"), CallEvent.Accepting, CallEvent.Downgraded)
+        assertFalse(videoCall.video)
+        assertFalse(videoCall.camOn)
+        assertEquals(CallPhase.CONNECTING, videoCall.phase)
+        // শুধু অ্যাপয়েন্টমেন্ট ভিডিও দিয়ে শুরু (বাকিগুলোয় ভিডিও কল বাছাই করা যায়, ধরার সময় অডিও/ভিডিও)
         assertTrue(CallCtx.videoFirst(CallCtx.APPOINTMENT))
         listOf(CallCtx.BLOOD, CallCtx.AMBULANCE, CallCtx.RX_ORDER, CallCtx.LAB_ORDER).forEach { assertFalse(it, CallCtx.videoFirst(it)) }
     }
@@ -282,7 +287,8 @@ class CallsTest {
 
     @Test
     fun parsesServerReplies() {
-        val j = CallsApi.parseJoin(JSONObject("""{"ok":true,"callId":"c1","room":"c_c1","url":"wss://lifolo.com/rtc","token":"t","peer":{"uid":"u2","name":"রহিম"}}"""))
+        val j = CallsApi.parseJoin(JSONObject("""{"ok":true,"callId":"c1","room":"c_c1","url":"wss://lifolo.com/rtc","token":"t","video":false,"peer":{"uid":"u2","name":"রহিম"}}"""))
+        assertEquals(false, j.video)
         assertEquals("wss://lifolo.com/rtc", j.url)
         assertEquals("রহিম", j.peer?.name)
         // call_accept-এ callId না থাকলে জানা id
