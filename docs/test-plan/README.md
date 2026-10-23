@@ -85,6 +85,7 @@
 | [04-manual-tests.md](04-manual-tests.md) + [manual/](manual/) | আপনার হাতে টেস্ট (২৪ ফাইল), রিলিজের ১৯টা ধাপের ভূমিকা |
 | [phases.json](phases.json) | কোন টেস্ট কোন রিলিজের ধাপে, প্রতিটা ধাপের ফিচার সুইচ আর "কী চালু করবেন" — পরীক্ষার খাতা এটা পড়ে |
 | [CALLS-SECURITY-REVIEW.md](CALLS-SECURITY-REVIEW.md), [INVOICES-SECURITY-REVIEW.md](INVOICES-SECURITY-REVIEW.md), [PAYMENTS-SECURITY-REVIEW.md](PAYMENTS-SECURITY-REVIEW.md) | কল/অনলাইন চেম্বার, রসিদ/ডেস্কটপ আর পেমেন্টের নিরাপত্তা ও অপব্যবহারের পর্যালোচনা |
+| [TODAY-SECURITY-REVIEW-2026-10-23.md](TODAY-SECURITY-REVIEW-2026-10-23.md) | ২৩ অক্টোবরের মার্জগুলোর স্বাধীন নিরাপত্তা পর্যালোচনা (সম্মতি, "ডা." পদবি, প্রেসক্রিপশনের অবস্থা, যোগাযোগ, পুশ, ফন্ট) — যা ঠিক হলো আর যা খোলা |
 | [GAPS-STATUS.md](GAPS-STATUS.md) | স্বয়ংক্রিয় টেস্টের ফাঁক কোথায় কতটা পূরণ হলো |
 | [05-non-functional.md](05-non-functional.md) | লোড, নিরাপত্তা স্ক্যান, ব্যাকআপ, মহড়া, SSL, পুশ/ইমেইল, ক্রন, তথ্য মোছা, প্রাইভেসি, Play Store, আইনের প্রশ্ন |
 | [06-phases-and-exit-criteria.md](06-phases-and-exit-criteria.md) | ধাপ, শর্ত, সময়সূচি, তীব্রতা, রোলআউট, hotfix |

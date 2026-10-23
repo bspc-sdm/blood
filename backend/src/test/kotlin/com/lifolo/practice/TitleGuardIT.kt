@@ -310,6 +310,12 @@ class TitleGuardIT : P2TestBase() {
         assertEquals("হোমিও", titleGuard.name("ডা. হোমিও", "pt"))
         assertEquals("title_not_allowed", rename("homeo", "Dr. Homeo").code)
         assertTrue("homeo" in adminUids())
+        // a new applicant (no listing yet) waiting for review keeps it; rejected → stripped
+        person("newDoc", "ডা. নতুন")
+        badge("newDoc", "doctor", "ডা. নতুন", status = "pending")
+        assertEquals("ডা. নতুন", titleGuard.name("ডা. নতুন", "pt"))
+        jdbc.update("UPDATE badges SET status = 'rejected' WHERE uid = 'newDoc'")
+        assertEquals("নতুন", titleGuard.name("ডা. নতুন", "pt"))
         // approved: an MBBS/BDS doctor keeps it
         jdbc.update("UPDATE badges SET status = 'approved' WHERE uid = 'homeo'")
         jdbc.update("UPDATE providers SET system = 'allopathy' WHERE uid = 'homeo'")

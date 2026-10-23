@@ -51,9 +51,10 @@ object TitleRules {
 
     /**
      * May this person carry the title? The badge decides when there is one (its type/system as applied for): an MBBS/BDS
-     * claim counts once it is **approved** — while `pending` only for saving the name (the admin checks the name with the
-     * application), a `rejected` one never (security review 2026-10-23: a homeopath applying as an allopathic doctor must
-     * not get the title shown while waiting or after the rejection). No badge: the listing.
+     * claim counts once it is **approved**; while `pending` it counts for saving the name (the admin checks the name with
+     * the application) and for showing it only when no listing says otherwise (a new applicant is not listed yet; a
+     * homeopath re-verifying as allopathic still has the homeopathy listing → not shown); a `rejected` one never
+     * (security review 2026-10-23 T2). No badge: the listing.
      */
     fun eligibleProfile(
         badgeType: String?,
@@ -63,7 +64,10 @@ object TitleRules {
         listingSystem: String?,
         saving: Boolean = false,
     ): Boolean = if (badgeType != null) {
-        eligible(badgeType, badgeSystem) && (badgeStatus == "approved" || (saving && badgeStatus == "pending"))
+        eligible(badgeType, badgeSystem) && (
+            badgeStatus == "approved" ||
+                (badgeStatus == "pending" && (saving || listingType == null || eligible(listingType, listingSystem)))
+            )
     } else {
         eligible(listingType, listingSystem)
     }

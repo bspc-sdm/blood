@@ -191,11 +191,18 @@ Legal background (lawyer still reviewing the exact wording): Bangladesh High Cou
 ### Who may carry the title
 Only provider type `doctor` with system `allopathy` (dentists are allopathy; an old doctor row without a system counts as
 allopathy). Everyone else may not: homeopathy, unani, ayurveda, nurse, nutritionist, trainer, physio, psychologist,
-expert … A user's profession is their badge (`badges.type/system`, any status), else their listing (`providers`).
+expert … A user's profession is their badge (`badges.type/system`), else their listing (`providers`). An MBBS/BDS badge
+counts once **approved**; a `pending` one for saving the name (the admin checks it with the application) and for showing
+it only when no listing says otherwise (a homeopath re-verifying as allopathic keeps the homeopathy listing until approval
+→ not shown); a `rejected` one never (`TitleRules.eligibleProfile`, security review 2026-10-23 T2).
 
 Title variants, at the start of the name, any case, an optional dot / colon / visarga, with or without a space after:
-"ডা.", "ডাঃ", "ডা ", "ডা:", "ডাক্তার ", "Dr.", "Dr ", "Dr:", "DR.", "Doctor " (`TitleRules.TITLE`). "ডালিয়া", "Drabir",
-"Doctorate" are names. Several titles in a row are all removed ("ডা. ডা. করিম" → "করিম").
+"ডা.", "ডাঃ", "ডা ", "ডা:", "ডাক্তার ", "ডক্টর ", "Dr.", "Dr ", "Dr:", "DR.", "Doctor " (`TitleRules.TITLE`), also with
+any punctuation after it ("ডা৽", "ডা।") or brackets/symbols before it ("(ডা.)"). "ডালিয়া", "Drabir", "Doctorate" are
+names. Several titles in a row are all removed ("ডা. ডা. করিম" → "করিম"). The match runs on a folded copy
+(`TitleRules.fold`): zero-width/format characters, variation selectors and combining marks dropped, Unicode spaces as
+spaces, full-width/styled letters (NFKD) and Cyrillic/Greek/Cherokee look-alikes as Latin — so none of them hides a title
+(security review 2026-10-23 T1). A titled name shared with an eligible doctor is stripped next to the other person's uid.
 
 ### Feature switch
 `title_guard` — "‘ডা.’ পদবির নিয়ম", default off, off / pilot / on like every key (FEATURES.md). Off: nothing changes.
