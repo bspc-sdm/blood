@@ -182,7 +182,7 @@ class PracticeIT : P2TestBase() {
         val b = row("SELECT status, system, reverify_from, reg_no, verified_at FROM badges WHERE uid = 'd1'")
         assertEquals(listOf("pending", "homeopathy", "allopathy", "H-1", null), b.values.toList())
         assertFalse(uids(list("pt", emptyMap())["items"]).contains("d1"), "out of the lists while it is checked again")
-        assertEquals("allopathy", row("SELECT system FROM providers WHERE uid = 'd1'")["system"], "the listing changes on approval")
+        assertEquals("allopathy", Practice.systemOf("doctor", row("SELECT system FROM providers WHERE uid = 'd1'")["system"] as String?), "the listing changes on approval")
         val me = ok("d1", "me")["badge"]
         assertEquals(listOf("pending", "homeopathy", "allopathy"), listOf(me["status"].asText(), me["system"].asText(), me["reverifyFrom"].asText()))
 
@@ -259,7 +259,8 @@ class PracticeIT : P2TestBase() {
             assertEquals("rx_no_pharmacy", r.code)
         }
         // the public check page shows the system and the registering body
-        val page = get("/rx/${h["code"].textValue()}").response.getContentAsString(Charsets.UTF_8)
+        val page = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/rx/${h["code"].textValue()}"))
+            .andReturn().response.getContentAsString(Charsets.UTF_8)
         assertTrue(page.contains("হোমিওপ্যাথি") && page.contains("বাংলাদেশ হোমিওপ্যাথিক বোর্ড"), page)
 
         // physio / psychologist: no medicines, no tests — notes only

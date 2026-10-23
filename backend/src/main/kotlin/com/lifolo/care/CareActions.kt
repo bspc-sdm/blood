@@ -131,6 +131,8 @@ class CareActions(
                     "status" to "invited",
                     "createdAt" to (rs.getTimestamp("created_at")?.time ?: 0L),
                     "acceptedAt" to 0L,
+                    // the same shape as a linked invitation (an address with an account looks the same)
+                    "sharePsych" to false,
                 )
             },
             uid,
