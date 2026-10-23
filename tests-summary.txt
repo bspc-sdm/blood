@@ -1,0 +1,5 @@
+com.bspc.blood.FeaturesTest: 5 tests, 0 failed
+com.bspc.blood.PracticeScreensTest: 21 tests, 0 failed
+com.bspc.blood.ScreensTest: 60 tests, 0 failed
+com.bspc.blood.TitleGuardTest: 7 tests, 0 failed
+TOTAL 93 tests, 0 failed
