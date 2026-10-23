@@ -143,7 +143,7 @@ fun ContactActions(
     val scope = rememberCoroutineScope()
     // সার্ভারের হ্যাঁ/না (contact_can) — এক পাতার সব সারি একসাথে একবারে জিজ্ঞেস হয়
     val key = remember(ctx, refId, peerUid) { ContactKey(ctx, refId, peerUid?.ifBlank { null }) }
-    val wantApp = appAllowed && refId.isNotBlank() && !LoginGate.isGuest
+    val wantApp = appAllowed && refId.isNotBlank() && ctx in CallCtx.ALL && !LoginGate.isGuest
     LaunchedEffect(key, wantApp, ContactCan.version.intValue) { if (wantApp) ContactCan.request(key) }
     val flags = if (wantApp) ContactCan.flags[key] else null
     var unblocking by remember { mutableStateOf(false) }
