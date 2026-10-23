@@ -10,7 +10,7 @@ import { useInfiniteQ } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDayOf, formatTime } from '@/lib/format';
 import { T } from './text';
-import { maskPhone, methodText, methodsOf, money, parseInvoice, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
+import { voidReasonText, maskPhone, methodText, methodsOf, money, parseInvoice, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
 import ReceiptDialog from './ReceiptDialog.vue';
 import PayDueDialog from './PayDueDialog.vue';
 import VoidDialog from './VoidDialog.vue';
@@ -109,7 +109,7 @@ function replaced(next: Invoice | null) {
           <Button v-if="i.status !== 'void' && i.due > 0" small variant="tonal" data-testid="row-collect" @click="paying = i">{{ T.collectDue() }}</Button>
           <Button v-if="i.status !== 'void' && canVoidInv(i)" small variant="danger-text" data-testid="row-void" @click="voiding = i">{{ T.voidIt() }}</Button>
         </div>
-        <span v-if="i.status === 'void' && i.voidReason" class="t-body-s muted">{{ T.voidReason(i.voidReason) }}</span>
+        <span v-if="i.status === 'void' && i.voidReason" class="t-body-s muted">{{ T.voidReason(voidReasonText(i)) }}</span>
       </li>
     </ul>
     <Button v-if="list.hasNextPage" variant="text" :busy="list.isFetchingNextPage" @click="list.fetchNextPage()">{{ T.loadMore() }}</Button>

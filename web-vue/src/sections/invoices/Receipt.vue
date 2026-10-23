@@ -9,7 +9,7 @@ import { Icon } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import Qr from '@/sections/health/Qr.vue';
 import { T } from './text';
-import { digitsOf, isDemo, isPending, kindText, methodText, methodsOf, moneyIn, verifyShort, type Invoice, type Paper } from './model';
+import { voidReasonText, digitsOf, isDemo, isPending, kindText, methodText, methodsOf, moneyIn, verifyShort, type Invoice, type Paper } from './model';
 
 const props = withDefaults(defineProps<{ inv: Invoice; paper?: Paper; digits?: 'bn' | 'en' }>(), { paper: 'A4', digits: 'bn' });
 const d = computed(() => props.digits);
@@ -78,7 +78,7 @@ const qrSize = computed(() => (props.paper === '58' ? 96 : props.paper === '80' 
       <template v-if="inv.due > 0"><dt class="due">{{ T.due() }}</dt><dd class="due">{{ m(inv.due) }}</dd></template>
       <template v-if="methods"><dt>{{ T.method() }}</dt><dd>{{ methods }}</dd></template>
     </dl>
-    <p v-if="voided && inv.voidReason" class="rcpt-void-reason">{{ T.voidReason(inv.voidReason) }}</p>
+    <p v-if="voided && inv.voidReason" class="rcpt-void-reason">{{ T.voidReason(voidReasonText(inv)) }}</p>
 
     <footer class="rcpt-foot">
       <Qr v-if="inv.verifyCode" :text="inv.verifyUrl" :size="qrSize" />

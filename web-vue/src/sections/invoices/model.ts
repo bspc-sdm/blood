@@ -18,12 +18,21 @@ export type InvLine = InvoiceLine;
 export type InvFee = InvoiceFee;
 export type InvPayment = InvoicePayment;
 /** সার্ভারের রসিদ (ডেস্কটপের একই ধরন — @/offline) + সার্ভারের বাড়তি: ডেমো, অ্যাম্বুলেন্সের ভাড়ার তালিকার চেয়ে বেশি */
-export type Invoice = OfflineInvoice & { demo?: boolean; overFare?: boolean; chartFare?: number };
+export type Invoice = OfflineInvoice & { demo?: boolean; overFare?: boolean; chartFare?: number; voidNote?: string };
 /** invoice_verify — শুধু এটুকু (রোগী/ক্রেতার কিছু নয়); lines = লাইনের সংখ্যা (নাম নয়) */
 export interface VerifyInfo { bizName: string; kind: InvKind; no: string; issuedAt: number; total: number; paid: number; due: number; status: 'issued' | 'void'; lines: number | null; demo: boolean; suspended: boolean; voidedAt: number | null }
 export interface InvPage { items: Invoice[]; next: string | null; sum: { count: number; total: number; paid: number; due: number } | null }
 export interface Expenses { total: number; byKind: Partial<Record<InvKind, number>>; count: number }
 
+/** বাতিলের কারণ (কোড) → লেখা, সাথে নোট (voidNote) — পুরোনো রসিদে কোডের বদলে লেখা থাকলে সেটাই */
+export function voidReasonText(inv: { kind?: string; voidReason?: string; voidNote?: string }): string {
+  const c = inv.voidReason ?? '';
+  const label =
+    c === 'wrong_item' ? (inv.kind === 'pharmacy' ? T.vrWrongItem() : T.vrWrongEntry())
+      : c === 'returned' ? (inv.kind === 'pharmacy' ? T.vrReturned() : T.vrRefunded())
+        : c === 'wrong_price' ? T.vrWrongPrice() : c === 'duplicate' ? T.vrDuplicate() : c === 'other' ? T.vrOther() : c;
+  return [label, inv.voidNote].filter(Boolean).join(' — ');
+}
 /** ডেস্কটপে বানানো, এখনো সার্ভারে যায়নি */
 export const isPending = (inv: Invoice) => inv.sync === 'pending' || (inv.offline && !inv.id);
 /** ডেমো রসিদ: সার্ভার demo বলে, বা কোড DEMO দিয়ে শুরু (নিরাপত্তা পর্যালোচনা I9) */

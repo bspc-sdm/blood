@@ -21,8 +21,8 @@ async function run() {
       window.open(r.url, '_blank', 'noopener');
       return;
     }
-    // Excel-এ বাংলা ঠিক দেখাতে BOM
-    const blob = new Blob(['﻿' + (r.csv ?? '')], { type: 'text/csv;charset=utf-8' });
+    // Excel-এ বাংলা ঠিক দেখাতে BOM (সার্ভারের csv-তে আগে থেকেই থাকলে একবারই)
+    const blob = new Blob(['\ufeff' + (r.csv ?? '').replace(/^\ufeff/, '')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = r.filename || `lifolo-${props.kind}-${month.value}.csv`;

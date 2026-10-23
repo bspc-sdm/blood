@@ -1,81 +1,71 @@
 <script setup lang="ts">
-// "দিনের শেষ" (নিরাপত্তা পর্যালোচনা I2): আজকের রসিদ, আদায়, বাকি; বাতিল (কারণসহ); ১০%-এর বেশি ছাড়; ফার্মেসিতে নষ্ট/মেয়াদ শেষে
-// ক্ষতি (books_report-এর writeOff); প্রতিটা কম্পিউটার/সিরিজ (W = ওয়েব/ফোন, D1… = ডেস্কটপ) আলাদা।
-// এখনকার হিসাব আজকের রসিদের তালিকা থেকে — সার্ভারের সারাংশ (ব্যক্তি অনুযায়ী, দামের নিচে বিক্রি) এলে সেটাই দেখানো হবে।
-import { computed } from 'vue';
-import { EmptyState, Icon, SkeletonCards, Tag } from '@/ui/kit';
-import { call } from '@/lib/api';
-import { useCall, useQ } from '@/lib/query';
-import { num } from '@/lib/i18n';
+// "দিনের শেষ" (নিরাপত্তা পর্যালোচনা I2; invoice_day_summary, শুধু মালিক) — রাত ৯:৩০-এর পুশের বিস্তারিত:
+// মোট রসিদ আর টাকা, কে কতটা (byIssuer), বাতিল (কারণসহ), ১০%-এর বেশি ছাড়, জিনিসের দামের নিচে বিক্রি আর নষ্ট/মেয়াদ শেষে ক্ষতি (ফার্মেসি)।
+// দিন বাছা যায় (আজ, গতকাল …)।
+import { computed, ref } from 'vue';
+import { EmptyState, ErrorBox, Icon, SkeletonCards, Segmented } from '@/ui/kit';
+import { errorText } from '@/lib/api';
+import { useCall } from '@/lib/query';
+import { num, tr } from '@/lib/i18n';
 import { formatTime } from '@/lib/format';
 import { T } from './text';
-import { money, parsePage, r2, type InvKind, type InvPage, type Invoice } from './model';
+import { money, todayStr, voidReasonText, type InvKind } from './model';
 
+interface DaySum {
+  day: string; receipts: number; total: number;
+  byIssuer: { uid: string; name: string; receipts: number; total: number; paid: number; voids: number }[];
+  voids: { id: string; no: string; total: number; reason: string; note?: string; at: number; issuedAt: number; by: string; byName: string }[];
+  bigDiscounts: { id: string; no: string; total: number; discount: number; pct: number }[];
+  belowPrice?: { id: string; no: string; name: string; qty: number; price: number; itemPrice: number }[];
+  writeOffs: { count: number; loss: number; items: { name: string; qty: number; loss: number; reason: string }[] } | null;
+}
 const props = defineProps<{ kind: InvKind; bizId: string }>();
-// আজকের সব রসিদ (৫০টা করে পাতা — সব পাতা)
-const q = useQ<Invoice[]>(() => ({
-  queryKey: ['invoice_list_biz', props.kind, props.bizId, 'today', 'summary'],
-  queryFn: async () => {
-    const out: Invoice[] = [];
-    let cursor: string | null = null;
-    for (let i = 0; i < 20; i++) {
-      const p: InvPage = parsePage(await call('invoice_list_biz', { kind: props.kind, bizId: props.bizId, period: 'today', ...(cursor ? { cursor } : {}) }));
-      out.push(...p.items);
-      if (!p.next) break;
-      cursor = p.next;
-    }
-    return out;
-  },
-  enabled: !!props.bizId,
-}));
-const books = useCall<{ totals?: { writeOff?: number } }>('books_report', { period: 'today' }, () => ({ enabled: props.kind === 'pharmacy' }));
-const all = computed(() => q.data ?? []);
-const live = computed(() => all.value.filter((i) => i.status !== 'void'));
-const voids = computed(() => all.value.filter((i) => i.status === 'void'));
-const gross = (i: Invoice) => i.lines.reduce((a, l) => a + l.qty * l.price, 0);
-const discOf = (i: Invoice) => r2(i.lines.reduce((a, l) => a + l.disc, 0) + i.disc);
-const bigDisc = computed(() => live.value.filter((i) => gross(i) > 0 && discOf(i) / gross(i) > 0.1));
-const sum = (xs: Invoice[], f: (i: Invoice) => number) => r2(xs.reduce((a, i) => a + f(i), 0));
-const series = computed(() => {
-  const m = new Map<string, { n: number; paid: number; voids: number }>();
-  for (const i of all.value) {
-    const s = (i.no.split('-')[0] || 'W').toUpperCase();
-    const x = m.get(s) ?? { n: 0, paid: 0, voids: 0 };
-    if (i.status === 'void') x.voids++;
-    else {
-      x.n++;
-      x.paid = r2(x.paid + i.paid);
-    }
-    m.set(s, x);
-  }
-  return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
-});
+const DAY = 24 * 3600 * 1000;
+const which = ref<0 | 1>(0);
+const day = computed(() => todayStr(Date.now() - which.value * DAY));
+const q = useCall<DaySum>('invoice_day_summary', () => ({ kind: props.kind, bizId: props.bizId, day: day.value }), () => ({ enabled: !!props.bizId }));
+const d = computed(() => q.data ?? null);
+const voidsTotal = computed(() => (d.value?.voids ?? []).reduce((a, v) => a + v.total, 0));
 </script>
 
 <template>
   <section class="card col gap-12 inv-day" data-testid="day-summary">
-    <div class="row gap-8"><Icon name="history" :size="20" /><h3 class="t-title-m grow">{{ T.dayEnd() }}</h3></div>
+    <div class="row wrap gap-8">
+      <Icon name="history" :size="20" />
+      <h3 class="t-title-m grow">{{ T.dayEnd() }}</h3>
+      <Segmented v-model="which" :options="[{ value: 0, label: tr('Today', 'আজ') }, { value: 1, label: T.yesterday() }]" />
+    </div>
     <SkeletonCards v-if="q.isPending" :n="1" :h="120" />
-    <EmptyState v-else-if="!all.length" icon="list_alt" :title="T.noReceipts()" />
+    <ErrorBox v-else-if="q.isError" :error="errorText(q.error)" :on-retry="() => q.refetch()" />
+    <EmptyState v-else-if="!d || (!d.receipts && !d.voids.length && !d.writeOffs?.count)" icon="list_alt" :title="T.noReceipts()" />
     <template v-else>
       <dl class="kv num">
-        <dt>{{ T.receipts() }}</dt><dd>{{ num(live.length) }}</dd>
-        <dt>{{ T.collectionTotal() }}</dt><dd data-testid="day-paid">{{ money(sum(live, (i) => i.paid)) }}</dd>
-        <dt>{{ T.dueTotal() }}</dt><dd>{{ money(sum(live, (i) => i.due)) }}</dd>
-        <dt>{{ T.voided() }}</dt><dd data-testid="day-voids">{{ num(voids.length) }}{{ voids.length ? ' · ' + money(sum(voids, (i) => i.total)) : '' }}</dd>
-        <dt>{{ T.bigDiscounts() }}</dt><dd>{{ num(bigDisc.length) }}</dd>
-        <template v-if="kind === 'pharmacy' && books.data?.totals?.writeOff != null"><dt>{{ T.writeOffs() }}</dt><dd>{{ money(books.data.totals.writeOff) }}</dd></template>
+        <dt>{{ T.receipts() }}</dt><dd>{{ num(d.receipts) }}</dd>
+        <dt>{{ tr('Total', 'মোট') }}</dt><dd data-testid="day-total">{{ money(d.total) }}</dd>
+        <dt>{{ T.voided() }}</dt><dd data-testid="day-voids">{{ num(d.voids.length) }}{{ d.voids.length ? ' · ' + money(voidsTotal) : '' }}</dd>
+        <dt>{{ T.bigDiscounts() }}</dt><dd>{{ num(d.bigDiscounts.length) }}</dd>
+        <template v-if="d.belowPrice"><dt>{{ T.belowPrice() }}</dt><dd>{{ num(d.belowPrice.length) }}</dd></template>
+        <template v-if="d.writeOffs"><dt>{{ T.writeOffs() }}</dt><dd>{{ money(d.writeOffs.loss) }}{{ d.writeOffs.count ? ' · ' + num(d.writeOffs.count) : '' }}</dd></template>
       </dl>
-      <div v-if="voids.length" class="col gap-4">
+      <div v-if="d.byIssuer.length > 1" class="col gap-4" data-testid="day-by-issuer">
+        <span class="t-label-l">{{ T.byPerson() }}</span>
+        <span v-for="p in d.byIssuer" :key="p.uid" class="t-body-s">{{ p.name || '—' }} · {{ num(p.receipts) }} · {{ money(p.paid) }}{{ p.voids ? ' · ' + T.voided() + ' ' + num(p.voids) : '' }}</span>
+      </div>
+      <div v-if="d.voids.length" class="col gap-4">
         <span class="t-label-l">{{ T.voided() }}</span>
-        <span v-for="i in voids" :key="i.id" class="t-body-s">{{ num(i.no) }} · {{ formatTime(i.issuedAt) }} · {{ money(i.total) }} — {{ i.voidReason || '' }}</span>
+        <span v-for="v in d.voids" :key="v.id" class="t-body-s">{{ num(v.no) }} · {{ formatTime(v.at) }} · {{ money(v.total) }} — {{ voidReasonText({ kind, voidReason: v.reason, voidNote: v.note }) }}{{ v.byName ? ' · ' + v.byName : '' }}</span>
       </div>
-      <div v-if="bigDisc.length" class="col gap-4">
+      <div v-if="d.bigDiscounts.length" class="col gap-4">
         <span class="t-label-l">{{ T.bigDiscounts() }}</span>
-        <span v-for="i in bigDisc" :key="i.id" class="t-body-s">{{ num(i.no) }} · {{ money(discOf(i)) }} / {{ money(gross(i)) }}</span>
+        <span v-for="x in d.bigDiscounts" :key="x.id" class="t-body-s">{{ num(x.no) }} · {{ money(x.discount) }} ({{ num(Math.round(x.pct)) }}%) / {{ money(x.total) }}</span>
       </div>
-      <div v-if="series.length > 1" class="row wrap gap-6">
-        <Tag v-for="[s, x] in series" :key="s">{{ s }}: {{ num(x.n) }} · {{ money(x.paid) }}{{ x.voids ? ' · ' + T.voided() + ' ' + num(x.voids) : '' }}</Tag>
+      <div v-if="d.belowPrice?.length" class="col gap-4">
+        <span class="t-label-l">{{ T.belowPrice() }}</span>
+        <span v-for="(x, k) in d.belowPrice" :key="x.id + k" class="t-body-s">{{ num(x.no) }} · {{ x.name }} × {{ num(x.qty) }} · {{ money(x.price) }} &lt; {{ money(x.itemPrice) }}</span>
+      </div>
+      <div v-if="d.writeOffs?.items.length" class="col gap-4">
+        <span class="t-label-l">{{ T.writeOffs() }}</span>
+        <span v-for="(x, k) in d.writeOffs.items" :key="k" class="t-body-s">{{ x.name }} × {{ num(x.qty) }} · {{ money(x.loss) }}{{ x.reason ? ' — ' + x.reason : '' }}</span>
       </div>
     </template>
   </section>

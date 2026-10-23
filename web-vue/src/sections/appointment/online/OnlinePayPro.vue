@@ -7,9 +7,14 @@ import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { T, payLabelPro, payTone, type PayState } from './index';
 import JoinCall from './JoinCall.vue';
+import { pickInvoice, type Invoice } from '../../invoices/model';
+import { T as IT } from '../../invoices/text';
+import { invFeature } from '../../invoices/features';
+import ReceiptDialog from '../../invoices/ReceiptDialog.vue';
+import InvoiceByIdDialog from '../../invoices/InvoiceByIdDialog.vue';
 
 const props = defineProps<{
-  a: { id: string; online: boolean; status: string; date: number; start: string; startAt?: number; payState: PayState; payRef: string; noFee?: boolean };
+  a: { id: string; online: boolean; status: string; date: number; start: string; startAt?: number; payState: PayState; payRef: string; noFee?: boolean; invoiceId?: string | null };
   /** রোগীর নাম (কলের পাতায়) */
   name?: string;
   /** সহকারী: { doctorUid } — প্রতিটা কাজে যায় */
@@ -20,6 +25,9 @@ const asking = ref<'got' | 'not' | null>(null);
 const reason = ref('');
 const busy = ref(false);
 const err = ref<string | null>(null);
+// ফি পেয়েছি → সার্ভার রসিদ দেয় (inv_chamber চালু থাকলে): সাথে সাথে দেখা/ছাপা; পরে "রসিদ দেখুন"
+const receipt = ref<Invoice | null>(null);
+const receiptId = ref<string | null>(null);
 const live = computed(() => props.a.status === 'confirmed' || props.a.status === 'completed');
 const canGot = computed(() => live.value && !props.a.noFee && props.a.payState !== 'paid');
 const canNot = computed(() => live.value && !props.a.noFee && props.a.payState === 'claimed');
@@ -35,7 +43,7 @@ async function act() {
   busy.value = true;
   err.value = null;
   try {
-    if (k === 'got') await call('appt_pay_confirm', { appointmentId: props.a.id, ...(props.extra ?? {}) });
+    if (k === 'got') receipt.value = pickInvoice(await call('appt_pay_confirm', { appointmentId: props.a.id, ...(props.extra ?? {}) }));
     else await call('appt_pay_reject', { appointmentId: props.a.id, ...(reason.value.trim() ? { reason: reason.value.trim() } : {}), ...(props.extra ?? {}) });
     asking.value = null;
     toast(tr('Saved.', 'সেভ হয়েছে।'));
@@ -55,8 +63,11 @@ async function act() {
     <span v-if="a.payRef" class="t-body-s" data-testid="pay-ref">TrxID: <span class="appt-trx">{{ a.payRef }}</span></span>
     <Button v-if="canGot" small variant="tonal" icon="check_circle" data-testid="pay-got" @click.stop="ask('got')">{{ T.got() }}</Button>
     <Button v-if="canNot" small variant="text" data-testid="pay-not" @click.stop="ask('not')">{{ T.notGot() }}</Button>
+    <Button v-if="invFeature('inv_chamber') && a.payState === 'paid' && a.invoiceId" small variant="text" icon="list_alt" data-testid="pay-receipt" @click.stop="receiptId = a.invoiceId">{{ IT.seeReceipt() }}</Button>
     <JoinCall :a="a" provider :name="name" small />
   </div>
+  <ReceiptDialog v-if="receipt" :inv="receipt" @close="receipt = null" />
+  <InvoiceByIdDialog v-if="receiptId" :id="receiptId" @close="receiptId = null" />
   <ConfirmDialog
     v-if="asking === 'got'"
     :title="T.gotTitle()"

@@ -38,7 +38,7 @@ export const MINE = [
     issuedAt: now - 9 * D, verifyCode: 'AM9Q3W7KPX', overFare: true, chartFare: 2200,
   }),
   inv({
-    id: 'inv5', no: 'W-000040', kind: 'pharmacy', bizId: 'ph2', bizName: 'মেডিপ্লাস ফার্মেসি', patientUid: 'u1', status: 'void', voidReason: 'ভুল দাম — আবার রসিদ দেওয়া হয়েছে',
+    id: 'inv5', no: 'W-000040', kind: 'pharmacy', bizId: 'ph2', bizName: 'মেডিপ্লাস ফার্মেসি', patientUid: 'u1', status: 'void', voidReason: 'wrong_price', voidNote: 'আবার রসিদ দেওয়া হয়েছে',
     lines: [{ name: 'Napa 500', qty: 20, price: 1.5, disc: 0, amount: 30 }], subtotal: 30, total: 30, paid: 30, due: 0,
     payments: [{ at: now - 5 * H - 60000, amount: 30, method: 'cash' }], issuedAt: now - 5 * H - 60000, verifyCode: 'PH0V0ID9QX',
   }),
@@ -54,7 +54,7 @@ const biz = (kind, bizId) => {
       inv({ id: 'b2', no: 'D1-000017', kind, bizId, bizName: 'নিউ লাইফ ফার্মেসি', deviceId: 'dev1', offline: true,
         lines: [{ name: 'Fexo 120', qty: 10, price: 9, disc: 0, amount: 90 }], subtotal: 90, disc: 20, total: 70, paid: 70, due: 0,
         payments: [{ at: now - 3 * H, amount: 70, method: 'nagad' }], issuedAt: now - 3 * H, verifyCode: 'BZ5E6F7G8H' }),
-      inv({ id: 'b3', no: 'W-000199', kind, bizId, bizName: 'নিউ লাইফ ফার্মেসি', status: 'void', voidReason: 'ক্রেতা ফেরত দিয়েছেন — পাতা খোলেনি',
+      inv({ id: 'b3', no: 'W-000199', kind, bizId, bizName: 'নিউ লাইফ ফার্মেসি', status: 'void', voidReason: 'returned', voidNote: 'পাতা খোলেনি',
         lines: [{ name: 'Ace Plus', qty: 10, price: 2.5, disc: 0, amount: 25 }], subtotal: 25, total: 25, paid: 25, due: 0, issuedAt: now - 4 * H, verifyCode: 'BZ9J8K7L6M' }),
     ],
     lab: [
@@ -104,8 +104,19 @@ export default {
     const amount = Math.min(i.due, Number(b.amount));
     return { invoice: { ...i, paid: i.paid + amount, due: i.due - amount, payments: [...i.payments, { at: Date.now(), amount, method: b.method }] } };
   },
-  invoice_void: (b) => ({ invoice: { ...byId(b.id), status: 'void', voidReason: b.reason } }),
-  invoice_export_csv: (b) => ({ csv: 'no,date,total\nW-000201,2026-10-23,100.00\n', filename: `lifolo-${b.kind}-${b.month}.csv` }),
+  invoice_void: (b) => ({ invoice: { ...byId(b.id), status: 'void', voidReason: b.reason, voidNote: b.note } }),
+  invoice_export_csv: (b) => ({ filename: `lifolo-${b.kind}-${b.month}.csv`, mime: 'text/csv', count: 1, csv: '\ufeffno,date,total\nW-000201,2026-10-23,100.00\n' }),
+  invoice_day_summary: (b) => {
+    const items = biz(b.kind, b.bizId);
+    const live = items.filter((i) => i.status !== 'void');
+    return {
+      day: b.day, kind: b.kind, bizId: b.bizId, receipts: live.length, total: sumOf(items).total,
+      byIssuer: [{ uid: 'u-work', name: 'মো. শফিকুল ইসলাম', receipts: live.length, total: sumOf(items).total, paid: sumOf(items).paid, voids: items.length - live.length }, { uid: 'c9', name: 'কাউন্টার — রনি', receipts: 0, total: 0, paid: 0, voids: 0 }],
+      voids: items.filter((i) => i.status === 'void').map((i) => ({ id: i.id, no: i.no, total: i.total, reason: 'returned', note: 'পাতা খোলেনি', at: i.issuedAt + 60000, issuedAt: i.issuedAt, by: 'u-work', byName: 'মো. শফিকুল ইসলাম' })),
+      bigDiscounts: b.kind === 'pharmacy' ? [{ id: 'b2', no: 'D1-000017', total: 70, discount: 20, pct: 22.2 }] : [],
+      ...(b.kind === 'pharmacy' ? { belowPrice: [{ id: 'b2', no: 'D1-000017', name: 'Fexo 120', qty: 10, price: 7, itemPrice: 9 }], writeOffs: { count: 1, loss: 48, items: [{ name: 'Orsaline-N', qty: 12, loss: 48, reason: 'মেয়াদ শেষ' }] } } : { writeOffs: null }),
+    };
+  },
   my_invoices: () => ({ items: MINE, cursor: null }),
   my_expenses: (b) => (b.month === ym(now) ? { month: b.month, total: 4445, byKind: { pharmacy: 150, lab: 595, chamber: 700, ambulance: 3000 }, count: 4 } : { month: b.month, total: 0, byKind: {}, count: 0 }),
   lab_bill_create: (b) => {

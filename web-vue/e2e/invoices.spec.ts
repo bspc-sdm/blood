@@ -194,6 +194,10 @@ test.describe('ফার্মেসি', () => {
     await expect(page.getByTestId('day-voids')).toContainText('১');
     await expect(page.getByTestId('day-summary')).toContainText('ক্রেতা ফেরত দিয়েছেন — পাতা খোলেনি');
     await expect(page.getByTestId('day-summary')).toContainText('১০%-এর বেশি ছাড়');
+    await expect(page.getByTestId('day-summary')).toContainText('জিনিসের দামের নিচে বিক্রি');
+    await expect(page.getByTestId('day-summary')).toContainText('Orsaline-N');
+    await expect(page.getByTestId('day-by-issuer')).toContainText('কাউন্টার — রনি');
+    expect(bodyOf(seen, 'invoice_day_summary')[0]).toMatchObject({ kind: 'pharmacy', bizId: 'u-work', day: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await box.getByRole('tab', { name: 'রসিদ' }).click();
     const dl = page.waitForEvent('download');
     await page.getByTestId('csv-export').click();
@@ -410,4 +414,63 @@ test('বড় পর্দায় (১৪৪০) সারির আইক�
   await small('[data-testid=chamber-desk] .rxp-panel-ic svg, [data-testid=desk-row] svg', 1);
   await open(page, owner('/work/ambulance'));
   await small('[data-testid=amb-receipts] .rxp-panel-ic svg', 1);
+});
+
+test.describe('অনলাইন চেম্বারের ফি → রসিদ (appt_pay_confirm)', () => {
+  const nowHM = () => {
+    const d = new Date(Date.now() + 6 * 3600 * 1000);
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  };
+  const todayMs = () => {
+    const d = new Date(Date.now() + 6 * 3600 * 1000);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  };
+  const onlineAppt = (x: Record<string, unknown>) => ({
+    id: 'onp1', type: 'doctor', otherName: 'মো. জসিম উদ্দিন', chamber: '', chamberBn: '', start: nowHM(), serial: 4, date: todayMs(), note: '', status: 'confirmed',
+    providerNote: '', otherPhone: '', otherKey: 'kx', createdAt: Date.now(), online: true, fee: '৫০০ টাকা', noFee: false, ...x,
+  });
+  /** my_appointments-এ একটা অনলাইন অ্যাপয়েন্টমেন্ট যোগ (নকল সার্ভারের উত্তরের ওপর) */
+  async function withOnline(page: Page, appt: () => Record<string, unknown>, reply: Record<string, (b: any) => unknown> = {}) {
+    const seen: Seen = [];
+    await page.route('**/api/community', async (route) => {
+      const body = route.request().postDataJSON() || {};
+      seen.push({ action: String(body.action), body });
+      const f = reply[String(body.action)];
+      if (f) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f(body)) });
+      if (body.action !== 'my_appointments') return route.continue();
+      const res = await route.fetch();
+      const j = await res.json();
+      j.items.push(appt());
+      return route.fulfill({ response: res, json: j });
+    });
+    return seen;
+  }
+  test('ডাক্তার: "ফি পেয়েছি" → সার্ভারের রসিদ সাথে সাথে; পরিশোধিত হলে "রসিদ দেখুন"', async ({ page }) => {
+    let pay: Record<string, unknown> = { payState: 'claimed', payRef: 'TRX42AB' };
+    await withOnline(page, () => onlineAppt({ role: 'provider', ...pay }), {
+      appt_pay_confirm: () => {
+        pay = { payState: 'paid', payRef: 'TRX42AB', invoiceId: 'b5' };
+        return { ok: true, invoice: { ...SALE_INV({}).invoice, id: 'b5', no: 'W-000301', kind: 'chamber', bizName: 'ডা. আরিফুল হক', lines: [{ name: 'অনলাইন ভিজিট ফি', qty: 1, price: 500, disc: 0, amount: 500 }], subtotal: 500, total: 500, paid: 500 } };
+      },
+    });
+    await open(page, def('appointment', 'pro-bookings'));
+    const pro = page.getByTestId('online-pay-pro');
+    await pro.getByTestId('pay-got').click();
+    await page.getByRole('dialog').getByRole('button', { name: 'ফি পেয়েছি' }).click();
+    const dlg = page.getByRole('dialog');
+    await expect(dlg.getByTestId('receipt')).toContainText('অনলাইন ভিজিট ফি');
+    await expect(dlg.getByTestId('receipt')).toContainText('W-০০০৩০১');
+    await dlg.getByRole('button', { name: 'বন্ধ' }).click();
+    await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
+    await pro.getByTestId('pay-receipt').click();
+    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-০০০৩০১');
+  });
+  test('রোগী: ফি পরিশোধিত হলে "রসিদ দেখুন" → রসিদের পাতা', async ({ page }) => {
+    await withOnline(page, () => onlineAppt({ id: 'onp2', role: 'patient', payState: 'paid', payRef: 'TRX42AB', invoiceId: 'inv3', bkashNumber: '01711000222' }));
+    await open(page, patient('/my-appointments/onp2'));
+    const box = page.getByTestId('online-pay');
+    await expect(box.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
+    await box.getByTestId('invoice-link').click();
+    await expect(page).toHaveURL(/\/invoices\/inv3$/);
+  });
 });

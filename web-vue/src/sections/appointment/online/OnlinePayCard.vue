@@ -8,6 +8,7 @@ import { num, tr } from '@/lib/i18n';
 import type { Appointment } from '../model';
 import { T, TRX_LEN, canReportNoShow, payLabel, payTone, trxInput, trxOk } from './index';
 import ReasonReportDialog from '../ReasonReportDialog.vue';
+import InvoiceLink from '../../invoices/InvoiceLink.vue';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ changed: [] }>();
@@ -86,6 +87,8 @@ async function claim() {
         <p v-if="a.payRef" class="t-body-m">TrxID: <span class="appt-trx">{{ a.payRef }}</span></p>
       </template>
       <p v-if="st === 'paid' && a.payRef" class="t-body-m muted">TrxID: <span class="appt-trx">{{ a.payRef }}</span></p>
+      <!-- ফি পরিশোধিত: ডাক্তারের দেওয়া রসিদ (appt_pay_confirm-এ তৈরি) -->
+      <div v-if="st === 'paid' && a.invoiceId"><InvoiceLink ref-type="appointment" :ref-id="a.id" :invoice-id="a.invoiceId" /></div>
       <template v-if="canClaim">
         <div v-if="st === 'rejected'" class="col gap-4 appt-pay-rej" role="status">
           <p class="t-body-m">{{ T.rejected() }}</p>

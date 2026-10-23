@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // রসিদ বাতিল (invoice_void): কারণ ঠিক করা তালিকা থেকে + লেখা (নিরাপত্তা পর্যালোচনা I2) — মোছে না, "বাতিল" হয়ে থাকে।
 // ফার্মেসিতে জিনিস স্টকে ফেরে। ডেস্কটপে কাউন্টারের পিন হলে আগে মালিকের পিন (I7)।
-// সার্ভারে invoice_void {id, reason: কোড (wrong_item | returned | wrong_price | other), note}।
+// সার্ভারে invoice_void {id, reason: কোড (wrong_item | returned | wrong_price | duplicate | other), note}।
 import { computed, ref } from 'vue';
 import { Button, Dialog, ErrorText, TextInput, toast } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
@@ -13,11 +13,12 @@ import { ownerGate } from './offline';
 const props = defineProps<{ inv: Invoice }>();
 const emit = defineEmits<{ close: []; done: [inv: Invoice | null] }>();
 const refresh = useInvoiceRefresh();
-type Code = 'wrong_item' | 'returned' | 'wrong_price' | 'other';
+type Code = 'wrong_item' | 'returned' | 'wrong_price' | 'duplicate' | 'other';
 const reasons = computed<{ value: Code; label: string }[]>(() => [
   { value: 'wrong_item', label: props.inv.kind === 'pharmacy' ? T.vrWrongItem() : T.vrWrongEntry() },
   { value: 'returned', label: props.inv.kind === 'pharmacy' ? T.vrReturned() : T.vrRefunded() },
   { value: 'wrong_price', label: T.vrWrongPrice() },
+  { value: 'duplicate', label: T.vrDuplicate() },
   { value: 'other', label: T.vrOther() },
 ]);
 const code = ref<Code | null>(null);
