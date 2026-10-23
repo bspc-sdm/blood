@@ -17,6 +17,20 @@ class ShopBooksIT : P4Test() {
     @Autowired
     lateinit var deletion: PharmacyDeletionStep
 
+    @Autowired
+    lateinit var invoiceFeatures: com.lifolo.invoices.InvoiceFeatures
+
+    /** the books as they are without receipts (`inv_pharmacy` off); with receipts: invoices/InvoicesIT */
+    @org.junit.jupiter.api.BeforeEach
+    fun receiptsOff() {
+        invoiceFeatures.forced["inv_pharmacy"] = false
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    fun receiptsBack() {
+        invoiceFeatures.forced.clear()
+    }
+
     private fun bookShop(id: String, names: List<String>? = null) {
         shop(id)
         if (names != null) {
