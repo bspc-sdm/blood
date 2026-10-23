@@ -59,7 +59,7 @@ fun CallBlockDialog(peerUid: String, peerName: String, callId: String?, onDismis
                 error = null
                 scope.launch {
                     runCatching { CallsApi.block(peerUid, callId) }
-                        .onSuccess { onDone() }
+                        .onSuccess { ContactCan.invalidateAll(); onDone() }
                         .onFailure { error = it.message }
                     busy = false
                 }
@@ -163,7 +163,7 @@ private fun CallBlocksDialog(onDismiss: () -> Unit) {
                                 busy = b.uid
                                 scope.launch {
                                     runCatching { CallsApi.unblock(b.uid) }
-                                        .onSuccess { items = items?.filter { it.uid != b.uid } }
+                                        .onSuccess { items = items?.filter { it.uid != b.uid }; ContactCan.invalidateAll() }
                                         .onFailure { error = it.message }
                                     busy = null
                                 }

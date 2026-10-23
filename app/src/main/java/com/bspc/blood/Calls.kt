@@ -21,9 +21,7 @@ object CallCtx {
     const val RX_ORDER = "rx_order"
     /** প্যাথলজির পরীক্ষার অর্ডার (রোগী ↔ প্যাথলজি) */
     const val LAB_ORDER = "lab_order"
-    /** পুরোনো নাম (কলের তালিকার আগের সারি) */
-    const val ORDER = "order"
-    val ALL = setOf(BLOOD, APPOINTMENT, AMBULANCE, RX_ORDER, LAB_ORDER, ORDER)
+    val ALL = setOf(BLOOD, APPOINTMENT, AMBULANCE, RX_ORDER, LAB_ORDER)
 
     /** ভিডিও দিয়ে শুরু করা যায় শুধু অ্যাপয়েন্টমেন্টে; বাকিগুলো অডিওতে শুরু, পরে "ভিডিও চালু করতে অনুরোধ" */
     fun videoFirst(ctx: String): Boolean = ctx == APPOINTMENT
@@ -34,7 +32,7 @@ object CallCtx {
         AMBULANCE -> tr("Ambulance", "অ্যাম্বুলেন্স")
         RX_ORDER -> tr("Medicine order", "ওষুধের অর্ডার")
         LAB_ORDER -> tr("Lab order", "পরীক্ষার অর্ডার")
-        ORDER -> tr("Order", "অর্ডার")
+        "order" -> tr("Order", "অর্ডার")
         else -> ""
     }
 }
@@ -55,6 +53,8 @@ data class CallJoin(
 /** call_status: চলমান কলে নতুন টোকেন (১০ মিনিটের) আর ভিডিও চালু হয়েছে কি না */
 data class CallStatus(
     val state: String,
+    val ctx: String = "",
+    val refId: String = "",
     val startedAt: Long = 0,
     val endedAt: Long = 0,
     val video: Boolean = false,
@@ -65,7 +65,15 @@ data class CallStatus(
     fun join(callId: String): CallJoin? = if (url.isNotBlank() && token.isNotBlank()) CallJoin(callId, "", url, token, peer, video) else null
 }
 
-/** কলে ব্লক করা একজন (call_blocks) */
+/** যোগাযোগের সারির চাবি (contact_can) */
+data class ContactKey(val ctx: String, val refId: String, val peerUid: String?)
+
+/** সার্ভারের হ্যাঁ/না: অডিও কল, ভিডিও কল, মেসেজ; blocked = আমি এঁর সাথে যোগাযোগ বন্ধ রেখেছি ("আবার চালু করুন") */
+data class ContactFlags(val canCall: Boolean, val canVideo: Boolean, val canMessage: Boolean, val blocked: Boolean = false, val peerUid: String = "") {
+    companion object { val NONE = ContactFlags(false, false, false) }
+}
+
+/** "যোগাযোগ বন্ধ করা" একজন (call_blocks) */
 data class CallBlocked(val uid: String, val name: String, val photoThumb: String, val blockedAt: Long)
 
 /** রিপোর্টের কারণ (call_report) */
@@ -126,8 +134,8 @@ object CallErrors {
             ?: tr("They have turned off app calls — call their phone", "উনি অ্যাপে কল বন্ধ রেখেছেন — ফোনে কল করুন")
         CallFailure.BUSY -> tr("They are on another call. Try again a little later.", "উনি এখন অন্য কলে আছেন। একটু পরে আবার চেষ্টা করুন।")
         CallFailure.NOT_ALLOWED -> tr("An app call isn't possible here now. Call their phone instead.", "এখন এখানে অ্যাপে কল করা যাচ্ছে না। ফোনে কল করুন।")
-        // কে কাকে ব্লক করেছেন বলা হয় না
-        CallFailure.BLOCKED -> tr("App contact with this person is stopped.", "এই মানুষের সাথে অ্যাপে যোগাযোগ বন্ধ আছে।")
+        // শুধু আমি বন্ধ করলে আসে (উনি করলে call_not_allowed — বলা হয় না)
+        CallFailure.BLOCKED -> serverText?.takeIf { it.isNotBlank() } ?: tr("You have stopped contact with this person.", "আপনি এঁর সাথে যোগাযোগ বন্ধ রেখেছেন।")
         CallFailure.GONE -> tr("This call has already ended.", "কলটা আর নেই — শেষ হয়ে গেছে।")
         CallFailure.UNAVAILABLE -> tr("App calls aren't available right now. Call their phone.", "অ্যাপে কল এখন চালু নেই। ফোনে কল করুন।")
         CallFailure.RATE_LIMIT -> tr("Too many calls in a short time. Wait about 10 minutes and try again.", "অল্প সময়ে অনেক বেশি কল হয়েছে। ১০ মিনিট মতো পরে আবার চেষ্টা করুন।")
@@ -182,6 +190,7 @@ object CallAvailability {
         enabled.value = null
         checkedAt = 0
         blocked.clear()
+        ContactCan.clear()
     }
 }
 
@@ -212,8 +221,23 @@ object CallsApi {
         return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map(::parseHistory) to next
     }
 
-    /** অডিও কলে "ভিডিও চালু করতে অনুরোধ" */
-    suspend fun upgrade(callId: String) { call("call_upgrade", JSONObject().put("callId", callId)) }
+    /** অডিও কলে "ভিডিও চালু করতে অনুরোধ" — true = আগেই ভিডিও */
+    suspend fun upgrade(callId: String): Boolean = call("call_upgrade", JSONObject().put("callId", callId)).optBoolean("video")
+
+    /** এক পাতার সব যোগাযোগের সারির জন্য একবারে: কোনটায় অডিও/ভিডিও কল আর মেসেজ দেওয়া যায় (contact_can, ≤ ৫০) */
+    suspend fun contactCan(keys: List<ContactKey>): List<ContactFlags> {
+        val arr = org.json.JSONArray()
+        keys.forEach { k -> arr.put(JSONObject().put("ctx", k.ctx).put("refId", k.refId).apply { if (!k.peerUid.isNullOrBlank()) put("peerUid", k.peerUid) }) }
+        val out = call("contact_can", JSONObject().put("items", arr)).optJSONArray("items") ?: org.json.JSONArray()
+        val items = (0 until out.length()).mapNotNull { out.optJSONObject(it) }
+        return keys.mapIndexed { i, k ->
+            // উত্তর একই ক্রমে; না মিললে ctx+refId (+peerUid) দিয়ে খোঁজা
+            val o = items.getOrNull(i)?.takeIf { it.str("ctx") == k.ctx && it.str("refId") == k.refId }
+                ?: items.firstOrNull { it.str("ctx") == k.ctx && it.str("refId") == k.refId && (k.peerUid.isNullOrBlank() || it.str("peerUid") == k.peerUid) }
+            if (o == null) ContactFlags.NONE
+            else ContactFlags(o.optBoolean("canCall"), o.optBoolean("canVideo"), o.optBoolean("canMessage"), o.optBoolean("blocked"), o.str("peerUid"))
+        }
+    }
     /** অনুরোধে রাজি: ভিডিওর নতুন টোকেন */
     suspend fun upgradeAccept(callId: String): CallJoin = parseJoin(call("call_upgrade_accept", JSONObject().put("callId", callId)), callId)
     suspend fun upgradeDecline(callId: String) { call("call_upgrade_decline", JSONObject().put("callId", callId)) }
@@ -246,7 +270,7 @@ object CallsApi {
     }
 
     internal fun parseStatus(o: JSONObject) = CallStatus(
-        o.str("state"), o.optLong("startedAt"), o.optLong("endedAt"), o.optBoolean("video"), o.str("url"), o.str("token"), parsePeer(o.optJSONObject("peer")),
+        o.str("state"), o.str("ctx"), o.str("refId"), o.optLong("startedAt"), o.optLong("endedAt"), o.optBoolean("video"), o.str("url"), o.str("token"), parsePeer(o.optJSONObject("peer")),
     )
 
     internal fun parseHistory(o: JSONObject) = CallHistoryItem(
@@ -404,6 +428,8 @@ sealed interface CallEvent {
     data object Downgraded : CallEvent
     /** ছবি (call_status-এর peer.photoThumb — পুশে ছবি থাকে না) */
     data class PeerInfo(val peer: CallPeer) : CallEvent
+    /** call_status থেকে পুরো তথ্য (পুশে শুধু প্রথম নাম, কোন সূত্রে তা নেই) */
+    data class Details(val ctx: String, val refId: String, val peer: CallPeer?) : CallEvent
     /** শেষের পর্দা সরানো */
     data object Reset : CallEvent
 }
@@ -480,6 +506,13 @@ object CallMachine {
             CallEvent.UpgradeDeclined -> s.copy(upgradePending = false, upgradeDeclined = s.upgradePending)
             CallEvent.UpgradeDismissed -> s.copy(upgradeAsked = false, upgradeDeclined = false)
             is CallEvent.Upgraded -> if (s.live) s.copy(video = true, camOn = e.camera, speakerOn = true, upgradePending = false, upgradeAsked = false, upgradeDeclined = false, audioFallback = false) else s
+            is CallEvent.Details -> s.copy(
+                ctx = s.ctx.ifBlank { e.ctx },
+                refId = s.refId.ifBlank { e.refId },
+                peerName = e.peer?.name?.ifBlank { null } ?: s.peerName,
+                peerPhoto = e.peer?.photoThumb?.ifBlank { null } ?: s.peerPhoto,
+                peerUid = s.peerUid.ifBlank { e.peer?.uid.orEmpty() },
+            )
             CallEvent.Downgraded -> if (s.live && s.video) s.copy(video = false, camOn = false, remoteVideoOn = false, speakerOn = false) else s
             is CallEvent.PeerInfo -> s.copy(
                 peerName = s.peerName.ifBlank { e.peer.name },

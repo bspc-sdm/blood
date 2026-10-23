@@ -147,6 +147,19 @@ object Notifier {
             .setContentIntent(pending)
             // কলের চ্যানেলে রিংটোন — মিসড কলের খবরে বাজে না
             .setSilent(cat == NotifyCats.CALLS)
+            // মিসড কল আর "ভিডিও কলে যুক্ত হোন": লক স্ক্রিনে শুধু সাধারণ লেখা (কে, কোন ডাক্তার — খোলার পরে)
+            .apply {
+                if (type == "call_missed" || type == "appt_call_ready") {
+                    setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                    setPublicVersion(
+                        NotificationCompat.Builder(context, channelId)
+                            .setSmallIcon(R.drawable.ic_stat_blood)
+                            .setContentTitle(APP_NAME)
+                            .setContentText(tr("New notification", "নতুন নোটিফিকেশন"))
+                            .build(),
+                    )
+                }
+            }
             .build()
         NotificationManagerCompat.from(context).notify(id, n)
     }
@@ -184,7 +197,9 @@ class BloodMessagingService : FirebaseMessagingService() {
         val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়
-        val tag = message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
+        // মিসড কল: একজনের সব মিসড কল একটাই নোটিফিকেশন ("৩টা মিসড কল")
+        val tag = message.data["callerUid"]?.takeIf { message.data["type"] == "call_missed" && it.isNotBlank() }?.let { "missed_$it" }
+            ?: message.data["emergencyId"] ?: message.data["ticketId"] ?: message.data["visitId"] ?: message.data["orderId"]
             ?: message.data["findId"] ?: message.data["reqId"] ?: message.messageId
         // চাপলে যে পাতা খোলে তার সব তথ্য (type, requestId, role, rxId, asUid, reqId …) intent-এ যায়
         Notifier.show(this, title, body, message.data, tag)

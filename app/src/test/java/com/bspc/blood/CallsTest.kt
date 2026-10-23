@@ -266,21 +266,21 @@ class CallsTest {
         CallAvailability.onFailure(CallFailure.NOT_ALLOWED, CallCtx.BLOOD, "r1")
         assertFalse(CallAvailability.shows(CallCtx.BLOOD, "r1"))
         assertTrue(CallAvailability.shows(CallCtx.BLOOD, "r2"))
-        assertTrue(CallAvailability.shows(CallCtx.ORDER, "r1"))
+        assertTrue(CallAvailability.shows(CallCtx.RX_ORDER, "r1"))
         // ব্লক: এই সূত্রের বাটন যায়
         CallAvailability.onFailure(CallFailure.BLOCKED, CallCtx.RX_ORDER, "x9")
         assertFalse(CallAvailability.shows(CallCtx.RX_ORDER, "x9"))
         // ব্যস্ত/বন্ধ: বাটন থাকে
-        CallAvailability.onFailure(CallFailure.BUSY, CallCtx.ORDER, "o1")
-        CallAvailability.onFailure(CallFailure.OFF, CallCtx.ORDER, "o1")
-        assertTrue(CallAvailability.shows(CallCtx.ORDER, "o1"))
+        CallAvailability.onFailure(CallFailure.BUSY, CallCtx.RX_ORDER, "o1")
+        CallAvailability.onFailure(CallFailure.OFF, CallCtx.RX_ORDER, "o1")
+        assertTrue(CallAvailability.shows(CallCtx.RX_ORDER, "o1"))
         // সার্ভারে কল বন্ধ (503): সব যায়
         CallAvailability.onFailure(CallFailure.UNAVAILABLE, null, null)
-        assertFalse(CallAvailability.shows(CallCtx.ORDER, "o1"))
+        assertFalse(CallAvailability.shows(CallCtx.RX_ORDER, "o1"))
         // অতিথি: কখনো নয়
         CallAvailability.enabled.value = true
         LoginGate.uid.value = null
-        assertFalse(CallAvailability.shows(CallCtx.ORDER, "o1"))
+        assertFalse(CallAvailability.shows(CallCtx.RX_ORDER, "o1"))
     }
 
     // ---------------- সার্ভারের উত্তর ----------------

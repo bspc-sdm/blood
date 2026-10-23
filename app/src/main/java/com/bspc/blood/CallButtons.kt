@@ -141,14 +141,24 @@ fun ContactActions(
     LaunchedEffect(Unit) { CallAvailability.refresh() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // সার্ভারের হ্যাঁ/না (contact_can) — এক পাতার সব সারি একসাথে একবারে জিজ্ঞেস হয়
+    val key = remember(ctx, refId, peerUid) { ContactKey(ctx, refId, peerUid?.ifBlank { null }) }
+    val wantApp = appAllowed && refId.isNotBlank() && !LoginGate.isGuest
+    LaunchedEffect(key, wantApp, ContactCan.version.intValue) { if (wantApp) ContactCan.request(key) }
+    val flags = if (wantApp) ContactCan.flags[key] else null
+    var unblocking by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf<Boolean?>(null) }
     var failure by remember { mutableStateOf<Pair<CallFailure, String>?>(null) }
     var asking by remember { mutableStateOf<Pair<Boolean, List<String>>?>(null) }
     var denied by remember { mutableStateOf(false) }
     var pendingVideo by remember { mutableStateOf(false) }
 
-    val callsOn = appAllowed && CallAvailability.shows(ctx, refId)
-    val msgOn = appAllowed && onMessage != null && refId.isNotBlank() && !CallAvailability.isBlocked(ctx, refId)
+    val callsLive = CallAvailability.enabled.value != false && !CallAvailability.isBlocked(ctx, refId)
+    val callsOn = flags?.canCall == true && callsLive
+    val videoOn = callsOn && flags?.canVideo == true
+    val msgOn = onMessage != null && flags?.canMessage == true
+    // আমি এঁর সাথে যোগাযোগ বন্ধ রেখেছি: "আবার চালু করুন"
+    val blockedByMe = flags?.blocked == true
     val tel = phone?.takeIf { it.isNotBlank() }
     val phoneOn = showPhone && (tel != null || onPhone != null)
     val dial: () -> Unit = { if (onPhone != null) onPhone() else if (tel != null) callPhone(context, tel) }
@@ -167,6 +177,7 @@ fun ContactActions(
                 .onFailure { e ->
                     val f = CallErrors.of(e)
                     CallAvailability.onFailure(f, ctx, refId)
+                    if (f == CallFailure.NOT_ALLOWED || f == CallFailure.BLOCKED) ContactCan.invalidateAll()
                     failure = f to CallErrors.message(f, e.message)
                 }
             busy = null
@@ -183,11 +194,21 @@ fun ContactActions(
         if (need.isEmpty()) start(video) else asking = video to need
     }
 
-    if (!phoneOn && !callsOn && !msgOn) return
+    fun unblock() {
+        val uid = flags?.peerUid?.ifBlank { null } ?: peerUid ?: return
+        unblocking = true
+        scope.launch {
+            runCatching { CallsApi.unblock(uid) }.onSuccess { ContactCan.invalidateAll() }
+            unblocking = false
+        }
+    }
+
+    if (!phoneOn && !callsOn && !msgOn && !blockedByMe) return
     val audioLabel = tr("Audio call", "অডিও কল")
     val videoLabel = tr("Video call", "ভিডিও কল")
     val msgLabel = tr("Message", "মেসেজ")
     val telLabel = phoneLabel ?: tr("Call", "ফোন")
+    val unblockLabel = tr("Allow contact again", "যোগাযোগ আবার চালু করুন")
     val cs = MaterialTheme.colorScheme
     when (style) {
         ContactStyle.ICONS -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -197,7 +218,7 @@ fun ContactActions(
                     if (busy == false) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else AppIcon(R.drawable.ic_phone_in_talk, audioLabel, tint = cs.primary)
                 }
-                IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+                if (videoOn) IconButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
                     if (busy == true) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else AppIcon(R.drawable.ic_videocam, videoLabel, tint = cs.primary)
                 }
@@ -208,17 +229,19 @@ fun ContactActions(
             if (phoneOn) SmallAction(telLabel, R.drawable.ic_call, dial, Modifier.testTag("contact_phone"))
             if (callsOn) {
                 SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
-                SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
+                if (videoOn) SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
             }
             if (msgOn) SmallAction(msgLabel, R.drawable.ic_chat, { onMessage?.invoke() }, Modifier.testTag("contact_message"))
+            if (blockedByMe) SmallAction(unblockLabel, null, { unblock() }, Modifier.testTag("contact_unblock"), busy = unblocking, enabled = !unblocking)
         }
         // জরুরি: ফোনের বড় বাটন আগে, অ্যাপের যোগাযোগ নিচে ছোট
         ContactStyle.PRIMARY_PHONE -> Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (phoneOn) Button(onClick = dial, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("contact_phone")) { ButtonContent(false, telLabel, R.drawable.ic_call) }
-            if (callsOn || msgOn) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (callsOn || msgOn || blockedByMe) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (blockedByMe) SmallAction(unblockLabel, null, { unblock() }, Modifier.testTag("contact_unblock"), busy = unblocking, enabled = !unblocking)
                 if (callsOn) {
                     SmallAction(audioLabel, R.drawable.ic_phone_in_talk, { tap(false) }, Modifier.testTag("app_call_audio"), busy = busy == false, enabled = busy == null)
-                    SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
+                    if (videoOn) SmallAction(videoLabel, R.drawable.ic_videocam, { tap(true) }, Modifier.testTag("app_call_video"), busy = busy == true, enabled = busy == null)
                 }
                 if (msgOn) SmallAction(msgLabel, R.drawable.ic_chat, { onMessage?.invoke() }, Modifier.testTag("contact_message"))
             }
@@ -230,12 +253,15 @@ fun ContactActions(
                 OutlinedButton(onClick = { tap(false) }, enabled = busy == null, modifier = Modifier.testTag("app_call_audio")) {
                     ButtonContent(busy == false, audioLabel, R.drawable.ic_phone_in_talk)
                 }
-                OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
+                if (videoOn) OutlinedButton(onClick = { tap(true) }, enabled = busy == null, modifier = Modifier.testTag("app_call_video")) {
                     ButtonContent(busy == true, videoLabel, R.drawable.ic_videocam)
                 }
             }
             if (msgOn) OutlinedButton(onClick = { onMessage?.invoke() }, modifier = Modifier.testTag("contact_message")) {
                 ButtonContent(false, msgLabel, R.drawable.ic_chat)
+            }
+            if (blockedByMe) TextButton(onClick = { unblock() }, enabled = !unblocking, modifier = Modifier.testTag("contact_unblock")) {
+                ButtonContent(unblocking, unblockLabel)
             }
         }
     }
@@ -291,6 +317,52 @@ fun ContactActions(
             },
             dismissButton = if (offer) ({ TextButton(onClick = { failure = null }) { Text(tr("Close", "বন্ধ")) } }) else null,
         )
+    }
+}
+
+/**
+ * contact_can-এর ফল (ctx+refId+peerUid → অডিও/ভিডিও/মেসেজ হ্যাঁ/না) — এক পাতার সব সারি ১২০ ms ধরে জমিয়ে একটা অনুরোধে
+ * (≤ ৫০ করে)। ১ মিনিট মনে থাকে; কল/ব্লকে বদল হলে invalidateAll (সারিগুলো আবার জিজ্ঞেস করে)।
+ */
+object ContactCan {
+    private const val TTL_MS = 60_000L
+    val flags = androidx.compose.runtime.mutableStateMapOf<ContactKey, ContactFlags>()
+    /** বাড়লে সব সারি আবার জিজ্ঞেস করে */
+    val version = androidx.compose.runtime.mutableIntStateOf(0)
+    private val fetchedAt = HashMap<ContactKey, Long>()
+    private val pending = LinkedHashSet<ContactKey>()
+    private var job: kotlinx.coroutines.Job? = null
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
+
+    fun request(k: ContactKey, now: Long = System.currentTimeMillis()) {
+        val at = fetchedAt[k]
+        if (at != null && now - at < TTL_MS) return
+        pending += k
+        if (job?.isActive == true) return
+        job = scope.launch {
+            kotlinx.coroutines.delay(120)
+            while (pending.isNotEmpty()) {
+                val batch = pending.take(50)
+                pending.removeAll(batch.toSet())
+                val t = System.currentTimeMillis()
+                runCatching { CallsApi.contactCan(batch) }
+                    .onSuccess { res -> batch.zip(res).forEach { (key, f) -> flags[key] = f; fetchedAt[key] = t } }
+                    // পুরোনো সার্ভার (কাজটা চেনে না) বা না: অ্যাপের বাটন নয়; ইন্টারনেট না থাকলে পরে আবার
+                    .onFailure { e -> if (e is ServerError) batch.forEach { key -> flags[key] = ContactFlags.NONE; fetchedAt[key] = t } }
+            }
+        }
+    }
+
+    fun invalidateAll() {
+        fetchedAt.clear()
+        version.intValue++
+    }
+
+    fun clear() {
+        fetchedAt.clear()
+        pending.clear()
+        flags.clear()
+        version.intValue++
     }
 }
 

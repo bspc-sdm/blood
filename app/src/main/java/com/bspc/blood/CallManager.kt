@@ -117,9 +117,9 @@ object CallManager {
         if (s.callId == callId) return s.live
         if (s.live) return false
         dispatch(CallEvent.Ringing(callId, video, peerName, peerPhoto, ctx, refId, peerUid))
-        // পুশে ছবি থাকে না — call_status থেকে
-        if (peerPhoto.isBlank()) scope.launch {
-            runCatching { CallsApi.status(callId) }.onSuccess { st -> st.peer?.let { if (_state.value.callId == callId) dispatch(CallEvent.PeerInfo(it)) } }
+        // পুশে শুধু প্রথম নাম (কোন সূত্রে, ছবি নেই) — পুরো তথ্য call_status থেকে; লক স্ক্রিনে পর্দা তবুও শুধু প্রথম নাম দেখায়
+        scope.launch {
+            runCatching { CallsApi.status(callId) }.onSuccess { st -> if (_state.value.callId == callId) dispatch(CallEvent.Details(st.ctx, st.refId, st.peer)) }
         }
         return true
     }
@@ -214,7 +214,7 @@ object CallManager {
         val s = _state.value
         CallAvailability.onFailure(f, s.ctx.ifBlank { null }, s.refId.ifBlank { null })
         // সার্ভারের বার্তা (যেমন "এখনো সময় হয়নি") সরাসরি
-        val msg = if (f == CallFailure.OTHER || f == CallFailure.OFF) CallErrors.message(f, e.message) else CallErrors.message(f)
+        val msg = if (f == CallFailure.OTHER || f == CallFailure.OFF || f == CallFailure.BLOCKED) CallErrors.message(f, e.message) else CallErrors.message(f)
         if (ended && s.callId.isNotBlank()) scope.launch { runCatching { CallsApi.end(s.callId) } }
         dispatch(CallEvent.Failed(reason, msg))
     }
@@ -491,7 +491,10 @@ object CallManager {
         if (!s.live || s.video || s.upgradePending || s.connectedAt == null) return
         scope.launch {
             runCatching { CallsApi.upgrade(s.callId) }
-                .onSuccess { if (_state.value.callId == s.callId) dispatch(CallEvent.UpgradeSent) }
+                .onSuccess { already ->
+                    if (_state.value.callId != s.callId) return@onSuccess
+                    if (already) onUpgraded(s.callId) else dispatch(CallEvent.UpgradeSent)
+                }
                 .onFailure { e -> upgradeError.value = CallErrors.message(CallErrors.of(e), e.message) }
         }
     }
