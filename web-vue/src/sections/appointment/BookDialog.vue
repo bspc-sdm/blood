@@ -10,6 +10,12 @@ import { DAY_MS, chamberLabel, chamberOpenOn, chamberTimeText, today, type Famil
 import { dayChip, nextOpenDays } from './doctors';
 import { ONLINE_KEY, T as OT } from './online';
 import { onlineOn } from './online/flags';
+import { payOn } from '../pay/features';
+import { getRequestByRef } from '../pay/api';
+import { pickRequest, type PayRequest } from '../pay/model';
+import { T as PT } from '../pay/text';
+import { money } from '../invoices/model';
+import PayDialog from '../pay/PayDialog.vue';
 
 const props = defineProps<{ provider: Provider; index: number }>();
 const emit = defineEmits<{ close: []; booked: [] }>();
@@ -24,6 +30,15 @@ const err = ref<string | null>(null);
 const fam = useCall<{ family: FamilyMember[] }>('family_get');
 const family = computed(() => fam.data?.family ?? []);
 const quick = nextOpenDays(ch, 6);
+// চেম্বারের অগ্রিম (pay_chamber_advance): আগে নিয়ম জানানো, বুকিংয়ের পর সাথে সাথে পেমেন্ট (না দিলে "অগ্রিম বাকি")
+const advance = computed(() => (ch.mode !== 'online' && payOn('pay_chamber_advance') ? ch.advance ?? null : null));
+const advReq = ref<PayRequest | null>(null);
+async function advanceOf(r: any): Promise<PayRequest | null> {
+  const got = pickRequest(r);
+  if (got) return got;
+  const id = r?.id ?? r?.appointmentId ?? r?.appointment?.id;
+  return id ? getRequestByRef('appointment', String(id), 'booking_advance').catch(() => null) : null;
+}
 const t0 = today();
 
 async function send() {
@@ -38,7 +53,7 @@ async function send() {
   if (e || d == null) return;
   busy.value = true;
   try {
-    await call('book', {
+    const r = await call('book', {
       providerUid: props.provider.uid,
       chamberIndex: props.index,
       date: d,
@@ -46,7 +61,9 @@ async function send() {
       chamberKey: ch.mode === 'online' ? ONLINE_KEY : ch.hospitalId || ch.hospitalName,
       ...(memberId.value ? { memberId: memberId.value } : {}),
     });
-    emit('booked');
+    const req = advance.value ? await advanceOf(r) : null;
+    if (req) advReq.value = req;
+    else emit('booked');
   } catch (x) {
     err.value = errorText(x);
   } finally {
@@ -56,11 +73,12 @@ async function send() {
 </script>
 
 <template>
-  <Dialog :title="provider.name" @close="() => !busy && emit('close')">
+  <Dialog v-if="!advReq" :title="provider.name" @close="() => !busy && emit('close')">
     <div class="col appt-pre">
       <IconLine :icon="ch.mode === 'online' ? 'language' : 'local_hospital'">{{ chamberLabel(ch) }}</IconLine>
       <IconLine icon="schedule">{{ chamberTimeText(ch) }}</IconLine>
     </div>
+    <p v-if="advance" class="t-body-s" data-testid="advance-line">{{ PT.advanceLine(money(advance.amount), advance.refundableUntilHoursBefore) }}</p>
     <p v-if="ch.mode === 'online' && !ch.noFee && onlineOn()" class="t-body-s muted" data-testid="online-book-hint">{{ OT.bookHint() }}</p>
     <div v-if="family.length" class="col gap-6">
       <span class="t-label-l">{{ tr('For whom', 'কার জন্য') }}</span>
@@ -86,4 +104,5 @@ async function send() {
       <Button :busy="busy" @click="send">{{ tr('Send request', 'অনুরোধ পাঠান') }}</Button>
     </template>
   </Dialog>
+  <PayDialog v-if="advReq" :initial="advReq" :title="PT.advanceAfterBook()" @close="emit('booked')" />
 </template>

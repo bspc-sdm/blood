@@ -7,6 +7,9 @@ import PatientQueueLine from './PatientQueueLine.vue';
 import { T as OT, payLabel, payTone } from './online';
 import { onlineOn } from './online/flags';
 import { systemTag } from '@/lib/practice';
+import { payOn } from '../pay/features';
+import { T as PT } from '../pay/text';
+import { linkDue } from '../pay/model';
 
 const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => void }>();
 </script>
@@ -28,6 +31,10 @@ const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => vo
     <div v-if="a.online && onlineOn()" class="row wrap gap-6">
       <Tag tone="info">{{ OT.online() }}</Tag>
       <Tag v-if="!a.noFee && isActive(a.status)" :tone="payTone(a.payState)">{{ payLabel(a.payState) }}</Tag>
+    </div>
+    <!-- চেম্বারের অগ্রিম বাকি (PAYMENTS.md, নিরাপত্তা পর্যালোচনা) -->
+    <div v-if="!a.online && a.role === 'patient' && isActive(a.status) && payOn('pay_chamber_advance') && linkDue(a.payLink)" class="row">
+      <Tag tone="error" data-testid="advance-due">{{ PT.advanceDue() }}</Tag>
     </div>
     <IconLine icon="calendar_month">{{ apptWhen(a, formatDate) }}</IconLine>
     <span v-if="a.serial > 0" class="t-title-s bold c-primary">{{ serialText(a.serial) }}</span>

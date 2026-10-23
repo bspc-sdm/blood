@@ -1,0 +1,57 @@
+/* LIFOLO PAY — পেমেন্টের শিট, ব্যবসার পেমেন্ট পাতা, রোগীর পেমেন্টের তালিকা (sections/pay) */
+.pay-sheet { min-width: 0; }
+.pay-head { min-width: 0; }
+.pay-amount { font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: -.01em; }
+.pay-number { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-low); min-width: 0; }
+.pay-number .num { overflow-wrap: anywhere; }
+.pay-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
+.pay-trx { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; overflow-wrap: anywhere; }
+.pay-inputs { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 560px) { .pay-inputs { grid-template-columns: 3fr 2fr; } }
+.pay-rej { padding: 10px 12px; border-radius: 12px; background: var(--error-container); color: var(--on-error-container); }
+.pay-refund { padding: 10px 12px; border-radius: 12px; background: var(--secondary-container); color: var(--on-secondary-container); }
+.pay-refund .muted { color: inherit; opacity: .85; }
+/* "শুধু এখানে দেখানো নম্বরে…" — সবসময় দেখা যায় (নিরাপত্তা P2) */
+.pay-warn { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--error); background: var(--surface); }
+.pay-demo { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--error); color: var(--on-error); font-weight: 600; text-align: center; }
+.pay-policy { padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+.pay-checks { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+.pay-claim-big { font-size: 18px; line-height: 26px; }
+
+/* অবস্থার ধারা: বাঁ দিকে বিন্দু আর রেখা */
+.pay-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pay-timeline li { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 0 0 12px 22px; }
+.pay-timeline li:last-child { padding-bottom: 0; }
+.pay-timeline li::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: -2px; width: 2px; background: var(--outline-variant); }
+.pay-timeline li:last-child::before { display: none; }
+.pay-dot { position: absolute; left: 0; top: 4px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--outline); background: var(--surface); }
+.pay-timeline li.done .pay-dot { border-color: var(--primary); background: var(--primary); }
+.pay-timeline li.rejected .pay-dot, .pay-timeline li.expired .pay-dot, .pay-timeline li.cancelled .pay-dot { border-color: var(--error); background: var(--error); }
+.pay-timeline li.next { color: var(--on-surface-variant); }
+
+.pay-entry { align-items: center; }
+
+/* ব্যবসা */
+.pay-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pay-sum > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-low); min-width: 0; }
+.pay-sum b { font-size: 20px; line-height: 28px; }
+.pay-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pay-list > li { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--outline-variant); min-width: 0; }
+.pay-list > li:first-child { border-top: 0; padding-top: 4px; }
+.pay-row-actions { align-items: center; }
+.pay-late { color: var(--error); }
+.pay-method-ed { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--outline-variant); min-width: 0; }
+.pay-method-ed[data-on='false'] .pay-method-fields { display: none; }
+.pay-method-fields { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .pay-method-fields { grid-template-columns: 3fr 2fr; align-items: end; } }
+.pay-cool { padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+.pay-adv-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--outline-variant); }
+.pay-adv-row:first-of-type { border-top: 0; }
+.pay-adv-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* রোগী: পেমেন্টের তালিকা */
+.pay-card { text-align: left; }
+.pay-card.selected { outline: 2px solid var(--primary); }
+
+/* bKash গেটওয়ের ফল */
+.pay-result { max-width: 480px; margin: 48px auto; padding: 0 16px; text-align: center; }

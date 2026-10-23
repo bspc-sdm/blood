@@ -18,9 +18,13 @@ import { kindIcon, kindText, money, parsePage, type InvPage, type Invoice } from
 import CareSwitch from './CareSwitch.vue';
 import InvoiceDetail from './InvoiceDetail.vue';
 import MyExpenses from './MyExpenses.vue';
+import { invFeature } from './features';
+import { patientPayOn } from '../pay/features';
+import { T as PT } from '../pay/text';
+import MyPayments from '../pay/MyPayments.vue';
 
-const props = defineProps<{ id: string | null; tab: 'list' | 'expenses' }>();
-usePageTitle(() => (props.tab === 'expenses' ? T.myExpenses() : T.myReceipts()));
+const props = defineProps<{ id: string | null; tab: 'list' | 'expenses' | 'payments' }>();
+usePageTitle(() => (props.tab === 'expenses' ? T.myExpenses() : props.tab === 'payments' ? PT.myPayments() : T.myReceipts()));
 const nav = useNav();
 const s = useSession();
 const lang = useLang();
@@ -30,23 +34,31 @@ const q = useInfiniteQ<InvPage>(() => ({
   queryFn: ({ pageParam }: { pageParam: string | null }) => call('my_invoices', pageParam ? { cursor: pageParam } : {}).then(parsePage),
   initialPageParam: null,
   getNextPageParam: (last: InvPage) => last.next ?? undefined,
-  enabled: !s.guest && props.tab === 'list',
+  enabled: !s.guest && props.tab === 'list' && invFeature('my_expenses'),
 }));
 const items = computed<Invoice[]>(() => ((q.data as any)?.pages ?? []).flatMap((p: InvPage) => p.items));
 const fromList = computed(() => (props.id ? items.value.find((i) => i.id === props.id) ?? null : null));
 const tabs = computed(() => [
-  { key: 'list', label: T.myReceipts(), icon: 'list_alt' },
-  { key: 'expenses', label: T.myExpenses(), icon: 'history' },
+  ...(invFeature('my_expenses')
+    ? [
+      { key: 'list', label: T.myReceipts(), icon: 'list_alt' },
+      { key: 'expenses', label: T.myExpenses(), icon: 'history' },
+    ]
+    : []),
+  // পেমেন্ট (PAYMENTS.md): বিকাশ/নগদ/রকেট/উপায়ে পাঠানো — কেয়ারগিভার মোডেও
+  ...(patientPayOn() ? [{ key: 'payments', label: PT.payments(), icon: 'payments' }] : []),
 ]);
+const goTab = (k: string) => nav(k === 'expenses' ? '/invoices/expenses' : k === 'payments' ? '/invoices/payments' : '/invoices');
 </script>
 
 <template>
   <!-- আমার খরচ: এক কলাম (পাশে বিস্তারিত নেই) -->
-  <div v-if="tab === 'expenses'" class="inv-exp-page">
+  <MyPayments v-if="tab === 'payments'" :id="id" :tabs="tabs" @tab="goTab" />
+  <div v-else-if="tab === 'expenses'" class="inv-exp-page">
     <section class="ld-list">
       <div class="list-inner">
         <div class="health-tabs">
-          <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="(k) => nav(k === 'expenses' ? '/invoices/expenses' : '/invoices')" />
+          <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="goTab" />
         </div>
         <EmptyState v-if="s.guest" icon="list_alt" :title="T.myExpenses()" :text="T.noReceiptsText()">
           <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
@@ -61,7 +73,7 @@ const tabs = computed(() => [
   <ListDetail v-else :has-detail="!!(id && !s.guest)">
     <div class="list-inner">
       <div class="health-tabs">
-        <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="(k) => nav(k === 'expenses' ? '/invoices/expenses' : '/invoices')" />
+        <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="goTab" />
       </div>
       <EmptyState v-if="s.guest" icon="list_alt" :title="T.myReceipts()" :text="T.noReceiptsText()">
         <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>

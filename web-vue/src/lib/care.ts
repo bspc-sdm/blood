@@ -8,6 +8,8 @@ const ACTIONS = new Set([
   'my_appointments', 'book', 'appointment_update', 'providers', 'family_get',
   'appointment_queue', 'appointment_late',
   'my_invoices', 'my_expenses',
+  // পেমেন্ট (PAYMENTS.md: রোগী বা কেয়ারগিভার asUid দিয়ে)
+  'my_payments', 'pay_request_get', 'pay_claim', 'pay_refund_ack', 'pay_report', 'pay_due_start',
 ]);
 
 const state: Ref<{ uid: string; name: string } | null> = shallowRef(null);

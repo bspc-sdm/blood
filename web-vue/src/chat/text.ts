@@ -5,6 +5,9 @@ import type { ChatCtx, ChatRefusal, ReportReason } from './api';
 import './icons';
 
 export const T = {
+  // টাকার নম্বরসহ মেসেজের নিচে (PAYMENTS-SECURITY-REVIEW P2)
+  warnMoney: () => tr("Don't send money outside the app's payment page — report it.", 'অ্যাপের পেমেন্ট পাতা ছাড়া টাকা পাঠাবেন না — রিপোর্ট করুন।'), // bn-ok
+  warnMoneyBlood: () => tr('No money is ever needed for blood. Do not send any — report this message.', 'রক্তের জন্য কোনো টাকা দিতে হয় না। কোনো টাকা পাঠাবেন না — এই মেসেজ রিপোর্ট করুন।'), // bn-ok
   messages: () => tr('Messages', 'মেসেজ'), // bn-ok
   message: () => tr('Message', 'মেসেজ'), // bn-ok
   empty: () => tr('No messages yet', 'এখনো কোনো মেসেজ নেই'), // bn-ok

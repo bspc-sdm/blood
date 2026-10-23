@@ -3,6 +3,7 @@
 // কল নিজে web-calls শাখার (/appointments/:id/call) — এখানে শুধু লিংক।
 // এগুলো নতুন লেখা (React-এ আগের রূপ নেই) — তাই বাংলা লাইনে bn-ok।
 import { tr } from '@/lib/i18n';
+import { payLinkOf, type PayLink } from '../../pay/model';
 
 export type ChamberMode = 'in_person' | 'online';
 /** rejected: ডাক্তার/সহকারী "পাইনি" বলেছেন — সার্ভারে payState "unpaid" + payNote (কারণ; নতুন দাবিতে মোছে) */
@@ -22,6 +23,8 @@ export interface OnlinePart {
   startAt: number;
   /** সার্ভার জানালে: ডাক্তার কলে এসেছিলেন (তখন "রিপোর্ট করুন" নয়) */
   doctorJoined: boolean;
+  /** LIFOLO PAY (PAYMENTS.md): ফি বা চেম্বারের অগ্রিমের পেমেন্ট — payRequest {…} বা payRequestId; নেই হলে আগের appt_pay_* পথ */
+  payLink: PayLink | null;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -45,6 +48,7 @@ export function parseOnline(o: any): OnlinePart {
     onlineNote: str(o?.onlineNote),
     startAt: typeof o?.start === 'number' ? o.start : typeof o?.startAt === 'number' ? o.startAt : 0,
     doctorJoined: o?.doctorJoined === true,
+    payLink: payLinkOf(o),
   };
 }
 

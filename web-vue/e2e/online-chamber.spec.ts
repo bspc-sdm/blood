@@ -2,6 +2,7 @@
 // ছাঁকনি (online:true, এলাকা ছাড়া), অনলাইন বুকিং, রোগীর ফি (নম্বর কপি, TrxID, "টাকা পাঠিয়েছি" → যাচাই হচ্ছে),
 // ডাক্তার/সহকারীর "ফি পেয়েছি"/"পাইনি" (নিশ্চিত ধাপ, TrxID), আর "ভিডিও কলে যুক্ত হোন" লিংক (সময়ের জানালায়)।
 // নকল সার্ভারের উত্তরের ওপর অনলাইন অংশ এই পরীক্ষা নিজেই বসায় (page.route) — test/fixtures বদলানো হয়নি।
+// ফির অংশ এখন LIFOLO PAY-এর PaySheet-এ (নম্বর pay-number, কপি pay-copy, ধাপ pay-steps) — আচরণ আগের মতোই (আগের appt_pay_* পথ)।
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { def, open, watchErrors } from './helpers';
 
@@ -99,11 +100,11 @@ test('রোগী: ফি bKash-এ — নম্বর কপি, TrxID দি
   await open(page, def('appointment', 'my-detail'), '/my-appointments/on1');
   const box = page.getByTestId('online-pay');
   await expect(box.getByTestId('pay-state')).toHaveText('পাঠানো হয়নি');
-  await expect(box.getByTestId('bkash-shown')).toHaveText('০১৭১২৩৪৫৬৭৮');
-  await expect(box.locator('.appt-steps li')).toHaveCount(4);
+  await expect(box.getByTestId('pay-number')).toHaveText('০১৭১২৩৪৫৬৭৮');
+  await expect(box.locator('[data-testid=pay-steps] li')).toHaveCount(4);
   await expect(box).toContainText('নেট চালু রাখবেন');
-  await box.getByTestId('bkash-copy').click();
-  await expect(box.getByTestId('bkash-copy')).toHaveText('কপি হয়েছে');
+  await box.getByTestId('pay-copy').click();
+  await expect(box.getByTestId('pay-copy')).toHaveText('কপি হয়েছে');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('01712345678');
 
   const join = page.getByTestId('join-call');
@@ -143,7 +144,7 @@ test('রোগী: ডাক্তার পাননি — কারণ আ�
   pay = { payState: 'paid', payRef: 'NEW2' };
   await page.getByRole('button', { name: 'রিফ্রেশ' }).first().click();
   await expect(box.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
-  await expect(box.getByTestId('bkash-shown')).toHaveCount(0);
+  await expect(box.getByTestId('pay-number')).toHaveCount(0);
 });
 
 test('ডাক্তার: সেটআপে "অনলাইন (ভিডিও)" — ঠিকানা/রুম নেই, bKash নম্বর যাচাই, সেভে mode/bkashNumber/note', async ({ page }) => {

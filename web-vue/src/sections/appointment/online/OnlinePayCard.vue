@@ -1,21 +1,24 @@
 <script setup lang="ts">
-// রোগী: অনলাইন অ্যাপয়েন্টমেন্টের ফি — ডাক্তারের bKash নম্বর (কপি), ধাপ, "টাকা পাঠিয়েছি" (+ ঐচ্ছিক TrxID → appt_pay_claim),
+// রোগী: অনলাইন অ্যাপয়েন্টমেন্টের ফি — এখন LIFOLO PAY-এর একই শিটে (sections/pay/PaySheet.vue)।
+// অ্যাপয়েন্টমেন্টে পেমেন্ট থাকলে (payRequest/payRequestId, আর pay_manual চালু) নতুন পথ: চালু মাধ্যম, TrxID + শেষ ৪ অঙ্ক (pay_claim)।
+// নইলে আগের পথ: ডাক্তারের bKash নম্বর (কপি), ধাপ, "টাকা পাঠিয়েছি" (+ ঐচ্ছিক TrxID → appt_pay_claim),
 // অবস্থা: পাঠানো হয়নি / যাচাই হচ্ছে / ফি পরিশোধিত / ডাক্তার পাননি (আবার জানানো যায়)।
 import { computed, ref } from 'vue';
-import { Button, ErrorText, InfoText, Tag, TextInput, toast, useNow } from '@/ui/kit';
+import { Button, InfoText, Tag, toast, useNow } from '@/ui/kit';
 import { ServerError, call, errorText } from '@/lib/api';
-import { num, tr } from '@/lib/i18n';
+import { tr } from '@/lib/i18n';
 import type { Appointment } from '../model';
-import { T, TRX_LEN, canReportNoShow, payLabel, payTone, trxInput, trxOk } from './index';
+import { T, TRX_LEN, canReportNoShow, payLabel, payTone, trxInput, trxOk, type PayState } from './index';
 import ReasonReportDialog from '../ReasonReportDialog.vue';
-import InvoiceLink from '../../invoices/InvoiceLink.vue';
+import PaySheet from '../../pay/PaySheet.vue';
+import PayRequestSheet from '../../pay/PayRequestSheet.vue';
+import type { LegacyMode } from '../../pay/sheet';
+import type { PayRequest, PayStatus } from '../../pay/model';
+import { statusText } from '../../pay/text';
+import { onlineFeeOnPay } from '../../pay/features';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ changed: [] }>();
-const trx = ref('');
-const busy = ref(false);
-const err = ref<string | null>(null);
-const copied = ref(false);
 const reporting = ref(false);
 const reported = ref(false);
 const now = useNow(30_000);
@@ -27,99 +30,74 @@ async function report(reason: string) {
   reported.value = true;
   toast(tr('Reported. An admin will review it.', 'রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।'));
 }
-const st = computed(() => props.a.payState);
-// ফি পাঠানো যায়: ডাক্তার নিশ্চিত করেছেন, এখনো মেলেনি (পাঠানো হয়নি বা ডাক্তার পাননি)
-const canClaim = computed(() => props.a.status === 'confirmed' && (st.value === 'unpaid' || st.value === 'rejected'));
-const showNumber = computed(() => !!props.a.bkashNumber && st.value !== 'paid' && props.a.status === 'confirmed');
 
-function copy() {
-  navigator.clipboard?.writeText(props.a.bkashNumber).then(
-    () => {
-      copied.value = true;
-      toast(T.copied());
-    },
-    () => (copied.value = false),
-  );
+// ---------- নতুন পথ (pay request) ----------
+const link = computed(() => (onlineFeeOnPay() ? props.a.payLink : null));
+const live = ref<PayRequest | null>(null);
+const payStatus = computed<PayStatus | null>(() => live.value?.status ?? link.value?.request?.status ?? link.value?.status ?? null);
+const asState = (st: PayStatus): PayState => (st === 'confirmed' ? 'paid' : st === 'claimed' ? 'claimed' : st === 'rejected' ? 'rejected' : 'unpaid');
+/** চেম্বারের নামেই অবস্থা ("ফি পরিশোধিত" …); ফেরত/মেয়াদ শেষ/বাতিল — পেমেন্টের নাম */
+const chamberLabel = (st: PayStatus) => (st === 'refunded' || st === 'expired' || st === 'cancelled' ? statusText(st) : payLabel(asState(st)));
+function onPay(r: PayRequest | null) {
+  if (r) live.value = r;
+  emit('changed');
 }
-async function claim() {
-  const ref_ = trxInput(trx.value);
-  if (!trxOk(ref_)) {
-    err.value = T.errTrx();
-    return;
-  }
-  busy.value = true;
-  err.value = null;
-  try {
-    await call('appt_pay_claim', { appointmentId: props.a.id, ...(ref_ ? { payRef: ref_ } : {}) });
+
+// ---------- আগের পথ (appt_pay_claim) ----------
+const st = computed(() => props.a.payState);
+const toStatus = (p: PayState): PayStatus => (p === 'paid' ? 'confirmed' : p === 'claimed' ? 'claimed' : p === 'rejected' ? 'rejected' : 'open');
+const legacyReq = computed<PayRequest>(() => ({
+  id: '', kind: 'chamber', bizId: '', bizName: props.a.otherName, payerUid: '', payerName: '', refType: 'appointment', refId: props.a.id,
+  purpose: 'chamber_fee', amount: 0,
+  methods: props.a.bkashNumber ? [{ method: 'bkash', number: props.a.bkashNumber, type: 'personal', active: true }] : [],
+  status: toStatus(st.value), claim: props.a.payRef ? { method: 'bkash', trxId: props.a.payRef, senderLast4: '', at: 0, byName: '' } : null,
+  confirmedAt: null, confirmedBy: null, rejectReason: null, rejectNote: props.a.payReason || null, rejectedAt: null, refund: null,
+  invoiceId: props.a.invoiceId ?? null, refundableUntil: null, expiresAt: null, createdAt: 0, demo: false,
+}));
+const legacy: LegacyMode = {
+  steps: () => [T.step1(), T.step2(), T.step3(), T.step4()],
+  sendLabel: T.sent,
+  trxLabel: T.trx,
+  trxHint: T.trxHint,
+  trxPh: T.trxPh,
+  trxMax: TRX_LEN,
+  trxClean: trxInput,
+  trxValid: trxOk,
+  trxErr: T.errTrx,
+  async claim(trx: string) {
+    await call('appt_pay_claim', { appointmentId: props.a.id, ...(trx ? { payRef: trx } : {}) });
     toast(T.sentToast());
-    trx.value = '';
-    emit('changed');
-  } catch (e) {
-    // একই TrxID আবার: 409
-    // R7: একই TrxID এই ডাক্তারের কাছে আগে (409 pay_ref_used), ঘণ্টায় ৫ বারের বেশি (429 pay_claim_rate)
+  },
+  // R7: একই TrxID এই ডাক্তারের কাছে আগে (409 pay_ref_used), ঘণ্টায় ৫ বারের বেশি (429 pay_claim_rate)
+  errText: (e: unknown) => {
     const code = e instanceof ServerError ? e.code : undefined;
-    err.value = code === 'pay_ref_used' ? T.trxUsed() : code === 'pay_claim_rate' ? T.claimRate() : errorText(e);
-  } finally {
-    busy.value = false;
-  }
-}
+    return code === 'pay_ref_used' ? T.trxUsed() : code === 'pay_claim_rate' ? T.claimRate() : errorText(e);
+  },
+  statusText: (s: PayStatus) => payLabel(asState(s)),
+  copiedToast: T.copied,
+  numberLabel: T.bkash,
+  checkingText: T.checking,
+  rejectedText: T.rejected,
+  reasonPrefix: T.reason,
+  howTo: T.howTo,
+};
 </script>
 
 <template>
-  <section class="card col gap-12 appt-pay" data-testid="online-pay" :data-pay="a.noFee ? 'nofee' : st">
+  <section class="card col gap-12 appt-pay" data-testid="online-pay" :data-pay="a.noFee ? 'nofee' : link ? payStatus ?? 'loading' : st">
     <div class="row">
       <h3 class="t-title-s semi grow">{{ T.payTitle() }}</h3>
-      <Tag v-if="!a.noFee" :tone="payTone(st)" data-testid="pay-state">{{ payLabel(st) }}</Tag>
+      <template v-if="!a.noFee">
+        <Tag v-if="link && payStatus" :tone="payTone(asState(payStatus))" data-testid="pay-state">{{ chamberLabel(payStatus) }}</Tag>
+        <Tag v-else-if="!link" :tone="payTone(st)" data-testid="pay-state">{{ payLabel(st) }}</Tag>
+      </template>
     </div>
     <p v-if="a.noFee" class="t-body-l">{{ tr('No fee', 'ফি নেই') }}</p>
     <template v-else>
       <p v-if="a.fee" class="t-title-m">{{ tr('Fee: ', 'ফি: ') + a.fee }}</p>
       <InfoText v-if="a.status === 'pending'" :text="T.afterConfirm()" />
-      <div v-if="showNumber" class="appt-bkash">
-        <span class="col gap-2 grow">
-          <span class="t-label-m muted">{{ T.bkash() }}</span>
-          <span class="t-title-l num" data-testid="bkash-shown">{{ num(a.bkashNumber) }}</span>
-        </span>
-        <button type="button" class="btn tonal small" data-testid="bkash-copy" @click="copy">{{ copied ? tr('Copied', 'কপি হয়েছে') : tr('Copy', 'কপি') }}</button>
-      </div>
-      <template v-if="st === 'claimed'">
-        <InfoText :text="T.checking()" />
-        <p v-if="a.payRef" class="t-body-m">TrxID: <span class="appt-trx">{{ a.payRef }}</span></p>
-      </template>
-      <p v-if="st === 'paid' && a.payRef" class="t-body-m muted">TrxID: <span class="appt-trx">{{ a.payRef }}</span></p>
-      <!-- ফি পরিশোধিত: ডাক্তারের দেওয়া রসিদ (appt_pay_confirm-এ তৈরি) -->
-      <div v-if="st === 'paid' && a.invoiceId"><InvoiceLink ref-type="appointment" :ref-id="a.id" :invoice-id="a.invoiceId" /></div>
-      <template v-if="canClaim">
-        <div v-if="st === 'rejected'" class="col gap-4 appt-pay-rej" role="status">
-          <p class="t-body-m">{{ T.rejected() }}</p>
-          <p v-if="a.payReason" class="t-body-s">{{ T.reason() + a.payReason }}</p>
-        </div>
-        <div class="col gap-4">
-          <span class="t-label-l">{{ T.howTo() }}</span>
-          <ol class="appt-steps t-body-m">
-            <li>{{ T.step1() }}</li>
-            <li>{{ T.step2() }}</li>
-            <li>{{ T.step3() }}</li>
-            <li>{{ T.step4() }}</li>
-          </ol>
-        </div>
-        <TextInput
-          :label="T.trx()"
-          :hint="T.trxHint()"
-          :maxlength="TRX_LEN"
-          :placeholder="T.trxPh()"
-          autocomplete="off"
-          autocapitalize="characters"
-          spellcheck="false"
-          data-testid="trx-input"
-          :model-value="trx"
-          @update:model-value="(v) => (trx = trxInput(v))"
-        />
-        <ErrorText :text="err" />
-        <div class="row">
-          <Button icon="check_circle" :busy="busy" data-testid="pay-claim" @click="claim">{{ T.sent() }}</Button>
-        </div>
-      </template>
+      <PayRequestSheet v-if="link" :id="link.id" :initial="link.request" bare :locked="a.status !== 'confirmed'" @loaded="(r) => (live = r)" @changed="onPay" />
+      <PaySheet v-else :req="legacyReq" :legacy="legacy" bare :locked="a.status !== 'confirmed'" @changed="emit('changed')" />
     </template>
     <p v-if="a.onlineNote" class="t-body-m appt-note pre">{{ tr('Note: ', 'নোট: ') + a.onlineNote }}</p>
     <div v-if="canReport" class="row wrap gap-6 appt-pay-report">

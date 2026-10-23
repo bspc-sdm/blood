@@ -23,6 +23,8 @@ import { T as DT } from '@/offline/text';
 import { invFeature } from '../invoices/features';
 import { isDesktop } from '../invoices/offline';
 import { writesRx } from '@/lib/practice';
+import { T as PT } from '../pay/text';
+import { useMyPayBiz } from '../pay/biz/bizlist';
 
 const s = useSession();
 const nav = useNav();
@@ -40,6 +42,8 @@ const title = computed(() => tr('My work', 'আমার কাজ'));
 
 const hasBusiness = computed(() => amb.value.length > 0 || !!ph.value || bbs.value.length > 0 || !!lab.value);
 // Windows অ্যাপ (ফিচার সুইচ desktop): ফার্মেসি, প্যাথলজি, ডাক্তার/সহকারীকে — ডেস্কটপ অ্যাপের ভেতরে নয়
+// পেমেন্ট (PAYMENTS.md): চালু সুইচের অন্তত একটা ব্যবসা থাকলে
+const payBiz = useMyPayBiz();
 const desktopLink = computed(() => invFeature('desktop') && !isDesktop() && (!!ph.value || !!lab.value || s.work.professional === 'doctor' || s.work.assisting.length > 0));
 const empty = computed(() => !hasBusiness.value && !s.work.professional && !s.work.assisting.length);
 
@@ -170,6 +174,8 @@ const bbSub = computed(() => [bbs.value.length === 1 ? bbs.value[0].name : tr(`$
           <RouterLink to="/work/lab/edit" class="btn text small has-icon"><Icon name="edit" />{{ tr('Edit details', 'তথ্য বদলান') }}</RouterLink>
         </template>
       </BizCard>
+
+      <BizCard v-if="payBiz.length" icon="payments" :title="PT.bizTitle()" :sub="PT.methodsIntro()" to="/work/payments" data-testid="pay-biz-link" />
 
       <BizCard v-if="desktopLink" icon="storefront" :title="DT.dlTitle()" :sub="DT.dlIntro()" to="/desktop-app" data-testid="desktop-app-link">
         <template #actions><RouterLink to="/desktop-app" class="btn outline small has-icon"><Icon name="add" />{{ DT.dlButton() }}</RouterLink></template>

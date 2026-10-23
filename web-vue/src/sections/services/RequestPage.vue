@@ -15,6 +15,10 @@ import ReasonDialog from './ReasonDialog.vue';
 import PickCarDialog from './PickCarDialog.vue';
 import RatingDialog from './RatingDialog.vue';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
+import RefPay from '../pay/RefPay.vue';
+import { payOn } from '../pay/features';
+import { payLinkOf } from '../pay/model';
+import { T as PT } from '../pay/text';
 import AmbHead from './AmbHead.vue';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
@@ -174,6 +178,8 @@ async function onReplace(c: AmbCar | null) {
         <AmbHead icon="check_circle" :t="tr('Trip finished', 'ট্রিপ শেষ')" :sub="r.ambulance?.name" />
         <Button v-if="r.canRate && r.ambulance" icon="star" @click="rating = true">{{ tr('Rate the ambulance', 'অ্যাম্বুলেন্সকে রেটিং দিন') }}</Button>
         <InvoiceLink ref-type="ambreq" :ref-id="r.id" :invoice-id="r.invoiceId" />
+        <!-- ট্রিপ শেষে ভাড়া মোবাইল ব্যাংকিংয়ে (pay_ambulance) — শুধু শেষ হলে, কখনো বাধ্যতামূলক নয় -->
+        <RefPay v-if="payOn('pay_ambulance')" ref-type="ambreq" :ref-id="r.id" purpose="ambulance_fare" :link="payLinkOf(r)" :label="PT.payFare()" :note="PT.fareOptional()" />
       </template>
       <template v-if="r.status === 'byPhone'">
         <AmbHead icon="check_circle" :t="tr('You got an ambulance by phone', 'ফোনে গাড়ি পেয়েছেন')" :sub="r.ambulance?.name" />

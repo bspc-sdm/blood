@@ -215,7 +215,9 @@ async function startEvents(uid: string) {
       while ((i = buf.search(/\r?\n\r?\n/)) >= 0) {
         const block = buf.slice(0, i);
         buf = buf.slice(i).replace(/^\r?\n\r?\n/, '');
-        if (parseEventName(block) === 'features_changed') void refreshFeatures(true);
+        const name = parseEventName(block);
+        if (name === 'features_changed') void refreshFeatures(true);
+        else if (name) streamTaps.forEach((f) => f(name));
       }
     }
   } catch {
@@ -232,6 +234,13 @@ async function startEvents(uid: string) {
       void startEvents(uid);
     }
   }, wait);
+}
+
+// এই স্ট্রিমের অন্য ঘটনার নাম (যেমন pay_* — sections/pay/live.ts); কলের স্ট্রিম চললে সেটার tapEvents
+const streamTaps = new Set<(name: string) => void>();
+export function tapFeatureStream(f: (name: string) => void) {
+  streamTaps.add(f);
+  return () => void streamTaps.delete(f);
 }
 
 /** একটা SSE ব্লকের `event:` নাম */

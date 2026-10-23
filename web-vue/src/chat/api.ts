@@ -18,6 +18,8 @@ export interface ChatMessage {
   location?: ChatLocation;
   at: number;
   readAt?: number | null;
+  /** সার্ভারের সতর্কতা: "money_number" — মেসেজে টাকার নম্বর (নিরাপত্তা পর্যালোচনা P2) */
+  warn?: string;
   unsent?: boolean;
   // শুধু এই ব্রাউজারে: পাঠানো চলছে / হয়নি (একই clientId-তে আবার পাঠালে সার্ভার একবারই রাখে)
   clientId?: string;
@@ -55,6 +57,7 @@ export function parseMessage(o: any, threadId = ''): ChatMessage {
   const loc = parseLocation(o?.location);
   if (loc) m.location = loc;
   m.readAt = o?.readAt ? num(o.readAt) : null;
+  if (str(o?.warn)) m.warn = str(o.warn);
   return m;
 }
 function parsePage(r: any, threadId: string): MessagePage {

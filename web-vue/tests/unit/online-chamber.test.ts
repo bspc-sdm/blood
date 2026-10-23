@@ -2,7 +2,9 @@
 // ডাক্তার/সহকারীর "ফি পেয়েছি"/"পাইনি" (নিশ্চিত ধাপসহ), "ভিডিও কলে যুক্ত হোন"-এর লিংক।
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
-import { RouterLinkStub, flushPromises, mount } from '@vue/test-utils';
+import { RouterLinkStub, flushPromises, mount, config } from '@vue/test-utils';
+import { VueQueryPlugin } from '@tanstack/vue-query';
+import { queryClient } from '@/lib/query';
 
 const call = vi.fn();
 vi.mock('@/lib/api', () => ({
@@ -42,6 +44,8 @@ const ConfirmStub = defineComponent({
 });
 const DialogStub = defineComponent({ setup: (_, { slots }) => () => h('div', { 'data-test': 'dialog' }, [slots.default?.(), slots.actions?.()]) });
 const stubs = { RouterLink: RouterLinkStub, ConfirmDialog: ConfirmStub, Dialog: DialogStub };
+// ফির অংশ এখন LIFOLO PAY-এর শিটে (pay-number, pay-copy, pay-steps); ডাক্তারের দিক পেমেন্টের বিস্তারিত আনতে vue-query লাগে
+config.global.plugins = [[VueQueryPlugin, { queryClient }]];
 
 const appt = (o: Record<string, unknown> = {}) =>
   parseAppointment({
@@ -128,10 +132,10 @@ describe('রোগী: ফি পাঠানো', () => {
     Object.assign(navigator, { clipboard: { writeText } });
     const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
     expect(w.get('[data-testid="pay-state"]').text()).toBe('পাঠানো হয়নি');
-    expect(w.get('[data-testid="bkash-shown"]').text()).toBe('০১৭১২৩৪৫৬৭৮');
-    expect(w.findAll('.appt-steps li')).toHaveLength(4);
+    expect(w.get('[data-testid="pay-number"]').text()).toBe('০১৭১২৩৪৫৬৭৮');
+    expect(w.findAll('[data-testid="pay-steps"] li')).toHaveLength(4);
     expect(w.text()).toContain('নেট চালু রাখবেন');
-    await w.get('[data-testid="bkash-copy"]').trigger('click');
+    await w.get('[data-testid="pay-copy"]').trigger('click');
     expect(writeText).toHaveBeenCalledWith('01712345678');
     await w.get('input[data-testid="trx-input"]').setValue('9gh7 k2lm1p');
     await w.get('[data-testid="pay-claim"]').trigger('click');
@@ -164,7 +168,7 @@ describe('রোগী: ফি পাঠানো', () => {
 
     const paid = mount(OnlinePayCard, { props: { a: appt({ payState: 'paid' }) }, global: { stubs } });
     expect(paid.get('[data-testid="pay-state"]').text()).toBe('ফি পরিশোধিত');
-    expect(paid.find('[data-testid="bkash-shown"]').exists()).toBe(false);
+    expect(paid.find('[data-testid="pay-number"]').exists()).toBe(false);
 
     const rej = mount(OnlinePayCard, { props: { a: appt({ payState: 'unpaid', payNote: 'টাকা আসেনি' }) }, global: { stubs } });
     expect(rej.get('[data-testid="pay-state"]').text()).toBe('ডাক্তার পাননি');

@@ -25,6 +25,8 @@ const Pro = lazy(() => import('../appointment/pro/ProfessionalWorkspace.vue'));
 const DoctorRx = lazy(() => import('../rx/doctor/DoctorRx.vue'));
 const PharmacyRx = lazy(() => import('../rx/partner/PharmacyRx.vue'));
 const LabOrders = lazy(() => import('../rx/partner/LabOrders.vue'));
+// পেমেন্ট (PAYMENTS.md): মেলানো, তালিকা, সেটিং — সব ব্যবসার এক জায়গা
+const Payments = lazy(() => import('../pay/biz/BizPayPage.vue'));
 
 const route = useRoute();
 const loc = useLoc();
@@ -38,6 +40,7 @@ const page = computed<{ k: string; id?: string | null }>(() => {
   // ২.৩০.০ "দোকান"-এর ভেতরের বিক্রি/স্টক/এনালাইটিক্স (হিসাব-খাতা) — কাউন্টারের সাথে একই ভাগে
   if (matchPath({ path: '/work/pharmacy/shop/:sub', end: true }, p)) return { k: 'pharmRx' };
   if (matchPath({ path: '/work/lab/orders/*', end: false }, p)) return { k: 'labOrders' };
+  if (matchPath({ path: '/work/payments/*', end: false }, p)) return { k: 'payments' };
   if (m('/work')) return { k: 'overview' };
   if (m('/work/add')) return { k: 'add' };
   if (m('/work/ambulance')) return { k: 'amb' };
@@ -71,6 +74,7 @@ const bizApproved = computed(() => {
   <DoctorRx v-else-if="page.k === 'rx'" />
   <PharmacyRx v-else-if="page.k === 'pharmRx'" />
   <LabOrders v-else-if="page.k === 'labOrders'" />
+  <Payments v-else-if="page.k === 'payments'" />
   <WorkOverview v-else-if="page.k === 'overview'" />
   <AddBusiness v-else-if="page.k === 'add'" />
   <MyAmbulances v-else-if="page.k === 'amb'" />

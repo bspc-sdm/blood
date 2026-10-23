@@ -21,10 +21,15 @@ export function apptReportsOn(): boolean {
   }
   return live('online_chamber') || live('calls_audio') || live('chat');
 }
+/** পেমেন্টের রিপোর্ট আর সতর্কতা (PAYMENTS.md): pay_manual কারো জন্য চালু হলে */
+export function payReportsOn(): boolean {
+  apptReportsOn();
+  return live('pay_manual');
+}
 
 /** রিপোর্টের ধরন: অনলাইন অ্যাপয়েন্টমেন্ট / কল / মেসেজ */
-const kindTabs = (cur: 'appt' | 'call' | 'msg') => h('div', { class: 'seg', role: 'tablist', 'aria-label': 'রিপোর্টের ধরন' }, // bn-ok
-  ([['apptreports', 'appt', 'অনলাইন অ্যাপয়েন্টমেন্ট'], ['callreports', 'call', 'কল'], ['msgreports', 'msg', 'মেসেজ']] as const).map(([path, k, label]) => // bn-ok
+export const kindTabs = (cur: 'appt' | 'call' | 'msg' | 'pay') => h('div', { class: 'seg', role: 'tablist', 'aria-label': 'রিপোর্টের ধরন' }, // bn-ok
+  ([['apptreports', 'appt', 'অনলাইন অ্যাপয়েন্টমেন্ট'], ['callreports', 'call', 'কল'], ['msgreports', 'msg', 'মেসেজ'], ...(payReportsOn() ? [['payreports', 'pay', 'পেমেন্ট'] as const] : [])] as const).map(([path, k, label]) => // bn-ok
     h('a', { href: `#/${path}?s=open`, class: k === cur ? 'on' : null, role: 'tab', 'aria-selected': k === cur ? 'true' : 'false', text: label })));
 
 const STATUS: Record<string, string> = { open: 'খোলা', resolved: 'সমাধান হয়েছে', dismissed: 'বাদ দেওয়া' }; // bn-ok

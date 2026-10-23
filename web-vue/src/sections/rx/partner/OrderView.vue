@@ -21,6 +21,9 @@ import { chatOn, openChatAt } from '@/chat/open';
 import { T } from '../../invoices/text';
 import { invFeature } from '../../invoices/features';
 import InvoiceByIdDialog from '../../invoices/InvoiceByIdDialog.vue';
+import AskPay from '../../pay/AskPay.vue';
+import { payOn } from '../../pay/features';
+import { useSession } from '@/lib/session';
 
 const props = defineProps<{ o: LabOrder }>();
 const invalidate = useInvalidate();
@@ -31,6 +34,10 @@ const confirming = ref(false);
 const declining = ref(false);
 const declineNote = ref('');
 const receiptId = ref<string | null>(null);
+// পরীক্ষার টাকা আগাম (pay_lab): বাসা থেকে নমুনা নিশ্চিত হলে বা বিল হলে
+const s = useSession();
+const labId = computed(() => String((s.work.lab as { id?: string } | null)?.id ?? s.uid ?? ''));
+const askLab = computed(() => payOn('pay_lab') && props.o.status !== 'cancelled' && (!!props.o.invoiceId || props.o.home?.status === 'confirmed'));
 const active = computed(() => props.o.status === 'sent' || props.o.status === 'received');
 const h = computed(() => props.o.home);
 const homeOpen = computed(() => !!h.value && props.o.status === 'sent' && h.value.status !== 'declined');
@@ -107,6 +114,7 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
       <div v-else-if="invFeature('inv_lab') && o.status !== 'cancelled'" class="row wrap gap-8">
         <RouterLink :to="`${LAB_BASE}/bill?order=${encodeURIComponent(o.id)}`" class="btn outline small has-icon" data-testid="lab-make-bill"><Icon name="edit_note" />{{ T.billFromOrder() }}</RouterLink>
       </div>
+      <AskPay v-if="askLab && labId" kind="lab" :biz-id="labId" ref-type="lab_order" :ref-id="o.id" purpose="lab" />
       <ErrorText :text="err" />
     </section>
 

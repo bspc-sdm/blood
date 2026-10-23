@@ -281,6 +281,7 @@ async function doBlock() {
             :selected="selected === m.id"
             :now="now"
             :can-report="!!info?.peer.uid"
+            :blood="info?.ctx === 'blood'"
             @select="select(m)"
             @photo="viewing = m"
             @photo-error="photoExpired"

@@ -4,7 +4,7 @@ import { h, icon } from './h';
 import { S, logout, parseHash, pendingCount, refreshAll, route, top } from './state';
 import { bn } from './util';
 import { PAGES, Dashboard } from './pages';
-import { apptReportsOn } from './pages/ApptReports';
+import { apptReportsOn, payReportsOn } from './pages/ApptReports';
 
 interface NavItem {
   path: string;
@@ -32,7 +32,7 @@ const NAV: { group: string | null; items: NavItem[] }[] = [
   { group: 'সহায়তা', items: [
     { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
     { path: 'reports', label: 'রিপোর্ট', icon: 'flag', count: () => pendingCount('reports') },
-    { path: 'apptreports', label: 'অনলাইন, কল ও মেসেজের রিপোর্ট', icon: 'flag', show: apptReportsOn }, // bn-ok
+    { path: 'apptreports', label: 'অনলাইন, কল ও মেসেজের রিপোর্ট', icon: 'flag', show: () => apptReportsOn() || payReportsOn() }, // bn-ok
     { path: 'corrections', label: 'তারিখ সংশোধন', icon: 'calendar', count: () => pendingCount('corrections') },
   ] },
   { group: 'ব্যবস্থাপনা', items: [
@@ -56,7 +56,7 @@ function nav() {
       if (it.owner && !(S.me && S.me.isOwner)) continue;
       if (it.show && !it.show()) continue;
       const n = it.count ? it.count() : 0;
-      const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets') || ((cur === 'callreports' || cur === 'msgreports') && it.path === 'apptreports')
+      const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets') || ((cur === 'callreports' || cur === 'msgreports' || cur === 'payreports') && it.path === 'apptreports')
         || (cur === 'verify' && r.arg.startsWith(`${it.path}:`));
       kids.push(h('a', { href: `#/${it.path}`, class: on ? 'on' : null, 'aria-current': on ? 'page' : null, onclick: (ev: MouseEvent) => {
         S.navOpen = false;

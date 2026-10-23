@@ -72,6 +72,9 @@
 .chat-meta .tick.read { color: var(--primary); opacity: 1; }
 .chat-meta .err { display: inline-flex; align-items: center; gap: 3px; color: var(--error); font-weight: 600; }
 .chat-err { color: var(--error); margin: 2px 4px 0; }
+.chat-warn { display: flex; align-items: flex-start; gap: 6px; max-width: 80%; margin: 4px 4px 0; padding: 6px 10px; border-radius: 10px; background: var(--surface-low); color: var(--on-surface); border: 1px solid var(--error); }
+.chat-warn.blood { background: var(--error-container); color: var(--on-error-container); font-weight: 600; }
+.chat-warn svg { flex: none; margin-top: 1px; }
 .chat-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 2px; }
 .chat-report-quote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--outline-variant); background: var(--surface-low); border-radius: 6px; white-space: pre-wrap; }
 .chat-newbelow { position: absolute; left: 50%; transform: translateX(-50%); bottom: 84px; box-shadow: var(--shadow); z-index: 2; }

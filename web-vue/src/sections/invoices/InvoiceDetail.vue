@@ -9,6 +9,10 @@ import { T } from './text';
 import ReceiptView from './ReceiptView.vue';
 import OverchargeDialog from './OverchargeDialog.vue';
 import { pickInvoice, type Invoice } from './model';
+import RefPay from '../pay/RefPay.vue';
+import { payOn } from '../pay/features';
+import { startDue } from '../pay/api';
+import { T as PT } from '../pay/text';
 
 const props = defineProps<{ id: string; initial: Invoice | null; back: () => void }>();
 const q = useCall<any>('invoice_get', () => ({ id: props.id }), () => ({ enabled: !props.initial }));
@@ -25,6 +29,8 @@ const reporting = ref(false);
         <span class="grow" />
         <Button small variant="danger-text" icon="flag" data-testid="over-report" @click="reporting = true">{{ T.overchargedVsReceipt() }}</Button>
       </div>
+      <!-- বাকি পরিশোধ (pay_due): রসিদের বাকি টাকা ব্যবসার নম্বরে -->
+      <div v-if="inv.status !== 'void' && inv.due > 0 && inv.id && payOn('pay_due')" class="row"><RefPay ref-type="invoice" :ref-id="inv.id" purpose="invoice_due" :start="() => startDue(inv!.id)" :label="PT.payDue()" /></div>
       <ReceiptView :inv="inv" />
       <OverchargeDialog v-if="reporting" :inv="inv" @close="reporting = false" />
     </template>

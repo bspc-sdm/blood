@@ -1,0 +1,542 @@
+[
+ {
+  "name": "my-payments",
+  "path": "/invoices/payments",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-open",
+  "path": "/invoices/payments/prq1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-claimed",
+  "path": "/invoices/payments/prq2",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-rejected",
+  "path": "/invoices/payments/prq3",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-refund",
+  "path": "/invoices/payments/prq4",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-en",
+  "path": "/invoices/payments/prq1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "en",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payment-dark",
+  "path": "/invoices/payments/prq3",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "dark",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "my-payments-off",
+  "path": "/invoices/payments",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "biz-inbox",
+  "path": "/work/payments",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "biz-all",
+  "path": "/work/payments/all?biz=pharmacy%3Au-work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "biz-settings",
+  "path": "/work/payments/settings?biz=pharmacy%3Au-work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "biz-settings-chamber",
+  "path": "/work/payments/settings?biz=chamber%3Au-work",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "biz-inbox-dark",
+  "path": "/work/payments",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "dark",
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ },
+ {
+  "name": "biz-off",
+  "path": "/work/payments",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "pgw-result",
+  "path": "/pay/result/ck1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   },
+   "features": {
+    "pay_manual": true,
+    "pay_chamber_advance": true,
+    "pay_delivery": true,
+    "pay_lab": true,
+    "pay_ambulance": true,
+    "pay_due": true,
+    "pay_bkash_pgw": true,
+    "inv_pharmacy": true,
+    "inv_lab": true,
+    "inv_chamber": true,
+    "inv_ambulance": true,
+    "my_expenses": true,
+    "online_chamber": true
+   }
+  }
+ }
+]

@@ -108,8 +108,26 @@ export async function toDocument(file: Blob): Promise<string> {
 }
 
 // ---------- নোটিফিকেশন → পাতা (অ্যাপের MainActivity.openFromData) ----------
+/** পেমেন্ট (PAYMENTS.md): রোগী → সেই পেমেন্ট ("আমার রসিদ ও খরচ"-এর পেমেন্ট); ব্যবসা → মেলানোর তালিকা; নম্বর বদল → সেটিং */
+export function payTarget(data: Record<string, string>): string {
+  switch (data.type) {
+    case 'pay_claimed':
+    case 'pay_reminder':
+    case 'pay_methods_changed': {
+      const q = data.kind && data.bizId ? `?biz=${encodeURIComponent(`${data.kind}:${data.bizId}`)}` : '';
+      return (data.type === 'pay_methods_changed' ? '/work/payments/settings' : '/work/payments') + q;
+    }
+    default: {
+      const pid = data.payId || data.requestId || data.id;
+      return pid ? `/invoices/payments/${encodeURIComponent(pid)}` : '/invoices/payments';
+    }
+  }
+}
+
 export function inboxTarget(data: Record<string, string>, me: CommunityMe | null, work: WorkSummary): string {
   const type = data.type;
+  // পেমেন্ট আগে (data-তে requestId থাকলেও সেটা পেমেন্টের — রক্তের অনুরোধ নয়)
+  if (type?.startsWith('pay_')) return payTarget(data);
   if (data.requestId) return type === 'response' ? `/my-requests/${data.requestId}` : `/request/${data.requestId}`;
   if (data.questionId) return `/health/question/${data.questionId}`;
   const approved = me?.badge?.status === 'approved' ? me.badge.type : null;
@@ -177,6 +195,14 @@ export function inboxIcon(type?: string, kind?: string, title?: string): string 
   }
   switch (type) {
     case 'appointment': return 'calendar_month';
+    case 'pay_requested':
+    case 'pay_claimed':
+    case 'pay_confirmed':
+    case 'pay_rejected':
+    case 'pay_refunded':
+    case 'pay_refund_claimed':
+    case 'pay_reminder':
+    case 'pay_methods_changed': return 'payments';
     case 'homevisit':
     case 'homecare': return 'home_health';
     case 'answer': return 'forum_outline';

@@ -55,6 +55,8 @@ export const router = createRouter({
     // রসিদ: রোগীর তালিকা/খরচ, আর পাবলিক যাচাই (রসিদের QR — লগইন ছাড়া)
     { path: rest('/invoices'), component: Invoices },
     { path: '/v/:code?', component: VerifyInvoice },
+    // bKash গেটওয়ের ফল — শুধু Lifolo-র নিজের আয় (pay_bkash_pgw); অবস্থা সার্ভার থেকে, ঠিকানা থেকে নয়
+    { path: '/pay/result/:id?', component: () => import('./sections/pay/PgwResult.vue'), beforeEnter: featureGuard('pay_bkash_pgw') },
     { path: '/:pathMatch(.*)*', component: NotFound },
   ],
   // পাতা বদলালে উপরে যাওয়া AppShell নিজে করে (React-এর মতো)

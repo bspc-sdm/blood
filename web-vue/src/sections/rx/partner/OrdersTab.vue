@@ -22,6 +22,10 @@ import DeliverDialog from '../../invoices/DeliverDialog.vue';
 import InvoiceByIdDialog from '../../invoices/InvoiceByIdDialog.vue';
 import { T } from '../../invoices/text';
 import { invFeature } from '../../invoices/features';
+import AskPay from '../../pay/AskPay.vue';
+import { payOn } from '../../pay/features';
+import { useSession } from '@/lib/session';
+import { toAsciiDigits } from '@/lib/i18n';
 
 const BASE = '/work/pharmacy/orders';
 const props = defineProps<{ code: string | null; orders: { data?: PharmOrders; isLoading: boolean; isFetching: boolean; error: Error | null; refetch: () => unknown } }>();
@@ -32,6 +36,10 @@ const accepting = ref<PharmOrder | null>(null);
 const cancelling = ref<PharmOrder | null>(null);
 const delivering = ref<PharmOrder | null>(null);
 const receiptId = ref<string | null>(null);
+// ডেলিভারির আগাম পেমেন্ট (pay_delivery): দামের লেখা থেকে টাকা (না মিললে দোকান নিজে লেখে)
+const s = useSession();
+const pharmId = computed(() => String((s.work.pharmacy as { id?: string } | null)?.id ?? s.uid ?? ''));
+const priceOf = (o: PharmOrder) => Number(toAsciiDigits(String(o.price ?? '')).replace(/[^0-9.]/g, '')) || null;
 const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(PHARM_SEGS, props.orders.data?.counts, pharmSegOf as (x: never) => PharmSeg, items.value));
 const seg = computed<PharmSeg>(() => {
@@ -116,6 +124,7 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
             <Button v-if="invFeature('inv_pharmacy') && o.mode === 'online' && (o.status === 'accepted' || o.status === 'out')" small variant="tonal" icon="check_circle" :disabled="!!up.busyId.value" data-testid="order-delivered" @click="delivering = o">{{ T.delivered() }}</Button>
             <Button small variant="danger-text" :disabled="!!up.busyId.value" @click="cancelling = o">{{ tr('Can\'t', 'পারব না') }}</Button>
           </div>
+          <AskPay v-if="o.mode === 'online' && (o.status === 'accepted' || o.status === 'out') && payOn('pay_delivery') && pharmId" kind="pharmacy" :biz-id="pharmId" ref-type="rx_order" :ref-id="o.id" purpose="delivery" :amount="priceOf(o)" />
         </article>
       </div>
       <p v-if="counts[seg] > rows.length" class="t-body-s muted">{{ tr(`Showing the latest ${rows.length} of ${counts[seg]}`, `মোট ${num(counts[seg])}টার সাম্প্রতিক ${num(rows.length)}টা দেখানো হলো`) }}</p>

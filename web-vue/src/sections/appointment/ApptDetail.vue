@@ -17,6 +17,9 @@ import { useNow } from '@/ui/composables';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
 import { systemTag } from '@/lib/practice';
 import PsychApptNote from '../practice/PsychApptNote.vue';
+import RefPay from '../pay/RefPay.vue';
+import { payOn } from '../pay/features';
+import { T as PT } from '../pay/text';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ cancel: []; changed: [] }>();
@@ -50,6 +53,8 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
     <p class="t-body-l pre">{{ a.note }}</p>
   </div>
   <OnlinePayCard v-if="a.online && onlineOn() && a.status !== 'cancelled' && a.status !== 'declined' && a.status !== 'expired'" :a="a" @changed="emit('changed')" />
+  <!-- চেম্বারের বুকিংয়ের অগ্রিম (pay_chamber_advance) — থাকলে -->
+  <RefPay v-if="!a.online && a.role === 'patient' && payOn('pay_chamber_advance') && a.status !== 'cancelled' && a.status !== 'declined'" ref-type="appointment" :ref-id="a.id" purpose="booking_advance" :link="a.payLink" :label="PT.payAdvance()" />
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
   <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" />

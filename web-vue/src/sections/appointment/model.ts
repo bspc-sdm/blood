@@ -56,6 +56,8 @@ export interface Chamber {
   bkashActive: string;
   /** provider_me: বদলানো নম্বর কখন চালু (ms), নইলে null */
   bkashPendingUntil: number | null;
+  /** বুকিংয়ের অগ্রিম (PAYMENTS.md pay_chamber_advance) — ডাক্তার চালু করলে */
+  advance?: { amount: number; refundableUntilHoursBefore: number } | null;
 }
 export interface HomeVisit {
   enabled: boolean;
@@ -193,6 +195,7 @@ export function parseChamber(o: any): Chamber {
     note: s(o?.note),
     bkashActive: s(o?.bkashActive),
     bkashPendingUntil: typeof o?.bkashPendingUntil === 'number' ? o.bkashPendingUntil : null,
+    advance: o?.advance && Number(o.advance.amount) > 0 ? { amount: Number(o.advance.amount), refundableUntilHoursBefore: Number(o.advance.refundableUntilHoursBefore) || 0 } : null,
   };
 }
 export function parseHomeVisit(o: any): HomeVisit | null {
