@@ -1,6 +1,6 @@
 // অফলাইন/ডেস্কটপের সব লেখা এক জায়গায় (নতুন লেখা, React ওয়েবে আগের রূপ নেই: প্রতিটা লাইনে bn-ok)
 import { num, tr, trPlain } from '@/lib/i18n';
-import type { InvoiceKind, PayMethod } from './types';
+import type { InvoiceKind, PayMethod, VisitType } from './types';
 
 /** রসিদের লেখা — রসিদ সবসময় বাংলায় (অঙ্ক আলাদা বাছাই) */
 export const R = {
@@ -25,6 +25,7 @@ export const R = {
   offlineVerify: 'ইন্টারনেট এলে যাচাই হবে', // bn-ok
   demo: 'ডেমো', // bn-ok
   printedNo: 'ছাপা নম্বর', // bn-ok
+  visit: { new: 'ডাক্তারের ফি — নতুন রোগী', followup: 'ডাক্তারের ফি — ফলো-আপ', report: 'ডাক্তারের ফি — রিপোর্ট দেখানো' } as Record<VisitType, string>, // bn-ok
   method: { cash: 'ক্যাশ', bkash: 'বিকাশ', nagad: 'নগদ', card: 'কার্ড', other: 'অন্যান্য' } as Record<PayMethod, string>, // bn-ok
   testTitle: 'টেস্ট প্রিন্ট', // bn-ok
   testLine: 'বাংলা লেখা ঠিকমতো ছাপা হলে প্রিন্টার প্রস্তুত', // bn-ok
