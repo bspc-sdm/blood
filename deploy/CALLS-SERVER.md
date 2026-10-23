@@ -81,7 +81,7 @@ Cloudflare-এ কিছু বদলাতে হবে না। (Network → 
 
 | কী | বিবরণ |
 |---|---|
-| ভিত্তি | unattended-upgrades, fail2ban, ufw, journald-সীমা; প্রথম সংযোগে root পাসওয়ার্ড → GitHub-এর চাবি → পাসওয়ার্ড লগইন বন্ধ (মূল VPS-এর মতোই) |
+| ভিত্তি | unattended-upgrades, fail2ban, ufw, journald (৫০০ MB, ১৪ দিন — লগে uid আর IP থাকে); প্রথম সংযোগে root পাসওয়ার্ড → GitHub-এর চাবি → পাসওয়ার্ড লগইন বন্ধ (মূল VPS-এর মতোই) |
 | নাম | `wss://call.lifolo.com` (signaling), `turns:turn.lifolo.com:443` (TURN/TLS) |
 | 443 | nginx নাম দেখে (SNI) ভাগ করে: `turn.lifolo.com` → LiveKit-এর TURN/TLS, বাকি → signaling |
 | সার্টিফিকেট | Let's Encrypt (দুটো নামেই) — শুধু DNS ঠিক এই VPS-এ এলে; নিজে নবায়ন; নতুন সার্টিফিকেট LiveKit রাতে (ঢাকা ~৩:৩০) নেয় |
@@ -142,4 +142,7 @@ Cloudflare-এ কিছু বদলাতে হবে না। (Network → 
 - ক্লায়েন্ট `LIVEKIT_URL`-এর সাথে নিজে `/rtc` (নতুন SDK-তে `/rtc/v1`, `/rtc/validate`) যোগ করে — তাই URL-এ পথ নেই, nginx `/rtc` আর `/rtc/…` LiveKit-এ পাঠায়।
 - LiveKit TURN/TLS-এর ঠিকানা সবসময় `turns:<turn.domain>:443` ঘোষণা করে — তাই আলাদা সার্ভারে TLS 443-এ (nginx stream, SNI), ভেতরে 5349।
 - মূল VPS-এ TURN/UDP-এর ঠিকানা `turn:<VPS-IP>:3478` (node_ip); relay-র পোর্ট (30000-40000) শুধু মেশিনের ভেতরে, ফায়ারওয়ালে খোলা নয়।
+- ঘর: `max_participants: 2`, `empty_timeout: 60` s, `departure_timeout: 20` s (CALLS-SECURITY-REVIEW R3)। LiveKit webhook
+  (R11: `participant_left`/`room_finished`) এখনো বসানো নয় — অ্যাপে endpoint হলে `livekit.yaml`-এ `webhook:` যোগ করতে হবে।
+- মূল VPS-এ journald-এর মেয়াদ সার্ভারের সাধারণ নিয়মেই (২১ দিন, `deploy/log-retention.sh`); আলাদা কল-সার্ভারে ১৪ দিন।
 - LiveKit সংস্করণ বদলাতে: `LK_VERSION` আর দুটো `LK_SHA256_*` (release-এর `checksums.txt`) একসাথে → CI সবুজ → Setup calls চালান।

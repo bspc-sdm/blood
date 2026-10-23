@@ -63,7 +63,7 @@ function accessToken({ apiKey, apiSecret, room, identity, name, ttlSec = 600, ca
     nbf: now - 10,
     exp: now + ttlSec,
     jti: `${identity}-${crypto.randomBytes(6).toString('hex')}`,
-    video: { room, roomJoin: true, canPublish, canSubscribe, canPublishData: true },
+    video: { room, roomJoin: true, canPublish, canSubscribe, canPublishData: false },
   };
   if (name) payload.name = name;
   const unsigned = `${b64u({ alg: 'HS256', typ: 'JWT' })}.${b64u(payload)}`;

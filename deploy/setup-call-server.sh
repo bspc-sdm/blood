@@ -176,9 +176,9 @@ EOF
   systemctl enable fail2ban >/dev/null 2>&1 || true
   systemctl restart fail2ban || warn "fail2ban চালু হয়নি"
 
-  say "journald: সর্বোচ্চ 500 MB"
+  say "journald: সর্বোচ্চ 500 MB, ১৪ দিন (কলের লগে uid আর IP থাকে)"
   install -d -m 0755 /etc/systemd/journald.conf.d
-  printf '[Journal]\nSystemMaxUse=500M\n' > /etc/systemd/journald.conf.d/lifolo.conf
+  printf '[Journal]\nSystemMaxUse=500M\nMaxFileSec=1day\nMaxRetentionSec=14day\n' > /etc/systemd/journald.conf.d/lifolo.conf
   systemctl restart systemd-journald 2>/dev/null || true
 fi
 
@@ -363,7 +363,7 @@ say "LiveKit-এর সেটিং: $LK_CONF"
   echo "room:"
   echo "  # ১:১ কল — ঘরে সর্বোচ্চ ২ জন"
   echo "  max_participants: 2"
-  echo "  empty_timeout: 120"
+  echo "  empty_timeout: 60"
   echo "  departure_timeout: 20"
   echo "logging:"
   echo "  level: info"
