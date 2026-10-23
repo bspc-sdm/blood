@@ -2,6 +2,7 @@ package com.lifolo.common
 
 import io.sentry.Sentry
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -11,6 +12,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
@@ -51,6 +53,16 @@ class ApiErrorHandler {
     @ExceptionHandler(AsyncRequestNotUsableException::class)
     fun clientGone(e: AsyncRequestNotUsableException, req: HttpServletRequest) {
         log.debug("client disconnected on {}: {}", req.requestURI, e.message)
+    }
+
+    /**
+     * A long-lived async response (an SSE stream after its 30 minutes) reached its timeout: normal, the client
+     * reconnects. Not an error and not Sentry; the stream's response is already committed, so nothing is written.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException::class)
+    fun asyncTimeout(e: AsyncRequestTimeoutException, req: HttpServletRequest, res: HttpServletResponse) {
+        log.debug("async request timed out on {}", req.requestURI)
+        if (!res.isCommitted) res.status = HttpStatus.SERVICE_UNAVAILABLE.value()
     }
 
     @ExceptionHandler(Exception::class)

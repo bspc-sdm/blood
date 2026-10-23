@@ -147,7 +147,12 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
             if (set.isEmpty()) topics.remove(topic, set)
         }
         emitter.onCompletion(remove)
-        emitter.onTimeout(remove)
+        // the 30-minute end of a stream is normal: complete it here, otherwise Spring raises AsyncRequestTimeoutException
+        // ("unhandled error on /api/events" + Sentry for every tab open that long); the client simply reconnects
+        emitter.onTimeout {
+            remove.run()
+            runCatching { emitter.complete() }
+        }
         emitter.onError { remove.run() }
         return emitter
     }

@@ -1,5 +1,6 @@
 package com.lifolo.notify
 
+import com.lifolo.common.ApiErrorHandler
 import com.lifolo.common.ClientDisconnect
 import com.lifolo.common.SentryScrubber
 import io.sentry.Hint
@@ -12,7 +13,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter.SseEventBuilder
 import java.io.IOException
@@ -114,6 +118,47 @@ class SseHubDisconnectTest {
         hub.closeAll()
         assertEquals(0, hub.subscribers("user:a"))
         assertEquals(0, hub.subscribers("user:b"))
+    }
+
+    /** an emitter that keeps the timeout callback so the test can fire it (the container would, after 30 minutes) */
+    private class TimeoutEmitter : SseEmitter(60_000L) {
+        var onTimeoutCb: Runnable? = null
+        var completes = 0
+
+        override fun onTimeout(callback: Runnable) {
+            onTimeoutCb = callback
+            super.onTimeout(callback)
+        }
+
+        override fun complete() {
+            completes++
+            super.complete()
+        }
+    }
+
+    @Test
+    fun `a stream that reaches its timeout is completed and removed (no AsyncRequestTimeoutException error)`() {
+        val e = TimeoutEmitter()
+        val hub = hubWith(e)
+        hub.subscribe("user:t")
+        assertEquals(1, hub.subscribers("user:t"))
+        assertNotNull(e.onTimeoutCb)
+        e.onTimeoutCb!!.run()
+        assertEquals(0, hub.subscribers("user:t"))
+        assertEquals(1, e.completes, "completed, so Spring does not raise AsyncRequestTimeoutException")
+    }
+
+    @Test
+    fun `an async timeout reaching the error handler is quiet (503 only when nothing was sent yet)`() {
+        val h = ApiErrorHandler()
+        val req = MockHttpServletRequest("GET", "/api/events")
+        val fresh = MockHttpServletResponse()
+        h.asyncTimeout(AsyncRequestTimeoutException(), req, fresh)
+        assertEquals(503, fresh.status)
+        val streaming = MockHttpServletResponse()
+        streaming.setCommitted(true)
+        h.asyncTimeout(AsyncRequestTimeoutException(), req, streaming)
+        assertEquals(200, streaming.status)
     }
 
     @Test
