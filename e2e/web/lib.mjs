@@ -88,6 +88,7 @@ export class Journey {
     });
     const page = await ctx.newPage();
     page.setDefaultTimeout(8000);
+    trackInflight(page);
     const errs = this.errs;
     page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`));
     page.on('console', (m) => {
@@ -225,9 +226,37 @@ export async function until(page, fn, arg = null, timeout = 8000) {
   }
 }
 
+// চলতি অনুরোধ (পাতা প্রতি) — লম্বা স্ট্রিম বাদ: ওয়েব লগইন থাকলে সবসময় GET /api/events (SSE, features_changed / কল) খোলা
+// রাখে, তাই Playwright-এর 'networkidle' আর কখনো আসে না — প্রতিটা settle পুরো ৬ সেকেন্ড অপেক্ষা করত (যাত্রা ৫৫ মিনিট পেরোত)
+const inflight = new WeakMap();
+const longLived = (r) => /\/api\/events(\?|$)/.test(r.url()) || /text\/event-stream/.test(r.headers().accept || '');
+export function trackInflight(page) {
+  const set = new Set();
+  inflight.set(page, set);
+  page.on('request', (r) => { if (!longLived(r)) set.add(r); });
+  page.on('requestfinished', (r) => set.delete(r));
+  page.on('requestfailed', (r) => set.delete(r));
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) for (const r of set) if (r.frame() !== f) set.delete(r); });
+}
+
+/** নেটওয়ার্ক ৫০০ ms চুপ ('networkidle'-এর মতো, লম্বা স্ট্রিম বাদে) — বড়জোর timeout পর্যন্ত */
+async function quiet(page, timeout = 6000) {
+  const set = inflight.get(page);
+  if (!set) return page.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await page.waitForLoadState('load', { timeout }).catch(() => {});
+  const t0 = Date.now();
+  let calmSince = set.size ? 0 : Date.now();
+  while (Date.now() - t0 < timeout) {
+    if (set.size) calmSince = 0;
+    else if (!calmSince) calmSince = Date.now();
+    else if (Date.now() - calmSince >= 500) return;
+    await page.waitForTimeout(50);
+  }
+}
+
 /** নেটওয়ার্ক থামা আর লোড চিহ্ন চলে যাওয়া পর্যন্ত */
 export async function settle(page, ms = 250) {
-  await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+  await quiet(page, 6000);
   await until(page, () => !document.querySelector('.loading, [aria-busy="true"], .skeleton'), null, 4000).catch(() => {});
   await page.waitForTimeout(ms);
 }
