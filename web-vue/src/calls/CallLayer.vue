@@ -6,17 +6,27 @@ import { Button, Dialog, Icon, Select } from '@/ui/kit';
 import { useNow } from '@/ui/composables';
 import { num, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { startCallEvents, stopCallEvents } from './events';
+import { eventTiming, startCallEvents, stopCallEvents } from './events';
+import { TEST_MODE } from '@/lib/testmode';
 import { startRing, userActivated, watchActivation } from './ring';
 import {
-  accept, attachVideo, callUi, clearApptReady, decline, dismiss, flipCamera, hangUp, joinAppointment, listDevices, resetCalls,
-  setAudioOnly, startAudio, toggleCam, toggleMic, useDevice,
+  accept, acceptVideo, attachVideo, callUi, clearApptReady, decline, declineVideo, dismiss, flipCamera, hangUp, holdEnded, joinAppointment,
+  listDevices, requestVideo, resetCalls, setAudioOnly, startAudio, timing, toggleCam, toggleMic, useDevice,
 } from './state';
+import FlagActions from './FlagActions.vue';
 import { T, clock, ctxText, endText } from './text';
 import type { DeviceLists } from './media';
 
 const s = useSession();
 const now = useNow(1000);
+// পরীক্ষায় সময় ছোট করা (window.__lfTest.callTiming = { pollMs, backoffMs … })
+if (TEST_MODE) {
+  const t = (window as any).__lfTest?.callTiming;
+  if (t) {
+    Object.assign(timing, t);
+    Object.assign(eventTiming, t.events ?? {});
+  }
+}
 onMounted(watchActivation);
 watch(
   () => (s.ready && !s.guest ? s.uid : null),
@@ -92,7 +102,12 @@ async function joinReady() {
     <button v-if="canSound" type="button" class="btn text small has-icon" data-testid="call-sound" @click="soundOn"><Icon name="volume_up" />{{ T.tapSound() }}</button>
     <div class="acts">
       <button type="button" class="btn square has-icon call-decline" data-testid="call-decline" @click="decline"><Icon name="call_end" />{{ T.decline() }}</button>
-      <button type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept"><Icon :name="callUi.video ? 'videocam' : 'call'" />{{ T.answer() }}</button>
+      <!-- রক্ত/অ্যাম্বুলেন্স/অর্ডারের ভিডিও কল: অডিওতে না ভিডিওতে ধরবেন -->
+      <template v-if="callUi.video && callUi.ctx !== 'appointment'">
+        <button type="button" class="btn square has-icon call-accept" data-testid="call-accept-audio" @click="accept(false)"><Icon name="call" />{{ T.answerAudio() }}</button>
+        <button type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept(true)"><Icon name="videocam" />{{ T.answerVideo() }}</button>
+      </template>
+      <button v-else type="button" class="btn square has-icon call-accept" data-testid="call-accept" @click="accept()"><Icon :name="callUi.video ? 'videocam' : 'call'" />{{ T.answer() }}</button>
     </div>
   </div>
 
@@ -115,7 +130,7 @@ async function joinReady() {
     <div class="call-top">
       <span class="name" data-testid="call-peer">{{ peerName }}</span>
       <span class="sub" data-testid="call-status" aria-live="polite">{{ status }}</span>
-      <span v-if="callUi.ctx && !waiting" class="sub">{{ (callUi.video ? T.video() : T.inApp()) + ' · ' + ctxText(callUi.ctx) }}</span>
+      <span v-if="callUi.ctx && !waiting" class="sub">{{ (callUi.video ? T.video() : T.audioCall()) + ' · ' + ctxText(callUi.ctx) }}</span>
     </div>
     <div class="call-mid">
       <template v-if="!showRemote">
@@ -128,6 +143,21 @@ async function joinReady() {
         <a v-if="callUi.phone" class="btn outline small square has-icon" :href="`tel:${callUi.phone}`"><Icon name="call" />{{ T.phoneInstead() + ' ' + num(callUi.phone) }}</a>
       </div>
       <div v-if="callUi.note && callUi.phase !== 'ended'" class="call-note" role="status" data-testid="call-note">{{ callUi.note }}</div>
+      <!-- অডিও কলে ভিডিও: ওপাশ চাইছেন -->
+      <div v-if="callUi.upgrade === 'offered' && callUi.phase === 'active'" class="call-note" role="alertdialog" data-testid="call-video-offer">
+        <div>{{ T.offeredVideo() }}</div>
+        <div class="row gap-8" :style="{ justifyContent: 'center', marginTop: '6px' }">
+          <button type="button" class="btn outline small" data-testid="call-video-no" @click="declineVideo">{{ T.notNow() }}</button>
+          <button type="button" class="btn small call-accept has-icon" data-testid="call-video-yes" @click="acceptVideo"><Icon name="videocam" />{{ T.agree() }}</button>
+        </div>
+      </div>
+      <button
+        v-if="callUi.phase === 'active' && !callUi.video && !callUi.appt && !callUi.upgrade && callUi.peerIn"
+        type="button"
+        class="btn outline small has-icon"
+        data-testid="call-ask-video"
+        @click="requestVideo"
+      ><Icon name="videocam" />{{ T.askVideo() }}</button>
       <div v-if="callUi.poor && !callUi.audioOnly && callUi.video && callUi.phase === 'active'" class="call-note" data-testid="call-poor">
         <div>{{ T.weak() }}</div>
         <button type="button" class="btn outline small" data-testid="call-audio-only" @click="setAudioOnly(true)">{{ T.audioOnly() }}</button>
@@ -136,7 +166,10 @@ async function joinReady() {
     </div>
     <div class="call-bottom">
       <template v-if="callUi.phase === 'ended'">
-        <Button v-if="callUi.error" variant="outline" data-testid="call-close" @click="dismiss">{{ tr('Close', 'বন্ধ') }}</Button>
+        <div class="col gap-12" :style="{ alignItems: 'center' }">
+          <FlagActions v-if="callUi.canFlag && callUi.peer && callUi.callId" :peer-uid="callUi.peer.uid" :peer-name="callUi.peer.name" :call-id="callUi.callId" dark :small="false" @open="holdEnded" />
+          <Button v-if="callUi.error || callUi.canFlag" variant="outline" data-testid="call-close" @click="dismiss">{{ tr('Close', 'বন্ধ') }}</Button>
+        </div>
       </template>
       <template v-else>
         <div class="call-ctl-wrap">

@@ -51,7 +51,7 @@ let family = [
   { id: 'm_e5f6a7b8', name: 'সামির', relation: 'ছেলে', age: 9, gender: 'male', phone: '' },
 ];
 
-const NOTIFY_CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'community', 'business'];
+const NOTIFY_CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'calls', 'community', 'business'];
 const notifyPrefs = (b = {}) => ({ ok: true, all: b.all ?? true, cats: Object.fromEntries(NOTIFY_CATS.map((c) => [c, b.cats?.[c] ?? true])) });
 
 export default {

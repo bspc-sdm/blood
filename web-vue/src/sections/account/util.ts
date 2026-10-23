@@ -119,6 +119,12 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
     case 'homevisit':
     case 'homecare':
       return '/appointment/home-care';
+    // অ্যাপে কল: মিস হওয়া কল → কলের তালিকা; ডাক্তার অনলাইন অ্যাপয়েন্টমেন্টের কলে → সেই কলে ঢোকার পাতা
+    case 'call_missed':
+    case 'call_incoming':
+      return '/calls';
+    case 'appt_call_ready':
+      return data.appointmentId ? `/appointments/${encodeURIComponent(data.appointmentId)}/call` : '/my-appointments';
     case 'support':
       return data.ticketId ? `/help/${data.ticketId}` : '/help';
     // প্রেসক্রিপশনের খবর: সেই প্রেসক্রিপশন (পুরোনো নোটিফিকেশনে শুধু id — সেটাও প্রেসক্রিপশনের)
@@ -175,6 +181,9 @@ export function inboxIcon(type?: string, kind?: string, title?: string): string 
     case 'rx_pharmacy': return 'medication';
     case 'care': return 'health_and_safety_filled';
     case 'badge': return 'workspace_premium';
+    case 'call_missed':
+    case 'call_incoming':
+    case 'appt_call_ready': return 'call';
     case 'support': return 'help';
     case 'emergency': return 'warning';
     case 'eligible': return 'favorite';

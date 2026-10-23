@@ -4,7 +4,7 @@
 import { call } from './api';
 import { tr } from './i18n';
 
-export const NOTIFY_CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'community', 'business'] as const;
+export const NOTIFY_CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'calls', 'community', 'business'] as const;
 export type NotifyCat = (typeof NOTIFY_CATS)[number];
 export interface NotifyPrefs { all: boolean; cats: Record<NotifyCat, boolean> }
 export interface NotifyChange { all?: boolean; cats?: Partial<Record<NotifyCat, boolean>> }
@@ -51,6 +51,7 @@ export function catLabel(c: NotifyCat | 'account'): string {
     case 'appointments': return tr('Appointments and queue', 'অ্যাপয়েন্টমেন্ট আর সিরিয়াল'); // bn-ok
     case 'rx': return tr('Prescriptions, medicines and lab', 'প্রেসক্রিপশন, ওষুধ আর ল্যাব'); // bn-ok
     case 'ambulance': return tr('Ambulance', 'অ্যাম্বুলেন্স');
+    case 'calls': return tr('In-app calls', 'অ্যাপে কল'); // bn-ok
     case 'community': return tr('Questions and tips', 'প্রশ্নোত্তর আর টিপস'); // bn-ok
     case 'business': return tr('My business', 'আমার ব্যবসা'); // bn-ok
     case 'account': return tr('Account and security (always on)', 'অ্যাকাউন্ট আর নিরাপত্তা (সবসময় চালু)'); // bn-ok
@@ -65,6 +66,7 @@ export function catSub(c: NotifyCat | 'account'): string {
     case 'appointments': return tr('Bookings, reminders and your turn in the queue', 'বুকিং, রিমাইন্ডার আর সিরিয়াল এগোলে'); // bn-ok
     case 'rx': return tr('New prescriptions, medicine orders and lab reports', 'নতুন প্রেসক্রিপশন, ওষুধের অর্ডার আর ল্যাব রিপোর্ট'); // bn-ok
     case 'ambulance': return tr('Updates on the ambulance you called', 'আপনার ডাকা অ্যাম্বুলেন্সের খবর'); // bn-ok
+    case 'calls': return tr('Voice and video calls from people you are dealing with. Off: they are asked to call by phone.', 'যাদের সাথে কাজ চলছে তাঁদের অ্যাপে কল (ভয়েস ও ভিডিও)। বন্ধ থাকলে ফোনে কল করতে বলা হবে।'); // bn-ok
     case 'community': return tr('Answers to your questions and health tips', 'আপনার প্রশ্নের উত্তর আর স্বাস্থ্য টিপস'); // bn-ok
     case 'business': return tr('Orders, bookings and approvals for your business or chamber', 'আপনার ব্যবসা বা চেম্বারের অর্ডার, বুকিং আর অনুমোদন'); // bn-ok
     case 'account': return tr("Login, caregivers, corrections and support replies. These can't be turned off.", 'লগইন, কেয়ারগিভার, তথ্য সংশোধন আর সাপোর্টের উত্তর — এগুলো বন্ধ করা যায় না।'); // bn-ok

@@ -14,6 +14,9 @@ import ConfirmApptDialog from './ConfirmApptDialog.vue';
 import OnlinePayPro from '../online/OnlinePayPro.vue';
 import { onlineOn } from '../online/flags';
 import { T as OT } from '../online';
+import ContactActions from '@/calls/ContactActions.vue';
+import { apptCallOpen } from '@/calls/window';
+import { useNow } from '@/ui/composables';
 
 type View = 'today' | 'upcoming' | 'waiting' | 'past';
 const props = defineProps<{ list: Appointment[]; loading: boolean; error: string | null; reload: () => void; hasChamber: boolean; onSetup: () => void }>();
@@ -25,6 +28,7 @@ const err = ref<string | null>(null);
 const confirming = ref<Appointment | null>(null);
 const cancelling = ref<Appointment | null>(null);
 const t0 = today();
+const now = useNow(30_000);
 
 const chambers = computed(() => [...new Set(props.list.map((a) => a.chamber).filter(Boolean))]);
 const bySerial = (a: Appointment, b: Appointment) => (a.serial || 999) - (b.serial || 999) || a.createdAt - b.createdAt;
@@ -177,7 +181,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
             <td v-if="manyCh">{{ apptChamber(a) }}</td>
             <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag></td>
-            <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span></td>
+            <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span><ContactActions ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" /></td>
             <td>
               <div class="row wrap appt-acts">
                 <template v-if="a.status === 'pending'">
@@ -204,6 +208,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
         <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
         <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" />
+        <ContactActions ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" />
         <div class="row wrap appt-acts">
           <template v-if="a.status === 'pending'">
             <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>

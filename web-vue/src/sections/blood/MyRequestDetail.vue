@@ -105,6 +105,7 @@ const deleteText = computed(() =>
       <div v-for="d in sorted" :key="d.donorUid" class="card" :style="{ padding: '12px' }">
         <DonorRow
           :d="d"
+          :req-id="r.id"
           :active="active"
           :busy="isBusy"
           :can-confirm="r.confirmedCount < r.bags"

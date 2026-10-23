@@ -13,8 +13,8 @@
 }
 .call-banner .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .call-banner .who .name { font-weight: 600; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.call-banner .acts { display: flex; gap: 8px; }
-.call-banner .acts .btn { flex: 1; }
+.call-banner .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.call-banner .acts .btn { flex: 1 1 96px; }
 .call-banner .pulse { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-container); color: var(--on-primary-container); flex: none; animation: call-pulse 1.4s ease-in-out infinite; }
 .call-banner .pulse svg { width: 24px; height: 24px; }
 @keyframes call-pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--primary-a12); } 50% { box-shadow: 0 0 0 10px var(--primary-a12); } }
@@ -67,3 +67,5 @@
 .call-row .ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-high); flex: none; }
 .call-row .ic.missed { color: var(--error); background: var(--error-a12); }
 .call-row .ic svg { width: 22px; height: 22px; }
+.call-screen .btn.text.call-dark-text { color: #F1F5F5; }
+.call-screen .btn.small.call-accept { background: #1E8E3E; color: #fff; }

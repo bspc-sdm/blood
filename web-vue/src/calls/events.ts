@@ -1,12 +1,13 @@
 // কল আসার খবর, ওয়েব খোলা থাকলে (ওয়েবে পুশ নেই):
 // ১. SSE — GET /api/events (নিজের স্ট্রিম, Bearer টোকেন লাগে বলে EventSource নয়, fetch দিয়ে পড়া):
-//    `call_incoming` {callId, video, ctx, refId, caller}, `call_state` {callId, state}, `appt_call_ready` {appointmentId}
+//    `call_incoming` {callId, video, ctx, refId, caller}, `call_state` {callId, state}, `appt_call_ready` {appointmentId},
+//    ভিডিওতে যাওয়া: `call_upgrade` {callId} (ওপাশ চাইছেন), `call_upgraded` {callId, token?, url?}, `call_upgrade_declined` {callId}
 // ২. SSE না চললে (প্রক্সি কেটে দেয়, পুরোনো ব্রাউজার) — call_history ১৫ সেকেন্ড পরপর, "আমাকে করা, এখনো রিং হচ্ছে" কল।
 // ট্যাব আবার সামনে এলে একবার দেখে নেওয়া।
 import { auth } from '@/lib/firebase';
 import { testUser } from '@/lib/testmode';
 import { callHistory, parseIncoming, parseState } from './api';
-import { onApptReady, onIncoming, onRemoteState } from './state';
+import { onApptReady, onIncoming, onRemoteState, onUpgradeDeclined, onUpgraded, onUpgradeRequest } from './state';
 
 export const eventTiming = { backoffMs: [2000, 5000, 10000, 30000], pollMs: 15000, recentMs: 60_000 };
 
@@ -26,6 +27,12 @@ export function handleEvent(name: string, data: string) {
   } else if (name === 'call_state' || o?.type === 'call_state') {
     const st = parseState(o?.state);
     if (o?.callId && st) onRemoteState(String(o.callId), st);
+  } else if (name === 'call_upgrade' || o?.type === 'call_upgrade') {
+    if (o?.callId) onUpgradeRequest(String(o.callId));
+  } else if (name === 'call_upgraded' || o?.type === 'call_upgraded') {
+    if (o?.callId) onUpgraded(String(o.callId), o.token && o.url ? { callId: String(o.callId), room: String(o.room ?? ''), url: String(o.url), token: String(o.token) } : null);
+  } else if (name === 'call_upgrade_declined' || o?.type === 'call_upgrade_declined') {
+    if (o?.callId) onUpgradeDeclined(String(o.callId));
   } else if (name === 'appt_call_ready' || o?.type === 'appt_call_ready') {
     if (o?.appointmentId) onApptReady(String(o.appointmentId));
   }

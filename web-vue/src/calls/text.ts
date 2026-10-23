@@ -1,11 +1,16 @@
 // অ্যাপে কল আর অনলাইন চেম্বারের লেখা — এক জায়গায় (নতুন লেখা, React ওয়েবে আগের রূপ নেই: প্রতিটা লাইনে bn-ok)
 import { num, tr } from '@/lib/i18n';
-import type { CallCtx, CallState, StartRefusal } from './api';
+import type { CallCtx, CallState, ReportReason, StartRefusal } from './api';
 import './icons';
 
 export const T = {
   inApp: () => tr('Call in app', 'অ্যাপে কল'), // bn-ok
   video: () => tr('Video call', 'ভিডিও কল'), // bn-ok
+  audioCall: () => tr('Audio call', 'অডিও কল'), // bn-ok
+  message: () => tr('Message', 'মেসেজ'), // bn-ok
+  phone: () => tr('Call', 'ফোন'),
+  answerAudio: () => tr('Answer with audio', 'অডিওতে ধরুন'), // bn-ok
+  answerVideo: () => tr('Answer with video', 'ভিডিওতে ধরুন'), // bn-ok
   calling: () => tr('Calling…', 'কল যাচ্ছে…'), // bn-ok
   ringing: () => tr('Ringing', 'রিং হচ্ছে'), // bn-ok
   connecting: () => tr('Connecting…', 'সংযোগ হচ্ছে…'), // bn-ok
@@ -58,6 +63,29 @@ export const T = {
   dirOut: () => tr('Outgoing', 'করেছি'), // bn-ok
   more: () => tr('Load more', 'আরও দেখুন'), // bn-ok
   callBack: () => tr('Call back', 'আবার কল'), // bn-ok
+  // ভিডিওতে যাওয়া (অডিও কল থেকে)
+  askVideo: () => tr('Ask to turn on video', 'ভিডিও চালু করতে অনুরোধ'), // bn-ok
+  askedVideo: () => tr('Video request sent — waiting for them', 'ভিডিওর অনুরোধ পাঠানো হয়েছে — ওনার উত্তরের অপেক্ষা'), // bn-ok
+  offeredVideo: () => tr('They want to turn on video', 'উনি ভিডিও চালু করতে চান'), // bn-ok
+  agree: () => tr('Agree', 'রাজি'), // bn-ok
+  notNow: () => tr('Not now', 'এখন না'), // bn-ok
+  videoDeclined: () => tr('They did not turn on video', 'উনি ভিডিও চালু করেননি'), // bn-ok
+  // ব্লক আর রিপোর্ট
+  block: () => tr('Stop contact', 'যোগাযোগ বন্ধ করুন'), // bn-ok
+  report: () => tr('Report', 'রিপোর্ট'),
+  blockTitle: (name: string) => tr(`Stop contact with ${name}?`, `${name}-এর সাথে যোগাযোগ বন্ধ করবেন?`), // bn-ok
+  blockText: () => tr("They won't be able to call or message you in the app, and you won't be able to reach them either. Phone calls are not affected.", 'উনি আর আপনাকে অ্যাপে কল বা মেসেজ করতে পারবেন না, আপনিও ওনাকে পারবেন না। ফোনে কল এতে বন্ধ হয় না।'), // bn-ok
+  blocked: () => tr('Contact stopped', 'যোগাযোগ বন্ধ করা হয়েছে'), // bn-ok
+  blockedShort: () => tr('You stopped contact', 'যোগাযোগ বন্ধ রেখেছেন'), // bn-ok
+  unblock: () => tr('Unblock', 'আনব্লক'), // bn-ok
+  unblocked: () => tr('Unblocked', 'আনব্লক করা হয়েছে'), // bn-ok
+  blockedList: () => tr('People you stopped contact with', 'যাদের সাথে যোগাযোগ বন্ধ'), // bn-ok
+  blockedSub: () => tr('In-app calls and messages', 'অ্যাপে কল আর মেসেজ'), // bn-ok
+  blockedNone: () => tr("You haven't stopped contact with anyone", 'কারো সাথে যোগাযোগ বন্ধ করা নেই'), // bn-ok
+  reportTitle: () => tr('Report this call', 'এই কল রিপোর্ট করুন'), // bn-ok
+  reportNote: () => tr('What happened? (optional)', 'কী হয়েছিল? (ঐচ্ছিক)'), // bn-ok
+  reportSend: () => tr('Send report', 'রিপোর্ট পাঠান'), // bn-ok
+  reported: () => tr('Report sent. Thank you.', 'রিপোর্ট পাঠানো হয়েছে। ধন্যবাদ।'), // bn-ok
 };
 
 export function stateText(s: CallState): string {
@@ -85,8 +113,10 @@ export function refusalText(r: StartRefusal, serverMsg?: string): string {
   switch (r) {
     case 'off': return serverMsg || tr('They have turned off in-app calls — call by phone', 'উনি অ্যাপে কল বন্ধ রেখেছেন — ফোনে কল করুন'); // bn-ok
     case 'busy': return tr("They're on another call. Try again a little later.", 'উনি এখন অন্য কলে আছেন। একটু পরে আবার চেষ্টা করুন।'); // bn-ok
+    case 'blocked': return tr('You have stopped contact with this person', 'আপনি এঁর সাথে যোগাযোগ বন্ধ রেখেছেন'); // bn-ok
+    case 'unavailable': return serverMsg || tr('In-app calls are not available now — call by phone', 'অ্যাপে কল এখন চালু নেই — ফোনে কল করুন'); // bn-ok
     case 'not_allowed': return serverMsg || tr("You can't call them in the app now.", 'এখন অ্যাপে এঁকে কল করা যায় না।'); // bn-ok
-    case 'rate': return serverMsg || tr('Too many calls. Try again in a few minutes.', 'অনেকবার কল করেছেন। কয়েক মিনিট পরে আবার চেষ্টা করুন।'); // bn-ok
+    case 'rate': return tr('Too many calls. Try again in a few minutes.', 'অনেকবার কল করেছেন। কয়েক মিনিট পরে আবার চেষ্টা করুন।'); // bn-ok
     default: return serverMsg || T.failed();
   }
 }
@@ -95,7 +125,17 @@ export function ctxText(c: CallCtx): string {
     case 'blood': return tr('Blood request', 'রক্তের রিকোয়েস্ট'); // bn-ok
     case 'appointment': return tr('Appointment', 'অ্যাপয়েন্টমেন্ট');
     case 'ambulance': return tr('Ambulance', 'অ্যাম্বুলেন্স');
+    case 'rx_order': return tr('Medicine order', 'ওষুধের অর্ডার'); // bn-ok
+    case 'lab_order': return tr('Lab test', 'প্যাথলজির পরীক্ষা'); // bn-ok
     case 'order': return tr('Order', 'অর্ডার');
+  }
+}
+export function reasonText(r: ReportReason): string {
+  switch (r) {
+    case 'harassment': return tr('Harassment or abuse', 'হয়রানি বা গালাগাল'); // bn-ok
+    case 'spam': return tr('Too many / unwanted calls', 'বারবার / অপ্রয়োজনীয় কল'); // bn-ok
+    case 'fake': return tr('Fake or fraud', 'ভুয়া বা প্রতারণা'); // bn-ok
+    case 'other': return tr('Other', 'অন্য কিছু');
   }
 }
 /** কলের সময়: ০৩:০৭ বা ১:০২:০৫ */

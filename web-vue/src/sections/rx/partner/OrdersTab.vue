@@ -16,6 +16,7 @@ import ModeTag from './ModeTag.vue';
 import RxPanel from './RxPanel.vue';
 import AcceptDialog from './AcceptDialog.vue';
 import CancelOrderDialog from './CancelOrderDialog.vue';
+import ContactActions from '@/calls/ContactActions.vue';
 
 const BASE = '/work/pharmacy/orders';
 const props = defineProps<{ code: string | null; orders: { data?: PharmOrders; isLoading: boolean; isFetching: boolean; error: Error | null; refetch: () => unknown } }>();
@@ -93,6 +94,7 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
           <span v-if="o.mode === 'online' && (o.price || o.eta)" class="icon-line"><Icon name="payments" /><span>{{ [o.price, o.eta].filter(Boolean).join(' · ') }}</span></span>
           <span v-if="o.mode === 'online' && o.address" class="icon-line"><Icon name="location_on" /><span>{{ o.address }}</span></span>
           <span v-if="o.mode === 'online' && o.phone" class="icon-line"><Icon name="call" /><a class="rxp-phone num" :href="`tel:${o.phone}`">{{ num(o.phone) }}</a></span>
+          <ContactActions ctx="rx_order" :ref-id="o.id" :peer-name="o.patientName" :phone="o.phone || null" :show="o.mode === 'online' && isOpenOrder(o)" />
           <span v-if="o.mode === 'online' && o.deliveryFee && isOpenOrder(o)" class="icon-line"><Icon name="local_shipping" /><span>{{ tr('Delivery charge: ', 'ডেলিভারি চার্জ: ') }}{{ o.deliveryFee }}</span></span>
           <span v-if="o.note" class="icon-line"><Icon name="edit_note" /><span>{{ o.note }}</span></span>
           <span v-if="o.missed.length" class="t-body-s c-error">{{ tr('Not available: ', 'নেই: ') }}{{ o.missed.join(', ') }}</span>

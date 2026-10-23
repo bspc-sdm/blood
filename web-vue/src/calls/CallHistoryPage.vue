@@ -12,25 +12,24 @@ import { useSession } from '@/lib/session';
 import { useNav } from '@/lib/nav';
 import { callHistory, type HistoryItem } from './api';
 import { T, clock, ctxText, stateText } from './text';
+import FlagActions from './FlagActions.vue';
 
 const s = useSession();
 const nav = useNav();
 const title = computed(() => T.history());
 
 const items = ref<HistoryItem[]>([]);
-const more = ref(false);
+const next = ref<number | null>(null);
 const loading = ref(false);
 const err = ref<string | null>(null);
-async function load(next = false) {
+async function load(more = false) {
   loading.value = true;
   err.value = null;
   try {
-    const before = next ? items.value.at(-1)?.startedAt : undefined;
-    const r = await callHistory(before);
-    const have = new Set(next ? items.value.map((x) => x.callId) : []);
-    items.value = [...(next ? items.value : []), ...r.items.filter((x) => !have.has(x.callId))];
-    more.value = r.more || (next ? false : r.items.length >= 20);
-    if (next && !r.items.length) more.value = false;
+    const r = await callHistory(more ? next.value ?? undefined : undefined);
+    const have = new Set(more ? items.value.map((x) => x.callId) : []);
+    items.value = [...(more ? items.value : []), ...r.items.filter((x) => !have.has(x.callId))];
+    next.value = r.items.length ? r.next : null;
   } catch (e) {
     err.value = errorText(e);
   } finally {
@@ -42,7 +41,7 @@ watch(() => (s.ready && !s.guest ? s.uid : null), (u) => u && load(), { immediat
 const missed = (x: HistoryItem) => x.state === 'missed' || (x.dir === 'in' && x.state === 'declined');
 const icon = (x: HistoryItem) => (missed(x) ? 'phone_missed' : x.dir === 'in' ? 'call_received' : x.dir === 'out' ? 'call_made' : x.video ? 'videocam' : 'call');
 const line = (x: HistoryItem) =>
-  [x.dir === 'in' ? T.dirIn() : x.dir === 'out' ? T.dirOut() : null, x.video ? T.video() : T.inApp(), ctxText(x.ctx), x.durationSec ? clock(x.durationSec) : stateText(x.state)]
+  [x.dir === 'in' ? T.dirIn() : x.dir === 'out' ? T.dirOut() : null, x.video ? T.video() : T.audioCall(), ctxText(x.ctx), x.durationSec ? clock(x.durationSec) : stateText(x.state)]
     .filter(Boolean)
     .join(' · ');
 function target(x: HistoryItem): string | null {
@@ -51,8 +50,11 @@ function target(x: HistoryItem): string | null {
     case 'blood': return x.dir === 'out' ? `/my-requests/${encodeURIComponent(x.refId)}` : `/request/${encodeURIComponent(x.refId)}`;
     case 'appointment': return '/my-appointments';
     case 'ambulance': return x.dir === 'out' ? `/services/ambulance/call/${encodeURIComponent(x.refId)}` : '/work';
+    case 'rx_order': return x.dir === 'in' ? '/work/pharmacy' : '/prescriptions';
+    case 'lab_order': return x.dir === 'in' ? '/work/lab' : '/prescriptions';
     case 'order': return '/prescriptions';
   }
+  return null;
 }
 </script>
 
@@ -79,9 +81,10 @@ function target(x: HistoryItem): string | null {
             <span class="t-body-s muted">{{ line(x) }}</span>
             <span class="t-label-s muted">{{ x.startedAt ? formatDateTime(x.startedAt) : '' }}</span>
           </button>
+          <FlagActions v-if="x.peer.uid && x.ctx !== 'appointment'" :peer-uid="x.peer.uid" :peer-name="x.peer.name" :call-id="x.callId" />
         </li>
       </ul>
-      <Button v-if="more" variant="outline" :busy="loading" @click="load(true)">{{ T.more() }}</Button>
+      <Button v-if="next" variant="outline" :busy="loading" @click="load(true)">{{ T.more() }}</Button>
     </template>
   </div>
   </FormPage>

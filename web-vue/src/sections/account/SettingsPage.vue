@@ -20,6 +20,7 @@ import { useBack } from './nav';
 import LinkRow from './LinkRow.vue';
 import NotifySettings from './NotifySettings.vue';
 import SLabel from './SLabel.vue';
+import BlockedCalls from '@/calls/BlockedCalls.vue';
 
 /** সব মানানসই গ্রুপ বাছা থাকলে null — রক্তের গ্রুপ বদলালে নিজে থেকে মিলে যায় */
 function normalize(set: string[], def: string[]): string[] | null {
@@ -126,6 +127,8 @@ async function picked(pl: Place) {
                   </template>
                 </template>
               </NotifySettings>
+              <!-- অ্যাপে কল: ব্লক করা তালিকা -->
+              <BlockedCalls />
               <section class="acct-scard">
                 <SLabel icon="location_on">{{ tr('How far can you go to donate?', 'রক্ত দিতে কতদূর যেতে পারবেন?') }}</SLabel>
                 <div class="acct-sbody">

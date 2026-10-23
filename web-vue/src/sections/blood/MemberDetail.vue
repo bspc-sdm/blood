@@ -10,7 +10,7 @@ import { canDonate, notEligibleReason } from '@/lib/rules';
 import { distanceKm } from '@/lib/geo';
 import { TEST_MODE } from '@/lib/testmode';
 import { useNav } from '@/lib/nav';
-import { useQ } from '@/lib/query';
+import { useCall, useQ } from '@/lib/query';
 import { KEY, api, dropCommitments, getRequest, myResponse, reportRequest, requesterContact, useInvalidate } from './data';
 import { isActive, type BloodRequest, type DonorResponse } from './model';
 import RequestInfo from './parts/RequestInfo.vue';
@@ -21,6 +21,7 @@ import Disclaimer from './parts/Disclaimer.vue';
 import ShareDialog from './parts/ShareDialog.vue';
 import ShareCard from './ShareCard.vue';
 import DonationChecklistDialog from './DonationChecklistDialog.vue';
+import ContactActions from '@/calls/ContactActions.vue';
 
 const props = defineProps<{ id: string; title: string }>();
 const s = useSession();
@@ -48,6 +49,13 @@ const q = useQ<{ r: BloodRequest | null; resp: DonorResponse | null; contact: { 
 }));
 const r = computed(() => q.data?.r ?? null);
 const resp = computed(() => q.data?.resp ?? null);
+// ডোনার → রক্তপ্রার্থী: সার্ভারের contact_can; তা না পেলে (পুরোনো সার্ভার) — নিশ্চিত হলে, বা রক্তপ্রার্থী আগে এই রিকোয়েস্টে কল করে থাকলে
+const callHist = useCall<{ items?: any[] }>('call_history', {}, () => ({
+  enabled: resp.value?.status === 'accepted' && !resp.value.confirmed,
+  staleTime: 60_000,
+  retry: false,
+}));
+const requesterCalled = computed(() => (callHist.data?.items ?? []).some((x) => x?.ctx === 'blood' && x?.refId === props.id && x?.dir === 'in'));
 
 // আগে রাজি হওয়া রিকোয়েস্টও প্রসেসিং তালিকায় তোলা
 const accepted = computed(() => !!r.value && resp.value?.status === 'accepted' && isActive(r.value));
@@ -168,6 +176,7 @@ function doReport() {
           <template v-if="q.data?.contact">
             <span>{{ q.data.contact.name }}</span>
             <PhoneLine :phone="q.data.contact.phone" big />
+            <ContactActions ctx="blood" :ref-id="id" :peer-uid="r.requesterUid" :peer-name="q.data.contact.name" :phone="q.data.contact.phone" :small="false" :show="resp.confirmed || requesterCalled" />
           </template>
           <span v-else>{{ tr("Couldn't load the number. Open this page again.", 'নম্বর লোড হয়নি, পাতাটা আবার খুলুন।') }}</span>
         </section>

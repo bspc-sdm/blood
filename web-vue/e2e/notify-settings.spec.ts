@@ -5,7 +5,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { def, open, watchErrors } from './helpers';
 
-const CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'community', 'business'];
+const CATS = ['blood_nearby', 'blood_emergency', 'my_request', 'appointments', 'rx', 'ambulance', 'calls', 'community', 'business'];
 
 interface Server { all: boolean; cats: Record<string, boolean>; sets: any[] }
 
@@ -43,7 +43,7 @@ test('নোটিফিকেশন: সব ধরনের সুইচ, অ�
   await open(page, def('account', 'settings'));
   const box = page.locator('[data-testid="notify-settings"]');
   await expect(box.getByText('সব নোটিফিকেশন')).toBeVisible();
-  for (const label of ['আশেপাশে রক্ত লাগলে', 'জরুরি রক্তের আহ্বান', 'আমার রক্তের অনুরোধ', 'অ্যাপয়েন্টমেন্ট আর সিরিয়াল', 'প্রেসক্রিপশন, ওষুধ আর ল্যাব', 'অ্যাম্বুলেন্স', 'প্রশ্নোত্তর আর টিপস', 'আমার ব্যবসা', 'অ্যাকাউন্ট আর নিরাপত্তা (সবসময় চালু)']) {
+  for (const label of ['আশেপাশে রক্ত লাগলে', 'জরুরি রক্তের আহ্বান', 'আমার রক্তের অনুরোধ', 'অ্যাপয়েন্টমেন্ট আর সিরিয়াল', 'প্রেসক্রিপশন, ওষুধ আর ল্যাব', 'অ্যাম্বুলেন্স', 'অ্যাপে কল', 'প্রশ্নোত্তর আর টিপস', 'আমার ব্যবসা', 'অ্যাকাউন্ট আর নিরাপত্তা (সবসময় চালু)']) {
     await expect(box.getByText(label, { exact: true })).toBeVisible();
   }
   for (const c of CATS) await expect(sw(page, c)).toBeChecked();

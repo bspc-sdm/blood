@@ -10,12 +10,18 @@ import { T as OT } from './online';
 import { onlineOn } from './online/flags';
 import OnlinePayCard from './online/OnlinePayCard.vue';
 import JoinCall from './online/JoinCall.vue';
+import ContactActions from '@/calls/ContactActions.vue';
+import { apptCallOpen } from '@/calls/window';
+import { useNow } from '@/ui/composables';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ cancel: []; changed: [] }>();
 // আজকের সিরিয়াল চললে নম্বর নিচের সারির কার্ডেই (দুবার নয়)
 const pq = usePatientQueue(() => props.a);
 const live = computed(() => pq.data?.live === true);
+// অ্যাপে কল: নিশ্চিত অ্যাপয়েন্টমেন্ট, সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত
+const now = useNow(30_000);
+const callOpen = computed(() => apptCallOpen(props.a, now.value));
 </script>
 
 <template>
@@ -42,6 +48,7 @@ const live = computed(() => pq.data?.live === true);
   <OnlinePayCard v-if="a.online && onlineOn() && a.status !== 'cancelled' && a.status !== 'declined' && a.status !== 'expired'" :a="a" @changed="emit('changed')" />
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
+  <ContactActions ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" />
   <div v-if="isActive(a.status)" class="row">
     <Button variant="danger-text" icon="close" @click="emit('cancel')">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
   </div>

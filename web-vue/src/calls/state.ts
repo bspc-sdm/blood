@@ -4,8 +4,9 @@ import { reactive } from 'vue';
 import { errorText, ServerError } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { TEST_MODE } from '@/lib/testmode';
+import { authUid } from '@/lib/uid';
 import {
-  apptJoin, callAccept, callCancel, callDecline, callEnd, callStart, callStatus, refusalOf,
+  apptJoin, callAccept, callCancel, callDecline, callEnd, callStart, callStatus, callUpgrade, callUpgradeAccept, callUpgradeDecline, refusalOf,
   type CallCtx, type CallPeer, type CallState, type Incoming, type RoomGrant,
 } from './api';
 import { MediaError, createMedia, failOf, mediaSupported, type CallMedia, type MediaFail } from './media';
@@ -48,6 +49,10 @@ export interface CallUi {
   durationSec: number;
   /** কল আসছে: শব্দ বাজছে কি না (আগে পাতায় চাপ না পড়লে বাজে না) */
   ringAudible: boolean;
+  /** ভিডিওতে যাওয়া: asked = আমি চেয়েছি, offered = উনি চাইছেন */
+  upgrade: 'asked' | 'offered' | null;
+  /** শেষের পর্দায় ব্লক/রিপোর্টের জন্য (কথা হয়ে থাকলে বা কল এসে থাকলে) */
+  canFlag: boolean;
   /** ডাক্তার অনলাইন অ্যাপয়েন্টমেন্টের কলে আছেন (appt_call_ready) */
   apptReady: { appointmentId: string } | null;
 }
@@ -55,7 +60,7 @@ export interface CallUi {
 const fresh = (): Omit<CallUi, 'apptReady'> => ({
   phase: 'idle', callId: null, ctx: null, refId: '', peer: null, video: false, appt: null, link: null, peerIn: false, talkingSince: null,
   mic: true, cam: false, remoteVideo: false, audioOnly: false, poor: false, audioBlocked: false, asking: false, note: null, error: null,
-  phone: null, endReason: null, durationSec: 0, ringAudible: false,
+  phone: null, endReason: null, durationSec: 0, ringAudible: false, upgrade: null, canFlag: false,
 });
 
 export const callUi = reactive<CallUi>({ ...fresh(), apptReady: null });
@@ -68,10 +73,13 @@ let endTimer: ReturnType<typeof setTimeout> | null = null;
 const seen = new Set<string>();
 /** কোন কাজ চলছে — পুরোনো কাজের উত্তর নতুন কলে না পড়ে */
 let gen = 0;
-const titleBase = { v: '' };
+const titleBase: { v: string | null } = { v: null };
 
 /** পরীক্ষায় সময় ছোট করা যায় */
-export const timing = { pollMs: 3000, activePollMs: 5000, ringMs: 45_000, outgoingMs: 50_000, endShowMs: 2500 };
+export const timing = { pollMs: 3000, activePollMs: 30_000, ringMs: 45_000, outgoingMs: 50_000, endShowMs: 2500, endFlagShowMs: 8000 };
+/** কোন LiveKit ঘর এখন চালু (ভিডিওতে যাওয়া/আবার যুক্ত হলে নতুন ঘর; পুরোনোর ঘটনা বাদ) */
+let mediaSeq = 0;
+let rejoins = 0;
 
 function clearTimers() {
   if (pollTimer) clearInterval(pollTimer);
@@ -79,13 +87,23 @@ function clearTimers() {
   if (endTimer) clearTimeout(endTimer);
   pollTimer = ringTimeout = endTimer = null;
 }
+let titleTimer: ReturnType<typeof setInterval> | null = null;
+/** কল আসার সময় ট্যাবের শিরোনামে (অন্য ট্যাবে থাকলেও চোখে পড়ে); পাতা নিজের শিরোনাম বসালেও আবার বসানো */
 function setTitle(on: boolean) {
+  if (titleTimer) clearInterval(titleTimer);
+  titleTimer = null;
   if (on) {
-    if (!titleBase.v) titleBase.v = document.title;
-    document.title = `${callUi.video ? T.incomingVideo() : T.incoming()} — ${callUi.peer?.name ?? ''}`;
-  } else if (titleBase.v) {
+    const text = () => `${callUi.video ? T.incomingVideo() : T.incoming()} — ${callUi.peer?.name ?? ''}`;
+    const apply = () => {
+      if (document.title === text()) return;
+      titleBase.v = document.title;
+      document.title = text();
+    };
+    apply();
+    titleTimer = setInterval(apply, 1000);
+  } else if (titleBase.v != null) {
     document.title = titleBase.v;
-    titleBase.v = '';
+    titleBase.v = null;
   }
 }
 function reset() {
@@ -109,13 +127,20 @@ function finish(reason: EndReason, opts: { error?: string | null; phone?: string
   media = null;
   gen++;
   const wasIncoming = callUi.phase === 'incoming';
+  // ব্লক/রিপোর্ট: অ্যাপয়েন্টমেন্ট ছাড়া, ওপাশের uid জানা থাকলে, আর কল আসলে হয়েছিল (callId আছে)
+  const canFlag = !!callUi.callId && !callUi.appt && !!callUi.peer?.uid && reason !== null;
   Object.assign(callUi, {
     phase: 'ended', endReason: reason, durationSec: dur, link: null, peerIn: false, talkingSince: null, asking: false,
-    error: opts.error ?? null, phone: opts.phone ?? null, ringAudible: false,
+    error: opts.error ?? null, phone: opts.phone ?? null, ringAudible: false, upgrade: null, canFlag,
   });
   // কল আসছিল আর থেমে গেল (ওপাশ রেখে দিলেন/অন্য ট্যাবে ধরা হলো): কিছু দেখানোর নেই
   if (wasIncoming && !opts.error) return reset();
-  if (!opts.error && !opts.keep) endTimer = setTimeout(reset, timing.endShowMs);
+  if (!opts.error && !opts.keep) endTimer = setTimeout(reset, canFlag ? timing.endFlagShowMs : timing.endShowMs);
+}
+/** শেষের পর্দায় ব্লক/রিপোর্ট খুললে নিজে থেকে বন্ধ না হওয়া */
+export function holdEnded() {
+  if (endTimer) clearTimeout(endTimer);
+  endTimer = null;
 }
 export function dismiss() {
   if (callUi.phase === 'ended') reset();
@@ -156,17 +181,21 @@ async function preflight(video: boolean): Promise<boolean> {
 
 /** LiveKit-এ যুক্ত হওয়া, মাইক আর (চাইলে) ক্যামেরা চালু */
 async function enter(grant: RoomGrant, camOk: boolean, my: number) {
+  const mine = ++mediaSeq;
+  const live = () => my === gen && mine === mediaSeq;
   const m = await createMedia({
     status: (s) => {
-      if (my !== gen) return;
+      if (!live()) return;
       if (s === 'disconnected') {
-        if (busy()) void endOnServer().finally(() => my === gen && finish('failed', { error: T.failed() }));
+        // LiveKit নিজে আবার যুক্ত হতে পারেনি (টোকেন ১০ মিনিটের): নতুন টোকেন নিয়ে আবার ঢোকা
+        if (busy()) void rejoin(my);
         return;
       }
+      if (s === 'connected') rejoins = 0;
       callUi.link = s;
     },
     peer: (present) => {
-      if (my !== gen) return;
+      if (!live()) return;
       const was = callUi.peerIn;
       callUi.peerIn = present;
       if (present) {
@@ -178,14 +207,15 @@ async function enter(grant: RoomGrant, camOk: boolean, my: number) {
         else void endOnServer().finally(() => my === gen && finish('left'));
       }
     },
-    remoteVideo: (on) => my === gen && (callUi.remoteVideo = on),
-    poor: (p) => my === gen && (callUi.poor = p),
-    audioBlocked: (b) => my === gen && (callUi.audioBlocked = b),
+    remoteVideo: (on) => live() && (callUi.remoteVideo = on),
+    poor: (p) => live() && (callUi.poor = p),
+    audioBlocked: (b) => live() && (callUi.audioBlocked = b),
   });
-  if (my !== gen) return m.disconnect();
+  if (!live()) return m.disconnect();
+  media?.disconnect();
   media = m;
   await m.connect(grant.url, grant.token);
-  if (my !== gen) return;
+  if (!live()) return;
   await m.setMic(true);
   callUi.mic = true;
   if (callUi.video && camOk) {
@@ -201,6 +231,27 @@ async function enter(grant: RoomGrant, camOk: boolean, my: number) {
   }
 }
 
+/** নতুন টোকেন (অ্যাপয়েন্টমেন্টে appt_join, নইলে call_status) নিয়ে নতুন করে ঘরে ঢোকা — পরপর দুবার না হলে কল শেষ */
+async function rejoin(my: number, fresh?: RoomGrant | null) {
+  if (my !== gen) return;
+  if (++rejoins > 2) return void endOnServer().finally(() => my === gen && finish('failed', { error: T.failed() }));
+  callUi.link = 'reconnecting';
+  try {
+    let g = fresh ?? null;
+    if (!g && callUi.appt) g = await apptJoin(callUi.appt.id);
+    else if (!g && callUi.callId) {
+      const st = await callStatus(callUi.callId);
+      if (st.state && st.state !== 'accepted' && st.state !== 'ringing') return my === gen ? finish(st.state) : undefined;
+      g = st.grant;
+    }
+    if (my !== gen) return;
+    if (!g) throw new Error('no token');
+    await enter(g, callUi.cam || (callUi.video && !callUi.audioOnly), my);
+  } catch {
+    if (my === gen) void endOnServer().finally(() => my === gen && finish('failed', { error: T.failed() }));
+  }
+}
+
 function becomeActive() {
   stopRing();
   callUi.phase = 'active';
@@ -209,28 +260,89 @@ function becomeActive() {
   watchActive();
 }
 
-/** কথা চলার সময়ও সার্ভার দেখা — ওপাশ রেখে দিলে (SSE না এলেও) শেষ */
+/** কথা চলার সময় ৩০ সেকেন্ড পরপর call_status: ওপাশ রেখে দিলে (SSE না এলেও) শেষ, ভিডিওর অনুরোধ/রাজি, নতুন টোকেন */
 function watchActive() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
   const id = callUi.callId;
-  if (!id || callUi.appt) return;
+  if (!id) return;
   const my = gen;
-  pollTimer = setInterval(async () => {
-    try {
-      const st = await callStatus(id);
-      if (my === gen && st.state && st.state !== 'accepted' && st.state !== 'ringing') finish(st.state);
-    } catch {
-      /* পরে আবার */
-    }
-  }, timing.activePollMs);
+  pollTimer = setInterval(() => void checkStatus(id, my), timing.activePollMs);
+}
+async function checkStatus(id: string, my: number) {
+  try {
+    const st = await callStatus(id);
+    if (my !== gen || callUi.phase !== 'active') return;
+    if (st.state && st.state !== 'accepted' && st.state !== 'ringing') return finish(st.state);
+    if (st.video === true && !callUi.video && !callUi.appt) return void upgraded(my, st.grant);
+    if (st.upgradeBy && st.upgradeBy !== authUid.value && !callUi.upgrade && !callUi.video) callUi.upgrade = 'offered';
+    if (!st.upgradeBy && callUi.upgrade === 'offered') callUi.upgrade = null;
+  } catch {
+    /* পরে আবার */
+  }
+}
+
+// ---------- অডিও থেকে ভিডিও ----------
+/** "ভিডিও চালু করতে অনুরোধ" — ওপাশ রাজি হলে দুজনেই নতুন টোকেনে ভিডিওসহ ঢোকেন */
+export async function requestVideo() {
+  if (callUi.phase !== 'active' || callUi.video || !callUi.callId || callUi.upgrade) return;
+  try {
+    await callUpgrade(callUi.callId);
+    callUi.upgrade = 'asked';
+    callUi.note = T.askedVideo();
+  } catch (e) {
+    callUi.note = errorText(e);
+  }
+}
+/** ওপাশ ভিডিও চাইছেন (SSE `call_upgrade`) */
+export function onUpgradeRequest(callId: string) {
+  if (callId === callUi.callId && callUi.phase === 'active' && !callUi.video) callUi.upgrade = 'offered';
+}
+/** ওপাশ রাজি হয়েছেন (SSE `call_upgraded`, বা call_status-এ video) */
+export function onUpgraded(callId: string, grant?: RoomGrant | null) {
+  if (callId === callUi.callId && callUi.phase === 'active' && !callUi.video) void upgraded(gen, grant ?? null);
+}
+async function upgraded(my: number, grant: RoomGrant | null) {
+  let g = grant;
+  if (!g && callUi.callId) g = (await callStatus(callUi.callId).catch(() => null))?.grant ?? null;
+  if (my !== gen || !g) return;
+  // অনুমতি (ক্যামেরা না পেলেও ভিডিও কল — ওনার ছবি দেখা যায়, নিজের ক্যামেরা চালু হয় না)
+  const camOk = await preflight(true).catch(() => false);
+  if (my !== gen) return;
+  Object.assign(callUi, { video: true, upgrade: null, note: camOk ? null : T.camFailed() });
+  rejoins = 0;
+  await rejoin(my, g);
+}
+export async function acceptVideo() {
+  const id = callUi.callId;
+  if (callUi.upgrade !== 'offered' || !id) return;
+  const my = gen;
+  try {
+    const g = await callUpgradeAccept(id);
+    if (my === gen) await upgraded(my, g.token ? g : null);
+  } catch (e) {
+    if (my === gen) Object.assign(callUi, { upgrade: null, note: errorText(e) });
+  }
+}
+export function declineVideo() {
+  const id = callUi.callId;
+  callUi.upgrade = null;
+  if (id) void callUpgradeDecline(id).catch(() => {});
+}
+/** ওপাশ ভিডিওতে রাজি হননি */
+export function onUpgradeDeclined(callId: string) {
+  if (callId === callUi.callId && callUi.upgrade === 'asked') Object.assign(callUi, { upgrade: null, note: T.videoDeclined() });
 }
 
 async function endOnServer() {
   const id = callUi.callId;
   if (!id) return;
   try {
-    if (callUi.appt) return;
+    // অনলাইন অ্যাপয়েন্টমেন্ট: রোগী বেরোলে শুধু বেরোনো; ডাক্তার/সহকারী বেরোলে ঘর বন্ধ (আবার ঢুকলে খোলে)
+    if (callUi.appt) {
+      if (callUi.appt.role === 'provider') await callEnd(id);
+      return;
+    }
     if (callUi.phase === 'outgoing') await callCancel(id);
     else await callEnd(id);
   } catch {
@@ -270,6 +382,7 @@ export async function startCall(o: StartOpts) {
   }
   seen.add(r.callId);
   callUi.callId = r.callId;
+  callUi.video = r.video;
   if (r.peer.name || r.peer.uid) callUi.peer = { ...callUi.peer, ...r.peer, name: r.peer.name || callUi.peer?.name || '' };
   startRing('outgoing');
   pollTimer = setInterval(async () => {
@@ -286,7 +399,7 @@ export async function startCall(o: StartOpts) {
     if (my === gen && callUi.phase === 'outgoing') void callCancel(r.callId).catch(() => {}).finally(() => my === gen && finish('missed'));
   }, timing.outgoingMs);
   try {
-    await enter(r, camOk, my);
+    await enter(r, camOk && r.video, my);
   } catch (e) {
     if (my !== gen) return;
     void callCancel(r.callId).catch(() => {});
@@ -324,9 +437,11 @@ export function onRemoteState(callId: string, state: CallState) {
 }
 
 /** কল ধরা: অনুমতি → call_accept → যুক্ত */
-export async function accept() {
+/** কল ধরা। ভিডিও কলে (অ্যাপয়েন্টমেন্ট ছাড়া) "অডিওতে ধরুন" = withVideo false: তখন কলটাই অডিও (ভিডিও পরে অনুরোধে) */
+export async function accept(withVideo?: boolean) {
   if (callUi.phase !== 'incoming' || !callUi.callId) return;
   const id = callUi.callId;
+  if (withVideo === false) callUi.video = false;
   clearTimers();
   stopRing();
   setTitle(false);
@@ -344,9 +459,11 @@ export async function accept() {
   if (my !== gen) return;
   callUi.asking = false;
   try {
-    const g = await callAccept(id);
+    const g = await callAccept(id, withVideo === false ? false : undefined);
     if (my !== gen) return;
-    await enter(g, camOk, my);
+    if (g.peer?.uid) callUi.peer = { ...g.peer, name: g.peer.name || callUi.peer?.name || '' };
+    if (g.video != null) callUi.video = g.video;
+    await enter(g, camOk && callUi.video, my);
     if (my !== gen) return;
     becomeActive();
   } catch (e) {

@@ -52,6 +52,7 @@ const sorted = computed(() => [...w.value].sort((a, b) => Number(counts(b)) - Nu
         v-for="d in sorted.slice(0, 3)"
         :key="d.donorUid"
         :d="d"
+        :req-id="r.id"
         active
         :busy="busy"
         :can-confirm="r.confirmedCount < r.bags"
