@@ -30,7 +30,7 @@ sealed interface NotifyRoute {
     data class Pay(val id: String?, val asUid: String? = null) : NotifyRoute
 
     /** লাইফলো পে (ব্যবসা): "পেমেন্ট" › যাচাই বাকি */
-    data class PayBiz(val kind: String, val bizId: String? = null, val settings: Boolean = false) : NotifyRoute
+    data class PayBiz(val kind: String, val bizId: String? = null, val tab: Int = 0, val reqId: String? = null) : NotifyRoute
 }
 
 /**

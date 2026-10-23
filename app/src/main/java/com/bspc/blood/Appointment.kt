@@ -721,7 +721,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                         scope.launch {
                             busy = true
                             runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), if (chamber.online) "online" else chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName, memberId.ifBlank { null }) }
-                                .onSuccess { r -> PayEntry.afterBooking(r); onBooked() }
+                                .onSuccess { r -> PayEntry.afterBooking(r, chamber.online); onBooked() }
                                 .onFailure { errorMsg = it.message }
                             busy = false
                         }
@@ -1055,6 +1055,8 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     var oldChamber by remember { mutableStateOf<String?>(null) }
     var homeAgreed by remember { mutableStateOf(false) }
     var verifyPhone by remember { mutableStateOf(false) }
+    // অনলাইন চেম্বারের bKash নম্বর বদলাতে সাম্প্রতিক লগইন লাগে (401 reauth_required — PAYMENTS.md)
+    var reauth by remember { mutableStateOf(false) }
     // হোম ভিজিটের দূরত্ব হিসাবের জন্য GPS লোকেশন লাগে (শুধু জেলা বেছে নিলে জেলার মাঝখান ধরা হয়)
     var gpsPlace by remember { mutableStateOf(if (profile.locationSource == "gps") profile.placeName else null) }
     var preview by remember { mutableStateOf(false) }
@@ -1296,7 +1298,9 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                                     onBack()
                                 }
                                 .onFailure {
-                                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true else errorMsg = it.message
+                                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true
+                                    else if (PayReauth.needed(it)) reauth = true
+                                    else errorMsg = it.message
                                 }
                             busy = false
                         }
@@ -1305,6 +1309,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
             ) { ButtonContent(busy, tr("Save", "সেভ করুন")) }
+            if (reauth) PayReauthDialog(onDismiss = { reauth = false }) {
+                reauth = false
+                errorMsg = tr("Logged in again — tap Save once more.", "আবার লগইন হয়েছে — আরেকবার \"সেভ করুন\" চাপুন।")
+            }
         }
     }
 

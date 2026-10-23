@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -250,15 +251,19 @@ class PayScreensTest {
     @Test
     fun ambulanceOnlyAfterTripAndDue() {
         val inv = Invoice(id = "i1", no = "W-1", kind = "pharmacy", bizId = "ph1", bizName = "x", total = 100.0, paid = 70.0, due = 30.0)
+        // চালক "রোগী পরে দেবেন" দিলে তবেই অনুরোধ (ambreq_finish payLater)
+        PayStore.set(listOf(req.copy(id = "pf", kind = "ambulance", refType = "ambreq", refId = "amb2", purpose = PayRules.AMB_FARE, amount = 1800.0)))
         show {
             AmbFarePay("amb1", "accepted")
             AmbFarePay("amb2", "done")
+            AmbFarePay("amb3", "done")
             PayDueButton(inv, null)
             PayDueButton(inv.copy(id = "i2", due = 0.0, paid = 100.0), null)
         }
         // যাত্রার আগে কিছুই নয়; পরে ঐচ্ছিক
-        rule.onNodeWithText("ভাড়া বিকাশ/নগদে দিন").assertExists()
+        rule.onNodeWithText("৳১,৮০০ পাঠান").assertExists()
         rule.onNodeWithText("চাইলে তবেই। ক্যাশে দিয়ে থাকলে কিছু করতে হবে না।").assertExists()
+        assertTrue(rule.onAllNodesWithTag("amb_pay").fetchSemanticsNodes().size == 1)
         rule.onNodeWithText("বাকি ৳৩০ অনলাইনে দিন").assertExists()
         assertTrue(rule.onAllNodesWithText("অনলাইনে দিন", substring = true).fetchSemanticsNodes().size == 1)
         shot("pay_amb_due_360_bn")

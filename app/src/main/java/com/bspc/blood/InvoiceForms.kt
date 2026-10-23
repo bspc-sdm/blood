@@ -420,6 +420,9 @@ fun AmbFinishDialog(r: AmbDriverReq, onDismiss: () -> Unit, onDone: () -> Unit) 
     var method by remember { mutableStateOf("cash") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // লাইফলো পে (pay_ambulance): রোগী পরে বিকাশ/নগদে দেবেন — রসিদ বাকি থাকে, রোগী পেমেন্টের অনুরোধ পান
+    val payOn = PayGate.rememberOn(PayGate.AMBULANCE)
+    var payLater by remember { mutableStateOf(false) }
     val f = InvoiceMath.parse(fare)
     val ex = extras.mapNotNull { (code, a) -> InvoiceMath.parse(a)?.takeIf { it > 0 }?.let { InvFee(code, it) } }
     fun badExtra(code: String, a: String): Boolean {
@@ -489,7 +492,14 @@ fun AmbFinishDialog(r: AmbDriverReq, onDismiss: () -> Unit, onDone: () -> Unit) 
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                 )
                 Text(tr("How was it paid?", "কীভাবে পেলেন?"), style = MaterialTheme.typography.labelLarge)
-                PayMethodChips(method) { method = it }
+                if (!payLater) PayMethodChips(method) { method = it }
+                if (payOn) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        androidx.compose.material3.Checkbox(payLater, { payLater = it }, modifier = Modifier.testTag("amb_pay_later"))
+                        Text(tr("Patient will pay later by bKash/Nagad", "রোগী পরে বিকাশ/নগদে দেবেন"), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (payLater) SmallNote(tr("The receipt stays due until you confirm the money in your app.", "নিজের অ্যাপে টাকা মিলিয়ে নিশ্চিত না করা পর্যন্ত রসিদে বাকি থাকবে।"))
+                }
                 ErrorText(errorMsg)
             }
         },
@@ -499,7 +509,7 @@ fun AmbFinishDialog(r: AmbDriverReq, onDismiss: () -> Unit, onDone: () -> Unit) 
                 scope.launch {
                     busy = true
                     errorMsg = null
-                    runCatching { InvoiceApi.ambFinish(r.id, v, ex, method) }
+                    runCatching { InvoiceApi.ambFinish(r.id, v, ex, method, payLater = payOn && payLater) }
                         .onSuccess { inv ->
                             onDone()
                             InvoiceNav.issued(inv)

@@ -31,7 +31,11 @@ data class PayMethod(
     val pendingUntil: Long? = null,
 )
 
-data class PayClaim(val method: String, val trxId: String, val senderLast4: String, val at: Long)
+/** by: কে "পাঠিয়েছি" বললেন (কেয়ারগিভার নিজের ওয়ালেট থেকে দিলে তাঁর uid) */
+data class PayClaim(val method: String, val trxId: String, val senderLast4: String, val at: Long, val by: String = "")
+
+/** নিশ্চিত হওয়া টাকা ফেরত পাওনা (ব্যবসা বাতিল করেছে, অর্ডার আসেনি…) — why: সার্ভারের কারণ */
+data class PayRefundDue(val at: Long, val why: String)
 data class PayRefund(val trxId: String, val amount: Double, val at: Long, val ackAt: Long)
 
 /** একটা পেমেন্টের অনুরোধ (চুক্তির "Pay request") */
@@ -66,6 +70,10 @@ data class PayRequest(
     val refundableUntil: Long = 0L,
     /** ডেমো দুনিয়ার অনুরোধ — "আসল টাকা পাঠাবেন না" */
     val demo: Boolean = false,
+    val refundDue: PayRefundDue? = null,
+    /** pay_request_get-এর ফেরতের নিয়ম + "শুধু এই নম্বরে…" (সার্ভারের লেখা; না এলে অ্যাপেরটা) */
+    val policy: String = "",
+    val demoNote: String = "",
 ) {
     val activeMethods: List<PayMethod> get() = methods.filter { it.active && it.number.isNotBlank() && it.method in PayRules.METHODS }
 }
@@ -81,6 +89,7 @@ data class PaySettings(
     /** সাম্প্রতিক বদল (pay_method_log) — "আমি করিনি" এখান থেকেও */
     val changes: List<PayMethodChange> = emptyList(),
     val frozen: Boolean = false,
+    val frozenSince: Long = 0L,
 )
 
 /** একটা নম্বরের বদল: added | changed | removed | activated … (নম্বরের শুধু শেষ ৪ সংখ্যা) */
@@ -363,6 +372,16 @@ object PayText {
         if (method == "bkash") tr("A bKash TrxID has exactly 10 English letters/digits", "bKash-এর TrxID ঠিক ১০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা)")
         else tr("A ${method(method)} TrxID has 6–20 English letters/digits", "${method(method)}-এর TrxID ৬ থেকে ২০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা)")
 
+    /** refundDue.why */
+    fun dueWhy(w: String): String = when (w) {
+        "declined", "biz_cancelled", "cancelled_by_business" -> tr("they cancelled", "তাঁরা বাতিল করেছেন")
+        "patient_cancelled", "cancelled_in_time" -> tr("you cancelled in time", "আপনি সময়মতো বাতিল করেছেন")
+        "not_delivered" -> tr("not delivered", "পৌঁছায়নি")
+        "order_cancelled", "withdrawn" -> tr("order cancelled", "অর্ডার বাতিল")
+        "collection_cancelled" -> tr("collection cancelled", "নমুনা নেওয়া বাতিল")
+        else -> w.replace('_', ' ')
+    }
+
     val LAST4_HINT: String get() = tr("The last 4 digits of the number you sent from", "যে নম্বর থেকে পাঠিয়েছেন, তার শেষ ৪ সংখ্যা")
 
     /** রোগীর দিক থেকে অবস্থা */
@@ -464,7 +483,19 @@ object PayText {
             "pay_ref_rejected" -> tr("They said they didn't get this TrxID — report it.", "এই TrxID দোকান বাতিল করেছে — রিপোর্ট করুন।")
             "reauth_required" -> tr("Log in again to change payment numbers.", "পেমেন্টের নম্বর বদলাতে আবার লগইন করুন।")
             "pay_frozen" -> tr("Payment numbers are frozen — Lifolo is checking.", "পেমেন্টের নম্বর আটকে রাখা আছে — Lifolo দেখছে।")
-            "demo_number" -> tr("Demo accounts can use only demo numbers.", "ডেমো অ্যাকাউন্টে শুধু ডেমোর নম্বর দেওয়া যায়।")
+            "demo_number" -> tr("Demo accounts use demo numbers (0120000XXXX) only.", "ডেমো অ্যাকাউন্টে শুধু ডেমো নম্বর (0120000XXXX) চলে।")
+            "sender_digits" -> LAST4_HINT
+            "trx_format" -> tr("Check the TrxID — copy it from the message.", "TrxID মিলিয়ে দেখুন — মেসেজ থেকে হুবহু লিখুন।")
+            "method" -> tr("Choose one of the numbers shown here.", "এখানে দেখানো নম্বরগুলোর একটা বেছে নিন।")
+            "no_methods" -> NO_NUMBERS
+            "pay_paused" -> tr("Online payments are paused for this business — pay in cash.", "এই প্রতিষ্ঠানের অনলাইন পেমেন্ট এখন বন্ধ — নগদে দিন।")
+            "already_paid" -> tr("This is already paid.", "এটা আগেই পরিশোধ হয়েছে।")
+            "nothing_due" -> tr("Nothing is due.", "কোনো বাকি নেই।")
+            "not_finished" -> tr("The fare can be paid after the trip is finished.", "যাত্রা শেষ হওয়ার পরেই ভাড়া দেওয়া যায়।")
+            "no_amount" -> tr("There's no amount yet — write the bill first.", "এখনো টাকার অঙ্ক নেই — আগে বিল/ওষুধ লিখুন।")
+            "checks_required" -> tr("Tick all three checks first.", "আগে তিনটা মিলেই টিক দিন।")
+            "owner_only" -> tr("Only the owner can do this.", "এটা শুধু মালিক করতে পারেন।")
+            "feature_off" -> tr("This is coming soon", "এই সুবিধা শিগগির আসছে")
             "pay_claim_rate", "rate_limited", "too_many" -> tr("Too many tries — try again later.", "অনেকবার চেষ্টা হয়েছে — কিছুক্ষণ পরে আবার চেষ্টা করুন।")
             "pay_one_open", "pay_claim_limit" -> tr("Finish your other payment that's being checked first.", "যাচাই চলা আগের পেমেন্টটা আগে শেষ হোক।")
             "no_payment_blood" -> tr("There's no payment for blood.", "রক্তের জন্য কোনো পেমেন্ট নেই।")
@@ -484,7 +515,7 @@ object PayNav {
     data class Show(val id: String, val request: PayRequest? = null, val asUid: String? = null)
 
     /** ব্যবসার "পেমেন্ট" পাতা — bizId না থাকলে পাতা নিজে খুঁজে নেয়; assistant: ডাক্তারের সহকারী (শুধু যাচাই) */
-    data class Biz(val kind: String, val bizId: String? = null, val assistant: Boolean = false, val tab: Int = 0)
+    data class Biz(val kind: String, val bizId: String? = null, val assistant: Boolean = false, val tab: Int = 0, val reqId: String? = null)
 
     val show = mutableStateOf<Show?>(null)
     val biz = mutableStateOf<Biz?>(null)
@@ -500,8 +531,8 @@ object PayNav {
         show.value = Show(id, PayStore.byId(id), asUid)
     }
 
-    fun openBiz(kind: String, bizId: String? = null, assistant: Boolean = false, tab: Int = 0) {
-        biz.value = Biz(kind, bizId, assistant, tab)
+    fun openBiz(kind: String, bizId: String? = null, assistant: Boolean = false, tab: Int = 0, reqId: String? = null) {
+        biz.value = Biz(kind, bizId, assistant, tab, reqId)
     }
 
     fun bump() {
@@ -595,13 +626,18 @@ object PayApi {
             refType = o.str("refType"), refId = o.str("refId"), purpose = o.str("purpose"), amount = o.dbl("amount"),
             methods = o.optJSONArray("methods").objs().map(::method),
             status = o.str("status").ifBlank { "open" },
-            claim = c?.let { PayClaim(it.str("method").lowercase(), it.str("trxId"), it.str("senderLast4"), InvoiceApi.time(it, "at")) },
+            claim = c?.let { PayClaim(it.str("method").lowercase(), it.str("trxId"), it.str("senderLast4"), InvoiceApi.time(it, "at"), it.str("by")) },
             confirmedAt = InvoiceApi.time(o, "confirmedAt"), confirmedBy = o.str("confirmedBy"),
             rejectReason = o.str("rejectReason"), rejectNote = o.str("rejectNote"),
             refund = f?.let { PayRefund(it.str("trxId"), it.dbl("amount"), InvoiceApi.time(it, "at"), InvoiceApi.time(it, "ackAt")) },
             invoiceId = o.str("invoiceId"), expiresAt = InvoiceApi.time(o, "expiresAt"), createdAt = InvoiceApi.time(o, "createdAt"),
             refundableUntil = InvoiceApi.time(o, "refundableUntil"), demo = o.optBoolean("demo") || o.optBoolean("isDemo"),
+            refundDue = o.optJSONObject("refundDue")?.let { PayRefundDue(InvoiceApi.time(it, "at"), it.str("why")) },
         )
+
+    /** pay_request_get-এর উত্তর: {request, side, policy, demoNote} */
+    internal fun withPolicy(o: JSONObject): PayRequest =
+        parse(pick(o)).copy(policy = o.str("policy"), demoNote = o.str("demoNote"))
     }
 
     internal fun page(o: JSONObject): PayPage {
@@ -634,7 +670,7 @@ object PayApi {
         }
         return PaySettings(
             o.optJSONArray("methods").objs().map(::method).filter { it.method in PayRules.METHODS }, adv, InvoiceApi.time(o, "pendingUntil").takeIf { it > 0 },
-            changes, o.optBoolean("frozen"),
+            changes, o.optBoolean("frozen"), InvoiceApi.time(o, "frozenSince"),
         )
     }
 
@@ -647,7 +683,7 @@ object PayApi {
 
     // ---------- রোগী (বা কেয়ারগিভার asUid দিয়ে) ----------
 
-    suspend fun get(id: String, asUid: String? = null): PayRequest = parse(pick(call("pay_request_get", JSONObject().put("id", id).asUid(asUid))))
+    suspend fun get(id: String, asUid: String? = null): PayRequest = withPolicy(call("pay_request_get", JSONObject().put("id", id).asUid(asUid)))
 
     suspend fun claim(id: String, method: String, trxId: String, last4: String, asUid: String? = null): PayRequest =
         parse(pick(call("pay_claim", claimBody(id, method, trxId, last4).asUid(asUid))))
@@ -664,12 +700,10 @@ object PayApi {
     /** রসিদের বাকি টাকা অনলাইনে (রোগী শুরু করেন) */
     suspend fun dueStart(invoiceId: String, asUid: String? = null): PayRequest = parse(pick(call("pay_due_start", JSONObject().put("invoiceId", invoiceId).asUid(asUid))))
 
-    /** সিস্টেম/ব্যবসা (আর যাত্রার পরে রোগী অ্যাম্বুলেন্স ভাড়ার জন্য) — সার্ভার সম্পর্ক আর অবস্থা মিলিয়ে নেয় */
-    suspend fun create(refType: String, refId: String, purpose: String, amount: Double? = null, asUid: String? = null): PayRequest {
+    /** ব্যবসা (সেই অর্ডার/পরীক্ষার) — টাকা সবসময় সার্ভার উৎস থেকে নেয় (অর্ডারের লাইন, বিল, বাকি…), অ্যাপ পাঠায় না */
+    suspend fun create(refType: String, refId: String, purpose: String): PayRequest {
         require(!PayRules.isBlood(refType)) { "no_payment_blood" }
-        val b = JSONObject().put("refType", refType).put("refId", refId).put("purpose", purpose).apply { if (amount != null) put("amount", amount) }
-        if (purpose == PayRules.AMB_FARE) b.asUid(asUid)
-        return parse(pick(call("pay_request_create", b)))
+        return parse(pick(call("pay_request_create", JSONObject().put("refType", refType).put("refId", refId).put("purpose", purpose))))
     }
 
     // ---------- ব্যবসা (মালিক; চেম্বারের অনুরোধে ডাক্তারের সহকারীও) ----------
@@ -690,7 +724,7 @@ object PayApi {
 
     /** {refType, refId, purpose} দিয়ে (অনলাইন চেম্বারের অ্যাপয়েন্টমেন্ট — সার্ভার দরকারে অনুরোধ বানিয়ে দেয়) */
     suspend fun getByRef(refType: String, refId: String, purpose: String, asUid: String? = null): PayRequest =
-        parse(pick(call("pay_request_get", JSONObject().put("refType", refType).put("refId", refId).put("purpose", purpose).asUid(asUid))))
+        withPolicy(call("pay_request_get", JSONObject().put("refType", refType).put("refId", refId).put("purpose", purpose).asUid(asUid)))
 
     /** "পেয়েছি" — রসিদ দেয় বা আগের রসিদে টাকা যোগ করে */
     internal fun confirmBody(id: String, checks: Set<String>): JSONObject =
@@ -719,19 +753,28 @@ object PayApi {
     suspend fun summary(kind: String, bizId: String, day: String? = null): PaySummary =
         summary(call("pay_summary", JSONObject().put("kind", kind).put("bizId", bizId).apply { if (day != null) put("day", day) }))
 
-    /** মাসের CSV লেখা (সার্ভার csv/text দেয়; url দিলে সেটা) */
+    /** মাসের CSV: {filename, mime, count, csv} → (লেখা, ফাইলের নাম) */
     suspend fun exportCsv(kind: String, bizId: String, month: String): Pair<String?, String?> {
         val o = call("pay_export_csv", JSONObject().put("kind", kind).put("bizId", bizId).put("month", month))
         val text = listOf("csv", "text", "data").firstNotNullOfOrNull { k -> o.str(k).takeIf { it.isNotBlank() } }
-        return text to o.str("url").takeIf { it.isNotBlank() }
+        return text to o.str("filename").takeIf { it.isNotBlank() }
     }
 }
 
 /** পুশ: pay_* — কোথায় খুলবে আর লক-স্ক্রিনের লেখা (টাকা/নম্বর ছাড়া) */
 object PayPush {
-    val TYPES = setOf("pay_requested", "pay_claimed", "pay_confirmed", "pay_rejected", "pay_refunded", "pay_reminder", "pay_methods_changed")
+    val TYPES = setOf("pay_requested", "pay_claimed", "pay_confirmed", "pay_rejected", "pay_refunded", "pay_reminder", "pay_refund_due", "pay_methods_changed")
     /** ব্যবসার কাছে যায় */
-    val BIZ_TYPES = setOf("pay_claimed", "pay_reminder", "pay_methods_changed")
+    val BIZ_TYPES = setOf("pay_claimed", "pay_reminder", "pay_refund_due", "pay_methods_changed")
+
+    /** ব্যবসার পুশে kind না থাকলে কাজ থেকে (invoice_due হলে অনুরোধ খুলে জানা যায়) */
+    fun kindOf(purpose: String?): String? = when (purpose) {
+        PayRules.CHAMBER_FEE, PayRules.ADVANCE -> "chamber"
+        PayRules.DELIVERY -> "pharmacy"
+        PayRules.LAB -> "lab"
+        PayRules.AMB_FARE -> "ambulance"
+        else -> null
+    }
 
     fun isPay(type: String?): Boolean = type != null && type.startsWith("pay_")
 
@@ -746,10 +789,19 @@ object PayPush {
         val type = data["type"]
         val id = listOf("payId", "payRequestId", "id").firstNotNullOfOrNull { k -> data[k]?.takeIf { it.isNotBlank() } }
         if (type in BIZ_TYPES) {
-            val kind = data["kind"]?.takeIf { it in PayGate.KINDS }
-            // নম্বর বদলের খবর → সেটিংস (সেখানে "আমি করিনি")
-            return if (kind != null) NotifyRoute.PayBiz(kind, data["bizId"]?.takeIf { it.isNotBlank() }, settings = type == "pay_methods_changed")
-            else NotifyRoute.Tab(if (hasWork) Tabs.WORK else Tabs.HOME)
+            val kind = data["kind"]?.takeIf { it in PayGate.KINDS } ?: kindOf(data["purpose"])
+            val tab = when (type) {
+                // নম্বর বদলের খবর → সেটিংস (সেখানে "আমি করিনি"); ফেরত পাওনা → তালিকা
+                "pay_methods_changed" -> 2
+                "pay_refund_due" -> 1
+                else -> 0
+            }
+            return when {
+                kind != null -> NotifyRoute.PayBiz(kind, data["bizId"]?.takeIf { it.isNotBlank() }, tab = tab, reqId = id)
+                // invoice_due: কোন ব্যবসা, অনুরোধ খুলে জানা যায়
+                id != null -> NotifyRoute.PayBiz("", null, tab = tab, reqId = id)
+                else -> NotifyRoute.Tab(if (hasWork) Tabs.WORK else Tabs.HOME)
+            }
         }
         return NotifyRoute.Pay(id, data["asUid"]?.takeIf { it.isNotBlank() })
     }

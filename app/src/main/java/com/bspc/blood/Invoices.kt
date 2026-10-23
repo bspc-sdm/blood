@@ -514,8 +514,8 @@ object InvoiceApi {
     }
 
     /** "যাত্রা শেষ": ভাড়া + অতিরিক্ত (টোল, অপেক্ষা…) + কীভাবে পেলেন → রসিদ (রোগী জানেন) */
-    suspend fun ambFinish(reqId: String, fare: Double, extras: List<InvFee>, method: String): Invoice? {
-        val o = call("ambreq_finish", JSONObject().put("reqId", reqId).put("fare", fare).put("method", method).apply { if (extras.isNotEmpty()) put("extras", feesJson(extras)) })
+    suspend fun ambFinish(reqId: String, fare: Double, extras: List<InvFee>, method: String, payLater: Boolean = false): Invoice? {
+        val o = call("ambreq_finish", JSONObject().put("reqId", reqId).put("fare", fare).put("method", method).apply { if (extras.isNotEmpty()) put("extras", feesJson(extras)); if (payLater) put("payLater", true) })
         return invoiceIn(o) ?: o.takeIf { it.has("no") && it.has("id") }?.let(::parse)
     }
 

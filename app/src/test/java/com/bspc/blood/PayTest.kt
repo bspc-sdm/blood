@@ -170,6 +170,12 @@ class PayTest {
         assertNull(r.refund)
         assertEquals("রহিম", r.payerName)
 
+        // pay_request_get: policy, demoNote; claim.by (কেয়ারগিভার), refundDue
+        val g = PayApi.withPolicy(JSONObject("""{"request":{"id":"p1","payerUid":"u1","status":"confirmed","claim":{"method":"nagad","trxId":"7XK29QF3","senderLast4":"9876","at":1,"by":"cg1"},"refundDue":{"at":1792900000000,"why":"not_delivered"}},"side":"payer","policy":"নীতি","demoNote":"ডেমো"}"""))
+        assertEquals("cg1", g.claim?.by)
+        assertEquals(PayRefundDue(1792900000000L, "not_delivered"), g.refundDue)
+        assertEquals("নীতি", g.policy)
+        assertEquals("ডেমো", g.demoNote)
         // তালিকায় রক্তের কিছু এলে বাদ
         val page = PayApi.page(JSONObject("""{"items":[{"id":"a","refType":"ambreq"},{"id":"b","refType":"blood_request"}],"cursor":"c2"}"""))
         assertEquals(listOf("a"), page.items.map { it.id })
@@ -236,6 +242,8 @@ class PayTest {
         assertTrue(PayText.error(ServerError("x", "pay_ref_used")).contains("আবার টাকা পাঠাবেন না"))
         assertEquals("এই TrxID দোকান বাতিল করেছে — রিপোর্ট করুন।", PayText.error(ServerError("x", "pay_ref_rejected")))
         assertTrue(PayReauth.needed(ServerError("x", "reauth_required")))
+        assertEquals(PayText.LAST4_HINT, PayText.error(ServerError("x", "sender_digits")))
+        assertEquals(PayText.NO_NUMBERS, PayText.error(ServerError("x", "no_methods")))
         assertFalse(PayReauth.needed(ServerError("x", "state")))
         assertEquals("bKash বদলেছে (…1111 → …2222)", PayBiz.changeText(PayMethodChange("bkash", "changed", "1111", "2222", 0L)))
     }
@@ -290,7 +298,11 @@ class PayTest {
         assertEquals(NotifyRoute.PayBiz("pharmacy", "ph1"), notifyRoute(mapOf("type" to "pay_claimed", "kind" to "pharmacy", "bizId" to "ph1")))
         assertEquals(NotifyRoute.PayBiz("chamber", null), notifyRoute(mapOf("type" to "pay_reminder", "kind" to "chamber")))
         // নম্বর বদলের খবর → সেটিংস ("আমি করিনি")
-        assertEquals(NotifyRoute.PayBiz("lab", null, settings = true), notifyRoute(mapOf("type" to "pay_methods_changed", "kind" to "lab")))
+        assertEquals(NotifyRoute.PayBiz("lab", null, tab = 2), notifyRoute(mapOf("type" to "pay_methods_changed", "kind" to "lab")))
+        // সার্ভারের ব্যবসার পুশ: {type, payRequestId, purpose, cat} — kind কাজ থেকে, invoice_due হলে অনুরোধ খুলে
+        assertEquals(NotifyRoute.PayBiz("pharmacy", null, reqId = "p8"), notifyRoute(mapOf("type" to "pay_claimed", "payRequestId" to "p8", "purpose" to "delivery")))
+        assertEquals(NotifyRoute.PayBiz("", null, reqId = "p9"), notifyRoute(mapOf("type" to "pay_reminder", "payRequestId" to "p9", "purpose" to "invoice_due")))
+        assertEquals(NotifyRoute.PayBiz("chamber", null, tab = 1, reqId = "p10"), notifyRoute(mapOf("type" to "pay_refund_due", "payRequestId" to "p10", "purpose" to "booking_advance")))
         // সার্ভারের পুশ: payRequestId
         assertEquals(NotifyRoute.Pay("p7", null), notifyRoute(mapOf("type" to "pay_rejected", "payRequestId" to "p7", "kind" to "pharmacy")))
         assertEquals(NotifyRoute.Tab(Tabs.WORK), notifyRoute(mapOf("type" to "pay_claimed"), hasWork = true))

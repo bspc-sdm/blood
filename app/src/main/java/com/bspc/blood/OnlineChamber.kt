@@ -110,6 +110,9 @@ object OnlineChambers {
     /** bKash নম্বর বদলেছে (সেভ করা নম্বর থেকে) — বদল ২৪ ঘণ্টা পর চালু */
     fun bkashChanged(c: Chamber): Boolean = c.online && c.bkashSaved.isNotBlank() && cleanNumber(c.bkashNumber) != cleanNumber(c.bkashSaved)
 
+    /** নতুন বা বদলানো নম্বর (প্রথম নম্বরও) — ২৪ ঘণ্টা পর রোগীরা পাবেন (PAYMENTS.md) */
+    fun bkashNew(c: Chamber): Boolean = c.online && c.bkashNumber.isNotBlank() && cleanNumber(c.bkashNumber) != cleanNumber(c.bkashSaved)
+
     /** চেম্বারে ↔ অনলাইন: অনলাইনে হাসপাতাল, ঠিকানা, রুম, সিরিয়ালের ফোন থাকে না; বুকিং অ্যাপেই */
     fun toOnline(c: Chamber): Chamber = c.copy(
         mode = "online", hospitalId = null, hospitalName = NAME_EN, hospitalNameBn = NAME_BN, district = "", upazilaId = null, unionId = null,
@@ -381,10 +384,10 @@ fun OnlineChamberFields(c: Chamber, onChange: (Chamber) -> Unit) {
     )
     // নম্বর বদলালে সাথে সাথে নয় — ২৪ ঘণ্টা পর চালু (ভুল/চুরি করা নম্বরে টাকা না যায়; ততক্ষণ নতুন বুকিংয়ে আগের নম্বর)
     val pendingUntil = c.bkashPendingUntil?.takeIf { it > System.currentTimeMillis() }
-    if (OnlineChambers.bkashChanged(c) || pendingUntil != null) {
+    if (OnlineChambers.bkashNew(c) || pendingUntil != null) {
         IconLine(
             R.drawable.ic_schedule,
-            if (pendingUntil != null && !OnlineChambers.bkashChanged(c)) tr("The new number starts ", "নতুন নম্বর চালু হবে ") + joinOpensText(pendingUntil, System.currentTimeMillis()) + tr("", " থেকে")
+            if (pendingUntil != null && !OnlineChambers.bkashNew(c)) tr("The new number starts ", "নতুন নম্বর চালু হবে ") + joinOpensText(pendingUntil, System.currentTimeMillis()) + tr("", " থেকে")
             else tr("The new number starts after 24 hours", OnlineText.BKASH_24H),
             MaterialTheme.colorScheme.tertiary,
         )

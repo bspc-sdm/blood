@@ -365,7 +365,7 @@ fun App(
                 else if (r.id != null) PayNav.openId(r.id, r.asUid)
                 else InvoiceNav.list.value = 2
             is NotifyRoute.PayBiz ->
-                if (PayGate.biz(r.kind)) PayNav.openBiz(r.kind, r.bizId, tab = if (r.settings) 2 else 0)
+                if (r.kind.isBlank() || PayGate.biz(r.kind)) PayNav.openBiz(r.kind, r.bizId, tab = r.tab, reqId = r.reqId)
                 else android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
         }
     }

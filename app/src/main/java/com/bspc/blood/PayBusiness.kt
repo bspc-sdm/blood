@@ -57,16 +57,16 @@ import java.io.File
 
 /** ব্যবসার পাতায় "পেমেন্ট" বাটন (যাচাই বাকির সংখ্যাসহ) — সেই ব্যবসার কোনো পেমেন্টের চাবি চালু থাকলে তবেই */
 @Composable
-fun BizPaymentsButton(kind: String, bizId: String?, assistant: Boolean = false) {
+fun BizPaymentsButton(kind: String, bizId: String?, assistant: Boolean = false, label: String = "") {
     if (!PayGate.rememberBiz(kind)) return
     var pending by remember { mutableIntStateOf(0) }
     val bump = PayNav.changed.intValue
     LaunchedEffect(kind, bizId, bump) {
-        val id = bizId ?: PayBiz.defaultBizId(kind) ?: return@LaunchedEffect
+        val id = bizId ?: (if (kind == "ambulance") null else PayBiz.defaultBizId(kind)) ?: return@LaunchedEffect
         runCatching { PayApi.summary(kind, id) }.onSuccess { pending = it.pending }
     }
     OutlinedButton(onClick = { PayNav.openBiz(kind, bizId, assistant) }, modifier = Modifier.fillMaxWidth().testTag("biz_payments")) {
-        ButtonContent(false, tr("Payments", "পেমেন্ট") + if (pending > 0) tr(" — $pending to check", " — যাচাই বাকি ${num(pending)}") else "", R.drawable.ic_wallet)
+        ButtonContent(false, tr("Payments", "পেমেন্ট") + (if (label.isNotBlank()) " · $label" else "") + if (pending > 0) tr(" — $pending to check", " — যাচাই বাকি ${num(pending)}") else "", R.drawable.ic_wallet)
     }
 }
 
@@ -77,9 +77,11 @@ object PayBiz {
     fun defaultBizId(kind: String): String? = AuthRepository.currentUid
 
     /** CSV ফাইল লিখে শেয়ার (অ্যাপের cache/rx — FileProvider-এর জায়গা) */
-    fun shareCsv(context: android.content.Context, kind: String, month: String, text: String) {
+    fun shareCsv(context: android.content.Context, kind: String, month: String, text: String, name: String? = null) {
         val dir = File(context.cacheDir, "rx").apply { mkdirs() }
-        val f = File(dir, "lifolo-payments-$kind-$month.csv")
+        // ফাইলের নামে রোগীর নাম নয় (সার্ভারের filename, না এলে অ্যাপের)
+        val safe = name?.replace(Regex("[^A-Za-z0-9._-]"), "_")?.takeIf { it.endsWith(".csv") }
+        val f = File(dir, safe ?: "lifolo-payments-$kind-$month.csv")
         f.writeText(text, Charsets.UTF_8)
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", f)
         val send = Intent(Intent.ACTION_SEND).apply {
@@ -115,20 +117,26 @@ object PayBiz {
 
 @Composable
 fun BizPaymentsDialog(b: PayNav.Biz, onDismiss: () -> Unit) {
+    var kind by remember { mutableStateOf(b.kind) }
     var bizId by remember { mutableStateOf(b.bizId) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(b) {
-        if (bizId == null) bizId = PayBiz.defaultBizId(b.kind)
-        if (bizId == null) errorMsg = tr("Couldn't find your business", "আপনার ব্যবসা পাওয়া যায়নি")
+        // পুশে শুধু payRequestId (kind/bizId নেই): অনুরোধ খুলে ব্যবসা জানা (অ্যাম্বুলেন্সের bizId = গাড়ির id)
+        val rid = b.reqId
+        if (rid != null && (kind.isBlank() || bizId == null)) {
+            runCatching { PayApi.get(rid) }.onSuccess { r -> if (kind.isBlank()) kind = r.kind; if (bizId == null) bizId = r.bizId.ifBlank { null } }
+        }
+        if (bizId == null && kind.isNotBlank() && kind != "ambulance") bizId = PayBiz.defaultBizId(kind)
+        if (bizId == null || kind.isBlank()) errorMsg = tr("Couldn't find your business", "আপনার ব্যবসা পাওয়া যায়নি")
     }
     FullScreenDialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
-            BackTopBar(tr("Payments", "পেমেন্ট") + " · " + InvoiceKinds.label(b.kind), onDismiss)
+            BackTopBar(tr("Payments", "পেমেন্ট") + if (kind.isNotBlank()) " · " + InvoiceKinds.label(kind) else "", onDismiss)
             val id = bizId
-            if (id == null) {
+            if (id == null || kind.isBlank()) {
                 Column(Modifier.padding(16.dp)) { if (errorMsg != null) ErrorText(errorMsg) else LoadingBox() }
             } else {
-                BizPaymentsPanel(b.kind, id, b.assistant, b.tab)
+                BizPaymentsPanel(kind, id, b.assistant, b.tab)
             }
         }
     }
@@ -403,12 +411,9 @@ fun PayBizList(kind: String, bizId: String, assistant: Boolean) {
                         scope.launch {
                             exporting = true
                             errorMsg = null
-                            runCatching { PayApi.exportCsv(kind, bizId, month) }.onSuccess { (text, url) ->
-                                when {
-                                    text != null -> runCatching { PayBiz.shareCsv(context, kind, month, text) }.onFailure { errorMsg = it.message }
-                                    url != null -> openUrl(context, url)
-                                    else -> errorMsg = tr("Nothing to export", "দেওয়ার মতো কিছু নেই")
-                                }
+                            runCatching { PayApi.exportCsv(kind, bizId, month) }.onSuccess { (text, name) ->
+                                if (text != null) runCatching { PayBiz.shareCsv(context, kind, month, text, name) }.onFailure { errorMsg = it.message }
+                                else errorMsg = tr("Nothing to export", "দেওয়ার মতো কিছু নেই")
                             }.onFailure { errorMsg = PayText.error(it) }
                             exporting = false
                         }
@@ -436,6 +441,7 @@ fun PayBizDetailDialog(r: PayRequest, assistant: Boolean, onDismiss: () -> Unit,
                 Text(PayText.method(c.method) + " · TrxID: " + c.trxId, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
                 if (c.senderLast4.isNotBlank()) Text(tr("Sender number ends ", "পাঠানো নম্বরের শেষ ") + c.senderLast4)
             }
+            r.refundDue?.let { d -> Text(tr("Refund owed to the patient", "রোগীকে ফেরত দেওয়ার কথা") + (if (d.why.isNotBlank()) " (" + PayText.dueWhy(d.why) + ")" else ""), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("pay_biz_refund_due")) }
             r.refund?.let { f -> Text(tr("Refunded ", "ফেরত ") + PayText.money(f.amount.takeIf { it > 0 } ?: r.amount) + " · TrxID: " + f.trxId, fontFamily = FontFamily.Monospace) }
             if (r.invoiceId.isNotBlank()) BizReceiptAction(r.invoiceId)
             if (PayRules.canDecide(r)) PayClaimCard(r, assistant) { onChanged() }
@@ -812,7 +818,7 @@ fun ChamberAdvanceRow(a: ChamberAdvance, busy: Boolean, onSave: (ChamberAdvance)
  * চাবি বন্ধ থাকলে কিছুই নয়। রোগী চাইলে ক্যাশেও দিতে পারেন।
  */
 @Composable
-fun PayAskAction(refType: String, refId: String, purpose: String, suggested: String = "") {
+fun PayAskAction(refType: String, refId: String, purpose: String) {
     if (!PayGate.rememberOn(PayGate.keyFor(purpose) ?: return)) return
     var asking by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf<PayRequest?>(null) }
@@ -824,18 +830,16 @@ fun PayAskAction(refType: String, refId: String, purpose: String, suggested: Str
     SmallAction(tr("Ask to pay online", "অনলাইনে টাকা চান"), R.drawable.ic_payments, { asking = true }, modifier = Modifier.testTag("pay_ask"))
     if (asking) {
         val scope = rememberCoroutineScope()
-        var amount by remember { mutableStateOf(suggested.filter { it.isDigit() || it in '০'..'৯' || it == '.' }) }
         var busy by remember { mutableStateOf(false) }
         var errorMsg by remember { mutableStateOf<String?>(null) }
-        val v = InvoiceMath.parse(amount)
-        val bad = v == null || v <= 0.0
         FormDialog(
             title = tr("Ask to pay online", "অনলাইনে টাকা চান"),
             onDismiss = { if (!busy) asking = false },
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(PayText.purpose(purpose), style = MaterialTheme.typography.titleSmall)
-                    MoneyField(amount, { amount = it }, tr("Amount (৳)", "টাকা (৳)"), isError = amount.isNotBlank() && bad)
+                    // টাকা সার্ভার নিজে নেয় — অর্ডারের লাইন + ডেলিভারি চার্জ, বা পরীক্ষার দাম − ছাড় + বাসায় আসার খরচ
+                    Text(tr("The amount comes from the order or bill.", "টাকার অঙ্ক অর্ডার বা বিল থেকে নেওয়া হবে।"), style = MaterialTheme.typography.bodyMedium)
                     SmallNote(tr("The patient sees your active numbers and sends the money straight to you. They can still pay in cash.", "রোগী আপনার চালু নম্বরগুলো দেখে সরাসরি আপনাকে পাঠাবেন। চাইলে ক্যাশেও দিতে পারবেন।"))
                     ErrorText(errorMsg)
                 }
@@ -845,10 +849,10 @@ fun PayAskAction(refType: String, refId: String, purpose: String, suggested: Str
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { PayApi.create(refType, refId, purpose, v) }.onSuccess { done = it; asking = false; PayNav.bump() }.onFailure { errorMsg = PayText.error(it) }
+                        runCatching { PayApi.create(refType, refId, purpose) }.onSuccess { done = it; asking = false; PayNav.bump() }.onFailure { errorMsg = PayText.error(it) }
                         busy = false
                     }
-                }, enabled = !busy && !bad, modifier = Modifier.testTag("pay_ask_send")) { ButtonContent(busy, tr("Send", "পাঠান")) }
+                }, enabled = !busy, modifier = Modifier.testTag("pay_ask_send")) { ButtonContent(busy, tr("Send", "পাঠান")) }
             },
             dismissButton = { TextButton(onClick = { asking = false }, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
         )

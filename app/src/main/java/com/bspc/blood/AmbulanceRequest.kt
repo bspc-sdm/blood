@@ -1074,7 +1074,8 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text(tr("Calls", "ডাক"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        BizPaymentsButton("ambulance", null)
+        // অ্যাম্বুলেন্সের পেমেন্ট গাড়িপ্রতি (bizId = গাড়ির id)
+        names.forEach { (ambId, ambName) -> BizPaymentsButton("ambulance", ambId, label = if (names.size > 1) ambName else "") }
         ErrorText(errorMsg)
         InfoText(infoMsg)
         if (loaded && items.isEmpty()) {

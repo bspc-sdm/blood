@@ -112,12 +112,21 @@ fun PaySheet(r: PayRequest, asUid: String? = null, onChanged: (PayRequest) -> Un
     var errorMsg by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxWidth().testTag("pay_sheet"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ডেমোর অনুরোধ: আসল টাকা নয় (পর্যালোচনা P8)
-        if (r.demo) {
+        if (r.demo || r.demoNote.isNotBlank()) {
             Surface(color = cs.errorContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().testTag("pay_demo")) {
-                Text(PayText.DEMO, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = cs.onErrorContainer, modifier = Modifier.padding(12.dp))
+                Text(r.demoNote.ifBlank { PayText.DEMO }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = cs.onErrorContainer, modifier = Modifier.padding(12.dp))
             }
         }
         PayHeader(r)
+        // ফেরত পাওনা (ব্যবসা বাতিল করেছে, অর্ডার আসেনি…) — পর্যালোচনা P11
+        r.refundDue?.let { d ->
+            Surface(color = cs.secondaryContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().testTag("pay_refund_due")) {
+                Text(
+                    tr("Refund owed by ", "ফেরত পাওনা — ") + r.bizName.ifBlank { PayText.who(r.kind) } + (if (d.why.isNotBlank()) " (" + PayText.dueWhy(d.why) + ")" else ""),
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = cs.onSecondaryContainer, modifier = Modifier.padding(12.dp),
+                )
+            }
+        }
         // সবসময়: শুধু এখানের নম্বরে; অন্য নম্বর দিলে রিপোর্ট (পর্যালোচনা P2)
         PayOnlyHereWarning()
         PayTimeline(r)
@@ -143,7 +152,7 @@ fun PaySheet(r: PayRequest, asUid: String? = null, onChanged: (PayRequest) -> Un
                 PayClaimSection(r, asUid, onChanged)
             }
             r.status in setOf("open", "rejected") && r.activeMethods.isEmpty() -> SmallNote(PayText.NO_NUMBERS)
-            r.status == "claimed" -> r.claim?.let { PayClaimInfo(it) }
+            r.status == "claimed" -> r.claim?.let { PayClaimInfo(it, r.payerUid) }
             r.status == "confirmed" -> {
                 IconLine(R.drawable.ic_check_circle, tr("Confirmed. The receipt is in \"My receipts\".", "নিশ্চিত হয়েছে। রসিদ \"আমার রসিদ\"-এ আছে।"), cs.tertiary)
                 if (r.invoiceId.isNotBlank()) {
@@ -214,7 +223,8 @@ fun PayRefundPolicy(r: PayRequest) {
     Row(Modifier.fillMaxWidth().testTag("pay_refund_policy"), verticalAlignment = Alignment.Top) {
         AppIcon(R.drawable.ic_info, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(8.dp))
-        Text(PayText.refundPolicy(r), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // সার্ভারের লেখা (pay_request_get policy) থাকলে সেটাই
+        Text(r.policy.ifBlank { PayText.refundPolicy(r) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -397,8 +407,10 @@ fun PayClaimSection(r: PayRequest, asUid: String?, onChanged: (PayRequest) -> Un
 
 /** পাঠানোর পরে: কোন সেবায়, TrxID, শেষ ৪ সংখ্যা */
 @Composable
-fun PayClaimInfo(c: PayClaim) {
+fun PayClaimInfo(c: PayClaim, payerUid: String = "") {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.testTag("pay_claim_info")) {
+        // কেয়ারগিভার নিজের ওয়ালেট থেকে দিলে — ফেরত যাবে তাঁর নম্বরে
+        if (c.by.isNotBlank() && payerUid.isNotBlank() && c.by != payerUid) Text(tr("Sent by a caregiver", "কেয়ারগিভার পাঠিয়েছেন"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Text(PayText.method(c.method) + " · TrxID: " + c.trxId, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
         if (c.senderLast4.isNotBlank()) Text(tr("From a number ending ", "যে নম্বর থেকে: …") + c.senderLast4, style = MaterialTheme.typography.bodyMedium)
         SmallNote(tr("They'll check it in their app and confirm. You'll get a notification.", "তাঁরা নিজের অ্যাপে মিলিয়ে নিশ্চিত করবেন। নোটিফিকেশন পাবেন।"))
@@ -473,37 +485,19 @@ fun PayRefAction(r: PayRequest, asUid: String?) {
     SmallAction(text, R.drawable.ic_payments, { PayNav.open(r, asUid) }, primary = r.status in setOf("open", "rejected"), modifier = Modifier.testTag("pay_entry_" + r.purpose))
 }
 
-/**
- * অ্যাম্বুলেন্স: যাত্রা শেষ হলে (তবেই) ভাড়া মোবাইল ব্যাংকিংয়ে — কখনো বাধ্যতামূলক নয়; ক্যাশে দিলে কিছু করতে হবে না।
- * অনুরোধ না থাকলে রোগী নিজে শুরু করেন (pay_request_create, ambulance_fare)।
- */
+/** অ্যাম্বুলেন্স: যাত্রা শেষ হলে (তবেই) ভাড়া মোবাইল ব্যাংকিংয়ে — কখনো বাধ্যতামূলক নয়; ক্যাশে দিলে কিছু করতে হবে না। */
 @Composable
 fun AmbFarePay(reqId: String, status: String) {
     if (status != "done" || reqId.isBlank() || !PayGate.rememberOn(PayGate.AMBULANCE)) return
-    val scope = rememberCoroutineScope()
     val asUid = CareMode.asUid.value
     val all by PayStore.all.collectAsState()
     val bump = PayNav.changed.intValue
     LaunchedEffect(asUid, bump) { PayStore.refresh(asUid, bump) }
-    val r = remember(all, reqId, asUid) { PayStore.forRef(reqId, PayRules.AMB_FARE, asUid) }
-    var busy by remember { mutableStateOf(false) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
+    // চালক "রোগী পরে বিকাশ/নগদে দেবেন" দিলে তবেই অনুরোধ থাকে (ambreq_finish payLater) — না থাকলে কিছুই নয়
+    val r = remember(all, reqId, asUid) { PayStore.forRef(reqId, PayRules.AMB_FARE, asUid) } ?: return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("amb_pay")) {
-        if (r != null) {
-            PayRefAction(r, asUid)
-        } else {
-            SmallAction(tr("Pay the fare by bKash/Nagad", "ভাড়া বিকাশ/নগদে দিন"), R.drawable.ic_payments, {
-                scope.launch {
-                    busy = true
-                    errorMsg = null
-                    runCatching { PayApi.create("ambreq", reqId, PayRules.AMB_FARE, asUid = asUid) }
-                        .onSuccess { PayStore.put(it, asUid); PayNav.open(it, asUid) }.onFailure { errorMsg = PayText.error(it) }
-                    busy = false
-                }
-            }, busy = busy, modifier = Modifier.testTag("amb_pay_start"))
-            SmallNote(tr("Only if you want to. Paid in cash? Nothing to do.", "চাইলে তবেই। ক্যাশে দিয়ে থাকলে কিছু করতে হবে না।"))
-        }
-        ErrorText(errorMsg)
+        PayRefAction(r, asUid)
+        if (PayRules.canClaim(r)) SmallNote(tr("Only if you want to. Paid in cash? Nothing to do.", "চাইলে তবেই। ক্যাশে দিয়ে থাকলে কিছু করতে হবে না।"))
     }
 }
 
@@ -535,9 +529,18 @@ object PayEntry {
         return PayApi.parse(p).takeIf { it.id.isNotBlank() }
     }
 
-    fun afterBooking(o: org.json.JSONObject?) {
-        val r = fromResponse(o) ?: return
-        if (r.purpose == PayRules.ADVANCE && PayGate.on(PayGate.CHAMBER_ADVANCE)) PayNav.open(r, CareMode.asUid.value)
+    /**
+     * book-এর উত্তরে payRequestId (অনলাইনের ফি বা চেম্বারের অগ্রিম)। সামনাসামনি চেম্বারে অগ্রিম হলে সাথে সাথে PaySheet;
+     * অনলাইনের ফি ডাক্তার নিশ্চিত করার পরে অ্যাপয়েন্টমেন্টের প্যানেলেই।
+     */
+    fun afterBooking(o: org.json.JSONObject?, online: Boolean) {
+        if (online || !PayGate.on(PayGate.CHAMBER_ADVANCE)) return
+        val r = fromResponse(o)
+        if (r != null) {
+            if (r.purpose == PayRules.ADVANCE) PayNav.open(r, CareMode.asUid.value)
+            return
+        }
+        o?.optString("payRequestId")?.takeIf { it.isNotBlank() && it != "null" }?.let { PayNav.openId(it, CareMode.asUid.value) }
     }
 }
 
