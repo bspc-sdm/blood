@@ -10,6 +10,6 @@ withDefaults(defineProps<{ n: number; filled?: boolean; label?: string }>(), { f
     <line x1="15" y1="0" x2="15" y2="6.4" stroke="var(--error)" stroke-width="1.6" />
     <rect x="10.8" y="4.8" width="8.4" height="4" rx="2" fill="var(--error)" />
     <rect x=".8" y="8" width="28.4" height="31.2" rx="7" :fill="filled ? 'var(--error)' : 'var(--error-a12)'" stroke="var(--error)" stroke-width="1.6" />
-    <text x="15" y="29" text-anchor="middle" :fill="filled ? 'var(--on-error)' : 'var(--error)'" font-size="14" font-weight="700" font-family="Hind Siliguri, Roboto, sans-serif">{{ num(n) }}</text>
+    <text x="15" y="29" text-anchor="middle" :fill="filled ? 'var(--on-error)' : 'var(--error)'" font-size="14" font-weight="700" font-family="'Anek Bangla', 'Noto Sans Bengali', sans-serif">{{ num(n) }}</text>
   </svg>
 </template>

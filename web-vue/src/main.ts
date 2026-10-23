@@ -4,11 +4,14 @@ import '@fontsource/roboto/latin-400.css';
 import '@fontsource/roboto/latin-500.css';
 import '@fontsource/roboto/latin-700.css';
 import '@fontsource/roboto/latin-900.css';
-import '@fontsource/hind-siliguri/bengali-400.css';
-import '@fontsource/hind-siliguri/bengali-500.css';
-import '@fontsource/hind-siliguri/bengali-600.css';
-import '@fontsource/hind-siliguri/bengali-700.css';
-import '@fontsource/hind-siliguri/latin-400.css';
+// বাংলা আর ইংরেজি — দুটোই Anek Bangla (নিজের সার্ভার থেকে, CSP font-src 'self'; ডেস্কটপ অফলাইনেও চলে)।
+// Roboto শুধু লোগো আর কোডের মতো যেখানে আলাদা করে লেখা আছে।
+// ওজন-ধরা ফাইল (400.css …): বাংলা, latin, latin-ext — প্রতিটায় unicode-range, তাই পাতায় যে অক্ষর আছে শুধু সেই অংশ নামে।
+import '@fontsource/anek-bangla/400.css';
+import '@fontsource/anek-bangla/500.css';
+import '@fontsource/anek-bangla/600.css';
+import '@fontsource/anek-bangla/700.css';
+import '@fontsource/anek-bangla/800.css';
 import './main.css';
 import App from './App.vue';
 import { router } from './router';

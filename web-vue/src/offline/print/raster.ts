@@ -1,4 +1,4 @@
-// থার্মাল রসিদ ছবি হিসেবে: WebView2-এর canvas বাংলা যুক্তাক্ষর ঠিকমতো আঁকে (Hind Siliguri, না পেলে Nirmala UI)।
+// থার্মাল রসিদ ছবি হিসেবে: WebView2-এর canvas বাংলা যুক্তাক্ষর ঠিকমতো আঁকে (Anek Bangla, না পেলে Nirmala UI)।
 // layout() শুধু মাপ নিয়ে আঁকার তালিকা বানায় (পরীক্ষাযোগ্য); paint() canvas-এ আঁকে।
 import { qrMatrix } from '@/sections/health/qr';
 import type { ReceiptModel, ReceiptRow } from './receipt';
@@ -12,7 +12,7 @@ export type DrawOp =
 
 export type Measure = (text: string, size: number, bold?: boolean) => number;
 
-const FONT = '"Hind Siliguri", "Nirmala UI", "Vrinda", sans-serif';
+const FONT = '"Anek Bangla", "Noto Sans Bengali", "Nirmala UI", "Vrinda", sans-serif';
 export const font = (size: number, bold?: boolean) => `${bold ? 700 : 500} ${size}px ${FONT}`;
 
 /** লেখা ভাঙা (শব্দ ধরে; একটা শব্দই বেশি লম্বা হলে অক্ষর ধরে) */
@@ -171,7 +171,8 @@ export function paint(ctx: Ctx, ops: DrawOp[], width: number, height: number) {
 /** রসিদ → RGBA ছবি (WebView/ব্রাউজারে) */
 export async function renderReceipt(m: ReceiptModel, width: number): Promise<{ rgba: Uint8ClampedArray; width: number; height: number }> {
   try {
-    await Promise.all([document.fonts.load(font(20)), document.fonts.load(font(20, true))]);
+    // বাংলা অংশের ফাইলও (শুধু ফাঁকা জায়গা দিলে ইংরেজি অংশটাই নামে)
+    await Promise.all([document.fonts.load(font(20), 'অ১A'), document.fonts.load(font(20, true), 'অ১A')]); // bn-ok
   } catch {
     /* ফন্ট না পেলে Nirmala UI */
   }

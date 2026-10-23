@@ -33,7 +33,7 @@
   --primary-a12: rgba(31, 111, 120, 0.12);
   --error-a12: rgba(179, 38, 30, 0.12);
 
-  --font: 'Roboto', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+  --font: 'Anek Bangla', 'Noto Sans Bengali', 'Nirmala UI', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --r-card: 12px;
   --r-small: 6px;
   --r-field: 14px;

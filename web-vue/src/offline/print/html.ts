@@ -1,5 +1,5 @@
 // রসিদ ব্রাউজার/WebView-এর প্রিন্ট দিয়ে: A4 (ডেস্কটপেও), আর ওয়েবে ৫৮/৮০ মিমি মাপের পাতা।
-// পাতার ভেতরেই একটা লুকানো অংশ (#lf-print-root) — @media print-এ শুধু সেটা দেখা যায়, তাই ওয়েবের ফন্ট (Hind Siliguri) কাজে লাগে।
+// পাতার ভেতরেই একটা লুকানো অংশ (#lf-print-root) — @media print-এ শুধু সেটা দেখা যায়, তাই ওয়েবের ফন্ট (Anek Bangla) কাজে লাগে।
 // ব্যবহারকারীর লেখা (দোকানের নাম, রোগীর নাম) সবসময় textContent — কখনো HTML নয়।
 import { qrMatrix } from '@/sections/health/qr';
 import type { Invoice, PrintOptions } from '../types';
@@ -94,7 +94,7 @@ const CSS = (paper: PrintOptions['paper']) => `
   body>*:not(#${ROOT_ID}){display:none!important}
   #${ROOT_ID}{display:block!important}
 }
-#${ROOT_ID} .lfr{font-family:"Hind Siliguri","Nirmala UI","Vrinda",sans-serif;color:#000;background:#fff;position:relative;line-height:1.35}
+#${ROOT_ID} .lfr{font-family:"Anek Bangla","Noto Sans Bengali","Nirmala UI","Vrinda",sans-serif;color:#000;background:#fff;position:relative;line-height:1.35}
 #${ROOT_ID} .lfr-a4{font-size:12pt;max-width:180mm;margin:0 auto}
 #${ROOT_ID} .lfr-roll{font-size:${paper === '58' ? '9pt' : '10.5pt'};width:${paper === '58' ? '48mm' : '72mm'}}
 #${ROOT_ID} .lfr-head{text-align:center;border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:4px}
@@ -124,10 +124,14 @@ export async function printHtml(invoice: Invoice, opts: PrintOptions): Promise<v
   style.textContent = CSS(opts.paper);
   const root = el('div');
   root.id = ROOT_ID;
+  // .health-print: পাতার CSS-এর ছাপার নিয়ম (@layer-এর ভেতরে !important, তাই এখানকার #id-কেও হারায়) এটাকে লুকায় না
+  root.className = 'health-print';
   root.append(receiptElement(receiptModel(invoice, !!opts.englishDigits), opts.paper));
   document.head.append(style);
   document.body.append(root);
   try {
+    // কপিটা পর্দায় লুকানো, তাই ব্রাউজার নিজে ফন্ট নামায় না — ছাপার আগে বাংলা আর ইংরেজি অংশ নামানো
+    if (document.fonts) await Promise.all([400, 600, 700].map((w) => document.fonts.load(`${w} 16px "Anek Bangla"`, 'অ১A'))); // bn-ok
     await document.fonts?.ready;
   } catch {
     /* ফন্ট ছাড়াই */

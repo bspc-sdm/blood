@@ -21,7 +21,7 @@
     "smoke:admin": "node test/admin-smoke.mjs"
   },
   "dependencies": {
-    "@fontsource/hind-siliguri": "5.1.0",
+    "@fontsource/anek-bangla": "5.3.0",
     "@fontsource/roboto": "5.1.0",
     "@sentry/vue": "11.4.0",
     "@tanstack/vue-query": "^5.104.4",

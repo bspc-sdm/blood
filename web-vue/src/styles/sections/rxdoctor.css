@@ -192,7 +192,8 @@
 /* ছাপা: শুধু কাগজটা (health.css-এর .health-print-এর সাথে) */
 .rxd-print { display: none; }
 @media print {
-  body > *:not(.rxd-print) { display: none !important; }
+  /* Vue-তে সব CSS এক ফাইলে — .health-print (রসিদ, আমার প্রেসক্রিপশন) লুকালে ওগুলোর ছাপা ফাঁকা আসত */
+  body > *:not(.rxd-print):not(.health-print) { display: none !important; }
   .rxd-print { display: block; }
 }
 
