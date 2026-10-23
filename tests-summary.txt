@@ -1,0 +1,17 @@
+com.bspc.blood.AmbRequestScreensTest: 4 tests, 0 failed
+com.bspc.blood.FeaturesTest: 5 tests, 0 failed
+com.bspc.blood.InvoicesTest: 13 tests, 0 failed
+com.bspc.blood.ListingsScreensTest: 24 tests, 0 failed
+com.bspc.blood.ListingsTest: 18 tests, 0 failed
+com.bspc.blood.MedFindQtyScreensTest: 9 tests, 0 failed
+com.bspc.blood.MyWorkQueuesScreensTest: 13 tests, 0 failed
+com.bspc.blood.NotifyRouteTest: 4 tests, 0 failed
+com.bspc.blood.OnlineChamberScreensTest: 23 tests, 0 failed
+com.bspc.blood.PayScreensTest: 16 tests, 0 failed
+com.bspc.blood.PayTest: 16 tests, 0 failed
+com.bspc.blood.PracticeScreensTest: 22 tests, 0 failed
+com.bspc.blood.ProviderSideScreensTest: 6 tests, 0 failed
+com.bspc.blood.ReceiptScreensTest: 4 tests, 0 failed
+com.bspc.blood.ScreensTest: 60 tests, 0 failed
+com.bspc.blood.TitleGuardTest: 8 tests, 0 failed
+TOTAL 245 tests, 0 failed

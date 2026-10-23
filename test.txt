@@ -1,0 +1,419 @@
+=== MyWorkQueuesScreensTest
+MyWorkQueuesScreensTest > pharmacyTabsAreThreeAndFit PASSED
+MyWorkQueuesScreensTest > counterSaleAddsAndTotals STARTED
+> Task :app:testDebugUnitTest
+MyWorkQueuesScreensTest > counterSaleAddsAndTotals PASSED
+MyWorkQueuesScreensTest > todayQueueNotStartedShowsStartOnly STARTED
+MyWorkQueuesScreensTest > todayQueueNotStartedShowsStartOnly PASSED
+MyWorkQueuesScreensTest > ambulanceAvailabilityOnce STARTED
+MyWorkQueuesScreensTest > ambulanceAvailabilityOnce PASSED
+MyWorkQueuesScreensTest > phonesAndCodesStayLatin STARTED
+MyWorkQueuesScreensTest > phonesAndCodesStayLatin PASSED
+MyWorkQueuesScreensTest > pharmacyOrdersOnePrimaryAndNoNewTag STARTED
+MyWorkQueuesScreensTest > pharmacyOrdersOnePrimaryAndNoNewTag PASSED
+MyWorkQueuesScreensTest > chamberTabsFitOnASmallPhone STARTED
+MyWorkQueuesScreensTest > chamberTabsFitOnASmallPhone PASSED
+MyWorkQueuesScreensTest > todayWaitingCount STARTED
+MyWorkQueuesScreensTest > todayWaitingCount PASSED
+MyWorkQueuesScreensTest > todayQueueAssistantWritesNoPrescriptionAndFeesOffHidesFee STARTED
+> Task :app:testDebugUnitTest
+MyWorkQueuesScreensTest > todayQueueAssistantWritesNoPrescriptionAndFeesOffHidesFee PASSED
+MyWorkQueuesScreensTest > counterSaleSearchAcceptsBanglaDigits STARTED
+MyWorkQueuesScreensTest > counterSaleSearchAcceptsBanglaDigits PASSED
+MyWorkQueuesScreensTest > expiredHomeSlot STARTED
+MyWorkQueuesScreensTest > expiredHomeSlot PASSED
+MyWorkQueuesScreensTest > todayQueueDoctorHasOnePrimaryPerRow STARTED
+MyWorkQueuesScreensTest > todayQueueDoctorHasOnePrimaryPerRow PASSED
+BUILD SUCCESSFUL in 26s
+=== ProviderSideScreensTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+ProviderSideScreensTest > labPreviewAndSwitches STARTED
+ProviderSideScreensTest > labPreviewAndSwitches PASSED
+ProviderSideScreensTest > pharmacyPreviewAndSwitches STARTED
+ProviderSideScreensTest > pharmacyPreviewAndSwitches PASSED
+ProviderSideScreensTest > previewIsOneLineAndOpensTheCard STARTED
+> Task :app:testDebugUnitTest
+ProviderSideScreensTest > previewIsOneLineAndOpensTheCard PASSED
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches STARTED
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches PASSED
+ProviderSideScreensTest > ambulancePreviewAndSwitch STARTED
+ProviderSideScreensTest > ambulancePreviewAndSwitch PASSED
+ProviderSideScreensTest > bloodBankStockEditor STARTED
+> Task :app:testDebugUnitTest
+ProviderSideScreensTest > bloodBankStockEditor PASSED
+BUILD SUCCESSFUL in 11s
+=== ScreensTest
+ScreensTest > gapFixesBangla STARTED
+ScreensTest > gapFixesBangla PASSED
+ScreensTest > chamberHubBangla STARTED
+ScreensTest > chamberHubBangla PASSED
+ScreensTest > donorDetailsFormBangla STARTED
+ScreensTest > donorDetailsFormBangla PASSED
+ScreensTest > closeRequestDialogBangla STARTED
+ScreensTest > closeRequestDialogBangla PASSED
+ScreensTest > helpScreen STARTED
+ScreensTest > helpScreen PASSED
+ScreensTest > pharmacyDirectory STARTED
+ScreensTest > pharmacyDirectory PASSED
+ScreensTest > workTabBangla STARTED
+ScreensTest > workTabBangla PASSED
+ScreensTest > providerDetailDialog STARTED
+ScreensTest > providerDetailDialog PASSED
+ScreensTest > guestLoginReasonBangla STARTED
+ScreensTest > guestLoginReasonBangla PASSED
+ScreensTest > hospitalPicker STARTED
+ScreensTest > hospitalPicker PASSED
+ScreensTest > upazilaPickerWithThanas STARTED
+ScreensTest > upazilaPickerWithThanas PASSED
+ScreensTest > titleCaseRules STARTED
+ScreensTest > titleCaseRules PASSED
+ScreensTest > pharmacyMyPrescriptionsChip STARTED
+ScreensTest > pharmacyMyPrescriptionsChip PASSED
+ScreensTest > requestGapFixesBangla STARTED
+ScreensTest > requestGapFixesBangla PASSED
+BUILD SUCCESSFUL in 24s
+=== ListingsScreensTest
+ListingsScreensTest > ambulanceDetailEn STARTED
+ListingsScreensTest > ambulanceDetailEn PASSED
+ListingsScreensTest > bloodBankCardOpensDetail STARTED
+> Task :app:testDebugUnitTest
+ListingsScreensTest > bloodBankCardOpensDetail PASSED
+ListingsScreensTest > bloodBankListBn STARTED
+ListingsScreensTest > bloodBankListBn PASSED
+ListingsScreensTest > bloodBankListEn STARTED
+ListingsScreensTest > bloodBankListEn PASSED
+ListingsScreensTest > doctorDetailBn STARTED
+ListingsScreensTest > doctorDetailBn PASSED
+ListingsScreensTest > doctorDetailEn STARTED
+ListingsScreensTest > doctorDetailEn PASSED
+ListingsScreensTest > loadingSkeletonBn STARTED
+ListingsScreensTest > loadingSkeletonBn PASSED
+ListingsScreensTest > doctorListBn STARTED
+ListingsScreensTest > doctorListBn PASSED
+ListingsScreensTest > doctorListEn STARTED
+ListingsScreensTest > doctorListEn PASSED
+ListingsScreensTest > labDetailBn STARTED
+ListingsScreensTest > labDetailBn PASSED
+ListingsScreensTest > labDetailEn STARTED
+ListingsScreensTest > labDetailEn PASSED
+ListingsScreensTest > pharmacyDetailBn STARTED
+ListingsScreensTest > pharmacyDetailBn PASSED
+ListingsScreensTest > pharmacyDetailEn STARTED
+ListingsScreensTest > pharmacyDetailEn PASSED
+BUILD SUCCESSFUL in 15s
+=== ListingsTest
+ListingsTest > englishCopy STARTED
+ListingsTest > englishCopy PASSED
+ListingsTest > stockAndStaleness STARTED
+ListingsTest > stockAndStaleness PASSED
+ListingsTest > slotBadges STARTED
+ListingsTest > slotBadges PASSED
+ListingsTest > workQueueSegments STARTED
+ListingsTest > workQueueSegments PASSED
+ListingsTest > pharmacyCardKeyLine STARTED
+ListingsTest > pharmacyCardKeyLine PASSED
+ListingsTest > labCardKeyLine STARTED
+ListingsTest > labCardKeyLine PASSED
+ListingsTest > timesInAnyForm STARTED
+ListingsTest > timesInAnyForm PASSED
+ListingsTest > backendFinalNames STARTED
+ListingsTest > backendFinalNames PASSED
+ListingsTest > bloodBankCardStock STARTED
+ListingsTest > bloodBankCardStock PASSED
+ListingsTest > unknownActionHidesSwitch STARTED
+ListingsTest > unknownActionHidesSwitch PASSED
+ListingsTest > ambulanceCardKeyLine STARTED
+ListingsTest > ambulanceCardKeyLine PASSED
+ListingsTest > searching STARTED
+ListingsTest > searching PASSED
+ListingsTest > banglaDigitsEverywhere STARTED
+ListingsTest > banglaDigitsEverywhere PASSED
+ListingsTest > missingFieldsAreNull STARTED
+ListingsTest > missingFieldsAreNull PASSED
+BUILD SUCCESSFUL in 4s
+=== PracticeScreensTest
+PracticeScreensTest > careLinkParse STARTED
+PracticeScreensTest > careLinkParse PASSED
+PracticeScreensTest > providerParseAndFilter STARTED
+PracticeScreensTest > providerParseAndFilter PASSED
+PracticeScreensTest > rxPaperPsychologist STARTED
+PracticeScreensTest > rxPaperPsychologist PASSED
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes STARTED
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes PASSED
+PracticeScreensTest > systemChipsRow STARTED
+> Task :app:testDebugUnitTest
+PracticeScreensTest > systemChipsRow PASSED
+PracticeScreensTest > systemsRules STARTED
+PracticeScreensTest > systemsRules PASSED
+PracticeScreensTest > rxPaperSwitchOffNoLabel STARTED
+PracticeScreensTest > rxPaperSwitchOffNoLabel PASSED
+PracticeScreensTest > newTypesRules STARTED
+PracticeScreensTest > newTypesRules PASSED
+PracticeScreensTest > rxRulesFromServer STARTED
+PracticeScreensTest > rxRulesFromServer PASSED
+PracticeScreensTest > badgeDialogPsychologist STARTED
+PracticeScreensTest > badgeDialogPsychologist PASSED
+PracticeScreensTest > switchesOffProviderCard STARTED
+PracticeScreensTest > switchesOffProviderCard PASSED
+PracticeScreensTest > rxModes STARTED
+PracticeScreensTest > rxModes PASSED
+PracticeScreensTest > switchesOffBadgeDialog STARTED
+PracticeScreensTest > switchesOffBadgeDialog PASSED
+BUILD SUCCESSFUL in 12s
+=== OnlineChamberScreensTest
+OnlineChamberScreensTest > setupBadBkash STARTED
+OnlineChamberScreensTest > setupBadBkash PASSED
+OnlineChamberScreensTest > listBadge STARTED
+OnlineChamberScreensTest > listBadge PASSED
+OnlineChamberScreensTest > advanceDueFromList STARTED
+OnlineChamberScreensTest > advanceDueFromList PASSED
+OnlineChamberScreensTest > gatedAllOff STARTED
+OnlineChamberScreensTest > gatedAllOff PASSED
+OnlineChamberScreensTest > confirmChecksBodyAndError STARTED
+OnlineChamberScreensTest > confirmChecksBodyAndError PASSED
+OnlineChamberScreensTest > trxReuseMessage STARTED
+OnlineChamberScreensTest > trxReuseMessage PASSED
+OnlineChamberScreensTest > modeChipsLocked STARTED
+OnlineChamberScreensTest > modeChipsLocked PASSED
+OnlineChamberScreensTest > chamberJson STARTED
+OnlineChamberScreensTest > chamberJson PASSED
+OnlineChamberScreensTest > setupTypeChooser STARTED
+OnlineChamberScreensTest > setupTypeChooser PASSED
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest STARTED
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest PASSED
+OnlineChamberScreensTest > payParse STARTED
+OnlineChamberScreensTest > payParse PASSED
+OnlineChamberScreensTest > joinWindow STARTED
+OnlineChamberScreensTest > joinWindow PASSED
+OnlineChamberScreensTest > setupOnlineChamber STARTED
+OnlineChamberScreensTest > setupOnlineChamber PASSED
+OnlineChamberScreensTest > staffConfirmWithRequest STARTED
+OnlineChamberScreensTest > staffConfirmWithRequest PASSED
+BUILD SUCCESSFUL in 11s
+=== ReceiptScreensTest
+    	at com.bspc.blood.ReceiptScreensTest.pdfsAreWritten(ReceiptScreensTest.kt:93)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1$evaluate$1.invoke(AndroidComposeTestRule.android.kt:272)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1$evaluate$1.invoke(AndroidComposeTestRule.android.kt:271)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$AndroidComposeUiTestImpl.withDisposableContent(ComposeUiTest.android.kt:505)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1$1$1.invoke(ComposeUiTest.android.kt:333)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withComposeIdlingResource(ComposeUiTest.android.kt:385)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withComposeIdlingResource(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1$1.invoke(ComposeUiTest.android.kt:332)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withWindowRecomposer(ComposeUiTest.android.kt:359)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withWindowRecomposer(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1.invoke(ComposeUiTest.android.kt:331)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withTestCoroutines(ComposeUiTest.android.kt:372)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withTestCoroutines(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1.invoke(ComposeUiTest.android.kt:330)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1.invoke(ComposeUiTest.android.kt:329)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1.invoke(ComposeUiTest.android.kt:328)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.runTest(ComposeUiTest.android.kt:327)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1.evaluate(AndroidComposeTestRule.android.kt:271)
+    	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+    	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo PASSED
+ReceiptScreensTest > receiptBangla STARTED
+ReceiptScreensTest > receiptBangla PASSED
+BUILD SUCCESSFUL in 8s
+=== PayScreensTest
+PayScreensTest > confirmedAndExpired PASSED
+PayScreensTest > settingsCoolOff STARTED
+PayScreensTest > settingsCoolOff PASSED
+PayScreensTest > claimValidatedPerMethod STARTED
+> Task :app:testDebugUnitTest
+PayScreensTest > claimValidatedPerMethod PASSED
+PayScreensTest > businessListRowsAndRefund STARTED
+PayScreensTest > businessListRowsAndRefund PASSED
+PayScreensTest > sheetStates STARTED
+PayScreensTest > sheetStates PASSED
+PayScreensTest > advanceRow STARTED
+PayScreensTest > advanceRow PASSED
+PayScreensTest > entryButtonsGated STARTED
+PayScreensTest > entryButtonsGated PASSED
+PayScreensTest > sheetOpenPersonalThenMerchant STARTED
+PayScreensTest > sheetOpenPersonalThenMerchant PASSED
+PayScreensTest > businessClaimConfirmStep STARTED
+> Task :app:testDebugUnitTest
+PayScreensTest > businessClaimConfirmStep PASSED
+PayScreensTest > ambulanceOnlyAfterTripAndDue STARTED
+PayScreensTest > ambulanceOnlyAfterTripAndDue PASSED
+BUILD SUCCESSFUL in 13s
+=== AmbRequestScreensTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+AmbRequestScreensTest > requestSheetErrors360 STARTED
+> Task :app:testDebugUnitTest
+AmbRequestScreensTest > requestSheetErrors360 PASSED
+AmbRequestScreensTest > requestSheet360 STARTED
+AmbRequestScreensTest > requestSheet360 PASSED
+AmbRequestScreensTest > requestSheet412 STARTED
+AmbRequestScreensTest > requestSheet412 PASSED
+AmbRequestScreensTest > requestSheet480 STARTED
+AmbRequestScreensTest > requestSheet480 PASSED
+BUILD SUCCESSFUL in 9s
+=== MedFindQtyScreensTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+MedFindQtyScreensTest > qtyPicker360Bn STARTED
+> Task :app:testDebugUnitTest
+MedFindQtyScreensTest > qtyPicker360Bn PASSED
+MedFindQtyScreensTest > qtyPicker360En STARTED
+MedFindQtyScreensTest > qtyPicker360En PASSED
+MedFindQtyScreensTest > pharmacyDismissAndChange360Bn STARTED
+MedFindQtyScreensTest > pharmacyDismissAndChange360Bn PASSED
+MedFindQtyScreensTest > pharmacyAnswer360Bn STARTED
+MedFindQtyScreensTest > pharmacyAnswer360Bn PASSED
+MedFindQtyScreensTest > pharmacyAnswer360En STARTED
+MedFindQtyScreensTest > pharmacyAnswer360En PASSED
+MedFindQtyScreensTest > qtyPickerSyrupBottle360Bn STARTED
+MedFindQtyScreensTest > qtyPickerSyrupBottle360Bn PASSED
+MedFindQtyScreensTest > unitsTextsAndParsing STARTED
+MedFindQtyScreensTest > unitsTextsAndParsing PASSED
+MedFindQtyScreensTest > myFindReplies360Bn STARTED
+MedFindQtyScreensTest > myFindReplies360Bn PASSED
+MedFindQtyScreensTest > myFindReplies360En STARTED
+MedFindQtyScreensTest > myFindReplies360En PASSED
+BUILD SUCCESSFUL in 9s
+=== FeaturesTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+FeaturesTest > parsesTheServerAnswer STARTED
+FeaturesTest > parsesTheServerAnswer PASSED
+FeaturesTest > theLastKeysSurviveARestart STARTED
+FeaturesTest > theLastKeysSurviveARestart PASSED
+FeaturesTest > offByDefaultAndOnAfterSet STARTED
+FeaturesTest > offByDefaultAndOnAfterSet PASSED
+FeaturesTest > soonText STARTED
+FeaturesTest > soonText PASSED
+FeaturesTest > knowsTheServerFeatureOffError STARTED
+FeaturesTest > knowsTheServerFeatureOffError PASSED
+BUILD SUCCESSFUL in 3s
+=== InvoicesTest
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+InvoicesTest > moneyAndDigits STARTED
+InvoicesTest > moneyAndDigits PASSED
+InvoicesTest > verifyCodes STARTED
+InvoicesTest > verifyCodes PASSED
+InvoicesTest > labels STARTED
+InvoicesTest > labels PASSED
+InvoicesTest > months STARTED
+InvoicesTest > months PASSED
+InvoicesTest > notificationsAndLinks STARTED
+InvoicesTest > notificationsAndLinks PASSED
+InvoicesTest > lineDrafts STARTED
+InvoicesTest > lineDrafts PASSED
+InvoicesTest > parseInvoice STARTED
+InvoicesTest > parseInvoice PASSED
+InvoicesTest > formMath STARTED
+InvoicesTest > formMath PASSED
+InvoicesTest > pagesChecksExpenses STARTED
+InvoicesTest > pagesChecksExpenses PASSED
+InvoicesTest > requestBodies STARTED
+InvoicesTest > requestBodies PASSED
+InvoicesTest > dateDigitsFollowToggle STARTED
+InvoicesTest > dateDigitsFollowToggle PASSED
+InvoicesTest > reviewRules STARTED
+InvoicesTest > reviewRules PASSED
+InvoicesTest > featuresAndApiUpdates STARTED
+InvoicesTest > featuresAndApiUpdates PASSED
+BUILD SUCCESSFUL in 4s
+=== NotifyRouteTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+NotifyRouteTest > everyServerPushType STARTED
+NotifyRouteTest > everyServerPushType PASSED
+NotifyRouteTest > demoPhonesOnlyForDemoAccounts STARTED
+NotifyRouteTest > demoPhonesOnlyForDemoAccounts PASSED
+NotifyRouteTest > notificationCarriesAllRoutingData STARTED
+NotifyRouteTest > notificationCarriesAllRoutingData PASSED
+NotifyRouteTest > cancellationIsNotAFailure STARTED
+NotifyRouteTest > cancellationIsNotAFailure PASSED
+BUILD SUCCESSFUL in 1s
+=== PayTest
+PayTest > trxPerMethod STARTED
+PayTest > trxPerMethod PASSED
+PayTest > labelsAndSteps STARTED
+PayTest > labelsAndSteps PASSED
+PayTest > confirmNeedsAllChecks STARTED
+PayTest > confirmNeedsAllChecks PASSED
+PayTest > storeFindsByRef STARTED
+PayTest > storeFindsByRef PASSED
+PayTest > noPayInBloodScreens STARTED
+PayTest > noPayInBloodScreens PASSED
+PayTest > bookingAnswerOpensAdvance STARTED
+PayTest > bookingAnswerOpensAdvance PASSED
+PayTest > whenCanClaim STARTED
+PayTest > whenCanClaim PASSED
+PayTest > requestBodies STARTED
+PayTest > requestBodies PASSED
+PayTest > onlineChamberOnPayLayer STARTED
+PayTest > onlineChamberOnPayLayer PASSED
+PayTest > rejectAndRefundInputs STARTED
+PayTest > rejectAndRefundInputs PASSED
+PayTest > featureNeeds STARTED
+PayTest > featureNeeds PASSED
+PayTest > safetyTexts STARTED
+PayTest > safetyTexts PASSED
+PayTest > pushRoutesAndText STARTED
+PayTest > pushRoutesAndText PASSED
+PayTest > parseServerJson STARTED
+PayTest > parseServerJson PASSED
+BUILD SUCCESSFUL in 4s
+=== TitleGuardTest
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+TitleGuardTest > profileEditBlocksATitleForAHomeopath STARTED
+TitleGuardTest > profileEditBlocksATitleForAHomeopath PASSED
+TitleGuardTest > nameFieldErrorAndHintOnlyWhenOn STARTED
+TitleGuardTest > nameFieldErrorAndHintOnlyWhenOn PASSED
+TitleGuardTest > prescriptionHeaderAndPdfUseThePractitionerLabel STARTED
+TitleGuardTest > prescriptionHeaderAndPdfUseThePractitionerLabel PASSED
+TitleGuardTest > everyVariantIsFoundAndStripped STARTED
+TitleGuardTest > everyVariantIsFoundAndStripped PASSED
+TitleGuardTest > onlyAllopathicDoctorsMayCarryTheTitle STARTED
+TitleGuardTest > onlyAllopathicDoctorsMayCarryTheTitle PASSED
+TitleGuardTest > myWorkChamberLineUsesThePractitionerLabel STARTED
+TitleGuardTest > myWorkChamberLineUsesThePractitionerLabel PASSED
+TitleGuardTest > profileEditAllowsATitleForAnMbbsDoctor STARTED
+TitleGuardTest > profileEditAllowsATitleForAnMbbsDoctor PASSED
+TitleGuardTest > professionLabels STARTED
+TitleGuardTest > professionLabels PASSED
+BUILD SUCCESSFUL in 8s

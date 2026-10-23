@@ -1,0 +1,55 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:processDebugGoogleServices
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+/home/runner/work/blood/blood/app/src/main/AndroidManifest.xml:34:5-99 Warning:
+	uses-permission#com.google.android.gms.permission.AD_ID was tagged at AndroidManifest.xml:34 to remove other declarations but no other declaration present
+
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebug
+> Task :app:processDebugResources
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/CallButtons.kt:331:30 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:222:104 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:232:61 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Prescriptions.kt:540:32 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Rules.kt:141:63 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToCompileJar
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/AmbRequestScreensTest.kt:52:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ConsentScreensTest.kt:84:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/DoctorSheetScreensTest.kt:65:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/DonorCardScreensTest.kt:81:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ListingsScreensTest.kt:158:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/MedFindQtyScreensTest.kt:80:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/MyWorkQueuesScreensTest.kt:81:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/OnlineChamberScreensTest.kt:82:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/PayScreensTest.kt:89:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/PracticeScreensTest.kt:83:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ProviderSideScreensTest.kt:73:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ReceiptScreensTest.kt:48:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/RxCancelScreensTest.kt:72:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/RxStatusScreensTest.kt:75:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+w: file:///home/runner/work/blood/blood/app/src/test/java/com/bspc/blood/ScreensTest.kt:193:9 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792790848231.json
+
+BUILD SUCCESSFUL in 2m 42s
+20 actionable tasks: 20 executed
