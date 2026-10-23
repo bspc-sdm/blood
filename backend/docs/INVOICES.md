@@ -236,7 +236,7 @@ production, on in the test profile).
 
 ## Offline sync (backend, branch `spring-p17`)
 
-Package `com.lifolo.desktop`, migration `V650__desktop_sync.sql` (range `V650`–`V659`). Tests: `desktop/DesktopSyncIT`.
+Package `com.lifolo.desktop`, migration `V662__desktop_sync.sql` (was V650; renumbered above main's V661 — Flyway runs only above the highest applied). Tests: `desktop/DesktopSyncIT`.
 Includes the fixes of `docs/test-plan/INVOICES-SECURITY-REVIEW.md` I4, I5 and I7 (desktop part).
 
 ### Who (I7)

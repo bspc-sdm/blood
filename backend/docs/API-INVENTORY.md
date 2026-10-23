@@ -1172,7 +1172,7 @@ Full contract: [CHAT.md](CHAT.md). Logged in, own account only (no caregiver `as
 ## Desktop offline sync (package `desktop`, Spring only, Oct 2026) — 6 actions
 
 New (no Node original). Full rules: [INVOICES.md → Offline sync](INVOICES.md#offline-sync-backend-branch-spring-p17).
-Tables (V650): `desktop_devices`, `offline_ops`, `shop_stock_flags`, `chamber_walkins`. `offline_bootstrap` / `offline_sync`
+Tables (V662): `desktop_devices`, `offline_ops`, `shop_stock_flags`, `chamber_walkins`. `offline_bootstrap` / `offline_sync`
 need the device signature header `X-Lifolo-Device-Sig: t=…,v1=…` (HMAC with the secret from `desktop_register`).
 Feature switch `desktop` (off by default): register/bootstrap → 404 `feature_off` while off; `offline_sync` of a registered
 computer is never gated; `desktop_devices`/`desktop_revoke` stay usable while the business has an active computer.
