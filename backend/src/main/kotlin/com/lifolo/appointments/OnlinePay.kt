@@ -39,6 +39,7 @@ class OnlinePay(
     private val payLog: ApptPayLog,
     private val quotas: QuotaService,
     private val admins: AdminService,
+    private val invoices: com.lifolo.invoices.InvoiceCreators,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -190,7 +191,14 @@ class OnlinePay(
                 mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
             )
         }
-        return linkedMapOf("ok" to true, "payState" to "paid")
+        // the patient's receipt (docs/INVOICES.md) — a receipt problem never undoes the confirmation
+        val invoice = if (!changed) null else try {
+            invoices.onlineFeePaid(ctx.lang, ctx.user, a.id)
+        } catch (e: Exception) {
+            org.slf4j.LoggerFactory.getLogger(javaClass).warn("online fee receipt failed: {}", e.message)
+            null
+        }
+        return linkedMapOf("ok" to true, "payState" to "paid", "invoice" to invoice?.toMap())
     }
 
     fun reject(ctx: ActionContext): Any {
