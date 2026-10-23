@@ -21,6 +21,10 @@ export const R = {
   offline: 'অফলাইনে তৈরি', // bn-ok
   verify: 'রসিদ যাচাই করুন', // bn-ok
   thanks: 'ধন্যবাদ', // bn-ok
+  notVat: 'টাকা প্রাপ্তির রসিদ — মূসক চালানপত্র নয়', // bn-ok
+  offlineVerify: 'ইন্টারনেট এলে যাচাই হবে', // bn-ok
+  demo: 'ডেমো', // bn-ok
+  printedNo: 'ছাপা নম্বর', // bn-ok
   method: { cash: 'ক্যাশ', bkash: 'বিকাশ', nagad: 'নগদ', card: 'কার্ড', other: 'অন্যান্য' } as Record<PayMethod, string>, // bn-ok
   testTitle: 'টেস্ট প্রিন্ট', // bn-ok
   testLine: 'বাংলা লেখা ঠিকমতো ছাপা হলে প্রিন্টার প্রস্তুত', // bn-ok
@@ -39,6 +43,11 @@ export const T = {
   alreadyVoid: () => trPlain('This receipt is already void', 'রসিদটা আগেই বাতিল'), // bn-ok
   tooMuch: () => trPlain('More than the due amount', 'বাকির চেয়ে বেশি'), // bn-ok
   printFailed: () => trPlain('Could not print', 'ছাপা যায়নি'), // bn-ok
+  ownerOnly: () => trPlain('Only the owner can do this. Enter the owner PIN.', 'এটা শুধু মালিক পারেন। মালিকের পিন দিন।'), // bn-ok
+  clockWrong: () => trPlain('The computer clock went back. Fix the date and time in Windows.', 'কম্পিউটারের সময় পিছিয়ে গেছে। Windows-এ তারিখ আর সময় ঠিক করুন।'), // bn-ok
+  graceWarn: (d: number) => trPlain(`No internet for ${d} days. After 7 days offline sales stop.`, `${num(d)} দিন ইন্টারনেট নেই। ৭ দিন হলে অফলাইন বিক্রি বন্ধ হবে।`), // bn-ok
+  wiped: () => trPlain('Offline data on this computer was erased.', 'এই কম্পিউটারের অফলাইন তথ্য মুছে ফেলা হয়েছে।'), // bn-ok
+  reprintNote: () => trPlain('Receipt code changed — print it again', 'রসিদের কোড বদলেছে — আবার ছাপুন'), // bn-ok
   noPrinter: () => trPlain('Choose a printer in desktop settings', 'ডেস্কটপ সেটিংসে প্রিন্টার বাছাই করুন'), // bn-ok
 
   // ডেস্কটপ সেটিংস
@@ -88,6 +97,14 @@ export const T = {
   updating: () => trPlain('Updating… Lifolo will restart.', 'আপডেট হচ্ছে… Lifolo আবার চালু হবে।'), // bn-ok
   updateFailed: () => trPlain('Update failed. Try again later.', 'আপডেট হয়নি। পরে আবার চেষ্টা করুন।'), // bn-ok
 
+  ownerPin: () => tr('Owner PIN', 'মালিকের পিন'), // bn-ok
+  counterPin: () => tr('Counter PIN', 'কাউন্টারের পিন'), // bn-ok
+  counterHint: () => trPlain('Staff at the counter use this PIN. They can sell and collect dues, but cannot void, change prices, give more than 10% discount, adjust stock or open reports.', 'কাউন্টারের কর্মী এই পিন ব্যবহার করবেন। বিক্রি আর বাকি আদায় করতে পারবেন, কিন্তু বাতিল, দাম বদল, ১০%-এর বেশি ছাড়, স্টক ঠিক করা বা রিপোর্ট দেখা নয়।'), // bn-ok
+  removeCounter: () => tr('Remove counter PIN', 'কাউন্টারের পিন সরান'), // bn-ok
+  ownerNeeded: () => trPlain('Owner PIN needed', 'মালিকের পিন লাগবে'), // bn-ok
+  cancel: () => tr('Cancel', 'বাতিল'),
+  diskHint: () => trPlain('Give this Windows account a password, and turn on BitLocker / Device encryption if you can. Download Lifolo only from lifolo.com/download.', 'এই Windows অ্যাকাউন্টে পাসওয়ার্ড দিন, সম্ভব হলে BitLocker / Device encryption চালু করুন। Lifolo শুধু lifolo.com/download থেকে নামান।'), // bn-ok
+  wipeWarn: (n: number) => trPlain(`${n} wrong tries left. After that, offline data on this computer is erased and you are logged out.`, `আর ${num(n)}বার ভুল হলে এই কম্পিউটারের অফলাইন তথ্য মুছে যাবে আর লগআউট হবে।`), // bn-ok
   // লক
   lockTitle: () => trPlain('Lifolo is locked', 'Lifolo লক করা'), // bn-ok
   enterPin: () => tr('Enter PIN', 'পিন দিন'), // bn-ok

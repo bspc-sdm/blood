@@ -3,6 +3,7 @@
 // ব্যবহারকারীর লেখা (দোকানের নাম, রোগীর নাম) সবসময় textContent — কখনো HTML নয়।
 import { qrMatrix } from '@/sections/health/qr';
 import type { Invoice, PrintOptions } from '../types';
+import { R } from '../text';
 import { receiptModel, type ReceiptModel, type ReceiptRow } from './receipt';
 
 const ROOT_ID = 'lf-print-root';
@@ -54,7 +55,8 @@ function rows(list: ReceiptRow[], cls: string): HTMLElement {
 /** রসিদের DOM (পরীক্ষাতেও ব্যবহার হয়) */
 export function receiptElement(m: ReceiptModel, paper: PrintOptions['paper']): HTMLElement {
   const root = el('div', `lfr lfr-${paper === 'A4' ? 'a4' : 'roll'}`);
-  if (m.void) root.append(el('div', 'lfr-void', 'বাতিল')); // bn-ok
+  if (m.demo) root.append(el('div', 'lfr-demo', R.demo));
+  if (m.void) root.append(el('div', 'lfr-void', R.void));
   const head = el('div', 'lfr-head');
   head.append(el('div', 'lfr-biz', m.bizName));
   if (m.bizAddress) head.append(el('div', 'lfr-sub', m.bizAddress));
@@ -78,7 +80,8 @@ export function receiptElement(m: ReceiptModel, paper: PrintOptions['paper']): H
     if (svg) foot.append(svg);
   }
   if (m.verifyText) foot.append(el('div', 'lfr-sub', m.verifyText));
-  foot.append(el('div', 'lfr-sub', m.thanks), el('div', 'lfr-brand', 'Lifolo'));
+  if (m.offlineVerify) foot.append(el('div', 'lfr-sub lfr-strong', m.offlineVerify));
+  foot.append(el('div', 'lfr-sub', m.thanks), el('div', 'lfr-sub', m.notVat), el('div', 'lfr-brand', 'Lifolo'));
   root.append(foot);
   return root;
 }
@@ -108,6 +111,7 @@ const CSS = (paper: PrintOptions['paper']) => `
 #${ROOT_ID} .lfr-pay{border-top:1px dashed #000;margin-top:4px;padding-top:4px}
 #${ROOT_ID} .lfr-foot{text-align:center;margin-top:8px;display:flex;flex-direction:column;align-items:center;gap:2px}
 #${ROOT_ID} .lfr-brand{font-size:.75em;letter-spacing:.05em}
+#${ROOT_ID} .lfr-demo{position:absolute;top:60%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:4em;font-weight:700;opacity:.15;pointer-events:none}
 #${ROOT_ID} .lfr-void{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%) rotate(-18deg);border:4px solid #000;padding:2px 18px;font-size:2.6em;font-weight:700;opacity:.55}
 `;
 

@@ -62,8 +62,14 @@ export interface Invoice {
   sync?: SyncState;
   /** সার্ভার রসিদটা নেয়নি (যেমন ৩০ দিনের বেশি পুরোনো) — কারণ */
   syncError?: string;
-  /** সার্ভারের সতর্কতা, যেমন "stock_short" */
+  /** সার্ভারের সতর্কতা, যেমন "stock_short", "renumbered", "clock" */
   warn?: string;
+  /** সার্ভার নম্বর বদলালে কম্পিউটারের দেওয়া (ছাপা) নম্বর — রসিদ এটা দিয়েও যাচাই হয় */
+  deviceNo?: string;
+  /** ডেমো ব্যবসার রসিদ — ছাপায় "ডেমো" জলছাপ */
+  demo?: boolean;
+  /** যাচাই কোড বদলাতে হয়েছে (verify_collision) — আবার ছাপুন */
+  reprint?: boolean;
 }
 
 export type SyncState = 'pending' | 'synced' | 'rejected';
@@ -119,6 +125,9 @@ export interface ChamberDay {
   fees: Partial<Record<VisitType, number>>;
 }
 
+/** কে চালাচ্ছেন (I7): মালিকের পিন বা কাউন্টারের পিন দিয়ে খোলা; ওয়েবে null (কোনো সীমা নেই) */
+export type DeskRole = 'owner' | 'counter';
+
 export interface ReadyInfo {
   deviceId: string;
   /** "D1", "D2" … */
@@ -144,6 +153,8 @@ export interface PaymentIn {
 export interface InvoiceRef {
   id?: string;
   localId?: string;
+  /** অনলাইনে বানানো রসিদ (এই কম্পিউটারে নেই) হলে পর্দায় দেখানো রসিদটাই দিন — বদলানো রূপ ফেরত দিতে লাগে (সার্ভারে যায় না) */
+  invoice?: Invoice;
 }
 
 export interface SaleData {
@@ -256,6 +267,10 @@ export interface OfflineStore {
   syncNow(): Promise<void>;
   onChange(cb: (s: OfflineStatus) => void): () => void;
   print(invoice: Invoice, opts: PrintOptions): Promise<void>;
+  /** ডেস্কটপে কোন পিনে খোলা; ওয়েবে null। কাউন্টার: বাতিল, দাম বদল, ১০%-এর বেশি ছাড়, স্টক ঠিক করা আর রিপোর্ট নয় */
+  role(): DeskRole | null;
+  /** মালিকের পিন চেয়ে নেয় (একটা কাজের জন্য, ৬০ সেকেন্ড); ওয়েবে বা মালিক নিজে খুললে সাথে সাথে true */
+  requireOwner(): Promise<boolean>;
 }
 
 /** অফলাইনে চলে না/প্রস্তুত নয় — message বাংলা/ইংরেজি (tr) */
@@ -269,6 +284,8 @@ export class OfflineError extends Error {
       | 'login_expired'
       | 'device_revoked'
       | 'locked'
+      | 'owner_only'
+      | 'clock'
       | 'invalid'
       | 'print_failed',
   ) {

@@ -27,6 +27,8 @@ const webStore: OfflineStore = {
   pending: () => 0,
   syncNow: () => Promise.resolve(),
   onChange: () => () => {},
+  role: () => null,
+  requireOwner: () => Promise.resolve(true),
   print: async (invoice, opts) => {
     const { printHtml } = await import('./print/html');
     await printHtml(invoice, opts);
@@ -52,6 +54,8 @@ export const offline: OfflineStore = {
   syncNow: () => impl.syncNow(),
   onChange: (cb: (s: OfflineStatus) => void) => impl.onChange(cb),
   print: (invoice, opts) => impl.print(invoice, opts),
+  role: () => impl.role(),
+  requireOwner: () => impl.requireOwner(),
 };
 
 export const isDesktop = () => impl.isDesktop();

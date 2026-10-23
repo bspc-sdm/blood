@@ -29,7 +29,11 @@ export interface ReceiptModel {
   offline: boolean;
   qrText: string;
   verifyText: string;
+  /** অফলাইনে বানানো, এখনো সিঙ্ক হয়নি: QR-এর নিচে "ইন্টারনেট এলে যাচাই হবে" */
+  offlineVerify: string;
+  demo: boolean;
   thanks: string;
+  notVat: string;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -49,12 +53,12 @@ function qtyText(q: number): string {
 export function receiptModel(inv: Invoice, englishDigits = false): ReceiptModel {
   const dg = englishDigits ? (s: string) => s : bnDigits;
   const tk = (v: number) => dg(formatTaka(v));
-  const meta: ReceiptRow[] = [
-    { label: R.no, value: dg(inv.no || inv.localId || '') },
-    { label: R.date, value: dg(receiptDate(inv.issuedAt)) },
-  ];
+  const meta: ReceiptRow[] = [{ label: R.no, value: dg(inv.no || inv.localId || '') }];
+  // সার্ভার নম্বর বদলালে আগে ছাপা নম্বরও দেখানো (দুটোতেই যাচাই হয়)
+  if (inv.deviceNo && inv.deviceNo !== inv.no) meta.push({ label: R.printedNo, value: dg(inv.deviceNo) });
+  meta.push({ label: R.date, value: dg(receiptDate(inv.issuedAt)) });
+  // গ্রাহকের ফোন কখনো ছাপা হয় না (নিরাপত্তা পর্যালোচনা I6) — নাম দিলে শুধু নাম
   if (inv.customer?.name) meta.push({ label: R.name, value: inv.customer.name });
-  if (inv.customer?.phone) meta.push({ label: R.phone, value: dg(inv.customer.phone) });
 
   const lines = inv.lines.map((l) => ({
     name: l.name,
@@ -86,8 +90,11 @@ export function receiptModel(inv: Invoice, englishDigits = false): ReceiptModel 
     void: inv.status === 'void',
     voidReason: inv.voidReason || '',
     offline: !!inv.offline && !inv.id,
+    offlineVerify: inv.offline && !inv.id ? R.offlineVerify : '',
+    demo: !!inv.demo || /^DEMO/.test(code),
     qrText: inv.verifyUrl || (code ? `https://lifolo.com/v/${code}` : ''),
     verifyText: code ? `lifolo.com/v/${code} — ${R.verify}` : '',
     thanks: R.thanks,
+    notVat: R.notVat,
   };
 }
