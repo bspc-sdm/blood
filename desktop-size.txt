@@ -1,0 +1,1 @@
+installer: desktop/src-tauri/target/release/bundle/nsis/Lifolo_1.0.0_x64-setup.exe — 6295 KB
