@@ -24,10 +24,11 @@ object NotifyCats {
     const val COMMUNITY = "community"
     const val BUSINESS = "business"
     const val CALLS = "calls"
+    const val MESSAGES = "messages"
     const val ACCOUNT = "account"
 
     /** the categories a person can turn off, in the settings order (wire ids of notify_prefs_*) */
-    val SETTABLE: List<String> = listOf(BLOOD_NEARBY, BLOOD_EMERGENCY, MY_REQUEST, APPOINTMENTS, RX, AMBULANCE, COMMUNITY, BUSINESS, CALLS)
+    val SETTABLE: List<String> = listOf(BLOOD_NEARBY, BLOOD_EMERGENCY, MY_REQUEST, APPOINTMENTS, RX, AMBULANCE, COMMUNITY, BUSINESS, CALLS, MESSAGES)
 
     val IDS: Set<String> = (SETTABLE + ACCOUNT).toSet()
 
@@ -63,6 +64,9 @@ object NotifyCats {
         "call_upgraded" to CALLS,
         "call_upgrade_declined" to CALLS,
         "appt_call_ready" to APPOINTMENTS,
+        // in-app messages (CHAT.md): a new message (lock screen: "লাইফলো মেসেজ — <first name>" only), read receipts
+        "chat_message" to MESSAGES,
+        "chat_read" to MESSAGES,
         // always on
         "care" to ACCOUNT, // caregiver invitation / accepted; a caregiver's copy of patient news carries its own cat
         "support" to ACCOUNT, // Lifolo team reply

@@ -862,7 +862,7 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - collections: serverState · side effects: — · errors: — · tests: demo-health
 - [x] **`notify_prefs_get`** — *Spring only (Oct 2026), no Node action:* my notification settings per category
   - src: `notify/NotifyPrefs.kt` · auth: user, own settings only (a caregiver's `asUid` → 403)
-  - request: — · response: `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance, community, business, calls}}` (all Boolean; no row = all `true`; `calls` = in-app calls, Oct 2026)
+  - request: — · response: `{ok, all, cats: {blood_nearby, blood_emergency, my_request, appointments, rx, ambulance, community, business, calls, messages}}` (all Boolean; no row = all `true`; `calls` = in-app calls, `messages` = in-app messages, Oct 2026)
   - tables: notify_prefs, user_profiles (`blood_nearby` **is** `user_profiles.notify`) · errors: 401, 403 · tests: NotifyPrefsIT
 - [x] **`notify_prefs_set`** — *Spring only (Oct 2026):* change them; merges (only the given values change), answers like `notify_prefs_get`
   - request: `all?: Boolean`, `cats?: {<id>: Boolean}` (only the 9 ids above; `account` or anything else, or a non-Boolean → 400)
@@ -935,6 +935,21 @@ only (no caregiver `asUid`). LiveKit env missing → 503 `calls_unavailable`. Co
 - [x] **`appt_join`** — `{appointmentId}` → `{ok, callId, room, url, token, video:true}`; one live room per appointment; push `appt_call_ready`
 - [x] **`POST /api/livekit/webhook`** (HTTP, from the call server; LiveKit-signed JWT + body sha256) — `room_finished` / `participant_left` end stuck calls; `appt_join` 409 `room_full` (2 per room)
   - tables: call_sessions, call_blocks, call_reports (V622), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + collapsed `call_missed`; live calls re-checked — relation, block, account, 90 s without heartbeats → ended), daily step 15 `callsDeleted` (180 days) · events: `AccountCutOffEvent` (deactivate / admin disable) ends live calls · tests: CallsIT, CallsAuthzIT
+
+## In-app messages (package `chat`, Spring only, Oct 2026) — 10 actions
+
+Full contract: [CHAT.md](CHAT.md). Logged in, own account only (no caregiver `asUid`). Who may write to whom = the calls' `ContactPolicy`.
+- [x] **`chat_open`** — `{ctx, refId, peerUid?}` or `{threadId}` → `{ok, threadId, ctx, refId, peer, canSend, blocked?, closed?, messages, before}`; 403 `chat_not_allowed` / `call_blocked`
+- [x] **`chat_send`** — `{threadId, clientId, text? | photo? | location?}` → `{ok, message}`; idempotent per clientId; 409 `chat_closed`, 429 `chat_rate` (30/min, 20 photos/day, 20 before a reply), 400 `bad_photo`; push `chat_message` (collapsed per thread, no text) + SSE
+- [x] **`chat_messages`** — `{threadId, before?}` → `{ok, threadId, ctx, refId, peer, canSend, messages, before}` (50, opaque cursor)
+- [x] **`chat_threads`** — `{cursor?}` → `{ok, items:[{threadId, ctx, refId, peer, last, unread, canSend}], cursor}`
+- [x] **`chat_read`** — `{threadId, upTo}` → `{ok, read}`; SSE + silent push `chat_read {threadId, upTo, by}`
+- [x] **`chat_unsend`** — `{messageId}` → `{ok, message}` (own, ≤ 10 min, 409 `chat_unsend_window`)
+- [x] **`chat_report`** — `{messageId, reason, note?}` → `{ok}` (content + photo copied into chat_reports)
+- [x] **`chat_unread`** — → `{ok, total}`
+- [x] **`admin_chat_reports`** — admin: `{status?, before?}` → `{ok, items, next?}`; **`admin_chat_report_resolve`** — `{id, status: resolved|dismissed}`
+  - GET `/api/chat/photo/{messageId}?e=&s=` — the photo for a signed URL (1 h, no login)
+  - tables: chat_threads, chat_messages, chat_reports (V660), notify_prefs.messages · daily step 16 `chatDeleted` (close ended threads; delete 90 days after closing) · tests: ChatIT
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 

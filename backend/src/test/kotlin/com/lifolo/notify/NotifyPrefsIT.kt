@@ -32,6 +32,7 @@ class NotifyPrefsIT : BloodTestBase() {
         "community" to mapOf("type" to "answer", "questionId" to "q1"),
         "business" to mapOf("type" to "services", "kind" to "pharmacy"),
         "calls" to mapOf("type" to "call_missed", "callId" to "c1"),
+        "messages" to mapOf("type" to "chat_message", "threadId" to "t1", "messageId" to "m1"),
         "account" to mapOf("type" to "support", "ticketId" to "t1"),
     )
 

@@ -57,14 +57,16 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
 
 | action | body | answer |
 |---|---|---|
-| `chat_open` | `{ctx, refId, peerUid?}` | `{ok, threadId, ctx, refId, peer:{uid,name,photoThumb?}, canSend, blocked?, closed?, messages:[…], before}` |
+| `chat_open` | `{ctx, refId, peerUid?}` **or** `{threadId}` | `{ok, threadId, ctx, refId, peer:{uid,name,photoThumb?}, canSend, blocked?, closed?, messages:[…], before}` |
 | `chat_send` | `{threadId, clientId, text?, photo?, location?:{lat,lng}}` | `{ok, message}` |
-| `chat_messages` | `{threadId, before?}` | `{ok, messages:[…], before}` |
+| `chat_messages` | `{threadId, before?}` | `{ok, threadId, ctx, refId, peer, canSend, blocked?, closed?, messages:[…], before}` |
 | `chat_threads` | `{cursor?}` | `{ok, items:[{threadId, ctx, refId, peer, last:{text, at, mine}, unread, canSend}], cursor}` |
 | `chat_read` | `{threadId, upTo}` | `{ok, read}` (how many messages were newly marked) |
 | `chat_unsend` | `{messageId}` | `{ok, message}` (the message with `unsent:true`) |
 | `chat_report` | `{messageId, reason, note?}` | `{ok}` |
 | `chat_unread` | — | `{ok, total}` |
+| `admin_chat_reports` | admin: `{status?: open\|resolved\|dismissed, before?}` | `{ok, items:[{id, messageId, threadId, reporter, reported, reason, note, message, photo?, status, createdAt}], next?}` |
+| `admin_chat_report_resolve` | admin: `{id, status: resolved\|dismissed}` | `{ok}` |
 
 * **Message**: `{id, threadId, from (uid), text?, photoUrl?, photoThumb?, location?:{lat,lng}, at, readAt?, unsent?}`.
   An unsent message is `{id, threadId, from, at, unsent:true}` (+`readAt`) — its content is erased on the server;
@@ -76,6 +78,11 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
   any more but a thread exists → that thread read-only (`canSend:false`, `closed:true`). I blocked them →
   `canSend:false`, `blocked:true` (no thread yet → 403 `call_blocked`). No relation and no thread → 403
   `chat_not_allowed`. `peerUid` as in calls (the requester must name the donor; patient → doctor's assistant).
+  `chat_open {threadId}` (from a push or the thread list) answers the same for a member of the thread; anyone else
+  (or an unknown id) → 403 `chat_not_allowed`. `chat_messages` carries the same head fields (`canSend` is re-checked on
+  every call); a thread that is not mine → 404.
+* **canSend** is exactly `contact_can`'s `canMessage` (`ContactPolicy.decide`) for the thread's pair/ctx/refId. A donor
+  who is not confirmed yet sees the requester's thread with `canSend:false` until the requester writes first.
 * **chat_send**: `clientId` (1–64 of `A-Za-z0-9_-`, required) makes the send idempotent: the same sender + thread +
   `clientId` again answers the first message (no second push). Exactly one of: `text` (≤ 1000 chars after trimming,
   may also caption a photo), `photo`, `location`. `photo` = base64 JPEG (PNG accepted), ≤ 1 MB decoded; the server
@@ -90,7 +97,8 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
   `null`) for the next page. `last.text` = the text, `"📷"` (photo), `"📍"` (location) or "মেসেজ মুছে ফেলা হয়েছে" /
   "Message deleted" (unsent). `unread` = the peer's messages I have not read (unsent ones do not count).
 * **chat_read**: `upTo` = the `at` of the newest message seen. All of the peer's messages with `at ≤ upTo` get `readAt`
-  (✓✓). The peer gets SSE + a silent push `chat_read {threadId, upTo, by}`.
+  (✓✓). The peer gets SSE + a silent push `chat_read {threadId, upTo, by}` (not while either side blocks the other;
+  the reader's own devices get the SSE event always). `upTo` is a number (epoch ms); in the FCM data it is a string.
 * **chat_unsend**: own message only, within **10 minutes** of `at` → 409 `chat_unsend_window` after that. Text, photo
   (R2 object too) and location are deleted at once. The peer gets SSE `chat_message` with the updated message.
   Unsending again answers the same.
@@ -131,6 +139,8 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
   active again (`chat_open`/`chat_send` allowed), the thread re-opens.
 * Daily job step `chatDeleted`: closes ended threads, then deletes threads **closed more than 90 days ago** with
   every message and photo (R2 objects through `stored_objects_trash`).
+  Reports the team has handled (resolved / dismissed) are deleted 90 days after that; open reports stay until handled
+  (they keep a copy of the reported message and photo).
 * Account deletion: all threads of the person are deleted (both sides' messages and photos) when the deletion runs;
   during the 30-day grace and while deactivated the peer sees the thread read-only (`canSend:false`).
 * Demo accounts only talk to demo accounts. The demo world (and its daily rebuild) has three threads: the demo donor

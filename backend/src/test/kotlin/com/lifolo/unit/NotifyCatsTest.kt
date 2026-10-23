@@ -37,7 +37,7 @@ class NotifyCatsTest {
     @Test
     fun `categories are the contract ids, each type maps to one of them`() {
         assertEquals(
-            listOf("blood_nearby", "blood_emergency", "my_request", "appointments", "rx", "ambulance", "community", "business", "calls"),
+            listOf("blood_nearby", "blood_emergency", "my_request", "appointments", "rx", "ambulance", "community", "business", "calls", "messages"),
             NotifyCats.SETTABLE,
         )
         assertEquals(NotifyCats.SETTABLE.toSet() + "account", NotifyCats.IDS)
@@ -76,6 +76,9 @@ class NotifyCatsTest {
         assertEquals("calls", of("type" to "call_state", "callId" to "c"))
         assertEquals("calls", of("type" to "call_missed", "callId" to "c"))
         assertEquals("appointments", of("type" to "appt_call_ready", "appointmentId" to "a"))
+        // in-app messages
+        assertEquals("messages", of("type" to "chat_message", "threadId" to "t"))
+        assertEquals("messages", of("type" to "chat_read", "threadId" to "t"))
         // unknown type / no type / bad cat → account (always sent)
         assertEquals("account", of("type" to "zzz"))
         assertEquals("account", of())
