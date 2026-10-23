@@ -74,7 +74,8 @@ data class PatientQueueInfo(
 data class QueueRow(val id: String, val serial: Int, val name: String, val status: String, val state: String, val late: LateInfo?)
 data class QueueState(val started: Boolean, val current: Int, val paused: Boolean, val finished: Boolean, val next: Int?)
 /** date = কোন দিনের সারি (মাঝরাত পেরোলে গতকালের; পুরোনো সার্ভারে ০) */
-data class QueueChamber(val chamberKey: String, val name: String, val nameBn: String, val avgMin: Int, val queue: QueueState, val rows: List<QueueRow>, val date: Long = 0L) {
+/** waiting = সার্ভারের counts.waiting (নতুন সার্ভার; না এলে null — তখন সারি গুনে) */
+data class QueueChamber(val chamberKey: String, val name: String, val nameBn: String, val avgMin: Int, val queue: QueueState, val rows: List<QueueRow>, val date: Long = 0L, val waiting: Int? = null) {
     val label: String get() = if (isBangla && nameBn.isNotBlank()) nameBn else name
 }
 
@@ -108,6 +109,7 @@ object QueueApi {
                 QueueState(q.optBoolean("started"), q.optInt("current"), q.optBoolean("paused"), q.optBoolean("finished"), q.optInt("next").takeIf { it > 0 }),
                 c.optJSONArray("rows").objs().map { r -> QueueRow(r.str("id"), r.optInt("serial"), r.str("name"), r.str("status"), r.str("state"), late(r.optJSONObject("late"))) },
                 c.optLong("date", 0L),
+                c.optJSONObject("counts")?.takeIf { it.has("waiting") && !it.isNull("waiting") }?.optInt("waiting"),
             )
         }
 

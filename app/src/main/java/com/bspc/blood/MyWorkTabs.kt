@@ -478,7 +478,14 @@ fun MyLabPanel(profile: Profile) {
     var busy by remember { mutableStateOf(false) }
     // বিল ও রসিদ (inv_lab) — বন্ধ থাকলে দুই ট্যাব আগের মতো
     val invLab = invOn(InvoiceFeatures.key("lab"))
-    ConsumeWorkTarget { t -> if (t == "shop") tab = 1 else if (t == "receipts" && Features.on(InvoiceFeatures.key("lab"))) tab = 2 else { tab = 0; seg = "new" } }
+    // "আমার কাজ"/নোটিফিকেশন: shop → ল্যাব; receipts → বিল; orders:<ভাগ> (new|active|reported|closed) → অনুরোধের সেই ভাগ; বাকি → নতুন
+    ConsumeWorkTarget { t ->
+        when {
+            t == "shop" -> tab = 1
+            t == "receipts" && Features.on(InvoiceFeatures.key("lab")) -> tab = 2
+            else -> { tab = 0; seg = WorkNav.seg(t) }
+        }
+    }
     LaunchedEffect(reload) {
         runCatching { RxNet.labMine() }.onSuccess { lab = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
@@ -566,7 +573,7 @@ private fun LabInfoTab(l: Lab, busy: Boolean, onEdit: () -> Unit, onDelete: () -
             Text(statusText(l.status), style = MaterialTheme.typography.labelLarge, color = cs.primary)
             StatusReasonLine(l.status, l.statusReason)
             DocsNeededNotice("lab", l.id, VerifyDocs.lab(), l.docsMissing, l.docsRequested, l.docsNote, onDocs)
-            IconLine(R.drawable.ic_call, num(l.phone))
+            IconLine(R.drawable.ic_call, phoneText(l.phone))
             if (l.address.isNotBlank()) IconLine(R.drawable.ic_location_on, l.address)
             if (l.hours.isNotBlank()) IconLine(R.drawable.ic_schedule, l.hours)
             if (l.homeCollection) IconLine(R.drawable.ic_home_health, tr("Collects samples from home", "বাসা থেকে নমুনা নেয়"))

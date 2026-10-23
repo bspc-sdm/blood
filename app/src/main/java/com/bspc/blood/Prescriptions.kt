@@ -907,7 +907,7 @@ fun RxPatientsPane(doctorUid: String?, onWrite: ((RxTarget) -> Unit)?, onOpen: (
                 val t = RxTarget(rxPatientId = p.id, name = p.name, age = p.age, gender = p.gender)
                 PatientRow(
                     p.name,
-                    listOfNotNull(p.age?.let { tr("$it yrs", "${num(it)} বছর") }, RxText.gender(p.gender).ifBlank { null }, num(p.phone)).joinToString(" · "),
+                    listOfNotNull(p.age?.let { tr("$it yrs", "${num(it)} বছর") }, RxText.gender(p.gender).ifBlank { null }, phoneText(p.phone).ifBlank { null }).joinToString(" · "),
                     if (p.linked) tr("In app", "অ্যাপে আছেন") else null,
                     click(t), write(t),
                 )

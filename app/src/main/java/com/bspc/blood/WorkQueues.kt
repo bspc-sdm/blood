@@ -6,7 +6,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,7 +139,7 @@ fun ActionRow(
     showPrimary: Boolean = true,
     showMore: Boolean = true,
     primary: @Composable () -> Unit = {},
-    more: @Composable FlowRowScope.() -> Unit = {},
+    more: @Composable () -> Unit = {},
 ) {
     if (!showPrimary && !showMore) return
     var open by rememberSaveable(key) { mutableStateOf(false) }
@@ -160,8 +159,7 @@ fun ActionRow(
                 Modifier.fillMaxWidth().testTag("more_actions_open"),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                content = more,
-            )
+            ) { more() }
         }
     }
 }
@@ -202,4 +200,10 @@ object LabSlot {
         // h.date = ঢাকার সেই দিনের UTC মধ্যরাত (LabPriceText.today) — ঢাকার "end"টা বাজে UTC-তে date + end ঘণ্টা − ৬ ঘণ্টা
         return now > h.date + end * 3_600_000L - Rules.DHAKA_OFFSET_MS
     }
+}
+
+/** WorkNav.target "orders:<সার্ভারের ভাগ>" → তালিকার তিন ভাগ (নতুন · চলছে · শেষ); অন্য কিছু → নতুন */
+fun WorkNav.seg(target: String?): String {
+    val raw = target?.substringAfter("orders:", "")?.trim().orEmpty()
+    return if (raw.isBlank()) "new" else WorkQueue.of(raw)
 }

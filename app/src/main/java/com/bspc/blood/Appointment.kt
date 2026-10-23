@@ -913,25 +913,39 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                     Text(tr("Note: ", "নোট: ") + a.providerNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
                                 }
                                 // ফি ও রসিদ: ডাক্তার "ফি নিন"/"রসিদ" (inv_chamber; অনলাইনের রসিদ bKash নিশ্চিত হলে নিজেই), রোগী "রসিদ" (my_expenses)
-                                if (a.role == "provider") ChamberFeeAction(a) else ReceiptLink(a.invoiceId)
-                                // সিরিয়ালের অগ্রিম (লাইফলো পে) — অনলাইনের ফি নিচের প্যানেলে
-                                if (a.role == "patient" && !a.online) PayRefButton(a.id, PayRules.ADVANCE)
-                                // নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ (CallButtons.kt) — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে,
-                                // সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত
-                                ContactActions(
-                                    CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null },
-                                    showNumber = true, appAllowed = CallWindows.canCall(a.status, a.date, a.start),
-                                    onMessage = { openChat(CallCtx.APPOINTMENT, a.id) },
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (a.role == "provider" && a.status == "pending") {
-                                        Button(onClick = { confirming = a }, enabled = busyId == null) {
-                                            ButtonContent(busyId == a.id, tr("Confirm", "নিশ্চিত করুন"))
-                                        }
-                                        TextButton(onClick = { act(a.id, "decline") }, enabled = busyId == null) {
-                                            Text(tr("Decline", "না করুন"))
-                                        }
-                                    } else if (a.status == "pending" || a.status == "confirmed") {
+                                if (a.role == "provider") {
+                                    // ডাক্তারের দিক (চুক্তি §২): একটাই মূল কাজ — নতুন হলে "নিশ্চিত করুন"; না করুন, ফি/রসিদ, কল-মেসেজ,
+                                    // বাতিল "আরও"-তে। নম্বর চোখের সামনে (ইংরেজি অঙ্কে)।
+                                    if (a.otherPhone.isNotBlank()) IconLine(R.drawable.ic_call, phoneText(a.otherPhone))
+                                    ActionRow(
+                                        key = a.id,
+                                        showPrimary = a.status == "pending",
+                                        primary = { PrimaryAction(tr("Confirm", "নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = a }, busy = busyId == a.id, enabled = busyId == null) },
+                                        more = {
+                                            if (a.status == "pending") SmallAction(tr("Decline", "না করুন"), R.drawable.ic_close, { act(a.id, "decline") }, enabled = busyId == null)
+                                            // ফি ও রসিদ: "ফি নিন"/"রসিদ" (inv_chamber; অনলাইনের রসিদ bKash নিশ্চিত হলে নিজেই)
+                                            ChamberFeeAction(a)
+                                            // কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে, সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর
+                                            ContactActions(
+                                                CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null }, style = ContactStyle.CHIPS,
+                                                appAllowed = CallWindows.canCall(a.status, a.date, a.start),
+                                                onMessage = { openChat(CallCtx.APPOINTMENT, a.id) },
+                                            )
+                                            if (a.status == "confirmed") SmallAction(tr("Cancel appointment", "অ্যাপয়েন্টমেন্ট বাতিল"), R.drawable.ic_close, { act(a.id, "cancel") }, enabled = busyId == null)
+                                        },
+                                    )
+                                } else {
+                                    ReceiptLink(a.invoiceId)
+                                    // সিরিয়ালের অগ্রিম (লাইফলো পে) — অনলাইনের ফি নিচের প্যানেলে
+                                    if (!a.online) PayRefButton(a.id, PayRules.ADVANCE)
+                                    // নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ (CallButtons.kt) — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে,
+                                    // সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত
+                                    ContactActions(
+                                        CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null },
+                                        showNumber = true, appAllowed = CallWindows.canCall(a.status, a.date, a.start),
+                                        onMessage = { openChat(CallCtx.APPOINTMENT, a.id) },
+                                    )
+                                    if (a.status == "pending" || a.status == "confirmed") {
                                         TextButton(onClick = { act(a.id, "cancel") }, enabled = busyId == null) {
                                             Text(tr("Cancel appointment", "অ্যাপয়েন্টমেন্ট বাতিল"))
                                         }
@@ -1099,6 +1113,12 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
     var pending by remember { mutableIntStateOf(0) }
     var waiting by remember { mutableIntStateOf(0) }
     val writes = Practice.writesRx(type)
+    // "আমার কাজ" থেকে নির্দিষ্ট ট্যাব (WorkNav.target): today · bookings · patients · setup — অন্য লক্ষ্য ছুঁই না
+    val target = WorkNav.target.value
+    LaunchedEffect(target) {
+        val t = when (target) { "today" -> 0; "bookings", "requests" -> 1; "patients" -> 2; "setup" -> 3; else -> null }
+        if (t != null) { tab = t; WorkNav.target.value = null }
+    }
     // বুকিং ট্যাবের সংখ্যা শুরুতেই (ট্যাব না খুলেও)
     LaunchedEffect(Unit) {
         runCatching { Appointments.list() }.onSuccess { l -> pending = l.count { it.role == "provider" && it.status == "pending" } }

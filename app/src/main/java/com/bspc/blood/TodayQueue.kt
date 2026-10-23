@@ -86,7 +86,7 @@ object TodayText {
 
 /** আজ কতজন অপেক্ষায় (ট্যাবের সংখ্যা) — যাঁকে দেখছেন তিনি বাদ */
 fun todayWaiting(list: List<QueueChamber>): Int = list.sumOf { c ->
-    c.rows.count { r -> r.state in setOf("waiting", "later") && !(c.queue.started && c.queue.current == r.serial) }
+    c.waiting ?: c.rows.count { r -> r.state in setOf("waiting", "later") && !(c.queue.started && c.queue.current == r.serial) }
 }
 
 /** সারির কাজ (সার্ভারে যায় TodayPatientsTab থেকে) */

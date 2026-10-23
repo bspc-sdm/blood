@@ -316,7 +316,8 @@ internal fun MyPharmacyPanel(profile: Profile) {
             "shop" -> tab = 2
             "sales" -> tab = 1
             "receipts" -> { tab = 1; receiptsOpen = Features.on(InvoiceFeatures.key("pharmacy")) }
-            else -> { tab = 0; seg = "new" }
+            // orders:<ভাগ> (new|active|closed — "আমার কাজ"-এর সংখ্যার টাইল) → অর্ডারের সেই ভাগ
+            else -> { tab = 0; seg = WorkNav.seg(t) }
         }
     }
     fun act(done: String? = null, block: suspend () -> Unit) {
@@ -429,8 +430,13 @@ internal fun MyPharmacyPanel(profile: Profile) {
         ) {
             when (tab) {
                 0 -> {
-                    // ওষুধ খোঁজার অনুরোধ — এক লাইন (উত্তর না দেওয়ার সংখ্যাসহ), চাপলে পুরো তালিকা
-                    PharmacyFindsRow(unanswered) { findsOpen = true }
+                    // ওষুধ খোঁজার অনুরোধ — এক লাইন (উত্তর না দেওয়ার সংখ্যাসহ), চাপলে নিচেই পুরো তালিকা খোলে (আবার চাপলে বন্ধ)
+                    PharmacyFindsRow(unanswered, findsOpen) { findsOpen = !findsOpen; if (!findsOpen) reload++ }
+                    if (findsOpen) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("pharm_finds")) {
+                            PharmacyFindRequests { reload++ }
+                        }
+                    }
                     PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
                 }
                 1 -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -451,16 +457,6 @@ internal fun MyPharmacyPanel(profile: Profile) {
             }
         }
     }
-    if (findsOpen) {
-        FullScreenDialog(onDismissRequest = { findsOpen = false; reload++ }) {
-            Column(Modifier.fillMaxSize()) {
-                BackTopBar(tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ"), { findsOpen = false; reload++ })
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag("pharm_finds")) {
-                    PharmacyFindRequests { reload++ }
-                }
-            }
-        }
-    }
     if (receiptsOpen && invPharmacy) {
         shop?.let { sh ->
             FullScreenDialog(onDismissRequest = { receiptsOpen = false }) {
@@ -475,7 +471,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
 
 /** "অর্ডার"-এর ওপরে: ওষুধ খোঁজার অনুরোধ — এক লাইন, উত্তর না দেওয়ার সংখ্যা, "দেখুন" */
 @Composable
-private fun PharmacyFindsRow(unanswered: Int, onOpen: () -> Unit) {
+private fun PharmacyFindsRow(unanswered: Int, open: Boolean, onOpen: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Surface(
         onClick = onOpen,
@@ -490,7 +486,7 @@ private fun PharmacyFindsRow(unanswered: Int, onOpen: () -> Unit) {
                 tr("Medicine requests", "ওষুধ খোঁজার অনুরোধ") + if (unanswered > 0) " · " + tr("$unanswered to answer", "উত্তর বাকি ${num(unanswered)}") else "",
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
             )
-            Text(tr("See", "দেখুন"), style = MaterialTheme.typography.labelLarge, color = cs.primary)
+            Text(if (open) tr("Hide", "লুকান") else tr("See", "দেখুন"), style = MaterialTheme.typography.labelLarge, color = cs.primary)
         }
     }
 }

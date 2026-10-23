@@ -809,7 +809,7 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                 "byPhone" -> {
                     StatusHead(R.drawable.ic_check_circle, tr("You got an ambulance by phone", "ফোনে গাড়ি পেয়েছেন"), r.ambulance?.name ?: "")
                     r.ambulance?.takeIf { it.phone.isNotBlank() }?.let { a ->
-                        OutlinedButton(onClick = { callPhone(context, a.phone) }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Call ", "ফোন: ") + num(a.phone), R.drawable.ic_call) }
+                        OutlinedButton(onClick = { callPhone(context, a.phone) }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Call ", "ফোন: ") + phoneText(a.phone), R.drawable.ic_call) }
                     }
                 }
                 "expired" -> StatusHead(R.drawable.ic_warning, tr("No ambulance accepted", "কোনো অ্যাম্বুলেন্স রাজি হয়নি"), tr("Please call one directly below.", "নিচে থেকে সরাসরি ফোন করুন।"))
