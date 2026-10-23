@@ -703,7 +703,7 @@ private fun NearbyPharmacies(profile: Profile) {
         if (guest) { myRx = emptyList(); return@LaunchedEffect }
         myRx = null
         myRx = runCatching { RxApi.mine() }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; emptyList() }
-            .filter { it.status == "active" && it.medicines.isNotEmpty() }.sortedByDescending { it.createdAt }
+            .filter { it.status == "active" && it.medicines.isNotEmpty() && Practice.pharmacyOk(it) }.sortedByDescending { it.createdAt }
     }
     val rxList = myRx.orEmpty()
     val rx = if (rxPick == "none") null else rxList.firstOrNull { it.id == rxPick } ?: rxList.firstOrNull()

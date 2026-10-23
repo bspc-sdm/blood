@@ -76,6 +76,8 @@ object CareMode {
 data class CareLink(
     val patientUid: String, val caretakerUid: String, val patientName: String, val caretakerName: String,
     val caretakerEmail: String, val status: String, val createdAt: Long,
+    /** রোগী এই কেয়ারগিভারকে সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট/নোট দেখাতে দিয়েছেন (Practice.kt; শুরুতে বন্ধ) */
+    val sharePsych: Boolean = false,
 )
 
 data class FamilyMember(val id: String, val name: String, val relation: String, val age: Int?, val gender: String, val phone: String)
@@ -85,7 +87,10 @@ data class CareData(val caretakers: List<CareLink>, val caringFor: List<CareLink
 object CareApi {
     private suspend fun call(action: String, body: JSONObject = JSONObject()): JSONObject = ServerApi.post("/api/community", body.put("action", action))
     private fun JSONArray?.objs(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
-    private fun link(o: JSONObject) = CareLink(o.str("patientUid"), o.str("caretakerUid"), o.str("patientName"), o.str("caretakerName"), o.str("caretakerEmail"), o.str("status"), o.optLong("createdAt"))
+    private fun link(o: JSONObject) = CareLink(
+        o.str("patientUid"), o.str("caretakerUid"), o.str("patientName"), o.str("caretakerName"), o.str("caretakerEmail"), o.str("status"), o.optLong("createdAt"),
+        o.optBoolean(PracticeWire.SHARE_FIELD),
+    )
     private fun member(o: JSONObject) = FamilyMember(o.str("id"), o.str("name"), o.str("relation"), if (o.isNull("age") || !o.has("age")) null else o.optInt("age"), o.str("gender"), o.str("phone"))
 
     suspend fun list(): CareData {
@@ -96,6 +101,8 @@ object CareApi {
     suspend fun invite(email: String) = call("care_invite", JSONObject().put("email", email))
     suspend fun respond(patientUid: String, accept: Boolean) = call("care_respond", JSONObject().put("patientUid", patientUid).put("accept", accept))
     suspend fun removeCaretaker(caretakerUid: String) = call("care_remove", JSONObject().put("caretakerUid", caretakerUid))
+    /** সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট/নোট এই কেয়ারগিভারকে দেখানো (রোগী নিজে) */
+    suspend fun sharePsych(caretakerUid: String, share: Boolean) = call(PracticeWire.SHARE_ACTION, JSONObject().put("caretakerUid", caretakerUid).put("share", share))
     suspend fun leave(patientUid: String) = call("care_remove", JSONObject().put("patientUid", patientUid))
 
     /** কেয়ারগিভার মোডে রোগীর পরিবার */

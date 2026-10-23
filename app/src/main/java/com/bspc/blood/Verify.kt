@@ -63,7 +63,27 @@ object VerifyDocs {
         DocSpec("front", tr("Centre front (with signboard)", "সেন্টারের সামনের ছবি (সাইনবোর্ডসহ)"), tr("Name readable", "নাম পড়া যায়"), true),
     )
 
-    fun badge(type: String) = when (type) {
+    /** system: ডাক্তারের চিকিৎসা পদ্ধতি (practice_systems); null/এলোপ্যাথি = আগের মতো BMDC */
+    fun badge(type: String, system: String? = null) = when {
+        // সার্ভারের VerifyDocs-এর একই কাগজ (cert, member, idcard)
+        type == "doctor" && system != null && system != Practice.ALLOPATHY -> listOf(
+            DocSpec("cert", Practice.body(system) + tr(" registration certificate", "-এর নিবন্ধন সনদ"), tr("Number and name readable", "নম্বর আর নাম পড়া যায়"), true),
+            DocSpec("idcard", tr("Workplace ID card", "কর্মস্থলের পরিচয়পত্র"), tr("If you have it", "থাকলে দিন"), false),
+        )
+        type == Practice.PHYSIO_TYPE -> listOf(
+            DocSpec("cert", tr("Degree certificate (BPT / MPT)", "ডিগ্রির সনদ (BPT / MPT)"), tr("Name and institution readable", "নাম আর প্রতিষ্ঠান পড়া যায়"), true),
+            DocSpec("member", tr("Professional body membership", "পেশাজীবী সংগঠনের সদস্যপত্র"), tr("If you have it", "থাকলে দিন"), false),
+            DocSpec("idcard", tr("Workplace ID card", "কর্মস্থলের পরিচয়পত্র"), tr("If you have it", "থাকলে দিন"), false),
+        )
+        type == Practice.PSYCH_TYPE -> listOf(
+            DocSpec("cert", tr("Degree certificate (MS / MPhil in clinical or counselling psychology)", "ডিগ্রির সনদ (ক্লিনিক্যাল বা কাউন্সেলিং সাইকোলজিতে MS / MPhil)"), tr("Name and institution readable", "নাম আর প্রতিষ্ঠান পড়া যায়"), true),
+            DocSpec("member", tr("Bangladesh Clinical Psychology Society membership", "বাংলাদেশ ক্লিনিক্যাল সাইকোলজি সোসাইটির সদস্যপত্র"), tr("If you have it", "থাকলে দিন"), false),
+            DocSpec("idcard", tr("Workplace ID card", "কর্মস্থলের পরিচয়পত্র"), tr("If you have it", "থাকলে দিন"), false),
+        )
+        else -> badgeOld(type)
+    }
+
+    private fun badgeOld(type: String) = when (type) {
         "doctor" -> listOf(
             DocSpec("cert", tr("BMDC registration certificate", "BMDC নিবন্ধন সনদ"), tr("Optional — the number is checked online", "থাকলে দিন — নম্বর অনলাইনে মিলিয়ে দেখা হয়"), false),
             DocSpec("idcard", tr("Workplace ID card", "কর্মস্থলের পরিচয়পত্র"), tr("If you have it", "থাকলে দিন"), false),

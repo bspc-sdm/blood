@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -78,6 +79,9 @@ data class RxMed(
 ) {
     fun toJson(): JSONObject = JSONObject().put("name", name).put("form", form).put("strength", strength).put("dose", dose)
         .put("timing", timing).put("days", days).put("note", note)
+
+    /** হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদের হাতে লেখা লাইন */
+    fun toFreeJson(): JSONObject = JSONObject().put("name", name).put("dose", dose).put("days", days).put("note", note)
 
     /** "Tab. Napa (Paracetamol 500 mg)" */
     val title: String get() = listOf(RxText.formShort(form), name).filter { it.isNotBlank() }.joinToString(" ") + if (strength.isNotBlank()) " ($strength)" else ""
@@ -124,6 +128,15 @@ data class Rx(
     val chamberIndex: Int?,
     /** ডাক্তারের সুপারিশ করা পরীক্ষার জায়গা (হাসপাতাল/ডায়াগনস্টিকের id) */
     val testPlaceId: String? = null,
+    /** চিকিৎসা পদ্ধতি আর লেখকের পেশা ("doctor" / "physio" / "psychologist") — Practice.kt */
+    val system: String = "",
+    val doctorType: String = "",
+    /** হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ: হাতে লেখা লাইন (সার্ভারের freeText) */
+    val freeText: Boolean = false,
+    /** সার্ভারের "pharmacy" (ফার্মেসিতে পাঠানো যায়); null = পুরনো সার্ভার (আগের মতো) */
+    val pharmacy: Boolean? = null,
+    /** সার্ভারের rxRules (না থাকলে পেশা/পদ্ধতি থেকে) */
+    val rules: Practice.RxRules? = null,
 ) {
     val cancelled: Boolean get() = status == "cancelled"
     val verifyUrl: String get() = ServerApi.BASE_URL + "/rx/" + code
@@ -154,6 +167,10 @@ data class Rx(
                 o.str("followUpNote"),
                 if (o.isNull("chamberIndex") || !o.has("chamberIndex")) null else o.optInt("chamberIndex"),
                 o.str("testPlaceId").ifBlank { null },
+                d.str(PracticeWire.SYSTEM), o.str(PracticeWire.RX_TYPE).ifBlank { d.str(PracticeWire.DOCTOR_TYPE) },
+                o.optBoolean(PracticeWire.RX_FREE),
+                if (o.has(PracticeWire.RX_PHARMACY) && !o.isNull(PracticeWire.RX_PHARMACY)) o.optBoolean(PracticeWire.RX_PHARMACY) else null,
+                Practice.RxRules.parse(o.optJSONObject("rxRules")),
             )
         }
     }
@@ -213,6 +230,18 @@ object RxText {
         }
     }
 
+    fun complaintsTitle(@Suppress("UNUSED_PARAMETER") mode: Practice.RxMode): String = tr("Complaints", "সমস্যা")
+
+    /** "পরামর্শ" — ফিজিওথেরাপিস্টের "পরামর্শ ও ব্যায়াম", সাইকোলজিস্টের "সেশন নোট ও পরামর্শ" (সার্ভারের rxRules.section) */
+    fun adviceTitle(mode: Practice.RxMode): String = when (mode) {
+        Practice.RxMode.PHYSIO -> tr("Advice & exercises", "পরামর্শ ও ব্যায়াম")
+        Practice.RxMode.PSYCH -> tr("Session notes & advice", "সেশন নোট ও পরামর্শ")
+        else -> tr("Advice", "পরামর্শ")
+    }
+
+    /** খাওয়ার নিয়ম: হাতে লেখা লাইনে (হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ) লেখাটাই — "চলবে" নিজে বসে না */
+    fun howTo(m: RxMed, mode: Practice.RxMode): String = if (mode == Practice.RxMode.FREE) num(m.dose) else m.howTo
+
     val DOSES = listOf("1+0+1", "1+0+0", "0+0+1", "1+1+1", "0+1+0", "1+1+1+1")
     val DAYS = listOf(3, 5, 7, 10, 14, 30)
     val FOLLOW = listOf(3, 7, 15, 30)
@@ -227,6 +256,8 @@ object RxApi {
 
     suspend fun mine(): List<Rx> = call("rx_mine").optJSONArray("items").objs().map { Rx.parse(it) }
     suspend fun doctorList(): List<Rx> = call("rx_doctor_list").optJSONArray("items").objs().map { Rx.parse(it) }
+    /** লেখকের নিয়ম (rx_me.rxRules) — লেখার পাতা এটা দিয়ে চলে; পুরনো সার্ভারে null */
+    suspend fun myRules(): Practice.RxRules? = Practice.RxRules.parse(call("rx_me").optJSONObject("rxRules"))
     suspend fun claim(code: String, phone: String): Int = call("rx_claim", JSONObject().put("code", code).put("phone", phone)).optInt("added")
     suspend fun cancel(id: String) = call("rx_cancel", JSONObject().put("id", id))
     suspend fun create(body: JSONObject): String = call("rx_create", body).optString("id")
@@ -334,10 +365,11 @@ fun RxPaper(rx: Rx) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(rx.doctorName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    // নামের পাশে পদ্ধতি/পেশা (practice_systems; ফিজিও/সাইকোলজিস্ট) — নাম যেমন লেখা তেমনই, "ডা." নিজে বসে না
+                    NameWithTag(rx.doctorName, Practice.rxHeaderTag(rx), MaterialTheme.typography.titleLarge)
                     if (rx.degrees.isNotBlank()) Text(rx.degrees, style = MaterialTheme.typography.bodyMedium)
                     if (rx.specialties.isNotEmpty()) Text(rx.specialties.joinToString(", ") { Specialties.label(it) }, style = MaterialTheme.typography.bodyMedium, color = cs.primary)
-                    if (rx.regNo.isNotBlank()) Text("BMDC " + rx.regNo, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                    if (rx.regNo.isNotBlank()) Text(Practice.regLine(rx.doctorType.ifBlank { "doctor" }, rx.system, rx.regNo), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                     if (rx.chamberName.isNotBlank()) Text(listOf(rx.chamberName, rx.chamberAddress).filter { it.isNotBlank() }.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                 }
                 if (qr != null) {
@@ -354,17 +386,20 @@ fun RxPaper(rx: Rx) {
                 Text(rx.patientLine, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(Rules.formatDate(rx.createdAt), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
-            if (rx.complaints.isNotBlank()) PaperBlock(tr("Complaints", "সমস্যা"), rx.complaints)
+            val mode = Practice.rxMode(rx)
+            if (rx.complaints.isNotBlank()) PaperBlock(RxText.complaintsTitle(mode), rx.complaints)
             if (rx.findings.isNotEmpty()) PaperBlock(tr("Findings", "পরীক্ষায় পাওয়া"), rx.findings.entries.joinToString(" · ") { RxText.finding(it.key) + ": " + it.value })
             if (rx.diagnosis.isNotBlank()) PaperBlock(tr("Diagnosis", "রোগনির্ণয়"), rx.diagnosis)
-            if (rx.medicines.isNotEmpty()) {
+            // ফিজিও/সাইকোলজিস্টের ওষুধ নেই (সার্ভারও নেয় না)
+            if (rx.medicines.isNotEmpty() && mode != Practice.RxMode.PHYSIO && mode != Practice.RxMode.PSYCH) {
                 Text("℞", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 rx.medicines.forEachIndexed { i, m ->
                     Row {
                         Text(num(i + 1) + ".", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(26.dp))
                         Column {
                             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text(m.howTo, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                            val how = RxText.howTo(m, mode)
+                            if (how.isNotBlank()) Text(how, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                             if (m.note.isNotBlank()) Text(m.note, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                         }
                     }
@@ -374,10 +409,11 @@ fun RxPaper(rx: Rx) {
                 PaperBlock(tr("Tests", "পরীক্ষা"), rx.tests.joinToString("\n") { "• $it" })
                 if (rx.testPlace.isNotBlank()) Text(tr("Suggested place: ", "করাতে পারেন: ") + rx.testPlace + tr(" (or anywhere you like)", " (চাইলে অন্য জায়গাতেও)"), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
-            if (rx.advice.isNotBlank()) PaperBlock(tr("Advice", "পরামর্শ"), rx.advice)
+            if (rx.advice.isNotBlank()) PaperBlock(rx.rules?.section ?: RxText.adviceTitle(mode), rx.advice)
             rx.followUpDate?.let { d ->
                 PaperBlock(tr("Come again", "আবার দেখাবেন"), Rules.formatDate(d) + if (rx.followUpNote.isNotBlank()) " · " + rx.followUpNote else "")
             }
+            if (rx.rules?.notice != null || mode == Practice.RxMode.PSYCH) PsychiatristNote(rx.rules?.notice)
             Text(tr("Verify: ", "যাচাই: ") + rx.code, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
         }
     }
@@ -388,6 +424,37 @@ private fun PaperBlock(title: String, text: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** নাম আর পাশে ছোট লেবেল (পদ্ধতি/পেশা; Practice.kt) — লেবেল না থাকলে শুধু নাম */
+@Composable
+internal fun NameWithTag(name: String, tag: String?, style: androidx.compose.ui.text.TextStyle) {
+    if (tag == null) {
+        Text(name, style = style, fontWeight = FontWeight.Bold)
+        return
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(name, style = style, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterVertically))
+        Box(Modifier.align(Alignment.CenterVertically)) { SystemTag(tag) }
+    }
+}
+
+/** পদ্ধতি/পেশার ছোট লেবেল */
+@Composable
+internal fun SystemTag(text: String) {
+    Tag(text, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+}
+
+/** "ওষুধের প্রয়োজনে সাইকিয়াট্রিস্ট (এলোপ্যাথি ডাক্তার) দেখান" */
+@Composable
+internal fun PsychiatristNote(text: String? = null) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(R.drawable.ic_info, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSecondaryContainer)
+            Spacer(Modifier.width(8.dp))
+            Text(text ?: Practice.psychiatristNote(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
     }
 }
 
@@ -410,7 +477,7 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
     FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(
             topBar = {
-                BackTopBar(tr("Prescription", "প্রেসক্রিপশন"), onDismiss) {
+                BackTopBar(Practice.rxTitle(Practice.rxMode(rx)), onDismiss) {
                     IconButton(onClick = { runCatching { RxPdf.share(context, rx) }.onFailure { errorMsg = it.message } }) {
                         AppIcon(R.drawable.ic_share, tr("Share PDF", "PDF শেয়ার"))
                     }
@@ -511,6 +578,7 @@ private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
         icon = R.drawable.ic_medication,
         subtitle = if (asDoctor) rx.patientLine.removePrefix(rx.patientName).removePrefix(" · ").ifBlank { null } else rx.degrees.ifBlank { null },
         status = if (rx.cancelled) CardStatus(tr("Cancelled", "বাতিল"), false) else null,
+        nameTag = if (asDoctor) null else Practice.rxHeaderTag(rx),
         meta = Rules.formatDate(rx.createdAt),
         details = listOf(
             R.drawable.ic_medication to rx.medicines.take(3).joinToString(", ") { it.name } + if (rx.medicines.size > 3) " +" + num(rx.medicines.size - 3) else "",
@@ -536,6 +604,7 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     // পরিবারের সদস্যের প্রেসক্রিপশনও একই অ্যাকাউন্টে — নাম ধরে আলাদা দেখা
     var who by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
+        // কেয়ারগিভার মোডে সাইকোলজিস্টের নোট রোগী শেয়ার না করলে সার্ভার পাঠায়ই না (PRACTICE.md)
         runCatching { RxApi.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
     // "প্রেসক্রিপশন খুলুন" (পাঠানোর পর) আর নোটিফিকেশন: তালিকা এলে সরাসরি সেটার বিস্তারিত — তালিকায় না পেলে আলাদা করে আনা।
@@ -781,7 +850,15 @@ fun RxPatientsPane(doctorUid: String?, onWrite: ((RxTarget) -> Unit)?, onOpen: (
 @Composable
 fun DoctorPatientsTab() {
     var chambers by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(Unit) { chambers = runCatching { Appointments.mine()?.chambers?.map { it.label } }.getOrNull().orEmpty() }
+    // লেখার নিয়ম: সার্ভারের rxRules (এলোপ্যাথি / অন্য পদ্ধতি / ফিজিও / সাইকোলজিস্ট); না পেলে পেশা/পদ্ধতি থেকে
+    var rules by remember { mutableStateOf(Practice.RxRules()) }
+    val mode = rules.mode
+    LaunchedEffect(Unit) {
+        val me = runCatching { Appointments.mine() }.getOrNull()
+        chambers = me?.chambers?.map { it.label }.orEmpty()
+        rules = runCatching { RxApi.myRules() }.getOrNull()
+            ?: me?.let { Practice.RxRules.of(Practice.rxMode(it.type.ifBlank { "doctor" }, it.system)) } ?: Practice.RxRules()
+    }
     var writingFor by remember { mutableStateOf<RxTarget?>(null) }
     var history by remember { mutableStateOf<RxTarget?>(null) }
     var open by remember { mutableStateOf<Rx?>(null) }
@@ -789,7 +866,7 @@ fun DoctorPatientsTab() {
     key(reload) { RxPatientsPane(null, onWrite = { writingFor = it }, onOpen = { history = it }) }
     history?.let { t -> PatientHistoryDialog(t, onDismiss = { history = null }, onWrite = { writingFor = t }, onOpen = { open = it }) }
     writingFor?.let { t ->
-        RxEditorDialog(t, chambers, onDismiss = { writingFor = null }) { rx ->
+        RxEditorDialog(t, chambers, onDismiss = { writingFor = null }, rules = rules) { rx ->
             writingFor = null
             history = null
             reload++
@@ -898,7 +975,14 @@ private fun RxPatientAddDialog(doctorUid: String?, onDismiss: () -> Unit, onAdde
 fun RxDoctorTab() {
     var list by remember { mutableStateOf<List<Rx>?>(null) }
     var chambers by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(Unit) { chambers = runCatching { Appointments.mine()?.chambers?.map { it.label } }.getOrNull().orEmpty() }
+    var rules by remember { mutableStateOf(Practice.RxRules()) }
+    val mode = rules.mode
+    LaunchedEffect(Unit) {
+        val me = runCatching { Appointments.mine() }.getOrNull()
+        chambers = me?.chambers?.map { it.label }.orEmpty()
+        rules = runCatching { RxApi.myRules() }.getOrNull()
+            ?: me?.let { Practice.RxRules.of(Practice.rxMode(it.type.ifBlank { "doctor" }, it.system)) } ?: Practice.RxRules()
+    }
     var reload by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var open by remember { mutableStateOf<Rx?>(null) }
@@ -916,7 +1000,15 @@ fun RxDoctorTab() {
     } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Button(onClick = { picking = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                ButtonContent(false, tr("New prescription", "নতুন প্রেসক্রিপশন"), R.drawable.ic_edit_note)
+                ButtonContent(
+                    false,
+                    when (mode) {
+                        Practice.RxMode.PHYSIO -> tr("New advice & exercises", "নতুন পরামর্শ ও ব্যায়াম")
+                        Practice.RxMode.PSYCH -> tr("New session notes", "নতুন সেশনের নোট")
+                        else -> tr("New prescription", "নতুন প্রেসক্রিপশন")
+                    },
+                    R.drawable.ic_edit_note,
+                )
             }
             TextButton(onClick = { team = true }) { ButtonContent(false, tr("Assistants", "সহকারী"), R.drawable.ic_group_round) }
             ErrorText(errorMsg)
@@ -941,7 +1033,7 @@ fun RxDoctorTab() {
         }
     }
     writingFor?.let { t ->
-        RxEditorDialog(t, chambers, onDismiss = { writingFor = null }) { rx ->
+        RxEditorDialog(t, chambers, onDismiss = { writingFor = null }, rules = rules) { rx ->
             writingFor = null
             reload++
             open = rx
@@ -1016,8 +1108,15 @@ private fun RxTeamDialog(onDismiss: () -> Unit) {
 // প্রেসক্রিপশন লেখা
 // ------------------------------------------------------------
 
+/**
+ * mode (Practice.kt): FULL = আগের মতো; FREE = হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ (ওষুধ হাতে লেখা লাইন, তালিকা থেকে খোঁজা নেই);
+ * PHYSIO = শুধু "পরামর্শ ও ব্যায়াম"; PSYCH = সেশনের নোট আর পরামর্শ, ওষুধ নেই, সাইকিয়াট্রিস্টের কথা।
+ */
 @Composable
-private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: () -> Unit, onIssued: (Rx) -> Unit) {
+private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: () -> Unit, rules: Practice.RxRules = Practice.RxRules(), onIssued: (Rx) -> Unit) {
+    val mode = rules.mode
+    val meds0 = rules.medicines
+    val testsOn = rules.tests
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(target.name) }
     var age by remember { mutableStateOf(target.age?.toString().orEmpty()) }
@@ -1046,11 +1145,13 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
             errorMsg = null
             val body = JSONObject()
                 .put("patient", JSONObject().put("name", name.trim()).put("age", age.toIntOrNull() ?: JSONObject.NULL).put("gender", gender))
-                .put("complaints", complaints.trim())
-                .put("findings", JSONObject().apply { findings.forEach { (k, v) -> put(k, v.trim()) } })
-                .put("diagnosis", diagnosis.trim())
-                .put("medicines", JSONArray(meds.map { it.toJson() }))
-                .put("tests", JSONArray(tests.toList()))
+                .put("complaints", if (meds0) complaints.trim() else "")
+                .put("findings", JSONObject().apply { if (meds0) findings.forEach { (k, v) -> put(k, v.trim()) } })
+                .put("diagnosis", if (meds0) diagnosis.trim() else "")
+                // ফিজিও/সাইকোলজিস্ট: ওষুধ আর পরীক্ষা নেই
+                // হাতে লেখা লাইন (অন্য পদ্ধতি): শুধু নাম, নিয়ম, দিন, নোট — ধরন/মাত্রা/আগে-পরে নয় (PRACTICE.md)
+                .put("medicines", JSONArray(if (!meds0) emptyList() else if (mode == Practice.RxMode.FREE) meds.map { it.toFreeJson() } else meds.map { it.toJson() }))
+                .put("tests", JSONArray(if (testsOn) tests.toList() else emptyList()))
                 .put("testPlace", testPlace.trim())
                 .apply { testPlaceId?.let { put("testPlaceId", it) } }
                 .put("advice", advice.trim())
@@ -1069,7 +1170,7 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
     }
 
     FullScreenDialog(onDismissRequest = { if (!busy) onDismiss() }, dismissOnClickOutside = false) {
-        Scaffold(topBar = { BackTopBar(tr("Prescription", "প্রেসক্রিপশন"), { if (!busy) onDismiss() }) }) { padding ->
+        Scaffold(topBar = { BackTopBar(Practice.rxTitle(mode), { if (!busy) onDismiss() }) }) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1086,7 +1187,14 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                     )
                     ChipRows(listOf("male", "female"), setOf(gender), perRow = 2, label = { RxText.gender(it) }) { gender = if (gender == it) "" else it }
                 }
-                OutlinedTextField(complaints, { complaints = it.take(1000) }, label = { Text(tr("Complaints", "সমস্যা")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                // ফিজিও/সাইকোলজিস্ট: শুধু নিচের এক ভাগ ("পরামর্শ ও ব্যায়াম" / "সেশন নোট ও পরামর্শ")
+                if (meds0) OutlinedTextField(
+                    complaints, { complaints = it.take(1000) },
+                    label = { Text(RxText.complaintsTitle(mode)) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth().testTag("rx_complaints"),
+                )
+                if (meds0) {
                 Text(tr("Findings", "পরীক্ষায় পাওয়া"), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 3) {
                     listOf("bp", "pulse", "temp", "weight", "spo2").forEach { k ->
@@ -1101,19 +1209,23 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                 OutlinedTextField(diagnosis, { diagnosis = it.take(500) }, label = { Text(tr("Diagnosis", "রোগনির্ণয়")) }, modifier = Modifier.fillMaxWidth())
 
                 SectionTitle(tr("Medicines", "ওষুধ"))
+                // হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ: হাতে লেখা লাইন — এলোপ্যাথির তালিকা, ফার্মেসির মিল নেই
+                if (mode == Practice.RxMode.FREE) SmallNote(tr("Write each medicine as you would on paper — no drug list, no pharmacy sending.", "প্রতিটা ওষুধ কাগজে যেমন লেখেন তেমন লিখুন — ওষুধের তালিকা বা ফার্মেসিতে পাঠানো নেই।"))
                 meds.forEachIndexed { i, m ->
                     Card(onClick = { editMed = i }, modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(num(i + 1) + ". " + m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                                Text(m.howTo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val how = RxText.howTo(m, mode)
+                                if (how.isNotBlank()) Text(how, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { meds.removeAt(i) }) { AppIcon(R.drawable.ic_delete, tr("Remove", "সরান"), Modifier.size(20.dp)) }
                         }
                     }
                 }
-                OutlinedButton(onClick = { editMed = -1 }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Add medicine", "ওষুধ যোগ করুন"), R.drawable.ic_add) }
+                OutlinedButton(onClick = { editMed = -1 }, modifier = Modifier.fillMaxWidth().testTag("rx_add_med")) { ButtonContent(false, tr("Add medicine", "ওষুধ যোগ করুন"), R.drawable.ic_add) }
 
+                if (testsOn) {
                 SectionTitle(tr("Tests", "পরীক্ষা"))
                 ChipRows(RxText.COMMON_TESTS + tests.filter { it !in RxText.COMMON_TESTS }, tests.toSet(), perRow = 3) { t ->
                     if (t in tests) tests.remove(t) else tests.add(t)
@@ -1128,9 +1240,20 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                     }
                     if (testPlace.isNotBlank()) TextButton(onClick = { testPlace = ""; testPlaceId = null }) { Text(tr("Remove suggestion", "প্রস্তাব সরান")) }
                 }
+                }
+                }
 
-                SectionTitle(tr("Advice", "পরামর্শ"))
-                OutlinedTextField(advice, { advice = it.take(1000) }, label = { Text(tr("Advice", "পরামর্শ")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                // ফিজিওথেরাপিস্ট: "পরামর্শ ও ব্যায়াম" — লম্বা লেখা (কোন ব্যায়াম, কতবার, কত দিন)
+                val adviceTitle = rules.section ?: RxText.adviceTitle(mode)
+                SectionTitle(adviceTitle)
+                OutlinedTextField(
+                    advice, { advice = it.take(if (mode == Practice.RxMode.PHYSIO || mode == Practice.RxMode.PSYCH) 3000 else 1000) },
+                    label = { Text(adviceTitle) },
+                    placeholder = if (mode == Practice.RxMode.PHYSIO) ({ Text(tr("e.g. Back extension — 10 times, twice a day, 2 weeks", "যেমন: কোমরের ব্যায়াম — ১০ বার, দিনে ২ বার, ২ সপ্তাহ")) }) else null,
+                    minLines = if (mode == Practice.RxMode.PHYSIO || mode == Practice.RxMode.PSYCH) 6 else 2,
+                    modifier = Modifier.fillMaxWidth().testTag("rx_advice"),
+                )
+                if (rules.notice != null || mode == Practice.RxMode.PSYCH) PsychiatristNote(rules.notice)
 
                 SectionTitle(tr("Come again", "আবার দেখাবেন"))
                 ChipRows(listOf("0") + RxText.FOLLOW.map { it.toString() }, setOf(followDays.toString()), perRow = 5, label = {
@@ -1146,19 +1269,35 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
                 ErrorText(errorMsg)
                 Button(
                     onClick = { confirm = true },
-                    enabled = !busy && name.isNotBlank() && (meds.isNotEmpty() || tests.isNotEmpty() || advice.isNotBlank()),
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    enabled = !busy && name.isNotBlank() && when (mode) {
+                        Practice.RxMode.PHYSIO -> advice.isNotBlank()
+                        Practice.RxMode.PSYCH -> advice.isNotBlank()
+                        else -> meds.isNotEmpty() || tests.isNotEmpty() || advice.isNotBlank()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp).testTag("rx_give"),
                     shape = RoundedCornerShape(12.dp),
-                ) { ButtonContent(busy, tr("Give prescription", "প্রেসক্রিপশন দিন"), R.drawable.ic_check_circle) }
+                ) {
+                    ButtonContent(
+                        busy,
+                        when (mode) {
+                            Practice.RxMode.PHYSIO -> tr("Give advice", "পরামর্শ দিন")
+                            Practice.RxMode.PSYCH -> tr("Save notes", "নোট দিন")
+                            else -> tr("Give prescription", "প্রেসক্রিপশন দিন")
+                        },
+                        R.drawable.ic_check_circle,
+                    )
+                }
                 Spacer(Modifier.height(24.dp))
             }
         }
     }
     editMed?.let { i ->
-        MedEditDialog(meds.getOrNull(i), onDismiss = { editMed = null }) { m ->
+        val save: (RxMed) -> Unit = { m ->
             if (i >= 0 && i < meds.size) meds[i] = m else meds.add(m)
             editMed = null
         }
+        if (mode == Practice.RxMode.FREE) FreeMedDialog(meds.getOrNull(i), onDismiss = { editMed = null }, onSave = save)
+        else MedEditDialog(meds.getOrNull(i), onDismiss = { editMed = null }, onSave = save)
     }
     if (pickPlace) {
         HospitalPickerDialog(
@@ -1170,12 +1309,51 @@ private fun RxEditorDialog(target: RxTarget, chambers: List<String>, onDismiss: 
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text(tr("Give this prescription?", "প্রেসক্রিপশনটা দেবেন?")) },
+            title = { Text(if (mode == Practice.RxMode.FULL || mode == Practice.RxMode.FREE) tr("Give this prescription?", "প্রেসক্রিপশনটা দেবেন?") else tr("Give this to the patient?", "রোগীকে দেবেন?")) },
             text = { Text(tr("It can't be edited afterwards; you can only cancel it and write a new one.", "দেওয়ার পর আর বদলানো যাবে না; শুধু বাতিল করে নতুন লেখা যাবে।")) },
             confirmButton = { TextButton(onClick = { confirm = false; issue() }) { Text(tr("Give", "দিন")) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(tr("Check again", "আবার দেখি")) } },
         )
     }
+}
+
+/**
+ * হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদের এক লাইন: ওষুধ আর খাওয়ার নিয়ম হাতে লেখা (তালিকা থেকে খোঁজা নেই — এলোপ্যাথির ওষুধ নয়)।
+ * নিয়মটা dose-এ যায় (কাগজে যেমন লেখা তেমন); কত দিন/আগে-পরে আলাদা নয়।
+ */
+@Composable
+private fun FreeMedDialog(initial: RxMed?, onDismiss: () -> Unit, onSave: (RxMed) -> Unit) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var how by remember { mutableStateOf(initial?.dose.orEmpty()) }
+    var note by remember { mutableStateOf(initial?.note.orEmpty()) }
+    FormDialog(
+        title = if (initial == null) tr("Add medicine", "ওষুধ যোগ করুন") else tr("Medicine", "ওষুধ"),
+        onDismiss = onDismiss,
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    name, { name = it.take(200) },
+                    label = { Text(tr("Medicine (as you write it)", "ওষুধ (যেমন লেখেন)")) },
+                    placeholder = { Text(tr("e.g. Nux Vomica 30", "যেমন: Nux Vomica 30")) },
+                    modifier = Modifier.fillMaxWidth().testTag("free_med_name"),
+                )
+                OutlinedTextField(
+                    how, { how = it.take(60) },
+                    label = { Text(tr("How to take", "খাওয়ার নিয়ম")) },
+                    placeholder = { Text(tr("e.g. 4 drops, 3 times a day, 7 days", "যেমন: ৪ ফোঁটা, দিনে ৩ বার, ৭ দিন")) },
+                    modifier = Modifier.fillMaxWidth().testTag("free_med_how"),
+                )
+                OutlinedTextField(note, { note = it.take(120) }, label = { Text(tr("Note (optional)", "নোট (ঐচ্ছিক)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(RxMed(name.trim(), dose = how.trim(), note = note.trim())) },
+                enabled = name.isNotBlank(),
+            ) { Text(tr("Save", "সেভ")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "বাতিল")) } },
+    )
 }
 
 /** এক ওষুধ: নাম (তালিকা থেকে খুঁজে), মাত্রা, খাওয়ার নিয়ম, খাবারের আগে/পরে, কত দিন, নোট */

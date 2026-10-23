@@ -1,0 +1,92 @@
+# যাত্রা ২৬ — পদ্ধতি অনুযায়ী প্রেসক্রিপশন:
+# ১) এলোপ্যাথ (ডা. ডেমো হাসান): সেটআপে "চিকিৎসা পদ্ধতি — এলোপ্যাথি" (শুধু দেখা; বদলাতে ব্যাজের সংশোধন)
+# ২) রোগী: আমার প্রেসক্রিপশন — হোমিও/ফিজিও/সাইকোলজিস্টের কাগজ থাকলে খুলে দেখা (পদ্ধতির লেবেল, "ফার্মেসিতে পাঠান" নেই,
+#    "পরামর্শ ও ব্যায়াম", সাইকিয়াট্রিস্টের কথা)
+# শুধু চাইলে (E2E_ONLY="j26"): practice_systems, pro_physio, pro_psychologist ডেমোতে চালু থাকলে তবেই।
+appId: com.bspc.blood
+env:
+  J: j26
+  ROLE: ডা. ডেমো হাসান
+---
+- runFlow: ../common/start.yaml
+- tapOn: "আমার কাজ"
+- tapOn: ".*আমার চেম্বার.*"
+- extendedWaitUntil:
+    visible: ".*বুকিং.*"
+    timeout: 30000
+- tapOn: "সেটআপ"
+- extendedWaitUntil:
+    visible: ".*রোগীরা যেমন দেখবেন.*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "system_row"
+    commands:
+      - takeScreenshot: j26-01-system-row
+      - tapOn: "বদলান"
+      # ব্যাজের সংশোধনের ঘর (আলাদা জানালা — testTag নয়, লেখা দিয়ে)
+      - extendedWaitUntil:
+          visible: "ব্যাজের তথ্য সংশোধন"
+          timeout: 20000
+      - takeScreenshot: j26-02-system-change
+      - tapOn: "বাতিল"
+# প্রেসক্রিপশন লেখা: অ্যালোপ্যাথের আগের মতো ফর্ম
+- tapOn: "প্রেসক্রিপশন"
+- extendedWaitUntil:
+    visible: "নতুন প্রেসক্রিপশন"
+    timeout: 30000
+- takeScreenshot: j26-03-rx-tab
+# ---------- রোগী: অন্য পদ্ধতির কাগজ ----------
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j26p
+      ROLE: ডেমো রোগী রহিম
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার প্রেসক্রিপশন.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার প্রেসক্রিপশন.*"
+- extendedWaitUntil:
+    visible: "আমার প্রেসক্রিপশন"
+    timeout: 30000
+- takeScreenshot: j26-04-my-rx
+- runFlow:
+    when:
+      visible: "হোমিওপ্যাথি|ইউনানি|আ(?:য়|য়)ুর্বেদ"
+    commands:
+      - tapOn:
+          text: "হোমিওপ্যাথি|ইউনানি|আ(?:য়|য়)ুর্বেদ"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*যাচাই.*"
+          timeout: 20000
+      - takeScreenshot: j26-05-alt-rx
+      - assertNotVisible: "ফার্মেসিতে পাঠান"
+      - back
+- runFlow:
+    when:
+      visible: "ফিজিওথেরাপিস্ট"
+    commands:
+      - tapOn:
+          text: "ফিজিওথেরাপিস্ট"
+          index: 0
+      - extendedWaitUntil:
+          visible: "পরামর্শ ও ব্যা(?:য়|য়)াম"
+          timeout: 20000
+      - takeScreenshot: j26-06-physio-rx
+      - back
+- runFlow:
+    when:
+      visible: ".*সাইকোলজিস্ট.*"
+    commands:
+      - tapOn:
+          text: ".*সাইকোলজিস্ট.*"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*সাইকি(?:য়|য়)াট্রিস্ট.*"
+          timeout: 20000
+      - takeScreenshot: j26-07-psych-notes
+      - back

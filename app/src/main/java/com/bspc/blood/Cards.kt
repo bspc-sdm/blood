@@ -124,6 +124,8 @@ fun DirectoryCard(
     cardMain: CardAction? = null,
     /** তথ্যের লাইনের আগে আলাদা ঘর (ফার্মেসি: প্রেসক্রিপশনের হিসাব) */
     info: (@Composable () -> Unit)? = null,
+    /** নামের পাশে ছোট লেবেল — চিকিৎসা পদ্ধতি (Practice.kt) */
+    nameTag: String? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     var sheet by remember { mutableStateOf(false) }
@@ -139,6 +141,10 @@ fun DirectoryCard(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (nameTag != null) {
+                            Spacer(Modifier.width(6.dp))
+                            Tag(nameTag, cs.secondaryContainer, cs.onSecondaryContainer)
+                        }
                         if (status != null) {
                             Spacer(Modifier.width(8.dp))
                             Tag(status.text, if (status.good) cs.tertiaryContainer else cs.surfaceVariant, if (status.good) cs.onTertiaryContainer else cs.onSurfaceVariant)
@@ -275,6 +281,8 @@ fun DetailSheet(
     main: CardAction? = null,
     /** মাথার ঠিক নিচে, ভাগগুলোর আগে (২.৩২.০ ফার্মেসি: প্রেসক্রিপশনের হিসাব; ২.৩৩.০ ডাক্তারের চেম্বার বাছাই) */
     header: @Composable () -> Unit = {},
+    /** নামের পাশে ছোট লেবেল — চিকিৎসা পদ্ধতি (Practice.kt) */
+    nameTag: String? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     // নিচ থেকে ওঠা প্যানেল, কিন্তু টেনে নামালে বন্ধ হয় না (পড়তে পড়তে স্ক্রল করলে হঠাৎ চলে যেত) — শুধু ✕ বা ফোনের ব্যাক
@@ -303,6 +311,7 @@ fun DetailSheet(
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        if (nameTag != null) Tag(nameTag, cs.secondaryContainer, cs.onSecondaryContainer)
                         if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.primary)
                         metaLine(rating, ratingCount, meta)?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant) }
                         if (status != null || tags.isNotEmpty()) {

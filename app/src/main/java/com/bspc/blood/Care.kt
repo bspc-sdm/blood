@@ -423,6 +423,8 @@ data class Provider(
     val photo: String = "",
     /** তালিকার ছাঁকনিতে কোন চেম্বারগুলো মিলেছে (সার্ভারের matched, ২.৩৩.০); null = জানা নেই */
     val matched: List<Int>? = null,
+    /** চিকিৎসা পদ্ধতি (ডাক্তার; Practice.kt) — খালি = এলোপ্যাথি */
+    val system: String = "",
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
 }
@@ -573,7 +575,8 @@ object Specialties {
     val TRAINER = listOf("weight_loss", "strength", "yoga", "rehab_exercise", "elderly_fitness", "women_fitness", "sports_training")
 
     /** প্যানেলের তালিকা থাকলে সেটা (নতুন যোগ করা সহ), নইলে অ্যাপের ভেতরেরটা */
-    fun of(type: String) = Catalog.visible("specialty", if (type in listOf("nurse", "nutritionist", "trainer")) type else "doctor") ?: builtIn(type)
+    fun of(type: String, system: String? = null) = Practice.specialties(type, system)
+        ?: Catalog.visible("specialty", if (type in listOf("nurse", "nutritionist", "trainer")) type else "doctor") ?: builtIn(type)
 
     private fun builtIn(type: String) = when (type) {
         "nurse" -> NURSE
@@ -582,7 +585,7 @@ object Specialties {
         else -> DOCTOR
     }
 
-    fun label(code: String): String = Catalog.label("specialty", code) ?: builtInLabel(code)
+    fun label(code: String): String = Catalog.label("specialty", code) ?: Practice.specialtyLabel(code) ?: builtInLabel(code)
 
     private fun builtInLabel(code: String): String = when (code) {
         "medicine" -> tr("Medicine", "মেডিসিন")
@@ -656,6 +659,10 @@ data class Appointment(
     val pay: OnlinePay = OnlinePay(),
     /** এই অ্যাপয়েন্টমেন্টের ফির রসিদ (না থাকলে খালি) — Receipts.kt */
     val invoiceId: String = "",
+    /** ডাক্তারের চিকিৎসা পদ্ধতি (Practice.kt) */
+    val system: String = "",
+    /** সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট (গোপন: কেয়ারগিভার শুধু রোগী শেয়ার করলে দেখেন) */
+    val privateType: Boolean = false,
 ) {
     val chamberLabel: String get() = if (isBangla && chamberBn.isNotBlank()) chamberBn else chamber
 }
@@ -675,10 +682,17 @@ data class CareFilter(
     val gender: String? = null,
     /** শুধু অনলাইনে (ভিডিও) দেখেন এমন ডাক্তার */
     val online: Boolean = false,
+    /** চিকিৎসা পদ্ধতি (practice_systems): null = সব */
+    val system: String? = null,
 )
 
 /** তালিকার সাথে সার্ভারের বিশেষজ্ঞতার চিপ (এই এলাকায় যেগুলো আছে, সংখ্যাসহ) আর লিঙ্গ লেখা আছে কি না */
-data class ProviderFacets(val specialties: List<Pair<String, Int>>, val gender: Boolean)
+data class ProviderFacets(
+    val specialties: List<Pair<String, Int>>,
+    val gender: Boolean,
+    /** চিকিৎসা পদ্ধতির চিপের সংখ্যা (practice_systems; সার্ভারের facets.systems) — পদ্ধতি → কতজন */
+    val systems: Map<String, Int> = emptyMap(),
+)
 data class ProviderPage(val items: List<Provider>, val facets: ProviderFacets?)
 
 /** শেষবারের ছাঁকনি (ধরনপ্রতি, এই ফোনে) — এলাকা আর হাসপাতাল ছাড়া (এলাকা প্রোফাইল থেকে শুরু হয়, আগের মতো) */
@@ -696,6 +710,7 @@ object DoctorFilterPrefs {
             hospitalQ = o.optString("hospitalQ").take(60),
             gender = o.optString("gender").takeIf { it == "male" || it == "female" },
             online = o.optBoolean("online"),
+            system = o.optString("system").takeIf { it in Practice.SYSTEM_LIST },
         )
     }.getOrDefault(base)
 
@@ -703,6 +718,7 @@ object DoctorFilterPrefs {
         runCatching {
             val o = JSONObject().put("specialty", f.specialty ?: "").put("day", f.day ?: "").put("openNow", f.openNow)
                 .put("maxFee", f.maxFee ?: 0).put("hospitalQ", f.hospitalQ).put("gender", f.gender ?: "").put("online", f.online)
+                .put("system", f.system ?: "")
             context.getSharedPreferences(FILE, android.content.Context.MODE_PRIVATE).edit().putString(type, o.toString()).apply()
         }
     }
@@ -718,6 +734,7 @@ object Appointments {
             HomeVisitSettings.parse(o.optJSONObject("homeVisit")), o.optDouble("rating", 0.0), o.optInt("ratingCount"),
             o.str("photo"),
             o.optJSONArray("matched")?.ints(),
+            o.str(PracticeWire.SYSTEM),
         )
     }
 
@@ -740,12 +757,18 @@ object Appointments {
         f.hospitalQ.trim().takeIf { it.length >= 2 }?.let { body.put("hospitalQ", it) }
         f.gender?.let { body.put("gender", it) }
         if (f.online) body.put("online", true)
+        // চিকিৎসা পদ্ধতির ছাঁকনি — শুধু সুইচ চালু থাকলে (বন্ধ থাকলে আগের মতো, সার্ভার সবাইকে এলোপ্যাথি ধরে)
+        if (type == "doctor" && Practice.on(Practice.SYSTEMS)) f.system?.let { body.put(PracticeWire.SYSTEM, it) }
         val res = careCall("providers", body)
         val arr = res.optJSONArray("items") ?: JSONArray()
         val fo = res.optJSONObject("facets")
         val facets = fo?.let { x ->
             val sp = x.optJSONArray("specialties") ?: JSONArray()
-            ProviderFacets((0 until sp.length()).mapNotNull { sp.optJSONObject(it) }.map { it.str("code") to it.optInt("n") }.filter { it.first.isNotBlank() }, x.optBoolean("gender"))
+            val sy = x.optJSONArray("systems") ?: JSONArray()
+            ProviderFacets(
+                (0 until sp.length()).mapNotNull { sp.optJSONObject(it) }.map { it.str("code") to it.optInt("n") }.filter { it.first.isNotBlank() }, x.optBoolean("gender"),
+                (0 until sy.length()).mapNotNull { sy.optJSONObject(it) }.associate { it.str("code") to it.optInt("n") }.filterKeys { it.isNotBlank() },
+            )
         }
         return ProviderPage((0 until arr.length()).map { provider(arr.getJSONObject(it)) }, facets)
     }
@@ -790,6 +813,7 @@ object Appointments {
                 o.str("room"), o.str("start"), o.optInt("serial"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
                 o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"), o.str("otherKey"),
                 o.optBoolean("online"), OnlinePay.parse(o), invoiceId = o.str("invoiceId"),
+                system = o.str(PracticeWire.SYSTEM), privateType = o.optBoolean(PracticeWire.PRIVATE),
             )
         }
     }
@@ -814,9 +838,10 @@ object HomeServices {
     val DOCTOR = listOf("checkup", "follow_up", "elderly_care", "bedridden", "child", "palliative", "post_op")
     val RADII = listOf(3, 5, 10, 20)
 
-    fun of(type: String) = Catalog.visible("homeService", if (type == "doctor") "doctor" else "nurse") ?: if (type == "doctor") DOCTOR else NURSE
+    fun of(type: String) = if (type == Practice.PHYSIO_TYPE) Catalog.visible("homeService", type) ?: Practice.PHYSIO_HOME
+        else Catalog.visible("homeService", if (type == "doctor") "doctor" else "nurse") ?: if (type == "doctor") DOCTOR else NURSE
 
-    fun label(code: String): String = Catalog.label("homeService", code) ?: builtInLabel(code)
+    fun label(code: String): String = Catalog.label("homeService", code) ?: Practice.homeServiceLabel(code) ?: builtInLabel(code)
 
     private fun builtInLabel(code: String): String = when (code) {
         "injection" -> tr("Injection", "ইনজেকশন")
@@ -863,6 +888,8 @@ data class HomePro(
     val noFee: Boolean = false,
     val photo: String = "",
     val times: List<ChamberTime> = emptyList(),
+    /** ডাক্তারের চিকিৎসা পদ্ধতি (Practice.kt) */
+    val system: String = "",
 ) {
     /** বার আর সময় (প্রতিটা ভাগ আলাদা লাইনে), তারপর নোট */
     val timeText: String get() = (times.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
@@ -884,6 +911,7 @@ object HomeCare {
         o.str("fee"), o.str("phone"), if (o.isNull("km") || !o.has("km")) null else o.optDouble("km"),
         o.optDouble("rating", 0.0), o.optInt("ratingCount"), o.optBoolean("called"), o.optInt("myRating"),
         o.optBoolean("canRate"), o.optBoolean("noFee"), o.str("photo"), parseTimes(o.optJSONArray("times")),
+        o.str(PracticeWire.SYSTEM),
     )
 
     /** lat/lng দিলে নিজের কাছে; নইলে বেছে নেওয়া জেলা/উপজেলায় */

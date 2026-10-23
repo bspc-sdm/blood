@@ -26,10 +26,13 @@ adb install -r "${E2E_APK:-$W/app/build/outputs/apk/debug/app-debug.apk}"
 adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
+# j25–j27 (চিকিৎসা পদ্ধতি, ফিজিও, সাইকোলজিস্ট) শুধু চাইলে: practice_systems / pro_physio / pro_psychologist ডেমোতে চালু থাকলে তবেই
+PRACTICE="j25-practice-search j26-practice-rx j27-practice-psych"
 # ক্রম: আগে ফার্মেসি (আগের যাত্রায় রোগীর পাঠানো খোলা প্রেসক্রিপশন বন্ধ করে), তারপর রোগী আবার পাঠায় — বারবার চালানো যায়
 ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause j16-online-chamber j17-calls j18-chat j19-invoice-pharmacy j20-invoice-patient j21-invoice-driver j22-pay-patient j23-pay-due j24-pay-business"
 cd "$OUT/shots"
-for f in $ORDER; do
+for f in $ORDER $PRACTICE; do
+  case "$f" in j25-*|j26-*|j27-*) [ -z "$ONLY" ] && continue ;; esac
   # j16 (অনলাইন চেম্বার) শুধু চাইলে: প্রোডাকশনে ডেমো ডাক্তারের অনলাইন চেম্বার বন্ধ (DEMO_ONLINE_CHAMBERS) — স্টেজিংয়ে চালান
   if [ -z "$ONLY" ] && [ "$f" = j16-online-chamber ]; then continue; fi
   # j19–j21 (রসিদ) শুধু চাইলে: inv_pharmacy/inv_lab/inv_chamber/inv_ambulance/my_expenses ডেমোতে চালু থাকলে তবেই (ফিচার সুইচ, শুরুতে বন্ধ)

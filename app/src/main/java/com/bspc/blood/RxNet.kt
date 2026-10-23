@@ -557,7 +557,9 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
     val cs = MaterialTheme.colorScheme
 
     // ---- উপরে: পাঠানোর বড় বাটন (নিচের বাটনের মতোই শর্ত) ----
-    val canPharmacy = !rx.cancelled && rx.medicines.isNotEmpty() && a.meds.any { !it.done }
+    // হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ, ফিজিও, সাইকোলজিস্ট: ফার্মেসিতে পাঠানো আর দোকানের ওষুধ মেলানো নেই (Practice.kt)
+    val rxPharmacy = Practice.pharmacyOk(rx)
+    val canPharmacy = rxPharmacy && !rx.cancelled && rx.medicines.isNotEmpty() && a.meds.any { !it.done }
     val canLab = !rx.cancelled && rx.tests.isNotEmpty()
     if (canPharmacy || canLab) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -577,7 +579,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
     paper?.invoke()
 
     // ---- ওষুধ ----
-    if (rx.medicines.isNotEmpty()) {
+    if (rxPharmacy && rx.medicines.isNotEmpty()) {
         Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("Medicines bought", "ওষুধ কেনা"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -1679,7 +1681,8 @@ private fun RxPickDialog(forLab: Boolean, onDismiss: () -> Unit, onOnly: (Rx) ->
     var errorMsg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         runCatching { RxApi.mine() }.onSuccess { all ->
-            val l = all.filter { !it.cancelled && if (forLab) it.tests.isNotEmpty() else it.medicines.isNotEmpty() }
+            // ফার্মেসিতে শুধু এলোপ্যাথির প্রেসক্রিপশন (Practice.kt); পরীক্ষা সব পদ্ধতিতে
+            val l = all.filter { !it.cancelled && if (forLab) it.tests.isNotEmpty() else it.medicines.isNotEmpty() && Practice.pharmacyOk(it) }
             if (l.size == 1) onOnly(l[0]) else list = l
         }.onFailure {
             if (it is kotlinx.coroutines.CancellationException) throw it

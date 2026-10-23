@@ -103,6 +103,8 @@ data class BadgeState(
     val docsMissing: Boolean = false,
     val docsRequested: Boolean = false,
     val docsNote: String = "",
+    /** ডাক্তারের চিকিৎসা পদ্ধতি (Practice.kt) — খালি = এলোপ্যাথি */
+    val system: String = "",
 )
 
 data class CommunityMe(
@@ -145,6 +147,7 @@ object Community {
                 BadgeState(
                     it.optString("type"), it.optString("status"), it.optString("regNo"), it.optString("workplace"), it.optBoolean("changePending"),
                     it.optString("statusReason"), it.optBoolean("docsMissing"), it.optBoolean("docsRequested"), it.optString("docsRequestNote"),
+                    it.optString(PracticeWire.SYSTEM),
                 )
             }, o.optBoolean("isAdmin"), o.optBoolean("isOwner"),
             o.optBoolean("phoneCheck"), o.optBoolean("phoneVerified", true), o.optInt("unread"),
@@ -210,8 +213,14 @@ object Community {
         call("delete_tip", JSONObject().put("id", id))
     }
 
-    suspend fun applyBadge(type: String, regNo: String, workplace: String, docs: Map<String, String> = emptyMap()) {
-        call("badge_apply", JSONObject().put("type", type).put("regNo", regNo).put("workplace", workplace).put("docs", VerifyDocs.json(docs)))
+    /** system: ডাক্তারের চিকিৎসা পদ্ধতি (practice_systems চালু থাকলে) — null হলে পাঠানো হয় না (আগের মতো) */
+    /** ফেরত: true = চিকিৎসা পদ্ধতি বদলেছে, ব্যাজ আবার যাচাইয়ে (সার্ভারের {ok, reverify: true}) */
+    suspend fun applyBadge(type: String, regNo: String, workplace: String, docs: Map<String, String> = emptyMap(), system: String? = null): Boolean {
+        return call(
+            "badge_apply",
+            JSONObject().put("type", type).put("regNo", regNo).put("workplace", workplace).put("docs", VerifyDocs.json(docs))
+                .apply { if (system != null) put(PracticeWire.SYSTEM, system) },
+        ).optBoolean("reverify")
     }
 }
 
@@ -266,7 +275,7 @@ object Badges {
         "nurse" -> tr("Nurse", "নার্স")
         "nutritionist" -> tr("Nutritionist", "পুষ্টিবিদ")
         "trainer" -> tr("Fitness trainer", "ফিটনেস ট্রেইনার")
-        else -> tr("Health Expert", "স্বাস্থ্য বিশেষজ্ঞ")
+        else -> Practice.proLabel(type) ?: tr("Health Expert", "স্বাস্থ্য বিশেষজ্ঞ")
     }
 
     @DrawableRes
@@ -275,6 +284,8 @@ object Badges {
         "nurse" -> R.drawable.ic_medical_services
         "nutritionist" -> R.drawable.ic_restaurant
         "trainer" -> R.drawable.ic_fitness_center
+        Practice.PHYSIO_TYPE -> R.drawable.ic_accessibility_new
+        Practice.PSYCH_TYPE -> R.drawable.ic_psychology
         else -> R.drawable.ic_health_and_safety_filled
     }
 }
@@ -954,11 +965,29 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
     // current = অনুমোদিত ব্যাজ: তথ্য সংশোধনের অনুরোধ (ব্যাজ আর তালিকা আগের মতো থাকে)
     val correction = current?.status == "approved"
     var type by remember { mutableStateOf(current?.type ?: "doctor") }
+    // চিকিৎসা পদ্ধতি (ডাক্তার, practice_systems) — বন্ধ থাকলে ঘর নেই, সবাই এলোপ্যাথি
+    val systemsOn = Practice.rememberOn(Practice.SYSTEMS)
+    var system by remember { mutableStateOf(Practice.system(current?.system)) }
+    val oldSystem = remember { Practice.system(current?.system) }
+    // সংশোধনে পদ্ধতি শুধু নিজে বাছলে পাঠানো হয় (না ছুঁলে আগেরটাই থাকে — ভুলে বদলে আবার যাচাইয়ে যায় না)
+    var systemTouched by remember { mutableStateOf(false) }
+    val withSystem = systemsOn && type == "doctor"
     var regNo by remember { mutableStateOf(current?.regNo ?: "") }
     var workplace by remember { mutableStateOf(current?.workplace ?: "") }
     var docs by remember { mutableStateOf(mapOf<String, String>()) }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // পদ্ধতি বদলের পর: আবার যাচাই হবে — কী হবে তা জানিয়ে তারপর বন্ধ
+    var reverified by remember { mutableStateOf(false) }
+    if (reverified) {
+        AlertDialog(
+            onDismissRequest = { onApplied(type) },
+            title = { Text(tr("Badge will be checked again", "ব্যাজ আবার যাচাই হবে")) },
+            text = { Text(Practice.reverifyText()) },
+            confirmButton = { TextButton(onClick = { onApplied(type) }) { Text(tr("OK", "ঠিক আছে")) } },
+        )
+        return
+    }
 
     FormDialog(
         title = if (correction) tr("Correct badge details", "ব্যাজের তথ্য সংশোধন") else tr("Professional badge", "পেশাদার ব্যাজ"),
@@ -975,7 +1004,9 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                     )
                 }
                 Text(tr("Profession", "পেশা"), style = MaterialTheme.typography.labelLarge)
-                Badges.ALL.chunked(2).forEach { row ->
+                // ফিজিওথেরাপিস্ট, সাইকোলজিস্ট: pro_physio / pro_psychologist চালু থাকলে
+                // নতুন পেশার নাম লম্বা — প্রত্যেকটা আলাদা সারিতে (সুইচ বন্ধে সারিগুলো আগের মতোই)
+                (Badges.ALL.filter { it != "expert" }.chunked(2) + Practice.newTypes().map { listOf(it) } + listOf(listOf("expert"))).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { b ->
                             FilterChip(
@@ -989,11 +1020,21 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                         }
                     }
                 }
+                if (withSystem) {
+                    Text(tr("Medical system", "চিকিৎসা পদ্ধতি"), style = MaterialTheme.typography.labelLarge)
+                    SystemPicker(system) { system = it; systemTouched = true }
+                    if (correction && systemTouched && system != oldSystem) {
+                        InfoText(tr("Changing the medical system sends your badge for checking again.", "চিকিৎসা পদ্ধতি বদলালে ব্যাজ আবার যাচাই হবে।"))
+                    }
+                } else {
+                    // ফিজিও/সাইকোলজিস্ট: ডিগ্রি আর সংগঠনের সদস্যপদ
+                    Practice.regHint(type, system)?.let { SmallNote(it) }
+                }
                 OutlinedTextField(
                     value = regNo,
                     onValueChange = { regNo = it.take(60) },
                     label = { Text(tr("Registration / licence no.", "রেজিস্ট্রেশন / লাইসেন্স নম্বর")) },
-                    placeholder = { Text(if (type == "doctor") "BMDC A-12345" else "") },
+                    placeholder = { Text(if (withSystem || type in Practice.NEW_TYPES) Practice.regPlaceholder(type, system) else if (type == "doctor") "BMDC A-12345" else "") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -1004,7 +1045,7 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                DocPhotosField(VerifyDocs.badge(type), docs, { docs = it },
+                DocPhotosField(VerifyDocs.badge(type, if (withSystem) system else null), docs, { docs = it },
                     if (correction) tr("Add a photo if your registration number changed.", "রেজিস্ট্রেশন নম্বর বদলালে সনদের ছবি দিন।") else null)
                 Text(
                     tr("An admin will verify this before the badge appears.", "অ্যাডমিন যাচাই করার পর ব্যাজ দেখা যাবে।"),
@@ -1017,12 +1058,14 @@ fun BadgeApplyDialog(onDismiss: () -> Unit, onApplied: (String) -> Unit, current
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (!correction) VerifyDocs.missing(VerifyDocs.badge(type), docs)?.let { errorMsg = it; return@TextButton }
+                    val sys = if (withSystem && (!correction || systemTouched)) system else null
+                    // নতুন আবেদন, বা পদ্ধতি বদলানো সংশোধন: সেই বোর্ডের সনদের ছবি লাগে
+                    if (!correction || (sys != null && sys != oldSystem)) VerifyDocs.missing(VerifyDocs.badge(type, sys), docs)?.let { errorMsg = it; return@TextButton }
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { Community.applyBadge(type, regNo.trim(), workplace.trim(), docs) }
-                            .onSuccess { onApplied(type) }
+                        runCatching { Community.applyBadge(type, regNo.trim(), workplace.trim(), docs, sys) }
+                            .onSuccess { re -> if (re) reverified = true else onApplied(type) }
                             .onFailure { errorMsg = it.message }
                         busy = false
                     }

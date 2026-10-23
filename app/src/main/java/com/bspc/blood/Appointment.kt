@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -121,16 +122,20 @@ fun AppointmentTab(
                 )
             }
         }
+        // ফিজিওথেরাপিস্ট, সাইকোলজিস্ট: ফিচার সুইচ pro_physio / pro_psychologist চালু থাকলে (Practice.kt)
+        val physioOn = Practice.rememberOn(Practice.PHYSIO)
+        val psychOn = Practice.rememberOn(Practice.PSYCH)
+        val types = CHAMBER_TYPES + listOfNotNull(if (physioOn) Practice.PHYSIO_TYPE else null, if (psychOn) Practice.PSYCH_TYPE else null)
         PillTabs(
-            tab,
+            tab.coerceIn(0, types.lastIndex),
             listOf(
                 PillTab(tr("Doctor", "ডাক্তার"), R.drawable.ic_stethoscope),
                 PillTab(tr("Nutritionist", "পুষ্টিবিদ"), R.drawable.ic_restaurant),
                 PillTab(tr("Fitness trainer", "ফিটনেস ট্রেইনার"), R.drawable.ic_fitness_center),
-            ),
+            ) + types.drop(CHAMBER_TYPES.size).map { PillTab(Practice.proTab(it), Badges.icon(it)) },
             { tab = it },
         )
-        ProviderList(CHAMBER_TYPES[tab.coerceIn(0, CHAMBER_TYPES.lastIndex)], profile)
+        ProviderList(types[tab.coerceIn(0, types.lastIndex)], profile)
     }
     // নিজের চেম্বার বা বাসায় সেবা এখানে নেই — "আমার কাজ" ট্যাবে (২.২০.০)
 }
@@ -165,10 +170,12 @@ private fun ProviderList(type: String, profile: Profile) {
         }
     }
 
-    LaunchedEffect(type, filter, reload) {
+    // চিকিৎসা পদ্ধতির চিপ (সব / এলোপ্যাথি / হোমিওপ্যাথি / ইউনানি / আয়ুর্বেদ) — শুধু ডাক্তার, practice_systems চালু থাকলে
+    val systemsOn = Practice.rememberOn(Practice.SYSTEMS) && type == "doctor"
+    LaunchedEffect(type, filter, reload, systemsOn) {
         loading = true
         errorMsg = null
-        runCatching { Appointments.providersPage(type, if (OnlineGate.on(OnlineGate.CHAMBER)) filter else filter.copy(online = false)) }
+        runCatching { Appointments.providersPage(type, (if (OnlineGate.on(OnlineGate.CHAMBER)) filter else filter.copy(online = false)).let { if (systemsOn) it else it.copy(system = null) }) }
             .onSuccess { list = it.items; if (it.facets != null) facets = it.facets }
             .onFailure { errorMsg = it.message }
         loading = false
@@ -201,13 +208,13 @@ private fun ProviderList(type: String, profile: Profile) {
             add(dayLabel("tomorrow") to { setFilter(filter.copy(day = "tomorrow")) })
         }
         if (!filter.openNow) add(tr("In chamber now", "এখন চেম্বারে") to { setFilter(filter.copy(openNow = true)) })
-        if (!filter.online && type == "doctor" && onlineOn) add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
+        if (!filter.online && Practice.onlineCapable(type) && onlineOn) add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
         if (filter.maxFee == null) add(feeLabel(500) to { setFilter(filter.copy(maxFee = 500)) })
         if (filter.specialty == null) facets?.specialties?.take(3)?.forEach { (code, _) -> add(Specialties.label(code) to { setFilter(filter.copy(specialty = code)) }) }
     }
     val clearAll = {
         hqText = ""
-        setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null, online = false))
+        setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null, online = false, system = null))
     }
 
     LazyColumn(
@@ -226,6 +233,7 @@ private fun ProviderList(type: String, profile: Profile) {
                     search = query,
                     onSearch = { query = it },
                 )
+                if (systemsOn) SystemChips(filter.system, facets?.systems.orEmpty()) { setFilter(filter.copy(system = it, specialty = null)) }
                 if (active.isNotEmpty() || quick.isNotEmpty()) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         active.forEach { f ->
@@ -254,6 +262,8 @@ private fun ProviderList(type: String, profile: Profile) {
                         when (type) {
                             "nutritionist" -> tr("No nutritionists found", "কোনো পুষ্টিবিদ পাওয়া যায়নি")
                             "trainer" -> tr("No fitness trainers found", "কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি")
+                            Practice.PHYSIO_TYPE -> tr("No physiotherapists found", "কোনো ফিজিওথেরাপিস্ট পাওয়া যায়নি")
+                            Practice.PSYCH_TYPE -> tr("No psychologists found", "কোনো সাইকোলজিস্ট পাওয়া যায়নি")
                             else -> tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি")
                         },
                         tr("Try a wider area or remove a filter.", "বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।"),
@@ -283,9 +293,9 @@ private fun ProviderList(type: String, profile: Profile) {
         FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = if (active.isNotEmpty()) clearAll else null) {
             FilterChoice(tr("Day", "দিন"), listOf("today", "tomorrow"), filter.day, dayLabel) { setFilter(filter.copy(day = it)) }
             FilterSwitch(tr("In chamber now", "এখন চেম্বারে"), filter.openNow) { setFilter(filter.copy(openNow = it)) }
-            if (type == "doctor" && onlineOn) FilterSwitch(tr("Online (video) only", "শুধু অনলাইন (ভিডিও)"), filter.online) { setFilter(filter.copy(online = it)) }
+            if (Practice.onlineCapable(type) && onlineOn) FilterSwitch(tr("Online (video) only", "শুধু অনলাইন (ভিডিও)"), filter.online) { setFilter(filter.copy(online = it)) }
             SpecialtyChoice(
-                options = facets?.specialties?.map { it.first } ?: Specialties.of(type),
+                options = facets?.specialties?.map { it.first } ?: Specialties.of(type, if (systemsOn) filter.system else null),
                 count = { code -> facets?.specialties?.firstOrNull { it.first == code }?.second },
                 selected = filter.specialty,
             ) { setFilter(filter.copy(specialty = it)) }
@@ -337,6 +347,45 @@ private fun ProviderList(type: String, profile: Profile) {
     }
 }
 
+/** চিকিৎসা পদ্ধতির চিপের সারি: সব / এলোপ্যাথি / হোমিওপ্যাথি / ইউনানি / আয়ুর্বেদ (null = সব) */
+@Composable
+internal fun SystemChips(selected: String?, counts: Map<String, Int> = emptyMap(), onSelect: (String?) -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()).testTag("system_chips"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (listOf<String?>(null) + Practice.SYSTEM_LIST).forEach { s ->
+            // এই এলাকায় কতজন (সার্ভারের facets.systems; "সব" আর বাছা চিপে সংখ্যা নয়)
+            val n = s?.let { counts[it] }?.takeIf { selected == null }
+            FilterChip(
+                selected = selected == s,
+                onClick = { onSelect(s) },
+                label = { Text((if (s == null) tr("All", "সব") else Practice.systemLabel(s)) + if (n != null) " (" + num(n) + ")" else "", maxLines = 1) },
+                modifier = Modifier.testTag("system_" + (s ?: "all")),
+            )
+        }
+    }
+}
+
+/**
+ * নিজের চিকিৎসা পদ্ধতি বাছাই (আবেদন আর প্রোফাইল): চারটা চিপ, নিচে নিবন্ধনকারী প্রতিষ্ঠান আর ডিগ্রির ইঙ্গিত।
+ */
+@Composable
+internal fun SystemPicker(selected: String, enabled: Boolean = true, onSelect: (String) -> Unit) {
+    Column(Modifier.testTag("system_picker"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Practice.SYSTEM_LIST.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { s ->
+                    FilterChip(
+                        selected = selected == s,
+                        onClick = { onSelect(s) },
+                        enabled = enabled || selected == s,
+                        label = { Text(Practice.systemLabel(s)) },
+                    )
+                }
+            }
+        }
+        SmallNote(tr("Registration: ", "নিবন্ধন: ") + Practice.body(selected) + " · " + tr("Degree: ", "ডিগ্রি: ") + Practice.degreeHint(selected))
+    }
+}
+
 /** বিশেষজ্ঞতা: তালিকায় যেগুলো আছে (সংখ্যাসহ), অনেক হলে খোঁজার ঘর */
 @Composable
 private fun SpecialtyChoice(options: List<String>, count: (String) -> Int?, selected: String?, onSelect: (String?) -> Unit) {
@@ -383,6 +432,8 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
         title = p.name,
         icon = Badges.icon(p.type),
         photo = p.photo,
+        // নামের পাশে চিকিৎসা পদ্ধতি (practice_systems) — নাম যেমন লেখা তেমনই, "ডা." নিজে বসে না
+        nameTag = Practice.nameTag(p.type, p.system),
         subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
         status = when (st?.kind) {
             ChamberStateKind.NOW -> CardStatus(tr("In chamber now", "এখন চেম্বারে"), true)
@@ -478,6 +529,8 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                 listOf(
                     R.drawable.ic_school to p.degrees,
                     R.drawable.ic_badge to Badges.label(p.type),
+                    // পদ্ধতি আর নিবন্ধনকারী প্রতিষ্ঠান (practice_systems)
+                    R.drawable.ic_verified to (Practice.nameTag(p.type, p.system)?.let { it + " · " + Practice.body(Practice.system(p.system)) } ?: ""),
                 ),
             ),
         )
@@ -493,6 +546,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
         ratingCount = p.ratingCount,
         meta = null,
         sections = sections,
+        nameTag = Practice.nameTag(p.type, p.system),
         primary = pinnedCall?.let { ph -> CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, ph) } },
         secondary = null,
         main = when {
@@ -834,8 +888,15 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                         a.otherName.ifBlank { tr("Deleted account", "মুছে ফেলা অ্যাকাউন্ট") },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f, fill = false),
                                     )
+                                    // রোগীর দিকে: নামের পাশে চিকিৎসা পদ্ধতি বা পেশা (Practice.kt)
+                                    val nameTag = if (a.role == "patient") Practice.nameTag(a.type, a.system) ?: Practice.proLabel(a.type) else null
+                                    if (nameTag != null) {
+                                        Spacer(Modifier.width(6.dp))
+                                        SystemTag(nameTag)
+                                    }
+                                    Spacer(Modifier.weight(1f))
                                     val active = a.status == "pending" || a.status == "confirmed"
                                     Tag(
                                         statusLabel(a.status),
@@ -899,6 +960,10 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                         }
                                     }
                                 }
+                                // সাইকোলজিস্ট: রোগী নিজে ঠিক করেন কেয়ারগিভার এই অ্যাপয়েন্টমেন্ট আর নোট দেখবেন কি না (শুরুতে বন্ধ)
+                                if (a.role == "patient" && (a.privateType || a.type == Practice.PSYCH_TYPE) && CareMode.asUid.value == null && Practice.on(Practice.PSYCH)) {
+                                    PsychShareRow()
+                                }
                                 // অনলাইন (ভিডিও): ফি (রোগী পাঠান, ডাক্তার মেলান) আর "ভিডিও কলে যুক্ত হোন" — OnlineChamber.kt
                                 if (a.online) {
                                     if (a.role == "patient") PatientOnlinePanel(a.id, a.status, a.date, a.start, a.pay, onChanged = { reload++ })
@@ -954,6 +1019,87 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
     }
 }
 
+/**
+ * সাইকোলজিস্টের অ্যাপয়েন্টমেন্টে রোগীর শেয়ার (PRACTICE.md): কেয়ারগিভাররা সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট আর নোট দেখেন না,
+ * যদি না রোগী সেই কেয়ারগিভারকে চালু করেন (শুরুতে বন্ধ)। প্রতিটা কেয়ারগিভারের আলাদা সুইচ — সার্ভারে কেয়ারগিভারপ্রতি রাখা।
+ */
+@Composable
+internal fun PsychShareRow(onChanged: () -> Unit = {}, initial: List<CareLink>? = null) {
+    val scope = rememberCoroutineScope()
+    var links by remember { mutableStateOf(initial) }
+    var open by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        if (initial == null) runCatching { CareApi.list().caretakers.filter { it.status == "active" } }.onSuccess { links = it }
+    }
+    val shared = links.orEmpty().filter { it.sharePsych }
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        onClick = { open = true },
+        enabled = !links.isNullOrEmpty(),
+        color = cs.surfaceContainerHigh, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().testTag("psych_share"),
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(R.drawable.ic_privacy_tip, null, Modifier.size(18.dp), cs.primary)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(tr("Share with caregivers", "কেয়ারগিভারের সাথে শেয়ার"), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    when {
+                        links == null -> tr("Private — only you see this", "গোপন — শুধু আপনি দেখেন")
+                        links.orEmpty().isEmpty() -> tr("Private — you have no caregiver", "গোপন — আপনার কোনো কেয়ারগিভার নেই")
+                        shared.isEmpty() -> tr("Private — caregivers don't see psychologist appointments or notes", "গোপন — কেয়ারগিভার সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট বা নোট দেখেন না")
+                        else -> tr("Shared with ", "শেয়ার করা: ") + shared.joinToString(", ") { it.caretakerName.ifBlank { it.caretakerEmail } }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            if (!links.isNullOrEmpty()) AppIcon(R.drawable.ic_chevron_right, null, Modifier.size(20.dp), cs.onSurfaceVariant)
+        }
+    }
+    if (open) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(tr("Psychologist appointments & notes", "সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট ও নোট")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SmallNote(tr("Off: this caregiver doesn't see them, even when acting for you.", "বন্ধ: এই কেয়ারগিভার এগুলো দেখবেন না — আপনার হয়ে কাজ করার সময়ও না।"))
+                    links.orEmpty().forEach { c ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(c.caretakerName.ifBlank { c.caretakerEmail }, style = MaterialTheme.typography.bodyLarge)
+                                if (c.caretakerName.isNotBlank() && c.caretakerEmail.isNotBlank()) SmallNote(c.caretakerEmail)
+                            }
+                            Switch(
+                                checked = c.sharePsych,
+                                enabled = busy == null,
+                                onCheckedChange = { want ->
+                                    scope.launch {
+                                        busy = c.caretakerUid
+                                        errorMsg = null
+                                        runCatching { CareApi.sharePsych(c.caretakerUid, want) }
+                                            .onSuccess {
+                                                links = links.orEmpty().map { x -> if (x.caretakerUid == c.caretakerUid) x.copy(sharePsych = want) else x }
+                                                onChanged()
+                                            }
+                                            .onFailure { errorMsg = it.message }
+                                        busy = null
+                                    }
+                                },
+                                modifier = Modifier.testTag("psych_share_" + c.caretakerUid),
+                            )
+                        }
+                    }
+                    ErrorText(errorMsg)
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text(tr("Done", "ঠিক আছে")) } },
+        )
+    }
+}
+
 // ------------------------------------------------------------
 // আমার চেম্বার ও প্রোফাইল (ব্যাজধারী ডাক্তার/নার্স)
 // ------------------------------------------------------------
@@ -964,7 +1110,7 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
  */
 @Composable
 fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
-    if (type !in CHAMBER_TYPES) {
+    if (type !in CHAMBER_TYPES && type !in Practice.NEW_TYPES) {
         ChamberEditScreen(type, profile, onBack)
         return
     }
@@ -977,21 +1123,28 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
                 listOf(
                     PillTab(tr("Bookings", "বুকিং"), R.drawable.ic_event_outline, R.drawable.ic_event_filled, count = pending),
                     PillTab(tr("Patients", "রোগী"), R.drawable.ic_person_outline),
-                ) + (if (type == "doctor") listOf(PillTab(tr("Prescriptions", "প্রেসক্রিপশন"), R.drawable.ic_medication)) else emptyList()) +
+                ) + (if (Practice.writesRx(type)) listOf(PillTab(rxTabLabel(type), R.drawable.ic_medication)) else emptyList()) +
                     PillTab(tr("Setup", "সেটআপ"), R.drawable.ic_settings_outline),
                 { tab = it },
             )
             // ডাক্তারের ট্যাব: বুকিং, রোগী, প্রেসক্রিপশন, সেটআপ; পুষ্টিবিদ/ট্রেইনারের প্রেসক্রিপশন নেই
-            val rxTab = if (type == "doctor") 2 else -1
+            // ফিজিও ("পরামর্শ ও ব্যায়াম") আর সাইকোলজিস্টও ("সেশনের নোট") একই পথে — Practice.RxMode
+            val rxTab = if (Practice.writesRx(type)) 2 else -1
             when (tab) {
                 0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
                 // ডাক্তার: সব রোগী এক জায়গায়, নামের পাশে প্রেসক্রিপশন লেখা; অন্যদের আগের মতো
-                1 -> if (type == "doctor") DoctorPatientsTab() else PatientsList()
+                1 -> if (Practice.writesRx(type)) DoctorPatientsTab() else PatientsList()
                 rxTab -> RxDoctorTab()
                 else -> ChamberEditScreen(type, profile, onBack, embedded = true)
             }
         }
     }
+}
+
+private fun rxTabLabel(type: String): String = when (type) {
+    Practice.PHYSIO_TYPE -> tr("Advice", "পরামর্শ")
+    Practice.PSYCH_TYPE -> tr("Notes", "নোট")
+    else -> tr("Prescriptions", "প্রেসক্রিপশন")
 }
 
 /** নিজের চেম্বারে আসা রোগীরা (একজন একবার): কতবার এসেছেন, শেষ কবে, নিশ্চিত থাকলে ফোন */
@@ -1067,11 +1220,20 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     // ডাক্তার: নতুন চেম্বারের ধরন (চেম্বারে / অনলাইন) — শুধু online_chamber চালু থাকলে
     var choosingType by remember { mutableStateOf(false) }
     val onlineOn = OnlineGate.chamber()
+    // চিকিৎসা পদ্ধতি (ডাক্তার, practice_systems চালু থাকলে): যাচাই করা ব্যাজেরটা — এখানে শুধু দেখা; বদলাতে ব্যাজের
+    // তথ্য সংশোধন (badge_apply), তাতে ব্যাজ আবার যাচাই হয় (PRACTICE.md)
+    val systemsOn = type == "doctor" && Practice.rememberOn(Practice.SYSTEMS)
+    var system by remember { mutableStateOf(Practice.ALLOPATHY) }
+    var badgeEdit by remember { mutableStateOf<BadgeState?>(null) }
+    // অনলাইন চেম্বার: ডাক্তার, ফিজিও, সাইকোলজিস্ট; ফিজিও/সাইকোলজিস্টের চেম্বার নিজের জায়গা (পুষ্টিবিদের মতো)
+    val onlineType = Practice.onlineCapable(type) && onlineOn
+    val hospitalType = type == "doctor"
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
             .onSuccess { p ->
                 if (p != null) {
+                    system = Practice.system(p.system)
                     listed = p.listed
                     takes = p.appointments
                     specialties.addAll(p.specialties)
@@ -1094,7 +1256,35 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
 
     // নার্সের চেম্বার নেই — শুধু প্রোফাইল আর বাসায় সেবা; পুষ্টিবিদ/ট্রেইনারের বাসায় সেবা নেই — শুধু চেম্বার
     val nurse = type == "nurse"
-    val homeCapable = type in HOME_PROVIDER_TYPES
+    val homeCapable = type in HOME_PROVIDER_TYPES || (type == Practice.PHYSIO_TYPE && Practice.on(Practice.PHYSIO))
+    fun saveNow() {
+        scope.launch {
+            busy = true
+            runCatching {
+                Appointments.save(
+                    listed && !nurse, takes && !nurse, specialties.toList(), degrees.trim(), gender,
+                    if (nurse) emptyList() else chambers.toList(), if (homeCapable) home else HomeVisitSettings(),
+                )
+            }
+                .onSuccess { n ->
+                    if (n > 0) {
+                        android.widget.Toast.makeText(
+                            context,
+                            tr("${num(n)} upcoming appointment(s) no longer fit and were cancelled. Patients were told.",
+                                "সামনের ${num(n)}টা অ্যাপয়েন্টমেন্ট আর মেলে না, তাই বাতিল হয়েছে। রোগীদের জানানো হয়েছে।"),
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                    onBack()
+                }
+                .onFailure {
+                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true
+                    else if (PayReauth.needed(it)) reauth = true
+                    else errorMsg = it.message
+                }
+            busy = false
+        }
+    }
     Scaffold(topBar = {
         if (!embedded) BackTopBar(if (nurse) tr("My home care & profile", "আমার বাসায় সেবা ও প্রোফাইল") else tr("My chambers & profile", "আমার চেম্বার ও প্রোফাইল"), onBack)
     }) { padding ->
@@ -1116,15 +1306,30 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                 HorizontalDivider()
             }
 
+            if (systemsOn) {
+                // চিকিৎসা পদ্ধতি: যাচাই করা ব্যাজেরটা, নিবন্ধনকারী প্রতিষ্ঠানসহ; বদলাতে ব্যাজের তথ্য সংশোধন (আবার যাচাই)
+                SectionTitle(tr("Medical system", "চিকিৎসা পদ্ধতি"))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("system_row")) {
+                    Column(Modifier.weight(1f)) {
+                        Text(Practice.systemLabel(system), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        SmallNote(tr("Registration: ", "নিবন্ধন: ") + Practice.body(system))
+                    }
+                    TextButton(onClick = {
+                        scope.launch { runCatching { Community.me().badge }.onSuccess { bd -> if (bd != null) badgeEdit = bd.copy(system = bd.system.ifBlank { system }) }.onFailure { errorMsg = it.message } }
+                    }) { Text(tr("Change", "বদলান")) }
+                }
+                SmallNote(tr("Changing it sends your badge for checking again.", "বদলালে ব্যাজ আবার যাচাই হবে।"))
+                HorizontalDivider()
+            }
             SectionTitle(tr("Specialty", "বিশেষজ্ঞতা"))
-            ChipRows(Specialties.of(type), specialties.toSet(), perRow = 2, label = { Specialties.label(it) }) {
+            ChipRows(Specialties.of(type, if (systemsOn) system else null), specialties.toSet(), perRow = 2, label = { Specialties.label(it) }) {
                 if (it in specialties) specialties.remove(it) else if (specialties.size < 5) specialties.add(it)
             }
             OutlinedTextField(
                 value = degrees,
                 onValueChange = { degrees = it.take(120) },
                 label = { Text(tr("Degrees (optional)", "ডিগ্রি (ঐচ্ছিক)")) },
-                placeholder = { Text(tr("e.g. MBBS, FCPS (Medicine)", "যেমন: MBBS, FCPS (Medicine)")) },
+                placeholder = { Text(Practice.degreePlaceholder(type, if (systemsOn) system else null)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1153,14 +1358,19 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                     onChangeHospital = { pickFor = i },
                     onRemove = { chambers.removeAt(i) },
                     // ডাক্তার: "চেম্বারে" / "অনলাইন (ভিডিও)"; চেম্বারে ফিরলে হাসপাতাল বেছে নিতে হয়
-                    onMode = if (type == "doctor" && onlineOn) ({ on -> if (on) chambers[i] = OnlineChambers.toOnline(c) else pickFor = i }) else null,
+                    // ফিজিও/সাইকোলজিস্ট: চেম্বারে ফিরলে নিজের জায়গা (নাম, জেলা, ঠিকানা)
+                    onMode = if (onlineType) ({ on ->
+                        if (on) chambers[i] = OnlineChambers.toOnline(c)
+                        else if (hospitalType) pickFor = i
+                        else chambers[i] = OnlineChambers.toInPerson(c).copy(custom = true, hospitalId = null, hospitalName = "", hospitalNameBn = "", district = profile.placeName ?: "")
+                    }) else null,
                     onlineAllowed = chambers.none { it.online && it !== c },
                 )
             }
-            // জায়গায় সর্বোচ্চ ৩টা, তার বাইরে অনলাইন একটা (ডাক্তার, online_chamber চালু থাকলে)
-            if (chambers.count { !it.online } < 3 || (type == "doctor" && onlineOn && chambers.none { it.online })) {
-                // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে (হাসপাতালে বসেন না)
-                OutlinedButton(onClick = { if (type == "doctor" && onlineOn) choosingType = true else if (type == "doctor") pickFor = -1 else if (chambers.size < 3) chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
+            // জায়গায় সর্বোচ্চ ৩টা, তার বাইরে অনলাইন একটা (ডাক্তার/ফিজিও/সাইকোলজিস্ট, online_chamber চালু থাকলে)
+            if (chambers.count { !it.online } < 3 || (onlineType && chambers.none { it.online })) {
+                // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার/ফিজিও/সাইকোলজিস্ট: নিজের জায়গা লিখে
+                OutlinedButton(onClick = { if (onlineType) choosingType = true else if (hospitalType) pickFor = -1 else if (chambers.count { !it.online } < 3) chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }
@@ -1281,34 +1491,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                             tr("Set your current location or choose upazilas for home care", "বাসায় সেবার জন্য বর্তমান লোকেশন দিন অথবা উপজেলা বেছে নিন")
                         else -> null
                     }
-                    if (errorMsg == null) {
-                        scope.launch {
-                            busy = true
-                            runCatching {
-                                Appointments.save(
-                                    listed && !nurse, takes && !nurse, specialties.toList(), degrees.trim(), gender,
-                                    if (nurse) emptyList() else chambers.toList(), if (homeCapable) home else HomeVisitSettings(),
-                                )
-                            }
-                                .onSuccess { n ->
-                                    if (n > 0) {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            tr("${num(n)} upcoming appointment(s) no longer fit and were cancelled. Patients were told.",
-                                                "সামনের ${num(n)}টা অ্যাপয়েন্টমেন্ট আর মেলে না, তাই বাতিল হয়েছে। রোগীদের জানানো হয়েছে।"),
-                                            android.widget.Toast.LENGTH_LONG,
-                                        ).show()
-                                    }
-                                    onBack()
-                                }
-                                .onFailure {
-                                    if ((it as? ServerError)?.code == "phone_unverified") verifyPhone = true
-                                    else if (PayReauth.needed(it)) reauth = true
-                                    else errorMsg = it.message
-                                }
-                            busy = false
-                        }
-                    }
+                    if (errorMsg == null) saveNow()
                 },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
@@ -1326,6 +1509,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                 AuthRepository.currentUid ?: "", type, profile.name, specialties.toList(), degrees.trim(), gender, listed, takes,
                 if (nurse) emptyList() else chambers.toList(), if (homeCapable) home.copy(phone = home.phone.ifBlank { " " }) else null, 0.0, 0,
                 photo = Photo.thumbFromAvatar(profile.photo) ?: "",
+                system = system,
             ),
             profile,
             onDismiss = { preview = false },
@@ -1361,11 +1545,16 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
             onDismiss = { pickFor = null },
         )
     }
+    badgeEdit?.let { bd ->
+        // ব্যাজের তথ্য সংশোধন — পদ্ধতি বদলালে সেই বোর্ডের সনদ, তারপর ব্যাজ আবার যাচাই (যাচাই পর্যন্ত তালিকায় থাকেন না)
+        BadgeApplyDialog(onDismiss = { badgeEdit = null }, onApplied = { badgeEdit = null; onBack() }, current = bd)
+    }
     if (choosingType) {
         ChamberTypeDialog(
             onlineAllowed = chambers.none { it.online },
             inPersonAllowed = chambers.count { !it.online } < 3,
-            onInPerson = { choosingType = false; pickFor = -1 },
+            onInPerson = { choosingType = false; if (hospitalType) pickFor = -1 else chambers.add(Chamber.customNew(profile.placeName ?: "")) },
+            ownPlace = !hospitalType,
             onOnline = { choosingType = false; chambers.add(Chamber.onlineNew().copy(appointments = true)) },
             onDismiss = { choosingType = false },
         )

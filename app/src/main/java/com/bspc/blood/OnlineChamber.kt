@@ -312,7 +312,11 @@ fun ChamberModeChips(online: Boolean, onlineAllowed: Boolean, onSelect: (Boolean
 
 /** নতুন চেম্বারের ধরন বাছাই (ডাক্তার "চেম্বার যোগ করুন" চাপলে) */
 @Composable
-fun ChamberTypeDialog(onlineAllowed: Boolean, inPersonAllowed: Boolean = true, onInPerson: () -> Unit, onOnline: () -> Unit, onDismiss: () -> Unit) {
+fun ChamberTypeDialog(
+    onlineAllowed: Boolean, inPersonAllowed: Boolean = true, onInPerson: () -> Unit, onOnline: () -> Unit, onDismiss: () -> Unit,
+    /** ফিজিও/সাইকোলজিস্ট: চেম্বার নিজের জায়গা (হাসপাতালের তালিকা নয়) — Practice.kt */
+    ownPlace: Boolean = false,
+) {
     val cs = MaterialTheme.colorScheme
     @Composable
     fun Option(icon: Int, title: String, sub: String, enabled: Boolean, onClick: () -> Unit) {
@@ -341,7 +345,7 @@ fun ChamberTypeDialog(onlineAllowed: Boolean, inPersonAllowed: Boolean = true, o
         title = { Text(tr("Chamber type", "চেম্বারের ধরন")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Option(R.drawable.ic_local_hospital, tr("In chamber", "চেম্বারে"), if (inPersonAllowed) tr("At a hospital or clinic — choose it from the list", "হাসপাতাল/ক্লিনিকে — তালিকা থেকে বেছে নেবেন") else tr("Up to 3 chambers at a place", "জায়গায় সর্বোচ্চ ৩টা চেম্বার"), inPersonAllowed, onInPerson)
+                Option(R.drawable.ic_local_hospital, tr("In chamber", "চেম্বারে"), if (inPersonAllowed && ownPlace) tr("At your centre — write its name and address", "নিজের সেন্টারে — নাম আর ঠিকানা লিখবেন") else if (inPersonAllowed) tr("At a hospital or clinic — choose it from the list", "হাসপাতাল/ক্লিনিকে — তালিকা থেকে বেছে নেবেন") else tr("Up to 3 chambers at a place", "জায়গায় সর্বোচ্চ ৩টা চেম্বার"), inPersonAllowed, onInPerson)
                 Option(
                     R.drawable.ic_online_video, tr("Online (video)", "অনলাইন (ভিডিও)"),
                     if (onlineAllowed) tr("Video call in the app; the fee comes to your bKash", "অ্যাপে ভিডিও কলে; ফি আসবে আপনার bKash-এ")

@@ -308,8 +308,9 @@ fun ProfileTab(
                 R.drawable.ic_workspace_premium,
                 tr("Professional badge", "পেশাদার ব্যাজ"),
                 when (badge?.status) {
-                    "approved" -> if (badge.changePending) Badges.label(badge.type) + tr(" · correction under review", " · সংশোধন যাচাই চলছে")
-                    else Badges.label(badge.type) + tr(" · tap to correct details", " · তথ্য ঠিক করতে চাপুন")
+                    // ডাক্তারের পাশে চিকিৎসা পদ্ধতি (practice_systems চালু থাকলে)
+                    "approved" -> if (badge.changePending) badgeName(badge) + tr(" · correction under review", " · সংশোধন যাচাই চলছে")
+                    else badgeName(badge) + tr(" · tap to correct details", " · তথ্য ঠিক করতে চাপুন")
                     "pending" -> tr("Under review", "যাচাই চলছে")
                     "rejected" -> tr("Not approved. Tap to apply again.", "অনুমোদন হয়নি। আবার আবেদন করুন।")
                     else -> tr("For doctors, nurses and health experts", "ডাক্তার, নার্স ও স্বাস্থ্য বিশেষজ্ঞদের জন্য")
@@ -320,7 +321,7 @@ fun ProfileTab(
             if (badge != null) {
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     StatusReasonLine(badge.status, badge.statusReason)
-                    DocsNeededNotice("badge", AuthRepository.currentUid.orEmpty(), VerifyDocs.badge(badge.type), badge.docsMissing && badge.status == "pending", badge.docsRequested, badge.docsNote) {
+                    DocsNeededNotice("badge", AuthRepository.currentUid.orEmpty(), VerifyDocs.badge(badge.type, Practice.system(badge.system)), badge.docsMissing && badge.status == "pending", badge.docsRequested, badge.docsNote) {
                         onCommunityChanged((community ?: CommunityMe(null, false)).copy(badge = badge.copy(docsMissing = false, docsRequested = false)))
                     }
                 }
@@ -448,3 +449,7 @@ private fun ActionRow(
             .then(if (tag != null) Modifier.testTag(tag) else Modifier),
     )
 }
+
+/** "ডাক্তার (হোমিওপ্যাথি)" — পদ্ধতির সুইচ বন্ধ থাকলে শুধু পেশা */
+private fun badgeName(b: BadgeState): String =
+    Badges.label(b.type) + (Practice.nameTag(b.type, b.system)?.let { " ($it)" } ?: "")

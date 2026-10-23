@@ -1,0 +1,94 @@
+# যাত্রা ২৫ — চিকিৎসা পদ্ধতি আর নতুন পেশাজীবী (রোগী): অ্যাপয়েন্টমেন্টে পদ্ধতির চিপ (সব / এলোপ্যাথি / হোমিওপ্যাথি /
+# ইউনানি / আয়ুর্বেদ), নামের পাশে পদ্ধতি, ফিজিওথেরাপিস্ট আর সাইকোলজিস্টের ট্যাব, বাসায় ফিজিও।
+# শুধু চাইলে (E2E_ONLY="j25"): practice_systems, pro_physio, pro_psychologist ডেমোতে চালু থাকলে তবেই — বন্ধ থাকলে
+# চিপ/ট্যাব নেই (আগের মতো), তখন শুধু সেই ছবি।
+appId: com.bspc.blood
+env:
+  J: j25
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "অ্যাপ(?:য়|য়)েন্টমেন্ট"
+- extendedWaitUntil:
+    visible: ".*ডা\\. ডেমো.*"
+    timeout: 30000
+- takeScreenshot: j25-01-doctors
+- runFlow:
+    when:
+      visible:
+        id: "system_chips"
+    commands:
+      # সব পদ্ধতির ডাক্তার, প্রত্যেকের পাশে লেবেল
+      - extendedWaitUntil:
+          visible: "এলোপ্যাথি"
+          timeout: 20000
+      - takeScreenshot: j25-02-system-chips
+      - tapOn:
+          id: "system_homeopathy"
+      # ডেমোর হোমিও চিকিৎসক (DemoPractice: নামের আগে "ডা." নেই)
+      - extendedWaitUntil:
+          visible: ".*ডেমো হোমিও চিকিৎসক.*"
+          timeout: 20000
+      - takeScreenshot: j25-03-homeopathy
+      - assertNotVisible: ".*ডা\\. ডেমো হোমিও.*"
+      # পরিচিতিতে পদ্ধতি আর বোর্ড
+      - runFlow:
+          when:
+            visible: ".*ডেমো হোমিও চিকিৎসক.*"
+          commands:
+            - tapOn: ".*ডেমো হোমিও চিকিৎসক.*"
+            - extendedWaitUntil:
+                visible: ".*পরিচিতি.*|.*চেম্বার.*"
+                timeout: 20000
+            - scrollUntilVisible:
+                element: ".*বাংলাদেশ হোমিওপ্যাথিক বোর্ড.*"
+                direction: DOWN
+                timeout: 15000
+                optional: true
+            - takeScreenshot: j25-04-homeopath-detail
+            - back
+      - tapOn:
+          id: "system_unani"
+      - takeScreenshot: j25-05-unani
+      - tapOn:
+          id: "system_ayurveda"
+      - takeScreenshot: j25-06-ayurveda
+      - tapOn:
+          id: "system_all"
+# ফিজিওথেরাপিস্ট (pro_physio)
+- runFlow:
+    when:
+      visible: "ফিজিওথেরাপিস্ট"
+    commands:
+      - tapOn: "ফিজিওথেরাপিস্ট"
+      - extendedWaitUntil:
+          visible: ".*ডেমো ফিজিওথেরাপিস্ট.*"
+          timeout: 20000
+      - takeScreenshot: j25-07-physio-list
+# সাইকোলজিস্ট (pro_psychologist)
+- runFlow:
+    when:
+      visible: "সাইকোলজিস্ট"
+    commands:
+      - tapOn: "সাইকোলজিস্ট"
+      - extendedWaitUntil:
+          visible: ".*ডেমো কাউন্সেলর.*"
+          timeout: 20000
+      - takeScreenshot: j25-08-psych-list
+      # অনলাইন (ভিডিও) চেম্বারও আছে; বাসায় সেবা নেই
+      - tapOn: ".*ডেমো কাউন্সেলর.*"
+      - extendedWaitUntil:
+          visible: ".*চেম্বার বেছে অ্যাপ(?:য়|য়)েন্টমেন্ট নিন.*|.*চেম্বার.*"
+          timeout: 20000
+      - takeScreenshot: j25-09-psych-detail
+      - back
+# বাসায় সেবা → বাসায় ফিজিও
+- tapOn: "বাসা(?:য়|য়) সেবা"
+- runFlow:
+    when:
+      visible: "বাসা(?:য়|য়) ফিজিও"
+    commands:
+      - tapOn: "বাসা(?:য়|য়) ফিজিও"
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - takeScreenshot: j25-10-home-physio

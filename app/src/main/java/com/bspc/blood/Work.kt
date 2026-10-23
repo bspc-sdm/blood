@@ -149,7 +149,7 @@ object MyWork {
                 pharmacy = if (p.isSuccess) p.getOrNull() else old.pharmacy,
                 bloodBanks = b.getOrElse { old.bloodBanks },
                 lab = if (l.isSuccess) l.getOrNull() else old.lab,
-                professional = badge?.takeIf { it in PROVIDER_TYPES },
+                professional = badge?.takeIf { it in Practice.providerTypes() },
             )
             val failed = listOf("ambulance" to a, "pharmacy" to p, "bloodbank" to b, "lab" to l).filter { it.second.isFailure }
             // বাতিল (পাতা বদলানো) ভুল নয়

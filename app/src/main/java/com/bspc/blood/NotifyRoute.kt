@@ -53,7 +53,7 @@ fun notifyRoute(data: Map<String, String>, approvedBadge: String? = null, hasWor
             when (data["role"]) {
                 "provider" -> Screen.ChamberEdit
                 "patient" -> Screen.MyAppointments
-                else -> if (approvedBadge in CHAMBER_TYPES) Screen.ChamberEdit else Screen.MyAppointments
+                else -> if (approvedBadge in CHAMBER_TYPES || approvedBadge in Practice.NEW_TYPES) Screen.ChamberEdit else Screen.MyAppointments
             },
         )
         // বাসায় সেবা (আগের হোম নার্সের "homevisit" সহ): অ্যাপয়েন্টমেন্ট ট্যাবের "বাসায় সেবা" অংশ

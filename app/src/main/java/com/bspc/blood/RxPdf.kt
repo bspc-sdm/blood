@@ -94,10 +94,12 @@ object RxPdf {
         Qr.bitmap(rx.verifyUrl, 270)?.let { canvas.drawBitmap(Bitmap.createScaledBitmap(it, qrSize, qrSize, false), (W - M - qrSize).toFloat(), y, null) }
         val headW = W - 2 * M - qrSize - 12
         val top = y
-        text(rx.doctorName, paint(18f, true), headW)
+        text(rx.doctorName, paint(18f, true), headW, gap = 2f)
+        // পদ্ধতি/পেশা নামের ঠিক নিচে (practice_systems; ফিজিও/সাইকোলজিস্ট) — নাম যেমন লেখা, "ডা." নিজে বসে না
+        Practice.rxHeaderTag(rx)?.let { text(it, paint(11f, true, teal), headW, gap = 2f) }
         text(rx.degrees, paint(11f), headW, gap = 2f)
         if (rx.specialties.isNotEmpty()) text(rx.specialties.joinToString(", ") { Specialties.label(it) }, paint(11f, color = teal), headW, gap = 2f)
-        if (rx.regNo.isNotBlank()) text("BMDC " + rx.regNo, paint(10f, color = grey), headW, gap = 2f)
+        if (rx.regNo.isNotBlank()) text(Practice.regLine(rx.doctorType.ifBlank { "doctor" }, rx.system, rx.regNo), paint(10f, color = grey), headW, gap = 2f)
         text(listOf(rx.chamberName, rx.chamberAddress, rx.chamberPhone).filter { it.isNotBlank() }.joinToString(", "), paint(10f, color = grey), headW)
         // QR-এর নিচে কোড: ছোট "কোড", তার নিচে বড় এক-মাপের অক্ষরে "AB23 CD45 EF" — স্ক্যান না হলে দোকান হাতে লেখে
         val cx = (W - M - qrSize / 2).toFloat()
@@ -117,22 +119,25 @@ object RxPdf {
             text(title, paint(11f, true, teal), gap = 1f)
             text(body, paint(11f))
         }
-        block(tr("Complaints", "সমস্যা"), rx.complaints)
+        val mode = Practice.rxMode(rx)
+        block(RxText.complaintsTitle(mode), rx.complaints)
         block(tr("Findings", "পরীক্ষায় পাওয়া"), rx.findings.entries.joinToString(" · ") { RxText.finding(it.key) + ": " + it.value })
         block(tr("Diagnosis", "রোগনির্ণয়"), rx.diagnosis)
-        if (rx.medicines.isNotEmpty()) {
+        if (rx.medicines.isNotEmpty() && mode != Practice.RxMode.PHYSIO && mode != Practice.RxMode.PSYCH) {
             text("℞", paint(22f, true, teal), gap = 2f)
             rx.medicines.forEachIndexed { i, m ->
                 text("${num(i + 1)}. ${m.title}", paint(12f, true), gap = 1f)
-                text(m.howTo + if (m.note.isNotBlank()) " — " + m.note else "", paint(11f, color = grey), W - 2 * M - 16, M + 16f, gap = 6f)
+                val how = listOf(RxText.howTo(m, mode), m.note).filter { it.isNotBlank() }.joinToString(" — ")
+                text(how, paint(11f, color = grey), W - 2 * M - 16, M + 16f, gap = 6f)
             }
         }
         if (rx.tests.isNotEmpty()) {
             block(tr("Tests", "পরীক্ষা"), rx.tests.joinToString("\n") { "• $it" })
             if (rx.testPlace.isNotBlank()) text(tr("Suggested place: ", "করাতে পারেন: ") + rx.testPlace, paint(10f, color = grey))
         }
-        block(tr("Advice", "পরামর্শ"), rx.advice)
+        block(rx.rules?.section ?: RxText.adviceTitle(mode), rx.advice)
         rx.followUpDate?.let { block(tr("Come again", "আবার দেখাবেন"), Rules.formatDate(it) + if (rx.followUpNote.isNotBlank()) " · " + rx.followUpNote else "") }
+        if (rx.rules?.notice != null || mode == Practice.RxMode.PSYCH) text(rx.rules?.notice ?: Practice.psychiatristNote(), paint(11f, true, teal))
         y = maxOf(y, (H - M - 24).toFloat())
         text(tr("Issued on Lifolo. Scan the QR to check it is genuine.", "Lifolo-তে দেওয়া প্রেসক্রিপশন। আসল কি না দেখতে QR স্ক্যান করুন।"), paint(8f, color = grey))
         doc.finishPage(page)

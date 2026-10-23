@@ -45,17 +45,19 @@ private val HOME_TYPES = listOf("doctor", "nurse")
 @Composable
 fun HomeCareTab(profile: Profile, me: CommunityMe?, onEditChamber: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // ফিজিওথেরাপিস্ট বাসায় যান (pro_physio); সাইকোলজিস্ট নন
+    val types = HOME_TYPES + listOfNotNull(if (Practice.rememberOn(Practice.PHYSIO)) Practice.PHYSIO_TYPE else null)
     Column(Modifier.fillMaxSize()) {
         PillTabs(
-            tab,
+            tab.coerceIn(0, types.lastIndex),
             listOf(
                 PillTab(tr("Doctor at home", "বাসায় ডাক্তার"), R.drawable.ic_stethoscope),
                 PillTab(tr("Nurse at home", "বাসায় নার্স"), R.drawable.ic_medical_services),
-            ),
+            ) + types.drop(HOME_TYPES.size).map { PillTab(tr("Physio at home", "বাসায় ফিজিও"), Badges.icon(it)) },
             { tab = it },
             secondary = true,
         )
-        HomeCareList(HOME_TYPES[tab], profile, me, onEditChamber)
+        HomeCareList(types[tab.coerceIn(0, types.lastIndex)], profile, me, onEditChamber)
     }
 }
 
@@ -124,8 +126,9 @@ private fun HomeCareList(type: String, profile: Profile, me: CommunityMe?, onEdi
             list.isEmpty() -> item {
                 Column(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(
-                        if (type == "doctor") R.drawable.ic_stethoscope else R.drawable.ic_medical_services,
+                        Badges.icon(type),
                         if (type == "doctor") tr("No doctor who visits homes here yet", "এখানে বাসায় যান এমন ডাক্তার এখনো নেই")
+                        else if (type == Practice.PHYSIO_TYPE) tr("No physiotherapist who visits homes here yet", "এখানে বাসায় যান এমন ফিজিওথেরাপিস্ট এখনো নেই")
                         else tr("No nurse who visits homes here yet", "এখানে বাসায় যান এমন নার্স এখনো নেই"),
                         tr("Try another area or remove a filter.", "অন্য এলাকা দিয়ে বা ফিল্টার সরিয়ে দেখুন।"),
                     )
@@ -198,6 +201,7 @@ internal fun HomeProCard(p: HomePro, onCall: () -> Unit, onRate: (() -> Unit)?, 
         title = p.name,
         icon = Badges.icon(p.type),
         photo = p.photo,
+        nameTag = Practice.nameTag(p.type, p.system),
         subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
         rating = p.rating,
         ratingCount = p.ratingCount,

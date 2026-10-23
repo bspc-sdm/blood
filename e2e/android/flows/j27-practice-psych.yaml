@@ -1,0 +1,39 @@
+# যাত্রা ২৭ — সাইকোলজিস্টের গোপনীয়তা (রোগী): আমার অ্যাপয়েন্টমেন্টে সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট → "কেয়ারগিভারের সাথে শেয়ার"
+# (শুরুতে গোপন) → কেয়ারগিভারপ্রতি সুইচ দেখা (বদলানো নয়)। শুধু চাইলে (E2E_ONLY="j27"): pro_psychologist চালু আর ডেমোতে
+# রোগীর সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট থাকলে তবেই।
+appId: com.bspc.blood
+env:
+  J: j27
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার অ্যাপ(?:য়|য়)েন্টমেন্ট.*"
+- extendedWaitUntil:
+    visible: "আমার অ্যাপ(?:য়|য়)েন্টমেন্ট"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "psych_share"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+    optional: true
+- takeScreenshot: j27-01-psych-appointment
+- runFlow:
+    when:
+      visible:
+        id: "psych_share"
+    commands:
+      - tapOn:
+          id: "psych_share"
+      - runFlow:
+          when:
+            visible: ".*সাইকোলজিস্টের অ্যাপ(?:য়|য়)েন্টমেন্ট ও নোট.*"
+          commands:
+            - takeScreenshot: j27-02-share-dialog
+            - tapOn: "ঠিক আছে"
