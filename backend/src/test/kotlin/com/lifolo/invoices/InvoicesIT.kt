@@ -181,7 +181,7 @@ class InvoicesIT : P4Test() {
     }
 
     @Test
-    fun `void - a fixed reason, the pharmacy stock goes back, the sale is gone; deleting an invoiced sale is refused`() {
+    fun `void - a fixed reason, the pharmacy stock goes back, the sale is gone, deleting an invoiced sale is refused`() {
         shop(PH)
         val item = ok(PH, "books_item_save", mapOf("name" to "Napa", "qty" to 10, "price" to 2, "cost" to 1))["item"]["id"].textValue()
         val sale = ok(PH, "books_sale_add", mapOf("lines" to listOf(mapOf("itemId" to item, "qty" to 3))))
@@ -267,7 +267,7 @@ class InvoicesIT : P4Test() {
     // ------------------------------------------------------------------ verify
 
     @Test
-    fun `verify - public, only no, date, totals, line count and status; void, deleted and purged codes still answer`() {
+    fun `verify - public, only no, date, totals, line count and status, void, deleted and purged codes still answer`() {
         lab(LAB)
         person(PAT, "রোগী রহিম")
         labOrder("lo1", LAB, PAT)
@@ -380,7 +380,7 @@ class InvoicesIT : P4Test() {
     // ------------------------------------------------------------------ lab
 
     @Test
-    fun `lab bill - lines from the order's price snapshot, its discount and the home fee; once; walk-in uses list prices`() {
+    fun `lab bill - lines from the order's price snapshot, its discount and the home fee, once, walk-in uses list prices`() {
         lab(LAB)
         person(PAT)
         labOrder("lo1", LAB, PAT)
@@ -435,7 +435,7 @@ class InvoicesIT : P4Test() {
     // ------------------------------------------------------------------ chamber, assistants (I7)
 
     @Test
-    fun `chamber fee - doctor and assistant; an assistant voids only their own within 2 h and the doctor is told; owner-only export`() {
+    fun `chamber fee - doctor and assistant, an assistant voids only their own within 2 h and the doctor is told, owner-only export`() {
         doctor(DOC, assistantEmail = "asst@example.com")
         user(ASST, mapOf("name" to "সহকারী", "lang" to "bn"), email = "asst@example.com")
         person(PAT)
@@ -661,7 +661,7 @@ class InvoicesIT : P4Test() {
     // ------------------------------------------------------------------ retention, summary
 
     @Test
-    fun `retention - account deletion keeps receipts 6 years without personal fields; demo receipts go; purge after`() {
+    fun `retention - account deletion keeps receipts 6 years without personal fields, demo receipts go, purge after`() {
         shop(PH)
         person(PAT)
         val inv = invoices.issue("bn", AuthUser(PH), IssueCmd("pharmacy", PH, listOf(LineIn("ওষুধ", BigDecimal.ONE, BigDecimal(100))), payments = listOf(PaymentIn(BigDecimal(100), "bkash", "TRX9")), customer = Customer("রহিম", "01799000000"), patientUid = PAT))
@@ -764,7 +764,7 @@ class InvoicesIT : P4Test() {
     }
 
     @Test
-    fun `switches off - my_expenses hides the patient's side and its push; only kinds that are on are shown`() {
+    fun `switches off - my_expenses hides the patient's side and its push, only kinds that are on are shown`() {
         shop(PH)
         lab(LAB)
         person(PAT)

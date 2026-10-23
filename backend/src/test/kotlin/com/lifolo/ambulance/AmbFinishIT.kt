@@ -79,7 +79,7 @@ class AmbFinishIT : AmbTestBase() {
     }
 
     @Test
-    fun `finish - at the agreed fare no flag; chart extras within the frozen chart; a trip closed by step done can still get its receipt`() {
+    fun `finish - at the agreed fare no flag, chart extras within the frozen chart, a trip closed by step done can still get its receipt`() {
         seed()
         val id = agreedTrip(mapOf("oxygen" to true))
         assertEquals(300, reqRow(id)["snap_oxygen"])
