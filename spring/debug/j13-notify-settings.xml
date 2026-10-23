@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="0" time="99.269" timestamp="2026-10-23T23:39:11">
+    <testcase id="j13-notify-settings" name="j13-notify-settings" classname="j13-notify-settings" file="/home/runner/work/blood/blood/e2e/android/flows/j13-notify-settings.yaml" time="99.231" timestamp="2026-10-23T23:39:11" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

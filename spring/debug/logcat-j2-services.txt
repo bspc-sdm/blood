@@ -1,0 +1,800 @@
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at io.grpc.internal.ServerImpl$JumpToApplicationThreadServerStreamListener$1HalfClosed.runInContext(ServerImpl.java:867)
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:14.555  6690  6921 W UiDevice: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:14.612  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:14.612  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:14.612  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:14.634  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:14.634  6690  6921 D Maestro : View hierarchy received in 22 ms
+10-23 23:26:14.870  6887  6887 W WindowOnBackDispatcher: OnBackInvokedCallback is not enabled for the application.
+10-23 23:26:14.870  6887  6887 W WindowOnBackDispatcher: Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+10-23 23:26:14.874  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:14.875  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:14.875  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:14.904  6887  6912 D EGL_emulation: app_time_stats: avg=330.72ms min=25.28ms max=2269.11ms count=8
+10-23 23:26:14.938  2172  3709 D CoreBackPreview: Window{db6cd9c u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@d34fb07, mPriority=0, mIsAnimationCallback=false}
+10-23 23:26:15.046  2172  2201 D OomAdjuster: Not killing cached processes
+10-23 23:26:15.108  2172  2250 D ActivityManager: sync unfroze 2998 com.google.android.googlequicksearchbox:search for 6
+10-23 23:26:15.108  2172  2250 D ActivityManager: sync unfroze 4845 com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0 for 6
+10-23 23:26:15.115  6690  6921 I Maestro : Null child 0/1, parent: android.view.accessibility.AccessibilityNodeInfo@80006ce4; boundsInParent: Rect(0, 0 - 1080, 2400); boundsInScreen: Rect(0, 0 - 1080, 2400); boundsInWindow: Rect(0, 0 - 1080, 2400); packageName: com.bspc.blood; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: true; visible: true; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:15.132  2116  2134 I netd    : tetherGetStats() -> {[]} <3.62ms>
+10-23 23:26:15.133  2172  2276 I ImeTracker: com.bspc.blood:2cf7eef5: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 23:26:15.134  2172  2276 I ImeTracker: com.bspc.blood:2cf7eef5: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 23:26:15.141  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3157 
+10-23 23:26:15.146  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 0, locked = false
+10-23 23:26:15.146  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 23:26:15.146  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 1, locked = false
+10-23 23:26:15.146  2891  2891 I AndroidIME: InputBundleManager.loadActiveInputBundleId():450 loadActiveInputBundleId: und-Latn-x-password-ascii, password_ascii
+10-23 23:26:15.146  2172  3712 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 23:26:15.169  2172  3712 W ProcessStats: Tracking association SourceState{d28ef57 com.google.android.googlequicksearchbox:search/10144 ImpBg #7899} whose proc state 6 is better than process ProcessState{179c5f9 com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/10144 pkg=com.google.android.googlequicksearchbox} proc state 14 (52 skipped)
+10-23 23:26:15.198  2627  7116 W TapAndPay: NfcAdapter is null while obtaining CardEmulation instance. [CONTEXT service_id=79 ]
+10-23 23:26:15.198  2627  7116 W TapAndPay: java.lang.NullPointerException: NfcAdapter is null
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at android.nfc.cardemulation.CardEmulation.getInstance(CardEmulation.java:170)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at dhwn.<init>(:com.google.android.gms@242335041@24.23.35 (190800-646585959):15)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at com.google.android.gms.tapandpay.hce.task.TapAndPayAidRegistrationTaskOperation.a(:com.google.android.gms@242335041@24.23.35 (190800-646585959):50)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at com.google.android.gms.tapandpay.gcmtask.TapAndPayGcmTaskChimeraService.a(:com.google.android.gms@242335041@24.23.35 (190800-646585959):32)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at bpjj.call(:com.google.android.gms@242335041@24.23.35 (190800-646585959):32)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at angs.c(:com.google.android.gms@242335041@24.23.35 (190800-646585959):50)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at angs.run(:com.google.android.gms@242335041@24.23.35 (190800-646585959):76)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at anmg.run(:com.google.android.gms@242335041@24.23.35 (190800-646585959):8)
+10-23 23:26:15.198  2627  7116 W TapAndPay: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:15.212  2998  2998 I BgTaskExecutorImpl: (REDACTED) Starting %s background task %s.
+10-23 23:26:15.214  2627  6583 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.tapandpay.gcmtask.TapAndPayGcmTaskService started execution. cause:4 exec_start_elapsed_seconds: 420 [CONTEXT service_id=218 ]
+10-23 23:26:15.224  2627  6955 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.tapandpay.gcmtask.TapAndPayGcmTaskService finished executing. cause:4 result: 3 elapsed_millis: 70 uptime_millis: 70 exec_start_elapsed_seconds: 420 [CONTEXT service_id=218 ]
+10-23 23:26:15.281  2627  6955 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService started execution. cause:4 exec_start_elapsed_seconds: 420 [CONTEXT service_id=218 ]
+10-23 23:26:15.329  2172  2392 D ActivityManager: sync unfroze 3588 com.google.android.gms.unstable for 6
+10-23 23:26:15.366  2172  3710 D CompatChangeReporter: Compat change id reported: 161145287; UID 10144; state: ENABLED
+10-23 23:26:15.409  2998  3491 I MicroDetectionState: (REDACTED) Updating hotword opa ineligibility to %b
+10-23 23:26:15.410  2998  3491 I A       : getLocaleToModelSpecsMap
+10-23 23:26:15.410  2998  3491 I A       : Fetching latest config from MDD...
+10-23 23:26:15.410  2998  3491 I A       : (REDACTED) Found map of size: %d
+10-23 23:26:15.420  2998  3491 I MicroDataManager: (REDACTED) Hotword configuration not present for the given locale %s
+10-23 23:26:15.420  2998  3491 I MicroDetectionWorker: (REDACTED) Initializing MicroDataManager InitializeType-%d, isForced-%b, isActivePhoneEnrollment-%b isActiveGoogleHomeEnrollment-%b
+10-23 23:26:15.420  2998  3491 W MicroDataManager: (REDACTED) isInitializedWithLatestHotwordModel is false sourceLocationOfCurrentHotwordModel is %s, locale is %s, hotwordModel is null %b, googleHotwordData is null %b 
+10-23 23:26:15.449  2998  3249 I A       : getLocaleToModelSpecsMap
+10-23 23:26:15.449  2998  3249 I A       : Fetching latest config from MDD...
+10-23 23:26:15.449  2998  3249 I A       : (REDACTED) Found map of size: %d
+10-23 23:26:15.449  2998  3249 I MicroDataManager: (REDACTED) locale is %s
+10-23 23:26:15.449  2998  3249 I A       : getLocaleToModelSpecsMap
+10-23 23:26:15.449  2998  3249 I A       : Fetching latest config from MDD...
+10-23 23:26:15.449  2998  3249 I A       : (REDACTED) Found map of size: %d
+10-23 23:26:15.449  2998  3249 E MicroDataManager: (REDACTED) Location of model with model type: %s and locale: %s is null. HotwordLocaleConfig for re-mapped Chinese locale is null: %b, and getLocationForReMappedLocale is %s
+10-23 23:26:15.449  2998  3249 W MicroDataManager: (REDACTED) MicroDataManager found null model location, so returning null hotword model for locale: %s, type: %s
+10-23 23:26:15.450  2998  3236 W MicroDataManager: (REDACTED) Locale %s unrecognized. hotword detection will likely fail.
+10-23 23:26:15.454  2998  3236 W MicroDataManager: (REDACTED) MicroDataManager using no hotword model for locale: %s, type: %s!
+10-23 23:26:15.454  2998  3236 I MicroDataManager: (REDACTED) MicroDataManager InitializationTask. googleHotwordData is null: true, hotwordModel is null: %b , sourceLocationOfCurrentHotwordModel %s
+10-23 23:26:15.456  2998  7119 I NetworkRecognitionRnr: Using pair HTTP connection
+10-23 23:26:15.458  2998  7123 I A       : [Upload] Connected
+10-23 23:26:15.467  2998  3491 I MicroDetectionState: (REDACTED) #takeChangeMicroDetectorMode [mIsBargeInEnabled: %b, mCurrentDetectionMode: %s]
+10-23 23:26:15.467  2998  3491 I MicroDetectionState: (REDACTED) Should stop hotword detection immediately - %b
+10-23 23:26:15.468  2998  3491 I MicroDetectionState: (REDACTED) #takeChangeMicroDetectorMode [mIsBargeInEnabled: %b, mCurrentDetectionMode: %s]
+10-23 23:26:15.468  2998  3491 I MicroDetectionState: (REDACTED) Should stop hotword detection immediately - %b
+10-23 23:26:15.469  2998  3491 I A       : getLocaleToModelSpecsMap
+10-23 23:26:15.469  2998  3491 I A       : Fetching latest config from MDD...
+10-23 23:26:15.469  2998  3491 I A       : (REDACTED) Found map of size: %d
+10-23 23:26:15.469  2998  3491 I MicroDataManager: (REDACTED) Hotword configuration not present for the given locale %s
+10-23 23:26:15.474  2998  3249 W CronetNetworkRqstWrppr: Upload request without a content type.
+10-23 23:26:15.502  2172  3709 D FileUtils: Rounded bytes from ৪১১০৭৩৭৪০৮ to ৮০০০০০০০০০
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: Exception in upload method
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: com.google.android.apps.gsa.shared.n.d: Error code: 262182
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.w.bg.d(PG:41)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.libraries.gsa.c.a.am.d(PG:10)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.libraries.gsa.c.a.bl.b(PG:39)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.libraries.gsa.c.a.e.a(PG:18)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.libraries.gsa.c.a.a.run(PG:13)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.be.execute(PG:1)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.i(PG:1)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:95)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.j.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.j.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.j.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.j.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.c.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.bt.cancel(PG:5)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:84)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.staticplugins.an.b.a.run(PG:18)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.be.execute(PG:1)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.i(PG:1)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:95)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.j.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.util.c.ai.fC(PG:13)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.m(PG:17)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.c.fC(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.l(PG:30)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.common.util.concurrent.d.cancel(PG:52)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.s3.p.a(PG:9)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.s3.s.a(PG:7)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.staticplugins.bp.a.d.e(PG:7)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.staticplugins.bp.a.d.c(PG:35)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.staticplugins.bp.a.f.a(PG:37)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.s3.o.hi(PG:13)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.ci.g.a.f.e(PG:9)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.speech.k.a.g.d(PG:162)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.speech.k.a.g.iO(PG:26)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.s3.p.c(PG:102)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.s3.q.run(PG:1)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.util.c.a.e.run(PG:12)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.util.c.a.bg.run(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.util.c.a.bg.run(PG:3)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:15.507  2998  3363 E cr_CronetUrlRequestContext: 	at com.google.android.apps.gsa.shared.util.c.a.l.run(PG:42)
+10-23 23:26:15.512  2998  2998 E A       : onError
+10-23 23:26:15.512  2998  2998 E A       : com.google.android.apps.gsa.shared.speech.b.l: errorCode: 65561, engine: 2
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.staticplugins.bp.a.f.a(PG:23)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.s3.o.hi(PG:13)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.ci.g.a.f.e(PG:9)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.speech.k.a.g.d(PG:162)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.speech.k.a.g.iO(PG:26)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.s3.p.c(PG:102)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.s3.q.run(PG:1)
+10-23 23:26:15.512  2998  2998 E A       : 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+10-23 23:26:15.512  2998  2998 E A       : 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.shared.util.c.a.e.run(PG:12)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.shared.util.c.a.bg.run(PG:3)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.shared.util.c.a.bg.run(PG:3)
+10-23 23:26:15.512  2998  2998 E A       : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:15.512  2998  2998 E A       : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:15.512  2998  2998 E A       : 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.shared.util.c.a.l.run(PG:42)
+10-23 23:26:15.512  2998  2998 E A       : Caused by: com.google.android.apps.gsa.shared.speech.b.n: errorCode: 65586, engine: 2
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.s3.o.hi(PG:6)
+10-23 23:26:15.512  2998  2998 E A       : 	... 14 more
+10-23 23:26:15.512  2998  2998 E A       : Caused by: com.google.android.apps.gsa.shared.speech.b.j: errorCode: 401, engine: 2
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.assistant.shared.n.i.b(PG:30)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.s3.producers.j.hs(PG:11)
+10-23 23:26:15.512  2998  2998 E A       : 	at com.google.android.apps.gsa.speech.k.a.g.d(PG:135)
+10-23 23:26:15.512  2998  2998 E A       : 	... 12 more
+10-23 23:26:15.570  2998  7123 I NetworkRecognitionRnr: Using pair HTTP connection
+10-23 23:26:15.572  2116  7125 I resolv  : GetAddrInfoHandler::run: {100 786532 100 983140 10143 0}
+10-23 23:26:15.572  3588  5786 D TrafficStats: tagSocket(99) with statsTag=0x1809, statsUid=-1
+10-23 23:26:15.586  2998  7126 I A       : [Upload] Connected
+10-23 23:26:15.592  2998  2998 W A       : Failed to sync device settings.
+10-23 23:26:15.592  2998  2998 I A       : Retrying to sync device settings.
+10-23 23:26:15.595  2998  3020 I earchbox:search: JIT allocated 52KB for compiled code of java.lang.Object com.google.android.apps.gsa.binaries.velvet.app.tu.a()
+10-23 23:26:15.596  2998  3020 I earchbox:search: Compiler allocated 5474KB to compile java.lang.Object com.google.android.apps.gsa.binaries.velvet.app.tu.a()
+10-23 23:26:15.605  2998  3020 I earchbox:search: Compiler allocated 4186KB to compile java.lang.Object com.google.android.apps.gsa.binaries.velvet.app.tu.f()
+10-23 23:26:15.608  2998  2998 W JobInfo : Job 'com.google.android.googlequicksearchbox/com.google.android.apps.gsa.tasks.BackgroundTasksJobService#-353' has a deadline with functional constraints and an extremely short time window of 0 ms (delay=240000, deadline=240000). The functional constraints are not likely to be satisfied when the job runs.
+10-23 23:26:15.611  2172  2392 W JobInfo : Job 'com.google.android.googlequicksearchbox/com.google.android.apps.gsa.tasks.BackgroundTasksJobService#-353' has a deadline with functional constraints and an extremely short time window of 0 ms (delay=240000, deadline=240000). The functional constraints are not likely to be satisfied when the job runs.
+10-23 23:26:15.613  2172  2392 W JobInfo : Job 'com.google.android.googlequicksearchbox/com.google.android.apps.gsa.tasks.BackgroundTasksJobService#-353' has a deadline with functional constraints and an extremely short time window of 0 ms (delay=240000, deadline=240000). The functional constraints are not likely to be satisfied when the job runs.
+10-23 23:26:15.618  2172  3712 W JobScheduler: Job didn't exist in JobStore: 45ecae1 #u0a144/-353 com.google.android.googlequicksearchbox/com.google.android.apps.gsa.tasks.BackgroundTasksJobService
+10-23 23:26:15.627  3588  5786 W libc    : Access denied finding property "persist.adb.tls_server.enable"
+10-23 23:26:15.627  3588  5786 W libc    : Access denied finding property "service.adb.tls.port"
+10-23 23:26:15.620  3588  3588 W binder:3588_7: type=1400 audit(0.0:55): avc:  denied  { read } for  name="u:object_r:system_adbd_prop:s0" dev="tmpfs" ino=318 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:system_adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+10-23 23:26:15.631  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:15.620  3588  3588 W binder:3588_7: type=1400 audit(0.0:56): avc:  denied  { read } for  name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=63 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+10-23 23:26:15.636  6690  6921 D Maestro : View hierarchy received in 762 ms
+10-23 23:26:15.646  2627  4659 W GmsUrlRequestImpl: Content-Type header is overwritten.
+10-23 23:26:15.647  2116  7127 I resolv  : GetAddrInfoHandler::run: {100 786532 100 983140 10143 0}
+10-23 23:26:15.648  2116  7128 I resolv  : res_nmkquery: (QUERY, IN, AAAA)
+10-23 23:26:15.648  2116  7129 I resolv  : res_nmkquery: (QUERY, IN, A)
+10-23 23:26:15.665  2116  7128 I resolv  : res_nsend: used send_dg 264 terrno: 0
+10-23 23:26:15.665  2116  7128 I resolv  : doQuery: rcode=0, ancount=8, return value=264
+10-23 23:26:15.670  2116  7129 I resolv  : res_nsend: used send_dg 168 terrno: 0
+10-23 23:26:15.670  2116  7129 I resolv  : doQuery: rcode=0, ancount=8, return value=168
+10-23 23:26:15.671  2627  3565 D TrafficStats: tagSocket(117) with statsTag=0x401, statsUid=10143
+10-23 23:26:15.690  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:15.691  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:15.691  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:15.701  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:15.701  6690  6921 D Maestro : View hierarchy received in 11 ms
+10-23 23:26:15.745  2627  4659 W GLSUser : [AppCertManager] Exception while requesting key: 
+10-23 23:26:15.745  2627  4659 W GLSUser : java.util.concurrent.ExecutionException: bpcw: Parse Proto Exception with response code 400
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at etvr.s(:com.google.android.gms@242335041@24.23.35 (190800-646585959):21)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at etvr.get(:com.google.android.gms@242335041@24.23.35 (190800-646585959):10)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at yfw.b(:com.google.android.gms@242335041@24.23.35 (190800-646585959):477)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at yfu.b(:com.google.android.gms@242335041@24.23.35 (190800-646585959):31)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at yfp.a(:com.google.android.gms@242335041@24.23.35 (190800-646585959):1)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at yfs.a(:com.google.android.gms@242335041@24.23.35 (190800-646585959):58)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at uou.call(:com.google.android.gms@242335041@24.23.35 (190800-646585959):56)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at angs.c(:com.google.android.gms@242335041@24.23.35 (190800-646585959):50)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at angs.run(:com.google.android.gms@242335041@24.23.35 (190800-646585959):76)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at anmg.run(:com.google.android.gms@242335041@24.23.35 (190800-646585959):8)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:15.745  2627  4659 W GLSUser : Caused by: bpcw: Parse Proto Exception with response code 400
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at bpdw.b(:com.google.android.gms@242335041@24.23.35 (190800-646585959):80)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at bpgb.e(:com.google.android.gms@242335041@24.23.35 (190800-646585959):17)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at bpgp.onSucceeded(:com.google.android.gms@242335041@24.23.35 (190800-646585959):7)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at m.mw.onSucceeded(:com.google.android.gms.dynamite_cronetdynamite@242335041@24.23.35 (190800-0):3)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at m.lt.run(:com.google.android.gms.dynamite_cronetdynamite@242335041@24.23.35 (190800-0):25)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	... 6 more
+10-23 23:26:15.745  2627  4659 W GLSUser : Caused by: fkhe: Protocol message contained an invalid tag (zero).
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkea.k(:com.google.android.gms@242335041@24.23.35 (190800-646585959):39)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkid.c(:com.google.android.gms@242335041@24.23.35 (190800-646585959):309)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkid.i(:com.google.android.gms@242335041@24.23.35 (190800-646585959):8)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkgi.fe(:com.google.android.gms@242335041@24.23.35 (190800-646585959):25)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkgc.g(:com.google.android.gms@242335041@24.23.35 (190800-646585959):3)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkdw.e(:com.google.android.gms@242335041@24.23.35 (190800-646585959):1)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkdw.d(:com.google.android.gms@242335041@24.23.35 (190800-646585959):3)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at fkdw.p(:com.google.android.gms@242335041@24.23.35 (190800-646585959):1)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at bpdw.g(:com.google.android.gms@242335041@24.23.35 (190800-646585959):68)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	at bpdw.b(:com.google.android.gms@242335041@24.23.35 (190800-646585959):11)
+10-23 23:26:15.745  2627  4659 W GLSUser : 	... 10 more
+10-23 23:26:15.749  2627  7116 I NetworkScheduler.Stats: Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService finished executing. cause:4 result: 3 elapsed_millis: 544 uptime_millis: 544 exec_start_elapsed_seconds: 420 [CONTEXT service_id=218 ]
+10-23 23:26:15.953  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:15.953  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:15.954  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:15.962  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:15.962  6690  6921 D Maestro : View hierarchy received in 9 ms
+10-23 23:26:16.007  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:16.171  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:16.484  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:16.692  6887  6912 D EGL_emulation: app_time_stats: avg=425.56ms min=26.14ms max=1193.84ms count=4
+10-23 23:26:17.282  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:17.282  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:17.283  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:17.317  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:17.318  6690  6736 D Maestro : View hierarchy received in 36 ms
+10-23 23:26:17.406  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:17.407  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:17.407  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:17.417  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:17.418  6690  6736 D Maestro : View hierarchy received in 12 ms
+10-23 23:26:17.504  2172  2392 D WindowManager: captureDisplay
+10-23 23:26:17.639  2891  2891 I StylusModule: StylusModule.onUpdateToolType():770 Update tool type = 0
+10-23 23:26:17.640  2172  2192 D AutofillManagerService: onBackKeyPressed()
+10-23 23:26:17.653  6887  6887 W WindowOnBackDispatcher: sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda11@4ec22f2
+10-23 23:26:17.654  2172  3712 D CoreBackPreview: Window{db6cd9c u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback null
+10-23 23:26:17.656  2172  3712 W InputManager-JNI: Input channel object 'db6cd9c com.bspc.blood/com.bspc.blood.MainActivity (client)' was disposed without first being removed with the input manager!
+10-23 23:26:17.673  6887  6912 D EGL_emulation: app_time_stats: avg=553.84ms min=80.58ms max=2298.65ms count=5
+10-23 23:26:17.694  2172  2194 V WindowManager: Unknown focus tokens, dropping reportFocusChanged
+10-23 23:26:17.699  2172  2276 I ImeTracker: com.bspc.blood:b350f40a: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 23:26:17.699  2172  2276 I ImeTracker: com.bspc.blood:b350f40a: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 23:26:17.700  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3157 
+10-23 23:26:17.700  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 0, locked = false
+10-23 23:26:17.700  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 23:26:17.700  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 1, locked = false
+10-23 23:26:17.700  2891  2891 I AndroidIME: InputBundleManager.loadActiveInputBundleId():450 loadActiveInputBundleId: und-Latn-x-password-ascii, password_ascii
+10-23 23:26:17.701  2172  3709 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 23:26:18.198  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:18.199  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.199  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.222  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:18.222  6690  6736 D Maestro : View hierarchy received in 24 ms
+10-23 23:26:18.312  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:18.312  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.313  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.337  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:18.337  6690  6736 D Maestro : View hierarchy received in 25 ms
+10-23 23:26:18.387  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:18.387  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.388  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.413  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:18.413  6690  6736 D Maestro : View hierarchy received in 26 ms
+10-23 23:26:18.459  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:18.460  6690  6736 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:26:18.640  2116  2134 I netd    : tetherGetStats() -> {[]} <0.34ms>
+10-23 23:26:18.641  2116  2134 I netd    : bandwidthSetGlobalAlert(2097152) <0.07ms>
+10-23 23:26:18.962  6690  6736 W UiDevice: Timed out waiting ৫০০ms on window update.
+10-23 23:26:18.962  6690  6736 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at android.app.UiAutomation.executeAndWaitForEvent(UiAutomation.java:1180)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at androidx.test.uiautomator.UiDevice.waitForWindowUpdate(UiDevice.java:1253)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at dev.mobile.maestro.Service.isWindowUpdating(MaestroDriverService.kt:359)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at maestro_android.MaestroDriverGrpc$MethodHandlers.invoke(MaestroDriverGrpc.java:965)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at io.grpc.stub.ServerCalls$UnaryServerCallHandler$UnaryServerCallListener.onHalfClose(ServerCalls.java:182)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at io.grpc.internal.ServerCallImpl$ServerStreamListenerImpl.halfClosed(ServerCallImpl.java:355)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at io.grpc.internal.ServerImpl$JumpToApplicationThreadServerStreamListener$1HalfClosed.runInContext(ServerImpl.java:867)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:18.962  6690  6736 W UiDevice: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:19.017  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:19.019  6690  6736 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:26:19.200  2998  5752 W A       : (REDACTED) [%s] response code: %d
+10-23 23:26:19.520  6690  6736 W UiDevice: Timed out waiting ৫০০ms on window update.
+10-23 23:26:19.520  6690  6736 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at android.app.UiAutomation.executeAndWaitForEvent(UiAutomation.java:1180)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at androidx.test.uiautomator.UiDevice.waitForWindowUpdate(UiDevice.java:1253)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at dev.mobile.maestro.Service.isWindowUpdating(MaestroDriverService.kt:359)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at maestro_android.MaestroDriverGrpc$MethodHandlers.invoke(MaestroDriverGrpc.java:965)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at io.grpc.stub.ServerCalls$UnaryServerCallHandler$UnaryServerCallListener.onHalfClose(ServerCalls.java:182)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at io.grpc.internal.ServerCallImpl$ServerStreamListenerImpl.halfClosed(ServerCallImpl.java:355)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at io.grpc.internal.ServerImpl$JumpToApplicationThreadServerStreamListener$1HalfClosed.runInContext(ServerImpl.java:867)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:19.520  6690  6736 W UiDevice: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:19.577  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:19.578  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:19.578  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:19.599  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:19.600  6690  6736 D Maestro : View hierarchy received in 23 ms
+10-23 23:26:19.682  6887  6912 D EGL_emulation: app_time_stats: avg=1004.36ms min=71.90ms max=1936.82ms count=2
+10-23 23:26:19.794  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:19.794  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:19.794  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.017  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:20.018  6690  6736 D Maestro : View hierarchy received in 223 ms
+10-23 23:26:20.119  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:20.119  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.119  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.154  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:20.154  6690  6736 D Maestro : View hierarchy received in 35 ms
+10-23 23:26:20.407  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:20.408  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.408  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.435  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:20.435  6690  6736 D Maestro : View hierarchy received in 28 ms
+10-23 23:26:20.527  6690  6736 D Maestro : Requesting view hierarchy
+10-23 23:26:20.528  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.528  6690  6736 W QueryController: Could not detect idle state.
+10-23 23:26:20.562  6690  6736 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:20.562  6690  6736 D Maestro : View hierarchy received in 35 ms
+10-23 23:26:20.608  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:20.648  2172  3710 D OomAdjuster: Not killing cached processes
+10-23 23:26:20.851  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:20.852  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:20.852  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:20.878  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:20.878  6690  6921 D Maestro : View hierarchy received in 27 ms
+10-23 23:26:20.965  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:20.966  6690  6921 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:26:21.467  6690  6921 W UiDevice: Timed out waiting ৫০০ms on window update.
+10-23 23:26:21.467  6690  6921 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at android.app.UiAutomation.executeAndWaitForEvent(UiAutomation.java:1180)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at androidx.test.uiautomator.UiDevice.waitForWindowUpdate(UiDevice.java:1253)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at dev.mobile.maestro.Service.isWindowUpdating(MaestroDriverService.kt:359)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at maestro_android.MaestroDriverGrpc$MethodHandlers.invoke(MaestroDriverGrpc.java:965)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at io.grpc.stub.ServerCalls$UnaryServerCallHandler$UnaryServerCallListener.onHalfClose(ServerCalls.java:182)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at io.grpc.internal.ServerCallImpl$ServerStreamListenerImpl.halfClosed(ServerCallImpl.java:355)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at io.grpc.internal.ServerImpl$JumpToApplicationThreadServerStreamListener$1HalfClosed.runInContext(ServerImpl.java:867)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:21.467  6690  6921 W UiDevice: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:21.521  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:21.523  6690  6921 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:26:22.024  6690  6921 W UiDevice: Timed out waiting ৫০০ms on window update.
+10-23 23:26:22.024  6690  6921 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at android.app.UiAutomation.executeAndWaitForEvent(UiAutomation.java:1180)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at androidx.test.uiautomator.UiDevice.waitForWindowUpdate(UiDevice.java:1253)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at dev.mobile.maestro.Service.isWindowUpdating(MaestroDriverService.kt:359)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at maestro_android.MaestroDriverGrpc$MethodHandlers.invoke(MaestroDriverGrpc.java:965)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at io.grpc.stub.ServerCalls$UnaryServerCallHandler$UnaryServerCallListener.onHalfClose(ServerCalls.java:182)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at io.grpc.internal.ServerCallImpl$ServerStreamListenerImpl.halfClosed(ServerCallImpl.java:355)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at io.grpc.internal.ServerImpl$JumpToApplicationThreadServerStreamListener$1HalfClosed.runInContext(ServerImpl.java:867)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-23 23:26:22.024  6690  6921 W UiDevice: 	at java.lang.Thread.run(Thread.java:1012)
+10-23 23:26:22.081  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:22.082  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:22.082  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:22.103  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:22.104  6690  6921 D Maestro : View hierarchy received in 23 ms
+10-23 23:26:22.323  6887  6887 W WindowOnBackDispatcher: OnBackInvokedCallback is not enabled for the application.
+10-23 23:26:22.323  6887  6887 W WindowOnBackDispatcher: Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+10-23 23:26:22.356  2172  3709 D CoreBackPreview: Window{e283e8d u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@3ef52bc, mPriority=0, mIsAnimationCallback=false}
+10-23 23:26:22.381  6887  6912 D EGL_emulation: app_time_stats: avg=332.07ms min=27.48ms max=2282.84ms count=8
+10-23 23:26:22.678  2172  2276 I ImeTracker: com.bspc.blood:1d2b4239: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 23:26:22.678  2172  2276 I ImeTracker: com.bspc.blood:1d2b4239: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 23:26:22.679  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3157 
+10-23 23:26:22.681  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 0, locked = false
+10-23 23:26:22.682  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 23:26:22.685  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 1, locked = false
+10-23 23:26:22.685  2891  2891 I AndroidIME: InputBundleManager.loadActiveInputBundleId():450 loadActiveInputBundleId: und-Latn-x-password-ascii, password_ascii
+10-23 23:26:22.686  2172  3709 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 23:26:23.180  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:23.181  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:23.181  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:23.181  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:23.240  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:23.240  6690  6921 D Maestro : View hierarchy received in 59 ms
+10-23 23:26:23.623     0     0 W healthd : battery l=100 v=5000 t=25.0 h=2 st=2 c=900000 fc=3000000 cc=10 chg=a
+10-23 23:26:23.785  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:23.785  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:23.786  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:23.803  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:23.803  6690  6921 D Maestro : View hierarchy received in 18 ms
+10-23 23:26:23.853  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:24.017  2172  2392 D WindowManager: captureDisplay
+10-23 23:26:24.323  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:24.576  6887  6912 D EGL_emulation: app_time_stats: avg=1067.36ms min=751.46ms max=1383.25ms count=2
+10-23 23:26:25.084  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:25.084  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:25.084  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:25.126  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:25.126  6690  6921 D Maestro : View hierarchy received in 42 ms
+10-23 23:26:25.153  2116  2134 I netd    : tetherGetStats() -> {[]} <1.25ms>
+10-23 23:26:25.154  2116  2134 I netd    : bandwidthSetGlobalAlert(2097152) <0.08ms>
+10-23 23:26:25.156  2116  2134 I netd    : bandwidthRemoveInterfaceQuota(eth0) <0.58ms>
+10-23 23:26:25.157  2116  2134 I netd    : bandwidthSetInterfaceQuota(eth0, 9223372036854775807) <0.80ms>
+10-23 23:26:25.186  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:25.186  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:25.187  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:25.220  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:25.220  6690  6921 D Maestro : View hierarchy received in 34 ms
+10-23 23:26:25.306  2172  3710 D WindowManager: captureDisplay
+10-23 23:26:25.364  2116  2134 I netd    : tetherGetStats() -> {[]} <0.27ms>
+10-23 23:26:25.483  2891  2891 I StylusModule: StylusModule.onUpdateToolType():770 Update tool type = 0
+10-23 23:26:25.484  2172  2192 D AutofillManagerService: onBackKeyPressed()
+10-23 23:26:25.503  6887  6887 W WindowOnBackDispatcher: sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda11@20ddb13
+10-23 23:26:25.503  2172  3709 D CoreBackPreview: Window{e283e8d u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback null
+10-23 23:26:25.506  2172  3710 W InputManager-JNI: Input channel object 'e283e8d com.bspc.blood/com.bspc.blood.MainActivity (client)' was disposed without first being removed with the input manager!
+10-23 23:26:25.523  6887  6912 D EGL_emulation: app_time_stats: avg=627.58ms min=35.05ms max=2841.63ms count=5
+10-23 23:26:25.541  2172  2194 V WindowManager: Unknown focus tokens, dropping reportFocusChanged
+10-23 23:26:25.553  2172  2276 I ImeTracker: com.bspc.blood:9c843f63: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 23:26:25.554  2172  2276 I ImeTracker: com.bspc.blood:9c843f63: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 23:26:25.558  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():3157 
+10-23 23:26:25.559  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 0, locked = false
+10-23 23:26:25.559  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 23:26:25.564  2891  2891 I GoogleInputMethodService: GoogleInputMethodService.updateDeviceLockedStatus():2248 repeatCheckTimes = 1, locked = false
+10-23 23:26:25.564  2891  2891 I AndroidIME: InputBundleManager.loadActiveInputBundleId():450 loadActiveInputBundleId: und-Latn-x-password-ascii, password_ascii
+10-23 23:26:25.565  2172  3709 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 23:26:26.053  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:26.054  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:26.054  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:26.076  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:26.076  6690  6921 D Maestro : View hierarchy received in 23 ms
+10-23 23:26:26.172  6690  6921 D Maestro : Requesting view hierarchy
+10-23 23:26:26.172  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:26.172  6690  6921 W QueryController: Could not detect idle state.
+10-23 23:26:26.200  6690  6921 I Maestro : Skipping invisible child: android.view.accessibility.AccessibilityNodeInfo@1943fa; boundsInParent: Rect(0, 0 - 0, 0); boundsInScreen: Rect(865, 64 - 865, 64); boundsInWindow: Rect(865, 64 - 865, 64); packageName: com.android.systemui; className: android.widget.FrameLayout; text: null; error: null; maxTextLength: -1; stateDescription: null; contentDescription: null; tooltipText: null; containerTitle: null; viewIdResName: null; uniqueId: null; checkable: false; checked: false; focusable: false; focused: false; selected: false; clickable: false; longClickable: false; contextClickable: false; enabled: true; password: false; scrollable: false; granularScrollingSupported: false; importantForAccessibility: false; visible: false; actions: [AccessibilityAction: ACTION_SELECT - null, AccessibilityAction: ACTION_CLEAR_SELECTION - null, AccessibilityAction: ACTION_ACCESSIBILITY_FOCUS - null, AccessibilityAction: ACTION_SHOW_ON_SCREEN - null]; isTextSelectable: false
+10-23 23:26:26.200  6690  6921 D Maestro : View hierarchy received in 28 ms
+10-23 23:26:26.628     0     0 I logd    : logdr: UID=0 GID=0 PID=7153 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-23 23:26:26.653     0     0 I logd    : logdr: UID=0 GID=0 PID=7156 n tail=2000 logMask=10 pid=0 start=0ns deadline=0ns
+10-23 23:26:26.665     0     0 I logd    : logdr: UID=0 GID=0 PID=7159 n tail=0 logMask=1 pid=0 start=0ns deadline=0ns
+10-23 23:26:26.674  2172  2201 I ActivityManager: Force stopping dev.mobile.maestro appid=10214 user=-1: deletePackageX
+10-23 23:26:26.674  2172  2225 I AppsFilter: interaction: PackageSetting{f1ebf9e com.android.microdroid.empty_payload/10190} -> PackageSetting{74f2ed3 dev.mobile.maestro/10214} BLOCKED
+10-23 23:26:26.674  2172  2225 I AppsFilter: interaction: PackageSetting{79b6067 com.bspc.blood/10209} -> PackageSetting{74f2ed3 dev.mobile.maestro/10214} BLOCKED
+10-23 23:26:26.674  2172  2192 D DisplayManagerService: Drop pending events for gone uid 10214
+10-23 23:26:26.675  2172  2318 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-23 23:26:26.676  2172  2201 I ActivityManager: Killing 6690:dev.mobile.maestro/u0a214 (adj 0): stop dev.mobile.maestro due to deletePackageX
+10-23 23:26:26.679  2172  2201 W ActivityManager: Crash of app dev.mobile.maestro running instrumentation ComponentInfo{dev.mobile.maestro.test/androidx.test.runner.AndroidJUnitRunner}
+10-23 23:26:26.679  2172  2318 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-23 23:26:26.679  2172  2318 D InetDiagMessage: Destroyed live tcp sockets for uids={10214} in 4ms
+10-23 23:26:26.680  2172  2318 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-23 23:26:26.680  2172  2318 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-23 23:26:26.680  6680  6680 I app_process: System.exit called, status: 0
+10-23 23:26:26.680  6680  6680 I AndroidRuntime: VM exiting with result code 0.
+10-23 23:26:26.680  2172  2318 D InetDiagMessage: Destroyed live tcp sockets for uids={20214} in 2ms
+10-23 23:26:26.844     0     0 I init    : Untracked pid 6680 exited with status 0
+10-23 23:26:26.845     0     0 I init    : Untracked pid 6680 did not have an associated service entry and will not be reaped
+10-23 23:26:26.693  2172  2392 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.694   173   173 I keystore2: system/security/keystore2/src/maintenance.rs:341 - clearNamespace(r#APP, nspace=10214)
+10-23 23:26:26.696  2116  2134 I netd    : tetherGetStats() -> {[]} <0.27ms>
+10-23 23:26:26.707  1469  1469 I adbd    : Remote process closed the socket (on MSG_PEEK)
+10-23 23:26:26.707  2172  2203 I libprocessgroup: Removed cgroup /sys/fs/cgroup/uid_10214/pid_6690
+10-23 23:26:26.707  2112  2112 I Zygote  : Process 6690 exited due to signal 9 (Killed)
+10-23 23:26:26.860     0     0 I binder  : undelivered transaction 641163, process died.
+10-23 23:26:26.862     0     0 I logd    : start watching /data/system/packages.list ...
+10-23 23:26:26.708  2172  2201 I ActivityManager: Force stopping dev.mobile.maestro appid=-1 user=0: finished inst
+10-23 23:26:26.708  2172  2201 D OomAdjuster: Not killing cached processes
+10-23 23:26:26.710  2172  2392 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-23 23:26:26.710  2172  2392 V UiAutomationManager: UiAutomation service owner died
+10-23 23:26:26.716  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.716  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.716  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.716  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.716  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.716  2948  6371 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-23 23:26:26.717  2172  2467 V ActivityManager: Got obituary of 6690:dev.mobile.maestro
+10-23 23:26:26.864     0     0 I logd    : ReadPackageList, total packages: 218
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.725  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.728  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.728  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.728  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.728  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.728  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.728  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.737  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2172  2225 D PackageManager: Instant App installer not found with android.intent.action.INSTALL_INSTANT_APP_PACKAGE
+10-23 23:26:26.738  2172  2225 D PackageManager: Clear ephemeral installer activity
+10-23 23:26:26.738  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.738  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.738  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.738  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.738  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.738  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.738  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.739  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.739  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-23 23:26:26.739  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface media_data_manager with targets# 0 (types=[])
+10-23 23:26:26.740  2998  3250 I A       : NGA disabled due to not being eligible.
+10-23 23:26:26.740  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.741  2172  2172 D BatterySaverPolicy: accessibility changed to false, updating policy.
+10-23 23:26:26.741  2172  3829 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+10-23 23:26:26.744  2393  2393 D SsMediaDataProvider: Forwarding Smartspace updates []
+10-23 23:26:26.884     0     0 I binder  : 2201:2172 cannot find target node
+10-23 23:26:26.902     0     0 I binder  : 2172:2201 transaction async to 0:0 failed 641216/29189/-22, size 88-0 line 3344
+10-23 23:26:26.749  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/UserDictionaryProvider/UserDictionaryProvider.apk' with 1 weak references
+10-23 23:26:26.750  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/app/EmergencyInfoGoogleNoUi/EmergencyInfoGoogleNoUi.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/FusedLocation/FusedLocation.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/priv-app/SystemUIGoogle/SystemUIGoogle.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/vendor/overlay/SystemUIGoogle__sdk_gphone64_x86_64__auto_generated_rro_vendor.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SystemUIGoogle__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/SystemUIEmulationPixel6/SystemUIEmulationPixel6Overlay.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/YouTubeMusicPrebuilt/YouTubeMusicPrebuilt.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/BluetoothMidiService/BluetoothMidiService.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/app/Traceur/Traceur.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /apex/com.android.cellbroadcast/priv-app/GoogleCellBroadcastApp@350820300/GoogleCellBroadcastApp.apk' with 1 weak references
+10-23 23:26:26.752  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /system/priv-app/ContactsProvider/ContactsProvider.apk' with 1 weak references
+10-23 23:26:26.753  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '/product/overlay/ContactsProvider__sdk_gphone64_x86_64__auto_generated_rro_product.apk' with 1 weak references
+10-23 23:26:26.753  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/app/LatinIMEGooglePrebuilt/LatinIMEGooglePrebuilt.apk' with 1 weak references
+10-23 23:26:26.753  2905  2912 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/GoogleRestorePrebuilt-v526684/GoogleRestorePrebuilt-v526684.apk' with 1 weak references
+10-23 23:26:26.753  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-23 23:26:26.754  2172  2201 E IPCThreadState: Binder transaction failure. id: 641216, BR_*: 29189, error: -22 (Invalid argument)
+10-23 23:26:26.754  2172  2201 W ActivityManager: pid 2172 system sent binder code 18 with flags 1 to frozen apps and got error -32
+10-23 23:26:26.755  2172  2201 W ActivityManager: Error shutting down UiAutomationConnection
+10-23 23:26:26.755  2172  2225 I ActivityManager: Force stopping dev.mobile.maestro appid=10214 user=0: pkg removed
+10-23 23:26:26.757  2393  2393 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-23 23:26:26.758  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.758  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.759  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.760  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.762  2172  2280 V StorageManagerService: Package dev.mobile.maestro does not have legacy storage
+10-23 23:26:26.765  2172  2277 I InputMethodManagerService: Input method uninstalled, disabling: ComponentInfo{dev.mobile.maestro/dev.mobile.maestro.input.MaestroInputMethodService}
+10-23 23:26:26.768  2944  2944 W MediaProvider: WorkProfileOwnerApps cache is empty
+10-23 23:26:26.768  2944  2944 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.768  2944  2944 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Locked by thread main]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.768  2944  2944 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.768  2172  3710 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-23 23:26:26.768  2510  2510 D CarrierSvcBindHelper: onPackageRemoved: dev.mobile.maestro
+10-23 23:26:26.770  2172  2359 D ShortcutService: received package broadcast intent: Intent { act=android.intent.action.PACKAGE_REMOVED dat=package: flg=0x4000010 (has extras) }
+10-23 23:26:26.770  2172  2359 D ShortcutService: removing package: dev.mobile.maestro userId0
+10-23 23:26:26.770  2172  2359 D ShortcutService: handlePackageRemoved: dev.mobile.maestro user=০
+10-23 23:26:26.770  2510  2510 D CarrierSvcBindHelper: No carrier app for: 0
+10-23 23:26:26.771  2172  2347 I AppWidgetServiceImpl: Received broadcast: android.intent.action.PACKAGE_REMOVED on user 0
+10-23 23:26:26.771  2172  2347 I AppWidgetServiceImpl: calling removeHostsAndProvidersForPackageLocked() because package removed permanently. extras=Bundle[{android.intent.extra.REMOVED_FOR_ALL_USERS=true, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10214, android.intent.extra.SYSTEM_UPDATE_UNINSTALL=false, android.intent.extra.USER_INITIATED=true, android.intent.extra.DATA_REMOVED=true, android.intent.extra.user_handle=0}] isReplacing=false isArchival=false
+10-23 23:26:26.771  2172  2347 I AppWidgetServiceImpl: removeHostsAndProvidersForPackageLocked() pkg=dev.mobile.maestro userId=0
+10-23 23:26:26.772  2172  2252 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=dev.mobile.maestro
+10-23 23:26:26.772  2172  2311 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro
+10-23 23:26:26.772  2172  2311 D WifiService: Remove settings for package:dev.mobile.maestro
+10-23 23:26:26.772  2172  2311 D WifiConfigManager: Remove all networks for app ApplicationInfo{6535bac dev.mobile.maestro}
+10-23 23:26:26.773  2172  2200 I CredentialManager: updateProvidersWhenPackageRemoved
+10-23 23:26:26.773  2510  2510 E SmsApplication: com.google.android.apps.messaging lost android:read_cell_broadcasts:  (fixing)
+10-23 23:26:26.774  2172  2392 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 10138, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.784  2172  2201 D ActivityManager: sync unfroze 4298 com.android.chrome for 3
+10-23 23:26:26.791  2172  2324 E AppOps  : attributionTag VCN not declared in manifest of android
+10-23 23:26:26.795  2510  2510 E CellBroadcastUtils: getDefaultCellBroadcastReceiverPackageName: no package found
+10-23 23:26:26.795  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.795  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.796  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.796  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.796  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:26.803  2172  2172 D ActivityManager: sync unfroze 3148 com.android.keychain for 10
+10-23 23:26:26.803  2172  2172 D ActivityManager: sync unfroze 2538 com.android.settings for 10
+10-23 23:26:26.804  2172  2172 D ActivityManager: sync unfroze 4059 com.android.dynsystem:dynsystem for 10
+10-23 23:26:26.804  2172  2172 D ActivityManager: sync unfroze 4042 com.android.dynsystem for 10
+10-23 23:26:26.804  2172  2172 D ActivityManager: sync unfroze 3453 com.android.localtransport for 10
+10-23 23:26:26.805  2172  2311 I PasspointManager: No app ops listener found for dev.mobile.maestro
+10-23 23:26:26.806  2172  2311 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro
+10-23 23:26:26.807  2172  2311 D WifiService: Remove settings for package:dev.mobile.maestro
+10-23 23:26:26.807  2172  2311 D WifiConfigManager: Remove all networks for app ApplicationInfo{1114f3f dev.mobile.maestro}
+10-23 23:26:26.807  2172  2311 I PasspointManager: No app ops listener found for dev.mobile.maestro
+10-23 23:26:26.808  2393  2393 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+10-23 23:26:26.811  2172  2172 I Telecom : CarModeTracker: Package dev.mobile.maestro is not tracked.: SSH.oR@ARE🔒
+10-23 23:26:26.811  2172  2172 I Telecom : InCallController: updateCarModeForConnections: car mode apps: : SSH.oR@ARE🔒
+10-23 23:26:26.811  2172  2172 I Telecom : InCallController: update carmode current:UserHandle{0} parent:null: SSH.oR@ARE🔒
+10-23 23:26:26.816  2172  2172 I ConditionProviders: Disallowing condition provider dev.mobile.maestro (userSet: true)
+10-23 23:26:26.820  2172  2260 I RoleService: Granting default roles...
+10-23 23:26:26.822  2172  2491 W Role    : Default holder doesn't have required signing certificate: com.google.android.retaildemo:6547c73dee150c103980bfdffe55cc9a011d785dd694a5f99afd8205bcaf1f80
+10-23 23:26:26.824  2172  2491 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms.supervision, role: android.app.role.SYSTEM_SUPERVISION
+10-23 23:26:26.825  2172  2491 W Role    : Default holder doesn't have required signing certificate: com.google.android.apps.work.clouddpc:23962F4B43B9857638EA66F4D419518EAE282491ACDA4B94707BD59003C45E58
+10-23 23:26:26.837  2172  2225 I AppsFilter: interaction: PackageSetting{f1ebf9e com.android.microdroid.empty_payload/10190} -> PackageSetting{5230a19 dev.mobile.maestro.test/10215} BLOCKED
+10-23 23:26:26.837  2172  2225 I AppsFilter: interaction: PackageSetting{79b6067 com.bspc.blood/10209} -> PackageSetting{5230a19 dev.mobile.maestro.test/10215} BLOCKED
+10-23 23:26:26.838  2172  2201 D ActivityManager: sync unfroze 3777 com.google.android.documentsui for 3
+10-23 23:26:26.844  2172  2491 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms, role: android.app.role.WALLET
+10-23 23:26:26.864  2172  2628 D ActivityManager: sync unfroze 3005 com.google.android.gms for 6
+10-23 23:26:26.865   173   173 I keystore2: system/security/keystore2/src/maintenance.rs:341 - clearNamespace(r#APP, nspace=10215)
+10-23 23:26:26.875  2172  2359 D ShortcutService: Saving package item com.google.android.as to /data/system_ce/0/shortcut_service/launchers/com.google.android.as0.xml
+10-23 23:26:26.877  2116  2134 I netd    : tetherGetStats() -> {[]} <0.24ms>
+10-23 23:26:27.041     0     0 I logd    : start watching /data/system/packages.list ...
+10-23 23:26:27.042     0     0 I logd    : ReadPackageList, total packages: 217
+10-23 23:26:26.888  2172  2359 D ShortcutService: Saving package item com.google.android.apps.nexuslauncher to /data/system_ce/0/shortcut_service/launchers/com.google.android.apps.nexuslauncher0.xml
+10-23 23:26:26.892  2172  2359 D ShortcutService: Saving package item com.android.systemui to /data/system_ce/0/shortcut_service/launchers/com.android.systemui0.xml
+10-23 23:26:26.895  2172  2491 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.devicelockcontroller, role: android.app.role.SYSTEM_FINANCED_DEVICE_CONTROLLER
+10-23 23:26:26.896  2172  2201 I ActivityManager: Force stopping dev.mobile.maestro.test appid=10215 user=-1: deletePackageX
+10-23 23:26:26.905  2172  2201 D ActivityManager: sync unfroze 2713 com.google.android.permissioncontroller for 3
+10-23 23:26:26.906  2172  2201 D ActivityManager: sync unfroze 3405 android.process.media for 3
+10-23 23:26:26.921  2172  2225 D PackageManager: Instant App installer not found with android.intent.action.INSTALL_INSTANT_APP_PACKAGE
+10-23 23:26:26.921  2172  2225 D PackageManager: Clear ephemeral installer activity
+10-23 23:26:26.924  2944  3358 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-23 23:26:26.925  2944  3358 D MediaProvider: Deleted 0 Android/media items belonging to dev.mobile.maestro on /data/user/0/com.google.android.providers.media.module/databases/external.db
+10-23 23:26:26.927  2172  2200 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-23 23:26:26.929  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.929  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.929  2172  2172 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.935  2172  2225 I ActivityManager: Force stopping dev.mobile.maestro.test appid=10215 user=0: pkg removed
+10-23 23:26:26.937  2172  3829 E TaskPersister: File error accessing recents directory (directory doesn't exist?).
+10-23 23:26:26.941  2948  6371 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-23 23:26:26.941  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.942  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.942  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.943  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.943  2172  2225 W IPCThreadState: Sending oneway calls to frozen process.
+10-23 23:26:26.942  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.945  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.945  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.945  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.945  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.945  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.945  2948  3105 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-23 23:26:26.945  2948  3105 I AiAiEcho: EchoTargets: 
+10-23 23:26:26.945  2948  3105 I AiAiEcho: Filtered by AiAi flag check: 
+10-23 23:26:26.945  2948  3105 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.945  2948  3105 I AiAiEcho: Ranked targets strategy: SORT, count: 0, ranking metadata:  [CONTEXT ratelimit_period="10 SECONDS" ]
+10-23 23:26:26.946  2948  3105 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-23 23:26:26.946  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-23 23:26:26.947  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface media_data_manager with targets# 0 (types=[])
+10-23 23:26:26.947  2172  2324 E AppOps  : attributionTag VCN not declared in manifest of android
+10-23 23:26:26.947  2172  2280 V StorageManagerService: Package dev.mobile.maestro.test does not have legacy storage
+10-23 23:26:26.948  2510  2510 D CarrierSvcBindHelper: onPackageRemoved: dev.mobile.maestro.test
+10-23 23:26:26.950  2393  2393 D SsMediaDataProvider: Forwarding Smartspace updates []
+10-23 23:26:26.951  2944  3358 D MediaGrants: Removed 0 media_grants for 0 user for [dev.mobile.maestro]. Reason: Package orphaned
+10-23 23:26:26.952  2510  2510 D CarrierSvcBindHelper: No carrier app for: 0
+10-23 23:26:26.955  2172  2311 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro.test
+10-23 23:26:26.955  2172  2311 D WifiService: Remove settings for package:dev.mobile.maestro.test
+10-23 23:26:26.955  2172  2311 D WifiConfigManager: Remove all networks for app ApplicationInfo{13841a6 dev.mobile.maestro.test}
+10-23 23:26:26.955  2172  2311 I PasspointManager: No app ops listener found for dev.mobile.maestro.test
+10-23 23:26:26.956  2172  2359 D ShortcutService: received package broadcast intent: Intent { act=android.intent.action.PACKAGE_REMOVED dat=package: flg=0x4000010 (has extras) }
+10-23 23:26:26.956  2172  2359 D ShortcutService: removing package: dev.mobile.maestro.test userId0
+10-23 23:26:26.956  2172  2359 D ShortcutService: handlePackageRemoved: dev.mobile.maestro.test user=০
+10-23 23:26:26.956  2172  2347 I AppWidgetServiceImpl: Received broadcast: android.intent.action.PACKAGE_REMOVED on user 0
+10-23 23:26:26.956  2172  2347 I AppWidgetServiceImpl: calling removeHostsAndProvidersForPackageLocked() because package removed permanently. extras=Bundle[{android.intent.extra.REMOVED_FOR_ALL_USERS=true, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10215, android.intent.extra.SYSTEM_UPDATE_UNINSTALL=false, android.intent.extra.USER_INITIATED=true, android.intent.extra.DATA_REMOVED=true, android.intent.extra.user_handle=0}] isReplacing=false isArchival=false
+10-23 23:26:26.957  2172  2347 I AppWidgetServiceImpl: removeHostsAndProvidersForPackageLocked() pkg=dev.mobile.maestro.test userId=0
+10-23 23:26:26.958  2172  2172 I ConditionProviders: Disallowing condition provider dev.mobile.maestro.test (userSet: true)
+10-23 23:26:26.962  2172  2252 I RollbackManager: broadcast=ACTION_PACKAGE_FULLY_REMOVED pkg=dev.mobile.maestro.test
+10-23 23:26:26.965  2172  2172 I Telecom : CarModeTracker: Package dev.mobile.maestro.test is not tracked.: SSH.oR@ARQ🔒
+10-23 23:26:26.968  2627  7210 I ProximityAuth: [RecentAppsMediator] Package removed: (user=UserHandle{0}) dev.mobile.maestro
+10-23 23:26:26.968  2172  2172 I Telecom : InCallController: updateCarModeForConnections: car mode apps: : SSH.oR@ARQ🔒
+10-23 23:26:26.968  2172  2172 I Telecom : InCallController: update carmode current:UserHandle{0} parent:null: SSH.oR@ARQ🔒
+10-23 23:26:26.974  3005  7223 I Blockstore: [DataStoreImpl] Clearing all the restore credential for 1 packages [CONTEXT service_id=258 ]
+10-23 23:26:26.974  2627  7213 I Fitness : FitCleanupIntentOperation received Intent android.intent.action.PACKAGE_REMOVED [CONTEXT service_id=17 ]
+10-23 23:26:26.974  3005  7223 W Blockstore: [DataStoreImpl] Does not contain gms package key space. [CONTEXT service_id=258 ]
+10-23 23:26:26.974  3005  7223 I Blockstore: [PackageIntentOperation] Deleted restore credential for package dev.mobile.maestro is successful: true [CONTEXT service_id=258 ]
+10-23 23:26:26.976  2172  2311 W WifiService: Couldn't get PackageInfo for package:dev.mobile.maestro.test
+10-23 23:26:26.976  2172  2311 D WifiService: Remove settings for package:dev.mobile.maestro.test
+10-23 23:26:26.976  2172  2311 D WifiConfigManager: Remove all networks for app ApplicationInfo{b776cad dev.mobile.maestro.test}
+10-23 23:26:26.976  2172  2311 I PasspointManager: No app ops listener found for dev.mobile.maestro.test
+10-23 23:26:26.977  3005  7223 I Blockstore: [DataStoreImpl] Clearing all the Blockstore Data for package dev.mobile.maestro [CONTEXT service_id=258 ]
+10-23 23:26:26.977  3005  7223 I Blockstore: [DataStoreImpl] Clearing all the Blockstore Data for 1 packages [CONTEXT service_id=258 ]
+10-23 23:26:26.977  3005  7223 I Blockstore: [DataStoreImpl] Removing Blockstore data for packages [dev.mobile.maestro] [CONTEXT service_id=258 ]
+10-23 23:26:26.979  2948  3105 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-23 23:26:26.979  2393  2393 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-23 23:26:26.992  2172  2467 D SafetySourceDataValidat: No cert check requested for package com.google.android.permissioncontroller
+10-23 23:26:26.994  2944  2944 W MediaProvider: WorkProfileOwnerApps cache is empty
+10-23 23:26:26.994  2944  2944 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.995  2944  2944 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Locked by thread main]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.995  2944  2944 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@d9b96a9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-23 23:26:26.995  2172  2392 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-23 23:26:26.997  2944  3358 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-23 23:26:27.000  2944  3358 I MediaProvider: Begin Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-23 23:26:27.000  2944  3358 D MediaProvider: Deleted 0 Android/media items belonging to dev.mobile.maestro.test on /data/user/0/com.google.android.providers.media.module/databases/external.db
+10-23 23:26:27.157     0     0 I logd    : logdr: UID=0 GID=0 PID=7229 n tail=0 logMask=10 pid=0 start=0ns deadline=0ns
+10-23 23:26:27.005  2944  3358 D MediaGrants: Removed 0 media_grants for 0 user for [dev.mobile.maestro.test]. Reason: Package orphaned
+10-23 23:26:27.006  2510  2510 E SmsApplication: com.google.android.apps.messaging lost android:read_cell_broadcasts:  (fixing)
+10-23 23:26:27.006  2172  3709 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 10138, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.012  2944  3358 I MediaProvider: End Intent { act=android.intent.action.PACKAGE_FULLY_REMOVED dat=package: flg=0x5000010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-23 23:26:27.014  2393  2393 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+10-23 23:26:27.014  2116  2134 I netd    : tetherGetStats() -> {[]} <0.36ms>
+10-23 23:26:27.017  2510  2510 E CellBroadcastUtils: getDefaultCellBroadcastReceiverPackageName: no package found
+10-23 23:26:27.018  2172  2186 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.020  2172  3074 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.021  2172  3712 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.022  3005  7208 W SQLiteLog: (28) double-quoted string literal: "dev.mobile.maestro"
+10-23 23:26:27.023  2172  2186 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.023  2172  2186 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+10-23 23:26:27.176     0     0 I logd    : logdr: UID=0 GID=0 PID=7234 n tail=3000 logMask=99 pid=0 start=0ns deadline=0ns

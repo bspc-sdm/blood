@@ -1,0 +1,6 @@
+
+Waiting for flows to complete...
+[Failed] j1-patient (1m 9s) (Assertion is false: ".*দোকানে আছি.*" is visible)
+
+1/1 Flow Failed
+

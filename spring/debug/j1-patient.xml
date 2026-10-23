@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="69.517" timestamp="2026-10-23T23:23:16">
+    <testcase id="j1-patient" name="j1-patient" classname="j1-patient" file="/home/runner/work/blood/blood/e2e/android/flows/j1-patient.yaml" time="69.488" timestamp="2026-10-23T23:23:16" status="ERROR">
+      <failure>Assertion is false: ".*দোকানে আছি.*" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

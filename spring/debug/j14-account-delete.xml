@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="0" time="67.509" timestamp="2026-10-23T23:40:57">
+    <testcase id="j14-account-delete" name="j14-account-delete" classname="j14-account-delete" file="/home/runner/work/blood/blood/e2e/android/flows/j14-account-delete.yaml" time="67.48" timestamp="2026-10-23T23:40:57" status="SUCCESS"/>
+  </testsuite>
+</testsuites>
