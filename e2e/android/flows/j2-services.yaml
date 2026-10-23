@@ -110,6 +110,17 @@ env:
 - scroll
 - takeScreenshot: j2-06-pharmacy-sheet-bottom
 - back
+# পাঁচ ধরনের চিপ এক সারিতে — "ল্যাব" ডানে ঢাকা থাকলে সারি সরিয়ে
+- runFlow:
+    when:
+      notVisible: "ল্যাব"
+    commands:
+      - swipe:
+          from:
+            id: "listing_types"
+          direction: LEFT
+      - waitForAnimationToEnd:
+          timeout: 2000
 - tapOn:
     text: "ল্যাব"
     index: 0
