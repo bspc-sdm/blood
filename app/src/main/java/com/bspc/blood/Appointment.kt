@@ -168,7 +168,7 @@ private fun ProviderList(type: String, profile: Profile) {
     LaunchedEffect(type, filter, reload) {
         loading = true
         errorMsg = null
-        runCatching { Appointments.providersPage(type, filter) }
+        runCatching { Appointments.providersPage(type, if (OnlineGate.on(OnlineGate.CHAMBER)) filter else filter.copy(online = false)) }
             .onSuccess { list = it.items; if (it.facets != null) facets = it.facets }
             .onFailure { errorMsg = it.message }
         loading = false
@@ -182,6 +182,8 @@ private fun ProviderList(type: String, profile: Profile) {
     val feeLabel = { n: Int -> tr("Up to ৳" + String.format(java.util.Locale.US, "%,d", n), "৳" + num(String.format(java.util.Locale.US, "%,d", n)) + " পর্যন্ত") }
     val dayLabel = { d: String -> if (d == "tomorrow") tr("Tomorrow", "আগামীকাল") else tr("Sitting today", "আজ বসছেন") }
     val genderLabel = { g: String -> if (g == "female") tr("Female doctor", "নারী ডাক্তার") else tr("Male doctor", "পুরুষ ডাক্তার") }
+    // অনলাইন (ভিডিও) চেম্বার: ফিচার সুইচ online_chamber (বন্ধ থাকলে ছাঁকনি আর ব্যাজ নেই, আগের মতো)
+    val onlineOn = OnlineGate.chamber()
     val active = listOfNotNull(
         filter.day?.let { d -> ActiveFilter(dayLabel(d)) { setFilter(filter.copy(day = null)) } },
         if (filter.openNow) ActiveFilter(tr("In chamber now", "এখন চেম্বারে")) { setFilter(filter.copy(openNow = false)) } else null,
@@ -190,7 +192,7 @@ private fun ProviderList(type: String, profile: Profile) {
         filter.hospital?.let { h -> ActiveFilter(h.label) { setFilter(filter.copy(hospital = null)) } },
         filter.hospitalQ.trim().takeIf { it.isNotEmpty() }?.let { t -> ActiveFilter(tr("Hospital: ", "হাসপাতাল: ") + t) { hqText = ""; setFilter(filter.copy(hospitalQ = "")) } },
         filter.gender?.let { g -> ActiveFilter(genderLabel(g)) { setFilter(filter.copy(gender = null)) } },
-        if (filter.online) ActiveFilter(tr("Online (video)", "অনলাইন (ভিডিও)")) { setFilter(filter.copy(online = false)) } else null,
+        if (filter.online && onlineOn) ActiveFilter(tr("Online (video)", "অনলাইন (ভিডিও)")) { setFilter(filter.copy(online = false)) } else null,
     )
     // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
     val quick: List<Pair<String, () -> Unit>> = buildList {
@@ -199,7 +201,7 @@ private fun ProviderList(type: String, profile: Profile) {
             add(dayLabel("tomorrow") to { setFilter(filter.copy(day = "tomorrow")) })
         }
         if (!filter.openNow) add(tr("In chamber now", "এখন চেম্বারে") to { setFilter(filter.copy(openNow = true)) })
-        if (!filter.online && type == "doctor") add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
+        if (!filter.online && type == "doctor" && onlineOn) add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
         if (filter.maxFee == null) add(feeLabel(500) to { setFilter(filter.copy(maxFee = 500)) })
         if (filter.specialty == null) facets?.specialties?.take(3)?.forEach { (code, _) -> add(Specialties.label(code) to { setFilter(filter.copy(specialty = code)) }) }
     }
@@ -263,7 +265,7 @@ private fun ProviderList(type: String, profile: Profile) {
                     }
                 }
             }
-            else -> items(shown, key = { it.uid }) { p -> ProviderCard(p, filter) { detail = p } }
+            else -> items(shown, key = { it.uid }) { p -> ProviderCard(p, if (onlineOn) filter else filter.copy(online = false)) { detail = p } }
         }
     }
 
@@ -281,7 +283,7 @@ private fun ProviderList(type: String, profile: Profile) {
         FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = if (active.isNotEmpty()) clearAll else null) {
             FilterChoice(tr("Day", "দিন"), listOf("today", "tomorrow"), filter.day, dayLabel) { setFilter(filter.copy(day = it)) }
             FilterSwitch(tr("In chamber now", "এখন চেম্বারে"), filter.openNow) { setFilter(filter.copy(openNow = it)) }
-            if (type == "doctor") FilterSwitch(tr("Online (video) only", "শুধু অনলাইন (ভিডিও)"), filter.online) { setFilter(filter.copy(online = it)) }
+            if (type == "doctor" && onlineOn) FilterSwitch(tr("Online (video) only", "শুধু অনলাইন (ভিডিও)"), filter.online) { setFilter(filter.copy(online = it)) }
             SpecialtyChoice(
                 options = facets?.specialties?.map { it.first } ?: Specialties.of(type),
                 count = { code -> facets?.specialties?.firstOrNull { it.first == code }?.second },
@@ -396,7 +398,7 @@ internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) 
         ),
         tags = listOfNotNull(
             // অনলাইন (ভিডিও) চেম্বার থাকলে "অনলাইন" ব্যাজ
-            if (p.chambers.any { it.online }) tr("Online", "অনলাইন") else null,
+            if (OnlineGate.chamber() && p.chambers.any { it.online }) tr("Online", "অনলাইন") else null,
             if (p.canBook) tr("Appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট") else null,
             if (p.homeVisit?.enabled == true) tr("Home visit", "বাসায় যান") else null,
         ),
@@ -1043,8 +1045,9 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     // হোম ভিজিটের দূরত্ব হিসাবের জন্য GPS লোকেশন লাগে (শুধু জেলা বেছে নিলে জেলার মাঝখান ধরা হয়)
     var gpsPlace by remember { mutableStateOf(if (profile.locationSource == "gps") profile.placeName else null) }
     var preview by remember { mutableStateOf(false) }
-    // ডাক্তার: নতুন চেম্বারের ধরন (চেম্বারে / অনলাইন)
+    // ডাক্তার: নতুন চেম্বারের ধরন (চেম্বারে / অনলাইন) — শুধু online_chamber চালু থাকলে
     var choosingType by remember { mutableStateOf(false) }
+    val onlineOn = OnlineGate.chamber()
 
     LaunchedEffect(Unit) {
         runCatching { Appointments.mine() }
@@ -1131,14 +1134,14 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                     onChangeHospital = { pickFor = i },
                     onRemove = { chambers.removeAt(i) },
                     // ডাক্তার: "চেম্বারে" / "অনলাইন (ভিডিও)"; চেম্বারে ফিরলে হাসপাতাল বেছে নিতে হয়
-                    onMode = if (type == "doctor") ({ on -> if (on) chambers[i] = OnlineChambers.toOnline(c) else pickFor = i }) else null,
+                    onMode = if (type == "doctor" && onlineOn) ({ on -> if (on) chambers[i] = OnlineChambers.toOnline(c) else pickFor = i }) else null,
                     onlineAllowed = chambers.none { it.online && it !== c },
                 )
             }
-            // জায়গায় সর্বোচ্চ ৩টা, তার বাইরে অনলাইন একটা (ডাক্তার)
-            if (chambers.count { !it.online } < 3 || (type == "doctor" && chambers.none { it.online })) {
+            // জায়গায় সর্বোচ্চ ৩টা, তার বাইরে অনলাইন একটা (ডাক্তার, online_chamber চালু থাকলে)
+            if (chambers.count { !it.online } < 3 || (type == "doctor" && onlineOn && chambers.none { it.online })) {
                 // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে (হাসপাতালে বসেন না)
-                OutlinedButton(onClick = { if (type == "doctor") choosingType = true else if (chambers.size < 3) chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { if (type == "doctor" && onlineOn) choosingType = true else if (type == "doctor") pickFor = -1 else if (chambers.size < 3) chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }

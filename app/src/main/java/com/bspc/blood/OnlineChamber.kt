@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,34 @@ import org.json.JSONObject
 // ডাক্তার/সহকারী মিলিয়ে "ফি পেয়েছি" বা "পাইনি"। Lifolo টাকা রাখে না। সময় হলে "ভিডিও কলে যুক্ত হোন" —
 // কলের পর্দা কল-অ্যাপের (CallsNav.kt: openAppointmentCall, পথ appt_call/{appointmentId}); সময়ের হিসাব CallWindows (Calls.kt)।
 // ------------------------------------------------------------
+
+/**
+ * ফিচার সুইচ (মালিকের নিয়ম, ২৩ অক্টোবর): অনলাইন চেম্বারের সবকিছু `online_chamber`-এ, ভিডিও কলে যুক্ত হওয়া আরও `appt_video`-এ।
+ * বন্ধ থাকলে চেম্বারের পাতাগুলো আগের মতোই। testKeys: টেস্টে জোর করে চালু/বন্ধ।
+ */
+object OnlineGate {
+    const val CHAMBER = "online_chamber"
+    const val VIDEO = "appt_video"
+
+    /** টেস্টে: null = আসল Features */
+    var testKeys: Map<String, Boolean>? = null
+
+    fun on(key: String): Boolean = testKeys?.get(key) ?: Features.on(key)
+
+    /** কম্পোজে: সুইচ বদলালে পাতা নিজে বদলায় */
+    @Composable
+    fun rememberOn(key: String): Boolean {
+        val keys by Features.keys.collectAsState()
+        return testKeys?.get(key) ?: (keys[key] == true)
+    }
+
+    @Composable
+    fun chamber(): Boolean = rememberOn(CHAMBER)
+
+    /** appt_video লাগে online_chamber-ও */
+    @Composable
+    fun video(): Boolean = rememberOn(CHAMBER) && rememberOn(VIDEO)
+}
 
 object OnlineChambers {
     /** সার্ভার অনলাইন চেম্বারের এই নামই দেয় (hospitalName / hospitalNameBn) */
@@ -196,7 +225,7 @@ object OnlineApi {
 // ------------------------------------------------------------
 
 @Composable
-fun OnlineTag() = Tag(tr("Online", "অনলাইন"), MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+fun OnlineTag() = if (OnlineGate.chamber()) Tag(tr("Online", "অনলাইন"), MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) else Unit
 
 @Composable
 fun PayStateTag(pay: OnlinePay, staff: Boolean = false) {
@@ -363,6 +392,7 @@ fun OnlineChamberFields(c: Chamber, onChange: (Chamber) -> Unit) {
 /** রোগী: ফি, ডাক্তারের bKash নম্বর (কপি), ধাপগুলো, "টাকা পাঠিয়েছি", অবস্থা; তারপর ভিডিও কলের বোতাম */
 @Composable
 fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start: String, pay: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
+    if (!OnlineGate.chamber()) return
     if (status !in listOf("pending", "confirmed", "completed")) return
     val context = LocalContext.current
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -556,6 +586,7 @@ fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit
 /** ডাক্তার/সহকারী: ফির অবস্থা, TrxID, "ফি পেয়েছি" / "পাইনি" (নিশ্চিত করার ধাপসহ); তারপর ভিডিও কলের বোতাম */
 @Composable
 fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: String, pay: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
+    if (!OnlineGate.chamber()) return
     if (status !in listOf("pending", "confirmed", "completed")) return
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
@@ -656,6 +687,7 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
  */
 @Composable
 fun VideoJoinBox(appointmentId: String, status: String, date: Long, start: String, now: Long? = null) {
+    if (!OnlineGate.video()) return
     val context = LocalContext.current
     var tick by remember { mutableLongStateOf(System.currentTimeMillis()) }
     if (now == null) {

@@ -61,6 +61,13 @@ class OnlineChamberScreensTest {
         AppPrefs.theme.value = ThemeMode.LIGHT
         LoginGate.uid.value = "demo"
         LoginGate.profileReady.value = true
+        // ফিচার সুইচ: এই টেস্টগুলোতে চালু (CI প্রোফাইলের মতো); বন্ধের টেস্ট আলাদা
+        OnlineGate.testKeys = mapOf(OnlineGate.CHAMBER to true, OnlineGate.VIDEO to true)
+    }
+
+    @org.junit.After
+    fun tearDown() {
+        OnlineGate.testKeys = null
     }
 
     private fun show(content: @Composable () -> Unit) {
@@ -325,6 +332,34 @@ class OnlineChamberScreensTest {
         rule.onNodeWithText("ভিডিও কলের সময় পেরিয়ে গেছে").assertExists()
         rule.onNodeWithText("ডাক্তার নিশ্চিত করলে ভিডিও কলের বোতাম আসবে।").assertExists()
         rule.onNodeWithTag("appt_join").assertDoesNotExist()
+    }
+
+    // ---------------- ফিচার সুইচ বন্ধ ----------------
+
+    @Test
+    fun gatedOff() {
+        OnlineGate.testKeys = mapOf(OnlineGate.CHAMBER to true, OnlineGate.VIDEO to false)
+        show { PatientOnlinePanel("a1", "confirmed", date, "17:00", unpaid, onChanged = {}, now = slot) }
+        // ফি আছে, কিন্তু appt_video বন্ধ — যুক্ত হওয়ার বোতাম/লেখা নেই
+        rule.onNodeWithText("টাকা পাঠিয়েছি").assertExists()
+        rule.onNodeWithTag("appt_join").assertDoesNotExist()
+        rule.onNodeWithText("সময় হলে এখানে বোতাম আসবে").assertDoesNotExist()
+    }
+
+    @Test
+    fun gatedAllOff() {
+        OnlineGate.testKeys = mapOf(OnlineGate.CHAMBER to false, OnlineGate.VIDEO to true)
+        val online = Chamber.onlineNew().copy(fee = "৫০০ টাকা")
+        val doc = Provider("d1", "doctor", "ডা. ডেমো হাসান", listOf("medicine"), "এমবিবিএস", "male", true, true, listOf(online), null, 4.5, 3)
+        show {
+            PatientOnlinePanel("a1", "confirmed", date, "17:00", unpaid, onChanged = {}, now = slot)
+            StaffOnlinePanel("a2", "confirmed", date, "17:00", unpaid.copy(state = "claimed"), onChanged = {}, now = slot)
+            ProviderCard(doc, CareFilter()) {}
+        }
+        rule.onNodeWithTag("online_patient_panel").assertDoesNotExist()
+        rule.onNodeWithTag("online_staff_panel").assertDoesNotExist()
+        rule.onNodeWithTag("appt_join").assertDoesNotExist()
+        rule.onNodeWithText("অনলাইন").assertDoesNotExist()
     }
 
     // ---------------- তালিকা ----------------
