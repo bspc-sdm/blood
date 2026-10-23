@@ -300,23 +300,8 @@ env:
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: j16-11-confirm-fee
-# যাচাই (RC4): টিকের লেখায় চাপলে ঘর বন্ধ হয়ে যায় কি না — লেখাটা চাপার যোগ্য নয়, চাপ পেছনের "বাইরে চাপলে বন্ধ"-এ যায়
-# কি না দেখা। বন্ধ হলে ছবি (j16-11c) রেখে আবার খোলা; টিক দেওয়া হয় লেখার বাঁয়ের টিক-বাক্সে
-- tapOn: "TrxID মিলেছে"
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: j16-11b-after-label-tap
-- runFlow:
-    when:
-      notVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
-    commands:
-      - takeScreenshot: j16-11c-sheet-closed-by-label-tap
-      - runFlow: ../common/fee-received.yaml
-      - extendedWaitUntil:
-          visible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
-          timeout: 10000
-      - waitForAnimationToEnd:
-          timeout: 5000
+# টিক শুধু লেখার বাঁয়ের টিক-বাক্সে: লেখায় চাপলে (চাপার যোগ্য নয়) চাপ ঘরের পেছনের "বাইরে চাপলে বন্ধ"-এ যায় আর
+# ঘরটা বন্ধ হয়ে যায় (RC4-এ দেখা অ্যাপের ত্রুটি, CardDialog) — তাই লেখায় নয়
 # ডায়ালগ আলাদা জানালা — testTag (pay_check_*, appt_check_*) resource-id হয় না, তাই লেখার বাঁয়ের টিক-বাক্স
 - runFlow:
     when:
