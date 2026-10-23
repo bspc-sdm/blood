@@ -622,7 +622,7 @@ class CallsIT : CallsTestBase() {
         assertTrue(mine("doc")["doctorJoined"].booleanValue())
         assertTrue(rxList()["doctorJoined"].booleanValue())
         // the web sends doctorUid along when an assistant confirms: ignored (the appointment says who the doctor is)
-        val r = call("asst", "appt_pay_confirm", mapOf("appointmentId" to "ap1", "doctorUid" to "doc"))
+        val r = call("asst", "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to "ap1", "doctorUid" to "doc"))
         assertEquals(200, r.status, r.toString())
         assertEquals("paid", r.body["payState"].textValue())
         assertEquals("paid", row("SELECT pay_state FROM appointments WHERE id = 'ap1'")["pay_state"])

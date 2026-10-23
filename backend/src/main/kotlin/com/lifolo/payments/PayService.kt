@@ -604,13 +604,7 @@ class PayService(
     fun confirm(lang: String?, user: AuthUser, id: String?, checks: JsonNode?): Pair<PayReq, Invoice?> {
         val r = load(lang, id)
         requireBiz(lang, user, r)
-        val ok = checks != null && checks.isObject && listOf("trxId", "amount", "last4").all { k -> checks.get(k)?.let { it.isBoolean && it.booleanValue() } == true }
-        if (!ok) {
-            throw Pay.bad(
-                lang, "Check the TrxID, the amount and the last 4 digits in your own wallet first",
-                "আগে নিজের অ্যাপে TrxID, টাকার পরিমাণ আর শেষ ৪ সংখ্যা মিলিয়ে নিন", "checks_required", // bn-ok
-            )
-        }
+        requireChecks(lang, checks)
         val now = clock.now()
         val changed = confirmCore(lang, r, null, user.id, strict = true, now = now)
         val invoice = if (changed) receipt(lang, user, get(r.id)!!) else get(r.id)?.invoiceId?.let { invoices.load(it) }
@@ -619,9 +613,24 @@ class PayService(
         return after to invoice
     }
 
-    /** appt_pay_confirm (compatibility): returns (changed, the receipt) */
-    fun legacyConfirm(lang: String?, actor: AuthUser, appointmentId: String, now: Long): Pair<Boolean, Invoice?> {
+    /** the three checks (P1): trxId, amount and last4 all `true`, else 400 checks_required */
+    fun requireChecks(lang: String?, checks: JsonNode?) {
+        val ok = checks != null && checks.isObject && listOf("trxId", "amount", "last4").all { k -> checks.get(k)?.let { it.isBoolean && it.booleanValue() } == true }
+        if (!ok) {
+            throw Pay.bad(
+                lang, "Check the TrxID, the amount and the last 4 digits in your own wallet first",
+                "আগে নিজের অ্যাপে TrxID, টাকার পরিমাণ আর শেষ ৪ সংখ্যা মিলিয়ে নিন", "checks_required", // bn-ok
+            )
+        }
+    }
+
+    /**
+     * appt_pay_confirm (compatibility): returns (changed, the receipt). When the appointment has a pay request it needs
+     * the same three [checks] as pay_confirm, so the old path is no way around them.
+     */
+    fun legacyConfirm(lang: String?, actor: AuthUser, appointmentId: String, checks: JsonNode?, now: Long): Pair<Boolean, Invoice?> {
         val r = ensureChamberFee(appointmentId, now)
+        if (r != null || latestFor("appointment", appointmentId) != null) requireChecks(lang, checks)
         val changed = confirmCore(lang, r, appointmentId, actor.id, strict = false, now = now)
         if (!changed) return false to null
         val invoice = if (r != null) {
@@ -864,7 +873,7 @@ class PayService(
         try {
             val lang = jdbc.queryForList("SELECT lang FROM user_profiles WHERE uid = ?", String::class.java, payer).firstOrNull()
             push.pushPatient(payer, PayTexts.TITLE_EN, PayTexts.TITLE_BN, PayTexts.body(type, lang ?: "bn"), data(type, r, cat))
-            sse.publish("user:$payer", type, linkedMapOf("id" to r.id, "status" to r.status, "purpose" to r.purpose))
+            sse.publish("user:$payer", type, linkedMapOf("id" to r.id, "payRequestId" to r.id, "status" to r.status, "purpose" to r.purpose))
         } catch (e: Exception) {
             log.warn("pay push failed: {}", e.message)
         }
@@ -889,7 +898,7 @@ class PayService(
         try {
             val to = if (ownerOnly) listOf(owner) else bizUids(r)
             push.pushUsers(to) { _, lang -> PushText(Lang.pick(lang, PayTexts.TITLE_EN, PayTexts.TITLE_BN), PayTexts.body(type, lang), data(type, r, NotifyCats.BUSINESS)) }
-            for (uid in to) sse.publish("user:$uid", type, linkedMapOf("id" to r.id, "status" to r.status, "purpose" to r.purpose))
+            for (uid in to) sse.publish("user:$uid", type, linkedMapOf("id" to r.id, "payRequestId" to r.id, "status" to r.status, "purpose" to r.purpose))
         } catch (e: Exception) {
             log.warn("pay push failed: {}", e.message)
         }

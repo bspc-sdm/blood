@@ -414,11 +414,13 @@ class RxPharmacyService(
         val all = loadOrders("pharmacy_uid = ? ORDER BY created_at DESC LIMIT 300", ctx.user.id)
         val shown = RxMath.recentFirstOpen(all, { it.createdAt }, { it.status in RxMath.OPEN_ORDER }, 100)
         val receipts = com.lifolo.invoices.InvoiceLinks.live(jdbc, "rx_order", shown.map { it.id })
+        val pays = com.lifolo.payments.PayLinks.latest(jdbc, "rx_order", shown.map { it.id }, com.lifolo.payments.PayLinks.RX_ORDER)
         val items = shown.map { o ->
             linkedMapOf<String, Any?>(
                 "id" to o.id, "rxId" to o.rxId, "code" to o.code, "patientName" to o.patientName, "note" to (o.note ?: ""),
                 "status" to o.status, "createdAt" to o.createdAt, "mode" to o.mode, "price" to (o.price ?: ""), "eta" to (o.eta ?: ""),
                 "deliveryFee" to (o.deliveryFee ?: ""), "missed" to o.missed, "invoiceId" to receipts[o.id],
+                "payRequestId" to pays[o.id]?.id, "payStatus" to pays[o.id]?.status,
             ).apply {
                 if (o.mode == "online" && o.status in RxMath.OPEN_ORDER) {
                     put("address", o.address ?: "")

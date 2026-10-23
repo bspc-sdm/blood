@@ -178,7 +178,7 @@ class OnlinePaySafetyIT : P2TestBase() {
         ok(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF"))
         ok(doc, "appt_pay_reject", mapOf("appointmentId" to id, "reason" to "পাইনি"))
         ok(pat, "appt_pay_claim", mapOf("appointmentId" to id, "payRef" to "AB12CD34EF"))
-        ok(doc, "appt_pay_confirm", mapOf("appointmentId" to id))
+        ok(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id))
         val log = jdbc.queryForList("SELECT by_uid, from_state, to_state, pay_ref, note FROM appt_pay_log WHERE appointment_id = ? ORDER BY id", id)
         assertEquals(
             listOf("$pat unpaid→claimed AB12CD34EF", "$doc claimed→unpaid AB12CD34EF", "$pat unpaid→claimed AB12CD34EF", "$doc claimed→paid AB12CD34EF"),
@@ -197,7 +197,7 @@ class OnlinePaySafetyIT : P2TestBase() {
         // a doctor who joined: nothing
         val id2 = book(pat2)
         ok(doc, "appointment_update", mapOf("id" to id2, "op" to "confirm"))
-        ok(doc, "appt_pay_confirm", mapOf("appointmentId" to id2))
+        ok(doc, "appt_pay_confirm", mapOf("checks" to mapOf("trxId" to true, "amount" to true, "last4" to true), "appointmentId" to id2))
         jdbc.update("UPDATE appointments SET doctor_joined_at = now() WHERE id = ?", id2)
         assertEquals(0, unserved.run(after + 2 * hour))
 

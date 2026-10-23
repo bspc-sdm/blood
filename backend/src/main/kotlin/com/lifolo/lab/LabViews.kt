@@ -37,6 +37,8 @@ object LabViews {
             "status" to o.status,
             "createdAt" to o.createdAt,
             "invoiceId" to o.invoiceId,
+            "payRequestId" to o.payRequestId,
+            "payStatus" to o.payStatus,
             "prices" to o.prices?.toMap(),
             "home" to LabPrices.homeView(o.home, contact, now),
             "report" to o.report?.let { r ->

@@ -207,7 +207,18 @@ is, rocket/upay → `other` with ref `rocket:<TrxID>`. A receipt problem never u
 `appt_pay_claim / appt_pay_confirm / appt_pay_reject` are wrappers: the appointment's `chamber_fee` request and the
 appointment's pay columns change together in one transaction (same TrxID-once-per-doctor, 5/hour, `appt_pay_log`, old
 pushes). The new actions on a `chamber_fee` request keep the appointment in step the same way. Existing online
-appointments were migrated to requests (V681).
+appointments were migrated to requests (V681). Once the appointment has a pay request (every online one with a fee
+does), `appt_pay_confirm` needs the same `checks:{trxId,amount,last4}` (all `true`, else 400 `checks_required`) as
+`pay_confirm`, so the old path is no way around the three checks. The appointment pushes (`type:"appointment"`) also carry
+`payRequestId`.
+
+### Where clients find the request (`payRequestId`, `payStatus`)
+The source views carry the **latest** pay request of that source (`null`/`null` when there is none), next to `invoiceId`:
+- appointments (`chamber_fee` or `booking_advance`): `my_appointments` items (both roles), `rx_patients.appointments`;
+- rx orders (`delivery`): `rx_activity.orders`, `rx_orders_pharmacy` items;
+- lab orders (`lab`): every lab order view (`lab_orders`, `lab_order_get`, `lab_open_code`, `rx_activity.labOrders`).
+With `payRequestId` the app opens the PaySheet (`pay_request_get {id}`) or the business's confirm (`pay_confirm` with the
+checks) directly, and a list card can show "অগ্রিম বাকি" (`payStatus` `open`/`rejected`).
 
 ### Booking advance, ambulance
 - `book` answers `payRequestId` when a request was made: the online fee, or the chamber's advance (`pay_chamber_advance`
@@ -220,7 +231,7 @@ appointments were migrated to requests (V681).
 Payer (+ caregivers): `pay_requested`, `pay_confirmed`, `pay_rejected`, `pay_refunded` (cat `appointments` for
 chamber_fee/booking_advance, else `my_request`). Business (cat `business`): `pay_claimed`, `pay_reminder`,
 `pay_refund_due` (owner). Account: `pay_methods_changed`. SSE events with the same names on `user:<uid>`:
-`{id, status, purpose}`.
+`{id, payRequestId, status, purpose}`. Every `pay_*` push about a request carries `payRequestId`.
 
 ### Jobs (every 15 min, `pay-jobs`)
 Expiry (booking_advance at the slot, delivery/lab 24 h, ambulance_fare/invoice_due 7 days; open or rejected);

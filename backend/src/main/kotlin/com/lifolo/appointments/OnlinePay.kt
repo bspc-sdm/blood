@@ -120,7 +120,7 @@ class OnlinePay(
         val (changed, payRef) = pay.legacyClaim(ctx.lang, a.id, ctx.user.id, ctx.caller.id, ref.value, clock.now())
         if (changed) {
             val body = "${a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (payRef != null) " · TrxID $payRef" else ""}"
-            val data = mapOf("type" to "appointment", "role" to "provider", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS)
+            val data = mapOf("type" to "appointment", "role" to "provider", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS, "payRequestId" to pay.latestFor("appointment", a.id, "chamber_fee")?.id)
             // only people the online_chamber switch is on for (FEATURES.md)
             for (to in (listOf(a.providerUid) + assistantUids(a.providerUid)).filter { onlineSwitch.allowed(it) }) {
                 users.push(to, "Patient sent the fee — please check", "রোগী ফি পাঠিয়েছেন — যাচাই করুন", body, data) // bn-ok
@@ -137,12 +137,12 @@ class OnlinePay(
         requireDoctorSide(ctx, a)
         requirePayable(ctx, a)
         // Lifolo Pay: the request is confirmed with the appointment; the receipt follows (a receipt problem never undoes it)
-        val (changed, invoice) = pay.legacyConfirm(ctx.lang, ctx.user, a.id, clock.now())
+        val (changed, invoice) = pay.legacyConfirm(ctx.lang, ctx.user, a.id, ctx.body["checks"], clock.now())
         if (changed && onlineSwitch.allowed(a.patientUid)) {
             push.pushPatient(
                 a.patientUid, "The doctor received the fee", "ডাক্তার ফি পেয়েছেন", // bn-ok
                 "${a.providerName} · ${ApptRepo.dateLabel(a.date)}",
-                mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
+                mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS, "payRequestId" to pay.latestFor("appointment", a.id, "chamber_fee")?.id),
             )
         }
         return linkedMapOf("ok" to true, "payState" to "paid", "invoice" to invoice?.toMap())
@@ -158,7 +158,7 @@ class OnlinePay(
         if (onlineSwitch.allowed(a.patientUid)) push.pushPatient(
             a.patientUid, "The doctor has not received the fee yet", "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন", // bn-ok
             "${a.providerName} · ${ApptRepo.dateLabel(a.date)}${if (reason != null) " · $reason" else ""}",
-            mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
+            mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS, "payRequestId" to pay.latestFor("appointment", a.id, "chamber_fee")?.id),
         )
         return linkedMapOf("ok" to true, "payState" to "unpaid", "payNote" to reason)
     }
