@@ -12,7 +12,7 @@ import java.math.BigDecimal
  * refresh builds them again every new Dhaka day with the rest of the demo world.
  */
 @Component
-class InvoiceDemo(private val invoices: InvoiceService) : DemoSeedPart {
+class InvoiceDemo(private val invoices: InvoiceService, private val features: InvoiceFeatures) : DemoSeedPart {
     override val step = 5
     override val label = "স্বাস্থ্য ও কেয়ারগিভার"
     override val order = 100
@@ -28,6 +28,9 @@ class InvoiceDemo(private val invoices: InvoiceService) : DemoSeedPart {
         fun issue(kind: String, bizId: String, ownerUid: String, cmd: (String) -> IssueCmd): Invoice? {
             val b = invoices.biz(kind, bizId) ?: return null
             if (!invoices.canIssue(b) || b.ownerUid != ownerUid) return null
+            // that kind's receipts switched off for the demo business (production today): no demo receipts of it — issuing
+            // would answer 404 feature_off and stop the whole step, i.e. the demo build and the nightly demo refresh
+            if (!features.kindOn(ownerUid, kind)) return null
             return invoices.issue("bn", AuthUser(ownerUid), cmd(bizId))
         }
 
