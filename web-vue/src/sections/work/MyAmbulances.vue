@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // /work/ambulance — নিজের অ্যাম্বুলেন্স (অ্যাপের MyAmbulancesSection; আমার কাজ CONTRACT §২):
-// উপরে "ডাক" (কাজ আগে), তারপর প্রতিটা চালু গাড়ির "রোগীরা আপনাকে যেভাবে দেখেন" — খালি/ট্রিপে শুধু এখানেই (এক জায়গায়),
+// উপরে "ডাক" (কাজ আগে), তারপর প্রতিটা চালু গাড়ির "রোগীরা আপনাকে যেভাবে দেখেন" এক লাইনে ("দেখুন") আর খালি/ট্রিপে —
+// এখানে শুধু দেখায়, "বদলান" → /work (খালি/ট্রিপে বদলানো, "আবার চালু রাখুন" — শুধু "আমার কাজ"-এর অবস্থার বোতামে, এক জায়গায়),
 // তারপর গাড়ির তালিকা (অবস্থা শুধু দেখায়), যোগ/বদল/সরানো, রসিদ। আগের চারটা সংখ্যার ঘর বাদ (তালিকাতেই আছে)।
 import { computed, ref } from 'vue';
 import { Button, ConfirmDialog, Icon, RowMenu, Tag } from '@/ui/kit';
@@ -10,7 +11,6 @@ import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
-import { timeAgo } from '@/lib/format';
 import { useNav } from '@/lib/nav';
 import { chartSummary } from '@/sections/services/fare';
 import { MAX_AMBULANCES, ambulanceDocs, callsLine, myBusinessTitle, useAfterChange, useAreas, useCatalog, useFlash, type Ambulance, type ListingStats } from './shared';
@@ -24,11 +24,10 @@ import StatusReason from './StatusReason.vue';
 import AppealButton from './AppealButton.vue';
 import DocsNeededNotice from './DocsNeededNotice.vue';
 import AmbulanceCalls from './AmbulanceCalls.vue';
-import StillAvailable from './StillAvailable.vue';
 import AmbReceipts from '../invoices/AmbReceipts.vue';
 import { invFeature } from '../invoices/features';
-import ProviderPreview from '@/ui/listing/ProviderPreview.vue';
-import SwitchPair from '@/ui/listing/SwitchPair.vue';
+import QueuePreview from './QueuePreview.vue';
+import StateLine from './StateLine.vue';
 import { LT } from '@/ui/listing/model';
 import { useOwnListings } from './ownListing';
 import { useCatalog as useLists } from '@/sections/services/data';
@@ -43,7 +42,6 @@ const cat = useCatalog('ambulanceType');
 const after = useAfterChange();
 const [flash, setFlash] = useFlash();
 const err = ref<string | null>(null);
-const busy = ref<string | null>(null);
 const del = ref<Ambulance | null>(null);
 const delBusy = ref(false);
 const delErr = ref<string | null>(null);
@@ -54,24 +52,9 @@ const st = computed(() => new Map((stats.data?.items ?? []).map((x) => [x.id, x]
 const canAdd = computed(() => list.value.length < MAX_AMBULANCES);
 const live = computed(() => list.value.filter((a) => a.status === 'approved'));
 const names = computed(() => Object.fromEntries(list.value.map((a) => [a.id, a.name])));
-// "রোগীরা আপনাকে যেভাবে দেখেন" — প্রতিটা চালু গাড়ির কার্ড, আর "খালি আছি / ট্রিপে আছি" (আগের ambulance_available)
+// "রোগীরা আপনাকে যেভাবে দেখেন" — প্রতিটা চালু গাড়ির এক লাইন; "খালি আছি / ট্রিপে আছি" শুধু দেখায়
 const lists = useLists();
 const own = useOwnListings('ambulance', () => lists.value);
-
-async function toggle(a: Ambulance, on: boolean) {
-  busy.value = a.id;
-  err.value = null;
-  setFlash(null);
-  try {
-    await call('ambulance_available', { id: a.id, available: on });
-    own.patch(a, { available: on, availableAt: on ? Date.now() : a.availableAt, busySince: 0 });
-    await after();
-  } catch (e) {
-    err.value = errorText(e);
-  } finally {
-    busy.value = null;
-  }
-}
 async function remove() {
   if (!del.value) return;
   delBusy.value = true;
@@ -102,21 +85,9 @@ const askDel = (a: Ambulance) => {
     <Flash :msg="flash" :error="err" />
     <!-- উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" -->
     <AmbulanceCalls v-if="live.length" :names="names" :on-changed="() => { after(); }" />
-    <ProviderPreview v-for="a in live" :key="'pv-' + a.id" :l="own.listing(a)" :public-to="`/services/ambulance/${a.id}`" :store-key="'ambulance.' + a.id">
-      <SwitchPair
-        :label="LT.ambFree()"
-        testid="sw-available"
-        :busy="busy === a.id"
-        :value="a.available ? 'free' : 'trip'"
-        :options="[{ key: 'free', label: LT.ambFree(), icon: 'check_circle', good: true }, { key: 'trip', label: LT.ambTrip(), icon: 'ambulance' }]"
-        @pick="(k) => toggle(a, k === 'free')"
-      />
-      <div class="col gap-4" :style="{ flex: '1 1 100%' }">
-        <StillAvailable :a="a" :busy="busy === a.id" @renew="toggle(a, true)" />
-        <span v-if="a.available && a.availableAt > 1" class="t-body-s muted">{{ tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt) }}</span>
-        <span class="t-body-s muted">{{ tr('Turn off when you go on a trip.', 'ট্রিপে গেলে বন্ধ করুন।') }}</span>
-      </div>
-    </ProviderPreview>
+    <QueuePreview v-for="a in live" :key="'pv-' + a.id" :l="own.listing(a)" :public-to="`/services/ambulance/${a.id}`">
+      <StateLine :label="a.available ? LT.ambFree() : LT.ambTrip()" :tone="a.available ? 'good' : null" />
+    </QueuePreview>
     <DocsNeededNotice v-for="a in list" :key="a.id" kind="ambulance" :id="a.id" :specs="ambulanceDocs()" :item="a" :title="`${a.name} · ${a.vehicleNo}`" @done="after" />
 
     <WorkEmpty v-if="!list.length" icon="ambulance" :title="tr('No ambulance added yet', 'এখনো কোনো অ্যাম্বুলেন্স যোগ করা হয়নি')">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// যোগাযোগ (প্রতিটা যোগাযোগের জায়গায় একই, মালিকের সিদ্ধান্ত RC4): শুধু দুটো আইকন — কল · মেসেজ।
+// যোগাযোগ (প্রতিটা যোগাযোগের জায়গায় একই, মালিকের সিদ্ধান্ত RC4): দুটো বোতাম — কল · মেসেজ; প্রতিটায় আইকনের পাশে একটা শব্দ
+// ("কল", "মেসেজ" — আমার কাজ CONTRACT: লেখা ছাড়া আইকন নয়; কাজের সারি, সেবার তালিকা, চ্যাট সব জায়গায় একই)।
 // - কলের আইকন: ছোট মেনু — "ফোন কল" (tel:) · "অ্যাপ কল" (অ্যাপে অডিও) · "ভিডিও কল"; শুধু যেগুলো চলে।
 //   একটাই চললে মেনু ছাড়া সরাসরি সেটা; একটাও না চললে আইকন নেই।
 // - ফোন কল: `phone` দিলে (with-phone=false না হলে) — লগইন/কেয়ারগিভার মোড যা-ই হোক। চাপলে `phone` ঘটনাও (যেমন অ্যাম্বুলেন্সে গোনা)।
@@ -110,7 +111,7 @@ async function unblock() {
     unblocking.value = false;
   }
 }
-const ic = computed(() => cx('icon-btn contact-ic', !props.small && 'big'));
+const ic = computed(() => cx('contact-ic', !props.small && 'big'));
 </script>
 
 <template>
@@ -118,9 +119,9 @@ const ic = computed(() => cx('icon-btn contact-ic', !props.small && 'big'));
     <span v-if="showNumber && phoneOn" class="t-title-m num contact-num" data-testid="contact-number">{{ num(phone!) }}</span>
     <div v-if="options.length" ref="root" class="contact-call">
       <!-- একটাই: সরাসরি (ফোন হলে tel: লিংক) -->
-      <a v-if="single === 'phone'" :class="ic" :href="`tel:${phone}`" :aria-label="T.phoneCall()" :title="T.phoneCall()" data-testid="contact-call" @click="emit('phone')"><Icon name="call" /></a>
-      <button v-else-if="single" type="button" :class="ic" :disabled="busy()" :aria-label="label(single)" :title="label(single)" data-testid="contact-call" @click="run(single)"><Icon name="call" /></button>
-      <button v-else type="button" :class="ic" :disabled="busy()" :aria-label="T.callMenu()" :title="T.callMenu()" aria-haspopup="menu" :aria-expanded="open" data-testid="contact-call" @click="open = !open"><Icon name="call" /></button>
+      <a v-if="single === 'phone'" :class="ic" :href="`tel:${phone}`" :aria-label="T.phoneCall()" :title="T.phoneCall()" data-testid="contact-call" @click="emit('phone')"><Icon name="call" /><span class="contact-word">{{ T.callWord() }}</span></a>
+      <button v-else-if="single" type="button" :class="ic" :disabled="busy()" :aria-label="label(single)" :title="label(single)" data-testid="contact-call" @click="run(single)"><Icon name="call" /><span class="contact-word">{{ T.callWord() }}</span></button>
+      <button v-else type="button" :class="ic" :disabled="busy()" :aria-label="T.callMenu()" :title="T.callMenu()" aria-haspopup="menu" :aria-expanded="open" data-testid="contact-call" @click="open = !open"><Icon name="call" /><span class="contact-word">{{ T.callWord() }}</span></button>
       <div v-if="open && !single" :class="cx('call-menu', alignEnd && 'end')" role="menu" data-testid="call-menu">
         <template v-for="o in options" :key="o">
           <a v-if="o === 'phone'" role="menuitem" :href="`tel:${phone}`" :data-testid="testId(o)" @click="run(o)">
@@ -131,7 +132,7 @@ const ic = computed(() => cx('icon-btn contact-ic', !props.small && 'big'));
       </div>
     </div>
     <button v-if="msg" type="button" :class="ic" :aria-label="T.message()" :title="T.message()" data-testid="contact-message" @click="emit('message', { ctx, refId, peerUid })">
-      <Icon name="forum_outline" />
+      <Icon name="forum_outline" /><span class="contact-word">{{ T.message() }}</span>
     </button>
     <template v-if="blocked">
       <span class="t-body-s muted">{{ T.blockedShort() }}</span>

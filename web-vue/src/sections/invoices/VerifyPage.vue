@@ -9,11 +9,11 @@ import { Button, Icon, Loading, Tag } from '@/ui/kit';
 import { usePageTitle } from '@/shell/chrome';
 import { ServerError, call, errorText } from '@/lib/api';
 import { useQ } from '@/lib/query';
-import { num, tr } from '@/lib/i18n';
+import { tr } from '@/lib/i18n';
 import { formatDateTime, formatDayOf } from '@/lib/format';
 import { useNav } from '@/lib/nav';
 import { T } from './text';
-import { kindIcon, kindText, money, parseVerify, type VerifyInfo } from './model';
+import { invNo, kindIcon, kindText, money, parseVerify, type VerifyInfo } from './model';
 
 usePageTitle(() => T.verifyTitle());
 const route = useRoute();
@@ -56,7 +56,7 @@ function go() {
         <div class="row gap-6 t-title-m"><Icon :name="kindIcon(v.kind)" :size="20" />{{ v.bizName }}</div>
         <span class="t-body-s muted">{{ kindText(v.kind) }}</span>
         <div class="inv-verify-big num">
-          <div><span class="t-label-m muted">{{ T.receiptNo() }}</span><b data-testid="verify-no">{{ num(v.no) }}</b></div>
+          <div><span class="t-label-m muted">{{ T.receiptNo() }}</span><b data-testid="verify-no">{{ invNo(v.no) }}</b></div>
           <div><span class="t-label-m muted">{{ T.issued() }}</span><b>{{ formatDateTime(v.issuedAt) }}</b></div>
           <div><span class="t-label-m muted">{{ tr('Total', 'মোট') }}</span><b data-testid="verify-total">{{ money(v.total) }}</b></div>
         </div>

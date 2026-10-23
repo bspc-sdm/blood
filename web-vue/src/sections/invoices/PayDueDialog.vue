@@ -6,7 +6,7 @@ import { tr } from '@/lib/i18n';
 import { numInput, readNum } from '@/sections/rx/partner/books/model';
 import { T } from './text';
 import PayFields from './PayFields.vue';
-import { money, type Invoice, type PayMethod } from './model';
+import { invNo, money, type Invoice, type PayMethod } from './model';
 import { errText, payDue, useInvoiceRefresh } from './actions';
 
 const props = defineProps<{ inv: Invoice }>();
@@ -38,7 +38,7 @@ async function save() {
 
 <template>
   <Dialog size="small" :title="T.collectDue()" @close="() => !busy && emit('close')">
-    <span class="t-body-m">{{ inv.no }} · {{ inv.customer?.name || '' }}</span>
+    <span class="t-body-m">{{ invNo(inv.no) }} · {{ inv.customer?.name || '' }}</span>
     <span class="t-body-m">{{ T.due() }}: <b class="num">{{ money(inv.due) }}</b></span>
     <label class="bk-cell">
       <span class="t-label-s muted">{{ T.amount() }}</span>

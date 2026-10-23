@@ -1,6 +1,6 @@
 // রসিদ (invoice) — সার্ভারের আকার (backend/docs/INVOICES.md, মালিক অনুমোদিত ২০২৬-১০-২৩) আর সব জায়গার সাধারণ হিসাব:
 // টাকা লেখা (বাংলা/ইংরেজি অঙ্ক), ধরন, পরিশোধের মাধ্যম, বিলের আগাম হিসাব (আসল হিসাব সার্ভারে), সার্ভারের উত্তর থেকে রসিদ বের করা।
-import { num, tr } from '@/lib/i18n';
+import { num, toAsciiDigits, tr } from '@/lib/i18n';
 import { T } from './text';
 
 import type { Invoice as OfflineInvoice, InvoiceFee, InvoiceLine, InvoicePayment, InvoiceKind, PayMethod as OPayMethod, Paper as OPaper } from '@/offline';
@@ -54,6 +54,8 @@ export const periods = (): { value: Period; label: string }[] => [
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
 /** অঙ্ক বাছাই করা ভাষায় (রসিদে: বাংলা মূল, ইংরেজি বাছা যায়) */
 export const digitsOf = (s: string | number, d: 'bn' | 'en') => (d === 'bn' ? String(s).replace(/[0-9]/g, (x) => BN_DIGITS[+x]) : String(s));
+/** রসিদ নং (W-000301, D1-000012) সবসময় ইংরেজি অঙ্কে — পর্দা, কাগজ, প্রিন্ট সব জায়গায় (CONTRACT: invoice/order ID Latin) */
+export const invNo = (s: string | number | null | undefined) => toAsciiDigits(String(s ?? ''));
 /** ৳১,২৩৪.৫০ — রসিদে সবসময় দুই দশমিক */
 export function moneyIn(v: number | null | undefined, d: 'bn' | 'en'): string {
   if (v == null || !Number.isFinite(v)) return '—';

@@ -153,7 +153,7 @@ const pickWho = (v: string) => nav(BASE + (v ? `?doctor=${encodeURIComponent(v)}
     <Redirect v-if="page.k === 'desk'" :to="doctor ? '/work/pro' : link('')" />
     <template v-else-if="page.k === 'today'">
       <TodayQueue :doctor-uid="actor.doctorUid" :can-write="false" />
-      <!-- সহকারী: ডাক্তারের "রোগীরা যেভাবে দেখেন" আর অনুমতির চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" — কাজের নিচে -->
+      <!-- সহকারী: ডাক্তারের "রোগীরা যেভাবে দেখেন" এক লাইনে আর অনুমতির চেম্বারের অবস্থা ("বদলান" → /work) — কাজের নিচে -->
       <DoctorPreview :key="actor.doctorUid ?? ''" :doctor-uid="actor.doctorUid" />
     </template>
     <PatientsPage v-else-if="page.k === 'patients'" :actor="actor" :link="link" />

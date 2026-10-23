@@ -215,7 +215,7 @@ test('ব্লাড ব্যাংকের মালিক: রোগীর�
   await expect(pv.getByTestId('listing-card')).toHaveCount(1);
 });
 
-test('ফার্মেসির মালিক: "এখন বন্ধ" (pharmacy_open_override) কার্ডে সাথে সাথে; সারি নতুন / চলছে / শেষ; কোডের বাক্স ডানে', async ({ page }) => {
+test('ফার্মেসির মালিক: রোগীরা যেভাবে দেখেন এক লাইনে ("দেখুন" → পুরো কার্ড), খোলা/বন্ধ শুধু দেখায় ("বদলান" → /work), ডেলিভারির সুইচ থাকে; কোডের বাক্স ডানে', async ({ page }) => {
   const sent: any[] = [];
   page.on('request', (r) => {
     const b = r.url().includes('/api/') ? r.postDataJSON() : null;
@@ -223,23 +223,33 @@ test('ফার্মেসির মালিক: "এখন বন্ধ" (pha
   });
   await open(page, def('rxpartner', 'ph-dispense'));
   const pv = page.getByTestId('provider-preview');
-  await expect(pv.getByTestId('key-line')).toContainText('খোলা');
-  await pv.getByTestId('sw-open').getByRole('button', { name: 'এখন বন্ধ' }).click();
-  await expect.poll(() => sent.find((x) => x.action === 'pharmacy_open_override')).toMatchObject({ open: false });
-  await expect(pv.getByTestId('key-line')).toContainText('বন্ধ');
-  await expect(pv.getByTestId('override-note')).toBeVisible();
-  await pv.getByTestId('override-note').getByRole('button', { name: 'সময়সূচি মেনে চলুন' }).click();
-  await expect.poll(() => sent.filter((x) => x.action === 'pharmacy_open_override').at(-1)).toMatchObject({ open: null });
+  // বড় কার্ড নয় (সেটা "আমার কাজ"-এর প্রথম পাতায় এক লাইনে) — চাপলে জানালায়
+  await expect(pv.getByTestId('listing-card')).toHaveCount(0);
+  await expect(pv.getByTestId('sw-open')).toHaveCount(0);
+  await expect(pv.getByTestId('queue-state')).toHaveText('খোলা');
+  await expect(pv.getByTestId('state-change')).toHaveAttribute('href', /\/work$/);
+  await pv.getByTestId('preview-see').click();
+  await expect(page.getByRole('dialog').getByTestId('key-line')).toContainText('খোলা');
+  await page.keyboard.press('Escape');
+  await pv.getByTestId('sw-delivery').getByRole('button', { name: 'ডেলিভারি বন্ধ' }).click();
+  await expect.poll(() => sent.find((x) => x.action === 'pharmacy_delivery_set')).toMatchObject({ delivery: false });
+  await pv.getByTestId('sw-delivery').getByRole('button', { name: 'ডেলিভারি চালু' }).click();
+  await expect.poll(() => sent.filter((x) => x.action === 'pharmacy_delivery_set').at(-1)).toMatchObject({ delivery: true });
+  expect(sent.filter((x) => x.action === 'pharmacy_open_override')).toEqual([]);
+  // "বদলান" → "আমার কাজ"-এর অবস্থার বোতাম
+  await pv.getByTestId('state-change').click();
+  await expect(page).toHaveURL(/\/work$/);
+  await page.goBack();
   // আমার কাজ CONTRACT §২: চতুর্থ ভাগ "ওষুধ খোঁজা"
   await expect(page.getByTestId('queue-segs').getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/, /^ওষুধ খোঁজা/]);
   if (page.viewportSize()!.width >= 900) {
-    const left = (await pv.boundingBox())!;
+    const left = (await page.getByTestId('provider-preview').boundingBox())!;
     const code = (await page.locator('.rxp-codeside').boundingBox())!;
     expect(code.x).toBeGreaterThan(left.x + left.width - 1);
   }
 });
 
-test('ডাক্তার: রোগীরা যেভাবে দেখেন + চেম্বারপ্রতি "আজ বন্ধ" (chamber_day_set); বুকিং নতুন / চলছে / শেষ', async ({ page }) => {
+test('ডাক্তার: রোগীরা যেভাবে দেখেন এক লাইনে + চেম্বারপ্রতি অবস্থা (শুধু দেখায়, "বদলান" → /work); বুকিং নতুন / চলছে / শেষ', async ({ page }) => {
   const sent: any[] = [];
   page.on('request', (r) => {
     const b = r.url().includes('/api/') ? r.postDataJSON() : null;
@@ -247,12 +257,14 @@ test('ডাক্তার: রোগীরা যেভাবে দেখে�
   });
   await open(page, def('work', 'pro'));
   const pv = page.getByTestId('provider-preview');
-  await expect(pv.getByTestId('listing-card')).toContainText('আজ সিরিয়াল আছে');
-  await pv.getByTestId('sw-chamber-0').getByRole('button', { name: 'আজ বন্ধ' }).click();
-  await expect.poll(() => sent.at(-1)).toMatchObject({ chamberIndex: 0, closed: true });
-  await expect(pv.getByText('আজকের জন্য আগেই ২টা অনুরোধ আছে — তাঁদের জানিয়ে দিন।')).toBeVisible();
-  await pv.getByTestId('sw-chamber-0').getByRole('button', { name: 'আজ সিরিয়াল চলছে' }).click();
-  await expect.poll(() => sent.at(-1)).toMatchObject({ chamberIndex: 0, closed: false });
+  await expect(pv.getByTestId('listing-card')).toHaveCount(0);
+  await expect(pv.locator('[data-testid^="sw-chamber-"]')).toHaveCount(0);
+  await expect(pv.getByTestId('queue-state').first()).toHaveText('আজ সিরিয়াল চলছে');
+  await expect(pv.getByTestId('state-change').first()).toHaveAttribute('href', /\/work$/);
+  await pv.getByTestId('preview-see').click();
+  await expect(page.getByRole('dialog').getByTestId('listing-card')).toContainText('আজ সিরিয়াল আছে');
+  await page.keyboard.press('Escape');
+  expect(sent).toEqual([]);
   // বুকিং এখন নিজের ট্যাবে (/work/pro/bookings); /work/pro = আজকের রোগী
   await page.goto('/work/pro/bookings', { waitUntil: 'networkidle' });
   await expect(page.getByTestId('queue-segs').getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/]);
@@ -272,11 +284,16 @@ test('@desktop "আমার কাজ" তালিকা-বিস্তার
   await noSideScroll(page);
 });
 
-test('অ্যাম্বুলেন্সের মালিক: "খালি আছি / ট্রিপে আছি" কার্ডে; ডাক না থাকলে এক লাইন (ভাগ নয়)', async ({ page }) => {
+test('অ্যাম্বুলেন্সের মালিক: "খালি আছি / ট্রিপে আছি" শুধু দেখায় ("বদলান" → /work); ডাক না থাকলে এক লাইন (ভাগ নয়)', async ({ page }) => {
   await open(page, def('work', 'ambulance'));
   const pv = page.getByTestId('provider-preview').first();
-  await expect(pv.getByTestId('listing-card')).toContainText('খালি আছে');
-  await expect(pv.getByTestId('sw-available').getByRole('button', { name: 'খালি আছি' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(pv.getByTestId('listing-card')).toHaveCount(0);
+  await expect(page.getByTestId('sw-available')).toHaveCount(0);
+  await expect(pv.getByTestId('queue-state')).toHaveText('খালি আছি');
+  await expect(pv.getByTestId('state-change')).toHaveAttribute('href', /\/work$/);
+  await pv.getByTestId('preview-see').click();
+  await expect(page.getByRole('dialog').getByTestId('listing-card')).toContainText('খালি আছে');
+  await page.keyboard.press('Escape');
   await expect(page.getByTestId('amb-calls-empty')).toBeVisible();
   await expect(page.getByTestId('queue-segs')).toHaveCount(0);
 });

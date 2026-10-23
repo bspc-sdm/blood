@@ -40,6 +40,9 @@ export interface TodayBiz {
   noToday?: boolean;
   stockUpdatedAt?: number | null;
   stockStale?: boolean;
+  /** অ্যাম্বুলেন্স: "খালি আছি"-র মেয়াদ (শেষ ঘণ্টায় "আবার চালু রাখুন") */
+  availableUntil?: number | null;
+  availableAt?: number | null;
 }
 export interface Today { items: TodayBiz[]; source: 'server' | 'fallback'; at: number }
 
@@ -100,7 +103,7 @@ export function normBiz(x: any, opts: { bn?: boolean } = {}): TodayBiz[] {
   if (kind === 'ambulance' && Array.isArray(x.vehicles) && x.vehicles.length) {
     return x.vehicles.map((v: any, i: number): TodayBiz => {
       const listing = listingOf(v.listingStatus);
-      return { ...base, ...(i ? rest : {}), id: str(v.id), name: str(v.vehicleNo || v.name), listing, status: listing ? null : v.available ? 'open' : 'closed', pausedUntil: null };
+      return { ...base, ...(i ? rest : {}), id: str(v.id), name: str(v.vehicleNo || v.name), listing, status: listing ? null : v.available ? 'open' : 'closed', pausedUntil: null, availableUntil: numOr(v.availableUntil) ?? null };
     });
   }
   return [base];
@@ -346,6 +349,7 @@ export async function buildFallback(w: WorkSummary, opts: { uid: string | null; 
     const first = approved && !out.some((x) => x.kind === 'ambulance' && !x.listing);
     out.push({
       kind: 'ambulance', id: str(a.id), name: str(a.vehicleNo || a.name), status: approved ? (a.available ? 'open' : 'closed') : null, pausedUntil: null,
+      availableUntil: numOr(a.availableUntil) ?? null, availableAt: numOr(a.availableAt) ?? null,
       counts: first && calls ? { calls: callItems.length } : {},
       tasks: first ? callItems.map((r) => ({ kind: 'ambulance' as const, type: 'call', id: `c:${r.id}`, title: TT.callFrom(str(r.pickup)), sub: str(r.patientName), at: r.createdAt || 0, action: 'accept', link: '/work/ambulance' })) : [],
       setup: docsSetup(a), listing: approved ? null : str(a.status),

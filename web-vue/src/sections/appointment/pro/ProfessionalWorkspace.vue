@@ -115,7 +115,7 @@ function chamberSaved() {
       <BookingsTab v-else-if="cur === '/bookings'" :list="mine" :loading="appts.isLoading" :error="apptError" :reload="() => appts.refetch()" :has-chamber="!!provider?.chambers.length" :on-setup="() => go('/chamber')" />
       <template v-else>
         <TodayQueue :doctor-uid="null" :can-write="writesRx(type)" />
-        <!-- "রোগীরা আপনাকে যেভাবে দেখেন" + আজকের চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" — কাজের নিচে -->
+        <!-- "রোগীরা আপনাকে যেভাবে দেখেন" এক লাইনে + আজকের চেম্বারের অবস্থা (শুধু দেখায়, "বদলান" → /work) — কাজের নিচে -->
         <DoctorPreview :fallback-card="pm.data?.card ?? pm.data?.provider ?? null" />
       </template>
     </template>

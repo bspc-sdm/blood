@@ -55,9 +55,11 @@ function qtyText(q: number): string {
 export function receiptModel(inv: Invoice, englishDigits = false): ReceiptModel {
   const dg = englishDigits ? (s: string) => s : bnDigits;
   const tk = (v: number) => dg(formatTaka(v));
-  const meta: ReceiptRow[] = [{ label: R.no, value: dg(inv.no || inv.localId || '') }];
+  // রসিদ নং সবসময় ইংরেজি অঙ্কে (খোঁজা, ফোনে বলা, যাচাই — একই লেখা)
+  const latin = (s: string) => s.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
+  const meta: ReceiptRow[] = [{ label: R.no, value: latin(inv.no || inv.localId || '') }];
   // সার্ভার নম্বর বদলালে আগে ছাপা নম্বরও দেখানো (দুটোতেই যাচাই হয়)
-  if (inv.deviceNo && inv.deviceNo !== inv.no) meta.push({ label: R.printedNo, value: dg(inv.deviceNo) });
+  if (inv.deviceNo && inv.deviceNo !== inv.no) meta.push({ label: R.printedNo, value: latin(inv.deviceNo) });
   meta.push({ label: R.date, value: dg(receiptDate(inv.issuedAt)) });
   // গ্রাহকের ফোন কখনো ছাপা হয় না (নিরাপত্তা পর্যালোচনা I6) — নাম দিলে শুধু নাম
   if (inv.customer?.name) meta.push({ label: R.name, value: inv.customer.name });

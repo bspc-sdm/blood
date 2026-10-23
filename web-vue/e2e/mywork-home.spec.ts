@@ -118,6 +118,25 @@ test('@desktop বিরতি: ১ ঘণ্টা → কমলা "আবা�
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('অ্যাম্বুলেন্স: খালি/ট্রিপে আর "আবার চালু রাখুন" (খালির শেষ ঘণ্টায়) শুধু এখানে — এক চাপে ambulance_available', async ({ page }) => {
+  const sent: any[] = [];
+  // নকল সার্ভারের অবস্থা না বদলাতে উত্তর এখানেই
+  await page.route('**/api/community', async (r) => {
+    const b = JSON.parse(r.request().postData() || '{}');
+    if (b.action === 'ambulance_available') {
+      sent.push(b);
+      return r.fulfill({ json: { ok: true } });
+    }
+    return r.fallback();
+  });
+  await open(page, HOME);
+  const amb = block(page, 'ambulance');
+  await expect(amb.getByText(/খালি আছে — আর [০-৯]+ মিনিট/)).toBeVisible();
+  await amb.getByRole('button', { name: 'আবার চালু রাখুন' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ id: 'amb1', available: true });
+  await noSideScroll(page);
+});
+
 test('সার্ভারে work_today নেই (পুরোনো সার্ভার): আগের কাজ থেকে একই পাতা (সংখ্যা, এখনই দেখুন)', async ({ page }) => {
   const errs = watchErrors(page);
   await page.route('**/api/community', async (r) => {

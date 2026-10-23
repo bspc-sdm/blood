@@ -10,7 +10,7 @@ import { useInfiniteQ } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDayOf, formatTime } from '@/lib/format';
 import { T } from './text';
-import { voidReasonText, maskPhone, methodText, methodsOf, money, parseInvoice, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
+import { voidReasonText, invNo, maskPhone, methodText, methodsOf, money, parseInvoice, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
 import ReceiptDialog from './ReceiptDialog.vue';
 import PayDueDialog from './PayDueDialog.vue';
 import VoidDialog from './VoidDialog.vue';
@@ -31,7 +31,8 @@ const qq = ref('');
 let t: ReturnType<typeof setTimeout> | undefined;
 watch(q, (v) => {
   clearTimeout(t);
-  t = setTimeout(() => (qq.value = v.trim()), 300);
+  // রসিদ নং/ফোন বাংলা অঙ্কে লিখলেও খোঁজে (সার্ভারে নম্বর ইংরেজি অঙ্কে)
+  t = setTimeout(() => (qq.value = invNo(v.trim())), 300);
 });
 // ডেস্কটপে এই কম্পিউটারের রসিদ (offline.invoices — অফলাইনেও চলে), নইলে সার্ভারের তালিকা
 const desk = isDesktop();
@@ -96,7 +97,7 @@ function replaced(next: Invoice | null) {
     <ul v-else class="bk-list inv-list">
       <li v-for="i in items" :key="i.id" :class="i.status === 'void' && 'inv-void-row'" data-testid="biz-invoice">
         <div class="row gap-8">
-          <button type="button" class="inv-no num" @click="open = i">{{ num(i.no) }}</button>
+          <button type="button" class="inv-no num" @click="open = i">{{ invNo(i.no) }}</button>
           <span class="t-body-s muted grow">{{ whenOf(i) }}{{ whoOf(i) ? ' · ' + whoOf(i) : '' }}</span>
           <span class="num semi">{{ money(i.total) }}</span>
         </div>

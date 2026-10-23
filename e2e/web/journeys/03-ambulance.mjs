@@ -90,7 +90,7 @@ export async function run(J) {
     await go(page, '/work');
     await J.shot('চালক: আজকের কাজ', '‘অ্যাম্বুলেন্স’ অংশে প্রতিটা গাড়ির ‘খালি আছি / ট্রিপে আছি’ (আইসিইউ ‘যাচাই চলছে’), ‘নতুন ডাক’; নিচে ‘আমার অ্যাম্বুলেন্স’ — ৪টা · ২টা খালি · ১টা যাচাই চলছে।');
     await go(page, '/work/ambulance');
-    await J.shot('চালক: আমার অ্যাম্বুলেন্স', 'উপরে ‘ডাক’ (না থাকলে এক লাইন); প্রতিটা চালু গাড়ির ‘রোগীরা আপনাকে যেভাবে দেখেন’-এ ‘খালি আছি / ট্রিপে আছি’ (মিনি: খালি — আর … মিনিট); গাড়ির তালিকায় শুধু অবস্থা — এসি খালি, নন-এসি ট্রিপে, আইসিইউ ‘অনুমোদনের অপেক্ষায়’; অ্যাপ থেকে ফোনের সংখ্যা।', { full: true });
+    await J.shot('চালক: আমার অ্যাম্বুলেন্স', 'উপরে ‘ডাক’ (না থাকলে এক লাইন); প্রতিটা চালু গাড়ির ‘রোগীরা আপনাকে যেভাবে দেখেন’ এক লাইনে (‘দেখুন’) আর অবস্থা — ‘খালি আছি / ট্রিপে আছি’ শুধু দেখায়, পাশে ‘বদলান’ (আমার কাজে); গাড়ির তালিকায় শুধু অবস্থা — এসি খালি, নন-এসি ট্রিপে, আইসিইউ ‘অনুমোদনের অপেক্ষায়’; অ্যাপ থেকে ফোনের সংখ্যা।', { full: true });
     // "রোগীরা আপনাকে যেভাবে দেখেন"-এর কার্ড নয় — হিসাবের "বিস্তারিত" আছে এমন কার্ড
     const card = page.locator('article, .card').filter({ hasText: AC }).filter({ has: page.getByRole('button', { name: 'বিস্তারিত' }) }).first();
     const det = card.getByRole('button', { name: 'বিস্তারিত' });
@@ -100,12 +100,17 @@ export async function run(J) {
       await J.shot('এসি গাড়ির হিসাব — বিস্তারিত', 'গত ৩০ দিনের দাগ, রেটিং আর ‘সাম্প্রতিক রেটিং’-এ দুটো মন্তব্য (‘রাত ২টায় ফোন করেছিলাম…’), কে দিয়েছেন দেখায় না।');
       await page.keyboard.press('Escape');
     }
-    // "রোগীরা আপনাকে যেভাবে দেখেন" — প্রতিটা চালু গাড়ির কার্ড আর এক চাপে "খালি আছি / ট্রিপে আছি"
+    // খালি/ট্রিপে বদলানো শুধু এক জায়গায় — "আমার কাজ"-এর অবস্থার বোতাম (mywork CONTRACT §২); এখানে শুধু অবস্থা আর "বদলান"
     const nonac = page.getByTestId('provider-preview').filter({ hasText: 'ডেমো জীবন অ্যাম্বুলেন্স (নন-এসি)' }).first();
-    await nonac.getByTestId('sw-available').getByRole('button', { name: 'খালি আছি' }).click();
+    await nonac.getByTestId('state-change').click();
+    await settle(page);
+    const grp = page.getByTestId('role-ambulance').getByRole('group', { name: /DEMO-GAZ-CHA-11-0002/ }).first();
+    await grp.getByRole('button', { name: /খালি আছি/ }).click();
     await settle(page, 600);
-    await nonac.getByText('খালি আছে').first().waitFor({ timeout: 8000 });
-    await J.shot('নন-এসি: এখন খালি আছি', 'নন-এসি গাড়ির ‘রোগীরা আপনাকে যেভাবে দেখেন’ কার্ডে ‘খালি আছে’, সুইচ ‘খালি আছি’।');
+    await J.shot('নন-এসি: আমার কাজে ‘খালি আছি’', '‘বদলান’ চাপলে আমার কাজ — নন-এসি গাড়ির (DEMO-GAZ-CHA-11-0002) অবস্থার বোতামে ‘খালি আছি’ বাছা।');
+    await go(page, '/work/ambulance');
+    await nonac.getByTestId('queue-state').filter({ hasText: 'খালি আছি' }).first().waitFor({ timeout: 8000 });
+    await J.shot('নন-এসি: এখন খালি আছি', 'আমার অ্যাম্বুলেন্সে নন-এসি গাড়ির অবস্থা ‘খালি আছি’ (শুধু দেখায়)।');
     page = await J.as('patient');
     await ambList(page);
     await J.shot('রোগীর তালিকায় নন-এসি এখন খালি', 'নন-এসি গাড়ি ‘এখন ট্রিপে আছে’ থেকে উঠে মূল তালিকায় ‘খালি আছে’।', { full: true });

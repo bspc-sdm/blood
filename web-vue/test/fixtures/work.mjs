@@ -118,7 +118,7 @@ function workToday() {
     {
       kind: 'ambulance', id: 'u-work', name: 'জননী অ্যাম্বুলেন্স সার্ভিস', role: 'owner', listingStatus: 'approved',
       status: ambulances.some((a) => a.status === 'approved' && a.available) ? 'open' : 'closed', pausedUntil: null,
-      vehicles: ambulances.map((a) => ({ id: a.id, name: a.name, vehicleNo: a.vehicleNo, types: a.types, listingStatus: a.status, available: a.available, availableUntil: a.availableUntil ?? null })),
+      vehicles: ambulances.map((a) => ({ id: a.id, name: a.name, vehicleNo: a.vehicleNo, types: a.types, listingStatus: a.status, available: a.available, availableUntil: a.availableUntil ?? (a.available && a.availableAt > 1 ? a.availableAt + 12 * HOUR : null) })),
       counts: { calls: 1, trips: 0 }, setup: [{ key: 'approved', done: false }, { key: 'base', done: true }],
       tasks: [task('ambulance', 'u-work', 'call', 'c1', 'ডাক · চরপাড়া মোড়', 'রোগী: আব্দুল হাই', t - 3 * MIN, 'accept', '/work/ambulance')],
     },

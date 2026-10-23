@@ -1,15 +1,17 @@
 <script setup lang="ts">
-// ফার্মেসি/প্যাথলজির "আমার কাজ"-এর উপরে (বাঁ ভাগের মাথায়; ডানে "কোড দিয়ে প্রেসক্রিপশন খুলুন" আগের মতো):
-// "রোগীরা আপনাকে যেভাবে দেখেন" কার্ড + এক চাপের সুইচ — এখন খোলা / এখন বন্ধ (হাতে, পরের খোলা/বন্ধের সময় পর্যন্ত;
-// pharmacy_open_override / lab_open_override), ফার্মেসি: ডেলিভারি চালু/বন্ধ (pharmacy_delivery_set),
-// প্যাথলজি: বাসা থেকে নমুনা চালু/বন্ধ (lab_home_collection_set)। backend/docs/LISTINGS.md "Provider side"।
+// ফার্মেসি/প্যাথলজির কাজের সারির নিচে: "রোগীরা আপনাকে যেভাবে দেখেন" এক লাইনে ("দেখুন" → পুরো কার্ড), এখনকার অবস্থা
+// (খোলা / বিরতি / বন্ধ — শুধু দেখায়, "বদলান" → /work; বদলানো এক জায়গায়, আমার কাজ CONTRACT §১.২) আর এক চাপের সুইচ —
+// ফার্মেসি: ডেলিভারি চালু/বন্ধ (pharmacy_delivery_set), প্যাথলজি: বাসা থেকে নমুনা চালু/বন্ধ (lab_home_collection_set)।
+// backend/docs/LISTINGS.md "Provider side"।
 import { computed, ref } from 'vue';
-import { Button, ErrorText } from '@/ui/kit';
+import { ErrorText } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
-import { formatTimeHM } from '@/lib/format';
-import ProviderPreview from '@/ui/listing/ProviderPreview.vue';
+import { formatTime } from '@/lib/format';
+import QueuePreview from './QueuePreview.vue';
+import StateLine from './StateLine.vue';
+import { TT } from './today/text';
 import SwitchPair from '@/ui/listing/SwitchPair.vue';
 import { LT } from '@/ui/listing/model';
 import { useOwnListings, type OwnItem } from './ownListing';
@@ -36,14 +38,14 @@ async function run(action: string, body: Record<string, unknown>, patch: (r: any
   }
 }
 const ov = computed(() => (raw.value?.openOverride && typeof raw.value.openOverride === 'object' ? (raw.value.openOverride as { open: boolean; until?: number }) : null));
-const openVal = computed(() => (raw.value?.openNow === true ? 'open' : raw.value?.openNow === false ? 'closed' : null));
-const setOpen = (open: boolean | null) =>
-  run(`${props.kind}_open_override`, { open }, (r) => ({ openNow: typeof r.openNow === 'boolean' ? r.openNow : open, openOverride: r.openOverride ?? (open == null ? null : { open }) }));
-const untilText = computed(() => {
-  const u = ov.value?.until;
-  if (!u) return LT.overrideNote();
-  const d = new Date(u + 6 * 3600_000);
-  return tr('Until ', '') + formatTimeHM(d.getUTCHours(), d.getUTCMinutes()) + tr('', ' পর্যন্ত');
+/** খোলা (সবুজ) · বিরতি — "আবার খুলবে hh:mm" (কমলা) · বন্ধ (লাল); জানা না থাকলে কিছু নয় */
+const state = computed<{ label: string; tone: 'good' | 'warn' | 'error' } | null>(() => {
+  const r = raw.value;
+  if (r?.openNow === true) return { label: TT.open(), tone: 'good' };
+  if (r?.openNow !== false) return null;
+  const u = ov.value && ov.value.open === false ? ov.value.until : undefined;
+  if (u && u > Date.now()) return { label: TT.reopensAt(formatTime(u)), tone: 'warn' };
+  return { label: TT.closed(), tone: 'error' };
 });
 const extraOn = computed(() => (props.kind === 'pharmacy' ? raw.value?.delivery === true : raw.value?.homeCollection === true));
 const setExtra = (on: boolean) =>
@@ -53,15 +55,8 @@ const setExtra = (on: boolean) =>
 </script>
 
 <template>
-  <ProviderPreview v-if="item && approved" :l="own.listing(item)" :public-to="`/services/${kind}/${item.id}`" :store-key="kind">
-    <SwitchPair
-      :label="tr('Open now', 'এখন খোলা')"
-      testid="sw-open"
-      :busy="busy"
-      :value="openVal"
-      :options="[{ key: 'open', label: LT.openNowSw(), icon: 'storefront', good: true }, { key: 'closed', label: LT.closedNowSw(), icon: 'close' }]"
-      @pick="(k) => setOpen(k === 'open')"
-    />
+  <QueuePreview v-if="item && approved" :l="own.listing(item)" :public-to="`/services/${kind}/${item.id}`">
+    <StateLine v-if="state" :label="state.label" :tone="state.tone" />
     <SwitchPair
       :label="kind === 'pharmacy' ? tr('Delivery', 'ডেলিভারি') : LT.homeSample()"
       :testid="kind === 'pharmacy' ? 'sw-delivery' : 'sw-home'"
@@ -72,10 +67,6 @@ const setExtra = (on: boolean) =>
         : [{ key: 'on', label: LT.homeOn(), icon: 'home_health', good: true }, { key: 'off', label: LT.homeOff() }]"
       @pick="(k) => setExtra(k === 'on')"
     />
-    <div v-if="ov" class="row wrap gap-6" data-testid="override-note">
-      <span class="t-body-s muted">{{ untilText }}</span>
-      <Button variant="text" small :disabled="busy" @click="setOpen(null)">{{ LT.followHours() }}</Button>
-    </div>
     <ErrorText :text="err" />
-  </ProviderPreview>
+  </QueuePreview>
 </template>

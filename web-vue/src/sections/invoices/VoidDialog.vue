@@ -6,7 +6,7 @@ import { computed, ref } from 'vue';
 import { Button, Dialog, ErrorText, TextInput, toast } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import { T } from './text';
-import { money, type Invoice } from './model';
+import { invNo, money, type Invoice } from './model';
 import { errText, useInvoiceRefresh, voidInvoice } from './actions';
 import { ownerGate } from './offline';
 
@@ -46,7 +46,7 @@ async function save() {
 
 <template>
   <Dialog size="small" :title="T.voidAsk()" @close="() => !busy && emit('close')">
-    <span class="t-body-m">{{ inv.no }} · {{ money(inv.total) }}</span>
+    <span class="t-body-m">{{ invNo(inv.no) }} · {{ money(inv.total) }}</span>
     <span class="t-body-s muted">{{ T.voidNote() }}<template v-if="inv.kind === 'pharmacy'">{{ ' ' + T.voidStock() }}</template></span>
     <div class="col gap-4">
       <span class="t-label-m">{{ T.voidWhyPick() }}</span>

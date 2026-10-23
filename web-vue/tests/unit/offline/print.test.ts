@@ -46,7 +46,7 @@ describe('রসিদের মডেল', () => {
   test('বাংলা অঙ্ক, ফোন কখনো নয়, মূসক নোট, অফলাইনে যাচাইয়ের লাইন', () => {
     const m = receiptModel(inv());
     expect(m.meta).toEqual([
-      { label: 'রসিদ নং', value: 'D১-০০০০১২' },
+      { label: 'রসিদ নং', value: 'D1-000012' },
       { label: 'তারিখ', value: '২৩/১০/২০২৬, ৩:০৫ PM' },
       { label: 'নাম', value: 'করিম' },
     ]);

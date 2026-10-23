@@ -76,7 +76,7 @@ test.describe('যাচাই পাতা (লগইন ছাড়া)', () 
     const r = page.getByTestId('verify-result');
     await expect(r).toContainText('এই রসিদটি আসল');
     await expect(page.getByTestId('verify-status')).toHaveText('বৈধ');
-    await expect(page.getByTestId('verify-no')).toHaveText('W-০০০০৪১');
+    await expect(page.getByTestId('verify-no')).toHaveText('W-000041');
     await expect(page.getByTestId('verify-total')).toHaveText('৳১৫০');
     await expect(page.getByTestId('verify-lines')).toHaveText('রসিদে ২টা লাইন');
     await expect(r).toContainText('মেডিপ্লাস ফার্মেসি');
@@ -175,7 +175,7 @@ test.describe('ফার্মেসি', () => {
     await expect(page.getByTestId('pay-change')).toContainText('ফেরত ৳৮');
     await page.keyboard.press('Control+Enter');
     const dlg = page.getByRole('dialog');
-    await expect(dlg.getByTestId('receipt')).toContainText('W-০০০২০২');
+    await expect(dlg.getByTestId('receipt')).toContainText('W-000202');
     await expect.poll(() => prints(page)).toBe(1);
     const [b] = bodyOf(seen, 'books_sale_add');
     expect(b.customer).toEqual({ name: 'রাকিব' });
@@ -230,7 +230,7 @@ test.describe('ফার্মেসি', () => {
     await dlg.getByTestId('line-qty').first().fill('10');
     await expect(page.getByTestId('deliver-total')).toHaveText('৳৪২');
     await page.getByTestId('deliver-save').click();
-    await expect(dlg.getByTestId('receipt')).toContainText('W-০০০২০৩');
+    await expect(dlg.getByTestId('receipt')).toContainText('W-000203');
     const [b] = bodyOf(seen, 'rx_order_update');
     expect(b).toMatchObject({ status: 'delivered', lines: [{ name: 'Napa', qty: 10, price: 1.2, disc: 0, itemId: expect.any(String) }], fees: [{ label: 'ডেলিভারি চার্জ', amount: 30 }] });
   });
@@ -251,7 +251,7 @@ test.describe('প্যাথলজি', () => {
     await page.getByTestId('pay-given').fill('1000');
     await expect(page.getByTestId('pay-due')).toContainText('বাকি ৳৫৯০');
     await page.getByTestId('lab-save').click();
-    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-০০০০৮৯');
+    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-000089');
     const [b] = bodyOf(seen, 'lab_bill_create');
     expect(b).toMatchObject({
       labOrderId: 'lh1', disc: 160, fees: [{ label: 'বাসা থেকে নমুনা', amount: 150 }], payments: [{ amount: 1000, method: 'cash' }],
@@ -291,7 +291,7 @@ test.describe('চেম্বারের ডেস্ক', () => {
     await page.getByRole('menu').getByTestId('desk-fee').click();
     await expect(page.getByTestId('fee-amount')).toHaveValue('700');
     await page.getByTestId('fee-save').click();
-    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-০০০৩০২');
+    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-000302');
     expect(bodyOf(seen, 'chamber_fee_collect')[0]).toMatchObject({ appointmentId: 'q2', visitType: 'new', amount: 700, method: 'cash' });
     await page.getByRole('dialog').getByRole('button', { name: 'বন্ধ' }).click();
     await page.getByTestId('desk-walkin').click();
@@ -377,7 +377,7 @@ test('ডেস্কটপ (নকল OfflineStore): বিক্রি সা�
   await expect(search).toHaveValue('');
   await page.getByTestId('pos-save').click();
   const dlg = page.getByRole('dialog');
-  await expect(dlg.getByTestId('receipt')).toContainText('D১-০০০০০১');
+  await expect(dlg.getByTestId('receipt')).toContainText('D1-000001');
   await expect(dlg.getByTestId('receipt-offline')).toContainText('ইন্টারনেট এলে যাচাই হবে');
   await expect(page.getByTestId('offline-bar')).toContainText('১টা মেলানোর অপেক্ষায়');
   const ops = await page.evaluate(() => (window as any).__ops);
@@ -482,11 +482,11 @@ test.describe('অনলাইন চেম্বারের ফি → রস�
     await page.getByRole('dialog').getByRole('button', { name: 'ফি পেয়েছি' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByTestId('receipt')).toContainText('অনলাইন ভিজিট ফি');
-    await expect(dlg.getByTestId('receipt')).toContainText('W-০০০৩০১');
+    await expect(dlg.getByTestId('receipt')).toContainText('W-000301');
     await dlg.getByRole('button', { name: 'বন্ধ' }).click();
     await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
     await pro.getByTestId('pay-receipt').click();
-    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-০০০৩০১');
+    await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-000301');
   });
   test('রোগী: ফি পরিশোধিত হলে "রসিদ দেখুন" → রসিদের পাতা', async ({ page }) => {
     await withOnline(page, () => onlineAppt({ id: 'onp2', role: 'patient', payState: 'paid', payRef: 'TRX42AB', invoiceId: 'inv3', bkashNumber: '01711000222' }));

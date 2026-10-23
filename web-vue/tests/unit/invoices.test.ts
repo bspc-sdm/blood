@@ -7,7 +7,7 @@ import { setLang } from '@/lib/i18n';
 import type { OfflineStore } from '@/offline';
 import Receipt from '@/sections/invoices/Receipt.vue';
 import VoidDialog from '@/sections/invoices/VoidDialog.vue';
-import { billOf, changeOf, digitsOf, isDemo, moneyIn, paymentsOf, parseInvoice, parsePage, parseVerify, pickInvoice, shiftMonth, thisMonth } from '@/sections/invoices/model';
+import { billOf, changeOf, digitsOf, invNo, isDemo, moneyIn, paymentsOf, parseInvoice, parsePage, parseVerify, pickInvoice, shiftMonth, thisMonth } from '@/sections/invoices/model';
 import { issue, payDue, voidInvoice } from '@/sections/invoices/actions';
 import { deskRole, isDesktop, ownerGate, setOfflineStore } from '@/sections/invoices/offline';
 import { printInvoice } from '@/sections/invoices/print';
@@ -80,6 +80,10 @@ describe('রসিদের হিসাব', () => {
     expect(moneyIn(1234.5, 'bn')).toBe('৳১,২৩৪.৫০');
     expect(moneyIn(1234.5, 'en')).toBe('৳1,234.50');
     expect(digitsOf('W-000123', 'bn')).toBe('W-০০০১২৩');
+    // রসিদ নং: সবসময় ইংরেজি অঙ্ক (বাংলায় এলেও)
+    expect(invNo('W-000301')).toBe('W-000301');
+    expect(invNo('D১-০০০০১২')).toBe('D1-000012');
+    expect(invNo(null)).toBe('');
   });
   it('মাস: আগের/পরের, এই মাস ঢাকার সময়ে', () => {
     expect(shiftMonth('2026-01', -1)).toBe('2025-12');
@@ -115,7 +119,9 @@ describe('রসিদের কাগজ', () => {
     const t = w.text();
     expect(t).toContain('ডেমো লাইফ ফার্মেসি');
     expect(t).toContain('০১৭১১০০০০০০');
-    expect(t).toContain('W-০০০১২৩');
+    // রসিদ নং সবসময় ইংরেজি অঙ্কে, বাকি সব বাংলা
+    expect(t).toContain('W-000123');
+    expect(t).not.toContain('W-০০০১২৩');
     expect(w.findAll('tbody tr')).toHaveLength(2);
     expect(t).toContain('৳১০০.০০');
     expect(t).toContain('বাকি');

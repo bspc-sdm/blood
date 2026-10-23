@@ -7,7 +7,7 @@ import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { numInput, readNum } from '@/sections/rx/partner/books/model';
 import { T } from './text';
-import { money, type Invoice } from './model';
+import { invNo, money, type Invoice } from './model';
 
 const props = defineProps<{ inv: Invoice }>();
 const emit = defineEmits<{ close: [] }>();
@@ -35,7 +35,7 @@ async function submit() {
 
 <template>
   <Dialog size="small" :title="T.overchargedVsReceipt()" @close="!busy && emit('close')">
-    <span class="t-body-m">{{ T.receipt() }} {{ inv.no }} · {{ money(inv.total) }}</span>
+    <span class="t-body-m">{{ T.receipt() }} {{ invNo(inv.no) }} · {{ money(inv.total) }}</span>
     <label class="bk-cell">
       <span class="t-label-s muted">{{ T.paidActually() }}</span>
       <input class="input num" inputmode="decimal" :value="paid" data-testid="over-paid" @input="paid = inputValue($event, numInput)" />

@@ -17,7 +17,7 @@ import { useNav } from '@/lib/nav';
 import { useTwoPane } from '@/shell/chrome';
 import { REFRESH, lateText, type QueueChamber, type QueueRow } from './queue';
 import { T } from '../invoices/text';
-import { money, parsePage, todayStr, type Invoice } from '../invoices/model';
+import { invNo, money, parsePage, todayStr, type Invoice } from '../invoices/model';
 import { errText, issue } from '../invoices/actions';
 import { useOffline } from '../invoices/offline';
 import { invFeature } from '../invoices/features';
@@ -264,7 +264,7 @@ const many = computed(() => chambers.value.length > 1);
                     <Tag v-if="r.late && (asked(r) || r.state === 'later' || r.late.status === 'ok') && !isDone(r)" :tone="asked(r) ? 'error' : 'info'">{{ lateText(r.late.min) }}</Tag>
                     <Tag v-if="desk && isIn(r)" tone="info">{{ T.checkedIn() }}</Tag>
                     <Tag v-if="desk && paidFor.get(r.id)" tone="good">{{ T.feeTaken() }} · {{ money(paidFor.get(r.id)!.total) }}</Tag>
-                    <Tag v-else-if="desk && r.feeNo" tone="good">{{ T.feeTaken() }} · {{ num(r.feeNo) }}</Tag>
+                    <Tag v-else-if="desk && r.feeNo" tone="good">{{ T.feeTaken() }} · {{ invNo(r.feeNo) }}</Tag>
                   </span>
                   <span v-if="asked(r) && r.late?.note" class="t-body-s muted">{{ r.late.note }}</span>
                 </span>

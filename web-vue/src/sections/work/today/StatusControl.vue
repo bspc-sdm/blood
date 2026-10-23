@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // একটা ব্যবসার অবস্থা: খোলা / বিরতি / বন্ধ (অ্যাম্বুলেন্স: খালি আছি / ট্রিপে আছি)। বিরতি: ৩০ মিনিট · ১ ঘণ্টা · আজকের মতো —
 // শেষে নিজে খোলে (সার্ভারের `until`), কমলা লেখায় "আবার খুলবে …"; বন্ধ লাল। চাপলে সাথে সাথে বাছা দেখায়, তারপর সার্ভার।
+// অ্যাম্বুলেন্স: "খালি আছি"-র মেয়াদের শেষ ঘণ্টায় "আবার চালু রাখুন" ("এখনো খালি আছেন?" নোটিফিকেশন এখানে আনে) — খালি/ট্রিপে শুধু এখানে।
 import { computed, ref, watch } from 'vue';
 import { Button, ErrorText, Icon } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { formatTime } from '@/lib/format';
+import StillAvailable from '../StillAvailable.vue';
 import { TT } from './text';
 import { hasPause, nextDhakaMidnight, statusCall, type PauseFor, type Status, type TodayBiz } from './model';
 
@@ -60,6 +62,19 @@ async function set(to: Status, pause?: PauseFor) {
     busy.value = false;
   }
 }
+/** "আবার চালু রাখুন": আবার ১২ ঘণ্টা খালি */
+async function renew() {
+  busy.value = true;
+  err.value = null;
+  try {
+    await call('ambulance_available', { id: props.biz.id, available: true });
+    emit('changed');
+  } catch (e) {
+    err.value = errorText(e);
+  } finally {
+    busy.value = false;
+  }
+}
 function pick(k: Status) {
   if (k === 'paused') asking.value = !asking.value;
   else set(k);
@@ -93,6 +108,12 @@ function pick(k: Status) {
       </div>
     </div>
     <span v-if="note" :class="['td-note', note.tone]" data-testid="status-note"><Icon :name="note.tone === 'warn' ? 'schedule' : 'info'" />{{ note.text }}</span>
+    <StillAvailable
+      v-if="amb && cur === 'open'"
+      :a="{ status: 'approved', available: true, availableUntil: biz.availableUntil, availableAt: biz.availableAt }"
+      :busy="busy"
+      @renew="renew"
+    />
     <ErrorText :text="err" />
   </div>
 </template>

@@ -419,7 +419,7 @@
  },
  {
   "name": "ambulance-renew",
-  "path": "/work/ambulance",
+  "path": "/work",
   "test": {
    "user": {
     "uid": "u-work",

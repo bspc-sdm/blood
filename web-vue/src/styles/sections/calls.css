@@ -1,9 +1,19 @@
 /* অ্যাপে কল: আসা কলের ব্যানার, কলের পর্দা (মোবাইলে পুরো পর্দা, বড় পর্দায় মাঝখানে বড় বাক্স), কলের তালিকা */
 .call-btns { margin-top: 2px; }
 /* যোগাযোগের দুই আইকন (কল · মেসেজ) আর কলের মেনু (ফোন কল · অ্যাপ কল · ভিডিও কল) */
-.contact-ic { color: var(--primary); background: var(--secondary-container); text-decoration: none; }
-.contact-ic.big { width: 44px; height: 44px; border-radius: 22px; }
-.contact-ic:disabled { opacity: .45; }
+/* প্রতিটা আইকনের সাথে একটা শব্দ: সারিতে (ছোট) আইকনের নিচে, বড়তে (বিস্তারিতের নিচের বার, অ্যাপয়েন্টমেন্ট) পাশে; চাপার জায়গা ≥ ৪৮px */
+.contact-ic {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex: none;
+  min-width: 48px; min-height: 48px; padding: 2px 4px; border: 0; border-radius: 12px; background: transparent;
+  color: var(--primary); font: inherit; text-decoration: none; cursor: pointer;
+}
+.contact-ic svg { width: 20px; height: 20px; padding: 6px; box-sizing: content-box; border-radius: 16px; background: var(--secondary-container); flex: none; }
+.contact-word { font-size: 12px; line-height: 14px; font-weight: 600; white-space: nowrap; }
+.contact-ic:hover:not(:disabled) { background: var(--primary-a12); }
+.contact-ic.big { flex-direction: row; gap: 8px; padding: 0 18px 0 14px; border-radius: 24px; background: var(--secondary-container); }
+.contact-ic.big svg { width: 22px; height: 22px; padding: 0; background: none; }
+.contact-ic.big .contact-word { font-size: 15px; line-height: 20px; }
+.contact-ic:disabled { opacity: .45; cursor: default; }
 .contact-num { font-weight: 600; user-select: all; margin-right: 4px; min-width: 0; overflow-wrap: anywhere; }
 .contact-call { position: relative; flex: none; }
 .call-menu {

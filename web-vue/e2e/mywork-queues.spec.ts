@@ -148,9 +148,19 @@ test('অ্যাম্বুলেন্স: খালি/ট্রিপে �
   await open(page, amb());
   await expect(page.getByTestId('amb-calls-empty')).toContainText('এখন কোনো ডাক নেই');
   await expect(page.getByTestId('queue-segs')).toHaveCount(0);
-  // চালু গাড়ির প্রতিটায় একটাই "খালি আছি / ট্রিপে আছি" (রোগীরা যেভাবে দেখেন-এ); গাড়ির তালিকায় সুইচ নেই
-  await expect(page.getByTestId('sw-available')).toHaveCount(2);
+  // খালি/ট্রিপে বদলানো শুধু "আমার কাজ"-এর অবস্থার বোতামে: এখানে চালু গাড়ির প্রতিটায় শুধু অবস্থা আর "বদলান" → /work;
+  // রোগীরা যেভাবে দেখেন — বড় কার্ড নয়, এক লাইন "দেখুন"; গাড়ির তালিকায় সুইচ নেই
+  await expect(page.getByTestId('sw-available')).toHaveCount(0);
+  await expect(page.locator('[data-testid=provider-preview] .pv-switch')).toHaveCount(0);
+  await expect(page.getByTestId('provider-preview').getByTestId('queue-state')).toHaveText(['খালি আছি', 'ট্রিপে আছি']);
+  await expect(page.getByTestId('provider-preview').getByTestId('listing-card')).toHaveCount(0);
+  await expect(page.getByTestId('provider-preview').getByRole('button', { name: 'দেখুন' })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'আবার চালু রাখুন' })).toHaveCount(0);
   await expect(page.locator('.work-cards [role=switch], .work-table [role=switch]')).toHaveCount(0);
+  await page.getByTestId('provider-preview').first().getByTestId('state-change').click();
+  await expect(page).toHaveURL(/\/work$/);
+  await expect(page.locator('[data-testid^="status-ambulance-"]').first()).toBeVisible();
+  await page.goBack();
   await expect(page.getByTestId('amb-state').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'বদলান' }).first()).toBeVisible();
   await page.getByTestId('row-more').first().click();
@@ -246,4 +256,34 @@ test('সহকারী: একই "আজকের রোগী", প্রে
     await page.keyboard.press('Escape');
   }
   await noSideScroll(page);
+});
+
+/** কল/মেসেজের বোতামে আইকনের সাথে লেখা, চাপার জায়গা ≥ ৪৮px */
+async function wordedContacts(scope: Locator) {
+  const call = scope.getByTestId('contact-call').first();
+  await expect(call).toBeVisible();
+  await expect(call).toHaveText('কল');
+  const b = (await call.boundingBox())!;
+  expect(b.height, 'কলের বোতামের উচ্চতা').toBeGreaterThanOrEqual(47.5);
+  expect(b.width, 'কলের বোতামের চওড়া').toBeGreaterThanOrEqual(47.5);
+  const msg = scope.getByTestId('contact-message');
+  if (await msg.count()) {
+    await expect(msg.first()).toHaveText('মেসেজ');
+    expect((await msg.first().boundingBox())!.height).toBeGreaterThanOrEqual(47.5);
+  }
+}
+
+test('যোগাযোগের বোতামে লেখা: "কল" · "মেসেজ" — অর্ডারের কার্ড, বুকিং, সেবার তালিকায় একই', async ({ page }) => {
+  const errs = watchErrors(page);
+  await open(page, pharm('/work/pharmacy/orders'));
+  const card = page.getByTestId('order-card').filter({ has: page.getByTestId('contact-message') }).first();
+  await wordedContacts(card);
+  await noSideScroll(page);
+  await open(page, def('appointment', 'pro-bookings'), '/work/pro/bookings?v=upcoming');
+  await wordedContacts(page.locator('body'));
+  await noSideScroll(page);
+  await open(page, def('services', 'amb-user-detail'), '/services/pharmacy');
+  await wordedContacts(page.getByTestId('listing-card').first());
+  await noSideScroll(page);
+  expect(errs).toEqual([]);
 });

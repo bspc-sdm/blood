@@ -133,9 +133,16 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
   if (data.questionId) return `/health/question/${data.questionId}`;
   const approved = me?.badge?.status === 'approved' ? me.badge.type : null;
   switch (type) {
-    // চেম্বারে আসা বুকিং → "আমার কাজ"-এর চেম্বার; নিজের নেওয়া → "আমার অ্যাপয়েন্টমেন্ট"
-    case 'appointment':
-      return data.role === 'provider' || (!data.role && approved && (CHAMBER_TYPES.includes(approved) || isNewType(approved))) ? '/work/pro' : '/my-appointments';
+    // চেম্বারে আসা বুকিং → "আমার কাজ"-এর চেম্বার; নিজের নেওয়া → "আমার অ্যাপয়েন্টমেন্ট"।
+    // আমার কাজ CONTRACT §২: নতুন অনুরোধ / "অনুরোধ অপেক্ষায়" (cat business) আর অনলাইনের ফি যাচাই (payRequestId) → "বুকিং" ট্যাব
+    // (/work/pro/bookings — গ্রহণ আর ফি মেলানো সেখানে); আজকের অ্যাপয়েন্টমেন্ট, দেরি, বাতিল → "আজকের রোগী" (/work/pro)।
+    // শুধু সহকারী (নিজের ব্যাজ নেই) → ডাক্তারের ডেস্ক /work/rx (সেখানে আজকের রোগী)।
+    case 'appointment': {
+      const provider = data.role === 'provider' || (!data.role && approved && (CHAMBER_TYPES.includes(approved) || isNewType(approved)));
+      if (!provider) return '/my-appointments';
+      if (!work.professional && work.assisting.length) return '/work/rx';
+      return data.cat === 'business' || data.payRequestId ? '/work/pro/bookings' : '/work/pro';
+    }
     case 'homevisit':
     case 'homecare':
       return '/appointment/home-care';
@@ -152,8 +159,9 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
       const rid = data.rxId || data.id;
       return rid ? `/services/pharmacy/prescriptions/${encodeURIComponent(rid)}` : '/services/pharmacy/prescriptions';
     }
+    // ল্যাবের রিপোর্ট দেখার অপেক্ষায় / রিপোর্ট দেখার টাকা মেলানো → প্রেসক্রিপশনের "রিপোর্ট" পাতা (আজকের রোগী নয়)
     case 'rx_review':
-      return '/work/pro';
+      return '/work/rx/reviews';
     // কেয়ারগিভারকে রোগীর প্রেসক্রিপশনের খবর: কেয়ারগিভার পাতা রোগীর মোড চালু করে সেই প্রেসক্রিপশন খোলে
     case 'care':
       return data.asUid && data.rxId ? `/care?for=${encodeURIComponent(data.asUid)}&rx=${encodeURIComponent(data.rxId)}` : '/care';
@@ -166,8 +174,9 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
       return '/work/pharmacy';
     case 'med_find':
       return '/work/pharmacy/finds';
+    // প্যাথলজির খবর (নতুন অনুরোধ, বাসার নমুনা বাতিল/বদল): সেই অনুরোধ (ফোনে বিস্তারিত, বড় পর্দায় তালিকা-বিস্তারিত)
     case 'rx_lab':
-      return '/work/lab';
+      return data.id ? `/work/lab/orders/${encodeURIComponent(data.id)}` : '/work/lab';
     case 'med_find_mine':
       return '/services/pharmacy/medicine';
     // রোগীর অ্যাম্বুলেন্স ডাকার খবর (গাড়ি রাজি, ভাড়া বলল…): সেই অনুরোধের অপেক্ষার পাতা (অ্যাপের AmbulanceRequest(reqId))
@@ -180,6 +189,8 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
     case 'invoice_void':
       return data.kind === 'pharmacy' ? '/work/pharmacy/shop/invoices' : data.kind === 'lab' ? '/work/lab/orders/invoices' : data.kind === 'chamber' ? '/work/rx/desk' : data.kind === 'ambulance' ? '/work/ambulance' : '/work';
     case 'services':
+      // "এখনো খালি আছেন?" (ambulanceId, ডাক নয়) → "আমার কাজ"-এর অবস্থার বোতাম ("আবার চালু রাখুন" শুধু সেখানে)
+      if (data.kind === 'ambulance' && data.ambulanceId && !data.reqId && !data.sub) return '/work';
       if (data.kind && (BUSINESS_KINDS as readonly string[]).includes(data.kind)) return `/work/${data.kind}`;
       return workHas(work) ? '/work' : '/';
     default:

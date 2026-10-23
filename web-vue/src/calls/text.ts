@@ -12,6 +12,8 @@ export const T = {
   appCall: () => tr('App call', 'অ্যাপ কল'), // bn-ok
   callMenu: () => tr('Call', 'কল করুন'), // bn-ok
   message: () => tr('Message', 'মেসেজ'), // bn-ok
+  /** কলের বোতামের নিচের/পাশের ছোট লেখা (আইকনের সাথে সবসময় একটা শব্দ — আমার কাজ CONTRACT) */
+  callWord: () => tr('Call', 'কল'), // bn-ok
   phone: () => tr('Call', 'ফোন'),
   answerAudio: () => tr('Answer with audio', 'অডিওতে ধরুন'), // bn-ok
   answerVideo: () => tr('Answer with video', 'ভিডিওতে ধরুন'), // bn-ok

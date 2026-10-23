@@ -9,7 +9,7 @@ import { Icon } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import Qr from '@/sections/health/Qr.vue';
 import { T } from './text';
-import { voidReasonText, digitsOf, isDemo, isPending, kindText, methodText, methodsOf, moneyIn, verifyShort, type Invoice, type Paper } from './model';
+import { voidReasonText, digitsOf, invNo, isDemo, isPending, kindText, methodText, methodsOf, moneyIn, verifyShort, type Invoice, type Paper } from './model';
 
 const props = withDefaults(defineProps<{ inv: Invoice; paper?: Paper; digits?: 'bn' | 'en' }>(), { paper: 'A4', digits: 'bn' });
 const d = computed(() => props.digits);
@@ -33,7 +33,7 @@ const qrSize = computed(() => (props.paper === '58' ? 96 : props.paper === '80' 
 </script>
 
 <template>
-  <article :class="['rcpt', `p${paper}`, voided && 'void']" :aria-label="T.receipt() + ' ' + n(inv.no)" data-testid="receipt">
+  <article :class="['rcpt', `p${paper}`, voided && 'void']" :aria-label="T.receipt() + ' ' + invNo(inv.no)" data-testid="receipt">
     <div v-if="voided" class="rcpt-stamp" aria-hidden="true">{{ T.voidStamp() }}</div>
     <div v-if="demo" class="rcpt-demo" data-testid="receipt-demo">{{ T.demoMark() }}</div>
     <header class="rcpt-head">
@@ -43,7 +43,7 @@ const qrSize = computed(() => (props.paper === '58' ? 96 : props.paper === '80' 
       <div v-if="inv.bizPhone" class="rcpt-sub">{{ n(inv.bizPhone) }}</div>
     </header>
     <div class="rcpt-meta">
-      <div><span>{{ T.receiptNo() }}</span><b class="rcpt-no">{{ n(inv.no) }}</b></div>
+      <div><span>{{ T.receiptNo() }}</span><b class="rcpt-no">{{ invNo(inv.no) }}</b></div>
       <div><span>{{ T.issued() }}</span><span>{{ when }}</span></div>
       <div><span>{{ kindText(inv.kind) }}</span><span v-if="who">{{ who }}</span></div>
     </div>

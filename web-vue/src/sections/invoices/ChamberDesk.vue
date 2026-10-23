@@ -10,7 +10,7 @@ import { isBangla, num, toAsciiDigits, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { REFRESH, type QueueChamber } from '@/sections/appointment/queue';
 import { T } from './text';
-import { money, parsePage, todayStr, type Invoice } from './model';
+import { invNo, money, parsePage, todayStr, type Invoice } from './model';
 import { errText, issue } from './actions';
 import { useOffline } from './offline';
 import OfflineBar from './OfflineBar.vue';
@@ -158,7 +158,7 @@ const canVoidInv = (i: Invoice) => !props.doctorUid || (i.issuedBy === s.uid && 
             <span class="row wrap gap-6">
               <Tag v-if="r.checkedIn || localIn.has(r.id)" tone="info">{{ T.checkedIn() }}</Tag>
               <Tag v-if="paidFor.get(r.id)" tone="good">{{ T.feeTaken() }} · {{ money(paidFor.get(r.id)!.total) }}</Tag>
-              <Tag v-else-if="r.feeNo" tone="good">{{ T.feeTaken() }} · {{ num(r.feeNo) }}</Tag>
+              <Tag v-else-if="r.feeNo" tone="good">{{ T.feeTaken() }} · {{ invNo(r.feeNo) }}</Tag>
             </span>
           </span>
           <span class="row wrap gap-6 inv-desk-acts">

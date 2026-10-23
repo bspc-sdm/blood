@@ -138,6 +138,12 @@
 .lst-page .amb-callbar + .t-body-s { display: none; }
 .lst-actions .ph-card-send { flex: 0 1 auto; }
 .pv-switches > .col { flex: 1 1 100%; min-width: 0; }
+/* কাজের সারির পাতায় "রোগীরা আপনাকে যেভাবে দেখেন" এক লাইনে + এখনকার অবস্থা (শুধু দেখায়, "বদলান" → /work) */
+.pv-row { padding: 8px 12px; }
+.pv-state { flex: 1 1 100%; align-items: center; min-width: 0; min-height: 40px; }
+.pv-state-name { min-width: 0; overflow-wrap: anywhere; }
+.pv-state > .tag { align-self: center; font-size: 13px; line-height: 18px; padding: 3px 10px; }
+.pv-state-change { margin-left: auto; }
 
 /* "আমার কাজ"-এর সারি, ডেস্কটপে (৯০০px+): বাঁয়ে ছোট সারি, ডানে বাছা জিনিস */
 .q-md { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 440px); gap: 16px; align-items: start; min-width: 0; }

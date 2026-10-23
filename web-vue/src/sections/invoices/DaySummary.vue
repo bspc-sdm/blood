@@ -9,7 +9,7 @@ import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatTime } from '@/lib/format';
 import { T } from './text';
-import { money, todayStr, voidReasonText, type InvKind } from './model';
+import { invNo, money, todayStr, voidReasonText, type InvKind } from './model';
 
 interface DaySum {
   day: string; receipts: number; total: number;
@@ -53,15 +53,15 @@ const voidsTotal = computed(() => (d.value?.voids ?? []).reduce((a, v) => a + v.
       </div>
       <div v-if="d.voids.length" class="col gap-4">
         <span class="t-label-l">{{ T.voided() }}</span>
-        <span v-for="v in d.voids" :key="v.id" class="t-body-s">{{ num(v.no) }} · {{ formatTime(v.at) }} · {{ money(v.total) }} — {{ voidReasonText({ kind, voidReason: v.reason, voidNote: v.note }) }}{{ v.byName ? ' · ' + v.byName : '' }}</span>
+        <span v-for="v in d.voids" :key="v.id" class="t-body-s">{{ invNo(v.no) }} · {{ formatTime(v.at) }} · {{ money(v.total) }} — {{ voidReasonText({ kind, voidReason: v.reason, voidNote: v.note }) }}{{ v.byName ? ' · ' + v.byName : '' }}</span>
       </div>
       <div v-if="d.bigDiscounts.length" class="col gap-4">
         <span class="t-label-l">{{ T.bigDiscounts() }}</span>
-        <span v-for="x in d.bigDiscounts" :key="x.id" class="t-body-s">{{ num(x.no) }} · {{ money(x.discount) }} ({{ num(Math.round(x.pct)) }}%) / {{ money(x.total) }}</span>
+        <span v-for="x in d.bigDiscounts" :key="x.id" class="t-body-s">{{ invNo(x.no) }} · {{ money(x.discount) }} ({{ num(Math.round(x.pct)) }}%) / {{ money(x.total) }}</span>
       </div>
       <div v-if="d.belowPrice?.length" class="col gap-4">
         <span class="t-label-l">{{ T.belowPrice() }}</span>
-        <span v-for="(x, k) in d.belowPrice" :key="x.id + k" class="t-body-s">{{ num(x.no) }} · {{ x.name }} × {{ num(x.qty) }} · {{ money(x.price) }} &lt; {{ money(x.itemPrice) }}</span>
+        <span v-for="(x, k) in d.belowPrice" :key="x.id + k" class="t-body-s">{{ invNo(x.no) }} · {{ x.name }} × {{ num(x.qty) }} · {{ money(x.price) }} &lt; {{ money(x.itemPrice) }}</span>
       </div>
       <div v-if="d.writeOffs?.items.length" class="col gap-4">
         <span class="t-label-l">{{ T.writeOffs() }}</span>
