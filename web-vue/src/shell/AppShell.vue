@@ -3,18 +3,21 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { Button, Icon, IconButton } from '@/ui/kit';
-import { tr } from '@/lib/i18n';
+import { num, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { setCareMode, useCareMode } from '@/lib/care';
 import { chrome } from './chrome';
 import { useNavItems } from './navItems';
 import LoginFlow from '@/account/LoginFlow.vue';
+import { useChatBadge } from '@/chat/badge';
 
 const s = useSession();
 const route = useRoute();
 const router = useRouter();
 const care = useCareMode();
 const items = useNavItems();
+const chatUnread = useChatBadge();
+const badgeText = (n: number | null | undefined) => (n ? num(n > 99 ? '99+' : n) : null);
 const pathname = computed(() => route.path);
 // React Router-এর NavLink: aria-current শুধু নিজের ঠিকানায় (বা তার ভেতরে) থাকলে — "/" শুধু হুবহু
 const navActive = (to: string) => {
@@ -40,6 +43,7 @@ watch(
 
 const extra = computed(() =>
   [
+    { to: '/messages', label: tr('Messages', 'মেসেজ'), icon: 'forum_outline', show: !s.guest, badge: chatUnread.value }, // bn-ok
     { to: '/profile', label: tr('Profile', 'প্রোফাইল'), icon: 'person_outline', show: !s.guest },
     { to: '/settings', label: tr('Settings', 'সেটিংস'), icon: 'settings_outline', show: true },
     { to: '/help', label: tr('Help', 'সাহায্য'), icon: 'help', show: true },
@@ -67,7 +71,7 @@ const photoSrc = computed(() => {
       <div class="nav-bottom">
         <div class="nav-sep" />
         <RouterLink v-for="e in extra" :key="e.to" :to="e.to" class="nav-link" :aria-current="navActive(e.to) ? 'page' : undefined">
-          <span class="ico"><Icon :name="e.icon" /></span>
+          <span class="ico"><Icon :name="e.icon" /><span v-if="'badge' in e && e.badge" class="badge-dot err" data-testid="nav-chat-badge">{{ badgeText(e.badge) }}</span></span>
           <span class="label">{{ e.label }}</span>
         </RouterLink>
         <p class="nav-extra">{{ tr('Emergency? 999 is free, 24 hours', 'জরুরি হলে ৯৯৯ — বিনামূল্যে, ২৪ ঘণ্টা') }}</p>
@@ -86,6 +90,7 @@ const photoSrc = computed(() => {
           <Button variant="tonal" class="login-btn" @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
         </div>
         <div v-else class="top-actions">
+          <IconButton icon="forum_outline" :label="tr('Messages', 'মেসেজ')" :badge="badgeText(chatUnread)" class="chat-nav" data-testid="top-chat" @click="router.push('/messages')" /><!-- bn-ok -->
           <IconButton icon="notifications_round" :label="tr('Notifications', 'নোটিফিকেশন')" :badge="s.me?.unread || null" class="bell" @click="router.push('/inbox')" />
           <button type="button" class="icon-btn" :aria-label="tr('Menu and profile', 'মেনু ও প্রোফাইল')" @click="router.push('/profile')">
             <span class="menu-avatar">

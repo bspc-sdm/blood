@@ -32,6 +32,8 @@ export const router = createRouter({
     { path: '/appointments/:id/call', component: () => import('./calls/ApptCallPage.vue'), beforeEnter: featureGuard('appt_video') },
     // অ্যাপে কলের তালিকা
     { path: '/calls', component: () => import('./calls/CallHistoryPage.vue'), beforeEnter: featureGuard('calls_audio') },
+    // অ্যাপে মেসেজ: কথোপকথনের তালিকা আর একটা কথোপকথন (একই পাতা — বড় পর্দায় পাশাপাশি) — chat/
+    { path: '/messages/:threadId?', component: () => import('./chat/MessagesPage.vue') },
     // স্বাস্থ্য: আলোচনা, টিপস, প্রেসক্রিপশন
     { path: rest('/health'), component: Health },
     { path: rest('/prescriptions'), component: Health },

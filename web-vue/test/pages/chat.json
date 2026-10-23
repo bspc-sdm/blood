@@ -1,0 +1,146 @@
+[
+  {
+    "name": "messages",
+    "path": "/messages",
+    "test": {
+      "user": {
+        "uid": "u1",
+        "email": "arif.demo@example.com"
+      },
+      "profile": {
+        "name": "আরিফ হোসেন",
+        "phone": "01712345678",
+        "bloodGroup": "B+",
+        "lastDonationMillis": 1786320000000,
+        "birthDateMillis": 763689600000,
+        "weightKg": 68,
+        "lat": 24.75,
+        "lng": 90.41,
+        "placeName": "ময়মনসিংহ",
+        "locationSource": "district",
+        "notify": true,
+        "maxPushPerDay": 3,
+        "notifyGroups": null,
+        "viewGroups": null,
+        "maxKm": 10,
+        "fareAfterKm": 10
+      },
+      "lang": "bn",
+      "theme": "light",
+      "acct": {
+        "work": {
+          "pharmacy": {
+            "id": "u1",
+            "name": "নিরাময় ফার্মেসি",
+            "status": "approved"
+          }
+        },
+        "me": {
+          "badge": {
+            "type": "doctor",
+            "status": "approved",
+            "changePending": false,
+            "statusReason": ""
+          },
+          "isAdmin": true
+        }
+      }
+    }
+  },
+  {
+    "name": "messages-thread",
+    "path": "/messages/t1",
+    "test": {
+      "user": {
+        "uid": "u1",
+        "email": "arif.demo@example.com"
+      },
+      "profile": {
+        "name": "আরিফ হোসেন",
+        "phone": "01712345678",
+        "bloodGroup": "B+",
+        "lastDonationMillis": 1786320000000,
+        "birthDateMillis": 763689600000,
+        "weightKg": 68,
+        "lat": 24.75,
+        "lng": 90.41,
+        "placeName": "ময়মনসিংহ",
+        "locationSource": "district",
+        "notify": true,
+        "maxPushPerDay": 3,
+        "notifyGroups": null,
+        "viewGroups": null,
+        "maxKm": 10,
+        "fareAfterKm": 10
+      },
+      "lang": "bn",
+      "theme": "light",
+      "acct": {
+        "work": {
+          "pharmacy": {
+            "id": "u1",
+            "name": "নিরাময় ফার্মেসি",
+            "status": "approved"
+          }
+        },
+        "me": {
+          "badge": {
+            "type": "doctor",
+            "status": "approved",
+            "changePending": false,
+            "statusReason": ""
+          },
+          "isAdmin": true
+        }
+      }
+    }
+  },
+  {
+    "name": "messages-readonly",
+    "path": "/messages/t2",
+    "test": {
+      "user": {
+        "uid": "u1",
+        "email": "arif.demo@example.com"
+      },
+      "profile": {
+        "name": "আরিফ হোসেন",
+        "phone": "01712345678",
+        "bloodGroup": "B+",
+        "lastDonationMillis": 1786320000000,
+        "birthDateMillis": 763689600000,
+        "weightKg": 68,
+        "lat": 24.75,
+        "lng": 90.41,
+        "placeName": "ময়মনসিংহ",
+        "locationSource": "district",
+        "notify": true,
+        "maxPushPerDay": 3,
+        "notifyGroups": null,
+        "viewGroups": null,
+        "maxKm": 10,
+        "fareAfterKm": 10
+      },
+      "lang": "bn",
+      "theme": "light",
+      "acct": {
+        "work": {
+          "pharmacy": {
+            "id": "u1",
+            "name": "নিরাময় ফার্মেসি",
+            "status": "approved"
+          }
+        },
+        "me": {
+          "badge": {
+            "type": "doctor",
+            "status": "approved",
+            "changePending": false,
+            "statusReason": ""
+          },
+          "isAdmin": true
+        }
+      }
+    }
+  }
+]

@@ -4,6 +4,7 @@
 //    ভিডিওতে যাওয়া: `call_upgrade` {callId} (ওপাশ চাইছেন), `call_upgraded` {callId, token?, url?}, `call_upgrade_declined` {callId}
 // ২. SSE না চললে (প্রক্সি কেটে দেয়, পুরোনো ব্রাউজার) — call_history ১৫ সেকেন্ড পরপর, "আমাকে করা, এখনো রিং হচ্ছে" কল।
 // ট্যাব আবার সামনে এলে একবার দেখে নেওয়া।
+import { ref } from 'vue';
 import { auth } from '@/lib/firebase';
 import { testUser } from '@/lib/testmode';
 import { callHistory, parseIncoming, parseState } from './api';
@@ -13,6 +14,15 @@ import { onApptReady, onIncoming, onRemoteState, onUpgradeDeclined, onUpgraded, 
 export const eventTiming = { backoffMs: [2000, 5000, 10000, 30000], pollMs: 15000, recentMs: 60_000 };
 
 let stopFn: (() => void) | null = null;
+
+// একই স্ট্রিমের অন্য ঘটনা (মেসেজ: chat_message, chat_read) — অন্য অংশ শোনে; sseLive = স্ট্রিম এখন চালু কি না
+type Tap = (name: string, data: any) => void;
+const taps = new Set<Tap>();
+export function tapEvents(f: Tap) {
+  taps.add(f);
+  return () => void taps.delete(f);
+}
+export const sseLive = ref(false);
 
 /** SSE-র একটা ঘটনা */
 export function handleEvent(name: string, data: string) {
@@ -24,6 +34,7 @@ export function handleEvent(name: string, data: string) {
   } catch {
     return;
   }
+  taps.forEach((f) => f(name !== 'message' ? name : String(o?.type || name), o));
   if (name === 'call_incoming' || o?.type === 'call_incoming') {
     const inc = parseIncoming(o);
     if (inc) onIncoming(inc);
@@ -115,6 +126,7 @@ export function startCallEvents() {
       const res = await fetch('/api/events', { headers: { Authorization: `Bearer ${t}`, Accept: 'text/event-stream' }, signal: ctrl.signal, credentials: 'omit', cache: 'no-store' });
       if (!res.ok || !res.body) throw new Error(`sse ${res.status}`);
       sseUp = true;
+      sseLive.value = true;
       fails = 0;
       setPolling(false);
       const reader = res.body.getReader();
@@ -128,6 +140,7 @@ export function startCallEvents() {
       throw new Error('sse closed');
     } catch {
       sseUp = false;
+      sseLive.value = false;
       if (stopped) return;
       fails++;
       // দুবার না পারলে (বা একবারও না) বিকল্প: তালিকা দেখা
@@ -143,6 +156,7 @@ export function startCallEvents() {
   void connect();
   stopFn = () => {
     stopped = true;
+    sseLive.value = false;
     ctrl?.abort();
     if (retry) clearTimeout(retry);
     setPolling(false);
