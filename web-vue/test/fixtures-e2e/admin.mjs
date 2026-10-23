@@ -42,6 +42,8 @@ export const admin = {
   admin_user: need((b) => data[`admin_user:${b.uid}`] || { __status: 404, body: { error: 'পাওয়া যায়নি' } }),
   admin_user_section: need((b) => data[`admin_user_section:${b.uid}:${b.section}`] || { __status: 404, body: { error: 'পাওয়া যায়নি' } }),
   admin_demo_status: need(() => data.admin_demo_status),
+  // প্যানেলের কুকি সেশনে `features` চলে না (সার্ভারের মতো: শুধু admin_* আর কয়েকটা পড়া)
+  features: () => ({ __status: 403, body: { error: 'ওয়েব প্যানেলে এটা চলে না' } }),
   admin_catalog_set: need((b) => ({ items: b.items.map((x, i) => ({ ...x, code: x.code || `new${i}` })) })),
   admin_labtests_set: need((b) => ({ test: { ...b.test, code: b.test.code || 'new_test' } })),
   admin_emergency_create: need(() => ({ ok: true, id: 'em-e2e', notified: 7 })),
