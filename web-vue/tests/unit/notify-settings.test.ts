@@ -33,8 +33,8 @@ type Server = { all: boolean; cats: Record<string, boolean>; sets: Record<string
 let st: Server;
 
 beforeEach(() => {
-  // "অ্যাপে কল" (calls) ধরনটা ফিচার সুইচ calls_audio চালু থাকলে তবেই
-  setFeaturesForTest({ calls_audio: true });
+  // "অ্যাপে কল" (calls) আর "মেসেজ" (messages) ধরন ফিচার সুইচ calls_audio / chat চালু থাকলে তবেই
+  setFeaturesForTest({ calls_audio: true, chat: true });
   localStorage.setItem('lf.lang', 'bn');
   toastMessage.value = null;
   st = { all: true, cats: Object.fromEntries(NOTIFY_CATS.map((c) => [c, true])), sets: [], fail: false };
