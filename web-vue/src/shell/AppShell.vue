@@ -7,7 +7,7 @@ import { num, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { setCareMode, useCareMode } from '@/lib/care';
 import { chrome } from './chrome';
-import { useNavItems } from './navItems';
+import { useNavItems, useWorkNav } from './navItems';
 import LoginFlow from '@/account/LoginFlow.vue';
 import { useChatBadge } from '@/chat/badge';
 import { featureOn } from '@/lib/features';
@@ -17,6 +17,10 @@ const route = useRoute();
 const router = useRouter();
 const care = useCareMode();
 const items = useNavItems();
+// "আমার কাজ"-এর ভেতরে: বড় পর্দার বাঁ মেনুতে ভূমিকা অনুযায়ী ভাগ; ছোট পর্দায় উপরে পাতার নাম (আর পেছনে), নিচে একই মেনু
+const workNav = useWorkNav();
+const workArea = computed(() => /^\/work(\/|$)/.test(route.path));
+const topBack = computed(() => (workArea.value && route.path.replace(/\/+$/, '') !== '/work' ? chrome.backTo || '/work' : ''));
 const chatUnread = useChatBadge();
 const badgeText = (n: number | null | undefined) => (n ? num(n > 99 ? '99+' : n) : null);
 const pathname = computed(() => route.path);
@@ -57,17 +61,30 @@ const photoSrc = computed(() => {
 </script>
 
 <template>
-  <div :class="['shell', chrome.detailOpen > 0 && 'detail-open', chrome.subOpen > 0 && 'sub-open']">
+  <div :class="['shell', chrome.detailOpen > 0 && 'detail-open', chrome.subOpen > 0 && 'sub-open', workArea && 'work-area']">
     <aside class="side-nav" :aria-label="tr('Main menu', 'মূল মেনু')">
       <RouterLink to="/" class="logo" aria-label="Lifolo">
         <span class="logo-mark"><Icon name="bloodtype" /></span>
         <span class="logo-name">Lifolo</span>
       </RouterLink>
       <nav class="col gap-4">
-        <RouterLink v-for="it in items" :key="it.to" :to="it.to" class="nav-link" :aria-current="navActive(it.to) ? 'page' : undefined">
-          <span class="ico"><Icon :name="it.match(pathname) ? it.iconOn : it.icon" /></span>
-          <span class="label">{{ it.label }}</span>
-        </RouterLink>
+        <template v-for="it in items" :key="it.to">
+          <RouterLink :to="it.to" class="nav-link" :aria-current="navActive(it.to) ? 'page' : undefined">
+            <span class="ico"><Icon :name="it.match(pathname) ? it.iconOn : it.icon" /></span>
+            <span class="label">{{ it.label }}</span>
+          </RouterLink>
+          <div v-if="it.to === '/work' && workArea && workNav.length" class="nav-sub" data-testid="work-nav">
+            <RouterLink
+              v-for="w in workNav"
+              :key="w.to"
+              :to="w.to"
+              :class="['nav-sub-link', w.child && 'child']"
+              :aria-current="w.match(pathname) ? 'page' : undefined"
+            >
+              <Icon :name="w.icon" /><span class="label">{{ w.label }}</span>
+            </RouterLink>
+          </div>
+        </template>
       </nav>
       <div class="nav-bottom">
         <div class="nav-sep" />
@@ -84,6 +101,7 @@ const photoSrc = computed(() => {
           <span class="logo-mark"><Icon name="bloodtype" /></span>
           <span class="logo-name">Lifolo</span>
         </RouterLink>
+        <IconButton v-if="topBack" icon="arrow_back" :label="tr('Back', 'পেছনে')" class="top-back" data-testid="top-back" @click="router.push(topBack)" />
         <h1 class="page-title ellipsis">{{ chrome.title }}</h1>
         <div v-if="!s.ready" class="top-actions" />
         <div v-else-if="s.guest" class="top-actions">

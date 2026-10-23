@@ -15,6 +15,10 @@
   --on-error: #FFFFFF;
   --error-container: #FCE4E2;
   --on-error-container: #7A2420;
+  /* বিরতি / সতর্ক (কমলা) — "আজকের কাজ"-এর অবস্থা */
+  --warn: #8A4B00;
+  --warn-container: #FFE2C2;
+  --on-warn-container: #2F1500;
   --bg: #F7FAFA;
   --surface: #F7FAFA;
   --on-surface: #1D1B20;
@@ -58,6 +62,9 @@
     --on-error: #601410;
     --error-container: #5C1F1B;
     --on-error-container: #FFDAD6;
+    --warn: #FFB876;
+    --warn-container: #5B3300;
+    --on-warn-container: #FFDDBE;
     --bg: #0F1415;
     --surface: #0F1415;
     --on-surface: #E1E3E3;
@@ -91,6 +98,9 @@
   --on-error: #601410;
   --error-container: #5C1F1B;
   --on-error-container: #FFDAD6;
+  --warn: #FFB876;
+  --warn-container: #5B3300;
+  --on-warn-container: #FFDDBE;
   --bg: #0F1415;
   --surface: #0F1415;
   --on-surface: #E1E3E3;

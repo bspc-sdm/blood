@@ -81,3 +81,10 @@
 
 /* প্রেসক্রিপশন থেকে বিক্রি */
 .bk-offer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: var(--r-card); background: var(--primary-a12, var(--surface-low)); border: 1px solid var(--primary); }
+
+/* বিক্রি (কাউন্টার): বড় পর্দায় "নতুন বিক্রি" ডানের তালিকার পাশে পুরো উচ্চতা — নিচে বড় ফাঁকা নয় (mywork CONTRACT §৩) */
+.bk-pos-empty { margin: 0; padding: 20px 12px; border: 1px dashed var(--outline-variant); border-radius: 12px; text-align: center; }
+@media (min-width: 1100px) {
+  .rxp-panel.bk-pos { position: sticky; top: 76px; min-height: calc(100dvh - 240px); display: flex; flex-direction: column; }
+  .rxp-panel.bk-pos .bk-pos-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+}

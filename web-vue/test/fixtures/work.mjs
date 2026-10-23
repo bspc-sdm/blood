@@ -1,6 +1,7 @@
 // "আমার কাজ"-এর নকল উত্তর: ডেমো ব্যবহারকারীর ৩টা অ্যাম্বুলেন্স (একটা যাচাইয়ে), ১টা ফার্মেসি, ১টা ব্লাড ব্যাংক, ১টা প্যাথলজি,
 // আর অনুমোদিত ডাক্তার ব্যাজ (চেম্বার কার্ড)। 00-common-এর খালি তালিকার উপর বসে (ফাইল বর্ণানুক্রমে আসে)।
 import { ME } from './00-common.mjs';
+import { closedToday, pausedUntil } from './appointment.mjs';
 
 const MYM = 'ময়মনসিংহ'; // জেলার নাম ডাটাবেসের মতো (য় = U+09DF)
 const SADAR = 466; // ময়মনসিংহ সদর
@@ -69,7 +70,66 @@ let finds = [
 
 const ambDaily = { amb1: daily(1, 6), amb2: daily(3, 3), amb3: daily(0, 0).map(() => 0) };
 
+// "আজকের কাজ" (work_today — backend/docs/MYWORK.md, mywork CONTRACT "## Changes"): এই ব্যবহারকারীর সব ব্যবসা — অবস্থা, আজকের সংখ্যা,
+// এখনই দেখুন, শুরু করতে যা বাকি। ডাক্তারের চেম্বার আর অ্যাম্বুলেন্সের গাড়ি এক ব্যবসার ভেতরে।
+let labOpen = { openNow: true, openOverride: null };
+const MIN = 60 * 1000;
+const ovStatus = (o) => (o.openOverride && o.openOverride.open === false && o.openOverride.pause && o.openOverride.until > Date.now() ? 'paused' : o.openNow === false ? 'closed' : 'open');
+const task = (kind, bizId, type, id, title, sub, at, action, link) => ({ kind, bizId, type, id, title, sub, at, action, link });
+function workToday() {
+  const t = Date.now();
+  const ch = (i, name, nameBn) => {
+    const paused = pausedUntil.get(i) > t;
+    return { chamberIndex: i, chamberKey: 'c' + i, name, nameBn, online: false, sitsToday: true, closedToday: closedToday.has(i) && !paused, sessionNow: i === 0,
+      status: paused ? 'paused' : closedToday.has(i) ? 'closed' : 'open', pausedUntil: paused ? pausedUntil.get(i) : null };
+  };
+  const chambers = [ch(0, 'Labib Hospital', 'লাবিব হাসপাতাল'), ch(1, 'Mymensingh Medical College Hospital', 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল')];
+  const phSt = ovStatus(pharmacy);
+  const items = [
+    {
+      kind: 'doctor', id: 'u-work', name: 'ডা. আরিফুল হক', role: 'owner', proType: 'doctor', listingStatus: 'approved',
+      status: chambers.some((c) => c.status === 'open') ? 'open' : chambers.some((c) => c.status === 'paused') ? 'paused' : 'closed', pausedUntil: null,
+      counts: { today: 5, waiting: 2, requests: 3 }, chambers, setup: [{ key: 'photo', done: true }, { key: 'chamber', done: true }, { key: 'fee', done: true }],
+      tasks: [
+        task('doctor', 'u-work', 'queue_next', 'c0', 'জাহানারা বেগম', 'সিরিয়াল ৪ · লাবিব হাসপাতাল', t - 5 * MIN, 'next', '/work/pro?v=active'),
+        task('doctor', 'u-work', 'appt_request', 'q4', 'নাসরিন সুলতানা', 'অ্যাপয়েন্টমেন্টের অনুরোধ · আজ', t - 30 * MIN, 'accept', '/work/pro?v=new'),
+      ],
+    },
+    {
+      kind: 'pharmacy', id: pharmacy.id, name: pharmacy.name, role: 'owner', listingStatus: pharmacy.status, status: phSt,
+      pausedUntil: phSt === 'paused' ? pharmacy.openOverride.until : null,
+      counts: { new: 2, active: 3, salesToday: 6, salesTodayTk: 1663.72, ...(findOff ? {} : { finds: finds.filter((f) => !f.answer).length }) },
+      tasks: [
+        task('pharmacy', pharmacy.id, 'order_new', 'o1', 'সুমাইয়া ইসলামের প্রেসক্রিপশন', 'M2KD9VW4YA · দোকানে এসে নেবেন', t - 8 * MIN, 'ready', '/work/pharmacy/orders/rx/M2KD9VW4YA'),
+        task('pharmacy', pharmacy.id, 'order_new', 'o3', 'আব্দুল করিমের প্রেসক্রিপশন', 'B8NX3RT6CE · বাসায় ডেলিভারি', t - 15 * MIN, 'accept', '/work/pharmacy/orders/rx/B8NX3RT6CE'),
+        ...(findOff ? [] : [task('pharmacy', pharmacy.id, 'find', 'mf1', 'Napa Extra — কেউ খুঁজছেন', 'চরপাড়া · ৩ পাতা', t - 12 * MIN, 'answer', '/work/pharmacy/finds')]),
+      ],
+      setup: [],
+    },
+    lab.status === 'approved'
+      ? { kind: 'lab', id: lab.id, name: lab.name, role: 'owner', listingStatus: 'approved', status: ovStatus(labOpen), pausedUntil: null, counts: { new: 4, active: 2, reported: 2 }, tasks: [], setup: [] }
+      : { kind: 'lab', id: lab.id, name: lab.name, role: 'owner', listingStatus: lab.status, status: null, pausedUntil: null, counts: {}, tasks: [],
+        setup: [{ key: 'approved', done: false }, { key: 'hours', done: true }, { key: 'address', done: true }, { key: 'prices', done: false }] },
+    ...bloodBanks.map((b) => ({
+      kind: 'bloodbank', id: b.id, name: b.name, role: 'owner', listingStatus: b.status, status: null, pausedUntil: null, counts: {}, setup: [],
+      stockUpdatedAt: b.stockUpdatedAt ?? null, stockStale: !!b.stockStale,
+      tasks: b.stockStale || !b.stock ? [task('bloodbank', b.id, 'stock', b.id, 'রক্তের মজুদ হালনাগাদ করুন', b.name, 0, 'stock', '/work/bloodbank')] : [],
+    })),
+    {
+      kind: 'ambulance', id: 'u-work', name: 'জননী অ্যাম্বুলেন্স সার্ভিস', role: 'owner', listingStatus: 'approved',
+      status: ambulances.some((a) => a.status === 'approved' && a.available) ? 'open' : 'closed', pausedUntil: null,
+      vehicles: ambulances.map((a) => ({ id: a.id, name: a.name, vehicleNo: a.vehicleNo, types: a.types, listingStatus: a.status, available: a.available, availableUntil: a.availableUntil ?? null })),
+      counts: { calls: 1, trips: 0 }, setup: [{ key: 'approved', done: false }, { key: 'base', done: true }],
+      tasks: [task('ambulance', 'u-work', 'call', 'c1', 'ডাক · চরপাড়া মোড়', 'রোগী: আব্দুল হাই', t - 3 * MIN, 'accept', '/work/ambulance')],
+    },
+  ];
+  const all = items.flatMap((b) => b.tasks).sort((a, b) => b.at - a.at);
+  return { now: t, date: Date.UTC(new Date(t + 6 * 3600e3).getUTCFullYear(), new Date(t + 6 * 3600e3).getUTCMonth(), new Date(t + 6 * 3600e3).getUTCDate()),
+    roles: ['doctor', 'pharmacy', 'lab', 'bloodbank', 'ambulance'], items, tasks: all.slice(0, 5), taskCount: all.length };
+}
+
 export default {
+  work_today: () => workToday(),
   me: () => ({ ...ME, badge: { type: 'doctor', status: 'approved', regNo: 'A-45012', workplace: 'ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল' } }),
   ambulance_mine: () => ({ items: ambulances }),
   pharmacy_me: () => ({ pharmacy }),
@@ -150,15 +210,19 @@ export default {
     return { ok: true, id: b.id, stock: x?.stock ?? null, stockUpdatedAt: t, stockStale: false };
   },
   pharmacy_open_override: (b) => {
-    const until = Date.now() + 3 * HOUR;
-    pharmacy = { ...pharmacy, openNow: b.open == null ? true : !!b.open, openOverride: b.open == null ? null : { open: !!b.open, until } };
+    // বিরতি ("আজকের কাজ"): open:false + until — সময় হলে নিজে খোলে
+    const until = b.until || Date.now() + 3 * HOUR;
+    pharmacy = { ...pharmacy, openNow: b.open == null ? true : !!b.open, openOverride: b.open == null ? null : { open: !!b.open, until, ...(b.until ? { pause: true } : {}) } };
     return { ok: true, openNow: pharmacy.openNow, openOverride: pharmacy.openOverride };
   },
   pharmacy_delivery_set: (b) => {
     pharmacy = { ...pharmacy, delivery: !!b.delivery };
     return { ok: true, delivery: pharmacy.delivery };
   },
-  lab_open_override: (b) => ({ ok: true, openNow: b.open !== false, openOverride: b.open == null ? null : { open: !!b.open, until: Date.now() + 3 * HOUR } }),
+  lab_open_override: (b) => {
+    labOpen = { openNow: b.open !== false, openOverride: b.open == null ? null : { open: !!b.open, until: b.until || Date.now() + 3 * HOUR, ...(b.until ? { pause: true } : {}) } };
+    return { ok: true, ...labOpen };
+  },
   lab_home_collection_set: (b) => ({ ok: true, homeCollection: !!b.homeCollection }),
   bloodbank_delete: (b) => {
     bloodBanks = bloodBanks.filter((x) => x.id !== b.id);

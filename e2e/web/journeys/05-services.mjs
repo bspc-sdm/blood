@@ -515,7 +515,7 @@ export async function run(J) {
   await J.sc('S-22', 'নার্সের নিজের বাসায় সেবা', async () => {
     page = await J.as('homecare');
     await go(page, '/work');
-    await J.shot('নার্স: আমার কাজ', '‘আমার বাসায় সেবা’।', { full: true });
+    await J.shot('নার্স: আজকের কাজ', '‘বাসায় সেবা’ অংশ; নিচে ‘আপনার কাজের পাতা’-য় ‘আমার বাসায় সেবা’।', { full: true });
     await page.getByRole('link', { name: /বাসায় সেবা/ }).first().click();
     await settle(page);
     await J.shot('আমার বাসায় সেবা', '‘আপনি তালিকায় আছেন — রোগীরা সরাসরি ফোন করবেন।’, ফোনের হিসাব, রেটিং ৪.৫ (৬); সেটিং: ১০ কিমি, সদর আর কালিয়াকৈর, ০১২০০০০০১৮০।', { full: true });

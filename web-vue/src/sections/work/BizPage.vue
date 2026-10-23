@@ -1,22 +1,19 @@
 <script setup lang="ts">
-// একটা ব্যবসার পাতা: উপরে "পেছনে" বার ("আমার কাজ"-এ ফেরা), নিচে চওড়া কাজের পাতা
+// একটা ব্যবসার পাতা (অ্যাম্বুলেন্স, ব্লাড ব্যাংক, ফার্মেসি/প্যাথলজির তথ্য): "আমার কাজ"-এর সব পাতার একই খোলস — উপরের বারে
+// পাতার নাম (ছোট পর্দায় পাশে "পেছনে" → "আমার কাজ"), নিচে একই মেনু; পাতার বোতাম পাতার মাথায়।
 import { useSlots } from 'vue';
-import SubPageBar from '@/shell/SubPageBar.vue';
 import Workspace from '@/shell/Workspace.vue';
-import { useMobile } from '@/shell/chrome';
 import { slotHasContent } from '@/ui/kit';
+import { useTopBack } from '@/shell/chrome';
 
 defineProps<{ title: string }>();
-const mobile = useMobile();
+useTopBack('/work');
 const slots = useSlots();
 </script>
 
 <template>
-  <SubPageBar :title="title" back-to="/work">
-    <template v-if="!mobile && slotHasContent(slots.actions)" #actions><div class="row gap-8 work-bar-actions"><slot name="actions" /></div></template>
-  </SubPageBar>
   <Workspace :title="title">
-    <template v-if="mobile && slotHasContent(slots.actions)" #actions><slot name="actions" /></template>
+    <template v-if="slotHasContent(slots.actions)" #actions><div class="row wrap gap-8 work-bar-actions"><slot name="actions" /></div></template>
     <slot />
   </Workspace>
 </template>

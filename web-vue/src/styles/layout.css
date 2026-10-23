@@ -163,3 +163,39 @@
   .shell.sub-open .topbar .page-title { visibility: hidden; }
   .form-page > .form-inner { margin-top: 4px; }
 }
+
+/* ---------- "আমার কাজ"-এর খোলস (mywork CONTRACT §৩) ----------
+   সব কাজের পাতায় একই: ছোট পর্দায় উপরের বারে পাতার নাম (ভেতরের পাতায় পাশে "পেছনে"), নিচে একই মেনু;
+   বড় পর্দায় (৯৬০+) বাঁ মেনু পুরো চওড়া, "আমার কাজ"-এর নিচে ভূমিকার ভাগ (দুই স্তরের বেশি নয়)। */
+.nav-sub { display: none; }
+.top-back { display: none; }
+.shell.work-area .ws .appt-h1, .shell.work-area .ws .rxd-h1, .shell.work-area .work-mobile-title { display: none; }
+@media (max-width: 959px) {
+  .shell.work-area .topbar .top-back { display: inline-flex; margin-left: -8px; }
+}
+@media (max-width: 719px) {
+  .shell.work-area .topbar .logo { display: none; }
+  .shell.work-area .topbar .page-title { display: block; flex: 1; min-width: 0; font-size: 20px; }
+}
+@media (min-width: 960px) and (max-width: 1179px) {
+  .shell.work-area .side-nav { width: 248px; padding: 16px 12px; padding-left: max(12px, env(safe-area-inset-left, 0px)); }
+  .shell.work-area .side-nav .logo { justify-content: flex-start; padding: 4px 12px 18px; }
+  .shell.work-area .side-nav .logo-name { display: block; }
+  .shell.work-area .nav-link { flex-direction: row; gap: 12px; padding: 0 16px 0 4px; min-height: 48px; border-radius: 24px; font-size: 14px; line-height: 20px; text-align: left; }
+  .shell.work-area .nav-link .ico { width: 40px; height: 40px; background: transparent !important; }
+  .shell.work-area .nav-link:hover { background: var(--primary-a12); }
+  .shell.work-area .nav-link[aria-current='page'] { background: var(--secondary-container); color: var(--on-secondary-container); }
+  .shell.work-area .side-nav .nav-sep { margin: 10px 16px; }
+}
+@media (min-width: 960px) {
+  .shell.work-area .nav-sub { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px 24px; padding-left: 10px; border-left: 1px solid var(--outline-variant); }
+  .nav-sub-link { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 20px; color: var(--on-surface-variant); font-size: 14px; line-height: 20px; font-weight: 500; min-width: 0; }
+  .nav-sub-link svg { width: 20px; height: 20px; flex: none; }
+  .nav-sub-link .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-sub-link.child { padding-left: 42px; }
+  .nav-sub-link.child svg { width: 18px; height: 18px; }
+  .nav-sub-link:hover { background: var(--primary-a12); }
+  .nav-sub-link[aria-current='page'] { background: var(--secondary-container); color: var(--on-secondary-container); font-weight: 700; }
+  /* ভাগগুলো দেখা গেলে মূল "আমার কাজ" শুধু শিরোনামের মতো (দুটো একসাথে গাঢ় নয়) */
+  .shell.work-area .side-nav .nav-link[aria-current='page']:has(+ .nav-sub) { background: transparent; color: var(--on-surface); }
+}

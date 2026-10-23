@@ -1,0 +1,109 @@
+/* "আজকের কাজ" ("আমার কাজ"-এর প্রথম পাতা) — শুধু টোকেন (লাইট/ডার্ক দুটোতেই) */
+
+.td-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.td-chips { min-width: 0; margin: 0 -16px; }
+.td-chips .pills { padding: 0 16px; }
+@media (min-width: 720px) { .td-chips { margin: 0; } .td-chips .pills { padding: 0; } }
+.td-skel { display: flex; flex-direction: column; gap: 12px; }
+
+/* ফোনে এক কলাম; বড় পর্দায় বাঁয়ে কাজ, ডানে "রোগীরা যেভাবে দেখেন" আর কাজের পাতা (ফাঁকা জায়গা নয়) */
+.td-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.td-main, .td-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (min-width: 1100px) {
+  .td-layout { grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; }
+  .td-side { position: static; }
+}
+.td-blocks { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 720px) { .td-blocks { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
+
+/* ভূমিকার অংশ */
+.td-block {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border-radius: 16px;
+  background: var(--surface-lowest); border: 1px solid var(--outline-variant);
+}
+.td-block-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.td-block-head h3 { margin: 0; }
+.td-ic { width: 40px; height: 40px; border-radius: 12px; background: var(--primary-container); color: var(--on-primary-container); display: flex; align-items: center; justify-content: center; flex: none; }
+.td-ic svg { width: 22px; height: 22px; }
+.td-st-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.td-st-row { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.td-st-name { color: var(--on-surface-variant); }
+
+/* খোলা / বিরতি / বন্ধ */
+.td-seg { display: flex; gap: 0; min-width: 0; border: 1px solid var(--outline); border-radius: 24px; overflow: hidden; }
+.td-seg-btn {
+  flex: 1 1 0; min-width: 0; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px;
+  border: 0; border-left: 1px solid var(--outline); background: transparent; color: var(--on-surface); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  white-space: nowrap;
+}
+.td-seg-btn:first-child { border-left: 0; }
+.td-seg-btn svg { width: 18px; height: 18px; flex: none; }
+.td-seg-btn:hover { background: var(--primary-a12); }
+.td-seg-btn:disabled { cursor: default; opacity: .7; }
+.td-seg-btn.open[aria-pressed='true'] { background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 700; }
+.td-seg-btn.paused[aria-pressed='true'] { background: var(--warn-container); color: var(--on-warn-container); font-weight: 700; }
+.td-seg-btn.closed[aria-pressed='true'] { background: var(--error-container); color: var(--on-error-container); font-weight: 700; }
+.td-pause { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-low); }
+.td-pause .btn { min-height: 40px; }
+.td-note { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; font-weight: 600; }
+.td-note svg { width: 18px; height: 18px; flex: none; }
+.td-note.warn { color: var(--warn); }
+.td-note.err { color: var(--error); }
+.td-warn-text { color: var(--warn); font-weight: 600; }
+.td-stock { align-items: center; }
+
+/* আজকের সংখ্যা */
+.td-tiles { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.td-tiles.n1 { grid-template-columns: minmax(0, 1fr); }
+.td-tiles.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.td-tile {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 64px; padding: 10px 12px; border-radius: 12px;
+  background: var(--surface-low); color: inherit;
+}
+.td-tile:hover { background: var(--surface-mid); }
+.td-tile .v { font-size: 24px; line-height: 30px; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+.td-tile .l { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; line-height: 17px; color: var(--on-surface-variant); }
+.td-tile .l svg { width: 15px; height: 15px; flex: none; }
+
+/* শুরু করতে যা বাকি */
+.td-setup { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--surface-low); }
+.td-setup-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border-radius: 10px; color: inherit; }
+a.td-setup-row:hover { background: var(--primary-a12); }
+.td-setup-row > svg:first-child { width: 22px; height: 22px; flex: none; color: var(--on-surface-variant); }
+.td-setup-row.done { color: var(--on-surface-variant); }
+.td-setup-row.done > svg:first-child { color: var(--tertiary); }
+
+/* এখনই দেখুন */
+.td-tasks { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.td-tasks h2 { margin: 0; }
+.td-none { display: flex; align-items: center; gap: 8px; color: var(--on-surface-variant); margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-low); }
+.td-none svg { width: 20px; height: 20px; color: var(--tertiary); flex: none; }
+.td-task-list { display: flex; flex-direction: column; border-radius: 16px; border: 1px solid var(--outline-variant); background: var(--surface-lowest); overflow: hidden; }
+.td-task { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; min-height: 64px; }
+.td-task + .td-task { border-top: 1px solid var(--outline-variant); }
+.td-task-ic { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-low); color: var(--primary); display: flex; align-items: center; justify-content: center; flex: none; }
+.td-task-ic svg { width: 20px; height: 20px; }
+.td-task-role { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--primary); }
+.td-task-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-task-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-task .btn { flex: none; min-height: 40px; }
+
+/* রোগীরা আপনাকে যেভাবে দেখেন — এক লাইন করে */
+.td-pv { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--outline-variant); background: var(--surface-lowest); }
+.td-pv h2 { margin: 0; }
+.td-pv-row { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 48px; }
+
+/* কাজের পাতা */
+.td-pages { display: flex; flex-direction: column; gap: 8px; }
+.td-pages h2 { margin: 0; }
+.td-pages ul { border-radius: 16px; border: 1px solid var(--outline-variant); background: var(--surface-lowest); overflow: hidden; }
+.td-page-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 64px; color: inherit; }
+.td-pages li + li .td-page-row { border-top: 1px solid var(--outline-variant); }
+.td-page-row:hover { background: var(--primary-a12); }
+.td-page-row .work-ic { width: 40px; height: 40px; }
+.td-pages > .btn { align-self: flex-start; }
+
+/* সেবা দিন */
+.td-serve { display: flex; flex-direction: column; gap: 16px; max-width: 720px; }
+.td-serve h2 { margin: 0; }
+@media (min-width: 900px) { .td-serve .work-choose { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

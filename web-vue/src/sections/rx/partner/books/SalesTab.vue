@@ -219,10 +219,12 @@ async function del() {
   <div class="rxp-grid">
     <div class="col gap-16 rxp-main">
       <OfflineBar v-if="inv" :st="off.st" :sync="off.syncNow" />
-      <Panel :title="tr('New sale', 'নতুন বিক্রি')" icon="payments">
+      <Panel :title="tr('New sale', 'নতুন বিক্রি')" icon="payments" cls="bk-pos">
         <Loading v-if="!items" />
         <ItemPicker v-else :items="items.items" :placeholder="inv ? T.scanHint() : undefined" :autofocus="inv" @pick="add" />
         <span v-if="inv" class="t-body-s muted inv-hint">{{ T.shortcutHint() }}</span>
+        <!-- বড় পর্দায় বিক্রির ঘর পুরো উচ্চতা জুড়ে (নিচে ফাঁকা নয়) — খালি থাকলে কী আসবে তা লেখা -->
+        <p v-if="!lines.length" class="bk-pos-empty t-body-m muted">{{ tr('Search or scan — the medicines you add come here', 'খুঁজে বা স্ক্যান করে যোগ করা ওষুধ এখানে আসবে') }}</p><!-- bn-ok -->
         <div v-if="lines.length" class="col gap-8">
           <div v-for="l in lines" :key="l.item.id" class="bk-line">
             <div class="col gap-2 bk-line-name">

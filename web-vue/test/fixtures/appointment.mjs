@@ -201,7 +201,9 @@ const ME_PROVIDER = {
 
 // "আমার চেম্বার"-এর "রোগীরা আপনাকে যেভাবে দেখেন" আর "আজ সিরিয়াল চলছে / আজ বন্ধ" (chamber_days, chamber_day_set)
 // দুটো চেম্বারই আজ বসে ধরা (নকল) — বন্ধ করলে nextSlot কালকে যায়
-const closedToday = new Set();
+export const closedToday = new Set();
+// "আজকের কাজ"-এর বিরতি (chamber_day_set {closed, until}) — চেম্বার → কখন আবার খোলে (work.mjs-এর /api/work/today পড়ে)
+export const pausedUntil = new Map();
 function chamberDays() {
   const items = ME_PROVIDER.chambers.map((c, i) => ({
     chamberIndex: i, chamberKey: c.hospitalId || 'c' + i, name: c.hospitalName, nameBn: c.hospitalNameBn, online: false, appointments: c.appointments,
@@ -246,6 +248,8 @@ export default {
   chamber_day_set: (b) => {
     if (b.closed) closedToday.add(b.chamberIndex);
     else closedToday.delete(b.chamberIndex);
+    if (b.closed && b.until) pausedUntil.set(b.chamberIndex, b.until);
+    else pausedUntil.delete(b.chamberIndex);
     return { ok: true, chamberIndex: b.chamberIndex, closed: !!b.closed, requests: b.chamberIndex === 0 ? 2 : 0 };
   },
   provider_save: () => ({ ok: true, cancelled: 0 }),

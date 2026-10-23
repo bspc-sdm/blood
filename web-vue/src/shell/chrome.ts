@@ -1,7 +1,7 @@
 // পাতা থেকে খোলস (shell)-কে জানানো: শিরোনাম, আর মোবাইলে বিস্তারিত পাতা খোলা কি না
 import { onBeforeUnmount, onMounted, reactive, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue';
 
-export const chrome = reactive({ title: '', detailOpen: 0, subOpen: 0 });
+export const chrome = reactive({ title: '', detailOpen: 0, subOpen: 0, backTo: '' });
 
 export function useChrome() {
   return chrome;
@@ -19,6 +19,23 @@ export function usePageTitle(title: MaybeRefOrGetter<string>) {
   };
   onMounted(apply);
   watch(() => toValue(title), apply);
+}
+
+/**
+ * উপরের বারের "পেছনে" (ছোট পর্দায়, "আমার কাজ"-এর ভেতরের পাতায়) কোথায় যায় — পাতা বসলে বসে, সরলে মোছে।
+ * "আমার কাজ"-এর সব পাতায় একই খোলস: উপরে পাতার নাম, নিচে একই মেনু (ব্যবসার পাতাও আর আলাদা "পেছনে" বার নয়)।
+ */
+export function useTopBack(to: MaybeRefOrGetter<string>) {
+  watch(
+    () => toValue(to),
+    (v, _old, onCleanup) => {
+      chrome.backTo = v;
+      onCleanup(() => {
+        if (chrome.backTo === v) chrome.backTo = '';
+      });
+    },
+    { immediate: true },
+  );
 }
 
 /** মোবাইলে বিস্তারিত পাতা: উপরের বার আর নিচের ট্যাব লুকায় (অ্যাপের মতো পুরো পাতা) */

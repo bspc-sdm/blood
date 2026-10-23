@@ -1,6 +1,6 @@
 // বাকি দৃশ্যগুলো (আগের যাত্রার পরে যেগুলো করা যায়): দোকানের হিসাব-খাতা, প্যাথলজির দাম আর বাসা থেকে নমুনা,
 // অ্যাম্বুলেন্সের জায়গা আর মনে করানো, প্যাথলজির রিপোর্ট, ব্যাজ সংশোধন/বাতিল, চেম্বারের গড় সময়, আপিল
-import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave, rxListAll } from '../lib.mjs';
+import { tap, see, has, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin } from './00-seed.mjs';
 
@@ -293,6 +293,26 @@ export async function run(J) {
     await tap(page, 'আমার চেম্বার');
     await tap(page, 'সেটআপ', { role: 'tab' });
     await J.shot('গড় সময় ১৫ থাকে', 'কালিয়াকৈরে ‘রোগীপ্রতি গড় সময় (মিনিট)’ ১৫।', { full: true });
+  });
+
+  await J.sc('W-01', '‘আজকের কাজ’: অবস্থা, আজকের সংখ্যা, এখনই দেখুন; ফার্মেসিতে বিরতি → আবার খোলা', async () => {
+    page = await J.as('doctor');
+    await go(page, '/work');
+    await page.getByTestId('today-home').waitFor({ timeout: 10000 });
+    if (!(await has(page, 'এখনই দেখুন'))) throw new Error('‘এখনই দেখুন’ নেই');
+    await J.shot('ডাক্তার: আজকের কাজ', 'উপরে পাতার নাম ‘আজকের কাজ’; ‘চেম্বার’ — আজ যে চেম্বার বসে তার ‘খোলা / বিরতি / বন্ধ’ আর ‘আজকের সিরিয়াল’ / ‘অপেক্ষায়’ (না বসলে ‘আজ চেম্বার নেই’); ‘এখনই দেখুন’; ‘আপনার কাজের পাতা’।', { full: true });
+    page = await J.as('pharmacy');
+    await go(page, '/work');
+    await page.getByTestId('role-pharmacy').waitFor({ timeout: 10000 });
+    const ctl = page.getByTestId('role-pharmacy').getByRole('group', { name: /অবস্থা/ });
+    await ctl.getByRole('button', { name: /বিরতি/ }).click();
+    await page.getByTestId('pause-options').getByRole('button', { name: '৩০ মিনিট' }).click();
+    await settle(page, 800);
+    await J.shot('ফার্মেসি: বিরতি ৩০ মিনিট', 'কমলা ‘বিরতি’ বাছা, নিচে ‘আবার খুলবে …’; রোগীর তালিকায় দোকান ‘বন্ধ’।');
+    await ctl.getByRole('button', { name: /খোলা/ }).click();
+    await settle(page, 800);
+    if ((await ctl.getByRole('button', { name: /খোলা/ }).getAttribute('aria-pressed')) !== 'true') throw new Error('আবার ‘খোলা’ হয়নি');
+    await J.shot('ফার্মেসি: আবার খোলা', '‘খোলা’ বাছা; ‘বিক্রি করুন’ এক চাপে।');
   });
 
   await J.sc('R-32 R-33', 'ব্যাজ সংশোধন মঞ্জুর, আর ডাক্তারের ব্যাজ বাতিল/ফেরত', async () => {

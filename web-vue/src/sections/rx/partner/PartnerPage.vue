@@ -1,22 +1,19 @@
 <script setup lang="ts">
-// পাতা: উপরে "পেছনে" বার (নিজের ব্যবসার পাতায় ফেরা), নিচে চওড়া কাজের জায়গা
-import { useSlots } from 'vue';
-import SubPageBar from '@/shell/SubPageBar.vue';
+// "আমার কাজ"-এর ব্যবসার পাতা (ফার্মেসি, প্যাথলজি, পেমেন্ট): বাকি সব কাজের পাতার একই খোলস — উপরের বারে পাতার নাম
+// (ছোট পর্দায় পাশে "পেছনে" → backTo), নিচে একই মেনু; বড় পর্দায় বাঁ মেনুতে ভূমিকার ভাগ। পাতার বোতাম পাতার মাথায়।
+import { toRef, useSlots } from 'vue';
 import Workspace from '@/shell/Workspace.vue';
-import { useMobile } from '@/shell/chrome';
 import { slotHasContent } from '@/ui/kit';
+import { useTopBack } from '@/shell/chrome';
 
-defineProps<{ title: string; backTo: string }>();
-const mobile = useMobile();
+const props = defineProps<{ title: string; backTo: string }>();
+useTopBack(toRef(props, 'backTo'));
 const slots = useSlots();
 </script>
 
 <template>
-  <SubPageBar :title="title" :back-to="backTo">
-    <template v-if="!mobile && slotHasContent(slots.actions)" #actions><div class="row gap-8 rxp-bar-actions"><slot name="actions" /></div></template>
-  </SubPageBar>
   <Workspace :title="title">
-    <template v-if="mobile && slotHasContent(slots.actions)" #actions><slot name="actions" /></template>
+    <template v-if="slotHasContent(slots.actions)" #actions><div class="row wrap gap-8 rxp-bar-actions"><slot name="actions" /></div></template>
     <slot />
   </Workspace>
 </template>

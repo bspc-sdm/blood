@@ -15,6 +15,7 @@
 @import './styles/sections/appointment.css' layer(components);
 @import './styles/sections/health.css' layer(components);
 @import './styles/sections/work.css' layer(components);
+@import './styles/sections/today.css' layer(components);
 @import './styles/sections/account.css' layer(components);
 @import './styles/sections/rxdoctor.css' layer(components);
 @import './styles/sections/rxpartner.css' layer(components);

@@ -27,7 +27,7 @@
 | [manual/12-security-privacy.md](manual/12-security-privacy.md) | যা অন্যের দেখা উচিত নয় — হাতে যাচাই | M-SEC | ১ | ২ ঘণ্টা |
 | [manual/13-admin.md](manual/13-admin.md) | অ্যাডমিন প্যানেল (ওয়েব) আর অ্যাপের অ্যাডমিন | M-ADM | ১ | ৩ ঘণ্টা |
 | [manual/14-notifications.md](manual/14-notifications.md) | প্রতিটা নোটিফিকেশন আসে কি না, চাপলে ঠিক পাতা খোলে কি না | M-NTF | ১ | ৩ ঘণ্টা |
-| [manual/15-web.md](manual/15-web.md) | ওয়েব (lifolo.com): মোবাইল/ডেস্কটপ, লিংক, প্রিন্ট, সেবার তালিকার এক ছাঁচ আর "আমার কাজ" | M-WEB | ১ | ৩.৫ ঘণ্টা |
+| [manual/15-web.md](manual/15-web.md) | ওয়েব (lifolo.com): মোবাইল/ডেস্কটপ, লিংক, প্রিন্ট, সেবার তালিকার এক ছাঁচ আর "আমার কাজ" ("আজকের কাজ") | M-WEB | ১ | ৪.৫ ঘণ্টা |
 | [manual/16-business-listings.md](manual/16-business-listings.md) | ব্যবসা যোগ (ফার্মেসি, অ্যাম্বুলেন্স, ব্লাড ব্যাংক, প্যাথলজি), কাগজ, অনুমোদন, বন্ধ, আপিল | M-BIZ | ১ | ২.৫ ঘণ্টা |
 | [manual/17-calls.md](manual/17-calls.md) | অ্যাপে অডিও/ভিডিও কল, অনলাইন ভিডিও চেম্বার, বিকাশে ফি | M-CAL, M-ONC | ২, ৩, ৬, ৭ | ৮ ঘণ্টা |
 | [manual/21-messages.md](manual/21-messages.md) | অ্যাপে মেসেজ, মেসেজে ছবি ও লোকেশন | M-MSG | ৪, ৫ | ৪ ঘণ্টা |
