@@ -28,33 +28,35 @@ env:
     direction: DOWN
     timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
-# চলমান / পূর্বের / সব — Bislol-এরটা "সব"-এ নিশ্চিত (চলমানে নিচে থাকতে পারে)
+# চলমান / পূর্বের / সব — একই ডাক্তারের নতুন প্রেসক্রিপশন আগেরটাকে "পূর্বের"-এ পাঠায় (Bislol-এরটা এখন বদলে গেছে);
+# তাই চলমান-এর ডায়াবেটিসেরটা (Comet, Rosuva, Ecosprin — demo-svc-rx-d), যেমন একজন রোগী বেছে নেবেন
 - extendedWaitUntil:
-    visible: "সব.*"
+    visible: "চলমান.*"
     timeout: 30000
-- tapOn: "সব.*"
+- tapOn: "চলমান.*"
 - scrollUntilVisible:
-    element: ".*Bislol.*"
+    element: ".*Ecosprin.*"
     direction: DOWN
     timeout: 30000
 - takeScreenshot: j1-04-rx-list
-- tapOn: ".*Bislol.*"
+- tapOn: ".*Ecosprin.*"
 - extendedWaitUntil:
     visible: ".*ফার্মেসিতে পাঠান.*"
     timeout: 30000
 - takeScreenshot: j1-05-rx-top-buttons
-- tapOn:
-    text: ".*প্যাথলজিতে পাঠান.*"
-- extendedWaitUntil:
-    visible: ".*পরীক্ষা.*"
-    timeout: 20000
-    optional: true
-- extendedWaitUntil:
-    visible: "ডেমো .*"
-    timeout: 20000
-    optional: true
-- takeScreenshot: j1-06-lab-pick
-- back
+# পরীক্ষা লেখা থাকলে তবেই "প্যাথলজিতে পাঠান"
+- runFlow:
+    when:
+      visible: ".*প্যাথলজিতে পাঠান.*"
+    commands:
+      - tapOn:
+          text: ".*প্যাথলজিতে পাঠান.*"
+      - extendedWaitUntil:
+          visible: "ডেমো .*"
+          timeout: 20000
+          optional: true
+      - takeScreenshot: j1-06-lab-pick
+      - back
 - tapOn:
     text: ".*ফার্মেসিতে পাঠান.*"
     index: 0
@@ -73,7 +75,7 @@ env:
 - back
 - back
 # সেবা › ফার্মেসি (তালিকা সাথে সাথে; "দোকানে গিয়ে / অনলাইন অর্ডার" এক জোড়া চিপ) › ডেমো লাইফ ফার্মেসি › বিস্তারিত ›
-# নিচের আটকানো বারের "প্রেসক্রিপশন পাঠান" → কোন প্রেসক্রিপশন (Bislol) → "দোকানে পাঠান"
+# নিচের আটকানো বারের "প্রেসক্রিপশন পাঠান" → কোন প্রেসক্রিপশন (চলমান ডায়াবেটিসেরটা, Ecosprin) → "দোকানে পাঠান"
 - tapOn: "সেবা"
 - tapOn:
     text: "ফার্মেসি"
@@ -105,7 +107,11 @@ env:
       visible: ".*কোন প্রেসক্রিপশন পাঠাবেন.*"
     commands:
       - takeScreenshot: j1-10-which-rx
-      - tapOn: ".*Bislol.*"
+      - scrollUntilVisible:
+          element: ".*Ecosprin.*"
+          direction: DOWN
+          timeout: 10000
+      - tapOn: ".*Ecosprin.*"
 # উপায় (দোকানে গিয়ে) উপরের চিপ থেকে — এই দোকানের হিসাব আর "দোকানে পাঠান"
 - extendedWaitUntil:
     visible: "দোকানে পাঠান"
