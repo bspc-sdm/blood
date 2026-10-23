@@ -72,11 +72,14 @@ jobs:
           cat "$RUNNER_TEMP/out/features.md"
           tail -1 "$RUNNER_TEMP/out/features.md" | grep -q '^RESULT ok=1 ' || { echo "::error::ফিচার সুইচ বদলানো যায়নি — Summary দেখুন"; exit 1; }
 
-      # বাইরে থেকে, ব্যবহারকারী যেভাবে আসে: api.lifolo.com (Cloudflare এড়াতে নাম VPS-এ বাঁধা — Deploy backend-এর মতো)
+      # বাইরে থেকে, ব্যবহারকারী যেভাবে আসে: https://api.lifolo.com-এর আসল নাম আর সার্টিফিকেট দিয়ে। Cloudflare GitHub-এর
+      # মেশিনকে আটকাতে পারে আর origin শুধু Cloudflare-এর জন্য খোলা, তাই নামটা VPS-এর IP-তে বাঁধা আর সংযোগ SSH tunnel
+      # দিয়ে (deploy/ci/origin-access.sh — Deploy backend আর ops-crash-drill-এর মতো)
       - name: Check from the internet (health, demo login, gated actions)
         env:
           IN_ACTION: ${{ inputs.action }}
         run: |
+          bash deploy/ci/origin-access.sh tunnel "$ORIGIN_IP" >/dev/null
           echo "$ORIGIN_IP lifolo.com api.lifolo.com # lifolo-origin" | sudo tee -a /etc/hosts >/dev/null
           case "$IN_ACTION" in all_on) exp=on ;; all_off) exp=off ;; *) exp="" ;; esac
           key="$(python3 -c "import json;print(json.load(open('app/google-services.json'))['client'][0]['api_key'][0]['current_key'])")"
