@@ -627,6 +627,11 @@ class InvoiceService(
     @Transactional
     fun forget(uid: String, nowMs: Long = System.currentTimeMillis()): Int {
         if (DemoWorld.isDemoUid(uid)) {
+            // its numbering too (every receipt of its businesses goes with it); runs before the ambulances are removed
+            jdbc.update(
+                "DELETE FROM invoice_series WHERE biz_id = ? OR biz_id IN (SELECT id FROM ambulances WHERE owner_uid = ?) OR biz_id IN (SELECT biz_id FROM invoices WHERE owner_uid = ?)",
+                uid, uid, uid,
+            )
             return jdbc.update("DELETE FROM invoices WHERE patient_uid = ? OR owner_uid = ? OR issued_by = ?", uid, uid, uid)
         }
         val keep = Sql.ts(nowMs + RETAIN_MS)

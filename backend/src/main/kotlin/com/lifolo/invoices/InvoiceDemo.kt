@@ -23,7 +23,7 @@ class InvoiceDemo(private val invoices: InvoiceService) : DemoSeedPart {
 
     override fun seed(ctx: DemoSeedContext) {
         val patient = ctx.user("patient")
-        val pName = Customer(patient.name, "01700000101")
+        val pName = Customer(patient.name, "01200000101")
 
         fun issue(kind: String, bizId: String, ownerUid: String, cmd: (String) -> IssueCmd): Invoice? {
             val b = invoices.biz(kind, bizId) ?: return null

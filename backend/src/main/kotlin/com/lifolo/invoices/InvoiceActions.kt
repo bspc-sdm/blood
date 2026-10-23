@@ -76,7 +76,8 @@ class BooksInvoiceHook(private val books: BooksService) : InvoiceVoidHook {
  */
 @Component
 class InvoiceDeletionStep(private val invoices: InvoiceService) : AccountDeletionStep {
-    override val order = 590
+    // before the ambulances (500) go: a demo owner's car numbering is found through them
+    override val order = 450
 
     override fun deleteNow(uid: String, email: String?) {
         invoices.forget(uid)
