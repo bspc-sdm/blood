@@ -60,7 +60,8 @@ if [ -z "$ONLY" ] || echo " $ONLY " | grep -q " n "; then
   echo "n-notify $(( $(date +%s) - start ))s" | tee -a "$OUT/results.txt"
   cd "$OUT/shots"
 fi
-# কোথাও অন্য ফোল্ডারে ছবি পড়ে থাকলে
-find "$OUT/debug" "$W/e2e" "$HOME/.maestro" -name 'j[0-9]-*.png' -newer "$W/e2e/android/run.sh" -exec cp -n {} "$OUT/shots/" \; 2>/dev/null || true
+# কোথাও অন্য ফোল্ডারে ছবি পড়ে থাকলে (Maestro takeScreenshot এখন --debug-output-এর ভেতরে রাখে) — j1…j27 আর নোটিফিকেশনের n-*;
+# আগে শুধু 'j[0-9]-*' ছিল, তাই j10–j15 আর n-* ছবি shots/ (আর e2e-android-shots শাখা, manifest.json)-এ কখনো আসত না
+find "$OUT/debug" "$W/e2e" "$HOME/.maestro" \( -name 'j[0-9]*-*.png' -o -name 'n-*.png' \) -newer "$W/e2e/android/run.sh" -exec cp -n {} "$OUT/shots/" \; 2>/dev/null || true
 ls "$OUT/shots" | wc -l
 exit 0
