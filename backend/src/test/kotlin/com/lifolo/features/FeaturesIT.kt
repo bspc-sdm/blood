@@ -158,7 +158,7 @@ class FeaturesIT : IntegrationTest() {
     }
 
     @Test
-    fun `features action - the caller's keys and the version; guests get the global ones uncached`() {
+    fun `features action - the caller's keys and the version, guests get the global ones uncached`() {
         user("p1", mapOf("name" to "পাইলট"))
         user("u2", mapOf("name" to "সাধারণ"))
         set(Features.CHAT, Features.PILOT, listOf("p1"))
