@@ -151,9 +151,12 @@ jobs:
       - name: 1-4) blue/green deploys under load
         id: deploys
         run: |
-          set -uo pipefail
+          # GitHub-এর bash -e বন্ধ: প্রতিটা পরীক্ষা নিজেই fails-এ লেখে, প্রথম ব্যর্থতায় থামে না
+          set +e -uo pipefail
           out="$RUNNER_TEMP/out"
           fails=""
+          srv_table="$(docker exec pg psql -U lifolo -d lifolo -tAc "SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'jobrunr%server%' ORDER BY 1 LIMIT 1" 2>&1 | tr -d ' ')"
+          echo "JobRunr servers table: $srv_table"
           deploy() { # $1 নাম, $2 jar, $3 প্রত্যাশা ok|fail
             local name="$1" jar="$2" want="$3" rc=0
             echo "::group::deploy $name ($(basename "$jar"), expect $want)"
@@ -186,7 +189,7 @@ jobs:
             ! curl -fsS -m 3 "http://127.0.0.1:$other/api/health" >/dev/null 2>&1 || fails="$fails $name(old-still-up)"
             # আগেরটা থামলে তার সারি সরে যায় (না সরলে JobRunr-এর server timeout ~৬০ s পরে)
             for _ in $(seq 1 40); do
-              dbn="$(docker exec pg psql -U lifolo -d lifolo -tAc 'SELECT count(*) FROM jobrunr_backgroundjobservers' 2>/dev/null | tr -d ' ')"
+              dbn="$(docker exec pg psql -U lifolo -d lifolo -tAc "SELECT count(*) FROM $srv_table" 2>&1 | tr -d ' ')"
               [ "$dbn" = 1 ] && break
               sleep 2
             done
