@@ -91,6 +91,7 @@ lifolo:
   demo-login-rate-per-minute: ${DEMO_LOGIN_RATE_PER_MINUTE:30}
   demo:
     keep-firebase-users: ${DEMO_KEEP_FIREBASE_USERS:false}
+    online-chambers: ${DEMO_ONLINE_CHAMBERS:false}
   ses:
     region: ${SES_REGION:}
     access-key-id: ${SES_ACCESS_KEY_ID:}

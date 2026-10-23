@@ -20,6 +20,7 @@ import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.HospitalDirectory
 import com.lifolo.demo.DemoWorld
 import com.lifolo.notify.NotifyCats
+import com.lifolo.notify.PushService
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Component
@@ -47,6 +48,9 @@ class AppointmentActions(
     private val sanctions: Sanctions,
     private val phone: PhoneCheck,
     private val files: StoredFiles,
+    private val onlineSwitch: OnlineSwitch,
+    private val payLog: ApptPayLog,
+    private val pushService: PushService,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -196,7 +200,22 @@ class AppointmentActions(
     }
 
     /** own provider document (null when none) */
-    fun providerMe(ctx: ActionContext): Any = mapOf("provider" to store.load(ctx.user.id)?.let { providerOut(it, own = true) })
+    fun providerMe(ctx: ActionContext): Any {
+        val p = store.load(ctx.user.id) ?: return mapOf("provider" to null)
+        val out = providerOut(p, own = true)
+        // R6: after a bKash number change new bookings get the earlier number for 24 h
+        val now = clock.now()
+        out["chambers"] = p.chambers.map { c ->
+            val m = LinkedHashMap(c.toMap(withPrivate = true))
+            if (c.online) {
+                val active = CareRules.activeBkash(p, c, now)
+                m["bkashActive"] = active
+                m["bkashPendingUntil"] = if (active != c.bkashNumber) p.bkashChangedAt?.plus(CareRules.BKASH_COOL_MS) else null
+            }
+            m
+        }
+        return mapOf("provider" to out)
+    }
 
     // ------------------------------------------------------------------ provider_save
 
@@ -309,9 +328,14 @@ class AppointmentActions(
         val name = badgeName.ifEmpty { users.name(uid) }.take(80)
         val now = clock.now()
         var saved: List<Ch> = parsed
+        var bkashChanged: Pair<String, String>? = null
         // read and write in one transaction, so an admin switching it off at the same time is not undone
         tx.executeWithoutResult {
             val cur = store.load(uid, forUpdate = true)
+            // R6: demo doctors get no online chamber unless DEMO_ONLINE_CHAMBERS is on
+            if (parsed.any { it.online } && !onlineSwitch.allowed(uid)) {
+                throw ctx.err(403, "Online chambers are off for demo accounts", "ডেমো অ্যাকাউন্টে অনলাইন চেম্বার চালু নেই") // bn-ok
+            }
             if (cur != null && cur.adminSuspended) {
                 throw ctx.err(
                     403,
@@ -350,13 +374,39 @@ class AppointmentActions(
             )
             store.saveChambers(uid, saved)
             if (!keepHome) store.saveHome(uid, homeVisit, if (homeVisit.enabled) now else null)
-            // open online appointments show the doctor's current bKash number and note (the fee stays as booked)
+            // open online appointments show the doctor's current note (the fee and bKash number stay as booked — R6)
             saved.firstOrNull { it.online }?.let { oc ->
                 jdbc.update(
-                    "UPDATE appointments SET bkash_number = ?, online_note = ? WHERE provider_uid = ? AND online AND status IN ('pending', 'confirmed')",
-                    oc.bkashNumber.ifEmpty { null }, oc.note.ifEmpty { null }, uid,
+                    "UPDATE appointments SET online_note = ? WHERE provider_uid = ? AND online AND status IN ('pending', 'confirmed')",
+                    oc.note.ifEmpty { null }, uid,
                 )
             }
+            // R6: a bKash number change is logged; the earlier number stays active for new bookings for 24 h
+            val oldCh = cur?.chambers?.firstOrNull { it.online }
+            val oldNo = oldCh?.bkashNumber ?: ""
+            val newNo = saved.firstOrNull { it.online }?.bkashNumber ?: ""
+            if (oldNo != newNo) {
+                jdbc.update(
+                    "INSERT INTO bkash_number_log (provider_uid, old_last3, new_last3, by_uid, at) VALUES (?, ?, ?, ?, ?)",
+                    uid, oldNo.takeLast(3).ifEmpty { null }, newNo.takeLast(3).ifEmpty { null }, ctx.caller.id, Sql.ts(now),
+                )
+                if (oldNo.isNotEmpty() && newNo.isNotEmpty()) {
+                    jdbc.update(
+                        "UPDATE providers SET online_bkash_prev = ?, online_bkash_changed_at = ? WHERE uid = ?",
+                        CareRules.activeBkash(cur!!, oldCh!!, now), Sql.ts(now), uid,
+                    )
+                } else {
+                    jdbc.update("UPDATE providers SET online_bkash_prev = NULL, online_bkash_changed_at = NULL WHERE uid = ?", uid)
+                }
+                bkashChanged = oldNo to newNo
+            }
+        }
+        bkashChanged?.let { (o, n) ->
+            users.push(
+                uid, "Your bKash number was changed", "আপনার বিকাশ নম্বর বদলানো হয়েছে", // bn-ok
+                "${if (o.isEmpty()) "—" else "…" + o.takeLast(3)} → ${if (n.isEmpty()) "—" else "…" + n.takeLast(3)}",
+                mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.ACCOUNT),
+            )
         }
         // a chamber removed, days changed, list or appointments off: cancel what no longer holds and tell the patients
         val chambers = saved
@@ -406,6 +456,7 @@ class AppointmentActions(
             if (chamberIndex in 0 until chambers.size) chambers[chamberIndex.toInt()] else null
         }
         if (ch == null || !ch.appointments) throw notTaking()
+        if (ch.online && !onlineSwitch.allowed(providerUid)) throw notTaking()
         // the doctor changed the chambers while the page was open — the order shifts; match the hospital
         val sentKey = b.string("chamberKey")
         if (!sentKey.isNullOrEmpty() && sentKey != ch.key) {
@@ -457,7 +508,7 @@ class AppointmentActions(
             id, uid, providerUid, name, ps.name, member?.get("member_id"), (member?.get("age") as? Number)?.toInt(),
             (member?.get("gender") as? String) ?: "", user.actingBy, ps.type, ch.hospitalName, ch.hospitalNameBn, ch.key, slotStart,
             ch.room, ch.schedule, Sql.date(DhakaTime.fromUtcMidnightMs(date)), note, Sql.ts(now),
-            online, payState, if (online) ch.bkashNumber.ifEmpty { null } else null, if (online) (if (noFee) "" else ch.fee) else null,
+            online, payState, if (online) CareRules.activeBkash(ps, ch, now).ifEmpty { null } else null, if (online) (if (noFee) "" else ch.fee) else null,
             noFee, if (online) ch.note.ifEmpty { null } else null,
         )
         users.push(
@@ -533,6 +584,7 @@ class AppointmentActions(
             "payState" to (if (a.online) a.payState else null),
             "payRef" to (if (a.online) a.payRef else null),
             "payNote" to (if (a.online) a.payNote else null),
+            "payClaimedAt" to (if (a.online) a.payClaimedAt else null),
             "fee" to (if (a.online) a.fee else null),
             "noFee" to (if (a.online) a.noFee else null),
             "onlineNote" to (if (a.online) a.onlineNote else null),
@@ -566,6 +618,11 @@ class AppointmentActions(
             (isProvider || isPatient) && (a.status == "pending" || a.status == "confirmed") && op == "cancel" -> "cancelled"
             else -> null
         } ?: throw ctx.err(400, "This can't be changed now", "এখন এটা বদলানো যায় না")
+        // R8: the doctor turns down an online appointment the patient already paid (or says they paid): a reason is required
+        val paidOff = isProvider && a.online && (a.payState == "claimed" || a.payState == "paid") && (next == "cancelled" || next == "declined")
+        if (paidOff && note.isEmpty()) {
+            throw ctx.err(400, "The patient sent the fee — write the reason", "রোগী ফি পাঠিয়েছেন — বাতিলের কারণ লিখুন", "reason_required") // bn-ok
+        }
         // confirmed: the next serial number of that chamber on that day (in the same transaction — no two get one number)
         // old appointments have no chamberKey — the hospital id by the chamber name, so one chamber counts as one
         var chamberKey = a.chamberKey
@@ -618,6 +675,15 @@ class AppointmentActions(
             "${if (isProvider) a.providerName else a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (s != null) " · #$s" else ""}",
             mapOf("type" to "appointment", "role" to (if (isProvider) "patient" else "provider")),
         )
+        if (paidOff) {
+            payLog.log(a.id, uid, a.payState, a.payState, a.payRef, "$next: $note")
+            payLog.systemReport(a.id, "doctor $next after the fee (${a.payState}): $note")
+            pushService.pushPatient(
+                a.patientUid, "Ask the doctor for your fee back", "টাকা ফেরতের জন্য ডাক্তারের সাথে যোগাযোগ করুন / সাহায্য ও আপিল", // bn-ok
+                "${a.providerName} · ${ApptRepo.dateLabel(a.date)} · $note",
+                mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
+            )
+        }
         return mapOf("ok" to true)
     }
 }

@@ -63,6 +63,8 @@ class ProviderStore(private val jdbc: JdbcTemplate) {
             ratingSum = rs.getInt("rating_sum"),
             ratingCount = rs.getInt("rating_count"),
             chamberMode = legacy,
+            bkashPrev = rs.getString("online_bkash_prev"),
+            bkashChangedAt = rs.getTimestamp("online_bkash_changed_at")?.time,
         )
     }
 

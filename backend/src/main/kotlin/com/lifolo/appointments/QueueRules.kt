@@ -39,6 +39,7 @@ data class Appt(
     val fee: String = "",
     val noFee: Boolean = false,
     val onlineNote: String = "",
+    val payClaimedAt: Long? = null,
 ) {
     /** queue.js apptKey: chamberKey || chamber || '' */
     val key: String get() = chamberKey.ifEmpty { chamber }
@@ -78,6 +79,7 @@ data class Appt(
             fee = rs.getString("fee") ?: "",
             noFee = rs.getBoolean("no_fee"),
             onlineNote = rs.getString("online_note") ?: "",
+            payClaimedAt = rs.getTimestamp("pay_claimed_at")?.time,
         )
     }
 }

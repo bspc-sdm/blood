@@ -82,12 +82,12 @@ class OnlineChambersIT : P2TestBase() {
         val stored = row("SELECT hospital_id, district, address, mode, bkash_number FROM provider_chambers WHERE provider_uid = ? AND idx = 1", doc)
         assertEquals(listOf(null, null, null, "online", "01712345678"), listOf(stored["hospital_id"], stored["district"], stored["address"], stored["mode"], stored["bkash_number"]))
 
-        // the public list: mode and note, never the bKash number
+        // the public list: the mode, never the bKash number or the note (R6)
         val pub = ok(x, "providers", mapOf("type" to "doctor", "homeVisit" to false))["items"].first { it["uid"].textValue() == doc }
         assertEquals("online", pub["chambers"][1]["mode"].textValue())
-        assertTrue(pub["chambers"].none { it.has("bkashNumber") })
+        assertTrue(pub["chambers"].none { it.has("bkashNumber") || it.has("note") })
         val guest = ok(null, "providers", mapOf("type" to "doctor", "homeVisit" to false))["items"].first { it["uid"].textValue() == doc }
-        assertTrue(guest["chambers"].none { it.has("bkashNumber") })
+        assertTrue(guest["chambers"].none { it.has("bkashNumber") || it.has("note") })
 
         // validation
         fun err(chambers: List<Any?>, uid: String = doc): String? = save(uid, chambers).also { assertEquals(400, it.status, it.toString()) }.error
@@ -177,9 +177,9 @@ class OnlineChambersIT : P2TestBase() {
         val rp = ok(asst, "rx_patients", mapOf("doctorUid" to doc))["appointments"].first { it["id"].textValue() == id }
         assertEquals(listOf("true", "unpaid", "null", "18:00"), listOf(rp["online"].asText(), rp["payState"].asText(), rp["payRef"].asText(), rp["start"].asText()))
 
-        // the doctor changes the bKash number: open online appointments show the new one
+        // the doctor changes the bKash number: booked appointments keep the number they were shown (R6)
         ok(doc, "provider_save", mapOf("chambers" to listOf(inPerson(hid), online(mapOf("bkashNumber" to "01812345678", "fee" to "৬০০ টাকা"))), "specialties" to listOf("medicine"), "appointments" to true))
-        assertEquals(listOf("01812345678", "৪০০ টাকা"), appt(id2).let { listOf(it["bkash_number"], it["fee"]) }, "the fee stays as booked")
+        assertEquals(listOf("01712345678", "৪০০ টাকা"), appt(id2).let { listOf(it["bkash_number"], it["fee"]) }, "number and fee stay as booked")
         // the online chamber removed: its appointments are cancelled
         val r = ok(doc, "provider_save", mapOf("chambers" to listOf(inPerson(hid)), "specialties" to listOf("medicine"), "appointments" to true))
         assertEquals(2, r["cancelled"].intValue())
@@ -213,7 +213,7 @@ class OnlineChambersIT : P2TestBase() {
         val notOnline = claim(pat, appt = inp)
         assertEquals(409, notOnline.status)
         assertEquals("not_online", notOnline.code)
-        // TrxID: letters and digits, 6–30
+        // TrxID: 10 letters/digits
         assertEquals("বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)", claim(pat, mapOf("payRef" to "টাকা দিয়েছি")).error)
         assertEquals(400, claim(pat, mapOf("payRef" to "AB1")).status)
         assertEquals("unpaid", appt(id)["pay_state"])

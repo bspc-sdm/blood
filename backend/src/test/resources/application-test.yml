@@ -8,6 +8,8 @@ lifolo:
   cron-secret: test-cron-secret
   web-session-secret: test-secret
   email-code-secret: test-secret-key
+  demo:
+    online-chambers: true
 logging:
   level:
     root: WARN

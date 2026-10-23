@@ -72,8 +72,11 @@ data class Ch(
             m["appointments"] = appointments
             m["serialPhone"] = serialPhone
             if (patientMin != null) m["patientMin"] = patientMin
-            m["note"] = note
-            if (withPrivate) m["bkashNumber"] = bkashNumber
+            // the note and the bKash number: the doctor's own view only (booked patients get them on the appointment) — R6
+            if (withPrivate) {
+                m["note"] = note
+                m["bkashNumber"] = bkashNumber
+            }
             return m
         }
         m["mode"] = IN_PERSON
@@ -175,6 +178,9 @@ data class ProviderDoc(
     val ratingCount: Int = 0,
     /** NULL = no chambers field, false = chambers[], true = legacy single chamber */
     val chamberMode: Boolean? = null,
+    /** online chamber: the bKash number before the last change and when it changed (R6: 24 h cool-off) */
+    val bkashPrev: String? = null,
+    val bkashChangedAt: Long? = null,
     val chambers: List<Ch> = emptyList(),
     val photoThumb: String = "",
 )
@@ -452,7 +458,29 @@ object CareRules {
         return Parsed.ok(out)
     }
 
-    private val TRX_RE = Regex("^[A-Z0-9]{6,30}$")
+    /** a bKash TrxID: 10 letters/digits (R7) */
+    private val TRX_RE = Regex("^[A-Z0-9]{10}$")
+
+    /** a changed bKash number reaches new bookings after this (R6) */
+    const val BKASH_COOL_MS = 24L * 60 * 60 * 1000
+
+    /** the bKash number new bookings get now: the earlier one during the 24 h after a change */
+    fun activeBkash(p: ProviderDoc, ch: Ch, now: Long): String {
+        val at = p.bkashChangedAt
+        val prev = p.bkashPrev
+        return if (at != null && now < at + BKASH_COOL_MS && !prev.isNullOrEmpty()) prev else ch.bkashNumber
+    }
+
+    private val BETWEEN_DIGITS = Regex("(?<=\\d)[\\s\\-.()/+]+(?=\\d)")
+    private val MOBILE_IN_TEXT = Regex("01[3-9]\\d{8}")
+    private val LONG_NUMBER = Regex("\\d{10,}")
+
+    /** a phone/bKash number in free text (Bangla or English digits, spaces/dashes between them) — R6 */
+    fun hasPhoneNumber(text: String): Boolean {
+        val ascii = text.map { c -> BN_DIGITS.indexOf(c).let { if (it >= 0) '0' + it else c } }.joinToString("")
+        val joined = BETWEEN_DIGITS.replace(ascii, "")
+        return MOBILE_IN_TEXT.containsMatchIn(joined) || LONG_NUMBER.containsMatchIn(joined)
+    }
 
     /** a bKash TrxID as typed (spaces/dashes dropped, upper case); null = none given; [Err] = clearly not a TrxID */
     fun payRef(raw: String?): Parsed<String?> {
@@ -497,6 +525,10 @@ object CareRules {
         if (norm == null && (!noFee || bkashRaw.isNotEmpty())) {
             return Parsed.fail("Enter your bKash number (01XXXXXXXXX)", "আপনার বিকাশ নম্বর দিন (01XXXXXXXXX)") // bn-ok
         }
+        val note = str(co?.get("note"), 200)
+        if (hasPhoneNumber(note)) {
+            return Parsed.fail("Don't write a phone or bKash number in the note", "নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না") // bn-ok
+        }
         val days = times.flatMap { it.days }.distinct().sorted()
         return Parsed.ok(
             Ch(
@@ -515,7 +547,7 @@ object CareRules {
                 patientMin = Js.integer(co?.get("patientMin"))?.takeIf { it in 1..120 }?.toInt(),
                 mode = Ch.ONLINE,
                 bkashNumber = if (norm != null) Phones.localBd(norm) else "",
-                note = str(co?.get("note"), 200),
+                note = note,
             ),
         )
     }

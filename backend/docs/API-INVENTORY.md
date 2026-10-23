@@ -28,7 +28,7 @@ This is the checklist for phase 2: **tick an action when its Kotlin port passes 
    providers, home_providers, hospitals, ambulances, pharmacies, bloodbanks, labs, lab_prices_public, drug_search, catalog_get`),
    240 req/min per IP (429), answers cached 60 s per identical body. Anything else → 401 "Please log in".
 4. Unknown action → 400 "Unknown request. Please update the app." (after the login check).
-5. `body.asUid` → caregiver acts for the patient: only the 26 CARE actions (Oct 2026: + `appt_pay_claim`) (marked **caregiver** below) and an active
+5. `body.asUid` → caregiver acts for the patient: only the 27 CARE actions (Oct 2026: + `appt_pay_claim`, `appt_report`) (marked **caregiver** below) and an active
    `careLinks/{patient}_{caretaker}` (else 403, or 403 `care_revoked`; Oct 2026: 403 `care_paused` while the patient's
    account is deactivated).
    *Spring, Oct 2026:* before this step a deactivated caller gets 423 `account_deactivated` for everything except
@@ -293,22 +293,22 @@ deactivated, reactivated.
   - request: `requestId` · response: `{ok}`
   - collections: inbox, requests, requests/responses, users, …/meta, …/responses · side effects: push (requestend), FCM push + inbox · errors: 400, 404, 403, 429 · tests: — (none)
 
-## Providers, appointments, queue (package `appointments`) — 14 actions
+## Providers, appointments, queue (package `appointments`) — 17 actions
 
 *Spring, 23 Oct 2026 — online (video) chambers + the bKash fee (V620, `appointments/OnlinePay.kt`, full spec:
 [CHAMBERS-ONLINE.md](CHAMBERS-ONLINE.md)):* a chamber has `mode: "in_person"|"online"`; an online chamber has no
 hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appointments.online` and `payState`
 `unpaid|claimed|paid` (null = nothing to pay). Video calls (`appt_join`) are in the calls package (spring-p14).
 
-- [x] **`providers`** — Doctor/nurse chamber list with filters (district/upazila/union/hospital/specialty/day/openNow/maxFee/hospitalQ/gender/online) + facets; list cached 2 min. `online:true` = doctors with an online chamber wherever they are (area filters ignored), `online:false` = chambers at a place only; area filters never match an online chamber. Chambers carry `mode` and (online) `note`, never `bkashNumber`
+- [x] **`providers`** — Doctor/nurse chamber list with filters (district/upazila/union/hospital/specialty/day/openNow/maxFee/hospitalQ/gender/online) + facets; list cached 2 min. `online:true` = doctors with an online chamber wherever they are (area filters ignored), `online:false` = chambers at a place only; area filters never match an online chamber. Chambers carry `mode`, never `note` or `bkashNumber` (R6)
   - src: `server/lib/appointments.js` → `providers` · auth: guest caregiver · port: **P2**
   - request: `type`, `homeVisit`, `district`, `upazilaId`, `unionId`, `hospitalId`, `specialty`, `online` · response: `{items}` or `{items,facets}`
   - collections: badges, providers, users · side effects: — · errors: 400 · tests: demo-health, demo-night, demo-rx, demo-services, doctor-filters, queue
-- [x] **`provider_me`** — Own provider (chambers) document; an online chamber includes its `bkashNumber`
+- [x] **`provider_me`** — Own provider (chambers) document; an online chamber includes `note`, `bkashNumber`, `bkashActive`, `bkashPendingUntil` (24 h cool-off after a change)
   - src: `server/lib/appointments.js` → `provider_me` · auth: user · port: **P2**
   - request: — · response: `{provider}`
   - collections: providers · side effects: — · errors: — · tests: demo-services
-- [x] **`provider_save`** — Save chambers (≤ MAX_CHAMBERS at a place + 1 online for doctors, days/times, fee, appointments), specialties, degrees, gender, homeVisit; legacy shape supported; cancels stale appointments when chambers change. Online chamber `{mode:"online", days/start/end|times, fee|noFee, bkashNumber (unless noFee), note ≤200, appointments, patientMin?}`; fee must be a taka amount (0 = no fee); a new bKash number/note is copied to open online appointments
+- [x] **`provider_save`** — Save chambers (≤ MAX_CHAMBERS at a place + 1 online for doctors, days/times, fee, appointments), specialties, degrees, gender, homeVisit; legacy shape supported; cancels stale appointments when chambers change. Online chamber `{mode:"online", days/start/end|times, fee|noFee, bkashNumber (unless noFee), note ≤200, appointments, patientMin?}`; fee must be a taka amount (0 = no fee); note without phone numbers; a changed bKash number is logged, pushed to the doctor and reaches new bookings after 24 h; demo doctors 403 unless DEMO_ONLINE_CHAMBERS
   - src: `server/lib/appointments.js` → `provider_save` · auth: user role:badge (doctor/nurse/nutritionist/trainer); phone-verified when enabled · port: **P2**
   - request: `chambers`, `specialties`, `homeVisit`, `gender`, `listed`, `appointments`, `degrees`, `chamber`, `schedule`, `district`, `active`, `specialty`, `fee` · response: `…` or `{ok,cancelled}`
   - collections: badges, providers, sanctions, serverState, users · side effects: — · errors: 403, 409:update_required, 400 · tests: — (none)
@@ -344,7 +344,7 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - src: `server/lib/queue.js` → `actions.appointment_late_reply` · auth: user role:doctor(chamber)|assistant · port: **P2**
   - request: `id`, `op` · response: `{ok,chamber}`
   - collections: appointments, badges, providers, queues, serials · side effects: push to patient + caregivers · errors: 404, 400, 409 · tests: queue
-- [x] **`appt_pay_claim`** — *Spring only (Oct 2026).* Patient: "টাকা পাঠিয়েছি" on an online appointment (pending/confirmed): unpaid/claimed → claimed, optional bKash TrxID (6–30 letters/digits, spaces dropped, upper-cased; a repeat without one keeps the earlier); pushes the doctor + assistants "রোগী ফি পাঠিয়েছেন — যাচাই করুন" (cat appointments; only when something changed)
+- [x] **`appt_pay_claim`** — *Spring only (Oct 2026).* Patient: "টাকা পাঠিয়েছি" on an online appointment (pending/confirmed): unpaid/claimed → claimed, optional bKash TrxID (10 letters/digits, spaces dropped, upper-cased; a repeat without one keeps the earlier; once per doctor → 409 `pay_ref_used`; 5 claims/appointment/hour → 429 `pay_claim_rate`); pushes the doctor + assistants "রোগী ফি পাঠিয়েছেন — যাচাই করুন" (cat appointments; only when something changed)
   - src: `appointments/OnlinePay.kt` · auth: user (patient of appointment) caregiver
   - request: `appointmentId`, `payRef?` · response: `{ok, payState:"claimed", payRef}`
   - errors: 404 (not yours / demo↔real), 400 (TrxID), 409 `not_online` / `no_fee` / `state` · tests: OnlineChambersIT
@@ -352,6 +352,10 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - src: `appointments/OnlinePay.kt` · auth: user role:doctor|assistant (assistant: doctor badge approved, else 403)
   - request: `appointmentId` · response: `{ok, payState:"paid"}`
   - errors: 404, 403, 409 `not_online` / `no_fee` / `state` · tests: OnlineChambersIT
+- [x] **`appt_report`** — *Spring only.* Patient (caregiver), doctor or assistant flags an appointment for the admins (one open report per person per appointment; quota report)
+  - src: `appointments/OnlinePay.kt` · auth: user caregiver · request: `appointmentId`, `reason` · response: `{ok, id}` · errors: 404, 400 · tests: OnlinePaySafetyIT
+- [x] **`admin_appt_reports`** / **`admin_appt_report_set`** — *Spring only.* Admins: appointment reports (open/resolved/dismissed) with the appointment, its pay log and the doctor's bKash number changes; set a report's status
+  - src: `appointments/OnlinePay.kt` · auth: admin · request: `status?` / `id`, `status` · response: `{items}` / `{ok}` · tests: OnlinePaySafetyIT
 - [x] **`appt_pay_reject`** — *Spring only.* Doctor or assistant: "পাইনি" — claimed → unpaid with an optional reason (`payNote`, ≤200); pushes the patient "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন"
   - src: `appointments/OnlinePay.kt` · auth: user role:doctor|assistant
   - request: `appointmentId`, `reason?` · response: `{ok, payState:"unpaid", payNote}`

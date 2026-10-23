@@ -44,7 +44,14 @@ data class LifoloProperties(
      * DEMO_KEEP_FIREBASE_USERS: while another server (Vercel/Node) shares the Firebase project and its demo, the demo
      * Firebase accounts (`demo-…`) are left alone (see [com.lifolo.auth.DemoSafeIdentityProvider]).
      */
-    data class Demo(val keepFirebaseUsers: Boolean = false)
+    data class Demo(
+        val keepFirebaseUsers: Boolean = false,
+        /**
+         * DEMO_ONLINE_CHAMBERS: demo doctors may have an online (video) chamber (the seed adds one). Off by default — in
+         * production the demo logins are public, so a demo "doctor" could advertise payments (security review R6).
+         */
+        val onlineChambers: Boolean = false,
+    )
 
     data class Firebase(val enabled: Boolean = true)
 

@@ -51,6 +51,7 @@ class DemoRx(
     private val labStore: LabStore,
     private val labCatalog: LabCatalog,
     private val stock: StockStore,
+    private val onlineSwitch: com.lifolo.appointments.OnlineSwitch,
 ) : DemoSeedPart {
     override val step = 4
     override val label = "ডাক্তার ও প্রেসক্রিপশন"
@@ -221,7 +222,9 @@ class DemoRx(
             schedule = "ভিডিও কলে পরামর্শ (ডেমো)", noFee = false, fee = "৪০০ টাকা", appointments = true, patientMin = 10, // bn-ok
             mode = Ch.ONLINE, bkashNumber = "01200000204", note = "বুকিংয়ের পর ফি বিকাশে পাঠিয়ে \"টাকা পাঠিয়েছি\" চাপুন। রিপোর্টের ছবি তৈরি রাখুন। (ডেমো)", // bn-ok
         )
-        val docChambers = listOf(ch1, ch2, chOnline)
+        // R6: only where demo online chambers are on (DEMO_ONLINE_CHAMBERS; off in production)
+        val withOnline = onlineSwitch.demoEnabled
+        val docChambers = if (withOnline) listOf(ch1, ch2, chOnline) else listOf(ch1, ch2)
         fun verification(t: Long) = linkedMapOf<String, Any?>(
             "verified_by" to "demo-seed", "verified_by_email" to "", "verified_at" to sql.ts(t),
             "verification_checks" to sql.texts(listOf("bmdc_found", "bmdc_name", "bmdc_active", "workplace")),
@@ -439,17 +442,19 @@ class DemoRx(
 
         // online (video) chamber: the doctor's paid patient today (serial 1); the demo patient's unpaid and claimed ones
         // later (not today — the tester books today himself)
-        appt(
-            bp["kamal"]!!, d, chOnline, today,
-            A("confirmed", "ডায়াবেটিসের রিপোর্ট দেখাতে চাই (ভিডিও কলে)", now - DAY, serial = 1, extra = mapOf("pay_state" to "paid", "pay_ref" to "DEMO4K7Q2M", "pay_claimed_at" to sql.ts(now - DAY + 600_000), "pay_paid_at" to sql.ts(now - DAY + 3_600_000), "pay_paid_by" to doc.uid)), // bn-ok
-        )
-        val onUnpaid = nextOpen(chOnline, today + 2 * DAY)
-        appt(me, d, chOnline, onUnpaid, A("confirmed", "সুগারের ওষুধ ঠিক করতে চাই (অনলাইনে)", now - 4 * 3600 * 1000, serial = 1)) // bn-ok
-        val onClaimed = nextOpen(chOnline, onUnpaid + 2 * DAY)
-        appt(
-            me, d, chOnline, onClaimed,
-            A("confirmed", "প্রেসারের ফলো-আপ (অনলাইনে)", now - 3 * 3600 * 1000, serial = 1, extra = mapOf("pay_state" to "claimed", "pay_ref" to "DEMO8X2K4P", "pay_claimed_at" to sql.ts(now - 2 * 3600 * 1000))), // bn-ok
-        )
+        if (withOnline) {
+            appt(
+                bp["kamal"]!!, d, chOnline, today,
+                A("confirmed", "ডায়াবেটিসের রিপোর্ট দেখাতে চাই (ভিডিও কলে)", now - DAY, serial = 1, extra = mapOf("pay_state" to "paid", "pay_ref" to "DEMO4K7Q2M", "pay_claimed_at" to sql.ts(now - DAY + 600_000), "pay_paid_at" to sql.ts(now - DAY + 3_600_000), "pay_paid_by" to doc.uid)), // bn-ok
+            )
+            val onUnpaid = nextOpen(chOnline, today + 2 * DAY)
+            appt(me, d, chOnline, onUnpaid, A("confirmed", "সুগারের ওষুধ ঠিক করতে চাই (অনলাইনে)", now - 4 * 3600 * 1000, serial = 1)) // bn-ok
+            val onClaimed = nextOpen(chOnline, onUnpaid + 2 * DAY)
+            appt(
+                me, d, chOnline, onClaimed,
+                A("confirmed", "প্রেসারের ফলো-আপ (অনলাইনে)", now - 3 * 3600 * 1000, serial = 1, extra = mapOf("pay_state" to "claimed", "pay_ref" to "DEMO8X2K4P", "pay_claimed_at" to sql.ts(now - 2 * 3600 * 1000))), // bn-ok
+            )
+        }
 
         for ((k, n) in serialMax) {
             sql.insert(
