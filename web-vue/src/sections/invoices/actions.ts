@@ -4,7 +4,7 @@
 import { useQueryClient } from '@tanstack/vue-query';
 import { call, errorText } from '@/lib/api';
 import { T } from './text';
-import type { OfflineOp, VoidData } from '@/offline';
+import type { OfflineOp } from '@/offline';
 import { notePending, offlineStore } from './offline';
 import { parseInvoice, pickInvoice, type Invoice, type PayMethod } from './model';
 
@@ -31,8 +31,7 @@ export const payDue = (inv: Invoice, amount: number, method: PayMethod, ref?: st
 /** invoice_void {id, reason: কারণের কোড, note?} — কোড: wrong_item | returned | wrong_price | other */
 export const voidInvoice = (inv: Invoice, reason: string, note?: string) => {
   const n = note?.trim() ? { note: note.trim() } : {};
-  // ডেস্কটপের VoidData-তে note এখনো নেই (ইঞ্জিনকে জানানো হয়েছে) — অনলাইনের একই body পাঠানো
-  return issue('invoice_void', { id: inv.id, reason, ...n }, () => ({ type: 'void', data: { invoice: refOf(inv), reason, ...n } as VoidData }));
+  return issue('invoice_void', { id: inv.id, reason, ...n }, () => ({ type: 'void', data: { invoice: refOf(inv), reason, ...n } }));
 };
 
 /** রসিদ বদলালে তালিকা/খরচ আবার আনা */

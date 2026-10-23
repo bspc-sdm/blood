@@ -9,7 +9,7 @@ import { TEST_MODE } from '@/lib/testmode';
 import { authUid } from '@/lib/uid';
 import { watch } from 'vue';
 
-export type InvFeature = 'inv_pharmacy' | 'inv_lab' | 'inv_chamber' | 'inv_ambulance' | 'my_expenses';
+export type InvFeature = 'inv_pharmacy' | 'inv_lab' | 'inv_chamber' | 'inv_ambulance' | 'my_expenses' | 'desktop';
 
 const real = Object.values(import.meta.glob('../../lib/features.ts', { eager: true }))[0] as { featureOn?: (k: string) => boolean } | undefined;
 

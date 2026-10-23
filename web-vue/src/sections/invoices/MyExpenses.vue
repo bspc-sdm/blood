@@ -32,7 +32,7 @@ const canNext = computed(() => month.value < thisMonth());
       <ul class="inv-exp-list">
         <li v-for="k in INV_KINDS" :key="k" :data-kind="k">
           <span class="row gap-8">
-            <Icon :name="kindIcon(k)" :size="20" />
+            <Icon :name="kindIcon(k)" :size="20" data-testid="row-icon" />
             <span class="grow">{{ kindText(k) }}</span>
             <span class="num semi">{{ money(q.data.byKind?.[k] ?? 0) }}</span>
           </span>

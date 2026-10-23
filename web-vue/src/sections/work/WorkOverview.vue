@@ -19,6 +19,9 @@ import Stat from './Stat.vue';
 import StatusTag from './StatusTag.vue';
 import DocsNeededNotice from './DocsNeededNotice.vue';
 import BizCard from './BizCard.vue';
+import { T as DT } from '@/offline/text';
+import { invFeature } from '../invoices/features';
+import { isDesktop } from '../invoices/offline';
 
 const s = useSession();
 const nav = useNav();
@@ -35,6 +38,8 @@ const after = useAfterChange();
 const title = computed(() => tr('My work', 'আমার কাজ'));
 
 const hasBusiness = computed(() => amb.value.length > 0 || !!ph.value || bbs.value.length > 0 || !!lab.value);
+// Windows অ্যাপ (ফিচার সুইচ desktop): ফার্মেসি, প্যাথলজি, ডাক্তার/সহকারীকে — ডেস্কটপ অ্যাপের ভেতরে নয়
+const desktopLink = computed(() => invFeature('desktop') && !isDesktop() && (!!ph.value || !!lab.value || s.work.professional === 'doctor' || s.work.assisting.length > 0));
 const empty = computed(() => !hasBusiness.value && !s.work.professional && !s.work.assisting.length);
 
 // সব মিলিয়ে হিসাব
@@ -163,6 +168,10 @@ const bbSub = computed(() => [bbs.value.length === 1 ? bbs.value[0].name : tr(`$
           <RouterLink v-if="lab.status === 'approved'" to="/work/lab/orders" class="btn outline small has-icon"><Icon name="list_alt" />{{ tr('Tests & reports', 'পরীক্ষা ও রিপোর্ট') }}</RouterLink>
           <RouterLink to="/work/lab/edit" class="btn text small has-icon"><Icon name="edit" />{{ tr('Edit details', 'তথ্য বদলান') }}</RouterLink>
         </template>
+      </BizCard>
+
+      <BizCard v-if="desktopLink" icon="storefront" :title="DT.dlTitle()" :sub="DT.dlIntro()" to="/desktop-app" data-testid="desktop-app-link">
+        <template #actions><RouterLink to="/desktop-app" class="btn outline small has-icon"><Icon name="add" />{{ DT.dlButton() }}</RouterLink></template>
       </BizCard>
     </div>
   </Workspace>

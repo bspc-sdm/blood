@@ -48,10 +48,10 @@ function go() {
       <Loading v-if="code.length >= 6 && q.isPending" />
       <section v-else-if="v" :class="['card col gap-12 inv-verify-card', tone]" role="status" data-testid="verify-result">
         <div v-if="v.demo" class="inv-verify-demo" data-testid="verify-demo">{{ T.demoNotReal() }}</div>
-        <div class="row gap-8">
-          <Icon :name="v.demo || v.status === 'void' ? 'warning' : 'verified'" :size="28" />
-          <h2 class="t-title-l grow">{{ v.demo ? T.demoNotReal() : v.status === 'void' ? T.verifyVoid() : T.verifyValid() }}</h2>
-          <Tag v-if="!v.demo" :tone="v.status === 'void' ? 'error' : 'good'" data-testid="verify-status">{{ v.status === 'void' ? T.voided() : T.valid() }}</Tag>
+        <div v-if="!v.demo" class="row gap-8">
+          <Icon :name="v.status === 'void' ? 'warning' : 'verified'" :size="28" />
+          <h2 class="t-title-l grow">{{ v.status === 'void' ? T.verifyVoid() : T.verifyValid() }}</h2>
+          <Tag :tone="v.status === 'void' ? 'error' : 'good'" data-testid="verify-status">{{ v.status === 'void' ? T.voided() : T.valid() }}</Tag>
         </div>
         <div class="row gap-6 t-title-m"><Icon :name="kindIcon(v.kind)" :size="20" />{{ v.bizName }}</div>
         <span class="t-body-s muted">{{ kindText(v.kind) }}</span>

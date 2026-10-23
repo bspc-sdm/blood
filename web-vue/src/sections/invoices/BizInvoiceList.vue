@@ -10,13 +10,14 @@ import { useInfiniteQ } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDayOf, formatTime } from '@/lib/format';
 import { T } from './text';
-import { maskPhone, methodText, methodsOf, money, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
+import { maskPhone, methodText, methodsOf, money, parseInvoice, parsePage, periods, r2, type InvKind, type InvPage, type Invoice, type Period } from './model';
 import ReceiptDialog from './ReceiptDialog.vue';
 import PayDueDialog from './PayDueDialog.vue';
 import VoidDialog from './VoidDialog.vue';
 import DaySummary from './DaySummary.vue';
 import ExportCsv from './ExportCsv.vue';
-import { deskRole } from './offline';
+import { deskRole, isDesktop } from './offline';
+import { offline } from '@/offline';
 
 const props = withDefaults(
   defineProps<{ kind: InvKind; bizId: string; title?: string; canVoidInv?: (i: Invoice) => boolean; owner?: boolean; initialPeriod?: Period }>(),
@@ -32,10 +33,14 @@ watch(q, (v) => {
   clearTimeout(t);
   t = setTimeout(() => (qq.value = v.trim()), 300);
 });
+// ডেস্কটপে এই কম্পিউটারের রসিদ (offline.invoices — অফলাইনেও চলে), নইলে সার্ভারের তালিকা
+const desk = isDesktop();
 const list = useInfiniteQ<InvPage>(() => ({
-  queryKey: ['invoice_list_biz', props.kind, props.bizId, period.value, qq.value],
+  queryKey: ['invoice_list_biz', props.kind, props.bizId, period.value, qq.value, desk ? 'desktop' : 'web'],
   queryFn: ({ pageParam }: { pageParam: string | null }) =>
-    call('invoice_list_biz', { kind: props.kind, bizId: props.bizId, period: period.value, ...(qq.value ? { q: qq.value } : {}), ...(pageParam ? { cursor: pageParam } : {}) }).then(parsePage),
+    desk
+      ? offline.invoices({ period: period.value, ...(qq.value ? { q: qq.value } : {}) }).then((xs) => ({ items: xs.filter((i) => i.kind === props.kind).map(parseInvoice), next: null, sum: null }))
+      : call('invoice_list_biz', { kind: props.kind, bizId: props.bizId, period: period.value, ...(qq.value ? { q: qq.value } : {}), ...(pageParam ? { cursor: pageParam } : {}) }).then(parsePage),
   initialPageParam: null,
   getNextPageParam: (last: InvPage) => last.next ?? undefined,
   enabled: !!props.bizId,
@@ -99,7 +104,7 @@ function replaced(next: Invoice | null) {
           <Tag v-if="i.status === 'void'" tone="error">{{ T.voided() }}</Tag>
           <Tag v-else-if="i.due > 0" tone="error">{{ T.due() }} {{ money(i.due) }}</Tag>
           <Tag v-else tone="good">{{ T.paid() }}</Tag>
-          <span class="t-body-s muted grow">{{ methodsOf(i).map(methodText).join(', ') }}{{ i.lines.length ? ' · ' + i.lines.map((l) => l.name).slice(0, 3).join(', ') : '' }}</span>
+          <span class="t-body-s muted grow">{{ [methodsOf(i).map(methodText).join(', '), i.lines.map((l) => l.name).slice(0, 3).join(', ')].filter(Boolean).join(' · ') }}</span>
           <Button small variant="text" @click="open = i">{{ T.seeReceipt() }}</Button>
           <Button v-if="i.status !== 'void' && i.due > 0" small variant="tonal" data-testid="row-collect" @click="paying = i">{{ T.collectDue() }}</Button>
           <Button v-if="i.status !== 'void' && canVoidInv(i)" small variant="danger-text" data-testid="row-void" @click="voiding = i">{{ T.voidIt() }}</Button>

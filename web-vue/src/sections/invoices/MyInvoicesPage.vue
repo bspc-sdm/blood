@@ -41,7 +41,24 @@ const tabs = computed(() => [
 </script>
 
 <template>
-  <ListDetail :has-detail="!!(id && !s.guest)">
+  <!-- আমার খরচ: এক কলাম (পাশে বিস্তারিত নেই) -->
+  <div v-if="tab === 'expenses'" class="inv-exp-page">
+    <section class="ld-list">
+      <div class="list-inner">
+        <div class="health-tabs">
+          <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="(k) => nav(k === 'expenses' ? '/invoices/expenses' : '/invoices')" />
+        </div>
+        <EmptyState v-if="s.guest" icon="list_alt" :title="T.myExpenses()" :text="T.noReceiptsText()">
+          <Button @click="s.login()">{{ tr('Log in', 'লগইন') }}</Button>
+        </EmptyState>
+        <template v-else>
+          <CareSwitch />
+          <MyExpenses />
+        </template>
+      </div>
+    </section>
+  </div>
+  <ListDetail v-else :has-detail="!!(id && !s.guest)">
     <div class="list-inner">
       <div class="health-tabs">
         <PillTabs :label="T.receipts()" :value="tab" :tabs="tabs" @change="(k) => nav(k === 'expenses' ? '/invoices/expenses' : '/invoices')" />
@@ -51,8 +68,7 @@ const tabs = computed(() => [
       </EmptyState>
       <template v-else>
         <CareSwitch />
-        <MyExpenses v-if="tab === 'expenses'" />
-        <template v-else>
+        <template v-if="tab === 'list'">
           <h2 class="t-headline">{{ T.myReceipts() }}</h2>
           <SkeletonCards v-if="q.isPending" :n="3" :h="88" />
           <ErrorBox v-else-if="q.isError" :error="errorText(q.error)" :on-retry="() => q.refetch()" />
@@ -67,7 +83,7 @@ const tabs = computed(() => [
               @click="nav(`/invoices/${i.id}`)"
             >
               <span class="row gap-8">
-                <Icon :name="kindIcon(i.kind)" :size="20" />
+                <Icon :name="kindIcon(i.kind)" :size="20" data-testid="row-icon" />
                 <span class="t-title-s grow ellipsis">{{ i.bizName }}</span>
                 <span class="num semi">{{ money(i.total) }}</span>
               </span>

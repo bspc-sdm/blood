@@ -19,7 +19,7 @@ import { T } from '../../../invoices/text';
 import { paymentsOf, pickInvoice, type Invoice, type PayMethod } from '../../../invoices/model';
 import { errText, issue } from '../../../invoices/actions';
 import { ownerGate, useOffline } from '../../../invoices/offline';
-import type { OfflineItem, SaleData } from '@/offline';
+import { useBarcode, type OfflineItem, type SaleData } from '@/offline';
 import PayFields from '../../../invoices/PayFields.vue';
 import OfflineBar from '../../../invoices/OfflineBar.vue';
 import ReceiptDialog from '../../../invoices/ReceiptDialog.vue';
@@ -157,6 +157,17 @@ function onKey(e: KeyboardEvent) {
   }
 }
 onMounted(() => window.addEventListener('keydown', onKey));
+// USB বারকোড স্ক্যানার (দ্রুত অক্ষর + Enter): কোড মিললে সাথে সাথে যোগ, খোঁজার ঘর খালি
+useBarcode(
+  (code) => {
+    if (!inv.value) return;
+    const c = code.trim().toLowerCase();
+    const it = items.value?.items.find((i) => (i.code ?? '').toLowerCase() === c) ?? items.value?.items.find((i) => i.name.toLowerCase() === c);
+    if (it) add(it);
+    else toast(tr('No match', 'মেলেনি') + ': ' + code);
+  },
+  { clearInput: true },
+);
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 /** তালিকার বিক্রির রসিদ (সার্ভারে থাকলে) */
 const invIdOf = (x: Sale) => (x as Sale & { invoiceId?: string; invoice?: { id?: string } }).invoiceId ?? (x as Sale & { invoice?: { id?: string } }).invoice?.id ?? null;

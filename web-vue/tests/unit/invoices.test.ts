@@ -36,7 +36,10 @@ function fakeStore(over: Partial<OfflineStore> = {}): OfflineStore & { ops: any[
     ready: async () => ({ deviceId: 'dev1', series: 'D1', asOf: 1, pending: 0 }),
     items: async () => [],
     labPrices: async () => ({ items: [], fees: [] }),
-    chamberDay: async (date) => ({ date, appointments: [], fees: {} }),
+    chamberDay: async (date) => ({ date, chambers: [], appointments: [], fees: {} }),
+    invoices: async () => [],
+    role: () => null,
+    requireOwner: async () => true,
     record: async (op) => {
       ops.push(op);
       const isInv = ['sale', 'lab_bill', 'fee', 'pay', 'void'].includes(op.type);

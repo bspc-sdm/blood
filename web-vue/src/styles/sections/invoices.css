@@ -74,3 +74,10 @@
 .inv-verify-big b { font-size: 24px; line-height: 30px; font-weight: 800; }
 .inv-verify-demo { padding: 12px; border-radius: var(--r-card); background: var(--error-container); color: var(--on-error-container); font-size: 26px; line-height: 32px; font-weight: 800; text-align: center; }
 .inv-link { align-self: flex-start; }
+
+/* আইকনের মাপ সব প্রস্থে বাঁধা (বড় পর্দায় svg ফুলে না ওঠে — flex/grid-এর ভেতরে width না থাকলে বাড়ে) */
+.inv-card svg:not(.health-qr), .inv-exp-list svg, .inv-verify-card .row > svg, .inv-offline > svg, .inv-day svg:not(.health-qr) { width: 20px; height: 20px; flex: none; }
+.inv-verify-card > .row:first-of-type > svg { width: 28px; height: 28px; }
+/* আমার খরচ: এক কলাম, মাঝখানে (তালিকা-বিস্তারিতের পাশের ফাঁকা কার্ড নয়) */
+.inv-exp-page { max-width: 760px; margin: 0 auto; }
+@media (min-width: 960px) { .inv-exp-page .ld-list { padding: 8px 0 32px; } }

@@ -13,9 +13,7 @@ declare global {
 }
 
 /** পরীক্ষায় নকল; null দিলে আবার "ডেস্কটপ নয়" (ওয়েবের মতো) */
-let mine: OfflineStore | null = null;
 export function setOfflineStore(s: OfflineStore | null) {
-  mine = s;
   installOffline(s ?? notDesktop);
 }
 const no = () => Promise.reject(new Error('not desktop'));
@@ -24,12 +22,15 @@ const notDesktop: OfflineStore = {
   ready: no,
   items: () => Promise.resolve([]),
   labPrices: () => Promise.resolve({ items: [], fees: [] }),
-  chamberDay: (date) => Promise.resolve({ date, appointments: [], fees: {} }),
+  chamberDay: (date) => Promise.resolve({ date, chambers: [], appointments: [], fees: {} }),
+  invoices: () => Promise.resolve([]),
   record: no,
   pending: () => 0,
   syncNow: () => Promise.resolve(),
   onChange: () => () => {},
   print: no,
+  role: () => null,
+  requireOwner: () => Promise.resolve(true),
 };
 if (TEST_MODE && typeof window !== 'undefined' && window.__lfOffline) setOfflineStore(window.__lfOffline);
 
@@ -102,22 +103,18 @@ export function useOffline(kind: BizKind, bizId: MaybeRefOrGetter<string | null 
 
 // ---------- মালিক বনাম কাউন্টার (নিরাপত্তা পর্যালোচনা I7) ----------
 // ডেস্কটপে দুই পিন: কাউন্টার (বিক্রি) আর মালিক (বাতিল, দাম বদল, ১০%-এর বেশি ছাড়, স্টক সমন্বয়, রিপোর্ট)।
-// ওয়েবে role() null (কোনো সীমা নেই), requireOwner() সবসময় true। পুরোনো স্টাবে এই দুটো না থাকলেও চলে।
-type WithRole = { role?: () => 'owner' | 'counter' | null; requireOwner?: () => Promise<boolean> };
+// ওয়েবে role() null (কোনো সীমা নেই), requireOwner() সবসময় true।
 /** 'counter' হলে রিপোর্ট আর "দিনের শেষ" লুকানো */
 export function deskRole(): 'owner' | 'counter' | null {
-  const s = (isDesktop() ? mine ?? offline : null) as unknown as WithRole | null;
   try {
-    return s?.role?.() ?? null;
+    return isDesktop() ? offline.role() : null;
   } catch {
     return null;
   }
 }
 /** মালিকের পিন চাওয়া (ডেস্কটপে); ওয়েবে সবসময় true */
 export async function requireOwner(): Promise<boolean> {
-  const s = (mine ?? offline) as unknown as WithRole;
-  if (!isDesktop() || typeof s.requireOwner !== 'function') return true;
-  return s.requireOwner();
+  return isDesktop() ? offline.requireOwner() : true;
 }
 /** বাতিল/দাম বদল/বড় ছাড়/স্টক সমন্বয়ের আগে: মালিক না হলে পিন — না দিলে Error('owner_only') */
 export async function ownerGate(): Promise<void> {

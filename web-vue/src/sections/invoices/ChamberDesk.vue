@@ -35,7 +35,14 @@ const rowsOf = (c: any): DeskRow[] =>
 function fromDesktop(raw: any) {
   const by = new Map<string, any[]>();
   for (const a of raw?.appointments ?? []) by.set(a.chamberKey, [...(by.get(a.chamberKey) ?? []), a]);
-  return { chambers: [...by.entries()].map(([chamberKey, rows]) => ({ chamberKey, name: chamberKey, fees: raw.fees ?? null, rows: rows.sort((x, y) => (x.serial ?? 999) - (y.serial ?? 999)) })) };
+  const info = new Map<string, any>((raw?.chambers ?? []).map((c: any) => [c.chamberKey, c]));
+  for (const k of info.keys()) if (!by.has(k)) by.set(k, []);
+  return {
+    chambers: [...by.entries()].map(([chamberKey, rows]) => {
+      const c = info.get(chamberKey);
+      return { chamberKey, name: c?.name ?? chamberKey, nameBn: c?.nameBn, fees: c?.fees ?? raw.fees ?? null, rows: rows.sort((x, y) => (x.serial ?? 999) - (y.serial ?? 999)) };
+    }),
+  };
 }
 const dayOf = (raw0: any): DeskDay => {
   const raw = Array.isArray(raw0?.appointments) ? fromDesktop(raw0) : raw0;
@@ -165,7 +172,7 @@ const canVoidInv = (i: Invoice) => !props.doctorUid || (i.issuedBy === s.uid && 
     </section>
 
     <!-- সহকারী: শুধু নিজের রসিদ, ২ ঘণ্টার মধ্যে বাতিল; "দিনের শেষ" আর CSV শুধু ডাক্তার (নিরাপত্তা পর্যালোচনা I7) -->
-    <BizInvoiceList v-if="bizId && !off.st.desktop" kind="chamber" :biz-id="bizId" :title="T.todayCollection()" :owner="!doctorUid" :can-void-inv="canVoidInv" />
+    <BizInvoiceList v-if="bizId" kind="chamber" :biz-id="bizId" :title="T.todayCollection()" :owner="!doctorUid" :can-void-inv="canVoidInv" />
 
     <FeeDialog
       v-if="feeFor"

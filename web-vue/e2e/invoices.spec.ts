@@ -310,7 +310,10 @@ test('ডেস্কটপ (নকল OfflineStore): বিক্রি সা�
       ready: async () => ({ deviceId: 'dev1', series: 'D1', asOf: Date.now(), pending: 0 }),
       items: async () => items,
       labPrices: async () => ({ items: [], fees: [] }),
-      chamberDay: async (date: string) => ({ date, appointments: [], fees: {} }),
+      chamberDay: async (date: string) => ({ date, chambers: [], appointments: [], fees: {} }),
+      invoices: async () => w.__ops.length ? [w.__lastInv] : [],
+      role: () => 'owner',
+      requireOwner: async () => true,
       record: async (op: any) => {
         w.__ops.push(op);
         const lines = op.data.lines.map((l: any) => ({ name: l.name, qty: l.qty, price: l.price, disc: l.disc || 0, amount: l.qty * l.price - (l.disc || 0) }));
@@ -340,13 +343,19 @@ test('ডেস্কটপ (নকল OfflineStore): বিক্রি সা�
   await search.fill('8941100500017');
   await search.press('Enter');
   await page.locator('.bk-line input').first().fill('5');
+  // USB স্ক্যানার (useBarcode): দ্রুত অক্ষর + Enter — একই জিনিস আরেকটা, খোঁজার ঘর খালি
+  await search.focus();
+  await page.keyboard.type('8941100500017');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.bk-line input').first()).toHaveValue('6');
+  await expect(search).toHaveValue('');
   await page.getByTestId('pos-save').click();
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByTestId('receipt')).toContainText('D১-০০০০০১');
   await expect(dlg.getByTestId('receipt-offline')).toContainText('ইন্টারনেট এলে যাচাই হবে');
   await expect(page.getByTestId('offline-bar')).toContainText('১টা মেলানোর অপেক্ষায়');
   const ops = await page.evaluate(() => (window as any).__ops);
-  expect(ops).toEqual([{ type: 'sale', data: { lines: [{ itemId: 'it1', name: 'Napa', qty: 5, price: 1.2, disc: 0, code: '8941100500017' }], disc: 0, payments: [{ amount: 6, method: 'cash' }] } }]);
+  expect(ops).toEqual([{ type: 'sale', data: { lines: [{ itemId: 'it1', name: 'Napa', qty: 6, price: 1.2, disc: 0, code: '8941100500017' }], disc: 0, payments: [{ amount: 7.2, method: 'cash' }] } }]);
   await expect.poll(() => page.evaluate(() => (window as any).__printed)).toEqual([{ no: 'D1-000001', paper: 'A4', englishDigits: false }]);
   expect(bodyOf(seen, 'books_sale_add')).toEqual([]);
   expect(bodyOf(seen, 'books_items')).toEqual([]);
@@ -376,4 +385,29 @@ test('ফিচার সুইচ বন্ধ: আগের মতো — র�
   await expect(page.getByRole('button', { name: 'আমার রসিদ' })).toHaveCount(0);
   await page.goto('/v/PH4K2M9QXA', { waitUntil: 'networkidle' });
   await expect(page.getByTestId('verify-status')).toHaveText('বৈধ');
+});
+
+test('বড় পর্দায় (১৪৪০) সারির আইকন ছোট — রসিদ, খরচ, যাচাই, ডেস্ক @desktop', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'শুধু ১৪৪০ প্রস্থে');
+  const small = async (sel: string, min: number) => {
+    const boxes = await page.locator(sel).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => [r.width, r.height]));
+    expect(boxes.length).toBeGreaterThanOrEqual(min);
+    for (const [w, h] of boxes) {
+      expect(w).toBeLessThanOrEqual(32);
+      expect(h).toBeLessThanOrEqual(32);
+    }
+  };
+  await open(page, patient('/invoices/inv2'));
+  await small('[data-testid=my-invoice] [data-testid=row-icon]', 5);
+  // সারি ছোট থাকে (কার্ড ফুলে ওঠে না)
+  for (const h of await page.getByTestId('my-invoice').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) expect(h).toBeLessThan(110);
+  await page.goto('/invoices/expenses', { waitUntil: 'networkidle' });
+  await small('[data-testid=my-expenses] [data-testid=row-icon]', 4);
+  await expect(page.locator('.ld-detail')).toBeHidden();
+  await page.goto('/v/PH4K2M9QXA', { waitUntil: 'networkidle' });
+  await small('[data-testid=verify-result] svg:not(.health-qr)', 2);
+  await open(page, doctor('/work/rx/desk'));
+  await small('[data-testid=chamber-desk] .rxp-panel-ic svg, [data-testid=desk-row] svg', 1);
+  await open(page, owner('/work/ambulance'));
+  await small('[data-testid=amb-receipts] .rxp-panel-ic svg', 1);
 });
