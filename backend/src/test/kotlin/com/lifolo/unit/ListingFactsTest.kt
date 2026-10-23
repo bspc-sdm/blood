@@ -154,4 +154,37 @@ class ListingFactsTest {
         assertEquals("২১ অক্টোবর", NextSlots.label(today + 2 * day, today, "bn"))
         assertEquals("21 Oct", NextSlots.label(today + 2 * day, today, "en"))
     }
+
+    @Test
+    fun `open-now override ends at the next scheduled opening or closing, else midnight`() {
+        val h = mapOf("open24" to false, "openAt" to "08:00", "closeAt" to "22:00", "closedDays" to emptyList<Int>())
+        // closed at 10:00 (open hours) → until 22:00; open at 23:00 → until 08:00 tomorrow
+        assertEquals(dhaka("2026-10-20 22:00"), ListingFacts.overrideUntil(h, dhaka("2026-10-20 10:00")))
+        assertEquals(dhaka("2026-10-21 08:00"), ListingFacts.overrideUntil(h, dhaka("2026-10-20 23:00")))
+        assertEquals(dhaka("2026-10-20 08:00"), ListingFacts.overrideUntil(h, dhaka("2026-10-20 03:00")))
+        // across midnight: 18:00–02:00
+        val night = mapOf("openAt" to "18:00", "closeAt" to "02:00")
+        assertEquals(dhaka("2026-10-21 02:00"), ListingFacts.overrideUntil(night, dhaka("2026-10-20 23:00")))
+        // a weekly closed day: 24 h shop closed on Friday (5) → from Thursday the change is Friday 00:00
+        val fri = mapOf("open24" to true, "closedDays" to listOf(5))
+        assertEquals(dhaka("2026-10-23 00:00"), ListingFacts.overrideUntil(fri, dhaka("2026-10-22 15:00")))
+        // 24 hours every day, unknown hours → the next Dhaka midnight
+        assertEquals(dhaka("2026-10-21 00:00"), ListingFacts.overrideUntil(mapOf("open24" to true), dhaka("2026-10-20 15:00")))
+        assertEquals(dhaka("2026-10-21 00:00"), ListingFacts.overrideUntil(null, dhaka("2026-10-20 15:00")))
+        assertEquals(dhaka("2026-10-21 00:00"), ListingFacts.nextDhakaMidnight(dhaka("2026-10-20 23:59")))
+        // active only while it lasts
+        assertEquals(mapOf("open" to false, "until" to 10L), ListingFacts.activeOverride(false, 10L, 5L))
+        assertNull(ListingFacts.activeOverride(false, 10L, 10L))
+        assertNull(ListingFacts.activeOverride(null, 10L, 5L))
+    }
+
+    @Test
+    fun `nextSlot skips a closed chamber day`() {
+        val mon18 = dhaka("2026-10-19 18:00")
+        val today = DhakaTime.todayUtcMidnight(mon18)
+        val c = ch(listOf(0, 1, 2, 3, 4, 5, 6), "17:00", "21:00", name = "H")
+        val p = ProviderDoc(uid = "d", appointments = true, chambers = listOf(c))
+        assertEquals(today, NextSlots.nextSlot(p, mon18, { true }, { _, _ -> 0 })!!.date)
+        assertEquals(today + NextSlots.DAY_MS, NextSlots.nextSlot(p, mon18, { true }, { _, _ -> 0 }) { k, d -> k == c.key && d == today }!!.date)
+    }
 }

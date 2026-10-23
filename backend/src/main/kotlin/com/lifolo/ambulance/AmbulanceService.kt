@@ -56,6 +56,7 @@ class AmbulanceService(
     private val pushes: AmbPush,
     private val redis: StringRedisTemplate,
     private val review: ListingReview,
+    private val switchLog: com.lifolo.listings.SwitchLog,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -295,7 +296,16 @@ class AmbulanceService(
 
     fun mine(uid: String): Map<String, Any?> {
         val now = AmbClock.now()
-        return linkedMapOf("items" to repo.ofOwner(uid, AmbRules.MAX_PER_OWNER).map { withDocs(it, AmbRules.view(it, now, true)) })
+        // LISTINGS.md "রোগীরা আপনাকে যেভাবে দেখেন": the card facts of the public list
+        return linkedMapOf(
+            "items" to repo.ofOwner(uid, AmbRules.MAX_PER_OWNER).map { a ->
+                withDocs(a, AmbRules.view(a, now, true)).apply {
+                    ListingFacts.putNoHours(this)
+                    put("ratingSummary", ListingFacts.ratingSummary(a.ratingSum, a.ratingCount))
+                    ListingFacts.putDistance(this, null, null, null, false)
+                }
+            },
+        )
     }
 
     private fun codesOf(n: JsonNode?): List<Any?>? = n?.takeIf { it.isArray }?.map { if (it.isTextual) it.textValue() else it }
@@ -424,6 +434,8 @@ class AmbulanceService(
             on, Sql.ts(now), if (on) null else Sql.ts(now), Sql.ts(now),
             if (on && a.status == "approved") Sql.ts(now + AmbRules.REMIND_AT_MS) else null, id,
         )
+        // LISTINGS.md: "খালি আছি / ট্রিপে আছি" is this action; logged like the other quick switches
+        switchLog.write("ambulance", id!!, a.ownerUid, uid, "owner", "available", on)
         return linkedMapOf("ok" to true)
     }
 

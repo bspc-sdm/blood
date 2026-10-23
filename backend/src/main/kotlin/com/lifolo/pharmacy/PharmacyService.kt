@@ -107,7 +107,12 @@ class PharmacyService(
     @Transactional(readOnly = true)
     fun me(ctx: ActionContext): Any {
         val s = shops.get(ctx.user.id) ?: return mapOf("pharmacy" to null)
-        return mapOf("pharmacy" to withDocs(s, s.view(true, clock.now())))
+        // LISTINGS.md "রোগীরা আপনাকে যেভাবে দেখেন": the same card facts as the public list (+ openOverride in the view)
+        val v = s.view(true, clock.now())
+        ListingFacts.putHours(v, s.open24, s.openAt, s.closeAt)
+        v["ratingSummary"] = ListingFacts.ratingSummary(s.ratingSum, s.ratingCount)
+        ListingFacts.putDistance(v, null, null, null, false)
+        return mapOf("pharmacy" to withDocs(s, v))
     }
 
     /** pharmacy.js withDocs: which document photos are still missing (pending/rejected, or the admin asked) */

@@ -56,13 +56,27 @@ data class Shop(
     val createdAt: Long?,
     val reviewedAt: Long?,
     val suspendedAt: Long?,
+    /** LISTINGS.md "খোলা/বন্ধ এখন": the owner's override and when it ends (V685) */
+    val openOverride: Boolean? = null,
+    val openOverrideUntil: Long? = null,
 ) {
     /** the map care.js pharmacyOpenNow reads */
     fun hours(): Map<String, Any?> = mapOf(
         "closedUntil" to closedUntil, "closedDays" to closedDays, "open24" to open24, "openAt" to openAt, "closeAt" to closeAt,
     )
 
-    fun openNow(now: Long): Boolean = ListingRules.openNow(hours(), now)
+    /**
+     * open now: a pause (closedUntil) always closes; else the owner's open/closed override while it lasts; else the hours
+     * (care.js pharmacyOpenNow)
+     */
+    fun openNow(now: Long): Boolean {
+        if ((closedUntil ?: 0) > now) return false
+        if (openOverride != null && (openOverrideUntil ?: 0) > now) return openOverride
+        return ListingRules.openNow(hours(), now)
+    }
+
+    /** the scheduled hours only (no pause, no override) — when an override ends */
+    fun schedule(): Map<String, Any?> = mapOf("closedDays" to closedDays, "open24" to open24, "openAt" to openAt, "closeAt" to closeAt)
 
     /** rxnet.js onlineOf */
     fun online(): Map<String, Any?> = linkedMapOf(
@@ -116,6 +130,8 @@ data class Shop(
             createdAt = rs.ms("created_at"),
             reviewedAt = rs.ms("reviewed_at"),
             suspendedAt = rs.ms("suspended_at"),
+            openOverride = rs.boolOrNull("open_override"),
+            openOverrideUntil = rs.ms("open_override_until"),
         )
 
         /** `Math.round(x * 10) / 10` */
@@ -166,6 +182,7 @@ data class Shop(
             v["status"] = status
             v["statusReason"] = statusReason
             v["hasLocation"] = lat != null
+            v["openOverride"] = com.lifolo.listings.ListingFacts.activeOverride(openOverride, openOverrideUntil, now)
         }
         return v
     }

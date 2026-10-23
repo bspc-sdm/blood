@@ -62,6 +62,7 @@ class AppointmentActions(
     private val payGuard: com.lifolo.payments.PayMethodGuard,
     private val payHooks: org.springframework.beans.factory.ObjectProvider<ApptPayHook>,
     private val nextSlots: NextSlots,
+    private val chamberDays: ChamberDays,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -237,12 +238,15 @@ class AppointmentActions(
         // LISTINGS.md: nextSlot, feeAmount, specialtyLabel, openNow, distanceKm, ratingSummary
         val origin = ListingFacts.origin(b)
         val booked = nextSlots.bookedCounts(docs, now)
+        val closed = chamberDays.closedFrom(docs.map { it.uid }, now)
         val allowed = HashMap<String, Boolean>()
         val items = docs.map { d ->
             fun visible(c: Ch) = !c.online || (onlineOk && allowed.getOrPut(d.uid) { onlineSwitch.allowed(d.uid) })
             providerOut(d, systemsOn = systemsOn).apply {
                 put("matched", CareRules.matchedChambers(d, f, now))
-                listingFacts(this, d, now, ctx.lang, labels, origin, ::visible) { key, date -> booked["${d.uid}|$key|$date"] ?: 0 }
+                listingFacts(this, d, now, ctx.lang, labels, origin, ::visible, { key, date -> booked["${d.uid}|$key|$date"] ?: 0 }) { key, date ->
+                    ChamberDays.key(d.uid, key, date) in closed
+                }
             }
         }
         return linkedMapOf("items" to ListingFacts.sortedMaps(items, ListingFacts.sort(b)).take(150), "facets" to facets)
@@ -272,8 +276,9 @@ class AppointmentActions(
         origin: ListingFacts.Origin?,
         visible: (Ch) -> Boolean,
         booked: (String, Long) -> Int,
+        closed: (String, Long) -> Boolean,
     ) {
-        val slot = NextSlots.nextSlot(d, now, visible, booked)
+        val slot = NextSlots.nextSlot(d, now, visible, booked, closed)
         val today = com.lifolo.common.DhakaTime.todayUtcMidnight(now)
         m["nextSlot"] = slot?.let {
             linkedMapOf("date" to it.date, "label" to NextSlots.label(it.date, today, lang), "available" to it.available, "chamberIndex" to it.chamberIndex)
@@ -283,13 +288,33 @@ class AppointmentActions(
         m["feeAmount"] = CareRules.feeAmount(feeCh)?.let { if (it == Math.floor(it)) it.toLong() else it }
         m["specialtyLabel"] = d.specialties.take(2).map { labels[it]?.first ?: it.replace('_', ' ') }.joinToString(", ").ifEmpty { null }
         val shown = d.chambers.filter(visible)
-        m["openNow"] = shown.any { CareRules.chamberNowOpen(it, now) }
+        // a chamber closed today ("আজ বন্ধ") is not open now
+        m["openNow"] = shown.any { CareRules.chamberNowOpen(it, now) && !closed(it.key, today) }
         ListingFacts.putHours(m, false, null, null)
         m["ratingSummary"] = ListingFacts.ratingSummary(d.ratingSum, d.ratingCount)
         // the nearest chamber at a place (its upazila centre — approximate)
         val near = shown.filter { !it.online }.mapNotNull { ListingFacts.upazilaCentre(it.upazilaId) }
             .minByOrNull { if (origin == null) 0.0 else com.lifolo.common.Geo.distanceKm(origin.lat, origin.lng, it.first, it.second) }
         ListingFacts.putDistance(m, origin, near?.first, near?.second, false)
+    }
+
+    /**
+     * LISTINGS.md "রোগীরা আপনাকে যেভাবে দেখেন": one doctor's card exactly as the public list builds it (no area filter,
+     * no viewer point) — for the doctor (provider_me) and the assistant (chamber_days). Null when there is no listing.
+     */
+    fun publicCard(ctx: ActionContext, uid: String): Map<String, Any?>? {
+        val d0 = store.load(uid) ?: return null
+        val d = d0.copy(photoThumb = thumbs(listOf(uid))[uid] ?: "")
+        val now = clock.now()
+        val systemsOn = gate.systemsOn(ctx)
+        val onlineOk = onlineSwitch.allowed(if (ctx.caller.guest) null else ctx.caller.uid) && onlineSwitch.allowed(uid)
+        val booked = nextSlots.bookedCounts(listOf(d), now)
+        val closed = chamberDays.closedFrom(listOf(uid), now)
+        return providerOut(d, systemsOn = systemsOn).apply {
+            listingFacts(this, d, now, ctx.lang, specialtyLabels(ctx.lang), null, { c -> !c.online || onlineOk }, { key, date -> booked["$uid|$key|$date"] ?: 0 }) { key, date ->
+                ChamberDays.key(uid, key, date) in closed
+            }
+        }
     }
 
     /** own provider document (null when none) */
@@ -308,7 +333,8 @@ class AppointmentActions(
             }
             m
         }
-        return mapOf("provider" to out)
+        // LISTINGS.md "রোগীরা আপনাকে যেভাবে দেখেন": the public card with nextSlot, openNow, feeAmount …
+        return mapOf("provider" to out, "card" to publicCard(ctx, ctx.user.id))
     }
 
     // ------------------------------------------------------------------ provider_save
@@ -580,7 +606,8 @@ class AppointmentActions(
         if (!sentKey.isNullOrEmpty() && sentKey != ch.key) {
             throw ctx.err(409, "The doctor just changed their chambers. Please open the page again.", "ডাক্তার এইমাত্র চেম্বারের তথ্য বদলেছেন। পাতাটা আবার খুলুন।")
         }
-        if (!CareRules.chamberOpenOn(ch, date)) {
+        // LISTINGS.md: a day the doctor/assistant closed ("আজ বন্ধ") is like a day the chamber does not sit
+        if (!CareRules.chamberOpenOn(ch, date) || chamberDays.isClosed(providerUid, ch.key, date)) {
             throw ctx.err(400, "The chamber is closed on that day. Pick one of its days.", "সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।")
         }
         // today's chamber time over: no serial for today (except chambers past midnight); the serial starts with the

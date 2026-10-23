@@ -54,6 +54,7 @@ class LabActions(
     private val admins: AdminService,
     private val badges: Badges,
     private val assistants: ProviderAssistants,
+    private val switches: com.lifolo.listings.ListingSwitches,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "labtests_get" to ActionHandler(::labtestsGet),
@@ -194,6 +195,14 @@ class LabActions(
         }
         v.putAll(docs)
         v["docsRequestNote"] = (x["docsRequestNote"] as? String) ?: ""
+        // LISTINGS.md "রোগীরা আপনাকে যেভাবে দেখেন": the card facts of the public list + the open-now override
+        val now = System.currentTimeMillis()
+        ListingFacts.putTextHours(v, x["hours"] as? String, now)
+        val ov = switches.labOverrides(listOf(uid), now)[uid]
+        if (ov != null) v["openNow"] = ov["open"]
+        v["openOverride"] = ov
+        v["ratingSummary"] = null
+        ListingFacts.putDistance(v, null, null, null, false)
         return linkedMapOf("lab" to v)
     }
 
@@ -281,10 +290,13 @@ class LabActions(
         val now = System.currentTimeMillis()
         val origin = ListingFacts.origin(b)
         val q = ListingFacts.query(b)
+        // the owner's "খোলা/বন্ধ এখন" while it lasts wins over the hours
+        val overrides = switches.labOverrides(area.map { it.first }, now)
         var items = area.filter { (_, x) -> ListingFacts.matches(q, listOf(x["name"] as? String, x["address"] as? String)) }.map { (id, x) ->
             LabStore.labView(id, x).apply {
                 put("prices", LabPrices.publicSummary(pm[id], homeCollection(x), hidden))
                 ListingFacts.putTextHours(this, x["hours"] as? String, now)
+                overrides[id]?.let { put("openNow", it["open"]) }
                 put("ratingSummary", null)
                 val c = ListingFacts.upazilaCentre((x["upazilaId"] as? Number)?.toInt())
                 ListingFacts.putDistance(this, origin, c?.first, c?.second, false)

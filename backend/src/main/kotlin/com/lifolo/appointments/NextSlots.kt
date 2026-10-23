@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component
  * appointments sits and a serial can still be asked for — the same day rules as `book` (today only while a session is not
  * over). A chamber with minutes per patient (`patientMin`) has a capacity per day (session minutes / patientMin); when
  * its pending + confirmed requests reach it, that day is full and the next free day is looked for. Only when every day
- * of the window is full does `nextSlot` point at the first open day with `available: false`.
+ * of the window is full does `nextSlot` point at the first open day with `available: false`. A day the doctor/assistant
+ * closed ("আজ বন্ধ", [ChamberDays]) is skipped like a day the chamber does not sit.
  */
 @Component
 class NextSlots(private val jdbc: JdbcTemplate) {
@@ -48,7 +49,13 @@ class NextSlots(private val jdbc: JdbcTemplate) {
          * The pure rule. [visible] = chambers the viewer may book (online ones only while the switch allows), [booked] =
          * pending + confirmed requests of (chamber key, date).
          */
-        fun nextSlot(p: ProviderDoc, now: Long, visible: (Ch) -> Boolean, booked: (String, Long) -> Int): Slot? {
+        fun nextSlot(
+            p: ProviderDoc,
+            now: Long,
+            visible: (Ch) -> Boolean,
+            booked: (String, Long) -> Int,
+            closed: (String, Long) -> Boolean = { _, _ -> false },
+        ): Slot? {
             if (!CareRules.takesAppointments(p)) return null
             val today = DhakaTime.todayUtcMidnight(now)
             val hm = CareRules.dhakaHHMM(now)
@@ -56,7 +63,7 @@ class NextSlots(private val jdbc: JdbcTemplate) {
             for (k in 0 until DAYS) {
                 val date = today + k * DAY_MS
                 for ((i, c) in p.chambers.withIndex()) {
-                    if (!c.appointments || !visible(c) || !CareRules.chamberOpenOn(c, date)) continue
+                    if (!c.appointments || !visible(c) || !CareRules.chamberOpenOn(c, date) || closed(c.key, date)) continue
                     if (k == 0) {
                         val slots = CareRules.chamberTimesOn(c, date)
                         if (slots.isNotEmpty() && slots.all { it.start.isNotEmpty() && it.end.isNotEmpty() && it.start < it.end && hm >= it.end }) continue

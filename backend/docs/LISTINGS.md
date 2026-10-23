@@ -43,9 +43,29 @@ Extra filters (all optional, `true` to apply): pharmacies `delivery`; labs `home
 | blood banks | `stock: {"A+","A-","B+","B-","AB+","AB-","O+","O-": "have"\|"low"\|"none"\|null} \| null`, `stockUpdatedAt: ms \| null`, `stockStale: bool` |
 | ambulances | `available`, `types` (existing) |
 
-**New action:** `bloodbank_stock_set {id?, groups?, refresh?}` → `{ok, id, stock, stockUpdatedAt, stockStale}`.
+**New actions (lists):** `bloodbank_stock_set {id?, groups?, refresh?}` → `{ok, id, stock, stockUpdatedAt, stockStale}`.
 
-**Migration:** `V690__bloodbank_stock.sql` (new table `blood_bank_stock`; additive, blue/green safe).
+**New actions (provider side, "আমার কাজ" quick switches)** — see "Provider side" below:
+
+| action | who | request | response |
+|---|---|---|---|
+| `pharmacy_open_override` | pharmacy owner | `{open: true\|false\|null}` | `{ok, openNow, openOverride: {open, until} \| null}` |
+| `pharmacy_delivery_set` | pharmacy owner | `{delivery: bool}` | `{ok, delivery}` |
+| `lab_open_override` | lab owner | `{open: true\|false\|null}` | `{ok, openNow, openOverride}` |
+| `lab_home_collection_set` | lab owner | `{homeCollection: bool}` | `{ok, homeCollection}` |
+| `chamber_day_set` | doctor, or an assistant of the doctor | `{doctorUid?, chamberIndex \| chamberKey, date?, closed: bool}` | `{ok, chamberIndex, chamberKey, date, closed, requests}` |
+| `chamber_days` | doctor, or an assistant | `{doctorUid?}` | `{doctorUid, role, items: [{chamberIndex, chamberKey, name, nameBn, online, appointments, sitsToday, closedToday, closedDates, requestsToday}], card}` |
+| `ambulance_available` (existing) | ambulance owner | `{id, available: bool}` | `{ok}` — "খালি আছি / ট্রিপে আছি" |
+| `bloodbank_stock_set` | blood bank owner | as above (`refresh: true` = "সব ঠিক আছে — এখন হালনাগাদ") | as above |
+
+Owner views carry the public card facts ("রোগীরা আপনাকে যেভাবে দেখেন"): `pharmacy_me.pharmacy` and `lab_me.lab` get
+`openNow` (override folded in), `openOverride`, `is24h`, `opensAt`, `closesAt`, `ratingSummary`, `distanceKm: null`;
+`ambulance_mine` and `bloodbank_mine` items get the same facts; `provider_me` and `chamber_days` get `card` = the doctor's
+item exactly as `providers` builds it (nextSlot, openNow, feeAmount, specialtyLabel, ratingSummary …).
+
+**Migrations:** `V690__bloodbank_stock.sql` (new table `blood_bank_stock`), `V691__listing_switches.sql` (nullable
+`open_override`/`open_override_until` on `pharmacies` and `labs`, new tables `chamber_day_closed`, `listing_switch_log`).
+Both additive, blue/green safe.
 
 ---
 
@@ -86,8 +106,8 @@ stars). Null when `count == 0`.
 - `feeAmount`: taka of the chamber `nextSlot` points to (else the first bookable chamber), `CareRules.feeAmount`
   ("৫০০ টাকা" → 500, "৳1,200" → 1200); `0` = no fee; `null` = not written. The old `fee` text stays.
 - `specialtyLabel`: the first two specialties' catalog labels in the viewer's language, joined with ", ".
-- Chamber-day closing ("আজ বন্ধ"): there is no separate closing mechanism today; a chamber the doctor turns off
-  (`appointments: false`) is skipped. The provider-side quick switch is part 3b (second merge).
+- Chamber-day closing ("আজ বন্ধ", `chamber_day_set`): a closed chamber day is skipped like a day the chamber does not
+  sit, and that chamber is not `openNow` today. A chamber the doctor turns off (`appointments: false`) is skipped too.
 
 ### Blood bank stock
 - Table `blood_bank_stock (bank_id PK → blood_banks ON DELETE CASCADE, groups JSONB, updated_at, updated_by)`.
@@ -124,8 +144,52 @@ Doctors: name, degrees, specialty labels (both languages), chamber hospital name
 - Doctors: the existing demo chambers already give "আজ" (every-day chambers) and later days; lab hours parse
   ("সকাল ৮টা – রাত ১০টা" …).
 
+## Provider side ("আমার কাজ" quick switches)
+
+Every switch: logged in, owner only (doctors: the doctor or an assistant the doctor added — the same check as the
+serial queue, `QueueActions.controller`; pharmacies, labs, ambulances, blood banks have no assistants). Suspended
+listings → 403 (the listing's usual text). Rate limit: all quick switches together 200 taps per caller per Dhaka day
+(quota `quickSwitch`, 429); `bloodbank_stock_set` keeps its own 60/day. Audit: every change writes a row to
+`listing_switch_log (kind, listing_id, owner_uid, by_uid, role owner|assistant, field, value, until, at)` — also
+`ambulance_available` and `bloodbank_stock_set`. Rows go with the owner's/actor's account (ON DELETE CASCADE).
+
+### "খোলা/বন্ধ এখন" (pharmacy, lab)
+- `open: true|false` sets an override that lasts until the **next scheduled change** of the hours
+  (`ListingFacts.overrideUntil`): closed during opening hours → until closing time; open after hours → until opening
+  time; looked for in the next 2 days at every opening, closing and midnight. 24 hours every day or hours not known
+  (lab free text not understood) → until the next Dhaka midnight. `open: null` = back to the hours at once.
+- `openNow` everywhere (list, filters, `pharmacy_me`, `lab_me`, the prescription shop options — `Shop.openNow`) =
+  pharmacy pause (`closedUntil`) → false; else the override while it lasts; else the hours.
+- Pharmacy on a break (`pharmacy_pause`): `open: true` → 409 code `paused` ("ফার্মেসি বিরতিতে আছে। আগে বিরতি শেষ করুন।").
+- `openOverride: {open, until (ms)} | null` in the owner views shows the state of the switch and when it ends.
+
+### "ডেলিভারি চালু/বন্ধ", "বাসা থেকে নমুনা চালু/বন্ধ"
+Change only that field (`pharmacies.delivery`, `labs.home_collection`). Not reviewed fields: an approved listing stays
+approved and its "last approved" snapshot takes the new value (like an edit without review).
+
+### "খালি আছি / ট্রিপে আছি" (ambulance)
+The existing `ambulance_available {id, available}` (12 h "available", the "still available?" reminder) — unchanged,
+now also logged.
+
+### "সব ঠিক আছে — এখন হালনাগাদ" (blood bank)
+`bloodbank_stock_set {id?, refresh: true}` — see "Blood bank stock".
+
+### "আজ সিরিয়াল চলছে / আজ বন্ধ" (doctor, per chamber)
+- `chamber_day_set {doctorUid?, chamberIndex | chamberKey, date?, closed}`: `doctorUid` for an assistant (default: the
+  caller is the doctor); `date` = UTC-midnight ms of a Dhaka day, default today, today … +60 days; `closed: true` only
+  on a day the chamber sits (else 400, the `book` text). Sending both `chamberIndex` and `chamberKey` that no longer
+  match → 409 (the doctor edited the chambers).
+- Effect: `nextSlot` skips that chamber day, `openNow` is false for it today, `book` refuses it (400 "সেদিন চেম্বার বন্ধ।
+  চেম্বারের বারগুলোর একটা বেছে নিন।"). Requests already made for that day stay (`requests` in the answer = pending +
+  confirmed ones, so the app can remind the doctor to tell them). `closed: false` opens the day again.
+- "চলছে" is the normal state (no row). There is no "open on a day the chamber does not sit".
+- `chamber_days` gives the switch state per chamber (`sitsToday`, `closedToday`, `closedDates` ahead, `requestsToday`)
+  and the public `card`.
+
 ## Differences from the draft
 - **`rating` kept as before** (a number on pharmacies, ambulances, doctors — the released apps read it). The object is
   `ratingSummary: {avg, count} | null`.
 - **Doctors' `fee` kept** (old free text); the number is `feeAmount`.
 - Added: `distanceApprox`, `nextSlot.chamberIndex`, `bloodbank_stock_set` `id`/`refresh`, list filters above.
+- Provider side: the override actions are `pharmacy_open_override` / `lab_open_override` as suggested, but without `id`
+  (a pharmacy's and a lab's id is the owner's uid; one per account). Doctor switches: `chamber_day_set`, `chamber_days`.

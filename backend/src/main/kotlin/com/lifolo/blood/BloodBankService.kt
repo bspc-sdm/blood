@@ -49,6 +49,7 @@ class BloodBankService(
     private val quotas: QuotaService,
     private val admins: AdminService,
     private val push: PushService,
+    private val switchLog: com.lifolo.listings.SwitchLog,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val jdbc get() = store.jdbc
@@ -280,6 +281,7 @@ class BloodBankService(
             """.trimIndent(),
             bankId, rows.toJson(levels), Sql.ts(now), ctx.caller.uid,
         )
+        switchLog.write("bloodbank", bankId, uid, ctx.caller.uid, "owner", if (refresh && g == null) "stockRefresh" else "stock", rows.toJson(levels))
         return linkedMapOf<String, Any?>("ok" to true, "id" to bankId).apply { putStock(this, stock, now) }
     }
 

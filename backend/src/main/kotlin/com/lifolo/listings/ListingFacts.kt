@@ -187,6 +187,35 @@ object ListingFacts {
         return Hours(false, two[0].second, two[1].second)
     }
 
+    // ------------------------------------------------------------------ open-now override (provider quick switch)
+
+    private const val HOUR_MS = 3600 * 1000L
+    private const val DAY_MS = 24 * HOUR_MS
+
+    /** the next Dhaka midnight after [now] (epoch ms) */
+    fun nextDhakaMidnight(now: Long): Long = com.lifolo.common.DhakaTime.todayUtcMidnight(now) - 6 * HOUR_MS + DAY_MS
+
+    /**
+     * When a "খোলা/বন্ধ এখন" override ends: the next time the schedule ([hours]: open24/openAt/closeAt/closedDays, no
+     * pause) changes from open to closed or back — looked for in the next 2 days at every opening, closing and midnight.
+     * No hours known, or no change soon (24 hours every day) → the next Dhaka midnight.
+     */
+    fun overrideUntil(hours: Map<String, Any?>?, now: Long): Long {
+        val midnight = nextDhakaMidnight(now)
+        if (hours == null) return midnight
+        val cur = ListingRules.openNow(hours, now)
+        val base = midnight - DAY_MS
+        val times = listOf(hours["openAt"] as? String, hours["closeAt"] as? String)
+            .filter { it != null && TIME_RE.matches(it) }
+            .map { it!!.take(2).toLong() * HOUR_MS + it.drop(3).toLong() * 60_000 }
+        val cands = (0..2).flatMap { d -> listOf(base + d * DAY_MS) + times.map { base + d * DAY_MS + it } }.filter { it > now }.sorted()
+        return cands.firstOrNull { ListingRules.openNow(hours, it) != cur } ?: midnight
+    }
+
+    /** an override `{open, until}` while it lasts, else null */
+    fun activeOverride(open: Boolean?, until: Long?, now: Long): Map<String, Any?>? =
+        if (open != null && until != null && until > now) linkedMapOf("open" to open, "until" to until) else null
+
     /** a lab's `openNow`/`is24h`/`opensAt`/`closesAt` from its free-text hours (null facts when not understood) */
     fun putTextHours(v: MutableMap<String, Any?>, text: String?, now: Long) {
         val h = parseHours(text)
