@@ -18,6 +18,7 @@ import BookingsTab from './BookingsTab.vue';
 import PatientsTab from './PatientsTab.vue';
 import HomeCareTab from './HomeCareTab.vue';
 import DoctorPanelCard from './DoctorPanelCard.vue';
+import { T } from '../../invoices/text';
 
 const props = withDefaults(defineProps<{ base?: string }>(), { base: '/work/pro' });
 useCatalog();
@@ -88,6 +89,7 @@ function chamberSaved() {
     </template>
     <template v-if="type === 'doctor'" #actions>
       <RouterLink class="btn tonal has-icon" to="/work/rx"><Icon name="edit_note" />{{ tr('Write a prescription', 'প্রেসক্রিপশন লিখুন') }}</RouterLink>
+      <RouterLink class="btn outline has-icon" to="/work/rx/desk"><Icon name="event_outline" />{{ T.deskTitle() }}</RouterLink>
     </template>
     <div class="appt-ws-tabs">
       <PillTabs :tabs="tabs" :value="cur" :label="title" @change="go" />

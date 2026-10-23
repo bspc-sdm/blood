@@ -3,6 +3,8 @@
 import { computed, ref } from 'vue';
 import { Button, ConfirmDialog, Dialog, ErrorText, Segmented, Select, TextInput, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
+import { ownerGate } from '../../../invoices/offline';
+import { errText } from '../../../invoices/actions';
 import { tr } from '@/lib/i18n';
 import { UNITS, money, numInput, numStr, readNum, unitText, type Disc, type ShopItem } from './model';
 import type { Draft } from './types';
@@ -43,6 +45,8 @@ async function save() {
   err.value = null;
   try {
     const n = nums.value;
+    // দাম বদল (বা নতুন দাম): ডেস্কটপে কাউন্টারের পিন হলে আগে মালিকের পিন (নিরাপত্তা পর্যালোচনা I7)
+    if (n.price !== (st.price ?? null) || JSON.stringify(disc.value) !== JSON.stringify(st.disc ?? null)) await ownerGate();
     await call('books_item_save', {
       ...(edit ? { id: edit.id } : {}), name: name.value, generic: st.generic ?? '', form: st.form ?? '', unit: unit.value,
       qty: n.qty, cost: n.cost, price: n.price, disc: disc.value, lowAt: n.lowAt, expiry: expiry.value || null,
@@ -50,7 +54,7 @@ async function save() {
     toast(tr('Saved', 'সেভ হয়েছে'));
     emit('saved');
   } catch (e) {
-    err.value = errorText(e);
+    err.value = errText(e);
   } finally {
     busy.value = false;
   }

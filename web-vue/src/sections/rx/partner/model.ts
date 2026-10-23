@@ -41,10 +41,11 @@ export const orderStatusShop = (s: string) =>
       : s === 'accepted' ? tr('Accepted', 'নেওয়া হয়েছে')
         : s === 'out' ? tr('On the way', 'পথে')
           : s === 'done' ? tr('Given', 'দেওয়া হয়েছে')
+          : s === 'delivered' ? tr('Delivered', 'পৌঁছে দেওয়া হয়েছে') // bn-ok
             : s === 'cancelled' ? tr("Couldn't", 'পারেননি')
               : s === 'withdrawn' ? tr('Taken back', 'ফিরিয়ে নিয়েছেন') : s;
 export const orderTone = (s: string): 'primary' | 'good' | 'error' | 'info' | undefined =>
-  s === 'sent' ? 'primary' : s === 'done' ? 'good' : s === 'cancelled' ? 'error' : s === 'accepted' || s === 'out' || s === 'ready' ? 'info' : undefined;
+  s === 'sent' ? 'primary' : s === 'done' || s === 'delivered' ? 'good' : s === 'cancelled' ? 'error' : s === 'accepted' || s === 'out' || s === 'ready' ? 'info' : undefined;
 
 /** অ্যাপের RxText.formShort */
 export function formShort(f: string): string {

@@ -18,6 +18,8 @@ import AcceptDialog from './AcceptDialog.vue';
 import CancelOrderDialog from './CancelOrderDialog.vue';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
+import DeliverDialog from '../../invoices/DeliverDialog.vue';
+import { T } from '../../invoices/text';
 
 const BASE = '/work/pharmacy/orders';
 const props = defineProps<{ code: string | null; orders: { data?: PharmOrders; isLoading: boolean; isFetching: boolean; error: Error | null; refetch: () => unknown } }>();
@@ -26,6 +28,7 @@ const [sp, setSp] = useSearchParams();
 const up = useOrderUpdate();
 const accepting = ref<PharmOrder | null>(null);
 const cancelling = ref<PharmOrder | null>(null);
+const delivering = ref<PharmOrder | null>(null);
 const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(PHARM_SEGS, props.orders.data?.counts, pharmSegOf as (x: never) => PharmSeg, items.value));
 const seg = computed<PharmSeg>(() => {
@@ -104,6 +107,7 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
             <Button v-if="o.mode !== 'online' && o.status === 'sent'" small variant="tonal" :busy="up.busyId.value === o.id" :disabled="!!up.busyId.value" @click="up.update(o, 'ready')">{{ tr('Ready', 'তৈরি') }}</Button>
             <Button v-if="o.mode === 'online' && o.status === 'sent'" small variant="tonal" :disabled="!!up.busyId.value" @click="accepting = o">{{ tr('Accept', 'অর্ডার নিলাম') }}</Button>
             <Button v-if="o.mode === 'online' && (o.status === 'sent' || o.status === 'accepted')" small variant="outline" :busy="up.busyId.value === o.id" :disabled="!!up.busyId.value" @click="up.update(o, 'out')">{{ tr('Sent out', 'পাঠিয়ে দিয়েছি') }}</Button>
+            <Button v-if="o.mode === 'online' && (o.status === 'accepted' || o.status === 'out')" small variant="tonal" icon="check_circle" :disabled="!!up.busyId.value" data-testid="order-delivered" @click="delivering = o">{{ T.delivered() }}</Button>
             <Button small variant="danger-text" :disabled="!!up.busyId.value" @click="cancelling = o">{{ tr('Can\'t', 'পারব না') }}</Button>
           </div>
         </article>
@@ -112,5 +116,6 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
     </template>
     <AcceptDialog v-if="accepting" :order="accepting" @close="accepting = null" />
     <CancelOrderDialog v-if="cancelling" :order="cancelling" @close="cancelling = null" />
+    <DeliverDialog v-if="delivering" :order="delivering" @close="delivering = null" />
   </div>
 </template>

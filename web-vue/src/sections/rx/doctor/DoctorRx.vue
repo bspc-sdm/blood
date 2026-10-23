@@ -7,8 +7,9 @@
 //   /work/rx/view/:id      একটা প্রেসক্রিপশন: কাগজ, ছাপা, বাতিল
 //   /work/rx/reviews       রিপোর্ট দেখার অনুরোধ (সহকারী: টাকা মেলানো)
 //   /work/rx/team          সহকারী (শুধু ডাক্তার)
+//   /work/rx/desk          চেম্বারের ডেস্ক: আজকের সিরিয়াল, চেক-ইন, সরাসরি আসা রোগী, ফি → রসিদ, আজকের আদায় (ডাক্তার ও সহকারী)
 // সহকারী: ?doctor=<uid> — কোন ডাক্তারের হয়ে; প্রতিটা কাজে doctorUid হিসেবে যায়।
-import { computed } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { Button, EmptyState, ErrorText, PillTabs, Select, SkeletonCards } from '@/ui/kit';
 import Workspace from '@/shell/Workspace.vue';
@@ -25,6 +26,9 @@ import RxViewPage from './RxViewPage.vue';
 import ReviewsPage from './ReviewsPage.vue';
 import TeamPage from './TeamPage.vue';
 import OnlyDoctor from './OnlyDoctor.vue';
+import { T } from '../../invoices/text';
+
+const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
 
 const BASE = '/work/rx';
 const route = useRoute();
@@ -68,9 +72,11 @@ const tabs = computed(() =>
         { key: '/list', label: tr('Prescriptions', 'প্রেসক্রিপশন'), icon: 'medication' },
         { key: '/reviews', label: tr('Reports', 'রিপোর্ট'), icon: 'list_alt' },
         { key: '/team', label: tr('Assistants', 'সহকারী'), icon: 'group_round' },
+        { key: '/desk', label: T.desk(), icon: 'event_outline' },
       ]
     : [
         { key: '', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
+        { key: '/desk', label: T.desk(), icon: 'event_outline' },
         { key: '/reviews', label: tr('Payments', 'টাকা মেলানো'), icon: 'payments' },
       ],
 );
@@ -83,6 +89,7 @@ const page = computed<{ k: string; id?: string }>(() => {
   if (view) return doctor.value ? { k: 'view', id: view.params.id ?? '' } : { k: 'only' };
   if (m('/reviews')) return { k: 'reviews' };
   if (m('/team')) return { k: doctor.value ? 'team' : 'only' };
+  if (m('/desk')) return { k: 'desk' };
   return { k: 'none' };
 });
 // কার হয়ে কাজ: নিজে (ডাক্তার হলে) আর যাঁদের সহকারী
@@ -138,6 +145,7 @@ const pickWho = (v: string) => nav(BASE + (v ? `?doctor=${encodeURIComponent(v)}
     <RxViewPage v-else-if="page.k === 'view'" :id="page.id!" :link="link" />
     <ReviewsPage v-else-if="page.k === 'reviews'" :actor="actor" :link="link" />
     <TeamPage v-else-if="page.k === 'team'" />
+    <ChamberDesk v-else-if="page.k === 'desk'" :doctor-uid="actor.doctorUid" />
     <OnlyDoctor v-else :link="link" />
   </Workspace>
 </template>

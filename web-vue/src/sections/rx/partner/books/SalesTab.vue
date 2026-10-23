@@ -1,15 +1,28 @@
 <script setup lang="ts">
-// ফার্মেসি — "বিক্রি": কাউন্টারে তাড়াতাড়ি বিক্রি লেখা (পণ্য খুঁজে কয়টা; দাম আর ছাড় নিজে থেকে, বদলানো যায়; পুরো বিলে % বা টাকায় ছাড়),
+// ফার্মেসি — "বিক্রি": কাউন্টারে তাড়াতাড়ি বিক্রি লেখা (POS): পণ্য খুঁজে বা বারকোড স্ক্যান করে (Enter-এ যোগ), কয়টা; দাম আর ছাড়
+// নিজে থেকে, বদলানো যায়; পুরো বিলে % বা টাকায় ছাড়; ক্রেতা (ঐচ্ছিক), পরিশোধের মাধ্যম, কত পেলেন → ফেরত/বাকি;
+// "বিক্রি লিখুন" (Ctrl+Enter) — রসিদ তৈরি (books_sale_add-এর invoice), চাইলে সাথে সাথে প্রিন্ট।
+// ডেস্কটপ অ্যাপে (OfflineStore): পণ্য স্থানীয় তালিকা থেকে, বিক্রি স্থানীয়ভাবে লেখা হয়ে পরে মেলে, ছাপা অ্যাপের প্রিন্টারে।
 // পাশে আজকের/এই সপ্তাহের বিক্রি (কাউন্টার, প্রেসক্রিপশন, অনলাইন)।
-import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, ErrorText, IconButton, Loading, Segmented, Tag, inputValue, toast } from '@/ui/kit';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { Button, Check, ConfirmDialog, ErrorText, IconButton, Loading, Segmented, Tag, inputValue, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
 import { formatDayOf, formatTime } from '@/lib/format';
+import { useSession } from '@/lib/session';
+import { store as kv } from '@/lib/store';
 import Panel from '../Panel.vue';
 import ItemPicker from './ItemPicker.vue';
 import { money, numInput, numStr, qtyText, r2, readNum, sourceText, unitDisc, unitText, useBooksRefresh, type Sale, type ShopItem } from './model';
+import { T } from '../../../invoices/text';
+import { paymentsOf, pickInvoice, type Invoice, type PayMethod } from '../../../invoices/model';
+import { errText, issue } from '../../../invoices/actions';
+import { ownerGate, useOffline } from '../../../invoices/offline';
+import type { OfflineItem, SaleData } from '@/offline';
+import PayFields from '../../../invoices/PayFields.vue';
+import OfflineBar from '../../../invoices/OfflineBar.vue';
+import ReceiptDialog from '../../../invoices/ReceiptDialog.vue';
 
 interface Line { item: ShopItem; qty: string; price: string; disc: string }
 
@@ -32,7 +45,23 @@ function billOf(lines: Line[], billType: 'pct' | 'amt', billV: number | null) {
   return { gross: r2(gross), discount: r2(lineDisc + bd), net: r2(after - bd) };
 }
 
-const items = useCall<{ items: ShopItem[] }>('books_items', {});
+const s = useSession();
+const bizId = computed(() => (s.work.pharmacy as { id?: string } | null)?.id ?? '');
+const off = useOffline('pharmacy', bizId);
+const online = useCall<{ items: ShopItem[] }>('books_items', {}, () => ({ enabled: !off.st.desktop }));
+// ডেস্কটপে পণ্যের তালিকা স্থানীয় (অফলাইনেও চলে)
+const local = shallowRef<ShopItem[] | null>(null);
+/** ডেস্কটপের জিনিস (stock = সার্ভারের + এখনো না মেলা বদল) → হিসাব-খাতার আকার */
+const fromOffline = (i: OfflineItem): ShopItem => ({
+  id: i.id, name: i.name, generic: i.generic ?? '', form: i.form ?? '', unit: i.unit ?? '', qty: i.stock, cost: i.cost ?? null, price: i.price, disc: null,
+  salePrice: i.price, lowAt: null, expiry: i.expiry ?? null, inStock: i.stock > 0, low: false, expDays: null, lastSaleAt: null, updatedAt: 0, code: i.code ?? null,
+});
+async function loadLocal() {
+  const st = off.store();
+  if (st) local.value = (await st.items('')).map(fromOffline);
+}
+watch(() => off.st.ready, (r) => r && loadLocal(), { immediate: true });
+const items = computed(() => (off.st.desktop ? (local.value ? { items: local.value } : null) : online.data ?? null));
 const period = ref<'today' | '7d'>('today');
 const sales = useCall<{ items: Sale[] }>('books_sales', () => ({ period: period.value }));
 const refresh = useBooksRefresh();
@@ -42,6 +71,15 @@ const billV = ref('');
 const busy = ref(false);
 const err = ref<string | null>(null);
 const deleting = ref<Sale | null>(null);
+const custName = ref('');
+const custPhone = ref('');
+const method = ref<PayMethod>('cash');
+const given = ref('');
+const txRef = ref('');
+const PRINT_KEY = 'lf.posPrint';
+const autoPrint = ref(kv.get(PRINT_KEY) !== '0');
+watch(autoPrint, (v) => kv.set(PRINT_KEY, v ? '1' : '0'));
+const receipt = ref<{ inv: Invoice; print: boolean } | null>(null);
 
 function add(i: ShopItem) {
   const ex = lines.value.find((l) => l.item.id === i.id);
@@ -58,22 +96,68 @@ const ready = computed(() => lines.value.filter((l) => (readNum(l.qty) || 0) > 0
 const bill = computed(() => billOf(ready.value, billType.value, bv.value));
 
 async function save() {
-  if (!ready.value.length || bad.value) return;
+  if (!ready.value.length || bad.value || busy.value) return;
   busy.value = true;
   err.value = null;
   try {
-    const r = await call<{ sale: Sale }>('books_sale_add', {
-      lines: ready.value.map((l) => ({ itemId: l.item.id, qty: readNum(l.qty), unitPrice: readNum(l.price), unitDisc: readNum(l.disc) || 0 })),
-      billDisc: bv.value ? { type: billType.value, v: bv.value } : null,
+    const g = readNum(given.value);
+    const customer = { ...(custName.value.trim() ? { name: custName.value.trim() } : {}), ...(custPhone.value.trim() ? { phone: custPhone.value.trim() } : {}) };
+    const payments = paymentsOf(bill.value.net, method.value, g == null || Number.isNaN(g) ? null : g, txRef.value);
+    // জিনিসের দামের চেয়ে কম দাম বা ১০%-এর বেশি ছাড়: ডেস্কটপে কাউন্টারের পিন হলে মালিকের পিন (নিরাপত্তা পর্যালোচনা I7)
+    const cheaper = ready.value.some((l) => l.item.price != null && (readNum(l.price) ?? l.item.price) < l.item.price);
+    if (cheaper || (bill.value.gross > 0 && bill.value.discount / bill.value.gross > 0.1)) await ownerGate();
+    const lineDisc = r2(ready.value.reduce((a, l) => a + (readNum(l.qty) || 0) * (readNum(l.disc) || 0), 0));
+    const offData = (): SaleData => ({
+      lines: ready.value.map((l) => ({ itemId: l.item.id, name: l.item.name, qty: readNum(l.qty) || 0, price: readNum(l.price) ?? 0, disc: r2((readNum(l.qty) || 0) * (readNum(l.disc) || 0)), ...(l.item.code ? { code: l.item.code } : {}) })),
+      ...(Object.keys(customer).length ? { customer } : {}),
+      disc: r2(Math.max(0, bill.value.discount - lineDisc)),
+      payments,
     });
-    toast(tr('Sale saved', 'বিক্রি লেখা হয়েছে') + ' · ' + money(r.sale.totals.net));
-    lines.value = [];
-    billV.value = '';
+    const r = await issue(
+      'books_sale_add',
+      {
+        lines: ready.value.map((l) => ({ itemId: l.item.id, qty: readNum(l.qty), unitPrice: readNum(l.price), unitDisc: readNum(l.disc) || 0 })),
+        billDisc: bv.value ? { type: billType.value, v: bv.value } : null,
+        ...(Object.keys(customer).length ? { customer } : {}),
+        payments,
+      },
+      () => ({ type: 'sale', data: offData() }),
+    );
+    const net = (r.raw as { sale?: Sale })?.sale?.totals.net ?? r.invoice?.total ?? bill.value.net;
+    toast((r.invoice ? T.saleDone() : tr('Sale saved', 'বিক্রি লেখা হয়েছে')) + ' · ' + money(net));
+    clear();
+    if (r.invoice) receipt.value = { inv: r.invoice, print: autoPrint.value };
     refresh();
+    if (r.offline) loadLocal();
   } catch (e) {
-    err.value = errorText(e);
+    err.value = errText(e);
   } finally {
     busy.value = false;
+  }
+}
+// Ctrl+Enter (বা ⌘+Enter) — যেখানেই থাকুন, বিক্রি লেখা
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !receipt.value) {
+    e.preventDefault();
+    save();
+  }
+}
+onMounted(() => window.addEventListener('keydown', onKey));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
+/** তালিকার বিক্রির রসিদ (সার্ভারে থাকলে) */
+const invIdOf = (x: Sale) => (x as Sale & { invoiceId?: string; invoice?: { id?: string } }).invoiceId ?? (x as Sale & { invoice?: { id?: string } }).invoice?.id ?? null;
+const opening = ref<string | null>(null);
+async function openReceipt(x: Sale) {
+  const id = invIdOf(x);
+  if (!id) return;
+  opening.value = x.id;
+  try {
+    const inv = pickInvoice(await call('invoice_get', { id }));
+    if (inv) receipt.value = { inv, print: false };
+  } catch (e) {
+    toast(errorText(e));
+  } finally {
+    opening.value = null;
   }
 }
 const list = computed(() => sales.data?.items ?? []);
@@ -89,6 +173,11 @@ const lineInfo = (l: Line) => {
 function clear() {
   lines.value = [];
   billV.value = '';
+  custName.value = '';
+  custPhone.value = '';
+  given.value = '';
+  txRef.value = '';
+  method.value = 'cash';
 }
 async function del() {
   try {
@@ -104,9 +193,11 @@ async function del() {
 <template>
   <div class="rxp-grid">
     <div class="col gap-16 rxp-main">
+      <OfflineBar :st="off.st" :sync="off.syncNow" />
       <Panel :title="tr('New sale', 'নতুন বিক্রি')" icon="payments">
-        <Loading v-if="!items.data" />
-        <ItemPicker v-else :items="items.data.items" @pick="add" />
+        <Loading v-if="!items" />
+        <ItemPicker v-else :items="items.items" :placeholder="T.scanHint()" autofocus @pick="add" />
+        <span class="t-body-s muted inv-hint">{{ T.shortcutHint() }}</span>
         <div v-if="lines.length" class="col gap-8">
           <div v-for="l in lines" :key="l.item.id" class="bk-line">
             <div class="col gap-2 bk-line-name">
@@ -141,9 +232,20 @@ async function del() {
             <span class="bk-big num">{{ money(bill.net) }}</span>
           </div>
         </div>
+        <div v-if="lines.length" class="row wrap gap-8 inv-cust">
+          <label class="bk-cell grow"><span class="t-label-s muted">{{ T.customerName() }}</span>
+            <input class="input" :value="custName" maxlength="60" data-testid="pos-cust-name" @input="custName = ($event.target as HTMLInputElement).value" />
+          </label>
+          <label class="bk-cell"><span class="t-label-s muted">{{ T.customerPhone() }}</span>
+            <input class="input num" inputmode="tel" :value="custPhone" maxlength="14" @input="custPhone = inputValue($event, (v) => v.replace(/[^0-9+০-৯]/g, ''))" />
+          </label>
+        </div>
+        <PayFields v-if="lines.length" v-model:method="method" v-model:given="given" v-model:tx-ref="txRef" :total="bill.net" />
         <div class="row wrap gap-8">
-          <Button icon="check_circle" :busy="busy" :disabled="!ready.length || bad" @click="save">{{ tr('Save sale', 'বিক্রি লিখুন') }}</Button>
+          <Button icon="check_circle" :busy="busy" :disabled="!ready.length || bad" data-testid="pos-save" @click="save">{{ tr('Save sale', 'বিক্রি লিখুন') }}</Button>
           <Button v-if="lines.length" variant="text" @click="clear">{{ tr('Clear', 'মুছে নতুন') }}</Button>
+          <span class="grow" />
+          <Check v-model="autoPrint">{{ T.printAfterSale() }}</Check>
         </div>
         <ErrorText :text="err" />
       </Panel>
@@ -162,7 +264,8 @@ async function del() {
               <Tag :tone="s.source === 'counter' ? undefined : s.source === 'rx' ? 'primary' : 'info'">{{ sourceText(s.source) }}</Tag>
               <span class="t-body-s muted grow">{{ period === 'today' ? formatTime(s.at) : formatDayOf(s.at) }}{{ s.rx?.code ? ` · ${s.rx.code}` : s.customer ? ` · ${s.customer}` : '' }}</span>
               <span class="num semi">{{ money(s.totals.net) }}</span>
-              <IconButton small icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = s" />
+              <Button v-if="invIdOf(s)" small variant="text" :busy="opening === s.id" @click="openReceipt(s)">{{ T.seeReceipt() }}</Button>
+              <IconButton v-else small icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = s" />
             </div>
             <span class="t-body-s muted">{{ s.lines.map((l) => `${l.name} ×${qtyText(l.qty)}`).join(', ') }}</span>
             <span v-if="s.totals.profit < 0" class="t-body-s c-error">{{ tr('Loss ', 'ক্ষতি ') }}{{ money(-s.totals.profit) }}</span>
@@ -180,5 +283,6 @@ async function del() {
       @close="deleting = null"
       @confirm="del"
     />
+    <ReceiptDialog v-if="receipt" :inv="receipt.inv" :auto-print="receipt.print" @close="receipt = null" />
   </div>
 </template>

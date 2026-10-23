@@ -1,16 +1,19 @@
 <script setup lang="ts">
 // দোকানের পণ্য খোঁজা (কেনা/বিক্রির ফর্মে): ↑↓ দিয়ে বাছা, Enter-এ যোগ; তালিকায় না থাকলে নতুন নাম (কেনায়)
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { Icon, cx } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import { findItems, money, qtyText, unitText, type ShopItem } from './model';
 
-const props = defineProps<{ items: ShopItem[]; onNew?: (name: string) => void; placeholder?: string }>();
+const props = defineProps<{ items: ShopItem[]; onNew?: (name: string) => void; placeholder?: string; autofocus?: boolean }>();
 const emit = defineEmits<{ pick: [i: ShopItem] }>();
 const q = ref('');
 const sel = ref(0);
 const input = ref<HTMLInputElement | null>(null);
 const found = computed(() => findItems(props.items, q.value));
+onMounted(() => {
+  if (props.autofocus) input.value?.focus();
+});
 const term = computed(() => q.value.trim());
 const exact = computed(() => props.items.some((i) => i.name.toLowerCase() === term.value.toLowerCase()));
 function pick(i: ShopItem) {

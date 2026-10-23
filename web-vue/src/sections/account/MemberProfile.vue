@@ -200,6 +200,7 @@ function phoneVerified() {
             <ListRow icon="calendar_month" :title="tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট')" :on-click="() => nav('/my-appointments')" />
             <ListRow icon="medication" :title="tr('My prescriptions', 'আমার প্রেসক্রিপশন')" :on-click="() => nav('/prescriptions')" />
             <ListRow v-if="featureOn('calls_audio')" icon="call" :title="T.history()" :sub="T.historySub()" :on-click="() => nav('/calls')" />
+            <ListRow icon="list_alt" :title="tr('My receipts', 'আমার রসিদ')" :on-click="() => nav('/invoices')" /><!-- bn-ok -->
             <ListRow
               icon="health_and_safety_filled"
               :title="tr('Caregivers & family', 'কেয়ারগিভার ও পরিবার')"

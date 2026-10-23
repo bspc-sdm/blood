@@ -200,8 +200,8 @@ export const sentForApproval = (kind: Kind) =>
 //   পুরোনো হিসাব-খাতার লিংক (/work/pharmacy/orders/stock|buy|sales|books) নতুন জায়গায় চলে যায় (rx/partner/pharmacy.tsx)।
 // প্যাথলজি: "অনুরোধ" (/work/lab/orders) · "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা)
 // পুরোনো লিংক (/work/pharmacy, /work/lab, …/orders/online, নোটিফিকেশন) আগের মতোই খোলে — index.tsx।
-export type PharmTab = 'orders' | 'finds' | 'info' | 'sales' | 'stock' | 'analytics';
-export const PHARM_SHOP_TABS: PharmTab[] = ['info', 'sales', 'stock', 'analytics'];
+export type PharmTab = 'orders' | 'finds' | 'info' | 'sales' | 'invoices' | 'stock' | 'analytics';
+export const PHARM_SHOP_TABS: PharmTab[] = ['info', 'sales', 'invoices', 'stock', 'analytics'];
 /** দোকানের ভেতরের ভাগের ঠিকানা */
 export const pharmTabPath = (k: PharmTab) => (k === 'orders' ? '/work/pharmacy/orders' : k === 'finds' ? '/work/pharmacy/finds' : k === 'info' ? '/work/pharmacy/shop' : `/work/pharmacy/shop/${k}`);
 
@@ -210,7 +210,7 @@ export function useUnansweredFinds(enabled: MaybeRefOrGetter<boolean>) {
   const q = useCall<{ items: { answer: string | null }[]; findOff: boolean }>('med_find_requests', {}, () => ({ enabled: toValue(enabled), refetchInterval: 60_000 }));
   return computed(() => (q.data && !q.data.findOff ? q.data.items.filter((r) => !r.answer).length : 0));
 }
-export type LabTab = 'orders' | 'info' | 'prices' | 'ranges';
+export type LabTab = 'orders' | 'info' | 'prices' | 'ranges' | 'bill' | 'invoices';
 
 /** "নতুন" কয়টা — সার্ভারের counts (তালিকার পাতার একই চাবি, আবার আনা হয় না) */
 export function useNewCount(action: 'rx_orders_pharmacy' | 'lab_orders', enabled: MaybeRefOrGetter<boolean>) {

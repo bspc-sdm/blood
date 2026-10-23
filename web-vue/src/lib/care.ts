@@ -7,6 +7,7 @@ const ACTIONS = new Set([
   'lab_home_change', 'lab_home_cancel',
   'my_appointments', 'book', 'appointment_update', 'providers', 'family_get',
   'appointment_queue', 'appointment_late',
+  'my_invoices', 'my_expenses',
 ]);
 
 const state: Ref<{ uid: string; name: string } | null> = shallowRef(null);

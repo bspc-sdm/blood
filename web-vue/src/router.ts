@@ -11,6 +11,8 @@ const Work = () => import('./sections/work/WorkSection.vue');
 const Account = () => import('./sections/account/AccountSection.vue');
 const DeleteAccount = () => import('./pages/DeleteAccountPage.vue');
 const DeactivateAccount = () => import('./pages/DeactivateAccountPage.vue');
+const Invoices = () => import('./sections/invoices/InvoicesSection.vue');
+const VerifyInvoice = () => import('./sections/invoices/VerifyPage.vue');
 
 const rest = (p: string) => `${p}/:rest(.*)*`;
 
@@ -50,6 +52,9 @@ export const router = createRouter({
     { path: '/delete-account', component: DeleteAccount },
     // অ্যাকাউন্ট সাময়িক বন্ধ (মোছার বদলে)
     { path: '/deactivate-account', component: DeactivateAccount },
+    // রসিদ: রোগীর তালিকা/খরচ, আর পাবলিক যাচাই (রসিদের QR — লগইন ছাড়া)
+    { path: rest('/invoices'), component: Invoices },
+    { path: '/v/:code?', component: VerifyInvoice },
     { path: '/:pathMatch(.*)*', component: NotFound },
   ],
   // পাতা বদলালে উপরে যাওয়া AppShell নিজে করে (React-এর মতো)

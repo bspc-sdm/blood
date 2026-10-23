@@ -2,7 +2,9 @@
 // নষ্ট/মেয়াদ শেষ (কেনা দামে ক্ষতি) বা গণনা ঠিক করা
 import { computed, ref } from 'vue';
 import { Button, Dialog, ErrorText, Segmented, TextInput, toast } from '@/ui/kit';
-import { call, errorText } from '@/lib/api';
+import { call } from '@/lib/api';
+import { ownerGate } from '../../../invoices/offline';
+import { errText } from '../../../invoices/actions';
 import { tr } from '@/lib/i18n';
 import { money, numInput, qtyText, readNum, unitText, type ShopItem } from './model';
 
@@ -19,11 +21,13 @@ async function save() {
   busy.value = true;
   err.value = null;
   try {
+    // ডেস্কটপে কাউন্টারের পিন হলে আগে মালিকের পিন (নিরাপত্তা পর্যালোচনা I7)
+    await ownerGate();
     await call('books_adjust', { itemId: props.item.id, kind: kind.value, qty: n.value, reason: reason.value });
     toast(tr('Saved', 'সেভ হয়েছে'));
     emit('done');
   } catch (e) {
-    err.value = errorText(e);
+    err.value = errText(e);
   } finally {
     busy.value = false;
   }

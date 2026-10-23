@@ -24,6 +24,7 @@ import AppealButton from './AppealButton.vue';
 import DocsNeededNotice from './DocsNeededNotice.vue';
 import AmbulanceCalls from './AmbulanceCalls.vue';
 import StillAvailable from './StillAvailable.vue';
+import AmbReceipts from '../invoices/AmbReceipts.vue';
 
 const s = useSession();
 const nav = useNav();
@@ -208,5 +209,6 @@ const askDel = (a: Ambulance) => {
       @close="del = null"
     />
     <StatsDialog v-if="details && st.get(details.id)" :title="`${details.name} · ${details.vehicleNo}`" :st="st.get(details.id)!" @close="details = null" />
+    <AmbReceipts :cars="live" />
   </BizPage>
 </template>

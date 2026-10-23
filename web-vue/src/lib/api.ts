@@ -13,6 +13,7 @@ export const PUBLIC_ACTIONS = new Set([
   'providers', 'home_providers', 'hospitals',
   'ambulances', 'pharmacies', 'bloodbanks', 'labs', 'lab_prices_public',
   'drug_search', 'catalog_get',
+  'invoice_verify',
 ]);
 
 export class ServerError extends Error {

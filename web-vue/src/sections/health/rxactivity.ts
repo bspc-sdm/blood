@@ -62,6 +62,7 @@ export function orderStatus(s: string) {
     case 'accepted': return tr('Order accepted', 'অর্ডার নিয়েছে');
     case 'out': return tr('On the way', 'পথে আছে');
     case 'done': return tr('Given', 'দেওয়া হয়েছে');
+    case 'delivered': return tr('Delivered', 'পৌঁছে দেওয়া হয়েছে'); // bn-ok
     case 'cancelled': return tr("Can't provide", 'দিতে পারবে না');
     case 'withdrawn': return tr('Taken back', 'ফিরিয়ে নিয়েছেন');
     default: return s;

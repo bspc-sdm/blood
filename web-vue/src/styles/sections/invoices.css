@@ -1,0 +1,76 @@
+/* রসিদ (sections/invoices): কাগজ (A4 / ৮০ / ৫৮ মিমি), যাচাই পাতা, তালিকা, ডেস্ক, POS-এর ছোট অংশ */
+
+/* ---------- রসিদের কাগজ ---------- */
+.rcpt { position: relative; background: #fff; color: #111; font-size: 13px; line-height: 1.4; padding: 16px; border: 1px solid var(--outline-variant); border-radius: 8px; margin: 0 auto; overflow: hidden; }
+.rcpt.pA4 { max-width: 180mm; font-size: 13px; }
+.rcpt.p80 { width: 80mm; max-width: 100%; padding: 8px 4mm; font-size: 12px; }
+.rcpt.p58 { width: 58mm; max-width: 100%; padding: 6px 2mm; font-size: 11px; }
+.rcpt-head { text-align: center; border-bottom: 1px dashed #555; padding-bottom: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 1px; }
+.rcpt-brand { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; letter-spacing: .06em; color: #444; }
+.rcpt-logo svg { width: 12px; height: 12px; color: #c62828; }
+.rcpt-biz { font-weight: 700; font-size: 1.35em; }
+.rcpt-sub { font-size: .9em; }
+.rcpt-meta { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; }
+.rcpt-meta > div { display: flex; justify-content: space-between; gap: 8px; }
+.rcpt-no { font-variant-numeric: tabular-nums; }
+.rcpt-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.rcpt-table th, .rcpt-table td { padding: 4px 6px; text-align: right; border-bottom: 1px solid #ddd; font-variant-numeric: tabular-nums; }
+.rcpt-table th { font-weight: 600; border-bottom: 1px solid #555; }
+.rcpt-table .l { text-align: left; }
+.rcpt-lines { list-style: none; margin: 4px 0; padding: 4px 0; border-top: 1px dashed #555; border-bottom: 1px dashed #555; display: flex; flex-direction: column; gap: 3px; }
+.rcpt-lname { display: block; }
+.rcpt-lrow { display: flex; justify-content: space-between; gap: 6px; font-size: .92em; font-variant-numeric: tabular-nums; }
+.rcpt-totals { display: grid; grid-template-columns: 1fr auto; gap: 1px 12px; margin: 6px 0 0; }
+.rcpt-totals dt { margin: 0; }
+.rcpt-totals dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.rcpt-totals .big { font-weight: 700; font-size: 1.15em; border-top: 1px solid #555; padding-top: 2px; }
+.rcpt-totals .due { font-weight: 700; }
+.rcpt-void-reason, .rcpt-pending { font-size: .9em; margin: 4px 0 0; }
+.rcpt-foot { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 8px; text-align: center; }
+.rcpt-verify { font-size: .85em; word-break: break-all; }
+.rcpt-vat { font-size: .78em; color: #444; margin-top: 2px; }
+.rcpt .health-qr .bg { fill: #fff; }
+.rcpt .health-qr .fg { fill: #000; }
+.rcpt-stamp { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); border: 4px solid #c62828; color: #c62828; padding: 2px 20px; font-size: 2.6em; font-weight: 800; opacity: .6; pointer-events: none; z-index: 1; }
+.rcpt-demo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 4.2em; font-weight: 800; color: rgba(0, 0, 0, .09); transform: rotate(-28deg); pointer-events: none; }
+.inv-paper-wrap { overflow-x: auto; padding: 4px 0; }
+
+/* ছাপায় (health.css-এর নিয়মে .health-print ছাড়া সব লুকানো) */
+.inv-print { display: none; }
+@media print {
+  .health-print.inv-print { display: block; }
+  .inv-print .rcpt { border: 0; border-radius: 0; padding: 0; margin: 0; }
+  .inv-print .rcpt.pA4 { max-width: none; }
+  .inv-print .rcpt.p80 { width: 76mm; }
+  .inv-print .rcpt.p58 { width: 56mm; }
+}
+
+/* ---------- পাতা ---------- */
+.inv-tools .seg { flex: none; }
+.inv-card { text-align: left; width: 100%; border: 0; cursor: pointer; font: inherit; color: inherit; }
+.inv-card.selected { outline: 2px solid var(--primary); }
+.inv-void-row { opacity: .72; }
+.inv-no { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--primary); cursor: pointer; }
+.inv-search { min-width: 180px; }
+.inv-sums b { font-weight: 700; }
+.inv-pay .chips { flex-wrap: wrap; }
+.inv-given, .inv-ref { flex: 0 1 180px; }
+.inv-change { align-self: flex-end; padding: 8px 12px; border-radius: var(--r-field); background: var(--primary-container); color: var(--on-primary-container); font-weight: 700; }
+.inv-change.due { background: var(--error-container); color: var(--on-error-container); }
+.inv-cust .bk-cell { min-width: 160px; }
+.inv-hint { margin-top: -4px; }
+.inv-fee { max-width: 200px; }
+.inv-offline { padding: 8px 12px; align-items: center; }
+.inv-exp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.inv-bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-high); margin-top: 4px; overflow: hidden; }
+.inv-bar > span { display: block; height: 100%; background: var(--primary); }
+.inv-desk-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--outline-variant); flex-wrap: wrap; }
+.inv-desk-row:last-child { border-bottom: 0; }
+.inv-desk-acts { margin-left: auto; }
+.inv-verify-card.good { border-left: 6px solid var(--primary); }
+.inv-verify-card.bad { border-left: 6px solid var(--error); }
+.inv-verify-big { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.inv-verify-big > div { display: flex; flex-direction: column; gap: 2px; }
+.inv-verify-big b { font-size: 24px; line-height: 30px; font-weight: 800; }
+.inv-verify-demo { padding: 12px; border-radius: var(--r-card); background: var(--error-container); color: var(--on-error-container); font-size: 26px; line-height: 32px; font-weight: 800; text-align: center; }
+.inv-link { align-self: flex-start; }

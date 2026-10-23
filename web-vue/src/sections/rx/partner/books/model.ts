@@ -8,6 +8,8 @@ export interface ShopItem {
   id: string; name: string; generic: string; form: string; unit: string;
   qty: number | null; cost: number | null; price: number | null; disc: Disc; salePrice: number | null;
   lowAt: number | null; expiry: string | null; inStock: boolean; low: boolean; expDays: number | null; lastSaleAt: number | null; updatedAt: number;
+  /** বারকোড (থাকলে) — বিক্রিতে স্ক্যান করলে হুবহু মিলিয়ে যোগ */
+  code?: string | null;
 }
 export interface SaleLine { itemId: string; name: string; qty: number; unitPrice: number | null; unitDisc: number; discount: number; net: number; unitCost: number | null; cost: number | null; profit: number | null; i?: number }
 export interface SaleTotals { gross: number; discount: number; billDiscount: number; net: number; cost: number; profit: number; netCosted: number; unpriced: number }
@@ -92,6 +94,9 @@ export function useBooksRefresh() {
 export const findItems = (items: ShopItem[], q: string, n = 8) => {
   const t = q.trim().toLowerCase();
   if (!t) return [];
+  // স্ক্যানারের বারকোড: হুবহু মিললে শুধু সেটাই (Enter-এ সাথে সাথে যোগ)
+  const byCode = items.find((i) => i.code && i.code.toLowerCase() === t);
+  if (byCode) return [byCode];
   const starts = items.filter((i) => i.name.toLowerCase().startsWith(t));
   const has = items.filter((i) => !i.name.toLowerCase().startsWith(t) && (i.name.toLowerCase().includes(t) || i.generic.toLowerCase().includes(t)));
   return [...starts, ...has].slice(0, n);

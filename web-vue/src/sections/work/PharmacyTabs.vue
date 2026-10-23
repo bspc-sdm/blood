@@ -4,6 +4,8 @@ import { PillTabs } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useNav } from '@/lib/nav';
+import { T } from '../invoices/text';
+import { deskRole } from '../invoices/offline';
 import { myBusinessTitle, pharmTabPath, useNewCount, useUnansweredFinds, type PharmTab } from './shared';
 
 const props = defineProps<{ active: PharmTab }>();
@@ -35,8 +37,9 @@ const top = computed(() => (props.active === 'orders' || props.active === 'finds
       :tabs="[
         { key: 'info', label: tr('Info', 'তথ্য'), icon: 'storefront' },
         { key: 'sales', label: tr('Sales', 'বিক্রি'), icon: 'payments' },
+        { key: 'invoices', label: T.receipts(), icon: 'list_alt' },
         { key: 'stock', label: tr('Stock', 'স্টক'), icon: 'list_alt' },
-        { key: 'analytics', label: tr('Analytics', 'এনালাইটিক্স'), icon: 'history' },
+        ...(deskRole() === 'counter' ? [] : [{ key: 'analytics', label: tr('Analytics', 'এনালাইটিক্স'), icon: 'history' }]),
       ]"
       @change="(k) => nav(pharmTabPath(k as PharmTab))"
     />

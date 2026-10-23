@@ -17,6 +17,9 @@ import LabDetail from './LabDetail.vue';
 import LabRanges from './LabRanges.vue';
 import LabPrices from './LabPrices.vue';
 import LabList from './LabList.vue';
+import LabBill from '../../invoices/LabBill.vue';
+import BizInvoiceList from '../../invoices/BizInvoiceList.vue';
+import { useSession } from '@/lib/session';
 
 const BASE = '/work/lab/orders';
 const route = useRoute();
@@ -26,15 +29,22 @@ const orders = useCall<LabOrders>('lab_orders', {}, () => ({ enabled: ready.valu
 const m = (p: string) => matchPath({ path: BASE + p, end: true }, route.path);
 const ranges = computed(() => !!m('/ranges'));
 const prices = computed(() => !!m('/prices'));
-const detailId = computed(() => (ranges.value || prices.value ? undefined : m('/:id')?.params.id));
+const bill = computed(() => !!m('/bill'));
+const invoices = computed(() => !!m('/invoices'));
+const detailId = computed(() => (ranges.value || prices.value || bill.value || invoices.value ? undefined : m('/:id')?.params.id));
+const s = useSession();
+const bizId = computed(() => (s.work.lab as { id?: string } | null)?.id ?? '');
 </script>
 
 <template>
   <!-- ২.২৭.০: দুই ট্যাব — "অনুরোধ" (তালিকা, একটা অনুরোধ) আর "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা) -->
   <PartnerPage :title="title" back-to="/work">
     <PartnerGate kind="lab">
-      <LabTabs :active="ranges ? 'ranges' : prices ? 'prices' : 'orders'" />
-      <LabRanges v-if="ranges" />
+      <LabTabs :active="ranges ? 'ranges' : prices ? 'prices' : bill ? 'bill' : invoices ? 'invoices' : 'orders'" />
+      <!-- বিল (অনুরোধ থেকে ?order= বা সরাসরি আসা রোগী) আর রসিদের তালিকা (বাকি আদায়, বাতিল) -->
+      <LabBill v-if="bill" />
+      <BizInvoiceList v-else-if="invoices && bizId" kind="lab" :biz-id="bizId" />
+      <LabRanges v-else-if="ranges" />
       <LabPrices v-else-if="prices" />
       <LabDetail v-else-if="detailId" :key="detailId" :id="detailId" :orders="orders.data?.items ?? null" :orders-loading="orders.isLoading" />
       <LabList v-else :orders="orders" />

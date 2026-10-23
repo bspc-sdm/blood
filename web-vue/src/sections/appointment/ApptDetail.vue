@@ -14,6 +14,7 @@ import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
 import { apptCallOpen } from '@/calls/window';
 import { useNow } from '@/ui/composables';
+import InvoiceLink from '../invoices/InvoiceLink.vue';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ cancel: []; changed: [] }>();
@@ -50,6 +51,7 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
   <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" />
+  <div v-if="a.role === 'patient'" class="row"><InvoiceLink ref-type="appointment" :ref-id="a.id" :invoice-id="(a as { invoiceId?: string }).invoiceId" /></div>
   <div v-if="isActive(a.status)" class="row">
     <Button variant="danger-text" icon="close" @click="emit('cancel')">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
   </div>
