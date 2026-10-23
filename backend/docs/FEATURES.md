@@ -19,6 +19,16 @@ The flags agent owns `backend/docs/FEATURES.md`, and that file is final once it 
 | `inv_ambulance` | ambulance trip finish + fare receipt |
 | `my_expenses` | patient "আমার রসিদ ও খরচ" (shows receipts of enabled kinds only) |
 | `desktop` | desktop_register/offline_* + desktop download link |
+| `pay_manual` | Lifolo Pay master switch: manual MFS payments (payments CONTRACT) |
+| `pay_chamber_advance` | in-person chamber advance fee (needs pay_manual) |
+| `pay_delivery` | pharmacy home-delivery prepay (needs pay_manual, inv_pharmacy) |
+| `pay_lab` | lab home-collection / bill prepay (needs pay_manual, inv_lab) |
+| `pay_ambulance` | ambulance fare after the trip (needs pay_manual, inv_ambulance) |
+| `pay_due` | patient pays a receipt's due amount (needs pay_manual) |
+| `pay_bkash_pgw` | bKash Tokenized Checkout, Lifolo's own income only |
+| `practice_systems` | medical systems (চিকিৎসা পদ্ধতি) |
+| `pro_physio` | physiotherapists |
+| `pro_psychologist` | psychologists / counsellors |
 
 ## Modes per key
 `{mode: "off"|"pilot"|"on", pilotUids: [uid…], demo: boolean}`

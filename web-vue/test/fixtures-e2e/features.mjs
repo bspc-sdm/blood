@@ -1,6 +1,7 @@
 // ফিচার সুইচ (backend/docs/FEATURES.md): সার্ভারের পরীক্ষার প্রোফাইলের মতো সব চালু। বন্ধের পরীক্ষা নিজে page.route
 // (online-chamber.spec.ts) বা window.__lfTest.features (calls.spec.ts) দিয়ে বন্ধ করে।
-const KEYS = ['calls_audio', 'calls_video', 'appt_video', 'chat', 'chat_media', 'online_chamber', 'inv_pharmacy', 'inv_lab', 'inv_chamber', 'inv_ambulance', 'my_expenses', 'desktop'];
+const KEYS = ['calls_audio', 'calls_video', 'appt_video', 'chat', 'chat_media', 'online_chamber', 'inv_pharmacy', 'inv_lab', 'inv_chamber', 'inv_ambulance', 'my_expenses', 'desktop',
+  'pay_manual', 'pay_chamber_advance', 'pay_delivery', 'pay_lab', 'pay_ambulance', 'pay_due', 'pay_bkash_pgw', 'practice_systems', 'pro_physio', 'pro_psychologist'];
 export default {
   features: () => ({ ok: true, keys: Object.fromEntries(KEYS.map((k) => [k, true])), v: 1 }),
 };

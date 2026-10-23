@@ -68,6 +68,6 @@ class FeaturesTest {
     @Test
     fun soonText() {
         assertEquals("এই সুবিধা শিগগির আসছে", Features.soonText())
-        assertEquals(12, Features.KEYS.size)
+        assertEquals(22, Features.KEYS.size)
     }
 }

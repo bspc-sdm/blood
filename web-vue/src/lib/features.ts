@@ -33,6 +33,18 @@ export const FEATURE_KEYS = [
   'inv_ambulance',
   'my_expenses',
   'desktop',
+  // Lifolo Pay (payments CONTRACT)
+  'pay_manual',
+  'pay_chamber_advance',
+  'pay_delivery',
+  'pay_lab',
+  'pay_ambulance',
+  'pay_due',
+  'pay_bkash_pgw',
+  // চিকিৎসা পদ্ধতি আর নতুন পেশাজীবী
+  'practice_systems',
+  'pro_physio',
+  'pro_psychologist',
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

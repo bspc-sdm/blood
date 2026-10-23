@@ -40,10 +40,22 @@ object Features {
     const val INV_AMBULANCE = "inv_ambulance"
     const val MY_EXPENSES = "my_expenses"
     const val DESKTOP = "desktop"
+    const val PAY_MANUAL = "pay_manual"
+    const val PAY_CHAMBER_ADVANCE = "pay_chamber_advance"
+    const val PAY_DELIVERY = "pay_delivery"
+    const val PAY_LAB = "pay_lab"
+    const val PAY_AMBULANCE = "pay_ambulance"
+    const val PAY_DUE = "pay_due"
+    const val PAY_BKASH_PGW = "pay_bkash_pgw"
+    const val PRACTICE_SYSTEMS = "practice_systems"
+    const val PRO_PHYSIO = "pro_physio"
+    const val PRO_PSYCHOLOGIST = "pro_psychologist"
 
     val KEYS = listOf(
         CALLS_AUDIO, CALLS_VIDEO, APPT_VIDEO, CHAT, CHAT_MEDIA, ONLINE_CHAMBER,
         INV_PHARMACY, INV_LAB, INV_CHAMBER, INV_AMBULANCE, MY_EXPENSES, DESKTOP,
+        PAY_MANUAL, PAY_CHAMBER_ADVANCE, PAY_DELIVERY, PAY_LAB, PAY_AMBULANCE, PAY_DUE, PAY_BKASH_PGW,
+        PRACTICE_SYSTEMS, PRO_PHYSIO, PRO_PSYCHOLOGIST,
     )
 
     /** সার্ভারের বন্ধ-সুবিধার ভুল (404) */
