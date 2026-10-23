@@ -1,0 +1,38 @@
+
+> lifolo-web-vue@1.0.0 test:unit
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/home/runner/work/blood/blood/web-vue[39m
+
+ [32m✓[39m tests/unit/chat.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m tests/unit/pay.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 358[2mms[22m[39m
+ [32m✓[39m tests/unit/online-chamber.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 574[2mms[22m[39m
+ [32m✓[39m tests/unit/invoices.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 331[2mms[22m[39m
+ [32m✓[39m tests/unit/practice.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 208[2mms[22m[39m
+ [32m✓[39m tests/unit/account-safety.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 176[2mms[22m[39m
+ [32m✓[39m tests/unit/calls.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/unit/notify-settings.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 532[2mms[22m[39m
+ [32m✓[39m tests/unit/title-guard.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+ [32m✓[39m tests/unit/admin.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 119[2mms[22m[39m
+ [32m✓[39m tests/unit/offline/print.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 104[2mms[22m[39m
+ [32m✓[39m tests/unit/consent.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/unit/consent-api.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/unit/features.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/unit/rxmodel.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/unit/ui.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 72[2mms[22m[39m
+ [32m✓[39m tests/unit/rules.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/unit/nav.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/unit/sentry-scrub.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/unit/i18n.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/unit/inbox-target.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+(node:2861) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/unit/offline/engine.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 187[2mms[22m[39m
+ [32m✓[39m tests/unit/offline/lock.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m23 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[32m235 passed[39m[22m[90m (235)[39m
+[2m   Start at [22m 10:16:17
+[2m   Duration [22m 13.17s[2m (transform 3.84s, setup 0ms, collect 15.96s, tests 3.05s, environment 12.35s, prepare 2.85s)[22m
+
