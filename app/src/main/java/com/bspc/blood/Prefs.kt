@@ -208,18 +208,19 @@ fun GetBloodTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** বাংলা অক্ষর Hind Siliguri-র, ইংরেজি অক্ষর Roboto-র (একই ফাইলে মেলানো; Hind-এর ইংরেজি ফাঁকা ফাঁকা দেখাত) — দুটোই খোলা লাইসেন্স (OFL / Apache) */
-val HindSiliguri = FontFamily(
-    Font(R.font.hind_siliguri_regular, FontWeight.Normal),
-    Font(R.font.hind_siliguri_medium, FontWeight.Medium),
-    Font(R.font.hind_siliguri_semibold, FontWeight.SemiBold),
-    Font(R.font.hind_siliguri_bold, FontWeight.Bold),
-    Font(R.font.hind_siliguri_bold, FontWeight.ExtraBold),
+/** বাংলা আর ইংরেজি — দুটোই Anek Bangla (OFL; google/fonts-এর ভেরিয়েবল ফাইল থেকে fontTools দিয়ে বানানো স্থির ওজন, wdth 100 —
+ *  minSdk 24-এ ভেরিয়েবল ফন্টের ওজন ঠিকমতো কাজ করে না)। ওয়েব আর অ্যাডমিনেও একই ফন্ট। */
+val AnekBangla = FontFamily(
+    Font(R.font.anek_bangla_regular, FontWeight.Normal),
+    Font(R.font.anek_bangla_medium, FontWeight.Medium),
+    Font(R.font.anek_bangla_semibold, FontWeight.SemiBold),
+    Font(R.font.anek_bangla_bold, FontWeight.Bold),
+    Font(R.font.anek_bangla_bold, FontWeight.ExtraBold),
 )
 
 /** Material-এর মাপ থেকে একটু ছোট, আর বাংলার জন্য লাইনের উচ্চতা ঠিক করা */
 private val AppTypography: Typography = Typography().let { t ->
-    fun TextStyle.f(size: Int, line: Int) = copy(fontFamily = HindSiliguri, fontSize = size.sp, lineHeight = line.sp)
+    fun TextStyle.f(size: Int, line: Int) = copy(fontFamily = AnekBangla, fontSize = size.sp, lineHeight = line.sp)
     Typography(
         displayLarge = t.displayLarge.f(52, 60),
         displayMedium = t.displayMedium.f(42, 50),

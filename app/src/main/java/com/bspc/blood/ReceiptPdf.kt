@@ -83,8 +83,8 @@ object ReceiptPdf {
     }
 
     fun write(context: Context, inv: Invoice, narrow: Boolean, bn: Boolean): File {
-        val regular = runCatching { ResourcesCompat.getFont(context, R.font.hind_siliguri_regular) }.getOrNull() ?: Typeface.DEFAULT
-        val bold = runCatching { ResourcesCompat.getFont(context, R.font.hind_siliguri_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
+        val regular = runCatching { ResourcesCompat.getFont(context, R.font.anek_bangla_regular) }.getOrNull() ?: Typeface.DEFAULT
+        val bold = runCatching { ResourcesCompat.getFont(context, R.font.anek_bangla_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
         val doc = PdfDocument()
         if (narrow) {
             // আগে মেপে নেওয়া (কিছু আঁকা হয় না), তারপর সেই লম্বায় এক পাতা

@@ -48,8 +48,8 @@ object RxPdf {
     }
 
     fun write(context: Context, rx: Rx): File {
-        val regular = runCatching { ResourcesCompat.getFont(context, R.font.hind_siliguri_regular) }.getOrNull() ?: Typeface.DEFAULT
-        val bold = runCatching { ResourcesCompat.getFont(context, R.font.hind_siliguri_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
+        val regular = runCatching { ResourcesCompat.getFont(context, R.font.anek_bangla_regular) }.getOrNull() ?: Typeface.DEFAULT
+        val bold = runCatching { ResourcesCompat.getFont(context, R.font.anek_bangla_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
         val doc = PdfDocument()
         var pageNo = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, pageNo).create())
