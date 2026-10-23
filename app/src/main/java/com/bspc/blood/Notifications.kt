@@ -110,12 +110,15 @@ object Notifier {
 
     /**
      * লক স্ক্রিনে কী দেখায় (null = পুরো লেখাই): মিসড কল আর "ভিডিও কলে যুক্ত হোন" — কে, কোন ডাক্তার নয় (CALLS.md R9);
-     * নতুন রসিদ (invoice_new) — টাকা, রসিদ নম্বর আর দোকানের নাম নয় (লাইফলো পে-র লক স্ক্রিনের নিয়মের মতো, PAYMENTS.md);
+     * নতুন রসিদ (invoice_new), সহকারীর রসিদ বাতিল (invoice_void), দিনের শেষের হিসাব (invoice_summary) — টাকা, রসিদ নম্বর
+     * আর দোকানের নাম নয় (লাইফলো পে-র লক স্ক্রিনের নিয়মের মতো, PAYMENTS.md);
      * খোলার পরে পুরো লেখা (বেশি ভাড়ার সতর্কতাসহ, INVOICES-SECURITY-REVIEW I8)। পেমেন্টের খবরের লেখা নিজেই সাধারণ (PayPush.text)।
      */
     fun lockScreenText(type: String?): Pair<String, String>? = when (type) {
         "call_missed", "appt_call_ready" -> APP_NAME to tr("New notification", "নতুন নোটিফিকেশন")
         "invoice_new" -> tr("New receipt — Lifolo", "নতুন রসিদ — লাইফলো") to PayText.PUSH_BODY
+        // ব্যবসার রসিদের খবর: সহকারীর বাতিল (রসিদ নম্বর, টাকা, কারণ) আর "দিনের শেষ" (মোট টাকা) — লক স্ক্রিনে নয় (নিরাপত্তা পর্যালোচনা ২৩ অক্টো)
+        "invoice_void", "invoice_summary" -> tr("Receipts update — Lifolo", "রসিদের খবর — লাইফলো") to PayText.PUSH_BODY
         else -> null
     }
 

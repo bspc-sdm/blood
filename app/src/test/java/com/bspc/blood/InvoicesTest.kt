@@ -187,6 +187,12 @@ class InvoicesTest {
         assertTrue(lock.first.isNotBlank() && lock.second.isNotBlank())
         assertFalse(Regex("[0-9০-৯৳]").containsMatchIn(lock.first + lock.second))
         assertNull(Notifier.lockScreenText("rx"))
+        // the business's receipt news (assistant void: receipt number, amount, reason; end of day: totals) — generic on the lock screen too
+        for (t in listOf("invoice_void", "invoice_summary")) {
+            val l = Notifier.lockScreenText(t)!!
+            assertTrue(t, l.first.isNotBlank() && l.second.isNotBlank())
+            assertFalse(t, Regex("[0-9০-৯৳]").containsMatchIn(l.first + l.second))
+        }
         assertEquals(NotifyRoute.Invoice("inv2"), notifyRoute(Notifier.extrasOf(mapOf("type" to "invoice_new", "invoiceId" to "inv2", "cat" to "my_request"))))
         assertTrue("invoiceId" in Notifier.DATA_KEYS)
         assertTrue("invoice_verify" in GuestApi.PUBLIC_ACTIONS)
