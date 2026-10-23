@@ -21,6 +21,7 @@ import com.lifolo.contracts.PatientHome
 import com.lifolo.contracts.Prescription
 import com.lifolo.contracts.Prescriptions
 import com.lifolo.demo.DemoWorld
+import com.lifolo.listings.ListingFacts
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Service
@@ -345,11 +346,18 @@ class PharmacyService(
         val world = if (uid != null && (mode != null || rx != null)) docs.filter { DemoWorld.sameWorld(uid, it.id) } else docs
         val lat = b.number("lat")
         val lng = b.number("lng")
+        // LISTINGS.md: shared facts (distanceKm also from the upazila centre when there is no lat/lng), q, sort
+        val origin = ListingFacts.origin(b)
+        val q = ListingFacts.query(b)
         class Item(val shop: Shop, val v: LinkedHashMap<String, Any?>, val km: Double?, val openNow: Boolean)
-        var items = world.map { s ->
+        var items = world.filter { ListingFacts.matches(q, listOf(it.name, it.address)) }.map { s ->
             val v = s.view(false, now)
             val km = if (lat != null && s.lat != null && s.lng != null) km1(lat, lng ?: Double.NaN, s.lat, s.lng) else null
             v["km"] = km?.takeIf { it.isFinite() }
+            ListingFacts.putHours(v, s.open24, s.openAt, s.closeAt)
+            v["is24h"] = s.open24
+            v["ratingSummary"] = ListingFacts.ratingSummary(s.ratingSum, s.ratingCount)
+            ListingFacts.putDistance(v, origin, s.lat, s.lng, true)
             Item(s, v, v["km"] as Double?, v["openNow"] == true)
         }
         if (mode == "online") {
@@ -361,11 +369,14 @@ class PharmacyService(
         }
         if (b.isTrue("openNow")) items = items.filter { it.openNow }
         if (b.isTrue("open24")) items = items.filter { it.shop.open24 }
+        if (b.isTrue("delivery")) items = items.filter { it.shop.delivery }
+        val sort = ListingFacts.sort(b)
         items = items.sortedWith(
             compareByDescending<Item> { if (it.openNow) 1 else 0 }
                 .thenBy { it.km ?: 99.0 }
                 .thenComparator { a, c -> BN_ORDER.compare(a.shop.name, c.shop.name) },
-        ).take(if (rx != null) RX_LIST_MAX else 100)
+        )
+        items = ListingFacts.sorted(items, sort) { it.v }.take(if (rx != null) RX_LIST_MAX else 100)
         var lastHome: Map<String, String>? = null
         if (rx != null) {
             val wanted = RxMath.wantedOf(rx)
@@ -385,6 +396,8 @@ class PharmacyService(
                     .thenBy { it.km ?: 99.0 }
                     .thenComparator { a, c -> BN_ORDER.compare(a.shop.name, c.shop.name) },
             )
+            // the viewer's own sort chip wins over the prescription match (ties keep the match order)
+            items = ListingFacts.sorted(items, sort) { it.v }
             lastHome = try {
                 patientHome.lastHome(uid!!)
             } catch (e: Exception) {

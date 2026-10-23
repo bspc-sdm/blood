@@ -2,6 +2,7 @@ package com.lifolo.lab
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.lifolo.listings.ListingFacts
 import com.lifolo.admin.kernel.ListingKind
 import com.lifolo.admin.kernel.ListingReview
 import com.lifolo.admin.kernel.ListingRows
@@ -275,7 +276,22 @@ class LabActions(
         val list = catalog.tests()
         val hidden = LabPrices.hiddenCodes(list)
         val pm = store.pricesOf(area.map { it.first })
-        var items = area.map { (id, x) -> LabStore.labView(id, x).apply { put("prices", LabPrices.publicSummary(pm[id], homeCollection(x), hidden)) } }
+        // LISTINGS.md: shared facts — hours parsed from the free text, distance to the lab's upazila centre (labs have
+        // no coordinates), no ratings; q, filters, sort
+        val now = System.currentTimeMillis()
+        val origin = ListingFacts.origin(b)
+        val q = ListingFacts.query(b)
+        var items = area.filter { (_, x) -> ListingFacts.matches(q, listOf(x["name"] as? String, x["address"] as? String)) }.map { (id, x) ->
+            LabStore.labView(id, x).apply {
+                put("prices", LabPrices.publicSummary(pm[id], homeCollection(x), hidden))
+                ListingFacts.putTextHours(this, x["hours"] as? String, now)
+                put("ratingSummary", null)
+                val c = ListingFacts.upazilaCentre((x["upazilaId"] as? Number)?.toInt())
+                ListingFacts.putDistance(this, origin, c?.first, c?.second, false)
+            }
+        }
+        if (b.isTrue("homeCollection")) items = items.filter { it["homeCollection"] == true }
+        if (b.isTrue("openNow")) items = items.filter { it["openNow"] == true }
         if (upazilaId != null && upazilaId != 0L) {
             items = items.filter { (it["upazilaId"] as? Int)?.toLong() == upazilaId } + items.filter { (it["upazilaId"] as? Int)?.toLong() != upazilaId }
         }
@@ -284,7 +300,7 @@ class LabActions(
             val f = Js.string(fac)
             items = items.sortedByDescending { f != null && it["facilityId"] == f }
         }
-        return linkedMapOf("items" to items.take(100))
+        return linkedMapOf("items" to ListingFacts.sorted(items, ListingFacts.sort(b)) { it }.take(100))
     }
 
     fun labPricesGet(ctx: ActionContext): Any {

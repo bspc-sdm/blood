@@ -20,6 +20,7 @@ import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.HospitalDirectory
 import com.lifolo.demo.DemoWorld
 import com.lifolo.features.Features
+import com.lifolo.listings.ListingFacts
 import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushService
 import com.lifolo.practice.Practice
@@ -60,6 +61,7 @@ class AppointmentActions(
     private val payMethods: com.lifolo.payments.PayMethodStore,
     private val payGuard: com.lifolo.payments.PayMethodGuard,
     private val payHooks: org.springframework.beans.factory.ObjectProvider<ApptPayHook>,
+    private val nextSlots: NextSlots,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -220,10 +222,74 @@ class AppointmentActions(
         if (type == "doctor" && systemsOn) {
             facets["systems"] = Practice.SYSTEMS.map { sys -> linkedMapOf("code" to sys, "n" to pool.count { Practice.systemOf(it.type, it.system) == sys }) }
         }
+        // LISTINGS.md: q (name, degrees, specialties, chambers)
+        val q = ListingFacts.query(b)
+        val labels = specialtyLabels(ctx.lang)
         val docs = pool.filter { CareRules.matchesFilter(it, f, now) }
+            .filter { d ->
+                q == null || ListingFacts.matches(
+                    q,
+                    listOf(d.name, d.degrees) + d.specialties.flatMap { labels[it]?.toList() ?: listOf(it) } +
+                        d.chambers.flatMap { listOf(it.hospitalName, it.hospitalNameBn, it.address) },
+                )
+            }
             .sortedWith(Comparator { p, q -> if (q.ratingCount != p.ratingCount) q.ratingCount - p.ratingCount else P2Js.localeCompare(p.name, q.name) })
-        val items = docs.map { d -> providerOut(d, systemsOn = systemsOn).apply { put("matched", CareRules.matchedChambers(d, f, now)) } }
-        return linkedMapOf("items" to items.take(150), "facets" to facets)
+        // LISTINGS.md: nextSlot, feeAmount, specialtyLabel, openNow, distanceKm, ratingSummary
+        val origin = ListingFacts.origin(b)
+        val booked = nextSlots.bookedCounts(docs, now)
+        val allowed = HashMap<String, Boolean>()
+        val items = docs.map { d ->
+            fun visible(c: Ch) = !c.online || (onlineOk && allowed.getOrPut(d.uid) { onlineSwitch.allowed(d.uid) })
+            providerOut(d, systemsOn = systemsOn).apply {
+                put("matched", CareRules.matchedChambers(d, f, now))
+                listingFacts(this, d, now, ctx.lang, labels, origin, ::visible) { key, date -> booked["${d.uid}|$key|$date"] ?: 0 }
+            }
+        }
+        return linkedMapOf("items" to ListingFacts.sortedMaps(items, ListingFacts.sort(b)).take(150), "facets" to facets)
+    }
+
+    /** specialty code → (label in the viewer's language, the other language) from every specialty list of the catalog */
+    private fun specialtyLabels(lang: String?): Map<String, Pair<String, String>> {
+        val out = HashMap<String, Pair<String, String>>()
+        for ((_, list) in catalog.lists()["specialty"].orEmpty()) {
+            for (it in list) {
+                val code = it["code"] as? String ?: continue
+                val en = it["en"] as? String ?: code
+                val bn = it["bn"] as? String ?: en
+                out.putIfAbsent(code, if (lang == "en") en to bn else bn to en)
+            }
+        }
+        return out
+    }
+
+    /** the LISTINGS.md facts of one doctor card */
+    private fun listingFacts(
+        m: MutableMap<String, Any?>,
+        d: ProviderDoc,
+        now: Long,
+        lang: String?,
+        labels: Map<String, Pair<String, String>>,
+        origin: ListingFacts.Origin?,
+        visible: (Ch) -> Boolean,
+        booked: (String, Long) -> Int,
+    ) {
+        val slot = NextSlots.nextSlot(d, now, visible, booked)
+        val today = com.lifolo.common.DhakaTime.todayUtcMidnight(now)
+        m["nextSlot"] = slot?.let {
+            linkedMapOf("date" to it.date, "label" to NextSlots.label(it.date, today, lang), "available" to it.available, "chamberIndex" to it.chamberIndex)
+        }
+        // the fee of the chamber nextSlot points to, else of the first bookable/visible chamber
+        val feeCh = slot?.let { d.chambers[it.chamberIndex] } ?: d.chambers.firstOrNull { it.appointments && visible(it) } ?: d.chambers.firstOrNull { visible(it) }
+        m["feeAmount"] = CareRules.feeAmount(feeCh)?.let { if (it == Math.floor(it)) it.toLong() else it }
+        m["specialtyLabel"] = d.specialties.take(2).map { labels[it]?.first ?: it.replace('_', ' ') }.joinToString(", ").ifEmpty { null }
+        val shown = d.chambers.filter(visible)
+        m["openNow"] = shown.any { CareRules.chamberNowOpen(it, now) }
+        ListingFacts.putHours(m, false, null, null)
+        m["ratingSummary"] = ListingFacts.ratingSummary(d.ratingSum, d.ratingCount)
+        // the nearest chamber at a place (its upazila centre — approximate)
+        val near = shown.filter { !it.online }.mapNotNull { ListingFacts.upazilaCentre(it.upazilaId) }
+            .minByOrNull { if (origin == null) 0.0 else com.lifolo.common.Geo.distanceKm(origin.lat, origin.lng, it.first, it.second) }
+        ListingFacts.putDistance(m, origin, near?.first, near?.second, false)
     }
 
     /** own provider document (null when none) */

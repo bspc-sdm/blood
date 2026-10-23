@@ -43,6 +43,12 @@ object DhakaTime {
         }
     }
 
+    /** a Dhaka day given as UTC-midnight ms (like `appointments.date`): en → "25 Oct", bn → "২৫ অক্টোবর" */
+    fun shortDate(dateUtcMidnight: Long, english: Boolean): String {
+        val d = fromUtcMidnightMs(dateUtcMidnight)
+        return if (english) d.format(DateTimeFormatter.ofPattern("d MMM", Locale.UK)) else Lang.bnDigits("${d.dayOfMonth} ${BN_MONTHS[d.monthValue - 1]}")
+    }
+
     private val BN_MONTHS = listOf(
         "জানুয়ারী", "ফেব্রুয়ারী", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর", // bn-ok (ICU bn-BD month names)
     )

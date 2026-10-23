@@ -22,6 +22,7 @@ import com.lifolo.common.SqlSet
 import com.lifolo.common.intOrNull
 import com.lifolo.common.ms
 import com.lifolo.demo.DemoWorld
+import com.lifolo.listings.ListingFacts
 import com.lifolo.notify.PushItem
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -208,11 +209,22 @@ class AmbulanceService(
         val canRate = canRateIds(uid, now)
         val type = b.string("type")
         if (type != null && type in catalog.codes("ambulanceType")) docs = docs.filter { type in it.types }
+        // LISTINGS.md: q (name, area), the shared facts on every card, sort
+        val q = ListingFacts.query(b)
+        if (q != null) docs = docs.filter { ListingFacts.matches(q, listOf(it.name, it.area)) }
+        val origin = ListingFacts.origin(b, gpsFlag = true)
+        fun facts(a: Amb, v: LinkedHashMap<String, Any?>): LinkedHashMap<String, Any?> {
+            ListingFacts.putNoHours(v)
+            v["ratingSummary"] = ListingFacts.ratingSummary(a.ratingSum, a.ratingCount)
+            val base = AmbRules.baseOf(a)
+            ListingFacts.putDistance(v, origin, base?.lat, base?.lng, base?.exact == true)
+            return v
+        }
         // cars on a trip are listed apart (folded in the app) — call to ask when they are back
         fun sameUp(v: Int?) = if (upazilaId != null && upazilaId != 0 && v == upazilaId) 1 else 0
         val busy = docs.filter { AmbRules.busyNow(it, now) }
             .map { a ->
-                AmbRules.view(a, now).apply {
+                facts(a, AmbRules.view(a, now)).apply {
                     put("canRate", a.id in canRate)
                     put("busy", true)
                     put("busySince", a.busyAt ?: a.availableAt ?: 0L)
@@ -228,7 +240,7 @@ class AmbulanceService(
 
         class Row(val v: LinkedHashMap<String, Any?>, val dist: Double, val owner: String, val avail: Boolean, val rating: Double, val ratingCount: Int, val up: Int?)
         val rows = docs.filter { !AmbRules.busyNow(it, now) }.map { a ->
-            val v = AmbRules.view(a, now)
+            val v = facts(a, AmbRules.view(a, now))
             v["canRate"] = a.id in canRate
             var dist = 9999.0
             val base = if (from != null) AmbRules.baseOf(a) else null
@@ -260,7 +272,7 @@ class AmbulanceService(
         }
         val nearest = sorted.firstOrNull { it.avail && forPatient(it.v) && it.owner != uid && DemoWorld.sameWorld(uid, it.owner) }
         return linkedMapOf(
-            "items" to sorted.map { it.v },
+            "items" to ListingFacts.sortedMaps(sorted.map { it.v }, ListingFacts.sort(b)),
             "busyCount" to busy.size,
             "busy" to busy.take(50),
             "nearestId" to nearest?.v?.get("id"),

@@ -50,6 +50,8 @@ class BloodActions(
         "bloodbank_delete" to ActionHandler { banks.delete(it) },
         "bloodbank_called" to ActionHandler { banks.called(it) },
         "bloodbank_stats" to ActionHandler { banks.ownStats(it) },
+        // LISTINGS.md: the owner's stock per blood group
+        "bloodbank_stock_set" to ActionHandler { banks.stockSet(it) },
         "admin_bloodbanks" to ActionHandler { banks.adminList(it) },
         "admin_bloodbank_resolve" to ActionHandler { banks.adminResolve(it) },
         "admin_bloodbank_add" to ActionHandler { banks.adminAdd(it) },

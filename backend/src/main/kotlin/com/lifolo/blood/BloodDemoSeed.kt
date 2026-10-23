@@ -459,6 +459,24 @@ class BloodDemoSeed(private val jdbc: JdbcTemplate, private val mapper: ObjectMa
             "demo-bb-club", null, "ডেমো আলোর পথ ব্লাড ডোনার ক্লাব", "org", "01200001304", "ডেমো ক্লাবঘর, ছায়াবীথি",
             listOf("whole_blood", "platelets", "donate_here"), "approved", openAt = "09:00", closeAt = "17:00", ageDays = 60, calls = listOf(0, 1, 0, 0, 2),
         )
+        // stock per blood group (LISTINGS.md): the demo owner's bank fresh, the club a few hours old, the government
+        // bank older than 48 h ("পুরনো তথ্য"); the pending one never set it. Rows go with the banks (ON DELETE CASCADE).
+        fun stock(bankId: String, updatedBy: String?, ago: Long, levels: Map<String, String>) {
+            jdbc.update(
+                "INSERT INTO blood_bank_stock (bank_id, groups, updated_at, updated_by) VALUES (?, ?::jsonb, ?, ?)",
+                bankId, mapper.writeValueAsString(levels), Timestamp(now - ago), updatedBy,
+            )
+        }
+        stock(
+            "demo-bb-mine", bbUid, 2 * HOUR,
+            linkedMapOf("A+" to "have", "A-" to "low", "B+" to "have", "B-" to "none", "AB+" to "low", "AB-" to "none", "O+" to "have", "O-" to "low"),
+        )
+        stock("demo-bb-club", null, 5 * HOUR, linkedMapOf("A+" to "low", "B+" to "have", "O+" to "have", "O-" to "none", "AB+" to "none"))
+        stock(
+            "demo-bb-govt", by("bbowner").uid, 3 * day,
+            linkedMapOf("A+" to "have", "A-" to "none", "B+" to "low", "B-" to "none", "AB+" to "none", "AB-" to "none", "O+" to "have", "O-" to "none"),
+        )
+
         // for the admin's report list: a bad experience after calling the government blood bank
         val mahmud = by("mahmud").uid
         jdbc.update("INSERT INTO blood_bank_calls (uid, bank_id, at) VALUES (?, 'demo-bb-govt', ?)", mahmud, Timestamp(now - 30 * HOUR))

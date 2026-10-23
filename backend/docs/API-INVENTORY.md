@@ -212,6 +212,10 @@ deactivated, reactivated.
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_called` · auth: user · port: **P1**
   - request: `id` · response: `{ok}`
   - collections: bloodBankCalls, bloodBanks · side effects: — · errors: — · tests: demo-blood
+- [x] **`bloodbank_stock_set`** — Owner sets the stock per blood group (আছে/কম/নেই) or refreshes it (LISTINGS.md; Spring only, no Node original)
+  - src: `backend/.../blood/BloodBankService.kt` · auth: user (owner) · quota: bbStock (60/day)
+  - request: `id?`, `groups?`, `refresh?` · response: `{ok,id,stock,stockUpdatedAt,stockStale}`
+  - tables: blood_bank_stock · errors: 400, 403, 404, 429 · tests: BloodBankStockIT
 - [x] **`bloodbank_stats`** — Owner stats per bank: calls/day, reports
   - src: `server/lib/bloodbank.js` → `actions.bloodbank_stats` · auth: user · port: **P1**
   - request: — · response: `{items}`

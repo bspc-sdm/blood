@@ -23,6 +23,7 @@ import com.lifolo.common.Sql
 import com.lifolo.common.SqlSet
 import com.lifolo.common.action.ActionContext
 import com.lifolo.demo.DemoWorld
+import com.lifolo.listings.ListingFacts
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
 import org.slf4j.LoggerFactory
@@ -60,8 +61,8 @@ class BloodBankService(
 
     private fun str(x: Map<String, Any?>, k: String): String = (x[k] as? String) ?: ""
 
-    /** bloodbank.js view (+ licence and state for the owner) */
-    private fun view(x: Map<String, Any?>, mine: Boolean = false): LinkedHashMap<String, Any?> {
+    /** bloodbank.js view (+ licence and state for the owner); [stock] = this bank's stock row (LISTINGS.md) */
+    private fun view(x: Map<String, Any?>, mine: Boolean = false, stock: BankStock? = null, now: Long = System.currentTimeMillis()): LinkedHashMap<String, Any?> {
         val v = linkedMapOf<String, Any?>(
             "id" to x["id"],
             "name" to x["name"],
@@ -77,6 +78,10 @@ class BloodBankService(
             "services" to (x["services"] ?: emptyList<String>()),
             "closedDays" to (x["closedDays"] ?: emptyList<Int>()),
         )
+        // LISTINGS.md: the shared list facts (blood banks have no ratings) and the stock per blood group
+        ListingFacts.putHours(v, x["open24"] == true, str(x, "openAt"), str(x, "closeAt"))
+        v["ratingSummary"] = null
+        putStock(v, stock, now)
         if (mine) {
             v["licenseNo"] = str(x, "licenseNo")
             v["status"] = x["status"]
@@ -159,13 +164,28 @@ class BloodBankService(
         val district = b.string("district")
         if (!Places.isDistrict(district)) throw ctx.err(400, "Choose a district", "জেলা বেছে নিন")
         val upazilaId = b.int("upazilaId")?.toInt()
-        var items = list("district = ? AND status = 'approved' ORDER BY created_at, id LIMIT 300", district).map { view(it) }
+        val rows = list("district = ? AND status = 'approved' ORDER BY created_at, id LIMIT 300", district)
+        val stocks = stockOf(rows.map { it["id"] as String })
+        val now = System.currentTimeMillis()
+        // LISTINGS.md: no own coordinates — the distance is to the bank's upazila centre (approximate)
+        val origin = ListingFacts.origin(b)
+        val q = ListingFacts.query(b)
+        var items = rows.filter { ListingFacts.matches(q, listOf(it["name"] as? String, str(it, "address"))) }.map { x ->
+            view(x, stock = stocks[x["id"]], now = now).apply {
+                val c = ListingFacts.upazilaCentre((x["upazilaId"] as? Number)?.toInt())
+                ListingFacts.putDistance(this, origin, c?.first, c?.second, false)
+            }
+        }
         if (b.isTrue("open24")) items = items.filter { it["open24"] == true }
+        if (b.isTrue("openNow")) items = items.filter { it["openNow"] == true }
+        // a blood group the bank has (or has a little of)
+        val group = b.string("group")?.takeIf { it in BankStock.GROUPS }
+        if (group != null) items = items.filter { (it["stock"] as? Map<*, *>)?.get(group).let { l -> l == "have" || l == "low" } }
         fun rank(x: Map<String, Any?>) = (if (x["openNow"] == true) 4 else 0) +
             (if (upazilaId != null && upazilaId != 0 && x["upazilaId"] == upazilaId) 2 else 0) + (if (x["kind"] == "govt") 1 else 0)
         val collator = Collator.getInstance(Locale.ROOT)
         items = items.sortedWith(compareByDescending<Map<String, Any?>> { rank(it) }.thenComparator { x, y -> collator.compare(x["name"].toString(), y["name"].toString()) })
-        return linkedMapOf("items" to items)
+        return linkedMapOf("items" to ListingFacts.sorted(items, ListingFacts.sort(b)) { it })
     }
 
     /** the owner's card: which document photos are still missing (pending/rejected, or asked for by an admin) */
@@ -182,8 +202,86 @@ class BloodBankService(
         }
     }
 
-    fun mine(ctx: ActionContext): Any =
-        linkedMapOf("items" to list("owner_uid = ? ORDER BY created_at, id LIMIT $MAX_PER_OWNER", ctx.user.id).map { withDocs(it, view(it, true)) })
+    fun mine(ctx: ActionContext): Any {
+        val rows = list("owner_uid = ? ORDER BY created_at, id LIMIT $MAX_PER_OWNER", ctx.user.id)
+        val stocks = stockOf(rows.map { it["id"] as String })
+        return linkedMapOf("items" to rows.map { withDocs(it, view(it, true, stocks[it["id"]])) })
+    }
+
+    // ---------------------------------------------------------------- stock per blood group (LISTINGS.md)
+
+    /** the stock rows of these banks */
+    private fun stockOf(ids: List<String>): Map<String, BankStock> {
+        if (ids.isEmpty()) return emptyMap()
+        val out = HashMap<String, BankStock>()
+        for (chunk in ids.chunked(500)) {
+            jdbc.query(
+                "SELECT bank_id, groups::text AS g, updated_at FROM blood_bank_stock WHERE bank_id IN (${chunk.joinToString(",") { "?" }})",
+                { rs, _ -> out[rs.getString("bank_id")] = BankStock.parse(rs.getString("g"), rs.getTimestamp("updated_at").time) },
+                *chunk.toTypedArray(),
+            )
+        }
+        return out
+    }
+
+    /** `stock` (all 8 groups, or null when never set), `stockUpdatedAt` (ms|null), `stockStale` (older than 48 h) */
+    private fun putStock(v: MutableMap<String, Any?>, s: BankStock?, now: Long) {
+        v["stock"] = s?.let { st -> LinkedHashMap<String, Any?>().apply { BankStock.GROUPS.forEach { put(it, st.levels[it]) } } }
+        v["stockUpdatedAt"] = s?.updatedAt
+        v["stockStale"] = s != null && now - s.updatedAt > BankStock.STALE_MS
+    }
+
+    /**
+     * bloodbank_stock_set {id?, groups} | {id?, refresh: true}: the owner's 8-group selector (আছে/কম/নেই). `groups` is the
+     * whole state — a group left out (or null) is unknown. `refresh` alone keeps the groups and only renews
+     * stockUpdatedAt. `id` may be left out when the owner has one blood bank. 60 saves a day.
+     */
+    fun stockSet(ctx: ActionContext): Any {
+        val b = ctx.body
+        val uid = ctx.user.id
+        // refresh: true = "সব ঠিক আছে — এখন হালনাগাদ": the same groups, a new stockUpdatedAt
+        val refresh = b.isTrue("refresh")
+        val g = b.obj("groups")
+        if (g == null && !refresh) throw ctx.err(400, "Choose the stock of each blood group", "প্রতিটা গ্রুপের অবস্থা বেছে নিন") // bn-ok
+        val levels = LinkedHashMap<String, String>()
+        for ((k, n) in (g?.fields()?.asSequence() ?: emptySequence()).map { it.key to it.value }) {
+            if (k !in BankStock.GROUPS) throw ctx.err(400, "Unknown blood group", "অজানা রক্তের গ্রুপ") // bn-ok
+            if (n == null || n.isNull) continue
+            val level = Js.string(n)?.takeIf { it in BankStock.LEVELS } ?: throw ctx.err(400, "Choose have, low or none", "আছে, কম বা নেই বেছে নিন") // bn-ok
+            levels[k] = level
+        }
+        val owned = jdbc.queryForList("SELECT id, status FROM blood_banks WHERE owner_uid = ? ORDER BY created_at, id LIMIT $MAX_PER_OWNER", uid)
+        val id = b.string("id")
+        val bank = if (id != null) {
+            owned.firstOrNull { it["id"] == id } ?: throw ctx.notFound()
+        } else {
+            owned.singleOrNull() ?: if (owned.isEmpty()) throw ctx.notFound() else throw ctx.err(400, "Choose the blood bank", "ব্লাড ব্যাংক বেছে নিন") // bn-ok
+        }
+        if (bank["status"] == "suspended") {
+            throw ctx.err(
+                403,
+                "This blood bank is suspended. You can appeal from Profile → Help & appeals.",
+                "এই ব্লাড ব্যাংক বন্ধ করা আছে। প্রোফাইলের \"সাহায্য ও আপিল\" থেকে আপিল করতে পারেন।",
+            )
+        }
+        val bankId = bank["id"] as String
+        if (refresh && g == null) {
+            val cur = stockOf(listOf(bankId))[bankId]
+                ?: throw ctx.err(400, "Set the stock of each blood group first", "আগে প্রতিটা গ্রুপের অবস্থা দিন") // bn-ok
+            levels.putAll(cur.levels)
+        }
+        quotas.use(ctx.lang, uid, "bbStock", STOCK_PER_DAY)
+        val now = System.currentTimeMillis()
+        val stock = BankStock(levels, now)
+        jdbc.update(
+            """
+            INSERT INTO blood_bank_stock (bank_id, groups, updated_at, updated_by) VALUES (?, ?::jsonb, ?, ?)
+            ON CONFLICT (bank_id) DO UPDATE SET groups = EXCLUDED.groups, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
+            """.trimIndent(),
+            bankId, rows.toJson(levels), Sql.ts(now), ctx.caller.uid,
+        )
+        return linkedMapOf<String, Any?>("ok" to true, "id" to bankId).apply { putStock(this, stock, now) }
+    }
 
     /** add or edit; a changed name (beyond a spelling fix), phone, licence, type, district or address is reviewed again */
     fun save(ctx: ActionContext): Any {
@@ -403,10 +501,33 @@ class BloodBankService(
         val KINDS = listOf("govt", "private", "org")
         const val MAX_PER_OWNER = 3
         const val CALL_DEDUPE_MS = 10L * 60 * 1000
+
+        /** bloodbank_stock_set saves per owner per Dhaka day */
+        const val STOCK_PER_DAY = 60
         private val TIME_RE = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 
         /** a JSON array as a list of plain values (strings, numbers, booleans), null when not an array */
         fun jsList(n: com.fasterxml.jackson.databind.JsonNode?): List<Any?>? =
             n?.takeIf { it.isArray }?.map { RequestService.jsValue(it) }
+    }
+}
+
+/** blood_bank_stock: group → "have"|"low"|"none" (a missing group is unknown), when it was set */
+data class BankStock(val levels: Map<String, String>, val updatedAt: Long) {
+    companion object {
+        val GROUPS = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+        val LEVELS = setOf("have", "low", "none")
+
+        /** older than this shows as "পুরনো তথ্য" */
+        const val STALE_MS = 48L * 3600 * 1000
+
+        private val mapper = com.fasterxml.jackson.databind.json.JsonMapper()
+
+        fun parse(json: String?, updatedAt: Long): BankStock {
+            val n = json?.let { runCatching { mapper.readTree(it) }.getOrNull() }
+            val levels = LinkedHashMap<String, String>()
+            for (g in GROUPS) n?.get(g)?.takeIf { it.isTextual && it.textValue() in LEVELS }?.let { levels[g] = it.textValue() }
+            return BankStock(levels, updatedAt)
+        }
     }
 }
