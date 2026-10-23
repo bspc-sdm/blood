@@ -1,0 +1,11 @@
+    Finished `release` profile [optimized] target(s) in 2m 27s
+       Built application at: D:\a\blood\blood\desktop\src-tauri\target\release\Lifolo.exe
+        Info Patching D:\a\blood\blood\desktop\src-tauri\target\release\Lifolo.exe with bundle type information: nsis
+        Info Verifying NSIS package
+--
+    Finished 1 bundle at:
+        D:\a\blood\blood\desktop\src-tauri\target\release\bundle\nsis\Lifolo_1.0.0_x64-setup.exe (6.15 MiB)
+
+    Finished 1 updater signature at:
+        D:\a\blood\blood\desktop\src-tauri\target\release\bundle\nsis\Lifolo_1.0.0_x64-setup.exe.sig
+
