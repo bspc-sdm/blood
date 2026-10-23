@@ -78,7 +78,7 @@ class ContactPolicy(
     /** the peer and whether a call defaults to video */
     data class Rel(val peer: String, val defaultVideo: Boolean)
 
-    /** one appointment as the calls need it; [online] reads appointments.online when the column exists */
+    /** one appointment as the calls need it ([online]: an online-chamber appointment, V620) */
     data class ApptInfo(
         val id: String,
         val patientUid: String,
@@ -139,7 +139,7 @@ class ContactPolicy(
     fun appointment(id: String): ApptInfo? = jdbc.query(
         """
         SELECT a.id, a.patient_uid, a.provider_uid, a.status, a.visit_date, coalesce(a.start_time, '') AS start_time,
-          coalesce((to_jsonb(a) ->> 'online')::boolean, FALSE) AS online, coalesce(p.admin_suspended, FALSE) AS suspended
+          a.online, coalesce(p.admin_suspended, FALSE) AS suspended
         FROM appointments a LEFT JOIN providers p ON p.uid = a.provider_uid WHERE a.id = ?
         """.trimIndent(),
         { rs, _ ->

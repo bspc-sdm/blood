@@ -92,13 +92,6 @@ class CallsWebhookIT : CallsTestBase() {
         assertEquals("left", hook(docLeft, jwt(docLeft)).body["result"].textValue())
         assertNull(row("SELECT host_uid FROM call_sessions WHERE id = ?", room["callId"].textValue())["host_uid"])
         assertEquals(room["callId"].textValue(), ok("asst", "appt_join", mapOf("appointmentId" to "ap1"))["callId"].textValue())
-        // doctor_joined_at (online-chamber follow-up) when the column exists
-        val hasCol = jdbc.queryForList(
-            "SELECT 1 FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = 'doctor_joined_at'",
-        ).isNotEmpty()
-        if (hasCol) {
-            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM appointments WHERE id = 'ap1' AND doctor_joined_at IS NOT NULL", Int::class.java))
-        }
         val fin = event("room_finished", room["room"].textValue())
         assertEquals("ended", hook(fin, jwt(fin)).body["result"].textValue())
     }

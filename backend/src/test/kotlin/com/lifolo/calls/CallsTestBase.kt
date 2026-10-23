@@ -22,6 +22,8 @@ abstract class CallsTestBase : IntegrationTest() {
 
     @Autowired lateinit var calls: CallService
 
+    @Autowired lateinit var features: CallFeatures
+
     val lk = LifoloProperties.LiveKit("wss://lifolo.test/rtc", "APIkey1", "secret-secret-secret-secret-1234")
     private lateinit var saved: LifoloProperties.LiveKit
     private val dhaka = ZoneId.of("Asia/Dhaka")
@@ -36,14 +38,14 @@ abstract class CallsTestBase : IntegrationTest() {
         roomOps.clear()
         rooms.recorder = { op, room, id -> roomOps.add(listOfNotNull(op, room, id).joinToString(" ")) }
         calls.clock = { System.currentTimeMillis() }
-        // appointments.online comes from the online-chambers migration (spring-p15); harmless once it exists
-        jdbc.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS online BOOLEAN NOT NULL DEFAULT FALSE")
+        features.override = null
     }
 
     @AfterEach
     fun liveKitBack() {
         tokens.config = saved
         rooms.recorder = null
+        features.override = null
         calls.clock = { System.currentTimeMillis() }
     }
 

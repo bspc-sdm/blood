@@ -553,7 +553,11 @@ class CallsIT : CallsTestBase() {
         assertEquals("pat", pc["sub"].textValue())
         assertEquals(listOf("camera", "microphone"), pc["video"]["canPublishSources"].map { it.textValue() })
         assertTrue(pushes("pat", "appt_call_ready").isEmpty())
+        // the patient joining does not count as the doctor joining (R8 "doctor never joined")
+        assertNull(row("SELECT doctor_joined_at FROM appointments WHERE id = 'ap1'")["doctor_joined_at"])
         assertEquals(callId, ok("doc", "appt_join", mapOf("appointmentId" to "ap1"))["callId"].textValue())
+        val joinedAt = row("SELECT doctor_joined_at FROM appointments WHERE id = 'ap1'")["doctor_joined_at"]
+        assertNotNull(joinedAt)
         val ready = pushes("pat", "appt_call_ready").single()
         assertEquals("appointments", ready.data["cat"])
         assertEquals("ap1", ready.data["appointmentId"])
@@ -567,6 +571,8 @@ class CallsIT : CallsTestBase() {
         jdbc.update("UPDATE call_sessions SET callee_seen_at = now() - interval '100 seconds' WHERE id = ?", callId)
         assertEquals(callId, ok("asst", "appt_join", mapOf("appointmentId" to "ap1"))["callId"].textValue())
         assertEquals("asst", row("SELECT host_uid FROM call_sessions WHERE id = ?", callId)["host_uid"])
+        // the first join stays
+        assertEquals(joinedAt, row("SELECT doctor_joined_at FROM appointments WHERE id = 'ap1'")["doctor_joined_at"])
         assertEquals(1, pushes("pat", "appt_call_ready").size)
         val sa = ok("asst", "call_status", mapOf("callId" to callId))
         assertEquals("accepted", sa["state"].textValue())

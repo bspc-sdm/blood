@@ -8,6 +8,9 @@ lifolo:
   cron-secret: test-cron-secret
   web-session-secret: test-secret
   email-code-secret: test-secret-key
+  # every feature switch on in tests (calls shim until the flags package lands)
+  feature-shim:
+    on: "*"
   demo:
     online-chambers: true
 logging:

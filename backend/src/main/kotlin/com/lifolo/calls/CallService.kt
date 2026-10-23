@@ -92,6 +92,7 @@ class CallService(
     private val rate: RateLimiter,
     private val files: StoredFiles,
     private val mapper: ObjectMapper,
+    private val features: CallFeatures,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -297,6 +298,8 @@ class CallService(
     /** why a live call must end now, or null: heartbeats stopped, the relation ended, an account or a block (R1, R3, R11) */
     private fun mustEnd(c: CallRow, nowMs: Long): String? {
         if (!policy.reachable(c.caller) || !policy.reachable(c.callee)) return "account"
+        // a feature switched off (or out of the pilot) ends what is running
+        if (!features.bothOn(c.caller, c.callee, if (c.kind == "room") CallFeatures.APPT_VIDEO else CallFeatures.CALLS_AUDIO)) return "feature_off"
         if (c.kind == "room") {
             val seen = maxOf(c.callerSeenAt ?: 0L, c.calleeSeenAt ?: 0L, c.acceptedAt ?: 0L)
             if (seen < nowMs - HEARTBEAT_GONE_MS) return "heartbeat"
@@ -371,6 +374,8 @@ class CallService(
 
     /** one notification per caller, updated in place ("৩টা মিসড কল"): the earlier bell entries of that caller go (R2) */
     private fun notifyMissed(c: CallRow) {
+        // no push or bell entry for a switched-off feature
+        if (!features.isOn(c.callee, CallFeatures.CALLS_AUDIO)) return
         val ps = people(listOf(c.caller, c.callee))
         val lang = ps[c.callee]!!.lang
         val first = firstName(ps[c.caller]!!.name)
@@ -408,10 +413,13 @@ class CallService(
         }
         val rel = d.rel!!
         val callee = rel.peer
+        // two-party feature: the callee must have calls too (pilot), else the same answer as no relation
+        if (!features.isOn(callee, CallFeatures.CALLS_AUDIO)) throw policy.notAllowed(lang)
         val p = prefs.get(callee)
         if (!p.all || p.cats[NotifyCats.CALLS] == false) throw callOff(lang)
         // the caller chooses audio or video (owner, 23 Oct); appointments default to the chamber's kind
-        val v = video ?: rel.defaultVideo
+        // video only when both have it switched on; otherwise the call rings as audio
+        val v = (video ?: rel.defaultVideo) && features.bothOn(caller, callee, CallFeatures.CALLS_VIDEO)
         val cancelled = ArrayList<String>()
         val call = tx.execute {
             // one decision at a time per person (both sides, fixed order — no deadlock)
@@ -508,7 +516,7 @@ class CallService(
                     val t = Sql.ts(now())
                     jdbc.update(
                         "UPDATE call_sessions SET state = 'accepted', accepted_at = ?, caller_seen_at = ?, callee_seen_at = ?, video = (video AND ?) WHERE id = ?",
-                        t, t, t, video != false, c.id,
+                        t, t, t, video != false && features.isOn(uid, CallFeatures.CALLS_VIDEO), c.id,
                     )
                     changed = true
                     load(c.id)!!
@@ -605,6 +613,7 @@ class CallService(
         requireAvailable(lang)
         if (c.state != "accepted") throw gone(lang)
         if (c.video) return linkedMapOf("ok" to true, "video" to true)
+        if (!features.isOn(c.other(uid), CallFeatures.CALLS_VIDEO)) throw policy.notAllowed(lang)
         if (!rate.tryAcquire("call_upgrade:${c.id}:$uid", 5, WINDOW_10_MIN)) throw tooMany(lang)
         jdbc.update("UPDATE call_sessions SET upgrade_by = ?, upgrade_at = ? WHERE id = ? AND state = 'accepted'", uid, Sql.ts(now()), c.id)
         val other = c.other(uid)
@@ -692,7 +701,8 @@ class CallService(
 
     /**
      * canCall / canVideo / canMessage for each {ctx, refId, peerUid?} — [ContactPolicy.decide], the rule call_start and
-     * the messages use. canCall/canVideo also need the call server (LIVEKIT_* set). Notification settings and busy are
+     * the messages use, plus the feature switches on for BOTH people (calls_audio / calls_video / chat). canCall/canVideo
+     * also need the call server (LIVEKIT_* set). Notification settings and busy are
      * not looked at (no presence leak); call_start still answers call_off / call_busy.
      */
     fun can(uid: String, email: String, items: List<Triple<String, String, String?>>): Map<String, Any?> {
@@ -700,9 +710,12 @@ class CallService(
         val on = tokens.available
         val out = items.map { (ctx, refId, peer) ->
             val d = policy.decide(uid, email, ctx, refId, peer, nowMs)
+            val other = d.rel?.peer
+            val call = d.allowed && on && features.bothOn(uid, other, CallFeatures.CALLS_AUDIO)
             linkedMapOf<String, Any?>(
-                "ctx" to ctx, "refId" to refId, "peerUid" to (d.rel?.peer ?: peer),
-                "canCall" to (d.allowed && on), "canVideo" to (d.allowed && on), "canMessage" to d.allowed,
+                "ctx" to ctx, "refId" to refId, "peerUid" to (other ?: peer),
+                "canCall" to call, "canVideo" to (call && features.bothOn(uid, other, CallFeatures.CALLS_VIDEO)),
+                "canMessage" to (d.allowed && features.bothOn(uid, other, CallFeatures.CHAT)),
             ).apply { if (d.refusal == ContactPolicy.Refusal.BLOCKED_BY_ME) put("blocked", true) }
         }
         return linkedMapOf("ok" to true, "items" to out)
@@ -729,6 +742,10 @@ class CallService(
             )
         }
         if (!policy.reachable(uid) || !policy.reachable(a.patientUid) || !policy.reachable(a.providerUid)) throw policy.notAllowed(lang)
+        // two-party feature: the patient and the doctor both have video appointments switched on
+        if (!features.bothOn(a.patientUid, a.providerUid, CallFeatures.APPT_VIDEO) || !features.isOn(uid, CallFeatures.APPT_VIDEO)) {
+            throw policy.notAllowed(lang)
+        }
         val seen = if (doctorSide) "callee_seen_at" else "caller_seen_at"
         var pushReady = false
         val call = tx.execute {
@@ -784,20 +801,15 @@ class CallService(
         )
     }
 
-    @Volatile
-    private var doctorJoinedColumn: Boolean? = null
-
-    /** appointments.doctor_joined_at (V621, online-chamber follow-up): first time the doctor's side joined — when the column exists */
+    /**
+     * appointments.doctor_joined_at (V621): the first time the doctor's side joined the video call — the online-chamber
+     * "doctor never joined" check (CHAMBERS-ONLINE.md, review R8) reads it.
+     */
     private fun markDoctorJoined(appointmentId: String) {
         try {
-            val has = doctorJoinedColumn ?: (
-                jdbc.queryForList(
-                    "SELECT 1 FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = 'doctor_joined_at'",
-                ).isNotEmpty()
-                ).also { if (it) doctorJoinedColumn = true }
-            if (has) jdbc.update("UPDATE appointments SET doctor_joined_at = COALESCE(doctor_joined_at, now()) WHERE id = ?", appointmentId)
+            jdbc.update("UPDATE appointments SET doctor_joined_at = COALESCE(doctor_joined_at, now()) WHERE id = ?", appointmentId)
         } catch (ex: Exception) {
-            log.warn("doctor_joined_at failed: {}", ex.message)
+            log.error("doctor_joined_at failed", ex)
         }
     }
 

@@ -17,32 +17,43 @@ import org.springframework.stereotype.Component
  * checked again here).
  */
 @Component
-class CallActions(private val calls: CallService) : ActionModule {
+class CallActions(private val calls: CallService, private val f: CallFeatures) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
-        "call_config" to ActionHandler { ctx -> own(ctx); calls.config() },
+        "call_config" to ActionHandler { ctx -> own(ctx); f.requireAny(ctx, AUDIO, APPT); calls.config() },
         "call_start" to ActionHandler(::start),
         "call_accept" to ActionHandler { ctx ->
-            calls.accept(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), optBool(ctx, "video"))
+            own(ctx)
+            f.require(ctx, AUDIO)
+            calls.accept(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), optBool(ctx, "video"))
         },
-        "call_decline" to ActionHandler { ctx -> calls.finish(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), "decline") },
-        "call_cancel" to ActionHandler { ctx -> calls.finish(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), "cancel") },
-        "call_end" to ActionHandler { ctx -> calls.finish(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), "end") },
-        "call_status" to ActionHandler { ctx -> calls.status(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId")) },
-        "call_history" to ActionHandler { ctx -> calls.history(own(ctx), ctx.body.int("before")) },
-        "call_upgrade" to ActionHandler { ctx -> calls.upgrade(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId")) },
-        "call_upgrade_accept" to ActionHandler { ctx -> calls.upgradeAnswer(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), true) },
-        "call_upgrade_decline" to ActionHandler { ctx -> calls.upgradeAnswer(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), false) },
-        "call_block" to ActionHandler { ctx ->
-            calls.block(ctx.lang, own(ctx), email(ctx), ctx.body.string("peerUid"), ctx.body.string("callId")?.takeIf { it.isNotEmpty() })
+        "call_decline" to gated(AUDIO) { ctx -> calls.finish(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), "decline") },
+        "call_cancel" to gated(AUDIO) { ctx -> calls.finish(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), "cancel") },
+        "call_end" to gated(AUDIO, APPT) { ctx -> calls.finish(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), "end") },
+        "call_status" to gated(AUDIO, APPT) { ctx -> calls.status(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId")) },
+        "call_history" to gated(AUDIO, APPT) { ctx -> calls.history(ctx.user.id, ctx.body.int("before")) },
+        "call_upgrade" to gated(VIDEO) { ctx -> calls.upgrade(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId")) },
+        "call_upgrade_accept" to gated(VIDEO) { ctx -> calls.upgradeAnswer(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), true) },
+        "call_upgrade_decline" to gated(VIDEO) { ctx -> calls.upgradeAnswer(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), false) },
+        // the block list is shared with messages
+        "call_block" to gated(AUDIO, CallFeatures.CHAT) { ctx ->
+            calls.block(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("peerUid"), ctx.body.string("callId")?.takeIf { it.isNotEmpty() })
         },
-        "call_unblock" to ActionHandler { ctx -> calls.unblock(ctx.lang, own(ctx), ctx.body.string("peerUid")) },
-        "call_blocks" to ActionHandler { ctx -> calls.blockList(own(ctx)) },
-        "call_report" to ActionHandler { ctx ->
-            calls.report(ctx.lang, own(ctx), email(ctx), ctx.body.string("callId"), ctx.body.string("reason"), ctx.body.string("note"))
+        "call_unblock" to gated(AUDIO, CallFeatures.CHAT) { ctx -> calls.unblock(ctx.lang, ctx.user.id, ctx.body.string("peerUid")) },
+        "call_blocks" to gated(AUDIO, CallFeatures.CHAT) { ctx -> calls.blockList(ctx.user.id) },
+        "call_report" to gated(AUDIO, APPT) { ctx ->
+            calls.report(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("callId"), ctx.body.string("reason"), ctx.body.string("note"))
         },
+        // no switch of its own: it answers each flag with the switches of both people
         "contact_can" to ActionHandler(::can),
-        "appt_join" to ActionHandler { ctx -> calls.apptJoin(ctx.lang, own(ctx), email(ctx), ctx.body.string("appointmentId")) },
+        "appt_join" to gated(APPT) { ctx -> calls.apptJoin(ctx.lang, ctx.user.id, email(ctx), ctx.body.string("appointmentId")) },
     )
+
+    /** own account + at least one of [keys] switched on for the caller (feature_off 404 otherwise), then [h] */
+    private fun gated(vararg keys: String, h: (ActionContext) -> Any?): ActionHandler = ActionHandler { ctx ->
+        own(ctx)
+        f.requireAny(ctx, *keys)
+        h(ctx)
+    }
 
     private fun bad(ctx: ActionContext) = ctx.err(400, "Invalid request", "অনুরোধ ঠিক নেই", "bad_request") // bn-ok
 
@@ -77,16 +88,22 @@ class CallActions(private val calls: CallService) : ActionModule {
 
     private fun start(ctx: ActionContext): Any {
         val uid = own(ctx)
+        f.require(ctx, AUDIO)
         val b = ctx.body
         val c = b.string("ctx")
         if (c == null || c !in CTXS) throw bad(ctx)
         val refId = b.string("refId")?.takeIf { ID_RE.matches(it) } ?: throw bad(ctx)
         val peer = if (b.isNullish("peerUid")) null else b.string("peerUid")?.takeIf { ID_RE.matches(it) } ?: throw bad(ctx)
-        return calls.start(ctx.lang, uid, email(ctx), c, refId, peer, optBool(ctx, "video"))
+        val video = optBool(ctx, "video")
+        if (video == true) f.require(ctx, VIDEO)
+        return calls.start(ctx.lang, uid, email(ctx), c, refId, peer, video)
     }
 
     companion object {
         val CTXS = setOf("blood", "appointment", "ambulance", "rx_order", "lab_order")
+        private const val AUDIO = CallFeatures.CALLS_AUDIO
+        private const val VIDEO = CallFeatures.CALLS_VIDEO
+        private const val APPT = CallFeatures.APPT_VIDEO
         private val ID_RE = Regex("^[A-Za-z0-9_-]{1,128}$")
     }
 }
