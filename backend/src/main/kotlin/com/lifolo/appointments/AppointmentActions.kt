@@ -19,6 +19,7 @@ import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.contracts.HospitalDirectory
 import com.lifolo.demo.DemoWorld
+import com.lifolo.features.Features
 import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushService
 import org.springframework.jdbc.core.JdbcTemplate
@@ -170,6 +171,10 @@ class AppointmentActions(
             if (it.online == true) it.copy(district = null, upazilaId = null, unionId = null, hospitalId = null) else it
         }
         val all = providerList(type)
+        // online_chamber switch off for the caller: no online list, no online-only doctors (FEATURES.md); an online
+        // chamber is shown only while the switch is on for its doctor too
+        val onlineOk = onlineSwitch.allowed(if (ctx.caller.guest) null else ctx.caller.uid)
+        if (!onlineOk && f.online == true) return linkedMapOf("items" to emptyList<Any>(), "facets" to linkedMapOf("specialties" to emptyList<Any>(), "gender" to false))
         // old apps (no homeVisit field) book anyone, so they only see people who take appointments
         val oldClient = !b.has("homeVisit")
         val now = clock.now()
@@ -181,6 +186,8 @@ class AppointmentActions(
                 homeVisitTrue && !(x.homeVisit?.enabled == true && !x.homeVisitBlocked) -> false
                 // home care only (no chamber) — not in the chamber list
                 !homeVisitTrue && x.chambers.isEmpty() -> false
+                // only an online chamber, and online chambers are off for the caller or the doctor
+                !homeVisitTrue && x.chambers.all { it.online } && (!onlineOk || !onlineSwitch.allowed(x.uid)) -> false
                 else -> true
             }
         }
@@ -332,9 +339,10 @@ class AppointmentActions(
         // read and write in one transaction, so an admin switching it off at the same time is not undone
         tx.executeWithoutResult {
             val cur = store.load(uid, forUpdate = true)
-            // R6: demo doctors get no online chamber unless DEMO_ONLINE_CHAMBERS is on
-            if (parsed.any { it.online } && !onlineSwitch.allowed(uid)) {
-                throw ctx.err(403, "Online chambers are off for demo accounts", "ডেমো অ্যাকাউন্টে অনলাইন চেম্বার চালু নেই") // bn-ok
+            // online chambers are behind the online_chamber switch (demo accounts too — R6). One saved while it was on
+            // may stay (the doctor can still edit his other chambers), a new one needs the switch.
+            if (parsed.any { it.online } && !onlineSwitch.allowed(uid) && cur?.chambers?.any { it.online } != true) {
+                throw Features.offError(ctx.lang)
             }
             if (cur != null && cur.adminSuspended) {
                 throw ctx.err(
@@ -456,7 +464,11 @@ class AppointmentActions(
             if (chamberIndex in 0 until chambers.size) chambers[chamberIndex.toInt()] else null
         }
         if (ch == null || !ch.appointments) throw notTaking()
-        if (ch.online && !onlineSwitch.allowed(providerUid)) throw notTaking()
+        if (ch.online) {
+            // the online_chamber switch: on for the caller (else 404 feature_off) and for the doctor
+            onlineSwitch.require(ctx)
+            if (!onlineSwitch.allowed(providerUid)) throw notTaking()
+        }
         // the doctor changed the chambers while the page was open — the order shifts; match the hospital
         val sentKey = b.string("chamberKey")
         if (!sentKey.isNullOrEmpty() && sentKey != ch.key) {
@@ -666,13 +678,15 @@ class AppointmentActions(
             }
         }
         val to = if (isProvider) a.patientUid else a.providerUid
+        // online_chamber switched off for the patient: no "online appointment confirmed" push (cancel/decline still go)
+        val quiet = next == "confirmed" && a.online && !onlineSwitch.allowed(to)
         val texts = when (next) {
             "confirmed" -> if (a.online) "Online appointment confirmed" to "অনলাইন অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" else "Appointment confirmed" to "অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে" // bn-ok
             "declined" -> "Appointment not accepted" to "অ্যাপয়েন্টমেন্ট নেওয়া হয়নি"
             else -> "Appointment cancelled" to "অ্যাপয়েন্টমেন্ট বাতিল হয়েছে"
         }
         val s = serial
-        users.push(
+        if (!quiet) users.push(
             to, texts.first, texts.second,
             "${if (isProvider) a.providerName else a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (s != null) " · #$s" else ""}",
             mapOf("type" to "appointment", "role" to (if (isProvider) "patient" else "provider")),

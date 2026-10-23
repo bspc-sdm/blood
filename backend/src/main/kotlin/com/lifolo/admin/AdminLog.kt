@@ -84,6 +84,12 @@ class AdminLog(private val jdbc: JdbcTemplate) {
             "admin_user_action" to { b: Body ->
                 "users/${t(b, "uid")}" to listOf(b["op"], b["reason"]).filter { Js.truthy(it) }.joinToString(" · ") { Js.toStr(it) }
             },
+            "admin_feature_set" to { b: Body ->
+                val pilots = b["pilotUids"]?.takeIf { it.isArray }?.size()
+                "features/${t(b, "key")}" to listOfNotNull(
+                    t(b, "mode"), pilots?.let { "pilots=$it" }, b.bool("demo")?.let { "demo=$it" },
+                ).joinToString(" ")
+            },
             "admin_add" to { b: Body -> "config/admins" to "add ${t(b, "email")}" },
             "admin_remove" to { b: Body -> "config/admins" to "remove ${t(b, "email")}" },
             "correction_resolve" to { b: Body -> "correctionRequests/${t(b, "id")}" to (if (b.isTrue("approve")) "approved" else "rejected") },

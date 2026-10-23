@@ -12,6 +12,7 @@ import { Ticket, Tickets } from './Tickets';
 import { User, Users } from './Users';
 import Demo from './Demo';
 import { ApptReports } from './ApptReports';
+import Features from './Features';
 
 export { Dashboard };
 export const PAGES: Record<string, Component> = {
@@ -37,4 +38,5 @@ export const PAGES: Record<string, Component> = {
   admins: Admins,
   demo: Demo, // ডেমো
   verify: Verify,
+  features: Features, // ফিচার সুইচ
 };

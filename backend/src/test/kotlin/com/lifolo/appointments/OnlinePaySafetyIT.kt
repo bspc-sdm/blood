@@ -1,6 +1,8 @@
 package com.lifolo.appointments
 
 import com.lifolo.contracts.HospitalDirectory
+import com.lifolo.features.Features
+import com.lifolo.support.setFeature
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -11,14 +13,14 @@ import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * Online chambers — the security review (docs/test-plan/CALLS-SECURITY-REVIEW.md):
- * R6 note without phone numbers and not public, demo online chambers off, bKash number change logged + pushed + 24 h
+ * R6 note without phone numbers and not public, demo online chambers only with the online_chamber switch, bKash number change logged + pushed + 24 h
  * cool-off; R7 TrxID format, once per doctor, 5 claims per hour; R8 pay log, a reason to cancel a paid appointment,
  * "the doctor never joined" after the window, appt_report and the admin list.
  */
 class OnlinePaySafetyIT : P2TestBase() {
     @Autowired lateinit var hospitals: HospitalDirectory
 
-    @Autowired lateinit var onlineSwitch: OnlineSwitch
+    @Autowired lateinit var features: Features
 
     @Autowired lateinit var unserved: OnlineUnserved
 
@@ -31,7 +33,7 @@ class OnlinePaySafetyIT : P2TestBase() {
 
     @AfterEach
     fun switchBack() {
-        onlineSwitch.demoEnabled = true
+        features.allOn = true
     }
 
     private fun online(extra: Map<String, Any?> = emptyMap()) = mapOf(
@@ -72,19 +74,23 @@ class OnlinePaySafetyIT : P2TestBase() {
         val id = book()
         assertEquals("সকাল ১০টা – রাত ৮টা, রুম ১২", ok(pat, "my_appointments")["items"].first { it["id"].textValue() == id }["onlineNote"].textValue())
 
-        // demo doctors: no online chamber while DEMO_ONLINE_CHAMBERS is off; one saved earlier cannot be booked
+        // demo accounts: online chambers exactly when the online_chamber switch is on for them (pilot + demo, or on)
         person("demo-osdoc", "ডা. ডেমো")
         badge("demo-osdoc", "doctor", "ডা. ডেমো")
         person("demo-ospat", "ডেমো রোগী")
-        onlineSwitch.demoEnabled = false
+        features.allOn = false
+        setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc))
         val r = save("demo-osdoc", listOf(online()))
-        assertEquals(403, r.status)
-        assertEquals("ডেমো অ্যাকাউন্টে অনলাইন চেম্বার চালু নেই", r.error)
-        assertEquals(200, save(doc, listOf(online())).status, "real doctors are not affected")
-        onlineSwitch.demoEnabled = true
+        assertEquals(404, r.status)
+        assertEquals("feature_off", r.code)
+        assertEquals("এই সুবিধা এখনো চালু হয়নি", r.error)
+        assertEquals(200, save(doc, listOf(online())).status, "a pilot doctor")
+        setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc), demo = true)
         assertEquals(200, save("demo-osdoc", listOf(online())).status)
-        onlineSwitch.demoEnabled = false
-        assertEquals(404, call("demo-ospat", "book", mapOf("providerUid" to "demo-osdoc", "date" to today() + day, "chamberIndex" to 0, "note" to "x")).status)
+        setFeature(jdbc, features, Features.ONLINE_CHAMBER, Features.PILOT, listOf(doc), demo = false)
+        val b = call("demo-ospat", "book", mapOf("providerUid" to "demo-osdoc", "date" to today() + day, "chamberIndex" to 0, "note" to "x"))
+        assertEquals(404, b.status)
+        assertEquals("feature_off", b.code)
     }
 
     @Test

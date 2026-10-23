@@ -121,3 +121,26 @@ once a minute), on any `feature_off` error, and on the SSE event `features_chang
 `fetch` because `EventSource` cannot send the token). Last keys kept in `localStorage` (`lf.features`).
 Tests: the mocked API (`test/fixtures/features.mjs`) answers every key on; a Playwright test can set
 `window.__lfTest.features = { chat: false }` to see the off state.
+
+### Admin (step 2)
+- `admin_features_get` → `{items: [{key, mode, pilotUids, pilots: [{uid, email, name, phone, missing?}], demo, needs, twoParty,
+  updatedAt, updatedBy, last}], history: [last 100 changes, newest first], v, allOn}`.
+- `admin_feature_set {key, mode, pilotUids?, demo?}` — a field left out keeps its value; the same setting again answers
+  `{unchanged: true}` (no history, no log, no push). Pilot uids must be existing accounts (≤ 500). Audited twice: a
+  `feature_changes` row (history, version) and the admin log (`features/<key>`). Then: Redis cache cleared, silent push
+  `{type: "features_changed", v}` (no title, no bell entry, no category) to the affected phones — everyone when the old or
+  new mode is `on`, else the old + new pilot lists and, with `demo`, every demo account — and the SSE event
+  `features_changed {v}` to the same people's open `/api/events` streams. Sent in the background.
+- Admin page: `web-vue/admin` → "ফিচার সুইচ" (`#/features`, `admin/src/pages/Features.ts`).
+- Several server instances: each keeps the Redis read 2 s in memory, so another instance sees a change ≤ 2 s later.
+
+### online_chamber (the first gated feature)
+See `docs/CHAMBERS-ONLINE.md` → "Feature switch". The `OnlineSwitch` bean (`allowed(uid)`, `require(ctx)`,
+`demoEnabled`) wraps the key; `DEMO_ONLINE_CHAMBERS` is gone — demo accounts follow the switch like everyone else.
+
+### Tests
+- Backend: the test profile has every key on. Off/pilot behaviour: `features.allOn = false` (restore in `@AfterEach`) and
+  `setFeature(jdbc, features, Features.CHAT, Features.PILOT, listOf("u1"), demo = false)` from `support/FeatureSwitches.kt`.
+  Examples: `FeaturesIT`, `FeatureAdminIT`, `appointments/OnlineChamberSwitchIT`.
+- Android: `Features.set(mapOf(Features.CHAT to true), uid = "u1")` in Robolectric tests; `Features.clear()` after.
+- Web: `window.__lfTest.features = { chat: false }` in the test build; the mocked API answers all on.

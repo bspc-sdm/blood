@@ -20,6 +20,7 @@ class OnlineUnserved(
     private val jdbc: JdbcTemplate,
     private val push: PushService,
     private val payLog: ApptPayLog,
+    private val onlineSwitch: OnlineSwitch,
 ) {
     /** slot start (epoch ms) of an appointment: visit day + start "HH:MM" in Dhaka; no start = the end of that day */
     private fun windowEnd(a: Appt): Long {
@@ -46,6 +47,8 @@ class OnlineUnserved(
         ).filter { windowEnd(it) <= now }
         var sent = 0
         for (a in due) {
+            // online_chamber off for this patient: wait (not marked — told once it is on again, within the 7 days)
+            if (!onlineSwitch.allowed(a.patientUid)) continue
             val mine = jdbc.update(
                 "UPDATE appointments SET unserved_notified_at = ? WHERE id = ? AND unserved_notified_at IS NULL AND doctor_joined_at IS NULL",
                 Sql.ts(now), a.id,

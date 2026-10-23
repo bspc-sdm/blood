@@ -94,7 +94,6 @@ lifolo:
     all-on: ${FEATURES_ALL_ON:false}
   demo:
     keep-firebase-users: ${DEMO_KEEP_FIREBASE_USERS:false}
-    online-chambers: ${DEMO_ONLINE_CHAMBERS:false}
   ses:
     region: ${SES_REGION:}
     access-key-id: ${SES_ACCESS_KEY_ID:}

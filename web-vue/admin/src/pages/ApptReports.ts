@@ -7,17 +7,18 @@ import { actionBtn, definePage, table, toolbar, userLink } from '../kit';
 import { act, route, setTitle } from '../state';
 import { bn, fmtDT, fmtDate, type J } from '../util';
 
-// ---------- ফিচার সুইচ (features action; জানা না গেলে বন্ধ) ----------
-const flags = ref<Record<string, boolean> | null>(null);
+// ---------- ফিচার সুইচ: online_chamber কারো জন্য চালু (পাইলট বা সবার) হলে মেনুতে; জানা না গেলে বন্ধ ----------
+// (প্যানেলের কুকি সেশনে `features` চলে না — শুধু admin_*; তাই admin_features_get-এর mode)
+const chamberMode = ref<string | null>(null);
 let asked = false;
 export function apptReportsOn(): boolean {
   if (!asked) {
     asked = true;
-    act('features')
-      .then((r: J) => (flags.value = (r && r.keys) || {}))
-      .catch(() => (flags.value = {}));
+    act('admin_features_get')
+      .then((r: J) => (chamberMode.value = ((r && r.items) || []).find((x: J) => x.key === 'online_chamber')?.mode || 'off'))
+      .catch(() => (chamberMode.value = 'off'));
   }
-  return !!flags.value && flags.value.online_chamber === true;
+  return chamberMode.value === 'pilot' || chamberMode.value === 'on';
 }
 
 const STATUS: Record<string, string> = { open: 'খোলা', resolved: 'সমাধান হয়েছে', dismissed: 'বাদ দেওয়া' }; // bn-ok

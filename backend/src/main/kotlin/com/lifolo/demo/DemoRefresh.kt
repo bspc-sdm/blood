@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service
  *
  *  - a new Dhaka day: the demo is built again (wipe + every step — what the owner's "ডেমো বানান" does), so the
  *    day's serials, requests and dates belong to today; whatever testers changed in the demo goes, like on a re-seed.
+ *  - the `online_chamber` switch for demo accounts changed (FEATURES.md): built again with / without the online chamber.
  *  - in between: the demo cars' clock moves with real time (available/busy/reminder times shift by the time since the
  *    last run, never past now), so "available 30 minutes ago" stays 30 minutes ago and "on a trip" stays on a trip.
  *
@@ -27,7 +28,11 @@ import org.springframework.stereotype.Service
  * stopped over an hour ago (then built again).
  */
 @Service
-class DemoRefresh(private val jdbc: JdbcTemplate, private val seeder: DemoSeeder) {
+class DemoRefresh(
+    private val jdbc: JdbcTemplate,
+    private val seeder: DemoSeeder,
+    private val onlineSwitch: com.lifolo.appointments.OnlineSwitch,
+) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     /** one run: "none" (no demo), "busy" (being built), "rebuilt", or "clock" (cars moved; `shiftMs`) */
@@ -39,11 +44,19 @@ class DemoRefresh(private val jdbc: JdbcTemplate, private val seeder: DemoSeeder
             return rebuild(nowMs)
         }
         if (DhakaTime.day(at) < DhakaTime.day(nowMs)) return rebuild(nowMs)
+        // the online_chamber switch for demo accounts changed: the demo doctor's online chamber comes or goes (~10 min)
+        if (onlineSwitch.demoEnabled != demoHasOnline()) return rebuild(nowMs)
         return mapOf("done" to "clock", "shiftMs" to shiftCars(nowMs))
     }
 
     private fun state(): Pair<Boolean, Long>? =
         jdbc.query("SELECT partial, at FROM demo_state") { rs, _ -> rs.getBoolean(1) to rs.getTimestamp(2).time }.firstOrNull()
+
+    /** does the seeded demo doctor have an online chamber? */
+    private fun demoHasOnline(): Boolean =
+        (jdbc.queryForObject(
+            "SELECT count(*) FROM provider_chambers WHERE provider_uid = ? AND mode = 'online'", Int::class.java, DemoWorld.uidOf("doctor"),
+        ) ?: 0) > 0
 
     private fun rebuild(nowMs: Long): Map<String, Any?> {
         log.info("demo refresh: building the demo again for {}", DhakaTime.day(nowMs))

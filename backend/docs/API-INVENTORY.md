@@ -308,7 +308,7 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - src: `server/lib/appointments.js` → `provider_me` · auth: user · port: **P2**
   - request: — · response: `{provider}`
   - collections: providers · side effects: — · errors: — · tests: demo-services
-- [x] **`provider_save`** — Save chambers (≤ MAX_CHAMBERS at a place + 1 online for doctors, days/times, fee, appointments), specialties, degrees, gender, homeVisit; legacy shape supported; cancels stale appointments when chambers change. Online chamber `{mode:"online", days/start/end|times, fee|noFee, bkashNumber (unless noFee), note ≤200, appointments, patientMin?}`; fee must be a taka amount (0 = no fee); note without phone numbers; a changed bKash number is logged, pushed to the doctor and reaches new bookings after 24 h; demo doctors 403 unless DEMO_ONLINE_CHAMBERS
+- [x] **`provider_save`** — Save chambers (≤ MAX_CHAMBERS at a place + 1 online for doctors, days/times, fee, appointments), specialties, degrees, gender, homeVisit; legacy shape supported; cancels stale appointments when chambers change. Online chamber `{mode:"online", days/start/end|times, fee|noFee, bkashNumber (unless noFee), note ≤200, appointments, patientMin?}`; fee must be a taka amount (0 = no fee); note without phone numbers; a changed bKash number is logged, pushed to the doctor and reaches new bookings after 24 h; a new online chamber needs the `online_chamber` feature switch (404 `feature_off`, demo accounts included — FEATURES.md)
   - src: `server/lib/appointments.js` → `provider_save` · auth: user role:badge (doctor/nurse/nutritionist/trainer); phone-verified when enabled · port: **P2**
   - request: `chambers`, `specialties`, `homeVisit`, `gender`, `listed`, `appointments`, `degrees`, `chamber`, `schedule`, `district`, `active`, `specialty`, `fee` · response: `…` or `{ok,cancelled}`
   - collections: badges, providers, sanctions, serverState, users · side effects: — · errors: 403, 409:update_required, 400 · tests: — (none)
@@ -1192,6 +1192,14 @@ computer is never gated; `desktop_devices`/`desktop_revoke` stay usable while th
     `wrong_kind`, `invoice_not_found` + `retry`, …), warnings `stock_short`, `renumbered` (+ `deviceNo`), `clock`
 - [x] **`offline_review_done`** — close a stock_short review flag
   - auth: pharmacy owner · request: `id` · response: `{ok}` · errors: 404
+## Feature switches (package `features`, Spring only, Oct 2026 — docs/FEATURES.md) — 3 actions
+
+- [x] **`features`** — Which feature keys are on for the caller (guest allowed, never from the guest cache)
+  - auth: guest / any user · request: — · response: `{keys: {calls_audio, …12 keys…: boolean}, v}` · side effects: `feature_clients` row (once a day) · tests: FeaturesIT
+- [x] **`admin_features_get`** — Every key with mode / pilot list (uid, name, email, phone) / demo / needs / twoParty / last change, the last 100 changes, v
+  - auth: admin (app or web panel) · request: — · response: `{items, history, v, allOn}` · errors: 403 · tests: FeatureAdminIT
+- [x] **`admin_feature_set`** — Set one key: `{key, mode: off|pilot|on, pilotUids?, demo?}` (left out = unchanged; same setting → `{unchanged:true}`)
+  - auth: admin (app or web panel) · response: `{ok, v, key, mode, pilotUids, demo}` · side effects: `feature_flags` + `feature_changes` rows, admin_log row, Redis cache cleared, silent FCM data push `{type:"features_changed", v}` to the affected accounts' phones (only accounts whose app called `features`), SSE `features_changed {v}` · errors: 403, 400 (unknown key/mode, bad or unknown pilot uid, > 500 pilots, demo not boolean) · tests: FeatureAdminIT
 
 ## Other HTTP endpoints (outside /api/community)
 

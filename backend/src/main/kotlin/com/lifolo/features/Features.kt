@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Service
 import java.time.Duration
 
@@ -46,9 +47,23 @@ class Features(
     /** every key on for everyone (test profile / e2e). Tests of the switches themselves set it to false. */
     @Volatile
     var allOn: Boolean = allOn
+        set(v) {
+            field = v
+            local = null
+        }
+
+    /** the last Redis read, kept [LOCAL_MS] in this process (a doctor list checks hundreds of uids) */
+    @Volatile
+    private var local: Pair<Long, FeatureState>? = null
 
     /** the current settings (Redis, 30 s; the database when Redis fails) */
     fun state(): FeatureState {
+        val now = System.currentTimeMillis()
+        local?.let { (at, s) -> if (now - at in 0 until LOCAL_MS) return s }
+        return fromRedis().also { local = now to it }
+    }
+
+    private fun fromRedis(): FeatureState {
         try {
             redis.opsForValue().get(CACHE_KEY)?.let { return mapper.readValue(it, FeatureState::class.java) }
         } catch (e: Exception) {
@@ -66,17 +81,18 @@ class Features(
     /** read from the database (no cache) */
     fun load(): FeatureState {
         val flags = LinkedHashMap<String, FeatureConfig>()
-        jdbc.query("SELECT key, mode, pilot_uids, demo FROM feature_flags") { rs ->
+        jdbc.query("SELECT key, mode, pilot_uids, demo FROM feature_flags", RowCallbackHandler { rs ->
             @Suppress("UNCHECKED_CAST")
             val pilots = (rs.getArray("pilot_uids")?.array as? Array<String>)?.toList() ?: emptyList()
             flags[rs.getString("key")] = FeatureConfig(rs.getString("mode"), pilots, rs.getBoolean("demo"))
-        }
+        })
         val v = jdbc.queryForObject("SELECT coalesce(max(id), 0) FROM feature_changes", Long::class.java) ?: 0L
         return FeatureState(v, flags)
     }
 
     /** forget the cached settings (after an admin change) */
     fun clearCache() {
+        local = null
         try {
             redis.delete(CACHE_KEY)
         } catch (e: Exception) {
@@ -167,6 +183,7 @@ class Features(
 
         const val CACHE_KEY = "lifolo:features"
         val TTL: Duration = Duration.ofSeconds(30)
+        const val LOCAL_MS = 2_000L
 
         const val OFF_CODE = "feature_off"
         const val OFF_BN = "এই সুবিধা এখনো চালু হয়নি" // bn-ok

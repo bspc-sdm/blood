@@ -20,6 +20,7 @@ class AppointmentReminders(
     private val jdbc: JdbcTemplate,
     private val users: P2Users,
     private val push: PushService,
+    private val onlineSwitch: OnlineSwitch,
 ) : DailyTask {
     override val name = "care"
     override val order = 3
@@ -71,6 +72,8 @@ class AppointmentReminders(
         }
         // patient: an appointment today
         for (d in confirmed) {
+            // online_chamber switched off for this patient: no online-appointment push (FEATURES.md)
+            if (d.online && !onlineSwitch.allowed(d.patientUid)) continue
             val serial = if ((d.serial ?: 0) != 0) " · #${d.serial}" else ""
             msg(
                 d.patientUid,

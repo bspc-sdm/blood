@@ -222,7 +222,7 @@ class DemoRx(
             schedule = "ভিডিও কলে পরামর্শ (ডেমো)", noFee = false, fee = "৪০০ টাকা", appointments = true, patientMin = 10, // bn-ok
             mode = Ch.ONLINE, bkashNumber = "01200000204", note = "বুকিংয়ের পর ফি বিকাশে পাঠিয়ে \"টাকা পাঠিয়েছি\" চাপুন। রিপোর্টের ছবি তৈরি রাখুন। (ডেমো)", // bn-ok
         )
-        // R6: only where demo online chambers are on (DEMO_ONLINE_CHAMBERS; off in production)
+        // R6: only while the online_chamber switch is on for demo accounts (pilot + "ডেমো অ্যাকাউন্টে চালু", or on)
         val withOnline = onlineSwitch.demoEnabled
         val docChambers = if (withOnline) listOf(ch1, ch2, chOnline) else listOf(ch1, ch2)
         fun verification(t: Long) = linkedMapOf<String, Any?>(

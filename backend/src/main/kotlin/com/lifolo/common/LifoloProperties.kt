@@ -56,11 +56,6 @@ data class LifoloProperties(
      */
     data class Demo(
         val keepFirebaseUsers: Boolean = false,
-        /**
-         * DEMO_ONLINE_CHAMBERS: demo doctors may have an online (video) chamber (the seed adds one). Off by default — in
-         * production the demo logins are public, so a demo "doctor" could advertise payments (security review R6).
-         */
-        val onlineChambers: Boolean = false,
     )
 
     data class Firebase(val enabled: Boolean = true)

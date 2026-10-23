@@ -40,6 +40,7 @@ class OnlinePay(
     private val quotas: QuotaService,
     private val admins: AdminService,
     private val invoices: com.lifolo.invoices.InvoiceCreators,
+    private val onlineSwitch: OnlineSwitch,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -106,6 +107,7 @@ class OnlinePay(
     // ------------------------------------------------------------------ patient: "টাকা পাঠিয়েছি"
 
     fun claim(ctx: ActionContext): Any {
+        onlineSwitch.require(ctx)
         val a = load(ctx)
         if (a.patientUid != ctx.user.id) throw notFound(ctx)
         requirePayable(ctx, a)
@@ -155,7 +157,8 @@ class OnlinePay(
         if (changed) {
             val body = "${a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (payRef != null) " · TrxID $payRef" else ""}"
             val data = mapOf("type" to "appointment", "role" to "provider", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS)
-            for (to in listOf(a.providerUid) + assistantUids(a.providerUid)) {
+            // only people the online_chamber switch is on for (FEATURES.md)
+            for (to in (listOf(a.providerUid) + assistantUids(a.providerUid)).filter { onlineSwitch.allowed(it) }) {
                 users.push(to, "Patient sent the fee — please check", "রোগী ফি পাঠিয়েছেন — যাচাই করুন", body, data) // bn-ok
             }
         }
@@ -168,6 +171,7 @@ class OnlinePay(
     // ------------------------------------------------------------------ doctor/assistant: "ফি পেয়েছি" / "পাইনি"
 
     fun confirm(ctx: ActionContext): Any {
+        onlineSwitch.require(ctx)
         val a = load(ctx)
         requireDoctorSide(ctx, a)
         requirePayable(ctx, a)
@@ -184,7 +188,7 @@ class OnlinePay(
             payLog.log(a.id, ctx.user.id, pay, "paid", a.payRef, null)
             changed = true
         }
-        if (changed) {
+        if (changed && onlineSwitch.allowed(a.patientUid)) {
             push.pushPatient(
                 a.patientUid, "The doctor received the fee", "ডাক্তার ফি পেয়েছেন", // bn-ok
                 "${a.providerName} · ${ApptRepo.dateLabel(a.date)}",
@@ -202,6 +206,7 @@ class OnlinePay(
     }
 
     fun reject(ctx: ActionContext): Any {
+        onlineSwitch.require(ctx)
         val a = load(ctx)
         requireDoctorSide(ctx, a)
         requirePayable(ctx, a)
@@ -216,7 +221,7 @@ class OnlinePay(
             )
             payLog.log(a.id, ctx.user.id, "claimed", "unpaid", a.payRef, reason)
         }
-        push.pushPatient(
+        if (onlineSwitch.allowed(a.patientUid)) push.pushPatient(
             a.patientUid, "The doctor has not received the fee yet", "ডাক্তার এখনো ফি পাননি — বিকাশ লেনদেনটা আবার দেখুন", // bn-ok
             "${a.providerName} · ${ApptRepo.dateLabel(a.date)}${if (reason != null) " · $reason" else ""}",
             mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
@@ -227,6 +232,7 @@ class OnlinePay(
     // ------------------------------------------------------------------ R8: appt_report (patient or doctor side) → admins
 
     fun report(ctx: ActionContext): Any {
+        onlineSwitch.require(ctx)
         val a = load(ctx)
         val user = ctx.user
         val role = when {

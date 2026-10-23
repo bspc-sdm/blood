@@ -50,8 +50,29 @@ it is shown only to the doctor (`provider_me`) and to booked patients (`onlineNo
 logged (`bkash_number_log`: last 3 digits old/new, who, when — shown to admins) and pushed to the doctor "আপনার বিকাশ
 নম্বর বদলানো হয়েছে" (category account, always on). A **changed** number reaches new bookings only after **24 h**
 (the old one meanwhile); a first number works at once. Bookings keep the number and fee shown when they were made;
-a new note is copied to open appointments. Demo doctors (`demo-…`) get 403 "ডেমো অ্যাকাউন্টে অনলাইন চেম্বার চালু
-নেই" and their online chambers cannot be booked unless `DEMO_ONLINE_CHAMBERS=true` (off by default = production). Removing the online chamber (or its day) cancels its future appointments like any chamber change.
+a new note is copied to open appointments. Demo accounts (`demo-…`) are treated like everyone else by the
+`online_chamber` feature switch (below) — they may have and book online chambers exactly when the switch is on for
+them (pilot with "ডেমো অ্যাকাউন্টে চালু", or on for everyone); demo and real accounts still never meet. This replaced
+`DEMO_ONLINE_CHAMBERS` (removed 23 Oct 2026). Removing the online chamber (or its day) cancels its future appointments like any chamber change.
+
+## Feature switch `online_chamber` (docs/FEATURES.md)
+
+Everything here ships OFF and is turned on from the admin page "ফিচার সুইচ". While the switch is off for the **caller**:
+
+* `book` of an online chamber, `appt_pay_claim`, `appt_pay_confirm`, `appt_pay_reject`, `appt_report` → 404
+  `feature_off` "এই সুবিধা এখনো চালু হয়নি" (checked first). `book` also needs the switch on for the doctor (else 404
+  "এখন অ্যাপয়েন্টমেন্ট নিচ্ছেন না").
+* `provider_save` with an online chamber → 404 `feature_off`, unless the doctor already has one (saved while the switch
+  was on — he can still edit his other chambers).
+* `providers`: `online: true` → empty list; a doctor whose only chamber is online is left out (also when the switch is off
+  for that doctor).
+* Pushes about online appointments go only to people the switch is on for: "রোগী ফি পাঠিয়েছেন", "ডাক্তার ফি পেয়েছেন",
+  "ডাক্তার এখনো ফি পাননি", "অনলাইন অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে", the day's reminder, the 2-before queue push. The
+  "doctor never joined" job skips (and does not mark) appointments of patients the switch is off for — they are told
+  once it is on again (within its 7 days). Cancel/decline pushes and the bKash-number-changed account push always go.
+* `admin_appt_reports` / `admin_appt_report_set` are not gated.
+* Demo: DemoRefresh (every 10 min) rebuilds the demo when the switch for demo accounts changes, so the demo doctor's
+  online chamber and its seeded appointments appear/disappear within about 10 minutes of ticking "ডেমো অ্যাকাউন্টে চালু".
 
 ## Doctor list (`providers`)
 
@@ -130,7 +151,7 @@ state; 423 `account_deactivated` — the caller's account is deactivated (as for
 
 ## Demo
 
-Only with `DEMO_ONLINE_CHAMBERS=true` (tests, staging; off in production — R6): the demo doctor (ডা. ডেমো হাসান) has a third chamber, online, every day 13:00–16:00 (Friday 13:00–14:00), ৳400,
+Only while the `online_chamber` switch is on for demo accounts (pilot + "ডেমো অ্যাকাউন্টে চালু", or on — R6): the demo doctor (ডা. ডেমো হাসান) has a third chamber, online, every day 13:00–16:00 (Friday 13:00–14:00), ৳400,
 bKash 01200000204. Seeded online appointments: a background patient today, serial 1, **paid**; the demo patient's
 **unpaid** (confirmed, ≥ 2 days ahead) and **claimed** (confirmed, TrxID `DEMO8X2K4P`, later). Nothing for the demo
 patient today (the tester books). Rebuilt every Dhaka day by DemoRefresh like the rest of the demo.

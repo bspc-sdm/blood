@@ -3,7 +3,7 @@ package com.lifolo.calls
 import com.lifolo.common.ApiException
 import com.lifolo.common.Lang
 import com.lifolo.common.action.ActionContext
-import org.springframework.beans.factory.annotation.Value
+import com.lifolo.features.Features
 import org.springframework.stereotype.Component
 
 /**
@@ -11,20 +11,17 @@ import org.springframework.stereotype.Component
  * scratchpad flags CONTRACT / backend/docs/FEATURES.md). Keys: [CALLS_AUDIO], [CALLS_VIDEO], [APPT_VIDEO], and
  * [CHAT] (the block list is shared with messages).
  *
- * TEMPORARY SHIM with the same signatures as the flags package's `Features.isOn / require / bothOn` (spring-p19):
- * until that lands, a key is on only when it is listed in `lifolo.feature-shim.keys` (comma list, `*` = all; empty in
- * production = everything OFF; the test profile sets `*`). On the rebase onto p19, [isOn] delegates to Features.
+ * Delegates to the flags package ([Features], admin page "ফিচার সুইচ": modes, pilot list, demo, dependencies). Tests may
+ * still pin the keys that are on with [override].
  */
 @Component
-class CallFeatures(@Value("\${lifolo.feature-shim.keys:}") configured: String) {
-    private val listed: Set<String> = configured.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-
-    /** tests: the keys that are on (null = the configured list) */
+class CallFeatures(private val features: Features) {
+    /** tests: the keys that are on (null = the real feature switches) */
     @Volatile
     var override: Set<String>? = null
 
     fun isOn(uid: String?, key: String): Boolean {
-        val on = override ?: listed
+        val on = override ?: return features.isOn(uid, key)
         if ("*" !in on && key !in on) return false
         // dependencies (contract): video needs audio
         return key != CALLS_VIDEO || isOn(uid, CALLS_AUDIO)

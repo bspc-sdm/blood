@@ -109,6 +109,10 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
     }
 
     fun subscribers(topic: String): Int = topics[topic]?.size ?: 0
+
+    /** send to every open topic starting with [prefix] (e.g. "user:" = everyone connected); returns how many received it */
+    fun publishPrefix(prefix: String, event: String, data: Any): Int =
+        topics.keys.filter { it.startsWith(prefix) }.sumOf { publish(it, event, data) }
 }
 
 /** GET /api/events — the caller's own stream ("user:{uid}"); needs the Bearer token */

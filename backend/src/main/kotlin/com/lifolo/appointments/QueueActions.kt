@@ -38,6 +38,7 @@ class QueueActions(
     private val users: P2Users,
     private val push: PushService,
     private val clock: P2Clock,
+    private val onlineSwitch: OnlineSwitch,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -261,6 +262,8 @@ class QueueActions(
         }
         var sent = 0
         for ((a, ahead) in due) {
+            // online_chamber switched off for this patient: no "get ready for the video call" push (FEATURES.md)
+            if (a.online && !onlineSwitch.allowed(a.patientUid)) continue
             // read and write together: two requests at once still notify once
             val mine = try {
                 jdbc.update(
