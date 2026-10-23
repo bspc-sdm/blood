@@ -283,16 +283,14 @@ export async function run(J) {
 
   await J.sc('R-37', 'চেম্বারে ‘রোগীপ্রতি গড় সময়’', async () => {
     page = await J.as('doctor');
-    await go(page, '/work');
-    await tap(page, 'আমার চেম্বার');
-    await tap(page, 'সেটআপ', { role: 'tab' });
+    // সেটআপ এখন চেম্বারের "আরও"-তে (আমার কাজ CONTRACT §২) — সরাসরি পাতা
+    await go(page, '/work/pro/chamber');
     const avg = page.getByLabel('রোগীপ্রতি গড় সময় (মিনিট)');
     await avg.last().fill('15');
     await page.getByRole('button', { name: /সেভ/ }).last().click();
     await settle(page, 600);
-    await go(page, '/work');
-    await tap(page, 'আমার চেম্বার');
-    await tap(page, 'সেটআপ', { role: 'tab' });
+    // সেটআপ এখন চেম্বারের "আরও"-তে (আমার কাজ CONTRACT §২) — সরাসরি পাতা
+    await go(page, '/work/pro/chamber');
     await J.shot('গড় সময় ১৫ থাকে', 'কালিয়াকৈরে ‘রোগীপ্রতি গড় সময় (মিনিট)’ ১৫।', { full: true });
   });
 

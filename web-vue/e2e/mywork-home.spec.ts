@@ -241,7 +241,9 @@ test('@desktop বড় পর্দা: বাঁ মেনুতে ভূম
   await expect(page.locator('.topbar .page-title')).toHaveText('আমার ব্লাড ব্যাংক');
   // ব্লাড ব্যাংক: দুই ভাগ — ডানে তথ্যের কার্ড, বোতামে লেখা
   await expect(page.getByRole('button', { name: 'বদলান' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'মুছে ফেলুন' })).toBeVisible();
+  // মোছা "আরও" মেনুতে (আমার কাজ CONTRACT §২ — মূল বোতামের পাশে নয়), আইকনের সাথে লেখা
+  await page.getByTestId('row-more').first().click();
+  await expect(page.getByRole('menuitem', { name: 'এই ব্লাড ব্যাংক সরিয়ে দিন' })).toBeVisible();
 });
 
 test('ফোন: চিপের সারি পাশে স্ক্রল করে, পাতা নয়; প্রথম পর্দায় অবস্থা আর সংখ্যা', async ({ page }) => {

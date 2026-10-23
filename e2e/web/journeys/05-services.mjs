@@ -429,7 +429,7 @@ export async function run(J) {
   });
 
   await J.sc('S-50 S-51', 'হিসাব: আজ, ৭ দিন, ৩০ দিন', async () => {
-    await tap(page, 'এনালাইটিক্স', { role: 'tab' });
+    await pharmacyWork(page, 'হিসাব');
     await J.shot('হিসাব — ৭ দিন', 'বিক্রি, মোট লাভ, মার্জিন, নিট লাভ; দিনের বিক্রি ও লাভের চার্ট।', { full: true });
     await tap(page, '৩০ দিন');
     await J.shot('হিসাব — ৩০ দিন', 'বেশি বিক্রি (Comet, Rosuva, Calbo), কেনা দামের নিচে বিক্রি (Flagyl), স্টকের দাম, কম স্টক, মেয়াদ, ৩০ দিনে বিক্রি নেই।', { full: true });

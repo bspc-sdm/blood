@@ -19,8 +19,10 @@ async function rxWork(page, tab) {
   else await doctorMore(page, tab);
 }
 async function chamber(page, tab) {
+  // সেটআপ এখন "আরও"-তে — সরাসরি পাতা; বাকি ট্যাব হুবহু নামে ("রোগী" ≠ "আজকের রোগী")
+  if (tab === 'সেটআপ') return go(page, '/work/pro/chamber');
   await go(page, '/work/pro');
-  if (tab) await tap(page, tab, { role: 'tab' });
+  if (tab) await tap(page, tab, { role: 'tab', exact: true });
 }
 async function shop(page, tab) {
   await pharmacyWork(page, tab);
@@ -161,7 +163,7 @@ export async function run(J) {
 
   await J.sc('R-09', 'রোগীর তালিকা', async () => {
     await chamber(page, 'রোগী');
-    await J.shot('চেম্বার › রোগী', 'অ্যাপে আসা রোগী — কতবার, শেষ কবে; নিশ্চিত অ্যাপয়েন্টমেন্ট থাকলে ফোন।', { full: true });
+    await J.shot('চেম্বার › রোগী', 'রোগীর একটাই তালিকা (প্রেসক্রিপশনের পাতা): আজ–কালের অ্যাপয়েন্টমেন্ট, এন্ট্রি করা রোগী, অ্যাপে আগে আসা — খোঁজা, ‘লিখুন’, আগের প্রেসক্রিপশন।', { full: true });
   });
 
   await J.sc('R-10', 'চেম্বারের সেটআপ বদলানো', async () => {
