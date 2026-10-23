@@ -112,8 +112,8 @@ class DoctorSheetScreensTest {
     @Config(qualifiers = "w360dp-h800dp-xxhdpi")
     fun card360() {
         show { ProviderCard(doc.copy(matched = listOf(1)), CareFilter(district = "গাজীপুর")) {} }
-        // কার্ডে মেলা চেম্বারের নাম (আরও চেম্বার থাকলে "+১")
-        rule.onNodeWithText("কালিয়াকৈর উপজেলা স্বাস্থ্য কমপ্লেক্স", substring = true).assertExists()
+        // মেলা চেম্বারের ফি মূল লাইনে (ch2: ৳৪০০), চেম্বারের নাম বিস্তারিতে
+        rule.onNodeWithText("৳৪০০", substring = true).assertExists()
         shot("doctor_card_360_bn")
     }
 

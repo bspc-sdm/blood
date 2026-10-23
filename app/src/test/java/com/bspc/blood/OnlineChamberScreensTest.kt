@@ -428,7 +428,6 @@ class OnlineChamberScreensTest {
         val doc = Provider("d1", "doctor", "ডা. ডেমো হাসান", listOf("medicine"), "এমবিবিএস", "male", true, true, listOf(online), null, 4.5, 3)
         show { ProviderCard(doc, CareFilter(online = true)) {} }
         rule.onNodeWithText("অনলাইন").assertExists()
-        rule.onNodeWithText(OnlineChambers.NAME_BN).assertExists()
         shot("online_doctor_card_360_bn")
     }
 

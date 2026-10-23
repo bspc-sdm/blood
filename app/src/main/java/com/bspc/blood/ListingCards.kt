@@ -279,7 +279,7 @@ fun providerCard(p: Provider, filter: CareFilter, onOpen: () -> Unit, onBook: ((
     return ListingCardData(
         id = p.uid, type = ListingType.DOCTOR, name = p.name, icon = Badges.icon(p.type), photo = p.photo,
         keyLine = providerKeyLine(p, c), onOpen = onOpen, verified = p.extras.verified,
-        note = c?.label?.let { l -> if (p.chambers.size > 1) l + tr(" +${p.chambers.size - 1}", " +" + num(p.chambers.size - 1)) else l },
+        // চেম্বারের নাম কার্ডে নয় (৩৬০dp-তে প্রথম পর্দায় ৩টা কার্ড) — বিস্তারিতের উপরে চেম্বার বাছাই
         ratingText = ratingText(ratingOf(p.extras, p.rating, p.ratingCount)),
         badges = providerBadges(p),
         primary = if (p.canBook && onBook != null) CardAction(ListingText.book(), R.drawable.ic_calendar_month, onBook) else null,
