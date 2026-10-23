@@ -120,7 +120,9 @@ class PracticeIT : P2TestBase() {
         assertEquals(setOf("allo", "homeo", "unani"), uids(all["items"]))
         val byUid = all["items"].associateBy { it["uid"].textValue() }
         assertEquals("এলোপ্যাথি", byUid["allo"]!!["systemLabel"].textValue())
-        assertEquals(listOf("homeopathy", "হোমিওপ্যাথি", "ডাক্তার"), listOf("system", "systemLabel", "typeLabel").map { byUid["homeo"]!![it].textValue() })
+        // the test profile has every switch on — title_guard too: a homeopath is not called "ডাক্তার" (TitleGuardIT)
+        assertEquals(listOf("homeopathy", "হোমিওপ্যাথি", "হোমিওপ্যাথিক চিকিৎসক"), listOf("system", "systemLabel", "typeLabel").map { byUid["homeo"]!![it].textValue() })
+        assertEquals("ডাক্তার", byUid["allo"]!!["typeLabel"].textValue())
         assertEquals("ইউনানি", byUid["unani"]!!["systemLabel"].textValue())
         val chips = all["facets"]["systems"].associate { it["code"].textValue() to it["n"].intValue() }
         assertEquals(mapOf("allopathy" to 1, "homeopathy" to 1, "unani" to 1, "ayurveda" to 0), chips)

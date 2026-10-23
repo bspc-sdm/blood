@@ -93,15 +93,19 @@ object Practice {
 
     /**
      * The labels every provider / appointment / prescription response carries: `system` (doctors only), `systemLabel`
-     * ("এলোপ্যাথি" …, doctors only) and `typeLabel`. [systemsOn] false (practice_systems off for the viewer): no system
+     * ("এলোপ্যাথি" …, doctors only), `typeLabel` and `typeLabelEn` (title_guard on for the viewer: "হোমিওপ্যাথিক
+     * চিকিৎসক" … instead of "ডাক্তার" for a non-allopathic doctor, whatever practice_systems says). [systemsOn] false (practice_systems off for the viewer): no system
      * shown — everyone is an (allopathic) doctor as before.
      */
     fun labels(type: String?, system: String?, systemsOn: Boolean = true): LinkedHashMap<String, Any?> {
         val sys = if (systemsOn) systemOf(type, system) else null
+        // title_guard (TitleRules): a non-allopathic doctor is "হোমিওপ্যাথিক চিকিৎসক" … for a viewer with the rule on
+        val guard = TitleGuard.renderOn()
         return linkedMapOf(
             "system" to sys,
             "systemLabel" to sys?.let { SYSTEM_INFO[it]?.labelBn },
-            "typeLabel" to TYPE_LABELS[type ?: ""],
+            "typeLabel" to TitleRules.typeLabel(type, system, guard),
+            "typeLabelEn" to TitleRules.typeLabelEn(type, system, guard),
         )
     }
 

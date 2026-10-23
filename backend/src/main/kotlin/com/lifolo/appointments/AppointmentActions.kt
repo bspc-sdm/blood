@@ -268,6 +268,7 @@ class AppointmentActions(
         if (cur != null && hasChambersArray(cur)) throw ctx.err(409, "Please update the app to edit your chambers", "চেম্বার বদলাতে অ্যাপ আপডেট করুন")
         val active = b["active"]?.let { !(it.isBoolean && !it.booleanValue()) } ?: true
         val now = clock.now()
+        if (listingName(uid).isEmpty()) gate.requireName(ctx, users.name(uid), badge, badgeSystem(uid))
         tx.executeWithoutResult {
             jdbc.update(
                 """
@@ -284,6 +285,10 @@ class AppointmentActions(
         }
         return mapOf("ok" to true)
     }
+
+    /** the listing's stored name ("" = no listing yet, or one made without a name) */
+    private fun listingName(uid: String): String =
+        jdbc.queryForList("SELECT name FROM providers WHERE uid = ?", String::class.java, uid).firstOrNull() ?: ""
 
     fun providerSave(ctx: ActionContext): Any {
         val uid = ctx.user.id
@@ -360,6 +365,9 @@ class AppointmentActions(
         // the verified (badge) name — a later profile name change does not change the list
         val badgeName = jdbc.queryForList("SELECT name FROM badges WHERE uid = ?", String::class.java, uid).firstOrNull() ?: ""
         val name = badgeName.ifEmpty { users.name(uid) }.take(80)
+        // title_guard (PRACTICE.md §6): a NEW listing of someone who is not an MBBS/BDS doctor never starts with "ডা.";
+        // an existing one keeps working (its name is stripped where it is shown) until the badge name is corrected
+        if (listingName(uid).isEmpty()) gate.requireName(ctx, name, badge, system)
         val now = clock.now()
         var saved: List<Ch> = parsed
         var bkashChanged: Pair<String, String>? = null

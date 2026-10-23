@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
  *    providers/home_providers of that type, book, rx writing) and the profession is never listed.
  */
 @Component
-class PracticeGate(private val features: Features) {
+class PracticeGate(private val features: Features, private val titles: TitleGuard) {
     fun systemsOn(uid: String?): Boolean = features.isOn(uid, Features.PRACTICE_SYSTEMS)
 
     /** the person holding the phone (also when a caregiver acts for a patient) — whose switches count */
@@ -36,6 +36,17 @@ class PracticeGate(private val features: Features) {
     fun requireType(ctx: ActionContext, type: String?) {
         keyOf(type)?.let { features.require(ctx, it) }
     }
+
+    /**
+     * title_guard (TitleGuard): 400 `title_not_allowed` when [name] starts with "ডা."/"Dr." … and the profession
+     * ([type], [system]) may not carry it — while the rule is on for the caller.
+     */
+    fun requireName(ctx: ActionContext, name: String?, type: String?, system: String?) {
+        titles.requireName(viewer(ctx), name, type, system, ctx.lang)
+    }
+
+    /** a stored name changed (profile, badge, listing): the names to strip are read again */
+    fun namesChanged() = titles.clearCache()
 
     /** 404 feature_off when a non-allopathic [system] is chosen while practice_systems is off for the caller */
     fun requireSystem(ctx: ActionContext, system: String?) {

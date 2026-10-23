@@ -152,12 +152,20 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
         return emitter
     }
 
+    /**
+     * Rewrites an event's data for its topic before it is sent (practice/TitleGuard: names shown to "user:<uid>"); set
+     * once at start-up, null = as is.
+     */
+    @Volatile
+    var filter: ((topic: String, data: Any) -> Any)? = null
+
     /** send to every subscriber of the topic; returns how many received it */
     fun publish(topic: String, event: String, data: Any): Int {
         val set = topics[topic] ?: return 0
+        val out = filter?.let { f -> runCatching { f(topic, data) }.getOrDefault(data) } ?: data
         var n = 0
         for (e in set) {
-            if (trySend(topic, set, e) { it.send(SseEmitter.event().name(event).data(data)) }) n++
+            if (trySend(topic, set, e) { it.send(SseEmitter.event().name(event).data(out)) }) n++
         }
         return n
     }

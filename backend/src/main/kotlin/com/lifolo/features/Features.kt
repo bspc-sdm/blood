@@ -182,6 +182,9 @@ class Features(
         // explicit consent for health data + storage abroad (backend/docs/CONSENT.md)
         const val HEALTH_CONSENT = "health_consent"
 
+        // the "ডা." / "Dr." title rule (backend/docs/PRACTICE.md §6, practice/TitleGuard.kt)
+        const val TITLE_GUARD = "title_guard"
+
         /** the keys, in admin page order */
         val KEYS: List<String> = listOf(
             CALLS_AUDIO, CALLS_VIDEO, APPT_VIDEO, CHAT, CHAT_MEDIA, ONLINE_CHAMBER,
@@ -189,6 +192,7 @@ class Features(
             PAY_MANUAL, PAY_CHAMBER_ADVANCE, PAY_DELIVERY, PAY_LAB, PAY_AMBULANCE, PAY_DUE, PAY_BKASH_PGW,
             PRACTICE_SYSTEMS, PRO_PHYSIO, PRO_PSYCHOLOGIST,
             HEALTH_CONSENT,
+            TITLE_GUARD,
         )
 
         /**

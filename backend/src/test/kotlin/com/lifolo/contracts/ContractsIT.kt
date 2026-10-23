@@ -165,7 +165,7 @@ class ContractsIT : IntegrationTest() {
             mapOf(
                 "name" to "ডা. রহিম", "degrees" to "MBBS", "regNo" to "A-1", "chamber" to "সিটি হাসপাতাল",
                 // PRACTICE.md: the system label on the verify page (an old prescription = an allopathic doctor's)
-                "system" to "allopathy", "systemLabel" to "এলোপ্যাথি", "typeLabel" to "ডাক্তার",
+                "system" to "allopathy", "systemLabel" to "এলোপ্যাথি", "typeLabel" to "ডাক্তার", "typeLabelEn" to "Doctor",
             ),
             v["doctor"],
         )

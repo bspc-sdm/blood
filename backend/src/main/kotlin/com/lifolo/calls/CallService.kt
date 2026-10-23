@@ -17,6 +17,8 @@ import com.lifolo.notify.PushItem
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
 import com.lifolo.notify.SseHub
+import com.lifolo.practice.TitleGuard
+import com.lifolo.practice.TitleRules
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.jdbc.core.JdbcTemplate
@@ -94,6 +96,7 @@ class CallService(
     private val mapper: ObjectMapper,
     private val features: CallFeatures,
     txm: PlatformTransactionManager,
+    private val titles: TitleGuard,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val tx = TransactionTemplate(txm)
@@ -167,7 +170,15 @@ class CallService(
         if (p.photoThumb != null) put("photoThumb", p.photoThumb)
     }
 
-    private fun tokenFor(uid: String, call: CallRow): String = tokens.token(uid, person(uid).name.ifEmpty { "Lifolo" }, call.room, call.video, now())
+    private fun tokenFor(uid: String, call: CallRow): String {
+        // the room shows this name to the other person (title_guard: shown to them without a title they may not see)
+        val other = if (call.caller == uid) call.callee else call.caller
+        return tokens.token(uid, titles.name(person(uid).name, other).ifEmpty { "Lifolo" }, call.room, call.video, now())
+    }
+
+    /** the lock-screen first name of [name] for [viewer] (title_guard: every title variant left out) */
+    fun firstNameFor(name: String, viewer: String?): String =
+        firstName(if (titles.on(viewer)) TitleRules.strip(name) else name)
 
     private fun join(uid: String, call: CallRow): Map<String, Any?> {
         val peer = if (uid == call.caller || uid == call.callee) call.other(uid) else call.caller
@@ -360,7 +371,7 @@ class CallService(
         val ps = people(listOf(c.caller, c.callee))
         val caller = ps[c.caller]!!
         val lang = ps[c.callee]!!.lang
-        val first = firstName(caller.name)
+        val first = firstNameFor(caller.name, c.callee)
         val data = linkedMapOf<String, Any?>(
             "type" to "call_incoming", "cat" to NotifyCats.CALLS, "callId" to c.id, "video" to c.video.toString(), "caller" to first,
             "callerUid" to c.caller,
@@ -378,7 +389,7 @@ class CallService(
         if (!features.isOn(c.callee, CallFeatures.CALLS_AUDIO)) return
         val ps = people(listOf(c.caller, c.callee))
         val lang = ps[c.callee]!!.lang
-        val first = firstName(ps[c.caller]!!.name)
+        val first = firstNameFor(ps[c.caller]!!.name, c.callee)
         val count = jdbc.queryForObject(
             "SELECT count(*) FROM call_sessions WHERE caller_uid = ? AND callee_uid = ? AND state = 'missed' AND created_at > ?",
             Int::class.java, c.caller, c.callee, Sql.ts(now() - DAY_MS),

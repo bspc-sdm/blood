@@ -15,6 +15,7 @@ import com.lifolo.common.ClientIp
 import com.lifolo.common.Lang
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.RateLimiter
+import com.lifolo.practice.TitleGuard
 import com.lifolo.users.AccountService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -71,6 +72,7 @@ class ActionDispatcher(
     private val hooks: ObjectProvider<ActionHook>,
     private val accounts: AccountService,
     private val guards: ObjectProvider<ActionGuard>,
+    private val titles: TitleGuard,
 ) {
     private val disabledCache = ConcurrentHashMap<String, Pair<Long, Boolean>>()
 
@@ -98,9 +100,14 @@ class ActionDispatcher(
         val ctx = ActionContext(req, res, body, actor, user, action)
         // 5. guards (the consent gate: 428 consent_required for health data without consent)
         if (!user.guest) guards.orderedStream().forEach { it.check(ctx) }
-        val result = if (user.guest && action !in ActionPolicy.GUEST_UNCACHED) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)
+        // title_guard (practice/TitleGuard): the viewer is the person holding the phone (a guest: null)
+        val viewer = if (user.guest) null else user.uid
+        val titled = titles.on(viewer)
+        val result = TitleGuard.rendering(titled) {
+            if (user.guest && action !in ActionPolicy.GUEST_UNCACHED) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)
+        }
         if (action.startsWith("admin_") && !isUnchanged(result)) adminLog.log(action, user, body)
-        return result
+        return if (titled && action !in TitleGuard.RAW_ACTIONS) titles.apply(result, viewer) else result
     }
 
     private fun isUnchanged(result: Any?): Boolean = when (result) {

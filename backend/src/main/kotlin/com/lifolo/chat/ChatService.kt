@@ -421,7 +421,7 @@ class ChatService(
         // no push / SSE to someone without the feature (send already requires both; the switch may flip in between)
         if (!features.isOn(peer, ChatFeatures.CHAT)) return
         val ps = calls.people(listOf(m.from, peer))
-        val first = CallService.firstName(ps[m.from]!!.name)
+        val first = calls.firstNameFor(ps[m.from]!!.name, peer)
         val lang = ps[peer]!!.lang
         val data = linkedMapOf<String, Any?>(
             "type" to "chat_message", "cat" to NotifyCats.MESSAGES, "threadId" to t.id, "messageId" to m.id, "from" to first,
@@ -438,9 +438,10 @@ class ChatService(
     }
 
     private fun sseMessage(t: ThreadRow, m: MessageRow) {
-        val first = CallService.firstName(calls.people(listOf(m.from))[m.from]!!.name)
+        val from = calls.people(listOf(m.from))[m.from]!!.name
         val nowMs = now()
         for (u in listOf(t.a, t.b).filter { features.isOn(it, ChatFeatures.CHAT) }) {
+            val first = calls.firstNameFor(from, u)
             publish(u, "chat_message", linkedMapOf("threadId" to t.id, "messageId" to m.id, "from" to first, "message" to messageMap(m, nowMs)))
         }
     }
