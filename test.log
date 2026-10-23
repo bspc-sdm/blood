@@ -1,0 +1,596 @@
+=== AccountScreensTest.deactivateExplainsThenPausesAndLogsOut
+AccountScreensTest > deactivateExplainsThenPausesAndLogsOut STARTED
+AccountScreensTest > deactivateExplainsThenPausesAndLogsOut PASSED
+=== AccountScreensTest.deactivateWhileDeletionPendingShowsTheReason
+AccountScreensTest > deactivateWhileDeletionPendingShowsTheReason STARTED
+AccountScreensTest > deactivateWhileDeletionPendingShowsTheReason PASSED
+=== AccountScreensTest.deleteFailureShowsTheServerMessageAndStaysLoggedIn
+AccountScreensTest > deleteFailureShowsTheServerMessageAndStaysLoggedIn STARTED
+AccountScreensTest > deleteFailureShowsTheServerMessageAndStaysLoggedIn PASSED
+=== AccountScreensTest.deleteFromThePausedScreenHasNoPauseOption
+AccountScreensTest > deleteFromThePausedScreenHasNoPauseOption STARTED
+AccountScreensTest > deleteFromThePausedScreenHasNoPauseOption PASSED
+=== AccountScreensTest.deleteNeedsTheTickThenExplainsWhatHappensNext
+AccountScreensTest > deleteNeedsTheTickThenExplainsWhatHappensNext STARTED
+AccountScreensTest > deleteNeedsTheTickThenExplainsWhatHappensNext PASSED
+=== AccountScreensTest.deleteScreenEnglish
+AccountScreensTest > deleteScreenEnglish STARTED
+AccountScreensTest > deleteScreenEnglish PASSED
+=== AccountScreensTest.deletionCancelledBanner
+AccountScreensTest > deletionCancelledBanner STARTED
+AccountScreensTest > deletionCancelledBanner PASSED
+=== AccountScreensTest.pausedScreenReactivateFailureStaysBlocked
+AccountScreensTest > pausedScreenReactivateFailureStaysBlocked STARTED
+AccountScreensTest > pausedScreenReactivateFailureStaysBlocked PASSED
+=== AccountScreensTest.pausedScreenReactivates
+AccountScreensTest > pausedScreenReactivates STARTED
+AccountScreensTest > pausedScreenReactivates PASSED
+=== AmbRequestScreensTest.requestSheet412
+AmbRequestScreensTest > requestSheet412 STARTED
+AmbRequestScreensTest > requestSheet412 PASSED
+=== ConsentScreensTest.askWaitsForTheAnswer
+ConsentScreensTest > askWaitsForTheAnswer STARTED
+ConsentScreensTest > askWaitsForTheAnswer PASSED
+=== ConsentScreensTest.consentScreen
+ConsentScreensTest > consentScreen STARTED
+ConsentScreensTest > consentScreen PASSED
+=== ConsentScreensTest.fullTextIsReadOnlyWhenGiven
+ConsentScreensTest > fullTextIsReadOnlyWhenGiven STARTED
+ConsentScreensTest > fullTextIsReadOnlyWhenGiven PASSED
+=== ConsentScreensTest.notGivenSettingsOffersConsent
+ConsentScreensTest > notGivenSettingsOffersConsent STARTED
+ConsentScreensTest > notGivenSettingsOffersConsent PASSED
+=== ConsentScreensTest.privacySettingsAndWithdraw
+ConsentScreensTest > privacySettingsAndWithdraw STARTED
+ConsentScreensTest > privacySettingsAndWithdraw PASSED
+=== ConsentScreensTest.readsTheServerText
+ConsentScreensTest > readsTheServerText STARTED
+ConsentScreensTest > readsTheServerText PASSED
+=== ConsentScreensTest.serverErrorCarriesTheConsentFields
+ConsentScreensTest > serverErrorCarriesTheConsentFields STARTED
+ConsentScreensTest > serverErrorCarriesTheConsentFields PASSED
+=== DoctorSheetScreensTest.chamberStateAtDhakaTimes
+DoctorSheetScreensTest > chamberStateAtDhakaTimes STARTED
+DoctorSheetScreensTest > chamberStateAtDhakaTimes PASSED
+=== DoctorSheetScreensTest.sheet412
+DoctorSheetScreensTest > sheet412 STARTED
+DoctorSheetScreensTest > sheet412 PASSED
+=== DonorCardScreensTest.donorCallMenu360Bn
+DonorCardScreensTest > donorCallMenu360Bn STARTED
+DonorCardScreensTest > donorCallMenu360Bn STANDARD_OUT
+DonorCardScreensTest > donorCallMenu360Bn PASSED
+=== DonorCardScreensTest.donorCallMenu360En
+DonorCardScreensTest > donorCallMenu360En STARTED
+DonorCardScreensTest > donorCallMenu360En STANDARD_OUT
+DonorCardScreensTest > donorCallMenu360En PASSED
+=== DonorCardScreensTest.donorCardDetail360Bn
+DonorCardScreensTest > donorCardDetail360Bn STARTED
+DonorCardScreensTest > donorCardDetail360Bn PASSED
+=== DonorCardScreensTest.donorCardDetail360En
+DonorCardScreensTest > donorCardDetail360En STARTED
+DonorCardScreensTest > donorCardDetail360En PASSED
+=== DonorCardScreensTest.donorCardHome360Bn
+DonorCardScreensTest > donorCardHome360Bn STARTED
+DonorCardScreensTest > donorCardHome360Bn PASSED
+=== DonorCardScreensTest.donorCardHome360En
+DonorCardScreensTest > donorCardHome360En STARTED
+DonorCardScreensTest > donorCardHome360En PASSED
+=== DonorCardScreensTest.donorPhoneOnly360Bn
+DonorCardScreensTest > donorPhoneOnly360Bn STARTED
+DonorCardScreensTest > donorPhoneOnly360Bn PASSED
+=== ListingsScreensTest.ambulanceDetailBn
+ListingsScreensTest > ambulanceDetailBn STARTED
+ListingsScreensTest > ambulanceDetailBn PASSED
+=== ListingsScreensTest.ambulanceDetailEn
+ListingsScreensTest > ambulanceDetailEn STARTED
+ListingsScreensTest > ambulanceDetailEn PASSED
+=== ListingsScreensTest.ambulanceListBn
+ListingsScreensTest > ambulanceListBn STARTED
+ListingsScreensTest > ambulanceListBn PASSED
+=== ListingsScreensTest.ambulanceListEn
+ListingsScreensTest > ambulanceListEn STARTED
+ListingsScreensTest > ambulanceListEn PASSED
+=== ListingsScreensTest.bloodBankCardOpensDetail
+ListingsScreensTest > bloodBankCardOpensDetail STARTED
+ListingsScreensTest > bloodBankCardOpensDetail PASSED
+=== ListingsScreensTest.bloodBankDetailBn
+ListingsScreensTest > bloodBankDetailBn STARTED
+ListingsScreensTest > bloodBankDetailBn PASSED
+=== ListingsScreensTest.bloodBankDetailEn
+ListingsScreensTest > bloodBankDetailEn STARTED
+ListingsScreensTest > bloodBankDetailEn PASSED
+=== ListingsScreensTest.bloodBankListBn
+ListingsScreensTest > bloodBankListBn STARTED
+ListingsScreensTest > bloodBankListBn PASSED
+=== ListingsScreensTest.bloodBankListEn
+ListingsScreensTest > bloodBankListEn STARTED
+ListingsScreensTest > bloodBankListEn PASSED
+=== ListingsScreensTest.doctorDetailBn
+ListingsScreensTest > doctorDetailBn STARTED
+ListingsScreensTest > doctorDetailBn PASSED
+=== ListingsScreensTest.doctorDetailEn
+ListingsScreensTest > doctorDetailEn STARTED
+ListingsScreensTest > doctorDetailEn PASSED
+=== ListingsScreensTest.doctorListBn
+ListingsScreensTest > doctorListBn STARTED
+ListingsScreensTest > doctorListBn PASSED
+=== ListingsScreensTest.doctorListEn
+ListingsScreensTest > doctorListEn STARTED
+ListingsScreensTest > doctorListEn PASSED
+=== ListingsScreensTest.emptyStateBn
+ListingsScreensTest > emptyStateBn STARTED
+ListingsScreensTest > emptyStateBn PASSED
+=== ListingsScreensTest.emptyStateEn
+ListingsScreensTest > emptyStateEn STARTED
+ListingsScreensTest > emptyStateEn PASSED
+=== ListingsScreensTest.labDetailBn
+ListingsScreensTest > labDetailBn STARTED
+ListingsScreensTest > labDetailBn PASSED
+=== ListingsScreensTest.labDetailEn
+ListingsScreensTest > labDetailEn STARTED
+ListingsScreensTest > labDetailEn PASSED
+=== ListingsScreensTest.labListBn
+ListingsScreensTest > labListBn STARTED
+ListingsScreensTest > labListBn PASSED
+=== ListingsScreensTest.labListEn
+ListingsScreensTest > labListEn STARTED
+ListingsScreensTest > labListEn PASSED
+=== ListingsScreensTest.loadingSkeletonBn
+ListingsScreensTest > loadingSkeletonBn STARTED
+ListingsScreensTest > loadingSkeletonBn PASSED
+=== ListingsScreensTest.pharmacyDetailBn
+ListingsScreensTest > pharmacyDetailBn STARTED
+ListingsScreensTest > pharmacyDetailBn PASSED
+=== ListingsScreensTest.pharmacyDetailEn
+ListingsScreensTest > pharmacyDetailEn STARTED
+ListingsScreensTest > pharmacyDetailEn PASSED
+=== ListingsScreensTest.pharmacyListBn
+ListingsScreensTest > pharmacyListBn STARTED
+ListingsScreensTest > pharmacyListBn PASSED
+=== ListingsScreensTest.pharmacyListEn
+ListingsScreensTest > pharmacyListEn STARTED
+ListingsScreensTest > pharmacyListEn PASSED
+=== OnlineChamberScreensTest.advanceDueFromList
+OnlineChamberScreensTest > advanceDueFromList STARTED
+OnlineChamberScreensTest > advanceDueFromList PASSED
+=== OnlineChamberScreensTest.bkashValidation
+OnlineChamberScreensTest > bkashValidation STARTED
+OnlineChamberScreensTest > bkashValidation PASSED
+=== OnlineChamberScreensTest.chamberJson
+OnlineChamberScreensTest > chamberJson STARTED
+OnlineChamberScreensTest > chamberJson PASSED
+=== OnlineChamberScreensTest.confirmChecksBodyAndError
+OnlineChamberScreensTest > confirmChecksBodyAndError STARTED
+OnlineChamberScreensTest > confirmChecksBodyAndError PASSED
+=== OnlineChamberScreensTest.gatedAllOff
+OnlineChamberScreensTest > gatedAllOff STARTED
+OnlineChamberScreensTest > gatedAllOff PASSED
+=== OnlineChamberScreensTest.gatedOff
+OnlineChamberScreensTest > gatedOff STARTED
+OnlineChamberScreensTest > gatedOff PASSED
+=== OnlineChamberScreensTest.joinBox
+OnlineChamberScreensTest > joinBox STARTED
+OnlineChamberScreensTest > joinBox PASSED
+=== OnlineChamberScreensTest.joinWindow
+OnlineChamberScreensTest > joinWindow STARTED
+OnlineChamberScreensTest > joinWindow PASSED
+=== OnlineChamberScreensTest.listBadge
+OnlineChamberScreensTest > listBadge STARTED
+OnlineChamberScreensTest > listBadge PASSED
+=== OnlineChamberScreensTest.modeChipsLocked
+OnlineChamberScreensTest > modeChipsLocked STARTED
+OnlineChamberScreensTest > modeChipsLocked PASSED
+=== OnlineChamberScreensTest.patientReport
+OnlineChamberScreensTest > patientReport STARTED
+OnlineChamberScreensTest > patientReport PASSED
+=== OnlineChamberScreensTest.patientStates
+OnlineChamberScreensTest > patientStates STARTED
+OnlineChamberScreensTest > patientStates PASSED
+=== OnlineChamberScreensTest.patientUnpaid
+OnlineChamberScreensTest > patientUnpaid STARTED
+OnlineChamberScreensTest > patientUnpaid PASSED
+=== OnlineChamberScreensTest.payParse
+OnlineChamberScreensTest > payParse STARTED
+OnlineChamberScreensTest > payParse PASSED
+=== OnlineChamberScreensTest.setupBadBkash
+OnlineChamberScreensTest > setupBadBkash STARTED
+OnlineChamberScreensTest > setupBadBkash PASSED
+=== OnlineChamberScreensTest.setupBkashChanged
+OnlineChamberScreensTest > setupBkashChanged STARTED
+OnlineChamberScreensTest > setupBkashChanged PASSED
+=== OnlineChamberScreensTest.setupOnlineChamber
+OnlineChamberScreensTest > setupOnlineChamber STARTED
+OnlineChamberScreensTest > setupOnlineChamber PASSED
+=== OnlineChamberScreensTest.setupTypeChooser
+OnlineChamberScreensTest > setupTypeChooser STARTED
+OnlineChamberScreensTest > setupTypeChooser PASSED
+=== OnlineChamberScreensTest.staffConfirm
+OnlineChamberScreensTest > staffConfirm STARTED
+OnlineChamberScreensTest > staffConfirm PASSED
+=== OnlineChamberScreensTest.staffConfirmUnpaidWithRequest
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest STARTED
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest PASSED
+=== OnlineChamberScreensTest.staffConfirmWithRequest
+OnlineChamberScreensTest > staffConfirmWithRequest STARTED
+OnlineChamberScreensTest > staffConfirmWithRequest PASSED
+=== OnlineChamberScreensTest.staffPaidAndUnpaid
+OnlineChamberScreensTest > staffPaidAndUnpaid STARTED
+OnlineChamberScreensTest > staffPaidAndUnpaid PASSED
+=== OnlineChamberScreensTest.trxReuseMessage
+OnlineChamberScreensTest > trxReuseMessage STARTED
+OnlineChamberScreensTest > trxReuseMessage PASSED
+=== PayScreensTest.advanceDueLabel
+PayScreensTest > advanceDueLabel STARTED
+PayScreensTest > advanceDueLabel PASSED
+=== PayScreensTest.advanceRow
+PayScreensTest > advanceRow STARTED
+PayScreensTest > advanceRow PASSED
+=== PayScreensTest.allOffShowsNothing
+PayScreensTest > allOffShowsNothing STARTED
+PayScreensTest > allOffShowsNothing PASSED
+=== PayScreensTest.ambulanceOnlyAfterTripAndDue
+PayScreensTest > ambulanceOnlyAfterTripAndDue STARTED
+PayScreensTest > ambulanceOnlyAfterTripAndDue PASSED
+=== PayScreensTest.businessClaimConfirmStep
+PayScreensTest > businessClaimConfirmStep STARTED
+PayScreensTest > businessClaimConfirmStep PASSED
+=== PayScreensTest.businessListRowsAndRefund
+PayScreensTest > businessListRowsAndRefund STARTED
+PayScreensTest > businessListRowsAndRefund PASSED
+=== PayScreensTest.claimValidatedPerMethod
+PayScreensTest > claimValidatedPerMethod STARTED
+PayScreensTest > claimValidatedPerMethod PASSED
+=== PayScreensTest.confirmedAndExpired
+PayScreensTest > confirmedAndExpired STARTED
+PayScreensTest > confirmedAndExpired PASSED
+=== PayScreensTest.demoAndNoNumbers
+PayScreensTest > demoAndNoNumbers STARTED
+PayScreensTest > demoAndNoNumbers PASSED
+=== PayScreensTest.entryButtonsGated
+PayScreensTest > entryButtonsGated STARTED
+PayScreensTest > entryButtonsGated PASSED
+=== PayScreensTest.neverForBlood
+PayScreensTest > neverForBlood STARTED
+PayScreensTest > neverForBlood PASSED
+=== PayScreensTest.onlineChamberUsesPaySheet
+PayScreensTest > onlineChamberUsesPaySheet STARTED
+PayScreensTest > onlineChamberUsesPaySheet PASSED
+=== PayScreensTest.refundAckAndReport
+PayScreensTest > refundAckAndReport STARTED
+PayScreensTest > refundAckAndReport PASSED
+=== PayScreensTest.settingsCoolOff
+PayScreensTest > settingsCoolOff STARTED
+PayScreensTest > settingsCoolOff PASSED
+=== PayScreensTest.sheetOpenPersonalThenMerchant
+PayScreensTest > sheetOpenPersonalThenMerchant STARTED
+PayScreensTest > sheetOpenPersonalThenMerchant PASSED
+=== PayScreensTest.sheetStates
+PayScreensTest > sheetStates STARTED
+PayScreensTest > sheetStates PASSED
+=== PracticeScreensTest.badgeDialogHomeopathy
+PracticeScreensTest > badgeDialogHomeopathy STARTED
+PracticeScreensTest > badgeDialogHomeopathy PASSED
+=== PracticeScreensTest.badgeDialogPsychologist
+PracticeScreensTest > badgeDialogPsychologist STARTED
+PracticeScreensTest > badgeDialogPsychologist PASSED
+=== PracticeScreensTest.badgeDialogWithSystemsAndNewTypes
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes STARTED
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes PASSED
+=== PracticeScreensTest.careLinkParse
+PracticeScreensTest > careLinkParse STARTED
+PracticeScreensTest > careLinkParse PASSED
+=== PracticeScreensTest.newTypesRules
+PracticeScreensTest > newTypesRules STARTED
+PracticeScreensTest > newTypesRules PASSED
+=== PracticeScreensTest.providerCardWithSystem
+PracticeScreensTest > providerCardWithSystem STARTED
+PracticeScreensTest > providerCardWithSystem PASSED
+=== PracticeScreensTest.providerParseAndFilter
+PracticeScreensTest > providerParseAndFilter STARTED
+PracticeScreensTest > providerParseAndFilter PASSED
+=== PracticeScreensTest.psychShareNoCaregiver
+PracticeScreensTest > psychShareNoCaregiver STARTED
+PracticeScreensTest > psychShareNoCaregiver PASSED
+=== PracticeScreensTest.psychShareRow
+PracticeScreensTest > psychShareRow STARTED
+PracticeScreensTest > psychShareRow PASSED
+=== PracticeScreensTest.rxModes
+PracticeScreensTest > rxModes STARTED
+PracticeScreensTest > rxModes PASSED
+=== PracticeScreensTest.rxPaperHomeopathy
+PracticeScreensTest > rxPaperHomeopathy STARTED
+PracticeScreensTest > rxPaperHomeopathy PASSED
+=== PracticeScreensTest.rxPaperPhysio
+PracticeScreensTest > rxPaperPhysio STARTED
+PracticeScreensTest > rxPaperPhysio PASSED
+=== PracticeScreensTest.rxPaperPsychologist
+PracticeScreensTest > rxPaperPsychologist STARTED
+PracticeScreensTest > rxPaperPsychologist PASSED
+=== PracticeScreensTest.rxPaperSwitchOffNoLabel
+PracticeScreensTest > rxPaperSwitchOffNoLabel STARTED
+PracticeScreensTest > rxPaperSwitchOffNoLabel PASSED
+=== PracticeScreensTest.rxRulesFromServer
+PracticeScreensTest > rxRulesFromServer STARTED
+PracticeScreensTest > rxRulesFromServer PASSED
+=== PracticeScreensTest.switchesOffBadgeDialog
+PracticeScreensTest > switchesOffBadgeDialog STARTED
+PracticeScreensTest > switchesOffBadgeDialog PASSED
+=== PracticeScreensTest.switchesOffLooksAsToday
+PracticeScreensTest > switchesOffLooksAsToday STARTED
+PracticeScreensTest > switchesOffLooksAsToday PASSED
+=== PracticeScreensTest.switchesOffProviderCard
+PracticeScreensTest > switchesOffProviderCard STARTED
+PracticeScreensTest > switchesOffProviderCard PASSED
+=== PracticeScreensTest.systemChipsCounts
+PracticeScreensTest > systemChipsCounts STARTED
+PracticeScreensTest > systemChipsCounts PASSED
+=== PracticeScreensTest.systemChipsRow
+PracticeScreensTest > systemChipsRow STARTED
+PracticeScreensTest > systemChipsRow PASSED
+=== PracticeScreensTest.systemsRules
+PracticeScreensTest > systemsRules STARTED
+PracticeScreensTest > systemsRules PASSED
+=== PracticeScreensTest.workTabHomeopathTitleGuard
+PracticeScreensTest > workTabHomeopathTitleGuard STARTED
+PracticeScreensTest > workTabHomeopathTitleGuard PASSED
+=== ProviderSideScreensTest.ambulancePreviewAndSwitch
+ProviderSideScreensTest > ambulancePreviewAndSwitch STARTED
+ProviderSideScreensTest > ambulancePreviewAndSwitch PASSED
+=== ProviderSideScreensTest.bloodBankStockEditor
+ProviderSideScreensTest > bloodBankStockEditor STARTED
+ProviderSideScreensTest > bloodBankStockEditor PASSED
+=== ProviderSideScreensTest.doctorPreviewAndTodaySwitches
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches STARTED
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches PASSED
+=== ProviderSideScreensTest.labPreviewAndSwitches
+ProviderSideScreensTest > labPreviewAndSwitches STARTED
+ProviderSideScreensTest > labPreviewAndSwitches PASSED
+=== ProviderSideScreensTest.pharmacyPreviewAndSwitches
+ProviderSideScreensTest > pharmacyPreviewAndSwitches STARTED
+ProviderSideScreensTest > pharmacyPreviewAndSwitches PASSED
+=== ProviderSideScreensTest.previewCollapsesAndIsRemembered
+ProviderSideScreensTest > previewCollapsesAndIsRemembered STARTED
+ProviderSideScreensTest > previewCollapsesAndIsRemembered PASSED
+=== ReceiptScreensTest.ambulanceFinish
+ReceiptScreensTest > ambulanceFinish STARTED
+ReceiptScreensTest > ambulanceFinish PASSED
+=== ReceiptScreensTest.pdfsAreWritten
+ReceiptScreensTest > pdfsAreWritten STARTED
+ReceiptScreensTest > pdfsAreWritten STANDARD_ERROR
+    	at com.bspc.blood.ReceiptPdf.write(ReceiptPdf.kt:88)
+    	at com.bspc.blood.ReceiptScreensTest.pdfsAreWritten(ReceiptScreensTest.kt:93)
+ReceiptScreensTest > pdfsAreWritten SKIPPED
+=== ReceiptScreensTest.receiptBangla
+ReceiptScreensTest > receiptBangla STARTED
+ReceiptScreensTest > receiptBangla PASSED
+=== ReceiptScreensTest.receiptEnglishDigitsVoidDemo
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo STARTED
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo PASSED
+=== RxCancelScreensTest.doctorDialogEnglishDark
+RxCancelScreensTest > doctorDialogEnglishDark STARTED
+RxCancelScreensTest > doctorDialogEnglishDark PASSED
+=== RxCancelScreensTest.doctorDialogReasonNoteConfirm
+RxCancelScreensTest > doctorDialogReasonNoteConfirm STARTED
+RxCancelScreensTest > doctorDialogReasonNoteConfirm PASSED
+=== RxCancelScreensTest.patientCardShowsReason
+RxCancelScreensTest > patientCardShowsReason STARTED
+RxCancelScreensTest > patientCardShowsReason PASSED
+=== RxCancelScreensTest.reasonParsedAndTexts
+RxCancelScreensTest > reasonParsedAndTexts STARTED
+RxCancelScreensTest > reasonParsedAndTexts PASSED
+=== RxCancelScreensTest.timelineShowsReasonAndNote
+RxCancelScreensTest > timelineShowsReasonAndNote STARTED
+RxCancelScreensTest > timelineShowsReasonAndNote PASSED
+=== RxStatusScreensTest.darkThemeList
+RxStatusScreensTest > darkThemeList STARTED
+RxStatusScreensTest > darkThemeList PASSED
+=== RxStatusScreensTest.emptyOngoingShowsLinkToPrevious
+RxStatusScreensTest > emptyOngoingShowsLinkToPrevious STARTED
+RxStatusScreensTest > emptyOngoingShowsLinkToPrevious PASSED
+=== RxStatusScreensTest.listTabsBangla
+RxStatusScreensTest > listTabsBangla STARTED
+RxStatusScreensTest > listTabsBangla PASSED
+=== RxStatusScreensTest.listTabsEnglish
+RxStatusScreensTest > listTabsEnglish STARTED
+RxStatusScreensTest > listTabsEnglish PASSED
+=== RxStatusScreensTest.oldServerWithoutState
+RxStatusScreensTest > oldServerWithoutState STARTED
+RxStatusScreensTest > oldServerWithoutState PASSED
+=== RxStatusScreensTest.stateParsedAndTexts
+RxStatusScreensTest > stateParsedAndTexts STARTED
+RxStatusScreensTest > stateParsedAndTexts PASSED
+=== RxStatusScreensTest.timelineCard
+RxStatusScreensTest > timelineCard STARTED
+RxStatusScreensTest > timelineCard PASSED
+=== RxStatusScreensTest.timelineCardEnglish
+RxStatusScreensTest > timelineCardEnglish STARTED
+RxStatusScreensTest > timelineCardEnglish PASSED
+=== RxStatusScreensTest.timelineCardMarkDoneAndReopen
+RxStatusScreensTest > timelineCardMarkDoneAndReopen STARTED
+RxStatusScreensTest > timelineCardMarkDoneAndReopen PASSED
+=== RxStatusScreensTest.timelineCardSuperseded
+RxStatusScreensTest > timelineCardSuperseded STARTED
+RxStatusScreensTest > timelineCardSuperseded PASSED
+=== RxStatusScreensTest.timelineParsedAndTexts
+RxStatusScreensTest > timelineParsedAndTexts STARTED
+RxStatusScreensTest > timelineParsedAndTexts PASSED
+=== ScreensTest.accountGapFixesBangla
+ScreensTest > accountGapFixesBangla STARTED
+ScreensTest > accountGapFixesBangla PASSED
+=== ScreensTest.addBusinessDialogBangla
+ScreensTest > addBusinessDialogBangla STARTED
+ScreensTest > addBusinessDialogBangla PASSED
+=== ScreensTest.addHospitalDialog
+ScreensTest > addHospitalDialog STARTED
+ScreensTest > addHospitalDialog PASSED
+=== ScreensTest.adminHospitalRequests
+ScreensTest > adminHospitalRequests STARTED
+ScreensTest > adminHospitalRequests PASSED
+=== ScreensTest.adminScreenBangla
+ScreensTest > adminScreenBangla STARTED
+ScreensTest > adminScreenBangla PASSED
+=== ScreensTest.ambulanceFilterBarBangla
+ScreensTest > ambulanceFilterBarBangla STARTED
+ScreensTest > ambulanceFilterBarBangla PASSED
+=== ScreensTest.ambulanceMine
+ScreensTest > ambulanceMine STARTED
+ScreensTest > ambulanceMine PASSED
+=== ScreensTest.appointmentTab
+ScreensTest > appointmentTab STARTED
+ScreensTest > appointmentTab PASSED
+=== ScreensTest.appointmentTabBangla
+ScreensTest > appointmentTabBangla STARTED
+ScreensTest > appointmentTabBangla PASSED
+=== ScreensTest.areaPickerBangla
+ScreensTest > areaPickerBangla STARTED
+ScreensTest > areaPickerBangla PASSED
+=== ScreensTest.bloodBankCardsBangla
+ScreensTest > bloodBankCardsBangla STARTED
+ScreensTest > bloodBankCardsBangla PASSED
+=== ScreensTest.businessQuestionBangla
+ScreensTest > businessQuestionBangla STARTED
+ScreensTest > businessQuestionBangla PASSED
+=== ScreensTest.careModeAttachesOnlyAllowedActions
+ScreensTest > careModeAttachesOnlyAllowedActions STARTED
+ScreensTest > careModeAttachesOnlyAllowedActions PASSED
+=== ScreensTest.chamberEditScreenDoctorHome
+ScreensTest > chamberEditScreenDoctorHome STARTED
+ScreensTest > chamberEditScreenDoctorHome PASSED
+=== ScreensTest.chamberEditScreenNurse
+ScreensTest > chamberEditScreenNurse STARTED
+ScreensTest > chamberEditScreenNurse PASSED
+=== ScreensTest.chamberEditor
+ScreensTest > chamberEditor STARTED
+ScreensTest > chamberEditor PASSED
+=== ScreensTest.chamberHubBangla
+ScreensTest > chamberHubBangla STARTED
+ScreensTest > chamberHubBangla PASSED
+=== ScreensTest.closeDialogNotNeededBangla
+ScreensTest > closeDialogNotNeededBangla STARTED
+ScreensTest > closeDialogNotNeededBangla PASSED
+=== ScreensTest.closeRequestDialogBangla
+ScreensTest > closeRequestDialogBangla STARTED
+ScreensTest > closeRequestDialogBangla PASSED
+=== ScreensTest.doctorListFilterBarBangla
+ScreensTest > doctorListFilterBarBangla STARTED
+ScreensTest > doctorListFilterBarBangla PASSED
+=== ScreensTest.donationDateDialogBangla
+ScreensTest > donationDateDialogBangla STARTED
+ScreensTest > donationDateDialogBangla PASSED
+=== ScreensTest.donorDetailsFormBangla
+ScreensTest > donorDetailsFormBangla STARTED
+ScreensTest > donorDetailsFormBangla PASSED
+=== ScreensTest.emergencyCardsBangla
+ScreensTest > emergencyCardsBangla STARTED
+ScreensTest > emergencyCardsBangla PASSED
+=== ScreensTest.englishFontServices
+ScreensTest > englishFontServices STARTED
+ScreensTest > englishFontServices PASSED
+=== ScreensTest.englishTitleCaseScreens
+ScreensTest > englishTitleCaseScreens STARTED
+ScreensTest > englishTitleCaseScreens PASSED
+=== ScreensTest.formDialogWithFieldAndChips
+ScreensTest > formDialogWithFieldAndChips STARTED
+ScreensTest > formDialogWithFieldAndChips PASSED
+=== ScreensTest.gapFixesBangla
+ScreensTest > gapFixesBangla STARTED
+ScreensTest > gapFixesBangla PASSED
+=== ScreensTest.guestHomeTopBangla
+ScreensTest > guestHomeTopBangla STARTED
+ScreensTest > guestHomeTopBangla PASSED
+=== ScreensTest.guestLoginReasonBangla
+ScreensTest > guestLoginReasonBangla STARTED
+ScreensTest > guestLoginReasonBangla PASSED
+=== ScreensTest.healthTab
+ScreensTest > healthTab STARTED
+ScreensTest > healthTab PASSED
+=== ScreensTest.helpScreen
+ScreensTest > helpScreen STARTED
+ScreensTest > helpScreen PASSED
+=== ScreensTest.homeCareTab
+ScreensTest > homeCareTab STARTED
+ScreensTest > homeCareTab PASSED
+=== ScreensTest.homeProCards
+ScreensTest > homeProCards STARTED
+ScreensTest > homeProCards PASSED
+=== ScreensTest.homeProCardsBangla
+ScreensTest > homeProCardsBangla STARTED
+ScreensTest > homeProCardsBangla PASSED
+=== ScreensTest.homeProDetailSheetBangla
+ScreensTest > homeProDetailSheetBangla STARTED
+ScreensTest > homeProDetailSheetBangla PASSED
+=== ScreensTest.hospitalPicker
+ScreensTest > hospitalPicker STARTED
+ScreensTest > hospitalPicker PASSED
+=== ScreensTest.labReportBangla
+ScreensTest > labReportBangla STARTED
+ScreensTest > labReportBangla PASSED
+=== ScreensTest.logo
+ScreensTest > logo STARTED
+ScreensTest > logo PASSED
+=== ScreensTest.medAlarmSlots
+ScreensTest > medAlarmSlots STARTED
+ScreensTest > medAlarmSlots PASSED
+=== ScreensTest.medicineFinder
+ScreensTest > medicineFinder STARTED
+ScreensTest > medicineFinder PASSED
+=== ScreensTest.myRequestCardBangla
+ScreensTest > myRequestCardBangla STARTED
+ScreensTest > myRequestCardBangla PASSED
+=== ScreensTest.navBarAndAreaPickerBangla
+ScreensTest > navBarAndAreaPickerBangla STARTED
+ScreensTest > navBarAndAreaPickerBangla PASSED
+=== ScreensTest.navBarFiveTabsBangla
+ScreensTest > navBarFiveTabsBangla STARTED
+ScreensTest > navBarFiveTabsBangla PASSED
+=== ScreensTest.pharmacyDirectory
+ScreensTest > pharmacyDirectory STARTED
+ScreensTest > pharmacyDirectory PASSED
+=== ScreensTest.pharmacyMyPrescriptionsChip
+ScreensTest > pharmacyMyPrescriptionsChip STARTED
+ScreensTest > pharmacyMyPrescriptionsChip PASSED
+=== ScreensTest.phoneVerifyDialog
+ScreensTest > phoneVerifyDialog STARTED
+ScreensTest > phoneVerifyDialog PASSED
+=== ScreensTest.pillTabsAutoScroll
+ScreensTest > pillTabsAutoScroll STARTED
+ScreensTest > pillTabsAutoScroll PASSED
+=== ScreensTest.providerCardAndDetail
+ScreensTest > providerCardAndDetail STARTED
+ScreensTest > providerCardAndDetail PASSED
+=== ScreensTest.providerDetailDialog
+ScreensTest > providerDetailDialog STARTED
+ScreensTest > providerDetailDialog PASSED
+=== ScreensTest.requestCardsBangla
+ScreensTest > requestCardsBangla STARTED
+ScreensTest > requestCardsBangla PASSED
+=== ScreensTest.requestGapFixesBangla
+ScreensTest > requestGapFixesBangla STARTED
+ScreensTest > requestGapFixesBangla PASSED
+=== ScreensTest.rxPaperBangla
+ScreensTest > rxPaperBangla STARTED
+ScreensTest > rxPaperBangla PASSED
+=== ScreensTest.servicesBloodBankBangla
+ScreensTest > servicesBloodBankBangla STARTED
+ScreensTest > servicesBloodBankBangla PASSED
+=== ScreensTest.servicesTab
+ScreensTest > servicesTab STARTED
+ScreensTest > servicesTab PASSED
+=== ScreensTest.shopQrCode
+ScreensTest > shopQrCode STARTED
+ScreensTest > shopQrCode PASSED
+=== ScreensTest.titleCaseRules
+ScreensTest > titleCaseRules STARTED
+ScreensTest > titleCaseRules PASSED
+=== ScreensTest.topBarMenuAvatar
+ScreensTest > topBarMenuAvatar STARTED
+ScreensTest > topBarMenuAvatar PASSED
+=== ScreensTest.upazilaPickerWithThanas
+ScreensTest > upazilaPickerWithThanas STARTED
+ScreensTest > upazilaPickerWithThanas PASSED
+=== ScreensTest.verifyDocsBangla
+ScreensTest > verifyDocsBangla STARTED
+ScreensTest > verifyDocsBangla PASSED
+=== ScreensTest.workTabBangla
+ScreensTest > workTabBangla STARTED
+ScreensTest > workTabBangla PASSED
