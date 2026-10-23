@@ -12,9 +12,13 @@ import { useSession } from '@/lib/session';
 import { formatDate } from '@/lib/format';
 import { tr } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
+import { useHealthConsentPrompt } from '@/lib/consent';
 import { isActive, parseAppointment, today, type Appointment } from './model';
 import ApptCard from './ApptCard.vue';
 import ApptDetail from './ApptDetail.vue';
+
+// স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার জিজ্ঞেস (backend/docs/CONSENT.md)
+useHealthConsentPrompt();
 
 const props = defineProps<{ detailId: string | null }>();
 const title = computed(() => tr('My appointments', 'আমার অ্যাপয়েন্টমেন্ট'));

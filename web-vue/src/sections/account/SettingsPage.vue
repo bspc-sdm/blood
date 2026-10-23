@@ -21,6 +21,8 @@ import LinkRow from './LinkRow.vue';
 import NotifySettings from './NotifySettings.vue';
 import SLabel from './SLabel.vue';
 import BlockedCalls from '@/calls/BlockedCalls.vue';
+import ConsentSettings from '@/sections/consent/ConsentSettings.vue';
+import { featureOn } from '@/lib/features';
 
 /** সব মানানসই গ্রুপ বাছা থাকলে null — রক্তের গ্রুপ বদলালে নিজে থেকে মিলে যায় */
 function normalize(set: string[], def: string[]): string[] | null {
@@ -181,6 +183,8 @@ async function picked(pl: Place) {
                 :on-click="() => s.requireLogin(tr('Log in to add your business', 'আপনার ব্যবসা যোগ করতে লগইন করুন'), () => nav('/work/add'))"
               />
             </section>
+            <!-- গোপনীয়তা: স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md) -->
+            <ConsentSettings v-if="!s.guest && featureOn('health_consent')" />
             <section class="acct-scard">
               <LinkRow icon="privacy_tip" :title="tr('Privacy policy', 'প্রাইভেসি পলিসি')" :href="PRIVACY_URL" />
               <LinkRow icon="list_alt" :title="tr('Terms of use', 'ব্যবহারের শর্ত')" :href="TERMS_URL" />

@@ -19,7 +19,7 @@ export const PUBLIC_ACTIONS = new Set([
 ]);
 
 export class ServerError extends Error {
-  constructor(message: string, public status: number, public code?: string) {
+  constructor(message: string, public status: number, public code?: string, public data?: any) {
     super(message);
   }
 }
@@ -82,9 +82,43 @@ async function request(path: string, body: Record<string, unknown>, token: strin
     // রোগী কেয়ারগিভার থেকে সরিয়ে দিয়েছেন: মোড বন্ধ, যাতে বাকি সব আবার নিজের হয়ে চলে
     if (json.code === 'care_revoked') setCareMode(null);
     if (json.code === 'feature_off') featureOffListeners.forEach((f) => f());
-    throw new ServerError(json.error || tr(`Server error (${res.status})`, `সার্ভারে সমস্যা (${res.status})`), res.status, json.code);
+    throw new ServerError(json.error || tr(`Server error (${res.status})`, `সার্ভারে সমস্যা (${res.status})`), res.status, json.code, json);
   }
   return json;
+}
+
+/** 428 `consent_required` (backend/docs/CONSENT.md): কোন সম্মতি লাগবে, আর কেয়ারগিভার রোগীর হয়ে চাইছেন কি না */
+export interface ConsentRequired {
+  scopes: string[];
+  version: string;
+  caregiver: boolean;
+  message: string;
+}
+type ConsentHandler = (info: ConsentRequired) => Promise<boolean>;
+let consentHandler: ConsentHandler | null = null;
+let declinedText = () => '';
+/** lib/consent.ts বসায়: সম্মতির পর্দা দেখিয়ে true (রাজি আছি) হলে কাজটা একবার আবার পাঠানো হয়; declined — "এখন না"-র পর পাতার বার্তা */
+export function setConsentHandler(f: ConsentHandler | null, declined?: () => string) {
+  consentHandler = f;
+  if (declined) declinedText = declined;
+}
+/** "এখন না" বা কেয়ারগিভার — কাজটা হয়নি (পাতায় দেখানোর বার্তা) */
+export class ConsentDeclined extends ServerError {}
+
+async function withConsent(path: string, body: Record<string, unknown>, token: string | null): Promise<any> {
+  try {
+    return await request(path, body, token);
+  } catch (e) {
+    if (!(e instanceof ServerError) || e.code !== 'consent_required' || !consentHandler) throw e;
+    const d = e.data || {};
+    const info: ConsentRequired = { scopes: Array.isArray(d.scopes) ? d.scopes : [], version: String(d.version || ''), caregiver: d.caregiver === true, message: e.message };
+    // কেয়ারগিভার: রোগীকে নিজে সম্মতি দিতে হবে — সার্ভারের বার্তাই দেখানো
+    if (info.caregiver) throw new ConsentDeclined(e.message, e.status, e.code, d);
+    if (!(await consentHandler(info))) {
+      throw new ConsentDeclined(declinedText() || e.message, e.status, 'consent_declined', d);
+    }
+    return request(path, body, token);
+  }
 }
 
 /** যেকোনো endpoint-এ POST (যেমন /api/respond) */
@@ -98,7 +132,7 @@ export async function post<T = any>(path: string, body: Record<string, unknown>)
   // কেয়ারগিভার রোগীর হয়ে কাজ করছেন: অনুমোদিত কাজে রোগীর uid
   const target = path === '/api/community' ? careTarget(String(body.action)) : null;
   const b = target && !('asUid' in body) ? { ...body, asUid: target } : body;
-  return request(path, b, token);
+  return withConsent(path, b, token);
 }
 
 /** /api/community-র একটা কাজ: call('pharmacies', { district }) */
