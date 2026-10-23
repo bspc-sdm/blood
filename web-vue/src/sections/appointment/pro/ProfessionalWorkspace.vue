@@ -58,7 +58,13 @@ const [sp] = useSearchParams();
 const KNOWN = ['', '/bookings', '/patients', '/chamber', '/home'];
 const cur = computed(() => (nurse.value ? (sub.value === '/chamber' ? '/chamber' : '') : KNOWN.includes(sub.value) ? sub.value : ''));
 /** পুরোনো ?v= (বুকিংয়ের ভাগ) আজকের রোগীর পাতায় এলে বুকিংয়ে */
-const oldView = computed(() => (cur.value === '' && !nurse.value && sp.value.get('v') ? `${props.base}/bookings?v=${encodeURIComponent(sp.value.get('v')!)}` : null));
+const oldView = computed(() => {
+  if (cur.value !== '' || nurse.value) return null;
+  if (sp.value.get('v')) return `${props.base}/bookings?v=${encodeURIComponent(sp.value.get('v')!)}`;
+  // work_today-র কাজের লিংক (backend MYWORK.md): /work/pro?tab=bookings|patients|setup
+  const t = sp.value.get('tab');
+  return t === 'bookings' ? `${props.base}/bookings` : t === 'patients' ? `${props.base}/patients` : t === 'setup' || t === 'chamber' ? `${props.base}/chamber` : null;
+});
 const docTab = computed(() => (cur.value === '' ? 'today' : cur.value === '/bookings' ? 'bookings' : cur.value === '/patients' ? 'patients' : 'more'));
 const subPage = computed(() => (cur.value === '/chamber' ? tr('Setup', 'সেটআপ') : cur.value === '/home' ? tr('Home care', 'বাসায় সেবা') : ''));
 const go = (k: string) => nav(props.base + k);

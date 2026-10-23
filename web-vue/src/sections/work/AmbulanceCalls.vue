@@ -23,7 +23,7 @@ import { useTwoPane } from '@/shell/chrome';
 
 const props = defineProps<{ names: Record<string, string>; onChanged: () => void }>();
 // পাতা খোলা থাকলে ৫ সেকেন্ড পরপর (পেছনের ট্যাবে ব্রাউজার নিজেই থামায়)
-const q = useCall<{ items: DriverReq[] }>('ambreq_driver', {}, { refetchInterval: 5000, staleTime: 0 });
+const q = useCall<{ items: DriverReq[]; counts?: { new?: number; active?: number } }>('ambreq_driver', {}, { refetchInterval: 5000, staleTime: 0 });
 const busy = ref<string | null>(null);
 const err = ref<string | null>(null);
 const info = ref<string | null>(null);
@@ -36,7 +36,8 @@ const all = computed(() => q.data?.items ?? []);
 const finished = ref<DriverReq[]>([]);
 const picked = ref<QSeg | null>(null);
 const segOf = (r: DriverReq): QSeg => (r.status === 'open' ? 'new' : 'active');
-const counts = computed(() => ({ new: all.value.filter((r) => segOf(r) === 'new').length, active: all.value.filter((r) => segOf(r) === 'active').length, done: finished.value.length }));
+// সার্ভারের counts (ambreq_driver, ২০২৬-১০) আগে, না থাকলে তালিকা গুনে
+const counts = computed(() => ({ new: q.data?.counts?.new ?? all.value.filter((r) => segOf(r) === 'new').length, active: q.data?.counts?.active ?? all.value.filter((r) => segOf(r) === 'active').length, done: finished.value.length }));
 const seg = computed<QSeg>(() => picked.value ?? (counts.value.active ? 'active' : 'new'));
 const items = computed(() => (seg.value === 'done' ? finished.value : all.value.filter((r) => segOf(r) === seg.value)));
 // ডেস্কটপে (৯৬০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা ডাক (না বাছলে প্রথমটা)

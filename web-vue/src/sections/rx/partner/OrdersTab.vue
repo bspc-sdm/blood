@@ -42,7 +42,8 @@ const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(PHARM_SEGS, props.orders.data?.counts, pharmSegOf as (x: never) => PharmSeg, items.value));
 // ?s=done বা ?s=closed = শেষ
 const seg = computed<PharmSeg>(() => {
-  const asked = sp.value.get('s');
+  // ?s= (web) or ?seg= (work_today task links, backend MYWORK.md)
+  const asked = sp.value.get('s') ?? sp.value.get('seg');
   const k = (asked === 'done' ? 'closed' : asked) as PharmSeg | null;
   return k && PHARM_SEGS.includes(k) ? k : 'new';
 });

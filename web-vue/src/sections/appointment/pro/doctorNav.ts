@@ -30,7 +30,8 @@ export function useDoctorNav(type: MaybeRefOrGetter<string | null | undefined>) 
   const q = useCall<{ chambers: QueueChamber[] }>('queue_today', {}, () => ({ enabled: on(), refetchInterval: 30_000, staleTime: 10_000 }));
   const me = useCall<{ system?: string | null; rxRules?: any }>('rx_me', {}, () => ({ enabled: on() && rx.value, staleTime: 5 * 60_000 }));
   const pending = computed(() => (appts.data?.items ?? []).map(parseAppointment).filter((a) => a.role === 'provider' && a.status === 'pending').length);
-  const waiting = computed(() => (q.data?.chambers ?? []).reduce((n, c) => n + c.rows.filter((r) => r.state === 'waiting' || r.state === 'later').length, 0));
+  // queue_today chambers[].counts.waiting (সার্ভার, ২০২৬-১০) — না থাকলে সারি গুনে
+  const waiting = computed(() => (q.data?.chambers ?? []).reduce((n, c) => n + ((c as { counts?: { waiting?: number } }).counts?.waiting ?? c.rows.filter((r) => r.state === 'waiting' || r.state === 'later').length), 0));
   const labs = computed(() => {
     const k = rxKindOf(toValue(type), me.data?.system ?? s.me?.badge?.system, me.data?.rxRules);
     return k === 'full' || k === 'free';

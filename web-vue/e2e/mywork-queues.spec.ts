@@ -93,7 +93,9 @@ for (const sw of ['on', 'off'] as const) {
 
 test('@desktop ফার্মেসি: বাঁয়ে সারি, ডানে কোডের বাক্স আর বাছা অর্ডার; কোড খুললে প্রেসক্রিপশন ডানে', async ({ page }) => {
   test.skip(page.viewportSize()!.width < 960, 'ডেস্কটপ');
-  await open(page, pharm('/work/pharmacy/orders'));
+  await open(page, pharm('/work/pharmacy/orders?seg=active'));
+  await expect(page.getByTestId('queue-segs').getByRole('tab', { name: /^চলছে/ })).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/work/pharmacy/orders', { waitUntil: 'networkidle' });
   const items = page.getByTestId('q-item');
   await expect(items.first()).toHaveAttribute('aria-current', 'true');
   const list = (await page.locator('.qd-list').boundingBox())!;
@@ -223,6 +225,10 @@ test('ডাক্তার: "আরও"-তে সেটআপ, সহকার
   await page.waitForURL(/\/work\/pro\/bookings\?v=waiting/);
   await expect(page.getByTestId('queue-segs').getByRole('tab', { name: /নতুন/ })).toHaveAttribute('aria-selected', 'true');
   await onePrimary(page.locator('article.card'));
+  // হোমের কাজের লিংক (work_today, backend MYWORK.md)
+  await page.goto('/work/pro?tab=bookings', { waitUntil: 'networkidle' });
+  await page.waitForURL(/\/work\/pro\/bookings$/);
+  await page.goto('/work/pharmacy/orders?seg=active', { waitUntil: 'networkidle' });
 });
 
 test('সহকারী: একই "আজকের রোগী", প্রেসক্রিপশন লেখা নেই; ট্যাব আজকের রোগী · রোগী · টাকা মেলানো @desktop', async ({ page }) => {

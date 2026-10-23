@@ -37,7 +37,7 @@ const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(LAB_SEGS, props.orders.data?.counts, labSegOf as (x: never) => LabSeg, items.value));
 // ভাগ: নতুন / চলছে / শেষ (সেবার "আমার কাজ"-এর এক ছাঁচ, QueueSegs) — সার্ভারের new · active · (reported + closed = শেষ)
 const view = computed<QSeg>(() => {
-  const asked = (sp.value.get('s') ?? LEGACY_VIEW[sp.value.get('v') ?? '']) as string | null;
+  const asked = (sp.value.get('s') ?? sp.value.get('seg') ?? LEGACY_VIEW[sp.value.get('v') ?? '']) as string | null;
   if (!asked && props.detailId) {
     // খোলা অনুরোধের ভাগই (ডেস্কটপে তালিকা পাশে থাকে)
     const o = items.value.find((x) => x.id === props.detailId);
