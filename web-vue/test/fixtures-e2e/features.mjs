@@ -4,3 +4,7 @@ const KEYS = ['calls_audio', 'calls_video', 'appt_video', 'chat', 'chat_media', 
 export default {
   features: () => ({ ok: true, keys: Object.fromEntries(KEYS.map((k) => [k, true])), v: 1 }),
 };
+// অ্যাডমিন প্যানেল: আগের মতো সব বন্ধ (প্যানেলের মেনুর পরীক্ষা অনলাইন চেম্বারের পাতা ছাড়াই)
+export const admin = {
+  features: () => ({ ok: true, keys: {}, v: 1 }),
+};
