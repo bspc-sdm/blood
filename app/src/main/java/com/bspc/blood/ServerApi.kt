@@ -129,7 +129,21 @@ object ServerApi {
             ?: throw IllegalStateException(tr("Please log in again", "আবার লগইন করুন"))
         // কেয়ারগিভার রোগীর হয়ে কাজ করছেন (অনুমোদিত কাজে রোগীর uid যোগ হয়)
         CareMode.attach(path, body)
-        return request(path, body, token)
+        return withConsent(path, body, token)
+    }
+
+    /**
+     * 428 `consent_required` (backend/docs/CONSENT.md): সম্মতির পর্দা → "রাজি আছি" হলে একই কাজ একবার আবার পাঠানো;
+     * "এখন না" → কাজ হয় না (consent_declined)। কেয়ারগিভার: পর্দা নয়, সার্ভারের "রোগীকে নিজে একবার সম্মতি দিতে হবে"।
+     */
+    private suspend fun withConsent(path: String, body: JSONObject, token: String): JSONObject {
+        try {
+            return request(path, body, token)
+        } catch (e: ServerError) {
+            if (e.code != HealthConsent.REQUIRED_CODE || e.data?.optBoolean("caregiver") == true) throw e
+            if (!HealthConsent.onRequired(e.data)) throw ServerError(HealthConsent.declinedText(), HealthConsent.DECLINED_CODE, e.data)
+            return request(path, body, token)
+        }
     }
 
     private suspend fun request(path: String, body: JSONObject, token: String?): JSONObject {
@@ -163,6 +177,7 @@ object ServerApi {
                     throw ServerError(
                         errorMessage(errCode, json.optString("error"), code),
                         errCode.ifBlank { null },
+                        json,
                     )
                 }
                 json
@@ -191,7 +206,7 @@ internal fun errorMessage(errCode: String?, serverText: String?, httpCode: Int):
 class LoginRequired(message: String) : IllegalStateException(message)
 
 /** সার্ভারের ভুলের বার্তা; code দিয়ে নির্দিষ্ট অবস্থা চেনা যায় (যেমন "phone_unverified") */
-class ServerError(message: String, val code: String?) : IllegalStateException(message)
+class ServerError(message: String, val code: String?, val data: JSONObject? = null) : IllegalStateException(message)
 
 /** সার্ভার থেকে আসা অবস্থা যা পুরো অ্যাপকে জানতে হয় */
 object SessionEvents {

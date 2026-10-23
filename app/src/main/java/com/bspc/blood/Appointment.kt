@@ -808,6 +808,8 @@ private fun statusLabel(s: String): String = when (s) {
 /** রোগী হিসেবে নিজের নেওয়া অ্যাপয়েন্টমেন্ট (প্রোফাইল → আমার অ্যাপয়েন্টমেন্ট) */
 @Composable
 fun MyAppointmentsScreen(onBack: () -> Unit) {
+    // স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার (backend/docs/CONSENT.md)
+    HealthConsentPrompt()
     AppointmentsList(role = "patient", title = tr("My appointments", "আমার অ্যাপয়েন্টমেন্ট"), onBack = onBack)
 }
 
