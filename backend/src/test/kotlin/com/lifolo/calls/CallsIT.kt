@@ -604,6 +604,30 @@ class CallsIT : CallsTestBase() {
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM call_sessions WHERE ref_id = 'ap1' AND state = 'accepted'", Int::class.java))
     }
 
+    @Test
+    fun `doctorJoined in my_appointments and rx_patients once the doctor side joined, pay confirm ignores an extra doctorUid`() {
+        for (u in listOf("pat", "doc", "asst")) person(u)
+        doctor("doc", "asst@example.com")
+        jdbc.update("INSERT INTO badges (uid, type, reg_no, workplace, name, status) VALUES ('doc', 'doctor', 'A-1', 'X', 'ডা. ডক', 'approved')")
+        appointment("ap1", "pat", "doc", slotOffsetMin = 5, online = true)
+        jdbc.update("UPDATE appointments SET pay_state = 'claimed', pay_ref = 'AB12CD34EF', fee = '500' WHERE id = 'ap1'")
+        fun mine(uid: String) = ok(uid, "my_appointments")["items"].first { it["id"].textValue() == "ap1" }
+        fun rxList() = ok("doc", "rx_patients")["appointments"].first { it["id"].textValue() == "ap1" }
+        assertFalse(mine("pat")["doctorJoined"].booleanValue())
+        assertFalse(rxList()["doctorJoined"].booleanValue())
+        ok("pat", "appt_join", mapOf("appointmentId" to "ap1"))
+        assertFalse(mine("pat")["doctorJoined"].booleanValue())
+        ok("asst", "appt_join", mapOf("appointmentId" to "ap1"))
+        assertTrue(mine("pat")["doctorJoined"].booleanValue())
+        assertTrue(mine("doc")["doctorJoined"].booleanValue())
+        assertTrue(rxList()["doctorJoined"].booleanValue())
+        // the web sends doctorUid along when an assistant confirms: ignored (the appointment says who the doctor is)
+        val r = call("asst", "appt_pay_confirm", mapOf("appointmentId" to "ap1", "doctorUid" to "doc"))
+        assertEquals(200, r.status, r.toString())
+        assertEquals("paid", r.body["payState"].textValue())
+        assertEquals("paid", row("SELECT pay_state FROM appointments WHERE id = 'ap1'")["pay_state"])
+    }
+
     // ------------------------------------------------------------------ history paging, retention, deletion
 
     @Test

@@ -588,6 +588,8 @@ class AppointmentActions(
             "fee" to (if (a.online) a.fee else null),
             "noFee" to (if (a.online) a.noFee else null),
             "onlineNote" to (if (a.online) a.onlineNote else null),
+            // the doctor's side joined the video call (appt_join) — hides "the doctor did not come" (R8)
+            "doctorJoined" to (a.online && a.doctorJoinedAt != null),
         )
         if (patientSide) m["bkashNumber"] = if (a.online && a.payState != null) a.bkashNumber.ifEmpty { null } else null
         return m

@@ -83,10 +83,11 @@ queue push "আপনার আগে ২ জন — অনলাইন ভি�
 | `payNote` | the doctor's "not received" reason, or null (cleared by a new claim / paid) |
 | `fee`, `noFee` | as booked |
 | `onlineNote` | the doctor's note |
+| `doctorJoined` | `true` once the doctor or an assistant joined the video call (`appt_join` → `doctor_joined_at`); hide "the doctor did not come" then |
 | `bkashNumber` | **patient side only** (key absent on the provider side); null when nothing to pay |
 | `start` | slot start "HH:MM" (existing field) |
 
-`rx_patients.appointments[]` add `online`, `payState`, `payRef`, `start`.
+`rx_patients.appointments[]` add `online`, `payState`, `payRef`, `start`, `doctorJoined`.
 
 ## Fee actions (`POST /api/community`)
 

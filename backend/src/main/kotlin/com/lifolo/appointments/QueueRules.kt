@@ -40,6 +40,8 @@ data class Appt(
     val noFee: Boolean = false,
     val onlineNote: String = "",
     val payClaimedAt: Long? = null,
+    /** the doctor or an assistant joined the video call (appt_join, V621) */
+    val doctorJoinedAt: Long? = null,
 ) {
     /** queue.js apptKey: chamberKey || chamber || '' */
     val key: String get() = chamberKey.ifEmpty { chamber }
@@ -80,6 +82,7 @@ data class Appt(
             noFee = rs.getBoolean("no_fee"),
             onlineNote = rs.getString("online_note") ?: "",
             payClaimedAt = rs.getTimestamp("pay_claimed_at")?.time,
+            doctorJoinedAt = rs.getTimestamp("doctor_joined_at")?.time,
         )
     }
 }
