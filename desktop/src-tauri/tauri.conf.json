@@ -1,0 +1,100 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Lifolo",
+  "mainBinaryName": "Lifolo",
+  "version": "1.0.0",
+  "identifier": "com.lifolo.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173/"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Lifolo",
+        "url": "index.html",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 600,
+        "center": true,
+        "useHttpsScheme": true,
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:",
+        "img-src": "'self' data: blob: https://lifolo.com",
+        "media-src": "'self' blob: mediastream:",
+        "connect-src": "'self' ipc: http://ipc.localhost https://lifolo.com wss://lifolo.com https://call.lifolo.com wss://call.lifolo.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+        "worker-src": "'self' blob:",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'self'",
+        "frame-src": "'none'"
+      },
+      "freezePrototype": true,
+      "capabilities": [
+        "main"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "createUpdaterArtifacts": true,
+    "publisher": "Lifolo",
+    "homepage": "https://lifolo.com",
+    "copyright": "© 2026 Lifolo",
+    "category": "Business",
+    "shortDescription": "Lifolo — ফার্মেসি, ল্যাব আর চেম্বারের রসিদ, ইন্টারনেট ছাড়াও",
+    "longDescription": "Lifolo ওয়েবের সবকিছু, সাথে ইন্টারনেট না থাকলেও বিক্রি আর রসিদ (পরে নিজে থেকে সিঙ্ক)।",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English"
+        ],
+        "customLanguageFiles": {
+          "English": "nsis/bangla.nsh"
+        },
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "startMenuFolder": "Lifolo",
+        "compression": "lzma"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://lifolo.com/download/desktop/latest.json"
+      ],
+      "pubkey": "PUBKEY_SET_BY_CI",
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

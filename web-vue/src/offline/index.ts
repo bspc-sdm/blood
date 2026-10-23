@@ -14,6 +14,7 @@ import { T } from './text';
 import { OfflineError, type OfflineStatus, type OfflineStore } from './types';
 
 export * from './types';
+export { onBarcode, useBarcode, scanDetector, type ScanOptions } from './scanner';
 
 const notDesktop = () => new OfflineError(T.notDesktop(), 'not_desktop');
 

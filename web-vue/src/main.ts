@@ -12,6 +12,7 @@ import '@fontsource/hind-siliguri/latin-400.css';
 import './main.css';
 import App from './App.vue';
 import { router } from './router';
+import './offline/routes';
 import { queryClient } from './lib/query';
 import { initSession } from './lib/session';
 import { applyTheme } from './lib/theme';

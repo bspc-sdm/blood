@@ -1,0 +1,47 @@
+[package]
+name = "lifolo-desktop"
+version = "1.0.0"
+description = "Lifolo — Windows desktop app (offline receipts for pharmacies, labs and chambers)"
+authors = ["Lifolo"]
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "lifolo_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.1", features = [] }
+
+# সংস্করণ আটকানো (=) — Tauri আর প্লাগিনের JS প্যাকেজের (desktop/package.json, web-vue/package.json) সাথে মিলিয়ে
+[dependencies]
+tauri = { version = "=2.12.1", features = ["tray-icon", "image-png"] }
+tauri-plugin-sql = { version = "=2.5.0", features = ["sqlite"] }
+tauri-plugin-http = { version = "=2.8.1" }
+tauri-plugin-updater = { version = "=2.13.2" }
+tauri-plugin-notification = { version = "=2.5.1" }
+tauri-plugin-autostart = { version = "=2.7.0" }
+tauri-plugin-process = { version = "=2.4.0" }
+tauri-plugin-single-instance = { version = "=2.5.2" }
+tauri-plugin-opener = { version = "=2.7.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.61.3", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Printing",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_System_Memory",
+] }
+
+[profile.release]
+# ছোট ইনস্টলার (~১০ MB লক্ষ্য)
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

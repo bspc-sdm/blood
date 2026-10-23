@@ -107,6 +107,17 @@ export const T = {
   cancel: () => tr('Cancel', 'বাতিল'),
   diskHint: () => trPlain('Give this Windows account a password, and turn on BitLocker / Device encryption if you can. Download Lifolo only from lifolo.com/download.', 'এই Windows অ্যাকাউন্টে পাসওয়ার্ড দিন, সম্ভব হলে BitLocker / Device encryption চালু করুন। Lifolo শুধু lifolo.com/download থেকে নামান।'), // bn-ok
   wipeWarn: (n: number) => trPlain(`${n} wrong tries left. After that, offline data on this computer is erased and you are logged out.`, `আর ${num(n)}বার ভুল হলে এই কম্পিউটারের অফলাইন তথ্য মুছে যাবে আর লগআউট হবে।`), // bn-ok
+  // ডাউনলোডের পাতা (/desktop-app)
+  dlTitle: () => tr('Lifolo for Windows', 'Lifolo — Windows-এর জন্য'), // bn-ok
+  dlIntro: () => trPlain('For pharmacies, labs and doctors: sell and give receipts even when the internet is down. Everything syncs when it comes back.', 'ফার্মেসি, ল্যাব আর ডাক্তারের জন্য: ইন্টারনেট না থাকলেও বিক্রি আর রসিদ। ইন্টারনেট এলে সব নিজে থেকে সিঙ্ক হয়।'), // bn-ok
+  dlButton: () => tr('Download for Windows', 'Windows-এর জন্য নামান'), // bn-ok
+  dlNeeds: () => trPlain('Windows 10 or 11 (64-bit). About 10 MB.', 'Windows 10 বা 11 (৬৪-বিট)। প্রায় ১০ MB।'), // bn-ok
+  dlOnly: () => trPlain('Download only from lifolo.com/download. Do not run a Lifolo installer from anywhere else.', 'শুধু lifolo.com/download থেকে নামান। অন্য কোথাও থেকে পাওয়া Lifolo ইনস্টলার চালাবেন না।'), // bn-ok
+  dlSmartTitle: () => tr('If Windows shows a blue warning', 'Windows নীল সতর্কতা দেখালে'), // bn-ok
+  dlSmart1: () => trPlain('Windows may say “Windows protected your PC” (SmartScreen), because Lifolo does not have a paid code-signing certificate yet.', 'Windows বলতে পারে “Windows protected your PC” (SmartScreen) — কারণ Lifolo-র এখনো টাকা দিয়ে কেনা কোড-সাইনিং সার্টিফিকেট নেই।'), // bn-ok
+  dlSmart2: () => trPlain('Click “More info”, check that the app is Lifolo, then click “Run anyway”.', '“More info” চাপুন, অ্যাপের নাম Lifolo কি না দেখুন, তারপর “Run anyway” চাপুন।'), // bn-ok
+  dlSha: () => tr('SHA-256 (to check the file)', 'SHA-256 (ফাইল মিলিয়ে দেখতে)'), // bn-ok
+  soon: () => trPlain('This feature is coming soon', 'এই সুবিধা শিগগির আসছে'), // bn-ok
   // লক
   lockTitle: () => trPlain('Lifolo is locked', 'Lifolo লক করা'), // bn-ok
   enterPin: () => tr('Enter PIN', 'পিন দিন'), // bn-ok
