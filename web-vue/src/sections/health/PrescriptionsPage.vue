@@ -11,6 +11,7 @@ import { useQ } from '@/lib/query';
 import { num, tr, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
+import { useHealthConsentPrompt } from '@/lib/consent';
 import { useNav, useSearchParams } from '@/lib/nav';
 import { useFlash } from './common';
 import type { Rx } from './rx';
@@ -19,6 +20,9 @@ import { RX_HOME, rxPath } from '../services/data';
 import RxListCard from './RxListCard.vue';
 import RxDetail from './RxDetail.vue';
 import RxClaimDialog from './RxClaimDialog.vue';
+
+// স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার জিজ্ঞেস (backend/docs/CONSENT.md)
+useHealthConsentPrompt();
 
 const props = defineProps<{ id: string | null }>();
 usePageTitle(() => tr('My prescriptions', 'আমার প্রেসক্রিপশন'));

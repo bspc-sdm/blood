@@ -7,6 +7,7 @@ import ErrorBoundary from './shell/ErrorBoundary.vue';
 import { Loading, ToastHost } from './ui/kit';
 import { useSession } from './lib/session';
 import CallLayer from './calls/CallLayer.vue';
+import ConsentHost from './sections/consent/ConsentHost.vue';
 
 const route = useRoute();
 const s = useSession();
@@ -26,5 +27,7 @@ const s = useSession();
   </AppShell>
   <!-- অ্যাপে কল: আসা কলের ব্যানার আর কলের পর্দা (লগইন থাকলে) -->
   <CallLayer v-if="!s.deactivated" />
+  <!-- স্বাস্থ্য তথ্যের সম্মতি (backend/docs/CONSENT.md): 428-এর পর বা স্বাস্থ্যের পাতা খোলায় -->
+  <ConsentHost v-if="!s.guest" />
   <ToastHost />
 </template>

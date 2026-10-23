@@ -1,0 +1,22 @@
+/* স্বাস্থ্য তথ্যের সম্মতি (sections/consent): পর্দা আর সেটিংসের কার্ড — রং/লেখার মাপ টোকেন থেকে, ফন্ট থিম থেকে */
+.consent { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.consent-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.consent-point { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.consent-point > svg { color: var(--primary); flex: none; margin-top: 1px; }
+.consent-point h3 { margin: 0; }
+.consent-point p { margin: 0; overflow-wrap: anywhere; }
+.consent-scopes { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--r-card); background: var(--primary-container); color: var(--on-primary-container); }
+.consent-scopes .muted { color: inherit; opacity: .85; }
+.consent-scope { display: flex; gap: 10px; align-items: flex-start; margin: 0; }
+.consent-scope > svg { flex: none; margin-top: 1px; }
+.consent-link { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; align-self: flex-start; }
+.consent-link.link-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.consent-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
+.consent-changed { color: var(--on-error-container); background: var(--error-container); padding: 8px 12px; border-radius: var(--r-small); margin: 0; }
+.consent-settings { gap: 10px; }
+.consent-states { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.consent-state { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.consent-state > svg { flex: none; margin-top: 2px; }
+.consent-state .tone-good { color: var(--tertiary); }
+.consent-state .tone-warn { color: var(--error); }
+.consent-state .tone-muted { color: var(--on-surface-variant); }
