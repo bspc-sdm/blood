@@ -1,0 +1,278 @@
+22:21:38.760 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /home/runner/work/blood/blood/e2e-out/debug/j16-online-chamber/.maestro/tests/2026-10-23_222138
+22:21:38.764 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+22:21:38.765 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.11.0
+22:21:38.766 [ INFO] MAESTRO.logSystemInfo: CI: github
+22:21:38.766 [ INFO] MAESTRO.logSystemInfo: OS Name: Linux
+22:21:38.767 [ INFO] MAESTRO.logSystemInfo: OS Version: 6.17.0-1022-azure
+22:21:38.767 [ INFO] MAESTRO.logSystemInfo: Architecture: amd64
+22:21:38.769 [ INFO] MAESTRO.logSystemInfo: Java Version: 17
+22:21:38.773 [ INFO] MAESTRO.logSystemInfo: Xcode Version: null
+22:21:38.776 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+22:21:38.779 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+22:21:38.780 [ INFO] MAESTRO.logSystemInfo: ---------------------
+22:21:39.657 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+22:21:42.704 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device emulator-5554 using port 36125 with execution plan ExecutionPlan(flowsToRun=[/home/runner/work/blood/blood/e2e/android/flows/j16-online-chamber.yaml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+22:21:45.873 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow j16-online-chamber
+22:21:45.888 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+22:21:46.125 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=ANDROID, widthPixels=1080, heightPixels=2400, widthGrid=1080, heightGrid=2400)
+22:21:46.327 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+22:21:46.330 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+22:21:46.331 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+22:21:46.331 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+22:21:46.332 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:21:46.332 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:21:46.332 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run ../common/start.yaml RUNNING
+22:21:46.333 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:21:46.334 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:21:46.334 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.bspc.blood" with clear state RUNNING
+22:21:46.335 [ INFO] maestro.Maestro.clearAppState$lambda$8: Clearing app state com.bspc.blood
+22:21:47.967 [ INFO] maestro.Maestro.launchApp$lambda$5: Launching app com.bspc.blood
+22:21:47.967 [ INFO] maestro.Maestro.launchApp$lambda$5: Stopping com.bspc.blood app during launch
+22:21:48.071 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.bspc.blood" with clear state COMPLETED
+22:21:48.072 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+22:21:48.077 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:21:48.077 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:21:48.078 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+22:21:55.224 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:21:55.225 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+22:21:55.225 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+22:21:55.226 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*জেলা খুঁজুন.*" is visible RUNNING
+22:21:55.356 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*জেলা খুঁজুন.*" is visible COMPLETED
+22:21:55.357 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+22:21:55.357 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:21:55.358 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:21:55.358 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+22:21:55.540 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:21:55.541 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+22:21:55.541 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+22:21:55.541 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot ${J}-00a-location RUNNING
+22:21:56.341 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:21:56.343 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:21:56.644 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot ${J}-00a-location COMPLETED
+22:21:56.644 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*জেলা খুঁজুন.*" RUNNING
+22:21:56.785 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=জেলা খুঁজুন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,522][266,596], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=522, width=182, height=74))
+22:21:58.044 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:21:58.050 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (175, 559) using hierarchy based logic for wait
+22:22:00.275 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:00.277 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*জেলা খুঁজুন.*" COMPLETED
+22:22:00.277 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text Gazipur RUNNING
+22:22:00.278 [ INFO] maestro.Maestro.inputText: Inputting text: Gazipur
+22:22:02.397 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text Gazipur COMPLETED
+22:22:02.397 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Hide Keyboard RUNNING
+22:22:02.399 [ INFO] maestro.Maestro.hideKeyboard$lambda$12: Hiding Keyboard
+22:22:03.691 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Hide Keyboard COMPLETED
+22:22:03.691 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "গাজীপুর.*" RUNNING
+22:22:03.770 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=গাজীপুর, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,693][215,767], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=693, width=131, height=74))
+22:22:04.995 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:04.997 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (149, 730) using hierarchy based logic for wait
+22:22:06.066 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:06.066 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "গাজীপুর.*" COMPLETED
+22:22:06.066 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "লগইন" is visible RUNNING
+22:22:06.207 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "লগইন" is visible COMPLETED
+22:22:06.207 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "লগইন" RUNNING
+22:22:06.328 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=লগইন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[911,98][1006,168], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=911, y=98, width=95, height=70))
+22:22:07.619 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:07.620 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (958, 133) using hierarchy based logic for wait
+22:22:09.420 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:09.421 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "লগইন" COMPLETED
+22:22:09.422 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled RUNNING
+22:22:09.531 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 0, DeviceWidth: 1080, DeviceWidth: 2400
+22:22:09.532 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=210, y=1758, width=221, height=69)
+22:22:09.533 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+22:22:09.547 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=.*ডা. ডেমো হাসান.*, idRegex=null, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=60000, waitToSettleTimeoutMs=null, centerElement=true, originalSpeedValue=40, label=null, optional=false).centerElement
+22:22:09.547 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+22:22:09.569 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:10.735 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 1, DeviceWidth: 1080, DeviceWidth: 2400
+22:22:10.735 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=210, y=857, width=221, height=69)
+22:22:10.735 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+22:22:10.735 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=.*ডা. ডেমো হাসান.*, idRegex=null, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=60000, waitToSettleTimeoutMs=null, centerElement=true, originalSpeedValue=40, label=null, optional=false).centerElement
+22:22:10.735 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+22:22:10.736 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled COMPLETED
+22:22:10.736 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot ${J}-00b-login RUNNING
+22:22:10.743 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:22:10.743 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:22:10.947 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot ${J}-00b-login COMPLETED
+22:22:10.947 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ${J == 'j1'} is true RUNNING
+22:22:10.956 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:22:10.956 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ${J == 'j1'} is true SKIPPED
+22:22:10.957 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*${ROLE}.*" RUNNING
+22:22:11.079 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=ডা. ডেমো হাসান, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[210,857][431,926], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=210, y=857, width=221, height=69))
+22:22:12.354 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:12.355 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (320, 891) using hierarchy based logic for wait
+22:22:13.340 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:13.341 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*${ROLE}.*" COMPLETED
+22:22:13.341 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "সেটিংস ও প্রোফাইল" is visible RUNNING
+22:22:15.020 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "সেটিংস ও প্রোফাইল" is visible COMPLETED
+22:22:15.021 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Wait for animation to end within 5000 ms RUNNING
+22:22:15.024 [ INFO] maestro.Maestro.waitForAnimationToEnd$lambda$53: Waiting for animation to end with timeout 5000
+22:22:15.025 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:22:15.025 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:22:15.353 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:22:15.353 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:22:16.022 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Wait for animation to end within 5000 ms COMPLETED
+22:22:16.022 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run ../common/start.yaml COMPLETED
+22:22:16.022 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "আমার কাজ" RUNNING
+22:22:16.125 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=আমার কাজ, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[902,2206][1043,2260], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=902, y=2206, width=141, height=54))
+22:22:17.979 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:17.980 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (972, 2233) using hierarchy based logic for wait
+22:22:18.517 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:18.517 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "আমার কাজ" COMPLETED
+22:22:18.517 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*আমার চেম্বার.*" RUNNING
+22:22:18.590 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=আমার চেম্বার, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[236,405][470,484], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=236, y=405, width=234, height=79))
+22:22:19.786 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:19.787 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (353, 444) using hierarchy based logic for wait
+22:22:20.760 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:20.761 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*আমার চেম্বার.*" COMPLETED
+22:22:20.761 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*বুকিং.*" is visible RUNNING
+22:22:20.925 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*বুকিং.*" is visible COMPLETED
+22:22:20.925 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "সেটআপ" RUNNING
+22:22:21.062 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=সেটআপ, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[858,276][986,345], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=858, y=276, width=128, height=69))
+22:22:22.308 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:22.310 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (922, 310) using hierarchy based logic for wait
+22:22:23.371 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:23.371 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "সেটআপ" COMPLETED
+22:22:23.371 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*রোগীরা যেমন দেখবেন.*" is visible RUNNING
+22:22:23.473 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*রোগীরা যেমন দেখবেন.*" is visible COMPLETED
+22:22:23.473 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until id: online_head is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled RUNNING
+22:22:24.187 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:24.230 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:25.901 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:25.944 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:28.039 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:28.081 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:29.716 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:29.759 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:31.355 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:31.396 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:33.094 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:33.139 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:34.668 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Id matching regex: online_head
+22:22:34.711 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+22:22:35.809 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 0, DeviceWidth: 1080, DeviceWidth: 2400
+22:22:35.810 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=74, y=1986, width=932, height=105)
+22:22:35.810 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+22:22:35.810 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=null, idRegex=online_head, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=15000, waitToSettleTimeoutMs=null, centerElement=false, originalSpeedValue=40, label=null, optional=true).centerElement
+22:22:35.810 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+22:22:35.810 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until id: online_head is visible with speed 40, visibility percentage 100%, timeout 15000 ms, with centering disabled COMPLETED
+22:22:35.811 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when id: online_head is not visible RUNNING
+22:22:42.920 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandSkipped: null
+22:22:42.920 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when id: online_head is not visible SKIPPED
+22:22:42.920 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot j16-04-setup RUNNING
+22:22:42.921 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:22:42.922 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:22:43.157 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot j16-04-setup COMPLETED
+22:22:43.157 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run ../common/start.yaml RUNNING
+22:22:43.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+22:22:43.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+22:22:43.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:22:43.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:22:43.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.bspc.blood" with clear state RUNNING
+22:22:43.159 [ INFO] maestro.Maestro.clearAppState$lambda$8: Clearing app state com.bspc.blood
+22:22:44.749 [ INFO] maestro.Maestro.launchApp$lambda$5: Launching app com.bspc.blood
+22:22:44.749 [ INFO] maestro.Maestro.launchApp$lambda$5: Stopping com.bspc.blood app during launch
+22:22:44.857 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.bspc.blood" with clear state COMPLETED
+22:22:44.858 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+22:22:44.858 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:22:44.861 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:22:44.861 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+22:22:52.040 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:22:52.040 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+22:22:52.040 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+22:22:52.040 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*জেলা খুঁজুন.*" is visible RUNNING
+22:22:52.145 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*জেলা খুঁজুন.*" is visible COMPLETED
+22:22:52.145 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run dismiss.yaml RUNNING
+22:22:52.145 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+22:22:52.146 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+22:22:52.146 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible RUNNING
+22:22:52.320 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:22:52.320 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible SKIPPED
+22:22:52.320 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run dismiss.yaml COMPLETED
+22:22:52.320 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot ${J}-00a-location RUNNING
+22:22:52.326 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:22:52.327 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:22:52.500 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot ${J}-00a-location COMPLETED
+22:22:52.501 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*জেলা খুঁজুন.*" RUNNING
+22:22:52.604 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=জেলা খুঁজুন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,522][266,596], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=522, width=182, height=74))
+22:22:53.823 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:22:53.824 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (175, 559) using hierarchy based logic for wait
+22:22:55.908 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:22:55.908 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*জেলা খুঁজুন.*" COMPLETED
+22:22:55.909 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text Gazipur RUNNING
+22:22:55.909 [ INFO] maestro.Maestro.inputText: Inputting text: Gazipur
+22:22:57.966 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text Gazipur COMPLETED
+22:22:57.966 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Hide Keyboard RUNNING
+22:22:57.966 [ INFO] maestro.Maestro.hideKeyboard$lambda$12: Hiding Keyboard
+22:22:58.931 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Hide Keyboard COMPLETED
+22:22:58.932 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "গাজীপুর.*" RUNNING
+22:22:58.958 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=গাজীপুর, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[84,693][215,767], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=84, y=693, width=131, height=74))
+22:23:00.203 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:23:00.205 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (149, 730) using hierarchy based logic for wait
+22:23:01.355 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:23:01.355 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "গাজীপুর.*" COMPLETED
+22:23:01.355 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "লগইন" is visible RUNNING
+22:23:01.475 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "লগইন" is visible COMPLETED
+22:23:01.475 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "লগইন" RUNNING
+22:23:01.595 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=লগইন, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[911,98][1006,168], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=911, y=98, width=95, height=70))
+22:23:02.830 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:23:02.831 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (958, 133) using hierarchy based logic for wait
+22:23:04.813 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:23:04.813 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "লগইন" COMPLETED
+22:23:04.814 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled RUNNING
+22:23:04.977 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 0, DeviceWidth: 1080, DeviceWidth: 2400
+22:23:04.977 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=210, y=1382, width=248, height=69)
+22:23:04.977 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+22:23:04.977 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=.*ডেমো রোগী রহিম.*, idRegex=null, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=60000, waitToSettleTimeoutMs=null, centerElement=true, originalSpeedValue=40, label=null, optional=false).centerElement
+22:23:04.977 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+22:23:04.977 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled COMPLETED
+22:23:04.978 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot ${J}-00b-login RUNNING
+22:23:04.982 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:23:04.982 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:05.180 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot ${J}-00b-login COMPLETED
+22:23:05.180 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when ${J == 'j1'} is true RUNNING
+22:23:05.184 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+22:23:05.184 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when ${J == 'j1'} is true SKIPPED
+22:23:05.184 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*${ROLE}.*" RUNNING
+22:23:05.301 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=ডেমো রোগী রহিম, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[210,1382][458,1451], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=210, y=1382, width=248, height=69))
+22:23:06.520 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:23:06.521 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (334, 1416) using hierarchy based logic for wait
+22:23:08.892 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:23:08.893 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*${ROLE}.*" COMPLETED
+22:23:08.893 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "সেটিংস ও প্রোফাইল" is visible RUNNING
+22:23:08.970 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "সেটিংস ও প্রোফাইল" is visible COMPLETED
+22:23:08.970 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Wait for animation to end within 5000 ms RUNNING
+22:23:08.970 [ INFO] maestro.Maestro.waitForAnimationToEnd$lambda$53: Waiting for animation to end with timeout 5000
+22:23:08.971 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:08.971 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:09.300 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:09.300 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:10.058 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:10.058 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:10.325 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:10.325 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:11.014 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:11.015 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:11.273 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:11.273 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:11.914 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:11.915 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:12.127 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+22:23:12.127 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:12.695 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Wait for animation to end within 5000 ms COMPLETED
+22:23:12.695 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run ../common/start.yaml COMPLETED
+22:23:12.695 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "অ্যাপ(?:য়|য়)েন্টমেন্ট" RUNNING
+22:23:12.791 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=অ্যাপয়েন্টমেন্ট, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[321,2206][490,2260], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=321, y=2206, width=169, height=54))
+22:23:14.950 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+22:23:14.950 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (405, 2233) using hierarchy based logic for wait
+22:23:16.252 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+22:23:16.253 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "অ্যাপ(?:য়|য়)েন্টমেন্ট" COMPLETED
+22:23:16.253 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*ডা\. ডেমো.*" is visible RUNNING
+22:23:16.389 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*ডা\. ডেমো.*" is visible COMPLETED
+22:23:16.389 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Run flow when "অনলাইন \(ভিডিও\)" is visible RUNNING
+22:23:23.398 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandSkipped: null
+22:23:23.398 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Run flow when "অনলাইন \(ভিডিও\)" is visible SKIPPED
+22:23:23.398 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that ".*ডা\. ডেমো হাসান.*" is visible RUNNING
+22:23:46.499 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Assertion is false: ".*ডা\. ডেমো হাসান.*" is visible
+22:23:46.611 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+22:23:46.611 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+22:23:46.791 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that ".*ডা\. ডেমো হাসান.*" is visible FAILED
+22:23:47.378 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /home/runner/work/blood/blood/e2e-out/debug/j16-online-chamber/.maestro/tests

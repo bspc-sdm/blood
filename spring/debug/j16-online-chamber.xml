@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="121.561" timestamp="2026-10-23T22:21:45">
+    <testcase id="j16-online-chamber" name="j16-online-chamber" classname="j16-online-chamber" file="/home/runner/work/blood/blood/e2e/android/flows/j16-online-chamber.yaml" time="121.495" timestamp="2026-10-23T22:21:45" status="ERROR">
+      <failure>Assertion is false: ".*ডা\. ডেমো হাসান.*" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

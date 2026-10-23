@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="test" tests="1" failures="1" time="98.864" timestamp="2026-10-23T22:29:59">
+    <testcase id="j21-invoice-driver" name="j21-invoice-driver" classname="j21-invoice-driver" file="/home/runner/work/blood/blood/e2e/android/flows/j21-invoice-driver.yaml" time="98.799" timestamp="2026-10-23T22:29:59" status="ERROR">
+      <failure>Assertion is false: ".*অ্যাম্বুলেন্স খোঁজা হচ্ছে.*" is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

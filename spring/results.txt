@@ -1,0 +1,16 @@
+j3-pharmacy rc=0 173s
+j1-patient rc=1 79s
+j4-lab rc=0 64s
+j5-doctor rc=0 99s
+j6-ambulance rc=0 63s
+j11-ambulance-driver rc=0 102s
+j12-appointments rc=0 110s
+j16-online-chamber rc=1 130s
+j17-calls rc=0 148s
+j18-chat rc=1 118s
+j19-invoice-pharmacy rc=0 95s
+j21-invoice-driver rc=1 109s
+j24-pay-business rc=0 73s
+j26-practice-rx rc=0 102s
+notify: 39 pass, 0 fail
+n-notify 1479s
