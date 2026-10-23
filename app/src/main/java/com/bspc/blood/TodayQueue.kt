@@ -160,8 +160,12 @@ fun TodayPatientsTab(
         when {
             l == null -> LoadingBox()
             l.isEmpty() -> OneLineEmpty(TodayText.none())
-            else -> l.forEach { c ->
-                TodayChamberCard(c, l.size > 1, busy, canWrite, writeLabel, invChamber, arrived) { op, r -> onOp(op, c, r) }
+            else -> {
+                // কয়েকটা চেম্বার হলে ওপরে একবার শিরোনাম, কার্ডে চেম্বারের নাম
+                if (l.size > 1) Text(TodayText.title(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                l.forEach { c ->
+                    TodayChamberCard(c, l.size > 1, busy, canWrite, writeLabel, invChamber, arrived) { op, r -> onOp(op, c, r) }
+                }
             }
         }
         // সরাসরি আসা রোগীর ফি আর আজকের রসিদ (inv_chamber) — সারির "ফি নিন" ওপরেই, তাই এখানে আর সারি নয়

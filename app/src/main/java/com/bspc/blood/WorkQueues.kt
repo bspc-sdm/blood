@@ -207,3 +207,7 @@ fun WorkNav.seg(target: String?): String {
     val raw = target?.substringAfter("orders:", "")?.trim().orEmpty()
     return if (raw.isBlank()) "new" else WorkQueue.of(raw)
 }
+
+/** ডায়ালগ আলাদা জানালা — সেখানেও testTag যেন resource-id হয় (Maestro-র id দিয়ে খোঁজা) */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+fun Modifier.testTagsAsIds(): Modifier = this.semantics { androidx.compose.ui.semantics.testTagsAsResourceId = true }

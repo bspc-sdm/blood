@@ -214,7 +214,10 @@ fun WorkTabsScaffold(tab: Int, tabs: List<PillTab>, onTab: (Int) -> Unit, conten
     Column(Modifier.fillMaxSize()) {
         // স্থির ট্যাব (সর্বোচ্চ ৪টা, লেখা কাটে না — WorkQueues.kt)
         FixedTabs(tab, tabs, onTab)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), content = content)
+        // ট্যাবপ্রতি আলাদা স্ক্রল — অন্য ট্যাবে নিচে নামা থাকলে নতুন ট্যাব ওপর থেকেই শুরু
+        androidx.compose.runtime.key(tab) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp), content = content)
+        }
     }
 }
 

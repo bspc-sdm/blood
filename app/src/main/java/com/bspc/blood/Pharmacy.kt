@@ -462,7 +462,8 @@ internal fun MyPharmacyPanel(profile: Profile) {
             FullScreenDialog(onDismissRequest = { receiptsOpen = false }) {
                 Column(Modifier.fillMaxSize()) {
                     BackTopBar(tr("Receipts", "রসিদ"), { receiptsOpen = false })
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { BizInvoicesPanel("pharmacy", sh.id) }
+                    // ডায়ালগের ভেতরেও testTag = resource-id (Maestro: biz_payments …)
+                    Column(Modifier.fillMaxSize().testTagsAsIds().verticalScroll(rememberScrollState()).padding(16.dp)) { BizInvoicesPanel("pharmacy", sh.id) }
                 }
             }
         }
