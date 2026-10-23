@@ -917,17 +917,23 @@ donor from `pickDonors` (and from emergency waves), so no nearby-request push we
 complaint came from everything else: that switch only ever covered nearby requests, while responses, emergencies'
 "ended", appointments, prescriptions, ambulance, business etc. always pushed. Those are now covered by the categories.
 
-## In-app calls (package `calls`, Spring only, Oct 2026) — 9 actions
+## In-app calls (package `calls`, Spring only, Oct 2026) — 17 actions
 
-Full contract: [CALLS.md](CALLS.md). Logged in, own account only (no caregiver `asUid`). LiveKit env missing → 503 `calls_unavailable`.
-- [x] **`call_config`** — `{ok, enabled, url?}` (feature flag + LIVEKIT_URL)
-- [x] **`call_start`** — `{ctx, refId, peerUid?, video?}` → `{ok, callId, room, url, token, video, peer}`; relation per ctx (403 `call_not_allowed`), 409 `call_off` / `call_busy`, 429 `call_rate` (10 / 10 min); push `call_incoming` (TTL 45 s, no inbox) + SSE
-- [x] **`call_accept`** — `{callId}` → `{ok, callId, room, url, token, video, peer}`; 409 `call_gone`
-- [x] **`call_decline`**, **`call_cancel`**, **`call_end`** — `{callId}` → `{ok, state}`; push/SSE `call_state` to both sides
-- [x] **`call_status`** — `{callId}` → `{ok, callId, state, ctx, refId, dir, video, peer, startedAt, answeredAt?, endedAt?, durationSec}`
-- [x] **`call_history`** — `{before?}` → `{ok, items:[{callId, ctx, refId, dir, peer, video, state, startedAt, answeredAt?, durationSec}], next?}`
-- [x] **`appt_join`** — `{appointmentId}` → `{ok, callId, room, url, token, video:true}`; online + confirmed, slot −15 min … +3 h (409 `appt_join_window`); doctor/assistant joining pushes `appt_call_ready` to the patient
-  - tables: call_sessions (V609), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + `call_missed` push/inbox; accepted > 2 h → ended), daily step 15 `callsDeleted` (180 days) · tests: CallsIT
+Full contract: [CALLS.md](CALLS.md) (security review: `docs/test-plan/CALLS-SECURITY-REVIEW.md`). Logged in, own account
+only (no caregiver `asUid`). LiveKit env missing → 503 `calls_unavailable`. Contact rules shared with messages:
+`contact/ContactPolicy.kt`, `contact/BlockService` (calls/messages blocks).
+- [x] **`call_config`** — `{ok, enabled, url?}`
+- [x] **`contact_can`** — `{items:[{ctx, refId, peerUid?}]}` → `{items:[{ctx, refId, peerUid, canCall, canVideo, canMessage, blocked?}]}`
+- [x] **`call_start`** — `{ctx, refId, peerUid?, video?}` → `{ok, callId, room, url, token, video, peer}`; 403 `call_not_allowed` / `call_blocked`, 409 `call_off` / `call_busy`, 429 `call_rate` (caller 10/10 min, pair 3 unanswered/h, 2 declines → 30 min, callee 20 rings/h); push `call_incoming` (TTL 45 s, no inbox) + SSE
+- [x] **`call_accept`** — `{callId, video?}` → `{ok, callId, room, url, token, video, peer}`; 409 `call_gone`
+- [x] **`call_decline`**, **`call_cancel`**, **`call_end`** — `{callId}` → `{ok, state}`; push/SSE `call_state`; room deleted (RoomService)
+- [x] **`call_status`** — `{callId}` → state, peer, times, and a fresh `url/room/token` while accepted; the 30 s heartbeat
+- [x] **`call_history`** — `{before?}` → `{ok, items:[…dir…], next?}`
+- [x] **`call_upgrade`**, **`call_upgrade_accept`**, **`call_upgrade_decline`** — audio → video with the other side's yes
+- [x] **`call_block`** `{peerUid, callId?}`, **`call_unblock`** `{peerUid}`, **`call_blocks`** — blocks calls and messages
+- [x] **`call_report`** — `{callId, reason, note?}` → `call_reports`
+- [x] **`appt_join`** — `{appointmentId}` → `{ok, callId, room, url, token, video:true}`; one live room per appointment; push `appt_call_ready`
+  - tables: call_sessions, call_blocks, call_reports (V609), notify_prefs.calls · jobs: `call-timeouts` (JobRunr, 15 s: ringing > 45 s → missed + collapsed `call_missed`; live calls re-checked — relation, block, account, 90 s without heartbeats → ended), daily step 15 `callsDeleted` (180 days) · events: `AccountCutOffEvent` (deactivate / admin disable) ends live calls · tests: CallsIT, CallsAuthzIT
 
 ## Admin, moderation, verification, support (package `admin`) — 47 actions
 
