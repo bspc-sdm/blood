@@ -416,6 +416,20 @@ export async function go(page, p, { soft = false } = {}) {
   await settle(page);
 }
 
+/**
+ * আমার প্রেসক্রিপশন খুলে "সব" ট্যাব — উপরে চলমান (শুরুতে) / পূর্বের / সব (backend/docs/RX-STATE.md): শেষ, বাতিল,
+ * নতুনটায় বদলানো বা কোর্স শেষ হওয়া প্রেসক্রিপশন "চলমান"-এ থাকে না, তাই নির্দিষ্ট একটা খুঁজতে মানুষ "সব"-এ যান।
+ */
+export async function rxListAll(page, { soft = false } = {}) {
+  await go(page, '/services/pharmacy/prescriptions', { soft });
+  const all = page.getByRole('tab', { name: /^(সব|All) \(/ }).first();
+  await all.waitFor({ timeout: 8000 }).catch(() => {});
+  if (await all.count()) {
+    await all.click();
+    await settle(page);
+  }
+}
+
 export function writeManifest(dir = SHOTS) {
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 1));
   fs.writeFileSync(path.join(dir, 'issues.json'), JSON.stringify(issues, null, 1));

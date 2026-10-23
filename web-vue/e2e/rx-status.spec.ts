@@ -23,13 +23,13 @@ const med = (state: string, bought = 0, total = 3, extra: State = {}) => ({ stat
 function items(rx1: any): any[] {
   const mk = (id: string, ago: number, name: string, state: State, extra: State = {}) => ({ ...rx1, id, code: `${id.toUpperCase()}23456789`.slice(0, 10), createdAt: now - ago * D, doctor: { ...rx1.doctor, name }, state, ...extra });
   return [
-    mk('rxa', 30, 'ডা. সাবরিনা হক', st({ phase: 'past', primary: 'all_bought', tone: 'good', medicine: med('all_bought', 3, 3) })),
+    mk('rxa', 30, 'ডা. সাবরিনা হক', st({ phase: 'past', pastReason: 'superseded', supersededBy: { id: 'rxb', at: now - D }, primary: 'all_bought', tone: 'good', medicine: med('all_bought', 3, 3) })),
     mk('rxb', 1, 'ডা. ফারহানা ইয়াসমিন', st({ primary: 'sent', tone: 'primary', medicine: med('sent', 0, 3, { pharmacyName: 'লাইফ কেয়ার ফার্মেসি', mode: 'shop' }), lab: { state: 'pending', orders: 0, reported: 0, labName: null, reviewed: false }, followUpDate: today + 14 * D })),
     mk('rxc', 6, 'ডা. তানভীর রহমান', st({ primary: 'partial', tone: 'info', medicine: med('partial', 3, 5), lab: { state: 'received', orders: 1, reported: 0, labName: 'পপুলার', reviewed: false } })),
     mk('rxd', 12, 'ডা. মাহমুদুল হাসান', st({ primary: 'running_out', tone: 'error', medicine: med('running_out', 2, 3) })),
     mk('rxe', 3, 'ডা. নুসরাত জাহান', st({ primary: 'out', tone: 'primary', medicine: med('out', 0, 3, { mode: 'online' }), lab: { state: 'reported', orders: 1, reported: 1, labName: 'সিটি', reviewed: true } })),
     mk('rxf', 60, 'ডা. কামরুল ইসলাম', st({ phase: 'past', primary: 'cancelled', tone: 'muted', cancelled: true, cancelledAt: now - 59 * D, medicine: med('not_bought') }), { status: 'cancelled' }),
-    mk('rxg', 40, 'ডা. রেহানা পারভীন', st({ phase: 'past', primary: 'lab_reported', tone: 'good', lab: { state: 'reported', orders: 1, reported: 1, labName: 'সিটি', reviewed: false } }), { medicines: [] }),
+    mk('rxg', 40, 'ডা. রেহানা পারভীন', st({ phase: 'past', pastReason: 'done', doneAt: now - 2 * D, primary: 'lab_reported', tone: 'good', lab: { state: 'reported', orders: 1, reported: 1, labName: 'সিটি', reviewed: false } }), { medicines: [] }),
   ];
 }
 const TIMELINE = [
@@ -39,21 +39,38 @@ const TIMELINE = [
   { kind: 'follow_up', at: today + 14 * D, ahead: true },
 ];
 
-async function mock(page: Page, make: (rx1: any) => any[] = items) {
+type Seen = { action: string; body: any }[];
+async function mock(page: Page, make: (rx1: any) => any[] = items): Promise<Seen> {
   let list: any[] = [];
+  const seen: Seen = [];
+  // rx_mark_done-এর পরে সার্ভারের মতো: শেষ → পূর্বের ("done"), আবার চলমান → চলমান
+  const marks: Record<string, boolean> = {};
+  const withMarks = (r: any) => {
+    if (!(r.id in marks)) return r;
+    return marks[r.id]
+      ? { ...r, state: { ...r.state, phase: 'past', pastReason: 'done', doneAt: now, reopenedAt: null, followUpDate: null } }
+      : { ...r, state: { ...r.state, phase: 'active', pastReason: null, doneAt: null, reopenedAt: now } };
+  };
   await page.route('**/api/community', async (route) => {
     const body = route.request().postDataJSON() || {};
+    seen.push({ action: body.action, body });
     if (body.action === 'rx_mine') {
       const j = await base(route);
       list = make(j.items[0]);
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: list }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: list.map(withMarks) }) });
+    }
+    if (body.action === 'rx_mark_done') {
+      marks[body.id] = body.done !== false;
+      const r = withMarks(list.find((x) => x.id === body.id));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, item: { ...r, state: { ...r.state, timeline: TIMELINE } } }) });
     }
     if (body.action === 'rx_get' && list.some((r) => r.id === body.id)) {
-      const r = list.find((x) => x.id === body.id);
+      const r = withMarks(list.find((x) => x.id === body.id));
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ item: { ...r, state: { ...r.state, timeline: TIMELINE } } }) });
     }
     return route.continue();
   });
+  return seen;
 }
 const listPage = (lang = 'bn') => {
   const d = def('health', 'rx-list');
@@ -97,6 +114,9 @@ test.describe('আমার প্রেসক্রিপশন: অবস্�
     const cancelled = cards(page).filter({ hasText: 'বাতিল করেছেন ডাক্তার' });
     await expect(cancelled).toHaveClass(/rx-cancelled/);
     await expect(cancelled.getByText('বাতিল', { exact: true })).toBeVisible();
+    // কেন পূর্বের: একই ডাক্তারের নতুন প্রেসক্রিপশন / রোগী নিজে শেষ করেছেন
+    await expect(cards(page).nth(0).getByTestId('rx-status-sub')).toHaveText([/^নতুন প্রেসক্রিপশনে বদলেছে · [০-৯]+ \S+ [০-৯]{4}$/]);
+    await expect(cards(page).nth(1).getByTestId('rx-status-sub')).toHaveText(['আপনি শেষ করেছেন']);
     await noSideScroll(page);
     await shot(page, 'web-rx-past-375');
     await page.getByRole('tab', { name: 'সব (৭)' }).click();
@@ -137,6 +157,42 @@ test.describe('আমার প্রেসক্রিপশন: অবস্�
     await noSideScroll(page);
     await shot(page, 'web-rx-detail-375');
     expect(errs).toEqual([]);
+  });
+
+  test('ভেতরে "শেষ হয়েছে" → পূর্বের ("আপনি শেষ করেছেন"); "আবার চলমান করুন" → চলমান', async ({ page }) => {
+    const errs = watchErrors(page);
+    const seen = await mock(page);
+    await open(page, listPage(), '/services/pharmacy/prescriptions/rxb');
+    const tl = page.getByTestId('rx-timeline');
+    await tl.getByRole('button', { name: 'শেষ হয়েছে' }).click();
+    await expect.poll(() => seen.filter((x) => x.action === 'rx_mark_done').map((x) => x.body)).toEqual([expect.objectContaining({ id: 'rxb', done: true })]);
+    await expect(tl.getByTestId('rx-status-sub').first()).toHaveText('আপনি শেষ করেছেন');
+    await expect(tl.getByRole('button', { name: 'আবার চলমান করুন' })).toBeVisible();
+    await noSideScroll(page);
+    await shot(page, 'web-rx-detail-done-375');
+    // তালিকায়: চলমান থেকে গেল, পূর্বেরতে এল
+    await page.goto('/services/pharmacy/prescriptions', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('tab', { name: 'চলমান (৩)' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'পূর্বের (৪)' })).toBeVisible();
+    await page.getByRole('tab', { name: 'পূর্বের (৪)' }).click();
+    await expect(cards(page).filter({ hasText: 'ডা. ফারহানা ইয়াসমিন' }).getByTestId('rx-status-sub').first()).toHaveText('আপনি শেষ করেছেন');
+    await shot(page, 'web-rx-past-done-375');
+    await cards(page).filter({ hasText: 'ডা. ফারহানা ইয়াসমিন' }).click();
+    await page.getByTestId('rx-timeline').getByRole('button', { name: 'আবার চলমান করুন' }).click();
+    await expect.poll(() => seen.filter((x) => x.action === 'rx_mark_done').at(-1)?.body).toMatchObject({ id: 'rxb', done: false });
+    await expect(page.getByTestId('rx-timeline').getByRole('button', { name: 'শেষ হয়েছে' })).toBeVisible();
+    expect(errs).toEqual([]);
+  });
+
+  test('নতুন প্রেসক্রিপশনে বদলেছে: ভেতরে "নতুনটা দেখুন" সেটাতে নিয়ে যায়', async ({ page }) => {
+    await mock(page);
+    await open(page, listPage(), '/services/pharmacy/prescriptions/rxa?tab=past');
+    const tl = page.getByTestId('rx-timeline');
+    await expect(tl.getByTestId('rx-status-sub').first()).toContainText('নতুন প্রেসক্রিপশনে বদলেছে');
+    await expect(tl.getByRole('button', { name: 'আবার চলমান করুন' })).toBeVisible();
+    await tl.getByTestId('rx-newer').click();
+    await expect(page).toHaveURL(/\/services\/pharmacy\/prescriptions\/rxb/);
+    await expect(page.getByTestId('rx-timeline').getByRole('button', { name: 'শেষ হয়েছে' })).toBeVisible();
   });
 
   test('ইংরেজি: Ongoing / Previous / All', async ({ page }) => {

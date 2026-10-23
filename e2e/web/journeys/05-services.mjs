@@ -1,6 +1,6 @@
 // সেবা (গাইড services.json): অ্যাম্বুলেন্স/ফার্মেসি/প্যাথলজি/নার্সের তালিকা, ওষুধ খোঁজা, অনলাইন অর্ডার, দোকানের হিসাব-খাতা,
 // প্যাথলজির দাম আর বাসা থেকে নমুনা, রেটিং, রিপোর্ট, মালিকের অনুমোদন
-import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, inStore, copyIfThere, rxListAll } from '../lib.mjs';
 import { adminAct, posPicker, posNoPrint, posSave } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
@@ -41,8 +41,9 @@ async function shop(page, tab) {
 async function labWork(page, tab) {
   await labWorkTab(page, tab);
 }
+/** নির্দিষ্ট প্রেসক্রিপশন — "সব" ট্যাবে (শেষ বা কোর্স পেরোনোগুলো "চলমান"-এ থাকে না) */
 async function openRx(page, meds) {
-  await go(page, '/services/pharmacy/prescriptions');
+  await rxListAll(page);
   await page.locator('article, [role=button]').filter({ hasText: meds }).filter({ hasNotText: 'বাতিল' }).first().click();
   await settle(page);
 }

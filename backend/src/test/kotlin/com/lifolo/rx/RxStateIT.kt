@@ -190,4 +190,129 @@ class RxStateIT : RxLabTest() {
         assertEquals(listOf(id), mine(cg, asP).map { it["id"].asText() })
         assertEquals(404, call(cg, "rx_get", asP + mapOf("id" to "psyrx")).status)
     }
+
+    private fun rxAgo(id: String, days: Int) = jdbc.update("UPDATE prescriptions SET created_at = now() - make_interval(days => ?) WHERE id = ?", days, id)
+
+    @Test
+    fun `superseded by the same doctor for the same person - not by another doctor, not while an order is open`() {
+        seed()
+        val old = write(mapOf("medicines" to meds))
+        rxAgo(old, 2)
+        val newer = write(mapOf("medicines" to meds.take(1)))
+        stateOf(old).let {
+            assertEquals("past", it["phase"].asText())
+            assertEquals("superseded", it["pastReason"].asText())
+            assertEquals(newer, it["supersededBy"]["id"].asText())
+        }
+        assertEquals("active", stateOf(newer)["phase"].asText())
+        assertTrue("superseded" in ok(pat, "rx_get", mapOf("id" to old))["item"]["state"]["timeline"].map { it["kind"].asText() })
+        // an open order keeps the older one until it closes
+        order("os", old, "sent")
+        assertEquals("active", stateOf(old)["phase"].asText())
+        setStatus("os", "withdrawn")
+        assertEquals("superseded", stateOf(old)["pastReason"].asText())
+        // a cancelled newer one does not supersede
+        ok(doc, "rx_cancel", mapOf("id" to newer))
+        assertEquals("active", stateOf(old)["phase"].asText())
+
+        // another doctor's newer prescription for the same patient: nothing changes
+        person("stDoctor2", "ডা. তানভীর রহমান")
+        doctor("stDoctor2", "ডা. তানভীর রহমান", "A-777")
+        val p2 = ok("stDoctor2", "rx_patient_add", mapOf("name" to "রহিমা বেগম", "phone" to "01711000001"))["patient"]
+        val other = ok("stDoctor2", "rx_create", mapOf("rxPatientId" to p2["id"].asText(), "medicines" to meds))
+        ok(pat, "rx_claim", mapOf("code" to other["code"].asText(), "phone" to "01711000001"))
+        assertEquals("active", stateOf(old)["phase"].asText())
+
+        // the same doctor, a family member on the same account: a different person
+        jdbc.update(
+            "INSERT INTO user_family_members (uid, member_id, position, name, relation, age, gender, phone) VALUES (?, 'm_1', 0, 'আব্দুল করিম', 'স্বামী', 60, 'male', '01811000002')",
+            pat,
+        )
+        val pf = ok(doc, "rx_patient_add", mapOf("name" to "আব্দুল করিম", "phone" to "01811000002"))["patient"]
+        val fam = ok(doc, "rx_create", mapOf("rxPatientId" to pf["id"].asText(), "medicines" to meds))
+        ok(pat, "rx_claim", mapOf("code" to fam["code"].asText(), "phone" to "01811000002"))
+        assertEquals("active", stateOf(old)["phase"].asText())
+        // the family member's own newer one supersedes only theirs
+        rxAgo(fam["id"].asText(), 1)
+        val fam2 = ok(doc, "rx_create", mapOf("rxPatientId" to pf["id"].asText(), "tests" to listOf("CBC")))
+        ok(pat, "rx_claim", mapOf("code" to fam2["code"].asText(), "phone" to "01811000002"))
+        assertEquals(fam2["id"].asText(), stateOf(fam["id"].asText())["supersededBy"]["id"].asText())
+        assertEquals("active", stateOf(old)["phase"].asText())
+    }
+
+    @Test
+    fun `course end - 3 days after the longest medicine, a continuing medicine falls back to 30 days`() {
+        seed()
+        // the longest medicine is 10 days: written 12 days ago → active, 13 days ago → past
+        val id = write(mapOf("medicines" to meds))
+        rxAgo(id, 12)
+        assertEquals("active", stateOf(id)["phase"].asText())
+        rxAgo(id, 13)
+        stateOf(id).let {
+            assertEquals("past", it["phase"].asText())
+            assertEquals("course_end", it["pastReason"].asText())
+            assertTrue(it["courseEnd"].longValue() > 0)
+        }
+        // an open order keeps it
+        order("oc", id, "accepted", mode = "online")
+        assertEquals("active", stateOf(id)["phase"].asText())
+        setStatus("oc", "cancelled")
+        // (cancelled: it must not supersede the one below once that is moved back in time)
+        ok(doc, "rx_cancel", mapOf("id" to id))
+
+        // "চলবে" (days 0): no course end — 30 days after writing or the last activity
+        val cont = write(mapOf("medicines" to listOf(mapOf("name" to "Rosuva 10", "form" to "Tablet", "dose" to "0+0+1", "days" to 0))))
+        rxAgo(cont, 29)
+        stateOf(cont).let {
+            assertEquals("active", it["phase"].asText())
+            assertTrue(it["courseEnd"].isNull)
+        }
+        rxAgo(cont, 31)
+        assertEquals("stale", stateOf(cont)["pastReason"].asText())
+        dispense(cont, 0 to 30)
+        assertEquals("active", stateOf(cont)["phase"].asText())
+    }
+
+    @Test
+    fun `rx_mark_done - the patient or a caregiver, never the doctor, and ongoing again`() {
+        seed()
+        val id = write(mapOf("medicines" to meds, "followUpDays" to 10))
+        val done = ok(pat, "rx_mark_done", mapOf("id" to id, "done" to true))["item"]["state"]
+        assertEquals("past", done["phase"].asText())
+        assertEquals("done", done["pastReason"].asText())
+        assertEquals("done", stateOf(id)["pastReason"].asText())
+        assertTrue(done["timeline"].any { it["kind"].asText() == "marked_done" })
+        // ongoing again
+        val again = ok(pat, "rx_mark_done", mapOf("id" to id, "done" to false))["item"]["state"]
+        assertEquals("active", again["phase"].asText())
+        assertTrue(again["reopenedAt"].longValue() > 0)
+        assertTrue(again["doneAt"].isNull)
+        // the caregiver acting for the patient
+        val asP = mapOf("asUid" to pat)
+        assertEquals("done", ok(cg, "rx_mark_done", asP + mapOf("id" to id, "done" to true))["item"]["state"]["pastReason"].asText())
+        assertEquals("done", stateOf(id, cg, asP)["pastReason"].asText())
+        // never the writing doctor, nobody else, not a caregiver without a link
+        fails(doc, "rx_mark_done", mapOf("id" to id, "done" to false), 404)
+        person("stOther", "অন্য কেউ")
+        fails("stOther", "rx_mark_done", mapOf("id" to id, "done" to false), 404)
+        fails("stOther", "rx_mark_done", mapOf("asUid" to pat, "id" to id, "done" to false), 403)
+        fails(pat, "rx_mark_done", mapOf("id" to "nope!", "done" to true), 404)
+        assertEquals("done", stateOf(id)["pastReason"].asText())
+        // the old fields are untouched
+        assertEquals("active", mine().first { it["id"].asText() == id }["status"].asText())
+        // the doctor's own view: no state
+        assertNull(ok(doc, "rx_get", mapOf("id" to id))["item"]["state"])
+    }
+
+    @Test
+    fun `rx_mark_done - a psychologist's notes stay out of the caregiver's reach`() {
+        seed()
+        jdbc.update(
+            "INSERT INTO prescriptions (id, code, doctor_uid, patient_uid, doctor_name, doctor_type, doctor_system, advice) VALUES ('psyrx2', 'PSYD2345EF', ?, ?, 'কাউন্সেলর', 'psychologist', NULL, 'শ্বাসের ব্যায়াম')",
+            doc, pat,
+        )
+        fails(cg, "rx_mark_done", mapOf("asUid" to pat, "id" to "psyrx2", "done" to true), 404)
+        assertTrue(row("SELECT patient_done_at FROM prescriptions WHERE id = 'psyrx2'")["patient_done_at"] == null)
+        assertEquals("done", ok(pat, "rx_mark_done", mapOf("id" to "psyrx2", "done" to true))["item"]["state"]["pastReason"].asText())
+    }
 }

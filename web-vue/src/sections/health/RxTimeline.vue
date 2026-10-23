@@ -1,14 +1,17 @@
 <script setup lang="ts">
 // প্রেসক্রিপশনের ভেতরে উপরে: এখন কোন অবস্থায় (চিপ) + কী কী হয়েছে, তারিখসহ (লেখা, ফার্মেসিতে পাঠানো, গ্রহণ, কেনা, ল্যাব, রিপোর্ট,
 // বাতিল, ফলো-আপ) — rx_get-এর state.timeline (backend/docs/RX-STATE.md); অ্যাপের RxTimelineCard
-import { computed } from 'vue';
-import { call } from '@/lib/api';
-import { useQ } from '@/lib/query';
+import { computed, ref } from 'vue';
+import { Button, toast } from '@/ui/kit';
+import { call, errorText } from '@/lib/api';
+import { queryClient, useQ } from '@/lib/query';
+import { useNav } from '@/lib/nav';
+import { rxPath } from '../services/data';
 import { tr, useLang } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import type { Rx } from './rx';
-import { stepDate, stepText } from './rxstate';
+import { canMarkDone, canReopen, stepDate, stepText } from './rxstate';
 import RxStatus from './RxStatus.vue';
 
 const props = defineProps<{ rx: Rx }>();
@@ -22,6 +25,21 @@ const q = useQ<Rx>(() => ({
 }));
 const full = computed(() => q.data ?? props.rx);
 const steps = computed(() => full.value.state?.timeline ?? []);
+const nav = useNav();
+// রোগী (বা কেয়ারগিভার): "শেষ হয়েছে" / "আবার চলমান করুন" — rx_mark_done (backend/docs/RX-STATE.md)
+const busy = ref(false);
+async function mark(done: boolean) {
+  busy.value = true;
+  try {
+    const r = await call<{ item: Rx }>('rx_mark_done', { id: props.rx.id, done });
+    queryClient.setQueryData(['rx_get', props.rx.id, care.value?.uid ?? null, lang.value, s.uid], r.item);
+    await queryClient.invalidateQueries({ queryKey: ['rx_mine'] });
+    toast(done ? tr('Moved to Previous', 'পূর্বের-এ রাখা হয়েছে') : tr('Moved to Ongoing', 'চলমান-এ ফিরেছে')); // bn-ok
+  } catch (e) {
+    toast(errorText(e));
+  }
+  busy.value = false;
+}
 </script>
 
 <template>
@@ -35,6 +53,11 @@ const steps = computed(() => full.value.state?.timeline ?? []);
         <span class="when">{{ stepDate(st) }}</span>
       </li>
     </ol>
+    <div v-if="canMarkDone(full) || canReopen(full) || full.state?.supersededBy" class="acts">
+      <Button v-if="full.state?.supersededBy" variant="tonal" small icon="history" data-testid="rx-newer" @click="nav(rxPath(full.state?.supersededBy?.id))">{{ tr('See the newer one', 'নতুনটা দেখুন') }}</Button> <!-- bn-ok -->
+      <Button v-if="canMarkDone(full)" variant="outline" small icon="check_circle" :busy="busy" data-testid="rx-mark-done" @click="mark(true)">{{ tr('Finished', 'শেষ হয়েছে') }}</Button> <!-- bn-ok -->
+      <Button v-else-if="canReopen(full)" variant="outline" small icon="history" :busy="busy" data-testid="rx-reopen" @click="mark(false)">{{ tr('Make ongoing again', 'আবার চলমান করুন') }}</Button> <!-- bn-ok -->
+    </div>
   </section>
 </template>
 
@@ -58,4 +81,5 @@ const steps = computed(() => full.value.state?.timeline ?? []);
 .ahead .dot { background: transparent; box-shadow: inset 0 0 0 2px var(--primary); }
 .ahead .what { color: var(--on-surface-variant); }
 .bad .dot { background: var(--error); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 </style>

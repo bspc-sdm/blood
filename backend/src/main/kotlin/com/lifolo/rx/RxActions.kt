@@ -64,6 +64,7 @@ class RxActions(
         "rx_claim" to ActionHandler(::rxClaim),
         "rx_get" to ActionHandler(::rxGet),
         "rx_activity" to ActionHandler(::rxActivity),
+        "rx_mark_done" to ActionHandler(::rxMarkDone),
     )
 
     // ------------------------------------------------------------------ helpers
@@ -489,7 +490,7 @@ class RxActions(
         val hide = if (privacy.hidesPrivate(ctx.user)) " AND doctor_type <> 'psychologist'" else ""
         val list = store.load("patient_uid = ?$hide ORDER BY created_at DESC LIMIT 300", ctx.user.id).sortedByDescending { it.createdAt }
         // where each one is now (bought, sent, tests, report, cancelled, follow-up; "active" or "past") — backend/docs/RX-STATE.md
-        val facts = states.facts(list.map { it.id })
+        val facts = states.facts(list)
         val now = System.currentTimeMillis()
         return linkedMapOf("items" to list.map { rx -> withState(store.view(rx), RxState.compute(rx, facts[rx.id] ?: RxState.Facts(), now)) })
     }
@@ -546,8 +547,29 @@ class RxActions(
             return linkedMapOf("item" to store.view(s), "labOrders" to labs.labsForDoctor(uid, listOf(s.id)))
         }
         // the patient (or the caregiver for the patient): where it is now + what happened (backend/docs/RX-STATE.md)
-        val state = RxState.compute(s, states.facts(listOf(s.id))[s.id] ?: RxState.Facts(), withTimeline = true)
-        return linkedMapOf("item" to withState(store.view(s), state))
+        return linkedMapOf("item" to patientItem(s))
+    }
+
+    /** the patient's view of one prescription: the view + state with the timeline */
+    private fun patientItem(s: Prescription): Map<String, Any?> =
+        withState(store.view(s), RxState.compute(s, states.facts(listOf(s))[s.id] ?: RxState.Facts(), withTimeline = true))
+
+    /**
+     * the patient (or a caregiver acting for the patient) marks a prescription finished ("শেষ হয়েছে", `done: true`) or
+     * ongoing again ("আবার চলমান করুন", `done: false`) — backend/docs/RX-STATE.md. Never the writing doctor; a
+     * psychologist's notes stay out of a caregiver's reach (PRACTICE.md).
+     */
+    fun rxMarkDone(ctx: ActionContext): Any {
+        val uid = ctx.user.id
+        val id = ctx.body.string("id")
+        if (!Rules.isValidId(id)) throw notFound(ctx)
+        val s = store.get(id!!)
+        if (s == null || s.patientUid != uid) throw notFound(ctx)
+        if (privacy.hidden(ctx.user, s.doctorType)) throw notFound(ctx)
+        val done = ctx.body["done"]?.let { !(it.isBoolean && !it.booleanValue()) } ?: true
+        if (done) jdbc.update("UPDATE prescriptions SET patient_done_at = now(), patient_reopened_at = NULL WHERE id = ?", s.id)
+        else jdbc.update("UPDATE prescriptions SET patient_done_at = NULL, patient_reopened_at = now() WHERE id = ?", s.id)
+        return linkedMapOf("ok" to true, "item" to patientItem(s))
     }
 
     /** the view + `state` (new field; older apps ignore it) */

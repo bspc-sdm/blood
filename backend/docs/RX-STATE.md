@@ -1,9 +1,10 @@
 # Prescription state ("আমার প্রেসক্রিপশন")
 
 The patient's list shows where each prescription is now. The server computes it (`RxState.kt`); the web and the app
-only translate the keys, so both show the same thing. No new table or column: everything comes from rows that
-already exist (`prescription_dispensings`, `rx_orders`, `lab_orders`, `rx_reviews`, `prescriptions.status /
-cancelled_at / follow_up_date / refill_at`).
+only translate the keys, so both show the same thing. Almost everything comes from rows that already exist
+(`prescription_dispensings`, `rx_orders`, `lab_orders`, `rx_reviews`, `prescriptions.status / cancelled_at /
+follow_up_date / refill_at`, the patient's other prescriptions). The only new data is the patient's own mark
+(V683: `prescriptions.patient_done_at`, `patient_reopened_at`, both nullable).
 
 ## Where
 
@@ -21,8 +22,12 @@ state: {
   cancelled: bool, cancelledAt: ms | null,
   medicine: { state, bought, total, pharmacyName, mode } | null,   // null: no medicines, or not bought through pharmacies
   lab: { state, orders, reported, labName, reviewed } | null,      // null: no tests and no lab order
-  followUpDate: ms | null,             // only while it is today or ahead
+  followUpDate: ms | null,             // only while it is today or ahead and the prescription is active
   lastActivityAt: ms,
+  pastReason: "cancelled" | "done" | "superseded" | "finished" | "course_end" | "stale" | null,
+  doneAt: ms | null, reopenedAt: ms | null,                         // the patient's mark (rx_mark_done)
+  supersededBy: { id, at } | null,      // the newer prescription, when pastReason is "superseded"
+  courseEnd: ms | null,                 // UTC midnight of the first day after the longest medicine; null = no course end
   timeline?: [{ kind, at, name?, mode?, count?, ahead? }]          // rx_get only
 }
 ```
@@ -67,29 +72,52 @@ With several live lab orders the least advanced one decides; `reported`/`orders`
 5. `written` (notes only)
 
 The cards show the tests as a second small line when `lab` is not null, and "ফলো-আপ: date" when `followUpDate` is set.
+In পূর্বের the reason shows as a small line too: "আপনি শেষ করেছেন" (`done`) or "নতুন প্রেসক্রিপশনে বদলেছে · date"
+(`superseded`).
 
 ## Active or past (`phase`) — the tabs চলমান / পূর্বের
 
-In order, the first rule that applies:
+Many patients buy their medicines outside the app, so "everything bought" alone would leave চলমান full of old
+prescriptions. In order, the first rule that applies (`pastReason` says which):
 
-1. cancelled by the doctor → **past**
-2. a follow-up date today or ahead → **active**
-3. something still waiting (an open pharmacy order, or a lab order sent / sample taken) → **active**
-4. nothing to track (notes, free-text medicines; no tests) → **past** once the course has ended (the longest medicine's
-   days from the writing day) and at least 7 days have passed since writing
-5. finished — every medicine bought (or none to buy) and every test reported (or none) → **past**, at once
-6. otherwise **past** when nothing happened for 30 days: 30 days after the last of — writing, the last purchase, the
-   course end, the follow-up date, the refill day + 2, the last order / lab / review change
+1. cancelled by the doctor → **past** (`cancelled`)
+2. the patient (or a caregiver) marked it **"শেষ হয়েছে"** → **past** (`done`; the card says "আপনি শেষ করেছেন")
+3. something still waiting — an open pharmacy order (sent / accepted / ready / on the way) or a lab order sent / sample
+   taken → **active**
+4. **superseded**: the same doctor wrote a newer prescription (not cancelled) for the same person → **past**
+   (`superseded`; "নতুন প্রেসক্রিপশনে বদলেছে · date", with a link to the newer one in the detail). The same person:
+   the same paper patient (`rx_patient_id`) when both have one, otherwise the same patient name on the same account
+   (a family member is a different name, so a different person). Different doctors never supersede each other.
+5. a follow-up date today or ahead → **active**
+6. **finished**: every medicine bought (or none to buy) and every test reported (or none), at least one of the two
+   tracked → **past** at once (`finished`)
+7. **course end**: the course ends on the writing day + the longest medicine's days; **3 days after** that → **past**
+   (`course_end`). Purchases do not stretch it.
+8. **no course end** — no medicines, or any medicine marked "চলবে" (continuing, stored as `days = 0`): **30 days**
+   after the writing day or the last activity, whichever is later → **past** (`stale`). Activity = the last
+   purchase, the follow-up date, the refill day + 2, the last pharmacy order / lab order / report review change, or
+   "আবার চলমান করুন".
 
-So a fully bought prescription with no tests moves to পূর্বের the day the last medicine is bought (or the day after
-its follow-up date); one that is never finished moves 30 days after the last purchase, the end of the course or the
-follow-up date, whichever is last.
+**"আবার চলমান করুন"** (`rx_mark_done` with `done: false`) clears the mark and makes it active again: after that the
+"finished" and course-end rules no longer apply, only a prescription from the same doctor written *after* that
+supersedes it, and it goes back to পূর্বের 30 days after the reopening with nothing new (rule 8), or when the patient
+marks it done again, or when the doctor cancels it. It is offered on every পূর্বের prescription that is not cancelled;
+"শেষ হয়েছে" on every চলমান one.
+
+## rx_mark_done
+
+`{id, done: true | false}` (missing `done` = true). Only the prescription's patient — or a caregiver acting for the
+patient with `asUid` (in CARE_ACTIONS) — never the writing doctor or anybody else (404). A psychologist's notes stay
+hidden from a caregiver unless the patient shares them (404, PRACTICE.md). Answers `{ok, item}`: the patient's view
+with the new state and timeline. Not behind health-data consent (it enters no health data). Account deletion clears
+the marks with the patient link.
 
 ## Timeline (`rx_get` → `state.timeline`)
 
 `written`, `pharmacy_sent` (name, mode), `pharmacy_accepted|ready|out|delivered|cancelled|withdrawn` (the order's last
 change), `bought` (pharmacy, `count` medicines), `lab_sent`, `lab_received`, `lab_reported`, `lab_cancelled`,
-`reviewed` (the doctor checked the report), `cancelled`, `follow_up` (`ahead` while to come). Oldest first. The
+`reviewed` (the doctor checked the report), `superseded` (`id` of the newer one), `marked_done`, `reopened`,
+`cancelled`, `follow_up` (`ahead` while to come). Oldest first. The
 orders keep only their last status time, so an order shows "sent" + its latest step.
 
 Tests: `RxStateTest` (unit), `RxStateIT` (integration).

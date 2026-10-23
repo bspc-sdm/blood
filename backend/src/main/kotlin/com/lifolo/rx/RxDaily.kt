@@ -81,7 +81,7 @@ class RxLabDeletionStep(private val jdbc: JdbcTemplate, private val labs: LabSto
 
     override fun deleteNow(uid: String, email: String?) {
         try {
-            jdbc.update("UPDATE prescriptions SET patient_uid = NULL WHERE patient_uid = ?", uid)
+            jdbc.update("UPDATE prescriptions SET patient_uid = NULL, patient_done_at = NULL, patient_reopened_at = NULL WHERE patient_uid = ?", uid)
             jdbc.update("UPDATE rx_patients SET linked_uid = NULL WHERE linked_uid = ?", uid)
             jdbc.update("DELETE FROM rx_reviews WHERE patient_uid = ?", uid)
             jdbc.update("DELETE FROM lab_orders WHERE patient_uid = ?", uid)

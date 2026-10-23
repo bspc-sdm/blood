@@ -1,5 +1,5 @@
 // ডাক্তার ও প্রেসক্রিপশন (গাইড rx.json R-01…R-38): তালিকা, বুকিং, সেটআপ, রোগী-পাতা, সহকারী, রিপোর্ট দেখানো, ফার্মেসি/প্যাথলজির দিক, যাচাই
-import { tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
+import { tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -27,10 +27,15 @@ async function shop(page, tab) {
 async function labWork(page) {
   await labWorkTab(page);
 }
+/**
+ * "কোড দিয়ে প্রেসক্রিপশন খুলুন"-এর ঘরে কোড — বড় পর্দায় ঘরটা ডান পাশে (DOM-এ অর্ডারের তালিকার পরে, যেখানে কার্ডেও
+ * "…খুলুন" বোতাম আছে), ফোনে সবার আগে; তাই শিরোনাম ধরে সেই ঘরটাই।
+ */
 async function openCode(page, code) {
-  const box = page.getByPlaceholder(/QR-এর নিচের কোড/).first();
-  await box.fill(code);
-  await page.getByRole('button', { name: 'খুলুন' }).first().click();
+  const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'কোড দিয়ে প্রেসক্রিপশন খুলুন' }) }).first();
+  const scope = (await panel.count()) ? panel : page;
+  await scope.getByPlaceholder(/QR-এর নিচের কোড/).first().fill(code);
+  await scope.getByRole('button', { name: 'খুলুন', exact: true }).first().click();
   await settle(page, 500);
 }
 
@@ -264,7 +269,9 @@ export async function run(J) {
   await J.sc('R-19', 'আমার প্রেসক্রিপশনের তালিকা', async () => {
     page = await J.as('patient');
     await go(page, '/services/pharmacy/prescriptions');
-    await J.shot('আমার প্রেসক্রিপশন', 'ডা. ডেমো হাসানের কয়েকটা (A222, B333, বাতিল C444, যাত্রার নতুনটা) আর অনলাইন অর্ডারের প্রেসক্রিপশন।', { full: true });
+    await J.shot('আমার প্রেসক্রিপশন — চলমান', 'ওপরে ‘চলমান (n)’ / ‘পূর্বের (n)’ / ‘সব (n)’, ‘চলমান’ খোলা; প্রতিটা কার্ডে রঙিন চিপে এখন কোন অবস্থায় আর পরীক্ষা/ফলো-আপের ছোট লাইন।', { full: true });
+    await rxListAll(page);
+    await J.shot('আমার প্রেসক্রিপশন — সব', 'ডা. ডেমো হাসানের কয়েকটা (A222, B333, বাতিল C444, যাত্রার নতুনটা) আর অনলাইন অর্ডারের প্রেসক্রিপশন; আগেরগুলোতে ‘নতুন প্রেসক্রিপশনে বদলেছে · …’ (খোলা অর্ডার না থাকলে)।', { full: true });
     await page.locator('article').filter({ hasText: /Bislol/ }).filter({ hasNotText: 'বাতিল' }).first().click();
     await settle(page);
     await J.shot('DEMXRXB333', 'Comet ‘কেনা ৩০/৬০’, Rosuva ‘৩০/৩০’, Bislol আর Napa ‘এখনো কেনা হয়নি’; Lipid + Creatinine ‘রিপোর্ট এসেছে’, CBC ‘নমুনা নেওয়া হয়েছে’; ‘আবার ডাক্তার দেখানো’।', { full: true });
@@ -299,7 +306,7 @@ export async function run(J) {
 
   await J.sc('R-22', 'রোগী: দোকানে দাঁড়িয়ে প্রেসক্রিপশন পাঠানো', async () => {
     page = await J.as('patient');
-    await go(page, '/services/pharmacy/prescriptions');
+    await rxListAll(page);
     await page.locator('article').filter({ hasText: /Bislol/ }).filter({ hasNotText: 'বাতিল' }).first().click();
     await settle(page);
     await page.getByRole('button', { name: 'ফার্মেসিতে পাঠান' }).last().click();

@@ -1,6 +1,6 @@
 // বাকি দৃশ্যগুলো (আগের যাত্রার পরে যেগুলো করা যায়): দোকানের হিসাব-খাতা, প্যাথলজির দাম আর বাসা থেকে নমুনা,
 // অ্যাম্বুলেন্সের জায়গা আর মনে করানো, প্যাথলজির রিপোর্ট, ব্যাজ সংশোধন/বাতিল, চেম্বারের গড় সময়, আপিল
-import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave } from '../lib.mjs';
+import { tap, see, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin } from './00-seed.mjs';
 
@@ -33,7 +33,7 @@ async function owner(J) {
   return P.page;
 }
 async function openA222(page) {
-  await go(page, '/services/pharmacy/prescriptions');
+  await rxListAll(page);
   await page.locator('article').filter({ hasText: /Secrin/ }).first().click();
   await settle(page);
 }

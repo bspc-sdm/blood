@@ -175,32 +175,94 @@ class RxStateTest {
     }
 
     @Test
-    fun `nothing to track - notes and free-text medicines move to past after the course or a week`() {
-        val notes = rx(meds = emptyList(), type = "psychologist", system = null)
-        assertEquals("written", st(notes)["primary"])
-        assertEquals("active", st(notes)["phase"])
-        assertEquals("past", st(notes.copy(createdAt = now - 8 * day))["phase"])
+    fun `course end - past 3 days after the longest medicine ends, unless an order or a follow-up keeps it`() {
+        // 10-day course written 12 days ago: ended 2 days ago → still active; 13 days ago → past
+        assertEquals("active", st(rx(createdAt = now - 12 * day))["phase"])
+        st(rx(createdAt = now - 13 * day)).let {
+            assertEquals("past", it["phase"])
+            assertEquals("course_end", it["pastReason"])
+            assertEquals(today - 3 * day, it["courseEnd"])
+        }
+        // a purchase does not stretch the course (many buy outside the app)
+        val some = listOf(RxDispensing("ph", "লাইফ ফার্মেসি", now - day, listOf(0 to 2)))
+        assertEquals("course_end", st(rx(createdAt = now - 20 * day, dispensed = some))["pastReason"])
+        // an open order or a follow-up ahead keeps it
+        assertEquals("active", st(rx(createdAt = now - 20 * day), Facts(orders = listOf(order("sent", at = now - 15 * day))))["phase"])
+        assertEquals("active", st(rx(createdAt = now - 20 * day, followUp = today + day))["phase"])
+        // the longest medicine counts
+        val long = rx(meds = listOf(med(0, "Napa", days = 3), med(1, "Rosuva", days = 30)), createdAt = now - 20 * day)
+        assertEquals("active", st(long)["phase"])
+        // free-text (homeopathy) lines have days too
         val homeo = rx(meds = listOf(med(0, "Arnica 30", days = 14)), system = "homeopathy", freeText = true, createdAt = now - 10 * day)
         assertNull(st(homeo)["medicine"])
         assertEquals("active", st(homeo)["phase"])
-        assertEquals("past", st(homeo.copy(createdAt = now - 15 * day))["phase"])
+        assertEquals("course_end", st(homeo.copy(createdAt = now - 17 * day))["pastReason"])
     }
 
     @Test
-    fun `stale - 30 days after the last activity, unless something is still waiting`() {
-        val some = listOf(RxDispensing("ph", "লাইফ ফার্মেসি", now - 45 * day, listOf(0 to 2)))
-        val old = rx(dispensed = some, createdAt = now - 50 * day)
-        // course end (10 days) and the last purchase are long gone
-        assertEquals("past", st(old)["phase"])
-        assertEquals("partial", st(old)["primary"])
-        // an open order keeps it active
-        assertEquals("active", st(old, Facts(orders = listOf(order("sent", at = now - 40 * day))))["phase"])
-        // a recent purchase too
-        val recent = listOf(RxDispensing("ph", "লাইফ ফার্মেসি", now - 20 * day, listOf(0 to 2)))
-        assertEquals("active", st(rx(dispensed = recent, createdAt = now - 50 * day))["phase"])
-        // tests never sent: stale after 30 days from the course end
+    fun `no course end - a continuing medicine or no medicines - 30 days after writing or the last activity`() {
+        val cont = rx(meds = listOf(med(0, "Napa", days = 10), med(1, "Rosuva", days = 0)), createdAt = now - 29 * day)
+        assertNull(st(cont)["courseEnd"])
+        assertEquals("active", st(cont)["phase"])
+        st(cont.copy(createdAt = now - 32 * day)).let {
+            assertEquals("past", it["phase"])
+            assertEquals("stale", it["pastReason"])
+        }
+        // a purchase 10 days ago: 30 days from that
+        val bought = listOf(RxDispensing("ph", "লাইফ ফার্মেসি", now - 10 * day, listOf(1 to 30)))
+        assertEquals("active", st(cont.copy(createdAt = now - 60 * day, dispensed = bought))["phase"])
+        // notes only / tests only: the same fallback
+        val notes = rx(meds = emptyList(), type = "psychologist", system = null)
+        assertEquals("written", st(notes)["primary"])
+        assertEquals("active", st(notes.copy(createdAt = now - 29 * day))["phase"])
+        assertEquals("stale", st(notes.copy(createdAt = now - 31 * day))["pastReason"])
         assertEquals("active", st(rx(meds = emptyList(), tests = listOf("CBC"), createdAt = now - 29 * day))["phase"])
         assertEquals("past", st(rx(meds = emptyList(), tests = listOf("CBC"), createdAt = now - 32 * day))["phase"])
+    }
+
+    @Test
+    fun `superseded - a newer one from the same doctor, unless an order is still open`() {
+        val newer = RxState.Newer("rx2", now - day)
+        st(rx(), Facts(newer = newer)).let {
+            assertEquals("past", it["phase"])
+            assertEquals("superseded", it["pastReason"])
+            assertEquals(mapOf("id" to "rx2", "at" to now - day), it["supersededBy"])
+            // the medicine line stays what it was
+            assertEquals("not_bought", it["primary"])
+        }
+        // an open pharmacy or lab order keeps it until it closes
+        assertEquals("active", st(rx(), Facts(newer = newer, orders = listOf(order("accepted"))))["phase"])
+        assertEquals("active", st(rx(tests = listOf("CBC")), Facts(newer = newer, labs = listOf(Lab("received", "পপুলার", now - day, now, null))))["phase"])
+        // a follow-up ahead does not keep a superseded one
+        assertEquals("superseded", st(rx(followUp = today + 5 * day), Facts(newer = newer))["pastReason"])
+        assertNull(st(rx(followUp = today + 5 * day), Facts(newer = newer))["followUpDate"])
+    }
+
+    @Test
+    fun `marked finished by the patient, and ongoing again`() {
+        st(rx(), Facts(doneAt = now - 3600_000)).let {
+            assertEquals("past", it["phase"])
+            assertEquals("done", it["pastReason"])
+            assertEquals(now - 3600_000, it["doneAt"])
+        }
+        // done wins over an open order and a follow-up ahead; cancelled wins over done
+        assertEquals("done", st(rx(followUp = today + day), Facts(doneAt = now, orders = listOf(order("sent"))))["pastReason"])
+        assertEquals("cancelled", st(rx(status = "cancelled"), Facts(doneAt = now))["pastReason"])
+        // ongoing again: the course end and "everything bought" no longer move it
+        val old = rx(createdAt = now - 20 * day)
+        assertEquals("course_end", st(old)["pastReason"])
+        st(old, Facts(reopenedAt = now - day)).let {
+            assertEquals("active", it["phase"])
+            assertNull(it["pastReason"])
+            assertEquals(now - day, it["reopenedAt"])
+        }
+        val all = listOf(RxDispensing("ph", "লাইফ ফার্মেসি", now - 5 * day, listOf(0 to 20, 1 to 20)))
+        assertEquals("active", st(rx(dispensed = all), Facts(reopenedAt = now))["phase"])
+        // …but 30 days after reopening with nothing new it goes back
+        assertEquals("stale", st(rx(createdAt = now - 80 * day), Facts(reopenedAt = now - 31 * day))["pastReason"])
+        // a newer prescription written before the reopening does not supersede it; one written after does
+        assertEquals("active", st(old, Facts(reopenedAt = now - day, newer = RxState.Newer("rx2", now - 2 * day)))["phase"])
+        assertEquals("superseded", st(old, Facts(reopenedAt = now - 2 * day, newer = RxState.Newer("rx2", now - day)))["pastReason"])
     }
 
     @Test
@@ -230,5 +292,12 @@ class RxStateTest {
         assertEquals(mapOf("kind" to "follow_up", "at" to today + 2 * day, "ahead" to true), tl2.last())
         // the list has no timeline
         assertNull(RxState.compute(r, f, now)["timeline"])
+        // superseded, marked finished, ongoing again
+        val tl3 = RxState.compute(
+            r.copy(status = "active", followUpDate = null),
+            Facts(newer = RxState.Newer("rx2", now - 3 * 3600_000), doneAt = now - 2 * 3600_000, reopenedAt = now - 3600_000), now, withTimeline = true,
+        )["timeline"] as List<*>
+        assertEquals(listOf("superseded", "marked_done", "reopened"), tl3.takeLast(3).map { (it as Map<*, *>)["kind"] })
+        assertEquals("rx2", (tl3[tl3.size - 3] as Map<*, *>)["id"])
     }
 }

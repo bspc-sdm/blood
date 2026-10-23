@@ -18,6 +18,12 @@ export interface RxState {
   lab: RxStateLab | null;
   followUpDate: number | null;
   lastActivityAt: number;
+  /** কেন পূর্বের: cancelled | done | superseded | finished | course_end | stale (চলমান হলে null) — নতুন সার্ভারে */
+  pastReason?: string | null;
+  doneAt?: number | null;
+  reopenedAt?: number | null;
+  supersededBy?: { id: string; at: number } | null;
+  courseEnd?: number | null;
   timeline?: RxStep[];
 }
 
@@ -66,6 +72,11 @@ export function labText(l: RxStateLab): string {
   return parts.join(' · ');
 }
 
+export const doneText = () => tr('You marked it finished', 'আপনি শেষ করেছেন'); // bn-ok
+export const supersededText = (at: number) => tr('Replaced by a newer prescription · ', 'নতুন প্রেসক্রিপশনে বদলেছে · ') + formatDayOf(at); // bn-ok
+/** "শেষ হয়েছে" দেখানো যায় (চলমান, বাতিল নয়); "আবার চলমান করুন" — পূর্বের, বাতিল নয় */
+export const canMarkDone = (rx: Rx) => !!rx.state && !rx.state.cancelled && rx.state.phase === 'active';
+export const canReopen = (rx: Rx) => !!rx.state && !rx.state.cancelled && rx.state.phase === 'past';
 export const followUpText = (d: number) => tr('Follow-up: ', 'ফলো-আপ: ') + formatDate(d); // bn-ok
 
 /** কার্ডের রঙিন চিপের এক লাইন (অগ্রাধিকার সার্ভারের primary-তে) */
@@ -84,6 +95,9 @@ export function secondaryLines(rx: Rx): [string, string][] {
   const s = rx.state;
   if (!s || s.cancelled) return [];
   const out: [string, string][] = [];
+  // কেন পূর্বের: রোগী নিজে শেষ করেছেন / একই ডাক্তারের নতুন প্রেসক্রিপশন
+  if (s.pastReason === 'done') out.push(['check_circle', doneText()]);
+  if (s.pastReason === 'superseded' && s.supersededBy) out.push(['history', supersededText(s.supersededBy.at)]);
   if (s.lab && s.primary !== `lab_${s.lab.state}`) out.push(['list_alt', labText(s.lab)]);
   if (s.followUpDate && s.primary !== 'follow_up') out.push(['calendar_month', followUpText(s.followUpDate)]);
   return out;
@@ -108,6 +122,9 @@ export function stepText(st: RxStep): string {
     case 'lab_cancelled': return tr("Lab couldn't do it", 'ল্যাব করতে পারেনি') + at(st.name); // bn-ok
     case 'reviewed': return tr('Doctor checked the report', 'ডাক্তার রিপোর্ট দেখেছেন'); // bn-ok
     case 'cancelled': return tr('Cancelled by the doctor', 'বাতিল করেছেন ডাক্তার'); // bn-ok
+    case 'superseded': return tr('Replaced by a newer prescription', 'নতুন প্রেসক্রিপশনে বদলেছে'); // bn-ok
+    case 'marked_done': return doneText();
+    case 'reopened': return tr('Made ongoing again', 'আবার চলমান করেছেন'); // bn-ok
     case 'follow_up': return st.ahead ? tr('Follow-up visit', 'ফলো-আপে দেখানোর দিন') : tr('Follow-up day', 'ফলো-আপের দিন'); // bn-ok
     default: return st.kind;
   }

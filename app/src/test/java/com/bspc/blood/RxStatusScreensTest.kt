@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
@@ -80,8 +83,8 @@ class RxStatusScreensTest {
     private fun lab(state: String, orders: Int = 1, reported: Int = 0, reviewed: Boolean = false) =
         JSONObject().put("state", state).put("orders", orders).put("reported", reported).put("labName", "সিটি ল্যাব").put("reviewed", reviewed)
 
-    private fun state(primary: String, tone: String, phase: String = "active", medicine: JSONObject? = null, lab: JSONObject? = null, followUp: Long? = null, cancelled: Boolean = false) =
-        JSONObject().put("phase", phase).put("primary", primary).put("tone", tone).put("cancelled", cancelled).put("cancelledAt", if (cancelled) now - day else JSONObject.NULL)
+    private fun state(primary: String, tone: String, phase: String = "active", medicine: JSONObject? = null, lab: JSONObject? = null, followUp: Long? = null, cancelled: Boolean = false, reason: String? = null) =
+        JSONObject().put("phase", phase).put("pastReason", reason ?: if (cancelled) "cancelled" else JSONObject.NULL).put("primary", primary).put("tone", tone).put("cancelled", cancelled).put("cancelledAt", if (cancelled) now - day else JSONObject.NULL)
             .put("medicine", medicine ?: JSONObject.NULL).put("lab", lab ?: JSONObject.NULL).put("followUpDate", followUp ?: JSONObject.NULL).put("lastActivityAt", now)
 
     private fun rxJson(id: String, doctor: String, ago: Int, state: JSONObject?, status: String = "active", meds: Boolean = true) = JSONObject()
@@ -93,13 +96,13 @@ class RxStatusScreensTest {
         .apply { if (state != null) put("state", state) }
 
     private fun list(withState: Boolean = true): List<Rx> = listOf(
-        rxJson("a", "ডা. সাবরিনা হক", 30, state("all_bought", "good", "past", med("all_bought", 3, 3))),
+        rxJson("a", "ডা. সাবরিনা হক", 30, state("all_bought", "good", "past", med("all_bought", 3, 3), reason = "superseded").put("supersededBy", JSONObject().put("id", "b").put("at", now - day))),
         rxJson("b", "ডা. ফারহানা ইয়াসমিন", 1, state("sent", "primary", medicine = med("sent"), lab = lab("pending", 0), followUp = today + 14 * day)),
         rxJson("c", "ডা. তানভীর রহমান", 6, state("partial", "info", medicine = med("partial", 3, 5), lab = lab("received"))),
         rxJson("d", "ডা. মাহমুদুল হাসান", 12, state("running_out", "error", medicine = med("running_out", 2, 3))),
         rxJson("e", "ডা. নুসরাত জাহান", 3, state("out", "primary", medicine = med("out"), lab = lab("reported", reported = 1, reviewed = true))),
         rxJson("f", "ডা. কামরুল ইসলাম", 60, state("cancelled", "muted", "past", med("not_bought"), cancelled = true), status = "cancelled"),
-        rxJson("g", "ডা. রেহানা পারভীন", 40, state("lab_reported", "good", "past", lab = lab("reported", reported = 1)), meds = false),
+        rxJson("g", "ডা. রেহানা পারভীন", 40, state("lab_reported", "good", "past", lab = lab("reported", reported = 1), reason = "done").put("doneAt", now - 2 * day), meds = false),
     ).map { Rx.parse(if (withState) it else it.apply { remove("state") }) }
 
     /** একটা লেখার উপরের কিনারা (ক্রম মেলাতে) */
@@ -135,6 +138,19 @@ class RxStatusScreensTest {
         val f = list().first { it.id == "f" }
         assertEquals("বাতিল করেছেন ডাক্তার" to "muted", RxStateText.primary(f))
         assertTrue(RxStateText.secondary(f).isEmpty())
+        // কেন পূর্বের
+        val a = list().first { it.id == "a" }
+        assertEquals("superseded", a.state!!.pastReason)
+        assertEquals("b" to now - day, a.state!!.supersededBy)
+        assertEquals(R.drawable.ic_history, RxStateText.secondary(a).first().first)
+        assertTrue(RxStateText.secondary(a).first().second.startsWith("নতুন প্রেসক্রিপশনে বদলেছে · "))
+        assertEquals(R.drawable.ic_check_circle to "আপনি শেষ করেছেন", RxStateText.secondary(list().first { it.id == "g" }).first())
+        // বোতাম: চলমানে "শেষ হয়েছে", পূর্বেরতে "আবার চলমান করুন", বাতিলে কোনোটাই নয়
+        assertTrue(RxStateText.canMarkDone(list().first { it.id == "b" }))
+        assertTrue(RxStateText.canReopen(a))
+        assertFalse(RxStateText.canMarkDone(f) || RxStateText.canReopen(f))
+        assertEquals("আবার চলমান করেছেন", RxStateText.stepText(RxStep("reopened", 0, "", "", 0, false)))
+        assertEquals("নতুন প্রেসক্রিপশনে বদলেছে", RxStateText.stepText(RxStep("superseded", 0, "", "", 0, false)))
         // ওষুধ নেই: পরীক্ষাই মূল লাইন
         assertEquals("রিপোর্ট এসেছে" to "good", RxStateText.primary(list().first { it.id == "g" }))
         // ট্যাব
@@ -197,6 +213,9 @@ class RxStatusScreensTest {
         rule.onNodeWithText("পূর্বের (৩)").assertIsSelected()
         rule.onNodeWithText("বাতিল করেছেন ডাক্তার", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("সব ওষুধ কেনা হয়েছে", useUnmergedTree = true).assertExists()
+        // কেন পূর্বের: নতুন প্রেসক্রিপশন / নিজে শেষ
+        rule.onNodeWithText("নতুন প্রেসক্রিপশনে বদলেছে · ", substring = true, useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("আপনি শেষ করেছেন", useUnmergedTree = true).assertExists()
         shot("rx-status-past-bn")
         rule.onNodeWithText("সব (৭)").performClick()
         rule.waitForIdle()
@@ -236,8 +255,10 @@ class RxStatusScreensTest {
         AppPrefs.theme.value = ThemeMode.LIGHT
     }
 
-    private fun timelineRx(): Rx {
-        val st = state("sent", "primary", medicine = med("sent"), lab = lab("sent", 2, 1), followUp = today + 14 * day).put(
+    private fun timelineRx(): Rx = Rx.parse(rxJson("b", "ডা. ফারহানা ইয়াসমিন", 2, timelineState()))
+
+    private fun timelineState(): JSONObject {
+        return state("sent", "primary", medicine = med("sent"), lab = lab("sent", 2, 1), followUp = today + 14 * day).put(
             "timeline",
             JSONArray()
                 .put(JSONObject().put("kind", "written").put("at", now - 2 * day))
@@ -248,7 +269,6 @@ class RxStatusScreensTest {
                 .put(JSONObject().put("kind", "pharmacy_sent").put("at", now - 1800_000).put("name", "মেডিপ্লাস ফার্মেসি").put("mode", "online"))
                 .put(JSONObject().put("kind", "follow_up").put("at", today + 14 * day).put("ahead", true)),
         )
-        return Rx.parse(rxJson("b", "ডা. ফারহানা ইয়াসমিন", 2, st))
     }
 
     @Test
@@ -261,6 +281,48 @@ class RxStatusScreensTest {
         rule.onNodeWithText("ফার্মেসি দিতে পারেনি — লাইফ কেয়ার ফার্মেসি", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("ল্যাবে পাঠানো · ১/২টা রিপোর্ট এসেছে", useUnmergedTree = true).assertExists()
         shot("rx-status-timeline-bn")
+    }
+
+    @Test
+    fun timelineCardMarkDoneAndReopen() {
+        val asked = mutableListOf<Boolean>()
+        var rx by mutableStateOf(timelineRx())
+        rule.setContent {
+            GetBloodTheme {
+                Surface {
+                    Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
+                        RxTimelineCard(rx, onMark = { asked += it }, onNewer = {})
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("শেষ হয়েছে", useUnmergedTree = true).performClick()
+        assertEquals(listOf(true), asked)
+        // সার্ভার "done" বলল: পূর্বের, ছোট লাইন, "আবার চলমান করুন"
+        val st = JSONObject(timelineState().toString()).put("phase", "past").put("pastReason", "done").put("doneAt", now).put("followUpDate", JSONObject.NULL)
+        rx = Rx.parse(rxJson("b", "ডা. ফারহানা ইয়াসমিন", 2, st))
+        rule.waitForIdle()
+        rule.onNodeWithText("আপনি শেষ করেছেন", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("আবার চলমান করুন", useUnmergedTree = true).assertExists()
+        shot("rx-status-timeline-done-bn")
+        rule.onNodeWithText("আবার চলমান করুন", useUnmergedTree = true).performClick()
+        assertEquals(listOf(true, false), asked)
+    }
+
+    @Test
+    fun timelineCardSuperseded() {
+        val opened = mutableListOf<String>()
+        val st = JSONObject(timelineState().toString()).put("phase", "past").put("pastReason", "superseded").put("followUpDate", JSONObject.NULL)
+            .put("supersededBy", JSONObject().put("id", "rx-new").put("at", now - 3600_000))
+        rule.setContent {
+            GetBloodTheme { Surface { Column(Modifier.padding(16.dp)) { RxTimelineCard(Rx.parse(rxJson("b", "ডা. ফারহানা ইয়াসমিন", 2, st)), onMark = {}, onNewer = { opened += it }) } } }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("নতুন প্রেসক্রিপশনে বদলেছে · ", substring = true, useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("নতুনটা দেখুন", useUnmergedTree = true).performClick()
+        assertEquals(listOf("rx-new"), opened)
+        shot("rx-status-timeline-superseded-bn")
     }
 
     @Test

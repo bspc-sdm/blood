@@ -463,6 +463,10 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - src: `server/lib/rxnet.js` → `actions.rx_activity` · auth: user (patient of rx) caregiver · port: **P3**
   - request: `rxId` · response: `{medicines,dispensed,orders,labOrders:[...],reviews:[...],nextOpen}`
   - collections: labOrders, prescriptions, providers, rxOrders, rxReviews · side effects: — · errors: — · tests: demo-health, demo-lab, demo-pharmacy, demo-rx, demo-services, labprices, privacy-gaps, rxflow
+- [x] **`rx_mark_done`** — Patient: mark a prescription finished ("শেষ হয়েছে") or ongoing again (Spring only, RX-STATE.md)
+  - src: `backend/.../rx/RxActions.kt` → `rxMarkDone` · auth: user (patient of rx) caregiver; never the writing doctor; psychologist notes hidden from caregivers · port: **P3**
+  - request: `id`, `done` (true/false) · response: `{ok, item}` (the prescription with `state` and its timeline)
+  - collections: prescriptions (`patient_done_at`, `patient_reopened_at`) · side effects: — · errors: 404 · tests: RxStateIT
 
 ## Pharmacy listing, stock, medicine finder (package `pharmacy`) — 17 actions
 

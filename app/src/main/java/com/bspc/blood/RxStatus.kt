@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
@@ -18,7 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +56,12 @@ data class RxState(
     val lastActivityAt: Long,
     /** শুধু rx_get-এ */
     val timeline: List<RxStep>? = null,
+    /** কেন পূর্বের: cancelled | done | superseded | finished | course_end | stale (চলমান হলে "") */
+    val pastReason: String = "",
+    val doneAt: Long? = null,
+    val reopenedAt: Long? = null,
+    /** একই ডাক্তারের নতুন প্রেসক্রিপশন (id, কবে) — pastReason "superseded" হলে */
+    val supersededBy: Pair<String, Long>? = null,
 ) {
     companion object {
         private fun JSONObject.longOrNull(k: String): Long? = if (!has(k) || isNull(k)) null else optLong(k).takeIf { it > 0 }
@@ -72,6 +82,8 @@ data class RxState(
                         RxStep(it.str("kind"), it.optLong("at"), it.str("name"), it.str("mode"), it.optInt("count"), it.optBoolean("ahead"))
                     }
                 },
+                o.str("pastReason"), o.longOrNull("doneAt"), o.longOrNull("reopenedAt"),
+                o.optJSONObject("supersededBy")?.let { b -> b.str("id").takeIf { it.isNotBlank() }?.let { it to b.optLong("at") } },
             )
         }
     }
@@ -125,6 +137,15 @@ object RxStateText {
 
     val cancelledText: String get() = tr("Cancelled by the doctor", "বাতিল করেছেন ডাক্তার")
 
+    val doneText: String get() = tr("You marked it finished", "আপনি শেষ করেছেন")
+
+    fun supersededText(at: Long): String = tr("Replaced by a newer prescription · ", "নতুন প্রেসক্রিপশনে বদলেছে · ") + Rules.formatDate(at + DHAKA_MS)
+
+    /** "শেষ হয়েছে": চলমান আর বাতিল নয়; "আবার চলমান করুন": পূর্বের আর বাতিল নয় (পুরোনো সার্ভারে কোনোটাই নয়) */
+    fun canMarkDone(rx: Rx): Boolean = rx.state?.let { !it.cancelled && it.phase == "active" } ?: false
+
+    fun canReopen(rx: Rx): Boolean = rx.state?.let { !it.cancelled && it.phase == "past" } ?: false
+
     /** কার্ডের রঙিন চিপের এক লাইন (অগ্রাধিকার সার্ভারের primary-তে) আর রং; কিছু না দেখানোর হলে null */
     fun primary(rx: Rx): Pair<String, String>? {
         val s = rx.state ?: return if (rx.cancelled) cancelledText to "muted" else null
@@ -144,6 +165,9 @@ object RxStateText {
         val s = rx.state ?: return emptyList()
         if (s.cancelled) return emptyList()
         val out = mutableListOf<Pair<Int, String>>()
+        // কেন পূর্বের: নিজে শেষ করেছেন / একই ডাক্তারের নতুন প্রেসক্রিপশন
+        if (s.pastReason == "done") out += R.drawable.ic_check_circle to doneText
+        if (s.pastReason == "superseded") s.supersededBy?.let { out += R.drawable.ic_history to supersededText(it.second) }
         s.lab?.let { if (s.primary != "lab_" + it.state) out += R.drawable.ic_list_alt to labText(it) }
         s.followUpDate?.let { if (s.primary != "follow_up") out += R.drawable.ic_calendar_month to followUpText(it) }
         return out
@@ -167,6 +191,9 @@ object RxStateText {
             "lab_cancelled" -> tr("Lab couldn't do it", "ল্যাব করতে পারেনি") + at
             "reviewed" -> tr("Doctor checked the report", "ডাক্তার রিপোর্ট দেখেছেন")
             "cancelled" -> cancelledText
+            "superseded" -> tr("Replaced by a newer prescription", "নতুন প্রেসক্রিপশনে বদলেছে")
+            "marked_done" -> doneText
+            "reopened" -> tr("Made ongoing again", "আবার চলমান করেছেন")
             "follow_up" -> if (st.ahead) tr("Follow-up visit", "ফলো-আপে দেখানোর দিন") else tr("Follow-up day", "ফলো-আপের দিন")
             else -> st.kind
         }
@@ -209,9 +236,10 @@ fun RxStatusLine(rx: Rx) {
     }
 }
 
-/** ভেতরে উপরে: এখন কোন অবস্থায় + কী কী হয়েছে, তারিখসহ */
+/** ভেতরে উপরে: এখন কোন অবস্থায় + কী কী হয়েছে, তারিখসহ; রোগীর "শেষ হয়েছে" / "আবার চলমান করুন", "নতুনটা দেখুন" */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun RxTimelineCard(rx: Rx) {
+fun RxTimelineCard(rx: Rx, busy: Boolean = false, onMark: ((Boolean) -> Unit)? = null, onNewer: ((String) -> Unit)? = null) {
     val s = rx.state ?: return
     val cs = MaterialTheme.colorScheme
     Card(Modifier.fillMaxWidth().testTag("rx-timeline"), colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
@@ -241,6 +269,25 @@ fun RxTimelineCard(rx: Rx) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(RxStateText.stepDate(st), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                }
+            }
+            // রোগী (বা কেয়ারগিভার): নিজে শেষ / আবার চলমান (rx_mark_done); নতুন প্রেসক্রিপশনে বদলালে সেটা খোলা
+            val newer = s.supersededBy?.takeIf { s.pastReason == "superseded" }
+            val mark = onMark?.takeIf { RxStateText.canMarkDone(rx) || RxStateText.canReopen(rx) }
+            if (mark != null || (newer != null && onNewer != null)) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (newer != null && onNewer != null) {
+                        FilledTonalButton(onClick = { onNewer(newer.first) }, modifier = Modifier.testTag("rx-newer")) {
+                            ButtonContent(false, tr("See the newer one", "নতুনটা দেখুন"), R.drawable.ic_history)
+                        }
+                    }
+                    if (mark != null) {
+                        val done = RxStateText.canMarkDone(rx)
+                        OutlinedButton(onClick = { mark(done) }, enabled = !busy, modifier = Modifier.testTag(if (done) "rx-mark-done" else "rx-reopen")) {
+                            ButtonContent(busy, if (done) tr("Finished", "শেষ হয়েছে") else tr("Make ongoing again", "আবার চলমান করুন"), if (done) R.drawable.ic_check_circle else R.drawable.ic_history)
+                        }
+                    }
                 }
             }
         }

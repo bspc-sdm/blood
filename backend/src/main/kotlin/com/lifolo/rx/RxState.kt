@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component
  * Pure — unit-tested in RxStateTest; [RxStateLoader] reads the rows for many prescriptions at once.
  */
 object RxState {
-    /** a prescription with nothing happening this many days after its last activity moves to "past" */
+    /** no course end (no durations, or a "চলবে" medicine): "past" this many days after writing or the last activity */
     const val STALE_DAYS = 30L
 
-    /** nothing to track (notes only, free-text medicines): "past" this many days after writing (or when the course ends) */
-    const val NOTES_DAYS = 7L
+    /** "past" this many days after the course ends (the longest medicine's days from the writing day) */
+    const val COURSE_GRACE_DAYS = 3L
 
     /** "running out" shows from the refill reminder day (2 days before the medicines end) for this many days */
     const val RUNNING_OUT_DAYS = 7L
@@ -35,7 +35,21 @@ object RxState {
 
     data class Review(val status: String, val at: Long)
 
-    data class Facts(val cancelledAt: Long? = null, val orders: List<Order> = emptyList(), val labs: List<Lab> = emptyList(), val reviews: List<Review> = emptyList())
+    /** a newer prescription from the same doctor for the same person */
+    data class Newer(val id: String, val createdAt: Long)
+
+    data class Facts(
+        val cancelledAt: Long? = null,
+        val orders: List<Order> = emptyList(),
+        val labs: List<Lab> = emptyList(),
+        val reviews: List<Review> = emptyList(),
+        /** the patient (or a caregiver) marked it finished — "শেষ হয়েছে" */
+        val doneAt: Long? = null,
+        /** the patient (or a caregiver) made it ongoing again — "আবার চলমান করুন" */
+        val reopenedAt: Long? = null,
+        /** the next newer prescription from the same doctor for the same person (not cancelled) */
+        val newer: Newer? = null,
+    )
 
     private fun tone(primary: String): String = when (primary) {
         "cancelled" -> "muted"
@@ -97,27 +111,35 @@ object RxState {
             )
         }
 
-        // ---------- follow-up, activity, phase ----------
+        // ---------- follow-up, activity, phase (backend/docs/RX-STATE.md) ----------
         val followUp = rx.followUpDate?.takeIf { it != 0L }
         val followUpAhead = !cancelled && followUp != null && followUp >= today
-        val maxDays = rx.medicines.maxOfOrNull { it.days } ?: 0
-        val courseEnd = writtenDay + maxDays * day
+        // the course: the longest medicine from the writing day; a "চলবে" medicine (days 0) or no medicines = no end
+        val courseEnd: Long? = if (rx.medicines.isEmpty() || rx.medicines.any { it.days <= 0 }) null
+        else writtenDay + rx.medicines.maxOf { it.days } * day
         val lastActivity = listOfNotNull(
-            rx.createdAt, lastBuyAt, courseEnd, followUp, rx.refillAt?.let { it + 2 * day },
+            rx.createdAt, lastBuyAt, followUp, rx.refillAt?.let { it + 2 * day }, f.reopenedAt,
             f.orders.maxOfOrNull { it.at },
             f.labs.maxOfOrNull { maxOf(it.createdAt, it.updatedAt ?: 0L, it.reportedAt ?: 0L) },
             f.reviews.maxOfOrNull { it.at },
         ).max()
         val waiting = openOrder != null || live.any { it.status != "reported" }
         val nothingTracked = medicine == null && lab == null
-        val past = when {
-            cancelled -> true
-            followUpAhead -> false
-            waiting -> false
-            nothingTracked -> today >= maxOf(courseEnd, writtenDay + NOTES_DAYS * day)
-            medsDone && testsDone -> true
-            else -> today > RxRules.dhakaToday(lastActivity) + STALE_DAYS * day
+        val reopened = f.reopenedAt
+        // made ongoing again: only a prescription written after that supersedes it; "finished" and the course end don't apply
+        val superseded = f.newer?.takeIf { reopened == null || it.createdAt > reopened }
+        val pastReason: String? = when {
+            cancelled -> "cancelled"
+            f.doneAt != null -> "done"
+            waiting -> null
+            superseded != null -> "superseded"
+            followUpAhead -> null
+            reopened == null && !nothingTracked && medsDone && testsDone -> "finished"
+            reopened == null && courseEnd != null && today >= courseEnd + COURSE_GRACE_DAYS * day -> "course_end"
+            (courseEnd == null || reopened != null) && today > RxRules.dhakaToday(lastActivity) + STALE_DAYS * day -> "stale"
+            else -> null
         }
+        val past = pastReason != null
         val primary = when {
             cancelled -> "cancelled"
             medicine != null -> medicine["state"] as String
@@ -133,8 +155,14 @@ object RxState {
             "cancelledAt" to f.cancelledAt?.takeIf { cancelled },
             "medicine" to medicine,
             "lab" to lab,
-            "followUpDate" to followUp?.takeIf { followUpAhead },
+            "followUpDate" to followUp?.takeIf { followUpAhead && !past },
             "lastActivityAt" to lastActivity,
+            // why it is in "পূর্বের": cancelled | done | superseded | finished | course_end | stale (null while active)
+            "pastReason" to pastReason,
+            "doneAt" to f.doneAt,
+            "reopenedAt" to f.reopenedAt,
+            "supersededBy" to superseded?.takeIf { pastReason == "superseded" }?.let { linkedMapOf("id" to it.id, "at" to it.createdAt) },
+            "courseEnd" to courseEnd,
         )
         if (withTimeline) out["timeline"] = timeline(rx, f, followUp, now)
         return out
@@ -162,6 +190,9 @@ object RxState {
             }
         }
         for (r in f.reviews) if (r.status == "done") add("reviewed", r.at)
+        f.newer?.let { add("superseded", it.createdAt, extra = mapOf("id" to it.id)) }
+        f.doneAt?.let { add("marked_done", it) }
+        f.reopenedAt?.let { add("reopened", it) }
         if (rx.status == "cancelled") add("cancelled", f.cancelledAt ?: rx.createdAt)
         if (followUp != null && rx.status != "cancelled") add("follow_up", followUp, extra = mapOf("ahead" to (followUp >= RxRules.dhakaToday(now))))
         list.sortBy { it["at"] as Long }
@@ -172,12 +203,45 @@ object RxState {
 /** the rows [RxState] needs, for many prescriptions in a few queries */
 @Component
 class RxStateLoader(private val jdbc: JdbcTemplate) {
-    fun facts(ids: List<String>): Map<String, RxState.Facts> {
-        if (ids.isEmpty()) return emptyMap()
+    private data class Marks(val cancelledAt: Long?, val doneAt: Long?, val reopenedAt: Long?)
+
+    private data class Sibling(val id: String, val doctorUid: String, val patientUid: String, val rxPatientId: String?, val name: String, val createdAt: Long)
+
+    /** the same person: the same paper patient when both have one, else the same name (a family member on one account) */
+    private fun samePerson(a: Prescription, b: Sibling): Boolean =
+        if (a.rxPatientId != null && b.rxPatientId != null) a.rxPatientId == b.rxPatientId
+        else personName((a.patient["name"] as? String) ?: "") == personName(b.name)
+
+    private fun personName(n: String) = n.trim().replace(Regex("\\s+"), " ").lowercase()
+
+    fun facts(list: List<Prescription>): Map<String, RxState.Facts> {
+        if (list.isEmpty()) return emptyMap()
+        val ids = list.map { it.id }
         val arr = P3Sql.pgArray(ids)
-        val cancelled = HashMap<String, Long>()
-        jdbc.eachRow("SELECT id, cancelled_at FROM prescriptions WHERE id = ANY(?::text[]) AND cancelled_at IS NOT NULL", arr) { rs ->
-            cancelled[rs.getString("id")] = rs.getTimestamp("cancelled_at").time
+        val marks = HashMap<String, Marks>()
+        jdbc.eachRow("SELECT id, cancelled_at, patient_done_at, patient_reopened_at FROM prescriptions WHERE id = ANY(?::text[])", arr) { rs ->
+            marks[rs.getString("id")] = Marks(
+                rs.getTimestamp("cancelled_at")?.time, rs.getTimestamp("patient_done_at")?.time, rs.getTimestamp("patient_reopened_at")?.time,
+            )
+        }
+        // newer prescriptions of the same doctors on the same accounts (not cancelled)
+        val owners = list.mapNotNull { it.patientUid }.distinct()
+        val siblings = if (owners.isEmpty()) emptyList() else jdbc.rows(
+            """
+            SELECT id, doctor_uid, patient_uid, rx_patient_id, patient_name, created_at FROM prescriptions
+            WHERE status = 'active' AND patient_uid = ANY(?::text[]) AND doctor_uid = ANY(?::text[])
+            """.trimIndent(),
+            P3Sql.pgArray(owners), P3Sql.pgArray(list.map { it.doctorUid }.distinct()),
+        ) { rs ->
+            Sibling(
+                rs.getString("id"), rs.getString("doctor_uid"), rs.getString("patient_uid"), rs.getString("rx_patient_id"),
+                rs.getString("patient_name") ?: "", rs.getTimestamp("created_at").time,
+            )
+        }
+        val newer = list.associate { rx ->
+            rx.id to siblings.filter {
+                it.id != rx.id && it.doctorUid == rx.doctorUid && it.patientUid == rx.patientUid && it.createdAt > rx.createdAt && samePerson(rx, it)
+            }.minByOrNull { it.createdAt }?.let { RxState.Newer(it.id, it.createdAt) }
         }
         val orders = HashMap<String, MutableList<RxState.Order>>()
         jdbc.eachRow(
@@ -208,6 +272,9 @@ class RxStateLoader(private val jdbc: JdbcTemplate) {
             "SELECT o.rx_id, r.status, COALESCE(r.done_at, r.updated_at) AS at FROM rx_reviews r JOIN lab_orders o ON o.id = r.lab_order_id WHERE o.rx_id = ANY(?::text[])",
             arr,
         ) { rs -> reviews.getOrPut(rs.getString("rx_id")) { ArrayList() }.add(RxState.Review(rs.getString("status"), rs.getTimestamp("at").time)) }
-        return ids.associateWith { RxState.Facts(cancelled[it], orders[it].orEmpty(), labs[it].orEmpty(), reviews[it].orEmpty()) }
+        return ids.associateWith {
+            val m = marks[it]
+            RxState.Facts(m?.cancelledAt, orders[it].orEmpty(), labs[it].orEmpty(), reviews[it].orEmpty(), m?.doneAt, m?.reopenedAt, newer[it])
+        }
     }
 }

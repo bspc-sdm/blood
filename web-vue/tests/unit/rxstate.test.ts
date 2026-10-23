@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLang } from '@/lib/i18n';
 import type { Rx } from '@/sections/health/rx';
-import { inTab, labText, phaseOf, primaryText, secondaryLines, stepDate, stepText, tabLabel, type RxState } from '@/sections/health/rxstate';
+import { canMarkDone, canReopen, inTab, labText, phaseOf, primaryText, secondaryLines, stepDate, stepText, tabLabel, type RxState } from '@/sections/health/rxstate';
 
 const D = 24 * 3600 * 1000;
 const FU = Date.UTC(2026, 10, 5); // ৫ নভেম্বর ২০২৬ (UTC মধ্যরাত)
@@ -105,5 +105,32 @@ describe('টাইমলাইন', () => {
     expect(stepDate({ kind: 'follow_up', at: FU })).toBe('৫ নভেম্বর ২০২৬');
     // আসল সময়: ঢাকার দিন (রাত ১১টা UTC = পরদিন ঢাকায়)
     expect(stepDate({ kind: 'written', at: FU - D + 23 * 3600 * 1000 })).toBe('৫ নভেম্বর ২০২৬');
+  });
+});
+
+describe('কেন পূর্বের: নিজে শেষ করা, নতুন প্রেসক্রিপশন; বোতাম', () => {
+  it('ছোট লাইন', () => {
+    setLang('bn');
+    expect(secondaryLines(rx(st({ phase: 'past', pastReason: 'done', doneAt: FU })))[0]).toEqual(['check_circle', 'আপনি শেষ করেছেন']);
+    const sup = secondaryLines(rx(st({ phase: 'past', pastReason: 'superseded', supersededBy: { id: 'rx2', at: FU } })));
+    expect(sup[0]).toEqual(['history', 'নতুন প্রেসক্রিপশনে বদলেছে · ৫ নভেম্বর ২০২৬']);
+    // শুধু কারণটা ঠিক হলে (supersededBy থাকলেও চলমান হলে নয়)
+    expect(secondaryLines(rx(st({ pastReason: null, supersededBy: { id: 'rx2', at: FU } })))).toEqual([]);
+    setLang('en');
+    expect(secondaryLines(rx(st({ phase: 'past', pastReason: 'done' })))[0][1]).toBe('You Marked It Finished');
+  });
+  it('"শেষ হয়েছে" চলমানে, "আবার চলমান করুন" পূর্বেরতে; বাতিলে কোনোটাই নয়; পুরোনো সার্ভারে নয়', () => {
+    expect(canMarkDone(rx(st({})))).toBe(true);
+    expect(canReopen(rx(st({})))).toBe(false);
+    expect(canReopen(rx(st({ phase: 'past', pastReason: 'course_end' })))).toBe(true);
+    expect(canMarkDone(rx(st({ phase: 'past', pastReason: 'cancelled', cancelled: true }), 'cancelled'))).toBe(false);
+    expect(canReopen(rx(st({ phase: 'past', pastReason: 'cancelled', cancelled: true }), 'cancelled'))).toBe(false);
+    expect(canMarkDone(rx(null))).toBe(false);
+  });
+  it('টাইমলাইনের নতুন ধাপ', () => {
+    setLang('bn');
+    expect(stepText({ kind: 'superseded', at: 0 })).toBe('নতুন প্রেসক্রিপশনে বদলেছে');
+    expect(stepText({ kind: 'marked_done', at: 0 })).toBe('আপনি শেষ করেছেন');
+    expect(stepText({ kind: 'reopened', at: 0 })).toBe('আবার চলমান করেছেন');
   });
 });

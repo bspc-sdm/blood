@@ -271,6 +271,8 @@ object RxApi {
     suspend fun cancel(id: String) = call("rx_cancel", JSONObject().put("id", id))
     suspend fun create(body: JSONObject): String = call("rx_create", body).optString("id")
     suspend fun get(id: String): Rx = Rx.parse(call("rx_get", JSONObject().put("id", id)).getJSONObject("item"))
+    /** রোগী/কেয়ারগিভার: "শেষ হয়েছে" (true) / "আবার চলমান করুন" (false) — নতুন অবস্থা আর টাইমলাইনসহ (backend/docs/RX-STATE.md) */
+    suspend fun markDone(id: String, done: Boolean): Rx = Rx.parse(call("rx_mark_done", JSONObject().put("id", id).put("done", done)).getJSONObject("item"))
 
     suspend fun team(): List<String> = call("rx_team").optJSONArray("emails").strings()
     suspend fun setTeam(emails: List<String>): List<String> = call("rx_team_set", JSONObject().put("emails", JSONArray(emails))).optJSONArray("emails").strings()
@@ -469,7 +471,7 @@ internal fun PsychiatristNote(text: String? = null) {
 
 /** পুরো পাতায় একটা প্রেসক্রিপশন: কাগজ, PDF, অ্যালার্ম, আবার দেখানোর সিরিয়াল; ডাক্তারের জন্য বাতিল */
 @Composable
-fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: () -> Unit = {}, profile: Profile? = null) {
+fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: () -> Unit = {}, profile: Profile? = null, onOpenRx: ((String) -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -512,7 +514,25 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                     }
                 }
                 // রোগী: এখন কোন অবস্থায় + কী কী হয়েছে, তারিখসহ (rx_get-এর state.timeline — RxStatus.kt)
-                if (patient) RxTimelineCard(full ?: rx)
+                if (patient) {
+                    var marking by remember { mutableStateOf(false) }
+                    RxTimelineCard(
+                        full ?: rx, busy = marking,
+                        onMark = { done ->
+                            scope.launch {
+                                marking = true
+                                runCatching { RxApi.markDone(rx.id, done) }
+                                    .onSuccess {
+                                        full = it
+                                        info(if (done) tr("Moved to Previous", "পূর্বের-এ রাখা হয়েছে") else tr("Moved to Ongoing", "চলমান-এ ফিরেছে"))
+                                    }
+                                    .onFailure { errorMsg = it.message }
+                                marking = false
+                            }
+                        },
+                        onNewer = onOpenRx,
+                    )
+                }
                 // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
                 if (patient && profile != null) RxActivitySection(rx, profile, snack) { RxPaper(rx) }
                 if (!asDoctor && !rx.cancelled) {
@@ -709,7 +729,16 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?, load: suspend
         }
     }
     // ফিরে এলে তালিকা আবার আনা — ভেতরে পাঠানো/ফিরিয়ে নেওয়ার পর অবস্থা-লাইন নতুন হয়
-    open?.let { rx -> RxDetailDialog(rx, asDoctor = false, onDismiss = { open = null; reload++ }, profile = profile) }
+    val scope = rememberCoroutineScope()
+    // key: "নতুনটা দেখুন" অন্য প্রেসক্রিপশন খুললে পুরো পাতা নতুন করে
+    open?.let { rx ->
+        key(rx.id) {
+            RxDetailDialog(
+                rx, asDoctor = false, onDismiss = { open = null; reload++ }, profile = profile,
+                onOpenRx = { id -> scope.launch { (list?.firstOrNull { it.id == id } ?: runCatching { RxApi.get(id) }.getOrNull())?.let { open = it } } },
+            )
+        }
+    }
     if (claiming) {
         RxClaimDialog(profile, onDismiss = { claiming = false }) { n ->
             claiming = false
