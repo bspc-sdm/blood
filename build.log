@@ -1,0 +1,74 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :processResources
+> Task :processTestResources
+> Task :compileKotlin
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/admin/kernel/ListingReview.kt:73:88 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/admin/kernel/ListingReview.kt:163:48 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/admin/kernel/Sanctions.kt:165:38 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/ambulance/AmbulanceDemo.kt:135:49 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/ambulance/AmbulanceService.kt:328:52 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Pair<Double, Double>'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/ambulance/AmbulanceService.kt:328:79 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Pair<Double, Double>'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/appointments/AppointmentActions.kt:285:26 Unnecessary safe call on a non-null receiver of type 'ObjectNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/blood/BloodStore.kt:17:62 Unchecked cast of 'T? (of fun <T> inTx)' to 'T (of fun <T> inTx)'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/books/BooksMath.kt:118:50 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Double'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/books/BooksMath.kt:206:59 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Double'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/books/BooksService.kt:77:52 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/common/RateLimiter.kt:40:80 Elvis operator (?:) always returns the left operand of non-nullable type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/demo/DemoRefresh.kt:97:56 This annotation is currently applied to the value parameter only, but in the future it will also be applied to field.
+- To opt in to applying to both value parameter and field, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:131:36 Unnecessary safe call on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:137:37 Unnecessary safe call on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:152:32 Unnecessary safe call on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:156:23 Unnecessary safe call on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:157:71 Unnecessary safe call on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabPrices.kt:276:19 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/lab/LabViews.kt:93:57 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Review'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/notify/NotifyPrefs.kt:116:30 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/notify/PushService.kt:67:26 'fun setToken(p0: String!): Message.Builder!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/notify/SseHub.kt:29:14 This annotation is currently applied to the value parameter only, but in the future it will also be applied to field.
+- To opt in to applying to both value parameter and field, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/pharmacy/PharmacyService.kt:440:31 Unnecessary non-null assertion (!!) on a non-null receiver of type 'JsonNode'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/pharmacy/PharmacyService.kt:440:34 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt:239:97 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Double'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/pharmacy/RxPharmacyService.kt:239:104 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Double'.
+w: file:///home/runner/work/blood/blood/backend/src/main/kotlin/com/lifolo/users/ProfileService.kt:92:14 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+
+> Task :compileJava NO-SOURCE
+> Task :classes
+> Task :resolveMainClassName
+> Task :bootJar
+> Task :jar SKIPPED
+> Task :assemble
+
+> Task :compileTestKotlin
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/ambulance/AmbulanceNearIT.kt:215:35 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/ambulance/AmbulanceNearIT.kt:218:59 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Long'.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/common/CommunityDispatchIT.kt:55:77 Unnecessary non-null assertion (!!) on a non-null receiver of type 'IntegrationTest.Res'.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/common/R2StorageIT.kt:288:135 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/common/R2StorageIT.kt:293:46 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/common/R2StorageIT.kt:298:46 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/unit/P4UnitTest.kt:73:9 Name contains character(s) that can cause problems on Windows: "
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/unit/RxLabRulesTest.kt:185:167 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///home/runner/work/blood/blood/backend/src/test/kotlin/com/lifolo/unit/RxLabRulesTest.kt:186:145 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+
+> Task :compileTestJava NO-SOURCE
+> Task :testClasses
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :check
+> Task :build
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1792720424113.json
+
+BUILD SUCCESSFUL in 12m 38s
+7 actionable tasks: 7 executed
