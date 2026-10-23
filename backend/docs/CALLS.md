@@ -43,7 +43,7 @@ the security review (`docs/test-plan/CALLS-SECURITY-REVIEW.md`: R1–R5, R9, R11
 (every contact point: অডিও কল · ভিডিও কল · মেসেজ — see the messages contract, `backend/docs/CHAT.md`).
 
 ## Configuration
-* Env: `LIVEKIT_URL` (the signalling URL returned to the apps as is, e.g. `wss://lifolo.com/<path>` while testing —
+* Env: `LIVEKIT_URL` (the signalling URL returned to the apps as is — now `wss://lifolo.com` (LiveKit 1.13.10 on the main VPS, signalling at `/rtc`) —
   **never hard-coded**), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (≥ 32 random bytes), optional `LIVEKIT_API_URL` (server
   API base for RoomService; default = `LIVEKIT_URL` with `wss→https`). If any of the first three is empty, calls are
   **unavailable**: `call_config` answers `{enabled:false}`, `contact_can` answers `canCall:false`, and
@@ -110,6 +110,7 @@ the security review (`docs/test-plan/CALLS-SECURITY-REVIEW.md`: R1–R5, R9, R11
 | 409 `no_upgrade` | `call_upgrade_accept/decline` with no pending request from the other side |
 | 409 `appt_join_window` | `appt_join` earlier than 15 min before the slot or later than 3 h after |
 | 409 `not_online` / `state` | `appt_join` on an in-person / not confirmed appointment |
+| 409 `room_full` | `appt_join` by a second doctor-side person while the first is in the room (2 per room) |
 | 429 `call_rate` | caller > 10 `call_start` / 10 min; **per pair** > 3 unanswered (declined / missed / cancelled) calls an hour; 2 declines in a row → 30 min pause for that pair; **per callee** > 20 rings an hour from everybody; > 30 `appt_join` / 10 min; > 5 `call_upgrade` per call / 10 min |
 | 503 `calls_unavailable` | LiveKit env not set |
 
@@ -180,26 +181,25 @@ and `appt_call_ready`.
 blood_emergency, my_request, appointments, rx, ambulance, community, business, calls}}`; `notify_prefs_set {cats:{calls:false}}`.
 
 ## Online chambers
-> **Owned by the spring-p15 backend agent** (chamber mode/bkashNumber/note, appointment `online`/`payState`/`payRef`,
-> `appt_pay_claim` / `appt_pay_confirm`, my_appointments / rx_patients fields). The text below is the agreed shape; spring-p15
-> may refine it here. spring-p14 (calls) implements only `appt_join` + `appt_call_ready`, reading `appointments.online`.
-
-* Chamber JSON (`provider_save` in, `provider_me` / `providers` out): `mode: "in_person" | "online"` (missing =
-  `in_person`). An online chamber: `{mode:"online", days/start/end or times[], fee/noFee, appointments, patientMin?,
-  bkashNumber, note?}` — no `hospitalId`, no address, at most **one** online chamber, doctors only.
-  `bkashNumber` (Bangladesh mobile, 01XXXXXXXXX) is required unless `noFee`; `note` ≤ 200 chars. Out:
-  `hospitalId:null`, `hospitalName:"Online video consultation"`, `hospitalNameBn:"অনলাইন ভিডিও পরামর্শ"`, `mode`, `note`;
-  `bkashNumber` only in `provider_me` (the public `providers` list never shows it).
-* `book` on an online chamber: no `chamberKey` needed (its key is `online`). Answer stays `{id}`.
-* `my_appointments` items (both roles) add `online:boolean`; online ones also `payState` ("unpaid"|"claimed"|"paid"),
-  `payRef`, `fee`, `noFee`, `onlineNote`, and `bkashNumber` (patient side only). Values are copied at booking.
-* `rx_patients.appointments[]` items add `online`, `payState`, `payRef`, `start`.
-* Pay flow: `appt_pay_claim` (unpaid/claimed → claimed, pushes the doctor `type:"appointment", role:"provider"`),
-  `appt_pay_confirm` (→ paid, pushes the patient `type:"appointment", role:"patient"`). The doctor may join unpaid.
+The online-chamber API (chamber `mode` / `bkashNumber` / `note`, appointment `online` / `payState` / `payRef`, the bKash
+fee actions, my_appointments / rx_patients fields) is specified in **[CHAMBERS-ONLINE.md](CHAMBERS-ONLINE.md)** (spring-p15).
+The calls side of it:
 * `appt_join`: online + confirmed, **slot − 15 min … slot + 3 h**; at most one live room per appointment (joins share it);
-  after it ended (`call_end`, 90 s without heartbeats, or the appointment changed) the next join opens a **new** room
-  (new callId) — old tokens never lead back in. The first doctor/assistant join (and again after 2 min) pushes
-  `appt_call_ready` to the patient. Joining is never gated on `payState`.
+  after it ended (`call_end`, `room_finished`, 90 s without heartbeats, or the appointment changed) the next join opens a
+  **new** room (new callId) — old tokens never lead back in. Joining is never gated on `payState`.
+* The call server allows **2 per room**: the patient and ONE person of the doctor's side. While the doctor (or an
+  assistant) is in the room and pinging, another doctor-side join gets **409 `room_full`** ("ডাক্তারের পক্ষ থেকে একজন আগেই
+  এই ভিডিও কলে আছেন — একসাথে দুজন যুক্ত হওয়া যায় না"); the seat frees when that person leaves (webhook) or goes quiet 90 s.
+* The first doctor/assistant join (and again after 2 min) pushes `appt_call_ready` to the patient, and sets
+  `appointments.doctor_joined_at` (first join only; when that column exists — V621).
+
+## Call server webhook
+`POST /api/livekit/webhook` (from LiveKit, not the apps): verified like LiveKit's WebhookReceiver — `Authorization` =
+HS256 JWT signed with `LIVEKIT_API_SECRET`, `iss` = `LIVEKIT_API_KEY`, `sha256` claim = base64(SHA-256(body)); else 401.
+`room_finished` → that room's call ends (`end_reason` `room_finished`); `participant_left` → an answered 1:1 call ends
+(`left`), a ringing call whose caller left is cancelled, an appointment room frees the doctor-side seat (the room stays).
+LiveKit config (deploy/setup-call-server.sh): `webhook: {api_key: <key>, urls: [http://127.0.0.1:8080/api/livekit/webhook]}`
+on the main VPS (`LIFOLO_WEBHOOK_URL` overrides; dedicated mode: `https://lifolo.com/api/livekit/webhook`).
 
 ## Privacy and retention
 Calls are never recorded (no recording/egress grants; the call server only relays live audio/video, over encrypted

@@ -48,6 +48,7 @@ data class CallRow(
     val upgradeBy: String?,
     val upgradeAt: Long?,
     val readyPushedAt: Long?,
+    val hostUid: String? = null,
 ) {
     val live: Boolean get() = state == "ringing" || state == "accepted"
     fun other(uid: String): String = if (uid == caller) callee else caller
@@ -60,6 +61,7 @@ data class CallRow(
             rs.getTimestamp("created_at").time, rs.getTimestamp("accepted_at")?.time, rs.getTimestamp("ended_at")?.time,
             rs.getString("end_reason"), rs.getTimestamp("caller_seen_at")?.time, rs.getTimestamp("callee_seen_at")?.time,
             rs.getString("upgrade_by"), rs.getTimestamp("upgrade_at")?.time, rs.getTimestamp("ready_pushed_at")?.time,
+            rs.getString("host_uid"),
         )
     }
 }
@@ -744,6 +746,17 @@ class CallService(
             val c = jdbc.query(
                 "$selectCall WHERE kind = 'room' AND ref_id = ? AND state = 'accepted' FOR UPDATE", { rs, _ -> CallRow.of(rs) }, a.id,
             ).first()
+            if (doctorSide) {
+                // the call server takes 2 per room: the patient and ONE of doctor / assistant (the one who is there now)
+                val hostHere = c.hostUid != null && c.hostUid != uid && (c.calleeSeenAt ?: 0L) > nowMs - HEARTBEAT_GONE_MS
+                if (hostHere) {
+                    throw e(
+                        lang, 409, "Someone from the doctor's side is already in this video call",
+                        "ডাক্তারের পক্ষ থেকে একজন আগেই এই ভিডিও কলে আছেন — একসাথে দুজন যুক্ত হওয়া যায় না", "room_full", // bn-ok
+                    )
+                }
+                jdbc.update("UPDATE call_sessions SET host_uid = ? WHERE id = ?", uid, c.id)
+            }
             jdbc.update("UPDATE call_sessions SET $seen = ? WHERE id = ?", Sql.ts(nowMs), c.id)
             if (doctorSide && (c.readyPushedAt == null || nowMs - c.readyPushedAt >= READY_EVERY_MS)) {
                 jdbc.update("UPDATE call_sessions SET ready_pushed_at = ? WHERE id = ?", Sql.ts(nowMs), c.id)
@@ -751,6 +764,7 @@ class CallService(
             }
             load(c.id)!!
         }!!
+        if (doctorSide) markDoctorJoined(a.id)
         if (pushReady) {
             try {
                 push.pushUsers(listOf(a.patientUid)) { _, l ->
@@ -768,6 +782,50 @@ class CallService(
         return linkedMapOf(
             "ok" to true, "callId" to call.id, "room" to call.room, "url" to tokens.url, "token" to tokenFor(uid, call), "video" to true,
         )
+    }
+
+    @Volatile
+    private var doctorJoinedColumn: Boolean? = null
+
+    /** appointments.doctor_joined_at (V621, online-chamber follow-up): first time the doctor's side joined — when the column exists */
+    private fun markDoctorJoined(appointmentId: String) {
+        try {
+            val has = doctorJoinedColumn ?: (
+                jdbc.queryForList(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = 'doctor_joined_at'",
+                ).isNotEmpty()
+                ).also { if (it) doctorJoinedColumn = true }
+            if (has) jdbc.update("UPDATE appointments SET doctor_joined_at = COALESCE(doctor_joined_at, now()) WHERE id = ?", appointmentId)
+        } catch (ex: Exception) {
+            log.warn("doctor_joined_at failed: {}", ex.message)
+        }
+    }
+
+    // ------------------------------------------------------------------ LiveKit webhooks (review R11)
+
+    /**
+     * A verified webhook from the call server: `room_finished` ends the call of that room; `participant_left` ends a
+     * ring call (one side gone — 1:1), cancels a ringing one when the caller left, and frees the doctor-side seat of an
+     * appointment room (the room itself stays for a rejoin until room_finished / heartbeats). Returns what it did.
+     */
+    fun onWebhook(event: String, room: String?, identity: String?): String {
+        if (room.isNullOrEmpty()) return "ignored"
+        val c = jdbc.query("$selectCall WHERE room = ? ORDER BY created_at DESC LIMIT 1", { rs, _ -> CallRow.of(rs) }, room).firstOrNull()
+            ?: return "unknown"
+        if (!c.live) return "done"
+        return when (event) {
+            "room_finished" -> if (end(c.id, "room_finished") != null) "ended" else "done"
+            "participant_left" -> when {
+                c.kind == "room" -> {
+                    if (identity != null && identity == c.hostUid) jdbc.update("UPDATE call_sessions SET host_uid = NULL WHERE id = ? AND host_uid = ?", c.id, identity)
+                    "left"
+                }
+                c.state == "accepted" && (identity == c.caller || identity == c.callee) -> if (end(c.id, "left") != null) "ended" else "done"
+                c.state == "ringing" && identity == c.caller -> if (end(c.id, "left", "cancelled") != null) "ended" else "done"
+                else -> "ignored"
+            }
+            else -> "ignored"
+        }
     }
 
     // ------------------------------------------------------------------ retention / account deletion

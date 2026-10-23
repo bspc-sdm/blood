@@ -29,6 +29,8 @@ CREATE TABLE call_sessions (
     upgrade_at        TIMESTAMPTZ,
     -- appt_call_ready push to the patient (at most once per 2 minutes)
     ready_pushed_at   TIMESTAMPTZ,
+    -- a room: the doctor-side person in it now (doctor or one assistant — the call server allows 2 per room)
+    host_uid          TEXT,
     is_demo           BOOLEAN GENERATED ALWAYS AS (caller_uid LIKE 'demo-%') STORED,
     CHECK (caller_uid <> callee_uid)
 );
@@ -39,6 +41,8 @@ CREATE INDEX call_sessions_caller_idx ON call_sessions (caller_uid, created_at D
 CREATE INDEX call_sessions_callee_idx ON call_sessions (callee_uid, created_at DESC);
 CREATE INDEX call_sessions_pair_idx ON call_sessions (caller_uid, callee_uid, created_at DESC);
 CREATE INDEX call_sessions_created_idx ON call_sessions (created_at);
+-- LiveKit webhooks name the room
+CREATE INDEX call_sessions_room_name_idx ON call_sessions (room);
 -- the 15-second sweep: ringing past 45 s → missed; live calls re-checked (relation, heartbeat)
 CREATE INDEX call_sessions_ringing_idx ON call_sessions (created_at) WHERE state = 'ringing';
 CREATE UNIQUE INDEX call_sessions_room_idx ON call_sessions (ref_id) WHERE kind = 'room' AND state = 'accepted';

@@ -45,6 +45,8 @@ BACKEND_ENV=/etc/livekit/backend.env
 STATUS_DIR=/var/lib/lifolo
 STATUS=/var/lib/lifolo/call-status
 SIGNAL_PORT=7880
+# LiveKit webhook → API (main: same machine; dedicated: through the public API). LIFOLO_WEBHOOK_URL overrides.
+API_PORT=8080
 RTC_TCP=7881
 TURN_UDP=3478
 TURN_TLS_INTERNAL=5349
@@ -92,6 +94,8 @@ done
 cd /
 [ "$(id -u)" -eq 0 ] || die "root হিসেবে চালান"
 case "$MODE" in main|dedicated) ;; *) die "--mode main বা --mode dedicated দিন" ;; esac
+if [ "$MODE" = main ]; then WEBHOOK_URL="${LIFOLO_WEBHOOK_URL:-http://127.0.0.1:$API_PORT/api/livekit/webhook}"
+else WEBHOOK_URL="${LIFOLO_WEBHOOK_URL:-https://lifolo.com/api/livekit/webhook}"; fi
 [ -f "$KEYS_IN" ] || die "--keys ফাইল নেই"
 KEY_LINE="$(tr -d '\r' < "$KEYS_IN" | grep -E '^API[0-9A-Za-z]{12}: [0-9A-Za-z]{43}$' | head -1 || true)"
 [ -n "$KEY_LINE" ] || die "--keys ফাইলের গঠন ঠিক নেই (livekit-keys.js --keyfile দিয়ে বানান)"
@@ -365,6 +369,11 @@ say "LiveKit-এর সেটিং: $LK_CONF"
   echo "  max_participants: 2"
   echo "  empty_timeout: 60"
   echo "  departure_timeout: 20"
+  # ঘর বা কেউ বেরিয়ে গেলে API-কে জানায় (আটকে থাকা কল শেষ করে) — POST /api/livekit/webhook, API key দিয়ে সই করা
+  echo "webhook:"
+  echo "  api_key: $API_KEY"
+  echo "  urls:"
+  echo "    - $WEBHOOK_URL"
   echo "logging:"
   echo "  level: info"
 } > "$LK_CONF.new"

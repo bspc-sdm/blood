@@ -558,7 +558,15 @@ class CallsIT : CallsTestBase() {
         assertEquals("appointments", ready.data["cat"])
         assertEquals("ap1", ready.data["appointmentId"])
         assertEquals("লাইফলো: ভিডিও কলে যুক্ত হোন", ready.data["title"])
+        // the call server takes 2 per room: while the doctor is there, the assistant gets a clear 409
+        val full = call("asst", "appt_join", mapOf("appointmentId" to "ap1"))
+        assertEquals(409, full.status)
+        assertEquals("room_full", full.code)
+        assertEquals("ডাক্তারের পক্ষ থেকে একজন আগেই এই ভিডিও কলে আছেন — একসাথে দুজন যুক্ত হওয়া যায় না", full.error)
+        // the doctor's app went quiet (> 90 s) → the assistant takes the seat
+        jdbc.update("UPDATE call_sessions SET callee_seen_at = now() - interval '100 seconds' WHERE id = ?", callId)
         assertEquals(callId, ok("asst", "appt_join", mapOf("appointmentId" to "ap1"))["callId"].textValue())
+        assertEquals("asst", row("SELECT host_uid FROM call_sessions WHERE id = ?", callId)["host_uid"])
         assertEquals(1, pushes("pat", "appt_call_ready").size)
         val sa = ok("asst", "call_status", mapOf("callId" to callId))
         assertEquals("accepted", sa["state"].textValue())
