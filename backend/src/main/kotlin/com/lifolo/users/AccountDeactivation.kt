@@ -42,6 +42,7 @@ class AccountDeactivationService(
     private val identity: IdentityProvider,
     private val mail: AccountMail,
     private val redis: StringRedisTemplate,
+    private val events: org.springframework.context.ApplicationEventPublisher,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -79,6 +80,8 @@ class AccountDeactivationService(
                 log.warn("revoke for deactivation failed: {}", e.message)
             }
             mail.deactivated(uid, ctx.user.email)
+            // live in-app calls end, the call server drops the person (CallService)
+            runCatching { events.publishEvent(com.lifolo.common.AccountCutOffEvent(uid, "deactivated")) }
         }
         val out = linkedMapOf<String, Any?>("ok" to true)
         if (!changed) out["unchanged"] = true

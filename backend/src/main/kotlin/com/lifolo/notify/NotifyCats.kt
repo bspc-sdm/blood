@@ -59,6 +59,9 @@ object NotifyCats {
         "call_incoming" to CALLS,
         "call_state" to CALLS,
         "call_missed" to CALLS,
+        "call_upgrade" to CALLS,
+        "call_upgraded" to CALLS,
+        "call_upgrade_declined" to CALLS,
         "appt_call_ready" to APPOINTMENTS,
         // always on
         "care" to ACCOUNT, // caregiver invitation / accepted; a caregiver's copy of patient news carries its own cat

@@ -155,7 +155,7 @@ class DeletionIT : IntegrationTest() {
     @Test
     fun `every package has a step, run in order, the platform last`() {
         val orders = steps.map { it.order }.sorted()
-        assertEquals(listOf(100, 200, 300, 400, 500, 600), orders)
+        assertEquals(listOf(100, 200, 300, 400, 500, 550, 600), orders)
     }
 
     @Test

@@ -27,13 +27,21 @@ data class PushItem(
     val inbox: Boolean = true,
     /** FCM time to live (seconds); null = the FCM default */
     val ttlSeconds: Long? = null,
+    /** FCM collapse key: a newer message with the same key replaces an undelivered older one */
+    val collapseKey: String? = null,
 )
 
 /** Title/body/data of a notification, built per recipient language */
 data class PushText(val title: String, val body: String = "", val data: Map<String, Any?> = emptyMap())
 
 /** One FCM message to one device */
-data class DeviceMessage(val token: String, val uid: String?, val data: Map<String, String>, val ttlSeconds: Long? = null)
+data class DeviceMessage(
+    val token: String,
+    val uid: String?,
+    val data: Map<String, String>,
+    val ttlSeconds: Long? = null,
+    val collapseKey: String? = null,
+)
 
 /** Result per message: delivered, or the token is dead (uninstalled app) and should be removed */
 enum class DeliveryResult { OK, DEAD_TOKEN, FAILED }
@@ -60,7 +68,10 @@ class PushConfig {
                         .putAllData(it.data)
                         .setAndroidConfig(
                             AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH)
-                                .apply { it.ttlSeconds?.let { s -> setTtl(s * 1000) } }.build(),
+                                .apply {
+                                    it.ttlSeconds?.let { s -> setTtl(s * 1000) }
+                                    it.collapseKey?.let { k -> setCollapseKey(k) }
+                                }.build(),
                         )
                         .build()
                 },
@@ -248,7 +259,7 @@ class PushService(
                 data["body"] = item.body.take(1000)
                 val uid = item.uid
                 if (uid != null) data["forUid"] = uid
-                DeviceMessage(token, uid, data, item.ttlSeconds)
+                DeviceMessage(token, uid, data, item.ttlSeconds, item.collapseKey)
             }
             val results = try {
                 transport.send(messages)

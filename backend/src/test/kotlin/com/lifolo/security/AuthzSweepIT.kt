@@ -293,7 +293,9 @@ class AuthzSweepIT : IntegrationTest() {
             for (b in junkBodies(a, 8)) {
                 val r = fuzzCall(uid, a, b, ipBase + i)
                 val text = r.body.toString()
-                if (r.status >= 500 || text.contains("Exception") || text.contains("at com.lifolo")) {
+                // 503 calls_unavailable is the designed answer while the call server is not configured (CALLS.md)
+                val designed503 = r.status == 503 && r.code == "calls_unavailable"
+                if ((r.status >= 500 && !designed503) || text.contains("Exception") || text.contains("at com.lifolo")) {
                     bad += "$uid $a → ${r.status} ${text.take(200)} body=${b.entries.take(3)}"
                     break
                 }

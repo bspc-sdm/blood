@@ -44,8 +44,9 @@ data class LifoloProperties(
     /**
      * In-app calls (backend/docs/CALLS.md): LIVEKIT_URL (returned to the apps as is, e.g. wss://…), LIVEKIT_API_KEY,
      * LIVEKIT_API_SECRET. Any of them empty = calls unavailable (503 `calls_unavailable`, call_config enabled=false).
+     * LIVEKIT_API_URL (optional): the server API base for RoomService; default = LIVEKIT_URL with wss→https.
      */
-    data class LiveKit(val url: String = "", val apiKey: String = "", val apiSecret: String = "") {
+    data class LiveKit(val url: String = "", val apiKey: String = "", val apiSecret: String = "", val apiUrl: String = "") {
         val configured: Boolean get() = url.isNotBlank() && apiKey.isNotBlank() && apiSecret.isNotBlank()
     }
 

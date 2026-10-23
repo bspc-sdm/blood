@@ -45,6 +45,7 @@ class AdminWebActions(
     private val push: PushService,
     private val redis: StringRedisTemplate,
     private val mapper: ObjectMapper,
+    private val events: org.springframework.context.ApplicationEventPublisher,
 ) : ActionModule {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -429,6 +430,8 @@ class AdminWebActions(
                     jdbc.update("DELETE FROM device_tokens WHERE uid = ?", uid)
                     // a doctor/nurse: unlisted, home care off, future appointments cancelled with a notice
                     suspension.suspendProvider(uid, "account")
+                    // live in-app calls end, the call server drops the person (CallService)
+                    runCatching { events.publishEvent(com.lifolo.common.AccountCutOffEvent(uid, "disabled")) }
                 } else {
                     identity.updateUser(uid, disabled = false)
                     jdbc.update("UPDATE accounts SET disabled_reason = NULL WHERE uid = ?", uid)
