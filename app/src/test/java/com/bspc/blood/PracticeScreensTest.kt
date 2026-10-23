@@ -139,7 +139,8 @@ class PracticeScreensTest {
     fun switchesOffProviderCard() {
         Practice.testKeys = allOff
         show { ProviderCard(provider("homeopathy"), CareFilter()) {} }
-        rule.onNodeWithText(Practice.systemLabel("homeopathy")).assertDoesNotExist()
+        // মূল লাইনে পদ্ধতি নেই (সুইচ বন্ধ)
+        assertTrue(rule.onAllNodesWithText(Practice.systemLabel("homeopathy"), substring = true).fetchSemanticsNodes().isEmpty())
         // খোঁজার ফিল্টারে পদ্ধতি যায় না
         assertEquals("হোমিওপ্যাথি", Practice.systemLabel("homeopathy"))
     }
@@ -204,8 +205,9 @@ class PracticeScreensTest {
             ProviderCard(provider("homeopathy"), CareFilter()) {}
             ProviderCard(provider("allopathy").copy(uid = "p2", name = "ডা. ডেমো হাসান", degrees = "MBBS"), CareFilter()) {}
         }
-        rule.onNodeWithText(Practice.systemLabel("homeopathy")).assertExists()
-        rule.onNodeWithText(Practice.systemLabel("allopathy")).assertExists()
+        // পদ্ধতি এখন কার্ডের মূল লাইনে (বিশেষজ্ঞতা · পদ্ধতি · ফি)
+        assertTrue(rule.onAllNodesWithText(Practice.systemLabel("homeopathy"), substring = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(rule.onAllNodesWithText(Practice.systemLabel("allopathy"), substring = true).fetchSemanticsNodes().isNotEmpty())
         // "ডা." নিজে বসে না — নাম যেমন লেখা
         rule.onNodeWithText("ডেমো হোমিও চিকিৎসক").assertExists()
         rule.onNodeWithText("ডা. ডেমো হোমিও চিকিৎসক").assertDoesNotExist()

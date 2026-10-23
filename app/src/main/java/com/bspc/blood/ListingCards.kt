@@ -228,7 +228,6 @@ fun LabDetailScreen(l: Lab, onSend: () -> Unit, onDismiss: () -> Unit, onReport:
 
 // ---------------- ডাক্তার ----------------
 
-private const val DAY_MS = 24L * 3_600_000L
 
 /** তালিকায় কোন চেম্বার: ছাঁকনিতে মেলা (matched), নইলে এলাকার সাথে মেলা, নইলে প্রথমটা */
 fun providerChamber(p: Provider, filter: CareFilter): Chamber? =
@@ -271,7 +270,7 @@ fun providerKeyLine(p: Provider, chamber: Chamber?): String = Listing.keyLine(
 
 fun providerBadges(p: Provider): List<ListingBadge> = listOfNotNull(
     Listing.slotBadge(providerNextSlot(p))?.let { ListingBadge(it, if (it == ListingText.slotToday()) BadgeTone.GOOD else BadgeTone.NEUTRAL) },
-    if (OnlineGate.chamber() && p.chambers.any { it.online }) ListingBadge(tr("Online", "অনলাইন"), BadgeTone.INFO) else null,
+    if (OnlineGate.on(OnlineGate.CHAMBER) && p.chambers.any { it.online }) ListingBadge(tr("Online", "অনলাইন"), BadgeTone.INFO) else null,
     if (p.homeVisit?.enabled == true) ListingBadge(tr("Home visit", "বাসায় যান"), BadgeTone.INFO) else null,
 )
 

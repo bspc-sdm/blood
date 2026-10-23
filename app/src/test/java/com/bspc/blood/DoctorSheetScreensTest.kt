@@ -74,8 +74,8 @@ class DoctorSheetScreensTest {
         assertEquals(2, rule.onAllNodesWithText("শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল").fetchSemanticsNodes().size)
         rule.onAllNodesWithText("এই চেম্বারে অ্যাপয়েন্টমেন্ট").fetchSemanticsNodes().let { assertEquals(2, it.size) }
         shot("doctor_sheet_360_bn")
-        // নিচের "অ্যাপয়েন্টমেন্ট" → "কোন চেম্বারে?" (চাপযোগ্য কার্ড, "বেছে নিন")
-        rule.onNodeWithText("অ্যাপয়েন্টমেন্ট").performClick()
+        // নিচের বারের "সিরিয়াল নিন" → "কোন চেম্বারে?" (চাপযোগ্য কার্ড, "বেছে নিন")
+        rule.onNodeWithText("সিরিয়াল নিন").performClick()
         rule.onNodeWithText("কোন চেম্বারে?").assertExists()
         rule.onAllNodesWithText("বেছে নিন").fetchSemanticsNodes().let { assertEquals(2, it.size) }
         shot("doctor_which_chamber_360_bn")
@@ -101,7 +101,7 @@ class DoctorSheetScreensTest {
     fun singleChamber360() {
         show { ProviderDetailDialog(doc.copy(chambers = listOf(ch1)), profile, {}, {}) }
         rule.onNodeWithText("এই চেম্বারে অ্যাপয়েন্টমেন্ট").assertDoesNotExist()
-        rule.onNodeWithText("অ্যাপয়েন্টমেন্ট").performClick()
+        rule.onNodeWithText("সিরিয়াল নিন").performClick()
         rule.onNodeWithText("কোন চেম্বারে?").assertDoesNotExist()
         rule.onNodeWithText("অনুরোধ পাঠান").assertExists()
         shot("doctor_single_book_360_bn")
@@ -112,7 +112,8 @@ class DoctorSheetScreensTest {
     @Config(qualifiers = "w360dp-h800dp-xxhdpi")
     fun card360() {
         show { ProviderCard(doc.copy(matched = listOf(1)), CareFilter(district = "গাজীপুর")) {} }
-        rule.onNodeWithText("কালিয়াকৈর উপজেলা স্বাস্থ্য কমপ্লেক্স").assertExists()
+        // কার্ডে মেলা চেম্বারের নাম (আরও চেম্বার থাকলে "+১")
+        rule.onNodeWithText("কালিয়াকৈর উপজেলা স্বাস্থ্য কমপ্লেক্স", substring = true).assertExists()
         shot("doctor_card_360_bn")
     }
 
