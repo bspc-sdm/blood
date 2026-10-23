@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // সেটিংস › গোপনীয়তা (backend/docs/CONSENT.md): স্বাস্থ্য তথ্যের সম্মতি — অবস্থা আর তারিখ, "পুরো লেখা দেখুন", "সম্মতি তুলে নিন"।
 // তুলে নিলে নতুন স্বাস্থ্য তথ্য দেওয়া বন্ধ; আগের তথ্য মোছে না (নিজে মুছতে বা অ্যাকাউন্ট মুছতে পারেন — লিংক আছে)।
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Button, Dialog, ErrorText, Icon, Loading } from '@/ui/kit';
 import { errorText } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-import { tr } from '@/lib/i18n';
+import { tr, useLang } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
 import { CONSENT_SCOPES, consent, loadConsent, openConsent, withdrawConsent } from '@/lib/consent';
 import SLabel from '@/sections/account/SLabel.vue';
@@ -32,6 +32,9 @@ async function load() {
   }
 }
 onMounted(load);
+// সম্মতির লেখা সার্ভার দেয় ডাকার সময়ের ভাষায় — ভাষা বদলালে নতুন করে (নইলে বাংলায় ফিরলেও ইংরেজি লেখা থেকে যেত)
+const lang = useLang();
+watch(lang, () => loadConsent().catch(() => {}));
 
 const SOURCE: Record<string, () => string> = {
   app: () => tr('in the app', 'অ্যাপে'),
