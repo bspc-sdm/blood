@@ -435,6 +435,18 @@ test.describe('ব্যবসা: "পেমেন্ট"', () => {
   });
 });
 
+test('অনলাইন চেম্বারের bKash নম্বর বদল (provider_save): পুরোনো লগইনে 401 reauth_required → "আবার লগইন করুন"', async ({ page }) => {
+  await page.route('**/api/auth/send-code', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));
+  const seen = await mock(page, { provider_save: () => ({ __status: 401, body: { error: 'login again', code: 'reauth_required' } }) });
+  await open(page, def('appointment', 'pro-setup'));
+  await page.getByRole('button', { name: 'সেভ করুন' }).click();
+  await expect.poll(() => bodies(seen, 'provider_save').length).toBe(1);
+  const dlg = page.getByRole('dialog');
+  await expect(dlg).toContainText('আবার লগইন করুন');
+  await dlg.getByTestId('reauth-send').click();
+  await expect(dlg.getByTestId('reauth-code')).toBeVisible();
+});
+
 test('ফিচার সুইচ বন্ধ: পেমেন্টের ট্যাব/কার্ড/বোতাম কিছুই নেই, সরাসরি লিংকে "শিগগির আসছে"', async ({ page }) => {
   const errs = watchErrors(page);
   const keys = { inv_pharmacy: true, inv_lab: true, inv_chamber: true, inv_ambulance: true, my_expenses: true };

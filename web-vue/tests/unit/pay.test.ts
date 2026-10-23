@@ -71,6 +71,7 @@ describe('সার্ভারের আকার', () => {
     // সার্ভারের ফেরতের নিয়ম আর ফেরত পাওনা
     const g = pickRequest({ request: { id: 'r2', status: 'confirmed', refundDue: { at: 3, why: 'order_cancelled' } }, policy: 'নিয়ম' })!;
     expect(g.policy).toEqual(['নিয়ম']);
+    expect(pickRequest({ request: { id: 'r3', status: 'open' }, demoNote: 'ডেমো' })!.demoNote).toBe('ডেমো');
     expect(g.refundDue).toEqual({ at: 3, why: 'order_cancelled' });
     expect(statusShort('confirmed', 'delivery', g.refundDue)).toBe('ফেরত পাওনা');
     expect(parsePayRequest({ status: 'weird' }).status).toBe('open');

@@ -161,7 +161,7 @@ function onReported() {
 
 <template>
   <div class="col gap-12 pay-sheet" data-testid="pay-sheet" :data-status="st">
-    <p v-if="req.demo" class="pay-demo" role="alert" data-testid="pay-demo">{{ T.demoBanner() }}</p>
+    <p v-if="req.demo || req.demoNote" class="pay-demo" role="alert" data-testid="pay-demo">{{ T.demoBanner() }}<template v-if="req.demoNote"><br /><span class="t-body-s">{{ req.demoNote }}</span></template></p>
     <div v-if="!bare" class="col gap-4 pay-head">
       <div class="row gap-8">
         <span class="t-label-l grow">{{ purposeText(req.purpose) }}</span>

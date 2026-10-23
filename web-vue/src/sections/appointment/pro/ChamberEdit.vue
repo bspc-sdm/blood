@@ -23,6 +23,7 @@ import { T as PT, degreeHint, newTypeOnline, systemLabel, systemOf, systemsOn } 
 import TimeSlotsEditor from './TimeSlotsEditor.vue';
 import UpazilaPicker from './UpazilaPicker.vue';
 import HomeStatusNote from './HomeStatusNote.vue';
+import ReauthDialog from '../../pay/biz/ReauthDialog.vue';
 
 const props = defineProps<{ type: string }>();
 const emit = defineEmits<{ saved: [] }>();
@@ -126,6 +127,7 @@ function validate(): string | null {
   return null;
 }
 
+const reauth = ref(false);
 async function save() {
   const e = validate();
   err.value = e;
@@ -151,6 +153,8 @@ async function save() {
     emit('saved');
   } catch (x) {
     if (x instanceof ServerError && x.code === 'phone_unverified') verifyPhone.value = true;
+    // অনলাইন চেম্বারের bKash নম্বর বদল = পেমেন্টের নম্বর (PAYMENTS.md P4): পুরোনো লগইনে আবার লগইন, তারপর আবার সেভ
+    else if (x instanceof ServerError && x.status === 401 && x.code === 'reauth_required') reauth.value = true;
     else err.value = errorText(x);
   } finally {
     busy.value = false;
@@ -358,5 +362,6 @@ const upName = (id: number) => {
       </div>
     </Dialog>
     <PhoneVerifyDialog v-if="verifyPhone" @close="verifyPhone = false" @verified="phoneVerified" />
+    <ReauthDialog v-if="reauth" :retry="save" @close="reauth = false" @done="reauth = false" />
   </div>
 </template>

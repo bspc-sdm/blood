@@ -47,6 +47,8 @@ export interface PayRequest {
   refundDue: { at: number; why: string } | null;
   /** pay_request_get-এর ফেরতের নিয়ম আর সতর্কতা (সার্ভারের লেখা) */
   policy: string[];
+  /** ডেমো হলে সার্ভারের লেখা */
+  demoNote: string;
   invoiceId: string | null;
   /** চেম্বারের অগ্রিম: এর আগে বাতিল করলে ফেরত */
   refundableUntil: number | null;
@@ -99,6 +101,7 @@ export function parsePayRequest(o: any): PayRequest {
     rejectedAt: nOrNull(o?.rejectedAt),
     refund: r && typeof r === 'object' ? { trxId: s(r.trxId), amount: n(r.amount), at: n(r.at), ackAt: nOrNull(r.ackAt) } : null,
     refundDue: o?.refundDue && typeof o.refundDue === 'object' ? { at: n(o.refundDue.at), why: s(o.refundDue.why) } : null,
+    demoNote: s(o?.demoNote),
     policy: (Array.isArray(o?.policy) ? o.policy : o?.policy ? [o.policy] : []).map(s).filter(Boolean),
     invoiceId: o?.invoiceId ? s(o.invoiceId) : null,
     refundableUntil: nOrNull(o?.refundableUntil),
@@ -111,7 +114,7 @@ export function parsePayRequest(o: any): PayRequest {
 export function pickRequest(r: any): PayRequest | null {
   if (!r || typeof r !== 'object') return null;
   const o = r.request ?? r.payRequest ?? r.pay ?? (r.id && (r.purpose || r.status) ? r : null);
-  return o && typeof o === 'object' && o.id ? parsePayRequest(r.policy && !o.policy ? { ...o, policy: r.policy } : o) : null;
+  return o && typeof o === 'object' && o.id ? parsePayRequest({ ...o, ...(r.policy && !o.policy ? { policy: r.policy } : {}), ...(r.demoNote && !o.demoNote ? { demoNote: r.demoNote } : {}) }) : null;
 }
 export function parsePayPage(r: any): PayPage {
   const items = Array.isArray(r?.items) ? r.items : Array.isArray(r?.payments) ? r.payments : Array.isArray(r?.requests) ? r.requests : [];
