@@ -19,12 +19,14 @@ const nowHM = () => {
 };
 
 type Calls = { action: string; body: any }[];
-async function mock(page: Page, extra: (action: string, body: any, route: Route) => Promise<unknown | undefined>): Promise<Calls> {
+/** ফিচার সুইচ: সার্ভারের পরীক্ষার প্রোফাইলের মতো সব চালু (off: বন্ধ) */
+const ALL_ON = { online_chamber: true, appt_video: true };
+async function mock(page: Page, extra: (action: string, body: any, route: Route) => Promise<unknown | undefined>, keys: Record<string, boolean> = ALL_ON): Promise<Calls> {
   const seen: Calls = [];
   await page.route('**/api/community', async (route) => {
     const body = route.request().postDataJSON() || {};
     seen.push({ action: body.action, body });
-    const out = await extra(body.action, body, route);
+    const out = body.action === 'features' ? { keys, v: 1 } : await extra(body.action, body, route);
     if (out === undefined) return route.continue();
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(out) });
   });
@@ -295,7 +297,7 @@ test('রোগী: একই TrxID আবার (409) বাংলায়; �
     const b = route.request().postDataJSON() || {};
     if (b.action !== 'appt_pay_claim') return route.fallback();
     seen.push({ action: b.action, body: b });
-    return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'TrxID already used' }) });
+    return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'TrxID already used', code: 'pay_ref_used' }) });
   });
   await open(page, def('appointment', 'my-detail'), '/my-appointments/on3');
   const box = page.getByTestId('online-pay');
@@ -315,4 +317,89 @@ test('রোগী: একই TrxID আবার (409) বাংলায়; �
   await expect.poll(() => seen.find((c) => c.action === 'appt_report')?.body).toMatchObject({ appointmentId: 'on3', reason: 'ডাক্তার কলে আসেননি' });
   await expect(box).toContainText('রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।');
   expect(errs.filter((e) => !/409/.test(e))).toEqual([]);
+});
+
+test('ফিচার সুইচ বন্ধ: তালিকা, সেটআপ, অ্যাপয়েন্টমেন্ট — আগের মতোই (অনলাইনের কিছু নেই)', async ({ page }) => {
+  const errs = watchErrors(page);
+  const seen = await mock(page, async (action, body, route) => {
+    if (action === 'providers') {
+      const j = await base(route);
+      return { ...j, items: [...j.items, ONLINE_DOC] };
+    }
+    if (action === 'appointment_queue' && body.id === 'on9') return { live: false };
+    if (action !== 'my_appointments') return undefined;
+    const j = await base(route);
+    j.items.unshift({ id: 'on9', role: 'patient', type: 'doctor', otherName: 'ডা. রুবিনা ইয়াসমিন', chamber: 'Online video consultation', start: nowHM(), date: today(), note: 'জ্বর', status: 'confirmed', createdAt: Date.now(), online: true, payState: 'unpaid', bkashNumber: '01712345678', fee: '৫০০ টাকা' });
+    return j;
+  }, {});
+  await open(page, def('appointment', 'list'));
+  await expect(page.locator('.card', { hasText: 'ডা. মাহমুদা আক্তার' }).first()).toBeVisible();
+  await expect(page.locator('.appt-qchips').getByRole('button', { name: 'অনলাইন', exact: true })).toHaveCount(0);
+  await expect(page.locator('.card .tag', { hasText: /^অনলাইন$/ })).toHaveCount(0);
+  expect(seen.filter((c) => c.action === 'providers').every((c) => c.body.online === undefined)).toBe(true);
+
+  await open(page, def('appointment', 'my-detail'), '/my-appointments/on9');
+  await expect(page.getByText('কী সমস্যা')).toBeVisible();
+  await expect(page.getByTestId('online-pay')).toHaveCount(0);
+  await expect(page.getByTestId('join-call')).toHaveCount(0);
+
+  await open(page, def('appointment', 'pro-setup'));
+  await expect(page.getByRole('button', { name: 'চেম্বার যোগ করুন' })).toBeVisible();
+  await expect(page.getByTestId('add-online')).toHaveCount(0);
+  await expect(page.getByText('চেম্বারের ধরন')).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
+
+test('ডাক্তার: ফি দেওয়া অনলাইন অ্যাপয়েন্টমেন্ট বাতিলে কারণ চাই (reason_required), providerNote যায়', async ({ page }) => {
+  const seen = await proBookings(page, 'paid');
+  const pro = page.getByTestId('online-pay-pro');
+  await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
+  const row = page.locator('article, tr').filter({ has: pro });
+  await row.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByTestId('reason-needed')).toContainText('টাকা ফেরতের জন্য');
+  await dlg.getByTestId('cancel-reason-send').click();
+  await expect(dlg).toContainText('কারণ লিখুন');
+  expect(seen.some((c) => c.action === 'appointment_update')).toBe(false);
+  await dlg.getByTestId('cancel-reason').fill('জরুরি অপারেশনে আছি');
+  await dlg.getByTestId('cancel-reason-send').click();
+  await expect.poll(() => seen.find((c) => c.action === 'appointment_update')?.body).toMatchObject({ id: 'onp1', op: 'cancel', providerNote: 'জরুরি অপারেশনে আছি' });
+});
+
+test('অ্যাডমিন: "অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট" — মেনু (সুইচ চালু হলে), তালিকা, সমাধান', async ({ page }) => {
+  const errs = watchErrors(page);
+  const seen = await mock(page, async (action, body) => {
+    if (action === 'admin_appt_reports') {
+      return {
+        items: body.status === 'open'
+          ? [{
+            id: 'r1', reporterUid: 'u9', reporterRole: 'patient', reason: 'ফি দিয়েছি, ডাক্তার আসেননি', status: 'open', createdAt: Date.now() - H,
+            appointment: { id: 'on1', patientName: 'রহিম', providerName: 'ডা. রুবিনা', date: today(), start: '19:30', status: 'confirmed', fee: '৫০০ টাকা', payState: 'paid', payRef: 'ABCDE12345', bkashNumber: '01712345678' },
+            payLog: [{ by: 'patient', from: 'unpaid', to: 'claimed', payRef: 'ABCDE12345', at: Date.now() - 3 * H }, { by: 'doctor', from: 'claimed', to: 'paid', at: Date.now() - 2 * H }],
+            bkashChanges: [{ oldLast3: '678', newLast3: '999', by: 'u7', at: Date.now() - DAY }],
+          }]
+          : [],
+      };
+    }
+    if (action === 'admin_appt_report_set') return { ok: true };
+    return undefined;
+  });
+  await page.goto('/admin');
+  await page.locator('input[type=email]').fill('owner@example.com');
+  await page.getByRole('button', { name: 'কোড পাঠান' }).click();
+  await page.locator('input[autocomplete=one-time-code]').fill('১২৩৪৫৬');
+  await page.getByRole('button', { name: 'লগইন করুন' }).click();
+  await expect(page.locator('.shell')).toBeVisible();
+  const link = page.locator('nav.nav a', { hasText: 'অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট' });
+  await expect(link).toBeVisible();
+  await page.goto('/admin#/apptreports');
+  await expect(page.locator('.topbar h1')).toContainText('অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট');
+  const main = page.locator('main.page');
+  await expect(main).toContainText('ফি দিয়েছি, ডাক্তার আসেননি');
+  await expect(main).toContainText('ABCDE12345');
+  await expect(main).toContainText('রোগী পাঠিয়েছেন');
+  await expect(main).toContainText('…৬৭৮ → …৯৯৯');
+  await main.getByRole('button', { name: 'সমাধান হয়েছে' }).click();
+  await expect.poll(() => seen.find((c) => c.action === 'admin_appt_report_set')?.body).toMatchObject({ id: 'r1', status: 'resolved' });
+  expect(errs.filter((e) => !/401|Unauthorized/.test(e))).toEqual([]);
 });

@@ -8,6 +8,8 @@ const call = vi.fn();
 vi.mock('@/lib/api', () => ({
   call: (...a: unknown[]) => call(...a),
   errorText: (e: unknown) => (e instanceof Error ? e.message : 'x'),
+  LoginRequired: class extends Error {},
+  postPublic: () => Promise.resolve({}),
   ServerError: class extends Error {
     constructor(m: string, public status: number, public code?: string) {
       super(m);
@@ -23,6 +25,7 @@ import OnlinePayCard from '@/sections/appointment/online/OnlinePayCard.vue';
 import OnlinePayPro from '@/sections/appointment/online/OnlinePayPro.vue';
 import JoinCall from '@/sections/appointment/online/JoinCall.vue';
 import ChamberEditor from '@/sections/appointment/pro/ChamberEditor.vue';
+import { setFeaturesForTest } from '@/sections/appointment/online/flags';
 
 const H = 3600_000;
 const DAY = 24 * H;
@@ -48,6 +51,7 @@ const appt = (o: Record<string, unknown> = {}) =>
 
 beforeEach(() => {
   localStorage.setItem('lf.lang', 'bn');
+  setFeaturesForTest({ online_chamber: true, appt_video: true });
   call.mockReset();
   call.mockResolvedValue({ ok: true });
 });
@@ -239,12 +243,14 @@ describe('নিরাপত্তার নিয়ম (নোটে ফোন
     expect(hasPhone('ফোন 01712-345 678')).toBe(true);
     expect(hasPhone('০১৭১২৩৪৫৬৭৮-এ কল দিন')).toBe(true);
     expect(hasPhone('রাত ৯টা থেকে ১১টা, ২০২৬')).toBe(false);
+    expect(hasPhone('রোল 12345678')).toBe(false);
+    expect(hasPhone('অ্যাকাউন্ট 1234 5678 90')).toBe(true);
   });
 
   it('সম্পাদক: নোটে ফোন হলে ভুল; সেভ করা bKash বদলালে "২৪ ঘণ্টা পর"', () => {
     const c = { ...blankOnline('01712345678'), note: 'কল 01812345678' };
     let w = mount(ChamberEditor, { props: { c, canOnline: true, origBkash: '01712345678' }, global: { stubs } });
-    expect(w.text()).toContain('নোটে ফোন নম্বর দেওয়া যাবে না');
+    expect(w.text()).toContain('নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না');
     expect(w.text()).not.toContain('নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে');
     w = mount(ChamberEditor, { props: { c: { ...c, note: '', bkashNumber: '01912345678' }, canOnline: true, origBkash: '01712345678' }, global: { stubs } });
     expect(w.text()).toContain('নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে');
@@ -253,8 +259,16 @@ describe('নিরাপত্তার নিয়ম (নোটে ফোন
     expect(w.text()).not.toContain('২৪ ঘণ্টা');
   });
 
-  it('একই TrxID আবার (409): বাংলায় বলা', async () => {
-    call.mockRejectedValueOnce(new ServerError('x', 409));
+  it('ঘণ্টায় অনেকবার (429 pay_claim_rate): বাংলায় বলা', async () => {
+    call.mockRejectedValueOnce(new ServerError('x', 429, 'pay_claim_rate'));
+    const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
+    await w.get('[data-testid="pay-claim"]').trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('এক ঘণ্টা পর আবার চেষ্টা করুন');
+  });
+
+  it('একই TrxID আবার (409 pay_ref_used): বাংলায় বলা', async () => {
+    call.mockRejectedValueOnce(new ServerError('x', 409, 'pay_ref_used'));
     const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
     await w.get('input[data-testid="trx-input"]').setValue('USED120000');
     await w.get('[data-testid="pay-claim"]').trigger('click');
@@ -288,5 +302,32 @@ describe('নিরাপত্তার নিয়ম (নোটে ফোন
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('ফিচার সুইচ', () => {
+  it('appt_video বন্ধ: কলের লিংক বা লেখা কিছুই নয়; online_chamber বন্ধ হলেও নয়', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(dhaka(19, 30));
+      setFeaturesForTest({ online_chamber: true, appt_video: false });
+      let w = mount(JoinCall, { props: { a: appt(), hint: true }, global: { stubs } });
+      expect(w.html()).not.toContain('join');
+      setFeaturesForTest({ online_chamber: false, appt_video: true });
+      w = mount(JoinCall, { props: { a: appt(), hint: true }, global: { stubs } });
+      expect(w.html()).not.toContain('join');
+      setFeaturesForTest({ online_chamber: true, appt_video: true });
+      w = mount(JoinCall, { props: { a: appt(), hint: true }, global: { stubs } });
+      expect(w.find('[data-testid="join-call"]').exists()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('online_chamber বন্ধ: সেটআপে চেম্বারের ধরন বাছাই নেই', () => {
+    setFeaturesForTest({});
+    const w = mount(ChamberEditor, { props: { c: parseChamber({ hospitalId: 'h1', hospitalName: 'X' }), canOnline: false }, global: { stubs } });
+    expect(w.text()).not.toContain('চেম্বারের ধরন');
+    expect(w.text()).not.toContain('অনলাইন');
   });
 });

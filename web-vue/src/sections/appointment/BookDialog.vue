@@ -9,6 +9,7 @@ import { tr } from '@/lib/i18n';
 import { DAY_MS, chamberLabel, chamberOpenOn, chamberTimeText, today, type FamilyMember, type Provider } from './model';
 import { dayChip, nextOpenDays } from './doctors';
 import { ONLINE_KEY, T as OT } from './online';
+import { onlineOn } from './online/flags';
 
 const props = defineProps<{ provider: Provider; index: number }>();
 const emit = defineEmits<{ close: []; booked: [] }>();
@@ -60,7 +61,7 @@ async function send() {
       <IconLine :icon="ch.mode === 'online' ? 'language' : 'local_hospital'">{{ chamberLabel(ch) }}</IconLine>
       <IconLine icon="schedule">{{ chamberTimeText(ch) }}</IconLine>
     </div>
-    <p v-if="ch.mode === 'online' && !ch.noFee" class="t-body-s muted" data-testid="online-book-hint">{{ OT.bookHint() }}</p>
+    <p v-if="ch.mode === 'online' && !ch.noFee && onlineOn()" class="t-body-s muted" data-testid="online-book-hint">{{ OT.bookHint() }}</p>
     <div v-if="family.length" class="col gap-6">
       <span class="t-label-l">{{ tr('For whom', 'কার জন্য') }}</span>
       <ChoiceChips v-model="memberId" :options="[{ value: '', label: tr('Me', 'আমি') }, ...family.map((m) => ({ value: m.id, label: m.name }))]" />

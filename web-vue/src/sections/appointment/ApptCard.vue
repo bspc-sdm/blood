@@ -5,6 +5,7 @@ import { tr } from '@/lib/i18n';
 import { apptChamber, apptWhen, isActive, serialText, statusLabel, statusTone, type Appointment } from './model';
 import PatientQueueLine from './PatientQueueLine.vue';
 import { T as OT, payLabel, payTone } from './online';
+import { onlineOn } from './online/flags';
 
 const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => void }>();
 </script>
@@ -22,7 +23,7 @@ const props = defineProps<{ a: Appointment; selected: boolean; onClick: () => vo
       <span class="t-title-m grow clamp2">{{ a.otherName || tr('Deleted account', 'মুছে ফেলা অ্যাকাউন্ট') }}</span>
       <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
     </div>
-    <div v-if="a.online" class="row wrap gap-6">
+    <div v-if="a.online && onlineOn()" class="row wrap gap-6">
       <Tag tone="info">{{ OT.online() }}</Tag>
       <Tag v-if="!a.noFee && isActive(a.status)" :tone="payTone(a.payState)">{{ payLabel(a.payState) }}</Tag>
     </div>

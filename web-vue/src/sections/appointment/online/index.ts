@@ -64,10 +64,10 @@ export const trxOk = (v: string) => !v || new RegExp(`^[0-9A-Z]{${TRX_LEN}}$`).t
 /** অনলাইন চেম্বারের key (chamberKey) */
 export const ONLINE_KEY = 'online';
 
-/** নোটে ফোন নম্বর চলে না (সার্ভার 400 দেয়) — ৭+ অঙ্ক একটানা (ফাঁকা/ড্যাশ বাদে, বাংলা অঙ্কসহ) */
+/** নোটে ফোন/বিকাশ নম্বর চলে না (সার্ভার R6: 01[3-9] + ৮ অঙ্ক, বা ১০+ অঙ্ক; ফাঁকা/ড্যাশ/ডট মাঝে চলে, বাংলা অঙ্কসহ) */
 export function hasPhone(v: string): boolean {
   const d = v.replace(/[০-৯]/g, (x) => String('০১২৩৪৫৬৭৮৯'.indexOf(x))).replace(/(\d)[\s.\-()]+(?=\d)/g, '$1');
-  return /\d{7,}/.test(d);
+  return /01[3-9]\d{8}|\d{10,}/.test(d);
 }
 
 // ---------- কলের সময় (সার্ভারের appt_join: স্লটের ১৫ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত) ----------
@@ -113,12 +113,16 @@ export const T = {
   bkash: () => tr('bKash number', 'bKash নম্বর'), // bn-ok
   bkashHint: () => tr('Patients send the fee to this number after booking', 'অ্যাপয়েন্টমেন্টের পর রোগীরা এই নম্বরে ফি পাঠাবেন'), // bn-ok
   noteHint: () => tr('Only patients who booked see it. No phone numbers.', 'শুধু অ্যাপয়েন্টমেন্ট নেওয়া রোগীরা দেখবেন। ফোন নম্বর দেবেন না।'), // bn-ok
-  errNotePhone: () => tr("The note can't have a phone number", 'নোটে ফোন নম্বর দেওয়া যাবে না'), // bn-ok
+  errNotePhone: () => tr("The note can't have a phone or bKash number", 'নোটে ফোন বা বিকাশ নম্বর লেখা যাবে না'), // bn-ok
   bkashLater: () => tr('The new number starts after 24 hours', 'নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে'), // bn-ok
   errTrx: () => tr('The TrxID has 10 English letters and digits — copy it from the bKash SMS', 'TrxID ১০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা) — বিকাশ মেসেজ থেকে হুবহু লিখুন'), // bn-ok
   trxHint: () => tr('10 letters and digits, from the bKash SMS', 'বিকাশ মেসেজের ১০ অক্ষরের TrxID'), // bn-ok
   errOneOnline: () => tr('You can keep only one online chamber', 'অনলাইন চেম্বার একটাই রাখা যায়'), // bn-ok
   trxUsed: () => tr('This TrxID was already used. Check it and write the right one.', 'এই TrxID আগেই ব্যবহার হয়েছে। মিলিয়ে সঠিক TrxID লিখুন।'), // bn-ok
+  claimRate: () => tr('Told too many times. Try again in an hour.', 'অনেকবার জানানো হয়েছে। এক ঘণ্টা পর আবার চেষ্টা করুন।'), // bn-ok
+  bkashPending: (when: string, active: string) => tr(`The new number starts ${when}. Until then patients see ${active}.`, `নতুন নম্বর ${when} থেকে চালু হবে। ততক্ষণ রোগীরা দেখবেন ${active}।`), // bn-ok
+  reasonNeeded: () => tr('The patient has paid. Write why — they will be told to contact you for the refund.', 'রোগী ফি দিয়েছেন। কারণ লিখুন — টাকা ফেরতের জন্য তাঁকে আপনার সাথে যোগাযোগ করতে বলা হবে।'), // bn-ok
+  reasonReq: () => tr('Write the reason', 'কারণ লিখুন'), // bn-ok
   report: () => tr('Report', 'রিপোর্ট করুন'), // bn-ok
   reportWhy: () => tr("Paid, but the doctor didn't join the call?", 'ফি দিয়েছেন, কিন্তু ডাক্তার কলে আসেননি?'), // bn-ok
   noteLabel: () => tr('Note for patients (optional)', 'রোগীর জন্য নোট (ঐচ্ছিক)'), // bn-ok

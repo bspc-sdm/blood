@@ -11,6 +11,7 @@ import { Admins, Corrections, Hospitals, Log, Reports } from './Simple';
 import { Ticket, Tickets } from './Tickets';
 import { User, Users } from './Users';
 import Demo from './Demo';
+import { ApptReports } from './ApptReports';
 
 export { Dashboard };
 export const PAGES: Record<string, Component> = {
@@ -28,6 +29,7 @@ export const PAGES: Record<string, Component> = {
   tickets: Tickets,
   ticket: Ticket,
   reports: Reports,
+  apptreports: ApptReports,
   corrections: Corrections,
   users: Users,
   user: User,

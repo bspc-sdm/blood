@@ -16,6 +16,7 @@ import PhoneVerifyDialog from '../PhoneVerifyDialog.vue';
 import ProviderDetail from '../ProviderDetail.vue';
 import { TERMS_URL, blankChamber, blankOnline, chamberJson, emptyHome, homeJson, newSlot, nextKey, type Ed } from './chamber';
 import { T as OT, hasPhone, normBkash } from '../online';
+import { onlineOn } from '../online/flags';
 import ChamberEditor from './ChamberEditor.vue';
 import TimeSlotsEditor from './TimeSlotsEditor.vue';
 import UpazilaPicker from './UpazilaPicker.vue';
@@ -177,7 +178,7 @@ function addChamber() {
   else chambers.value = [...chambers.value, { ...blankChamber(s.profile?.placeName ?? '', true), key: nextKey() }];
 }
 // অনলাইন (ভিডিও) চেম্বার — শুধু ডাক্তার (চুক্তি: "Online chambers (doctor)"); bKash আগে থেকে নিজের ফোন নম্বর
-const canOnline = computed(() => props.type === 'doctor');
+const canOnline = computed(() => props.type === 'doctor' && onlineOn());
 // সর্বোচ্চ ৩টা জায়গার চেম্বার, তার বাইরে একটা অনলাইন (সার্ভারের নিয়ম)
 const placeCount = computed(() => chambers.value.filter((c) => c.mode !== 'online').length);
 function addOnline() {

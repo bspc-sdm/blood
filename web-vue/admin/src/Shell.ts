@@ -4,6 +4,7 @@ import { h, icon } from './h';
 import { S, logout, parseHash, pendingCount, refreshAll, route, top } from './state';
 import { bn } from './util';
 import { PAGES, Dashboard } from './pages';
+import { apptReportsOn } from './pages/ApptReports';
 
 interface NavItem {
   path: string;
@@ -11,6 +12,8 @@ interface NavItem {
   icon: string;
   count?: () => number;
   owner?: boolean;
+  /** ফিচার সুইচ চালু থাকলেই মেনুতে */
+  show?: () => boolean;
 }
 const NAV: { group: string | null; items: NavItem[] }[] = [
   { group: null, items: [
@@ -29,6 +32,7 @@ const NAV: { group: string | null; items: NavItem[] }[] = [
   { group: 'সহায়তা', items: [
     { path: 'tickets', label: 'আপিল ও সমস্যা', icon: 'help', count: () => pendingCount('tickets') },
     { path: 'reports', label: 'রিপোর্ট', icon: 'flag', count: () => pendingCount('reports') },
+    { path: 'apptreports', label: 'অনলাইন অ্যাপয়েন্টমেন্ট রিপোর্ট', icon: 'flag', show: apptReportsOn }, // bn-ok
     { path: 'corrections', label: 'তারিখ সংশোধন', icon: 'calendar', count: () => pendingCount('corrections') },
   ] },
   { group: 'ব্যবস্থাপনা', items: [
@@ -49,6 +53,7 @@ function nav() {
     if (g.group) kids.push(h('div', { class: 'nav-group', text: g.group }));
     for (const it of g.items) {
       if (it.owner && !(S.me && S.me.isOwner)) continue;
+      if (it.show && !it.show()) continue;
       const n = it.count ? it.count() : 0;
       const on = cur === it.path || (cur === 'user' && it.path === 'users') || (cur === 'ticket' && it.path === 'tickets')
         || (cur === 'verify' && r.arg.startsWith(`${it.path}:`));

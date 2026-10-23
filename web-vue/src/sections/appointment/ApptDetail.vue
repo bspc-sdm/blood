@@ -7,6 +7,7 @@ import { apptChamber, apptWhen, badgeLabel, isActive, statusLabel, statusTone, t
 import { usePatientQueue } from './queue';
 import PatientQueue from './PatientQueue.vue';
 import { T as OT } from './online';
+import { onlineOn } from './online/flags';
 import OnlinePayCard from './online/OnlinePayCard.vue';
 import JoinCall from './online/JoinCall.vue';
 
@@ -38,7 +39,7 @@ const live = computed(() => pq.data?.live === true);
     <span class="t-label-m muted">{{ tr('Reason for visit', 'কী সমস্যা') }}</span>
     <p class="t-body-l pre">{{ a.note }}</p>
   </div>
-  <OnlinePayCard v-if="a.online && a.status !== 'cancelled' && a.status !== 'declined' && a.status !== 'expired'" :a="a" @changed="emit('changed')" />
+  <OnlinePayCard v-if="a.online && onlineOn() && a.status !== 'cancelled' && a.status !== 'declined' && a.status !== 'expired'" :a="a" @changed="emit('changed')" />
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
   <div v-if="isActive(a.status)" class="row">

@@ -56,7 +56,7 @@ export function blankChamber(district: string, custom: boolean): Chamber {
   return {
     hospitalId: null, hospitalName: '', hospitalNameBn: '', district, upazilaId: null, unionId: null, room: '', schedule: '', fee: '',
     appointments: true, serialPhone: '', days: [], start: '', end: '', noFee: false, custom, address: '', times: [], patientMin: null,
-    mode: 'in_person', bkashNumber: '', note: '',
+    mode: 'in_person', bkashNumber: '', note: '', bkashActive: '', bkashPendingUntil: null,
   };
 }
 

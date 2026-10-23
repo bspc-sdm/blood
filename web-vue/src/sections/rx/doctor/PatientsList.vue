@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/format';
 import { ageText, dayText, deletedName, forDoctor, genderLabel, targetKey, type Actor, type RxAppt, type RxPatient, type RxTarget } from './model';
 import { parseOnline } from '../../appointment/online';
 import OnlinePayPro from '../../appointment/online/OnlinePayPro.vue';
+import { onlineOn } from '../../appointment/online/flags';
 import type { Group, PatientsQuery } from './patients';
 import PatientRow from './PatientRow.vue';
 import PatientAddDialog from './PatientAddDialog.vue';
@@ -96,7 +97,7 @@ function added(p: RxPatient, existed: boolean) {
   props.onAdded?.(p);
 }
 // অনলাইন অ্যাপয়েন্টমেন্ট: ফির অবস্থা/বোতাম আর কল (সহকারী হলে doctorUid সাথে)
-const onlineOf = (a: RxAppt | undefined) => (a?.online ? { ...a, ...parseOnline(a), start: typeof a.start === 'string' ? a.start : '' } : null);
+const onlineOf = (a: RxAppt | undefined) => (a?.online && onlineOn() ? { ...a, ...parseOnline(a), start: typeof a.start === 'string' ? a.start : '' } : null);
 const extra = computed(() => forDoctor(props.actor));
 function rowKey(e: KeyboardEvent, t: RxTarget) {
   if (click.value && e.key === 'Enter' && e.target === e.currentTarget) click.value(t);

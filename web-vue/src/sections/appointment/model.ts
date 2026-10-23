@@ -44,6 +44,10 @@ export interface Chamber {
   mode: ChamberMode;
   bkashNumber: string;
   note: string;
+  /** provider_me: এখন নতুন বুকিংয়ে যে নম্বর যায়; বদলের পর ২৪ ঘণ্টা আগেরটা */
+  bkashActive: string;
+  /** provider_me: বদলানো নম্বর কখন চালু (ms), নইলে null */
+  bkashPendingUntil: number | null;
 }
 export interface HomeVisit {
   enabled: boolean;
@@ -171,6 +175,8 @@ export function parseChamber(o: any): Chamber {
     mode: o?.mode === 'online' ? 'online' : 'in_person',
     bkashNumber: s(o?.bkashNumber),
     note: s(o?.note),
+    bkashActive: s(o?.bkashActive),
+    bkashPendingUntil: typeof o?.bkashPendingUntil === 'number' ? o.bkashPendingUntil : null,
   };
 }
 export function parseHomeVisit(o: any): HomeVisit | null {

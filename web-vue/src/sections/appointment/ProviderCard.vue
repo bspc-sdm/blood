@@ -6,9 +6,10 @@ import { badgeIcon, canBook, chamberLabel, chamberTimeText, feeText, ratingLine,
 import { cardStatus } from './doctors';
 import type { AreaSel } from './shared';
 import { T as OT } from './online';
+import { onlineOn } from './online/flags';
 
 const props = defineProps<{ p: Provider; matched: number[] | null; area: AreaSel; hospital: Hospital | null; selected: boolean; onClick: () => void; online?: boolean }>();
-const hasOnline = computed(() => props.p.chambers.some((c) => c.mode === 'online'));
+const hasOnline = computed(() => onlineOn() && props.p.chambers.some((c) => c.mode === 'online'));
 // ছাঁকনিতে মেলা চেম্বার (সার্ভারের matched) আগে, নইলে এলাকার সাথে মেলা চেম্বার
 const ch = computed(() => {
   const { p, matched, area, hospital } = props;

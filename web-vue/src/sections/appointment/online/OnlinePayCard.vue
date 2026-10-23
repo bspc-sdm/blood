@@ -55,7 +55,9 @@ async function claim() {
     emit('changed');
   } catch (e) {
     // একই TrxID আবার: 409
-    err.value = e instanceof ServerError && e.status === 409 && !['state', 'not_online', 'no_fee'].includes(e.code ?? '') ? T.trxUsed() : errorText(e);
+    // R7: একই TrxID এই ডাক্তারের কাছে আগে (409 pay_ref_used), ঘণ্টায় ৫ বারের বেশি (429 pay_claim_rate)
+    const code = e instanceof ServerError ? e.code : undefined;
+    err.value = code === 'pay_ref_used' ? T.trxUsed() : code === 'pay_claim_rate' ? T.claimRate() : errorText(e);
   } finally {
     busy.value = false;
   }

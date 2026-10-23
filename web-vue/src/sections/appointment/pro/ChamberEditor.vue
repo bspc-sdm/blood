@@ -2,6 +2,7 @@
 // একটা চেম্বারের সম্পাদনা
 import { Check, Icon, IconButton, Segmented, Switch, TextInput } from '@/ui/kit';
 import { num, toAsciiDigits, tr } from '@/lib/i18n';
+import { formatDateTime } from '@/lib/format';
 import { areaLabel } from '@/lib/geo';
 import { chamberArea, chamberLabel, slotsOf, withSlots, type Chamber } from '../model';
 import { T, bkashInput, hasPhone, normBkash, type ChamberMode } from '../online';
@@ -25,7 +26,11 @@ const bkashErr = () => {
 };
 const bkashHint = () => {
   const now = normBkash(props.c.bkashNumber);
-  return props.origBkash && now && now !== normBkash(props.origBkash) ? T.bkashLater() : T.bkashHint();
+  if (props.origBkash && now && now !== normBkash(props.origBkash)) return T.bkashLater();
+  // সার্ভার: বদলানো নম্বর এখনো চালু হয়নি (provider_me bkashPendingUntil / bkashActive)
+  const until = props.c.bkashPendingUntil;
+  if (until && until > Date.now() && props.c.bkashActive && now === normBkash(props.origBkash ?? '')) return T.bkashPending(formatDateTime(until), num(props.c.bkashActive));
+  return T.bkashHint();
 };
 function setPatientMin(v: string) {
   const n = parseInt(toAsciiDigits(v).replace(/[^0-9]/g, '').slice(0, 3), 10);

@@ -5,6 +5,7 @@ import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { cx, useNow } from '@/ui/kit';
 import { CALL_EARLY_MS, T, apptStartMs, callPath, canJoinCall } from './index';
+import { videoOn } from './flags';
 
 const props = defineProps<{
   a: { id: string; online: boolean; status: string; date: number; start: string; startAt?: number };
@@ -17,8 +18,9 @@ const props = defineProps<{
   hint?: boolean;
 }>();
 const now = useNow(20_000);
-const open = computed(() => canJoinCall(props.a, now.value));
-const before = computed(() => props.hint && props.a.online && props.a.status === 'confirmed' && now.value < apptStartMs(props.a) - CALL_EARLY_MS);
+// appt_video (আর online_chamber) বন্ধ থাকলে কিছুই নয়
+const open = computed(() => videoOn() && canJoinCall(props.a, now.value));
+const before = computed(() => videoOn() && props.hint && props.a.online && props.a.status === 'confirmed' && now.value < apptStartMs(props.a) - CALL_EARLY_MS);
 </script>
 
 <template>

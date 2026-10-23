@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // বুকিং: সিরিয়ালের সারি
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, PhoneLine, PillTabs, Select, SkeletonCards, Tag, cx, toast } from '@/ui/kit';
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, PhoneLine, PillTabs, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
-import { call, errorText } from '@/lib/api';
+import { ServerError, call, errorText } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
 import { useSearchParams } from '@/lib/nav';
@@ -12,6 +12,8 @@ import StatTile from '../StatTile.vue';
 import QueuePanel from '../QueuePanel.vue';
 import ConfirmApptDialog from './ConfirmApptDialog.vue';
 import OnlinePayPro from '../online/OnlinePayPro.vue';
+import { onlineOn } from '../online/flags';
+import { T as OT } from '../online';
 
 type View = 'today' | 'upcoming' | 'waiting' | 'past';
 const props = defineProps<{ list: Appointment[]; loading: boolean; error: string | null; reload: () => void; hasChamber: boolean; onSetup: () => void }>();
@@ -52,10 +54,45 @@ async function act(a: Appointment, op: string, extra: Record<string, unknown> = 
     props.reload();
     return true;
   } catch (e) {
+    // R8: ফি দেওয়া (claimed/paid) অনলাইন অ্যাপয়েন্টমেন্ট বাতিল/না করলে কারণ লাগে
+    if (e instanceof ServerError && e.code === 'reason_required' && (op === 'cancel' || op === 'decline')) {
+      cancelling.value = null;
+      askReason(a, op);
+      return false;
+    }
     err.value = errorText(e);
     return false;
   } finally {
     busyId.value = null;
+  }
+}
+// অনলাইন, রোগী ফি পাঠিয়েছেন/পরিশোধিত: বাতিল বা "না করুন"-এ কারণ চাই (সার্ভারের reason_required)
+const needsReason = (a: Appointment) => a.online && (a.payState === 'claimed' || a.payState === 'paid');
+const reasonFor = ref<{ a: Appointment; op: 'cancel' | 'decline' } | null>(null);
+const reason = ref('');
+function askReason(a: Appointment, op: 'cancel' | 'decline') {
+  err.value = null;
+  reason.value = '';
+  reasonFor.value = { a, op };
+}
+function decline(a: Appointment) {
+  if (needsReason(a)) askReason(a, 'decline');
+  else act(a, 'decline');
+}
+function cancel(a: Appointment) {
+  if (needsReason(a)) askReason(a, 'cancel');
+  else cancelling.value = a;
+}
+async function sendReason() {
+  const r = reasonFor.value;
+  if (!r) return;
+  if (!reason.value.trim()) {
+    err.value = OT.reasonReq();
+    return;
+  }
+  if (await act(r.a, r.op, { providerNote: reason.value.trim() })) {
+    reasonFor.value = null;
+    if (r.op === 'cancel') toast(tr('Appointment cancelled', 'অ্যাপয়েন্টমেন্ট বাতিল হয়েছে'));
   }
 }
 const name = (a: Appointment) => a.otherName || tr('Deleted account', 'মুছে ফেলা অ্যাকাউন্ট');
@@ -134,7 +171,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
               <div class="t-title-s">{{ name(a) }}</div>
               <div v-if="a.note" class="t-body-s muted clamp2">{{ a.note }}</div>
               <div v-if="a.providerNote" class="t-body-s appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</div>
-              <OnlinePayPro v-if="a.online" :a="a" :name="a.otherName" @changed="reload()" />
+              <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
             </td>
             <td class="appt-nowrap">{{ a.date === t0 ? tr('Today', 'আজ') : formatDate(a.date) }}</td>
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
@@ -145,9 +182,9 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
               <div class="row wrap appt-acts">
                 <template v-if="a.status === 'pending'">
                   <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>
-                  <Button small variant="text" :disabled="!!busyId" @click="act(a, 'decline')">{{ tr('Decline', 'না করুন') }}</Button>
+                  <Button small variant="text" :disabled="!!busyId" @click="decline(a)">{{ tr('Decline', 'না করুন') }}</Button>
                 </template>
-                <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancelling = a">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
+                <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancel(a)">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
               </div>
             </td>
           </tr>
@@ -165,14 +202,14 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <IconLine v-if="a.chamber" icon="local_hospital">{{ apptChamber(a) + (a.room ? ' · ' + a.room : '') }}</IconLine>
         <p v-if="a.note" class="t-body-m">{{ a.note }}</p>
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
-        <OnlinePayPro v-if="a.online" :a="a" :name="a.otherName" @changed="reload()" />
+        <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
         <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" />
         <div class="row wrap appt-acts">
           <template v-if="a.status === 'pending'">
             <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>
-            <Button small variant="text" :disabled="!!busyId" @click="act(a, 'decline')">{{ tr('Decline', 'না করুন') }}</Button>
+            <Button small variant="text" :disabled="!!busyId" @click="decline(a)">{{ tr('Decline', 'না করুন') }}</Button>
           </template>
-          <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancelling = a">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
+          <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancel(a)">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
         </div>
       </article>
     </div>
@@ -186,6 +223,16 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
       :error="err"
       @close="confirming = null"
     />
+    <Dialog v-if="reasonFor" size="small" :title="reasonFor.op === 'cancel' ? tr('Cancel appointment?', 'অ্যাপয়েন্টমেন্ট বাতিল করবেন?') : tr('Decline', 'না করুন')" @close="() => !busyId && (reasonFor = null)">
+      <p class="t-body-m muted">{{ cancelText(reasonFor.a) }}</p>
+      <p class="t-body-m" data-testid="reason-needed">{{ OT.reasonNeeded() }}</p>
+      <TextInput :label="OT.reasonReq()" data-testid="cancel-reason" :model-value="reason" @update:model-value="(v) => (reason = v.slice(0, 200))" />
+      <ErrorText :text="err" />
+      <template #actions>
+        <Button variant="text" :disabled="!!busyId" @click="reasonFor = null">{{ tr('Cancel', 'বাতিল') }}</Button>
+        <Button variant="danger" :busy="busyId === reasonFor.a.id" data-testid="cancel-reason-send" @click="sendReason">{{ reasonFor.op === 'cancel' ? tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') : tr('Decline', 'না করুন') }}</Button>
+      </template>
+    </Dialog>
     <ConfirmDialog
       v-if="cancelling"
       :title="tr('Cancel appointment?', 'অ্যাপয়েন্টমেন্ট বাতিল করবেন?')"
