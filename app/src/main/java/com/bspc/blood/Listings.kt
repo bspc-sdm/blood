@@ -136,6 +136,12 @@ data class ListingExtras(
             else -> 0L
         }
 
+        /** মালিকের হাতে দেওয়া খোলা/বন্ধ: openOverride {open, until} (null = সময় অনুযায়ী) */
+        fun override(o: JSONObject): Pair<Boolean?, Long> {
+            val x = o.optJSONObject("openOverride") ?: return null to 0L
+            return x.boolN("open") to time(x.opt("until"))
+        }
+
         fun stock(o: JSONObject?): Map<String, String> {
             if (o == null) return emptyMap()
             return GROUPS.mapNotNull { g -> o.optString(g).takeIf { it in STOCK_STATES && !o.isNull(g) }?.let { g to it } }.toMap()

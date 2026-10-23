@@ -150,14 +150,24 @@ object ProviderSwitches {
     private suspend fun call(action: String, body: JSONObject): JSONObject = ServerApi.post("/api/community", body.put("action", action))
 
     /** open: true/false = হাতে খোলা/বন্ধ (পরের নির্ধারিত বদল পর্যন্ত), null = সময় অনুযায়ী */
-    suspend fun pharmacyOpen(id: String, open: Boolean?): JSONObject = call("pharmacy_open_override", JSONObject().put("id", id).put("open", open ?: JSONObject.NULL))
-    suspend fun pharmacyDelivery(id: String, on: Boolean): JSONObject = call("pharmacy_delivery_set", JSONObject().put("id", id).put("delivery", on))
-    suspend fun labOpen(id: String, open: Boolean?): JSONObject = call("lab_open_override", JSONObject().put("id", id).put("open", open ?: JSONObject.NULL))
-    suspend fun labHome(id: String, on: Boolean): JSONObject = call("lab_home_collection_set", JSONObject().put("id", id).put("homeCollection", on))
+    // ফার্মেসি/ল্যাবের id = মালিকের uid — সার্ভার নিজে নেয়, id পাঠানো হয় না (backend/docs/LISTINGS.md "Provider side")
+    suspend fun pharmacyOpen(open: Boolean?): JSONObject = call("pharmacy_open_override", JSONObject().put("open", open ?: JSONObject.NULL))
+    suspend fun pharmacyDelivery(on: Boolean): JSONObject = call("pharmacy_delivery_set", JSONObject().put("delivery", on))
+    suspend fun labOpen(open: Boolean?): JSONObject = call("lab_open_override", JSONObject().put("open", open ?: JSONObject.NULL))
+    suspend fun labHome(on: Boolean): JSONObject = call("lab_home_collection_set", JSONObject().put("homeCollection", on))
 
-    /** ডাক্তার/সহকারী: আজ এই চেম্বার বন্ধ (closed) বা চলছে */
+    /** ডাক্তার/সহকারী: আজ এই চেম্বার বন্ধ (closed) বা চলছে — বন্ধ দিন nextSlot বাদ দেয়, বুকিং নেয় না */
     suspend fun chamberToday(doctorUid: String?, chamberIndex: Int, closed: Boolean): JSONObject =
-        ServerApi.post("/api/community", JSONObject().put("action", "chamber_today_set").put("chamberIndex", chamberIndex).put("closed", closed).apply { if (doctorUid != null) put("doctorUid", doctorUid) })
+        call("chamber_day_set", JSONObject().put("chamberIndex", chamberIndex).put("closed", closed).apply { if (doctorUid != null) put("doctorUid", doctorUid) })
+
+    /** নিজের (বা সহকারী হলে ডাক্তারের) কার্ড — তালিকার একই ঘর — আর চেম্বারপ্রতি আজ বসেন/বন্ধ */
+    suspend fun chamberDays(doctorUid: String?): Provider? {
+        val o = call("chamber_days", JSONObject().apply { if (doctorUid != null) put("doctorUid", doctorUid) })
+        val card = o.optJSONObject("card")?.let { Appointments.parseProvider(it) } ?: return null
+        val a = o.optJSONArray("items") ?: org.json.JSONArray()
+        val closed = (0 until a.length()).mapNotNull { a.optJSONObject(it) }.associate { it.optInt("chamberIndex", -1) to it.optBoolean("closedToday") }
+        return card.copy(chambers = card.chambers.mapIndexed { i, c -> c.copy(closedToday = closed[i] ?: c.closedToday) })
+    }
 
     /** সার্ভার কাজটা চেনে না (পুরোনো সার্ভার) — সুইচ লুকানো */
     fun unknown(e: Throwable): Boolean {
@@ -217,7 +227,7 @@ fun StockEditor(b: BloodBank, onSaved: (ListingExtras) -> Unit) {
         busy = true
         errorMsg = null
         scope.launch {
-            runCatching { BloodBanks.setStock(b.id, groups) }
+            runCatching { if (changed) BloodBanks.setStock(b.id, groups) else BloodBanks.refreshStock(b.id) }
                 .onSuccess { onSaved(it) }
                 .onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e; errorMsg = e.message }
             busy = false
@@ -273,11 +283,11 @@ fun PharmacyProviderTop(p: Pharmacy, onChanged: () -> Unit) {
         PatientViewPreview(pharmacyCard(cur, { detail = true }, {}, {}, null))
         if (!open.hidden) QuickSwitch(
             if (open.value) ProviderText.openNow() else ProviderText.closedNow(), ProviderText.overrideNote(), open.value,
-            { v -> open.toggle(scope, v, { ProviderSwitches.pharmacyOpen(p.id, v) }, onChanged) }, open.busy, "sw_open",
+            { v -> open.toggle(scope, v, { ProviderSwitches.pharmacyOpen(v) }, onChanged) }, open.busy, "sw_open",
         )
         if (!delivery.hidden) QuickSwitch(
             if (delivery.value) ProviderText.deliveryOn() else ProviderText.deliveryOff(), null, delivery.value,
-            { v -> delivery.toggle(scope, v, { ProviderSwitches.pharmacyDelivery(p.id, v) }, onChanged) }, delivery.busy, "sw_delivery",
+            { v -> delivery.toggle(scope, v, { ProviderSwitches.pharmacyDelivery(v) }, onChanged) }, delivery.busy, "sw_delivery",
         )
         ErrorText(open.error ?: delivery.error)
     }
@@ -296,11 +306,11 @@ fun LabProviderTop(l: Lab, onChanged: () -> Unit) {
         PatientViewPreview(labCard(cur, { detail = true }, {}, {}, null))
         if (!open.hidden) QuickSwitch(
             if (open.value) ProviderText.openNow() else ProviderText.closedNow(), ProviderText.overrideNote(), open.value,
-            { v -> open.toggle(scope, v, { ProviderSwitches.labOpen(l.id, v) }, onChanged) }, open.busy, "sw_open",
+            { v -> open.toggle(scope, v, { ProviderSwitches.labOpen(v) }, onChanged) }, open.busy, "sw_open",
         )
         if (!home.hidden) QuickSwitch(
             if (home.value) ProviderText.homeOn() else ProviderText.homeOff(), null, home.value,
-            { v -> home.toggle(scope, v, { ProviderSwitches.labHome(l.id, v) }, onChanged) }, home.busy, "sw_home",
+            { v -> home.toggle(scope, v, { ProviderSwitches.labHome(v) }, onChanged) }, home.busy, "sw_home",
         )
         ErrorText(open.error ?: home.error)
     }
@@ -316,7 +326,10 @@ fun DoctorProviderTop(doctorUid: String? = null) {
     var me by remember { mutableStateOf<Provider?>(null) }
     var reload by remember { mutableStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(reload) {
-        runCatching { Appointments.mine() }.onSuccess { me = it }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        // নতুন সার্ভার: chamber_days (কার্ড + আজ বন্ধ); পুরোনো সার্ভারে provider_me (তখন সুইচ চাপলে সরে যায়)
+        val p = runCatching { ProviderSwitches.chamberDays(doctorUid) }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
+            ?: runCatching { Appointments.mine() }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null }
+        if (p != null) me = p
     }
     val p = me ?: return
     DoctorProviderTopContent(p, doctorUid) { reload++ }

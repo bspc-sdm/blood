@@ -150,8 +150,8 @@ object Pharmacies {
             )
         },
         extras = ListingExtras.parse(o),
-        openOverride = if (o.has("openOverride") && !o.isNull("openOverride")) o.optBoolean("openOverride") else null,
-        overrideUntil = ListingExtras.time(o.opt("overrideUntil")),
+        openOverride = ListingExtras.override(o).first,
+        overrideUntil = ListingExtras.override(o).second,
     )
 
     private fun aspectsOf(o: JSONObject?): Map<String, Pair<Double, Int>> {

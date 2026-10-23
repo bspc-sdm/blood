@@ -127,6 +127,9 @@ object BloodBanks {
         )
 
     /** স্টক বসানো (মালিক): আট গ্রুপের পুরো অবস্থা (জানা নেই = null); একই পাঠালে শুধু "হালনাগাদ" সময় বদলায় */
+    /** "সব ঠিক আছে — এখন হালনাগাদ": কিছু না বদলে শুধু হালনাগাদের সময় */
+    suspend fun refreshStock(id: String): ListingExtras = ListingExtras.parse(call("bloodbank_stock_set", JSONObject().put("id", id).put("refresh", true)))
+
     suspend fun setStock(id: String, groups: Map<String, String?>): ListingExtras {
         val g = JSONObject()
         ListingExtras.GROUPS.forEach { k -> g.put(k, groups[k] ?: JSONObject.NULL) }

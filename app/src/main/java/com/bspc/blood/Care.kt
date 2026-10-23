@@ -736,6 +736,9 @@ object DoctorFilterPrefs {
 }
 
 object Appointments {
+    /** providers-এর এক ঘর (provider_me.card, chamber_days.card-ও একই রূপ) */
+    fun parseProvider(o: JSONObject): Provider = provider(o)
+
     private fun provider(o: JSONObject): Provider {
         val ch = o.optJSONArray("chambers") ?: JSONArray()
         return Provider(

@@ -233,8 +233,8 @@ object RxNet {
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
         o.optJSONObject("prices")?.let { PriceSummary(it.optInt("count"), it.optInt("from"), it.intN("discountPct"), it.intN("homeFee")) },
         extras = ListingExtras.parse(o),
-        openOverride = if (o.has("openOverride") && !o.isNull("openOverride")) o.optBoolean("openOverride") else null,
-        overrideUntil = ListingExtras.time(o.opt("overrideUntil")),
+        openOverride = ListingExtras.override(o).first,
+        overrideUntil = ListingExtras.override(o).second,
     )
 
     suspend fun activity(rxId: String): RxActivity {
