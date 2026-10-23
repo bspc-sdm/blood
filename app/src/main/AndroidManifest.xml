@@ -126,6 +126,8 @@
             android:exported="false"
             android:foregroundServiceType="microphone|camera" />
         <receiver android:name=".CallActionReceiver" android:exported="false" />
+        <!-- মেসেজের নোটিফিকেশন থেকে সরাসরি উত্তর (ChatPush.kt) -->
+        <receiver android:name=".ChatReplyReceiver" android:exported="false" />
         <service android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService" tools:node="remove" />
 
         <receiver android:name=".MedAlarmReceiver" android:exported="false" />

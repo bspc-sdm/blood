@@ -159,7 +159,7 @@ fun ContactActions(
     val callsLive = audioFeature && CallAvailability.enabled.value != false && !CallAvailability.isBlocked(ctx, refId)
     val callsOn = flags?.canCall == true && callsLive
     val videoOn = callsOn && videoFeature && flags?.canVideo == true
-    val msgOn = onMessage != null && flags?.canMessage == true
+    val msgOn = onMessage != null && flags?.canMessage == true && rememberFeatureOn(Features.CHAT)
     // আমি এঁর সাথে যোগাযোগ বন্ধ রেখেছি: "আবার চালু করুন"
     val blockedByMe = flags?.blocked == true && audioFeature
     val tel = phone?.takeIf { it.isNotBlank() }

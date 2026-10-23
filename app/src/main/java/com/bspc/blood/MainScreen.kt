@@ -149,6 +149,7 @@ fun MainScreen(
                     IconButton(onClick = onOpenSettings) { AppIcon(R.drawable.ic_settings_outline, tr("App settings", "অ্যাপ সেটিংস")) }
                     FilledTonalButton(onClick = onLogin, modifier = Modifier.padding(end = 8.dp)) { Text(tr("Log in", "লগইন")) }
                 } else {
+                    if (featureOn(Features.CHAT)) ChatButton(ChatUnread.total.intValue) { ChatNav.inbox.value = true }
                     BellButton(community?.unread ?: 0, onOpenInbox)
                     IconButton(onClick = { onTabChange(Tabs.PROFILE) }) { MenuAvatar(avatar) }
                 }

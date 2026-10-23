@@ -323,7 +323,8 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                                     if (invPharmacy && online && o.status in setOf("accepted", "out")) SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = busyId == null)
                                     if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
                                     // ফোন · অডিও কল · ভিডিও কল · মেসেজ
-                                    ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS)
+                                    ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS,
+                                        onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
                                     SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) }, enabled = busyId == null)
                                 }
                             }
@@ -646,7 +647,8 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                                 else if (invLab && o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
                                 val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
                                 // ফোন (বাসা থেকে নমুনা) · অডিও কল · ভিডিও কল · মেসেজ
-                                ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open)
+                                ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open,
+                                    onMessage = { openChat(CallCtx.LAB_ORDER, o.id) })
                             }
                         }
                     }

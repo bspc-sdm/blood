@@ -101,6 +101,8 @@ object Notifier {
         "invoiceId",
         // অ্যাপে কল: মিসড কল, "ডাক্তার ভিডিও কলে আছেন"
         "callId", "appointmentId",
+        // অ্যাপে মেসেজ
+        "threadId",
     )
 
     /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */
@@ -194,6 +196,8 @@ class BloodMessagingService : FirebaseMessagingService() {
         if (!to.isNullOrBlank() && to != me) return
         // অ্যাপে কল: আসা কল (পুরো পর্দা), কলকারী কেটে দিলেন — নিজের নোটিফিকেশন (CallService.kt)
         if (CallPush.handle(this, message.data)) return
+        // মেসেজ: প্রতি থ্রেডে একটা নোটিফিকেশন, লেখা ছাড়া (ChatPush.kt)
+        if (ChatPush.handle(this, message.data)) return
         val title = message.notification?.title ?: message.data["title"] ?: APP_NAME
         val body = message.notification?.body ?: message.data["body"] ?: ""
         // প্রতিটা বার্তা আলাদা নোটিফিকেশন; একই রিকোয়েস্ট/আহ্বান/প্রশ্নের বার্তা আগেরটার জায়গায়

@@ -265,6 +265,15 @@ fun ProfileTab(
                 ActionRow(R.drawable.ic_phone_in_talk, tr("Calls", "কল"), null, { CallNav.history.value = true })
                 HorizontalDivider()
             }
+            // মেসেজ (না-পড়া থাকলে সংখ্যা) — ফিচার সুইচ chat চালু থাকলে
+            if (featureOn(Features.CHAT)) {
+                ActionRow(
+                    R.drawable.ic_chat_bubble_outline, tr("Messages", "মেসেজ"),
+                    ChatUnread.total.intValue.takeIf { it > 0 }?.let { tr("${num(it)} unread", "${num(it)}টি না-পড়া") },
+                    { ChatNav.inbox.value = true }, tag = "profile_messages",
+                )
+                HorizontalDivider()
+            }
             // কেয়ারগিভার (জরুরি যোগাযোগ, আমার হয়ে কাজ করতে পারেন), যাঁদের দেখাশোনা করি, পরিবারের সদস্য
             ActionRow(R.drawable.ic_health_and_safety_filled, tr("Caregivers & family", "কেয়ারগিভার ও পরিবার"), tr("People who can help you in the app", "যাঁরা অ্যাপে আপনার হয়ে কাজ করতে পারেন"), { RxNav.open.value = "care" })
             HorizontalDivider()

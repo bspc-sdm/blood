@@ -131,7 +131,9 @@ fun NotifySettingsSection(
             val showBusiness = MyWork.has
             // অ্যাপে কল সার্ভারে বন্ধ থাকলে তার সুইচও নয়
             val showCalls = CallAvailability.enabled.value != false && rememberFeatureOn(CallFeatures.AUDIO)
-            NotifyCats.SETTABLE.filter { (it != NotifyCats.BUSINESS || showBusiness) && (it != NotifyCats.CALLS || showCalls) }.forEach { cat ->
+            // মেসেজ: ফিচার সুইচ chat বন্ধ থাকলে তার সুইচও নয়
+            val showChat = featureOn(Features.CHAT)
+            NotifyCats.SETTABLE.filter { (it != NotifyCats.BUSINESS || showBusiness) && (it != NotifyCats.CALLS || showCalls) && (it != NotifyCats.MESSAGES || showChat) }.forEach { cat ->
                 val on = p.isOn(cat)
                 SwitchRow(
                     title = NotifyCats.label(cat),

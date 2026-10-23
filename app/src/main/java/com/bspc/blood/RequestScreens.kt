@@ -522,6 +522,7 @@ fun RequestDetailScreen(
                                             if (r.urgent) ContactStyle.PRIMARY_PHONE else ContactStyle.ROW,
                                             phoneLabel = tr("Call", "কল করুন"),
                                             appAllowed = r.isActive && resp.confirmed,
+                                            onMessage = { openChat(CallCtx.BLOOD, r.id, r.requesterUid.ifBlank { null }) },
                                         )
                                     } else {
                                         Text(tr("Couldn't load the number. Open this page again.", "নম্বর লোড হয়নি, পাতাটা আবার খুলুন।"))

@@ -1015,6 +1015,7 @@ private fun AcceptedCard(r: AmbReq, a: AmbCar, scope: kotlinx.coroutines.Corouti
                 CallCtx.AMBULANCE, r.id, peerName = a.name, phone = a.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
                 onPhone = if (a.phone.isNotBlank()) ({ callDuringRequest(context, scope, a, id) }) else null,
                 phoneLabel = tr("Call driver ", "চালককে ফোন ") + num(a.phone),
+                onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
             )
         }
     }
@@ -1106,6 +1107,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                         ContactActions(
                             CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
                             phoneLabel = num(r.phone), appAllowed = r.status == "accepted" || r.status == "arrived",
+                            onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // ফোনের নিজের ম্যাপ অ্যাপ — আলাদা ম্যাপ SDK নেই, খরচ নেই; ঠিক জায়গা না থাকলে ঠিকানা আর এলাকা দিয়ে খোঁজা

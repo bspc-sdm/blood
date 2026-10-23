@@ -191,10 +191,12 @@ fun DonorRow(
             ContactActions(
                 CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.ICONS,
                 phoneLabel = tr("Call", "ফোন"), appAllowed = canAppCall && !urgent,
+                onMessage = { openChat(CallCtx.BLOOD, requestId, d.donorUid) },
             )
         }
         if (canAppCall && urgent) {
-            ContactActions(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.CHIPS, Modifier.padding(start = 46.dp), showPhone = false)
+            ContactActions(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.CHIPS, Modifier.padding(start = 46.dp), showPhone = false,
+                onMessage = { openChat(CallCtx.BLOOD, requestId, d.donorUid) })
         }
         if (active && d.status == "accepted") {
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে

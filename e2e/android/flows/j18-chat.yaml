@@ -1,0 +1,206 @@
+# যাত্রা ১৮ — অ্যাপে মেসেজ (শুধু চাইলে: E2E_ONLY="j18" — ফিচার সুইচ chat, chat_media চালু থাকা সার্ভারে) (সার্ভার: chat_open/chat_send/chat_threads/chat_unread, backend/docs/CHAT.md):
+# ক) রোগী রহিম: "আমার রিকোয়েস্ট" → রাজি ডোনারের সারির "মেসেজ" (ContactActions-এর contact_message) → কথোপকথন →
+#    লেখা পাঠানো (✓) → গ্যালারি থেকে ছবি (ছোট করে, "ছবিটা পাঠাবেন?") → ছবির বাবল।
+#    ডোনার উত্তর দেন না, তাই বারবার চালালে এক সময় "উত্তরের আগে ২০টা" সীমা — তখন বাংলা বার্তা (chat_notice) দেখা গেলেও চলে।
+# খ) রোগী রহিম: চালু অনলাইন অর্ডার (Montene, ডেমো লাইফ ফার্মেসি) → "মেসেজ" → লেখা।
+# গ) ফার্মেসির মালিক: উপরের বারের "মেসেজ"-এ না-পড়ার সংখ্যা → তালিকা ("ওষুধের অর্ডার") → কথোপকথন → উত্তর → সংখ্যা নেই।
+# প্রোডাকশনের ডেমো অ্যাকাউন্টে কয়েকটা মেসেজ লেখা হয় (ডেমো রিফ্রেশে মোছে)।
+appId: com.bspc.blood
+env:
+  J: j18
+  ROLE: ডেমো রোগী রহিম
+---
+- addMedia:
+    - "../assets/chat-photo.jpg"
+- runFlow: ../common/start.yaml
+# ---- ক) রক্তের রিকোয়েস্ট → ডোনারকে মেসেজ ----
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার রিকো(?:য়|য়)েস্ট.*"
+- extendedWaitUntil:
+    visible: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+    timeout: 30000
+- tapOn: ".*ডেমো জ(?:য়|য়)দেবপুর জেনারেল হাসপাতাল.*"
+- extendedWaitUntil:
+    visible: "আমার রিকো(?:য়|য়)েস্ট"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "contact_message"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- takeScreenshot: j18-01-donor-row-message
+- tapOn:
+    id: "contact_message"
+- extendedWaitUntil:
+    visible:
+      id: "chat_screen"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 30000
+- assertVisible: ".*রক্তের অনুরোধ.*"
+- takeScreenshot: j18-02-chat-open
+- tapOn:
+    id: "chat_input"
+- inputText: "Hello from Lifolo e2e"
+- hideKeyboard
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: ".*Hello from Lifolo e2e.*"
+    timeout: 10000
+# পৌঁছেছে (✓) বা পড়েছেন (✓✓) — বা সীমা ছুঁলে বাংলা বার্তা
+- extendedWaitUntil:
+    visible:
+      id: "chat_tick_sent|chat_tick_read|chat_notice"
+    timeout: 30000
+- takeScreenshot: j18-03-text-sent
+# ছবি: সংযুক্ত করুন → গ্যালারি → সিস্টেমের ছবি বাছাই → "ছবিটা পাঠাবেন?" → পাঠান
+- tapOn:
+    id: "chat_attach"
+- tapOn:
+    id: "chat_attach_gallery"
+- extendedWaitUntil:
+    visible:
+      id: ".*:id/icon_thumbnail"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: ".*:id/icon_thumbnail"
+    commands:
+      - tapOn:
+          id: ".*:id/icon_thumbnail"
+          index: 0
+- extendedWaitUntil:
+    visible: ".*ছবিটা পাঠাবেন.*"
+    timeout: 15000
+    optional: true
+# বাছাইয়ের পাতা অন্য রকম হলে: গ্রিডের প্রথম ছবির জায়গায়
+- runFlow:
+    when:
+      visible:
+        id: ".*:id/(?:icon_thumbnail|photo_picker.*|grid.*)"
+    commands:
+      - tapOn:
+          point: "17%,30%"
+- extendedWaitUntil:
+    visible: ".*ছবিটা পাঠাবেন.*"
+    timeout: 20000
+- takeScreenshot: j18-04-photo-confirm
+- tapOn:
+    id: "chat_photo_send"
+- extendedWaitUntil:
+    visible:
+      id: "chat_photo"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "chat_tick_pending"
+    timeout: 40000
+    optional: true
+- takeScreenshot: j18-05-photo-sent
+- back
+- back
+- back
+# ---- খ) অনলাইন অর্ডার → ফার্মেসিকে মেসেজ ----
+- scrollUntilVisible:
+    element: ".*আমার প্রেসক্রিপশন.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*আমার প্রেসক্রিপশন.*"
+- scrollUntilVisible:
+    element: ".*Montene.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*Montene.*"
+- extendedWaitUntil:
+    visible: ".*ফার্মেসিতে পাঠান.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "contact_message"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: "contact_message"
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 30000
+- assertVisible: ".*ওষুধের অর্ডার.*"
+- tapOn:
+    id: "chat_input"
+- inputText: "Is the medicine on the way?"
+- hideKeyboard
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible:
+      id: "chat_tick_sent|chat_tick_read"
+    timeout: 30000
+- takeScreenshot: j18-06-rx-message-sent
+# ---- গ) ফার্মেসির মালিক: না-পড়ার সংখ্যা → তালিকা → উত্তর ----
+- runFlow:
+    file: ../common/start.yaml
+    env:
+      J: j18p
+      ROLE: ডেমো ফার্মেসির মালিক
+- extendedWaitUntil:
+    visible:
+      id: "chat_unread_badge"
+    timeout: 30000
+- takeScreenshot: j18-07-unread-badge
+- tapOn:
+    id: "chat_inbox_button"
+- extendedWaitUntil:
+    visible:
+      id: "chat_thread_row"
+    timeout: 30000
+- assertVisible: ".*ওষুধের অর্ডার.*"
+- assertVisible:
+    id: "chat_thread_unread"
+- takeScreenshot: j18-08-inbox
+- tapOn:
+    text: ".*Is the medicine on the way.*"
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 30000
+- tapOn:
+    id: "chat_input"
+- inputText: "Yes, arriving soon"
+- hideKeyboard
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible:
+      id: "chat_tick_sent|chat_tick_read"
+    timeout: 30000
+- takeScreenshot: j18-09-reply
+- back
+- back
+# পড়া হয়ে গেছে — উপরের বারে সংখ্যা নেই (অন্য কারো নতুন মেসেজ না থাকলে)
+- extendedWaitUntil:
+    notVisible:
+      id: "chat_unread_badge"
+    timeout: 40000
+- takeScreenshot: j18-10-badge-cleared
+# নোটিফিকেশনের সেটিংসে নতুন ধরন "মেসেজ" (চালু থাকে)
+- runFlow: ../common/notify-settings.yaml
+- scrollUntilVisible:
+    element:
+      id: "notify_messages_(on|off)"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- assertVisible: ".*বন্ধ থাকলেও মেসেজ আসবে.*"
+- takeScreenshot: j18-11-messages-switch

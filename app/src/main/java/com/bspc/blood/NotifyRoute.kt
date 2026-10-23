@@ -53,6 +53,9 @@ fun notifyRoute(data: Map<String, String>, approvedBadge: String? = null, hasWor
         type == "support" -> NotifyRoute.Open(Screen.Help())
         // অ্যাপে কল: মিসড কল → কলের তালিকা; "ডাক্তার ভিডিও কলে আছেন" → যুক্ত হওয়ার পর্দা (id না থাকলে আমার অ্যাপয়েন্টমেন্ট)
         type == "call_missed" || type == "call_incoming" -> NotifyRoute.Open(Screen.CallHistory)
+        // মেসেজ: সেই কথোপকথন (id না থাকলে মেসেজের তালিকা)
+        type == "chat_message" -> data["threadId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.Open(Screen.Chat(ChatNav.Target(threadId = it))) }
+            ?: NotifyRoute.Open(Screen.ChatInbox)
         type == "appt_call_ready" -> data["appointmentId"]?.takeIf { it.isNotBlank() }?.let { NotifyRoute.ApptCall(it) }
             ?: NotifyRoute.Open(Screen.MyAppointments)
         // রোগীর অ্যাম্বুলেন্স ডাকা: কেউ রাজি হলেন/পৌঁছালেন/বাতিল/সময় শেষ — সেই অপেক্ষার পাতা

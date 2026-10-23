@@ -174,6 +174,9 @@ sealed interface Screen {
     data class MyReceipts(val tab: Int = 0) : Screen
     /** অ্যাপে কলের তালিকা (CallHistory.kt) */
     data object CallHistory : Screen
+    /** মেসেজের তালিকা আর একটা কথোপকথন (ChatScreens.kt) */
+    data object ChatInbox : Screen
+    data class Chat(val target: ChatNav.Target) : Screen
 }
 
 object Tabs {
@@ -405,7 +408,14 @@ fun App(
     }
     // অ্যাপে কল চালু কি না (call_config, ১০ মিনিটে একবার); অ্যাকাউন্ট বদলালে আগের "না" মুছে নতুন করে
     val callUid = LoginGate.uid.value
-    LaunchedEffect(callUid) { CallAvailability.clear() }
+    LaunchedEffect(callUid) { CallAvailability.clear(); ChatUnread.clear() }
+    // মেসেজ: পাঠানোর সারি (ইন্টারনেট ফিরলে পাঠায়) আর না-পড়ার সংখ্যা — পাতা বদলালে (৩০ সেকেন্ডে একবার)
+    LaunchedEffect(ready, callUid, stack.last()) {
+        if (ready && callUid != null) {
+            ChatQueue.init(context)
+            ChatUnread.refresh()
+        }
+    }
     LaunchedEffect(ready, callUid, stack.last()) {
         if (ready && callUid != null) CallAvailability.refresh()
     }
@@ -449,6 +459,22 @@ fun App(
         if (callsOpen) {
             CallNav.history.value = false
             if (stack.last() != Screen.CallHistory) push(Screen.CallHistory)
+        }
+    }
+    // মেসেজ: যোগাযোগের সারির "মেসেজ" / নোটিফিকেশন → কথোপকথন; উপরের বার / প্রোফাইল → তালিকা
+    val chatOpen = ChatNav.open.value
+    LaunchedEffect(chatOpen, ready) {
+        if (chatOpen != null && ready) {
+            ChatNav.open.value = null
+            val next = Screen.Chat(chatOpen)
+            if (stack.last() != next) push(next)
+        }
+    }
+    val chatInbox = ChatNav.inbox.value
+    LaunchedEffect(chatInbox) {
+        if (chatInbox) {
+            ChatNav.inbox.value = false
+            if (stack.last() != Screen.ChatInbox) push(Screen.ChatInbox)
         }
     }
     // অন্য পাতার "আপিল করুন" / প্রোফাইলের "সাহায্য ও আপিল"
@@ -801,6 +827,11 @@ fun App(
             is Screen.AmbulanceRequest -> AmbulanceRequestScreen(current.id, onBack = { back() })
             is Screen.MyReceipts -> MyReceiptsScreen(null, "", current.tab, onBack = { back() })
             Screen.CallHistory -> CallHistoryScreen(onBack = { back() })
+            // ফিচার সুইচ chat বন্ধ: লিংক/নোটিফিকেশন থেকে এলে "এই সুবিধা শিগগির আসছে"
+            Screen.ChatInbox -> if (!featureOn(Features.CHAT)) ComingSoonScreen(onBack = { back() }) else ChatInboxScreen(onBack = { back() }, onOpen = { t ->
+                push(Screen.Chat(ChatNav.Target(t.ctx, t.refId, t.peer.uid.ifBlank { null }, t.threadId, t.peer.name, t.peer.photoThumb)))
+            })
+            is Screen.Chat -> if (!featureOn(Features.CHAT)) ComingSoonScreen(onBack = { back() }) else ChatScreen(current.target, onBack = { back() })
 
             // মোছা / সাময়িক বন্ধ: পাতা নিজেই এই ফোন থেকে লগআউট করে (সার্ভার সব লগইন বাতিল করেছে), শেষে অতিথি হিসেবে হোম
             Screen.DeleteAccount -> DeleteAccountScreen(

@@ -160,7 +160,11 @@ private fun CallRow(c: CallHistoryItem) {
             }
             note?.let { SmallNote(it) }
             if (c.ctx in CallCtx.ALL && c.refId.isNotBlank()) {
-                AppCallButtons(c.ctx, c.refId, peerUid = c.peer.uid.ifBlank { null }, peerName = c.peer.name, emphasis = CallEmphasis.ICONS, modifier = Modifier.align(Alignment.End))
+                ContactActions(
+                    c.ctx, c.refId, peerUid = c.peer.uid.ifBlank { null }, peerName = c.peer.name, style = ContactStyle.ICONS,
+                    modifier = Modifier.align(Alignment.End), showPhone = false,
+                    onMessage = if (c.ctx in ChatCtx.ALL) ({ openChat(c.ctx, c.refId, c.peer.uid.ifBlank { null }) }) else null,
+                )
             }
         }
     }

@@ -2,4 +2,6 @@
 <!-- প্রেসক্রিপশনের PDF শেয়ার (অ্যাপের cache/rx) -->
 <paths>
     <cache-path name="rx" path="rx/" />
+    <!-- মেসেজে ক্যামেরায় তোলা ছবি (cache/chat) -->
+    <cache-path name="chat" path="chat/" />
 </paths>

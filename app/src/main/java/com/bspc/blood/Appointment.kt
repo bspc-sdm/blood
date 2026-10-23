@@ -872,6 +872,7 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                 ContactActions(
                                     CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null },
                                     phoneLabel = num(a.otherPhone), appAllowed = CallWindows.canCall(a.status, a.date, a.start),
+                                    onMessage = { openChat(CallCtx.APPOINTMENT, a.id) },
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (a.role == "provider" && a.status == "pending") {
