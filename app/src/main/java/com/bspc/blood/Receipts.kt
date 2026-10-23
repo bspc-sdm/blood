@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -233,7 +234,7 @@ fun ReceiptView(inv: Invoice, bn: Boolean) {
                 HorizontalDivider(color = Color(0xFFDDE3E4))
                 TotalRow(tr("Subtotal", "উপমোট"), m(inv.subtotal), color = ink)
                 if (inv.disc > 0.004) TotalRow(tr("Discount", "ছাড়"), "− " + m(inv.disc), color = ink)
-                inv.fees.forEach { f -> TotalRow(f.label, m(f.amount), color = ink) }
+                inv.fees.forEach { f -> TotalRow(InvoiceKinds.feeLabel(f.label), m(f.amount), color = ink) }
                 Box(Modifier.testTag("receipt_total")) { TotalRow(tr("Total", "মোট"), m(inv.total), strong = true, color = ink) }
                 TotalRow(tr("Paid", "দেওয়া হয়েছে"), m(inv.paid), color = ink)
                 if (inv.due > 0.004) TotalRow(tr("Due", "বাকি"), m(inv.due), strong = true, color = red)
@@ -631,6 +632,8 @@ fun BizInvoicesPanel(kind: String, bizId: String, modifier: Modifier = Modifier)
         // লেখার সময় প্রতিটা অক্ষরে নয়
         if (q.isNotBlank()) delay(400)
         runCatching { InvoiceApi.listBiz(kind, bizId, period, q) }.onSuccess { items = it.items; cursor = it.cursor; sum = it.sum; dayEnd = it.dayEnd; errorMsg = null }.onFailure { errorMsg = it.message; if (items == null) items = emptyList() }
+        // আজকের: "দিনের শেষ"-এর বিস্তারিত (বাতিল, বড় ছাড়, নষ্ট, কম দামে) — শুধু মালিক পান, বাকিদের চুপচাপ নেই
+        if (period == "today" && q.isBlank()) InvoiceApi.daySummary(kind, bizId)?.let { dayEnd = it }
     }
     val cs = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth().testTag("biz_invoices"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -671,7 +674,7 @@ fun BizInvoicesPanel(kind: String, bizId: String, modifier: Modifier = Modifier)
                             val parts = listOfNotNull(
                                 if (e.bigDiscounts > 0) tr("${e.bigDiscounts} big discount(s)", "বড় ছাড় ${num(e.bigDiscounts)}টা") else null,
                                 if (e.writeOffs > 0) tr("${e.writeOffs} stock write-off(s)", "স্টক নষ্ট দেখানো ${num(e.writeOffs)}টা") else null,
-                                if (e.stockShort > 0) tr("${e.stockShort} sold short of stock", "স্টকের চেয়ে বেশি বিক্রি ${num(e.stockShort)}টা") else null,
+                                if (e.belowPrice > 0) tr("${e.belowPrice} sold below the item price", "দামের চেয়ে কমে বিক্রি ${num(e.belowPrice)}টা") else null,
                             )
                             if (parts.isNotEmpty()) Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = cs.error)
                             if (e.note.isNotBlank()) Text(e.note, style = MaterialTheme.typography.bodySmall, color = cs.onSecondaryContainer)
@@ -701,28 +704,26 @@ fun BizInvoicesPanel(kind: String, bizId: String, modifier: Modifier = Modifier)
 // ------------------------------------------------------------
 
 /**
- * "রসিদ" বাটন: চাপলে নিজের রসিদের তালিকায় এই অর্ডারেরটা খুঁজে খোলে (কেয়ারগিভার মোডে রোগীর)।
- * না পেলে ছোট লেখা — দোকান/ডাক্তার এখনো রসিদ দেননি।
+ * "রসিদ" বাটন (রোগীর অর্ডার/পরীক্ষা/অ্যাপয়েন্টমেন্ট/অ্যাম্বুলেন্সে): সার্ভারের invoiceId থাকলে আর my_expenses চালু থাকলে তবেই।
+ * কেয়ারগিভার মোডে রোগীর হয়ে (asUid)।
  */
 @Composable
-fun ReceiptLink(refType: String, refId: String) {
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    var note by remember(refId) { mutableStateOf<String?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        SmallAction(tr("Receipt", "রসিদ"), R.drawable.ic_list_alt, {
-            val asUid = CareMode.asUid.value
-            scope.launch {
-                busy = true
-                note = null
-                runCatching { InvoiceApi.findByRef(refType, refId, asUid) }
-                    .onSuccess { inv -> if (inv != null) InvoiceNav.open(inv, asUid = asUid) else note = tr("No receipt yet", "এখনো রসিদ দেওয়া হয়নি") }
-                    .onFailure { note = it.message }
-                busy = false
-            }
-        }, busy = busy, modifier = Modifier.testTag("receipt_link"))
-        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    }
+fun ReceiptLink(invoiceId: String) {
+    if (invoiceId.isBlank() || !invOn(InvoiceFeatures.MY_EXPENSES)) return
+    SmallAction(tr("Receipt", "রসিদ"), R.drawable.ic_list_alt, { InvoiceNav.openId(invoiceId, CareMode.asUid.value) }, modifier = Modifier.testTag("receipt_link"))
+}
+
+/** ব্যবসার দিকের "রসিদ" (দেওয়া রসিদ খোলা — টাকা নেওয়া/বাতিল) */
+@Composable
+fun BizReceiptAction(invoiceId: String) {
+    SmallAction(tr("Receipt", "রসিদ"), R.drawable.ic_list_alt, { InvoiceNav.openId(invoiceId, manage = true) }, modifier = Modifier.testTag("biz_receipt"))
+}
+
+/** ফিচার সুইচ (Features.kt) — বদলালে পাতা নতুন করে আঁকে */
+@Composable
+fun invOn(key: String): Boolean {
+    val keys by Features.keys.collectAsState()
+    return remember(keys, key) { Features.on(key) }
 }
 
 // ------------------------------------------------------------

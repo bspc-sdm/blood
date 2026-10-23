@@ -651,6 +651,8 @@ data class Appointment(
     /** অনলাইন (ভিডিও) চেম্বারের অ্যাপয়েন্টমেন্ট আর তার ফি — OnlineChamber.kt */
     val online: Boolean = false,
     val pay: OnlinePay = OnlinePay(),
+    /** এই অ্যাপয়েন্টমেন্টের ফির রসিদ (না থাকলে খালি) — Receipts.kt */
+    val invoiceId: String = "",
 ) {
     val chamberLabel: String get() = if (isBangla && chamberBn.isNotBlank()) chamberBn else chamber
 }
@@ -783,7 +785,7 @@ object Appointments {
                 o.str("id"), o.str("role"), o.str("otherName"), o.str("type"), o.str("chamber"), o.str("chamberBn"),
                 o.str("room"), o.str("start"), o.optInt("serial"), o.str("schedule"), o.optLong("date"), o.str("note"), o.str("status"),
                 o.str("providerNote"), o.str("otherPhone"), o.optLong("createdAt"), o.str("otherKey"),
-                o.optBoolean("online"), OnlinePay.parse(o),
+                o.optBoolean("online"), OnlinePay.parse(o), invoiceId = o.str("invoiceId"),
             )
         }
     }

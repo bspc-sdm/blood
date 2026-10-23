@@ -96,8 +96,25 @@ data class InvoiceCheck(
 /** পুরো সময়ের যোগফল (বাতিল বাদ) — invoice_list_biz-এর sum */
 data class BizSum(val count: Int, val total: Double, val paid: Double, val due: Double)
 
-/** "দিনের শেষ" — সার্ভার দিলে (বাতিল, বড় ছাড়, নষ্ট দেখানো স্টক, স্টক কম) */
-data class DayEnd(val voids: Int, val bigDiscounts: Int, val writeOffs: Int, val stockShort: Int, val note: String)
+/** "দিনের শেষ" (invoice_day_summary): বাতিল, বড় ছাড়, নষ্ট দেখানো স্টক, দামের চেয়ে কমে বিক্রি */
+data class DayEnd(val voids: Int, val bigDiscounts: Int, val writeOffs: Int, val belowPrice: Int, val note: String)
+
+/** assistant_chambers-এর একটা চেম্বার */
+data class FeeChamber(val chamberKey: String, val name: String, val nameBn: String, val fee: String, val noFee: Boolean) {
+    val label: String get() = if (isBangla && nameBn.isNotBlank()) nameBn else name
+}
+
+/**
+ * ফিচার সুইচ (scratchpad/flags/CONTRACT.md; মালিকের নিয়ম — সব নতুন সুবিধা শুরুতে বন্ধ): ব্যবসার দিক inv_<kind>,
+ * রোগীর "আমার রসিদ ও খরচ" আর অর্ডারের "রসিদ" বাটন my_expenses। বন্ধ থাকলে পাতা আগের মতোই। যাচাই সবসময় খোলা।
+ */
+object InvoiceFeatures {
+    const val MY_EXPENSES = "my_expenses"
+    fun key(kind: String): String = "inv_$kind"
+    fun biz(kind: String): Boolean = Features.on(key(kind))
+    fun patient(): Boolean = Features.on(MY_EXPENSES)
+    fun soon(): String = tr("This is coming soon", "এই সুবিধা শিগগির আসছে")
+}
 
 data class InvoicePage(val items: List<Invoice>, val cursor: String?, val sum: BizSum? = null, val dayEnd: DayEnd? = null)
 
@@ -120,6 +137,19 @@ object InvoiceKinds {
         "other" -> tr("Other", "অন্যান্য")
         // পুরোনো রসিদে লেখা কারণ (কোড নয়) — যেমন আছে
         else -> code
+    }
+
+    /** অ্যাম্বুলেন্সের অতিরিক্ত: সার্ভার শুধু এই কোড নেয় (চার্টের মান পর্যন্ত; "other" সর্বোচ্চ ৳৫০০) */
+    val AMB_EXTRAS = listOf("oxygen", "icu", "night", "other")
+    const val AMB_OTHER_MAX = 500.0
+
+    /** খরচের লাইনের নাম: কোড হলে বাংলা/ইংরেজি, নইলে যেমন আছে */
+    fun feeLabel(label: String): String = when (label) {
+        "oxygen" -> tr("Oxygen", "অক্সিজেন")
+        "icu" -> tr("ICU support", "আইসিইউ")
+        "night" -> tr("Night", "রাতের ভাড়া")
+        "other" -> tr("Other", "অন্যান্য")
+        else -> label
     }
 
     fun label(kind: String): String = when (kind) {
@@ -374,7 +404,7 @@ object InvoiceApi {
         return InvoicePage(
             arr.objs().map(::parse), cur,
             s?.let { BizSum(it.optInt("count"), it.dbl("total"), it.dbl("paid"), it.dbl("due")) },
-            d?.let { DayEnd(it.optInt("voids"), it.optInt("bigDiscounts"), it.optInt("writeOffs"), it.optInt("stockShort"), it.str("note")) },
+            d?.let(::dayEnd),
         )
     }
 
@@ -499,17 +529,27 @@ object InvoiceApi {
         return invoiceIn(call("rx_order_update", b))
     }
 
-    /**
-     * অর্ডার/অ্যাপয়েন্টমেন্ট/অ্যাম্বুলেন্সের রসিদ খোঁজা (রোগীর দিক) — নিজের রসিদের তালিকায় refType+refId মিলিয়ে,
-     * সর্বোচ্চ কয়েক পাতা। না পেলে null।
-     */
-    suspend fun findByRef(refType: String, refId: String, asUid: String? = null, maxPages: Int = 4): Invoice? {
-        var cursor: String? = null
-        repeat(maxPages) {
-            val p = mine(asUid, cursor)
-            p.items.firstOrNull { it.refType == refType && it.refId == refId }?.let { return it }
-            cursor = p.cursor ?: return null
-        }
-        return null
+    /** ডাক্তারের সামনাসামনি চেম্বারগুলো (সরাসরি আসা রোগীর ফি, সিরিয়াল না থাকলেও) — সহকারী doctorUid দিয়ে */
+    suspend fun chambers(doctorUid: String?): List<FeeChamber> =
+        call("assistant_chambers", JSONObject().apply { if (!doctorUid.isNullOrBlank()) put("doctorUid", doctorUid) })
+            .optJSONArray("chambers").objs().map { FeeChamber(it.str("chamberKey"), it.str("name"), it.str("nameBn"), it.str("fee"), it.optBoolean("noFee")) }
+            .filter { it.chamberKey.isNotBlank() }
+
+    /** রোগী এসেছেন (চেম্বারের ডেস্ক) */
+    suspend fun checkin(appointmentId: String, doctorUid: String?) {
+        call("chamber_checkin", JSONObject().put("appointmentId", appointmentId).apply { if (!doctorUid.isNullOrBlank()) put("doctorUid", doctorUid) })
     }
+
+    /** "দিনের শেষ" বিস্তারিত (শুধু মালিক) — সহকারী/অন্য ভুলে null */
+    suspend fun daySummary(kind: String, bizId: String): DayEnd? = runCatching {
+        dayEnd(call("invoice_day_summary", JSONObject().put("kind", kind).put("bizId", bizId)))
+    }.getOrNull()
+
+    internal fun dayEnd(o: JSONObject): DayEnd = DayEnd(
+        o.optJSONArray("voids")?.length() ?: o.optInt("voids"),
+        o.optJSONArray("bigDiscounts")?.length() ?: o.optInt("bigDiscounts"),
+        o.optJSONObject("writeOffs")?.optInt("count") ?: o.optInt("writeOffs"),
+        o.optJSONArray("belowPrice")?.length() ?: o.optInt("stockShort"),
+        o.str("note"),
+    )
 }

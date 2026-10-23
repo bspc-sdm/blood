@@ -291,6 +291,8 @@ internal fun MyPharmacyPanel(profile: Profile) {
     var shopSub by rememberSaveable { mutableIntStateOf(0) }
     var seg by rememberSaveable { mutableStateOf("new") }
     var unanswered by remember { mutableIntStateOf(0) }
+    // রসিদ (inv_pharmacy) — বন্ধ থাকলে "দোকান"-এর ভাগ আগের মতো চারটা
+    val invPharmacy = invOn(InvoiceFeatures.key("pharmacy"))
     val scope = rememberCoroutineScope()
     // নোটিফিকেশন: ওষুধ খোঁজার অনুরোধ → "ওষুধ খোঁজা"; দোকান → "দোকান › তথ্য"; বাকি → "অর্ডার" › নতুন
     ConsumeWorkTarget { t ->
@@ -298,7 +300,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
             "finds" -> tab = 1
             "shop" -> { tab = 2; shopSub = 0 }
             // "দিনের শেষ" রসিদের খবর → দোকান › রসিদ
-            "receipts" -> { tab = 2; shopSub = 4 }
+            "receipts" -> if (Features.on(InvoiceFeatures.key("pharmacy"))) { tab = 2; shopSub = 4 } else { tab = 2; shopSub = 0 }
             else -> { tab = 0; seg = "new" }
         }
     }
@@ -424,8 +426,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
                             PillTab(tr("Sales", "বিক্রি"), R.drawable.ic_payments),
                             PillTab(tr("Stock", "স্টক"), R.drawable.ic_list_alt),
                             PillTab(tr("Analytics", "এনালাইটিক্স"), R.drawable.ic_history),
-                            PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt),
-                        ),
+                        ) + (if (invPharmacy) listOf(PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt)) else emptyList()),
                         { shopSub = it },
                         secondary = true,
                     )
@@ -435,7 +436,7 @@ internal fun MyPharmacyPanel(profile: Profile) {
                         1 -> PharmacySalesLite()
                         2 -> PharmacyStockLite()
                         3 -> PharmacyAnalyticsLite()
-                        4 -> BizInvoicesPanel("pharmacy", s.id)
+                        4 -> if (invPharmacy) BizInvoicesPanel("pharmacy", s.id) else ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
                         else -> ShopTab(s, home, stats, busy, { editing = true }, { pausing = true }, { act(tr("Opened again", "আবার খোলা হয়েছে")) { Pharmacies.pause(null) } }, { confirmDelete = true }, { reload++ }) { m -> infoMsg = m; reload++ }
                     }
                 }

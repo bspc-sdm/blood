@@ -865,10 +865,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                 if (a.providerNote.isNotBlank()) {
                                     Text(tr("Note: ", "নোট: ") + a.providerNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
                                 }
-                                // ফি ও রসিদ: ডাক্তার "ফি নিন", রোগী "রসিদ" (InvoiceForms.kt / Receipts.kt)
-                                if (a.status == "confirmed" || a.status == "completed") {
-                                    if (a.role == "provider") FeeCollectAction(a) else ReceiptLink("appointment", a.id)
-                                }
+                                // ফি ও রসিদ: ডাক্তার "ফি নিন"/"রসিদ" (inv_chamber; অনলাইনের রসিদ bKash নিশ্চিত হলে নিজেই), রোগী "রসিদ" (my_expenses)
+                                if (a.role == "provider") ChamberFeeAction(a) else ReceiptLink(a.invoiceId)
                                 if (a.otherPhone.isNotBlank()) {
                                     Button(onClick = { callPhone(context, a.otherPhone) }) {
                                         ButtonContent(false, num(a.otherPhone), R.drawable.ic_call)

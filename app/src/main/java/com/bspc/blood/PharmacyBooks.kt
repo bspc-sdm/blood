@@ -209,7 +209,7 @@ fun RxSaleOffer(code: String, at: Long, onClose: () -> Unit) {
                 PharmacyBooks.refresh.intValue++
                 onClose()
                 // বিক্রির রসিদ — দেখানো, শেয়ার/প্রিন্ট (Receipts.kt)
-                InvoiceNav.issued(r.getOrNull())
+                if (Features.on(InvoiceFeatures.key("pharmacy"))) InvoiceNav.issued(r.getOrNull())
             } else if (runCatching { PharmacyBooks.rxPreview(code, at).recorded }.getOrDefault(false)) {
                 // অন্য কোথাও (ওয়েবে/আরেক ফোনে) এর মধ্যে তোলা হয়ে গেছে
                 state = "done"

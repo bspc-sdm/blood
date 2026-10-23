@@ -236,11 +236,11 @@ fun LabBillsTab(labId: String) {
  * ফি নিজে লিখবেন — এই ফোনে শেষবারেরটা (ধরন অনুযায়ী) আগে থেকে বসে।
  */
 @Composable
-fun ChamberFeeDialog(appointmentId: String?, patientName: String, chamberKey: String = "", date: Long = 0L, doctorUid: String? = null, onDismiss: () -> Unit) {
+fun ChamberFeeDialog(appointmentId: String?, patientName: String, chamberKey: String = "", date: Long = 0L, doctorUid: String? = null, defaultFee: String = "", onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var visit by remember { mutableStateOf("new") }
-    var amount by remember { mutableStateOf(FeeMemory.get(context, "fee_new")) }
+    var amount by remember { mutableStateOf(FeeMemory.get(context, "fee_new").ifBlank { defaultFee }) }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var method by remember { mutableStateOf("cash") }
@@ -300,46 +300,78 @@ fun ChamberFeeDialog(appointmentId: String?, patientName: String, chamberKey: St
     )
 }
 
-/** অ্যাপয়েন্টমেন্টের কার্ডে: "ফি নিন" (নিশ্চিত/সম্পন্ন) */
+/**
+ * ডাক্তারের অ্যাপয়েন্টমেন্টের কার্ডে (inv_chamber চালু থাকলে): রসিদ থাকলে "রসিদ", না থাকলে নিশ্চিত/সম্পন্ন সামনাসামনি
+ * অ্যাপয়েন্টমেন্টে "ফি নিন"। অনলাইনের ফির রসিদ bKash নিশ্চিত করলে সার্ভার নিজে দেয়।
+ */
 @Composable
-fun FeeCollectAction(a: Appointment) {
+fun ChamberFeeAction(a: Appointment) {
+    if (!invOn(InvoiceFeatures.key("chamber"))) return
+    if (a.invoiceId.isNotBlank()) {
+        BizReceiptAction(a.invoiceId)
+        return
+    }
+    if (a.online || (a.status != "confirmed" && a.status != "completed")) return
     var open by remember { mutableStateOf(false) }
     SmallAction(tr("Collect fee", "ফি নিন"), R.drawable.ic_payments, { open = true }, modifier = Modifier.testTag("fee_collect"))
     if (open) ChamberFeeDialog(a.id, a.otherName) { open = false }
 }
 
+/** ফির ঘরে বসানো: কার (অ্যাপয়েন্টমেন্ট, না থাকলে সরাসরি আসা), কোন চেম্বার, কোন দিন, চেম্বারের ফি */
+private data class FeeTarget(val appointmentId: String?, val name: String, val chamberKey: String, val date: Long, val fee: String = "")
+
 /**
- * আজকের সিরিয়াল থেকে ফি: প্রতিটা রোগীর পাশে "ফি নিন", প্রতিটা চেম্বারে "সরাসরি আসা রোগী",
- * নিচে চেম্বারের রসিদ (আজ/৭ দিন…)। doctorUid: সহকারী কার হয়ে (ডাক্তার নিজে হলে null)।
+ * আজকের সিরিয়াল থেকে ফি: প্রতিটা রোগীর পাশে "এসেছেন" (chamber_checkin) আর "ফি নিন"; উপরে প্রতিটা সামনাসামনি
+ * চেম্বারের "সরাসরি আসা রোগী" (assistant_chambers — সিরিয়াল না থাকলেও); নিচে চেম্বারের রসিদ।
+ * doctorUid: সহকারী কার হয়ে (ডাক্তার নিজে হলে null)।
  */
 @Composable
 fun ChamberFeePanel(doctorUid: String?) {
-    var chambers by remember(doctorUid) { mutableStateOf<List<QueueChamber>?>(null) }
+    val scope = rememberCoroutineScope()
+    var queues by remember(doctorUid) { mutableStateOf<List<QueueChamber>?>(null) }
+    var places by remember(doctorUid) { mutableStateOf<List<FeeChamber>>(emptyList()) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var fee by remember { mutableStateOf<Triple<String?, String, Pair<String, Long>>?>(null) }
+    var fee by remember { mutableStateOf<FeeTarget?>(null) }
+    var arrived by remember { mutableStateOf(setOf<String>()) }
     val bump = InvoiceNav.changed.intValue
     LaunchedEffect(doctorUid, bump) {
-        runCatching { QueueApi.today(doctorUid) }.onSuccess { chambers = it; errorMsg = null }.onFailure { errorMsg = it.message; chambers = emptyList() }
+        runCatching { InvoiceApi.chambers(doctorUid) }.onSuccess { places = it }
+        runCatching { QueueApi.today(doctorUid) }.onSuccess { queues = it; errorMsg = null }.onFailure { errorMsg = it.message; queues = emptyList() }
     }
     val cs = MaterialTheme.colorScheme
     val bizId = doctorUid ?: AuthRepository.currentUid.orEmpty()
+    fun feeOf(key: String) = places.firstOrNull { it.chamberKey == key }?.takeIf { !it.noFee }?.fee?.filter { it.isDigit() || it in '০'..'৯' }.orEmpty()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ErrorText(errorMsg)
-        val list = chambers
+        if (places.isNotEmpty()) {
+            Text(tr("Walk-in patient", "সরাসরি আসা রোগী"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                places.forEach { p ->
+                    SmallAction(p.label, R.drawable.ic_add, { fee = FeeTarget(null, "", p.chamberKey, Rules.todayUtcMidnight(), feeOf(p.chamberKey)) }, modifier = Modifier.testTag("walkin_fee"))
+                }
+            }
+        }
+        val list = queues
         when {
             list == null -> LoadingBox()
-            list.isEmpty() -> SmallNote(tr("No serials today. Fees for today's patients show here once the chamber has serials.", "আজ কোনো সিরিয়াল নেই। চেম্বারে সিরিয়াল থাকলে আজকের রোগীদের ফি এখানে নেওয়া যাবে।"))
+            list.isEmpty() -> SmallNote(tr("No serials today.", "আজ কোনো সিরিয়াল নেই।"))
             else -> list.forEach { c ->
                 Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainerLow)) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            SmallAction(tr("Walk-in", "সরাসরি আসা রোগী"), R.drawable.ic_add, { fee = Triple(null, "", c.chamberKey to (c.date.takeIf { it > 0 } ?: Rules.todayUtcMidnight())) })
-                        }
+                        Text(c.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         c.rows.filter { it.status != "cancelled" }.forEach { r ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(num(r.serial) + ". " + r.name.ifBlank { "-" }, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                                SmallAction(tr("Collect fee", "ফি নিন"), R.drawable.ic_payments, { fee = Triple(r.id, r.name, c.chamberKey to c.date) })
+                                if (r.id in arrived) {
+                                    Text(tr("Arrived", "এসেছেন"), style = MaterialTheme.typography.bodySmall, color = cs.primary)
+                                } else {
+                                    SmallAction(tr("Arrived", "এসেছেন"), R.drawable.ic_check_circle, {
+                                        scope.launch {
+                                            runCatching { InvoiceApi.checkin(r.id, doctorUid) }.onSuccess { arrived = arrived + r.id }.onFailure { errorMsg = it.message }
+                                        }
+                                    })
+                                }
+                                SmallAction(tr("Collect fee", "ফি নিন"), R.drawable.ic_payments, { fee = FeeTarget(r.id, r.name, c.chamberKey, c.date, feeOf(c.chamberKey)) })
                             }
                         }
                     }
@@ -349,12 +381,14 @@ fun ChamberFeePanel(doctorUid: String?) {
         Text(tr("Receipts", "রসিদ"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         if (bizId.isNotBlank()) BizInvoicesPanel("chamber", bizId)
     }
-    fee?.let { (id, name, ck) -> ChamberFeeDialog(id, name, ck.first, ck.second, doctorUid) { fee = null } }
+    fee?.let { t -> ChamberFeeDialog(t.appointmentId, t.name, t.chamberKey, t.date, doctorUid, t.fee) { fee = null } }
 }
 
 /** ডাক্তারের "বুকিং"-এর উপরে: "আজকের ফি ও রসিদ" — পুরো পর্দায় ChamberFeePanel */
 @Composable
 fun ChamberFeesButton(doctorUid: String? = null) {
+    // inv_chamber বন্ধ: কিছুই নয় (পাতা আগের মতো)
+    if (!invOn(InvoiceFeatures.key("chamber"))) return
     var open by remember { mutableStateOf(false) }
     // "দিনের শেষ" নোটিফিকেশন থেকে এলে সরাসরি খোলা
     val want = InvoiceNav.openFees.value
@@ -381,18 +415,22 @@ fun AmbFinishDialog(r: AmbDriverReq, onDismiss: () -> Unit, onDone: () -> Unit) 
     val scope = rememberCoroutineScope()
     val chart = r.suggestedFare
     var fare by remember { mutableStateOf((r.agreedFare ?: chart)?.toString() ?: "") }
+    // অতিরিক্ত: কোড (oxygen/icu/night/other) → টাকা; সার্ভার প্রতিটা চার্টের মান পর্যন্ত নেয়, "other" সর্বোচ্চ ৳৫০০
     var extras by remember { mutableStateOf(listOf<Pair<String, String>>()) }
     var method by remember { mutableStateOf("cash") }
     var busy by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     val f = InvoiceMath.parse(fare)
-    val ex = extras.mapNotNull { (l, a) -> InvoiceMath.parse(a)?.takeIf { it > 0 && l.isNotBlank() }?.let { InvFee(l.trim(), it) } }
-    val exBad = extras.any { (l, a) -> (l.isNotBlank() || a.isNotBlank()) && (l.isBlank() || (InvoiceMath.parse(a) ?: -1.0) <= 0) }
-    // সার্ভারের মতোই: ভাড়া + অতিরিক্ত, চার্ট আর ঠিক হওয়া ভাড়ার বড়টার সাথে
+    val ex = extras.mapNotNull { (code, a) -> InvoiceMath.parse(a)?.takeIf { it > 0 }?.let { InvFee(code, it) } }
+    fun badExtra(code: String, a: String): Boolean {
+        val v = InvoiceMath.parse(a) ?: return true
+        return v <= 0 || (code == "other" && v > InvoiceKinds.AMB_OTHER_MAX)
+    }
+    val exBad = extras.any { (code, a) -> badExtra(code, a) }
+    // সার্ভারের মতোই: ভাড়া + অতিরিক্ত, ঠিক হওয়া ভাড়ার (না থাকলে চার্টের) সাথে
     val asked = f?.let { it + ex.sumOf { e -> e.amount } }
-    val limit = listOfNotNull(chart, r.agreedFare).maxOrNull()
+    val limit = r.agreedFare ?: chart
     val over = InvoiceMath.overChart(asked, limit)
-    val overAgreed = asked != null && r.agreedFare != null && asked > r.agreedFare + 0.004
     val ok = f != null && f > 0 && !exBad
     FormDialog(
         title = tr("Finish trip", "যাত্রা শেষ"),
@@ -422,33 +460,28 @@ fun AmbFinishDialog(r: AmbDriverReq, onDismiss: () -> Unit, onDone: () -> Unit) 
                 MoneyField(fare, { fare = it }, tr("Fare (৳)", "ভাড়া (৳)"), isError = fare.isNotBlank() && (f == null || f <= 0), modifier = Modifier.testTag("amb_finish_fare"))
                 if (over) {
                     Text(
-                        tr("Fare + extras are more than the fare chart / agreed fare (${taka(limit)}). It is marked on the receipt and the patient sees it.", "ভাড়া + অতিরিক্ত ভাড়ার চার্ট/ঠিক হওয়া ভাড়ার (${taka(limit)}) চেয়ে বেশি। রসিদে চিহ্ন থাকবে, রোগী দেখবেন।"),
+                        if (r.agreedFare != null) tr("Fare + extras are more than the agreed fare (${taka(limit)}). It is marked on the receipt and the patient sees it.", "ভাড়া + অতিরিক্ত ঠিক হওয়া ভাড়ার (${taka(limit)}) চেয়ে বেশি। রসিদে চিহ্ন থাকবে, রোগী দেখবেন।")
+                        else tr("Fare + extras are more than your fare chart (${taka(limit)}). It is marked on the receipt and the patient sees it.", "ভাড়া + অতিরিক্ত আপনার ভাড়ার চার্টের (${taka(limit)}) চেয়ে বেশি। রসিদে চিহ্ন থাকবে, রোগী দেখবেন।"),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("amb_finish_over"),
                     )
                 }
-                if (overAgreed) {
-                    Text(
-                        tr("More than the agreed fare (${taka(r.agreedFare)}).", "ঠিক হওয়া ভাড়ার (${taka(r.agreedFare)}) চেয়ে বেশি।"),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                Text(tr("Extras (toll, waiting, oxygen…)", "অতিরিক্ত (টোল, অপেক্ষা, অক্সিজেন…)"), style = MaterialTheme.typography.labelLarge)
-                extras.forEachIndexed { i, (l, a) ->
+                Text(tr("Extras (from your fare chart)", "অতিরিক্ত (আপনার ভাড়ার চার্ট থেকে)"), style = MaterialTheme.typography.labelLarge)
+                extras.forEachIndexed { i, (code, a) ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(l, { v -> extras = extras.toMutableList().also { it[i] = v.take(40) to a } }, label = { Text(tr("What", "কীসের")) }, singleLine = true, modifier = Modifier.weight(1f))
+                        Text(InvoiceKinds.feeLabel(code), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         OutlinedTextField(
-                            a, { v -> extras = extras.toMutableList().also { it[i] = l to v.take(7) } }, label = { Text("৳") }, singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.width(96.dp),
+                            a, { v -> extras = extras.toMutableList().also { it[i] = code to v.take(7) } }, label = { Text("৳") }, singleLine = true,
+                            isError = a.isNotBlank() && badExtra(code, a),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.width(110.dp),
                         )
                         IconButton(onClick = { extras = extras.toMutableList().also { it.removeAt(i) } }) { AppIcon(R.drawable.ic_close, tr("Remove", "বাদ")) }
                     }
                 }
-                if (extras.size < 4) {
+                if (extras.any { it.first == "other" }) SmallNote(tr("\"Other\" is at most ৳500 and is shown to the patient separately.", "\"অন্যান্য\" সর্বোচ্চ ৳৫০০, রোগী আলাদা করে দেখবেন।"))
+                val left = InvoiceKinds.AMB_EXTRAS.filter { c -> extras.none { it.first == c } }
+                if (left.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf(tr("Toll", "টোল"), tr("Waiting", "অপেক্ষা"), tr("Oxygen", "অক্সিজেন")).filter { s -> extras.none { it.first == s } }.forEach { s ->
-                            SmallAction(s, R.drawable.ic_add, { extras = extras + (s to "") })
-                        }
-                        SmallAction(tr("Other", "অন্য"), R.drawable.ic_add, { extras = extras + ("" to "") })
+                        left.forEach { c -> SmallAction(InvoiceKinds.feeLabel(c), R.drawable.ic_add, { extras = extras + (c to "") }) }
                     }
                 }
                 Text(

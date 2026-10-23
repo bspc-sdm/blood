@@ -249,6 +249,7 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
     var opened by remember { mutableStateOf<PharmRx?>(null) }
     var accepting by remember { mutableStateOf<PharmOrder?>(null) }
     var delivering by remember { mutableStateOf<PharmOrder?>(null) }
+    val invPharmacy = invOn(InvoiceFeatures.key("pharmacy"))
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
@@ -272,7 +273,7 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                 .onSuccess { r ->
                     infoMsg = tr("The patient was told", "রোগীকে জানানো হয়েছে")
                     // "পাঠিয়ে দিয়েছি": লাইন রাখা থাকলে সার্ভার রসিদ দেয় (বাকি — ক্যাশ অন ডেলিভারি)
-                    InvoiceApi.invoiceIn(r)?.let { InvoiceNav.issued(it) }
+                    if (invPharmacy) InvoiceApi.invoiceIn(r)?.let { InvoiceNav.issued(it) }
                 }.onFailure { errorMsg = it.message }
             busyId = null
             onChanged()
@@ -318,8 +319,9 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                                     if (!online && o.status == "sent") SmallAction(tr("Ready", "তৈরি"), null, { update(o, "ready") }, busy = busy, enabled = busyId == null)
                                     if (online && o.status == "sent") SmallAction(tr("Accept", "অর্ডার নিলাম"), null, { accepting = o }, enabled = busyId == null)
                                     if (online && o.status in setOf("sent", "accepted")) SmallAction(tr("Sent out", "পাঠিয়ে দিয়েছি"), null, { update(o, "out") }, enabled = busyId == null)
-                                    // পৌঁছে দিলে লাইনসহ রসিদ (InvoiceForms.kt)
-                                    if (online && o.status in setOf("accepted", "out")) SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = busyId == null)
+                                    // পৌঁছে দিলে লাইনসহ রসিদ (InvoiceForms.kt; inv_pharmacy)
+                                    if (invPharmacy && online && o.status in setOf("accepted", "out")) SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = busyId == null)
+                                    if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
                                     if (online && o.phone.isNotBlank()) SmallAction(tr("Call", "ফোন"), R.drawable.ic_call, { callPhone(context, o.phone) })
                                     SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) }, enabled = busyId == null)
                                 }
@@ -448,7 +450,9 @@ fun MyLabPanel(profile: Profile) {
     var seg by rememberSaveable { mutableStateOf("new") }
     var confirmDelete by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    ConsumeWorkTarget { t -> if (t == "shop") tab = 1 else if (t == "receipts") tab = 2 else { tab = 0; seg = "new" } }
+    // বিল ও রসিদ (inv_lab) — বন্ধ থাকলে দুই ট্যাব আগের মতো
+    val invLab = invOn(InvoiceFeatures.key("lab"))
+    ConsumeWorkTarget { t -> if (t == "shop") tab = 1 else if (t == "receipts" && Features.on(InvoiceFeatures.key("lab"))) tab = 2 else { tab = 0; seg = "new" } }
     LaunchedEffect(reload) {
         runCatching { RxNet.labMine() }.onSuccess { lab = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loaded = true
@@ -505,13 +509,12 @@ fun MyLabPanel(profile: Profile) {
             listOf(
                 PillTab(tr("Requests", "অনুরোধ"), R.drawable.ic_list_alt, count = orders?.counts?.get("new") ?: 0),
                 PillTab(tr("Lab", "ল্যাব"), R.drawable.ic_local_hospital),
-                PillTab(tr("Bills", "বিল"), R.drawable.ic_payments),
-            ),
+            ) + (if (invLab) listOf(PillTab(tr("Bills", "বিল"), R.drawable.ic_payments)) else emptyList()),
             { tab = it },
         ) {
             if (tab == 0) {
                 LabRequestsTab(orders, ordersErr, seg, { seg = it }) { reload++ }
-            } else if (tab == 2) {
+            } else if (tab == 2 && invLab) {
                 LabBillsTab(l.id)
             } else {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -574,6 +577,7 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
     var confirming by remember { mutableStateOf<LabOrder?>(null) }
     var declining by remember { mutableStateOf<LabOrder?>(null) }
     var billing by remember { mutableStateOf<LabOrder?>(null) }
+    val invLab = invOn(InvoiceFeatures.key("lab"))
     var busyId by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
@@ -636,8 +640,9 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                                     SmallAction(if (h.status == "confirmed") tr("Change time", "সময় বদলান") else tr("Confirm time", "সময় নিশ্চিত করুন"), R.drawable.ic_check_circle, { confirming = o }, primary = h.status != "confirmed")
                                     SmallAction(tr("Can't go", "যেতে পারব না"), R.drawable.ic_close, { declining = o })
                                 }
-                                // বিল ও রসিদ (InvoiceForms.kt)
-                                if (o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
+                                // বিল ও রসিদ (InvoiceForms.kt; inv_lab): রসিদ থাকলে সেটা, নইলে "বিল"
+                                if (invLab && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
+                                else if (invLab && o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
                                 val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
                                 if (homePhone != null) SmallAction(tr("Call", "ফোন"), R.drawable.ic_call, { callPhone(context, homePhone) })
                             }

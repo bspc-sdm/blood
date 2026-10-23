@@ -1288,8 +1288,10 @@ fun RxAssistScreen(onBack: () -> Unit) {
                 else -> {
                     if (d.size > 1) PillTabs(tab, d.map { PillTab(it.name) }, { tab = it })
                     val doc = d[tab.coerceIn(0, d.lastIndex)]
-                    PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো")), PillTab(tr("Fees & receipts", "ফি ও রসিদ"))), { sub = it }, secondary = true)
-                    if (sub == 2) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { ChamberFeePanel(doc.uid) }
+                    // "ফি ও রসিদ" (inv_chamber) — বন্ধ থাকলে দুই ভাগ আগের মতো
+                    val invChamber = invOn(InvoiceFeatures.key("chamber"))
+                    PillTabs(sub, listOf(PillTab(tr("Patients", "রোগী")), PillTab(tr("Payments", "টাকা মেলানো"))) + (if (invChamber) listOf(PillTab(tr("Fees & receipts", "ফি ও রসিদ"))) else emptyList()), { sub = it }, secondary = true)
+                    if (sub == 2 && invChamber) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { ChamberFeePanel(doc.uid) }
                     else if (sub == 1) RxReviewsPane(doc.uid, asDoctor = false)
                     else RxPatientsPane(doc.uid, onWrite = null) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

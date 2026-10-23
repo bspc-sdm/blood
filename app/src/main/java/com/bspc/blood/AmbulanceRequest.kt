@@ -102,6 +102,8 @@ data class AmbReq(
     /** কেউ না নিলে "৳X পর্যন্ত বাড়ান"; ভাড়া জানা নেই এমন খালি গাড়ি কয়টা */
     val raiseTo: Int? = null,
     val unknownFree: Int = 0,
+    /** যাত্রার রসিদ (চালক "যাত্রা শেষ" করলে; না থাকলে খালি) */
+    val invoiceId: String = "",
 ) {
     val active: Boolean get() = status in listOf("open", "accepted", "arrived")
 }
@@ -143,6 +145,8 @@ data class AmbDriverReq(
     /** নিজের দেওয়া ভাড়া (রোগীর উত্তরের অপেক্ষা) */
     val myQuoteFare: Int? = null,
     val agreedFare: Int? = null,
+    /** নিজের দেওয়া রসিদ (যাত্রা শেষ হলে) */
+    val invoiceId: String = "",
 )
 
 object AmbRequests {
@@ -173,7 +177,7 @@ object AmbRequests {
                 )
             }
         },
-        agreedFare = o.intOrNull("agreedFare"), raiseTo = o.intOrNull("raiseTo"), unknownFree = o.optInt("unknownFree"),
+        agreedFare = o.intOrNull("agreedFare"), raiseTo = o.intOrNull("raiseTo"), unknownFree = o.optInt("unknownFree"), invoiceId = o.str("invoiceId"),
     )
 
     private fun parseDriver(o: JSONObject) = AmbDriverReq(
@@ -185,7 +189,7 @@ object AmbRequests {
         if (o.has("lng") && !o.isNull("lng")) o.optDouble("lng") else null,
         quote = o.optBoolean("quote"), destLabel = o.str("destLabel"), maxFare = o.intOrNull("maxFare"),
         oxygen = o.optBoolean("oxygen"), night = o.optBoolean("night"), suggestedFare = o.intOrNull("suggestedFare"),
-        myQuoteFare = o.optJSONObject("myQuote")?.intOrNull("fare"), agreedFare = o.intOrNull("agreedFare"),
+        myQuoteFare = o.optJSONObject("myQuote")?.intOrNull("fare"), agreedFare = o.intOrNull("agreedFare"), invoiceId = o.str("invoiceId"),
     )
 
     /** ডাকা আর গোনার ভাড়ার ঘর: maxFare null = যেকোনো */
@@ -798,7 +802,7 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                     StatusHead(R.drawable.ic_check_circle, tr("Trip finished", "ট্রিপ শেষ"), r.ambulance?.name ?: "")
                     if (r.canRate && !rated) Button(onClick = { rating = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Rate the ambulance", "অ্যাম্বুলেন্সকে রেটিং দিন"), R.drawable.ic_star) }
                     // চালকের দেওয়া ভাড়ার রসিদ (Receipts.kt)
-                    ReceiptLink("ambreq", id)
+                    ReceiptLink(r.invoiceId)
                 }
                 "byPhone" -> {
                     StatusHead(R.drawable.ic_check_circle, tr("You got an ambulance by phone", "ফোনে গাড়ি পেয়েছেন"), r.ambulance?.name ?: "")
@@ -1035,6 +1039,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
     var busy by remember { mutableStateOf<String?>(null) }
     var cancelling by remember { mutableStateOf<AmbDriverReq?>(null) }
     var finishing by remember { mutableStateOf<AmbDriverReq?>(null) }
+    val invAmb = invOn(InvoiceFeatures.key("ambulance"))
     var reload by remember { mutableIntStateOf(0) }
     // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
     var fares by remember { mutableStateOf(mapOf<String, String>()) }
@@ -1107,9 +1112,15 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                             if (r.status == "accepted") {
                                 Button(onClick = { act(r) { AmbRequests.step(r.id, "arrived") } }, enabled = busy == null) { ButtonContent(busy == r.id, tr("Arrived", "পৌঁছেছি")) }
                             }
-                            // "যাত্রা শেষ": ভাড়া + অতিরিক্ত + কীভাবে পেলেন → রসিদ (ambreq_finish, InvoiceForms.kt)
-                            Button(onClick = { finishing = r }, enabled = busy == null, modifier = Modifier.testTag("amb_finish")) {
-                                ButtonContent(busy == r.id, tr("Finish trip", "যাত্রা শেষ"))
+                            // "যাত্রা শেষ": ভাড়া + অতিরিক্ত + কীভাবে পেলেন → রসিদ (ambreq_finish, InvoiceForms.kt; inv_ambulance) — বন্ধ থাকলে আগের "শেষ"
+                            if (invAmb) {
+                                Button(onClick = { finishing = r }, enabled = busy == null, modifier = Modifier.testTag("amb_finish")) {
+                                    ButtonContent(busy == r.id, tr("Finish trip", "যাত্রা শেষ"))
+                                }
+                            } else {
+                                Button(onClick = { act(r, changed = true) { AmbRequests.step(r.id, "done"); infoMsg = tr("Trip finished. You're available again.", "ট্রিপ শেষ। আপনি আবার খালি।") } }, enabled = busy == null) {
+                                    ButtonContent(busy == r.id, tr("Finish", "শেষ"))
+                                }
                             }
                             Spacer(Modifier.weight(1f))
                             TextButton(onClick = { cancelling = r }, enabled = busy == null) { Text(tr("Cancel", "বাতিল"), color = cs.error) }

@@ -327,7 +327,12 @@ fun App(
         when (val r = notifyRoute(data, community?.approvedBadge, MyWork.has)) {
             is NotifyRoute.Open -> {
                 // "fees": ডাক্তারের "ফি ও রসিদ" (InvoiceForms.kt); বাকি: ব্যবসার পাতার ভাগ
-                r.workTarget?.let { if (it == "fees") InvoiceNav.openFees.value = true else WorkNav.target.value = it }
+                r.workTarget?.let { if (it == "fees") InvoiceNav.openFees.value = Features.on(InvoiceFeatures.key("chamber")) else WorkNav.target.value = it }
+                // বন্ধ থাকা সুবিধার লিংক/খবর: "শিগগির আসছে" (ফিচার সুইচ)
+                if (r.screen is Screen.MyReceipts && !InvoiceFeatures.patient()) {
+                    android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
                 // একই পাতা উপরে খোলাই থাকলে আবার নয়
                 if (stack.last() != r.screen) push(r.screen)
             }
@@ -340,7 +345,9 @@ fun App(
             }
             is NotifyRoute.Rx -> RxNav.openRx(r.id, own = true)
             is NotifyRoute.CareRx -> openCareRx(r.asUid, r.rxId)
-            is NotifyRoute.Invoice -> InvoiceNav.openId(r.id, r.asUid, r.manage)
+            is NotifyRoute.Invoice ->
+                if (r.manage || InvoiceFeatures.patient()) InvoiceNav.openId(r.id, r.asUid, r.manage)
+                else android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
             is NotifyRoute.VerifyInvoice -> InvoiceNav.verify.value = r.code
         }
     }

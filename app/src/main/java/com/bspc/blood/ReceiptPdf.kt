@@ -251,7 +251,7 @@ object ReceiptPdf {
         val small = paint(10.5f)
         s.row(tr("Subtotal", "উপমোট"), money(inv.subtotal), small)
         if (inv.disc > 0.004) s.row(tr("Discount", "ছাড়"), "− " + money(inv.disc), small)
-        inv.fees.forEach { f -> s.row(f.label, money(f.amount), small) }
+        inv.fees.forEach { f -> s.row(InvoiceKinds.feeLabel(f.label), money(f.amount), small) }
         s.row(tr("Total", "মোট"), money(inv.total), paint(13f, true), paint(13f, true), gap = 4f)
         s.row(tr("Paid", "দেওয়া হয়েছে"), money(inv.paid), small)
         if (inv.due > 0.004) s.row(tr("Due", "বাকি"), money(inv.due), paint(11f, true, RED), paint(11f, true, RED))

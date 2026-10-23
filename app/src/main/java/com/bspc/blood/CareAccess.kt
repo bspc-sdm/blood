@@ -393,6 +393,8 @@ fun CareModeScreen(patientUid: String, patientName: String, profile: Profile, on
         }
     }
     var tab by remember { mutableIntStateOf(0) }
+    // রোগীর রসিদ ও খরচ (my_expenses)
+    val myExpenses = invOn(InvoiceFeatures.MY_EXPENSES)
     // নোটিফিকেশন থেকে রোগীর প্রেসক্রিপশন খুলতে হলে "প্রেসক্রিপশন" ভাগ (সেখানের তালিকাই খোলে)
     val wantRx = RxNav.rxId.value
     LaunchedEffect(wantRx) { if (wantRx != null) tab = 0 }
@@ -416,8 +418,7 @@ fun CareModeScreen(patientUid: String, patientName: String, profile: Profile, on
                 selected = tab,
                 tabs = listOf(
                     PillTab(tr("Prescriptions", "প্রেসক্রিপশন"), R.drawable.ic_medication), PillTab(tr("Serials", "সিরিয়াল"), R.drawable.ic_calendar_month),
-                    PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_payments),
-                ),
+                ) + (if (myExpenses) listOf(PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_payments)) else emptyList()),
                 onSelect = { tab = it },
                 secondary = true,
             )
@@ -425,7 +426,7 @@ fun CareModeScreen(patientUid: String, patientName: String, profile: Profile, on
                 when (tab) {
                     0 -> MyPrescriptionsScreen(profile, onBack = null)
                     // রোগীর রসিদ ও খরচ (Receipts.kt; asUid দিয়ে)
-                    2 -> ReceiptsAndExpenses(patientUid)
+                    2 -> if (myExpenses) ReceiptsAndExpenses(patientUid) else AppointmentsList(role = "patient", title = "", onBack = null)
                     else -> AppointmentsList(role = "patient", title = "", onBack = null)
                 }
             }

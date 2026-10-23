@@ -232,6 +232,25 @@ class InvoicesTest {
     }
 
     @Test
+    fun featuresAndApiUpdates() {
+        // মালিকের নিয়ম: সব নতুন সুবিধা শুরুতে বন্ধ (স্টাবে সব বন্ধ)
+        assertEquals("inv_pharmacy", InvoiceFeatures.key("pharmacy"))
+        assertFalse(InvoiceFeatures.biz("lab"))
+        assertFalse(InvoiceFeatures.patient())
+        assertEquals("এই সুবিধা শিগগির আসছে", InvoiceFeatures.soon())
+        assertEquals("অক্সিজেন", InvoiceKinds.feeLabel("oxygen"))
+        assertEquals("টোল", InvoiceKinds.feeLabel("টোল"))
+        assertEquals("একই রসিদ দুবার", InvoiceKinds.voidReason("duplicate"))
+        assertTrue("duplicate" in InvoiceKinds.VOID_REASONS)
+        val d = InvoiceApi.dayEnd(JSONObject().put("voids", JSONArray().put(JSONObject()).put(JSONObject())).put("bigDiscounts", JSONArray().put(JSONObject()))
+            .put("writeOffs", JSONObject().put("count", 3)).put("belowPrice", JSONArray()))
+        assertEquals(DayEnd(2, 1, 3, 0, ""), d)
+        assertEquals(0, InvoiceApi.dayEnd(JSONObject().put("writeOffs", JSONObject.NULL)).writeOffs)
+        assertEquals(NotifyRoute.Open(Screen.MyBusiness("lab"), "receipts"), notifyRoute(mapOf("type" to "invoice_summary", "day" to "2026-10-23", "kind" to "lab", "bizId" to "l1")))
+        assertEquals(NotifyRoute.Invoice("i1", manage = true), notifyRoute(mapOf("type" to "invoice_void", "invoiceId" to "i1", "kind" to "chamber", "bizId" to "d1")))
+    }
+
+    @Test
     fun labels() {
         assertEquals("ক্যাশ", InvoiceKinds.method("cash"))
         assertEquals("নগদ", InvoiceKinds.method("nagad"))

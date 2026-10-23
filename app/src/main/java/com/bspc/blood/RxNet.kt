@@ -83,6 +83,8 @@ data class Dispensing(val name: String, val at: Long, val items: List<Pair<Int, 
 data class RxOrder(
     val id: String, val pharmacyName: String, val status: String, val reason: String, val createdAt: Long,
     val mode: String = "shop", val price: String = "", val eta: String = "", val deliveryFee: String = "", val missed: List<String> = emptyList(),
+    /** এই অর্ডারের রসিদ (বাতিল নয়; না থাকলে খালি) — Receipts.kt */
+    val invoiceId: String = "",
 ) {
     val open: Boolean get() = status in setOf("sent", "ready", "accepted", "out")
 }
@@ -110,6 +112,8 @@ data class LabOrder(
     val home: LabHome? = null,
     /** "আমার কাজ"-এর ভাগ (সার্ভারের lab_orders): new · active · reported · closed — না এলে WorkSegs.lab */
     val seg: String = "",
+    /** এই অর্ডারের বিলের রসিদ (না থাকলে খালি) */
+    val invoiceId: String = "",
 )
 data class RxReview(
     val id: String, val rxId: String, val labOrderId: String, val doctorUid: String, val doctorName: String, val patientName: String,
@@ -158,6 +162,8 @@ data class PharmOrder(
     val missed: List<String> = emptyList(),
     /** "আমার কাজ"-এর ভাগ (সার্ভারের rx_orders_pharmacy): new · active · closed — না এলে WorkSegs.pharm */
     val seg: String = "",
+    /** এই অর্ডারের রসিদ (না থাকলে খালি) */
+    val invoiceId: String = "",
 )
 data class Lab(
     val id: String, val name: String, val phone: String, val address: String, val district: String, val upazilaId: Int?, val facilityId: String?,
@@ -190,6 +196,7 @@ object RxNet {
         prices = o.optJSONObject("prices")?.let(::snap),
         home = o.optJSONObject("home")?.let(::home),
         seg = o.str("seg"),
+        invoiceId = o.str("invoiceId"),
     )
     private fun snap(p: JSONObject) = PriceSnap(
         p.optJSONArray("items").objs().map { SnapItem(it.str("test"), it.str("name"), it.optInt("price"), it.str("tat")) },
@@ -229,7 +236,8 @@ object RxNet {
             o.optJSONArray("medicines").objs().map(::med), o.optJSONArray("dispensed").objs().map(::disp),
             o.optJSONArray("orders").objs().map {
                 RxOrder(it.str("id"), it.str("pharmacyName"), it.str("status"), it.str("reason"), it.optLong("createdAt"),
-                    it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.optJSONArray("missed").strings())
+                    it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.optJSONArray("missed").strings(),
+                    invoiceId = it.str("invoiceId"))
             },
             o.optJSONArray("labOrders").objs().map(::labOrder), o.optJSONArray("reviews").objs().map(::review),
             if (o.isNull("nextOpen") || !o.has("nextOpen")) null else o.optLong("nextOpen"),
@@ -320,7 +328,7 @@ object RxNet {
         val items = o.optJSONArray("items").objs().map {
             PharmOrder(it.str("id"), it.str("code"), it.str("patientName"), it.str("note"), it.str("status"), it.optLong("createdAt"),
                 it.str("mode").ifBlank { "shop" }, it.str("price"), it.str("eta"), it.str("deliveryFee"), it.str("address"), it.str("phone"), it.optJSONArray("missed").strings(),
-                seg = it.str("seg").ifBlank { WorkSegs.pharm(it.str("status")) })
+                seg = it.str("seg").ifBlank { WorkSegs.pharm(it.str("status")) }, invoiceId = it.str("invoiceId"))
         }
         return SegList(items, WorkSegs.counts(o.optJSONObject("counts"), WorkSegs.PHARM, items.map { it.seg }))
     }
@@ -592,7 +600,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                         // দোকান সব দিতে না পারলে ফিরিয়ে নিয়ে অন্য দোকানে
                         if (o.status in setOf("sent", "ready", "accepted")) SmallAction(tr("Take back", "ফিরিয়ে নিন"), R.drawable.ic_close, { withdrawing = o })
                         // অনলাইন অর্ডার পৌঁছালে দোকানের রসিদ (Receipts.kt)
-                        if (o.mode == "online" && o.status in setOf("out", "delivered")) ReceiptLink("rx_order", o.id)
+                        ReceiptLink(o.invoiceId)
                     }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
@@ -640,7 +648,7 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                             }
                         }
                         // প্যাথলজির বিলের রসিদ (Receipts.kt)
-                        if (o.status in setOf("received", "reported")) ReceiptLink("lab_order", o.id)
+                        ReceiptLink(o.invoiceId)
                         if (o.status == "reported") {
                             SmallAction(tr("See report", "রিপোর্ট দেখুন"), R.drawable.ic_list_alt, { report = o.id }, primary = true)
                             val r = a.reviews.firstOrNull { it.labOrderId == o.id }
