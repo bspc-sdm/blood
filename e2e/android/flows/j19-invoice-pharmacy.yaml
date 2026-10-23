@@ -11,7 +11,8 @@ env:
 - extendedWaitUntil:
     visible: ".*ডেমো লাইফ ফার্মেসি.*"
     timeout: 30000
-- tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+- tapOn:
+    id: "work_open_pharmacy"
 - extendedWaitUntil:
     visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 30000
@@ -84,9 +85,11 @@ env:
       - back
 - runFlow:
     when:
-      visible: ".*আরেকটা ব্যবসা যোগ করুন.*"
+      visible:
+        id: "work_home"
     commands:
-      - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+      - tapOn:
+          id: "work_open_pharmacy"
 # দোকান › রসিদ
 - extendedWaitUntil:
     visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"

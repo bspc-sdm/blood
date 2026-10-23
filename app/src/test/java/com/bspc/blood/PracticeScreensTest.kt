@@ -424,13 +424,13 @@ class PracticeScreensTest {
         assertEquals("care_share_psych", PracticeWire.SHARE_ACTION)
     }
 
-    /** title_guard চালু: "আমার কাজ"-এ হোমিওপ্যাথের চেম্বারের সারি "হোমিওপ্যাথিক চিকিৎসক · …", "ডাক্তার" নয়; বন্ধে আগের মতো */
+    /** title_guard চালু: "আমার কাজ"-এর ব্যবসার কার্ডে হোমিওপ্যাথের চেম্বারের সারি "হোমিওপ্যাথিক চিকিৎসক · …", "ডাক্তার" নয়; বন্ধে আগের মতো */
     @Test
     fun workTabHomeopathTitleGuard() {
         val homeo = WorkSummary(professional = "doctor", proSystem = "homeopathy", proTypeLabel = "হোমিওপ্যাথিক চিকিৎসক", proTypeLabelEn = "Homeopathic practitioner")
         Practice.testKeys = allOn + (TitleGuard.KEY to true)
         MyWork.summary.value = homeo
-        rule.setContent { GetBloodTheme { Surface { WorkTab({}, {}) } } }
+        rule.setContent { GetBloodTheme { Surface { WorkBusinessList(WorkRoles.ORDER.toSet(), {}, {}) } } }
         rule.waitForIdle()
         rule.onNodeWithText("হোমিওপ্যাথিক চিকিৎসক · বুকিং, রোগী, সেটআপ").assertExists()
         rule.onAllNodesWithText("ডাক্তার · বুকিং, রোগী, সেটআপ").assertCountEquals(0)

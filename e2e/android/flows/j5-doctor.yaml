@@ -10,7 +10,8 @@ env:
     visible: ".*আমার চেম্বার.*"
     timeout: 30000
 - takeScreenshot: j5-01-my-work
-- tapOn: ".*আমার চেম্বার.*"
+- tapOn:
+    id: "work_open_chamber"
 # ২৪ অক্টোবর ২০২৬: আজ · বুকিং · রোগী · সেটআপ — শুরুতে "আজকের রোগী" (আগের আজকের সিরিয়াল আর ডেস্ক এক সারিতে)
 - extendedWaitUntil:
     visible: ".*বুকিং.*"

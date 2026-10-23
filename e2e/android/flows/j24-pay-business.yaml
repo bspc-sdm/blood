@@ -11,7 +11,8 @@ env:
 - extendedWaitUntil:
     visible: ".*ডেমো লাইফ ফার্মেসি.*"
     timeout: 30000
-- tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+- tapOn:
+    id: "work_open_pharmacy"
 - extendedWaitUntil:
     visible: "বিক্রি"
     timeout: 30000

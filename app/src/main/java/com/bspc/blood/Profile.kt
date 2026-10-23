@@ -68,6 +68,15 @@ fun ProfileTab(
     var photoMenu by remember { mutableStateOf(false) }
     var demoSwitch by remember { mutableStateOf(false) } // ডেমো
     var showBadgeDialog by remember { mutableStateOf(false) }
+    // "আমার কাজ" › "সেবা দিন" › ডাক্তার: সরাসরি ব্যাজের আবেদন (যাচাই চলছে থাকলে নয় — সারির নিয়মের মতো)
+    val badgeAsk = WorkNav.openBadge.value
+    androidx.compose.runtime.LaunchedEffect(badgeAsk, community?.badge?.status) {
+        if (badgeAsk) {
+            val b = community?.badge
+            if (b?.status != "pending" && b?.changePending != true) showBadgeDialog = true
+            WorkNav.openBadge.value = false
+        }
+    }
     var showDateDialog by remember { mutableStateOf(false) }
     var showCorrection by remember { mutableStateOf(false) }
     // "আপনার কি কোনো ব্যবসা আছে?" — যাঁর এখনো নেই; "না" বললে কার্ডের বদলে নিচে সাধারণ এক লাইন (২.২০.০)

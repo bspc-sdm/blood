@@ -10,12 +10,7 @@ env:
     visible: "অ্যাম্বুলেন্স.*"
     timeout: 30000
 - takeScreenshot: j6-01-my-work
-- tapOn: "অ্যাম্বুলেন্স.*"
-- extendedWaitUntil:
-    visible: ".*ডেমো জীবন.*"
-    timeout: 30000
-- takeScreenshot: j6-02-my-ambulances
-# ২৪ অক্টোবর ২০২৬: খালি আছি / ট্রিপে আছি একবারই, পাতার ওপরে ("এখন অবস্থা") — গাড়ির কার্ডে আর সুইচ নেই
+# ২৪ অক্টোবর ২০২৬: খালি আছি / ট্রিপে আছি একবারই — "আজকের কাজ"-এর অ্যাম্বুলেন্সের ঘরে ("এখন অবস্থা"); গাড়ির পাতায় আর নেই
 - extendedWaitUntil:
     visible:
       id: "amb_set_trip"
@@ -37,5 +32,11 @@ env:
     timeout: 5000
     optional: true
 - takeScreenshot: j6-05-switch-restored
+- tapOn:
+    id: "work_open_ambulance"
+- extendedWaitUntil:
+    visible: ".*ডেমো জীবন.*"
+    timeout: 30000
+- takeScreenshot: j6-02-my-ambulances
 - scroll
 - takeScreenshot: j6-06-more-vehicles

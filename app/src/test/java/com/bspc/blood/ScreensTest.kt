@@ -134,7 +134,8 @@ class ScreensTest {
             lab = Lab("l1", "Popular Diagnostic", "01700000000", "", "ময়মনসিংহ", null, null, true, "", status = "approved"),
             professional = "doctor",
         )
-        show { WorkTab({}, {}) }
+        // "আজকের কাজ"-এর নিচের ব্যবসার কার্ড (WorkHome.kt-এর শেষ অংশ)
+        show { WorkBusinessList(WorkRoles.ORDER.toSet(), {}, {}) }
         rule.onNodeWithText("আমার চেম্বার").assertExists()
         rule.onNodeWithText("১০টা · ৭টা খালি · ১টা যাচাই চলছে").assertExists()
         shot("work_tab_bn")

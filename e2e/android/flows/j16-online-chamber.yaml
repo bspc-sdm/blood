@@ -16,7 +16,8 @@ env:
 # ---------- ১) ডাক্তার: অনলাইন চেম্বার ----------
 - runFlow: ../common/start.yaml
 - tapOn: "আমার কাজ"
-- tapOn: ".*আমার চেম্বার.*"
+- tapOn:
+    id: "work_open_chamber"
 - extendedWaitUntil:
     visible: ".*বুকিং.*"
     timeout: 30000
@@ -188,7 +189,8 @@ env:
       J: j16d
       ROLE: ডা. ডেমো হাসান
 - tapOn: "আমার কাজ"
-- tapOn: ".*আমার চেম্বার.*"
+- tapOn:
+    id: "work_open_chamber"
 - extendedWaitUntil:
     visible: ".*বুকিং.*"
     timeout: 30000

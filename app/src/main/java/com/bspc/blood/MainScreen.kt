@@ -128,16 +128,7 @@ fun MainScreen(
         }
     }
 
-    // প্রোফাইল এখন নিচের বারে নয়, উপরের ছবিতে চাপলে (Tabs.PROFILE)
-    val items = listOf(
-        NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
-        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
-        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
-        NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
-    ) + (
-        // "আমার কাজ" শুধু যাঁর নিজের ব্যবসা, চেম্বার বা বাসায় সেবা আছে (Tabs.WORK = ৪, তাই তালিকার পঞ্চম ঘর)
-        if (!guest && MyWork.has) listOf(NavItem(tr("My work", "আমার কাজ"), R.drawable.ic_nav_work_fill, R.drawable.ic_nav_work)) else emptyList()
-    )
+    val items = mainNavItems()
     val avatar = remember(profile.photo) { Photo.decodeAvatar(profile.photo) }
 
     Scaffold(
@@ -166,7 +157,8 @@ fun MainScreen(
                 Tabs.APPOINTMENT -> AppointmentTab(profile, community, onEditChamber, homeRefresh)
                 Tabs.HEALTH -> HealthTab(communityRefresh, community, onOpenQuestion, onAsk, onOpenTip, onPostTip)
                 Tabs.SERVICES -> ServicesTab(profile)
-                Tabs.WORK -> if (!guest && MyWork.has) WorkTab(onOpenBusiness, onEditChamber) else Box(Modifier.fillMaxSize())
+                // যাঁর ব্যবসা/চেম্বার আছে: "আজকের কাজ"; নেই (বা অতিথি): "সেবা দিন" (WorkHome.kt)
+                Tabs.WORK -> WorkTab(community, onOpenBusiness, onEditChamber, onTabChange)
                 // অতিথির প্রোফাইল নেই (উপরের ছবির বদলে "লগইন")
                 else -> if (guest) HomeTab(
                     profile, homeRefresh, onOpenRequestGuest, onOpenMyRequest, onNewRequest, onChangeLocation,
@@ -397,6 +389,30 @@ fun MyRequestsScreen(onOpenMyRequest: (String) -> Unit, onNewRequest: () -> Unit
             }
         }
     }
+}
+
+/**
+ * নিচের বারের ঘর (মূল পাতা আর "আমার কাজ"-এর ভেতরের পাতা — WorkShell — একই)। প্রোফাইল নিচের বারে নয়, উপরের ছবিতে (Tabs.PROFILE)।
+ * পঞ্চম ঘর (Tabs.WORK) সবসময় থাকে, যাতে লোড হওয়ার পর লাফিয়ে না আসে: নিজের ব্যবসা/চেম্বার থাকলে "আমার কাজ", না থাকলে
+ * (বা অতিথি) "সেবা দিন"। জানার আগে এই ফোনে শেষবার যা জানা ছিল (প্রথমবার "আমার কাজ")।
+ */
+@Composable
+internal fun mainNavItems(): List<NavItem> {
+    val ctx = LocalContext.current
+    val guest = LoginGate.isGuest
+    val uid = LoginGate.uid.value
+    val cached = remember(uid) { WorkHomePrefs.cachedHas(ctx) }
+    val has = MyWork.has
+    val settled = MyWork.settled
+    LaunchedEffect(has, settled, uid) { if (!guest && (has || settled)) WorkHomePrefs.setHas(ctx, has) }
+    val join = guest || (!has && (settled || cached == false))
+    return listOf(
+        NavItem(tr("Home", "হোম"), R.drawable.ic_nav_home_fill, R.drawable.ic_nav_home),
+        NavItem(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_nav_event_fill, R.drawable.ic_nav_event),
+        NavItem(tr("Health", "স্বাস্থ্য"), R.drawable.ic_nav_health_fill, R.drawable.ic_nav_health),
+        NavItem(tr("Services", "সেবা"), R.drawable.ic_nav_services_fill, R.drawable.ic_nav_services),
+        NavItem(if (join) WorkText.join() else WorkText.tab(), R.drawable.ic_nav_work_fill, R.drawable.ic_nav_work),
+    )
 }
 
 /**

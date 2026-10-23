@@ -644,15 +644,15 @@ fun ReasonReportDialog(onDismiss: () -> Unit, onSubmit: suspend (String) -> Unit
 // ------------------------------------------------------------
 
 /**
- * "আমার কাজ › অ্যাম্বুলেন্স" (চালক/মালিক): ওপরে একবারই "এখন অবস্থা" (খালি আছি / ট্রিপে আছি — গাড়িপ্রতি এক সারি),
- * তারপর "ডাক" (নতুন · চলছে · শেষ), তারপর গাড়ির তালিকা। আগে প্রতিটা গাড়ির কার্ডে আলাদা সুইচ ছিল, আর রোগীরা যেভাবে
+ * "আমার কাজ › অ্যাম্বুলেন্স" (চালক/মালিক): "ডাক" (নতুন · চলছে · শেষ), তারপর গাড়ির তালিকা। "এখন অবস্থা" (খালি আছি / ট্রিপে আছি
+ * — গাড়িপ্রতি এক সারি) একবারই, "আজকের কাজ"-এ (AmbulanceAvailabilityContent)। আগে প্রতিটা গাড়ির কার্ডে আলাদা সুইচ ছিল, আর রোগীরা যেভাবে
  * দেখেন-এর কার্ডেও — একই কাজ দুই জায়গায় (mywork-review/CONTRACT.md §২)।
  */
 @Composable
 fun MyAmbulancePage(profile: Profile) {
     var refresh by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AmbulanceAvailabilityBlock(refresh) { refresh++ }
+        // খালি আছি / ট্রিপে আছি এখন "আমার কাজ"-এর প্রথম পাতায় ("আজকের কাজ", WorkHome.kt) — একবারই, এখানে আর নয়
         // "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" — আসছি/পারব না, তারপর পৌঁছেছি/শেষ/বাতিল
         AmbulanceCallsSection(MyWork.summary.value.ambulances.associate { it.id to it.name }) { refresh++ }
         androidx.compose.material3.HorizontalDivider()

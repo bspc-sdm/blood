@@ -299,6 +299,13 @@ fun App(
         if (stack.size == 1) homeRefresh++
     }
 
+    /** "আমার কাজ"-এর ভেতরের পাতার নিচের বার থেকে: উপরের সব পাতা বন্ধ করে সেই মূল ঘর */
+    fun openMainTab(t: Int) {
+        while (stack.size > 1) stack.removeAt(stack.lastIndex)
+        stack[0] = Screen.Main(t)
+        homeRefresh++
+    }
+
     // প্রোফাইলের "অ্যাকাউন্ট মুছুন" / "সাময়িক বন্ধ রাখুন" (আটকানো পর্দার "অ্যাকাউন্ট মুছুন"-ও)
     val accountOpen = AccountNav.open.value
     LaunchedEffect(accountOpen) {
@@ -429,15 +436,11 @@ fun App(
     }
     // "আমার কাজ" (নিজের ব্যবসা, চেম্বার): মূল পাতায় ফিরলে, লগইন বদলালে বা ব্যাজ বদলালে নতুন করে
     val workBadge = community?.approved
-    LaunchedEffect(ready, stack.size == 1, homeRefresh, LoginGate.uid.value, workBadge) {
-        if (ready && stack.size == 1) MyWork.refresh(workBadge)
+    val workBadgeKnown = community != null
+    LaunchedEffect(ready, stack.size == 1, homeRefresh, LoginGate.uid.value, workBadge, workBadgeKnown) {
+        if (ready && stack.size == 1) MyWork.refresh(workBadge, workBadgeKnown)
     }
-    // শেষ ব্যবসাটাও মুছে গেলে (বা লগআউট) "আমার কাজ" ট্যাব থাকে না — হোমে ফেরা
-    val workHas = MyWork.has
-    LaunchedEffect(workHas, stack.firstOrNull()) {
-        val b = stack.firstOrNull()
-        if (!workHas && b is Screen.Main && b.tab == Tabs.WORK) stack[0] = Screen.Main(Tabs.HOME)
-    }
+    // "আমার কাজ"-এর ঘর সবসময় থাকে (না থাকলে "সেবা দিন") — শেষ ব্যবসা মুছে গেলেও একই ঘরে থাকা যায়
     // প্যানেলে বদলানো তালিকা (বিশেষজ্ঞতা, সেবা…) — দিনে একবার
     val appContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(ready) {
@@ -857,11 +860,16 @@ fun App(
                 onFinished = { afterAccountGone() },
             )
 
+            // "আমার কাজ"-এর ভেতরের পাতা: একই নিচের বার (WorkShell); বারের ঘরে চাপলে সেই মূল ঘরে ফেরা
             Screen.ChamberEdit -> profile?.let { pr ->
-                ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
+                WorkShell(onTab = { t -> openMainTab(t) }) {
+                    ChamberHubScreen(type = community?.approvedBadge ?: "doctor", profile = pr, onBack = { back() })
+                }
             }
 
-            is Screen.MyBusiness -> profile?.let { pr -> MyBusinessScreen(current.kind, pr, onBack = { back() }) }
+            is Screen.MyBusiness -> profile?.let { pr ->
+                WorkShell(onTab = { t -> openMainTab(t) }) { MyBusinessScreen(current.kind, pr, onBack = { back() }) }
+            }
 
             is Screen.MyRequestDetail -> MyRequestDetailScreen(
                 requestId = current.id,

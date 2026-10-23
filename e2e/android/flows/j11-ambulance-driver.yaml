@@ -10,7 +10,8 @@ env:
 - extendedWaitUntil:
     visible: "অ্যাম্বুলেন্স.*"
     timeout: 30000
-- tapOn: "অ্যাম্বুলেন্স.*"
+- tapOn:
+    id: "work_open_ambulance"
 - extendedWaitUntil:
     visible: "আমার অ্যাম্বুলেন্স"
     timeout: 30000

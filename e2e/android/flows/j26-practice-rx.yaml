@@ -10,7 +10,8 @@ env:
 ---
 - runFlow: ../common/start.yaml
 - tapOn: "আমার কাজ"
-- tapOn: ".*আমার চেম্বার.*"
+- tapOn:
+    id: "work_open_chamber"
 - extendedWaitUntil:
     visible: ".*বুকিং.*"
     timeout: 30000

@@ -10,7 +10,8 @@ env:
     visible: ".*ডেমো লাইফ ফার্মেসি.*"
     timeout: 30000
 - takeScreenshot: j3-01-my-work
-- tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+- tapOn:
+    id: "work_open_pharmacy"
 # ২.২৭.০: দুই ট্যাব — শুরুতে "অর্ডার", "নতুন" ভাগ
 - extendedWaitUntil:
     visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
@@ -107,9 +108,11 @@ env:
       - back
 - runFlow:
     when:
-      visible: ".*আরেকটা ব্যবসা যোগ করুন.*"
+      visible:
+        id: "work_home"
     commands:
-      - tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+      - tapOn:
+          id: "work_open_pharmacy"
 - extendedWaitUntil:
     visible: ".*কোড দি(?:য়|য়)ে প্রেসক্রিপশন খুলুন.*"
     timeout: 15000

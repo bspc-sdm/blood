@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.async
@@ -73,6 +75,9 @@ object WorkNav {
     /** নোটিফিকেশন থেকে ফার্মেসি/প্যাথলজির কোন ট্যাব: "orders" (নতুন অর্ডার/অনুরোধ → "নতুন" ভাগ) | "shop" (ওষুধ খোঁজার অনুরোধ) — MyWorkTabs.kt */
     val target = mutableStateOf<String?>(null)
 
+    /** "সেবা দিন" → "ডাক্তার ও স্বাস্থ্য বিশেষজ্ঞ": প্রোফাইলে গিয়ে পেশাদার ব্যাজের আবেদন খোলা (ProfileTab পড়ে মুছে দেয়) */
+    val openBadge = mutableStateOf(false)
+
     /** "ব্যবসা যোগ করুন": লগইন না থাকলে আগে লগইন আর নাম-মোবাইল (রক্তের তথ্য নয়), তারপর বেছে নেওয়া */
     fun startAdd() {
         LoginGate.require(tr("Log in to add your business", "আপনার ব্যবসা যোগ করতে লগইন করুন")) { picker.value = true }
@@ -112,13 +117,23 @@ object MyWork {
     /** শেষবার আনতে গিয়ে কোন ভুল হয়েছিল (প্রোফাইলে দেখায়, "আবার চেষ্টা করুন" সহ); সব এলে null */
     val error = mutableStateOf<String?>(null)
 
-    /** নিচের বারে "আমার কাজ" দেখাবে কি না */
+    /** নিজের কোনো ব্যবসা/চেম্বার আছে ("আমার কাজ"); না থাকলে নিচের বারের একই ঘরে "সেবা দিন" */
     val has: Boolean get() = summary.value.any
+
+    /** ব্যাজও জানা গেছে (পেশাদার কি না) — তার আগে "নেই" বলা যায় না, তাই "সেবা দিন" দেখানো হয় না */
+    val badgeKnown = mutableStateOf(false)
+    val settled: Boolean get() = loaded.value && badgeKnown.value
+
+    /** শেষবার কোন ব্যাজ দিয়ে আনা ("আবার চেষ্টা করুন"-এর জন্য) */
+    var lastBadge: BadgeState? = null
+        private set
 
     fun clear() {
         summary.value = WorkSummary()
         loaded.value = false
         error.value = null
+        badgeKnown.value = false
+        lastBadge = null
     }
 
     /** একবার ব্যর্থ হলে (ধীর সার্ভার, নেটওয়ার্ক) আরেকবার চেষ্টা */
@@ -131,11 +146,12 @@ object MyWork {
     }
 
     /** কোনো একটা আনতে না পারলে (ইন্টারনেট) সেটার আগের হিসাবই থাকে — ট্যাব হঠাৎ হারিয়ে যায় না */
-    suspend fun refresh(badge: BadgeState?) {
+    suspend fun refresh(badge: BadgeState?, badgeIsKnown: Boolean = true) {
         if (LoginGate.isGuest) {
             clear()
             return
         }
+        lastBadge = badge
         val old = summary.value
         coroutineScope {
             val amb = async { twice { Ambulances.mine() } }
@@ -163,6 +179,7 @@ object MyWork {
             if (failed.any { it.second.exceptionOrNull() is kotlinx.coroutines.CancellationException }) return@coroutineScope
             if (failed.isEmpty()) {
                 loaded.value = true
+                if (badgeIsKnown) badgeKnown.value = true
                 error.value = null
             } else {
                 error.value = failed.joinToString(" · ") { (k, r) -> businessName(k) + ": " + (r.exceptionOrNull()?.message ?: "?") }
@@ -203,29 +220,25 @@ internal fun professionalLine(s: WorkSummary): String? {
 // "আমার কাজ" ট্যাব
 // ------------------------------------------------------------
 
+/**
+ * "আমার কাজ"-এর নিচে: প্রতিটা ব্যবসার কার্ড (চাপলে সেই পাতা) আর "আরেকটা ব্যবসা যোগ করুন"।
+ * roles: কোন ভূমিকাগুলো দেখাবে (হোমের চিপ — "সব" হলে সবগুলো)।
+ */
 @Composable
-fun WorkTab(onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
+fun WorkBusinessList(roles: Set<String>, onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
     val s = MyWork.summary.value
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Text(tr("My work", "আমার কাজ"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // পেশাদার: চেম্বার (ডাক্তার, পুষ্টিবিদ, ট্রেইনার) বা বাসায় সেবা (নার্স)
-        s.professional?.let { type ->
-            item(key = "pro") {
-                WorkRow(
-                    Badges.icon(type),
-                    if (type == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
-                    professionalLine(s).orEmpty(),
-                    onOpenChamber,
-                )
-            }
+        s.professional?.takeIf { WorkRoles.CHAMBER in roles }?.let { type ->
+            WorkRow(
+                Badges.icon(type),
+                if (type == "nurse") tr("My home care", "আমার বাসায় সেবা") else tr("My chamber", "আমার চেম্বার"),
+                professionalLine(s).orEmpty(),
+                "work_card_chamber",
+                onOpenChamber,
+            )
         }
-        if (s.ambulances.isNotEmpty()) item(key = "ambulance") {
+        if (s.ambulances.isNotEmpty() && "ambulance" in roles) {
             val live = s.ambulances.filter { it.status == "approved" }
             WorkRow(
                 businessIcon("ambulance"),
@@ -233,14 +246,13 @@ fun WorkTab(onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
                 (listOf(num(s.ambulances.size) + tr(" in total", "টা")) +
                     (if (live.isNotEmpty()) listOf(num(live.count { it.available }) + tr(" free", "টা খালি")) else emptyList()) +
                     statusCounts(s.ambulances.map { it.status })).joinToString(" · "),
+                "work_card_ambulance",
             ) { onOpenBusiness("ambulance") }
         }
-        s.pharmacy?.let { ph ->
-            item(key = "pharmacy") {
-                WorkRow(businessIcon("pharmacy"), businessName("pharmacy"), listOfNotNull(ph.name, statusNote(ph.status)).joinToString(" · ")) { onOpenBusiness("pharmacy") }
-            }
+        s.pharmacy?.takeIf { "pharmacy" in roles }?.let { ph ->
+            WorkRow(businessIcon("pharmacy"), businessName("pharmacy"), listOfNotNull(ph.name, statusNote(ph.status)).joinToString(" · "), "work_card_pharmacy") { onOpenBusiness("pharmacy") }
         }
-        if (s.bloodBanks.isNotEmpty()) item(key = "bloodbank") {
+        if (s.bloodBanks.isNotEmpty() && "bloodbank" in roles) {
             WorkRow(
                 businessIcon("bloodbank"),
                 businessName("bloodbank"),
@@ -248,16 +260,15 @@ fun WorkTab(onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
                     listOf(if (s.bloodBanks.size == 1) s.bloodBanks[0].name else num(s.bloodBanks.size) + tr(" blood banks", "টা")) +
                         statusCounts(s.bloodBanks.map { it.status })
                     ).joinToString(" · "),
+                "work_card_bloodbank",
             ) { onOpenBusiness("bloodbank") }
         }
-        s.lab?.let { lab ->
-            item(key = "lab") {
-                WorkRow(businessIcon("lab"), businessName("lab"), listOfNotNull(lab.name, statusNote(lab.status)).joinToString(" · ")) { onOpenBusiness("lab") }
-            }
+        s.lab?.takeIf { "lab" in roles }?.let { lab ->
+            WorkRow(businessIcon("lab"), businessName("lab"), listOfNotNull(lab.name, statusNote(lab.status)).joinToString(" · "), "work_card_lab") { onOpenBusiness("lab") }
         }
         // যে ধরনের ব্যবসা এখনো নেই, সেটা যোগ করা (একই ধরনের আরেকটা অ্যাম্বুলেন্স/ব্লাড ব্যাংক — সেই পাতার ভেতর থেকে)
-        if (BUSINESS_KINDS.any { !s.owns(it) }) item(key = "add") {
-            OutlinedButton(onClick = { WorkNav.picker.value = true }, modifier = Modifier.fillMaxWidth()) {
+        if (BUSINESS_KINDS.any { !s.owns(it) }) {
+            OutlinedButton(onClick = { WorkNav.picker.value = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("work_add")) {
                 ButtonContent(false, tr("Add another business", "আরেকটা ব্যবসা যোগ করুন"), R.drawable.ic_add)
             }
         }
@@ -265,11 +276,11 @@ fun WorkTab(onOpenBusiness: (String) -> Unit, onOpenChamber: () -> Unit) {
 }
 
 @Composable
-private fun WorkRow(icon: Int, title: String, subtitle: String, onClick: () -> Unit) {
+private fun WorkRow(icon: Int, title: String, subtitle: String, tag: String, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().testTag(tag).clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {

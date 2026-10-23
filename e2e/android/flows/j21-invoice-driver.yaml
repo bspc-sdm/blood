@@ -53,7 +53,8 @@ env:
       J: j21d
       ROLE: ডেমো অ্যাম্বুলেন্স চালক
 - tapOn: "আমার কাজ"
-- tapOn: "অ্যাম্বুলেন্স.*"
+- tapOn:
+    id: "work_open_ambulance"
 - extendedWaitUntil:
     visible: "অ্যাম্বুলেন্স দরকার"
     timeout: 60000
@@ -101,7 +102,8 @@ env:
       J: j21f
       ROLE: ডেমো অ্যাম্বুলেন্স চালক
 - tapOn: "আমার কাজ"
-- tapOn: "অ্যাম্বুলেন্স.*"
+- tapOn:
+    id: "work_open_ambulance"
 # ২৪ অক্টোবর ২০২৬: সারিতে একটাই মূল বাটন — "পৌঁছেছি"; "যাত্রা শেষ" তখন "আরও"-র ভেতরে
 - extendedWaitUntil:
     visible: "আপনি যাচ্ছেন|আপনি পৌঁছেছেন"
