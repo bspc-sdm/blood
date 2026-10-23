@@ -51,7 +51,12 @@ const homeErr = ref<string | null>(null);
 const report = ref<string | null>(null);
 const paying = ref<RxReview | null>(null);
 const serialBusy = ref(false);
-const reload = () => queryClient.invalidateQueries({ queryKey: ['rx_activity', props.rx.id] });
+const reload = () => {
+  queryClient.invalidateQueries({ queryKey: ['rx_activity', props.rx.id] });
+  // তালিকার অবস্থা-লাইন আর ভেতরের টাইমলাইনও নতুন করে (rxstate.ts)
+  queryClient.invalidateQueries({ queryKey: ['rx_mine'] });
+  queryClient.invalidateQueries({ queryKey: ['rx_get', props.rx.id] });
+};
 const cancelled = computed(() => props.rx.status === 'cancelled');
 const a = computed(() => q.data!);
 // নিচের বাটনের মতোই শর্ত: বাতিল নয়, আর কোনো ওষুধ এখনো পুরো কেনা হয়নি / পরীক্ষা আছে

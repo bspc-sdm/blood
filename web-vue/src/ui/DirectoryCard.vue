@@ -45,6 +45,8 @@ function onKey(e: KeyboardEvent, f?: () => void) {
       </div>
       <slot name="menu" />
     </div>
+    <!-- কার্ডের নিজের অবস্থা-লাইন ইত্যাদি (যেমন প্রেসক্রিপশনের চিপ) — না দিলে আগের মতো -->
+    <slot name="extra" />
     <div v-if="details.some((d) => d[1]) || tags.length || note" class="col gap-6" :style="{ marginTop: '10px' }">
       <IconLine v-for="[ic, text] in details.filter((d) => d[1])" :key="ic + text" :icon="ic">{{ text }}</IconLine>
       <div v-if="tags.length" class="row wrap gap-6"><Tag v-for="t in tags" :key="t" tone="primary">{{ t }}</Tag></div>

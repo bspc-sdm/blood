@@ -1,6 +1,7 @@
 // প্রেসক্রিপশনের ধরন আর লেখা (React-এর Prescriptions.tsx-এর উপরের অংশ, হুবহু) — অ্যাপের RxText
 import { num, tr } from '@/lib/i18n';
 import { PRACTICE_SPEC_LABEL, type RxRules } from '@/lib/practice';
+import type { RxState } from './rxstate';
 
 export interface RxMed { name: string; form?: string; strength?: string; dose?: string; timing?: string; days?: number; note?: string }
 export interface Rx {
@@ -17,6 +18,8 @@ export interface Rx {
   patient: { name?: string; age?: number | null; gender?: string };
   complaints: string; findings: Record<string, string>; diagnosis: string; medicines: RxMed[]; tests: string[]; testPlace: string; testPlaceId?: string | null;
   advice: string; followUpDate: number | null; followUpBookDate: number | null; followUpNote: string; chamberIndex: number | null;
+  /** এখন কোন অবস্থায় (rx_mine / rx_get, backend/docs/RX-STATE.md) — পুরোনো সার্ভারে নেই */
+  state?: RxState | null;
 }
 
 // ---------- লেখা (অ্যাপের RxText) ----------

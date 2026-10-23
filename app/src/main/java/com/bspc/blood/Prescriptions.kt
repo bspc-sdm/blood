@@ -51,6 +51,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -140,6 +142,8 @@ data class Rx(
     /** সার্ভারের পেশার নাম (title_guard: "হোমিওপ্যাথিক চিকিৎসক" …) — TitleGuard.kt */
     val typeLabel: String = "",
     val typeLabelEn: String = "",
+    /** এখন কোন অবস্থায় (rx_mine / rx_get — backend/docs/RX-STATE.md); পুরোনো সার্ভারে null — RxStatus.kt */
+    val state: RxState? = null,
 ) {
     val cancelled: Boolean get() = status == "cancelled"
     val verifyUrl: String get() = ServerApi.BASE_URL + "/rx/" + code
@@ -175,6 +179,7 @@ data class Rx(
                 if (o.has(PracticeWire.RX_PHARMACY) && !o.isNull(PracticeWire.RX_PHARMACY)) o.optBoolean(PracticeWire.RX_PHARMACY) else null,
                 Practice.RxRules.parse(o.optJSONObject("rxRules")),
                 d.str(PracticeWire.TYPE_LABEL), d.str(PracticeWire.TYPE_LABEL_EN),
+                RxState.parse(o.optJSONObject("state")),
             )
         }
     }
@@ -478,6 +483,9 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
     // ডাক্তার: এই প্রেসক্রিপশনের পার্টনার ল্যাবের পরীক্ষা (ফল শুধু রিপোর্ট দেখার টাকা মিললে / ফি না থাকলে)
     var doctorLabs by remember { mutableStateOf<List<DoctorLab>?>(null) }
     LaunchedEffect(rx.id, asDoctor) { if (asDoctor) doctorLabs = runCatching { RxApi.doctorLabs(rx.id) }.getOrNull() }
+    // রোগী: টাইমলাইন শুধু rx_get-এ (তালিকায় নেই) — না এলে তালিকার অবস্থাটুকুই
+    var full by remember { mutableStateOf<Rx?>(rx.state?.timeline?.let { rx }) }
+    LaunchedEffect(rx.id, asDoctor) { if (!asDoctor && rx.state != null && full == null) full = runCatching { RxApi.get(rx.id) }.getOrNull() }
     FullScreenDialog(onDismissRequest = onDismiss) {
         Scaffold(
             topBar = {
@@ -503,6 +511,8 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
                         DoctorLabsCard(dl, tr("The patient has not sent these tests to a partner lab yet", "রোগী এখনো কোনো পার্টনার ল্যাবে পরীক্ষা পাঠাননি"))
                     }
                 }
+                // রোগী: এখন কোন অবস্থায় + কী কী হয়েছে, তারিখসহ (rx_get-এর state.timeline — RxStatus.kt)
+                if (patient) RxTimelineCard(full ?: rx)
                 // ওষুধ কেনা, ফার্মেসি, পরীক্ষা, রিপোর্ট, ডাক্তারকে দেখানো
                 if (patient && profile != null) RxActivitySection(rx, profile, snack) { RxPaper(rx) }
                 if (!asDoctor && !rx.cancelled) {
@@ -576,7 +586,10 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
 }
 
 @Composable
-private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
+internal fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
+    // রোগী: এখন কোন অবস্থায় (রঙিন চিপ + পরীক্ষা/ফলো-আপের ছোট লাইন — RxStatus.kt); ডাক্তার বাতিল করলে কার্ড ধূসর
+    val withState = !asDoctor && rx.state != null
+    Box(Modifier.alpha(if (!asDoctor && rx.cancelled) 0.72f else 1f).testTag("rx-card")) {
     DirectoryCard(
         title = if (asDoctor) rx.patientName else rx.doctorName,
         icon = R.drawable.ic_medication,
@@ -586,11 +599,13 @@ private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
         meta = Rules.formatDate(rx.createdAt),
         details = listOf(
             R.drawable.ic_medication to rx.medicines.take(3).joinToString(", ") { it.name } + if (rx.medicines.size > 3) " +" + num(rx.medicines.size - 3) else "",
-            R.drawable.ic_list_alt to if (rx.tests.isNotEmpty()) tr("${rx.tests.size} test(s)", "${num(rx.tests.size)}টা পরীক্ষা") else "",
-            R.drawable.ic_calendar_month to (rx.followUpDate?.let { tr("Come again: ", "আবার দেখাবেন: ") + Rules.formatDate(it) } ?: ""),
+            R.drawable.ic_list_alt to if (!withState && rx.tests.isNotEmpty()) tr("${rx.tests.size} test(s)", "${num(rx.tests.size)}টা পরীক্ষা") else "",
+            R.drawable.ic_calendar_month to (rx.followUpDate?.takeIf { !withState }?.let { tr("Come again: ", "আবার দেখাবেন: ") + Rules.formatDate(it) } ?: ""),
         ),
+        info = if (!asDoctor && RxStateText.primary(rx) != null) ({ RxStatusLine(rx) }) else null,
         onClick = onClick,
     )
+    }
 }
 
 // ------------------------------------------------------------
@@ -598,7 +613,7 @@ private fun RxListCard(rx: Rx, asDoctor: Boolean, onClick: () -> Unit) {
 // ------------------------------------------------------------
 
 @Composable
-fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
+fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?, load: suspend () -> List<Rx> = { RxApi.mine() }) {
     // স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার (backend/docs/CONSENT.md)
     HealthConsentPrompt()
     var list by remember { mutableStateOf<List<Rx>?>(null) }
@@ -609,9 +624,11 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
     var claiming by remember { mutableStateOf(false) }
     // পরিবারের সদস্যের প্রেসক্রিপশনও একই অ্যাকাউন্টে — নাম ধরে আলাদা দেখা
     var who by remember { mutableStateOf<String?>(null) }
+    // ট্যাব: চলমান (শুরুতে) / পূর্বের (শেষ আর বাতিল) / সব — সার্ভারের state.phase (backend/docs/RX-STATE.md)
+    var tab by rememberSaveable { mutableStateOf(RxTab.ACTIVE) }
     LaunchedEffect(reload) {
         // কেয়ারগিভার মোডে সাইকোলজিস্টের নোট রোগী শেয়ার না করলে সার্ভার পাঠায়ই না (PRACTICE.md)
-        runCatching { RxApi.mine() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
+        runCatching { load() }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
     }
     // "প্রেসক্রিপশন খুলুন" (পাঠানোর পর) আর নোটিফিকেশন: তালিকা এলে সরাসরি সেটার বিস্তারিত — তালিকায় না পেলে আলাদা করে আনা।
     // নতুন "আমার প্রেসক্রিপশন" পাতা খোলার অপেক্ষায় থাকলে (RxNav.open) এই পাতা নেয় না — নতুন পাতাটা নেবে।
@@ -645,14 +662,38 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
                 if (onBack == null && !list.isNullOrEmpty()) {
                     TextButton(onClick = { claiming = true }) { ButtonContent(false, tr("Add a prescription with code", "কোড দিয়ে প্রেসক্রিপশন যোগ করুন"), R.drawable.ic_add) }
                 }
+                if (!list.isNullOrEmpty()) {
+                    val forWho = list.orEmpty().filter { who == null || it.patientName.trim() == who }
+                    RxTabs(tab, RxTab.entries.associateWith { t -> forWho.count { RxStateText.inTab(it, t) } }) { tab = it }
+                }
                 val names = list.orEmpty().map { it.patientName.trim() }.filter { it.isNotBlank() }.distinct()
                 if (names.size > 1) {
                     ChipRows(listOf("") + names, setOf(who ?: ""), label = { if (it.isBlank()) tr("Everyone", "সবাই") else it }) { who = it.ifBlank { null } }
                 }
             }
-            val l = list?.filter { who == null || it.patientName.trim() == who }
+            val all = list?.filter { who == null || it.patientName.trim() == who }
+            val l = all?.filter { RxStateText.inTab(it, tab) }?.sortedByDescending { it.createdAt }
             when {
                 l == null && errorMsg == null -> item { LoadingBox() }
+                !list.isNullOrEmpty() && l.isNullOrEmpty() -> item {
+                    // এই ট্যাবে কিছু নেই — চলমান খালি হলে পূর্বেরগুলোর দিকে
+                    val pastCount = all.orEmpty().count { RxStateText.past(it) }
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("rx-tab-empty"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            when (tab) {
+                                RxTab.ACTIVE -> tr("No ongoing prescriptions right now.", "এখন চলমান কোনো প্রেসক্রিপশন নেই।")
+                                RxTab.PAST -> tr("No previous prescriptions.", "পূর্বের কোনো প্রেসক্রিপশন নেই।")
+                                RxTab.ALL -> tr("No prescriptions.", "কোনো প্রেসক্রিপশন নেই।")
+                            },
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (tab == RxTab.ACTIVE && pastCount > 0) {
+                            TextButton(onClick = { tab = RxTab.PAST }) {
+                                ButtonContent(false, tr("See previous", "পূর্বেরগুলো দেখুন") + " (" + num(pastCount) + ")", R.drawable.ic_history)
+                            }
+                        }
+                    }
+                }
                 l.isNullOrEmpty() -> item {
                     Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         EmptyState(
@@ -667,7 +708,8 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
             }
         }
     }
-    open?.let { rx -> RxDetailDialog(rx, asDoctor = false, onDismiss = { open = null }, profile = profile) }
+    // ফিরে এলে তালিকা আবার আনা — ভেতরে পাঠানো/ফিরিয়ে নেওয়ার পর অবস্থা-লাইন নতুন হয়
+    open?.let { rx -> RxDetailDialog(rx, asDoctor = false, onDismiss = { open = null; reload++ }, profile = profile) }
     if (claiming) {
         RxClaimDialog(profile, onDismiss = { claiming = false }) { n ->
             claiming = false
@@ -675,6 +717,25 @@ fun MyPrescriptionsScreen(profile: Profile, onBack: (() -> Unit)?) {
             reload++
         }
     }
+}
+
+/** চলমান / পূর্বের / সব — গুনতিসহ ("চলমান (৩)"), অ্যাপের অন্য ট্যাবের মতো পিল */
+@Composable
+internal fun RxTabs(selected: RxTab, counts: Map<RxTab, Int>, onSelect: (RxTab) -> Unit) {
+    val tabs = RxTab.entries
+    PillTabs(
+        selected = tabs.indexOf(selected),
+        tabs = tabs.map { PillTab(RxStateText.tabLabel(it, counts[it] ?: 0)) },
+        onSelect = { onSelect(tabs[it]) },
+        // PillTabs-এর নিজের ১৬dp ফাঁক তালিকার ১৬dp-র সাথে মিলিয়ে: কার্ডের বাঁ কিনারায় শুরু
+        modifier = Modifier
+            .layout { m, c ->
+                val pad = 16.dp.roundToPx()
+                val p = m.measure(c.copy(minWidth = 0, maxWidth = c.maxWidth + 2 * pad))
+                layout((p.width - 2 * pad).coerceAtLeast(0), p.height) { p.place(-pad, 0) }
+            }
+            .testTag("rx-tabs"),
+    )
 }
 
 /** কাগজের প্রেসক্রিপশনের কোড + সহকারীকে দেওয়া ফোন নম্বর */

@@ -20,6 +20,7 @@ import { RX_HOME, rxPath } from '../services/data';
 import RxListCard from './RxListCard.vue';
 import RxDetail from './RxDetail.vue';
 import RxClaimDialog from './RxClaimDialog.vue';
+import { RX_TABS, inTab, tabLabel, type RxTab } from './rxstate';
 
 // স্বাস্থ্য তথ্যের সম্মতি: সুইচ চালু আর সম্মতি না থাকলে প্রথমবার খোলায় একবার জিজ্ঞেস (backend/docs/CONSENT.md)
 useHealthConsentPrompt();
@@ -40,7 +41,20 @@ const q = useQ<Rx[]>(() => ({
 const claiming = ref(false);
 const [info, setInfo] = useFlash();
 const names = computed(() => [...new Set((q.data ?? []).map((r) => (r.patient?.name ?? '').trim()).filter(Boolean))]);
-const shown = computed(() => (q.data ?? []).filter((r) => !who.value || (r.patient?.name ?? '').trim() === who.value));
+const forWho = computed(() => (q.data ?? []).filter((r) => !who.value || (r.patient?.name ?? '').trim() === who.value));
+// ট্যাব: চলমান (আগে থেকে খোলা) / পূর্বের (শেষ আর বাতিল) / সব — সার্ভারের state.phase দিয়ে (backend/docs/RX-STATE.md); প্রতিটায় নতুনটা আগে
+const tab = computed<RxTab>(() => {
+  const t = params.value.get('tab');
+  return t === 'past' || t === 'all' ? t : 'active';
+});
+const counts = computed(() => Object.fromEntries(RX_TABS.map((t) => [t, forWho.value.filter((r) => inTab(r, t)).length])) as Record<RxTab, number>);
+const shown = computed(() => forWho.value.filter((r) => inTab(r, tab.value)).sort((a, b) => b.createdAt - a.createdAt));
+function setTab(t: RxTab) {
+  const p = new URLSearchParams(params.value);
+  if (t === 'active') p.delete('tab');
+  else p.set('tab', t);
+  setParams(p, { replace: true });
+}
 const qs = () => (params.value.toString() ? `?${params.value}` : '');
 const open = (rid: string) => nav(`${rxPath(rid)}${qs()}`);
 function setWho(n: string) {
@@ -70,17 +84,24 @@ const fromList = computed(() => (props.id ? q.data?.find((r) => r.id === props.i
           <Button v-if="q.data?.length" variant="tonal" small icon="add" @click="claiming = true">{{ tr('Add with code', 'কোড দিয়ে যোগ করুন') }}</Button>
         </div>
         <InfoText :text="info" />
-        <div v-if="names.length > 1" class="chips scroll" role="group" :aria-label="tr('Patient', 'রোগী')">
-          <button v-for="n in ['', ...names]" :key="n || 'all'" type="button" class="chip" :aria-pressed="(who ?? '') === n" @click="setWho(n)">
-            <Icon v-if="(who ?? '') === n" name="check_circle" />{{ n || tr('Everyone', 'সবাই') }}
-          </button>
-        </div>
         <SkeletonCards v-if="q.isPending" :n="3" :h="140" />
         <ErrorBox v-else-if="q.isError" :error="errorText(q.error)" :on-retry="() => q.refetch()" />
-        <EmptyState v-else-if="!shown.length" icon="medication" :title="tr('No prescriptions yet', 'এখনো কোনো প্রেসক্রিপশন নেই')" :text="tr('Prescriptions from doctors on Lifolo appear here. Got a paper one? Add it with its code.', 'Lifolo-তে ডাক্তারের দেওয়া প্রেসক্রিপশন এখানে আসে। কাগজেরটা কোড দিয়ে যোগ করুন।')">
+        <EmptyState v-else-if="!(q.data?.length ?? 0)" icon="medication" :title="tr('No prescriptions yet', 'এখনো কোনো প্রেসক্রিপশন নেই')" :text="tr('Prescriptions from doctors on Lifolo appear here. Got a paper one? Add it with its code.', 'Lifolo-তে ডাক্তারের দেওয়া প্রেসক্রিপশন এখানে আসে। কাগজেরটা কোড দিয়ে যোগ করুন।')">
           <Button variant="outline" icon="add" @click="claiming = true">{{ tr('Add with code', 'কোড দিয়ে যোগ করুন') }}</Button>
         </EmptyState>
         <template v-else>
+          <div class="rx-tabs" role="tablist" :aria-label="tr('Prescriptions', 'প্রেসক্রিপশন')">
+            <button v-for="t in RX_TABS" :key="t" type="button" role="tab" :aria-selected="tab === t" :data-testid="`rx-tab-${t}`" @click="setTab(t)">{{ tabLabel(t, counts[t]) }}</button>
+          </div>
+          <div v-if="names.length > 1" class="chips scroll" role="group" :aria-label="tr('Patient', 'রোগী')">
+            <button v-for="n in ['', ...names]" :key="n || 'all'" type="button" class="chip" :aria-pressed="(who ?? '') === n" @click="setWho(n)">
+              <Icon v-if="(who ?? '') === n" name="check_circle" />{{ n || tr('Everyone', 'সবাই') }}
+            </button>
+          </div>
+          <div v-if="!shown.length" class="rx-tab-empty" data-testid="rx-tab-empty">
+            <p class="t-body-m muted">{{ tab === 'active' ? tr('No ongoing prescriptions right now.', 'এখন চলমান কোনো প্রেসক্রিপশন নেই।') : tab === 'past' ? tr('No previous prescriptions.', 'পূর্বের কোনো প্রেসক্রিপশন নেই।') : tr('No prescriptions.', 'কোনো প্রেসক্রিপশন নেই।') }}</p> <!-- bn-ok -->
+            <Button v-if="tab === 'active' && counts.past > 0" variant="text" icon="history" @click="setTab('past')">{{ tr('See previous', 'পূর্বেরগুলো দেখুন') }} ({{ num(counts.past) }})</Button> <!-- bn-ok -->
+          </div>
           <RxListCard v-for="rx in shown" :key="rx.id" :rx="rx" :selected="rx.id === id" @click="open(rx.id)" />
         </template>
       </template>
@@ -92,3 +113,16 @@ const fromList = computed(() => (props.id ? q.data?.find((r) => r.id === props.i
     <template v-if="!s.guest" #placeholder><EmptyState icon="medication" :title="tr('Pick a prescription', 'একটা প্রেসক্রিপশন বেছে নিন')" /></template>
   </ListDetail>
 </template>
+
+<style scoped>
+/* চলমান / পূর্বের / সব — নিচে দাগওয়ালা ট্যাব (উপরের সেবা/ফার্মেসির পিল থেকে আলাদা দেখায়) */
+.rx-tabs { display: flex; border-bottom: 1px solid var(--outline-variant); }
+.rx-tabs button {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 8px; border: 0; background: transparent;
+  color: var(--on-surface-variant); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap;
+  border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer;
+}
+.rx-tabs button[aria-selected='true'] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+.rx-tabs button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.rx-tab-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 16px 4px; }
+</style>

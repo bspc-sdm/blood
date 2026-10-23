@@ -65,6 +65,43 @@ const RX = [
   },
 ];
 
+// এখন কোন অবস্থায় — সার্ভারের RxState (backend/docs/RX-STATE.md): তালিকায় state, rx_get-এ টাইমলাইনসহ
+const RX_STATE = {
+  rx1: {
+    phase: 'active', primary: 'accepted', tone: 'primary', cancelled: false, cancelledAt: null,
+    medicine: { state: 'accepted', bought: 3, total: 3, pharmacyName: 'মেডিপ্লাস ফার্মেসি', mode: 'online' },
+    lab: { state: 'sent', orders: 4, reported: 1, labName: 'রয়েল ল্যাব', reviewed: false },
+    followUpDate: dhakaToday() + 14 * D, lastActivityAt: now - 2 * H,
+  },
+  rx2: {
+    phase: 'active', primary: 'not_bought', tone: 'neutral', cancelled: false, cancelledAt: null,
+    medicine: { state: 'not_bought', bought: 0, total: 1, pharmacyName: null, mode: null }, lab: null, followUpDate: null, lastActivityAt: now - 17 * D,
+  },
+  rx3: {
+    phase: 'past', primary: 'cancelled', tone: 'muted', cancelled: true, cancelledAt: now - 44 * D,
+    medicine: { state: 'not_bought', bought: 0, total: 1, pharmacyName: null, mode: null }, lab: null, followUpDate: null, lastActivityAt: now - 38 * D,
+  },
+};
+const RX_TIMELINE = {
+  rx1: [
+    { kind: 'written', at: now - 2 * D },
+    { kind: 'pharmacy_sent', at: now - 2 * D + H, name: 'লাইফ কেয়ার ফার্মেসি', mode: 'shop' },
+    { kind: 'bought', at: now - 2 * D + 2 * H, name: 'লাইফ কেয়ার ফার্মেসি', count: 3 },
+    { kind: 'lab_sent', at: now - 30 * H, name: 'রয়েল ল্যাব' },
+    { kind: 'lab_sent', at: now - D, name: 'সিটি ডায়াগনস্টিক সেন্টার' },
+    { kind: 'lab_sent', at: now - 20 * H, name: 'পপুলার ডায়াগনস্টিক' },
+    { kind: 'lab_received', at: now - 10 * H, name: 'পপুলার ডায়াগনস্টিক' },
+    { kind: 'lab_reported', at: now - 6 * H, name: 'সিটি ডায়াগনস্টিক সেন্টার' },
+    { kind: 'pharmacy_sent', at: now - 5 * H, name: 'মেডিপ্লাস ফার্মেসি', mode: 'online' },
+    { kind: 'pharmacy_accepted', at: now - 4 * H, name: 'মেডিপ্লাস ফার্মেসি', mode: 'online' },
+    { kind: 'lab_sent', at: now - 2 * H, name: 'সিটি ডায়াগনস্টিক সেন্টার' },
+    { kind: 'follow_up', at: dhakaToday() + 14 * D, ahead: true },
+  ],
+  rx2: [{ kind: 'written', at: now - 20 * D }],
+  rx3: [{ kind: 'written', at: now - 45 * D }, { kind: 'cancelled', at: now - 44 * D }],
+};
+for (const r of RX) r.state = RX_STATE[r.id];
+
 const ACTIVITY = {
   rx1: {
     medicines: [
@@ -197,7 +234,7 @@ export default {
   rx_mine: () => ({ items: RX }),
   rx_get: (b) => {
     const r = RX.find((x) => x.id === b.id);
-    return r ? { item: r } : { __status: 404, body: { error: 'পাওয়া যায়নি' } };
+    return r ? { item: { ...r, state: r.state && { ...r.state, timeline: RX_TIMELINE[r.id] ?? [] } } } : { __status: 404, body: { error: 'পাওয়া যায়নি' } };
   },
   rx_claim: (b) => (b.code === 'K7M2Q9XA4T' ? { ok: true, added: 1 } : { __status: 400, body: { error: 'কোড আর ফোন নম্বর মেলেনি' } }),
   rx_activity: (b) => ACTIVITY[b.rxId] || { medicines: (RX.find((x) => x.id === b.rxId)?.medicines || []).map((m, i) => ({ i, name: m.name, form: m.form || '', dose: m.dose || '', days: m.days || 0, need: null, got: 0, left: null, done: false })), dispensed: [], orders: [], labOrders: [], reviews: [], nextOpen: null },

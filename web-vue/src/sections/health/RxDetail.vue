@@ -10,6 +10,7 @@ import { useSession } from '@/lib/session';
 import { useCareMode } from '@/lib/care';
 import type { Rx } from './rx';
 import RxActivitySection from './RxActivitySection.vue';
+import RxTimeline from './RxTimeline.vue';
 import RxPaper from './RxPaper.vue';
 import FollowUpCard from './FollowUpCard.vue';
 import PrintButton from './PrintButton.vue';
@@ -31,6 +32,8 @@ const rx = computed(() => props.initial ?? r.data ?? null);
   <DetailPane :title="tr('Prescription', 'প্রেসক্রিপশন')" :on-back="back">
     <template v-if="rx" #actions><PrintButton /></template>
     <template v-if="rx">
+      <!-- এখন কোন অবস্থায় + কী কী হয়েছে (তারিখসহ) -->
+      <RxTimeline :rx="rx" />
       <!-- কাগজ RxActivitySection-এর ভেতরে: উপরে পাঠানোর বাটন, তারপর কাগজ -->
       <RxActivitySection :rx="rx">
         <template #paper><RxPaper :rx="rx" /></template>

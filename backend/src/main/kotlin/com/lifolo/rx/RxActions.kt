@@ -47,6 +47,7 @@ class RxActions(
     private val props: LifoloProperties,
     private val gate: PracticeGate,
     private val privacy: PracticePrivacy,
+    private val states: RxStateLoader,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "rx_me" to ActionHandler(::rxMe),
@@ -486,7 +487,11 @@ class RxActions(
     fun rxMine(ctx: ActionContext): Any {
         // a caregiver: no psychologist's session notes unless the patient shares them (PRACTICE.md)
         val hide = if (privacy.hidesPrivate(ctx.user)) " AND doctor_type <> 'psychologist'" else ""
-        return linkedMapOf("items" to views(store.load("patient_uid = ?$hide ORDER BY created_at DESC LIMIT 300", ctx.user.id)))
+        val list = store.load("patient_uid = ?$hide ORDER BY created_at DESC LIMIT 300", ctx.user.id).sortedByDescending { it.createdAt }
+        // where each one is now (bought, sent, tests, report, cancelled, follow-up; "active" or "past") — backend/docs/RX-STATE.md
+        val facts = states.facts(list.map { it.id })
+        val now = System.currentTimeMillis()
+        return linkedMapOf("items" to list.map { rx -> withState(store.view(rx), RxState.compute(rx, facts[rx.id] ?: RxState.Facts(), now)) })
     }
 
     /**
@@ -540,8 +545,13 @@ class RxActions(
         if (s.doctorUid == uid && s.patientUid != uid) {
             return linkedMapOf("item" to store.view(s), "labOrders" to labs.labsForDoctor(uid, listOf(s.id)))
         }
-        return linkedMapOf("item" to store.view(s))
+        // the patient (or the caregiver for the patient): where it is now + what happened (backend/docs/RX-STATE.md)
+        val state = RxState.compute(s, states.facts(listOf(s.id))[s.id] ?: RxState.Facts(), withTimeline = true)
+        return linkedMapOf("item" to withState(store.view(s), state))
     }
+
+    /** the view + `state` (new field; older apps ignore it) */
+    private fun withState(view: Map<String, Any?>, state: Map<String, Any?>): Map<String, Any?> = LinkedHashMap(view).apply { put("state", state) }
 
     /** the patient: pharmacy/lab requests of this prescription, reports and the doctor's review; next chamber day */
     fun rxActivity(ctx: ActionContext): Any {
