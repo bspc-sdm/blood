@@ -6,7 +6,7 @@ import { Button, ErrorText, InfoText, Tag, TextInput, toast, useNow } from '@/ui
 import { ServerError, call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
 import type { Appointment } from '../model';
-import { T, canReportNoShow, payLabel, payTone, trxInput, trxOk } from './index';
+import { T, TRX_LEN, canReportNoShow, payLabel, payTone, trxInput, trxOk } from './index';
 import ReasonReportDialog from '../ReasonReportDialog.vue';
 
 const props = defineProps<{ a: Appointment }>();
@@ -100,6 +100,8 @@ async function claim() {
         </div>
         <TextInput
           :label="T.trx()"
+          :hint="T.trxHint()"
+          :maxlength="TRX_LEN"
           :placeholder="T.trxPh()"
           autocomplete="off"
           autocapitalize="characters"

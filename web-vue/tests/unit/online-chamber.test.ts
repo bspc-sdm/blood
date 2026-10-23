@@ -61,8 +61,9 @@ describe('নিয়ম', () => {
     expect(normBkash('0171234567')).toBeNull();
     expect(trxInput(' 9gh7-k2lm 1p ')).toBe('9GH7K2LM1P');
     expect(trxOk('')).toBe(true);
-    expect(trxOk('ABC12')).toBe(false);
-    expect(trxOk('ABC123')).toBe(true);
+    expect(trxOk('ABC123')).toBe(false);
+    expect(trxOk('ABC1234567')).toBe(true);
+    expect(trxInput('ABC1234567XYZ')).toBe('ABC1234567');
   });
 
   it('টাকার অবস্থা: rejected সরাসরি বা unpaid + কারণ', () => {
@@ -141,7 +142,7 @@ describe('রোগী: ফি পাঠানো', () => {
     await w.get('[data-testid="pay-claim"]').trigger('click');
     await flushPromises();
     expect(call).not.toHaveBeenCalled();
-    expect(w.text()).toContain('বিকাশ মেসেজের TrxID লিখুন');
+    expect(w.text()).toContain('TrxID ১০ অক্ষরের');
   });
 
   it('TrxID ছাড়াও পাঠানো যায় (payRef যায় না)', async () => {
@@ -255,7 +256,7 @@ describe('নিরাপত্তার নিয়ম (নোটে ফোন
   it('একই TrxID আবার (409): বাংলায় বলা', async () => {
     call.mockRejectedValueOnce(new ServerError('x', 409));
     const w = mount(OnlinePayCard, { props: { a: appt() }, global: { stubs } });
-    await w.get('input[data-testid="trx-input"]').setValue('USED12');
+    await w.get('input[data-testid="trx-input"]').setValue('USED120000');
     await w.get('[data-testid="pay-claim"]').trigger('click');
     await flushPromises();
     expect(w.text()).toContain('এই TrxID আগেই ব্যবহার হয়েছে');

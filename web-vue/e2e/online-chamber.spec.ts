@@ -299,7 +299,7 @@ test('রোগী: একই TrxID আবার (409) বাংলায়; �
   });
   await open(page, def('appointment', 'my-detail'), '/my-appointments/on3');
   const box = page.getByTestId('online-pay');
-  await box.getByTestId('trx-input').fill('USED99');
+  await box.getByTestId('trx-input').fill('USED990011');
   await box.getByTestId('pay-claim').click();
   await expect(box).toContainText('এই TrxID আগেই ব্যবহার হয়েছে। মিলিয়ে সঠিক TrxID লিখুন।');
   await expect(box.getByTestId('pay-state')).toHaveText('পাঠানো হয়নি');

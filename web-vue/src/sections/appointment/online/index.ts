@@ -56,10 +56,11 @@ export function normBkash(v: string): string | null {
   const d = bkashInput(v).replace(/^\+?88(?=01)/, '');
   return /^01[3-9]\d{8}$/.test(d) ? d : null;
 }
-/** TrxID: অক্ষর আর অঙ্ক, বড় হাতের, সর্বোচ্চ ২০ */
-export const trxInput = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 30);
-/** সার্ভার: ৬–৩০ অক্ষর/অঙ্ক (খালি = TrxID ছাড়া) */
-export const trxOk = (v: string) => !v || /^[0-9A-Z]{6,30}$/.test(v);
+/** TrxID: অক্ষর আর অঙ্ক, বড় হাতের, সর্বোচ্চ ১০ (bKash-এর TrxID) */
+export const TRX_LEN = 10;
+export const trxInput = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, TRX_LEN);
+/** সার্ভার: ঠিক ১০টা ইংরেজি অক্ষর/অঙ্ক (খালি = TrxID ছাড়া) */
+export const trxOk = (v: string) => !v || new RegExp(`^[0-9A-Z]{${TRX_LEN}}$`).test(v);
 /** অনলাইন চেম্বারের key (chamberKey) */
 export const ONLINE_KEY = 'online';
 
@@ -114,7 +115,8 @@ export const T = {
   noteHint: () => tr('Only patients who booked see it. No phone numbers.', 'শুধু অ্যাপয়েন্টমেন্ট নেওয়া রোগীরা দেখবেন। ফোন নম্বর দেবেন না।'), // bn-ok
   errNotePhone: () => tr("The note can't have a phone number", 'নোটে ফোন নম্বর দেওয়া যাবে না'), // bn-ok
   bkashLater: () => tr('The new number starts after 24 hours', 'নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে'), // bn-ok
-  errTrx: () => tr('Write the TrxID from the bKash SMS (English letters and digits)', 'বিকাশ মেসেজের TrxID লিখুন (ইংরেজি অক্ষর ও সংখ্যা)'), // bn-ok
+  errTrx: () => tr('The TrxID has 10 English letters and digits — copy it from the bKash SMS', 'TrxID ১০ অক্ষরের (ইংরেজি অক্ষর ও সংখ্যা) — বিকাশ মেসেজ থেকে হুবহু লিখুন'), // bn-ok
+  trxHint: () => tr('10 letters and digits, from the bKash SMS', 'বিকাশ মেসেজের ১০ অক্ষরের TrxID'), // bn-ok
   errOneOnline: () => tr('You can keep only one online chamber', 'অনলাইন চেম্বার একটাই রাখা যায়'), // bn-ok
   trxUsed: () => tr('This TrxID was already used. Check it and write the right one.', 'এই TrxID আগেই ব্যবহার হয়েছে। মিলিয়ে সঠিক TrxID লিখুন।'), // bn-ok
   report: () => tr('Report', 'রিপোর্ট করুন'), // bn-ok
