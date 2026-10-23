@@ -22,7 +22,8 @@ async function chamber(page, tab) {
   // সেটআপ এখন "আরও"-তে — সরাসরি পাতা; বাকি ট্যাব হুবহু নামে ("রোগী" ≠ "আজকের রোগী")
   if (tab === 'সেটআপ') return go(page, '/work/pro/chamber');
   await go(page, '/work/pro');
-  if (tab) await tap(page, tab, { role: 'tab', exact: true });
+  // ট্যাবের নামে সংখ্যা থাকতে পারে ("বুকিং ৩") — শুধু "রোগী" হুবহু
+  if (tab) await tap(page, tab === 'রোগী' ? tab : new RegExp(`^${tab}`), { role: 'tab', exact: tab === 'রোগী' });
 }
 /** দোকানে আসা [name]-এর অর্ডার যেটায় ‘তৈরি’ চাপা যায় (ফোনে কার্ড, কম্পিউটারে বাঁয়ের সারি বেছে ডানের কার্ড); না থাকলে null */
 async function shopReadyCard(page, name) {
@@ -363,7 +364,7 @@ export async function run(J) {
       await rowAct(page, card, 'তৈরি');
       await settle(page, 500);
       // ‘তৈরি’ চাপলে সারি ‘চলছে’ ট্যাবে যায়
-      await rowAct(page, await orderRow(page, 'ডেমো রোগী রহিম', { button: 'খুলুন' }), 'খুলুন');
+      await rowAct(page, await orderRow(page, ['ডেমো রোগী রহিম', 'দোকানে এসেছেন'], { button: 'খুলুন' }), 'খুলুন');
       await settle(page);
       await page.getByLabel('Comet: কয়টা দিলেন').fill('30').catch(() => {});
       await page.getByLabel('Bislol: কয়টা দিলেন').fill('30').catch(() => {});
