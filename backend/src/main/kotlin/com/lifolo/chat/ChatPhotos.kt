@@ -61,7 +61,13 @@ class ChatPhotos(props: LifoloProperties) {
         val png = bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte()
         if (!jpeg && !png) throw BadPhoto("not jpeg/png")
         val orientation = if (jpeg) exifOrientation(bytes) else 1
-        val img = decode(bytes) ?: throw BadPhoto("unreadable")
+        val img = try {
+            decode(bytes)
+        } catch (e: BadPhoto) {
+            throw e
+        } catch (e: Exception) {
+            null
+        } ?: throw BadPhoto("unreadable")
         val full = orient(scaleToFit(img, FULL_EDGE), orientation)
         val thumb = scaleToFit(full, THUMB_EDGE)
         return Processed(encode(full, 0.82f), Base64.getEncoder().encodeToString(encode(thumb, 0.6f)), full.width, full.height)
@@ -76,8 +82,11 @@ class ChatPhotos(props: LifoloProperties) {
             val reader = readers.next()
             try {
                 reader.input = stream
-                val w = reader.getWidth(0)
-                val h = reader.getHeight(0)
+                val (w, h) = try {
+                    reader.getWidth(0) to reader.getHeight(0)
+                } catch (e: Exception) {
+                    return null
+                }
                 if (w <= 0 || h <= 0 || w.toLong() * h > MAX_PIXELS) throw BadPhoto("dimensions ${w}x$h")
                 val param = reader.defaultReadParam
                 val step = maxOf(1, maxOf(w, h) / (FULL_EDGE * 2))

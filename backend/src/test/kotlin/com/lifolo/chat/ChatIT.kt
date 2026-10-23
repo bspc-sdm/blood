@@ -132,7 +132,10 @@ class ChatIT : IntegrationTest() {
         val payload = "Exif\u0000\u0000".toByteArray(Charsets.ISO_8859_1) + tiff
         val len = payload.size + 2
         val app1 = byteArrayOf(0xff.toByte(), 0xe1.toByte(), (len shr 8).toByte(), (len and 0xff).toByte()) + payload
-        return plain.copyOfRange(0, 2) + app1 + plain.copyOfRange(2, plain.size)
+        // like a camera file: SOI, APP1 Exif, then the image (the encoder's JFIF APP0 left out)
+        var rest = 2
+        if (plain[2] == 0xff.toByte() && plain[3] == 0xe0.toByte()) rest = 4 + (((plain[4].toInt() and 0xff) shl 8) or (plain[5].toInt() and 0xff))
+        return plain.copyOfRange(0, 2) + app1 + plain.copyOfRange(rest, plain.size)
     }
 
     private fun fetch(url: String): MockHttpServletResponse {
