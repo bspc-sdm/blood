@@ -3,9 +3,10 @@
 // পাঠানোর সময়ের আনুমানিক দাম, রিপোর্ট দেওয়া, দেওয়া হলে রিপোর্ট দেখা ও ছাপা (অ্যাপের LabReportEntryDialog, LabReportView; প্যানেলের reportForm)
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Button, ConfirmDialog, Dialog, ErrorText, Icon, IconLine, Tag, TextInput, toast } from '@/ui/kit';
+import { useNav } from '@/lib/nav';
+import { Button, ConfirmDialog, Dialog, ErrorText, Icon, IconLine, RowMenu, Tag, TextInput, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
-import { num, tr } from '@/lib/i18n';
+import { tr } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
 import { homeFeeText, visitText, wantedText } from '@/lib/labprice';
 import Panel from './Panel.vue';
@@ -25,7 +26,8 @@ import AskPay from '../../pay/AskPay.vue';
 import { payOn } from '../../pay/features';
 import { useSession } from '@/lib/session';
 
-const props = defineProps<{ o: LabOrder }>();
+const props = defineProps<{ o: LabOrder; inPane?: boolean }>();
+const nav = useNav();
 const invalidate = useInvalidate();
 const busy = ref(false);
 const err = ref<string | null>(null);
@@ -79,12 +81,22 @@ function askDecline() {
   declineNote.value = '';
   declining.value = true;
 }
+// একটাই মূল বোতাম (আমার কাজ CONTRACT §২): নমুনা নিয়েছি, নইলে রসিদ দেখুন / বিল করুন; "করতে পারব না" আর বাকিটা "আরও"-তে
+const billLink = computed(() => `${LAB_BASE}/bill?order=${encodeURIComponent(props.o.id)}`);
+const canBill = computed(() => invFeature('inv_lab') && !props.o.invoiceId && props.o.status !== 'cancelled');
+const seeReceipt = computed(() => invFeature('inv_lab') && !!props.o.invoiceId);
+const primary = computed<'sample' | 'receipt' | 'bill' | null>(() => (props.o.status === 'sent' ? 'sample' : seeReceipt.value ? 'receipt' : canBill.value ? 'bill' : null));
+const moreItems = computed(() => [
+  primary.value !== 'receipt' && seeReceipt.value && { label: T.seeReceipt(), icon: 'list_alt', testid: 'lab-see-receipt', onClick: () => (receiptId.value = props.o.invoiceId ?? null) },
+  primary.value !== 'bill' && canBill.value && { label: T.billFromOrder(), icon: 'edit_note', testid: 'lab-make-bill', onClick: () => nav(billLink.value) },
+  active.value && { label: tr('Can\'t do it', 'করতে পারব না'), icon: 'close', danger: true, disabled: busy.value, testid: 'lab-cant', onClick: () => (cancelling.value = true) },
+]);
 const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.value?.status === 'declined' || h.value?.status === 'expired' ? undefined : 'primary'));
 </script>
 
 <template>
-  <div class="col gap-16">
-    <div class="row">
+  <div class="col gap-16" data-testid="lab-detail">
+    <div v-if="!inPane" class="row">
       <RouterLink :to="LAB_BASE" class="btn text small has-icon rxp-back"><Icon name="arrow_back" />{{ tr('All requests', 'সব অনুরোধ') }}</RouterLink>
     </div>
     <section class="card rxp-panel">
@@ -104,15 +116,12 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
       </div>
       <PriceLine v-if="o.prices" :p="o.prices" />
       <ContactActions :message="chatOn()" @message="openChatAt" ctx="lab_order" :ref-id="o.id" :peer-name="o.patientName" :phone="h?.phone || null" :show="active" />
-      <div v-if="active" class="row wrap gap-8">
-        <Button v-if="o.status === 'sent'" variant="tonal" icon="check_circle" :busy="busy" @click="setStatus('received')">{{ tr('Sample taken', 'নমুনা নিয়েছি') }}</Button>
-        <Button variant="danger-text" :disabled="busy" @click="cancelling = true">{{ tr('Can\'t do it', 'করতে পারব না') }}</Button>
-      </div>
-      <div v-if="invFeature('inv_lab') && o.invoiceId" class="row wrap gap-8">
-        <Button variant="outline" small icon="list_alt" data-testid="lab-see-receipt" @click="receiptId = o.invoiceId">{{ T.seeReceipt() }}</Button>
-      </div>
-      <div v-else-if="invFeature('inv_lab') && o.status !== 'cancelled'" class="row wrap gap-8">
-        <RouterLink :to="`${LAB_BASE}/bill?order=${encodeURIComponent(o.id)}`" class="btn outline small has-icon" data-testid="lab-make-bill"><Icon name="edit_note" />{{ T.billFromOrder() }}</RouterLink>
+      <div v-if="primary || moreItems.some(Boolean)" class="q-acts">
+        <Button v-if="primary === 'sample'" icon="check_circle" :busy="busy" @click="setStatus('received')">{{ tr('Sample taken', 'নমুনা নিয়েছি') }}</Button>
+        <Button v-else-if="primary === 'receipt'" variant="outline" icon="list_alt" data-testid="lab-see-receipt" @click="receiptId = o.invoiceId ?? null">{{ T.seeReceipt() }}</Button>
+        <RouterLink v-else-if="primary === 'bill'" :to="billLink" class="btn outline has-icon" data-testid="lab-make-bill"><Icon name="edit_note" />{{ T.billFromOrder() }}</RouterLink>
+        <span class="grow" />
+        <RowMenu :items="moreItems" />
       </div>
       <AskPay v-if="askLab && labId" kind="lab" :biz-id="labId" ref-type="lab_order" :ref-id="o.id" purpose="lab" />
       <ErrorText :text="err" />
@@ -121,7 +130,7 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
     <Panel v-if="h && active" :title="tr('Sample from home', 'বাসা থেকে নমুনা')" icon="home_health">
       <template #actions><Tag :tone="homeTone">{{ homeStatusLab(h) }}</Tag></template>
       <IconLine v-if="h.address" icon="location_on">{{ h.address }}</IconLine>
-      <IconLine v-if="h.phone" icon="call"><a class="rxp-phone num" :href="`tel:${h.phone}`">{{ num(h.phone) }}</a></IconLine>
+      <IconLine v-if="h.phone" icon="call"><a class="rxp-phone num" :href="`tel:${h.phone}`">{{ h.phone }}</a></IconLine>
       <IconLine icon="schedule">{{ tr('Wants: ', 'চেয়েছেন: ') + wantedText(h) }}</IconLine>
       <IconLine v-if="h.status === 'confirmed'" icon="check_circle">{{ tr('You said: ', 'আপনি জানিয়েছেন: ') + visitText(h) }}</IconLine>
       <IconLine v-if="h.note" icon="info">{{ h.note }}</IconLine>

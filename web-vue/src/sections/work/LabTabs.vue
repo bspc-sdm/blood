@@ -18,6 +18,7 @@ const top = computed(() => (props.active === 'orders' ? 'orders' : props.active 
 
 <template>
   <div v-if="approved" class="col gap-8 work-tabs">
+    <div class="q-fixed even" data-testid="lab-tabs">
     <PillTabs
       :label="myBusinessTitle('lab')"
       :value="top"
@@ -28,6 +29,7 @@ const top = computed(() => (props.active === 'orders' ? 'orders' : props.active 
       ]"
       @change="(k) => nav(k === 'orders' ? '/work/lab/orders' : k === 'bill' ? '/work/lab/orders/bill' : '/work/lab/info')"
     />
+    </div>
     <PillTabs
       v-if="top === 'bill'"
       secondary

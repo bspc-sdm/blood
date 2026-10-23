@@ -80,14 +80,16 @@ test('বিস্তারিতের নিচে আটকানো বা�
   await bar('অ্যাম্বুলেন্স ডাকুন');
 });
 
-test('ফার্মেসির ট্যাব: অর্ডার / ওষুধ খোঁজা / দোকান (তথ্য · বিক্রি · স্টক · এনালাইটিক্স)', async ({ page }) => {
+test('ফার্মেসির ট্যাব: অর্ডার · বিক্রি · দোকান (স্টক · মাল কেনা · হিসাব · তথ্য); ওষুধ খোঁজা অর্ডারের চতুর্থ ভাগ', async ({ page }) => {
   await open(page, def('work', 'pharmacy'));
-  for (const t of ['অর্ডার', 'ওষুধ খোঁজা', 'দোকান']) await expect(page.getByRole('tab', { name: new RegExp(t) }).first()).toBeVisible();
+  for (const t of ['অর্ডার', 'বিক্রি', 'দোকান']) await expect(page.getByRole('tab', { name: new RegExp(t) }).first()).toBeVisible();
   await page.getByRole('tab', { name: /দোকান/ }).first().click();
-  await page.waitForURL(/\/work\/pharmacy\/shop/);
-  for (const t of ['তথ্য', 'বিক্রি', 'স্টক', 'এনালাইটিক্স']) await expect(page.getByRole('tab', { name: new RegExp(t) }).first()).toBeVisible();
-  await page.getByRole('tab', { name: /এনালাইটিক্স/ }).first().click();
+  await page.waitForURL(/\/work\/pharmacy\/shop\/stock/);
+  for (const t of ['স্টক', 'মাল কেনা', 'হিসাব', 'তথ্য']) await expect(page.getByRole('tab', { name: new RegExp(t) }).first()).toBeVisible();
+  await page.getByRole('tab', { name: /হিসাব/ }).first().click();
   await page.waitForURL(/\/shop\/analytics/);
+  await page.getByRole('tab', { name: /অর্ডার/ }).first().click();
+  await page.waitForURL(/\/work\/pharmacy\/orders/);
   await page.getByRole('tab', { name: /ওষুধ খোঁজা/ }).first().click();
   await page.waitForURL(/\/work\/pharmacy\/finds/);
   await expect(page.getByText('ওষুধ খোঁজার অনুরোধ').first()).toBeVisible();

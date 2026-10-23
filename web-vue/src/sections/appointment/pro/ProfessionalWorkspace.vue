@@ -1,17 +1,20 @@
 <script setup lang="ts">
-// পেশাদারের কাজের জায়গা (/work/pro/*): বুকিং (সিরিয়ালের সারি), রোগী, চেম্বার ও প্রোফাইল সেটআপ, বাসায় সেবার হিসাব —
-// অ্যাপের ChamberHubScreen / AppointmentsList(role = provider) / PatientsList / ChamberEditScreen / MyHomeCareCard।
-// কম্পিউটারে চেম্বারের সহকারী বা ডাক্তার ব্যবহার করবেন — তাই চওড়া টেবিল। প্রেসক্রিপশন, টিম, সহকারী: /work/rx।
+// পেশাদারের কাজের জায়গা (/work/pro/*) — অ্যাপের ChamberHubScreen / AppointmentsList(role = provider) / PatientsList / ChamberEditScreen /
+// MyHomeCareCard। আমার কাজ CONTRACT §২: ডাক্তারের এক সারি ট্যাব (DoctorNav, প্রেসক্রিপশনের পাতাতেও একই) —
+//   আজকের রোগী (/work/pro — আগের "আজকের সিরিয়াল" আর "আজকের ডেস্ক" এক সারিতে, TodayQueue) · বুকিং (/work/pro/bookings) ·
+//   রোগী (/work/rx; প্রেসক্রিপশন না লিখলে /work/pro/patients) · প্রেসক্রিপশন (/work/rx/list); সেটআপ, বাসায় সেবা … "আরও"-তে।
+// পুরোনো লিংক /work/pro?v=… (বুকিংয়ের ভাগ) → /work/pro/bookings?v=…। নার্স: বাসায় সেবা · সেটআপ (আগের মতো)।
 import { computed } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
-import { Button, EmptyState, Icon, PillTabs, SkeletonCards } from '@/ui/kit';
+import { Button, EmptyState, PillTabs, SkeletonCards } from '@/ui/kit';
+import Redirect from '@/shell/Redirect.vue';
 import Workspace from '@/shell/Workspace.vue';
 import { errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { tr } from '@/lib/i18n';
-import { useNav } from '@/lib/nav';
-import { badgeLabel, isChamberType, isHomeType, isProviderType, parseAppointment, parseProvider, useCatalog } from '../model';
+import { useNav, useSearchParams } from '@/lib/nav';
+import { badgeLabel, isChamberType, isProviderType, parseAppointment, parseProvider, useCatalog } from '../model';
 import { systemTag, writesRx } from '@/lib/practice';
 import { practitionerLabel } from '@/lib/titleGuard';
 import { useAreasReady } from '../shared';
@@ -19,10 +22,10 @@ import ChamberEdit from './ChamberEdit.vue';
 import BookingsTab from './BookingsTab.vue';
 import PatientsTab from './PatientsTab.vue';
 import HomeCareTab from './HomeCareTab.vue';
-import DoctorPanelCard from './DoctorPanelCard.vue';
+import DoctorNav from './DoctorNav.vue';
+import DoctorMore from './DoctorMore.vue';
+import TodayQueue from '../TodayQueue.vue';
 import DoctorPreview from './DoctorPreview.vue';
-import { T } from '../../invoices/text';
-import { invFeature } from '../../invoices/features';
 
 const props = withDefaults(defineProps<{ base?: string }>(), { base: '/work/pro' });
 useCatalog();
@@ -42,26 +45,22 @@ const nurse = computed(() => type.value === 'nurse');
 const chamberType = computed(() => isChamberType(type.value));
 const appts = useCall<{ items: any[] }>('my_appointments', {}, () => ({ enabled: s.ready && !s.guest && chamberType.value }));
 const mine = computed(() => (appts.data?.items ?? []).map(parseAppointment).filter((a) => a.role === 'provider'));
-const pending = computed(() => mine.value.filter((a) => a.status === 'pending').length);
 
 const sub = computed(() => (route.path.startsWith(props.base) ? route.path.slice(props.base.length).replace(/\/$/, '') : ''));
 const title = computed(() => (nurse.value ? tr('My home care', 'আমার বাসায় সেবা') : tr('My chamber', 'আমার চেম্বার')));
 
-// ট্যাব: ডাক্তার/পুষ্টিবিদ/ট্রেইনার — বুকিং, রোগী, সেটআপ (+ ডাক্তারের বাসায় সেবা); নার্স — বাসায় সেবা, সেটআপ
-const tabs = computed(() =>
-  nurse.value
-    ? [
-        { key: '', label: tr('Home care', 'বাসায় সেবা'), icon: 'home_health' },
-        { key: '/chamber', label: tr('Setup', 'সেটআপ'), icon: 'settings_outline' },
-      ]
-    : [
-        { key: '', label: tr('Bookings', 'বুকিং'), icon: 'event_outline', selectedIcon: 'event_filled', count: pending.value },
-        { key: '/patients', label: tr('Patients', 'রোগী'), icon: 'person_outline' },
-        { key: '/chamber', label: tr('Setup', 'সেটআপ'), icon: 'settings_outline' },
-        ...(isHomeType(type.value) ? [{ key: '/home', label: tr('Home care', 'বাসায় সেবা'), icon: 'home_health' }] : []),
-      ],
-);
-const cur = computed(() => (tabs.value.some((t) => t.key === sub.value) ? sub.value : ''));
+// নার্স: বাসায় সেবা, সেটআপ (নিজের দুই ট্যাব); বাকিরা DoctorNav-এর এক সারি
+const nurseTabs = computed(() => [
+  { key: '', label: tr('Home care', 'বাসায় সেবা'), icon: 'home_health' },
+  { key: '/chamber', label: tr('Setup', 'সেটআপ'), icon: 'settings_outline' },
+]);
+const [sp] = useSearchParams();
+const KNOWN = ['', '/bookings', '/patients', '/chamber', '/home'];
+const cur = computed(() => (nurse.value ? (sub.value === '/chamber' ? '/chamber' : '') : KNOWN.includes(sub.value) ? sub.value : ''));
+/** পুরোনো ?v= (বুকিংয়ের ভাগ) আজকের রোগীর পাতায় এলে বুকিংয়ে */
+const oldView = computed(() => (cur.value === '' && !nurse.value && sp.value.get('v') ? `${props.base}/bookings?v=${encodeURIComponent(sp.value.get('v')!)}` : null));
+const docTab = computed(() => (cur.value === '' ? 'today' : cur.value === '/bookings' ? 'bookings' : cur.value === '/patients' ? 'patients' : 'more'));
+const subPage = computed(() => (cur.value === '/chamber' ? tr('Setup', 'সেটআপ') : cur.value === '/home' ? tr('Home care', 'বাসায় সেবা') : ''));
 const go = (k: string) => nav(props.base + k);
 const apptError = computed(() => (appts.error ? errorText(appts.error) : null));
 function chamberSaved() {
@@ -91,23 +90,28 @@ function chamberSaved() {
         <span class="t-body-m muted">{{ [provider?.name, practitionerLabel(provider ?? { type, system: s.me?.badge?.system }) ?? badgeLabel(type), systemTag(type, provider?.system ?? s.me?.badge?.system)].filter(Boolean).join(' · ') }}</span>
       </div>
     </template>
-    <template v-if="writesRx(type)" #actions>
-      <RouterLink class="btn tonal has-icon" to="/work/rx"><Icon name="edit_note" />{{ tr('Write a prescription', 'প্রেসক্রিপশন লিখুন') }}</RouterLink>
-      <RouterLink v-if="invFeature('inv_chamber')" class="btn outline has-icon" to="/work/rx/desk"><Icon name="event_outline" />{{ T.deskTitle() }}</RouterLink>
-    </template>
-    <!-- "রোগীরা আপনাকে যেভাবে দেখেন" + আজকের চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" (বুকিংয়ের ওপরে) -->
-    <DoctorPreview v-if="!nurse && cur === ''" :fallback-card="pm.data?.card ?? pm.data?.provider ?? null" />
-    <div class="appt-ws-tabs">
-      <PillTabs :tabs="tabs" :value="cur" :label="title" @change="go" />
-    </div>
+    <template v-if="!nurse" #actions><DoctorMore :type="type" /></template>
     <template v-if="nurse">
+      <div class="appt-ws-tabs">
+        <PillTabs :tabs="nurseTabs" :value="cur" :label="title" @change="go" />
+      </div>
       <ChamberEdit v-if="cur === '/chamber'" :type="type" @saved="go('')" />
       <HomeCareTab v-else :on-setup="() => go('/chamber')" />
     </template>
-    <PatientsTab v-else-if="cur === '/patients'" :list="mine" :loading="appts.isLoading" :error="apptError" />
-    <ChamberEdit v-else-if="cur === '/chamber'" :type="type" @saved="chamberSaved" />
-    <HomeCareTab v-else-if="cur === '/home'" :on-setup="() => go('/chamber')" />
-    <BookingsTab v-else :list="mine" :loading="appts.isLoading" :error="apptError" :reload="() => appts.refetch()" :has-chamber="!!provider?.chambers.length" :on-setup="() => go('/chamber')" />
-    <DoctorPanelCard v-if="type === 'doctor'" />
+    <Redirect v-else-if="oldView" :to="oldView" />
+    <!-- প্রেসক্রিপশন লেখেন: রোগীর একটাই তালিকা /work/rx -->
+    <Redirect v-else-if="cur === '/patients' && writesRx(type)" to="/work/rx" />
+    <template v-else>
+      <DoctorNav :type="type" :active="docTab" :page="subPage" />
+      <PatientsTab v-if="cur === '/patients'" :list="mine" :loading="appts.isLoading" :error="apptError" />
+      <ChamberEdit v-else-if="cur === '/chamber'" :type="type" @saved="chamberSaved" />
+      <HomeCareTab v-else-if="cur === '/home'" :on-setup="() => go('/chamber')" />
+      <BookingsTab v-else-if="cur === '/bookings'" :list="mine" :loading="appts.isLoading" :error="apptError" :reload="() => appts.refetch()" :has-chamber="!!provider?.chambers.length" :on-setup="() => go('/chamber')" />
+      <template v-else>
+        <TodayQueue :doctor-uid="null" :can-write="writesRx(type)" />
+        <!-- "রোগীরা আপনাকে যেভাবে দেখেন" + আজকের চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" — কাজের নিচে -->
+        <DoctorPreview :fallback-card="pm.data?.card ?? pm.data?.provider ?? null" />
+      </template>
+    </template>
   </Workspace>
 </template>

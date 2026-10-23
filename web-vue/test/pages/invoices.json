@@ -247,7 +247,7 @@
  },
  {
   "name": "chamber-desk",
-  "path": "/work/rx/desk",
+  "path": "/work/pro",
   "test": {
    "user": {
     "uid": "u-work",
@@ -267,7 +267,7 @@
  },
  {
   "name": "chamber-desk-assistant",
-  "path": "/work/rx/desk?doctor=doc1",
+  "path": "/work/rx?doctor=doc1",
   "test": {
    "user": {
     "uid": "u-work",

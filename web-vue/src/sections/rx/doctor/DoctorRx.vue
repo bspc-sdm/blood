@@ -7,8 +7,10 @@
 //   /work/rx/view/:id      একটা প্রেসক্রিপশন: কাগজ, ছাপা, বাতিল
 //   /work/rx/reviews       রিপোর্ট দেখার অনুরোধ (সহকারী: টাকা মেলানো)
 //   /work/rx/team          সহকারী (শুধু ডাক্তার)
-//   /work/rx/desk          চেম্বারের ডেস্ক: আজকের সিরিয়াল, চেক-ইন, সরাসরি আসা রোগী, ফি → রসিদ, আজকের আদায় (ডাক্তার ও সহকারী)
+//   /work/rx/desk          পুরোনো ঠিকানা → "আজকের রোগী" (ডাক্তার /work/pro, সহকারী /work/rx)
 // সহকারী: ?doctor=<uid> — কোন ডাক্তারের হয়ে; প্রতিটা কাজে doctorUid হিসেবে যায়।
+// আমার কাজ CONTRACT §২: ডাক্তার এখানেও "আমার চেম্বার"-এর একই ট্যাব (DoctorNav: আজকের রোগী · বুকিং · রোগী · প্রেসক্রিপশন, বাকিটা "আরও")।
+// সহকারী: আজকের রোগী (/work/rx — ডাক্তারের একই সারি, প্রেসক্রিপশন লেখা ছাড়া) · রোগী (/work/rx/patients) · টাকা মেলানো (/work/rx/reviews)।
 import { computed, defineAsyncComponent } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { Button, EmptyState, ErrorText, PillTabs, Select, SkeletonCards } from '@/ui/kit';
@@ -18,6 +20,10 @@ import { useCall } from '@/lib/query';
 import { tr } from '@/lib/i18n';
 import { matchPath, useNav, useSearchParams } from '@/lib/nav';
 import NotFound from '@/pages/NotFound.vue';
+import Redirect from '@/shell/Redirect.vue';
+import DoctorNav from '../../appointment/pro/DoctorNav.vue';
+import DoctorMore from '../../appointment/pro/DoctorMore.vue';
+import type { DocTab } from '../../appointment/pro/doctorNav';
 import type { Actor, RxMe } from './model';
 import PatientsPage from './PatientsPage.vue';
 import WritePage from './WritePage.vue';
@@ -26,20 +32,18 @@ import RxViewPage from './RxViewPage.vue';
 import ReviewsPage from './ReviewsPage.vue';
 import TeamPage from './TeamPage.vue';
 import OnlyDoctor from './OnlyDoctor.vue';
-import { T } from '../../invoices/text';
-import { invFeature } from '../../invoices/features';
 import { newTypeLabel, rxKindOf, systemTag, writesRx } from '@/lib/practice';
 import { practitionerLabel } from '@/lib/titleGuard';
 
 const DoctorPreview = defineAsyncComponent(() => import('../../appointment/pro/DoctorPreview.vue'));
-const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
+const TodayQueue = defineAsyncComponent(() => import('../../appointment/TodayQueue.vue'));
 
 const BASE = '/work/rx';
 const route = useRoute();
 const nav = useNav();
 const [sp] = useSearchParams();
 const s = useSession();
-const title = computed(() => tr('Prescriptions', 'প্রেসক্রিপশন'));
+const title = computed(() => (isDoctor.value && !sp.value.get('doctor') ? tr('My chamber', 'আমার চেম্বার') : tr('Prescriptions', 'প্রেসক্রিপশন')));
 // ডাক্তার; ফিজিওথেরাপিস্ট/সাইকোলজিস্ট (সুইচ চালু থাকলে) — নিজের ধরনের প্রেসক্রিপশন (lib/practice.ts rxKind)
 const isDoctor = computed(() => writesRx(s.work.professional));
 const me = useCall<RxMe>('rx_me', {}, () => ({ enabled: s.ready && !s.guest && isDoctor.value, staleTime: 5 * 60_000 }));
@@ -65,7 +69,6 @@ const kind = computed(() => rxKindOf(prof.value, me.data?.system ?? s.me?.badge?
 const headTag = computed(
   () => practitionerLabel({ type: prof.value, system: me.data?.system ?? s.me?.badge?.system, typeLabel: me.data?.typeLabel, typeLabelEn: me.data?.typeLabelEn }) ?? newTypeLabel(prof.value) ?? systemTag(prof.value, me.data?.system ?? s.me?.badge?.system),
 );
-const labsOn = computed(() => kind.value === 'full' || kind.value === 'free');
 /** ?doctor= রেখে অন্য পাতায় */
 const link = (path: string, extra: Record<string, string> = {}) => {
   const q = new URLSearchParams(extra);
@@ -76,34 +79,27 @@ const link = (path: string, extra: Record<string, string> = {}) => {
 };
 const sub = computed(() => (route.path.startsWith(BASE) ? route.path.slice(BASE.length).replace(/\/$/, '') : ''));
 const m = (p: string) => matchPath({ path: p, end: true }, sub.value || '/');
-const tabs = computed(() =>
-  doctor.value
-    ? [
-        { key: '', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
-        { key: '/write', label: tr('New prescription', 'নতুন প্রেসক্রিপশন'), icon: 'edit_note' },
-        { key: '/list', label: tr('Prescriptions', 'প্রেসক্রিপশন'), icon: 'medication' },
-        ...(labsOn.value ? [{ key: '/reviews', label: tr('Reports', 'রিপোর্ট'), icon: 'list_alt' }] : []),
-        { key: '/team', label: tr('Assistants', 'সহকারী'), icon: 'group_round' },
-        ...(invFeature('inv_chamber') ? [{ key: '/desk', label: T.desk(), icon: 'event_outline' }] : []),
-      ]
-    : [
-        { key: '', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
-        ...(invFeature('inv_chamber') ? [{ key: '/desk', label: T.desk(), icon: 'event_outline' }] : []),
-        { key: '/reviews', label: tr('Payments', 'টাকা মেলানো'), icon: 'payments' },
-      ],
-);
-const cur = computed(() => (m('/view/:id') ? (doctor.value ? '/list' : '') : tabs.value.some((t) => t.key === sub.value) ? sub.value : ''));
+// সহকারীর ট্যাব (ডাক্তার DoctorNav)
+const tabs = computed(() => [
+  { key: '', label: tr("Today's patients", 'আজকের রোগী'), icon: 'event_outline', selectedIcon: 'event_filled' }, // bn-ok
+  { key: '/patients', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
+  { key: '/reviews', label: tr('Payments', 'টাকা মেলানো'), icon: 'payments' },
+]);
+const cur = computed(() => (tabs.value.some((t) => t.key === sub.value) ? sub.value : ''));
 const page = computed<{ k: string; id?: string }>(() => {
   const view = m('/view/:id');
-  if (!sub.value || m('/')) return { k: 'patients' };
+  if (!sub.value || m('/')) return { k: doctor.value ? 'patients' : 'today' };
+  if (m('/patients')) return { k: 'patients' };
   if (m('/write')) return { k: doctor.value ? 'write' : 'only' };
   if (m('/list')) return { k: doctor.value ? 'list' : 'only' };
   if (view) return doctor.value ? { k: 'view', id: view.params.id ?? '' } : { k: 'only' };
   if (m('/reviews')) return { k: 'reviews' };
   if (m('/team')) return { k: doctor.value ? 'team' : 'only' };
-  if (m('/desk') && invFeature('inv_chamber')) return { k: 'desk' };
+  if (m('/desk')) return { k: 'desk' };
   return { k: 'none' };
 });
+const docTab = computed<DocTab>(() => (page.value.k === 'patients' ? 'patients' : ['write', 'list', 'view'].includes(page.value.k) ? 'rx' : 'more'));
+const subPage = computed(() => (page.value.k === 'reviews' ? tr('Reports', 'রিপোর্ট') : page.value.k === 'team' ? tr('Assistants', 'সহকারী') : ''));
 // কার হয়ে কাজ: নিজে (ডাক্তার হলে) আর যাঁদের সহকারী
 const options = computed(() => [
   ...(isDoctor.value ? [{ value: '', label: tr('Myself (doctor)', 'নিজে (ডাক্তার)') }] : []),
@@ -143,23 +139,29 @@ const pickWho = (v: string) => nav(BASE + (v ? `?doctor=${encodeURIComponent(v)}
         <span class="t-body-m muted">{{ whoLine }}</span>
       </div>
     </template>
-    <template v-if="options.length > 1" #actions>
-      <div class="rxd-who">
+    <template v-if="options.length > 1 || doctor" #actions>
+      <div v-if="options.length > 1" class="rxd-who">
         <Select :aria-label="tr('Working for', 'কার হয়ে কাজ')" :model-value="selected" :options="options" @update:model-value="pickWho" />
       </div>
+      <DoctorMore v-if="doctor" :type="prof" />
     </template>
-    <!-- সহকারী: ডাক্তারের "রোগীরা যেভাবে দেখেন" আর অনুমতির চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" -->
-    <DoctorPreview v-if="actor.role === 'assistant' && (page.k === 'patients' || page.k === 'desk')" :key="actor.doctorUid ?? ''" :doctor-uid="actor.doctorUid" />
-    <div class="rxd-tabs">
+    <DoctorNav v-if="doctor" :type="prof" :active="docTab" :page="subPage" />
+    <div v-else class="q-fixed">
       <PillTabs :tabs="tabs" :value="cur" :label="title" @change="(k) => nav(link(k))" />
     </div>
-    <PatientsPage v-if="page.k === 'patients'" :actor="actor" :link="link" />
+    <!-- পুরোনো "আজকের ডেস্ক" → আজকের রোগী -->
+    <Redirect v-if="page.k === 'desk'" :to="doctor ? '/work/pro' : link('')" />
+    <template v-else-if="page.k === 'today'">
+      <TodayQueue :doctor-uid="actor.doctorUid" :can-write="false" />
+      <!-- সহকারী: ডাক্তারের "রোগীরা যেভাবে দেখেন" আর অনুমতির চেম্বারে "আজ সিরিয়াল চলছে / আজ বন্ধ" — কাজের নিচে -->
+      <DoctorPreview :key="actor.doctorUid ?? ''" :doctor-uid="actor.doctorUid" />
+    </template>
+    <PatientsPage v-else-if="page.k === 'patients'" :actor="actor" :link="link" />
     <WritePage v-else-if="page.k === 'write'" :kind="kind" :head-tag="headTag" :actor="actor" :chambers="me.data?.chambers ?? []" :degrees="me.data?.degrees ?? ''" :link="link" />
     <RxListPage v-else-if="page.k === 'list'" :link="link" />
     <RxViewPage v-else-if="page.k === 'view'" :id="page.id!" :link="link" />
     <ReviewsPage v-else-if="page.k === 'reviews'" :actor="actor" :link="link" />
     <TeamPage v-else-if="page.k === 'team'" />
-    <ChamberDesk v-else-if="page.k === 'desk'" :doctor-uid="actor.doctorUid" />
     <OnlyDoctor v-else :link="link" />
   </Workspace>
 </template>

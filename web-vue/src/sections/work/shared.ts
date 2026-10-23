@@ -201,10 +201,12 @@ export const sentForApproval = (kind: Kind) =>
 //   পুরোনো হিসাব-খাতার লিংক (/work/pharmacy/orders/stock|buy|sales|books) নতুন জায়গায় চলে যায় (rx/partner/pharmacy.tsx)।
 // প্যাথলজি: "অনুরোধ" (/work/lab/orders) · "ল্যাব" (/work/lab/info, পরীক্ষা ও দাম, স্বাভাবিক মাত্রা)
 // পুরোনো লিংক (/work/pharmacy, /work/lab, …/orders/online, নোটিফিকেশন) আগের মতোই খোলে — index.tsx।
-export type PharmTab = 'orders' | 'finds' | 'info' | 'sales' | 'invoices' | 'stock' | 'analytics';
-export const PHARM_SHOP_TABS: PharmTab[] = ['info', 'sales', 'invoices', 'stock', 'analytics'];
-/** দোকানের ভেতরের ভাগের ঠিকানা */
-export const pharmTabPath = (k: PharmTab) => (k === 'orders' ? '/work/pharmacy/orders' : k === 'finds' ? '/work/pharmacy/finds' : k === 'info' ? '/work/pharmacy/shop' : `/work/pharmacy/shop/${k}`);
+export type PharmTab = 'orders' | 'finds' | 'info' | 'sales' | 'invoices' | 'stock' | 'buy' | 'analytics';
+/** উপরের তিন ট্যাবের কোনটায় (অর্ডার · বিক্রি · দোকান) */
+export const pharmTop = (k: PharmTab): 'orders' | 'sales' | 'shop' => (k === 'orders' || k === 'finds' ? 'orders' : k === 'sales' || k === 'invoices' ? 'sales' : 'shop');
+/** ট্যাবের ঠিকানা (বিক্রি = কাউন্টার, হোম থেকে এক চাপে: /work/pharmacy/shop/sales) */
+export const pharmTabPath = (k: PharmTab) =>
+  k === 'orders' ? '/work/pharmacy/orders' : k === 'finds' ? '/work/pharmacy/finds' : k === 'info' ? '/work/pharmacy/shop' : k === 'buy' ? '/work/pharmacy/shop/stock?v=buy' : `/work/pharmacy/shop/${k}`;
 
 /** "ওষুধ খোঁজা"-র সংখ্যা: উত্তর না দেওয়া খোলা অনুরোধ (চালু থাকলে) */
 export function useUnansweredFinds(enabled: MaybeRefOrGetter<boolean>) {

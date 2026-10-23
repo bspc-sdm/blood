@@ -23,5 +23,9 @@ async function change(e: Event) {
 </script>
 
 <template>
-  <input type="checkbox" role="switch" class="switch" :checked="i.inStock" :disabled="busy" :aria-label="`${i.name}: ${tr('In stock', 'স্টকে আছে')}`" @change="change" />
+  <!-- সুইচের পাশে দেখা যায় এমন লেখা (আমার কাজ CONTRACT §২) -->
+  <label class="row gap-6 books-stock-sw">
+    <input type="checkbox" role="switch" class="switch" :checked="i.inStock" :disabled="busy" :aria-label="`${i.name}: ${tr('In stock', 'স্টকে আছে')}`" @change="change" />
+    <span class="t-body-s">{{ i.inStock ? tr('In stock', 'স্টকে আছে') : tr('Out of stock', 'স্টকে নেই') }}</span>
+  </label>
 </template>

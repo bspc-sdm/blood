@@ -1,5 +1,5 @@
 // ডাক্তার ও প্রেসক্রিপশন (গাইড rx.json R-01…R-38): তালিকা, বুকিং, সেটআপ, রোগী-পাতা, সহকারী, রিপোর্ট দেখানো, ফার্মেসি/প্যাথলজির দিক, যাচাই
-import { pickQueueItem, tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow, rxListAll } from '../lib.mjs';
+import { pickQueueItem, tap, see, go, settle, dhakaISO, logout, bookBtn, pharmacyWork, labWorkTab, orderRow, rowAct, doctorMore, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { pickDistrict } from './02-blood.mjs';
 import { adminLogin } from './00-seed.mjs';
@@ -10,15 +10,16 @@ async function area(page) {
   const choose = page.getByRole('button', { name: /এলাকা বেছে নিন/ }).first();
   if (await choose.count()) { await choose.click(); await pickDistrict(page); }
 }
+/** প্রেসক্রিপশনের পাতা — ডাক্তারের কম ব্যবহারের পাতা (রিপোর্ট, সহকারী) "আরও"-তে (আমার কাজ CONTRACT §২) */
 async function rxWork(page, tab) {
-  await go(page, '/work');
-  await page.locator('a, .card').filter({ hasText: 'প্রেসক্রিপশন' }).filter({ hasText: /রোগী|সহকারী/ }).first().click();
+  await go(page, '/work/rx');
   await settle(page);
-  if (tab) await tap(page, tab, { role: 'tab', exact: true });
+  if (!tab) return;
+  if (await page.getByRole('tab', { name: tab, exact: true }).count()) await tap(page, tab, { role: 'tab', exact: true });
+  else await doctorMore(page, tab);
 }
 async function chamber(page, tab) {
-  await go(page, '/work');
-  await tap(page, 'আমার চেম্বার');
+  await go(page, '/work/pro');
   if (tab) await tap(page, tab, { role: 'tab' });
 }
 async function shop(page, tab) {
@@ -151,7 +152,7 @@ export async function run(J) {
     await tap(page, /^চলছে/, { role: 'tab' });
     await pickQueueItem(page, 'ডেমো রোগী নাসিমা বেগম');
     const row = page.locator('tr, article').filter({ hasText: 'ডেমো রোগী নাসিমা বেগম' }).first();
-    await row.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' }).click();
+    await rowAct(page, row, 'অ্যাপয়েন্টমেন্ট বাতিল');
     const d = page.getByRole('dialog').last();
     await d.getByRole('button', { name: /বাতিল/ }).last().click();
     await settle(page, 600);
@@ -336,13 +337,14 @@ export async function run(J) {
   await J.sc('R-23 R-26', 'ফার্মেসি: দোকানে আসা প্রেসক্রিপশনে ওষুধ দেওয়া', async () => {
     page = await J.as('pharmacy');
     await shop(page);
-    await J.shot('আপনার কাছে পাঠানো', '‘ডেমো রোগী রহিম’ (দোকানে এসেছেন), নাসিমা বেগম ইত্যাদি — ‘খুলুন’, ‘তৈরি’, ‘পারব না’।', { full: true });
-    const card = page.locator('div, article').filter({ hasText: 'ডেমো রোগী রহিম' }).filter({ has: page.getByRole('button', { name: 'তৈরি' }) }).last();
-    if (await card.count()) {
-      await card.getByRole('button', { name: 'তৈরি' }).click();
+    await J.shot('আপনার কাছে পাঠানো', '‘ডেমো রোগী রহিম’ (দোকানে এসেছেন), নাসিমা বেগম ইত্যাদি — মূল বোতাম ‘খুলুন’, ‘আরও’-তে ‘তৈরি’ আর ‘পারব না’।', { full: true });
+    // দোকানে আসা: মূল বোতাম ‘খুলুন’, ‘তৈরি’ আর ‘পারব না’ "আরও"-তে (আমার কাজ CONTRACT §২)
+    const card = await orderRow(page, ['ডেমো রোগী রহিম', 'দোকানে এসেছেন'], { button: 'খুলুন' }).catch(() => null);
+    if (card) {
+      await rowAct(page, card, 'তৈরি');
       await settle(page, 500);
       // ‘তৈরি’ চাপলে সারি ‘চলছে’ ট্যাবে যায়
-      await (await orderRow(page, 'ডেমো রোগী রহিম', { button: 'খুলুন' })).getByRole('button', { name: 'খুলুন' }).first().click();
+      await rowAct(page, await orderRow(page, 'ডেমো রোগী রহিম', { button: 'খুলুন' }), 'খুলুন');
       await settle(page);
       await page.getByLabel('Comet: কয়টা দিলেন').fill('30').catch(() => {});
       await page.getByLabel('Bislol: কয়টা দিলেন').fill('30').catch(() => {});
@@ -360,7 +362,7 @@ export async function run(J) {
   await J.sc('R-24', 'ফার্মেসি: অনলাইন অর্ডার দিতে না পারা', async () => {
     await shop(page, 'অনলাইন অর্ডার');
     const row = await orderRow(page, 'ডেমো রোগী আব্দুল করিম', { button: 'পারব না' });
-    await row.getByRole('button', { name: 'পারব না' }).click();
+    await rowAct(page, row, 'পারব না');
     const d = page.getByRole('dialog').last();
     await J.shot('ওষুধ দিতে পারবেন না?', 'কারণ ‘ওষুধ নেই’।');
     await d.getByRole('button', { name: 'পারব না' }).click();

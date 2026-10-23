@@ -1,6 +1,6 @@
 // বাকি দৃশ্যগুলো (আগের যাত্রার পরে যেগুলো করা যায়): দোকানের হিসাব-খাতা, প্যাথলজির দাম আর বাসা থেকে নমুনা,
 // অ্যাম্বুলেন্সের জায়গা আর মনে করানো, প্যাথলজির রিপোর্ট, ব্যাজ সংশোধন/বাতিল, চেম্বারের গড় সময়, আপিল
-import { tap, see, has, go, settle, logout, pharmacyWork, labWorkTab, orderRow, posPicker, posNoPrint, posSave, rxListAll } from '../lib.mjs';
+import { tap, see, has, go, settle, logout, pharmacyWork, labWorkTab, orderRow, rowAct, posPicker, posNoPrint, posSave, rxListAll } from '../lib.mjs';
 import { BASE } from '../stack.mjs';
 import { adminLogin } from './00-seed.mjs';
 
@@ -74,7 +74,7 @@ export async function run(J) {
     await page.getByRole('button', { name: 'সেভ করুন' }).click();
     await see(page, 'সেভ হয়েছে — স্টক বেড়েছে');
     await J.shot('কেনা সেভ হলো', '‘সেভ হয়েছে — স্টক বেড়েছে’; ‘আগের কেনা’-তে ওপরে ডেমো বেক্সিমকো ডিপো ৳৪,১৮০।', { full: true });
-    await tap(page, 'পণ্য ও স্টক', { role: 'tab' });
+    await tap(page, 'স্টক', { role: 'tab', exact: true });
     await J.shot('গড় কেনা দাম', 'Cef-3: ১০৪ পিস, কেনা ৳৩৩.৯২; Montene ৬৮ পিস; দুটোই আর কম স্টক নয়।', { full: true });
   });
 
@@ -85,7 +85,7 @@ export async function run(J) {
     await J.shot('এই কেনা মুছবেন?', '‘পরিমাণগুলো স্টক থেকে বাদ যাবে।’');
     await d.getByRole('button', { name: 'মুছুন' }).click();
     await settle(page, 500);
-    await tap(page, 'পণ্য ও স্টক', { role: 'tab' });
+    await tap(page, 'স্টক', { role: 'tab', exact: true });
     await J.shot('মোছার পর স্টক', 'Cef-3 আবার ৪ পিস, Montene ৮ পিস।', { full: true });
   });
 
@@ -260,7 +260,8 @@ export async function run(J) {
     page = await J.as('lab');
     await labWork(page, 'পরীক্ষার অনুরোধ');
     const row = await orderRow(page, ['DEMXRXB333', 'CBC'], { button: 'রিপোর্ট দিন' });
-    await row.getByRole('button', { name: 'রিপোর্ট দিন' }).click();
+    // ডেস্কটপে বাছলেই ডানে রিপোর্টের ঘর খোলে; ফোনে ‘রিপোর্ট দিন’ (নমুনা নেওয়া বাকি থাকলে "আরও"-তে)
+    if (!(await page.getByRole('button', { name: 'রিপোর্ট পাঠান' }).count())) await rowAct(page, row, 'রিপোর্ট দিন');
     await settle(page);
     await page.getByLabel(/^Haemoglobin.*: ফল$/).first().fill('12.1');
     await page.getByLabel(/^Total WBC count.*: ফল$/).first().fill('12.5');

@@ -649,7 +649,7 @@
   ]
  },
  {
-  "name": "pro-bookings",
+  "name": "pro-today",
   "path": "/work/pro",
   "test": {
    "lang": "bn",
@@ -675,8 +675,34 @@
   "full": true
  },
  {
+  "name": "pro-bookings",
+  "path": "/work/pro/bookings",
+  "test": {
+   "lang": "bn",
+   "theme": "light",
+   "user": {
+    "uid": "u1",
+    "email": "doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01711000999",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "filterArea": {
+    "district": "ময়মনসিংহ",
+    "upazilaId": null,
+    "unionId": null
+   }
+  },
+  "full": true
+ },
+ {
   "name": "pro-bookings-dark",
-  "path": "/work/pro",
+  "path": "/work/pro/bookings",
   "test": {
    "lang": "bn",
    "theme": "dark",
@@ -704,7 +730,7 @@
  },
  {
   "name": "pro-waiting",
-  "path": "/work/pro?v=waiting",
+  "path": "/work/pro/bookings?v=waiting",
   "test": {
    "lang": "bn",
    "theme": "light",
@@ -730,7 +756,7 @@
  },
  {
   "name": "pro-confirm",
-  "path": "/work/pro?v=waiting",
+  "path": "/work/pro/bookings?v=waiting",
   "test": {
    "lang": "bn",
    "theme": "light",
@@ -758,7 +784,7 @@
  },
  {
   "name": "pro-upcoming",
-  "path": "/work/pro?v=upcoming",
+  "path": "/work/pro/bookings?v=upcoming",
   "test": {
    "lang": "bn",
    "theme": "light",
@@ -892,7 +918,7 @@
  },
  {
   "name": "pro-en",
-  "path": "/work/pro",
+  "path": "/work/pro/bookings",
   "test": {
    "lang": "en",
    "theme": "light",

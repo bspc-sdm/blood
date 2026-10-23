@@ -81,8 +81,7 @@ export async function run(J) {
 
   await J.sc('J-64', 'ডাক্তার রুমার নেওয়া অনুরোধটা রহিমের নামে দেখেন', async () => {
     page = await J.as('doctor');
-    await go(page, '/work');
-    await tap(page, 'আমার চেম্বার');
+    await go(page, '/work/pro');
     await tap(page, 'বুকিং', { role: 'tab' });
     await tap(page, /^নতুন/, { role: 'tab' });
     await pickQueueItem(page, 'রুমা রহিমের');

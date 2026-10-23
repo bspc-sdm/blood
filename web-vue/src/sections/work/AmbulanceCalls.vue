@@ -6,7 +6,7 @@
 // ভাড়া (২.৩০.০): গন্তব্য, ধরন, আনুমানিক ভাড়া — "আসছি — ৳X" (X বদলানো যায়, রোগীর সর্বোচ্চের বেশি নয়) = প্রস্তাব;
 // তারপর "রোগীর উত্তরের অপেক্ষা…"; রোগী "রাজি" চাপলে তবেই "আপনি যাচ্ছেন" (ঠিক হওয়া ভাড়াসহ)।
 import { computed, ref } from 'vue';
-import { Button, ErrorText, Icon, IconLine, InfoText, Tag } from '@/ui/kit';
+import { Button, ErrorText, Icon, IconLine, InfoText, RowMenu, Tag } from '@/ui/kit';
 import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
@@ -19,7 +19,7 @@ import { mapLink, type DriverReq } from './ambcalls';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
 import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
-import { useMedia } from '@/shell/chrome';
+import { useTwoPane } from '@/shell/chrome';
 
 const props = defineProps<{ names: Record<string, string>; onChanged: () => void }>();
 // পাতা খোলা থাকলে ৫ সেকেন্ড পরপর (পেছনের ট্যাবে ব্রাউজার নিজেই থামায়)
@@ -39,8 +39,8 @@ const segOf = (r: DriverReq): QSeg => (r.status === 'open' ? 'new' : 'active');
 const counts = computed(() => ({ new: all.value.filter((r) => segOf(r) === 'new').length, active: all.value.filter((r) => segOf(r) === 'active').length, done: finished.value.length }));
 const seg = computed<QSeg>(() => picked.value ?? (counts.value.active ? 'active' : 'new'));
 const items = computed(() => (seg.value === 'done' ? finished.value : all.value.filter((r) => segOf(r) === seg.value)));
-// ডেস্কটপে (৯০০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা ডাক (না বাছলে প্রথমটা)
-const md = useMedia('(min-width: 900px)');
+// ডেস্কটপে (৯৬০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা ডাক (না বাছলে প্রথমটা)
+const md = useTwoPane();
 const pickedId = ref<string | null>(null);
 const sel = computed(() => items.value.find((r) => r.id === pickedId.value) ?? items.value[0] ?? null);
 const cards = computed(() => (md.value ? (sel.value ? [sel.value] : []) : items.value));
@@ -87,11 +87,18 @@ async function pickReason(reason: string) {
 <template>
   <section class="col gap-8 amb-calls" :aria-label="tr('Calls', 'ডাক')">
     <h2 class="t-title-m row gap-8"><Icon name="notifications_active" />{{ tr('Calls', 'ডাক') }}</h2>
-    <QueueSegs :label="tr('Calls', 'ডাক')" :value="seg" :counts="counts" @change="(k) => (picked = k)" />
     <ErrorText :text="err" />
     <InfoText :text="info" />
-    <p v-if="q.data && !all.length && seg !== 'done'" class="t-body-s muted">{{ tr('When a patient nearby calls an ambulance, it shows here. Keep "Available now" on.', 'কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। "এখন খালি আছি" চালু রাখুন।') }}</p>
+    <!-- কোনো ডাক নেই (নতুন, চলমান বা এখানে শেষ করা): এক লাইন, ভাগের সারি নয় (আমার কাজ CONTRACT §২) -->
+    <div v-if="!q.data && !q.error" class="q-empty-line" data-testid="amb-calls-loading"><span class="spinner small" /><span class="t-body-m">{{ tr('Loading…', 'লোড হচ্ছে…') }}</span></div>
+    <div v-else-if="!all.length && !finished.length" class="q-empty-line" data-testid="amb-calls-empty">
+      <Icon name="notifications_active" />
+      <span class="t-body-m">{{ tr('No calls now — when a patient nearby calls, it shows here.', 'এখন কোনো ডাক নেই — কাছের রোগী ডাকলে এখানে আসবে।') }}</span><!-- bn-ok -->
+    </div>
+    <template v-else>
+    <QueueSegs :label="tr('Calls', 'ডাক')" :value="seg" :counts="counts" @change="(k) => (picked = k as QSeg)" />
     <p v-if="seg === 'done' && !finished.length" class="t-body-s muted">{{ tr('Trips you finish here show up in this list.', 'এখানে শেষ করা ট্রিপ এই তালিকায় থাকবে।') }}</p><!-- bn-ok -->
+    <p v-else-if="!items.length" class="t-body-s muted">{{ seg === 'new' ? tr('No new calls now.', 'এখন নতুন কোনো ডাক নেই।') : tr('No trip in progress.', 'এখন কোনো চলমান ট্রিপ নেই।') }}</p><!-- bn-ok -->
     <div :class="md && items.length ? 'q-md' : 'col gap-8'">
     <ul v-if="md && items.length" class="q-list" :aria-label="tr('Calls', 'ডাক')">
       <li v-for="r in items" :key="r.id">
@@ -128,11 +135,17 @@ async function pickReason(reason: string) {
         </div>
         <!-- রোগীর নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ -->
         <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" show-number />
-        <div class="row wrap gap-8">
-          <Button v-if="r.status === 'accepted'" :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))">{{ tr('Arrived', 'পৌঁছেছি') }}</Button>
-          <Button :busy="busy === r.id" :disabled="!!busy" @click="finish(r)">{{ tr('Finish', 'শেষ') }}</Button>
+        <!-- একটাই মূল বোতাম: পৌঁছেছি → শেষ; বাকিটা "আরও"-তে -->
+        <div class="q-acts">
+          <Button v-if="r.status === 'accepted'" icon="location_on" :busy="busy === r.id" :disabled="!!busy" data-testid="amb-arrived" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))">{{ tr('Arrived', 'পৌঁছেছি') }}</Button>
+          <Button v-else icon="check_circle" :busy="busy === r.id" :disabled="!!busy" data-testid="amb-finish" @click="finish(r)">{{ tr('Finish', 'শেষ') }}</Button>
           <span class="grow" />
-          <Button variant="danger-text" :disabled="!!busy" @click="cancel = r">{{ tr('Cancel', 'বাতিল') }}</Button>
+          <RowMenu
+            :items="[
+              r.status === 'accepted' && { label: tr('Finish', 'শেষ'), icon: 'check_circle', disabled: !!busy, testid: 'amb-finish', onClick: () => finish(r) },
+              { label: tr('Cancel', 'বাতিল'), icon: 'close', danger: true, disabled: !!busy, testid: 'amb-cancel', onClick: () => (cancel = r) },
+            ]"
+          />
         </div>
       </template>
       <div v-else-if="r.quote && r.myQuote" class="amb-quote-wait" data-testid="amb-quote-wait">
@@ -146,19 +159,20 @@ async function pickReason(reason: string) {
           <input class="input" inputmode="numeric" :value="quoteOf(r).text" maxlength="7" data-testid="amb-fare-input" @input="fares = { ...fares, [r.id]: ($event.target as HTMLInputElement).value }" />
         </label>
         <ErrorText v-if="quoteOf(r).over" :text="tr(`The patient's limit is ${taka(r.maxFare)} — you can't offer more.`, `রোগীর সর্বোচ্চ ${taka(r.maxFare)} — এর বেশি দেওয়া যায় না।`)" />
-        <div class="row gap-8">
+        <div class="q-acts">
           <Button icon="check_circle" class="grow" :busy="busy === r.id" :disabled="!!busy || !quoteOf(r).okFare" data-testid="amb-accept" @click="act(r, () => call('ambreq_accept', { id: r.id, fare: quoteOf(r).fare }), true)">
             {{ tr('Coming', 'আসছি') + (quoteOf(r).okFare ? ` — ${taka(quoteOf(r).fare)}` : '') }}
           </Button>
-          <Button variant="outline" :disabled="!!busy" @click="act(r, () => call('ambreq_decline', { id: r.id }))">{{ tr('Can\'t', 'পারব না') }}</Button>
+          <RowMenu :items="[{ label: tr('Can\'t', 'পারব না'), icon: 'close', danger: true, disabled: !!busy, testid: 'amb-decline', onClick: () => act(r, () => call('ambreq_decline', { id: r.id })) }]" />
         </div>
       </div>
-      <div v-else class="row gap-8">
+      <div v-else class="q-acts">
         <Button icon="check_circle" class="grow" :busy="busy === r.id" :disabled="!!busy" data-testid="amb-accept" @click="act(r, () => call('ambreq_accept', { id: r.id }), true)">{{ tr('Coming', 'আসছি') }}</Button>
-        <Button variant="outline" :disabled="!!busy" @click="act(r, () => call('ambreq_decline', { id: r.id }))">{{ tr('Can\'t', 'পারব না') }}</Button>
+        <RowMenu :items="[{ label: tr('Can\'t', 'পারব না'), icon: 'close', danger: true, disabled: !!busy, testid: 'amb-decline', onClick: () => act(r, () => call('ambreq_decline', { id: r.id })) }]" />
       </div>
     </article>
     </div>
+    </template>
     <ReasonDialog v-if="cancel" :title="tr('Why cancel?', 'কেন বাতিল করছেন?')" :reasons="DRIVER_REASONS()" :on-pick="pickReason" @close="cancel = null" />
   </section>
 </template>

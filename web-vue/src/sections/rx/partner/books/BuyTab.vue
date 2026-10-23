@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // ফার্মেসি — "মাল কেনা": কোন পণ্য কয়টা, প্রতি একক কেনা দাম, মেয়াদ → পরিমাণ বাড়ে, কেনা দাম গড় হয়। পাশে আগের কেনা।
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, ErrorText, IconButton, Loading, TextInput, inputValue, toast } from '@/ui/kit';
+import { Button, ConfirmDialog, ErrorText, Loading, TextInput, inputValue, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
@@ -90,7 +90,7 @@ async function del() {
             <label class="bk-cell"><span class="t-label-s muted">{{ tr('Expiry', 'মেয়াদ') }}</span>
               <input class="input" type="month" :value="l.expiry" @input="set(l.key, { expiry: inputValue($event) })" />
             </label>
-            <IconButton small icon="close" :label="tr('Remove', 'সরান') + ': ' + l.name" @click="lines = lines.filter((x) => x.key !== l.key)" />
+            <Button small variant="text" icon="close" :aria-label="tr('Remove', 'সরান') + ': ' + l.name" @click="lines = lines.filter((x) => x.key !== l.key)">{{ tr('Remove', 'সরান') }}</Button>
           </div>
         </div>
         <div class="row wrap gap-8">
@@ -112,7 +112,7 @@ async function del() {
             <div class="row">
               <span class="semi grow">{{ p.supplier || tr('Stock in', 'মাল কেনা') }}</span>
               <span class="num semi">{{ money(p.total) }}</span>
-              <IconButton small icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = p" />
+              <Button small variant="danger-text" icon="delete" @click="deleting = p">{{ tr('Delete', 'মুছুন') }}</Button>
             </div>
             <span class="t-body-s muted">{{ formatDayOf(p.at) }} · {{ p.lines.map((l) => `${l.name} ×${qtyText(l.qty)}`).join(', ') }}</span>
           </li>

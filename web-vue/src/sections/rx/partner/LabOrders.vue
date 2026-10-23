@@ -7,6 +7,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useCall } from '@/lib/query';
 import { matchPath } from '@/lib/nav';
+import { useTwoPane } from '@/shell/chrome';
 import { myBusinessTitle } from '../../work/shared';
 import LabTabs from '../../work/LabTabs.vue';
 import { usePartnerReady } from './common';
@@ -35,6 +36,8 @@ const bill = computed(() => invFeature('inv_lab') && !!m('/bill'));
 const invoices = computed(() => invFeature('inv_lab') && !!m('/invoices'));
 const detailId = computed(() => (ranges.value || prices.value || bill.value || invoices.value ? undefined : m('/:id')?.params.id));
 const s = useSession();
+// ডেস্কটপে (৯৬০px+) অনুরোধ খুললেও তালিকা বাঁয়ে থাকে (তালিকা-বিস্তারিত)
+const two = useTwoPane();
 const bizId = computed(() => (s.work.lab as { id?: string } | null)?.id ?? '');
 </script>
 
@@ -48,8 +51,8 @@ const bizId = computed(() => (s.work.lab as { id?: string } | null)?.id ?? '');
       <BizInvoiceList v-else-if="invoices && bizId" kind="lab" :biz-id="bizId" />
       <LabRanges v-else-if="ranges" />
       <LabPrices v-else-if="prices" />
-      <LabDetail v-else-if="detailId" :key="detailId" :id="detailId" :orders="orders.data?.items ?? null" :orders-loading="orders.isLoading" />
-      <LabList v-else :orders="orders" />
+      <LabDetail v-else-if="detailId && !two" :key="detailId" :id="detailId" :orders="orders.data?.items ?? null" :orders-loading="orders.isLoading" />
+      <LabList v-else :orders="orders" :detail-id="detailId ?? null" />
     </PartnerGate>
   </PartnerPage>
 </template>

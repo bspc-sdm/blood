@@ -9,7 +9,6 @@ import { findTarget, targetKey, targetSearch, type Actor, type RxPatient, type R
 import { usePatients, type Link } from './patients';
 import PatientsList from './PatientsList.vue';
 import HistoryPane from './HistoryPane.vue';
-import QueuePanel from '../../appointment/QueuePanel.vue';
 
 const props = defineProps<{ actor: Actor; link: Link }>();
 const nav = useNav();
@@ -26,11 +25,8 @@ function added(p: RxPatient) {
 </script>
 
 <template>
-  <!-- সহকারী: আজকের সিরিয়াল চালান (ডাক্তার নিজে "আমার চেম্বার › বুকিং"-এ) -->
-  <div v-if="!doctor" class="col gap-16">
-    <QueuePanel :doctor-uid="actor.doctorUid" />
-    <PatientsList :actor="actor" :query="q" :selected-key="null" :on-added="added" />
-  </div>
+  <!-- সহকারী: শুধু তালিকা (আজকের সিরিয়াল "আজকের রোগী" ট্যাবে — TodayQueue) -->
+  <PatientsList v-if="!doctor" :actor="actor" :query="q" :selected-key="null" :on-added="added" />
   <PatientsList v-else-if="!target" :actor="actor" :query="q" :selected-key="null" :on-open="select" :on-write="write" :on-added="added" />
   <HistoryPane v-else-if="!wide" :key="targetKey(target)" :target="target" :link="link" :wide="wide" @close="select(null)" @write="write(target!)" />
   <div v-else class="rxd-split">

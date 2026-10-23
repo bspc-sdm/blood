@@ -32,6 +32,20 @@ async function spy(page: Page, reply: Record<string, (b: any) => unknown> = {}):
   });
   return seen;
 }
+/** কার্ডের কাজ: মূল বোতাম হলে সেটা, নইলে "আরও" মেনু থেকে (আমার কাজ CONTRACT §২ — সারিতে একটাই মূল বোতাম) */
+async function cardAct(page: Page, cards: ReturnType<Page['getByTestId']>, testid: string) {
+  const n = await cards.count();
+  for (let i = 0; i < n; i++) {
+    const c = cards.nth(i);
+    if (await c.getByTestId(testid).count()) return c.getByTestId(testid).click();
+    if (!(await c.getByTestId('row-more').count())) continue;
+    await c.getByTestId('row-more').click();
+    const m = page.getByRole('menu').getByTestId(testid);
+    if (await m.count()) return m.click();
+    await page.keyboard.press('Escape');
+  }
+  throw new Error(`no ${testid}`);
+}
 const bodyOf = (seen: Seen, action: string) => seen.filter((x) => x.action === action).map((x) => x.body);
 /** window.print গোনা (পরীক্ষায় আসল প্রিন্টের জানালা নয়) */
 async function countPrints(page: Page) {
@@ -209,7 +223,7 @@ test.describe('ফার্মেসি', () => {
       rx_order_update: (b) => ({ ok: true, invoice: { ...SALE_INV(b).invoice, no: 'W-000203', lines: b.lines.map((l: any) => ({ ...l, amount: l.qty * l.price - l.disc })), fees: b.fees, total: 82, paid: 82 } }),
     });
     await open(page, owner('/work/pharmacy/orders?s=active'));
-    await page.getByTestId('order-delivered').first().click();
+    await cardAct(page, page.getByTestId('order-card'), 'order-delivered');
     const dlg = page.getByRole('dialog');
     await dlg.getByRole('combobox').fill('Napa');
     await dlg.getByRole('combobox').press('Enter');
@@ -228,6 +242,8 @@ test.describe('প্যাথলজি', () => {
     await countPrints(page);
     const seen = await spy(page, approvedLab);
     await open(page, owner('/work/lab/orders/lh1'));
+    // নমুনা নেওয়া বাকি: মূল বোতাম "নমুনা নিয়েছি", বিল "আরও"-তে
+    await page.getByTestId('row-more').first().click();
     await page.getByTestId('lab-make-bill').click();
     await expect(page).toHaveURL(/\/work\/lab\/orders\/bill\?order=lh1$/);
     await expect(page.locator('.inv-line')).toHaveCount(2);
@@ -260,14 +276,19 @@ test.describe('চেম্বারের ডেস্ক', () => {
     const errs = watchErrors(page);
     await countPrints(page);
     const seen = await spy(page);
+    // আমার কাজ CONTRACT §২: ডেস্ক আর আজকের সিরিয়াল এক "আজকের রোগী" (/work/pro); পুরোনো /work/rx/desk সেখানে যায়
     await open(page, doctor('/work/rx/desk'));
+    await page.waitForURL(/\/work\/pro$/);
     const rows = page.getByTestId('desk-row');
     await expect(rows).toHaveCount(5);
     await expect(rows.first()).toContainText('ফি নেওয়া হয়েছে');
-    await rows.nth(1).getByTestId('desk-checkin').click();
+    // এখন দেখা রোগী: মূল বোতাম "প্রেসক্রিপশন লিখুন"; এসেছেন আর ফি "আরও"-তে
+    await rows.nth(1).getByTestId('row-more').click();
+    await page.getByRole('menu').getByTestId('desk-checkin').click();
     await expect(rows.nth(1)).toContainText('উপস্থিত');
     expect(bodyOf(seen, 'chamber_checkin')[0]).toMatchObject({ appointmentId: 'q2' });
-    await rows.nth(1).getByTestId('desk-fee').click();
+    await rows.nth(1).getByTestId('row-more').click();
+    await page.getByRole('menu').getByTestId('desk-fee').click();
     await expect(page.getByTestId('fee-amount')).toHaveValue('700');
     await page.getByTestId('fee-save').click();
     await expect(page.getByRole('dialog').getByTestId('receipt')).toContainText('W-০০০৩০২');
@@ -286,6 +307,7 @@ test.describe('চেম্বারের ডেস্ক', () => {
   test('সহকারী: শুধু নিজের ২ ঘণ্টার মধ্যের রসিদ বাতিল করা যায়; দিনের শেষ আর CSV নেই; doctorUid যায়', async ({ page }) => {
     const seen = await spy(page);
     await open(page, doctor('/work/rx/desk?doctor=doc1'));
+    await page.waitForURL(/\/work\/rx\?doctor=doc1$/);
     const list = page.getByTestId('biz-invoices');
     await expect(page.getByTestId('biz-invoice')).toHaveCount(2);
     await expect(page.getByTestId('biz-invoice').nth(0).getByTestId('row-void')).toHaveCount(1);
@@ -410,8 +432,8 @@ test('বড় পর্দায় (১৪৪০) সারির আইক�
   await expect(page.locator('.ld-detail')).toBeHidden();
   await page.goto('/v/PH4K2M9QXA', { waitUntil: 'networkidle' });
   await small('[data-testid=verify-result] svg:not(.health-qr)', 2);
-  await open(page, doctor('/work/rx/desk'));
-  await small('[data-testid=chamber-desk] .rxp-panel-ic svg, [data-testid=desk-row] svg', 1);
+  await open(page, doctor('/work/pro'));
+  await small('[data-testid=today-queue] .btn svg', 1);
   await open(page, owner('/work/ambulance'));
   await small('[data-testid=amb-receipts] .rxp-panel-ic svg', 1);
 });

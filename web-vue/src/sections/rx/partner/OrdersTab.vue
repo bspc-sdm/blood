@@ -1,38 +1,36 @@
 <script setup lang="ts">
-// ফার্মেসি — "অর্ডার" ট্যাব (২.২৭.০, পারভেজ "দুটোই সাজাও"; অ্যাপের MyWorkTabs.kt-এর PharmacyOrdersTab):
-// উপরে "কোড দিয়ে প্রেসক্রিপশন খুলুন" (কোড লিখে/পেস্ট করে সাথে সাথে খোলে), তারপর নতুন · চলছে/তৈরি · শেষ (সংখ্যাসহ),
-// দোকানে আসা আর অনলাইন অর্ডার একই তালিকায় — প্রতিটায় পরিষ্কার লেখা "দোকানে এসেছেন" / "অনলাইন অর্ডার", নতুন আগে।
-// ভাগ সার্ভার ঠিক করে (rx_orders_pharmacy-এর seg, counts)। ?s=active|closed — নইলে "নতুন"।
+// ফার্মেসি — "অর্ডার" ট্যাব (আমার কাজ CONTRACT §২; আগে ২.২৭.০ "দুটোই সাজাও"):
+// "কোড দিয়ে প্রেসক্রিপশন খুলুন" (কোড লিখে/পেস্ট করে সাথে সাথে খোলে) — ফোনে উপরে, ডেস্কটপে ডান ভাগে;
+// স্থির ভাগ নতুন n · চলছে n · শেষ · ওষুধ খোঁজা n (খোঁজা /work/pharmacy/finds); দোকানে আসা আর অনলাইন অর্ডার একই তালিকায়,
+// প্রতিটায় একটাই মূল বোতাম (OrderCard)। ডেস্কটপে (৯৬০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে কোডের বাক্স, বাছা অর্ডার
+// আর খোলা প্রেসক্রিপশন। "রোগীরা আপনাকে যেভাবে দেখেন" তালিকার নিচে (কাজ আগে)।
+// ভাগ সার্ভার ঠিক করে (rx_orders_pharmacy-এর seg, counts)। ?s=active|done — নইলে "নতুন"।
 import { computed, ref } from 'vue';
-import { Button, ErrorText, Icon, SkeletonCards, Tag, cx } from '@/ui/kit';
+import { Button, ErrorText, Icon, SkeletonCards, Tag } from '@/ui/kit';
 import { errorText } from '@/lib/api';
 import { num, tr } from '@/lib/i18n';
-import { formatDateTime, timeAgo } from '@/lib/format';
+import { timeAgo } from '@/lib/format';
 import { useNav, useSearchParams } from '@/lib/nav';
-import { PHARM_SEGS, isOpenOrder, orderStatusShop, orderTone, pharmSegOf, segCounts, type PharmOrder, type PharmOrders, type PharmSeg } from './model';
+import { useTwoPane } from '@/shell/chrome';
+import { PHARM_SEGS, orderStatusShop, orderTone, pharmSegOf, segCounts, type PharmOrder, type PharmOrders, type PharmSeg } from './model';
 import { useOrderUpdate } from './online';
 import CodeBox from './CodeBox.vue';
 import BizPreview from '../../work/BizPreview.vue';
-import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
-import ModeTag from './ModeTag.vue';
+import PharmOrderSegs from './PharmOrderSegs.vue';
 import RxPanel from './RxPanel.vue';
+import OrderCard, { type OrderAct } from './OrderCard.vue';
 import AcceptDialog from './AcceptDialog.vue';
 import CancelOrderDialog from './CancelOrderDialog.vue';
-import ContactActions from '@/calls/ContactActions.vue';
-import { chatOn, openChatAt } from '@/chat/open';
 import DeliverDialog from '../../invoices/DeliverDialog.vue';
 import InvoiceByIdDialog from '../../invoices/InvoiceByIdDialog.vue';
-import { T } from '../../invoices/text';
-import { invFeature } from '../../invoices/features';
-import AskPay from '../../pay/AskPay.vue';
-import { payOn } from '../../pay/features';
 import { useSession } from '@/lib/session';
 
 const BASE = '/work/pharmacy/orders';
 const props = defineProps<{ code: string | null; orders: { data?: PharmOrders; isLoading: boolean; isFetching: boolean; error: Error | null; refetch: () => unknown } }>();
 const nav = useNav();
-const [sp, setSp] = useSearchParams();
+const [sp] = useSearchParams();
 const up = useOrderUpdate();
+const two = useTwoPane();
 const accepting = ref<PharmOrder | null>(null);
 const cancelling = ref<PharmOrder | null>(null);
 const delivering = ref<PharmOrder | null>(null);
@@ -42,31 +40,40 @@ const s = useSession();
 const pharmId = computed(() => String((s.work.pharmacy as { id?: string } | null)?.id ?? s.uid ?? ''));
 const items = computed(() => props.orders.data?.items ?? []);
 const counts = computed(() => segCounts(PHARM_SEGS, props.orders.data?.counts, pharmSegOf as (x: never) => PharmSeg, items.value));
-// ভাগ: নতুন / চলছে / শেষ (সেবার "আমার কাজ"-এর এক ছাঁচ, QueueSegs) — ভেতরে সার্ভারের new / active / closed; ?s=done বা ?s=closed = শেষ
+// ?s=done বা ?s=closed = শেষ
 const seg = computed<PharmSeg>(() => {
   const asked = sp.value.get('s');
   const k = (asked === 'done' ? 'closed' : asked) as PharmSeg | null;
   return k && PHARM_SEGS.includes(k) ? k : 'new';
 });
-const qseg = computed<QSeg>(() => (seg.value === 'closed' ? 'done' : seg.value));
+const qseg = computed(() => (seg.value === 'closed' ? 'done' : seg.value));
 const rows = computed(() => items.value.filter((o) => pharmSegOf(o) === seg.value).sort((a, c) => c.createdAt - a.createdAt));
 const keep = computed(() => (seg.value === 'new' ? '' : `?s=${qseg.value}`));
 const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
+// ডেস্কটপে বাছা অর্ডার: খোলা কোডেরটা, নইলে চাপা, নইলে প্রথমটা (বাছলে প্রেসক্রিপশন খোলে না — "খুলুন" চাপলে খোলে)
+const picked = ref<string | null>(null);
+const sel = computed(() => (props.code ? rows.value.find((o) => o.code === props.code) ?? null : rows.value.find((o) => o.id === picked.value) ?? rows.value[0] ?? null));
+function pick(o: PharmOrder) {
+  picked.value = o.id;
+  if (props.code && o.code !== props.code) nav(`${BASE}${keep.value}`);
+}
+function act(o: PharmOrder, k: OrderAct) {
+  if (k === 'open') open(o);
+  else if (k === 'ready') up.update(o, 'ready');
+  else if (k === 'out') up.update(o, 'out');
+  else if (k === 'accept') accepting.value = o;
+  else if (k === 'deliver') delivering.value = o;
+  else if (k === 'cancel') cancelling.value = o;
+  else if (k === 'receipt') receiptId.value = o.invoiceId ?? null;
+}
+const busyFor = (o: PharmOrder) => up.busyId.value === o.id;
 </script>
 
 <template>
-  <div class="rxp-codewrap">
-    <div class="col gap-16 rxp-codemain">
-      <BizPreview kind="pharmacy" />
-      <RxPanel v-if="code" :key="code" :code="code" @next="nav(`${BASE}${keep}`)" />
-
+  <div class="qd">
+    <div class="qd-list">
       <div class="row wrap gap-8">
-        <QueueSegs
-          :label="tr('Orders', 'অর্ডার')"
-          :value="qseg"
-          :counts="{ new: counts.new, active: counts.active, done: counts.closed }"
-          @change="(k) => setSp(k === 'new' ? {} : { s: k }, { replace: true })"
-        />
+        <PharmOrderSegs :value="qseg" :counts="counts" />
         <span class="grow" />
         <Button variant="text" small icon="refresh" :busy="orders.isFetching && !orders.isLoading" @click="orders.refetch()">{{ tr('Refresh', 'নতুন করে দেখুন') }}</Button>
       </div>
@@ -82,46 +89,24 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
         <span v-if="seg === 'new'" class="t-body-s">{{ tr('When a customer scans your shop QR or sends a prescription, it comes here.', 'ক্রেতা দোকানের QR স্ক্যান করলে বা প্রেসক্রিপশন পাঠালে এখানে আসবে।') }}</span>
         <span v-if="seg === 'active'" class="t-body-s">{{ tr('Orders you\'ve accepted or made ready stay here until the medicines are given.', 'যে অর্ডার নিয়েছেন বা তৈরি করেছেন, ওষুধ দেওয়া পর্যন্ত এখানে থাকবে।') }}</span>
       </div>
-      <template v-else>
-        <div class="rxp-cards">
-          <article v-for="o in rows" :key="o.id" :class="cx('card col gap-6 rxp-ocard', code === o.code && 'on')">
-            <div class="row gap-8">
-              <span class="t-title-s grow">{{ o.patientName || '—' }}</span>
-              <ModeTag :remote="o.mode === 'online'" :icon="o.mode === 'online' ? 'local_shipping' : 'storefront'">{{ o.mode === 'online' ? tr('Online order', 'অনলাইন অর্ডার') : tr('In the shop', 'দোকানে এসেছেন') }}</ModeTag>
-            </div>
-            <div class="row wrap gap-6">
-              <Tag :tone="orderTone(o.status)">{{ orderStatusShop(o.status) }}</Tag>
-              <span class="t-body-s muted" :title="formatDateTime(o.createdAt)">{{ timeAgo(o.createdAt) }}</span>
-            </div>
-            <span v-if="o.mode === 'online' && (o.price || o.eta)" class="icon-line"><Icon name="payments" /><span>{{ [o.price, o.eta].filter(Boolean).join(' · ') }}</span></span>
-            <span v-if="o.mode === 'online' && o.address" class="icon-line"><Icon name="location_on" /><span>{{ o.address }}</span></span>
-            <span v-if="o.mode === 'online' && o.phone" class="icon-line"><Icon name="call" /><a class="rxp-phone num" :href="`tel:${o.phone}`">{{ num(o.phone) }}</a></span>
-            <ContactActions :message="chatOn()" @message="openChatAt" ctx="rx_order" :ref-id="o.id" :peer-name="o.patientName" :phone="o.phone || null" :show="o.mode === 'online' && isOpenOrder(o)" />
-            <span v-if="o.mode === 'online' && o.deliveryFee && isOpenOrder(o)" class="icon-line"><Icon name="local_shipping" /><span>{{ tr('Delivery charge: ', 'ডেলিভারি চার্জ: ') }}{{ o.deliveryFee }}</span></span>
-            <span v-if="o.note" class="icon-line"><Icon name="edit_note" /><span>{{ o.note }}</span></span>
-            <span v-if="o.missed.length" class="t-body-s c-error">{{ tr('Not available: ', 'নেই: ') }}{{ o.missed.join(', ') }}</span>
-            <div v-if="invFeature('inv_pharmacy') && o.invoiceId && !isOpenOrder(o)" class="row wrap gap-6 rxp-row-actions">
-              <Button small variant="text" icon="list_alt" @click="receiptId = o.invoiceId">{{ T.seeReceipt() }}</Button>
-            </div>
-            <div v-if="isOpenOrder(o)" class="row wrap gap-6 rxp-row-actions">
-              <Button small @click="open(o)">{{ o.mode === 'online' ? tr('Open & note medicines', 'খুলে ওষুধ লিখুন') : tr('Open', 'খুলুন') }}</Button>
-              <Button v-if="o.mode !== 'online' && o.status === 'sent'" small variant="tonal" :busy="up.busyId.value === o.id" :disabled="!!up.busyId.value" @click="up.update(o, 'ready')">{{ tr('Ready', 'তৈরি') }}</Button>
-              <Button v-if="o.mode === 'online' && o.status === 'sent'" small variant="tonal" :disabled="!!up.busyId.value" @click="accepting = o">{{ tr('Accept', 'অর্ডার নিলাম') }}</Button>
-              <Button v-if="o.mode === 'online' && (o.status === 'sent' || o.status === 'accepted')" small variant="outline" :busy="up.busyId.value === o.id" :disabled="!!up.busyId.value" @click="up.update(o, 'out')">{{ tr('Sent out', 'পাঠিয়ে দিয়েছি') }}</Button>
-              <Button v-if="invFeature('inv_pharmacy') && o.mode === 'online' && (o.status === 'accepted' || o.status === 'out')" small variant="tonal" icon="check_circle" :disabled="!!up.busyId.value" data-testid="order-delivered" @click="delivering = o">{{ T.delivered() }}</Button>
-              <Button small variant="danger-text" :disabled="!!up.busyId.value" @click="cancelling = o">{{ tr('Can\'t', 'পারব না') }}</Button>
-            </div>
-            <AskPay v-if="o.mode === 'online' && (o.status === 'accepted' || o.status === 'out') && payOn('pay_delivery') && pharmId" kind="pharmacy" :biz-id="pharmId" ref-type="rx_order" :ref-id="o.id" purpose="delivery" />
-          </article>
-        </div>
-        <p v-if="counts[seg] > rows.length" class="t-body-s muted">{{ tr(`Showing the latest ${rows.length} of ${counts[seg]}`, `মোট ${num(counts[seg])}টার সাম্প্রতিক ${num(rows.length)}টা দেখানো হলো`) }}</p>
-      </template>
-      <AcceptDialog v-if="accepting" :order="accepting" @close="accepting = null" />
-      <CancelOrderDialog v-if="cancelling" :order="cancelling" @close="cancelling = null" />
-      <DeliverDialog v-if="delivering" :order="delivering" @close="delivering = null" />
-      <InvoiceByIdDialog v-if="receiptId" :id="receiptId" @close="receiptId = null" />
+      <ul v-else-if="two" class="q-list" :aria-label="tr('Orders', 'অর্ডার')">
+        <li v-for="o in rows" :key="o.id">
+          <button type="button" class="q-item" :aria-current="o.id === sel?.id" data-testid="q-item" @click="pick(o)">
+            <span class="col gap-2 grow" :style="{ minWidth: 0 }">
+              <span class="t-title-s ellipsis">{{ o.patientName || '—' }}</span>
+              <span class="t-body-s muted">{{ (o.mode === 'online' ? tr('Online order', 'অনলাইন অর্ডার') : tr('In the shop', 'দোকানে এসেছেন')) + ' · ' + timeAgo(o.createdAt) }}</span>
+            </span>
+            <Tag v-if="o.status !== 'sent'" :tone="orderTone(o.status)">{{ orderStatusShop(o.status) }}</Tag>
+          </button>
+        </li>
+      </ul>
+      <div v-else class="rxp-cards">
+        <OrderCard v-for="o in rows" :key="o.id" :o="o" :on="code === o.code" :busy="busyFor(o)" :disabled="!!up.busyId.value" :pharm-id="pharmId" @act="(k) => act(o, k)" />
+      </div>
+      <p v-if="!orders.isLoading && counts[seg] > rows.length" class="t-body-s muted">{{ tr(`Showing the latest ${rows.length} of ${counts[seg]}`, `মোট ${num(counts[seg])}টার সাম্প্রতিক ${num(rows.length)}টা দেখানো হলো`) }}</p>
+      <BizPreview kind="pharmacy" />
     </div>
-    <aside class="rxp-codeside">
+    <aside class="qd-side rxp-codeside" :aria-label="tr('Details', 'বিস্তারিত')">
       <section class="card rxp-panel rxp-open-code">
         <div class="row gap-8">
           <span class="rxp-panel-ic"><Icon name="search" /></span>
@@ -137,6 +122,12 @@ const open = (o: PharmOrder) => nav(`${BASE}/rx/${o.code}${keep.value}`);
           {{ tr('Open with the code and note how many you gave. The patient can get the rest from another pharmacy.', 'কোড দিয়ে খুলে কয়টা দিলেন লিখুন। বাকিটা রোগী অন্য ফার্মেসি থেকে নিতে পারবেন।') }}
         </p>
       </section>
+      <OrderCard v-if="two && sel" :key="'d' + sel.id" class="q-detail-card" :o="sel" :on="true" :busy="busyFor(sel)" :disabled="!!up.busyId.value" :pharm-id="pharmId" @act="(k) => act(sel!, k)" />
+      <RxPanel v-if="code" :key="code" :code="code" @next="nav(`${BASE}${keep}`)" />
     </aside>
+    <AcceptDialog v-if="accepting" :order="accepting" @close="accepting = null" />
+    <CancelOrderDialog v-if="cancelling" :order="cancelling" @close="cancelling = null" />
+    <DeliverDialog v-if="delivering" :order="delivering" @close="delivering = null" />
+    <InvoiceByIdDialog v-if="receiptId" :id="receiptId" @close="receiptId = null" />
   </div>
 </template>

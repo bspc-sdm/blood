@@ -66,7 +66,7 @@ const groups = computed<Group[]>(() => {
     empty: t ? tr('No one found', 'কাউকে পাওয়া যায়নি') : tr('No patients entered yet', 'এখনো কোনো রোগী এন্ট্রি করা হয়নি'),
     rows: d.patients.filter((p) => hit(p.name, p.phone)).map((p) => ({
       key: 'p' + p.id, t: { rxPatientId: p.id, name: p.name, age: p.age, gender: p.gender }, icon: 'person_outline', title: p.name,
-      sub: [ageText(p.age), genderLabel(p.gender), num(p.phone), p.lastRxAt ? tr('Last: ', 'শেষ: ') + formatDate(p.lastRxAt) : ''].filter(Boolean).join(' · '),
+      sub: [ageText(p.age), genderLabel(p.gender), p.phone, p.lastRxAt ? tr('Last: ', 'শেষ: ') + formatDate(p.lastRxAt) : ''].filter(Boolean).join(' · '),
       tag: p.linked ? tr('In app', 'অ্যাপে আছেন') : null,
     })),
   });
@@ -172,7 +172,7 @@ function rowKey(e: KeyboardEvent, t: RxTarget) {
             <td class="rxd-td-acts">
               <span v-if="onWrite || rowOpen" class="row rxd-acts">
                 <Action v-if="onWrite" icon="edit_note" primary @click.stop="onWrite(r.t)">{{ tr('Write', 'লিখুন') }}</Action>
-                <IconButton v-if="rowOpen" small icon="history" :label="tr('Earlier prescriptions', 'আগের প্রেসক্রিপশন')" @click.stop="rowOpen(r.t)" />
+                <Button v-if="rowOpen" small variant="text" icon="history" data-testid="rx-history" @click.stop="rowOpen(r.t)">{{ tr('Earlier prescriptions', 'আগের প্রেসক্রিপশন') }}</Button>
               </span>
             </td>
           </tr>

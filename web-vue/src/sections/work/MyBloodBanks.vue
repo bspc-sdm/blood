@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // /work/bloodbank — নিজের ব্লাড ব্যাংক (সর্বোচ্চ ৩টা): তালিকা, হিসাব, যোগ/বদল/সরানো (অ্যাপের MyBloodBanksSection, BloodBankEditDialog)
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, Icon, Tag } from '@/ui/kit';
+import { Button, ConfirmDialog, Icon, RowMenu, Tag } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
@@ -119,7 +119,8 @@ const askDel = (b: BloodBank) => {
               <span class="grow" />
               <!-- আইকনের পাশে লেখা (শুধু আইকন নয়) -->
               <Button variant="outline" small icon="edit" @click="nav(`/work/bloodbank/${b.id}`)">{{ tr('Edit', 'বদলান') }}</Button>
-              <Button v-if="b.status !== 'suspended'" variant="danger-text" small icon="delete" @click="askDel(b)">{{ tr('Remove', 'মুছে ফেলুন') }}</Button>
+              <!-- মোছা মূল বোতামের পাশে নয় — "আরও"-তে (আমার কাজ CONTRACT §২) -->
+              <RowMenu :items="[b.status !== 'suspended' && { label: tr('Remove this blood bank', 'এই ব্লাড ব্যাংক সরিয়ে দিন'), icon: 'delete', danger: true, testid: 'bb-remove', onClick: () => askDel(b) }]" />
             </div>
           </article>
         </div>

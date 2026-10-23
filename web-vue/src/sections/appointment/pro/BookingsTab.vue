@@ -1,16 +1,15 @@
 <script setup lang="ts">
-// বুকিং: সিরিয়ালের সারি
+// বুকিং (/work/pro/bookings): নতুন (নিশ্চিত করা বাকি) · চলছে (আজ আর সামনের নিশ্চিত) · শেষ — আজকের সারি চালানো "আজকের রোগী"-তে (TodayQueue)।
+// আমার কাজ CONTRACT §২: উপরের চারটা সংখ্যার ঘর বাদ (ভাগের সংখ্যাতেই আছে), প্রতিটায় একটাই মূল বোতাম, বাকিটা "আরও"-তে।
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
-import { useMedia } from '@/shell/chrome';
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, RowMenu, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
+import { useTwoPane } from '@/shell/chrome';
 import { ServerError, call, errorText } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
 import { useSearchParams } from '@/lib/nav';
 import { apptChamber, hhmmText, isActive, statusLabel, statusTone, today, type Appointment } from '../model';
-import StatTile from '../StatTile.vue';
 import QueueSegs, { type QSeg } from '@/ui/listing/QueueSegs.vue';
-import QueuePanel from '../QueuePanel.vue';
 import ConfirmApptDialog from './ConfirmApptDialog.vue';
 import OnlinePayPro from '../online/OnlinePayPro.vue';
 import { onlineOn } from '../online/flags';
@@ -57,17 +56,16 @@ const view = computed<QSeg>(() => {
   const asked = sp.value.get('v');
   // পুরোনো লিংক (?v=today|waiting|upcoming|past)
   const k = asked === 'waiting' ? 'new' : asked === 'today' || asked === 'upcoming' ? 'active' : asked === 'past' ? 'done' : asked;
-  // না বাছলে: আজ নিশ্চিত কেউ থাকলে "চলছে" (আজকের কাজ), নইলে অপেক্ষায় কেউ থাকলে "নতুন"
+  // না বাছলে: আজ নিশ্চিত কেউ থাকলে "চলছে", নইলে অপেক্ষায় কেউ থাকলে "নতুন" (আজকের সারি চালানো "আজকের রোগী"-তে)
   if (k === 'new' || k === 'active' || k === 'done') return k;
   return groups.value.today.some((a) => a.status === 'confirmed') ? 'active' : segs.value.new.length ? 'new' : 'active';
 });
 const rows = computed(() => segs.value[view.value]);
-// ডেস্কটপে (৯০০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা সিরিয়াল (না বাছলে প্রথমটা) — কাজের বোতাম সেখানে
-const md = useMedia('(min-width: 900px)');
+// ডেস্কটপে (৯৬০px+) তালিকা-বিস্তারিত: বাঁয়ে ছোট সারি, ডানে বাছা সিরিয়াল (না বাছলে প্রথমটা) — কাজের বোতাম সেখানে
+const md = useTwoPane();
 const picked = ref<string | null>(null);
 const sel = computed(() => rows.value.find((a) => a.id === picked.value) ?? rows.value[0] ?? null);
 const shownCards = computed(() => (md.value ? (sel.value ? [sel.value] : []) : rows.value));
-const patients = computed(() => new Set(props.list.filter((a) => a.status === 'confirmed' || a.status === 'completed').map((a) => a.otherKey || a.otherName)).size);
 const manyCh = computed(() => chambers.value.length > 1 && !chamber.value);
 
 async function act(a: Appointment, op: string, extra: Record<string, unknown> = {}) {
@@ -141,17 +139,11 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
   <SkeletonCards v-if="loading" :n="4" :h="72" />
   <ErrorBox v-else-if="error" :error="error" :on-retry="reload" />
   <div v-else class="col gap-16">
-    <div class="stats">
-      <StatTile :value="num(groups.today.filter((a) => isActive(a.status)).length)" :label="tr('Today', 'আজ')" />
-      <StatTile :value="num(groups.waiting.length)" :label="tr('Waiting', 'অপেক্ষায়')" :class="groups.waiting.length ? 'appt-stat-hot' : undefined" />
-      <StatTile :value="num(groups.upcoming.length)" :label="tr('Upcoming', 'সামনের')" />
-      <StatTile :value="num(patients)" :label="tr('Patients', 'রোগী')" />
-    </div>
     <div class="row wrap appt-toolbar">
       <QueueSegs
         :label="tr('Bookings', 'বুকিং')"
         :value="view"
-        :counts="{ new: segs.new.length, active: segs.active.length, done: segs.done.length }"
+        :counts="{ new: segs.new.length, active: segs.active.length }"
         @change="(k) => setSp({ v: k }, { replace: true })"
       />
       <span class="grow" />
@@ -164,7 +156,6 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
       </div>
       <IconButton icon="refresh" :label="tr('Refresh', 'রিফ্রেশ')" @click="reload()" />
     </div>
-    <QueuePanel v-if="view === 'active'" />
     <ErrorText :text="err" />
     <EmptyState v-if="!rows.length" icon="calendar_month" :title="tr('No appointments', 'কোনো অ্যাপয়েন্টমেন্ট নেই')">
       <Button v-if="!hasChamber" variant="tonal" icon="add" @click="onSetup()">{{ tr('Add chamber', 'চেম্বার যোগ করুন') }}</Button>
@@ -196,12 +187,16 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
         <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
         <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" show-number />
-        <div class="row wrap appt-acts">
-          <template v-if="a.status === 'pending'">
-            <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>
-            <Button small variant="text" :disabled="!!busyId" @click="decline(a)">{{ tr('Decline', 'না করুন') }}</Button>
-          </template>
-          <Button v-else-if="a.status === 'confirmed'" small variant="danger-text" :disabled="!!busyId" @click="cancel(a)">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>
+        <!-- একটাই মূল বোতাম (নিশ্চিত করুন); না করা আর বাতিল "আরও"-তে -->
+        <div v-if="a.status === 'pending' || a.status === 'confirmed'" class="q-acts appt-acts">
+          <Button v-if="a.status === 'pending'" icon="check_circle" :busy="busyId === a.id" :disabled="!!busyId" data-testid="appt-confirm" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>
+          <span class="grow" />
+          <RowMenu
+            :items="[
+              a.status === 'pending' && { label: tr('Decline', 'না করুন'), icon: 'close', disabled: !!busyId, testid: 'appt-decline', onClick: () => decline(a) },
+              a.status === 'confirmed' && { label: tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল'), icon: 'close', danger: true, disabled: !!busyId, testid: 'appt-cancel', onClick: () => cancel(a) },
+            ]"
+          />
         </div>
       </article>
     </div>

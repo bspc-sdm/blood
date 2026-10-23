@@ -1,17 +1,15 @@
 <script setup lang="ts">
-// ফার্মেসির কাউন্টার আর হিসাব-খাতা (আগে /doctor প্যানেলে ছিল) — ২.৩০.০ থেকে তিন ট্যাব (work/PharmacyTabs; অ্যাপের Pharmacy.kt):
-//  "অর্ডার" — /work/pharmacy/orders (আর /rx/:code, পুরোনো /online): কোড দিয়ে খোলা, নতুন · চলছে/তৈরি · শেষ (OrdersTab)
-//  "ওষুধ খোঁজা" — /work/pharmacy/finds (work/PharmacyFinds)
-//  "দোকান" — তথ্য /work/pharmacy/shop (work/MyPharmacy) · বিক্রি /shop/sales · স্টক /shop/stock (পণ্য ও স্টক, ?v=buy মাল কেনা) ·
-//            এনালাইটিক্স /shop/analytics (লাভ-ক্ষতি) — শেষ তিনটা এখানে।
+// ফার্মেসির কাউন্টার আর হিসাব-খাতা (আগে /doctor প্যানেলে ছিল) — তিন ট্যাব, তৃতীয় স্তর নেই (work/PharmacyTabs; আমার কাজ CONTRACT §২):
+//  "অর্ডার" — /work/pharmacy/orders (আর /rx/:code, পুরোনো /online): কোড দিয়ে খোলা, নতুন · চলছে · শেষ · ওষুধ খোঁজা (OrdersTab;
+//            খোঁজা /work/pharmacy/finds — work/PharmacyFinds)
+//  "বিক্রি" — নতুন বিক্রি /shop/sales (কাউন্টার) · রসিদ /shop/invoices
+//  "দোকান" — স্টক /shop/stock · মাল কেনা /shop/stock?v=buy · হিসাব /shop/analytics (লাভ-ক্ষতি) · তথ্য /work/pharmacy/shop (work/MyPharmacy)
 // পুরোনো লিংক: /work/pharmacy/orders/stock|buy|sales|books → নতুন জায়গায় (replace)।
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { PillTabs } from '@/ui/kit';
 import Redirect from '@/shell/Redirect.vue';
-import { tr } from '@/lib/i18n';
 import { useCall } from '@/lib/query';
-import { matchPath, useNav, useSearchParams } from '@/lib/nav';
+import { matchPath, useSearchParams } from '@/lib/nav';
 import { myBusinessTitle } from '../../work/shared';
 import PharmacyTabs from '../../work/PharmacyTabs.vue';
 import { usePartnerReady } from './common';
@@ -34,18 +32,17 @@ const SHOP = '/work/pharmacy/shop';
 const OLD: Record<string, string> = { stock: `${SHOP}/stock`, buy: `${SHOP}/stock?v=buy`, sales: `${SHOP}/sales`, books: `${SHOP}/analytics` };
 
 const route = useRoute();
-const nav = useNav();
 const [sp] = useSearchParams();
 const ready = usePartnerReady('pharmacy');
 const title = computed(() => myBusinessTitle('pharmacy'));
 const old = computed(() => matchPath({ path: `${BASE}/:k`, end: true }, route.path)?.params.k);
 const tab = computed(() => {
   const sub = matchPath({ path: `${SHOP}/:k`, end: true }, route.path)?.params.k;
-  return sub === 'sales' || (sub === 'invoices' && invFeature('inv_pharmacy')) || sub === 'stock' || sub === 'analytics' ? sub : 'orders';
+  if (sub === 'stock') return sp.value.get('v') === 'buy' ? 'buy' : 'stock';
+  return sub === 'sales' || (sub === 'invoices' && invFeature('inv_pharmacy')) || sub === 'analytics' ? sub : 'orders';
 });
 const orders = useCall<PharmOrders>('rx_orders_pharmacy', {}, () => ({ enabled: ready.value && tab.value === 'orders', refetchInterval: 60_000 }));
 const rxCode = computed(() => matchPath({ path: `${BASE}/rx/:code`, end: true }, route.path)?.params.code ?? null);
-const buy = computed(() => sp.value.get('v') === 'buy');
 const s = useSession();
 const bizId = computed(() => (s.work.pharmacy as { id?: string } | null)?.id ?? '');
 </script>
@@ -55,23 +52,9 @@ const bizId = computed(() => (s.work.pharmacy as { id?: string } | null)?.id ?? 
   <PartnerPage v-else :title="title" back-to="/work">
     <PartnerGate kind="pharmacy">
       <PharmacyTabs :active="tab" />
-      <template v-if="tab === 'stock'">
-        <!-- স্টক: পণ্য ও স্টকের তালিকা আর মাল কেনা -->
-        <div class="rxp-sub-pills">
-          <PillTabs
-            secondary
-            :label="tr('Stock', 'স্টক')"
-            :value="buy ? 'buy' : 'items'"
-            :tabs="[
-              { key: 'items', label: tr('Products & stock', 'পণ্য ও স্টক'), icon: 'list_alt' },
-              { key: 'buy', label: tr('Stock in', 'মাল কেনা'), icon: 'storefront' },
-            ]"
-            @change="(k) => nav(k === 'buy' ? `${SHOP}/stock?v=buy` : `${SHOP}/stock`, { replace: true })"
-          />
-        </div>
-        <BuyTab v-if="buy" />
-        <ItemsTab v-else />
-      </template>
+      <!-- দোকান: স্টক (পণ্য ও স্টক) আর মাল কেনা — দুটোই দোকানের ট্যাবে, আলাদা স্তর নয় -->
+      <BuyTab v-if="tab === 'buy'" />
+      <ItemsTab v-else-if="tab === 'stock'" />
       <SalesTab v-else-if="tab === 'sales'" />
       <!-- রসিদ: বাকি আদায়, বাতিল (স্টক ফেরে) -->
       <BizInvoiceList v-else-if="tab === 'invoices' && bizId" kind="pharmacy" :biz-id="bizId" />

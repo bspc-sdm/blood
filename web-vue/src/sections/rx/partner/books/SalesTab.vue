@@ -5,7 +5,7 @@
 // ডেস্কটপ অ্যাপে (OfflineStore): পণ্য স্থানীয় তালিকা থেকে, বিক্রি স্থানীয়ভাবে লেখা হয়ে পরে মেলে, ছাপা অ্যাপের প্রিন্টারে।
 // পাশে আজকের/এই সপ্তাহের বিক্রি (কাউন্টার, প্রেসক্রিপশন, অনলাইন)।
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
-import { Button, Check, ConfirmDialog, ErrorText, IconButton, Loading, Segmented, Tag, inputValue, toast } from '@/ui/kit';
+import { Button, Check, ConfirmDialog, ErrorText, Loading, Segmented, Tag, inputValue, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { num, tr } from '@/lib/i18n';
@@ -241,7 +241,7 @@ async function del() {
               <input class="input num" inputmode="decimal" :value="l.disc" placeholder="০" @input="set(l.item.id, { disc: inputValue($event, numInput) })" />
             </label>
             <span class="bk-line-total num semi">{{ lineInfo(l).total }}</span>
-            <IconButton small icon="close" :label="tr('Remove', 'সরান') + ': ' + l.item.name" @click="lines = lines.filter((x) => x !== l)" />
+            <Button small variant="text" icon="close" :aria-label="tr('Remove', 'সরান') + ': ' + l.item.name" @click="lines = lines.filter((x) => x !== l)">{{ tr('Remove', 'সরান') }}</Button>
           </div>
         </div>
         <div v-if="lines.length" class="row wrap gap-8">
@@ -292,7 +292,7 @@ async function del() {
               <span class="t-body-s muted grow">{{ period === 'today' ? formatTime(s.at) : formatDayOf(s.at) }}{{ s.rx?.code ? ` · ${s.rx.code}` : s.customer ? ` · ${s.customer}` : '' }}</span>
               <span class="num semi">{{ money(s.totals.net) }}</span>
               <Button v-if="inv && invIdOf(s)" small variant="text" :busy="opening === s.id" @click="openReceipt(s)">{{ T.seeReceipt() }}</Button>
-              <IconButton v-else small icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = s" />
+              <Button v-else small variant="danger-text" icon="delete" @click="deleting = s">{{ tr('Delete', 'মুছুন') }}</Button>
             </div>
             <span class="t-body-s muted">{{ s.lines.map((l) => `${l.name} ×${qtyText(l.qty)}`).join(', ') }}</span>
             <span v-if="s.totals.profit < 0" class="t-body-s c-error">{{ tr('Loss ', 'ক্ষতি ') }}{{ money(-s.totals.profit) }}</span>

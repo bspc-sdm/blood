@@ -482,13 +482,13 @@ export async function bookSent(page, J) {
 }
 
 /**
- * আমার কাজ › ফার্মেসি (তিন ট্যাব: অর্ডার · ওষুধ খোঁজা · দোকান › তথ্য/বিক্রি/স্টক/এনালাইটিক্স)। পুরোনো ট্যাবের নামও চলে
+ * আমার কাজ › ফার্মেসি (তিন ট্যাব: অর্ডার (নতুন · চলছে · শেষ · ওষুধ খোঁজা) · বিক্রি · দোকান › স্টক/মাল কেনা/হিসাব/তথ্য)। পুরোনো ট্যাবের নামও চলে
  * (‘অনলাইন অর্ডার’ → অর্ডার, ‘পণ্য ও স্টক’ → দোকান › স্টক)।
  */
 export async function pharmacyWork(page, tab) {
   const to = {
     'অনলাইন অর্ডার': 'orders', 'অর্ডার': 'orders', 'ওষুধ খোঁজা': 'finds', 'দোকান': 'shop', 'তথ্য': 'shop',
-    'বিক্রি': 'shop/sales', 'পণ্য ও স্টক': 'shop/stock', 'স্টক': 'shop/stock', 'এনালাইটিক্স': 'shop/analytics',
+    'বিক্রি': 'shop/sales', 'পণ্য ও স্টক': 'shop/stock', 'স্টক': 'shop/stock', 'মাল কেনা': 'shop/stock?v=buy', 'এনালাইটিক্স': 'shop/analytics', 'হিসাব': 'shop/analytics',
   }[tab] || 'orders';
   await go(page, `/work/pharmacy/${to}`);
 }
@@ -533,11 +533,25 @@ export async function labWorkTab(page, tab) {
  */
 export async function orderRow(page, text, opt = {}) {
   const tabs = page.getByRole('tab', { name: /^(নতুন|চলছে|নমুনা|রিপোর্ট দেওয়া|শেষ)/ });
+  // ফোনে কার্ড (article), ডেস্কটপে (৯৬০px+) তালিকা-বিস্তারিত — ডানে বাছা অর্ডারের কার্ড বা প্যাথলজির অনুরোধ (lab-detail)
+  // আমার কাজ CONTRACT §২: সারিতে একটাই মূল বোতাম, বাকিটা "আরও"-তে — তাই [button] মূল বোতাম বা "আরও" থাকলেই চলে (rowAct চাপে)
   const find = () => {
-    let l = page.locator('tr, article');
+    let l = page.locator('tr, article, [data-testid=lab-detail]');
     for (const t of [].concat(text)) l = l.filter({ hasText: t });
-    if (opt.button) l = l.filter({ has: page.getByRole('button', { name: opt.button }) });
+    if (opt.button) l = l.filter({ has: page.getByRole('button', { name: new RegExp(`^(${opt.button}|আরও)$`) }) });
     return vis(l).first();
+  };
+  /** ডেস্কটপ: বাঁয়ের সারি একে একে বেছে ডানে খোঁজা */
+  const pick = async () => {
+    const items = page.getByTestId('q-item');
+    const n = await items.count();
+    for (let i = 0; i < n; i++) {
+      if (!(await items.nth(i).isVisible())) continue;
+      await items.nth(i).click();
+      await settle(page, 200);
+      if (await find().count()) return true;
+    }
+    return false;
   };
   // তালিকা আসা পর্যন্ত (দোকানের তথ্য আগে আসে, তারপর অর্ডারের তালিকা — মাঝে নেটওয়ার্ক এক মুহূর্ত থামতে পারে)
   const t0 = Date.now();
@@ -547,6 +561,7 @@ export async function orderRow(page, text, opt = {}) {
     await page.waitForTimeout(200);
   }
   if (await find().count()) return find();
+  if (await pick()) return find();
   const n = await tabs.count();
   for (let i = 0; i < n; i++) {
     if (!(await tabs.nth(i).isVisible())) continue;
@@ -554,10 +569,49 @@ export async function orderRow(page, text, opt = {}) {
     await settle(page);
     for (let k = 0; k < 15; k++) {
       if (await find().count()) return find();
+      if (await page.getByTestId('q-item').count()) break;
       await page.waitForTimeout(200);
     }
+    if (await pick()) return find();
   }
   throw new Error(`সারি পাওয়া যায়নি: ${[].concat(text).join(' + ')}`);
+}
+
+/**
+ * সারির কাজ (আমার কাজ CONTRACT §২ — একটাই মূল বোতাম, বাকিটা "আরও" মেনুতে): [row]-এ [name] বোতাম দেখা গেলে সেটা,
+ * নইলে সারির "আরও" খুলে মেনু থেকে।
+ */
+export async function rowAct(page, row, name) {
+  const b = row.getByRole('button', { name, exact: true });
+  if (await vis(b).count()) return vis(b).first().click();
+  await row.getByRole('button', { name: 'আরও' }).first().click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
+/**
+ * ডাক্তার/সহকারীর "আজকের রোগী" (TodayQueue): [text] থাকা রোগীর [name] কাজ — ফোনে সারির বোতাম বা "আরও",
+ * ডেস্কটপে বাঁয়ের সারি বেছে ডানের বিস্তারিতের বোতাম।
+ */
+export async function queueRowAct(page, text, name) {
+  const items = page.getByTestId('q-item').filter({ hasText: text });
+  if (await vis(items).count()) {
+    await vis(items).first().click();
+    await settle(page, 200);
+    return page.getByTestId('tq-detail').getByRole('button', { name, exact: true }).click();
+  }
+  return rowAct(page, page.getByTestId('desk-row').filter({ hasText: text }).first(), name);
+}
+/** "আজকের রোগী"-র চেম্বারের বাক্স (পরের রোগী, "আরও"-তে বিরতি/আবার শুরু) */
+export const todayBox = (page) => page.getByTestId('tq-chamber').first();
+export async function todayMore(page, name) {
+  await todayBox(page).getByTestId('tq-chamber-more').click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+}
+/** ডাক্তারের পাতার মাথায় "আরও" (নতুন প্রেসক্রিপশন, রিপোর্ট, সহকারী, সেটআপ, বাসায় সেবা) */
+export async function doctorMore(page, name) {
+  await page.getByTestId('doctor-more').click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+  await settle(page);
 }
 
 /**

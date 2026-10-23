@@ -34,7 +34,7 @@ const tiles = computed(() => {
       </dl>
       <dl class="kv num bk-kv">
         <template v-for="s in (['counter', 'rx', 'online'] as const)" :key="s">
-          <dt>{{ sourceText(s) }}</dt><dd>{{ `${money(r.bySource[s].net)} · ${num(r.bySource[s].n)}` }}</dd>
+          <dt>{{ sourceText(s) }}</dt><dd>{{ `${money(r.bySource[s].net)} · ` + tr(`${r.bySource[s].n} sales`, `${num(r.bySource[s].n)}টা বিক্রি`) }}</dd><!-- bn-ok -->
         </template>
         <template v-if="T.uncosted > 0">
           <dt>{{ tr('Sales without cost price', 'কেনা দাম নেই এমন বিক্রি') }}</dt><dd>{{ money(T.uncosted) }}</dd>

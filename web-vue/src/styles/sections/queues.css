@@ -1,0 +1,93 @@
+/* "আমার কাজ"-এর কাজের সারি (আমার কাজ CONTRACT §২) — পাঁচ ধরনেই একই: স্থির ট্যাব (সর্বোচ্চ ৪, সংখ্যাসহ, ৩৯০-এও কাটা নয়),
+   সারিতে একটাই মূল বোতাম + "আরও" (⋮) মেনু, ডেস্কটপে তালিকা-বিস্তারিত দুই ভাগ। শুধু টোকেন (লাইট/ডার্ক দুটোতেই চলে)। */
+
+/* স্থির ট্যাব: পাশে স্ক্রল নেই — জায়গা কম হলে লেখা দুই লাইনে ভাঙে, কাটে না; চাপার জায়গা ৪৮px */
+.q-fixed .pills { overflow: visible; flex-wrap: nowrap; padding-left: 0; padding-right: 0; gap: 6px; }
+.q-fixed .pill { flex: 1 1 auto; min-width: 0; min-height: 48px; justify-content: center; text-align: center; white-space: normal; padding: 6px 10px; gap: 6px; }
+.q-fixed .pills.secondary .pill { min-height: 44px; font-size: 13px; line-height: 17px; padding: 6px 8px; }
+.q-fixed .pill .n { flex: none; }
+.q-fixed.even .pill { flex: 1 1 0; }
+@media (max-width: 479px) {
+  .q-fixed .pill svg { display: none; }
+  .q-fixed .pills:not(.secondary) { gap: 4px; }
+  .q-fixed .pills:not(.secondary) .pill { font-size: 13px; line-height: 17px; padding: 6px 8px; gap: 4px; }
+}
+@media (min-width: 720px) { .q-fixed .pill, .q-fixed.even .pill { flex: 0 1 auto; padding-left: 16px; padding-right: 16px; } }
+.q-segs { flex: 1 1 100%; }
+
+/* "আরও" (⋮) — দেখা যায় এমন শব্দসহ; মেনু কার্ডের ওপরে ভাসে */
+.q-more { position: relative; flex: none; }
+.q-more > .btn { min-height: 40px; padding: 0 12px 0 8px; }
+.q-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 200px; max-width: min(320px, calc(100vw - 32px)); padding: 6px 0; border-radius: 12px;
+  background: var(--surface-high); color: var(--on-surface); box-shadow: var(--shadow-high);
+}
+.q-menu.up { top: auto; bottom: calc(100% + 4px); }
+.q-menu button, .q-menu a {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 16px; border: 0; background: transparent;
+  color: inherit; font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer;
+}
+.q-menu button:hover:not(:disabled), .q-menu a:hover { background: var(--primary-a12); }
+.q-menu button:disabled { opacity: .45; }
+.q-menu svg { width: 18px; height: 18px; color: var(--on-surface-variant); flex: none; }
+.q-menu .danger, .q-menu .danger svg { color: var(--error); }
+
+/* সারির কাজ: বাঁয়ে মূল বোতাম, ডানে "আরও" */
+.q-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.q-acts > .btn { min-height: 44px; }
+.q-acts .grow { flex: 1; }
+
+/* এক লাইনের খালি অবস্থা */
+.q-empty-line { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--r-card); background: var(--surface-low); color: var(--on-surface-variant); }
+.q-empty-line svg { width: 20px; height: 20px; flex: none; opacity: .7; }
+
+/* তালিকা-বিস্তারিত (৯৬০px+): বাঁয়ে সারি, ডানে বাছা জিনিস — ফার্মেসি/প্যাথলজিতে ডান ভাগের মাথায় "কোড দিয়ে খুলুন" */
+.qd { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.qd > .qd-list, .qd > .qd-side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.qd > .qd-side { order: -1; }
+.qd > .qd-side.rxp-codeside { position: static; }
+@media (min-width: 960px) {
+  .qd { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); align-items: start; }
+  .qd > .qd-side { order: 0; }
+  .qd .rxp-cards { grid-template-columns: minmax(0, 1fr); }
+}
+.qd .q-item .tag { flex: none; }
+
+/* নিচে আটকানো মূল কাজ (প্যাথলজির "রিপোর্ট পাঠান"): ফোনে পাতার নিচে (নিচের মেনু থাকলে তার ওপরে), ডেস্কটপে ডানে-উপরে */
+.q-sticky-bar {
+  position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); z-index: 6;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 -16px -16px; padding: 10px 16px;
+  background: var(--surface-low); border-top: 1px solid var(--outline-variant); border-radius: 0 0 var(--r-card) var(--r-card);
+}
+.shell.detail-open .q-sticky-bar { bottom: env(safe-area-inset-bottom, 0px); }
+.q-sticky-bar .btn { min-height: 48px; }
+.q-sticky-top { display: none; }
+@media (min-width: 960px) {
+  .q-sticky-bar { display: none; }
+  .q-sticky-top { display: flex; position: sticky; top: 72px; z-index: 6; justify-content: flex-end; align-items: center; gap: 8px; }
+  .q-sticky-top .btn { min-height: 44px; box-shadow: var(--shadow-high); }
+}
+
+/* ডাক্তারের "আজকের রোগী" */
+.tq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tq-nums { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.tq-nums .big { font-size: 22px; line-height: 28px; font-weight: 700; }
+.tq-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface); min-width: 0; }
+.tq-total { margin-left: 8px; vertical-align: middle; }
+.tq-row.now { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.tq-row.sel { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.tq-row .tq-name { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.tq-row { flex-wrap: wrap; }
+.tq-row .tq-pick { all: unset; display: flex; align-items: center; gap: 10px; flex: 1 1 200px; min-width: 0; cursor: pointer; min-height: 44px; }
+.tq-acts { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.tq-acts > .btn { min-height: 40px; }
+.tq-row .tq-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 8px; }
+.tq-rows { display: flex; flex-direction: column; gap: 6px; }
+.tq-detail { position: sticky; top: 72px; }
+
+/* বিরতি/মেয়াদ পেরোনো সময় — সবুজ নয় */
+.lp-home-tag.expired { background: var(--error-container); color: var(--on-error-container); }
+
+/* ট্যাবের সারি পাতার দুই পাশে ছড়ানো (work-tabs-এর -16px) — স্থির ট্যাবে আবার ১৬px ফাঁক, যাতে কিনারায় না লাগে */
+.work-tabs .q-fixed .pills { padding-left: 16px; padding-right: 16px; }
+@media (min-width: 720px) { .work-tabs .q-fixed .pills { padding-left: 16px; padding-right: 16px; } }

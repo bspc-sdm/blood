@@ -123,6 +123,10 @@ const confirmText = computed(() =>
 <template>
   <SkeletonCards v-if="!rows || sent" :n="1" :h="320" />
   <Panel v-else :title="tr('Report', 'রিপোর্ট')" icon="edit_note">
+    <div class="q-sticky-top" data-testid="report-send-top">
+      <span class="t-body-s muted">{{ filled.length ? tr(`${filled.length} results written`, `${num(filled.length)}টা ফল লেখা হয়েছে`) : '' }}</span>
+      <Button icon="send" :busy="busy" @click="trySend">{{ tr('Send report', 'রিপোর্ট পাঠান') }}</Button>
+    </div>
     <p v-if="hasFixed" class="t-body-s muted">
       {{ tr('Rows, units and normal ranges are filled in — just write the results. High/low is marked by itself. Change a range if your machine is different.', 'ঘর, একক আর স্বাভাবিক মাত্রা ভরা আছে — শুধু ফল লিখুন। বেশি/কম নিজে থেকে বসবে। আপনার মেশিনের মাত্রা আলাদা হলে বদলে নিন।') }}
     </p>
@@ -185,7 +189,8 @@ const confirmText = computed(() =>
       <ReportPhotos :photos="photos" @change="(p) => (photos = p)" />
     </div>
     <ErrorText :text="err" />
-    <div class="row wrap gap-8">
+    <!-- "রিপোর্ট পাঠান" সবসময় হাতের কাছে (আমার কাজ CONTRACT §২): ফোনে নিচে আটকানো, ডেস্কটপে ডানে-উপরে (q-sticky-top) -->
+    <div class="q-sticky-bar" data-testid="report-send-bar">
       <span class="t-body-s muted grow">{{ filled.length ? tr(`${filled.length} results written`, `${num(filled.length)}টা ফল লেখা হয়েছে`) : '' }}</span>
       <Button icon="send" :busy="busy" @click="trySend">{{ tr('Send report', 'রিপোর্ট পাঠান') }}</Button>
     </div>

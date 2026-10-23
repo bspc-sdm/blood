@@ -336,7 +336,8 @@ test('সহকারী: রোগীর তালিকায় অনলা�
     j.appointments = [{ id: 'ona1', name: 'রেহানা পারভীন', date: today(), serial: 3, status: 'confirmed', chamber: '', online: true, start: nowHM(), ...pay }, ...j.appointments];
     return j;
   });
-  await open(page, def('rxdoctor', 'assistant'));
+  // সহকারীর রোগীর তালিকা এখন নিজের ট্যাবে (/work/rx = আজকের রোগী)
+  await open(page, { ...def('rxdoctor', 'assistant'), path: '/work/rx/patients?doctor=doc1' });
   const pro = page.getByTestId('online-pay-pro');
   await expect(pro.getByTestId('pay-state')).toHaveText('রোগী ফি পাঠিয়েছেন');
   await expect(pro.getByTestId('pay-ref')).toContainText('ASST77');
@@ -427,7 +428,9 @@ test('ডাক্তার: ফি দেওয়া অনলাইন অ্
   const pro = page.getByTestId('online-pay-pro');
   await expect(pro.getByTestId('pay-state')).toHaveText('ফি পরিশোধিত');
   const row = page.locator('article, tr').filter({ has: pro });
-  await row.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' }).click();
+  // বাতিল "আরও" মেনুতে (আমার কাজ CONTRACT §২ — সারিতে একটাই মূল বোতাম)
+  await row.getByTestId('row-more').click();
+  await page.getByRole('menuitem', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' }).click();
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByTestId('reason-needed')).toContainText('টাকা ফেরতের জন্য');
   await dlg.getByTestId('cancel-reason-send').click();

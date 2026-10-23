@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// /work/ambulance — নিজের অ্যাম্বুলেন্স: তালিকা, খালি/ব্যস্ত, হিসাব, যোগ/বদল/সরানো (অ্যাপের MyAmbulancesSection)
+// /work/ambulance — নিজের অ্যাম্বুলেন্স (অ্যাপের MyAmbulancesSection; আমার কাজ CONTRACT §২):
+// উপরে "ডাক" (কাজ আগে), তারপর প্রতিটা চালু গাড়ির "রোগীরা আপনাকে যেভাবে দেখেন" — খালি/ট্রিপে শুধু এখানেই (এক জায়গায়),
+// তারপর গাড়ির তালিকা (অবস্থা শুধু দেখায়), যোগ/বদল/সরানো, রসিদ। আগের চারটা সংখ্যার ঘর বাদ (তালিকাতেই আছে)।
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, Icon, IconButton, Tag } from '@/ui/kit';
+import { Button, ConfirmDialog, Icon, RowMenu, Tag } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
 import { useSession } from '@/lib/session';
 import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
-import { num, tr } from '@/lib/i18n';
+import { tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { timeAgo } from '@/lib/format';
 import { useNav } from '@/lib/nav';
@@ -16,7 +18,6 @@ import BizPage from './BizPage.vue';
 import WorkGate from './WorkGate.vue';
 import WorkEmpty from './WorkEmpty.vue';
 import Flash from './Flash.vue';
-import Stat from './Stat.vue';
 import StatsDialog from './StatsDialog.vue';
 import StatusTag from './StatusTag.vue';
 import StatusReason from './StatusReason.vue';
@@ -99,6 +100,8 @@ const askDel = (a: Ambulance) => {
   <BizPage v-else :title="title">
     <template v-if="canAdd" #actions><Button icon="add" @click="nav('/work/ambulance/new')">{{ tr('Add ambulance', 'অ্যাম্বুলেন্স যোগ করুন') }}</Button></template>
     <Flash :msg="flash" :error="err" />
+    <!-- উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" -->
+    <AmbulanceCalls v-if="live.length" :names="names" :on-changed="() => { after(); }" />
     <ProviderPreview v-for="a in live" :key="'pv-' + a.id" :l="own.listing(a)" :public-to="`/services/ambulance/${a.id}`" :store-key="'ambulance.' + a.id">
       <SwitchPair
         :label="LT.ambFree()"
@@ -108,15 +111,12 @@ const askDel = (a: Ambulance) => {
         :options="[{ key: 'free', label: LT.ambFree(), icon: 'check_circle', good: true }, { key: 'trip', label: LT.ambTrip(), icon: 'ambulance' }]"
         @pick="(k) => toggle(a, k === 'free')"
       />
+      <div class="col gap-4" :style="{ flex: '1 1 100%' }">
+        <StillAvailable :a="a" :busy="busy === a.id" @renew="toggle(a, true)" />
+        <span v-if="a.available && a.availableAt > 1" class="t-body-s muted">{{ tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt) }}</span>
+        <span class="t-body-s muted">{{ tr('Turn off when you go on a trip.', 'ট্রিপে গেলে বন্ধ করুন।') }}</span>
+      </div>
     </ProviderPreview>
-    <!-- উপরে "ডাক" (২.২৮.০): রোগীর "অ্যাম্বুলেন্স ডাকুন" -->
-    <AmbulanceCalls v-if="live.length" :names="names" :on-changed="() => { after(); }" />
-    <div v-if="list.length" class="stats work-stats">
-      <Stat icon="ambulance" :value="num(list.length)" :label="tr('Ambulances', 'অ্যাম্বুলেন্স')" />
-      <Stat icon="check_circle" :value="num(live.filter((a) => a.available).length)" :label="tr('Available now', 'এখন খালি')" />
-      <Stat icon="schedule" :value="num(list.filter((a) => a.status === 'pending').length)" :label="tr('Under review', 'যাচাই চলছে')" />
-      <Stat icon="call" :value="stats.data ? num((stats.data.items ?? []).reduce((n, x) => n + x.calls[30], 0)) : '—'" :label="tr('Calls from the app · 30 days', 'অ্যাপ থেকে ফোন · ৩০ দিনে')" />
-    </div>
     <DocsNeededNotice v-for="a in list" :key="a.id" kind="ambulance" :id="a.id" :specs="ambulanceDocs()" :item="a" :title="`${a.name} · ${a.vehicleNo}`" @done="after" />
 
     <WorkEmpty v-if="!list.length" icon="ambulance" :title="tr('No ambulance added yet', 'এখনো কোনো অ্যাম্বুলেন্স যোগ করা হয়নি')">
@@ -153,15 +153,8 @@ const askDel = (a: Ambulance) => {
               </div>
             </td>
             <td>
-              <div class="col gap-2">
-                <label v-if="a.status === 'approved'" class="work-avail">
-                  <input type="checkbox" role="switch" class="switch" :checked="a.available" :disabled="busy === a.id" @change="toggle(a, ($event.target as HTMLInputElement).checked)" />
-                  <span class="t-body-m">{{ a.available ? tr('Available now', 'এখন খালি আছি') : tr('On a trip / busy', 'ট্রিপে আছি / ব্যস্ত') }}</span>
-                </label>
-                <span v-else class="muted">—</span>
-                <span v-if="a.status === 'approved' && a.available && a.availableAt > 1" class="t-body-s muted">{{ tr('Marked available ', 'খালি জানিয়েছেন ') + timeAgo(a.availableAt) }}</span>
-                <StillAvailable :a="a" :busy="busy === a.id" @renew="toggle(a, true)" />
-              </div>
+              <Tag v-if="a.status === 'approved'" :tone="a.available ? 'good' : undefined" data-testid="amb-state">{{ a.available ? LT.available() : LT.onTrip() }}</Tag>
+              <span v-else class="muted">—</span>
             </td>
             <td>
               <div class="col gap-2">
@@ -171,8 +164,8 @@ const askDel = (a: Ambulance) => {
             </td>
             <td>
               <div class="row gap-4 work-row-actions">
-                <IconButton icon="edit" :label="tr('Edit', 'বদলান')" @click="nav(`/work/ambulance/${a.id}`)" />
-                <IconButton v-if="a.status !== 'suspended'" icon="delete" :label="tr('Remove this ambulance', 'এই অ্যাম্বুলেন্স সরিয়ে দিন')" @click="askDel(a)" />
+                <Button small variant="text" icon="edit" @click="nav(`/work/ambulance/${a.id}`)">{{ tr('Edit', 'বদলান') }}</Button>
+                <RowMenu :items="[a.status !== 'suspended' && { label: tr('Remove this ambulance', 'এই অ্যাম্বুলেন্স সরিয়ে দিন'), icon: 'delete', danger: true, testid: 'amb-remove', onClick: () => askDel(a) }]" />
               </div>
             </td>
           </tr>
@@ -193,14 +186,7 @@ const askDel = (a: Ambulance) => {
         <span v-if="area(a)" class="icon-line"><Icon name="location_on" /><span>{{ area(a) }}</span></span>
         <span v-if="a.fareChart" class="icon-line"><Icon name="payments" /><span>{{ tr('Fare: ', 'ভাড়া: ') + chartSummary(a.fareChart) }}</span></span>
         <span v-if="a.fare" class="icon-line"><Icon name="edit_note" /><span>{{ a.fare }}</span></span>
-        <div v-if="a.status === 'approved'" class="col gap-2">
-          <label class="work-avail">
-            <input type="checkbox" role="switch" class="switch" :checked="a.available" :disabled="busy === a.id" @change="toggle(a, ($event.target as HTMLInputElement).checked)" />
-            <span class="t-body-m">{{ a.available ? tr('Available now', 'এখন খালি আছি') : tr('On a trip / busy', 'ট্রিপে আছি / ব্যস্ত') }}</span>
-          </label>
-          <StillAvailable :a="a" :busy="busy === a.id" @renew="toggle(a, true)" />
-          <span class="t-body-s muted">{{ tr('Turn off when you go on a trip.', 'ট্রিপে গেলে বন্ধ করুন।') }}</span>
-        </div>
+        <div v-if="a.status === 'approved'"><Tag :tone="a.available ? 'good' : undefined" data-testid="amb-state">{{ a.available ? LT.available() : LT.onTrip() }}</Tag></div>
         <div class="row">
           <span class="icon-line grow"><Icon name="call" /><span>{{ tr('Calls from the app: ', 'অ্যাপ থেকে ফোন: ') + callsLine(st.get(a.id)) }}</span></span>
           <Button v-if="st.get(a.id)" variant="text" small @click="details = a">{{ tr('Details', 'বিস্তারিত') }}</Button>
@@ -209,13 +195,12 @@ const askDel = (a: Ambulance) => {
           <AppealButton v-if="a.status === 'rejected' || a.status === 'suspended'" category="ambulance" />
           <span class="grow" />
           <div class="row gap-4 work-row-actions">
-            <IconButton icon="edit" :label="tr('Edit', 'বদলান')" @click="nav(`/work/ambulance/${a.id}`)" />
-            <IconButton v-if="a.status !== 'suspended'" icon="delete" :label="tr('Remove this ambulance', 'এই অ্যাম্বুলেন্স সরিয়ে দিন')" @click="askDel(a)" />
+            <Button small variant="text" icon="edit" @click="nav(`/work/ambulance/${a.id}`)">{{ tr('Edit', 'বদলান') }}</Button>
+            <RowMenu :items="[a.status !== 'suspended' && { label: tr('Remove this ambulance', 'এই অ্যাম্বুলেন্স সরিয়ে দিন'), icon: 'delete', danger: true, testid: 'amb-remove', onClick: () => askDel(a) }]" />
           </div>
         </div>
       </article>
     </div>
-    <p v-if="wide && live.length" class="t-body-s muted">{{ tr('Turn off when you go on a trip.', 'ট্রিপে গেলে বন্ধ করুন।') }}</p>
 
     <ConfirmDialog
       v-if="del"

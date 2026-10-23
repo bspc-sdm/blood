@@ -1,5 +1,5 @@
 // রোগীর পুরো যাত্রা (গাইড journey.json J-01…J-25): সিরিয়াল → সারি → প্রেসক্রিপশন → ফার্মেসি → ল্যাব → রিপোর্ট দেখানোর টাকা → ডাক্তার
-import { pickQueueItem, tap, has, see, go, settle, dhakaISO, bn, bookBtn, bookSent, pharmacyWork, labWorkTab, orderRow } from '../lib.mjs';
+import { pickQueueItem, tap, has, see, go, settle, dhakaISO, bn, bookBtn, bookSent, pharmacyWork, labWorkTab, orderRow, rowAct, queueRowAct, todayBox, todayMore, doctorMore } from '../lib.mjs';
 
 export const meta = { no: 1, slug: 'core-journey', titleBn: 'রোগীর পুরো যাত্রা: সিরিয়াল থেকে রিপোর্ট' };
 
@@ -14,13 +14,16 @@ async function openMyAppt(page) {
   await settle(page);
 }
 
-/** আমার কাজ › আমার চেম্বার › বুকিং › আজ */
-/** আমার চেম্বার › বুকিং › ভাগ (নতুন / চলছে / শেষ — সেবার "আমার কাজ"-এর এক ছাঁচ); "চলছে"-তে আজকের সিরিয়ালের বাক্স */
+/** আমার চেম্বার › বুকিং › ভাগ (নতুন / চলছে / শেষ — সেবার "আমার কাজ"-এর এক ছাঁচ) */
 async function chamberToday(page, seg = /^চলছে/) {
-  await go(page, '/work');
-  await tap(page, 'আমার চেম্বার');
+  await go(page, '/work/pro');
   await tap(page, 'বুকিং', { role: 'tab' });
   await tap(page, seg, { role: 'tab' });
+}
+/** আমার চেম্বার › আজকের রোগী (আমার কাজ CONTRACT §২: আগের "আজকের সিরিয়াল" আর "আজকের ডেস্ক" এক সারিতে) */
+async function chamberQueue(page) {
+  await go(page, '/work/pro');
+  await todayBox(page).waitFor();
 }
 
 export async function run(J) {
@@ -50,7 +53,7 @@ export async function run(J) {
   await J.sc('J-02', 'ডাক্তার: আজকের সিরিয়ালে রোগীকে নিশ্চিত করা', async () => {
     page = await J.as('doctor');
     await chamberToday(page, /^নতুন/);
-    await J.shot('ডাক্তার: আমার চেম্বার › বুকিং › নতুন', 'ওপরে "রোগীরা আপনাকে যেভাবে দেখেন" কার্ড আর চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ"; "নতুন"-এ অপেক্ষায় হাবিবুর আর রহিম — বাঁয়ে সারি, ডানে বাছা সিরিয়াল।', { full: true });
+    await J.shot('ডাক্তার: আমার চেম্বার › বুকিং › নতুন', 'ট্যাব আজকের রোগী · বুকিং · রোগী · প্রেসক্রিপশন; "নতুন"-এ অপেক্ষায় হাবিবুর আর রহিম — বাঁয়ে সারি, ডানে বাছা সিরিয়াল, একটাই মূল বোতাম ‘নিশ্চিত করুন’ (না করুন "আরও"-তে)।', { full: true });
     await pickQueueItem(page, ME);
     const row = page.locator('tr, .row, article, li').filter({ hasText: ME }).filter({ has: page.getByRole('button', { name: 'নিশ্চিত করুন' }) }).last();
     await row.getByRole('button', { name: 'নিশ্চিত করুন' }).click();
@@ -76,7 +79,10 @@ export async function run(J) {
     await go(page, '/work');
     await J.shot('সহকারী: আজকের কাজ', '‘চেম্বার’ অংশে ডা. ডেমো হাসানের আজকের চেম্বার আর সিরিয়াল; নিচে ‘আপনার কাজের পাতা’-য় ‘প্রেসক্রিপশন’ — ডাক্তারের সহকারী · ডা. ডেমো হাসান।');
     await openRx(page);
-    await J.shot('সহকারী: রোগী — আজকের সিরিয়াল আর অ্যাপের অ্যাপয়েন্টমেন্ট', 'ওপরে ‘আজকের সিরিয়াল’ কার্ড (পরের রোগী, বিরতি), নিচে ‘অ্যাপের অ্যাপয়েন্টমেন্ট (আজ–কাল)’-এ রহিম ‘সিরিয়াল ৫’; ট্যাব শুধু ‘রোগী’ আর ‘টাকা মেলানো’ — ‘নতুন প্রেসক্রিপশন’ নেই।', { full: true });
+    await J.shot('সহকারী: আজকের রোগী', 'ট্যাব ‘আজকের রোগী’ · ‘রোগী’ · ‘টাকা মেলানো’ — ‘নতুন প্রেসক্রিপশন’ নেই; ডাক্তারের একই সারি (পরের রোগী, সারিতে ডাকুন/ফি নিন), প্রেসক্রিপশন লেখা ছাড়া।', { full: true });
+    if (await page.getByTestId('tq-write').count()) throw new Error('সহকারীর সারিতে ‘প্রেসক্রিপশন লিখুন’');
+    await tap(page, 'রোগী', { role: 'tab', exact: true });
+    await J.shot('সহকারী: রোগী', '‘অ্যাপের অ্যাপয়েন্টমেন্ট (আজ–কাল)’-এ রহিম ‘সিরিয়াল ৫’।', { full: true });
     if (await page.getByRole('tab', { name: /নতুন প্রেসক্রিপশন/ }).count()) throw new Error('সহকারীর জন্য নতুন প্রেসক্রিপশন ট্যাব দেখা যাচ্ছে');
   });
 
@@ -163,7 +169,7 @@ export async function run(J) {
     page = await J.as('pharmacy');
     await pharmacyOrders(page, 'অনলাইন অর্ডার');
     const row = await orderRow(page, 'ডেমো বাসা ৫, শিববাড়ি');
-    await row.getByRole('button', { name: 'খুলে ওষুধ লিখুন' }).click();
+    await rowAct(page, row, 'খুলে ওষুধ লিখুন');
     await settle(page);
     await J.shot('প্রেসক্রিপশন খোলা — কয়টা দিলেন', 'Comet (৬০টা বাকি) আর Napa (৯টা বাকি) — ‘কয়টা দিলেন’ ঘর আর ‘পুরো’ বোতাম; ওষুধের নিচে ‘খাবারের পরে’।', { status: 'fixed', noteBn: 'আগে ওষুধের নামের নিচে ইংরেজিতে ‘after’ দেখাত (খাওয়ার সময়ের কাঁচা মান)। এখন ‘খাবারের পরে’/‘খাবারের আগে’।' });
     // বেশি দিলে আটকায়
@@ -214,7 +220,8 @@ export async function run(J) {
     page = await J.as('lab');
     await labOrders(page);
     await J.shot('প্যাথলজি: পরীক্ষার অনুরোধ', '‘ডেমো রোগী রহিম’ (CBC, HbA1c) সারি, ‘নমুনা নিয়েছি’ বোতাম।', { full: true });
-    let row = page.locator('tr, article').filter({ hasText: ME }).filter({ hasText: 'HbA1c' }).first();
+    // ফোনে কার্ড, ডেস্কটপে বাঁয়ের ছোট সারি (q-item) — চাপলে ডানে খোলে
+    let row = page.locator('tr, article, [data-testid=q-item]').filter({ hasText: ME }).filter({ hasText: 'HbA1c' }).first();
     // বাসা থেকে নমুনা: আগে সময় নিশ্চিত (খুলে)
     await row.getByText(ME).click();
     await settle(page);
@@ -275,7 +282,7 @@ export async function run(J) {
   await J.sc('J-16a', 'ডাক্তার: টাকা মেলার আগে রিপোর্ট খোলে না', async () => {
     page = await J.as('doctor');
     await openRx(page);
-    await tap(page, 'রিপোর্ট', { role: 'tab' });
+    await doctorMore(page, 'রিপোর্ট');
     await J.shot('ডাক্তার: রিপোর্ট — টাকা মেলাতে হবে', 'রহিমের রিপোর্ট ‘টাকা মেলাতে হবে’-তে — TrxID DEMO1234AB; ফল এখনো দেখা যায় না।', { full: true });
   });
 
@@ -293,7 +300,7 @@ export async function run(J) {
   await J.sc('J-16', 'ডাক্তার: রোগীর ল্যাব রিপোর্ট পড়া আর জানানো', async () => {
     page = await J.as('doctor');
     await openRx(page);
-    await tap(page, 'রিপোর্ট', { role: 'tab' });
+    await doctorMore(page, 'রিপোর্ট');
     await tap(page, 'দেখতে হবে', { role: 'tab' }).catch(() => tap(page, 'দেখতে হবে'));
     await J.shot('ডাক্তার: রিপোর্ট — দেখতে হবে', 'রহিম (ডেমো সিটি ডায়াগনস্টিক সেন্টার · CBC, HbA1c) — ‘রিপোর্ট দেখে জানান’।');
     const row = page.locator('tr, article, .card').filter({ hasText: ME }).filter({ hasText: 'HbA1c' }).first();
@@ -346,9 +353,9 @@ export async function run(J) {
 
   await J.sc('J-20', 'ডাক্তার: আজকের সিরিয়াল চালানো — পরের রোগী', async () => {
     page = await J.as('doctor');
-    await chamberToday(page);
-    const qc = page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).filter({ has: page.getByRole('button', { name: 'পরের রোগী' }) }).first();
-    await J.shot('আজকের সিরিয়াল — চলছে, এখন দেখছি ২', '‘চলছে’, ‘এখন দেখছি’ ২, ‘পরের’ ৩, ‘গড়’ ৮ মি.; সারিতে ১–৫ (রহিম ৫)।');
+    await chamberQueue(page);
+    const qc = todayBox(page);
+    await J.shot('আজকের রোগী — চলছে, এখন দেখছি ২', '‘চলছে’, ‘এখন দেখছি’ ২, ‘পরের’ ৩, ‘গড়’ ৮ মি.; সারিতে ১–৫ (রহিম ৫)।');
     await qc.getByRole('button', { name: 'পরের রোগী' }).click();
     await settle(page, 600);
     await J.shot('পরের রোগী চাপার পর — এখন দেখছি ৩', '‘এখন দেখছি’ ৩ (রাশেদুল ইসলাম, সবুজ সারি), ‘পরের’ ৪; ২ নম্বরের পাশে ‘দেখা হয়েছে’।');
@@ -381,15 +388,11 @@ export async function run(J) {
     page = await J.as('doctor');
     await go(page, '/inbox');
     await J.shot('ডাক্তারের নোটিফিকেশন', '‘রোগী ২০ মিনিট দেরিতে আসবেন’।');
-    await chamberToday(page);
-    const row = page.locator('.appt-q-row, li, div[role=button], button').filter({ hasText: ME }).filter({ hasText: '২০ মিনিট দেরি হবে' }).first();
-    await J.shot('রহিমের সারিতে ‘২০ মিনিট দেরি হবে’', 'লাল ‘২০ মিনিট দেরি হবে’, নিচে ‘রিকশা পাচ্ছি না’, পাশে ‘ঠিক আছে’ আর ‘পরে আসুন’।');
-    const box = page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).first();
-    const later = box.locator('div').filter({ hasText: 'রিকশা পাচ্ছি না' }).getByRole('button', { name: 'পরে আসুন' }).last();
-    await later.click();
+    await chamberQueue(page);
+    await J.shot('রহিমের সারিতে ‘২০ মিনিট দেরি হবে’', 'লাল ‘২০ মিনিট দেরি হবে’, নিচে ‘রিকশা পাচ্ছি না’, মূল বোতাম ‘ঠিক আছে’, ‘পরে আসুন’ পাশে/‘আরও’-তে।');
+    await queueRowAct(page, 'রিকশা পাচ্ছি না', 'পরে আসুন');
     await settle(page, 600);
     await J.shot('পরে আসুন — রহিম ‘শেষে’', 'রহিমের সারিতে ‘শেষে’; অন্য কারো নম্বর বদলায় না।');
-    void row;
   });
 
   await J.sc('J-24', 'রোগী: ডাক্তারের উত্তর দেখা', async () => {
@@ -405,32 +408,31 @@ export async function run(J) {
   await J.sc('R-35', 'সহকারী: দেরির অনুরোধে ‘ঠিক আছে’', async () => {
     page = await J.as('assistant');
     await openRx(page);
-    const box = page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).first();
-    await J.shot('সহকারী: মরিয়মের ‘২০ মিনিট দেরি হবে’', 'লাল ‘২০ মিনিট দেরি হবে’, ‘জ্যামে আটকে আছি’, ‘ঠিক আছে’ / ‘পরে আসুন’।');
-    await box.locator('div').filter({ hasText: 'জ্যামে আটকে আছি' }).getByRole('button', { name: 'ঠিক আছে' }).last().click();
+    await todayBox(page).waitFor();
+    await J.shot('সহকারী: মরিয়মের ‘২০ মিনিট দেরি হবে’', 'লাল ‘২০ মিনিট দেরি হবে’, ‘জ্যামে আটকে আছি’, মূল বোতাম ‘ঠিক আছে’ (‘পরে আসুন’ পাশে/‘আরও’-তে)।');
+    await queueRowAct(page, 'জ্যামে আটকে আছি', 'ঠিক আছে');
     await settle(page, 600);
     await J.shot('ঠিক আছে — সিরিয়াল ৪-ই থাকে', 'বোতাম চলে যায়, ‘২০ মিনিট দেরি হবে’ (নীল) থাকে — ক্রম বদলায় না।');
   });
 
   await J.sc('R-34', 'সহকারী: সিরিয়াল চালানো আর বিরতি', async () => {
-    const box = page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).filter({ has: page.getByRole('button', { name: 'বিরতি' }) }).first();
-    await box.getByRole('button', { name: 'বিরতি' }).click();
+    await todayMore(page, 'বিরতি');
     await settle(page, 600);
-    await J.shot('বিরতি', 'লেবেল ‘বিরতি’, বোতাম ‘আবার শুরু’।');
+    await J.shot('বিরতি', 'লেবেল ‘বিরতি’, ‘আরও’-তে ‘আবার শুরু’।');
     page = await J.as('patient');
     await openMyAppt(page);
     await J.shot('রোগী: ডাক্তার একটু বিরতিতে', 'রোগীর বাক্সে ‘ডাক্তার একটু বিরতিতে’।');
     page = await J.as('assistant');
     await openRx(page);
-    await page.getByRole('button', { name: 'আবার শুরু' }).first().click();
+    await todayMore(page, 'আবার শুরু');
     await settle(page, 600);
     await J.shot('আবার শুরু', 'আবার ‘চলছে’।');
   });
 
   await J.sc('J-25', 'ডাক্তার: পরের রোগী চাপতে চাপতে রহিমের পালা', async () => {
     page = await J.as('doctor');
-    await chamberToday(page);
-    const qc = () => page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).filter({ has: page.getByRole('button', { name: 'পরের রোগী' }) }).first();
+    await chamberQueue(page);
+    const qc = () => todayBox(page);
     await qc().getByRole('button', { name: 'পরের রোগী' }).click();
     await settle(page, 600);
     await J.shot('এখন দেখছি ৪ (মরিয়ম নেসা)', '‘এখন দেখছি’ ৪।');
@@ -442,7 +444,7 @@ export async function run(J) {
     await J.shot('রোগী: এখন আপনার পালা', 'রোগীর বাক্সে ‘এখন আপনার পালা’।');
     await see(page, 'এখন আপনার পালা');
     page = await J.as('doctor');
-    await chamberToday(page);
+    await chamberQueue(page);
     await qc().getByRole('button', { name: 'পরের রোগী' }).click();
     await settle(page, 600);
     await J.shot('আরেকবার পরের রোগী — সিরিয়াল শেষ', 'বাকি কেউ না থাকায় লেবেল ‘শেষ’।');
@@ -453,11 +455,11 @@ export async function run(J) {
 
   await J.sc('R-36', 'সিরিয়াল চেপে ‘এখন দেখছি’', async () => {
     page = await J.as('doctor');
-    await chamberToday(page);
-    const box = page.locator('section, .card').filter({ hasText: 'আজকের সিরিয়াল' }).first();
-    await box.getByRole('button', { name: /^১ ডেমো রোগী সালমা খাতুন/ }).click();
+    await chamberQueue(page);
+    const box = todayBox(page);
+    await queueRowAct(page, 'ডেমো রোগী সালমা খাতুন', 'ডাকুন');
     await settle(page, 600);
-    await J.shot('সালমার সারি চেপে এখন দেখছি ১', '‘এখন দেখছি: ১’; সালমার সারি সবুজ।');
+    await J.shot('সালমাকে ‘ডাকুন’ — এখন দেখছি ১', '‘এখন দেখছি: ১’; সালমার সারি সবুজ।');
     const next = box.getByRole('button', { name: 'পরের রোগী' });
     if (await next.isEnabled()) {
       await next.click();
@@ -489,14 +491,9 @@ async function pharmacyOrders(page, tab) {
   await pharmacyWork(page, tab);
 }
 
-/** আমার কাজ › প্রেসক্রিপশন › খুলুন (রোগী ট্যাব) */
+/** প্রেসক্রিপশনের পাতা (/work/rx): ডাক্তার — রোগী; সহকারী — আজকের রোগী (আমার কাজ CONTRACT §২) */
 async function openRx(page) {
-  await go(page, '/work');
-  const card = page.locator('a, .card').filter({ hasText: 'প্রেসক্রিপশন' }).filter({ hasText: /রোগী|সহকারী/ });
-  await card.first().click();
-  await settle(page);
-  const t = page.getByRole('tab', { name: 'রোগী', exact: true });
-  if (await t.count()) await t.click();
+  await go(page, '/work/rx');
   await settle(page);
 }
 

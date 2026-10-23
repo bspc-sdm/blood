@@ -230,7 +230,8 @@ test('ফার্মেসির মালিক: "এখন বন্ধ" (pha
   await expect(pv.getByTestId('override-note')).toBeVisible();
   await pv.getByTestId('override-note').getByRole('button', { name: 'সময়সূচি মেনে চলুন' }).click();
   await expect.poll(() => sent.filter((x) => x.action === 'pharmacy_open_override').at(-1)).toMatchObject({ open: null });
-  await expect(page.getByTestId('queue-segs').getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/]);
+  // আমার কাজ CONTRACT §২: চতুর্থ ভাগ "ওষুধ খোঁজা"
+  await expect(page.getByTestId('queue-segs').getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/, /^ওষুধ খোঁজা/]);
   if (page.viewportSize()!.width >= 900) {
     const left = (await pv.boundingBox())!;
     const code = (await page.locator('.rxp-codeside').boundingBox())!;
@@ -252,12 +253,14 @@ test('ডাক্তার: রোগীরা যেভাবে দেখে�
   await expect(pv.getByText('আজকের জন্য আগেই ২টা অনুরোধ আছে — তাঁদের জানিয়ে দিন।')).toBeVisible();
   await pv.getByTestId('sw-chamber-0').getByRole('button', { name: 'আজ সিরিয়াল চলছে' }).click();
   await expect.poll(() => sent.at(-1)).toMatchObject({ chamberIndex: 0, closed: false });
+  // বুকিং এখন নিজের ট্যাবে (/work/pro/bookings); /work/pro = আজকের রোগী
+  await page.goto('/work/pro/bookings', { waitUntil: 'networkidle' });
   await expect(page.getByTestId('queue-segs').getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/]);
 });
 
 test('@desktop "আমার কাজ" তালিকা-বিস্তারিত: বুকিং বাঁয়ে, বাছা সিরিয়াল ডানে', async ({ page }) => {
-  test.skip(page.viewportSize()!.width < 900, 'ডেস্কটপ');
-  await open(page, def('work', 'pro'));
+  test.skip(page.viewportSize()!.width < 960, 'ডেস্কটপ');
+  await open(page, { ...def('work', 'pro'), path: '/work/pro/bookings' });
   const items = page.getByTestId('q-item');
   await expect(items.first()).toHaveAttribute('aria-current', 'true');
   const n = await items.count();
@@ -269,10 +272,11 @@ test('@desktop "আমার কাজ" তালিকা-বিস্তার
   await noSideScroll(page);
 });
 
-test('অ্যাম্বুলেন্সের মালিক: "খালি আছি / ট্রিপে আছি" কার্ডে; ডাক নতুন / চলছে / শেষ', async ({ page }) => {
+test('অ্যাম্বুলেন্সের মালিক: "খালি আছি / ট্রিপে আছি" কার্ডে; ডাক না থাকলে এক লাইন (ভাগ নয়)', async ({ page }) => {
   await open(page, def('work', 'ambulance'));
   const pv = page.getByTestId('provider-preview').first();
   await expect(pv.getByTestId('listing-card')).toContainText('খালি আছে');
   await expect(pv.getByTestId('sw-available').getByRole('button', { name: 'খালি আছি' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByTestId('queue-segs').first().getByRole('tab')).toHaveText([/^নতুন/, /^চলছে/, /^শেষ/]);
+  await expect(page.getByTestId('amb-calls-empty')).toBeVisible();
+  await expect(page.getByTestId('queue-segs')).toHaveCount(0);
 });

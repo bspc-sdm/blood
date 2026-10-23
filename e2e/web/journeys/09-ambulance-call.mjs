@@ -5,7 +5,7 @@
 // গন্তব্য "শহীদ তাজ উদ্দীন আহমদ মেডিকেল কলেজ হাসপাতাল" (লিখে) — ডেমো ভাড়ার তালিকায় আছে। ধরন "এসি" হলে প্রার্থী শুধু দুটো:
 // চালকের ‘ডেমো জীবন অ্যাম্বুলেন্স (এসি)’ (৳১০০০) আর ‘ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস’ (৳৩০০০, ১২ ঘণ্টার বেশি আগে খালি
 // জানানো) — তাই কে খবর পায় তা নিশ্চিত। একজন রোগী ঘণ্টায় ৫টা ডাকতে পারেন — তাই কিছু দৃশ্য ডেমো ডোনারকে দিয়ে।
-import { pickQueueItem, tap, see, go, settle, until, vis } from '../lib.mjs';
+import { pickQueueItem, tap, see, go, settle, until, vis, rowAct } from '../lib.mjs';
 
 export const meta = { no: 9, slug: 'ambulance-call', titleBn: 'অ্যাম্বুলেন্স ডাকুন: ভাড়ার প্রস্তাব, রাজি, পৌঁছানো, বাতিল, ফোনে পাওয়া' };
 
@@ -153,7 +153,7 @@ export async function run(J) {
     await see(driver, 'ডেমো রোগী রহিম');
     const agreed = await card.getByTestId('amb-agreed-fare').textContent();
     if (!/৳১,২০০/.test(agreed)) throw new Error(`চালকের দিকে ভাড়া ভুল: ${agreed}`);
-    await J.shot('চালক: আপনি যাচ্ছেন', '‘আপনি যাচ্ছেন’, ‘ঠিক হওয়া ভাড়া ৳১,২০০’, রোগীর নাম ‘ডেমো রোগী রহিম’, ফোন, ‘ম্যাপে খুলুন’, ‘পৌঁছেছি’, ‘শেষ’, ‘বাতিল’।');
+    await J.shot('চালক: আপনি যাচ্ছেন', '‘আপনি যাচ্ছেন’, ‘ঠিক হওয়া ভাড়া ৳১,২০০’, রোগীর নাম ‘ডেমো রোগী রহিম’, ফোন, ‘ম্যাপে খুলুন’, মূল বোতাম ‘পৌঁছেছি’ (‘শেষ’, ‘বাতিল’ — ‘আরও’-তে)।');
     await card.getByRole('button', { name: 'পৌঁছেছি', exact: true }).click();
     await card.getByText('আপনি পৌঁছেছেন').waitFor({ timeout: 10000 });
     patient = await J.as('patient');
@@ -212,7 +212,8 @@ export async function run(J) {
     await J.shot('ডোনার: ৳১,০০০-এর মধ্যে ১টা গাড়িকে জানানো', '‘আপনার ভাড়ার মধ্যে কাছের ১টা অ্যাম্বুলেন্সকে জানানো হয়েছে’ (শুধু চালকের এসি গাড়ি)।');
     driver = await J.as('ambulance', 'desktop');
     const card = await driverCall(driver, 'ডেমো ডোনারের বাসা');
-    await card.getByRole('button', { name: 'পারব না' }).click();
+    // "পারব না" এখন কার্ডের "আরও"-তে (আমার কাজ CONTRACT §২ — একটাই মূল বোতাম "আসছি")
+    await rowAct(driver, card, 'পারব না');
     await settle(driver, 600);
     if (await driver.getByTestId('amb-call').filter({ hasText: 'ডেমো ডোনারের বাসা' }).count()) throw new Error('"পারব না"-র পরেও ডাকটা চালকের তালিকায়');
     await J.shot('চালক: পারব না', 'ডাকটা চালকের তালিকা থেকে চলে যায় (ambreq_decline)।');

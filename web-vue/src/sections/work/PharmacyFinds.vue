@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// "ওষুধ খোঁজা" ট্যাব (২.৩০.০): রোগীদের ওষুধ খোঁজার অনুরোধ — উপরে চালু/বন্ধ, প্রতিটায় এক চাপে "আছে"/"নেই"
+// "ওষুধ খোঁজা" (২.৩০.০; আমার কাজ CONTRACT §২ থেকে "অর্ডার"-এর চতুর্থ ভাগ): রোগীদের ওষুধ খোঁজার অনুরোধ — উপরে চালু/বন্ধ, প্রতিটায় কতটা আছে
 import { computed } from 'vue';
 import Redirect from '@/shell/Redirect.vue';
 import { useSession } from '@/lib/session';
@@ -9,6 +9,7 @@ import BizPage from './BizPage.vue';
 import WorkGate from './WorkGate.vue';
 import PharmacyTabs from './PharmacyTabs.vue';
 import FindRequests from './FindRequests.vue';
+import PharmOrderSegs from '../rx/partner/PharmOrderSegs.vue';
 
 const s = useSession();
 const ready = computed(() => s.ready && !s.guest && s.workLoaded);
@@ -23,6 +24,7 @@ const hint = computed(() => tr('People nearby ask whether you have a medicine th
   <Redirect v-else-if="ph?.status !== 'approved'" to="/work/pharmacy" />
   <BizPage v-else :title="title">
     <PharmacyTabs active="finds" />
+    <PharmOrderSegs value="finds" />
     <p class="t-body-m muted">
       {{ hint }}
     </p>
