@@ -1,0 +1,20 @@
+run=39376403981
+job=success
+journald_changed=no
+journald_settings=Storage=persistent SystemMaxUse=1G SystemKeepFree=2G MaxFileSec=1day MaxRetentionSec=21day 
+journald_usage=60.5M
+journald_oldest=2026-10-19T10:54:43+00:00
+logrotate_nginx= daily rotate 13 maxage 14 (বদলেছে: no)
+logrotate_rsyslog= rotate 2 maxage 21 weekly (বদলেছে: no)
+logrotate_postgresql-common= weekly rotate 2 maxage 21 (বদলেছে: no)
+logrotate_redis-server= weekly rotate 2 maxage 21 (বদলেছে: no)
+logrotate_fail2ban= weekly rotate 2 maxage 21 (বদলেছে: no)
+logrotate_ufw= rotate 2 maxage 21 weekly (বদলেছে: yes)
+logrotate_btmp= weekly rotate 2 maxage 21 (বদলেছে: yes)
+logrotate_wtmp= weekly rotate 2 maxage 21 (বদলেছে: yes)
+logrotate_check=ok
+logrotate_timer=active/enabled
+old_rotated_removed=0
+app_log_files=none (stdout → journald, 21 দিন)
+rsyslog_forwarding=active (journald-এর কপি /var/log/syslog-এ — ওপরের rsyslog সীমা)
+finished=yes

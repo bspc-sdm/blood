@@ -1,0 +1,4 @@
+run=39987813710
+action=show
+job=success
+RESULT ok=1 action=show changed=0 unmet=0 snapshot=

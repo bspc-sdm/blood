@@ -1,0 +1,3 @@
+time="2026-10-23T09:35:14Z" level=info msg="PROBE {\"reads\":22,\"guest\":10,\"dropped\":[]}" source=console
+time="2026-10-23T09:35:25Z" level=info msg="WROTE blood assistant hCUff5xd7hXQM7AuIRea" source=console
+stage 2 rate 650: 613.5 req/s, p95 365 ms, errors 0.00%

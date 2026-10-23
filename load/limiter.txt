@@ -1,0 +1,4 @@
+sent=300
+ok=240
+limited=60
+other=0

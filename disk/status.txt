@@ -1,0 +1,8 @@
+run=39384059919
+job=success
+disk_used_pct=6
+inode_used_pct=1
+mem_avail_pct=86
+swap_used_mb=0
+journal_mb=77
+varlog_mb=141
