@@ -135,7 +135,7 @@ function onPaid() {
         <span v-if="o.missed?.length" class="t-body-s muted">{{ tr("Didn't have: ", 'ছিল না: ') + o.missed.join(', ') }}</span>
         <div v-if="['sent', 'ready', 'accepted'].includes(o.status)"><Action icon="close" @click="withdrawing = o">{{ tr('Take back', 'ফিরিয়ে নিন') }}</Action></div>
         <ContactActions :message="chatOn()" @message="openChatAt" ctx="rx_order" :ref-id="o.id" :peer-name="o.pharmacyName" :show="o.mode === 'online' && OPEN.includes(o.status)" />
-        <div><InvoiceLink ref-type="rx_order" :ref-id="o.id" :invoice-id="(o as { invoiceId?: string }).invoiceId" /></div>
+        <div><InvoiceLink ref-type="rx_order" :ref-id="o.id" :invoice-id="o.invoiceId" /></div>
       </div>
       <template v-if="!cancelled && a.medicines.some((m) => !m.done)">
         <!-- উপরের বড় বাটনের মতোই একটা — একই বাছাই (দোকানে আছি / অনলাইনে অর্ডার) -->
@@ -158,7 +158,7 @@ function onPaid() {
         </div>
         <span class="t-body-s muted">{{ o.tests.join(', ') }}</span>
         <ContactActions :message="chatOn()" @message="openChatAt" ctx="lab_order" :ref-id="o.id" :peer-name="o.labName" :show="['sent', 'received'].includes(o.status)" />
-        <div><InvoiceLink ref-type="lab_order" :ref-id="o.id" :invoice-id="(o as { invoiceId?: string }).invoiceId" /></div>
+        <div><InvoiceLink ref-type="lab_order" :ref-id="o.id" :invoice-id="o.invoiceId" /></div>
         <!-- পাঠানোর সময়ের আনুমানিক দাম; তালিকায় না থাকা পরীক্ষা ("ECG দাম জানা নেই") -->
         <span v-if="o.prices && o.status !== 'cancelled'" class="t-body-s">{{ snapText(o.prices, o.home) }}</span>
         <IconLine

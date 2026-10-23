@@ -14,6 +14,8 @@ import type { Dest } from './fare';
 export interface AmbCar { id: string; name: string; phone: string; km: number | null; kmApprox?: boolean }
 export interface AmbReq {
   id: string;
+  /** ট্রিপ শেষের ভাড়ার রসিদ (না থাকলে null) */
+  invoiceId?: string | null;
   status: 'open' | 'accepted' | 'arrived' | 'done' | 'byPhone' | 'cancelled' | 'expired';
   createdAt: number;
   widenAt: number;

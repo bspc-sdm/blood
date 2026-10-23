@@ -23,6 +23,8 @@ export interface PharmOrder {
   mode: 'shop' | 'online'; price: string; eta: string; deliveryFee: string; missed: string[]; address?: string; phone?: string;
   /** "আমার কাজ"-এর ভাগ (সার্ভারের pharmSeg) */
   seg?: PharmSeg;
+  /** রসিদ (না থাকলে null) */
+  invoiceId?: string | null;
 }
 export interface OnlineSettings { enabled: boolean; radiusKm: number; fee: string; note: string }
 export interface Missed { k: string; name: string; count: number; lastAt: number }
@@ -102,6 +104,8 @@ export interface LabOrder {
   home?: LabHome | null;
   /** "আমার কাজ"-এর ভাগ (সার্ভারের labSeg) */
   seg?: LabSeg;
+  /** বিলের রসিদ (না থাকলে null) */
+  invoiceId?: string | null;
 }
 /** lab_prices_get — নিজের তালিকা (বন্ধগুলোসহ) */
 /** hidden: ছকে এখন লুকানো পরীক্ষা — রোগীরা দেখেন না; আবার সেভ করলে নাম দিয়ে নিজে লেখা হিসেবে থাকে */

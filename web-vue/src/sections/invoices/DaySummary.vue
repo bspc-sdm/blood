@@ -54,7 +54,7 @@ const series = computed(() => {
 
 <template>
   <section class="card col gap-12 inv-day" data-testid="day-summary">
-    <div class="row gap-8"><Icon name="history" /><h3 class="t-title-m grow">{{ T.dayEnd() }}</h3></div>
+    <div class="row gap-8"><Icon name="history" :size="20" /><h3 class="t-title-m grow">{{ T.dayEnd() }}</h3></div>
     <SkeletonCards v-if="q.isPending" :n="1" :h="120" />
     <EmptyState v-else-if="!all.length" icon="list_alt" :title="T.noReceipts()" />
     <template v-else>

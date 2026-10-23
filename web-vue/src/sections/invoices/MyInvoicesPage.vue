@@ -67,7 +67,7 @@ const tabs = computed(() => [
               @click="nav(`/invoices/${i.id}`)"
             >
               <span class="row gap-8">
-                <Icon :name="kindIcon(i.kind)" />
+                <Icon :name="kindIcon(i.kind)" :size="20" />
                 <span class="t-title-s grow ellipsis">{{ i.bizName }}</span>
                 <span class="num semi">{{ money(i.total) }}</span>
               </span>

@@ -53,7 +53,7 @@ function go() {
           <h2 class="t-title-l grow">{{ v.demo ? T.demoNotReal() : v.status === 'void' ? T.verifyVoid() : T.verifyValid() }}</h2>
           <Tag v-if="!v.demo" :tone="v.status === 'void' ? 'error' : 'good'" data-testid="verify-status">{{ v.status === 'void' ? T.voided() : T.valid() }}</Tag>
         </div>
-        <div class="row gap-6 t-title-m"><Icon :name="kindIcon(v.kind)" />{{ v.bizName }}</div>
+        <div class="row gap-6 t-title-m"><Icon :name="kindIcon(v.kind)" :size="20" />{{ v.bizName }}</div>
         <span class="t-body-s muted">{{ kindText(v.kind) }}</span>
         <div class="inv-verify-big num">
           <div><span class="t-label-m muted">{{ T.receiptNo() }}</span><b data-testid="verify-no">{{ num(v.no) }}</b></div>

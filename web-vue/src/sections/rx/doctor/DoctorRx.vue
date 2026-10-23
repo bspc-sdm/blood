@@ -27,6 +27,7 @@ import ReviewsPage from './ReviewsPage.vue';
 import TeamPage from './TeamPage.vue';
 import OnlyDoctor from './OnlyDoctor.vue';
 import { T } from '../../invoices/text';
+import { invFeature } from '../../invoices/features';
 
 const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
 
@@ -72,11 +73,11 @@ const tabs = computed(() =>
         { key: '/list', label: tr('Prescriptions', 'প্রেসক্রিপশন'), icon: 'medication' },
         { key: '/reviews', label: tr('Reports', 'রিপোর্ট'), icon: 'list_alt' },
         { key: '/team', label: tr('Assistants', 'সহকারী'), icon: 'group_round' },
-        { key: '/desk', label: T.desk(), icon: 'event_outline' },
+        ...(invFeature('inv_chamber') ? [{ key: '/desk', label: T.desk(), icon: 'event_outline' }] : []),
       ]
     : [
         { key: '', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
-        { key: '/desk', label: T.desk(), icon: 'event_outline' },
+        ...(invFeature('inv_chamber') ? [{ key: '/desk', label: T.desk(), icon: 'event_outline' }] : []),
         { key: '/reviews', label: tr('Payments', 'টাকা মেলানো'), icon: 'payments' },
       ],
 );
@@ -89,7 +90,7 @@ const page = computed<{ k: string; id?: string }>(() => {
   if (view) return doctor.value ? { k: 'view', id: view.params.id ?? '' } : { k: 'only' };
   if (m('/reviews')) return { k: 'reviews' };
   if (m('/team')) return { k: doctor.value ? 'team' : 'only' };
-  if (m('/desk')) return { k: 'desk' };
+  if (m('/desk') && invFeature('inv_chamber')) return { k: 'desk' };
   return { k: 'none' };
 });
 // কার হয়ে কাজ: নিজে (ডাক্তার হলে) আর যাঁদের সহকারী

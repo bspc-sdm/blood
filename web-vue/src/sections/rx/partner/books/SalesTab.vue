@@ -23,6 +23,7 @@ import type { OfflineItem, SaleData } from '@/offline';
 import PayFields from '../../../invoices/PayFields.vue';
 import OfflineBar from '../../../invoices/OfflineBar.vue';
 import ReceiptDialog from '../../../invoices/ReceiptDialog.vue';
+import { invFeature } from '../../../invoices/features';
 
 interface Line { item: ShopItem; qty: string; price: string; disc: string }
 
@@ -47,8 +48,10 @@ function billOf(lines: Line[], billType: 'pct' | 'amt', billV: number | null) {
 
 const s = useSession();
 const bizId = computed(() => (s.work.pharmacy as { id?: string } | null)?.id ?? '');
-const off = useOffline('pharmacy', bizId);
-const online = useCall<{ items: ShopItem[] }>('books_items', {}, () => ({ enabled: !off.st.desktop }));
+// ফিচার সুইচ inv_pharmacy বন্ধ: আগের মতোই (রসিদ, ক্রেতা, পরিশোধ, ডেস্কটপের অফলাইন বিক্রি — কিছুই নয়)
+const inv = computed(() => invFeature('inv_pharmacy'));
+const off = useOffline('pharmacy', () => (inv.value ? bizId.value : null));
+const online = useCall<{ items: ShopItem[] }>('books_items', {}, () => ({ enabled: !(off.st.desktop && inv.value) }));
 // ডেস্কটপে পণ্যের তালিকা স্থানীয় (অফলাইনেও চলে)
 const local = shallowRef<ShopItem[] | null>(null);
 /** ডেস্কটপের জিনিস (stock = সার্ভারের + এখনো না মেলা বদল) → হিসাব-খাতার আকার */
@@ -61,7 +64,7 @@ async function loadLocal() {
   if (st) local.value = (await st.items('')).map(fromOffline);
 }
 watch(() => off.st.ready, (r) => r && loadLocal(), { immediate: true });
-const items = computed(() => (off.st.desktop ? (local.value ? { items: local.value } : null) : online.data ?? null));
+const items = computed(() => (off.st.desktop && inv.value ? (local.value ? { items: local.value } : null) : online.data ?? null));
 const period = ref<'today' | '7d'>('today');
 const sales = useCall<{ items: Sale[] }>('books_sales', () => ({ period: period.value }));
 const refresh = useBooksRefresh();
@@ -100,6 +103,17 @@ async function save() {
   busy.value = true;
   err.value = null;
   try {
+    if (!inv.value) {
+      // আগের মতো (রসিদ ছাড়া)
+      const r0 = await call<{ sale: Sale }>('books_sale_add', {
+        lines: ready.value.map((l) => ({ itemId: l.item.id, qty: readNum(l.qty), unitPrice: readNum(l.price), unitDisc: readNum(l.disc) || 0 })),
+        billDisc: bv.value ? { type: billType.value, v: bv.value } : null,
+      });
+      toast(tr('Sale saved', 'বিক্রি লেখা হয়েছে') + ' · ' + money(r0.sale.totals.net));
+      clear();
+      refresh();
+      return;
+    }
     const g = readNum(given.value);
     const customer = { ...(custName.value.trim() ? { name: custName.value.trim() } : {}), ...(custPhone.value.trim() ? { phone: custPhone.value.trim() } : {}) };
     const payments = paymentsOf(bill.value.net, method.value, g == null || Number.isNaN(g) ? null : g, txRef.value);
@@ -137,7 +151,7 @@ async function save() {
 }
 // Ctrl+Enter (বা ⌘+Enter) — যেখানেই থাকুন, বিক্রি লেখা
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !receipt.value) {
+  if (inv.value && e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !receipt.value) {
     e.preventDefault();
     save();
   }
@@ -193,11 +207,11 @@ async function del() {
 <template>
   <div class="rxp-grid">
     <div class="col gap-16 rxp-main">
-      <OfflineBar :st="off.st" :sync="off.syncNow" />
+      <OfflineBar v-if="inv" :st="off.st" :sync="off.syncNow" />
       <Panel :title="tr('New sale', 'নতুন বিক্রি')" icon="payments">
         <Loading v-if="!items" />
-        <ItemPicker v-else :items="items.items" :placeholder="T.scanHint()" autofocus @pick="add" />
-        <span class="t-body-s muted inv-hint">{{ T.shortcutHint() }}</span>
+        <ItemPicker v-else :items="items.items" :placeholder="inv ? T.scanHint() : undefined" :autofocus="inv" @pick="add" />
+        <span v-if="inv" class="t-body-s muted inv-hint">{{ T.shortcutHint() }}</span>
         <div v-if="lines.length" class="col gap-8">
           <div v-for="l in lines" :key="l.item.id" class="bk-line">
             <div class="col gap-2 bk-line-name">
@@ -232,7 +246,7 @@ async function del() {
             <span class="bk-big num">{{ money(bill.net) }}</span>
           </div>
         </div>
-        <div v-if="lines.length" class="row wrap gap-8 inv-cust">
+        <div v-if="inv && lines.length" class="row wrap gap-8 inv-cust">
           <label class="bk-cell grow"><span class="t-label-s muted">{{ T.customerName() }}</span>
             <input class="input" :value="custName" maxlength="60" data-testid="pos-cust-name" @input="custName = ($event.target as HTMLInputElement).value" />
           </label>
@@ -240,12 +254,12 @@ async function del() {
             <input class="input num" inputmode="tel" :value="custPhone" maxlength="14" @input="custPhone = inputValue($event, (v) => v.replace(/[^0-9+০-৯]/g, ''))" />
           </label>
         </div>
-        <PayFields v-if="lines.length" v-model:method="method" v-model:given="given" v-model:tx-ref="txRef" :total="bill.net" />
+        <PayFields v-if="inv && lines.length" v-model:method="method" v-model:given="given" v-model:tx-ref="txRef" :total="bill.net" />
         <div class="row wrap gap-8">
           <Button icon="check_circle" :busy="busy" :disabled="!ready.length || bad" data-testid="pos-save" @click="save">{{ tr('Save sale', 'বিক্রি লিখুন') }}</Button>
           <Button v-if="lines.length" variant="text" @click="clear">{{ tr('Clear', 'মুছে নতুন') }}</Button>
           <span class="grow" />
-          <Check v-model="autoPrint">{{ T.printAfterSale() }}</Check>
+          <Check v-if="inv" v-model="autoPrint">{{ T.printAfterSale() }}</Check>
         </div>
         <ErrorText :text="err" />
       </Panel>
@@ -264,7 +278,7 @@ async function del() {
               <Tag :tone="s.source === 'counter' ? undefined : s.source === 'rx' ? 'primary' : 'info'">{{ sourceText(s.source) }}</Tag>
               <span class="t-body-s muted grow">{{ period === 'today' ? formatTime(s.at) : formatDayOf(s.at) }}{{ s.rx?.code ? ` · ${s.rx.code}` : s.customer ? ` · ${s.customer}` : '' }}</span>
               <span class="num semi">{{ money(s.totals.net) }}</span>
-              <Button v-if="invIdOf(s)" small variant="text" :busy="opening === s.id" @click="openReceipt(s)">{{ T.seeReceipt() }}</Button>
+              <Button v-if="inv && invIdOf(s)" small variant="text" :busy="opening === s.id" @click="openReceipt(s)">{{ T.seeReceipt() }}</Button>
               <IconButton v-else small icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = s" />
             </div>
             <span class="t-body-s muted">{{ s.lines.map((l) => `${l.name} ×${qtyText(l.qty)}`).join(', ') }}</span>

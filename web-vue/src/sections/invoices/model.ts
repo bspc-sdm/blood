@@ -135,7 +135,7 @@ export function parseVerify(r: any): VerifyInfo | null {
   return {
     bizName: String(o.bizName ?? ''), kind: o.kind, no: String(o.no), issuedAt: n2(o.issuedAt ?? o.date),
     total: n2(o.total), paid: n2(o.paid), due: n2(o.due), status: o.status === 'void' ? 'void' : 'issued',
-    lines, demo: isDemo(o), suspended: o.suspended === true || o.bizStatus === 'suspended', voidedAt: o.voidedAt ? n2(o.voidedAt) : null,
+    lines, demo: isDemo(o), suspended: o.sanctioned === true || o.suspended === true, voidedAt: o.voidedAt ? n2(o.voidedAt) : null,
   };
 }
 /** শেষ পরিশোধের মাধ্যম (রসিদে "নগদ" / "বিকাশ" …) */

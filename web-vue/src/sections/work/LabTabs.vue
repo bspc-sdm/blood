@@ -5,6 +5,7 @@ import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useNav } from '@/lib/nav';
 import { T } from '../invoices/text';
+import { invFeature } from '../invoices/features';
 import { myBusinessTitle, useNewCount, type LabTab } from './shared';
 
 const props = defineProps<{ active: LabTab }>();
@@ -22,7 +23,7 @@ const top = computed(() => (props.active === 'orders' ? 'orders' : props.active 
       :value="top"
       :tabs="[
         { key: 'orders', label: tr('Requests', 'অনুরোধ'), icon: 'list_alt', count: fresh },
-        { key: 'bill', label: T.labBill(), icon: 'edit_note' },
+        ...(invFeature('inv_lab') ? [{ key: 'bill', label: T.labBill(), icon: 'edit_note' }] : []),
         { key: 'lab', label: tr('Lab', 'ল্যাব'), icon: 'local_hospital' },
       ]"
       @change="(k) => nav(k === 'orders' ? '/work/lab/orders' : k === 'bill' ? '/work/lab/orders/bill' : '/work/lab/info')"

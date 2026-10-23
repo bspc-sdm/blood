@@ -1,0 +1,308 @@
+[
+ {
+  "name": "verify-valid",
+  "path": "/v/PH4K2M9QXA",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "verify-void",
+  "path": "/v/PH0V0ID9QX",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "verify-demo",
+  "path": "/v/DEMO0A1B2C",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "verify-none",
+  "path": "/v/ZZZZZZZZZZ",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "verify-empty",
+  "path": "/v",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "verify-en",
+  "path": "/v/LB7H3N2WQP",
+  "test": {
+   "lang": "en",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "my-receipts",
+  "path": "/invoices",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "my-receipts-guest",
+  "path": "/invoices",
+  "test": {
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "my-receipt",
+  "path": "/invoices/inv2",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "my-receipt-amb",
+  "path": "/invoices/inv4",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "my-receipt-void",
+  "path": "/invoices/inv5",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "my-receipt-dark",
+  "path": "/invoices/inv1",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "dark",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "my-expenses",
+  "path": "/invoices/expenses",
+  "test": {
+   "user": {
+    "uid": "u1",
+    "email": "parvez@example.com"
+   },
+   "profile": {
+    "name": "পারভেজ",
+    "phone": "01712345678",
+    "placeName": "ময়মনসিংহ",
+    "lat": 24.75,
+    "lng": 90.41,
+    "locationSource": "district",
+    "bloodGroup": "B+"
+   },
+   "lang": "bn",
+   "theme": "light",
+   "me": {
+    "badge": null,
+    "isAdmin": false
+   }
+  }
+ },
+ {
+  "name": "ph-receipts",
+  "path": "/work/pharmacy/shop/invoices",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "ph-sales",
+  "path": "/work/pharmacy/shop/sales",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "chamber-desk",
+  "path": "/work/rx/desk",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "chamber-desk-assistant",
+  "path": "/work/rx/desk?doctor=doc1",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "arif.doctor@example.com"
+   },
+   "profile": {
+    "name": "ডা. আরিফুল হক",
+    "phone": "01700000101",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ },
+ {
+  "name": "amb-owner",
+  "path": "/work/ambulance",
+  "test": {
+   "user": {
+    "uid": "u-work",
+    "email": "owner@example.com"
+   },
+   "profile": {
+    "name": "মো. শফিকুল ইসলাম",
+    "phone": "01711223344",
+    "lat": 24.75,
+    "lng": 90.41,
+    "placeName": "ময়মনসিংহ",
+    "locationSource": "gps"
+   },
+   "lang": "bn",
+   "theme": "light"
+  }
+ }
+]

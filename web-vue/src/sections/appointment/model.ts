@@ -116,6 +116,8 @@ export interface Appointment extends OnlinePart {
   otherPhone: string;
   otherKey: string;
   createdAt: number;
+  /** ফির রসিদ (না থাকলে null; পুরোনো সার্ভারে নেই) */
+  invoiceId?: string | null;
 }
 export interface Hospital {
   id: string;
@@ -255,6 +257,7 @@ export function parseAppointment(o: any): Appointment {
     otherKey: s(o?.otherKey),
     createdAt: n(o?.createdAt),
     ...parseOnline(o),
+    ...(o && 'invoiceId' in o ? { invoiceId: o.invoiceId ?? null } : {}),
   };
 }
 

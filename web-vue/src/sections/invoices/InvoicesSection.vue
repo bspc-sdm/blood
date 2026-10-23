@@ -4,7 +4,10 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { matchPath } from '@/lib/nav';
 import NotFound from '@/pages/NotFound.vue';
+import { EmptyState } from '@/ui/kit';
 import MyInvoicesPage from './MyInvoicesPage.vue';
+import { invFeature } from './features';
+import { T } from './text';
 
 const route = useRoute();
 const page = computed(() => {
@@ -18,6 +21,8 @@ const page = computed(() => {
 </script>
 
 <template>
-  <MyInvoicesPage v-if="page.k !== 'none'" :id="page.id" :tab="page.k" />
+  <!-- ফিচার সুইচ my_expenses বন্ধ: "এই সুবিধা শিগগির আসছে" (লিংক/নোটিফিকেশন থেকে এলে) -->
+  <div v-if="page.k !== 'none' && !invFeature('my_expenses')" class="acct-page"><EmptyState icon="list_alt" :title="T.comingSoon()" data-testid="feature-off" /></div>
+  <MyInvoicesPage v-else-if="page.k !== 'none'" :id="page.id" :tab="page.k" />
   <NotFound v-else />
 </template>

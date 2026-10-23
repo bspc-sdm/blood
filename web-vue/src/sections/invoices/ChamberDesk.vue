@@ -6,7 +6,7 @@ import { computed, reactive, ref, shallowRef, watch } from 'vue';
 import { Button, EmptyState, ErrorText, Icon, SkeletonCards, Tag, cx, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
 import { useCall, useQ } from '@/lib/query';
-import { isBangla, num, tr } from '@/lib/i18n';
+import { isBangla, num, toAsciiDigits, tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { REFRESH, type QueueChamber } from '@/sections/appointment/queue';
 import { T } from './text';
@@ -58,6 +58,25 @@ async function loadLocal() {
 watch(() => off.st.ready, (r) => r && loadLocal(), { immediate: true });
 const day = computed<DeskDay | null>(() => (off.st.desktop ? (local.value ? dayOf(local.value) : null) : q.data ? dayOf(q.data) : null));
 const chambers = computed(() => day.value?.chambers ?? []);
+// ফি নেওয়ার চেম্বার (সরাসরি আসা রোগীসহ): assistant_chambers — ডাক্তারের সব চেম্বার আর ফি ("৭০০ টাকা" → নতুন রোগীর ফি ৭০০)
+const ac = useCall<{ chambers?: { chamberKey: string; name: string; nameBn?: string; fee?: string; noFee?: boolean }[] }>(
+  'assistant_chambers',
+  () => (props.doctorUid ? { doctorUid: props.doctorUid } : {}),
+  () => ({ enabled: !off.st.desktop, staleTime: 5 * 60_000 }),
+);
+const feeNum = (f?: string) => {
+  const m = toAsciiDigits(f ?? '').replace(/,/g, '').match(/\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+};
+const feeChambers = computed<DeskChamber[]>(() => {
+  const list: DeskChamber[] = (ac.data?.chambers ?? []).map((c) => {
+    const n = c.noFee ? 0 : feeNum(c.fee);
+    return { chamberKey: c.chamberKey, name: isBangla() && c.nameBn ? c.nameBn : c.name, fees: n != null ? { new: n } : null };
+  });
+  // আজকের সারির চেম্বার (ডেস্কটপ বা পুরোনো সার্ভারে assistant_chambers নেই) — আগে নেই এমনগুলো যোগ
+  for (const c of chambers.value) if (!list.some((x) => x.chamberKey === c.chamberKey)) list.push({ chamberKey: c.chamberKey, name: c.name, fees: c.fees ?? null });
+  return list.map((c) => ({ ...c, fees: { ...(chambers.value.find((x) => x.chamberKey === c.chamberKey)?.fees ?? {}), ...(c.fees ?? {}) } }));
+});
 
 // আজকের রসিদ (ফি নেওয়া হয়েছে কি না দেখাতে) — তালিকার প্রথম পাতা
 const todays = useQ(() => ({
@@ -115,7 +134,7 @@ const canVoidInv = (i: Invoice) => !props.doctorUid || (i.issuedBy === s.uid && 
         <span class="rxp-panel-ic"><Icon name="event_outline" /></span>
         <h2 class="t-title-m grow">{{ T.deskTitle() }}</h2>
         <span v-if="total" class="rxp-count num">{{ num(total) }}</span>
-        <Button small icon="add" variant="tonal" :disabled="!chambers.length" data-testid="desk-walkin" @click="feeFor = 'walkin'">{{ T.addWalkIn() }}</Button>
+        <Button small icon="add" variant="tonal" :disabled="!feeChambers.length" data-testid="desk-walkin" @click="feeFor = 'walkin'">{{ T.addWalkIn() }}</Button>
       </div>
       <ErrorText :text="err" />
       <SkeletonCards v-if="!day && !q.error" :n="3" :h="56" />
@@ -152,7 +171,7 @@ const canVoidInv = (i: Invoice) => !props.doctorUid || (i.issuedBy === s.uid && 
       v-if="feeFor"
       :biz-id="bizId"
       :doctor-uid="doctorUid"
-      :chambers="chambers"
+      :chambers="feeChambers"
       :row="feeFor === 'walkin' ? null : { id: feeFor.id, name: feeFor.name, serial: feeFor.serial, chamberKey: feeFor.chamberKey }"
       @close="feeFor = null"
       @done="feeDone"

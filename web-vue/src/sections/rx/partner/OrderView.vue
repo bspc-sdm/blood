@@ -19,6 +19,8 @@ import ReportPane from './ReportPane.vue';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
 import { T } from '../../invoices/text';
+import { invFeature } from '../../invoices/features';
+import InvoiceByIdDialog from '../../invoices/InvoiceByIdDialog.vue';
 
 const props = defineProps<{ o: LabOrder }>();
 const invalidate = useInvalidate();
@@ -28,6 +30,7 @@ const cancelling = ref(false);
 const confirming = ref(false);
 const declining = ref(false);
 const declineNote = ref('');
+const receiptId = ref<string | null>(null);
 const active = computed(() => props.o.status === 'sent' || props.o.status === 'received');
 const h = computed(() => props.o.home);
 const homeOpen = computed(() => !!h.value && props.o.status === 'sent' && h.value.status !== 'declined');
@@ -98,7 +101,10 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
         <Button v-if="o.status === 'sent'" variant="tonal" icon="check_circle" :busy="busy" @click="setStatus('received')">{{ tr('Sample taken', 'নমুনা নিয়েছি') }}</Button>
         <Button variant="danger-text" :disabled="busy" @click="cancelling = true">{{ tr('Can\'t do it', 'করতে পারব না') }}</Button>
       </div>
-      <div v-if="o.status !== 'cancelled'" class="row wrap gap-8">
+      <div v-if="invFeature('inv_lab') && o.invoiceId" class="row wrap gap-8">
+        <Button variant="outline" small icon="list_alt" data-testid="lab-see-receipt" @click="receiptId = o.invoiceId">{{ T.seeReceipt() }}</Button>
+      </div>
+      <div v-else-if="invFeature('inv_lab') && o.status !== 'cancelled'" class="row wrap gap-8">
         <RouterLink :to="`${LAB_BASE}/bill?order=${encodeURIComponent(o.id)}`" class="btn outline small has-icon" data-testid="lab-make-bill"><Icon name="edit_note" />{{ T.billFromOrder() }}</RouterLink>
       </div>
       <ErrorText :text="err" />
@@ -121,6 +127,7 @@ const homeTone = computed(() => (h.value?.status === 'confirmed' ? 'good' : h.va
     <ReportEntry v-if="active" :key="o.id" :o="o" />
     <ReportPane v-else-if="o.status === 'reported'" :o="o" />
 
+    <InvoiceByIdDialog v-if="receiptId" :id="receiptId" @close="receiptId = null" />
     <HomeConfirmDialog v-if="confirming && h" :id="o.id" :home="h" @close="confirming = false" @done="confirmed" />
     <Dialog v-if="declining" size="small" :title="tr('Can\'t go to the home?', 'বাসায় যেতে পারবেন না?')" @close="() => !busy && (declining = false)">
       <span class="t-body-m muted">{{ tr('The request stays — the patient can come to the lab.', 'অনুরোধ থাকবে — রোগী প্যাথলজিতে এসে নমুনা দেবেন।') }}</span>

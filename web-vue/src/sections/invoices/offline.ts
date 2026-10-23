@@ -13,7 +13,9 @@ declare global {
 }
 
 /** পরীক্ষায় নকল; null দিলে আবার "ডেস্কটপ নয়" (ওয়েবের মতো) */
+let mine: OfflineStore | null = null;
 export function setOfflineStore(s: OfflineStore | null) {
+  mine = s;
   installOffline(s ?? notDesktop);
 }
 const no = () => Promise.reject(new Error('not desktop'));
@@ -29,7 +31,7 @@ const notDesktop: OfflineStore = {
   onChange: () => () => {},
   print: no,
 };
-if (TEST_MODE && typeof window !== 'undefined' && window.__lfOffline) installOffline(window.__lfOffline);
+if (TEST_MODE && typeof window !== 'undefined' && window.__lfOffline) setOfflineStore(window.__lfOffline);
 
 /** ডেস্কটপে স্টোর, নইলে null */
 export function offlineStore(): OfflineStore | null {
@@ -40,6 +42,12 @@ export function offlineStore(): OfflineStore | null {
   }
 }
 export const isDesktop = () => offlineStore() != null;
+
+// record()-এর পর অপেক্ষার সংখ্যা সাথে সাথে (ইঞ্জিনের onChange আসার আগেই)
+const pendingListeners = new Set<() => void>();
+export function notePending() {
+  pendingListeners.forEach((f) => f());
+}
 
 /**
  * এক ব্যবসার ডেস্কটপ অবস্থা: চালু কি না, সিরিজ (D1…), কয়টা মেলানোর অপেক্ষায়, বাতিল করা কম্পিউটার।
@@ -71,7 +79,15 @@ export function useOffline(kind: BizKind, bizId: MaybeRefOrGetter<string | null 
     },
     { immediate: true },
   );
-  onBeforeUnmount(() => off?.());
+  const bump = () => {
+    const s = offlineStore();
+    if (s) st.pending = s.pending();
+  };
+  pendingListeners.add(bump);
+  onBeforeUnmount(() => {
+    off?.();
+    pendingListeners.delete(bump);
+  });
   return {
     st,
     store: () => offlineStore(),
@@ -90,7 +106,7 @@ export function useOffline(kind: BizKind, bizId: MaybeRefOrGetter<string | null 
 type WithRole = { role?: () => 'owner' | 'counter' | null; requireOwner?: () => Promise<boolean> };
 /** 'counter' হলে রিপোর্ট আর "দিনের শেষ" লুকানো */
 export function deskRole(): 'owner' | 'counter' | null {
-  const s = offlineStore() as unknown as WithRole | null;
+  const s = (isDesktop() ? mine ?? offline : null) as unknown as WithRole | null;
   try {
     return s?.role?.() ?? null;
   } catch {
@@ -99,7 +115,7 @@ export function deskRole(): 'owner' | 'counter' | null {
 }
 /** মালিকের পিন চাওয়া (ডেস্কটপে); ওয়েবে সবসময় true */
 export async function requireOwner(): Promise<boolean> {
-  const s = offline as unknown as WithRole;
+  const s = (mine ?? offline) as unknown as WithRole;
   if (!isDesktop() || typeof s.requireOwner !== 'function') return true;
   return s.requireOwner();
 }

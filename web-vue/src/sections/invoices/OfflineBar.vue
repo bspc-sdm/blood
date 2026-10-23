@@ -18,7 +18,7 @@ async function run() {
 
 <template>
   <div v-if="st.desktop" class="row wrap gap-8 card inv-offline" data-testid="offline-bar">
-    <Icon name="sync" />
+    <Icon name="sync" :size="20" />
     <span v-if="st.series" class="t-label-l">{{ T.desktopDevice(st.series) }}</span>
     <Tag :tone="st.pending ? 'primary' : 'good'">{{ st.pending ? T.offlinePending(st.pending) : T.allSynced() }}</Tag>
     <span v-if="st.error" class="t-body-s c-error">{{ st.error }}</span>

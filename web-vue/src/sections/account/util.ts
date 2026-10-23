@@ -153,6 +153,12 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
     // রোগীর অ্যাম্বুলেন্স ডাকার খবর (গাড়ি রাজি, ভাড়া বলল…): সেই অনুরোধের অপেক্ষার পাতা (অ্যাপের AmbulanceRequest(reqId))
     case 'amb_req_mine':
       return data.reqId ? `/services/ambulance/call/${encodeURIComponent(data.reqId)}` : '/services/ambulance';
+    // রসিদ (backend/docs/INVOICES.md): রোগীর নতুন রসিদ → সেই রসিদ; ব্যবসার দিনের সারাংশ/বাতিল → সেই ব্যবসার রসিদের তালিকা
+    case 'invoice_new':
+      return data.invoiceId ? `/invoices/${encodeURIComponent(data.invoiceId)}` : '/invoices';
+    case 'invoice_summary':
+    case 'invoice_void':
+      return data.kind === 'pharmacy' ? '/work/pharmacy/shop/invoices' : data.kind === 'lab' ? '/work/lab/orders/invoices' : data.kind === 'chamber' ? '/work/rx/desk' : data.kind === 'ambulance' ? '/work/ambulance' : '/work';
     case 'services':
       if (data.kind && (BUSINESS_KINDS as readonly string[]).includes(data.kind)) return `/work/${data.kind}`;
       return workHas(work) ? '/work' : '/';

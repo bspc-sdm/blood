@@ -8,12 +8,13 @@ import type { AreaValue } from '@/ui/areaFilter';
 
 export interface MedStat { i: number; name: string; form: string; dose: string; days: number; need: number | null; got: number; left: number | null; done: boolean }
 export interface Dispensing { name: string; at: number; items: { i: number; qty: number }[] }
-export interface RxOrder { id: string; pharmacyName: string; status: string; reason: string; createdAt: number; mode: string; price: string; eta: string; deliveryFee: string; missed: string[] }
+export interface RxOrder { id: string; pharmacyName: string; status: string; reason: string; createdAt: number; mode: string; price: string; eta: string; deliveryFee: string; missed: string[]; invoiceId?: string | null }
 export interface LabResult { test: string; result: string; unit: string; range: string; flag: string; group?: string; code?: string; key?: string; long?: boolean }
 export interface LabOrder {
   id: string; rxId: string; code: string; labName: string; patientName: string; patientAge: number | null; patientGender: string; doctorName: string;
   tests: string[]; status: string; createdAt: number; report: { items: LabResult[]; note: string; reportedAt: number; photoCount: number; photos?: string[] } | null;
   prices?: PriceSnap | null; home?: LabHome | null;
+  invoiceId?: string | null;
 }
 export interface RxReview { id: string; labOrderId: string; doctorName: string; status: string; fee: string; noFee: boolean; payNumber: string; payMethods: string[]; rejectNote: string; comment: string }
 export interface Activity { medicines: MedStat[]; dispensed: Dispensing[]; orders: RxOrder[]; labOrders: LabOrder[]; reviews: RxReview[]; nextOpen: number | null }

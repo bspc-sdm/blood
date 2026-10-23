@@ -4,6 +4,7 @@ import { num, tr } from '@/lib/i18n';
 
 export const T = {
   receipt: () => tr('Receipt', 'রসিদ'), // bn-ok
+  comingSoon: () => tr('This feature is coming soon', 'এই সুবিধা শিগগির আসছে'), // bn-ok
   receipts: () => tr('Receipts', 'রসিদ'), // bn-ok
   myReceipts: () => tr('My receipts', 'আমার রসিদ'), // bn-ok
   myExpenses: () => tr('My spending', 'আমার খরচ'), // bn-ok

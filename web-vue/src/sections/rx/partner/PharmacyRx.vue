@@ -25,6 +25,7 @@ import SalesTab from './books/SalesTab.vue';
 import ReportTab from './books/ReportTab.vue';
 import BizInvoiceList from '../../invoices/BizInvoiceList.vue';
 import { deskRole } from '../../invoices/offline';
+import { invFeature } from '../../invoices/features';
 import { useSession } from '@/lib/session';
 
 const BASE = '/work/pharmacy/orders';
@@ -40,7 +41,7 @@ const title = computed(() => myBusinessTitle('pharmacy'));
 const old = computed(() => matchPath({ path: `${BASE}/:k`, end: true }, route.path)?.params.k);
 const tab = computed(() => {
   const sub = matchPath({ path: `${SHOP}/:k`, end: true }, route.path)?.params.k;
-  return sub === 'sales' || sub === 'invoices' || sub === 'stock' || sub === 'analytics' ? sub : 'orders';
+  return sub === 'sales' || (sub === 'invoices' && invFeature('inv_pharmacy')) || sub === 'stock' || sub === 'analytics' ? sub : 'orders';
 });
 const orders = useCall<PharmOrders>('rx_orders_pharmacy', {}, () => ({ enabled: ready.value && tab.value === 'orders', refetchInterval: 60_000 }));
 const rxCode = computed(() => matchPath({ path: `${BASE}/rx/:code`, end: true }, route.path)?.params.code ?? null);

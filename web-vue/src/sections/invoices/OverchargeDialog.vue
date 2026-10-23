@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // অ্যাম্বুলেন্সের রসিদে রোগী: "রসিদের চেয়ে বেশি নিয়েছে" (নিরাপত্তা পর্যালোচনা I8) — আসলে কত দিয়েছেন আর কী হয়েছে।
-// এখনকার সার্ভারের "report" কাজেই যায় (অ্যাম্বুলেন্সের রিপোর্ট → অ্যাডমিন দেখেন), সাথে রসিদের id আর দুই টাকার অঙ্ক।
+// invoice_report {id, paid, note} → অ্যাডমিন দেখেন।
 import { computed, ref } from 'vue';
 import { Button, Dialog, ErrorText, TextArea, inputValue, toast } from '@/ui/kit';
 import { call, errorText } from '@/lib/api';
@@ -22,8 +22,7 @@ async function submit() {
   busy.value = true;
   err.value = null;
   try {
-    const reason = `${T.overchargedVsReceipt()}: ${T.paidActually()} ${money(p.value)}, ${T.receipt()} ${props.inv.no} ${money(props.inv.total)}${note.value.trim() ? ' — ' + note.value.trim() : ''}`;
-    await call('report', { kind: 'ambulance', id: props.inv.bizId, reason: reason.slice(0, 300), invoiceId: props.inv.id, paidActual: p.value, type: 'over_receipt' });
+    await call('invoice_report', { id: props.inv.id, paid: p.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) });
     toast(tr('Reported. An admin will review it.', 'রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।'));
     emit('close');
   } catch (e) {

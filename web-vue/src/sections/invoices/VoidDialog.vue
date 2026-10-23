@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // রসিদ বাতিল (invoice_void): কারণ ঠিক করা তালিকা থেকে + লেখা (নিরাপত্তা পর্যালোচনা I2) — মোছে না, "বাতিল" হয়ে থাকে।
 // ফার্মেসিতে জিনিস স্টকে ফেরে। ডেস্কটপে কাউন্টারের পিন হলে আগে মালিকের পিন (I7)।
-// সার্ভারে reason = "<তালিকার কারণ> — <লেখা>", সাথে reasonCode (wrong_item | returned | wrong_price | other)।
+// সার্ভারে invoice_void {id, reason: কোড (wrong_item | returned | wrong_price | other), note}।
 import { computed, ref } from 'vue';
 import { Button, Dialog, ErrorText, TextInput, toast } from '@/ui/kit';
 import { tr } from '@/lib/i18n';
@@ -31,8 +31,7 @@ async function save() {
   err.value = null;
   try {
     await ownerGate();
-    const label = reasons.value.find((r) => r.value === code.value)!.label;
-    const r = await voidInvoice(props.inv, `${label} — ${note.value.trim()}`, { reasonCode: code.value });
+    const r = await voidInvoice(props.inv, code.value!, note.value);
     toast(T.voidDone());
     refresh();
     emit('done', r.invoice);

@@ -20,6 +20,7 @@ import LabList from './LabList.vue';
 import LabBill from '../../invoices/LabBill.vue';
 import BizInvoiceList from '../../invoices/BizInvoiceList.vue';
 import { useSession } from '@/lib/session';
+import { invFeature } from '../../invoices/features';
 
 const BASE = '/work/lab/orders';
 const route = useRoute();
@@ -29,8 +30,9 @@ const orders = useCall<LabOrders>('lab_orders', {}, () => ({ enabled: ready.valu
 const m = (p: string) => matchPath({ path: BASE + p, end: true }, route.path);
 const ranges = computed(() => !!m('/ranges'));
 const prices = computed(() => !!m('/prices'));
-const bill = computed(() => !!m('/bill'));
-const invoices = computed(() => !!m('/invoices'));
+// ফিচার সুইচ inv_lab বন্ধ: বিল/রসিদের ঠিকানা আগের মতো (অনুরোধের id হিসেবে — পাওয়া যায় না)
+const bill = computed(() => invFeature('inv_lab') && !!m('/bill'));
+const invoices = computed(() => invFeature('inv_lab') && !!m('/invoices'));
 const detailId = computed(() => (ranges.value || prices.value || bill.value || invoices.value ? undefined : m('/:id')?.params.id));
 const s = useSession();
 const bizId = computed(() => (s.work.lab as { id?: string } | null)?.id ?? '');

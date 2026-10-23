@@ -46,8 +46,11 @@ watch(
   { immediate: true },
 );
 const prices = computed<LabPriceList | null>(() => (off.st.desktop ? local.value : online.data ?? null));
-const order = useCall<{ item: LabOrder }>('lab_order_get', () => ({ id: orderId.value }), () => ({ enabled: !!orderId.value && !off.st.desktop }));
-const o = computed(() => order.data?.item ?? null);
+// অনুরোধ: প্যাথলজির তালিকায় (lab_orders, LabOrders-এর একই ক্যাশ) থাকলে সেখান থেকে, নইলে lab_order_get
+const list = useCall<{ items: LabOrder[] }>('lab_orders', {}, () => ({ enabled: !!orderId.value && !off.st.desktop }));
+const inList = computed(() => (orderId.value ? list.data?.items.find((x) => x.id === orderId.value) ?? null : null));
+const order = useCall<{ item: LabOrder }>('lab_order_get', () => ({ id: orderId.value }), () => ({ enabled: !!orderId.value && !off.st.desktop && !!list.data && !inList.value }));
+const o = computed(() => inList.value ?? order.data?.item ?? null);
 
 const rows = ref<Row[]>([]);
 const custName = ref('');
@@ -69,10 +72,13 @@ watch(autoPrint, (v) => kv.set(PRINT_KEY, v ? '1' : '0'));
 const receipt = ref<{ inv: Invoice; print: boolean } | null>(null);
 
 // অনুরোধ থেকে: পরীক্ষা আর দাম আগে বসানো (দাম না থাকলে খালি — লিখে দিন), রোগীর নাম, বাসা থেকে নমুনার চার্জ
+let filledFor: string | null = null;
 watch(
   o,
   (x) => {
-    if (!x) return;
+    // একবারই (তালিকা আবার এলে লেখা বদল মুছে না যায়)
+    if (!x || filledFor === x.id) return;
+    filledFor = x.id;
     const snap = x.prices?.items ?? [];
     const named = new Set(snap.map((i) => i.name));
     rows.value = [
@@ -172,7 +178,7 @@ async function save() {
     <OfflineBar :st="off.st" :sync="off.syncNow" />
     <Panel :title="orderId ? T.billFromOrder() : T.newBill()" icon="edit_note">
       <span v-if="o" class="t-body-m muted">{{ T.fromOrder(o.patientName || '—') }}</span>
-      <Loading v-if="orderId && order.isLoading" />
+      <Loading v-if="orderId && !o && (list.isLoading || order.isLoading)" />
       <ErrorText v-else-if="order.error" :text="errorText(order.error)" />
       <div class="col gap-6">
         <div class="rxp-search">

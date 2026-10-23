@@ -4,8 +4,8 @@
 import { useQueryClient } from '@tanstack/vue-query';
 import { call, errorText } from '@/lib/api';
 import { T } from './text';
-import type { OfflineOp } from '@/offline';
-import { offlineStore } from './offline';
+import type { OfflineOp, VoidData } from '@/offline';
+import { notePending, offlineStore } from './offline';
 import { parseInvoice, pickInvoice, type Invoice, type PayMethod } from './model';
 
 export interface Issued { invoice: Invoice | null; offline: boolean; raw?: any }
@@ -15,6 +15,7 @@ export async function issue(action: string, body: Record<string, unknown>, op: (
   const s = offlineStore();
   if (s) {
     const r = await s.record(op());
+    notePending();
     return { invoice: r.invoice ? parseInvoice(r.invoice) : null, offline: true, raw: r };
   }
   const r = await call(action, body);
@@ -27,8 +28,12 @@ export const payDue = (inv: Invoice, amount: number, method: PayMethod, ref?: st
   const r = ref?.trim() ? { ref: ref.trim() } : {};
   return issue('invoice_pay', { id: inv.id, amount, method, ...r }, () => ({ type: 'pay', data: { invoice: refOf(inv), amount, method, ...r } }));
 };
-export const voidInvoice = (inv: Invoice, reason: string, extra: Record<string, unknown> = {}) =>
-  issue('invoice_void', { id: inv.id, reason: reason.trim(), ...extra }, () => ({ type: 'void', data: { invoice: refOf(inv), reason: reason.trim() } }));
+/** invoice_void {id, reason: কারণের কোড, note?} — কোড: wrong_item | returned | wrong_price | other */
+export const voidInvoice = (inv: Invoice, reason: string, note?: string) => {
+  const n = note?.trim() ? { note: note.trim() } : {};
+  // ডেস্কটপের VoidData-তে note এখনো নেই (ইঞ্জিনকে জানানো হয়েছে) — অনলাইনের একই body পাঠানো
+  return issue('invoice_void', { id: inv.id, reason, ...n }, () => ({ type: 'void', data: { invoice: refOf(inv), reason, ...n } as VoidData }));
+};
 
 /** রসিদ বদলালে তালিকা/খরচ আবার আনা */
 export function useInvoiceRefresh() {
