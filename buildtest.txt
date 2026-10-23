@@ -1,0 +1,20 @@
+[2mtest/.build/w/[22m[2massets/[22m[36mMessagesPage-BRu2P_O6.js                                           [39m[1m[2m 19.72 kB[22m[1m[22m[2m │ gzip:   7.20 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mBizPayPage-ot8RjL8l.js                                             [39m[1m[2m 21.64 kB[22m[1m[22m[2m │ gzip:   7.27 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mJoinCall.vue_vue_type_script_setup_true_lang-Cxd7MhRr.js           [39m[1m[2m 30.85 kB[22m[1m[22m[2m │ gzip:  11.32 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mwindow-DzU5dDrg.js                                                 [39m[1m[2m 35.14 kB[22m[1m[22m[2m │ gzip:  11.28 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mfeatures-DXvxFivh.js                                               [39m[1m[2m 35.23 kB[22m[1m[22m[2m │ gzip:   9.72 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mHealthSection-8lV_SuIb.js                                          [39m[1m[2m 39.81 kB[22m[1m[22m[2m │ gzip:  11.37 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mAppointmentSection-Dpatv5uI.js                                     [39m[1m[2m 51.07 kB[22m[1m[22m[2m │ gzip:  15.06 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mProfessionalWorkspace-lsEOY1AZ.js                                  [39m[1m[2m 60.75 kB[22m[1m[22m[2m │ gzip:  18.01 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mLabOrders-CujchgdM.js                                              [39m[1m[2m 73.46 kB[22m[1m[22m[2m │ gzip:  21.41 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mfirebase-DWL4bGSx.js                                               [39m[1m[2m 75.80 kB[22m[1m[22m[2m │ gzip:  22.57 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mDoctorRx-B2yrGcqE.js                                               [39m[1m[2m 79.02 kB[22m[1m[22m[2m │ gzip:  23.68 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mAccountSection-6F9KJoyY.js                                         [39m[1m[2m 80.96 kB[22m[1m[22m[2m │ gzip:  23.35 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mPharmacyRx-A80AEuvf.js                                             [39m[1m[2m 82.07 kB[22m[1m[22m[2m │ gzip:  23.89 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mBloodSection-T6U2ZrRN.js                                           [39m[1m[2m 92.06 kB[22m[1m[22m[2m │ gzip:  26.02 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mvue-Dx8ohY3x.js                                                    [39m[1m[2m139.55 kB[22m[1m[22m[2m │ gzip:  50.62 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mWorkSection-BfJ7atR-.js                                            [39m[1m[2m150.83 kB[22m[1m[22m[2m │ gzip:  40.81 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mServicesSection-Bcy5XiAs.js                                        [39m[1m[2m161.06 kB[22m[1m[22m[2m │ gzip:  46.27 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mindex-Ct6jNPU8.js                                                  [39m[1m[2m249.42 kB[22m[1m[22m[2m │ gzip:  85.35 kB[22m
+[2mtest/.build/w/[22m[2massets/[22m[36mlivekit-client.esm-CU4MiUap.js                                     [39m[1m[2m587.45 kB[22m[1m[22m[2m │ gzip: 154.53 kB[22m
+[32m✓ built in 8.46s[39m
