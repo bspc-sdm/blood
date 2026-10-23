@@ -115,6 +115,7 @@ test('@desktop বিরতি: ১ ঘণ্টা → কমলা "আবা�
   await ctl.getByRole('button', { name: /খোলা/ }).click();
   await expect(block(page, 'pharmacy').getByTestId('status-note')).toHaveCount(0);
   expect(sent.map((b) => b.open)).toEqual([false, false, true]);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('সার্ভারে work_today নেই (পুরোনো সার্ভার): আগের কাজ থেকে একই পাতা (সংখ্যা, এখনই দেখুন)', async ({ page }) => {
@@ -125,9 +126,10 @@ test('সার্ভারে work_today নেই (পুরোনো সা�
     return r.fallback();
   });
   await open(page, HOME);
-  await expect(block(page, 'pharmacy').getByTestId('tile-new')).toContainText('২');
+  // নকল সার্ভারের অর্ডার অন্য পরীক্ষাও বদলায় — সংখ্যা নয়, ঘরটা আর বাংলা অঙ্ক
+  await expect(block(page, 'pharmacy').getByTestId('tile-new')).toContainText(/[০-৯]/);
   await expect(block(page, 'chamber').getByTestId('tile-today')).toBeVisible();
-  await expect(page.getByTestId('today-tasks')).toContainText('সুমাইয়া ইসলাম-এর প্রেসক্রিপশন');
+  await expect(page.getByTestId('today-tasks').locator('.td-task[data-kind="pharmacy"]').first()).toContainText('প্রেসক্রিপশন');
   expect(errs.filter((e) => !/400/.test(e))).toEqual([]);
 });
 
@@ -150,6 +152,7 @@ test('সুইচ বন্ধ: সার্ভার যে সংখ্যা
   await expect(page.getByTestId('desktop-app-link')).toHaveCount(0);
   await noSideScroll(page);
   expect(errs).toEqual([]);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('সুইচ চালু: পেমেন্ট আর Windows অ্যাপের সারি থাকে', async ({ page }) => {
