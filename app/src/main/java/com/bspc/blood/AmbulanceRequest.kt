@@ -1047,6 +1047,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
     var reload by remember { mutableIntStateOf(0) }
     // প্রতিটা ডাকের ভাড়ার ঘর (না লিখলে আনুমানিক ভাড়া)
     var fares by remember { mutableStateOf(mapOf<String, String>()) }
+    var callSeg by remember { mutableStateOf<String?>(null) }
     val (resumed, _) = rememberResumeTick()
 
     LaunchedEffect(resumed, reload) {
@@ -1061,7 +1062,8 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
         scope.launch {
             busy = r.id
             errorMsg = null
-            runCatching { block() }.onSuccess { if (changed) onChanged() }.onFailure { errorMsg = it.message }
+            // "আসছি" দিলে ডাক "চলছে"-তে যায় — সেই ভাগ খোলা
+            runCatching { block() }.onSuccess { if (changed) onChanged(); if (changed && r.status == "open") callSeg = "active" }.onFailure { errorMsg = it.message }
             busy = null
             reload++
         }
@@ -1078,10 +1080,22 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
         names.forEach { (ambId, ambName) -> BizPaymentsButton("ambulance", ambId, label = if (names.size > 1) ambName else "") }
         ErrorText(errorMsg)
         InfoText(infoMsg)
-        if (loaded && items.isEmpty()) {
-            SmallNote(tr("When a patient nearby calls an ambulance, it shows here. Keep \"Available now\" on.", "কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। \"এখন খালি আছি\" চালু রাখুন।"))
+        // নতুন (খোলা ডাক) / চলছে (আপনি যাচ্ছেন, পৌঁছেছেন) / শেষ — সব সেবাদাতার একই ভাগ (ProviderSide.kt)
+        val segOf = { r: AmbDriverReq -> if (r.status == "open") "new" else "active" }
+        val counts = items.groupingBy(segOf).eachCount()
+        val curSeg = callSeg ?: if ((counts["new"] ?: 0) == 0 && (counts["active"] ?: 0) > 0) "active" else "new"
+        WorkSegTabs(curSeg, counts, { callSeg = it })
+        val segItems = items.filter { segOf(it) == curSeg }
+        if (loaded && segItems.isEmpty()) {
+            SmallNote(
+                when (curSeg) {
+                    "new" -> tr("When a patient nearby calls an ambulance, it shows here. Keep \"Available now\" on.", "কাছের কোনো রোগী অ্যাম্বুলেন্স ডাকলে এখানে আসবে। \"এখন খালি আছি\" চালু রাখুন।")
+                    "active" -> tr("No trip in progress", "এখন চলমান কোনো ট্রিপ নেই")
+                    else -> tr("Finished trips are in your receipts.", "শেষ হওয়া ট্রিপ রসিদের তালিকায় আছে।")
+                },
+            )
         }
-        items.forEach { r ->
+        segItems.forEach { r ->
             val mine = r.status != "open"
             Surface(shape = RoundedCornerShape(16.dp), color = if (mine) cs.primaryContainer else cs.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -311,6 +311,8 @@ data class Chamber(
     val bkashPendingUntil: Long? = null,
     /** সামনাসামনি চেম্বারের অগ্রিম বুকিং ফি (লাইফলো পে; ডাক্তার "পেমেন্ট" থেকে চালু করেন) — ০ = নেই; শুধু পড়া, সেভে যায় না */
     val advance: Double = 0.0,
+    /** আজ এই চেম্বার বন্ধ (ডাক্তার/সহকারী "আজ বন্ধ" দিয়েছেন — chamber_today_set); শুধু পড়া, সেভে যায় না */
+    val closedToday: Boolean = false,
 ) {
     val online: Boolean get() = mode == "online"
 
@@ -324,7 +326,7 @@ data class Chamber(
     }
 
     /** তালিকায় দেখানোর লেখা: "ফি: ৫০০ টাকা" / "ফি নেই"; কিছু না দিলে (আগের ভার্সন) ফাঁকা */
-    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
+    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + num(fee) else ""
     val label: String get() = if (isBangla && hospitalNameBn.isNotBlank()) hospitalNameBn else hospitalName
     val area: String get() = if (online) "" else listOf(address, Areas.label(district, upazilaId, unionId)).filter { it.isNotBlank() }.joinToString(", ")
 
@@ -362,6 +364,7 @@ data class Chamber(
             bkashSaved = o.str("bkashNumber"),
             bkashPendingUntil = if (o.isNull("bkashPendingUntil")) null else o.optLong("bkashPendingUntil").takeIf { it > 0 },
             advance = o.optJSONObject("advance")?.optDouble("amount", 0.0)?.takeIf { !it.isNaN() && it > 0 } ?: 0.0,
+            closedToday = o.optBoolean("closedToday"),
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */
@@ -428,6 +431,8 @@ data class Provider(
     /** সার্ভারের পেশার নাম (title_guard: অ-এলোপ্যাথি "হোমিওপ্যাথিক চিকিৎসক" …) — TitleGuard.kt */
     val typeLabel: String = "",
     val typeLabelEn: String = "",
+    /** তালিকার নতুন তথ্য (Listings.kt): nextSlot, feeAmount, ratingSummary … */
+    val extras: ListingExtras = ListingExtras(),
 ) {
     val canBook: Boolean get() = appointments && chambers.any { it.appointments }
 }
@@ -742,14 +747,16 @@ object Appointments {
             o.optJSONArray("matched")?.ints(),
             o.str(PracticeWire.SYSTEM),
             typeLabel = o.str(PracticeWire.TYPE_LABEL), typeLabelEn = o.str(PracticeWire.TYPE_LABEL_EN),
+            extras = ListingExtras.parse(o),
         )
     }
 
     suspend fun providers(type: String, f: CareFilter, homeVisitOnly: Boolean = false): List<Provider> = providersPage(type, f, homeVisitOnly).items
 
     /** তালিকা + বিশেষজ্ঞতার চিপ (২.৩৩.০) */
-    suspend fun providersPage(type: String, f: CareFilter, homeVisitOnly: Boolean = false): ProviderPage {
+    suspend fun providersPage(type: String, f: CareFilter, homeVisitOnly: Boolean = false, sort: ListingSort? = null): ProviderPage {
         val body = JSONObject().put("type", type).put("homeVisit", homeVisitOnly)
+        if (sort != null) body.put("sort", sort.wire)
         if (f.hospital != null) {
             body.put("hospitalId", f.hospital.id)
         } else {
@@ -905,7 +912,7 @@ data class HomePro(
     /** বার আর সময় (প্রতিটা ভাগ আলাদা লাইনে), তারপর নোট */
     val timeText: String get() = (times.map { it.text } + schedule).filter { it.isNotBlank() }.joinToString("\n")
 
-    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + fee else ""
+    val feeText: String get() = if (noFee) tr("No fee", "ফি নেই") else if (fee.isNotBlank()) tr("Fee: ", "ফি: ") + num(fee) else ""
 
     /** কোথায় যান: "৫ কিমির মধ্যে · দেবিদ্বার, বরুড়া" */
     val coverage: String

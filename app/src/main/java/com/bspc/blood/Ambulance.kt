@@ -92,6 +92,8 @@ data class Ambulance(
     val hasBase: Boolean = false,
     /** ভাড়ার তালিকা (২.৩০.০, AmbFare.kt) — প্রকাশ্য; আগের লেখা fare নোট হিসেবে থাকে */
     val fareChart: FareChart? = null,
+    /** তালিকার নতুন তথ্য (Listings.kt): ratingSummary, distanceKm … */
+    val extras: ListingExtras = ListingExtras(),
 )
 
 /** তালিকা: খালি/অজানা, ট্রিপে, আর "সবচেয়ে কাছের খালি" গাড়ির id (না থাকলে null) */
@@ -140,6 +142,7 @@ object Ambulances {
         availableUntil = o.optLong("availableUntil"),
         hasBase = o.optBoolean("hasBase"),
         fareChart = FareChart.parse(o.optJSONObject("fareChart")),
+        extras = ListingExtras.parse(o),
     )
 
     private fun list(o: JSONObject): List<Ambulance> {
@@ -152,11 +155,12 @@ object Ambulances {
      * lat/lng (শুধু ফোনের আসল GPS — সাথে gps: true) দিলে সার্ভার কাছের খালি গাড়ি আগে সাজায়, প্রতিটায় দূরত্ব দেয়,
      * আর "সবচেয়ে কাছের" গাড়ি বেছে দেয়। GPS না থাকলে ("এলাকা ধরে") কিছুই পাঠানো হয় না — আগের মতো নিজের উপজেলা আগে।
      */
-    suspend fun near(district: String, upazilaId: Int?, type: String?, lat: Double? = null, lng: Double? = null): AmbulanceList {
+    suspend fun near(district: String, upazilaId: Int?, type: String?, lat: Double? = null, lng: Double? = null, sort: ListingSort? = null): AmbulanceList {
         val o = call(
             "ambulances",
             JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).apply {
                 if (type != null) put("type", type)
+                if (sort != null) put("sort", sort.wire)
                 if (lat != null && lng != null) put("lat", lat).put("lng", lng).put("gps", true)
             },
         )
@@ -304,11 +308,14 @@ private fun AmbulanceFinder(profile: Profile) {
     var rating by remember { mutableStateOf<Ambulance?>(null) }
     var reporting by remember { mutableStateOf<Ambulance?>(null) }
     var showArea by remember { mutableStateOf(false) }
-    var showFilter by remember { mutableStateOf(false) }
     var busyList by remember { mutableStateOf<List<Ambulance>>(emptyList()) }
     var busyOpen by remember { mutableStateOf(false) }
     val busyCount = busyList.size
     var nearestId by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var availableOnly by remember { mutableStateOf(false) }
+    var sort by remember { mutableStateOf<ListingSort?>(null) }
+    var openAmb by remember { mutableStateOf<Ambulance?>(null) }
     // অ্যাম্বুলেন্স ডাকুন: নিশ্চিত করার ঘর (target = শিট থেকে একটা গাড়ি), নিজের চালু অনুরোধ
     var requesting by remember { mutableStateOf(false) }
     var requestTarget by remember { mutableStateOf<Ambulance?>(null) }
@@ -339,7 +346,7 @@ private fun AmbulanceFinder(profile: Profile) {
     }
     var byArea by remember { mutableStateOf(false) }
 
-    LaunchedEffect(district, upazilaId, type, gpsReady) {
+    LaunchedEffect(district, upazilaId, type, gpsReady, sort) {
         val d = district ?: return@LaunchedEffect
         if (!gpsReady) return@LaunchedEffect
         loading = true
@@ -347,7 +354,7 @@ private fun AmbulanceFinder(profile: Profile) {
         val o = origin(d)
         // ২ দশমিক (≈১ কিমি) — সার্ভারও এভাবেই কাটে
         val r2 = { v: Double -> Math.round(v * 100) / 100.0 }
-        runCatching { Ambulances.near(d, upazilaId, type, o?.first?.let(r2), o?.second?.let(r2)) }
+        runCatching { Ambulances.near(d, upazilaId, type, o?.first?.let(r2), o?.second?.let(r2), sort) }
             .onSuccess { list = it.items; busyList = it.busy; nearestId = it.nearestId; byArea = o == null }
             .onFailure { errorMsg = it.message }
         loading = false
@@ -406,82 +413,85 @@ private fun AmbulanceFinder(profile: Profile) {
         }
     }
 
-    run {
-        LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item {
-                FilterBar(
-                    areaLabel = areaText(district, upazilaId),
-                    onAreaClick = { showArea = true },
-                    filterCount = if (type != null) 1 else 0,
-                    onFilterClick = { showFilter = true },
-                    active = listOfNotNull(type?.let { t -> ActiveFilter(AmbulanceTypes.label(t)) { type = null } }),
-                )
+    // জায়গা জানা থাকলে শুরুতে "নিকটতম" (সার্ভারও কাছেরটা আগে দেয়)
+    LaunchedEffect(gpsReady) { if (gpsReady && sort == null && district?.let { origin(it) } != null) sort = ListingSort.NEAR }
+    val shown = Listing.sorted(
+        list.filter { (!availableOnly || it.available) && Listing.matches(query, it.name, it.area, Areas.label(it.district, it.upazilaId)) },
+        sort, { it.extras.distanceKm ?: it.km }, { ambulanceRating(it) }, { if (it.available) true else null },
+    )
+    val filtered = type != null || availableOnly || query.isNotBlank()
+    val clear = { type = null; availableOnly = false; query = "" }
+    ListingList(
+        controls = {
+            ListingControls(
+                ListingType.AMBULANCE, query, { query = it }, areaText(district, upazilaId), { showArea = true },
+                sort, listOf(ListingSort.NEAR, ListingSort.RATING), { sort = it },
+                chips = listOf(ListingChip(ListingText.available(), availableOnly, { availableOnly = !availableOnly }, "chip_available")) +
+                    AmbulanceTypes.ALL.map { t -> ListingChip(AmbulanceTypes.label(t), type == t, { type = if (type == t) null else t }, "chip_type_$t") },
+                onClear = if (filtered) clear else null,
+            )
+        },
+        loading = loading,
+        items = shown.map { a -> ambulanceCard(a, { openAmb = a }, { callAmbulance(a) }, { reporting = a }) },
+        empty = {
+            when {
+                filtered -> ListingEmpty(ListingText.noMatch(), ListingText.clear(), clear)
+                busyCount > 0 -> ListingEmpty(tr("All ambulances here are on a trip now", "এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে"), ListingText.changeArea(), { showArea = true }, R.drawable.ic_ambulance)
+                else -> ListingEmpty(ListingText.emptyLine(ListingType.AMBULANCE), ListingText.changeArea(), { showArea = true }, R.drawable.ic_ambulance)
             }
-            activeReq?.let { r -> item(key = "active_req") { ActiveRequestBanner(r) { AmbReqNav.open.value = r.id } } }
-            // "অ্যাম্বুলেন্স ডাকুন" (কাছের খালি গাড়িগুলোতে একসাথে) + পাশে "ফোন" — সবচেয়ে কাছের খালি গাড়িতে এক চাপে
-            // (সাধারণ "ফোন করুন"-এর মতোই লেখা হয়)
+        },
+        // জরুরি আগে: চালু অনুরোধ, "অ্যাম্বুলেন্স ডাকুন", তারপর ৯৯৯ (একবারই, ছোট লাইন) — তারপর খোঁজা আর তালিকা
+        header = {
+            activeReq?.let { r -> item(key = "active_req") { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { ActiveRequestBanner(r) { AmbReqNav.open.value = r.id } } } }
             if (!loading && district != null && list.any { it.available }) {
                 val near = list.firstOrNull { it.id == nearestId }
                 item(key = "nearest") {
-                    AmbulanceCallBar(near, near?.let { nearestSub(it, byArea) }, onRequest = { requestAmbulance(null) }, onCallNearest = near?.let { a -> { callAmbulance(a) } })
+                    Column(Modifier.padding(horizontal = LISTING_GUTTER)) {
+                        AmbulanceCallBar(near, near?.let { nearestSub(it, byArea) }, onRequest = { requestAmbulance(null) }, onCallNearest = near?.let { a -> { callAmbulance(a) } })
+                    }
                 }
             }
-            item { EmergencyCallCard() }
-            item {
-                InfoText(infoMsg)
-                ErrorText(errorMsg)
-            }
-            when {
-                loading -> item { LoadingBox() }
-                list.isEmpty() -> item {
-                    EmptyState(
-                        R.drawable.ic_ambulance,
-                        if (busyCount > 0) tr("All ambulances here are on a trip now", "এই এলাকার সব অ্যাম্বুলেন্স এখন ট্রিপে আছে")
-                        else tr("No ambulance listed in this area yet", "এই এলাকায় এখনো কোনো অ্যাম্বুলেন্স যোগ হয়নি"),
-                        tr("Know an ambulance service? Ask them to join with + at the top.", "কোনো অ্যাম্বুলেন্স সার্ভিস চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
-                        Modifier.padding(top = 24.dp),
-                    )
-                }
-                else -> items(list, key = { it.id }) { a ->
-                    AmbulanceCard(
-                        a,
-                        onCall = { callAmbulance(a) },
-                        onRate = if (a.canRate) ({ rating = a }) else null,
-                        onReport = { reporting = a },
-                        onRequest = { requestAmbulance(a) },
-                    )
-                }
-            }
+            item(key = "999") { Column(Modifier.padding(horizontal = LISTING_GUTTER)) { EmergencyCallCard() } }
+        },
+        messages = {
+            InfoText(infoMsg)
+            ErrorText(errorMsg)
+        },
+        footer = {
             // ট্রিপে থাকা গাড়ি: আলাদা ভাঁজ করা অংশ; খালি গাড়ি না থাকলে নিজে থেকে খোলা
             if (!loading && busyList.isNotEmpty()) {
                 val open = busyOpen || list.isEmpty()
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().clickable { busyOpen = !open }.padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            tr("On a trip now (${busyList.size})", "এখন ট্রিপে আছে (${num(busyList.size)})"),
-                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
-                        )
-                        AppIcon(R.drawable.ic_expand_more_round, if (open) tr("Hide", "লুকান") else tr("Show", "দেখুন"), Modifier.rotate(if (open) 180f else 0f))
+                item(key = "busy_head") {
+                    Column(Modifier.padding(horizontal = LISTING_GUTTER)) {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { busyOpen = !open }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                tr("On a trip now (${busyList.size})", "এখন ট্রিপে আছে (${num(busyList.size)})"),
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                            )
+                            AppIcon(R.drawable.ic_expand_more_round, if (open) tr("Hide", "লুকান") else tr("Show", "দেখুন"), Modifier.rotate(if (open) 180f else 0f))
+                        }
+                        if (open) SmallNote(tr("They're busy — call only if you can wait, to ask when they'll be free.", "এরা এখন ব্যস্ত — অপেক্ষা করতে পারলে ফোন করে জেনে নিন কখন খালি হবে।"))
                     }
-                    if (open) SmallNote(tr("They're busy — call only if you can wait, to ask when they'll be free.", "এরা এখন ব্যস্ত — অপেক্ষা করতে পারলে ফোন করে জেনে নিন কখন খালি হবে।"))
                 }
                 if (open) items(busyList, key = { "busy_" + it.id }) { a ->
-                    AmbulanceCard(
-                        a,
-                        onCall = { callAmbulance(a) },
-                        onRate = if (a.canRate) ({ rating = a }) else null,
-                        onReport = { reporting = a },
-                    )
+                    ListingCard(ambulanceCard(a, { openAmb = a }, { callAmbulance(a) }, { reporting = a }), Modifier.padding(horizontal = LISTING_GUTTER))
                 }
             }
-        }
+        },
+    )
+    openAmb?.let { a ->
+        ListingDetail(
+            ambulanceDetail(
+                a, onCall = { callAmbulance(a) },
+                onRequest = { openAmb = null; requestAmbulance(a) },
+                onRate = if (a.canRate) ({ openAmb = null; rating = a }) else null,
+                onReport = { openAmb = null; reporting = a },
+            ),
+            onDismiss = { openAmb = null },
+        )
     }
 
     if (requesting) {
@@ -500,11 +510,6 @@ private fun AmbulanceFinder(profile: Profile) {
     }
     if (showArea) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
-    }
-    if (showFilter) {
-        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { type = null }) {
-            FilterChoice(tr("Ambulance type", "অ্যাম্বুলেন্সের ধরন"), AmbulanceTypes.ALL, type, { AmbulanceTypes.label(it) }) { type = it }
-        }
     }
     rating?.let { a ->
         StarRatingDialog(
@@ -533,60 +538,6 @@ private fun AmbulanceFinder(profile: Profile) {
 private fun nearestSub(a: Ambulance, byArea: Boolean): String {
     val where = if (byArea) tr("By area", "এলাকা ধরে") else ambulanceKm(a)
     return listOfNotNull(a.name, where, a.types.joinToString(", ") { AmbulanceTypes.label(it) }.ifBlank { null }).joinToString(" · ")
-}
-
-@Composable
-private fun AmbulanceCard(a: Ambulance, onCall: () -> Unit, onRate: (() -> Unit)?, onReport: () -> Unit, onRequest: (() -> Unit)? = null) {
-    DirectoryCard(
-        title = a.name,
-        icon = R.drawable.ic_ambulance,
-        subtitle = a.types.joinToString(" · ") { AmbulanceTypes.label(it) },
-        status = when {
-            a.available -> CardStatus(tr("Available", "খালি আছে"), true)
-            a.availableAt > 0 -> CardStatus(tr("Call to check", "ফোনে জেনে নিন"), false)
-            else -> CardStatus(tr("Busy", "ব্যস্ত"), false)
-        },
-        rating = a.rating,
-        ratingCount = a.ratingCount,
-        meta = ambulanceKm(a),
-        details = listOf(
-            R.drawable.ic_location_on to listOf(Areas.label(a.district, a.upazilaId), a.area).filter { it.isNotBlank() }.joinToString(" · "),
-            R.drawable.ic_payments to (a.fareChart?.summary()?.let { tr("Fare: ", "ভাড়া: ") + it } ?: if (a.fare.isNotBlank()) tr("Fare: ", "ভাড়া: ") + a.fare else ""),
-        ),
-        note = when {
-            a.busySince > 0 -> tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince)
-            a.available && a.availableAt > 0 -> tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt)
-            else -> null
-        },
-        primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
-        secondary = onRate?.let { CardAction(tr("Rate", "রেটিং দিন"), null, it) },
-        onReport = onReport,
-        // শিটের নিচের বার: "অ্যাম্বুলেন্স ডাকুন" (ভরাট) — এই গাড়ি আগে, সাথে কাছের অন্যরা; পাশে "ফোন" (আউটলাইন)।
-        // ট্রিপে থাকা গাড়িতে নয় (শুধু ফোন)
-        main = if (onRequest != null && a.busySince == 0L) CardAction(tr("Call ambulance", "অ্যাম্বুলেন্স ডাকুন"), R.drawable.ic_ambulance, onRequest) else null,
-        sections = listOf(
-            DetailSection(tr("Vehicle", "গাড়ি"), a.types.map { R.drawable.ic_ambulance to AmbulanceTypes.label(it) }),
-            DetailSection(
-                tr("Area and fare", "এলাকা ও ভাড়া"),
-                listOf(
-                    R.drawable.ic_location_on to listOf(a.area, Areas.label(a.district, a.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
-                    R.drawable.ic_payments to (a.fareChart?.summary()?.let { tr("Fare: ", "ভাড়া: ") + it } ?: ""),
-                    R.drawable.ic_edit_note to a.fare,
-                ),
-            ),
-            DetailSection(
-                tr("Right now", "এখনকার অবস্থা"),
-                listOf(
-                    R.drawable.ic_schedule to when {
-                        a.busySince > 0 -> tr("On a trip since ", "ট্রিপে গেছে ") + timeAgo(a.busySince)
-                        a.available && a.availableAt > 0 -> tr("Marked available ", "খালি জানিয়েছেন ") + timeAgo(a.availableAt)
-                        a.available -> tr("Available", "খালি আছে")
-                        else -> tr("Call to check if it is free", "খালি আছে কিনা ফোনে জেনে নিন")
-                    },
-                ),
-            ),
-        ),
-    )
 }
 
 /** তারা আর মন্তব্য দিয়ে রেটিং (অ্যাম্বুলেন্স, ফার্মেসি) */
@@ -714,20 +665,28 @@ fun MyAmbulancesSection(profile: Profile, refresh: Int = 0) {
                     }
                     stats[a.id]?.let { st -> CallStatsBlock(st, expanded = openStats == a.id) { openStats = if (openStats == a.id) null else a.id } }
                     if (a.status == "approved") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (a.available) tr("Available now", "এখন খালি আছি") else tr("On a trip / busy", "ট্রিপে আছি / ব্যস্ত"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Switch(checked = a.available, modifier = Modifier.testTag("amb_available"), onCheckedChange = { on ->
+                        // রোগীরা যেভাবে দেখেন (তালিকার একই কার্ড) — "খালি আছি / ট্রিপে আছি" বদলালেই সাথে সাথে
+                        var cur by remember(a) { mutableStateOf(a) }
+                        var detail by remember { mutableStateOf(false) }
+                        PatientViewPreview(ambulanceCard(cur, { detail = true }, {}, null))
+                        if (detail) ListingDetail(ambulanceDetail(cur, {}, null, null, null), { detail = false })
+                        QuickSwitch(
+                            if (cur.available) ProviderText.available() else ProviderText.onTrip(),
+                            tr("Turn off when you go on a trip.", "ট্রিপে গেলে বন্ধ করুন।"),
+                            cur.available,
+                            { on ->
+                                cur = cur.copy(available = on, availableAt = if (on) System.currentTimeMillis() else 0L)
                                 scope.launch {
-                                    runCatching { Ambulances.setAvailable(a.id, on) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
+                                    runCatching { Ambulances.setAvailable(a.id, on) }.onSuccess { reload++ }.onFailure { cur = a; errorMsg = it.message }
                                 }
-                            })
-                        }
+                            },
+                            tag = "amb_available",
+                        )
                         StillAvailableRow(a) {
                             scope.launch {
                                 runCatching { Ambulances.setAvailable(a.id, true) }.onSuccess { reload++ }.onFailure { errorMsg = it.message }
                             }
                         }
-                        SmallNote(tr("Turn off when you go on a trip.", "ট্রিপে গেলে বন্ধ করুন।"))
                     }
                 }
             }

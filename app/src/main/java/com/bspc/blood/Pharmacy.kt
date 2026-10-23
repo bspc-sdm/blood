@@ -101,6 +101,11 @@ data class Pharmacy(
     val deliveryFee: String = "",
     /** প্রেসক্রিপশন বাছা থাকলে (তালিকায় rxId): এই দোকানে কয়টা ওষুধ আছে, আনুমানিক দাম, মোট ছাড় */
     val rx: PharmacyRx? = null,
+    /** তালিকার নতুন তথ্য (Listings.kt) */
+    val extras: ListingExtras = ListingExtras(),
+    /** মালিক "এখন খোলা/বন্ধ" হাতে দিলে (null = সময়মতো) আর কখন পর্যন্ত */
+    val openOverride: Boolean? = null,
+    val overrideUntil: Long = 0,
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -144,6 +149,9 @@ object Pharmacies {
                 intN("payable"), intN("mrp"), intN("discount"), r.optBoolean("belowMin"),
             )
         },
+        extras = ListingExtras.parse(o),
+        openOverride = if (o.has("openOverride") && !o.isNull("openOverride")) o.optBoolean("openOverride") else null,
+        overrideUntil = ListingExtras.time(o.opt("overrideUntil")),
     )
 
     private fun aspectsOf(o: JSONObject?): Map<String, Pair<Double, Int>> {
@@ -189,13 +197,14 @@ object Pharmacies {
      */
     suspend fun near(
         district: String, upazilaId: Int?, lat: Double?, lng: Double?, openNow: Boolean, open24: Boolean = false,
-        mode: String? = null, rxId: String? = null,
+        mode: String? = null, rxId: String? = null, sort: ListingSort? = null,
     ): PharmacyList {
         val o = call(
             "pharmacies",
             JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
                 .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL).put("openNow", openNow).put("open24", open24).apply {
                     if (mode != null) put("mode", mode)
+                    if (sort != null) put("sort", sort.wire)
                     if (rxId != null) {
                         put("rxId", rxId)
                         CareMode.asUid.value?.let { put("asUid", it) }
@@ -415,7 +424,11 @@ internal fun MyPharmacyPanel(profile: Profile) {
             { tab = it },
         ) {
             when (tab) {
-                0 -> PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
+                0 -> {
+                    // রোগীরা যেভাবে দেখেন + এক চাপের সুইচ (খোলা/বন্ধ এখন, ডেলিভারি), তারপর অর্ডার
+                    PharmacyProviderTop(s) { reload++ }
+                    PharmacyOrdersTab(orders, ordersErr, seg, { seg = it }) { reload++ }
+                }
                 1 -> Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("pharm_finds")) {
                     PharmacyFindRequests { reload++ }
                 }
@@ -566,108 +579,10 @@ object PharmacyText {
     }
 }
 
-/** কার্ড আর বিস্তারিতের প্রেসক্রিপশনের হিসাব: কত % ওষুধ আছে, আনুমানিক দাম, মোট ছাড়, শর্ত, (অনলাইনে) ডেলিভারি */
-@Composable
-private fun PharmacyRxInfo(p: Pharmacy, mode: String?) {
-    val r = p.rx ?: return
-    val cs = MaterialTheme.colorScheme
-    val terms = PharmacyText.terms(p)
-    val delivery = PharmacyText.delivery(p, mode == "online")
-    val disc = PharmacyText.discount(p, r)
-    androidx.compose.material3.Surface(color = cs.surfaceContainerHigh, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().testTag("ph-rxinfo")) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            IconLine(
-                if (r.keepsStock && r.total > 0) (if (r.have == r.total) R.drawable.ic_check_circle else R.drawable.ic_medication) else R.drawable.ic_info,
-                PharmacyText.have(r), cs.onSurface,
-            )
-            if (r.total > 0) IconLine(R.drawable.ic_payments, PharmacyText.payable(r), cs.onSurface)
-            if (disc.isNotBlank()) IconLine(R.drawable.ic_verified, disc, cs.primary)
-            if (terms.isNotBlank() && !r.belowMin) IconLine(R.drawable.ic_info, terms)
-            if (delivery.isNotBlank()) IconLine(R.drawable.ic_local_shipping, delivery)
-        }
-    }
-}
-
-/** দুটো বড় ঘর পাশাপাশি — বাছা না থাকলে নিচে তালিকা আসে না */
-@Composable
-private fun BuyModePicker(value: String?, onPick: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (value == null) Text(tr("How will you buy?", "কীভাবে কিনবেন?"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                Triple("shop", R.drawable.ic_storefront, tr("I'll buy at the shop", "দোকানে গিয়ে কিনব") to tr("All pharmacies nearby", "কাছের সব ফার্মেসি")),
-                Triple("online", R.drawable.ic_local_shipping, tr("Order online", "অনলাইনে অর্ডার") to tr("Home delivery", "বাসায় ডেলিভারি")),
-            ).forEach { (m, icon, text) ->
-                val on = value == m
-                Card(
-                    onClick = { onPick(m) },
-                    modifier = Modifier.weight(1f).heightIn(min = if (value == null) 84.dp else 56.dp).testTag("ph-mode-$m"),
-                    colors = CardDefaults.cardColors(containerColor = if (on) cs.primaryContainer else cs.surfaceContainerLow),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (on) cs.primary else cs.outlineVariant),
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AppIcon(icon, null, Modifier.size(22.dp), if (on) cs.onPrimaryContainer else cs.primary)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(text.first, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = if (on) cs.onPrimaryContainer else cs.onSurface)
-                            Text(text.second, style = MaterialTheme.typography.bodySmall, color = if (on) cs.onPrimaryContainer else cs.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun rxLabel(r: Rx) = listOf(r.doctorName.ifBlank { tr("Doctor", "ডাক্তার") }, Rules.formatDate(r.createdAt)).joinToString(" · ")
-
-/** "প্রেসক্রিপশন: ডা. … · তারিখ ▾" — চাপলে তালিকা; "প্রেসক্রিপশন ছাড়া" বাছলে সাধারণ তালিকা */
-@Composable
-private fun RxSelector(list: List<Rx>, value: Rx?, onPick: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    var open by remember { mutableStateOf(false) }
-    Card(
-        onClick = { open = true },
-        modifier = Modifier.fillMaxWidth().testTag("ph-rx-select"),
-        colors = CardDefaults.cardColors(containerColor = cs.secondaryContainer),
-    ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            AppIcon(R.drawable.ic_medication, null, Modifier.size(20.dp), cs.onSecondaryContainer)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (value != null) tr("Prescription: ", "প্রেসক্রিপশন: ") + rxLabel(value) else tr("Without a prescription", "প্রেসক্রিপশন ছাড়া"),
-                style = MaterialTheme.typography.bodyMedium, color = cs.onSecondaryContainer, maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-            )
-            AppIcon(R.drawable.ic_expand_more_round, null, Modifier.size(20.dp), cs.onSecondaryContainer)
-        }
-    }
-    if (open) {
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(tr("Which prescription?", "কোন প্রেসক্রিপশন?")) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SmallNote(tr("Each pharmacy shows how many of its medicines it has and the likely price.", "প্রতিটা ফার্মেসিতে এর কত ওষুধ আছে আর আনুমানিক দাম দেখাবে।"))
-                    (list.map { it.id to (rxLabel(it) to it.medicines.joinToString(", ") { m -> m.name }) } + listOf("none" to (tr("Without a prescription", "প্রেসক্রিপশন ছাড়া") to ""))).forEach { (id, t) ->
-                        val on = if (id == "none") value == null else value?.id == id
-                        androidx.compose.material3.ListItem(
-                            headlineContent = { Text(t.first) },
-                            supportingContent = if (t.second.isNotBlank()) ({ Text(t.second, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }) else null,
-                            leadingContent = { AppIcon(if (id == "none") R.drawable.ic_storefront else R.drawable.ic_medication, null, tint = cs.primary) },
-                            trailingContent = if (on) ({ AppIcon(R.drawable.ic_check_circle, null, tint = cs.primary) }) else null,
-                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                            modifier = Modifier.clickable { onPick(id); open = false },
-                        )
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { open = false }) { Text(tr("Close", "বন্ধ")) } },
-        )
-    }
-}
-
+/**
+ * সবার ফার্মেসির তালিকা (একই ছাঁচ, Listings.kt): তালিকা সাথে সাথে দেখায়; "দোকানে গিয়ে / অনলাইন অর্ডার" এক জোড়া চিপ
+ * (তালিকা আটকায় না); প্রেসক্রিপশন বাছা "প্রেসক্রিপশন পাঠান"-এর ভেতরে (RxSendFlow)।
+ */
 @Composable
 private fun NearbyPharmacies(profile: Profile) {
     val context = LocalContext.current
@@ -676,164 +591,98 @@ private fun NearbyPharmacies(profile: Profile) {
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var openNow by remember { mutableStateOf(false) }
     var open24 by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val gps = profile.locationSource == "gps" && profile.lat != null && profile.lng != null
+    var sort by remember { mutableStateOf(Listing.defaultSort(gps)) }
     var list by remember { mutableStateOf<List<Pharmacy>>(emptyList()) }
     var lastHome by remember { mutableStateOf<LastHome?>(null) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    val gps = profile.locationSource == "gps"
     val scope = rememberCoroutineScope()
     var reporting by remember { mutableStateOf<Pharmacy?>(null) }
     var rating by remember { mutableStateOf<Pharmacy?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
-    var showFilter by remember { mutableStateOf(false) }
     // রেটিংয়ের পর আবার আনা — কার্ডে নতুন গড়
     var reload by remember { mutableIntStateOf(0) }
-    // বিস্তারিত শিট, আর সেখান থেকে প্রেসক্রিপশন পাঠানো (কোন দোকানে; পাঠানোর পর "পাঠানো হয়েছে" ডায়ালগ)
     var openShop by remember { mutableStateOf<Pharmacy?>(null) }
     var sendTo by remember { mutableStateOf<Pharmacy?>(null) }
     var sent by remember { mutableStateOf<RxSent?>(null) }
-    // ২.৩২.০: আগে কীভাবে কিনবেন (মনে থাকে), আর প্রেসক্রিপশন (নতুনটা আগে থেকে বাছা; "none" = ছাড়া)
-    var buyMode by remember { mutableStateOf(BuyModePref.get(context)) }
-    val guest = LoginGate.isGuest
-    val careUid = CareMode.asUid.value
-    var myRx by remember { mutableStateOf<List<Rx>?>(null) }
-    var rxPick by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(guest, careUid) {
-        if (guest) { myRx = emptyList(); return@LaunchedEffect }
-        myRx = null
-        myRx = runCatching { RxApi.mine() }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; emptyList() }
-            .filter { it.status == "active" && it.medicines.isNotEmpty() && Practice.pharmacyOk(it) }.sortedByDescending { it.createdAt }
-    }
-    val rxList = myRx.orEmpty()
-    val rx = if (rxPick == "none") null else rxList.firstOrNull { it.id == rxPick } ?: rxList.firstOrNull()
+    // দোকানে গিয়ে ("shop", শুরুতে) / অনলাইন অর্ডার ("online") — শেষবারেরটা মনে থাকে
+    var buyMode by remember { mutableStateOf(BuyModePref.get(context) ?: "shop") }
 
-    LaunchedEffect(district, upazilaId, openNow, open24, reload, buyMode, rx?.id, myRx == null) {
+    LaunchedEffect(district, upazilaId, openNow, open24, reload, buyMode, sort) {
         val d = district ?: return@LaunchedEffect
-        val m = buyMode ?: return@LaunchedEffect
-        if (myRx == null) { loading = true; return@LaunchedEffect }
         loading = true
-        runCatching { Pharmacies.near(d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, openNow, open24, m, rx?.id) }
+        runCatching { Pharmacies.near(d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, openNow, open24, buyMode, null, sort) }
             .onSuccess { list = it.items; lastHome = it.lastHome; errorMsg = null }.onFailure { errorMsg = it.message }
         loading = false
     }
-    val sendAction: (Pharmacy, () -> Unit) -> CardAction = { p, close ->
-        CardAction(tr("Send prescription", "প্রেসক্রিপশন পাঠান"), R.drawable.ic_send) { rxSendGate(close = close) { sendTo = p } }
+    val phone: (Pharmacy) -> Unit = { p ->
+        scope.launch { runCatching { Pharmacies.called(p.id) } }
+        callPhone(context, p.phone)
     }
+    val send: (Pharmacy) -> Unit = { p -> rxSendGate(close = { openShop = null }) { sendTo = p } }
+    val shown = Listing.sorted(
+        list.filter { Listing.matches(query, it.name, it.address, Areas.label(it.district, it.upazilaId)) },
+        sort, { it.extras.distanceKm ?: it.km }, { pharmacyRating(it) }, { pharmacyOpen(it) },
+    )
+    fun setMode(m: String) { buyMode = m; BuyModePref.set(context, m) }
+    val filtered = openNow || open24 || buyMode == "online" || query.isNotBlank()
+    val clear = { openNow = false; open24 = false; query = ""; setMode("shop") }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            BuyModePicker(buyMode) { buyMode = it; BuyModePref.set(context, it) }
-        }
-        if (buyMode != null) {
-            if (rxList.isNotEmpty()) item { RxSelector(rxList, rx) { rxPick = it } }
-            item {
-                FilterBar(
-                    areaLabel = areaText(district, upazilaId),
-                    onAreaClick = { showArea = true },
-                    filterCount = (if (openNow) 1 else 0) + (if (open24) 1 else 0),
-                    onFilterClick = { showFilter = true },
-                    active = listOfNotNull(
-                        if (openNow) ActiveFilter(tr("Open now", "এখন খোলা")) { openNow = false } else null,
-                        if (open24) ActiveFilter(tr("24 hours", "২৪ ঘণ্টা")) { open24 = false } else null,
-                    ),
-                )
-                ErrorText(errorMsg)
-                InfoText(infoMsg)
-            }
+    ListingList(
+        controls = {
+            ListingControls(
+                ListingType.PHARMACY, query, { query = it }, areaText(district, upazilaId), { showArea = true },
+                sort, listOf(ListingSort.NEAR, ListingSort.RATING, ListingSort.OPEN), { sort = it },
+                chips = listOf(
+                    ListingChip(tr("At the shop", "দোকানে গিয়ে"), buyMode == "shop", { setMode("shop") }, "ph-mode-shop"),
+                    ListingChip(tr("Order online", "অনলাইন অর্ডার"), buyMode == "online", { setMode(if (buyMode == "online") "shop" else "online") }, "ph-mode-online"),
+                    ListingChip(tr("Open now", "এখন খোলা"), openNow, { openNow = !openNow }, "chip_open_now"),
+                    ListingChip(ListingText.hours24(), open24, { open24 = !open24 }, "chip_24h"),
+                ),
+                onClear = if (filtered) clear else null,
+            )
+        },
+        loading = loading,
+        items = shown.map { p -> pharmacyCard(p, { openShop = p }, { send(p) }, { phone(p) }, { reporting = p }) },
+        empty = {
             when {
-                loading -> item { LoadingBox() }
-                list.isEmpty() && buyMode == "online" -> item {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        EmptyState(
-                            R.drawable.ic_local_shipping,
-                            tr("No pharmacy delivers to your area yet", "আপনার এলাকায় এখনো কোনো ফার্মেসি অনলাইনে ডেলিভারি দেয় না"),
-                            tr("Choose \"I'll buy at the shop\" to see all pharmacies nearby.", "\"দোকানে গিয়ে কিনব\" বাছলে কাছের সব ফার্মেসি দেখাবে।"),
-                            Modifier.padding(top = 24.dp),
-                        )
-                        OutlinedButton(onClick = { buyMode = "shop"; BuyModePref.set(context, "shop") }) { Text(tr("I'll buy at the shop", "দোকানে গিয়ে কিনব")) }
-                    }
-                }
-                list.isEmpty() -> item {
-                    EmptyState(
-                        R.drawable.ic_storefront,
-                        tr("No pharmacy in the app here yet", "এখানে এখনো অ্যাপে কোনো ফার্মেসি নেই"),
-                        tr("Know a pharmacy? Ask them to join with + at the top.", "কোনো ফার্মেসি চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
-                        Modifier.padding(top = 24.dp),
-                    )
-                }
-                else -> items(list, key = { it.id }) { p ->
-                    val withRx = p.rx != null
-                    DirectoryCard(
-                        title = p.name,
-                        icon = R.drawable.ic_storefront,
-                        status = if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
-                        rating = p.rating,
-                        ratingCount = p.ratingCount,
-                        meta = p.km?.let { Rules.formatKm(it) },
-                        tags = p.tags24,
-                        details = listOf(
-                            // সেবার রেটিং দিকে দিকে (ছোট লাইন) — মিলিত তারা ওপরে
-                            R.drawable.ic_star to aspectsText(p.aspects),
-                            R.drawable.ic_location_on to p.address,
-                            R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত")
-                                else listOf(p.hoursText, closedDaysText(p.closedDays)).filter { it.isNotBlank() }.joinToString(" · "),
-                            // প্রেসক্রিপশন বাছা থাকলে ছাড় আর ডেলিভারি ওপরের হিসাবের ঘরে
-                            R.drawable.ic_payments to if (withRx) "" else listOf(PharmacyText.flatDiscount(p), PharmacyText.terms(p)).filter { it.isNotBlank() }.joinToString(" · "),
-                            R.drawable.ic_local_shipping to if (withRx) "" else PharmacyText.delivery(p, buyMode == "online"),
-                        ),
-                        primary = CardAction(tr("Call", "ফোন"), R.drawable.ic_call) {
-                            scope.launch { runCatching { Pharmacies.called(p.id) } }
-                            callPhone(context, p.phone)
-                        },
-                        secondary = if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
-                        onReport = { reporting = p },
-                        // বিস্তারিত তালিকার নিজের শিটে (নিচে) — "প্রেসক্রিপশন পাঠান"-এর পর লেখা দেখানো আর লগইনের আগে শিট বন্ধ করা যায়
-                        onClick = { openShop = p },
-                        cardMain = sendAction(p, {}),
-                        info = if (withRx) ({ PharmacyRxInfo(p, buyMode) }) else null,
-                    )
-                }
+                query.isNotBlank() || openNow || open24 -> ListingEmpty(ListingText.noMatch(), ListingText.clear(), clear)
+                buyMode == "online" -> ListingEmpty(
+                    tr("No pharmacy delivers to your area yet", "আপনার এলাকায় এখনো কোনো ফার্মেসি অনলাইনে ডেলিভারি দেয় না"),
+                    tr("At the shop", "দোকানে গিয়ে"), { setMode("shop") }, R.drawable.ic_local_shipping,
+                )
+                else -> ListingEmpty(ListingText.emptyLine(ListingType.PHARMACY), ListingText.changeArea(), { showArea = true }, R.drawable.ic_storefront)
             }
-        }
-    }
+        },
+        messages = {
+            ErrorText(errorMsg)
+            InfoText(infoMsg)
+        },
+    )
     openShop?.let { p ->
-        DetailSheet(
-            p.name, R.drawable.ic_storefront, null, MaterialTheme.colorScheme.primary, null,
-            if (p.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
-            p.rating, p.ratingCount, p.km?.let { Rules.formatKm(it) },
-            pharmacySections(p, buyMode == "online"),
-            CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call) {
-                scope.launch { runCatching { Pharmacies.called(p.id) } }
-                callPhone(context, p.phone)
-            },
-            if (p.canRate) CardAction(tr("Rate", "রেটিং দিন"), null) { rating = p } else null,
-            { reporting = p },
+        ListingDetail(
+            pharmacyDetail(
+                p, buyMode == "online", onSend = { send(p) }, onPhone = { phone(p) },
+                onRate = if (p.canRate) ({ openShop = null; rating = p }) else null,
+                onReport = { openShop = null; reporting = p },
+            ),
             onDismiss = { openShop = null },
-            tags = p.tags24,
-            // ২.২৭.০: নিচের বারে ফোনের পাশে (আগে ভেতরে স্ক্রল করা আলাদা ভাগে ছিল)
-            main = CardAction(tr("Send prescription", "প্রেসক্রিপশন পাঠান"), R.drawable.ic_send) { rxSendGate(close = { openShop = null }) { openShop = p; sendTo = p } },
-            // ২.৩২.০: কার্ডের একই প্রেসক্রিপশনের হিসাব মাথার নিচে
-            header = { PharmacyRxInfo(p, buyMode) },
         )
     }
-    // শিটের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে) — উপরে বাছা উপায় আর প্রেসক্রিপশনে, আর জিজ্ঞেস নয়
+    // বিস্তারিতের ওপরে (পরে আঁকা ডায়ালগ ওপরে থাকে) — উপায় উপরের চিপ থেকে, প্রেসক্রিপশন এখানে বাছা
     sendTo?.let { p ->
-        RxSendFlow(lab = null, pharmacy = p, profile = profile, onDismiss = { sendTo = null }, mode = buyMode, presetRx = rx, last = lastHome) {
+        RxSendFlow(lab = null, pharmacy = p, profile = profile, onDismiss = { sendTo = null }, mode = buyMode, presetRx = null, last = lastHome) {
             sendTo = null
             sent = it
         }
     }
-    // "প্রেসক্রিপশন খুলুন": ডায়ালগ আর শিট বন্ধ, তারপর সেই প্রেসক্রিপশন (সেখানে অবস্থা আর "ফিরিয়ে নিন")
+    // "প্রেসক্রিপশন খুলুন": ডায়ালগ আর বিস্তারিত বন্ধ, তারপর সেই প্রেসক্রিপশন (সেখানে অবস্থা আর "ফিরিয়ে নিন")
     sent?.let { s -> RxSentDialog(s, onOpen = { sent = null; openShop = null; RxNav.openRx(s.rxId) }, onDismiss = { sent = null }) }
     if (showArea) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
-    }
-    if (showFilter) {
-        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { openNow = false; open24 = false }) {
-            FilterSwitch(tr("Open now only", "শুধু এখন খোলা"), openNow) { openNow = it }
-            FilterSwitch(tr("Open 24 hours only", "শুধু ২৪ ঘণ্টা খোলা"), open24) { open24 = it }
-        }
     }
     rating?.let { p ->
         PharmacyRatingDialog(
@@ -860,33 +709,6 @@ private fun NearbyPharmacies(profile: Profile) {
     }
 }
 
-/** ফার্মেসির বিস্তারিতের ভাগ: ঠিকানা, সময়, ছাড়-ডেলিভারি, রেটিং ("প্রেসক্রিপশন পাঠান" নিচের বারে — DetailSheet-এর main) */
-private fun pharmacySections(p: Pharmacy, online: Boolean = false): List<DetailSection> = listOf(
-    DetailSection(
-        tr("Address", "ঠিকানা"),
-        listOf(
-            R.drawable.ic_location_on to listOf(p.address, Areas.label(p.district, p.upazilaId)).filter { it.isNotBlank() }.joinToString(", "),
-        ),
-    ),
-    DetailSection(
-        tr("Open hours", "খোলার সময়"),
-        listOf(
-            R.drawable.ic_schedule to if (p.closedUntil > 0) tr("Closed until ", "বন্ধ থাকবে ") + Rules.formatDate(p.closedUntil) + tr("", " পর্যন্ত") else p.hoursText,
-            R.drawable.ic_calendar_month to closedDaysText(p.closedDays),
-        ),
-    ),
-    DetailSection(
-        tr("Discount and delivery", "ছাড় ও ডেলিভারি"),
-        listOf(
-            R.drawable.ic_payments to PharmacyText.flatDiscount(p).ifBlank { tr("No discount", "ছাড় নেই") },
-            R.drawable.ic_info to PharmacyText.terms(p),
-            R.drawable.ic_local_shipping to PharmacyText.delivery(p, online).ifBlank { tr("No home delivery", "বাসায় ডেলিভারি নেই") },
-        ),
-    ),
-    // দোকানের সেবার দিকভিত্তিক রেটিং (কোনো রেটিং না থাকলে লাইন খালি — ভাগটা দেখায় না)
-    DetailSection(tr("Service rating", "সেবার রেটিং"), listOf(R.drawable.ic_star to aspectsText(p.aspects))),
-)
-
 // ---------- রেটিং: দোকানের সেবার (ওষুধ কেমন কাজ করল তার নয়) ----------
 /** দিকগুলো: ব্যবহার (সবসময়), ঠিক ওষুধ ও ন্যায্য দাম (কিনলে), ডেলিভারির দ্রুততা (অনলাইন অর্ডার পৌঁছালে) */
 internal val RATE_ASPECTS = listOf("behaviour", "price", "delivery")
@@ -899,7 +721,7 @@ private fun aspectLabel(a: String): String = when (a) {
 }
 
 /** বিস্তারিতের ছোট লাইন: "ব্যবহার ★৪.৬ · ডেলিভারি ★৪.২" */
-private fun aspectsText(aspects: Map<String, Pair<Double, Int>>): String = RATE_ASPECTS.mapNotNull { a ->
+internal fun pharmacyAspectsText(aspects: Map<String, Pair<Double, Int>>): String = RATE_ASPECTS.mapNotNull { a ->
     val v = aspects[a] ?: return@mapNotNull null
     val short = when (a) {
         "behaviour" -> tr("Behaviour", "ব্যবহার")

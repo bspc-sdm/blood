@@ -143,7 +143,7 @@ fun AppointmentTab(
 }
 
 @Composable
-private fun ProviderList(type: String, profile: Profile) {
+internal fun ProviderList(type: String, profile: Profile) {
     val context = LocalContext.current
     remember { Areas.ensure(context) }
     // শুরুতে নিজের জেলা; আজ/আগামীকাল, এখন চেম্বারে, বিশেষজ্ঞতা, ফি, হাসপাতালের নাম, লিঙ্গ — শেষবারেরটা (এই ফোনে, ধরনপ্রতি)
@@ -160,6 +160,8 @@ private fun ProviderList(type: String, profile: Profile) {
     var reload by remember { mutableIntStateOf(0) }
     var pickHospital by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Provider?>(null) }
+    var autoBook by remember { mutableStateOf(false) }
+    var sort by remember(type) { mutableStateOf<ListingSort?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var showArea by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
@@ -174,10 +176,10 @@ private fun ProviderList(type: String, profile: Profile) {
 
     // চিকিৎসা পদ্ধতির চিপ (সব / এলোপ্যাথি / হোমিওপ্যাথি / ইউনানি / আয়ুর্বেদ) — শুধু ডাক্তার, practice_systems চালু থাকলে
     val systemsOn = Practice.rememberOn(Practice.SYSTEMS) && type == "doctor"
-    LaunchedEffect(type, filter, reload, systemsOn) {
+    LaunchedEffect(type, filter, reload, systemsOn, sort) {
         loading = true
         errorMsg = null
-        runCatching { Appointments.providersPage(type, (if (OnlineGate.on(OnlineGate.CHAMBER)) filter else filter.copy(online = false)).let { if (systemsOn) it else it.copy(system = null) }) }
+        runCatching { Appointments.providersPage(type, (if (OnlineGate.on(OnlineGate.CHAMBER)) filter else filter.copy(online = false)).let { if (systemsOn) it else it.copy(system = null) }, sort = sort) }
             .onSuccess { list = it.items; if (it.facets != null) facets = it.facets }
             .onFailure { errorMsg = it.message }
         loading = false
@@ -186,7 +188,8 @@ private fun ProviderList(type: String, profile: Profile) {
     val q = query.trim()
     val shown = list
         .filter { it.uid != AuthRepository.currentUid }
-        .filter { q.isEmpty() || it.name.contains(q, true) || it.degrees.contains(q, true) || it.chambers.any { c -> c.label.contains(q, true) } }
+        .filter { p -> Listing.matches(q, p.name, p.degrees, p.extras.specialtyLabel, p.specialties.joinToString(" ") { Specialties.label(it) }, p.chambers.joinToString(" ") { c -> c.label + " " + c.area }) }
+        .let { l -> Listing.sorted(l, sort, { it.extras.distanceKm }, { p -> p.extras.ratingAvg?.let { it to p.extras.ratingCount } ?: if (p.ratingCount > 0) p.rating to p.ratingCount else null }, { p -> if (p.chambers.any { ChamberClock.state(it).kind == ChamberStateKind.NOW }) true else null }) }
 
     val feeLabel = { n: Int -> tr("Up to ৳" + String.format(java.util.Locale.US, "%,d", n), "৳" + num(String.format(java.util.Locale.US, "%,d", n)) + " পর্যন্ত") }
     val dayLabel = { d: String -> if (d == "tomorrow") tr("Tomorrow", "আগামীকাল") else tr("Sitting today", "আজ বসছেন") }
@@ -210,83 +213,67 @@ private fun ProviderList(type: String, profile: Profile) {
         filter.gender?.let { g -> ActiveFilter(genderLabel(g)) { setFilter(filter.copy(gender = null)) } },
         if (filter.online && onlineOn) ActiveFilter(tr("Online (video)", "অনলাইন (ভিডিও)")) { setFilter(filter.copy(online = false)) } else null,
     )
-    // এক চাপের ছাঁকনি (চালু না থাকলে): আজ · আগামীকাল · এখন চেম্বারে · ৳৫০০ পর্যন্ত · বেশি থাকা ৩টা বিশেষজ্ঞতা
-    val quick: List<Pair<String, () -> Unit>> = buildList {
-        if (filter.day == null) {
-            add(dayLabel("today") to { setFilter(filter.copy(day = "today")) })
-            add(dayLabel("tomorrow") to { setFilter(filter.copy(day = "tomorrow")) })
-        }
-        if (!filter.openNow) add(tr("In chamber now", "এখন চেম্বারে") to { setFilter(filter.copy(openNow = true)) })
-        if (!filter.online && Practice.onlineCapable(type) && onlineOn) add(tr("Online (video)", "অনলাইন (ভিডিও)") to { setFilter(filter.copy(online = true)) })
-        if (filter.maxFee == null) add(feeLabel(500) to { setFilter(filter.copy(maxFee = 500)) })
-        if (filter.specialty == null) facets?.specialties?.take(3)?.forEach { (code, _) -> add(Specialties.label(code) to { setFilter(filter.copy(specialty = code)) }) }
-    }
     val clearAll = {
         hqText = ""
         setFilter(filter.copy(hospital = null, specialty = null, day = null, openNow = false, maxFee = null, hospitalQ = "", gender = null, online = false, system = null))
     }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            // এক সারি: এলাকা · ফিল্টার · নাম খোঁজা; নিচে এক সারিতে চালু ছাঁকনি (✕) আর এক চাপের ছাঁকনি
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterBar(
-                    areaLabel = areaText(filter.district, filter.upazilaId, filter.unionId),
-                    onAreaClick = { showArea = true },
-                    filterCount = active.size,
-                    onFilterClick = { showFilter = true },
-                    search = query,
-                    onSearch = { query = it },
-                )
-                if (systemsOn) SystemChips(filter.system, facets?.systems.orEmpty()) { setFilter(filter.copy(system = it, specialty = null)) }
-                if (active.isNotEmpty() || quick.isNotEmpty()) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        active.forEach { f ->
-                            androidx.compose.material3.InputChip(
-                                selected = true,
-                                onClick = f.onRemove,
-                                label = { Text(f.label, maxLines = 1) },
-                                trailingIcon = { AppIcon(R.drawable.ic_close, tr("Remove", "সরান"), Modifier.size(16.dp)) },
-                            )
-                        }
-                        quick.forEach { (label, on) ->
-                            FilterChip(selected = false, onClick = on, label = { Text(label, maxLines = 1) })
-                        }
-                    }
-                }
-            }
+    // এক সারির চিপ: এলাকা · সাজান · ফিল্টার (প্যানেল) · চিকিৎসা পদ্ধতি · এক চাপের ছাঁকনি · মুছুন — চালু ছাঁকনি বাছা দেখায়
+    val chips = buildList {
+        add(ListingChip(ListingText.filter(), false, { showFilter = true }, "chip_filter", count = active.size, icon = R.drawable.ic_tune))
+        if (systemsOn) Practice.SYSTEM_LIST.forEach { sy ->
+            val n = facets?.systems?.get(sy)?.takeIf { filter.system == null }
+            add(ListingChip(Practice.systemLabel(sy), filter.system == sy, { setFilter(filter.copy(system = if (filter.system == sy) null else sy, specialty = null)) }, "system_$sy", count = n ?: 0))
         }
-        item { InfoText(infoMsg) }
-        when {
-            loading -> item { LoadingBox() }
-            errorMsg != null -> item { ErrorText(errorMsg) }
-            shown.isEmpty() -> item {
-                Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    EmptyState(
-                        Badges.icon(type),
-                        when (type) {
-                            "nutritionist" -> tr("No nutritionists found", "কোনো পুষ্টিবিদ পাওয়া যায়নি")
-                            "trainer" -> tr("No fitness trainers found", "কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি")
-                            Practice.PHYSIO_TYPE -> tr("No physiotherapists found", "কোনো ফিজিওথেরাপিস্ট পাওয়া যায়নি")
-                            Practice.PSYCH_TYPE -> tr("No psychologists found", "কোনো সাইকোলজিস্ট পাওয়া যায়নি")
-                            else -> practWord?.let { tr("No $it found", "কোনো $it পাওয়া যায়নি") } ?: tr("No doctors found", "কোনো ডাক্তার পাওয়া যায়নি")
-                        },
-                        tr("Try a wider area or remove a filter.", "বড় এলাকা দিয়ে বা কোনো ফিল্টার সরিয়ে দেখুন।"),
-                    )
-                    if (active.isNotEmpty()) {
-                        TextButton(onClick = clearAll) { Text(tr("Remove all filters", "সব ছাঁকনি সরান")) }
-                    } else if (filter != CareFilter()) {
-                        TextButton(onClick = { setFilter(CareFilter()) }) { Text(tr("Search everywhere", "সব জায়গায় খুঁজুন")) }
-                    }
-                }
-            }
-            else -> items(shown, key = { it.uid }) { p -> ProviderCard(p, if (onlineOn) filter else filter.copy(online = false)) { detail = p } }
-        }
+        add(ListingChip(dayLabel("today"), filter.day == "today", { setFilter(filter.copy(day = if (filter.day == "today") null else "today")) }, "chip_today"))
+        add(ListingChip(dayLabel("tomorrow"), filter.day == "tomorrow", { setFilter(filter.copy(day = if (filter.day == "tomorrow") null else "tomorrow")) }, "chip_tomorrow"))
+        add(ListingChip(tr("In chamber now", "এখন চেম্বারে"), filter.openNow, { setFilter(filter.copy(openNow = !filter.openNow)) }, "chip_open_now"))
+        if (Practice.onlineCapable(type) && onlineOn) add(ListingChip(tr("Online (video)", "অনলাইন (ভিডিও)"), filter.online, { setFilter(filter.copy(online = !filter.online)) }, "chip_online"))
+        add(ListingChip(feeLabel(filter.maxFee ?: 500), filter.maxFee != null, { setFilter(filter.copy(maxFee = if (filter.maxFee != null) null else 500)) }, "chip_fee"))
+        val sp = filter.specialty
+        if (sp != null) add(ListingChip(Specialties.label(sp), true, { setFilter(filter.copy(specialty = null)) }))
+        else facets?.specialties?.take(3)?.forEach { (code, _) -> add(ListingChip(Specialties.label(code), false, { setFilter(filter.copy(specialty = code)) })) }
+        filter.hospital?.let { h -> add(ListingChip(h.label, true, { setFilter(filter.copy(hospital = null)) })) }
+        filter.hospitalQ.trim().takeIf { it.isNotEmpty() }?.let { t -> add(ListingChip(tr("Hospital: ", "হাসপাতাল: ") + t, true, { hqText = ""; setFilter(filter.copy(hospitalQ = "")) })) }
+        filter.gender?.let { g -> add(ListingChip(genderLabel(g), true, { setFilter(filter.copy(gender = null)) })) }
     }
+    val anyFilter = active.isNotEmpty() || filter.system != null || q.isNotEmpty()
+    val clearEverything = { query = ""; clearAll() }
+    ListingList(
+        controls = {
+            ListingControls(
+                ListingType.DOCTOR, query, { query = it }, areaText(filter.district, filter.upazilaId, filter.unionId), { showArea = true },
+                sort, listOf(ListingSort.NEAR, ListingSort.RATING, ListingSort.OPEN), { sort = it },
+                chips = chips,
+                onClear = if (anyFilter) clearEverything else null,
+                chipsTag = if (systemsOn) "system_chips" else "listing_chips",
+            )
+        },
+        loading = loading,
+        items = if (errorMsg != null) emptyList() else shown.map { p ->
+            providerCard(p, if (onlineOn) filter else filter.copy(online = false), onOpen = { autoBook = false; detail = p }, onBook = { autoBook = true; detail = p })
+        },
+        empty = {
+            when {
+                errorMsg != null -> {}
+                anyFilter -> ListingEmpty(ListingText.noMatch(), ListingText.clear(), clearEverything)
+                else -> ListingEmpty(
+                    when (type) {
+                        "nutritionist" -> tr("No nutritionists found", "কোনো পুষ্টিবিদ পাওয়া যায়নি")
+                        "trainer" -> tr("No fitness trainers found", "কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি")
+                        Practice.PHYSIO_TYPE -> tr("No physiotherapists found", "কোনো ফিজিওথেরাপিস্ট পাওয়া যায়নি")
+                        Practice.PSYCH_TYPE -> tr("No psychologists found", "কোনো সাইকোলজিস্ট পাওয়া যায়নি")
+                        else -> practWord?.let { tr("No $it found", "কোনো $it পাওয়া যায়নি") } ?: ListingText.emptyLine(ListingType.DOCTOR)
+                    },
+                    ListingText.changeArea(), { showArea = true }, Badges.icon(type),
+                )
+            }
+        },
+        messages = {
+            InfoText(infoMsg)
+            ErrorText(errorMsg)
+        },
+    )
 
     if (showArea) {
         AreaSheet(
@@ -352,6 +339,7 @@ private fun ProviderList(type: String, profile: Profile) {
                 detail = null
                 infoMsg = tr("Request sent. You'll be notified when it's confirmed.", "অনুরোধ পাঠানো হয়েছে। নিশ্চিত হলে নোটিফিকেশন পাবেন।")
             },
+            autoBook = autoBook,
         )
     }
 }
@@ -427,49 +415,15 @@ private fun SpecialtyChoice(options: List<String>, count: (String) -> Int?, sele
     }
 }
 
+/** তালিকার কার্ড (সবার তালিকার একই ছাঁচ, ListingCards.kt) — onBook না দিলে "সিরিয়াল নিন"-ও বিস্তারিত খোলে */
 @Composable
-internal fun ProviderCard(p: Provider, filter: CareFilter, onClick: () -> Unit) {
-    // ছাঁকনিতে মেলা চেম্বার (সার্ভারের matched) আগে, নইলে এলাকার সাথে মেলা চেম্বার
-    val chamber = (if (filter.online) p.chambers.firstOrNull { it.online } else null) ?: p.matched?.firstOrNull()?.let { p.chambers.getOrNull(it) } ?: p.chambers.firstOrNull { c ->
-        (filter.hospital == null || c.hospitalId == filter.hospital.id) &&
-            (filter.district == null || c.district == filter.district) &&
-            (filter.upazilaId == null || c.upazilaId == filter.upazilaId)
-    } ?: p.chambers.firstOrNull()
-    // তালিকার কার্ডে: এখন চেম্বারে / আজ ৪টা (সবুজ) — অন্য দিনে কিছু নয়
-    val st = chamber?.let { ChamberClock.state(it) }
-    DirectoryCard(
-        title = p.name,
-        icon = Badges.icon(p.type),
-        photo = p.photo,
-        // নামের পাশে চিকিৎসা পদ্ধতি (practice_systems) — নাম যেমন লেখা তেমনই, "ডা." নিজে বসে না
-        nameTag = Practice.nameTag(p.type, p.system),
-        subtitle = listOf(p.degrees, p.specialties.joinToString(", ") { Specialties.label(it) }).filter { it.isNotBlank() }.joinToString(" · "),
-        status = when (st?.kind) {
-            ChamberStateKind.NOW -> CardStatus(tr("In chamber now", "এখন চেম্বারে"), true)
-            ChamberStateKind.TODAY -> CardStatus(tr("Today", "আজ") + if (st.start.isNotBlank()) " " + ChamberClock.shortTime(st.start) else "", true)
-            else -> null
-        },
-        rating = p.rating,
-        ratingCount = p.ratingCount,
-        details = if (chamber == null) emptyList() else listOf(
-            (if (chamber.online) R.drawable.ic_online_video else R.drawable.ic_local_hospital) to chamber.label,
-            R.drawable.ic_schedule to chamber.timeText,
-            R.drawable.ic_payments to chamber.feeText,
-        ),
-        tags = listOfNotNull(
-            // অনলাইন (ভিডিও) চেম্বার থাকলে "অনলাইন" ব্যাজ
-            if (OnlineGate.chamber() && p.chambers.any { it.online }) tr("Online", "অনলাইন") else null,
-            if (p.canBook) tr("Appointment in app", "অ্যাপে অ্যাপয়েন্টমেন্ট") else null,
-            if (p.homeVisit?.enabled == true) tr("Home visit", "বাসায় যান") else null,
-        ),
-        note = if (p.chambers.size > 1) tr("+${p.chambers.size - 1} more chamber(s)", "আরও ${num(p.chambers.size - 1)}টা চেম্বার") else null,
-        onClick = onClick,
-    )
+internal fun ProviderCard(p: Provider, filter: CareFilter, onBook: (() -> Unit)? = null, onClick: () -> Unit) {
+    ListingCard(providerCard(p, filter, onOpen = onClick, onBook = onBook ?: onClick))
 }
 
 /** ডাক্তার/নার্সের বিস্তারিত: সব চেম্বার, সিরিয়ালের ফোন, অ্যাপয়েন্টমেন্ট, হোম ভিজিট */
 @Composable
-fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, onBooked: () -> Unit, preview: Boolean = false) {
+fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, onBooked: () -> Unit, preview: Boolean = false, autoBook: Boolean = false) {
     val context = LocalContext.current
     var bookingIndex by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
@@ -532,42 +486,39 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                 ),
             )
         }
-        add(
-            DetailSection(
-                tr("About", "পরিচিতি"),
-                listOf(
-                    R.drawable.ic_school to p.degrees,
-                    R.drawable.ic_badge to TitleGuard.professionLabel(p.type, p.system, p.typeLabel, p.typeLabelEn),
-                    // পদ্ধতি আর নিবন্ধনকারী প্রতিষ্ঠান (practice_systems)
-                    R.drawable.ic_verified to (Practice.nameTag(p.type, p.system)?.let { it + " · " + Practice.body(Practice.system(p.system)) } ?: ""),
-                ),
-            ),
-        )
     }
-    DetailSheet(
-        title = p.name,
-        icon = Badges.icon(p.type),
-        photo = p.photo,
-        iconTint = MaterialTheme.colorScheme.primary,
-        subtitle = p.specialties.joinToString(" · ") { Specialties.label(it) },
-        status = null,
-        rating = p.rating,
-        ratingCount = p.ratingCount,
-        meta = null,
-        sections = sections,
-        nameTag = Practice.nameTag(p.type, p.system),
-        primary = pinnedCall?.let { ph -> CardAction(tr("Call for serial", "সিরিয়ালের জন্য ফোন"), R.drawable.ic_call) { if (!preview) callPhone(context, ph) } },
-        secondary = null,
-        main = when {
-            bookable.size == 1 -> CardAction(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_calendar_month) { book(bookable[0]) }
-            bookable.size > 1 -> CardAction(tr("Appointment", "অ্যাপয়েন্টমেন্ট"), R.drawable.ic_calendar_month) { if (!preview) choosing = true }
-            else -> null
-        },
-        // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
-        onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
+    // "সিরিয়াল নিন" (কার্ড থেকে): একটা চেম্বার হলে সরাসরি বুকিং, কয়েকটা হলে "কোন চেম্বারে?"
+    LaunchedEffect(autoBook) {
+        if (autoBook && !preview) {
+            if (bookable.size == 1) book(bookable[0]) else if (bookable.size > 1) choosing = true
+        }
+    }
+    val first = providerChamber(p, CareFilter())
+    ListingDetail(
+        ListingDetailData(
+            type = ListingType.DOCTOR, name = p.name, icon = Badges.icon(p.type), photo = p.photo, verified = p.extras.verified,
+            keyLine = providerKeyLine(p, first), badges = providerBadges(p),
+            facts = listOf(
+                R.drawable.ic_school to p.degrees,
+                R.drawable.ic_badge to TitleGuard.professionLabel(p.type, p.system, p.typeLabel, p.typeLabelEn),
+                R.drawable.ic_verified to (Practice.nameTag(p.type, p.system)?.let { it + " · " + Practice.body(Practice.system(p.system)) } ?: ""),
+            ),
+            sections = sections,
+            address = p.chambers.filter { !it.online && it.area.isNotBlank() }.map { R.drawable.ic_location_on to ChamberClock.shortName(it) + " — " + it.area },
+            phones = serialPhones,
+            ratingText = (p.extras.ratingAvg?.let { it to p.extras.ratingCount } ?: if (p.ratingCount > 0) p.rating to p.ratingCount else null)?.let { Listing.rating(it.first, it.second) },
+            primary = when {
+                bookable.size == 1 -> CardAction(ListingText.book(), R.drawable.ic_calendar_month) { book(bookable[0]) }
+                bookable.size > 1 -> CardAction(ListingText.book(), R.drawable.ic_calendar_month) { if (!preview) choosing = true }
+                else -> null
+            },
+            contact = pinnedCall?.let { ph -> ListingContact(ph, onPhone = { if (!preview) callPhone(context, ph) }) },
+            // ভুয়া বা খারাপ আচরণের ডাক্তার/নার্স — অ্যাডমিন দেখে তালিকা বন্ধ করতে পারেন
+            onReport = if (p.uid != AuthRepository.currentUid && !reported) ({ reporting = true }) else null,
+        ),
         onDismiss = onDismiss,
         // ২.৩৩.০: নামের নিচেই চেম্বার বাছাই — চাপলে সেই চেম্বারেই অ্যাপয়েন্টমেন্ট ("কোন চেম্বারে?" ছাড়া)
-        header = { ChamberPicker(p, bookable, onBook = book, onCall = { ph -> if (!preview) callPhone(context, ph) }) },
+        top = { ChamberPicker(p, bookable, onBook = book, onCall = { ph -> if (!preview) callPhone(context, ph) }) },
         footer = {
             if (preview) SmallNote(tr("This is how patients see you. Save to update it.", "রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।"))
             if (reported) InfoText(tr("Reported. An admin will review it.", "রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।"))
@@ -827,7 +778,7 @@ fun MyAppointmentsScreen(onBack: () -> Unit) {
  * onBack null হলে উপরের বার ছাড়া (আমার চেম্বারের ভেতরে)।
  */
 @Composable
-fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendingCount: (Int) -> Unit = {}) {
+fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendingCount: (Int) -> Unit = {}, top: (@Composable () -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reload by remember { mutableIntStateOf(0) }
@@ -838,6 +789,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
     var confirming by remember { mutableStateOf<Appointment?>(null) }
     // অনলাইনে ফি পাঠানো/দেওয়া অ্যাপয়েন্টমেন্ট বাতিল/না করতে কারণ লাগে (সার্ভার: reason_required) — (id, কাজ)
     var needReason by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // ডাক্তারের দিক: নতুন (অপেক্ষায়) / চলছে (নিশ্চিত) / শেষ — সব সেবাদাতার একই ভাগ (ProviderSide.kt)
+    var seg by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(reload) {
         loading = true
@@ -851,13 +804,18 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
         scope.launch {
             busyId = id
             runCatching { Appointments.update(id, action, note, serial) }
-                .onSuccess { reload++ }
+                .onSuccess { if (action == "confirm" && role == "provider") seg = "active"; reload++ }
                 .onFailure { if ((it as? ServerError)?.code == "reason_required") needReason = id to action else errorMsg = it.message }
             busyId = null
         }
     }
 
-    val shown = list.filter { it.role == role }
+    val mine = list.filter { it.role == role }
+    fun segOf(a: Appointment) = when (a.status) { "pending" -> "new"; "confirmed" -> "active"; else -> "done" }
+    val counts = mine.groupingBy { segOf(it) }.eachCount()
+    // শুরুতে: নতুন থাকলে নতুন, নইলে চলছে
+    val curSeg = seg ?: if ((counts["new"] ?: 0) == 0 && (counts["active"] ?: 0) > 0) "active" else "new"
+    val shown = (if (role == "provider") mine.filter { segOf(it) == curSeg } else mine)
         .sortedWith(compareBy<Appointment> { it.status !in listOf("pending", "confirmed") }.thenByDescending { it.date })
 
     Scaffold(
@@ -875,17 +833,29 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // রোগীরা যেভাবে দেখেন আর চেম্বারপ্রতি "আজ সিরিয়াল চলছে / আজ বন্ধ" (ProviderSide.kt)
+                if (top != null) item(key = "provider_top") { top() }
                 // ডাক্তার: আজকের সিরিয়াল চালানো — শুরু, পরের রোগী, বিরতি, দেরির উত্তর (Queue.kt; আজ সিরিয়াল না থাকলে কিছু নয়)
                 if (role == "provider") item { QueuePanel(null, refreshKey = reload) }
                 // ফি নেওয়া আর রসিদ (InvoiceForms.kt)
                 if (role == "provider") item { ChamberFeesButton() }
                 if (role == "provider") item { BizPaymentsButton("chamber", null) }
+                if (role == "provider") item { WorkSegTabs(curSeg, counts, { seg = it }) }
                 item { ErrorText(errorMsg) }
                 when {
                     loading && list.isEmpty() -> item { LoadingBox() }
                     shown.isEmpty() -> item {
                         Box(Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            EmptyState(R.drawable.ic_calendar_month, tr("No appointments", "কোনো অ্যাপয়েন্টমেন্ট নেই"), null)
+                            EmptyState(
+                                R.drawable.ic_calendar_month,
+                                if (role != "provider") tr("No appointments", "কোনো অ্যাপয়েন্টমেন্ট নেই")
+                                else when (curSeg) {
+                                    "new" -> tr("No new bookings", "নতুন কোনো বুকিং নেই")
+                                    "active" -> tr("No confirmed bookings", "নিশ্চিত কোনো বুকিং নেই")
+                                    else -> tr("Nothing finished yet", "এখনো শেষ হওয়া কোনো বুকিং নেই")
+                                },
+                                null,
+                            )
                         }
                     }
                     else -> items(shown, key = { it.id }) { a ->
@@ -1142,7 +1112,7 @@ fun ChamberHubScreen(type: String, profile: Profile, onBack: () -> Unit) {
             // ফিজিও ("পরামর্শ ও ব্যায়াম") আর সাইকোলজিস্টও ("সেশনের নোট") একই পথে — Practice.RxMode
             val rxTab = if (Practice.writesRx(type)) 2 else -1
             when (tab) {
-                0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it })
+                0 -> AppointmentsList(role = "provider", title = "", onBack = null, onPendingCount = { pending = it }, top = { DoctorProviderTop() })
                 // ডাক্তার: সব রোগী এক জায়গায়, নামের পাশে প্রেসক্রিপশন লেখা; অন্যদের আগের মতো
                 1 -> if (Practice.writesRx(type)) DoctorPatientsTab() else PatientsList()
                 rxTab -> RxDoctorTab()

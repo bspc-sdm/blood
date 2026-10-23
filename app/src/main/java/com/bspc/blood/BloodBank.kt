@@ -67,6 +67,8 @@ data class BloodBank(
     val docsMissing: Boolean = false,
     val docsRequested: Boolean = false,
     val docsNote: String = "",
+    /** তালিকার নতুন তথ্য (Listings.kt): stock, stockUpdatedAt, distanceKm … */
+    val extras: ListingExtras = ListingExtras(),
 ) {
     val hoursText: String
         get() = if (open24) tr("Open 24 hours", "২৪ ঘণ্টা খোলা")
@@ -104,6 +106,7 @@ object BloodBanks {
         o.optBoolean("open24"), o.str("openAt"), o.str("closeAt"), o.optBoolean("openNow", true), o.optJSONArray("services").strings(),
         o.str("licenseNo"), o.str("status"), o.str("statusReason"), o.optJSONArray("closedDays").ints(),
         o.optBoolean("docsMissing"), o.optBoolean("docsRequested"), o.str("docsRequestNote"),
+        extras = ListingExtras.parse(o),
     )
 
     private fun list(o: JSONObject): List<BloodBank> {
@@ -111,8 +114,25 @@ object BloodBanks {
         return (0 until a.length()).map { parse(a.getJSONObject(it)) }
     }
 
-    suspend fun near(district: String, upazilaId: Int?, open24: Boolean): List<BloodBank> =
-        list(call("bloodbanks", JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("open24", open24)))
+    /** sort/lat/lng: নতুন সার্ভারে সাজানো আর দূরত্ব (পুরোনো সার্ভার না চিনলে উপেক্ষা) */
+    suspend fun near(district: String, upazilaId: Int?, open24: Boolean, sort: ListingSort? = null, lat: Double? = null, lng: Double? = null): List<BloodBank> =
+        list(
+            call(
+                "bloodbanks",
+                JSONObject().put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL).put("open24", open24).apply {
+                    if (sort != null) put("sort", sort.wire)
+                    if (lat != null && lng != null) put("lat", lat).put("lng", lng)
+                },
+            ),
+        )
+
+    /** স্টক বসানো (মালিক): আট গ্রুপের পুরো অবস্থা (জানা নেই = null); একই পাঠালে শুধু "হালনাগাদ" সময় বদলায় */
+    suspend fun setStock(id: String, groups: Map<String, String?>): ListingExtras {
+        val g = JSONObject()
+        ListingExtras.GROUPS.forEach { k -> g.put(k, groups[k] ?: JSONObject.NULL) }
+        val o = call("bloodbank_stock_set", JSONObject().put("id", id).put("groups", g))
+        return ListingExtras.parse(o)
+    }
 
     suspend fun mine(): List<BloodBank> = list(call("bloodbank_mine"))
 
@@ -138,10 +158,9 @@ object BloodBanks {
     suspend fun stats(): JSONObject = call("bloodbank_stats")
 }
 
-/** "সেবা" → ব্লাড ব্যাংক: খুঁজুন | আমার ব্লাড ব্যাংক */
+/** "সেবা" → ব্লাড ব্যাংক (নিজের ব্লাড ব্যাংক "আমার কাজ"-এ) */
 @Composable
 fun BloodBankContent(profile: Profile) {
-    // নিজের ব্লাড ব্যাংক: "সেবা" পাতার নিচের ভাসমান বাটন / উপরের + থেকে (ServicesTab)
     BloodBankFinder(profile)
 }
 
@@ -149,67 +168,67 @@ fun BloodBankContent(profile: Profile) {
 private fun BloodBankFinder(profile: Profile) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    remember { Areas.ensure(context) }
     var district by remember { mutableStateOf(profile.placeName) }
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     var open24 by remember { mutableStateOf(false) }
+    var openNowOnly by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val gps = profile.locationSource == "gps" && profile.lat != null && profile.lng != null
+    var sort by remember { mutableStateOf(Listing.defaultSort(gps)) }
     var list by remember { mutableStateOf<List<BloodBank>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var infoMsg by remember { mutableStateOf<String?>(null) }
     var reporting by remember { mutableStateOf<BloodBank?>(null) }
     var showArea by remember { mutableStateOf(false) }
-    var showFilter by remember { mutableStateOf(false) }
+    var open by remember { mutableStateOf<BloodBank?>(null) }
 
-    LaunchedEffect(district, upazilaId, open24) {
+    LaunchedEffect(district, upazilaId, open24, sort) {
         val d = district ?: return@LaunchedEffect
         loading = true
-        runCatching { BloodBanks.near(d, upazilaId, open24) }.onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
+        runCatching { BloodBanks.near(d, upazilaId, open24, sort, if (gps) profile.lat else null, if (gps) profile.lng else null) }
+            .onSuccess { list = it; errorMsg = null }.onFailure { errorMsg = it.message }
         loading = false
     }
-
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            FilterBar(
-                areaLabel = areaText(district, upazilaId),
-                onAreaClick = { showArea = true },
-                filterCount = if (open24) 1 else 0,
-                onFilterClick = { showFilter = true },
-                active = if (open24) listOf(ActiveFilter(tr("24 hours", "২৪ ঘণ্টা")) { open24 = false }) else emptyList(),
+    val call: (BloodBank) -> Unit = { b ->
+        scope.launch { runCatching { BloodBanks.called(b.id) } }
+        callPhone(context, b.phone)
+    }
+    val shown = Listing.sorted(
+        list.filter { (!openNowOnly || bloodBankOpen(it) == true) && Listing.matches(query, it.name, it.address, Areas.label(it.district, it.upazilaId)) },
+        sort, { it.extras.distanceKm }, { null }, { bloodBankOpen(it) },
+    )
+    val filtered = open24 || openNowOnly || query.isNotBlank()
+    val clear = { open24 = false; openNowOnly = false; query = "" }
+    ListingList(
+        controls = {
+            ListingControls(
+                ListingType.BLOODBANK, query, { query = it }, areaText(district, upazilaId), { showArea = true },
+                sort, listOf(ListingSort.NEAR, ListingSort.OPEN), { sort = it },
+                chips = listOf(
+                    ListingChip(tr("Open now", "এখন খোলা"), openNowOnly, { openNowOnly = !openNowOnly }, "chip_open_now"),
+                    ListingChip(ListingText.hours24(), open24, { open24 = !open24 }, "chip_24h"),
+                ),
+                onClear = if (filtered) clear else null,
             )
+        },
+        loading = loading,
+        items = shown.map { b -> bloodBankCard(b, { open = b }, { call(b) }, { reporting = b }) },
+        empty = {
+            if (filtered) ListingEmpty(ListingText.noMatch(), ListingText.clear(), clear)
+            else ListingEmpty(ListingText.emptyLine(ListingType.BLOODBANK), ListingText.changeArea(), { showArea = true }, R.drawable.ic_bloodtype)
+        },
+        messages = {
             SmallNote(tr("Buying or selling blood is illegal; only processing costs apply.", "রক্ত কেনা-বেচা অবৈধ; শুধু পরীক্ষা ও প্রসেসিং খরচ লাগে।"))
             ErrorText(errorMsg)
             InfoText(infoMsg)
-        }
-        when {
-            loading -> item { LoadingBox() }
-            list.isEmpty() -> item {
-                EmptyState(
-                    R.drawable.ic_bloodtype,
-                    tr("No blood bank in the app here yet", "এখানে এখনো অ্যাপে কোনো ব্লাড ব্যাংক নেই"),
-                    tr("Know one? Ask them to join with + at the top.", "কোনো ব্লাড ব্যাংক চিনলে উপরের + দিয়ে যোগ হতে বলুন।"),
-                    Modifier.padding(top = 24.dp),
-                )
-            }
-            else -> items(list, key = { it.id }) { b ->
-                BloodBankCard(
-                    b,
-                    onCall = {
-                        scope.launch { runCatching { BloodBanks.called(b.id) } }
-                        callPhone(context, b.phone)
-                    },
-                    onReport = { reporting = b },
-                )
-            }
-        }
-    }
+        },
+    )
     if (showArea) {
         AreaSheet(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, onDismiss = { showArea = false })
     }
-    if (showFilter) {
-        FilterSheet(tr("Filter", "ফিল্টার"), onDismiss = { showFilter = false }, onClear = { open24 = false }) {
-            FilterSwitch(tr("Open 24 hours only", "শুধু ২৪ ঘণ্টা খোলা"), open24) { open24 = it }
-        }
-    }
+    open?.let { b -> ListingDetail(bloodBankDetail(b, { call(b) }, { open = null; reporting = b }), { open = null }) }
     reporting?.let { b ->
         ReasonReportDialog(
             onDismiss = { reporting = null },
@@ -222,36 +241,12 @@ private fun BloodBankFinder(profile: Profile) {
     }
 }
 
+/** তালিকার কার্ড (তালিকা আর "রোগীরা আপনাকে যেভাবে দেখেন" — একই) */
 @Composable
 internal fun BloodBankCard(b: BloodBank, onCall: () -> Unit, onReport: () -> Unit) {
-    DirectoryCard(
-        title = b.name,
-        icon = R.drawable.ic_bloodtype,
-        iconTint = MaterialTheme.colorScheme.error,
-        subtitle = BloodBankInfo.kind(b.kind),
-        status = if (b.openNow) CardStatus(tr("Open", "খোলা"), true) else CardStatus(tr("Closed", "বন্ধ"), false),
-        details = listOf(
-            R.drawable.ic_bloodtype to b.services.joinToString(" · ") { BloodBankInfo.service(it) },
-            R.drawable.ic_location_on to listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(" · "),
-            R.drawable.ic_schedule to listOf(b.hoursText, closedDaysText(b.closedDays)).filter { it.isNotBlank() }.joinToString(" · "),
-        ),
-        primary = CardAction(tr("Call", "ফোন করুন"), R.drawable.ic_call, onCall),
-        onReport = onReport,
-        sections = listOf(
-            DetailSection(tr("Available here", "যা পাওয়া যায়"), b.services.map { R.drawable.ic_bloodtype to BloodBankInfo.service(it) }),
-            DetailSection(
-                tr("Address", "ঠিকানা"),
-                listOf(R.drawable.ic_location_on to listOf(b.address, Areas.label(b.district, b.upazilaId)).filter { it.isNotBlank() }.joinToString(", ")),
-            ),
-            DetailSection(
-                tr("Open hours", "খোলার সময়"),
-                listOf(
-                    R.drawable.ic_schedule to b.hoursText,
-                    R.drawable.ic_calendar_month to closedDaysText(b.closedDays),
-                ),
-            ),
-        ),
-    )
+    var open by remember { mutableStateOf(false) }
+    ListingCard(bloodBankCard(b, { open = true }, onCall, onReport))
+    if (open) ListingDetail(bloodBankDetail(b, onCall, onReport), { open = false })
 }
 
 @Composable
@@ -289,6 +284,17 @@ internal fun MyBloodBanksSection(profile: Profile) {
                     }
                     if (b.status == "suspended" || b.status == "rejected") AppealButton("bloodbank")
                     DocsNeededNotice("bloodbank", b.id, VerifyDocs.bloodBank(b.kind), b.docsMissing, b.docsRequested, b.docsNote) { reload++ }
+                    // রোগীরা যেভাবে দেখেন (তালিকার একই কার্ড) আর আট গ্রুপের স্টক — সেভ হলেই কার্ড বদলায়
+                    if (b.status == "approved") {
+                        var cur by remember(b) { mutableStateOf(b) }
+                        var detail by remember { mutableStateOf(false) }
+                        PatientViewPreview(bloodBankCard(cur, { detail = true }, {}, null))
+                        if (detail) ListingDetail(bloodBankDetail(cur, {}, null), { detail = false })
+                        StockEditor(cur) { x ->
+                            cur = cur.copy(extras = cur.extras.copy(stock = x.stock, stockUpdatedAt = x.stockUpdatedAt.takeIf { it > 0 } ?: System.currentTimeMillis(), stockStaleRaw = x.stockStaleRaw ?: false))
+                            infoMsg = tr("Stock updated", "স্টক হালনাগাদ হয়েছে")
+                        }
+                    }
                     stats[b.id]?.let { st -> CallStatsBlock(st, expanded = openStats == b.id) { openStats = if (openStats == b.id) null else b.id } }
                 }
             }

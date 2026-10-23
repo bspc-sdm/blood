@@ -188,12 +188,6 @@ fun RxCodeDialog(note: String, busy: Boolean, error: String?, onOpen: (String) -
     )
 }
 
-/** ভাগের পিল (সংখ্যাসহ) */
-@Composable
-private fun SegPills(segs: List<String>, label: (String) -> String, counts: Map<String, Int>, selected: String, onSelect: (String) -> Unit) {
-    PillTabs(segs.indexOf(selected).coerceAtLeast(0), segs.map { PillTab(label(it), count = counts[it] ?: 0) }, { onSelect(segs[it]) }, secondary = true)
-}
-
 /** ভাগে কিছু নেই */
 @Composable
 private fun SegEmpty(icon: Int, title: String, sub: String?) {
@@ -283,11 +277,11 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
         OpenByCodeButton { codeErr = null; codeOpen = true }
         SmallNote(tr("Open with the code under the QR and note how many you give — the rest can be given by another pharmacy.", "QR-এর নিচের কোড দিয়ে খুলে কয়টা দিলেন লিখুন — বাকিটা অন্য ফার্মেসি দিতে পারবে।"))
     }
-    SegPills(WorkSegs.PHARM, WorkSegs::pharmLabel, data?.counts.orEmpty(), seg, onSeg)
+    WorkSegTabs(seg, WorkQueue.counts(data?.counts), onSeg)
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ErrorText(errorMsg ?: loadError)
         InfoText(infoMsg)
-        val list = data?.items?.filter { it.seg == seg }
+        val list = data?.items?.filter { WorkQueue.of(it.seg) == seg }
         when {
             list == null -> if (loadError == null) LoadingBox()
             list.isEmpty() -> when (seg) {
@@ -333,7 +327,7 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                         }
                     }
                 }
-                MoreNote(data?.counts?.get(seg) ?: 0, list.size)
+                MoreNote(WorkQueue.counts(data?.counts)[seg] ?: 0, list.size)
             }
         }
     }
@@ -517,6 +511,7 @@ fun MyLabPanel(profile: Profile) {
             { tab = it },
         ) {
             if (tab == 0) {
+                LabProviderTop(l) { reload++ }
                 LabRequestsTab(orders, ordersErr, seg, { seg = it }) { reload++ }
             } else if (tab == 2 && invLab) {
                 LabBillsTab(l.id)
@@ -589,18 +584,18 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
         OpenByCodeButton { codeErr = null; codeOpen = true }
         SmallNote(tr("Patient came with a paper prescription? Open it with the code — the tests are added here.", "রোগী কাগজের প্রেসক্রিপশন নিয়ে এলে কোড দিয়ে খুলুন — পরীক্ষাগুলো এখানে যোগ হবে।"))
     }
-    SegPills(WorkSegs.LAB, WorkSegs::labLabel, data?.counts.orEmpty(), seg, onSeg)
+    WorkSegTabs(seg, WorkQueue.counts(data?.counts), onSeg)
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ErrorText(errorMsg ?: loadError)
         InfoText(infoMsg)
-        val list = data?.items?.filter { it.seg == seg }
+        val list = data?.items?.filter { WorkQueue.of(it.seg) == seg }
         when {
             list == null -> if (loadError == null) LoadingBox()
             list.isEmpty() -> when (seg) {
                 "new" -> SegEmpty(R.drawable.ic_check_circle, tr("No new requests now", "এখন নতুন কোনো অনুরোধ নেই"), tr("Tests patients send from their prescriptions come here.", "রোগীরা প্রেসক্রিপশন থেকে পরীক্ষা পাঠালে এখানে আসবে।"))
                 "active" -> SegEmpty(R.drawable.ic_schedule, tr("No samples waiting", "এখন কোনো নমুনা বা চলমান পরীক্ষা নেই"), tr("After you take a sample (or confirm a home visit), it waits here for the report.", "নমুনা নিলে (বা বাসায় যাওয়ার সময় নিশ্চিত করলে) রিপোর্ট দেওয়া পর্যন্ত এখানে থাকবে।"))
                 "reported" -> SegEmpty(R.drawable.ic_list_alt, tr("No reports given yet", "এখনো কোনো রিপোর্ট দেওয়া হয়নি"), null)
-                else -> SegEmpty(R.drawable.ic_history, tr("Nothing cancelled", "বাতিল হওয়া কোনো অনুরোধ নেই"), null)
+                else -> SegEmpty(R.drawable.ic_history, tr("Nothing finished yet", "এখনো শেষ হওয়া কোনো অনুরোধ নেই"), null)
             }
             else -> {
                 list.sortedByDescending { it.createdAt }.forEach { o ->
@@ -657,7 +652,7 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                         }
                     }
                 }
-                MoreNote(data?.counts?.get(seg) ?: 0, list.size)
+                MoreNote(WorkQueue.counts(data?.counts)[seg] ?: 0, list.size)
             }
         }
     }
