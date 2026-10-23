@@ -359,6 +359,14 @@ fun App(
                 else android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
             is NotifyRoute.VerifyInvoice -> InvoiceNav.verify.value = r.code
             is NotifyRoute.ApptCall -> openAppointmentCall(context, r.appointmentId)
+            // লাইফলো পে (PaySheet.kt / PayBusiness.kt) — বন্ধ থাকলে "শিগগির আসছে"
+            is NotifyRoute.Pay ->
+                if (!PayGate.patient()) android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
+                else if (r.id != null) PayNav.openId(r.id, r.asUid)
+                else InvoiceNav.list.value = 2
+            is NotifyRoute.PayBiz ->
+                if (PayGate.biz(r.kind)) PayNav.openBiz(r.kind, r.bizId, tab = if (r.settings) 2 else 0)
+                else android.widget.Toast.makeText(context, InvoiceFeatures.soon(), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -65,6 +65,9 @@ object NotifyCats {
             // নতুন রসিদ (সার্ভার নিজেই cat my_request দেয়)
             "invoice_new" -> MY_REQUEST
             "invoice_summary", "invoice_void", "invoice_day_end" -> BUSINESS
+            // লাইফলো পে: ব্যবসাকে দাবি/মনে করানো; বাকিগুলো রোগীর নিজের খবর
+            "pay_claimed", "pay_reminder", "pay_methods_changed" -> BUSINESS
+            "pay_requested", "pay_confirmed", "pay_rejected", "pay_refunded" -> MY_REQUEST
             "appointment", "homecare", "homevisit" -> APPOINTMENTS
             "appointment", "homecare", "homevisit", "appt_call_ready" -> APPOINTMENTS
             "call_incoming", "call_missed", "call_state", "call_cancelled" -> CALLS

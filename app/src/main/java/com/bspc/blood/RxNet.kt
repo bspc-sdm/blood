@@ -603,6 +603,8 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                         ReceiptLink(o.invoiceId)
                         // চালু অর্ডারে দোকানের সাথে অ্যাপে কল
                         if (o.open) ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.pharmacyName, style = ContactStyle.CHIPS, onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
+                        // হোম ডেলিভারির আগে দাম (লাইফলো পে, pay_delivery)
+                        if (o.mode == "online") PayRefButton(o.id, PayRules.DELIVERY)
                     }
                 }
                 if (!rx.cancelled && a.meds.any { !it.done }) {
@@ -653,6 +655,9 @@ fun RxActivitySection(rx: Rx, profile: Profile, snack: androidx.compose.material
                         }
                         // প্যাথলজির বিলের রসিদ (Receipts.kt)
                         ReceiptLink(o.invoiceId)
+                        PayRefButton(o.id, PayRules.LAB)
+                        // বিলের পরে (রসিদ থেকে) চাওয়া পরীক্ষার টাকা
+                        PayRefButton(o.invoiceId, PayRules.LAB)
                         if (o.status == "reported") {
                             SmallAction(tr("See report", "রিপোর্ট দেখুন"), R.drawable.ic_list_alt, { report = o.id }, primary = true)
                             val r = a.reviews.firstOrNull { it.labOrderId == o.id }

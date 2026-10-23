@@ -309,6 +309,8 @@ data class Chamber(
     val bkashSaved: String = "",
     /** অনলাইন: বদলানো নম্বর কখন থেকে নতুন বুকিংয়ে যাবে (ms; provider_me-র bKashPendingUntil), নইলে null */
     val bkashPendingUntil: Long? = null,
+    /** সামনাসামনি চেম্বারের অগ্রিম বুকিং ফি (লাইফলো পে; ডাক্তার "পেমেন্ট" থেকে চালু করেন) — ০ = নেই; শুধু পড়া, সেভে যায় না */
+    val advance: Double = 0.0,
 ) {
     val online: Boolean get() = mode == "online"
 
@@ -359,6 +361,7 @@ data class Chamber(
             if (o.str("mode") == "online") "online" else "in_person", o.str("bkashNumber"), o.str("note"),
             bkashSaved = o.str("bkashNumber"),
             bkashPendingUntil = if (o.isNull("bkashPendingUntil")) null else o.optLong("bkashPendingUntil").takeIf { it > 0 },
+            advance = o.optJSONObject("advance")?.optDouble("amount", 0.0)?.takeIf { !it.isNaN() && it > 0 } ?: 0.0,
         )
 
         /** পুষ্টিবিদ/ট্রেইনারের নতুন চেম্বার: জায়গা নিজে লিখবেন */
@@ -768,8 +771,9 @@ object Appointments {
     }
 
     /** chamberKey: যে হাসপাতালের চেম্বার দেখে বুক করছেন — সার্ভার মিলিয়ে নেয় (চেম্বার বদলালে ভুল বুকিং হয় না) */
-    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String, chamberKey: String? = null, memberId: String? = null) {
-        careCall(
+    /** উত্তর: অগ্রিম চালু চেম্বারে সার্ভারের পেমেন্টের অনুরোধও থাকে (PayEntry.afterBooking) */
+    suspend fun book(providerUid: String, chamberIndex: Int, date: Long, note: String, chamberKey: String? = null, memberId: String? = null): JSONObject {
+        return careCall(
             "book",
             JSONObject().put("providerUid", providerUid).put("chamberIndex", chamberIndex).put("date", date).put("note", note)
                 .apply { if (chamberKey != null) put("chamberKey", chamberKey) }

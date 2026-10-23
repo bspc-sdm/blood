@@ -103,6 +103,8 @@ object Notifier {
         "callId", "appointmentId",
         // অ্যাপে মেসেজ
         "threadId",
+        // লাইফলো পে (pay_*) — সেই পেমেন্ট / ব্যবসার "পেমেন্ট"
+        "payId", "bizId",
     )
 
     /** পুশের data থেকে নোটিফিকেশনের intent-এর extras (title/body/forUid বাদ, খালি মান বাদ) */
@@ -136,13 +138,15 @@ object Notifier {
             context, id, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        // পেমেন্টের খবরে লক-স্ক্রিনে টাকা/নম্বর কিছু নয় — সবসময় "পেমেন্ট আপডেট — লাইফলো" (PAYMENTS.md)
+        val (shownTitle, shownBody) = PayPush.text(type, title, body)
         val ambulanceIcon = cat == NotifyCats.AMBULANCE || (type == "services" && serviceKind(kind, title) == "ambulance") || type == "amb_req_mine"
         val n = NotificationCompat.Builder(context, channelId)
             // অ্যাম্বুলেন্সের খবরে অ্যাম্বুলেন্সের আইকন, বাকি সব অ্যাপের রক্তের ফোঁটা
             .setSmallIcon(if (ambulanceIcon) R.drawable.ic_ambulance else R.drawable.ic_stat_blood)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(shownTitle)
+            .setContentText(shownBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(shownBody))
             // Android ৭ ও আগের ফোনে চ্যানেল নেই — গুরুত্ব এখানে
             .setPriority(if (cat in NotifyCats.HIGH) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

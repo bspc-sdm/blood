@@ -25,6 +25,12 @@ sealed interface NotifyRoute {
     data class VerifyInvoice(val code: String) : NotifyRoute
     /** অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও কলে যুক্ত হওয়ার পর্দা (route "appt_call/{appointmentId}", CallsNav.kt) */
     data class ApptCall(val appointmentId: String) : NotifyRoute
+
+    /** লাইফলো পে (রোগী/কেয়ারগিভার): সেই পেমেন্টের পাতা; id না থাকলে "আমার রসিদ ও খরচ" › পেমেন্ট */
+    data class Pay(val id: String?, val asUid: String? = null) : NotifyRoute
+
+    /** লাইফলো পে (ব্যবসা): "পেমেন্ট" › যাচাই বাকি */
+    data class PayBiz(val kind: String, val bizId: String? = null, val settings: Boolean = false) : NotifyRoute
 }
 
 /**
@@ -36,6 +42,8 @@ fun notifyRoute(data: Map<String, String>, approvedBadge: String? = null, hasWor
     val requestId = data["requestId"]?.takeIf { it.isNotBlank() }
     val questionId = data["questionId"]?.takeIf { it.isNotBlank() }
     return when {
+        // লাইফলো পে (pay_*): সবার আগে — পেমেন্টের খবর কখনো রক্তের পাতায় যায় না
+        PayPush.isPay(type) -> PayPush.route(data, hasWork)
         // রক্তের রিকোয়েস্ট: রাজি ডোনারের খবর রক্তপ্রার্থীর নিজের রিকোয়েস্টে, বাকি সব (ডোনারকে) রিকোয়েস্টের বিস্তারিত
         requestId != null -> NotifyRoute.Open(if (type == "response") Screen.MyRequestDetail(requestId) else Screen.RequestDetail(requestId))
         questionId != null -> NotifyRoute.Open(Screen.QuestionDetail(questionId))

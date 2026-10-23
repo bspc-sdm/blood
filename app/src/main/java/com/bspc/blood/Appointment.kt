@@ -673,6 +673,10 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                     IconLine(R.drawable.ic_local_hospital, chamber.label)
                 }
                 IconLine(R.drawable.ic_schedule, chamber.timeText)
+                // লাইফলো পে: এই চেম্বারে সিরিয়ালের অগ্রিম (pay_chamber_advance)
+                if (!chamber.online && chamber.advance > 0 && PayGate.rememberOn(PayGate.CHAMBER_ADVANCE)) {
+                    IconLine(R.drawable.ic_payments, tr("Advance for the serial: ", "সিরিয়ালের অগ্রিম: ") + PayText.money(chamber.advance) + tr(" — pay by bKash/Nagad after booking", " — বুকিংয়ের পর বিকাশ/নগদে"))
+                }
                 if (chamber.online) {
                     SmallNote(
                         tr(
@@ -717,7 +721,7 @@ private fun BookDialog(provider: Provider, chamberIndex: Int, onDismiss: () -> U
                         scope.launch {
                             busy = true
                             runCatching { Appointments.book(provider.uid, chamberIndex, d, note.trim(), if (chamber.online) "online" else chamber.hospitalId?.takeIf { it.isNotBlank() } ?: chamber.hospitalName, memberId.ifBlank { null }) }
-                                .onSuccess { onBooked() }
+                                .onSuccess { r -> PayEntry.afterBooking(r); onBooked() }
                                 .onFailure { errorMsg = it.message }
                             busy = false
                         }
@@ -810,6 +814,7 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                 if (role == "provider") item { QueuePanel(null, refreshKey = reload) }
                 // ফি নেওয়া আর রসিদ (InvoiceForms.kt)
                 if (role == "provider") item { ChamberFeesButton() }
+                if (role == "provider") item { BizPaymentsButton("chamber", null) }
                 item { ErrorText(errorMsg) }
                 when {
                     loading && list.isEmpty() -> item { LoadingBox() }
@@ -867,6 +872,8 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                 }
                                 // ফি ও রসিদ: ডাক্তার "ফি নিন"/"রসিদ" (inv_chamber; অনলাইনের রসিদ bKash নিশ্চিত হলে নিজেই), রোগী "রসিদ" (my_expenses)
                                 if (a.role == "provider") ChamberFeeAction(a) else ReceiptLink(a.invoiceId)
+                                // সিরিয়ালের অগ্রিম (লাইফলো পে) — অনলাইনের ফি নিচের প্যানেলে
+                                if (a.role == "patient" && !a.online) PayRefButton(a.id, PayRules.ADVANCE)
                                 // ফোন · অডিও কল · ভিডিও কল · মেসেজ (CallButtons.kt) — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে,
                                 // সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত
                                 ContactActions(

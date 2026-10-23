@@ -803,6 +803,8 @@ fun AmbulanceRequestScreen(id: String, onBack: () -> Unit) {
                     if (r.canRate && !rated) Button(onClick = { rating = true }, modifier = Modifier.fillMaxWidth()) { ButtonContent(false, tr("Rate the ambulance", "অ্যাম্বুলেন্সকে রেটিং দিন"), R.drawable.ic_star) }
                     // চালকের দেওয়া ভাড়ার রসিদ (Receipts.kt)
                     ReceiptLink(r.invoiceId)
+                    // যাত্রার পরে (তবেই) ভাড়া বিকাশ/নগদে — ঐচ্ছিক (লাইফলো পে, pay_ambulance)
+                    AmbFarePay(id, r.status)
                 }
                 "byPhone" -> {
                     StatusHead(R.drawable.ic_check_circle, tr("You got an ambulance by phone", "ফোনে গাড়ি পেয়েছেন"), r.ambulance?.name ?: "")
@@ -1072,6 +1074,7 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text(tr("Calls", "ডাক"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
+        BizPaymentsButton("ambulance", null)
         ErrorText(errorMsg)
         InfoText(infoMsg)
         if (loaded && items.isEmpty()) {

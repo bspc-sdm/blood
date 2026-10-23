@@ -322,6 +322,8 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                                     // পৌঁছে দিলে লাইনসহ রসিদ (InvoiceForms.kt; inv_pharmacy)
                                     if (invPharmacy && online && o.status in setOf("accepted", "out")) SmallAction(tr("Delivered", "পৌঁছে দিয়েছি"), R.drawable.ic_payments, { delivering = o }, enabled = busyId == null)
                                     if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
+                                    // হোম ডেলিভারির দাম আগে (লাইফলো পে, pay_delivery)
+                                    if (online && o.status in setOf("accepted", "out")) PayAskAction("rx_order", o.id, PayRules.DELIVERY)
                                     // ফোন · অডিও কল · ভিডিও কল · মেসেজ
                                     ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS,
                                         onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
@@ -645,6 +647,8 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                                 // বিল ও রসিদ (InvoiceForms.kt; inv_lab): রসিদ থাকলে সেটা, নইলে "বিল"
                                 if (invLab && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
                                 else if (invLab && o.status != "cancelled") SmallAction(tr("Bill", "বিল"), R.drawable.ic_payments, { billing = o })
+                                // পরীক্ষার টাকা আগে (লাইফলো পে, pay_lab)
+                                if (o.status in setOf("sent", "received") && o.home?.status == "confirmed") PayAskAction("lab_order", o.id, PayRules.LAB)
                                 val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
                                 // ফোন (বাসা থেকে নমুনা) · অডিও কল · ভিডিও কল · মেসেজ
                                 ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open,

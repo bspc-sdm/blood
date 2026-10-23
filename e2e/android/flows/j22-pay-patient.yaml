@@ -1,0 +1,47 @@
+# যাত্রা ২২ — লাইফলো পে (রোগী): প্রোফাইল › "আমার রসিদ ও খরচ" › "পেমেন্ট" — অনুরোধের তালিকা; একটা থাকলে খুলে PaySheet
+# (টাকা, কার কাছে, সবসময়ের সতর্কতা "শুধু এখানে দেখানো নম্বরে…", চালু নম্বর, ধাপ, TrxID + শেষ ৪ সংখ্যা)। কিছু পাঠানো হয় না।
+# শুধু চাইলে (E2E_ONLY="j22"): pay_manual + my_expenses ডেমোতে চালু থাকলে তবেই (ফিচার সুইচ, শুরুতে বন্ধ)।
+appId: com.bspc.blood
+env:
+  J: j22
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "আমার রসিদ ও খরচ"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn: "আমার রসিদ ও খরচ"
+- extendedWaitUntil:
+    visible: "পেমেন্ট"
+    timeout: 30000
+- tapOn: "পেমেন্ট"
+- extendedWaitUntil:
+    visible:
+      id: "my_payments"
+    timeout: 30000
+- takeScreenshot: j22-01-payments-tab
+- runFlow:
+    when:
+      visible:
+        id: "pay_row"
+    commands:
+      - tapOn:
+          id: "pay_row"
+          index: 0
+      - extendedWaitUntil:
+          visible:
+            id: "pay_sheet"
+          timeout: 20000
+      - assertVisible:
+          id: "pay_only_here"
+      - takeScreenshot: j22-02-pay-sheet
+      - scrollUntilVisible:
+          element:
+            id: "pay_timeline"
+          direction: DOWN
+          timeout: 10000
+      - takeScreenshot: j22-03-pay-sheet-timeline
+      - back

@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -135,6 +134,11 @@ data class OnlinePay(
     /** ডাক্তার "পাইনি" বললে কারণ */
     val rejectReason: String = "",
     val rejected: Boolean = false,
+    /**
+     * লাইফলো পে-র অনুরোধ (PAYMENTS.md: অনলাইন চেম্বারের ফি এখন পেমেন্টের স্তরে) — থাকলে রোগী PaySheet-এ পাঠান
+     * (নম্বর বাছাই, TrxID + শেষ ৪ সংখ্যা), ডাক্তার pay_confirm/pay_reject; না থাকলে আগের মতো appt_pay_*।
+     */
+    val requestId: String = "",
 ) {
     val view: PayView
         get() = when {
@@ -148,6 +152,23 @@ data class OnlinePay(
     /** "৳৫০০" (লেখা বোঝা না গেলে লেখাটাই) */
     val feeShort: String get() = ChamberClock.feeShort(Chamber(null, "", "", "", null, null, "", "", fee, false, "", noFee = noFee))
 
+    fun withRequest(id: String): OnlinePay = if (id == requestId) this else copy(requestId = id)
+
+    /** পেমেন্টের অনুরোধের রূপে (PaySheet-এর অংশগুলো আর ডাক্তারের "পাইনি"-র জন্য) — সার্ভার থেকে আসার আগে পর্যন্ত */
+    fun asRequest(appointmentId: String, bizName: String = ""): PayRequest = PayRequest(
+        id = requestId, kind = "chamber", bizName = bizName, refType = "appointment", refId = appointmentId, purpose = PayRules.CHAMBER_FEE,
+        amount = InvoiceMath.parse(OnlineChambers.cleanNumber(fee).filter { it.isDigit() || it == '.' })?.takeIf { it > 0 } ?: 0.0,
+        methods = if (bkashNumber.isNotBlank()) listOf(PayMethod("bkash", bkashNumber, "personal")) else emptyList(),
+        status = when (view) {
+            PayView.PAID -> "confirmed"
+            PayView.CLAIMED -> "claimed"
+            PayView.REJECTED -> "rejected"
+            else -> "open"
+        },
+        claim = if (ref.isNotBlank()) PayClaim("bkash", ref, "", 0L) else null,
+        rejectNote = rejectReason,
+    )
+
     companion object {
         fun parse(o: JSONObject): OnlinePay {
             // "পাইনি"-র কারণ: payNote (CHAMBERS-ONLINE.md); নতুন দাবি বা পরিশোধে মুছে যায়
@@ -156,6 +177,7 @@ data class OnlinePay(
                 // payState null = দেওয়ার কিছু নেই (ফি নেই)
                 if (o.isNull("payState") || !o.has("payState")) "none" else o.str("payState").ifBlank { "none" }, o.str("payRef"), o.str("bkashNumber"), o.str("fee"), o.optBoolean("noFee"),
                 o.str("onlineNote"), reason, o.optBoolean("payRejected") || reason.isNotBlank(),
+                requestId = o.str("payRequestId").ifBlank { o.str("payId") }.ifBlank { o.optJSONObject("payRequest")?.str("id").orEmpty() },
             )
         }
     }
@@ -389,13 +411,15 @@ fun OnlineChamberFields(c: Chamber, onChange: (Chamber) -> Unit) {
 // অ্যাপয়েন্টমেন্ট: রোগীর দিক (ফি পাঠানো) আর ডাক্তার/সহকারীর দিক (ফি মেলানো), দুই দিকেই ভিডিও কলে যুক্ত হওয়া
 // ------------------------------------------------------------
 
-/** রোগী: ফি, ডাক্তারের bKash নম্বর (কপি), ধাপগুলো, "টাকা পাঠিয়েছি", অবস্থা; তারপর ভিডিও কলের বোতাম */
+/**
+ * রোগী: ফি, ডাক্তারের নম্বর (কপি), ধাপগুলো, "টাকা পাঠিয়েছি", অবস্থা; তারপর ভিডিও কলের বোতাম।
+ * লাইফলো পে-র অনুরোধ থাকলে (pay.requestId) পুরোটা PaySheet (PaySheet.kt); না থাকলে আগের মতো — নম্বর আর ধাপ PaySheet-এর অংশ দিয়েই।
+ */
 @Composable
-fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start: String, pay: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
+fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start: String, given: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
     if (!OnlineGate.chamber()) return
     if (status !in listOf("pending", "confirmed", "completed")) return
-    val context = LocalContext.current
-    val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+    val pay = given.withRequest(rememberFeeRequestId(appointmentId, given))
     val cs = MaterialTheme.colorScheme
     var claiming by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
@@ -410,23 +434,13 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
                 PayStateTag(pay)
             }
             if (pay.note.isNotBlank()) IconLine(R.drawable.ic_info, pay.note)
-            if (v != PayView.NO_FEE) {
+            if (v != PayView.NO_FEE && pay.requestId.isNotBlank()) {
+                OnlineFeeSheet(appointmentId, pay, onChanged)
+            } else if (v != PayView.NO_FEE) {
                 if (pay.fee.isNotBlank()) IconLine(R.drawable.ic_payments, tr("Fee: ", "ফি: ") + pay.feeShort)
-                if (pay.bkashNumber.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(tr("Doctor's bKash (Send Money)", "ডাক্তারের bKash (সেন্ড মানি)"), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
-                            Text(pay.bkashNumber, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                        }
-                        androidx.compose.material3.FilledTonalIconButton(
-                            onClick = {
-                                clip.setText(androidx.compose.ui.text.AnnotatedString(pay.bkashNumber))
-                                android.widget.Toast.makeText(context, tr("Number copied", "নম্বর কপি হয়েছে"), android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.testTag("copy_bkash"),
-                        ) { AppIcon(R.drawable.ic_content_copy, tr("Copy number", "নম্বর কপি করুন"), Modifier.size(20.dp)) }
-                    }
-                }
+                if (v == PayView.UNPAID || v == PayView.REJECTED) PayOnlyHereWarning()
+                val bkash = PayMethod("bkash", pay.bkashNumber, "personal")
+                if (pay.bkashNumber.isNotBlank()) PayNumberRow(PayText.numberLabel("chamber", bkash), pay.bkashNumber, copyTag = "copy_bkash")
                 when (v) {
                     PayView.UNPAID, PayView.REJECTED -> {
                         if (v == PayView.REJECTED) {
@@ -435,7 +449,7 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
                                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = cs.error,
                             )
                         }
-                        PaySteps(pay)
+                        PayStepList(PayText.steps(bkash, if (pay.fee.isNotBlank()) pay.feeShort else "", PayText.who("chamber")))
                         Button(onClick = { claiming = true }, modifier = Modifier.fillMaxWidth()) {
                             ButtonContent(false, if (v == PayView.REJECTED) tr("I've sent it again", "আবার পাঠিয়েছি") else tr("I've sent the money", "টাকা পাঠিয়েছি"), R.drawable.ic_send)
                         }
@@ -445,19 +459,17 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
                         SmallNote(tr("The doctor will check it in bKash and confirm.", "ডাক্তার bKash-এ মিলিয়ে নিশ্চিত করবেন।"))
                         TextButton(onClick = { claiming = true }) { Text(if (pay.ref.isBlank()) tr("Add TrxID", "TrxID দিন") else tr("Change TrxID", "TrxID বদলান")) }
                     }
-                    PayView.PAID -> {
-                        IconLine(R.drawable.ic_check_circle, tr("The doctor confirmed your fee", "ডাক্তার ফি পাওয়া নিশ্চিত করেছেন"), cs.tertiary)
-                        // ফি দিয়েছেন, সময় হয়েছে, কিন্তু ডাক্তার কলে আসেননি — রিপোর্ট (appt_report)
-                        if (OnlineAppts.canReport(status, date, start, now ?: System.currentTimeMillis())) {
-                            if (reported) SmallNote(tr("Reported. Lifolo will look into it.", "রিপোর্ট পাঠানো হয়েছে। Lifolo দেখবে।"))
-                            else TextButton(onClick = { reporting = true }, modifier = Modifier.testTag("appt_report")) {
-                                Text(tr("Doctor didn't join? Report", "ডাক্তার কলে আসেননি? রিপোর্ট করুন"), color = cs.error)
-                            }
-                        }
-                    }
+                    PayView.PAID -> IconLine(R.drawable.ic_check_circle, tr("The doctor confirmed your fee", "ডাক্তার ফি পাওয়া নিশ্চিত করেছেন"), cs.tertiary)
                     PayView.NO_FEE -> {}
                 }
                 SmallNote(tr("The money goes straight to the doctor. Lifolo doesn't hold or take any of it.", "টাকা সরাসরি ডাক্তারের কাছে যায়। Lifolo টাকা রাখে না, কিছু কাটে না।"))
+            }
+            // ফি দিয়েছেন, সময় হয়েছে, কিন্তু ডাক্তার কলে আসেননি — রিপোর্ট (appt_report)
+            if (v == PayView.PAID && OnlineAppts.canReport(status, date, start, now ?: System.currentTimeMillis())) {
+                if (reported) SmallNote(tr("Reported. Lifolo will look into it.", "রিপোর্ট পাঠানো হয়েছে। Lifolo দেখবে।"))
+                else TextButton(onClick = { reporting = true }, modifier = Modifier.testTag("appt_report")) {
+                    Text(tr("Doctor didn't join? Report", "ডাক্তার কলে আসেননি? রিপোর্ট করুন"), color = cs.error)
+                }
             }
             VideoJoinBox(appointmentId, status, date, start, now)
         }
@@ -468,6 +480,33 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
     if (reporting) {
         ApptReportDialog(appointmentId, onDismiss = { reporting = false }, onDone = { reporting = false; reported = true })
     }
+}
+
+/** লাইফলো পে-র অনুরোধসহ অনলাইন ফি: সার্ভারের অনুরোধ এনে PaySheet (আসার আগে অ্যাপয়েন্টমেন্টের তথ্য থেকে) */
+@Composable
+private fun OnlineFeeSheet(appointmentId: String, pay: OnlinePay, onChanged: () -> Unit) {
+    val asUid = CareMode.asUid.value
+    var req by remember(pay.requestId) { mutableStateOf(PayStore.byId(pay.requestId) ?: pay.asRequest(appointmentId)) }
+    val bump = PayNav.changed.intValue
+    LaunchedEffect(pay.requestId, bump) {
+        runCatching { PayApi.get(pay.requestId, asUid) }.onSuccess { req = it; PayStore.put(it, asUid) }
+    }
+    PaySheet(req, asUid, onChanged = { n -> req = n; PayStore.put(n, asUid); onChanged() })
+}
+
+/**
+ * অ্যাপয়েন্টমেন্টের সাথে লাইফলো পে-র অনুরোধ (payRequestId) না এলে সার্ভারে খুঁজে নেওয়া (pay_request_get {refType, refId,
+ * purpose} — সার্ভার দরকারে বানিয়ে দেয়)। না পেলে (পুরোনো সার্ভার, ফি নেই) আগের পথ।
+ */
+@Composable
+private fun rememberFeeRequestId(appointmentId: String, pay: OnlinePay): String {
+    var id by remember(appointmentId) { mutableStateOf(pay.requestId) }
+    LaunchedEffect(appointmentId, pay.state) {
+        if (id.isBlank() && pay.view != PayView.NO_FEE) {
+            runCatching { PayApi.getByRef("appointment", appointmentId, PayRules.CHAMBER_FEE) }.onSuccess { r -> if (r.id.isNotBlank()) { PayStore.put(r); id = r.id } }
+        }
+    }
+    return pay.requestId.ifBlank { id }
 }
 
 object OnlineAppts {
@@ -522,25 +561,7 @@ fun ApptReportDialog(appointmentId: String, onDismiss: () -> Unit, onDone: () ->
     )
 }
 
-/** টাকা পাঠানোর ধাপ (পাঠানো না হলে) */
-@Composable
-private fun PaySteps(pay: OnlinePay) {
-    val steps = listOf(
-        tr("Open bKash and Send Money", "bKash অ্যাপে \"সেন্ড মানি\" করুন") + (if (pay.fee.isNotBlank()) " — " + pay.feeShort else "") + tr(" to the number above", " উপরের নম্বরে"),
-        tr("Keep the TrxID from the bKash message", "bKash-এর মেসেজের TrxID রেখে দিন"),
-        tr("Tap \"I've sent the money\" — the doctor confirms it", "\"টাকা পাঠিয়েছি\" চাপুন — ডাক্তার মিলিয়ে নিশ্চিত করবেন"),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        steps.forEachIndexed { i, s ->
-            Row {
-                Text(num(i + 1) + ".", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(22.dp))
-                Text(s, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-}
-
-/** "টাকা পাঠিয়েছি": TrxID ঐচ্ছিক */
+/** "টাকা পাঠিয়েছি" (লাইফলো পে-র অনুরোধ ছাড়া, আগের appt_pay_claim): TrxID ঐচ্ছিক */
 @Composable
 fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -585,9 +606,10 @@ fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit
 
 /** ডাক্তার/সহকারী: ফির অবস্থা, TrxID, "ফি পেয়েছি" / "পাইনি" (নিশ্চিত করার ধাপসহ); তারপর ভিডিও কলের বোতাম */
 @Composable
-fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: String, pay: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
+fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: String, given: OnlinePay, onChanged: () -> Unit, now: Long? = null) {
     if (!OnlineGate.chamber()) return
     if (status !in listOf("pending", "confirmed", "completed")) return
+    val pay = given.withRequest(rememberFeeRequestId(appointmentId, given))
     val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
     var asking by remember { mutableStateOf<Boolean?>(null) } // true = পেয়েছি, false = পাইনি
@@ -626,7 +648,9 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
         }
     }
     when (asking) {
-        true -> androidx.compose.material3.AlertDialog(
+        // লাইফলো পে-র দাবি: তিনটা মিলের টিকসহ (pay_confirm + checks)
+        true -> if (pay.requestId.isNotBlank() && v == PayView.CLAIMED) PayConfirmDialog(pay.asRequest(appointmentId), onDismiss = { asking = null }) { asking = null; PayNav.bump(); onChanged() }
+        else androidx.compose.material3.AlertDialog(
             onDismissRequest = { if (!busy) asking = null },
             title = { Text(tr("Got the fee?", "ফি পেয়েছেন?")) },
             text = {
@@ -640,14 +664,16 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { OnlineApi.confirm(appointmentId) }.onSuccess { asking = null; onChanged() }.onFailure { errorMsg = OnlineText.error(it); asking = null }
+                        runCatching { OnlineApi.confirm(appointmentId) }
+                            .onSuccess { asking = null; onChanged() }.onFailure { errorMsg = OnlineText.error(it); asking = null }
                         busy = false
                     }
                 }, enabled = !busy) { ButtonContent(busy, tr("Yes, received", "হ্যাঁ, পেয়েছি")) }
             },
             dismissButton = { TextButton(onClick = { asking = null }, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
         )
-        false -> {
+        // লাইফলো পে-র অনুরোধ: কারণ বাছাইসহ (pay_reject)
+        false -> if (pay.requestId.isNotBlank()) PayRejectDialog(pay.asRequest(appointmentId), onDismiss = { asking = null }) { asking = null; PayNav.bump(); onChanged() } else {
             var reason by remember { mutableStateOf("") }
             FormDialog(
                 title = tr("Didn't get the fee?", "ফি পাননি?"),

@@ -1,0 +1,67 @@
+# যাত্রা ২৩ — লাইফলো পে (রোগী): বাকি থাকা রসিদ খুলে "বাকি … অনলাইনে দিন" → PaySheet (রসিদের বাকি)।
+# TrxID লেখা হয় কিন্তু পাঠানো হয় না (ডেমো সার্ভারে দাবি জমে না)। শুধু চাইলে (E2E_ONLY="j23"): pay_manual + pay_due চালু থাকলে।
+appId: com.bspc.blood
+env:
+  J: j23
+  ROLE: ডেমো রোগী রহিম
+---
+- runFlow: ../common/start.yaml
+- tapOn: "সেটিংস ও প্রোফাইল"
+- scrollUntilVisible:
+    element: "আমার রসিদ ও খরচ"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn: "আমার রসিদ ও খরচ"
+- extendedWaitUntil:
+    visible:
+      id: "my_receipts"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "বাকি .*"
+    direction: DOWN
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible: "বাকি .*"
+    commands:
+      - tapOn:
+          text: "বাকি .*"
+          index: 0
+      - extendedWaitUntil:
+          visible:
+            id: "receipt_view"
+          timeout: 20000
+      - scrollUntilVisible:
+          element:
+            id: "receipt_pay_due"
+          direction: DOWN
+          timeout: 10000
+      - takeScreenshot: j23-01-receipt-pay-due
+      - tapOn:
+          id: "receipt_pay_due"
+      - extendedWaitUntil:
+          visible:
+            id: "pay_sheet"
+          timeout: 30000
+      - assertVisible: "রসিদের বাকি"
+      - takeScreenshot: j23-02-due-sheet
+      - scrollUntilVisible:
+          element:
+            id: "pay_trxid"
+          direction: DOWN
+          timeout: 10000
+      - tapOn:
+          id: "pay_trxid"
+      - inputText: "AB12"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            id: "pay_submit"
+          direction: DOWN
+          timeout: 10000
+      # ছোট TrxID: পাঠানোর আগেই বলা (সার্ভারে যায় না)
+      - tapOn:
+          id: "pay_submit"
+      - takeScreenshot: j23-03-trx-check

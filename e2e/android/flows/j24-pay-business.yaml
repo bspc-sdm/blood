@@ -1,0 +1,59 @@
+# যাত্রা ২৪ — লাইফলো পে (ফার্মেসি): দোকান › রসিদ › "পেমেন্ট" — আজ কত এল, যাচাই বাকি (নিশ্চিত করতে তিনটা টিক),
+# তালিকা (CSV), সেটিংস (নম্বর, ২৪ ঘণ্টার বিরতি, "আমি করিনি")। কিছু বদলানো হয় না।
+# শুধু চাইলে (E2E_ONLY="j24"): pay_manual + pay_delivery + inv_pharmacy ডেমোতে চালু থাকলে।
+appId: com.bspc.blood
+env:
+  J: j24
+  ROLE: ডেমো ফার্মেসির মালিক
+---
+- runFlow: ../common/start.yaml
+- tapOn: "আমার কাজ"
+- extendedWaitUntil:
+    visible: ".*ডেমো লাইফ ফার্মেসি.*"
+    timeout: 30000
+- tapOn: ".*ডেমো লাইফ ফার্মেসি.*"
+- extendedWaitUntil:
+    visible: "দোকান"
+    timeout: 30000
+- tapOn: "দোকান"
+- tapOn: "রসিদ"
+- extendedWaitUntil:
+    visible:
+      id: "biz_payments"
+    timeout: 30000
+- takeScreenshot: j24-01-receipts-payments-button
+- tapOn:
+    id: "biz_payments"
+- extendedWaitUntil:
+    visible:
+      id: "pay_today"
+    timeout: 30000
+- takeScreenshot: j24-02-inbox
+- runFlow:
+    when:
+      visible:
+        id: "pay_confirm"
+    commands:
+      - tapOn:
+          id: "pay_confirm"
+          index: 0
+      - extendedWaitUntil:
+          visible: "টাকা পেয়েছেন?"
+          timeout: 10000
+      - assertVisible: "TrxID মিলেছে"
+      - takeScreenshot: j24-03-confirm-checks
+      - tapOn: "বাতিল"
+- tapOn: "তালিকা"
+- extendedWaitUntil:
+    visible:
+      id: "pay_biz_list"
+    timeout: 30000
+- takeScreenshot: j24-04-list
+- tapOn: "সেটিংস"
+- extendedWaitUntil:
+    visible:
+      id: "pay_cooloff"
+    timeout: 30000
+- assertVisible:
+    id: "pay_freeze"
+- takeScreenshot: j24-05-settings

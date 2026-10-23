@@ -27,7 +27,7 @@ adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
 # ক্রম: আগে ফার্মেসি (আগের যাত্রায় রোগীর পাঠানো খোলা প্রেসক্রিপশন বন্ধ করে), তারপর রোগী আবার পাঠায় — বারবার চালানো যায়
-ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause j16-online-chamber j17-calls j18-chat j19-invoice-pharmacy j20-invoice-patient j21-invoice-driver"
+ORDER="j3-pharmacy j1-patient j2-services j4-lab j5-doctor j6-ambulance j7-blood j8-profile j9-rx-online j10-blood j11-ambulance-driver j12-appointments j13-notify-settings j14-account-delete j15-account-pause j16-online-chamber j17-calls j18-chat j19-invoice-pharmacy j20-invoice-patient j21-invoice-driver j22-pay-patient j23-pay-due j24-pay-business"
 cd "$OUT/shots"
 for f in $ORDER; do
   # j16 (অনলাইন চেম্বার) শুধু চাইলে: প্রোডাকশনে ডেমো ডাক্তারের অনলাইন চেম্বার বন্ধ (DEMO_ONLINE_CHAMBERS) — স্টেজিংয়ে চালান
@@ -38,6 +38,8 @@ for f in $ORDER; do
   if [ -z "$ONLY" ] && [ "$f" = j17-calls ]; then continue; fi
   # j18 (অ্যাপে মেসেজ) শুধু চাইলে: ফিচার সুইচ chat / chat_media প্রোডাকশনে বন্ধ — চালু থাকা সার্ভারে চালান
   if [ -z "$ONLY" ] && [ "$f" = j18-chat ]; then continue; fi
+  # j22–j24 (লাইফলো পে) শুধু চাইলে: pay_* চাবি ডেমোতে চালু থাকলে তবেই
+  case "$f" in j22-*|j23-*|j24-*) [ -z "$ONLY" ] && continue ;; esac
   if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " ${f%%-*} "; then continue; fi
   adb logcat -c || true
   start=$(date +%s)

@@ -1298,6 +1298,8 @@ fun RxAssistScreen(onBack: () -> Unit) {
                             if (d.size == 1) Text(doc.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             // সহকারী আজকের সিরিয়াল চালান (Queue.kt)
                             QueuePanel(doc.uid)
+                            // সহকারী চেম্বারের পেমেন্ট যাচাই/নিশ্চিত করতে পারেন (লাইফলো পে)
+                            BizPaymentsButton("chamber", doc.uid, assistant = true)
                         }
                     }
                 }

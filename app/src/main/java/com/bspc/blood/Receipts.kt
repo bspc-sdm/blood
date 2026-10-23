@@ -77,6 +77,8 @@ import kotlinx.coroutines.launch
 fun ReceiptOverlays() {
     InvoiceNav.show.value?.let { t -> androidx.compose.runtime.key(t) { ReceiptDialog(t) { InvoiceNav.show.value = null } } }
     InvoiceNav.verify.value?.let { c -> androidx.compose.runtime.key(c) { VerifyDialog(c) { InvoiceNav.verify.value = null } } }
+    // লাইফলো পে (PaySheet.kt) — রসিদের উপরে (রসিদ থেকে "বাকি টাকা অনলাইনে দিন")
+    PayOverlays()
 }
 
 /** রসিদের পাতা (পুরো পর্দার ডায়ালগ) */
@@ -129,6 +131,8 @@ fun ReceiptDialog(t: InvoiceNav.Show, onDismiss: () -> Unit) {
                     ) { ButtonContent(false, tr("Print", "প্রিন্ট"), R.drawable.ic_list_alt) }
                 }
                 InfoText(infoMsg)
+                // রোগী: বাকি টাকা বিকাশ/নগদে (লাইফলো পে, pay_due)
+                if (!t.manage && !i.canManage && !i.isVoid) PayDueButton(i, t.asUid)
                 // রোগী: অ্যাম্বুলেন্স রসিদের চেয়ে বেশি নিলে জানানো (পর্যালোচনা I8)
                 if (InvoiceRules.canReport(i, t.manage)) {
                     OutlinedButton(onClick = { reporting = true }, modifier = Modifier.fillMaxWidth().testTag("receipt_report")) {
@@ -503,14 +507,24 @@ fun MyReceiptsScreen(asUid: String?, name: String, tab: Int, onBack: () -> Unit)
     }
 }
 
-/** দুই ভাগ: রসিদ · খরচ (কেয়ারগিভার মোডের ট্যাবেও এটাই) */
+/** ভাগ: রসিদ · খরচ · পেমেন্ট (লাইফলো পে চালু থাকলে) — কেয়ারগিভার মোডের ট্যাবেও এটাই */
 @Composable
 fun ReceiptsAndExpenses(asUid: String?, startTab: Int = 0) {
     var tab by rememberSaveable { mutableIntStateOf(startTab) }
+    val pay = PayGate.rememberPatient()
     Column(Modifier.fillMaxSize()) {
-        PillTabs(tab, listOf(PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt), PillTab(tr("Expenses", "খরচ"), R.drawable.ic_payments)), { tab = it }, secondary = true)
+        PillTabs(
+            tab,
+            listOf(PillTab(tr("Receipts", "রসিদ"), R.drawable.ic_list_alt), PillTab(tr("Expenses", "খরচ"), R.drawable.ic_payments)) +
+                if (pay) listOf(PillTab(tr("Payments", "পেমেন্ট"), R.drawable.ic_wallet)) else emptyList(),
+            { tab = it }, secondary = true,
+        )
         Box(Modifier.weight(1f)) {
-            if (tab == 0) MyReceiptsList(asUid) else ExpensesView(asUid)
+            when {
+                tab == 0 -> MyReceiptsList(asUid)
+                tab == 2 && pay -> MyPaymentsList(asUid)
+                else -> ExpensesView(asUid)
+            }
         }
     }
 }
@@ -637,6 +651,8 @@ fun BizInvoicesPanel(kind: String, bizId: String, modifier: Modifier = Modifier)
     }
     val cs = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth().testTag("biz_invoices"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // ফার্মেসি/প্যাথলজির "পেমেন্ট" (লাইফলো পে) — চেম্বার আর অ্যাম্বুলেন্সের নিজের পাতায়
+        if (kind == "pharmacy" || kind == "lab") BizPaymentsButton(kind, null)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             InvoiceKinds.PERIODS.forEach { p -> FilterChip(selected = period == p, onClick = { period = p }, label = { Text(InvoiceKinds.period(p)) }) }
         }
