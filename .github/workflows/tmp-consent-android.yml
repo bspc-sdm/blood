@@ -1,0 +1,54 @@
+name: "TMP consent Android compile (health-consent only, never merged)"
+
+# Temporary: proves the Android app compiles with the health-consent change and runs its Robolectric tests.
+# Lives only on the health-consent branch; dropped before merging. No APK is built or published.
+on:
+  push:
+    branches: [health-consent]
+    paths:
+      - "app/**"
+      - ".github/workflows/tmp-consent-android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tmp-consent-android
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile (main + unit tests)
+        run: |
+          set -o pipefail
+          gradle :app:compileDebugKotlin :app:compileDebugUnitTestKotlin 2>&1 | tee compile.log | tail -20
+          if grep -qE "^e: " compile.log; then grep -E "^e: " compile.log | head -40; exit 1; fi
+      - name: Consent + features tests (Robolectric)
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --tests "com.bspc.blood.ConsentScreensTest" --tests "com.bspc.blood.FeaturesTest" 2>&1 | tail -40
+      - name: Test results
+        if: always()
+        run: |
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            [ -f "$f" ] || continue
+            python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          r = ET.parse(sys.argv[1]).getroot()
+          print(r.get('name'), r.get('tests'), 'tests', r.get('failures'), 'failures', r.get('errors'), 'errors')
+          for tc in r.iter('testcase'):
+              for bad in list(tc.findall('failure')) + list(tc.findall('error')):
+                  print('  FAIL', tc.get('name'), (bad.get('message') or '')[:800])
+          PY
+          done
