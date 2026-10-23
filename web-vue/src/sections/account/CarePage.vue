@@ -16,6 +16,8 @@ import { useNav, useSearchParams } from '@/lib/nav';
 import { useBack } from './nav';
 import type { CareData, CareLink, FamilyMember } from './care';
 import CarePerson from './CarePerson.vue';
+import PsychShareSwitch from '../practice/PsychShareSwitch.vue';
+import { psychOn } from '@/lib/practice';
 import InviteDialog from './InviteDialog.vue';
 import MemberDialog from './MemberDialog.vue';
 
@@ -138,6 +140,7 @@ function runConfirm() {
             <CarePerson v-for="c in d.caretakers" :key="c.caretakerUid" icon="person_outline" :name="nameOf(c)" :sub="c.caretakerEmail">
               <template #tag><Tag :tone="c.status === 'active' ? 'good' : undefined">{{ c.status === 'active' ? tr('Active', 'চালু') : tr('Waiting for them', 'রাজি হওয়ার অপেক্ষায়') }}</Tag></template>
               <Action icon="close" @click="askRemoveCaretaker(c)">{{ tr('Remove', 'সরিয়ে দিন') }}</Action>
+              <PsychShareSwitch v-if="psychOn() && c.status === 'active'" :caretaker-uid="c.caretakerUid" :shared="c.sharePsych === true" @changed="q.refetch()" />
             </CarePerson>
             <Button v-if="d.caretakers.length < 2" variant="outline" icon="add" block @click="inviting = true">{{ tr('Add a caregiver', 'কেয়ারগিভার যোগ করুন') }}</Button>
           </section>

@@ -5,6 +5,7 @@ import { formatTimeHM, todayUtcMidnight } from '@/lib/format';
 import { isBangla, num, tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { T as OT, parseOnline, type ChamberMode, type OnlinePart } from './online';
+import { PHYSIO_HOME, PRACTICE_HOME_LABEL, PRACTICE_SPEC_LABEL, isNewType, newTypeHome, newTypeIcon, newTypeLabel, newTypesOn, practiceSpecialties, specialtyCatalogKey } from '@/lib/practice';
 
 /** যাঁরা "আমার চেম্বার/বাসায় সেবা" পান */
 export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
@@ -12,6 +13,13 @@ export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
 export const CHAMBER_TYPES = ['doctor', 'nutritionist', 'trainer'];
 /** বাসায় সেবা: ডাক্তার আর নার্স */
 export const HOME_TYPES = ['doctor', 'nurse'];
+// নতুন পেশাজীবী (ফিজিওথেরাপিস্ট, সাইকোলজিস্ট — lib/practice.ts): তালিকার ট্যাব শুধু সুইচ চালু থাকলে;
+// নিজের কাজের জায়গায় অনুমোদিত ব্যাজ থাকলেই (সার্ভার সুইচ ছাড়া অনুমোদন দেয় না)
+/** তালিকার ট্যাব: আগের তিনটা + চালু থাকা নতুন ধরন */
+export const chamberTypes = () => [...CHAMBER_TYPES, ...newTypesOn()];
+export const isProviderType = (t: string | null | undefined) => !!t && (PROVIDER_TYPES.includes(t) || isNewType(t));
+export const isChamberType = (t: string | null | undefined) => !!t && (CHAMBER_TYPES.includes(t) || isNewType(t));
+export const isHomeType = (t: string | null | undefined) => !!t && (HOME_TYPES.includes(t) || newTypeHome(t));
 export const MAX_CHAMBERS = 3;
 export const MAX_CHAMBER_TIMES = 4;
 export const HOME_RADII = [3, 5, 10, 20];
@@ -74,6 +82,8 @@ export interface Provider {
   rating: number;
   ratingCount: number;
   photo: string;
+  /** ডাক্তারের চিকিৎসা পদ্ধতি (practice_systems; পুরোনো সার্ভারে নেই → এলোপ্যাথি) — lib/practice.ts */
+  system?: string;
 }
 export interface HomePro {
   uid: string;
@@ -97,6 +107,7 @@ export interface HomePro {
   myRating: number;
   canRate: boolean;
   photo: string;
+  system?: string;
 }
 export interface Appointment extends OnlinePart {
   id: string;
@@ -118,6 +129,9 @@ export interface Appointment extends OnlinePart {
   createdAt: number;
   /** ফির রসিদ (না থাকলে null; পুরোনো সার্ভারে নেই) */
   invoiceId?: string | null;
+  /** পেশাজীবীর চিকিৎসা পদ্ধতি আর সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট কেয়ারগিভারকে দেখানো (practice; পুরোনো সার্ভারে নেই) */
+  system?: string;
+  shared?: boolean;
 }
 export interface Hospital {
   id: string;
@@ -210,6 +224,7 @@ export function parseProvider(o: any): Provider {
     rating: n(o?.rating),
     ratingCount: n(o?.ratingCount),
     photo: s(o?.photo),
+    ...(typeof o?.system === 'string' ? { system: o.system } : {}),
   };
 }
 export function parseHomePro(o: any): HomePro {
@@ -235,6 +250,7 @@ export function parseHomePro(o: any): HomePro {
     myRating: n(o?.myRating),
     canRate: o?.canRate === true,
     photo: s(o?.photo),
+    ...(typeof o?.system === 'string' ? { system: o.system } : {}),
   };
 }
 export function parseAppointment(o: any): Appointment {
@@ -258,6 +274,8 @@ export function parseAppointment(o: any): Appointment {
     createdAt: n(o?.createdAt),
     ...parseOnline(o),
     ...(o && 'invoiceId' in o ? { invoiceId: o.invoiceId ?? null } : {}),
+    ...(typeof o?.system === 'string' ? { system: o.system } : {}),
+    ...(typeof o?.shared === 'boolean' ? { shared: o.shared } : {}),
   };
 }
 
@@ -342,7 +360,7 @@ export function badgeLabel(type: string): string {
     case 'nurse': return tr('Nurse', 'নার্স');
     case 'nutritionist': return tr('Nutritionist', 'পুষ্টিবিদ');
     case 'trainer': return tr('Fitness trainer', 'ফিটনেস ট্রেইনার');
-    default: return tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
+    default: return newTypeLabel(type) ?? tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
   }
 }
 export function badgeIcon(type: string): string {
@@ -351,7 +369,7 @@ export function badgeIcon(type: string): string {
     case 'nurse': return 'medical_services';
     case 'nutritionist': return 'restaurant';
     case 'trainer': return 'fitness_center';
-    default: return 'health_and_safety_filled';
+    default: return newTypeIcon(type) ?? 'health_and_safety_filled';
   }
 }
 
@@ -435,14 +453,17 @@ const SPEC_LABEL: Record<string, [string, string]> = {
   women_fitness: ["Women's fitness", 'নারীদের ফিটনেস'],
   sports_training: ['Sports training', 'খেলাধুলার প্রশিক্ষণ'],
 };
-export function specialtiesOf(type: string): string[] {
+/** system: ডাক্তারের চিকিৎসা পদ্ধতি — অ-এলোপ্যাথির নিজের তালিকা (সুইচ বন্ধ থাকলে আগের মতো) */
+export function specialtiesOf(type: string, system?: unknown): string[] {
+  const own = practiceSpecialties(type, system);
+  if (own) return catVisible('specialty', specialtyCatalogKey(type, system)!) ?? own;
   const t = ['nurse', 'nutritionist', 'trainer'].includes(type) ? type : 'doctor';
   return catVisible('specialty', t) ?? SPEC[t];
 }
 export function specialtyLabel(code: string): string {
   const c = catLabel('specialty', code);
   if (c) return c;
-  const l = SPEC_LABEL[code];
+  const l = SPEC_LABEL[code] ?? PRACTICE_SPEC_LABEL[code];
   return l ? tr(l[0], l[1]) : code;
 }
 
@@ -466,13 +487,14 @@ const HOME_LABEL: Record<string, [string, string]> = {
   palliative: ['Palliative care', 'প্যালিয়েটিভ কেয়ার'],
 };
 export function homeServicesOf(type: string): string[] {
+  if (type === 'physio') return catVisible('homeService', 'physio') ?? PHYSIO_HOME;
   const t = type === 'doctor' ? 'doctor' : 'nurse';
   return catVisible('homeService', t) ?? (t === 'doctor' ? HOME_DOCTOR : HOME_NURSE);
 }
 export function homeServiceLabel(code: string): string {
   const c = catLabel('homeService', code);
   if (c) return c;
-  const l = HOME_LABEL[code];
+  const l = HOME_LABEL[code] ?? PRACTICE_HOME_LABEL[code];
   return l ? tr(l[0], l[1]) : code;
 }
 

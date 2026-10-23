@@ -14,6 +14,7 @@ import { tr } from '@/lib/i18n';
 import { areaLabel, district as findDistrict } from '@/lib/geo';
 import { useNav, useSearchParams } from '@/lib/nav';
 import { homeServiceLabel, homeServicesOf, parseHomePro, useCatalog, type HomePro } from './model';
+import { T as PT, physioOn } from '@/lib/practice';
 import { useAreasReady, type AreaSel } from './shared';
 import AreaSheet from './AreaSheet.vue';
 import FilterSheet from './FilterSheet.vue';
@@ -30,7 +31,8 @@ useAreasReady();
 const nav = useNav();
 const [sp, setSp] = useSearchParams();
 const s = useSession();
-const type = computed(() => (sp.value.get('t') === 'nurse' ? 'nurse' : 'doctor'));
+// ফিজিওথেরাপিস্ট বাসায় যান (pro_physio চালু থাকলে নিজের ট্যাব)
+const type = computed(() => (sp.value.get('t') === 'nurse' ? 'nurse' : sp.value.get('t') === 'physio' && physioOn() ? 'physio' : 'doctor'));
 const hasGps = computed(() => s.place?.source === 'gps');
 const [fa, setFa] = useFilterArea();
 // GPS থাকলে শুরুতে নিজের কাছে, নইলে নিজের জেলায়
@@ -129,6 +131,7 @@ async function report(reason: string) {
           :tabs="[
             { key: 'doctor', label: tr('Doctor at home', 'বাসায় ডাক্তার'), icon: 'stethoscope' },
             { key: 'nurse', label: tr('Nurse at home', 'বাসায় নার্স'), icon: 'medical_services' },
+            ...(physioOn() ? [{ key: 'physio', label: PT.physioHome(), icon: 'directions_run' }] : []),
           ]"
           :value="type"
           @change="changeTab"
@@ -153,8 +156,8 @@ async function report(reason: string) {
       <ErrorBox v-else-if="q.error" :error="errorText(q.error)" :on-retry="() => q.refetch()" />
       <EmptyState
         v-else-if="!list.length"
-        :icon="type === 'doctor' ? 'stethoscope' : 'medical_services'"
-        :title="type === 'doctor' ? tr('No doctor who visits homes here yet', 'এখানে বাসায় যান এমন ডাক্তার এখনো নেই') : tr('No nurse who visits homes here yet', 'এখানে বাসায় যান এমন নার্স এখনো নেই')"
+        :icon="type === 'physio' ? 'directions_run' : type === 'doctor' ? 'stethoscope' : 'medical_services'"
+        :title="type === 'physio' ? PT.physioHomeEmpty() : type === 'doctor' ? tr('No doctor who visits homes here yet', 'এখানে বাসায় যান এমন ডাক্তার এখনো নেই') : tr('No nurse who visits homes here yet', 'এখানে বাসায় যান এমন নার্স এখনো নেই')"
         :text="tr('Try another area or remove a filter.', 'অন্য এলাকা দিয়ে বা ফিল্টার সরিয়ে দেখুন।')"
       >
         <Button v-if="service || female" variant="text" @click="clearFilters">{{ tr('Remove filters', 'ফিল্টার সরান') }}</Button>

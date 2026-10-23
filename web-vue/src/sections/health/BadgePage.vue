@@ -7,7 +7,8 @@ import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { useNav } from '@/lib/nav';
-import { BADGES, badgeIcon, badgeLabel, goBack, useMe } from './common';
+import { badgeChoices, badgeIcon, badgeLabel, goBack, useMe } from './common';
+import { SYSTEMS, T as PT, isSystem, regBody, regPlaceholder, systemLabel, systemsOn, type MedSystem } from '@/lib/practice';
 import { badgeDocs, missingDocs, statusLine } from './badge';
 import DocPhotosField from './DocPhotosField.vue';
 import DocsNeeded from './DocsNeeded.vue';
@@ -26,6 +27,14 @@ const busy = ref(false);
 const err = ref<string | null>(null);
 const info = ref<string | null>(null);
 const t = computed(() => type.value ?? cur.value?.type ?? 'doctor');
+// চিকিৎসা পদ্ধতি (practice_systems, শুধু ডাক্তার): নিবন্ধনের প্রতিষ্ঠান আর ডিগ্রির ইঙ্গিত; অনুমোদনের পর বদলালে আবার যাচাই
+const sysPick = ref<MedSystem | null>(null);
+const showSys = computed(() => systemsOn() && t.value === 'doctor');
+const curSys = computed<MedSystem>(() => (isSystem(cur.value?.system) ? cur.value.system : 'allopathy'));
+const sys = computed<MedSystem>(() => sysPick.value ?? curSys.value);
+const sysChanged = computed(() => correction.value && showSys.value && sys.value !== curSys.value);
+const docSpecs = computed(() => badgeDocs(t.value, showSys.value ? sys.value : null));
+const typeHint = computed(() => (t.value === 'physio' ? PT.physioDocsHint() : t.value === 'psychologist' ? PT.psychDocsHint() : null));
 const reg = computed(() => regNo.value ?? cur.value?.regNo ?? '');
 const work = computed(() => workplace.value ?? cur.value?.workplace ?? '');
 const title = computed(() => (correction.value ? tr('Correct badge details', 'ব্যাজের তথ্য সংশোধন') : tr('Professional badge', 'পেশাদার ব্যাজ')));
@@ -36,8 +45,8 @@ const docsMissing = computed(() => !!cur.value?.docsMissing && cur.value?.status
 const docsRequested = computed(() => !!cur.value?.docsRequested);
 
 async function submit() {
-  if (!correction.value) {
-    const m = missingDocs(badgeDocs(t.value), docs.value);
+  if (!correction.value || sysChanged.value) {
+    const m = missingDocs(docSpecs.value, docs.value);
     if (m) {
       err.value = m;
       return;
@@ -46,7 +55,8 @@ async function submit() {
   busy.value = true;
   err.value = null;
   try {
-    await call('badge_apply', { type: t.value, regNo: reg.value.trim(), workplace: work.value.trim(), docs: docs.value });
+    await call('badge_apply', { type: t.value, regNo: reg.value.trim(), workplace: work.value.trim(), docs: docs.value, ...(showSys.value ? { system: sys.value } : {}) });
+    sysPick.value = null;
     docs.value = {};
     info.value = correction.value ? tr('Sent. An admin will check it.', 'পাঠানো হয়েছে। অ্যাডমিন যাচাই করবেন।') : tr('Applied. An admin will verify it.', 'আবেদন হয়েছে। অ্যাডমিন যাচাই করবেন।');
     await s.reloadMe();
@@ -74,12 +84,12 @@ async function submit() {
         </div>
       </div>
       <div v-if="cur.regNo || cur.workplace" class="col gap-4">
-        <IconLine v-if="cur.regNo" icon="badge">{{ cur.regNo }}</IconLine>
+        <IconLine v-if="cur.regNo" icon="badge">{{ (systemsOn() && cur.type === 'doctor' ? regBody(curSys) + ' ' : '') + cur.regNo }}</IconLine>
         <IconLine v-if="cur.workplace" icon="local_hospital">{{ cur.workplace }}</IconLine>
       </div>
       <IconLine v-if="reason" icon="info">{{ tr('Reason: ', 'কারণ: ') + reason }}</IconLine>
     </div>
-    <DocsNeeded v-if="cur && (docsMissing || docsRequested) && s.uid" :uid="s.uid" :type="cur.type" :requested="docsRequested" :note="String(cur.docsRequestNote || '')" @done="s.reloadMe()" />
+    <DocsNeeded v-if="cur && (docsMissing || docsRequested) && s.uid" :uid="s.uid" :type="cur.type" :system="systemsOn() ? cur.system : null" :requested="docsRequested" :note="String(cur.docsRequestNote || '')" @done="s.reloadMe()" />
     <InfoText :text="info" />
     <template v-if="!locked">
       <p v-if="correction" class="t-body-s muted">
@@ -91,17 +101,32 @@ async function submit() {
       <div class="field">
         <span class="label">{{ tr('Profession', 'পেশা') }}</span>
         <div class="chips health-chips" role="group" :aria-label="tr('Profession', 'পেশা')">
-          <button v-for="b in BADGES" :key="b" type="button" class="chip lead" :aria-pressed="t === b" :disabled="correction && t !== b" @click="type = b">
+          <button v-for="b in badgeChoices()" :key="b" type="button" class="chip lead" :aria-pressed="t === b" :disabled="correction && t !== b" @click="type = b">
             <Icon :name="badgeIcon(b)" />{{ badgeLabel(b) }}
           </button>
         </div>
       </div>
-      <TextInput :label="tr('Registration / licence no.', 'রেজিস্ট্রেশন / লাইসেন্স নম্বর')" :model-value="reg" maxlength="60" :placeholder="t === 'doctor' ? 'BMDC A-12345' : ''" @update:model-value="(v: string) => (regNo = v)" />
+      <p v-if="typeHint" class="t-body-s muted" data-testid="type-hint">{{ typeHint }}</p>
+      <div v-if="showSys" class="field" data-testid="badge-system">
+        <span class="label">{{ PT.system() }}</span>
+        <div class="chips" role="group" :aria-label="PT.system()">
+          <button v-for="x in SYSTEMS" :key="x" type="button" class="chip" :aria-pressed="sys === x" @click="sysPick = x">{{ systemLabel(x) }}</button>
+        </div>
+        <span class="t-body-s muted">{{ PT.bodyHint(sys) }}</span>
+        <InfoText v-if="sysChanged" :text="PT.reverify()" />
+      </div>
+      <TextInput
+        :label="showSys && sys !== 'allopathy' ? PT.regNoFor(sys) : tr('Registration / licence no.', 'রেজিস্ট্রেশন / লাইসেন্স নম্বর')"
+        :model-value="reg"
+        maxlength="60"
+        :placeholder="t === 'doctor' ? regPlaceholder(showSys ? sys : 'allopathy') : ''"
+        @update:model-value="(v: string) => (regNo = v)"
+      />
       <TextInput :label="tr('Workplace', 'কর্মস্থল')" :model-value="work" maxlength="120" @update:model-value="(v: string) => (workplace = v)" />
       <DocPhotosField
-        :specs="badgeDocs(t)"
+        :specs="docSpecs"
         :photos="docs"
-        :note="correction ? tr('Add a photo if your registration number changed.', 'রেজিস্ট্রেশন নম্বর বদলালে সনদের ছবি দিন।') : null"
+        :note="correction && !sysChanged ? tr('Add a photo if your registration number changed.', 'রেজিস্ট্রেশন নম্বর বদলালে সনদের ছবি দিন।') : null"
         @change="(p) => (docs = p)"
       />
       <p class="t-body-s muted">{{ tr('An admin will verify this before the badge appears.', 'অ্যাডমিন যাচাই করার পর ব্যাজ দেখা যাবে।') }}</p>

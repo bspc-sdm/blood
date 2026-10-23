@@ -56,7 +56,8 @@ export function load(key: string) {
 }
 
 export const L: Record<string, Record<string, string>> = {
-  badge: { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'ফিটনেস ট্রেইনার', expert: 'স্বাস্থ্য বিশেষজ্ঞ' },
+  badge: { doctor: 'ডাক্তার', nurse: 'নার্স', nutritionist: 'পুষ্টিবিদ', trainer: 'ফিটনেস ট্রেইনার', expert: 'স্বাস্থ্য বিশেষজ্ঞ',
+    physio: 'ফিজিওথেরাপিস্ট', psychologist: 'ক্লিনিক্যাল সাইকোলজিস্ট / কাউন্সেলর' }, // bn-ok
   hospitalType: {
     govt_mch: 'সরকারি মেডিকেল কলেজ হাসপাতাল', govt_specialized: 'সরকারি বিশেষায়িত হাসপাতাল',
     govt_district: 'জেলা / সদর হাসপাতাল', govt_uhc: 'উপজেলা স্বাস্থ্য কমপ্লেক্স', govt_hospital: 'অন্যান্য সরকারি হাসপাতাল',

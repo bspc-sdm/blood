@@ -9,7 +9,8 @@ import type { MedRow } from './write';
 import MedField from './MedField.vue';
 import DrugInput from './DrugInput.vue';
 
-const props = defineProps<{ m: MedRow; n: number; last: boolean }>();
+// free: হোমিওপ্যাথি/ইউনানি/আয়ুর্বেদ — নাম নিজে লেখা, ওষুধের তালিকা থেকে খোঁজা নেই (lib/practice.ts)
+const props = defineProps<{ m: MedRow; n: number; last: boolean; free?: boolean }>();
 const emit = defineEmits<{ change: [p: Partial<MedRow>]; remove: []; addNext: [] }>();
 const doseList = 'dl' + useId().replace(/[^a-zA-Z0-9-]/g, '');
 const daysList = 'dy' + useId().replace(/[^a-zA-Z0-9-]/g, '');
@@ -36,22 +37,26 @@ const val = (e: Event) => (e.target as HTMLInputElement).value;
 </script>
 
 <template>
-  <div class="rxd-med" :data-med="m.key" @keydown="onKey">
+  <div :class="['rxd-med', free && 'rxd-free']" :data-med="m.key" @keydown="onKey">
     <span class="rxd-med-n num" aria-hidden="true">{{ num(n) }}.</span>
     <div class="rxd-c-name">
-      <DrugInput :value="m.name" :picked="m.picked" :label="tr('Medicine name', 'ওষুধের নাম') + ' ' + num(n)" @type="(v) => emit('change', { name: v, picked: false })" @pick="picked" />
+      <MedField v-if="free" cls="" :label="tr('Medicine name', 'ওষুধের নাম')">
+        <input data-f="name" class="input rxd-in" :aria-label="tr('Medicine name', 'ওষুধের নাম') + ' ' + num(n)" :value="m.name" autocomplete="off" spellcheck="false" @input="emit('change', { name: val($event).slice(0, 200), picked: false })" />
+      </MedField>
+      <DrugInput v-else :value="m.name" :picked="m.picked" :label="tr('Medicine name', 'ওষুধের নাম') + ' ' + num(n)" @type="(v) => emit('change', { name: v, picked: false })" @pick="picked" />
     </div>
-    <MedField cls="rxd-c-form" :label="tr('Form', 'ধরন')">
+    <!-- free: ধরন, মাত্রা, খাবার নেই (সার্ভারের parseFreeMedicines: নাম, নিয়ম, দিন, নোট) -->
+    <MedField v-if="!free" cls="rxd-c-form" :label="tr('Form', 'ধরন')">
       <input data-f="form" class="input rxd-in" :value="m.form" placeholder="Tablet" autocomplete="off" @input="emit('change', { form: val($event).slice(0, 40) })" />
     </MedField>
-    <MedField cls="rxd-c-str" :label="tr('Strength', 'মাত্রা')">
+    <MedField v-if="!free" cls="rxd-c-str" :label="tr('Strength', 'মাত্রা')">
       <input data-f="strength" class="input rxd-in" :value="m.strength" placeholder="500 mg" autocomplete="off" @input="emit('change', { strength: val($event).slice(0, 40) })" />
     </MedField>
     <MedField cls="rxd-c-dose" :label="tr('How to take', 'খাওয়ার নিয়ম')">
-      <input data-f="dose" class="input rxd-in num" :list="doseList" :value="m.dose" autocomplete="off" @input="emit('change', { dose: val($event).slice(0, 30) })" />
-      <datalist :id="doseList"><option v-for="d in DOSES" :key="d" :value="d" /></datalist>
+      <input data-f="dose" class="input rxd-in num" :list="free ? undefined : doseList" :value="m.dose" autocomplete="off" @input="emit('change', { dose: val($event).slice(0, free ? 60 : 30) })" />
+      <datalist v-if="!free" :id="doseList"><option v-for="d in DOSES" :key="d" :value="d" /></datalist>
     </MedField>
-    <MedField cls="rxd-c-time" :label="tr('Food', 'খাবার')">
+    <MedField v-if="!free" cls="rxd-c-time" :label="tr('Food', 'খাবার')">
       <select data-f="timing" class="select rxd-in" :value="m.timing" @change="emit('change', { timing: val($event) })">
         <option value="after">{{ timingLabel('after') }}</option>
         <option value="before">{{ timingLabel('before') }}</option>

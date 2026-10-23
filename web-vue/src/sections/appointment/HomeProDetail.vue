@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Button, IconButton, PhoneLine } from '@/ui/kit';
+import { Button, IconButton, PhoneLine, Tag } from '@/ui/kit';
+import { systemTag } from '@/lib/practice';
 import { useTwoPane } from '@/shell/chrome';
 import { num, tr } from '@/lib/i18n';
 import { badgeIcon, coverageText, feeText, homeDistance, homeServiceLabel, ratingLine, specialtyLabel, timesText, type HomePro } from './model';
@@ -20,7 +21,9 @@ const two = useTwoPane();
         :photo="p.photo || null"
         :subtitle="[p.degrees, p.specialties.map(specialtyLabel).join(', ')].filter(Boolean).join(' · ')"
         :meta="ratingLine(p.rating, p.ratingCount, homeDistance(p.km))"
-      />
+      >
+        <span v-if="systemTag(p.type, p.system)" class="row" data-testid="detail-system"><Tag tone="info">{{ systemTag(p.type, p.system) }}</Tag></span>
+      </DetailHead>
     </div>
     <IconButton v-if="two" icon="close" :label="tr('Close', 'বন্ধ')" @click="onClose()" />
   </div>

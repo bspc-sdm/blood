@@ -3,10 +3,11 @@ import { ref, watch, type Ref } from 'vue';
 import { store } from '@/lib/store';
 import { dhakaHourMinute, formatDate } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
+import { newTypeShort } from '@/lib/practice';
 import { DAY_MS, FEE_STEPS, NO_DOCTOR_FILTERS, chamberOpenOn, chamberState, dayShort, shortTime, slotsOf, today, type Chamber, type DoctorFilters, type Hospital } from './model';
 
-export const TAB_ICON: Record<string, string> = { doctor: 'stethoscope', nutritionist: 'restaurant', trainer: 'fitness_center' };
-export const tabLabel = (t: string) => (t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : tr('Doctor', 'ডাক্তার'));
+export const TAB_ICON: Record<string, string> = { doctor: 'stethoscope', nutritionist: 'restaurant', trainer: 'fitness_center', physio: 'directions_run', psychologist: 'forum_outline' };
+export const tabLabel = (t: string) => newTypeShort(t) ?? (t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : tr('Doctor', 'ডাক্তার'));
 
 /** শেষবারের ছাঁকনি (ধরনপ্রতি, এই ব্রাউজারে) — এলাকা useFilterArea-তে আলাদা, আগের মতো */
 /** online: শুধু অনলাইন (ভিডিও) চেম্বার — ডাক্তার; এলাকা লাগে না (সার্ভারের providers {online:true}) */

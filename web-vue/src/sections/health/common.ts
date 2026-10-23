@@ -4,6 +4,7 @@ import { num, tr } from '@/lib/i18n';
 import { useSession, type CommunityMe } from '@/lib/session';
 import { TEST_MODE } from '@/lib/testmode';
 import { canGoBack, type NavFn } from '@/lib/nav';
+import { newTypeIcon, newTypeLabel, newTypesOn } from '@/lib/practice';
 
 // ---------- me (ব্যাজ, অ্যাডমিন) ----------
 /** সেশনের "me"; পরীক্ষার বিল্ডে window.__lfTest.me দিয়ে ব্যাজ/অ্যাডমিন বসানো যায় */
@@ -19,13 +20,15 @@ export const approvedBadge = (me: CommunityMe | null) => (me?.badge && me.badge.
 
 // ---------- ব্যাজ ----------
 export const BADGES = ['doctor', 'nurse', 'nutritionist', 'trainer', 'expert'];
+/** আবেদনের পেশা: চালু থাকা নতুন ধরন (ফিজিওথেরাপিস্ট, সাইকোলজিস্ট) "স্বাস্থ্য বিশেষজ্ঞ"-এর আগে */
+export const badgeChoices = () => [...BADGES.slice(0, -1), ...newTypesOn(), 'expert'];
 export function badgeLabel(type: string): string {
   switch (type) {
     case 'doctor': return tr('Doctor', 'ডাক্তার');
     case 'nurse': return tr('Nurse', 'নার্স');
     case 'nutritionist': return tr('Nutritionist', 'পুষ্টিবিদ');
     case 'trainer': return tr('Fitness trainer', 'ফিটনেস ট্রেইনার');
-    default: return tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
+    default: return newTypeLabel(type) ?? tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
   }
 }
 export function badgeIcon(type: string): string {
@@ -34,7 +37,7 @@ export function badgeIcon(type: string): string {
     case 'nurse': return 'medical_services';
     case 'nutritionist': return 'restaurant';
     case 'trainer': return 'fitness_center';
-    default: return 'health_and_safety_filled';
+    default: return newTypeIcon(type) ?? 'health_and_safety_filled';
   }
 }
 

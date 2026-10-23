@@ -2,7 +2,7 @@
 // ডাক্তার/নার্সের বিস্তারিত: সব চেম্বার, সিরিয়ালের ফোন, অ্যাপয়েন্টমেন্ট, হোম ভিজিট (preview: নিজে দেখছেন, বাটন কাজ করে না)
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Button, Dialog, Icon, IconButton, InfoText, PhoneLine, cx, toast } from '@/ui/kit';
+import { Button, Dialog, Icon, IconButton, InfoText, PhoneLine, Tag, cx, toast } from '@/ui/kit';
 import { useTwoPane } from '@/shell/chrome';
 import { call } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -17,6 +17,7 @@ import ChamberPicker from './ChamberPicker.vue';
 import ChamberChoices from './ChamberChoices.vue';
 import BookDialog from './BookDialog.vue';
 import { T as OT } from './online';
+import { systemTag } from '@/lib/practice';
 
 const props = defineProps<{ p: Provider; onClose?: () => void; onBooked?: (msg: string) => void; preview?: boolean }>();
 const two = useTwoPane();
@@ -62,7 +63,9 @@ function homeCalled() {
 <template>
   <div class="row top">
     <div class="grow">
-      <DetailHead :title="p.name" :icon="badgeIcon(p.type)" :photo="p.photo || null" :subtitle="p.specialties.map(specialtyLabel).join(' · ')" :meta="ratingLine(p.rating, p.ratingCount)" />
+      <DetailHead :title="p.name" :icon="badgeIcon(p.type)" :photo="p.photo || null" :subtitle="p.specialties.map(specialtyLabel).join(' · ')" :meta="ratingLine(p.rating, p.ratingCount)">
+        <span v-if="systemTag(p.type, p.system)" class="row" data-testid="detail-system"><Tag tone="info">{{ systemTag(p.type, p.system) }}</Tag></span>
+      </DetailHead>
     </div>
     <IconButton v-if="two && onClose && !preview" icon="close" :label="tr('Close', 'বন্ধ')" @click="onClose()" />
   </div>

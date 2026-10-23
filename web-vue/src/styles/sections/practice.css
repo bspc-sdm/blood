@@ -1,0 +1,17 @@
+/* চিকিৎসা পদ্ধতি আর নতুন পেশাজীবী (lib/practice.ts) — সুইচ বন্ধ থাকলে এগুলোর কিছুই আঁকা হয় না */
+.title-tag { flex-shrink: 0; }
+.practice-sys { margin: 4px 0 2px; }
+.practice-share { flex-basis: 100%; }
+/* অ-এলোপ্যাথি প্রেসক্রিপশন: ওষুধের সারিতে শুধু নাম, নিয়ম, দিন, নোট (ধরন/মাত্রা/খাবার নেই) */
+@media (min-width: 1180px) {
+  .rxd-med.rxd-free { grid-template-columns: 24px minmax(200px, 3fr) minmax(140px, 1.6fr) 60px minmax(140px, 1.6fr) 32px; }
+}
+@media (max-width: 1179px) {
+  .rxd-med.rxd-free {
+    grid-template-areas:
+      'name name name name name x'
+      'dose dose dose dose days days'
+      'note note note note note note'
+      'sum sum sum sum sum sum';
+  }
+}

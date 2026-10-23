@@ -28,6 +28,7 @@ import TeamPage from './TeamPage.vue';
 import OnlyDoctor from './OnlyDoctor.vue';
 import { T } from '../../invoices/text';
 import { invFeature } from '../../invoices/features';
+import { newTypeLabel, rxKindOf, systemTag, writesRx } from '@/lib/practice';
 
 const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
 
@@ -37,7 +38,8 @@ const nav = useNav();
 const [sp] = useSearchParams();
 const s = useSession();
 const title = computed(() => tr('Prescriptions', 'প্রেসক্রিপশন'));
-const isDoctor = computed(() => s.work.professional === 'doctor');
+// ডাক্তার; ফিজিওথেরাপিস্ট/সাইকোলজিস্ট (সুইচ চালু থাকলে) — নিজের ধরনের প্রেসক্রিপশন (lib/practice.ts rxKind)
+const isDoctor = computed(() => writesRx(s.work.professional));
 const me = useCall<RxMe>('rx_me', {}, () => ({ enabled: s.ready && !s.guest && isDoctor.value, staleTime: 5 * 60_000 }));
 const loading = computed(() => !s.ready || (!s.guest && !s.workLoaded && !s.workError));
 
@@ -55,6 +57,11 @@ const actor = computed<Actor | null>(() => {
         : null;
 });
 const doctor = computed(() => actor.value?.role === 'doctor');
+const prof = computed(() => s.work.professional ?? 'doctor');
+const kind = computed(() => rxKindOf(prof.value, me.data?.system ?? s.me?.badge?.system, me.data?.rxRules));
+/** কাগজে নামের নিচে: পদ্ধতি (ডাক্তার, সুইচ চালু থাকলে) বা পেশা (নতুন ধরন) */
+const headTag = computed(() => newTypeLabel(prof.value) ?? systemTag(prof.value, me.data?.system ?? s.me?.badge?.system));
+const labsOn = computed(() => kind.value === 'full' || kind.value === 'free');
 /** ?doctor= রেখে অন্য পাতায় */
 const link = (path: string, extra: Record<string, string> = {}) => {
   const q = new URLSearchParams(extra);
@@ -71,7 +78,7 @@ const tabs = computed(() =>
         { key: '', label: tr('Patients', 'রোগী'), icon: 'person_outline', selectedIcon: 'person_filled' },
         { key: '/write', label: tr('New prescription', 'নতুন প্রেসক্রিপশন'), icon: 'edit_note' },
         { key: '/list', label: tr('Prescriptions', 'প্রেসক্রিপশন'), icon: 'medication' },
-        { key: '/reviews', label: tr('Reports', 'রিপোর্ট'), icon: 'list_alt' },
+        ...(labsOn.value ? [{ key: '/reviews', label: tr('Reports', 'রিপোর্ট'), icon: 'list_alt' }] : []),
         { key: '/team', label: tr('Assistants', 'সহকারী'), icon: 'group_round' },
         ...(invFeature('inv_chamber') ? [{ key: '/desk', label: T.desk(), icon: 'event_outline' }] : []),
       ]
@@ -141,7 +148,7 @@ const pickWho = (v: string) => nav(BASE + (v ? `?doctor=${encodeURIComponent(v)}
       <PillTabs :tabs="tabs" :value="cur" :label="title" @change="(k) => nav(link(k))" />
     </div>
     <PatientsPage v-if="page.k === 'patients'" :actor="actor" :link="link" />
-    <WritePage v-else-if="page.k === 'write'" :actor="actor" :chambers="me.data?.chambers ?? []" :degrees="me.data?.degrees ?? ''" :link="link" />
+    <WritePage v-else-if="page.k === 'write'" :kind="kind" :head-tag="headTag" :actor="actor" :chambers="me.data?.chambers ?? []" :degrees="me.data?.degrees ?? ''" :link="link" />
     <RxListPage v-else-if="page.k === 'list'" :link="link" />
     <RxViewPage v-else-if="page.k === 'view'" :id="page.id!" :link="link" />
     <ReviewsPage v-else-if="page.k === 'reviews'" :actor="actor" :link="link" />

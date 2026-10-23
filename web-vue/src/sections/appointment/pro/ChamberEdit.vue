@@ -2,13 +2,14 @@
 // চেম্বার ও প্রোফাইল সেটআপ (অ্যাপের ChamberEditScreen / ChamberEditor / TimeSlotsEditor / HomeCareTermsCheck)।
 // ডাক্তার: হাসপাতালের তালিকা থেকে চেম্বার; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে; নার্স: চেম্বার নেই, শুধু বাসায় সেবা।
 import { computed, ref, watch } from 'vue';
+import { RouterLink } from 'vue-router';
 import { Button, Check, ChoiceChips, Dialog, ErrorText, Icon, InfoText, SkeletonCards, Switch, TextInput, toast } from '@/ui/kit';
 import { call, errorText, ServerError } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { isBangla, num, tr } from '@/lib/i18n';
 import { currentPosition, districtAt, districtLabel, upazila } from '@/lib/geo';
-import { HOME_RADII, HOME_TYPES, MAX_CHAMBERS, chamberLabel, clash, homeServiceLabel, homeServicesOf, parseProvider, slotsOf, specialtiesOf, specialtyLabel, type Hospital, type HomeVisit, type Provider } from '../model';
+import { HOME_RADII, MAX_CHAMBERS, chamberLabel, isHomeType, clash, homeServiceLabel, homeServicesOf, parseProvider, slotsOf, specialtiesOf, specialtyLabel, type Hospital, type HomeVisit, type Provider } from '../model';
 import type { AreaSel } from '../shared';
 import AreaSheet from '../AreaSheet.vue';
 import HospitalPickerDialog from '../HospitalPickerDialog.vue';
@@ -18,6 +19,7 @@ import { TERMS_URL, blankChamber, blankOnline, chamberJson, emptyHome, homeJson,
 import { T as OT, hasPhone, normBkash } from '../online';
 import { onlineOn } from '../online/flags';
 import ChamberEditor from './ChamberEditor.vue';
+import { T as PT, degreeHint, newTypeOnline, systemLabel, systemOf, systemsOn } from '@/lib/practice';
 import TimeSlotsEditor from './TimeSlotsEditor.vue';
 import UpazilaPicker from './UpazilaPicker.vue';
 import HomeStatusNote from './HomeStatusNote.vue';
@@ -27,7 +29,11 @@ const emit = defineEmits<{ saved: [] }>();
 const s = useSession();
 const pm = useCall<{ provider: any | null }>('provider_me');
 const nurse = computed(() => props.type === 'nurse');
-const homeCapable = computed(() => HOME_TYPES.includes(props.type));
+const homeCapable = computed(() => isHomeType(props.type));
+// ডাক্তারের চিকিৎসা পদ্ধতি (practice_systems): ব্যাজে বাছা — এখানে শুধু দেখানো; বদলাতে ব্যাজ সংশোধন (আবার যাচাই)
+const system = computed(() => systemOf(pm.data?.provider?.system ?? s.me?.badge?.system));
+const showSystem = computed(() => systemsOn() && props.type === 'doctor');
+const degreePh = computed(() => (showSystem.value && system.value !== 'allopathy' ? tr(`e.g. ${degreeHint(system.value)}`, `যেমন: ${degreeHint(system.value)}`) : tr('e.g. MBBS, FCPS (Medicine)', 'যেমন: MBBS, FCPS (Medicine)'))); // bn-ok
 
 const listed = ref(true);
 const takes = ref(true);
@@ -170,6 +176,7 @@ async function useGps() {
 const previewProvider = computed<Provider>(() => ({
   uid: s.uid ?? '', type: props.type, name: s.profile?.name ?? '', specialties: specialties.value, degrees: degrees.value.trim(), gender: gender.value, listed: listed.value, appointments: takes.value,
   chambers: nurse.value ? [] : chambers.value, homeVisit: homeCapable.value ? { ...home.value, phone: home.value.phone || ' ' } : null, rating: 0, ratingCount: 0, photo: '',
+  ...(showSystem.value ? { system: system.value } : {}),
 }));
 
 function addChamber() {
@@ -178,7 +185,7 @@ function addChamber() {
   else chambers.value = [...chambers.value, { ...blankChamber(s.profile?.placeName ?? '', true), key: nextKey() }];
 }
 // অনলাইন (ভিডিও) চেম্বার — শুধু ডাক্তার (চুক্তি: "Online chambers (doctor)"); bKash আগে থেকে নিজের ফোন নম্বর
-const canOnline = computed(() => props.type === 'doctor' && onlineOn());
+const canOnline = computed(() => (props.type === 'doctor' || newTypeOnline(props.type)) && onlineOn());
 // সর্বোচ্চ ৩টা জায়গার চেম্বার, তার বাইরে একটা অনলাইন (সার্ভারের নিয়ম)
 const placeCount = computed(() => chambers.value.filter((c) => c.mode !== 'online').length);
 function addOnline() {
@@ -223,16 +230,21 @@ const upName = (id: number) => {
         <Switch v-model="listed" :label="tr('Show me in the list', 'তালিকায় আমাকে দেখাও')" />
         <Switch v-model="takes" :label="tr('Take appointments through the app', 'অ্যাপে অ্যাপয়েন্টমেন্ট নেব')" />
       </div>
+      <div v-if="showSystem" class="col gap-2" data-testid="setup-system">
+        <span class="t-title-s">{{ PT.system() }}</span>
+        <span class="t-body-m">{{ systemLabel(system) }}</span>
+        <RouterLink class="t-body-s c-primary" to="/health/badge">{{ PT.systemFixed() }}</RouterLink>
+      </div>
       <div class="col gap-6">
         <span class="t-title-s">{{ tr('Specialty', 'বিশেষজ্ঞতা') }}</span>
         <ChoiceChips
           multi
-          :options="specialtiesOf(type).map((c) => ({ value: c, label: specialtyLabel(c) }))"
+          :options="specialtiesOf(type, showSystem ? system : null).map((c) => ({ value: c, label: specialtyLabel(c) }))"
           :model-value="specialties"
           @update:model-value="(v: string[]) => (specialties = v.slice(0, 5))"
         />
       </div>
-      <TextInput :label="tr('Degrees (optional)', 'ডিগ্রি (ঐচ্ছিক)')" :placeholder="tr('e.g. MBBS, FCPS (Medicine)', 'যেমন: MBBS, FCPS (Medicine)')" :model-value="degrees" @update:model-value="(v) => (degrees = v.slice(0, 120))" />
+      <TextInput :label="tr('Degrees (optional)', 'ডিগ্রি (ঐচ্ছিক)')" :placeholder="degreePh" :model-value="degrees" @update:model-value="(v) => (degrees = v.slice(0, 120))" />
       <div class="col gap-6">
         <span class="t-label-l">{{ tr('Gender (optional)', 'লিঙ্গ (ঐচ্ছিক)') }}</span>
         <ChoiceChips v-model="gender" :options="[{ value: '', label: tr('Not set', 'দেখাব না') }, { value: 'female', label: tr('Female', 'মহিলা') }, { value: 'male', label: tr('Male', 'পুরুষ') }]" />

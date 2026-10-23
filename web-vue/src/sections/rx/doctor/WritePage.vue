@@ -9,7 +9,9 @@ import { usePatients, type Link } from './patients';
 import PatientsList from './PatientsList.vue';
 import RxEditor from './RxEditor.vue';
 
-const props = defineProps<{ actor: Actor; chambers: string[]; degrees: string; link: Link }>();
+import type { RxKind } from '@/lib/practice';
+
+const props = defineProps<{ actor: Actor; chambers: string[]; degrees: string; link: Link; kind?: RxKind; headTag?: string | null }>();
 const nav = useNav();
 const [sp] = useSearchParams();
 const pq = usePatients(() => props.actor);
@@ -32,6 +34,8 @@ const added = (p: RxPatient) => write({ rxPatientId: p.id, name: p.name });
     :chambers="chambers"
     :doctor-name="actor.doctorName"
     :degrees="degrees"
+    :kind="kind"
+    :head-tag="headTag"
     :link="link"
     @other-patient="nav(link('/write'))"
   />

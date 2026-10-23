@@ -2,6 +2,7 @@
 import { computed, type ComputedRef } from 'vue';
 import { tr } from '@/lib/i18n';
 import { TEST_MODE } from '@/lib/testmode';
+import { isNewType, newTypeLabel } from '@/lib/practice';
 import { useSession, workHas, type CommunityMe, type WorkSummary } from '@/lib/session';
 
 // ---------- ব্যাজ (অ্যাপের Badges) ----------
@@ -11,7 +12,7 @@ export function badgeLabel(type: string): string {
     case 'nurse': return tr('Nurse', 'নার্স');
     case 'nutritionist': return tr('Nutritionist', 'পুষ্টিবিদ');
     case 'trainer': return tr('Fitness trainer', 'ফিটনেস ট্রেইনার');
-    default: return tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
+    default: return newTypeLabel(type) ?? tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
   }
 }
 
@@ -115,7 +116,7 @@ export function inboxTarget(data: Record<string, string>, me: CommunityMe | null
   switch (type) {
     // চেম্বারে আসা বুকিং → "আমার কাজ"-এর চেম্বার; নিজের নেওয়া → "আমার অ্যাপয়েন্টমেন্ট"
     case 'appointment':
-      return data.role === 'provider' || (!data.role && approved && CHAMBER_TYPES.includes(approved)) ? '/work/pro' : '/my-appointments';
+      return data.role === 'provider' || (!data.role && approved && (CHAMBER_TYPES.includes(approved) || isNewType(approved))) ? '/work/pro' : '/my-appointments';
     case 'homevisit':
     case 'homecare':
       return '/appointment/home-care';

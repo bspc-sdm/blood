@@ -15,6 +15,8 @@ import { chatOn, openChatAt } from '@/chat/open';
 import { apptCallOpen } from '@/calls/window';
 import { useNow } from '@/ui/composables';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
+import { systemTag } from '@/lib/practice';
+import PsychApptNote from '../practice/PsychApptNote.vue';
 
 const props = defineProps<{ a: Appointment }>();
 const emit = defineEmits<{ cancel: []; changed: [] }>();
@@ -29,7 +31,7 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
 <template>
   <div class="row">
     <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
-    <span class="t-body-s muted grow">{{ badgeLabel(a.type) }}</span>
+    <span class="t-body-s muted grow">{{ [badgeLabel(a.type), a.role === 'patient' ? systemTag(a.type, a.system) : null].filter(Boolean).join(' · ') }}</span>
   </div>
   <div v-if="a.serial > 0 && !live" class="card tonal appt-serial">
     <span class="t-label-m">{{ tr('Serial #', 'সিরিয়াল নং ').trim() }}</span>
@@ -51,6 +53,7 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
   <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
   <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" />
+  <PsychApptNote :a="a" />
   <div v-if="a.role === 'patient'" class="row"><InvoiceLink ref-type="appointment" :ref-id="a.id" :invoice-id="a.invoiceId" /></div>
   <div v-if="isActive(a.status)" class="row">
     <Button variant="danger-text" icon="close" @click="emit('cancel')">{{ tr('Cancel appointment', 'অ্যাপয়েন্টমেন্ট বাতিল') }}</Button>

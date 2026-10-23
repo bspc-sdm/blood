@@ -11,7 +11,8 @@ import { useCall } from '@/lib/query';
 import { useSession } from '@/lib/session';
 import { tr } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
-import { CHAMBER_TYPES, HOME_TYPES, PROVIDER_TYPES, badgeLabel, parseAppointment, parseProvider, useCatalog } from '../model';
+import { badgeLabel, isChamberType, isHomeType, isProviderType, parseAppointment, parseProvider, useCatalog } from '../model';
+import { systemTag, writesRx } from '@/lib/practice';
 import { useAreasReady } from '../shared';
 import ChamberEdit from './ChamberEdit.vue';
 import BookingsTab from './BookingsTab.vue';
@@ -31,12 +32,12 @@ const pm = useCall<{ provider: any | null }>('provider_me', {}, () => ({ enabled
 const provider = computed(() => (pm.data?.provider ? parseProvider(pm.data.provider) : null));
 const type = computed(() => {
   const me = s.me;
-  const badge = me?.badge && me.badge.status === 'approved' && PROVIDER_TYPES.includes(me.badge.type) ? me.badge.type : null;
+  const badge = me?.badge && me.badge.status === 'approved' && isProviderType(me.badge.type) ? me.badge.type : null;
   const p = provider.value;
-  return s.work.professional ?? badge ?? (p && PROVIDER_TYPES.includes(p.type) ? p.type : null);
+  return s.work.professional ?? badge ?? (p && isProviderType(p.type) ? p.type : null);
 });
 const nurse = computed(() => type.value === 'nurse');
-const chamberType = computed(() => !!type.value && CHAMBER_TYPES.includes(type.value));
+const chamberType = computed(() => isChamberType(type.value));
 const appts = useCall<{ items: any[] }>('my_appointments', {}, () => ({ enabled: s.ready && !s.guest && chamberType.value }));
 const mine = computed(() => (appts.data?.items ?? []).map(parseAppointment).filter((a) => a.role === 'provider'));
 const pending = computed(() => mine.value.filter((a) => a.status === 'pending').length);
@@ -55,7 +56,7 @@ const tabs = computed(() =>
         { key: '', label: tr('Bookings', 'বুকিং'), icon: 'event_outline', selectedIcon: 'event_filled', count: pending.value },
         { key: '/patients', label: tr('Patients', 'রোগী'), icon: 'person_outline' },
         { key: '/chamber', label: tr('Setup', 'সেটআপ'), icon: 'settings_outline' },
-        ...(type.value && HOME_TYPES.includes(type.value) ? [{ key: '/home', label: tr('Home care', 'বাসায় সেবা'), icon: 'home_health' }] : []),
+        ...(isHomeType(type.value) ? [{ key: '/home', label: tr('Home care', 'বাসায় সেবা'), icon: 'home_health' }] : []),
       ],
 );
 const cur = computed(() => (tabs.value.some((t) => t.key === sub.value) ? sub.value : ''));
@@ -85,10 +86,10 @@ function chamberSaved() {
     <template #intro>
       <div class="col gap-2">
         <h1 class="t-headline appt-h1">{{ title }}</h1>
-        <span class="t-body-m muted">{{ [provider?.name, badgeLabel(type)].filter(Boolean).join(' · ') }}</span>
+        <span class="t-body-m muted">{{ [provider?.name, badgeLabel(type), systemTag(type, provider?.system ?? s.me?.badge?.system)].filter(Boolean).join(' · ') }}</span>
       </div>
     </template>
-    <template v-if="type === 'doctor'" #actions>
+    <template v-if="writesRx(type)" #actions>
       <RouterLink class="btn tonal has-icon" to="/work/rx"><Icon name="edit_note" />{{ tr('Write a prescription', 'প্রেসক্রিপশন লিখুন') }}</RouterLink>
       <RouterLink v-if="invFeature('inv_chamber')" class="btn outline has-icon" to="/work/rx/desk"><Icon name="event_outline" />{{ T.deskTitle() }}</RouterLink>
     </template>

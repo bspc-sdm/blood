@@ -16,8 +16,15 @@ import type { Link } from './patients';
 import { DAY_MS, newMed, type MedRow } from './write';
 import MedRowView from './MedRowView.vue';
 import DraftPaper from './DraftPaper.vue';
+import { T as PT, type RxKind } from '@/lib/practice';
 
-const props = defineProps<{ target: RxTarget; chambers: string[]; doctorName: string; degrees: string; link: Link }>();
+// kind (lib/practice.ts): full — আগের মতো; free — অ-এলোপ্যাথি, ওষুধ নিজে লেখা; advice — ফিজিও, শুধু পরামর্শ ও ব্যায়াম;
+// notes — সাইকোলজিস্ট, শুধু সেশন নোট/পরামর্শ (ওষুধ নেই, সাইকিয়াট্রিস্টের কথা)
+const props = withDefaults(defineProps<{ target: RxTarget; chambers: string[]; doctorName: string; degrees: string; link: Link; kind?: RxKind; headTag?: string | null }>(), {
+  kind: 'full',
+  headTag: null,
+});
+const medsOn = computed(() => props.kind === 'full' || props.kind === 'free');
 const emit = defineEmits<{ otherPatient: [] }>();
 const nav = useNav();
 const invalidate = useRxInvalidate();
@@ -27,7 +34,8 @@ const gender = ref(props.target.gender ?? '');
 const complaints = ref('');
 const findings = ref<Record<string, string>>({});
 const diagnosis = ref('');
-const meds = ref<MedRow[]>([newMed()]);
+const freeRow = (): MedRow => (props.kind === 'free' ? { ...newMed(), dose: '', timing: '' } : newMed());
+const meds = ref<MedRow[]>([freeRow()]);
 const tests = ref<string[]>([]);
 const testInput = ref('');
 const testPlace = ref('');
@@ -49,30 +57,33 @@ const testNames = computed(() => {
   return [...out];
 });
 
-const filled = computed(() => meds.value.filter((m) => m.name.trim()));
-const canGive = computed(() => !!name.value.trim() && (filled.value.length > 0 || tests.value.length > 0 || !!advice.value.trim()));
+const filled = computed(() => (medsOn.value ? meds.value.filter((m) => m.name.trim()) : []));
+const canGive = computed(() => !!name.value.trim() && (medsOn.value ? filled.value.length > 0 || tests.value.length > 0 || !!advice.value.trim() : !!advice.value.trim()));
+const adviceLabel = computed(() => (props.kind === 'advice' ? PT.adviceExercise() : props.kind === 'notes' ? PT.sessionNotes() : tr('Advice', 'পরামর্শ')));
 const setMed = (key: number, patch: Partial<MedRow>) => (meds.value = meds.value.map((m) => (m.key === key ? { ...m, ...patch } : m)));
 function addMed() {
   if (meds.value.length >= MAX_MEDS) return;
-  const m = newMed();
+  const m = freeRow();
   meds.value = [...meds.value, m];
   // নতুন ওষুধের সারি এলে তার নামের ঘরে
   nextTick(() => document.querySelector<HTMLInputElement>(`[data-med="${m.key}"] [data-f="name"]`)?.focus());
 }
-const removeMed = (key: number) => (meds.value = meds.value.length > 1 ? meds.value.filter((m) => m.key !== key) : [newMed()]);
+const removeMed = (key: number) => (meds.value = meds.value.length > 1 ? meds.value.filter((m) => m.key !== key) : [freeRow()]);
 function addTest(v: string) {
   const t = v.trim().slice(0, 80);
   if (t && !tests.value.includes(t)) tests.value = [...tests.value, t];
   testInput.value = '';
 }
-const toMed = (m: MedRow): RxMed => ({
-  name: m.name.trim(), form: m.form.trim(), strength: m.strength.trim(), dose: toAsciiDigits(m.dose).replace(/\s+/g, ''), timing: m.timing,
-  days: Math.min(365, Math.max(0, parseInt(toAsciiDigits(m.days), 10) || 0)), note: m.note.trim(),
-});
+const toMed = (m: MedRow): RxMed => {
+  const days = Math.min(365, Math.max(0, parseInt(toAsciiDigits(m.days), 10) || 0));
+  // অ-এলোপ্যাথি: নিজে লেখা লাইন — নাম, নিয়ম (ফাঁকাসহ), দিন, নোট (সার্ভারের parseFreeMedicines)
+  if (props.kind === 'free') return { name: m.name.trim(), dose: m.dose.trim().replace(/\s+/g, ' '), days, note: m.note.trim() };
+  return { name: m.name.trim(), form: m.form.trim(), strength: m.strength.trim(), dose: toAsciiDigits(m.dose).replace(/\s+/g, ''), timing: m.timing, days, note: m.note.trim() };
+};
 function ask() {
   err.value = null;
   if (!canGive.value) {
-    err.value = !name.value.trim() ? tr("Write the patient's name", 'রোগীর নাম লিখুন') : tr('Add a medicine, a test or advice', 'অন্তত একটা ওষুধ, পরীক্ষা বা পরামর্শ দিন');
+    err.value = !name.value.trim() ? tr("Write the patient's name", 'রোগীর নাম লিখুন') : medsOn.value ? tr('Add a medicine, a test or advice', 'অন্তত একটা ওষুধ, পরীক্ষা বা পরামর্শ দিন') : PT.needAdvice();
     return;
   }
   confirm.value = true;
@@ -91,8 +102,8 @@ async function issue() {
       findings: Object.fromEntries(FINDINGS.map((k) => [k, (findings.value[k] ?? '').trim()])),
       diagnosis: diagnosis.value.trim(),
       medicines: filled.value.map(toMed),
-      tests: [...tests.value, ...(ti && !tests.value.includes(ti) ? [ti] : [])],
-      testPlace: testPlace.value.trim(),
+      tests: medsOn.value ? [...tests.value, ...(ti && !tests.value.includes(ti) ? [ti] : [])] : [],
+      testPlace: medsOn.value ? testPlace.value.trim() : '',
       advice: advice.value.trim(),
       followUpDays: followDays.value,
       followUpNote: followDays.value ? followNote.value.trim() : '',
@@ -163,7 +174,7 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
       <section class="card col gap-12">
         <h2 class="rxd-sec">{{ tr('Complaints & findings', 'সমস্যা ও পরীক্ষায় পাওয়া') }}</h2>
         <TextArea :label="tr('Complaints', 'সমস্যা')" :rows="2" class="textarea rxd-ta" :model-value="complaints" @update:model-value="(v) => (complaints = v.slice(0, 1000))" />
-        <div class="rxd-findings">
+        <div v-if="kind !== 'notes'" class="rxd-findings">
           <TextInput
             v-for="k in FINDINGS"
             :key="k"
@@ -173,23 +184,31 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
             @update:model-value="(v) => (findings = { ...findings, [k]: v.slice(0, 20) })"
           />
         </div>
-        <TextInput :label="tr('Diagnosis', 'রোগনির্ণয়')" :model-value="diagnosis" autocomplete="off" @update:model-value="(v) => (diagnosis = v.slice(0, 500))" />
+        <TextInput v-if="kind !== 'notes'" :label="kind === 'advice' ? PT.assessment() : tr('Diagnosis', 'রোগনির্ণয়')" :model-value="diagnosis" autocomplete="off" @update:model-value="(v) => (diagnosis = v.slice(0, 500))" />
       </section>
 
+      <!-- ফিজিও/সাইকোলজিস্ট: ওষুধ নেই -->
+      <section v-if="kind === 'advice'" class="card tonal col rxd-span" data-testid="rx-no-meds">
+        <span class="t-body-m">{{ PT.noMedsPhysio() }}</span>
+      </section>
+      <section v-else-if="kind === 'notes'" class="card tonal col rxd-span" data-testid="rx-psychiatrist" role="note">
+        <span class="t-title-s">{{ PT.psychiatrist() }}</span>
+      </section>
       <!-- ওষুধ -->
-      <section class="card col gap-12 rxd-span">
+      <section v-if="medsOn" class="card col gap-12 rxd-span">
         <div class="row">
           <h2 class="rxd-sec grow"><span class="rxd-rx" aria-hidden="true">℞</span> {{ tr('Medicines', 'ওষুধ') }}</h2>
           <span class="t-body-s muted rxd-keys">{{ tr('Enter: next box · Enter on note: new medicine', 'Enter: পরের ঘর · নোটে Enter: নতুন ওষুধ') }}</span>
         </div>
+        <p v-if="kind === 'free'" class="t-body-s muted" data-testid="rx-free-note">{{ PT.freeMeds() }}</p>
         <div class="rxd-meds" role="group" :aria-label="tr('Medicines', 'ওষুধ')">
-          <div class="rxd-med rxd-med-head" aria-hidden="true">
+          <div :class="['rxd-med rxd-med-head', kind === 'free' && 'rxd-free']" aria-hidden="true">
             <span />
             <span>{{ tr('Medicine name', 'ওষুধের নাম') }}</span>
-            <span>{{ tr('Form', 'ধরন') }}</span>
-            <span>{{ tr('Strength', 'মাত্রা') }}</span>
+            <span v-if="kind !== 'free'">{{ tr('Form', 'ধরন') }}</span>
+            <span v-if="kind !== 'free'">{{ tr('Strength', 'মাত্রা') }}</span>
             <span>{{ tr('How to take', 'খাওয়ার নিয়ম') }}</span>
-            <span>{{ tr('Food', 'খাবার') }}</span>
+            <span v-if="kind !== 'free'">{{ tr('Food', 'খাবার') }}</span>
             <span>{{ tr('Days', 'দিন') }}</span>
             <span>{{ tr('Note', 'নোট') }}</span>
             <span />
@@ -200,6 +219,7 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
             :m="m"
             :n="i + 1"
             :last="i === meds.length - 1"
+            :free="kind === 'free'"
             @change="(p) => setMed(m.key, p)"
             @remove="removeMed(m.key)"
             @add-next="addMed"
@@ -211,7 +231,7 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
       </section>
 
       <!-- পরীক্ষা -->
-      <section class="card col gap-12">
+      <section v-if="medsOn" class="card col gap-12">
         <h2 class="rxd-sec">{{ tr('Tests', 'পরীক্ষা') }}</h2>
         <ChoiceChips v-model="tests" multi :options="[...COMMON_TESTS, ...tests.filter((t) => !COMMON_TESTS.includes(t))].map((t) => ({ value: t, label: t }))" />
         <div class="row top gap-8">
@@ -241,8 +261,8 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
 
       <!-- পরামর্শ ও আবার দেখানো -->
       <section class="card col gap-12">
-        <h2 class="rxd-sec">{{ tr('Advice', 'পরামর্শ') }}</h2>
-        <TextArea :label="tr('Advice', 'পরামর্শ')" :rows="3" class="textarea rxd-ta" :model-value="advice" @update:model-value="(v) => (advice = v.slice(0, 1000))" />
+        <h2 class="rxd-sec">{{ adviceLabel }}</h2>
+        <TextArea :label="adviceLabel" :rows="medsOn ? 3 : 8" class="textarea rxd-ta" :model-value="advice" @update:model-value="(v) => (advice = v.slice(0, medsOn ? 1000 : 3000))" />
         <div class="field">
           <span class="label">{{ tr('Come again', 'আবার দেখাবেন') }}</span>
           <ChoiceChips v-model="followDays" :options="[0, ...FOLLOW].map((d) => ({ value: d, label: d ? tr(`${d} days`, `${num(d)} দিন পর`) : tr('No', 'দরকার নেই') }))" />
@@ -262,7 +282,7 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
     <div class="rxd-bar">
       <div class="col gap-2 grow">
         <span class="t-title-s ellipsis">{{ [name.trim() || tr('Patient', 'রোগী'), ageText(ageNum), genderLabel(gender)].filter(Boolean).join(' · ') }}</span>
-        <span class="t-body-s muted">{{ [tr(`${filled.length} medicine(s)`, `${num(filled.length)}টা ওষুধ`), tr(`${tests.length} test(s)`, `${num(tests.length)}টা পরীক্ষা`)].join(' · ') }}<span class="rxd-keys"> · Ctrl+Enter</span></span>
+        <span v-if="medsOn" class="t-body-s muted">{{ [tr(`${filled.length} medicine(s)`, `${num(filled.length)}টা ওষুধ`), tr(`${tests.length} test(s)`, `${num(tests.length)}টা পরীক্ষা`)].join(' · ') }}<span class="rxd-keys"> · Ctrl+Enter</span></span>
         <ErrorText :text="err" />
       </div>
       <Button icon="check_circle" :busy="busy" @click="ask">{{ tr('Give prescription', 'প্রেসক্রিপশন দিন') }}</Button>
@@ -272,6 +292,8 @@ const followText = computed(() => (followDays.value ? formatDate(todayUtcMidnigh
       <p class="t-body-m muted">{{ tr('It can\'t be edited afterwards; you can only cancel it and write a new one.', 'দেওয়ার পর আর বদলানো যাবে না; শুধু বাতিল করে নতুন লেখা যাবে।') }}</p>
       <DraftPaper
         :doctor-name="doctorName"
+        :kind="kind"
+        :head-tag="headTag"
         :degrees="degrees"
         :chamber="chambers.length ? chambers[Math.min(chamber, chambers.length - 1)] : ''"
         :patient="patientText"

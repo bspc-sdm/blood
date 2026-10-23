@@ -21,6 +21,7 @@
 @import './styles/sections/calls.css' layer(components);
 @import './styles/sections/chat.css' layer(components);
 @import './styles/sections/invoices.css' layer(components);
+@import './styles/sections/practice.css' layer(components);
 
 /* টোকেন → Tailwind রং/মাপ (লাইট/ডার্ক দুটোতেই একই নাম): bg-surface-low, text-primary, rounded-card … */
 @theme inline {

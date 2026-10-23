@@ -34,7 +34,8 @@ export interface WorkSummary {
   /** যেসব ডাক্তারের সহকারী (প্রেসক্রিপশন/রোগী এন্ট্রি) */
   assisting: { doctorUid: string; name: string; degrees: string }[];
 }
-export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer'];
+// ফিজিওথেরাপিস্ট/সাইকোলজিস্ট (lib/practice.ts): অনুমোদিত ব্যাজ থাকলে নিজের চেম্বার — সার্ভার সুইচ ছাড়া অনুমোদন দেয় না
+export const PROVIDER_TYPES = ['doctor', 'nurse', 'nutritionist', 'trainer', 'physio', 'psychologist'];
 const emptyWork = (): WorkSummary => ({ ambulances: [], pharmacy: null, bloodBanks: [], lab: null, professional: null, assisting: [] });
 export const workHas = (w: WorkSummary) => w.ambulances.length > 0 || !!w.pharmacy || w.bloodBanks.length > 0 || !!w.lab || !!w.professional || w.assisting.length > 0;
 

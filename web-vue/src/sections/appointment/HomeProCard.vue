@@ -3,6 +3,7 @@ import { DirectoryCard } from '@/ui/kit';
 import { num, tr } from '@/lib/i18n';
 import { badgeIcon, feeText, homeDistance, homeServiceLabel, ratingLine, specialtyLabel, timesText, type HomePro } from './model';
 import { upLabels } from './homecare';
+import { systemTag } from '@/lib/practice';
 
 defineProps<{ p: HomePro; selected: boolean; onOpen: () => void; onCall: () => void; onRate: (() => void) | null }>();
 </script>
@@ -10,6 +11,7 @@ defineProps<{ p: HomePro; selected: boolean; onOpen: () => void; onCall: () => v
 <template>
   <DirectoryCard
     :title="p.name"
+    :title-tag="systemTag(p.type, p.system)"
     :icon="badgeIcon(p.type)"
     :photo="p.photo || null"
     :subtitle="[p.degrees, p.specialties.map(specialtyLabel).join(', ')].filter(Boolean).join(' · ')"

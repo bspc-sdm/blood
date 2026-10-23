@@ -23,6 +23,11 @@ const bmdc = (b: J) => (b.type === 'doctor' ? h('a', { href: 'https://www.bmdc.o
   : b.type === 'nurse' ? h('a', { href: 'https://www.bnmc.gov.bd/', target: '_blank', rel: 'noopener noreferrer', text: 'BNMC-তে মেলান' })
     : 'সনদ দেখে নিন');
 
+// চিকিৎসা পদ্ধতি (backend/docs/PRACTICE.md): অ-এলোপ্যাথি ডাক্তার বা পদ্ধতি বদলে আবার যাচাই — নামের পাশে ছোট চিপ
+// (এলোপ্যাথির সাধারণ আবেদনে আগের মতো কিছু নয়)
+const altSystem = (b: J) =>
+  b.type === 'doctor' && b.systemLabel && (b.system !== 'allopathy' || b.reverifyFrom) ? [' ', h('span', { class: 'chip', text: b.systemLabel })] : [];
+
 export const LISTINGS: Record<string, ListingDef> = {
   badges: {
     title: 'ব্যাজ',
@@ -35,7 +40,7 @@ export const LISTINGS: Record<string, ListingDef> = {
       { label: 'নাম', main: true, cell: (b) => (b.change
         ? [b.change.name || '—', ' ', h('span', { class: 'chip bad', text: 'সংশোধন' }), ' ', h('span', { class: 'chip pri', text: L.badge[b.change.type] || b.change.type }),
           b.change.name !== b.name ? h('div', { class: 'small', text: `আগে: ${b.name || '—'}` }) : null]
-        : [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.badge[b.type] || b.type })]) },
+        : [b.name || '—', ' ', h('span', { class: 'chip pri', text: L.badge[b.type] || b.type }), ...altSystem(b)]) },
       { label: 'ইমেইল', cell: (b) => b.email || '—' },
       { label: 'রেজি. নম্বর', cell: (b) => [(b.change ? b.change.regNo : b.regNo) || '—',
         b.change && b.change.regNo !== b.regNo ? h('div', { class: 'small', text: `আগে: ${b.regNo || '—'}` }) : null, h('div', { class: 'small' }, bmdc(b))] },

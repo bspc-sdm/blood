@@ -7,16 +7,39 @@ import { S, act, getList, go, loadOverview, setTitle } from '../state';
 import { L, bn, errMsg, fmtDate, toast, type J } from '../util';
 import { LISTINGS } from './Listing';
 
+// চিকিৎসা পদ্ধতি (practice_systems): ডাক্তারের ব্যাজে পদ্ধতি আর নিবন্ধনের প্রতিষ্ঠান — সুইচ বন্ধ থাকলে আগের মতো
+const SYSTEM: Record<string, [string, string]> = {
+  allopathy: ['এলোপ্যাথি', 'BMDC'], // bn-ok
+  homeopathy: ['হোমিওপ্যাথি', 'বাংলাদেশ হোমিওপ্যাথিক বোর্ড'], // bn-ok
+  unani: ['ইউনানি', 'বাংলাদেশ ইউনানি ও আয়ুর্বেদিক বোর্ড'], // bn-ok
+  ayurveda: ['আয়ুর্বেদ', 'বাংলাদেশ ইউনানি ও আয়ুর্বেদিক বোর্ড'], // bn-ok
+};
+// ডাক্তারের ব্যাজ: পদ্ধতি, নিবন্ধনের প্রতিষ্ঠান, ডিগ্রি — সার্ভারের admin_badges (system, body, degreeHint, reverifyFrom =
+// পদ্ধতি বদলে আবার যাচাই)। practice_systems বন্ধ থাকলে (admin_features_get-এর mode) এলোপ্যাথির সাধারণ আবেদনে আগের মতো;
+// অ-এলোপ্যাথি বা পদ্ধতি বদলের আবেদনে সবসময়।
+async function systemsLive(): Promise<boolean> {
+  const r: J = await act('admin_features_get').catch(() => null);
+  const m = ((r && r.items) || []).find((x: J) => x.key === 'practice_systems')?.mode;
+  return m === 'on' || m === 'pilot';
+}
+function systemFields(x: J, live: boolean): [string, string][] {
+  if ((x.change?.type || x.type) !== 'doctor') return [];
+  const sys = SYSTEM[x.system] ? x.system : 'allopathy';
+  if (!live && sys === 'allopathy' && !x.reverifyFrom) return [];
+  const was = x.reverifyFrom && x.reverifyFrom !== sys ? ` (আগে: ${SYSTEM[x.reverifyFrom]?.[0] || x.reverifyFrom})` : ''; // bn-ok
+  return [['চিকিৎসা পদ্ধতি', SYSTEM[sys][0] + was], ['নিবন্ধন', x.body || SYSTEM[sys][1]], ['ডিগ্রি', x.degreeHint || '']]; // bn-ok
+}
+
 const VERIFY_KIND: Record<string, string> = { pharmacies: 'pharmacy', ambulances: 'ambulance', bloodBanks: 'bloodbank', badges: 'badge', labs: 'lab' };
 const RESOLVE: Record<string, string> = { pharmacies: 'admin_pharmacy_resolve', ambulances: 'admin_ambulance_resolve', bloodBanks: 'admin_bloodbank_resolve', labs: 'admin_lab_resolve' };
 
 /** আবেদনে যা লেখা হয়েছে (ছবির সাথে মেলানোর জন্য) */
-function verifyFields(list: string, x: J): [string, string][] {
+function verifyFields(list: string, x: J, live = false): [string, string][] {
   const c = x.change || {};
   const area = [x.areaLabel || x.district, x.address || x.area].filter(Boolean).join(' · ');
   const hours = x.open24 ? '২৪ ঘণ্টা' : x.openAt ? `${bn(x.openAt)}–${bn(x.closeAt)}` : '';
   if (list === 'badges') {
-    return [['নাম', c.name || x.name], ['পেশা', L.badge[c.type || x.type] || c.type || x.type], ['রেজি. নম্বর', c.regNo || x.regNo],
+    return [['নাম', c.name || x.name], ['পেশা', L.badge[c.type || x.type] || c.type || x.type], ...systemFields(x, live), ['রেজি. নম্বর', c.regNo || x.regNo],
       ['কর্মস্থল', c.workplace || x.workplace], ['ইমেইল', x.email]];
   }
   if (list === 'ambulances') {
@@ -60,6 +83,7 @@ export default definePage('PageVerify', async (r, { alive }) => {
   const id = list === 'badges' ? x.uid : x.id;
   const correction = list === 'badges' && !!x.change;
   const v = await act('admin_verify_docs', { kind, id });
+  const live = list === 'badges' && (x.type === 'doctor' || x.change?.type === 'doctor') ? await systemsLive() : false;
   if (!alive()) return;
 
   const missing = v.docs.filter((d: J) => d.required && !d.has);
@@ -110,7 +134,7 @@ export default definePage('PageVerify', async (r, { alive }) => {
         }))),
       h('div', { class: 'card pad' },
         h('h2', { class: 'section-title', text: 'আবেদনে যা লেখা' }),
-        h('table', { class: 'kv' }, h('tbody', null, verifyFields(list, x).map(([k, val]) =>
+        h('table', { class: 'kv' }, h('tbody', null, verifyFields(list, x, live).map(([k, val]) =>
           h('tr', null, h('th', { scope: 'row', text: k }), h('td', { text: val || '—' }))))),
         review === '—' ? null : h('div', { class: 'note' }, review),
         h('h2', { class: 'section-title', text: 'ছবি দেখে মিলিয়ে টিক দিন' }),

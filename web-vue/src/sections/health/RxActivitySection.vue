@@ -23,6 +23,7 @@ import PayDialog from './PayDialog.vue';
 import ContactActions from '@/calls/ContactActions.vue';
 import { chatOn, openChatAt } from '@/chat/open';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
+import { T as PT, rxPharmacyOk } from '@/lib/practice';
 
 const props = defineProps<{ rx: Rx }>();
 const lang = useLang();
@@ -50,7 +51,9 @@ const reload = () => queryClient.invalidateQueries({ queryKey: ['rx_activity', p
 const cancelled = computed(() => props.rx.status === 'cancelled');
 const a = computed(() => q.data!);
 // নিচের বাটনের মতোই শর্ত: বাতিল নয়, আর কোনো ওষুধ এখনো পুরো কেনা হয়নি / পরীক্ষা আছে
-const canPharmacy = computed(() => !cancelled.value && !!props.rx.medicines?.length && !!q.data && q.data.medicines.some((m) => !m.done));
+// অ-এলোপ্যাথি (practice_systems): ফার্মেসিতে পাঠানো আর কেনার হিসাব নেই (lib/practice.ts)
+const pharmacyOk = computed(() => rxPharmacyOk(props.rx.doctorType ?? props.rx.doctor?.type, props.rx.doctor?.system, props.rx.rxRules));
+const canPharmacy = computed(() => pharmacyOk.value && !cancelled.value && !!props.rx.medicines?.length && !!q.data && q.data.medicines.some((m) => !m.done));
 const canLab = computed(() => !cancelled.value && !!props.rx.tests?.length);
 
 async function serial(date: number) {
@@ -122,7 +125,8 @@ function onPaid() {
     </div>
     <ErrorText :text="err" />
     <slot name="paper" />
-    <section v-if="rx.medicines?.length" class="card col" :aria-label="tr('Medicines bought', 'ওষুধ কেনা')">
+    <p v-if="rx.medicines?.length && !pharmacyOk" class="card tonal t-body-m" data-testid="rx-no-pharmacy">{{ PT.noPharmacy() }}</p>
+    <section v-else-if="rx.medicines?.length" class="card col" :aria-label="tr('Medicines bought', 'ওষুধ কেনা')">
       <h3 class="t-title-m">{{ tr('Medicines bought', 'ওষুধ কেনা') }}</h3>
       <div v-for="m in a.medicines" :key="m.i" class="row">
         <span class="t-body-l grow">{{ m.name }}</span>

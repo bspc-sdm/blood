@@ -22,6 +22,7 @@ import BizCard from './BizCard.vue';
 import { T as DT } from '@/offline/text';
 import { invFeature } from '../invoices/features';
 import { isDesktop } from '../invoices/offline';
+import { writesRx } from '@/lib/practice';
 
 const s = useSession();
 const nav = useNav();
@@ -115,10 +116,10 @@ const bbSub = computed(() => [bbs.value.length === 1 ? bbs.value[0].name : tr(`$
       </BizCard>
 
       <BizCard
-        v-if="s.work.professional === 'doctor' || s.work.assisting.length"
+        v-if="writesRx(s.work.professional) || s.work.assisting.length"
         icon="edit_note"
         :title="tr('Prescriptions', 'প্রেসক্রিপশন')"
-        :sub="s.work.professional === 'doctor'
+        :sub="writesRx(s.work.professional)
           ? tr('Patients, write prescriptions, team, report reviews', 'রোগী, প্রেসক্রিপশন লেখা, টিম, রিপোর্ট দেখানো')
           : tr('Doctor\'s assistant · ', 'ডাক্তারের সহকারী · ') + s.work.assisting.map((d) => d.name).join(', ')"
         to="/work/rx"

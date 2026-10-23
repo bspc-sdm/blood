@@ -7,7 +7,7 @@ import { tr } from '@/lib/i18n';
 import { badgeDocs } from './badge';
 import DocPhotosField from './DocPhotosField.vue';
 
-const props = defineProps<{ uid: string; type: string; requested: boolean; note: string }>();
+const props = defineProps<{ uid: string; type: string; requested: boolean; note: string; system?: unknown }>();
 const emit = defineEmits<{ done: [] }>();
 const open = ref(false);
 const photos = ref<Record<string, string>>({});
@@ -34,7 +34,7 @@ async function send() {
     <p v-if="note" class="t-body-m pre">{{ note }}</p>
     <div v-if="!open"><Button variant="outline" small @click="open = true">{{ tr('Add photos', 'ছবি দিন') }}</Button></div>
     <template v-else>
-      <DocPhotosField :specs="badgeDocs(type)" :photos="photos" @change="(p) => (photos = p)" />
+      <DocPhotosField :specs="badgeDocs(type, system)" :photos="photos" @change="(p) => (photos = p)" />
       <ErrorText :text="err" />
       <div class="row">
         <Button variant="outline" small :busy="busy" :disabled="!Object.keys(photos).length" @click="send">{{ tr('Send', 'পাঠান') }}</Button>

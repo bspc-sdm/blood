@@ -1,10 +1,17 @@
 // প্রেসক্রিপশনের ধরন আর লেখা (React-এর Prescriptions.tsx-এর উপরের অংশ, হুবহু) — অ্যাপের RxText
 import { num, tr } from '@/lib/i18n';
+import { PRACTICE_SPEC_LABEL, type RxRules } from '@/lib/practice';
 
 export interface RxMed { name: string; form?: string; strength?: string; dose?: string; timing?: string; days?: number; note?: string }
 export interface Rx {
   id: string; code: string; status: string; createdAt: number; doctorUid: string;
-  doctor: { name?: string; degrees?: string; regNo?: string; specialties?: string[]; chamber?: { name?: string; address?: string; phone?: string } | null };
+  doctor: {
+    name?: string; degrees?: string; regNo?: string; specialties?: string[]; chamber?: { name?: string; address?: string; phone?: string } | null;
+    /** practice: চিকিৎসা পদ্ধতি আর পেশা (physio/psychologist) — পুরোনো সার্ভারে নেই */
+    system?: string; type?: string;
+  };
+  /** practice: লেখকের পেশা আর প্রেসক্রিপশনের নিয়ম (সার্ভারের Practice.rxRules) — পুরোনো সার্ভারে নেই */
+  doctorType?: string; rxRules?: RxRules | null;
   patient: { name?: string; age?: number | null; gender?: string };
   complaints: string; findings: Record<string, string>; diagnosis: string; medicines: RxMed[]; tests: string[]; testPlace: string; testPlaceId?: string | null;
   advice: string; followUpDate: number | null; followUpBookDate: number | null; followUpNote: string; chamberIndex: number | null;
@@ -51,7 +58,7 @@ const SPECIALTIES: Record<string, [string, string]> = {
   dental: ['Dental', 'দন্ত'], endocrinology: ['Diabetes & Hormone', 'ডায়াবেটিস ও হরমোন'], chest: ['Chest & Lung', 'বক্ষব্যাধি'], physical_medicine: ['Physical medicine', 'ফিজিক্যাল মেডিসিন'],
   general: ['General practitioner', 'সাধারণ চিকিৎসক'],
 };
-export const specialtyLabel = (c: string) => (SPECIALTIES[c] ? tr(SPECIALTIES[c][0], SPECIALTIES[c][1]) : c);
+export const specialtyLabel = (c: string) => (SPECIALTIES[c] ? tr(SPECIALTIES[c][0], SPECIALTIES[c][1]) : PRACTICE_SPEC_LABEL[c] ? tr(PRACTICE_SPEC_LABEL[c][0], PRACTICE_SPEC_LABEL[c][1]) : c);
 
 
 // ---------- সেবার পাতা থেকে পাঠানো (RxActivity-র ধরন) ----------

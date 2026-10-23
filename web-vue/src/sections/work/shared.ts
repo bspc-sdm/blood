@@ -8,6 +8,7 @@ import { num, tr } from '@/lib/i18n';
 import { areasReady, ensureAreas } from '@/lib/geo';
 import { formatTimeHM } from '@/lib/format';
 import { useLoc } from '@/lib/nav';
+import { newTypeIcon, newTypeLabel } from '@/lib/practice';
 
 // ---------- ধরন ----------
 export type Kind = 'ambulance' | 'pharmacy' | 'bloodbank' | 'lab';
@@ -22,9 +23,9 @@ export const myBusinessTitle = (k: Kind) =>
   k === 'ambulance' ? tr('My ambulances', 'আমার অ্যাম্বুলেন্স') : k === 'pharmacy' ? tr('My pharmacy', 'আমার ফার্মেসি') : k === 'bloodbank' ? tr('My blood banks', 'আমার ব্লাড ব্যাংক') : tr('My lab', 'আমার প্যাথলজি');
 
 export const badgeLabel = (t: string) =>
-  t === 'doctor' ? tr('Doctor', 'ডাক্তার') : t === 'nurse' ? tr('Nurse', 'নার্স') : t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
+  t === 'doctor' ? tr('Doctor', 'ডাক্তার') : t === 'nurse' ? tr('Nurse', 'নার্স') : t === 'nutritionist' ? tr('Nutritionist', 'পুষ্টিবিদ') : t === 'trainer' ? tr('Fitness trainer', 'ফিটনেস ট্রেইনার') : newTypeLabel(t) ?? tr('Health Expert', 'স্বাস্থ্য বিশেষজ্ঞ');
 export const badgeIcon = (t: string) =>
-  t === 'doctor' ? 'stethoscope' : t === 'nurse' ? 'medical_services' : t === 'nutritionist' ? 'restaurant' : t === 'trainer' ? 'fitness_center' : 'health_and_safety_filled';
+  t === 'doctor' ? 'stethoscope' : t === 'nurse' ? 'medical_services' : t === 'nutritionist' ? 'restaurant' : t === 'trainer' ? 'fitness_center' : newTypeIcon(t) ?? 'health_and_safety_filled';
 
 // ---------- সার্ভারের আকার ----------
 export interface DocFlags { docsMissing?: boolean; docsRequested?: boolean; docsRequestNote?: string }

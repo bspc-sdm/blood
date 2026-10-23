@@ -15,7 +15,7 @@ import { store } from '@/lib/store';
 import { tr } from '@/lib/i18n';
 import { areaLabel } from '@/lib/geo';
 import { useNav, useSearchParams } from '@/lib/nav';
-import { CHAMBER_TYPES, FEE_STEPS, badgeIcon, chamberLabel, parseProvider, specialtiesOf, specialtyLabel, useCatalog, type Hospital, type SpecialtyFacet } from './model';
+import { FEE_STEPS, badgeIcon, chamberTypes, chamberLabel, parseProvider, specialtiesOf, specialtyLabel, useCatalog, type Hospital, type SpecialtyFacet } from './model';
 import { NO_FILTERS, TAB_ICON, dayLabel, feeLabel, filterKey, genderLabel, loadFilters, tabLabel, useDebounced, type SavedFilters } from './doctors';
 import { useAreasReady, type AreaSel } from './shared';
 import AreaSheet from './AreaSheet.vue';
@@ -26,6 +26,8 @@ import ProviderCard from './ProviderCard.vue';
 import ProviderDetail from './ProviderDetail.vue';
 import { T as OT } from './online';
 import { onlineOn } from './online/flags';
+import { isSystem, newTypeEmpty, systemsOn } from '@/lib/practice';
+import SystemChips from '../practice/SystemChips.vue';
 
 const props = defineProps<{ detailId: string | null }>();
 usePageTitle(() => tr('Appointment', 'অ্যাপয়েন্টমেন্ট'));
@@ -34,7 +36,15 @@ useAreasReady();
 const nav = useNav();
 const [sp, setSp] = useSearchParams();
 const s = useSession();
-const type = computed(() => (CHAMBER_TYPES.includes(sp.value.get('t') ?? '') ? (sp.value.get('t') as string) : 'doctor'));
+const type = computed(() => (chamberTypes().includes(sp.value.get('t') ?? '') ? (sp.value.get('t') as string) : 'doctor'));
+// চিকিৎসা পদ্ধতির ছাঁকনি (practice_systems, শুধু ডাক্তার) — শেষবারেরটা মনে থাকে; সুইচ বন্ধ থাকলে সার্ভারে যায় না
+const SYS_KEY = 'lf.doctorSystem';
+const sysSaved = ref<string | null>(((v) => (isSystem(v) ? v : null))(store.getJson<string>(SYS_KEY)));
+const sysFilter = computed(() => (systemsOn() && type.value === 'doctor' ? sysSaved.value : null));
+function setSys(v: string | null) {
+  sysSaved.value = v;
+  store.setJson(SYS_KEY, v);
+}
 const [fa, setFa] = useFilterArea();
 const area = ref<AreaSel | null>(null);
 const cur = computed<AreaSel>(() => area.value ?? { district: fa.value?.district ?? null, upazilaId: fa.value?.upazilaId ?? null, unionId: fa.value?.unionId ?? null });
@@ -72,9 +82,10 @@ const body = computed(() => {
   if (ff.maxFee) b.maxFee = ff.maxFee;
   if (hq.value.length >= 2) b.hospitalQ = hq.value;
   if (ff.gender) b.gender = ff.gender;
+  if (sysFilter.value) b.system = sysFilter.value;
   return b;
 });
-type Facets = { specialties: SpecialtyFacet[]; gender: boolean };
+type Facets = { specialties: SpecialtyFacet[]; gender: boolean; systems?: { code: string; n: number }[] };
 const q = useCall<{ items: any[]; facets?: Facets }>('providers', body);
 const list = computed(() => (q.data?.items ?? []).map((o) => ({ p: parseProvider(o), matched: Array.isArray(o?.matched) ? (o.matched as number[]) : null })));
 // বিশেষজ্ঞতার চিপ: সার্ভার যা বলে (এই এলাকায় যেগুলো আছে); নতুন তালিকা আসার সময় আগেরটা থাকে
@@ -138,7 +149,8 @@ const barLabel = computed(() => {
 const spOptions = computed(() => (facets.value ? facets.value.specialties.map((x) => x.code) : specialtiesOf(type.value)));
 const spCount = (code: string) => facets.value?.specialties.find((x) => x.code === code)?.n;
 const emptyTitle = computed(() =>
-  type.value === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type.value === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : tr('No doctors found', 'কোনো ডাক্তার পাওয়া যায়নি'),
+  newTypeEmpty(type.value) ??
+  (type.value === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type.value === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : tr('No doctors found', 'কোনো ডাক্তার পাওয়া যায়নি')),
 );
 
 function changeTab(k: string) {
@@ -178,8 +190,9 @@ function hospitalPicked(h: Hospital) {
         </div>
       </div>
       <div class="appt-bleed">
-        <PillTabs :tabs="CHAMBER_TYPES.map((k) => ({ key: k, label: tabLabel(k), icon: TAB_ICON[k] }))" :value="type" @change="changeTab" />
+        <PillTabs :tabs="chamberTypes().map((k) => ({ key: k, label: tabLabel(k), icon: TAB_ICON[k] }))" :value="type" @change="changeTab" />
       </div>
+      <SystemChips v-if="systemsOn() && type === 'doctor'" :value="sysFilter" :counts="facets?.systems" @change="setSys" />
       <FilterBar
         :area-label="barLabel"
         :on-area="() => (showArea = true)"

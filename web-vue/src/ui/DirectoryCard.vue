@@ -11,6 +11,8 @@ withDefaults(defineProps<{
   status?: { text: string; good: boolean } | null; meta?: string | null; details?: [string, string | null | undefined][];
   tags?: string[]; note?: string | null; primary?: CardActionDef | null; secondary?: CardActionDef | null;
   onClick?: () => void; selected?: boolean;
+  /** নামের পাশে ছোট লেবেল (যেমন চিকিৎসা পদ্ধতি); না দিলে আগের মতো */
+  titleTag?: string | null;
 }>(), { details: () => [], tags: () => [] });
 
 function onKey(e: KeyboardEvent, f?: () => void) {
@@ -35,6 +37,7 @@ function onKey(e: KeyboardEvent, f?: () => void) {
       <div class="col gap-2 grow">
         <div class="row" :style="{ alignItems: 'center' }">
           <span class="t-title-m clamp2" :style="{ minWidth: 0 }">{{ title }}</span>
+          <Tag v-if="titleTag" tone="info" class="title-tag">{{ titleTag }}</Tag>
           <Tag v-if="status" :tone="status.good ? 'good' : undefined">{{ status.text }}</Tag>
         </div>
         <span v-if="subtitle" class="t-body-m c-primary clamp2">{{ subtitle }}</span>

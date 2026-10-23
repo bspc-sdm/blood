@@ -7,6 +7,7 @@ import { cardStatus } from './doctors';
 import type { AreaSel } from './shared';
 import { T as OT } from './online';
 import { onlineOn } from './online/flags';
+import { systemTag } from '@/lib/practice';
 
 const props = defineProps<{ p: Provider; matched: number[] | null; area: AreaSel; hospital: Hospital | null; selected: boolean; onClick: () => void; online?: boolean }>();
 const hasOnline = computed(() => onlineOn() && props.p.chambers.some((c) => c.mode === 'online'));
@@ -25,6 +26,7 @@ const ch = computed(() => {
 <template>
   <DirectoryCard
     :title="p.name"
+    :title-tag="systemTag(p.type, p.system)"
     :icon="badgeIcon(p.type)"
     :photo="p.photo || null"
     :subtitle="[p.degrees, p.specialties.map(specialtyLabel).join(', ')].filter(Boolean).join(' · ')"
