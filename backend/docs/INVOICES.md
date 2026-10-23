@@ -91,5 +91,42 @@ No receipts for blood donors (donation is voluntary). Blood banks come later.
 
 ## Backend notes (owned by the backend-invoices agent, branch `spring-p16`)
 
-This file is the source of truth from here on. Service signatures for the offline sync agent (spring-p17) follow in the next
-commit on `spring-p16`; until then, do not depend on Kotlin names.
+This section is the source of truth for the backend. Package `com.lifolo.invoices`, migrations `V630`–`V649`.
+
+### Service methods for the offline sync agent (spring-p17)
+
+The desktop op `data` is **the same JSON body as the online action** (`books_sale_add`, `lab_bill_create`,
+`chamber_fee_collect`, `invoice_pay`, `invoice_void`). The sync agent checks the device (registered, not revoked, op age,
+`opId` idempotency) and then calls these in its own transaction (they join it — `@Transactional`, REQUIRED):
+
+```kotlin
+package com.lifolo.invoices
+
+/** a receipt the desktop numbered itself: `no` = "<series>-<seq 6 digits>" in the device's own series (D1, D2 …) */
+data class DeviceStamp(val deviceId: String, val no: String, val at: Long /* epoch ms, when the device recorded it */)
+
+class InvoiceCreators {
+    // books_sale_add: sale + stock + invoice. Returns {id, sale, invoice} (+ warn:"stock_short", stockShort:[itemId] when an
+    // item had less stock than sold — the sale is still accepted and the stock stops at 0, like the online sale).
+    fun pharmacySale(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?>
+    // lab_bill_create → {invoice}
+    fun labBill(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?>
+    // chamber_fee_collect → {invoice} (actor = the doctor or an assistant: AuthUser.email/emailVerified are checked)
+    fun chamberFee(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?>
+}
+
+class InvoiceService {
+    // any kind, low level (the creators call it): issuer rights, sanctions, demo/real, totals recomputed, number
+    // (series W, or stamp.no accepted as is — 409 `no_taken` if that no already exists for (kind, bizId)), audit, push.
+    fun issue(lang: String?, actor: AuthUser, cmd: IssueCmd, stamp: DeviceStamp? = null): Invoice
+    // invoice_pay / invoice_void (issuer only). With a stamp the payment/void time is stamp.at (stamp.no is ignored).
+    fun pay(lang: String?, actor: AuthUser, invoiceId: String, payment: PaymentIn, stamp: DeviceStamp? = null): Invoice
+    fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, stamp: DeviceStamp? = null): Invoice
+    // an invoice by its number (offline ops that pay/void an invoice made offline refer to it by `no`)
+    fun findByNo(kind: String, bizId: String, no: String): Invoice?
+}
+// Invoice.toMap() is the "Invoice object" JSON above.
+```
+
+Errors are `ApiException` (status + bilingual message + `code`), like the actions.
+
