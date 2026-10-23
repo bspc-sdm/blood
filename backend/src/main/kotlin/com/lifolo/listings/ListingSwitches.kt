@@ -48,6 +48,11 @@ class ListingSwitches(
     private val log: SwitchLog,
     private val clock: P4Clock,
 ) {
+    companion object {
+        /** the longest "বিরতি" an owner can pick (MYWORK.md) */
+        const val MAX_UNTIL_MS = 24 * 3600 * 1000L
+    }
+
     private fun suspended(ctx: ActionContext, kind: ListingKind) = when (kind) {
         ListingKind.PHARMACY -> ctx.err(
             403,
@@ -63,6 +68,19 @@ class ListingSwitches(
         if (n == null || n.isNull) return null
         if (!n.isBoolean) throw ctx.err(400, "Choose open or closed", "খোলা না বন্ধ বেছে নিন") // bn-ok
         return n.booleanValue()
+    }
+
+    /**
+     * MYWORK.md "বিরতি": an optional `until` (ms) for `open: true|false` — the override ends then instead of at the next
+     * scheduled change (৩০ মিনিট / ১ ঘণ্টা). now < until ≤ now + 24 h. Absent/null = the next scheduled change.
+     */
+    private fun untilArg(ctx: ActionContext, open: Boolean?, now: Long): Long? {
+        if (ctx.body.isNullish("until")) return null
+        val u = ctx.body.int("until")
+        if (open == null || u == null || u <= now || u > now + MAX_UNTIL_MS) {
+            throw ctx.err(400, "Pick a time within the next 24 hours", "আগামী ২৪ ঘণ্টার মধ্যে সময় দিন") // bn-ok
+        }
+        return u
     }
 
     private fun boolArg(ctx: ActionContext, key: String): Boolean =
@@ -81,8 +99,9 @@ class ListingSwitches(
         if (open == true && (s.closedUntil ?: 0) > now) {
             throw ctx.err(409, "Your pharmacy is on a break. End the break first.", "ফার্মেসি বিরতিতে আছে। আগে বিরতি শেষ করুন।", "paused") // bn-ok
         }
+        val asked = untilArg(ctx, open, now)
         log.use(ctx)
-        val until = if (open == null) null else ListingFacts.overrideUntil(s.schedule(), now)
+        val until = if (open == null) null else asked ?: ListingFacts.overrideUntil(s.schedule(), now)
         jdbc.update("UPDATE pharmacies SET open_override = ?, open_override_until = ? WHERE uid = ?", open, until?.let { Sql.ts(it) }, uid)
         log.write("pharmacy", uid, uid, ctx.caller.uid, "owner", "open", open, until)
         val after = shops.get(uid)!!
@@ -116,10 +135,11 @@ class ListingSwitches(
         val uid = ctx.user.id
         val open = openArg(ctx)
         val x = myLab(ctx)
-        log.use(ctx)
         val now = System.currentTimeMillis()
+        val asked = untilArg(ctx, open, now)
+        log.use(ctx)
         val hours = ListingFacts.parseHours(x["hours"] as? String)?.asMap()
-        val until = if (open == null) null else ListingFacts.overrideUntil(hours, now)
+        val until = if (open == null) null else asked ?: ListingFacts.overrideUntil(hours, now)
         jdbc.update("UPDATE labs SET open_override = ?, open_override_until = ? WHERE uid = ?", open, until?.let { Sql.ts(it) }, uid)
         log.write("lab", uid, uid, ctx.caller.uid, "owner", "open", open, until)
         val v = LinkedHashMap<String, Any?>()

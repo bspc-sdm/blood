@@ -1209,6 +1209,12 @@ computer is never gated; `desktop_devices`/`desktop_revoke` stay usable while th
 - [x] **`admin_feature_set`** — Set one key: `{key, mode: off|pilot|on, pilotUids?, demo?}` (left out = unchanged; same setting → `{unchanged:true}`)
   - auth: admin (app or web panel) · response: `{ok, v, key, mode, pilotUids, demo}` · side effects: `feature_flags` + `feature_changes` rows, admin_log row, Redis cache cleared, silent FCM data push `{type:"features_changed", v}` to the affected accounts' phones (only accounts whose app called `features`), SSE `features_changed {v}` · errors: 403, 400 (unknown key/mode, bad or unknown pilot uid, > 500 pilots, demo not boolean) · tests: FeatureAdminIT
 
+## "আমার কাজ" home (package `work`, Spring only, Oct 2026 — [MYWORK.md](MYWORK.md)) — 1 action
+- [x] **`work_today`** — Every business of the caller in one call: open/paused/closed (+ `pausedUntil`), today's numbers, open tasks with one action, setup checklist
+  - src: `backend/.../work/WorkToday.kt` · auth: user (no caregiver) · read-only (reuses queue_today, rx_orders_pharmacy, lab_orders, ambreq_driver, med_find_requests)
+  - request: — · response: `{now,date,roles,items,tasks,taskCount}`
+  - tables: badges, providers, appointments, queues, chamber_day_closed, chamber_pause, pharmacies, rx_orders, shop_days, med_finds, labs, lab_orders, blood_banks, blood_bank_stock, ambulances, ambreq_targets · errors: 401 · tests: WorkTodayIT, e2e MORE-work-today
+
 ## Other HTTP endpoints (outside /api/community)
 
 All use the Node `handler` envelope (POST only → 405 `{error:"Method not allowed"}`, JSON, `{error, code?}`) unless noted.

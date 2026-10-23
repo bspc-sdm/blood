@@ -969,7 +969,9 @@ class AmbReqService(
             }
             .map { driverView(it, uid, langOf(b)) }
             .sortedWith(compareBy<Map<String, Any?>> { if (it["status"] == "open") 1 else 0 }.thenByDescending { it["createdAt"] as Long })
-        return linkedMapOf("items" to items)
+        // MYWORK.md: tab counts — new calls (still open) and my trips in progress
+        val open = items.count { it["status"] == "open" }
+        return linkedMapOf("items" to items, "counts" to linkedMapOf("new" to open, "active" to items.size - open))
     }
 
     private sealed interface AcceptResult

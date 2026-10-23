@@ -216,6 +216,12 @@ class QueueActions(
         out["avgFrom"] = avg.avgFrom
         out["queue"] = queueView(l.q, l.nums)
         out["rows"] = rows
+        // MYWORK.md: the tab counts of "আজকের রোগী" (অপেক্ষায় / দেখা হচ্ছে / শেষ); "later" waits too, cancelled ones are not counted
+        out["counts"] = linkedMapOf(
+            "waiting" to rows.count { it["state"] == "waiting" || it["state"] == "later" },
+            "now" to rows.count { it["state"] == "now" },
+            "done" to rows.count { it["state"] == "done" },
+        )
         out["lateAsked"] = rows.count { r ->
             @Suppress("UNCHECKED_CAST")
             val late = r["late"] as Map<String, Any?>?

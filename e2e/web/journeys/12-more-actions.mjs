@@ -244,6 +244,42 @@ export async function run(J) {
   });
 
   // ---------------- অ্যাডমিন প্যানেল থেকে লগআউট ----------------
+  await J.sc('MORE-work-today', 'আমার কাজ: এক ডাকে আজকের কাজ (work_today) প্রতিটা ভূমিকায়; ফার্মেসি/ল্যাব/চেম্বারের ৩০ মিনিটের বিরতি — শেষ সময়সহ, তারপর আবার খোলা', async () => {
+    for (const [who, kind] of [[DOC, 'doctor'], [PH, 'pharmacy'], [LAB, 'lab'], [AMB, 'ambulance'], [BB, 'bloodbank']]) {
+      const w = await act(who, 'work_today');
+      const it = (w.items || []).find((x) => x.kind === kind);
+      if (!it || !(w.roles || []).includes(kind)) throw new Error(`work_today ${who.role}: ${kind} নেই — ${JSON.stringify(w.roles)}`);
+      if (!Array.isArray(it.tasks) || !Array.isArray(it.setup) || typeof it.counts !== 'object' || !Array.isArray(w.tasks)) {
+        throw new Error(`work_today ${who.role}: ছাঁচ ভুল — ${JSON.stringify(it).slice(0, 200)}`);
+      }
+      if (w.tasks.length > 5 || w.taskCount < w.tasks.length) throw new Error(`work_today ${who.role}: এখনই দেখুন ${w.tasks.length}/${w.taskCount}`);
+    }
+    // বিরতি: আজকের মধ্যে শেষ (রাত ১২টার আগে)
+    const DAY = 24 * 3600 * 1000;
+    const midnight = Math.floor((Date.now() + 6 * 3600 * 1000) / DAY) * DAY + DAY - 6 * 3600 * 1000;
+    const until = Math.min(Date.now() + 30 * 60 * 1000, midnight - 60 * 1000);
+    for (const [who, kind, action] of [[PH, 'pharmacy', 'pharmacy_open_override'], [LAB, 'lab', 'lab_open_override']]) {
+      const r = await act(who, action, { open: false, until });
+      eq(r.openOverride && r.openOverride.until, until, `${action}: বিরতির শেষ`);
+      const it = (await act(who, 'work_today')).items.find((x) => x.kind === kind);
+      // খোলার সময়ে বিরতি → "আবার খুলবে"; সময় পেরোলে দোকান এমনিতেই বন্ধ
+      if (it.status === 'paused') eq(it.pausedUntil, until, `${kind}: আবার খুলবে`);
+      else if (it.status !== 'closed') throw new Error(`${kind}: বিরতির পরে ${it.status}`);
+      await act(who, action, { open: null });
+    }
+    const days = await act(DOC, 'chamber_days');
+    const ch = (days.items || []).find((c) => c.sitsToday && !c.closedToday);
+    if (ch) {
+      await act(DOC, 'chamber_day_set', { chamberIndex: ch.chamberIndex, closed: true, until });
+      const d = (await act(DOC, 'work_today')).items.find((x) => x.kind === 'doctor' && x.role === 'owner');
+      const c2 = d.chambers.find((x) => x.chamberIndex === ch.chamberIndex);
+      eq([c2.status, c2.pausedUntil], ['paused', until], 'চেম্বারের বিরতি');
+      await act(DOC, 'chamber_day_set', { chamberIndex: ch.chamberIndex, closed: false });
+      const c3 = (await act(DOC, 'work_today')).items.find((x) => x.kind === 'doctor' && x.role === 'owner').chambers.find((x) => x.chamberIndex === ch.chamberIndex);
+      eq([c3.status, c3.pausedUntil], ['open', null], 'চেম্বার আবার চলছে');
+    }
+  });
+
   await J.sc('MORE-web-logout', 'অ্যাডমিন প্যানেল: লগআউট (web_logout) — কুকি যায়, আবার লগইন পাতা', async () => {
     const Pd = await J.ctxFor('desktop');
     J.cur = Pd;

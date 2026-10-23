@@ -5,6 +5,7 @@ import com.lifolo.common.Sql
 import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
+import com.lifolo.listings.ListingFacts
 import com.lifolo.listings.SwitchLog
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
@@ -56,6 +57,37 @@ class ChamberDays(private val jdbc: JdbcTemplate) {
         } else {
             jdbc.update("DELETE FROM chamber_day_closed WHERE provider_uid = ? AND chamber_key = ? AND visit_date = ?", uid, chamberKey, d)
         }
+    }
+
+    // ------------------------------------------------------------------ a short break today (MYWORK.md, V693)
+
+    /** the chamber breaks of these doctors that still last: "uid|chamberKey" → until (ms). Ended ones are simply ignored. */
+    fun pausedNow(uids: Collection<String>, now: Long): Map<String, Long> {
+        if (uids.isEmpty()) return emptyMap()
+        val out = HashMap<String, Long>()
+        for (chunk in uids.distinct().chunked(500)) {
+            jdbc.query(
+                "SELECT provider_uid, chamber_key, until_at FROM chamber_pause WHERE until_at > ? AND provider_uid IN (${chunk.joinToString(",") { "?" }})",
+                RowCallbackHandler { rs -> out["${rs.getString(1)}|${rs.getString(2)}"] = rs.getTimestamp(3).time },
+                *(listOf<Any?>(Sql.ts(now)) + chunk).toTypedArray(),
+            )
+        }
+        return out
+    }
+
+    /** a break until [until] (null = end the break now) */
+    fun pause(uid: String, chamberKey: String, until: Long?, by: String?) {
+        if (until == null) {
+            jdbc.update("DELETE FROM chamber_pause WHERE provider_uid = ? AND chamber_key = ?", uid, chamberKey)
+            return
+        }
+        jdbc.update(
+            """
+            INSERT INTO chamber_pause (provider_uid, chamber_key, until_at, paused_by) VALUES (?, ?, ?, ?)
+            ON CONFLICT (provider_uid, chamber_key) DO UPDATE SET until_at = EXCLUDED.until_at, paused_by = EXCLUDED.paused_by, at = now()
+            """.trimIndent(),
+            uid, chamberKey, Sql.ts(until), by,
+        )
     }
 
     /** pending + confirmed requests of one chamber on one day */
@@ -114,11 +146,31 @@ class ChamberDayActions(
         if (closed && !CareRules.chamberOpenOn(ch, date)) {
             throw ctx.err(400, "The chamber is closed on that day. Pick one of its days.", "সেদিন চেম্বার বন্ধ। চেম্বারের বারগুলোর একটা বেছে নিন।")
         }
+        // MYWORK.md "বিরতি": closed + until = a short break of today's chamber (ends by itself; bookings stay open)
+        val until = if (closed && !ctx.body.isNullish("until")) {
+            val u = ctx.body.int("until")
+            if (date != today || u == null || u <= now || u > ListingFacts.nextDhakaMidnight(now)) {
+                throw ctx.err(400, "A break ends later today", "বিরতি আজকের মধ্যেই শেষ হতে হবে") // bn-ok
+            }
+            u
+        } else {
+            null
+        }
         log.use(ctx)
-        days.set(c.doctorUid, ch.key, date, closed, ctx.caller.uid)
-        log.write("chamber", "${c.doctorUid}|${ch.key}", c.doctorUid, ctx.caller.uid, if (c.role == "doctor") "owner" else "assistant", "closedDay", "$date:$closed")
+        val role = if (c.role == "doctor") "owner" else "assistant"
+        if (until != null) {
+            days.pause(c.doctorUid, ch.key, until, ctx.caller.uid)
+            log.write("chamber", "${c.doctorUid}|${ch.key}", c.doctorUid, ctx.caller.uid, role, "pause", true, until)
+        } else {
+            days.set(c.doctorUid, ch.key, date, closed, ctx.caller.uid)
+            // "চলছে" again: a break of today ends too
+            if (!closed && date == today) days.pause(c.doctorUid, ch.key, null, ctx.caller.uid)
+            log.write("chamber", "${c.doctorUid}|${ch.key}", c.doctorUid, ctx.caller.uid, role, "closedDay", "$date:$closed")
+        }
         return linkedMapOf(
-            "ok" to true, "chamberIndex" to i, "chamberKey" to ch.key, "date" to date, "closed" to closed,
+            "ok" to true, "chamberIndex" to i, "chamberKey" to ch.key, "date" to date,
+            "closed" to (if (until != null) days.isClosed(c.doctorUid, ch.key, date) else closed),
+            "pausedUntil" to until,
             // requests already made for that day (pending + confirmed) — the app can remind to tell them
             "requests" to days.requestsOn(c.doctorUid, ch.key, date),
         )
@@ -131,6 +183,7 @@ class ChamberDayActions(
         val now = clock.now()
         val today = DhakaTime.todayUtcMidnight(now)
         val closed = days.closedFrom(listOf(c.doctorUid), now)
+        val paused = days.pausedNow(listOf(c.doctorUid), now)
         val items = p.chambers.mapIndexed { i, ch ->
             val mine = closed.filter { it.startsWith("${c.doctorUid}|${ch.key}|") }.map { it.substringAfterLast('|').toLong() }.sorted()
             linkedMapOf(
@@ -143,6 +196,8 @@ class ChamberDayActions(
                 "sitsToday" to CareRules.chamberOpenOn(ch, today),
                 "closedToday" to (today in mine),
                 "closedDates" to mine,
+                // MYWORK.md: a break of today's chamber that still lasts (ms) or null
+                "pausedUntil" to paused["${c.doctorUid}|${ch.key}"],
                 "requestsToday" to days.requestsOn(c.doctorUid, ch.key, today),
             )
         }

@@ -154,6 +154,7 @@ listings → 403 (the listing's usual text). Rate limit: all quick switches toge
 `ambulance_available` and `bloodbank_stock_set`. Rows go with the owner's/actor's account (ON DELETE CASCADE).
 
 ### "খোলা/বন্ধ এখন" (pharmacy, lab)
+- MYWORK.md "বিরতি": an optional `until` (ms, now < until ≤ now + 24 h) ends the override then instead (৩০ মিনিট / ১ ঘণ্টা).
 - `open: true|false` sets an override that lasts until the **next scheduled change** of the hours
   (`ListingFacts.overrideUntil`): closed during opening hours → until closing time; open after hours → until opening
   time; looked for in the next 2 days at every opening, closing and midnight. 24 hours every day or hours not known
@@ -183,6 +184,8 @@ now also logged.
   চেম্বারের বারগুলোর একটা বেছে নিন।"). Requests already made for that day stay (`requests` in the answer = pending +
   confirmed ones, so the app can remind the doctor to tell them). `closed: false` opens the day again.
 - "চলছে" is the normal state (no row). There is no "open on a day the chamber does not sit".
+- MYWORK.md "বিরতি": `closed: true` with `until` (today, ≤ next Dhaka midnight) = a short break (`chamber_pause`, V693):
+  not `openNow` until then, bookings and `nextSlot` unaffected; `chamber_days` items carry `pausedUntil`.
 - `chamber_days` gives the switch state per chamber (`sitsToday`, `closedToday`, `closedDates` ahead, `requestsToday`)
   and the public `card`.
 

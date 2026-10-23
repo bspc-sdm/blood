@@ -239,12 +239,16 @@ class AppointmentActions(
         val origin = ListingFacts.origin(b)
         val booked = nextSlots.bookedCounts(docs, now)
         val closed = chamberDays.closedFrom(docs.map { it.uid }, now)
+        val paused = chamberDays.pausedNow(docs.map { it.uid }, now)
         val allowed = HashMap<String, Boolean>()
         val items = docs.map { d ->
             fun visible(c: Ch) = !c.online || (onlineOk && allowed.getOrPut(d.uid) { onlineSwitch.allowed(d.uid) })
             providerOut(d, systemsOn = systemsOn).apply {
                 put("matched", CareRules.matchedChambers(d, f, now))
-                listingFacts(this, d, now, ctx.lang, labels, origin, ::visible, { key, date -> booked["${d.uid}|$key|$date"] ?: 0 }) { key, date ->
+                listingFacts(
+                    this, d, now, ctx.lang, labels, origin, ::visible, { key, date -> booked["${d.uid}|$key|$date"] ?: 0 },
+                    { key -> "${d.uid}|$key" in paused },
+                ) { key, date ->
                     ChamberDays.key(d.uid, key, date) in closed
                 }
             }
@@ -276,6 +280,7 @@ class AppointmentActions(
         origin: ListingFacts.Origin?,
         visible: (Ch) -> Boolean,
         booked: (String, Long) -> Int,
+        paused: (String) -> Boolean,
         closed: (String, Long) -> Boolean,
     ) {
         val slot = NextSlots.nextSlot(d, now, visible, booked, closed)
@@ -289,7 +294,8 @@ class AppointmentActions(
         m["specialtyLabel"] = d.specialties.take(2).map { labels[it]?.first ?: it.replace('_', ' ') }.joinToString(", ").ifEmpty { null }
         val shown = d.chambers.filter(visible)
         // a chamber closed today ("আজ বন্ধ") is not open now
-        m["openNow"] = shown.any { CareRules.chamberNowOpen(it, now) && !closed(it.key, today) }
+        // … nor one on a break (MYWORK.md "বিরতি", ends by itself)
+        m["openNow"] = shown.any { CareRules.chamberNowOpen(it, now) && !closed(it.key, today) && !paused(it.key) }
         ListingFacts.putHours(m, false, null, null)
         m["ratingSummary"] = ListingFacts.ratingSummary(d.ratingSum, d.ratingCount)
         // the nearest chamber at a place (its upazila centre — approximate)
@@ -310,8 +316,12 @@ class AppointmentActions(
         val onlineOk = onlineSwitch.allowed(if (ctx.caller.guest) null else ctx.caller.uid) && onlineSwitch.allowed(uid)
         val booked = nextSlots.bookedCounts(listOf(d), now)
         val closed = chamberDays.closedFrom(listOf(uid), now)
+        val paused = chamberDays.pausedNow(listOf(uid), now)
         return providerOut(d, systemsOn = systemsOn).apply {
-            listingFacts(this, d, now, ctx.lang, specialtyLabels(ctx.lang), null, { c -> !c.online || onlineOk }, { key, date -> booked["$uid|$key|$date"] ?: 0 }) { key, date ->
+            listingFacts(
+                this, d, now, ctx.lang, specialtyLabels(ctx.lang), null, { c -> !c.online || onlineOk }, { key, date -> booked["$uid|$key|$date"] ?: 0 },
+                { key -> "$uid|$key" in paused },
+            ) { key, date ->
                 ChamberDays.key(uid, key, date) in closed
             }
         }
