@@ -1,0 +1,30 @@
+10-23 23:56:38.561  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:56:39.061  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:56:39.117  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:56:39.617  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:56:40.197  6174  6179 W com.bspc.blood: Cleared Reference was only reachable from finalizer (only reported once)
+10-23 23:56:40.300  6174  6179 I com.bspc.blood: Background concurrent mark compact GC freed 8263KB AllocSpace bytes, 59(1384KB) LOS objects, 49% free, 10MB/20MB, paused 338us,3.291ms total 144.496ms
+10-23 23:56:47.637  6174  6178 I com.bspc.blood: Compiler allocated 4252KB to compile androidx.core.view.accessibility.AccessibilityNodeInfoCompat androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$ComposeAccessibilityNodeProvider.createAccessibilityNodeInfo(int)
+10-23 23:57:03.566  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:57:04.067  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:57:04.123  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:57:04.624  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:57:13.278  2292  2301 W ndroid.systemui: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~Wk-LI_yyx5ccG-FUNfdfoA==/com.bspc.blood-COLI6aX1WDz7ixcG2-unSQ==/base.apk' with 1 weak references
+10-23 23:57:15.004  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:57:15.505  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:57:15.560  5203  5457 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 23:57:16.061  5203  5457 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 23:57:16.370  2049  2403 D CoreBackPreview: Window{53ef309 u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@5910d28, mPriority=0, mIsAnimationCallback=false}
+10-23 23:57:16.692  2049  2173 I ImeTracker: com.bspc.blood:31b4954a: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 23:57:16.692  2049  2173 I ImeTracker: com.bspc.blood:31b4954a: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 23:57:16.700  2727  2727 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 23:57:16.722  2049  2403 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 23:57:36.698  5193  5193 I AndroidRuntime: VM exiting with result code 0.
+10-23 23:57:37.233  6487  6487 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+10-23 23:57:37.239  6487  6487 I AndroidRuntime: Using default boot image
+10-23 23:57:37.239  6487  6487 I AndroidRuntime: Leaving lock profiling enabled
+10-23 23:57:37.309  2764  3035 W PackageManager: android.content.res.Resources$NotFoundException: String resource ID #0x7f130786
+10-23 23:57:37.332  6487  6487 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-23 23:57:37.540  2740  2838 W AppInfoHelper: android.content.pm.PackageManager$NameNotFoundException: dev.mobile.maestro.test
+10-23 23:57:37.712  2764  3035 W PackageManager: android.content.res.Resources$NotFoundException: String resource ID #0x7f130786
+10-23 23:57:38.418  6487  6487 D AndroidRuntime: Shutting down VM

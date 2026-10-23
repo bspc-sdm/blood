@@ -1,0 +1,6 @@
+
+Waiting for flows to complete...
+[Failed] j16-online-chamber (4m 29s) (Element not found: Above: "টাকার অঙ্ক মিলেছে", Left of: "TrxID মিলেছে", Is square)
+
+1/1 Flow Failed
+
