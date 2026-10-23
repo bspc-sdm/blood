@@ -63,9 +63,24 @@ object OnlineChambers {
         !c.online -> null
         !c.noFee && c.bkashNumber.isBlank() -> tr("Enter the bKash number patients send the fee to", "রোগীরা যে bKash নম্বরে ফি পাঠাবেন, সেটা দিন")
         c.bkashNumber.isNotBlank() && !bkashOk(c.bkashNumber, demo) -> tr("Enter a valid bKash number (01XXXXXXXXX)", "সঠিক bKash নম্বর দিন (01XXXXXXXXX)")
+        !c.noFee && !hasAmount(c.fee) -> tr("Write the online chamber's fee (taka)", "অনলাইন চেম্বারের ফি লিখুন (টাকা)")
         c.note.length > NOTE_MAX -> tr("Keep the note within $NOTE_MAX letters", "নোট ${num(NOTE_MAX)} অক্ষরের মধ্যে রাখুন")
+        hasPhone(c.note) -> NOTE_PHONE
         else -> null
     }
+
+    val NOTE_PHONE: String get() = tr("The note can't have a phone number", "নোটে ফোন নম্বর দেওয়া যাবে না")
+
+    /** ফিতে টাকার অঙ্ক আছে কি না ("৪০০ টাকা", "500") */
+    fun hasAmount(fee: String): Boolean = cleanDigits(fee).any { it.isDigit() && it != '0' }
+
+    /** নোটে ফোন নম্বরের মতো কিছু (ফাঁকা/ড্যাশ/বিন্দু বাদ দিয়ে টানা ১০+ অঙ্ক) — সার্ভার এমন নোট নেয় না */
+    fun hasPhone(text: String): Boolean = Regex("\\d{10,}").containsMatchIn(cleanDigits(text).replace(Regex("(?<=\\d)[\\s.\\-()]+(?=\\d)"), ""))
+
+    private fun cleanDigits(s: String): String = s.map { c -> if (c in '০'..'৯') '0' + (c - '০') else c }.joinToString("")
+
+    /** bKash নম্বর বদলেছে (সেভ করা নম্বর থেকে) — বদল ২৪ ঘণ্টা পর চালু */
+    fun bkashChanged(c: Chamber): Boolean = c.online && c.bkashSaved.isNotBlank() && cleanNumber(c.bkashNumber) != cleanNumber(c.bkashSaved)
 
     /** চেম্বারে ↔ অনলাইন: অনলাইনে হাসপাতাল, ঠিকানা, রুম, সিরিয়ালের ফোন থাকে না; বুকিং অ্যাপেই */
     fun toOnline(c: Chamber): Chamber = c.copy(
@@ -94,7 +109,7 @@ data class OnlinePay(
 ) {
     val view: PayView
         get() = when {
-            noFee -> PayView.NO_FEE
+            noFee || state == "none" -> PayView.NO_FEE
             state == "paid" -> PayView.PAID
             state == "claimed" -> PayView.CLAIMED
             rejected || state == "rejected" -> PayView.REJECTED
@@ -106,9 +121,11 @@ data class OnlinePay(
 
     companion object {
         fun parse(o: JSONObject): OnlinePay {
-            val reason = listOf("payRejectReason", "payRejectNote", "payReject").firstNotNullOfOrNull { k -> (o.opt(k) as? String)?.takeIf { it.isNotBlank() } }.orEmpty()
+            // "পাইনি"-র কারণ: payNote (CHAMBERS-ONLINE.md); নতুন দাবি বা পরিশোধে মুছে যায়
+            val reason = listOf("payNote", "payRejectReason", "payReject").firstNotNullOfOrNull { k -> (o.opt(k) as? String)?.takeIf { it.isNotBlank() } }.orEmpty()
             return OnlinePay(
-                o.str("payState").ifBlank { "unpaid" }, o.str("payRef"), o.str("bkashNumber"), o.str("fee"), o.optBoolean("noFee"),
+                // payState null = দেওয়ার কিছু নেই (ফি নেই)
+                if (o.isNull("payState") || !o.has("payState")) "none" else o.str("payState").ifBlank { "none" }, o.str("payRef"), o.str("bkashNumber"), o.str("fee"), o.optBoolean("noFee"),
                 o.str("onlineNote"), reason, o.optBoolean("payRejected") || reason.isNotBlank(),
             )
         }
@@ -128,6 +145,17 @@ object OnlineText {
     }
 
     const val JOIN = "ভিডিও কলে যুক্ত হোন"
+    const val BKASH_24H = "নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে"
+
+    /** ফির কাজের ভুল বাংলায়: একই TrxID আবার (409), ভুল অবস্থা ইত্যাদি; বাকিগুলো সার্ভারের বার্তা */
+    fun error(e: Throwable): String {
+        val code = (e as? ServerError)?.code.orEmpty()
+        return when {
+            code.contains("trx", true) || code.contains("pay_ref", true) || code.contains("payref", true) || code == "duplicate" ->
+                tr("This TrxID was already used. Check the bKash message and enter the right one.", "এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।")
+            else -> e.message ?: tr("Something went wrong", "সমস্যা হয়েছে")
+        }
+    }
     const val WAIT = "সময় হলে এখানে বোতাম আসবে"
 }
 
@@ -142,6 +170,11 @@ object OnlineApi {
     /** ডাক্তার/সহকারী: "ফি পেয়েছি" → paid */
     suspend fun confirm(appointmentId: String) {
         call("appt_pay_confirm", JSONObject().put("appointmentId", appointmentId))
+    }
+
+    /** রোগী: ফি দিয়েছেন কিন্তু ডাক্তার কলে আসেননি — অ্যাডমিন দেখবেন */
+    suspend fun report(appointmentId: String, reason: String) {
+        call("appt_report", JSONObject().put("appointmentId", appointmentId).put("reason", reason.trim().take(300)))
     }
 
     /** ডাক্তার/সহকারী: "পাইনি" (কারণ ঐচ্ছিক) — রোগী আবার পাঠাতে পারেন */
@@ -199,7 +232,7 @@ fun ChamberModeChips(online: Boolean, onlineAllowed: Boolean, onSelect: (Boolean
 
 /** নতুন চেম্বারের ধরন বাছাই (ডাক্তার "চেম্বার যোগ করুন" চাপলে) */
 @Composable
-fun ChamberTypeDialog(onlineAllowed: Boolean, onInPerson: () -> Unit, onOnline: () -> Unit, onDismiss: () -> Unit) {
+fun ChamberTypeDialog(onlineAllowed: Boolean, inPersonAllowed: Boolean = true, onInPerson: () -> Unit, onOnline: () -> Unit, onDismiss: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     @Composable
     fun Option(icon: Int, title: String, sub: String, enabled: Boolean, onClick: () -> Unit) {
@@ -228,7 +261,7 @@ fun ChamberTypeDialog(onlineAllowed: Boolean, onInPerson: () -> Unit, onOnline: 
         title = { Text(tr("Chamber type", "চেম্বারের ধরন")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Option(R.drawable.ic_local_hospital, tr("In chamber", "চেম্বারে"), tr("At a hospital or clinic — choose it from the list", "হাসপাতাল/ক্লিনিকে — তালিকা থেকে বেছে নেবেন"), true, onInPerson)
+                Option(R.drawable.ic_local_hospital, tr("In chamber", "চেম্বারে"), if (inPersonAllowed) tr("At a hospital or clinic — choose it from the list", "হাসপাতাল/ক্লিনিকে — তালিকা থেকে বেছে নেবেন") else tr("Up to 3 chambers at a place", "জায়গায় সর্বোচ্চ ৩টা চেম্বার"), inPersonAllowed, onInPerson)
                 Option(
                     R.drawable.ic_online_video, tr("Online (video)", "অনলাইন (ভিডিও)"),
                     if (onlineAllowed) tr("Video call in the app; the fee comes to your bKash", "অ্যাপে ভিডিও কলে; ফি আসবে আপনার bKash-এ")
@@ -287,12 +320,28 @@ fun OnlineChamberFields(c: Chamber, onChange: (Chamber) -> Unit) {
         singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag("online_bkash"),
     )
+    // নম্বর বদলালে সাথে সাথে নয় — ২৪ ঘণ্টা পর চালু (ভুল/চুরি করা নম্বরে টাকা না যায়)
+    if (OnlineChambers.bkashChanged(c) || c.bkashPending.isNotBlank()) {
+        IconLine(
+            R.drawable.ic_schedule,
+            (if (c.bkashPending.isNotBlank() && !OnlineChambers.bkashChanged(c)) c.bkashPending + " — " else "") +
+                tr("The new number starts after 24 hours", OnlineText.BKASH_24H),
+            MaterialTheme.colorScheme.tertiary,
+        )
+    }
+    val phoneInNote = OnlineChambers.hasPhone(c.note)
     OutlinedTextField(
         value = c.note,
         onValueChange = { onChange(c.copy(note = it.take(OnlineChambers.NOTE_MAX))) },
         label = { Text(tr("Note for patients (optional)", "রোগীদের জন্য নোট (ঐচ্ছিক)")) },
         placeholder = { Text(tr("e.g. Keep your old reports ready", "যেমন: আগের রিপোর্টগুলো হাতের কাছে রাখবেন")) },
-        supportingText = { Text(num(c.note.length) + "/" + num(OnlineChambers.NOTE_MAX)) },
+        supportingText = {
+            Text(
+                if (phoneInNote) OnlineChambers.NOTE_PHONE
+                else tr("Only booked patients see it. No phone numbers.", "শুধু বুকিং করা রোগীরা দেখবেন। ফোন নম্বর দেবেন না।") + " " + num(c.note.length) + "/" + num(OnlineChambers.NOTE_MAX),
+            )
+        },
+        isError = phoneInNote,
         minLines = 2,
         modifier = Modifier.fillMaxWidth().testTag("online_note"),
     )
@@ -310,6 +359,8 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
     val cs = MaterialTheme.colorScheme
     var claiming by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
+    var reported by remember { mutableStateOf(false) }
     val v = pay.view
     Surface(color = cs.surfaceContainerHigh, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().testTag("online_patient_panel")) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -355,7 +406,16 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
                         SmallNote(tr("The doctor will check it in bKash and confirm.", "ডাক্তার bKash-এ মিলিয়ে নিশ্চিত করবেন।"))
                         TextButton(onClick = { claiming = true }) { Text(if (pay.ref.isBlank()) tr("Add TrxID", "TrxID দিন") else tr("Change TrxID", "TrxID বদলান")) }
                     }
-                    PayView.PAID -> IconLine(R.drawable.ic_check_circle, tr("The doctor confirmed your fee", "ডাক্তার ফি পাওয়া নিশ্চিত করেছেন"), cs.tertiary)
+                    PayView.PAID -> {
+                        IconLine(R.drawable.ic_check_circle, tr("The doctor confirmed your fee", "ডাক্তার ফি পাওয়া নিশ্চিত করেছেন"), cs.tertiary)
+                        // ফি দিয়েছেন, সময় হয়েছে, কিন্তু ডাক্তার কলে আসেননি — রিপোর্ট (appt_report)
+                        if (OnlineAppts.canReport(status, date, start, now ?: System.currentTimeMillis())) {
+                            if (reported) SmallNote(tr("Reported. Lifolo will look into it.", "রিপোর্ট পাঠানো হয়েছে। Lifolo দেখবে।"))
+                            else TextButton(onClick = { reporting = true }, modifier = Modifier.testTag("appt_report")) {
+                                Text(tr("Doctor didn't join? Report", "ডাক্তার কলে আসেননি? রিপোর্ট করুন"), color = cs.error)
+                            }
+                        }
+                    }
                     PayView.NO_FEE -> {}
                 }
                 SmallNote(tr("The money goes straight to the doctor. Lifolo doesn't hold or take any of it.", "টাকা সরাসরি ডাক্তারের কাছে যায়। Lifolo টাকা রাখে না, কিছু কাটে না।"))
@@ -366,6 +426,61 @@ fun PatientOnlinePanel(appointmentId: String, status: String, date: Long, start:
     if (claiming) {
         PayClaimDialog(appointmentId, pay.ref, onDismiss = { claiming = false }, onDone = { claiming = false; onChanged() })
     }
+    if (reporting) {
+        ApptReportDialog(appointmentId, onDismiss = { reporting = false }, onDone = { reporting = false; reported = true })
+    }
+}
+
+object OnlineAppts {
+    /** "রিপোর্ট করুন": নিশ্চিত/সম্পন্ন অ্যাপয়েন্টমেন্ট, সময় শুরু হয়ে গেছে (শুরু না থাকলে সেই দিন থেকে), ৭ দিনের মধ্যে */
+    fun canReport(status: String, date: Long, start: String, now: Long): Boolean {
+        if (status != "confirmed" && status != "completed") return false
+        val from = CallWindows.slotStart(date, start) ?: (date - Rules.DHAKA_OFFSET_MS)
+        return now >= from && now < from + 7L * 24 * 60 * 60 * 1000
+    }
+}
+
+/** রোগী: ফি দিয়েও ডাক্তার কলে আসেননি — কারণ বেছে বা লিখে রিপোর্ট */
+@Composable
+fun ApptReportDialog(appointmentId: String, onDismiss: () -> Unit, onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val reasons = listOf(
+        tr("The doctor didn't join the call", "ডাক্তার কলে আসেননি"),
+        tr("The doctor left without seeing me", "না দেখেই চলে গেছেন"),
+        tr("Took the fee, no reply", "ফি নিয়েছেন, সাড়া নেই"),
+    )
+    var pick by remember { mutableStateOf(reasons[0]) }
+    var more by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    FormDialog(
+        title = tr("Report", "রিপোর্ট করুন"),
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(tr("You paid the fee but the doctor didn't see you. Lifolo will check it.", "ফি দিয়েছেন কিন্তু ডাক্তার দেখেননি — Lifolo বিষয়টা দেখবে।"), style = MaterialTheme.typography.bodyMedium)
+                ChipRows(reasons, setOf(pick), perRow = 1, label = { it }) { pick = it }
+                OutlinedTextField(
+                    more, { more = it.take(200) },
+                    label = { Text(tr("More (optional)", "আরও কিছু (ঐচ্ছিক)")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ErrorText(errorMsg)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    busy = true
+                    errorMsg = null
+                    runCatching { OnlineApi.report(appointmentId, listOf(pick, more.trim()).filter { it.isNotBlank() }.joinToString(" — ")) }
+                        .onSuccess { onDone() }.onFailure { errorMsg = OnlineText.error(it) }
+                    busy = false
+                }
+            }, enabled = !busy) { ButtonContent(busy, tr("Send report", "রিপোর্ট পাঠান")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(tr("Cancel", "বাতিল")) } },
+    )
 }
 
 /** টাকা পাঠানোর ধাপ (পাঠানো না হলে) */
@@ -414,7 +529,11 @@ fun PayClaimDialog(appointmentId: String, initial: String, onDismiss: () -> Unit
                 scope.launch {
                     busy = true
                     errorMsg = null
-                    runCatching { OnlineApi.claim(appointmentId, trx) }.onSuccess { onDone() }.onFailure { errorMsg = it.message }
+                    if (trx.isNotEmpty() && trx.length < 6) {
+                        errorMsg = tr("A bKash TrxID has at least 6 letters/digits", "bKash-এর TrxID-তে অন্তত ৬টা অক্ষর/সংখ্যা থাকে")
+                    } else {
+                        runCatching { OnlineApi.claim(appointmentId, trx) }.onSuccess { onDone() }.onFailure { errorMsg = OnlineText.error(it) }
+                    }
                     busy = false
                 }
             }, enabled = !busy) { ButtonContent(busy, tr("Let the doctor know", "ডাক্তারকে জানান")) }
@@ -479,7 +598,7 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
                     scope.launch {
                         busy = true
                         errorMsg = null
-                        runCatching { OnlineApi.confirm(appointmentId) }.onSuccess { asking = null; onChanged() }.onFailure { errorMsg = it.message; asking = null }
+                        runCatching { OnlineApi.confirm(appointmentId) }.onSuccess { asking = null; onChanged() }.onFailure { errorMsg = OnlineText.error(it); asking = null }
                         busy = false
                     }
                 }, enabled = !busy) { ButtonContent(busy, tr("Yes, received", "হ্যাঁ, পেয়েছি")) }
@@ -507,7 +626,7 @@ fun StaffOnlinePanel(appointmentId: String, status: String, date: Long, start: S
                         scope.launch {
                             busy = true
                             errorMsg = null
-                            runCatching { OnlineApi.reject(appointmentId, reason) }.onSuccess { asking = null; onChanged() }.onFailure { errorMsg = it.message; asking = null }
+                            runCatching { OnlineApi.reject(appointmentId, reason) }.onSuccess { asking = null; onChanged() }.onFailure { errorMsg = OnlineText.error(it); asking = null }
                             busy = false
                         }
                     }, enabled = !busy) { ButtonContent(busy, tr("Tell the patient", "রোগীকে জানান")) }

@@ -433,7 +433,7 @@ fun ProviderDetailDialog(p: Provider, profile: Profile, onDismiss: () -> Unit, o
                         R.drawable.ic_online_video to tr("Video call in the app — no need to travel", "অ্যাপে ভিডিও কলে — কোথাও যেতে হবে না"),
                         R.drawable.ic_schedule to c.timeText,
                         R.drawable.ic_payments to if (c.noFee) c.feeText else listOf(c.feeText, tr("by bKash after booking", "বুকিংয়ের পরে bKash-এ")).filter { it.isNotBlank() }.joinToString(" · "),
-                        R.drawable.ic_info to c.note,
+                        // নোট শুধু বুকিং করা রোগীরা দেখেন (সার্ভারের নিয়ম) — এখানে নয়
                     ) else listOf(
                         R.drawable.ic_location_on to c.area,
                         R.drawable.ic_info to if (c.room.isNotBlank()) tr("Room: ", "রুম: ") + c.room else "",
@@ -1130,9 +1130,10 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
                     onlineAllowed = chambers.none { it.online && it !== c },
                 )
             }
-            if (chambers.size < 3) {
+            // জায়গায় সর্বোচ্চ ৩টা, তার বাইরে অনলাইন একটা (ডাক্তার)
+            if (chambers.count { !it.online } < 3 || (type == "doctor" && chambers.none { it.online })) {
                 // ডাক্তার: হাসপাতালের তালিকা থেকে; পুষ্টিবিদ/ট্রেইনার: নিজের জায়গা লিখে (হাসপাতালে বসেন না)
-                OutlinedButton(onClick = { if (type == "doctor") choosingType = true else chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { if (type == "doctor") choosingType = true else if (chambers.size < 3) chambers.add(Chamber.customNew(profile.placeName ?: "")) }, modifier = Modifier.fillMaxWidth()) {
                     ButtonContent(false, tr("Add chamber", "চেম্বার যোগ করুন"), R.drawable.ic_add)
                 }
             }
@@ -1330,6 +1331,7 @@ fun ChamberEditScreen(type: String, profile: Profile, onBack: () -> Unit, embedd
     if (choosingType) {
         ChamberTypeDialog(
             onlineAllowed = chambers.none { it.online },
+            inPersonAllowed = chambers.count { !it.online } < 3,
             onInPerson = { choosingType = false; pickFor = -1 },
             onOnline = { choosingType = false; chambers.add(Chamber.onlineNew().copy(appointments = true)) },
             onDismiss = { choosingType = false },

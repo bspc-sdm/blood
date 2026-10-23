@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -91,6 +92,13 @@ class OnlineChamberScreensTest {
         assertEquals("রোগীরা যে bKash নম্বরে ফি পাঠাবেন, সেটা দিন", OnlineChambers.problem(c, demo = false))
         assertEquals("সঠিক bKash নম্বর দিন (01XXXXXXXXX)", OnlineChambers.problem(c.copy(bkashNumber = "0171"), demo = false))
         assertNull(OnlineChambers.problem(c.copy(bkashNumber = "01711223344"), demo = false))
+        // ফিতে টাকার অঙ্ক লাগে
+        assertEquals("অনলাইন চেম্বারের ফি লিখুন (টাকা)", OnlineChambers.problem(c.copy(fee = "আলোচনা সাপেক্ষে", bkashNumber = "01711223344"), demo = false))
+        // নোটে ফোন নম্বর নয়
+        assertTrue(OnlineChambers.hasPhone("কল দিন ০১৭১১-২২৩৩৪৪"))
+        assertTrue(OnlineChambers.hasPhone("call 01711 223 344"))
+        assertFalse(OnlineChambers.hasPhone("রিপোর্ট ২০২৫ সালের, ১০ মিনিট আগে আসুন"))
+        assertEquals("নোটে ফোন নম্বর দেওয়া যাবে না", OnlineChambers.problem(c.copy(bkashNumber = "01711223344", note = "জরুরি হলে 01711223344"), demo = false))
         // ফি না নিলে নম্বর লাগে না
         assertNull(OnlineChambers.problem(c.copy(noFee = true, fee = ""), demo = false))
         // চেম্বারে (হাসপাতালে) bKash দেখা হয় না
@@ -114,6 +122,10 @@ class OnlineChamberScreensTest {
         val back = Chamber.parse(JSONObject(o.toString()).put("hospitalName", OnlineChambers.NAME_EN).put("hospitalNameBn", OnlineChambers.NAME_BN))
         assertTrue(back.online)
         assertEquals("01711223344", back.bkashNumber)
+        assertFalse(OnlineChambers.bkashChanged(back))
+        assertTrue(OnlineChambers.bkashChanged(back.copy(bkashNumber = "01811223344")))
+        // সেভ করা নম্বর সার্ভারে যায় না
+        assertFalse(back.toJson().has("bkashSaved"))
         assertEquals(OnlineChambers.NAME_BN, back.label)
         assertEquals("অনলাইন (ভিডিও)", ChamberClock.place(back))
         // পুরোনো চেম্বার (mode নেই) = চেম্বারে, আর তার JSON-এ mode যায় না
@@ -129,10 +141,13 @@ class OnlineChamberScreensTest {
         assertEquals(PayView.CLAIMED, p.view)
         assertEquals("8N7A6B", p.ref)
         assertEquals("৳৫০০", p.feeShort)
-        assertEquals(PayView.UNPAID, OnlinePay.parse(JSONObject()).view)
+        // payState null = দেওয়ার কিছু নেই
+        assertEquals(PayView.NO_FEE, OnlinePay.parse(JSONObject()).view)
+        assertEquals(PayView.NO_FEE, OnlinePay.parse(JSONObject().put("payState", JSONObject.NULL)).view)
+        assertEquals(PayView.UNPAID, OnlinePay.parse(JSONObject().put("payState", "unpaid")).view)
         assertEquals(PayView.PAID, OnlinePay.parse(JSONObject().put("payState", "paid")).view)
         assertEquals(PayView.NO_FEE, OnlinePay.parse(JSONObject().put("payState", "unpaid").put("noFee", true)).view)
-        val r = OnlinePay.parse(JSONObject().put("payState", "unpaid").put("payRejectReason", "TrxID মেলেনি"))
+        val r = OnlinePay.parse(JSONObject().put("payState", "unpaid").put("payNote", "TrxID মেলেনি"))
         assertEquals(PayView.REJECTED, r.view)
         assertEquals("TrxID মেলেনি", r.rejectReason)
         assertEquals(PayView.REJECTED, OnlinePay.parse(JSONObject().put("payState", "rejected")).view)
@@ -159,6 +174,19 @@ class OnlineChamberScreensTest {
         rule.onNodeWithTag("online_bkash").assertExists()
         rule.onNodeWithTag("online_note").assertExists()
         shot("online_chamber_setup_360_bn")
+    }
+
+    @Test
+    fun setupBkashChanged() {
+        show {
+            ChamberEditor(
+                Chamber.onlineNew().copy(fee = "500", bkashNumber = "01811223344", bkashSaved = "01711223344", note = "ফোন 01711223344"),
+                onChange = {}, onChangeHospital = {}, onRemove = {}, onMode = {},
+            )
+        }
+        rule.onNodeWithText("নতুন নম্বর ২৪ ঘণ্টা পর চালু হবে").assertExists()
+        rule.onNodeWithText("নোটে ফোন নম্বর দেওয়া যাবে না").assertExists()
+        shot("online_chamber_bkash_change_360_bn")
     }
 
     @Test
@@ -195,6 +223,10 @@ class OnlineChamberScreensTest {
         rule.onNodeWithTag("pay_trxid").assertExists()
         rule.onNodeWithText("ডাক্তারকে জানান").assertIsEnabled()
         shot("online_patient_claim_dialog_360_bn")
+        // ছোট TrxID: পাঠানোর আগেই বলা
+        rule.onNodeWithTag("pay_trxid").performTextInput("AB12")
+        rule.onNodeWithText("ডাক্তারকে জানান").performClick()
+        rule.onNodeWithText("bKash-এর TrxID-তে অন্তত ৬টা অক্ষর/সংখ্যা থাকে").assertExists()
     }
 
     @Test
@@ -210,6 +242,24 @@ class OnlineChamberScreensTest {
         rule.onNodeWithText("ডাক্তার টাকা পাননি: TrxID মেলেনি").assertExists()
         rule.onNodeWithText("আবার পাঠিয়েছি").assertExists()
         shot("online_patient_states_360_bn")
+    }
+
+    @Test
+    fun patientReport() {
+        // ফি দেওয়া, সময় শুরু হয়ে গেছে → "রিপোর্ট করুন"; শুরুর আগে নেই
+        assertTrue(OnlineAppts.canReport("confirmed", date, "17:00", slot + 30 * min))
+        assertFalse(OnlineAppts.canReport("confirmed", date, "17:00", slot - 30 * min))
+        assertFalse(OnlineAppts.canReport("pending", date, "17:00", slot + 30 * min))
+        show { PatientOnlinePanel("a1", "confirmed", date, "17:00", unpaid.copy(state = "paid"), onChanged = {}, now = slot + 30 * min) }
+        rule.onNodeWithTag("appt_report").performClick()
+        rule.onNodeWithText("রিপোর্ট পাঠান").assertExists()
+        shot("online_patient_report_360_bn")
+    }
+
+    @Test
+    fun trxReuseMessage() {
+        assertEquals("এই TrxID আগেই ব্যবহার হয়েছে। bKash-এর মেসেজ দেখে সঠিক TrxID দিন।", OnlineText.error(ServerError("x", "trx_used")))
+        assertEquals("সার্ভারের বার্তা", OnlineText.error(ServerError("সার্ভারের বার্তা", "state")))
     }
 
     // ---------------- ডাক্তার/সহকারী ----------------
