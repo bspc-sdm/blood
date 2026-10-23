@@ -1,0 +1,13 @@
+commit=529235d7ba209435f8f0464492d223d463eba0d3
+branch=release-check
+version=2.36.0
+code=124
+job=success
+signed=release
+apk_cert=076E13D0F90A228186AE53155455FDC6A048729B758EDAAF5232A3F92C196943
+aab_cert=076E13D0F90A228186AE53155455FDC6A048729B758EDAAF5232A3F92C196943
+target=36
+debuggable=no
+dl_url=
+inet=
+public=

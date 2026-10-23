@@ -1,0 +1,31 @@
+j28-consent rc=0 98s
+j3-pharmacy rc=1 163s
+j1-patient rc=1 80s
+j2-services rc=0 131s
+j4-lab rc=0 60s
+j5-doctor rc=0 82s
+j6-ambulance rc=0 64s
+j7-blood rc=0 48s
+j8-profile rc=0 93s
+j9-rx-online rc=0 123s
+j10-blood rc=0 103s
+j11-ambulance-driver rc=0 102s
+j12-appointments rc=0 109s
+j13-notify-settings rc=0 110s
+j14-account-delete rc=0 79s
+j15-account-pause rc=0 150s
+j16-online-chamber rc=1 125s
+j17-calls rc=0 143s
+j18-chat rc=1 122s
+j19-invoice-pharmacy rc=0 91s
+j20-invoice-patient rc=0 61s
+j21-invoice-driver rc=1 90s
+j22-pay-patient rc=0 52s
+j23-pay-due rc=0 67s
+j24-pay-business rc=0 66s
+j25-practice-search rc=0 78s
+j26-practice-rx rc=0 95s
+j27-practice-psych rc=0 58s
+notify: 39 pass, 0 fail
+n-notify 1385s
+sha=529235d7ba209435f8f0464492d223d463eba0d3

@@ -1,0 +1,4 @@
+total 40844
+-rw-r--r-- 1 runner runner 41814808 Oct 23 19:53 app-releaseSmoke.apk
+drwxr-xr-x 4 runner runner     4096 Oct 23 19:53 baselineProfiles
+-rw-r--r-- 1 runner runner      727 Oct 23 19:53 output-metadata.json

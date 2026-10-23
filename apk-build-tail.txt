@@ -1,0 +1,18 @@
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:222:104 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:232:61 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Prescriptions.kt:539:32 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Rules.kt:141:63 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac
+--
+BUILD SUCCESSFUL in 5m 48s
+50 actionable tasks: 50 executed
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+--
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac
+--
+BUILD SUCCESSFUL in 4m 34s
+50 actionable tasks: 16 executed, 34 up-to-date

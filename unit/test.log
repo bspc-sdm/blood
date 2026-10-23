@@ -1,0 +1,1543 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:processDebugJavaRes
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+
+AccountScreensTest > deactivateWhileDeletionPendingShowsTheReason STARTED
+
+AccountScreensTest > deactivateWhileDeletionPendingShowsTheReason PASSED
+
+AccountScreensTest > deleteFailureShowsTheServerMessageAndStaysLoggedIn STARTED
+
+AccountScreensTest > deleteFailureShowsTheServerMessageAndStaysLoggedIn PASSED
+
+AccountScreensTest > deleteScreenEnglish STARTED
+
+AccountScreensTest > deleteScreenEnglish PASSED
+
+AccountScreensTest > deleteNeedsTheTickThenExplainsWhatHappensNext STARTED
+
+OpenGLRenderer W 10-23 19:36:40  2965  3008 Trying to start new animators on 0x7f33eb63c420 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+AccountScreensTest > deleteNeedsTheTickThenExplainsWhatHappensNext PASSED
+
+AccountScreensTest > deleteFromThePausedScreenHasNoPauseOption STARTED
+
+AccountScreensTest > deleteFromThePausedScreenHasNoPauseOption PASSED
+
+AccountScreensTest > pausedScreenReactivateFailureStaysBlocked STARTED
+
+AccountScreensTest > pausedScreenReactivateFailureStaysBlocked PASSED
+
+AccountScreensTest > pausedScreenReactivates STARTED
+
+AccountScreensTest > pausedScreenReactivates PASSED
+
+AccountScreensTest > deactivateExplainsThenPausesAndLogsOut STARTED
+
+AccountScreensTest > deactivateExplainsThenPausesAndLogsOut PASSED
+
+AccountScreensTest > deletionCancelledBanner STARTED
+
+AccountScreensTest > deletionCancelledBanner PASSED
+
+AccountStateTest > reactivateCountsAsOnEvenIfTheAnswerHasNoState STARTED
+
+AccountStateTest > reactivateCountsAsOnEvenIfTheAnswerHasNoState PASSED
+
+AccountStateTest > logoutClearsTheState STARTED
+
+AccountStateTest > logoutClearsTheState PASSED
+
+AccountStateTest > error423BlocksTheApp STARTED
+
+AccountStateTest > error423BlocksTheApp PASSED
+
+AccountStateTest > deleteDateIsThirtyDaysOnTheDhakaCalendar STARTED
+
+AccountStateTest > deleteDateIsThirtyDaysOnTheDhakaCalendar PASSED
+
+AccountStateTest > blockedOnlyWhenLoggedInAndDeactivated STARTED
+
+AccountStateTest > blockedOnlyWhenLoggedInAndDeactivated PASSED
+
+AccountStateTest > parsesTheServerAccountObject STARTED
+
+AccountStateTest > parsesTheServerAccountObject PASSED
+
+AccountStateTest > unknownOrMissingAccountIsNull STARTED
+
+AccountStateTest > unknownOrMissingAccountIsNull PASSED
+
+AccountStateTest > error423AfterLogoutIsIgnored STARTED
+
+AccountStateTest > error423AfterLogoutIsIgnored PASSED
+
+AccountStateTest > carePausedHasAFullMessage_othersKeepTheServerText STARTED
+
+AccountStateTest > carePausedHasAFullMessage_othersKeepTheServerText PASSED
+
+AccountStateTest > profileOrLoginAnswerSetsTheState_oldServerKeepsIt STARTED
+
+AccountStateTest > profileOrLoginAnswerSetsTheState_oldServerKeepsIt PASSED
+
+AccountStateTest > staleError423FromBeforeReactivationIsIgnored STARTED
+
+AccountStateTest > staleError423FromBeforeReactivationIsIgnored PASSED
+
+AmbRequestScreensTest > requestSheetErrors360 STARTED
+
+OpenGLRenderer W 10-23 19:36:53  3089  3120 Trying to start new animators on 0x7f98ff743b80 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+AmbRequestScreensTest > requestSheetErrors360 PASSED
+
+AmbRequestScreensTest > requestSheet360 STARTED
+
+AmbRequestScreensTest > requestSheet360 PASSED
+
+AmbRequestScreensTest > requestSheet412 STARTED
+
+AmbRequestScreensTest > requestSheet412 PASSED
+
+AmbRequestScreensTest > requestSheet480 STARTED
+
+AmbRequestScreensTest > requestSheet480 PASSED
+
+CallsTest > durationText STARTED
+
+CallsTest > durationText PASSED
+
+CallsTest > appointmentCallRoute STARTED
+
+CallsTest > appointmentCallRoute PASSED
+
+CallsTest > outgoingDeclinedOrUnanswered STARTED
+
+CallsTest > outgoingDeclinedOrUnanswered PASSED
+
+CallsTest > secondCallWhileBusyIsIgnored STARTED
+
+CallsTest > secondCallWhileBusyIsIgnored PASSED
+
+CallsTest > incomingPushRingsOnceAndStateClears STARTED
+
+CallsTest > incomingPushRingsOnceAndStateClears STANDARD_ERROR
+    Exception in thread "DefaultDispatcher-worker-1 @coroutine#2" java.lang.IllegalStateException: Default FirebaseApp is not initialized in this process com.bspc.blood. Make sure to call FirebaseApp.initializeApp(Context) first.
+    	at com.google.firebase.FirebaseApp.getInstance(FirebaseApp.java:179)
+    	at com.google.firebase.auth.FirebaseAuth.getInstance(com.google.firebase:firebase-auth@@23.1.0:283)
+    	at com.bspc.blood.AuthRepository.getAuth(Repositories.kt:16)
+    	at com.bspc.blood.AuthRepository.getCurrentUid(Repositories.kt:18)
+    	at com.bspc.blood.Features.refresh(Features.kt:149)
+    	at com.bspc.blood.Features$refreshSoon$1.invokeSuspend(Features.kt:161)
+    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:101)
+    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:113)
+    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:589)
+    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:823)
+    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:720)
+    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
+    	Suppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [CoroutineId(2), "coroutine#2":StandaloneCoroutine{Cancelling}@4b83acb9, Dispatchers.IO]
+
+CallsTest > incomingPushRingsOnceAndStateClears PASSED
+
+CallsTest > reconnectAndAudioFallback STARTED
+
+CallsTest > reconnectAndAudioFallback PASSED
+
+CallsTest > lockScreenShowsFirstNameOnly STARTED
+
+CallsTest > lockScreenShowsFirstNameOnly PASSED
+
+CallsTest > incomingAcceptAndCallerCancels STARTED
+
+CallsTest > incomingAcceptAndCallerCancels PASSED
+
+CallsTest > failuresHideButtonsAndOfferPhone STARTED
+
+CallsTest > failuresHideButtonsAndOfferPhone PASSED
+
+CallsTest > appointmentWindows STARTED
+
+CallsTest > appointmentWindows PASSED
+
+CallsTest > parsesServerReplies STARTED
+
+CallsTest > parsesServerReplies PASSED
+
+CallsTest > appointmentWaitingRoom STARTED
+
+CallsTest > appointmentWaitingRoom PASSED
+
+CallsTest > audioCallUpgradesToVideoOnlyWithConsent STARTED
+
+CallsTest > audioCallUpgradesToVideoOnlyWithConsent PASSED
+
+CallsTest > outgoingAnsweredThenRemoteHangsUp STARTED
+
+CallsTest > outgoingAnsweredThenRemoteHangsUp PASSED
+
+ChatTest > parsesThreads STARTED
+
+ChatTest > parsesThreads PASSED
+
+ChatTest > unreadIsZeroWhileChatIsOff STARTED
+
+ChatTest > unreadIsZeroWhileChatIsOff PASSED
+
+ChatTest > mergeKeepsReadReceiptAndOrdersByTime STARTED
+
+ChatTest > mergeKeepsReadReceiptAndOrdersByTime PASSED
+
+ChatTest > queuedMessageReplacedByServerCopyWithSameClientId STARTED
+
+ChatTest > queuedMessageReplacedByServerCopyWithSameClientId PASSED
+
+ChatTest > readUpToOnlyNewerPeerMessages STARTED
+
+ChatTest > readUpToOnlyNewerPeerMessages PASSED
+
+ChatTest > unsendOnlyOwnWithinTenMinutes STARTED
+
+ChatTest > unsendOnlyOwnWithinTenMinutes PASSED
+
+ChatTest > queuedItemSurvivesRestart STARTED
+
+ChatTest > queuedItemSurvivesRestart PASSED
+
+ChatTest > banglaErrorsAndRetry STARTED
+
+ChatTest > banglaErrorsAndRetry PASSED
+
+ChatTest > pushShowsOneNotificationPerThreadWithReply STARTED
+
+ChatTest > pushShowsOneNotificationPerThreadWithReply PASSED
+
+ChatTest > ticks STARTED
+
+ChatTest > ticks PASSED
+
+ChatTest > lockScreenTextHasNoMessage STARTED
+
+ChatTest > lockScreenTextHasNoMessage PASSED
+
+ChatTest > moneyWarnAndReportReason STARTED
+
+ChatTest > moneyWarnAndReportReason PASSED
+
+ChatTest > parsesOpenPageAndMessages STARTED
+
+ChatTest > parsesOpenPageAndMessages PASSED
+
+ChatTest > openChatNeedsRefIdAndSetsTarget STARTED
+
+ChatTest > openChatNeedsRefIdAndSetsTarget PASSED
+
+ChatTest > textLimits STARTED
+
+ChatTest > textLimits PASSED
+
+ConsentScreensTest > readsTheServerText STARTED
+
+ConsentScreensTest > readsTheServerText PASSED
+
+ConsentScreensTest > serverErrorCarriesTheConsentFields STARTED
+
+ConsentScreensTest > serverErrorCarriesTheConsentFields PASSED
+
+ConsentScreensTest > consentScreen STARTED
+
+ConsentScreensTest > consentScreen PASSED
+
+ConsentScreensTest > notGivenSettingsOffersConsent STARTED
+
+ConsentScreensTest > notGivenSettingsOffersConsent PASSED
+
+ConsentScreensTest > askWaitsForTheAnswer STARTED
+
+ConsentScreensTest > askWaitsForTheAnswer PASSED
+
+ConsentScreensTest > privacySettingsAndWithdraw STARTED
+
+OpenGLRenderer W 10-23 19:37:13  3247  3278 Trying to start new animators on 0x7f3ead3d7d40 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ConsentScreensTest > privacySettingsAndWithdraw PASSED
+
+ConsentScreensTest > fullTextIsReadOnlyWhenGiven STARTED
+
+ConsentScreensTest > fullTextIsReadOnlyWhenGiven PASSED
+
+DoctorSheetScreensTest > chamberStateAtDhakaTimes STARTED
+
+DoctorSheetScreensTest > chamberStateAtDhakaTimes PASSED
+
+DoctorSheetScreensTest > sheet360 STARTED
+
+OpenGLRenderer W 10-23 19:37:23  3314  3345 Trying to start new animators on 0x7f180b04edb0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:37:23  3314  3345 Trying to start new animators on 0x7f180b04edb0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+DoctorSheetScreensTest > sheet360 PASSED
+
+DoctorSheetScreensTest > sheet412 STARTED
+
+OpenGLRenderer W 10-23 19:37:24  3314  3345 Trying to start new animators on 0x7f1831e35300 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:37:25  3314  3345 Trying to start new animators on 0x7f183215a350 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+DoctorSheetScreensTest > sheet412 PASSED
+
+DoctorSheetScreensTest > singleChamber360 STARTED
+
+DoctorSheetScreensTest > singleChamber360 PASSED
+
+DoctorSheetScreensTest > card360 STARTED
+
+DoctorSheetScreensTest > card360 PASSED
+
+DonorCardScreensTest > donorCallMenu360Bn STARTED
+
+OpenGLRenderer W 10-23 19:37:33  3397  3429 Trying to start new animators on 0x7f45335badb0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+DonorCardScreensTest > donorCallMenu360Bn STANDARD_OUT
+    View.captureToImage Could not find window for view. Falling back to View#draw instead of PixelCopy(If you are using Material3 dialogs, this is expected).
+
+DonorCardScreensTest > donorCallMenu360Bn PASSED
+
+DonorCardScreensTest > donorCallMenu360En STARTED
+
+OpenGLRenderer W 10-23 19:37:34  3397  3429 Trying to start new animators on 0x7f45167c70e0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+DonorCardScreensTest > donorCallMenu360En STANDARD_OUT
+    View.captureToImage Could not find window for view. Falling back to View#draw instead of PixelCopy(If you are using Material3 dialogs, this is expected).
+
+DonorCardScreensTest > donorCallMenu360En PASSED
+
+DonorCardScreensTest > donorPhoneOnly360Bn STARTED
+
+DonorCardScreensTest > donorPhoneOnly360Bn PASSED
+
+DonorCardScreensTest > donorCardDetail360Bn STARTED
+
+DonorCardScreensTest > donorCardDetail360Bn PASSED
+
+DonorCardScreensTest > donorCardDetail360En STARTED
+
+DonorCardScreensTest > donorCardDetail360En PASSED
+
+DonorCardScreensTest > donorCardHome360Bn STARTED
+
+DonorCardScreensTest > donorCardHome360Bn PASSED
+
+DonorCardScreensTest > donorCardHome360En STARTED
+
+DonorCardScreensTest > donorCardHome360En PASSED
+
+FeaturesTest > parsesTheServerAnswer STARTED
+
+FeaturesTest > parsesTheServerAnswer PASSED
+
+FeaturesTest > theLastKeysSurviveARestart STARTED
+
+FeaturesTest > theLastKeysSurviveARestart PASSED
+
+FeaturesTest > offByDefaultAndOnAfterSet STARTED
+
+FeaturesTest > offByDefaultAndOnAfterSet PASSED
+
+FeaturesTest > soonText STARTED
+
+FeaturesTest > soonText PASSED
+
+FeaturesTest > knowsTheServerFeatureOffError STARTED
+
+FeaturesTest > knowsTheServerFeatureOffError PASSED
+
+InvoicesTest > moneyAndDigits STARTED
+
+InvoicesTest > moneyAndDigits PASSED
+
+InvoicesTest > verifyCodes STARTED
+
+InvoicesTest > verifyCodes PASSED
+
+InvoicesTest > labels STARTED
+
+InvoicesTest > labels PASSED
+
+InvoicesTest > months STARTED
+
+InvoicesTest > months PASSED
+
+InvoicesTest > notificationsAndLinks STARTED
+
+InvoicesTest > notificationsAndLinks PASSED
+
+InvoicesTest > lineDrafts STARTED
+
+InvoicesTest > lineDrafts PASSED
+
+InvoicesTest > parseInvoice STARTED
+
+InvoicesTest > parseInvoice PASSED
+
+InvoicesTest > formMath STARTED
+
+InvoicesTest > formMath PASSED
+
+InvoicesTest > pagesChecksExpenses STARTED
+
+InvoicesTest > pagesChecksExpenses PASSED
+
+InvoicesTest > requestBodies STARTED
+
+InvoicesTest > requestBodies PASSED
+
+InvoicesTest > dateDigitsFollowToggle STARTED
+
+InvoicesTest > dateDigitsFollowToggle PASSED
+
+InvoicesTest > reviewRules STARTED
+
+InvoicesTest > reviewRules PASSED
+
+InvoicesTest > featuresAndApiUpdates STARTED
+
+InvoicesTest > featuresAndApiUpdates PASSED
+
+ListingsScreensTest > emptyStateBn STARTED
+
+ListingsScreensTest > emptyStateBn PASSED
+
+ListingsScreensTest > emptyStateEn STARTED
+
+ListingsScreensTest > emptyStateEn PASSED
+
+ListingsScreensTest > labListBn STARTED
+
+ListingsScreensTest > labListBn PASSED
+
+ListingsScreensTest > labListEn STARTED
+
+ListingsScreensTest > labListEn PASSED
+
+ListingsScreensTest > ambulanceListBn STARTED
+
+ListingsScreensTest > ambulanceListBn PASSED
+
+ListingsScreensTest > ambulanceListEn STARTED
+
+ListingsScreensTest > ambulanceListEn PASSED
+
+ListingsScreensTest > bloodBankDetailBn STARTED
+
+ListingsScreensTest > bloodBankDetailBn PASSED
+
+ListingsScreensTest > bloodBankDetailEn STARTED
+
+ListingsScreensTest > bloodBankDetailEn PASSED
+
+ListingsScreensTest > pharmacyListBn STARTED
+
+ListingsScreensTest > pharmacyListBn PASSED
+
+ListingsScreensTest > pharmacyListEn STARTED
+
+ListingsScreensTest > pharmacyListEn PASSED
+
+ListingsScreensTest > ambulanceDetailBn STARTED
+
+ListingsScreensTest > ambulanceDetailBn PASSED
+
+ListingsScreensTest > ambulanceDetailEn STARTED
+
+ListingsScreensTest > ambulanceDetailEn PASSED
+
+ListingsScreensTest > bloodBankCardOpensDetail STARTED
+
+OpenGLRenderer W 10-23 19:37:57  3589  3621 Trying to start new animators on 0x7f91128936a0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ListingsScreensTest > bloodBankCardOpensDetail PASSED
+
+ListingsScreensTest > bloodBankListBn STARTED
+
+ListingsScreensTest > bloodBankListBn PASSED
+
+ListingsScreensTest > bloodBankListEn STARTED
+
+ListingsScreensTest > bloodBankListEn PASSED
+
+ListingsScreensTest > doctorDetailBn STARTED
+
+ListingsScreensTest > doctorDetailBn PASSED
+
+ListingsScreensTest > doctorDetailEn STARTED
+
+ListingsScreensTest > doctorDetailEn PASSED
+
+ListingsScreensTest > loadingSkeletonBn STARTED
+
+ListingsScreensTest > loadingSkeletonBn PASSED
+
+ListingsScreensTest > doctorListBn STARTED
+
+ListingsScreensTest > doctorListBn PASSED
+
+ListingsScreensTest > doctorListEn STARTED
+
+ListingsScreensTest > doctorListEn PASSED
+
+ListingsScreensTest > labDetailBn STARTED
+
+ListingsScreensTest > labDetailBn PASSED
+
+ListingsScreensTest > labDetailEn STARTED
+
+ListingsScreensTest > labDetailEn PASSED
+
+ListingsScreensTest > pharmacyDetailBn STARTED
+
+ListingsScreensTest > pharmacyDetailBn PASSED
+
+ListingsScreensTest > pharmacyDetailEn STARTED
+
+ListingsScreensTest > pharmacyDetailEn PASSED
+
+ListingsTest > sorting STARTED
+
+ListingsTest > sorting PASSED
+
+ListingsTest > ratingSummaryWinsOverOldRating STARTED
+
+ListingsTest > ratingSummaryWinsOverOldRating PASSED
+
+ListingsTest > doctorCardKeyLine STARTED
+
+ListingsTest > doctorCardKeyLine PASSED
+
+ListingsTest > doctorNextSlotFallback STARTED
+
+ListingsTest > doctorNextSlotFallback PASSED
+
+ListingsTest > englishCopy STARTED
+
+ListingsTest > englishCopy PASSED
+
+ListingsTest > stockAndStaleness STARTED
+
+ListingsTest > stockAndStaleness PASSED
+
+ListingsTest > slotBadges STARTED
+
+ListingsTest > slotBadges PASSED
+
+ListingsTest > workQueueSegments STARTED
+
+ListingsTest > workQueueSegments PASSED
+
+ListingsTest > pharmacyCardKeyLine STARTED
+
+ListingsTest > pharmacyCardKeyLine PASSED
+
+ListingsTest > labCardKeyLine STARTED
+
+ListingsTest > labCardKeyLine PASSED
+
+ListingsTest > timesInAnyForm STARTED
+
+ListingsTest > timesInAnyForm PASSED
+
+ListingsTest > backendFinalNames STARTED
+
+ListingsTest > backendFinalNames PASSED
+
+ListingsTest > bloodBankCardStock STARTED
+
+ListingsTest > bloodBankCardStock PASSED
+
+ListingsTest > unknownActionHidesSwitch STARTED
+
+ListingsTest > unknownActionHidesSwitch PASSED
+
+ListingsTest > ambulanceCardKeyLine STARTED
+
+ListingsTest > ambulanceCardKeyLine PASSED
+
+ListingsTest > searching STARTED
+
+ListingsTest > searching PASSED
+
+ListingsTest > banglaDigitsEverywhere STARTED
+
+ListingsTest > banglaDigitsEverywhere PASSED
+
+ListingsTest > missingFieldsAreNull STARTED
+
+ListingsTest > missingFieldsAreNull PASSED
+
+MapsLinkTest > parsesLinksAndText STARTED
+
+MapsLinkTest > parsesLinksAndText PASSED
+
+MedFindQtyScreensTest > qtyPicker360Bn STARTED
+
+OpenGLRenderer W 10-23 19:38:13  3788  3820 Trying to start new animators on 0x7f512364c360 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+MedFindQtyScreensTest > qtyPicker360Bn PASSED
+
+MedFindQtyScreensTest > qtyPicker360En STARTED
+
+MedFindQtyScreensTest > qtyPicker360En PASSED
+
+MedFindQtyScreensTest > pharmacyDismissAndChange360Bn STARTED
+
+MedFindQtyScreensTest > pharmacyDismissAndChange360Bn PASSED
+
+MedFindQtyScreensTest > pharmacyAnswer360Bn STARTED
+
+MedFindQtyScreensTest > pharmacyAnswer360Bn PASSED
+
+MedFindQtyScreensTest > pharmacyAnswer360En STARTED
+
+MedFindQtyScreensTest > pharmacyAnswer360En PASSED
+
+MedFindQtyScreensTest > qtyPickerSyrupBottle360Bn STARTED
+
+MedFindQtyScreensTest > qtyPickerSyrupBottle360Bn PASSED
+
+MedFindQtyScreensTest > unitsTextsAndParsing STARTED
+
+MedFindQtyScreensTest > unitsTextsAndParsing PASSED
+
+MedFindQtyScreensTest > myFindReplies360Bn STARTED
+
+MedFindQtyScreensTest > myFindReplies360Bn PASSED
+
+MedFindQtyScreensTest > myFindReplies360En STARTED
+
+MedFindQtyScreensTest > myFindReplies360En PASSED
+
+NotifyCatsTest > everyOldServerPushTypeHasACategory STARTED
+
+NotifyCatsTest > everyOldServerPushTypeHasACategory PASSED
+
+NotifyCatsTest > prefs STARTED
+
+NotifyCatsTest > prefs PASSED
+
+NotifyCatsTest > channelPerCategory STARTED
+
+NotifyCatsTest > channelPerCategory PASSED
+
+NotifyCatsTest > serverCatWins STARTED
+
+NotifyCatsTest > serverCatWins PASSED
+
+NotifyCatsTest > unknownOrBlankCatFallsBackToType STARTED
+
+NotifyCatsTest > unknownOrBlankCatFallsBackToType PASSED
+
+NotifyChannelsTest > channelsCreatedAndOldOneRemoved STARTED
+
+NotifyChannelsTest > channelsCreatedAndOldOneRemoved PASSED
+
+NotifyRouteTest > everyServerPushType STARTED
+
+NotifyRouteTest > everyServerPushType PASSED
+
+NotifyRouteTest > demoPhonesOnlyForDemoAccounts STARTED
+
+NotifyRouteTest > demoPhonesOnlyForDemoAccounts PASSED
+
+NotifyRouteTest > notificationCarriesAllRoutingData STARTED
+
+NotifyRouteTest > notificationCarriesAllRoutingData PASSED
+
+NotifyRouteTest > cancellationIsNotAFailure STARTED
+
+NotifyRouteTest > cancellationIsNotAFailure PASSED
+
+OnlineChamberScreensTest > staffConfirm STARTED
+
+OpenGLRenderer W 10-23 19:38:29  3960  3992 Trying to start new animators on 0x7f717a7936f0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:29  3960  3992 Trying to start new animators on 0x7f7170a02350 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:29  3960  3992 Trying to start new animators on 0x7f717a7f06e0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:29  3960  3992 Trying to start new animators on 0x7f717a7f12d0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+OnlineChamberScreensTest > staffConfirm PASSED
+
+OnlineChamberScreensTest > bkashValidation STARTED
+
+OnlineChamberScreensTest > bkashValidation PASSED
+
+OnlineChamberScreensTest > patientReport STARTED
+
+OpenGLRenderer W 10-23 19:38:30  3960  3992 Trying to start new animators on 0x7f717abcc620 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:31  3960  3992 Trying to start new animators on 0x7f717a7f0760 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+OnlineChamberScreensTest > patientReport PASSED
+
+OnlineChamberScreensTest > staffPaidAndUnpaid STARTED
+
+OnlineChamberScreensTest > staffPaidAndUnpaid PASSED
+
+OnlineChamberScreensTest > patientStates STARTED
+
+OnlineChamberScreensTest > patientStates PASSED
+
+OnlineChamberScreensTest > patientUnpaid STARTED
+
+OnlineChamberScreensTest > patientUnpaid PASSED
+
+OnlineChamberScreensTest > gatedOff STARTED
+
+OnlineChamberScreensTest > gatedOff PASSED
+
+OnlineChamberScreensTest > setupBkashChanged STARTED
+
+OnlineChamberScreensTest > setupBkashChanged PASSED
+
+OnlineChamberScreensTest > joinBox STARTED
+
+OnlineChamberScreensTest > joinBox PASSED
+
+OnlineChamberScreensTest > setupBadBkash STARTED
+
+OnlineChamberScreensTest > setupBadBkash PASSED
+
+OnlineChamberScreensTest > listBadge STARTED
+
+OnlineChamberScreensTest > listBadge PASSED
+
+OnlineChamberScreensTest > advanceDueFromList STARTED
+
+OnlineChamberScreensTest > advanceDueFromList PASSED
+
+OnlineChamberScreensTest > gatedAllOff STARTED
+
+OnlineChamberScreensTest > gatedAllOff PASSED
+
+OnlineChamberScreensTest > confirmChecksBodyAndError STARTED
+
+OnlineChamberScreensTest > confirmChecksBodyAndError PASSED
+
+OnlineChamberScreensTest > trxReuseMessage STARTED
+
+OnlineChamberScreensTest > trxReuseMessage PASSED
+
+OnlineChamberScreensTest > modeChipsLocked STARTED
+
+OnlineChamberScreensTest > modeChipsLocked PASSED
+
+OnlineChamberScreensTest > chamberJson STARTED
+
+OnlineChamberScreensTest > chamberJson PASSED
+
+OnlineChamberScreensTest > setupTypeChooser STARTED
+
+OnlineChamberScreensTest > setupTypeChooser PASSED
+
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest STARTED
+
+OnlineChamberScreensTest > staffConfirmUnpaidWithRequest PASSED
+
+OnlineChamberScreensTest > payParse STARTED
+
+OnlineChamberScreensTest > payParse PASSED
+
+OnlineChamberScreensTest > joinWindow STARTED
+
+OnlineChamberScreensTest > joinWindow PASSED
+
+OnlineChamberScreensTest > setupOnlineChamber STARTED
+
+OnlineChamberScreensTest > setupOnlineChamber PASSED
+
+OnlineChamberScreensTest > staffConfirmWithRequest STARTED
+
+OnlineChamberScreensTest > staffConfirmWithRequest PASSED
+
+PayScreensTest > advanceDueLabel STARTED
+
+PayScreensTest > advanceDueLabel PASSED
+
+PayScreensTest > onlineChamberUsesPaySheet STARTED
+
+PayScreensTest > onlineChamberUsesPaySheet PASSED
+
+PayScreensTest > demoAndNoNumbers STARTED
+
+PayScreensTest > demoAndNoNumbers PASSED
+
+PayScreensTest > neverForBlood STARTED
+
+PayScreensTest > neverForBlood PASSED
+
+PayScreensTest > refundAckAndReport STARTED
+
+OpenGLRenderer W 10-23 19:38:44  4054  4086 Trying to start new animators on 0x7f0aed4d3100 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:45  4054  4086 Trying to start new animators on 0x7f0b0a0c7c50 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:45  4054  4086 Trying to start new animators on 0x7f0b0a0fac60 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+PayScreensTest > refundAckAndReport PASSED
+
+PayScreensTest > allOffShowsNothing STARTED
+
+PayScreensTest > allOffShowsNothing PASSED
+
+PayScreensTest > confirmedAndExpired STARTED
+
+PayScreensTest > confirmedAndExpired PASSED
+
+PayScreensTest > settingsCoolOff STARTED
+
+PayScreensTest > settingsCoolOff PASSED
+
+PayScreensTest > claimValidatedPerMethod STARTED
+
+OpenGLRenderer W 10-23 19:38:46  4054  4086 Trying to start new animators on 0x7f0b09d87a00 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:46  4054  4086 Trying to start new animators on 0x7f0b09d3ebf0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:46  4054  4086 Trying to start new animators on 0x7f0b09ff66f0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+PayScreensTest > claimValidatedPerMethod PASSED
+
+PayScreensTest > businessListRowsAndRefund STARTED
+
+PayScreensTest > businessListRowsAndRefund PASSED
+
+PayScreensTest > sheetStates STARTED
+
+PayScreensTest > sheetStates PASSED
+
+PayScreensTest > advanceRow STARTED
+
+PayScreensTest > advanceRow PASSED
+
+PayScreensTest > entryButtonsGated STARTED
+
+PayScreensTest > entryButtonsGated PASSED
+
+PayScreensTest > sheetOpenPersonalThenMerchant STARTED
+
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b09c61320 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b0a56d5e0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b09d6cce0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b0a01df60 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b09d62740 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b0a56d5e0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b0b918030 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b0a0113b0 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:38:48  4054  4086 Trying to start new animators on 0x7f0b09ff98f0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+PayScreensTest > sheetOpenPersonalThenMerchant PASSED
+
+PayScreensTest > businessClaimConfirmStep STARTED
+
+PayScreensTest > businessClaimConfirmStep PASSED
+
+PayScreensTest > ambulanceOnlyAfterTripAndDue STARTED
+
+PayScreensTest > ambulanceOnlyAfterTripAndDue PASSED
+
+PayTest > methodsSettings STARTED
+
+PayTest > methodsSettings PASSED
+
+PayTest > timeline STARTED
+
+PayTest > timeline PASSED
+
+PayTest > trxPerMethod STARTED
+
+PayTest > trxPerMethod PASSED
+
+PayTest > labelsAndSteps STARTED
+
+PayTest > labelsAndSteps PASSED
+
+PayTest > confirmNeedsAllChecks STARTED
+
+PayTest > confirmNeedsAllChecks PASSED
+
+PayTest > storeFindsByRef STARTED
+
+PayTest > storeFindsByRef PASSED
+
+PayTest > noPayInBloodScreens STARTED
+
+PayTest > noPayInBloodScreens PASSED
+
+PayTest > bookingAnswerOpensAdvance STARTED
+
+PayTest > bookingAnswerOpensAdvance PASSED
+
+PayTest > whenCanClaim STARTED
+
+PayTest > whenCanClaim PASSED
+
+PayTest > requestBodies STARTED
+
+PayTest > requestBodies PASSED
+
+PayTest > onlineChamberOnPayLayer STARTED
+
+PayTest > onlineChamberOnPayLayer PASSED
+
+PayTest > rejectAndRefundInputs STARTED
+
+PayTest > rejectAndRefundInputs PASSED
+
+PayTest > featureNeeds STARTED
+
+PayTest > featureNeeds PASSED
+
+PayTest > safetyTexts STARTED
+
+PayTest > safetyTexts PASSED
+
+PayTest > pushRoutesAndText STARTED
+
+PayTest > pushRoutesAndText PASSED
+
+PayTest > parseServerJson STARTED
+
+PayTest > parseServerJson PASSED
+
+PracticeScreensTest > workTabHomeopathTitleGuard STARTED
+
+PracticeScreensTest > workTabHomeopathTitleGuard PASSED
+
+PracticeScreensTest > systemChipsCounts STARTED
+
+PracticeScreensTest > systemChipsCounts PASSED
+
+PracticeScreensTest > psychShareRow STARTED
+
+OpenGLRenderer W 10-23 19:39:02  4204  4236 Trying to start new animators on 0x7fc152795200 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+PracticeScreensTest > psychShareRow PASSED
+
+PracticeScreensTest > psychShareNoCaregiver STARTED
+
+PracticeScreensTest > psychShareNoCaregiver PASSED
+
+PracticeScreensTest > rxPaperHomeopathy STARTED
+
+PracticeScreensTest > rxPaperHomeopathy PASSED
+
+PracticeScreensTest > rxPaperPhysio STARTED
+
+PracticeScreensTest > rxPaperPhysio PASSED
+
+PracticeScreensTest > providerCardWithSystem STARTED
+
+PracticeScreensTest > providerCardWithSystem PASSED
+
+PracticeScreensTest > switchesOffLooksAsToday STARTED
+
+PracticeScreensTest > switchesOffLooksAsToday PASSED
+
+PracticeScreensTest > badgeDialogHomeopathy STARTED
+
+PracticeScreensTest > badgeDialogHomeopathy PASSED
+
+PracticeScreensTest > careLinkParse STARTED
+
+PracticeScreensTest > careLinkParse PASSED
+
+PracticeScreensTest > providerParseAndFilter STARTED
+
+PracticeScreensTest > providerParseAndFilter PASSED
+
+PracticeScreensTest > rxPaperPsychologist STARTED
+
+PracticeScreensTest > rxPaperPsychologist PASSED
+
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes STARTED
+
+PracticeScreensTest > badgeDialogWithSystemsAndNewTypes PASSED
+
+PracticeScreensTest > systemChipsRow STARTED
+
+OpenGLRenderer W 10-23 19:39:05  4204  4236 Trying to start new animators on 0x7fc16e596c10 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+PracticeScreensTest > systemChipsRow PASSED
+
+PracticeScreensTest > systemsRules STARTED
+
+PracticeScreensTest > systemsRules PASSED
+
+PracticeScreensTest > rxPaperSwitchOffNoLabel STARTED
+
+PracticeScreensTest > rxPaperSwitchOffNoLabel PASSED
+
+PracticeScreensTest > newTypesRules STARTED
+
+PracticeScreensTest > newTypesRules PASSED
+
+PracticeScreensTest > rxRulesFromServer STARTED
+
+PracticeScreensTest > rxRulesFromServer PASSED
+
+PracticeScreensTest > badgeDialogPsychologist STARTED
+
+PracticeScreensTest > badgeDialogPsychologist PASSED
+
+PracticeScreensTest > switchesOffProviderCard STARTED
+
+PracticeScreensTest > switchesOffProviderCard PASSED
+
+PracticeScreensTest > rxModes STARTED
+
+PracticeScreensTest > rxModes PASSED
+
+PracticeScreensTest > switchesOffBadgeDialog STARTED
+
+PracticeScreensTest > switchesOffBadgeDialog PASSED
+
+ProviderSideScreensTest > previewCollapsesAndIsRemembered STARTED
+
+OpenGLRenderer W 10-23 19:39:14  4349  4381 Trying to start new animators on 0x7fc8e771b850 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ProviderSideScreensTest > previewCollapsesAndIsRemembered PASSED
+
+ProviderSideScreensTest > labPreviewAndSwitches STARTED
+
+ProviderSideScreensTest > labPreviewAndSwitches PASSED
+
+ProviderSideScreensTest > pharmacyPreviewAndSwitches STARTED
+
+ProviderSideScreensTest > pharmacyPreviewAndSwitches PASSED
+
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches STARTED
+
+ProviderSideScreensTest > doctorPreviewAndTodaySwitches PASSED
+
+ProviderSideScreensTest > ambulancePreviewAndSwitch STARTED
+
+ProviderSideScreensTest > ambulancePreviewAndSwitch PASSED
+
+ProviderSideScreensTest > bloodBankStockEditor STARTED
+
+OpenGLRenderer W 10-23 19:39:17  4349  4381 Trying to start new animators on 0x7fc8e69c16a0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ProviderSideScreensTest > bloodBankStockEditor PASSED
+
+ReceiptScreensTest > ambulanceFinish STARTED
+
+ReceiptScreensTest > ambulanceFinish PASSED
+
+ReceiptScreensTest > pdfsAreWritten STARTED
+
+ReceiptScreensTest > pdfsAreWritten SKIPPED
+
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo STARTED
+
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo STANDARD_ERROR
+    System.logW: A resource was acquired at attached stack trace but never released. See java.io.Closeable for information on avoiding resource leaks.
+    java.lang.Throwable: Explicit termination method 'close' not called
+    	at dalvik.system.CloseGuard.$$robo$$dalvik_system_CloseGuard$openWithCallSite(CloseGuard.java:288)
+    	at dalvik.system.CloseGuard.openWithCallSite(CloseGuard.java)
+    	at dalvik.system.CloseGuard.$$robo$$dalvik_system_CloseGuard$open(CloseGuard.java:257)
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+    	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+    	at org.robolectric.shadows.ShadowCloseGuard$CloseGuardReflector$$Reflector31.open(Unknown Source)
+    	at org.robolectric.shadows.ShadowCloseGuard.open(ShadowCloseGuard.java:38)
+    	at dalvik.system.CloseGuard.open(CloseGuard.java)
+    	at android.graphics.pdf.PdfDocument.$$robo$$android_graphics_pdf_PdfDocument$__constructor__(PdfDocument.java:94)
+    	at android.graphics.pdf.PdfDocument.<init>(PdfDocument.java:92)
+    	at com.bspc.blood.ReceiptPdf.write(ReceiptPdf.kt:88)
+    	at com.bspc.blood.ReceiptScreensTest.pdfsAreWritten(ReceiptScreensTest.kt:93)
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+    	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+    	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+    	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+    	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+    	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+    	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+    	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+    	at org.junit.rules.ExternalResource$1.evaluate(ExternalResource.java:54)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1$evaluate$1.invoke(AndroidComposeTestRule.android.kt:272)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1$evaluate$1.invoke(AndroidComposeTestRule.android.kt:271)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$AndroidComposeUiTestImpl.withDisposableContent(ComposeUiTest.android.kt:505)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1$1$1.invoke(ComposeUiTest.android.kt:333)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withComposeIdlingResource(ComposeUiTest.android.kt:385)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withComposeIdlingResource(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1$1.invoke(ComposeUiTest.android.kt:332)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withWindowRecomposer(ComposeUiTest.android.kt:359)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withWindowRecomposer(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1$1.invoke(ComposeUiTest.android.kt:331)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.withTestCoroutines(ComposeUiTest.android.kt:372)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$withTestCoroutines(ComposeUiTest.android.kt:219)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1$1.invoke(ComposeUiTest.android.kt:330)
+    	at androidx.compose.ui.test.IdlingStrategy.withStrategy(IdlingStrategy.android.kt:52)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1$1.invoke(ComposeUiTest.android.kt:329)
+    	at androidx.compose.ui.test.IdlingResourceRegistry.withRegistry(IdlingResourceRegistry.jvm.kt:155)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$runTest$1.invoke(ComposeUiTest.android.kt:328)
+    	at androidx.compose.ui.test.ComposeRootRegistry.withRegistry(ComposeRootRegistry.android.kt:146)
+    	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.runTest(ComposeUiTest.android.kt:327)
+    	at androidx.compose.ui.test.junit4.AndroidComposeTestRule$apply$1.evaluate(AndroidComposeTestRule.android.kt:271)
+    	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+    	at org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:502)
+    	at org.robolectric.internal.SandboxTestRunner$2.lambda$evaluate$2(SandboxTestRunner.java:285)
+    	at org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:104)
+    	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+    	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+    	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+    	at java.base/java.lang.Thread.run(Thread.java:840)
+
+
+ReceiptScreensTest > receiptEnglishDigitsVoidDemo PASSED
+
+ReceiptScreensTest > receiptBangla STARTED
+
+ReceiptScreensTest > receiptBangla PASSED
+
+RxCancelScreensTest > doctorDialogEnglishDark STARTED
+
+OpenGLRenderer W 10-23 19:39:34  4492  4524 Trying to start new animators on 0x7f5017894a30 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+RxCancelScreensTest > doctorDialogEnglishDark PASSED
+
+RxCancelScreensTest > reasonParsedAndTexts STARTED
+
+RxCancelScreensTest > reasonParsedAndTexts PASSED
+
+RxCancelScreensTest > doctorDialogReasonNoteConfirm STARTED
+
+OpenGLRenderer W 10-23 19:39:35  4492  4524 Trying to start new animators on 0x7f4ff09f9540 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:39:35  4492  4524 Trying to start new animators on 0x7f4ff0a0c020 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:39:36  4492  4524 Trying to start new animators on 0x7f4ff9f90580 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+RxCancelScreensTest > doctorDialogReasonNoteConfirm PASSED
+
+RxCancelScreensTest > patientCardShowsReason STARTED
+
+RxCancelScreensTest > patientCardShowsReason PASSED
+
+RxCancelScreensTest > timelineShowsReasonAndNote STARTED
+
+RxCancelScreensTest > timelineShowsReasonAndNote PASSED
+
+RxStatusScreensTest > timelineParsedAndTexts STARTED
+
+RxStatusScreensTest > timelineParsedAndTexts PASSED
+
+RxStatusScreensTest > emptyOngoingShowsLinkToPrevious STARTED
+
+RxStatusScreensTest > emptyOngoingShowsLinkToPrevious PASSED
+
+RxStatusScreensTest > timelineCardMarkDoneAndReopen STARTED
+
+OpenGLRenderer W 10-23 19:39:45  4553  4584 Trying to start new animators on 0x7f51ce7bff00 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+RxStatusScreensTest > timelineCardMarkDoneAndReopen PASSED
+
+RxStatusScreensTest > oldServerWithoutState STARTED
+
+RxStatusScreensTest > oldServerWithoutState PASSED
+
+RxStatusScreensTest > darkThemeList STARTED
+
+RxStatusScreensTest > darkThemeList PASSED
+
+RxStatusScreensTest > listTabsEnglish STARTED
+
+RxStatusScreensTest > listTabsEnglish PASSED
+
+RxStatusScreensTest > stateParsedAndTexts STARTED
+
+RxStatusScreensTest > stateParsedAndTexts PASSED
+
+RxStatusScreensTest > timelineCard STARTED
+
+RxStatusScreensTest > timelineCard PASSED
+
+RxStatusScreensTest > listTabsBangla STARTED
+
+OpenGLRenderer W 10-23 19:39:47  4553  4584 Trying to start new animators on 0x7f51bfd22800 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:39:48  4553  4584 Trying to start new animators on 0x7f51e80314e0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+RxStatusScreensTest > listTabsBangla PASSED
+
+RxStatusScreensTest > timelineCardEnglish STARTED
+
+RxStatusScreensTest > timelineCardEnglish PASSED
+
+RxStatusScreensTest > timelineCardSuperseded STARTED
+
+RxStatusScreensTest > timelineCardSuperseded PASSED
+
+ScreensTest > navBarFiveTabsBangla STARTED
+
+ScreensTest > navBarFiveTabsBangla PASSED
+
+ScreensTest > servicesTab STARTED
+
+ScreensTest > servicesTab PASSED
+
+ScreensTest > bloodBankCardsBangla STARTED
+
+ScreensTest > bloodBankCardsBangla PASSED
+
+ScreensTest > chamberEditor STARTED
+
+ScreensTest > chamberEditor PASSED
+
+ScreensTest > englishFontServices STARTED
+
+ScreensTest > englishFontServices PASSED
+
+ScreensTest > adminScreenBangla STARTED
+
+ScreensTest > adminScreenBangla PASSED
+
+ScreensTest > ambulanceMine STARTED
+
+ScreensTest > ambulanceMine PASSED
+
+ScreensTest > accountGapFixesBangla STARTED
+
+ScreensTest > accountGapFixesBangla PASSED
+
+ScreensTest > medicineFinder STARTED
+
+ScreensTest > medicineFinder PASSED
+
+ScreensTest > addBusinessDialogBangla STARTED
+
+ScreensTest > addBusinessDialogBangla PASSED
+
+ScreensTest > shopQrCode STARTED
+
+ScreensTest > shopQrCode PASSED
+
+ScreensTest > myRequestCardBangla STARTED
+
+ScreensTest > myRequestCardBangla PASSED
+
+ScreensTest > formDialogWithFieldAndChips STARTED
+
+ScreensTest > formDialogWithFieldAndChips PASSED
+
+ScreensTest > doctorListFilterBarBangla STARTED
+
+OpenGLRenderer W 10-23 19:40:01  4623  4655 Trying to start new animators on 0x7fa311d9df50 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ScreensTest > doctorListFilterBarBangla PASSED
+
+ScreensTest > rxPaperBangla STARTED
+
+ScreensTest > rxPaperBangla PASSED
+
+ScreensTest > businessQuestionBangla STARTED
+
+ScreensTest > businessQuestionBangla PASSED
+
+ScreensTest > donationDateDialogBangla STARTED
+
+ScreensTest > donationDateDialogBangla PASSED
+
+ScreensTest > homeProCardsBangla STARTED
+
+ScreensTest > homeProCardsBangla PASSED
+
+ScreensTest > phoneVerifyDialog STARTED
+
+ScreensTest > phoneVerifyDialog PASSED
+
+ScreensTest > pillTabsAutoScroll STARTED
+
+OpenGLRenderer W 10-23 19:40:03  4623  4655 Trying to start new animators on 0x7fa311f73dd0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ScreensTest > pillTabsAutoScroll PASSED
+
+ScreensTest > verifyDocsBangla STARTED
+
+ScreensTest > verifyDocsBangla PASSED
+
+ScreensTest > addHospitalDialog STARTED
+
+ScreensTest > addHospitalDialog PASSED
+
+ScreensTest > labReportBangla STARTED
+
+ScreensTest > labReportBangla PASSED
+
+ScreensTest > areaPickerBangla STARTED
+
+ScreensTest > areaPickerBangla PASSED
+
+ScreensTest > emergencyCardsBangla STARTED
+
+ScreensTest > emergencyCardsBangla PASSED
+
+ScreensTest > topBarMenuAvatar STARTED
+
+ScreensTest > topBarMenuAvatar PASSED
+
+ScreensTest > homeProCards STARTED
+
+ScreensTest > homeProCards PASSED
+
+ScreensTest > navBarAndAreaPickerBangla STARTED
+
+ScreensTest > navBarAndAreaPickerBangla PASSED
+
+ScreensTest > closeDialogNotNeededBangla STARTED
+
+OpenGLRenderer W 10-23 19:40:06  4623  4655 Trying to start new animators on 0x7fa311e85b30 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:40:08  4623  4655 Trying to start new animators on 0x7fa2db275060 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ScreensTest > closeDialogNotNeededBangla PASSED
+
+ScreensTest > adminHospitalRequests STARTED
+
+ScreensTest > adminHospitalRequests PASSED
+
+ScreensTest > medAlarmSlots STARTED
+
+ScreensTest > medAlarmSlots PASSED
+
+ScreensTest > chamberEditScreenDoctorHome STARTED
+
+ScreensTest > chamberEditScreenDoctorHome PASSED
+
+ScreensTest > logo STARTED
+
+ScreensTest > logo PASSED
+
+ScreensTest > healthTab STARTED
+
+ScreensTest > healthTab PASSED
+
+ScreensTest > homeCareTab STARTED
+
+ScreensTest > homeCareTab PASSED
+
+ScreensTest > servicesBloodBankBangla STARTED
+
+ScreensTest > servicesBloodBankBangla PASSED
+
+ScreensTest > appointmentTab STARTED
+
+ScreensTest > appointmentTab PASSED
+
+ScreensTest > careModeAttachesOnlyAllowedActions STARTED
+
+ScreensTest > careModeAttachesOnlyAllowedActions PASSED
+
+ScreensTest > ambulanceFilterBarBangla STARTED
+
+ScreensTest > ambulanceFilterBarBangla PASSED
+
+ScreensTest > requestCardsBangla STARTED
+
+ScreensTest > requestCardsBangla PASSED
+
+ScreensTest > englishTitleCaseScreens STARTED
+
+ScreensTest > englishTitleCaseScreens PASSED
+
+ScreensTest > chamberEditScreenNurse STARTED
+
+ScreensTest > chamberEditScreenNurse PASSED
+
+ScreensTest > guestHomeTopBangla STARTED
+
+ScreensTest > guestHomeTopBangla PASSED
+
+ScreensTest > providerCardAndDetail STARTED
+
+ScreensTest > providerCardAndDetail PASSED
+
+ScreensTest > appointmentTabBangla STARTED
+
+ScreensTest > appointmentTabBangla PASSED
+
+ScreensTest > homeProDetailSheetBangla STARTED
+
+OpenGLRenderer W 10-23 19:40:11  4623  4655 Trying to start new animators on 0x7fa3121cda10 (UnprojectedRipple) without an animation handle!
+OpenGLRenderer W 10-23 19:40:12  4623  4655 Trying to start new animators on 0x7fa31225f9c0 (UnprojectedRipple) without an animation handle!
+
+> Task :app:testDebugUnitTest
+
+ScreensTest > homeProDetailSheetBangla PASSED
+
+ScreensTest > gapFixesBangla STARTED
+
+ScreensTest > gapFixesBangla PASSED
+
+ScreensTest > chamberHubBangla STARTED
+
+ScreensTest > chamberHubBangla PASSED
+
+ScreensTest > donorDetailsFormBangla STARTED
+
+ScreensTest > donorDetailsFormBangla PASSED
+
+ScreensTest > closeRequestDialogBangla STARTED
+
+ScreensTest > closeRequestDialogBangla PASSED
+
+ScreensTest > helpScreen STARTED
+
+ScreensTest > helpScreen PASSED
+
+ScreensTest > pharmacyDirectory STARTED
+
+ScreensTest > pharmacyDirectory PASSED
+
+ScreensTest > workTabBangla STARTED
+
+ScreensTest > workTabBangla PASSED
+
+ScreensTest > providerDetailDialog STARTED
+
+ScreensTest > providerDetailDialog PASSED
+
+ScreensTest > guestLoginReasonBangla STARTED
+
+ScreensTest > guestLoginReasonBangla PASSED
+
+ScreensTest > hospitalPicker STARTED
+
+ScreensTest > hospitalPicker PASSED
+
+ScreensTest > upazilaPickerWithThanas STARTED
+
+ScreensTest > upazilaPickerWithThanas PASSED
+
+ScreensTest > titleCaseRules STARTED
+
+ScreensTest > titleCaseRules PASSED
+
+ScreensTest > pharmacyMyPrescriptionsChip STARTED
+
+ScreensTest > pharmacyMyPrescriptionsChip PASSED
+
+ScreensTest > requestGapFixesBangla STARTED
+
+ScreensTest > requestGapFixesBangla PASSED
+
+TitleGuardTest > profileEditBlocksATitleForAHomeopath STARTED
+
+TitleGuardTest > profileEditBlocksATitleForAHomeopath PASSED
+
+TitleGuardTest > nameFieldErrorAndHintOnlyWhenOn STARTED
+
+TitleGuardTest > nameFieldErrorAndHintOnlyWhenOn PASSED
+
+TitleGuardTest > prescriptionHeaderAndPdfUseThePractitionerLabel STARTED
+
+TitleGuardTest > prescriptionHeaderAndPdfUseThePractitionerLabel PASSED
+
+TitleGuardTest > everyVariantIsFoundAndStripped STARTED
+
+TitleGuardTest > everyVariantIsFoundAndStripped PASSED
+
+TitleGuardTest > onlyAllopathicDoctorsMayCarryTheTitle STARTED
+
+TitleGuardTest > onlyAllopathicDoctorsMayCarryTheTitle PASSED
+
+TitleGuardTest > myWorkChamberLineUsesThePractitionerLabel STARTED
+
+TitleGuardTest > myWorkChamberLineUsesThePractitionerLabel PASSED
+
+TitleGuardTest > profileEditAllowsATitleForAnMbbsDoctor STARTED
+
+TitleGuardTest > profileEditAllowsATitleForAnMbbsDoctor PASSED
+
+TitleGuardTest > professionLabels STARTED
+
+TitleGuardTest > professionLabels PASSED
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792784168343.json
+
+BUILD SUCCESSFUL in 4m 19s
+29 actionable tasks: 9 executed, 20 up-to-date

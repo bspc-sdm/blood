@@ -1,0 +1,19 @@
+Running on test
+ > Flow up-after
+Launch app "com.bspc.blood"... COMPLETED
+Run ../common/dismiss.yaml...
+  Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible...
+  Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible... SKIPPED
+Run ../common/dismiss.yaml... COMPLETED
+Assert that "সেটিংস ও প্রোফাইল" is visible... COMPLETED
+Assert that ".*জেলা খুঁজুন.*" is not visible... COMPLETED
+Assert that "লগইন" is not visible... COMPLETED
+Take screenshot up-03-rc4-home... COMPLETED
+Tap on "সেটিংস ও প্রোফাইল"... COMPLETED
+Assert that ".*ডেমো রোগী রহিম.*" is visible... COMPLETED
+Take screenshot up-04-rc4-profile... COMPLETED
+Scrolling DOWN until "অ্যাপ সেটিংস" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled... COMPLETED
+Tap on "অ্যাপ সেটিংস"... COMPLETED
+Scrolling DOWN until "ভার্সন" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled... COMPLETED
+Assert that ".*(2\.37\.0|২\.৩৭\.০).*" is visible... COMPLETED
+Take screenshot up-05-rc4-settings... COMPLETED

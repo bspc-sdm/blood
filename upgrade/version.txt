@@ -1,0 +1,4 @@
+41:        versionCode = 125
+42:        versionName = "2.37.0"
+-rw-r--r-- 1 runner runner 41476861 Oct 23 21:10 /home/runner/work/_temp/rc3.apk
+-rw-r--r-- 1 runner runner 41814809 Oct 23 21:15 /home/runner/work/_temp/rc4.apk

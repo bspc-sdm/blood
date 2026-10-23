@@ -1,0 +1,28 @@
+version.json: {"versionCode": 124, "versionName": "2.36.0", "url": "https://lifolo.com/download/lifolo-2.36.0-124.apk"}
+
+desktop latest.json: {
+  "version": "1.0.0",
+  "notes": "Lifolo 1.0.0",
+  "pub_date": "2026-10-23T06:08:45.211Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTOXdBMWRKL1V0RWxHRnVmK0RwaHoreHdubnptMmxwNG1PUFAvNHpXbXBuY3pjdE0vNzdnb01SU2ZtaUowSjExcDE4dW9zRjFGTHRrVTNLK244R0pGOWZpTTBIQnNRSFE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzM1NjgxCWZpbGU6TGlmb2xvXzEuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjAuMApIemY0aFJ5Y0dMNkJKcU54QXRDRVBOdmhicDVtV1ozTzBRQ3VCc1F5ZE1pWE02YkNsbXAwN0IyMHd0RUhkeDNOclBXUEZ4UkFHUXBuRGRpK2lpNHdCZz09Cg==",
+      "
+demo roles: [{"key": "patient", "name": "ডেমো রোগী রহিম", "role": "সাধারণ ব্যবহারকারী / রোগী (রক্ত চায়, অ্যাপয়েন্টমেন্ট নেয়, প্রেসক্রিপশন পায়)"}, {"key": "donor", "name": "ডেমো ডোনার করিম", "role": "রক্তদাতা"}, {"key": "doctor", "name": "ডা. ডেমো হাসান", "role": "ডাক্তার"}, {"key": "assistant", "name": "ডেমো সহকারী সুমন", "role": "ডাক্তারের সহকারী"}, {"key": "pharmacy", "name": "ডেমো ফার্মেসির মালিক", "role": "ফার্মেসি"}, {"key": "lab", "name": "ডেমো প্যাথলজির মালিক", "role": "প্যাথলজি / ল্যাব"}, {"key": "ambulance", "name": "ডেমো অ্যাম্বুলেন্স চালক", "role": "অ্যাম্বুলেন্স"}, {"key": "bloodbank", "name": "ডেমো ব্লাড ব্যাংক", "role": "ব্লাড ব্যাংক"}, {"key": "homecare", "name": "ডেমো নার্স নাসরিন", "role": "বাসায় সেবা (নার্স)"}, {"key": "caregiver", "name": "ডেমো কেয়ারগিভার রুমা", "role": "কেয়ারগিভার (রোগীর হয়ে কাজ করেন)"}]
+guest features: {"keys": {"calls_audio": true, "calls_video": true, "appt_video": true, "chat": true, "chat_media": true, "online_chamber": true, "inv_pharmacy": true, "inv_lab": true, "inv_chamber": true, "inv_ambulance": true, "my_expenses": true, "desktop": true, "pay_manual": true, "pay_chamber_advance": true, "pay_delivery": true, "pay_lab": true, "pay_ambulance": true, "pay_due": true, "pay_bkash_pgw": true, "practice_systems": true, "pro_physio": true, "pro_psychologist": true, "health_consent": true, "title_guard": true}, "v": 72}
+features as ডেমো রোগী রহিম (patient): {"keys": {"calls_audio": true, "calls_video": true, "appt_video": true, "chat": true, "chat_media": true, "online_chamber": true, "inv_pharmacy": true, "inv_lab": true, "inv_chamber": true, "inv_ambulance": true, "my_expenses": true, "desktop": true, "pay_manual": true, "pay_chamber_advance": true, "pay_delivery": true, "pay_lab": true, "pay_ambulance": true, "pay_due": true, "pay_bkash_pgw": true, "practice_systems": true, "pro_physio": true, "pro_psychologist": true, "health_consent": true, "title_guard": true}, "v": 72}
+features as ডা. ডেমো হাসান (doctor): {"keys": {"calls_audio": true, "calls_video": true, "appt_video": true, "chat": true, "chat_media": true, "online_chamber": true, "inv_pharmacy": true, "inv_lab": true, "inv_chamber": true, "inv_ambulance": true, "my_expenses": true, "desktop": true, "pay_manual": true, "pay_chamber_advance": true, "pay_delivery": true, "pay_lab": true, "pay_ambulance": true, "pay_due": true, "pay_bkash_pgw": true, "practice_systems": true, "pro_physio": true, "pro_psychologist": true, "health_consent": true, "title_guard": true}, "v": 72}
+features as ডেমো ফার্মেসির মালিক (pharmacy): {"keys": {"calls_audio": true, "calls_video": true, "appt_video": true, "chat": true, "chat_media": true, "online_chamber": true, "inv_pharmacy": true, "inv_lab": true, "inv_chamber": true, "inv_ambulance": true, "my_expenses": true, "desktop": true, "pay_manual": true, "pay_chamber_advance": true, "pay_delivery": true, "pay_lab": true, "pay_ambulance": true, "pay_due": true, "pay_bkash_pgw": true, "practice_systems": true, "pro_physio": true, "pro_psychologist": true, "health_consent": true, "title_guard": true}, "v": 72}
+features as ডেমো অ্যাম্বুলেন্স চালক (ambulance): {"keys": {"calls_audio": true, "calls_video": true, "appt_video": true, "chat": true, "chat_media": true, "online_chamber": true, "inv_pharmacy": true, "inv_lab": true, "inv_chamber": true, "inv_ambulance": true, "my_expenses": true, "desktop": true, "pay_manual": true, "pay_chamber_advance": true, "pay_delivery": true, "pay_lab": true, "pay_ambulance": true, "pay_due": true, "pay_bkash_pgw": true, "practice_systems": true, "pro_physio": true, "pro_psychologist": true, "health_consent": true, "title_guard": true}, "v": 72}
+consent patient: already given
+consent donor: already given
+consent doctor: already given
+consent assistant: already given
+consent pharmacy: already given
+consent lab: already given
+consent ambulance: already given
+consent bloodbank: already given
+consent homecare: already given
+consent caregiver: already given
+gated journeys ON: j16 j17 j18 j19 j20 j21 j22 j23 j24 j25 j26 j27
+gated journeys SKIPPED: -

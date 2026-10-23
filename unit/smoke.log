@@ -1,0 +1,77 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseSmokeBuild UP-TO-DATE
+> Task :app:mergeReleaseSmokeJniLibFolders
+> Task :app:buildKotlinToolingMetadata
+> Task :app:mergeReleaseSmokeNativeLibs
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateReleaseSmokeBuildConfig
+> Task :app:checkReleaseSmokeDuplicateClasses
+
+> Task :app:stripReleaseSmokeDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, liblkjingle_peerconnection_so.so. Run with --info option to learn more.
+
+> Task :app:generateReleaseSmokeResValues
+> Task :app:checkReleaseSmokeAarMetadata
+> Task :app:processReleaseSmokeGoogleServices
+> Task :app:extractReleaseSmokeNativeSymbolTables
+> Task :app:mergeReleaseSmokeNativeDebugMetadata NO-SOURCE
+> Task :app:mapReleaseSmokeSourceSetPaths
+> Task :app:generateReleaseSmokeResources
+> Task :app:packageReleaseSmokeResources
+> Task :app:createReleaseSmokeCompatibleScreenManifests
+> Task :app:extractDeepLinksReleaseSmoke
+> Task :app:parseReleaseSmokeLocalResources
+> Task :app:mergeReleaseSmokeResources
+
+> Task :app:processReleaseSmokeMainManifest
+/home/runner/work/blood/blood/app/src/main/AndroidManifest.xml:34:5-99 Warning:
+	uses-permission#com.google.android.gms.permission.AD_ID was tagged at AndroidManifest.xml:34 to remove other declarations but no other declaration present
+
+> Task :app:processReleaseSmokeManifest
+> Task :app:processReleaseSmokeManifestForPackage
+> Task :app:javaPreCompileReleaseSmoke
+> Task :app:mergeReleaseSmokeArtProfile
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseSmokeStartupProfile
+> Task :app:mergeReleaseSmokeShaders
+> Task :app:compileReleaseSmokeShaders NO-SOURCE
+> Task :app:generateReleaseSmokeAssets UP-TO-DATE
+> Task :app:mergeReleaseSmokeAssets
+> Task :app:compressReleaseSmokeAssets
+> Task :app:extractReleaseSmokeVersionControlInfo
+> Task :app:collectReleaseSmokeDependencies
+> Task :app:processReleaseSmokeResources
+> Task :app:sdkReleaseSmokeDependencyData
+> Task :app:validateSigningReleaseSmoke
+> Task :app:writeReleaseSmokeAppMetadata
+> Task :app:writeReleaseSmokeSigningConfigVersions
+> Task :app:compileReleaseSmokeKotlin
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/CallButtons.kt:331:30 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:222:104 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Invoices.kt:232:61 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Prescriptions.kt:539:32 Condition is always 'true'.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/Rules.kt:141:63 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/blood/blood/app/src/main/java/com/bspc/blood/SentrySetup.kt:30:15 'var isSendDefaultPii: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseSmokeJavaWithJavac
+> Task :app:mergeReleaseSmokeGeneratedProguardFiles
+> Task :app:processReleaseSmokeJavaRes
+> Task :app:expandReleaseSmokeArtProfileWildcards
+> Task :app:mergeReleaseSmokeJavaResource
+> Task :app:generateReleaseSmokeLintVitalReportModel
+> Task :app:minifyReleaseSmokeWithR8
+> Task :app:lintVitalAnalyzeReleaseSmoke
+> Task :app:lintVitalReportReleaseSmoke
+> Task :app:lintVitalReleaseSmoke
+> Task :app:convertShrunkResourcesToBinaryReleaseSmoke
+> Task :app:compileReleaseSmokeArtProfile
+> Task :app:optimizeReleaseSmokeResources
+> Task :app:packageReleaseSmoke
+> Task :app:createReleaseSmokeApkListingFileRedirect
+> Task :app:assembleReleaseSmoke
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792784518087.json
+
+BUILD SUCCESSFUL in 5m 54s
+50 actionable tasks: 50 executed

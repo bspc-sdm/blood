@@ -1,0 +1,23 @@
+== install RC3: /home/runner/work/_temp/rc3.apk
+Performing Streamed Install
+Success
+ versionCode=124 minSdk=24 targetSdk=36
+ versionName=2.36.0
+ lastUpdateTime=২০২৬-১০-২৩ ২১:১৮:৫০
+ firstInstallTime=২০২৬-১০-২৩ ২১:১৮:৫০
+up-before rc=0
+theme before: name="theme">dark
+auth files before: PersistedInstallation.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.json FirebaseHeartBeatW0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml com.google.firebase.auth.api.Store.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml com.google.firebase.messaging.xml 
+== install RC4 over the top (adb install -r): /home/runner/work/_temp/rc4.apk
+Performing Streamed Install
+Success
+ versionCode=125 minSdk=24 targetSdk=36
+ versionName=2.37.0
+ lastUpdateTime=২০২৬-১০-২৩ ২১:১৯:৫৫
+ firstInstallTime=২০২৬-১০-২৩ ২১:১৮:৫০
+theme after install: name="theme">dark
+auth files after install: PersistedInstallation.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.json FirebaseHeartBeatW0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml com.google.firebase.auth.api.Store.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml com.google.firebase.messaging.xml 
+files lost by the upgrade: none
+up-after rc=0
+theme after first RC4 start: name="theme">dark
+sha=529235d7ba209435f8f0464492d223d463eba0d3

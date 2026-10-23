@@ -1,0 +1,40 @@
+10-23 20:00:02.343  2970  3414 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:05.346  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:08.353  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:11.709  6444  6702 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 20:00:12.210  6444  6702 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 20:00:12.265  6444  6702 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 20:00:12.766  6444  6702 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 20:00:14.699  2516  3659 D CoreBackPreview: Window{97a585a u0 com.bspc.blood/com.bspc.blood.MainActivity}: Setting back callback null
+10-23 20:00:14.702  2516  3659 W InputManager-JNI: Input channel object '97a585a com.bspc.blood/com.bspc.blood.MainActivity (client)' was disposed without first being removed with the input manager!
+10-23 20:00:14.718  6642  6642 I ImeTracker: com.bspc.blood:4796ee7f: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+10-23 20:00:14.718  6642  6642 I ImeTracker: com.bspc.blood:4796ee7f: onFailed at PHASE_CLIENT_VIEW_SERVED
+10-23 20:00:14.742  2516  2621 I ImeTracker: com.bspc.blood:ccf8e265: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-23 20:00:14.742  2516  2621 I ImeTracker: com.bspc.blood:ccf8e265: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-23 20:00:14.751  3153  3153 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1986 onStartInput(EditorInfo{EditorInfo{packageName=com.bspc.blood, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-23 20:00:14.752  2516  3659 W PackageConfigPersister: App-specific configuration not found for packageName: com.bspc.blood and userId: 0
+10-23 20:00:17.363  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:20.377  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:23.040  6444  6702 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 20:00:23.373  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:23.542  6444  6702 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 20:00:23.597  6444  6702 D UiDevice: Waiting ৫০০ms for window update of package com.bspc.blood.
+10-23 20:00:24.099  6444  6702 W UiDevice: java.util.concurrent.TimeoutException: Expected event not received within: 500 ms among: []
+10-23 20:00:26.376  2970  3414 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:29.385  2970  3414 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:35.391  2970  3459 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:38.392  2970  3459 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:41.395  2970  3459 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:44.405  2970  4992 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:46.062  6434  6434 I AndroidRuntime: VM exiting with result code 0.
+10-23 20:00:46.104  3186  3192 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~WUHQGIwrEhWunhwon4eaEA==/com.bspc.blood-VrgL1bqFK1CNjUMxsdt-BA==/base.apk' with 1 weak references
+10-23 20:00:46.470  3235  3471 W PackageManager: android.content.res.Resources$NotFoundException: String resource ID #0x7f130786
+10-23 20:00:46.587  6965  6965 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+10-23 20:00:46.591  6965  6965 I AndroidRuntime: Using default boot image
+10-23 20:00:46.591  6965  6965 I AndroidRuntime: Leaving lock profiling enabled
+10-23 20:00:46.727  6965  6965 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-23 20:00:46.897  3235  3471 W PackageManager: android.content.res.Resources$NotFoundException: String resource ID #0x7f130786
+10-23 20:00:46.975  3186  3209 W AppInfoHelper: android.content.pm.PackageManager$NameNotFoundException: dev.mobile.maestro.test
+10-23 20:00:47.123  3186  3192 W .apps.wellbeing: ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~WUHQGIwrEhWunhwon4eaEA==/com.bspc.blood-VrgL1bqFK1CNjUMxsdt-BA==/base.apk' with 1 weak references
+10-23 20:00:47.404  2970  3459 I ChimeraSrvcProxy: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl
+10-23 20:00:47.798  6965  6965 D AndroidRuntime: Shutting down VM

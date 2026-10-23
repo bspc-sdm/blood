@@ -1,0 +1,40 @@
+Running on test
+ > Flow up-before
+Run ../common/start.yaml...
+  Launch app "com.bspc.blood" with clear state... COMPLETED
+  Run dismiss.yaml...
+    Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible...
+    Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible... SKIPPED
+  Run dismiss.yaml... COMPLETED
+  Assert that ".*জেলা খুঁজুন.*" is visible... COMPLETED
+  Run dismiss.yaml...
+    Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible...
+    Run flow when ".*(isn't responding|সা(?:ড়|ড়)া দিচ্ছে না).*" is visible... SKIPPED
+  Run dismiss.yaml... COMPLETED
+  Take screenshot ${J}-00a-location... COMPLETED
+  Tap on ".*জেলা খুঁজুন.*"... COMPLETED
+  Input text Gazipur... COMPLETED
+  Hide Keyboard... COMPLETED
+  Tap on "গাজীপুর.*"... COMPLETED
+  Assert that "লগইন" is visible... COMPLETED
+  Tap on "লগইন"... COMPLETED
+  Scrolling DOWN until ".*${ROLE}.*" is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering enabled... COMPLETED
+  Take screenshot ${J}-00b-login... COMPLETED
+  Run flow when ${J == 'j1'} is true...
+  Run flow when false is true... SKIPPED
+  Tap on ".*${ROLE}.*"... COMPLETED
+  Assert that "সেটিংস ও প্রোফাইল" is visible... COMPLETED
+  Wait for animation to end within 5000 ms... COMPLETED
+Run ../common/start.yaml... COMPLETED
+Assert that "সেটিংস ও প্রোফাইল" is visible... COMPLETED
+Take screenshot up-01-rc3-home... COMPLETED
+Tap on "সেটিংস ও প্রোফাইল"... COMPLETED
+Scrolling DOWN until "অ্যাপ সেটিংস" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled... COMPLETED
+Tap on "অ্যাপ সেটিংস"... COMPLETED
+Assert that "ডার্ক" is visible... COMPLETED
+Tap on "ডার্ক"... COMPLETED
+Wait for animation to end within 3000 ms... COMPLETED
+Scrolling DOWN until "ভার্সন" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled... COMPLETED
+Take screenshot up-02-rc3-settings-dark... COMPLETED
+Press back... COMPLETED
+Press back... COMPLETED

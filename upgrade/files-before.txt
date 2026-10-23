@@ -1,0 +1,13 @@
+./files/PersistedInstallation.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.json 569
+./files/generatefid.lock 0
+./files/profileInstalled 24
+./no_backup/com.google.android.gms.appid-no-backup 0
+./shared_prefs/FirebaseHeartBeatW0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml 583
+./shared_prefs/app_prefs.xml 109
+./shared_prefs/catalog.xml 16007
+./shared_prefs/com.google.android.gms.appid.xml 366
+./shared_prefs/com.google.firebase.auth.api.Store.W0RFRkFVTFRd+MTo2MzQ4NjgyNTQxMzE6YW5kcm9pZDowZGUyYWIwNGFmOTE4MmYyOGJmN2M2.xml 3482
+./shared_prefs/com.google.firebase.messaging.xml 137
+./shared_prefs/features.xml 883
+./shared_prefs/guest_area.xml 245
+./shared_prefs/server_cache.xml 12683

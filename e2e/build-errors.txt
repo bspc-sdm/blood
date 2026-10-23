@@ -1,0 +1,4 @@
+> Task :app:minifyReleaseSmokeWithR8
+> Task :app:lintVitalAnalyzeReleaseSmoke
+> Task :app:lintVitalReportReleaseSmoke
+> Task :app:lintVitalReleaseSmoke

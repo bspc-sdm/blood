@@ -1,0 +1,6 @@
+
+Waiting for flows to complete...
+[Passed] j22-pay-patient (44s)
+
+1/1 Flow Passed in 44s
+
