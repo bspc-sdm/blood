@@ -1,0 +1,16 @@
+jar_sha=bfc59fdf5a6c
+release=app-bfc59fdf5a6c.jar (previous app-2c784242cc61.jar)
+firebase=off
+ses=off
+r2=off
+sentry=off
+livekit=
+public_base_url=https://ci.lifolo.test
+demo_keep_firebase_users=true
+switch_from=lifolo-api@8080.service (:8080, health yes)
+switch_to=lifolo-api@8081.service
+mem_available_mb=14315
+app=down
+app_error=Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar 
+rollback=ok (the previous release kept serving on :8080 — no switch, no downtime)
+fatal=নতুন release চালু হয়নি (/api/health সাড়া দেয়নি) — আগেরটা (:8080) চলছে

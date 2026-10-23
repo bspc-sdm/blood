@@ -1,0 +1,16 @@
+## 1-legacy-to-bluegreen
+api-port=8081
+jobs={"ok":true,"server":"running","master":true}
+jobrunr_servers_db=1
+## 2-bluegreen
+api-port=8080
+jobs={"ok":true,"server":"running","master":true}
+jobrunr_servers_db=1
+## 3-broken-jar
+api-port=8080
+jobs={"ok":true,"server":"running","master":true}
+jobrunr_servers_db=1
+## 4-after-failure
+api-port=8081
+jobs={"ok":true,"server":"running","master":true}
+jobrunr_servers_db=1

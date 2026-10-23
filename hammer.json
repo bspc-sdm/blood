@@ -1,0 +1,14 @@
+{
+ "total": 29109,
+ "2xx_health": 17674,
+ "2xx_action": 11435,
+ "5xx": 0,
+ "errors": 0,
+ "reused_retry": 15,
+ "seconds": 131.2,
+ "counts": {
+  "health 200": 17674,
+  "action 200": 11435
+ },
+ "bad": []
+}

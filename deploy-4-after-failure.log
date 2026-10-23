@@ -1,0 +1,66 @@
+
+==> jar যাচাই আর বসানো: /opt/lifolo/api/releases
+
+==> অ্যাপের সেটিং: /etc/lifolo/app.env
+::add-mask::ci-redis-pass
+::add-mask::478374bcd7dceb65be4a91c17ff0863a5b57bcfd42d284c8c4589bd94ac1feab
+::add-mask::63f9da3c8d1cd135f234ad318a638df2b79081cd172202716af9e508350144a0
+::add-mask::4406bfc61e9b1f9739846db83e3a118c10376a69447e55158eab7a19e2c3df4b
+
+==> systemd: lifolo-api@8080 / lifolo-api@8081 (blue/green; app.env-ও পড়ে)
+
+==> নতুন instance চালু: lifolo-api@8081.service (app-b1a217099938.jar) — আগেরটা (lifolo-api@8080.service) চলতেই থাকে
+
+==> switch: nginx upstream lifolo_api → 127.0.0.1:8081 (graceful reload)
+
+==> drain: আগেরটা (lifolo-api@8080.service) আরও 20 s চলমান অনুরোধ শেষ করে, তারপর বন্ধ
+
+==> পরীক্ষা (এই মেশিন থেকে, https দিয়ে)
+ok   health_https
+ok   healthz
+ok   assetlinks
+ok   share_route
+ok   jobrunr_off
+ok   apidocs_hidden
+ok   actuator_hidden
+ok   cron_hidden
+ok   nginx_keepalive
+ok   local_port
+ok   one_instance
+ok   api_guest
+
+jar_sha=b1a217099938
+release=app-b1a217099938.jar (previous app-2c784242cc61.jar)
+firebase=off
+ses=off
+r2=off
+sentry=off
+livekit=
+public_base_url=https://ci.lifolo.test
+demo_keep_firebase_users=true
+switch_from=lifolo-api@8080.service (:8080, health yes)
+switch_to=lifolo-api@8081.service
+mem_available_mb=14304
+app=up
+ses_client=off
+flyway=?
+nginx=ok
+rate_limit=off (no Cloudflare realip yet)
+switch_probe=requests=108 2xx=108 5xx=0 conn_errors=0
+switch_5xx=0
+jobs=running on :8081 (old stopped at switch)
+switch=bluegreen: 8080 → 8081
+releases=3 kept in /opt/lifolo/api/releases
+health_https=ok
+healthz=ok
+assetlinks=ok
+share_route=ok
+jobrunr_off=ok
+apidocs_hidden=ok
+actuator_hidden=ok
+cron_hidden=ok
+nginx_keepalive=ok
+local_port=ok
+one_instance=ok
+api_guest=ok
+finished=yes

@@ -1,0 +1,33 @@
+
+==> jar যাচাই আর বসানো: /opt/lifolo/api/releases
+
+==> অ্যাপের সেটিং: /etc/lifolo/app.env
+::add-mask::ci-redis-pass
+::add-mask::478374bcd7dceb65be4a91c17ff0863a5b57bcfd42d284c8c4589bd94ac1feab
+::add-mask::63f9da3c8d1cd135f234ad318a638df2b79081cd172202716af9e508350144a0
+::add-mask::4406bfc61e9b1f9739846db83e3a118c10376a69447e55158eab7a19e2c3df4b
+
+==> systemd: lifolo-api@8080 / lifolo-api@8081 (blue/green; app.env-ও পড়ে)
+
+==> নতুন instance চালু: lifolo-api@8081.service (app-bfc59fdf5a6c.jar) — আগেরটা (lifolo-api@8080.service) চলতেই থাকে
+---- lifolo-api@8081.service log (শেষ ৮০ লাইন) ----
+Oct 23 12:47:54 runnervm8k3b6 systemd[1]: Started lifolo-api@8081.service - Lifolo API (Spring Boot) on 127.0.0.1:8081.
+Oct 23 12:47:54 runnervm8k3b6 java[6740]: Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar
+Oct 23 12:47:54 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Main process exited, code=exited, status=1/FAILURE
+Oct 23 12:47:54 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Failed with result 'exit-code'.
+Oct 23 12:47:59 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Scheduled restart job, restart counter is at 1.
+Oct 23 12:47:59 runnervm8k3b6 systemd[1]: Started lifolo-api@8081.service - Lifolo API (Spring Boot) on 127.0.0.1:8081.
+Oct 23 12:47:59 runnervm8k3b6 java[6765]: Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar
+Oct 23 12:47:59 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Main process exited, code=exited, status=1/FAILURE
+Oct 23 12:47:59 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Failed with result 'exit-code'.
+Oct 23 12:48:05 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Scheduled restart job, restart counter is at 2.
+Oct 23 12:48:05 runnervm8k3b6 systemd[1]: Started lifolo-api@8081.service - Lifolo API (Spring Boot) on 127.0.0.1:8081.
+Oct 23 12:48:05 runnervm8k3b6 java[6784]: Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar
+Oct 23 12:48:05 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Main process exited, code=exited, status=1/FAILURE
+Oct 23 12:48:05 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Failed with result 'exit-code'.
+Oct 23 12:48:10 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Scheduled restart job, restart counter is at 3.
+Oct 23 12:48:10 runnervm8k3b6 systemd[1]: Started lifolo-api@8081.service - Lifolo API (Spring Boot) on 127.0.0.1:8081.
+Oct 23 12:48:10 runnervm8k3b6 java[6800]: Error: Invalid or corrupt jarfile /opt/lifolo/api/app-8081.jar
+Oct 23 12:48:10 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Main process exited, code=exited, status=1/FAILURE
+Oct 23 12:48:10 runnervm8k3b6 systemd[1]: lifolo-api@8081.service: Failed with result 'exit-code'.
+XX নতুন release চালু হয়নি (/api/health সাড়া দেয়নি) — আগেরটা (:8080) চলছে
