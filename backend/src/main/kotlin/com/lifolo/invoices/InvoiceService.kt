@@ -60,6 +60,7 @@ class InvoiceService(
     private val push: PushService,
     private val rate: RateLimiter,
     private val voidHooks: ObjectProvider<InvoiceVoidHook>,
+    private val features: InvoiceFeatures,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -178,6 +179,7 @@ class InvoiceService(
     @Transactional
     fun issue(lang: String?, actor: AuthUser, cmd: IssueCmd, stamp: DeviceStamp? = null): Invoice {
         val b = requireIssuer(lang, actor, cmd.kind, cmd.bizId)
+        features.requireKind(lang, b.ownerUid, b.kind)
         requireCanIssue(lang, b)
         if (cmd.lines.isEmpty()) throw InvoiceMath.bad(lang, "Add at least one item", "অন্তত একটা আইটেম দিন") // bn-ok
         if (cmd.refType != null && cmd.refType !in InvoiceMath.REF_TYPES) throw notFound(lang)
@@ -295,6 +297,8 @@ class InvoiceService(
 
     /** invoice_new to the patient (and their caregivers — pushPatient) */
     private fun notifyPatient(inv: Invoice) {
+        // no push for a feature that is off for the patient (my_expenses + this kind)
+        if (!features.isOn(inv.patientUid, InvoiceFeatures.MY_EXPENSES) || !features.kindOn(inv.patientUid, inv.kind)) return
         try {
             val total = InvoiceMath.num(inv.total).toString()
             // an ambulance fare above what was agreed says so (security review I8)
@@ -377,6 +381,7 @@ class InvoiceService(
     fun pay(lang: String?, actor: AuthUser, invoiceId: String, payment: PaymentIn, stamp: DeviceStamp? = null): Invoice {
         val inv = load(invoiceId, lock = true) ?: throw notFound(lang)
         requireIssuerOf(lang, actor, inv)
+        features.requireKind(lang, inv.ownerUid, inv.kind)
         if (inv.status == "void") throw err(lang, 409, "This receipt is void", "এই রসিদ বাতিল", "void") // bn-ok
         if (inv.due.signum() == 0) throw err(lang, 409, "Nothing is due on this receipt", "এই রসিদে কোনো বাকি নেই", "nothing_due") // bn-ok
         val amount = InvoiceMath.m2(payment.amount)
@@ -397,6 +402,7 @@ class InvoiceService(
     fun void(lang: String?, actor: AuthUser, invoiceId: String, reason: String, note: String? = null, stamp: DeviceStamp? = null): Invoice {
         val inv = load(invoiceId, lock = true) ?: throw notFound(lang)
         val role = roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) ?: throw notFound(lang)
+        features.requireKind(lang, inv.ownerUid, inv.kind)
         if (reason !in InvoiceMath.VOID_REASONS) throw InvoiceMath.bad(lang, "Choose why it is void", "বাতিলের কারণ বেছে নিন", "reason") // bn-ok
         val text = Rules.cleanText(note, 200)
         if (reason == "other" && text == null) throw InvoiceMath.bad(lang, "Write why it is void", "বাতিলের কারণ লিখুন", "reason") // bn-ok
@@ -421,7 +427,7 @@ class InvoiceService(
                     com.lifolo.notify.PushText(
                         Lang.pick(l, "Your assistant voided receipt ${inv.no}", "সহকারী রসিদ ${inv.no} বাতিল করেছেন"), // bn-ok
                         "৳${InvoiceMath.num(inv.total)} · $label${if (text != null) " · $text" else ""}", // bn-ok
-                        mapOf("type" to "invoice_void", "invoiceId" to inv.id),
+                        mapOf("type" to "invoice_void", "invoiceId" to inv.id, "kind" to inv.kind, "bizId" to inv.bizId),
                     )
                 }
             }
@@ -435,7 +441,13 @@ class InvoiceService(
     fun get(lang: String?, actor: AuthUser, id: String?): Invoice {
         val inv = load(id) ?: throw notFound(lang)
         val patient = inv.patientUid != null && inv.patientUid == actor.uid
-        if (!patient && roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) == null) throw notFound(lang)
+        val issuer = roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) != null
+        if (!patient && !issuer) throw notFound(lang)
+        if (issuer) features.requireKind(lang, inv.ownerUid, inv.kind)
+        if (!issuer) {
+            features.require(lang, actor.uid, InvoiceFeatures.MY_EXPENSES)
+            features.requireKind(lang, actor.uid, inv.kind)
+        }
         return inv
     }
 
@@ -485,6 +497,7 @@ class InvoiceService(
     /** invoice_list_biz: the business's receipts of a period, newest first, 50 a page; sums over the whole period (not void) */
     fun listBiz(lang: String?, actor: AuthUser, kind: String?, bizId: String?, period: String?, q: String?, cursor: String?): Map<String, Any?> {
         val b = requireIssuer(lang, actor, kind, bizId)
+        features.requireKind(lang, b.ownerUid, b.kind)
         val now = System.currentTimeMillis()
         val p = period?.takeIf { it in PERIODS } ?: "7d"
         val where = StringBuilder("kind = ? AND biz_id = ? AND issued_at >= ?")
@@ -518,31 +531,37 @@ class InvoiceService(
     }
 
     /** my_invoices: the patient's receipts (the actor is the patient — or a caregiver acting through asUid) */
-    fun mine(actor: AuthUser, cursor: String?): Map<String, Any?> {
+    fun mine(lang: String?, actor: AuthUser, cursor: String?): Map<String, Any?> {
         val uid = actor.id
+        features.require(lang, uid, InvoiceFeatures.MY_EXPENSES)
+        val kinds = kindsOn(uid)
         val c = cursorArgs(cursor)
         val rows = if (c == null) {
-            query("patient_uid = ? ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid)
+            query("patient_uid = ? AND kind = ANY (?::text[]) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds)
         } else {
-            query("patient_uid = ? AND (issued_at, id) < (?, ?) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, Sql.ts(c.first), c.second)
+            query("patient_uid = ? AND kind = ANY (?::text[]) AND (issued_at, id) < (?, ?) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds, Sql.ts(c.first), c.second)
         }
         val page = rows.take(PAGE)
         return linkedMapOf("items" to page.map { it.toMap() }, "cursor" to if (rows.size > PAGE) cursorOf(page.last()) else null)
     }
 
-    /** my_expenses: a Dhaka month's receipts (not void) → {month, total, byKind, count} */
+    /** the receipt kinds switched on for [uid], as a PostgreSQL text[] literal */
+    private fun kindsOn(uid: String?): String = InvoiceMath.KINDS.filter { features.kindOn(uid, it) }.joinToString(",", "{", "}")
+
+    /** my_expenses: a Dhaka month's receipts (not void) of the kinds that are on → {month, total, byKind, count} */
     fun expenses(lang: String?, actor: AuthUser, month: String?): Map<String, Any?> {
+        features.require(lang, actor.uid, InvoiceFeatures.MY_EXPENSES)
         val ym = monthOf(lang, month)
         val from = ym.atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
         val to = ym.plusMonths(1).atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
         val byKind = linkedMapOf<String, Any?>()
-        InvoiceMath.KINDS.forEach { byKind[it] = 0 }
+        InvoiceMath.KINDS.filter { features.kindOn(actor.uid, it) }.forEach { byKind[it] = 0 }
         var total = BigDecimal.ZERO
         var count = 0
         jdbc.query(
             """
             SELECT kind, count(*) AS n, sum(total) AS t FROM invoices
-            WHERE patient_uid = ? AND status = 'issued' AND issued_at >= ? AND issued_at < ? GROUP BY kind
+            WHERE patient_uid = ? AND status = 'issued' AND issued_at >= ? AND issued_at < ? AND kind = ANY (?::text[]) GROUP BY kind
             """.trimIndent(),
             RowCallbackHandler { rs ->
                 val t = rs.getBigDecimal("t")
@@ -550,7 +569,7 @@ class InvoiceService(
                 total += t
                 count += rs.getInt("n")
             },
-            actor.id, Sql.ts(from), Sql.ts(to),
+            actor.id, Sql.ts(from), Sql.ts(to), kindsOn(actor.uid),
         )
         return linkedMapOf("month" to ym.toString(), "total" to InvoiceMath.num(total), "byKind" to byKind, "count" to count)
     }
@@ -561,6 +580,7 @@ class InvoiceService(
      */
     fun exportCsv(lang: String?, actor: AuthUser, kind: String?, bizId: String?, month: String?): Map<String, Any?> {
         val b = requireOwner(lang, actor, kind, bizId)
+        features.requireKind(lang, b.ownerUid, b.kind)
         val ym = monthOf(lang, month)
         val from = ym.atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
         val to = ym.plusMonths(1).atDay(1).atStartOfDay(DhakaTime.OFFSET).toInstant().toEpochMilli()
@@ -600,6 +620,7 @@ class InvoiceService(
      */
     @Transactional
     fun report(lang: String?, actor: AuthUser, id: String?, paidNode: com.fasterxml.jackson.databind.JsonNode?, note: String?): Map<String, Any?> {
+        features.require(lang, actor.uid, InvoiceFeatures.MY_EXPENSES)
         val inv = load(id, lock = true) ?: throw notFound(lang)
         if (inv.patientUid == null || inv.patientUid != actor.uid) throw notFound(lang)
         if (System.currentTimeMillis() - inv.issuedAt > 30L * 24 * 3600 * 1000) {

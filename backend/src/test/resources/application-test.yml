@@ -13,6 +13,8 @@ lifolo:
     keys: "*"
   demo:
     online-chambers: true
+  # receipts' feature switches (invoices/InvoiceFeatures shim until the flags package lands): all on in tests
+  features-shim-on: true
 logging:
   level:
     root: WARN

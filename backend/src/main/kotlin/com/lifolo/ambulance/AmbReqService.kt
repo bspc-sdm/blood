@@ -615,6 +615,8 @@ class AmbReqService(
         val showFallback = x.wave > 1 || x.status == "expired" || x.status == "cancelled"
         val v = linkedMapOf<String, Any?>(
             "id" to x.id,
+            // the trip's receipt (ambreq_finish, docs/INVOICES.md)
+            "invoiceId" to receiptOf(x),
             "status" to x.status,
             "createdAt" to x.createdAt,
             "widenAt" to x.opened + WIDEN_MS,
@@ -658,6 +660,7 @@ class AmbReqService(
         val q = x.quoteOf(uid)
         val v = linkedMapOf<String, Any?>(
             "id" to x.id,
+            "invoiceId" to if (mine) receiptOf(x) else null,
             "status" to if (mine) x.status else "open",
             "createdAt" to x.createdAt,
             "expiresAt" to x.opened + EXPIRE_MS,
@@ -1265,6 +1268,10 @@ class AmbReqService(
         { rs, _ -> if (rs.getTimestamp(1) == null) null else listOf(rs.intOrNull("snap_fare"), rs.intOrNull("snap_oxygen"), rs.intOrNull("snap_icu"), rs.intOrNull("snap_night")) },
         id,
     ).firstOrNull()
+
+    /** the live receipt of a finished trip (only closed trips can have one) */
+    private fun receiptOf(x: Req): String? =
+        if (x.status != "done") null else com.lifolo.invoices.InvoiceLinks.live(jdbc, "ambreq", listOf(x.id))[x.id]
 
     /** ambreq_finish (InvoiceCreators): the driver closes the trip they took, like step "done" */
     fun finishTrip(lang: String?, id: String, uid: String) = driverStep(lang, id, uid, "done", "other", AmbClock.now())

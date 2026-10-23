@@ -495,7 +495,7 @@ class RxActions(
         if (ctx.user.patientSideOnly && s.patientUid != uid) throw notFound(ctx)
         val isPatient = s.patientUid == uid
         val orders = jdbc.rows(
-            "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",
+            "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed, ${com.lifolo.invoices.InvoiceLinks.sql("rx_order", "rx_orders.id")} AS invoice_id FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",
             rxId,
         ) { rs ->
             linkedMapOf<String, Any?>(
@@ -503,6 +503,7 @@ class RxActions(
                 "status" to rs.getString("status"), "reason" to (rs.getString("reason") ?: ""), "createdAt" to rs.getTimestamp("created_at").time,
                 "mode" to (rs.getString("mode") ?: "shop"), "price" to (rs.getString("price") ?: ""), "eta" to (rs.getString("eta") ?: ""),
                 "deliveryFee" to (rs.getString("delivery_fee") ?: ""), "missed" to (rs.stringArray("missed") ?: emptyList()),
+                "invoiceId" to rs.getString("invoice_id"),
             )
         }
         val labOrders = labStore.orders("rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50", rxId)

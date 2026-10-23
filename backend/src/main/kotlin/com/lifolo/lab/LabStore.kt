@@ -44,6 +44,8 @@ data class LabReport(val items: List<ReportItem>, val note: String, val photoCou
 /** labOrders/{id} */
 data class LabOrder(
     val id: String,
+    /** the live receipt of this order (docs/INVOICES.md) */
+    val invoiceId: String? = null,
     val rxId: String?,
     val code: String?,
     val labId: String,
@@ -191,6 +193,7 @@ class LabStore(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
         val reportedAt = P3Sql.msOrNull(rs, "reported_at")
         return LabOrder(
             id = rs.getString("id"),
+            invoiceId = rs.getString("invoice_id"),
             rxId = rs.getString("rx_id"),
             code = rs.getString("code"),
             labId = rs.getString("lab_uid"),
@@ -217,7 +220,8 @@ class LabStore(private val jdbc: JdbcTemplate, private val files: StoredFiles) {
     }
 
     /** lab orders for a WHERE clause, without their child rows (cheap lists) */
-    fun ordersBare(where: String, vararg args: Any?): List<LabOrder> = jdbc.rows("SELECT * FROM lab_orders WHERE $where", *args) { baseRow(it) }
+    fun ordersBare(where: String, vararg args: Any?): List<LabOrder> =
+        jdbc.rows("SELECT lab_orders.*, ${com.lifolo.invoices.InvoiceLinks.sql("lab_order", "lab_orders.id")} AS invoice_id FROM lab_orders WHERE $where", *args) { baseRow(it) }
 
     /** lab orders for a WHERE clause, with price items, report items (+ photos when [photos]) */
     fun orders(where: String, vararg args: Any?, photos: Boolean = false): List<LabOrder> = withChildren(ordersBare(where, *args), photos)

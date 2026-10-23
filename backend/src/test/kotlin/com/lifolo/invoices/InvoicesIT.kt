@@ -27,6 +27,15 @@ class InvoicesIT : P4Test() {
 
     @Autowired lateinit var deletion: AccountDeletionService
 
+    @Autowired lateinit var features: InvoiceFeatures
+
+    @Autowired lateinit var creators: InvoiceCreators
+
+    @org.junit.jupiter.api.AfterEach
+    fun featuresBack() {
+        features.forced.clear()
+    }
+
     private val PH = "invPh1"
     private val PAT = "invPat1"
     private val CG = "invCg1"
@@ -385,6 +394,7 @@ class InvoicesIT : P4Test() {
         assertEquals("lab_order", inv["refType"].textValue())
         assertEquals("রোগী রহিম", inv["customer"]["name"].textValue())
         fails(LAB, "lab_bill_create", mapOf("labOrderId" to "lo1"), 409, "already_issued")
+        assertEquals(inv["id"].textValue(), ok(PAT, "lab_order_get", mapOf("id" to "lo1"))["item"]["invoiceId"].textValue())
         fails(LAB, "lab_bill_create", mapOf("labOrderId" to "nope"), 404)
         // someone else's order
         lab("invLab2", license = "DGHS-2")
@@ -437,6 +447,11 @@ class InvoicesIT : P4Test() {
         assertEquals(800.0, num(inv["paid"]))
         assertTrue(inv["lines"][0]["name"].textValue().contains("নতুন রোগী"))
         fails(DOC, "chamber_fee_collect", mapOf("appointmentId" to "ap1", "visitType" to "new", "amount" to 800), 409, "already_issued")
+        assertEquals(inv["id"].textValue(), ok(PAT, "my_appointments")["items"].first { it["id"].textValue() == "ap1" }["invoiceId"].textValue())
+        val chs = ok(ASST, "assistant_chambers", mapOf("doctorUid" to DOC))
+        assertEquals(listOf("h1"), chs["chambers"].map { it["chamberKey"].textValue() })
+        assertEquals("সিটি হাসপাতাল", chs["chambers"][0]["nameBn"].textValue())
+        fails("invPat1", "assistant_chambers", mapOf("doctorUid" to DOC), 403, "not_issuer")
         fails(DOC, "chamber_fee_collect", mapOf("appointmentId" to "ap1", "visitType" to "x", "amount" to 800), 400)
         fails(DOC, "chamber_fee_collect", mapOf("walkIn" to mapOf("name" to "ক", "chamberKey" to "nope"), "visitType" to "new", "amount" to 500), 404)
         fails(DOC, "chamber_fee_collect", mapOf("walkIn" to mapOf("chamberKey" to "h1"), "visitType" to "new", "amount" to 500), 400)
@@ -509,6 +524,8 @@ class InvoicesIT : P4Test() {
         assertEquals(out["id"].textValue(), del["id"].textValue())
         assertEquals(0.0, num(del["due"]))
         assertEquals("delivered", row("SELECT status FROM rx_orders WHERE id = 'o1'")["status"])
+        assertEquals(out["id"].textValue(), ok(PAT, "rx_activity", mapOf("rxId" to "rx1"))["orders"][0]["invoiceId"].textValue())
+        assertEquals(out["id"].textValue(), ok(PH, "rx_orders_pharmacy")["items"].first { it["id"].textValue() == "o1" }["invoiceId"].textValue())
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM invoices", Int::class.java))
         // an order without lines (an old app): status changes, no receipt
         order("o2", mapOf("rx_id" to "rx1", "patient_uid" to PAT, "pharmacy_uid" to PH, "mode" to "online", "status" to "sent"))
@@ -688,7 +705,7 @@ class InvoicesIT : P4Test() {
         ok(PH, "books_adjust", mapOf("kind" to "writeoff", "itemId" to item, "qty" to 2, "reason" to "ভাঙা"))
         jdbc.update("DELETE FROM inbox_items")
         val now = System.currentTimeMillis()
-        val day = summary.collect(now)[PH]!!
+        val day = summary.collect(now)[InvoiceSummary.Key(PH, "pharmacy", PH)]!!
         assertEquals(2, day.receipts)
         assertEquals(1, day.voids)
         assertEquals(1, day.bigDisc)
@@ -699,8 +716,71 @@ class InvoicesIT : P4Test() {
         assertTrue((push["title"] as String).startsWith("দিনের শেষ"), push.toString())
         assertTrue((push["body"] as String).contains("বাতিল"))
         assertEquals("invoice_summary", mapper.readTree(push["data"] as String)["type"].textValue())
-        assertEquals("business", mapper.readTree(push["data"] as String)["cat"].textValue())
+        val data = mapper.readTree(push["data"] as String)
+        assertEquals("business", data["cat"].textValue())
+        assertEquals("pharmacy", data["kind"].textValue())
+        assertEquals(PH, data["bizId"].textValue())
         assertEquals(0, summary.run(now), "once a day")
         assertEquals(1, inbox(PH).size)
+    }
+
+    // ------------------------------------------------------------------ feature switches (OFF = the old behaviour)
+
+    @Test
+    fun `switches off - pharmacy sale, rx order and the other kinds behave as before, verify stays public`() {
+        shop(PH)
+        person(PAT, "রোগী রহিম")
+        val before = issue(PH, 10, PAT)
+        for (k in listOf("inv_pharmacy", "inv_lab", "inv_chamber", "inv_ambulance")) features.forced[k] = false
+        // books_sale_add exactly as before: no invoice key, nothing issued
+        val r = ok(PH, "books_sale_add", mapOf("lines" to listOf(mapOf("name" to "Napa", "qty" to 1, "unitPrice" to 5)), "payments" to "junk"))
+        assertEquals(listOf("id", "sale"), r.fieldNames().asSequence().toList())
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM invoices", Int::class.java))
+        // rx_order_update: no `delivered`, lines ignored, no receipt at out
+        rx("rx1", "RXCODE0001", PAT, listOf(Med("Napa")))
+        order("o1", mapOf("rx_id" to "rx1", "patient_uid" to PAT, "pharmacy_uid" to PH, "mode" to "online", "status" to "sent"))
+        ok(PH, "rx_order_update", mapOf("id" to "o1", "status" to "accepted", "lines" to listOf(mapOf("name" to "Napa", "qty" to 10, "price" to 2))))
+        assertNull(row("SELECT invoice_lines FROM rx_orders WHERE id = 'o1'")["invoice_lines"])
+        fails(PH, "rx_order_update", mapOf("id" to "o1", "status" to "delivered"), 404)
+        val out = ok(PH, "rx_order_update", mapOf("id" to "o1", "status" to "out"))
+        assertEquals(listOf("ok"), out.fieldNames().asSequence().toList())
+        // the business actions: feature_off
+        fails(PH, "invoice_list_biz", mapOf("kind" to "pharmacy", "bizId" to PH), 404, "feature_off")
+        fails(PH, "invoice_pay", mapOf("id" to before.id, "amount" to 1, "method" to "cash"), 404, "feature_off")
+        fails(PH, "invoice_void", mapOf("id" to before.id, "reason" to "duplicate"), 404, "feature_off")
+        lab(LAB)
+        fails(LAB, "lab_bill_create", mapOf("lines" to listOf(mapOf("name" to "X", "price" to 10))), 404, "feature_off")
+        doctor(DOC)
+        fails(DOC, "chamber_fee_collect", mapOf("walkIn" to mapOf("name" to "ক", "chamberKey" to "h1"), "visitType" to "new", "amount" to 500), 404, "feature_off")
+        fails(DOC, "assistant_chambers", emptyMap(), 404, "feature_off")
+        appt("ap1", PAT, DOC)
+        jdbc.update("UPDATE appointments SET fee = '৫০০ টাকা' WHERE id = 'ap1'")
+        assertNull(creators.onlineFeePaid("bn", AuthUser(DOC), "ap1"), "appt_pay_confirm issues no receipt")
+        person("invDriver")
+        fails("invDriver", "ambreq_finish", mapOf("reqId" to "x1", "fare" to 500), 404, "feature_off")
+        // the public check still answers for an existing receipt
+        assertEquals("valid", ok(null, "invoice_verify", mapOf("code" to before.verifyCode))["invoice"]["status"].textValue())
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM invoices", Int::class.java))
+    }
+
+    @Test
+    fun `switches off - my_expenses hides the patient's side and its push; only kinds that are on are shown`() {
+        shop(PH)
+        lab(LAB)
+        person(PAT)
+        features.forced["my_expenses"] = false
+        val a = issue(PH, 100, PAT)
+        assertEquals(emptyList<Any>(), inbox(PAT), "no invoice_new while my_expenses is off")
+        fails(PAT, "my_invoices", emptyMap(), 404, "feature_off")
+        fails(PAT, "my_expenses", emptyMap(), 404, "feature_off")
+        fails(PAT, "invoice_get", mapOf("id" to a.id), 404, "feature_off")
+        fails(PAT, "invoice_report", mapOf("id" to a.id), 404, "feature_off")
+        // on again, but lab receipts off: lab ones are neither listed nor counted
+        features.forced["my_expenses"] = true
+        issue(LAB, 400, PAT, kind = "lab").also { features.forced["inv_lab"] = false }
+        assertEquals(listOf(a.id), ok(PAT, "my_invoices")["items"].map { it["id"].textValue() })
+        val e = ok(PAT, "my_expenses")
+        assertEquals(100.0, num(e["total"]))
+        assertEquals(listOf("pharmacy", "chamber", "ambulance"), e["byKind"].fieldNames().asSequence().toList())
     }
 }

@@ -548,6 +548,7 @@ class AppointmentActions(
         mine.forEach { if (it.status == "confirmed") need.add(it.providerUid) }
         toMe.forEach { if (it.status == "confirmed") need.add(it.patientUid) }
         val phones = users.profiles(need).mapValues { it.value.phone }
+        val receipts = com.lifolo.invoices.InvoiceLinks.live(jdbc, "appointment", (mine + toMe).map { it.id })
         fun item(a: Appt, role: String): Map<String, Any?> {
             val other = if (role == "patient") a.providerUid else a.patientUid
             return linkedMapOf<String, Any?>(
@@ -569,6 +570,7 @@ class AppointmentActions(
                 // a doctor sees their patients together (not the real uid, a short key)
                 "otherKey" to (if (role == "provider") Ids.sha256Hex("pat:$uid:$other").take(12) else ""),
                 "createdAt" to a.createdAt,
+                "invoiceId" to receipts[a.id],
             ).apply { putAll(onlineFields(a, role == "patient")) }
         }
         return mapOf("items" to mine.map { item(it, "patient") } + toMe.map { item(it, "provider") })

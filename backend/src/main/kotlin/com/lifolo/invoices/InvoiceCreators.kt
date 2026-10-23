@@ -37,6 +37,7 @@ class InvoiceCreators(
     private val rxPharmacy: RxPharmacyService,
     private val ambReqs: AmbReqService,
     private val ambRepo: AmbRepo,
+    private val features: InvoiceFeatures,
 ) {
     private fun err(lang: String?, status: Int, en: String, bn: String, code: String? = null) = InvoiceService.err(lang, status, en, bn, code)
 
@@ -53,6 +54,11 @@ class InvoiceCreators(
     @Transactional
     fun pharmacySale(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?> {
         val ctx = LangCtx(lang)
+        // switched off (`inv_pharmacy`): books_sale_add exactly as before — no receipt, no new inputs
+        if (!features.kindOn(actor.uid, "pharmacy")) {
+            val sale = books.saleCore(ctx, actor, data).sale
+            return linkedMapOf("id" to sale.id, "sale" to sale.toMap())
+        }
         val customer = InvoiceMath.customer(lang, data["customer"])
         val payments = InvoiceMath.payments(lang, data["payments"])
         val body = if (stamp != null) Body((data.node.deepCopy() as ObjectNode).put("at", stamp.at)) else data
@@ -124,6 +130,12 @@ class InvoiceCreators(
      */
     @Transactional
     fun rxOrderUpdate(ctx: ActionContext): Any {
+        // switched off (`inv_pharmacy`): as before — no `delivered`, no lines, no receipt
+        if (!features.kindOn(ctx.user.uid, "pharmacy")) {
+            if (ctx.body.string("status") == "delivered") throw notFound(ctx.lang)
+            ctx.body.node.remove("lines")
+            return rxPharmacy.orderUpdate(ctx)
+        }
         val res = rxPharmacy.orderUpdate(ctx)
         val status = ctx.body.string("status")
         if (status != "out" && status != "delivered") return res
@@ -164,6 +176,7 @@ class InvoiceCreators(
      */
     @Transactional
     fun labBill(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?> {
+        features.requireKind(lang, actor.uid, "lab")
         val lab = invoices.requireIssuer(lang, actor, "lab", actor.uid)
         invoices.requireCanIssue(lang, lab)
         val listPrice = { code: String ->
@@ -235,6 +248,7 @@ class InvoiceCreators(
     @Transactional
     fun chamberFee(lang: String?, actor: AuthUser, data: Body, stamp: DeviceStamp? = null): Map<String, Any?> {
         val doctor = data.string("doctorUid")?.takeIf { it.isNotEmpty() } ?: actor.uid
+        features.requireKind(lang, doctor, "chamber")
         val biz = invoices.requireIssuer(lang, actor, "chamber", doctor)
         invoices.requireCanIssue(lang, biz)
         val visit = data.string("visitType")?.takeIf { it in visitLabel } ?: throw InvoiceMath.bad(lang, "Choose the visit type", "ভিজিটের ধরন বেছে নিন") // bn-ok
@@ -290,6 +304,7 @@ class InvoiceCreators(
     fun onlineFeePaid(lang: String?, actor: AuthUser, appointmentId: String): Invoice? {
         val a = jdbc.queryForList("SELECT * FROM appointments WHERE id = ?", appointmentId).firstOrNull() ?: return null
         val doctor = a["provider_uid"] as String
+        if (!features.kindOn(doctor, "chamber")) return null
         if (a["no_fee"] == true) return null
         val amount = InvoiceMath.takaOf(a["fee"] as String?) ?: return null
         if (invoices.liveFor("appointment", appointmentId) != null) return null
@@ -324,6 +339,7 @@ class InvoiceCreators(
     fun ambreqFinish(ctx: ActionContext): Any {
         val lang = ctx.lang
         val actor = ctx.user
+        features.requireKind(lang, actor.uid, "ambulance")
         if (actor.patientSideOnly) throw notFound(lang)
         val reqId = ctx.body.string("reqId")
         if (!Rules.isValidId(reqId)) throw notFound(lang)

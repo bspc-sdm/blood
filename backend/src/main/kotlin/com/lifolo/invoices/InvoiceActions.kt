@@ -15,7 +15,12 @@ import org.springframework.stereotype.Component
  * modules and call [InvoiceCreators] from there.
  */
 @Component
-class InvoiceActions(private val invoices: InvoiceService, private val creators: InvoiceCreators) : ActionModule {
+class InvoiceActions(
+    private val invoices: InvoiceService,
+    private val creators: InvoiceCreators,
+    private val features: InvoiceFeatures,
+    private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
+) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "invoice_get" to ActionHandler { ctx -> mapOf("invoice" to invoices.get(ctx.lang, ctx.user, ctx.body.string("id")).toMap()) },
         "invoice_verify" to ActionHandler { ctx ->
@@ -33,17 +38,42 @@ class InvoiceActions(private val invoices: InvoiceService, private val creators:
             val b = ctx.body
             invoices.exportCsv(ctx.lang, ctx.user, b.string("kind"), b.string("bizId"), b.string("month"))
         },
-        "my_invoices" to ActionHandler { ctx -> invoices.mine(ctx.user, ctx.body.string("cursor")) },
+        "my_invoices" to ActionHandler { ctx -> invoices.mine(ctx.lang, ctx.user, ctx.body.string("cursor")) },
         "my_expenses" to ActionHandler { ctx -> invoices.expenses(ctx.lang, ctx.user, ctx.body.string("month")) },
         "lab_bill_create" to ActionHandler { ctx -> creators.labBill(ctx.lang, ctx.user, ctx.body) },
         "chamber_fee_collect" to ActionHandler { ctx -> creators.chamberFee(ctx.lang, ctx.user, ctx.body) },
         "ambreq_finish" to ActionHandler { ctx -> creators.ambreqFinish(ctx) },
+        "assistant_chambers" to ActionHandler(::chambers),
     )
 
     private fun id(ctx: ActionContext): String {
         val id = ctx.body.string("id")
         if (!Rules.isValidId(id)) throw InvoiceService.notFound(ctx.lang)
         return id!!
+    }
+
+    /**
+     * assistant_chambers {doctorUid?}: the doctor's in-person chambers with their keys — for chamber_fee_collect walk-ins
+     * on a day without serials. The doctor or an assistant (verified email).
+     */
+    private fun chambers(ctx: ActionContext): Any {
+        val doctor = ctx.body.string("doctorUid")?.takeIf { it.isNotEmpty() } ?: ctx.user.uid
+        val b = invoices.requireIssuer(ctx.lang, ctx.user, "chamber", doctor)
+        features.requireKind(ctx.lang, b.ownerUid, "chamber")
+        val rows = jdbc.queryForList(
+            "SELECT hospital_id, hospital_name, hospital_name_bn, fee, no_fee FROM provider_chambers WHERE provider_uid = ? AND mode <> 'online' ORDER BY idx",
+            b.id,
+        )
+        return mapOf(
+            "doctorUid" to b.id, "doctorName" to b.name,
+            "chambers" to rows.map { r ->
+                val name = r["hospital_name"] as String? ?: ""
+                linkedMapOf(
+                    "chamberKey" to ((r["hospital_id"] as String?)?.ifEmpty { null } ?: name), "name" to name,
+                    "nameBn" to (r["hospital_name_bn"] as String? ?: ""), "fee" to (r["fee"] as String? ?: ""), "noFee" to (r["no_fee"] == true),
+                )
+            }.filter { (it["chamberKey"] as String).isNotEmpty() },
+        )
     }
 
     private fun pay(ctx: ActionContext): Any {

@@ -193,3 +193,29 @@ month: "YYYY-MM"}` (owner only) → `{filename, mime: "text/csv", count, csv}` (
 customer, lines, subtotal, discount, fees, total, paid, due, methods, void_reason, device — no phone).
 
 **Lists.** `invoice_list_biz` period also accepts `365d`. Response `{items, cursor, sum: {count, total, paid, due}}`.
+
+**Links.** `invoiceId` (the latest receipt that is not void, else null) on: rx orders (`rx_activity` orders,
+`rx_orders_pharmacy` items), lab orders (every lab order view, e.g. `lab_order_get` item), appointments
+(`my_appointments` items), ambulance requests (`ambreq_status` patient view; the driver's own trip).
+`appt_pay_confirm` returns `invoice` (or null).
+
+**Chamber keys.** `assistant_chambers {doctorUid?}` (doctor or assistant) → `{doctorUid, doctorName, chambers: [{chamberKey,
+name, nameBn, fee, noFee}]}` — the in-person chambers, for walk-in fees on a day without serials. (`provider_me` has
+`hospitalId`/`hospitalName` per chamber; the key is `hospitalId || hospitalName`.)
+
+**Pushes.** `invoice_new {invoiceId}` (patient + caregivers, cat my_request); `invoice_void {invoiceId, kind, bizId}`
+(the doctor, when an assistant voids); `invoice_summary {day, kind, bizId}` (one per business with activity).
+
+**Feature switches (owner rule, flags contract).** Keys `inv_pharmacy`, `inv_lab`, `inv_chamber`, `inv_ambulance`,
+`my_expenses`; all OFF until switched on. Off (checked for the business owner / the patient):
+- `inv_pharmacy`: `books_sale_add` answers `{id, sale}` exactly as before (no receipt, `customer`/`payments` ignored);
+  `rx_order_update` has no `delivered` (404) and ignores `lines`; no receipts.
+- `inv_lab` / `inv_chamber` / `inv_ambulance`: `lab_bill_create` / `chamber_fee_collect` + `assistant_chambers` /
+  `ambreq_finish` → 404 `feature_off`; `appt_pay_confirm` issues no receipt; `ambreq_step` unchanged.
+- a kind off: `invoice_get` (business side), `invoice_pay`, `invoice_void`, `invoice_list_biz`, `invoice_export_csv`
+  → 404 `feature_off`; no end-of-day push for it.
+- `my_expenses` off: `my_invoices`, `my_expenses`, `invoice_report`, the patient's `invoice_get` → 404 `feature_off`, no
+  `invoice_new` push. On: only receipts of kinds that are on for the patient (`byKind` lists only those kinds).
+- `invoice_verify` is always public.
+Until `Features` (spring-p19) is on main, `invoices/InvoiceFeatures` is a shim: `lifolo.features-shim-on` (off in
+production, on in the test profile).
