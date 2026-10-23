@@ -47,8 +47,8 @@ android {
         buildConfigField("String", "RELEASE_CERT_SHA256", "\"$releaseCertSha256\"")
         // শেয়ার করা রিকোয়েস্টের লিংক (https://<host>/r/{id}) যে নামে অ্যাপে খোলে (AndroidManifest.xml)
         manifestPlaceholders["linkHost"] = lifoloLinkHost
-        // অ্যাপে কলের (LiveKit/WebRTC) নেটিভ লাইব্রেরি: শুধু এখনকার ফোনের ARM দুটো আর এমুলেটরের x86_64 — পুরোনো ৩২-বিট x86 বাদ (APK ছোট)
-        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
+        // অ্যাপে কলের (LiveKit/WebRTC) নেটিভ লাইব্রেরি: রিলিজে শুধু ফোনের ARM দুটো (APK ছোট); debug-এ এমুলেটরের x86_64-ও (নিচে)
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
     signingConfigs {
@@ -80,8 +80,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: অব্যবহৃত কোড আর রিসোর্স বাদ (APK ছোট) — নাম বদলানো (obfuscation) বন্ধ, proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (releaseStoreFile != null) signingConfigs.getByName("release") else null
+        }
+        debug {
+            // এমুলেটর (CI-র Maestro যাত্রা) x86_64
+            ndk { abiFilters += listOf("x86_64") }
         }
     }
 

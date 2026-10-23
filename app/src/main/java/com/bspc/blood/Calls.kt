@@ -116,7 +116,8 @@ object CallErrors {
         "call_off" -> CallFailure.OFF
         "call_busy" -> CallFailure.BUSY
         "call_gone" -> CallFailure.GONE
-        "calls_unavailable", "calls_disabled" -> CallFailure.UNAVAILABLE
+        // ফিচার সুইচ বন্ধ: সার্ভারের বার্তা ("এই সুবিধা এখনো চালু হয়নি")
+        "calls_unavailable", "calls_disabled", "feature_off" -> CallFailure.UNAVAILABLE
         "call_rate", "rate_limited", "too_many_requests", "quota" -> CallFailure.RATE_LIMIT
         null, "" -> if (httpLike) CallFailure.OTHER else CallFailure.NETWORK
         else -> CallFailure.OTHER
@@ -137,7 +138,7 @@ object CallErrors {
         // শুধু আমি বন্ধ করলে আসে (উনি করলে call_not_allowed — বলা হয় না)
         CallFailure.BLOCKED -> serverText?.takeIf { it.isNotBlank() } ?: tr("You have stopped contact with this person.", "আপনি এঁর সাথে যোগাযোগ বন্ধ রেখেছেন।")
         CallFailure.GONE -> tr("This call has already ended.", "কলটা আর নেই — শেষ হয়ে গেছে।")
-        CallFailure.UNAVAILABLE -> tr("App calls aren't available right now. Call their phone.", "অ্যাপে কল এখন চালু নেই। ফোনে কল করুন।")
+        CallFailure.UNAVAILABLE -> serverText?.takeIf { it.isNotBlank() } ?: tr("App calls aren't available right now. Call their phone.", "অ্যাপে কল এখন চালু নেই। ফোনে কল করুন।")
         CallFailure.RATE_LIMIT -> tr("Too many calls in a short time. Wait about 10 minutes and try again.", "অল্প সময়ে অনেক বেশি কল হয়েছে। ১০ মিনিট মতো পরে আবার চেষ্টা করুন।")
         CallFailure.NETWORK -> tr("Couldn't reach the server. Check your internet.", "সার্ভারে পৌঁছানো যায়নি। ইন্টারনেট দেখুন।")
         CallFailure.OTHER -> serverText?.takeIf { it.isNotBlank() } ?: tr("The call couldn't be made", "কল করা গেল না")
@@ -169,6 +170,8 @@ object CallAvailability {
     /** দরকার হলে সার্ভারকে জিজ্ঞেস (১০ মিনিটে একবার); ইন্টারনেট না থাকলে আগের অবস্থা থাকে */
     suspend fun refresh(force: Boolean = false, now: Long = System.currentTimeMillis()) {
         if (LoginGate.isGuest) return
+        // ফিচার সুইচ (মিনিটে একবার)
+        runCatching { Features.refresh() }
         if (!force && enabled.value != null && now - checkedAt < TTL_MS) return
         checkedAt = now
         runCatching { CallsApi.config() }

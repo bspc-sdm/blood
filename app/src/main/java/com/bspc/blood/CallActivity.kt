@@ -190,6 +190,10 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
         }
     }
 
+    val videoFeature = rememberFeatureOn(CallFeatures.VIDEO)
+    var comingSoon by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { runCatching { Features.refresh() } }
+
     fun perform(op: CallOp) {
         val mic = CallPermissions.granted(context, Manifest.permission.RECORD_AUDIO)
         val cam = CallPermissions.granted(context, Manifest.permission.CAMERA)
@@ -218,12 +222,17 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
     LaunchedEffect(pending) {
         val op = pending ?: return@LaunchedEffect
         onPendingDone()
+        // অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও (appt_video) বন্ধ: "এই সুবিধা শিগগির আসছে"
+        if (op is CallOp.Join) {
+            runCatching { Features.refresh() }
+            if (!Features.on(CallFeatures.APPT)) { comingSoon = true; return@LaunchedEffect }
+        }
         request(op)
     }
 
     // কিছু করার নেই (পুরোনো নোটিফিকেশন, কল আগেই শেষ): বন্ধ
     LaunchedEffect(s.phase, pending, asking) {
-        if (s.phase == CallPhase.IDLE && pending == null && asking == null) {
+        if (s.phase == CallPhase.IDLE && pending == null && asking == null && !comingSoon) {
             delay(400)
             if (CallManager.state.value.phase == CallPhase.IDLE) onClose()
         }
@@ -231,10 +240,20 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
 
     Box(Modifier.fillMaxSize().background(CallColors.bg)) {
         when (s.phase) {
-            CallPhase.IDLE -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CallColors.text) }
+            CallPhase.IDLE -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (comingSoon) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(CallFeatures.comingSoon(), color = CallColors.text, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.testTag("feature_coming_soon"))
+                        Spacer(Modifier.height(24.dp))
+                        RoundButton(R.drawable.ic_close, tr("Close", "বন্ধ"), CallColors.panel, onClose, "call_close")
+                    }
+                } else {
+                    CircularProgressIndicator(color = CallColors.text)
+                }
+            }
             CallPhase.INCOMING -> IncomingCall(
-                s, locked,
-                onAccept = { request(CallOp.Accept(s.video)) },
+                s.copy(video = s.video && videoFeature), locked,
+                onAccept = { request(CallOp.Accept(s.video && videoFeature)) },
                 onAcceptAudio = { request(CallOp.Accept(false)) },
                 onDecline = { CallManager.decline() },
             )
@@ -253,6 +272,7 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
                 s, locked,
                 onCamera = { on -> if (on) request(CallOp.Camera) else CallManager.setCamera(false) },
                 onUpgrade = { request(CallOp.Upgrade) },
+                videoFeature = videoFeature,
             )
         }
     }
@@ -284,7 +304,9 @@ private fun CallRoot(pending: CallOp?, onPendingDone: () -> Unit, onWindow: (Cal
         )
     }
     // অন্যজন ভিডিও চালু করতে চাইছেন
-    if (s.upgradeAsked && s.live) {
+    // ভিডিও বন্ধ (ফিচার সুইচ) থাকলে অনুরোধে "না"
+    LaunchedEffect(s.upgradeAsked, videoFeature) { if (s.upgradeAsked && !videoFeature) CallManager.answerUpgrade(false, false) }
+    if (s.upgradeAsked && s.live && videoFeature) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text(tr("Turn on video?", "ভিডিও চালু করবেন?")) },
@@ -437,7 +459,7 @@ private fun EndedCall(s: CallState, locked: Boolean, onStay: () -> Unit, onClose
 }
 
 @Composable
-private fun InCall(s: CallState, locked: Boolean, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit) {
+private fun InCall(s: CallState, locked: Boolean, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit, videoFeature: Boolean) {
     val remote by CallManager.remoteVideo.collectAsState()
     val local by CallManager.localVideo.collectAsState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -513,7 +535,7 @@ private fun InCall(s: CallState, locked: Boolean, onCamera: (Boolean) -> Unit, o
                 }
             }
             Spacer(Modifier.weight(1f))
-            Controls(s, onCamera, onUpgrade)
+            Controls(s, onCamera, onUpgrade, videoFeature)
         }
         // ছোট ছবি: নিজের ক্যামেরা (অন্যজনের ভিডিও বড় দেখালে)
         if (bigRemote && local != null && s.camOn && room != null) {
@@ -528,7 +550,7 @@ private fun InCall(s: CallState, locked: Boolean, onCamera: (Boolean) -> Unit, o
 }
 
 @Composable
-private fun Controls(s: CallState, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit) {
+private fun Controls(s: CallState, onCamera: (Boolean) -> Unit, onUpgrade: () -> Unit, videoFeature: Boolean) {
     Column(Modifier.fillMaxWidth().padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             RoundButton(
@@ -549,7 +571,7 @@ private fun Controls(s: CallState, onCamera: (Boolean) -> Unit, onUpgrade: () ->
                     if (s.camOn) tr("Camera off", "ক্যামেরা বন্ধ") else tr("Camera", "ক্যামেরা"),
                     CallColors.panel, { onCamera(!s.camOn) }, "call_camera", active = s.camOn,
                 )
-            } else if (s.phase == CallPhase.ACTIVE) {
+            } else if (s.phase == CallPhase.ACTIVE && videoFeature) {
                 // অডিও কল: ভিডিও শুধু দুজনের সম্মতিতে (অন্যজন রাজি হলে দুজনেরই নতুন টোকেন)
                 RoundButton(
                     R.drawable.ic_videocam,

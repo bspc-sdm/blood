@@ -153,12 +153,15 @@ fun ContactActions(
     var denied by remember { mutableStateOf(false) }
     var pendingVideo by remember { mutableStateOf(false) }
 
-    val callsLive = CallAvailability.enabled.value != false && !CallAvailability.isBlocked(ctx, refId)
+    // ফিচার সুইচ: বন্ধ থাকলে অ্যাপে কলের বাটন নেই (সার্ভারের contact_can-ও দুজনের সুইচ দেখে)
+    val audioFeature = rememberFeatureOn(CallFeatures.AUDIO)
+    val videoFeature = rememberFeatureOn(CallFeatures.VIDEO)
+    val callsLive = audioFeature && CallAvailability.enabled.value != false && !CallAvailability.isBlocked(ctx, refId)
     val callsOn = flags?.canCall == true && callsLive
-    val videoOn = callsOn && flags?.canVideo == true
+    val videoOn = callsOn && videoFeature && flags?.canVideo == true
     val msgOn = onMessage != null && flags?.canMessage == true
     // আমি এঁর সাথে যোগাযোগ বন্ধ রেখেছি: "আবার চালু করুন"
-    val blockedByMe = flags?.blocked == true
+    val blockedByMe = flags?.blocked == true && audioFeature
     val tel = phone?.takeIf { it.isNotBlank() }
     val phoneOn = showPhone && (tel != null || onPhone != null)
     val dial: () -> Unit = { if (onPhone != null) onPhone() else if (tel != null) callPhone(context, tel) }
@@ -431,5 +434,5 @@ fun CallsFullScreenRow() {
 @Composable
 fun CallsEntryVisible(): Boolean {
     LaunchedEffect(Unit) { CallAvailability.refresh() }
-    return CallAvailability.enabled.value == true
+    return rememberFeatureOn(CallFeatures.AUDIO) && CallAvailability.enabled.value == true
 }

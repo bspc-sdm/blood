@@ -130,7 +130,7 @@ fun NotifySettingsSection(
             HorizontalDivider()
             val showBusiness = MyWork.has
             // অ্যাপে কল সার্ভারে বন্ধ থাকলে তার সুইচও নয়
-            val showCalls = CallAvailability.enabled.value != false
+            val showCalls = CallAvailability.enabled.value != false && rememberFeatureOn(CallFeatures.AUDIO)
             NotifyCats.SETTABLE.filter { (it != NotifyCats.BUSINESS || showBusiness) && (it != NotifyCats.CALLS || showCalls) }.forEach { cat ->
                 val on = p.isOn(cat)
                 SwitchRow(

@@ -2,6 +2,9 @@ package com.bspc.blood
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.collectAsState
 
 /**
  * অনলাইন চেম্বারের অ্যাপয়েন্টমেন্টে "ভিডিও কলে যুক্ত হোন" — যুক্ত হওয়ার পর্দা (অপেক্ষার ঘর, তারপর ভিডিও কল)।
@@ -43,4 +46,37 @@ object CallIntents {
 /** প্রোফাইলের "কল" → কলের তালিকা (App খোলে) */
 object CallNav {
     val history = androidx.compose.runtime.mutableStateOf(false)
+}
+
+/** ফিচার সুইচের নাম (scratchpad/flags/CONTRACT.md) — বন্ধ থাকলে কলের সব ঢোকার পথ লুকানো */
+object CallFeatures {
+    /** অ্যাপে অডিও কল: কলের বাটন, কলের তালিকা, সেটিংসের "অ্যাপে কল", যোগাযোগ বন্ধের তালিকা */
+    const val AUDIO = "calls_audio"
+    /** ভিডিও কল, "ভিডিওতে ধরুন", ভিডিও চালু করতে অনুরোধ */
+    const val VIDEO = "calls_video"
+    /** অনলাইন অ্যাপয়েন্টমেন্টের ভিডিও কলে যুক্ত হওয়া (appt_call/{id}) */
+    const val APPT = "appt_video"
+
+    fun comingSoon() = tr("This is coming soon", "এই সুবিধা শিগগির আসছে")
+}
+
+/** ফিচার চালু কি না — বদলালে পাতা নতুন করে আঁকে */
+@androidx.compose.runtime.Composable
+fun rememberFeatureOn(key: String): Boolean {
+    // keys-এর বদল পড়া হয় যাতে চালু/বন্ধ হলে আবার আঁকে
+    Features.keys.collectAsState().value
+    return Features.on(key)
+}
+
+/** বন্ধ সুবিধার পাতায় (লিংক/নোটিফিকেশন থেকে) */
+@androidx.compose.runtime.Composable
+fun ComingSoonScreen(onBack: () -> Unit) {
+    androidx.compose.material3.Scaffold(topBar = { BackTopBar("", onBack) }) { padding ->
+        androidx.compose.foundation.layout.Box(
+            androidx.compose.ui.Modifier.fillMaxSize().padding(padding),
+            contentAlignment = androidx.compose.ui.Alignment.Center,
+        ) {
+            EmptyState(R.drawable.ic_schedule, CallFeatures.comingSoon(), null)
+        }
+    }
 }

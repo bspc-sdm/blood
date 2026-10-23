@@ -63,6 +63,11 @@ object CallHistoryText {
  */
 @Composable
 fun CallHistoryScreen(onBack: () -> Unit) {
+    // ফিচার সুইচ বন্ধ (নোটিফিকেশন/লিংক থেকে এলে): "এই সুবিধা শিগগির আসছে"
+    if (!rememberFeatureOn(CallFeatures.AUDIO)) {
+        ComingSoonScreen(onBack)
+        return
+    }
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<CallHistoryItem>?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
