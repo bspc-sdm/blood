@@ -1,5 +1,5 @@
 -- =====================================================================================
--- V684: blood bank stock per blood group (backend/docs/LISTINGS.md) — the owner sets it from "আমার কাজ"
+-- V690: blood bank stock per blood group (backend/docs/LISTINGS.md) — the owner sets it from "আমার কাজ"
 --       (bloodbank_stock_set); the lists show it with stockUpdatedAt and stockStale (older than 48 h).
 -- Additive only (a new table), safe for blue/green: the old server never reads it.
 -- =====================================================================================

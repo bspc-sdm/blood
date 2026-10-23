@@ -45,7 +45,7 @@ Extra filters (all optional, `true` to apply): pharmacies `delivery`; labs `home
 
 **New action:** `bloodbank_stock_set {id?, groups?, refresh?}` → `{ok, id, stock, stockUpdatedAt, stockStale}`.
 
-**Migration:** `V684__bloodbank_stock.sql` (new table `blood_bank_stock`; additive, blue/green safe).
+**Migration:** `V690__bloodbank_stock.sql` (new table `blood_bank_stock`; additive, blue/green safe).
 
 ---
 
