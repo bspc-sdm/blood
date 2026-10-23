@@ -155,7 +155,7 @@ class RxFlowIT : RxLabTest() {
         fails(cg, "rx_mine", mapOf("asUid" to pat), 403)
         val before = push.messages.size
         call(labU, "lab_order_status", mapOf("id" to lo2["id"].asText(), "status" to "received"))
-        ok(doc, "rx_cancel", mapOf("id" to rx3["id"].asText()))
+        ok(doc, "rx_cancel", mapOf("id" to rx3["id"].asText(), "reason" to "replaced"))
         assertFalse(push.messages.drop(before).any { it.uid == cg })
         assertEquals("cancelled", ok(pat, "rx_get", mapOf("id" to rx3["id"].asText()))["item"]["status"].asText())
 

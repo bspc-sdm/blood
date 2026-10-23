@@ -226,7 +226,7 @@
 | `stock_set` | pharmacy | BE×13:DemoBooksIT,DemoServicesIT,PharmacyListIT… · WEB-J:1 |
 | `rx_activity` | rx | BE×14:DemoIT,DemoRxIT,DemoServicesIT… · WEB-J:32 |
 | `rx_assisting` | rx | BE×5:DemoRxIT,RxFlowIT · WEB-J:480 |
-| `rx_cancel` | rx | BE×2:RxFlowIT thin · WEB-J:1 |
+| `rx_cancel` | rx | BE×9:RxFlowIT, RxCancelIT (reason, no-leak: public page, pharmacy, lab, push; caregiver; assistant) · WEB-U, WEB-PW, AND-SHOT · WEB-J:1 · M-RX-33–37 |
 | `rx_claim` | rx | BE×11:DemoRxIT,LabPricesIT,RxFlowIT · WEB-J:2 |
 | `rx_create` | rx | BE×20:DemoRxIT,LabPricesIT,RxFlowIT · WEB-J:1 |
 | `rx_doctor_list` | rx | BE×3:DemoRxIT,RxFlowIT · WEB-J:1 |

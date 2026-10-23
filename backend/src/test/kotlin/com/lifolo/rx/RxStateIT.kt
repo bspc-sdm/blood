@@ -164,7 +164,7 @@ class RxStateIT : RxLabTest() {
         assertTrue(ok(cg, "rx_get", asP + mapOf("id" to id))["item"]["state"]["timeline"].size() > 0)
 
         // the doctor cancels: past, muted, with the time; the doctor's own view has no state
-        ok(doc, "rx_cancel", mapOf("id" to id))
+        ok(doc, "rx_cancel", mapOf("id" to id, "reason" to "replaced"))
         stateOf(id).let {
             assertEquals("cancelled", it["primary"].asText())
             assertEquals("past", it["phase"].asText())
@@ -212,7 +212,7 @@ class RxStateIT : RxLabTest() {
         setStatus("os", "withdrawn")
         assertEquals("superseded", stateOf(old)["pastReason"].asText())
         // a cancelled newer one does not supersede
-        ok(doc, "rx_cancel", mapOf("id" to newer))
+        ok(doc, "rx_cancel", mapOf("id" to newer, "reason" to "wrong_patient"))
         assertEquals("active", stateOf(old)["phase"].asText())
 
         // another doctor's newer prescription for the same patient: nothing changes
@@ -258,7 +258,7 @@ class RxStateIT : RxLabTest() {
         assertEquals("active", stateOf(id)["phase"].asText())
         setStatus("oc", "cancelled")
         // (cancelled: it must not supersede the one below once that is moved back in time)
-        ok(doc, "rx_cancel", mapOf("id" to id))
+        ok(doc, "rx_cancel", mapOf("id" to id, "reason" to "replaced"))
 
         // "চলবে" (days 0): no course end — 30 days after writing or the last activity
         val cont = write(mapOf("medicines" to listOf(mapOf("name" to "Rosuva 10", "form" to "Tablet", "dose" to "0+0+1", "days" to 0))))

@@ -40,7 +40,11 @@ import org.json.JSONObject
 
 data class RxStateMed(val state: String, val bought: Int, val total: Int, val pharmacyName: String, val mode: String)
 data class RxStateLab(val state: String, val orders: Int, val reported: Int, val labName: String, val reviewed: Boolean)
-data class RxStep(val kind: String, val at: Long, val name: String, val mode: String, val count: Int, val ahead: Boolean)
+data class RxStep(
+    val kind: String, val at: Long, val name: String, val mode: String, val count: Int, val ahead: Boolean,
+    /** বাতিলের ধাপ: কারণের চাবি আর ডাক্তারের নোট (RxCancel.kt) */
+    val reason: String = "", val note: String = "",
+)
 
 data class RxState(
     /** "active" | "past" */
@@ -62,6 +66,9 @@ data class RxState(
     val reopenedAt: Long? = null,
     /** একই ডাক্তারের নতুন প্রেসক্রিপশন (id, কবে) — pastReason "superseded" হলে */
     val supersededBy: Pair<String, Long>? = null,
+    /** বাতিলের কারণ (চাবি — RxCancel.kt) আর নোট; শুধু রোগী/কেয়ারগিভার পান */
+    val cancelReason: String = "",
+    val cancelNote: String = "",
 ) {
     companion object {
         private fun JSONObject.longOrNull(k: String): Long? = if (!has(k) || isNull(k)) null else optLong(k).takeIf { it > 0 }
@@ -79,11 +86,12 @@ data class RxState(
                 o.longOrNull("followUpDate"), o.optLong("lastActivityAt"),
                 tl?.let { a ->
                     (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map {
-                        RxStep(it.str("kind"), it.optLong("at"), it.str("name"), it.str("mode"), it.optInt("count"), it.optBoolean("ahead"))
+                        RxStep(it.str("kind"), it.optLong("at"), it.str("name"), it.str("mode"), it.optInt("count"), it.optBoolean("ahead"), it.str("reason"), it.str("note"))
                     }
                 },
                 o.str("pastReason"), o.longOrNull("doneAt"), o.longOrNull("reopenedAt"),
                 o.optJSONObject("supersededBy")?.let { b -> b.str("id").takeIf { it.isNotBlank() }?.let { it to b.optLong("at") } },
+                o.str("cancelReason"), o.str("cancelNote"),
             )
         }
     }
@@ -149,7 +157,7 @@ object RxStateText {
     /** কার্ডের রঙিন চিপের এক লাইন (অগ্রাধিকার সার্ভারের primary-তে) আর রং; কিছু না দেখানোর হলে null */
     fun primary(rx: Rx): Pair<String, String>? {
         val s = rx.state ?: return if (rx.cancelled) cancelledText to "muted" else null
-        if (s.cancelled) return cancelledText to "muted"
+        if (s.cancelled) return RxCancel.cancelledLine(s.cancelReason.ifBlank { null }) to "muted"
         val m = s.medicine
         val l = s.lab
         return when {
@@ -190,7 +198,7 @@ object RxStateText {
             "lab_reported" -> tr("Report ready", "রিপোর্ট এসেছে") + at
             "lab_cancelled" -> tr("Lab couldn't do it", "ল্যাব করতে পারেনি") + at
             "reviewed" -> tr("Doctor checked the report", "ডাক্তার রিপোর্ট দেখেছেন")
-            "cancelled" -> cancelledText
+            "cancelled" -> RxCancel.cancelledLine(st.reason.ifBlank { null })
             "superseded" -> tr("Replaced by a newer prescription", "নতুন প্রেসক্রিপশনে বদলেছে")
             "marked_done" -> doneText
             "reopened" -> tr("Made ongoing again", "আবার চলমান করেছেন")
@@ -269,6 +277,15 @@ fun RxTimelineCard(rx: Rx, busy: Boolean = false, onMark: ((Boolean) -> Unit)? =
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(RxStateText.stepDate(st), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                }
+                // বাতিলের সময় ডাক্তারের নোট (থাকলে) — শুধু রোগী/কেয়ারগিভারের পাতায়
+                if (st.kind == "cancelled" && st.note.isNotBlank()) {
+                    Text(
+                        st.note, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 24.dp, top = 4.dp, bottom = if (i < steps.lastIndex) 10.dp else 0.dp).fillMaxWidth()
+                            .background(cs.surfaceContainerHighest, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("rx-cancel-note"),
+                    )
                 }
             }
             // রোগী (বা কেয়ারগিভার): নিজে শেষ / আবার চলমান (rx_mark_done); নতুন প্রেসক্রিপশনে বদলালে সেটা খোলা

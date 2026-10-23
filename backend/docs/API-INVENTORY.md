@@ -396,7 +396,7 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - request: `appointmentId`, `rxPatientId`, `patient`, `medicines`, `tests`, `advice`, `followUpDays`, `chamberIndex`, `complaints`, `findings`, `diagnosis`, `testPlace`, `testPlaceId`, `followUpNote`, `name`, `age`, `gender` · response: `{id,code}`
   - collections: appointments, badges, careLinks, inbox, prescriptions, providers, rxPatients, serverState, users · side effects: push to patient + caregivers, FCM push + inbox · errors: 404, 400 · tests: demo-lab, demo-rx, labhistory, labprices, rxflow
 - [x] **`rx_cancel`** — Cancel prescription
-  - src: `server/lib/prescriptions.js` → `actions.rx_cancel` · auth: user (writing doctor) · port: **P3**
+  - src: `server/lib/prescriptions.js` → `actions.rx_cancel` · auth: user (writing doctor) · port: **P3** · Spring: `{id, reason, note?}`, reason required (RX-STATE.md "Cancellation reason")
   - request: `id` · response: `{ok}`
   - collections: prescriptions · side effects: — · errors: 404 · tests: rxflow
 - [x] **`rx_doctor_list`** — Doctor: own recent 150 prescriptions

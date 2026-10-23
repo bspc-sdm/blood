@@ -24,6 +24,7 @@ import com.lifolo.pharmacy.RxMath
 import com.lifolo.pharmacy.StockSnap
 import com.lifolo.pharmacy.StockStore
 import com.lifolo.rx.RxActions
+import com.lifolo.rx.RxCancel
 import com.lifolo.rx.RxRules
 import org.springframework.stereotype.Component
 import java.security.SecureRandom
@@ -535,6 +536,8 @@ class DemoRx(
                 "follow_up_book_date" to date(if (followUp != null && ch != null && ch.appointments) nextOpen(ch, followUp) else null),
                 "follow_up_note" to (if (o.followUpDays != null) o.followUpNote else ""), "chamber_index" to o.ci,
                 "cancelled_at" to (if (o.status == "cancelled") sql.ts(o.createdAt + 15 * MIN) else null),
+                // the one cancelled demo prescription: wrong dose, a new one was written (RxCancel)
+                "cancel_reason" to (if (o.status == "cancelled") RxCancel.WRONG_MEDICINE else null),
             )
             val dispensed = o.dispensed.map { (atMs, items) -> RxDispensing(shopU.uid, shopName, atMs, items) }
             if (dispensed.isNotEmpty()) row["refill_at"] = date(RxRules.refillDate(meds, dispensed, now))

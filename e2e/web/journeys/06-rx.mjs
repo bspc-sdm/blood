@@ -190,7 +190,14 @@ export async function run(J) {
     await page.emulateMedia({ media: 'screen' });
     await tap(page, 'এই প্রেসক্রিপশন বাতিল করুন');
     const d = page.getByRole('dialog').last();
-    await d.getByRole('button', { name: 'বাতিল করুন' }).click();
+    // কারণ লাগবে (rx_cancel {id, reason, note}): "অন্য কারণ"-এ নোট ছাড়া এগোনো যায় না
+    await d.getByRole('radio', { name: 'অন্য কারণ' }).check();
+    await J.shot('বাতিলের কারণ', 'পাঁচটা কারণ; ‘অন্য কারণ’ বাছলে নোট লাগে — ‘পরের ধাপ’ বন্ধ।');
+    await d.getByRole('radio', { name: 'নতুন প্রেসক্রিপশন দিয়েছি' }).check();
+    await d.getByLabel('নোট (ঐচ্ছিক)').fill('মাত্রা বদলে নতুন দেওয়া হলো');
+    await d.getByRole('button', { name: 'পরের ধাপ' }).click();
+    await J.shot('বাতিল নিশ্চিত', 'কারণ ‘নতুন প্রেসক্রিপশন দিয়েছি’ আর নোট।');
+    await d.getByRole('button', { name: 'বাতিল করুন', exact: true }).click();
     await see(page, 'বাতিল করা হয়েছে');
     await J.shot('প্রেসক্রিপশন বাতিল', '‘বাতিল করা হয়েছে’।', { full: true });
   });

@@ -268,7 +268,9 @@ object RxApi {
     /** লেখকের নিয়ম (rx_me.rxRules) — লেখার পাতা এটা দিয়ে চলে; পুরনো সার্ভারে null */
     suspend fun myRules(): Practice.RxRules? = Practice.RxRules.parse(call("rx_me").optJSONObject("rxRules"))
     suspend fun claim(code: String, phone: String): Int = call("rx_claim", JSONObject().put("code", code).put("phone", phone)).optInt("added")
-    suspend fun cancel(id: String) = call("rx_cancel", JSONObject().put("id", id))
+    /** কারণ লাগবে (RxCancel.REASONS); নোট "অন্য কারণ"-এ ৩–২০০ অক্ষর, বাকিগুলোয় ঐচ্ছিক */
+    suspend fun cancel(id: String, reason: String, note: String?) =
+        call("rx_cancel", JSONObject().put("id", id).put("reason", reason).apply { if (!note.isNullOrBlank()) put("note", note) })
     suspend fun create(body: JSONObject): String = call("rx_create", body).optString("id")
     suspend fun get(id: String): Rx = Rx.parse(call("rx_get", JSONObject().put("id", id)).getJSONObject("item"))
     /** রোগী/কেয়ারগিভার: "শেষ হয়েছে" (true) / "আবার চলমান করুন" (false) — নতুন অবস্থা আর টাইমলাইনসহ (backend/docs/RX-STATE.md) */
@@ -587,21 +589,13 @@ fun RxDetailDialog(rx: Rx, asDoctor: Boolean, onDismiss: () -> Unit, onChanged: 
             info(tr("Medicine alarm is on", "ওষুধের অ্যালার্ম চালু হয়েছে"))
         }
     }
+    // কারণ (রেডিও) + নোট → নিশ্চিত → rx_cancel (RxCancel.kt)
     if (confirmCancel) {
-        AlertDialog(
-            onDismissRequest = { confirmCancel = false },
-            title = { Text(tr("Cancel this prescription?", "প্রেসক্রিপশনটা বাতিল করবেন?")) },
-            text = { Text(tr("Pharmacies will see it as cancelled. You can write a new one.", "ফার্মেসি যাচাই করলে বাতিল দেখাবে। চাইলে নতুন করে লিখতে পারেন।")) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmCancel = false
-                    scope.launch {
-                        runCatching { RxApi.cancel(rx.id) }.onSuccess { onChanged(); onDismiss() }.onFailure { errorMsg = it.message }
-                    }
-                }) { Text(tr("Cancel it", "বাতিল করুন")) }
-            },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(tr("Keep", "রেখে দিন")) } },
-        )
+        RxCancelDialog(rx.id, onDismiss = { confirmCancel = false }, onDone = {
+            confirmCancel = false
+            onChanged()
+            onDismiss()
+        })
     }
 }
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// একটা প্রেসক্রিপশন খুলে কাগজ, ছাপা, বাতিল (rx_get, rx_cancel) — অ্যাপের RxDetailDialog(asDoctor) / RxPaper; ছাপায় শুধু কাগজটা।
+// একটা প্রেসক্রিপশন খুলে কাগজ, ছাপা, বাতিল (rx_get; বাতিল কারণসহ — RxCancelDialog) — অ্যাপের RxDetailDialog(asDoctor) / RxPaper; ছাপায় শুধু কাগজটা।
 import { computed, ref } from 'vue';
-import { Button, Dialog, ErrorBox, ErrorText, SkeletonCards, Tag, toast } from '@/ui/kit';
-import { call, errorText } from '@/lib/api';
+import { Button, ErrorBox, SkeletonCards, Tag, toast } from '@/ui/kit';
+import { errorText } from '@/lib/api';
 import { useCall } from '@/lib/query';
 import { tr } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
@@ -10,6 +10,7 @@ import RxPaper from '../../health/RxPaper.vue';
 import { SELF, statusTag, useRxInvalidate, type DoctorLab, type DoctorRx } from './model';
 import type { Link } from './patients';
 import DoctorLabList from './DoctorLabList.vue';
+import RxCancelDialog from './RxCancelDialog.vue';
 
 const PRINT_PATH = 'M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z';
 const props = defineProps<{ id: string; link: Link }>();
@@ -17,32 +18,18 @@ const nav = useNav();
 const invalidate = useRxInvalidate();
 const q = useCall<{ item: DoctorRx; labOrders?: DoctorLab[] }>('rx_get', () => ({ id: props.id, ...SELF }));
 const cancelling = ref(false);
-const busy = ref(false);
-const err = ref<string | null>(null);
 const rx = computed(() => q.data?.item ?? null);
 const labs = computed(() => q.data?.labOrders ?? []);
 const back = () => (window.history.length > 1 ? nav(-1) : nav(props.link('/list')));
 const active = computed(() => rx.value?.status !== 'cancelled');
 
-async function doCancel() {
-  if (!rx.value) return;
-  busy.value = true;
-  err.value = null;
-  try {
-    await call('rx_cancel', { id: rx.value.id });
-    invalidate();
-    await q.refetch();
-    cancelling.value = false;
-    toast(tr('Cancelled', 'বাতিল করা হয়েছে'));
-  } catch (e) {
-    err.value = errorText(e);
-  }
-  busy.value = false;
+async function cancelled() {
+  invalidate();
+  await q.refetch();
+  cancelling.value = false;
+  toast(tr('Cancelled', 'বাতিল করা হয়েছে'));
 }
-function askCancel() {
-  err.value = null;
-  cancelling.value = true;
-}
+const askCancel = () => (cancelling.value = true);
 const print = () => window.print();
 </script>
 
@@ -82,14 +69,6 @@ const print = () => window.print();
       <div class="health-print rxd-print" aria-hidden="true"><RxPaper :rx="rx" print /></div>
     </Teleport>
 
-    <!-- ConfirmDialog-এর মতো, তবে অ্যাপের "রেখে দিন" — পাশাপাশি "বাতিল" আর "বাতিল করুন" গুলিয়ে যায় -->
-    <Dialog v-if="cancelling" size="small" :title="tr('Cancel this prescription?', 'প্রেসক্রিপশনটা বাতিল করবেন?')" @close="() => !busy && (cancelling = false)">
-      <div class="t-body-m muted">{{ tr('Pharmacies will see it as cancelled. You can write a new one.', 'ফার্মেসি যাচাই করলে বাতিল দেখাবে। চাইলে নতুন করে লিখতে পারেন।') }}</div>
-      <ErrorText :text="err" />
-      <template #actions>
-        <Button variant="text" :disabled="busy" @click="cancelling = false">{{ tr('Keep', 'রেখে দিন') }}</Button>
-        <Button variant="danger" :busy="busy" @click="doCancel">{{ tr('Cancel it', 'বাতিল করুন') }}</Button>
-      </template>
-    </Dialog>
+    <RxCancelDialog v-if="cancelling" :rx-id="rx.id" @close="cancelling = false" @done="cancelled" />
   </div>
 </template>

@@ -20,6 +20,8 @@ state: {
   primary: <key below>,               // the one status line
   tone: "primary" | "good" | "info" | "error" | "neutral" | "muted",
   cancelled: bool, cancelledAt: ms | null,
+  cancelReason: <reason key> | null,  // why (below); null when not cancelled, or cancelled before V684 / by the previous release
+  cancelNote: string | null,          // the doctor's note, if any
   medicine: { state, bought, total, pharmacyName, mode } | null,   // null: no medicines, or not bought through pharmacies
   lab: { state, orders, reported, labName, reviewed } | null,      // null: no tests and no lab order
   followUpDate: ms | null,             // only while it is today or ahead and the prescription is active
@@ -65,7 +67,7 @@ With several live lab orders the least advanced one decides; `reported`/`orders`
 
 ## The one line (`primary`) — priority
 
-1. `cancelled` — বাতিল করেছেন ডাক্তার (greyed card; the doctor gives no reason today — `rx_cancel` has none)
+1. `cancelled` — বাতিল করেছেন ডাক্তার — <reason> (greyed card; the reason below, nothing after the dash when null)
 2. the medicine state, in the order of the table above (open order → running out → all bought → declined → partial → not bought)
 3. no medicine state: `lab_<state>` (the tests line becomes the main one)
 4. nothing else: `follow_up` (ফলো-আপ: date) while the follow-up is ahead
@@ -117,7 +119,31 @@ the marks with the patient link.
 `written`, `pharmacy_sent` (name, mode), `pharmacy_accepted|ready|out|delivered|cancelled|withdrawn` (the order's last
 change), `bought` (pharmacy, `count` medicines), `lab_sent`, `lab_received`, `lab_reported`, `lab_cancelled`,
 `reviewed` (the doctor checked the report), `superseded` (`id` of the newer one), `marked_done`, `reopened`,
-`cancelled`, `follow_up` (`ahead` while to come). Oldest first. The
+`cancelled` (`reason?`, `note?`), `follow_up` (`ahead` while to come). Oldest first. The
 orders keep only their last status time, so an order shows "sent" + its latest step.
 
-Tests: `RxStateTest` (unit), `RxStateIT` (integration).
+## Cancellation reason (`rx_cancel {id, reason, note?}`)
+
+The writing doctor (never an assistant or a caregiver) cancels with a required reason (`RxCancel.kt`; an app that sends
+none gets 400 `cancel_reason` — owner 2026-10: no old app versions in use):
+
+| key | bn | en |
+|---|---|---|
+| `wrong_medicine` | ভুল ওষুধ/মাত্রা | Wrong medicine/dose |
+| `wrong_patient` | ভুল রোগী | Wrong patient |
+| `replaced` | নতুন প্রেসক্রিপশন দিয়েছি | Gave a new prescription |
+| `patient_reported` | রোগী জানিয়েছেন সমস্যা | Patient reported a problem |
+| `other` | অন্য কারণ | Other reason |
+
+`note`: optional, up to 200 characters; with `other` required, 3–200 (400 `cancel_note`). The first cancellation wins
+(a second call answers ok and keeps the first reason). Stored in `prescriptions.cancel_reason` / `cancel_note`
+(migration V684, nullable — a cancellation made by the previous release during a blue/green switch has NULL, shown as
+cancelled without a reason).
+
+Who sees it: the patient and a caregiver acting for the patient (`state.cancelReason/cancelNote`, the timeline's
+`cancelled` step). Psychologist notes stay hidden from caregivers as before; physio/psychologist notes are cancelled the
+same way. **Never** the public `/rx/{code}` page (only "বাতিল"/"Cancelled" — the note may hold medical details), the
+pharmacy's code view (`status: cancelled`, "এই প্রেসক্রিপশন বাতিল" — no reason), the lab's code view (409 "এই
+প্রেসক্রিপশন বাতিল") or any push (a cancellation sends none). The writing doctor's own view is unchanged.
+
+Tests: `RxStateTest` (unit), `RxStateIT`, `RxCancelIT` (integration).

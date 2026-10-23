@@ -3,17 +3,21 @@
 import { num, tr } from '@/lib/i18n';
 import { formatDate, formatDayOf } from '@/lib/format';
 import type { Rx } from './rx';
+import { cancelledLine } from './rxcancel';
 
 export type RxTone = 'primary' | 'good' | 'info' | 'error' | 'neutral' | 'muted';
 export interface RxStateMed { state: string; bought: number; total: number; pharmacyName?: string | null; mode?: string | null }
 export interface RxStateLab { state: string; orders: number; reported: number; labName?: string | null; reviewed: boolean }
-export interface RxStep { kind: string; at: number; name?: string; mode?: string; count?: number; ahead?: boolean }
+export interface RxStep { kind: string; at: number; name?: string; mode?: string; count?: number; ahead?: boolean; reason?: string; note?: string }
 export interface RxState {
   phase: 'active' | 'past';
   primary: string;
   tone: RxTone;
   cancelled: boolean;
   cancelledAt?: number | null;
+  /** বাতিলের কারণ (rxcancel.ts) আর ডাক্তারের নোট — শুধু রোগী/কেয়ারগিভার পান */
+  cancelReason?: string | null;
+  cancelNote?: string | null;
   medicine: RxStateMed | null;
   lab: RxStateLab | null;
   followUpDate: number | null;
@@ -83,7 +87,7 @@ export const followUpText = (d: number) => tr('Follow-up: ', 'ফলো-আপ: 
 export function primaryText(rx: Rx): { text: string; tone: RxTone } | null {
   const s = rx.state;
   if (!s) return rx.status === 'cancelled' ? { text: tr('Cancelled by the doctor', 'বাতিল করেছেন ডাক্তার'), tone: 'muted' } : null; // bn-ok
-  if (s.cancelled) return { text: tr('Cancelled by the doctor', 'বাতিল করেছেন ডাক্তার'), tone: 'muted' }; // bn-ok
+  if (s.cancelled) return { text: cancelledLine(s.cancelReason), tone: 'muted' };
   if (s.medicine && s.primary === s.medicine.state) return { text: medText(s.medicine), tone: s.tone };
   if (s.lab && s.primary === `lab_${s.lab.state}`) return { text: labText(s.lab), tone: s.tone };
   if (s.primary === 'follow_up' && s.followUpDate) return { text: followUpText(s.followUpDate), tone: s.tone };
@@ -121,7 +125,7 @@ export function stepText(st: RxStep): string {
     case 'lab_reported': return tr('Report ready', 'রিপোর্ট এসেছে') + at(st.name);
     case 'lab_cancelled': return tr("Lab couldn't do it", 'ল্যাব করতে পারেনি') + at(st.name); // bn-ok
     case 'reviewed': return tr('Doctor checked the report', 'ডাক্তার রিপোর্ট দেখেছেন'); // bn-ok
-    case 'cancelled': return tr('Cancelled by the doctor', 'বাতিল করেছেন ডাক্তার'); // bn-ok
+    case 'cancelled': return cancelledLine(st.reason);
     case 'superseded': return tr('Replaced by a newer prescription', 'নতুন প্রেসক্রিপশনে বদলেছে'); // bn-ok
     case 'marked_done': return doneText();
     case 'reopened': return tr('Made ongoing again', 'আবার চলমান করেছেন'); // bn-ok

@@ -51,6 +51,8 @@ async function mark(done: boolean) {
         <span class="dot" aria-hidden="true" />
         <span class="what">{{ stepText(st) }}</span>
         <span class="when">{{ stepDate(st) }}</span>
+        <!-- বাতিলের সময় ডাক্তারের নোট (থাকলে) — শুধু রোগী/কেয়ারগিভারের পাতায় -->
+        <span v-if="st.kind === 'cancelled' && st.note" class="note" data-testid="rx-cancel-note">{{ st.note }}</span>
       </li>
     </ol>
     <div v-if="canMarkDone(full) || canReopen(full) || full.state?.supersededBy" class="acts">
@@ -82,4 +84,8 @@ async function mark(done: boolean) {
 .ahead .what { color: var(--on-surface-variant); }
 .bad .dot { background: var(--error); }
 .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.note {
+  grid-column: 2 / 4; margin-top: 4px; padding: 6px 10px; border-radius: 8px; overflow-wrap: anywhere; white-space: pre-line;
+  background: var(--surface-high); color: var(--on-surface-variant); font-size: 13px; line-height: 18px;
+}
 </style>

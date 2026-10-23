@@ -468,12 +468,21 @@ class RxActions(
         return linkedMapOf("id" to id, "code" to code)
     }
 
+    /**
+     * only the writer (never an assistant or a caregiver): `{id, reason, note?}` — the reason is required (RxCancel).
+     * The first cancellation wins (its reason stays); the patient's push is unchanged (none).
+     */
     fun rxCancel(ctx: ActionContext): Any {
         val id = ctx.body.string("id")
         if (!Rules.isValidId(id)) throw notFound(ctx)
         val s = store.get(id!!)
         if (s == null || s.doctorUid != ctx.user.id) throw notFound(ctx)
-        if (s.status != "cancelled") jdbc.update("UPDATE prescriptions SET status = 'cancelled', cancelled_at = now() WHERE id = ?", id)
+        val why = RxCancel.parse(ctx)
+        if (s.status == "cancelled") return linkedMapOf("ok" to true)
+        jdbc.update(
+            "UPDATE prescriptions SET status = 'cancelled', cancelled_at = now(), cancel_reason = ?, cancel_note = ? WHERE id = ? AND status <> 'cancelled'",
+            why.reason, why.note, id,
+        )
         return linkedMapOf("ok" to true)
     }
 

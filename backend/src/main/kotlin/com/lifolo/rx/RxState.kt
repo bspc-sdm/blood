@@ -49,6 +49,9 @@ object RxState {
         val reopenedAt: Long? = null,
         /** the next newer prescription from the same doctor for the same person (not cancelled) */
         val newer: Newer? = null,
+        /** the doctor's reason (RxCancel key; NULL when cancelled by the previous release) and note */
+        val cancelReason: String? = null,
+        val cancelNote: String? = null,
     )
 
     private fun tone(primary: String): String = when (primary) {
@@ -153,6 +156,9 @@ object RxState {
             "tone" to tone(primary),
             "cancelled" to cancelled,
             "cancelledAt" to f.cancelledAt?.takeIf { cancelled },
+            // why (RxCancel): only for the patient's own view and the caregiver — never on public/pharmacy views
+            "cancelReason" to if (cancelled) RxCancel.keyOf(f.cancelReason) else null,
+            "cancelNote" to f.cancelNote?.takeIf { cancelled && it.isNotEmpty() },
             "medicine" to medicine,
             "lab" to lab,
             "followUpDate" to followUp?.takeIf { followUpAhead && !past },
@@ -166,6 +172,12 @@ object RxState {
         )
         if (withTimeline) out["timeline"] = timeline(rx, f, followUp, now)
         return out
+    }
+
+    /** the timeline's `cancelled` step: {reason?, note?} */
+    private fun cancelExtra(f: Facts): Map<String, Any?> = linkedMapOf<String, Any?>().apply {
+        RxCancel.keyOf(f.cancelReason)?.let { put("reason", it) }
+        f.cancelNote?.takeIf { it.isNotEmpty() }?.let { put("note", it) }
     }
 
     /** what happened, oldest first: {kind, at, name?, mode?, count?, ahead?}; the follow-up day is a step too (`ahead: true` while to come) */
@@ -193,7 +205,7 @@ object RxState {
         f.newer?.let { add("superseded", it.createdAt, extra = mapOf("id" to it.id)) }
         f.doneAt?.let { add("marked_done", it) }
         f.reopenedAt?.let { add("reopened", it) }
-        if (rx.status == "cancelled") add("cancelled", f.cancelledAt ?: rx.createdAt)
+        if (rx.status == "cancelled") add("cancelled", f.cancelledAt ?: rx.createdAt, extra = cancelExtra(f))
         if (followUp != null && rx.status != "cancelled") add("follow_up", followUp, extra = mapOf("ahead" to (followUp >= RxRules.dhakaToday(now))))
         list.sortBy { it["at"] as Long }
         return list
@@ -203,7 +215,7 @@ object RxState {
 /** the rows [RxState] needs, for many prescriptions in a few queries */
 @Component
 class RxStateLoader(private val jdbc: JdbcTemplate) {
-    private data class Marks(val cancelledAt: Long?, val doneAt: Long?, val reopenedAt: Long?)
+    private data class Marks(val cancelledAt: Long?, val doneAt: Long?, val reopenedAt: Long?, val cancelReason: String?, val cancelNote: String?)
 
     private data class Sibling(val id: String, val doctorUid: String, val patientUid: String, val rxPatientId: String?, val name: String, val createdAt: Long)
 
@@ -219,9 +231,10 @@ class RxStateLoader(private val jdbc: JdbcTemplate) {
         val ids = list.map { it.id }
         val arr = P3Sql.pgArray(ids)
         val marks = HashMap<String, Marks>()
-        jdbc.eachRow("SELECT id, cancelled_at, patient_done_at, patient_reopened_at FROM prescriptions WHERE id = ANY(?::text[])", arr) { rs ->
+        jdbc.eachRow("SELECT id, cancelled_at, patient_done_at, patient_reopened_at, cancel_reason, cancel_note FROM prescriptions WHERE id = ANY(?::text[])", arr) { rs ->
             marks[rs.getString("id")] = Marks(
                 rs.getTimestamp("cancelled_at")?.time, rs.getTimestamp("patient_done_at")?.time, rs.getTimestamp("patient_reopened_at")?.time,
+                rs.getString("cancel_reason"), rs.getString("cancel_note"),
             )
         }
         // newer prescriptions of the same doctors on the same accounts (not cancelled)
@@ -274,7 +287,7 @@ class RxStateLoader(private val jdbc: JdbcTemplate) {
         ) { rs -> reviews.getOrPut(rs.getString("rx_id")) { ArrayList() }.add(RxState.Review(rs.getString("status"), rs.getTimestamp("at").time)) }
         return ids.associateWith {
             val m = marks[it]
-            RxState.Facts(m?.cancelledAt, orders[it].orEmpty(), labs[it].orEmpty(), reviews[it].orEmpty(), m?.doneAt, m?.reopenedAt, newer[it])
+            RxState.Facts(m?.cancelledAt, orders[it].orEmpty(), labs[it].orEmpty(), reviews[it].orEmpty(), m?.doneAt, m?.reopenedAt, newer[it], m?.cancelReason, m?.cancelNote)
         }
     }
 }
