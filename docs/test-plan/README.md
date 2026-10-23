@@ -49,8 +49,9 @@
 
 ## আপনার হাতে টেস্ট
 
-**৩৮১টা টেস্ট** (🔴 ১১১টা, 🟠 ১৪৯টা), ১৭টা ফাইলে, রোল ধরে — প্রতিটায় ঠিক কোন বোতাম চাপবেন (অ্যাপের লেখা হুবহু), কী দেখলে ঠিক। মোট **≈ ৪৯ ঘণ্টা**
-(দিনে ৪ ঘণ্টা হলে ১২–১৩ কর্মদিবস)। শুরু করুন [04-manual-tests.md](04-manual-tests.md) থেকে।
+**৬৫৫টা টেস্ট**, ২২টা ফাইলে, রোল আর ফিচার ধরে — প্রতিটায় ঠিক কোন বোতাম চাপবেন (অ্যাপের লেখা হুবহু), কী দেখলে ঠিক। রিলিজ হবে **১৭টা ধাপে**: ধাপ ১ মূল অ্যাপ
+(৩৮১টা টেস্ট, ≈ ৪৯ ঘণ্টা), তারপর প্রতিটা নতুন সুবিধা ফিচার সুইচ দিয়ে একটা একটা করে — প্রতিবার শুধু সেই ধাপের টেস্ট ([phases.json](phases.json))। মোট **≈ ৮৭ ঘণ্টা**।
+শুরু করুন [04-manual-tests.md](04-manual-tests.md) থেকে।
 
 ## সময়সূচি
 
@@ -81,7 +82,10 @@
 | [02-coverage-matrix.md](02-coverage-matrix.md) | প্রতিটা জিনিস কোন টেস্টে আছে, NONE-এর তালিকা — স্বয়ংক্রিয় |
 | [03-authorization-matrix.md](03-authorization-matrix.md) | ২২৫ action × ১৩ রোল — কে পারেন, কে পারেন না — স্বয়ংক্রিয় |
 | [03a-security-findings.md](03a-security-findings.md) | সন্দেহজনক নিরাপত্তা/গোপনীয়তার বিষয়, কোডের লাইনসহ |
-| [04-manual-tests.md](04-manual-tests.md) + [manual/](manual/) | আপনার হাতে টেস্ট (১৭ ফাইল) |
+| [04-manual-tests.md](04-manual-tests.md) + [manual/](manual/) | আপনার হাতে টেস্ট (২২ ফাইল), রিলিজের ১৭টা ধাপের ভূমিকা |
+| [phases.json](phases.json) | কোন টেস্ট কোন রিলিজের ধাপে, প্রতিটা ধাপের ফিচার সুইচ আর "কী চালু করবেন" — পরীক্ষার খাতা এটা পড়ে |
+| [CALLS-SECURITY-REVIEW.md](CALLS-SECURITY-REVIEW.md), [INVOICES-SECURITY-REVIEW.md](INVOICES-SECURITY-REVIEW.md), [PAYMENTS-SECURITY-REVIEW.md](PAYMENTS-SECURITY-REVIEW.md) | কল/অনলাইন চেম্বার, রসিদ/ডেস্কটপ আর পেমেন্টের নিরাপত্তা ও অপব্যবহারের পর্যালোচনা |
+| [GAPS-STATUS.md](GAPS-STATUS.md) | স্বয়ংক্রিয় টেস্টের ফাঁক কোথায় কতটা পূরণ হলো |
 | [05-non-functional.md](05-non-functional.md) | লোড, নিরাপত্তা স্ক্যান, ব্যাকআপ, মহড়া, SSL, পুশ/ইমেইল, ক্রন, তথ্য মোছা, প্রাইভেসি, Play Store, আইনের প্রশ্ন |
 | [06-phases-and-exit-criteria.md](06-phases-and-exit-criteria.md) | ধাপ, শর্ত, সময়সূচি, তীব্রতা, রোলআউট, hotfix |
 | `tools/build_inventory.py`, `tools/data/` | তালিকা বানানোর স্ক্রিপ্ট আর তার ডাটা (ওয়েব যাত্রায় কোন action কতবার ডাকা — লোকাল স্ট্যাকে ৯টা যাত্রা, ১৭৫/১৭৫ দৃশ্য পাস) |

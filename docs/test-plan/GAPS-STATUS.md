@@ -35,7 +35,7 @@
 ## In-app calls + online video chambers (new feature, 2026-10-23, branch `docs-calls`)
 Manual tests: [manual/17-calls.md](manual/17-calls.md). There are 88 tests: `M-CAL-01…65` for calls and `M-ONC-01…23` for online chambers. Of these, 21 are marked "(২টা আসল ফোন)". The total is about 8 h.
 Security and abuse review: [CALLS-SECURITY-REVIEW.md](CALLS-SECURITY-REVIEW.md). It lists 14 items: 6 High, 6 Medium and 2 Low.
-This section belongs in the `04-manual-tests.md` index, which is on branch `test-plan` and not yet on main. Add this row there: `manual/17-calls.md | অ্যাপে অডিও/ভিডিও কল, অনলাইন ভিডিও চেম্বার, bKash ফি | M-CAL, M-ONC | ৮ ঘণ্টা`.
+The file is listed in the [04-manual-tests.md](04-manual-tests.md) index. Its tests are split over release phases 2, 3, 6 and 7 in [phases.json](phases.json).
 
 | Feature area | Manual | Automated today | Gap / to automate |
 |---|---|---|---|
