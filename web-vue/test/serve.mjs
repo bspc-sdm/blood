@@ -72,4 +72,8 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
   fs.createReadStream(file).pipe(res);
 });
+// Playwright-এর route.fetch() খালি keep-alive সংযোগ আবার ব্যবহার করে; Node ৫ সেকেন্ডে সেটা বন্ধ করে — ব্যস্ত মেশিনে দুটো
+// একই মুহূর্তে হলে "socket hang up" (পরীক্ষা এলোমেলোভাবে ব্যর্থ)। খালি সংযোগ পরীক্ষার পুরো সময় খোলা থাকে।
+server.keepAliveTimeout = 10 * 60_000;
+server.headersTimeout = 10 * 60_000 + 5_000;
 server.listen(port, () => console.log(`test server http://localhost:${port}`));

@@ -6,6 +6,14 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { def, open, watchErrors } from './helpers';
 
+// ব্যস্ত মেশিনে (লোডে) স্থির: প্রথম পাতা খুলতেই (networkidle) ১৫ সেকেন্ড যেতে পারে — লম্বা ধাপের পরীক্ষাগুলোর সময় ৬০ সেকেন্ড;
+// আর পরীক্ষা শেষ হওয়ার মুহূর্তে পাতা তখনো my_appointments আবার আনছে (route.fetch চলছে) — context বন্ধ হলে "socket hang up" /
+// "Response has been disposed" পরীক্ষার ভুল হয়ে আসত। শেষে আগে route সরানো, চলতি handler-এর ভুল উপেক্ষা।
+test.describe.configure({ timeout: 60_000 });
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 const H = 3600_000;
 const DAY = 24 * H;
 const dhakaNow = () => new Date(Date.now() + 6 * H);
