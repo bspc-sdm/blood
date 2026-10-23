@@ -98,6 +98,7 @@ class ChatService(
     private val storage: ObjectStorage,
     private val photos: ChatPhotos,
     private val mapper: ObjectMapper,
+    private val features: ChatFeatures,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -195,6 +196,8 @@ class ChatService(
             return Access(false, true, false, ContactPolicy.Refusal.NO_RELATION)
         }
         reopen(t)
+        // two-party feature switch: the peer without `chat` cannot be written to (not revealed: chat_not_allowed)
+        if (d.allowed && !features.isOn(t.other(uid), ChatFeatures.CHAT)) return Access(false, false, false, ContactPolicy.Refusal.UNREACHABLE)
         return Access(d.allowed, false, d.refusal == ContactPolicy.Refusal.BLOCKED_BY_ME, d.refusal)
     }
 
@@ -273,7 +276,7 @@ class ChatService(
         val d = policy.decide(uid, email, ctx, refId, peerUid, nowMs)
         val t: ThreadRow = if (d.rel != null) {
             val peer = d.rel.peer
-            if (d.allowed) {
+            if (d.allowed && features.bothOn(uid, peer, ChatFeatures.CHAT)) {
                 val (a, b) = pair(uid, peer)
                 jdbc.update(
                     """
@@ -284,7 +287,7 @@ class ChatService(
                 )
                 threadOf(uid, peer, ctx, refId)!!
             } else {
-                threadOf(uid, peer, ctx, refId) ?: throw refusal(lang, d.refusal)
+                threadOf(uid, peer, ctx, refId) ?: throw refusal(lang, d.refusal ?: ContactPolicy.Refusal.UNREACHABLE)
             }
         } else if (peerUid != null) {
             threadOf(uid, peerUid, ctx, refId) ?: throw notAllowed(lang)
@@ -335,6 +338,8 @@ class ChatService(
         val a = access(uid, email, t0, nowMs)
         if (a.closed) throw closed(lang)
         if (!a.canSend) throw refusal(lang, a.refusal)
+        // photos and locations: `chat_media` for both people
+        if ((c.photo != null || c.lat != null) && !features.bothOn(uid, t0.other(uid), ChatFeatures.MEDIA)) throw features.off(lang)
         if (!rate.tryAcquire("chat_send:$uid", SEND_PER_MINUTE, Duration.ofMinutes(1))) throw tooFast(lang)
         val processed: ChatPhotos.Processed? = if (c.photo == null) null else {
             val dayStart = DhakaTime.day(nowMs).atStartOfDay(DHAKA).toInstant().toEpochMilli()
@@ -406,6 +411,8 @@ class ChatService(
     /** FCM to the peer (generic lock-screen text, collapsed per thread) + SSE to both */
     private fun notifyMessage(t: ThreadRow, m: MessageRow) {
         val peer = t.other(m.from)
+        // no push / SSE to someone without the feature (send already requires both; the switch may flip in between)
+        if (!features.isOn(peer, ChatFeatures.CHAT)) return
         val ps = calls.people(listOf(m.from, peer))
         val first = CallService.firstName(ps[m.from]!!.name)
         val lang = ps[peer]!!.lang
@@ -426,7 +433,7 @@ class ChatService(
     private fun sseMessage(t: ThreadRow, m: MessageRow) {
         val first = CallService.firstName(calls.people(listOf(m.from))[m.from]!!.name)
         val nowMs = now()
-        for (u in listOf(t.a, t.b)) {
+        for (u in listOf(t.a, t.b).filter { features.isOn(it, ChatFeatures.CHAT) }) {
             publish(u, "chat_message", linkedMapOf("threadId" to t.id, "messageId" to m.id, "from" to first, "message" to messageMap(m, nowMs)))
         }
     }
@@ -507,7 +514,7 @@ class ChatService(
             val ev = linkedMapOf<String, Any?>("threadId" to t.id, "upTo" to upTo, "by" to uid)
             publish(uid, "chat_read", ev)
             // a block: no read receipts to the other side
-            if (!blocks.eitherWay(uid, peer)) {
+            if (!blocks.eitherWay(uid, peer) && features.isOn(peer, ChatFeatures.CHAT)) {
                 publish(peer, "chat_read", ev)
                 try {
                     push.send(

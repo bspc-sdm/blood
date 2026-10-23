@@ -41,6 +41,10 @@ class ChatIT : IntegrationTest() {
 
     @Autowired lateinit var deletion: AccountDeletionService
 
+    @Autowired lateinit var features: ChatFeatures
+
+    @Autowired lateinit var callFeatures: com.lifolo.calls.CallFeatures
+
     private val dhaka = ZoneId.of("Asia/Dhaka")
 
     @BeforeEach
@@ -52,6 +56,8 @@ class ChatIT : IntegrationTest() {
     @AfterEach
     fun clockBack() {
         chat.clock = { System.currentTimeMillis() }
+        features.override = null
+        callFeatures.override = null
     }
 
     // ------------------------------------------------------------------ helpers
@@ -237,8 +243,12 @@ class ChatIT : IntegrationTest() {
         assertEquals(403, open("pat", "lab_order", "o1").status) // the id of another table
         assertEquals(403, open("other", "rx_order", "o1").status)
         assertEquals(403, open("pat", "rx_order", "o1", "lab").status)
+        // suspended shop: the existing thread is read-only (closed), no new thread for the lab order's other ids
         jdbc.update("UPDATE pharmacies SET status = 'suspended'")
-        assertEquals(403, open("pat", "rx_order", "o1").status)
+        val sus = ok("pat", "chat_open", mapOf("ctx" to "rx_order", "refId" to "o1"))
+        assertFalse(sus["canSend"].booleanValue())
+        assertTrue(sus["closed"].booleanValue())
+        assertEquals("chat_closed", send("pat", sus["threadId"].textValue()).code)
     }
 
     @Test
@@ -552,5 +562,57 @@ class ChatIT : IntegrationTest() {
         ok("a", "chat_send", mapOf("threadId" to t, "clientId" to "2", "text" to "আবার"))
         assertTrue(pushes("b", "chat_message").isEmpty())
         assertEquals(2, ok("b", "chat_unread")["total"].intValue())
+    }
+
+    // ------------------------------------------------------------------ feature switches (chat, chat_media)
+
+    @Test
+    fun `feature chat off - 404 feature_off for the person, peer without it cannot be written to, no push, contact_can false`() {
+        val t = pair()
+        ok("a", "chat_send", mapOf("threadId" to t, "clientId" to "1", "text" to "এক"))
+        push.messages.clear()
+        features.override = { uid, key -> if (uid == "b" && key == "chat") false else null }
+        for (a in listOf("chat_threads", "chat_unread", "chat_messages", "chat_open", "chat_send", "chat_read", "chat_unsend", "chat_report")) {
+            val r = call("b", a, mapOf("threadId" to t))
+            assertEquals(404, r.status, "$a → $r")
+            assertEquals("feature_off", r.code)
+            assertEquals("এই সুবিধা এখনো চালু হয়নি", r.error)
+        }
+        // a still has the feature, b does not: read-only for a, nothing reaches b
+        assertEquals("chat_not_allowed", send("a", t).code)
+        assertFalse(ok("a", "chat_open", mapOf("threadId" to t))["canSend"].booleanValue())
+        assertTrue(pushes("b", "chat_message").isEmpty())
+        // no new thread with someone who does not have it
+        person("c")
+        bloodRequest("r-a-c", "a", mapOf("c" to "accepted"), confirmed = setOf("c"))
+        features.override = { uid, key -> if (uid == "c" && key == "chat") false else null }
+        assertEquals("chat_not_allowed", open("a", "blood", "r-a-c", "c").code)
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM chat_threads WHERE ref_id = 'r-a-c'", Int::class.java))
+        // everything off (the production default: the shared switch, which contact_can reads too)
+        features.override = null
+        assertTrue(ok("a", "contact_can", mapOf("items" to listOf(mapOf("ctx" to "blood", "refId" to "r-a-b", "peerUid" to "b"))))["items"][0]["canMessage"].booleanValue())
+        callFeatures.override = emptySet()
+        assertEquals("feature_off", call("a", "chat_unread").code)
+        assertFalse(ok("a", "contact_can", mapOf("items" to listOf(mapOf("ctx" to "blood", "refId" to "r-a-b", "peerUid" to "b"))))["items"][0]["canMessage"].booleanValue())
+        // back on: works again
+        callFeatures.override = null
+        assertEquals(200, send("a", t).status)
+        assertEquals(1, pushes("b", "chat_message").size)
+    }
+
+    @Test
+    fun `feature chat_media off - photos and locations refused with feature_off for either side, text still works`() {
+        val t = pair()
+        val photo = Base64.getEncoder().encodeToString(jpegWithExif(20, 20, 1))
+        features.override = { uid, key -> if (uid == "a" && key == "chat_media") false else null }
+        assertEquals("feature_off", send("a", t, null, mapOf("photo" to photo)).code)
+        assertEquals("feature_off", send("a", t, null, mapOf("location" to mapOf("lat" to 23.7, "lng" to 90.4))).code)
+        assertEquals("feature_off", send("b", t, null, mapOf("photo" to photo)).code, "the peer cannot receive media")
+        assertEquals(200, send("a", t, "লেখা চলবে").status)
+        // chat_media needs chat: chat off → media off too
+        features.override = { uid, key -> if (uid == "a" && key == "chat") false else null }
+        assertFalse(features.isOn("a", "chat_media"))
+        features.override = null
+        assertEquals(200, send("a", t, null, mapOf("photo" to photo)).status)
     }
 }

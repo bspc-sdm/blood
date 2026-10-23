@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
  * acting for a patient (not in CARE_ACTIONS, checked again here).
  */
 @Component
-class ChatActions(private val chat: ChatService, private val admins: AdminService) : ActionModule {
+class ChatActions(private val chat: ChatService, private val admins: AdminService, private val features: ChatFeatures) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "chat_open" to ActionHandler(::open),
         "chat_send" to ActionHandler(::send),
@@ -59,7 +59,14 @@ class ChatActions(private val chat: ChatService, private val admins: AdminServic
         if (!admins.isAdmin(ctx.user)) throw ctx.err(403, "Admins only", "শুধু অ্যাডমিন")
     }
 
+    /** own account only, and the `chat` switch on for the caller (404 feature_off otherwise) */
     private fun own(ctx: ActionContext): String {
+        val uid = ownAccount(ctx)
+        features.require(ctx.lang, uid, ChatFeatures.CHAT)
+        return uid
+    }
+
+    private fun ownAccount(ctx: ActionContext): String {
         if (ctx.user.actingBy != null || ctx.user.id != ctx.caller.id) {
             throw ctx.err(403, "A caregiver can't do this for the patient", "কেয়ারগিভার রোগীর হয়ে এটা করতে পারেন না")
         }

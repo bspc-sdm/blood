@@ -106,11 +106,23 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
   `note` ≤ 500 chars. The message content is copied into the report for the Lifolo team. Reporting again = `{ok}`.
 * **chat_unread**: `total` = unread messages over all my threads (the badge).
 
+### Feature switches (owner rule 23 Oct 2026, `backend/docs/FEATURES.md`) — OFF until the owner turns them on
+* `chat` gates **every** `chat_*` action: off for the caller → **404 `feature_off`** ("এই সুবিধা এখনো চালু হয়নি").
+  Two-party: a thread can be opened / written to only when `chat` is on for **both** people; the peer without it →
+  `canSend:false` / 403 `chat_not_allowed` (not revealed), no new thread, and no push or SSE goes to someone without it.
+  `contact_can`'s `canMessage` = relation allowed **and** `chat` on for both.
+* `chat_media` (needs `chat`) gates photos and locations, for both people: otherwise `chat_send` with `photo` /
+  `location` → 404 `feature_off`; text still works.
+* Admin actions, the daily job, account deletion and the demo seed are not gated. Until spring-p19's `Features` lands,
+  `ChatFeatures` is a shim over the calls' shim (`lifolo.feature-shim.on`: empty in production = off, `*` in tests),
+  so `contact_can` and the chat actions read the same switch.
+
 ### Errors (standard `{error, code}` body)
 | status / code | when |
 |---|---|
 | 400 `bad_request` | missing/invalid `ctx`, `refId`, `peerUid`, `threadId`, `clientId`, `text`, `location`, `upTo`, `before`, `reason` |
 | 400 `bad_photo` | photo not base64 JPEG/PNG, unreadable, or over 1 MB |
+| 404 `feature_off` | `chat` off for the caller (every action); `chat_media` off for either person (photo / location) |
 | 403 `chat_not_allowed` | no relation, demo ↔ real, peer deactivated / deleting / disabled, the peer blocked me (not revealed) |
 | 403 `call_blocked` | I blocked this person (shared with calls; unblock with `call_unblock`) |
 | 404 | thread / message not found or not mine |
