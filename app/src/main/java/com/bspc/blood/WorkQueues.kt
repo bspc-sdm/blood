@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -210,4 +211,4 @@ fun WorkNav.seg(target: String?): String {
 
 /** ডায়ালগ আলাদা জানালা — সেখানেও testTag যেন resource-id হয় (Maestro-র id দিয়ে খোঁজা) */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-fun Modifier.testTagsAsIds(): Modifier = this.semantics { androidx.compose.ui.semantics.testTagsAsResourceId = true }
+fun Modifier.testTagsAsIds(): Modifier = this.semantics { testTagsAsResourceId = true }
