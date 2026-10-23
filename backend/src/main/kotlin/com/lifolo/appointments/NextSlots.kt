@@ -91,7 +91,7 @@ class NextSlots(private val jdbc: JdbcTemplate) {
                     val date = DhakaTime.toUtcMidnightMs(rs.getDate("visit_date").toLocalDate())
                     out["${rs.getString(1)}|${rs.getString(2)}|$date"] = rs.getInt("n")
                 },
-                *(chunk + listOf(Sql.date(DhakaTime.fromUtcMidnightMs(today)), Sql.date(DhakaTime.fromUtcMidnightMs(today + DAYS * DAY_MS)))).toTypedArray(),
+                *chunk.toTypedArray<Any?>(), Sql.date(DhakaTime.fromUtcMidnightMs(today)), Sql.date(DhakaTime.fromUtcMidnightMs(today + DAYS * DAY_MS)),
             )
         }
         return out

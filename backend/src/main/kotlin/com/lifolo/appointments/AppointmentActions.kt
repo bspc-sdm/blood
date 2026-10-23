@@ -223,12 +223,12 @@ class AppointmentActions(
             facets["systems"] = Practice.SYSTEMS.map { sys -> linkedMapOf("code" to sys, "n" to pool.count { Practice.systemOf(it.type, it.system) == sys }) }
         }
         // LISTINGS.md: q (name, degrees, specialties, chambers)
-        val q = ListingFacts.query(b)
+        val query = ListingFacts.query(b)
         val labels = specialtyLabels(ctx.lang)
         val docs = pool.filter { CareRules.matchesFilter(it, f, now) }
             .filter { d ->
-                q == null || ListingFacts.matches(
-                    q,
+                query == null || ListingFacts.matches(
+                    query,
                     listOf(d.name, d.degrees) + d.specialties.flatMap { labels[it]?.toList() ?: listOf(it) } +
                         d.chambers.flatMap { listOf(it.hospitalName, it.hospitalNameBn, it.address) },
                 )
@@ -252,10 +252,10 @@ class AppointmentActions(
     private fun specialtyLabels(lang: String?): Map<String, Pair<String, String>> {
         val out = HashMap<String, Pair<String, String>>()
         for ((_, list) in catalog.lists()["specialty"].orEmpty()) {
-            for (it in list) {
-                val code = it["code"] as? String ?: continue
-                val en = it["en"] as? String ?: code
-                val bn = it["bn"] as? String ?: en
+            for (e in list) {
+                val code = e["code"] as? String ?: continue
+                val en = e["en"] as? String ?: code
+                val bn = e["bn"] as? String ?: en
                 out.putIfAbsent(code, if (lang == "en") en to bn else bn to en)
             }
         }
