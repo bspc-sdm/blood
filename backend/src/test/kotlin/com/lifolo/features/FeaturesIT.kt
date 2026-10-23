@@ -54,7 +54,12 @@ class FeaturesIT : IntegrationTest() {
     @Test
     fun `the test profile has every key on`() {
         features.allOn = true
-        for (k in Features.KEYS) assertTrue(features.isOn("anyone", k), k)
+        for (k in Features.KEYS - Features.OUTSIDE_ALL_ON) assertTrue(features.isOn("anyone", k), k)
+        // health_consent adds a precondition: it follows its own setting even with all-on (CONSENT.md)
+        assertFalse(features.isOn("anyone", Features.HEALTH_CONSENT))
+        set(Features.HEALTH_CONSENT, Features.PILOT, listOf("anyone"))
+        assertTrue(features.isOn("anyone", Features.HEALTH_CONSENT))
+        assertFalse(features.isOn("someone_else", Features.HEALTH_CONSENT))
         assertTrue(features.isOn(null, Features.CHAT))
         assertTrue(features.bothOn("a", "b", Features.CALLS_AUDIO))
         assertFalse(features.isOn("u1", "no_such_key"), "unknown keys stay off")
@@ -188,6 +193,7 @@ class FeaturesIT : IntegrationTest() {
         features.allOn = true
         user("u1", mapOf("name" to "ক"))
         val r = call("u1", "features")
-        assertTrue(Features.KEYS.all { r.body["keys"][it].booleanValue() })
+        assertTrue((Features.KEYS - Features.OUTSIDE_ALL_ON).all { r.body["keys"][it].booleanValue() })
+        assertFalse(r.body["keys"][Features.HEALTH_CONSENT].booleanValue(), "health_consent follows its own setting")
     }
 }

@@ -25,7 +25,11 @@ class ApiErrorHandler {
     @ExceptionHandler(ApiException::class)
     fun api(e: ApiException, req: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
         if (e.status >= 500) log.error("api error {} {}", e.status, e.message)
-        return envelope(e.status, e.message, e.code, Lang.of(req))
+        val res = envelope(e.status, e.message, e.code, Lang.of(req))
+        if (e.extra.isEmpty() || e.status >= 500) return res
+        val body = LinkedHashMap<String, Any?>(res.body ?: emptyMap())
+        for ((k, v) in e.extra) if (k != "error" && k != "code") body[k] = v
+        return ResponseEntity.status(e.status).body<Map<String, Any?>>(body)
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)

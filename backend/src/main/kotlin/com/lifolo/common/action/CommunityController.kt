@@ -53,7 +53,8 @@ class CommunityController(private val dispatcher: ActionDispatcher) {
  *  2. guest: public actions only (IP rate limit) — anything else → 401 "Please log in"
  *  3. unknown action → 400 "Unknown request. Please update the app."
  *  4. caregiver `asUid` → act as the patient (CARE_ACTIONS only)
- *  5. run (guest answers cached 1 min); log admin_* actions unless the result says `unchanged`
+ *  5. guards ([ActionGuard], e.g. the consent gate)
+ *  6. run (guest answers cached 1 min); log admin_* actions unless the result says `unchanged`
  */
 @Service
 class ActionDispatcher(
@@ -69,6 +70,7 @@ class ActionDispatcher(
     private val props: LifoloProperties,
     private val hooks: ObjectProvider<ActionHook>,
     private val accounts: AccountService,
+    private val guards: ObjectProvider<ActionGuard>,
 ) {
     private val disabledCache = ConcurrentHashMap<String, Pair<Long, Boolean>>()
 
@@ -94,6 +96,8 @@ class ActionDispatcher(
         }
         val actor = if (user.guest) user else care.actAs(body, user, lang)
         val ctx = ActionContext(req, res, body, actor, user, action)
+        // 5. guards (the consent gate: 428 consent_required for health data without consent)
+        if (!user.guest) guards.orderedStream().forEach { it.check(ctx) }
         val result = if (user.guest && action !in ActionPolicy.GUEST_UNCACHED) guestCache.cached(body) { handler.handle(ctx) } else handler.handle(ctx)
         if (action.startsWith("admin_") && !isUnchanged(result)) adminLog.log(action, user, body)
         return result
