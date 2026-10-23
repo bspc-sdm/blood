@@ -950,11 +950,11 @@ fun AppointmentsList(role: String, title: String, onBack: (() -> Unit)?, onPendi
                                 if (a.role == "provider") ChamberFeeAction(a) else ReceiptLink(a.invoiceId)
                                 // সিরিয়ালের অগ্রিম (লাইফলো পে) — অনলাইনের ফি নিচের প্যানেলে
                                 if (a.role == "patient" && !a.online) PayRefButton(a.id, PayRules.ADVANCE)
-                                // ফোন · অডিও কল · ভিডিও কল · মেসেজ (CallButtons.kt) — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে,
+                                // নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ (CallButtons.kt) — অ্যাপের যোগাযোগ নিশ্চিত অ্যাপয়েন্টমেন্টে,
                                 // সময়ের ৩০ মিনিট আগে থেকে ৩ ঘণ্টা পর পর্যন্ত
                                 ContactActions(
                                     CallCtx.APPOINTMENT, a.id, peerName = a.otherName, phone = a.otherPhone.ifBlank { null },
-                                    phoneLabel = num(a.otherPhone), appAllowed = CallWindows.canCall(a.status, a.date, a.start),
+                                    showNumber = true, appAllowed = CallWindows.canCall(a.status, a.date, a.start),
                                     onMessage = { openChat(CallCtx.APPOINTMENT, a.id) },
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

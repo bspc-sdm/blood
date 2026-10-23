@@ -87,11 +87,11 @@ async function pickReason(reason: string) {
       <template v-if="r.status !== 'open'">
         <IconLine v-if="r.patientName" icon="person_outline">{{ r.patientName }}</IconLine>
         <div class="row wrap gap-8">
-          <a v-if="r.phone" class="btn square has-icon" :href="`tel:${r.phone}`"><Icon name="call" />{{ num(r.phone) }}</a>
           <!-- নিজের ম্যাপ (খরচ নেই): ঠিক জায়গা থাকলে সেটা, নইলে ঠিকানা আর এলাকার লেখা দিয়ে খোঁজা -->
           <a class="btn outline square has-icon" :href="mapLink(r)" target="_blank" rel="noopener noreferrer" data-testid="amb-open-map"><Icon name="map" />{{ tr('Open in map', 'ম্যাপে খুলুন') }}</a>
         </div>
-        <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" />
+        <!-- রোগীর নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ -->
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="r.id" :peer-name="r.patientName" :phone="r.phone || null" :show="r.status === 'accepted' || r.status === 'arrived'" show-number />
         <div class="row wrap gap-8">
           <Button v-if="r.status === 'accepted'" :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'arrived' }))">{{ tr('Arrived', 'পৌঁছেছি') }}</Button>
           <Button :busy="busy === r.id" :disabled="!!busy" @click="act(r, () => call('ambreq_step', { id: r.id, step: 'done' }), true, tr('Trip finished. You\'re available again.', 'ট্রিপ শেষ। আপনি আবার খালি।'))">{{ tr('Finish', 'শেষ') }}</Button>

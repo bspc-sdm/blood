@@ -515,12 +515,11 @@ fun RequestDetailScreen(
                                     if (c != null) {
                                         Text(c.first)
                                         Text(num(c.second), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                        // ফোন · অডিও কল · ভিডিও কল · মেসেজ — ডোনার → রক্তপ্রার্থী অ্যাপে শুধু নিশ্চিত হলে
+                                        // কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ — ডোনার → রক্তপ্রার্থী অ্যাপে শুধু নিশ্চিত হলে
                                         // (রক্তপ্রার্থী আগে কল করলে কলের তালিকা থেকে ফিরতি কল); জরুরি রিকোয়েস্টে ফোনই বড়
                                         ContactActions(
                                             CallCtx.BLOOD, r.id, r.requesterUid.ifBlank { null }, c.first, c.second,
                                             if (r.urgent) ContactStyle.PRIMARY_PHONE else ContactStyle.ROW,
-                                            phoneLabel = tr("Call", "কল করুন"),
                                             appAllowed = r.isActive && resp.confirmed,
                                             onMessage = { openChat(CallCtx.BLOOD, r.id, r.requesterUid.ifBlank { null }) },
                                         )
@@ -780,7 +779,6 @@ fun MyRequestDetailScreen(requestId: String, onBack: () -> Unit, onDeleted: (Str
                                     onRemove = { act { ServerApi.updateResponse(r.id, "remove", d.donorUid); removed = d } },
                                     canConfirm = r.confirmedCount < r.bags,
                                     requestId = r.id,
-                                    urgent = r.urgent,
                                 )
                             }
                         }

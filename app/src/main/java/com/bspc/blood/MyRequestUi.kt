@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -159,20 +160,22 @@ fun DonorRow(
     onRemove: () -> Unit,
     /** ব্যাগ পূরণ হলে আর নিশ্চিত করা যায় না */
     canConfirm: Boolean = true,
-    /** অ্যাপে কলের জন্য (রিকোয়েস্ট খোলা আর ডোনার রাজি থাকলে); জরুরি হলে ফোনই বড়, অ্যাপে কল নিচে ছোট করে */
+    /** অ্যাপে কলের জন্য (রিকোয়েস্ট খোলা আর ডোনার রাজি থাকলে) */
     requestId: String = "",
-    urgent: Boolean = false,
 ) {
     val context = LocalContext.current
     var askRemove by remember { mutableStateOf(false) }
     // অ্যাপে কল: খোলা রিকোয়েস্টে রাজি থাকা ডোনার (সার্ভার শেষ কথা বলে)
     val canAppCall = active && requestId.isNotBlank() && d.status == "accepted" && d.donorUid.isNotBlank()
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // গোল · নাম/ফোন/দূরত্ব/অবস্থা · কল আর মেসেজের দুই আইকন। লেখার কলাম ওজন নিয়ে বাকি পুরো জায়গা পায়;
+        // ডানে শুধু দুটো আইকন (৯৬dp), "নিশ্চিত" লেখার নিচে — ৩৬০dp ফোনেও নামের জন্য ১৩০dp-র বেশি।
+        // (RC3: ৪টা আইকন + "নিশ্চিত" ওজন-ছাড়া মাপা হতো, নামের কলাম ০dp পেত — লেখা এক অক্ষর করে ভেঙে লম্বা খালি ফাঁক)
         Row(verticalAlignment = Alignment.CenterVertically) {
             BloodGroupBadge(d.donorGroup, 36.dp)
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(d.donorName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f).testTag("donor_info"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(d.donorName, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOfNotNull(
                         num(d.donorPhone),
@@ -182,21 +185,17 @@ fun DonorRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (d.needsFare) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                when {
+                    d.status == "donated" -> Tag(tr("Donated", "রক্ত দিয়েছেন"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                    d.confirmed -> Tag(tr("Confirmed", "নিশ্চিত"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                }
             }
-            when {
-                d.status == "donated" -> Tag(tr("Donated", "রক্ত দিয়েছেন"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                d.confirmed -> Tag(tr("Confirmed", "নিশ্চিত"), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-            }
-            // ফোন · অডিও কল · ভিডিও কল · মেসেজ (জরুরি রিকোয়েস্টে ফোনই সারিতে, অ্যাপের যোগাযোগ নিচে ছোট করে)
+            // কল (ফোন কল · অ্যাপ কল · ভিডিও কল — মেনু) · মেসেজ
             ContactActions(
                 CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.ICONS,
-                phoneLabel = tr("Call", "ফোন"), appAllowed = canAppCall && !urgent,
+                Modifier.testTag("donor_contact"), appAllowed = canAppCall,
                 onMessage = { openChat(CallCtx.BLOOD, requestId, d.donorUid) },
             )
-        }
-        if (canAppCall && urgent) {
-            ContactActions(CallCtx.BLOOD, requestId, d.donorUid, d.donorName, d.donorPhone, ContactStyle.CHIPS, Modifier.padding(start = 46.dp), showPhone = false,
-                onMessage = { openChat(CallCtx.BLOOD, requestId, d.donorUid) })
         }
         if (active && d.status == "accepted") {
             // ছোট বাটন, নামের নিচে বাঁ দিকে মিলিয়ে
@@ -534,7 +533,6 @@ internal fun MyRequestCard(
                         onRemove = { onRemove(d) },
                         canConfirm = r.confirmedCount < r.bags,
                         requestId = r.id,
-                        urgent = r.urgent,
                     )
                 }
                 if (willing.size > 3) {

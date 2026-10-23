@@ -7,6 +7,10 @@ export const T = {
   inApp: () => tr('Call in app', 'অ্যাপে কল'), // bn-ok
   video: () => tr('Video call', 'ভিডিও কল'), // bn-ok
   audioCall: () => tr('Audio call', 'অডিও কল'), // bn-ok
+  // যোগাযোগের কলের মেনু (ContactActions): ফোন কল · অ্যাপ কল · ভিডিও কল
+  phoneCall: () => tr('Phone call', 'ফোন কল'), // bn-ok
+  appCall: () => tr('App call', 'অ্যাপ কল'), // bn-ok
+  callMenu: () => tr('Call', 'কল করুন'), // bn-ok
   message: () => tr('Message', 'মেসেজ'), // bn-ok
   phone: () => tr('Call', 'ফোন'),
   answerAudio: () => tr('Answer with audio', 'অডিওতে ধরুন'), // bn-ok

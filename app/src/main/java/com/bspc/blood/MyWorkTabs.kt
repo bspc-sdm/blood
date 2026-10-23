@@ -324,7 +324,7 @@ fun PharmacyOrdersTab(data: SegList<PharmOrder>?, loadError: String?, seg: Strin
                                     if (invPharmacy && o.invoiceId.isNotBlank()) BizReceiptAction(o.invoiceId)
                                     // হোম ডেলিভারির দাম আগে (লাইফলো পে, pay_delivery)
                                     if (online && o.status in setOf("accepted", "out")) PayAskAction("rx_order", o.id, PayRules.DELIVERY)
-                                    // ফোন · অডিও কল · ভিডিও কল · মেসেজ
+                                    // কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
                                     ContactActions(CallCtx.RX_ORDER, o.id, peerName = o.patientName, phone = o.phone.takeIf { online && it.isNotBlank() }, style = ContactStyle.CHIPS,
                                         onMessage = { openChat(CallCtx.RX_ORDER, o.id) })
                                     SmallAction(tr("Can't", "পারব না"), null, { update(o, "cancelled", tr("Medicines not available", "ওষুধ নেই")) }, enabled = busyId == null)
@@ -650,7 +650,7 @@ private fun LabRequestsTab(data: SegList<LabOrder>?, loadError: String?, seg: St
                                 // পরীক্ষার টাকা আগে (লাইফলো পে, pay_lab)
                                 if (o.status in setOf("sent", "received") && o.home?.status == "confirmed") PayAskAction("lab_order", o.id, PayRules.LAB)
                                 val homePhone = h?.phone?.takeIf { fromHome && open && it.isNotBlank() }
-                                // ফোন (বাসা থেকে নমুনা) · অডিও কল · ভিডিও কল · মেসেজ
+                                // কল (ফোন কল — বাসা থেকে নমুনা · অ্যাপ কল · ভিডিও কল) · মেসেজ
                                 ContactActions(CallCtx.LAB_ORDER, o.id, peerName = o.patientName, phone = homePhone, style = ContactStyle.CHIPS, appAllowed = open,
                                     onMessage = { openChat(CallCtx.LAB_ORDER, o.id) })
                             }

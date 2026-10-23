@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // বুকিং: সিরিয়ালের সারি
 import { computed, ref } from 'vue';
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, PhoneLine, PillTabs, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorBox, ErrorText, IconButton, IconLine, PillTabs, Select, SkeletonCards, Tag, TextInput, cx, toast } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
 import { ServerError, call, errorText } from '@/lib/api';
 import { formatDate } from '@/lib/format';
@@ -187,7 +187,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
             <td class="appt-nowrap">{{ a.start ? hhmmText(a.start) : '—' }}</td>
             <td v-if="manyCh">{{ apptChamber(a) }}</td>
             <td><Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag> <Tag v-if="advanceDue(a)" tone="error" data-testid="advance-due">{{ PT.advanceDue() }}</Tag></td>
-            <td class="appt-phone-cell"><PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" /><span v-else class="muted">—</span><ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" /></td>
+            <td class="appt-phone-cell"><span v-if="!a.otherPhone" class="muted">—</span><ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" show-number /></td>
             <td>
               <div class="row wrap appt-acts">
                 <template v-if="a.status === 'pending'">
@@ -215,8 +215,7 @@ const whenLine = (a: Appointment) => (a.date === t0 ? tr('Today', 'আজ') : fo
         <p v-if="a.note" class="t-body-m">{{ a.note }}</p>
         <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
         <OnlinePayPro v-if="a.online && onlineOn()" :a="a" :name="a.otherName" @changed="reload()" />
-        <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" />
-        <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" />
+        <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="name(a)" :phone="a.otherPhone || null" :show="apptCallOpen(a, now)" show-number />
         <div class="row wrap appt-acts">
           <template v-if="a.status === 'pending'">
             <Button small :busy="busyId === a.id" :disabled="!!busyId" @click="confirming = a">{{ tr('Confirm', 'নিশ্চিত করুন') }}</Button>

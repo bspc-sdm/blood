@@ -207,7 +207,8 @@ test.describe('প্রবেশপথ', () => {
       pay_request_get: (b) => (b.refType === 'ambreq' ? { request: REQ({ id: 'prq_amb', kind: 'ambulance', bizId: 'amb1', bizName: 'জননী অ্যাম্বুলেন্স', refType: 'ambreq', refId: 'ar7', purpose: 'ambulance_fare', amount: 1500 }) } : notFound()),
     });
     await open(page, patient('/services/ambulance/call/ar7'));
-    await expect(page.getByText('চালককে ফোন', { exact: false })).toBeVisible();
+    // চালকের নম্বর আর কলের আইকন (ফোন কল · অ্যাপ কল · ভিডিও কল)
+    await expect(page.getByTestId('contact-number')).toHaveText('০১৭১১২২৩৩৪৪');
     await expect(page.getByTestId('pay-entry')).toHaveCount(0);
     status = 'done';
     await page.reload({ waitUntil: 'networkidle' });

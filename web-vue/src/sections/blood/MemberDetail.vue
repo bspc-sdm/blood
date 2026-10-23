@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Button, ConfirmDialog, ErrorText, IconButton, InfoText, Loading, PhoneLine } from '@/ui/kit';
+import { Button, ConfirmDialog, ErrorText, IconButton, InfoText, Loading } from '@/ui/kit';
 import DetailPane from '@/shell/DetailPane.vue';
 import { errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
@@ -176,8 +176,7 @@ function doReport() {
           <h3 class="bold">{{ tr('Contact the requester', 'রক্তপ্রার্থীর সাথে যোগাযোগ করুন') }}</h3>
           <template v-if="q.data?.contact">
             <span>{{ q.data.contact.name }}</span>
-            <PhoneLine :phone="q.data.contact.phone" big />
-            <ContactActions :message="chatOn()" @message="openChatAt" ctx="blood" :ref-id="id" :peer-uid="r.requesterUid" :peer-name="q.data.contact.name" :phone="q.data.contact.phone" :small="false" :show="resp.confirmed || requesterCalled" />
+            <ContactActions :message="chatOn()" @message="openChatAt" ctx="blood" :ref-id="id" :peer-uid="r.requesterUid" :peer-name="q.data.contact.name" :phone="q.data.contact.phone" :small="false" :show="resp.confirmed || requesterCalled" show-number />
           </template>
           <span v-else>{{ tr("Couldn't load the number. Open this page again.", 'নম্বর লোড হয়নি, পাতাটা আবার খুলুন।') }}</span>
         </section>

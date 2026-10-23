@@ -1012,11 +1012,11 @@ private fun AcceptedCard(r: AmbReq, a: AmbCar, scope: kotlinx.coroutines.Corouti
                     }
                 }
             }
-            // ফোন · অডিও কল · ভিডিও কল · মেসেজ — জরুরি, তাই ফোনের বড় বাটনই আগে, অ্যাপের যোগাযোগ নিচে ছোট
+            // চালকের নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ — জরুরি, তাই কলের আইকন ভরাট
             ContactActions(
                 CallCtx.AMBULANCE, r.id, peerName = a.name, phone = a.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
                 onPhone = if (a.phone.isNotBlank()) ({ callDuringRequest(context, scope, a, id) }) else null,
-                phoneLabel = tr("Call driver ", "চালককে ফোন ") + num(a.phone),
+                showNumber = true,
                 onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
             )
         }
@@ -1107,10 +1107,10 @@ fun AmbulanceCallsSection(names: Map<String, String>, onChanged: () -> Unit) {
                     }
                     if (mine) {
                         if (r.patientName.isNotBlank()) IconLine(R.drawable.ic_person_outline, r.patientName)
-                        // রোগীর সাথে: ফোন (বড়) · অডিও কল · ভিডিও কল · মেসেজ
+                        // রোগীর নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
                         ContactActions(
                             CallCtx.AMBULANCE, r.id, peerName = r.patientName, phone = r.phone.ifBlank { null }, style = ContactStyle.PRIMARY_PHONE,
-                            phoneLabel = num(r.phone), appAllowed = r.status == "accepted" || r.status == "arrived",
+                            showNumber = true, appAllowed = r.status == "accepted" || r.status == "arrived",
                             onMessage = { openChat(CallCtx.AMBULANCE, r.id) },
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

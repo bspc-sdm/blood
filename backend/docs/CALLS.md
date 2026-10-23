@@ -41,6 +41,8 @@ Web will build against these unless CALLS.md says otherwise:
 Where this section differs from the text above, this section wins. It folds in the "Web asks", the Android assumptions,
 the security review (`docs/test-plan/CALLS-SECURITY-REVIEW.md`: R1–R5, R9, R11, R12) and the owner's 23 Oct decision
 (every contact point: অডিও কল · ভিডিও কল · মেসেজ — see the messages contract, `backend/docs/CHAT.md`).
+Clients (RC4) show these as two icons: a call icon whose menu offers ফোন কল (phone dialer) · অ্যাপ কল (audio) · ভিডিও কল,
+only the allowed ones (one option = no menu), and a message icon; the server rules below are unchanged.
 
 ## Configuration
 * Env: `LIVEKIT_URL` (the signalling URL returned to the apps as is — now `wss://lifolo.com` (LiveKit 1.13.10 on the main VPS, signalling at `/rtc`) —

@@ -34,11 +34,6 @@
 .chat-head-who { min-width: 0; gap: 0; }
 .chat-head h1 { margin: 0; }
 .chat-head .chat-calls { margin: 0; flex-wrap: nowrap; }
-@media (max-width: 559px) {
-  /* ছোট ফোনে কলের বোতামে শুধু আইকন */
-  .chat-head .chat-calls .btn { font-size: 0; gap: 0; padding: 0 10px; }
-  .chat-head .chat-calls .btn svg { width: 20px; height: 20px; }
-}
 .chat-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 .chat-msgs { display: flex; flex-direction: column; gap: 4px; padding: 12px 12px 8px; max-width: 860px; margin: 0 auto; }
 .chat-older { display: flex; justify-content: center; padding-bottom: 4px; }

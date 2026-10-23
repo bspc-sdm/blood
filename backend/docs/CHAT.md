@@ -1,6 +1,7 @@
 # Lifolo — In-app messages (মেসেজ) — shared contract
 
-The owner approved this on 2026-10-23. Every contact point offers three buttons: **অডিও কল · ভিডিও কল · মেসেজ**.
+The owner approved this on 2026-10-23. Every contact point offers three buttons: **অডিও কল · ভিডিও কল · মেসেজ**
+(clients since RC4: two icons — call, with a menu ফোন কল · অ্যাপ কল · ভিডিও কল, and message).
 Messages use the same relation rules, blocking and reporting as calls (see calls CONTRACT / backend/docs/CALLS.md).
 The backend-chat agent owns `backend/docs/CHAT.md`, and that file is final once it is on main.
 

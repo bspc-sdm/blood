@@ -2,7 +2,7 @@
 // কল আসা (SSE) → ধরা/কাটা/ওপাশ রেখে দেওয়া; SSE না চললে তালিকা দেখে কল আসা; অনুমতি না দিলে বাংলা লেখা; ক্যামেরা না পেলে শুধু অডিও;
 // কলের তালিকা; অনলাইন অ্যাপয়েন্টমেন্টের অপেক্ষার ঘর; কল বন্ধ থাকলে বোতাম নেই।
 import { expect, test, type Page } from '@playwright/test';
-import { def, noSideScroll, open, watchErrors, type PageDef } from './helpers';
+import { callVia, def, noAppCalls, noSideScroll, open, openCallMenu, watchErrors, type PageDef } from './helpers';
 
 type H = (body: any) => unknown;
 interface Api { calls: { action: string; body: any }[] }
@@ -65,16 +65,22 @@ test('রক্তের রিকোয়েস্ট: ডোনারকে �
   let state = 'ringing';
   const st = await api(page, { call_status: () => ({ state }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: -1 }, callTiming: FAST }));
-  const btn = page.getByTestId('call-audio').first();
-  await expect(btn).toHaveText('অডিও কল');
-  await expect(page.getByTestId('call-video').first()).toHaveText('ভিডিও কল');
-  // সব বোতামের জন্য একটাই contact_can
+  // দুই আইকন: কল (মেনু: ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ
+  const row = page.getByTestId('call-buttons').first();
+  await expect(row.getByTestId('contact-call')).toHaveAttribute('aria-label', 'কল করুন');
+  // মেসেজের আইকনও একই সারিতে (চাপলে কী হয় — e2e/chat.spec.ts)
+  await expect(row.getByTestId('contact-message')).toHaveAttribute('aria-label', 'মেসেজ');
+  // সব সারির জন্য একটাই contact_can
   await expect.poll(() => did(st, 'contact_can').length).toBe(1);
   expect(did(st, 'contact_can')[0].body.items.length).toBeGreaterThan(1);
   expect(did(st, 'contact_can')[0].body.items[0]).toMatchObject({ ctx: 'blood', refId: 'm1' });
-  // মেসেজ বোতামও একই সারিতে (চাপলে কী হয় — e2e/chat.spec.ts)
-  await expect(page.getByTestId('contact-message').first()).toHaveText('মেসেজ');
+  const menu = await openCallMenu(page, row);
+  await expect(menu.getByRole('menuitem')).toHaveText([/^ফোন কল/, 'অ্যাপ কল', 'ভিডিও কল']);
+  await expect(menu.getByTestId('call-phone')).toHaveAttribute('href', /^tel:/);
+  await noSideScroll(page);
+  const btn = menu.getByTestId('call-audio');
   await btn.click();
+  await expect(menu).toHaveCount(0);
   await expect(screen(page)).toBeVisible();
   await expect(status(page)).toHaveText('রিং হচ্ছে');
   const start = did(st, 'call_start')[0].body;
@@ -107,13 +113,13 @@ test('কল করা: ওপাশ কেটে দিলেন / কেউ �
   let state = 'ringing';
   await api(page, { call_status: () => ({ state }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: -1 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText('রিং হচ্ছে');
   state = 'declined';
   await expect(status(page)).toHaveText('উনি কল কেটে দিয়েছেন');
   await expect(screen(page)).toHaveCount(0, { timeout: 3000 });
   state = 'ringing';
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText('রিং হচ্ছে');
   state = 'missed';
   await expect(status(page)).toHaveText('কেউ ধরেননি');
@@ -122,7 +128,7 @@ test('কল করা: ওপাশ কেটে দিলেন / কেউ �
 test('কল করা: রিং হওয়ার সময় রেখে দিলে call_cancel', async ({ page }) => {
   const st = await api(page);
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: -1 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText('রিং হচ্ছে');
   expect(did(st, 'call_start')[0].body.video).toBe(false);
   await expect(page.getByTestId('call-cam')).toHaveCount(0);
@@ -134,7 +140,7 @@ test('কল করা: রিং হওয়ার সময় রেখে �
 test('উনি অ্যাপে কল বন্ধ রেখেছেন (409 call_off): সার্ভারের লেখা আর ফোনে কল করার বোতাম', async ({ page }) => {
   await api(page, { call_start: () => ({ __status: 409, body: { error: 'উনি অ্যাপে কল বন্ধ রেখেছেন — ফোনে কল করুন', code: 'call_off' } }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: {}, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-error')).toContainText('উনি অ্যাপে কল বন্ধ রেখেছেন — ফোনে কল করুন');
   const tel = page.getByTestId('call-error').locator('a[href^="tel:"]');
   await expect(tel).toContainText('ফোনে কল করুন');
@@ -145,14 +151,14 @@ test('উনি অ্যাপে কল বন্ধ রেখেছেন (40
 test('ব্যস্ত (409 call_busy): বাংলা লেখা', async ({ page }) => {
   await api(page, { call_start: () => ({ __status: 409, body: { error: 'busy', code: 'call_busy' } }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: {}, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-error')).toContainText('উনি এখন অন্য কলে আছেন। একটু পরে আবার চেষ্টা করুন।');
 });
 
 test('মাইকের অনুমতি না দিলে: কল শুরুই হয় না, বাংলায় কীভাবে অনুমতি দেবেন', async ({ page }) => {
   const st = await api(page);
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { denyMic: true }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-error')).toContainText('মাইক্রোফোনের অনুমতি দেওয়া হয়নি। ঠিকানার পাশের তালা চিহ্নে চেপে');
   expect(did(st, 'call_start')).toHaveLength(0);
 });
@@ -160,7 +166,7 @@ test('মাইকের অনুমতি না দিলে: কল শু�
 test('ভিডিও কলে ক্যামেরা না পেলে শুধু অডিওতে চলে; নেট দুর্বল হলে "শুধু অডিও"; ডিভাইস বদলানো', async ({ page }) => {
   await api(page, { call_status: () => ({ state: 'accepted' }), my_appointments: () => ({ items: [apptNow('a1')] }) });
   await open(page, withTest(def('appointment', 'my-detail'), { fakeMedia: { denyCam: true, peerAfterMs: 50 }, callTiming: FAST }));
-  await page.getByTestId('call-video').first().click();
+  await callVia(page, 'video');
   await expect(screen(page)).toHaveAttribute('data-phase', 'active');
   await expect(page.getByTestId('call-note')).toHaveText('ক্যামেরা চালু হয়নি — শুধু অডিওতে চলছে');
   await expect(page.getByTestId('call-cam')).toHaveAttribute('aria-label', 'ক্যামেরা চালু');
@@ -179,7 +185,7 @@ test('ভিডিও কলে ক্যামেরা না পেলে শ
 test('আবার সংযোগ: "আবার সংযোগ হচ্ছে…" দেখায়, ফিরে এলে সময়', async ({ page }) => {
   await api(page, { call_status: () => ({ state: 'accepted' }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: 50 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText(/^০০:/);
   await page.evaluate(() => (window as any).__lfCallFake.reconnecting());
   await expect(status(page)).toHaveText('আবার সংযোগ হচ্ছে…');
@@ -309,7 +315,8 @@ test('সার্ভারে contact_can না থাকলে আর call_co
   await api(page, { contact_can: () => ({ __status: 400, body: { error: 'unknown action: contact_can' } }), call_config: () => ({ enabled: false }) });
   await open(page, withTest(def('blood', 'my-request-detail'), {}));
   await expect(page.locator('.blood-donor').first()).toBeVisible();
-  await expect(page.getByTestId('call-buttons')).toHaveCount(0);
+  // শুধু ফোন কল থাকে (ডোনারের নম্বর) — অ্যাপে কলের বিকল্প নেই
+  await noAppCalls(page);
 });
 
 test('ব্যানার মোবাইল ব্রাউজারের মাপে: পাশে স্ক্রল নেই, শুধু নাম (লেখা) দিলেও চলে', async ({ page }) => {
@@ -339,13 +346,15 @@ test('অ্যাপয়েন্টমেন্ট (রোগী, contact_ca
   });
   await open(page, withTest(def('appointment', 'my-detail'), { fakeMedia: {}, callTiming: FAST }));
   await expect(page.getByTestId('call-buttons')).toHaveCount(1);
-  await page.getByTestId('call-video').click();
+  await callVia(page, 'video');
   await expect(status(page)).toHaveText('রিং হচ্ছে');
   expect(did(st, 'call_start')[0].body).toMatchObject({ ctx: 'appointment', refId: 'a1', video: true });
   await page.getByTestId('call-hangup').click();
   await open(page, withTest(def('appointment', 'my-detail'), {}), '/my-appointments/a9');
   await expect(page.getByRole('button', { name: 'অ্যাপয়েন্টমেন্ট বাতিল' })).toBeVisible();
-  await expect(page.getByTestId('call-buttons')).toHaveCount(0);
+  // সময় অনেক দূরে: শুধু ফোন কল (নম্বর সহ), অ্যাপে কল নয়
+  await expect(page.getByTestId('contact-number')).toHaveText('০১৭১১০০০২২২');
+  await noAppCalls(page);
 });
 
 test('অ্যাপয়েন্টমেন্ট (ডাক্তার): আজকের বুকিংয়ে রোগীকে অ্যাপে কল', async ({ page }) => {
@@ -356,7 +365,7 @@ test('অ্যাপয়েন্টমেন্ট (ডাক্তার): 
     }),
   });
   await open(page, withTest(def('appointment', 'pro-bookings'), { fakeMedia: {}, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-peer')).toBeVisible();
   expect(did(st, 'call_start')[0].body).toMatchObject({ ctx: 'appointment', refId: 'q1', video: false });
 });
@@ -367,7 +376,7 @@ test('অডিও কল থেকে ভিডিও: "ভিডিও চা�
     call_status: () => (video ? { state: 'accepted', video: true, url: 'wss://lifolo.com/rtc-test', token: 'tok-video2' } : { state: 'accepted', video: false }),
   });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: 50 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText(/^০০:/);
   await page.getByTestId('call-ask-video').click();
   await expect.poll(() => did(st, 'call_upgrade').map((c) => c.body.callId)).toEqual(['c_new']);
@@ -384,7 +393,7 @@ test('ওপাশ ভিডিও চাইছেন (call_status upgradeBy): �
   let asked = true;
   const st = await api(page, { call_status: () => ({ state: 'accepted', video: false, ...(asked ? { upgradeBy: 'peer1' } : {}) }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: 50 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   const offer = page.getByTestId('call-video-offer');
   await expect(offer).toContainText('উনি ভিডিও চালু করতে চান');
   await offer.getByTestId('call-video-no').click();
@@ -403,7 +412,7 @@ test('ওপাশ ভিডিও চাইছেন (call_status upgradeBy): �
 test('সংযোগ পুরো কেটে গেলে: call_status-এর নতুন টোকেনে আবার যুক্ত', async ({ page }) => {
   await api(page, { call_status: () => ({ state: 'accepted', video: false, url: 'wss://lifolo.com/rtc-test', token: 'tok-fresh' }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: 50 }, callTiming: { ...FAST, activePollMs: 60_000 } }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText(/^০০:/);
   await page.evaluate(() => (window as any).__lfCallFake.drop());
   await expect.poll(() => page.evaluate(() => (window as any).__lfCallFake.log.includes('connect wss://lifolo.com/rtc-test tok-fresh'))).toBe(true);
@@ -413,7 +422,7 @@ test('সংযোগ পুরো কেটে গেলে: call_status-এর
 test('কল শেষে ব্লক আর রিপোর্ট', async ({ page }) => {
   const st = await api(page, { call_status: () => ({ state: 'accepted' }) });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: { peerAfterMs: 50 }, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(status(page)).toHaveText(/^০০:/);
   const peerUid = did(st, 'call_start')[0].body.peerUid;
   await page.getByTestId('call-hangup').click();
@@ -440,10 +449,10 @@ test('403 call_blocked আর 429 call_rate: বাংলা লেখা', asyn
     call_start: () => (++n === 1 ? { __status: 403, body: { error: 'blocked', code: 'call_blocked' } } : { __status: 429, body: { error: 'Too many', code: 'call_rate' } }),
   });
   await open(page, withTest(def('blood', 'my-request-detail'), { fakeMedia: {}, callTiming: FAST }));
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-error')).toContainText('আপনি এঁর সাথে যোগাযোগ বন্ধ রেখেছেন');
   await page.getByTestId('call-close').click();
-  await page.getByTestId('call-audio').first().click();
+  await callVia(page, 'audio');
   await expect(page.getByTestId('call-error')).toContainText('অনেকবার কল করেছেন। কয়েক মিনিট পরে আবার চেষ্টা করুন।');
 });
 
@@ -462,18 +471,18 @@ test('ডোনার → রক্তপ্রার্থী: নিশ্চ�
   const base = def('blood', 'request-accepted');
   await api(page, { contact_can: () => ({ __status: 400, body: { error: 'unknown action: contact_can' } }), call_history: () => ({ items: [] }) });
   await open(page, base);
-  await expect(page.locator('.blood-contact').getByTestId('call-audio')).toHaveText('অডিও কল');
+  await expect((await openCallMenu(page, page.locator('.blood-contact'))).getByTestId('call-audio')).toHaveText('অ্যাপ কল');
 
   const unconfirmed = withTest(base, { docs: { ...base.test!.docs, 'requests/r9/responses/u1': { donorUid: 'u1', status: 'accepted', confirmed: false } } });
   await open(page, unconfirmed);
   await expect(page.locator('.blood-contact')).toBeVisible();
   await page.waitForTimeout(500);
-  await expect(page.locator('.blood-contact').getByTestId('call-buttons')).toHaveCount(0);
+  await noAppCalls(page.locator('.blood-contact'));
 
   await page.unroute('**/api/community');
   await api(page, { contact_can: () => ({ __status: 400, body: { error: 'unknown action: contact_can' } }), call_history: () => ({ items: [{ callId: 'z1', ctx: 'blood', refId: 'r9', dir: 'in', peer: { uid: 'x1', name: 'সালমা' }, video: false, state: 'ended', startedAt: Date.now() - 60000, durationSec: 20 }] }) });
   await open(page, unconfirmed);
-  await expect(page.locator('.blood-contact').getByTestId('call-audio')).toBeVisible();
+  await expect((await openCallMenu(page, page.locator('.blood-contact'))).getByTestId('call-audio')).toBeVisible();
 });
 
 test('contact_can: canCall/canVideo না হলে সেই বোতাম নেই; নিজে ব্লক করে থাকলে "আনব্লক"', async ({ page }) => {
@@ -484,9 +493,14 @@ test('contact_can: canCall/canVideo না হলে সেই বোতাম �
   });
   await open(page, withTest(def('blood', 'my-request-detail'), {}));
   const rows = page.getByTestId('call-buttons');
-  await expect(rows.nth(0).getByTestId('call-audio')).toBeVisible();
-  await expect(rows.nth(0).getByTestId('call-video')).toBeVisible();
-  // দ্বিতীয়টা: কিছুই চলে না → পুরো সারিই নেই; তৃতীয়টা: ব্লক করা
+  const menu = await openCallMenu(page, rows.nth(0));
+  await expect(menu.getByTestId('call-audio')).toBeVisible();
+  await expect(menu.getByTestId('call-video')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  // দ্বিতীয়টা: অ্যাপে কিছুই চলে না → শুধু ফোন কল (মেনু ছাড়া সরাসরি); তৃতীয়টা: ব্লক করা
+  await noAppCalls(rows.nth(1));
+  await expect(rows.nth(1).getByTestId('contact-call')).toHaveAttribute('href', /^tel:/);
   await expect(page.getByTestId('contact-unblock')).toHaveCount(1);
   await expect(page.getByText('যোগাযোগ বন্ধ রেখেছেন')).toBeVisible();
   await page.getByTestId('contact-unblock').click();
@@ -517,7 +531,8 @@ test('ফিচার সুইচ: calls_audio বন্ধ — কলের �
   const off = { features: { calls_audio: false, calls_video: false, appt_video: false, chat: false } };
   await open(page, withTest(def('blood', 'my-request-detail'), off));
   await expect(page.locator('.blood-donor').first()).toBeVisible();
-  await expect(page.getByTestId('call-buttons')).toHaveCount(0);
+  await noAppCalls(page);
+  await expect(page.getByTestId('contact-message')).toHaveCount(0);
   await open(page, withTest(def('account', 'settings'), off));
   await expect(page.locator('[data-cat="rx"]')).toBeVisible();
   await expect(page.locator('[data-cat="calls"]')).toHaveCount(0);
@@ -543,6 +558,7 @@ test('ফিচার সুইচ: calls_video বন্ধ — শুধু �
   await expect(page.getByTestId('call-ask-video')).toHaveCount(0);
   await page.getByTestId('call-hangup').click();
   await open(page, withTest(def('blood', 'my-request-detail'), { features: { calls_video: false } }));
-  await expect(page.getByTestId('call-audio').first()).toBeVisible();
-  await expect(page.getByTestId('call-video')).toHaveCount(0);
+  const menu = await openCallMenu(page);
+  await expect(menu.getByTestId('call-audio')).toBeVisible();
+  await expect(menu.getByTestId('call-video')).toHaveCount(0);
 });

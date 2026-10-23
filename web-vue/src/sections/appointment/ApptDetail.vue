@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Button, IconLine, PhoneLine, Tag } from '@/ui/kit';
+import { Button, IconLine, Tag } from '@/ui/kit';
 import { formatDate } from '@/lib/format';
 import { num, tr } from '@/lib/i18n';
 import { apptChamber, apptWhen, badgeLabel, isActive, statusLabel, statusTone, type Appointment } from './model';
@@ -57,8 +57,7 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
   <!-- চেম্বারের বুকিংয়ের অগ্রিম (pay_chamber_advance) — থাকলে -->
   <RefPay v-if="!a.online && a.role === 'patient' && payOn('pay_chamber_advance') && a.status !== 'cancelled' && a.status !== 'declined'" ref-type="appointment" :ref-id="a.id" purpose="booking_advance" :link="a.payLink" :label="PT.payAdvance()" />
   <p v-if="a.providerNote" class="t-body-m appt-note">{{ tr('Note: ', 'নোট: ') + a.providerNote }}</p>
-  <PhoneLine v-if="a.otherPhone" :phone="a.otherPhone" big />
-  <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" />
+  <ContactActions :message="chatOn()" @message="openChatAt" ctx="appointment" :ref-id="a.id" :peer-name="a.otherName" :phone="a.otherPhone || null" :show="callOpen" :small="false" show-number />
   <PsychApptNote :a="a" />
   <div v-if="a.role === 'patient'" class="row"><InvoiceLink ref-type="appointment" :ref-id="a.id" :invoice-id="a.invoiceId" /></div>
   <div v-if="isActive(a.status)" class="row">

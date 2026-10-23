@@ -4,7 +4,7 @@
 // টোকেন এখানেই বানানো (সার্ভারের মতো HS256, ১০ মিনিট)।
 import crypto from 'node:crypto';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { def, type PageDef } from '../e2e/helpers';
+import { callVia, def, type PageDef } from '../e2e/helpers';
 
 test.skip(!process.env.LIVEKIT_BIN, 'LIVEKIT_BIN নেই — লোকাল livekit-server ছাড়া এই পরীক্ষা চলে না');
 
@@ -109,7 +109,7 @@ test('রক্তের অডিও কল: কল যায়, ওপাশ�
   });
   await caller.page.goto('/my-requests/m1', { waitUntil: 'domcontentloaded' });
   await callee.page.goto('/profile', { waitUntil: 'domcontentloaded' });
-  await caller.page.getByTestId('call-audio').first().click();
+  await callVia(caller.page, 'audio');
   await expect(status(caller.page)).toHaveText('রিং হচ্ছে');
   did = true;
   // ওপাশ SSE আবার যুক্ত হলে ঘটনা পায় (প্রথমবার 503 ছিল — পিছিয়ে আবার চেষ্টা)

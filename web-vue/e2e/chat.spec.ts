@@ -301,7 +301,7 @@ test('যোগাযোগের সারির "মেসেজ" → chat_ope
   await sseDown(page);
   await openLive(page, def('blood', 'my-request-detail'), '/my-requests/m1');
   const btn = page.getByTestId('contact-message').first();
-  await expect(btn).toHaveText('মেসেজ');
+  await expect(btn).toHaveAttribute('aria-label', 'মেসেজ');
   await btn.click();
   await expect(page).toHaveURL(/\/messages\/t1$/);
   await expect(page.getByTestId('thread-peer')).toHaveText('সুমাইয়া আক্তার');
@@ -327,7 +327,7 @@ test('ফিচার সুইচ: chat বন্ধ — মেসেজের 
   await expect(page.getByTestId('thread-view')).toHaveCount(0);
   await expect(page.getByTestId('top-chat')).toHaveCount(0);
   await page.goto('/my-requests/m1', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByTestId('call-audio').first()).toBeVisible();
+  await expect(page.locator('[data-testid="contact-call"][aria-haspopup="menu"]').first()).toBeVisible();
   await expect(page.getByTestId('contact-message')).toHaveCount(0);
   expect(did(st, 'chat_unread')).toHaveLength(0);
   expect(did(st, 'chat_messages')).toHaveLength(0);

@@ -57,6 +57,9 @@
 /* রাজি ডোনার */
 .blood-donor .semi { min-width: 0; }
 .blood-indent { padding-left: 46px; }
+/* ডোনারের নাম: দুই লাইন পর্যন্ত (লম্বা নামও পড়া যায়), আইকনগুলো ডানে নিজের জায়গায় */
+.blood-donor-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.blood-donor-contact { flex: none; flex-wrap: nowrap; margin-top: 0; align-self: center; }
 @media (max-width: 479px) { .blood-mine .blood-indent { padding-left: 0; } .blood-mine { padding: 10px; margin: 0 -4px; } .blood-mycard { padding: 12px; } }
 .blood-undo { gap: 6px; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--surface-high); }
 

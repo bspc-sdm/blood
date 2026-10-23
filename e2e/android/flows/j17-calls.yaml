@@ -1,5 +1,5 @@
 # যাত্রা ১৭ — অ্যাপে কল (ফিচার সুইচ calls_audio + calls_video চালু থাকলে — প্রোডাকশনে এখন বন্ধ, তাই শুধু চাইলে: E2E_ONLY=j17) (সার্ভার: call_config, notify_prefs calls): রোগী রহিমের চালু অনলাইন অর্ডারে (demo-svc-rx-b, Montene —
-# ডেমো লাইফ ফার্মেসির "পথে আছে") "অডিও কল" আর "ভিডিও কল" দেখা যায় (ContactActions: ফোন · অডিও কল · ভিডিও কল · মেসেজ);
+# ডেমো লাইফ ফার্মেসির "পথে আছে") কলের আইকন → মেনুতে "অ্যাপ কল" আর "ভিডিও কল" (ContactActions: কল · মেসেজ — দুই আইকন);
 # চাপলে আগে বাংলায় অনুমতির কারণ (অনুমতি দেওয়া হয় না —
 # এমুলেটরে আসল কল/মিডিয়া চালানো হয় না); প্রোফাইল → "কল" (কলের তালিকা); নোটিফিকেশনের সেটিংসে "অ্যাপে কল" বন্ধ → আবার খুলে
 # বন্ধই আছে → আবার চালু (পরের চালানোর জন্য)।
@@ -24,15 +24,23 @@ env:
 - extendedWaitUntil:
     visible: ".*ফার্মেসিতে পাঠান.*"
     timeout: 30000
-# চালু অর্ডারের নিচে অ্যাপে কলের বাটন (CallButtons.kt-এর testTag)
+# চালু অর্ডারের নিচে কলের আইকন (CallButtons.kt-এর testTag) → মেনু: অ্যাপ কল · ভিডিও কল
 - scrollUntilVisible:
     element:
-      id: "app_call_audio"
+      id: "contact_call"
     direction: DOWN
     timeout: 20000
     centerElement: true
+- tapOn:
+    id: "contact_call"
+- extendedWaitUntil:
+    visible:
+      id: "app_call_audio"
+    timeout: 10000
+- assertVisible: "অ্যাপ কল"
 - assertVisible:
     id: "app_call_video"
+- assertVisible: "ভিডিও কল"
 - takeScreenshot: j17-01-order-call-buttons
 # চাপলে: অনুমতির আগে কারণ (মাইক্রোফোন …) — "বাতিল"
 - tapOn:
@@ -44,7 +52,9 @@ env:
 - takeScreenshot: j17-02-permission-reason
 - tapOn: "বাতিল"
 - assertNotVisible: ".*অডিও কলের জন্য অনুমতি দিন.*"
-# ভিডিও কলে ক্যামেরার কারণও
+# ভিডিও কলে ক্যামেরার কারণও (আবার কলের আইকন → "ভিডিও কল")
+- tapOn:
+    id: "contact_call"
 - tapOn:
     id: "app_call_video"
 - extendedWaitUntil:

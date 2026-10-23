@@ -169,10 +169,8 @@ async function onReplace(c: AmbCar | null) {
           <span class="amb-agreed-fare">{{ taka(r.agreedFare) }}</span>
           <span v-if="r.destLabel" class="t-body-s">{{ tr('To ', 'গন্তব্য: ') + r.destLabel }}</span>
         </div>
-        <a v-if="r.ambulance.phone" class="btn square has-icon block" :href="`tel:${r.ambulance.phone}`" @click="callCar(r.ambulance!)">
-          <Icon name="call" />{{ tr('Call driver ', 'চালককে ফোন ') + num(r.ambulance.phone) }}
-        </a>
-        <ContactActions :message="chatOn()" @message="openChatAt" ctx="ambulance" :ref-id="id" :peer-name="r.ambulance.name" :phone="r.ambulance.phone || null" />
+        <!-- চালকের নম্বর, কল (ফোন কল · অ্যাপ কল · ভিডিও কল) · মেসেজ; ফোন কলে গোনা (callCar) -->
+        <ContactActions :message="chatOn()" @message="openChatAt" @phone="callCar(r.ambulance!)" ctx="ambulance" :ref-id="id" :peer-name="r.ambulance.name" :phone="r.ambulance.phone || null" :small="false" show-number />
       </div>
       <template v-if="r.status === 'done'">
         <AmbHead icon="check_circle" :t="tr('Trip finished', 'ট্রিপ শেষ')" :sub="r.ambulance?.name" />
