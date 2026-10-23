@@ -90,6 +90,14 @@ android {
             // এমুলেটর (CI-র Maestro যাত্রা) x86_64
             ndk { abiFilters += listOf("x86_64") }
         }
+        // রিলিজের হুবহু (R8 একই) — শুধু এমুলেটরের x86_64 আর debug key: CI-তে Maestro যাত্রা রিলিজ কোডে চালাতে
+        // (R8-এর ভুল শুধু রিলিজে ধরা পড়ে)। gradle assembleReleaseSmoke → app-releaseSmoke.apk
+        create("releaseSmoke") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            ndk { abiFilters += listOf("x86_64") }
+        }
     }
 
     compileOptions {

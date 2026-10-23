@@ -21,7 +21,8 @@ adb shell settings put global hide_error_dialogs 1 || true
 sleep 30
 # তিন বাটনের নিচের বার — বাটন কাটা পড়ছে কি না সবচেয়ে ভালো বোঝা যায়
 adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton || true
-adb install -r "$W/app/build/outputs/apk/debug/app-debug.apk"
+# E2E_APK: অন্য APK (যেমন রিলিজের হুবহু releaseSmoke) — না দিলে debug
+adb install -r "${E2E_APK:-$W/app/build/outputs/apk/debug/app-debug.apk}"
 adb shell getprop ro.build.version.release
 
 ONLY=${E2E_ONLY:-}
