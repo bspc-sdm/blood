@@ -39,8 +39,12 @@ function submit() {
   const mode = props.mode;
   const donorTouched = mode === 'donor' || (mode === 'full' && (!!group.value || birth.value != null || !!weight.value.trim() || last.value != null || saved != null));
   let err: string | null = null;
+  // "ডা." পদবি: নামের ঘর নিজেই বার্তা দেখায় — সেভ হয় না
+  if (showContact.value && name.value.trim() && nameError.value) {
+    formError.value = null;
+    return;
+  }
   if (showContact.value && !name.value.trim()) err = tr('Enter your name', 'নাম লিখুন');
-  else if (showContact.value && nameError.value) err = nameError.value;
   else if (showContact.value && !cleanPhone) err = tr('Enter a valid mobile number (01…, 11 digits)', 'সঠিক মোবাইল নম্বর দিন (01 দিয়ে শুরু, ১১ সংখ্যা)');
   else if (donorTouched) {
     if (!group.value) err = tr('Choose your blood group', 'রক্তের গ্রুপ বেছে নিন');

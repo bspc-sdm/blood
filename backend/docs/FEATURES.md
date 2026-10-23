@@ -30,6 +30,7 @@ The flags agent owns `backend/docs/FEATURES.md`, and that file is final once it 
 | `pro_physio` | physiotherapists (ফিজিওথেরাপিস্ট) |
 | `pro_psychologist` | psychologists / counsellors (সাইকোলজিস্ট / কাউন্সেলর) |
 | `health_consent` | স্বাস্থ্য তথ্যের সম্মতি — explicit, recorded patient consent before health data entry (also for storage abroad); emergency features never gated (backend/docs/CONSENT.md). Outside `all-on`: follows its own setting in tests/e2e |
+| `title_guard` | "‘ডা.’ পদবির নিয়ম" — "ডা."/"Dr." only for MBBS/BDS: refused on save, stripped where shown, practitioner labels (backend/docs/PRACTICE.md §6). Inside `all-on` (on in tests/e2e) |
 
 ## Modes per key
 `{mode: "off"|"pilot"|"on", pilotUids: [uid…], demo: boolean}`
@@ -90,7 +91,7 @@ class ChatActions(private val features: Features, …) : ActionModule {
   for a patient). `require(uid, key, lang)` is the same check outside an action (HTTP endpoints, jobs).
 - Error: HTTP 404 `{error: "এই সুবিধা এখনো চালু হয়নি", code: "feature_off"}` (English "This feature is not available yet"
   for `lang: "en"`).
-- Key constants: `Features.CALLS_AUDIO … Features.DESKTOP`, `Features.PRACTICE_SYSTEMS`, `PRO_PHYSIO`, `PRO_PSYCHOLOGIST`, `HEALTH_CONSENT`; `Features.NEEDS` (dependencies), `Features.TWO_PARTY`.
+- Key constants: `Features.CALLS_AUDIO … Features.DESKTOP`, `Features.PRACTICE_SYSTEMS`, `PRO_PHYSIO`, `PRO_PSYCHOLOGIST`, `HEALTH_CONSENT`, `TITLE_GUARD`; `Features.NEEDS` (dependencies), `Features.TWO_PARTY`.
 - Cache: the settings (all keys + version) live in Redis `lifolo:features` for 30 s; `clearCache()` after a change.
   When Redis fails, the database answers.
 - `lifolo.features.all-on` (env `FEATURES_ALL_ON`, default false): every key on for everyone — except the keys in
@@ -107,7 +108,7 @@ class ChatActions(private val features: Features, …) : ActionModule {
 
 ### `features` action
 Guest allowed (`ActionPolicy.PUBLIC_ACTIONS`) and **never** served from the 1-minute guest cache
-(`ActionPolicy.GUEST_UNCACHED`). Answer: `{keys: {calls_audio: false, chat: true, …all 23…}, v: 12}`.
+(`ActionPolicy.GUEST_UNCACHED`). Answer: `{keys: {calls_audio: false, chat: true, …all 24…}, v: 12}`.
 
 ### Android — `app/src/main/java/com/bspc/blood/Features.kt`
 ```kotlin

@@ -41,12 +41,11 @@ const badgePage = (name: string, badge: Record<string, unknown> | null = null): 
 const HOMEO = { type: 'doctor', system: 'homeopathy', status: 'approved', regNo: 'H-1', workplace: 'X' };
 
 test.describe('প্রোফাইল এডিট: পেশাজীবীর নামের ঘর', () => {
-  test('হোমিওপ্যাথ: নিচে ছোট লেখা, "ডা." লিখলে সাথে সাথে ভুল, সেভ যায় না; ঠিক করলে যায়', async ({ page }) => {
+  test('হোমিওপ্যাথ: "ডা." থাকলে সাথে সাথে ভুল, সেভ যায় না; ঠিক করলে নিচে ছোট লেখা, সেভ যায়', async ({ page }) => {
     const seen = await mock(page, true, HOMEO, async (action) => (action === 'profile_update' ? { ok: true } : undefined));
     await open(page, editPage());
     const field = page.getByTestId('profile-name');
-    await expect(page.getByText(HINT)).toBeVisible();
-    await expect(page.getByText(ERR).first()).toBeVisible();
+    await expect(page.getByText(ERR)).toBeVisible();
     await page.getByRole('button', { name: 'সেভ করুন' }).click();
     await page.waitForTimeout(300);
     expect(last(seen, 'profile_update')).toBeUndefined();
@@ -57,6 +56,7 @@ test.describe('প্রোফাইল এডিট: পেশাজীবী�
     }
     await field.fill('করিম উদ্দিন');
     await expect(page.getByText(ERR)).toHaveCount(0);
+    await expect(page.getByText(HINT)).toBeVisible();
     await page.getByRole('button', { name: 'সেভ করুন' }).click();
     await expect.poll(() => last(seen, 'profile_update')?.set?.name).toBe('করিম উদ্দিন');
   });
@@ -70,7 +70,8 @@ test.describe('প্রোফাইল এডিট: পেশাজীবী�
     test(`${what}: "Dr." লেখা যায় না`, async ({ page }) => {
       await mock(page, true, badge);
       await open(page, editPage('Dr. Rahima'));
-      await expect(page.getByText(ERR).first()).toBeVisible();
+      await expect(page.getByText(ERR)).toBeVisible();
+      await page.getByTestId('profile-name').fill('Rahima');
       await expect(page.getByText(HINT)).toBeVisible();
     });
   }
@@ -112,7 +113,6 @@ test.describe('ব্যাজের আবেদন: প্রোফাইল�
     await page.getByRole('button', { name: 'নার্স', exact: true }).click();
     const name = page.getByTestId('badge-name');
     await expect(name).toHaveValue('Dr. Rahima');
-    await expect(page.getByText(HINT)).toBeVisible();
     await expect(page.getByText(ERR).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'আগে প্রোফাইল এডিটে নাম ঠিক করুন' })).toBeVisible();
     await page.getByLabel('রেজিস্ট্রেশন / লাইসেন্স নম্বর').fill('N-1');
