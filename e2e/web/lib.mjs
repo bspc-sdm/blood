@@ -230,13 +230,16 @@ export async function until(page, fn, arg = null, timeout = 8000) {
 // রাখে, তাই Playwright-এর 'networkidle' আর কখনো আসে না — প্রতিটা settle পুরো ৬ সেকেন্ড অপেক্ষা করত (যাত্রা ৫৫ মিনিট পেরোত)
 const inflight = new WeakMap();
 const longLived = (r) => /\/api\/events(\?|$)/.test(r.url()) || /text\/event-stream/.test(r.headers().accept || '');
+// ফন্ট আলাদা (নিচে document.fonts.ready): Chromium-এর .woff fallback অনুরোধের অনেক সময় শেষ-খবর (requestfinished/failed)
+// আসে না — ধরলে সেই পাতার প্রতিটা settle ৬ সেকেন্ড আটকাত (রক্তের যাত্রা ১৯ মিনিট)। আর ১০ সেকেন্ডের পুরোনো অনুরোধও গোনা হয় না।
+const STALE_MS = 10_000;
 export function trackInflight(page) {
-  const set = new Set();
+  const set = new Map();
   inflight.set(page, set);
-  page.on('request', (r) => { if (!longLived(r)) set.add(r); });
+  page.on('request', (r) => { if (!longLived(r) && r.resourceType() !== 'font') set.set(r, Date.now()); });
   page.on('requestfinished', (r) => set.delete(r));
   page.on('requestfailed', (r) => set.delete(r));
-  page.on('framenavigated', (f) => { if (f === page.mainFrame()) for (const r of set) if (r.frame() !== f) set.delete(r); });
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) for (const r of set.keys()) if (r.frame() !== f) set.delete(r); });
 }
 
 /** নেটওয়ার্ক ৫০০ ms চুপ ('networkidle'-এর মতো, লম্বা স্ট্রিম বাদে) — বড়জোর timeout পর্যন্ত */
@@ -245,9 +248,14 @@ async function quiet(page, timeout = 6000) {
   if (!set) return page.waitForLoadState('networkidle', { timeout }).catch(() => {});
   await page.waitForLoadState('load', { timeout }).catch(() => {});
   const t0 = Date.now();
-  let calmSince = set.size ? 0 : Date.now();
+  const busy = () => {
+    const now = Date.now();
+    for (const at of set.values()) if (now - at < STALE_MS) return true;
+    return false;
+  };
+  let calmSince = busy() ? 0 : Date.now();
   while (Date.now() - t0 < timeout) {
-    if (set.size) calmSince = 0;
+    if (busy()) calmSince = 0;
     else if (!calmSince) calmSince = Date.now();
     else if (Date.now() - calmSince >= 500) return;
     await page.waitForTimeout(50);
@@ -257,6 +265,7 @@ async function quiet(page, timeout = 6000) {
 /** নেটওয়ার্ক থামা আর লোড চিহ্ন চলে যাওয়া পর্যন্ত */
 export async function settle(page, ms = 250) {
   await quiet(page, 6000);
+  await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 3000))])).catch(() => {});
   await until(page, () => !document.querySelector('.loading, [aria-busy="true"], .skeleton'), null, 4000).catch(() => {});
   await page.waitForTimeout(ms);
 }
