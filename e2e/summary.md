@@ -1,0 +1,7 @@
+# Web e2e — mywork-web-home 6ec4ac02cab2325d75629fcce6337515f521376c
+
+spring: ✅ scenarios 247/247, stopped journeys 0, bug steps 0, API 5xx 0, server errors 0
+node: (no report)
+verdict: PASS (no baseline: Spring must be fully green)
+
+

@@ -1,0 +1,175 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.5.16)
+
+2026-10-24T05:00:02.050Z  INFO 5653 --- [lifolo-backend] [           main] com.lifolo.LifoloApplicationKt           : Starting LifoloApplicationKt v0.1.0 using Java 21.0.12.1 with PID 5653 (/home/runner/work/_temp/app.jar started by runner in /home/runner/work/blood/blood)
+2026-10-24T05:00:02.053Z  INFO 5653 --- [lifolo-backend] [           main] com.lifolo.LifoloApplicationKt           : No active profile set, falling back to 1 default profile: "default"
+2026-10-24T05:00:04.377Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-10-24T05:00:04.380Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-24T05:00:04.433Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 39 ms. Found 0 JPA repository interfaces.
+2026-10-24T05:00:04.456Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-10-24T05:00:04.457Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-10-24T05:00:04.478Z  INFO 5653 --- [lifolo-backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 9 ms. Found 0 Redis repository interfaces.
+2026-10-24T05:00:05.357Z  INFO 5653 --- [lifolo-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-10-24T05:00:05.378Z  INFO 5653 --- [lifolo-backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-24T05:00:05.379Z  INFO 5653 --- [lifolo-backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+2026-10-24T05:00:05.425Z  INFO 5653 --- [lifolo-backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-10-24T05:00:05.426Z  INFO 5653 --- [lifolo-backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 3274 ms
+2026-10-24T05:00:06.271Z  INFO 5653 --- [lifolo-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-24T05:00:06.549Z  INFO 5653 --- [lifolo-backend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@6dacde96
+2026-10-24T05:00:06.552Z  INFO 5653 --- [lifolo-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-24T05:00:06.591Z  INFO 5653 --- [lifolo-backend] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://127.0.0.1:5432/lifolo (PostgreSQL 16.15)
+2026-10-24T05:00:06.671Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-10-24T05:00:06.678Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 37 migrations (execution time 00:00.058s)
+2026-10-24T05:00:06.692Z  INFO 5653 --- [lifolo-backend] [           main] org.flywaydb.core.Flyway                 : All configured schemas are empty; baseline operation skipped. A baseline or migration script with a lower version than the baseline version may execute if available. Check the Schemas parameter if this is not intended.
+2026-10-24T05:00:06.697Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-10-24T05:00:06.750Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-10-24T05:00:06.793Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - init"
+2026-10-24T05:00:07.035Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - blood"
+2026-10-24T05:00:07.182Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - providers appointments"
+2026-10-24T05:00:07.309Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - listings"
+2026-10-24T05:00:07.572Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - rx lab"
+2026-10-24T05:00:07.714Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - shop books"
+2026-10-24T05:00:07.789Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - content support"
+2026-10-24T05:00:07.854Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "100 - p1 blood"
+2026-10-24T05:00:07.872Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "200 - p2 doctors content"
+2026-10-24T05:00:07.898Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "300 - p3 rx lab"
+2026-10-24T05:00:07.930Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "400 - p4 pharmacy books"
+2026-10-24T05:00:08.065Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "500 - p5 ambulance"
+2026-10-24T05:00:08.090Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "600 - p6 kernel"
+2026-10-24T05:00:08.110Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "601 - p6 platform"
+2026-10-24T05:00:08.127Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "602 - r2 files"
+2026-10-24T05:00:08.159Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "603 - ambreq phone idx"
+2026-10-24T05:00:08.168Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "604 - rx no auto link"
+2026-10-24T05:00:08.176Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "605 - care email invites"
+2026-10-24T05:00:08.192Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "606 - correction one pending"
+2026-10-24T05:00:08.202Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "607 - notify prefs"
+2026-10-24T05:00:08.219Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "608 - account deactivation"
+2026-10-24T05:00:08.234Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "620 - online chambers"
+2026-10-24T05:00:08.254Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "621 - online pay safety"
+2026-10-24T05:00:08.292Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "622 - calls"
+2026-10-24T05:00:08.342Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "660 - chat"
+2026-10-24T05:00:08.399Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "661 - invoices"
+2026-10-24T05:00:08.476Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "662 - desktop sync"
+2026-10-24T05:00:08.515Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "670 - features"
+2026-10-24T05:00:08.536Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "680 - practice systems"
+2026-10-24T05:00:08.560Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: constraint "providers_system_check" of relation "providers" does not exist, skipping
+2026-10-24T05:00:08.561Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: constraint "badges_system_check" of relation "badges" does not exist, skipping
+2026-10-24T05:00:08.569Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: constraint "prescriptions_doctor_type_check" of relation "prescriptions" does not exist, skipping
+2026-10-24T05:00:08.590Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "681 - payments"
+2026-10-24T05:00:08.691Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "682 - consents"
+2026-10-24T05:00:08.706Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "683 - rx patient done"
+2026-10-24T05:00:08.712Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "684 - rx cancel reason"
+2026-10-24T05:00:08.714Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: constraint "prescriptions_cancel_reason_check" of relation "prescriptions" does not exist, skipping
+2026-10-24T05:00:08.715Z  INFO 5653 --- [lifolo-backend] [           main] o.f.c.i.s.DefaultSqlScriptExecutor       : DB: constraint "prescriptions_cancel_note_check" of relation "prescriptions" does not exist, skipping
+2026-10-24T05:00:08.721Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "690 - bloodbank stock"
+2026-10-24T05:00:08.732Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "691 - listing switches"
+2026-10-24T05:00:08.757Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "692 - med find qty"
+2026-10-24T05:00:08.766Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "693 - chamber pause"
+2026-10-24T05:00:08.782Z  INFO 5653 --- [lifolo-backend] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 37 migrations to schema "public", now at version v693 (execution time 00:01.659s)
+2026-10-24T05:00:08.915Z  INFO 5653 --- [lifolo-backend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-10-24T05:00:08.983Z  INFO 5653 --- [lifolo-backend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.53.Final
+2026-10-24T05:00:09.028Z  INFO 5653 --- [lifolo-backend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-10-24T05:00:09.390Z  INFO 5653 --- [lifolo-backend] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-24T05:00:09.458Z  INFO 5653 --- [lifolo-backend] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 16.15
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-24T05:00:10.284Z  INFO 5653 --- [lifolo-backend] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-24T05:00:10.287Z  INFO 5653 --- [lifolo-backend] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-24T05:00:11.699Z  INFO 5653 --- [lifolo-backend] [           main] o.j.utils.mapper.JsonMapperFactory       : Creating JobRunr JsonMapper using Jackson 2
+2026-10-24T05:00:11.812Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v000__create_migrations_table.sql}
+2026-10-24T05:00:11.835Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v001__create_job_table.sql}
+2026-10-24T05:00:11.850Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v002__create_recurring_job_table.sql}
+2026-10-24T05:00:11.855Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v003__create_background_job_server_table.sql}
+2026-10-24T05:00:11.863Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v004__create_job_stats_view.sql}
+2026-10-24T05:00:11.874Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v005__update_job_stats_view.sql}
+2026-10-24T05:00:11.880Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v006__alter_table_jobs_add_recurringjob.sql}
+2026-10-24T05:00:11.883Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v007__alter_table_backgroundjobserver_add_delete_config.sql}
+2026-10-24T05:00:11.885Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v008__alter_table_jobs_increase_jobAsJson_size.sql}
+2026-10-24T05:00:11.886Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v009__change_jobrunr_job_counters_to_jobrunr_metadata.sql}
+2026-10-24T05:00:11.897Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v010__change_job_stats.sql}
+2026-10-24T05:00:11.902Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v011__change_sqlserver_text_to_varchar.sql}
+2026-10-24T05:00:11.903Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v012__change_oracle_alter_jobrunr_metadata_column_size.sql}
+2026-10-24T05:00:11.903Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v013__alter_table_recurring_job_add_createdAt.sql}
+2026-10-24T05:00:11.907Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/postgres/migrations/v014__improve_job_stats.sql}
+2026-10-24T05:00:11.913Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v015__alter_table_backgroundjobserver_add_name.sql}
+2026-10-24T05:00:11.915Z  INFO 5653 --- [lifolo-backend] [           main] o.j.storage.sql.common.DatabaseCreator   : Running migration MigrationByPath{path=/org/jobrunr/storage/sql/common/migrations/v016__alter_jobs_stats_add_awaiting_jobs.sql}
+2026-10-24T05:00:12.010Z  WARN 5653 --- [lifolo-backend] [           main] com.lifolo.notify.MailConfig             : Mail: logging only (SES_REGION / SES_FROM not set)
+2026-10-24T05:00:12.858Z  WARN 5653 --- [lifolo-backend] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 5385691d-2f74-4944-8b66-75a9a2a284a8
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-10-24T05:00:12.869Z  INFO 5653 --- [lifolo-backend] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-10-24T05:00:13.890Z  INFO 5653 --- [lifolo-backend] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-10-24T05:00:13.999Z  INFO 5653 --- [lifolo-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-10-24T05:00:14.030Z  INFO 5653 --- [lifolo-backend] [           main] com.lifolo.LifoloApplicationKt           : Started LifoloApplicationKt in 12.917 seconds (process running for 13.677)
+2026-10-24T05:00:14.037Z  WARN 5653 --- [lifolo-backend] [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /api/docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-24T05:00:14.037Z  WARN 5653 --- [lifolo-backend] [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /api/docs/ui endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-24T05:00:14.038Z  INFO 5653 --- [lifolo-backend] [           main] com.lifolo.common.SentryStartupLog       : sentry initialised: enabled=false environment=production release=null
+2026-10-24T05:00:14.041Z  INFO 5653 --- [lifolo-backend] [           main] o.j.s.t.VirtualThreadJobRunrExecutor     : ThreadManager of type 'VirtualThreadJobRunrExecutor' started
+2026-10-24T05:00:14.061Z  INFO 5653 --- [lifolo-backend] [ookeeper-pool-0] org.jobrunr.server.BackgroundJobServer   : JobRunr BackgroundJobServer (runnervm8k3b6 - 83d85544-54b4-4f83-847b-d119f7aaa2b6) using PostgresStorageProvider and 64 BackgroundJobPerformers started successfully
+2026-10-24T05:00:14.077Z  INFO 5653 --- [lifolo-backend] [ookeeper-pool-0] org.jobrunr.server.ServerZooKeeper       : Server 83d85544-54b4-4f83-847b-d119f7aaa2b6 is master (this BackgroundJobServer)
+2026-10-24T05:00:14.099Z  INFO 5653 --- [lifolo-backend] [-startup-task-0] o.j.s.t.startup.MigrateFromV5toV6Task    : Start migration of scheduled jobs from v5 to v6
+2026-10-24T05:00:14.100Z  INFO 5653 --- [lifolo-backend] [-startup-task-0] o.j.s.t.startup.MigrateFromV5toV6Task    : Found 0 scheduled jobs to migrate.
+2026-10-24T05:00:14.101Z  INFO 5653 --- [lifolo-backend] [-startup-task-0] o.j.s.t.startup.MigrateFromV5toV6Task    : Finished migration of scheduled jobs from v5 to v6
+2026-10-24T05:00:14.536Z  INFO 5653 --- [lifolo-backend] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-24T05:00:14.536Z  INFO 5653 --- [lifolo-backend] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-24T05:00:14.539Z  INFO 5653 --- [lifolo-backend] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-10-24T05:00:42.770Z  INFO 5653 --- [lifolo-backend] [mcat-handler-80] com.lifolo.payments.PayHooks             : no advance request for d7CI90oSWloAh0lwErLE: অ্যাপয়েন্টমেন্টের সময় পার হয়ে গেছে
+2026-10-24T05:27:33.796Z  INFO 5653 --- [lifolo-backend] [at-handler-8171] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.825Z  INFO 5653 --- [lifolo-backend] [at-handler-8174] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.845Z  INFO 5653 --- [lifolo-backend] [at-handler-8177] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.863Z  INFO 5653 --- [lifolo-backend] [at-handler-8180] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.892Z  INFO 5653 --- [lifolo-backend] [at-handler-8183] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.921Z  INFO 5653 --- [lifolo-backend] [at-handler-8187] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.937Z  INFO 5653 --- [lifolo-backend] [at-handler-8190] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:33.967Z  INFO 5653 --- [lifolo-backend] [at-handler-8195] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.063Z  INFO 5653 --- [lifolo-backend] [at-handler-8200] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.093Z  INFO 5653 --- [lifolo-backend] [at-handler-8204] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.125Z  INFO 5653 --- [lifolo-backend] [at-handler-8208] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.163Z  INFO 5653 --- [lifolo-backend] [at-handler-8211] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.188Z  INFO 5653 --- [lifolo-backend] [at-handler-8214] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.218Z  INFO 5653 --- [lifolo-backend] [at-handler-8218] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.244Z  INFO 5653 --- [lifolo-backend] [at-handler-8221] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.270Z  INFO 5653 --- [lifolo-backend] [at-handler-8225] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.292Z  INFO 5653 --- [lifolo-backend] [at-handler-8228] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.311Z  INFO 5653 --- [lifolo-backend] [at-handler-8228] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.329Z  INFO 5653 --- [lifolo-backend] [at-handler-8231] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.355Z  INFO 5653 --- [lifolo-backend] [at-handler-8235] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.367Z  INFO 5653 --- [lifolo-backend] [at-handler-8235] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.427Z  INFO 5653 --- [lifolo-backend] [at-handler-8240] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.474Z  INFO 5653 --- [lifolo-backend] [at-handler-8245] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.508Z  INFO 5653 --- [lifolo-backend] [at-handler-8250] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.538Z  INFO 5653 --- [lifolo-backend] [at-handler-8254] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.570Z  INFO 5653 --- [lifolo-backend] [at-handler-8258] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:34.613Z  INFO 5653 --- [lifolo-backend] [at-handler-8264] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:36.676Z  INFO 5653 --- [lifolo-backend] [at-handler-8275] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:36.719Z  INFO 5653 --- [lifolo-backend] [at-handler-8279] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:36.756Z  INFO 5653 --- [lifolo-backend] [at-handler-8284] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:36.906Z  INFO 5653 --- [lifolo-backend] [at-handler-8291] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:27:36.918Z  INFO 5653 --- [lifolo-backend] [at-handler-8291] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:27:37.077Z  INFO 5653 --- [lifolo-backend] [at-handler-8299] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:12.092Z  INFO 5653 --- [lifolo-backend] [at-handler-9296] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:12.231Z  INFO 5653 --- [lifolo-backend] [at-handler-9318] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 2 push message(s) counted as delivered, not sent
+2026-10-24T05:31:12.257Z  INFO 5653 --- [lifolo-backend] [at-handler-9320] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:12.289Z  INFO 5653 --- [lifolo-backend] [at-handler-9323] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.500Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.505Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.507Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.508Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.510Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.512Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
+2026-10-24T05:31:17.513Z  INFO 5653 --- [lifolo-backend] [at-handler-9365] com.lifolo.notify.FakePushTransport      : PUSH_MODE=fake — 1 push message(s) counted as delivered, not sent
