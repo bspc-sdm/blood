@@ -147,6 +147,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 }
 .pill svg { width: 18px; height: 18px; }
 .pill[aria-selected='true'] { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+/* সারিতে (row wrap) পিলগুলো পুরো লাইনের বেশি চওড়া হলে পাতা নয়, পিলের সারিই পাশে সরে */
+.row.wrap > .pills { max-width: 100%; }
 .pills.secondary { padding: 4px 16px; }
 .pills.secondary .pill { min-height: 32px; padding: 6px 12px; background: transparent; border: 1px solid var(--outline-variant); font-size: 12px; line-height: 16px; }
 .pills.secondary .pill svg { width: 16px; height: 16px; }
