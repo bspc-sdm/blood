@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,19 +40,34 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ------------------------------------------------------------
-// "ওষুধ খুঁজুন": তালিকা থেকে ওষুধ বেছে কাছের দোকানগুলোকে জিজ্ঞেস করা; দোকান এক চাপে "আছে"/"নেই"।
-// ক্রেতা "আছে" বলা দোকানে সরাসরি ফোন করেন। দাম, অর্ডার, ঠিকানা কিছুই অ্যাপে নেই।
+// "ওষুধ খুঁজুন": তালিকা থেকে ওষুধ বেছে, কতটা লাগবে বলে, কাছের দোকানগুলোকে জিজ্ঞেস করা; যে দোকানে আছে সে কতটা আছে
+// লিখে পাঠায় ("নেই" নেই — না থাকলে উত্তর দেয় না)। ক্রেতা "আছে" বলা দোকানে সরাসরি ফোন করেন। backend/docs/MEDFIND.md
 // ------------------------------------------------------------
 
 data class FindDrug(val i: Int, val name: String, val generic: String, val form: String, val company: String) {
     val detail: String get() = listOf(generic, form, company).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
-data class FindShop(val id: String, val name: String, val phone: String, val address: String, val openNow: Boolean, val open24: Boolean, val km: Double?)
+/** একটা দোকান যেখানে আছে: haveQty, haveUnit এককে (ক্রেতার একক); full = চাওয়ার সমান বা বেশি */
+data class FindShop(
+    val id: String, val name: String, val phone: String, val address: String, val openNow: Boolean, val open24: Boolean, val km: Double?,
+    val haveQty: Int? = null, val haveUnit: String? = null, val full: Boolean = false,
+)
 
-data class MyFind(val id: String, val drug: FindDrug, val area: String, val open: Boolean, val notified: Int, val answered: Int, val have: List<FindShop>, val createdAt: Long)
+/** qty/unit: কতটা লাগবে (পুরোনো খোঁজে null) */
+data class MyFind(
+    val id: String, val drug: FindDrug, val area: String, val open: Boolean, val notified: Int, val answered: Int, val have: List<FindShop>, val createdAt: Long,
+    val qty: Int? = null, val unit: String? = null,
+)
 
-data class FindRequest(val id: String, val drug: FindDrug, val area: String, val km: Double?, val answer: String?, val createdAt: Long)
+/** দোকানের তালিকায় একটা খোঁজ: কতটা লাগবে (qty/unit) আর আমি কতটা আছে বলেছি (haveQty/haveUnit) */
+data class FindRequest(
+    val id: String, val drug: FindDrug, val area: String, val km: Double?, val answer: String?, val createdAt: Long,
+    val qty: Int? = null, val unit: String? = null, val haveQty: Int? = null, val haveUnit: String? = null,
+) {
+    /** উত্তরের একক: ক্রেতার (পরিমাণ ছাড়া পুরোনো খোঁজে ধরনের স্বাভাবিক — সার্ভারও তাই রাখে) */
+    val answerUnit: String get() = haveUnit ?: unit ?: MedQty.unitsFor(drug.form)[0]
+}
 
 /** নোটিফিকেশন থেকে "সেবা" ট্যাবের নির্দিষ্ট অংশ খোলা: "med_find" (দোকানের অনুরোধ) / "med_find_mine" (নিজের খোঁজ) */
 object ServicesNav {
@@ -71,12 +87,16 @@ object MedFind {
         return (0 until a.length()).map { drug(a.getJSONObject(it)) }
     }
 
+    private fun optInt(o: JSONObject, k: String): Int? = if (o.has(k) && !o.isNull(k)) o.optInt(k) else null
+
+    private fun optStr(o: JSONObject, k: String): String? = if (o.has(k) && !o.isNull(k)) o.optString(k) else null
+
     /** ফেরত: কয়টা দোকানে গেল; ০ মানে কাছে কোনো দোকান নেই */
-    suspend fun ask(i: Int, district: String, upazilaId: Int?, lat: Double?, lng: Double?): Int {
+    suspend fun ask(i: Int, district: String, upazilaId: Int?, lat: Double?, lng: Double?, qty: Int, unit: String): Int {
         val r = call(
             "med_find",
             JSONObject().put("i", i).put("district", district).put("upazilaId", upazilaId ?: JSONObject.NULL)
-                .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL),
+                .put("lat", lat ?: JSONObject.NULL).put("lng", lng ?: JSONObject.NULL).put("qty", qty).put("unit", unit),
         )
         // ০: জেলায় অ্যাপে কোনো ফার্মেসি নেই; -১: আছে, কিন্তু এখন কোনোটা খোলা নেই
         return when {
@@ -99,9 +119,11 @@ object MedFind {
                     FindShop(
                         s.optString("id"), s.optString("name"), s.optString("phone"), s.optString("address"),
                         s.optBoolean("openNow"), s.optBoolean("open24"), if (s.isNull("km")) null else s.optDouble("km"),
+                        optInt(s, "haveQty"), optStr(s, "haveUnit"), s.optBoolean("full"),
                     )
                 },
                 x.optLong("createdAt"),
+                optInt(x, "qty"), optStr(x, "unit"),
             )
         }
     }
@@ -119,12 +141,19 @@ object MedFind {
             FindRequest(
                 x.optString("id"), drug(x.optJSONObject("drug")), x.optString("area"),
                 if (x.isNull("km")) null else x.optDouble("km"), if (x.isNull("answer")) null else x.optString("answer"), x.optLong("createdAt"),
+                optInt(x, "qty"), optStr(x, "unit"), optInt(x, "haveQty"), optStr(x, "haveUnit"),
             )
         } to r.optBoolean("findOff")
     }
 
-    suspend fun answer(id: String, have: Boolean) {
-        call("med_find_answer", JSONObject().put("id", id).put("have", have))
+    /** আছে — কতটা (১–৯৯৯৯, ক্রেতার এককে); আবার পাঠালে সংখ্যা বদলায় */
+    suspend fun answer(id: String, haveQty: Int) {
+        call("med_find_answer", JSONObject().put("id", id).put("haveQty", haveQty))
+    }
+
+    /** "বাদ দিন": শুধু নিজের তালিকা থেকে সরে; ক্রেতা কিছু জানেন না */
+    suspend fun dismiss(id: String) {
+        call("med_find_answer", JSONObject().put("id", id).put("dismiss", true))
     }
 
     suspend fun setOff(off: Boolean) {
@@ -142,6 +171,9 @@ fun MedFindPanel(profile: Profile) {
     var results by remember { mutableStateOf<List<FindDrug>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf<FindDrug?>(null) }
+    // কতটা লাগবে — ওষুধ বাছলে ১ আর ধরনের সবচেয়ে স্বাভাবিক একক (ট্যাবলেট: ১ পাতা)
+    var qty by remember { mutableIntStateOf(1) }
+    var unit by remember { mutableStateOf("unit") }
     var district by remember { mutableStateOf(profile.placeName) }
     var upazilaId by remember { mutableStateOf<Int?>(null) }
     val gps = profile.locationSource == "gps"
@@ -182,7 +214,7 @@ fun MedFindPanel(profile: Profile) {
             )
             results.forEach { d ->
                 Surface(
-                    onClick = { chosen = d; errorMsg = null; infoMsg = null },
+                    onClick = { chosen = d; qty = 1; unit = MedQty.unitsFor(d.form)[0]; errorMsg = null; infoMsg = null },
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth(),
@@ -207,6 +239,7 @@ fun MedFindPanel(profile: Profile) {
                         }
                         TextButton(onClick = { chosen = null }) { Text(tr("Change", "বদলান")) }
                     }
+                    QtyPicker(c.form, qty, unit, { qty = it }, { unit = it })
                     Text(tr("Where", "কোথায়"), style = MaterialTheme.typography.titleSmall)
                     AreaChips(district, upazilaId, null, { d, u, _ -> district = d; upazilaId = u }, allowAllDistricts = false, showUnion = false)
                     SmallNote(tr("If it's a prescription medicine, the pharmacy will need to see the prescription.", "প্রেসক্রিপশনের ওষুধ হলে কিনতে দোকানে প্রেসক্রিপশন দেখাতে হবে।"))
@@ -217,7 +250,7 @@ fun MedFindPanel(profile: Profile) {
                             LoginGate.require(tr("Log in to ask pharmacies", "দোকানে জিজ্ঞেস করতে লগইন করুন")) { scope.launch {
                                 busy = true
                                 errorMsg = null
-                                runCatching { MedFind.ask(c.i, d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null) }
+                                runCatching { MedFind.ask(c.i, d, upazilaId, if (gps) profile.lat else null, if (gps) profile.lng else null, qty, unit) }
                                     .onSuccess { n ->
                                         if (n == 0) {
                                             errorMsg = tr("No pharmacy in this district has joined the app yet.", "এই জেলায় এখনো অ্যাপে কোনো ফার্মেসি যোগ হয়নি।")
@@ -270,11 +303,13 @@ fun MedFindPanel(profile: Profile) {
     }
 }
 
+/** নিজের একটা খোঁজ: কতটা লাগবে, আর যে দোকানে আছে (পুরোটা থাকা আগে — সার্ভার সাজায়) কতটা আছে */
 @Composable
-private fun MyFindCard(f: MyFind, onCall: (FindShop) -> Unit, onReport: (FindShop) -> Unit, onClose: () -> Unit) {
+internal fun MyFindCard(f: MyFind, onCall: (FindShop) -> Unit, onReport: (FindShop) -> Unit, onClose: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(f.drug.name + if (f.drug.form.isNotBlank()) " · " + f.drug.form else "", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (f.qty != null) Text(MedQty.need(f.qty, f.unit), fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("find_need"))
             SmallNote(
                 listOf(
                     f.area,
@@ -295,13 +330,18 @@ private fun MyFindCard(f: MyFind, onCall: (FindShop) -> Unit, onReport: (FindSho
                     Column(Modifier.weight(1f)) {
                         Text(s.name, fontWeight = FontWeight.SemiBold)
                         Text(
+                            MedQty.reply(f, s),
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (s.full) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.testTag("find_reply"),
+                        )
+                        Text(
                             listOfNotNull(
-                                tr("Has it", "আছে বলেছে"),
                                 s.km?.let { Rules.formatKm(it) },
                                 if (s.open24) tr("24 hours", "২৪ ঘণ্টা") else if (s.openNow) tr("open now", "এখন খোলা") else tr("closed now", "এখন বন্ধ"),
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (s.address.isNotBlank()) Text(s.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -319,7 +359,7 @@ private fun MyFindCard(f: MyFind, onCall: (FindShop) -> Unit, onReport: (FindSho
     }
 }
 
-/** দোকান: কাছের মানুষ কী খুঁজছেন — এক চাপে "আছে"/"নেই" */
+/** দোকান: কাছের মানুষ কী খুঁজছেন আর কতটা লাগবে — আছে হলে কতটা আছে লিখে পাঠান, না থাকলে কিছু করতে হয় না (বা "বাদ দিন") */
 @Composable
 fun PharmacyFindRequests(onChanged: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
@@ -347,30 +387,34 @@ fun PharmacyFindRequests(onChanged: () -> Unit = {}) {
             list == null -> LoadingBox()
             list.isEmpty() -> SmallNote(tr("No open requests now.", "এখন কোনো খোলা অনুরোধ নেই।"))
             else -> list.forEach { r ->
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(r.drug.name + if (r.drug.form.isNotBlank()) " · " + r.drug.form else "", fontWeight = FontWeight.SemiBold)
-                        if (r.drug.generic.isNotBlank()) Text(r.drug.generic, style = MaterialTheme.typography.bodySmall)
-                        SmallNote(listOfNotNull(r.area.ifBlank { null }, r.km?.let { Rules.formatKm(it) }, timeAgo(r.createdAt)).joinToString(" · "))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            fun send(have: Boolean) {
-                                scope.launch {
-                                    busyId = r.id
-                                    runCatching { MedFind.answer(r.id, have) }.onSuccess { reload++; onChanged() }.onFailure { errorMsg = it.message }
-                                    busyId = null
-                                }
-                            }
-                            if (r.answer == "yes") {
-                                Text(tr("You said: have it", "আপনার উত্তর: আছে"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { send(false) }, enabled = busyId == null) { Text(tr("Change to no", "\"নেই\" করুন")) }
-                            } else {
-                                Button(onClick = { send(true) }, enabled = busyId == null) { ButtonContent(busyId == r.id, tr("Have it", "আছে")) }
-                                OutlinedButton(onClick = { send(false) }, enabled = busyId == null && r.answer != "no") { Text(if (r.answer == "no") tr("Said no", "\"নেই\" বলেছেন") else tr("Don't have", "নেই")) }
-                            }
-                        }
+                FindRequestCard(r, busyId == r.id, busyId == null, onAnswer = { n ->
+                    scope.launch {
+                        busyId = r.id
+                        runCatching { MedFind.answer(r.id, n) }.onSuccess { reload++; onChanged() }.onFailure { errorMsg = it.message }
+                        busyId = null
                     }
-                }
+                }, onDismiss = {
+                    scope.launch {
+                        busyId = r.id
+                        runCatching { MedFind.dismiss(r.id) }.onSuccess { reload++; onChanged() }.onFailure { errorMsg = it.message }
+                        busyId = null
+                    }
+                })
             }
+        }
+    }
+}
+
+/** দোকানের তালিকায় একটা খোঁজ: ওষুধ, কতটা লাগবে, এলাকা · দূরত্ব · কখন, আর উত্তর */
+@Composable
+internal fun FindRequestCard(r: FindRequest, busy: Boolean, enabled: Boolean, onAnswer: (Int) -> Unit, onDismiss: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(r.drug.name + if (r.drug.form.isNotBlank()) " · " + r.drug.form else "", fontWeight = FontWeight.SemiBold)
+            if (r.drug.generic.isNotBlank()) Text(r.drug.generic, style = MaterialTheme.typography.bodySmall)
+            if (r.qty != null) Text(MedQty.need(r.qty, r.unit), fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("find_need"))
+            SmallNote(listOfNotNull(r.area.ifBlank { null }, r.km?.let { Rules.formatKm(it) }, timeAgo(r.createdAt)).joinToString(" · "))
+            FindAnswerRow(r.answerUnit, r.haveQty, busy, enabled, onAnswer, onDismiss)
         }
     }
 }

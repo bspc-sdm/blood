@@ -107,7 +107,7 @@ before every test context).
 | `ambulanceStats`, `pharmacyStats`, `bloodBankStats`, `homeStats` {total, callers, d{}, recent[]} | `listing_stats`, `listing_stats_daily`, `listing_recent_ratings` | `kind` column |
 | `verifyDocs/{kind_id_type}` | `verify_docs` | `data` base64, or `storage_key` (R2, V602) when R2 is configured |
 | `modReports/{id}` | `mod_reports` | UNIQUE (target_path, reporter_uid) |
-| `medFinds/{id}` (+ notified[], answers{}) | `med_finds`, `med_find_targets` | |
+| `medFinds/{id}` (+ notified[], answers{}) | `med_finds`, `med_find_targets` | `qty`/`unit`, `have_qty`/`have_unit`/`dismissed_at` (V692, MEDFIND.md) |
 | `pharmacyStock/{uid}` {names, keys, prices, mrp} | `pharmacy_stock`, `pharmacy_stock_items` | one row per product key |
 | `pharmacyMissed/{uid}.items{}` | `pharmacy_missed` | |
 | `ambulanceRequests/{id}` | `ambulance_requests` | maps → child tables below |

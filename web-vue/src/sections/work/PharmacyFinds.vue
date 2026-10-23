@@ -14,6 +14,8 @@ const s = useSession();
 const ready = computed(() => s.ready && !s.guest && s.workLoaded);
 const ph = computed(() => s.work.pharmacy as Pharmacy | null);
 const title = computed(() => myBusinessTitle('pharmacy'));
+// ২০২৬-১০: "এক চাপে" নয় — থাকলে কতটা আছে লিখে পাঠান, না থাকলে কিছু করতে হয় না (MEDFIND.md)
+const hint = computed(() => tr('People nearby ask whether you have a medicine they couldn\'t find, and how much they need. If you have it, write how many and send — they call you. If not, you don\'t need to do anything. No one\'s name or number is shown.', 'কাছের মানুষ খুঁজে না পাওয়া ওষুধ আপনার কাছে আছে কি না, কতটা লাগবে জানান। থাকলে কতটা আছে লিখে পাঠান — তাঁরা ফোন করবেন। না থাকলে কিছু করতে হবে না। কারো নাম-নম্বর দেখানো হয় না।')); // bn-ok
 </script>
 
 <template>
@@ -22,7 +24,7 @@ const title = computed(() => myBusinessTitle('pharmacy'));
   <BizPage v-else :title="title">
     <PharmacyTabs active="finds" />
     <p class="t-body-m muted">
-      {{ tr('People nearby ask whether you have a medicine they couldn\'t find. One tap answers — they call you if you have it. They don\'t see each other\'s names or numbers.', 'কাছের মানুষ খুঁজে না পাওয়া ওষুধ আপনার কাছে আছে কি না জানতে চান। এক চাপে উত্তর দিন — থাকলে তাঁরা ফোন করবেন। কারো নাম-নম্বর দেখানো হয় না।') }}
+      {{ hint }}
     </p>
     <FindRequests />
   </BizPage>

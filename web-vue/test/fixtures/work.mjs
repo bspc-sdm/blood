@@ -57,9 +57,10 @@ let lab = {
 
 let findOff = false;
 let finds = [
-  { id: 'mf1', drug: { name: 'Napa Extra', generic: 'Paracetamol + Caffeine', form: 'Tablet', company: 'Beximco' }, area: 'চরপাড়া', km: 0.8, answer: null, createdAt: now - 12 * 60 * 1000 },
-  { id: 'mf2', drug: { name: 'Insulin Mixtard 30', generic: 'Human insulin', form: 'Injection', company: 'Novo Nordisk' }, area: 'গাঙ্গিনাপাড়', km: 2.1, answer: 'yes', createdAt: now - 50 * 60 * 1000 },
-  { id: 'mf3', drug: { name: 'Seclo 20', generic: 'Omeprazole', form: 'Capsule', company: 'Square' }, area: 'ত্রিশাল', km: 18.4, answer: 'no', createdAt: now - 3 * HOUR },
+  // qty/unit: কতটা লাগবে (MEDFIND.md); haveQty/haveUnit: দোকান কতটা আছে বলেছে (না থাকলে উত্তর দেয় না)
+  { id: 'mf1', drug: { name: 'Napa Extra', generic: 'Paracetamol + Caffeine', form: 'Tablet', company: 'Beximco' }, area: 'চরপাড়া', km: 0.8, answer: null, createdAt: now - 12 * 60 * 1000, qty: 3, unit: 'strip', haveQty: null, haveUnit: null },
+  { id: 'mf2', drug: { name: 'Insulin Mixtard 30', generic: 'Human insulin', form: 'Injection', company: 'Novo Nordisk' }, area: 'গাঙ্গিনাপাড়', km: 2.1, answer: 'yes', createdAt: now - 50 * 60 * 1000, qty: 2, unit: 'vial', haveQty: 1, haveUnit: 'vial' },
+  { id: 'mf3', drug: { name: 'Seclo 20', generic: 'Omeprazole', form: 'Capsule', company: 'Square' }, area: 'ত্রিশাল', km: 18.4, answer: null, createdAt: now - 3 * HOUR, qty: 14, unit: 'pcs', haveQty: null, haveUnit: null },
 ];
 
 const ambDaily = { amb1: daily(1, 6), amb2: daily(3, 3), amb3: daily(0, 0).map(() => 0) };
@@ -120,7 +121,13 @@ export default {
   },
   med_find_requests: () => ({ items: findOff ? [] : finds, findOff }),
   med_find_answer: (b) => {
-    finds = finds.map((f) => (f.id === b.id ? { ...f, answer: b.have ? 'yes' : 'no' } : f));
+    // কতটা আছে (haveQty ১–৯৯৯৯) বা "বাদ দিন" (dismiss — নিজের তালিকা থেকে সরে)
+    if (b.dismiss === true) {
+      finds = finds.filter((f) => f.id !== b.id);
+      return { ok: true };
+    }
+    if (!(Number.isInteger(b.haveQty) && b.haveQty >= 1 && b.haveQty <= 9999)) return { __status: 400, body: { error: 'কতটা আছে লিখুন (১ থেকে ৯৯৯৯)' } };
+    finds = finds.map((f) => (f.id === b.id ? { ...f, answer: 'yes', haveQty: b.haveQty, haveUnit: f.unit } : f));
     return { ok: true };
   },
 

@@ -83,6 +83,25 @@
 .services-drug:hover { background: var(--surface-mid); }
 .services-shop .btn.small { min-height: 36px; }
 
+/* ওষুধ খুঁজুন — কতটা লাগবে (− সংখ্যা + আর একক) */
+.medfind-qty-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.medfind-stepper { display: inline-flex; align-items: center; border: 1px solid var(--outline); border-radius: 24px; overflow: hidden; flex: none; }
+.medfind-step {
+  width: 48px; height: 46px; border: 0; background: transparent; color: var(--primary); font-size: 24px; line-height: 1; font-weight: 600; cursor: pointer;
+}
+.medfind-step:hover:not(:disabled) { background: var(--primary-a12); }
+.medfind-step:disabled { color: var(--on-surface-variant); opacity: .45; cursor: default; }
+.medfind-qty-input {
+  width: 64px; height: 46px; border: 0; border-left: 1px solid var(--outline-variant); border-right: 1px solid var(--outline-variant);
+  background: transparent; color: var(--on-surface); text-align: center; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.medfind-qty-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.medfind-units button { min-height: 46px; padding: 0 18px; }
+.medfind-unit { color: var(--on-surface); }
+/* উত্তরের সারি: পুরোটা আছে primary, কম আছে tertiary-র রঙে */
+.medfind-need { font-weight: 600; color: var(--on-surface); }
+.medfind-reply-part { color: var(--on-surface); }
+
 /* রেটিংয়ের তারা */
 .services-stars { display: flex; gap: 4px; }
 .services-stars button {
@@ -168,3 +187,11 @@
 .ph-card-send { flex: 1 1 auto; min-width: 0; }
 .ph-call { width: 44px; min-width: 44px; padding: 0; justify-content: center; flex: none; }
 .ph-call.has-icon { padding-left: 0; }
+/* দোকানের উত্তর: কতটা আছে [সংখ্যা] একক · পাঠান · (চুপচাপ) বাদ দিন */
+.medfind-some { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.medfind-some-label { display: flex; flex-direction: column; gap: 4px; }
+.medfind-some-field { display: inline-flex; align-items: center; gap: 8px; }
+.medfind-some-input { width: 88px; min-height: 40px; padding: 8px 10px; text-align: center; font-weight: 600; font-size: 16px; }
+.medfind-some-input:focus { padding: 7px 9px; }
+.medfind-some .btn.small { min-height: 40px; }
+.medfind-some .btn.text.medfind-dismiss { margin-left: auto; color: var(--on-surface-variant); font-weight: 500; }

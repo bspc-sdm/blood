@@ -163,7 +163,11 @@ export async function run(J) {
   await J.sc('S-08', 'আমার ওষুধ খোঁজ: কোন দোকানে আছে', async () => {
     page = await J.as('patient');
     await go(page, '/services/pharmacy/medicine');
-    await J.shot('আমার খোঁজ', 'Montene · খোলা · ৩টা দোকানে — ‘আছে বলেছে’: ডেমো ২৪ ঘণ্টা ফার্মেসি (ফোন, রিপোর্ট); Rosuva · বন্ধ।', { full: true });
+    // কতটা লাগবে (MEDFIND.md): Montene ৩ পাতা — ২৪ ঘণ্টায় ৫ পাতা (পুরোটা, আগে), নিউ মডেলে ১ পাতা
+    await page.getByText('৩ পাতা লাগবে').first().waitFor();
+    await page.getByText('আছে — ৫ পাতা · পুরোটা আছে').first().waitFor();
+    await page.getByText('আছে — ১ পাতা (আপনার দরকার ৩)').first().waitFor();
+    await J.shot('আমার খোঁজ', 'Montene · ৩ পাতা লাগবে · খোলা · ৩টা দোকানে — ডেমো ২৪ ঘণ্টা ফার্মেসি ‘আছে — ৫ পাতা · পুরোটা আছে’ আগে, ডেমো নিউ মডেল ‘আছে — ১ পাতা (আপনার দরকার ৩)’ (ফোন, রিপোর্ট); কোথাও ‘নেই’ লেখা নেই; Rosuva · বন্ধ।', { full: true });
   });
 
   await J.sc('S-09', 'নতুন ওষুধ খোঁজা', async () => {
@@ -171,7 +175,11 @@ export async function run(J) {
     await settle(page, 800);
     await page.getByText(/^Sergel/).first().click().catch(() => {});
     await settle(page);
-    await J.shot('Sergel বাছা', 'Sergel (Esomeprazole 20 mg), কোথায়: গাজীপুর।');
+    // কতটা লাগবে: ক্যাপসুল — শুরুতে ১ পাতা; + দুবার = ৩ পাতা
+    await page.getByTestId('qty-plus').click();
+    await page.getByTestId('qty-plus').click();
+    if ((await page.getByTestId('qty-input').inputValue()) !== '৩') throw new Error('কতটা লাগবে ৩ হয়নি');
+    await J.shot('Sergel বাছা', 'Sergel (Esomeprazole 20 mg), কতটা লাগবে: ৩ · ‘পাতা’ বাছা (পাশে ‘পিস’), কোথায়: গাজীপুর।');
     await page.getByRole('button', { name: 'কাছের দোকানগুলোকে জিজ্ঞেস করুন' }).click();
     await settle(page, 600);
     await J.shot('দোকানগুলোকে জিজ্ঞেস করা হলো', '‘কাছের Nটা দোকানকে জিজ্ঞেস করা হয়েছে…’।', { full: true });
@@ -301,13 +309,18 @@ export async function run(J) {
   await J.sc('S-17', 'ওষুধ খোঁজার অনুরোধে উত্তর', async () => {
     // ২.৩০.০: আলাদা ট্যাব "ওষুধ খোঁজা"
     await go(page, '/work/pharmacy/finds');
-    const sg = page.locator('tr, article, div').filter({ hasText: 'Sergel' }).filter({ has: page.getByRole('button', { name: 'আছে' }) }).last();
-    await sg.getByRole('button', { name: 'আছে' }).click();
+    // কতটা লাগবে দেখায়; আছে হলে কতটা আছে লিখে পাঠান — "নেই" বোতাম নেই; না থাকলে চুপচাপ "বাদ দিন" (MEDFIND.md)
+    await page.getByText('১৪ পিস লাগবে').first().waitFor();
+    if (await page.getByRole('button', { name: 'নেই', exact: true }).count()) throw new Error('‘নেই’ বোতাম থাকার কথা নয়');
+    await J.shot('ওষুধ খোঁজার অনুরোধ — কতটা লাগবে', 'Sergel ‘১৪ পিস লাগবে’, Montene ‘৩ পাতা লাগবে’; প্রতিটায় ‘কতটা আছে’ ঘর, একক, ‘পাঠান’ আর হালকা ‘বাদ দিন’; ক্রেতার নাম-ফোন নেই; ‘নেই’ বোতাম নেই।', { full: true });
+    const sg = page.locator('tr, article, div').filter({ hasText: 'Sergel' }).filter({ has: page.getByTestId('find-have-qty') }).last();
+    await sg.getByTestId('find-have-qty').fill('20');
+    await sg.getByTestId('find-have-send').click();
+    await page.getByText(/আপনার উত্তর: আছে — ২০ (পিস|পাতা)/).first().waitFor();
+    const mt = page.locator('tr, article, div').filter({ hasText: 'Montene' }).filter({ has: page.getByTestId('find-dismiss') }).last();
+    if (await mt.count()) await mt.getByTestId('find-dismiss').click();
     await settle(page, 500);
-    const mt = page.locator('tr, article, div').filter({ hasText: 'Montene' }).filter({ has: page.getByRole('button', { name: 'নেই' }) }).last();
-    if (await mt.count()) await mt.getByRole('button', { name: 'নেই' }).click();
-    await settle(page, 500);
-    await J.shot('ওষুধ খোঁজার অনুরোধ — আছে/নেই', 'অনুরোধে ক্রেতার নাম-ফোন নেই; Sergel ‘আপনার উত্তর: আছে’; Montene ‘"নেই" বলেছেন’।', { full: true });
+    await J.shot('ওষুধ খোঁজার অনুরোধ — কতটা আছে', 'Sergel ‘আপনার উত্তর: আছে — ২০ …’ (পাশে ‘বদলান’); Montene ‘বাদ দিন’-এ তালিকা থেকে সরে গেছে।', { full: true });
   });
 
   await J.sc('S-18', 'ফার্মেসির তথ্য বদলানো আর কয়েক দিন বন্ধ রাখা', async () => {

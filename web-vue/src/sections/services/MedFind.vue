@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// "ওষুধ খুঁজুন" (অ্যাপের MedFind.kt): তালিকা থেকে ওষুধ বেছে কাছের দোকানগুলোকে জিজ্ঞেস করা;
-// যে দোকান "আছে" বলে, সেখানে সরাসরি ফোন। দাম, অর্ডার কিছুই অ্যাপে নেই।
+// "ওষুধ খুঁজুন" (অ্যাপের MedFind.kt): তালিকা থেকে ওষুধ বেছে, কতটা লাগবে বলে, কাছের দোকানগুলোকে জিজ্ঞেস করা;
+// যে দোকান "আছে" (পুরোটা বা কিছু) বলে, সেখানে সরাসরি ফোন। দাম, অর্ডার কিছুই অ্যাপে নেই। backend/docs/MEDFIND.md
 import { computed, onMounted, ref, watch } from 'vue';
 import { Button, EmptyState, ErrorText, Icon, InfoText, SkeletonCards } from '@/ui/kit';
 import AreaPicker from '@/ui/AreaPicker.vue';
@@ -13,7 +13,8 @@ import { num, tr } from '@/lib/i18n';
 import { areaLabel, ensureAreas } from '@/lib/geo';
 import { useSession } from '@/lib/session';
 import { useSearchParams } from '@/lib/nav';
-import { drugDetail, drugTitle, type Drug, type MyFind } from './medfind';
+import { drugDetail, drugTitle, unitsFor, type Drug, type MyFind, type QtyUnit } from './medfind';
+import QtyPicker from './QtyPicker.vue';
 import ServiceTabs from './ServiceTabs.vue';
 import ReportDialog from './ReportDialog.vue';
 import MyFindCard from './MyFindCard.vue';
@@ -25,6 +26,9 @@ const [params] = useSearchParams();
 const query = ref((params.value.get('q') ?? '').slice(0, 40));
 const dq = ref(query.value.trim());
 const chosen = ref<Drug | null>(null);
+// কতটা লাগবে — ওষুধ বাছলে ১ আর ধরনের সবচেয়ে স্বাভাবিক একক (ট্যাবলেট: ১ পাতা)
+const qty = ref(1);
+const unit = ref<QtyUnit>('unit');
 const [area, setArea] = useFilterArea();
 const showArea = ref(false);
 const busy = ref(false);
@@ -59,6 +63,7 @@ function ask() {
     try {
       const r = await call<{ ok?: boolean; noPharmacy?: boolean; noneOpen?: boolean; notified?: number }>('med_find', {
         i: c.i, district: a.district, upazilaId: a.upazilaId ?? null, lat: gps?.lat ?? null, lng: gps?.lng ?? null,
+        qty: qty.value, unit: unit.value,
       });
       if (r.noPharmacy) err.value = tr('No pharmacy in this district has joined the app yet.', 'এই জেলায় এখনো অ্যাপে কোনো ফার্মেসি যোগ হয়নি।');
       else if (r.noneOpen) err.value = tr('No pharmacy nearby can take a question right now (closed or busy). Please try again later.', 'এই মুহূর্তে কাছের কোনো ফার্মেসি খোলা বা জিজ্ঞাসা নেওয়ার মতো নেই। একটু পরে আবার চেষ্টা করুন।');
@@ -87,6 +92,8 @@ async function close(id: string) {
 }
 function choose(d: Drug) {
   chosen.value = d;
+  qty.value = 1;
+  unit.value = unitsFor(d.form)[0];
   err.value = null;
   info.value = null;
 }
@@ -111,6 +118,7 @@ const showSearches = computed(() => !s.guest && (mine.isLoading || finds.value.l
           </div>
           <Button variant="text" @click="chosen = null">{{ tr('Change', 'বদলান') }}</Button>
         </div>
+        <QtyPicker v-model:qty="qty" v-model:unit="unit" :form="chosen.form" />
         <span class="t-title-s">{{ tr('Where', 'কোথায়') }}</span>
         <button type="button" class="area-btn" @click="showArea = true">
           <Icon name="location_on" />

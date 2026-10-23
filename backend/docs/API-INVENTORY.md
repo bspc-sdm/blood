@@ -478,25 +478,25 @@ hospital/address, `bkashNumber` (owner only) and `note`; booking it stores `appo
   - src: `server/lib/medfind.js` → `actions.drug_search` · auth: guest · port: **P4**
   - request: `q` · response: `{items:[{i,name,generic,form,company}]}`
   - collections: — · side effects: — · errors: — · tests: demo-night, demo-pharmacy, demo-services, pharmacy24
-- [x] **`med_find`** — "Which shop has it?": push ≤15 nearby open approved pharmacies (find setting on, ≤30/day/shop); quota medFind=5/day
+- [x] **`med_find`** — "Which shop has it?": push ≤15 nearby open approved pharmacies (find setting on, ≤30/day/shop); quota medFind=5/day; required amount `qty` 1–999 + `unit` fitting the form (MEDFIND.md) — push body "<ওষুধ> — ৩ পাতা লাগবে। আপনার কাছে আছে?"
   - src: `server/lib/medfind.js` → `actions.med_find` · auth: user · quota: medFind (5/day) · port: **P4**
-  - request: `i`, `district`, `upazilaId`, `lat`, `lng` · response: `{ok,noPharmacy}` or `{ok,noneOpen}` or `{ok,id,notified}`
+  - request: `i`, `district`, `upazilaId`, `lat`, `lng`, `qty`, `unit` (`strip`|`pcs`|`bottle`|`vial`|`unit`) · response: `{ok,noPharmacy}` or `{ok,noneOpen}` or `{ok,id,notified}`
   - collections: inbox, medFinds, pharmacies, serverState, users · side effects: FCM push + inbox · errors: 400 · tests: demo-health, demo-night, demo-pharmacy, demo-services, guest, pharmacy24
-- [x] **`med_finds_mine`** — My last 10 finds with shops answering "have"
+- [x] **`med_finds_mine`** — My last 10 finds with the shops that have it and how many (all of it first, then nearest)
   - src: `server/lib/medfind.js` → `actions.med_finds_mine` · auth: user · port: **P4**
-  - request: — · response: `{items:[...]}`
+  - request: — · response: `{items:[{id,drug,area,open,notified,answered,createdAt,qty,unit,have:[{id,name,phone,address,openNow,open24,km,at,haveQty,haveUnit,full}]}]}`
   - collections: medFinds, pharmacies · side effects: — · errors: — · tests: demo-pharmacy, demo-services
 - [x] **`med_find_close`** — Close my find
   - src: `server/lib/medfind.js` → `actions.med_find_close` · auth: user (finder) · port: **P4**
   - request: `id` · response: `{ok}`
   - collections: medFinds · side effects: — · errors: 400, 404 · tests: — (none)
-- [x] **`med_find_requests`** — Shop: open finds sent to me
+- [x] **`med_find_requests`** — Shop: open finds sent to me (not the ones I dismissed)
   - src: `server/lib/medfind.js` → `actions.med_find_requests` · auth: user (approved pharmacy) · port: **P4**
-  - request: — · response: `{items,findOff}`
+  - request: — · response: `{items:[{id,drug,area,km,answer,createdAt,qty,unit,haveQty,haveUnit}],findOff}`
   - collections: medFinds, pharmacies · side effects: — · errors: — · tests: demo-night, demo-pharmacy, demo-services
-- [x] **`med_find_answer`** — Shop answers have/not; pushes finder on have
+- [x] **`med_find_answer`** — Shop says how many it has (`haveQty` 1–9999, in the buyer's unit; again = new amount) or `dismiss` ("বাদ দিন": hidden from its own list only, the buyer sees nothing); no "don't have"; pushes the finder on the first answer (no stock number)
   - src: `server/lib/medfind.js` → `actions.med_find_answer` · auth: user (approved pharmacy) · port: **P4**
-  - request: `id`, `have` · response: `{ok}`
+  - request: `id`, `haveQty` or `dismiss` · response: `{ok}`
   - collections: inbox, medFinds, pharmacies, users · side effects: FCM push + inbox · errors: 400, 403, 404, 409 · tests: demo-pharmacy, demo-services
 - [x] **`pharmacy_find_setting`** — Opt in/out of medicine find requests (findOff)
   - src: `server/lib/medfind.js` → `actions.pharmacy_find_setting` · auth: user (pharmacy owner) · port: **P4**

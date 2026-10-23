@@ -87,6 +87,10 @@ class DemoServicesIT : DemoTestBase() {
         assertTrue(orders["demo-svc-ord-c"]!!["address"] == null, "a finished order hides the address")
         val reqs = ok(ph, "med_find_requests")["items"].map { it["id"].textValue() }.sorted()
         assertEquals(listOf("demo-svc-find-1", "demo-svc-find-3"), reqs)
+        // the demo finds say how much (MedQty): Montene 3 strips, Sergel 14 pieces
+        val sergel = ok(ph, "med_find_requests")["items"].first { it["id"].textValue() == "demo-svc-find-3" }
+        assertEquals(14, sergel["qty"].intValue())
+        assertEquals("pcs", sergel["unit"].textValue())
         assertTrue(ok(ph, "pharmacy_stats")["calls"]["30"].intValue() > 0)
         assertEquals(3, ok(ph, "rx_pharmacy_open", mapOf("code" to "DEMSVCRXA2"))["item"]["medicines"].size())
 
@@ -102,7 +106,16 @@ class DemoServicesIT : DemoTestBase() {
         val finds = ok(p, "med_finds_mine")["items"]
         val f1 = finds.first { it["id"].textValue() == "demo-svc-find-1" }
         assertTrue(f1["open"].booleanValue())
-        assertEquals(listOf("ডেমো ২৪ ঘণ্টা ফার্মেসি"), f1["have"].map { it["name"].textValue() })
+        // 3 strips wanted: 5 at the 24-hour shop (all of it — first), 1 at New Model
+        assertEquals(listOf("ডেমো ২৪ ঘণ্টা ফার্মেসি", "ডেমো নিউ মডেল ফার্মেসি"), f1["have"].map { it["name"].textValue() })
+        assertEquals(3, f1["qty"].intValue())
+        assertEquals("strip", f1["unit"].textValue())
+        assertEquals(listOf(5, 1), f1["have"].map { it["haveQty"].intValue() })
+        assertEquals(listOf(true, false), f1["have"].map { it["full"].booleanValue() })
+        assertEquals("strip", f1["have"][1]["haveUnit"].textValue())
+        val f2 = finds.first { it["id"].textValue() == "demo-svc-find-2" }
+        assertEquals(1, f2["have"][0]["haveQty"].intValue())
+        assertFalse(f2["have"][0]["full"].booleanValue())
         assertFalse(finds.first { it["id"].textValue() == "demo-svc-find-2" }["open"].booleanValue())
         assertTrue(ok(p, "ambulances", mapOf("district" to GZP))["items"].first { it["name"].textValue() == "ডেমো আইসিইউ অ্যাম্বুলেন্স সার্ভিস" }["canRate"].booleanValue())
         val pPh = ok(p, "pharmacies", mapOf("district" to GZP))["items"]
@@ -153,7 +166,7 @@ class DemoServicesIT : DemoTestBase() {
         val actA = ok(p, "rx_activity", mapOf("rxId" to "demo-svc-rx-a"))
         assertEquals("out", actA["orders"][0]["status"].textValue())
         assertEquals("৩৫০ টাকা", actA["orders"][0]["price"].textValue())
-        ok(ph, "med_find_answer", mapOf("id" to "demo-svc-find-3", "have" to true))
+        ok(ph, "med_find_answer", mapOf("id" to "demo-svc-find-3", "haveQty" to 14))
         ok(ph, "stock_set", mapOf("add" to listOf("Thyrox 50")))
         val save = mapOf(
             "name" to "ডেমো লাইফ ফার্মেসি", "licenseNo" to "DEMO-DL-1501", "phone" to "01200000150", "district" to GZP, "upazilaId" to 320,
@@ -171,7 +184,7 @@ class DemoServicesIT : DemoTestBase() {
         val sent = ok(p, "rx_send_pharmacy", mapOf("rxId" to "demo-svc-rx-d", "pharmacyId" to ph, "mode" to "online", "address" to "বাসা ১২, শিববাড়ি", "phone" to "01200000159"))
         assertTrue(ok(ph, "rx_orders_pharmacy")["items"].any { it["id"].textValue() == sent["id"].textValue() && it["status"].textValue() == "sent" })
         val montene = ok(p, "drug_search", mapOf("q" to "Montene"))["items"][0]
-        val mf = ok(p, "med_find", mapOf("i" to montene["i"].intValue(), "district" to GZP, "upazilaId" to 320))
+        val mf = ok(p, "med_find", mapOf("i" to montene["i"].intValue(), "district" to GZP, "upazilaId" to 320, "qty" to 2))
         assertTrue(mf["ok"].booleanValue() && mf["notified"].intValue() >= 1, mf.toString())
         ok(p, "ambulance_rate", mapOf("id" to "demo-svc-amb-icu", "rating" to 4, "comment" to "ভালো সার্ভিস"))
         ok(p, "home_rate", mapOf("uid" to nurse, "rating" to 5, "comment" to "খুব যত্নশীল"))
@@ -234,9 +247,9 @@ class DemoServicesIT : DemoTestBase() {
         ok(ph, "stock_set", mapOf("add" to listOf("Thyrox 50")))
         assertTrue(ok(ph, "stock_get").toString().contains("Thyrox 50"))
         val drugs = ok(p, "drug_search", mapOf("q" to "Montene"))["items"]
-        val mf = ok(p, "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320))
+        val mf = ok(p, "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320, "qty" to 2))
         assertTrue(ok(ph, "med_find_requests")["items"].any { it["id"].textValue() == mf["id"].textValue() })
-        ok(ph, "med_find_answer", mapOf("id" to mf["id"].textValue(), "have" to true))
+        ok(ph, "med_find_answer", mapOf("id" to mf["id"].textValue(), "haveQty" to 2))
         val notified = jdbc.queryForList("SELECT pharmacy_uid FROM med_find_targets WHERE find_id = ?", String::class.java, mf["id"].textValue())
         assertTrue(notified.all { it.startsWith("demo-") }, "no real shop asked")
         assertEquals(200, req(U("caregiver"), "rx_pharmacy_options", mapOf("asUid" to p, "rxId" to "demo-svc-rx-d", "district" to GZP, "mode" to "shop")).status)
@@ -247,7 +260,7 @@ class DemoServicesIT : DemoTestBase() {
         assertTrue(ok(p, "pharmacies", mapOf("district" to GZP))["items"].any { it["id"].textValue() == newShop["id"].textValue() })
         // a real person: no demo shop, the demo shop code is unknown
         user("real-user-0001", mapOf("name" to "আসল", "phone" to "01811000000"))
-        val rf = req("real-user-0001", "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320))
+        val rf = req("real-user-0001", "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320, "qty" to 2))
         if (rf.status == 200 && rf.body["id"] != null) {
             val n2 = jdbc.queryForList("SELECT pharmacy_uid FROM med_find_targets WHERE find_id = ?", String::class.java, rf.body["id"].textValue())
             assertTrue(n2.none { it.startsWith("demo-") }, "a real find never reaches demo shops")
@@ -280,7 +293,7 @@ class DemoServicesIT : DemoTestBase() {
         val booked = req(U("patient"), "book", mapOf("providerUid" to U("doctor"), "date" to today, "chamberIndex" to 0, "note" to "রাতের পরীক্ষা"))
         if (booked.status != 200) assertTrue(booked.error!!.contains("সময় শেষ"), booked.toString())
         val drugs = ok(U("patient"), "drug_search", mapOf("q" to "Montene"))["items"]
-        val mf = ok(U("patient"), "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320))
+        val mf = ok(U("patient"), "med_find", mapOf("i" to drugs[0]["i"].intValue(), "district" to GZP, "upazilaId" to 320, "qty" to 2))
         assertTrue(ok(U("pharmacy"), "med_find_requests")["items"].any { it["id"].textValue() == mf["id"].textValue() }, "the demo shop gets the find at any hour")
     }
 }

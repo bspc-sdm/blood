@@ -107,9 +107,11 @@ function medFindsMine(b, { authed }) {
       {
         id: 'mf1', drug: { name: 'Napa Extend', generic: 'Paracetamol 665 mg', form: 'Tablet', company: 'Beximco Pharmaceuticals Ltd.' },
         area: `ময়মনসিংহ সদর, ${D}`, open: true, notified: 8, answered: 3, createdAt: t - 25 * 60 * 1000,
+        // কতটা লাগবে (MEDFIND.md): ১০ পিস — একটা দোকানে ১২ পিস (পুরোটা, আগে), একটায় ৪ পিস
+        qty: 10, unit: 'pcs',
         have: [
-          { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', openNow: true, open24: true, km: 0.6, at: t - 20 * 60 * 1000 },
-          { id: 'ph2', name: 'নিউ মডেল ড্রাগ হাউস', phone: '01811000602', address: 'গাঙ্গিনাপাড়, ছোটবাজার', openNow: true, open24: false, km: 1.8, at: t - 10 * 60 * 1000 },
+          { id: 'ph1', name: 'লাইফ কেয়ার ফার্মেসি', phone: '01711000501', address: 'হাসপাতাল রোড, চরপাড়া', openNow: true, open24: true, km: 0.6, at: t - 20 * 60 * 1000, haveQty: 12, haveUnit: 'pcs', full: true },
+          { id: 'ph2', name: 'নিউ মডেল ড্রাগ হাউস', phone: '01811000602', address: 'গাঙ্গিনাপাড়, ছোটবাজার', openNow: true, open24: false, km: 1.8, at: t - 10 * 60 * 1000, haveQty: 4, haveUnit: 'pcs', full: false },
         ],
       },
       { id: 'mf2', drug: { name: 'Seclo', generic: 'Omeprazole 20 mg', form: 'Capsule', company: 'Square Pharmaceuticals PLC' }, area: D, open: false, notified: 5, answered: 2, createdAt: t - 9 * H, have: [] },

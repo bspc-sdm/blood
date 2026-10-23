@@ -82,10 +82,10 @@ class PharmacyListIT : P4Test() {
         person(real)
         person(demo)
         val drug = ok(real, "drug_search", mapOf("q" to "Napa"))["items"][0]
-        val r = ok(real, "med_find", mapOf("i" to drug["i"].intValue(), "district" to MYMENSINGH, "upazilaId" to 466))
+        val r = ok(real, "med_find", mapOf("i" to drug["i"].intValue(), "district" to MYMENSINGH, "upazilaId" to 466, "qty" to 2))
         assertTrue(r["ok"].booleanValue(), r.toString())
         assertEquals(listOf(h24), jdbc.queryForList("SELECT pharmacy_uid FROM med_find_targets WHERE find_id = ?", String::class.java, r["id"].textValue()))
-        val d = ok(demo, "med_find", mapOf("i" to drug["i"].intValue(), "district" to MYMENSINGH, "upazilaId" to 466))
+        val d = ok(demo, "med_find", mapOf("i" to drug["i"].intValue(), "district" to MYMENSINGH, "upazilaId" to 466, "qty" to 2))
         assertTrue(d["ok"].booleanValue(), d.toString())
         assertEquals(listOf(demo24), jdbc.queryForList("SELECT pharmacy_uid FROM med_find_targets WHERE find_id = ?", String::class.java, d["id"].textValue()))
         val seen = by(ok(demo, "pharmacies", mapOf("district" to MYMENSINGH, "open24" to true)), h24)

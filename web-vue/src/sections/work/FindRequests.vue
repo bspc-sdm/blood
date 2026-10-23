@@ -1,14 +1,20 @@
 <script setup lang="ts">
-// দোকান: কাছের মানুষ কী খুঁজছেন — এক চাপে "আছে"/"নেই"
+// দোকান: কাছের মানুষ কী খুঁজছেন আর কতটা লাগবে — আছে হলে কতটা আছে লিখে পাঠান, না থাকলে কিছু না করলেই চলে
+// (বা চুপচাপ "বাদ দিন") — FindAnswer.vue, backend/docs/MEDFIND.md
 import { computed, ref } from 'vue';
-import { Button, ErrorText, Loading, Switch } from '@/ui/kit';
+import { ErrorText, Loading, Switch } from '@/ui/kit';
 import { useMedia } from '@/shell/chrome';
 import { useCall } from '@/lib/query';
 import { call, errorText } from '@/lib/api';
 import { tr } from '@/lib/i18n';
 import { formatKm, timeAgo } from '@/lib/format';
+import { needText, unitsFor } from '@/sections/services/medfind';
+import FindAnswer from './FindAnswer.vue';
 
-interface FindReq { id: string; drug: { name: string; generic?: string; form?: string; company?: string }; area: string; km: number | null; answer: 'yes' | 'no' | null; createdAt: number }
+interface FindReq {
+  id: string; drug: { name: string; generic?: string; form?: string; company?: string }; area: string; km: number | null; answer: 'yes' | 'no' | null; createdAt: number;
+  qty?: number | null; unit?: string | null; haveQty?: number | null; haveUnit?: string | null;
+}
 
 const q = useCall<{ items: FindReq[]; findOff: boolean }>('med_find_requests', {}, { refetchInterval: 60_000 });
 const wide = useMedia('(min-width: 1000px)');
@@ -18,11 +24,11 @@ const switching = ref(false);
 const off = computed(() => q.data?.findOff ?? false);
 const list = computed(() => q.data?.items);
 
-async function answer(r: FindReq, have: boolean) {
+async function answer(r: FindReq, body: { haveQty: number } | { dismiss: true }) {
   busyId.value = r.id;
   err.value = null;
   try {
-    await call('med_find_answer', { id: r.id, have });
+    await call('med_find_answer', { id: r.id, ...body });
     await q.refetch();
   } catch (e) {
     err.value = errorText(e);
@@ -42,6 +48,8 @@ async function setOn(on: boolean) {
     switching.value = false;
   }
 }
+// ক্রেতার একক (পরিমাণ ছাড়া পুরোনো খোঁজে ওষুধের ধরনের স্বাভাবিক একক — সার্ভারও তাই রাখে)
+const unitOf = (r: FindReq) => r.haveUnit ?? r.unit ?? unitsFor(r.drug.form)[0];
 const drugLine = (r: FindReq) => r.drug.name + (r.drug.form ? ' · ' + r.drug.form : '');
 const meta = (r: FindReq) => [r.area || null, r.km != null ? formatKm(r.km) : null, timeAgo(r.createdAt)].filter(Boolean).join(' · ');
 </script>
@@ -70,20 +78,12 @@ const meta = (r: FindReq) => [r.area || null, r.km != null ? formatKm(r.km) : nu
                 <div class="col gap-2">
                   <span class="semi">{{ drugLine(r) }}</span>
                   <span v-if="r.drug.generic" class="t-body-s muted">{{ r.drug.generic }}</span>
+                  <span v-if="r.qty" class="t-body-m medfind-need" data-testid="find-need">{{ needText(r.qty, r.unit) }}</span>
                 </div>
               </td>
               <td class="t-body-s muted">{{ meta(r) }}</td>
               <td>
-                <div v-if="r.answer === 'yes'" class="row wrap gap-8">
-                  <span class="t-label-l c-primary">{{ tr('You said: have it', 'আপনার উত্তর: আছে') }}</span>
-                  <Button variant="text" small :disabled="busyId != null" @click="answer(r, false)">{{ tr('Change to no', '"নেই" করুন') }}</Button>
-                </div>
-                <div v-else class="row wrap gap-8">
-                  <Button small :busy="busyId === r.id" :disabled="busyId != null" @click="answer(r, true)">{{ tr('Have it', 'আছে') }}</Button>
-                  <Button variant="outline" small :disabled="busyId != null || r.answer === 'no'" @click="answer(r, false)">
-                    {{ r.answer === 'no' ? tr('Said no', '"নেই" বলেছেন') : tr('Don\'t have', 'নেই') }}
-                  </Button>
-                </div>
+                <FindAnswer :unit="unitOf(r)" :have-qty="r.haveQty ?? null" :busy="busyId === r.id" :disabled="busyId != null" @answer="(n) => answer(r, { haveQty: n })" @dismiss="answer(r, { dismiss: true })" />
               </td>
             </tr>
           </tbody>
@@ -93,17 +93,9 @@ const meta = (r: FindReq) => [r.area || null, r.km != null ? formatKm(r.km) : nu
         <div v-for="r in list" :key="r.id" class="work-find">
           <span class="semi">{{ drugLine(r) }}</span>
           <span v-if="r.drug.generic" class="t-body-s">{{ r.drug.generic }}</span>
+          <span v-if="r.qty" class="t-body-m medfind-need" data-testid="find-need">{{ needText(r.qty, r.unit) }}</span>
           <span class="t-body-s muted">{{ meta(r) }}</span>
-          <div v-if="r.answer === 'yes'" class="row wrap gap-8">
-            <span class="t-label-l c-primary">{{ tr('You said: have it', 'আপনার উত্তর: আছে') }}</span>
-            <Button variant="text" small :disabled="busyId != null" @click="answer(r, false)">{{ tr('Change to no', '"নেই" করুন') }}</Button>
-          </div>
-          <div v-else class="row wrap gap-8">
-            <Button small :busy="busyId === r.id" :disabled="busyId != null" @click="answer(r, true)">{{ tr('Have it', 'আছে') }}</Button>
-            <Button variant="outline" small :disabled="busyId != null || r.answer === 'no'" @click="answer(r, false)">
-              {{ r.answer === 'no' ? tr('Said no', '"নেই" বলেছেন') : tr('Don\'t have', 'নেই') }}
-            </Button>
-          </div>
+          <FindAnswer :unit="unitOf(r)" :have-qty="r.haveQty ?? null" :busy="busyId === r.id" :disabled="busyId != null" @answer="(n) => answer(r, { haveQty: n })" @dismiss="answer(r, { dismiss: true })" />
         </div>
       </div>
     </template>

@@ -328,37 +328,46 @@ class DemoServices(private val sql: DemoSql, private val providers: ProviderStor
         // ---------- find a medicine ----------
         val buyer = ctx.extraUser("svc-buyer", mapOf("name" to "ডেমো ক্রেতা সালমা", "phone" to "01200000158", "place_name" to gzp))
         val centre = r2(com.lifolo.admin.kernel.DemoSeed.CENTER_LAT) to r2(com.lifolo.admin.kernel.DemoSeed.CENTER_LNG)
-        fun find(id: String, uid: String, d: Map<String, String>, at: Pair<Double, Double>, status: String, created: Long, expires: Long, closedAt: Long?, targets: List<Pair<String, Pair<Boolean, Long>?>>) {
+        // qty/unit: how much the buyer needs (MedQty); a target's Triple = (has it, how many it has, when) — the unit is
+        // the find's; have FALSE = ignored (RC3 "নেই"), the buyer sees nothing
+        fun find(
+            id: String, uid: String, d: Map<String, String>, at: Pair<Double, Double>, status: String, created: Long, expires: Long, closedAt: Long?,
+            qty: Pair<Int, String>?, targets: List<Pair<String, Triple<Boolean, Int?, Long>?>>,
+        ) {
             sql.insert(
                 "med_finds",
                 linkedMapOf(
                     "id" to id, "uid" to uid, "district" to gzp, "upazila_id" to SADAR, "lat" to at.first, "lng" to at.second,
                     "drug_name" to d["name"], "drug_generic" to d["generic"], "drug_form" to d["form"], "drug_company" to d["company"],
+                    "qty" to qty?.first, "unit" to qty?.second,
                     "status" to status, "created_at" to sql.ts(created), "expires_at" to sql.ts(expires), "closed_at" to sql.ts(closedAt),
                 ),
             )
             for ((shop, ans) in targets) {
                 sql.insert(
                     "med_find_targets",
-                    linkedMapOf("find_id" to id, "pharmacy_uid" to shop, "have" to ans?.first, "answered_at" to sql.ts(ans?.second)),
+                    linkedMapOf(
+                        "find_id" to id, "pharmacy_uid" to shop, "have" to ans?.first, "have_qty" to ans?.second,
+                        "have_unit" to ans?.second?.let { qty?.second }, "answered_at" to sql.ts(ans?.third),
+                    ),
                 )
             }
         }
-        // the patient's open find: one shop "has it", one "does not", the demo pharmacy has not answered yet
-        // (really open for 6 hours; in the demo for days, so it can still be seen later)
+        // the patient's open find (3 strips): one shop has 5 strips (all of it), one only 1 strip, the demo pharmacy has
+        // not answered yet (really open for 6 hours; in the demo for days, so it can still be seen later)
         find(
-            "demo-svc-find-1", p, drug("Montene", "10 mg", "Tablet"), centre, "open", now - 40 * MIN, now + 3 * DAY, null,
-            listOf(ph to null, ph24 to (true to now - 20 * MIN), phModel to (false to now - 15 * MIN)),
+            "demo-svc-find-1", p, drug("Montene", "10 mg", "Tablet"), centre, "open", now - 40 * MIN, now + 3 * DAY, null, 3 to "strip",
+            listOf(ph to null, ph24 to Triple(true, 5, now - 20 * MIN), phModel to Triple(true, 1, now - 15 * MIN)),
         )
-        // an earlier (closed) find
+        // an earlier (closed) find — 2 strips wanted, the demo pharmacy had only 1
         find(
-            "demo-svc-find-2", p, drug("Rosuva", "10 mg", "Tablet"), centre, "closed", now - 1 * DAY, now + 2 * DAY, now - 22 * HOUR,
-            listOf(ph to (true to now - 23 * HOUR), phModel to null),
+            "demo-svc-find-2", p, drug("Rosuva", "10 mg", "Tablet"), centre, "closed", now - 1 * DAY, now + 2 * DAY, now - 22 * HOUR, 2 to "strip",
+            listOf(ph to Triple(true, 1, now - 23 * HOUR), phModel to null),
         )
-        // someone else's find — the demo pharmacy answers "have" / "don't have"
+        // someone else's find (14 pieces) — the demo pharmacy answers how many it has (or leaves it)
         val bp = ctx.near(0.5, -0.5)
         find(
-            "demo-svc-find-3", buyer, drug("Sergel", "20 mg", "Capsule"), r2(bp.lat) to r2(bp.lng), "open", now - 10 * MIN, now + 3 * DAY, null,
+            "demo-svc-find-3", buyer, drug("Sergel", "20 mg", "Capsule"), r2(bp.lat) to r2(bp.lng), "open", now - 10 * MIN, now + 3 * DAY, null, 14 to "pcs",
             listOf(ph to null, ph24 to null),
         )
 

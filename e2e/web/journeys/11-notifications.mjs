@@ -392,19 +392,22 @@ export async function run(J) {
   // ---------- ওষুধ খোঁজা ----------
   let findId;
   await J.sc('PUSH-med_find', 'med_find — "কোন দোকানে আছে?" কাছের ফার্মেসিকে', async () => {
-    const drug = (await act(P, 'drug_search', { q: 'Napa' })).items?.[0];
+    const found = (await act(P, 'drug_search', { q: 'Napa' })).items || [];
+    const drug = found.find((d) => d.form === 'Tablet') || found[0];
     if (!drug) throw new Error('drug_search: Napa নেই');
-    await expectPush({ id: 'PUSH-med_find', to: PH, type: 'med_find', title: 'কাছে একজন ওষুধ খুঁজছেন' }, async () => {
-      const r = await act(P, 'med_find', { i: drug.i ?? drug.id, district: GZP, upazilaId: 320 });
+    await expectPush({ id: 'PUSH-med_find', to: PH, type: 'med_find', title: 'কাছে একজন ওষুধ খুঁজছেন', body: / — ২ পাতা লাগবে। আপনার কাছে আছে\?$/ }, async () => {
+      // কতটা লাগবে (MEDFIND.md) — দোকানের নোটিফিকেশনে "… — ২ পাতা লাগবে"
+      const r = await act(P, 'med_find', { i: drug.i ?? drug.id, district: GZP, upazilaId: 320, qty: 2, unit: 'strip' });
       findId = r.id;
     });
   });
   await J.sc('PUSH-med_find_mine', 'med_find_mine — দোকান "আছে" বললে খুঁজছেন যিনি তাঁকে', async () => {
     const shop = (await act(PH, 'pharmacy_me')).pharmacy;
-    await expectPush({ id: 'PUSH-med_find_mine', to: P, type: 'med_find_mine', title: `${shop.name}-এ আছে` }, async () => {
+    await expectPush({ id: 'PUSH-med_find_mine', to: P, type: 'med_find_mine', title: `${shop.name}-এ আছে`, body: /^[^০-৯]* — ফোন করে নিশ্চিত হয়ে নিন$/ }, async () => {
       const list = await act(PH, 'med_find_requests');
       const it = (list.items || []).find((x) => x.id === findId) || (list.items || [])[0];
-      await act(PH, 'med_find_answer', { id: it.id, have: true });
+      // দোকান কতটা আছে লিখে পাঠায় ("নেই" নেই); রোগীর লক স্ক্রিনে সংখ্যা যায় না
+      await act(PH, 'med_find_answer', { id: it.id, haveQty: 5 });
     });
     await act(P, 'med_find_close', { id: findId }).catch(() => {});
   });
