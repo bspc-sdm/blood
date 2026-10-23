@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.WorkTodayTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:12:05" hostname="runnervm8k3b6" time="3.287">
+  <properties/>
+  <testcase name="banglaNumbersAndWords" classname="com.bspc.blood.WorkTodayTest" time="2.763"/>
+  <testcase name="onlineAndChatKeysFollowTheirSwitch" classname="com.bspc.blood.WorkTodayTest" time="0.053"/>
+  <testcase name="ownedRolesFollowChipOrder" classname="com.bspc.blood.WorkTodayTest" time="0.06"/>
+  <testcase name="fallbackFromOwnRecords" classname="com.bspc.blood.WorkTodayTest" time="0.055"/>
+  <testcase name="tilesAndSetup" classname="com.bspc.blood.WorkTodayTest" time="0.047"/>
+  <testcase name="targetsOpenTheRightPart" classname="com.bspc.blood.WorkTodayTest" time="0.045"/>
+  <testcase name="parsesTheBackendShape" classname="com.bspc.blood.WorkTodayTest" time="0.042"/>
+  <testcase name="pauseRules" classname="com.bspc.blood.WorkTodayTest" time="0.042"/>
+  <testcase name="nowListUsesServerOrderAndTotal" classname="com.bspc.blood.WorkTodayTest" time="0.038"/>
+  <testcase name="liveKeepsRolesTheServerDidNotSend" classname="com.bspc.blood.WorkTodayTest" time="0.043"/>
+  <testcase name="missingOrOtherKeysAreEmptyNotACrash" classname="com.bspc.blood.WorkTodayTest" time="0.033"/>
+  <testcase name="assistantSendsTheDoctorsUid" classname="com.bspc.blood.WorkTodayTest" time="0.033"/>
+  <testcase name="switchesOffHideTheirNumbersAndTasks" classname="com.bspc.blood.WorkTodayTest" time="0.03"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

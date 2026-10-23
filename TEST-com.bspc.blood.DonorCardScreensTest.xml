@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.DonorCardScreensTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:08:33" hostname="runnervm8k3b6" time="10.144">
+  <properties/>
+  <testcase name="donorCallMenu360Bn" classname="com.bspc.blood.DonorCardScreensTest" time="7.845"/>
+  <testcase name="donorCallMenu360En" classname="com.bspc.blood.DonorCardScreensTest" time="0.591"/>
+  <testcase name="donorPhoneOnly360Bn" classname="com.bspc.blood.DonorCardScreensTest" time="0.345"/>
+  <testcase name="donorCardDetail360Bn" classname="com.bspc.blood.DonorCardScreensTest" time="0.333"/>
+  <testcase name="donorCardDetail360En" classname="com.bspc.blood.DonorCardScreensTest" time="0.387"/>
+  <testcase name="donorCardHome360Bn" classname="com.bspc.blood.DonorCardScreensTest" time="0.329"/>
+  <testcase name="donorCardHome360En" classname="com.bspc.blood.DonorCardScreensTest" time="0.311"/>
+  <system-out><![CDATA[View.captureToImage Could not find window for view. Falling back to View#draw instead of PixelCopy(If you are using Material3 dialogs, this is expected).
+View.captureToImage Could not find window for view. Falling back to View#draw instead of PixelCopy(If you are using Material3 dialogs, this is expected).
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

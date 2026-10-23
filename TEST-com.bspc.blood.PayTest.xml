@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.PayTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:10:12" hostname="runnervm8k3b6" time="3.722">
+  <properties/>
+  <testcase name="methodsSettings" classname="com.bspc.blood.PayTest" time="2.971"/>
+  <testcase name="timeline" classname="com.bspc.blood.PayTest" time="0.063"/>
+  <testcase name="trxPerMethod" classname="com.bspc.blood.PayTest" time="0.051"/>
+  <testcase name="labelsAndSteps" classname="com.bspc.blood.PayTest" time="0.055"/>
+  <testcase name="confirmNeedsAllChecks" classname="com.bspc.blood.PayTest" time="0.044"/>
+  <testcase name="storeFindsByRef" classname="com.bspc.blood.PayTest" time="0.048"/>
+  <testcase name="noPayInBloodScreens" classname="com.bspc.blood.PayTest" time="0.109"/>
+  <testcase name="bookingAnswerOpensAdvance" classname="com.bspc.blood.PayTest" time="0.044"/>
+  <testcase name="whenCanClaim" classname="com.bspc.blood.PayTest" time="0.032"/>
+  <testcase name="requestBodies" classname="com.bspc.blood.PayTest" time="0.035"/>
+  <testcase name="onlineChamberOnPayLayer" classname="com.bspc.blood.PayTest" time="0.039"/>
+  <testcase name="rejectAndRefundInputs" classname="com.bspc.blood.PayTest" time="0.029"/>
+  <testcase name="featureNeeds" classname="com.bspc.blood.PayTest" time="0.049"/>
+  <testcase name="safetyTexts" classname="com.bspc.blood.PayTest" time="0.037"/>
+  <testcase name="pushRoutesAndText" classname="com.bspc.blood.PayTest" time="0.04"/>
+  <testcase name="parseServerJson" classname="com.bspc.blood.PayTest" time="0.069"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

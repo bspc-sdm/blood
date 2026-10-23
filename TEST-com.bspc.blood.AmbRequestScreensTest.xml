@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.AmbRequestScreensTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:07:51" hostname="runnervm8k3b6" time="10.3">
+  <properties/>
+  <testcase name="requestSheetErrors360" classname="com.bspc.blood.AmbRequestScreensTest" time="8.529"/>
+  <testcase name="requestSheet360" classname="com.bspc.blood.AmbRequestScreensTest" time="0.626"/>
+  <testcase name="requestSheet412" classname="com.bspc.blood.AmbRequestScreensTest" time="0.587"/>
+  <testcase name="requestSheet480" classname="com.bspc.blood.AmbRequestScreensTest" time="0.558"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.MyWorkQueuesScreensTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:25" hostname="runnervm8k3b6" time="11.76">
+  <properties/>
+  <testcase name="pharmacyEmptySegIsOneLine" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="7.427"/>
+  <testcase name="pharmacyTabsAreThreeAndFit" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.333"/>
+  <testcase name="counterSaleAddsAndTotals" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="1.151"/>
+  <testcase name="todayQueueNotStartedShowsStartOnly" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.345"/>
+  <testcase name="ambulanceAvailabilityOnce" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.458"/>
+  <testcase name="phonesAndCodesStayLatin" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.063"/>
+  <testcase name="pharmacyOrdersOnePrimaryAndNoNewTag" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.681"/>
+  <testcase name="chamberTabsFitOnASmallPhone" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.162"/>
+  <testcase name="todayWaitingCount" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.053"/>
+  <testcase name="todayQueueAssistantWritesNoPrescriptionAndFeesOffHidesFee" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.377"/>
+  <testcase name="counterSaleSearchAcceptsBanglaDigits" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.059"/>
+  <testcase name="expiredHomeSlot" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.076"/>
+  <testcase name="todayQueueDoctorHasOnePrimaryPerRow" classname="com.bspc.blood.MyWorkQueuesScreensTest" time="0.57"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

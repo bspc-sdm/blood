@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.WorkHomeScreensTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:11:52" hostname="runnervm8k3b6" time="12.877">
+  <properties/>
+  <testcase name="oldServerShowsStatusButNoNumbersOrTasks" classname="com.bspc.blood.WorkHomeScreensTest" time="7.44"/>
+  <testcase name="pharmacyOnlyPausedWithPauseDialog" classname="com.bspc.blood.WorkHomeScreensTest" time="0.601"/>
+  <testcase name="nearlyDoneKeepsTheNumbers" classname="com.bspc.blood.WorkHomeScreensTest" time="0.362"/>
+  <testcase name="chipNarrowsToOneRole" classname="com.bspc.blood.WorkHomeScreensTest" time="0.384"/>
+  <testcase name="joinPage" classname="com.bspc.blood.WorkHomeScreensTest" time="0.319"/>
+  <testcase name="multiRoleNowListAndPreview" classname="com.bspc.blood.WorkHomeScreensTest" time="1.078"/>
+  <testcase name="innerPagesKeepTheSameBottomBar" classname="com.bspc.blood.WorkHomeScreensTest" time="0.338"/>
+  <testcase name="noRoleTabSaysGiveService" classname="com.bspc.blood.WorkHomeScreensTest" time="0.106"/>
+  <testcase name="multiRoleAll" classname="com.bspc.blood.WorkHomeScreensTest" time="0.344"/>
+  <testcase name="newProviderSeesSetupInsteadOfNumbers" classname="com.bspc.blood.WorkHomeScreensTest" time="0.319"/>
+  <testcase name="englishMulti" classname="com.bspc.blood.WorkHomeScreensTest" time="0.326"/>
+  <testcase name="pauseAsksHowLong" classname="com.bspc.blood.WorkHomeScreensTest" time="0.355"/>
+  <testcase name="switchesOffHideTheirNumbersAndTasks" classname="com.bspc.blood.WorkHomeScreensTest" time="0.334"/>
+  <testcase name="ambulanceAndBloodBankRows" classname="com.bspc.blood.WorkHomeScreensTest" time="0.281"/>
+  <testcase name="skeleton" classname="com.bspc.blood.WorkHomeScreensTest" time="0.196"/>
+  <testcase name="beforeLoadingTheTabIsAlreadyThere" classname="com.bspc.blood.WorkHomeScreensTest" time="0.091"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

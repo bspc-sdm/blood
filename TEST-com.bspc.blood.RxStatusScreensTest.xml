@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.RxStatusScreensTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:11:03" hostname="runnervm8k3b6" time="11.272">
+  <properties/>
+  <testcase name="timelineParsedAndTexts" classname="com.bspc.blood.RxStatusScreensTest" time="6.025"/>
+  <testcase name="emptyOngoingShowsLinkToPrevious" classname="com.bspc.blood.RxStatusScreensTest" time="2.183"/>
+  <testcase name="timelineCardMarkDoneAndReopen" classname="com.bspc.blood.RxStatusScreensTest" time="0.63"/>
+  <testcase name="oldServerWithoutState" classname="com.bspc.blood.RxStatusScreensTest" time="0.082"/>
+  <testcase name="darkThemeList" classname="com.bspc.blood.RxStatusScreensTest" time="0.358"/>
+  <testcase name="listTabsEnglish" classname="com.bspc.blood.RxStatusScreensTest" time="0.351"/>
+  <testcase name="stateParsedAndTexts" classname="com.bspc.blood.RxStatusScreensTest" time="0.067"/>
+  <testcase name="timelineCard" classname="com.bspc.blood.RxStatusScreensTest" time="0.297"/>
+  <testcase name="listTabsBangla" classname="com.bspc.blood.RxStatusScreensTest" time="0.643"/>
+  <testcase name="timelineCardEnglish" classname="com.bspc.blood.RxStatusScreensTest" time="0.291"/>
+  <testcase name="timelineCardSuperseded" classname="com.bspc.blood.RxStatusScreensTest" time="0.344"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

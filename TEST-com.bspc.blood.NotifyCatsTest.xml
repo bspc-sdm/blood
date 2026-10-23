@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.NotifyCatsTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:38" hostname="runnervm8k3b6" time="0.085">
+  <properties/>
+  <testcase name="everyOldServerPushTypeHasACategory" classname="com.bspc.blood.NotifyCatsTest" time="0.026"/>
+  <testcase name="prefs" classname="com.bspc.blood.NotifyCatsTest" time="0.002"/>
+  <testcase name="channelPerCategory" classname="com.bspc.blood.NotifyCatsTest" time="0.055"/>
+  <testcase name="serverCatWins" classname="com.bspc.blood.NotifyCatsTest" time="0.001"/>
+  <testcase name="unknownOrBlankCatFallsBackToType" classname="com.bspc.blood.NotifyCatsTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

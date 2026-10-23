@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.FeaturesTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:08:44" hostname="runnervm8k3b6" time="3.123">
+  <properties/>
+  <testcase name="parsesTheServerAnswer" classname="com.bspc.blood.FeaturesTest" time="2.841"/>
+  <testcase name="theLastKeysSurviveARestart" classname="com.bspc.blood.FeaturesTest" time="0.077"/>
+  <testcase name="offByDefaultAndOnAfterSet" classname="com.bspc.blood.FeaturesTest" time="0.075"/>
+  <testcase name="soonText" classname="com.bspc.blood.FeaturesTest" time="0.083"/>
+  <testcase name="knowsTheServerFeatureOffError" classname="com.bspc.blood.FeaturesTest" time="0.046"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

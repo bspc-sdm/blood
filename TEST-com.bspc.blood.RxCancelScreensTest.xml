@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.RxCancelScreensTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:10:52" hostname="runnervm8k3b6" time="10.097">
+  <properties/>
+  <testcase name="doctorDialogEnglishDark" classname="com.bspc.blood.RxCancelScreensTest" time="8.121"/>
+  <testcase name="reasonParsedAndTexts" classname="com.bspc.blood.RxCancelScreensTest" time="0.091"/>
+  <testcase name="doctorDialogReasonNoteConfirm" classname="com.bspc.blood.RxCancelScreensTest" time="0.976"/>
+  <testcase name="patientCardShowsReason" classname="com.bspc.blood.RxCancelScreensTest" time="0.606"/>
+  <testcase name="timelineShowsReasonAndNote" classname="com.bspc.blood.RxCancelScreensTest" time="0.303"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

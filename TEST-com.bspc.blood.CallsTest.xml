@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.CallsTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:08:02" hostname="runnervm8k3b6" time="3.762">
+  <properties/>
+  <testcase name="durationText" classname="com.bspc.blood.CallsTest" time="2.956"/>
+  <testcase name="appointmentCallRoute" classname="com.bspc.blood.CallsTest" time="0.056"/>
+  <testcase name="outgoingDeclinedOrUnanswered" classname="com.bspc.blood.CallsTest" time="0.057"/>
+  <testcase name="secondCallWhileBusyIsIgnored" classname="com.bspc.blood.CallsTest" time="0.053"/>
+  <testcase name="incomingPushRingsOnceAndStateClears" classname="com.bspc.blood.CallsTest" time="0.263"/>
+  <testcase name="reconnectAndAudioFallback" classname="com.bspc.blood.CallsTest" time="0.072"/>
+  <testcase name="lockScreenShowsFirstNameOnly" classname="com.bspc.blood.CallsTest" time="0.045"/>
+  <testcase name="incomingAcceptAndCallerCancels" classname="com.bspc.blood.CallsTest" time="0.036"/>
+  <testcase name="failuresHideButtonsAndOfferPhone" classname="com.bspc.blood.CallsTest" time="0.039"/>
+  <testcase name="appointmentWindows" classname="com.bspc.blood.CallsTest" time="0.038"/>
+  <testcase name="parsesServerReplies" classname="com.bspc.blood.CallsTest" time="0.038"/>
+  <testcase name="appointmentWaitingRoom" classname="com.bspc.blood.CallsTest" time="0.034"/>
+  <testcase name="audioCallUpgradesToVideoOnlyWithConsent" classname="com.bspc.blood.CallsTest" time="0.032"/>
+  <testcase name="outgoingAnsweredThenRemoteHangsUp" classname="com.bspc.blood.CallsTest" time="0.038"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Exception in thread "DefaultDispatcher-worker-2 @coroutine#2" java.lang.IllegalStateException: Default FirebaseApp is not initialized in this process com.bspc.blood. Make sure to call FirebaseApp.initializeApp(Context) first.
+	at com.google.firebase.FirebaseApp.getInstance(FirebaseApp.java:179)
+	at com.google.firebase.auth.FirebaseAuth.getInstance(com.google.firebase:firebase-auth@@23.1.0:283)
+	at com.bspc.blood.AuthRepository.getAuth(Repositories.kt:16)
+	at com.bspc.blood.AuthRepository.getCurrentUid(Repositories.kt:18)
+	at com.bspc.blood.Features.refresh(Features.kt:149)
+	at com.bspc.blood.Features$refreshSoon$1.invokeSuspend(Features.kt:161)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:101)
+	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:113)
+	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:589)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:823)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:720)
+	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
+	Suppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [CoroutineId(2), "coroutine#2":StandaloneCoroutine{Cancelling}@5ed8c85c, Dispatchers.IO]
+]]></system-err>
+</testsuite>

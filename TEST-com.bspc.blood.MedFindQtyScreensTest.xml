@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.MedFindQtyScreensTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:14" hostname="runnervm8k3b6" time="10.232">
+  <properties/>
+  <testcase name="qtyPicker360Bn" classname="com.bspc.blood.MedFindQtyScreensTest" time="7.947"/>
+  <testcase name="qtyPicker360En" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.376"/>
+  <testcase name="pharmacyDismissAndChange360Bn" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.292"/>
+  <testcase name="pharmacyAnswer360Bn" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.397"/>
+  <testcase name="pharmacyAnswer360En" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.3"/>
+  <testcase name="qtyPickerSyrupBottle360Bn" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.313"/>
+  <testcase name="unitsTextsAndParsing" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.063"/>
+  <testcase name="myFindReplies360Bn" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.286"/>
+  <testcase name="myFindReplies360En" classname="com.bspc.blood.MedFindQtyScreensTest" time="0.258"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

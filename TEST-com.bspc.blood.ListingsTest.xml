@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.ListingsTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:09" hostname="runnervm8k3b6" time="3.86">
+  <properties/>
+  <testcase name="sorting" classname="com.bspc.blood.ListingsTest" time="2.978"/>
+  <testcase name="ratingSummaryWinsOverOldRating" classname="com.bspc.blood.ListingsTest" time="0.13"/>
+  <testcase name="doctorCardKeyLine" classname="com.bspc.blood.ListingsTest" time="0.086"/>
+  <testcase name="doctorNextSlotFallback" classname="com.bspc.blood.ListingsTest" time="0.045"/>
+  <testcase name="englishCopy" classname="com.bspc.blood.ListingsTest" time="0.054"/>
+  <testcase name="stockAndStaleness" classname="com.bspc.blood.ListingsTest" time="0.048"/>
+  <testcase name="slotBadges" classname="com.bspc.blood.ListingsTest" time="0.039"/>
+  <testcase name="workQueueSegments" classname="com.bspc.blood.ListingsTest" time="0.042"/>
+  <testcase name="pharmacyCardKeyLine" classname="com.bspc.blood.ListingsTest" time="0.039"/>
+  <testcase name="labCardKeyLine" classname="com.bspc.blood.ListingsTest" time="0.04"/>
+  <testcase name="timesInAnyForm" classname="com.bspc.blood.ListingsTest" time="0.04"/>
+  <testcase name="backendFinalNames" classname="com.bspc.blood.ListingsTest" time="0.042"/>
+  <testcase name="bloodBankCardStock" classname="com.bspc.blood.ListingsTest" time="0.054"/>
+  <testcase name="unknownActionHidesSwitch" classname="com.bspc.blood.ListingsTest" time="0.036"/>
+  <testcase name="ambulanceCardKeyLine" classname="com.bspc.blood.ListingsTest" time="0.042"/>
+  <testcase name="searching" classname="com.bspc.blood.ListingsTest" time="0.071"/>
+  <testcase name="banglaDigitsEverywhere" classname="com.bspc.blood.ListingsTest" time="0.032"/>
+  <testcase name="missingFieldsAreNull" classname="com.bspc.blood.ListingsTest" time="0.037"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

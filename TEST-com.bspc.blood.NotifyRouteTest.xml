@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.NotifyRouteTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:42" hostname="runnervm8k3b6" time="0.101">
+  <properties/>
+  <testcase name="everyServerPushType" classname="com.bspc.blood.NotifyRouteTest" time="0.036"/>
+  <testcase name="demoPhonesOnlyForDemoAccounts" classname="com.bspc.blood.NotifyRouteTest" time="0.002"/>
+  <testcase name="notificationCarriesAllRoutingData" classname="com.bspc.blood.NotifyRouteTest" time="0.001"/>
+  <testcase name="cancellationIsNotAFailure" classname="com.bspc.blood.NotifyRouteTest" time="0.062"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

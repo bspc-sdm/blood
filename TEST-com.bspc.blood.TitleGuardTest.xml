@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.TitleGuardTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:11:43" hostname="runnervm8k3b6" time="7.79">
+  <properties/>
+  <testcase name="profileEditBlocksATitleForAHomeopath" classname="com.bspc.blood.TitleGuardTest" time="7.144"/>
+  <testcase name="nameFieldErrorAndHintOnlyWhenOn" classname="com.bspc.blood.TitleGuardTest" time="0.097"/>
+  <testcase name="prescriptionHeaderAndPdfUseThePractitionerLabel" classname="com.bspc.blood.TitleGuardTest" time="0.083"/>
+  <testcase name="everyVariantIsFoundAndStripped" classname="com.bspc.blood.TitleGuardTest" time="0.071"/>
+  <testcase name="onlyAllopathicDoctorsMayCarryTheTitle" classname="com.bspc.blood.TitleGuardTest" time="0.064"/>
+  <testcase name="myWorkChamberLineUsesThePractitionerLabel" classname="com.bspc.blood.TitleGuardTest" time="0.08"/>
+  <testcase name="profileEditAllowsATitleForAnMbbsDoctor" classname="com.bspc.blood.TitleGuardTest" time="0.179"/>
+  <testcase name="professionLabels" classname="com.bspc.blood.TitleGuardTest" time="0.069"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

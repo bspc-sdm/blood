@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.PracticeScreensTest" tests="22" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:10:17" hostname="runnervm8k3b6" time="13.571">
+  <properties/>
+  <testcase name="workTabHomeopathTitleGuard" classname="com.bspc.blood.PracticeScreensTest" time="7.504"/>
+  <testcase name="systemChipsCounts" classname="com.bspc.blood.PracticeScreensTest" time="0.256"/>
+  <testcase name="psychShareRow" classname="com.bspc.blood.PracticeScreensTest" time="1.108"/>
+  <testcase name="psychShareNoCaregiver" classname="com.bspc.blood.PracticeScreensTest" time="0.113"/>
+  <testcase name="rxPaperHomeopathy" classname="com.bspc.blood.PracticeScreensTest" time="0.44"/>
+  <testcase name="rxPaperPhysio" classname="com.bspc.blood.PracticeScreensTest" time="0.291"/>
+  <testcase name="providerCardWithSystem" classname="com.bspc.blood.PracticeScreensTest" time="0.366"/>
+  <testcase name="switchesOffLooksAsToday" classname="com.bspc.blood.PracticeScreensTest" time="0.067"/>
+  <testcase name="badgeDialogHomeopathy" classname="com.bspc.blood.PracticeScreensTest" time="0.834"/>
+  <testcase name="careLinkParse" classname="com.bspc.blood.PracticeScreensTest" time="0.061"/>
+  <testcase name="providerParseAndFilter" classname="com.bspc.blood.PracticeScreensTest" time="0.06"/>
+  <testcase name="rxPaperPsychologist" classname="com.bspc.blood.PracticeScreensTest" time="0.323"/>
+  <testcase name="badgeDialogWithSystemsAndNewTypes" classname="com.bspc.blood.PracticeScreensTest" time="0.468"/>
+  <testcase name="systemChipsRow" classname="com.bspc.blood.PracticeScreensTest" time="0.365"/>
+  <testcase name="systemsRules" classname="com.bspc.blood.PracticeScreensTest" time="0.058"/>
+  <testcase name="rxPaperSwitchOffNoLabel" classname="com.bspc.blood.PracticeScreensTest" time="0.129"/>
+  <testcase name="newTypesRules" classname="com.bspc.blood.PracticeScreensTest" time="0.062"/>
+  <testcase name="rxRulesFromServer" classname="com.bspc.blood.PracticeScreensTest" time="0.053"/>
+  <testcase name="badgeDialogPsychologist" classname="com.bspc.blood.PracticeScreensTest" time="0.467"/>
+  <testcase name="switchesOffProviderCard" classname="com.bspc.blood.PracticeScreensTest" time="0.079"/>
+  <testcase name="rxModes" classname="com.bspc.blood.PracticeScreensTest" time="0.058"/>
+  <testcase name="switchesOffBadgeDialog" classname="com.bspc.blood.PracticeScreensTest" time="0.406"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,2 @@
+    Exception in thread "DefaultDispatcher-worker-2 @coroutine#2" java.lang.IllegalStateException: Default FirebaseApp is not initialized in this process com.bspc.blood. Make sure to call FirebaseApp.initializeApp(Context) first.
+    	Suppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [CoroutineId(2), "coroutine#2":StandaloneCoroutine{Cancelling}@5ed8c85c, Dispatchers.IO]

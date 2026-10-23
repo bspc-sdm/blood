@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.ChatTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:08:06" hostname="runnervm8k3b6" time="3.714">
+  <properties/>
+  <testcase name="parsesThreads" classname="com.bspc.blood.ChatTest" time="2.82"/>
+  <testcase name="unreadIsZeroWhileChatIsOff" classname="com.bspc.blood.ChatTest" time="0.11"/>
+  <testcase name="mergeKeepsReadReceiptAndOrdersByTime" classname="com.bspc.blood.ChatTest" time="0.063"/>
+  <testcase name="queuedMessageReplacedByServerCopyWithSameClientId" classname="com.bspc.blood.ChatTest" time="0.045"/>
+  <testcase name="readUpToOnlyNewerPeerMessages" classname="com.bspc.blood.ChatTest" time="0.044"/>
+  <testcase name="unsendOnlyOwnWithinTenMinutes" classname="com.bspc.blood.ChatTest" time="0.043"/>
+  <testcase name="queuedItemSurvivesRestart" classname="com.bspc.blood.ChatTest" time="0.043"/>
+  <testcase name="banglaErrorsAndRetry" classname="com.bspc.blood.ChatTest" time="0.043"/>
+  <testcase name="pushShowsOneNotificationPerThreadWithReply" classname="com.bspc.blood.ChatTest" time="0.282"/>
+  <testcase name="ticks" classname="com.bspc.blood.ChatTest" time="0.038"/>
+  <testcase name="lockScreenTextHasNoMessage" classname="com.bspc.blood.ChatTest" time="0.033"/>
+  <testcase name="moneyWarnAndReportReason" classname="com.bspc.blood.ChatTest" time="0.035"/>
+  <testcase name="parsesOpenPageAndMessages" classname="com.bspc.blood.ChatTest" time="0.043"/>
+  <testcase name="openChatNeedsRefIdAndSetsTarget" classname="com.bspc.blood.ChatTest" time="0.036"/>
+  <testcase name="textLimits" classname="com.bspc.blood.ChatTest" time="0.035"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.ConsentScreensTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:08:11" hostname="runnervm8k3b6" time="9.133">
+  <properties/>
+  <testcase name="readsTheServerText" classname="com.bspc.blood.ConsentScreensTest" time="5.83"/>
+  <testcase name="serverErrorCarriesTheConsentFields" classname="com.bspc.blood.ConsentScreensTest" time="0.141"/>
+  <testcase name="consentScreen" classname="com.bspc.blood.ConsentScreensTest" time="2.024"/>
+  <testcase name="notGivenSettingsOffersConsent" classname="com.bspc.blood.ConsentScreensTest" time="0.202"/>
+  <testcase name="askWaitsForTheAnswer" classname="com.bspc.blood.ConsentScreensTest" time="0.143"/>
+  <testcase name="privacySettingsAndWithdraw" classname="com.bspc.blood.ConsentScreensTest" time="0.649"/>
+  <testcase name="fullTextIsReadOnlyWhenGiven" classname="com.bspc.blood.ConsentScreensTest" time="0.143"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

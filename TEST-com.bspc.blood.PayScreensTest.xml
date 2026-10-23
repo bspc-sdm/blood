@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.PayScreensTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:09:57" hostname="runnervm8k3b6" time="14.299">
+  <properties/>
+  <testcase name="advanceDueLabel" classname="com.bspc.blood.PayScreensTest" time="6.563"/>
+  <testcase name="onlineChamberUsesPaySheet" classname="com.bspc.blood.PayScreensTest" time="1.346"/>
+  <testcase name="demoAndNoNumbers" classname="com.bspc.blood.PayScreensTest" time="0.263"/>
+  <testcase name="neverForBlood" classname="com.bspc.blood.PayScreensTest" time="0.095"/>
+  <testcase name="refundAckAndReport" classname="com.bspc.blood.PayScreensTest" time="1.13"/>
+  <testcase name="allOffShowsNothing" classname="com.bspc.blood.PayScreensTest" time="0.093"/>
+  <testcase name="confirmedAndExpired" classname="com.bspc.blood.PayScreensTest" time="0.119"/>
+  <testcase name="settingsCoolOff" classname="com.bspc.blood.PayScreensTest" time="0.642"/>
+  <testcase name="claimValidatedPerMethod" classname="com.bspc.blood.PayScreensTest" time="0.79"/>
+  <testcase name="businessListRowsAndRefund" classname="com.bspc.blood.PayScreensTest" time="0.418"/>
+  <testcase name="sheetStates" classname="com.bspc.blood.PayScreensTest" time="0.557"/>
+  <testcase name="advanceRow" classname="com.bspc.blood.PayScreensTest" time="0.296"/>
+  <testcase name="entryButtonsGated" classname="com.bspc.blood.PayScreensTest" time="0.309"/>
+  <testcase name="sheetOpenPersonalThenMerchant" classname="com.bspc.blood.PayScreensTest" time="0.468"/>
+  <testcase name="businessClaimConfirmStep" classname="com.bspc.blood.PayScreensTest" time="0.978"/>
+  <testcase name="ambulanceOnlyAfterTripAndDue" classname="com.bspc.blood.PayScreensTest" time="0.231"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

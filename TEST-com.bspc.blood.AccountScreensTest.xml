@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.AccountScreensTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:07:31" hostname="runnervm8k3b6" time="14.623">
+  <properties/>
+  <testcase name="deactivateWhileDeletionPendingShowsTheReason" classname="com.bspc.blood.AccountScreensTest" time="9.905"/>
+  <testcase name="deleteFailureShowsTheServerMessageAndStaysLoggedIn" classname="com.bspc.blood.AccountScreensTest" time="0.44"/>
+  <testcase name="deleteScreenEnglish" classname="com.bspc.blood.AccountScreensTest" time="1.43"/>
+  <testcase name="deleteNeedsTheTickThenExplainsWhatHappensNext" classname="com.bspc.blood.AccountScreensTest" time="1.341"/>
+  <testcase name="deleteFromThePausedScreenHasNoPauseOption" classname="com.bspc.blood.AccountScreensTest" time="0.133"/>
+  <testcase name="pausedScreenReactivateFailureStaysBlocked" classname="com.bspc.blood.AccountScreensTest" time="0.119"/>
+  <testcase name="pausedScreenReactivates" classname="com.bspc.blood.AccountScreensTest" time="0.35"/>
+  <testcase name="deactivateExplainsThenPausesAndLogsOut" classname="com.bspc.blood.AccountScreensTest" time="0.552"/>
+  <testcase name="deletionCancelledBanner" classname="com.bspc.blood.AccountScreensTest" time="0.351"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

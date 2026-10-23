@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bspc.blood.AccountStateTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-23T23:07:47" hostname="runnervm8k3b6" time="3.175">
+  <properties/>
+  <testcase name="reactivateCountsAsOnEvenIfTheAnswerHasNoState" classname="com.bspc.blood.AccountStateTest" time="2.647"/>
+  <testcase name="logoutClearsTheState" classname="com.bspc.blood.AccountStateTest" time="0.054"/>
+  <testcase name="error423BlocksTheApp" classname="com.bspc.blood.AccountStateTest" time="0.069"/>
+  <testcase name="deleteDateIsThirtyDaysOnTheDhakaCalendar" classname="com.bspc.blood.AccountStateTest" time="0.08"/>
+  <testcase name="blockedOnlyWhenLoggedInAndDeactivated" classname="com.bspc.blood.AccountStateTest" time="0.038"/>
+  <testcase name="parsesTheServerAccountObject" classname="com.bspc.blood.AccountStateTest" time="0.043"/>
+  <testcase name="unknownOrMissingAccountIsNull" classname="com.bspc.blood.AccountStateTest" time="0.041"/>
+  <testcase name="error423AfterLogoutIsIgnored" classname="com.bspc.blood.AccountStateTest" time="0.041"/>
+  <testcase name="carePausedHasAFullMessage_othersKeepTheServerText" classname="com.bspc.blood.AccountStateTest" time="0.084"/>
+  <testcase name="profileOrLoginAnswerSetsTheState_oldServerKeepsIt" classname="com.bspc.blood.AccountStateTest" time="0.036"/>
+  <testcase name="staleError423FromBeforeReactivationIsIgnored" classname="com.bspc.blood.AccountStateTest" time="0.035"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
