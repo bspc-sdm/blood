@@ -214,7 +214,7 @@ class PracticeIT : P2TestBase() {
     // ------------------------------------------------------------------ §1–2 prescriptions
 
     @Test
-    fun `prescriptions - non-allopathic free text and never to a pharmacy; physio and psychologist notes only`() {
+    fun `prescriptions - non-allopathic free text and never to a pharmacy, physio and psychologist notes only`() {
         clock.fixedMs = dhaka("2026-10-19 10:00")
         pro("homeo", system = "homeopathy", specialties = listOf("alt_general"), name = "হোমিও চিকিৎসক")
         pro("physio", type = "physio", specialties = listOf("physio_back_neck"), name = "ফিজিও")
@@ -390,7 +390,7 @@ class PracticeIT : P2TestBase() {
     // ------------------------------------------------------------------ §3 feature switches
 
     @Test
-    fun `switches off - only allopathy, no system choice, no new professions; on - everything`() {
+    fun `switches off - only allopathy, no system choice, no new professions, on - everything`() {
         clock.fixedMs = dhaka("2026-10-19 10:00")
         pro("allo")
         pro("homeo", system = "homeopathy", specialties = listOf("alt_general"))
