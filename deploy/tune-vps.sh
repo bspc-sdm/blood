@@ -16,8 +16,10 @@
 #   lifolo-tune status            এখনকার অবস্থা (key=value)
 #
 # apply:
-#   1) JVM — lifolo-api.service.d/20-tuning.conf: -Xms1g -Xmx3g, G1 (pause লক্ষ্য 200 ms), OOM-এ বেরিয়ে যাওয়া (systemd আবার
-#      চালায়), GC লগ /var/log/lifolo/gc.log (৫ × ১০ MB), LimitNOFILE=65536
+#   1) JVM — lifolo-api@.service.d/20-tuning.conf (blue/green-এর দুটো instance-ই): -Xms1g -Xmx3g, G1 (pause লক্ষ্য
+#      200 ms), OOM-এ বেরিয়ে যাওয়া (systemd আবার চালায়), GC লগ /var/log/lifolo/gc-<port>.log (৫ × ১০ MB),
+#      LimitNOFILE=65536, MemoryMax=4608M প্রতি instance (heap 3g + বাকিটা; deploy-এর সময় দুটো JVM অল্পক্ষণ একসাথে —
+#      deploy-backend.sh আগে দেখে নেয় অন্তত ১.৬ GB ফাঁকা আছে কি না)
 #   2) PostgreSQL — conf.d/lifolo-tuning.conf: shared_buffers 2GB, effective_cache_size 6GB, work_mem 8MB, max_connections 100
 #      (shared_buffers বদলালে একবার restart — কয়েক সেকেন্ড; Hikari নিজে আবার সংযোগ নেয়)
 #   3) Redis — maxmemory 512mb, maxmemory-policy volatile-lru (ফাইলে + চালু অবস্থায় CONFIG SET; restart নয়)
@@ -29,9 +31,11 @@ set -euo pipefail
 
 SELF=/usr/local/sbin/lifolo-tune
 STATUS=/var/lib/lifolo/tune-status
-API_UNIT=lifolo-api.service
-API_DROPIN=/etc/systemd/system/lifolo-api.service.d/20-tuning.conf
-API_JAR=/opt/lifolo/api/app.jar
+# live instance (lifolo-api@8080|8081; deploy-backend.sh-এর আগে পুরোনো lifolo-api.service)
+api_unit() { if [ -x /usr/local/sbin/lifolo-api ]; then /usr/local/sbin/lifolo-api unit; else echo lifolo-api.service; fi; }
+api_port() { if [ -x /usr/local/sbin/lifolo-api ]; then /usr/local/sbin/lifolo-api port; else echo 8080; fi; }
+API_DROPIN=/etc/systemd/system/lifolo-api@.service.d/20-tuning.conf
+API_MEMORY_MAX=4608M
 PG_MAJOR=16
 PG_TUNING=/etc/postgresql/$PG_MAJOR/main/conf.d/lifolo-tuning.conf
 REDIS_TUNING=/etc/redis/lifolo-tuning.conf
@@ -45,7 +49,7 @@ OPEN_FLAG=/etc/lifolo/origin-open
 ACME_MARK=/var/lib/lifolo/acme-open
 CF_COMMENT=lifolo-cloudflare
 
-JAVA_OPTS="-Xms1g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Xlog:gc*:file=/var/log/lifolo/gc.log:time,uptime,level,tags:filecount=5,filesize=10m"
+JAVA_OPTS="-Xms1g -Xmx3g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Xlog:gc*:file=/var/log/lifolo/gc-%i.log:time,uptime,level,tags:filecount=5,filesize=10m"
 
 # Cloudflare-এর তালিকা আনা না গেলে (https://www.cloudflare.com/ips/, ২০২৬-১০ দেখা)
 PINNED_V4="173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22"
@@ -285,18 +289,21 @@ do_apply() {
   local opts="$JAVA_OPTS" jvm_changed=no
   if id lifolo >/dev/null 2>&1 && install -d -o lifolo -g lifolo -m 0750 /var/log/lifolo; then :; else opts="${JAVA_OPTS%% -Xlog:*}"; fi
   if {
-    echo "# Lifolo — tune-vps.sh লেখে (Deploy backend / Setup VPS প্রতিবার)। setup-base.sh-এর ExecStart-এর বদলে এটা চলে।"
+    echo "# Lifolo — tune-vps.sh লেখে (Deploy backend / Setup VPS প্রতিবার)। lifolo-api@.service-এর ExecStart এই LIFOLO_JAVA_OPTS নেয়;"
+    echo "# %i = পোর্ট (দুটো instance-এর GC লগ আলাদা ফাইলে)।"
     echo "[Service]"
     echo "LimitNOFILE=65536"
-    echo "ExecStart="
-    echo "ExecStart=/usr/bin/java $opts -jar $API_JAR"
+    echo "MemoryMax=$API_MEMORY_MAX"
+    echo "Environment=\"LIFOLO_JAVA_OPTS=$opts\""
   } | write_if_changed "$API_DROPIN" 0644; then
     jvm_changed=yes
     systemctl daemon-reload
   fi
-  if [ "$jvm_changed" = yes ] && [ "$restart_app" = yes ] && systemctl is-active --quiet "$API_UNIT"; then
-    systemctl restart "$API_UNIT"
-    for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && break; sleep 2; done
+  # Setup VPS (base)-এর পথে: নতুন সেটিং নিতে live instance restart (~১ মিনিট বিরতি)। Deploy backend --no-app-restart দেয় —
+  # নতুন instance তো নতুন সেটিং নিয়েই চালু হয় (কোনো বিরতি ছাড়া)।
+  if [ "$jvm_changed" = yes ] && [ "$restart_app" = yes ] && systemctl is-active --quiet "$(api_unit)"; then
+    systemctl restart "$(api_unit)"
+    for _ in $(seq 1 60); do curl -fsS -m 3 "http://127.0.0.1:$(api_port)/api/health" 2>/dev/null | grep -q '"ok":true' && break; sleep 2; done
   fi
   st jvm "$([ "$jvm_changed" = yes ] && echo changed || echo same)$([ "$jvm_changed" = yes ] && [ "$restart_app" = no ] && echo ' (deploy restarts the app)')"
 
@@ -411,8 +418,10 @@ do_apply() {
 
 do_status() {
   local pid
-  pid="$(systemctl show -p MainPID --value "$API_UNIT" 2>/dev/null || echo 0)"
+  pid="$(systemctl show -p MainPID --value "$(api_unit)" 2>/dev/null || echo 0)"
+  echo "api_unit=$(api_unit)"
   echo "jvm_dropin=$([ -f "$API_DROPIN" ] && echo yes || echo no)"
+  echo "api_memory_max=$(systemctl show -p MemoryMax --value "$(api_unit)" 2>/dev/null || echo '?')"
   [ "${pid:-0}" = 0 ] || echo "api_cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | sed -E 's#-jar [^ ]+#-jar <jar>#' | cut -c1-300)"
   echo "pg=$(psqlq -c "SELECT string_agg(name || '=' || current_setting(name), ' ' ORDER BY name) FROM pg_settings WHERE name IN ('shared_buffers','effective_cache_size','work_mem','max_connections')" 2>/dev/null || echo '?')"
   echo "redis=$(rcli config get maxmemory 2>/dev/null | tail -1) $(rcli config get maxmemory-policy 2>/dev/null | tail -1)"

@@ -61,8 +61,8 @@ jobs:
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" > "$out/before.txt"
           H() { curl -fsS -m 3 --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" 2>/dev/null | grep -q '"ok":true'; }
           H || { echo "::error::আগেই /api/health সবুজ নয় — মহড়া বাতিল"; exit 1; }
-          pid="$(ssh vps 'systemctl show -p MainPID --value lifolo-api')"
-          n0="$(ssh vps 'systemctl show -p NRestarts --value lifolo-api')"
+          pid="$(ssh vps 'systemctl show -p MainPID --value "$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api)"')"
+          n0="$(ssh vps 'systemctl show -p NRestarts --value "$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api)"')"
           echo "killed_at=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" | tee "$out/drill.txt"
           echo "old_pid=$pid" >> "$out/drill.txt"
           echo "restarts_before=$n0" >> "$out/drill.txt"
@@ -74,7 +74,7 @@ jobs:
           newpid="" green="" fails=0 codes=""
           for _ in $(seq 1 360); do
             if [ -z "$newpid" ]; then
-              p="$(ssh vps 'systemctl show -p MainPID --value lifolo-api' 2>/dev/null || echo 0)"
+              p="$(ssh vps 'systemctl show -p MainPID --value "$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api)"' 2>/dev/null || echo 0)"
               if [ -n "$p" ] && [ "$p" != 0 ] && [ "$p" != "$pid" ]; then newpid="$(el)"; fi
             fi
             c="$(curl -s -m 3 -o "$out/probe.txt" -w '%{http_code}' --resolve "$API_DOMAIN:443:$ORIGIN_IP" "https://$API_DOMAIN/api/health" || echo 000)"
@@ -104,7 +104,7 @@ jobs:
           # JobRunr-এর প্রতি-মিনিটের কাজ (storage-trash, ambulance-timers) আবার চলছে কি না দেখার জন্য একটু অপেক্ষা
           sleep 90
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$out/after.txt"
-          ssh vps "journalctl -u lifolo-api --since '-6min' --no-pager -o short-iso | grep -E 'code=killed|status=9|Scheduled restart|Started Lifolo|Started [A-Za-z]+ in|Stopped|Failed' | cut -c1-200" > "$out/journal.txt" 2>&1 || true
+          ssh vps "journalctl -u 'lifolo-api*' --since '-6min' --no-pager -o short-iso | grep -E 'code=killed|status=9|Scheduled restart|Started Lifolo|Started [A-Za-z]+ in|Stopped|Failed' | cut -c1-200" > "$out/journal.txt" 2>&1 || true
           ssh vps "sudo -u postgres psql -X -At -d lifolo -c \"SELECT recurringjobid || '_last_ok=' || to_char(max(updatedat), 'HH24:MI:SS') FROM jobrunr_jobs WHERE state = 'SUCCEEDED' AND recurringjobid IN ('storage-trash','ambulance-timers') GROUP BY recurringjobid\"; \
                    sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'processing_now=' || count(*) FROM jobrunr_jobs WHERE state = 'PROCESSING'\"; \
                    sudo -u postgres psql -X -At -d lifolo -c \"SELECT 'now_utc=' || to_char(now() AT TIME ZONE 'UTC', 'HH24:MI:SS')\"" > "$out/jobrunr.txt" 2>&1 || true

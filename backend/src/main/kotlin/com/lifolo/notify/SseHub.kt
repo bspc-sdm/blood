@@ -1,15 +1,19 @@
 package com.lifolo.notify
 
 import com.lifolo.auth.AuthService
+import com.lifolo.common.ClientDisconnect
 import com.lifolo.common.Lang
 import jakarta.annotation.PreDestroy
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.Executors
@@ -19,7 +23,9 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Server-Sent Events hub keyed by topic ("user:{uid}", "ambreq:{id}", …). Ready for live updates
  * (ambulance request status, queue position) in phase 2; nothing publishes yet.
- * Single-instance only: with several app instances, fan out through Redis pub/sub first.
+ * Single-instance only: with several app instances, fan out through Redis pub/sub first. (Blue/green deploys run two
+ * instances for ~20 s; nginx sends new streams to the new one and the old one closes its streams on shutdown —
+ * the clients reconnect.)
  *
  * Keep-alive: every [keepAliveMs] (default 25 s) each open stream gets an SSE comment line (": ping"), which
  * clients ignore. Cloudflare's proxy closes a connection after 100 s without bytes, and other proxies or
@@ -33,6 +39,12 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
     /** how many keep-alive rounds have run (for tests and diagnostics) */
     val pingRounds = AtomicLong()
 
+    /** how many streams were dropped because the client had gone (for tests and diagnostics) */
+    val dropped = AtomicLong()
+
+    /** new emitters (tests swap in emitters whose send fails like a closed socket) */
+    internal var emitterFactory: (Long) -> SseEmitter = { SseEmitter(it) }
+
     private val pinger = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "sse-keepalive").apply { isDaemon = true }
     }.also { ex ->
@@ -44,20 +56,30 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
         pinger.shutdownNow()
     }
 
+    /**
+     * The app is shutting down (deploy: the old instance after nginx moved to the new one). Every open stream is closed
+     * now, so the clients reconnect at once (to the new instance) and Tomcat's graceful shutdown does not wait for
+     * 30-minute streams. Runs before the web server stops (ContextClosedEvent comes first in close()).
+     */
+    @EventListener(ContextClosedEvent::class)
+    fun closeAll() {
+        pinger.shutdownNow()
+        for ((topic, set) in topics) {
+            for (e in set) {
+                set.remove(e)
+                runCatching { e.complete() }
+            }
+            topics.remove(topic, set)
+        }
+    }
+
     /** one keep-alive round: a comment to every open stream; streams that fail are dropped. Returns how many got it. */
     fun pingAll(): Int {
         var n = 0
         try {
             for ((topic, set) in topics) {
                 for (e in set) {
-                    try {
-                        e.send(SseEmitter.event().comment("ping"))
-                        n++
-                    } catch (ex: Exception) {
-                        log.debug("sse ping failed on {}: {}", topic, ex.message)
-                        set.remove(e)
-                        if (set.isEmpty()) topics.remove(topic, set)
-                    }
+                    if (trySend(topic, set, e) { it.send(SseEmitter.event().comment("ping")) }) n++
                 }
             }
         } catch (ex: Exception) {
@@ -70,11 +92,49 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
     }
 
     /**
+     * One send. A client that has gone (IOException "Broken pipe", AsyncRequestNotUsableException) or a stream that is
+     * already complete (IllegalStateException) is normal life for a long-lived stream: the emitter is completed and
+     * removed quietly, debug log only — never an error, never Sentry. Returns whether the send went out.
+     */
+    private fun trySend(topic: String, set: MutableSet<SseEmitter>, e: SseEmitter, send: (SseEmitter) -> Unit): Boolean =
+        try {
+            send(e)
+            true
+        } catch (ex: IOException) { // includes AsyncRequestNotUsableException
+            drop(topic, set, e, ex)
+            false
+        } catch (ex: IllegalStateException) { // "ResponseBodyEmitter has already completed"
+            drop(topic, set, e, ex)
+            false
+        } catch (ex: Exception) {
+            if (ClientDisconnect.isClientDisconnect(ex)) {
+                drop(topic, set, e, ex)
+            } else {
+                log.warn("sse send failed on {}: {}", topic, ex.toString())
+                drop(topic, set, e, null)
+            }
+            false
+        }
+
+    private fun drop(topic: String, set: MutableSet<SseEmitter>, e: SseEmitter, ex: Exception?) {
+        if (ex != null) log.debug("sse client gone on {}: {}", topic, ex.toString())
+        set.remove(e)
+        if (set.isEmpty()) topics.remove(topic, set)
+        dropped.incrementAndGet()
+        // complete() after a failed send is a no-op in Spring (the container ends the request); on a live stream it
+        // closes it. Either way nothing may escape from here.
+        try {
+            e.complete()
+        } catch (ignored: Exception) {
+        }
+    }
+
+    /**
      * A new stream of [topic]. With [maxStreams], the oldest streams of the topic are closed first so that at most that
      * many stay open (one account opening streams in a loop cannot pile up connections).
      */
     fun subscribe(topic: String, timeoutMs: Long = 30 * 60 * 1000L, maxStreams: Int = Int.MAX_VALUE): SseEmitter {
-        val emitter = SseEmitter(timeoutMs)
+        val emitter = emitterFactory(timeoutMs)
         val set = topics.computeIfAbsent(topic) { CopyOnWriteArraySet() }
         while (set.size >= maxStreams) {
             val oldest = set.firstOrNull() ?: break
@@ -97,13 +157,7 @@ class SseHub(@Value("\${lifolo.sse.keepalive-ms:25000}") val keepAliveMs: Long) 
         val set = topics[topic] ?: return 0
         var n = 0
         for (e in set) {
-            try {
-                e.send(SseEmitter.event().name(event).data(data))
-                n++
-            } catch (ex: Exception) {
-                log.debug("sse send failed on {}: {}", topic, ex.message)
-                set.remove(e)
-            }
+            if (trySend(topic, set, e) { it.send(SseEmitter.event().name(event).data(data)) }) n++
         }
         return n
     }

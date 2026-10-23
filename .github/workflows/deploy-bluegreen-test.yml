@@ -1,0 +1,274 @@
+name: Deploy blue/green test
+
+# বিরতি ছাড়া deploy-এর পরীক্ষা (deploy/ZERO-DOWNTIME.md) — production-এ হাত না দিয়ে, GitHub-এর মেশিনেই VPS-এর মতো সাজিয়ে:
+# systemd + nginx (https, self-signed সার্টিফিকেট এই মেশিনে বিশ্বাসযোগ্য) + PostgreSQL 16 + Redis 7 (পাসওয়ার্ডসহ), lifolo
+# ব্যবহারকারী, /etc/lifolo/env। তারপর:
+#   ০) আজকের পুরোনো এক-instance deploy (blue/green-এর আগের deploy-backend.sh, LEGACY_REF) → lifolo-api.service :8080
+#   ১) load চলার মধ্যে নতুন deploy-backend.sh: এক-instance → blue/green (lifolo-api@8081)
+#   ২) আবার (8081 → 8080, অন্য jar) — JobRunr-এর হাতবদল লগে দেখা
+#   ৩) ভাঙা jar → deploy ব্যর্থ হতেই হবে, আগেরটা (8080) চলতেই থাকে, nginx বদলায় না
+#   ৪) আবার ঠিক jar (8080 → 8081) — ব্যর্থ চেষ্টার পরেও স্বাভাবিক
+# পুরো সময় bluegreen-hammer.py: /api/health + POST /api/community বারবার — একটাও 5xx বা সংযোগ-ব্যর্থতা নয়।
+# প্রতি ধাপের পরে: ঠিক একটা instance চালু, /etc/lifolo/api-port ঠিক, JobRunr শুধু live-টায় running, ডাটাবেসে একটাই JobRunr server।
+# ফল → log branch ci-log-bluegreen (summary.md, *.txt)।
+on:
+  push:
+    branches: [main, "spring-p*"]
+    paths:
+      - "deploy/deploy-backend.sh"
+      - "deploy/tune-vps.sh"
+      - "deploy/setup-base.sh"
+      - "deploy/ci/bluegreen-hammer.py"
+      - "backend/src/main/kotlin/com/lifolo/jobs/**"
+      - "backend/src/main/kotlin/com/lifolo/notify/SseHub.kt"
+      - "backend/src/main/resources/application.yml"
+      - ".github/workflows/deploy-bluegreen-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-bluegreen-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # blue/green-এর আগের শেষ commit — তার deploy-backend.sh = "আজকের" এক-instance deploy
+  LEGACY_REF: b37a982e27736d976c61f0c2af9a5c3be7444ac6
+  DOMAIN: ci.lifolo.test
+
+jobs:
+  bluegreen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the jars (v1, v2 = same app with one extra file, broken = not a jar)
+        working-directory: backend
+        run: |
+          ./gradlew bootJar --no-daemon -q
+          for j in build/libs/*.jar; do case "$j" in *-plain.jar) ;; *) cp "$j" "$RUNNER_TEMP/v1.jar" ;; esac; done
+          cp "$RUNNER_TEMP/v1.jar" "$RUNNER_TEMP/v2.jar"
+          (cd "$RUNNER_TEMP" && printf 'ci release v2\n' > ci-release.txt && zip -q -0 v2.jar ci-release.txt)
+          printf 'this is not a jar\n' > "$RUNNER_TEMP/broken.jar"
+          sha256sum "$RUNNER_TEMP"/v1.jar "$RUNNER_TEMP"/v2.jar "$RUNNER_TEMP"/broken.jar
+
+      - name: A VPS on this machine (PostgreSQL, Redis, nginx https, lifolo user, legacy unit)
+        run: |
+          set -euo pipefail
+          docker run -d --name pg -p 127.0.0.1:5432:5432 -e POSTGRES_USER=lifolo -e POSTGRES_PASSWORD=lifolo -e POSTGRES_DB=lifolo postgres:16-alpine >/dev/null
+          docker run -d --name redis -p 127.0.0.1:6379:6379 redis:7-alpine redis-server --requirepass ci-redis-pass >/dev/null
+          # /usr/bin/java = Java 21 (মেশিনের ডিফল্ট 17)
+          sudo ln -sf "$JAVA_HOME_21_X64/bin/java" /usr/bin/java
+          /usr/bin/java -version 2>&1 | head -1
+          command -v nginx >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q nginx; }
+          sudo useradd --system --no-create-home --shell /usr/sbin/nologin lifolo
+          sudo install -d -o root -g lifolo -m 0750 /etc/lifolo /opt/lifolo /opt/lifolo/api
+          sudo install -d -m 0700 /root/lifolo-setup
+          printf '%s\n' \
+            'SERVER_ADDRESS=127.0.0.1' 'SERVER_PORT=8080' \
+            'SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/lifolo' 'SPRING_DATASOURCE_USERNAME=lifolo' 'SPRING_DATASOURCE_PASSWORD=lifolo' \
+            'SPRING_DATA_REDIS_HOST=127.0.0.1' 'SPRING_DATA_REDIS_PORT=6379' 'SPRING_DATA_REDIS_PASSWORD=ci-redis-pass' \
+            'LIFOLO_REDIS_PASSWORD=ci-redis-pass' 'GUEST_RATE_PER_MINUTE=1000000' \
+            | sudo tee /etc/lifolo/env >/dev/null
+          sudo chown root:lifolo /etc/lifolo/env && sudo chmod 0600 /etc/lifolo/env
+          # আজকের production-এর এক-instance সার্ভিস (blue/green-এর আগের setup-base.sh যেমন লিখত)
+          sudo tee /etc/systemd/system/lifolo-api.service >/dev/null <<'EOF'
+          [Unit]
+          Description=Lifolo API (Spring Boot)
+          After=network-online.target
+          ConditionPathExists=/opt/lifolo/api/app.jar
+          [Service]
+          Type=simple
+          User=lifolo
+          Group=lifolo
+          WorkingDirectory=/opt/lifolo/api
+          EnvironmentFile=/etc/lifolo/env
+          ExecStart=/usr/bin/java -Xmx1g -XX:+ExitOnOutOfMemoryError -jar /opt/lifolo/api/app.jar
+          Restart=always
+          RestartSec=5
+          SuccessExitStatus=143
+          TimeoutStopSec=30
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          # https: নিজের CA + সার্টিফিকেট, এই মেশিনে বিশ্বাসযোগ্য (curl আর Python দুটোই)
+          d="$RUNNER_TEMP/tls"; mkdir -p "$d"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=Lifolo CI CA" -keyout "$d/ca.key" -out "$d/ca.crt" 2>/dev/null
+          openssl req -newkey rsa:2048 -nodes -subj "/CN=$DOMAIN" -keyout "$d/site.key" -out "$d/site.csr" 2>/dev/null
+          printf 'subjectAltName=DNS:%s\n' "$DOMAIN" > "$d/ext.cnf"
+          openssl x509 -req -in "$d/site.csr" -CA "$d/ca.crt" -CAkey "$d/ca.key" -CAcreateserial -days 2 -extfile "$d/ext.cnf" -out "$d/site.crt" 2>/dev/null
+          sudo cp "$d/ca.crt" /usr/local/share/ca-certificates/lifolo-ci.crt && sudo update-ca-certificates >/dev/null
+          sudo install -m 0644 "$d/site.crt" /etc/ssl/certs/lifolo-ci-site.crt
+          sudo install -m 0600 "$d/site.key" /etc/ssl/private/lifolo-ci-site.key
+          echo "127.0.0.1 $DOMAIN" | sudo tee -a /etc/hosts >/dev/null
+          sudo install -d -m 0755 /etc/nginx/snippets
+          echo '# placeholder (setup-base.sh)' | sudo tee /etc/nginx/snippets/lifolo-api.conf >/dev/null
+          sudo tee /etc/nginx/sites-enabled/lifolo-ci >/dev/null <<EOF
+          server {
+              listen 443 ssl;
+              server_name $DOMAIN;
+              ssl_certificate /etc/ssl/certs/lifolo-ci-site.crt;
+              ssl_certificate_key /etc/ssl/private/lifolo-ci-site.key;
+              include /etc/nginx/snippets/lifolo-api.conf;
+              location = /healthz { default_type application/json; return 200 '{"ok":true,"stage":"base"}'; }
+          }
+          EOF
+          sudo nginx -t
+          sudo systemctl restart nginx
+          for _ in $(seq 1 30); do docker exec pg pg_isready -U lifolo -q && break; sleep 1; done
+
+      - name: 0) today's single-instance deploy (legacy deploy-backend.sh)
+        run: |
+          set -euo pipefail
+          git show "$LEGACY_REF:deploy/deploy-backend.sh" > "$RUNNER_TEMP/legacy-deploy-backend.sh"
+          printf 'ADMIN_EMAILS=ci@example.com\n' > "$RUNNER_TEMP/provided.env"
+          sudo cp "$RUNNER_TEMP/provided.env" /root/lifolo-setup/provided.env
+          sudo cp "$RUNNER_TEMP/v1.jar" /root/lifolo-setup/app.jar.new
+          sudo bash "$RUNNER_TEMP/legacy-deploy-backend.sh" --ci --domain "$DOMAIN" --jar /root/lifolo-setup/app.jar.new \
+            --sha256 "$(sha256sum "$RUNNER_TEMP/v1.jar" | awk '{print $1}')" --provided /root/lifolo-setup/provided.env | tail -30
+          systemctl is-active lifolo-api.service
+          curl -fsS "https://$DOMAIN/api/health"; echo
+
+      - name: Start the hammer (health + API action through nginx https)
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          nohup python3 deploy/ci/bluegreen-hammer.py "$DOMAIN" "$RUNNER_TEMP/out/hammer.json" "$RUNNER_TEMP/stop" > "$RUNNER_TEMP/out/hammer.log" 2>&1 &
+          sleep 5
+          test -z "$(ls "$RUNNER_TEMP/stop" 2>/dev/null)"
+
+      - name: 1-4) blue/green deploys under load
+        id: deploys
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/out"
+          fails=""
+          deploy() { # $1 নাম, $2 jar, $3 প্রত্যাশা ok|fail
+            local name="$1" jar="$2" want="$3" rc=0
+            echo "::group::deploy $name ($(basename "$jar"), expect $want)"
+            sudo cp "$RUNNER_TEMP/provided.env" /root/lifolo-setup/provided.env
+            sudo cp "$jar" /root/lifolo-setup/app.jar.new
+            sudo bash deploy/deploy-backend.sh --ci --domain "$DOMAIN" --jar /root/lifolo-setup/app.jar.new \
+              --sha256 "$(sha256sum "$jar" | awk '{print $1}')" --provided /root/lifolo-setup/provided.env > "$out/deploy-$name.log" 2>&1 || rc=$?
+            tail -60 "$out/deploy-$name.log"
+            sudo cat /var/lib/lifolo/deploy-status > "$out/status-$name.txt"
+            echo "::endgroup::"
+            echo "deploy $name: rc=$rc"
+            if [ "$want" = ok ] && [ "$rc" != 0 ]; then fails="$fails $name(rc=$rc)"; fi
+            if [ "$want" = fail ] && [ "$rc" = 0 ]; then fails="$fails $name(should-fail)"; fi
+          }
+          stv() { sed -n "s/^$2=//p" "$out/status-$1.txt" | tail -1; }
+          # আশা: live পোর্ট, ঠিক একটা lifolo-api* চালু, JobRunr শুধু তাতে running, ডাটাবেসে একটা JobRunr server
+          expect_live() { # $1 নাম, $2 পোর্ট
+            local name="$1" port="$2" n jobs other dbn
+            [ "$(cat /etc/lifolo/api-port 2>/dev/null)" = "$port" ] || fails="$fails $name(api-port=$(cat /etc/lifolo/api-port 2>/dev/null))"
+            n="$(systemctl list-units --state=active --no-legend --plain 'lifolo-api*' | grep -c '^lifolo-api' || true)"
+            [ "$n" = 1 ] || fails="$fails $name(active-units=$n)"
+            systemctl is-active --quiet "lifolo-api@$port" || fails="$fails $name(lifolo-api@$port-inactive)"
+            sudo grep -q "server 127.0.0.1:$port max_fails=0;" /etc/nginx/conf.d/lifolo-api-upstream.conf || fails="$fails $name(nginx-upstream)"
+            curl -fsS -m 5 http://127.0.0.1:8088/api/health | grep -q '"ok":true' || fails="$fails $name(local-8088)"
+            cron="$(sudo sed -n 's/^CRON_SECRET=//p' /etc/lifolo/app.env)"
+            jobs="$(curl -sS -m 10 -X POST -H "Authorization: Bearer $cron" "http://127.0.0.1:$port/api/cron/jobs" || true)"
+            echo "$name jobs: $jobs"
+            echo "$jobs" | grep -q '"server":"running"' || fails="$fails $name(jobs-not-running)"
+            if [ "$port" = 8080 ]; then other=8081; else other=8080; fi
+            ! curl -fsS -m 3 "http://127.0.0.1:$other/api/health" >/dev/null 2>&1 || fails="$fails $name(old-still-up)"
+            # আগেরটা থামলে তার সারি সরে যায় (না সরলে JobRunr-এর server timeout ~৬০ s পরে)
+            for _ in $(seq 1 40); do
+              dbn="$(docker exec pg psql -U lifolo -d lifolo -tAc 'SELECT count(*) FROM jobrunr_backgroundjobservers' 2>/dev/null | tr -d ' ')"
+              [ "$dbn" = 1 ] && break
+              sleep 2
+            done
+            echo "$name jobrunr servers in db: $dbn"
+            [ "$dbn" = 1 ] || fails="$fails $name(jobrunr-servers=$dbn)"
+            { echo "## $name"; echo "api-port=$(cat /etc/lifolo/api-port)"; echo "jobs=$jobs"; echo "jobrunr_servers_db=$dbn"; } >> "$out/checks.txt"
+          }
+
+          deploy 1-legacy-to-bluegreen "$RUNNER_TEMP/v2.jar" ok
+          expect_live 1-legacy-to-bluegreen 8081
+          [ "$(stv 1-legacy-to-bluegreen switch_from | cut -d' ' -f1)" = lifolo-api.service ] || fails="$fails 1(switch_from)"
+          [ "$(stv 1-legacy-to-bluegreen switch_5xx)" = 0 ] || fails="$fails 1(probe-5xx=$(stv 1-legacy-to-bluegreen switch_5xx))"
+          [ ! -f /etc/systemd/system/lifolo-api.service ] || fails="$fails 1(legacy-unit-still-there)"
+
+          since="$(date '+%Y-%m-%d %H:%M:%S')"
+          deploy 2-bluegreen "$RUNNER_TEMP/v1.jar" ok
+          expect_live 2-bluegreen 8080
+          [ "$(stv 2-bluegreen switch)" = "bluegreen: 8081 → 8080" ] || fails="$fails 2(switch=$(stv 2-bluegreen switch))"
+          [ "$(stv 2-bluegreen switch_5xx)" = 0 ] || fails="$fails 2(probe-5xx)"
+          # JobRunr: নতুনটা hold-এ শুরু → আগেরটা থামে → নতুনটা চালু (একসাথে কখনো দুটো নয়)
+          sudo journalctl -u 'lifolo-api@*' --since "$since" --no-pager -o short-iso | grep -E 'JobRunr: background jobs|BackgroundJobServer and BackgroundJobPerformers stopped|using .* BackgroundJobPerformers started' | tee "$out/jobs-handover.txt" || true
+          grep -q 'background jobs held' "$out/jobs-handover.txt" || fails="$fails 2(no-hold)"
+          grep -q 'handed over to the new instance' "$out/jobs-handover.txt" || fails="$fails 2(no-handover-stop)"
+          grep -q 'background jobs started (deploy hand-over)' "$out/jobs-handover.txt" || fails="$fails 2(no-handover-start)"
+          if [ -z "$(awk '/handed over to the new instance/{s=NR} /background jobs started \(deploy hand-over\)/{if(s && NR>s) ok=1} END{if(ok) print 1}' "$out/jobs-handover.txt")" ]; then
+            fails="$fails 2(handover-order)"
+          fi
+
+          deploy 3-broken-jar "$RUNNER_TEMP/broken.jar" fail
+          expect_live 3-broken-jar 8080
+          case "$(stv 3-broken-jar rollback)" in "ok (the previous release kept serving on :8080"*) ;; *) fails="$fails 3(rollback=$(stv 3-broken-jar rollback))" ;; esac
+
+          deploy 4-after-failure "$RUNNER_TEMP/v2.jar" ok
+          expect_live 4-after-failure 8081
+          [ "$(stv 4-after-failure switch_5xx)" = 0 ] || fails="$fails 4(probe-5xx)"
+
+          echo "fails=$fails" | tee "$out/fails.txt"
+          echo "fails=$fails" >> "$GITHUB_OUTPUT"
+          [ -z "$fails" ]
+
+      - name: Stop the hammer - zero 5xx
+        id: hammer
+        if: always()
+        run: |
+          touch "$RUNNER_TEMP/stop"
+          for _ in $(seq 1 60); do [ -s "$RUNNER_TEMP/out/hammer.json" ] && break; sleep 1; done
+          cat "$RUNNER_TEMP/out/hammer.log"
+          python3 - "$RUNNER_TEMP/out/hammer.json" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          r = json.load(open(sys.argv[1]))
+          print(f"line=requests {r['total']} in {r['seconds']} s · 2xx health {r['2xx_health']} · 2xx API action {r['2xx_action']} · 5xx {r['5xx']} · errors {r['errors']} · reused-connection retries {r['reused_retry']}")
+          print(f"ok={'yes' if r['5xx'] == 0 and r['errors'] == 0 and r['2xx_health'] > 500 and r['2xx_action'] > 200 else 'no'}")
+          PY
+          python3 -c "import json,sys; [print(l) for l in json.load(open(sys.argv[1]))['bad'][:80]]" "$RUNNER_TEMP/out/hammer.json" || true
+          grep -q '^ok=yes' "$GITHUB_OUTPUT"
+
+      - name: Summary and log branch (ci-log-bluegreen)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: bluegreen ${{ github.sha }} ${{ job.status }}
+          FAILS: ${{ steps.deploys.outputs.fails }}
+          HAMMER: ${{ steps.hammer.outputs.line }}
+          HAMMER_OK: ${{ steps.hammer.outputs.ok }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          sudo journalctl -u 'lifolo-api*' --no-pager -o short-iso > "$out/app.log" 2>/dev/null || true
+          g() { sed -n "s/^$2=//p" "$out/status-$1.txt" 2>/dev/null | tail -1; }
+          {
+            if [ "${{ job.status }}" = success ]; then echo "## ✅ blue/green deploy: বিরতি ছাড়া"; else echo "## ❌ blue/green deploy-এর পরীক্ষা ব্যর্থ"; fi
+            echo
+            echo "commit \`${GITHUB_SHA:0:7}\` (${GITHUB_REF_NAME}) · load: ${HAMMER:-—} · $([ "$HAMMER_OK" = yes ] && echo '✅ 0 টা 5xx' || echo '❌')"
+            [ -z "$FAILS" ] || { echo; echo "> ব্যর্থ: $FAILS"; }
+            echo
+            echo "| deploy | switch | 5xx (deploy-এর নিজের probe) | JobRunr | rollback | app |"
+            echo "|---|---|---|---|---|---|"
+            for n in 1-legacy-to-bluegreen 2-bluegreen 3-broken-jar 4-after-failure; do
+              echo "| $n | $(g "$n" switch) | $(g "$n" switch_probe) | $(g "$n" jobs) | $(g "$n" rollback) | $(g "$n" app) |"
+            done
+          } > "$out/summary.md"
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          { echo "commit=${GITHUB_SHA}"; echo "branch=${GITHUB_REF_NAME}"; echo "job=${{ job.status }}"; echo "run=${GITHUB_RUN_ID}"; } > "$out/status.txt"
+          sudo chown -R "$(id -u)" "$out"
+          # shellcheck disable=SC2046  # নামগুলো আমাদের বানানো (ফাঁকা নেই)
+          bash .github/scripts/publish-log.sh ci-log-bluegreen "$out" $(cd "$out" && ls)

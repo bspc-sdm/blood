@@ -68,10 +68,22 @@ object SentryScrub {
     }
 }
 
-/** picked up by the Sentry Spring Boot starter */
+/**
+ * picked up by the Sentry Spring Boot starter. Client disconnects (AsyncRequestNotUsableException, Tomcat's
+ * ClientAbortException, IOException "Broken pipe" — an SSE client or phone that went away) are dropped: they are not
+ * server errors, and Sentry's own exception resolver would otherwise report every one of them.
+ */
 @Component
 class SentryScrubber : SentryOptions.BeforeSendCallback {
-    override fun execute(event: SentryEvent, hint: Hint): SentryEvent = SentryScrub.event(event)
+    override fun execute(event: SentryEvent, hint: Hint): SentryEvent? =
+        if (isClientDisconnect(event)) null else SentryScrub.event(event)
+
+    companion object {
+        fun isClientDisconnect(event: SentryEvent): Boolean {
+            if (ClientDisconnect.isClientDisconnect(event.throwable)) return true
+            return event.exceptions?.any { ClientDisconnect.matches(it.type, it.value) } == true
+        }
+    }
 }
 
 @Component

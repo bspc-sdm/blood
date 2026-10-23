@@ -95,7 +95,7 @@ removed=$((removed + n))
 kv old_rotated_removed "$removed"
 
 # ---------------------------------------------------------------- অ্যাপের নিজের লগ ফাইল?
-pid="$(systemctl show -p MainPID --value lifolo-api.service 2>/dev/null || echo 0)"
+pid="$(systemctl show -p MainPID --value "$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api.service)" 2>/dev/null || echo 0)"
 files=""
 if [ "${pid:-0}" != 0 ]; then files="$(find "/proc/$pid/fd" -maxdepth 1 -type l -printf '%l\n' 2>/dev/null | grep -E '\.log' | sort -u | tr '\n' ' ' || true)"; fi
 kv app_log_files "${files:-none (stdout → journald, ${JOURNAL_DAYS} দিন)}"

@@ -190,7 +190,7 @@ class PlatformSecurityIT : IntegrationTest() {
         assertFalse(xml.getContentAsString(Charsets.UTF_8).contains("Exception"))
         // an unexpected failure: the generic message only (and the details only in the log / scrubbed Sentry)
         val req = MockHttpServletRequest("POST", "/api/community")
-        val r = ApiErrorHandler().other(IllegalStateException("password=hunter2 at row 01711000001"), req)
+        val r = ApiErrorHandler().other(IllegalStateException("password=hunter2 at row 01711000001"), req)!!
         assertEquals(500, r.statusCode.value())
         assertEquals(ApiErrorHandler.body(500, "", null, null), r.body)
         assertFalse(r.body.toString().contains("hunter2") || r.body.toString().contains("01711000001"))

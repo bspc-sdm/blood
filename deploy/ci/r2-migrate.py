@@ -15,7 +15,19 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = "http://127.0.0.1:8080/api/cron/storage"
+
+def api_port():
+    """blue/green (deploy-backend.sh): live instance-এর পোর্ট /etc/lifolo/api-port-এ (8080 বা 8081)"""
+    try:
+        with open("/etc/lifolo/api-port", encoding="utf-8") as f:
+            p = f.read().strip()
+        return p if p in ("8080", "8081") else "8080"
+    except OSError:
+        return "8080"
+
+
+# সরাসরি live instance (লম্বা কাজ — nginx-এর timeout নয়)
+BASE = f"http://127.0.0.1:{api_port()}/api/cron/storage"
 SOURCES = ["profilePhoto", "profileThumb", "verifyDocs", "labReportPhotos"]
 LIMIT = 200
 MAX_ROUNDS = 1000

@@ -10,6 +10,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
@@ -39,8 +40,22 @@ class ApiErrorHandler {
     fun badBody(req: HttpServletRequest): ResponseEntity<Map<String, Any?>> =
         envelope(400, Lang.tr(Lang.of(req), "Invalid request", "অনুরোধ ঠিক নেই"), null, Lang.of(req)) // bn-ok
 
+    /**
+     * The client went away while we were writing (SSE stream, slow answer): Spring dispatches the async error here.
+     * The response cannot be written any more — nothing to send, nothing to report (debug log only, no Sentry).
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException::class)
+    fun clientGone(e: AsyncRequestNotUsableException, req: HttpServletRequest) {
+        log.debug("client disconnected on {}: {}", req.requestURI, e.message)
+    }
+
     @ExceptionHandler(Exception::class)
-    fun other(e: Exception, req: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+    fun other(e: Exception, req: HttpServletRequest): ResponseEntity<Map<String, Any?>>? {
+        if (ClientDisconnect.isClientDisconnect(e)) {
+            // Tomcat's ClientAbortException / "Broken pipe" — the client is gone, the response is unusable
+            log.debug("client disconnected on {}: {}", req.requestURI, e.toString())
+            return null
+        }
         log.error("unhandled error on {}", req.requestURI, e)
         Sentry.captureException(e)
         return envelope(500, "", null, Lang.of(req))

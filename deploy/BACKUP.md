@@ -85,7 +85,8 @@ sudo -u postgres dropdb lifolo_restore_test            # কাজ শেষে 
 
 ```bash
 F=/var/backups/lifolo/lifolo-20261020-213012.dump                       # (ক) কোন ব্যাকআপ
-systemctl stop lifolo-api                                                # অ্যাপ বন্ধ (কিছুক্ষণ সাইট কাজ করবে না)
+U=$(lifolo-api unit)                                                     # এখন যে instance live (lifolo-api@8080/8081)
+systemctl stop "$U"                                                     # অ্যাপ বন্ধ (কিছুক্ষণ সাইট কাজ করবে না)
 sudo -u postgres pg_dump -Fc -d lifolo \
   -f /var/backups/lifolo/lifolo-before-restore-$(date -u +%Y%m%d-%H%M%S).dump   # (খ) এখনকার অবস্থার কপি
 sudo -u postgres dropdb --force lifolo                                   # (গ) পুরোনোটা মুছে
@@ -93,8 +94,8 @@ sudo -u postgres createdb -O lifolo lifolo                               #     �
 sudo -u postgres psql -c "REVOKE ALL ON DATABASE lifolo FROM PUBLIC" \
   -c "GRANT CONNECT, TEMPORARY ON DATABASE lifolo TO lifolo"
 sudo -u postgres pg_restore --exit-on-error --single-transaction -d lifolo "$F"   # (ঘ) ফেরত আনা
-systemctl start lifolo-api                                               # (ঙ) অ্যাপ চালু
-curl -s http://127.0.0.1:8080/api/health; echo                          # "ok":true দেখালে ঠিক
+systemctl start "$U"                                                    # (ঙ) অ্যাপ চালু
+curl -s "$(lifolo-api url)/api/health"; echo                             # "ok":true দেখালে ঠিক
 ```
 
 `pg_restore` কোনো ত্রুটি দেখালে `--single-transaction`-এর জন্য কিছুই অর্ধেক বসে না — ডাটাবেস ফাঁকা থাকে। তখন (খ)-এর

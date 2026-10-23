@@ -24,7 +24,11 @@ set -u
 CMD="${1:-}"
 shift || true
 DB=lifolo
-UNIT=lifolo-api.service
+# blue/green (deploy-backend.sh): live instance lifolo-api@8080|8081 — আগের এক-instance হলে lifolo-api.service
+UNIT="$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api.service)"
+API_URL="$(/usr/local/sbin/lifolo-api url 2>/dev/null || echo http://127.0.0.1:8080)"
+# লগ: দুটো instance আর পুরোনো সার্ভিস — সব একসাথে (deploy-এ instance বদলায়)
+JU='lifolo-api*'
 
 psqlq() { sudo -u postgres psql -X -q -At -d "$DB" "$@"; }
 kv() { printf '%s=%s\n' "$1" "$(printf '%s' "$2" | tr -d '\n\r' | cut -c1-300)"; }
@@ -68,7 +72,7 @@ config)
   kv nginx_limit_req "$(nginx -T 2>/dev/null | grep -cE '^\s*limit_req(_zone)?\s' || true)"
   kv nginx_nofile "$(awk '/Max open files/{print $4}' "/proc/$(pgrep -o nginx)/limits" 2>/dev/null || echo '?')"
   kv redis_used_memory "$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 info memory 2>/dev/null | tr -d '\r' | sed -n 's/^used_memory_human://p')"
-  kv app_limiter_fail_open_1h "$(journalctl -u "$UNIT" --since '-1h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
+  kv app_limiter_fail_open_1h "$(journalctl -u "$JU" --since '-1h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
   kv redis_maxmemory "$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 config get maxmemory 2>/dev/null | tail -1)"
   kv cpus "$(nproc)"
   kv mem_total_mb "$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
@@ -82,7 +86,7 @@ services)
   kv booted_at "$(uptime -s)"
   kv uptime_s "$(awk '{printf "%d", $1}' /proc/uptime)"
   kv boot_time "$(systemd-analyze 2>/dev/null | head -1 | sed 's/^Startup finished in //')"
-  for u in lifolo-api nginx postgresql postgresql@16-main redis-server ssh fail2ban ufw unattended-upgrades cron \
+  for u in "$UNIT" nginx postgresql postgresql@16-main redis-server ssh fail2ban ufw unattended-upgrades cron \
            lifolo-backup.timer certbot.timer logrotate.timer; do
     a="$(systemctl is-active "$u" 2>/dev/null || true)"
     e="$(systemctl is-enabled "$u" 2>/dev/null || true)"
@@ -96,8 +100,8 @@ services)
   kv api_restarts "$(systemctl show -p NRestarts --value "$UNIT")"
   kv api_active_since "$(systemctl show -p ActiveEnterTimestamp --value "$UNIT")"
   # বুটের কত পরে অ্যাপ চালু (Spring-এর "Started … in N seconds")
-  kv api_spring_started "$(journalctl -b -u "$UNIT" --no-pager -o cat 2>/dev/null | grep -oE 'Started [A-Za-z]+ in [0-9.]+ seconds' | tail -1)"
-  kv api_health_local "$(curl -fsS -m 5 http://127.0.0.1:8080/api/health 2>/dev/null | grep -q '"ok":true' && echo ok || echo down)"
+  kv api_spring_started "$(journalctl -b -u "$JU" --no-pager -o cat 2>/dev/null | grep -oE 'Started [A-Za-z]+ in [0-9.]+ seconds' | tail -1)"
+  kv api_health_local "$(curl -fsS -m 5 "$API_URL/api/health" 2>/dev/null | grep -q '"ok":true' && echo ok || echo down)"
   kv pg_ready "$(pg_isready -q && echo ok || echo down)"
   kv redis_ping "$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 ping 2>/dev/null || echo down)"
   kv swap_on "$(swapon --show --noheadings | awk '{print $1}' | tr '\n' ' ')"
@@ -126,7 +130,7 @@ while :; do
   cpu=$(( (t-pt) > 0 ? 100*(b-pb)/(t-pt) : 0 )); pb=$b; pt=$t
   load1=$(cut -d' ' -f1 /proc/loadavg)
   read -r mt ma swt swf < <(awk '/MemTotal/{a=$2}/MemAvailable/{b=$2}/SwapTotal/{c=$2}/SwapFree/{d=$2}END{print a,b,c,d}' /proc/meminfo)
-  pid=$(systemctl show -p MainPID --value lifolo-api 2>/dev/null || echo 0)
+  pid=$(systemctl show -p MainPID --value "$(/usr/local/sbin/lifolo-api unit 2>/dev/null || echo lifolo-api)" 2>/dev/null || echo 0)
   rss=0; thr=0; jc=0
   if [ "${pid:-0}" != 0 ] && [ -r "/proc/$pid/stat" ]; then
     rss=$(awk '/VmRSS/{printf "%d", $2/1024}' "/proc/$pid/status"); thr=$(awk '/Threads/{print $2}' "/proc/$pid/status")
@@ -136,7 +140,7 @@ while :; do
   fi
   pg=$(sudo -u postgres psql -X -At -F, -d lifolo -c "SELECT count(*) FILTER (WHERE state='active'), count(*) FILTER (WHERE state='idle'), count(*) FILTER (WHERE state LIKE 'idle in%'), count(*) FILTER (WHERE wait_event_type='Lock'), count(*) FROM pg_stat_activity WHERE datname='lifolo' AND pid <> pg_backend_pid()" 2>/dev/null || echo ",,,,")
   c443=$(ss -Htn state established '( sport = :443 )' 2>/dev/null | wc -l)
-  c8080=$(ss -Htn state established '( dport = :8080 )' 2>/dev/null | wc -l)
+  c8080=$(ss -Htn state established "( dport = :$(/usr/local/sbin/lifolo-api port 2>/dev/null || echo 8080) )" 2>/dev/null | wc -l)
   echo "$(date +%s),$cpu,$load1,$(( (mt-ma)/1024 )),$((ma/1024)),$(( (swt-swf)/1024 )),$rss,$thr,$jc,$pg,$c443,$c8080" >> "$out"
 done
 EOS
@@ -283,7 +287,7 @@ window)
   kv nginx_upstream_timeouts "$(grep -c 'upstream timed out' "$dir/error.window" || true)"
   kv nginx_conn_refused "$(grep -c 'Connection refused' "$dir/error.window" || true)"
   kv nginx_worker_conns_short "$(grep -c 'worker_connections are not enough' "$dir/error.window" || true)"
-  journalctl -u "$UNIT" --since "$since" --no-pager -o cat 2>/dev/null > "$dir/app.window" || true
+  journalctl -u "$JU" --since "$since" --no-pager -o cat 2>/dev/null > "$dir/app.window" || true
   kv app_log_lines "$(wc -l < "$dir/app.window")"
   kv app_errors "$(grep -cE '\b(ERROR|Exception)\b' "$dir/app.window" || true)"
   kv app_hikari_timeouts "$(grep -c 'Connection is not available, request timed out' "$dir/app.window" || true)"
@@ -347,14 +351,14 @@ disk)
   pid="$(api_pid)"
   files=""
   if [ "${pid:-0}" != 0 ]; then files="$(find "/proc/$pid/fd" -maxdepth 1 -type l -printf '%l\n' 2>/dev/null | grep -E '\.log' | sort -u | tr '\n' ' ')"; fi
-  echo "অ্যাপের লগ: stdout → journald (lifolo-api.service)। খোলা .log ফাইল: ${files:-নেই}"
-  echo "অ্যাপের লগ, আজ: $(journalctl -u "$UNIT" --since today --no-pager -o cat 2>/dev/null | wc -l) লাইন; গত ২৪ ঘণ্টায় ERROR: $(journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null | grep -cE '\bERROR\b' || true)"
+  echo "অ্যাপের লগ: stdout → journald (lifolo-api@8080/@8081, আগে lifolo-api.service)। খোলা .log ফাইল: ${files:-নেই}"
+  echo "অ্যাপের লগ, আজ: $(journalctl -u "$JU" --since today --no-pager -o cat 2>/dev/null | wc -l) লাইন; গত ২৪ ঘণ্টায় ERROR: $(journalctl -u "$JU" --since '-24h' --no-pager -o cat 2>/dev/null | grep -cE '\bERROR\b' || true)"
   echo "গত ২৪ ঘণ্টায় সবচেয়ে বেশি আসা ERROR (ইমেইল/টোকেন/id ঢাকা):"
-  journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null | grep -E '\bERROR\b' \
+  journalctl -u "$JU" --since '-24h' --no-pager -o cat 2>/dev/null | grep -E '\bERROR\b' \
     | sed -E 's/^[0-9T:. +-]+//; s/\[[^]]*\]//g; s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-fA-F-]{20,}/<id>/g; s/[0-9]+/N/g' \
     | cut -c1-150 | sort | uniq -c | sort -rn | head -6 | sed 's/^/  /'
   echo "গত ২৪ ঘণ্টায় ত্রুটির কারণ (Exception, Caused by):"
-  journalctl -u "$UNIT" --since '-24h' --no-pager -o cat 2>/dev/null \
+  journalctl -u "$JU" --since '-24h' --no-pager -o cat 2>/dev/null \
     | grep -E '^(Caused by: )?[a-z][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)+(Exception|Error)\b' \
     | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/eyJ[A-Za-z0-9._-]+/<token>/g; s/[0-9a-f-]{20,}/<id>/g' \
     | cut -c1-200 | sort | uniq -c | sort -rn | head -8 | sed 's/^/  /'
@@ -514,8 +518,8 @@ timers)
     echo
     echo "দৈনিক কাজের (daily-maintenance) লগ, গত ২৬ ঘণ্টা:"
     echo '```'
-    journalctl -u "$UNIT" --since '-26h' --no-pager -o short-iso 2>/dev/null | grep -E 'daily task|Daily maintenance|daily-maintenance' | tail -6 | cut -c1-200 || true
-    echo "(ত্রুটির লাইন: $(journalctl -u "$UNIT" --since '-26h' --no-pager -o cat 2>/dev/null | grep -c 'daily task .* failed' || true)টা)"
+    journalctl -u "$JU" --since '-26h' --no-pager -o short-iso 2>/dev/null | grep -E 'daily task|Daily maintenance|daily-maintenance' | tail -6 | cut -c1-200 || true
+    echo "(ত্রুটির লাইন: $(journalctl -u "$JU" --since '-26h' --no-pager -o cat 2>/dev/null | grep -c 'daily task .* failed' || true)টা)"
     echo '```'
   fi
   ;;
@@ -580,7 +584,7 @@ health)
   while read -r ts; do
     [ -n "$ts" ] || continue
     if is_expected "${ts%%.*}"; then drill=$((drill + 1)); else unexp=$((unexp + 1)); when="$when $(date -u -d "@${ts%%.*}" '+%H:%M')"; fi
-  done < <(journalctl -u "$UNIT" --since '-3h' --no-pager -o short-unix 2>/dev/null | awk '/Scheduled restart job/{print $1}')
+  done < <(journalctl -u "$JU" --since '-3h' --no-pager -o short-unix 2>/dev/null | awk '/Scheduled restart job/{print $1}')
   boot=$(( now - $(awk '{printf "%d", $1}' /proc/uptime) ))
   reboot_note=""
   if [ $((now - boot)) -lt 10800 ]; then
@@ -589,7 +593,7 @@ health)
   when="$(printf '%s\n' $when | sort -u | head -4 | tr '\n' ' ')"
   when="${when%% }"; [ -n "${when// /}" ] || when=""
   row "$([ "$unexp" -gt 0 ] && echo fail || echo ok)" "lifolo-api নিজে restart (৩ ঘণ্টা)" "$unexp অপ্রত্যাশিত${when:+ (UTC $when)}$([ "$drill" = 0 ] || echo ", $drill deploy/মহড়ার")$reboot_note" "> 0 হলে ❌ (deploy/মহড়া বাদ)"
-  h="$(curl -fsS -m 5 http://127.0.0.1:8080/api/health 2>/dev/null | grep -o '"ok":true' || true)"
+  h="$(curl -fsS -m 5 "$API_URL/api/health" 2>/dev/null | grep -o '"ok":true' || true)"
   row "$([ -n "$h" ] && echo ok || echo fail)" "অ্যাপ (ভেতর থেকে /api/health)" "$([ -n "$h" ] && echo চালু || echo বন্ধ)" "বন্ধ হলে ❌"
   # origin-এর পাহারা (নজরে রাখার মতো — ব্যর্থ নয়)
   if [ -x /usr/local/sbin/lifolo-tune ]; then
@@ -604,7 +608,7 @@ health)
   rinfo="$(REDISCLI_AUTH="$(sed -nE 's/^LIFOLO_REDIS_PASSWORD=(.*)$/\1/p' /etc/lifolo/env | tail -1)" redis-cli -h 127.0.0.1 info 2>/dev/null | tr -d '\r')"
   rg() { printf '%s\n' "$rinfo" | sed -n "s/^$1://p" | head -1; }
   rused="$(rg used_memory)"; rmax="$(rg maxmemory)"; rev="$(rg evicted_keys)"; rkeys="$(printf '%s\n' "$rinfo" | sed -nE 's/^db0:keys=([0-9]+).*/\1/p')"
-  lw="$(journalctl -u "$UNIT" --since '-3h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
+  lw="$(journalctl -u "$JU" --since '-3h' --no-pager -o cat 2>/dev/null | grep -c 'rate limiter unavailable' || true)"
   if [ -z "$rused" ]; then
     row warn "Redis" "সাড়া নেই" "বন্ধ হলে ⚠️"
   else

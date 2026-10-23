@@ -115,7 +115,7 @@ Amazon SES production access অনুমোদিত না হলে লগই
 |---|---|
 | নতুন ফোনের অ্যাপ (নতুন সার্ভারে) কাজ করছে না | ২.৩৩.১-এর কোড থেকে আরেকটা নতুন সংস্করণ (versionCode আরও বাড়িয়ে, যেমন ১২১; ঠিকানা Vercel) — `latest`-এ গেলে অ্যাপ আবার Vercel-এ। নিচে "Android" দেখুন। |
 | lifolo.com-এর ওয়েব ভুল দেখাচ্ছে | VPS-এ আগের ওয়েব: `ln -sfn /var/www/lifolo-site/releases/<আগেরটা> /var/www/lifolo-site/current` (Summary-তে "আগেরটা"-র নাম আছে; reload লাগে না)। অথবা আগের commit থেকে Deploy backend আবার। |
-| নতুন সার্ভার (Spring) চালু হচ্ছে না | Deploy backend নিজেই আগের jar-এ ফেরে ("আগের jar-এ ফেরা")। হাতে: `/opt/lifolo/api/app.jar.prev` → `app.jar`, `systemctl restart lifolo-api`। |
+| নতুন সার্ভার (Spring) চালু হচ্ছে না | blue/green: নতুন release চালু না হলে আগেরটাই চলতে থাকে (switch হয় না, বিরতি নেই) — deploy শুধু ব্যর্থ দেখায়। হাতে আগের release-এ: deploy/ZERO-DOWNTIME.md-এর "হাতে আগের release-এ ফেরা"। |
 | Cloudflare proxy চালুর পর সমস্যা | Cloudflare-এ মেঘ আবার ধূসর (DNS only) — কয়েক মিনিটে সরাসরি VPS। |
 | পুরো VPS-ই সমস্যায় | অ্যাপের আগের ঠিকানায় (Vercel) নতুন সংস্করণ (ওপরের প্রথম সারি); ওয়েবের জন্য Cloudflare-এ `lifolo.com` আর `www` Vercel-এর দিকে (Vercel-এ ডোমেইন যোগ করে)। |
 | নতুন সার্ভারে লেখা তথ্য | Firestore-এ ফেরে না। Vercel-এ ফিরলে নতুন সার্ভারে দেওয়া তথ্য সেখানে থাকবে না (এখন শুধু মালিকের, তাই ঝুঁকি কম)। |

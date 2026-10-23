@@ -148,7 +148,7 @@ jobs:
           python3 deploy/ci/stun-check.py "$NODE_IP" 3478
           # LiveKit webhooks go to the API (stuck calls end on participant_left / room_finished)
           sudo grep -q '^webhook:' /etc/livekit/livekit.yaml
-          sudo grep -qE '^    - (http://127\.0\.0\.1:8080|https://lifolo\.com)/api/livekit/webhook$' /etc/livekit/livekit.yaml
+          sudo grep -qE '^    - (http://127\.0\.0\.1:8088|https://lifolo\.com)/api/livekit/webhook$' /etc/livekit/livekit.yaml
           tok="$RUNNER_TEMP/tok"; LIFOLO_MASTER=ci-test-master node deploy/ci/livekit-keys.js --token "$tok"
           if [ "${{ matrix.mode }}" = main ]; then
             host=lifolo.test

@@ -2,6 +2,10 @@
 spring:
   application:
     name: lifolo-backend
+  # graceful shutdown (blue/green deploy stops the old instance after the drain): in-flight requests get up to 20 s;
+  # systemd's TimeoutStopSec (60 s) is above it. SSE streams are closed at once (SseHub.closeAll) and reconnect.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   threads:
     virtual:
       enabled: true
@@ -77,6 +81,10 @@ sentry:
   in-app-includes: com.lifolo
 
 lifolo:
+  # blue/green deploy: the new instance starts with LIFOLO_JOBS_HOLD=true and gets the JobRunr jobs after the switch
+  # (jobs/JobsGate.kt, deploy/deploy-backend.sh)
+  jobs:
+    hold: ${LIFOLO_JOBS_HOLD:false}
   admin-emails: ${ADMIN_EMAILS:}
   cron-secret: ${CRON_SECRET:}
   web-session-secret: ${WEB_SESSION_SECRET:}

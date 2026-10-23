@@ -11,7 +11,8 @@
 #   2 GB swap, lifolo ব্যবহারকারী, JDK 21 (Eclipse Temurin; না হলে Ubuntu-র openjdk-21),
 #   PostgreSQL 16 (শুধু localhost; ডাটাবেস+ব্যবহারকারী lifolo), Redis (শুধু localhost, পাসওয়ার্ডসহ),
 #   গোপন মান /etc/lifolo/env (0600 root:lifolo), nginx + "setting up" পাতা + /healthz, Let's Encrypt (certbot),
-#   lifolo-api.service (java -jar /opt/lifolo/api/app.jar; jar না থাকলে বন্ধ), nginx-এ /api → 127.0.0.1:8080
+#   lifolo-api@.service (blue/green: lifolo-api@8080 / @8081, java -jar /opt/lifolo/api/app-<port>.jar; jar না থাকলে বন্ধ),
+#   nginx-এ /api → 127.0.0.1:8080 (Deploy backend পরে upstream lifolo_api-তে নেয়)
 #   (jar থাকলে চালু, না হলে মন্তব্য করা), প্রতিদিন pg_dump → /var/backups/lifolo (১৪ দিন)।
 # কোনো গোপন মান ছাপা হয় না।
 set -euo pipefail
@@ -224,7 +225,7 @@ EOF
   say "গোপন সেটিং: $ENV_FILE (0600 root:$APP_USER)"
   install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
   if [ ! -f "$ENV_FILE" ]; then
-    ( umask 077; printf '# Lifolo — গোপন সেটিং (setup-base.sh বানিয়েছে)। systemd (lifolo-api.service) পড়ে।\n' > "$ENV_FILE" )
+    ( umask 077; printf '# Lifolo — গোপন সেটিং (setup-base.sh বানিয়েছে)। systemd (lifolo-api@.service) পড়ে।\n' > "$ENV_FILE" )
   fi
   chown root:"$APP_USER" "$ENV_FILE"
   chmod 0600 "$ENV_FILE"
@@ -299,18 +300,21 @@ EOF
   if [ "$(redis-cli -h 127.0.0.1 ping 2>&1 || true)" = PONG ]; then die "Redis পাসওয়ার্ড ছাড়াই খোলা!"; fi
   unset DB_PASS REDIS_PASS
 
-  # ---------------------------------------------------------------- API (Spring Boot) — jar এলে চালু
-  say "systemd: lifolo-api.service (java -jar $API_JAR)"
+  # ---------------------------------------------------------------- API (Spring Boot) — blue/green, jar এলে চালু
+  # দুটো instance lifolo-api@8080 / lifolo-api@8081 (একসময়ে একটাই live; deploy-backend.sh বদলায় — deploy/ZERO-DOWNTIME.md)।
+  # template-এর লেখা deploy-backend.sh-এর unit_template()-এর সাথে মিলিয়ে রাখুন।
+  say "systemd: lifolo-api@.service (blue/green: lifolo-api@8080 / lifolo-api@8081)"
   install -d -o root -g "$APP_USER" -m 0755 /opt/lifolo
   install -d -o root -g "$APP_USER" -m 0750 "$API_DIR"
-  cat > /etc/systemd/system/lifolo-api.service <<EOF
-# Lifolo API (Kotlin + Spring Boot) — setup-base.sh বানিয়েছে; আবার চালালে আবার লেখা হয়।
-# jar রাখুন $API_JAR-এ (root:$APP_USER, 0640), তারপর: systemctl enable --now lifolo-api
+  cat > /etc/systemd/system/lifolo-api@.service <<EOF
+# Lifolo API (Kotlin + Spring Boot) — blue/green: lifolo-api@8080 আর lifolo-api@8081, একসময়ে একটাই live
+# (nginx-এর upstream lifolo_api, /etc/lifolo/api-port)। deploy-backend.sh / setup-base.sh লেখে — হাতে বদলাবেন না।
+# এখন কোনটা: lifolo-api unit · লগ: journalctl -u 'lifolo-api@*'
 [Unit]
-Description=Lifolo API (Spring Boot)
+Description=Lifolo API (Spring Boot) on 127.0.0.1:%i
 After=network-online.target postgresql.service redis-server.service
 Wants=network-online.target
-ConditionPathExists=$API_JAR
+ConditionPathExists=$API_DIR/app-%i.jar
 
 [Service]
 Type=simple
@@ -318,12 +322,13 @@ User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$API_DIR
 EnvironmentFile=$ENV_FILE
-# JVM-এর আসল সেটিং (-Xms1g -Xmx3g, G1 …) tune-vps.sh-এর drop-in-এ (lifolo-api.service.d/20-tuning.conf) — এটা তার আগের ভিত্তি
-ExecStart=/usr/bin/java -Xmx1g -XX:+ExitOnOutOfMemoryError -jar $API_JAR
+Environment="LIFOLO_JAVA_OPTS=-Xmx1g -XX:+ExitOnOutOfMemoryError"
+ExecStart=/usr/bin/java \$LIFOLO_JAVA_OPTS -Dserver.port=%i -Dserver.address=127.0.0.1 -jar $API_DIR/app-%i.jar
 Restart=always
 RestartSec=5
 SuccessExitStatus=143
-TimeoutStopSec=30
+# Spring-এর graceful shutdown ২০ s (application.yml) + JobRunr থামা — তার ওপরে
+TimeoutStopSec=60
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=full
@@ -334,16 +339,27 @@ ProtectControlGroups=yes
 [Install]
 WantedBy=multi-user.target
 EOF
-  chmod 0644 /etc/systemd/system/lifolo-api.service
+  chmod 0644 /etc/systemd/system/lifolo-api@.service
   systemctl daemon-reload
-  local API_STATE
-  if [ -f "$API_JAR" ]; then
-    systemctl enable lifolo-api.service >/dev/null
-    systemctl restart lifolo-api.service
-    API_STATE="jar আছে — চালু"
+  local API_STATE live
+  live="$(cat /etc/lifolo/api-port 2>/dev/null || true)"
+  if [[ "$live" =~ ^(8080|8081)$ ]] && [ -e "$API_DIR/app-$live.jar" ]; then
+    # Deploy backend বসিয়েছে — চলমান instance-এ হাত নয় (restart = বিরতি); বন্ধ থাকলে চালু
+    systemctl enable "lifolo-api@$live.service" >/dev/null 2>&1 || true
+    systemctl is-active --quiet "lifolo-api@$live.service" || systemctl start "lifolo-api@$live.service" || true
+    API_STATE="blue/green: lifolo-api@$live চালু (হাত দেওয়া হলো না)"
+  elif [ -f /etc/systemd/system/lifolo-api.service ]; then
+    # blue/green-এর আগের এক-instance সার্ভিস — পরের "Deploy backend" নিজেই বিরতি ছাড়া সরে আসে
+    API_STATE="পুরোনো lifolo-api.service চলছে — পরের Deploy backend blue/green-এ সরাবে"
+  elif [ -f "$API_JAR" ]; then
+    ln -sfn "$(basename "$API_JAR")" "$API_DIR/app-8080.jar"
+    printf '8080\n' > /etc/lifolo/api-port
+    chmod 0644 /etc/lifolo/api-port
+    systemctl enable lifolo-api@8080.service >/dev/null
+    systemctl restart lifolo-api@8080.service
+    API_STATE="jar আছে — lifolo-api@8080 চালু"
   else
-    systemctl disable --now lifolo-api.service >/dev/null 2>&1 || true
-    API_STATE="jar নেই — বন্ধ (ঠিক আছে)"
+    API_STATE="jar নেই — বন্ধ (ঠিক আছে; Deploy backend বসায়)"
   fi
   echo "$API_STATE"
 

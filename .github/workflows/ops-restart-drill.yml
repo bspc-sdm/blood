@@ -130,7 +130,7 @@ jobs:
           ssh vps "bash /root/lifolo-ops/vps-ops.sh services" | tee "$out/after.txt"
           # নতুন সেটিং রিবুটের পরেও (JVM, PostgreSQL, Redis, nginx, ufw)
           ssh vps "/usr/local/sbin/lifolo-tune status 2>/dev/null || true" | tee "$out/tune-after.txt"
-          ssh vps "journalctl -b -u lifolo-api --no-pager -o short-iso | grep -E 'Started Lifolo|Started [A-Za-z]+ in|Main process exited|Failed' | head -6; \
+          ssh vps "journalctl -b -u 'lifolo-api*' --no-pager -o short-iso | grep -E 'Started Lifolo|Started [A-Za-z]+ in|Main process exited|Failed' | head -6; \
                    echo; systemd-analyze blame --no-pager | head -8; echo; systemctl list-timers --no-pager | head -14" > "$out/boot.txt" 2>&1 || true
           cat "$out/boot.txt"
 

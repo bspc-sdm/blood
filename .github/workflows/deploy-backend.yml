@@ -6,7 +6,8 @@ name: Deploy backend
 # আগে একবার "Setup VPS (base)" সফল হতে হবে (একই SSH পদ্ধতি: VPS_HOST + VPS_ROOT_PASSWORD থেকে বানানো চাবি)।
 #
 # ধাপ: jar বানানো → VPS-এ পাঠানো → deploy/tune-vps.sh (JVM/PostgreSQL/Redis/nginx-এর সেটিং, origin শুধু Cloudflare-এর
-# জন্য — ufw) → deploy/deploy-backend.sh (app.env, systemd restart → Flyway, nginx-এ /api /r /rx
+# জন্য — ufw) → deploy/deploy-backend.sh (app.env, blue/green: নতুন release অন্য পোর্টে → Flyway → health → nginx switch →
+# আগেরটা drain করে বন্ধ, কোনো বিরতি নেই — deploy/ZERO-DOWNTIME.md; nginx-এ /api /r /rx
 # /shop /.well-known, ভেতর থেকে পরীক্ষা, ডেমো) → web-vue বিল্ড → deploy/deploy-web.sh (lifolo.com: /w/ /admin/ আর
 # Vercel-এর বাকি পথ, www → lifolo.com, সার্টিফিকেট শুধু DNS এলে) → বাইরে থেকে পরীক্ষা (api.lifolo.com দিয়ে ডেমো লগইন
 # আর কয়েকটা পড়া) → বাংলা সারাংশ।
@@ -549,6 +550,14 @@ jobs:
           WEB_API: ${{ steps.web.outputs.api }}
           WEB_HEALTHZ: ${{ steps.web.outputs.healthz }}
           S_APP: ${{ steps.deploy.outputs.s_app }}
+          S_SWITCH: ${{ steps.deploy.outputs.s_switch }}
+          S_SWITCH_PROBE: ${{ steps.deploy.outputs.s_switch_probe }}
+          S_SWITCH_5XX: ${{ steps.deploy.outputs.s_switch_5xx }}
+          S_JOBS: ${{ steps.deploy.outputs.s_jobs }}
+          S_RELEASE: ${{ steps.deploy.outputs.s_release }}
+          S_LOCAL_PORT: ${{ steps.deploy.outputs.s_local_port }}
+          S_ONE_INSTANCE: ${{ steps.deploy.outputs.s_one_instance }}
+          S_LIVEKIT_WEBHOOK: ${{ steps.deploy.outputs.s_livekit_webhook }}
           S_FLYWAY: ${{ steps.deploy.outputs.s_flyway }}
           S_ROLLBACK: ${{ steps.deploy.outputs.s_rollback }}
           S_NGINX: ${{ steps.deploy.outputs.s_nginx }}
@@ -597,9 +606,16 @@ jobs:
             echo
             echo "| পরীক্ষা | ফল | বিস্তারিত |"
             echo "|---|---|---|"
-            row "অ্যাপ চালু (/api/health, VPS-এর ভেতরে)" "$S_APP" "${S_APP:-—}"
+            row "অ্যাপ চালু (/api/health, VPS-এর ভেতরে)" "$S_APP" "${S_APP:-—}${S_RELEASE:+ · $S_RELEASE}"
+            # blue/green (deploy/ZERO-DOWNTIME.md): পুরোনো ধাঁচে (restart …) গেলে ❌ — কারণ লেখা থাকে
+            row "বিরতি ছাড়া switch (blue/green)" "$(case "$S_SWITCH" in bluegreen:*|fresh:*) echo ok ;; "") echo "" ;; *) echo "$S_SWITCH" ;; esac)" "${S_SWITCH:-—}"
+            [ -z "$S_SWITCH_PROBE" ] || row "switch-এর সময় 5xx (/api/health + API action, VPS থেকে)" "$([ "$S_SWITCH_5XX" = 0 ] && echo ok || echo failed)" "$S_SWITCH_PROBE"
+            row "JobRunr শুধু নতুন instance-এ" "$(case "$S_JOBS" in running*) echo ok ;; "") echo "" ;; *) echo failed ;; esac)" "${S_JOBS:-—}"
+            [ -z "$S_ONE_INSTANCE" ] || row "এখন একটাই instance চালু" "$S_ONE_INSTANCE"
+            [ -z "$S_LOCAL_PORT" ] || row "ভেতরের স্থির ঠিকানা 127.0.0.1:8088 (cron, Sentry test, webhook)" "$S_LOCAL_PORT"
+            [ -z "$S_LIVEKIT_WEBHOOK" ] || row "LiveKit webhook → 127.0.0.1:8088" "$(case "$S_LIVEKIT_WEBHOOK" in ok|moved*restarted*) echo ok ;; *) echo skipped ;; esac)" "$S_LIVEKIT_WEBHOOK"
             row "ডাটাবেস migration (Flyway)" "$([ -n "$S_FLYWAY" ] && echo ok)" "${S_FLYWAY:-—}"
-            [ -z "$S_ROLLBACK" ] || row "আগের jar-এ ফেরা" "$S_ROLLBACK"
+            [ -z "$S_ROLLBACK" ] || row "নতুন release চালু হয়নি → আগেরটা" "$S_ROLLBACK"
             row "nginx: /api/ /r/ /rx/ /shop/ /.well-known/ → অ্যাপ" "$S_NGINX" "${S_NGINX:-—}"
             row "https://$DOMAIN/api/health (VPS থেকে)" "$S_HEALTH_HTTPS" "${S_HEALTH_HTTPS:-—}"
             row "https://$DOMAIN/api/health (ইন্টারনেট থেকে)" "$WEB_API" "${WEB_API:-—}"
@@ -704,7 +720,7 @@ jobs:
               echo "- ⚠️ SES সিক্রেট নেই — লগইন-কোডের ইমেইল যায় না (কোড শুধু VPS-এর লগে)।"
             fi
             echo "- R2 (ছবি): $([ "$S_R2" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)') · Sentry: $([ "$S_SENTRY" = on ] && echo চালু || echo 'বন্ধ (ঐচ্ছিক)')"
-            echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080-এ শোনে, বাইরে থেকে nginx দিয়েই।"
+            echo "- JobRunr dashboard সবসময় বন্ধ; অ্যাপ শুধু 127.0.0.1:8080/8081-এ শোনে (blue/green, একটাই live), বাইরে থেকে nginx দিয়েই।"
             echo "- ২.৩৪.০ থেকে ফোনের অ্যাপ এই সার্ভারে (https://lifolo.com)। পুরোনো সংস্করণের অ্যাপ এখনো Vercel-এ যায় (Vercel চালু রাখা) — বাকি ধাপ: deploy/CUTOVER.md"
             if [ "$JOB_OK" != success ]; then
               echo

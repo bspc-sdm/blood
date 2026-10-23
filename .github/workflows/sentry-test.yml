@@ -57,10 +57,10 @@ jobs:
           VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
         run: |
           bash deploy/ci/vps-connect.sh >/dev/null
-          line="$(ssh vps "journalctl -u lifolo-api.service --since '-30 days' --no-pager 2>/dev/null | grep -o 'sentry initialised:.*' | tail -1" || true)"
+          line="$(ssh vps "journalctl -u 'lifolo-api*' --since '-30 days' --no-pager 2>/dev/null | grep -o 'sentry initialised:.*' | tail -1" || true)"
           echo "log=${line:-not found}" | tee -a "$GITHUB_OUTPUT"
           # shellcheck disable=SC2016  # VPS-এ খোলে
-          out="$(ssh vps 'curl -sS -m 30 -X POST -H "Authorization: Bearer $(sed -n "s/^CRON_SECRET=//p" /etc/lifolo/app.env)" http://127.0.0.1:8080/api/cron/sentry-test' || true)"
+          out="$(ssh vps 'curl -sS -m 30 -X POST -H "Authorization: Bearer $(sed -n "s/^CRON_SECRET=//p" /etc/lifolo/app.env)" $(/usr/local/sbin/lifolo-api local 2>/dev/null || echo http://127.0.0.1:8080)/api/cron/sentry-test' || true)"
           echo "event=${out:0:200}" | tee -a "$GITHUB_OUTPUT"
           ssh -O exit vps 2>/dev/null || true
           rm -rf ~/.ssh/lifolo ~/.ssh/config

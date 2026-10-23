@@ -46,7 +46,8 @@ STATUS_DIR=/var/lib/lifolo
 STATUS=/var/lib/lifolo/call-status
 SIGNAL_PORT=7880
 # LiveKit webhook → API (main: same machine; dedicated: through the public API). LIFOLO_WEBHOOK_URL overrides.
-API_PORT=8080
+# main: 127.0.0.1:8088 = nginx-এর ভেতরের স্থির ঠিকানা → blue/green-এর যেটা live (deploy-backend.sh; অ্যাপ নিজে 8080/8081-এ পালা করে)
+API_PORT=8088
 RTC_TCP=7881
 TURN_UDP=3478
 TURN_TLS_INTERNAL=5349
