@@ -8,10 +8,9 @@ import org.springframework.stereotype.Component
  * `chat` (text messages) and `chat_media` (photos + locations, needs `chat`). Two-party: both people must have the
  * feature to open or send.
  *
- * SHIM until spring-p19's `Features.isOn / require / bothOn` is on main: delegates to the calls' shim [CallFeatures]
- * (`lifolo.feature-shim` keys; empty in production = everything OFF, `*` in the test profile), so `contact_can`'s
- * canMessage and the chat actions read the same switch. [override] lets tests switch a key per person.
- * On the rebase onto p19, [isOn] delegates to `Features.isOn` and this class stays the single place chat asks.
+ * Reads the real switches through [CallFeatures] (which asks [com.lifolo.features.Features] — admin page "ফিচার সুইচ"),
+ * so `contact_can`'s canMessage and the chat actions read the same switch and the calls tests' override covers chat too.
+ * [override] lets tests switch a key per person.
  */
 @Component
 class ChatFeatures(private val shim: CallFeatures) {

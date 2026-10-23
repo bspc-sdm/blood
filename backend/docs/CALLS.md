@@ -72,9 +72,8 @@ the security review (`docs/test-plan/CALLS-SECURITY-REVIEW.md`: R1–R5, R9, R11
   for both; `canMessage` = relation && `chat` on for both.
 * Switching a key off (or taking someone out of the pilot) ends their live calls at the next 15 s check (`end_reason`
   `feature_off`); no `call_missed` push / bell entry for someone with calls off.
-* Until the flags package (spring-p19) is on main, the backend uses a shim (`calls/CallFeatures.kt`) with the same
-  `isOn / require / bothOn` calls: a key is on only when listed in `lifolo.feature-shim.keys` (empty in production = all
-  OFF; tests `*`).
+* `calls/CallFeatures.kt` asks the real switches (`features/Features.kt`, admin page "ফিচার সুইচ", FEATURES.md);
+  tests can pin keys with its `override`.
 
 ## Actions (`POST /api/community`, logged in; own account only — NOT via a caregiver's `asUid`)
 | action | body | answer |

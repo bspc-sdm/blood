@@ -113,9 +113,8 @@ Times are epoch ms. `ctx` ∈ `blood | appointment | ambulance | rx_order | lab_
   `contact_can`'s `canMessage` = relation allowed **and** `chat` on for both.
 * `chat_media` (needs `chat`) gates photos and locations, for both people: otherwise `chat_send` with `photo` /
   `location` → 404 `feature_off`; text still works.
-* Admin actions, the daily job, account deletion and the demo seed are not gated. Until spring-p19's `Features` lands,
-  `ChatFeatures` is a shim over the calls' shim (`lifolo.feature-shim` keys: empty in production = off, `*` in tests),
-  so `contact_can` and the chat actions read the same switch.
+* Admin actions, the daily job, account deletion and the demo seed are not gated. `ChatFeatures` asks the real
+  switches through `CallFeatures` (FEATURES.md), so `contact_can` and the chat actions read the same switch.
 
 ### Errors (standard `{error, code}` body)
 | status / code | when |

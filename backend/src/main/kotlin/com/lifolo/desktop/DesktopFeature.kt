@@ -4,40 +4,30 @@ import com.lifolo.common.ApiException
 import com.lifolo.common.Lang
 import com.lifolo.common.action.ActionContext
 import com.lifolo.demo.DemoWorld
-import org.springframework.beans.factory.annotation.Value
+import com.lifolo.features.Features
 import org.springframework.stereotype.Component
 
 /**
  * The feature switch `desktop` (backend/docs/FEATURES.md, owner rule 23 Oct 2026: every new feature ships OFF).
  *
- * TODO(p19): a shim until the Features service (spring-p19) is on main — then [isOn] becomes
- * `features.isOn(uid, "desktop")` and [require] `features.require(...)`; the settings below move to the admin page.
- * Until then: `lifolo.features.all-on` (FEATURES_ALL_ON) or `lifolo.feature-shim.keys` containing `desktop` / `*` (the shim
- * key list shared with the invoices and calls shims; `*` in the test profile), or `lifolo.features.desktop.mode` = off | pilot | on with
- * `…pilot-uids` (comma separated) and `…demo` (demo accounts in pilot). Default: off.
+ * Reads the `desktop` key of [Features] (admin page "ফিচার সুইচ"). Tests may pin it with [mode] (+ [pilotUids], [demo]);
+ * null = the real switch.
  *
  * Checked against the BUSINESS (bizId: the pharmacy/lab owner, the doctor): pilot = the pilot business owners' desks.
  */
 @Component
-class DesktopFeature(
-    @Value("\${lifolo.features.all-on:false}") allOn: Boolean,
-    @Value("\${lifolo.features.desktop.mode:off}") mode: String,
-    @Value("\${lifolo.features.desktop.pilot-uids:}") pilotUids: String,
-    @Value("\${lifolo.features.desktop.demo:false}") demo: Boolean,
-    @Value("\${lifolo.feature-shim.keys:}") shimKeys: String,
-) {
+class DesktopFeature(private val features: Features) {
+    /** tests: off | pilot | on instead of the real switch (null = the switch) */
     @Volatile
-    var mode: String = shimKeys.split(',').map { it.trim() }.let { keys ->
-        if (allOn || "*" in keys || KEY in keys) ON else mode.trim().lowercase()
-    }
+    var mode: String? = null
 
     @Volatile
-    var pilotUids: Set<String> = pilotUids.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    var pilotUids: Set<String> = emptySet()
 
     @Volatile
-    var demo: Boolean = demo
+    var demo: Boolean = false
 
-    fun isOn(uid: String?): Boolean = when (mode) {
+    fun isOn(uid: String?): Boolean = when (mode ?: return features.isOn(uid, KEY)) {
         ON -> true
         PILOT -> uid != null && (uid in pilotUids || (demo && DemoWorld.isDemoUid(uid)))
         else -> false

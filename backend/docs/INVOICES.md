@@ -217,8 +217,8 @@ name, nameBn, fee, noFee}]}` — the in-person chambers, for walk-in fees on a d
 - `my_expenses` off: `my_invoices`, `my_expenses`, `invoice_report`, the patient's `invoice_get` → 404 `feature_off`, no
   `invoice_new` push. On: only receipts of kinds that are on for the patient (`byKind` lists only those kinds).
 - `invoice_verify` is always public.
-Until `Features` (spring-p19) is on main, `invoices/InvoiceFeatures` is a shim: `lifolo.features-shim-on` (off in
-production, on in the test profile).
+`invoices/InvoiceFeatures` asks the real switches (`Features.isOn`, admin page "ফিচার সুইচ", FEATURES.md); tests
+can force a key with `forced`.
 
 **For the web chamber desk and books (web-invoices).**
 - `chamber_checkin {appointmentId, doctorUid?}` (doctor or assistant, `inv_chamber`) → `{ok, appointmentId, arrivedAt}`:
@@ -261,8 +261,7 @@ assistants); demo accounts when the switch's `demo` is on.
 | `desktop_revoke` | allowed for an active computer (a lost computer can always be removed) |
 | `offline_sync` | **not gated**: a computer registered while the switch was on keeps sending its ops, so no recorded sale is lost |
 
-Until the Features service (spring-p19) is on main, `desktop/DesktopFeature.kt` is a shim read from
-`lifolo.features.all-on` / `lifolo.features.desktop.mode|pilot-uids|demo` (default off); it then calls `Features.isOn(bizId, "desktop")`.
+`desktop/DesktopFeature.kt` calls `Features.isOn(bizId, "desktop")` (admin page "ফিচার সুইচ"); tests can pin it with `mode`.
 
 ### Device secret and request signature (I5)
 - `desktop_register` returns `secret` (64 hex chars) **once**. It is never stored: the server keeps a random salt and derives

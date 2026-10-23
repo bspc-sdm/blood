@@ -2,26 +2,22 @@ package com.lifolo.invoices
 
 import com.lifolo.common.ApiException
 import com.lifolo.common.Lang
-import org.springframework.beans.factory.annotation.Value
+import com.lifolo.features.Features
 import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The receipt feature switches (scratchpad flags CONTRACT / docs/FEATURES.md): `inv_pharmacy`, `inv_lab`, `inv_chamber`,
  * `inv_ambulance` (one per issuer kind) and `my_expenses` (my_invoices / my_expenses / the patient's receipt push).
- * Everything is OFF unless switched on. A shim until `Features.isOn/require` (spring-p19) is on main, the same as the
- * calls' one: a key is on when listed in `lifolo.feature-shim.keys` (comma list, `*` = all; empty in production, `*` in
- * the test profile); [forced] overrides a key (tests).
- * When p19 lands, [isOn] delegates to `Features.isOn(uid, key)`.
+ * Everything is OFF unless switched on from the admin page "ফিচার সুইচ" ([Features]: modes, pilot list, demo);
+ * [forced] overrides a key for everyone (tests).
  */
 @Component
-class InvoiceFeatures(@Value("\${lifolo.feature-shim.keys:}") configured: String) {
-    private val keys: Set<String> = configured.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-
+class InvoiceFeatures(private val features: Features) {
     /** key → on/off for everyone (tests switch single keys off) */
     val forced: MutableMap<String, Boolean> = ConcurrentHashMap()
 
-    fun isOn(uid: String?, key: String): Boolean = forced[key] ?: ("*" in keys || key in keys)
+    fun isOn(uid: String?, key: String): Boolean = forced[key] ?: features.isOn(uid, key)
 
     fun kindOn(uid: String?, kind: String): Boolean = isOn(uid, keyOf(kind))
 
