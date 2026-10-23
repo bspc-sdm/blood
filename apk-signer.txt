@@ -1,0 +1,4 @@
+V3.0 Signer: certificate DN: CN=Lifolo, OU=Mobile, O=BSPC, L=Mymensingh, C=BD
+V3.0 Signer: certificate SHA-256 digest: 076e13d0f90a228186ae53155455fdc6a048729b758edaaf5232a3f92c196943
+V3.0 Signer: certificate SHA-1 digest: 28973800f5d32e53231d1ec07358a706d935d460
+V3.0 Signer: certificate MD5 digest: 67c64e34cd8755347ed0ffe2befe7c57

@@ -1,0 +1,13 @@
+commit=433d012f200628fc38598ef069e8be6ec02dc06b
+branch=main
+version=2.36.0
+code=124
+job=success
+signed=release
+apk_cert=076E13D0F90A228186AE53155455FDC6A048729B758EDAAF5232A3F92C196943
+aab_cert=076E13D0F90A228186AE53155455FDC6A048729B758EDAAF5232A3F92C196943
+target=36
+debuggable=no
+dl_url=https://lifolo.com/download/lifolo-2.36.0-124.apk
+inet=yes
+public=200 cf-cache:DYNAMIC cache-control:no-store, max-age=0
