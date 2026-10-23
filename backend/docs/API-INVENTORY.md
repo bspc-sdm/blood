@@ -1169,6 +1169,28 @@ Full contract: [CHAT.md](CHAT.md). Logged in, own account only (no caregiver `as
   - request: — · response: `{active,roles}` or `{active,partial,at,docs,roles}`
   - collections: serverState · side effects: — · errors: 403 · tests: demo
 
+## Desktop offline sync (package `desktop`, Spring only, Oct 2026) — 6 actions
+
+New (no Node original). Full rules: [INVOICES.md → Offline sync](INVOICES.md#offline-sync-backend-branch-spring-p17).
+Tables (V650): `desktop_devices`, `offline_ops`, `shop_stock_flags`, `chamber_walkins`. `offline_bootstrap` / `offline_sync`
+need the device signature header `X-Lifolo-Device-Sig: t=…,v1=…` (HMAC with the secret from `desktop_register`).
+
+- [x] **`desktop_register`** — register a Windows desk; series `D<n>` (never reused); returns the device `secret` once
+  - auth: owner of an approved pharmacy/lab, or the approved doctor (chamber) — never an assistant · request: `kind`, `bizId?`, `name` · response: `{deviceId, series, kind, bizId, name, secret}`
+  - errors: 400, 403, 409 `device_limit` (5 active), 429 (10/day/account)
+- [x] **`desktop_devices`** — the business's devices (revoked too, with the count of suspicious ops)
+  - auth: owner, or the doctor's assistant (chamber) · request: `kind`, `bizId?` · response: `{items, role, max, active}` · errors: 400, 403
+- [x] **`desktop_revoke`** — revoke a device (stops syncing at once) and end every Firebase session of the account that registered it
+  - auth: owner only · request: `deviceId` · response: `{ok, revoked, signedOut, device, note}` · errors: 403, 404
+- [x] **`offline_bootstrap`** — the snapshot the desk keeps offline (items / lab prices / 8 chamber days) + `asOf`, `nextSeq`
+  - auth: owner or chamber assistant + device signature · request: `deviceId` · errors: 401 `bad_device_sig`, 403 `device_revoked`, 404, 429 (30/h/device)
+- [x] **`offline_sync`** — apply queued ops (`sale|purchase|adjust|lab_bill|fee|pay|void|checkin|walkin`), idempotent per (device, `opId`); returns `{results, delta, asOf}`
+  - auth: as bootstrap · request: `deviceId`, `ops[≤100]`, `asOf?` · errors: 401 `bad_device_sig`, 403 `device_revoked`, 404, 413 `too_many_ops`, 429 (30/min/device);
+    per-op errors in `results` (`too_old` / `bad_at` + `suspicious`, `series_mismatch`, `bad_no`, `verify_collision`, `bad_ref`, `ref_rejected`,
+    `wrong_kind`, `invoice_not_found` + `retry`, …), warnings `stock_short`, `renumbered` (+ `deviceNo`), `clock`
+- [x] **`offline_review_done`** — close a stock_short review flag
+  - auth: pharmacy owner · request: `id` · response: `{ok}` · errors: 404
+
 ## Other HTTP endpoints (outside /api/community)
 
 All use the Node `handler` envelope (POST only → 405 `{error:"Method not allowed"}`, JSON, `{error, code?}`) unless noted.

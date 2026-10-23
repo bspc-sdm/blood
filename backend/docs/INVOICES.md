@@ -232,3 +232,115 @@ production, on in the test profile).
 - `invoice_export_csv` → `{filename, mime, count, csv}` (UTF-8 with BOM).
 - Void reason codes: `wrong_item`, `returned`, `wrong_price`, `duplicate`, `other` (`other` needs `note`). The web's four
   are all accepted.
+---
+
+## Offline sync (backend, branch `spring-p17`)
+
+Package `com.lifolo.desktop`, migration `V650__desktop_sync.sql` (range `V650`–`V659`). Tests: `desktop/DesktopSyncIT`.
+Includes the fixes of `docs/test-plan/INVOICES-SECURITY-REVIEW.md` I4, I5 and I7 (desktop part).
+
+### Who (I7)
+| | pharmacy / lab | chamber |
+|---|---|---|
+| `bizId` | the owner's uid | the doctor's uid |
+| `desktop_register`, `desktop_revoke` | **owner only** (listing approved) | **the doctor only** (approved doctor badge) |
+| `desktop_devices`, `offline_bootstrap`, `offline_sync` | the owner | the doctor, or an assistant on `rx_team` (verified email) |
+
+A device belongs to the business: anyone allowed above may use it, but only with the device's secret (below). Someone
+else's device → 404 (never 403, so device ids reveal nothing). A caregiver (`asUid`) never reaches these actions. Demo and
+real never mix: a demo account never reaches a real business or device and the other way round; `desktop_devices.is_demo`
+follows `bizId`.
+
+### Device secret and request signature (I5)
+- `desktop_register` returns `secret` (64 hex chars) **once**. It is never stored: the server keeps a random salt and derives
+  `secret = HMAC-SHA256(serverKey, deviceId + salt)` (serverKey from `WEB_SESSION_SECRET`, else the service account — changing
+  it means every desk registers again). `desktop_devices` never shows it; revoke deletes the salt.
+- `offline_bootstrap` and `offline_sync` must carry
+  `X-Lifolo-Device-Sig: t=<unix seconds>,v1=<lowercase hex HMAC-SHA256(key, "<t>.<deviceId>.<exact raw request body bytes>")>`
+  with key = the UTF-8 bytes of the `secret` string. The server checks it over the bytes as received (a filter keeps the raw
+  body of signed `/api/community` calls). Missing / wrong signature, or `|t − now| > 600 s` → **401 `bad_device_sig`**
+  (constant-time compare). Plus the usual Firebase Bearer token of the person at the desk. `desktop_register` is not signed.
+- Order of checks: login → device exists and the caller works for its business (else 404) → revoked (403 `device_revoked`)
+  → signature (401) → rate limit.
+
+### Actions
+- `desktop_register {kind, bizId?, name}` → `{deviceId, series:"D<n>", kind, bizId, name, secret}`. `bizId` defaults to the
+  caller. `name` 1–40 chars. At most **5 active** devices per (kind, bizId) → else 409 `device_limit`. `n` is never reused,
+  also after a revoke; at most D99 per business. 10 registrations per account per day (429).
+- `desktop_devices {kind, bizId?}` → `{items:[{deviceId, kind, bizId, series, name, createdAt, lastSyncAt, ops, revoked, revokedAt, suspicious}], role, max, active}`
+  (revoked ones too, active first; `suspicious` = ops refused for their time, kept 45 days).
+- `desktop_revoke {deviceId}` (owner) → `{ok, revoked:true, signedOut, device, note}`. **I4:** besides blocking the device
+  (its next bootstrap/sync → 403 `device_revoked`; the desk wipes its local data on that), the server calls Firebase
+  `revokeRefreshTokens` for the account that registered the device, so the session kept in the desk's WebView2 ends too.
+  That signs this account out **everywhere** (phone and web as well) — `note` says so for the confirm screen:
+  "ওই কম্পিউটারে আবার লগইন লাগবে। একই অ্যাকাউন্টের অন্য ফোন ও কম্পিউটারেও আবার লগইন করতে হবে।". `signedOut:false` if Firebase
+  could not be reached (the device is revoked anyway).
+- `offline_bootstrap {deviceId}` (signed) → `{deviceId, series, kind, bizId, name, role, asOf, full:true, nextSeq, …snapshot}`;
+  30 per device per hour. `nextSeq` = the server's last number of this device's series + 1.
+  - pharmacy: `items` (the `books_items` item views: id, name, qty, `stock` (= qty), price, salePrice, disc, cost, expiry, unit,
+    lowAt, inStock, updatedAt … + `review:boolean`), `ids` (all item ids — drop local items not in it), `units`, `review`
+    (open stock flags). No customer data.
+  - lab: `prices` (= `lab_prices_get`: items `{code, name, price, tat, on}`, discountPct, homeFee, updatedAt, homeCollection),
+    `fees` (`[{label:"home", amount}]` when a home-collection fee is set).
+  - chamber: `chambers [{key, name, nameBn, fee, noFee}]`, `appointments` (today … today+7, pending/confirmed/completed:
+    `{id, name, date (UTC-midnight ms), day ("YYYY-MM-DD"), chamberKey, chamber, start, serial, status}`), `walkins`
+    (`{id, name, date, day, chamberKey, serial, createdAt}` — **no phone numbers on the desk**), `visitTypes`, `from`, `days: 8`.
+- `offline_sync {deviceId, ops:[{opId, type, at, data}], asOf?}` (signed) → `{results:[…], delta, asOf}`; 30 calls per device per
+  minute; **at most 100 ops** per call (413 `too_many_ops`); one op's `data` ≤ 16 000 chars (error `too_big`).
+  `delta` = the bootstrap snapshot with `full:false` for what changed after `asOf` (also accepted as `since`; default: the
+  device's previous sync): pharmacy `items` changed since then (+ the full `ids` and `review`); lab `prices` only when changed
+  (else `null`); chamber always the whole 8-day window.
+- `offline_review_done {id}` (pharmacy owner): closes one stock flag by hand.
+
+### Ops
+`opId` = a UUID, unique **per device** (the same opId from another device is that device's own op; results are only ever
+returned to the device that sent them). `at` = epoch ms when the desk recorded it. `data` = what the desk engine sends
+(`web-vue/src/offline/types.ts`), always with `localId`; receipt ops also carry `no`, `verifyCode` and `issuedAt`.
+
+| type | kinds | data (desk shape) | runs | result extras |
+|---|---|---|---|---|
+| `sale` | pharmacy | `{lines:[{itemId?, name, qty, price, disc?}], customer?, disc?, payments?, rxOrderId?}` — line `disc` = taka off the line → `unitDisc`, `price` → `unitPrice`, bill `disc` → `billDisc {type:"amt"}` (the books shape works too) | `InvoiceCreators.pharmacySale` | `id, no, deviceNo?, invoice, saleId, stockShort?` |
+| `purchase` | pharmacy | `{lines:[{itemId?, name, qty, cost, price?, expiry?}], supplier?, note?}` (`cost` → `unitCost`; `at` = op time) | `BooksService.purchaseAdd` | `id` |
+| `adjust` | pharmacy | `{itemId, delta, reason?}` — delta < 0: write-off of −delta; delta > 0: stock count to server stock + delta (or the books shape `{kind, itemId, qty}`) | `BooksService.adjust` | `id` |
+| `lab_bill` | lab | `lab_bill_create` body | `InvoiceCreators.labBill` | `id, no, deviceNo?, invoice` |
+| `fee` | chamber | `chamber_fee_collect` body (`doctorUid` = the device's doctor) | `InvoiceCreators.chamberFee` | `id, no, deviceNo?, invoice` |
+| `pay` | all | `{invoice:{id?, localId?, opId?, no?}, amount, method, ref?}` | `InvoiceService.pay` (time = op `at`) | `id, no, invoice` |
+| `void` | all | `{invoice:{…}, reason}` | `InvoiceService.void` (pharmacy: stock back) | `id, no, invoice` |
+| `checkin` | chamber | `{appointmentId, serial?}` | `appointment_update` confirm as the doctor: a pending appointment gets the next serial (or the given register number); a confirmed one keeps it | `id, serial, status` |
+| `walkin` | chamber | `{name, phone?, chamberKey, date:"YYYY-MM-DD", serial?}` | new `chamber_walkins` row; serial from the same counter as confirmed appointments (`SerialCounters`) | `id, serial, date` |
+
+Every result: `{opId, ok, localId?, …extras, warn?, warns?, error?, message?, status?, retry?, suspicious?}`.
+
+Rules, in this order (each op is its own transaction — a batch is not all-or-nothing):
+1. **Idempotent:** the result of `(deviceId, opId)` is stored and the same opId always gets it again (also two syncs at once:
+   the second waits for the first). The same opId twice in one batch runs once. Results are kept 45 days.
+2. **Order:** the batch runs sorted by `at` (then list order), so a payment recorded after its sale is applied after it
+   whatever the list order. A `pay`/`void` whose receipt is not on the server yet is tried once more at the end of the batch,
+   then answered `{ok:false, error:"invoice_not_found", retry:true}` — **not stored**: send the same opId again later.
+3. Refused and stored: `bad_op` (no UUID — answered, not stored; data not an object; bad `localId`), `bad_type`, `too_big`,
+   `wrong_kind` (e.g. a fee from a pharmacy desk).
+4. **Time (I5):** `at` more than **8 days** ago → `too_old`; more than **10 minutes** ahead of the server → `bad_at`. Both are
+   stored with `suspicious:true` and counted on the device list for the owner. A slightly early clock is clamped to now.
+   Accepted but marked `warn:"clock"`: an op recorded more than 10 min before this desk's previous sync, or a receipt whose
+   `issuedAt` is more than 10 min from the op's `at` (the op's time is used then). Otherwise the receipt's `issuedAt` is its time.
+5. **Numbers (I5):** the server owns the series — a `no` of another series (another device's `D<m>`, or `W`) →
+   `series_mismatch`; a malformed one → `bad_no`. A `no` of this series that the server already has (a restored backup, two
+   installs) is **not refused**: the receipt gets the next free number of the series, the result says
+   `{no:<new>, deviceNo:<printed>, warn:"renumbered"}`, and `invoices.device_no` keeps the printed number so `findByNo`
+   (pay/void by number, business search) still finds it.
+6. **Verify code:** the desk's `verifyCode` (10 letters/digits, printed in the offline QR) is used as is when unique; a code
+   already used → `verify_collision` (stored): the desk re-issues the receipt with a new opId and a new code. Malformed →
+   `bad_verify`.
+7. **References (I5):** every id must belong to the device's business, else `bad_ref` (stored): `pay`/`void`
+   `invoice.id` (kind + bizId of the device); `invoice.localId` / `invoice.opId` are looked up among **this device's** ops only
+   (a refused receipt op → `ref_rejected`); `invoice.no` within the business (also the printed `deviceNo`); sale/purchase
+   `itemId` (a product of this shop, or the id of a new product's name); `adjust.itemId` (a product of this shop);
+   `lab_bill.labOrderId` (this lab's order); `fee.appointmentId` / `checkin.appointmentId` (this doctor's appointment);
+   `sale.rxOrderId` (this pharmacy's order).
+8. **Stock short:** a sale of more than the server's stock is accepted (`ok:true`, stock stops at 0 like the online sale) with
+   `warn:"stock_short"`, `stockShort:[itemId]`; each item gets a `shop_stock_flags` row (wanted, had, short, device, op) shown
+   in `review` / `items[].review` until a stock count of that item (`books_adjust` kind `count`, online or offline), a
+   purchase op of it, or `offline_review_done`.
+9. Any other `ApiException` of the service is the op's stored result: `{ok:false, error:<its code, or invalid|forbidden|not_found|conflict|locked>, message, status}`.
+   429 / 5xx / unexpected errors → `retry:true`, not stored.
+10. `warn` is the most important of `warns` (`stock_short` > `renumbered` > `clock`).

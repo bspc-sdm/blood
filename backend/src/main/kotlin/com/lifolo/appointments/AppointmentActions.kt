@@ -653,24 +653,10 @@ class AppointmentActions(
             if (cur != a.status) throw ctx.err(409, "This changed just now. Refresh.", "এইমাত্র বদলেছে। রিফ্রেশ করুন।")
             val providerNote = if (isProvider && note.isNotEmpty()) note else a.providerNote
             if (next == "confirmed") {
-                val key = QueueRules.keyOf(chamberKey)
-                val day = Sql.date(DhakaTime.fromUtcMidnightMs(a.date))
-                jdbc.update(
-                    "INSERT INTO serial_counters (provider_uid, visit_date, queue_key, n) VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING",
-                    a.providerUid, day, key,
-                )
-                val last = jdbc.queryForObject(
-                    "SELECT n FROM serial_counters WHERE provider_uid = ? AND visit_date = ? AND queue_key = ? FOR UPDATE",
-                    Int::class.java, a.providerUid, day, key,
-                ) ?: 0
                 // the doctor's own register number (patients booked by phone too); else the next number
                 val own = b.int("serial")?.takeIf { it in 1..999 }?.toInt()
-                val s = own ?: (last + 1)
+                val s = SerialCounters.next(jdbc, a.providerUid, a.date, chamberKey, own, now)
                 serial = s
-                jdbc.update(
-                    "UPDATE serial_counters SET n = ?, at = ? WHERE provider_uid = ? AND visit_date = ? AND queue_key = ?",
-                    maxOf(last, s), Sql.ts(now), a.providerUid, day, key,
-                )
                 jdbc.update(
                     "UPDATE appointments SET status = ?, provider_note = ?, updated_at = ?, serial = ? WHERE id = ?",
                     next, providerNote, Sql.ts(now), s, a.id,
