@@ -34,6 +34,7 @@ export class FakeServer {
   applied: SyncOpWire[] = [];
   devices = 0;
   revoked = false;
+  featureOff = false;
   down = false;
   /** উত্তর হারানো: সার্ভার কাজ করে, কিন্তু ফোনে উত্তর পৌঁছায় না */
   loseNextResponse = false;
@@ -54,6 +55,7 @@ export class FakeServer {
     return {
       register: async () => {
         if (this.down) throw new ApiErr(0);
+        if (this.featureOff) throw new ApiErr(404, 'feature_off');
         this.devices++;
         return { deviceId: `dev${this.devices}`, series: `D${this.devices}`, secret: 's3cr3t' };
       },
@@ -118,6 +120,7 @@ export interface Harness {
   dropped: string[];
   state: { now: number; online: boolean; gate: ReturnType<EngineDeps['gate']>; role: DeskRole | null; elevated: boolean };
   printed: Invoice[];
+  registered: boolean[];
   reopen(): Promise<Harness>;
 }
 
@@ -128,6 +131,7 @@ export async function harness(opts: { server?: FakeServer; db?: ReturnType<typeo
   const key = opts.key ?? crypto.getRandomValues(new Uint8Array(32));
   const dropped: string[] = [];
   const printed: Invoice[] = [];
+  const registered: boolean[] = [];
   const state: Harness['state'] = { now: Date.UTC(2026, 9, 23, 6, 0, 0), online: true, gate: 'ok', role: 'owner', elevated: false };
   const deps: EngineDeps = {
     openDb: async () => db,
@@ -162,6 +166,7 @@ export async function harness(opts: { server?: FakeServer; db?: ReturnType<typeo
       printed.push(inv);
     },
     bizInfo: () => ({ name: 'From session' }),
+    onRegistered: (ok) => registered.push(ok),
     setTimer: () => 0,
     clearTimer: () => {},
   };
@@ -174,6 +179,7 @@ export async function harness(opts: { server?: FakeServer; db?: ReturnType<typeo
     dropped,
     state,
     printed,
+    registered,
     reopen: async () => {
       await engine.close();
       return harness({ server, db, secrets, key });

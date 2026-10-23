@@ -34,6 +34,20 @@ describe('ready', () => {
     expect(h.server.devices).toBe(1);
   });
 
+  test('ফিচার সুইচ বন্ধ: feature_off, নিবন্ধন হয় না; আগে নিবন্ধিত কম্পিউটার সুইচ বন্ধেও সিঙ্ক করে', async () => {
+    const h = await harness();
+    h.server.featureOff = true;
+    expect(await code(h.engine.ready('pharmacy', 'b1'))).toBe('feature_off');
+    expect(h.registered).toEqual([false]);
+    h.server.featureOff = false;
+    await h.engine.ready('pharmacy', 'b1');
+    expect(h.registered).toEqual([false, true]);
+    h.server.featureOff = true;
+    await h.engine.record(sale());
+    await h.engine.syncNow();
+    expect(h.engine.pending()).toBe(0);
+  });
+
   test('ইন্টারনেট ছাড়া প্রথমবার: need_online', async () => {
     const h = await harness();
     h.state.online = false;

@@ -32,6 +32,8 @@ export interface ReceiptModel {
   /** অফলাইনে বানানো, এখনো সিঙ্ক হয়নি: QR-এর নিচে "ইন্টারনেট এলে যাচাই হবে" */
   offlineVerify: string;
   demo: boolean;
+  voidLabel: string;
+  demoLabel: string;
   thanks: string;
   notVat: string;
 }
@@ -92,6 +94,8 @@ export function receiptModel(inv: Invoice, englishDigits = false): ReceiptModel 
     offline: !!inv.offline && !inv.id,
     offlineVerify: inv.offline && !inv.id ? R.offlineVerify : '',
     demo: !!inv.demo || /^DEMO/.test(code),
+    voidLabel: R.void,
+    demoLabel: R.demo,
     qrText: inv.verifyUrl || (code ? `https://lifolo.com/v/${code}` : ''),
     verifyText: code ? `lifolo.com/v/${code} — ${R.verify}` : '',
     thanks: R.thanks,

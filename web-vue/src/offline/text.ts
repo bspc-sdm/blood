@@ -44,6 +44,7 @@ export const T = {
   alreadyVoid: () => trPlain('This receipt is already void', 'রসিদটা আগেই বাতিল'), // bn-ok
   tooMuch: () => trPlain('More than the due amount', 'বাকির চেয়ে বেশি'), // bn-ok
   printFailed: () => trPlain('Could not print', 'ছাপা যায়নি'), // bn-ok
+  featureOff: () => trPlain('The desktop app is not on for you yet', 'ডেস্কটপ অ্যাপ এখনো আপনার জন্য চালু হয়নি'), // bn-ok
   ownerOnly: () => trPlain('Only the owner can do this. Enter the owner PIN.', 'এটা শুধু মালিক পারেন। মালিকের পিন দিন।'), // bn-ok
   clockWrong: () => trPlain('The computer clock went back. Fix the date and time in Windows.', 'কম্পিউটারের সময় পিছিয়ে গেছে। Windows-এ তারিখ আর সময় ঠিক করুন।'), // bn-ok
   graceWarn: (d: number) => trPlain(`No internet for ${d} days. After 7 days offline sales stop.`, `${num(d)} দিন ইন্টারনেট নেই। ৭ দিন হলে অফলাইন বিক্রি বন্ধ হবে।`), // bn-ok

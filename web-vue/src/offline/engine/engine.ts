@@ -87,6 +87,8 @@ export interface EngineDeps {
   bizInfo(kind: BizKind, bizId: string): { name: string; phone?: string; address?: string } | null;
   setTimer(fn: () => void, ms: number): unknown;
   clearTimer(h: unknown): void;
+  /** নিবন্ধন হলো (ফিচার সুইচ বন্ধ হলেও এই কম্পিউটার সিঙ্ক চালিয়ে যায়) / ফিচার বন্ধ বলে হলো না */
+  onRegistered?(registered: boolean): void;
   /** এই ব্যবসার অফলাইন তথ্য মুছে গেল (device_revoked) */
   onWiped?(why: 'revoked'): void;
 }
@@ -126,6 +128,7 @@ function err(code: OfflineError['code']): OfflineError {
     locked: T.locked,
     owner_only: T.ownerOnly,
     clock: T.clockWrong,
+    feature_off: T.featureOff,
     invalid: T.invalid,
   };
   return new OfflineError((msg[code] ?? T.invalid)(), code);
@@ -308,9 +311,12 @@ export class OfflineEngine implements OfflineStore {
       try {
         r = await this.d.api.register(kind, bizId, pcName);
       } catch (e) {
-        throw this.apiToOffline(e);
+        const oe = this.apiToOffline(e);
+        if (oe.code === 'feature_off') this.d.onRegistered?.(false);
+        throw oe;
       }
       if (!r?.deviceId || !r.series) throw err('invalid');
+      this.d.onRegistered?.(true);
       devJson = JSON.stringify({ deviceId: String(r.deviceId), series: String(r.series), secret: String(r.secret ?? '') });
       await this.d.secrets.set(secretName, devJson);
     }
@@ -931,6 +937,7 @@ export class OfflineEngine implements OfflineStore {
     if (e instanceof OfflineError) return e;
     const a = e as ApiError;
     if (a?.code === 'device_revoked') return err('device_revoked');
+    if (a?.code === 'feature_off') return err('feature_off');
     if (a?.status === 0) return err('need_online');
     return new OfflineError(a?.message || T.invalid(), 'invalid');
   }

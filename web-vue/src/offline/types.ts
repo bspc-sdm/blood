@@ -285,6 +285,7 @@ export class OfflineError extends Error {
       | 'device_revoked'
       | 'locked'
       | 'owner_only'
+      | 'feature_off'
       | 'clock'
       | 'invalid'
       | 'print_failed',
