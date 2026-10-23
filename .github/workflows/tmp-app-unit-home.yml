@@ -1,0 +1,47 @@
+name: TMP app unit tests (mywork-app-home-ci only, never merged)
+on:
+  push:
+    branches: [mywork-app-home-ci]
+permissions:
+  contents: write
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile, all unit tests, debug APK
+        run: |
+          mkdir -p out
+          set +e
+          gradle compileDebugUnitTestKotlin --no-daemon > out/compile.log 2>&1; echo "compile=$?" > out/status.txt
+          gradle testDebugUnitTest --no-daemon --continue > out/test.log 2>&1; echo "test=$?" >> out/status.txt
+          gradle assembleDebug --no-daemon > out/assemble.log 2>&1; echo "assemble=$?" >> out/status.txt
+          cp app/build/test-results/testDebugUnitTest/*.xml out/ 2>/dev/null
+          mkdir -p out/screens; cp app/build/screens/work-home-*.png app/build/screens/work_tab_*.png app/build/screens/provider-*.png app/build/screens/*queue*.png app/build/screens/mywork-*.png out/screens/ 2>/dev/null
+          grep -E "^e: |^w: .*Work(Home|Today)" out/compile.log > out/compile-errors.txt
+          grep -E "FAILED|Exception|AssertionError" out/test.log | head -300 > out/test-failures.txt
+          python3 - <<'PY' > out/tests-summary.txt
+          import glob, xml.etree.ElementTree as ET
+          tot=fail=0
+          for f in sorted(glob.glob('out/TEST-*.xml')):
+              r=ET.parse(f).getroot(); t=int(r.get('tests',0)); x=int(r.get('failures',0))+int(r.get('errors',0)); tot+=t; fail+=x
+              print(f"{r.get('name')}: {t} tests, {x} failed")
+          print(f"TOTAL {tot} tests, {fail} failed")
+          PY
+          echo "sha=$GITHUB_SHA" >> out/status.txt
+          cat out/status.txt; tail -3 out/tests-summary.txt
+          ! grep -qE "^(compile|test|assemble)=[1-9]" out/status.txt
+      - name: Publish log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: app unit ${{ github.sha }}
+        run: bash .github/scripts/publish-log.sh ci-log-mywork-app-home-ci out status.txt tests-summary.txt compile.log test.log assemble.log compile-errors.txt test-failures.txt '*.xml' screens
