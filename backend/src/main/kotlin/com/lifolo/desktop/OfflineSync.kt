@@ -54,6 +54,7 @@ class OfflineSync(
     private val chamber: ChamberDesk,
     private val creators: InvoiceCreators,
     private val invoices: InvoiceService,
+    private val feature: DesktopFeature,
     txm: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -139,6 +140,8 @@ class OfflineSync(
     /** offline_bootstrap {deviceId} (signed) → snapshot + asOf */
     fun bootstrap(ctx: ActionContext): Any {
         val (d, role) = devices.usable(ctx, ctx.body.string("deviceId"))
+        // switch `desktop`: no new snapshots while off (sync of a registered desk goes on, so no sale is lost)
+        feature.require(ctx, d.bizId)
         if (!limiter.tryAcquire("desk-boot:${d.id}", DesktopRules.BOOTSTRAP_PER_HOUR, Duration.ofHours(1))) throw devices.tooMany(ctx)
         return linkedMapOf<String, Any?>(
             "deviceId" to d.id, "series" to d.series, "kind" to d.kind, "bizId" to d.bizId, "name" to d.name, "role" to role,
@@ -171,7 +174,10 @@ class OfflineSync(
 
     private fun badRef() = OpFailure("bad_ref", "This refers to something that is not this business's", "এটা এই প্রতিষ্ঠানের কিছু নয়") // bn-ok
 
-    /** offline_sync {deviceId, ops, asOf?} (signed) → {results, delta, asOf} */
+    /**
+     * offline_sync {deviceId, ops, asOf?} (signed) → {results, delta, asOf}. Not behind the `desktop` switch: a desk
+     * registered while it was on keeps sending what it recorded (real sales) after the switch goes off.
+     */
     fun sync(ctx: ActionContext): Any {
         val (d, _) = devices.usable(ctx, ctx.body.string("deviceId"))
         if (!limiter.tryAcquire("desk-sync:${d.id}", DesktopRules.SYNC_PER_MINUTE, Duration.ofMinutes(1))) throw devices.tooMany(ctx)

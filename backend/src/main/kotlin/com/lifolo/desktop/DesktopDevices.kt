@@ -165,6 +165,7 @@ class DesktopDevices(
     private val access: DesktopAccess,
     private val limiter: RateLimiter,
     private val clock: DesktopClock,
+    private val feature: DesktopFeature,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -207,6 +208,8 @@ class DesktopDevices(
         val kind = kindOf(ctx)
         val bizId = ctx.body.string("bizId")?.takeIf { it.isNotEmpty() } ?: ctx.user.uid ?: ""
         val role = access.role(ctx, kind, bizId, register = true)
+        // switch `desktop` (pilot: only the pilot businesses' owners add computers)
+        feature.require(ctx, bizId)
         if (role != "owner") throw ctx.err(403, "Only the owner can add a computer", "শুধু মালিক কম্পিউটার যোগ করতে পারেন") // bn-ok
         val name = DesktopRules.clean(ctx.body.string("name")).take(DesktopRules.NAME_MAX)
         if (name.isEmpty()) throw ctx.err(400, "Give this computer a name", "কম্পিউটারের একটা নাম দিন") // bn-ok
@@ -240,6 +243,8 @@ class DesktopDevices(
         val kind = kindOf(ctx)
         val bizId = ctx.body.string("bizId")?.takeIf { it.isNotEmpty() } ?: ctx.user.uid ?: ""
         val role = access.role(ctx, kind, bizId)
+        // switch `desktop`; a business that already has computers can still see them (and revoke one) when it goes off
+        if (!feature.isOn(bizId) && !hasActive(kind, bizId)) throw DesktopFeature.offError(ctx.lang)
         val items = jdbc.query(
             """
             SELECT d.*, (SELECT count(*) FROM offline_ops o WHERE o.device_id = d.id AND o.suspicious) AS suspicious
@@ -266,6 +271,8 @@ class DesktopDevices(
             throw e
         }
         if (role != "owner") throw ctx.err(403, "Only the owner can remove a computer", "শুধু মালিক কম্পিউটার সরাতে পারেন") // bn-ok
+        // switch `desktop`: a lost computer can always be removed, also after the switch went off
+        if (d.revoked && !feature.isOn(d.bizId)) throw DesktopFeature.offError(ctx.lang)
         if (!d.revoked) {
             jdbc.update(
                 "UPDATE desktop_devices SET revoked_at = ?, revoked_by = ?, secret_salt = NULL WHERE id = ? AND revoked_at IS NULL",
@@ -289,6 +296,9 @@ class DesktopDevices(
             ),
         )
     }
+
+    private fun hasActive(kind: String, bizId: String): Boolean =
+        jdbc.queryForList("SELECT 1 FROM desktop_devices WHERE kind = ? AND biz_id = ? AND revoked_at IS NULL LIMIT 1", kind, bizId).isNotEmpty()
 
     fun touch(d: Device, uid: String, ops: Int) {
         jdbc.update(

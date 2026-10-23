@@ -251,6 +251,19 @@ else's device → 404 (never 403, so device ids reveal nothing). A caregiver (`a
 real never mix: a demo account never reaches a real business or device and the other way round; `desktop_devices.is_demo`
 follows `bizId`.
 
+### Feature switch `desktop` (backend/docs/FEATURES.md)
+Ships **off**. Checked against the business (`bizId`), so "pilot" = the pilot businesses' owners (and their chamber
+assistants); demo accounts when the switch's `demo` is on.
+| action | switch off |
+|---|---|
+| `desktop_register`, `offline_bootstrap` | 404 `feature_off` "এই সুবিধা এখনো চালু হয়নি" |
+| `desktop_devices` | 404 `feature_off`, unless the business still has an active (registered) computer |
+| `desktop_revoke` | allowed for an active computer (a lost computer can always be removed) |
+| `offline_sync` | **not gated**: a computer registered while the switch was on keeps sending its ops, so no recorded sale is lost |
+
+Until the Features service (spring-p19) is on main, `desktop/DesktopFeature.kt` is a shim read from
+`lifolo.features.all-on` / `lifolo.features.desktop.mode|pilot-uids|demo` (default off); it then calls `Features.isOn(bizId, "desktop")`.
+
 ### Device secret and request signature (I5)
 - `desktop_register` returns `secret` (64 hex chars) **once**. It is never stored: the server keeps a random salt and derives
   `secret = HMAC-SHA256(serverKey, deviceId + salt)` (serverKey from `WEB_SESSION_SECRET`, else the service account — changing

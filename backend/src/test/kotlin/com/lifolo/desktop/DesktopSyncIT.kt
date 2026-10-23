@@ -7,6 +7,7 @@ import com.lifolo.common.DhakaTime
 import com.lifolo.common.Places
 import com.lifolo.support.IntegrationTest
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -26,9 +27,19 @@ class DesktopSyncIT : IntegrationTest() {
 
     @Autowired lateinit var deskClock: DesktopClock
 
+    @Autowired lateinit var feature: DesktopFeature
+
+    @BeforeEach
+    fun switchOn() {
+        feature.mode = DesktopFeature.ON
+        feature.pilotUids = emptySet()
+        feature.demo = false
+    }
+
     @AfterEach
-    fun resetClock() {
+    fun reset() {
         deskClock.fixed = null
+        feature.mode = DesktopFeature.OFF
     }
 
     private val mym: String get() = Places.DISTRICTS.first { it.en == "Mymensingh" }.bn
@@ -438,7 +449,7 @@ class DesktopSyncIT : IntegrationTest() {
             "ph1", id,
             op("pay", mapOf("invoice" to mapOf("id" to inv), "amount" to 5, "method" to "cash")),
             op("void", mapOf("invoice" to mapOf("id" to inv), "reason" to "x")),
-            op("sale", sale("D1-000001", theirs, 1)),
+            op("sale", sale("D1-000005", theirs, 1)),
             op("adjust", mapOf("itemId" to theirs, "delta" to -1)),
             op("purchase", mapOf("lines" to listOf(mapOf("itemId" to theirs, "name" to "Other", "qty" to 1, "cost" to 1)))),
             op("sale", sale("D1-000002", mine, 1, extra = mapOf("rxOrderId" to "noSuchOrder1"))),
@@ -550,5 +561,43 @@ class DesktopSyncIT : IntegrationTest() {
         assertTrue(sync("demo-ph1", demo, op("sale", sale("D1-000001", napa, 1)))["results"][0]["ok"].booleanValue())
         assertEquals(true, row("SELECT is_demo FROM invoices WHERE biz_id = 'demo-ph1'")["is_demo"])
         assertEquals(1, ok("ph1", "desktop_devices", mapOf("kind" to "pharmacy"))["items"].size())
+    }
+
+    // ------------------------------------------------------------------ feature switch `desktop`
+
+    @Test
+    fun `switch desktop - off refuses everything new, pilot lets only pilot businesses in, a registered desk keeps syncing after off`() {
+        pharmacy("ph1")
+        pharmacy("ph2")
+        pharmacy("demo-ph9")
+        feature.mode = DesktopFeature.OFF
+        val off = call("ph1", "desktop_register", mapOf("kind" to "pharmacy", "name" to "PC"))
+        assertEquals(404, off.status)
+        assertEquals("feature_off", off.code)
+        assertEquals("এই সুবিধা এখনো চালু হয়নি", off.error)
+        assertEquals("feature_off", call("ph1", "desktop_devices", mapOf("kind" to "pharmacy")).code)
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM desktop_devices", Int::class.java))
+
+        // pilot: only the pilot owners (and demo accounts when demo is on)
+        feature.mode = DesktopFeature.PILOT
+        feature.pilotUids = setOf("ph1")
+        val id = deviceOf("ph1", "pharmacy")
+        assertEquals("feature_off", call("ph2", "desktop_register", mapOf("kind" to "pharmacy", "name" to "PC")).code)
+        assertEquals("feature_off", call("demo-ph9", "desktop_register", mapOf("kind" to "pharmacy", "name" to "PC")).code)
+        feature.demo = true
+        deviceOf("demo-ph9", "pharmacy")
+        val napa = item("ph1", "Napa", 10)
+        assertEquals(200, signed("ph1", "offline_bootstrap", id, emptyMap()).status)
+
+        // back to off: no new desks, no new snapshots — but the registered desk's sales still come in, and it can be removed
+        feature.mode = DesktopFeature.OFF
+        assertEquals("feature_off", call("ph1", "desktop_register", mapOf("kind" to "pharmacy", "name" to "PC2")).code)
+        assertEquals("feature_off", signed("ph1", "offline_bootstrap", id, emptyMap()).code)
+        val r = sync("ph1", id, op("sale", sale("D1-000001", napa, 2)))["results"][0]
+        assertTrue(r["ok"].booleanValue(), r.toString())
+        assertEquals(8.0, qty("ph1", napa))
+        assertEquals(1, ok("ph1", "desktop_devices", mapOf("kind" to "pharmacy"))["active"].intValue())
+        assertTrue(ok("ph1", "desktop_revoke", mapOf("deviceId" to id))["revoked"].booleanValue())
+        assertEquals("feature_off", call("ph1", "desktop_devices", mapOf("kind" to "pharmacy")).code)
     }
 }
