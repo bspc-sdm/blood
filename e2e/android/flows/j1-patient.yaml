@@ -28,8 +28,14 @@ env:
     direction: DOWN
     timeout: 20000
 - tapOn: ".*আমার প্রেসক্রিপশন.*"
+# চলমান / পূর্বের / সব — Bislol-এরটা "সব"-এ নিশ্চিত (চলমানে নিচে থাকতে পারে)
 - extendedWaitUntil:
-    visible: ".*Bislol.*"
+    visible: "সব.*"
+    timeout: 30000
+- tapOn: "সব.*"
+- scrollUntilVisible:
+    element: ".*Bislol.*"
+    direction: DOWN
     timeout: 30000
 - takeScreenshot: j1-04-rx-list
 - tapOn: ".*Bislol.*"

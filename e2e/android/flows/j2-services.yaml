@@ -81,6 +81,10 @@ env:
     visible: ".*ডা\\. ডেমো.*"
     timeout: 30000
 - takeScreenshot: j2-03b-doctor-list
+- scrollUntilVisible:
+    element: ".*ডা\\. ডেমো হাসান.*"
+    direction: DOWN
+    timeout: 20000
 - tapOn: ".*ডা\\. ডেমো হাসান.*"
 - extendedWaitUntil:
     visible: ".*চেম্বার বেছে অ্যাপ(?:য়|য়)েন্টমেন্ট নিন.*"

@@ -30,14 +30,27 @@ env:
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: j4-04b-seg-reported
-- tapOn:
-    text: "দেখুন"
-    index: 0
+# "শেষ"-এ রিপোর্ট দেওয়া আর বাতিল একসাথে — রিপোর্টের "দেখুন" নিচে থাকতে পারে
+- scrollUntilVisible:
+    element: "দেখুন"
+    direction: DOWN
+    timeout: 15000
     optional: true
-- waitForAnimationToEnd:
-    timeout: 5000
-- takeScreenshot: j4-05-report-view
-- back
+- runFlow:
+    when:
+      visible: "দেখুন"
+    commands:
+      - tapOn:
+          text: "দেখুন"
+          index: 0
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - takeScreenshot: j4-05-report-view
+      - back
+- scrollUntilVisible:
+    element: "ল্যাব"
+    direction: UP
+    timeout: 15000
 - tapOn:
     text: "ল্যাব"
     index: 0

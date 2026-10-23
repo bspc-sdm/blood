@@ -23,6 +23,18 @@ env:
           visible: "এলোপ্যাথি.*"
           timeout: 20000
       - takeScreenshot: j25-02-system-chips
+      # পদ্ধতির চিপ এক সারির চিপে (এলাকা · সাজান · ফিল্টার-এর পরে) — সারি বাঁয়ে সরিয়ে
+      - runFlow:
+          when:
+            notVisible:
+              id: "system_homeopathy"
+          commands:
+            - swipe:
+                from:
+                  id: "system_chips"
+                direction: LEFT
+            - waitForAnimationToEnd:
+                timeout: 2000
       - tapOn:
           id: "system_homeopathy"
       # ডেমোর হোমিও চিকিৎসক (DemoPractice: নামের আগে "ডা." নেই)
@@ -47,9 +59,29 @@ env:
                 optional: true
             - takeScreenshot: j25-04-homeopath-detail
             - back
+      - runFlow:
+          when:
+            notVisible:
+              id: "system_unani"
+          commands:
+            - swipe:
+                from:
+                  id: "system_chips"
+                direction: LEFT
+            - waitForAnimationToEnd:
+                timeout: 2000
       - tapOn:
           id: "system_unani"
       - takeScreenshot: j25-05-unani
+      - runFlow:
+          when:
+            notVisible:
+              id: "system_ayurveda"
+          commands:
+            - swipe:
+                from:
+                  id: "system_chips"
+                direction: LEFT
       - tapOn:
           id: "system_ayurveda"
       - takeScreenshot: j25-06-ayurveda
