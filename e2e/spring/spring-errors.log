@@ -1,0 +1,4 @@
+108:2026-10-24T05:00:12.036Z  WARN 7969 --- [lifolo-backend] [           main] com.lifolo.notify.MailConfig             : Mail: logging only (SES_REGION / SES_FROM not set)
+109:2026-10-24T05:00:12.841Z  WARN 7969 --- [lifolo-backend] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+119:2026-10-24T05:00:14.612Z  WARN 7969 --- [lifolo-backend] [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /api/docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+120:2026-10-24T05:00:14.613Z  WARN 7969 --- [lifolo-backend] [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /api/docs/ui endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'

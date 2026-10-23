@@ -1,0 +1,627 @@
+  00-demo-seed/01-step.png  অ্যাডমিন প্যানেলে ঢোকার পাতা
+  00-demo-seed/02-step.png  মালিক হিসেবে প্যানেলে ঢোকা
+  00-demo-seed/03-step.png  ডেমো পাতা — ডেমো বন্ধ
+  00-demo-seed/04-step.png  ধাপে ধাপে ডেমো বানানো শেষ
+00-demo-seed: 4 ধাপ 5s
+  01-core-journey/01-step.png  রোগী হিসেবে ঢোকা (লগইন পাতার ডেমো তালিকা থেকে)
+  01-core-journey/02-step.png  অ্যাপয়েন্টমেন্ট › ডাক্তারের তালিকা
+  01-core-journey/03-step.png  ডা. ডেমো হাসানের পাতা
+  01-core-journey/04-step.png  সিরিয়ালের অনুরোধের ঘর ভরা
+  01-core-journey/05-step.png  অনুরোধ পাঠানো হলো
+  01-core-journey/06-step.png  আমার অ্যাপয়েন্টমেন্ট — অপেক্ষায়
+  [J-01] 5s
+  01-core-journey/07-step.png  ডাক্তার: আমার চেম্বার › বুকিং › আজ
+  01-core-journey/08-step.png  নিশ্চিত করার ঘর
+  01-core-journey/09-step.png  রহিম নিশ্চিত — সিরিয়াল ৫
+  [J-02] 5s
+  01-core-journey/10-step.png  রোগী: আমার অ্যাপয়েন্টমেন্ট — নিশ্চিত, সিরিয়াল ৫
+  01-core-journey/11-step.png  রোগী: নিশ্চিত অ্যাপয়েন্টমেন্ট
+  [J-03] 3s
+  01-core-journey/12-step.png  সহকারী: আমার কাজ
+  01-core-journey/13-step.png  সহকারী: রোগী — আজকের সিরিয়াল আর অ্যাপের অ্যাপয়েন্টমেন্ট
+  [J-04] 4s
+  01-core-journey/14-step.png  ডাক্তার: প্রেসক্রিপশন › রোগী
+  01-core-journey/15-step.png  প্রেসক্রিপশন লেখা — সব ঘর ভরা
+  01-core-journey/16-step.png  দেওয়ার আগে শেষবার দেখা
+  01-core-journey/17-step.png  প্রেসক্রিপশন দেওয়া হয়েছে — কাগজ
+  [J-05] 6s
+  01-core-journey/18-step.png  রোগী: আজকের প্রেসক্রিপশন
+  01-core-journey/19-step.png  ছাপার রূপ (প্রিন্ট)
+  [J-06] 3s
+  01-core-journey/20-step.png  ফার্মেসিতে পাঠানোর দুই পথ
+  01-core-journey/21-step.png  অনলাইনে অর্ডার — ফার্মেসি বাছাই
+  01-core-journey/22-step.png  অর্ডারের ঠিকানা আর ফোন
+  01-core-journey/23-step.png  অর্ডার গেছে
+  [J-07] 4s
+  01-core-journey/24-step.png  ফার্মেসি: অনলাইন অর্ডার — চালু
+  01-core-journey/25-step.png  অর্ডার নিন — দাম আর সময়
+  01-core-journey/26-step.png  অর্ডার নেওয়া হলো
+  01-core-journey/27-step.png  পাঠিয়ে দেওয়া হলো
+  [J-08] 4s
+  01-core-journey/28-step.png  প্রেসক্রিপশন খোলা — কয়টা দিলেন
+  01-core-journey/29-step.png  ৬০-এর বেশি লিখলে আটকায়
+  01-core-journey/30-step.png  Comet পুরো ৬০, Napa ৯
+  01-core-journey/31-step.png  লেখা হয়েছে — দেওয়া শেষ
+  01-core-journey/32-step.png  অর্ডার ‘আগের’ তালিকায়
+  [J-09] 5s
+  01-core-journey/33-step.png  রোগী: ওষুধ কেনা — ৬০/৬০ আর ৯/৯
+  [J-10] 2s
+  01-core-journey/34-step.png  প্যাথলজি বাছাই
+  01-core-journey/35-step.png  বাসা থেকে নমুনা — ঠিকানা, ফোন, দিন, সময়
+  01-core-journey/36-step.png  ল্যাবে পাঠানো হলো
+  [J-11] 4s
+  01-core-journey/37-step.png  প্যাথলজি: পরীক্ষার অনুরোধ
+  01-core-journey/38-step.png  অনুরোধ খোলা — বাসা থেকে নমুনা
+  01-core-journey/39-step.png  বাসায় যাওয়ার সময় নিশ্চিত করা
+  01-core-journey/40-step.png  সময় নিশ্চিত হলো
+  01-core-journey/41-step.png  নমুনা নেওয়া হলো
+  01-core-journey/42-step.png  রিপোর্টের ঘর — একক আর স্বাভাবিক মাত্রা ভরা
+  01-core-journey/43-step.png  ফল লেখা — HbA1c-এর পাশে ‘বেশি’
+  01-core-journey/44-step.png  রিপোর্ট পাঠানো হলো
+  [J-12] 7s
+  01-core-journey/45-step.png  প্রেসক্রিপশনে ‘রিপোর্ট এসেছে’
+  01-core-journey/46-step.png  রিপোর্ট — আগের ফল পাশে
+  [J-13] 3s
+  01-core-journey/47-step.png  TrxID লেখা
+  01-core-journey/48-step.png  টাকা পাঠানোর খবর গেল
+  [J-14] 3s
+  01-core-journey/49-step.png  ডাক্তার: রিপোর্ট — টাকা মেলাতে হবে
+  [J-16a] 3s
+  01-core-journey/50-step.png  সহকারী: টাকা মেলানো
+  01-core-journey/51-step.png  টাকা মিলেছে
+  [J-15] 3s
+  01-core-journey/52-step.png  ডাক্তার: রিপোর্ট — দেখতে হবে
+  01-core-journey/53-step.png  পুরো রিপোর্ট — আগের HbA1c পাশে
+  01-core-journey/54-step.png  রোগীকে মন্তব্য পাঠানো হলো
+  [J-16] 5s
+  01-core-journey/55-step.png  রোগী: ডাক্তার দেখেছেন
+  [J-17] 2s
+  01-core-journey/56-step.png  রহিমের ইতিহাস — আগের প্রেসক্রিপশন আর পরীক্ষার রিপোর্ট
+  01-core-journey/57-step.png  ইতিহাস থেকে রিপোর্ট খোলা
+  01-core-journey/58-step.png  আব্দুল করিমের ইতিহাস
+  [J-18] 5s
+  01-core-journey/59-step.png  আবার দেখানোর সিরিয়াল চাওয়া
+  01-core-journey/60-step.png  আমার অ্যাপয়েন্টমেন্ট — ১৫ দিন পরের তারিখে অপেক্ষায়
+  [J-19] 3s
+  01-core-journey/61-step.png  আজকের সিরিয়াল — চলছে, এখন দেখছি ২
+  01-core-journey/62-step.png  পরের রোগী চাপার পর — এখন দেখছি ৩
+  [J-20] 3s
+  01-core-journey/63-step.png  রোগীর নোটিফিকেশন
+  01-core-journey/64-step.png  তালিকার কার্ডে এক লাইনে সারির খবর
+  01-core-journey/65-step.png  আজকের সিরিয়াল বাক্স
+  [J-21] 4s
+  01-core-journey/66-step.png  দেরি হবে — ২০ মিনিট, নোট
+  01-core-journey/67-step.png  সময় চাওয়া হয়েছে — উত্তরের অপেক্ষায়
+  [J-22] 2s
+  01-core-journey/68-step.png  ডাক্তারের নোটিফিকেশন
+  01-core-journey/69-step.png  রহিমের সারিতে ‘২০ মিনিট দেরি হবে’
+  01-core-journey/70-step.png  পরে আসুন — রহিম ‘শেষে’
+  [J-23] 4s
+  01-core-journey/71-step.png  রোগীর নোটিফিকেশন — পরে আসুন
+  01-core-journey/72-step.png  বাক্সে ‘আপনাকে সবার শেষে দেখা হবে’
+  [J-24] 3s
+  01-core-journey/73-step.png  সহকারী: মরিয়মের ‘২০ মিনিট দেরি হবে’
+  01-core-journey/74-step.png  ঠিক আছে — সিরিয়াল ৪-ই থাকে
+  [R-35] 4s
+  01-core-journey/75-step.png  বিরতি
+  01-core-journey/76-step.png  রোগী: ডাক্তার একটু বিরতিতে
+  01-core-journey/77-step.png  আবার শুরু
+  [R-34] 5s
+  01-core-journey/78-step.png  এখন দেখছি ৪ (মরিয়ম নেসা)
+  01-core-journey/79-step.png  এখন দেখছি ৫ — শেষে রাখা রহিম
+  01-core-journey/80-step.png  রোগী: এখন আপনার পালা
+  01-core-journey/81-step.png  আরেকবার পরের রোগী — সিরিয়াল শেষ
+  01-core-journey/82-step.png  রোগী: দেখা হয়ে গেছে
+  [J-25] 10s
+  01-core-journey/83-step.png  সালমার সারি চেপে এখন দেখছি ১
+  01-core-journey/84-step.png  পরের রোগী — পেছনে ফিরে সবাইকে ডাকে না
+  [R-36] 4s
+01-core-journey: 84 ধাপ 116s
+  02-blood/01-step.png  অতিথি: প্রথম পাতা
+  02-blood/02-step.png  এলাকা খোঁজা — ‘গাজীপুর’ লিখলে জেলা আসে
+  02-blood/03-step.png  অতিথি: আশেপাশের রিকোয়েস্ট (গাজীপুর)
+  [B-01] 3s
+  02-blood/04-step.png  অতিথি: রিকোয়েস্টের পাতা
+  02-blood/05-step.png  সাড়া দিতে লগইন চায়
+  [B-02] 2s
+  02-blood/06-step.png  অতিথি: হোমে ডেমো জরুরি আহ্বান নেই
+  02-blood/07-step.png  সেবা › ব্লাড ব্যাংক
+  02-blood/08-step.png  শুধু ২৪ ঘণ্টা খোলা
+  [B-03] 4s
+  02-blood/09-step.png  ডোনার করিমের প্রোফাইল
+  [B-04] 3s
+  02-blood/10-step.png  ডোনারের হোম
+  [B-05] 1s
+  02-blood/11-step.png  নিশ্চিত রিকোয়েস্ট — রক্তপ্রার্থীর নম্বর
+  [B-06] 2s
+  02-blood/12-step.png  রাজি হওয়ার আগে
+  02-blood/13-step.png  রক্ত দেওয়ার আগে — ৫টা টিক
+  02-blood/14-step.png  রাজি হলাম — নম্বর দেখা যায়
+  02-blood/15-step.png  বাতিলের পর আবার গোপন
+  [B-07] 3s
+  02-blood/16-step.png  ডোনারের অ্যাপ সেটিংস
+  02-blood/17-step.png  O- যোগ করার পর হোম
+  02-blood/18-step.png  O- রিকোয়েস্ট — রক্ত দেওয়া যায় না
+  02-blood/19-step.png  ২৫ কিমিতে শ্রীপুর দেখা যায়
+  [B-08] 8s
+  02-blood/20-step.png  আবার খুললে বদলগুলো থেকে যায়
+  [B-09] 4s
+  02-blood/21-step.png  জরুরি আহ্বানের কার্ড
+  02-blood/22-step.png  আসছি চাপার পর
+  02-blood/23-step.png  আসতে পারছি না
+  02-blood/24-step.png  শেষ হওয়া আহ্বান — রক্ত দিয়েছেন?
+  02-blood/25-step.png  না, দিইনি — ধন্যবাদ
+  [B-10] 4s
+  02-blood/26-step.png  রোগীর হোম — আমার রিকোয়েস্ট
+  [B-11] 3s
+  02-blood/27-step.png  আমার রিকোয়েস্ট — ৩টা
+  02-blood/28-step.png  বন্ধ পুরোনো রিকোয়েস্ট
+  02-blood/29-step.png  রোগীর ঘণ্টা
+  [B-12] 3s
+  02-blood/30-step.png  রিকোয়েস্ট এডিট
+  02-blood/31-step.png  এডিট সেভ হলো
+  [B-13] 3s
+  02-blood/32-step.png  হাসপাতালের পরামর্শ
+  02-blood/33-step.png  নতুন রিকোয়েস্টের ঘর
+  02-blood/34-step.png  দুটো খোলা রিকোয়েস্ট — সীমা
+  02-blood/35-step.png  মুছে ফেলবেন?
+  02-blood/36-step.png  মোছার পর একটা খোলা
+  [B-14] 7s
+  02-blood/37-step.png  ডোনার রাজি — রোগীর নম্বর
+  02-blood/38-step.png  রোগী: ৩ জন রাজি
+  02-blood/39-step.png  রোগীর ঘণ্টায় করিম রাজি
+  [B-15] 7s
+  02-blood/40-step.png  নাদিয়াকে বাদ দেবেন?
+  02-blood/41-step.png  বাদ দেওয়া হলো — ফিরিয়ে আনুন
+  02-blood/42-step.png  নাদিয়া ফিরে এলেন
+  [B-16] 3s
+  02-blood/43-step.png  করিম নিশ্চিত — দুটো ব্যাগ পূরণ
+  02-blood/44-step.png  ডোনার: নিশ্চিত করা হয়েছে
+  02-blood/45-step.png  ডোনারের ঘণ্টা
+  [B-17] 6s
+  02-blood/46-step.png  রিকোয়েস্ট বন্ধ করবেন?
+  02-blood/47-step.png  রিকোয়েস্ট বন্ধ হলো
+  02-blood/48-step.png  ডোনার: এখন রক্ত দিতে পারবেন না
+  02-blood/49-step.png  ডোনারের হোম — রেলগেট কার্ড চলে গেছে
+  02-blood/50-step.png  ডোনারের ঘণ্টা — ধন্যবাদ
+  [B-18] 9s
+  02-blood/51-step.png  রক্ত দেব-এর বদলে পরের তারিখ
+  02-blood/52-step.png  জরুরি আহ্বানে আসছি নেই
+  [B-19] 3s
+  02-blood/53-step.png  রক্তদাতার তথ্য
+  02-blood/54-step.png  প্রোফাইলে B+ — এখন রক্ত দিতে পারবেন
+  02-blood/55-step.png  হোমে শুধু B+ আর AB+ রিকোয়েস্ট
+  [B-20] 6s
+  02-blood/56-step.png  রুমার প্রোফাইল
+  02-blood/57-step.png  জয়দেবপুর বাজার — রক্ত দেব নেই
+  [B-21] 4s
+  02-blood/58-step.png  পেছানো তারিখ — স্বাস্থ্যঝুঁকি
+  02-blood/59-step.png  সেভের পর — এখন রক্ত দিতে পারবেন
+  02-blood/60-step.png  ভবিষ্যতের তারিখ দেওয়া যায় না
+  [B-22] 4s
+  02-blood/61-step.png  আমার ব্লাড ব্যাংক
+  [B-23] 2s
+  02-blood/62-step.png  ব্লাড ব্যাংকের তথ্য বদলান
+  02-blood/63-step.png  সময় সকাল ৮টা–রাত ১০টা
+  02-blood/64-step.png  সময় বদল সেভ হলো
+  [B-24] 2s
+  02-blood/65-step.png  রোগী: জীবনধারার নতুন সময়
+  02-blood/66-step.png  ফোন না করে রিপোর্ট
+  [B-25] 4s
+  02-blood/67-step.png  অ্যাডমিন: ব্লাড ব্যাংক — অপেক্ষায়
+  02-blood/68-step.png  যাচাইয়ের পাতা — কাগজের ছবি
+  02-blood/69-step.png  অনুমোদন দেওয়া হলো
+  [B-27] 6s
+  02-blood/70-step.png  অ্যাডমিন: রিপোর্ট
+  02-blood/71-step.png  রিপোর্ট রেখে দেওয়া হলো
+  [B-28] 3s
+  02-blood/72-step.png  অ্যাডমিন: হাসপাতাল যোগের অনুরোধ  !! english text: Demo Chayabithi Mother and Child Clinic
+  02-blood/73-step.png  অনুরোধ বাতিল
+  [B-29] 2s
+  02-blood/74-step.png  অ্যাডমিন: জরুরি আহ্বান
+  02-blood/75-step.png  আহ্বান শেষ
+  02-blood/76-step.png  ডোনারের হোমে আহ্বান নেই
+  [B-30] 5s
+  02-blood/77-step.png  সব রিকোয়েস্টের নামে ‘ডেমো’
+  [B-31] 1s
+02-blood: 77 ধাপ 116s
+  03-ambulance/01-step.png  সেবা › অ্যাম্বুলেন্স (রোগী)
+  03-ambulance/02-step.png  এখন ট্রিপে আছে — খোলা
+  [J-81 S-80] 4s
+  03-ambulance/03-step.png  ফিল্টার: এসি
+  03-ambulance/04-step.png  ফিল্টার: আইসিইউ
+  03-ambulance/05-step.png  ফিল্টার: ফ্রিজার ভ্যান
+  03-ambulance/06-step.png  ডেমো জীবন অ্যাম্বুলেন্স (এসি) — বিস্তারিত
+  [J-82 S-82] 4s
+  03-ambulance/07-step.png  ফোন করুন চাপা (tel:01700000170)
+  [J-83] 9s
+  03-ambulance/08-step.png  বড় বাটনে এক চাপ
+  [S-81] 1s
+  03-ambulance/09-step.png  চালক: আমার কাজ
+  03-ambulance/10-step.png  চালক: আমার অ্যাম্বুলেন্স
+  03-ambulance/11-step.png  এসি গাড়ির হিসাব — বিস্তারিত
+  03-ambulance/12-step.png  নন-এসি: এখন খালি আছি
+  03-ambulance/13-step.png  রোগীর তালিকায় নন-এসি এখন খালি
+  [J-84] 8s
+  03-ambulance/14-step.png  অ্যাম্বুলেন্সে রেটিং — ৪ তারা
+  03-ambulance/15-step.png  রেটিং জমা হলো
+  03-ambulance/16-step.png  ফোন না করা গাড়িতে রেটিং নেই
+  [S-23] 9s
+  03-ambulance/17-step.png  অতিথি: অ্যাম্বুলেন্স — বড় বাটন নেই
+  [S-84] 2s
+03-ambulance: 17 ধাপ 37s
+  04-caregiver/01-step.png  রুমা: কেয়ারগিভার ও পরিবার
+  04-caregiver/02-step.png  রহিমের হয়ে কাজ — ফিতা
+  04-caregiver/03-step.png  রহিমের প্রেসক্রিপশন (রুমার চোখে)
+  [J-60] 5s
+  04-caregiver/04-step.png  রহিমের অ্যাপয়েন্টমেন্ট (রুমার চোখে)
+  04-caregiver/05-step.png  অপেক্ষায় থাকা অ্যাপয়েন্টমেন্ট — বাতিলের বোতাম
+  [J-61] 1s
+  04-caregiver/06-step.png  DEMXRXB333 — রক্তচাপ-ডায়াবেটিসের প্রেসক্রিপশন
+  04-caregiver/07-step.png  সিরিয়াল চাওয়া হলো
+  04-caregiver/08-step.png  রহিমের নামে নতুন অনুরোধ
+  [J-62] 3s
+  04-caregiver/09-step.png  কার জন্য — রহিমের পরিবার
+  04-caregiver/10-step.png  রহিমের হয়ে অনুরোধ গেল
+  04-caregiver/11-step.png  রাবেয়ার জন্য অনুরোধ
+  [J-63] 2s
+  04-caregiver/12-step.png  ডাক্তার: অপেক্ষায় — রহিম আর রাবেয়া
+  04-caregiver/13-step.png  রহিমের অনুরোধ নিশ্চিত
+  04-caregiver/14-step.png  রুমার চোখে — নিশ্চিত, সিরিয়াল নম্বর
+  [J-64] 6s
+  04-caregiver/15-step.png  DEMXRXB333 — ওষুধ কেনা আর পরীক্ষা
+  04-caregiver/16-step.png  Lipid profile, S. Creatinine — রিপোর্ট
+  04-caregiver/17-step.png  DEMXRXA222 — ডাক্তারের মন্তব্য
+  [J-65] 3s
+  04-caregiver/18-step.png  কাছের দোকান
+  04-caregiver/19-step.png  দোকানে পাঠানো হলো
+  04-caregiver/20-step.png  ফার্মেসি: আপনার কাছে পাঠানো — রহিম
+  04-caregiver/21-step.png  ফিরিয়ে নেওয়া হলো
+  [J-66] 7s
+  04-caregiver/22-step.png  প্যাথলজি বাছুন (রহিমের হয়ে)
+  04-caregiver/23-step.png  রহিমের হয়ে বাসা থেকে নমুনা (S-69)
+  04-caregiver/24-step.png  পরীক্ষা পাঠানো হলো
+  04-caregiver/25-step.png  একই প্যাথলজিতে আবার — আটকায়
+  04-caregiver/26-step.png  প্যাথলজি: রহিমের নতুন অনুরোধ
+  [J-67 S-69] 7s
+  04-caregiver/27-step.png  ফিতা চালু রেখে প্রোফাইল — রুমার নিজের
+  04-caregiver/28-step.png  ফিতা চালু রেখে নোটিফিকেশন — রুমার নিজের
+  04-caregiver/29-step.png  ফিতা চালু রেখে ওষুধ খুঁজুন — রুমার নামে
+  [J-68] 3s
+  04-caregiver/30-step.png  রহিম রুমাকে সরিয়ে দিলেন
+  04-caregiver/31-step.png  রুমার পাতায় — আর কেয়ারগিভার নন
+  04-caregiver/32-step.png  রহিমের নিজের তালিকায় রুমার কাজগুলো থাকে
+  04-caregiver/33-step.png  রহিম আবার রুমাকে যোগ করলেন
+  04-caregiver/34-step.png  রুমা রাজি — আবার চালু
+  [J-69 H-20] 9s
+04-caregiver: 34 ধাপ 47s
+  05-services/01-step.png  অতিথি: অ্যাম্বুলেন্সের তালিকা
+  [S-01] 2s
+  05-services/02-step.png  ফিল্টার: ফ্রিজার ভ্যান
+  05-services/03-step.png  আইসিইউ সার্ভিস — নম্বর
+  [S-02] 2s
+  05-services/04-step.png  অতিথি: ফার্মেসির তালিকা
+  05-services/05-step.png  ডেমো লাইফ ফার্মেসি — বিস্তারিত
+  [S-03] 3s
+  05-services/06-step.png  শুধু এখন খোলা
+  05-services/07-step.png  শুধু ২৪ ঘণ্টা খোলা
+  [S-04] 4s
+  05-services/08-step.png  অতিথি: প্যাথলজির তালিকা
+  05-services/09-step.png  সিটি ডায়াগনস্টিক — পরীক্ষা ও দাম
+  05-services/10-step.png  রয়েল ল্যাব — দাম জানা নেই
+  [S-05 S-60] 4s
+  05-services/11-step.png  বাসায় নার্স
+  05-services/12-step.png  শুধু মহিলা
+  05-services/13-step.png  বাসায় ডাক্তার
+  [S-06] 4s
+  05-services/14-step.png  অতিথি: ওষুধ খোঁজা — Monte
+  [S-07] 2s
+  05-services/15-step.png  আমার খোঁজ
+  [S-08] 2s
+  05-services/16-step.png  Sergel বাছা
+  05-services/17-step.png  দোকানগুলোকে জিজ্ঞেস করা হলো
+  [S-09] 3s
+  05-services/18-step.png  জ্বরের প্রেসক্রিপশন — অর্ডার অপেক্ষায়
+  05-services/19-step.png  অ্যাজমার প্রেসক্রিপশন — পথে আছে
+  05-services/20-step.png  ভিটামিন সি — দেওয়া হয়েছে
+  [S-10] 5s
+  05-services/21-step.png  অনলাইনে অর্ডার — দোকান
+  05-services/22-step.png  অর্ডার গেছে
+  [S-11] 3s
+  05-services/23-step.png  ডেমো লাইফ — সেবার রেটিং
+  05-services/24-step.png  রেটিংয়ের জানালা
+  05-services/25-step.png  রেটিং দেওয়া হলো
+  [S-30] 4s
+  05-services/26-step.png  ফোন না করা দোকানে রিপোর্ট
+  05-services/27-step.png  খোঁজায় ‘আছে’ বলা দোকানে রিপোর্ট
+  [S-24] 4s
+  05-services/28-step.png  আমার ফার্মেসি
+  05-services/29-step.png  প্রেসক্রিপশন ও অর্ডার — ওষুধ দিন
+  [S-12] 4s
+  05-services/30-step.png  অনলাইন অর্ডার — চালু
+  05-services/31-step.png  অর্ডার নিলাম আর পাঠিয়ে দিলাম
+  [S-13] 3s
+  05-services/32-step.png  বেশি লিখলে আটকায়
+  05-services/33-step.png  লেখা হয়েছে — বিক্রির হিসাবে তুলবেন?
+  05-services/34-step.png  বিক্রির হিসাবে উঠেছে
+  [S-14 S-48] 2s
+  05-services/35-step.png  চেয়েও পাননি এমন ওষুধ
+  05-services/36-step.png  Mixtard 30 — এনেছি
+  [S-16] 3s
+  05-services/37-step.png  ওষুধ খোঁজার অনুরোধ — আছে/নেই
+  [S-17] 2s
+  05-services/38-step.png  ফার্মেসির তথ্য বদলান
+  05-services/39-step.png  সেভ হয়েছে — অনুমোদন লাগে না
+  05-services/40-step.png  ৩ দিন বন্ধ
+  05-services/41-step.png  আবার খোলা
+  [S-18] 6s
+  05-services/42-step.png  পণ্য ও স্টক
+  05-services/43-step.png  কম স্টক (৫)
+  05-services/44-step.png  মেয়াদ শেষের পথে (২)
+  [S-40] 3s
+  05-services/45-step.png  Neurobion — শুধু নাম
+  05-services/46-step.png  Omidon — দাম সহ
+  05-services/47-step.png  Omidon যোগ হলো
+  [S-41] 5s
+  05-services/48-step.png  কাউন্টারে বিক্রি — Comet ২০, Seclo ১০, বিলে ৫%
+  05-services/49-step.png  বিক্রি লেখা হয়েছে
+  [S-45] 3s
+  05-services/50-step.png  হিসাব — ৭ দিন
+  05-services/51-step.png  হিসাব — ৩০ দিন
+  [S-50 S-51] 2s
+  05-services/52-step.png  রোগী হিসাবের পাতা খুললে
+  [S-52] 2s
+  05-services/53-step.png  আমার প্যাথলজি
+  [S-19] 2s
+  05-services/54-step.png  পরীক্ষা ও দাম
+  [S-61] 2s
+  05-services/55-step.png  পরীক্ষা যোগ — ferritin
+  05-services/56-step.png  দাম খালি থাকলে সেভ হয় না / সেভ হলে নিশ্চিত
+  [S-62] 3s
+  05-services/57-step.png  ফাতেমার অনুরোধ — বাসা থেকে নমুনা
+  05-services/58-step.png  সময় নিশ্চিত করুন
+  05-services/59-step.png  সময় নিশ্চিত
+  [S-67] 3s
+  05-services/60-step.png  আমার অ্যাম্বুলেন্স
+  05-services/61-step.png  আবার চালু রাখুন (S-87)
+  [S-20 S-87] 4s
+  05-services/62-step.png  ভাড়া বদলানো
+  05-services/63-step.png  ভাড়া সেভ হলো
+  [S-21] 1s
+  05-services/64-step.png  নার্স: আমার কাজ
+  05-services/65-step.png  আমার বাসায় সেবা
+  [S-22] 3s
+  05-services/66-step.png  অ্যাডমিন: ফার্মেসি — অনুমোদিত
+  05-services/67-step.png  অ্যাডমিন: প্যাথলজি — অনুমোদিত
+  05-services/68-step.png  অ্যাডমিন: অ্যাম্বুলেন্স — অনুমোদিত
+  [S-26] 6s
+  05-services/69-step.png  আরোগ্য ফার্মেসি — যাচাই
+  05-services/70-step.png  আরোগ্য অনুমোদিত
+  [S-27] 3s
+  05-services/71-step.png  নিউ লাইফ ল্যাব — সব টিক
+  05-services/72-step.png  আইসিইউ অ্যাম্বুলেন্স — যাচাই
+  05-services/73-step.png  আইসিইউ অনুমোদিত
+  [S-28] 5s
+  05-services/74-step.png  অ্যাডমিন: রিপোর্ট
+  05-services/75-step.png  নিউ মডেলের রিপোর্ট রেখে দেওয়া
+  [S-29] 3s
+05-services: 75 ধাপ 111s
+  06-prescription/01-step.png  অতিথি: ডাক্তারের তালিকা
+  [R-01] 2s
+  06-prescription/02-step.png  হাসান — দুটো চেম্বার
+  06-prescription/03-step.png  ফিল্টার: হৃদরোগ
+  06-prescription/04-step.png  ফারজানা — শুধু ফোনে সিরিয়াল
+  [R-02] 3s
+  06-prescription/05-step.png  অতিথি: অ্যাপয়েন্টমেন্ট চাই — লগইন
+  [R-03] 2s
+  06-prescription/06-step.png  আমার অ্যাপয়েন্টমেন্ট — সব অবস্থা
+  [R-04] 3s
+  06-prescription/07-step.png  অপেক্ষার অনুরোধ বাতিল
+  [R-05] 1s
+  06-prescription/08-step.png  সেদিন চেম্বার বন্ধ
+  06-prescription/09-step.png  কী সমস্যা খালি
+  06-prescription/10-step.png  একই দিনে আবার
+  [R-06] 4s
+  06-prescription/11-step.png  বুকিং — অপেক্ষায়
+  06-prescription/12-step.png  বুকিং — সামনের
+  06-prescription/13-step.png  বুকিং — আগের
+  06-prescription/14-step.png  নাসিমার অ্যাপয়েন্টমেন্ট বাতিল
+  [R-08] 6s
+  06-prescription/15-step.png  চেম্বার › রোগী
+  [R-09] 2s
+  06-prescription/16-step.png  চেম্বার › সেটআপ
+  06-prescription/17-step.png  কালিয়াকৈরের ফি ৪৫০
+  [R-10] 3s
+  06-prescription/18-step.png  জমিলা খাতুন — আগের প্রেসক্রিপশন
+  06-prescription/19-step.png  খোঁজ: করিম
+  [R-11] 3s
+  06-prescription/20-step.png  প্রেসক্রিপশনের তালিকা
+  06-prescription/21-step.png  ছাপার পাতা
+  06-prescription/22-step.png  প্রেসক্রিপশন বাতিল
+  [R-13] 3s
+  06-prescription/23-step.png  সালমার রিপোর্ট
+  06-prescription/24-step.png  সালমাকে জানানো হলো
+  [R-16] 3s
+  06-prescription/25-step.png  অনলাইনে রিপোর্ট দেখা — সেটিং
+  06-prescription/26-step.png  নম্বর খালি — আটকায়
+  [R-17] 2s
+  06-prescription/27-step.png  সহকারী
+  06-prescription/28-step.png  নিজেকে সহকারী — আটকায়
+  [R-18] 3s
+  06-prescription/29-step.png  নতুন রোগী এন্ট্রি
+  06-prescription/30-step.png  রোগী যোগ হলো
+  06-prescription/31-step.png  একই রোগী আবার
+  [R-14] 4s
+  06-prescription/32-step.png  টাকা মেলানো
+  06-prescription/33-step.png  টাকা মিলেছে
+  [R-15] 3s
+  06-prescription/34-step.png  আমার প্রেসক্রিপশন
+  06-prescription/35-step.png  DEMXRXB333
+  [R-19] 2s
+  06-prescription/36-step.png  ভুল নম্বরে আটকায়
+  06-prescription/37-step.png  কাগজের প্রেসক্রিপশন যোগ হলো
+  [R-20] 3s
+  06-prescription/38-step.png  যাচাই: /rx/DEMXRXB333  !! english text: Issued on Lifolo by a verified doctor. Don't dispense if it 
+  06-prescription/39-step.png  যাচাই: /rx/DEMXRXC444  !! english text: Issued on Lifolo by a verified doctor. Don't dispense if it 
+  06-prescription/40-step.png  যাচাই: /rx/DEMXRXZZZZ
+  [R-21] 3s
+  06-prescription/41-step.png  দোকানের নাম: লাইফ
+  06-prescription/42-step.png  দোকানে পাঠানো (বা আগেই পাঠানো আছে)
+  [R-22] 4s
+  06-prescription/43-step.png  আপনার কাছে পাঠানো
+  06-prescription/44-step.png  কয়টা দিলেন — Comet ৩০, Bislol ৩০, Napa নেই
+  06-prescription/45-step.png  লেখা হয়েছে
+  [R-23 R-26] 5s
+  06-prescription/46-step.png  ওষুধ দিতে পারবেন না?
+  06-prescription/47-step.png  অর্ডার ফেরত
+  [R-24] 2s
+  06-prescription/48-step.png  বাতিল প্রেসক্রিপশন
+  06-prescription/49-step.png  DEMXRXA222 — সব দেওয়া শেষ
+  06-prescription/50-step.png  বেশি দেওয়া আটকায়
+  [R-25] 5s
+  06-prescription/51-step.png  ট্যাব: নতুন
+  06-prescription/52-step.png  ট্যাব: নমুনা
+  06-prescription/53-step.png  ট্যাব: রিপোর্ট দেওয়া
+  06-prescription/54-step.png  ট্যাব: শেষ
+  06-prescription/55-step.png  সালমার নমুনা নেওয়া
+  [R-27] 5s
+  06-prescription/56-step.png  কোড দিয়ে খোলা — DEMXRXK777
+  06-prescription/57-step.png  বাতিল প্রেসক্রিপশন
+  [R-29] 4s
+  06-prescription/58-step.png  অ্যাডমিন: ব্যাজ — অপেক্ষায়
+  06-prescription/59-step.png  তানভীর — যাচাই
+  06-prescription/60-step.png  তানভীর অনুমোদিত
+  [R-31] 6s
+06-prescription: 60 ধাপ 85s
+  07-health-profile/01-step.png  ঘণ্টায় না-পড়ার সংখ্যা
+  07-health-profile/02-step.png  নোটিফিকেশনের তালিকা
+  07-health-profile/03-step.png  Lifolo টিমের উত্তর চাপলে
+  07-health-profile/04-step.png  তালিকা দেখার পর ঘণ্টা
+  [H-23] 6s
+  07-health-profile/05-step.png  অতিথি: স্বাস্থ্য আলোচনা
+  07-health-profile/06-step.png  ডায়াবেটিসের প্রশ্ন — ২টি উত্তর
+  07-health-profile/07-step.png  অতিথি রিপোর্ট চাপলে
+  [H-01] 4s
+  07-health-profile/08-step.png  খালি প্রশ্ন — পোস্ট হয় না
+  07-health-profile/09-step.png  নতুন প্রশ্ন তালিকার ওপরে
+  07-health-profile/10-step.png  প্রশ্ন বদলানো — সম্পাদিত
+  [H-03] 6s
+  07-health-profile/11-step.png  নার্সের উত্তর
+  [H-06] 3s
+  07-health-profile/12-step.png  টিপস (রোগী)
+  07-health-profile/13-step.png  ডেঙ্গুর টিপস
+  [H-07] 3s
+  07-health-profile/14-step.png  শুধু শিরোনাম — আটকায়
+  07-health-profile/15-step.png  নতুন টিপস ওপরে — ডাক্তার ব্যাজ
+  [H-08] 5s
+  07-health-profile/16-step.png  ফিতা — রহিমের প্রেসক্রিপশন
+  07-health-profile/17-step.png  অন্য পাতাতেও ফিতা থাকে
+  07-health-profile/18-step.png  ফিতা বন্ধ — রুমার নিজের
+  [H-19] 13s
+  07-health-profile/19-step.png  কেয়ারগিভার ও পরিবার (রহিম)
+  07-health-profile/20-step.png  ভুল নম্বর — আটকায়
+  07-health-profile/21-step.png  নতুন সদস্য যোগ হলো
+  07-health-profile/22-step.png  সদস্য সরানো হলো
+  [H-22] 10s
+  07-health-profile/23-step.png  সাহায্য ও আপিল — আমার অনুরোধ
+  [H-25] 1s
+  07-health-profile/24-step.png  ব্যাজের আবেদন
+  07-health-profile/25-step.png  প্রোফাইলে ‘যাচাই চলছে’
+  [H-09] 5s
+  07-health-profile/26-step.png  অ্যাডমিন: আপিল ও সমস্যা
+  07-health-profile/27-step.png  উত্তর পাঠানো হলো
+  [H-26] 5s
+  07-health-profile/28-step.png  অ্যাডমিন: ব্যাজ — অপেক্ষায়
+  07-health-profile/29-step.png  ফারহানা — যাচাই
+  07-health-profile/30-step.png  ফারহানা অনুমোদিত
+  [H-10] 2s
+  07-health-profile/31-step.png  করিমের আবেদন বাতিল
+  07-health-profile/32-step.png  করিমের প্রোফাইলে কারণ
+  [H-11] 4s
+  07-health-profile/33-step.png  অ্যাডমিন: উত্তরের রিপোর্ট
+  07-health-profile/34-step.png  রেখে দেওয়া হলো
+  [H-14] 2s
+  07-health-profile/35-step.png  অ্যাডমিন: তারিখ সংশোধন
+  07-health-profile/36-step.png  তারিখ সংশোধন হলো
+  [H-29] 2s
+  07-health-profile/37-step.png  অ্যাডমিন: ড্যাশবোর্ড
+  [H-30] 1s
+  07-health-profile/38-step.png  ব্যবহারকারীর পাতা — রহিম
+  07-health-profile/39-step.png  কাজের ইতিহাস
+  [H-31] 2s
+  07-health-profile/40-step.png  Settings in English
+  07-health-profile/41-step.png  Health Discussion in English
+  07-health-profile/42-step.png  আবার বাংলা
+  [H-32] 6s
+  07-health-profile/43-step.png  ডার্ক থিম
+  07-health-profile/44-step.png  ডার্ক থিমে হোম
+  [H-33] 3s
+  07-health-profile/45-step.png  ভুল নম্বর — সেভ হয় না
+  07-health-profile/46-step.png  নতুন নাম
+  [H-34] 4s
+  07-health-profile/47-step.png  রোল বদলান — সব ডেমো রোল
+  07-health-profile/48-step.png  ডাক্তার হয়ে ঢোকা
+  07-health-profile/49-step.png  লগআউটের পর অতিথি
+  [H-36] 8s
+  07-health-profile/50-step.png  অ্যাকাউন্ট মুছবেন?
+  07-health-profile/51-step.png  মোছার অনুরোধ — লগআউট
+  07-health-profile/52-step.png  আবার ঢুকলে মোছা বাতিল
+  [H-35] 5s
+07-health-profile: 52 ধাপ 101s
+  08-more/01-step.png  Rosuva পরিমাণ ০
+  08-more/02-step.png  Rosuva — স্টকে নেই
+  [S-42] 4s
+  08-more/03-step.png  মাল কেনা — Cef-3 ১০০×৩৪, Montene ৬০
+  08-more/04-step.png  কেনা সেভ হলো
+  08-more/05-step.png  গড় কেনা দাম
+  [S-43] 4s
+  08-more/06-step.png  এই কেনা মুছবেন?
+  08-more/07-step.png  মোছার পর স্টক
+  [S-44] 2s
+  08-more/08-step.png  Flagyl — কেনা দামের নিচে
+  08-more/09-step.png  বিক্রির তালিকায় ক্ষতি
+  08-more/10-step.png  ৭ দিনের বিক্রি
+  08-more/11-step.png  এই বিক্রি মুছবেন?
+  [S-46 S-47] 5s
+  08-more/12-step.png  Ceevit — নষ্ট ১০
+  08-more/13-step.png  Ceevit ১৪০, Maxpro ১৪৫
+  08-more/14-step.png  হিসাব — আজ
+  [S-49] 5s
+  08-more/15-step.png  ছাড় ৯৫ — আটকায়
+  [S-63] 3s
+  08-more/16-step.png  HbA1c ১২০০ সেভ
+  08-more/17-step.png  ফাতেমার অনুরোধে আগের দাম
+  08-more/18-step.png  রোগীর নতুন বাছাইয়ে নতুন দাম (S-65)
+  08-more/19-step.png  শুধু HbA1c — সবচেয়ে কম দাম আগে
+  08-more/20-step.png  শ্রীপুরে পাঠানো (S-74)
+  [S-71] 12s
+  08-more/21-step.png  সময় বদলান — আগের ঠিকানা/ফোন বসানো
+  08-more/22-step.png  নতুন সময় জানানো হলো
+  [S-72] 2s
+  08-more/23-step.png  রহিমের বাসা থেকে নমুনা — প্যাথলজির চোখে
+  08-more/24-step.png  বাসায় যাওয়া: না
+  08-more/25-step.png  রোগী: বাসায় আসবে না
+  [S-68 S-70] 5s
+  08-more/26-step.png  অ্যাডমিন: রিপোর্টের ছক  !! english text: cbc, complete blood count, cbc with esr, cbc esr / blood group, blood grouping, blood grouping and rh typing, b / Urine for Pregnancy Test / pregnancy test, urine for pregnancy test, upt, urine pregnan
+  [S-75] 4s
+  08-more/27-step.png  চালকের নোটিফিকেশন
+  [S-86] 6s
+  08-more/28-step.png  গাড়ির জায়গা নেওয়া হয়েছে
+  08-more/29-step.png  সেভ হয়েছে — যাচাইয়ে যায় না
+  [S-85] 3s
+  08-more/30-step.png  রহিমের CBC — WBC বেশি
+  08-more/31-step.png  আগের রিপোর্ট (R-30)
+  [R-28 R-30] 5s
+  08-more/32-step.png  গড় সময় ১৫ থাকে
+  [R-37] 5s
+  08-more/33-step.png  কামরুলের সংশোধন — যাচাই
+  08-more/34-step.png  সংশোধন মঞ্জুর
+  08-more/35-step.png  অনুমোদিত ব্যাজ — পেশার নাম বাংলায়
+  08-more/36-step.png  নাসরিনের ব্যাজ বাতিল
+  08-more/37-step.png  নাসরিন আবার অনুমোদিত
+  [R-32 R-33] 9s
+  08-more/38-step.png  মিঠুর আপিল
+  08-more/39-step.png  মিঠুর পুরো পাতা
+  [H-28] 2s
+08-more: 39 ধাপ 75s
+issues: 4
