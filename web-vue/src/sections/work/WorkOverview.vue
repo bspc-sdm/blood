@@ -23,6 +23,7 @@ import { T as DT } from '@/offline/text';
 import { invFeature } from '../invoices/features';
 import { isDesktop } from '../invoices/offline';
 import { writesRx } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 import { T as PT } from '../pay/text';
 import { useMyPayBiz } from '../pay/biz/bizlist';
 
@@ -113,7 +114,7 @@ const bbSub = computed(() => [bbs.value.length === 1 ? bbs.value[0].name : tr(`$
         v-if="s.work.professional"
         :icon="badgeIcon(s.work.professional)"
         :title="s.work.professional === 'nurse' ? tr('My home care', 'আমার বাসায় সেবা') : tr('My chamber', 'আমার চেম্বার')"
-        :sub="s.work.professional === 'nurse' ? badgeLabel(s.work.professional) : badgeLabel(s.work.professional) + tr(' · bookings, patients, setup', ' · বুকিং, রোগী, সেটআপ')"
+        :sub="s.work.professional === 'nurse' ? badgeLabel(s.work.professional) : (practitionerLabel(s.me?.badge) ?? badgeLabel(s.work.professional)) + tr(' · bookings, patients, setup', ' · বুকিং, রোগী, সেটআপ')"
         to="/work/pro"
       >
         <template #actions><RouterLink to="/work/pro" class="btn small has-icon"><Icon name="calendar_month" />{{ tr('Open', 'খুলুন') }}</RouterLink></template>

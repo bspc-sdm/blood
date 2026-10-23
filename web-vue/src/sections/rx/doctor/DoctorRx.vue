@@ -29,6 +29,7 @@ import OnlyDoctor from './OnlyDoctor.vue';
 import { T } from '../../invoices/text';
 import { invFeature } from '../../invoices/features';
 import { newTypeLabel, rxKindOf, systemTag, writesRx } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 
 const ChamberDesk = defineAsyncComponent(() => import('../../invoices/ChamberDesk.vue'));
 
@@ -60,7 +61,9 @@ const doctor = computed(() => actor.value?.role === 'doctor');
 const prof = computed(() => s.work.professional ?? 'doctor');
 const kind = computed(() => rxKindOf(prof.value, me.data?.system ?? s.me?.badge?.system, me.data?.rxRules));
 /** কাগজে নামের নিচে: পদ্ধতি (ডাক্তার, সুইচ চালু থাকলে) বা পেশা (নতুন ধরন) */
-const headTag = computed(() => newTypeLabel(prof.value) ?? systemTag(prof.value, me.data?.system ?? s.me?.badge?.system));
+const headTag = computed(
+  () => practitionerLabel({ type: prof.value, system: me.data?.system ?? s.me?.badge?.system, typeLabel: me.data?.typeLabel, typeLabelEn: me.data?.typeLabelEn }) ?? newTypeLabel(prof.value) ?? systemTag(prof.value, me.data?.system ?? s.me?.badge?.system),
+);
 const labsOn = computed(() => kind.value === 'full' || kind.value === 'free');
 /** ?doctor= রেখে অন্য পাতায় */
 const link = (path: string, extra: Record<string, string> = {}) => {

@@ -6,8 +6,9 @@ import { useSession } from '@/lib/session';
 import { useInfiniteQ } from '@/lib/query';
 
 export interface Question { id: string; text: string; authorName: string | null; mine: boolean; createdAt: number; answerCount: number; editedAt?: number; anonymous?: boolean }
-export interface Answer { id: string; text: string; authorName: string; badge: string | null; mine: boolean; createdAt: number; editedAt?: number }
-export interface Tip { id: string; title: string; body: string; authorName: string; badge: string | null; mine: boolean; createdAt: number; editedAt?: number }
+/** badgeLabel: title_guard — অ-এলোপ্যাথিক চিকিৎসকের ব্যাজ "হোমিওপ্যাথিক চিকিৎসক" … (সার্ভার পাঠালে) */
+export interface Answer { id: string; text: string; authorName: string; badge: string | null; badgeLabel?: string; badgeLabelEn?: string; mine: boolean; createdAt: number; editedAt?: number }
+export interface Tip { id: string; title: string; body: string; authorName: string; badge: string | null; badgeLabel?: string; badgeLabelEn?: string; mine: boolean; createdAt: number; editedAt?: number }
 
 const PAGE = 30;
 

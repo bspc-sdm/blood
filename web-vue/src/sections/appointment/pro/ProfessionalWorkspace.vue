@@ -13,6 +13,7 @@ import { tr } from '@/lib/i18n';
 import { useNav } from '@/lib/nav';
 import { badgeLabel, isChamberType, isHomeType, isProviderType, parseAppointment, parseProvider, useCatalog } from '../model';
 import { systemTag, writesRx } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 import { useAreasReady } from '../shared';
 import ChamberEdit from './ChamberEdit.vue';
 import BookingsTab from './BookingsTab.vue';
@@ -86,7 +87,7 @@ function chamberSaved() {
     <template #intro>
       <div class="col gap-2">
         <h1 class="t-headline appt-h1">{{ title }}</h1>
-        <span class="t-body-m muted">{{ [provider?.name, badgeLabel(type), systemTag(type, provider?.system ?? s.me?.badge?.system)].filter(Boolean).join(' · ') }}</span>
+        <span class="t-body-m muted">{{ [provider?.name, practitionerLabel(provider ?? { type, system: s.me?.badge?.system }) ?? badgeLabel(type), systemTag(type, provider?.system ?? s.me?.badge?.system)].filter(Boolean).join(' · ') }}</span>
       </div>
     </template>
     <template v-if="writesRx(type)" #actions>

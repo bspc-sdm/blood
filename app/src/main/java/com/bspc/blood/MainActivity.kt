@@ -698,6 +698,7 @@ fun App(
                 },
                 // নাম-মোবাইল নেই: শুধু নাম-মোবাইল; প্রোফাইল থেকে এডিট: সব
                 mode = if (profile?.isComplete == true) ProfileMode.FULL else ProfileMode.BASIC,
+                pro = community?.badge,
             )
 
             Screen.PickLocation -> LocationPicker(

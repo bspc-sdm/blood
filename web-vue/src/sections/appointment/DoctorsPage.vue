@@ -28,6 +28,7 @@ import { T as OT } from './online';
 import { onlineOn } from './online/flags';
 import { isSystem, newTypeEmpty, systemsOn } from '@/lib/practice';
 import SystemChips from '../practice/SystemChips.vue';
+import { TG, practitionerName, titleGuardOn } from '@/lib/titleGuard';
 
 const props = defineProps<{ detailId: string | null }>();
 usePageTitle(() => tr('Appointment', 'অ্যাপয়েন্টমেন্ট'));
@@ -123,7 +124,7 @@ const active = computed(() => {
     ...(ff.maxFee ? [{ label: feeLabel(ff.maxFee), onRemove: () => setF({ maxFee: null }) }] : []),
     ...(ff.hospital ? [{ label: hospitalName(ff.hospital), onRemove: () => setF({ hospital: null }) }] : []),
     ...(ff.hospitalQ.trim() ? [{ label: tr('Hospital: ', 'হাসপাতাল: ') + ff.hospitalQ.trim(), onRemove: () => setF({ hospitalQ: '' }) }] : []),
-    ...(ff.gender ? [{ label: genderLabel(ff.gender), onRemove: () => setF({ gender: null }) }] : []),
+    ...(ff.gender ? [{ label: genderText(ff.gender), onRemove: () => setF({ gender: null }) }] : []),
     ...(ff.homeOnly ? [{ label: tr('Home visit', 'বাসায় যান'), onRemove: () => setF({ homeOnly: false }) }] : []),
     ...(ff.online && onlineOn() ? [{ label: OT.online(), onRemove: () => setF({ online: false }) }] : []),
   ];
@@ -148,7 +149,11 @@ const barLabel = computed(() => {
 });
 const spOptions = computed(() => (facets.value ? facets.value.specialties.map((x) => x.code) : specialtiesOf(type.value)));
 const spCount = (code: string) => facets.value?.specialties.find((x) => x.code === code)?.n;
+// title_guard: হোমিও/ইউনানি/আয়ুর্বেদ বাছাই করা থাকলে "ডাক্তার" নয় — "হোমিওপ্যাথিক চিকিৎসক" …
+const practWord = computed(() => (type.value === 'doctor' && sysFilter.value && sysFilter.value !== 'allopathy' && titleGuardOn() ? practitionerName(sysFilter.value) : null));
+const genderText = (g: string) => (practWord.value ? (g === 'female' ? TG.female() : TG.male()) : genderLabel(g));
 const emptyTitle = computed(() =>
+  (practWord.value ? TG.noneFound(practWord.value) : null) ??
   newTypeEmpty(type.value) ??
   (type.value === 'nutritionist' ? tr('No nutritionists found', 'কোনো পুষ্টিবিদ পাওয়া যায়নি') : type.value === 'trainer' ? tr('No fitness trainers found', 'কোনো ফিটনেস ট্রেইনার পাওয়া যায়নি') : tr('No doctors found', 'কোনো ডাক্তার পাওয়া যায়নি')),
 );
@@ -272,9 +277,9 @@ function hospitalPicked(h: Hospital) {
       />
     </div>
     <div v-if="facets?.gender || f.gender" class="col gap-6">
-      <span class="t-title-s">{{ tr('Doctor', 'ডাক্তার') }}</span>
+      <span class="t-title-s">{{ practWord ?? tr('Doctor', 'ডাক্তার') }}</span>
       <ChoiceChips
-        :options="[{ value: '', label: tr('Any', 'যেকোনো') }, { value: 'female', label: genderLabel('female') }, { value: 'male', label: genderLabel('male') }]"
+        :options="[{ value: '', label: tr('Any', 'যেকোনো') }, { value: 'female', label: genderText('female') }, { value: 'male', label: genderText('male') }]"
         :model-value="f.gender ?? ''"
         @update:model-value="(v: string) => setF({ gender: v === 'male' || v === 'female' ? v : null })"
       />

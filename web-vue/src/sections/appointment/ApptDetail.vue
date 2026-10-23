@@ -16,6 +16,7 @@ import { apptCallOpen } from '@/calls/window';
 import { useNow } from '@/ui/composables';
 import InvoiceLink from '../invoices/InvoiceLink.vue';
 import { systemTag } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 import PsychApptNote from '../practice/PsychApptNote.vue';
 import RefPay from '../pay/RefPay.vue';
 import { payOn } from '../pay/features';
@@ -34,7 +35,7 @@ const callOpen = computed(() => apptCallOpen(props.a, now.value));
 <template>
   <div class="row">
     <Tag :tone="statusTone(a.status)">{{ statusLabel(a.status) }}</Tag>
-    <span class="t-body-s muted grow">{{ [badgeLabel(a.type), a.role === 'patient' ? systemTag(a.type, a.system) : null].filter(Boolean).join(' · ') }}</span>
+    <span class="t-body-s muted grow">{{ [practitionerLabel(a) ?? badgeLabel(a.type), a.role === 'patient' ? systemTag(a.type, a.system) : null].filter(Boolean).join(' · ') }}</span>
   </div>
   <div v-if="a.serial > 0 && !live" class="card tonal appt-serial">
     <span class="t-label-m">{{ tr('Serial #', 'সিরিয়াল নং ').trim() }}</span>

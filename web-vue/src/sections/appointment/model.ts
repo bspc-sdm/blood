@@ -86,6 +86,9 @@ export interface Provider {
   photo: string;
   /** ডাক্তারের চিকিৎসা পদ্ধতি (practice_systems; পুরোনো সার্ভারে নেই → এলোপ্যাথি) — lib/practice.ts */
   system?: string;
+  /** সার্ভারের পেশার নাম (title_guard চালু হলে অ-এলোপ্যাথি "হোমিওপ্যাথিক চিকিৎসক" …) — lib/titleGuard.ts */
+  typeLabel?: string;
+  typeLabelEn?: string;
 }
 export interface HomePro {
   uid: string;
@@ -110,6 +113,8 @@ export interface HomePro {
   canRate: boolean;
   photo: string;
   system?: string;
+  typeLabel?: string;
+  typeLabelEn?: string;
 }
 export interface Appointment extends OnlinePart {
   id: string;
@@ -134,6 +139,8 @@ export interface Appointment extends OnlinePart {
   /** পেশাজীবীর চিকিৎসা পদ্ধতি আর সাইকোলজিস্টের অ্যাপয়েন্টমেন্ট কেয়ারগিভারকে দেখানো (practice; পুরোনো সার্ভারে নেই) */
   system?: string;
   shared?: boolean;
+  typeLabel?: string;
+  typeLabelEn?: string;
 }
 export interface Hospital {
   id: string;
@@ -228,6 +235,7 @@ export function parseProvider(o: any): Provider {
     ratingCount: n(o?.ratingCount),
     photo: s(o?.photo),
     ...(typeof o?.system === 'string' ? { system: o.system } : {}),
+    ...labelsOf(o),
   };
 }
 export function parseHomePro(o: any): HomePro {
@@ -254,6 +262,7 @@ export function parseHomePro(o: any): HomePro {
     canRate: o?.canRate === true,
     photo: s(o?.photo),
     ...(typeof o?.system === 'string' ? { system: o.system } : {}),
+    ...labelsOf(o),
   };
 }
 export function parseAppointment(o: any): Appointment {
@@ -278,8 +287,14 @@ export function parseAppointment(o: any): Appointment {
     ...parseOnline(o),
     ...(o && 'invoiceId' in o ? { invoiceId: o.invoiceId ?? null } : {}),
     ...(typeof o?.system === 'string' ? { system: o.system } : {}),
+    ...labelsOf(o),
     ...(typeof o?.shared === 'boolean' ? { shared: o.shared } : {}),
   };
+}
+
+/** সার্ভারের পেশার নাম (title_guard) — থাকলে */
+function labelsOf(o: any): { typeLabel?: string; typeLabelEn?: string } {
+  return typeof o?.typeLabel === 'string' ? { typeLabel: o.typeLabel, typeLabelEn: s(o?.typeLabelEn) } : {};
 }
 
 // ---------- বার আর সময় ----------

@@ -3,7 +3,7 @@
 // health_consent বাদে: ওটা চালু হলে নতুন শর্ত (সম্মতি) যোগ হয় — সার্ভারের মতোই নিজের সেটিং মানে (বন্ধ);
 // consent.spec.ts নিজে চালু করে (backend/docs/CONSENT.md)।
 const KEYS = ['calls_audio', 'calls_video', 'appt_video', 'chat', 'chat_media', 'online_chamber', 'inv_pharmacy', 'inv_lab', 'inv_chamber', 'inv_ambulance', 'my_expenses', 'desktop',
-  'pay_manual', 'pay_chamber_advance', 'pay_delivery', 'pay_lab', 'pay_ambulance', 'pay_due', 'pay_bkash_pgw', 'practice_systems', 'pro_physio', 'pro_psychologist'];
+  'pay_manual', 'pay_chamber_advance', 'pay_delivery', 'pay_lab', 'pay_ambulance', 'pay_due', 'pay_bkash_pgw', 'practice_systems', 'pro_physio', 'pro_psychologist', 'title_guard'];
 export default {
   features: () => ({ ok: true, keys: Object.fromEntries(KEYS.map((k) => [k, true])), v: 1 }),
 };

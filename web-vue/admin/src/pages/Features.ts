@@ -31,6 +31,7 @@ export const FEATURE_INFO: Record<string, { name: string; desc: string }> = {
   pro_physio: { name: 'ফিজিওথেরাপিস্ট', desc: 'ফিজিওথেরাপিস্টের ব্যাজ, তালিকা আর অ্যাপয়েন্টমেন্ট' }, // bn-ok
   pro_psychologist: { name: 'সাইকোলজিস্ট / কাউন্সেলর', desc: 'সাইকোলজিস্ট/কাউন্সেলরের ব্যাজ, তালিকা আর অ্যাপয়েন্টমেন্ট' }, // bn-ok
   health_consent: { name: 'স্বাস্থ্য তথ্যের সম্মতি', desc: 'স্বাস্থ্য তথ্য দেওয়ার আগে রোগীর স্পষ্ট সম্মতি (দেশের বাইরের সার্ভারেও) — জরুরি সেবা কখনো আটকায় না' }, // bn-ok
+  title_guard: { name: '‘ডা.’ পদবির নিয়ম', desc: 'MBBS/BDS ছাড়া কারো নামের আগে "ডা."/"Dr." নয় — নতুন নামে আটকায়, পুরোনো নাম দেখানোর সময় বাদ দেয়; অ-এলোপ্যাথিক চিকিৎসক "ডাক্তার" নন' }, // bn-ok
 };
 export const featureName = (key: string) => FEATURE_INFO[key]?.name || key;
 

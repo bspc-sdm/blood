@@ -137,6 +137,9 @@ data class Rx(
     val pharmacy: Boolean? = null,
     /** সার্ভারের rxRules (না থাকলে পেশা/পদ্ধতি থেকে) */
     val rules: Practice.RxRules? = null,
+    /** সার্ভারের পেশার নাম (title_guard: "হোমিওপ্যাথিক চিকিৎসক" …) — TitleGuard.kt */
+    val typeLabel: String = "",
+    val typeLabelEn: String = "",
 ) {
     val cancelled: Boolean get() = status == "cancelled"
     val verifyUrl: String get() = ServerApi.BASE_URL + "/rx/" + code
@@ -171,6 +174,7 @@ data class Rx(
                 o.optBoolean(PracticeWire.RX_FREE),
                 if (o.has(PracticeWire.RX_PHARMACY) && !o.isNull(PracticeWire.RX_PHARMACY)) o.optBoolean(PracticeWire.RX_PHARMACY) else null,
                 Practice.RxRules.parse(o.optJSONObject("rxRules")),
+                d.str(PracticeWire.TYPE_LABEL), d.str(PracticeWire.TYPE_LABEL_EN),
             )
         }
     }

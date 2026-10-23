@@ -5,6 +5,7 @@ import { num, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import { patientLine, type Rx } from './rx';
 import { isNewType, newTypeLabel, systemTag } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 
 const props = defineProps<{ rx: Rx; selected: boolean; onClick: () => void }>();
 const meds = computed(() => props.rx.medicines ?? []);
@@ -18,7 +19,7 @@ const details = computed<[string, string][]>(() => [
 <template>
   <DirectoryCard
     :title="rx.doctor?.name || '-'"
-    :title-tag="isNewType(rx.doctorType ?? rx.doctor?.type) ? newTypeLabel((rx.doctorType ?? rx.doctor?.type)!) : systemTag(rx.doctorType ?? rx.doctor?.type, rx.doctor?.system)"
+    :title-tag="practitionerLabel({ ...rx.doctor, type: rx.doctorType ?? rx.doctor?.type }) ?? (isNewType(rx.doctorType ?? rx.doctor?.type) ? newTypeLabel((rx.doctorType ?? rx.doctor?.type)!) : systemTag(rx.doctorType ?? rx.doctor?.type, rx.doctor?.system))"
     icon="medication"
     :subtitle="rx.doctor?.degrees || null"
     :status="rx.status === 'cancelled' ? { text: tr('Cancelled', 'বাতিল'), good: false } : null"

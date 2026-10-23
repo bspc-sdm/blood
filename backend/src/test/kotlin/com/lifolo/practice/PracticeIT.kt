@@ -179,6 +179,9 @@ class PracticeIT : P2TestBase() {
         assertEquals("bad_system", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "magic", "regNo" to "H-1", "workplace" to "X")).code)
         // the homeopathic board's certificate is required (no online register to check)
         assertEquals("docs_required", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "X")).code)
+        // title_guard (on in the test profile, TitleGuardIT): a homeopath cannot keep "ডা." — the name is fixed first
+        assertEquals("title_not_allowed", call("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "হোমিও চেম্বার", "docs" to mapOf("cert" to jpeg))).code)
+        ok("d1", "profile_update", mapOf("set" to mapOf("name" to "রহিম")))
         val r = ok("d1", "badge_apply", mapOf("type" to "doctor", "system" to "homeopathy", "regNo" to "H-1", "workplace" to "হোমিও চেম্বার", "docs" to mapOf("cert" to jpeg)))
         assertEquals(true, r["reverify"].booleanValue())
         val b = row("SELECT status, system, reverify_from, reg_no, verified_at FROM badges WHERE uid = 'd1'")

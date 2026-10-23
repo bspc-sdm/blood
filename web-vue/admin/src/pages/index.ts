@@ -14,6 +14,7 @@ import Demo from './Demo';
 import { PayReports } from './PayReports';
 import { ApptReports, CallReports, MessageReports } from './ApptReports';
 import Features from './Features';
+import TitleNames from './TitleNames';
 
 export { Dashboard };
 export const PAGES: Record<string, Component> = {
@@ -43,4 +44,5 @@ export const PAGES: Record<string, Component> = {
   demo: Demo, // ডেমো
   verify: Verify,
   features: Features, // ফিচার সুইচ
+  titlenames: TitleNames, // ‘ডা.’ লেখা নাম (title_guard)
 };

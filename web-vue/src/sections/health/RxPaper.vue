@@ -6,6 +6,7 @@ import { num, tr } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import { FINDINGS, findingLabel, medHowTo, medTitle, patientLine, specialtyLabel, type Rx } from './rx';
 import QrWithCode from './QrWithCode.vue';
+import { practitionerLabel } from '@/lib/titleGuard';
 import PaperBlock from './PaperBlock.vue';
 import { T as PT, isNewType, newTypeLabel, regBody, rxKindOf, systemOf, systemTag, systemsOn } from '@/lib/practice';
 
@@ -17,7 +18,8 @@ const verifyUrl = computed(() => `${window.location.origin}/rx/${props.rx.code}`
 // practice: নামের নিচে পদ্ধতি/পেশা; নিবন্ধনের প্রতিষ্ঠান (সুইচ বন্ধ থাকলে আগের মতো "BMDC"); পরামর্শের শিরোনাম
 const dtype = computed(() => props.rx.doctorType ?? d.value.type);
 const kind = computed(() => rxKindOf(dtype.value, d.value.system, props.rx.rxRules));
-const headTag = computed(() => (isNewType(dtype.value) ? newTypeLabel(dtype.value!) : systemTag(dtype.value, d.value.system)));
+// title_guard: অ-এলোপ্যাথিক চিকিৎসকের পেশা ("হোমিওপ্যাথিক চিকিৎসক" …) — কাগজ আর প্রিন্ট/PDF একই
+const headTag = computed(() => practitionerLabel({ ...d.value, type: dtype.value }) ?? (isNewType(dtype.value) ? newTypeLabel(dtype.value!) : systemTag(dtype.value, d.value.system)));
 const regLine = computed(() => (isNewType(dtype.value) ? d.value.regNo : `${systemsOn() ? regBody(systemOf(d.value.system)) : 'BMDC'} ${d.value.regNo}`));
 const adviceTitle = computed(() => (kind.value === 'advice' ? PT.adviceExercise() : kind.value === 'notes' ? PT.sessionNotes() : tr('Advice', 'পরামর্শ')));
 </script>

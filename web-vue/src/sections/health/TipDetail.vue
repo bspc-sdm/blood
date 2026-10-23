@@ -57,7 +57,7 @@ async function del() {
       <IconButton v-if="tip.mine || me?.isAdmin" icon="delete" :label="tr('Delete', 'মুছুন')" @click="deleting = true" />
     </template>
     <h2 class="t-headline">{{ tip.title }}</h2>
-    <AuthorLine :name="tip.authorName" :badge="tip.badge" :created-at="tip.createdAt" />
+    <AuthorLine :name="tip.authorName" :badge="tip.badge" :label="tip.badgeLabel ? tr(tip.badgeLabelEn || tip.badgeLabel, tip.badgeLabel) : null" :created-at="tip.createdAt" />
     <p class="t-body-l pre">{{ tip.body }}</p>
     <EditedNote v-if="tip.editedAt" />
     <InfoText :text="info" />

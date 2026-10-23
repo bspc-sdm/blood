@@ -143,12 +143,12 @@ class BadgeActions(
         // a doctor: allopathy unless another system is chosen (non-allopathic only while practice_systems is on)
         val system = if (type == "doctor") sentSystem ?: Practice.ALLOPATHY else null
         gate.requireSystem(ctx, system)
-        // title_guard: the badge takes the profile name — no "ডা." for anyone but an MBBS/BDS doctor
-        gate.requireName(ctx, users.name(uid), type, system)
         val listing = mapOf("type" to type, "system" to system)
         // certificate photos (required for nurses and others; a doctor's number is checked on the BMDC site) — checked
         // before the quota is used
         verify.validate(ctx.lang, "badge", listing, b["docs"], true)
+        // title_guard: the badge takes the profile name — no "ডা." for anyone but an MBBS/BDS doctor
+        gate.requireName(ctx, users.name(uid), type, system)
         quotas.use(ctx.lang, uid, "badge")
         val docsHave = verify.save(ctx.lang, "badge", uid, uid, listing, b["docs"], true) ?: emptyList()
         // set() without merge: a new application replaces everything of the earlier one
@@ -179,9 +179,10 @@ class BadgeActions(
     private fun reverify(ctx: ActionContext, cur: Map<String, Any?>, system: String, regNo: String, workplace: String): Any {
         val uid = ctx.user.id
         gate.requireSystem(ctx, system)
-        gate.requireName(ctx, users.name(uid), "doctor", system)
         val listing = mapOf("type" to "doctor", "system" to system)
         verify.validate(ctx.lang, "badge", listing, ctx.body["docs"], true)
+        // title_guard: an MBBS doctor turning homeopath (…) cannot keep "ডা." in the name
+        gate.requireName(ctx, users.name(uid), "doctor", system)
         quotas.use(ctx.lang, uid, "badge")
         val sent = verify.save(ctx.lang, "badge", uid, uid, listing, ctx.body["docs"], false)
         val now = clock.now()

@@ -18,6 +18,7 @@ import ChamberChoices from './ChamberChoices.vue';
 import BookDialog from './BookDialog.vue';
 import { T as OT } from './online';
 import { systemTag } from '@/lib/practice';
+import { practitionerLabel } from '@/lib/titleGuard';
 
 const props = defineProps<{ p: Provider; onClose?: () => void; onBooked?: (msg: string) => void; preview?: boolean }>();
 const two = useTwoPane();
@@ -113,7 +114,7 @@ function homeCalled() {
     </div>
   </div>
   <hr class="divider" />
-  <DetailBlock :title="tr('About', 'পরিচিতি')" :lines="[['school', p.degrees], ['badge', badgeLabel(p.type)]]" />
+  <DetailBlock :title="tr('About', 'পরিচিতি')" :lines="[['school', p.degrees], ['badge', practitionerLabel(p) ?? badgeLabel(p.type)]]" />
   <p v-if="preview" class="t-body-s muted">{{ tr('This is how patients see you. Save to update it.', 'রোগীরা আপনাকে এভাবেই দেখবেন। বদল দেখাতে সেভ করুন।') }}</p>
   <InfoText v-if="reported" :text="tr('Reported. An admin will review it.', 'রিপোর্ট করা হয়েছে। অ্যাডমিন দেখবেন।')" />
   <EmergencyNotice k="doctor" />

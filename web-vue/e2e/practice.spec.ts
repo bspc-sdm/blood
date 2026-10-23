@@ -7,9 +7,10 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { def, open, watchErrors } from './helpers';
 
 type Calls = { action: string; body: any }[];
-const ON = { practice_systems: true, pro_physio: true, pro_psychologist: true };
+// "ডা." পদবির নিয়ম (title_guard) এখানে বন্ধ — তার নিজের পরীক্ষা title-guard.spec.ts
+const ON = { practice_systems: true, pro_physio: true, pro_psychologist: true, title_guard: false };
 /** test/fixtures-e2e/features.mjs সব চালু দেয় — বন্ধের পরীক্ষায় এই তিনটা নিজে বন্ধ */
-const OFF = { practice_systems: false, pro_physio: false, pro_psychologist: false };
+const OFF = { practice_systems: false, pro_physio: false, pro_psychologist: false, title_guard: false };
 /** অন্য সুইচ সার্ভারের পরীক্ষার প্রোফাইলের মতো চালু; এই তিনটা keys অনুযায়ী */
 async function mock(page: Page, keys: Record<string, boolean>, extra: (action: string, body: any, route: Route) => Promise<unknown | undefined> = async () => undefined): Promise<Calls> {
   const seen: Calls = [];
