@@ -302,25 +302,32 @@ env:
 - takeScreenshot: j16-11-confirm-fee
 # টিক শুধু লেখার বাঁয়ের টিক-বাক্সে: লেখায় চাপলে (চাপার যোগ্য নয়) চাপ ঘরের পেছনের "বাইরে চাপলে বন্ধ"-এ যায় আর
 # ঘরটা বন্ধ হয়ে যায় (RC4-এ দেখা অ্যাপের ত্রুটি, CardDialog) — তাই লেখায় নয়
-# ডায়ালগ আলাদা জানালা — testTag (pay_check_*, appt_check_*) resource-id হয় না, তাই লেখার বাঁয়ের টিক-বাক্স
+# ডায়ালগ আলাদা জানালা — testTag (pay_check_*, appt_check_*) resource-id হয় না, তাই লেখার বাঁয়ের বর্গাকার টিক-বাক্স
+# (শুধু leftOf দিলে Maestro বাঁ কিনারা তুলনা করে আর চাপার যোগ্যটা আগে নেয় — তাতে পুরো পর্দার "বাইরে চাপলে বন্ধ" বাক্সটাও আসে)
 - runFlow:
     when:
       visible: "TrxID মিলেছে"
     commands:
       - tapOn:
+          traits: square
           leftOf: "TrxID মিলেছে"
+      - assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
 - runFlow:
     when:
       visible: "টাকার অঙ্ক মিলেছে"
     commands:
       - tapOn:
+          traits: square
           leftOf: "টাকার অঙ্ক মিলেছে"
+      - assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
 - runFlow:
     when:
       visible: "শেষ ৪ সংখ্যা মিলেছে"
     commands:
       - tapOn:
+          traits: square
           leftOf: "শেষ ৪ সংখ্যা মিলেছে"
+      - assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
 - assertVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
 - takeScreenshot: j16-11d-ticked
 - tapOn: "হ্যাঁ, পে(?:য়|য়)েছি"
