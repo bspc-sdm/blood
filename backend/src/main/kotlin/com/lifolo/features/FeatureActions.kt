@@ -179,6 +179,23 @@ class FeatureActions(
             if (unknown.isNotEmpty()) throw ctx.err(400, "No such user: ${unknown.first()}", "এমন ব্যবহারকারী নেই: ${unknown.first()}") // bn-ok
         }
         val by = ctx.caller
+        val r = store(key, mode, pilotsIn, demoIn, by.uid, by.email.lowercase())
+        if (!r.changed) return linkedMapOf("ok" to true, "unchanged" to true, "v" to features.load().v)
+        features.clearCache()
+        val v = features.load().v
+        push.changed(v, push.audience(r.old, r.new))
+        return linkedMapOf("ok" to true, "v" to v, "key" to key, "mode" to r.new.mode, "pilotUids" to r.new.pilotUids, "demo" to r.new.demo)
+    }
+
+    /** the outcome of [store]: the setting before and after, and whether anything was written */
+    data class Stored(val old: FeatureConfig, val new: FeatureConfig, val changed: Boolean)
+
+    /**
+     * Saves one key's setting (the admin page's write, also used by the ops endpoint [FeatureOpsController]): row lock,
+     * `feature_flags` update and one `feature_changes` row (history, version). [pilotsIn]/[demoIn] null = keep. The same
+     * setting again writes nothing. The caller clears the cache and sends the push.
+     */
+    fun store(key: String, mode: String, pilotsIn: List<String>?, demoIn: Boolean?, byUid: String?, byEmail: String): Stored {
         var old = FeatureConfig()
         var new = FeatureConfig()
         var changed = false
@@ -194,20 +211,16 @@ class FeatureActions(
             val prevArr = pgArray(old.pilotUids)
             jdbc.update(
                 "UPDATE feature_flags SET mode = ?, pilot_uids = ?::text[], demo = ?, updated_at = now(), updated_by = ? WHERE key = ?",
-                new.mode, pilotsArr, new.demo, by.email.lowercase(), key,
+                new.mode, pilotsArr, new.demo, byEmail, key,
             )
             jdbc.update(
                 """
                 INSERT INTO feature_changes (key, mode, pilot_uids, demo, prev_mode, prev_demo, prev_pilot, by_uid, by_email)
                 VALUES (?, ?, ?::text[], ?, ?, ?, ?::text[], ?, ?)
                 """.trimIndent(),
-                key, new.mode, pilotsArr, new.demo, old.mode, old.demo, prevArr, by.uid, by.email.lowercase(),
+                key, new.mode, pilotsArr, new.demo, old.mode, old.demo, prevArr, byUid, byEmail,
             )
         }
-        if (!changed) return linkedMapOf("ok" to true, "unchanged" to true, "v" to features.load().v)
-        features.clearCache()
-        val v = features.load().v
-        push.changed(v, push.audience(old, new))
-        return linkedMapOf("ok" to true, "v" to v, "key" to key, "mode" to new.mode, "pilotUids" to new.pilotUids, "demo" to new.demo)
+        return Stored(old, new, changed)
     }
 }

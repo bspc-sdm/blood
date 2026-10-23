@@ -2,6 +2,8 @@ package com.lifolo.demo
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.lifolo.ambulance.AmbClock
+import com.lifolo.features.Features
+import com.lifolo.support.setFeature
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -17,11 +19,14 @@ import java.sql.Timestamp
 class DemoRefreshIT : DemoTestBase() {
     @Autowired lateinit var refresh: DemoRefresh
 
+    @Autowired lateinit var features: Features
+
     private val HOUR = 3_600_000L
 
     @AfterEach
     fun resetClock() {
         AmbClock.reset()
+        features.allOn = true
     }
 
     private fun cars(): List<JsonNode> {
@@ -83,5 +88,21 @@ class DemoRefreshIT : DemoTestBase() {
         assertEquals("busy", refresh.refresh(now)["done"])
         assertEquals("rebuilt", refresh.refresh(now + 2 * HOUR)["done"])
         assertFalse(row("SELECT partial FROM demo_state")["partial"] as Boolean)
+    }
+
+    @Test
+    fun `every switch on in production (ops-features all_on, health_consent too) - the nightly build and demo login work`() {
+        owner()
+        features.allOn = false
+        for (k in Features.KEYS) setFeature(jdbc, features, k, Features.ON)
+        seedAll()
+        assertEquals("rebuilt", refresh.refresh(System.currentTimeMillis() + DAY)["done"])
+        assertFalse(row("SELECT partial FROM demo_state")["partial"] as Boolean)
+        // online_chamber is on for the demo doctor: the online chamber is there, so no second build on the next run
+        assertTrue((jdbc.queryForObject("SELECT count(*) FROM provider_chambers WHERE provider_uid = ? AND mode = 'online'", Int::class.java, U("doctor")) ?: 0) > 0)
+        assertEquals("clock", refresh.refresh(System.currentTimeMillis())["done"])
+        assertTrue(queueToday().size() > 0, "today's serials")
+        assertEquals(200, verify(mapOf("demo" to "patient")).status, "demo login works")
+        assertTrue(ok(U("patient"), "features")["keys"].all { it.booleanValue() })
     }
 }

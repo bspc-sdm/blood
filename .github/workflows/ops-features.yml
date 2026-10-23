@@ -1,0 +1,105 @@
+name: "Ops: feature switches"
+
+# প্রোডাকশনের (lifolo.com) ফিচার সুইচ একসাথে বদলানো — অ্যাডমিন পাতার "ফিচার সুইচ"-এর একই পথে, শুধু হাতে চালানো।
+#   show     প্রতিটা key-র mode দেখা (কিছু বদলায় না)
+#   all_on   আগে snapshot, তারপর সব key "সবার জন্য" (on) — নির্ভরতা আগে
+#   all_off  আগে snapshot, তারপর সব key "বন্ধ" (off)
+#   restore  সর্বশেষ all_on/all_off-এর আগের অবস্থা হুবহু ফেরত (mode, পাইলট তালিকা, ডেমো); নাম দিলে সেই snapshot
+# কীভাবে: VPS-এ deploy/ops/features.sh → POST 127.0.0.1:8088/api/cron/features (CRON_SECRET; বাইরে থেকে 404)
+# → features/FeatureOps.kt: অ্যাডমিন পাতার মতোই লেখা + অডিট (feature_changes, admin_log; কে = "ops-features"),
+# cache মোছা, features_changed push/SSE। পুরো বিবরণ: backend/docs/FEATURES.md → "Ops: all on / all off / restore".
+# Snapshot থাকে VPS-এ /var/lib/lifolo/feature-snapshots/। ফল: Summary আর log branch `ci-log-ops-drills` (features/)।
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "show = দেখা · all_on = সব চালু · all_off = সব বন্ধ · restore = আগের অবস্থায় ফেরত"
+        type: choice
+        options: [show, all_on, all_off, restore]
+        required: true
+        default: show
+      snapshot:
+        description: "শুধু restore: snapshot-এর নাম (যেমন 20261023T160000Z-before-all_on.json); খালি = সর্বশেষটা"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+# নিজের group — "vps-admin"-এ (Deploy backend) ঢুকলে অপেক্ষমাণ deploy বাতিল হয়ে যেতে পারত
+concurrency:
+  group: ops-features
+  cancel-in-progress: false
+
+jobs:
+  features:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check inputs and secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          IN_ACTION: ${{ inputs.action }}
+          IN_SNAPSHOT: ${{ inputs.snapshot }}
+        run: |
+          ip="$(printf '%s' "$VPS_HOST" | tr -d '[:space:]')"
+          [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "::error::VPS_HOST-এ IP নেই"; exit 1; }
+          echo "::add-mask::$ip"; echo "::add-mask::${ip//./-}"
+          echo "ORIGIN_IP=$ip" >> "$GITHUB_ENV"
+          case "$IN_ACTION" in show|all_on|all_off|restore) ;; *) echo "::error::action: show|all_on|all_off|restore"; exit 1 ;; esac
+          if [ -n "$IN_SNAPSHOT" ] && ! [[ "$IN_SNAPSHOT" =~ ^[0-9TZ]+-before-[a-z_]+\.json$ ]]; then
+            echo "::error::snapshot-এর নাম ঠিক নেই"; exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/out"
+
+      - name: Connect to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_ROOT_PASSWORD: ${{ secrets.VPS_ROOT_PASSWORD }}
+        run: bash deploy/ci/vps-connect.sh
+
+      - name: Feature switches (${{ inputs.action }})
+        env:
+          IN_ACTION: ${{ inputs.action }}
+          IN_SNAPSHOT: ${{ inputs.snapshot }}
+        run: |
+          ssh vps "install -d -m 0700 /root/lifolo-ops && cat > /root/lifolo-ops/.features.sh.\$\$ && mv /root/lifolo-ops/.features.sh.\$\$ /root/lifolo-ops/features.sh" < deploy/ops/features.sh
+          # inputs are checked above (fixed choices; the snapshot name matches a strict pattern)
+          ssh vps "bash /root/lifolo-ops/features.sh '$IN_ACTION' '$IN_SNAPSHOT'" > "$RUNNER_TEMP/out/features.md" || true
+          cat "$RUNNER_TEMP/out/features.md"
+          tail -1 "$RUNNER_TEMP/out/features.md" | grep -q '^RESULT ok=1 ' || { echo "::error::ফিচার সুইচ বদলানো যায়নি — Summary দেখুন"; exit 1; }
+
+      - name: Summary
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          {
+            grep -v '^RESULT ' "$out/features.md" 2>/dev/null || echo "VPS থেকে কোনো ফল আসেনি"
+            echo
+            echo "**কীভাবে ফেরাবেন:** Actions → \"Ops: feature switches\" → action \`restore\` (সর্বশেষ all_on/all_off-এর আগের অবস্থা)। দেখতে: \`show\`।"
+            echo
+            echo "_run ${{ github.run_id }} · গাইড: backend/docs/FEATURES.md → Ops_"
+          } > "$out/summary.md"
+          ip_re="${ORIGIN_IP//./\\.}"; dash_re="${ORIGIN_IP//./-}"
+          [ -n "${ORIGIN_IP:-}" ] && sed -i -e "s/$ip_re/<vps-ip>/g" -e "s/$dash_re/<vps-ip>/g" "$out/summary.md"
+          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the log branch (ci-log-ops-drills)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG_MESSAGE: ops features ${{ inputs.action }} ${{ github.run_id }} ${{ job.status }}
+        run: |
+          src="$RUNNER_TEMP/log"; rm -rf "$src"; mkdir -p "$src/features"
+          cp "$RUNNER_TEMP/out/summary.md" "$src/features/summary.md" 2>/dev/null || true
+          { echo "run=${GITHUB_RUN_ID}"; echo "action=${{ inputs.action }}"; echo "job=${{ job.status }}"; tail -1 "$RUNNER_TEMP/out/features.md" 2>/dev/null; } > "$src/features/status.txt"
+          bash .github/scripts/publish-log.sh ci-log-ops-drills "$src" features
+
+      - name: Clean up
+        if: always()
+        run: |
+          ssh -O exit vps 2>/dev/null || true
+          rm -rf ~/.ssh/lifolo ~/.ssh/config

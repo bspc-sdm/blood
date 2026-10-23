@@ -158,3 +158,48 @@ See `docs/CHAMBERS-ONLINE.md` → "Feature switch". The `OnlineSwitch` bean (`al
   Examples: `FeaturesIT`, `FeatureAdminIT`, `appointments/OnlineChamberSwitchIT`.
 - Android: `Features.set(mapOf(Features.CHAT to true), uid = "u1")` in Robolectric tests; `Features.clear()` after.
 - Web: `window.__lfTest.features = { chat: false }` in the test build; the mocked API answers all on.
+
+### Ops: all on / all off / restore (production, without the admin login)
+The owner decided on 2026-10-23 to work and test on lifolo.com (testers only) with **every switch on**, and also with
+them off. GitHub → Actions → **"Ops: feature switches"** (`.github/workflows/ops-features.yml`) → Run workflow → `action`:
+
+| action | what it does |
+|---|---|
+| `show` | prints every key's mode (off / pilot / on), pilot count, demo flag, and unmet dependencies. Changes nothing. |
+| `all_on` | saves a snapshot, then sets every key to `on` (needed keys first, so no dependency is left unmet). |
+| `all_off` | saves a snapshot, then sets every key to `off`. |
+| `restore` | puts back the snapshot taken before the **latest** `all_on`/`all_off`, exactly: mode, pilot list, demo flag. Before restoring it saves another snapshot (`…-before-restore.json`). To go further back, give the `snapshot` input a file name from an earlier run's summary. A key added after the snapshot was taken is set to `off`. |
+
+`all_on`/`all_off` change only the **mode**. The pilot lists and "ডেমো অ্যাকাউন্টে চালু" flags stay as they were, so
+`restore` (or the admin page) can go back to pilot later.
+
+How it works:
+- The workflow connects with the usual SSH (`deploy/ci/vps-connect.sh`) and runs `deploy/ops/features.sh` on the VPS.
+- The script calls `POST http://127.0.0.1:8088/api/cron/features?do=show|set` with `Authorization: Bearer $CRON_SECRET`.
+  The secret is read from `/etc/lifolo/app.env` into a temporary header file, never onto the command line or into the log.
+  nginx answers 404 for `/api/cron/` from outside.
+- The endpoint is `features/FeatureOps.kt`. It writes with the same code as `admin_feature_set` (`FeatureActions.store`).
+  Each change adds a `feature_changes` row (history, version `v`) and an `admin_log` row (`admin_feature_set`,
+  `features/<key>`), and sets `feature_flags.updated_by`. The actor is **`ops-features`**, so the admin page's
+  history shows who changed it.
+- Afterwards the Redis cache is cleared once. ONE silent `features_changed` push and SSE event goes to everyone the
+  changes affect, so open apps refresh at once.
+- A list with one wrong item writes nothing (400). No database writes happen outside the app.
+- Snapshots are kept on the VPS in `/var/lib/lifolo/feature-snapshots/<UTC time>-before-<action>.json` (root only, 0600).
+- The step summary is in Bangla and also goes to the log branch `ci-log-ops-drills` (`features/`). It shows only modes
+  and pilot counts, never uids or emails.
+- The workflow has its own concurrency group (`ops-features`). It never queues in `vps-admin`, where it could cancel a
+  pending "Deploy backend".
+
+With everything on:
+- **`pay_bkash_pgw`** stays on even without the `BKASH_*` settings on the server. Only Lifolo's own subscription checkout
+  then answers 503 `pgw_unavailable` ("অনলাইন পেমেন্ট এখন চালু নেই"). The summary says so. Nothing else depends on it.
+- **`health_consent`** is on too. Patients are asked for consent before a health-data entry (CONSENT.md). Apps older than
+  RC4 (e.g. RC3) get the 428 text "…অ্যাপ হালনাগাদ করুন". This is expected.
+- **Nightly DemoRefresh** (`demo/DemoRefresh.kt`, every 10 min, a new build each Dhaka day) keeps working:
+  - the seed writes straight to the database, so no switch (`health_consent`, `title_guard`) blocks it;
+  - with `online_chamber` on for demo accounts, the demo doctor's online chamber is built. The first run after `all_on`
+    (or `all_off`) rebuilds the demo once (about 10 min) because the online chamber comes or goes;
+  - demo login and today's serials stay.
+
+  Covered by `DemoRefreshIT` "every switch on in production". The endpoint itself is covered by `FeatureOpsIT`.
