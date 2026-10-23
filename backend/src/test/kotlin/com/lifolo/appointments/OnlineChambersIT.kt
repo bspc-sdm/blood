@@ -36,8 +36,9 @@ class OnlineChambersIT : P2TestBase() {
     private fun save(uid: String, chambers: List<Any?>) = call(uid, "provider_save", mapOf("chambers" to chambers, "specialties" to listOf("medicine"), "appointments" to true))
 
     /** the doctor (one chamber at a hospital + the online one), an assistant, a patient with a caregiver */
-    private fun seed(): String {
-        clock.fixedMs = dhaka("2026-10-19 10:00")
+    private fun seed(fixedClock: Boolean = true): String {
+        // rx_patients reads the real Dhaka day, so that test runs on the real clock (online chamber 18–21, booked ahead)
+        clock.fixedMs = if (fixedClock) dhaka("2026-10-19 10:00") else null
         val h = hospitals.approvedIn(district("Gazipur")).first()
         person(doc, "ডা. অনলাইন")
         badge(doc, "doctor", "ডা. অনলাইন")
@@ -145,7 +146,7 @@ class OnlineChambersIT : P2TestBase() {
 
     @Test
     fun `book online - no hospital, pay fields, my_appointments both roles, rx_patients, bKash number follows edits`() {
-        val hid = seed()
+        val hid = seed(fixedClock = false)
         val today = today()
         val id = book()
         val a = appt(id)
