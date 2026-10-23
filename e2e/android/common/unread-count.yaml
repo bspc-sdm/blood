@@ -1,0 +1,30 @@
+# উপরের বারের "মেসেজ" ব্যাজের সংখ্যা → output.unread (বাংলা অঙ্ক পড়ে; "৯৯+" → ৯৯; ব্যাজ না থাকলে ০)
+appId: com.bspc.blood
+---
+- evalScript: ${output.unread = 0}
+- runFlow:
+    when:
+      visible:
+        id: "chat_unread_badge"
+    commands:
+      - evalScript: ${output.unreadGot = false}
+      # ব্যাজের ভেতরের লেখা আলাদা নোডে থাকলে সেটা, নইলে ব্যাজের নিজের লেখা
+      - runFlow:
+          when:
+            visible:
+              text: ".+"
+              childOf:
+                id: "chat_unread_badge"
+          commands:
+            - copyTextFrom:
+                text: ".+"
+                childOf:
+                  id: "chat_unread_badge"
+            - evalScript: ${output.unreadGot = true}
+      - runFlow:
+          when:
+            true: ${!output.unreadGot}
+          commands:
+            - copyTextFrom:
+                id: "chat_unread_badge"
+      - evalScript: ${output.unread = parseInt(String(maestro.copiedText).replace(/[০-৯]/g, function (d) { return String('০১২৩৪৫৬৭৮৯'.indexOf(d)) })) || 1}

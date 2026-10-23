@@ -170,6 +170,9 @@ env:
       id: "chat_unread_badge"
     timeout: 30000
 - takeScreenshot: j18-07-unread-badge
+# কতগুলো না-পড়া (বাংলা অঙ্ক) — ডেমোতে অন্য রোগীরও না-পড়া মেসেজ থাকে (নাসিমা বেগম), তাই শেষে "কমেছে" দেখা হয়, শূন্য নয়
+- runFlow: ../common/unread-count.yaml
+- evalScript: ${output.unreadBefore = output.unread}
 - tapOn:
     id: "chat_inbox_button"
 - extendedWaitUntil:
@@ -199,11 +202,19 @@ env:
 - takeScreenshot: j18-09-reply
 - back
 - back
-# পড়া হয়ে গেছে — উপরের বারে সংখ্যা নেই (অন্য কারো নতুন মেসেজ না থাকলে)
-- extendedWaitUntil:
-    notVisible:
-      id: "chat_unread_badge"
-    timeout: 40000
+# পড়া হয়ে গেছে — উপরের বারের সংখ্যা কমেছে (বা নেই); ডেমোর অন্য রোগীর না-পড়া থাকলে শূন্য হয় না
+- evalScript: ${output.unread = output.unreadBefore}
+- repeat:
+    times: 8
+    while:
+      true: ${output.unread >= output.unreadBefore}
+    commands:
+      - extendedWaitUntil:
+          visible: "__j18_never__"
+          timeout: 5000
+          optional: true
+      - runFlow: ../common/unread-count.yaml
+- assertTrue: ${output.unread < output.unreadBefore}
 - takeScreenshot: j18-10-badge-cleared
 # নোটিফিকেশনের সেটিংসে নতুন ধরন "মেসেজ" (চালু থাকে)
 - runFlow: ../common/notify-settings.yaml

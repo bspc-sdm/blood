@@ -186,9 +186,13 @@ env:
     timeout: 30000
     centerElement: true
 - takeScreenshot: j16-07-patient-online
+# পুরোনো পথ (লাইফলো পে-র অনুরোধ ছাড়া): "টাকা পাঠিয়েছি" → TrxID → "ডাক্তারকে জানান"। লাইফলো পে-র শিটে (pay_claim)
+# পাঠানো এখানে নয় (ডেমোতে রোগীর একটা দাবি আগে থেকেই যাচাইয়ে — একসাথে একটাই চলে; শিটের পাঠানো j22-এর এলাকা)
 - runFlow:
     when:
       visible: "(টাকা|আবার) পাঠি(?:য়|য়)েছি"
+      notVisible:
+        id: "pay_claim"
     commands:
       - tapOn: "(টাকা|আবার) পাঠি(?:য়|য়)েছি"
       - extendedWaitUntil:
@@ -204,14 +208,18 @@ env:
       - takeScreenshot: j16-08-claim
       - tapOn: "ডাক্তারকে জানান"
 - extendedWaitUntil:
-    visible: ".*(যাচাই হচ্ছে|ফি পরিশোধিত).*"
+    visible: ".*(যাচাই হচ্ছে|ফি পরিশোধিত|পাঠানো হয়নি).*"
     timeout: 30000
 - extendedWaitUntil:
     visible: ".*(সম(?:য়|য়) হলে এখানে বোতাম আসবে|ভিডিও কলে যুক্ত হোন|ডাক্তার নিশ্চিত করলে ভিডিও কলের বোতাম আসবে|ভিডিও কলের সম(?:য়|য়) পেরি(?:য়|য়)ে গেছে).*"
     timeout: 10000
+    optional: true
 - takeScreenshot: j16-09-claimed
 
 # ---------- ৩) ডাক্তার: নিশ্চিত আর "ফি পেয়েছি" ----------
+# বুকিং-এর ভাগ: নতুন (অপেক্ষায়) · চলছে (নিশ্চিত) · শেষ। আজকের অনলাইন বুকিং "নতুন"-এ — নিশ্চিত করলে "চলছে"-এ যায়।
+# "চলছে"-এ ফি যাচাই বাকি থাকলে (ডেমোর "প্রেসারের ফলো-আপ", TrxID DEMO8X2K4P, বা রোগীর এইমাত্র পাঠানো) সেটাতে
+# "ফি পেয়েছি"; না থাকলে (একই ডেমো দিনে আগের চালানো নিশ্চিত করে ফেলেছে) প্রথম অনলাইন অ্যাপয়েন্টমেন্টের "ফি পেয়েছি"
 - runFlow:
     file: ../common/start.yaml
     env:
@@ -223,12 +231,13 @@ env:
     visible: ".*বুকিং.*"
     timeout: 30000
 - scrollUntilVisible:
-    element: "ফি যাচাই করুন"
+    element:
+      id: "online_staff_panel"
     direction: DOWN
-    timeout: 40000
+    timeout: 20000
     centerElement: true
-- takeScreenshot: j16-10-doctor-claimed
-# অ্যাপয়েন্টমেন্ট এখনো অপেক্ষায় থাকলে আগে নিশ্চিত (ফি নিশ্চিত করা যায় শুধু নিশ্চিত অ্যাপয়েন্টমেন্টে)
+    optional: true
+- takeScreenshot: j16-10a-doctor-new
 - runFlow:
     when:
       visible:
@@ -249,15 +258,47 @@ env:
       - extendedWaitUntil:
           notVisible: ".*রোগীর জন্য নোট.*"
           timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "work_segs"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    text: "চলছে.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element: "ফি যাচাই করুন"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+    optional: true
+- runFlow:
+    when:
+      notVisible: "ফি যাচাই করুন"
+    commands:
       - scrollUntilVisible:
-          element: "ফি যাচাই করুন"
-          direction: DOWN
+          element: "ফি পে(?:য়|য়)েছি"
+          direction: UP
           timeout: 30000
           centerElement: true
-- tapOn:
-    text: "ফি পে(?:য়|য়)েছি"
-    below: "ফি যাচাই করুন"
-    index: 0
+- takeScreenshot: j16-10-doctor-fee
+- runFlow:
+    when:
+      visible: "ফি যাচাই করুন"
+    commands:
+      - tapOn:
+          text: "ফি পে(?:য়|য়)েছি"
+          below: "ফি যাচাই করুন"
+          index: 0
+- runFlow:
+    when:
+      notVisible: "ফি যাচাই করুন"
+    commands:
+      - tapOn:
+          text: "ফি পে(?:য়|য়)েছি"
+          index: 0
 # দুই রকম ঘর, দুটোতেই তিনটা মিলের টিক (TrxID · টাকার অঙ্ক · শেষ ৪ সংখ্যা): লাইফলো পে-র অনুরোধ যাচাই বাকি থাকলে
 # "টাকা পেয়েছেন?" (PayConfirmDialog), নইলে "ফি পেয়েছেন?" (appt_pay_confirm)
 - extendedWaitUntil:
@@ -277,10 +318,21 @@ env:
       notVisible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
     commands:
       - takeScreenshot: j16-11c-sheet-closed-by-label-tap
-      - tapOn:
-          text: "ফি পে(?:য়|য়)েছি"
-          below: "ফি যাচাই করুন"
-          index: 0
+      - runFlow:
+          when:
+            visible: "ফি যাচাই করুন"
+          commands:
+            - tapOn:
+                text: "ফি পে(?:য়|য়)েছি"
+                below: "ফি যাচাই করুন"
+                index: 0
+      - runFlow:
+          when:
+            notVisible: "ফি যাচাই করুন"
+          commands:
+            - tapOn:
+                text: "ফি পে(?:য়|য়)েছি"
+                index: 0
       - extendedWaitUntil:
           visible: "(?:ফি|টাকা) পে(?:য়|য়)েছেন\\?"
           timeout: 10000
