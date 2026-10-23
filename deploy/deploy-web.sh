@@ -110,7 +110,7 @@ fi
 say "nginx: $WEB_DOMAIN-এর পথ (Vercel-এর vercel.json-এর মতো)"
 HSTS='add_header Strict-Transport-Security "max-age=31536000" always;'
 # vercel.json-এর হেডার — হুবহু
-CSP_WEB="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com${SENTRY_HOST:+ https://$SENTRY_HOST}; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+CSP_WEB="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' wss://lifolo.com wss://call.lifolo.com https://call.lifolo.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com${SENTRY_HOST:+ https://$SENTRY_HOST}; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 CSP_ADMIN="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 web_headers() { # $1 = Cache-Control
   cat <<EOF
@@ -118,7 +118,7 @@ web_headers() { # $1 = Cache-Control
     add_header Content-Security-Policy "$CSP_WEB" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "camera=(), microphone=(), payment=(), geolocation=(self)" always;
+    add_header Permissions-Policy "camera=(self), microphone=(self), payment=(), geolocation=(self)" always;
     add_header X-Frame-Options "DENY" always;
     add_header Cache-Control "$1" always;
 EOF
