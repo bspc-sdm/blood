@@ -57,17 +57,23 @@ class AppointmentReminders(
             confirmed.flatMap { listOf(it.patientUid, it.providerUid) } + waiting.map { it.providerUid } + stale.map { it.patientUid },
         )
         val out = ArrayList<PushItem>()
-        fun msg(uid: String, en: String, bn: String, bodyEn: String, bodyBn: String, role: String, cat: String? = null) {
+        fun msg(uid: String, en: String, bn: String, bodyEn: String, bodyBn: String, role: String, cat: String? = null, type: String? = null) {
             // without a profile nothing; without tokens it still goes to the bell list
             val p = u[uid] ?: return
-            out.add(PushItem(uid, Lang.pick(p.lang, en, bn), Lang.pick(p.lang, bodyEn, bodyBn), mapOf("type" to "appointment", "role" to role) + (if (cat != null) mapOf("cat" to cat) else emptyMap())))
+            out.add(
+                PushItem(
+                    uid, Lang.pick(p.lang, en, bn), Lang.pick(p.lang, bodyEn, bodyBn),
+                    mapOf("type" to "appointment", "role" to role) + (if (cat != null) mapOf("cat" to cat) else emptyMap()) +
+                        com.lifolo.practice.Practice.privateTag(type),
+                ),
+            )
         }
         // patient: the doctor did not answer
         for (d in stale) {
             msg(
                 d.patientUid, "No reply to your appointment request", "অ্যাপয়েন্টমেন্টের অনুরোধে সাড়া আসেনি",
                 "${d.providerName} didn't reply. You can request another doctor.",
-                "${d.providerName} সাড়া দেননি। অন্য ডাক্তারের কাছে অনুরোধ করতে পারেন।", "patient",
+                "${d.providerName} সাড়া দেননি। অন্য ডাক্তারের কাছে অনুরোধ করতে পারেন।", "patient", type = d.type,
             )
         }
         // patient: an appointment today
@@ -80,7 +86,7 @@ class AppointmentReminders(
                 if (d.online) "Online appointment today" else "Appointment today",
                 if (d.online) "আজ অনলাইন অ্যাপয়েন্টমেন্ট আছে" else "আজ অ্যাপয়েন্টমেন্ট আছে", // bn-ok
                 "${d.providerName} · ${d.chamber}$serial",
-                "${d.providerName} · ${d.chamberBn.ifEmpty { d.chamber }}${Lang.bnNumbers(serial)}", "patient",
+                "${d.providerName} · ${d.chamberBn.ifEmpty { d.chamber }}${Lang.bnNumbers(serial)}", "patient", type = d.type,
             )
         }
         // provider: how many today, and how many requests wait

@@ -117,6 +117,8 @@ class ListingRows(private val jdbc: JdbcTemplate, private val mapper: ObjectMapp
                 "lat" to "lat", "lng" to "lng", "closed_until" to "closedUntil", "rating_sum" to "ratingSum", "rating_count" to "ratingCount",
             ),
             ListingKind.BLOODBANK to listOf("added_by_admin" to "addedByAdmin"),
+            // a doctor's medical system (PRACTICE.md: which registering body's certificate and checks)
+            ListingKind.BADGE to listOf("system" to "system"),
         )
     }
 

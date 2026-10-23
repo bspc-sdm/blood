@@ -185,6 +185,9 @@ class AdminWebActions(
             "nurses" to count(badge, "nurse"),
             "nutritionists" to count(badge, "nutritionist"),
             "trainers" to count(badge, "trainer"),
+            // backend/docs/PRACTICE.md
+            "physios" to count(badge, "physio"),
+            "psychologists" to count(badge, "psychologist"),
             "homeDoctors" to count(home, "doctor"),
             "homeNurses" to count(home, "nurse"),
             "pharmacies" to count("SELECT count(*) FROM pharmacies WHERE status = 'approved'"),

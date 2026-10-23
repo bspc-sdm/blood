@@ -96,7 +96,9 @@ class CommunityActions(
                 // a correction of an approved badge is under review
                 "changePending" to (s["change_at"] != null),
                 "statusReason" to (s["status_reason"] ?: ""),
-            )
+                // backend/docs/PRACTICE.md: the doctor's medical system; a system change being verified again
+                "reverifyFrom" to s["reverify_from"],
+            ).apply { putAll(com.lifolo.practice.Practice.labels(s["type"] as String?, s["system"] as String?)) }
             // pending/rejected or asked by an admin: which document photos are missing
             if (status == "pending" || status == "rejected" || requestedAt != null) {
                 try {

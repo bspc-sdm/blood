@@ -61,10 +61,17 @@ class InvoiceService(
     private val rate: RateLimiter,
     private val voidHooks: ObjectProvider<InvoiceVoidHook>,
     private val features: InvoiceFeatures,
+    private val privacy: com.lifolo.practice.PracticePrivacy,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    /** the chamber of a psychologist (PRACTICE.md privacy) */
+    private fun psychologist(bizId: String): Boolean =
+        jdbc.queryForList("SELECT 1 FROM providers WHERE uid = ? AND type = 'psychologist'", bizId).isNotEmpty()
+
     companion object {
+        /** SQL: not a psychologist's chamber receipt (caregivers without sharing — backend/docs/PRACTICE.md) */
+        const val NOT_PSYCH = "NOT (kind = 'chamber' AND biz_id IN (SELECT uid FROM providers WHERE type = 'psychologist'))"
         const val PAGE = 30
         const val BIZ_PAGE = 50
         const val MASK_AFTER_MS = 30L * 24 * 3600 * 1000
@@ -104,7 +111,7 @@ class InvoiceService(
             "chamber" -> jdbc.query(
                 """
                 SELECT p.uid, coalesce(nullif(b.name, ''), p.name) AS name, p.admin_suspended, b.status AS badge
-                FROM providers p LEFT JOIN badges b ON b.uid = p.uid AND b.type = 'doctor' WHERE p.uid = ?
+                FROM providers p LEFT JOIN badges b ON b.uid = p.uid AND b.type IN ('doctor', 'physio', 'psychologist') WHERE p.uid = ?
                 """.trimIndent(),
                 { rs, _ ->
                     val status = when {
@@ -443,6 +450,8 @@ class InvoiceService(
         val patient = inv.patientUid != null && inv.patientUid == actor.uid
         val issuer = roleOf(actor, inv.kind, inv.bizId, inv.ownerUid) != null
         if (!patient && !issuer) throw notFound(lang)
+        // a caregiver: not a psychologist's receipt unless the patient shares those (backend/docs/PRACTICE.md)
+        if (!issuer && inv.kind == "chamber" && privacy.hidesPrivate(actor) && psychologist(inv.bizId)) throw notFound(lang)
         if (issuer) features.requireKind(lang, inv.ownerUid, inv.kind)
         if (!issuer) {
             features.require(lang, actor.uid, InvoiceFeatures.MY_EXPENSES)
@@ -536,10 +545,11 @@ class InvoiceService(
         features.require(lang, uid, InvoiceFeatures.MY_EXPENSES)
         val kinds = kindsOn(uid)
         val c = cursorArgs(cursor)
+        val hide = if (privacy.hidesPrivate(actor)) " AND $NOT_PSYCH" else ""
         val rows = if (c == null) {
-            query("patient_uid = ? AND kind = ANY (?::text[]) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds)
+            query("patient_uid = ? AND kind = ANY (?::text[])$hide ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds)
         } else {
-            query("patient_uid = ? AND kind = ANY (?::text[]) AND (issued_at, id) < (?, ?) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds, Sql.ts(c.first), c.second)
+            query("patient_uid = ? AND kind = ANY (?::text[])$hide AND (issued_at, id) < (?, ?) ORDER BY issued_at DESC, id DESC LIMIT ${PAGE + 1}", uid, kinds, Sql.ts(c.first), c.second)
         }
         val page = rows.take(PAGE)
         return linkedMapOf("items" to page.map { it.toMap() }, "cursor" to if (rows.size > PAGE) cursorOf(page.last()) else null)
@@ -561,7 +571,8 @@ class InvoiceService(
         jdbc.query(
             """
             SELECT kind, count(*) AS n, sum(total) AS t FROM invoices
-            WHERE patient_uid = ? AND status = 'issued' AND issued_at >= ? AND issued_at < ? AND kind = ANY (?::text[]) GROUP BY kind
+            WHERE patient_uid = ? AND status = 'issued' AND issued_at >= ? AND issued_at < ? AND kind = ANY (?::text[])
+            ${if (privacy.hidesPrivate(actor)) "AND $NOT_PSYCH" else ""} GROUP BY kind
             """.trimIndent(),
             RowCallbackHandler { rs ->
                 val t = rs.getBigDecimal("t")

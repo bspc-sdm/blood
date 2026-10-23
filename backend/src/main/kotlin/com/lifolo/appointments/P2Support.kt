@@ -65,7 +65,7 @@ class P2Cache(private val redis: StringRedisTemplate, private val mapper: Object
     }
 
     companion object {
-        val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer")
+        val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer", "physio", "psychologist")
         fun providersKey(type: String) = "p2:providers:$type"
         fun homeKey(type: String) = "p2:home:$type"
         val PROVIDER_KEYS: List<String> = PROVIDER_TYPES.map { providersKey(it) } + PROVIDER_TYPES.map { homeKey(it) }

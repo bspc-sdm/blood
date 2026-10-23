@@ -45,6 +45,16 @@ class RxPharmacyService(
 
     private fun notFound(ctx: ActionContext) = ctx.err(404, "Not found", "পাওয়া যায়নি")
 
+    /**
+     * backend/docs/PRACTICE.md: only an allopathic doctor's prescription goes to a pharmacy — a non-allopathic one has
+     * free-text lines (no stock matching), a physio's/psychologist's has no medicines. 409 `rx_no_pharmacy`.
+     */
+    private fun requirePharmacyRx(ctx: ActionContext, rx: Prescription) {
+        if (!rx.pharmacyOk) {
+            throw ctx.err(409, "This prescription can't go to a pharmacy", "এই প্রেসক্রিপশন ফার্মেসিতে পাঠানো যায় না", "rx_no_pharmacy") // bn-ok
+        }
+    }
+
     /** rxnet.js myPharmacy: the caller's approved pharmacy, else 403 */
     fun myPharmacy(ctx: ActionContext, forUpdate: Boolean = false): Shop {
         val s = shops.get(ctx.user.uid, forUpdate)
@@ -78,6 +88,7 @@ class RxPharmacyService(
         myPharmacy(ctx)
         quotas.use(ctx.lang, ctx.user.id, "rxPharm")
         val rx = prescriptions.byCode(ctx.lang, Js.toStr(ctx.body["code"]), ctx.user.uid)
+        requirePharmacyRx(ctx, rx)
         return mapOf("item" to pharmacyRxView(rx))
     }
 
@@ -90,6 +101,7 @@ class RxPharmacyService(
         val uid = ctx.user.id
         val b = ctx.body
         val rx0 = prescriptions.byCode(ctx.lang, Js.toStr(b["code"]), uid)
+        requirePharmacyRx(ctx, rx0)
         val raw = b["items"]?.takeIf { it.isArray }?.toList() ?: emptyList()
         val now = clock.now()
         // the Firestore transaction: lock the prescription and read it again
@@ -217,6 +229,7 @@ class RxPharmacyService(
         val rxId = b.string("rxId")
         val rx = if (Rules.isValidId(rxId)) prescriptions.get(rxId!!) else null
         if (rx == null || rx.patientUid != uid) throw notFound(ctx)
+        requirePharmacyRx(ctx, rx)
         val district = b.string("district")
         if (!Places.isDistrict(district)) throw ctx.err(400, "Choose a district", "জেলা বেছে নিন")
         val mode = b.string("mode")?.takeIf { it == "shop" || it == "online" }
@@ -308,6 +321,7 @@ class RxPharmacyService(
         val rx = prescriptions.get(rxId!!)
         val p = shops.get(pharmacyId)
         if (rx == null || rx.patientUid != uid) throw notFound(ctx)
+        requirePharmacyRx(ctx, rx)
         if (rx.status != "active") throw ctx.err(409, "This prescription was cancelled", "এই প্রেসক্রিপশন বাতিল")
         if (p == null || p.status != "approved" || !DemoWorld.sameWorld(uid, pharmacyId)) {
             throw ctx.err(404, "This pharmacy is not available", "এই ফার্মেসি এখন নেই")

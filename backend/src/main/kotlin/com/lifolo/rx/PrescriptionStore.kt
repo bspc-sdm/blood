@@ -13,6 +13,7 @@ import com.lifolo.contracts.Prescriptions
 import com.lifolo.contracts.RxDispensing
 import com.lifolo.contracts.RxMedicine
 import com.lifolo.demo.DemoWorld
+import com.lifolo.practice.Practice
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -117,11 +118,14 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
             followUpNote = rs.getString("follow_up_note") ?: "",
             refillAt = day(rs, "refill_at"),
             dispensed = emptyList(),
+            doctorType = rs.getString("doctor_type") ?: "doctor",
+            doctorSystem = rs.getString("doctor_system"),
+            freeText = rs.getBoolean("free_text"),
         )
     }
 
     /** prescriptions.js rxView */
-    override fun view(rx: Prescription): Map<String, Any?> = linkedMapOf(
+    override fun view(rx: Prescription): Map<String, Any?> = linkedMapOf<String, Any?>(
         "id" to rx.id,
         "code" to rx.code,
         "status" to rx.status,
@@ -142,7 +146,14 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
         "followUpNote" to rx.followUpNote,
         "chamberIndex" to rx.chamberIndex,
         "linked" to (rx.patientUid != null),
-    )
+        // PRACTICE.md: the writer's profession/system (the header label), free-text lines, what the form allows
+        "doctorType" to rx.doctorType,
+        "freeText" to rx.freeText,
+        "pharmacy" to rx.pharmacyOk,
+        "rxRules" to Practice.rxRules(rx.doctorType, rx.doctorSystem),
+    ).apply {
+        put("doctor", LinkedHashMap(rx.doctor).apply { putAll(Practice.labels(rx.doctorType, rx.doctorSystem)) })
+    }
 
     fun medicineMap(m: RxMedicine): LinkedHashMap<String, Any?> = linkedMapOf(
         "name" to m.name, "form" to m.form, "strength" to m.strength, "dose" to m.dose, "timing" to m.timing, "days" to m.days, "note" to m.note,
@@ -158,10 +169,10 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
         return linkedMapOf(
             "status" to rx.status,
             "createdAt" to rx.createdAt,
-            "doctor" to linkedMapOf(
+            "doctor" to linkedMapOf<String, Any?>(
                 "name" to (rx.doctor["name"] ?: ""), "degrees" to (rx.doctor["degrees"] ?: ""),
                 "regNo" to (rx.doctor["regNo"] ?: ""), "chamber" to chamber,
-            ),
+            ).apply { putAll(Practice.labels(rx.doctorType, rx.doctorSystem)) },
         )
     }
 
@@ -211,6 +222,9 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
         val followUpBookDate: Long?,
         val followUpNote: String,
         val chamberIndex: Int?,
+        val doctorType: String = "doctor",
+        val doctorSystem: String? = Practice.ALLOPATHY,
+        val freeText: Boolean = false,
     )
 
     @Transactional
@@ -222,15 +236,15 @@ class PrescriptionStore(private val jdbc: JdbcTemplate) : Prescriptions {
               doctor_reg_no, doctor_chamber, doctor_chamber_address, doctor_chamber_phone, patient_name, patient_age, patient_gender,
               patient_uid, rx_patient_id, appointment_id, complaints, finding_bp, finding_pulse, finding_temp, finding_weight,
               finding_spo2, finding_other, diagnosis, tests, test_place, test_place_id, advice, follow_up_date, follow_up_book_date,
-              follow_up_note, chamber_index)
-            VALUES (?, ?, 'active', ?, ?, ?, ?, ?::text[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::text[], ?, ?, ?, ?, ?, ?, ?)
+              follow_up_note, chamber_index, doctor_type, doctor_system, free_text)
+            VALUES (?, ?, 'active', ?, ?, ?, ?, ?::text[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::text[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             id, x.code, Sql.ts(x.createdAt), x.doctorUid, x.doctorName, x.doctorDegrees, P3Sql.pgArray(x.doctorSpecialties),
             x.doctorRegNo, x.chamberName, x.chamberAddress, x.chamberPhone, x.patient.name, x.patient.age, x.patient.gender,
             x.patientUid, x.rxPatientId, x.appointmentId, x.complaints,
             *listOf("bp", "pulse", "temp", "weight", "spo2", "other").map { x.findings[it]?.toString() ?: "" }.toTypedArray(),
             x.diagnosis, P3Sql.pgArray(x.tests), x.testPlace, x.testPlaceId, x.advice, P3Sql.date(x.followUpDate),
-            P3Sql.date(x.followUpBookDate), x.followUpNote, x.chamberIndex,
+            P3Sql.date(x.followUpBookDate), x.followUpNote, x.chamberIndex, x.doctorType, x.doctorSystem, x.freeText,
         )
         x.medicines.forEachIndexed { idx, m ->
             jdbc.update(

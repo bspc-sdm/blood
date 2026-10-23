@@ -22,6 +22,9 @@ import com.lifolo.demo.DemoWorld
 import com.lifolo.features.Features
 import com.lifolo.notify.NotifyCats
 import com.lifolo.notify.PushService
+import com.lifolo.practice.Practice
+import com.lifolo.practice.PracticeGate
+import com.lifolo.practice.PracticePrivacy
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Component
@@ -52,6 +55,8 @@ class AppointmentActions(
     private val onlineSwitch: OnlineSwitch,
     private val payLog: ApptPayLog,
     private val pushService: PushService,
+    private val gate: PracticeGate,
+    private val privacy: PracticePrivacy,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -66,26 +71,28 @@ class AppointmentActions(
     )
 
     companion object {
-        /** who gets "my chamber / home care" */
-        val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer")
+        /** who gets "my chamber / home care" (+ physio, psychologist: backend/docs/PRACTICE.md) */
+        val PROVIDER_TYPES = listOf("doctor", "nurse", "nutritionist", "trainer", "physio", "psychologist")
 
-        /** chambers and appointments: doctor, nutritionist, fitness trainer; nurses only do home care (16 Oct 2026) */
-        val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer")
+        /** chambers and appointments: doctor, nutritionist, fitness trainer, physio, psychologist; nurses only do home care (16 Oct 2026) */
+        val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer", "physio", "psychologist")
 
-        /** home care: doctors and nurses */
-        val HOME_TYPES = listOf("doctor", "nurse")
+        /** home care: doctors, nurses and physios (psychologists: no home visits) */
+        val HOME_TYPES = listOf("doctor", "nurse", "physio")
         const val DAY_MS = 24L * 60 * 60 * 1000
 
         /**
          * appointments.js provider(d): what the app shows of a provider. [own] = provider_me (the doctor's own document:
          * an online chamber's bKash number too — the public list never shows it).
          */
-        fun providerOut(p: ProviderDoc, own: Boolean = false): LinkedHashMap<String, Any?> {
+        fun providerOut(p: ProviderDoc, own: Boolean = false, systemsOn: Boolean = true): LinkedHashMap<String, Any?> {
             val first = p.chambers.firstOrNull()
             val count = p.ratingCount
             val m = LinkedHashMap<String, Any?>()
             m["uid"] = p.uid
             m["type"] = p.type
+            // PRACTICE.md: system + "এলোপ্যাথি"… next to the name, the profession label
+            m.putAll(Practice.labels(p.type, p.system, systemsOn))
             m["photo"] = p.photoThumb
             m["name"] = p.name
             m["specialties"] = p.specialties
@@ -156,6 +163,10 @@ class AppointmentActions(
         val b = ctx.body
         val type = b.string("type")
         if (type == null || type !in PROVIDER_TYPES) throw ctx.err(400, "Choose doctor or nurse", "ডাক্তার বা নার্স বেছে নিন")
+        gate.requireType(ctx, type)
+        // PRACTICE.md: `system` filters doctors; off for the viewer = only (allopathic) doctors, no filter
+        val systemsOn = gate.systemsOn(ctx)
+        val system = if (type == "doctor" && systemsOn) b.string("system")?.takeIf { Practice.isSystem(it) } else null
         val homeVisitTrue = b.isTrue("homeVisit")
         // nurses have no chambers — the old apps' "nurse" list is empty (nurses are in "home care")
         if (type !in CHAMBER_TYPES && !homeVisitTrue) return mapOf("items" to emptyList<Any>())
@@ -164,7 +175,7 @@ class AppointmentActions(
             upazilaId = b.int("upazilaId"),
             unionId = b.int("unionId"),
             hospitalId = b.string("hospitalId")?.takeIf { Rules.isValidId(it) },
-            specialty = b.string("specialty")?.takeIf { it in CareRules.specialtiesFor(type, catalog) },
+            specialty = b.string("specialty")?.takeIf { it in CareRules.specialtiesFor(type, catalog, system) },
         )
         // online:true = doctors with an online (video) chamber, wherever they are — the area filters do not apply
         val f = CareRules.pickListFilters(b.node, base).let {
@@ -182,6 +193,8 @@ class AppointmentActions(
         val pool = all.filter { x ->
             when {
                 x.adminSuspended || !CareRules.isListed(x) || !CareRules.matchesFilter(x, areaOnly, now) -> false
+                type == "doctor" && !systemsOn && Practice.systemOf(x.type, x.system) != Practice.ALLOPATHY -> false
+                system != null && Practice.systemOf(x.type, x.system) != system -> false
                 oldClient && !(CareRules.takesAppointments(x) && x.chambers.any { it.appointments }) -> false
                 homeVisitTrue && !(x.homeVisit?.enabled == true && !x.homeVisitBlocked) -> false
                 // home care only (no chamber) — not in the chamber list
@@ -200,16 +213,20 @@ class AppointmentActions(
                 .map { linkedMapOf("code" to it.key, "n" to it.value) },
             "gender" to pool.any { it.gender == "male" || it.gender == "female" },
         )
+        // the system chips (সব / এলোপ্যাথি / …): how many of this area's doctors each system has
+        if (type == "doctor" && systemsOn) {
+            facets["systems"] = Practice.SYSTEMS.map { sys -> linkedMapOf("code" to sys, "n" to pool.count { Practice.systemOf(it.type, it.system) == sys }) }
+        }
         val docs = pool.filter { CareRules.matchesFilter(it, f, now) }
             .sortedWith(Comparator { p, q -> if (q.ratingCount != p.ratingCount) q.ratingCount - p.ratingCount else P2Js.localeCompare(p.name, q.name) })
-        val items = docs.map { d -> providerOut(d).apply { put("matched", CareRules.matchedChambers(d, f, now)) } }
+        val items = docs.map { d -> providerOut(d, systemsOn = systemsOn).apply { put("matched", CareRules.matchedChambers(d, f, now)) } }
         return linkedMapOf("items" to items.take(150), "facets" to facets)
     }
 
     /** own provider document (null when none) */
     fun providerMe(ctx: ActionContext): Any {
         val p = store.load(ctx.user.id) ?: return mapOf("provider" to null)
-        val out = providerOut(p, own = true)
+        val out = providerOut(p, own = true, systemsOn = gate.systemsOn(ctx))
         // R6: after a bKash number change new bookings get the earlier number for 24 h
         val now = clock.now()
         out["chambers"] = p.chambers.map { c ->
@@ -250,13 +267,13 @@ class AppointmentActions(
         tx.executeWithoutResult {
             jdbc.update(
                 """
-                INSERT INTO providers (uid, type, name, specialty, active, listed, appointments, legacy_chamber, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?)
-                ON CONFLICT (uid) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name, specialty = EXCLUDED.specialty,
+                INSERT INTO providers (uid, type, system, name, specialty, active, listed, appointments, legacy_chamber, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+                ON CONFLICT (uid) DO UPDATE SET type = EXCLUDED.type, system = EXCLUDED.system, name = EXCLUDED.name, specialty = EXCLUDED.specialty,
                   active = EXCLUDED.active, listed = EXCLUDED.listed, appointments = EXCLUDED.appointments, legacy_chamber = TRUE,
                   updated_at = EXCLUDED.updated_at
                 """.trimIndent(),
-                uid, badge, users.name(uid).take(80), b.string("specialty")?.let { ListingRules.jsTrim(it).take(80) } ?: "",
+                uid, badge, Practice.systemOf(badge, badgeSystem(uid)), users.name(uid).take(80), b.string("specialty")?.let { ListingRules.jsTrim(it).take(80) } ?: "",
                 active, active, active, Sql.ts(now),
             )
             store.saveLegacyChamber(uid, chamber, district!!, schedule, b.string("fee")?.let { ListingRules.jsTrim(it).take(40) } ?: "")
@@ -272,6 +289,9 @@ class AppointmentActions(
         if (badge == null || badge !in PROVIDER_TYPES) {
             throw ctx.err(403, "Only verified professionals can add chambers", "শুধু যাচাই করা পেশাজীবীরা চেম্বার যোগ করতে পারেন")
         }
+        gate.requireType(ctx, badge)
+        // a doctor's system is the verified one (badge_apply); it never comes from this request
+        val system = Practice.systemOf(badge, badgeSystem(uid))
         val b = ctx.body
         val chNode = b["chambers"]
         if (chNode == null || !chNode.isArray) return legacySave(ctx, uid, badge)
@@ -283,7 +303,7 @@ class AppointmentActions(
             .take(CareRules.MAX_CHAMBERS)
         val hosp = ids.mapNotNull { hospitals.findHospital(it) }
             .associate { it.id to Place(it.id, it.nameEn, it.nameBn, it.district, it.upazilaId, it.unionId) }
-        val specialties = CareRules.pickCodes(b["specialties"], CareRules.specialtiesFor(badge, catalog), 5)
+        val specialties = CareRules.pickCodes(b["specialties"], CareRules.specialtiesFor(badge, catalog, system), 5)
         if (specialties.isEmpty()) throw ctx.err(400, "Choose at least one specialty", "অন্তত একটা বিশেষজ্ঞতা বেছে নিন")
         val hvNode = b["homeVisit"]
         val hvObj = hvNode as? ObjectNode
@@ -292,7 +312,10 @@ class AppointmentActions(
         if (hvOn && hvObj?.has("phone") != true) {
             throw ctx.err(409, "Please update the app to turn on home care", "বাসায় সেবা চালু করতে অ্যাপ আপডেট করুন", "update_required")
         }
-        // no home care for nutritionists / trainers
+        // no home care for psychologists (PRACTICE.md), nutritionists, trainers
+        if (badge == Practice.PSYCHOLOGIST && hvOn) {
+            throw ctx.err(400, "Psychologists don't do home visits", "সাইকোলজিস্টদের বাসায় সেবা নেই", "no_home_visit") // bn-ok
+        }
         if (badge !in HOME_TYPES && hvOn) throw ctx.err(400, "Home care is for doctors and nurses", "বাসায় সেবা শুধু ডাক্তার আর নার্সের")
         val hv = CareRules.parseHomeVisit(if (badge in HOME_TYPES) hvNode else null, badge, catalog)
         if (hv.error != null) throw err400(ctx, hv.error)
@@ -304,7 +327,7 @@ class AppointmentActions(
         val parsed: List<Ch> = if (nurse || (chNode.size() == 0 && homeVisit.enabled)) {
             emptyList()
         } else {
-            val r = CareRules.parseChambers(chNode, hosp, badge != "doctor", allowOnline = badge == "doctor")
+            val r = CareRules.parseChambers(chNode, hosp, badge != "doctor", allowOnline = badge in Practice.ONLINE_TYPES)
             if (r.error != null) throw err400(ctx, r.error)
             r.value!!
         }
@@ -371,13 +394,13 @@ class AppointmentActions(
             }
             jdbc.update(
                 """
-                INSERT INTO providers (uid, type, name, listed, appointments, active, specialties, degrees, gender, legacy_chamber, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?::text[], ?, ?, FALSE, ?)
-                ON CONFLICT (uid) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name, listed = EXCLUDED.listed,
+                INSERT INTO providers (uid, type, system, name, listed, appointments, active, specialties, degrees, gender, legacy_chamber, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?::text[], ?, ?, FALSE, ?)
+                ON CONFLICT (uid) DO UPDATE SET type = EXCLUDED.type, system = EXCLUDED.system, name = EXCLUDED.name, listed = EXCLUDED.listed,
                   appointments = EXCLUDED.appointments, active = EXCLUDED.active, specialties = EXCLUDED.specialties,
                   degrees = EXCLUDED.degrees, gender = EXCLUDED.gender, legacy_chamber = FALSE, updated_at = EXCLUDED.updated_at
                 """.trimIndent(),
-                uid, badge, name, listed, takes, listed && takes, P2Js.pgTexts(specialties), CareRules.str(b["degrees"], 120),
+                uid, badge, system, name, listed, takes, listed && takes, P2Js.pgTexts(specialties), CareRules.str(b["degrees"], 120),
                 gender.ifEmpty { null }, Sql.ts(now),
             )
             store.saveChambers(uid, saved)
@@ -456,6 +479,13 @@ class AppointmentActions(
         ) {
             throw notTaking()
         }
+        // PRACTICE.md: a switched-off profession, or a non-allopathic doctor while practice_systems is off (not listed)
+        gate.requireType(ctx, ps.type)
+        if (Practice.freeText(ps.type, ps.system) && !gate.systemsOn(ctx)) throw notTaking()
+        // a psychologist: the patient books it (a caregiver only when the patient shares those appointments with them)
+        if (privacy.hidden(user, ps.type)) {
+            throw ctx.err(403, "The patient books this appointment themselves", "এই অ্যাপয়েন্টমেন্ট রোগী নিজে নেবেন", "private_type") // bn-ok
+        }
         val chambers = ps.chambers
         val chamberIndex = b.int("chamberIndex")
         val ch = if (chamberIndex == null) {
@@ -528,7 +558,7 @@ class AppointmentActions(
             if (online) "New online appointment request" else "New appointment request",
             if (online) "নতুন অনলাইন অ্যাপয়েন্টমেন্টের অনুরোধ" else "নতুন অ্যাপয়েন্টমেন্টের অনুরোধ", // bn-ok
             "$name · ${ApptRepo.dateLabel(date)}",
-            mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS),
+            mapOf("type" to "appointment", "role" to "provider", "cat" to NotifyCats.BUSINESS) + Practice.privateTag(ps.type),
         )
         return mapOf("id" to id)
     }
@@ -552,9 +582,12 @@ class AppointmentActions(
             }
             return out
         }
-        val mine = byStatus("patient_uid")
+        // a caregiver: no psychologist appointments unless the patient shares them (PRACTICE.md)
+        val mine = byStatus("patient_uid").let { all -> if (privacy.hidesPrivate(ctx.user)) all.filter { !Practice.isPrivate(it.type) } else all }
         // a caregiver acts on the patient side only: a doctor's appointments with their patients (phones, notes) never
         val toMe = if (ctx.user.patientSideOnly) emptyList() else byStatus("provider_uid")
+        val systemsOn = gate.systemsOn(ctx)
+        val systems = providerSystems((mine + toMe).map { it.providerUid })
         // confirmed: the other party's phone
         val need = LinkedHashSet<String>()
         mine.forEach { if (it.status == "confirmed") need.add(it.providerUid) }
@@ -595,10 +628,34 @@ class AppointmentActions(
                 "invoiceId" to receipts[a.id],
                 // the chamber desk (chamber_checkin): the doctor's side only
                 "arrivedAt" to (if (role == "provider") arrived[a.id] else null),
-            ).apply { putAll(onlineFields(a, role == "patient")) }
+            ).apply {
+                putAll(onlineFields(a, role == "patient"))
+                // the provider's system / profession labels; private = a psychologist's (generic pushes, caregivers)
+                putAll(Practice.labels(a.type, systems[a.providerUid], systemsOn))
+                put("private", Practice.isPrivate(a.type))
+            }
         }
         return mapOf("items" to mine.map { item(it, "patient") } + toMe.map { item(it, "provider") })
     }
+
+    /** providers.system of these providers (doctors; others null) */
+    private fun providerSystems(uids: Collection<String>): Map<String, String?> {
+        val ids = uids.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        val out = HashMap<String, String?>()
+        for (chunk in ids.chunked(500)) {
+            jdbc.query(
+                "SELECT uid, system FROM providers WHERE uid IN (${chunk.joinToString(",") { "?" }})",
+                RowCallbackHandler { rs -> out[rs.getString(1)] = rs.getString(2) },
+                *chunk.toTypedArray(),
+            )
+        }
+        return out
+    }
+
+    /** badges.system — the verified medical system of a doctor (null for other professions / no badge) */
+    private fun badgeSystem(uid: String): String? =
+        jdbc.queryForList("SELECT system FROM badges WHERE uid = ?", String::class.java, uid).firstOrNull()
 
     /**
      * my_appointments: the online-chamber fields (V620). `payState` null = nothing to pay (in person, or no fee);
@@ -634,6 +691,8 @@ class AppointmentActions(
         val op = b.string("op")
         // a caregiver acts on the patient side only: never confirms/declines/cancels the doctor's own appointments
         if (ctx.user.patientSideOnly && a.patientUid != uid) throw ctx.err(404, "Not found", "পাওয়া যায়নি")
+        // nor a psychologist appointment the patient did not share (PRACTICE.md)
+        if (privacy.hidden(ctx.user, a.type)) throw ctx.err(404, "Not found", "পাওয়া যায়নি")
         val isProvider = a.providerUid == uid
         if (isProvider && (op == "confirm" || op == "decline") && badges.approvedBadge(uid) !in PROVIDER_TYPES) {
             throw ctx.err(403, "Your professional badge is not active", "আপনার পেশাদার ব্যাজ এখন চালু নেই")
@@ -689,7 +748,7 @@ class AppointmentActions(
         if (!quiet) users.push(
             to, texts.first, texts.second,
             "${if (isProvider) a.providerName else a.patientName} · ${ApptRepo.dateLabel(a.date)}${if (s != null) " · #$s" else ""}",
-            mapOf("type" to "appointment", "role" to (if (isProvider) "patient" else "provider")),
+            mapOf("type" to "appointment", "role" to (if (isProvider) "patient" else "provider")) + Practice.privateTag(a.type),
         )
         if (paidOff) {
             payLog.log(a.id, uid, a.payState, a.payState, a.payRef, "$next: $note")
@@ -697,7 +756,7 @@ class AppointmentActions(
             pushService.pushPatient(
                 a.patientUid, "Ask the doctor for your fee back", "টাকা ফেরতের জন্য ডাক্তারের সাথে যোগাযোগ করুন / সাহায্য ও আপিল", // bn-ok
                 "${a.providerName} · ${ApptRepo.dateLabel(a.date)} · $note",
-                mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS),
+                mapOf("type" to "appointment", "role" to "patient", "id" to a.id, "cat" to NotifyCats.APPOINTMENTS) + Practice.privateTag(a.type),
             )
         }
         return mapOf("ok" to true)

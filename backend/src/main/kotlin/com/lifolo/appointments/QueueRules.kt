@@ -102,7 +102,7 @@ object QueueRules {
     const val NEAR = 2
     val LATE_MINUTES = listOf(10, 20, 30, 60)
     const val MAX_LATE_ASKS = 3
-    val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer")
+    val CHAMBER_TYPES = listOf("doctor", "nutritionist", "trainer", "physio", "psychologist")
     val ACTIVE = listOf("confirmed", "completed")
     const val DAY = 24L * 3600 * 1000
     const val ROLLOVER_H = 6

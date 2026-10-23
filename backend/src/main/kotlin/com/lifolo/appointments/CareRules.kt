@@ -3,6 +3,7 @@ package com.lifolo.appointments
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.lifolo.admin.kernel.Catalog
+import com.lifolo.practice.Practice
 import com.lifolo.admin.kernel.ListingRules
 import com.lifolo.common.DhakaTime
 import com.lifolo.common.Js
@@ -159,6 +160,8 @@ data class HomeVisit(
 data class ProviderDoc(
     val uid: String = "",
     val type: String = "doctor",
+    /** a doctor's medical system (PRACTICE.md; null on old rows = allopathy, always null for other professions) */
+    val system: String? = null,
     val name: String = "",
     val degrees: String = "",
     val gender: String = "",
@@ -260,21 +263,38 @@ object CareRules {
     /** care.js phone: digits and + only, 15 characters */
     fun phone(v: JsonNode?): String = Js.string(v)?.filter { it in '0'..'9' || it == '+' }?.take(15) ?: ""
 
-    fun specialtiesFor(type: String?, catalog: Catalog): List<String> {
-        val fromCatalog = catalog.codes("specialty", if (type in listOf("nurse", "nutritionist", "trainer")) type!! else "doctor")
+    /**
+     * The specialty codes of a profession (PRACTICE.md: per medical system for doctors — `doctor_<system>` lists;
+     * physio/psychologist their own). A doctor without [system] = every system's codes (the list filter without a system).
+     */
+    fun specialtiesFor(type: String?, catalog: Catalog, system: String? = null): List<String> {
+        if (type == "doctor" && system == null) {
+            return Practice.SYSTEMS.flatMap { specialtiesFor(type, catalog, it) }.distinct()
+        }
+        val list = Practice.specialtyList(type, system)
+        val fromCatalog = catalog.codes("specialty", list)
         if (fromCatalog.isNotEmpty()) return fromCatalog
-        return when (type) {
+        return when (list) {
             "nurse" -> NURSE_SPECIALTIES
             "nutritionist" -> NUTRITIONIST_SPECIALTIES
             "trainer" -> TRAINER_SPECIALTIES
-            else -> DOCTOR_SPECIALTIES
+            "doctor" -> DOCTOR_SPECIALTIES
+            else -> emptyList()
         }
     }
 
     fun homeServicesFor(type: String?, catalog: Catalog): List<String> {
-        val fromCatalog = catalog.codes("homeService", if (type == "doctor") "doctor" else "nurse")
+        val list = when (type) {
+            "doctor", Practice.PHYSIO -> type
+            else -> "nurse"
+        }
+        val fromCatalog = catalog.codes("homeService", list)
         if (fromCatalog.isNotEmpty()) return fromCatalog
-        return if (type == "doctor") DOCTOR_HOME_SERVICES else HOME_SERVICES
+        return when (list) {
+            "doctor" -> DOCTOR_HOME_SERVICES
+            "nurse" -> HOME_SERVICES
+            else -> emptyList()
+        }
     }
 
     /** care.js pickCodes on a JSON value */

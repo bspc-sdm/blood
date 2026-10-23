@@ -161,7 +161,14 @@ class ContractsIT : IntegrationTest() {
         assertEquals("জ্বর", view["diagnosis"])
         assertEquals(0, view["chamberIndex"])
         val v = prescriptions.verify("abcdefgh23")!!
-        assertEquals(mapOf("name" to "ডা. রহিম", "degrees" to "MBBS", "regNo" to "A-1", "chamber" to "সিটি হাসপাতাল"), v["doctor"])
+        assertEquals(
+            mapOf(
+                "name" to "ডা. রহিম", "degrees" to "MBBS", "regNo" to "A-1", "chamber" to "সিটি হাসপাতাল",
+                // PRACTICE.md: the system label on the verify page (an old prescription = an allopathic doctor's)
+                "system" to "allopathy", "systemLabel" to "এলোপ্যাথি", "typeLabel" to "ডাক্তার",
+            ),
+            v["doctor"],
+        )
         assertEquals(setOf("status", "createdAt", "doctor"), v.keys)
         assertNull(prescriptions.verify("nope"))
 

@@ -18,6 +18,8 @@ import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.notify.PushService
 import com.lifolo.notify.PushText
+import com.lifolo.practice.Practice
+import com.lifolo.practice.PracticeGate
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.sql.Timestamp
@@ -40,6 +42,7 @@ class BadgeActions(
     private val cache: P2Cache,
     private val push: PushService,
     private val clock: P2Clock,
+    private val gate: PracticeGate,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "badge_apply" to ActionHandler(::badgeApply),
@@ -79,9 +82,10 @@ class BadgeActions(
                 )
             }
 
-        /** the Node-shaped badge for the verify.js helpers (type, docsHave, docsRequestedAt, verification) */
+        /** the Node-shaped badge for the verify.js helpers (type, system, docsHave, docsRequestedAt, verification) */
         fun listingOf(row: Map<String, Any?>, type: Any? = row["type"]): Map<String, Any?> = linkedMapOf(
             "type" to type,
+            "system" to row["system"],
             "docsHave" to texts(row["docs_have"]),
             "docsRequestedAt" to ms(row["docs_requested_at"]),
             "verification" to verificationOf(row),
@@ -96,6 +100,12 @@ class BadgeActions(
         val b = ctx.body
         val type = b.string("type")
         if (type == null || type !in Rules.BADGES) throw ctx.err(400, "Choose a profession", "পেশা বেছে নিন")
+        // PRACTICE.md: physio / psychologist each behind its switch; a doctor's medical system (registering body)
+        gate.requireType(ctx, type)
+        val sentSystem = b.string("system")
+        if (sentSystem != null && !Practice.isSystem(sentSystem)) {
+            throw ctx.err(400, "Choose the medical system", "চিকিৎসা পদ্ধতি বেছে নিন", "bad_system") // bn-ok
+        }
         val regNo = Rules.cleanText(b.string("regNo"), 60)
         val workplace = Rules.cleanText(b.string("workplace"), 120)
         if (regNo == null) throw ctx.err(400, "Enter your registration / licence number", "রেজিস্ট্রেশন / লাইসেন্স নম্বর দিন")
@@ -105,10 +115,16 @@ class BadgeActions(
         val now = clock.now()
         // an approved badge: a correction request — it stays approved and listed until an admin looks at it
         if (cur != null && cur["status"] == "approved") {
+            val curType0 = cur["type"] as String
+            val curSystem = Practice.systemOf(curType0, cur["system"] as String?)
+            // PRACTICE.md: another medical system = another registering body — the badge goes back to verification
+            if (curType0 == "doctor" && sentSystem != null && sentSystem != curSystem) {
+                return reverify(ctx, cur, sentSystem, regNo, workplace)
+            }
             quotas.use(ctx.lang, uid, "badge")
             // the profession cannot change (lists and services depend on it); only number, workplace and name
             val curType = cur["type"] as String
-            val sent = verify.save(ctx.lang, "badge", uid, uid, mapOf("type" to curType), b["docs"], false)
+            val sent = verify.save(ctx.lang, "badge", uid, uid, mapOf("type" to curType, "system" to cur["system"]), b["docs"], false)
             val set = SqlSet()
                 .value("change_type", curType)
                 .value("change_reg_no", regNo)
@@ -121,26 +137,63 @@ class BadgeActions(
             set.update(jdbc, "badges", "uid = ?", uid)
             return linkedMapOf("ok" to true, "correction" to true)
         }
+        // a doctor: allopathy unless another system is chosen (non-allopathic only while practice_systems is on)
+        val system = if (type == "doctor") sentSystem ?: Practice.ALLOPATHY else null
+        gate.requireSystem(ctx, system)
+        val listing = mapOf("type" to type, "system" to system)
         // certificate photos (required for nurses and others; a doctor's number is checked on the BMDC site) — checked
         // before the quota is used
-        verify.validate(ctx.lang, "badge", mapOf("type" to type), b["docs"], true)
+        verify.validate(ctx.lang, "badge", listing, b["docs"], true)
         quotas.use(ctx.lang, uid, "badge")
-        val docsHave = verify.save(ctx.lang, "badge", uid, uid, mapOf("type" to type), b["docs"], true) ?: emptyList()
+        val docsHave = verify.save(ctx.lang, "badge", uid, uid, listing, b["docs"], true) ?: emptyList()
         // set() without merge: a new application replaces everything of the earlier one
         jdbc.update(
             """
-            INSERT INTO badges (uid, docs_have, type, reg_no, workplace, name, email, status, created_at)
-            VALUES (?, ?::text[], ?, ?, ?, ?, ?, 'pending', ?)
-            ON CONFLICT (uid) DO UPDATE SET docs_have = EXCLUDED.docs_have, type = EXCLUDED.type, reg_no = EXCLUDED.reg_no,
+            INSERT INTO badges (uid, docs_have, type, system, reg_no, workplace, name, email, status, created_at)
+            VALUES (?, ?::text[], ?, ?, ?, ?, ?, ?, 'pending', ?)
+            ON CONFLICT (uid) DO UPDATE SET docs_have = EXCLUDED.docs_have, type = EXCLUDED.type, system = EXCLUDED.system,
+              reverify_from = NULL, reg_no = EXCLUDED.reg_no,
               workplace = EXCLUDED.workplace, name = EXCLUDED.name, email = EXCLUDED.email, status = 'pending',
               created_at = EXCLUDED.created_at, status_reason = NULL, reviewed_at = NULL, reviewed_by = NULL, verified_by = NULL,
               verified_by_email = NULL, verified_at = NULL, verification_checks = NULL, docs_sent_at = NULL, docs_requested_at = NULL,
               docs_request_note = NULL, change_type = NULL, change_reg_no = NULL, change_workplace = NULL, change_name = NULL,
               change_at = NULL
             """.trimIndent(),
-            uid, P2Js.pgTexts(docsHave), type, regNo, workplace, users.name(uid).take(80), user.email, Sql.ts(now),
+            uid, P2Js.pgTexts(docsHave), type, system, regNo, workplace, users.name(uid).take(80), user.email, Sql.ts(now),
         )
         return mapOf("ok" to true)
+    }
+
+    /**
+     * PRACTICE.md: an approved doctor changes the medical system — new registering body, so the badge is verified
+     * again: `pending` with the new system, number, workplace and certificate (required for non-allopathic), the old
+     * verification gone, `reverify_from` = the earlier system (the admin review shows it). While pending the doctor is
+     * out of the lists (they need an approved badge); open appointments stay. The listing's system changes on approval.
+     */
+    private fun reverify(ctx: ActionContext, cur: Map<String, Any?>, system: String, regNo: String, workplace: String): Any {
+        val uid = ctx.user.id
+        gate.requireSystem(ctx, system)
+        val listing = mapOf("type" to "doctor", "system" to system)
+        verify.validate(ctx.lang, "badge", listing, ctx.body["docs"], true)
+        quotas.use(ctx.lang, uid, "badge")
+        val sent = verify.save(ctx.lang, "badge", uid, uid, listing, ctx.body["docs"], false)
+        val now = clock.now()
+        val set = SqlSet()
+            .value("status", "pending")
+            .value("system", system)
+            .value("reverify_from", Practice.systemOf("doctor", cur["system"] as String?))
+            .value("reg_no", regNo)
+            .value("workplace", workplace)
+            .value("name", users.name(uid).take(80))
+            .ms("created_at", now)
+            .nul("status_reason").nul("reviewed_at").nul("reviewed_by")
+            .nul("verified_by").nul("verified_by_email").nul("verified_at").nul("verification_checks")
+            .nul("change_type").nul("change_reg_no").nul("change_workplace").nul("change_name").nul("change_at")
+            .nul("docs_requested_at").nul("docs_request_note")
+        if (sent != null) set.ms("docs_sent_at", now)
+        set.update(jdbc, "badges", "uid = ?", uid)
+        cache.clearProviders()
+        return linkedMapOf("ok" to true, "reverify" to true)
     }
 
     fun adminBadges(ctx: ActionContext): Any {
@@ -174,6 +227,12 @@ class BadgeActions(
                 m["reviewedAt"] = ms(d["reviewed_at"])
                 m["uid"] = d["uid"]
                 m["type"] = d["type"]
+                // PRACTICE.md: the system and its registering body (+ "was …" when it is a system change)
+                val sys = Practice.systemOf(d["type"] as String?, d["system"] as String?)
+                m.putAll(Practice.labels(d["type"] as String?, d["system"] as String?))
+                m["body"] = sys?.let { Practice.SYSTEM_INFO[it]?.bodyBn }
+                m["degreeHint"] = sys?.let { Practice.SYSTEM_INFO[it]?.degrees }
+                m["reverifyFrom"] = d["reverify_from"]
                 m["regNo"] = d["reg_no"]
                 m["workplace"] = d["workplace"]
                 m["name"] = d["name"]
@@ -210,7 +269,7 @@ class BadgeActions(
             val chType = ch["type"] as String
             if (approve) {
                 val verification = verify.assertChecks(
-                    ctx.lang, admin, "badge", linkedMapOf("type" to chType, "docsHave" to texts(bs["docs_have"])), b["checks"],
+                    ctx.lang, admin, "badge", linkedMapOf("type" to chType, "system" to bs["system"], "docsHave" to texts(bs["docs_have"])), b["checks"],
                 )
                 val set = SqlSet()
                     .value("type", chType)
@@ -305,7 +364,28 @@ class BadgeActions(
         val reason = Rules.cleanText(b.string("reason"), 200)
         if (!approve && reason != null) set.value("status_reason", reason)
         if (approve) set.nul("status_reason")
+        set.nul("reverify_from")
         set.update(jdbc, "badges", "uid = ?", uid)
+        if (approve && bs["type"] == "doctor" && p != null) syncSystem(uid, p, Practice.systemOf("doctor", bs["system"] as String?)!!)
         return mapOf("ok" to true)
+    }
+
+    /**
+     * PRACTICE.md: an approved doctor's listing carries the badge's system. A changed system (re-verification) takes
+     * the listing out of the lists — the specialties belong to another system's catalog — and the future
+     * appointments booked under the old system are cancelled; the doctor saves the chambers again.
+     */
+    private fun syncSystem(uid: String, p: com.lifolo.appointments.ProviderDoc, system: String) {
+        val before = Practice.systemOf(p.type, p.system)
+        if (p.type == "doctor" && before == system && p.system != null) return
+        val changed = p.type == "doctor" && before != system
+        jdbc.update(
+            "UPDATE providers SET system = ?" + (if (changed) ", specialties = '{}', listed = FALSE, active = FALSE, appointments = FALSE" else "") + " WHERE uid = ?",
+            system, uid,
+        )
+        cache.clearProviders()
+        if (changed) {
+            cancel.cancelStale(uid, { false }, "The doctor changed the medical system", "ডাক্তার চিকিৎসা পদ্ধতি বদলেছেন") // bn-ok
+        }
     }
 }

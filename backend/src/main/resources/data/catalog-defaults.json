@@ -207,6 +207,171 @@
     "en": "Sports training",
     "bn": "খেলাধুলার প্রশিক্ষণ"
    }
+  ],
+  "doctor_homeopathy": [
+   {
+    "code": "alt_general",
+    "en": "General",
+    "bn": "সাধারণ"
+   },
+   {
+    "code": "alt_skin_hair",
+    "en": "Skin & hair",
+    "bn": "চর্ম ও চুল"
+   },
+   {
+    "code": "alt_women",
+    "en": "Women's health",
+    "bn": "নারী স্বাস্থ্য"
+   },
+   {
+    "code": "alt_child",
+    "en": "Child health",
+    "bn": "শিশু স্বাস্থ্য"
+   },
+   {
+    "code": "alt_joint_pain",
+    "en": "Joint & back pain",
+    "bn": "জয়েন্ট ও কোমর ব্যথা"
+   },
+   {
+    "code": "alt_digestive",
+    "en": "Digestive problems",
+    "bn": "হজমের সমস্যা"
+   },
+   {
+    "code": "alt_allergy",
+    "en": "Allergy & breathing",
+    "bn": "অ্যালার্জি ও শ্বাসকষ্ট"
+   }
+  ],
+  "doctor_unani": [
+   {
+    "code": "alt_general",
+    "en": "General",
+    "bn": "সাধারণ"
+   },
+   {
+    "code": "alt_skin_hair",
+    "en": "Skin & hair",
+    "bn": "চর্ম ও চুল"
+   },
+   {
+    "code": "alt_women",
+    "en": "Women's health",
+    "bn": "নারী স্বাস্থ্য"
+   },
+   {
+    "code": "alt_child",
+    "en": "Child health",
+    "bn": "শিশু স্বাস্থ্য"
+   },
+   {
+    "code": "alt_joint_pain",
+    "en": "Joint & back pain",
+    "bn": "জয়েন্ট ও কোমর ব্যথা"
+   },
+   {
+    "code": "alt_digestive",
+    "en": "Digestive problems",
+    "bn": "হজমের সমস্যা"
+   },
+   {
+    "code": "alt_allergy",
+    "en": "Allergy & breathing",
+    "bn": "অ্যালার্জি ও শ্বাসকষ্ট"
+   }
+  ],
+  "doctor_ayurveda": [
+   {
+    "code": "alt_general",
+    "en": "General",
+    "bn": "সাধারণ"
+   },
+   {
+    "code": "alt_skin_hair",
+    "en": "Skin & hair",
+    "bn": "চর্ম ও চুল"
+   },
+   {
+    "code": "alt_women",
+    "en": "Women's health",
+    "bn": "নারী স্বাস্থ্য"
+   },
+   {
+    "code": "alt_child",
+    "en": "Child health",
+    "bn": "শিশু স্বাস্থ্য"
+   },
+   {
+    "code": "alt_joint_pain",
+    "en": "Joint & back pain",
+    "bn": "জয়েন্ট ও কোমর ব্যথা"
+   },
+   {
+    "code": "alt_digestive",
+    "en": "Digestive problems",
+    "bn": "হজমের সমস্যা"
+   },
+   {
+    "code": "alt_allergy",
+    "en": "Allergy & breathing",
+    "bn": "অ্যালার্জি ও শ্বাসকষ্ট"
+   }
+  ],
+  "physio": [
+   {
+    "code": "physio_back_neck",
+    "en": "Back & neck pain",
+    "bn": "কোমর ও ঘাড় ব্যথা"
+   },
+   {
+    "code": "physio_sports",
+    "en": "Sports injury",
+    "bn": "খেলাধুলার আঘাত"
+   },
+   {
+    "code": "physio_stroke",
+    "en": "Stroke rehabilitation",
+    "bn": "স্ট্রোক পরবর্তী পুনর্বাসন"
+   },
+   {
+    "code": "physio_pediatric",
+    "en": "Pediatric physiotherapy",
+    "bn": "শিশুদের ফিজিওথেরাপি"
+   },
+   {
+    "code": "physio_post_surgery",
+    "en": "After surgery",
+    "bn": "অপারেশন পরবর্তী"
+   }
+  ],
+  "psychologist": [
+   {
+    "code": "psy_depression_anxiety",
+    "en": "Depression & anxiety",
+    "bn": "বিষণ্ণতা ও উদ্বেগ"
+   },
+   {
+    "code": "psy_child",
+    "en": "Child & adolescent",
+    "bn": "শিশু ও কিশোর"
+   },
+   {
+    "code": "psy_couple_family",
+    "en": "Couple & family",
+    "bn": "দাম্পত্য ও পারিবারিক"
+   },
+   {
+    "code": "psy_addiction",
+    "en": "Addiction counselling",
+    "bn": "মাদকাসক্তি কাউন্সেলিং"
+   },
+   {
+    "code": "psy_trauma",
+    "en": "Trauma",
+    "bn": "ট্রমা"
+   }
   ]
  },
  "homeService": {
@@ -297,6 +462,33 @@
     "code": "post_op",
     "en": "After surgery",
     "bn": "অপারেশনের পরে"
+   }
+  ],
+  "physio": [
+   {
+    "code": "physio_home_exercise",
+    "en": "Exercise therapy at home",
+    "bn": "বাসায় ব্যায়াম থেরাপি"
+   },
+   {
+    "code": "physio_home_stroke",
+    "en": "Stroke / paralysis",
+    "bn": "স্ট্রোক বা প্যারালাইসিস"
+   },
+   {
+    "code": "physio_home_post_op",
+    "en": "After surgery",
+    "bn": "অপারেশনের পরে"
+   },
+   {
+    "code": "physio_home_elderly",
+    "en": "Elderly mobility",
+    "bn": "বয়স্কদের চলাফেরা"
+   },
+   {
+    "code": "physio_home_pain",
+    "en": "Pain relief",
+    "bn": "ব্যথা কমানো"
    }
   ]
  },

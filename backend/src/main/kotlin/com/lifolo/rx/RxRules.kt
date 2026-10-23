@@ -118,6 +118,33 @@ object RxRules {
         return out
     }
 
+    /**
+     * A non-allopathic doctor's medicine lines (backend/docs/PRACTICE.md): free text — `name` is the line (≤ 200,
+     * required), `dose` free text with its spaces (≤ 60), `days` 0–365, `note` ≤ 120; no form/strength/timing (no drug
+     * catalog, no interaction check, no stock matching — the pharmacy steps refuse these prescriptions).
+     */
+    fun parseFreeMedicines(lang: String?, list: JsonNode?): List<RxMedicine> {
+        if (list != null && !list.isMissingNode && !list.isArray) throw err(lang, "Check the medicines", "ওষুধগুলো দেখে নিন")
+        val out = ArrayList<RxMedicine>()
+        for (m in list?.takeIf { it.isArray }?.toList().orEmpty().take(MAX_MEDS + 1)) {
+            if (out.size >= MAX_MEDS) throw err(lang, "Up to $MAX_MEDS medicines", "সর্বোচ্চ ${MAX_MEDS}টা ওষুধ")
+            // a plain string is a line too
+            val name = if (m != null && m.isTextual) str(m, 200) else str(m?.get("name"), 200)
+            if (name.isEmpty()) throw err(lang, "Write the name of each medicine", "প্রতিটা ওষুধের নাম লিখুন")
+            val d = if (m != null && m.isObject) m.get("days") else null
+            val days: Long? = if (d == null || d.isNull || d.isMissingNode || (d.isTextual && d.textValue() == "")) 0L else Js.integer(d)
+            if (days == null || days < 0 || days > 365) throw err(lang, "Days must be 0–365 (0 = continue)", "দিন ০–৩৬৫ (০ = চলবে)")
+            out.add(
+                RxMedicine(
+                    i = out.size, name = name, form = "", strength = "",
+                    dose = if (m != null && m.isObject) str(m.get("dose"), 60) else "", timing = "", days = days.toInt(),
+                    note = if (m != null && m.isObject) str(m.get("note"), 120) else "",
+                ),
+            )
+        }
+        return out
+    }
+
     /** parseTests: unique non-empty names (≤ 80 chars), at most 25 */
     fun parseTests(lang: String?, list: JsonNode?): List<String> {
         if (list != null && !list.isMissingNode && !list.isArray) throw err(lang, "Check the tests", "পরীক্ষাগুলো দেখে নিন")

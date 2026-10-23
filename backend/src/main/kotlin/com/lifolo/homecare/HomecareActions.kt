@@ -21,6 +21,8 @@ import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.demo.DemoWorld
+import com.lifolo.practice.Practice
+import com.lifolo.practice.PracticeGate
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowCallbackHandler
 import org.springframework.stereotype.Component
@@ -45,6 +47,7 @@ class HomecareActions(
     private val stats: ListingStats,
     private val moderation: Moderation,
     private val files: StoredFiles,
+    private val gate: PracticeGate,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -57,7 +60,8 @@ class HomecareActions(
     )
 
     companion object {
-        val TYPES = listOf("doctor", "nurse")
+        /** + physio (PRACTICE.md; psychologists do no home visits) */
+        val TYPES = listOf("doctor", "nurse", "physio")
 
         /** rating within 30 days of the call */
         const val RATE_WINDOW_MS = 30L * 24 * 3600 * 1000
@@ -82,10 +86,10 @@ class HomecareActions(
     ).firstOrNull()
 
     /** what the list shows (not the professional's location, only a rough distance) */
-    private fun view(d: ProviderDoc, km: Double?, mine: Call?, thumb: String, now: Long): Map<String, Any?> {
+    private fun view(d: ProviderDoc, km: Double?, mine: Call?, thumb: String, now: Long, systemsOn: Boolean): Map<String, Any?> {
         val h = d.homeVisit
         val n = d.ratingCount
-        return linkedMapOf(
+        return linkedMapOf<String, Any?>(
             "uid" to d.uid,
             "type" to d.type,
             "name" to d.name,
@@ -110,7 +114,7 @@ class HomecareActions(
             // rating allowed: from 1 hour after the first call, within 30 days of the last
             "canRate" to (mine != null && now - mine.firstAt >= RATE_AFTER_MS && now - mine.at <= RATE_WINDOW_MS),
             "photo" to thumb,
-        )
+        ).apply { putAll(Practice.labels(d.type, d.system, systemsOn)) }
     }
 
     /** the whole list of one type (location and badge checked), 2 minutes in the cache */
@@ -151,6 +155,8 @@ class HomecareActions(
         val b = ctx.body
         val type = b.string("type")
         if (type == null || type !in TYPES) throw ctx.err(400, "Choose doctor or nurse", "ডাক্তার বা নার্স বেছে নিন")
+        gate.requireType(ctx, type)
+        val systemsOn = gate.systemsOn(ctx)
         val lat = b.number("lat")
         val lng = b.number("lng")
         val gps = inBangladesh(lat, lng)
@@ -167,6 +173,8 @@ class HomecareActions(
             if (x.uid == uid) continue
             if (service != null && service !in (x.homeVisit?.services ?: emptyList())) continue
             if (female && x.gender != "female") continue
+            // practice_systems off for the viewer: non-allopathic doctors are not listed
+            if (!systemsOn && Practice.freeText(x.type, x.system)) continue
             val m = CareRules.homeMatch(x, e.loc, place) ?: continue
             found.add(Found(e, m.km))
         }
@@ -190,7 +198,7 @@ class HomecareActions(
             )
         }
         val now = clock.now()
-        return mapOf("items" to top.map { view(it.e.doc, it.km, mine[it.e.doc.uid], it.e.thumb, now) })
+        return mapOf("items" to top.map { view(it.e.doc, it.km, mine[it.e.doc.uid], it.e.thumb, now, systemsOn) })
     }
 
     /** the patient pressed call in the app (for the professional's statistics; a failure never blocks the call) */

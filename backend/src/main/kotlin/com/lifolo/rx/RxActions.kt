@@ -20,6 +20,9 @@ import com.lifolo.demo.DemoWorld
 import com.lifolo.lab.LabService
 import com.lifolo.lab.LabStore
 import com.lifolo.lab.LabViews
+import com.lifolo.practice.Practice
+import com.lifolo.practice.PracticeGate
+import com.lifolo.practice.PracticePrivacy
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.sql.ResultSet
@@ -42,6 +45,8 @@ class RxActions(
     private val labs: LabService,
     private val labStore: LabStore,
     private val props: LifoloProperties,
+    private val gate: PracticeGate,
+    private val privacy: PracticePrivacy,
 ) : ActionModule {
     override fun actions(): Map<String, ActionHandler> = mapOf(
         "rx_me" to ActionHandler(::rxMe),
@@ -69,11 +74,22 @@ class RxActions(
 
     private fun notFound(ctx: ActionContext) = ctx.err(404, "Not found", "পাওয়া যায়নি")
 
-    private fun requireDoctor(ctx: ActionContext, uid: String) {
-        if (badges.approvedBadge(uid) != "doctor") {
+    /**
+     * a verified writer: a doctor, or (PRACTICE.md) a physio / psychologist — notes only, each behind its switch.
+     * Returns the profession.
+     */
+    private fun requireDoctor(ctx: ActionContext, uid: String): String {
+        val type = badges.approvedBadge(uid)
+        if (type == null || type !in Practice.RX_WRITERS) {
             throw ctx.err(403, "Only verified doctors can write prescriptions", "শুধু যাচাই করা ডাক্তার প্রেসক্রিপশন লিখতে পারেন")
         }
+        gate.requireType(ctx, type)
+        return type
     }
+
+    /** badges.system of a writer (the verified medical system; null for physio/psychologist) */
+    private fun writerSystem(uid: String, type: String): String? =
+        Practice.systemOf(type, jdbc.queryForList("SELECT system FROM badges WHERE uid = ?", String::class.java, uid).firstOrNull())
 
     private fun myEmail(u: AuthUser): String = if (u.emailVerified) u.email.lowercase() else ""
 
@@ -92,15 +108,18 @@ class RxActions(
         if (email.isEmpty() || !assistants.isAssistant(d, email)) {
             throw ctx.err(403, "You are not this doctor's assistant", "আপনি এই ডাক্তারের সহকারী হিসেবে যোগ করা নেই")
         }
-        if (badges.approvedBadge(d) != "doctor") throw ctx.err(403, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই")
+        if (badges.approvedBadge(d) !in Practice.RX_WRITERS) throw ctx.err(403, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই")
         return Acting(d, "assistant")
     }
 
-    private data class Provider(val name: String, val degrees: String, val specialties: List<String>)
+    private data class Provider(val name: String, val degrees: String, val specialties: List<String>, val type: String, val system: String?)
 
     private fun provider(uid: String): Provider? =
-        jdbc.rows("SELECT name, degrees, specialties FROM providers WHERE uid = ?", uid) { rs ->
-            Provider(rs.getString("name") ?: "", rs.getString("degrees") ?: "", rs.stringArray("specialties") ?: emptyList())
+        jdbc.rows("SELECT name, degrees, specialties, type, system FROM providers WHERE uid = ?", uid) { rs ->
+            Provider(
+                rs.getString("name") ?: "", rs.getString("degrees") ?: "", rs.stringArray("specialties") ?: emptyList(),
+                rs.getString("type") ?: "doctor", rs.getString("system"),
+            )
         }.firstOrNull()
 
     private data class RxPatient(
@@ -176,10 +195,16 @@ class RxActions(
     /** the doctor: own name, degrees and chamber names (to pick a chamber when writing on the web) */
     fun rxMe(ctx: ActionContext): Any {
         val uid = ctx.user.id
-        requireDoctor(ctx, uid)
+        val type = requireDoctor(ctx, uid)
         val p = provider(uid)
         val names = if (p != null) chambers.chambersOf(uid).map { it.hospitalNameBn.ifEmpty { it.hospitalName } } else emptyList()
-        return linkedMapOf("name" to (p?.name ?: ""), "degrees" to (p?.degrees ?: ""), "chambers" to names)
+        val system = writerSystem(uid, type)
+        // PRACTICE.md: the header label and what the form allows (medicines section, free text, pharmacy, tests)
+        return linkedMapOf<String, Any?>("name" to (p?.name ?: ""), "degrees" to (p?.degrees ?: ""), "chambers" to names, "type" to type)
+            .apply {
+                putAll(Practice.labels(type, system))
+                put("rxRules", Practice.rxRules(type, system))
+            }
     }
 
     fun rxTeam(ctx: ActionContext): Any {
@@ -200,8 +225,12 @@ class RxActions(
         if (emails.any { !RxRules.EMAIL_RE.matches(it) }) throw ctx.err(400, "Check the email addresses", "ইমেইলগুলো দেখে নিন")
         if (own.isNotEmpty() && own in emails) throw ctx.err(400, "You can't add yourself", "নিজেকে সহকারী হিসেবে যোগ করা যায় না")
         if (!assistants.set(uid, emails)) {
-            // Node set({assistantEmails}, {merge: true}) also creates the provider document
-            jdbc.update("INSERT INTO providers (uid, type) VALUES (?, 'doctor') ON CONFLICT (uid) DO NOTHING", uid)
+            // Node set({assistantEmails}, {merge: true}) also creates the provider document (of the writer's profession)
+            val type = badges.approvedBadge(uid) ?: "doctor"
+            jdbc.update(
+                "INSERT INTO providers (uid, type, system) VALUES (?, ?, ?) ON CONFLICT (uid) DO NOTHING",
+                uid, type, writerSystem(uid, type),
+            )
             assistants.set(uid, emails)
         }
         return linkedMapOf("emails" to emails)
@@ -211,9 +240,10 @@ class RxActions(
     fun rxAssisting(ctx: ActionContext): Any {
         val email = myEmail(ctx.user)
         if (email.isEmpty()) return linkedMapOf("items" to emptyList<Any>())
-        val items = assistants.doctorsFor(email, 10).filter { badges.approvedBadge(it) == "doctor" }.map { d ->
+        val items = assistants.doctorsFor(email, 10).filter { badges.approvedBadge(it) in Practice.RX_WRITERS }.map { d ->
             val p = provider(d)
-            linkedMapOf("doctorUid" to d, "name" to (p?.name ?: ""), "degrees" to (p?.degrees ?: ""))
+            linkedMapOf<String, Any?>("doctorUid" to d, "name" to (p?.name ?: ""), "degrees" to (p?.degrees ?: ""))
+                .apply { putAll(Practice.labels(p?.type ?: "doctor", p?.system)) }
         }
         return linkedMapOf("items" to items)
     }
@@ -314,7 +344,9 @@ class RxActions(
     /** the doctor writes (assistants cannot) */
     fun rxCreate(ctx: ActionContext): Any {
         val uid = ctx.user.id
-        requireDoctor(ctx, uid)
+        val writer = requireDoctor(ctx, uid)
+        val system = writerSystem(uid, writer)
+        val freeText = Practice.freeText(writer, system)
         val b = ctx.body
         var patientUid: String? = null
         var rxPatientId: String? = null
@@ -343,9 +375,22 @@ class RxActions(
             throw ctx.err(400, "Choose the patient", "রোগী বেছে নিন")
         }
         val patient = RxRules.parsePatient(ctx.lang, RxRules.mergePatient(base, b["patient"]))
-        val medicines = RxRules.parseMedicines(ctx.lang, b["medicines"])
+        // PRACTICE.md, enforced here: physio/psychologist write notes only — no medicines (they cannot prescribe drugs)
+        // and no tests; a non-allopathic doctor writes free-text medicine lines
+        if (writer in Practice.NOTES_ONLY) {
+            if (b["medicines"]?.let { it.isArray && it.size() > 0 } == true) {
+                throw ctx.err(
+                    400, "Physiotherapists and psychologists can't prescribe medicines",
+                    "ফিজিওথেরাপিস্ট বা সাইকোলজিস্ট ওষুধ লিখতে পারেন না", "no_medicines", // bn-ok
+                )
+            }
+            if (b["tests"]?.let { it.isArray && it.any { t -> RxRules.str(t, 80).isNotEmpty() } } == true) {
+                throw ctx.err(400, "Notes only — no tests", "শুধু পরামর্শ ও নোট — পরীক্ষা লেখা যায় না", "no_tests") // bn-ok
+            }
+        }
+        val medicines = if (freeText) RxRules.parseFreeMedicines(ctx.lang, b["medicines"]) else RxRules.parseMedicines(ctx.lang, b["medicines"])
         val tests = RxRules.parseTests(ctx.lang, b["tests"])
-        val advice = RxRules.str(b["advice"], 1000)
+        val advice = RxRules.str(b["advice"], if (writer in Practice.NOTES_ONLY) 3000 else 1000)
         if (medicines.isEmpty() && tests.isEmpty() && advice.isEmpty()) {
             throw ctx.err(400, "Add a medicine, a test or advice", "অন্তত একটা ওষুধ, পরীক্ষা বা পরামর্শ দিন")
         }
@@ -403,11 +448,17 @@ class RxActions(
                 followUpBookDate = followUpBookDate,
                 followUpNote = if (followUpDays > 0) RxRules.str(b["followUpNote"], 80) else "",
                 chamberIndex = ci,
+                doctorType = writer,
+                doctorSystem = system,
+                freeText = freeText,
             ),
         )
         if (rxPatientId != null) jdbc.update("UPDATE rx_patients SET last_rx_at = ? WHERE id = ?", P3Sql.ts(now), rxPatientId)
         if (patientUid != null) {
-            push.patient(patientUid, "New prescription from $doctorName", "$doctorName নতুন প্রেসক্রিপশন দিয়েছেন", "", linkedMapOf("type" to "rx", "id" to id, "rxId" to id))
+            push.patient(
+                patientUid, "New prescription from $doctorName", "$doctorName নতুন প্রেসক্রিপশন দিয়েছেন", "",
+                linkedMapOf<String, Any?>("type" to "rx", "id" to id, "rxId" to id) + Practice.privateTag(writer),
+            )
         }
         return linkedMapOf("id" to id, "code" to code)
     }
@@ -429,8 +480,11 @@ class RxActions(
     }
 
     /** the patient: my prescriptions */
-    fun rxMine(ctx: ActionContext): Any =
-        linkedMapOf("items" to views(store.load("patient_uid = ? ORDER BY created_at DESC LIMIT 300", ctx.user.id)))
+    fun rxMine(ctx: ActionContext): Any {
+        // a caregiver: no psychologist's session notes unless the patient shares them (PRACTICE.md)
+        val hide = if (privacy.hidesPrivate(ctx.user)) " AND doctor_type <> 'psychologist'" else ""
+        return linkedMapOf("items" to views(store.load("patient_uid = ?$hide ORDER BY created_at DESC LIMIT 300", ctx.user.id)))
+    }
 
     /**
      * the patient adds one paper/shared prescription by its code + the phone number given to the assistant (the
@@ -479,6 +533,7 @@ class RxActions(
         if (s == null || (s.patientUid != uid && s.doctorUid != uid)) throw notFound(ctx)
         // a caregiver: the patient's own prescriptions only, never ones the patient wrote as a doctor
         if (ctx.user.patientSideOnly && s.patientUid != uid) throw notFound(ctx)
+        if (privacy.hidden(ctx.user, s.doctorType)) throw notFound(ctx)
         if (s.doctorUid == uid && s.patientUid != uid) {
             return linkedMapOf("item" to store.view(s), "labOrders" to labs.labsForDoctor(uid, listOf(s.id)))
         }
@@ -493,6 +548,7 @@ class RxActions(
         val s = store.get(rxId!!)
         if (s == null || (s.patientUid != uid && s.doctorUid != uid)) throw notFound(ctx)
         if (ctx.user.patientSideOnly && s.patientUid != uid) throw notFound(ctx)
+        if (privacy.hidden(ctx.user, s.doctorType)) throw notFound(ctx)
         val isPatient = s.patientUid == uid
         val orders = jdbc.rows(
             "SELECT id, pharmacy_uid, pharmacy_name, status, reason, created_at, mode, price, eta, delivery_fee, missed, ${com.lifolo.invoices.InvoiceLinks.sql("rx_order", "rx_orders.id")} AS invoice_id FROM rx_orders WHERE rx_id = ? ORDER BY id COLLATE \"C\" LIMIT 50",

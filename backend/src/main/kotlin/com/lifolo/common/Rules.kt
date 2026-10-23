@@ -14,7 +14,7 @@ object Rules {
     fun isValidId(id: String?): Boolean = id != null && ID_RE.matches(id)
 
     /** community.js BADGES */
-    val BADGES = listOf("doctor", "nurse", "nutritionist", "trainer", "expert")
+    val BADGES = listOf("doctor", "nurse", "nutritionist", "trainer", "expert", "physio", "psychologist")
 
     /**
      * community.js LIMITS — per user per Dhaka day. rxClaim 10 → 20 (2026-10): each paper prescription is now added by

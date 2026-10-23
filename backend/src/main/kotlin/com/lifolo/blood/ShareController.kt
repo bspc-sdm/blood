@@ -153,8 +153,22 @@ class ShareController(
         } else {
             "<span class=\"tag\" style=\"background:#CFEDEF;color:#00363C\">${t("Genuine", "আসল")}</span>"
         }
-        val bmdc = t("BMDC", "বিএমডিসি") // bn-ok
+        // PRACTICE.md: the medical system (or the profession) next to the name; the registering body of that system
+        val system = doctor["system"] as? String
+        val info = com.lifolo.practice.Practice.SYSTEM_INFO[system]
+        val label = when {
+            info != null -> t(info.labelEn, info.labelBn)
+            else -> (doctor["typeLabel"] as? String)?.let { bnLabel ->
+                t(com.lifolo.practice.Practice.TYPE_LABELS_EN.entries.firstOrNull { com.lifolo.practice.Practice.TYPE_LABELS[it.key] == bnLabel }?.value ?: bnLabel, bnLabel)
+            }
+        }
+        val bmdc = when {
+            system == null && doctor["typeLabel"] != null && doctor["typeLabel"] != com.lifolo.practice.Practice.TYPE_LABELS["doctor"] -> t("Reg.", "নিবন্ধন") // bn-ok
+            info != null && system != com.lifolo.practice.Practice.ALLOPATHY -> t(info.bodyEn, info.bodyBn)
+            else -> t("BMDC", "বিএমডিসি") // bn-ok
+        }
         val regNo = if (truthy(doctor["regNo"])) " · $bmdc ${esc(doctor["regNo"])}" else ""
+        val labelTag = if (label != null) " <span class=\"tag\" style=\"background:#EEE;color:#333;font-size:14px\">${esc(label)}</span>" else ""
         val chamberBlock = if (truthy(doctor["chamber"])) "<dt>${t("Chamber", "চেম্বার")}</dt><dd>${esc(doctor["chamber"])}</dd>" else "" // bn-ok
         val issued = t("Issued on Lifolo by a verified doctor. Don't dispense if it shows cancelled.", "Lifolo-তে যাচাই করা ডাক্তারের দেওয়া প্রেসক্রিপশন। বাতিল দেখালে ওষুধ দেবেন না।")
         val hidden = t(
@@ -163,7 +177,7 @@ class ShareController(
         )
         val body = """$switch<div class="card">
 $tag
-<h1 style="margin-top:10px">${esc(doctor["name"])}</h1>
+<h1 style="margin-top:10px">${esc(doctor["name"])}$labelTag</h1>
 <div class="muted">${esc(doctor["degrees"])}$regNo</div>
 <dl>
 <dt>${t("Date", "তারিখ")}</dt><dd>${esc(date)}</dd>

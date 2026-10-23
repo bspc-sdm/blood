@@ -14,6 +14,8 @@ import com.lifolo.common.action.ActionContext
 import com.lifolo.common.action.ActionHandler
 import com.lifolo.common.action.ActionModule
 import com.lifolo.notify.PushService
+import com.lifolo.practice.Practice
+import com.lifolo.practice.PracticePrivacy
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
@@ -39,6 +41,7 @@ class QueueActions(
     private val push: PushService,
     private val clock: P2Clock,
     private val onlineSwitch: OnlineSwitch,
+    private val privacy: PracticePrivacy,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -284,7 +287,7 @@ class QueueActions(
                     "আপনার আগে ${Lang.bnDigits(ahead.toString())} জন — চেম্বারে চলে আসুন"
                 },
                 "${a.providerName} · ${a.chamberBn.ifEmpty { a.chamber }} · #${a.serial}",
-                mapOf("type" to "appointment", "role" to "patient", "id" to a.id),
+                mapOf("type" to "appointment", "role" to "patient", "id" to a.id) + Practice.privateTag(a.type),
             )
         }
         return sent
@@ -308,7 +311,7 @@ class QueueActions(
         if (email.isEmpty() || !store.exists(d) || !assistants.isAssistant(d, email)) {
             throw err(ctx, "You are not this doctor's assistant", "আপনি এই ডাক্তারের সহকারী নন", 403)
         }
-        if (badges.approvedBadge(d) != "doctor") throw err(ctx, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই", 403)
+        if (badges.approvedBadge(d) !in Practice.ASSISTED_TYPES) throw err(ctx, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই", 403)
         return Controller(d, "assistant")
     }
 
@@ -473,7 +476,7 @@ class QueueActions(
         val id = ctx.body.string("id")
         if (!Rules.isValidId(id)) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
         val a = appts.get(id!!)
-        if (a == null || a.patientUid != ctx.user.uid) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
+        if (a == null || a.patientUid != ctx.user.uid || privacy.hidden(ctx.user, a.type)) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
         if (a.status != "confirmed" || (a.serial ?: 0) <= 0) return mapOf("live" to false)
         val now = clock.now()
         val date = apptQueueDate(a, now) ?: return mapOf("live" to false)
@@ -486,7 +489,7 @@ class QueueActions(
         val id = b.string("id")
         if (!Rules.isValidId(id)) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
         val a = appts.get(id!!)
-        if (a == null || a.patientUid != ctx.user.uid) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
+        if (a == null || a.patientUid != ctx.user.uid || privacy.hidden(ctx.user, a.type)) throw err(ctx, "Not found", "পাওয়া যায়নি", 404)
         val now = clock.now()
         val date = if (a.status == "confirmed" && (a.serial ?: 0) > 0) apptQueueDate(a, now) else null
         if (date == null) throw err(ctx, "Only for today's confirmed serial", "শুধু আজকের নিশ্চিত সিরিয়ালে", 409)
@@ -507,7 +510,7 @@ class QueueActions(
             "Patient will be $minutes min late",
             "রোগী ${Lang.bnDigits(minutes.toString())} মিনিট দেরিতে আসবেন",
             "${a.patientName} · #${a.serial}${if (note != null) " · $note" else ""}",
-            mapOf("type" to "appointment", "role" to "provider"),
+            mapOf("type" to "appointment", "role" to "provider") + Practice.privateTag(a.type),
         )
         return mapOf("ok" to true)
     }
@@ -540,7 +543,7 @@ class QueueActions(
             if (op == "ok") "Doctor: OK, your serial stays" else "Doctor: come later — you will be seen at the end",
             if (op == "ok") "ডাক্তার: ঠিক আছে, আপনার সিরিয়াল থাকছে" else "ডাক্তার: পরে আসুন — আপনাকে সবার শেষে দেখা হবে",
             "${a.providerName} · #${a.serial}",
-            mapOf("type" to "appointment", "role" to "patient", "id" to a.id),
+            mapOf("type" to "appointment", "role" to "patient", "id" to a.id) + Practice.privateTag(a.type),
         )
         // moved to the end: the others move up — tell anyone now 2 away
         val after = load(a.providerUid, date, a.key)

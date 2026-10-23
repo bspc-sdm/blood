@@ -79,6 +79,8 @@ class CareActions(
                 "status" to rs.getString("status"),
                 "createdAt" to (rs.getTimestamp("created_at")?.time ?: 0L),
                 "acceptedAt" to (rs.getTimestamp("accepted_at")?.time ?: 0L),
+                // the patient shares psychologist appointments/notes with this caregiver (PRACTICE.md, care_share_psych)
+                "sharePsych" to rs.getBoolean("share_psych"),
             )
         },
         uid, limit,

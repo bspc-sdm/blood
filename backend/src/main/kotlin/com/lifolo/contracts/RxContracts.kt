@@ -53,7 +53,16 @@ data class Prescription(
     val followUpNote: String,
     val refillAt: Long?,
     val dispensed: List<RxDispensing>,
-)
+    /** who wrote it: doctor | physio | psychologist (backend/docs/PRACTICE.md) */
+    val doctorType: String = "doctor",
+    /** the doctor's medical system (allopathy …; null for physio/psychologist) */
+    val doctorSystem: String? = "allopathy",
+    /** non-allopathic: free-text medicine lines — no stock matching, never sent to a pharmacy */
+    val freeText: Boolean = false,
+) {
+    /** pharmacy steps (send, open by code, dispense, sale from prescription) are only for an allopathic doctor's */
+    val pharmacyOk: Boolean get() = com.lifolo.practice.Practice.pharmacyOk(doctorType, doctorSystem) && !freeText
+}
 
 /**
  * prescriptions.js (rxView, verify, CODE_RE) + rxnet.js rxByCode. Consumers: P4 (rx_pharmacy_open, rx_dispense,

@@ -5,6 +5,7 @@ import com.lifolo.auth.AuthUser
 import com.lifolo.common.ApiException
 import com.lifolo.common.Lang
 import com.lifolo.common.StoredFiles
+import com.lifolo.practice.Practice
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import java.sql.Timestamp
@@ -103,8 +104,26 @@ object VerifySpec {
             Doc("front", "সেন্টারের সামনের ছবি (সাইনবোর্ডসহ)", "নাম পড়া যায়", true),
         )
         "badge" -> when (x?.get("type")) {
-            "doctor" -> listOf(
-                Doc("cert", "BMDC নিবন্ধন সনদ", "থাকলে দিন — নম্বর অনলাইনে মিলিয়ে দেখা হয়", false),
+            // PRACTICE.md: a homeopathic/unani/ayurvedic doctor — the registering body's certificate (no online register)
+            "doctor" -> if (isAltSystem(x)) {
+                listOf(
+                    Doc("cert", "${bodyOf(x)}-এর নিবন্ধন সনদ", "নম্বর আর নাম পড়া যায়", true), // bn-ok
+                    Doc("idcard", "কর্মস্থলের পরিচয়পত্র", "থাকলে দিন", false),
+                )
+            } else {
+                listOf(
+                    Doc("cert", "BMDC নিবন্ধন সনদ", "থাকলে দিন — নম্বর অনলাইনে মিলিয়ে দেখা হয়", false),
+                    Doc("idcard", "কর্মস্থলের পরিচয়পত্র", "থাকলে দিন", false),
+                )
+            }
+            Practice.PHYSIO -> listOf(
+                Doc("cert", "ডিগ্রির সনদ (BPT / MPT)", "নাম আর প্রতিষ্ঠান পড়া যায়", true), // bn-ok
+                Doc("member", "পেশাজীবী সংগঠনের সদস্যপত্র", "থাকলে দিন", false), // bn-ok
+                Doc("idcard", "কর্মস্থলের পরিচয়পত্র", "থাকলে দিন", false),
+            )
+            Practice.PSYCHOLOGIST -> listOf(
+                Doc("cert", "ডিগ্রির সনদ (ক্লিনিক্যাল বা কাউন্সেলিং সাইকোলজিতে MS / MPhil)", "নাম আর প্রতিষ্ঠান পড়া যায়", true), // bn-ok
+                Doc("member", "বাংলাদেশ ক্লিনিক্যাল সাইকোলজি সোসাইটির সদস্যপত্র", "থাকলে দিন", false), // bn-ok
                 Doc("idcard", "কর্মস্থলের পরিচয়পত্র", "থাকলে দিন", false),
             )
             "nurse" -> listOf(
@@ -173,15 +192,34 @@ object VerifySpec {
             PHONE_CHECK,
         )
         "badge" -> when (x?.get("type")) {
-            "doctor" -> listOf(
-                Check(
-                    "bmdc_found", "BMDC সাইটে নম্বর দিয়ে ডাক্তার পাওয়া গেছে",
-                    "MBBS হলে A- এর পরে অঙ্ক (যেমন A-১২৩৪৫), BDS হলে D- এর পরে অঙ্ক",
-                    "https://www.bmdc.org.bd/view-doctor",
-                ),
-                Check("bmdc_name", "BMDC-তে নাম অ্যাপের নামের সাথে মেলে", "বানানের ছোট পার্থক্য চলবে; ভিন্ন মানুষ হলে বাতিল"),
-                Check("bmdc_active", "নিবন্ধন বৈধ (বাতিল বা মেয়াদোত্তীর্ণ নয়)"),
-                Check("workplace", "কর্মস্থল বাস্তব", "হাসপাতাল বা ক্লিনিকে ফোন করে বা তাদের ওয়েবসাইটে মিলিয়েছেন"),
+            "doctor" -> if (isAltSystem(x)) {
+                listOf(
+                    Check("cert_no", "সনদের নিবন্ধন নম্বর আর অ্যাপে লেখা নম্বর এক", "সনদে যেভাবে লেখা ঠিক সেভাবে"),
+                    Check("cert_body", "সনদটা ${bodyOf(x)}-এর, ডিগ্রি ${degreesOf(x)}", "অন্য বোর্ড বা অন্য পদ্ধতির সনদ হলে বাতিল"), // bn-ok
+                    Check("cert_name", "সনদে নাম অ্যাপের নামের সাথে মেলে"),
+                    Check("workplace", "কর্মস্থল বাস্তব", "হাসপাতাল বা ক্লিনিকে ফোন করে মিলিয়েছেন"),
+                )
+            } else {
+                listOf(
+                    Check(
+                        "bmdc_found", "BMDC সাইটে নম্বর দিয়ে ডাক্তার পাওয়া গেছে",
+                        "MBBS হলে A- এর পরে অঙ্ক (যেমন A-১২৩৪৫), BDS হলে D- এর পরে অঙ্ক",
+                        "https://www.bmdc.org.bd/view-doctor",
+                    ),
+                    Check("bmdc_name", "BMDC-তে নাম অ্যাপের নামের সাথে মেলে", "বানানের ছোট পার্থক্য চলবে; ভিন্ন মানুষ হলে বাতিল"),
+                    Check("bmdc_active", "নিবন্ধন বৈধ (বাতিল বা মেয়াদোত্তীর্ণ নয়)"),
+                    Check("workplace", "কর্মস্থল বাস্তব", "হাসপাতাল বা ক্লিনিকে ফোন করে বা তাদের ওয়েবসাইটে মিলিয়েছেন"),
+                )
+            }
+            Practice.PHYSIO -> listOf(
+                Check("cert_name", "সনদে নাম অ্যাপের নামের সাথে মেলে"),
+                Check("cert_degree", "সনদে ফিজিওথেরাপিতে BPT বা MPT ডিগ্রি", "ডিপ্লোমা বা অন্য বিষয়ের ডিগ্রি হলে বাতিল"), // bn-ok
+                Check("workplace", "কর্মস্থল বা কাজের জায়গা বাস্তব"),
+            )
+            Practice.PSYCHOLOGIST -> listOf(
+                Check("cert_name", "সনদে নাম অ্যাপের নামের সাথে মেলে"),
+                Check("cert_degree", "সনদে ক্লিনিক্যাল বা কাউন্সেলিং সাইকোলজিতে MS বা MPhil", "শুধু BSc/BA বা অন্য বিষয় হলে বাতিল"), // bn-ok
+                Check("workplace", "কর্মস্থল বা কাজের জায়গা বাস্তব"),
             )
             "nurse" -> listOf(
                 Check("cert_no", "সনদের নিবন্ধন নম্বর আর অ্যাপে লেখা নম্বর এক", "সনদে যেভাবে লেখা ঠিক সেভাবে"),
@@ -197,6 +235,13 @@ object VerifySpec {
         }
         else -> throw IllegalArgumentException("unknown verify kind $kind")
     }
+
+    /** a badge listing of a non-allopathic doctor (PRACTICE.md) */
+    private fun isAltSystem(x: Map<String, Any?>?): Boolean = Practice.freeText("doctor", x?.get("system") as? String)
+
+    private fun bodyOf(x: Map<String, Any?>?): String = Practice.SYSTEM_INFO[x?.get("system") as? String]?.bodyBn ?: ""
+
+    private fun degreesOf(x: Map<String, Any?>?): String = Practice.SYSTEM_INFO[x?.get("system") as? String]?.degrees ?: ""
 
     /** the stored document types of a Node-shaped listing (`docsHave` as a map like Node or a list like [ListingRows]) */
     fun haveTypes(x: Map<String, Any?>?): Set<String> = when (val d = x?.get("docsHave")) {

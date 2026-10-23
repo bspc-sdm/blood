@@ -31,6 +31,7 @@ class ProviderStore(private val jdbc: JdbcTemplate) {
         return ProviderDoc(
             uid = rs.getString("uid"),
             type = rs.getString("type"),
+            system = rs.getString("system"),
             name = rs.getString("name") ?: "",
             degrees = rs.getString("degrees") ?: "",
             gender = rs.getString("gender") ?: "",

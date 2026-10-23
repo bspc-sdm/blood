@@ -36,8 +36,9 @@ interface Catalog {
     companion object {
         /** catalog.js KINDS */
         val KINDS: Map<String, List<String>> = linkedMapOf(
-            "specialty" to listOf("doctor", "nurse", "nutritionist", "trainer"),
-            "homeService" to listOf("doctor", "nurse"),
+            // doctor_<system>: the non-allopathic doctors' lists; physio/psychologist (backend/docs/PRACTICE.md)
+            "specialty" to listOf("doctor", "nurse", "nutritionist", "trainer", "doctor_homeopathy", "doctor_unani", "doctor_ayurveda", "physio", "psychologist"),
+            "homeService" to listOf("doctor", "nurse", "physio"),
             "ambulanceType" to listOf("all"),
             "bloodBankService" to listOf("all"),
         )

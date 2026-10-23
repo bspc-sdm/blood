@@ -8,6 +8,7 @@ import com.lifolo.auth.FirebaseHolder
 import com.lifolo.common.Lang
 import com.lifolo.common.LifoloProperties
 import com.lifolo.common.Sql
+import com.lifolo.practice.Practice
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -164,30 +165,83 @@ class PushService(
     fun pushPatient(uid: String?, en: String, bn: String, body: String = "", data: Map<String, Any?> = emptyMap()) {
         if (uid == null) return
         try {
+            // a psychologist's appointment/notes/receipt (backend/docs/PRACTICE.md): generic text, and caregivers only
+            // when the patient shares those with them
+            val isPriv = isPrivate(data)
+            val tagged = if (isPriv) data + (Practice.PRIVATE_KEY to true) else data
             // a deactivated patient's caregiver links are paused: no copies to the caregivers
             val carers = jdbc.queryForList(
                 """
                 SELECT caretaker_uid FROM care_links WHERE patient_uid = ? AND status = 'active'
                   AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.uid = care_links.patient_uid AND a.deactivated_at IS NOT NULL)
+                  AND (share_psych OR NOT ?)
                 LIMIT 10
                 """.trimIndent(),
-                String::class.java, uid,
+                String::class.java, uid, isPriv,
             )
             val langs = profileLangs(listOf(uid) + carers)
             val name = jdbc.queryForList("SELECT name FROM user_profiles WHERE uid = ?", String::class.java, uid).firstOrNull() ?: ""
             fun text(lang: String?) = Lang.pick(lang, body, Lang.bnNumbers(body))
             val list = ArrayList<PushItem>()
-            if (uid in langs) list.add(PushItem(uid, Lang.pick(langs[uid], en, bn), text(langs[uid]), data))
+            if (uid in langs) list.add(PushItem(uid, Lang.pick(langs[uid], en, bn), text(langs[uid]), tagged))
             // the caregiver's copy belongs to the category of the patient's news (rx, appointments …), not "care"
             val cat = NotifyCats.of(data)
             for (c in carers) {
                 if (c !in langs) continue
                 val extra = if (data["rxId"] != null) mapOf("rxId" to data["rxId"]) else emptyMap()
-                list.add(PushItem(c, "$name: ${Lang.pick(langs[c], en, bn)}", text(langs[c]), mapOf("type" to "care", "asUid" to uid) + extra + ("cat" to cat)))
+                val priv = if (isPriv) mapOf(Practice.PRIVATE_KEY to true) else emptyMap()
+                list.add(PushItem(c, "$name: ${Lang.pick(langs[c], en, bn)}", text(langs[c]), mapOf("type" to "care", "asUid" to uid) + extra + ("cat" to cat) + priv))
             }
             if (list.isNotEmpty()) send(list)
         } catch (e: Exception) {
             log.error("care push failed: {}", e.message)
+        }
+    }
+
+    /**
+     * Is this push about a psychologist's appointment, session notes or receipt (backend/docs/PRACTICE.md)? Tagged
+     * ([Practice.PRIVATE_KEY]) by the sender, or found from the ids in the data (`type: appointment` + `id`, `rxId`,
+     * `invoiceId`). Never throws (a failed lookup = not private).
+     */
+    fun isPrivate(data: Map<String, Any?>): Boolean {
+        if (data[Practice.PRIVATE_KEY] == true) return true
+        return try {
+            val appt = if (data["type"] == "appointment") data["id"] as? String else null
+            val rx = data["rxId"] as? String
+            val inv = data["invoiceId"] as? String
+            (appt != null && jdbc.queryForList("SELECT 1 FROM appointments WHERE id = ? AND type = 'psychologist'", appt).isNotEmpty()) ||
+                (rx != null && jdbc.queryForList("SELECT 1 FROM prescriptions WHERE id = ? AND doctor_type = 'psychologist'", rx).isNotEmpty()) ||
+                (
+                    inv != null && jdbc.queryForList(
+                        "SELECT 1 FROM invoices i JOIN providers p ON p.uid = i.biz_id WHERE i.id = ? AND i.kind = 'chamber' AND p.type = 'psychologist'",
+                        inv,
+                    ).isNotEmpty()
+                    )
+        } catch (e: Exception) {
+            log.warn("private push check failed: {}", e.message)
+            false
+        }
+    }
+
+    /** private items (bell list and phone): the generic "অ্যাপয়েন্টমেন্ট আপডেট", no body. Call screens (no bell entry) stay. */
+    private fun masked(items: List<PushItem>): List<PushItem> {
+        val priv = items.map { it.inbox && it.title.isNotEmpty() && isPrivate(it.data) }
+        if (priv.none { it }) return items
+        val langs = try {
+            profileLangs(items.filterIndexed { i, _ -> priv[i] }.mapNotNull { it.uid }.distinct())
+        } catch (e: Exception) {
+            emptyMap()
+        }
+        return items.mapIndexed { i, it ->
+            if (!priv[i]) {
+                it
+            } else {
+                it.copy(
+                    title = Lang.pick(it.uid?.let { u -> langs[u] }, Practice.GENERIC_EN, Practice.GENERIC_BN),
+                    body = "",
+                    data = it.data + (Practice.PRIVATE_KEY to true),
+                )
+            }
         }
     }
 
@@ -221,7 +275,7 @@ class PushService(
      * list still records the rest). Items without a uid (anonymous tokens) always go.
      */
     fun send(items: List<PushItem>): Int {
-        val withCat = items.map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
+        val withCat = masked(items).map { it.copy(data = LinkedHashMap(it.data).apply { put("cat", NotifyCats.of(it.data)) }) }
         try {
             addInbox(withCat.filter { it.inbox })
         } catch (e: Exception) {

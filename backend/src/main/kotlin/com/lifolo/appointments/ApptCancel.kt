@@ -92,7 +92,7 @@ class ApptCancel(
                         a.patientUid,
                         Lang.pick(lang, "Appointment cancelled", "অ্যাপয়েন্টমেন্ট বাতিল হয়েছে"),
                         "${a.providerName} · ${ApptRepo.dateLabel(a.date)} · ${Lang.pick(lang, reasonEn, reasonBn)}",
-                        mapOf("type" to "appointment", "role" to "patient"),
+                        mapOf("type" to "appointment", "role" to "patient") + com.lifolo.practice.Practice.privateTag(a.type),
                     )
                 },
             )

@@ -41,6 +41,7 @@ class OnlinePay(
     private val admins: AdminService,
     private val invoices: com.lifolo.invoices.InvoiceCreators,
     private val onlineSwitch: OnlineSwitch,
+    private val privacy: com.lifolo.practice.PracticePrivacy,
     txm: PlatformTransactionManager,
 ) : ActionModule {
     private val tx = TransactionTemplate(txm)
@@ -67,6 +68,8 @@ class OnlinePay(
         val a = appts.get(id!!) ?: throw notFound(ctx)
         // demo and real accounts never meet (an appointment never mixes them; a stray id answers like a missing one)
         if (!DemoWorld.sameWorld(ctx.user.id, a.providerUid)) throw notFound(ctx)
+        // a caregiver: not a psychologist appointment the patient did not share (backend/docs/PRACTICE.md)
+        if (privacy.hidden(ctx.user, a.type)) throw notFound(ctx)
         return a
     }
 
@@ -86,7 +89,7 @@ class OnlinePay(
         if (a.providerUid == user.id) return "doctor"
         val email = if (user.emailVerified) user.email.lowercase() else ""
         if (email.isEmpty() || !assistants.isAssistant(a.providerUid, email)) throw notFound(ctx)
-        if (badges.approvedBadge(a.providerUid) != "doctor") throw ctx.err(403, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই")
+        if (badges.approvedBadge(a.providerUid) !in com.lifolo.practice.Practice.ASSISTED_TYPES) throw ctx.err(403, "This doctor is not verified now", "এই ডাক্তার এখন যাচাই করা নেই")
         return "assistant"
     }
 
