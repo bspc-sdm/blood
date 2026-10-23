@@ -34,21 +34,27 @@ jobs:
           set -o pipefail
           gradle :app:compileDebugKotlin :app:compileDebugUnitTestKotlin 2>&1 | tee compile.log | tail -20
           if grep -qE "^e: " compile.log; then grep -E "^e: " compile.log | head -40; exit 1; fi
-      - name: Consent + features tests (Robolectric)
+      - name: Consent + features tests (Robolectric, one process per test like screens.yml)
         run: |
-          set -o pipefail
-          gradle :app:testDebugUnitTest --tests "com.bspc.blood.ConsentScreensTest" --tests "com.bspc.blood.FeaturesTest" 2>&1 | tail -40
-      - name: Test results
-        if: always()
-        run: |
-          for f in app/build/test-results/testDebugUnitTest/*.xml; do
-            [ -f "$f" ] || continue
-            python3 - "$f" <<'PY'
+          fail=0
+          for c in ConsentScreensTest FeaturesTest; do
+            for t in $(grep -A1 '@Test' "app/src/test/java/com/bspc/blood/$c.kt" | grep -oP 'fun \K\w+' | sort -u); do
+              if ! gradle :app:testDebugUnitTest --tests "com.bspc.blood.$c.$t" > "t-$c-$t.log" 2>&1; then
+                fail=1
+                echo "::error::FAILED $c.$t"
+                grep -E "Exception|Error|expected|at com\.bspc|Caused by" "t-$c-$t.log" | head -12 | while IFS= read -r l; do echo "::error::$c.$t ${l//$'\r'/}"; done
+                for f in app/build/test-results/testDebugUnitTest/*.xml; do
+                  python3 -c "
           import sys, xml.etree.ElementTree as ET
           r = ET.parse(sys.argv[1]).getroot()
-          print(r.get('name'), r.get('tests'), 'tests', r.get('failures'), 'failures', r.get('errors'), 'errors')
           for tc in r.iter('testcase'):
               for bad in list(tc.findall('failure')) + list(tc.findall('error')):
-                  print('  FAIL', tc.get('name'), (bad.get('message') or '')[:800])
-          PY
+                  print('::error::' + tc.get('name') + ': ' + ' | '.join((bad.text or bad.get('message') or '').splitlines()[:8]))
+          " "$f" || true
+                done
+              else
+                echo "ok $c.$t"
+              fi
+            done
           done
+          exit $fail
